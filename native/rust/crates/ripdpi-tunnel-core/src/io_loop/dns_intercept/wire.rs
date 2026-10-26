@@ -14,7 +14,8 @@ pub(crate) fn parse_dns_query(packet: &[u8]) -> Option<ParsedDnsQuery> {
     if query.query_class != DNSClass::IN {
         return None;
     }
-    let host = query.name.to_utf8().trim_end_matches('.').to_string();
+    // A-labels (xn--), as on the wire: rules, the DNS cache and SOCKS5 hosts are ASCII.
+    let host = query.name.to_ascii().trim_end_matches('.').to_string();
     if host.is_empty() {
         return None;
     }

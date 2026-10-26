@@ -16,6 +16,14 @@ fn dns_query_name_extracts_labels_and_rejects_compression_pointers() {
 }
 
 #[test]
+fn idn_query_name_keeps_the_wire_a_label_form() {
+    // Split-DNS rules, the DNS cache and SOCKS5 hosts all use A-labels, as on the wire and in SNI.
+    let query = super::support::build_query("www.xn--e1afmkfd.xn--p1ai");
+
+    assert_eq!(dns_query_name(&query), Some("www.xn--e1afmkfd.xn--p1ai".to_string()));
+}
+
+#[test]
 fn canonical_parser_requires_exactly_one_in_question() {
     let one = super::support::build_query("one.example");
     let mut none = one.clone();
