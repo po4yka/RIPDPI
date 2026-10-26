@@ -267,6 +267,38 @@ class ProxyUriCodecTest {
         assertEquals("fixture+pass word", parsed.password)
     }
 
+    @Test
+    fun `trojan and anytls passwords with reserved characters round-trip through the share uri`() {
+        val fixtureUserInfo = "p@ss#1/2?x 100%+:y"
+        val trojan =
+            ProxyProfile.Trojan(
+                id = "t",
+                displayName = "t",
+                groupId = "",
+                server = "t.example",
+                serverPort = 443,
+                password = fixtureUserInfo,
+            )
+        val anyTls =
+            ProxyProfile.AnyTls(
+                id = "a",
+                displayName = "a",
+                groupId = "",
+                server = "a.example",
+                serverPort = 443,
+                serverName = "a.example",
+                password = fixtureUserInfo,
+            )
+
+        val trojanBack = ProxyUriCodec.parse(ProxyUriCodec.encode(trojan)) as ProxyProfile.Trojan
+        val anyTlsBack = ProxyUriCodec.parse(ProxyUriCodec.encode(anyTls)) as ProxyProfile.AnyTls
+
+        assertEquals(fixtureUserInfo, trojanBack.password)
+        assertEquals("t.example", trojanBack.server)
+        assertEquals(fixtureUserInfo, anyTlsBack.password)
+        assertEquals("a.example", anyTlsBack.server)
+    }
+
     private companion object {
         val normalizedPin = (0 until 32).joinToString("") { "%02x".format(it * 7 + 3) }
         val colonUpperPin = normalizedPin.uppercase().chunked(2).joinToString(":")

@@ -114,7 +114,7 @@ object ProxyUriCodec {
         host: String,
         port: Int,
         displayName: String,
-    ): String = "$scheme://$userInfo@${bracketIpv6(host)}:$port#${encodeFragment(displayName)}"
+    ): String = "$scheme://${encodeQueryValue(userInfo)}@${bracketIpv6(host)}:$port#${encodeFragment(displayName)}"
 
     private fun encodeVlessReality(profile: ProxyProfile.VlessReality): String {
         val params =
@@ -197,7 +197,7 @@ object ProxyUriCodec {
 
     private fun encodeAnyTls(profile: ProxyProfile.AnyTls): String {
         val params = "?sni=${encodeQueryValue(profile.serverName)}"
-        return "anytls://${profile.password}@${bracketIpv6(
+        return "anytls://${encodeQueryValue(profile.password)}@${bracketIpv6(
             profile.server,
         )}:${profile.serverPort}$params#${encodeFragment(
             profile.displayName,
