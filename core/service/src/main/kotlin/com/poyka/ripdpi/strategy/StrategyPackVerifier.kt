@@ -49,6 +49,13 @@ class StrategyPackCatalogParseException(
     cause: Throwable,
 ) : StrategyPackRefreshException("The verified strategy pack catalog could not be parsed.", cause)
 
+class StrategyPackChannelMismatchException(
+    requested: String,
+    actual: String,
+) : StrategyPackRefreshException(
+        "The downloaded strategy pack catalog is for channel '$actual', not the requested '$requested'.",
+    )
+
 class StrategyPackCompatibilityException(
     reason: String,
 ) : StrategyPackRefreshException(reason)

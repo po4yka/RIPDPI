@@ -178,6 +178,13 @@ class DefaultStrategyPackRepository
                         )
 
                         val catalog = parseCatalog(payload)
+                        // The manifest is unsigned; only the channel inside the signed catalog binds it.
+                        if (catalog.channel.trim().lowercase() != normalizedChannel) {
+                            throw StrategyPackChannelMismatchException(
+                                requested = normalizedChannel,
+                                actual = catalog.channel,
+                            )
+                        }
                         ensureCompatible(catalog)
                         enforceAntiRollbackPolicy(
                             catalog = catalog,

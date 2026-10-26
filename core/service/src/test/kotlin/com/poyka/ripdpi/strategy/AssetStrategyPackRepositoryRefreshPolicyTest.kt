@@ -153,6 +153,33 @@ class AssetStrategyPackRepositoryRefreshPolicyTest {
         }
 
     @Test
+    fun `refresh rejects a signed catalog for another channel and keeps the current snapshot`() =
+        runTest {
+            val betaPayload =
+                refreshedCatalogJson(sequence = 9).replace("\"channel\": \"stable\",", "\"channel\": \"beta\",")
+            val repository =
+                createRepository(
+                    service =
+                        FakeDownloadService(
+                            manifestPayload = Json.encodeToString(manifestFor(betaPayload, version = "2026.04.3")),
+                            catalogPayload = betaPayload,
+                        ),
+                )
+
+            runCatching {
+                repository.refreshSnapshot(
+                    channel = StrategyPackChannelStable,
+                    allowRollbackOverride = false,
+                )
+            }.onSuccess { error("Expected a beta catalog on the stable channel to be rejected") }
+                .onFailure { error ->
+                    assertTrue("unexpected $error", error is StrategyPackChannelMismatchException)
+                }
+
+            assertEquals(StrategyPackCatalogSourceBundled, repository.loadSnapshot().snapshot.source)
+        }
+
+    @Test
     fun `refresh rejects lower sequence and preserves the cached snapshot`() =
         runTest {
             val initialPayload = refreshedCatalogJson(sequence = 9)
