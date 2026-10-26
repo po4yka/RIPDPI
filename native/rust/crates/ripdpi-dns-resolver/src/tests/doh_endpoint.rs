@@ -109,3 +109,46 @@ async fn doh_uses_bootstrap_ips_when_the_url_host_differs_from_the_endpoint_host
     assert_eq!(extract_ip_answers(&response).expect("answers parse"), vec![answer_ip.to_string()]);
     server.join().expect("server joins");
 }
+
+#[tokio::test]
+async fn hooked_doh_client_hello_offers_http1_and_grease_ech() {
+    let (client, mut server) = tokio::io::duplex(16 * 1024);
+    let client = std::sync::Mutex::new(Some(client));
+    let hooks = EncryptedDnsConnectHooks::new().with_direct_tcp_connector(move |_, _| {
+        let stream = client.lock().expect("stream lock").take().map(|stream| Box::new(stream) as BoxedDnsTcpStream);
+        async move { stream.ok_or_else(|| std::io::Error::other("one connection only")) }
+    });
+    let resolver = EncryptedDnsResolver::with_connect_hooks(
+        EncryptedDnsEndpoint {
+            protocol: EncryptedDnsProtocol::Doh,
+            resolver_id: Some("fixture".to_string()),
+            host: "fixture.test".to_string(),
+            port: 443,
+            tls_server_name: Some("fixture.test".to_string()),
+            bootstrap_ips: vec![IpAddr::V4(Ipv4Addr::LOCALHOST)],
+            doh_url: Some("https://fixture.test/dns-query".to_string()),
+            dnscrypt_provider_name: None,
+            dnscrypt_public_key: None,
+            odoh: None,
+        },
+        EncryptedDnsTransport::Direct,
+        hooks,
+    )
+    .expect("resolver builds");
+    let exchange = tokio::spawn(async move {
+        let _ = resolver.exchange(&build_query("fixture.test")).await;
+    });
+
+    let mut header = [0u8; 5];
+    tokio::io::AsyncReadExt::read_exact(&mut server, &mut header).await.expect("TLS record header");
+    let mut record = header.to_vec();
+    record.resize(5 + usize::from(u16::from_be_bytes([header[3], header[4]])), 0);
+    tokio::io::AsyncReadExt::read_exact(&mut server, &mut record[5..]).await.expect("ClientHello");
+    exchange.abort();
+
+    let layout = ripdpi_packets::parse_tls_client_hello_layout(&record).expect("parse ClientHello");
+    assert!(layout.extensions.iter().any(|extension| extension.ext_type == 0xfe0d), "no GREASE ECH");
+    let alpn = layout.extensions.iter().find(|extension| extension.ext_type == 0x0010).expect("ALPN extension");
+    // ALPN list length, then one length-prefixed protocol name.
+    assert_eq!(&record[alpn.data_offset..alpn.data_offset + alpn.data_len], b"\x00\x09\x08http/1.1");
+}

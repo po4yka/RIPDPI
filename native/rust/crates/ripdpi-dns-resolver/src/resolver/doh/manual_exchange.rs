@@ -39,7 +39,7 @@ pub(super) async fn exchange_binary_post_manually(
             resolver.inner.endpoint.tls_server_name.clone().unwrap_or_else(|| resolver.inner.endpoint.host.clone());
         let server_name =
             ServerName::try_from(tls_name.clone()).map_err(|err| EncryptedDnsError::Tls(err.to_string()))?;
-        let connector = TlsConnector::from(resolver.inner.dot_tls_config.clone());
+        let connector = TlsConnector::from(resolver.inner.manual_doh_tls_config.clone());
         let mut tls_stream = match timeout(resolver.inner.timeout, connector.connect(server_name, tcp_stream)).await {
             Ok(Ok(stream)) => stream,
             Ok(Err(err)) => return Err(EncryptedDnsError::Tls(format!("DoH TLS handshake to {tls_name}: {err}"))),

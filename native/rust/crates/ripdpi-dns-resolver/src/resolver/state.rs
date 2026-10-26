@@ -10,7 +10,7 @@ use tokio::sync::Mutex as AsyncMutex;
 use super::connection::ConnectionPool;
 use super::doq;
 use crate::health::HealthRegistry;
-use crate::transport::{build_client_config, build_doh_client, normalize_endpoint};
+use crate::transport::{build_client_config, build_doh_client, build_manual_doh_tls_config, normalize_endpoint};
 use crate::types::{
     DnsCryptCachedCertificate, EncryptedDnsConnectHooks, EncryptedDnsEndpoint, EncryptedDnsError, EncryptedDnsProtocol,
     EncryptedDnsTransport, ResolverNetworkScope,
@@ -25,6 +25,8 @@ pub(crate) struct ResolverInner {
     pub(crate) doh_client: Option<reqwest::Client>,
     pub(crate) connect_hooks: EncryptedDnsConnectHooks,
     pub(crate) dot_tls_config: Arc<ClientConfig>,
+    /// TLS of the manual (hooked) DoH and ODoH path; the DoT config for other protocols.
+    pub(crate) manual_doh_tls_config: Arc<ClientConfig>,
     pub(crate) dot_extra_roots: Vec<CertificateDer<'static>>,
     pub(crate) dot_pin_verifier: Option<Arc<dyn ServerCertVerifier>>,
     pub(crate) dot_unpinned_custom_verifier_requested: bool,
@@ -106,6 +108,13 @@ pub(crate) fn build_inner(
         tls_verifiers.tls_verifier.as_ref(),
         &connect_hooks,
     )?;
+    let manual_doh_tls_config = if doh_client.is_none()
+        && matches!(normalized.protocol, EncryptedDnsProtocol::Doh | EncryptedDnsProtocol::Odoh)
+    {
+        build_manual_doh_tls_config(&tls_roots, tls_verifiers.tls_verifier.as_ref())?
+    } else {
+        dot_tls_config.clone()
+    };
     let dot_extra_roots = tls_roots.clone();
     let dot_unpinned_custom_verifier_requested =
         tls_verifiers.tls_verifier.is_some() && tls_verifiers.dot_pin_verifier.is_none();
@@ -117,6 +126,7 @@ pub(crate) fn build_inner(
         doh_client,
         connect_hooks,
         dot_tls_config,
+        manual_doh_tls_config,
         dot_extra_roots,
         dot_pin_verifier: tls_verifiers.dot_pin_verifier,
         dot_unpinned_custom_verifier_requested,
