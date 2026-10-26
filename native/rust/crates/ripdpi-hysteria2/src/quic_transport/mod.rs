@@ -221,10 +221,9 @@ mod tests {
         server_task.await.expect("server task");
     }
 
-    /// The datagram surface, exercised against a real connection: the client
-    /// transport reports the negotiated datagram limit (this server does not
-    /// advertise datagrams, so it reports unsupported -- the case callers
-    /// must guard before sending).
+    /// The datagram surface, exercised against a real connection: the echo
+    /// server keeps quinn's default datagram receive buffer, so it advertises
+    /// datagram support and the client reports a negotiated size limit.
     #[tokio::test]
     async fn quic_datagram_transport_reports_negotiated_support() {
         let (server_addr, server_endpoint) = spawn_quic_echo_server();
@@ -240,9 +239,9 @@ mod tests {
             endpoint.connect(server_addr, &config.server_name).expect("connect start").await.expect("connect");
 
         let datagram = QuicDatagramTransport::new(connection.clone());
-        // `datagrams_supported()` is the guard a UDP outbound checks; here it
-        // is simply asserted to be callable and internally consistent.
-        assert_eq!(datagram.datagrams_supported(), datagram.max_datagram_size().is_some());
+        // `datagrams_supported()` is the guard a UDP outbound checks.
+        assert!(datagram.datagrams_supported(), "the server advertises QUIC datagrams");
+        assert!(datagram.max_datagram_size().is_some_and(|size| size >= 1000), "a usable datagram size is negotiated");
 
         connection.close(0u32.into(), b"done");
         server_task.await.expect("server task");
@@ -266,9 +265,11 @@ mod tests {
             endpoint.connect(server_addr, &config.server_name).expect("connect start").await.expect("connect");
 
         let h3 = H3Transport::new(QuicTransport::new(connection.clone()));
-        // The facade holds the QUIC transport; its `connect()` would
-        // negotiate H3 against an H3-speaking server.
-        assert!(h3.quic().max_datagram_size().is_none() || h3.quic().max_datagram_size().is_some());
+        // The facade holds the live QUIC transport (its negotiated datagram
+        // limit is visible); its `connect()` would negotiate H3 against an
+        // H3-speaking server.
+        assert_eq!(h3.quic().max_datagram_size(), connection.max_datagram_size());
+        assert!(h3.quic().max_datagram_size().is_some());
 
         connection.close(0u32.into(), b"done");
         server_task.await.expect("server task");

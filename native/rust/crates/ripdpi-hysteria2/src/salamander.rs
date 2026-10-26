@@ -254,6 +254,44 @@ mod tests {
         assert_eq!(&payload[..meta[0].len], b"after-garbage");
     }
 
+    /// The Salamander socket carries a real Hysteria 2 session through quinn:
+    /// handshake, a TCP stream, and a UDP payload larger than one datagram,
+    /// which the client fragments and reassembles.
+    #[tokio::test]
+    async fn salamander_session_relays_tcp_and_fragmented_udp_through_quinn() {
+        use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+        let deadline = std::time::Duration::from_secs(5);
+        let server = crate::test_server::TestServer::start(crate::test_server::ServerOptions {
+            salamander_key: Some("fixture-key"),
+            ..crate::test_server::ServerOptions::default()
+        })
+        .expect("Salamander test server");
+        let mut config = server.client_config();
+        config.salamander_key = Some("fixture-key".into());
+        let client =
+            tokio::time::timeout(deadline, crate::connect(&config)).await.expect("handshake").expect("connect");
+
+        let mut stream = client.tcp_connect("192.0.2.1:80").await.expect("TCP stream");
+        stream.write_all(b"through salamander").await.expect("write");
+        let mut echoed = [0u8; 18];
+        tokio::time::timeout(deadline, stream.read_exact(&mut echoed)).await.expect("echo").expect("read");
+        assert_eq!(&echoed, b"through salamander");
+
+        let mut session = client.udp_session().await.expect("UDP session");
+        let payload: Vec<u8> = (0..4000u32).map(|index| index.to_le_bytes()[0]).collect();
+        session.send_to("192.0.2.1:53", &payload).await.expect("send fragmented datagram");
+        let (_, received) = tokio::time::timeout(deadline, session.recv_from()).await.expect("echo").expect("recv");
+        assert_eq!(received, payload, "fragments must reassemble to the original payload");
+
+        let mut wrong_key = server.client_config();
+        wrong_key.salamander_key = Some("other-key".into());
+        assert!(
+            tokio::time::timeout(std::time::Duration::from_secs(1), crate::connect(&wrong_key)).await.is_err(),
+            "a client with the wrong key must not complete the handshake"
+        );
+    }
+
     #[test]
     fn salamander_roundtrip() {
         let codec = SalamanderCodec::new(b"top-secret".to_vec());
