@@ -81,22 +81,14 @@ impl RelaySession for VlessRealitySession {
         self.session_limiter.connect_xudp_to_addr(&self.config, self.outbound_bind_ip, endpoint).await
     }
 
-    /// The mux carrier is unusable when yamux closed it or the error is a
-    /// transport break. A rejected sing-mux stream (`ConnectionRefused`) and
-    /// XUDP errors (XUDP never uses the mux carrier) keep the shared carrier.
+    /// The mux carrier is unusable when yamux closed it, or when the stream
+    /// could not be opened on it (`VlessYamuxSession::open_stream` maps both to
+    /// `ConnectionAborted`). Errors from the substream after it opened (a
+    /// rejected status, or a server that closes or resets the substream of a
+    /// refused target) and XUDP errors (XUDP never uses the mux carrier) keep
+    /// the shared carrier.
     fn is_carrier_failure(&self, error: &Self::Error) -> bool {
-        self.mux.as_ref().is_none_or(|mux| {
-            mux.is_closed()
-                || matches!(
-                    error.kind(),
-                    io::ErrorKind::BrokenPipe
-                        | io::ErrorKind::ConnectionReset
-                        | io::ErrorKind::ConnectionAborted
-                        | io::ErrorKind::NotConnected
-                        | io::ErrorKind::UnexpectedEof
-                        | io::ErrorKind::TimedOut
-                )
-        })
+        self.mux.as_ref().is_none_or(|mux| mux.is_closed() || error.kind() == io::ErrorKind::ConnectionAborted)
     }
 }
 

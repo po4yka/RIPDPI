@@ -475,6 +475,36 @@ async fn vless_reality_mux_waits_at_its_stream_limit_instead_of_resetting_the_ca
     assert_eq!(fixture.accepted_carrier_count(), 1, "every stream shares the one TLS carrier");
 }
 
+#[tokio::test]
+async fn vless_reality_mux_keeps_its_carrier_when_the_server_drops_a_refused_substream() {
+    let fixture = VlessRealityLoopback::start().await.expect("start VLESS Reality mux fixture");
+    let mut config = sample_config("vless_reality");
+    config.common.server = "127.0.0.1".to_string();
+    config.common.server_port = i32::from(fixture.port());
+    config.common.server_name = fixture.server_name().to_string();
+    let vless = vless_config_mut(&mut config);
+    vless.reality_public_key = valid_reality_public_key();
+    vless.vless_flow = "none".to_string();
+    vless.vless_mux_protocol = "yamux".to_string();
+    vless.vless_mux_max_concurrent_streams = 4;
+    let backend = build_backend(&config).await.expect("build VLESS Reality mux backend");
+    let closed_port = std::net::TcpListener::bind("127.0.0.1:0").expect("bind").local_addr().expect("addr").port();
+    let refused = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), closed_port));
+    let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), fixture.target_port()));
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    drop(tokio::time::timeout_at(deadline, backend.connect_tcp(&target)).await.expect("warm").expect("warm stream"));
+
+    // The fixture drops the substream of a refused target without a status byte.
+    let refused_result = tokio::time::timeout_at(deadline, backend.connect_tcp(&refused)).await.expect("refusal");
+    assert!(refused_result.is_err(), "the refused target must fail");
+    tokio::time::timeout_at(deadline, backend.connect_tcp(&target))
+        .await
+        .expect("open after the refusal stalled")
+        .expect("open after the refusal");
+
+    assert_eq!(fixture.accepted_carrier_count(), 1, "one refused target re-dialled the shared carrier");
+}
+
 #[test]
 fn nested_vless_identity_fields_round_trip_without_coercion() {
     let inner: ResolvedShadowTlsInnerRelayConfig = serde_json::from_value(serde_json::json!({
