@@ -97,6 +97,8 @@ fn stop_capture(session_handle: i64) -> Option<WriterStopResult> {
 struct PcapStopResponse {
     was_active: bool,
     files: Vec<PcapCaptureMetadata>,
+    /// Packets the capture queue dropped over the whole set, also when no file was finalized.
+    total_drops: u64,
     failure: Option<PcapWriterFailure>,
 }
 
@@ -106,12 +108,17 @@ struct PcapStopResponse {
 /// writer code for UI and support diagnostics.
 pub(crate) fn pcap_stop_entry(session_handle: i64) -> String {
     let response = match stop_capture(session_handle) {
-        Some(result) => PcapStopResponse { was_active: true, files: result.files, failure: result.failure },
-        None => PcapStopResponse { was_active: false, files: Vec::new(), failure: None },
+        Some(result) => PcapStopResponse {
+            was_active: true,
+            files: result.files,
+            total_drops: result.total_drops,
+            failure: result.failure,
+        },
+        None => PcapStopResponse { was_active: false, files: Vec::new(), total_drops: 0, failure: None },
     };
     serde_json::to_string(&response).unwrap_or_else(|err| {
         log::error!("pcap_stop_entry: serialize completion response: {err}");
-        r#"{"wasActive":false,"files":[],"failure":"serialization"}"#.to_string()
+        r#"{"wasActive":false,"files":[],"totalDrops":0,"failure":"serialization"}"#.to_string()
     })
 }
 
@@ -220,6 +227,8 @@ mod tests {
         assert!(parsed.is_object(), "stop should return a JSON object, got {parsed}");
         assert_eq!(parsed["wasActive"], true);
         assert!(parsed["files"].is_array());
+        // Kotlin PcapStopResult reads `totalDrops` and defaults a missing field to 0.
+        assert_eq!(parsed["totalDrops"], 0, "the completion receipt must carry the drop count");
     }
 
     #[test]
@@ -227,6 +236,7 @@ mod tests {
         let handle = next_test_handle();
         let parsed: serde_json::Value = serde_json::from_str(&pcap_stop_entry(handle)).unwrap();
         assert_eq!(parsed["wasActive"], false);
+        assert_eq!(parsed["totalDrops"], 0);
         assert_eq!(parsed["failure"], serde_json::Value::Null);
     }
 
