@@ -174,6 +174,16 @@ fn mod_http_like_c_applies_host_pad() {
 }
 
 #[test]
+fn mod_http_like_c_host_pad_after_unix_eol_keeps_last_header_intact() {
+    let input = b"GET / HTTP/1.1\r\nHost: example.com\r\nUser-Agent: agent\r\nAccept: */*\r\n\r\n";
+    let mutation = mod_http_like_c(input, MH_UNIXEOL | MH_HOSTPAD);
+    let output = std::str::from_utf8(&mutation.bytes).expect("http mutation utf8");
+
+    assert_eq!(mutation.rc, 0);
+    assert!(output.ends_with("\nAccept: */*\nX-Pad: 01234567890123456789012345678901\n\n"), "{output:?}");
+}
+
+#[test]
 fn mod_http_like_c_applies_host_extra_space() {
     let input = b"GET / HTTP/1.1\r\nHost: example.com\r\n\r\n";
     let mutation = mod_http_like_c(input, MH_HOSTEXTRASPACE);

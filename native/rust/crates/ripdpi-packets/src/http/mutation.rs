@@ -181,10 +181,14 @@ fn apply_http_method_space(input: &[u8]) -> Option<Vec<u8>> {
 
 fn apply_http_host_pad(input: &[u8]) -> Option<Vec<u8>> {
     let layout = parse_http_request_layout(input)?;
-    let header_insertion = layout.body_start.checked_sub(2)?;
+    // Insert at the start of the blank line, which ends in LF or CRLF.
+    let crlf = layout.body_start >= 2 && input[layout.body_start - 2] == b'\r';
+    let line_ending: &[u8] = if crlf { b"\r\n" } else { b"\n" };
+    let header_insertion = layout.body_start.checked_sub(line_ending.len())?;
     let mut output = Vec::with_capacity(input.len() + 41);
     output.extend_from_slice(&input[..header_insertion]);
-    output.extend_from_slice(b"X-Pad: 01234567890123456789012345678901\r\n");
+    output.extend_from_slice(b"X-Pad: 01234567890123456789012345678901");
+    output.extend_from_slice(line_ending);
     output.extend_from_slice(&input[header_insertion..]);
     Some(output)
 }
