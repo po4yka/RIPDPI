@@ -17,7 +17,11 @@ const HYSTERIA_AUTH_STATUS: u16 = 233;
 /// Reference client values (apernet/hysteria `core/client/config.go`): a PING
 /// every 10 s keeps quiet flows and mobile UDP NAT mappings alive, and a
 /// dead path is detected after 30 s without packets.
+#[cfg(not(test))]
 const KEEP_ALIVE_INTERVAL: std::time::Duration = std::time::Duration::from_secs(10);
+/// Short in unit tests, so the keep-alive test needs only about 1 s of real time.
+#[cfg(test)]
+const KEEP_ALIVE_INTERVAL: std::time::Duration = std::time::Duration::from_millis(100);
 const MAX_IDLE_TIMEOUT: quinn::VarInt = quinn::VarInt::from_u32(30_000);
 /// Reference receive windows (8 MiB per stream, 20 MiB per connection).
 /// quinn's 1.25 MB stream default caps one download near 50 Mbit/s at

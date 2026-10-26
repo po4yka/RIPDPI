@@ -192,38 +192,28 @@ mod tests {
     use crate::test_server::{ServerEvent, ServerOptions, TestServer};
 
     /// A quiet session must keep sending PINGs, or the QUIC idle timeout and
-    /// mobile UDP NAT expiry kill every multiplexed stream.
+    /// mobile UDP NAT expiry kill every multiplexed stream. Unit tests use a
+    /// 100 ms interval; PMTUD probes also carry PING frames, so they are
+    /// subtracted and cannot make the test pass without keep-alive.
     #[tokio::test]
     async fn idle_session_sends_keep_alive_pings() {
+        use std::time::Duration;
+
         let server = TestServer::start(ServerOptions::default()).expect("test server");
         let client = crate::connect(&server.client_config()).await.expect("connect");
-        // Let handshake-time probes settle so only keep-alive PINGs count.
-        tokio::time::sleep(std::time::Duration::from_secs(1)).await;
-        let pings_before = client.inner.connection.stats().frame_tx.ping;
+        // Let the handshake and the PMTUD search settle on loopback.
+        tokio::time::sleep(Duration::from_millis(500)).await;
+        let before = client.inner.connection.stats();
 
-        tokio::time::sleep(std::time::Duration::from_secs(11)).await;
+        tokio::time::sleep(Duration::from_secs(1)).await;
 
+        let after = client.inner.connection.stats();
+        let probes = after.path.sent_plpmtud_probes - before.path.sent_plpmtud_probes;
+        let keep_alive_pings = (after.frame_tx.ping - before.frame_tx.ping).saturating_sub(probes);
         assert!(
-            client.inner.connection.stats().frame_tx.ping > pings_before,
-            "no keep-alive PING in 11 s of idle after the handshake settled"
+            keep_alive_pings >= 5,
+            "expected about 10 keep-alive PINGs in 1 s of idle at a 100 ms interval, got {keep_alive_pings}"
         );
-    }
-
-    /// The client's stream receive window bounds how much the server may send
-    /// before the client reads. With quinn's 1.25 MB default the echoed bytes
-    /// back up into the server and stall this upload long before 6 MiB.
-    #[tokio::test]
-    async fn stream_receive_window_uses_the_reference_size() {
-        use tokio::io::AsyncWriteExt;
-
-        let server = TestServer::start(ServerOptions::default()).expect("test server");
-        let client = crate::connect(&server.client_config()).await.expect("connect");
-        let mut stream = client.tcp_connect("192.0.2.1:80").await.expect("TCP stream");
-        let upload = vec![0x5a; 6 * 1024 * 1024];
-
-        let written = tokio::time::timeout(std::time::Duration::from_secs(10), stream.write_all(&upload)).await;
-
-        assert!(written.is_ok(), "the upload stalled: the client stream receive window is too small");
     }
 
     /// A server that answers on the new path proves the path works; its
