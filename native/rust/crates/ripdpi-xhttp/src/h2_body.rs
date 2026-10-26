@@ -4,7 +4,7 @@ use std::task::{Context, Poll};
 
 use bytes::Bytes;
 use http::Request;
-use http::header::{CONTENT_TYPE, HOST, REFERER};
+use http::header::{CONTENT_TYPE, REFERER};
 use http_body_util::{BodyExt, Empty};
 use hyper::body::{Body, Frame};
 use tokio::sync::mpsc;
@@ -46,8 +46,7 @@ pub(crate) fn build_get_request(
 ) -> io::Result<Request<XhttpBody>> {
     let request = Request::builder()
         .method("GET")
-        .uri(path)
-        .header(HOST, host_header)
+        .uri(request_uri(host_header, path))
         .header(REFERER, referer)
         .header("x-padding", header_padding)
         .body(Empty::<Bytes>::new().map_err(|never| match never {}).boxed())
@@ -64,12 +63,20 @@ pub(crate) fn build_post_request(
 ) -> io::Result<Request<XhttpBody>> {
     let request = Request::builder()
         .method("POST")
-        .uri(path)
-        .header(HOST, host_header)
+        .uri(request_uri(host_header, path))
         .header(REFERER, referer)
         .header("x-padding", header_padding)
         .header(CONTENT_TYPE, "application/grpc")
         .body(body.boxed())
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("xHTTP POST request build: {error}")))?;
     Ok(request)
+}
+
+/// Absolute-form target, so h2 sends `:scheme https` and `:authority` like a
+/// browser instead of `:scheme http` plus a plain Host header.
+fn request_uri(host: &str, path: &str) -> String {
+    if host.contains(':') && !host.starts_with('[') {
+        return format!("https://[{host}]{path}");
+    }
+    format!("https://{host}{path}")
 }

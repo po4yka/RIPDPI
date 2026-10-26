@@ -449,6 +449,76 @@ mod tests {
         );
     }
 
+    /// Request heads as the server saw them, in arrival order.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: test-owned H2 tasks and duplex streams close on runtime drop.
+    async fn received_request_heads(protocol_mode: XhttpProtocolMode) -> Vec<http::request::Parts> {
+        let (client_io, server_io) = tokio::io::duplex(64 * 1024);
+        let (sender, connection) = hyper::client::conn::http2::handshake(TokioExecutor::new(), TokioIo::new(client_io))
+            .await
+            .expect("client H2 handshake");
+        let driver = tokio::spawn(async move { connection.await.expect("client H2 connection") });
+        let (heads_tx, mut heads_rx) = tokio::sync::mpsc::unbounded_channel();
+        let server = tokio::spawn(async move {
+            let service = service_fn(move |request: hyper::Request<hyper::body::Incoming>| {
+                let heads_tx = heads_tx.clone();
+                async move {
+                    let (head, _body) = request.into_parts();
+                    let _ = heads_tx.send(head);
+                    Ok::<_, Infallible>(hyper::Response::new(Full::new(Bytes::new())))
+                }
+            });
+            let _ = hyper::server::conn::http2::Builder::new(TokioExecutor::new())
+                .serve_connection(TokioIo::new(server_io), service)
+                .await;
+        });
+        let mode = XhttpMode::Tls(
+            XhttpTlsConfig::from_strings(
+                "192.0.2.1",
+                443,
+                "example.com",
+                "550e8400-e29b-41d4-a716-446655440000",
+                "/xhttp",
+                "cdn.example.com",
+                "chrome_stable",
+            )
+            .expect("mode")
+            .with_protocol_mode(protocol_mode),
+        );
+        let pooled = PooledConnection::new(sender, 2);
+        let permit = Arc::new(Semaphore::new(1)).acquire_owned().await.expect("permit");
+        let _stream = pooled.open_stream_from_mode(&mode, "example.com:443", permit).await.expect("open stream");
+        let expected = match protocol_mode {
+            XhttpProtocolMode::StreamUp => 2,
+            XhttpProtocolMode::StreamOne => 1,
+        };
+        let mut heads = Vec::new();
+        while heads.len() < expected {
+            heads.push(heads_rx.recv().await.expect("request head"));
+        }
+        driver.abort();
+        server.abort();
+        heads
+    }
+
+    #[tokio::test]
+    async fn requests_carry_https_scheme_and_authority_pseudo_headers() {
+        for protocol_mode in [XhttpProtocolMode::StreamUp, XhttpProtocolMode::StreamOne] {
+            for head in received_request_heads(protocol_mode).await {
+                assert_eq!(Some("https"), head.uri.scheme_str(), "{protocol_mode:?} {} :scheme", head.method);
+                assert_eq!(
+                    Some("cdn.example.com"),
+                    head.uri.authority().map(http::uri::Authority::as_str),
+                    "{protocol_mode:?} {} :authority",
+                    head.method
+                );
+                assert!(!head.headers.contains_key(http::header::HOST), "{protocol_mode:?} sends a Host header");
+            }
+        }
+    }
+
     #[tokio::test]
     /// # Cancel safety
     ///
