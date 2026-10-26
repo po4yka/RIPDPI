@@ -498,12 +498,13 @@ struct SocksSession {
 /// # Cancel safety
 ///
 /// NOT cancel-safe: a dropped setup leaves its spawned tasks to the test runtime.
-async fn socks_connect_request() -> SocksSession {
+async fn socks_connect_request(close_grace: Duration) -> SocksSession {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     let bus = Bus::new();
     let mut endpoint = bus.new_endpoint();
-    let interface = DynamicTcpInterface::new(bus.clone(), "10.77.0.2".parse().expect("source"), None, 1280);
+    let mut interface = DynamicTcpInterface::new(bus.clone(), "10.77.0.2".parse().expect("source"), None, 1280);
+    interface.close_grace = close_grace;
     let worker = tokio::spawn(interface.run());
     let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("listener");
     let (client, server) =
@@ -527,10 +528,10 @@ async fn socks_connect_request() -> SocksSession {
 /// # Cancel safety
 ///
 /// NOT cancel-safe: a dropped setup leaves its spawned tasks to the test runtime.
-async fn socks_session() -> SocksSession {
+async fn socks_session(close_grace: Duration) -> SocksSession {
     use tokio::io::AsyncReadExt;
 
-    let mut session = socks_connect_request().await;
+    let mut session = socks_connect_request(close_grace).await;
     session.endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, syn_ack(&session.syn)));
     let mut reply = [0u8; 10];
     session.client.read_exact(&mut reply).await.expect("connect reply");
@@ -564,7 +565,7 @@ async fn outbound_payload(endpoint: &mut BusEndpoint, expected: &[u8], until_fin
 async fn response_after_client_half_close_reaches_the_client() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-    let mut session = socks_session().await;
+    let mut session = socks_session(Duration::from_secs(30)).await;
     let outcome = tokio::time::timeout(Duration::from_secs(5), async {
         session.client.write_all(b"request").await.expect("request");
         session.client.shutdown().await.expect("client half-close");
@@ -590,7 +591,7 @@ async fn response_after_client_half_close_reaches_the_client() {
 async fn client_can_still_send_after_the_peer_closes_its_direction() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-    let mut session = socks_session().await;
+    let mut session = socks_session(Duration::from_secs(30)).await;
     let outcome = tokio::time::timeout(Duration::from_secs(5), async {
         let segment = peer_segment(&session.syn, TcpControl::Fin, 12346, 0, b"greeting");
         session.endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, segment));
@@ -615,7 +616,8 @@ async fn client_can_still_send_after_the_peer_closes_its_direction() {
 async fn peer_reset_after_its_fin_ends_a_session_whose_client_still_writes() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-    let SocksSession { mut client, endpoint, syn, handler, worker, pool } = socks_session().await;
+    let SocksSession { mut client, endpoint, syn, handler, worker, pool } =
+        socks_session(Duration::from_secs(30)).await;
     let leased = pool.free_len();
     let fin = peer_segment(&syn, TcpControl::Fin, 12346, 0, b"greeting");
     endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, fin));
@@ -647,7 +649,8 @@ async fn peer_reset_after_its_fin_ends_a_session_whose_client_still_writes() {
 /// NOT cancel-safe: the test aborts its interface task before returning.
 #[tokio::test]
 async fn client_that_leaves_during_the_virtual_connect_releases_its_session() {
-    let SocksSession { client, mut endpoint, handler, worker, pool, .. } = socks_connect_request().await;
+    let SocksSession { client, mut endpoint, handler, worker, pool, .. } =
+        socks_connect_request(Duration::from_secs(30)).await;
     let leased = pool.free_len();
     // The peer never answers the SYN, and the client gives up (as tunnel-core does
     // after its connect timeout).
@@ -673,4 +676,43 @@ async fn client_that_leaves_during_the_virtual_connect_releases_its_session() {
     assert!(ended.expect("a client that left must end the handler").expect("handler task joins").is_err());
     reset.expect("the abandoned virtual connect must be reset");
     released.expect("the abandoned session's virtual port must return to the pool");
+}
+
+/// # Cancel safety
+///
+/// NOT cancel-safe: the test aborts its handler and interface tasks before returning.
+#[tokio::test]
+async fn download_after_client_half_close_outlasts_the_close_grace() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let close_grace = Duration::from_millis(300);
+    let mut session = socks_session(close_grace).await;
+    let outcome = tokio::time::timeout(Duration::from_secs(5), async {
+        session.client.write_all(b"request").await.expect("request");
+        session.client.shutdown().await.expect("client half-close");
+        let (_, fin) = outbound_payload(&mut session.endpoint, b"request", true).await;
+        assert!(fin, "the client's EOF must become a FIN");
+        // The peer ACKs request and FIN, then streams its answer for four close graces,
+        // with gaps shorter than one.
+        let mut expected = Vec::new();
+        let mut seq = 12346;
+        for index in 0..12 {
+            let chunk = format!("part-{index:02};").into_bytes();
+            let segment = peer_segment(&session.syn, TcpControl::Psh, seq, 8, &chunk);
+            session.endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, segment));
+            seq += i32::try_from(chunk.len()).expect("chunk length");
+            expected.extend_from_slice(&chunk);
+            tokio::time::sleep(close_grace / 3).await;
+        }
+        let fin = peer_segment(&session.syn, TcpControl::Fin, seq, 8, &[]);
+        session.endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, fin));
+        let mut response = Vec::new();
+        session.client.read_to_end(&mut response).await.expect("response");
+        (response, expected)
+    })
+    .await;
+    session.handler.abort();
+    session.worker.abort();
+    let (response, expected) = outcome.expect("deadline");
+    assert_eq!(response, expected, "an active download must not be cut by the close grace");
 }

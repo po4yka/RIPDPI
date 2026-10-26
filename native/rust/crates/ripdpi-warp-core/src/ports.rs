@@ -47,6 +47,8 @@ struct VirtualPortLeaseInner {
     port: VirtualPort,
     free_ports: Arc<Mutex<VecDeque<u16>>>,
     close_requested_at: Mutex<Option<tokio::time::Instant>>,
+    /// Last data movement of a session in idle close; `None` before the idle close starts.
+    idle_since: Mutex<Option<tokio::time::Instant>>,
 }
 
 impl std::fmt::Debug for VirtualPortLease {
@@ -72,6 +74,27 @@ impl VirtualPortLease {
             .lock()
             .map(|requested| *requested)
             .map_err(|_| io::Error::other("virtual TCP close state poisoned"))
+    }
+
+    /// Start the idle close of a half-closed session: its close grace counts from
+    /// the last data movement in either direction, not from this call.
+    pub(crate) fn request_idle_close(&self) {
+        if let Ok(mut idle) = self.0.idle_since.lock() {
+            idle.get_or_insert_with(tokio::time::Instant::now);
+        }
+    }
+
+    /// Data moved: restart the close grace of a session in idle close.
+    pub(crate) fn record_activity(&self) {
+        if let Ok(mut idle) = self.0.idle_since.lock()
+            && let Some(since) = idle.as_mut()
+        {
+            *since = tokio::time::Instant::now();
+        }
+    }
+
+    pub(crate) fn idle_since(&self) -> io::Result<Option<tokio::time::Instant>> {
+        self.0.idle_since.lock().map(|idle| *idle).map_err(|_| io::Error::other("virtual TCP idle state poisoned"))
     }
 }
 
@@ -114,6 +137,7 @@ impl VirtualPortPool {
             port,
             free_ports: Arc::clone(&self.free_ports),
             close_requested_at: Mutex::new(None),
+            idle_since: Mutex::new(None),
         })))
     }
 

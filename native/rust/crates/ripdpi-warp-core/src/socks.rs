@@ -138,11 +138,12 @@ async fn handle_tcp_connect(
                     None => break,
                 },
                 () = client_read_closed(&client), if credit.is_none() && !client_closed && !client_finished => {
-                    // The client left while the peer is stalled: start the close
-                    // deadline so the session cannot outlive it, but keep
-                    // uploading what credit still allows.
+                    // The client closed (or half-closed) while the peer is stalled:
+                    // start the idle close so a stalled session cannot outlive it,
+                    // but keep uploading what credit still allows and delivering
+                    // the peer's data while it flows.
                     client_closed = true;
-                    lease.request_close();
+                    lease.request_idle_close();
                 }
                 readable_result = client.readable(), if credit.is_some() && !client_finished => {
                     readable_result?;

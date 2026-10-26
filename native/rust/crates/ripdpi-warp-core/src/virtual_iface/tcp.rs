@@ -81,8 +81,11 @@ impl DynamicTcpInterface {
                     let loop_start = Instant::now();
                     let close_now = tokio::time::Instant::now();
                     for (virtual_port, (client_handle, lease, _)) in &port_client_handle_map {
-                        let expired = lease.close_requested_at()
-                            .map_or(true, |requested| requested.is_some_and(|at| close_now >= at + self.close_grace));
+                        let passed = |since: Option<tokio::time::Instant>| since.is_some_and(|at| close_now >= at + self.close_grace);
+                        let expired = match (lease.close_requested_at(), lease.idle_since()) {
+                            (Ok(requested), Ok(idle)) => passed(requested) || passed(idle),
+                            _ => true,
+                        };
                         // A handler that stopped waiting for the connect is gone: reset now
                         // instead of holding the port until the close grace ends.
                         let abandoned = pending_connect.get(virtual_port).is_some_and(oneshot::Sender::is_closed);
@@ -108,7 +111,7 @@ impl DynamicTcpInterface {
                         }
                     });
 
-                    for (virtual_port, (client_handle, _lease, remote)) in &port_client_handle_map {
+                    for (virtual_port, (client_handle, lease, remote)) in &port_client_handle_map {
                         let client_socket = sockets.get_mut::<tcp::Socket>(*client_handle);
                         if client_socket.may_send()
                             && let Some(connected) = pending_connect.remove(virtual_port)
@@ -121,6 +124,9 @@ impl DynamicTcpInterface {
                                     let total = to_send.len();
                                     match client_socket.send_slice(&to_send) {
                                         Ok(sent) => {
+                                            if sent > 0 {
+                                                lease.record_activity();
+                                            }
                                             upload.add_permits(sent);
                                             if sent < total {
                                                 queue.push_front(to_send.slice(sent..));
@@ -150,6 +156,7 @@ impl DynamicTcpInterface {
                                     // Read only into reserved queue space: a slow handler then closes
                                     // the TCP window instead of losing bytes smoltcp already ACKed.
                                     permit.send(data);
+                                    lease.record_activity();
                                 }
                         }
                         // After the peer's FIN and all data before it, tell the handler with an
@@ -202,6 +209,15 @@ impl DynamicTcpInterface {
                         pending_connect.insert(virtual_port, connected);
                         send_queue.insert(virtual_port, (VecDeque::new(), upload));
                         next_poll = None;
+                    }
+                    Some(TcpCommand::FinishUpload(virtual_port)) => {
+                        if let Some((_, lease, _)) = port_client_handle_map.get(&virtual_port) {
+                            // A half-closed client may still download for as long as
+                            // data moves; only an idle session is aborted.
+                            lease.request_idle_close();
+                            graceful_closing.insert(virtual_port);
+                            next_poll = None;
+                        }
                     }
                     Some(TcpCommand::Close(virtual_port)) => {
                         if let Some((_, lease, _)) = port_client_handle_map.get(&virtual_port) {

@@ -36,6 +36,10 @@ pub(crate) enum TcpCommand {
     /// the virtual socket is established; it is dropped if the connect fails.
     Open(PortForwardConfig, VirtualPortLease, mpsc::Sender<Bytes>, Arc<Semaphore>, oneshot::Sender<()>),
     Data(VirtualPort, Bytes),
+    /// The client finished sending: FIN after the queued bytes, and an idle close
+    /// that data in either direction keeps postponing.
+    FinishUpload(VirtualPort),
+    /// The handler is gone: FIN after the queued bytes, and abort at the close grace.
     Close(VirtualPort),
 }
 
@@ -145,7 +149,7 @@ impl TcpSession {
     /// The client finished sending (half-close): send FIN once the queued bytes are out,
     /// and keep delivering the peer's data until it closes too.
     pub(crate) fn finish_upload(&self) {
-        let _ = self.commands.send(TcpCommand::Close(self.port));
+        let _ = self.commands.send(TcpCommand::FinishUpload(self.port));
     }
 
     /// Next chunk from the peer, in order; an empty chunk once the peer sent FIN and
