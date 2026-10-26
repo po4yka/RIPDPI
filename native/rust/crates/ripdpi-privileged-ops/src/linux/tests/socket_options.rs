@@ -69,11 +69,40 @@ fn read_chunk_with_ttl_reads_data_from_connected_pair() {
     });
     let mut buf = [0u8; 16];
     client.set_read_timeout(Some(Duration::from_secs(2))).unwrap();
-    let (n, _ttl) = read_chunk_with_ttl(&client, &mut buf).expect("read with ttl");
+    let (n, ttl) = read_chunk_with_ttl(&client, &mut buf).expect("read with ttl");
     handle.join().unwrap();
     assert_eq!(n, 5);
     assert_eq!(&buf[..n], b"hello");
-    // TTL may or may not be populated for loopback; just verify no panic
+    assert_eq!(ttl, None, "IPv4 TCP keeps no received TTL");
+}
+
+#[test]
+fn read_chunk_with_ttl_reports_the_hop_limit_of_an_ipv6_peer() {
+    let listener = std::net::TcpListener::bind((std::net::Ipv6Addr::LOCALHOST, 0)).expect("bind IPv6 listener");
+    let client = std::net::TcpStream::connect(listener.local_addr().expect("address")).expect("connect");
+    let (server, _) = listener.accept().expect("accept");
+    enable_recv_ttl(&client).expect("enable recv hop limit");
+    // The server sends with its socket hop limit; the client must observe that value.
+    let mut expected: libc::c_int = 0;
+    let mut len = std::mem::size_of::<libc::c_int>() as libc::socklen_t;
+    // SAFETY: `expected` and `len` are live writable stack slots sized for a c_int option.
+    let rc = unsafe {
+        libc::getsockopt(
+            server.as_raw_fd(),
+            libc::IPPROTO_IPV6,
+            libc::IPV6_UNICAST_HOPS,
+            (&mut expected as *mut libc::c_int).cast(),
+            &mut len,
+        )
+    };
+    assert_eq!(rc, 0, "read the server hop limit");
+    (&server).write_all(b"hello").expect("server write");
+
+    let mut buf = [0u8; 16];
+    client.set_read_timeout(Some(Duration::from_secs(2))).expect("read timeout");
+    let (n, hop_limit) = read_chunk_with_ttl(&client, &mut buf).expect("read with hop limit");
+    assert_eq!(&buf[..n], b"hello");
+    assert_eq!(hop_limit, u8::try_from(expected).ok());
 }
 
 #[test]

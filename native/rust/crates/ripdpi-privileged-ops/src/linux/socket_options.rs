@@ -4,7 +4,7 @@
 //! calls with kernel ABI layouts supplied by callers.
 
 use std::io;
-use std::mem::{size_of, zeroed};
+use std::mem::{size_of, size_of_val, zeroed};
 use std::net::{IpAddr, SocketAddr, TcpStream, UdpSocket};
 use std::os::fd::AsRawFd;
 use std::ptr;
@@ -212,59 +212,73 @@ pub fn enable_recv_ttl(stream: &TcpStream) -> io::Result<()> {
     }
 }
 
+/// Reads one chunk and reports the hop limit of the received data when the
+/// kernel keeps it.
+///
+/// TCP `recvmsg` carries no `IP_TTL` or `IPV6_HOPLIMIT` control message
+/// (ip(7): not supported for `SOCK_STREAM`). For an IPv6 peer with
+/// `IPV6_RECVHOPLIMIT` set, the kernel stores the hop limit of the last
+/// in-order segment on the socket, and `IPV6_2292PKTOPTIONS` returns it.
+/// IPv4 TCP keeps no received TTL, so an IPv4 peer (also IPv4-mapped) gets
+/// `None`.
 pub fn read_chunk_with_ttl(stream: &TcpStream, buf: &mut [u8]) -> io::Result<(usize, Option<u8>)> {
+    use std::io::Read;
+
     if buf.is_empty() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "read_chunk_with_ttl: buf must not be empty"));
     }
-    let fd = stream.as_raw_fd();
-    // SAFETY: CMSG_SPACE is a libc alignment/size macro; `c_int` is the
-    // ancillary payload type used for TTL/hop-limit control messages.
-    let ctrl_len = unsafe { libc::CMSG_SPACE(size_of::<libc::c_int>() as u32) } as usize;
-    let mut ctrl = vec![0u8; ctrl_len];
-    let mut iov = libc::iovec { iov_base: buf.as_mut_ptr().cast(), iov_len: buf.len() };
-    // SAFETY: `msghdr` is a plain C struct; zero initialization is valid before
-    // assigning the fields used by `recvmsg`.
-    let mut msg: libc::msghdr = unsafe { zeroed() };
-    msg.msg_iov = &mut iov;
-    msg.msg_iovlen = 1;
-    msg.msg_control = ctrl.as_mut_ptr().cast();
-    msg.msg_controllen = ctrl_len;
-
-    // SAFETY: `msg` references live stack/heap storage for the iov and control
-    // buffers, and `fd` is a valid TCP socket descriptor owned by `stream`.
-    let n = unsafe { libc::recvmsg(fd, &mut msg, 0) };
-    if n < 0 {
-        return Err(io::Error::last_os_error());
-    }
+    let n = (&*stream).read(buf)?;
     if n == 0 {
         return Ok((0, None));
     }
+    Ok((n, received_ipv6_hop_limit(stream)))
+}
 
-    let mut ttl: Option<u8> = None;
-    // SAFETY: `msg` was just populated by `recvmsg`; CMSG_FIRSTHDR/CMSG_NXTHDR
-    // iterate over the ancillary data buffer we provided.
+fn received_ipv6_hop_limit(stream: &TcpStream) -> Option<u8> {
+    let SocketAddr::V6(peer) = stream.peer_addr().ok()? else { return None };
+    if peer.ip().to_ipv4_mapped().is_some() {
+        return None;
+    }
+    // u64 storage keeps the control buffer aligned for `cmsghdr`.
+    let mut ctrl = [0u64; 16];
+    let mut len = size_of_val(&ctrl) as libc::socklen_t;
+    // SAFETY: `ctrl` and `len` are live writable buffers; the kernel writes at
+    // most `len` bytes of control messages for the valid TCP socket `fd`.
+    let rc = unsafe {
+        libc::getsockopt(
+            stream.as_raw_fd(),
+            libc::IPPROTO_IPV6,
+            libc::IPV6_2292PKTOPTIONS,
+            ctrl.as_mut_ptr().cast(),
+            &mut len,
+        )
+    };
+    if rc != 0 {
+        return None;
+    }
+    // SAFETY: `msghdr` is a plain C struct; zero initialization is valid
+    // before the control fields are set.
+    let mut msg: libc::msghdr = unsafe { zeroed() };
+    msg.msg_control = ctrl.as_mut_ptr().cast();
+    msg.msg_controllen = len as _;
+    // SAFETY: `msg` describes the aligned control buffer the kernel filled;
+    // CMSG_FIRSTHDR/CMSG_NXTHDR stay inside `msg_controllen`.
     let mut cmsg = unsafe { libc::CMSG_FIRSTHDR(&msg) };
     while !cmsg.is_null() {
-        // SAFETY: `cmsg` is non-null and was produced by CMSG_FIRSTHDR or
-        // CMSG_NXTHDR for the live control buffer in `msg`.
-        let cmsg_ref = unsafe { &*cmsg };
-        if (cmsg_ref.cmsg_level == libc::IPPROTO_IP && cmsg_ref.cmsg_type == libc::IP_TTL)
-            || (cmsg_ref.cmsg_level == libc::IPPROTO_IPV6 && cmsg_ref.cmsg_type == libc::IPV6_HOPLIMIT)
-        {
-            // SAFETY: `cmsg` is the current valid ancillary header; CMSG_DATA
-            // returns the payload pointer inside the control buffer.
+        // SAFETY: `cmsg` is non-null and points to an aligned header inside `ctrl`.
+        let header = unsafe { &*cmsg };
+        if header.cmsg_level == libc::IPPROTO_IPV6 && header.cmsg_type == libc::IPV6_HOPLIMIT {
+            // SAFETY: `cmsg` is the current valid header; CMSG_DATA returns its
+            // payload pointer inside `ctrl`.
             let data = unsafe { libc::CMSG_DATA(cmsg) };
-            // SAFETY: the kernel wrote a c_int payload for IP_TTL/IPV6_HOPLIMIT;
-            // unaligned read is allowed because cmsg payload alignment is a C ABI detail.
+            // SAFETY: the kernel wrote a c_int payload for IPV6_HOPLIMIT at `data`.
             let value: libc::c_int = unsafe { ptr::read_unaligned(data.cast()) };
-            ttl = u8::try_from(value).ok();
-            break;
+            return u8::try_from(value).ok();
         }
-        // SAFETY: `cmsg` is the current valid ancillary header and `msg`
-        // still owns the same control buffer populated by `recvmsg`.
+        // SAFETY: `cmsg` is the current header of the same control buffer.
         cmsg = unsafe { libc::CMSG_NXTHDR(&msg, cmsg) };
     }
-    Ok((n as usize, ttl))
+    None
 }
 
 /// Read the current TTL (IPv4) or hop limit (IPv6) from a TCP socket.
