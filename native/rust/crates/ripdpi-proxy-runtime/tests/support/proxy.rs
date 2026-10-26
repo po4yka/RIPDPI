@@ -57,7 +57,11 @@ pub fn start_proxy(
 pub fn proxy_config(args: &[&str]) -> ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig {
     let args = args.iter().map(|value| (*value).to_string()).collect::<Vec<_>>();
     match parse_cli(&args, &StartupEnv::default()).expect("parse runtime config") {
-        ParseResult::Run(config) => *config,
+        ParseResult::Run(mut config) => {
+            // Service runtimes start warmup probes to public domains; keep the harness offline.
+            config.host_autolearn.warmup_probe_enabled = false;
+            *config
+        }
         other => panic!("unexpected parse result: {other:?}"),
     }
 }
