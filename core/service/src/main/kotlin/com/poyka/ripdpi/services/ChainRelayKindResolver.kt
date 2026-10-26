@@ -24,6 +24,7 @@ internal class ChainRelayKindResolver
                     fallbackTlsFingerprintProfile = request.requestedTlsProfile,
                 )
 
+            validateChainRelayHopFeatures(resolvedChainRelay, request.featureFlags)
             validateSharedRelayTransportFeatures(request.mergedConfig)
             validateFinalmaskFeature(request.mergedConfig, request.featureFlags)
 
