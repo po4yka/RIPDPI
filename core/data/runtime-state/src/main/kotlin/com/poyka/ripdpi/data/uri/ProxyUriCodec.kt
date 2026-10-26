@@ -321,8 +321,17 @@ object ProxyUriCodec {
         host: String,
         port: Int,
         rawQuery: String?,
-    ): ProxyProfile.Vless {
-        val isXhttp = queryValue(rawQuery, "type")?.equals("xhttp", ignoreCase = true) == true
+    ): ProxyProfile.Vless? {
+        // The plain VLESS backend is TLS with raw TCP or xHTTP and no VLESS encryption. Any other
+        // transport, header obfuscation or security would import as a node that never connects.
+        val transportType = queryValue(rawQuery, "type")?.lowercase()
+        val supported =
+            transportType in setOf(null, "tcp", "raw", "xhttp") &&
+                queryValue(rawQuery, "encryption")?.lowercase() in setOf(null, "", "none") &&
+                queryValue(rawQuery, "security")?.lowercase() in setOf(null, "tls") &&
+                queryValue(rawQuery, "headerType")?.lowercase() in setOf(null, "none")
+        if (!supported) return null
+        val isXhttp = transportType == "xhttp"
         return ProxyProfile.Vless(
             id = newId(),
             displayName = displayName(parsed.fragment, host),

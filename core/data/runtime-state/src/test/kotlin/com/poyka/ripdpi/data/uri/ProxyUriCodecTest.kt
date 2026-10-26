@@ -335,6 +335,18 @@ class ProxyUriCodecTest {
         assertEquals("xtls-rprx-vision", tcp.flow)
     }
 
+    @Test
+    fun `plain vless with an unsupported transport encryption or security is rejected`() {
+        val base = "vless://11111111-2222-3333-4444-555555555555@h.example:443?sni=h.example"
+        assertNull(ProxyUriCodec.parse("$base&type=ws&security=tls&path=/x#ws"))
+        assertNull(ProxyUriCodec.parse("$base&type=grpc&security=tls#grpc"))
+        val postQuantum = "encryption=mlkem768x25519plus.native.0rtt.KEY"
+        assertNull(ProxyUriCodec.parse("$base&type=xhttp&security=tls&$postQuantum#pq"))
+        assertNull(ProxyUriCodec.parse("$base&type=xhttp&security=none#plain"))
+        assertNull(ProxyUriCodec.parse("$base&type=tcp&headerType=http#http"))
+        assertTrue(ProxyUriCodec.parse("$base&type=xhttp&security=tls&encryption=none#ok") is ProxyProfile.Vless)
+    }
+
     private companion object {
         val normalizedPin = (0 until 32).joinToString("") { "%02x".format(it * 7 + 3) }
         val colonUpperPin = normalizedPin.uppercase().chunked(2).joinToString(":")
