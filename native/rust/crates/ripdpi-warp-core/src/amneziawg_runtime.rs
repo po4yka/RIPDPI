@@ -672,7 +672,12 @@ impl AmneziaWgRuntime {
         source_peer_ip: IpAddr,
         source_peer_ipv6: Option<Ipv6Addr>,
     ) -> io::Result<WireGuardTunnel> {
-        let endpoint = resolve_endpoint(&self.endpoint_descriptor()).await?;
+        // A WS carrier never dials the UDP endpoint (the terminator does), so its host is
+        // not resolved: that lookup would send the WireGuard server name in plaintext DNS.
+        let endpoint = match self.config.carrier {
+            AmneziaWgCarrierKind::Udp => resolve_endpoint(&self.endpoint_descriptor()).await?,
+            AmneziaWgCarrierKind::Ws => std::net::SocketAddr::from((std::net::Ipv4Addr::UNSPECIFIED, 0)),
+        };
 
         let amnezia_cfg = self.config.amnezia.to_warp_amnezia();
         let (keepalive, keepalive_max) =
@@ -1019,6 +1024,30 @@ mod tests {
             .expect("stop must interrupt a pending carrier connect")
             .expect("runtime task must join")
             .expect("stop before readiness is a clean shutdown");
+    }
+
+    #[tokio::test]
+    async fn ws_carrier_start_does_not_resolve_the_udp_endpoint_host() {
+        let carrier = TcpListener::bind("127.0.0.1:0").await.expect("carrier listener");
+        let carrier_ws_url = format!("wss://{}/wg", carrier.local_addr().expect("carrier address"));
+        let config = AmneziaWgProfileConfig {
+            enabled: true,
+            carrier: AmneziaWgCarrierKind::Ws,
+            carrier_ws_url,
+            interface_address_v4: "10.8.0.2/32".to_string(),
+            // Only the terminator can resolve this name; the client must not try.
+            endpoint_host: "wg-server.invalid".to_string(),
+            endpoint_port: 51820,
+            local_socks_host: "127.0.0.1".to_string(),
+            local_socks_port: 0,
+            ..Default::default()
+        };
+        let runtime = AmneziaWgRuntime::new(config);
+        let run_task = tokio::spawn(Arc::clone(&runtime).run());
+        let accepted = timeout(Duration::from_secs(2), carrier.accept()).await;
+        runtime.stop();
+        let _ = timeout(Duration::from_secs(2), run_task).await;
+        accepted.expect("the WS carrier connect must start without an endpoint lookup").expect("accept");
     }
 
     #[tokio::test]
