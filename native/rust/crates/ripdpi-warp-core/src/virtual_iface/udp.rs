@@ -42,15 +42,18 @@ impl DynamicUdpInterface {
         configure_interface(&mut iface, self.source_peer_ip, self.source_peer_ipv6)?;
         let mut endpoint = self.endpoint;
         let mut next_poll: Option<tokio::time::Instant> = None;
+        // Set by events that need a poll now. An idle association then waits for the
+        // next event or smoltcp deadline instead of re-polling on every timer tick.
+        let mut poll_now = false;
         let mut port_client_handle_map: HashMap<(VirtualPort, IpAddr), SocketHandle> = HashMap::new();
         let mut send_queue: HashMap<(VirtualPort, IpAddr), VecDeque<(SocketAddr, Bytes)>> = HashMap::new();
 
         loop {
             tokio::select! {
-                _ = match (next_poll, port_client_handle_map.len()) {
-                    (None, 0) => tokio::time::sleep(Duration::MAX),
-                    (None, _) => tokio::time::sleep(Duration::ZERO),
-                    (Some(until), _) => tokio::time::sleep_until(until),
+                _ = match (poll_now, next_poll) {
+                    (true, _) => tokio::time::sleep(Duration::ZERO),
+                    (false, None) => tokio::time::sleep(Duration::MAX),
+                    (false, Some(until)) => tokio::time::sleep_until(until),
                 } => {
                     let loop_start = Instant::now();
                     let _ = iface.poll(loop_start, &mut device, &mut sockets);
@@ -68,6 +71,11 @@ impl DynamicUdpInterface {
                                     endpoint.send(Event::RemoteUdpDatagram(key.0, source, Bytes::copy_from_slice(data)));
                                 }
                     }
+                    // Datagrams left in a send queue or a receive buffer need another pass now.
+                    poll_now = port_client_handle_map.iter().any(|(key, handle)| {
+                        send_queue.get(key).is_some_and(|queue| !queue.is_empty())
+                            || sockets.get::<udp::Socket>(*handle).can_recv()
+                    });
                     next_poll = iface
                         .poll_delay(loop_start, &sockets)
                         .map(|delay| tokio::time::Instant::now() + Duration::from_millis(delay.total_millis()));
@@ -96,13 +104,13 @@ impl DynamicUdpInterface {
                             .get_mut(&key)
                             .expect("udp queue exists")
                             .push_back((port_forward.destination, data));
-                        next_poll = None;
+                        poll_now = true;
                     }
                     Event::ClientConnectionDropped(port) => {
                         remove_client(&mut sockets, &mut port_client_handle_map, &mut send_queue, port);
-                        next_poll = None;
+                        poll_now = true;
                     }
-                    Event::VirtualDeviceFed(PortProtocol::Udp) => next_poll = None,
+                    Event::VirtualDeviceFed(PortProtocol::Udp) => poll_now = true,
                     _ => {}
                 }
             }
@@ -154,6 +162,59 @@ mod tests {
         remove_client(&mut sockets, &mut handles, &mut queues, first);
         assert_eq!(sockets.iter().count(), 1, "cleanup is idempotent");
     }
+    /// Run `interface` while `exchange` drives it, counting how often the interface task is polled.
+    ///
+    /// # Cancel safety:
+    /// NOT cancel-safe: `exchange` must shut the bus down so the interface returns.
+    async fn run_counting_polls<F: std::future::Future>(
+        interface: DynamicUdpInterface,
+        polls: &std::sync::atomic::AtomicUsize,
+        exchange: F,
+    ) -> (anyhow::Result<()>, F::Output) {
+        let mut run = std::pin::pin!(interface.run());
+        let counted = std::future::poll_fn(|cx| {
+            polls.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            run.as_mut().poll(cx)
+        });
+        tokio::join!(counted, exchange)
+    }
+
+    /// # Cancel safety:
+    /// NOT cancel-safe: the interface is shut down only after the exchange.
+    #[tokio::test(flavor = "current_thread")]
+    async fn idle_association_does_not_keep_the_interface_polling() {
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        let bus = Bus::new();
+        let mut observer = bus.new_endpoint();
+        let interface = DynamicUdpInterface::new(bus.clone(), "10.77.0.2".parse().expect("source"), None, 1280);
+        let target = crate::ports::PortForwardConfig {
+            destination: "10.77.0.1:41002".parse().expect("target"),
+            protocol: PortProtocol::Udp,
+        };
+        bus.new_endpoint().send(Event::LocalData(
+            target,
+            VirtualPort::new(1000, PortProtocol::Udp),
+            Bytes::from_static(b"q"),
+        ));
+        let polls = AtomicUsize::new(0);
+
+        let (run, idle_polls) = run_counting_polls(interface, &polls, async {
+            tokio::time::timeout(Duration::from_secs(1), async {
+                while !matches!(observer.recv().await, Event::OutboundInternetPacket(_)) {}
+            })
+            .await
+            .expect("the datagram goes out");
+            let before = polls.load(Ordering::Relaxed);
+            tokio::time::sleep(Duration::from_millis(200)).await;
+            let idle_polls = polls.load(Ordering::Relaxed) - before;
+            bus.shutdown();
+            idle_polls
+        })
+        .await;
+        run.expect("interface exits on shutdown");
+        assert!(idle_polls < 10, "an idle association polled the interface {idle_polls} times in 200 ms");
+    }
+
     /// # Cancel safety:
     /// NOT cancel-safe: the interface is shut down only after the exchange.
     #[tokio::test]
