@@ -1,11 +1,13 @@
 package com.poyka.ripdpi.services.lua
 
 import android.content.Context
+import android.util.AtomicFile
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import java.io.File
+import java.io.IOException
 import java.nio.file.Path
 
 object LuaAssetManager {
@@ -35,9 +37,8 @@ object LuaAssetManager {
             extractAssetFile(context, targetDir, fileName)
         }
         extractAssetFile(context, targetDir, manifest.licenseFile)
-        context.assets.open("$AssetDirectory/$ManifestFileName").use { input ->
-            File(targetDir, ManifestFileName).outputStream().use(input::copyTo)
-        }
+        // The manifest goes last: it marks the install complete only after every file is in place.
+        writeAtomically(context, File(targetDir, ManifestFileName), "$AssetDirectory/$ManifestFileName")
     }
 
     private fun extractAssetFile(
@@ -49,8 +50,23 @@ object LuaAssetManager {
         if (target.exists()) {
             target.copyTo(File(targetDir, "$fileName$UserBackupSuffix"), overwrite = true)
         }
-        context.assets.open("$AssetDirectory/$fileName").use { input ->
-            target.outputStream().use(input::copyTo)
+        writeAtomically(context, target, "$AssetDirectory/$fileName")
+    }
+
+    /** fsync + rename, so a kill mid-write leaves the previous file instead of a truncated one. */
+    private fun writeAtomically(
+        context: Context,
+        target: File,
+        assetPath: String,
+    ) {
+        val atomicFile = AtomicFile(target)
+        val output = atomicFile.startWrite()
+        try {
+            context.assets.open(assetPath).use { input -> input.copyTo(output) }
+            atomicFile.finishWrite(output)
+        } catch (error: IOException) {
+            atomicFile.failWrite(output)
+            throw error
         }
     }
 
@@ -61,8 +77,9 @@ object LuaAssetManager {
 
     private fun readInstalledManifest(targetDir: File): LuaManifest? {
         val manifest = File(targetDir, ManifestFileName)
+        // An unreadable manifest counts as not installed, so the next call re-extracts.
         return if (manifest.isFile) {
-            parseManifest(manifest.readText())
+            runCatching { parseManifest(manifest.readText()) }.getOrNull()
         } else {
             null
         }
