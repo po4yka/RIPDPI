@@ -13,6 +13,8 @@
 //! `scripts/ci/refresh_mozilla_ca_bundle.sh` — CI fails once the snapshot is
 //! older than the freshness window.
 
+use std::sync::OnceLock;
+
 use boring::ssl::SslConnectorBuilder;
 use boring::x509::X509;
 
@@ -26,12 +28,24 @@ static MOZILLA_CA_PEM: &[u8] = include_bytes!("../ca-bundle/mozilla-ca.pem");
 /// skips any cert that fails to parse so a single malformed entry doesn't
 /// disable TLS verification wholesale.
 pub(crate) fn seed_default_trust(builder: &mut SslConnectorBuilder) -> Result<(), Error> {
-    let certificates = X509::stack_from_pem(MOZILLA_CA_PEM)?;
     let store = builder.cert_store_mut();
-    for cert in certificates {
-        let _ = store.add_cert(cert);
+    for cert in mozilla_roots()? {
+        let _ = store.add_cert(cert.clone());
     }
     Ok(())
+}
+
+static MOZILLA_ROOTS: OnceLock<Vec<X509>> = OnceLock::new();
+
+/// The bundle parsed once per process. Every connection builds a fresh
+/// `SslConnectorBuilder`, and a full parse costs milliseconds of CPU on the
+/// calling async worker; a clone is a reference-count increment.
+fn mozilla_roots() -> Result<&'static [X509], Error> {
+    if let Some(roots) = MOZILLA_ROOTS.get() {
+        return Ok(roots);
+    }
+    let parsed = X509::stack_from_pem(MOZILLA_CA_PEM)?;
+    Ok(MOZILLA_ROOTS.get_or_init(|| parsed))
 }
 
 #[cfg(test)]
@@ -47,6 +61,14 @@ mod tests {
              scripts/ci/refresh_mozilla_ca_bundle.sh to refresh",
             certs.len(),
         );
+    }
+
+    #[test]
+    fn bundle_is_parsed_once_per_process() {
+        let first = mozilla_roots().expect("roots");
+        let second = mozilla_roots().expect("roots");
+        assert!(std::ptr::eq(first, second), "the second call must reuse the first parse");
+        assert_eq!(first.len(), X509::stack_from_pem(MOZILLA_CA_PEM).expect("bundle parses").len());
     }
 
     #[test]
