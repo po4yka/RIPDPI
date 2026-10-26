@@ -251,7 +251,14 @@ open class RootHelperManager
                     val nonceFile = File(context.filesDir, NONCE_FILE_NAME)
 
                     removeStaleIpcFiles(socket, nonceFile)
-                    reapPredecessorHelpersOnce()
+                    // A helper from an earlier app process is not our child and has no owner-death exit,
+                    // and this process never learns its socket path, so stop() cannot reach it.
+                    if (!predecessorsReaped) {
+                        predecessorsReaped = true
+                        runCatching { rootProcessTerminator() }.onFailure { error ->
+                            log.w(error) { "failed to terminate root helpers from an earlier app process" }
+                        }
+                    }
                     writeSessionNonce(nonceFile, generateSessionNonce())
 
                     for (attempt in processLaunchAttempts(binary, socket, nonceFile)) {
@@ -295,19 +302,6 @@ open class RootHelperManager
                     null
                 }
             }
-
-        /**
-         * A helper from an earlier app process is not our child and has no owner-death exit, so this
-         * process never learns its socket path and stop() cannot reach it. Kill such orphans once,
-         * before this process launches its first helper.
-         */
-        private fun reapPredecessorHelpersOnce() {
-            if (predecessorsReaped) return
-            predecessorsReaped = true
-            runCatching { rootProcessTerminator() }.onFailure { error ->
-                log.w(error) { "failed to terminate root helpers from an earlier app process" }
-            }
-        }
 
         /** Stop the root helper process and clean up. */
         open fun stop() {
