@@ -60,21 +60,25 @@ mod tests {
         (stream, listener)
     }
 
-    fn attached_filter_len(stream: &TcpStream) -> libc::socklen_t {
-        let mut len: libc::socklen_t = 0;
-        // SAFETY: `stream` owns a live socket fd for the call; a null optval with a zero
-        // optlen asks the kernel only for the attached program's instruction count in `len`.
+    /// Reads back the attached classic BPF program (SO_GET_FILTER shares the
+    /// SO_ATTACH_FILTER option number). The kernel takes and returns the length in
+    /// instructions, and returns 0 on success.
+    fn attached_filter(stream: &TcpStream) -> Vec<libc::sock_filter> {
+        let mut insns = [libc::sock_filter { code: 0, jt: 0, jf: 0, k: 0 }; 16];
+        let mut len = insns.len() as libc::socklen_t;
+        // SAFETY: `stream` owns a live socket fd for the call; `insns` is a writable
+        // buffer of `len` sock_filter entries, which is the unit SO_GET_FILTER uses.
         let rc = unsafe {
             libc::getsockopt(
                 stream.as_raw_fd(),
                 libc::SOL_SOCKET,
                 libc::SO_ATTACH_FILTER,
-                std::ptr::null_mut(),
+                insns.as_mut_ptr().cast(),
                 &mut len,
             )
         };
         assert_eq!(rc, 0, "SO_GET_FILTER: {}", std::io::Error::last_os_error());
-        len
+        insns[..len as usize].to_vec()
     }
 
     fn policy(drop_sack: bool, strip_timestamps: bool) -> RouteConnectPolicy {
@@ -92,12 +96,14 @@ mod tests {
 
     #[test]
     fn strip_timestamps_does_not_replace_the_drop_sack_filter() {
-        let (drop_sack_only, _a) = connected_stream();
-        apply_group_socket_options(&drop_sack_only, &policy(true, false)).expect("drop-SACK filter");
-        let (both, _b) = connected_stream();
+        let (both, _listener) = connected_stream();
 
         apply_group_socket_options(&both, &policy(true, true)).expect("both filters requested");
 
-        assert_eq!(attached_filter_len(&both), attached_filter_len(&drop_sack_only), "drop-SACK must stay attached");
+        // drop-SACK checks data offset >= 0x0b and option byte 0x22; the timestamp
+        // program checks 0x08 and 0x14 instead, so these k values tell them apart.
+        let filter = attached_filter(&both);
+        assert_eq!(filter.len(), 7, "a filter must stay attached");
+        assert_eq!((filter[2].k, filter[3].k), (0x0b, 0x22), "drop-SACK must stay attached");
     }
 }
