@@ -1500,6 +1500,67 @@ class VpnServiceRuntimeCoordinatorTest {
         }
 
     @Test
+    fun vpnConsentRevocationIsPublishedWhileTransportFailoverHoldsTheLifecycleMutex() =
+        runTest {
+            val stopGate = CompletableDeferred<Unit>()
+            var runtimeIndex = 0
+            val target = TransportFailoverTarget(RelayKindVlessReality, "reserve-profile")
+            val env =
+                newEnv(
+                    resolutions =
+                        listOf(
+                            sampleResolution(mode = Mode.VPN, policySignature = "initial"),
+                            sampleResolution(
+                                mode = Mode.VPN,
+                                policySignature = "transport-failover",
+                                proxyPreferences =
+                                    RipDpiProxyUIPreferences(
+                                        relay =
+                                            RipDpiRelayConfig(
+                                                enabled = true,
+                                                kind = target.transportKind,
+                                                profileId = target.profileId,
+                                            ),
+                                    ),
+                            ),
+                        ),
+                    runtimeFactory = { events ->
+                        TestProxyRuntime(events).also { runtime ->
+                            if (runtimeIndex++ == 0) runtime.beforeStop = { stopGate.await() }
+                        }
+                    },
+                    relayRuntimeConfig =
+                        sampleResolvedRelayConfig(
+                            kind = target.transportKind,
+                            profileId = target.profileId,
+                        ).copy(udpEnabled = true),
+                )
+            env.startCaptured()
+            runCurrent()
+            val requestId = env.transportFailoverApplyTracker.begin()
+            backgroundScope.launch { env.coordinator.restartAfterTransportFailover(requestId, target) }
+            runCurrent()
+
+            env.permissionWatchdog.emit(
+                PermissionChangeEvent(kind = PermissionChangeEvent.KIND_VPN_CONSENT, detectedAt = 2_000L),
+            )
+            runCurrent()
+
+            val failure = env.store.eventHistory.last() as ServiceEvent.Failed
+            assertEquals(FailureReason.PermissionLost("VPN"), failure.reason)
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertNotNull(env.runtimeRegistry.current(Mode.VPN))
+
+            stopGate.complete(Unit)
+            repeat(3) { runCurrent() }
+
+            assertEquals(AppStatus.Halted to Mode.VPN, env.store.status.value)
+            assertTrue(env.store.eventHistory.last() is ServiceEvent.Failed)
+            assertNull(env.runtimeRegistry.current(Mode.VPN))
+            assertTrue(env.tunnelProvider.session.closed)
+        }
+
+    @Test
     fun localNetworkRevocationStopsOnlyDependentVpnRuntime() =
         runTest {
             val env =
