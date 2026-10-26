@@ -24,6 +24,7 @@ import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import java.io.File
 import java.io.IOException
+import java.io.InputStream
 import java.security.SecureRandom
 import java.util.Base64
 import java.util.concurrent.TimeUnit
@@ -364,12 +365,7 @@ open class RootHelperManager
             val assetPath = "bin/$abi/$HELPER_BINARY_NAME"
             val targetFile = File(context.filesDir, HELPER_BINARY_NAME)
 
-            context.assets.open(assetPath).use { input ->
-                targetFile.outputStream().use { output ->
-                    input.copyTo(output)
-                }
-            }
-            targetFile.setExecutable(true, true)
+            context.assets.open(assetPath).use { input -> installRootHelperBinary(input, targetFile) }
             log.d { "extracted root helper binary: $assetPath -> ${targetFile.absolutePath}" }
             return targetFile
         }
@@ -508,5 +504,24 @@ internal fun RootHelperManager.stopOnDestroy() {
         stop()
     } catch (error: RuntimeCleanupPendingException) {
         Logger.withTag("RootHelperManager").w(error) { "root helper retains pending cleanup after service destruction" }
+    }
+}
+
+/**
+ * Writes the helper binary to a pending file and renames it over [target]. A helper that is still
+ * running keeps executing the old inode; an in-place write would fail with ETXTBSY instead.
+ */
+internal fun installRootHelperBinary(
+    input: InputStream,
+    target: File,
+) {
+    val pending = File(target.parentFile, "${target.name}.pending")
+    try {
+        pending.outputStream().use(input::copyTo)
+        if (!pending.setExecutable(true, true) || !pending.renameTo(target)) {
+            throw IOException("Cannot install root helper binary")
+        }
+    } finally {
+        pending.delete()
     }
 }

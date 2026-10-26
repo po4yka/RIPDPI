@@ -2,7 +2,9 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.RootSettingsSection
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -29,6 +31,21 @@ class RootHelperManagerTest {
     @Test
     fun `root helper has one process scoped DI owner`() {
         assertTrue(RootHelperManager::class.java.isAnnotationPresent(Singleton::class.java))
+    }
+
+    @Test
+    fun `helper binary install replaces the file without writing the running inode`() {
+        val target = File(RuntimeEnvironment.getApplication().filesDir, "ripdpi-root-helper-install-test")
+        target.writeBytes(byteArrayOf(1, 1, 1))
+        target.inputStream().use { runningImage ->
+            installRootHelperBinary(ByteArrayInputStream(byteArrayOf(2, 2, 2, 2)), target)
+
+            assertArrayEquals("the old inode is left intact", byteArrayOf(1, 1, 1), runningImage.readBytes())
+        }
+        assertArrayEquals(byteArrayOf(2, 2, 2, 2), target.readBytes())
+        assertTrue(target.canExecute())
+        assertFalse(File(target.parentFile, "${target.name}.pending").exists())
+        target.delete()
     }
 
     @Test
