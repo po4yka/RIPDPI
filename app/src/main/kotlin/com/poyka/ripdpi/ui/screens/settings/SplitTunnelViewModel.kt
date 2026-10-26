@@ -15,7 +15,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -60,21 +59,21 @@ class SplitTunnelViewModel
         val installedApps: StateFlow<List<InstalledAppItem>> = installedAppsState
 
         init {
-            viewModelScope.launch {
+            launchSettingsWrite {
                 installedAppsState.value = installedAppCatalog.installedApps()
             }
         }
 
         /** Persists the active split-tunnel [mode] ("off" | "include" | "exclude"). */
         fun setMode(mode: String) {
-            viewModelScope.launch {
+            launchSettingsWrite {
                 appSettingsRepository.update { splitTunnelMode = mode }
             }
         }
 
         /** Replaces the selected package set for the active mode. */
         fun setSelectedPackages(packages: Set<String>) {
-            viewModelScope.launch {
+            launchSettingsWrite {
                 appSettingsRepository.update {
                     clearSplitTunnelPackages()
                     addAllSplitTunnelPackages(packages)

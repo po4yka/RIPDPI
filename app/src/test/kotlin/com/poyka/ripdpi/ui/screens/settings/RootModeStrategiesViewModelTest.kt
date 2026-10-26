@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
+import com.poyka.ripdpi.data.AppSettingsRepository
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RootAccessResult
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CompletableDeferred
@@ -13,10 +15,35 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
+import java.io.IOException
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class RootModeStrategiesViewModelTest {
     @get:Rule val mainDispatcherRule = MainDispatcherRule()
+
+    @Test
+    fun `a failed settings write does not crash or start the root check`() =
+        runTest {
+            var checks = 0
+            val failingRepository =
+                object : AppSettingsRepository by FakeAppSettingsRepository() {
+                    override suspend fun update(transform: AppSettings.Builder.() -> Unit) =
+                        throw IOException("No space left on device")
+                }
+            val viewModel =
+                RootModeStrategiesViewModel(failingRepository) {
+                    checks++
+                    RootAccessResult.Granted
+                }
+            backgroundScope.launch { viewModel.uiState.collect {} }
+
+            viewModel.setRootModeEnabled(true)
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.rootModeEnabled)
+            assertEquals(RootAccessState.NotChecked, viewModel.uiState.value.rootAccess)
+            assertEquals(0, checks)
+        }
 
     @Test
     fun `root mode choice is persisted`() =

@@ -10,6 +10,7 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -20,6 +21,20 @@ import org.junit.Test
 class DomainBypassListViewModelTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
+
+    @Test
+    fun `a failed move to the rule editor reports failure instead of crashing`() =
+        runTest {
+            val existing = RuleEntity(id = 4L, name = DomainBypassList.ManagedBypassRuleName, domains = "a.example")
+            // The fake DAO's update() throws, like a Room write that fails.
+            val viewModel = DomainBypassListViewModel(RuleRepository(FakeRuleDao(existing = existing)))
+            val results = mutableListOf<Boolean>()
+
+            viewModel.moveToRuleEditor("Moved") { results += it }
+            advanceUntilIdle()
+
+            assertEquals(listOf(false), results)
+        }
 
     @Test
     fun `repository refresh does not replace unsaved draft`() =

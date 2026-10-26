@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.rules.DomainBypassList
 import com.poyka.ripdpi.data.rules.RuleRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -9,7 +8,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
@@ -36,7 +34,7 @@ class DomainBypassListViewModel
         val uiState: StateFlow<DomainBypassListUiState> = _uiState.asStateFlow()
 
         init {
-            viewModelScope.launch {
+            launchSettingsWrite {
                 ruleRepository.domainBypassRule().collect { rule ->
                     _uiState.update { current ->
                         if (current.isDraftInitialized) {
@@ -69,7 +67,7 @@ class DomainBypassListViewModel
         /** Compiles and persists the retained draft as the single managed bypass rule. */
         fun save(onSaved: (savedCount: Int) -> Unit) {
             if (!_uiState.value.isDraftInitialized) return
-            viewModelScope.launch {
+            launchSettingsWrite {
                 val result = ruleRepository.saveDomainBypassList(_uiState.value.text)
                 if (result.cleanLines.isNotEmpty() || result.errors.isEmpty()) {
                     onSaved(result.cleanLines.size)
@@ -82,7 +80,7 @@ class DomainBypassListViewModel
             displayName: String,
             onResult: (moved: Boolean) -> Unit,
         ) {
-            viewModelScope.launch {
+            launchSettingsWrite(onFailure = { onResult(false) }) {
                 onResult(ruleRepository.moveDomainBypassListToEditor(displayName))
             }
         }

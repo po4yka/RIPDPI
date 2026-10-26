@@ -37,7 +37,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
-import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 data class RootModeStrategiesUiState(
@@ -76,11 +75,11 @@ class RootModeStrategiesViewModel
             // A newer toggle replaces the previous one, so a check still running cannot report a stale result.
             rootModeChange?.cancel()
             rootModeChange =
-                viewModelScope.launch {
+                launchSettingsWrite {
                     appSettingsRepository.update { rootModeEnabled = enabled }
                     if (!enabled) {
                         rootAccess.value = RootAccessState.NotChecked
-                        return@launch
+                        return@launchSettingsWrite
                     }
                     // The check runs only after the user turns root mode on, because it can open the root prompt.
                     rootAccess.value = RootAccessState.Checking
