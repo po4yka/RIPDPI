@@ -103,6 +103,48 @@ fn build_https_response_with_odoh_config(ttl_secs: u32, config_bytes: Vec<u8>) -
     response.to_vec().expect("response serializes")
 }
 
+#[test]
+fn odoh_configs_skip_entries_with_a_foreign_suite_or_layout() {
+    // A P-256 (KEM 0x0010) entry with a 65-byte key, then a version 0x0002
+    // entry whose contents use another layout, then the supported entry.
+    let mut p256_contents = vec![0x00, 0x10, 0x00, 0x01, 0x00, 0x01, 0x00, 0x41];
+    p256_contents.extend([0x04; 65]);
+    let foreign = [config_entry(0x0001, &p256_contents), config_entry(0x0002, &[0xaa, 0xbb, 0xcc])];
+    let supported = odoh_configs()[2..].to_vec();
+
+    let resolved = OdohConfigSource::CustomBytes {
+        configs_wire: config_list(&[&foreign[0], &foreign[1], &supported]),
+        retrieved_at_secs: 1_000,
+        ttl_secs: 3_600,
+    }
+    .resolve_at(1_001)
+    .expect("the supported entry is used");
+    assert_eq!(resolved.target_config().key_id(), hex_bytes(KEY_ID).as_slice());
+
+    let error = OdohConfigSource::CustomBytes {
+        configs_wire: config_list(&[&foreign[0], &foreign[1]]),
+        retrieved_at_secs: 1_000,
+        ttl_secs: 3_600,
+    }
+    .resolve_at(1_001)
+    .expect_err("no entry is supported");
+    assert!(matches!(error, OdohError::NoSupportedConfig), "error: {error}");
+}
+
+fn config_entry(version: u16, contents: &[u8]) -> Vec<u8> {
+    let mut entry = version.to_be_bytes().to_vec();
+    entry.extend(u16::try_from(contents.len()).expect("fixture length fits").to_be_bytes());
+    entry.extend(contents);
+    entry
+}
+
+fn config_list(entries: &[&[u8]]) -> Vec<u8> {
+    let body = entries.concat();
+    let mut list = u16::try_from(body.len()).expect("fixture length fits").to_be_bytes().to_vec();
+    list.extend(body);
+    list
+}
+
 fn unsupported_then_supported_configs() -> Vec<u8> {
     let configs = odoh_configs();
     let supported_entry = &configs[2..];

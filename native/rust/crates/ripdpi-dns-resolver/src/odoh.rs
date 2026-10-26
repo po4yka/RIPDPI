@@ -1,7 +1,7 @@
 use bytes::Bytes;
 use odoh_rs::{
-    ObliviousDoHConfigContents, ObliviousDoHConfigs, ObliviousDoHMessage, ObliviousDoHMessagePlaintext, OdohSecret,
-    compose, decrypt_response, encrypt_query, parse,
+    ODOH_VERSION, ObliviousDoHConfigContents, ObliviousDoHMessage, ObliviousDoHMessagePlaintext, OdohSecret, compose,
+    decrypt_response, encrypt_query, parse,
 };
 use thiserror::Error;
 
@@ -138,13 +138,26 @@ pub struct OdohTargetConfig {
 }
 
 impl OdohTargetConfig {
+    /// Picks the first supported entry of an `ObliviousDoHConfigs` list. Entries
+    /// with another version, KEM, KDF or AEAD are skipped (RFC 9230 5); odoh-rs
+    /// would fail the whole list on the first one, so the list is split here and
+    /// only version 0x0001 contents are handed to it.
     pub fn parse_configs(configs_wire: &[u8]) -> Result<Self, OdohError> {
-        let mut configs_bytes: Bytes = configs_wire.to_vec().into();
-        let configs: ObliviousDoHConfigs = parse(&mut configs_bytes)?;
-        let contents: ObliviousDoHConfigContents =
-            configs.supported().into_iter().next().ok_or(OdohError::NoSupportedConfig)?.into();
-        let key_id = contents.identifier()?;
-        Ok(Self { contents, key_id })
+        let mut list = read_u16_prefixed(configs_wire).ok_or(odoh_rs::Error::ShortInput)?;
+        while !list.is_empty() {
+            let (version, rest) = list.split_at_checked(2).ok_or(odoh_rs::Error::ShortInput)?;
+            let contents = read_u16_prefixed(rest).ok_or(odoh_rs::Error::ShortInput)?;
+            list = &rest[2 + contents.len()..];
+            if u16::from_be_bytes([version[0], version[1]]) != ODOH_VERSION {
+                continue;
+            }
+            let mut contents_bytes = Bytes::copy_from_slice(contents);
+            if let Ok(contents) = parse::<ObliviousDoHConfigContents, _>(&mut contents_bytes) {
+                let key_id = contents.identifier()?;
+                return Ok(Self { contents, key_id });
+            }
+        }
+        Err(OdohError::NoSupportedConfig)
     }
 
     pub fn key_id(&self) -> &[u8] {
@@ -162,6 +175,12 @@ impl OdohTargetConfig {
             context: OdohQueryContext { plaintext, secret },
         })
     }
+}
+
+/// The bytes of a `u16`-length-prefixed field at the start of `input`.
+fn read_u16_prefixed(input: &[u8]) -> Option<&[u8]> {
+    let (length, rest) = input.split_at_checked(2)?;
+    rest.get(..usize::from(u16::from_be_bytes([length[0], length[1]])))
 }
 
 #[derive(Debug, Clone)]
