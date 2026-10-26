@@ -20,7 +20,7 @@ use crate::client::AsyncIo;
 use crate::config::MasqueConfig;
 use crate::request::apply_request_headers;
 use crate::response::{AttemptError, validate_connect_udp_response, validate_proxy_response};
-use crate::tls::{apply_h2_client_auth, apply_h2_root_certificate};
+use crate::tls::{apply_h2_client_auth, apply_h2_root_certificate, ech_setup};
 use crate::udp::{MasqueUdpFlow, MasqueUdpSender};
 use crate::url::{ProxyOrigin, TargetAuthority, build_connect_udp_path, parse_proxy_origin, resolve_proxy_socket_addr};
 
@@ -145,7 +145,7 @@ where
     let mut ssl = connector
         .configure()
         .map_err(|error| io::Error::other(format!("failed to configure H2 TLS profile: {error}")))?;
-    ripdpi_tls_profiles::configure_boring_ech(&mut ssl, config.ech_config.as_ref())
+    ripdpi_tls_profiles::configure_ech(&mut ssl, &ech_setup(config))
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("MASQUE H2 ECH: {error}")))?;
     let tls = tokio_boring::connect(ssl, &proxy_origin.host, transport).await.map_err(|error| {
         if config.ech_config.is_some() && error.ssl().is_some_and(|ssl| ssl.get_ech_retry_configs().is_some()) {
@@ -207,7 +207,7 @@ pub(crate) async fn attempt_h2_connect_udp(
     let mut ssl = connector
         .configure()
         .map_err(|error| io::Error::other(format!("failed to configure H2 TLS profile: {error}")))?;
-    ripdpi_tls_profiles::configure_boring_ech(&mut ssl, config.ech_config.as_ref())
+    ripdpi_tls_profiles::configure_ech(&mut ssl, &ech_setup(config))
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("MASQUE H2 ECH: {error}")))?;
     let tls = tokio_boring::connect(ssl, &proxy_origin.host, tcp).await.map_err(|error| {
         if config.ech_config.is_some() && error.ssl().is_some_and(|ssl| ssl.get_ech_retry_configs().is_some()) {

@@ -3,16 +3,34 @@ use std::sync::Arc;
 
 use bytes::Bytes;
 use rustls::RootCertStore;
-use rustls::client::{EchConfig, EchMode};
-use rustls::pki_types::EchConfigListBytes;
 
 use super::socket::{build_client_udp_socket, maybe_rebind_quic_endpoint};
 use crate::config::MasqueConfig;
 use crate::response::AttemptError;
-use crate::tls::{apply_h3_root_certificate, load_client_identity};
+use crate::tls::{apply_h3_root_certificate, ech_setup, load_client_identity};
 use crate::url::{parse_proxy_origin, resolve_proxy_socket_addr};
 
 pub(crate) const H3_MTU_DISCOVERY_UPPER_BOUND: u16 = 1_452;
+
+/// The rustls config of the H3 proxy handshake, with the published ECH config
+/// or GREASE ECH (aws-lc-rs supplies the HPKE suites for both).
+pub(crate) fn h3_tls_config(config: &MasqueConfig, roots: RootCertStore) -> io::Result<rustls::ClientConfig> {
+    let builder = ripdpi_tls_profiles::configure_rustls_ech(
+        rustls::ClientConfig::builder_with_provider(rustls::crypto::aws_lc_rs::default_provider().into()),
+        &ech_setup(config),
+    )
+    .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid MASQUE ECH config: {error}")))?
+    .with_root_certificates(roots);
+    let mut tls_config = if let Some((certificates, private_key)) = load_client_identity(config)? {
+        builder
+            .with_client_auth_cert(certificates, private_key)
+            .map_err(|error| io::Error::other(format!("failed to configure MASQUE client identity: {error}")))?
+    } else {
+        builder.with_no_client_auth()
+    };
+    tls_config.alpn_protocols = vec![b"h3".to_vec()];
+    Ok(tls_config)
+}
 
 pub(super) async fn connect_h3_transport(
     config: &MasqueConfig,
@@ -29,31 +47,7 @@ pub(super) async fn connect_h3_transport(
     let mut roots = RootCertStore::empty();
     roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
     apply_h3_root_certificate(&mut roots, config)?;
-    let tls_config = if let Some(ech_config) = config.ech_config.as_ref() {
-        let provider = rustls::crypto::aws_lc_rs::default_provider();
-        let ech = EchConfig::new(
-            EchConfigListBytes::from(ech_config.config_list.clone()),
-            rustls::crypto::aws_lc_rs::hpke::ALL_SUPPORTED_SUITES,
-        )
-        .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid MASQUE ECH config: {error}")))?;
-        rustls::ClientConfig::builder_with_provider(provider.into())
-            .with_ech(EchMode::Enable(ech))
-            .map_err(|error| io::Error::other(format!("failed to enable MASQUE ECH: {error}")))?
-            .with_root_certificates(roots)
-    } else {
-        rustls::ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
-            .with_safe_default_protocol_versions()
-            .expect("ring provider supports default TLS versions")
-            .with_root_certificates(roots)
-    };
-    let mut tls_config = if let Some((certificates, private_key)) = load_client_identity(config)? {
-        tls_config
-            .with_client_auth_cert(certificates, private_key)
-            .map_err(|error| io::Error::other(format!("failed to configure MASQUE client identity: {error}")))?
-    } else {
-        tls_config.with_no_client_auth()
-    };
-    tls_config.alpn_protocols = vec![b"h3".to_vec()];
+    let tls_config = h3_tls_config(config, roots)?;
 
     let mut quic_config = quinn::ClientConfig::new(Arc::new(
         quinn::crypto::rustls::QuicClientConfig::try_from(tls_config)

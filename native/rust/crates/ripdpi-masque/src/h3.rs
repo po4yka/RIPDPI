@@ -8,3 +8,5 @@ pub(crate) use connect_udp::attempt_h3_connect_udp;
 pub(crate) use datagram::decode_udp_payload;
 #[cfg(test)]
 pub(crate) use transport::H3_MTU_DISCOVERY_UPPER_BOUND;
+#[cfg(test)]
+pub(crate) use transport::h3_tls_config;

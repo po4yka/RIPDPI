@@ -4,6 +4,11 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer, pem::PemObject};
 
 use crate::config::MasqueConfig;
 
+/// The ECH setup for the proxy handshake: the published config, else GREASE.
+pub(crate) fn ech_setup(config: &MasqueConfig) -> ripdpi_tls_profiles::EchSetup {
+    config.ech_config.clone().map_or(ripdpi_tls_profiles::EchSetup::Grease, ripdpi_tls_profiles::EchSetup::Real)
+}
+
 pub(crate) fn load_client_identity(
     config: &MasqueConfig,
 ) -> io::Result<Option<(Vec<CertificateDer<'static>>, PrivateKeyDer<'static>)>> {

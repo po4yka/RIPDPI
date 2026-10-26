@@ -69,7 +69,9 @@ pub struct MasqueConfig {
     pub quic_bind_low_port: bool,
     /// Rebind the owned QUIC transport after the handshake so Quinn performs RFC 9000 path validation.
     pub quic_migrate_after_handshake: bool,
-    /// Optional ECH config for owned MASQUE outbounds.
+    /// Optional ECH config for owned MASQUE outbounds. `None` sends GREASE ECH:
+    /// the bootstrap lookup returns `None` for both "not published" and a failed
+    /// lookup, and RFC 9849 6.2.1 says a client SHOULD then send GREASE.
     pub ech_config: Option<OutboundEchConfig>,
 }
 

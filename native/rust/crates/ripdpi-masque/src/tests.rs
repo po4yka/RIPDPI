@@ -212,6 +212,80 @@ fn new_client_starts_with_not_attempted_quic_snapshot() {
     assert_eq!((Some("not_attempted".to_string()), None), client.quic_migration_snapshot(),);
 }
 
+fn grease_test_config(tcp_protocol: MasqueTcpProtocol) -> MasqueConfig {
+    MasqueConfig {
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        url: "https://masque.example/".to_string(),
+        proxy_socket_addr: None,
+        tcp_protocol,
+        use_http2_fallback: true,
+        auth_mode: None,
+        auth_token: None,
+        client_certificate_chain_pem: None,
+        client_private_key_pem: None,
+        cloudflare_geohash_header: None,
+        privacy_pass_provider_url: None,
+        privacy_pass_provider_auth_token: None,
+        tls_fingerprint_profile: "chrome_stable".to_string(),
+        root_certificate_pem: None,
+        quic_bind_low_port: false,
+        quic_migrate_after_handshake: false,
+        // What the ECH bootstrap yields when the proxy publishes no ECH config.
+        ech_config: None,
+    }
+}
+
+/// The extension types of the ClientHello in one TLS handshake record.
+fn client_hello_extension_types(record: &[u8]) -> Vec<u16> {
+    let read_u16 = |at: usize| usize::from(u16::from_be_bytes([record[at], record[at + 1]]));
+    // Record header (5), handshake header (4), legacy version (2), random (32).
+    let mut at = 5 + 4 + 2 + 32;
+    at += 1 + usize::from(record[at]);
+    at += 2 + read_u16(at);
+    at += 1 + usize::from(record[at]);
+    let end = at + 2 + read_u16(at);
+    at += 2;
+    let mut types = Vec::new();
+    while at + 4 <= end {
+        types.push(u16::from_be_bytes([record[at], record[at + 1]]));
+        at += 4 + read_u16(at + 2);
+    }
+    types
+}
+
+const ECH_EXTENSION_TYPE: u16 = 0xfe0d;
+
+#[tokio::test]
+async fn h2_proxy_handshake_sends_grease_ech_without_a_published_config() {
+    let config = grease_test_config(MasqueTcpProtocol::Http2);
+    let (client, mut proxy) = tokio::io::duplex(16 * 1024);
+    let attempt = tokio::spawn(async move {
+        let _ = crate::h2::attempt_h2_connect_tcp_over_transport(&config, client, "example.com:443", None).await;
+    });
+
+    let mut header = [0u8; 5];
+    proxy.read_exact(&mut header).await.expect("TLS record header");
+    let mut record = header.to_vec();
+    record.resize(5 + usize::from(u16::from_be_bytes([header[3], header[4]])), 0);
+    proxy.read_exact(&mut record[5..]).await.expect("ClientHello");
+    drop(proxy);
+    attempt.abort();
+
+    assert!(client_hello_extension_types(&record).contains(&ECH_EXTENSION_TYPE), "no encrypted_client_hello");
+}
+
+#[test]
+fn h3_proxy_handshake_sends_grease_ech_without_a_published_config() {
+    let config = grease_test_config(MasqueTcpProtocol::Http3);
+    let tls_config = crate::h3::h3_tls_config(&config, rustls::RootCertStore::empty()).expect("H3 TLS config");
+    let server_name = rustls::pki_types::ServerName::try_from("masque.example").expect("server name");
+    let mut connection = rustls::ClientConnection::new(Arc::new(tls_config), server_name).expect("client");
+    let mut record = Vec::new();
+    connection.write_tls(&mut record).expect("ClientHello");
+
+    assert!(client_hello_extension_types(&record).contains(&ECH_EXTENSION_TYPE), "no encrypted_client_hello");
+}
+
 #[test]
 fn masque_config_accepts_ech_and_boring_h2_backend_can_apply_it() {
     let ech = ripdpi_tls_profiles::OutboundEchConfig::new("ech.com", BORING_ECH_CONFIG_LIST.to_vec()).expect("ech");
