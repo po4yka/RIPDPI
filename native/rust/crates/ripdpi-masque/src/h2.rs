@@ -13,8 +13,7 @@ use tokio::sync::mpsc;
 
 use crate::auth::AuthHeader;
 use crate::capsule::{
-    CapsuleError, CapsuleErrorKind, decode_connect_udp_payload, decode_datagram_capsules, encode_connect_udp_payload,
-    encode_datagram_capsule,
+    CapsuleError, CapsuleReader, decode_connect_udp_payload, encode_connect_udp_payload, encode_datagram_capsule,
 };
 use crate::client::AsyncIo;
 use crate::config::MasqueConfig;
@@ -26,10 +25,6 @@ use crate::url::{ProxyOrigin, TargetAuthority, build_connect_udp_path, parse_pro
 
 pub(crate) fn encode_h2_datagram_capsule(payload: &[u8]) -> Result<Vec<u8>, CapsuleError> {
     encode_datagram_capsule(payload)
-}
-
-pub(crate) fn decode_h2_datagram_capsules(input: &[u8]) -> Result<Vec<Vec<u8>>, CapsuleError> {
-    decode_datagram_capsules(input)
 }
 
 pub(crate) fn build_h2_connect_udp_request(
@@ -258,7 +253,7 @@ pub(crate) async fn attempt_h2_connect_udp(
         }
     });
     let reader_task = tokio::spawn(async move {
-        let mut buffer = Vec::new();
+        let mut capsules = CapsuleReader::default();
         let mut chunk = [0u8; 4096];
         loop {
             let read = match reader.read(&mut chunk).await {
@@ -269,30 +264,19 @@ pub(crate) async fn attempt_h2_connect_udp(
                     break;
                 }
             };
-            buffer.extend_from_slice(&chunk[..read]);
-            match decode_h2_datagram_capsules(&buffer) {
-                Ok(capsules) => {
-                    buffer.clear();
-                    for capsule in capsules {
-                        match decode_connect_udp_payload(&capsule) {
-                            Ok(Some((_, payload))) => {
-                                if incoming_tx.send((target_label.clone(), payload)).await.is_err() {
-                                    return;
-                                }
-                            }
-                            Ok(None) => {
-                                tracing::debug!(target = %target_label, "ignored MASQUE H2 UDP capsule for unsupported context id");
-                            }
-                            Err(error) => {
-                                tracing::debug!(error = %error, target = %target_label, "ignored malformed MASQUE H2 UDP capsule payload");
-                            }
+            for capsule in capsules.push(&chunk[..read]) {
+                match decode_connect_udp_payload(&capsule) {
+                    Ok(Some((_, payload))) => {
+                        if incoming_tx.send((target_label.clone(), payload)).await.is_err() {
+                            return;
                         }
                     }
-                }
-                Err(error) if error.kind() == CapsuleErrorKind::Truncated => {}
-                Err(error) => {
-                    tracing::debug!(error = %error, target = %target_label, "failed to decode MASQUE H2 UDP capsules");
-                    break;
+                    Ok(None) => {
+                        tracing::debug!(target = %target_label, "ignored MASQUE H2 UDP capsule for unsupported context id");
+                    }
+                    Err(error) => {
+                        tracing::debug!(error = %error, target = %target_label, "ignored malformed MASQUE H2 UDP capsule payload");
+                    }
                 }
             }
         }

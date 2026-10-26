@@ -121,6 +121,62 @@ pub fn decode_datagram_capsules(input: &[u8]) -> Result<Vec<Vec<u8>>, CapsuleErr
     Ok(payloads)
 }
 
+/// Largest DATAGRAM capsule value kept: a context ID varint plus the largest
+/// CONNECT-UDP payload. Longer ones are discarded without buffering (RFC 9298 5).
+const MAX_DATAGRAM_CAPSULE_LEN: usize = 8 + MAX_CONNECT_UDP_PAYLOAD_LEN;
+
+/// Incremental reader of a capsule stream (RFC 9297 3.2). It returns each
+/// complete DATAGRAM capsule as soon as its bytes arrive, keeps only the partial
+/// tail, and skips other capsule types and oversized DATAGRAM capsules as they
+/// stream past, so its buffer never exceeds one maximal DATAGRAM capsule.
+#[derive(Debug, Default)]
+pub struct CapsuleReader {
+    buffer: Vec<u8>,
+    /// Bytes of a skipped capsule still to come.
+    skip: u64,
+}
+
+impl CapsuleReader {
+    /// Feeds the next bytes of the stream; returns the DATAGRAM payloads completed by them.
+    pub fn push(&mut self, input: &[u8]) -> Vec<Vec<u8>> {
+        let skipped = usize::try_from(self.skip).unwrap_or(usize::MAX).min(input.len());
+        self.skip -= skipped as u64;
+        self.buffer.extend_from_slice(&input[skipped..]);
+
+        let mut payloads = Vec::new();
+        let mut cursor = 0;
+        while let Some((capsule_type, length, header_len)) = capsule_header(&self.buffer[cursor..]) {
+            let value_start = cursor + header_len;
+            let available = (self.buffer.len() - value_start) as u64;
+            let keep = capsule_type == DATAGRAM_CAPSULE_TYPE && length <= MAX_DATAGRAM_CAPSULE_LEN as u64;
+            if !keep && length > available {
+                self.skip = length - available;
+                cursor = self.buffer.len();
+                break;
+            }
+            if length > available {
+                break;
+            }
+            // Infallible: length <= available, which is a buffer length.
+            let value_end = value_start + length as usize;
+            if keep {
+                payloads.push(self.buffer[value_start..value_end].to_vec());
+            }
+            cursor = value_end;
+        }
+        self.buffer.drain(..cursor);
+        payloads
+    }
+}
+
+/// The type, length and header size of the capsule at the start of `input`, or
+/// `None` while the header is incomplete.
+fn capsule_header(input: &[u8]) -> Option<(u64, u64, usize)> {
+    let (capsule_type, type_len) = decode_quic_varint(input).ok()?;
+    let (length, length_len) = decode_quic_varint(&input[type_len..]).ok()?;
+    Some((capsule_type, length, type_len + length_len))
+}
+
 pub fn encode_http_datagram(quarter_stream_id: u64, payload: &[u8]) -> Result<Vec<u8>, CapsuleError> {
     if quarter_stream_id > MAX_QUARTER_STREAM_ID {
         return Err(CapsuleError::value_too_large("HTTP Datagram quarter stream ID exceeds 60-bit maximum"));
@@ -218,6 +274,41 @@ mod tests {
 
         assert_eq!(encoded, [0x00, 0x00]);
         assert_eq!(decode_datagram_capsules(&encoded).expect("decode"), vec![Vec::<u8>::new()]);
+    }
+
+    #[test]
+    fn capsule_reader_delivers_complete_capsules_before_a_partial_tail() {
+        let first = encode_datagram_capsule(&[0x00, 0x01]).expect("encode");
+        let second = encode_datagram_capsule(&[0x00, 0x02, 0x03]).expect("encode");
+        let mut reader = CapsuleReader::default();
+
+        assert_eq!(reader.push(&[first.clone(), second[..2].to_vec()].concat()), vec![vec![0x00, 0x01]]);
+        assert_eq!(reader.push(&second[2..]), vec![vec![0x00, 0x02, 0x03]]);
+        assert!(reader.buffer.is_empty());
+    }
+
+    #[test]
+    fn capsule_reader_skips_huge_capsules_without_buffering_them() {
+        let mut reader = CapsuleReader::default();
+        // An unknown type and an oversized DATAGRAM, both announcing more than they send.
+        let mut stream = vec![0x21];
+        stream.extend(encode_quic_varint(1 << 40).expect("length"));
+        stream.extend([0xaa; 4096]);
+
+        assert!(reader.push(&stream).is_empty());
+        assert!(reader.buffer.is_empty());
+        assert_eq!(reader.skip, (1 << 40) - 4096);
+
+        let mut reader = CapsuleReader::default();
+        let oversized = (MAX_DATAGRAM_CAPSULE_LEN + 1) as u64;
+        let mut stream = vec![0x00];
+        stream.extend(encode_quic_varint(oversized).expect("length"));
+        stream.extend(vec![0xbb; MAX_DATAGRAM_CAPSULE_LEN + 1]);
+        stream.extend(encode_datagram_capsule(&[0x00, 0x07]).expect("encode"));
+
+        assert_eq!(reader.push(&stream[..1000]), Vec::<Vec<u8>>::new());
+        assert!(reader.buffer.is_empty());
+        assert_eq!(reader.push(&stream[1000..]), vec![vec![0x00, 0x07]]);
     }
 
     #[test]
