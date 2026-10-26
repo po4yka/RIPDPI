@@ -5,8 +5,10 @@ use std::time::{Duration, Instant};
 ///
 /// A half-closed TCP connection stays usable in the open direction (RFC 9293 section 3.6),
 /// so a response that follows a client FIN after a long gap must still reach the client.
-/// The linger only bounds a peer that neither sends nor closes.
-const HALF_CLOSE_LINGER: Duration = Duration::from_secs(300);
+/// The linger only bounds a peer that neither sends nor closes. It matches the relay
+/// idle timeout (60 s), so a half-open relay holds its worker and client slot for at
+/// most about two idle timeouts after the peer EOF while no data flows.
+const HALF_CLOSE_LINGER: Duration = Duration::from_secs(60);
 
 /// Tracks the idle time of one relay direction after the other direction reached EOF.
 #[derive(Default)]
