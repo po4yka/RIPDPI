@@ -5,7 +5,7 @@ use std::time::{Duration, Instant};
 
 use crate::experimental_tier3::{
     IcmpWrappedUdpRecvFilter, IcmpWrappedUdpRole, IcmpWrappedUdpSpec, ReceivedIcmpWrappedUdp,
-    decode_icmp_wrapped_udp_envelope, encode_icmp_wrapped_udp_envelope,
+    encode_icmp_wrapped_udp_envelope, match_received_envelope,
 };
 
 use super::checksum::{checksum_sum, finalize_checksum, icmpv6_checksum};
@@ -24,7 +24,8 @@ pub fn recv_icmp_wrapped_udp(
     let socket = open_icmp_recv_socket(filter.bind_ip)?;
     socket.set_read_timeout(Some(filter.timeout()))?;
     let deadline = Instant::now() + filter.timeout();
-    let mut buf = [MaybeUninit::<u8>::uninit(); 8192];
+    // A whole IP datagram, so the largest envelope is never truncated.
+    let mut buf = vec![MaybeUninit::<u8>::uninit(); usize::from(u16::MAX)];
 
     // Layout identity relied on by the `buf.as_ptr().cast::<u8>()` read below:
     // `MaybeUninit<u8>` is guaranteed by `core` to share `u8`'s size and
@@ -64,18 +65,9 @@ pub fn recv_icmp_wrapped_udp(
         let Some((role, code, payload)) = extract_icmp_envelope(peer_ip, packet) else {
             continue;
         };
-        if filter.expected_code.is_some_and(|expected| expected != code) {
-            continue;
+        if let Some(decoded) = match_received_envelope(&filter, peer_ip, role, code, payload) {
+            return Ok(decoded);
         }
-        if filter.expected_role.is_some_and(|expected| expected != role) {
-            continue;
-        }
-
-        let decoded = decode_icmp_wrapped_udp_envelope(peer_ip, code, payload)?;
-        if filter.session_id.is_some_and(|expected| expected != decoded.session_id) {
-            continue;
-        }
-        return Ok(decoded);
     }
 }
 

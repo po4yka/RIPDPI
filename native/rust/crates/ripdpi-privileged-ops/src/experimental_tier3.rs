@@ -168,6 +168,9 @@ pub fn recv_icmp_wrapped_udp(
 
 #[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
 pub(crate) fn encode_icmp_wrapped_udp_envelope(spec: &IcmpWrappedUdpSpec) -> io::Result<Vec<u8>> {
+    if spec.payload.len() > ICMP_UDP_MAX_PAYLOAD {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "ICMP-wrapped UDP payload does not fit one packet"));
+    }
     let payload_len = u16::try_from(spec.payload.len())
         .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "ICMP-wrapped UDP payload exceeds 65535 bytes"))?;
     let mut encoded = spec.payload.clone();
@@ -223,6 +226,35 @@ pub(crate) fn decode_icmp_wrapped_udp_envelope(
         role: IcmpWrappedUdpRole::from_flags(flags),
         xor_payload: payload_is_xored,
     })
+}
+
+/// Largest envelope payload that fits one IPv4 packet: 65535 total length
+/// minus the 20-byte IPv4, 8-byte ICMP and 14-byte envelope headers.
+const ICMP_UDP_MAX_PAYLOAD: usize = 65_535 - 20 - 8 - 14;
+
+/// Decides whether one received ICMP echo carries a payload for `filter`.
+/// `icmp_role` comes from the ICMP type, the rest from the echo body.
+#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+pub(crate) fn match_received_envelope(
+    filter: &IcmpWrappedUdpRecvFilter,
+    peer_ip: IpAddr,
+    icmp_role: IcmpWrappedUdpRole,
+    icmp_code: u8,
+    payload: &[u8],
+) -> Option<ReceivedIcmpWrappedUdp> {
+    if filter.expected_code.is_some_and(|expected| expected != icmp_code) {
+        return None;
+    }
+    if filter.expected_role.is_some_and(|expected| expected != icmp_role) {
+        return None;
+    }
+    // The raw socket sees every echo for the address, so a body that is not
+    // an envelope (any ping) is skipped, not an error that ends the wait.
+    let decoded = decode_icmp_wrapped_udp_envelope(peer_ip, icmp_code, payload).ok()?;
+    if filter.session_id.is_some_and(|expected| expected != decoded.session_id) {
+        return None;
+    }
+    Some(decoded)
 }
 
 #[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
@@ -294,5 +326,49 @@ mod tests {
         .expect_err("bad magic must fail");
 
         assert_eq!(err.kind(), io::ErrorKind::InvalidData);
+    }
+
+    fn request_spec() -> IcmpWrappedUdpSpec {
+        IcmpWrappedUdpSpec {
+            peer: "203.0.113.10:0".parse().expect("peer"),
+            service_port: 53,
+            payload: b"query".to_vec(),
+            session_id: 0x0102_0304,
+            icmp_code: 199,
+            ttl: 64,
+            role: IcmpWrappedUdpRole::ClientRequest,
+            xor_payload: false,
+        }
+    }
+
+    fn reply_filter() -> IcmpWrappedUdpRecvFilter {
+        IcmpWrappedUdpRecvFilter {
+            bind_ip: "192.0.2.10".parse().expect("ip"),
+            session_id: Some(0x0102_0304),
+            expected_code: None,
+            expected_role: Some(IcmpWrappedUdpRole::ServerReply),
+            timeout_ms: 1_000,
+        }
+    }
+
+    #[test]
+    fn unrelated_echo_traffic_is_skipped_not_an_error() {
+        let peer = "198.51.100.7".parse().expect("ip");
+        for body in [&b"abcdefghijklmnopqrstuvwabcdefghi"[..], b"", b"RDP1\x09short"] {
+            assert!(
+                match_received_envelope(&reply_filter(), peer, IcmpWrappedUdpRole::ServerReply, 0, body).is_none(),
+                "a foreign ping must be skipped"
+            );
+        }
+    }
+
+    #[test]
+    fn encoder_refuses_payloads_that_do_not_fit_one_ipv4_packet() {
+        // 65535 total length - 20 IPv4 - 8 ICMP - 14 envelope header.
+        let fits = IcmpWrappedUdpSpec { payload: vec![0; 65_493], ..request_spec() };
+        assert!(encode_icmp_wrapped_udp_envelope(&fits).is_ok());
+        let too_large = IcmpWrappedUdpSpec { payload: vec![0; 65_494], ..request_spec() };
+        let error = encode_icmp_wrapped_udp_envelope(&too_large).expect_err("an envelope that cannot be sent");
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
     }
 }
