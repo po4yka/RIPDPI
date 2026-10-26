@@ -21,7 +21,8 @@ use super::session::RelaySession;
 const RELAY_IDLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 /// A write that makes no progress this long ends the relay: a peer that stops reading
 /// (a zero window that keeps ACKing persist probes) must not pin the relay threads forever.
-const RELAY_WRITE_STALL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(300);
+/// Unit tests use 1 s so a stalled peer can be shown to end the relay.
+const RELAY_WRITE_STALL_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(if cfg!(test) { 1 } else { 300 });
 
 pub(super) const CONNECTION_FREEZE_MARKER: &str = "connection freeze detected";
 
@@ -354,8 +355,10 @@ mod tests {
         drop(origin);
     }
 
-    #[test]
-    fn relay_bounds_writes_to_a_peer_that_stops_reading() {
+    /// Feeds one relay side while its opposite peer never reads, and returns the relay
+    /// result, how long it took, and how the stalled peer's stream ended.
+    fn relay_with_stalled_peer(stall_client: bool) -> (io::Result<RelaySession>, Duration, io::Result<usize>) {
+        use std::io::{Read, Write};
         use std::net::{Ipv4Addr, TcpListener};
 
         fn pair() -> (TcpStream, TcpStream) {
@@ -365,35 +368,52 @@ mod tests {
         }
         let (client, app) = pair();
         let (upstream, origin) = pair();
-        let probe_client = client.try_clone().expect("client probe");
-        let probe_upstream = upstream.try_clone().expect("upstream probe");
+        let (mut feeder, mut stalled) = if stall_client { (origin, app) } else { (app, origin) };
         let state = RuntimeState::test(crate::runtime::config::RuntimeConfig::default());
         let settings = RelayStreamSettings {
             group: state.relay_group(0).expect("relay group"),
             rotation_seed: state.relay_rotation_seed(0).expect("rotation seed"),
         };
-        let relay = thread::spawn(move || {
-            relay_streams(
-                client,
-                upstream,
-                &state,
-                0,
-                settings,
-                super::super::session::FirstOutboundSession::new().into_relay_session(),
-                None,
-            )
+        feeder.set_write_timeout(Some(Duration::from_millis(500))).expect("feeder timeout");
+        let feed = thread::spawn(move || {
+            let chunk = [0x42u8; 65_536];
+            while feeder.write_all(&chunk).is_ok() {}
         });
-        let deadline = Instant::now() + Duration::from_secs(2);
-        while probe_client.write_timeout().expect("client SO_SNDTIMEO").is_none() && Instant::now() < deadline {
-            thread::sleep(Duration::from_millis(5));
-        }
+        let started = Instant::now();
+        let result = relay_streams(
+            client,
+            upstream,
+            &state,
+            0,
+            settings,
+            super::super::session::FirstOutboundSession::new().into_relay_session(),
+            None,
+        );
+        let elapsed = started.elapsed();
+        feed.join().expect("feeder");
+        stalled.set_read_timeout(Some(Duration::from_secs(2))).expect("drain timeout");
+        let mut sink = [0u8; 65_536];
+        let end = loop {
+            match stalled.read(&mut sink) {
+                Ok(0) => break Ok(0),
+                Ok(_) => {}
+                Err(err) => break Err(err),
+            }
+        };
+        (result, elapsed, end)
+    }
 
-        let client_timeout = probe_client.write_timeout().expect("client SO_SNDTIMEO");
-        let upstream_timeout = probe_upstream.write_timeout().expect("upstream SO_SNDTIMEO");
-        drop((app, origin));
-        let _ = relay.join();
-        // A zero-window peer keeps ACKing probes, so only a send timeout ends a blocked write.
-        assert_eq!(client_timeout, Some(RELAY_WRITE_STALL_TIMEOUT));
-        assert_eq!(upstream_timeout, Some(RELAY_WRITE_STALL_TIMEOUT));
+    #[test]
+    fn relay_ends_when_a_peer_stops_reading() {
+        for stall_client in [true, false] {
+            let (result, elapsed, end) = relay_with_stalled_peer(stall_client);
+            // A zero-window peer keeps ACKing probes, so only a send timeout ends a blocked write.
+            assert!(result.is_err(), "stall_client={stall_client}: a stalled write must end the relay");
+            assert!(elapsed < Duration::from_secs(15), "stall_client={stall_client}: relay took {elapsed:?}");
+            assert!(
+                !matches!(&end, Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut)),
+                "stall_client={stall_client}: the stalled peer's socket was left open: {end:?}"
+            );
+        }
     }
 }
