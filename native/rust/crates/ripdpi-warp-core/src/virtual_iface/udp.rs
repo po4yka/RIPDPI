@@ -59,17 +59,27 @@ impl DynamicUdpInterface {
                     let _ = iface.poll(loop_start, &mut device, &mut sockets);
                     for (key, client_handle) in &port_client_handle_map {
                         let client_socket = sockets.get_mut::<udp::Socket>(*client_handle);
-                        if client_socket.can_send()
-                            && let Some(queue) = send_queue.get_mut(key)
-                                && let Some((target, data)) = queue.pop_front() {
-                                    let _ = client_socket.send_slice(&data, udp::UdpMetadata::from(target));
+                        // Move every queued and every received datagram per pass: the metadata
+                        // ring holds only a burst, and a later pass may wait for the next event.
+                        if let Some(queue) = send_queue.get_mut(key) {
+                            while client_socket.can_send()
+                                && let Some((target, data)) = queue.pop_front()
+                            {
+                                // An unaddressable datagram is dropped; a full buffer waits.
+                                if let Err(udp::SendError::BufferFull) =
+                                    client_socket.send_slice(&data, udp::UdpMetadata::from(target))
+                                {
+                                    queue.push_front((target, data));
+                                    break;
                                 }
-                        if client_socket.can_recv()
-                            && let Ok((data, peer)) = client_socket.recv()
-                                && !data.is_empty() {
-                                    let source = SocketAddr::new(peer.endpoint.addr.into(), peer.endpoint.port);
-                                    endpoint.send(Event::RemoteUdpDatagram(key.0, source, Bytes::copy_from_slice(data)));
-                                }
+                            }
+                        }
+                        while let Ok((data, peer)) = client_socket.recv() {
+                            if !data.is_empty() {
+                                let source = SocketAddr::new(peer.endpoint.addr.into(), peer.endpoint.port);
+                                endpoint.send(Event::RemoteUdpDatagram(key.0, source, Bytes::copy_from_slice(data)));
+                            }
+                        }
                     }
                     // Datagrams left in a send queue or a receive buffer need another pass now.
                     poll_now = port_client_handle_map.iter().any(|(key, handle)| {
@@ -213,6 +223,73 @@ mod tests {
         .await;
         run.expect("interface exits on shutdown");
         assert!(idle_polls < 10, "an idle association polled the interface {idle_polls} times in 200 ms");
+    }
+
+    fn inbound_udp_datagram(payload: &[u8]) -> Bytes {
+        use smoltcp::phy::ChecksumCapabilities;
+        use smoltcp::wire::{IpAddress, IpProtocol, Ipv4Packet, Ipv4Repr, UdpPacket, UdpRepr};
+        let (src, dst) = ("10.77.0.1".parse().expect("src"), "10.77.0.2".parse().expect("dst"));
+        let udp = UdpRepr { src_port: 41002, dst_port: 1000 };
+        let ip = Ipv4Repr {
+            src_addr: src,
+            dst_addr: dst,
+            next_header: IpProtocol::Udp,
+            payload_len: udp.header_len() + payload.len(),
+            hop_limit: 64,
+        };
+        let caps = ChecksumCapabilities::default();
+        let mut buffer = vec![0u8; ip.buffer_len() + ip.payload_len];
+        ip.emit(&mut Ipv4Packet::new_unchecked(&mut buffer[..]), &caps);
+        udp.emit(
+            &mut UdpPacket::new_unchecked(&mut buffer[ip.buffer_len()..]),
+            &IpAddress::Ipv4(src),
+            &IpAddress::Ipv4(dst),
+            payload.len(),
+            |out| out.copy_from_slice(payload),
+            &caps,
+        );
+        Bytes::from(buffer)
+    }
+
+    /// # Cancel safety:
+    /// NOT cancel-safe: the interface is shut down only after the exchange.
+    #[tokio::test(flavor = "current_thread")]
+    async fn burst_of_inbound_datagrams_reaches_the_association_whole() {
+        const BURST: usize = 20;
+        let bus = Bus::new();
+        let mut observer = bus.new_endpoint();
+        let interface = DynamicUdpInterface::new(bus.clone(), "10.77.0.2".parse().expect("source"), None, 1280);
+        let target = crate::ports::PortForwardConfig {
+            destination: "10.77.0.1:41002".parse().expect("target"),
+            protocol: PortProtocol::Udp,
+        };
+        let sender = bus.new_endpoint();
+        sender.send(Event::LocalData(target, VirtualPort::new(1000, PortProtocol::Udp), Bytes::from_static(b"q")));
+
+        let (run, received) = tokio::join!(interface.run(), async {
+            let received = tokio::time::timeout(Duration::from_secs(1), async {
+                while !matches!(observer.recv().await, Event::OutboundInternetPacket(_)) {}
+                // One burst lands in the device queue before the interface polls it.
+                for index in 0..BURST {
+                    sender.send(Event::InboundInternetPacket(
+                        PortProtocol::Udp,
+                        inbound_udp_datagram(&[index as u8; 1200]),
+                    ));
+                }
+                let mut received = 0;
+                while received < BURST {
+                    if let Event::RemoteUdpDatagram(..) = observer.recv().await {
+                        received += 1;
+                    }
+                }
+                received
+            })
+            .await;
+            bus.shutdown();
+            received
+        });
+        run.expect("interface exits on shutdown");
+        assert_eq!(received.ok(), Some(BURST), "every datagram of the burst must reach the association");
     }
 
     /// # Cancel safety:

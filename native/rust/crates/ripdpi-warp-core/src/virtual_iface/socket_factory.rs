@@ -16,12 +16,15 @@ pub(super) fn new_tcp_client_socket() -> tcp::Socket<'static> {
     tcp::Socket::new(tcp_rx_buffer, tcp_tx_buffer)
 }
 
+const UDP_SOCKET_DATAGRAMS: usize = 64;
+
 pub(super) fn new_udp_client_socket(
     source_peer_ip: IpAddr,
     virtual_port: VirtualPort,
 ) -> anyhow::Result<udp::Socket<'static>> {
-    let rx_meta = vec![udp::PacketMetadata::EMPTY; 10];
-    let tx_meta = vec![udp::PacketMetadata::EMPTY; 10];
+    // Enough slots for a burst of full-size datagrams in the 64 KiB data buffers.
+    let rx_meta = vec![udp::PacketMetadata::EMPTY; UDP_SOCKET_DATAGRAMS];
+    let tx_meta = vec![udp::PacketMetadata::EMPTY; UDP_SOCKET_DATAGRAMS];
     let rx_data = vec![0u8; MAX_PACKET];
     let tx_data = vec![0u8; MAX_PACKET];
     let udp_rx_buffer = udp::PacketBuffer::new(rx_meta, rx_data);
