@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, Mutex, PoisonError};
 
 use bytes::Bytes;
-use tokio::sync::{Notify, OwnedSemaphorePermit, Semaphore, broadcast, mpsc};
+use tokio::sync::{Notify, OwnedSemaphorePermit, Semaphore, broadcast, mpsc, oneshot};
 
 use crate::ports::{PortForwardConfig, PortProtocol, VirtualPort, VirtualPortLease};
 use crate::support::MAX_PACKET;
@@ -32,8 +32,9 @@ const TCP_SESSION_UPLOAD_BYTES: usize = 4 * MAX_PACKET;
 /// ACKed stream bytes, so losing one corrupts the stream.
 pub(crate) enum TcpCommand {
     /// The semaphore holds the session's upload byte credit. The interface
-    /// returns credit as smoltcp accepts queued bytes.
-    Open(PortForwardConfig, VirtualPortLease, mpsc::Sender<Bytes>, Arc<Semaphore>),
+    /// returns credit as smoltcp accepts queued bytes. The oneshot fires when
+    /// the virtual socket is established; it is dropped if the connect fails.
+    Open(PortForwardConfig, VirtualPortLease, mpsc::Sender<Bytes>, Arc<Semaphore>, oneshot::Sender<()>),
     Data(VirtualPort, Bytes),
     Close(VirtualPort),
 }
@@ -66,8 +67,16 @@ impl Bus {
         let (remote_tx, remote) = mpsc::channel(TCP_SESSION_QUEUE);
         let port = lease.port();
         let upload = Arc::new(Semaphore::new(TCP_SESSION_UPLOAD_BYTES));
-        let _ = self.tcp_tx.send(TcpCommand::Open(forward, lease, remote_tx, Arc::clone(&upload)));
-        TcpSession { port, commands: self.tcp_tx.clone(), remote, drained: Arc::clone(&self.tcp_drained), upload }
+        let (connected_tx, connected) = oneshot::channel();
+        let _ = self.tcp_tx.send(TcpCommand::Open(forward, lease, remote_tx, Arc::clone(&upload), connected_tx));
+        TcpSession {
+            port,
+            commands: self.tcp_tx.clone(),
+            remote,
+            drained: Arc::clone(&self.tcp_drained),
+            upload,
+            connected: Some(connected),
+        }
     }
 
     /// The command receiver and drain signal of the single TCP interface on this bus.
@@ -95,9 +104,24 @@ pub(crate) struct TcpSession {
     remote: mpsc::Receiver<Bytes>,
     drained: Arc<Notify>,
     upload: Arc<Semaphore>,
+    connected: Option<oneshot::Receiver<()>>,
 }
 
 impl TcpSession {
+    /// Wait until the virtual socket is established. `false` if the connect
+    /// failed: a refused target, no source address for the target's family,
+    /// a reset, or a peer that never answered.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the receiver stays in the session until the wait completes.
+    pub(crate) async fn connected(&mut self) -> bool {
+        let Some(connected) = self.connected.as_mut() else { return true };
+        let established = connected.await.is_ok();
+        self.connected = None;
+        established
+    }
+
     /// Wait for credit to queue one client read of up to `MAX_PACKET` bytes.
     /// `None` only if the credit is closed. The future does not borrow the
     /// session, so a handler can wait for credit and for remote data together.

@@ -82,6 +82,11 @@ async fn handle_tcp_connect(
     let port_forward = PortForwardConfig { destination: target, protocol: PortProtocol::Tcp };
     let mut session = bus.open_tcp_session(port_forward, lease.clone());
     let result = async {
+        // RFC 1928 section 6: the reply reports the outcome of the connection attempt.
+        if !session.connected().await {
+            write_reply(&mut client, 0x04, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
+            return Err(io::Error::new(io::ErrorKind::HostUnreachable, "virtual TCP connect failed"));
+        }
         write_reply(&mut client, 0x00, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
 
         // One read never exceeds the upload credit it is taken under.
@@ -415,14 +420,19 @@ mod tests {
         let bus = Bus::new();
         let (mut commands, _drained) = bus.take_tcp_commands();
         let pool = Arc::new(VirtualPortPool::new(PortProtocol::Tcp).expect("TCP port entropy"));
-        let result = timeout(
-            Duration::from_secs(2),
-            handle_tcp_connect(server, bus, Arc::clone(&pool), "192.0.2.1:443".parse().expect("target")),
-        )
+        let handler = handle_tcp_connect(server, bus, Arc::clone(&pool), "192.0.2.1:443".parse().expect("target"));
+        let (result, lease) = timeout(Duration::from_secs(2), async {
+            tokio::join!(handler, async {
+                let Some(TcpCommand::Open(_, lease, _, _, connected)) = commands.recv().await else {
+                    panic!("expected allocation")
+                };
+                connected.send(()).expect("handler waits for the connect");
+                lease
+            })
+        })
         .await
         .expect("handler exits");
         assert!(result.is_err(), "closed write half must reject the SOCKS reply");
-        let Some(TcpCommand::Open(_, lease, _, _)) = commands.recv().await else { panic!("expected allocation") };
         let port = lease.port();
         drop(lease);
         let closed =
@@ -433,6 +443,29 @@ mod tests {
             .collect();
         assert!(pool.acquire().is_err(), "no duplicate release");
         drop(leases);
+    }
+
+    /// # Cancel safety
+    /// cancel-safe: all sockets and pools are fresh and dropped on timeout.
+    #[tokio::test]
+    async fn failed_virtual_connect_is_reported_instead_of_success() {
+        let (mut client, server) = socks_pair().await;
+        let bus = Bus::new();
+        let (mut commands, _drained) = bus.take_tcp_commands();
+        let pool = Arc::new(VirtualPortPool::new(PortProtocol::Tcp).expect("TCP port entropy"));
+        let handler = handle_tcp_connect(server, bus, pool, "[2001:db8::1]:443".parse().expect("target"));
+        let (result, ()) = timeout(Duration::from_secs(2), async {
+            tokio::join!(handler, async {
+                // The interface drops the session, as it does for a target with no source address.
+                let Some(TcpCommand::Open(..)) = commands.recv().await else { panic!("expected allocation") };
+            })
+        })
+        .await
+        .expect("handler exits");
+        assert_eq!(result.expect_err("failed connect").kind(), io::ErrorKind::HostUnreachable);
+        let mut reply = [0u8; 10];
+        client.read_exact(&mut reply).await.expect("SOCKS reply");
+        assert_eq!(reply[..2], [0x05, 0x04], "the client must see the failure, not success");
     }
 
     /// A connected client and the server side of the same loopback connection.

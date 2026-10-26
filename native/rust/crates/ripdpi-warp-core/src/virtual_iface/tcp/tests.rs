@@ -353,9 +353,11 @@ async fn stalled_upload(close_grace: Duration, peer_timeout: Duration) -> Stalle
     client.read_exact(&mut reply[..2]).await.expect("method");
     // CONNECT 10.77.0.1:41001
     client.write_all(&[0x05, 0x01, 0x00, 0x01, 10, 77, 0, 1, 0xa0, 0x29]).await.expect("connect");
-    client.read_exact(&mut reply).await.expect("connect reply");
     let syn = tokio::time::timeout(Duration::from_secs(2), outbound(&mut endpoint)).await.expect("SYN");
     endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, syn_ack(&syn)));
+    // The success reply follows the virtual handshake.
+    client.read_exact(&mut reply).await.expect("connect reply");
+    assert_eq!(reply[..2], [0x05, 0x00]);
     StalledUpload { client, handler, worker }
 }
 

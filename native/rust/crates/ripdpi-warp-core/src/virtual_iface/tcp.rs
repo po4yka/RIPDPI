@@ -8,7 +8,7 @@ use smoltcp::iface::{Config as IfaceConfig, Interface, SocketHandle, SocketSet};
 use smoltcp::socket::tcp;
 use smoltcp::time::Instant;
 use smoltcp::wire::{HardwareAddress, IpAddress};
-use tokio::sync::{Notify, Semaphore, mpsc};
+use tokio::sync::{Notify, Semaphore, mpsc, oneshot};
 use tokio::time::Duration;
 
 use crate::ports::{PortProtocol, VirtualPort, VirtualPortLease};
@@ -66,6 +66,8 @@ impl DynamicTcpInterface {
         // Queued client bytes and the session's upload credit, returned as smoltcp takes them.
         let mut send_queue: HashMap<VirtualPort, (VecDeque<Bytes>, Arc<Semaphore>)> = HashMap::new();
         let mut graceful_closing = HashSet::new();
+        // Sessions whose SOCKS reply waits for the virtual connect to complete.
+        let mut pending_connect: HashMap<VirtualPort, oneshot::Sender<()>> = HashMap::new();
 
         loop {
             tokio::select! {
@@ -92,6 +94,7 @@ impl DynamicTcpInterface {
                         if client_socket.state() == tcp::State::Closed && !undelivered {
                             send_queue.remove(virtual_port);
                             graceful_closing.remove(virtual_port);
+                            pending_connect.remove(virtual_port);
                             sockets.remove(*client_handle);
                             false
                         } else {
@@ -101,6 +104,11 @@ impl DynamicTcpInterface {
 
                     for (virtual_port, (client_handle, _lease, remote)) in &port_client_handle_map {
                         let client_socket = sockets.get_mut::<tcp::Socket>(*client_handle);
+                        if client_socket.may_send()
+                            && let Some(connected) = pending_connect.remove(virtual_port)
+                        {
+                            let _ = connected.send(());
+                        }
                         if client_socket.can_send()
                             && let Some((queue, upload)) = send_queue.get_mut(virtual_port) {
                                 match queue.pop_front() { Some(to_send) => {
@@ -150,7 +158,7 @@ impl DynamicTcpInterface {
                 command = self.commands.recv() => match command {
                     // The bus keeps a sender, so the channel stays open while this task runs.
                     None => break,
-                    Some(TcpCommand::Open(port_forward, lease, remote, upload)) => {
+                    Some(TcpCommand::Open(port_forward, lease, remote, upload, connected)) => {
                         let virtual_port = lease.port();
                         // Without a source the session is dropped, which ends its handler.
                         let Some(source) = select_source(self.source_peer_ip, self.source_peer_ipv6, port_forward.destination.ip()) else {
@@ -172,6 +180,7 @@ impl DynamicTcpInterface {
                         }
                         let client_handle = sockets.add(client_socket);
                         port_client_handle_map.insert(virtual_port, (client_handle, lease, remote));
+                        pending_connect.insert(virtual_port, connected);
                         send_queue.insert(virtual_port, (VecDeque::new(), upload));
                         next_poll = None;
                     }
