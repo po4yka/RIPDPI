@@ -31,6 +31,25 @@ class WireGuardConfParserTest {
         """.trimIndent()
 
     @Test
+    fun `parsed interface and peer never print the private key, PSK or endpoint`() {
+        val withPsk =
+            vanillaConf.replace(
+                "[Peer]\n",
+                "[Peer]\nPresharedKey = cHNrLXNlY3JldC1maXh0dXJlLXZhbHVlLTAxMjM0NTY=\n",
+            )
+        val text = WireGuardConfParser.parse(withPsk).toString()
+
+        assertTrue(text.contains("privateKey=<redacted>"))
+        assertTrue(text.contains("presharedKey=<redacted>"))
+        assertTrue(text.contains("aGVsbG8td29ybGQtcHVibGljLWtleS1maXh0dXJlMDE="))
+        listOf(
+            "aGVsbG8td29ybGQtcHJpdmF0ZS1rZXktZml4dHVyZQ==",
+            "cHNrLXNlY3JldC1maXh0dXJlLXZhbHVlLTAxMjM0NTY=",
+            "vpn.example.com",
+        ).forEach { assertFalse(it, it in text) }
+    }
+
+    @Test
     fun `vanilla conf with no AWG keys parses as WireGuardConfig`() {
         val parsed = WireGuardConfParser.parse(vanillaConf)
 

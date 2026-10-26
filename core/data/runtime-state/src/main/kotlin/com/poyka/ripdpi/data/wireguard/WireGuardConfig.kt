@@ -28,7 +28,11 @@ data class WireGuardInterface(
     val dns: List<String> = emptyList(),
     val mtu: Int? = null,
     val listenPort: Int? = null,
-)
+) {
+    override fun toString(): String =
+        "WireGuardInterface(privateKey=${redactKey(privateKey)}, address=$address, dns=$dns, " +
+            "mtu=$mtu, listenPort=$listenPort)"
+}
 
 /**
  * A `[Peer]` section of a WireGuard `.conf` file. AmneziaWG adds no peer-level
@@ -43,7 +47,15 @@ data class WireGuardPeer(
     val persistentKeepalive: Int? = null,
     /** High bound of an AWG 3.x `PersistentKeepalive = lo-hi` range; null = a fixed interval. */
     val persistentKeepaliveMax: Int? = null,
-)
+) {
+    override fun toString(): String =
+        "WireGuardPeer(publicKey=$publicKey, presharedKey=${presharedKey?.let(::redactKey)}, " +
+            "allowedIps=$allowedIps, endpoint=${endpoint?.let(::redactKey)}, " +
+            "persistentKeepalive=$persistentKeepalive, persistentKeepaliveMax=$persistentKeepaliveMax)"
+}
+
+/** Shows only whether a secret is present, never its value. */
+private fun redactKey(value: String): String = if (value.isEmpty()) "\"\"" else "<redacted>"
 
 /**
  * AmneziaWG obfuscation parameters carried on the `[Interface]` block.

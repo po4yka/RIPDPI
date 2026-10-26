@@ -197,4 +197,22 @@ class AwgActivationRequestTest {
         assertTrue(text.contains("presharedKey=\"\""))
         listOf("cHJpdmF0ZQ==", "aHBr").forEach { assertTrue(it, it !in text) }
     }
+
+    @Test
+    fun `activation request never prints keys, endpoint or carrier URL`() {
+        val request =
+            runtimeRequest().copy(
+                presharedKey = "cHNrLXNlY3JldA==",
+                carrier = AwgActivationRequest.CARRIER_WS,
+                carrierWsUrl = "wss://carrier.example.net/path",
+            )
+        val text = request.toString()
+
+        assertTrue(text.contains("privateKey=<redacted>"))
+        assertTrue(text.contains("presharedKey=<redacted>"))
+        assertTrue(text.contains("endpointPort=51820"))
+        listOf(request.privateKey, "cHNrLXNlY3JldA==", "vpn.example.com", "carrier.example.net").forEach {
+            assertTrue(it, it !in text)
+        }
+    }
 }

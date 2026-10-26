@@ -120,6 +120,18 @@ data class ResolvedRipDpiAmneziaWgConfig(
     val carrierWsUrl: String = "",
     val localSocksHost: String,
     val localSocksPort: Int,
-)
+) {
+    /** Keys and user-pasted endpoints show only their presence (network-fingerprint-privacy). */
+    override fun toString(): String =
+        "ResolvedRipDpiAmneziaWgConfig(enabled=$enabled, profileId=$profileId, " +
+            "privateKey=${redact(privateKey)}, peerPublicKey=$peerPublicKey, presharedKey=${redact(presharedKey)}, " +
+            "endpointHost=${redact(endpointHost)}, endpointIpv4=${redact(endpointIpv4)}, " +
+            "endpointIpv6=${redact(endpointIpv6)}, endpointPort=$endpointPort, mtu=$mtu, " +
+            "persistentKeepalive=$persistentKeepalive, persistentKeepaliveMax=$persistentKeepaliveMax, " +
+            "amnezia=$amnezia, carrier=$carrier, carrierWsUrl=${redact(carrierWsUrl)}, " +
+            "localSocksHost=$localSocksHost, localSocksPort=$localSocksPort)"
+
+    private fun redact(value: String): String = if (value.isEmpty()) "\"\"" else "<redacted>"
+}
 
 internal const val DefaultAmneziaWgTunnelMtu = 1330

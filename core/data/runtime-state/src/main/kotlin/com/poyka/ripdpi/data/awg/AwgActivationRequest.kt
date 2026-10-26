@@ -60,6 +60,18 @@ data class AwgActivationRequest(
      */
     val carrierWsUrl: String = "",
 ) {
+    /** Keys, endpoint and carrier URL are user secrets or network fingerprints: show only their presence. */
+    override fun toString(): String =
+        "AwgActivationRequest(profileId=$profileId, privateKey=${redact(privateKey)}, " +
+            "peerPublicKey=$peerPublicKey, presharedKey=${redact(presharedKey)}, " +
+            "endpointHost=${redact(endpointHost)}, endpointPort=$endpointPort, " +
+            "interfaceAddressV4=$interfaceAddressV4, interfaceAddressV6=$interfaceAddressV6, " +
+            "dnsServers=$dnsServers, allowedIps=$allowedIps, mtu=$mtu, " +
+            "persistentKeepalive=$persistentKeepalive, persistentKeepaliveMax=$persistentKeepaliveMax, " +
+            "obfuscation=$obfuscation, carrier=$carrier, carrierWsUrl=${redact(carrierWsUrl)})"
+
+    private fun redact(value: String): String = if (value.isEmpty()) "\"\"" else "<redacted>"
+
     companion object {
         /** Native AmneziaWG tunnel MTU default; mirrors `DefaultAmneziaWgTunnelMtu`. */
         const val DEFAULT_MTU: Int = 1330

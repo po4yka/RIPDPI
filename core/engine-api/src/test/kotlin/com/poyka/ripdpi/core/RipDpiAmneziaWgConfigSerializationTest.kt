@@ -204,6 +204,23 @@ class RipDpiAmneziaWgConfigSerializationTest {
     }
 
     @Test
+    fun `resolved config never prints keys or user endpoints`() {
+        val text = fullConfig.copy(carrierWsUrl = "wss://carrier.example.net/ws").toString()
+
+        assertTrue(text.contains("privateKey=<redacted>"))
+        assertTrue(text.contains("presharedKey=<redacted>"))
+        assertTrue(text.contains("endpointPort=51820"))
+        listOf(
+            "cHJpdmF0ZUtleQ==",
+            "cHJlc2hhcmVkS2V5",
+            "vpn.example.org",
+            "203.0.113.7",
+            "2001:db8::7",
+            "carrier.example.net",
+        ).forEach { assertTrue(it, it !in text) }
+    }
+
+    @Test
     fun `h1 through h4 serialize as canonical strings`() {
         val amnezia =
             RipDpiJson
