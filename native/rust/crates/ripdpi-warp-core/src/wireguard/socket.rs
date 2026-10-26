@@ -19,8 +19,17 @@ pub(super) fn bind_tunnel_socket(endpoint: SocketAddr, platform: &WarpPlatform) 
     // overflows before the receive task drains the burst, and the lost run of segments
     // stalls TCP inside the tunnel. wireguard-go asks for the same size; the
     // kernel caps it at net.core.rmem_max/wmem_max, so a refusal keeps the default.
-    let _ = socket.set_recv_buffer_size(TUNNEL_SOCKET_BUFFER);
-    let _ = socket.set_send_buffer_size(TUNNEL_SOCKET_BUFFER);
+    // The effective sizes are logged so a capped buffer on a real device is visible.
+    let recv_request = socket.set_recv_buffer_size(TUNNEL_SOCKET_BUFFER);
+    let send_request = socket.set_send_buffer_size(TUNNEL_SOCKET_BUFFER);
+    tracing::debug!(
+        requested = TUNNEL_SOCKET_BUFFER,
+        recv = ?socket.recv_buffer_size(),
+        send = ?socket.send_buffer_size(),
+        recv_error = ?recv_request.err(),
+        send_error = ?send_request.err(),
+        "WARP tunnel socket buffers"
+    );
     socket.bind(&bind_addr.into())?;
     // Fail-closed: a protect rejection drops `socket` here (closing the fd) and
     // fails tunnel construction rather than letting an unprotected WireGuard
