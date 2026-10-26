@@ -51,6 +51,24 @@ class DetectionSettingsViewModelTest {
             assertFalse(state.customPortRangeValid)
         }
 
+    @Test
+    fun `a change from another source shows once the typed text was stored`() =
+        runTest {
+            val repository = GatedSettingsRepository()
+            val viewModel = DetectionSettingsViewModel(repository)
+            repository.release()
+            viewModel.setDnsDirectServers("9.9.9.9")
+            viewModel.setTlsKeylogPath("/sdcard/keys.log")
+            advanceUntilIdle()
+
+            // A backup restore or a reset rewrites the stored values while the screen is open.
+            repository.replace(AppSettings.getDefaultInstance())
+            advanceUntilIdle()
+
+            assertEquals("", viewModel.uiState.value.dnsDirectServers)
+            assertEquals("", viewModel.uiState.value.tlsKeylogPath)
+        }
+
     /** Holds every update until [release], like a slow DataStore write. */
     private class GatedSettingsRepository : AppSettingsRepository {
         private val state = MutableStateFlow(AppSettings.getDefaultInstance())

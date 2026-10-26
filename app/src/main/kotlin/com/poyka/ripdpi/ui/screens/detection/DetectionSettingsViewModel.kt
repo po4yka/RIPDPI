@@ -24,7 +24,8 @@ internal class DetectionSettingsViewModel
         val uiState: StateFlow<DetectionSettingsUiState> = _uiState.asStateFlow()
 
         // Text the user typed, shown at once. A DataStore round trip lags behind keystrokes, and a
-        // text field that shows the lagging value drops characters. Main-confined.
+        // text field that shows the lagging value drops characters. A draft goes away when the stored
+        // value catches up with it, so a later change from another source shows. Main-confined.
         private val drafts = mutableMapOf<DraftField, String>()
 
         init {
@@ -34,7 +35,9 @@ internal class DetectionSettingsViewModel
         private fun observeSettings() {
             viewModelScope.launch {
                 appSettingsRepository.settings.collect { settings ->
-                    _uiState.value = DetectionSettingsUiState.from(settings).withDrafts(drafts)
+                    val stored = DetectionSettingsUiState.from(settings)
+                    drafts.entries.removeAll { (field, text) -> field.storedText(stored) == text }
+                    _uiState.value = stored.withDrafts(drafts)
                 }
             }
         }
@@ -257,11 +260,13 @@ private fun DetectionSettingsUiState.withDrafts(drafts: Map<DraftField, String>)
     )
 }
 
-private enum class DraftField {
-    PortStart,
-    PortEnd,
-    DnsDirectServers,
-    DnsDohUrl,
-    DnsDohBootstrapIps,
-    TlsKeylogPath,
+private enum class DraftField(
+    val storedText: (DetectionSettingsUiState) -> String,
+) {
+    PortStart({ it.customPortStartText }),
+    PortEnd({ it.customPortEndText }),
+    DnsDirectServers({ it.dnsDirectServers }),
+    DnsDohUrl({ it.dnsDohUrl }),
+    DnsDohBootstrapIps({ it.dnsDohBootstrapIps }),
+    TlsKeylogPath({ it.tlsKeylogPath }),
 }
