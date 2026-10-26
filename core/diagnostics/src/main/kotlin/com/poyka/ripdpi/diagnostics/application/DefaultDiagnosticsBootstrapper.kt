@@ -11,6 +11,7 @@ import com.poyka.ripdpi.diagnostics.RuntimeHistoryStartup
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveExporter
 import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementBarrier
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
@@ -45,26 +46,38 @@ class DefaultDiagnosticsBootstrapper
             if (!initialized.compareAndSet(false, true)) {
                 return
             }
-            runCatching {
-                runtimeHistoryStartup.start()
-            }.onFailure { error ->
-                logRuntimeHistoryBootstrapFailure(error)
-            }
-            recoverInterruptedScanSessions()
-            archiveExporter.cleanupCache()
-            if (importBundledProfilesOnInitialize) {
-                // A corrupted override or unreadable bundled catalog must degrade to
-                // missing persisted profiles instead of crashing every startup caller.
-                runCatching { profileImporter.importProfiles() }
+            var completed = false
+            try {
+                runCatching {
+                    runtimeHistoryStartup.start()
+                }.onFailure { error ->
+                    logRuntimeHistoryBootstrapFailure(error)
+                }
+                recoverInterruptedScanSessions()
+                // A failed cache sweep must not skip the profile import and the handover collector.
+                runCatching { archiveExporter.cleanupCache() }
                     .onFailure { error ->
                         if (error is kotlinx.coroutines.CancellationException) throw error
-                        Logger.w(error) { "Bundled diagnostics profile import skipped" }
+                        Logger.w(error) { "Diagnostics archive cache cleanup skipped" }
                     }
-            }
-            scope.launch {
-                policyHandoverEventStore.events.collect { event ->
-                    automaticProbeScheduler.schedule(event)
+                if (importBundledProfilesOnInitialize) {
+                    // A corrupted override or unreadable bundled catalog must degrade to
+                    // missing persisted profiles instead of crashing every startup caller.
+                    runCatching { profileImporter.importProfiles() }
+                        .onFailure { error ->
+                            if (error is kotlinx.coroutines.CancellationException) throw error
+                            Logger.w(error) { "Bundled diagnostics profile import skipped" }
+                        }
                 }
+                scope.launch {
+                    policyHandoverEventStore.events
+                        .catch { error -> Logger.w(error) { "Policy handover event collection stopped" } }
+                        .collect { event -> automaticProbeScheduler.schedule(event) }
+                }
+                completed = true
+            } finally {
+                // A caller cancelled mid-way must leave the remaining steps to the next initialize().
+                if (!completed) initialized.set(false)
             }
         }
 

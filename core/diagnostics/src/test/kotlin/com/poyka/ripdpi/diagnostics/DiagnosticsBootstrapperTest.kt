@@ -128,6 +128,37 @@ class DiagnosticsBootstrapperTest {
         }
 
     @Test
+    fun `archive cache cleanup failure does not abort diagnostics bootstrap`() =
+        runTest {
+            val stores =
+                FakeDiagnosticsHistoryStores().also { history ->
+                    history.telemetryState.value = listOf(telemetrySample(createdAt = System.currentTimeMillis()))
+                }
+            val archiveExporter = RecordingArchiveExporter(failure = java.io.IOException("stale export"))
+            val handoverStore = FakePolicyHandoverEventStore()
+            val launcher = BootstrapperRecordingAutomaticProbeLauncher()
+            val bootstrapper =
+                createBootstrapper(
+                    stores = stores,
+                    runtimeHistoryStartup = RecordingRuntimeHistoryStartup(),
+                    archiveExporter = archiveExporter,
+                    policyHandoverEventStore = handoverStore,
+                    automaticProbeLauncher = launcher,
+                    importBundledProfilesOnInitialize = true,
+                    scope = backgroundScope,
+                )
+
+            bootstrapper.initialize()
+            runCurrent()
+            handoverStore.publish(handoverEvent())
+            advanceTimeBy(100L)
+            runCurrent()
+
+            assertFalse(stores.profilesState.value.isEmpty())
+            assertEquals(1, launcher.events.size)
+        }
+
+    @Test
     fun `bundled profile import failure does not abort diagnostics bootstrap`() =
         runTest {
             val stores =
@@ -312,12 +343,15 @@ private class RecordingRuntimeHistoryStartup(
     }
 }
 
-private class RecordingArchiveExporter : DiagnosticsArchiveExporter {
+private class RecordingArchiveExporter(
+    private val failure: Throwable? = null,
+) : DiagnosticsArchiveExporter {
     var cleanupCalls: Int = 0
         private set
 
     override suspend fun cleanupCache() {
         cleanupCalls += 1
+        failure?.let { throw it }
     }
 
     override suspend fun createArchive(request: DiagnosticsArchiveRequest): DiagnosticsArchive {
