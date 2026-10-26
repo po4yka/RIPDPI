@@ -221,6 +221,11 @@ pub fn enable_recv_ttl(stream: &TcpStream) -> io::Result<()> {
 /// in-order segment on the socket, and `IPV6_2292PKTOPTIONS` returns it.
 /// IPv4 TCP keeps no received TTL, so an IPv4 peer (also IPv4-mapped) gets
 /// `None`.
+///
+/// Until a segment arrives with the option set, the kernel reports the
+/// socket's creation value (`IPV6_DEFAULT_MCASTHOPS`, 1) instead of a received
+/// hop limit. That value is reported as `None`, so data that arrived before
+/// `enable_recv_ttl` gives no measured value.
 pub fn read_chunk_with_ttl(stream: &TcpStream, buf: &mut [u8]) -> io::Result<(usize, Option<u8>)> {
     use std::io::Read;
 
@@ -233,6 +238,9 @@ pub fn read_chunk_with_ttl(stream: &TcpStream, buf: &mut [u8]) -> io::Result<(us
     }
     Ok((n, received_ipv6_hop_limit(stream)))
 }
+
+/// Linux `IPV6_DEFAULT_MCASTHOPS` (include/net/ipv6.h); libc does not export it.
+const IPV6_DEFAULT_MCASTHOPS: libc::c_int = 1;
 
 fn received_ipv6_hop_limit(stream: &TcpStream) -> Option<u8> {
     let SocketAddr::V6(peer) = stream.peer_addr().ok()? else { return None };
@@ -273,6 +281,12 @@ fn received_ipv6_hop_limit(stream: &TcpStream) -> Option<u8> {
             let data = unsafe { libc::CMSG_DATA(cmsg) };
             // SAFETY: the kernel wrote a c_int payload for IPV6_HOPLIMIT at `data`.
             let value: libc::c_int = unsafe { ptr::read_unaligned(data.cast()) };
+            // The kernel fills this from `mcast_hops`, which a TCP socket
+            // cannot set and which keeps its creation value until a segment
+            // arrives with the option set. That value is not a measurement.
+            if value == IPV6_DEFAULT_MCASTHOPS {
+                return None;
+            }
             return u8::try_from(value).ok();
         }
         // SAFETY: `cmsg` is the current header of the same control buffer.

@@ -106,6 +106,24 @@ fn read_chunk_with_ttl_reports_the_hop_limit_of_an_ipv6_peer() {
 }
 
 #[test]
+fn read_chunk_with_ttl_reports_no_hop_limit_for_data_that_arrived_before_the_option() {
+    let listener = std::net::TcpListener::bind((std::net::Ipv6Addr::LOCALHOST, 0)).expect("bind IPv6 listener");
+    let client = std::net::TcpStream::connect(listener.local_addr().expect("address")).expect("connect");
+    let (server, _) = listener.accept().expect("accept");
+    (&server).write_all(b"hello").expect("server write");
+    client.set_read_timeout(Some(Duration::from_secs(2))).expect("read timeout");
+    // Wait until the segment is queued on the client, then enable the option.
+    let mut probe = [0u8; 1];
+    assert_eq!(client.peek(&mut probe).expect("peek"), 1);
+    enable_recv_ttl(&client).expect("enable recv hop limit");
+
+    let mut buf = [0u8; 16];
+    let (n, hop_limit) = read_chunk_with_ttl(&client, &mut buf).expect("read with hop limit");
+    assert_eq!(&buf[..n], b"hello");
+    assert_eq!(hop_limit, None, "no hop limit was recorded for this data");
+}
+
+#[test]
 fn get_stream_ttl_returns_valid_value_for_connected_socket() {
     let (client, _server) = connected_pair();
     let ttl = get_stream_ttl(&client).expect("read ttl from connected socket");
