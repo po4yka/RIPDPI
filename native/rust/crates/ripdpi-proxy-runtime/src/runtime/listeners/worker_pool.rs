@@ -1,6 +1,7 @@
 use std::collections::VecDeque;
 use std::io;
 use std::net::Shutdown;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc as StdArc, Condvar, Mutex as StdMutex};
 use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
@@ -33,6 +34,7 @@ struct WorkerPoolShared {
 pub(crate) struct ClientWorkerPool {
     shared: StdArc<WorkerPoolShared>,
     workers: StdMutex<Vec<JoinHandle<()>>>,
+    reaped_worker_panicked: AtomicBool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -57,6 +59,7 @@ impl ClientWorkerPool {
                 available: Condvar::new(),
             }),
             workers: StdMutex::new(Vec::new()),
+            reaped_worker_panicked: AtomicBool::new(false),
         };
         for _ in 0..min_workers {
             pool.spawn_worker()?;
@@ -125,7 +128,7 @@ impl ClientWorkerPool {
             state.shutdown_active_tcp_sockets();
             self.wait_for_workers(Instant::now() + FORCED_DRAIN_TIMEOUT);
         }
-        let worker_panicked = self.join_finished_worker_handles();
+        let worker_panicked = self.join_finished_worker_handles() | self.reaped_worker_panicked.load(Ordering::Relaxed);
         WorkerDrainOutcome { forced_abort, worker_panicked }
     }
 
@@ -187,6 +190,10 @@ impl ClientWorkerPool {
             .name("ripdpi-worker".into())
             .spawn(move || worker_loop(shared))
             .map_err(|err| io::Error::other(format!("failed to spawn client worker thread: {err}")))?;
+        // Reap idle-exited workers here so their handles and stacks do not pile up until shutdown.
+        if self.join_finished_worker_handles() {
+            self.reaped_worker_panicked.store(true, Ordering::Relaxed);
+        }
         self.workers.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(handle);
         Ok(())
     }
@@ -271,11 +278,9 @@ fn baseline_worker_count(max_workers: usize, parallelism: usize) -> usize {
 
 #[cfg(test)]
 mod tests {
+    use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
     use std::io::Read;
     use std::net::{Ipv4Addr, TcpListener, TcpStream};
-    use std::sync::atomic::{AtomicBool, Ordering};
-
-    use ripdpi_proxy_runtime_adapter::model::config::RuntimeConfig;
 
     use super::*;
 
@@ -388,5 +393,23 @@ mod tests {
         let live = pool.shared.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).live_workers;
         assert_eq!(live, 1, "the next client must get its own worker when the idle one is already claimed");
         drop(peer);
+    }
+
+    #[test]
+    fn spawning_a_worker_reaps_handles_of_workers_that_already_exited() {
+        let pool = ClientWorkerPool::new(0).expect("worker pool");
+        pool.shared.state.lock().unwrap_or_else(std::sync::PoisonError::into_inner).max_workers = 1;
+        pool.workers.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(thread::spawn(|| {}));
+        while !pool.workers.lock().unwrap_or_else(std::sync::PoisonError::into_inner)[0].is_finished() {
+            thread::yield_now();
+        }
+
+        pool.ensure_capacity().expect("provision worker");
+
+        assert_eq!(
+            pool.workers.lock().unwrap_or_else(std::sync::PoisonError::into_inner).len(),
+            1,
+            "an idle-exited worker handle must not stay in the pool until shutdown",
+        );
     }
 }
