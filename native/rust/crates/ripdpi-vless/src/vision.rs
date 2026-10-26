@@ -24,7 +24,8 @@
 //!
 //! RIPDPI writes the VLESS request header eagerly before this wrapper engages,
 //! so the xray "hide-header" zero-content chunk is not emitted. The UUID still
-//! prefixes the first real chunk. For inner TLS, `Direct` switches reads and
+//! prefixes the first real chunk. For inner TLS 1.3 (seen in the downlink
+//! ServerHello, as xray's `XtlsFilterTls` does), `Direct` switches reads and
 //! writes to the transport beneath the outer Reality TLS stream, matching
 //! xray's raw-conn splice; `End` keeps the outer layer. Non-TLS XUDP carriers
 //! disable that splice so datagrams remain protected by Reality TLS. The
@@ -129,6 +130,12 @@ pub struct VisionStream<S> {
     r_inbuf: Vec<u8>,
     /// De-padded payload ready to hand to the caller.
     r_out: Vec<u8>,
+    /// Downlink bytes buffered until the inner ServerHello record is whole.
+    r_hello: Vec<u8>,
+    /// xray `EnableXtls`: `Some(true)` once the inner ServerHello negotiated
+    /// TLS 1.3 with a cipher other than CCM_8. Only then may the uplink send
+    /// `Direct`; otherwise (TLS 1.2, 0-RTT before the answer) it sends `End`.
+    xtls_enabled: Option<bool>,
 }
 
 impl<S> VisionStream<S> {
@@ -176,6 +183,8 @@ impl<S> VisionStream<S> {
             r_rem_padding: -1,
             r_inbuf: Vec::new(),
             r_out: Vec::new(),
+            r_hello: Vec::new(),
+            xtls_enabled: None,
         }
     }
 
@@ -366,6 +375,37 @@ impl<S: AsyncWrite + Unpin> VisionStream<S> {
     }
 }
 
+/// xray `XtlsFilterTls` over the de-padded downlink: buffer `produced` until
+/// the first inner record is complete, then decide whether it is a TLS 1.3
+/// ServerHello (`supported_versions` = 0x0304) with a cipher other than
+/// `TLS_AES_128_CCM_8_SHA256`. Returns `None` while undecided.
+fn filter_server_hello(buffered: &mut Vec<u8>, produced: &[u8]) -> Option<bool> {
+    const SERVER_HELLO_START: [u8; 3] = [TLS_HANDSHAKE, TLS_RECORD_MAJOR_VERSION, 0x03];
+    const SERVER_HELLO_TYPE: u8 = 0x02;
+    const TLS13_SUPPORTED_VERSIONS: [u8; 6] = [0x00, 0x2b, 0x00, 0x02, 0x03, 0x04];
+    const TLS_AES_128_CCM_8_SHA256: [u8; 2] = [0x13, 0x05];
+    // Record header, then handshake type (1), length (3), version (2), random (32).
+    const SESSION_ID_LEN_OFFSET: usize = 43;
+
+    buffered.extend_from_slice(produced);
+    if buffered.len() <= TLS_RECORD_HEADER_LEN {
+        return None;
+    }
+    if buffered[..3] != SERVER_HELLO_START || buffered[TLS_RECORD_HEADER_LEN] != SERVER_HELLO_TYPE {
+        *buffered = Vec::new();
+        return Some(false);
+    }
+    let record_end = TLS_RECORD_HEADER_LEN + usize::from(u16::from_be_bytes([buffered[3], buffered[4]]));
+    let hello = buffered.get(..record_end)?;
+    let tls13 = hello.windows(TLS13_SUPPORTED_VERSIONS.len()).any(|window| window == TLS13_SUPPORTED_VERSIONS);
+    let cipher_allows_splice = hello.get(SESSION_ID_LEN_OFFSET).is_some_and(|&session_id_len| {
+        let cipher_at = SESSION_ID_LEN_OFFSET + 1 + usize::from(session_id_len);
+        hello.get(cipher_at..cipher_at + 2).is_some_and(|cipher| cipher != TLS_AES_128_CCM_8_SHA256)
+    });
+    *buffered = Vec::new();
+    Some(tls13 && cipher_allows_splice)
+}
+
 /// Encode a single Vision padding chunk into `out`. Pure (the padding length is
 /// supplied) so the wire format is golden-testable.
 fn encode_padding_chunk(out: &mut Vec<u8>, uuid: Option<&[u8; 16]>, cmd: u8, content: &[u8], padding: u16) {
@@ -417,7 +457,11 @@ impl<S: XtlsDirectRead> AsyncRead for VisionStream<S> {
                         return Poll::Ready(Ok(()));
                     }
                     this.r_inbuf.extend_from_slice(filled);
+                    let produced_from = this.r_out.len();
                     this.unpad();
+                    if this.xtls_enabled.is_none() {
+                        this.xtls_enabled = filter_server_hello(&mut this.r_hello, &this.r_out[produced_from..]);
+                    }
                 }
             }
         }
@@ -451,10 +495,11 @@ impl<S: XtlsDirectWrite> AsyncWrite for VisionStream<S> {
         this.w_chunks += 1;
         let reached_appdata = this.note_records(buf);
         let stop = reached_appdata || (!this.w_seen_handshake && this.w_chunks >= NON_TLS_CHUNK_LIMIT);
-        // Direct removes the outer Reality TLS, so only inner TLS may take it;
-        // non-TLS bytes end with End and stay encrypted. Unlike xray, this does
-        // not also wait for a TLS 1.3 ServerHello, so inner TLS 1.2 is spliced too.
-        let final_cmd = if this.allow_direct && reached_appdata { CMD_DIRECT } else { CMD_END };
+        // Direct removes the outer Reality TLS, so only inner TLS 1.3 may take
+        // it (xray XtlsFilterTls); non-TLS bytes, inner TLS 1.2 and 0-RTT data
+        // sent before the ServerHello end with End and stay encrypted.
+        let final_cmd =
+            if this.allow_direct && reached_appdata && this.xtls_enabled == Some(true) { CMD_DIRECT } else { CMD_END };
         let cmd = if stop { final_cmd } else { CMD_CONTINUE };
         this.encode_outgoing(buf, cmd);
         if stop {
@@ -627,6 +672,85 @@ mod tests {
         assert_eq!(out, expected);
     }
 
+    /// An inner ServerHello record: `version` in `supported_versions` (or no
+    /// such extension when `None`) and the given cipher suite.
+    fn server_hello(supported_version: Option<[u8; 2]>, cipher: [u8; 2]) -> Vec<u8> {
+        let mut body = vec![0x03, 0x03];
+        body.extend_from_slice(&[0x5a; 32]);
+        body.push(32);
+        body.extend_from_slice(&[0x33; 32]);
+        body.extend_from_slice(&cipher);
+        body.push(0x00);
+        let extensions =
+            supported_version.map_or_else(Vec::new, |version| vec![0x00, 0x2b, 0x00, 0x02, version[0], version[1]]);
+        body.extend_from_slice(&u16::try_from(extensions.len()).expect("extension length").to_be_bytes());
+        body.extend_from_slice(&extensions);
+        let mut handshake = vec![0x02, 0x00];
+        handshake.extend_from_slice(&u16::try_from(body.len()).expect("hello length").to_be_bytes());
+        handshake.extend_from_slice(&body);
+        let mut record = vec![TLS_HANDSHAKE, 0x03, 0x03];
+        record.extend_from_slice(&u16::try_from(handshake.len()).expect("record length").to_be_bytes());
+        record.extend_from_slice(&handshake);
+        record
+    }
+
+    const TLS_AES_128_GCM_SHA256: [u8; 2] = [0x13, 0x01];
+
+    fn tls13_hello_seen() -> Option<bool> {
+        filter_server_hello(&mut Vec::new(), &server_hello(Some([0x03, 0x04]), TLS_AES_128_GCM_SHA256))
+    }
+
+    #[test]
+    fn server_hello_filter_enables_xtls_only_for_tls13_without_ccm8() {
+        assert_eq!(tls13_hello_seen(), Some(true));
+        let tls12 = server_hello(None, [0xc0, 0x2f]);
+        assert_eq!(filter_server_hello(&mut Vec::new(), &tls12), Some(false), "TLS 1.2 must not splice");
+        let ccm8 = server_hello(Some([0x03, 0x04]), [0x13, 0x05]);
+        assert_eq!(filter_server_hello(&mut Vec::new(), &ccm8), Some(false), "CCM_8 must not splice");
+        assert_eq!(filter_server_hello(&mut Vec::new(), b"HTTP/1.1 200 OK\r\n"), Some(false));
+
+        let hello = server_hello(Some([0x03, 0x04]), TLS_AES_128_GCM_SHA256);
+        let mut buffered = Vec::new();
+        assert_eq!(filter_server_hello(&mut buffered, &hello[..40]), None, "a split record waits for the rest");
+        assert_eq!(filter_server_hello(&mut buffered, &hello[40..]), Some(true));
+    }
+
+    #[tokio::test]
+    async fn inner_tls12_or_unanswered_handshake_ends_padding_without_direct() {
+        let handshake = [TLS_HANDSHAKE, 0x03, 0x01, 0x00, 0x02, 0xaa, 0xbb];
+        let appdata = [TLS_APPLICATION_DATA, 0x03, 0x03, 0x00, 0x03, 0x01, 0x02, 0x03];
+        let tls12_hello = filter_server_hello(&mut Vec::new(), &server_hello(None, [0xc0, 0x2f]));
+        for downlink in [None, tls12_hello] {
+            let mut writer =
+                VisionStream::new_vision(WriteModeSpy { outer_tls: Vec::new(), direct: Vec::new() }, TEST_UUID);
+            writer.xtls_enabled = downlink;
+            writer.write_all(&handshake).await.expect("write handshake");
+            writer.write_all(&appdata).await.expect("write appdata");
+            writer.write_all(b"after").await.expect("write after transition");
+            writer.flush().await.expect("flush");
+
+            assert!(writer.inner.direct.is_empty(), "{downlink:?}: uplink must stay inside Reality TLS");
+            assert!(writer.inner.outer_tls.ends_with(b"after"), "{downlink:?}: End leaves later bytes unpadded");
+        }
+    }
+
+    #[tokio::test]
+    async fn downlink_tls13_server_hello_arms_direct_through_the_read_path() {
+        let mut downlink = Vec::new();
+        encode_padding_chunk(
+            &mut downlink,
+            Some(&TEST_UUID),
+            CMD_CONTINUE,
+            &server_hello(Some([0x03, 0x04]), TLS_AES_128_GCM_SHA256),
+            7,
+        );
+        let mut stream = VisionStream::new_vision(Cursor::new(downlink), TEST_UUID);
+        let mut first = [0u8; 4096];
+        let _ = stream.read(&mut first).await.expect("read padded ServerHello");
+
+        assert_eq!(stream.xtls_enabled, Some(true));
+    }
+
     #[tokio::test]
     async fn vision_round_trip_recovers_payload_and_switches_to_direct() {
         // Writer pads a fake handshake record then the first application-data
@@ -638,6 +762,7 @@ mod tests {
         let mut sink: Vec<u8> = Vec::new();
         {
             let mut writer = VisionStream::new_vision(&mut sink, TEST_UUID);
+            writer.xtls_enabled = tls13_hello_seen();
             writer.write_all(&handshake).await.expect("write handshake");
             writer.write_all(&appdata).await.expect("write appdata");
             writer.write_all(bulk).await.expect("write bulk");
@@ -668,6 +793,7 @@ mod tests {
 
         let mut writer =
             VisionStream::new_vision(WriteModeSpy { outer_tls: Vec::new(), direct: Vec::new() }, TEST_UUID);
+        writer.xtls_enabled = tls13_hello_seen();
         writer.write_all(&handshake).await.expect("write padded handshake");
         writer.write_all(&appdata).await.expect("write direct transition");
         writer.write_all(raw).await.expect("write raw post-splice bytes");

@@ -46,7 +46,7 @@ oracles.
 
 Vision is an addon string carried in the request `Addons` field. It controls TLS-in-TLS detection avoidance via a stream wrapper (`VisionStream` in `vision.rs`).
 
-The VLESS response header is validated lazily on the first downlink read because xray-core flushes it with the first outbound payload. When Vision emits or receives `Direct`, subsequent bytes use the transport beneath the outer REALITY TLS stream; `End` stops padding without removing that TLS layer. The outer TLS reader is bounded to one complete record so it cannot consume coalesced post-`Direct` raw bytes before the splice transition.
+The VLESS response header is validated lazily on the first downlink read because xray-core flushes it with the first outbound payload. When Vision emits or receives `Direct`, subsequent bytes use the transport beneath the outer REALITY TLS stream; `End` stops padding without removing that TLS layer. Like xray's `XtlsFilterTls`, the client emits `Direct` only after the downlink inner ServerHello shows TLS 1.3 with a cipher other than `TLS_AES_128_CCM_8_SHA256`; inner TLS 1.2 and 0-RTT data sent before that answer end with `End`. The outer TLS reader is bounded to one complete record so it cannot consume coalesced post-`Direct` raw bytes before the splice transition.
 
 ## XUDP over VLESS Mux
 
