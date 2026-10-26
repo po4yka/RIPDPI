@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.RipDpiWarpEndpointProbeBindings
+import com.poyka.ripdpi.core.RipDpiWarpNativeBindings
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -22,6 +24,10 @@ abstract class WarpEnrollmentBindingsModule {
     @Binds
     @Singleton
     abstract fun bindWarpEndpointProbe(probe: DefaultWarpEndpointProbe): WarpEndpointProbe
+
+    @Binds
+    @Singleton
+    abstract fun bindWarpEndpointProbeBindings(bindings: RipDpiWarpNativeBindings): RipDpiWarpEndpointProbeBindings
 
     @Binds
     @Singleton

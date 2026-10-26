@@ -4,7 +4,7 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.ResolvedRipDpiWarpEndpoint
 import com.poyka.ripdpi.core.RipDpiWarpAmneziaConfig
-import com.poyka.ripdpi.core.RipDpiWarpNativeBindings
+import com.poyka.ripdpi.core.RipDpiWarpEndpointProbeBindings
 import com.poyka.ripdpi.core.WarpEndpointProbeNativeRequest
 import com.poyka.ripdpi.core.WarpEndpointProbeNativeResult
 import com.poyka.ripdpi.data.AppSettingsRepository
@@ -15,16 +15,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
-import java.net.DatagramPacket
-import java.net.DatagramSocket
-import java.net.Inet4Address
-import java.net.Inet6Address
-import java.net.InetAddress
-import java.net.InetSocketAddress
-import java.net.SocketTimeoutException
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.math.max
 
 interface WarpEndpointProbe {
     suspend fun probe(
@@ -39,7 +31,7 @@ class DefaultWarpEndpointProbe
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
         private val credentialStore: WarpCredentialStore,
-        private val nativeBindings: RipDpiWarpNativeBindings,
+        private val nativeBindings: RipDpiWarpEndpointProbeBindings,
     ) : WarpEndpointProbe {
         override suspend fun probe(
             candidate: WarpEndpointCacheEntry,
@@ -49,13 +41,12 @@ class DefaultWarpEndpointProbe
                 runCatching { probeBlocking(candidate, timeoutMillis.coerceAtLeast(250)) }.getOrNull()
             }
 
+        // Only a WireGuard handshake answer proves an endpoint works: a silent UDP port also
+        // matches a black-holed one, so no answer means no candidate.
         private suspend fun probeBlocking(
             candidate: WarpEndpointCacheEntry,
             timeoutMillis: Int,
-        ): WarpEndpointCacheEntry? {
-            probeNative(candidate, timeoutMillis)?.let { return it }
-            return probeFallbackUdp(candidate, timeoutMillis)
-        }
+        ): WarpEndpointCacheEntry? = probeNative(candidate, timeoutMillis)
 
         private suspend fun probeNative(
             candidate: WarpEndpointCacheEntry,
@@ -116,36 +107,6 @@ class DefaultWarpEndpointProbe
             }
         }
 
-        private fun probeFallbackUdp(
-            candidate: WarpEndpointCacheEntry,
-            timeoutMillis: Int,
-        ): WarpEndpointCacheEntry? {
-            val address = resolveSocketAddress(candidate) ?: return null
-            val startedAtNanos = System.nanoTime()
-            DatagramSocket().use { socket ->
-                socket.soTimeout = timeoutMillis
-                socket.connect(address)
-                val payload = byteArrayOf(0x01, 0x03, 0x03, 0x07)
-                socket.send(DatagramPacket(payload, payload.size))
-                try {
-                    val response = DatagramPacket(ByteArray(64), 64)
-                    socket.receive(response)
-                } catch (_: SocketTimeoutException) {
-                    // WARP UDP endpoints typically stay silent; a clean send is still a usable signal.
-                }
-            }
-            val resolvedAddress = address.address
-            val elapsedMillis = max(1L, (System.nanoTime() - startedAtNanos) / 1_000_000L)
-            return candidate.copy(
-                host = candidate.host?.ifBlank { address.hostString } ?: address.hostString,
-                ipv4 = candidate.ipv4 ?: (resolvedAddress as? Inet4Address)?.hostAddress,
-                ipv6 = candidate.ipv6 ?: (resolvedAddress as? Inet6Address)?.hostAddress,
-                source = "scanner",
-                rttMs = elapsedMillis,
-                updatedAtEpochMillis = System.currentTimeMillis(),
-            )
-        }
-
         private fun WarpEndpointCacheEntry.toResolvedEndpoint() =
             ResolvedRipDpiWarpEndpoint(
                 host = host?.ifBlank { ipv4 ?: ipv6.orEmpty() } ?: ipv4 ?: ipv6.orEmpty(),
@@ -154,21 +115,6 @@ class DefaultWarpEndpointProbe
                 port = port,
                 source = source,
             )
-
-        private fun resolveSocketAddress(candidate: WarpEndpointCacheEntry): InetSocketAddress? {
-            val port = candidate.port.takeIf { it > 0 }
-            return port?.let { resolvedPort ->
-                val literalAddress =
-                    candidate.ipv4?.takeIf(String::isNotBlank)
-                        ?: candidate.ipv6?.takeIf(String::isNotBlank)
-                literalAddress?.let { InetSocketAddress(it, resolvedPort) }
-                    ?: candidate.host?.takeIf(String::isNotBlank)?.let { host ->
-                        runCatching { InetAddress.getAllByName(host).firstOrNull() }
-                            .getOrNull()
-                            ?.let { resolved -> InetSocketAddress(resolved, resolvedPort) }
-                    }
-            }
-        }
 
         private companion object {
             val WarpProbeJson =
