@@ -3,14 +3,14 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 
 use tokio::net::TcpListener;
-use tokio::task::JoinHandle;
+use tokio::task::{JoinHandle, JoinSet};
 use tokio::time::{Duration, timeout};
 
 use crate::config::{ResolvedWarpRuntimeConfig, WarpTelemetry, now_ms, parse_ipv4_cidr, resolve_endpoint};
 use crate::observe::TcpConnectObservation;
 use crate::platform::WarpPlatform;
 use crate::ports::{PortProtocol, UdpAssociationPool, VirtualPortPool};
-use crate::socks::handle_socks_client;
+use crate::socks::{MAX_SOCKS_SESSIONS, accept_backoff, handle_socks_client};
 use crate::support::to_io_error;
 use crate::virtual_iface::{Bus, DynamicTcpInterface, DynamicUdpInterface};
 use crate::wireguard::{WireGuardTunnel, WireGuardTunnelParams, reserved_bytes_from_client_id};
@@ -225,16 +225,25 @@ impl WarpRuntime {
         // the Kotlin wrapper need not poll. No-op when no observer is set.
         self.notify_ready();
 
+        // Track client tasks so shutdown closes them and resets the session count.
+        let mut clients = JoinSet::new();
+        let mut accept_failures = 0u32;
         while !self.stop_requested.load(Ordering::SeqCst) {
+            while clients.try_join_next().is_some() {}
             match timeout(ACCEPT_POLL_INTERVAL, listener.accept()).await {
                 Ok(Ok((stream, _))) => {
+                    accept_failures = 0;
+                    if clients.len() >= MAX_SOCKS_SESSIONS {
+                        drop(stream);
+                        continue;
+                    }
                     self.active_sessions.fetch_add(1, Ordering::SeqCst);
                     self.total_sessions.fetch_add(1, Ordering::SeqCst);
                     let runtime = Arc::clone(&self);
                     let bus = bus.clone();
                     let tcp_pool = Arc::clone(&tcp_pool);
                     let udp_pool = Arc::clone(&udp_pool);
-                    tokio::spawn(async move {
+                    clients.spawn(async move {
                         match handle_socks_client(stream, bus, tcp_pool, udp_pool).await {
                             Ok(()) => {
                                 runtime.emit_connect_observation(TcpConnectObservation { rtt_ms: 0, succeeded: true });
@@ -249,6 +258,8 @@ impl WarpRuntime {
                 }
                 Ok(Err(error)) => {
                     *self.last_error.lock().expect("last error") = Some(error.to_string());
+                    accept_failures = accept_failures.saturating_add(1);
+                    tokio::time::sleep(accept_backoff(accept_failures)).await;
                 }
                 Err(_) => {}
             }
@@ -260,6 +271,8 @@ impl WarpRuntime {
             task.abort();
             let _ = task.await;
         }
+        clients.shutdown().await;
+        self.active_sessions.store(0, Ordering::SeqCst);
         emit_runtime_stopped();
         Ok(())
     }

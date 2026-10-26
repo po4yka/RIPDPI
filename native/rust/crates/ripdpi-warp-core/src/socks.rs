@@ -12,6 +12,16 @@ use crate::ports::{PortForwardConfig, PortProtocol, UdpAssociationPool, VirtualP
 use crate::support::MAX_PACKET;
 use crate::virtual_iface::{Bus, Event};
 
+/// Concurrent SOCKS sessions one runtime serves. A client accepted beyond this is
+/// closed at once, so local clients cannot exhaust the process's descriptors.
+pub(crate) const MAX_SOCKS_SESSIONS: usize = 4096;
+
+/// Wait before the next accept after `failures` consecutive accept errors. A
+/// persistent error such as EMFILE returns at once, so retrying without a wait spins.
+pub(crate) fn accept_backoff(failures: u32) -> Duration {
+    Duration::from_millis(10u64 << failures.clamp(1, 7)).min(Duration::from_secs(1))
+}
+
 /// A client must finish the greeting, the request and the target lookup within this
 /// time, so a silent or trickling local client cannot pin a task and a descriptor.
 const SOCKS_NEGOTIATION_TIMEOUT: Duration =
@@ -512,6 +522,14 @@ mod tests {
             .await
             .expect("a stalled greeting must not pin the handler");
         assert_eq!(result.expect_err("stalled negotiation").kind(), io::ErrorKind::TimedOut);
+    }
+
+    #[test]
+    fn accept_backoff_grows_to_a_one_second_cap() {
+        let delays: Vec<_> = (1..=10).map(accept_backoff).collect();
+        assert_eq!(delays[0], Duration::from_millis(20));
+        assert!(delays.windows(2).all(|pair| pair[0] <= pair[1]), "backoff must not shrink: {delays:?}");
+        assert_eq!(delays[9], Duration::from_secs(1));
     }
 
     #[test]

@@ -38,7 +38,7 @@ use crate::config::{
 };
 use crate::platform::WarpPlatform;
 use crate::ports::{PortProtocol, UdpAssociationPool, VirtualPortPool};
-use crate::socks::handle_socks_client;
+use crate::socks::{MAX_SOCKS_SESSIONS, accept_backoff, handle_socks_client};
 use crate::support::to_io_error;
 use crate::virtual_iface::{Bus, DynamicTcpInterface, DynamicUdpInterface};
 use crate::wireguard::{WgCarrier, WireGuardTunnel, WireGuardTunnelParams, connect_ws_carrier};
@@ -600,10 +600,16 @@ impl AmneziaWgRuntime {
         // The owner must retain even clients stalled before their bus subscription.
         // A bus shutdown alone cannot reach an incomplete SOCKS greeting.
         let mut clients = JoinSet::new();
+        let mut accept_failures = 0u32;
         while self.running.load(Ordering::SeqCst) && !self.stop_requested() {
             while clients.try_join_next().is_some() {}
             match poll_runtime(&listener, &mut failure_rx).await {
                 RuntimePoll::Client(stream) => {
+                    accept_failures = 0;
+                    if clients.len() >= MAX_SOCKS_SESSIONS {
+                        drop(stream);
+                        continue;
+                    }
                     self.active_sessions.fetch_add(1, Ordering::SeqCst);
                     self.total_sessions.fetch_add(1, Ordering::SeqCst);
                     let runtime = Arc::clone(&self);
@@ -619,6 +625,11 @@ impl AmneziaWgRuntime {
                 }
                 RuntimePoll::ListenerError(error) => {
                     *self.last_error.lock().expect("last error") = Some(error.to_string());
+                    accept_failures = accept_failures.saturating_add(1);
+                    tokio::select! {
+                        () = self.stopped() => {}
+                        () = tokio::time::sleep(accept_backoff(accept_failures)) => {}
+                    }
                 }
                 RuntimePoll::CriticalFailure(message) => {
                     *self.last_error.lock().expect("last error") = Some(message.clone());
