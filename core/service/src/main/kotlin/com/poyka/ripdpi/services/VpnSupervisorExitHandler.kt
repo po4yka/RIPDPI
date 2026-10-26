@@ -2,21 +2,16 @@ package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.FailureReason
-import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.classifyFailureReason
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.launch
 
 internal class VpnSupervisorExitHandler(
-    private val host: VpnCoordinatorHost,
-    private val ioDispatcher: CoroutineDispatcher,
     private val proxyRuntimeStack: SharedProxyRuntimeStack,
     private val upstreamRelaySupervisor: UpstreamRelaySupervisor,
     private val warpRuntimeSupervisor: WarpRuntimeSupervisor,
     private val amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
-    private val updateStatus: (ServiceStatus, FailureReason?) -> Unit,
     private val markForeignRelayFailed: () -> Unit,
-    private val stopService: suspend (skipRuntimeShutdown: Boolean) -> Unit,
+    // Fails (when the reason is set) and stops the session that is current when the exit is seen.
+    private val failAndStop: (FailureReason?) -> Unit,
 ) {
     suspend fun handleProxyExit(cause: SupervisorExitCause) {
         if (cause is SupervisorExitCause.ExpectedStop) {
@@ -25,7 +20,7 @@ internal class VpnSupervisorExitHandler(
         if (cause is SupervisorExitCause.Crash && cause.code == 0) {
             Logger.i { "VPN local proxy exited cleanly" }
             proxyRuntimeStack.detachCompletedRuntimes()
-            stopRemainingRuntimes()
+            failAndStop(null)
             return
         }
 
@@ -52,9 +47,8 @@ internal class VpnSupervisorExitHandler(
                 }
             }
 
-        reportFailure(failureReason)
         proxyRuntimeStack.detachCompletedRuntimes()
-        stopRemainingRuntimes()
+        failAndStop(failureReason)
     }
 
     suspend fun handleWarpExit(cause: SupervisorExitCause) {
@@ -85,9 +79,8 @@ internal class VpnSupervisorExitHandler(
                 }
             }
 
-        reportFailure(failureReason)
         warpRuntimeSupervisor.detach()
-        stopRemainingRuntimes()
+        failAndStop(failureReason)
     }
 
     suspend fun handleAwgExit(cause: SupervisorExitCause) {
@@ -118,9 +111,8 @@ internal class VpnSupervisorExitHandler(
                 }
             }
 
-        reportFailure(failureReason)
         amneziaWgRuntimeSupervisor.detach()
-        stopRemainingRuntimes()
+        failAndStop(failureReason)
     }
 
     suspend fun handleRelayExit(cause: SupervisorExitCause) {
@@ -151,19 +143,8 @@ internal class VpnSupervisorExitHandler(
                 }
             }
 
-        reportFailure(failureReason)
         markForeignRelayFailed()
         upstreamRelaySupervisor.detach()
-        stopRemainingRuntimes()
-    }
-
-    private fun reportFailure(failureReason: FailureReason?) {
-        if (failureReason != null) {
-            updateStatus(ServiceStatus.Failed, failureReason)
-        }
-    }
-
-    private fun stopRemainingRuntimes() {
-        host.serviceScope.launch(ioDispatcher) { stopService(false) }
+        failAndStop(failureReason)
     }
 }

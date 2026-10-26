@@ -119,15 +119,12 @@ internal class ProxyServiceRuntimeCoordinator(
         )
     private val supervisorExitHandler =
         ProxySupervisorExitHandler(
-            host = host,
-            ioDispatcher = ioDispatcher,
             upstreamRelaySupervisor = upstreamRelaySupervisor,
             warpRuntimeSupervisor = warpRuntimeSupervisor,
             amneziaWgRuntimeSupervisor = amneziaWgRuntimeSupervisor,
             proxyRuntimeSupervisor = proxyRuntimeSupervisor,
-            updateStatus = ::updateStatus,
             markForeignRelayFailed = statusReporter::markForeignRelayFailed,
-            stopService = { skipRuntimeShutdown -> stop(skipRuntimeShutdown = skipRuntimeShutdown) },
+            failAndStop = ::failAndStopFromCallback,
         )
     private val telemetryCoordinator =
         ProxyTelemetryCoordinator(
@@ -475,11 +472,7 @@ internal class ProxyServiceRuntimeCoordinator(
             PermissionChangeEvent.KIND_LOCAL_NETWORK -> {
                 if (runtimeSession?.localNetworkDependent == true || upstreamRelaySupervisor.localNetworkDependent) {
                     Logger.e { "Local network permission revoked while LAN-dependent proxy runtime is active" }
-                    updateStatus(
-                        ServiceStatus.Failed,
-                        FailureReason.PermissionLost(com.poyka.ripdpi.data.LocalNetworkPermission),
-                    )
-                    host.serviceScope.launch(ioDispatcher) { stop() }
+                    failAndStopFromCallback(FailureReason.PermissionLost(com.poyka.ripdpi.data.LocalNetworkPermission))
                 }
             }
         }

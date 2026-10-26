@@ -2,21 +2,16 @@ package com.poyka.ripdpi.services
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.FailureReason
-import com.poyka.ripdpi.data.ServiceStatus
 import com.poyka.ripdpi.data.classifyFailureReason
-import kotlinx.coroutines.CoroutineDispatcher
-import kotlinx.coroutines.launch
 
 internal class ProxySupervisorExitHandler(
-    private val host: ServiceCoordinatorHost,
-    private val ioDispatcher: CoroutineDispatcher,
     private val upstreamRelaySupervisor: UpstreamRelaySupervisor,
     private val warpRuntimeSupervisor: WarpRuntimeSupervisor,
     private val amneziaWgRuntimeSupervisor: AmneziaWgRuntimeSupervisor,
     private val proxyRuntimeSupervisor: ProxyRuntimeSupervisor,
-    private val updateStatus: (ServiceStatus, FailureReason?) -> Unit,
     private val markForeignRelayFailed: () -> Unit,
-    private val stopService: suspend (skipRuntimeShutdown: Boolean) -> Unit,
+    // Fails (when the reason is set) and stops the session that is current when the exit is seen.
+    private val failAndStop: (FailureReason?) -> Unit,
 ) {
     suspend fun handleProxyExit(cause: SupervisorExitCause) {
         if (cause is SupervisorExitCause.ExpectedStop) {
@@ -25,7 +20,7 @@ internal class ProxySupervisorExitHandler(
         if (cause is SupervisorExitCause.Crash && cause.code == 0) {
             Logger.i { "Proxy exited cleanly" }
             proxyRuntimeSupervisor.detach()
-            stopRemainingRuntimes()
+            failAndStop(null)
             return
         }
 
@@ -52,9 +47,8 @@ internal class ProxySupervisorExitHandler(
                 }
             }
 
-        reportFailure(failureReason)
         proxyRuntimeSupervisor.detach()
-        stopRemainingRuntimes()
+        failAndStop(failureReason)
     }
 
     suspend fun handleWarpExit(cause: SupervisorExitCause) {
@@ -85,9 +79,8 @@ internal class ProxySupervisorExitHandler(
                 }
             }
 
-        reportFailure(failureReason)
         warpRuntimeSupervisor.detach()
-        stopRemainingRuntimes()
+        failAndStop(failureReason)
     }
 
     suspend fun handleRelayExit(cause: SupervisorExitCause) {
@@ -131,19 +124,8 @@ internal class ProxySupervisorExitHandler(
                 }
             }
 
-        reportFailure(failureReason)
         amneziaWgRuntimeSupervisor.detach()
-        stopRemainingRuntimes()
-    }
-
-    private fun reportFailure(failureReason: FailureReason?) {
-        if (failureReason != null) {
-            updateStatus(ServiceStatus.Failed, failureReason)
-        }
-    }
-
-    private fun stopRemainingRuntimes() {
-        host.serviceScope.launch(ioDispatcher) { stopService(false) }
+        failAndStop(failureReason)
     }
 
     private fun logRelayExit(cause: SupervisorExitCause) {

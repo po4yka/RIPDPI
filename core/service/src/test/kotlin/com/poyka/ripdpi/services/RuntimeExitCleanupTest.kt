@@ -10,6 +10,7 @@ import com.poyka.ripdpi.service.warp.RequestedWarpRuntimeReference
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -175,27 +176,21 @@ class RuntimeExitCleanupTest {
         val stack = SharedProxyRuntimeStack(relay, warp, awg, proxy)
         private val vpnHandler =
             VpnSupervisorExitHandler(
-                host = TestVpnServiceHost(scope),
-                ioDispatcher = dispatcher,
                 proxyRuntimeStack = stack,
                 upstreamRelaySupervisor = relay,
                 warpRuntimeSupervisor = warp,
                 amneziaWgRuntimeSupervisor = awg,
-                updateStatus = { _, _ -> },
                 markForeignRelayFailed = {},
-                stopService = ::stop,
+                failAndStop = { scope.launch(dispatcher) { stop(skipRuntimeShutdown = false) } },
             )
         private val proxyHandler =
             ProxySupervisorExitHandler(
-                host = TestProxyServiceHost(scope),
-                ioDispatcher = dispatcher,
                 upstreamRelaySupervisor = relay,
                 warpRuntimeSupervisor = warp,
                 amneziaWgRuntimeSupervisor = awg,
                 proxyRuntimeSupervisor = proxy,
-                updateStatus = { _, _ -> },
                 markForeignRelayFailed = {},
-                stopService = ::stop,
+                failAndStop = { scope.launch(dispatcher) { stop(skipRuntimeShutdown = false) } },
             )
 
         private suspend fun stop(skipRuntimeShutdown: Boolean) {

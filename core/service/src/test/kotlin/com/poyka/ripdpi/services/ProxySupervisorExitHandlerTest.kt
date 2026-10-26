@@ -14,7 +14,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
-import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -46,14 +45,10 @@ class ProxySupervisorExitHandlerTest {
                     },
                 clock = TestServiceClock(now = 1_000L),
             )
-        val statusUpdates = mutableListOf<Pair<ServiceStatus, FailureReason?>>()
-        var stopServiceCount = 0
-            private set
+        val failAndStopReasons = mutableListOf<FailureReason?>()
 
         val handler =
             ProxySupervisorExitHandler(
-                host = TestProxyServiceHost(scope),
-                ioDispatcher = dispatcher,
                 upstreamRelaySupervisor =
                     UpstreamRelaySupervisor(
                         scope = scope,
@@ -90,9 +85,8 @@ class ProxySupervisorExitHandlerTest {
                                     NativeNetworkSnapshot(transport = "wifi")
                             },
                     ),
-                updateStatus = { status, reason -> statusUpdates += status to reason },
                 markForeignRelayFailed = statusReporter::markForeignRelayFailed,
-                stopService = { stopServiceCount += 1 },
+                failAndStop = { reason -> failAndStopReasons += reason },
             )
 
         // Force the sticky signal onto a fresh live snapshot so the test can read relayFailed.
@@ -121,8 +115,7 @@ class ProxySupervisorExitHandlerTest {
             advanceUntilIdle()
 
             assertTrue("foreign relay failure must set the sticky signal", harness.currentRelayFailed())
-            assertTrue("the base must not be marked Failed", harness.statusUpdates.isEmpty())
-            assertEquals("the service must not be stopped", 0, harness.stopServiceCount)
+            assertTrue("the base must not be failed or stopped", harness.failAndStopReasons.isEmpty())
         }
 
     @Test
@@ -135,7 +128,7 @@ class ProxySupervisorExitHandlerTest {
             advanceUntilIdle()
 
             assertTrue(harness.currentRelayFailed())
-            assertEquals(0, harness.stopServiceCount)
+            assertTrue(harness.failAndStopReasons.isEmpty())
         }
 
     @Test
@@ -148,6 +141,6 @@ class ProxySupervisorExitHandlerTest {
             advanceUntilIdle()
 
             assertFalse("an expected stop must not flag a degraded foreign exit", harness.currentRelayFailed())
-            assertEquals(0, harness.stopServiceCount)
+            assertTrue(harness.failAndStopReasons.isEmpty())
         }
 }

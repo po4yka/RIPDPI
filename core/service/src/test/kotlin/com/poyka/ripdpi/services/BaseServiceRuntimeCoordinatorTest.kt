@@ -402,6 +402,41 @@ class BaseServiceRuntimeCoordinatorTest {
             assertEquals(ServiceStatus.Failed, env.coordinator.statusTransitions.last())
             assertTrue(env.host.stopRequests.isEmpty())
         }
+
+    @Test
+    fun `out-of-lock failure callback leaves a newer session running`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            runCurrent()
+            val failedSession = env.coordinator.currentSessionForTest
+            env.coordinator.stop()
+            env.coordinator.start()
+            runCurrent()
+
+            env.coordinator.stopFromCallbackFor(failedSession, FailureReason.NativeError("relay exited"))
+            runCurrent()
+
+            assertEquals(ServiceStatus.Connected, env.coordinator.statusTransitions.last())
+            assertNotNull(env.runtimeRegistry.current(Mode.Proxy))
+        }
+
+    @Test
+    fun `out-of-lock failure callback fails and stops the session it observed`() =
+        runTest {
+            val env = newEnv()
+            env.coordinator.start()
+            runCurrent()
+
+            env.coordinator.stopFromCallbackFor(
+                env.coordinator.currentSessionForTest,
+                FailureReason.NativeError("relay exited"),
+            )
+            runCurrent()
+
+            assertEquals(ServiceStatus.Failed, env.coordinator.statusTransitions.last())
+            assertNull(env.runtimeRegistry.current(Mode.Proxy))
+        }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -1537,6 +1572,13 @@ private class TestCoordinator(
         clock = clock,
         selectorListeners = selectorListeners,
     ) {
+    val currentSessionForTest: ProxyRuntimeSession? get() = runtimeSession
+
+    suspend fun stopFromCallbackFor(
+        observedSession: ProxyRuntimeSession?,
+        failureReason: FailureReason?,
+    ) = stopObservedSession(observedSession, failureReason)
+
     private val fixtureAuthority =
         com.poyka.ripdpi.data
             .testPauseAuthority()

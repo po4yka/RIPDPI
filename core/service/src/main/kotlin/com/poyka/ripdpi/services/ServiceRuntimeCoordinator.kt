@@ -12,6 +12,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
@@ -85,7 +86,11 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
     @Volatile
     protected var handoverRestarting: Boolean = false
 
+    // Written under the mutex; out-of-lock callbacks read them, so publish writes to every thread.
+    @Volatile
     protected var status: ServiceStatus = ServiceStatus.Disconnected
+
+    @Volatile
     protected var runtimeSession: TSession? = null
 
     protected abstract suspend fun reloadResolvedRuntime(
@@ -187,6 +192,29 @@ internal abstract class BaseServiceRuntimeCoordinator<TSession>(
         guard = guard,
         beforeStopFinalization = beforeStopFinalization,
     )
+
+    /**
+     * Fails and stops the session that is current when an out-of-lock callback (permission watchdog,
+     * supervisor exit) fires. The guarded stop publishes the failure under the lifecycle mutex and
+     * leaves alone a session that a queued Start brought up in the meantime.
+     */
+    protected fun failAndStopFromCallback(failureReason: FailureReason?) {
+        val observedSession = runtimeSession
+        host.serviceScope.launch(ioDispatcher) { stopObservedSession(observedSession, failureReason) }
+    }
+
+    protected suspend fun stopObservedSession(
+        observedSession: TSession?,
+        failureReason: FailureReason?,
+    ) {
+        stop(
+            guard =
+                RuntimeStopGuard(
+                    isCurrent = { runtimeSession?.runtimeId == observedSession?.runtimeId },
+                    failureReason = failureReason,
+                ),
+        )
+    }
 
     protected fun monitorNfqws(
         manager: RootHelperManager,

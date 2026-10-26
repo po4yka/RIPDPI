@@ -98,15 +98,12 @@ class VpnRuntimeCompositionCoordinatorTest {
                 )
             val exitHandler =
                 VpnSupervisorExitHandler(
-                    host = host,
-                    ioDispatcher = dispatcher,
                     proxyRuntimeStack = runtimeStack,
                     upstreamRelaySupervisor = upstreamRelaySupervisor,
                     warpRuntimeSupervisor = warpRuntimeSupervisor,
                     amneziaWgRuntimeSupervisor = awgRuntimeSupervisor,
-                    updateStatus = { _, _ -> },
                     markForeignRelayFailed = {},
-                    stopService = {},
+                    failAndStop = {},
                 )
             val coordinator =
                 VpnRuntimeCompositionCoordinator(

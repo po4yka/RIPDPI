@@ -67,7 +67,6 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
@@ -147,22 +146,16 @@ internal class VpnServiceRuntimeCoordinator(
             isLocalNetworkDependent = {
                 runtimeSession?.localNetworkDependent == true || upstreamRelaySupervisor.localNetworkDependent
             },
-            failAndStop = { reason ->
-                updateStatus(ServiceStatus.Failed, reason)
-                vpnHost.serviceScope.launch(ioDispatcher) { stop() }
-            },
+            failAndStop = ::failAndStopFromCallback,
         )
     private val supervisorExitHandler =
         VpnSupervisorExitHandler(
-            host = vpnHost,
-            ioDispatcher = ioDispatcher,
             proxyRuntimeStack = proxyRuntimeStack,
             upstreamRelaySupervisor = upstreamRelaySupervisor,
             warpRuntimeSupervisor = warpRuntimeSupervisor,
             amneziaWgRuntimeSupervisor = amneziaWgRuntimeSupervisor,
-            updateStatus = ::updateStatus,
             markForeignRelayFailed = statusReporter::markForeignRelayFailed,
-            stopService = { skipRuntimeShutdown -> stop(skipRuntimeShutdown = skipRuntimeShutdown) },
+            failAndStop = ::failAndStopFromCallback,
         )
     private val runtimeCompositionCoordinator =
         VpnRuntimeCompositionCoordinator(
