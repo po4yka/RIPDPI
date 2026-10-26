@@ -154,14 +154,10 @@ internal fun warpAmneziaInputIsValid(
         AdvancedTextSetting.WarpAmneziaJmax,
         AdvancedTextSetting.WarpAmneziaS1,
         AdvancedTextSetting.WarpAmneziaS2,
-        -> {
-            value.toIntOrNull()?.let { it in 0..AmneziaWgWireProfile.MaximumPacket } == true
-        }
-
         AdvancedTextSetting.WarpAmneziaS3,
         AdvancedTextSetting.WarpAmneziaS4,
         -> {
-            value.toIntOrNull() == 0
+            value.toIntOrNull()?.let { it in 0..AmneziaWgWireProfile.MaximumPacket } == true
         }
 
         else -> {

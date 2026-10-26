@@ -15,7 +15,9 @@ class AdvancedSettingsHelpersTest {
         assertFalse(warpAmneziaInputIsValid(AdvancedTextSetting.WarpAmneziaJc, "129"))
         assertFalse(warpAmneziaInputIsValid(AdvancedTextSetting.WarpAmneziaS1, "1281"))
         assertTrue(warpAmneziaInputIsValid(AdvancedTextSetting.WarpAmneziaS3, "0"))
-        assertFalse(warpAmneziaInputIsValid(AdvancedTextSetting.WarpAmneziaS3, "1"))
+        assertTrue(warpAmneziaInputIsValid(AdvancedTextSetting.WarpAmneziaS3, "12"))
+        assertTrue(warpAmneziaInputIsValid(AdvancedTextSetting.WarpAmneziaS4, "1280"))
+        assertFalse(warpAmneziaInputIsValid(AdvancedTextSetting.WarpAmneziaS3, "1281"))
         assertFalse(warpAmneziaInputIsValid(AdvancedTextSetting.WarpAmneziaS4, "-1"))
     }
 
