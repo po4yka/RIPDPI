@@ -1582,6 +1582,42 @@ async fn udp_send_reopens_a_flow_whose_carrier_died() {
 }
 
 #[tokio::test]
+async fn udp_send_replaces_an_h2_flow_whose_queue_stays_full() {
+    let fixture = MasqueH2ConnectUdpFixture::start_refusing_quic().await.expect("start MASQUE fixture");
+    let mut config = h3_connect_udp_proxy_config("127.0.0.1:0".parse().expect("address"), String::new());
+    config.url = fixture.masque_url();
+    config.proxy_socket_addr = None;
+    config.root_certificate_pem = None;
+    config.use_http2_fallback = true;
+    let client = MasqueClient::new(config).expect("client");
+    let mut udp = client.udp_session();
+    let target = fixture.udp_echo_target();
+    // A black-holed H2 carrier: the writer never drains, so the queue stays full.
+    let (sender, _stalled_writer) = tokio::sync::mpsc::channel(1);
+    sender.try_send(b"stuck".to_vec()).expect("fill the queue");
+    let mut stalled = crate::udp::MasqueUdpFlow::new(
+        crate::udp::MasqueUdpSender::H2(sender),
+        None,
+        tokio::spawn(std::future::pending()),
+        tokio::spawn(std::future::pending()),
+        None,
+        0,
+    );
+    stalled.h2_full_since = Some(std::time::Instant::now() - crate::udp::H2_STALL_LIMIT);
+    udp.flows.insert(target.clone(), stalled);
+
+    udp.send_to(&target, b"after-stall").await.expect("send replaces the stalled flow");
+    let (from, payload) = tokio::time::timeout(std::time::Duration::from_secs(10), udp.recv_from())
+        .await
+        .expect("receive timeout: the datagram went into the stalled queue")
+        .expect("receive via the new flow");
+
+    assert_eq!(from, target);
+    assert_eq!(payload, b"after-stall");
+    assert_eq!(fixture.observed_requests().len(), 1);
+}
+
+#[tokio::test]
 async fn a_waiting_receive_closes_flows_that_go_idle() {
     let mut config = h3_connect_udp_proxy_config("127.0.0.1:9".parse().expect("address"), String::new());
     config.url = "https://masque.example/".to_string();

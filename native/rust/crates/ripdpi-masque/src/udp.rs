@@ -17,6 +17,9 @@ type H3RequestSender = h3::client::SendRequest<h3_quinn::OpenStreams, Bytes>;
 
 const MAX_UDP_FLOWS: usize = 64;
 pub(crate) const UDP_FLOW_IDLE_TIMEOUT: Duration = Duration::from_secs(120);
+/// An H2 flow whose send queue stays full this long has a stalled carrier (for
+/// example a black-holed TCP connection after a handover): replace it.
+pub(crate) const H2_STALL_LIMIT: Duration = Duration::from_secs(5);
 const H3_DATAGRAM_TOO_LARGE: &str = "masque_h3_datagram_too_large: payload exceeds the current QUIC path limit";
 
 fn h3_datagram_send_error(error: quinn::SendDatagramError) -> io::Error {
@@ -67,6 +70,9 @@ pub(crate) struct MasqueUdpFlow {
     pub(crate) path_connection: Option<quinn::Connection>,
     datagram_stream_id_len: usize,
     pub(crate) last_used: Instant,
+    /// When the H2 send queue became full, until a datagram is queued again.
+    pub(crate) h2_full_since: Option<Instant>,
+    dropped_datagrams: u64,
 }
 
 impl MasqueUdpRelay {
@@ -106,8 +112,10 @@ impl MasqueUdpRelay {
     /// Cancel-safe: a flow is stored only after it is open; cancelling while it
     /// opens drops the half-open flow.
     pub async fn ensure_flow(&mut self, target: &str) -> io::Result<()> {
-        if self.flows.get(target).is_some_and(MasqueUdpFlow::is_dead) {
-            self.flows.remove(target);
+        if self.flows.get(target).is_some_and(MasqueUdpFlow::is_dead)
+            && let Some(dead) = self.flows.remove(target)
+        {
+            tracing::debug!(target, dropped = dead.dropped_datagrams, "replacing a dead or stalled MASQUE UDP flow");
         }
         if !self.flows.contains_key(target) {
             let flow = self.open_flow(target).await?;
@@ -273,6 +281,8 @@ impl MasqueUdpFlow {
             path_connection,
             datagram_stream_id_len,
             last_used: Instant::now(),
+            h2_full_since: None,
+            dropped_datagrams: 0,
         }
     }
 
@@ -281,7 +291,11 @@ impl MasqueUdpFlow {
         self.reader_task.is_finished()
             || match &self.sender {
                 MasqueUdpSender::H3 { connection, .. } => connection.close_reason().is_some(),
-                MasqueUdpSender::H2(sender) => sender.is_closed(),
+                MasqueUdpSender::H2(sender) => {
+                    sender.is_closed()
+                        || (sender.capacity() == 0
+                            && self.h2_full_since.is_some_and(|since| since.elapsed() >= H2_STALL_LIMIT))
+                }
             }
     }
 
@@ -301,9 +315,25 @@ impl MasqueUdpFlow {
                     connection.send_datagram(encoded.copy_to_bytes(encoded_len)).map_err(h3_datagram_send_error)
                 }
                 MasqueUdpSender::H2(sender) => match sender.try_send(payload.to_vec()) {
+                    Ok(()) => {
+                        self.h2_full_since = None;
+                        Ok(())
+                    }
                     // UDP is lossy: a full queue (the H2 stream is flow-control blocked)
-                    // drops this datagram instead of failing the association.
-                    Ok(()) | Err(mpsc::error::TrySendError::Full(_)) => Ok(()),
+                    // drops this datagram instead of failing the association. A queue
+                    // that stays full marks the flow stalled (see `is_dead`).
+                    Err(mpsc::error::TrySendError::Full(_)) => {
+                        self.dropped_datagrams += 1;
+                        if self.h2_full_since.is_none() {
+                            self.h2_full_since = Some(Instant::now());
+                            tracing::debug!(
+                                kind = "masque_h2_udp_queue_full",
+                                dropped = self.dropped_datagrams,
+                                "MASQUE H2 UDP send queue is full, dropping datagrams"
+                            );
+                        }
+                        Ok(())
+                    }
                     Err(mpsc::error::TrySendError::Closed(_)) => {
                         Err(io::Error::new(io::ErrorKind::BrokenPipe, "MASQUE H2 UDP stream closed"))
                     }
@@ -356,6 +386,26 @@ mod tests {
         drop(receiver);
 
         assert_eq!(flow.send(b"closed").expect_err("closed stream").kind(), io::ErrorKind::BrokenPipe);
+    }
+
+    #[tokio::test]
+    async fn an_h2_flow_is_stalled_only_while_its_queue_stays_full() {
+        let (sender, mut receiver) = mpsc::channel(1);
+        let driver_task = tokio::spawn(std::future::pending());
+        let reader_task = tokio::spawn(std::future::pending());
+        let mut flow = MasqueUdpFlow::new(MasqueUdpSender::H2(sender), None, driver_task, reader_task, None, 0);
+        flow.send(b"queued").expect("queued");
+        flow.send(b"dropped").expect("dropped");
+        assert!(!flow.is_dead(), "a full queue is not a stall yet");
+
+        flow.h2_full_since = flow.h2_full_since.map(|since| since - H2_STALL_LIMIT);
+        assert!(flow.is_dead(), "a queue full for the stall limit marks the carrier stalled");
+        assert_eq!(flow.dropped_datagrams, 1);
+
+        receiver.recv().await.expect("the writer drains one datagram");
+        assert!(!flow.is_dead(), "a draining writer is not stalled");
+        flow.send(b"queued again").expect("queued");
+        assert_eq!(flow.h2_full_since, None);
     }
 
     #[tokio::test]
