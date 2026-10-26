@@ -489,6 +489,7 @@ struct SocksSession {
     syn: Bytes,
     handler: tokio::task::JoinHandle<std::io::Result<()>>,
     worker: tokio::task::JoinHandle<anyhow::Result<()>>,
+    pool: Arc<VirtualPortPool>,
 }
 
 /// # Cancel safety
@@ -505,10 +506,11 @@ async fn socks_session() -> SocksSession {
     let (client, server) =
         tokio::join!(tokio::net::TcpStream::connect(listener.local_addr().expect("address")), listener.accept());
     let mut client = client.expect("client");
+    let pool = Arc::new(VirtualPortPool::new(PortProtocol::Tcp).expect("TCP pool"));
     let handler = tokio::spawn(crate::socks::handle_socks_client(
         server.expect("server").0,
         bus.clone(),
-        Arc::new(VirtualPortPool::new(PortProtocol::Tcp).expect("TCP pool")),
+        Arc::clone(&pool),
         Arc::new(crate::ports::UdpAssociationPool::new()),
     ));
     let mut reply = [0u8; 10];
@@ -519,7 +521,7 @@ async fn socks_session() -> SocksSession {
     endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, syn_ack(&syn)));
     client.read_exact(&mut reply).await.expect("connect reply");
     assert_eq!(reply[..2], [0x05, 0x00]);
-    SocksSession { client, endpoint, syn, handler, worker }
+    SocksSession { client, endpoint, syn, handler, worker, pool }
 }
 
 /// Collect the interface's segment payloads until one carries FIN, or until
@@ -590,4 +592,38 @@ async fn client_can_still_send_after_the_peer_closes_its_direction() {
     let (greeting, sent) = outcome.expect("deadline");
     assert_eq!(greeting, b"greeting");
     assert_eq!(sent, b"late", "data the client sends after the peer's FIN must still reach the peer");
+}
+
+/// # Cancel safety
+///
+/// NOT cancel-safe: the test aborts its interface task before returning.
+#[tokio::test]
+async fn peer_reset_after_its_fin_ends_a_session_whose_client_still_writes() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    let SocksSession { mut client, endpoint, syn, handler, worker, pool } = socks_session().await;
+    let leased = pool.free_len();
+    let fin = peer_segment(&syn, TcpControl::Fin, 12346, 0, b"greeting");
+    endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, fin));
+    let mut greeting = Vec::new();
+    tokio::time::timeout(Duration::from_secs(2), client.read_to_end(&mut greeting))
+        .await
+        .expect("peer FIN deadline")
+        .expect("peer data then EOF");
+    assert_eq!(greeting, b"greeting");
+    // The peer then resets: the interface removes the virtual socket.
+    endpoint.send(Event::InboundInternetPacket(PortProtocol::Tcp, peer_segment(&syn, TcpControl::Rst, 12355, 0, &[])));
+    // The client keeps writing well past the session's upload credit.
+    let writer = async {
+        let chunk = vec![0u8; 16 << 10];
+        for _ in 0..256 {
+            if client.write_all(&chunk).await.is_err() {
+                break;
+            }
+        }
+    };
+    let ended = tokio::time::timeout(Duration::from_secs(3), async { tokio::join!(writer, handler).1 }).await;
+    worker.abort();
+    ended.expect("a reset after the peer's FIN must end the handler").expect("handler task joins").expect("clean end");
+    assert_eq!(pool.free_len(), leased + 1, "the session's virtual port must return to the pool");
 }

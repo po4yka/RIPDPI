@@ -149,8 +149,14 @@ async fn handle_tcp_connect(
                         Err(error) => return Err(error),
                     }
                 }
-                remote = session.recv_remote(), if !remote_finished => match remote {
+                // Stays armed after the peer's FIN: the `None` after a later RST, timeout
+                // or close-grace abort is the only sign that the virtual socket is gone,
+                // and the upload credit never returns after that.
+                remote = session.recv_remote() => match remote {
                     Some(data) if data.is_empty() => {
+                        if remote_finished {
+                            continue;
+                        }
                         remote_finished = true;
                         client.shutdown().await?;
                         if client_finished {

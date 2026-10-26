@@ -116,6 +116,12 @@ impl VirtualPortPool {
             close_requested_at: Mutex::new(None),
         })))
     }
+
+    /// Ports not held by any lease.
+    #[cfg(test)]
+    pub(crate) fn free_len(&self) -> usize {
+        self.free_ports.lock().map_or(0, |ports| ports.len())
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Hash)]
