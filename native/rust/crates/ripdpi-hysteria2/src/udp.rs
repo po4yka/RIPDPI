@@ -50,7 +50,7 @@ impl UdpSession {
         // other platforms `udp_ready_at` is the connection creation instant.
         tokio::time::sleep_until(self.client.udp_ready_at).await;
         let (session_id, packet_id) = self.next_route().await?;
-        let migration = self.client.begin_quic_migration()?;
+        let migration = self.client.begin_quic_migration();
         match send_udp_payload(&self.client, session_id, packet_id, address, payload).await {
             Ok(()) => {
                 if let Some(migration) = migration {

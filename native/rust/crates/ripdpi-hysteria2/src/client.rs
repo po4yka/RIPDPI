@@ -100,7 +100,7 @@ pub struct HysteriaClient {
 
 impl HysteriaClient {
     pub async fn tcp_connect(&self, address: &str) -> Result<DuplexStream> {
-        let migration = self.inner.begin_quic_migration()?;
+        let migration = self.inner.begin_quic_migration();
         match self.open_tcp_stream(address).await {
             Ok(stream) => {
                 if let Some(migration) = migration {

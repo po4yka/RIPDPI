@@ -89,23 +89,38 @@ impl Drop for MigrationAttempt<'_> {
 }
 
 impl ClientInner {
-    pub(crate) fn begin_quic_migration(&self) -> Result<Option<MigrationAttempt<'_>>> {
+    /// Rebind to a fresh carrier socket when a migration is due. Migration is
+    /// an optional optimisation: any setup failure (protect callback gone,
+    /// fd exhaustion, rebind error) is recorded with a cooldown and the caller
+    /// keeps using the healthy current path.
+    pub(crate) fn begin_quic_migration(&self) -> Option<MigrationAttempt<'_>> {
         let mut state = self.migration.lock();
         if !self.should_attempt_quic_migration(&state) {
-            return Ok(None);
+            return None;
         }
 
-        let old_socket = if let Some(hopping) = &self.hopping_socket {
-            hopping.current_socket()?
-        } else {
-            state
-                .current_socket
-                .as_ref()
-                .ok_or_else(|| std::io::Error::other("missing QUIC migration socket"))?
-                .try_clone()?
+        let sockets = (|| -> std::io::Result<_> {
+            let old_socket = if let Some(hopping) = &self.hopping_socket {
+                hopping.current_socket()?
+            } else {
+                state
+                    .current_socket
+                    .as_ref()
+                    .ok_or_else(|| std::io::Error::other("missing QUIC migration socket"))?
+                    .try_clone()?
+            };
+            let new_socket = build_client_udp_socket(&self.socket_spec)?;
+            let new_socket_clone = new_socket.try_clone()?;
+            Ok((old_socket, new_socket, new_socket_clone))
+        })();
+        let (old_socket, new_socket, new_socket_clone) = match sockets {
+            Ok(sockets) => sockets,
+            Err(error) => {
+                tracing::debug!(error = %error, "Hysteria QUIC migration skipped: no replacement socket");
+                Self::record_failure(&mut state, "migration_socket_failed");
+                return None;
+            }
         };
-        let new_socket = build_client_udp_socket(&self.socket_spec)?;
-        let new_socket_clone = new_socket.try_clone()?;
         match rebind_endpoint(&self.endpoint, &self.socket_spec, new_socket, self.hopping_socket.as_deref()) {
             Ok(()) => {
                 state.current_socket = self.hopping_socket.is_none().then_some(new_socket_clone);
@@ -113,7 +128,7 @@ impl ClientInner {
                 state.reason = Some("path_challenge_pending".to_string());
                 state.previous_socket = Some(old_socket);
                 drop(state);
-                Ok(Some(MigrationAttempt::new(
+                Some(MigrationAttempt::new(
                     move |reason| self.complete_quic_migration(reason),
                     move |reason| {
                         let result = self.rollback_quic_migration(reason);
@@ -122,13 +137,12 @@ impl ClientInner {
                         }
                         result
                     },
-                )))
+                ))
             }
             Err(error) => {
-                state.status = Some("failed".to_string());
-                state.reason = Some("endpoint_rebind_failed".to_string());
-                state.cooldown_until = Some(Instant::now() + MIGRATION_COOLDOWN);
-                Err(error.into())
+                tracing::debug!(error = %error, "Hysteria QUIC migration skipped: endpoint rebind failed");
+                Self::record_failure(&mut state, "endpoint_rebind_failed");
+                None
             }
         }
     }
@@ -161,7 +175,10 @@ impl ClientInner {
     }
 
     fn mark_migration_failed(&self, reason: &str) {
-        let mut state = self.migration.lock();
+        Self::record_failure(&mut self.migration.lock(), reason);
+    }
+
+    fn record_failure(state: &mut QuicMigrationState, reason: &str) {
         state.status = Some("failed".to_string());
         state.reason = Some(reason.to_string());
         state.cooldown_until = Some(Instant::now() + MIGRATION_COOLDOWN);
@@ -188,6 +205,50 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
+
+    /// Accepts the first protect call (the connection's carrier) and rejects
+    /// every later one, like a protect callback that fails mid-session.
+    struct RejectAfterFirst(AtomicUsize);
+
+    impl ripdpi_native_protect::ProtectCallback for RejectAfterFirst {
+        fn protect(&self, _fd: std::os::fd::RawFd) -> std::io::Result<()> {
+            if self.0.fetch_add(1, Ordering::SeqCst) == 0 {
+                Ok(())
+            } else {
+                Err(std::io::Error::new(std::io::ErrorKind::NotConnected, "protect callback gone"))
+            }
+        }
+    }
+
+    #[test]
+    fn migration_setup_failure_keeps_the_healthy_path_and_arms_the_cooldown() {
+        let _lock = crate::quic_transport::endpoint::protect_tests::PROTECT_TEST_LOCK
+            .lock()
+            .unwrap_or_else(std::sync::PoisonError::into_inner);
+        let callback = Arc::new(RejectAfterFirst(AtomicUsize::new(0)));
+        ripdpi_native_protect::register_protect_callback(callback.clone());
+        let runtime = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("runtime");
+        // cancel-safe: the local runtime owns every client and server task.
+        let outcome = runtime.block_on(async {
+            let server = crate::test_server::TestServer::start(crate::test_server::ServerOptions::default())
+                .expect("test server");
+            let mut config = server.client_config();
+            config.socket_protection = ripdpi_native_protect::SocketProtectionPolicy::VpnRequired;
+            config.quic_migrate_after_handshake = true;
+            let client = crate::connect(&config).await.expect("connect on a protected carrier");
+            let first = client.tcp_connect("192.0.2.1:80").await.map(drop);
+            let second = client.tcp_connect("192.0.2.1:80").await.map(drop);
+            (first, second, client.quic_migration_snapshot())
+        });
+        ripdpi_native_protect::unregister_protect_callback();
+
+        let (first, second, (status, reason)) = outcome;
+        assert!(first.is_ok(), "a failed optional migration must not fail the stream: {first:?}");
+        assert!(second.is_ok(), "the next stream must also use the healthy path: {second:?}");
+        assert_eq!(status.as_deref(), Some("failed"));
+        assert_eq!(reason.as_deref(), Some("migration_socket_failed"));
+        assert_eq!(callback.0.load(Ordering::SeqCst), 2, "the cooldown must stop a second migration attempt");
+    }
 
     #[test]
     fn dropping_attempt_rolls_back_exactly_once() {
