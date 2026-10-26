@@ -16,7 +16,8 @@ mod classification;
 mod details;
 mod response_analysis;
 
-use classification::{append_dns_classifier_details, classify_dns_probe_outcome, oracle_result_for_probe};
+pub(crate) use classification::classify_dns_probe_outcome;
+use classification::{append_dns_classifier_details, oracle_result_for_probe};
 use details::{DnsProbeDetailInputs, append_injection_profile_details, build_dns_probe_details};
 use response_analysis::{append_record_comparison_details, append_udp_response_analysis};
 
@@ -208,6 +209,7 @@ pub fn run_dns_probe_with_context(
             &mut result.details,
             target,
             context.transport(),
+            path_mode,
             result.outcome.as_str(),
             &encrypted_result,
         );

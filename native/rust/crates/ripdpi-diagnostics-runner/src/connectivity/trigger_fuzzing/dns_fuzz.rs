@@ -1,22 +1,30 @@
 use std::collections::BTreeSet;
 
 use super::summary::{TriggerFuzzOutcome, append_trigger_fuzzing_summary};
-use crate::connectivity::adapters::dns::{build_dns_query_with_type, parse_dns_response_for_query};
+use crate::connectivity::adapters::dns::{
+    build_dns_query_with_type, classify_udp_dns_error, is_retryable_udp_dns_error, parse_dns_response_for_query,
+};
 use crate::connectivity::adapters::transport::{
     TransportConfig, relay_udp_direct, relay_udp_via_socks5, resolve_first_socket_addr,
 };
 use crate::connectivity::adapters::util::now_ms;
-use crate::types::{DnsTarget, ProbeDetail};
+use crate::connectivity::probes::classify_dns_probe_outcome;
+use crate::types::{DnsTarget, ProbeDetail, ScanPathMode};
 
 const MAX_DNS_FUZZ_VARIANTS: usize = 3;
+/// Attempts per variant for retryable (timeout) errors, so one lost datagram
+/// is not reported as a trigger.
+const DNS_FUZZ_ATTEMPTS: usize = 2;
 
 pub(crate) fn append_trigger_fuzzing_details(
     details: &mut Vec<ProbeDetail>,
     target: &DnsTarget,
     transport: &TransportConfig,
+    path_mode: &ScanPathMode,
     baseline_outcome: &str,
     encrypted_result: &Result<Vec<String>, String>,
 ) {
+    let expected = target.expected_ips.iter().cloned().collect::<BTreeSet<_>>();
     let udp_server = target.udp_server.as_deref().unwrap_or(crate::connectivity::adapters::util::DEFAULT_DNS_SERVER);
     let variants = [
         (
@@ -38,8 +46,8 @@ pub(crate) fn append_trigger_fuzzing_details(
             continue;
         };
 
-        let variant_result = execute_variant(udp_server, transport, &packet);
-        let outcome = classify_variant_outcome(&variant_result, encrypted_result);
+        let (variant_result, attempts) = execute_variant_with_retry(udp_server, transport, &packet);
+        let outcome = classify_variant_outcome(&variant_result, attempts, encrypted_result, path_mode, &expected);
         let detail = variant_result.as_ref().map_or_else(Clone::clone, |addresses| addresses.join("|"));
         outcomes.push(TriggerFuzzOutcome { id, field, outcome, detail });
     }
@@ -63,26 +71,33 @@ fn execute_variant(server: &str, transport: &TransportConfig, packet: &[u8]) -> 
     parse_dns_response_for_query(&response, packet)
 }
 
+/// Classify a variant with the baseline probe's classifier and vocabulary, so
+/// an unchanged answer compares equal to the baseline outcome.
 fn classify_variant_outcome(
-    udp_result: &Result<Vec<String>, String>,
+    variant_result: &Result<Vec<String>, String>,
+    attempts: usize,
     encrypted_result: &Result<Vec<String>, String>,
+    path_mode: &ScanPathMode,
+    expected: &BTreeSet<String>,
 ) -> String {
-    match (udp_result, encrypted_result) {
-        (Ok(udp), Ok(encrypted)) => {
-            let udp_set = udp.iter().cloned().collect::<BTreeSet<_>>();
-            let encrypted_set = encrypted.iter().cloned().collect::<BTreeSet<_>>();
-            if udp_set == encrypted_set {
-                "dns_match".to_string()
-            } else if !udp_set.is_disjoint(&encrypted_set) {
-                "dns_compatible_divergence".to_string()
-            } else {
-                "dns_sinkhole_substitution".to_string()
+    let error_kind = variant_result.as_ref().err().map(|error| classify_udp_dns_error(error));
+    classify_dns_probe_outcome(variant_result, encrypted_result, path_mode, expected, error_kind, attempts, false)
+}
+
+fn execute_variant_with_retry(
+    server: &str,
+    transport: &TransportConfig,
+    packet: &[u8],
+) -> (Result<Vec<String>, String>, usize) {
+    let mut attempts = 0;
+    loop {
+        attempts += 1;
+        let result = execute_variant(server, transport, packet);
+        match &result {
+            Err(error) if attempts < DNS_FUZZ_ATTEMPTS && is_retryable_udp_dns_error(classify_udp_dns_error(error)) => {
             }
+            _ => return (result, attempts),
         }
-        (Err(err), Ok(_)) if err == "dns_nxdomain" => "dns_nxdomain_mismatch".to_string(),
-        (Err(_), Ok(_)) => "udp_blocked".to_string(),
-        (Ok(_), Err(_)) => "dns_oracle_unavailable".to_string(),
-        (Err(_), Err(_)) => "dns_unavailable".to_string(),
     }
 }
 
@@ -112,4 +127,30 @@ fn alternating_case(value: &str) -> String {
 
 fn dns_query_id(offset: u16) -> u16 {
     (((now_ms() as u16).wrapping_add(offset)) & 0xfffe).max(2)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn classify(variant: Result<Vec<String>, String>) -> String {
+        classify_variant_outcome(
+            &variant,
+            1,
+            &Ok(vec!["104.16.132.229".to_string()]),
+            &ScanPathMode::RawPath,
+            &BTreeSet::new(),
+        )
+    }
+
+    #[test]
+    fn variant_outcomes_use_the_baseline_vocabulary() {
+        // Same /24 as the oracle: the baseline calls this a match.
+        assert_eq!(classify(Ok(vec!["104.16.132.230".to_string()])), "dns_match");
+        // Disjoint public answer: CDN steering, not substitution.
+        assert_eq!(classify(Ok(vec!["172.67.1.1".to_string()])), "dns_compatible_divergence");
+        // A lost datagram is not UDP blocking.
+        assert_eq!(classify(Err("Resource temporarily unavailable: timed out".to_string())), "dns_unavailable");
+        assert_eq!(classify(Err("dns_nxdomain".to_string())), "dns_nxdomain_mismatch");
+    }
 }

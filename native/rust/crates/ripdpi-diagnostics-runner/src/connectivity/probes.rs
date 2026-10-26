@@ -6,6 +6,7 @@ mod support;
 mod tcp;
 mod throughput;
 
+pub(crate) use dns::classify_dns_probe_outcome;
 pub use dns::{classify_dns_latency_quality, is_dns_injection_suspected, run_dns_probe, run_dns_probe_with_context};
 pub use domain::{run_domain_probe, run_domain_probe_with_key_log};
 pub use quic::run_quic_probe;

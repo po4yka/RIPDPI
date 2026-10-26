@@ -4,7 +4,7 @@ mod summary;
 mod tls_fuzz;
 
 use crate::connectivity::adapters::transport::TransportConfig;
-use crate::types::{DnsTarget, DomainTarget, ProbeDetail};
+use crate::types::{DnsTarget, DomainTarget, ProbeDetail, ScanPathMode};
 
 pub(crate) fn append_http_trigger_fuzzing_details(
     details: &mut Vec<ProbeDetail>,
@@ -28,10 +28,11 @@ pub(crate) fn append_dns_trigger_fuzzing_details(
     details: &mut Vec<ProbeDetail>,
     target: &DnsTarget,
     transport: &TransportConfig,
+    path_mode: &ScanPathMode,
     baseline_outcome: &str,
     encrypted_result: &Result<Vec<String>, String>,
 ) {
-    dns_fuzz::append_trigger_fuzzing_details(details, target, transport, baseline_outcome, encrypted_result);
+    dns_fuzz::append_trigger_fuzzing_details(details, target, transport, path_mode, baseline_outcome, encrypted_result);
 }
 
 #[cfg(test)]

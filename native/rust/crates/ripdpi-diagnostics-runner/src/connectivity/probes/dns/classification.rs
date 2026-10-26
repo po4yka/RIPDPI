@@ -42,7 +42,7 @@ pub(super) fn append_dns_classifier_details(
     );
 }
 
-pub(super) fn classify_dns_probe_outcome(
+pub(crate) fn classify_dns_probe_outcome(
     udp_result: &Result<Vec<String>, String>,
     encrypted_result: &Result<Vec<String>, String>,
     path_mode: &ScanPathMode,
