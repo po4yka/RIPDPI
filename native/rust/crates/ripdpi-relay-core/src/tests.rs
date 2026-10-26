@@ -425,6 +425,56 @@ async fn vless_reality_mux_keeps_nine_streams_on_one_carrier() {
     assert_eq!(fixture.observed_target(), Some(ripdpi_vless::mux::SING_MUX_DESTINATION.to_string()));
 }
 
+#[tokio::test]
+async fn vless_reality_mux_waits_at_its_stream_limit_instead_of_resetting_the_carrier() {
+    let fixture = VlessRealityLoopback::start().await.expect("start VLESS Reality mux fixture");
+    let mut config = sample_config("vless_reality");
+    config.common.server = "127.0.0.1".to_string();
+    config.common.server_port = i32::from(fixture.port());
+    config.common.server_name = fixture.server_name().to_string();
+    let vless = vless_config_mut(&mut config);
+    vless.reality_public_key = valid_reality_public_key();
+    vless.vless_flow = "none".to_string();
+    vless.vless_mux_protocol = "yamux".to_string();
+    vless.vless_mux_max_concurrent_streams = 2;
+
+    let backend = build_backend(&config).await.expect("build VLESS Reality mux backend");
+    let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), fixture.target_port()));
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(10);
+    let mut streams = Vec::new();
+    for _ in 0..2 {
+        let stream = tokio::time::timeout_at(deadline, backend.connect_tcp(&target))
+            .await
+            .expect("VLESS mux stream did not open before the deadline")
+            .expect("open mux stream");
+        streams.push(stream);
+    }
+
+    // A third stream would exceed the carrier limit: it must wait, not fail.
+    let third = tokio::time::timeout(Duration::from_millis(500), backend.connect_tcp(&target)).await;
+    assert!(third.is_err(), "a stream past the mux limit must wait for a free slot");
+
+    for (index, stream) in streams.iter_mut().enumerate() {
+        let payload = [u8::try_from(index).expect("bounded stream index")];
+        tokio::time::timeout_at(deadline, stream.write_all(&payload))
+            .await
+            .expect("VLESS mux payload write stalled")
+            .expect("live streams survive the extra open");
+        let mut reply = [0_u8; 1];
+        tokio::time::timeout_at(deadline, stream.read_exact(&mut reply))
+            .await
+            .expect("VLESS mux reply stalled")
+            .expect("live streams survive the extra open");
+        assert_eq!(reply, payload);
+    }
+    drop(streams.pop());
+    tokio::time::timeout_at(deadline, backend.connect_tcp(&target))
+        .await
+        .expect("a freed slot admits the next stream")
+        .expect("open mux stream after a slot frees");
+    assert_eq!(fixture.accepted_carrier_count(), 1, "every stream shares the one TLS carrier");
+}
+
 #[test]
 fn nested_vless_identity_fields_round_trip_without_coercion() {
     let inner: ResolvedShadowTlsInnerRelayConfig = serde_json::from_value(serde_json::json!({

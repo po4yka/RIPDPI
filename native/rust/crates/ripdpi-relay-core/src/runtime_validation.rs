@@ -105,6 +105,14 @@ pub(crate) fn pool_config_for_backend(config: &ResolvedRelayRuntimeConfig) -> Re
                 idle_timeout: STREAM_MULTIPLEXED_IDLE_TIMEOUT,
             }
         }
+        RelayKind::VlessReality { xhttp: false } if let Some(max_streams) = vless_mux_stream_limit(config) => {
+            // One yamux carrier serves every lease, and yamux resets the whole
+            // carrier when a stream opens past its limit: wait at the limit instead.
+            RelayPoolConfig {
+                max_active_leases: max_streams.min(SINGLE_CARRIER_MAX_ACTIVE_LEASES),
+                idle_timeout: STREAM_MULTIPLEXED_IDLE_TIMEOUT,
+            }
+        }
         RelayKind::Vless { xhttp: false }
         | RelayKind::VlessReality { xhttp: false }
         | RelayKind::Mieru
@@ -120,6 +128,25 @@ pub(crate) fn pool_config_for_backend(config: &ResolvedRelayRuntimeConfig) -> Re
         },
         RelayKind::Unsupported(_) => RelayPoolConfig::default(),
     }
+}
+
+/// The per-carrier stream limit of a VLESS Reality mux profile, or `None`
+/// when mux is off (or invalid, which the backend build rejects).
+fn vless_mux_stream_limit(config: &ResolvedRelayRuntimeConfig) -> Option<usize> {
+    let RelayBackendConfig::VlessReality(vless) = &config.backend else {
+        return None;
+    };
+    if vless.vless_mux_protocol.trim().is_empty() {
+        return None;
+    }
+    ripdpi_vless::VlessMuxConfig::from_strings(
+        &vless.vless_mux_protocol,
+        vless.vless_mux_max_concurrent_streams,
+        vless.vless_mux_per_connection_kbps,
+        vless.vless_mux_padding_max,
+    )
+    .ok()
+    .map(|mux| mux.max_concurrent_streams)
 }
 
 pub(crate) fn describe_upstream(config: &ResolvedRelayRuntimeConfig) -> String {

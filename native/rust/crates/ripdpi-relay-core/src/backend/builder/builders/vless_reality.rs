@@ -87,6 +87,13 @@ fn build_reality(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) ->
                 vless.vless_mux_padding_max,
             )
             .map_err(invalid_input)?;
+        // The relay pool caps concurrent leases at the configured stream limit.
+        // A released stream still counts in yamux until its close handshake
+        // ends, and an open past the yamux limit resets the whole carrier, so
+        // the local yamux limit gets headroom for closing streams.
+        if let Some(mux) = vless_config.mux.as_mut() {
+            mux.max_concurrent_streams = mux.max_concurrent_streams.saturating_mul(2);
+        }
     }
     vless_config.socket_protection = context.socket_protection;
     Ok(RelayBackend::VlessReality(PooledRelayBackend::new(
