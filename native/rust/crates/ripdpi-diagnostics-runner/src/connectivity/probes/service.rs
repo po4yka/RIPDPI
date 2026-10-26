@@ -41,22 +41,16 @@ pub fn run_service_probe(
     let bootstrap_detail = bootstrap.as_ref().map_or_else(|| "not_run".to_string(), describe_http_observation);
     let media_status = media.as_ref().map_or_else(|| "not_run".to_string(), |observation| observation.status.clone());
     let media_detail = media.as_ref().map_or_else(|| "not_run".to_string(), describe_http_observation);
-    let outcome = if is_probe_failure(&bootstrap_status)
-        || is_probe_failure(&media_status)
-        || is_probe_failure(&gateway.status)
-        || is_probe_failure(&quic.status)
+    // A failed leg makes the service partial; it is blocked only when the
+    // bootstrap itself failed without a server answer. A 3xx or a 4xx/5xx
+    // bootstrap means the server responded, which is not censorship.
+    let outcome = if is_probe_failure(&bootstrap_status) && !is_server_error(&bootstrap_status) {
+        "service_blocked"
+    } else if [&bootstrap_status, &media_status, &gateway.status, &quic.status]
+        .into_iter()
+        .any(|status| is_probe_failure(status))
     {
-        if bootstrap_status == "http_ok"
-            && media_status == "http_ok"
-            && matches!(gateway.status.as_str(), "not_run" | "tls_ok" | "tcp_connect_ok")
-            && matches!(quic.status.as_str(), "not_run" | "quic_initial_response" | "quic_response")
-        {
-            "service_ok"
-        } else if bootstrap_status != "not_run" && bootstrap_status != "http_ok" {
-            "service_blocked"
-        } else {
-            "service_partial"
-        }
+        "service_partial"
     } else {
         "service_ok"
     };
@@ -137,4 +131,43 @@ pub fn run_circumvention_probe(
     };
     append_route_details(&mut result.details, "handshake", handshake.local_addr, handshake.route_report.as_ref());
     result
+}
+
+#[cfg(test)]
+mod tests {
+    use std::net::UdpSocket;
+
+    use super::*;
+    use crate::test_fixtures::HttpTextServer;
+
+    fn detail<'a>(result: &'a ProbeResult, key: &str) -> &'a str {
+        result.details.iter().find(|detail| detail.key == key).map_or("", |detail| detail.value.as_str())
+    }
+
+    // The bootstrap server answered 503 while the QUIC leg failed: the server
+    // responded, so the service is partial, not blocked.
+    #[test]
+    fn server_error_bootstrap_with_a_failed_leg_is_partial() {
+        let bootstrap = HttpTextServer::start_text("HTTP/1.1 503 Service Unavailable", "busy");
+        let closed_udp_port = UdpSocket::bind("127.0.0.1:0").expect("bind").local_addr().expect("addr").port();
+        let target = ServiceTarget {
+            id: "svc".to_string(),
+            service: "svc".to_string(),
+            bootstrap_url: Some(format!("http://127.0.0.1:{}/", bootstrap.port())),
+            media_url: None,
+            tcp_endpoint_host: None,
+            tcp_endpoint_ip: None,
+            tcp_endpoint_port: 443,
+            tls_server_name: None,
+            quic_host: Some("localhost".to_string()),
+            quic_connect_ip: Some("127.0.0.1".to_string()),
+            quic_port: closed_udp_port,
+        };
+
+        let result = run_service_probe(&target, &TransportConfig::Direct { route_experiment: None }, None, None);
+
+        assert_eq!(detail(&result, "bootstrapStatus"), "http_status_503");
+        assert_ne!(detail(&result, "quicStatus"), "quic_response");
+        assert_eq!(result.outcome, "service_partial");
+    }
 }
