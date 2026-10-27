@@ -18,6 +18,8 @@ const READY_TIMEOUT: Duration = Duration::from_secs(5);
 const STOP_TIMEOUT: Duration = Duration::from_millis(500);
 const FIREWALL_START_TIMEOUT: Duration = Duration::from_secs(3);
 const FIREWALL_STOP_TIMEOUT: Duration = Duration::from_secs(1);
+const CLEANUP_RETRY_MIN: Duration = Duration::from_millis(200);
+const CLEANUP_RETRY_MAX: Duration = Duration::from_secs(5);
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 struct ValidatedStart {
@@ -48,6 +50,8 @@ pub(crate) struct Nfqws2Backend {
     active: Option<ActiveBackend>,
     last_error: Option<String>,
     shutdown_requested: bool,
+    cleanup_backoff: Duration,
+    cleanup_retry_at: Option<Instant>,
 }
 
 impl Nfqws2Backend {
@@ -57,7 +61,15 @@ impl Nfqws2Backend {
         if metadata.uid() == 0 || metadata.mode() & 0o002 != 0 {
             return Err(invalid("nfqws2 needs a private non-root app directory"));
         }
-        Ok(Self { files_dir, uid: metadata.uid(), active: None, last_error: None, shutdown_requested: false })
+        Ok(Self {
+            files_dir,
+            uid: metadata.uid(),
+            active: None,
+            last_error: None,
+            shutdown_requested: false,
+            cleanup_backoff: Duration::ZERO,
+            cleanup_retry_at: None,
+        })
     }
 
     pub(crate) fn start(&mut self, params: StartNfqws2Params) -> Nfqws2Status {
@@ -144,7 +156,7 @@ impl Nfqws2Backend {
 
     pub(crate) fn poll(&mut self) {
         if self.active.is_some() && self.last_error.is_some() {
-            self.stop();
+            self.retry_cleanup();
             return;
         }
         let Some(active) = self.active.as_mut() else { return };
@@ -164,6 +176,22 @@ impl Nfqws2Backend {
             if self.last_error.is_none() {
                 self.last_error = Some(reason);
             }
+        }
+    }
+
+    /// Retries a failed cleanup with exponential backoff, so a held xtables
+    /// lock or a stuck rule does not spawn iptables on every main-loop pass.
+    fn retry_cleanup(&mut self) {
+        if self.cleanup_retry_at.is_some_and(|retry_at| Instant::now() < retry_at) {
+            return;
+        }
+        self.stop();
+        if self.active.is_some() {
+            self.cleanup_backoff = (self.cleanup_backoff * 2).clamp(CLEANUP_RETRY_MIN, CLEANUP_RETRY_MAX);
+            self.cleanup_retry_at = Some(Instant::now() + self.cleanup_backoff);
+        } else {
+            self.cleanup_backoff = Duration::ZERO;
+            self.cleanup_retry_at = None;
         }
     }
 
@@ -448,7 +476,8 @@ fn family_commands(program: PathBuf, uid: u32, helper_pid: u32) -> Vec<FirewallC
     let outgoing = format!("RDP{uid:x}{helper_pid:x}O");
     let incoming = format!("RDP{uid:x}{helper_pid:x}I");
     let make = |args: Vec<String>| {
-        // Omit -w: a netd lock conflict fails immediately and cleanup stays retryable.
+        // Omit -w: a netd lock conflict fails at once, run_firewall retries it until
+        // its deadline, and cleanup stays retryable.
         let mut base = vec!["-t".to_owned(), "mangle".to_owned()];
         base.extend(args);
         FirewallCommand { program: program.clone(), args: base }
@@ -556,7 +585,26 @@ fn target_absent(error: &io::Error) -> bool {
     error.get_ref().is_some_and(<dyn std::error::Error + Send + Sync>::is::<FirewallTargetAbsent>)
 }
 
+// iptables exits with 4 when another process (netd) holds the xtables lock.
+const XTABLES_LOCK_HELD: i32 = 4;
+const XTABLES_LOCK_RETRY: Duration = Duration::from_millis(20);
+
+/// Runs one iptables command and retries it while the xtables lock is held,
+/// until `deadline`. Commands run without `-w`, so a held lock fails at once.
 fn run_firewall(command: &FirewallCommand, deadline: Instant) -> io::Result<()> {
+    loop {
+        match run_firewall_once(command, deadline) {
+            Err(error)
+                if error.kind() == io::ErrorKind::ResourceBusy && Instant::now() + XTABLES_LOCK_RETRY < deadline =>
+            {
+                std::thread::sleep(XTABLES_LOCK_RETRY);
+            }
+            result => return result,
+        }
+    }
+}
+
+fn run_firewall_once(command: &FirewallCommand, deadline: Instant) -> io::Result<()> {
     if Instant::now() >= deadline {
         return Err(io::Error::new(io::ErrorKind::TimedOut, "nfqws2 firewall deadline expired"));
     }
@@ -582,6 +630,8 @@ fn run_firewall(command: &FirewallCommand, deadline: Instant) -> io::Result<()> 
                 // iptables uses 1 for a missing exact rule or chain. Other failures,
                 // including lock, permission, spawn and timeout errors, remain pending.
                 Err(io::Error::new(io::ErrorKind::NotFound, FirewallTargetAbsent))
+            } else if status.code() == Some(XTABLES_LOCK_HELD) {
+                Err(io::Error::new(io::ErrorKind::ResourceBusy, format!("xtables lock is held: {status}")))
             } else {
                 Err(io::Error::other(format!("iptables rejected owned nfqws2 rule: {status}")))
             };
@@ -822,6 +872,8 @@ mod tests {
             uid: 10234,
             last_error: None,
             shutdown_requested: false,
+            cleanup_backoff: Duration::ZERO,
+            cleanup_retry_at: None,
             active: Some(ActiveBackend {
                 config: ValidatedStart {
                     binary: PathBuf::new(),
@@ -864,6 +916,73 @@ mod tests {
         let error = run_firewall(&command, started + Duration::from_millis(25)).expect_err("deadline");
         assert_eq!(error.kind(), io::ErrorKind::TimedOut);
         assert!(started.elapsed() < Duration::from_secs(1));
+    }
+
+    #[test]
+    fn firewall_retries_a_held_xtables_lock_within_the_deadline() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = std::env::temp_dir().join(format!("nfqws2-xtables-lock-test-{}", std::process::id()));
+        fs::create_dir_all(&dir).expect("test dir");
+        let script = dir.join("iptables");
+        // Exit 4 is the iptables code for a held xtables lock; the second run succeeds.
+        fs::write(&script, format!("#!/bin/sh\n[ -e {0}/held ] && exit 0\ntouch {0}/held\nexit 4\n", dir.display()))
+            .expect("script");
+        fs::set_permissions(&script, fs::Permissions::from_mode(0o700)).expect("script mode");
+        let command = FirewallCommand { program: script, args: vec!["-t".to_owned(), "mangle".to_owned()] };
+
+        run_firewall(&command, Instant::now() + Duration::from_secs(2)).expect("the retry after the lock succeeds");
+
+        fs::remove_dir_all(dir).expect("remove test dir");
+    }
+
+    #[test]
+    fn pending_cleanup_retries_back_off_instead_of_running_on_every_poll() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = std::env::temp_dir().join(format!("nfqws2-cleanup-backoff-test-{}", std::process::id()));
+        fs::create_dir_all(&dir).expect("test dir");
+        let script = dir.join("iptables");
+        let runs = dir.join("runs");
+        fs::write(&script, format!("#!/bin/sh\necho run >> {}\nexit 2\n", runs.display())).expect("script");
+        fs::set_permissions(&script, fs::Permissions::from_mode(0o700)).expect("script mode");
+        let run_count = || fs::read_to_string(&runs).map_or(0, |text| text.lines().count());
+
+        let mut backend = backend_with_child(sleeping_child());
+        backend.stop();
+        let active = ActiveBackend {
+            config: ValidatedStart {
+                binary: PathBuf::new(),
+                directory: dir.clone(),
+                args: Vec::new(),
+                owner_pid: 0,
+                owner_start: String::new(),
+                protect_path: None,
+            },
+            child: None,
+            pidfile: dir.join("nfqws2.pid"),
+            undo: vec![FirewallCommand {
+                program: script,
+                args: ["-t", "mangle", "-D", "OUTPUT"].map(str::to_owned).to_vec(),
+            }],
+        };
+        backend.active = Some(active);
+        backend.last_error = Some("nfqws2 firewall cleanup failed".to_owned());
+
+        // The main loop polls about ten times a second.
+        for _ in 0..5 {
+            backend.poll();
+        }
+        let after_burst = run_count();
+        // One cleanup attempt runs the deletion and its existence check.
+        assert_eq!(after_burst, 2, "cleanup ran on every poll");
+        assert!(backend.status().cleanup_pending);
+
+        std::thread::sleep(Duration::from_millis(250));
+        backend.poll();
+        assert!(run_count() > after_burst, "cleanup is retried after the backoff");
+
+        fs::remove_dir_all(dir).expect("remove test dir");
     }
 
     #[test]
