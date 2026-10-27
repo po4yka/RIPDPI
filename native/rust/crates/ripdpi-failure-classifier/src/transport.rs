@@ -29,6 +29,8 @@ pub fn classify_transport_error(stage: FailureStage, error: &io::Error) -> Class
         // ENETUNREACH, EADDRNOTAVAIL, ENOTCONN and EROFS describe local route, address or socket
         // state (no route, airplane mode, v6 on a v4-only network). No desync group can change them,
         // so they fall through to the local Unknown arm instead of rotating strategies.
+        // shortcut: Linux also reports an on-path ICMP net-unreachable during SYN_SENT as ENETUNREACH,
+        // which then does not rotate; split it out by connect stage if such blocking is observed.
         io::ErrorKind::ConnectionRefused | io::ErrorKind::HostUnreachable => ClassifiedFailure::new(
             FailureClass::ConnectFailure,
             stage,
