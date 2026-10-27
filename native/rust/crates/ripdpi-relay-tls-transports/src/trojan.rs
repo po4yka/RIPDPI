@@ -27,6 +27,11 @@ pub struct TrojanUdpSession {
 
 impl TrojanUdpSession {
     pub async fn send_to(&mut self, target: &str, payload: &[u8]) -> io::Result<()> {
+        if payload.len() > ripdpi_trojan::MAX_UDP_PAYLOAD {
+            // Drop it, as a lost datagram: a reference server would end the
+            // association, which carries every other flow too.
+            return Ok(());
+        }
         let (addr, port) = target_to_trojan(target)?;
         let packet = ripdpi_trojan::encode_udp_packet(&addr, port, payload).map_err(to_io_error)?;
         self.stream.write_all(&packet).await
@@ -133,6 +138,20 @@ mod tests {
     fn target_to_trojan_accepts_domain_target() {
         let (_, port) = target_to_trojan("example.com:443").expect("domain target parses");
         assert_eq!(port, 443);
+    }
+
+    #[tokio::test]
+    async fn oversized_udp_datagram_is_dropped_not_sent() {
+        let (local, mut remote) = tokio::io::duplex(64 * 1024);
+        let mut session = TrojanUdpSession { stream: Box::new(local) };
+        session.send_to("192.0.2.1:53", &[0; ripdpi_trojan::MAX_UDP_PAYLOAD + 1]).await.expect("dropped, not failed");
+        session.send_to("192.0.2.1:53", b"query").await.expect("small datagram is sent");
+        drop(session);
+
+        let mut wire = Vec::new();
+        tokio::io::AsyncReadExt::read_to_end(&mut remote, &mut wire).await.expect("read frames");
+        let packet = ripdpi_trojan::decode_udp_packet(&wire).expect("only the small datagram was framed");
+        assert_eq!(packet.payload, b"query");
     }
 
     #[test]

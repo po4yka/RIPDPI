@@ -157,6 +157,11 @@ pub fn build_request_frame(
     Ok(buf)
 }
 
+/// Largest UDP payload the reference servers accept in one frame: Xray-core
+/// (`maxLength`) ends the whole association on a larger one, and trojan-go
+/// (`MaxPacketSize`) discards it with an error.
+pub const MAX_UDP_PAYLOAD: usize = 8192;
+
 /// Encode one Trojan UDP ASSOCIATE packet.
 ///
 /// Layout: `ATYP ADDR PORT Length CRLF Payload`
