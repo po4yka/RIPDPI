@@ -309,3 +309,41 @@ async fn slow_protect_does_not_block_the_runtime_thread_polling_the_connector() 
     assert!(result.is_err(), "the caller's timeout must fire while protect is still running");
     assert!(started.elapsed() < Duration::from_millis(300), "the connector held the runtime thread");
 }
+
+#[tokio::test]
+async fn protect_time_counts_against_the_connect_timeout() {
+    use std::os::fd::RawFd;
+    use std::sync::Arc;
+    use std::time::{Duration, Instant};
+
+    use ripdpi_runtime_platform::protect::{
+        ProtectCallback, ProtectGeneration, register_protect_callback_versioned, unregister_protect_callback_if,
+    };
+
+    struct SlowProtect;
+    impl ProtectCallback for SlowProtect {
+        fn protect(&self, _fd: RawFd) -> std::io::Result<()> {
+            std::thread::sleep(Duration::from_millis(300));
+            Ok(())
+        }
+    }
+    struct Guard(ProtectGeneration);
+    impl Drop for Guard {
+        fn drop(&mut self) {
+            let _ = unregister_protect_callback_if(self.0);
+        }
+    }
+
+    let _protect_lock = crate::PROTECT_CALLBACK_TEST_LOCK.lock().await;
+    let _guard = Guard(register_protect_callback_versioned(Arc::new(SlowProtect) as Arc<dyn ProtectCallback>));
+
+    let hooks = encrypted_dns_connect_hooks(None);
+    let tcp = hooks.direct_tcp_connector.as_ref().expect("tcp connector installed");
+    let target = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 1)), 853);
+
+    let started = Instant::now();
+    let error = tcp(target, Duration::from_millis(100)).await.err().expect("protect outlasted the timeout");
+
+    assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
+    assert!(started.elapsed() < Duration::from_millis(380), "the connect started after the deadline");
+}

@@ -1,7 +1,7 @@
 use std::io;
 use std::net::{SocketAddr, TcpStream, UdpSocket};
 use std::os::fd::AsRawFd;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use ripdpi_dns_resolver::EncryptedDnsConnectHooks;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
@@ -28,13 +28,22 @@ fn connect_protected_tcp(target: SocketAddr, timeout: Duration, protect_path: Op
         SocketAddr::V4(_) => Domain::IPV4,
         SocketAddr::V6(_) => Domain::IPV6,
     };
+    let deadline = Instant::now() + timeout;
     let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
     // Loopback targets never leave the device, so they cannot be captured by the TUN
     // route and are exempt from the protect invariant (vpnservice-protect-invariant.md).
     if !target.ip().is_loopback() {
+        // shortcut: the JNI VpnService.protect callback cannot be interrupted, so a stalled
+        // VpnService holds this blocking-pool thread past the deadline (at most one per
+        // in-flight DNS connect; the socket-server path has a 1 s timeout per step); give the
+        // protect callback a deadline if teardown stalls show up in practice.
         protect_non_loopback_socket(&socket, protect_path)?;
     }
-    socket.connect_timeout(&SockAddr::from(target), timeout)?;
+    let remaining = deadline.saturating_duration_since(Instant::now());
+    if remaining.is_zero() {
+        return Err(io::Error::new(io::ErrorKind::TimedOut, "protect used the whole encrypted DNS connect timeout"));
+    }
+    socket.connect_timeout(&SockAddr::from(target), remaining)?;
     let stream: TcpStream = socket.into();
     stream.set_nodelay(true)?;
     Ok(stream)
