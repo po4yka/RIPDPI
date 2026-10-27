@@ -162,6 +162,27 @@ class DomainReachabilityScannerTest {
         }
 
     @Test
+    fun tls13OnlyOriginThatAlertsProtocolVersionIsNotVersionBlock() =
+        runTest {
+            val result =
+                scanner(
+                    attempts = {
+                        when (it) {
+                            ReachabilityProbeKind.TLS12 -> {
+                                AttemptResult(AttemptStatus.ERROR, error = DpiProbeError.TlsBlockVersion)
+                            }
+
+                            else -> {
+                                AttemptResult(AttemptStatus.OK, statusCode = 200)
+                            }
+                        }
+                    },
+                ).scan(listOf("tls13-only.example"), stubIps = emptySet()).single()
+
+            assertEquals(DomainVerdict.OK, result.verdict)
+        }
+
+    @Test
     fun defaultAttemptMapsSocketTimeoutInTcp16Band() {
         val result =
             DomainReachabilityScanner.classifyException(

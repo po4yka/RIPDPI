@@ -257,8 +257,8 @@ class DomainReachabilityScanner(
         val hasIspPage = attempts.any { it.status == AttemptStatus.ISP_PAGE }
         val hasHttpBlock = http.status == AttemptStatus.BLOCKED || http.status == AttemptStatus.REDIR_SUSPICIOUS
         val hasTlsBlock = listOf(tls13, tls12).any { it.status == AttemptStatus.BLOCKED }
-        val tls13OnlyWorks = tls13.status == AttemptStatus.OK && tls12.status == AttemptStatus.ERROR
-        val tls12OnlyWorks = tls12.status == AttemptStatus.OK && tls13.status == AttemptStatus.ERROR
+        val tls13OnlyWorks = tls13.status == AttemptStatus.OK && tls12.isVersionInterference()
+        val tls12OnlyWorks = tls12.status == AttemptStatus.OK && tls13.isVersionInterference()
 
         return when {
             hasTcp16Band -> DomainVerdict.TCP16_BAND
@@ -270,7 +270,14 @@ class DomainReachabilityScanner(
         }
     }
 
+    // A protocol_version or handshake_failure alert is the origin declining that version or its
+    // ciphers (RFC 8446 s6.2), not a middlebox; only other failures point at version blocking.
+    private fun AttemptResult.isVersionInterference(): Boolean =
+        status == AttemptStatus.ERROR && error !in ServerTlsRejections
+
     companion object {
+        private val ServerTlsRejections = setOf(DpiProbeError.TlsBlockVersion, DpiProbeError.TlsAlertHandshake)
+
         fun classifyException(
             error: Throwable,
             stage: ProbeStage,
