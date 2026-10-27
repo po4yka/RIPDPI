@@ -69,6 +69,7 @@ class RuntimeSessionCoordinator
         @Volatile
         private var networkTransitionFlush: (suspend (NetworkTransitionAdmission) -> Boolean)? = null
         private var samplingJob: Job? = null
+        private var runningRetryJob: Job? = null
         private var reconnectInProgress = false
         private var lastRecordedNetworkHandoverState: String? = null
 
@@ -101,7 +102,28 @@ class RuntimeSessionCoordinator
             }
 
             if (status == AppStatus.Running) {
-                enterRunning(mode, attempt = 0)
+                val entered =
+                    runCatching {
+                        stateMutex.withLock {
+                            persistPendingTerminalSession()
+                            ensureRecorderAttachedUsageSession(mode)
+                            if (reconnectInProgress) {
+                                deviceStateEventRecorder.recordRecovery()
+                            }
+                            reconnectInProgress = false
+                        }
+                    }
+                val failure = entered.exceptionOrNull()
+                // A stuck outbox blocks the new session; no later event retries it while the service stays Running.
+                if (failure is Exception && failure !is CancellationException && runningRetryJob?.isActive != true) {
+                    runningRetryJob =
+                        scope.launchRunningStartRetry(
+                            stillRunning = { serviceStateStore.status.value == (AppStatus.Running to mode) },
+                            attempt = { handleStatusChange(AppStatus.Running, mode) },
+                        )
+                }
+                failure?.let { throw it }
+                startSampling()
                 return
             }
 
@@ -114,50 +136,6 @@ class RuntimeSessionCoordinator
                     deviceStateEventRecorder.recordStop()
                     reconnectInProgress = false
                     finalizeActiveUsageSession(serviceStateStore.telemetry.value)
-                }
-            }
-        }
-
-        private suspend fun enterRunning(
-            mode: Mode,
-            attempt: Int,
-        ) {
-            val entered =
-                runCatching {
-                    stateMutex.withLock {
-                        persistPendingTerminalSession()
-                        ensureRecorderAttachedUsageSession(mode)
-                        if (reconnectInProgress) {
-                            deviceStateEventRecorder.recordRecovery()
-                        }
-                        reconnectInProgress = false
-                    }
-                }
-            entered.exceptionOrNull()?.let { failure ->
-                // A stuck outbox blocks the new session; no later event retries it while the service stays Running.
-                if (failure is Exception && failure !is CancellationException) scheduleRunningRetry(mode, attempt)
-                throw failure
-            }
-            startSampling()
-        }
-
-        private fun scheduleRunningRetry(
-            mode: Mode,
-            attempt: Int,
-        ) {
-            if (attempt >= MaxRunningRetryAttempts) {
-                Logger.w { "Runtime session start gave up after $attempt retries" }
-                return
-            }
-            scope.launch {
-                delay(RunningRetryBaseDelayMillis shl attempt)
-                if (serviceStateStore.status.value != (AppStatus.Running to mode)) return@launch
-                val retry = runCatching { enterRunning(mode, attempt + 1) }
-                when (val failure = retry.exceptionOrNull()) {
-                    null -> Unit
-                    is CancellationException -> throw failure
-                    is Exception -> Logger.w(failure) { "Runtime session start retry ${attempt + 1} failed" }
-                    else -> throw failure
                 }
             }
         }
@@ -547,6 +525,25 @@ class RuntimeSessionCoordinator
                 restartCount = context.service.restartCount,
             )
         }
+    }
+
+/** Bounded retry of a blocked session start; the application scope has no handler, so failures are logged. */
+private fun CoroutineScope.launchRunningStartRetry(
+    stillRunning: () -> Boolean,
+    attempt: suspend () -> Unit,
+): Job =
+    launch {
+        repeat(MaxRunningRetryAttempts) { index ->
+            delay(RunningRetryBaseDelayMillis shl index)
+            if (!stillRunning()) return@launch
+            when (val failure = runCatching { attempt() }.exceptionOrNull()) {
+                null -> return@launch
+                is CancellationException -> throw failure
+                is Exception -> Logger.w(failure) { "Runtime session start retry failed" }
+                else -> throw failure
+            }
+        }
+        Logger.w { "Runtime session start gave up after $MaxRunningRetryAttempts retries" }
     }
 
 private const val MinDiagnosticsSampleIntervalSeconds = 5

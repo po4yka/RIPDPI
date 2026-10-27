@@ -643,7 +643,7 @@ internal class RuntimeTerminalRecoveryPersistenceTest : RuntimeTerminalPersisten
             assertTrue(runCatching { coordinator.handleStatusChange(AppStatus.Running, Mode.VPN) }.isFailure)
             assertTrue(stores.usageSessionsState.value.none { session -> session.finishedAt == null })
             stores.afterCompleteTerminalOutbox = {}
-            advanceTimeBy(RUNNING_RETRY_WAIT_MILLIS)
+            advanceTimeBy(RunningRetryWaitMillis)
             runCurrent()
 
             assertTrue(stores.getPendingTerminalOutboxes().isEmpty())
@@ -1189,4 +1189,4 @@ internal abstract class RuntimeTerminalPersistenceTestSupport {
     }
 }
 
-private const val RUNNING_RETRY_WAIT_MILLIS = 5_001L
+private const val RunningRetryWaitMillis = 5_001L
