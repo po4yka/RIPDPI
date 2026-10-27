@@ -11,6 +11,8 @@ use nix::sys::signal::{Signal, kill};
 use nix::unistd::Pid;
 use ripdpi_root_helper_protocol::{Nfqws2Status, StartNfqws2Params};
 
+mod stale;
+
 const QUEUE: u16 = 49379;
 const BYPASS_MARK: &str = "0x40000000/0x40000000";
 const CONNECTION_MARK: &str = "0x20000000/0x20000000";
@@ -193,6 +195,12 @@ impl Nfqws2Backend {
             self.cleanup_backoff = Duration::ZERO;
             self.cleanup_retry_at = None;
         }
+    }
+
+    /// Removes chains and an nfqws2 process that an earlier helper of this app
+    /// left when it died without cleanup. Call once at startup.
+    pub(crate) fn reap_stale_state(&self) {
+        stale::reap_stale_state(&self.files_dir, self.uid);
     }
 
     pub(crate) fn request_shutdown(&mut self) {

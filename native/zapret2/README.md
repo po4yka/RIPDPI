@@ -135,5 +135,7 @@ root backend.
 Shutdown, app-owner death, child exit, and SIGTERM trigger owned-rule cleanup.
 A failed deletion retains cleanup ownership and retries. Queue bypass keeps
 traffic flowing if the queue consumer exits. SIGKILL of the helper cannot run
-its cleanup handler; a later activation rejects an existing private-chain
-collision instead of deleting state whose ownership it cannot prove.
+its cleanup handler. The private chain names carry the app UID and the helper
+PID, so at startup the next helper removes the chains (and the jumps into them)
+whose helper PID is no longer a running helper, and stops an nfqws2 of the app
+UID whose pidfile names such a helper.

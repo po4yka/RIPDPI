@@ -1,0 +1,201 @@
+//! Reaps nfqws2 state that an earlier helper left when it died without its
+//! cleanup (SIGKILL, low-memory kill, abort).
+//!
+//! The firewall journal and the nfqws2 child live only in helper memory, and
+//! the chain names carry the helper PID, so a new helper never meets the old
+//! chains. A chain or process counts as stale only when it names this app uid
+//! and a helper PID that is no longer a running helper.
+
+use std::ffi::OsStr;
+use std::fs;
+use std::io;
+use std::os::unix::ffi::OsStrExt;
+use std::path::{Path, PathBuf};
+use std::process::{Command, Stdio};
+use std::time::Instant;
+
+use nix::sys::signal::{Signal, kill};
+use nix::unistd::Pid;
+use tracing::{info, warn};
+
+use super::{FIREWALL_STOP_TIMEOUT, FirewallCommand, QUEUE, firewall_program, run_firewall};
+
+/// Removes stale nfqws2 chains and their jumps, then kills an orphan nfqws2.
+pub(super) fn reap_stale_state(files_dir: &Path, uid: u32) {
+    let own_pid = std::process::id();
+    let own_comm = fs::read_to_string("/proc/self/comm").unwrap_or_default();
+    let helper_alive = |pid: u32| {
+        fs::read_to_string(format!("/proc/{pid}/comm")).is_ok_and(|comm| !own_comm.is_empty() && comm == own_comm)
+    };
+    for name in ["iptables", "ip6tables"] {
+        let Ok(program) = firewall_program(name) else { continue };
+        let rules = match list_mangle_rules(&program) {
+            Ok(rules) => rules,
+            Err(error) => {
+                warn!(%error, program = %program.display(), "could not list firewall rules for stale nfqws2 chains");
+                continue;
+            }
+        };
+        for command in stale_chain_cleanup(&program, &rules, uid, own_pid, helper_alive) {
+            if let Err(error) = run_firewall(&command, Instant::now() + FIREWALL_STOP_TIMEOUT) {
+                warn!(%error, args = ?command.args, "stale nfqws2 firewall cleanup failed");
+            }
+        }
+    }
+    let Ok(processes) = fs::read_dir("/proc") else { return };
+    for process in processes.flatten() {
+        let Some(pid) = process.file_name().to_str().and_then(|name| name.parse::<i32>().ok()) else { continue };
+        let Ok(cmdline) = fs::read(process.path().join("cmdline")) else { continue };
+        let Some(helper_pid) = orphan_nfqws2_helper_pid(&cmdline, files_dir) else { continue };
+        // A running nfqws2 has dropped root to the app uid, so the app could stop it too.
+        if helper_pid != own_pid && !helper_alive(helper_pid) && process_uid(&process.path()) == Some(uid) {
+            match kill(Pid::from_raw(pid), Signal::SIGKILL) {
+                Ok(()) => info!(pid, helper_pid, "stopped an nfqws2 left by an earlier helper"),
+                Err(error) => warn!(pid, %error, "could not stop an nfqws2 left by an earlier helper"),
+            }
+        }
+    }
+}
+
+fn list_mangle_rules(program: &Path) -> io::Result<String> {
+    let output =
+        Command::new(program).args(["-t", "mangle", "-S"]).stdin(Stdio::null()).stderr(Stdio::null()).output()?;
+    if !output.status.success() {
+        return Err(io::Error::other(format!("iptables -S failed: {}", output.status)));
+    }
+    String::from_utf8(output.stdout).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
+}
+
+/// Builds the commands that remove stale chains of `uid` from `iptables -S` output:
+/// first every jump into them, then their rules, then the chains.
+// shortcut: names have no separator between the uid and PID hex, so a uid whose hex
+// starts with this uid's hex could match; real app uids (10000..19999 and per-user
+// offsets) do not collide in practice. Add a separator to the name if that changes.
+fn stale_chain_cleanup(
+    program: &Path,
+    rules: &str,
+    uid: u32,
+    own_pid: u32,
+    helper_alive: impl Fn(u32) -> bool,
+) -> Vec<FirewallCommand> {
+    let prefix = format!("RDP{uid:x}");
+    let stale: Vec<&str> = rules
+        .lines()
+        .filter_map(|line| line.strip_prefix("-N "))
+        .map(str::trim)
+        .filter(|chain| {
+            chain
+                .strip_prefix(&prefix)
+                .and_then(|rest| rest.strip_suffix('O').or_else(|| rest.strip_suffix('I')))
+                .and_then(|pid| u32::from_str_radix(pid, 16).ok())
+                .is_some_and(|pid| pid != own_pid && !helper_alive(pid))
+        })
+        .collect();
+    let command = |args: Vec<String>| {
+        let mut full = vec!["-t".to_owned(), "mangle".to_owned()];
+        full.extend(args);
+        FirewallCommand { program: PathBuf::from(program), args: full }
+    };
+    let mut commands = Vec::new();
+    for line in rules.lines() {
+        let words: Vec<&str> = line.split_whitespace().collect();
+        if words.first() == Some(&"-A")
+            && let [.., "-j", target] = words.as_slice()
+            && stale.contains(target)
+        {
+            commands
+                .push(command(std::iter::once("-D").chain(words[1..].iter().copied()).map(str::to_owned).collect()));
+        }
+    }
+    for chain in &stale {
+        commands.push(command(vec!["-F".to_owned(), (*chain).to_owned()]));
+        commands.push(command(vec!["-X".to_owned(), (*chain).to_owned()]));
+    }
+    commands
+}
+
+/// Returns the helper PID named by the pidfile of an nfqws2 command line that
+/// this helper's backend starts for `files_dir`, or `None` for any other process.
+fn orphan_nfqws2_helper_pid(cmdline: &[u8], files_dir: &Path) -> Option<u32> {
+    let queue = format!("--qnum={QUEUE}");
+    let args: Vec<&[u8]> = cmdline.split(|byte| *byte == 0).collect();
+    if !args.contains(&queue.as_bytes()) {
+        return None;
+    }
+    let pidfile = Path::new(OsStr::from_bytes(args.iter().find_map(|arg| arg.strip_prefix(b"--pidfile="))?));
+    if !pidfile.starts_with(files_dir) {
+        return None;
+    }
+    pidfile.file_name()?.to_str()?.strip_prefix(".nfqws2-")?.strip_suffix(".pid")?.parse().ok()
+}
+
+fn process_uid(process: &Path) -> Option<u32> {
+    let status = fs::read_to_string(process.join("status")).ok()?;
+    status.lines().find_map(|line| line.strip_prefix("Uid:"))?.split_whitespace().next()?.parse().ok()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::path::Path;
+
+    use super::{orphan_nfqws2_helper_pid, stale_chain_cleanup};
+
+    const RULES: &str = "-P PREROUTING ACCEPT\n\
+        -P OUTPUT ACCEPT\n\
+        -N RDP27fa1c8O\n\
+        -N RDP27fa1c8I\n\
+        -N RDP27fa2d0O\n\
+        -N RDP27fbabcO\n\
+        -N netd_owned\n\
+        -A OUTPUT ! -o lo -m owner --uid-owner 10234 -j RDP27fa1c8O\n\
+        -A OUTPUT ! -o lo -m owner --uid-owner 10234 -j RDP27fa2d0O\n\
+        -A OUTPUT -j netd_owned\n\
+        -A INPUT ! -i lo -m connmark --mark 0x20000000/0x20000000 -j RDP27fa1c8I\n\
+        -A RDP27fa1c8O -j NFQUEUE --queue-num 49379 --queue-bypass\n";
+
+    #[test]
+    fn only_chains_of_dead_helpers_of_this_uid_are_removed() {
+        // 0x1c8 = 456 is dead, 0x2d0 = 720 is a running helper, RDP27fb... is another uid.
+        let commands = stale_chain_cleanup(Path::new("/system/bin/iptables"), RULES, 10234, 999, |pid| pid == 720);
+        let lines: Vec<String> = commands.iter().map(|command| command.args[2..].join(" ")).collect();
+        assert_eq!(
+            lines,
+            [
+                "-D OUTPUT ! -o lo -m owner --uid-owner 10234 -j RDP27fa1c8O",
+                "-D INPUT ! -i lo -m connmark --mark 0x20000000/0x20000000 -j RDP27fa1c8I",
+                "-F RDP27fa1c8O",
+                "-X RDP27fa1c8O",
+                "-F RDP27fa1c8I",
+                "-X RDP27fa1c8I",
+            ]
+        );
+        assert!(commands.iter().all(|command| command.args[..2] == ["-t", "mangle"]));
+
+        // The chains of this helper itself are never stale.
+        assert!(
+            stale_chain_cleanup(Path::new("iptables"), RULES, 10234, 456, |_| false)
+                .iter()
+                .all(|command| { !command.args.iter().any(|arg| arg.starts_with("RDP27fa1c8")) })
+        );
+    }
+
+    #[test]
+    fn orphan_nfqws2_is_recognized_only_by_its_queue_and_private_pidfile() {
+        let files = Path::new("/data/user/0/app/files");
+        let cmdline = |pidfile: &str| {
+            ["/data/user/0/app/files/nfqws2/nfqws2", "--uid=10234", "--qnum=49379", pidfile, "--intercept=1"].join("\0")
+        };
+        assert_eq!(
+            orphan_nfqws2_helper_pid(
+                cmdline("--pidfile=/data/user/0/app/files/nfqws2/.nfqws2-456.pid").as_bytes(),
+                files
+            ),
+            Some(456)
+        );
+        assert_eq!(orphan_nfqws2_helper_pid(cmdline("--pidfile=/tmp/.nfqws2-456.pid").as_bytes(), files), None);
+        assert_eq!(
+            orphan_nfqws2_helper_pid(b"/system/bin/sh\0--pidfile=/data/user/0/app/files/.nfqws2-456.pid", files),
+            None
+        );
+    }
+}

@@ -103,6 +103,9 @@ fn main() {
             None
         }
     });
+    if let Some(backend) = backend.as_ref() {
+        backend.reap_stale_state();
+    }
     info!(path = %socket_path.display(), "listening for connections");
 
     loop {
