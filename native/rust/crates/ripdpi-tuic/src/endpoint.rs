@@ -13,7 +13,11 @@ use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
 use crate::config::Config;
 
-const MAX_CONCURRENT_STREAMS: u32 = 512;
+/// Streams the server may open. A TUIC v5 server never opens a bidi stream,
+/// and opens uni streams only to relay UDP in `quic` mode, which this client
+/// does not use (it relays UDP over datagrams). Quinn would buffer data on an
+/// unaccepted peer stream up to the stream window, so allow none.
+const MAX_PEER_STREAMS: u32 = 0;
 const MAX_IDLE_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(60);
 static RUSTLS_PROVIDER: Once = Once::new();
 
@@ -49,8 +53,8 @@ pub(crate) fn build_endpoint(
 
 fn build_transport_config(keepalive_interval_ms: u32, congestion_control: &str) -> io::Result<TransportConfig> {
     let mut transport = TransportConfig::default();
-    transport.max_concurrent_bidi_streams(VarInt::from_u32(MAX_CONCURRENT_STREAMS));
-    transport.max_concurrent_uni_streams(VarInt::from_u32(MAX_CONCURRENT_STREAMS));
+    transport.max_concurrent_bidi_streams(VarInt::from_u32(MAX_PEER_STREAMS));
+    transport.max_concurrent_uni_streams(VarInt::from_u32(MAX_PEER_STREAMS));
     let idle_timeout = MAX_IDLE_TIMEOUT
         .try_into()
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid TUIC idle timeout: {error}")))?;

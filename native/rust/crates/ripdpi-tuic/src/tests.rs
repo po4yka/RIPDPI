@@ -306,3 +306,69 @@ async fn tuic_client_sends_heartbeats_only_while_tasks_are_active() {
     drop(client);
     server_task.await.expect("server task");
 }
+
+/// A loopback QUIC server that offers `h3`, and its self-signed certificate.
+fn fixture_server() -> (Endpoint, rustls::pki_types::CertificateDer<'static>) {
+    ensure_crypto_provider();
+    let certificate = generate_simple_self_signed(vec!["localhost".to_owned()]).expect("certificate");
+    let cert_der = certificate.cert.der().clone();
+    let key_der = PrivateKeyDer::Pkcs8(certificate.signing_key.serialize_der().into());
+    let mut server_tls = RustlsServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(vec![cert_der.clone()], key_der)
+        .expect("server cert");
+    server_tls.alpn_protocols = vec![b"h3".to_vec()];
+    let server_config = quinn::ServerConfig::with_crypto(Arc::new(
+        quinn::crypto::rustls::QuicServerConfig::try_from(server_tls).expect("quic server config"),
+    ));
+    let server = Endpoint::server(server_config, SocketAddr::from((Ipv4Addr::LOCALHOST, 0))).expect("endpoint");
+    (server, cert_der)
+}
+
+async fn fixture_client(
+    server_addr: SocketAddr,
+    cert_der: rustls::pki_types::CertificateDer<'static>,
+    migrate: bool,
+) -> TuicClient {
+    let tls_config = build_tls_config(false, Some(vec![cert_der])).expect("tls config");
+    TuicClient::connect_with_tls(
+        Config {
+            server: server_addr.ip().to_string(),
+            server_port: i32::from(server_addr.port()),
+            server_name: "localhost".to_owned(),
+            uuid: "00000000-0000-0000-0000-000000000000".to_owned(),
+            password: "tuic-fixture".to_owned(),
+            zero_rtt: false,
+            congestion_control: "bbr".to_owned(),
+            udp_enabled: true,
+            quic_bind_low_port: false,
+            quic_migrate_after_handshake: migrate,
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            outbound_bind_ip: None,
+            keepalive_interval_ms: 0,
+            root_certificate_pem: None,
+        },
+        tls_config,
+    )
+    .await
+    .expect("client")
+}
+
+/// TUIC v5 servers never open bidi streams, and open uni streams only for
+/// `quic`-mode UDP, which this client does not use. A peer stream would be
+/// buffered unaccepted, so the client must grant the server no stream credit.
+#[tokio::test]
+async fn server_cannot_open_streams_to_the_client() {
+    let (server, cert_der) = fixture_server();
+    let server_addr = server.local_addr().expect("server addr");
+    let server_task = tokio::spawn(async move {
+        let connection = server.accept().await.expect("incoming").await.expect("connection");
+        let uni = tokio::time::timeout(Duration::from_millis(500), connection.open_uni()).await;
+        let bi = tokio::time::timeout(Duration::from_millis(500), connection.open_bi()).await;
+        (uni.is_err(), bi.is_err())
+    });
+    let _client = fixture_client(server_addr, cert_der, false).await;
+    let (uni_blocked, bi_blocked) = server_task.await.expect("server task");
+    assert!(uni_blocked, "the server must get no uni stream credit");
+    assert!(bi_blocked, "the server must get no bidi stream credit");
+}
