@@ -828,6 +828,48 @@ internal class RuntimeTerminalRecoveryPersistenceTest : RuntimeTerminalPersisten
             assertFalse(decodeAssessment(stores).terminalEvidenceSealed)
             restoredScope.cancel()
         }
+
+    @Test
+    fun `recovery after a committed policy checkpoint applies the failure once`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val firstStateStore = DefaultServiceStateStore()
+            val firstScope = monitorScope()
+            val activePolicyStore = MutableActiveConnectionPolicyStore().apply { set(activeRememberedPolicy(stores)) }
+            val firstCoordinator = createSessionCoordinator(stores, firstStateStore, firstScope, activePolicyStore)
+            firstCoordinator.registerNetworkTransitionFlush { true }
+            var failSessionUpsert = true
+            // Process death after the policy transaction committed, before the outbox reaches SESSION_UPSERT.
+            stores.beforeCheckpointTerminalOutbox = { marker ->
+                if (failSessionUpsert && marker.value.contains("\"phase\":\"SESSION_UPSERT\"")) {
+                    failSessionUpsert = false
+                    error("injected process death after the policy checkpoint")
+                }
+            }
+
+            firstStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            firstCoordinator.handleStatusChange(AppStatus.Running, Mode.VPN)
+            firstCoordinator.handleFailure(Sender.Proxy, FailureReason.NativeError("policy failure proof"))
+            firstStateStore.updateTelemetry(finalDataPlaneTelemetry())
+            firstStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            assertTrue(
+                runCatching {
+                    firstCoordinator.handleStatusChange(AppStatus.Halted, Mode.VPN)
+                }.isFailure,
+            )
+            firstScope.cancel()
+
+            val restoredScope = monitorScope()
+            createSessionCoordinator(stores, DefaultServiceStateStore(), restoredScope)
+                .handleStatusChange(AppStatus.Halted, Mode.VPN)
+
+            assertTrue(stores.getPendingTerminalOutboxes().isEmpty())
+            val policy = stores.rememberedPoliciesState.value.single()
+            assertEquals(1, policy.failureCount)
+            assertEquals(1, policy.consecutiveFailureCount)
+            assertEquals(RememberedNetworkPolicyStatusValidated, policy.status)
+            restoredScope.cancel()
+        }
 }
 
 internal abstract class RuntimeTerminalPersistenceTestSupport {

@@ -117,6 +117,7 @@ internal class RuntimeTerminalOutbox(
             hasTransientState = true,
             policyOutcome = outbox.policyOutcome,
             policyEvidenceComplete = outbox.policyEvidenceComplete,
+            policyApplied = outbox.policyApplied,
             artifactBatch = outbox.artifactBatch,
             currentMarker = marker,
             phase = outbox.phase,
@@ -161,19 +162,23 @@ internal class RuntimeTerminalOutbox(
         if (outcome != null && policy == null) {
             pending.policyEvidenceComplete = false
         }
-        val policyCheckpoint = pending.toMarker(PendingTerminalPhase.POLICY_FINALIZATION)
-        reconcileCheckpoint(
-            pending = pending,
-            intendedMarker = policyCheckpoint,
-            checkpointSucceeded =
-                outboxStore.checkpointTerminalPolicy(
-                    // The checkpoint re-applies the outcome to the row read in its own transaction.
-                    policyId = policy?.id,
-                    update = { current -> outcome?.applyTo(current, pending.finishedSession.strategyJson) },
-                    expectedMarker = pending.currentMarker,
-                    replacementMarker = policyCheckpoint,
-                ),
-        )
+        // The outcome is a delta, so it must reach the row once: the checkpoint records policyApplied in the
+        // same transaction, and a replay of this phase (process death before SESSION_UPSERT) skips it.
+        if (!pending.policyApplied) {
+            val policyCheckpoint = pending.toMarker(PendingTerminalPhase.POLICY_FINALIZATION, policyApplied = true)
+            reconcileCheckpoint(
+                pending = pending,
+                intendedMarker = policyCheckpoint,
+                checkpointSucceeded =
+                    outboxStore.checkpointTerminalPolicy(
+                        // The checkpoint applies the outcome to the row read in its own transaction.
+                        policyId = policy?.id,
+                        update = { current -> outcome?.applyTo(current, pending.finishedSession.strategyJson) },
+                        expectedMarker = pending.currentMarker,
+                        replacementMarker = policyCheckpoint,
+                    ),
+            )
+        }
         if (pending.phase != PendingTerminalPhase.POLICY_FINALIZATION) {
             rememberedPolicySessionTracker.clear()
             return
@@ -284,6 +289,7 @@ internal class RuntimeTerminalOutbox(
         requireTerminalOutboxState(!durableMarker.matchesCheckpoint(pending, outbox, previousPhase))
         pending.currentMarker = durableMarker
         pending.policyEvidenceComplete = outbox.policyEvidenceComplete
+        pending.policyApplied = outbox.policyApplied
         pending.phase = outbox.phase
     }
 }
@@ -310,11 +316,15 @@ internal data class PendingTerminalSession(
     val hasTransientState: Boolean = true,
     val policyOutcome: RememberedPolicyTerminalOutcome?,
     var policyEvidenceComplete: Boolean = true,
+    var policyApplied: Boolean = false,
     val artifactBatch: RuntimeTerminalArtifactBatch,
     var currentMarker: DiagnosticsDurableStateEntity = terminalOutboxMarker(activeSession.id, createdAt, ""),
     var phase: PendingTerminalPhase = PendingTerminalPhase.RUNTIME_EVENTS,
 ) {
-    fun toMarker(markerPhase: PendingTerminalPhase): DiagnosticsDurableStateEntity =
+    fun toMarker(
+        markerPhase: PendingTerminalPhase,
+        policyApplied: Boolean = this.policyApplied,
+    ): DiagnosticsDurableStateEntity =
         terminalOutboxMarker(
             connectionSessionId = activeSession.id,
             updatedAt = createdAt,
@@ -326,6 +336,7 @@ internal data class PendingTerminalSession(
                         terminalEvidenceSealed = terminalEvidenceSealed,
                         policyOutcome = policyOutcome,
                         policyEvidenceComplete = policyEvidenceComplete,
+                        policyApplied = policyApplied,
                         artifactBatch = artifactBatch,
                         phase = markerPhase,
                     ),
@@ -350,6 +361,8 @@ internal data class TerminalOutboxMarker(
     val terminalEvidenceSealed: Boolean,
     val policyOutcome: RememberedPolicyTerminalOutcome? = null,
     val policyEvidenceComplete: Boolean = true,
+    // True once the policy checkpoint applied the outcome; absent in markers written before it existed.
+    val policyApplied: Boolean = false,
     val artifactBatch: RuntimeTerminalArtifactBatch,
     val phase: PendingTerminalPhase,
 )
