@@ -19,6 +19,8 @@ import dagger.Module
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import javax.inject.Inject
@@ -86,6 +88,10 @@ class DefaultRememberedNetworkPolicyStore
         private val json =
             RipDpiContractJson
 
+        // Serializes every read-modify-write of the table. Callers hold entity snapshots from
+        // different coroutines, so each mutation re-reads the row under this lock.
+        private val writeLock = Mutex()
+
         override fun observePolicies(limit: Int): Flow<List<RememberedNetworkPolicyEntity>> =
             recordStore.observeRememberedNetworkPolicies(limit)
 
@@ -103,18 +109,20 @@ class DefaultRememberedNetworkPolicyStore
             source: RememberedNetworkPolicySource,
             observedAt: Long?,
         ): RememberedNetworkPolicyEntity =
-            upsertInternal(
-                existing =
-                    recordStore.getRememberedNetworkPolicy(
-                        fingerprintHash = policy.fingerprintHash,
-                        mode = policy.mode,
-                    ),
-                policy = policy,
-                source = source,
-                status = RememberedNetworkPolicyStatusObserved,
-                validatedAt = null,
-                now = observedAt ?: clock.now(),
-            )
+            writeLock.withLock {
+                upsertInternal(
+                    existing =
+                        recordStore.getRememberedNetworkPolicy(
+                            fingerprintHash = policy.fingerprintHash,
+                            mode = policy.mode,
+                        ),
+                    policy = policy,
+                    source = source,
+                    status = RememberedNetworkPolicyStatusObserved,
+                    validatedAt = null,
+                    now = observedAt ?: clock.now(),
+                )
+            }
 
         override suspend fun rememberValidatedPolicy(
             policy: RememberedNetworkPolicyJson,
@@ -122,18 +130,20 @@ class DefaultRememberedNetworkPolicyStore
             validatedAt: Long?,
         ): RememberedNetworkPolicyEntity {
             val effectiveValidatedAt = validatedAt ?: clock.now()
-            return upsertInternal(
-                existing =
-                    recordStore.getRememberedNetworkPolicy(
-                        fingerprintHash = policy.fingerprintHash,
-                        mode = policy.mode,
-                    ),
-                policy = policy,
-                source = source,
-                status = RememberedNetworkPolicyStatusValidated,
-                validatedAt = effectiveValidatedAt,
-                now = effectiveValidatedAt,
-            )
+            return writeLock.withLock {
+                upsertInternal(
+                    existing =
+                        recordStore.getRememberedNetworkPolicy(
+                            fingerprintHash = policy.fingerprintHash,
+                            mode = policy.mode,
+                        ),
+                    policy = policy,
+                    source = source,
+                    status = RememberedNetworkPolicyStatusValidated,
+                    validatedAt = effectiveValidatedAt,
+                    now = effectiveValidatedAt,
+                )
+            }
         }
 
         override suspend fun recordApplied(
@@ -141,7 +151,9 @@ class DefaultRememberedNetworkPolicyStore
             appliedAt: Long?,
         ): RememberedNetworkPolicyEntity =
             (appliedAt ?: clock.now()).let { effectiveAppliedAt ->
-                persist(policy.copy(lastAppliedAt = effectiveAppliedAt, updatedAt = effectiveAppliedAt))
+                mutateCurrent(policy) { current ->
+                    current.copy(lastAppliedAt = effectiveAppliedAt, updatedAt = effectiveAppliedAt)
+                }
             }
 
         override suspend fun recordSuccess(
@@ -151,18 +163,18 @@ class DefaultRememberedNetworkPolicyStore
             completedAt: Long?,
         ): RememberedNetworkPolicyEntity {
             val effectiveCompletedAt = completedAt ?: clock.now()
-            val shouldValidate = validated || policy.status == RememberedNetworkPolicyStatusValidated
-            return persist(
-                policy.copy(
-                    status = if (shouldValidate) RememberedNetworkPolicyStatusValidated else policy.status,
-                    strategySignatureJson = strategySignatureJson ?: policy.strategySignatureJson,
-                    successCount = policy.successCount + 1,
+            return mutateCurrent(policy) { current ->
+                val shouldValidate = validated || current.status == RememberedNetworkPolicyStatusValidated
+                current.copy(
+                    status = if (shouldValidate) RememberedNetworkPolicyStatusValidated else current.status,
+                    strategySignatureJson = strategySignatureJson ?: current.strategySignatureJson,
+                    successCount = current.successCount + 1,
                     consecutiveFailureCount = 0,
                     suppressedUntil = null,
-                    lastValidatedAt = if (shouldValidate) effectiveCompletedAt else policy.lastValidatedAt,
+                    lastValidatedAt = if (shouldValidate) effectiveCompletedAt else current.lastValidatedAt,
                     updatedAt = effectiveCompletedAt,
-                ),
-            )
+                )
+            }
         }
 
         override suspend fun recordFailure(
@@ -171,38 +183,59 @@ class DefaultRememberedNetworkPolicyStore
             allowSuppression: Boolean,
         ): RememberedNetworkPolicyEntity {
             val effectiveFailedAt = failedAt ?: clock.now()
-            val nextConsecutiveFailures = policy.consecutiveFailureCount + 1
-            val shouldSuppress =
-                allowSuppression &&
-                    policy.status == RememberedNetworkPolicyStatusValidated &&
-                    nextConsecutiveFailures >= 2
-            return persist(
-                policy.copy(
-                    status = if (shouldSuppress) RememberedNetworkPolicyStatusSuppressed else policy.status,
-                    failureCount = policy.failureCount + 1,
+            return mutateCurrent(policy) { current ->
+                val nextConsecutiveFailures = current.consecutiveFailureCount + 1
+                val shouldSuppress =
+                    allowSuppression &&
+                        current.status == RememberedNetworkPolicyStatusValidated &&
+                        nextConsecutiveFailures >= 2
+                current.copy(
+                    status = if (shouldSuppress) RememberedNetworkPolicyStatusSuppressed else current.status,
+                    failureCount = current.failureCount + 1,
                     consecutiveFailureCount = nextConsecutiveFailures,
                     suppressedUntil =
                         if (shouldSuppress) {
                             effectiveFailedAt + RememberedNetworkPolicySuppressionDurationMs
                         } else {
-                            policy.suppressedUntil
+                            current.suppressedUntil
                         },
                     updatedAt = effectiveFailedAt,
-                ),
-            )
+                )
+            }
         }
 
         override suspend fun deletePolicy(
             id: Long,
             fingerprintHash: String,
-        ): Int {
-            recordStore.deleteRememberedNetworkPolicy(id)
-            return recordStore.countRememberedNetworkPoliciesForFingerprint(fingerprintHash)
-        }
+        ): Int =
+            writeLock.withLock {
+                recordStore.deleteRememberedNetworkPolicy(id)
+                recordStore.countRememberedNetworkPoliciesForFingerprint(fingerprintHash)
+            }
 
         override suspend fun clearAll() {
-            recordStore.clearRememberedNetworkPolicies()
+            writeLock.withLock { recordStore.clearRememberedNetworkPolicies() }
         }
+
+        /**
+         * Applies [transform] to the stored row, not to the caller's snapshot, so concurrent updates
+         * are not lost. Without a stored row the snapshot itself is written, as before.
+         */
+        private suspend fun mutateCurrent(
+            policy: RememberedNetworkPolicyEntity,
+            transform: (RememberedNetworkPolicyEntity) -> RememberedNetworkPolicyEntity,
+        ): RememberedNetworkPolicyEntity =
+            writeLock.withLock {
+                val current =
+                    if (policy.id > 0L) {
+                        recordStore.getRememberedNetworkPolicyById(policy.id)
+                    } else {
+                        recordStore.getRememberedNetworkPolicy(policy.fingerprintHash, policy.mode)
+                    }
+                // shortcut: a row deleted since the caller read it is written again; telling that apart
+                // from a first write needs callers (and their test fixtures) to store rows first.
+                persist(transform(current ?: policy))
+            }
 
         private suspend fun upsertInternal(
             existing: RememberedNetworkPolicyEntity?,

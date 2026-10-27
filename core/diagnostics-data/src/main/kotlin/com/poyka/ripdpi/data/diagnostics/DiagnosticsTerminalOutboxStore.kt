@@ -109,7 +109,10 @@ class RoomDiagnosticsTerminalOutboxStore
         ): Boolean =
             db.withTransaction {
                 if (!isCurrent(expectedMarker)) return@withTransaction false
-                policy?.let { dao.upsertRememberedNetworkPolicy(it) }
+                // A policy the user deleted since the outcome was reconstructed must not come back.
+                policy
+                    ?.takeIf { dao.getRememberedNetworkPolicyById(it.id) != null }
+                    ?.let { dao.upsertRememberedNetworkPolicy(it) }
                 replaceMarkerIfCurrent(expectedMarker, replacementMarker)
             }
 

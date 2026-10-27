@@ -114,6 +114,30 @@ class RememberedNetworkPolicyStoreTest {
         }
 
     @Test
+    fun `record failure applies to the stored row instead of a stale caller snapshot`() =
+        runTest {
+            val stale =
+                store.rememberValidatedPolicy(
+                    policy = rememberedPolicyJson(fingerprintHash = "fingerprint-race"),
+                    source = RememberedNetworkPolicySource.MANUAL_SESSION,
+                    validatedAt = 1_000L,
+                )
+            store.rememberValidatedPolicy(
+                policy = rememberedPolicyJson(fingerprintHash = "fingerprint-race"),
+                source = RememberedNetworkPolicySource.MANUAL_SESSION,
+                validatedAt = 2_000L,
+            )
+
+            val result = store.recordFailure(policy = stale, failedAt = 3_000L)
+
+            val row = recordStore.getRememberedNetworkPolicyById(stale.id)
+            assertEquals(row, result)
+            assertEquals(2, row?.successCount)
+            assertEquals(2_000L, row?.lastValidatedAt)
+            assertEquals(1, row?.failureCount)
+        }
+
+    @Test
     fun `typed remembered policy sources round trip through storage values`() =
         runTest {
             val expectedSources =
