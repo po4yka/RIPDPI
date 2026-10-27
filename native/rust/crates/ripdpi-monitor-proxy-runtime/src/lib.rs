@@ -177,7 +177,8 @@ fn join_runtime_terminal(
                 let terminal = CandidateRuntimeTerminalReceipt::runtime_panicked(
                     control.desync_execution_generation(),
                     cleanup,
-                    terminal_shutdown_mode(forced),
+                    // The mode must match cleanup.forced_abort, which reports the proxy's own drain outcome.
+                    terminal_shutdown_mode(receipt.forced_abort()),
                     evidence,
                 );
                 // Infallible: a joined panicking worker has one started/joined runtime and coherent abort counts.
@@ -434,6 +435,32 @@ mod tests {
             CandidateCleanupReceipt { started: 1, stopped: 1, joined: 1, forced_abort: 0, ..Default::default() }
         );
         assert_eq!(receipt.terminal_status(), CandidateRuntimeTerminalStatus::RuntimePanicked);
+    }
+
+    #[test]
+    fn worker_panic_receipt_mode_follows_the_proxy_drain_outcome() {
+        for (forced, drain_forced_abort) in [(true, false), (false, true)] {
+            let mut handle = Some(thread::spawn(move || {
+                Ok(ripdpi_proxy_runtime::ProxyRuntimeCleanupReceipt::clean(
+                    drain_forced_abort,
+                    true,
+                    Vec::new(),
+                    false,
+                    0,
+                    0,
+                    None,
+                ))
+            }));
+            while !handle.as_ref().expect("runtime handle").is_finished() {
+                thread::yield_now();
+            }
+
+            let control = EmbeddedProxyControl::new_with_desync_execution_evidence(None, None, 1);
+            let receipt = join_runtime_terminal(&mut handle, forced, &control);
+
+            assert_eq!(receipt.terminal_status(), CandidateRuntimeTerminalStatus::RuntimePanicked);
+            assert_eq!(receipt.cleanup().forced_abort, usize::from(drain_forced_abort));
+        }
     }
 
     #[test]
