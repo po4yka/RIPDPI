@@ -160,7 +160,7 @@ fn plan_udp_uses_generated_quic_fake_initial_when_profile_is_active() {
 }
 
 #[test]
-fn plan_udp_realistic_quic_fake_defaults_to_input_authority_from_ir() {
+fn plan_udp_realistic_quic_fake_defaults_to_builtin_fake_host() {
     let mut group = DesyncGroup::new(0);
     group.actions.ttl = Some(7);
     group.actions.quic_fake_profile = QuicFakeProfile::RealisticInitial;
@@ -184,7 +184,7 @@ fn plan_udp_realistic_quic_fake_defaults_to_input_authority_from_ir() {
     let parsed = parse_quic_initial(fake_packet).expect("parse generated fake");
 
     assert_eq!(parsed.version, QUIC_V2_VERSION);
-    assert_eq!(parsed.host(), b"source.example.test");
+    assert_eq!(parsed.host(), b"www.wikipedia.org", "a decoy must not carry the real authority");
 }
 
 #[test]
@@ -281,8 +281,8 @@ fn plan_udp_dummy_prepend_emits_compact_browser_like_quic_decoys() {
     let second_parsed = parse_quic_initial(second).expect("parse second decoy");
     assert!(first.len() >= 256);
     assert!(second.len() >= 256);
-    assert_eq!(first_parsed.host(), b"dummy.example.test");
-    assert_eq!(second_parsed.host(), b"dummy.example.test");
+    assert_eq!(first_parsed.host(), b"www.wikipedia.org");
+    assert_eq!(second_parsed.host(), b"www.wikipedia.org");
     assert_ne!(first, second, "dummy prepend decoys should vary by packet number/profile");
     assert_eq!(actions[3], DesyncAction::RestoreDefaultTtl);
     assert_eq!(actions[4], DesyncAction::SetTtl(64));
@@ -365,7 +365,7 @@ fn plan_udp_quic_crypto_split_uses_first_flight_ir_boundary() {
 }
 
 #[test]
-fn plan_udp_quic_multi_initial_realistic_uses_ir_authority_when_no_override_is_set() {
+fn plan_udp_quic_multi_initial_realistic_uses_builtin_host_when_no_override_is_set() {
     let mut group = DesyncGroup::new(0);
     group.actions.udp_chain = vec![UdpChainStep {
         kind: UdpChainStepKind::QuicMultiInitialRealistic,
@@ -393,8 +393,8 @@ fn plan_udp_quic_multi_initial_realistic_uses_ir_authority_when_no_override_is_s
     let first = parse_quic_initial(first_packet).expect("parse first realistic initial");
     let second = parse_quic_initial(second_packet).expect("parse second realistic initial");
     assert_eq!(first.version, QUIC_V2_VERSION);
-    assert_eq!(first.host(), b"media.example.test");
-    assert_eq!(second.host(), b"media.example.test");
+    assert_eq!(first.host(), b"www.wikipedia.org");
+    assert_eq!(second.host(), b"www.wikipedia.org");
     assert_ne!(first_packet, second_packet, "multi-initial realistic should vary browser profile or packet number");
     assert_eq!(actions[4], DesyncAction::SetTtl(64));
     assert_eq!(actions[5], DesyncAction::Write(payload));
@@ -432,7 +432,7 @@ fn plan_udp_quic_fake_version_emits_tampered_long_headers() {
 }
 
 #[test]
-fn plan_udp_quic_padding_ladder_uses_ir_seed_authority() {
+fn plan_udp_quic_padding_ladder_uses_builtin_fake_host() {
     let mut group = DesyncGroup::new(0);
     group.actions.udp_chain = vec![UdpChainStep {
         kind: UdpChainStepKind::QuicPaddingLadder,
@@ -453,7 +453,7 @@ fn plan_udp_quic_padding_ladder_uses_ir_seed_authority() {
         panic!("expected padding ladder packet");
     };
     let parsed = parse_quic_initial(packet).expect("parse ladder packet");
-    assert_eq!(parsed.host(), b"padding.example.test");
+    assert_eq!(parsed.host(), b"www.wikipedia.org");
     assert!(packet.len() >= payload.len());
 }
 

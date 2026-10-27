@@ -24,7 +24,7 @@ pub(super) fn udp_fake_payload(
             QuicFakeProfile::CompatDefault => return default_fake_quic_compat(),
             QuicFakeProfile::RealisticInitial => {
                 if let Some(fake) =
-                    build_realistic_quic_initial(quic.version, effective_quic_realistic_host(group, normalized_quic))
+                    build_realistic_quic_initial(quic.version, Some(effective_quic_realistic_host(group)))
                 {
                     return fake;
                 }

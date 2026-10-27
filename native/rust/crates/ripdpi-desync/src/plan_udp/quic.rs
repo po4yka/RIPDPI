@@ -42,11 +42,14 @@ pub(super) fn normalized_quic_plan_input(payload: &[u8]) -> Option<NormalizedQui
     })
 }
 
-pub(super) fn effective_quic_realistic_host<'a>(
-    group: &'a DesyncGroup,
-    normalized_quic: Option<&'a NormalizedQuicPlannerInput>,
-) -> Option<&'a str> {
-    group.actions.quic_fake_host.as_deref().or(normalized_quic.map(|quic| quic.authority_host.as_str()))
+/// SNI of realistic QUIC decoys without a `quic_fake_host` override. It
+/// matches the app's `DefaultQuicFakeHost`: a decoy must never carry the real
+/// (possibly blocked) authority, or an SNI-matching DPI that sees the decoy
+/// blocks the flow before the real Initial.
+const DEFAULT_QUIC_FAKE_HOST: &str = "www.wikipedia.org";
+
+pub(super) fn effective_quic_realistic_host(group: &DesyncGroup) -> &str {
+    group.actions.quic_fake_host.as_deref().unwrap_or(DEFAULT_QUIC_FAKE_HOST)
 }
 
 pub(super) fn browser_like_quic_seed(
@@ -55,11 +58,7 @@ pub(super) fn browser_like_quic_seed(
     profile: QuicInitialBrowserProfile,
 ) -> Option<QuicInitialSeed> {
     let normalized_quic = normalized_quic?;
-    build_browser_like_quic_initial_seed(
-        normalized_quic.version,
-        effective_quic_realistic_host(group, Some(normalized_quic)),
-        profile,
-    )
+    build_browser_like_quic_initial_seed(normalized_quic.version, Some(effective_quic_realistic_host(group)), profile)
 }
 
 pub(super) fn packetize_input_quic_initial(
