@@ -11,7 +11,7 @@ import com.poyka.ripdpi.diagnostics.RuntimeHistoryStartup
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveExporter
 import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementBarrier
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.util.concurrent.atomic.AtomicBoolean
@@ -51,6 +51,7 @@ class DefaultDiagnosticsBootstrapper
                 runCatching {
                     runtimeHistoryStartup.start()
                 }.onFailure { error ->
+                    if (error is kotlinx.coroutines.CancellationException) throw error
                     logRuntimeHistoryBootstrapFailure(error)
                 }
                 recoverInterruptedScanSessions()
@@ -69,15 +70,30 @@ class DefaultDiagnosticsBootstrapper
                             Logger.w(error) { "Bundled diagnostics profile import skipped" }
                         }
                 }
-                scope.launch {
-                    policyHandoverEventStore.events
-                        .catch { error -> Logger.w(error) { "Policy handover event collection stopped" } }
-                        .collect { event -> automaticProbeScheduler.schedule(event) }
-                }
+                scope.launch { collectHandoverEvents() }
                 completed = true
             } finally {
                 // A caller cancelled mid-way must leave the remaining steps to the next initialize().
                 if (!completed) initialized.set(false)
+            }
+        }
+
+        /** Resubscribes with capped backoff, so one store failure does not stop handover probes for the process. */
+        private suspend fun collectHandoverEvents() {
+            var attempt = 0
+            while (true) {
+                val collected =
+                    runCatching {
+                        policyHandoverEventStore.events.collect { event ->
+                            attempt = 0
+                            automaticProbeScheduler.schedule(event)
+                        }
+                    }
+                val failure = collected.exceptionOrNull() ?: return
+                if (failure is kotlinx.coroutines.CancellationException || failure !is Exception) throw failure
+                Logger.w(failure) { "Policy handover event collection failed; resubscribing" }
+                delay(HandoverRetryBaseDelayMillis shl attempt.coerceAtMost(HandoverRetryMaxShift))
+                attempt += 1
             }
         }
 
@@ -119,5 +135,7 @@ class DefaultDiagnosticsBootstrapper
 
         private companion object {
             const val InterruptedScanSummary = "Diagnostics scan interrupted by process death"
+            const val HandoverRetryBaseDelayMillis = 1_000L
+            const val HandoverRetryMaxShift = 6
         }
     }

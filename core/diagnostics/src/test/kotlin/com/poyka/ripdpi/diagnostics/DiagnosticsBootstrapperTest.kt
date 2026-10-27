@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PolicyHandoverEvent
+import com.poyka.ripdpi.data.PolicyHandoverEventStore
 import com.poyka.ripdpi.data.diagnostics.DefaultRememberedNetworkPolicyStore
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
@@ -14,8 +15,11 @@ import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveExporter
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.finalization.RawPathSettlementBarrier
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -23,6 +27,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 import javax.inject.Provider
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -125,6 +130,57 @@ class DiagnosticsBootstrapperTest {
             assertEquals(1, archiveExporter.cleanupCalls)
             assertFalse(stores.profilesState.value.isEmpty())
             assertEquals(1, launcher.events.size)
+        }
+
+    @Test
+    fun `handover collection resubscribes after the event store fails`() =
+        runTest {
+            val stores =
+                FakeDiagnosticsHistoryStores().also { history ->
+                    history.telemetryState.value = listOf(telemetrySample(createdAt = System.currentTimeMillis()))
+                }
+            val handoverStore = FakePolicyHandoverEventStore()
+            val launcher = BootstrapperRecordingAutomaticProbeLauncher()
+            val bootstrapper =
+                createBootstrapper(
+                    stores = stores,
+                    runtimeHistoryStartup = RecordingRuntimeHistoryStartup(),
+                    archiveExporter = RecordingArchiveExporter(),
+                    policyHandoverEventStore = FailingOnceHandoverEventStore(handoverStore),
+                    automaticProbeLauncher = launcher,
+                    importBundledProfilesOnInitialize = false,
+                    scope = backgroundScope,
+                )
+
+            bootstrapper.initialize()
+            runCurrent()
+            advanceTimeBy(HANDOVER_RESUBSCRIBE_WAIT_MILLIS)
+            runCurrent()
+            handoverStore.publish(handoverEvent())
+            advanceTimeBy(100L)
+            runCurrent()
+
+            assertEquals(1, launcher.events.size)
+        }
+
+    @Test
+    fun `cancelled runtime history startup leaves bootstrap to the next caller`() =
+        runTest {
+            val runtimeHistoryStartup =
+                RecordingRuntimeHistoryStartup(failure = CancellationException("caller cancelled"))
+            val bootstrapper =
+                createBootstrapper(
+                    stores = FakeDiagnosticsHistoryStores(),
+                    runtimeHistoryStartup = runtimeHistoryStartup,
+                    archiveExporter = RecordingArchiveExporter(),
+                    importBundledProfilesOnInitialize = false,
+                    scope = backgroundScope,
+                )
+
+            assertTrue(runCatching { bootstrapper.initialize() }.exceptionOrNull() is CancellationException)
+            runCatching { bootstrapper.initialize() }
+
+            assertEquals(2, runtimeHistoryStartup.startCalls)
         }
 
     @Test
@@ -235,7 +291,7 @@ class DiagnosticsBootstrapperTest {
         stores: FakeDiagnosticsHistoryStores,
         runtimeHistoryStartup: RuntimeHistoryStartup,
         archiveExporter: RecordingArchiveExporter,
-        policyHandoverEventStore: FakePolicyHandoverEventStore = FakePolicyHandoverEventStore(),
+        policyHandoverEventStore: PolicyHandoverEventStore = FakePolicyHandoverEventStore(),
         automaticProbeLauncher: AutomaticProbeLauncher = NoopAutomaticProbeLauncher,
         profileSource: BundledDiagnosticsProfileSource =
             BootstrapBundledDiagnosticsProfileSource(sampleBundledProfilesJson()),
@@ -319,6 +375,24 @@ class DiagnosticsBootstrapperTest {
                     ),
             ),
         )
+}
+
+private const val HANDOVER_RESUBSCRIBE_WAIT_MILLIS = 1_001L
+
+/** The first subscription fails as a closed database would; later ones see the live events. */
+private class FailingOnceHandoverEventStore(
+    private val delegate: FakePolicyHandoverEventStore,
+) : PolicyHandoverEventStore by delegate {
+    private var failed = false
+
+    override val events: Flow<PolicyHandoverEvent> =
+        flow {
+            if (!failed) {
+                failed = true
+                throw IOException("database closed")
+            }
+            delegate.events.collect { emit(it) }
+        }
 }
 
 private class BootstrapBundledDiagnosticsProfileSource(
