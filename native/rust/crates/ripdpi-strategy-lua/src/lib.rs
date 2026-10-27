@@ -45,9 +45,6 @@ mod enabled {
         /// Lua function call failed.
         #[error("Lua function call failed: {0}")]
         Call(String),
-        /// The per-flow state table is full.
-        #[error("Lua flow state capacity reached")]
-        FlowStateCapacity,
         /// A script path escaped the configured Lua base directory.
         #[error("Lua script path {path} is outside the permitted base directory")]
         PathEscape { path: PathBuf },
@@ -70,7 +67,8 @@ mod enabled {
     /// aborted with a Lua memory error rather than OOM-killing the desync path.
     const LUA_MEMORY_LIMIT_BYTES: usize = 16 * 1024 * 1024;
 
-    // ponytail: reject new flows at 1024; raise this only with a larger memory budget.
+    /// Per-flow state tables kept at once. At capacity the least recently
+    /// used flow is evicted, so a missed `close_flow` cannot block new flows.
     const LUA_MAX_FLOW_STATES: usize = 1024;
 
     /// Instruction-count granularity for the watchdog hook. The hook fires every
@@ -95,7 +93,9 @@ mod enabled {
     struct LuaEngineInner {
         lua: Lua,
         registered: HashMap<String, (RegistryKey, bool)>,
-        conn_states: HashMap<FlowId, RegistryKey>,
+        /// Per-flow state table and the call counter value of its last use.
+        conn_states: HashMap<FlowId, (RegistryKey, u64)>,
+        call_counter: u64,
         /// Per-call instruction-hook firing counter, reset before each script
         /// load or strategy call so the watchdog budget is per-operation rather
         /// than cumulative across the engine's lifetime.
@@ -154,6 +154,7 @@ mod enabled {
                     lua,
                     registered: HashMap::new(),
                     conn_states: HashMap::new(),
+                    call_counter: 0,
                     hook_firings,
                 })),
                 base_dir: base_dir.map(Arc::new),
@@ -307,7 +308,7 @@ mod enabled {
         /// Reads the `desync.conn.count` value for a flow when it exists.
         pub fn connection_count(&self, flow_id: FlowId) -> Result<Option<i64>, LuaError> {
             let inner = self.inner.lock().map_err(|_| LuaError::LockPoisoned)?;
-            let Some(key) = inner.conn_states.get(&flow_id) else {
+            let Some((key, _)) = inner.conn_states.get(&flow_id) else {
                 return Ok(None);
             };
             let table = inner.lua.registry_value::<Table>(key).map_err(|error| LuaError::Call(error.to_string()))?;
@@ -323,7 +324,7 @@ mod enabled {
         /// Removes per-flow Lua state.
         pub fn close_connection(&self, flow_id: FlowId) -> Result<(), LuaError> {
             let mut inner = self.inner.lock().map_err(|_| LuaError::LockPoisoned)?;
-            if let Some(key) = inner.conn_states.remove(&flow_id) {
+            if let Some((key, _)) = inner.conn_states.remove(&flow_id) {
                 inner.lua.remove_registry_value(key).map_err(|error| LuaError::Call(error.to_string()))?;
             }
             Ok(())
@@ -337,13 +338,21 @@ mod enabled {
         ) -> Result<LuaCallOutcome, LuaError> {
             let mut inner = self.inner.lock().map_err(|_| LuaError::LockPoisoned)?;
             inner.reset_watchdog();
-            if !inner.conn_states.contains_key(&ctx.flow_id) {
+            inner.call_counter += 1;
+            let now = inner.call_counter;
+            if let Some((_, last_used)) = inner.conn_states.get_mut(&ctx.flow_id) {
+                *last_used = now;
+            } else {
                 if inner.conn_states.len() >= LUA_MAX_FLOW_STATES {
-                    return Err(LuaError::FlowStateCapacity);
+                    let oldest =
+                        inner.conn_states.iter().min_by_key(|(_, (_, last_used))| *last_used).map(|(flow, _)| *flow);
+                    if let Some((key, _)) = oldest.and_then(|flow| inner.conn_states.remove(&flow)) {
+                        inner.lua.remove_registry_value(key).map_err(|error| LuaError::Call(error.to_string()))?;
+                    }
                 }
                 let table = inner.lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
                 let key = inner.lua.create_registry_value(table).map_err(|error| LuaError::Call(error.to_string()))?;
-                inner.conn_states.insert(ctx.flow_id, key);
+                inner.conn_states.insert(ctx.flow_id, (key, now));
             }
 
             let (function_key, takes_ctx) =
@@ -355,6 +364,7 @@ mod enabled {
             let conn_key = inner
                 .conn_states
                 .get(&ctx.flow_id)
+                .map(|(key, _)| key)
                 .ok_or_else(|| LuaError::FunctionNotRegistered(func_name.to_owned()))?;
             let conn =
                 inner.lua.registry_value::<Table>(conn_key).map_err(|error| LuaError::Call(error.to_string()))?;

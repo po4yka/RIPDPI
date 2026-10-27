@@ -43,7 +43,7 @@ fn lua_strategy_persists_per_flow_connection_state() {
 }
 
 #[test]
-fn lua_strategy_rejects_overflow_without_evicting_active_flow() {
+fn lua_strategy_evicts_least_recently_used_flow_at_capacity() {
     let engine = LuaStrategyEngine::new().expect("lua vm");
     engine
         .load_bytes("counter", b"function count(desync) desync.conn.count = (desync.conn.count or 0) + 1 end")
@@ -69,14 +69,12 @@ fn lua_strategy_rejects_overflow_without_evicting_active_flow() {
     for flow_id in 0..1024 {
         call(flow_id).expect("admit flow");
     }
-    assert!(call(1024).is_err(), "capacity must reject a new flow");
     call(0).expect("existing flow must remain usable");
+    // A flow whose close was missed must not block new flows forever.
+    call(1024).expect("a new flow is admitted at capacity");
 
-    assert_eq!(engine.connection_count(FlowId(0)).expect("read count"), Some(2));
-    assert_eq!(engine.connection_count(FlowId(1)).expect("read count"), Some(1));
-    assert_eq!(engine.connection_count(FlowId(1024)).expect("read rejected count"), None);
-
-    engine.close_connection(FlowId(1)).expect("close flow");
-    call(1024).expect("admit flow after close");
+    assert_eq!(engine.connection_count(FlowId(0)).expect("read count"), Some(2), "recent flow keeps its state");
+    assert_eq!(engine.connection_count(FlowId(1)).expect("read count"), None, "least recently used flow is evicted");
+    assert_eq!(engine.connection_count(FlowId(2)).expect("read count"), Some(1));
     assert_eq!(engine.connection_count(FlowId(1024)).expect("read new count"), Some(1));
 }
