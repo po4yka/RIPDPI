@@ -185,20 +185,35 @@ impl ShadowsocksUdpSession {
         Ok(())
     }
 
+    /// Receives the next authentic downlink datagram. Datagrams that fail
+    /// authentication, replay, timestamp or type checks are dropped, as SIP022
+    /// filters them, and so is an ICMP-driven `ConnectionRefused`; only other
+    /// socket errors end the association.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: `UdpSocket::recv` is cancel-safe and a dropped datagram has no other state.
     pub async fn recv_from(&mut self) -> io::Result<(String, Vec<u8>)> {
-        let read = self.socket.recv(&mut self.receive_buffer).await?;
         let secret = SecretString::new(self.config.password.clone());
-        let mut server_timestamp = None;
-        let plain = match &mut self.codec {
-            ShadowsocksUdpCodec::Legacy(codec) => {
-                codec.decrypt(&secret, &self.receive_buffer[..read]).map_err(to_io)?
-            }
-            ShadowsocksUdpCodec::Aead2022(codec) => {
-                let now = NetworkTimeProvider::shared().now_unix_u64();
-                let packet =
-                    codec.decrypt(&self.receive_buffer[..read], Aead2022UdpPacketType::Server, now).map_err(to_io)?;
-                server_timestamp = Some(packet.timestamp);
-                packet.payload
+        let (plain, server_timestamp) = loop {
+            let read = match self.socket.recv(&mut self.receive_buffer).await {
+                Ok(read) => read,
+                Err(error) if error.kind() == io::ErrorKind::ConnectionRefused => continue,
+                Err(error) => return Err(error),
+            };
+            let decoded = match &mut self.codec {
+                ShadowsocksUdpCodec::Legacy(codec) => {
+                    codec.decrypt(&secret, &self.receive_buffer[..read]).map(|plain| (plain, None))
+                }
+                ShadowsocksUdpCodec::Aead2022(codec) => {
+                    let now = NetworkTimeProvider::shared().now_unix_u64();
+                    codec
+                        .decrypt(&self.receive_buffer[..read], Aead2022UdpPacketType::Server, now)
+                        .map(|packet| (packet.payload, Some(packet.timestamp)))
+                }
+            };
+            if let Ok(decoded) = decoded {
+                break decoded;
             }
         };
         // Calibrate the shared replay clock once per session from the server's
@@ -694,6 +709,45 @@ mod tests {
             assert_eq!(received, payload);
             assert_eq!(session.receive_buffer.as_ptr(), receive_buffer, "receive buffer must retain its allocation");
         }
+    }
+
+    /// One spoofed, corrupted or replayed downlink datagram is dropped; the
+    /// association keeps delivering the next authentic one.
+    #[tokio::test]
+    async fn udp_receive_drops_a_datagram_that_fails_authentication() {
+        let server = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind server");
+        let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind client");
+        socket.connect(server.local_addr().expect("server address")).await.expect("connect client");
+        let client_addr = socket.local_addr().expect("client address");
+        let cipher = Cipher::AeadAes128Gcm;
+        let credential = "test-credential";
+        let mut session = ShadowsocksUdpSession {
+            socket,
+            config: Arc::new(ShadowsocksClientConfig {
+                server_host: Ipv4Addr::LOCALHOST.to_string(),
+                server_port: server.local_addr().expect("server address").port(),
+                cipher,
+                password: credential.to_owned(),
+                outbound_bind_ip: None,
+                socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            }),
+            codec: ShadowsocksUdpCodec::Legacy(UdpPacket::new(cipher, false)),
+            receive_buffer: vec![0_u8; BUFFER_SIZE],
+            calibrated: false,
+        };
+        server.send_to(&[0xAB_u8; 64], client_addr).await.expect("send garbage datagram");
+        let plain = encode_address("192.0.2.1:53", b"authentic").expect("encode datagram");
+        let packet = UdpPacket::new(cipher, false)
+            .encrypt(&SecretString::new(credential.to_owned()), &plain)
+            .expect("encrypt datagram");
+        server.send_to(&packet, client_addr).await.expect("send datagram");
+
+        let (target, received) = tokio::time::timeout(std::time::Duration::from_secs(5), session.recv_from())
+            .await
+            .expect("receive must not hang")
+            .expect("a bad datagram must not end the association");
+        assert_eq!(target, "192.0.2.1:53");
+        assert_eq!(received, b"authentic");
     }
 
     /// Regression test for the downstream pump retry loop: a failed AEAD
