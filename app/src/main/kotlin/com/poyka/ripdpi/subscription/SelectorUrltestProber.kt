@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.delay
@@ -95,17 +96,34 @@ class SelectorUrltestProber internal constructor(
         coroutineScope {
             val selectionWatcher =
                 launch {
-                    selectionStore.selectedProfileId(group.id).collect { invalidateChangedQualityScope(group) }
+                    selectionStore.selectedProfileId(group.id).collect {
+                        contained("selection watch") { invalidateChangedQualityScope(group) }
+                    }
                 }
             try {
                 while (true) {
                     delay(intervalMillis)
-                    runProbePass(group, failover.probeUrl, failover.toleranceMs)
+                    contained("probe pass") { runProbePass(group, failover.probeUrl, failover.toleranceMs) }
                 }
             } finally {
                 selectionWatcher.cancel()
                 invalidatePendingSelection(group.id)
             }
+        }
+    }
+
+    // A storage or capture failure (failed prefs commit, Room error) skips this round only. Uncaught,
+    // it would reach the handler-less reload scope and kill the app together with its VPN service.
+    private suspend fun contained(
+        step: String,
+        block: suspend () -> Unit,
+    ) {
+        try {
+            block()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (ignored: Exception) {
+            log.w { "Urltest $step failed: ${ignored.javaClass.simpleName}" }
         }
     }
 
