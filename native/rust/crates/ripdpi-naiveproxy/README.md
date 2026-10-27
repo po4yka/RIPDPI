@@ -18,7 +18,7 @@ This crate intentionally does not aim for a TLS or HTTP/2 fingerprint identical 
 
 ## Implementation Status
 
-- Upstream tunnels use HTTP/2 CONNECT over TLS with `h2` ALPN, `:method = CONNECT`, `:authority = target`, `Proxy-Authorization`, `padding`, and `padding-type-request: 1` headers.
+- Upstream tunnels use HTTP/2 CONNECT over TLS with `h2` ALPN, `:method = CONNECT`, `:authority = target`, `Proxy-Authorization`, `padding`, and `padding-type-request: 1, 0` headers.
 - Payload padding uses the NaiveProxy Variant1 frame format and is enabled only when the client sent request padding and the upstream response includes `padding` plus `padding-type-reply: 1`; otherwise the tunnel remains plain HTTP/2 proxy interop.
 - The local front listener accepts SOCKS5 and HTTP/1.x CONNECT on the same socket by sniffing the first byte, then relays both front protocols through the same HTTP/2 CONNECT upstream path.
 - The subprocess CLI contract is `--listen`, `--server`, `--server-port`, `--server-name`, optional `--credentials-stdin`, and optional `--path`; Android sends paired `naiveUsername` / `naivePassword` as two base64 lines on stdin so credentials never appear in process argv.

@@ -20,6 +20,11 @@ const PADDING_TYPE_REQUEST_HEADER: &str = "padding-type-request";
 const PADDING_TYPE_REPLY_HEADER: &str = "padding-type-reply";
 const PADDING_TYPE_NONE: &str = "0";
 const PADDING_TYPE_VARIANT1: &str = "1";
+/// The types upstream offers, in its order: Variant1, then none.
+const PADDING_TYPE_REQUEST: &str = "1, 0";
+/// The first 17 printable HPACK symbols, in symbol order, whose Huffman code
+/// is at least 8 bits, as upstream `InitializeNonindexCodes` selects them.
+const NONINDEX_CODES: &[u8; 17] = b"!\"#$&'()*+,;<>?@X";
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PayloadPaddingMode {
@@ -43,7 +48,7 @@ pub fn build_h2_connect_request(
         .method(http::Method::CONNECT)
         .uri(target.authority())
         .header(PADDING_HEADER, header_value(&padding_header_value, PADDING_HEADER)?)
-        .header(PADDING_TYPE_REQUEST_HEADER, PADDING_TYPE_VARIANT1);
+        .header(PADDING_TYPE_REQUEST_HEADER, PADDING_TYPE_REQUEST);
 
     if let (Some(username), Some(password)) = (&config.username, &config.password) {
         let encoded = BASE64_STANDARD.encode(format!("{username}:{password}"));
@@ -62,7 +67,22 @@ pub fn build_h2_connect_request(
 pub fn generate_connect_padding_header() -> String {
     let mut rng = rand::rng();
     let len = rng.random_range(CONNECT_PADDING_HEADER_MIN..=CONNECT_PADDING_HEADER_MAX);
-    "~".repeat(len)
+    nonindex_header_value(rng.random(), len)
+}
+
+/// Upstream `FillNonindexHeaderValue`: each of the first 16 characters takes
+/// 4 random bits; the rest repeat the 17th symbol.
+fn nonindex_header_value(mut unique_bits: u64, len: usize) -> String {
+    (0..len)
+        .map(|index| {
+            if index >= 16 {
+                return char::from(NONINDEX_CODES[16]);
+            }
+            let code = NONINDEX_CODES[usize::from(u8::try_from(unique_bits & 0b1111).unwrap_or(0))];
+            unique_bits >>= 4;
+            char::from(code)
+        })
+        .collect()
 }
 
 pub fn negotiate_payload_padding_from_response(

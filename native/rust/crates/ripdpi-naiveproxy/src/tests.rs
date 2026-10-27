@@ -10,7 +10,8 @@ use tokio::net::{TcpListener, TcpStream};
 use crate::config::NaiveProxyConfig;
 use crate::h2_connect::{
     CONNECT_PADDING_HEADER_MAX, CONNECT_PADDING_HEADER_MIN, PayloadPaddingMode, RESPONSE_PADDING_HEADER_MAX,
-    RESPONSE_PADDING_HEADER_MIN, build_h2_connect_request, negotiate_payload_padding_from_response,
+    RESPONSE_PADDING_HEADER_MIN, build_h2_connect_request, generate_connect_padding_header,
+    negotiate_payload_padding_from_response,
 };
 use crate::padding::{MAX_PADDED_FRAMES, PaddingDecoder, PaddingEncoder};
 use crate::relay::serve_listener;
@@ -105,7 +106,7 @@ async fn socks5_client_round_trip_over_h2_naive_padding_fixture() {
 
     let observed = fixture.observed();
     assert_eq!(observed.proxy_authorization.as_deref(), Some("Basic bmFpdmUtdXNlcjpuYWl2ZS1wYXNz"));
-    assert_eq!(observed.padding_type_request.as_deref(), Some("1"));
+    assert_eq!(observed.padding_type_request.as_deref(), Some("1, 0"));
     assert!(observed.request_padding_len.is_some_and(|len| (16..=32).contains(&len)));
     assert!(observed.decoded_payload_bytes >= "ping-through-h2-naive".len());
 
@@ -150,7 +151,7 @@ async fn http_front_connect_round_trip_over_h2_naive_padding_fixture() {
 
     let observed = fixture.observed();
     assert_eq!(observed.proxy_authorization.as_deref(), Some("Basic bmFpdmUtdXNlcjpuYWl2ZS1wYXNz"));
-    assert_eq!(observed.padding_type_request.as_deref(), Some("1"));
+    assert_eq!(observed.padding_type_request.as_deref(), Some("1, 0"));
     assert!(observed.request_padding_len.is_some_and(|len| (16..=32).contains(&len)));
 
     server.abort();
@@ -399,6 +400,22 @@ fn padding_vectors_match_spec_golden() {
     golden_test_support::assert_text_golden(env!("CARGO_MANIFEST_DIR"), "tests/golden/padding_vectors.txt", &actual);
 }
 
+/// Upstream `FillNonindexHeaderValue`: the first up to 16 characters are
+/// random picks from the first 16 printable HPACK symbols whose Huffman code
+/// is at least 8 bits; the rest repeat the 17th, `X`.
+#[test]
+fn connect_padding_header_uses_the_upstream_nonindex_alphabet() {
+    const ALPHABET: &str = "!\"#$&'()*+,;<>?@";
+    let values: Vec<String> = (0..64).map(|_| generate_connect_padding_header()).collect();
+    for value in &values {
+        assert!((CONNECT_PADDING_HEADER_MIN..=CONNECT_PADDING_HEADER_MAX).contains(&value.len()));
+        let (head, tail) = value.split_at(16);
+        assert!(head.chars().all(|c| ALPHABET.contains(c)), "random head {value}");
+        assert!(tail.chars().all(|c| c == 'X'), "constant tail {value}");
+    }
+    assert!(values.iter().any(|value| value[..16] != values[0][..16]), "the head must be random");
+}
+
 #[tokio::test]
 async fn h2_connect_request_sends_naive_headers() {
     let config = naive_config_with_auth();
@@ -409,7 +426,7 @@ async fn h2_connect_request_sends_naive_headers() {
     assert_eq!(request.method(), http::Method::CONNECT);
     assert_eq!(request.uri(), "example.com:443");
     assert_eq!(request.headers()["padding"].as_bytes().len(), CONNECT_PADDING_HEADER_MIN);
-    assert_eq!(request.headers()["padding-type-request"], "1");
+    assert_eq!(request.headers()["padding-type-request"], "1, 0");
     assert_eq!(request.headers()["proxy-authorization"], "Basic dXNlcjpwYXNz");
 
     let collected = request.into_body().collect().await.expect("collect body").to_bytes();
