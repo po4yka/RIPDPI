@@ -309,6 +309,23 @@ impl WireGuardTunnel {
         }
     }
 
+    /// Send the packets boringtun queued while no session existed. Its docs ask
+    /// for an empty-datagram `decapsulate` after each `WriteToNetwork` until `Done`.
+    ///
+    /// # Cancel safety
+    /// cancel-safe: the boringtun lock is not held across an await; cancellation
+    /// loses at most the packet being sent, and the rest stay queued.
+    async fn send_queued_packets(&self, send_buf: &mut [u8]) {
+        // The queue holds at most 256 packets; one that fails to encrypt is requeued and ends the loop with Done.
+        loop {
+            let result = { self.peer.lock().await.decapsulate(None, &[], send_buf) };
+            let TunnResult::WriteToNetwork(packet) = result else { return };
+            if let Err(error) = self.send_outbound_packet(packet).await {
+                tracing::warn!("WARP tunnel send failed: {error}");
+            }
+        }
+    }
+
     pub(crate) async fn produce_task(&self, bus: Bus) {
         let mut endpoint = bus.new_endpoint();
         let mut padded = Vec::new();
@@ -440,6 +457,7 @@ impl WireGuardTunnel {
                     if let Err(error) = self.send_outbound_packet(packet).await {
                         tracing::warn!("WARP tunnel send failed: {error}");
                     }
+                    self.send_queued_packets(&mut send_buf).await;
                 }
                 TunnResult::WriteToTunnelV4(packet, _) | TunnResult::WriteToTunnelV6(packet, _) => {
                     if let Some(protocol) = route_protocol(packet, self.source_peer_ip, self.source_peer_ipv6) {
@@ -700,6 +718,32 @@ mod tests {
         .await;
         consume.abort();
         established.expect("a response with non-zero reserved bytes must complete the handshake");
+    }
+
+    #[tokio::test]
+    async fn packet_sent_before_the_session_reaches_the_peer_after_the_handshake() {
+        let (tunnel, socket, mut peer) = tunnel_and_peer().await;
+        let consume = spawn_consume(&tunnel);
+        // A minimal IPv4/UDP header from the interface address; boringtun queues it and starts a handshake.
+        let ip_packet = [0x45, 0, 0, 20, 0, 0, 0, 0, 64, 17, 0, 0, 10, 77, 0, 2, 1, 1, 1, 1];
+        tunnel.send_ip_packet(&ip_packet, &mut Vec::new(), &mut vec![0u8; MAX_PACKET]).await;
+        answer_initiation(&socket, &mut peer, |_| {}).await;
+
+        let delivered = tokio::time::timeout(Duration::from_secs(2), async {
+            let mut datagram = vec![0u8; MAX_PACKET];
+            let mut out = vec![0u8; MAX_PACKET];
+            loop {
+                let (size, client) = socket.recv_from(&mut datagram).await.unwrap();
+                if let TunnResult::WriteToTunnelV4(packet, _) =
+                    peer.decapsulate(Some(client.ip()), &datagram[..size], &mut out)
+                {
+                    return packet.to_vec();
+                }
+            }
+        })
+        .await;
+        consume.abort();
+        assert_eq!(delivered.expect("the queued packet must follow the handshake"), ip_packet);
     }
 
     #[test]
