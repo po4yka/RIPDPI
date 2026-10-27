@@ -25,6 +25,8 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChangedBy
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -87,11 +89,12 @@ class DetectionCheckScheduler
             if (handoverJob != null) return
             handoverJob =
                 scope.launch {
-                    handoverEvents.collect {
-                        if (serviceStateStore.status.value.first == AppStatus.Running) {
-                            runQuickCheck(context)
+                    // Handover checks belong to the Running session: leaving Running cancels the in-flight one.
+                    serviceStateStore.status
+                        .distinctUntilChangedBy { it.first }
+                        .collectLatest { (status) ->
+                            if (status == AppStatus.Running) handoverEvents.collectLatest { runQuickCheck(context) }
                         }
-                    }
                 }
         }
 
@@ -102,7 +105,12 @@ class DetectionCheckScheduler
             handoverJob = null
         }
 
-        private suspend fun runQuickCheck(context: Context) {
+        // A handover during the start check waits for it, so two checks never save results at once.
+        private val quickCheckLock = Mutex()
+
+        private suspend fun runQuickCheck(context: Context) = quickCheckLock.withLock { runQuickCheckLocked(context) }
+
+        private suspend fun runQuickCheckLocked(context: Context) {
             try {
                 val network = networkFingerprintProvider.capture()
                 val networkKey = network?.scopeKey() ?: "unknown"

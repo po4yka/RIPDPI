@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -106,6 +107,49 @@ class DetectionCheckSchedulerTest {
             assertEquals(2, runs)
             assertEquals(1, completedRuns)
             assertEquals(1, history.size)
+            scheduler.stopObserving()
+        }
+
+    @Test
+    fun `VPN stop cancels a check started by a network handover`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val state = DefaultServiceStateStore().apply { setStatus(AppStatus.Running, Mode.VPN) }
+            val fingerprint =
+                object : NetworkFingerprintProvider {
+                    override fun capture(): NetworkFingerprint = network("wifi")
+                }
+            val checkGate = CompletableDeferred<Unit>()
+            val handovers = MutableSharedFlow<Unit>()
+            var runs = 0
+            var completedRuns = 0
+            val runner =
+                object : DetectionCheckRunner {
+                    override suspend fun run(
+                        context: Context,
+                        config: DetectionRunnerConfig,
+                        onProgress: (suspend (DetectionProgress) -> Unit)?,
+                    ): DetectionCheckResult {
+                        runs++
+                        checkGate.await()
+                        completedRuns++
+                        return cleanResult()
+                    }
+                }
+            val scheduler =
+                DetectionCheckScheduler(context, state, fingerprint, runner, recordingHistory(mutableListOf()))
+
+            scheduler.observeNetworkChanges(context, this, handovers)
+            runCurrent()
+            handovers.emit(Unit)
+            runCurrent()
+            state.setStatus(AppStatus.Halted, Mode.VPN)
+            runCurrent()
+            checkGate.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(1, runs)
+            assertEquals(0, completedRuns)
             scheduler.stopObserving()
         }
 
