@@ -34,7 +34,7 @@ Every new field MUST be optional with a safe default. The header protection key 
 
 ### Requirement: REQ-AWG3-FLOOR — Lift the S3/S4 floor on arm64 evidence
 
-Non-zero S3/S4 MUST activate on every platform once Android arm64 interop evidence shows lossless transfers. The cross-repo policy MUST record that evidence and its scope.
+Non-zero S3/S4 MUST activate in the client on every platform once Android arm64 interop evidence shows lossless transfers. The client MUST record that evidence and its scope in `core/data/src/test/resources/awg-arm64-emulator-observation.json`. The shared deployment policy `amneziawg-arm64-version-floor.json` MUST keep its guard until a physical Android arm64 revalidation (owner decision #687).
 
 #### Scenario: AmneziaVPN 5.x default config
 
