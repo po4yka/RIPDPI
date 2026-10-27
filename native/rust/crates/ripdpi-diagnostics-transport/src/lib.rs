@@ -1,5 +1,6 @@
-// Crate-local unsafe hardening. The single `unsafe` block in this crate is the
-// `getsockopt(IP_TTL)` FFI call in `platform_ttl`. Re-enabling the
+// Crate-local unsafe hardening. The `unsafe` blocks in this crate are the
+// `getsockopt(IP_TTL)` FFI call in `platform_ttl` and the `gai_strerror` read in
+// `transport::address`. Re-enabling the
 // workspace-deferred `undocumented_unsafe_blocks` and
 // `multiple_unsafe_ops_per_block` lints locally turns the per-block
 // `// SAFETY:` documentation requirement into a build-time error here, matching

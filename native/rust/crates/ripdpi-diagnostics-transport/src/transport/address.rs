@@ -93,12 +93,29 @@ impl fmt::Display for DnsResolveError {
 
 impl std::error::Error for DnsResolveError {}
 
+/// Classify a `ToSocketAddrs` failure.
+///
+/// std reports a getaddrinfo failure as `failed to lookup address information: <gai_strerror>`
+/// with no error code (its `raw_os_error` is errno, a different namespace). The text the C
+/// library gives for `EAI_NONAME` and `EAI_NODATA` identifies a name that does not exist.
 fn classify_system_resolver_error(error: &io::Error) -> DnsResolveError {
-    if error.kind() == io::ErrorKind::NotFound || error.raw_os_error() == Some(libc::EAI_NONAME) {
-        DnsResolveError::Nxdomain
-    } else {
-        DnsResolveError::Failure
+    let message = error.to_string();
+    let no_such_name = [libc::EAI_NONAME, libc::EAI_NODATA]
+        .into_iter()
+        .filter_map(gai_error_text)
+        .any(|text| message.ends_with(&format!("address information: {text}")));
+    if no_such_name { DnsResolveError::Nxdomain } else { DnsResolveError::Failure }
+}
+
+fn gai_error_text(code: libc::c_int) -> Option<String> {
+    // SAFETY: gai_strerror takes any integer and returns either NULL or a pointer to a static,
+    // NUL-terminated message that the C library never frees.
+    let text = unsafe { libc::gai_strerror(code) };
+    if text.is_null() {
+        return None;
     }
+    // SAFETY: `text` is non-null and points to a static NUL-terminated string (see above).
+    Some(unsafe { std::ffi::CStr::from_ptr(text) }.to_string_lossy().into_owned())
 }
 
 type ResolveFn = dyn Fn(&str, u16) -> Result<Vec<SocketAddr>, DnsResolveError> + Send + Sync + 'static;
@@ -483,11 +500,21 @@ mod tests {
     }
 
     #[test]
-    fn system_resolver_classifies_nxdomain_from_typed_os_error() {
-        let error = io::Error::from_raw_os_error(libc::EAI_NONAME);
+    fn system_resolver_classifies_a_real_missing_name_as_nxdomain() {
+        // RFC 6761 section 6.4: no name under .invalid exists.
+        let error = ("ripdpi-missing-name.invalid", 80).to_socket_addrs().expect_err("a .invalid name never resolves");
 
-        assert_eq!(classify_system_resolver_error(&error), DnsResolveError::Nxdomain);
+        assert_eq!(classify_system_resolver_error(&error), DnsResolveError::Nxdomain, "{error}");
         assert_eq!(DnsResolveError::Nxdomain.code(), "dns_nxdomain");
+    }
+
+    #[test]
+    fn errno_with_the_eai_noname_value_is_not_nxdomain() {
+        // getaddrinfo codes are not errno values: EAI_NONAME is 8 on Android and macOS, where errno 8
+        // is ENOEXEC.
+        let error = io::Error::from_raw_os_error(libc::EAI_NONAME.abs());
+
+        assert_eq!(classify_system_resolver_error(&error), DnsResolveError::Failure);
     }
 
     #[test]
