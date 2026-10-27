@@ -1,6 +1,5 @@
 use std::fmt;
-use std::io;
-use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
+use std::net::{IpAddr, SocketAddr};
 use std::panic::{AssertUnwindSafe, catch_unwind};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, LazyLock, Mutex, mpsc};
@@ -93,45 +92,83 @@ impl fmt::Display for DnsResolveError {
 
 impl std::error::Error for DnsResolveError {}
 
-/// Classify a `ToSocketAddrs` failure.
-///
-/// std reports a getaddrinfo failure as `failed to lookup address information: <gai_strerror>`
-/// with no error code (its `raw_os_error` is errno, a different namespace). The text the C
-/// library gives for `EAI_NONAME` and `EAI_NODATA` identifies a name that does not exist.
-fn classify_system_resolver_error(error: &io::Error) -> DnsResolveError {
-    let message = error.to_string();
-    let no_such_name = [libc::EAI_NONAME, libc::EAI_NODATA]
-        .into_iter()
-        .filter_map(gai_error_text)
-        .any(|text| message.ends_with(&format!("address information: {text}")));
-    if no_such_name { DnsResolveError::Nxdomain } else { DnsResolveError::Failure }
+/// Map a getaddrinfo return code. Only `EAI_NONAME` means the name does not exist; `EAI_NODATA`
+/// (a name without addresses on glibc, an offline or blocked network on Android) and `EAI_AGAIN`
+/// are other failures.
+fn classify_gai_code(code: libc::c_int) -> DnsResolveError {
+    if code == libc::EAI_NONAME { DnsResolveError::Nxdomain } else { DnsResolveError::Failure }
 }
 
-fn gai_error_text(code: libc::c_int) -> Option<String> {
-    // SAFETY: gai_strerror takes any integer and returns either NULL or a pointer to a static,
-    // NUL-terminated message that the C library never frees.
-    let text = unsafe { libc::gai_strerror(code) };
-    if text.is_null() {
+/// Resolve `host` with getaddrinfo, like `ToSocketAddrs`, but keep the return code that std
+/// reduces to message text.
+fn system_lookup(host: &str, port: u16) -> Result<Vec<SocketAddr>, DnsResolveError> {
+    if let Ok(ip) = host.parse::<IpAddr>() {
+        return Ok(vec![SocketAddr::new(ip, port)]);
+    }
+    let c_host = std::ffi::CString::new(host).map_err(|_| DnsResolveError::Failure)?;
+    let hints = libc::addrinfo {
+        ai_flags: 0,
+        ai_family: libc::AF_UNSPEC,
+        ai_socktype: libc::SOCK_STREAM,
+        ai_protocol: 0,
+        ai_addrlen: 0,
+        ai_canonname: std::ptr::null_mut(),
+        ai_addr: std::ptr::null_mut(),
+        ai_next: std::ptr::null_mut(),
+    };
+    let mut list: *mut libc::addrinfo = std::ptr::null_mut();
+    // SAFETY: `c_host` is NUL-terminated, a null service is allowed, and `hints` and `list` are
+    // valid for the duration of the call.
+    let code = unsafe { libc::getaddrinfo(c_host.as_ptr(), std::ptr::null(), &hints, &mut list) };
+    if code != 0 {
+        return Err(classify_gai_code(code));
+    }
+    let mut addresses = Vec::new();
+    let mut entry = list.cast_const();
+    while !entry.is_null() {
+        // SAFETY: `entry` is a node of the list getaddrinfo returned; it lives until freeaddrinfo.
+        let info = unsafe { &*entry };
+        // SAFETY: getaddrinfo sets `ai_addr` to `ai_addrlen` readable bytes (or null).
+        if let Some(address) = unsafe { socket_addr_from(info.ai_addr, info.ai_addrlen, port) } {
+            addresses.push(address);
+        }
+        entry = info.ai_next;
+    }
+    // SAFETY: `list` came from a successful getaddrinfo, and no reference into it outlives this.
+    unsafe { libc::freeaddrinfo(list) };
+    Ok(addresses)
+}
+
+/// Read an IPv4 or IPv6 socket address; other families give `None`.
+///
+/// # Safety
+///
+/// `address` must be null or point to `len` readable bytes that hold a socket address.
+unsafe fn socket_addr_from(address: *const libc::sockaddr, len: libc::socklen_t, port: u16) -> Option<SocketAddr> {
+    if address.is_null() {
         return None;
     }
-    // SAFETY: `text` is non-null and points to a static NUL-terminated string (see above).
-    Some(unsafe { std::ffi::CStr::from_ptr(text) }.to_string_lossy().into_owned())
+    let len = usize::try_from(len).ok()?;
+    // SAFETY: the caller guarantees a readable socket address; `sa_family` is its leading field.
+    let family = i32::from(unsafe { (*address).sa_family });
+    if family == libc::AF_INET && len >= std::mem::size_of::<libc::sockaddr_in>() {
+        // SAFETY: the family and length say `address` holds a `sockaddr_in`.
+        let v4 = unsafe { address.cast::<libc::sockaddr_in>().read_unaligned() };
+        Some(SocketAddr::new(IpAddr::V4(u32::from_be(v4.sin_addr.s_addr).into()), port))
+    } else if family == libc::AF_INET6 && len >= std::mem::size_of::<libc::sockaddr_in6>() {
+        // SAFETY: the family and length say `address` holds a `sockaddr_in6`.
+        let v6 = unsafe { address.cast::<libc::sockaddr_in6>().read_unaligned() };
+        let ip = std::net::Ipv6Addr::from(v6.sin6_addr.s6_addr);
+        Some(SocketAddr::V6(std::net::SocketAddrV6::new(ip, port, v6.sin6_flowinfo, v6.sin6_scope_id)))
+    } else {
+        None
+    }
 }
 
 type ResolveFn = dyn Fn(&str, u16) -> Result<Vec<SocketAddr>, DnsResolveError> + Send + Sync + 'static;
 
-static DNS_RESOLVER: LazyLock<Result<ResolverExecutor, DnsResolveError>> = LazyLock::new(|| {
-    ResolverExecutor::new(
-        DNS_RESOLVER_WORKERS,
-        DNS_RESOLVER_QUEUE_CAPACITY,
-        Arc::new(|host, port| {
-            (host, port)
-                .to_socket_addrs()
-                .map(Iterator::collect)
-                .map_err(|error| classify_system_resolver_error(&error))
-        }),
-    )
-});
+static DNS_RESOLVER: LazyLock<Result<ResolverExecutor, DnsResolveError>> =
+    LazyLock::new(|| ResolverExecutor::new(DNS_RESOLVER_WORKERS, DNS_RESOLVER_QUEUE_CAPACITY, Arc::new(system_lookup)));
 
 struct ResolveJob {
     host: String,
@@ -500,28 +537,27 @@ mod tests {
     }
 
     #[test]
-    fn system_resolver_classifies_a_real_missing_name_as_nxdomain() {
-        // RFC 6761 section 6.4: no name under .invalid exists.
-        let error = ("ripdpi-missing-name.invalid", 80).to_socket_addrs().expect_err("a .invalid name never resolves");
+    fn only_the_eai_noname_lookup_code_reaches_the_caller_as_nxdomain() {
+        let cases = [
+            (libc::EAI_NONAME, DnsResolveError::Nxdomain),
+            (libc::EAI_NODATA, DnsResolveError::Failure),
+            (libc::EAI_AGAIN, DnsResolveError::Failure),
+            (libc::EAI_FAIL, DnsResolveError::Failure),
+        ];
+        for (code, expected) in cases {
+            let resolver: Arc<ResolveFn> = Arc::new(move |_, _| Err(classify_gai_code(code)));
+            let executor = ResolverExecutor::new(1, 1, resolver).expect("create resolver executor");
 
-        assert_eq!(classify_system_resolver_error(&error), DnsResolveError::Nxdomain, "{error}");
-        assert_eq!(DnsResolveError::Nxdomain.code(), "dns_nxdomain");
+            let result = executor.resolve("missing.example".to_string(), 443, Duration::from_secs(5));
+
+            assert_eq!(result, Err(expected), "getaddrinfo code {code}");
+        }
     }
 
     #[test]
-    fn errno_with_the_eai_noname_value_is_not_nxdomain() {
-        // getaddrinfo codes are not errno values: EAI_NONAME is 8 on Android and macOS, where errno 8
-        // is ENOEXEC.
-        let error = io::Error::from_raw_os_error(libc::EAI_NONAME.abs());
-
-        assert_eq!(classify_system_resolver_error(&error), DnsResolveError::Failure);
-    }
-
-    #[test]
-    fn system_resolver_does_not_parse_generic_error_text_as_nxdomain() {
-        let error = io::Error::other("localized nxdomain-looking message");
-
-        assert_eq!(classify_system_resolver_error(&error), DnsResolveError::Failure);
+    fn system_lookup_returns_ip_literals_without_a_query() {
+        assert_eq!(system_lookup("192.0.2.7", 853), Ok(vec!["192.0.2.7:853".parse().expect("fixture endpoint")]));
+        assert_eq!(system_lookup("2001:db8::7", 853), Ok(vec!["[2001:db8::7]:853".parse().expect("fixture endpoint")]));
     }
 
     #[test]
