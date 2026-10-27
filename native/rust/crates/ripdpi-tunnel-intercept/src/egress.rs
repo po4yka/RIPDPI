@@ -110,11 +110,10 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
         let Some(meta) = PacketMeta::parse(packet) else {
             return false;
         };
-        let l7_protocol = match meta.transport {
-            Transport::Udp => {
-                ripdpi_protocol_detect::classify_l7(meta.payload(packet), meta.src_port, meta.dst_port, true)
-            }
-            Transport::Tcp => tcp_protocol(meta, meta.payload(packet)),
+        let udp_protocol = if meta.transport == Transport::Udp {
+            ripdpi_protocol_detect::classify_l7(meta.payload(packet), meta.src_port, meta.dst_port, true)
+        } else {
+            L7Protocol::Unknown
         };
 
         let host = self
@@ -127,7 +126,7 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
         for rule in &mut self.rules {
             if !rule.matcher.matches(
                 meta,
-                &l7_protocol,
+                &udp_protocol,
                 host.as_ref().map(|(protocol, host)| (*protocol, host.as_str())),
             ) {
                 continue;
@@ -507,15 +506,6 @@ fn classify_l7(meta: PacketMeta, payload: &[u8]) -> L7Protocol {
     }
 }
 
-/// Classifies a TCP segment for rule matching. Only a segment that opens the protocol (a TLS
-/// ClientHello, an HTTP request, an MTProto init) is one: SYN, pure ACK, FIN and later data are not.
-fn tcp_protocol(meta: PacketMeta, payload: &[u8]) -> L7Protocol {
-    if http_marker_info(payload).is_some() {
-        return L7Protocol::Http(HttpDissect { host: None, is_request: true });
-    }
-    ripdpi_protocol_detect::classify_l7(payload, meta.src_port, meta.dst_port, false)
-}
-
 fn packet_host(transport: Transport, payload: &[u8]) -> Option<(ProtocolName, String)> {
     match transport {
         Transport::Tcp => parse_tls(payload)
@@ -717,8 +707,8 @@ impl PacketMatcher {
         }
     }
 
-    fn matches(&self, meta: PacketMeta, l7_protocol: &L7Protocol, host: Option<(ProtocolName, &str)>) -> bool {
-        self.matches_port(meta) && self.matches_proto(meta, l7_protocol) && self.matches_host(host)
+    fn matches(&self, meta: PacketMeta, udp_protocol: &L7Protocol, host: Option<(ProtocolName, &str)>) -> bool {
+        self.matches_port(meta) && self.matches_proto(meta, udp_protocol) && self.matches_host(host)
     }
 
     fn matches_host(&self, host: Option<(ProtocolName, &str)>) -> bool {
@@ -738,12 +728,12 @@ impl PacketMatcher {
         self.ports.is_empty() || self.ports.iter().any(|port| *port == meta.src_port || *port == meta.dst_port)
     }
 
-    fn matches_proto(&self, meta: PacketMeta, l7_protocol: &L7Protocol) -> bool {
+    fn matches_proto(&self, meta: PacketMeta, udp_protocol: &L7Protocol) -> bool {
         self.proto.is_empty()
             || self.proto.iter().any(|proto| {
                 if meta.transport == Transport::Udp {
                     return matches!(
-                        (proto, l7_protocol),
+                        (proto, udp_protocol),
                         (ProtocolName::Any, _)
                             | (ProtocolName::Quic, L7Protocol::Quic(_))
                             | (ProtocolName::Dtls, L7Protocol::Dtls(_))
@@ -753,11 +743,9 @@ impl PacketMatcher {
                     );
                 }
                 matches!(
-                    (proto, l7_protocol),
+                    (proto, meta.transport),
                     (ProtocolName::Any, _)
-                        | (ProtocolName::Tls, L7Protocol::Tls(_))
-                        | (ProtocolName::Http, L7Protocol::Http(_))
-                        | (ProtocolName::Mtproto, L7Protocol::Mtproto(_))
+                        | (ProtocolName::Tls | ProtocolName::Http | ProtocolName::Mtproto, Transport::Tcp)
                 )
             })
     }

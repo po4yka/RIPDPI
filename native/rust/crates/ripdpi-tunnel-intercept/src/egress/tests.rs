@@ -223,7 +223,7 @@ strategies:
 
 #[test]
 fn fake_rule_injects_low_ttl_tcp_copy_and_forwards_original() {
-    let packet = ipv4_tcp_packet(49152, 443, ripdpi_packets::DEFAULT_FAKE_TLS);
+    let packet = ipv4_tcp_packet(49152, 443, b"GET / HTTP/1.1\r\nHost: example.org\r\n\r\n");
     let yaml = r#"
 version: 1
 strategies:
@@ -246,35 +246,8 @@ strategies:
 }
 
 #[test]
-fn tls_rule_skips_tcp_segments_that_do_not_open_tls() {
-    let yaml = r#"
-version: 1
-strategies:
-  - id: fake-tcp
-    match:
-      proto: [tls]
-      port: [443]
-    steps:
-      - type: fake
-        ttl: 5
-"#;
-    let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default());
-    let mut syn = ipv4_tcp_packet(49152, 443, b"");
-    syn[33] = 0x02;
-    let pure_ack = ipv4_tcp_packet(49152, 443, b"");
-    let http = ipv4_tcp_packet(49152, 443, b"GET / HTTP/1.1\r\nHost: example.org\r\n\r\n");
-    let tls_application_data = ipv4_tcp_packet(49152, 443, &[0x17, 0x03, 0x03, 0x00, 0x02, 0xaa, 0xbb]);
-
-    for packet in [syn, pure_ack, http, tls_application_data] {
-        assert!(!interceptor.handle_packet(&packet));
-    }
-    assert!(interceptor.injector.packets.is_empty(), "only a ClientHello segment may get a fake copy");
-}
-
-#[test]
 fn ipv6_ext_rule_injects_modified_tcp_packet_and_forwards_original() {
-    let client_hello = ripdpi_packets::DEFAULT_FAKE_TLS;
-    let packet = ipv6_tcp_packet(client_hello);
+    let packet = ipv6_tcp_packet();
     let yaml = r#"
 version: 1
 strategies:
@@ -292,7 +265,7 @@ strategies:
 
     let injected = &interceptor.injector.packets[0];
     assert_eq!(injected[6], 60);
-    assert_eq!(usize::from(u16::from_be_bytes([injected[4], injected[5]])), 28 + client_hello.len());
+    assert_eq!(u16::from_be_bytes([injected[4], injected[5]]), 28);
     assert_eq!(packet_destination(injected), Some(SocketAddr::new(IpAddr::V6(Ipv6Addr::LOCALHOST), 443)));
 }
 
@@ -937,10 +910,10 @@ fn ipv4_tcp_packet(src_port: u16, dst_port: u16, payload: &[u8]) -> Vec<u8> {
     packet
 }
 
-fn ipv6_tcp_packet(payload: &[u8]) -> Vec<u8> {
+fn ipv6_tcp_packet() -> Vec<u8> {
     let mut packet = vec![0u8; IPV6_HEADER_LEN + 20];
     packet[0] = 0x60;
-    packet[4..6].copy_from_slice(&((20 + payload.len()) as u16).to_be_bytes());
+    packet[4..6].copy_from_slice(&20u16.to_be_bytes());
     packet[6] = TCP_PROTO;
     packet[7] = 64;
     packet[8..24].copy_from_slice(&Ipv6Addr::LOCALHOST.octets());
@@ -950,7 +923,6 @@ fn ipv6_tcp_packet(payload: &[u8]) -> Vec<u8> {
     packet[52] = 0x50;
     packet[53] = 0x18;
     packet[54..56].copy_from_slice(&65535u16.to_be_bytes());
-    packet.extend_from_slice(payload);
     packet
 }
 
