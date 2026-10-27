@@ -114,6 +114,13 @@ original packet. A Lua `desync.udplen` packet is always a sidecar: its UDP lengt
 exceeds its bytes, so it cannot replace the original, which only `VERDICT_DROP`
 consumes.
 
+A `match.proto` filter for `tls`, `http` or `mtproto` applies per TCP flow, as
+zapret's `--filter-l7` does. The first payload segment fixes the flow's protocol,
+and every later segment of the flow, up to its FIN or RST, matches as that
+protocol. SYN and handshake ACK packets come before any payload, so they match
+every TCP protocol filter; SYN-phase steps (`syndata`, `wssize`) keep working. A
+rule that must act only on the ClientHello needs a step that checks the payload.
+
 ```mermaid
 flowchart LR
     A["Packet from Android TUN"] --> B["Parse IP + transport headers"]

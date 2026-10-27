@@ -245,9 +245,7 @@ strategies:
     assert_ne!(&injected[10..12], &packet[10..12], "IPv4 checksum should be refreshed after TTL change");
 }
 
-#[test]
-fn tls_rule_skips_tcp_segments_that_do_not_open_tls() {
-    let yaml = r#"
+const FAKE_TLS_RULE: &str = r#"
 version: 1
 strategies:
   - id: fake-tcp
@@ -258,17 +256,131 @@ strategies:
       - type: fake
         ttl: 5
 "#;
-    let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default());
-    let mut syn = ipv4_tcp_packet(49152, 443, b"");
-    syn[33] = 0x02;
-    let pure_ack = ipv4_tcp_packet(49152, 443, b"");
-    let http = ipv4_tcp_packet(49152, 443, b"GET / HTTP/1.1\r\nHost: example.org\r\n\r\n");
-    let tls_application_data = ipv4_tcp_packet(49152, 443, &[0x17, 0x03, 0x03, 0x00, 0x02, 0xaa, 0xbb]);
 
-    for packet in [syn, pure_ack, http, tls_application_data] {
+fn tcp_segment(src_port: u16, dst_port: u16, flags: u8, payload: &[u8]) -> Vec<u8> {
+    let mut packet = ipv4_tcp_packet(src_port, dst_port, payload);
+    packet[33] = flags;
+    packet
+}
+
+fn injected_src_ports(injector: &RecordingInjector) -> Vec<u16> {
+    injector.packets.iter().map(|packet| u16::from_be_bytes([packet[20], packet[21]])).collect()
+}
+
+#[test]
+fn tls_rule_matches_every_segment_of_a_tls_flow_and_no_later_segment_of_others() {
+    let mut interceptor = TunEgressInterceptor::new(Some(FAKE_TLS_RULE), RecordingInjector::default());
+    let client_hello = ripdpi_packets::DEFAULT_FAKE_TLS;
+    // A ClientHello larger than one MSS: the continuation does not start with a TLS record header.
+    let tls_flow = [
+        tcp_segment(49152, 443, 0x02, b""),
+        tcp_segment(49152, 443, 0x10, b""),
+        tcp_segment(49152, 443, 0x18, &client_hello[..100]),
+        tcp_segment(49152, 443, 0x18, &client_hello[100..]),
+        tcp_segment(49152, 443, 0x18, &[0x17, 0x03, 0x03, 0x00, 0x02, 0xaa, 0xbb]),
+        tcp_segment(49152, 443, 0x11, b""),
+    ];
+    // Before its first payload a flow's protocol is unknown, so the SYN still matches.
+    let http_flow = [
+        tcp_segment(49153, 443, 0x02, b""),
+        tcp_segment(49153, 443, 0x18, b"GET / HTTP/1.1\r\nHost: example.org\r\n\r\n"),
+        tcp_segment(49153, 443, 0x10, b""),
+        tcp_segment(49153, 443, 0x18, client_hello),
+    ];
+    for packet in tls_flow.iter().chain(&http_flow) {
+        assert!(!interceptor.handle_packet(packet));
+    }
+    assert_eq!(injected_src_ports(&interceptor.injector), [vec![49152; 6], vec![49153]].concat());
+
+    // A FIN closes the flow and a new SYN on the tuple opens another, classified again.
+    for packet in [tcp_segment(49152, 443, 0x18, b"GET / HTTP/1.1\r\n\r\n"), tcp_segment(49153, 443, 0x02, b"")] {
         assert!(!interceptor.handle_packet(&packet));
     }
-    assert!(interceptor.injector.packets.is_empty(), "only a ClientHello segment may get a fake copy");
+    assert!(!interceptor.handle_packet(&tcp_segment(49153, 443, 0x18, client_hello)));
+    assert_eq!(injected_src_ports(&interceptor.injector), [vec![49152; 6], vec![49153; 3]].concat());
+}
+
+#[test]
+fn closed_tcp_flow_forgets_its_protocol() {
+    let mut interceptor = TunEgressInterceptor::new(Some(FAKE_TLS_RULE), RecordingInjector::default());
+    let http = tcp_segment(49152, 443, 0x18, b"GET / HTTP/1.1\r\n\r\n");
+    assert!(!interceptor.handle_packet(&http));
+    let meta = PacketMeta::parse(&http).expect("TCP packet");
+    interceptor.close_flow(TCP_PROTO, meta.src_addr(), meta.dst_addr());
+
+    assert!(!interceptor.handle_packet(&tcp_segment(49152, 443, 0x18, ripdpi_packets::DEFAULT_FAKE_TLS)));
+    assert_eq!(interceptor.injector.packets.len(), 1);
+}
+
+#[test]
+fn mtproto_rule_matches_an_obfuscated_flow_but_not_http_body_segments() {
+    let yaml = r#"
+version: 1
+strategies:
+  - id: fake-mtproto
+    match:
+      proto: [mtproto]
+      port: [80]
+    steps:
+      - type: fake
+        ttl: 5
+"#;
+    let mut interceptor = TunEgressInterceptor::new(Some(yaml), RecordingInjector::default());
+    // Opaque bytes: no TLS record, HTTP method or plain MTProto transport tag, nonzero at 4..8.
+    let opaque: Vec<u8> = (0..100u32).map(|index| (index * 37 + 11) as u8).collect();
+    let packets = [
+        tcp_segment(49152, 80, 0x18, b"POST /upload HTTP/1.1\r\nHost: example.org\r\n\r\n"),
+        tcp_segment(49152, 80, 0x18, &opaque),
+        tcp_segment(49152, 80, 0x18, &opaque),
+        tcp_segment(49153, 80, 0x18, &opaque),
+        tcp_segment(49153, 80, 0x18, &opaque),
+    ];
+    for packet in &packets {
+        assert!(!interceptor.handle_packet(packet));
+    }
+    assert_eq!(injected_src_ports(&interceptor.injector), [49153, 49153]);
+}
+
+#[test]
+fn tls_lua_rule_runs_on_the_syn_phase_and_both_client_hello_segments() {
+    // Stands in for syndata (acts on the SYN) and wssize (acts from the SYN to the first payload).
+    let script = write_lua_script(
+        "lua-egress-tls-flow",
+        r#"
+function candidate(desync)
+    desync.rawsend("seen")
+    return VERDICT_MODIFY
+end
+"#,
+    );
+    let yaml = format!(
+        r#"
+version: 1
+strategies:
+  - id: lua-egress
+    match:
+      proto: [tls]
+      port: [443]
+    steps:
+      - type: lua
+        function: candidate
+        script_paths:
+          - "{}"
+"#,
+        script.display()
+    );
+    let mut interceptor =
+        TunEgressInterceptor::new_with_base_dir(Some(&yaml), script.dir(), RecordingInjector::default());
+    let client_hello = ripdpi_packets::DEFAULT_FAKE_TLS;
+    for packet in [
+        tcp_segment(49152, 443, 0x02, b""),
+        tcp_segment(49152, 443, 0x10, b""),
+        tcp_segment(49152, 443, 0x18, &client_hello[..100]),
+        tcp_segment(49152, 443, 0x18, &client_hello[100..]),
+    ] {
+        assert!(interceptor.handle_packet(&packet), "the tls rule must see every segment of the flow");
+    }
+    assert_eq!(interceptor.injector.packets.len(), 4);
 }
 
 #[test]

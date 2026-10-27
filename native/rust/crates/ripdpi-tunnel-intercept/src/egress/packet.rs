@@ -56,6 +56,12 @@ impl PacketMeta {
             && packet.get(self.transport_offset + 13).is_some_and(|flags| flags & 0x05 != 0)
     }
 
+    /// A client SYN (SYN without ACK) opens a new flow on this tuple.
+    pub(crate) fn is_tcp_syn(self, packet: &[u8]) -> bool {
+        self.transport == Transport::Tcp
+            && packet.get(self.transport_offset + 13).is_some_and(|flags| flags & 0x12 == 0x02)
+    }
+
     pub(crate) fn payload(self, packet: &[u8]) -> &[u8] {
         packet.get(self.payload_offset..).unwrap_or_default()
     }

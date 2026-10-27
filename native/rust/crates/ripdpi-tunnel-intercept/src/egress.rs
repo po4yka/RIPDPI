@@ -73,7 +73,12 @@ impl TunPacketInjector for RawTunPacketInjector {
 pub struct TunEgressInterceptor<I> {
     rules: Vec<EgressRule>,
     injector: I,
+    /// L7 protocol of each open TCP flow, fixed by its first payload segment.
+    tcp_flows: HashMap<FlowId, TcpFlowProtocol>,
 }
+
+/// Bounds `tcp_flows` when the tunnel never reports a flow closed.
+const MAX_TCP_FLOWS: usize = 4096;
 
 impl<I: TunPacketInjector> TunEgressInterceptor<I> {
     /// Builds an interceptor from inline strategy YAML, resolving `lua` step
@@ -100,7 +105,7 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
         injector: I,
     ) -> Self {
         let rules = strategy_yaml.map(|yaml| parse_rules(yaml, base_dir, lua_socket_owned)).unwrap_or_default();
-        Self { rules, injector }
+        Self { rules, injector, tcp_flows: HashMap::new() }
     }
 
     pub fn handle_packet(&mut self, packet: &[u8]) -> bool {
@@ -111,10 +116,13 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
             return false;
         };
         let l7_protocol = match meta.transport {
-            Transport::Udp => {
-                ripdpi_protocol_detect::classify_l7(meta.payload(packet), meta.src_port, meta.dst_port, true)
-            }
-            Transport::Tcp => tcp_protocol(meta, meta.payload(packet)),
+            Transport::Udp => PacketProtocol::Udp(ripdpi_protocol_detect::classify_l7(
+                meta.payload(packet),
+                meta.src_port,
+                meta.dst_port,
+                true,
+            )),
+            Transport::Tcp => PacketProtocol::Tcp(self.tcp_flow_protocol(meta, packet)),
         };
 
         let host = self
@@ -143,6 +151,32 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
         consumed
     }
 
+    /// Returns the flow's protocol, classifying it on its first payload segment. `None` means the
+    /// flow has sent no payload yet (SYN, handshake ACK): its protocol is still unknown.
+    fn tcp_flow_protocol(&mut self, meta: PacketMeta, packet: &[u8]) -> Option<TcpFlowProtocol> {
+        let flow_id = FlowId(meta.flow_id());
+        if meta.is_tcp_syn(packet) {
+            self.tcp_flows.remove(&flow_id);
+        }
+        if let Some(protocol) = self.tcp_flows.get(&flow_id) {
+            return Some(*protocol);
+        }
+        let payload = meta.payload(packet);
+        if payload.is_empty() {
+            return None;
+        }
+        let protocol = TcpFlowProtocol::classify(meta, payload);
+        if self.tcp_flows.len() >= MAX_TCP_FLOWS
+            && let Some(&evicted) = self.tcp_flows.keys().next()
+        {
+            // shortcut: evicts an arbitrary flow (its later segments then classify alone),
+            // upgrade to LRU eviction if real sessions reach 4096 open TCP flows.
+            self.tcp_flows.remove(&evicted);
+        }
+        self.tcp_flows.insert(flow_id, protocol);
+        Some(protocol)
+    }
+
     pub fn close_flow(&mut self, protocol: u8, src: SocketAddr, dst: SocketAddr) {
         let transport = match protocol {
             6 => Transport::Tcp,
@@ -150,6 +184,9 @@ impl<I: TunPacketInjector> TunEgressInterceptor<I> {
             _ => return,
         };
         let flow_id = FlowId(flow_id(transport, src, dst));
+        if transport == Transport::Tcp {
+            self.tcp_flows.remove(&flow_id);
+        }
         for rule in &mut self.rules {
             if let EgressRuleAction::Strategy { registry, udp_flows, .. } = &mut rule.action {
                 udp_flows.remove(&flow_id);
@@ -507,13 +544,34 @@ fn classify_l7(meta: PacketMeta, payload: &[u8]) -> L7Protocol {
     }
 }
 
-/// Classifies a TCP segment for rule matching. Only a segment that opens the protocol (a TLS
-/// ClientHello, an HTTP request, an MTProto init) is one: SYN, pure ACK, FIN and later data are not.
-fn tcp_protocol(meta: PacketMeta, payload: &[u8]) -> L7Protocol {
-    if http_marker_info(payload).is_some() {
-        return L7Protocol::Http(HttpDissect { host: None, is_request: true });
+/// Protocol a packet is matched as: a UDP datagram alone, a TCP segment by its flow.
+enum PacketProtocol {
+    Udp(L7Protocol),
+    Tcp(Option<TcpFlowProtocol>),
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum TcpFlowProtocol {
+    Tls,
+    Http,
+    Mtproto,
+    Other,
+}
+
+impl TcpFlowProtocol {
+    /// Classifies the first payload segment of a flow: a TLS ClientHello (or its first part), an
+    /// HTTP request, or an MTProto init.
+    fn classify(meta: PacketMeta, payload: &[u8]) -> Self {
+        if http_marker_info(payload).is_some() {
+            return Self::Http;
+        }
+        match ripdpi_protocol_detect::classify_l7(payload, meta.src_port, meta.dst_port, false) {
+            L7Protocol::Tls(_) => Self::Tls,
+            L7Protocol::Http(_) => Self::Http,
+            L7Protocol::Mtproto(_) => Self::Mtproto,
+            _ => Self::Other,
+        }
     }
-    ripdpi_protocol_detect::classify_l7(payload, meta.src_port, meta.dst_port, false)
 }
 
 fn packet_host(transport: Transport, payload: &[u8]) -> Option<(ProtocolName, String)> {
@@ -717,8 +775,8 @@ impl PacketMatcher {
         }
     }
 
-    fn matches(&self, meta: PacketMeta, l7_protocol: &L7Protocol, host: Option<(ProtocolName, &str)>) -> bool {
-        self.matches_port(meta) && self.matches_proto(meta, l7_protocol) && self.matches_host(host)
+    fn matches(&self, meta: PacketMeta, l7_protocol: &PacketProtocol, host: Option<(ProtocolName, &str)>) -> bool {
+        self.matches_port(meta) && self.matches_proto(l7_protocol) && self.matches_host(host)
     }
 
     fn matches_host(&self, host: Option<(ProtocolName, &str)>) -> bool {
@@ -738,27 +796,28 @@ impl PacketMatcher {
         self.ports.is_empty() || self.ports.iter().any(|port| *port == meta.src_port || *port == meta.dst_port)
     }
 
-    fn matches_proto(&self, meta: PacketMeta, l7_protocol: &L7Protocol) -> bool {
+    fn matches_proto(&self, l7_protocol: &PacketProtocol) -> bool {
+        use TcpFlowProtocol as Flow;
         self.proto.is_empty()
-            || self.proto.iter().any(|proto| {
-                if meta.transport == Transport::Udp {
-                    return matches!(
-                        (proto, l7_protocol),
-                        (ProtocolName::Any, _)
-                            | (ProtocolName::Quic, L7Protocol::Quic(_))
-                            | (ProtocolName::Dtls, L7Protocol::Dtls(_))
-                            | (ProtocolName::Stun, L7Protocol::Stun(_))
-                            | (ProtocolName::Dht, L7Protocol::Dht(_))
-                            | (ProtocolName::Wireguard, L7Protocol::WireGuard(_))
-                    );
-                }
-                matches!(
+            || self.proto.iter().any(|proto| match l7_protocol {
+                PacketProtocol::Udp(l7_protocol) => matches!(
                     (proto, l7_protocol),
                     (ProtocolName::Any, _)
-                        | (ProtocolName::Tls, L7Protocol::Tls(_))
-                        | (ProtocolName::Http, L7Protocol::Http(_))
-                        | (ProtocolName::Mtproto, L7Protocol::Mtproto(_))
-                )
+                        | (ProtocolName::Quic, L7Protocol::Quic(_))
+                        | (ProtocolName::Dtls, L7Protocol::Dtls(_))
+                        | (ProtocolName::Stun, L7Protocol::Stun(_))
+                        | (ProtocolName::Dht, L7Protocol::Dht(_))
+                        | (ProtocolName::Wireguard, L7Protocol::WireGuard(_))
+                ),
+                // Like zapret's per-connection L7 filter: a flow with no payload yet still matches,
+                // so SYN-phase steps (syndata, wssize) run; the first payload then decides.
+                PacketProtocol::Tcp(flow) => matches!(
+                    (proto, flow),
+                    (ProtocolName::Any, _)
+                        | (ProtocolName::Tls, None | Some(Flow::Tls))
+                        | (ProtocolName::Http, None | Some(Flow::Http))
+                        | (ProtocolName::Mtproto, None | Some(Flow::Mtproto))
+                ),
             })
     }
 }
