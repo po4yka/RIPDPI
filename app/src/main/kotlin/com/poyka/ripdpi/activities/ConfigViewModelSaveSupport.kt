@@ -93,6 +93,7 @@ internal suspend fun persistConfigSaveRequest(
     editorSession: MutableStateFlow<ConfigEditorSession>,
     onReconnectFailure: (com.poyka.ripdpi.services.RunningReconnectResult.Failed) -> Unit,
     onUnsupportedVpnDns: () -> Unit,
+    onApplyFailure: () -> Unit,
 ): ConfigSaveOutcome {
     val relayArtifacts = dependencies.relayArtifacts
     val relayProfileRecords = relayArtifacts.listProfiles()
@@ -118,6 +119,7 @@ internal suspend fun persistConfigSaveRequest(
             editorSession,
             onReconnectFailure,
             onUnsupportedVpnDns,
+            onApplyFailure,
         )
         currentCoroutineContext().ensureActive()
         if (editorSession.value.sessionId != request.sessionId) {
@@ -131,7 +133,8 @@ internal suspend fun persistConfigSaveRequest(
 /**
  * Runs the steps after the profile and settings are committed. They run in a child job: the reconnect
  * coordinator's cancel targets the job that called reconnect, and it must not cancel the editor's save.
- * A failure here is logged; the save itself already succeeded.
+ * The save itself already succeeded, so a failure here keeps it saved and reports [onApplyFailure]: the
+ * running provider or service may still use the previous config.
  */
 private suspend fun applyCommittedConfigSave(
     request: ConfigSaveRequest,
@@ -140,6 +143,7 @@ private suspend fun applyCommittedConfigSave(
     editorSession: MutableStateFlow<ConfigEditorSession>,
     onReconnectFailure: (com.poyka.ripdpi.services.RunningReconnectResult.Failed) -> Unit,
     onUnsupportedVpnDns: () -> Unit,
+    onApplyFailure: () -> Unit,
 ) = coroutineScope {
     launch {
         try {
@@ -163,6 +167,7 @@ private suspend fun applyCommittedConfigSave(
             throw cancelled
         } catch (ignored: Exception) {
             Logger.w { "Applying a saved config failed: ${ignored.javaClass.simpleName}" }
+            onApplyFailure()
         }
     }.join()
 }

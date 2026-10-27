@@ -1799,6 +1799,10 @@ class ConfigViewModelEditorSessionConcurrencyTest {
                         },
                 )
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            val effects = mutableListOf<ConfigEffect>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
+                viewModel.effects.collect { effects += it }
+            }
 
             viewModel.updateDraft { copy(mode = Mode.Proxy, proxyPort = "1081") }
             viewModel.saveDraft()
@@ -1806,6 +1810,7 @@ class ConfigViewModelEditorSessionConcurrencyTest {
 
             assertFalse(viewModel.uiState.value.isEditorDirty)
             assertFalse(viewModel.uiState.value.isEditorSaving)
+            assertTrue(ConfigEffect.Message("unexpected error") in effects)
         }
 
     @Test

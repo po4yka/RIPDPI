@@ -557,6 +557,11 @@ class ConfigViewModel
                                 ConfigEffect.Message(stringResolver.getString(R.string.dns_custom_doq_unavailable)),
                             )
                         },
+                        onApplyFailure = {
+                            _effects.tryEmit(
+                                ConfigEffect.Message(stringResolver.getString(R.string.update_error_unknown)),
+                            )
+                        },
                     )
                 }
             val error = save.exceptionOrNull()
