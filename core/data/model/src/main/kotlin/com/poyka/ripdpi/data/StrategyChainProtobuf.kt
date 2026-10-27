@@ -3,12 +3,22 @@ package com.poyka.ripdpi.data
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proto.StrategyTcpStep
 import com.poyka.ripdpi.proto.StrategyUdpStep
+import java.util.logging.Logger
+
+internal const val StrategyChainReadLoggerName = "com.poyka.ripdpi.data.StrategyChainProtobuf"
+private val strategyChainReadLogger: Logger = Logger.getLogger(StrategyChainReadLoggerName)
 
 private fun StrategyTcpStep.toModelOrNull(): TcpChainStepModel? {
     val kind = TcpChainStepKind.fromWireName(kind) ?: return null
     // A stored value this build rejects (an unknown TCP flag, for example) drops the step
     // like an unknown kind does, instead of failing every read of the settings.
-    return runCatching { toModel(kind) }.getOrNull()
+    return try {
+        toModel(kind)
+    } catch (error: IllegalArgumentException) {
+        // Only the step kind and error class: the rejected value is user configuration.
+        strategyChainReadLogger.warning("Dropped stored TCP step kind=${kind.wireName}: ${error.javaClass.simpleName}")
+        null
+    }
 }
 
 private fun StrategyTcpStep.toModel(kind: TcpChainStepKind): TcpChainStepModel =
