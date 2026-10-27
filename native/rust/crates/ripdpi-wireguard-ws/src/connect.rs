@@ -157,7 +157,8 @@ where
     sockets.connect_first(targets, protector).await
 }
 
-/// Bound on one connect attempt, so a black-holed address leaves time for the next one.
+/// Bound on a connect attempt that another address follows, so a black-holed address leaves
+/// time for the next one. The last attempt is bounded only by the caller's carrier timeout.
 const CONNECT_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Order addresses as RFC 8305 section 4 does: alternate families, starting with the first answer's.
@@ -210,44 +211,56 @@ impl ProtectedCarrierSockets {
         Ok(Self { ipv4, ipv6 })
     }
 
-    /// Try `targets` in order, one bounded attempt each, and return the first connected stream.
+    /// Try `targets` in order (see [`connect_in_turn`]) and return the first connected stream.
     /// The first attempt of each family uses the socket protected before resolution; later ones
     /// use a fresh socket protected before its connect. A protect failure ends the connect.
     ///
     /// # Cancel safety
     ///
     /// cancel-safe: dropping the future closes every socket it holds.
-    async fn connect_first<P>(self, targets: Vec<SocketAddr>, protector: &P) -> io::Result<TcpStream>
+    async fn connect_first<P>(self, mut targets: Vec<SocketAddr>, protector: &P) -> io::Result<TcpStream>
     where
         P: CarrierSocketProtector + ?Sized,
     {
         let ipv6_usable = self.ipv6.is_some();
+        targets.retain(|target| target.is_ipv4() || ipv6_usable);
         let (mut ipv4, mut ipv6) = (Some(self.ipv4), self.ipv6);
-        let mut last_error = None;
-        for target in targets {
-            let spare = if target.is_ipv4() {
-                ipv4.take()
-            } else if ipv6_usable {
-                ipv6.take()
-            } else {
-                continue;
-            };
+        connect_in_turn(targets, |target| {
+            let spare = if target.is_ipv4() { ipv4.take() } else { ipv6.take() };
             let socket = match spare {
                 Some(socket) => socket,
                 None => protected_socket(target, protector)?,
             };
-            match tokio::time::timeout(CONNECT_ATTEMPT_TIMEOUT, socket.connect(target)).await {
-                Ok(Ok(stream)) => return Ok(stream),
-                Ok(Err(error)) => last_error = Some(error),
-                Err(_) => {
-                    last_error = Some(io::Error::new(io::ErrorKind::TimedOut, "carrier WSS connect attempt timed out"));
-                }
-            }
-        }
-        Err(last_error.unwrap_or_else(|| {
-            io::Error::new(io::ErrorKind::AddrNotAvailable, "carrier WSS endpoint resolved no usable addresses")
-        }))
+            Ok(socket.connect(target))
+        })
+        .await
     }
+}
+
+/// Run `connect` for each target in turn and return the first connected stream. An attempt
+/// that another target follows is bounded by [`CONNECT_ATTEMPT_TIMEOUT`]; the last one is
+/// bounded only by the caller, so a single address keeps the whole carrier timeout.
+///
+/// # Cancel safety
+///
+/// cancel-safe: dropping the future drops the attempt in flight, which owns its socket.
+async fn connect_in_turn<C, F>(targets: Vec<SocketAddr>, mut connect: C) -> io::Result<TcpStream>
+where
+    C: FnMut(SocketAddr) -> io::Result<F>,
+    F: Future<Output = io::Result<TcpStream>>,
+{
+    let count = targets.len();
+    for (position, target) in targets.into_iter().enumerate() {
+        let attempt = connect(target)?;
+        if position + 1 == count {
+            return attempt.await;
+        }
+        // A failed or timed-out attempt moves on; the last attempt's error is the one returned.
+        if let Ok(Ok(stream)) = tokio::time::timeout(CONNECT_ATTEMPT_TIMEOUT, attempt).await {
+            return Ok(stream);
+        }
+    }
+    Err(io::Error::new(io::ErrorKind::AddrNotAvailable, "carrier WSS endpoint resolved no usable addresses"))
 }
 
 /// A new unconnected socket for `target`'s family, protected before any connect.
@@ -442,6 +455,36 @@ mod tests {
         // Two candidate sockets up front, plus a fresh protected socket for the second IPv4 attempt.
         assert!(protected.load(Ordering::SeqCst) >= 2, "every attempted socket is protected");
         accept.await.expect("accept task").expect("accepted");
+    }
+
+    /// Only an attempt that another address follows is cut at the attempt cap; a single
+    /// address keeps the caller's whole carrier timeout.
+    #[tokio::test(start_paused = true)]
+    async fn a_single_unanswered_address_is_not_cut_at_the_attempt_cap() {
+        let silent: SocketAddr = "192.0.2.1:443".parse().unwrap();
+        let unanswered = |_| Ok(std::future::pending::<io::Result<TcpStream>>());
+
+        let outcome =
+            tokio::time::timeout(CONNECT_ATTEMPT_TIMEOUT * 2, connect_in_turn(vec![silent], unanswered)).await;
+
+        assert!(outcome.is_err(), "the only address must still be connecting: {outcome:?}");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn an_unanswered_address_with_a_next_one_is_cut_at_the_attempt_cap() {
+        let silent: SocketAddr = "192.0.2.1:443".parse().unwrap();
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind loopback listener");
+        let addr = listener.local_addr().expect("local addr");
+        let connect =
+            |target| {
+                Ok(async move {
+                    if target == silent { std::future::pending().await } else { TcpStream::connect(target).await }
+                })
+            };
+
+        let (stream, _accepted) = tokio::join!(connect_in_turn(vec![silent, addr], connect), listener.accept());
+
+        assert_eq!(stream.expect("second address connects").peer_addr().expect("peer addr"), addr);
     }
 
     #[test]

@@ -30,5 +30,5 @@ url = { workspace = true }
 webpki-roots = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "rt-multi-thread", "sync"] }
+tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "rt-multi-thread", "sync", "test-util"] }
 tokio-tungstenite = { workspace = true, features = ["connect"] }
