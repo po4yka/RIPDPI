@@ -152,11 +152,18 @@ fn tcp_activation_state_does_not_break_a_concurrent_reader() {
 
 #[test]
 fn tcp_activation_state_reports_the_receive_window_without_tcp_repair() {
-    use crate::linux::tcp_info::tcp_activation_state;
+    use std::os::fd::AsRawFd;
+
+    use crate::linux::tcp_info::{read_tcp_rcv_wnd, tcp_activation_state};
 
     let (client, _server) = super::connected_pair();
     let state = tcp_activation_state(&client).expect("activation state").expect("TCP_INFO");
-    // Linux 6.2+ reports tcpi_rcv_wnd; the container and current Android GKI kernels have it.
+    // Only Linux 6.2+ reports tcpi_rcv_wnd; Android GKI 6.1 and older kernels do not.
+    if read_tcp_rcv_wnd(client.as_raw_fd()).expect("TCP_INFO").is_none() {
+        assert_eq!(state.window_size, None, "no window without tcpi_rcv_wnd");
+        eprintln!("skipped: this kernel's TCP_INFO has no tcpi_rcv_wnd (Linux 6.2+)");
+        return;
+    }
     let window = state.window_size.expect("receive window from TCP_INFO");
     assert!((1..=i64::from(u16::MAX)).contains(&window), "window {window}");
     assert_eq!(state.has_timestamp, Some(true));
