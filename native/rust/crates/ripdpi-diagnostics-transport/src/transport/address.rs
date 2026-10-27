@@ -93,8 +93,10 @@ impl fmt::Display for DnsResolveError {
 impl std::error::Error for DnsResolveError {}
 
 /// Map a getaddrinfo return code. Only `EAI_NONAME` means the name does not exist; `EAI_NODATA`
-/// (a name without addresses on glibc, an offline or blocked network on Android) and `EAI_AGAIN`
-/// are other failures.
+/// and `EAI_AGAIN` are other failures.
+// shortcut: Android bionic returns EAI_NODATA for a real NXDOMAIN and for offline or Private DNS
+// failures alike, so an injected NXDOMAIN is a missed DnsTampering verdict there, never a false
+// one; upgrade to a resolver that sees the rcode (for example the encrypted resolver path).
 fn classify_gai_code(code: libc::c_int) -> DnsResolveError {
     if code == libc::EAI_NONAME { DnsResolveError::Nxdomain } else { DnsResolveError::Failure }
 }
