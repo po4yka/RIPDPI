@@ -91,7 +91,14 @@ class QuicH3FingerprintProbe(
         }
 
     private suspend fun probeTarget(target: String): QuicProbeResult {
-        val confirmed = QuicFingerprint.entries.associateWith { fingerprint -> probeFingerprint(target, fingerprint) }
+        val firstPass = QuicFingerprint.entries.associateWith { fingerprint -> probeFingerprint(target, fingerprint) }
+        // One datagram per fingerprint cannot tell loss from DPI: when the target answered at all, send each
+        // failed fingerprint again (after the others, so first-packet effects are gone) before blaming it.
+        val retry = !firstPass.values.all(QuicProbeOutcome::ok) && !firstPass.values.all(QuicProbeOutcome::timedOut)
+        val confirmed =
+            firstPass.mapValues { (fingerprint, outcome) ->
+                if (retry && !outcome.ok) probeFingerprint(target, fingerprint) else outcome
+            }
         val chrome = confirmed.getValue(QuicFingerprint.CHROME_120)
         val firefox = confirmed.getValue(QuicFingerprint.FIREFOX_121)
         val generic = confirmed.getValue(QuicFingerprint.GENERIC_V1)

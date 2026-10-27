@@ -63,6 +63,7 @@ class QuicH3FingerprintProbeTest {
                     QuicFingerprint.FIREFOX_121,
                     QuicFingerprint.GENERIC_V1,
                     QuicFingerprint.VN_PROBE,
+                    QuicFingerprint.VN_PROBE,
                 ),
                 socket.probedFingerprints,
             )
@@ -91,6 +92,7 @@ class QuicH3FingerprintProbeTest {
                     QuicFingerprint.FIREFOX_121,
                     QuicFingerprint.GENERIC_V1,
                     QuicFingerprint.VN_PROBE,
+                    QuicFingerprint.GENERIC_V1,
                 ),
                 socket.probedFingerprints,
             )
@@ -165,6 +167,17 @@ class QuicH3FingerprintProbeTest {
             assertTrue(result.firefoxOk)
             assertFalse(result.genericOk)
             assertTrue(result.vnOk)
+        }
+
+    @Test
+    fun firstLostDatagramIsRetriedBeforeBlamingTheFingerprint() =
+        runTest {
+            val socket = RecordingQuicUdpProbe(successes = QuicFingerprint.entries.toSet(), droppedFirstSends = 1)
+
+            val result = probe(socket).check("example.com")
+
+            assertEquals(QuicProbeVerdict.QUIC_OK, result.verdict)
+            assertEquals(QuicFingerprint.CHROME_120, socket.probedFingerprints.last())
         }
 
     @Test
@@ -255,6 +268,7 @@ class QuicH3FingerprintProbeTest {
 private class RecordingQuicUdpProbe(
     private val successes: Set<QuicFingerprint>,
     private val nonQuicResponses: Set<QuicFingerprint> = emptySet(),
+    private val droppedFirstSends: Int = 0,
     private val vnVersions: List<Int> = emptyList(),
 ) : QuicUdpProbe {
     val probedFingerprints = mutableListOf<QuicFingerprint>()
@@ -268,6 +282,10 @@ private class RecordingQuicUdpProbe(
     ): QuicProbeSample {
         probedFingerprints += fingerprint
         return when {
+            probedFingerprints.size <= droppedFirstSends -> {
+                QuicProbeSample(response = null, latencyMs = null)
+            }
+
             fingerprint in successes -> {
                 QuicProbeSample(
                     response =
