@@ -7,11 +7,13 @@ import android.os.Build
  * Tri-state describing whether the Android system-level "Private DNS" feature
  * (Settings -> Network -> Private DNS) is currently configured with a resolver.
  *
- * This status is computed entirely Kotlin-side and is purely informational: it
- * is NOT a policy source for the VPN DNS interceptor. RIPDPI always programs its
- * own interceptor DNS for encrypted profiles, so system Private DNS never changes
- * how the VPN resolves names. The status only helps the user understand a possible
- * mismatch between what Android reports and what RIPDPI actually does.
+ * This status is computed entirely Kotlin-side and is informational: it is NOT a
+ * policy source for the VPN DNS interceptor. It does not prove that the interceptor
+ * sees every lookup. Android pushes the Private DNS mode to the VPN network too
+ * (AOSP DnsManager), so in strict mode the system stub resolver sends DNS-over-TLS
+ * to the configured hostname through the tunnel and never queries the interceptor
+ * address; domain-based rules and host mapping then do not apply to those lookups.
+ * The wire values below are persisted and keep their historical names.
  */
 enum class SystemPrivateDnsStatus(
     val wireValue: String,
@@ -19,7 +21,7 @@ enum class SystemPrivateDnsStatus(
     /** A system Private DNS resolver hostname is active on the current network. */
     PRESENT("system_private_dns_present"),
 
-    /** No system Private DNS resolver is active; it is ignored for VPN policy regardless. */
+    /** No system Private DNS resolver is active on the current network. */
     ABSENT("ignored_for_vpn_policy"),
 
     /** The system Private DNS state could not be read (missing API level, permission, or error). */
