@@ -21,6 +21,7 @@ import java.net.InetAddress
 import java.net.SocketTimeoutException
 import java.security.MessageDigest
 import java.util.Base64
+import kotlin.time.TimeSource
 
 enum class QuicFingerprint {
     CHROME_120,
@@ -70,6 +71,7 @@ class QuicH3FingerprintProbe(
     private val port: Int = DefaultQuicPort,
     private val timeoutMs: Int = DefaultTimeoutMs,
     private val concurrency: Int = DefaultConcurrency,
+    private val timeSource: TimeSource = TimeSource.Monotonic,
 ) {
     suspend fun check(target: String): QuicProbeResult =
         // One unresolvable target (NXDOMAIN, a path-bearing list entry) or a packet-build failure
@@ -91,14 +93,27 @@ class QuicH3FingerprintProbe(
         }
 
     private suspend fun probeTarget(target: String): QuicProbeResult {
-        val firstPass = QuicFingerprint.entries.associateWith { fingerprint -> probeFingerprint(target, fingerprint) }
-        // One datagram per fingerprint cannot tell loss from DPI: when the target answered at all, send each
-        // failed fingerprint again (after the others, so first-packet effects are gone) before blaming it.
-        val retry = !firstPass.values.all(QuicProbeOutcome::ok) && !firstPass.values.all(QuicProbeOutcome::timedOut)
-        val confirmed =
-            firstPass.mapValues { (fingerprint, outcome) ->
-                if (retry && !outcome.ok) probeFingerprint(target, fingerprint) else outcome
+        val startedAt = timeSource.markNow()
+        val firstPass =
+            QuicFingerprint.entries.associateWith { fingerprint -> probeFingerprint(target, fingerprint, timeoutMs) }
+        // One datagram per fingerprint cannot tell loss from DPI: when the target answered at all, resend each
+        // fingerprint that got no reply (a non-QUIC reply is deterministic). The resends run at once and share
+        // what is left of the first pass's worst case, so a target never takes longer than one timeout each.
+        val lost = firstPass.filterValues(QuicProbeOutcome::timedOut).keys
+        val budgetMs = QuicFingerprint.entries.size * timeoutMs - startedAt.elapsedNow().inWholeMilliseconds
+        val retried =
+            if (lost.size < firstPass.size && budgetMs > 0) {
+                val retryTimeoutMs = budgetMs.coerceAtMost(timeoutMs.toLong()).toInt()
+                coroutineScope {
+                    lost
+                        .map { fingerprint ->
+                            async { fingerprint to probeFingerprint(target, fingerprint, retryTimeoutMs) }
+                        }.awaitAll()
+                }
+            } else {
+                emptyList()
             }
+        val confirmed = firstPass + retried
         val chrome = confirmed.getValue(QuicFingerprint.CHROME_120)
         val firefox = confirmed.getValue(QuicFingerprint.FIREFOX_121)
         val generic = confirmed.getValue(QuicFingerprint.GENERIC_V1)
@@ -149,6 +164,7 @@ class QuicH3FingerprintProbe(
     private suspend fun probeFingerprint(
         target: String,
         fingerprint: QuicFingerprint,
+        sendTimeoutMs: Int,
     ): QuicProbeOutcome {
         val packet = packetFactory.create(fingerprint = fingerprint, target = target)
         val sample =
@@ -157,7 +173,7 @@ class QuicH3FingerprintProbe(
                 port = port,
                 fingerprint = fingerprint,
                 packet = packet,
-                timeoutMs = timeoutMs,
+                timeoutMs = sendTimeoutMs,
             )
         val response = sample.response ?: return QuicProbeOutcome(ok = false, timedOut = true, latencyMs = null)
         val versionNegotiation = fingerprint == QuicFingerprint.VN_PROBE

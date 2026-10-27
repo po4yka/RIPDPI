@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -180,6 +182,44 @@ class QuicH3FingerprintProbeTest {
             assertEquals(QuicFingerprint.CHROME_120, socket.probedFingerprints.last())
         }
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun nonQuicReplyIsNotResentAndTheTargetKeepsOneTimeBudget() =
+        runTest {
+            val socket =
+                RecordingQuicUdpProbe(
+                    successes = emptySet(),
+                    nonQuicResponses = setOf(QuicFingerprint.GENERIC_V1),
+                    nonQuicReplyDelayMs = 500,
+                )
+            val probe =
+                QuicH3FingerprintProbe(
+                    socket = socket,
+                    packetFactory = QuicFingerprintFactory::createSynthetic,
+                    timeoutMs = 3_000,
+                    timeSource = testScheduler.timeSource,
+                )
+
+            probe.check("example.com")
+
+            // First pass: three silent sends (3 x 3 s) and one non-QUIC reply after 0.5 s. The three lost
+            // fingerprints are resent once, together, with the 2.5 s left of the 4 x 3 s target budget.
+            assertEquals(
+                listOf(
+                    QuicFingerprint.CHROME_120,
+                    QuicFingerprint.FIREFOX_121,
+                    QuicFingerprint.GENERIC_V1,
+                    QuicFingerprint.VN_PROBE,
+                    QuicFingerprint.CHROME_120,
+                    QuicFingerprint.FIREFOX_121,
+                    QuicFingerprint.VN_PROBE,
+                ),
+                socket.probedFingerprints,
+            )
+            assertEquals(listOf(2_500, 2_500, 2_500), socket.sendTimeoutsMs.drop(4))
+            assertEquals(12_000L, testScheduler.currentTime)
+        }
+
     @Test
     fun versionNegotiationListingTheOfferedVersionIsNotAnAnswer() =
         runTest {
@@ -270,8 +310,10 @@ private class RecordingQuicUdpProbe(
     private val nonQuicResponses: Set<QuicFingerprint> = emptySet(),
     private val droppedFirstSends: Int = 0,
     private val vnVersions: List<Int> = emptyList(),
+    private val nonQuicReplyDelayMs: Long = 0,
 ) : QuicUdpProbe {
     val probedFingerprints = mutableListOf<QuicFingerprint>()
+    val sendTimeoutsMs = mutableListOf<Int>()
 
     override suspend fun sendInitial(
         target: String,
@@ -281,9 +323,10 @@ private class RecordingQuicUdpProbe(
         timeoutMs: Int,
     ): QuicProbeSample {
         probedFingerprints += fingerprint
+        sendTimeoutsMs += timeoutMs
         return when {
             probedFingerprints.size <= droppedFirstSends -> {
-                QuicProbeSample(response = null, latencyMs = null)
+                silence(timeoutMs)
             }
 
             fingerprint in successes -> {
@@ -298,6 +341,7 @@ private class RecordingQuicUdpProbe(
             }
 
             fingerprint in nonQuicResponses -> {
+                delay(nonQuicReplyDelayMs)
                 QuicProbeSample(
                     response = byteArrayOf(0x01, 0x02, 0x03),
                     latencyMs = 25L,
@@ -305,9 +349,15 @@ private class RecordingQuicUdpProbe(
             }
 
             else -> {
-                QuicProbeSample(response = null, latencyMs = null)
+                silence(timeoutMs)
             }
         }
+    }
+
+    /** A real socket waits out its whole timeout when nothing answers. */
+    private suspend fun silence(timeoutMs: Int): QuicProbeSample {
+        delay(timeoutMs.toLong())
+        return QuicProbeSample(response = null, latencyMs = null)
     }
 
     private fun List<Int>.toBytes(): ByteArray =
