@@ -308,7 +308,7 @@ fn validate_args(args: &[String], base: &Path, directory: &Path) -> io::Result<(
             }
             "lua-init" if value.starts_with('@') => validate_file_arg(&value[1..], base, directory)?,
             "blob" => {
-                if let Some((_, file)) = value.split_once('@') {
+                if let Some(file) = blob_file(value) {
                     validate_file_arg(file, base, directory)?;
                 }
             }
@@ -316,6 +316,20 @@ fn validate_args(args: &[String], base: &Path, directory: &Path) -> io::Result<(
         }
     }
     Ok(())
+}
+
+/// Returns the file that nfqws2 reads for a `--blob=name:spec` value, or `None`
+/// for inline `0x` hex. Mirrors nfqws2 `item_name` and `parse_filespec`: the
+/// spec is `file`, `@file` or `+offset@file`, and nfqws2 reads it as root.
+fn blob_file(value: &str) -> Option<&str> {
+    let spec = value.split_once(':').map_or("", |(_, spec)| spec);
+    if spec.starts_with("0x") {
+        return None;
+    }
+    Some(match spec.strip_prefix('+') {
+        Some(offset_and_file) => offset_and_file.split_once('@').map_or("", |(_, file)| file),
+        None => spec.strip_prefix('@').unwrap_or(spec),
+    })
 }
 
 fn validate_file_arg(value: &str, base: &Path, directory: &Path) -> io::Result<()> {
@@ -873,6 +887,31 @@ mod tests {
         validate_args(&["--hostlist-auto=new.txt".to_owned()], &base, &work).expect("new private hostlist");
         for file in ["/etc/passwd", "../../outside.txt", "outside/new.txt"] {
             assert!(validate_args(&[format!("--lua-init=@{file}")], &base, &work).is_err());
+        }
+        fs::remove_dir_all(dir).expect("remove test dir");
+    }
+
+    #[test]
+    fn blob_files_are_jailed_in_every_nfqws2_file_spec_form() {
+        let dir = std::env::temp_dir().join(format!("nfqws2-blob-test-{}", std::process::id()));
+        fs::create_dir_all(dir.join("work")).expect("test dir");
+        fs::write(dir.join("work/tls.bin"), [0x16, 0x03, 0x01]).expect("blob");
+        let base = fs::canonicalize(&dir).expect("base");
+        let work = base.join("work");
+        // nfqws2 parse_filespec: name:0xHEX, name:file, name:@file, name:+offset@file.
+        for accepted in ["k:0x160301", "k:tls.bin", "k:@tls.bin", "k:+1@tls.bin"] {
+            validate_args(&[format!("--blob={accepted}")], &base, &work).expect(accepted);
+        }
+        for rejected in [
+            "k:/etc/passwd",
+            "k:@/etc/passwd",
+            "k:+5@/etc/passwd",
+            "k:../../outside.bin",
+            "k:/x@/etc/passwd",
+            "k:+5",
+            "k",
+        ] {
+            assert!(validate_args(&[format!("--blob={rejected}")], &base, &work).is_err(), "{rejected}");
         }
         fs::remove_dir_all(dir).expect("remove test dir");
     }
