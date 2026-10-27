@@ -121,6 +121,9 @@ impl Nfqws2Backend {
             await_ready(active, self.uid)?;
             let commands = firewall_commands(self.uid, std::process::id())?;
             let deadline = Instant::now() + FIREWALL_START_TIMEOUT;
+            for program in [firewall_program("iptables")?, firewall_program("ip6tables")?] {
+                stale::remove_own_chains(&program, self.uid, std::process::id(), deadline)?;
+            }
             install_rules(&commands, &mut active.undo, &mut |command| run_firewall(command, deadline))
         })();
         if let Err(error) = result {

@@ -51,17 +51,25 @@ pub(super) fn reap_stale_state(files_dir: &Path, uid: u32, programs: &[PathBuf])
     let Ok(processes) = fs::read_dir("/proc") else { return };
     for process in processes.flatten() {
         let Some(pid) = process.file_name().to_str().and_then(|name| name.parse::<i32>().ok()) else { continue };
-        let Ok(cmdline) = fs::read(process.path().join("cmdline")) else { continue };
-        let Some(helper_pid) = orphan_nfqws2_helper_pid(&cmdline, files_dir) else { continue };
-        let Some((process_uid, parent_pid)) = process_ids(&process.path()) else { continue };
-        // A running nfqws2 has dropped root to the app uid, so the app could stop it too.
-        if process_uid == uid && nfqws2_is_stale(helper_pid, parent_pid, own_pid, helper_alive) {
+        let Some((helper_pid, parent_pid)) = orphan_nfqws2_of_uid(&process.path(), files_dir, uid) else { continue };
+        if nfqws2_is_stale(helper_pid, parent_pid, own_pid, helper_alive) {
             match kill(Pid::from_raw(pid), Signal::SIGKILL) {
                 Ok(()) => info!(pid, helper_pid, "stopped an nfqws2 left by an earlier helper"),
                 Err(error) => warn!(pid, %error, "could not stop an nfqws2 left by an earlier helper"),
             }
         }
     }
+}
+
+/// Removes chains that already carry this helper's names, and the jumps into
+/// them, so that a stale copy the startup reap did not finish (its deadline
+/// expired) cannot block a start. Call only while this helper owns no chains.
+pub(super) fn remove_own_chains(program: &Path, uid: u32, own_pid: u32, deadline: Instant) -> io::Result<()> {
+    let rules = list_mangle_rules(program, deadline)?;
+    for command in stale_chain_cleanup(program, &rules, uid, own_pid, |pid| pid != own_pid) {
+        run_firewall(&command, deadline)?;
+    }
+    Ok(())
 }
 
 fn list_mangle_rules(program: &Path, deadline: Instant) -> io::Result<String> {
@@ -135,6 +143,23 @@ fn orphan_nfqws2_helper_pid(cmdline: &[u8], files_dir: &Path) -> Option<u32> {
     pidfile.file_name()?.to_str()?.strip_prefix(".nfqws2-")?.strip_suffix(".pid")?.parse().ok()
 }
 
+/// Returns the helper PID named by the pidfile and the parent PID of the
+/// `/proc/<pid>` entry `process` when it is an nfqws2 of `uid`.
+///
+/// The uid comes first, from `status`: a `cmdline` read takes the target's mmap
+/// lock, which a stuck process of any uid can hold for good. The owner of
+/// `/proc/<pid>` cannot serve: nfqws2 drops root without PR_SET_DUMPABLE, so its
+/// entry is owned by root.
+fn orphan_nfqws2_of_uid(process: &Path, files_dir: &Path, uid: u32) -> Option<(u32, u32)> {
+    let (process_uid, parent_pid) = process_ids(process)?;
+    // A running nfqws2 has dropped root to the app uid, so the app could stop it too.
+    if process_uid != uid {
+        return None;
+    }
+    let cmdline = fs::read(process.join("cmdline")).ok()?;
+    Some((orphan_nfqws2_helper_pid(&cmdline, files_dir)?, parent_pid))
+}
+
 /// Returns whether an nfqws2 whose pidfile names `helper_pid` has no live owner.
 /// This helper owns only its own children; another helper PID owns its nfqws2
 /// while that helper runs.
@@ -206,6 +231,70 @@ mod tests {
                 "-X RDP27fa1c8I",
             ]
         );
+    }
+
+    #[test]
+    fn a_process_of_another_uid_is_skipped_before_its_cmdline_is_read() {
+        use std::time::Duration;
+
+        let dir = std::env::temp_dir().join(format!("nfqws2-proc-entry-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("test dir");
+        let files = Path::new("/data/user/0/app/files");
+        let status = |uid: u32| format!("Name:\tnfqws2\nPPid:\t1\nUid:\t{uid}\t{uid}\t{uid}\t{uid}\n");
+        std::fs::write(dir.join("status"), status(10999)).expect("status");
+        // A FIFO with no writer blocks its reader, as a cmdline read does while the target holds its mmap lock.
+        nix::unistd::mkfifo(&dir.join("cmdline"), nix::sys::stat::Mode::S_IRWXU).expect("fifo");
+        let (sender, receiver) = std::sync::mpsc::channel();
+        let entry = dir.clone();
+        std::thread::spawn(move || sender.send(super::orphan_nfqws2_of_uid(&entry, files, 10234)));
+        let skipped = receiver.recv_timeout(Duration::from_secs(2));
+        if skipped.is_err() {
+            // Unblock the reader before the assertion fails.
+            drop(std::fs::OpenOptions::new().write(true).open(dir.join("cmdline")));
+        }
+        assert_eq!(skipped.expect("the cmdline of another uid was read"), None);
+
+        std::fs::remove_file(dir.join("cmdline")).expect("remove fifo");
+        std::fs::write(
+            dir.join("cmdline"),
+            b"nfqws2\0--qnum=49379\0--pidfile=/data/user/0/app/files/.nfqws2-456.pid\0",
+        )
+        .expect("cmdline");
+        std::fs::write(dir.join("status"), status(10234)).expect("status");
+        assert_eq!(super::orphan_nfqws2_of_uid(&dir, files, 10234), Some((456, 1)));
+        std::fs::remove_dir_all(dir).expect("remove test dir");
+    }
+
+    #[test]
+    fn a_start_removes_only_the_chains_that_carry_its_own_names() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = std::env::temp_dir().join(format!("nfqws2-own-chains-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("test dir");
+        std::fs::write(dir.join("rules"), RULES).expect("rules");
+        let script = dir.join("iptables");
+        std::fs::write(
+            &script,
+            "#!/bin/sh\nd=\"${0%/*}\"\necho \"$*\" >> \"$d/log\"\n[ \"$3\" = -S ] && cat \"$d/rules\"\nexit 0\n",
+        )
+        .expect("script");
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).expect("script mode");
+
+        // This helper has PID 0x2d0; the dead helper 0x1c8 is left to the reap.
+        let deadline = std::time::Instant::now() + super::REAP_TIMEOUT;
+        super::remove_own_chains(&script, 10234, 0x2d0, deadline).expect("own chains removed");
+
+        let log = std::fs::read_to_string(dir.join("log")).expect("log");
+        assert_eq!(
+            log.lines().collect::<Vec<_>>(),
+            [
+                "-t mangle -S",
+                "-t mangle -D OUTPUT ! -o lo -m owner --uid-owner 10234 -j RDP27fa2d0O",
+                "-t mangle -F RDP27fa2d0O",
+                "-t mangle -X RDP27fa2d0O",
+            ]
+        );
+        std::fs::remove_dir_all(dir).expect("remove test dir");
     }
 
     #[test]
