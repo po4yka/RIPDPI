@@ -21,6 +21,7 @@ import javax.inject.Singleton
 private const val SystemDnsPort = 53
 private const val OtherTransportPriority = 3
 private const val HostnameLookupBudgetMillis = 2_000L
+private const val MaxConcurrentHostnameLookups = 2
 
 /** Preflight only. Does not grant permission, change routes, or replace socket protection. */
 @Singleton
@@ -30,7 +31,9 @@ class AndroidLocalNetworkAccess
         @param:ApplicationContext private val context: Context,
     ) {
         // Lookups run detached: getaddrinfo cannot be interrupted, so a caller must not wait for it.
-        private val lookupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        // The parallelism cap keeps lookups stuck on a dropped resolver from taking over Dispatchers.IO.
+        private val lookupScope =
+            CoroutineScope(SupervisorJob() + Dispatchers.IO.limitedParallelism(MaxConcurrentHostnameLookups))
 
         fun hasAccess(): Boolean =
             Build.VERSION.SDK_INT < LocalNetworkPermissionApi ||
@@ -38,7 +41,8 @@ class AndroidLocalNetworkAccess
 
         suspend fun requireListener(host: String): Boolean {
             val addresses = resolveEndpoint(host.removeSurrounding("[", "]"), network = null)
-            val required = addresses.any { !it.isLoopbackAddress }
+            // An unanswered lookup is unknown, not "not local": ask for the permission.
+            val required = addresses?.any { !it.isLoopbackAddress } ?: true
             if (required && !hasAccess()) throw LocalNetworkAccessRequiredException()
             return required
         }
@@ -55,7 +59,7 @@ class AndroidLocalNetworkAccess
                         val manager = context.getSystemService(ConnectivityManager::class.java)
                         val network = manager?.selectLocalNetworkUnderlay()
                         val properties = network?.let { manager.getLinkProperties(it) }
-                        resolveEndpoint(normalized, network).any { address ->
+                        resolveEndpoint(normalized, network)?.any { address ->
                             val systemDns = port == SystemDnsPort && properties?.dnsServers?.contains(address) == true
                             val onLink =
                                 properties?.routes?.any { route ->
@@ -65,7 +69,7 @@ class AndroidLocalNetworkAccess
                                 } == true
                             !address.isLoopbackAddress && !systemDns &&
                                 (LocalNetworkAddressPolicy.requiresPermission(address) || onLink)
-                        }
+                        } ?: true // An unanswered lookup is unknown, not "not local": ask for the permission.
                     }
             if (required && !hasAccess()) throw LocalNetworkAccessRequiredException()
             return required
@@ -74,7 +78,7 @@ class AndroidLocalNetworkAccess
         private suspend fun resolveEndpoint(
             host: String,
             network: Network?,
-        ): Array<InetAddress> =
+        ): Array<InetAddress>? =
             if (isNumericAddress(host)) {
                 resolveEndpointBlocking(host, network)
             } else {
@@ -101,17 +105,17 @@ class AndroidLocalNetworkAccess
     }
 
 /**
- * Runs a blocking [lookup] detached in [scope] and waits at most [budgetMillis]. A hung resolver
- * (dropped DNS on a censored network or during a handover) gives "no addresses", the same answer
- * as an unknown host, and a cancelled caller returns at once instead of after the resolver timeout.
+ * Runs a blocking [lookup] detached in [scope] and waits at most [budgetMillis]. A lookup that does
+ * not answer in time (dropped DNS on a censored network, a slow cold or handover lookup) gives null,
+ * "unknown", and a cancelled caller returns at once instead of after the resolver timeout.
  */
 internal suspend fun resolveWithinBudget(
     scope: CoroutineScope,
     budgetMillis: Long,
     lookup: () -> Array<InetAddress>,
-): Array<InetAddress> {
+): Array<InetAddress>? {
     val pending = scope.async { lookup() }
-    return withTimeoutOrNull(budgetMillis) { pending.await() } ?: emptyArray()
+    return withTimeoutOrNull(budgetMillis) { pending.await() }
 }
 
 @Suppress("DEPRECATION")
