@@ -185,9 +185,12 @@ mod tests {
         let (_peer, peer_address) = listener.accept().unwrap();
 
         assert_eq!(stream.local_addr().unwrap(), peer_address);
-        stream.set_read_timeout(Some(Duration::from_millis(50))).unwrap();
+        stream.set_read_timeout(Some(Duration::from_millis(100))).unwrap();
+        let started = Instant::now();
         let error = (&stream).read(&mut [0u8; 1]).expect_err("no data yet");
+        // SO_RCVTIMEO reports WouldBlock on Unix too; only a blocking read waits for it first.
         assert!(matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut), "{error:?}");
+        assert!(started.elapsed() >= Duration::from_millis(50), "the read did not wait: the stream is non-blocking");
     }
 
     #[test]
