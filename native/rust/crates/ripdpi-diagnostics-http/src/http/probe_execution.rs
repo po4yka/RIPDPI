@@ -11,7 +11,7 @@ use crate::tls::{
 use crate::transport::{ConnectionStream, TargetAddress, TransportConfig, run_with_socket_watchdog};
 use crate::util::MAX_HTTP_BYTES;
 
-use super::classifier::classify_http_response;
+use super::classifier::classify_http_response_with_fingerprints;
 use super::response_parser::read_http_response;
 use super::types::{HttpObservation, HttpResponse};
 
@@ -36,9 +36,11 @@ pub fn try_http_request_with_key_log(
     key_log: Option<&TlsKeyLogCallback>,
 ) -> HttpObservation {
     match execute_http_request_with_key_log(target, port, transport, host_header, path, secure, key_log) {
-        Ok(response) => {
-            HttpObservation { status: classify_http_response(&response), response: Some(response), error: None }
-        }
+        Ok(response) => HttpObservation {
+            status: classify_with_bundled_fingerprints(&response),
+            response: Some(response),
+            error: None,
+        },
         Err(err) => HttpObservation { status: "http_unreachable".to_string(), response: None, error: Some(err) },
     }
 }
@@ -64,11 +66,19 @@ pub fn try_http_request_targets_with_key_log(
     key_log: Option<&TlsKeyLogCallback>,
 ) -> HttpObservation {
     match execute_http_request_targets_with_key_log(targets, port, transport, host_header, path, secure, key_log) {
-        Ok(response) => {
-            HttpObservation { status: classify_http_response(&response), response: Some(response), error: None }
-        }
+        Ok(response) => HttpObservation {
+            status: classify_with_bundled_fingerprints(&response),
+            response: Some(response),
+            error: None,
+        },
         Err(err) => HttpObservation { status: "http_unreachable".to_string(), response: None, error: Some(err) },
     }
+}
+
+/// Classify with the bundled blockpage fingerprint database, so known ISP pages (non-English, or
+/// a redirect to a block host) stay `http_blockpage` on every HTTP path.
+fn classify_with_bundled_fingerprints(response: &HttpResponse) -> String {
+    classify_http_response_with_fingerprints(response, ripdpi_failure_classifier::bundled_blockpage_fingerprints()).0
 }
 
 pub fn execute_http_request(

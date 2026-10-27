@@ -484,3 +484,39 @@ fn http_request_preserves_ipv6_authority_and_port() {
         assert!(request.contains(&format!("Host: [::1]:{}\r\n", addr.port())), "{request}");
     }
 }
+
+#[test]
+fn http_request_classifies_known_isp_block_pages_with_the_fingerprint_database() {
+    use ripdpi_diagnostics_transport::transport::{TargetAddress, TransportConfig};
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+        thread,
+    };
+    let replies: [&[u8]; 3] = [
+        b"HTTP/1.1 200 OK\r\nContent-Length: 50\r\n\r\n<meta http-equiv=refresh content=0;blocked.mts.ru>",
+        b"HTTP/1.1 302 Found\r\nServer: MTS Proxy\r\nLocation: http://example.net/\r\nContent-Length: 0\r\n\r\n",
+        b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok",
+    ];
+    let mut statuses = Vec::new();
+    for (index, reply) in replies.into_iter().enumerate() {
+        let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = thread::spawn(move || {
+            let (mut stream, _) = listener.accept().unwrap();
+            let _ = stream.read(&mut [0; 1024]).unwrap();
+            stream.write_all(reply).unwrap();
+        });
+        let target = TargetAddress::Ip(addr.ip());
+        let transport = TransportConfig::Direct { route_experiment: None };
+        let observation = if index % 2 == 0 {
+            try_http_request(&target, addr.port(), &transport, "example.org", "/", false)
+        } else {
+            try_http_request_targets(&[target], addr.port(), &transport, "example.org", "/", false)
+        };
+        server.join().unwrap();
+        statuses.push(observation.status);
+    }
+
+    assert_eq!(statuses, ["http_blockpage", "http_blockpage", "http_ok"]);
+}
