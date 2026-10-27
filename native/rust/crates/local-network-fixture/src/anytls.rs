@@ -353,10 +353,15 @@ async fn observe_heart_response_before_close(
     stream: &mut tokio_rustls::server::TlsStream<TcpStream>,
     observed: &Arc<Mutex<AnyTlsLoopbackObserved>>,
 ) {
-    if let Ok(Ok(frame)) = tokio::time::timeout(std::time::Duration::from_millis(250), read_frame(stream)).await
-        && frame.command == CMD_HEART_RESPONSE
-    {
-        observed.lock().expect("anytls observed").heart_responses += 1;
+    // A client pads with cmdWaste frames of random size, so skip them.
+    while let Ok(Ok(frame)) = tokio::time::timeout(std::time::Duration::from_millis(250), read_frame(stream)).await {
+        if frame.command == CMD_WASTE {
+            continue;
+        }
+        if frame.command == CMD_HEART_RESPONSE {
+            observed.lock().expect("anytls observed").heart_responses += 1;
+        }
+        break;
     }
 }
 

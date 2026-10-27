@@ -116,7 +116,18 @@ impl PaddingScheme {
         &self.padding_md5
     }
 
+    /// Plans `packet_index` with one fixed `selector` for every range; for tests.
     pub fn plan_for_packet(&self, packet_index: u32, selector: u64) -> Result<PaddingPlan, PaddingError> {
+        self.plan_for_packet_with(packet_index, || selector)
+    }
+
+    /// Plans `packet_index`, calling `next_selector` once per size range, so
+    /// a random source draws every range independently.
+    pub fn plan_for_packet_with(
+        &self,
+        packet_index: u32,
+        mut next_selector: impl FnMut() -> u64,
+    ) -> Result<PaddingPlan, PaddingError> {
         if packet_index >= self.stop {
             return Ok(PaddingPlan::direct());
         }
@@ -128,7 +139,7 @@ impl PaddingScheme {
             .iter()
             .map(|rule| match *rule {
                 SizeRule::Fixed(size) => PaddingStep::PayloadSize(size),
-                SizeRule::Range { min, max } => PaddingStep::PayloadSize(select_size(min, max, selector)),
+                SizeRule::Range { min, max } => PaddingStep::PayloadSize(select_size(min, max, next_selector())),
                 SizeRule::CheckIfNoMoreData => PaddingStep::CheckIfNoMoreData,
             })
             .collect();
@@ -148,13 +159,25 @@ impl PaddingScheme {
             .unwrap_or(0))
     }
 
+    /// [`Self::write_plan_for_packet_with`] with one fixed `selector`; for tests.
     pub fn write_plan_for_packet(
         &self,
         packet_index: u32,
         payload: &[u8],
         selector: u64,
     ) -> Result<Vec<PaddingAction>, PaddingError> {
-        let plan = self.plan_for_packet(packet_index, selector)?;
+        self.write_plan_for_packet_with(packet_index, payload, || selector)
+    }
+
+    /// Splits `payload` into the records of `packet_index`; see
+    /// [`Self::plan_for_packet_with`] for `next_selector`.
+    pub fn write_plan_for_packet_with(
+        &self,
+        packet_index: u32,
+        payload: &[u8],
+        next_selector: impl FnMut() -> u64,
+    ) -> Result<Vec<PaddingAction>, PaddingError> {
+        let plan = self.plan_for_packet_with(packet_index, next_selector)?;
         if plan.steps().is_empty() {
             return Ok(vec![PaddingAction::Payload(payload.to_vec())]);
         }

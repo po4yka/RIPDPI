@@ -790,7 +790,8 @@ async fn write_auth<S>(
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
-    let padding_len = padding_scheme.auth_padding0_len(0).map_err(|error| AnyTlsError::Padding(error.to_string()))?;
+    let padding_len =
+        padding_scheme.auth_padding0_len(random_selector()).map_err(|error| AnyTlsError::Padding(error.to_string()))?;
     let mut packet = Vec::with_capacity(34 + padding_len);
     packet.extend_from_slice(&Sha256::digest(password.as_bytes()));
     packet.extend_from_slice(
@@ -799,6 +800,15 @@ where
     packet.resize(packet.len() + padding_len, 0);
     stream.write_all(&packet).await?;
     Ok(())
+}
+
+/// A CSPRNG draw for one padding size range, as the reference client draws
+/// every range with crypto/rand.
+fn random_selector() -> u64 {
+    let mut bytes = [0_u8; 8];
+    // rand_bytes fails only when BoringSSL's DRBG is unusable; the range
+    // minimum is then a padding size, not a security loss.
+    boring::rand::rand_bytes(&mut bytes).map_or(0, |()| u64::from_ne_bytes(bytes))
 }
 
 struct SessionWorker {
@@ -843,7 +853,7 @@ async fn run_session<S>(
             }
             let scheme = write_padding_scheme.lock().await.clone();
             let actions = scheme
-                .write_plan_for_packet(packet_index, &bytes, 0)
+                .write_plan_for_packet_with(packet_index, &bytes, random_selector)
                 .map_err(|error| AnyTlsError::Padding(error.to_string()))?;
             packet_index += 1;
             for action in actions {
@@ -1338,7 +1348,20 @@ mod protect_tests {
 mod tls_profile_tests {
     use tokio::io::AsyncReadExt;
 
-    use super::{AnyTlsClientConfig, connect_tls};
+    use super::{AnyTlsClientConfig, PaddingAction, PaddingScheme, connect_tls, random_selector};
+
+    #[test]
+    fn padding_ranges_are_drawn_independently_per_packet() {
+        let scheme = PaddingScheme::parse(b"stop=2\n1=100-1000,100-1000").expect("scheme");
+        let draws: Vec<(usize, usize)> = (0..32)
+            .map(|_| match scheme.write_plan_for_packet_with(1, b"x", random_selector).expect("plan").as_slice() {
+                [PaddingAction::PayloadThenWaste { waste_len, .. }, PaddingAction::Waste { len }] => (*waste_len, *len),
+                other => panic!("unexpected plan {other:?}"),
+            })
+            .collect();
+        assert!(draws.iter().any(|draw| *draw != draws[0]), "sizes must vary between packets: {draws:?}");
+        assert!(draws.iter().any(|(first, second)| first + 8 != *second), "ranges must be drawn independently");
+    }
 
     /// Reads the ClientHello the client writes and returns its cipher suites.
     async fn client_hello_cipher_suites(profile: &str) -> Vec<u16> {
