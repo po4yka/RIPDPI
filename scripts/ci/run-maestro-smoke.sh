@@ -61,6 +61,9 @@ launch_automation() {
     --es com.poyka.ripdpi.automation.DATA_PRESET "$data_preset" >/dev/null
 }
 
+# The visible flows start at Home. Seed a completed-onboarding state so a fresh
+# install does not stop at the onboarding screen.
+launch_automation "home" "settings_ready"
 run_flow "$FLOW_DIR/01-cold-launch-home.yaml"
 run_flow "$FLOW_DIR/02-settings-navigation.yaml"
 run_flow "$FLOW_DIR/03-advanced-settings-edit-save.yaml"
