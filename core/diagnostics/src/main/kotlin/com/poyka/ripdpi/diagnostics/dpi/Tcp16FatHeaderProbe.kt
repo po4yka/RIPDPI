@@ -153,7 +153,9 @@ class Tcp16FatHeaderProbe(
                 requestedHosts = requestedHosts,
             )
         }
-        return if (error.isTcp16ResetLike()) {
+        // Native late_stage_cutoff: every earlier request got a response, so the cut needs at least 8 KB sent.
+        val lateStage = requestIndex * PaddingKilobytes >= LateStageCutoffKilobytes
+        return if (lateStage && error.isTcp16ResetLike()) {
             result(
                 alive = true,
                 verdict = Tcp16Verdict.DETECTED_AT_KB,
@@ -204,6 +206,7 @@ class Tcp16FatHeaderProbe(
         private const val RequestCount = 16
         private const val PaddingBytes = 4 * 1024
         private const val PaddingKilobytes = 4
+        private const val LateStageCutoffKilobytes = 8
         private const val DefaultConcurrency = 15
         private const val MinimumRttHintMs = 25L
         private const val DefaultTimeoutBaseMs = 500L

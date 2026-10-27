@@ -75,6 +75,32 @@ class Tcp16FatHeaderProbeTest {
         }
 
     @Test
+    fun resetOnFirstPaddedRequestIsAnErrorNotADetection() =
+        runTest {
+            MockWebServer().use { server ->
+                val seen = AtomicInteger()
+                server.dispatcher =
+                    object : Dispatcher() {
+                        override fun dispatch(request: RecordedRequest): MockResponse =
+                            if (seen.incrementAndGet() == 2) {
+                                MockResponse
+                                    .Builder()
+                                    .onResponseStart(SocketEffect.CloseSocket())
+                                    .build()
+                            } else {
+                                okHeadResponse()
+                            }
+                    }
+                server.start()
+
+                val result = probe().runWithRttHint(mockTarget(server), hintRttMs = 25)
+
+                assertEquals(Tcp16Verdict.ERROR, result.verdict)
+                assertNull(result.detectedAtKb)
+            }
+        }
+
+    @Test
     fun deadTargetReturnsDeadVerdict() =
         runTest {
             val server = MockWebServer()
