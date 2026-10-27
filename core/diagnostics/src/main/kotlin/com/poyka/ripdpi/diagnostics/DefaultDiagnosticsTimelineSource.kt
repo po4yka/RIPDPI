@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsProfileCatalog
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -16,6 +17,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.serialization.json.Json
@@ -69,10 +71,14 @@ class DefaultDiagnosticsTimelineSource
             activeConnectionSession.map { session -> session?.id }.distinctUntilChanged()
         override val profiles: Flow<List<DiagnosticProfile>> =
             profileCatalog.observeProfiles().map { profiles -> profiles.map(mapper::toDiagnosticProfile) }
+
         override val sessions: Flow<List<DiagnosticScanSession>> =
             scanRecordStore.observeRecentScanSessions().map { sessions ->
                 sessions.map(mapper::toDiagnosticScanSession)
             }
+
+        // Decodes up to 200 stored reports and re-runs on every usage-session upsert while the
+        // service runs; keep it off the collector's (often Main) dispatcher.
         override val approachStats: Flow<List<BypassApproachSummary>> =
             combine(
                 scanRecordStore.observeRecentScanSessions(limit = 200),
@@ -83,7 +89,7 @@ class DefaultDiagnosticsTimelineSource
                     usageSessions = usageSessions,
                     json = json,
                 )
-            }
+            }.flowOn(Dispatchers.Default)
         override val snapshots: Flow<List<DiagnosticNetworkSnapshot>> =
             artifactReadStore.observeSnapshots().map { snapshots -> snapshots.map(mapper::toDiagnosticNetworkSnapshot) }
         override val contexts: Flow<List<DiagnosticContextSnapshot>> =

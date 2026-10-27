@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.withContext
@@ -37,9 +38,11 @@ class DefaultDiagnosticsHistorySource
             }
 
         override fun observeDiagnosticsSessions(limit: Int): Flow<List<DiagnosticScanSession>> =
-            scanRecordStore.observeRecentScanSessions(limit).map { sessions ->
-                sessions.map(mapper::toDiagnosticScanSession)
-            }
+            scanRecordStore
+                .observeRecentScanSessions(limit)
+                // Each row decodes its stored report JSON; keep that off the collector's dispatcher.
+                .map { sessions -> sessions.map(mapper::toDiagnosticScanSession) }
+                .flowOn(Dispatchers.Default)
 
         override fun observeNativeEvents(limit: Int): Flow<List<DiagnosticEvent>> =
             artifactReadStore.observeNativeEvents(limit).map { events ->
