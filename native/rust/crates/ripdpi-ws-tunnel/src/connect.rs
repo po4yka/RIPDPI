@@ -5,6 +5,7 @@ use std::time::Duration;
 use boring::ssl::{SslConnector, SslStream};
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tungstenite::WebSocket;
+use tungstenite::protocol::WebSocketConfig;
 
 use crate::protect;
 use crate::transport::WsTransportConfig;
@@ -139,6 +140,15 @@ fn configure_relay_socket(tcp: &TcpStream) -> io::Result<()> {
     Ok(())
 }
 
+/// Largest inbound WebSocket frame and message. The largest MTProto packet is
+/// about 1 MiB; tungstenite's defaults (16 MiB frame, 64 MiB message) let a
+/// hostile peer make the relay reserve that much per tunnel.
+const MAX_WS_MESSAGE: usize = 2 * 1024 * 1024;
+
+fn ws_config() -> WebSocketConfig {
+    WebSocketConfig::default().max_frame_size(Some(MAX_WS_MESSAGE)).max_message_size(Some(MAX_WS_MESSAGE))
+}
+
 fn configure_established_ws_stream(ws: &mut WsStream) -> io::Result<()> {
     configure_relay_socket(ws.get_mut().get_ref())
 }
@@ -261,7 +271,7 @@ fn open_ws_tunnel_with_timeout_and_connector(
     let request = build_ws_request_for_route(dc, worker_route)?;
 
     // WebSocket handshake over the pre-established BoringSSL stream.
-    let (mut ws, _response) = tungstenite::client(request, tls_stream)
+    let (mut ws, _response) = tungstenite::client::client_with_config(request, tls_stream, Some(ws_config()))
         .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("WS handshake: {e}")))?;
     configure_established_ws_stream(&mut ws)?;
 
@@ -425,6 +435,29 @@ mod tests {
         let observed = fixture.observed.recv().expect("fixture observation");
         fixture.handle.join().expect("fixture thread");
         assert_eq!(observed.sni.as_deref(), Some("cover.example"));
+    }
+
+    #[test]
+    fn inbound_message_above_the_mtproto_cap_ends_the_tunnel() {
+        let fixture = spawn_worker_tls_ws_echo_server();
+        let worker_url = format!("https://edge.example.workers.dev:{}/relay", fixture.addr.port());
+        let route = CloudflareWorkerRoute::parse(worker_url, "secret-token").expect("valid worker route");
+        let mut ws = open_ws_tunnel_with_timeout_and_connector(
+            TelegramDc::production(2),
+            Some(fixture.addr),
+            None,
+            Some(Duration::from_secs(2)),
+            None,
+            Some(&route),
+            |fake_sni, worker_route| test_tls_connector(&fixture.root_der, fake_sni, worker_route),
+        )
+        .expect("open worker websocket");
+
+        // The fixture echoes it back: a 3 MiB message is above any MTProto packet.
+        ws.send(tungstenite::Message::Binary(Bytes::from(vec![0x5a; 3 * 1024 * 1024]))).expect("send binary");
+        let refused = matches!(ws.read(), Err(tungstenite::Error::Capacity(_)));
+
+        assert!(refused, "an oversized inbound message must be refused");
     }
 
     #[test]
