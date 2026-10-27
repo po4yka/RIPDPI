@@ -2,9 +2,14 @@ package com.poyka.ripdpi.diagnostics.dpich
 
 import com.poyka.ripdpi.serialization.RipDpiPrettyDefaultsJson
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
@@ -16,6 +21,7 @@ import java.io.File
 import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardCopyOption
+import java.util.concurrent.TimeUnit
 import kotlin.math.min
 import kotlin.random.Random
 
@@ -85,8 +91,15 @@ class OkHttpSubnetAliveProbe(
                     .url("https://$ip/")
                     .head()
                     .build()
+            val client =
+                httpClient
+                    .newBuilder()
+                    .connectTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+                    .readTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+                    .callTimeout(timeoutMs, TimeUnit.MILLISECONDS)
+                    .build()
             try {
-                httpClient.newCall(request).execute().use {
+                client.newCall(request).execute().use {
                     SubnetAliveProbeResult.Alive
                 }
             } catch (_: javax.net.ssl.SSLProtocolException) {
@@ -143,9 +156,14 @@ class Ipv4WhitelistedSubnetDiscoverer(
             val cached = cache.load()
             cached.forEachIndexed { index, subnet ->
                 val sampledIps = sampleIps(subnet.cidr, config.subnetSampleSize)
+                // A SYN-dropping /24 costs one timeout per wave, not one per sampled address.
+                val permits = Semaphore(SampleProbeConcurrency)
                 val alive =
-                    sampledIps.count { ip ->
-                        aliveProbe.probe(ip, config.timeoutMs).countsAsAlive()
+                    coroutineScope {
+                        sampledIps
+                            .map { ip -> async { permits.withPermit { aliveProbe.probe(ip, config.timeoutMs) } } }
+                            .awaitAll()
+                            .count { result -> result.countsAsAlive() }
                     }
                 emit(
                     SubnetCheckProgress(
@@ -177,7 +195,18 @@ class Ipv4WhitelistedSubnetDiscoverer(
     ): List<String> {
         val range = Ipv4Cidr.parse(cidr)
         val count = min(sampleSize, range.hostCount)
-        return range.hosts().shuffled(random).take(count)
+        // Draw offsets instead of listing every host: a /9 announcement would materialize ~8M strings.
+        val offsets =
+            if (count == range.hostCount) {
+                (0 until count).shuffled(random)
+            } else {
+                generateSequence { random.nextInt(range.hostCount) }.distinct().take(count).toList()
+            }
+        return offsets.map(range::host)
+    }
+
+    private companion object {
+        const val SampleProbeConcurrency = 8
     }
 }
 
@@ -262,7 +291,7 @@ private data class Ipv4Cidr(
     private val lastHost: Long
         get() = if (prefixLength >= 31) broadcast else broadcast - 1
 
-    fun hosts(): List<String> = (0 until hostCount).map { offset -> (firstHost + offset).toIpv4String() }
+    fun host(offset: Int): String = (firstHost + offset).toIpv4String()
 
     companion object {
         fun parse(cidr: String): Ipv4Cidr {

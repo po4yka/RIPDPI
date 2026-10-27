@@ -2,6 +2,7 @@ package com.poyka.ripdpi.diagnostics.dpich
 
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.asCoroutineDispatcher
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
@@ -10,8 +11,11 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.net.InetAddress
+import java.net.ServerSocket
 import java.util.Collections
 import java.util.concurrent.Executors
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
 
 class Ipv4WhitelistedSubnetDiscovererTest {
@@ -92,6 +96,63 @@ class Ipv4WhitelistedSubnetDiscovererTest {
         assertEquals(emptyList<CachedWhitelistSubnet>(), cache.load())
         assertFalse(file.exists())
     }
+
+    @Test
+    fun aliveProbeHonorsItsTimeout() {
+        ServerSocket(0, 1, InetAddress.getLoopbackAddress()).use { server ->
+            val acceptor = Thread { runCatching { server.accept() } }.apply { start() }
+            val startedAt = System.nanoTime()
+
+            val result =
+                kotlinx.coroutines.runBlocking {
+                    // A host:port literal points the HTTPS probe at a server that accepts and never answers.
+                    OkHttpSubnetAliveProbe().probe("127.0.0.1:${server.localPort}", timeoutMs = 300)
+                }
+
+            val elapsedMs = (System.nanoTime() - startedAt) / 1_000_000
+            assertEquals(SubnetAliveProbeResult.Unreachable, result)
+            assertTrue("probe took $elapsedMs ms", elapsedMs < 3_000)
+            acceptor.join(1_000)
+        }
+    }
+
+    @Test
+    fun sampledAddressesOfOneSubnetAreProbedConcurrently() =
+        runTest {
+            temp.create()
+            val cache = SubnetsCache(temp.newFile("cache.json"))
+            cache.save(listOf(CachedWhitelistSubnet("VK", 28709, "192.0.2.0/27")))
+            val inFlight = AtomicInteger()
+            val maxInFlight = AtomicInteger()
+            val discoverer =
+                Ipv4WhitelistedSubnetDiscoverer(
+                    asns = emptyList(),
+                    ripeStat = RecordingRipeStatSource(),
+                    cache = cache,
+                    aliveProbe =
+                        object : SubnetAliveProbe {
+                            override suspend fun probe(
+                                ip: String,
+                                timeoutMs: Long,
+                            ): SubnetAliveProbeResult {
+                                maxInFlight.accumulateAndGet(inFlight.incrementAndGet(), ::maxOf)
+                                delay(50)
+                                inFlight.decrementAndGet()
+                                return SubnetAliveProbeResult.Unreachable
+                            }
+                        },
+                )
+
+            val result =
+                discoverer
+                    .checkCachedSubnets(WhitelistedSubnetConfig(subnetSampleSize = 25))
+                    .toList()
+                    .single()
+                    .result
+
+            assertEquals(25, result.aliveSampled)
+            assertTrue("max in flight ${maxInFlight.get()}", maxInFlight.get() > 1)
+        }
 
     @Test
     fun checkCachedSubnetsAppliesAliveThreshold() =
