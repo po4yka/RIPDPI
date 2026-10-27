@@ -778,6 +778,9 @@ whitelisted service (e.g. `yandex.ru`). Because the presented certificate then
 will not match the cover name, **fake-SNI skips the TLS certificate hostname
 check** for the tunnel. The certificate chain must still verify against the
 trust store, so a self-signed certificate from an on-path attacker is refused.
+Known limit: no name is checked, so any publicly trusted certificate (for any
+domain) passes. Pinning the check to `kws{dc}.web.telegram.org` needs a live
+gateway check first.
 
 This is gated behind an explicit operator opt-in to prevent silent
 verification bypass:

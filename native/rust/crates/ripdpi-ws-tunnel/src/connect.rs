@@ -269,6 +269,10 @@ fn open_ws_tunnel_with_timeout_and_connector(
     let mut tls_config =
         connector.configure().map_err(|e| io::Error::other(format!("boring TLS configuration: {e}")))?;
     // A cover SNI cannot match the gateway certificate: skip only the name check; the chain stays verified.
+    // shortcut: with a fake SNI any publicly trusted certificate passes, whatever name it is for, so an
+    // on-path attacker with any valid certificate can read the obfuscated2 init. Upgrade: verify the
+    // certificate against `kws{n}.web.telegram.org` (keep SNI = cover name) once a live gateway check shows
+    // that the gateway serves that certificate for an unknown SNI.
     tls_config.set_verify_hostname(fake_sni.is_none());
     let tls_stream = tls_config
         .connect(tls_host, tcp)
@@ -419,8 +423,12 @@ mod tests {
         assert!(error.to_string().contains("boring TLS"), "{error}");
     }
 
+    /// Known limit, not desired behavior: with a fake SNI no name is verified, so a trusted chain
+    /// issued for an unrelated name (the fixture certificate is for `edge.example.workers.dev`) passes.
+    /// See the `shortcut:` note in `open_ws_tunnel_with_timeout_and_connector`; when the gateway name is
+    /// pinned, this test must expect the handshake to fail.
     #[test]
-    fn fake_sni_accepts_a_trusted_chain_issued_for_another_name() {
+    fn fake_sni_known_limit_accepts_a_trusted_chain_for_any_name() {
         let fixture = spawn_worker_tls_ws_echo_server();
 
         let mut ws = open_ws_tunnel_with_timeout_and_connector(
@@ -432,7 +440,7 @@ mod tests {
             None,
             |_fake_sni, worker_route| test_tls_connector(&fixture.root_der, None, worker_route),
         )
-        .expect("a trusted chain for the gateway name passes with a cover SNI");
+        .expect("known limit: a trusted chain for an unrelated name passes with a cover SNI");
         ws.send(tungstenite::Message::Binary(Bytes::from_static(b"ping"))).expect("send binary");
         let echoed = ws.read().expect("read echo");
         ws.close(None).expect("close websocket");
