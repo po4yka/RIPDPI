@@ -287,3 +287,38 @@ fn silent_drop_after_the_first_response_is_a_freeze_after_threshold() {
     assert_eq!(classify_fat_header_outcome(&observation.status), "tcp_freeze_after_threshold");
     server.join().expect("fixture thread");
 }
+
+#[test]
+fn slow_drip_response_stops_at_the_scan_deadline() {
+    use std::io::{Read, Write};
+    use std::time::{Duration, Instant};
+
+    // Answers the first request one byte every 100 ms: no read reaches the socket timeout.
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind fixture");
+    let port = listener.local_addr().expect("fixture addr").port();
+    let server = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().expect("accept probe");
+        let _ = stream.read(&mut [0u8; 4096]);
+        let started = Instant::now();
+        for byte in b"HTTP/1.1 200 OK\r\nX-Slow: ".iter().chain(std::iter::repeat(&b'a')) {
+            if started.elapsed() > Duration::from_secs(4) || stream.write_all(&[*byte]).is_err() {
+                return;
+            }
+            std::thread::sleep(Duration::from_millis(100));
+        }
+    });
+    let target = local_target(port, "127.0.0.1");
+    let transport = crate::transport::TransportConfig::Direct { route_experiment: None };
+    let started = Instant::now();
+
+    let observation = ripdpi_diagnostics_contracts::util::with_scan_io_deadline(
+        Some(Instant::now() + Duration::from_millis(500)),
+        || run_fat_header_attempt(&target, &transport, "", "127.0.0.1"),
+    );
+
+    let elapsed = started.elapsed();
+    assert_eq!(observation.error.as_deref(), Some("scan_deadline_exceeded"), "{observation:?}");
+    assert_eq!(observation.status, FatHeaderStatus::ConnectFailed);
+    assert!(elapsed < Duration::from_secs(2), "probe ran for {elapsed:?}");
+    server.join().expect("fixture thread");
+}
