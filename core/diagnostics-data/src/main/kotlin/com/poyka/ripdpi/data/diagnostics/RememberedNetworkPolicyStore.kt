@@ -80,10 +80,10 @@ interface RememberedNetworkPolicyStore {
 
 /**
  * Serializes the read-modify-writes of `remembered_network_policies` made by
- * [DefaultRememberedNetworkPolicyStore] and the terminal outbox policy checkpoint. Callers hold entity
- * snapshots from different coroutines, so each mutation re-reads the row under this lock. Backup
- * restore and history clears write the table without it; they replace or delete rows, and a later
- * locked update of a deleted row writes nothing.
+ * [DefaultRememberedNetworkPolicyStore], the terminal outbox policy checkpoint, the history reset and
+ * the retention delete. Callers hold entity snapshots from different coroutines, so each mutation
+ * re-reads the row under this lock, and a delete cannot fall between that read and the write.
+ * Lock order: this lock, then a Room transaction.
  */
 internal val rememberedNetworkPolicyWriteLock = Mutex()
 

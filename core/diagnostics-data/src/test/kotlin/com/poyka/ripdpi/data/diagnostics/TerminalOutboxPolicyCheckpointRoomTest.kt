@@ -3,10 +3,13 @@ package com.poyka.ripdpi.data.diagnostics
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusObserved
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -70,6 +73,33 @@ class TerminalOutboxPolicyCheckpointRoomTest : DiagnosticsRoomStoreTestBase() {
             }
 
             assertEquals(2 * RacingWriters, dao.getRememberedNetworkPolicyById(snapshot.id)?.failureCount)
+        }
+
+    @Test
+    fun `a history reset during a policy update is not undone by the update`() =
+        runTest {
+            val resetStore = RoomDiagnosticsHistoryResetStore(db, dao)
+            val roomRecords = RoomRememberedNetworkPolicyRecordStore(dao, clock)
+            val resets = mutableListOf<Job>()
+            // Starts a reset right after the store read the row and gives it time to finish before the write.
+            val racingRecords =
+                object : RememberedNetworkPolicyRecordStore by roomRecords {
+                    override suspend fun getRememberedNetworkPolicyById(id: Long): RememberedNetworkPolicyEntity? {
+                        val row = roomRecords.getRememberedNetworkPolicyById(id)
+                        val reset = CoroutineScope(Dispatchers.Default).launch { resetStore.clearRuntimeHistory() }
+                        resets += reset
+                        withContext(Dispatchers.Default) { withTimeoutOrNull(500L) { reset.join() } }
+                        return row
+                    }
+                }
+            val policyStore = DefaultRememberedNetworkPolicyStore(racingRecords, clock)
+            val snapshot = policy(fingerprintHash = "reset-policy", status = RememberedNetworkPolicyStatusObserved)
+            dao.upsertRememberedNetworkPolicy(snapshot)
+
+            policyStore.recordFailure(policy = snapshot, failedAt = 40L, allowSuppression = false)
+            resets.single().join()
+
+            assertNull(dao.getRememberedNetworkPolicyById(snapshot.id))
         }
 
     private fun outboxMarker(sessionId: String) =

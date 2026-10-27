@@ -10,6 +10,7 @@ import com.poyka.ripdpi.data.NetworkEdgePreferenceRetentionMaxAgeMs
 import com.poyka.ripdpi.data.RememberedNetworkPolicyRetentionLimit
 import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -732,7 +733,8 @@ class RoomDiagnosticsHistoryRetentionStore
             dao.deleteNativeEventsOlderThan(threshold)
             dao.deleteExportRecordsOlderThan(threshold)
             dao.deleteBypassUsageSessionsOlderThan(threshold)
-            dao.deleteRememberedNetworkPoliciesOlderThan(threshold)
+            // Under the policy lock, so a store update that read a row cannot write it back after this delete.
+            rememberedNetworkPolicyWriteLock.withLock { dao.deleteRememberedNetworkPoliciesOlderThan(threshold) }
             dao.deleteNetworkDnsPathPreferencesOlderThan(threshold)
             dao.deleteBlockedPathsOlderThan(threshold)
             dao.deleteNetworkEdgePreferencesOlderThan(threshold)
@@ -748,21 +750,24 @@ class RoomDiagnosticsHistoryResetStore
         private val dao: DiagnosticsDao,
     ) : DiagnosticsHistoryResetStore {
         override suspend fun clearRuntimeHistory() {
-            db.withTransaction {
-                dao.deleteAllProbeResults()
-                dao.deleteAllScanSessions()
-                dao.deleteAllSnapshots()
-                dao.deleteAllContextSnapshots()
-                dao.deleteAllTelemetrySamples()
-                dao.deleteAllNativeEvents()
-                dao.deleteAllExportRecords()
-                dao.deleteAllBypassUsageSessions()
-                dao.clearRememberedNetworkPolicies()
-                dao.clearNetworkDnsPathPreferences()
-                dao.clearBlockedPaths()
-                dao.clearNetworkEdgePreferences()
-                dao.clearAllDiagnosticsDurableState()
-                dao.deleteAllHomeDiagnosticsRuns()
+            // Lock before the transaction (the outbox order), so a policy update cannot undo the clear.
+            rememberedNetworkPolicyWriteLock.withLock {
+                db.withTransaction {
+                    dao.deleteAllProbeResults()
+                    dao.deleteAllScanSessions()
+                    dao.deleteAllSnapshots()
+                    dao.deleteAllContextSnapshots()
+                    dao.deleteAllTelemetrySamples()
+                    dao.deleteAllNativeEvents()
+                    dao.deleteAllExportRecords()
+                    dao.deleteAllBypassUsageSessions()
+                    dao.clearRememberedNetworkPolicies()
+                    dao.clearNetworkDnsPathPreferences()
+                    dao.clearBlockedPaths()
+                    dao.clearNetworkEdgePreferences()
+                    dao.clearAllDiagnosticsDurableState()
+                    dao.deleteAllHomeDiagnosticsRuns()
+                }
             }
         }
     }
