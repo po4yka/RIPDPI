@@ -12,6 +12,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -164,13 +165,40 @@ class StrategyProbeServiceTest {
 
             val first = launch { service.run(config).toList() }
             runCurrent()
-            val second = launch { service.run(config).toList() }
-            runCurrent()
+            val second = runCatching { service.run(config).toList() }
             release.complete(Unit)
             first.join()
-            second.join()
 
+            assertTrue(second.exceptionOrNull() is IllegalStateException)
             assertEquals("original", repository.snapshot().strategyChainYaml)
+        }
+
+    @Test
+    fun `a run started from a result collector fails fast instead of deadlocking`() =
+        runTest {
+            val repository =
+                FakeAppSettingsRepository(
+                    defaultDiagnosticsAppSettings().toBuilder().setStrategyChainYaml("original").build(),
+                )
+            val service =
+                DefaultStrategyProbeService(
+                    candidateProvider =
+                        FakeStrategyProbeCandidateProvider(listOf(StrategyProbeCandidate("split", "Split"))),
+                    activator = SettingsStrategyProbeActivator(repository),
+                    transport = FakeProbeTransport { StrategyProbeConnectionResult.Success(latencyMs = 10) },
+                    dnsComparator = FakeDnsComparator(StrategyProbeDnsComparison.NoDifference),
+                    resultInjector = FakeStrategyProbeResultInjector(),
+                )
+            val config = StrategyProbeConfig(testDomains = listOf("example.test"), timeoutMs = 1_000)
+            var nested: Result<List<StrategyProbeResult>>? = null
+
+            withTimeout(10_000L) {
+                service.run(config).collect { nested = runCatching { service.run(config).toList() } }
+            }
+
+            assertTrue(nested?.exceptionOrNull() is IllegalStateException)
+            assertEquals("original", repository.snapshot().strategyChainYaml)
+            assertEquals(1, service.run(config).toList().size)
         }
 
     @Test
