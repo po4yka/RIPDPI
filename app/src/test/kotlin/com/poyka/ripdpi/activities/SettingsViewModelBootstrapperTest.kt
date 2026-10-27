@@ -90,6 +90,47 @@ class SettingsViewModelBootstrapperTest {
         }
 
     @Test
+    fun `initialize keeps the pin when the keystore cannot be read`() =
+        runTest {
+            val settingsRepository =
+                FakeAppSettingsRepository(
+                    AppSettingsSerializer.defaultValue
+                        .toBuilder()
+                        .setBackupPin("1234")
+                        .setBiometricEnabled(true)
+                        .build(),
+                )
+
+            SettingsViewModelBootstrapper(
+                appSettingsRepository = settingsRepository,
+                strategyPackStateStore = InMemoryStrategyPackStateStore(),
+                pinVerifier =
+                    object : PinVerifier {
+                        override fun hashPin(pin: String): String = pin
+
+                        override fun verify(
+                            candidatePin: String,
+                            storedHash: String,
+                        ): Boolean = candidatePin == storedHash
+
+                        // The keystore threw: whether the key exists is unknown.
+                        override fun isKeyAvailable(): Boolean? = null
+                    },
+            ).initialize(
+                scope = backgroundScope,
+                effects = MutableSharedFlow(extraBufferCapacity = 1),
+                loadInitialHostPackCatalog = {},
+                loadInitialStrategyPackCatalog = {},
+                updateStrategyPackCatalogRuntimeState = {},
+            )
+            advanceUntilIdle()
+
+            val settings = settingsRepository.snapshot()
+            assertEquals("1234", settings.backupPin)
+            assertTrue(settings.biometricEnabled)
+        }
+
+    @Test
     fun `initialize keeps propagating later strategy pack runtime state updates`() =
         runTest {
             val settingsRepository = FakeAppSettingsRepository()

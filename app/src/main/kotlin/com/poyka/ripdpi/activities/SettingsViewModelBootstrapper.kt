@@ -39,7 +39,8 @@ class SettingsViewModelBootstrapper
 
         private suspend fun ensurePinKeyIntegrity(effects: MutableSharedFlow<SettingsEffect>) {
             val settings = appSettingsRepository.snapshot()
-            if (settings.backupPin.isNotBlank() && !pinVerifier.isKeyAvailable()) {
+            // Wipe only on a definite "no key": an unreadable keystore must not disable the app lock.
+            if (settings.backupPin.isNotBlank() && pinVerifier.isKeyAvailable() == false) {
                 appSettingsRepository.update {
                     setBackupPin("")
                     setBiometricEnabled(false)

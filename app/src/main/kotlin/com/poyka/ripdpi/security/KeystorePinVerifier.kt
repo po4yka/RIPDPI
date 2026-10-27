@@ -29,20 +29,20 @@ class KeystorePinVerifier
             storedHash: String,
         ): Boolean {
             if (storedHash.isBlank()) return false
-            if (!isKeyAvailable()) return false
+            if (isKeyAvailable() != true) return false
             return MessageDigest.isEqual(
                 hashPin(candidatePin).toByteArray(Charsets.UTF_8),
                 storedHash.toByteArray(Charsets.UTF_8),
             )
         }
 
-        override fun isKeyAvailable(): Boolean =
+        override fun isKeyAvailable(): Boolean? =
             try {
                 val ks = KeyStore.getInstance(KEYSTORE_PROVIDER)
                 ks.load(null)
                 ks.containsAlias(KEY_ALIAS)
             } catch (_: Exception) {
-                false
+                null
             }
 
         private fun getOrCreateKey(): SecretKey {
