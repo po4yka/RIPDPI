@@ -1,12 +1,16 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import java.util.Collections
+import java.util.concurrent.Executors
 import kotlin.random.Random
 
 class Ipv4WhitelistedSubnetDiscovererTest {
@@ -160,6 +164,46 @@ class Ipv4WhitelistedSubnetDiscovererTest {
             assertTrue(observed.single().result.whitelisted)
         }
 
+    @Test
+    fun cacheAndCheckWorkRunOffTheCollectorThread() =
+        runTest {
+            temp.create()
+            val collector = Executors.newSingleThreadExecutor { task -> Thread(task, CollectorThreadName) }
+            try {
+                val threads = Collections.synchronizedList(mutableListOf<String>())
+                val discoverer =
+                    Ipv4WhitelistedSubnetDiscoverer(
+                        asns = listOf(WhitelistAsn("VK", 28709)),
+                        ripeStat =
+                            RipeStatPrefixSource {
+                                threads += Thread.currentThread().name
+                                listOf("192.0.2.0/24")
+                            },
+                        cache = SubnetsCache(temp.newFile("cache.json")),
+                        aliveProbe =
+                            object : SubnetAliveProbe {
+                                override suspend fun probe(
+                                    ip: String,
+                                    timeoutMs: Long,
+                                ): SubnetAliveProbeResult {
+                                    threads += Thread.currentThread().name
+                                    return SubnetAliveProbeResult.Unreachable
+                                }
+                            },
+                    )
+
+                withContext(collector.asCoroutineDispatcher()) {
+                    discoverer.cacheSubnets().toList()
+                    discoverer.checkCachedSubnets(WhitelistedSubnetConfig(subnetSampleSize = 2)).toList()
+                }
+
+                assertEquals(3, threads.size)
+                assertTrue(threads.toString(), threads.none { name -> name.startsWith(CollectorThreadName) })
+            } finally {
+                collector.shutdown()
+            }
+        }
+
     private class RecordingRipeStatSource(
         private vararg val responses: Pair<Int, List<String>>,
     ) : RipeStatPrefixSource {
@@ -184,5 +228,9 @@ class Ipv4WhitelistedSubnetDiscovererTest {
                 in tlsPostHandshakeFailures -> SubnetAliveProbeResult.TlsPostHandshakeFailure
                 else -> SubnetAliveProbeResult.Unreachable
             }
+    }
+
+    private companion object {
+        const val CollectorThreadName = "subnet-collector"
     }
 }

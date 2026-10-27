@@ -4,6 +4,7 @@ import com.poyka.ripdpi.serialization.RipDpiPrettyDefaultsJson
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
@@ -129,7 +130,7 @@ class Ipv4WhitelistedSubnetDiscoverer(
                     ),
                 )
             }
-        }
+        }.flowOn(Dispatchers.IO) // Cache file I/O, JSON and sampling block; collectors run on Main.
 
     fun checkCachedSubnets(config: WhitelistedSubnetConfig = WhitelistedSubnetConfig()): Flow<SubnetCheckProgress> =
         flow {
@@ -157,7 +158,7 @@ class Ipv4WhitelistedSubnetDiscoverer(
                     ),
                 )
             }
-        }
+        }.flowOn(Dispatchers.IO)
 
     private fun List<String>.filterIpv4Cidrs(config: WhitelistedSubnetConfig): List<String> =
         mapNotNull { cidr ->
