@@ -174,9 +174,12 @@ private class ReplayEventListener(
     @Volatile private var lastSuccessfulStep: ReplayStepKind? = null
 
     @Volatile private var lastErrorKind: ReplayErrorKind? = null
+
+    @Volatile private var failedStep: ReplayStepKind? = null
     private val stepStartedAtMs = mutableMapOf<ReplayStepKind, Long>()
 
-    fun terminalStep(): ReplayStepKind? = currentStep ?: lastSuccessfulStep
+    // fail() clears currentStep, so the step that failed must be kept on its own.
+    fun terminalStep(): ReplayStepKind? = failedStep ?: currentStep ?: lastSuccessfulStep
 
     fun lastErrorKind(): ReplayErrorKind? = lastErrorKind
 
@@ -187,6 +190,8 @@ private class ReplayEventListener(
 
     private fun start(step: ReplayStepKind) {
         currentStep = step
+        // A new step after a failure means OkHttp retried (another route); the earlier failure is not terminal.
+        failedStep = null
         val now = System.currentTimeMillis()
         stepStartedAtMs[step] = now
         emit(ReplayStepEvent.StepStarted(step, now))
@@ -210,6 +215,7 @@ private class ReplayEventListener(
     ) {
         emit(ReplayStepEvent.StepFailed(step, errorKind, detail))
         lastErrorKind = errorKind
+        failedStep = step
         currentStep = null
     }
 

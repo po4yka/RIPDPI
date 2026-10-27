@@ -107,6 +107,35 @@ class DefaultProbeReplayServiceTest {
                 // after TcpOpen in our state machine. With HTTP (no TLS)
                 // that is the implicit FirstByte boundary.
                 assertNotNull("expected terminal step set on failure", finished.terminalStep)
+                assertEquals(events.filterIsInstance<ReplayStepEvent.StepFailed>().last().step, finished.terminalStep)
+            }
+        }
+
+    @Test
+    fun dnsFailure_reportsDnsResolveAsTheTerminalStep() =
+        runTest {
+            MockWebServer().use { server ->
+                server.start()
+                val failingDns =
+                    ReplayHttpClientFactory { request, listener ->
+                        val base = httpFactory(server).build(request, listener)
+                        ReplayHttpClient(
+                            base.client
+                                .newBuilder()
+                                .dns { hostname -> throw java.net.UnknownHostException(hostname) }
+                                .build(),
+                            base.url,
+                        )
+                    }
+
+                val events =
+                    DefaultProbeReplayService(failingDns, recommendationEngine)
+                        .run(ReplayProbeRequest(domain = "example.test", strategyId = "split", timeoutMs = 5_000))
+                        .toList()
+
+                val finished = events.filterIsInstance<ReplayStepEvent.Finished>().single()
+                assertEquals(ReplayVerdict.Failure, finished.verdict)
+                assertEquals(ReplayStepKind.DnsResolve, finished.terminalStep)
             }
         }
 
