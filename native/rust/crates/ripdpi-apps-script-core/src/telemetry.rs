@@ -34,6 +34,8 @@ pub struct RelayTelemetryState {
     last_target: Mutex<Option<String>>,
     last_host: Mutex<Option<String>>,
     last_error: Mutex<Option<String>>,
+    /// The target of the last failed fetch since the last success; never exported.
+    failed_target: Mutex<Option<String>>,
     active_sessions: AtomicU64,
     total_sessions: AtomicU64,
     total_errors: AtomicU64,
@@ -51,6 +53,7 @@ impl RelayTelemetryState {
             last_target: Mutex::new(None),
             last_host: Mutex::new(None),
             last_error: Mutex::new(None),
+            failed_target: Mutex::new(None),
             active_sessions: AtomicU64::new(0),
             total_sessions: AtomicU64::new(0),
             total_errors: AtomicU64::new(0),
@@ -119,6 +122,7 @@ impl RelayTelemetryState {
         // Ordering: byte/error counters are diagnostics-only and may be sampled
         // independently, so Relaxed preserves atomicity without synchronization.
         self.total_bytes.fetch_add(u64::try_from(byte_count).unwrap_or(u64::MAX), Ordering::Relaxed);
+        *self.failed_target.lock().expect("failed target telemetry mutex") = None;
         // The latest outcome sets the health: a success after errors recovers it.
         // A relay that is starting or stopping keeps its lifecycle state.
         if *self.state.lock().expect("state telemetry mutex") == "running" {
@@ -132,6 +136,19 @@ impl RelayTelemetryState {
         // counter is only an independently sampled telemetry total.
         self.total_errors.fetch_add(1, Ordering::Relaxed);
         self.set_state("running", "degraded");
+    }
+
+    /// Record a fetch that failed at its target (`target` = its authority), not in the relay.
+    /// One failing site keeps the health; failures of two different targets with no success
+    /// in between mark the relay degraded.
+    pub fn record_target_error(&self, message: String, target: &str) {
+        *self.last_error.lock().expect("error telemetry mutex") = Some(message);
+        // Ordering: an independently sampled telemetry total (see record_error).
+        self.total_errors.fetch_add(1, Ordering::Relaxed);
+        let previous = self.failed_target.lock().expect("failed target telemetry mutex").replace(target.to_string());
+        if previous.is_some_and(|previous| previous != target) {
+            self.set_state("running", "degraded");
+        }
     }
 
     pub fn snapshot(&self, config: &AppsScriptRuntimeConfig) -> RelayTelemetry {
@@ -227,6 +244,19 @@ mod tests {
         state.mark_stopping();
         state.record_success(1);
         assert_eq!(state.snapshot(&test_config()).state, "stopping");
+    }
+
+    #[test]
+    fn a_success_between_two_target_errors_keeps_the_relay_healthy() {
+        let state = RelayTelemetryState::new(&test_config());
+        state.mark_listener_bound("127.0.0.1:11980".to_string());
+
+        state.record_target_error("Apps Script relay failed: relay error".to_string(), "a.example");
+        state.record_success(1);
+        state.record_target_error("Apps Script relay failed: relay error".to_string(), "b.example");
+
+        let snapshot = state.snapshot(&test_config());
+        assert_eq!((snapshot.total_errors, snapshot.health.as_str()), (2, "healthy"));
     }
 
     #[test]

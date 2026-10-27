@@ -223,3 +223,20 @@ async fn a_stalled_deployment_is_cut_off_and_cools_while_the_next_one_answers() 
     assert_eq!(front.requests(), vec!["script-a".to_string(), "script-b".to_string()]);
     assert!(fronter.scripts.is_cooling_now(0), "the stalled deployment cools");
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn one_failing_target_keeps_the_relay_healthy_until_another_target_fails() {
+    let front = FakeFront::start(&["www.google.com"], |_| Reply::Json(TARGET_ERROR)).await;
+    let (fronter, telemetry, config) = front.fronter(r#"{"scriptIds":["script-a"],"authKey":"secret"}"#);
+    let health = || {
+        let snapshot = telemetry.snapshot(&config);
+        (snapshot.total_errors, snapshot.health)
+    };
+
+    fronter.relay("GET", "https://broken.example/page", &[], &[]).await;
+    fronter.relay("GET", "https://broken.example/other?query", &[], &[]).await;
+    assert_eq!(health(), (2, "healthy".to_string()), "one failing site is not a relay fault");
+
+    fronter.relay("GET", "https://also-broken.example/", &[], &[]).await;
+    assert_eq!(health(), (3, "degraded".to_string()), "two failing sites in a row degrade the relay");
+}

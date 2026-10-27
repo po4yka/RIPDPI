@@ -101,10 +101,15 @@ impl AppsScriptDomainFronter {
                 self.telemetry.record_success(response.len());
                 response
             }
-            Ok(Err(error)) => {
+            Ok(Err(attempt)) => {
                 // The class only: the error text can quote the Apps Script page or the target.
-                self.telemetry.record_error(format!("Apps Script relay failed: {}", error.class()));
-                error_response(502, &format!("Apps Script relay error: {error}"))
+                let message = format!("Apps Script relay failed: {}", attempt.error.class());
+                if attempt.is_target_error() {
+                    self.telemetry.record_target_error(message, url_authority(url));
+                } else {
+                    self.telemetry.record_error(message);
+                }
+                error_response(502, &format!("Apps Script relay error: {}", attempt.error))
             }
             Err(_) => {
                 self.telemetry.record_error("Apps Script relay failed: timeout".to_string());
@@ -126,8 +131,9 @@ impl AppsScriptDomainFronter {
         url: &str,
         headers: &[(String, String)],
         body: &[u8],
-    ) -> Result<Vec<u8>, FronterError> {
-        let payload = request::build_payload_json(&self.auth_key, method, url, headers, body)?;
+    ) -> Result<Vec<u8>, AttemptError> {
+        let payload = request::build_payload_json(&self.auth_key, method, url, headers, body)
+            .map_err(|error| AttemptError { error, sent: false, deployment_fault: false })?;
         let mut last_error = None;
         let order = self.scripts.attempt_order();
         // A stalled deployment is cut off within the total budget, so the next one still has time.
@@ -144,14 +150,18 @@ impl AppsScriptDomainFronter {
                         self.scripts.record(index, false);
                     }
                     let retry = attempt.may_retry(method);
-                    last_error = Some(attempt.error);
+                    last_error = Some(attempt);
                     if !retry {
                         break;
                     }
                 }
             }
         }
-        Err(last_error.unwrap_or_else(|| FronterError::Relay("no Apps Script deployment configured".to_string())))
+        Err(last_error.unwrap_or_else(|| AttemptError {
+            error: FronterError::Relay("no Apps Script deployment configured".to_string()),
+            sent: false,
+            deployment_fault: true,
+        }))
     }
 
     /// # Cancel safety
@@ -235,6 +245,12 @@ impl AppsScriptDomainFronter {
     ) -> Result<tokio_rustls::client::TlsStream<TcpStream>, FronterError> {
         self.connect_front(upstream, port, RELAY_TIMEOUT).await
     }
+}
+
+/// The authority (`host[:port]`) of `url`, used only to tell relay targets apart.
+fn url_authority(url: &str) -> &str {
+    let rest = url.split_once("://").map_or(url, |(_, rest)| rest);
+    rest.split(['/', '?', '#']).next().unwrap_or(rest)
 }
 
 pub(crate) fn error_response(status: u16, message: &str) -> Vec<u8> {

@@ -91,6 +91,13 @@ impl AttemptError {
     }
 }
 
+impl AttemptError {
+    /// The request reached Apps Script and only the target fetch failed.
+    pub(super) fn is_target_error(&self) -> bool {
+        self.sent && !self.deployment_fault
+    }
+}
+
 /// Whether an error the relay script reported is about the deployment (quota, limit,
 /// authorization) rather than the target fetch.
 pub(super) fn is_deployment_error(message: &str) -> bool {
