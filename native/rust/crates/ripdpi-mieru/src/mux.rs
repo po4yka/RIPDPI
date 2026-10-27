@@ -73,7 +73,7 @@ struct MuxWriter {
 
 impl MuxWriter {
     async fn send_open(&mut self, session_id: u32, seq: &mut u32) -> Result<()> {
-        let (_, suffix) = self.enc.next_padding()?;
+        let suffix = self.enc.next_session_padding()?;
         let now = self.time.now_unix();
         let this_seq = next(seq);
         self.enc
@@ -98,7 +98,7 @@ impl MuxWriter {
     }
 
     async fn send_close(&mut self, session_id: u32, seq: &mut u32) -> Result<()> {
-        let (_, suffix) = self.enc.next_padding()?;
+        let suffix = self.enc.next_session_padding()?;
         let now = self.time.now_unix();
         let this_seq = next(seq);
         self.enc

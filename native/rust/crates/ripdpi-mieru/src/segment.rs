@@ -15,11 +15,7 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use crate::cipher::{self, KEY_LEN, NONCE_LEN, Nonce, TAG_LEN};
 use crate::error::{MieruError, Result};
 use crate::metadata::{DataAckMeta, METADATA_LEN, ProtocolType, SessionMeta};
-
-/// Upper bound on the random prefix/suffix padding we *emit* (the field is a
-/// `u8`, so the wire maximum is 255; we cap lower to bound per-segment overhead).
-/// The reader accepts any length the metadata declares.
-const MAX_EMIT_PADDING: u8 = 64;
+use crate::padding::{SessionPadding, data_padding_len};
 /// Largest plaintext fragment carried in one data segment (upstream `maxPDU`).
 pub(crate) const MAX_PDU: usize = 32 * 1024;
 
@@ -31,17 +27,23 @@ pub(crate) struct Encryptor {
     username: Vec<u8>,
     rng: SystemRandom,
     send_nonce: Option<Nonce>,
+    session_padding: SessionPadding,
+    /// Shaped suffix chosen by [`Self::next_session_padding`] for the next
+    /// session segment.
+    pending_session_suffix: Option<Vec<u8>>,
 }
 
 impl Encryptor {
     pub(crate) fn new(key: [u8; KEY_LEN], username: Vec<u8>) -> Self {
-        Self { key, username, rng: SystemRandom::new(), send_nonce: None }
-    }
-
-    fn random_padding_len(&self) -> Result<u8> {
-        let mut byte = [0u8; 1];
-        self.rng.fill(&mut byte).map_err(|_| MieruError::Crypto("padding rng"))?;
-        Ok(byte[0] % (MAX_EMIT_PADDING + 1))
+        let session_padding = SessionPadding::for_user(&username);
+        Self {
+            key,
+            username,
+            rng: SystemRandom::new(),
+            send_nonce: None,
+            session_padding,
+            pending_session_suffix: None,
+        }
     }
 
     fn random_bytes(&self, len: usize) -> Result<Vec<u8>> {
@@ -93,7 +95,10 @@ impl Encryptor {
         };
 
         let prefix_pad = self.random_bytes(usize::from(prefix_len))?;
-        let suffix_pad = self.random_bytes(usize::from(suffix_len))?;
+        let suffix_pad = match self.pending_session_suffix.take() {
+            Some(shaped) if shaped.len() == usize::from(suffix_len) => shaped,
+            _ => self.random_bytes(usize::from(suffix_len))?,
+        };
 
         // One write per segment, as upstream `writeOneSegment` does: separate
         // writes would put a lone 24-byte nonce in the first TCP packet.
@@ -118,9 +123,19 @@ impl Encryptor {
         Ok(())
     }
 
-    /// Choose a random padding length pair for the next outbound segment.
+    /// Choose the prefix and suffix padding lengths for the next data segment.
     pub(crate) fn next_padding(&self) -> Result<(u8, u8)> {
-        Ok((self.random_padding_len()?, self.random_padding_len()?))
+        Ok((data_padding_len(&self.rng)?, data_padding_len(&self.rng)?))
+    }
+
+    /// Choose the suffix padding for the next session segment (no payload)
+    /// and return its length; the next `write_segment` with that suffix
+    /// length writes it. See `padding.rs` for the upstream shaping.
+    pub(crate) fn next_session_padding(&mut self) -> Result<u8> {
+        let suffix = self.session_padding.suffix(&self.rng, 0)?;
+        let len = u8::try_from(suffix.len()).map_err(|_| MieruError::Protocol("padding too long".to_owned()))?;
+        self.pending_session_suffix = Some(suffix);
+        Ok(len)
     }
 }
 
@@ -314,5 +329,43 @@ mod tests {
             .expect("segment");
         let expected = NONCE_LEN + METADATA_LEN + TAG_LEN + 5 + payload.len() + TAG_LEN + 9;
         assert_eq!(log.0, vec![expected]);
+    }
+
+    /// A session segment's suffix is the shaped padding chosen for it.
+    #[tokio::test]
+    async fn session_segment_writes_the_shaped_suffix() {
+        let username = (0..64)
+            .map(|index| format!("user{index}").into_bytes())
+            .find(|name| matches!(SessionPadding::for_user(name), SessionPadding::Ascii(_)))
+            .expect("some user has the ASCII strategy");
+        let SessionPadding::Ascii(run) = SessionPadding::for_user(&username) else { unreachable!() };
+        let key = cipher::derive_key(b"pw", &username, 1_000_000_000, 0);
+        let mut codec = Encryptor::new(key, username);
+        let mut wire = Vec::new();
+        let suffix_len = codec.next_session_padding().expect("padding");
+        codec
+            .write_segment(
+                &mut wire,
+                0,
+                suffix_len,
+                |_prefix, suffix_len| {
+                    SessionMeta {
+                        protocol: ProtocolType::OpenSessionRequest,
+                        session_id: 1,
+                        seq: 0,
+                        status_code: 0,
+                        payload_len: 0,
+                        suffix_len,
+                    }
+                    .marshal(1_000_000_000)
+                },
+                None,
+            )
+            .await
+            .expect("segment");
+        let suffix = &wire[NONCE_LEN + METADATA_LEN + TAG_LEN..];
+        assert_eq!(suffix.len(), usize::from(suffix_len));
+        let longest = suffix.split(|byte| !(0x20..=0x7E).contains(byte)).map(<[u8]>::len).max().unwrap_or(0);
+        assert!(longest >= run, "the open-session suffix must carry a {run}-byte printable run");
     }
 }

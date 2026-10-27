@@ -93,6 +93,13 @@ Upstream bounds the payload an open-session segment may piggyback to
   metadata). `padding 0`/`1`/`2` are random, **unencrypted** entropy/anti-DPI
   filler (`newPadding`, bounded by `maxPaddingSize`); the receiver skips them
   using the decrypted metadata lengths. `maxPDU = 32 * 1024`.
+- Emitted padding follows upstream `padding.go` for the stream carrier
+  (`src/padding.rs`): data segments carry random prefix and suffix padding of
+  up to 255 bytes each, with upstream's bias to short lengths. A session
+  segment's suffix follows `buildRecommendedPaddingOpts`: a fixed per-user
+  choice of a 24 to 40 byte printable ASCII run, or bit-biased bytes towards a
+  0.325 bit ratio. Upstream also mixes its app version and the host name into
+  that choice; this client uses the username only.
 
 ## 4. TCP carrier payload
 

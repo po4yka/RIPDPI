@@ -40,7 +40,7 @@ impl DataWriter {
     async fn send_open(&mut self) -> Result<()> {
         // Session metadata has no prefix-padding field, so prefix padding MUST be
         // zero on session segments (only suffix padding is length-delimited).
-        let (_, suffix) = self.enc.next_padding()?;
+        let suffix = self.enc.next_session_padding()?;
         let session_id = self.session_id;
         let now = self.time.now_unix();
         let seq = self.next_seq();

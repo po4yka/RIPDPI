@@ -39,6 +39,7 @@ mod error;
 mod metadata;
 mod mux;
 mod owned_tasks;
+mod padding;
 mod segment;
 mod session;
 mod stream;
