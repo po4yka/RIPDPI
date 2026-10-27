@@ -32,10 +32,19 @@ impl RelayRuntime {
         })
     }
 
+    /// Serve until [`Self::stop`] is called, also when it was called before this call.
+    ///
+    /// # Cancel safety
+    /// cancel-safe: dropping the future closes the listener and its client tasks.
     pub async fn run(self: &Arc<Self>) -> io::Result<()> {
-        // Ordering: this flag only carries the stop bit; no data is published
-        // through it, and the accept loop observes it after an async timeout.
-        self.stop_requested.store(false, Ordering::Relaxed);
+        // A runtime serves one start, so the flag is never reset: a stop() that
+        // races startup is kept. Ordering: it only carries the stop bit; no data
+        // is published through it, and the accept loop observes it after an
+        // async timeout.
+        if self.stop_requested.load(Ordering::Relaxed) {
+            self.telemetry.mark_stopped();
+            return Ok(());
+        }
         self.telemetry.mark_starting();
         let server = ProxyServer::new(self.config.clone(), self.telemetry.clone())?;
         let result = server.run(self.stop_requested.clone()).await;
@@ -55,5 +64,28 @@ impl RelayRuntime {
 
     pub fn telemetry(&self) -> RelayTelemetry {
         self.telemetry.snapshot(&self.config)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[tokio::test]
+    async fn stop_that_arrives_before_run_is_not_lost() {
+        let port = std::net::TcpListener::bind("127.0.0.1:0").unwrap().local_addr().unwrap().port();
+        let data_dir = std::env::temp_dir().join(format!("ripdpi-apps-script-stop-{port}"));
+        let config = AppsScriptRuntimeConfig::from_json(&format!(
+            r#"{{"scriptIds":["script-id"],"authKey":"secret","listenPort":{port},"dataDir":"{}"}}"#,
+            data_dir.display()
+        ))
+        .unwrap();
+        let runtime = RelayRuntime::new(config);
+
+        runtime.stop();
+        let result = tokio::time::timeout(std::time::Duration::from_secs(3), runtime.run()).await;
+        let _ = std::fs::remove_dir_all(&data_dir);
+
+        assert!(matches!(result, Ok(Ok(()))), "run must honour the earlier stop instead of serving");
     }
 }
