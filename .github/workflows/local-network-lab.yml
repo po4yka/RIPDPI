@@ -21,7 +21,7 @@ concurrency:
 jobs:
   lab-doctor:
     name: Lab script and Docker doctor
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -128,7 +128,7 @@ jobs:
 
   vpn-emulator-lane:
     name: VPN-mode emulator lane
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_vpn_emulator_lane }}
     timeout-minutes: 5
     steps:

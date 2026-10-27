@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   fuzz-nightly:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     # Operators may request up to the documented 1,800 seconds per target;
     # three targets share a shard, so retain headroom for compilation.
     timeout-minutes: 120

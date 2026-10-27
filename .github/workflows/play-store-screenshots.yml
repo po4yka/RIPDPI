@@ -51,7 +51,7 @@ jobs:
       actions: read
     env:
       GOTOOLCHAIN: go1.27.2
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 150
     steps:
       - name: Checkout exact requested revision
@@ -241,7 +241,7 @@ jobs:
     needs: android-sources
     if: always() && !inputs.calibrate_relay && (needs.android-sources.result == 'success' || needs.android-sources.result == 'skipped')
     name: Capture marketing screenshots
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     defaults:
       run:

@@ -34,7 +34,7 @@ permissions:
 jobs:
   monitor-engine-dep-guard:
     name: Assert monitor-engine has no runtime-api deps
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
 
     steps:

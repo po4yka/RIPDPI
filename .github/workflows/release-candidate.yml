@@ -18,7 +18,7 @@ concurrency:
 
 jobs:
   candidate-preflight:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
       actions: read
@@ -86,7 +86,7 @@ jobs:
 
   xray-native:
     needs: candidate-preflight
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -106,7 +106,7 @@ jobs:
 
   pluggable-transport-assets:
     needs: candidate-preflight
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 60
     environment: release-signing
     outputs:
@@ -154,7 +154,7 @@ jobs:
 
   build-signed-candidate:
     needs: [pluggable-transport-assets, xray-native]
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 150
     environment: release-signing
     permissions:
@@ -442,7 +442,7 @@ jobs:
 
   attest-candidate:
     needs: build-signed-candidate
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 15
     permissions:
       attestations: write
