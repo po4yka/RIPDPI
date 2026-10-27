@@ -4,7 +4,7 @@ use std::time::Duration;
 use local_network_fixture::{AnyTlsLoopback, AnyTlsLoopbackConfig};
 use ripdpi_anytls::DEFAULT_PADDING_SCHEME;
 use ripdpi_anytls::padding::PaddingScheme;
-use ripdpi_anytls::session::{AnyTlsClient, AnyTlsClientConfig, AnyTlsError, TargetAddr};
+use ripdpi_anytls::session::{AnyTlsClient, AnyTlsClientConfig, AnyTlsError, SharedPaddingScheme, TargetAddr};
 use sha2::{Digest, Sha256};
 
 fn client_config(fixture: &AnyTlsLoopback, password: &str) -> AnyTlsClientConfig {
@@ -323,6 +323,42 @@ async fn update_padding_scheme_is_persisted_for_later_sessions_to_same_server() 
     let pushed_md5 = PaddingScheme::parse(pushed_scheme.as_bytes()).expect("pushed").padding_md5().to_owned();
     assert_eq!(observed.settings_padding_md5, vec![default_md5, pushed_md5]);
     assert_eq!(observed.update_padding_scheme_count, 1);
+}
+
+#[tokio::test]
+async fn pushed_padding_scheme_outlives_the_client_that_learned_it() {
+    let pushed_scheme = "stop=3\n0=9-9\n1=10-10\n2=11-11";
+    let fixture = AnyTlsLoopback::start(
+        "fixture-password",
+        AnyTlsLoopbackConfig {
+            server_padding_scheme: Some(pushed_scheme.to_owned()),
+            close_after_update: true,
+            ..AnyTlsLoopbackConfig::default()
+        },
+    )
+    .await
+    .expect("fixture");
+    let padding = SharedPaddingScheme::default();
+    let first = AnyTlsClient::with_padding_scheme(client_config(&fixture, "fixture-password"), padding.clone())
+        .expect("first client");
+    first
+        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
+        .await
+        .expect_err("first session closes after update");
+    first.close().await.expect("close first client");
+    drop(first);
+
+    let second =
+        AnyTlsClient::with_padding_scheme(client_config(&fixture, "fixture-password"), padding).expect("second client");
+    let mut stream = second
+        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
+        .await
+        .expect("a new client of the same profile uses the pushed padding");
+    stream.write_all(b"updated").await.expect("write");
+    assert_eq!(stream.read_exact_len(7).await.expect("read"), b"updated");
+
+    let pushed_md5 = PaddingScheme::parse(pushed_scheme.as_bytes()).expect("pushed").padding_md5().to_owned();
+    assert_eq!(fixture.observed().settings_padding_md5.last(), Some(&pushed_md5));
 }
 
 #[tokio::test]

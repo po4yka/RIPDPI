@@ -15,11 +15,17 @@ pub use ripdpi_anytls::session::AnyTlsClientConfig;
 pub struct AnyTlsSessionFactory {
     client_config: AnyTlsClientConfig,
     sessions: Arc<SessionRegistry<AnyTlsCarrier>>,
+    /// Outlives each carrier, so a scheme the server pushed is not lost on eviction.
+    padding: ripdpi_anytls::session::SharedPaddingScheme,
 }
 
 impl AnyTlsSessionFactory {
     pub fn new(client_config: AnyTlsClientConfig) -> Self {
-        Self { client_config, sessions: Arc::default() }
+        Self {
+            client_config,
+            sessions: Arc::default(),
+            padding: ripdpi_anytls::session::SharedPaddingScheme::default(),
+        }
     }
 }
 
@@ -76,8 +82,11 @@ impl RelaySessionFactory for AnyTlsSessionFactory {
     async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
         self.sessions
             .create(async {
-                let client =
-                    ripdpi_anytls::session::AnyTlsClient::new(self.client_config.clone()).map_err(to_io_error)?;
+                let client = ripdpi_anytls::session::AnyTlsClient::with_padding_scheme(
+                    self.client_config.clone(),
+                    self.padding.clone(),
+                )
+                .map_err(to_io_error)?;
                 Ok(AnyTlsCarrier { client })
             })
             .await

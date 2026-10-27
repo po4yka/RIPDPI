@@ -251,13 +251,33 @@ impl std::fmt::Debug for AnyTlsStream {
     }
 }
 
+/// The padding scheme of one server profile. Clients built with the same
+/// value keep a scheme the server pushed with `cmdUpdatePaddingScheme` after
+/// the session that learned it is gone, as the protocol requires.
+#[derive(Clone)]
+pub struct SharedPaddingScheme(Arc<Mutex<PaddingScheme>>);
+
+impl Default for SharedPaddingScheme {
+    fn default() -> Self {
+        // Infallible: DEFAULT_PADDING_SCHEME is a constant; tests/padding.rs parses it.
+        let scheme = PaddingScheme::parse(DEFAULT_PADDING_SCHEME.as_bytes()).expect("default padding scheme parses");
+        Self(Arc::new(Mutex::new(scheme)))
+    }
+}
+
 impl AnyTlsClient {
     pub fn new(config: AnyTlsClientConfig) -> Result<Self, AnyTlsError> {
+        Self::with_padding_scheme(config, SharedPaddingScheme::default())
+    }
+
+    /// Builds a client that reads and updates `padding_scheme`.
+    pub fn with_padding_scheme(
+        config: AnyTlsClientConfig,
+        padding_scheme: SharedPaddingScheme,
+    ) -> Result<Self, AnyTlsError> {
         if config.server_host.is_empty() || config.server_name.is_empty() || config.password.is_empty() {
             return Err(AnyTlsError::Config("server_host, server_name, and password are required".to_owned()));
         }
-        let padding_scheme = PaddingScheme::parse(DEFAULT_PADDING_SCHEME.as_bytes())
-            .map_err(|error| AnyTlsError::Padding(error.to_string()))?;
         let tasks = Arc::new(OwnedTasks::default());
         let owner = Arc::new(Owner(Arc::clone(&tasks)));
         Ok(Self {
@@ -266,7 +286,7 @@ impl AnyTlsClient {
             _owner: Some(owner),
             config: Arc::new(config),
             state: Arc::new(Mutex::new(ClientState { session: None, session_waiters: Vec::new() })),
-            padding_scheme: Arc::new(Mutex::new(padding_scheme)),
+            padding_scheme: padding_scheme.0,
         })
     }
 
