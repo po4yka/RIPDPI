@@ -14,6 +14,9 @@ struct TlsPreludeState {
     header: [u8; 3],
     payload: Vec<u8>,
     boundaries: Vec<usize>,
+    /// Bytes after the ClientHello record (a coalesced CCS or early-data
+    /// record), passed through unchanged after the re-framed record.
+    tail: Vec<u8>,
 }
 
 impl TlsPreludeState {
@@ -31,8 +34,9 @@ impl TlsPreludeState {
         if payload.is_empty() || boundaries.last().copied() != Some(payload.len()) {
             return None;
         }
+        let tail = buffer.get(ir.record_boundaries.last()?.payload.end..)?.to_vec();
 
-        Some(Self { header, payload, boundaries })
+        Some(Self { header, payload, boundaries, tail })
     }
 
     fn synthetic_record(&self) -> Option<Vec<u8>> {
@@ -61,6 +65,7 @@ impl TlsPreludeState {
         if start != self.payload.len() {
             return Err(DesyncError);
         }
+        output.extend_from_slice(&self.tail);
         Ok(output)
     }
 }

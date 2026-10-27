@@ -131,3 +131,21 @@ fn apply_tamper_tlsrec_ech_extension_is_noop_without_ech() {
 
     assert_eq!(tampered.bytes, DEFAULT_FAKE_TLS);
 }
+
+#[test]
+fn apply_tamper_tlsrec_keeps_bytes_after_the_client_hello_record() {
+    let mut hello = DEFAULT_FAKE_TLS.to_vec();
+    let record_len = u16::try_from(hello.len() - 5).expect("record length");
+    hello[3..5].copy_from_slice(&record_len.to_be_bytes());
+    let change_cipher_spec = [0x14, 0x03, 0x03, 0x00, 0x01, 0x01];
+    let mut input = hello.clone();
+    input.extend_from_slice(&change_cipher_spec);
+    let mut group = DesyncGroup::new(0);
+    group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::TlsRec, OffsetExpr::absolute(64))];
+
+    let tampered = apply_tamper(&group, &input, 7).expect("tamper");
+
+    assert_eq!(tampered.tls_prelude.applied_count, 1);
+    assert_eq!(tampered.bytes.len(), input.len() + 5, "one extra record header, nothing dropped");
+    assert!(tampered.bytes.ends_with(&change_cipher_spec), "trailing record must survive the prelude");
+}
