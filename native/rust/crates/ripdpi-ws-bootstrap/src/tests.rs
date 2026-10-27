@@ -160,7 +160,7 @@ fn authority_transport_hint_downgrades_doq_when_udp_not_clean() {
 
 #[test]
 fn ws_tunnel_host_supports_test_gateways() {
-    assert_eq!(ws_tunnel_host(TelegramDc::from_raw(10_004).expect("test dc")), "kws4-test.web.telegram.org");
+    assert_eq!(ws_tunnel_host(TelegramDc::from_raw(10_004).expect("test dc")), "kws4.web.telegram.org");
 }
 
 fn fixture_runtime_context(dns_http_port: u16) -> ProxyRuntimeContext {

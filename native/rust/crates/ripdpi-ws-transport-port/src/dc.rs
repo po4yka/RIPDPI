@@ -49,13 +49,23 @@ impl TelegramDc {
     pub fn ws_host(self) -> Option<String> {
         match self.class {
             TelegramDcClass::Production => Some(format!("kws{}.web.telegram.org", self.number)),
-            TelegramDcClass::Test => Some(format!("kws{}-test.web.telegram.org", self.number)),
+            // Test DCs share the production gateway host and select the test environment by path.
+            TelegramDcClass::Test => Some(format!("kws{}.web.telegram.org", self.number)),
+            TelegramDcClass::MediaOrCdn => None,
+        }
+    }
+
+    /// WebSocket request path on the gateway: `/apiws`, or `/apiws_test` for a test DC.
+    pub const fn ws_path(self) -> Option<&'static str> {
+        match self.class {
+            TelegramDcClass::Production => Some("/apiws"),
+            TelegramDcClass::Test => Some("/apiws_test"),
             TelegramDcClass::MediaOrCdn => None,
         }
     }
 
     pub fn ws_url(self) -> Option<String> {
-        self.ws_host().map(|host| format!("wss://{host}/apiws"))
+        Some(format!("wss://{}{}", self.ws_host()?, self.ws_path()?))
     }
 
     pub fn from_raw(raw: i32) -> Option<Self> {
@@ -230,10 +240,7 @@ mod tests {
     #[test]
     fn websocket_host_mapping_matches_dc_class() {
         assert_eq!(TelegramDc::production(1).ws_host().as_deref(), Some("kws1.web.telegram.org"));
-        assert_eq!(
-            TelegramDc::from_raw(10_005).expect("test dc").ws_host().as_deref(),
-            Some("kws5-test.web.telegram.org"),
-        );
+        assert_eq!(TelegramDc::from_raw(10_005).expect("test dc").ws_host().as_deref(), Some("kws5.web.telegram.org"),);
         assert_eq!(TelegramDc::from_raw(-2).expect("media dc").ws_host(), None);
     }
 
@@ -242,7 +249,7 @@ mod tests {
         assert_eq!(TelegramDc::production(4).ws_url().as_deref(), Some("wss://kws4.web.telegram.org/apiws"));
         assert_eq!(
             TelegramDc::from_raw(10_001).expect("test dc").ws_url().as_deref(),
-            Some("wss://kws1-test.web.telegram.org/apiws"),
+            Some("wss://kws1.web.telegram.org/apiws_test"),
         );
         assert_eq!(TelegramDc::from_raw(-1).expect("media dc").ws_url(), None);
     }

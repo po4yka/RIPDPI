@@ -70,8 +70,8 @@ address returns `None` (passthrough, not tunneled). `classify_target()` in
 exactly like the V4 path -- IPv6 Telegram traffic in the two known supernets is
 tunneled, not silently dropped to passthrough.
 
-**WS endpoints:** `ws_host()` -> `kws{n}.web.telegram.org` (or `kws{n}-test.*`),
-`ws_url()` -> `wss://kws{n}.web.telegram.org/apiws`. MediaOrCdn returns `None`.
+**WS endpoints:** `ws_host()` -> `kws{n}.web.telegram.org` for production and test DCs,
+`ws_url()` -> `wss://kws{n}.web.telegram.org/apiws` (test DCs: `wss://kws{n}.web.telegram.org/apiws_test`). MediaOrCdn returns `None`.
 
 **Cloudflare Worker route (`worker_route.rs`):** `CloudflareWorkerRoute` +
 `WorkerBearer` let an operator route the outer TLS/WebSocket connection

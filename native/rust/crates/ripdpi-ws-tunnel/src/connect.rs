@@ -159,13 +159,13 @@ fn build_tls_connector(fake_sni: Option<&str>) -> io::Result<SslConnector> {
 
 /// Build the Telegram WS upgrade request via the generic composable
 /// transport. The Telegram path is now just another consumer of
-/// [`crate::transport`]: it supplies a `host` + `/apiws` path and the
+/// [`crate::transport`]: it supplies a `host` + DC path and the
 /// shared builder applies the `binary` subprotocol. `tokio-tungstenite`
 /// 0.27 and the sync `tungstenite` 0.29 share the same `http` 1.x
 /// `Request` type, so the generic builder's output feeds the sync
 /// `tungstenite::client` call site directly with no conversion.
-fn build_ws_request(host: &str) -> io::Result<tungstenite::http::Request<()>> {
-    let config = WsTransportConfig::new(host, "/apiws");
+fn build_ws_request(host: &str, path: &str) -> io::Result<tungstenite::http::Request<()>> {
+    let config = WsTransportConfig::new(host, path);
     crate::transport::build_ws_request(&config, true).map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))
 }
 
@@ -189,13 +189,13 @@ fn build_ws_request_for_route(
                 .map_err(|e| io::Error::new(io::ErrorKind::InvalidInput, e))
         }
         None => {
-            let host = ws_host(dc).ok_or_else(|| {
-                io::Error::new(
+            let (Some(host), Some(path)) = (ws_host(dc), dc.ws_path()) else {
+                return Err(io::Error::new(
                     io::ErrorKind::InvalidInput,
                     format!("WS tunnel not supported for Telegram DC class {:?} raw={}", dc.class(), dc.raw()),
-                )
-            })?;
-            build_ws_request(&host)
+                ));
+            };
+            build_ws_request(&host, path)
         }
     }
 }
@@ -297,7 +297,7 @@ mod tests {
         // The Telegram path now builds its request through the generic
         // `transport` module: host + `/apiws` -> `wss://.../apiws` with the
         // `binary` subprotocol applied by the shared builder.
-        let request = build_ws_request("kws2.web.telegram.org").expect("build request");
+        let request = build_ws_request("kws2.web.telegram.org", "/apiws").expect("build request");
 
         assert_eq!(request.uri().to_string(), "wss://kws2.web.telegram.org/apiws");
         assert_eq!(
@@ -305,6 +305,15 @@ mod tests {
             Some("binary"),
         );
         assert_eq!(request.headers().get("Host").and_then(|value| value.to_str().ok()), Some("kws2.web.telegram.org"),);
+    }
+
+    #[test]
+    fn test_dc_request_uses_the_production_gateway_and_the_test_path() {
+        let request =
+            build_ws_request_for_route(TelegramDc::from_raw(10_002).expect("test dc"), None).expect("build request");
+
+        assert_eq!(request.uri().to_string(), "wss://kws2.web.telegram.org/apiws_test");
+        assert_eq!(request.headers().get("Host").and_then(|value| value.to_str().ok()), Some("kws2.web.telegram.org"));
     }
 
     #[test]
@@ -486,7 +495,7 @@ mod tests {
             resolve_ws_target_with(TelegramDc::from_raw(10_004).expect("test dc"), Some(target), None, |_| Ok(target))
                 .expect("resolve target");
 
-        assert_eq!(host, "kws4-test.web.telegram.org");
+        assert_eq!(host, "kws4.web.telegram.org");
         assert_eq!(resolved, target);
     }
 

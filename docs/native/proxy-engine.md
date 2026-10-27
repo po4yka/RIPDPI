@@ -760,7 +760,7 @@ flowchart TD
 ### Gateway mapping
 
 - Production: `wss://kws{dc}.web.telegram.org/apiws`
-- Test: `wss://kws{dc}-test.web.telegram.org/apiws`
+- Test: `wss://kws{dc}.web.telegram.org/apiws_test`
 
 ### Seed preservation
 
