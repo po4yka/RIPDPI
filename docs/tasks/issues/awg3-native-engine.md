@@ -22,5 +22,6 @@ Configs from current AmneziaVPN (AWG 3.1) servers import into RIPDPI, and the na
 
 - The requirements in `openspec/changes/awg3-native-engine/specs/awg3-native-engine/spec.md` have passing local evidence.
 - Locked `ripdpi-warp-core` tests and Clippy, the core JVM suites, the app gate and architecture health pass on the integrated commit.
-- The S3/S4 floor changes only after the owner-approved Android arm64 emulator interop gate passes. The arm64 emulator matrix in `verification.md` passed and lifted it.
-- Physical arm64 device revalidation was not performed; the policy fixture records `physical_device_revalidated: false`.
+- The client S3/S4 floor changes only after the owner-approved Android arm64 emulator interop gate passes. The emulator matrix in `verification.md` passed, the client floor is removed, and `core/data/src/test/resources/awg-arm64-emulator-observation.json` records the evidence.
+- The shared deployment guard in `core/data/src/test/resources/contract/amneziawg-arm64-version-floor.json` stays `guard_required: true`, unchanged by owner decision #687 (b058531e7), until a physical arm64 revalidation.
+- No physical arm64 revalidation has been done.

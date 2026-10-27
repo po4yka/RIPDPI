@@ -20,7 +20,7 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-IMPORT-PARITY | AND-1792946024484513 | ScannerUriDispatcherTest, ClipboardImportClassifierTest, ImportHandlerActivityTest, ImportIntentFilterTest | Passed locally |
-| REQ-IMPORT-SUBSCRIPTION | AND-1792946025753354 | SubscriptionLinkClassifierTest, SingBoxDeepLinkParserTest, SubscriptionInitialImportTest, SubscriptionProfileHeadersTest | Passed locally |
-| REQ-IMPORT-CONF | AND-1792946025753354 | AmneziaWgProfileViewModelTest, AmneziaVpnKeyDecoderTest, QrScannerViewModelTest, ImportTextReaderTest | Passed locally |
-| REQ-IMPORT-SECRETS | AND-1792946024484513 | ImportHandlerActivityTest (no key in forwarding extras), ScannerUriDispatcherTest (redacted toString), PendingProxyImportStoreTest | Passed locally |
+| REQ-IMPORT-PARITY | AND-1792946024484513 | ScannerUriDispatcherTest, ClipboardImportClassifierTest, ImportHandlerActivityTest, ImportIntentFilterTest (local tests; hosted CI passed on 3959b79bd) | Passed |
+| REQ-IMPORT-SUBSCRIPTION | AND-1792946025753354 | SubscriptionLinkClassifierTest, SingBoxDeepLinkParserTest, SubscriptionInitialImportTest, SubscriptionProfileHeadersTest (local tests; hosted CI passed on 3959b79bd) | Passed |
+| REQ-IMPORT-CONF | AND-1792946025753354 | AmneziaWgProfileViewModelTest, AmneziaVpnKeyDecoderTest, QrScannerViewModelTest, ImportTextReaderTest (local tests; hosted CI passed on 3959b79bd) | Passed |
+| REQ-IMPORT-SECRETS | AND-1792946024484513 | ImportHandlerActivityTest (no key in forwarding extras), ScannerUriDispatcherTest (redacted toString), PendingProxyImportStoreTest (local tests; hosted CI passed on 3959b79bd) | Passed |
