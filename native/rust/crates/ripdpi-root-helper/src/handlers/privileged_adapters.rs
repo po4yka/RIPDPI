@@ -1,5 +1,8 @@
+use std::io;
 use std::net::IpAddr;
 use std::os::fd::RawFd;
+use std::sync::{Mutex, PoisonError};
+use std::time::{Duration, Instant};
 
 use ripdpi_privileged_ops as platform;
 use ripdpi_privileged_ops::{IcmpWrappedUdpRecvFilter, IcmpWrappedUdpSpec, SynHideTcpSpec};
@@ -64,7 +67,7 @@ pub fn handle_send_raw_ip_packet(params: RawIpPacketParams) -> (HelperResponse, 
         Err(error) => return (HelperResponse::error(format!("invalid target_addr: {error}")), None),
     };
     debug!(target = %target, len = params.packet.len(), "send_raw_ip_packet");
-    if let Err(reason) = check_raw_ip_packet(target.ip(), &params.packet, is_local_address) {
+    if let Err(reason) = check_raw_ip_packet(target.ip(), &params.packet, has_local_address) {
         return (HelperResponse::error(format!("raw IP packet refused: {reason}")), None);
     }
     match platform::send_raw_ip_packet(target, &params.packet, None) {
@@ -81,7 +84,11 @@ pub fn handle_send_raw_ip_packet(params: RawIpPacketParams) -> (HelperResponse, 
 /// one of its addresses must belong to this host: the app injects packets of
 /// its own flows (TUN egress, SYN-ACK ingress), never packets between two
 /// foreign hosts.
-fn check_raw_ip_packet(target: IpAddr, packet: &[u8], is_local: impl Fn(IpAddr) -> bool) -> Result<(), &'static str> {
+fn check_raw_ip_packet(
+    target: IpAddr,
+    packet: &[u8],
+    has_local: impl Fn(&[IpAddr]) -> bool,
+) -> Result<(), &'static str> {
     let (source, destination) = match (packet.first().map(|byte| byte >> 4), target) {
         (Some(4), IpAddr::V4(_)) => {
             let header = packet.get(..20).ok_or("short IPv4 header")?;
@@ -112,20 +119,60 @@ fn check_raw_ip_packet(target: IpAddr, packet: &[u8], is_local: impl Fn(IpAddr) 
     if destination != target {
         return Err("destination does not match the target");
     }
-    if !is_local(source) && !is_local(destination) {
+    if !has_local(&[source, destination]) {
         return Err("neither address belongs to this host");
     }
     Ok(())
 }
 
-fn is_local_address(address: IpAddr) -> bool {
-    let Ok(interfaces) = nix::ifaddrs::getifaddrs() else {
-        return false;
+/// How long one read of the interface addresses serves the raw-packet check,
+/// so that TUN injection does not dump the interfaces for every packet.
+const LOCAL_ADDRESS_TTL: Duration = Duration::from_secs(1);
+
+type LocalAddresses = Mutex<Option<(Instant, Vec<IpAddr>)>>;
+
+static LOCAL_ADDRESSES: LocalAddresses = Mutex::new(None);
+
+/// Returns whether one of `addresses` belongs to an interface of this host.
+fn has_local_address(addresses: &[IpAddr]) -> bool {
+    cached_local_check(&LOCAL_ADDRESSES, addresses, Instant::now(), read_local_addresses)
+}
+
+/// Answers from the cached address list while it is fresh and holds one of
+/// `addresses`. Otherwise it reads the list again, because an interface (the
+/// TUN) can just have come up. A failed read keeps the last list, so one
+/// getifaddrs error does not refuse every packet; with no list it fails closed.
+fn cached_local_check(
+    cache: &LocalAddresses,
+    addresses: &[IpAddr],
+    now: Instant,
+    read: impl FnOnce() -> io::Result<Vec<IpAddr>>,
+) -> bool {
+    let mut cache = cache.lock().unwrap_or_else(PoisonError::into_inner);
+    let holds = |cache: &Option<(Instant, Vec<IpAddr>)>| {
+        cache.as_ref().is_some_and(|(_, list)| addresses.iter().any(|address| list.contains(address)))
     };
-    interfaces.filter_map(|interface| interface.address).any(|storage| {
-        storage.as_sockaddr_in().map(|v4| IpAddr::V4(*std::net::SocketAddrV4::from(*v4).ip())) == Some(address)
-            || storage.as_sockaddr_in6().map(|v6| IpAddr::V6(*std::net::SocketAddrV6::from(*v6).ip())) == Some(address)
-    })
+    let fresh = cache.as_ref().is_some_and(|(read_at, _)| now.saturating_duration_since(*read_at) < LOCAL_ADDRESS_TTL);
+    if fresh && holds(&cache) {
+        return true;
+    }
+    match read() {
+        Ok(list) => *cache = Some((now, list)),
+        Err(error) => debug!(%error, "interface address read failed; the last list stays in use"),
+    }
+    holds(&cache)
+}
+
+fn read_local_addresses() -> io::Result<Vec<IpAddr>> {
+    Ok(nix::ifaddrs::getifaddrs()?
+        .filter_map(|interface| interface.address)
+        .filter_map(|storage| {
+            storage
+                .as_sockaddr_in()
+                .map(|v4| IpAddr::V4(*std::net::SocketAddrV4::from(*v4).ip()))
+                .or_else(|| storage.as_sockaddr_in6().map(|v6| IpAddr::V6(*std::net::SocketAddrV6::from(*v6).ip())))
+        })
+        .collect())
 }
 
 #[cfg(test)]
@@ -199,7 +246,7 @@ mod tests {
         use std::net::IpAddr;
 
         let tun = IpAddr::from([10, 10, 10, 10]);
-        let is_tun = |address: IpAddr| address == tun;
+        let is_tun = |addresses: &[IpAddr]| addresses.contains(&tun);
         let server = IpAddr::from([198, 51, 100, 2]);
         // TUN egress: the source is the local TUN address.
         super::check_raw_ip_packet(server, &ipv4_packet([10, 10, 10, 10], [198, 51, 100, 2], 28), is_tun)
@@ -214,7 +261,42 @@ mod tests {
         ipv6[8..24].copy_from_slice(&std::net::Ipv6Addr::LOCALHOST.octets());
         let destination: std::net::Ipv6Addr = "2001:db8::2".parse().expect("address");
         ipv6[24..40].copy_from_slice(&destination.octets());
-        super::check_raw_ip_packet(IpAddr::V6(destination), &ipv6, super::is_local_address).expect("IPv6 packet");
-        assert!(super::is_local_address(IpAddr::from([127, 0, 0, 1])));
+        super::check_raw_ip_packet(IpAddr::V6(destination), &ipv6, super::has_local_address).expect("IPv6 packet");
+        assert!(super::has_local_address(&[IpAddr::from([127, 0, 0, 1])]));
+    }
+
+    #[test]
+    fn interface_addresses_are_read_once_per_ttl_and_survive_a_failed_read() {
+        use std::cell::Cell;
+        use std::net::IpAddr;
+        use std::time::{Duration, Instant};
+
+        let cache = super::LocalAddresses::new(None);
+        let tun = IpAddr::from([10, 10, 10, 10]);
+        let remote = IpAddr::from([198, 51, 100, 2]);
+        let new_tun = IpAddr::from([10, 10, 10, 11]);
+        let reads = Cell::new(0);
+        let read = |result: std::io::Result<Vec<IpAddr>>| {
+            || {
+                reads.set(reads.get() + 1);
+                result
+            }
+        };
+        let start = Instant::now();
+
+        assert!(super::cached_local_check(&cache, &[remote, tun], start, read(Ok(vec![tun]))));
+        // A fresh list answers a hit without another read.
+        assert!(super::cached_local_check(&cache, &[tun, remote], start, read(Ok(Vec::new()))));
+        assert_eq!(reads.get(), 1);
+        // A miss reads again: a new interface address is found at once.
+        assert!(super::cached_local_check(&cache, &[new_tun], start, read(Ok(vec![tun, new_tun]))));
+        assert_eq!(reads.get(), 2);
+        // After the TTL a failed read keeps the last list instead of refusing every packet.
+        let later = start + Duration::from_secs(5);
+        let failed = || Err(std::io::Error::other("getifaddrs failed"));
+        assert!(super::cached_local_check(&cache, &[tun], later, read(failed())));
+        assert!(!super::cached_local_check(&cache, &[remote], later, read(failed())));
+        // With no list at all, the check fails closed.
+        assert!(!super::cached_local_check(&super::LocalAddresses::new(None), &[tun], start, read(failed())));
     }
 }
