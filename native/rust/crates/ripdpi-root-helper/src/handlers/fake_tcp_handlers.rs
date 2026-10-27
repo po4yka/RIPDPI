@@ -65,7 +65,7 @@ pub fn handle_send_fake_tcp(fd: RawFd, params: FakeTcpParams) -> (HelperResponse
         params.md5sig,
         params.default_ttl,
         options,
-        (params.wait_enabled, std::time::Duration::from_millis(params.wait_poll_ms.max(1))),
+        (params.wait_enabled, super::bounded_wait_poll(params.wait_poll_ms)),
     ) {
         Ok(()) => {
             let out_fd = stream.into_raw_fd();
@@ -157,7 +157,7 @@ pub fn handle_send_multi_disorder_tcp(fd: RawFd, params: MultiDisorderParams) ->
         &segments,
         params.default_ttl,
         None,
-        params.inter_segment_delay_ms,
+        super::bounded_inter_segment_delay_ms(params.inter_segment_delay_ms, segments.len()),
         params.md5sig,
         platform::TcpFlagOverrides { set: params.tcp_flags_set, unset: params.tcp_flags_unset },
         &params.ipv4_identifications,
@@ -206,7 +206,7 @@ pub fn handle_send_ordered_tcp_segments(
         params.md5sig,
         params.timestamp_delta_ticks,
         &params.ipv4_identifications,
-        (params.wait_enabled, std::time::Duration::from_millis(params.wait_poll_ms.max(1))),
+        (params.wait_enabled, super::bounded_wait_poll(params.wait_poll_ms)),
     ) {
         Ok(()) => {
             let out_fd = stream.into_raw_fd();

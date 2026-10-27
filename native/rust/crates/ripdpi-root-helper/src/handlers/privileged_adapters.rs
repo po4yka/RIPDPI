@@ -33,7 +33,8 @@ pub fn handle_send_icmp_wrapped_udp(params: IcmpWrappedUdpSpec) -> (HelperRespon
     }
 }
 
-pub fn handle_recv_icmp_wrapped_udp(params: IcmpWrappedUdpRecvFilter) -> (HelperResponse, Option<RawFd>) {
+pub fn handle_recv_icmp_wrapped_udp(mut params: IcmpWrappedUdpRecvFilter) -> (HelperResponse, Option<RawFd>) {
+    params.timeout_ms = super::bounded_icmp_recv_timeout_ms(params.timeout_ms);
     debug!(
         bind_ip = %params.bind_ip,
         session_id = ?params.session_id,
