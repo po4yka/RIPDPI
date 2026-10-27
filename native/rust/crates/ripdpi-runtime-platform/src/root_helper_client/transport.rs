@@ -16,6 +16,12 @@ use ripdpi_root_helper_protocol::{
 /// and every caller is a per-connection data-plane thread.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 const CONNECT_RETRY_INTERVAL: Duration = Duration::from_millis(5);
+/// The protocol preflight does no work in the helper, so a helper that does
+/// not answer it within this bound is treated as unreachable. The helper
+/// serves one connection at a time, so the bound also covers a short queue of
+/// other flows' commands.
+const PREFLIGHT_READ_TIMEOUT: Duration = Duration::from_secs(2);
+const COMMAND_READ_TIMEOUT: Duration = Duration::from_secs(30);
 
 pub(super) struct ClientTransport {
     socket_path: String,
@@ -67,7 +73,9 @@ impl ClientTransport {
         let descriptor = validate_request(command, fd.is_some(), !params.is_null())
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
         let stream = connect_bounded(&self.socket_path, CONNECT_TIMEOUT).map_err(not_delivered)?;
-        stream.set_read_timeout(Some(Duration::from_secs(30))).map_err(not_delivered)?;
+        let read_timeout =
+            if command == CMD_PROTOCOL_PREFLIGHT { PREFLIGHT_READ_TIMEOUT } else { COMMAND_READ_TIMEOUT };
+        stream.set_read_timeout(Some(read_timeout)).map_err(not_delivered)?;
         stream.set_write_timeout(Some(Duration::from_secs(10))).map_err(not_delivered)?;
 
         let request = HelperRequest {
@@ -79,7 +87,16 @@ impl ClientTransport {
         let json = serde_json::to_vec(&request).map_err(|e| io::Error::other(format!("serialize request: {e}")))?;
 
         // A failed or partial frame never reaches the helper's dispatcher.
-        send_message(&stream, &json, fd).map_err(not_delivered)?;
+        send_message(&stream, &json, fd)
+            .map_err(|error| {
+                if error.kind() == io::ErrorKind::InvalidInput {
+                    // Keep the size in the fallback log: this op goes local on every call.
+                    io::Error::new(error.kind(), format!("{command}: {error} (request is {} bytes)", json.len()))
+                } else {
+                    error
+                }
+            })
+            .map_err(not_delivered)?;
 
         let (resp_bytes, reply_fd) = recv_message(&stream, "helper closed connection")?;
 
@@ -481,6 +498,56 @@ mod tests {
         assert_eq!(error.kind(), io::ErrorKind::InvalidData);
         assert!(error.to_string().contains("protocol version mismatch"));
         assert!(is_not_delivered(&error), "the mutating command never reached the helper");
+    }
+
+    #[test]
+    fn silent_helper_preflight_is_not_delivered_within_the_preflight_bound() {
+        let fixture = TransportFixture::start(|stream| {
+            let _ = recv_message(&stream, "client closed preflight").expect("preflight");
+            // Never answer; hold the connection until the client gives up.
+            let _ = recv_message(&stream, "client gave up");
+        });
+        let request_fd = std::fs::File::open("/dev/null").expect("open request fd");
+        let started = std::time::Instant::now();
+
+        let error = fixture
+            .transport
+            .send_command(
+                ripdpi_root_helper_protocol::CMD_SEND_FAKE_RST,
+                serde_json::json!({ "default_ttl": 64 }),
+                Some(request_fd.as_fd()),
+            )
+            .expect_err("a silent helper must not take the command");
+        let elapsed = started.elapsed();
+        fixture.join();
+
+        assert!(is_not_delivered(&error), "the command never reached the helper: {error:?}");
+        assert!(elapsed < std::time::Duration::from_secs(5), "preflight waited {elapsed:?}");
+    }
+
+    #[test]
+    fn oversized_request_is_not_delivered_and_names_its_size() {
+        let fixture = TransportFixture::start_after_protocol_preflight(|stream| {
+            recv_message(&stream, "client closed").expect_err("no frame may reach the helper")
+        });
+        let request_fd = std::fs::File::open("/dev/null").expect("open request fd");
+        let prefix = vec![255u8; 4096];
+
+        let error = fixture
+            .transport
+            .send_command(
+                ripdpi_root_helper_protocol::CMD_SEND_FAKE_TCP,
+                serde_json::json!({ "original_prefix": prefix, "fake_prefix": [], "ttl": 1, "default_ttl": 64 }),
+                Some(request_fd.as_fd()),
+            )
+            .expect_err("an oversized frame must not be sent");
+        fixture.join();
+
+        assert!(is_not_delivered(&error));
+        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
+        let message = error.to_string();
+        assert!(message.contains("exceeds 8192 bytes"), "{message}");
+        assert!(message.contains("request is"), "{message}");
     }
 
     #[test]
