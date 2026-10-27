@@ -270,18 +270,25 @@ mod tests {
     }
 
     #[test]
-    fn server_hello_flag_follows_the_handshake_state() {
+    fn server_hello_flag_reports_a_tls_answer_to_the_client_hello() {
         let (port, server) = scripted_server(server_hello_then_alert);
         let after_server_hello = probe_tls12(port);
         server.join().unwrap();
         let (port, server) = scripted_server(|_| HANDSHAKE_FAILURE_ALERT.to_vec());
-        let before_server_hello = probe_tls12(port);
+        let injected_alert = probe_tls12(port);
+        server.join().unwrap();
+        let (port, server) = scripted_server(|_| Vec::new());
+        let silent_close = probe_tls12(port);
         server.join().unwrap();
 
         assert_eq!(after_server_hello.tls_alert_code, Some(0x28), "{after_server_hello:?}");
         assert_eq!(after_server_hello.tls_server_hello_received, Some(true));
-        assert_eq!(before_server_hello.tls_alert_code, Some(0x28), "{before_server_hello:?}");
-        assert_eq!(before_server_hello.tls_server_hello_received, Some(false));
+        // An alert right after the ClientHello (what an injecting DPI sends) still answers it.
+        assert_eq!(injected_alert.tls_alert_code, Some(0x28), "{injected_alert:?}");
+        assert_eq!(injected_alert.tls_server_hello_received, Some(true));
+        assert_eq!(silent_close.failure_stage, Some(crate::tls::ProbeStreamFailureStage::TlsHandshake));
+        assert_eq!(silent_close.tls_alert_code, None, "{silent_close:?}");
+        assert_eq!(silent_close.tls_server_hello_received, Some(false));
     }
 
     #[test]

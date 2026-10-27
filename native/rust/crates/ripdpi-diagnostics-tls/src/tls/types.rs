@@ -27,7 +27,9 @@ pub struct TlsObservation {
     pub tls_alert_code: Option<u8>,
     /// Human-readable alert description (e.g. "HandshakeFailure").
     pub tls_alert_description: Option<String>,
-    /// Whether a ServerHello was received before the error occurred.
+    /// Whether the TLS peer answered the ClientHello before the error: a processed ServerHello or a
+    /// received TLS alert (exported as `tlsServerHelloReceived`, which selects the Kotlin
+    /// `TCP_POST_CLIENT_HELLO_FAILURE` reason). `None` when the failure came before TLS.
     pub tls_server_hello_received: Option<bool>,
     /// DPI firmware signature inferred from the alert code and timing.
     pub tls_dpi_signature: Option<String>,
