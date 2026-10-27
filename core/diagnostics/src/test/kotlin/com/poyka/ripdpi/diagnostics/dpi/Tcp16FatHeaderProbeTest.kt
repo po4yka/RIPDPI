@@ -7,6 +7,7 @@ import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import mockwebserver3.RecordedRequest
 import mockwebserver3.SocketEffect
+import okhttp3.ConnectionPool
 import okhttp3.Interceptor
 import okhttp3.OkHttpClient
 import org.junit.Assert.assertEquals
@@ -173,6 +174,41 @@ class Tcp16FatHeaderProbeTest {
 
                 assertEquals(Tcp16Verdict.OK, result.verdict)
                 assertEquals("diagnostics", server.takeRequest(1, TimeUnit.SECONDS)?.headers?.get("X-Owned-Tls-Client"))
+            }
+        }
+
+    @Test
+    fun targetRunLeavesNoKeepAliveSocketInTheSharedClientPool() =
+        runTest {
+            MockWebServer().use { server ->
+                repeat(16) { server.enqueue(okHeadResponse()) }
+                server.start()
+                val sharedPool = ConnectionPool(5, 5, TimeUnit.MINUTES)
+                val okHttpRunner =
+                    OkHttpTcp16RequestRunner(baseClient = OkHttpClient.Builder().connectionPool(sharedPool).build())
+                var targetTracker: Tcp16ConnectionTracker? = null
+                val runner =
+                    object : Tcp16RequestRunner {
+                        override fun execute(
+                            target: Tcp16Target,
+                            request: Tcp16FatHeaderRequest,
+                            tracker: Tcp16ConnectionTracker,
+                        ): Tcp16FatHeaderResponse =
+                            okHttpRunner.execute(target, request, tracker).also {
+                                targetTracker =
+                                    tracker
+                            }
+                    }
+
+                val result =
+                    Tcp16FatHeaderProbe(
+                        requestRunner = runner,
+                    ).runWithRttHint(mockTarget(server), hintRttMs = 25)
+
+                assertEquals(Tcp16Verdict.OK, result.verdict)
+                assertEquals(1, result.connectionCount)
+                assertEquals(0, sharedPool.connectionCount())
+                assertEquals(0, targetTracker?.connectionPool?.connectionCount())
             }
         }
 

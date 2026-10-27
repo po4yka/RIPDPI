@@ -76,58 +76,71 @@ class Tcp16FatHeaderProbe(
     ): Tcp16ProbeResult =
         withContext(dispatcher) {
             val tracker = Tcp16ConnectionTracker()
-            val rttSamples = mutableListOf<Long>()
-            val requestedHosts = mutableListOf<String>()
-            for (requestIndex in 0 until RequestCount) {
-                val requestedHost =
-                    if (randomHostname) {
-                        RandomHostHeaderGenerator.next()
-                    } else {
-                        target.sni ?: target.ip
-                    }
-                requestedHosts += requestedHost
-                val request =
-                    Tcp16FatHeaderRequest(
+            try {
+                runRequestTrain(target, hintRttMs, randomHostname, tracker)
+            } finally {
+                tracker.close()
+            }
+        }
+
+    private fun runRequestTrain(
+        target: Tcp16Target,
+        hintRttMs: Long?,
+        randomHostname: Boolean,
+        tracker: Tcp16ConnectionTracker,
+    ): Tcp16ProbeResult {
+        val rttSamples = mutableListOf<Long>()
+        val requestedHosts = mutableListOf<String>()
+        for (requestIndex in 0 until RequestCount) {
+            val requestedHost =
+                if (randomHostname) {
+                    RandomHostHeaderGenerator.next()
+                } else {
+                    target.sni ?: target.ip
+                }
+            requestedHosts += requestedHost
+            val request =
+                Tcp16FatHeaderRequest(
+                    requestIndex = requestIndex,
+                    padding = if (requestIndex == 0) null else paddingPool.slice(PaddingBytes),
+                    timeoutMs = timeoutFor(hintRttMs ?: rttSamples.averageMillis()),
+                    hostHeader = requestedHost,
+                )
+            val outcome =
+                runCatching {
+                    requestRunner.execute(target, request, tracker)
+                }
+            if (tracker.connectionCount > 1 && !randomHostname) {
+                return target.result(
+                    alive = true,
+                    verdict = Tcp16Verdict.INVALID_RECONNECTED,
+                    measuredRttMs = rttSamples.averageMillis(),
+                    errorDetail = "probe opened more than one socket",
+                    connectionCount = tracker.connectionCount,
+                    requestedHosts = requestedHosts.takeIf { randomHostname },
+                )
+            }
+            outcome
+                .onSuccess { response ->
+                    rttSamples += response.elapsedMs
+                }.onFailure { error ->
+                    return target.failureResult(
                         requestIndex = requestIndex,
-                        padding = if (requestIndex == 0) null else paddingPool.slice(PaddingBytes),
-                        timeoutMs = timeoutFor(hintRttMs ?: rttSamples.averageMillis()),
-                        hostHeader = requestedHost,
-                    )
-                val outcome =
-                    runCatching {
-                        requestRunner.execute(target, request, tracker)
-                    }
-                if (tracker.connectionCount > 1 && !randomHostname) {
-                    return@withContext target.result(
-                        alive = true,
-                        verdict = Tcp16Verdict.INVALID_RECONNECTED,
+                        error = error,
                         measuredRttMs = rttSamples.averageMillis(),
-                        errorDetail = "probe opened more than one socket",
                         connectionCount = tracker.connectionCount,
                         requestedHosts = requestedHosts.takeIf { randomHostname },
                     )
                 }
-                outcome
-                    .onSuccess { response ->
-                        rttSamples += response.elapsedMs
-                    }.onFailure { error ->
-                        return@withContext target.failureResult(
-                            requestIndex = requestIndex,
-                            error = error,
-                            measuredRttMs = rttSamples.averageMillis(),
-                            connectionCount = tracker.connectionCount,
-                            requestedHosts = requestedHosts.takeIf { randomHostname },
-                        )
-                    }
-            }
-            target.result(
-                alive = true,
-                verdict = Tcp16Verdict.OK,
-                measuredRttMs = rttSamples.averageMillis(),
-                connectionCount = tracker.connectionCount,
-                requestedHosts = requestedHosts.takeIf { randomHostname },
-            )
         }
+        return target.result(
+            alive = true,
+            verdict = Tcp16Verdict.OK,
+            measuredRttMs = rttSamples.averageMillis(),
+            connectionCount = tracker.connectionCount,
+            requestedHosts = requestedHosts.takeIf { randomHostname },
+        )
+    }
 
     private fun timeoutFor(rttMs: Long?): Long {
         val baseRtt = rttMs?.coerceAtLeast(MinimumRttHintMs) ?: DefaultTimeoutBaseMs
@@ -249,11 +262,19 @@ typealias Tcp16OkHttpClientBuilder = (OkHttpClient.Builder.() -> Unit) -> OkHttp
 class Tcp16ConnectionTracker {
     private val connectStarts = AtomicInteger()
 
+    /** One pool per target run: a pool shared by concurrent targets evicted their keep-alive sockets. */
+    val connectionPool: ConnectionPool = ConnectionPool(1, Long.MAX_VALUE, TimeUnit.NANOSECONDS)
+
     val connectionCount: Int
         get() = connectStarts.get()
 
     fun recordConnectStart() {
         connectStarts.incrementAndGet()
+    }
+
+    /** Closes the idle keep-alive socket so it does not outlive the target run. */
+    fun close() {
+        connectionPool.evictAll()
     }
 
     fun eventListener(): EventListener =
@@ -280,6 +301,7 @@ class OkHttpTcp16RequestRunner(
             baseClient
                 .newBuilder()
                 .dns(target.dns(request.hostHeader))
+                .connectionPool(tracker.connectionPool)
                 .eventListenerFactory { tracker.eventListener() }
                 .build()
         val call =
@@ -321,7 +343,6 @@ class OkHttpTcp16RequestRunner(
 
         private fun defaultBaseClient(clientBuilder: Tcp16OkHttpClientBuilder? = null): OkHttpClient {
             val configure: OkHttpClient.Builder.() -> Unit = {
-                connectionPool(ConnectionPool(1, Long.MAX_VALUE, TimeUnit.NANOSECONDS))
                 protocols(listOf(Protocol.HTTP_1_1))
                 retryOnConnectionFailure(false)
                 followRedirects(false)
