@@ -26,12 +26,10 @@ pub fn classify_transport_error(stage: FailureStage, error: &io::Error) -> Class
             ClassifiedFailure::new(FailureClass::Unknown, stage, FailureAction::SurfaceOnly, error.to_string())
                 .with_tag("kind", format!("{kind:?}"))
         }
-        io::ErrorKind::ConnectionRefused
-        | io::ErrorKind::HostUnreachable
-        | io::ErrorKind::NetworkUnreachable
-        | io::ErrorKind::NotConnected
-        | io::ErrorKind::AddrNotAvailable
-        | io::ErrorKind::ReadOnlyFilesystem => ClassifiedFailure::new(
+        // ENETUNREACH, EADDRNOTAVAIL, ENOTCONN and EROFS describe local route, address or socket
+        // state (no route, airplane mode, v6 on a v4-only network). No desync group can change them,
+        // so they fall through to the local Unknown arm instead of rotating strategies.
+        io::ErrorKind::ConnectionRefused | io::ErrorKind::HostUnreachable => ClassifiedFailure::new(
             FailureClass::ConnectFailure,
             stage,
             FailureAction::RetryWithMatchingGroup,
@@ -61,18 +59,22 @@ mod tests {
 
     #[test]
     fn transport_errors_classify_connect_failures() {
-        let kinds = [
-            io::ErrorKind::ConnectionRefused,
-            io::ErrorKind::HostUnreachable,
-            io::ErrorKind::NetworkUnreachable,
-            io::ErrorKind::NotConnected,
-            io::ErrorKind::AddrNotAvailable,
-        ];
+        let kinds = [io::ErrorKind::ConnectionRefused, io::ErrorKind::HostUnreachable];
         for kind in kinds {
             let err = io::Error::new(kind, "test");
             let f = classify_transport_error(FailureStage::Connect, &err);
             assert_eq!(f.class, FailureClass::ConnectFailure, "expected ConnectFailure for {kind:?}");
             assert_eq!(f.action, FailureAction::RetryWithMatchingGroup);
+        }
+    }
+
+    #[test]
+    fn local_route_and_socket_errnos_do_not_rotate_strategies() {
+        for errno in [libc::ENETUNREACH, libc::EADDRNOTAVAIL, libc::ENOTCONN, libc::EROFS] {
+            let err = io::Error::from_raw_os_error(errno);
+            let f = classify_transport_error(FailureStage::Connect, &err);
+            assert_eq!(f.class, FailureClass::Unknown, "errno {errno} is local state");
+            assert_eq!(f.action, FailureAction::SurfaceOnly, "errno {errno} is local state");
         }
     }
 
