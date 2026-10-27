@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.activities
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.proto.AppSettings
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.launch
@@ -42,7 +44,7 @@ internal class SettingsMutationRunner(
     }
 
     fun launch(block: suspend SettingsMutationRunner.() -> Unit) {
-        scope.launch { block() }
+        scope.launch { guarded { block() } }
     }
 
     suspend fun updateDirect(transform: SettingsMutation) {
@@ -66,8 +68,23 @@ internal class SettingsMutationRunner(
         transform: SettingsMutation,
     ) {
         scope.launch {
-            appSettingsRepository.update(transform)
-            effect?.let { effects.emit(it) }
+            guarded {
+                appSettingsRepository.update(transform)
+                effect?.let { effects.emit(it) }
+            }
+        }
+    }
+
+    // A storage failure (full disk, EIO) must not reach the uncaught handler and kill the app and its
+    // VPN service. The settings flow keeps showing the stored value. The log names only the class:
+    // the message can carry stored values.
+    private suspend fun guarded(block: suspend () -> Unit) {
+        try {
+            block()
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (ignored: Exception) {
+            Logger.w { "Settings action failed: ${ignored.javaClass.simpleName}" }
         }
     }
 }
