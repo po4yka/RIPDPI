@@ -91,13 +91,9 @@ class Tcp16FatHeaderProbe(
     ): Tcp16ProbeResult {
         val rttSamples = mutableListOf<Long>()
         val requestedHosts = mutableListOf<String>()
+        // One host for the whole train: a new host per request makes OkHttp open a new connection each time.
+        val requestedHost = if (randomHostname) RandomHostHeaderGenerator.next() else target.sni ?: target.ip
         for (requestIndex in 0 until RequestCount) {
-            val requestedHost =
-                if (randomHostname) {
-                    RandomHostHeaderGenerator.next()
-                } else {
-                    target.sni ?: target.ip
-                }
             requestedHosts += requestedHost
             val request =
                 Tcp16FatHeaderRequest(
@@ -110,7 +106,7 @@ class Tcp16FatHeaderProbe(
                 runCatching {
                     requestRunner.execute(target, request, tracker)
                 }
-            if (tracker.connectionCount > 1 && !randomHostname) {
+            if (tracker.connectionCount > 1) {
                 return target.result(
                     alive = true,
                     verdict = Tcp16Verdict.INVALID_RECONNECTED,

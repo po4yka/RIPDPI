@@ -213,7 +213,7 @@ class Tcp16FatHeaderProbeTest {
         }
 
     @Test
-    fun randomHostnameUsesFreshHostHeaderPerRequestAndRecordsHosts() =
+    fun randomHostnameKeepsOneRandomHostAndOneConnectionForTheTrain() =
         runTest {
             MockWebServer().use { server ->
                 repeat(16) {
@@ -230,7 +230,9 @@ class Tcp16FatHeaderProbeTest {
                     }
                 assertEquals(Tcp16Verdict.OK, result.verdict)
                 assertEquals(16, hostHeaders.size)
-                assertEquals(16, hostHeaders.toSet().size)
+                assertEquals(1, hostHeaders.toSet().size)
+                assertTrue(hostHeaders.first() != "example.test")
+                assertEquals(1, result.connectionCount)
                 assertEquals(hostHeaders, result.requestedHosts)
             }
         }
