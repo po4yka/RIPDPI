@@ -127,14 +127,14 @@ pub fn preferred_tls_observation<'a>(tls13: &'a TlsObservation, tls12: &'a TlsOb
 /// one TLS version (protocol alert), not by network interference (timeout/reset).
 /// Server-side rejections indicate the server simply doesn't support that version,
 /// not that an ISP is selectively blocking it.
+///
+/// The observation error is the rustls `Display` text (`received fatal alert: ProtocolVersion`),
+/// so the alert is read with [`parse_alert_from_error`]: protocol_version (70),
+/// handshake_failure (40) or inappropriate_fallback (86).
 pub fn is_server_tls_version_rejection(tls13: &TlsObservation, tls12: &TlsObservation) -> bool {
     let failed = if tls13.status != "tls_ok" { tls13 } else { tls12 };
     let error = failed.error.as_deref().unwrap_or("");
-    error.contains("AlertReceived")
-        || error.contains("protocol_version")
-        || error.contains("handshake_failure")
-        || error.contains("inappropriate_fallback")
-        || error.contains("InappropriateHandshakeMessage")
+    matches!(parse_alert_from_error(error).0, Some(0x28 | 0x46 | 0x56))
 }
 pub(super) fn first_flight_plan_label(plan: &TlsTemplateFirstFlightPlan) -> String {
     format!(

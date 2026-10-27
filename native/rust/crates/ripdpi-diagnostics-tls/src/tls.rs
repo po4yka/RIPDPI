@@ -295,9 +295,32 @@ mod tests {
     fn is_server_tls_version_rejection_detects_alert() {
         let ok = obs("tls_ok", false);
         let mut failed = obs("tls_handshake_failed", false);
-        failed.error = Some("AlertReceived(ProtocolVersion)".to_string());
+        failed.error = Some(rustls_alert_error_text(rustls::AlertDescription::ProtocolVersion));
         assert!(is_server_tls_version_rejection(&failed, &ok));
         assert!(is_server_tls_version_rejection(&ok, &failed));
+    }
+
+    #[test]
+    fn is_server_tls_version_rejection_reads_real_rustls_alert_text() {
+        let ok = obs("tls_ok", false);
+        for alert in [
+            rustls::AlertDescription::ProtocolVersion,
+            rustls::AlertDescription::HandshakeFailure,
+            rustls::AlertDescription::InappropriateFallback,
+        ] {
+            let mut failed = obs("tls_handshake_failed", false);
+            failed.error = Some(rustls_alert_error_text(alert));
+            assert!(is_server_tls_version_rejection(&failed, &ok), "{alert:?}");
+        }
+        let mut failed = obs("tls_handshake_failed", false);
+        failed.error = Some(rustls_alert_error_text(rustls::AlertDescription::UnrecognisedName));
+        assert!(!is_server_tls_version_rejection(&failed, &ok));
+    }
+
+    /// The text a failed handshake stores: `capture_tls_handshake` keeps the `Display` of the
+    /// `io::Error` that wraps the rustls error.
+    fn rustls_alert_error_text(alert: rustls::AlertDescription) -> String {
+        std::io::Error::new(std::io::ErrorKind::InvalidData, rustls::Error::AlertReceived(alert)).to_string()
     }
 
     #[test]
