@@ -1,12 +1,21 @@
 use std::io;
-use std::os::fd::{BorrowedFd, OwnedFd};
+use std::os::fd::{AsRawFd, BorrowedFd, OwnedFd};
 use std::os::unix::net::UnixStream;
-use std::time::Duration;
+use std::time::{Duration, Instant};
+
+use nix::errno::Errno;
+use nix::sys::socket::{AddressFamily, SockFlag, SockType, UnixAddr, connect, socket};
 
 use ripdpi_root_helper_protocol::{
     CMD_PROTOCOL_PREFLIGHT, HelperRequest, HelperResponse, PROTOCOL_VERSION, recv_message, send_message,
     valid_session_nonce, validate_request,
 };
+
+/// Upper bound for one connect to the helper socket. A blocking AF_UNIX
+/// connect waits without a limit while the helper's listen backlog is full,
+/// and every caller is a per-connection data-plane thread.
+const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
+const CONNECT_RETRY_INTERVAL: Duration = Duration::from_millis(5);
 
 pub(super) struct ClientTransport {
     socket_path: String,
@@ -57,7 +66,7 @@ impl ClientTransport {
     ) -> io::Result<(HelperResponse, Option<OwnedFd>)> {
         let descriptor = validate_request(command, fd.is_some(), !params.is_null())
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
-        let stream = UnixStream::connect(&self.socket_path).map_err(not_delivered)?;
+        let stream = connect_bounded(&self.socket_path, CONNECT_TIMEOUT).map_err(not_delivered)?;
         stream.set_read_timeout(Some(Duration::from_secs(30))).map_err(not_delivered)?;
         stream.set_write_timeout(Some(Duration::from_secs(10))).map_err(not_delivered)?;
 
@@ -93,6 +102,34 @@ impl ClientTransport {
         }
 
         Ok((response, reply_fd))
+    }
+}
+
+/// Connects to the helper socket, giving up with `TimedOut` after `timeout`.
+/// A nonblocking AF_UNIX connect fails with `EAGAIN` instead of waiting while
+/// the listen backlog is full, so it is retried with a fresh socket.
+fn connect_bounded(path: &str, timeout: Duration) -> io::Result<UnixStream> {
+    let address = UnixAddr::new(path)?;
+    let deadline = Instant::now() + timeout;
+    loop {
+        let fd = socket(AddressFamily::Unix, SockType::Stream, SockFlag::SOCK_CLOEXEC | SockFlag::SOCK_NONBLOCK, None)?;
+        match connect(fd.as_raw_fd(), &address) {
+            Ok(()) => {
+                let stream = UnixStream::from(fd);
+                stream.set_nonblocking(false)?;
+                return Ok(stream);
+            }
+            Err(Errno::EAGAIN | Errno::EINPROGRESS | Errno::EINTR) if Instant::now() < deadline => {
+                std::thread::sleep(CONNECT_RETRY_INTERVAL);
+            }
+            Err(Errno::EAGAIN | Errno::EINPROGRESS | Errno::EINTR) => {
+                return Err(io::Error::new(
+                    io::ErrorKind::TimedOut,
+                    "root helper did not accept the connection in time",
+                ));
+            }
+            Err(error) => return Err(error.into()),
+        }
     }
 }
 
@@ -136,10 +173,11 @@ fn load_session_nonce(path: &str) -> io::Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ClientTransport, is_not_delivered, load_session_nonce, session_nonce_path};
+    use super::{ClientTransport, connect_bounded, is_not_delivered, load_session_nonce, session_nonce_path};
     use std::io;
     use std::io::Write;
     use std::os::fd::AsFd;
+    use std::os::fd::AsRawFd;
     use std::os::unix::net::UnixListener;
     use std::thread;
 
@@ -443,6 +481,37 @@ mod tests {
         assert_eq!(error.kind(), io::ErrorKind::InvalidData);
         assert!(error.to_string().contains("protocol version mismatch"));
         assert!(is_not_delivered(&error), "the mutating command never reached the helper");
+    }
+
+    #[test]
+    fn connect_gives_up_while_the_helper_backlog_stays_full() {
+        use nix::sys::socket::{AddressFamily, Backlog, SockFlag, SockType, UnixAddr, bind, listen, socket};
+
+        let socket_path = std::env::temp_dir().join(format!(
+            "ripdpi-root-helper-backlog-{}-{}.sock",
+            std::process::id(),
+            unique_suffix()
+        ));
+        let address = UnixAddr::new(&socket_path).expect("socket address");
+        let listener = socket(AddressFamily::Unix, SockType::Stream, SockFlag::empty(), None).expect("listener");
+        bind(listener.as_raw_fd(), &address).expect("bind listener");
+        listen(&listener, Backlog::new(0).expect("backlog")).expect("listen");
+
+        // Nobody accepts, so the queue fills after the first connects.
+        let path = socket_path.to_string_lossy().to_string();
+        let mut queued = Vec::new();
+        let started = std::time::Instant::now();
+        let error = loop {
+            match connect_bounded(&path, std::time::Duration::from_millis(200)) {
+                Ok(stream) => queued.push(stream),
+                Err(error) => break error,
+            }
+            assert!(queued.len() < 64, "the listen backlog never filled");
+        };
+        let _ = std::fs::remove_file(&socket_path);
+
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        assert!(started.elapsed() < std::time::Duration::from_secs(5));
     }
 
     fn unique_suffix() -> u128 {
