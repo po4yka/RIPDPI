@@ -168,6 +168,33 @@ class QuicH3FingerprintProbeTest {
         }
 
     @Test
+    fun versionNegotiationListingTheOfferedVersionIsNotAnAnswer() =
+        runTest {
+            val socket =
+                RecordingQuicUdpProbe(
+                    successes = QuicFingerprint.entries.toSet(),
+                    vnVersions = listOf(QuicFingerprintFactory.QuicV1Version, QuicFingerprintFactory.ReservedVersion),
+                )
+
+            val result = probe(socket).check("example.com")
+
+            assertFalse(result.vnOk)
+            assertEquals(QuicProbeVerdict.QUIC_VN_REJECTED, result.verdict)
+        }
+
+    @Test
+    fun versionNegotiationListingOtherVersionsIsAnAnswer() =
+        runTest {
+            val socket =
+                RecordingQuicUdpProbe(
+                    successes = QuicFingerprint.entries.toSet(),
+                    vnVersions = listOf(QuicFingerprintFactory.QuicV1Version),
+                )
+
+            assertEquals(QuicProbeVerdict.QUIC_OK, probe(socket).check("example.com").verdict)
+        }
+
+    @Test
     fun reflectedRequestIsNotCountedAsAQuicAnswer() =
         runTest {
             val reflector =
@@ -228,6 +255,7 @@ class QuicH3FingerprintProbeTest {
 private class RecordingQuicUdpProbe(
     private val successes: Set<QuicFingerprint>,
     private val nonQuicResponses: Set<QuicFingerprint> = emptySet(),
+    private val vnVersions: List<Int> = emptyList(),
 ) : QuicUdpProbe {
     val probedFingerprints = mutableListOf<QuicFingerprint>()
 
@@ -244,7 +272,7 @@ private class RecordingQuicUdpProbe(
                 QuicProbeSample(
                     response =
                         when (fingerprint) {
-                            QuicFingerprint.VN_PROBE -> quicReply(version = 0, request = packet)
+                            QuicFingerprint.VN_PROBE -> quicReply(version = 0, request = packet) + vnVersions.toBytes()
                             else -> quicReply(version = QuicFingerprintFactory.QuicV1Version, request = packet)
                         },
                     latencyMs = if (fingerprint == QuicFingerprint.CHROME_120) 14L else 20L,
@@ -263,6 +291,10 @@ private class RecordingQuicUdpProbe(
             }
         }
     }
+
+    private fun List<Int>.toBytes(): ByteArray =
+        flatMap { version -> (24 downTo 0 step 8).map { shift -> ((version ushr shift) and 0xFF).toByte() } }
+            .toByteArray()
 
     /** A server reply: addressed to the request's SCID, with the request's DCID as its own SCID. */
     private fun quicReply(

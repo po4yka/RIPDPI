@@ -91,10 +91,11 @@ class QuicH3FingerprintProbe(
         }
 
     private suspend fun probeTarget(target: String): QuicProbeResult {
-        val chrome = probeFingerprint(target, QuicFingerprint.CHROME_120, ::isQuicV1LongHeader)
-        val firefox = probeFingerprint(target, QuicFingerprint.FIREFOX_121, ::isQuicV1LongHeader)
-        val generic = probeFingerprint(target, QuicFingerprint.GENERIC_V1, ::isQuicV1LongHeader)
-        val vn = probeFingerprint(target, QuicFingerprint.VN_PROBE, ::isVersionNegotiationPacket)
+        val confirmed = QuicFingerprint.entries.associateWith { fingerprint -> probeFingerprint(target, fingerprint) }
+        val chrome = confirmed.getValue(QuicFingerprint.CHROME_120)
+        val firefox = confirmed.getValue(QuicFingerprint.FIREFOX_121)
+        val generic = confirmed.getValue(QuicFingerprint.GENERIC_V1)
+        val vn = confirmed.getValue(QuicFingerprint.VN_PROBE)
 
         val outcomes = listOf(chrome, firefox, generic, vn)
         val chromeOk = chrome.ok
@@ -141,7 +142,6 @@ class QuicH3FingerprintProbe(
     private suspend fun probeFingerprint(
         target: String,
         fingerprint: QuicFingerprint,
-        classify: (ByteArray) -> Boolean,
     ): QuicProbeOutcome {
         val packet = packetFactory.create(fingerprint = fingerprint, target = target)
         val sample =
@@ -153,9 +153,13 @@ class QuicH3FingerprintProbe(
                 timeoutMs = timeoutMs,
             )
         val response = sample.response ?: return QuicProbeOutcome(ok = false, timedOut = true, latencyMs = null)
-        val answersThisProbe = echoesConnectionIds(packet, response, fingerprint == QuicFingerprint.VN_PROBE)
+        val versionNegotiation = fingerprint == QuicFingerprint.VN_PROBE
+        val answersThisProbe =
+            echoesConnectionIds(packet, response, versionNegotiation) &&
+                (!versionNegotiation || !listsOfferedVersion(packet, response))
+        val classified = if (versionNegotiation) isVersionNegotiationPacket(response) else isQuicV1LongHeader(response)
         return QuicProbeOutcome(
-            ok = classify(response) && answersThisProbe,
+            ok = classified && answersThisProbe,
             timedOut = false,
             latencyMs = sample.latencyMs,
         )
@@ -407,6 +411,23 @@ private fun echoesConnectionIds(
         (!versionNegotiation || replyIds.second.contentEquals(sentIds.first))
 }
 
+/** RFC 9000 s6.1: a Version Negotiation packet must not list the version the client offered. */
+private fun listsOfferedVersion(
+    sent: ByteArray,
+    reply: ByteArray,
+): Boolean {
+    val versionsStart =
+        reply.longHeaderConnectionIds()?.let { (dcid, scid) ->
+            QuicVersionEndIndex + 2 + dcid.size +
+                scid.size
+        }
+    val offered = sent.copyOfRange(VersionByte0Index, QuicVersionEndIndex)
+    return versionsStart != null &&
+        (versionsStart until reply.size - (QuicVersionLength - 1) step QuicVersionLength).any { start ->
+            reply.copyOfRange(start, start + QuicVersionLength).contentEquals(offered)
+        }
+}
+
 /** Returns (DCID, SCID) of a long-header packet, or null when the header is truncated. */
 private fun ByteArray.longHeaderConnectionIds(): Pair<ByteArray, ByteArray>? {
     val dcidStart = QuicVersionEndIndex + 1
@@ -440,6 +461,7 @@ private const val QuicVersionNegotiationVersion = 0
 private const val ByteMask = 0xFF
 private const val LongHeaderMask = 0x80
 private const val QuicVersionEndIndex = 5
+private const val QuicVersionLength = 4
 private const val VersionByte3Shift = 24
 private const val VersionByte2Shift = 16
 private const val VersionByte1Shift = 8
