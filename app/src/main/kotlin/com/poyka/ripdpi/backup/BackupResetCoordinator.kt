@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.backup
 
+import co.touchlab.kermit.Logger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -51,7 +53,18 @@ internal class BackupResetCoordinator(
         if (state.resetting || !state.resetConfirmationMatches) return
         updateState { it.copy(resetting = true) }
         scope.launch {
-            withContext(defaultDispatcher) { resetAllSettingsUseCase.reset() }
+            try {
+                withContext(defaultDispatcher) { resetAllSettingsUseCase.reset() }
+            } catch (cancelled: CancellationException) {
+                updateState { it.copy(resetting = false) }
+                throw cancelled
+            } catch (ignored: Exception) {
+                // A failed store wipe must not crash the app or leave the dialog stuck. Each step only
+                // clears a store, so the still-open dialog lets the user run the reset again.
+                Logger.w { "Reset failed: ${ignored.javaClass.simpleName}" }
+                updateState { it.copy(resetting = false) }
+                return@launch
+            }
             updateState {
                 it.copy(resetting = false, resetDialogVisible = false, resetConfirmationInput = "")
             }

@@ -140,6 +140,26 @@ class BackupResetCoordinatorTest {
             assertEquals(listOf(BackupResetEffect.Wiped), harness.resetEffects)
         }
 
+    @Test
+    fun `a wipe step that fails clears resetting and keeps the dialog for a retry`() =
+        runTest(StandardTestDispatcher()) {
+            val harness =
+                harness(
+                    defaultDispatcher = StandardTestDispatcher(testScheduler),
+                    userArtifactResetStore = UserArtifactResetStore { check(false) { "prefs commit failed" } },
+                )
+            harness.state.update {
+                it.copy(resetDialogVisible = true, resetConfirmationInput = ResetConfirmationToken)
+            }
+
+            harness.coordinator.confirmReset()
+            testScheduler.advanceUntilIdle()
+
+            assertFalse(harness.state.value.resetting)
+            assertTrue(harness.state.value.resetDialogVisible)
+            assertTrue(harness.resetEffects.isEmpty())
+        }
+
     // -- Harness --------------------------------------------------------------
 
     /**
@@ -165,6 +185,7 @@ class BackupResetCoordinatorTest {
 
     private fun TestScope.harness(
         defaultDispatcher: CoroutineDispatcher = StandardTestDispatcher(testScheduler),
+        userArtifactResetStore: UserArtifactResetStore = UserArtifactResetStore { },
     ): Harness {
         val state = MutableStateFlow(BackupRestoreUiState())
         val effects = mutableListOf<BackupResetEffect>()
@@ -178,7 +199,7 @@ class BackupResetCoordinatorTest {
                 profileMutations = NoOpProfileMutationCoordinator,
                 userProfileResetStore = UserProfileResetStore { },
                 diagnosticsHistoryResetStore = FakeDiagnosticsHistoryResetStore(),
-                userArtifactResetStore = UserArtifactResetStore { },
+                userArtifactResetStore = userArtifactResetStore,
                 cacheDirectoryCleaner = FakeCacheDirectoryCleaner(probe),
             )
         val coordinator =
