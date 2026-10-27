@@ -1,10 +1,13 @@
 package com.poyka.ripdpi.activities
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -108,27 +111,60 @@ internal suspend fun persistConfigSaveRequest(
         ConfigSaveOutcome.Stale
     } else {
         val savedDraft = relayArtifacts.persist(persistedDraft)
-        if (persistedDraft.mode == Mode.Proxy) {
-            dependencies.xrayNativeProviderSelection.selectNativeMode(
-                com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit,
-                persistedDraft.mode,
-            )
-        }
+        applyCommittedConfigSave(
+            request,
+            persistedDraft,
+            dependencies,
+            editorSession,
+            onReconnectFailure,
+            onUnsupportedVpnDns,
+        )
         currentCoroutineContext().ensureActive()
         if (editorSession.value.sessionId != request.sessionId) {
             ConfigSaveOutcome.Stale
         } else {
-            applySavedConfigDraftToRunningService(
-                draft = persistedDraft,
-                appSettingsRepository = dependencies.appSettingsRepository,
-                serviceStateStore = dependencies.serviceStateStore,
-                reconnectCoordinator = dependencies.reconnectCoordinator,
-                onReconnectFailure = onReconnectFailure,
-                onUnsupportedVpnDns = onUnsupportedVpnDns,
-            )
             ConfigSaveOutcome.Saved(savedDraft)
         }
     }
+}
+
+/**
+ * Runs the steps after the profile and settings are committed. They run in a child job: the reconnect
+ * coordinator's cancel targets the job that called reconnect, and it must not cancel the editor's save.
+ * A failure here is logged; the save itself already succeeded.
+ */
+private suspend fun applyCommittedConfigSave(
+    request: ConfigSaveRequest,
+    persistedDraft: ConfigDraft,
+    dependencies: ConfigViewModelDependencies,
+    editorSession: MutableStateFlow<ConfigEditorSession>,
+    onReconnectFailure: (com.poyka.ripdpi.services.RunningReconnectResult.Failed) -> Unit,
+    onUnsupportedVpnDns: () -> Unit,
+) = coroutineScope {
+    launch {
+        try {
+            if (persistedDraft.mode == Mode.Proxy) {
+                dependencies.xrayNativeProviderSelection.selectNativeMode(
+                    com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit,
+                    persistedDraft.mode,
+                )
+            }
+            if (editorSession.value.sessionId == request.sessionId) {
+                applySavedConfigDraftToRunningService(
+                    draft = persistedDraft,
+                    appSettingsRepository = dependencies.appSettingsRepository,
+                    serviceStateStore = dependencies.serviceStateStore,
+                    reconnectCoordinator = dependencies.reconnectCoordinator,
+                    onReconnectFailure = onReconnectFailure,
+                    onUnsupportedVpnDns = onUnsupportedVpnDns,
+                )
+            }
+        } catch (cancelled: CancellationException) {
+            throw cancelled
+        } catch (ignored: Exception) {
+            Logger.w { "Applying a saved config failed: ${ignored.javaClass.simpleName}" }
+        }
+    }.join()
 }
 
 internal fun beginConfigSave(

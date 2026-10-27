@@ -66,6 +66,10 @@ import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitCancellation
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -1782,6 +1786,64 @@ class ConfigViewModelEditorSessionConcurrencyTest {
         }
 
     @Test
+    fun `a failure after the profile is committed still completes the save`() =
+        runTest {
+            val viewModel =
+                createConfigViewModel(
+                    xrayNativeProviderSelection =
+                        object : XrayNativeProviderSelection {
+                            override suspend fun selectNativeMode(
+                                origin: com.poyka.ripdpi.data.ProfileMutationOrigin,
+                                mode: Mode,
+                            ): Unit = error("provider selection failed")
+                        },
+                )
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+
+            viewModel.updateDraft { copy(mode = Mode.Proxy, proxyPort = "1081") }
+            viewModel.saveDraft()
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.isEditorDirty)
+            assertFalse(viewModel.uiState.value.isEditorSaving)
+        }
+
+    @Test
+    fun `cancelling the reconnect after the profile is committed still completes the save`() =
+        runTest {
+            val reconnectCancelled =
+                object : com.poyka.ripdpi.services.RunningServiceReconnect {
+                    override val reconnectState =
+                        MutableStateFlow<com.poyka.ripdpi.services.RunningReconnectState>(
+                            com.poyka.ripdpi.services.RunningReconnectState.Idle,
+                        )
+
+                    override fun cancelReconnect() = Unit
+
+                    // Same effect as cancelReconnect(): the coordinator cancels the job that called reconnect.
+                    override suspend fun reconnect(
+                        request: com.poyka.ripdpi.services.RunningReconnectRequest,
+                    ): com.poyka.ripdpi.services.RunningReconnectResult {
+                        currentCoroutineContext().cancel()
+                        awaitCancellation()
+                    }
+                }
+            val viewModel =
+                createConfigViewModel(
+                    serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN),
+                    reconnectCoordinator = reconnectCancelled,
+                )
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+
+            viewModel.updateDraft { copy(proxyPort = "1081") }
+            viewModel.saveDraft()
+            advanceUntilIdle()
+
+            assertFalse(viewModel.uiState.value.isEditorDirty)
+            assertFalse(viewModel.uiState.value.isEditorSaving)
+        }
+
+    @Test
     fun `cancelled save clears single flight state and can be retried`() =
         runTest {
             val profileStore = ControllableRelayProfileStore(saveFailure = CancellationException("cancelled"))
@@ -1814,12 +1876,14 @@ private fun createConfigViewModel(
     editorDraftStore: ConfigEditorDraftStore = InMemoryConfigEditorDraftStore(),
     xrayNativeProviderSelection: XrayNativeProviderSelection =
         RecordingXrayNativeProviderSelection(appSettingsRepository),
+    reconnectCoordinator: com.poyka.ripdpi.services.RunningServiceReconnect =
+        FakeRunningServiceReconnect(serviceController, serviceStateStore),
 ): ConfigViewModel =
     ConfigViewModel(
         savedStateHandle = savedStateHandle,
         dependencies =
             ConfigViewModelDependencies(
-                reconnectCoordinator = FakeRunningServiceReconnect(serviceController, serviceStateStore),
+                reconnectCoordinator = reconnectCoordinator,
                 appSettingsRepository = appSettingsRepository,
                 relayArtifacts =
                     ConfigRelayArtifactRepository(
