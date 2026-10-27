@@ -148,28 +148,24 @@ class HttpCompressionProber(
         comprMin: Int,
     ): CompressionProbeResult {
         // Counted as the stream is read, so a failure mid-body still reports how far decoding got.
-        var decompressedBytes = 0L
+        var decoded: CountingInputStream? = null
 
         fun result(
             failureVerdict: CompressionProbeVerdict,
             error: String? = null,
-        ) = CompressionProbeResult(
-            verdict = if (decompressedBytes >= comprMin) CompressionProbeVerdict.OK else failureVerdict,
-            httpStatus = httpStatus,
-            compressedBytes = raw.bytesRead,
-            decompressedBytes = decompressedBytes,
-            error = error,
-        )
+        ): CompressionProbeResult {
+            val decompressedBytes = decoded?.bytesRead ?: 0L
+            return CompressionProbeResult(
+                verdict = if (decompressedBytes >= comprMin) CompressionProbeVerdict.OK else failureVerdict,
+                httpStatus = httpStatus,
+                compressedBytes = raw.bytesRead,
+                decompressedBytes = decompressedBytes,
+                error = error,
+            )
+        }
 
         return try {
-            codec.decoder(raw).use { decoded ->
-                val buffer = ByteArray(DecodeChunkBytes)
-                while (true) {
-                    val read = decoded.read(buffer)
-                    if (read < 0) break
-                    decompressedBytes += read.toLong()
-                }
-            }
+            CountingInputStream(codec.decoder(raw)).also { decoded = it }.use(::drain)
             result(CompressionProbeVerdict.EOF_BEFORE_MIN)
         } catch (e: EOFException) {
             result(CompressionProbeVerdict.EOF_BEFORE_MIN, e.message)
@@ -180,6 +176,12 @@ class HttpCompressionProber(
         } catch (e: IOException) {
             result(CompressionProbeVerdict.INTERNAL_ERR, e.message)
         }
+    }
+
+    private fun drain(input: InputStream) {
+        val buffer = ByteArray(DecodeChunkBytes)
+        var read = 0
+        while (read >= 0) read = input.read(buffer)
     }
 
     // RFC 9110 s8.4.1.3: x-gzip is the same coding as gzip.

@@ -159,16 +159,22 @@ class Obfs4ReachabilityProbe(
             return PtProbeTrace(Obfs4Leg, "", false, 0, NoBridgesConfigured, conclusive = false)
         }
         var conclusive = false
-        for (bridge in usable) {
+        var reachable: PtProbeTrace? = null
+        val pending = usable.iterator()
+        while (reachable == null && pending.hasNext()) {
             currentCoroutineContext().ensureActive()
             val remainingMs = TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime())
             if (remainingMs <= 0) break
+            val bridge = pending.next()
             val trace = bridge.tryTcpHandshake(remainingMs)
-            if (trace.ok) return trace.copy(latencyMs = System.currentTimeMillis() - startedAt)
-            conclusive = conclusive || trace.conclusive
-            errors += "${bridge.host}:${bridge.port}:${trace.error.orEmpty()}"
+            if (trace.ok) {
+                reachable = trace.copy(latencyMs = System.currentTimeMillis() - startedAt)
+            } else {
+                conclusive = conclusive || trace.conclusive
+                errors += "${bridge.host}:${bridge.port}:${trace.error.orEmpty()}"
+            }
         }
-        return PtProbeTrace(
+        return reachable ?: PtProbeTrace(
             Obfs4Leg,
             usable.joinToString {
                 it.host

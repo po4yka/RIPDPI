@@ -125,28 +125,36 @@ class Tcp16FatHeaderProbe(
                     requestRunner.execute(target, request, tracker)
                 }
             currentCoroutineContext().ensureActive()
-            if (tracker.connectionCount > 1) {
-                return target.result(
-                    alive = true,
-                    verdict = Tcp16Verdict.INVALID_RECONNECTED,
-                    measuredRttMs = rttSamples.averageMillis(),
-                    errorDetail = "probe opened more than one socket",
-                    connectionCount = tracker.connectionCount,
-                    requestedHosts = requestedHosts.takeIf { randomHostname },
-                )
-            }
-            outcome
-                .onSuccess { response ->
-                    rttSamples += response.elapsedMs
-                }.onFailure { error ->
-                    return target.failureResult(
-                        requestIndex = requestIndex,
-                        error = error,
-                        measuredRttMs = rttSamples.averageMillis(),
-                        connectionCount = tracker.connectionCount,
-                        requestedHosts = requestedHosts.takeIf { randomHostname },
-                    )
+            val failure = outcome.exceptionOrNull()
+            val stop =
+                when {
+                    tracker.connectionCount > 1 -> {
+                        target.result(
+                            alive = true,
+                            verdict = Tcp16Verdict.INVALID_RECONNECTED,
+                            measuredRttMs = rttSamples.averageMillis(),
+                            errorDetail = "probe opened more than one socket",
+                            connectionCount = tracker.connectionCount,
+                            requestedHosts = requestedHosts.takeIf { randomHostname },
+                        )
+                    }
+
+                    failure != null -> {
+                        target.failureResult(
+                            requestIndex = requestIndex,
+                            error = failure,
+                            measuredRttMs = rttSamples.averageMillis(),
+                            connectionCount = tracker.connectionCount,
+                            requestedHosts = requestedHosts.takeIf { randomHostname },
+                        )
+                    }
+
+                    else -> {
+                        rttSamples += outcome.getOrThrow().elapsedMs
+                        null
+                    }
                 }
+            if (stop != null) return stop
         }
         return target.result(
             alive = true,
