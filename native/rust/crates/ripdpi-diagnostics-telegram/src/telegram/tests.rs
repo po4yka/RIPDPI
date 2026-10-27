@@ -1,6 +1,6 @@
 use std::cell::Cell;
-use std::io;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+
+use crate::transport::{TransportConfig, direct_transport};
 
 use super::dc::TelegramDcResult;
 use super::scoring::{classify_telegram_verdict, compute_telegram_quality_score};
@@ -44,10 +44,7 @@ fn verdict_deadline_exceeded_when_any_subprobe_exceeds_deadline() {
 
 #[test]
 fn telegram_ws_probe_recovers_from_probe_panic() {
-    let result = telegram_ws_tunnel_probe_with(
-        || Ok(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443)),
-        |_resolved_addr| panic!("provider selection panic"),
-    );
+    let result = telegram_ws_tunnel_probe_with(&direct_transport(), |_target| panic!("provider selection panic"));
 
     assert_eq!(result.status, "unreachable");
     assert!(result.rtt_ms <= 1_000);
@@ -146,36 +143,18 @@ fn quality_score_partial_penalty_for_slow_transfer() {
 }
 
 #[test]
-fn telegram_ws_tunnel_probe_passes_resolved_addr_to_probe() {
-    let expected = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(198, 18, 0, 10)), 443);
-    let captured_addr = Cell::new(None);
+fn telegram_ws_tunnel_probe_leaves_resolution_to_the_scan_transport() {
+    let socks5 = TransportConfig::Socks5 { host: "127.0.0.1".to_string(), port: 1080, credentials: None };
+    let captured = std::cell::RefCell::new(None);
 
-    let result = telegram_ws_tunnel_probe_with(
-        || Ok(expected),
-        |resolved_addr| {
-            captured_addr.set(resolved_addr);
-            Ok(())
-        },
-    );
+    let result = telegram_ws_tunnel_probe_with(&socks5, |target| {
+        captured.replace(Some(target));
+        Ok(())
+    });
 
-    assert_eq!(captured_addr.get(), Some(expected));
-    assert_eq!(result.status, "ok");
-    assert!(result.error.is_none());
-}
-
-#[test]
-fn telegram_ws_tunnel_probe_falls_back_to_unresolved_probe_when_lookup_fails() {
-    let captured_addr = Cell::new(Some(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443)));
-
-    let result = telegram_ws_tunnel_probe_with(
-        || Err(io::Error::new(io::ErrorKind::TimedOut, "dns timed out")),
-        |resolved_addr| {
-            captured_addr.set(resolved_addr);
-            Ok(())
-        },
-    );
-
-    assert_eq!(captured_addr.get(), None);
+    let target = captured.into_inner().expect("probe called");
+    assert_eq!(target.resolved_addr, None);
+    assert!(matches!(target.transport, TransportConfig::Socks5 { port: 1080, .. }));
     assert_eq!(result.status, "ok");
     assert!(result.error.is_none());
 }
@@ -185,7 +164,6 @@ fn telegram_ws_probe_stops_after_resolution_when_cancelled() {
     let probe_called = Cell::new(false);
 
     let result = telegram_ws_tunnel_probe_with_abort(
-        || Ok(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), 443)),
         |_target| {
             probe_called.set(true);
             Ok(())

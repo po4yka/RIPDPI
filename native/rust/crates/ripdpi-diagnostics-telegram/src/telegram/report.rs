@@ -32,7 +32,7 @@ pub fn run_telegram_probe_with_abort(
     let dc = telegram_dc_probe_with_abort(target, transport, should_abort);
     let ws = match should_abort() {
         Some(reason) => aborted_ws_probe(reason),
-        None => telegram_ws_tunnel_probe_with_abort_callback(key_log, should_abort),
+        None => telegram_ws_tunnel_probe_with_abort_callback(transport, key_log, should_abort),
     };
 
     let verdict = classify_telegram_verdict(&dl.status, &ul.status, dc.reachable, dc.total, &ws.status);

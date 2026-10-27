@@ -1,13 +1,12 @@
 use std::io;
-use std::net::{SocketAddr, ToSocketAddrs};
 
 use ripdpi_diagnostics_transport::ws_tls::{WsOverTlsConnector, WsOverTlsTarget};
 
 use crate::tls::TlsKeyLogCallback;
+use crate::transport::TransportConfig;
 
 const TELEGRAM_WS_HOST: &str = "kws2.web.telegram.org";
 const TELEGRAM_WS_PATH: &str = "/apiws";
-const TELEGRAM_WS_PORT: u16 = 443;
 
 pub(crate) struct TelegramWsProbeResult {
     pub(crate) status: String,
@@ -21,60 +20,52 @@ impl TelegramWsProbeResult {
     }
 }
 
+/// Probe the Telegram WS endpoint over the scan's transport. The connector resolves the host
+/// with the bounded resolver under the scan deadline (direct) or lets the SOCKS5 proxy resolve it.
 pub(crate) fn telegram_ws_tunnel_probe_with_abort_callback(
+    transport: &TransportConfig,
     key_log: Option<&TlsKeyLogCallback>,
     should_abort: &dyn Fn() -> Option<&'static str>,
 ) -> TelegramWsProbeResult {
     telegram_ws_tunnel_probe_with_target(
-        resolve_telegram_ws_addr,
+        transport,
         |target| WsOverTlsConnector.probe_with_key_log_and_abort(&target, key_log.cloned(), should_abort),
         should_abort,
     )
 }
 
-fn resolve_telegram_ws_addr() -> io::Result<SocketAddr> {
-    (TELEGRAM_WS_HOST, TELEGRAM_WS_PORT)
-        .to_socket_addrs()?
-        .next()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "Telegram WS endpoint resolved no addresses"))
-}
-
-fn telegram_ws_target(resolved_addr: Option<SocketAddr>) -> WsOverTlsTarget {
-    WsOverTlsTarget::new(TELEGRAM_WS_HOST, TELEGRAM_WS_PATH).with_resolved_addr(resolved_addr)
+fn telegram_ws_target(transport: &TransportConfig) -> WsOverTlsTarget {
+    WsOverTlsTarget::new(TELEGRAM_WS_HOST, TELEGRAM_WS_PATH).with_transport(transport.clone())
 }
 
 #[cfg(test)]
-pub(crate) fn telegram_ws_tunnel_probe_with<ResolveWsAddr, ProbeWs>(
-    resolve_ws_addr: ResolveWsAddr,
+pub(crate) fn telegram_ws_tunnel_probe_with<ProbeWs>(
+    transport: &TransportConfig,
     probe_ws: ProbeWs,
 ) -> TelegramWsProbeResult
 where
-    ResolveWsAddr: FnOnce() -> io::Result<SocketAddr>,
-    ProbeWs: FnOnce(Option<SocketAddr>) -> io::Result<()>,
-{
-    telegram_ws_tunnel_probe_with_target(resolve_ws_addr, |target| probe_ws(target.resolved_addr), &|| None)
-}
-
-#[cfg(test)]
-pub(crate) fn telegram_ws_tunnel_probe_with_abort<ResolveWsAddr, ProbeWs>(
-    resolve_ws_addr: ResolveWsAddr,
-    probe_ws: ProbeWs,
-    should_abort: &dyn Fn() -> Option<&'static str>,
-) -> TelegramWsProbeResult
-where
-    ResolveWsAddr: FnOnce() -> io::Result<SocketAddr>,
     ProbeWs: FnOnce(WsOverTlsTarget) -> io::Result<()>,
 {
-    telegram_ws_tunnel_probe_with_target(resolve_ws_addr, probe_ws, should_abort)
+    telegram_ws_tunnel_probe_with_target(transport, probe_ws, &|| None)
 }
 
-fn telegram_ws_tunnel_probe_with_target<ResolveWsAddr, ProbeWs>(
-    resolve_ws_addr: ResolveWsAddr,
+#[cfg(test)]
+pub(crate) fn telegram_ws_tunnel_probe_with_abort<ProbeWs>(
     probe_ws: ProbeWs,
     should_abort: &dyn Fn() -> Option<&'static str>,
 ) -> TelegramWsProbeResult
 where
-    ResolveWsAddr: FnOnce() -> io::Result<SocketAddr>,
+    ProbeWs: FnOnce(WsOverTlsTarget) -> io::Result<()>,
+{
+    telegram_ws_tunnel_probe_with_target(&crate::transport::direct_transport(), probe_ws, should_abort)
+}
+
+fn telegram_ws_tunnel_probe_with_target<ProbeWs>(
+    transport: &TransportConfig,
+    probe_ws: ProbeWs,
+    should_abort: &dyn Fn() -> Option<&'static str>,
+) -> TelegramWsProbeResult
+where
     ProbeWs: FnOnce(WsOverTlsTarget) -> io::Result<()>,
 {
     if let Some(reason) = should_abort() {
@@ -82,18 +73,7 @@ where
     }
     let start = std::time::Instant::now();
     match std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-        let resolved_addr = match resolve_ws_addr() {
-            Ok(addr) => Some(addr),
-            Err(err) => {
-                tracing::warn!("Telegram WS tunnel encrypted DNS bootstrap failed: {err}");
-                None
-            }
-        };
-        if let Some(reason) = should_abort() {
-            return TelegramWsProbeResult::aborted(reason);
-        }
-
-        let target = telegram_ws_target(resolved_addr);
+        let target = telegram_ws_target(transport);
         if let Some(reason) = should_abort() {
             return TelegramWsProbeResult::aborted(reason);
         }

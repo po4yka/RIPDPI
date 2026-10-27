@@ -11,7 +11,7 @@ use rustls::{ClientConfig, ClientConnection, RootCertStore, StreamOwned};
 use tungstenite::WebSocket;
 use tungstenite::client::IntoClientRequest;
 
-use crate::transport::TargetAddress;
+use crate::transport::{TargetAddress, TransportConfig, connect_transport_observed, direct_transport};
 use crate::transport::{resolve_addresses_with_timeout, run_with_socket_watchdog};
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 
@@ -25,15 +25,30 @@ pub struct WsOverTlsTarget {
     pub path: String,
     pub resolved_addr: Option<SocketAddr>,
     pub connect_timeout: Option<Duration>,
+    /// The scan's path to the host. A SOCKS5 transport sends the host name to the proxy, which
+    /// resolves and connects it; a direct transport resolves with the bounded system resolver.
+    pub transport: TransportConfig,
 }
 
 impl WsOverTlsTarget {
     pub fn new(host: impl Into<String>, path: impl Into<String>) -> Self {
-        Self { host: host.into(), port: 443, path: path.into(), resolved_addr: None, connect_timeout: None }
+        Self {
+            host: host.into(),
+            port: 443,
+            path: path.into(),
+            resolved_addr: None,
+            connect_timeout: None,
+            transport: direct_transport(),
+        }
     }
 
     pub fn with_resolved_addr(mut self, resolved_addr: Option<SocketAddr>) -> Self {
         self.resolved_addr = resolved_addr;
+        self
+    }
+
+    pub fn with_transport(mut self, transport: TransportConfig) -> Self {
+        self.transport = transport;
         self
     }
 }
@@ -130,6 +145,7 @@ trait WsHandshakeSteps {
 
     fn resolve(&mut self, target: &WsOverTlsTarget, timeout: Duration) -> io::Result<SocketAddr>;
     fn connect_tcp(&mut self, addr: SocketAddr, timeout: Duration) -> io::Result<Self::Tcp>;
+    fn connect_proxied(&mut self, target: &WsOverTlsTarget, timeout: Duration) -> io::Result<Self::Tcp>;
     fn connect_tls(
         &mut self,
         tcp: Self::Tcp,
@@ -153,11 +169,19 @@ fn connect_with_steps<Steps: WsHandshakeSteps>(
     control: &WsOverTlsControl<'_>,
     steps: &mut Steps,
 ) -> io::Result<Steps::Ws> {
-    let socket_addr =
-        steps.resolve(target, control.remaining_timeout()?).map_err(|err| control.error_after_blocking_io(err))?;
-    let tcp = steps
-        .connect_tcp(socket_addr, control.remaining_timeout()?)
-        .map_err(|err| control.error_after_blocking_io(err))?;
+    let tcp = match target.transport {
+        TransportConfig::Socks5 { .. } => steps
+            .connect_proxied(target, control.remaining_timeout()?)
+            .map_err(|err| control.error_after_blocking_io(err))?,
+        TransportConfig::Direct { .. } => {
+            let socket_addr = steps
+                .resolve(target, control.remaining_timeout()?)
+                .map_err(|err| control.error_after_blocking_io(err))?;
+            steps
+                .connect_tcp(socket_addr, control.remaining_timeout()?)
+                .map_err(|err| control.error_after_blocking_io(err))?
+        }
+    };
     let tls = steps
         .connect_tls(tcp, target.host.as_str(), key_log, control.remaining_timeout()?, control)
         .map_err(|err| control.error_after_blocking_io(err))?;
@@ -179,6 +203,10 @@ impl WsHandshakeSteps for ProductionWsHandshakeSteps {
 
     fn connect_tcp(&mut self, addr: SocketAddr, timeout: Duration) -> io::Result<Self::Tcp> {
         connect_tcp(addr, timeout)
+    }
+
+    fn connect_proxied(&mut self, target: &WsOverTlsTarget, timeout: Duration) -> io::Result<Self::Tcp> {
+        connect_proxied(target, timeout)
     }
 
     fn connect_tls(
@@ -227,6 +255,21 @@ fn connect_tcp(addr: SocketAddr, timeout: Duration) -> io::Result<TcpStream> {
         .connect_timeout(&SockAddr::from(addr), timeout)
         .map_err(|err| io::Error::new(err.kind(), format!("WS over TLS TCP connect to {addr}: {err}")))?;
     let stream: TcpStream = socket.into();
+    stream.set_nodelay(true)?;
+    stream.set_read_timeout(Some(timeout))?;
+    stream.set_write_timeout(Some(timeout))?;
+    Ok(stream)
+}
+
+/// Connect through the scan's SOCKS5 proxy (the shared transport protects the proxy socket when
+/// it is not loopback). The proxy resolves the host, so no local DNS lookup runs.
+fn connect_proxied(target: &WsOverTlsTarget, timeout: Duration) -> io::Result<TcpStream> {
+    let stream =
+        connect_transport_observed(&[TargetAddress::Host(target.host.clone())], target.port, &target.transport)
+            .map_err(|err| {
+                io::Error::new(io::ErrorKind::ConnectionRefused, format!("WS over TLS proxy connect: {}", err.message))
+            })?
+            .stream;
     stream.set_nodelay(true)?;
     stream.set_read_timeout(Some(timeout))?;
     stream.set_write_timeout(Some(timeout))?;
@@ -462,6 +505,53 @@ mod tests {
     }
 
     #[test]
+    fn socks5_target_connects_through_the_proxy_without_local_dns() {
+        let mut steps = FakeWsSteps::default();
+        let control = WsOverTlsControl::new(&|| None);
+        let target = WsOverTlsTarget::new("kws2.web.telegram.org", "/apiws").with_transport(TransportConfig::Socks5 {
+            host: "127.0.0.1".to_string(),
+            port: 1080,
+            credentials: None,
+        });
+
+        connect_with_steps(&target, None, &control, &mut steps).expect("fake handshake");
+
+        assert_eq!(steps.calls, ["proxy", "tls", "ws"]);
+    }
+
+    #[test]
+    fn proxied_connect_sends_the_host_name_to_the_socks5_proxy() {
+        use std::io::{Read, Write};
+
+        // A SOCKS5 proxy fixture (RFC 1928) that records the CONNECT destination.
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let proxy_port = listener.local_addr().unwrap().port();
+        let proxy = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut greeting = [0u8; 3];
+            socket.read_exact(&mut greeting).unwrap();
+            socket.write_all(&[0x05, 0x00]).unwrap();
+            let mut head = [0u8; 5];
+            socket.read_exact(&mut head).unwrap();
+            let mut name = vec![0u8; usize::from(head[4])];
+            socket.read_exact(&mut name).unwrap();
+            let mut port = [0u8; 2];
+            socket.read_exact(&mut port).unwrap();
+            socket.write_all(&[0x05, 0x00, 0x00, 0x01, 127, 0, 0, 1, 0x01, 0xbb]).unwrap();
+            (head[3], String::from_utf8(name).unwrap(), u16::from_be_bytes(port))
+        });
+        let target = WsOverTlsTarget::new("kws2.web.telegram.org", "/apiws").with_transport(TransportConfig::Socks5 {
+            host: "127.0.0.1".to_string(),
+            port: proxy_port,
+            credentials: None,
+        });
+
+        let _stream = connect_proxied(&target, Duration::from_secs(2)).expect("proxied connect");
+
+        assert_eq!(proxy.join().unwrap(), (0x03, "kws2.web.telegram.org".to_string(), 443));
+    }
+
+    #[test]
     fn controlled_handshake_checks_abort_before_dns_resolution() {
         let mut steps = FakeWsSteps::default();
         let control = WsOverTlsControl::new(&|| Some("cancelled"));
@@ -546,6 +636,12 @@ mod tests {
 
         fn connect_tcp(&mut self, _addr: SocketAddr, timeout: Duration) -> io::Result<Self::Tcp> {
             self.calls.push("tcp");
+            self.timeouts.push(timeout);
+            Ok(())
+        }
+
+        fn connect_proxied(&mut self, _target: &WsOverTlsTarget, timeout: Duration) -> io::Result<Self::Tcp> {
+            self.calls.push("proxy");
             self.timeouts.push(timeout);
             Ok(())
         }
