@@ -51,3 +51,21 @@ fn bridge_line_parser_rejects_invalid_inputs() {
         assert!(parse_bridge_line(line).is_err(), "{name} should be rejected");
     }
 }
+
+/// Upstream `sni-imitation`: the cover name goes in SNI and the certificate
+/// is checked against the URL host; `servername` and `cert-domain` override.
+#[test]
+fn sni_imitation_sets_the_sni_name_and_checks_the_url_host() {
+    let imitated =
+        parse_bridge_line("Bridge webtunnel 192.0.2.3:1 url=https://bridge.example/s sni-imitation=cover.example")
+            .expect("bridge line");
+    assert_eq!(imitated.servername, "cover.example");
+    assert_eq!(imitated.cert_domain.as_deref(), Some("bridge.example"));
+
+    let overridden = parse_bridge_line(
+        "Bridge webtunnel 192.0.2.3:1 url=https://bridge.example/s sni-imitation=cover.example servername=sni.example cert-domain=cert.example",
+    )
+    .expect("bridge line");
+    assert_eq!(overridden.servername, "sni.example");
+    assert_eq!(overridden.cert_domain.as_deref(), Some("cert.example"));
+}

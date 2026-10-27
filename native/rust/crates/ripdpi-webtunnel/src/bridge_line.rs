@@ -87,11 +87,16 @@ pub fn parse_bridge_line(raw_bridge_line: &str) -> Result<WebTunnelBridgeConfig,
     let version = optional_non_empty(&options, "version")?.map(ToOwned::to_owned);
     let addr = optional_non_empty(&options, "addr")?
         .map_or_else(|| default_addr(host, url.port().unwrap_or(443)), ToOwned::to_owned);
-    let servername = optional_non_empty(&options, "servername")?.unwrap_or(host).to_owned();
+    // As upstream: `sni-imitation` sends a cover name in SNI and checks the
+    // certificate against the URL host; `servername` and `cert-domain`
+    // override either part.
+    let sni_imitation = optional_non_empty(&options, "sni-imitation")?;
+    let servername = optional_non_empty(&options, "servername")?.or(sni_imitation).unwrap_or(host).to_owned();
     let utls = optional_non_empty(&options, "utls")?.unwrap_or("hellochrome_auto");
     let tls_profile = tls_profile_for_utls(utls)?.to_owned();
     let cert = optional_non_empty(&options, "cert")?.map(ToOwned::to_owned);
-    let cert_domain = optional_non_empty(&options, "cert-domain")?.map(ToOwned::to_owned);
+    let cert_domain =
+        optional_non_empty(&options, "cert-domain")?.or(sni_imitation.map(|_| host)).map(ToOwned::to_owned);
 
     Ok(WebTunnelBridgeConfig {
         url: raw_url.to_owned(),

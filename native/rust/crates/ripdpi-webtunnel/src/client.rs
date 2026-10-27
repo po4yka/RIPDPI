@@ -7,7 +7,7 @@ use thiserror::Error;
 
 use crate::bridge_line::WebTunnelBridgeConfig;
 use crate::http_upgrade::{HttpUpgradeError, HttpUpgradeRequest, perform_http_upgrade, perform_http_upgrade_async};
-use crate::tls::{WebTunnelTlsError, build_http11_tls_connector, build_tls_connector};
+use crate::tls::{WebTunnelTlsError, build_http11_tls_connector, build_tls_connector, configure_connection};
 
 const IO_TIMEOUT: Duration = Duration::from_secs(10);
 
@@ -83,7 +83,7 @@ fn connect_webtunnel_with(
         .map_err(|source| WebTunnelClientError::TcpConnect { addr: config.addr.clone(), source })?;
 
     let connector = connector_for(config, offer)?;
-    let tls = connector
+    let tls = configure_connection(&connector, config)?
         .connect(&config.servername, tcp)
         .map_err(|error| WebTunnelClientError::TlsHandshake(error.to_string()))?;
     reject_h2(tls.ssl())?;
@@ -123,7 +123,7 @@ async fn connect_webtunnel_async_with(
     tcp.set_nodelay(true).map_err(|source| WebTunnelClientError::TcpConnect { addr: config.addr.clone(), source })?;
 
     let connector = connector_for(config, offer)?;
-    let ssl = connector.configure().map_err(|error| WebTunnelClientError::TlsHandshake(error.to_string()))?;
+    let ssl = configure_connection(&connector, config)?;
     let tls = tokio_boring::connect(ssl, &config.servername, tcp)
         .await
         .map_err(|error| WebTunnelClientError::TlsHandshake(error.to_string()))?;

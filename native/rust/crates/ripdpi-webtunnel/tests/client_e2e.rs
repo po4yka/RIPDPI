@@ -110,3 +110,41 @@ async fn webtunnel_async_client_rejects_trusted_certificate_for_other_servername
     assert!(matches!(error, WebTunnelClientError::TlsHandshake(_)), "unexpected error: {error}");
     assert!(fixture.observed_requests().is_empty(), "secret path must not be sent");
 }
+
+/// Upstream `cert=<chain hash>`: the pinned chain hash replaces CA
+/// validation, so a self-signed bridge with its pin connects without any
+/// trust root, and a wrong pin is rejected before the secret path is sent.
+#[test]
+fn webtunnel_client_trusts_a_pinned_self_signed_certificate_chain() {
+    let fixture = WebTunnelFixture::start("/secret").expect("start WebTunnel fixture");
+    let certificate = boring::x509::X509::from_pem(fixture.root_certificate_pem().as_bytes()).expect("fixture cert");
+    // A one-certificate chain hashes to SHA-256 of that certificate.
+    let pin = boring::base64::encode_block(&boring::sha::sha256(&certificate.to_der().expect("der")));
+
+    let mut pinned = fixture_bridge(&fixture, "localhost");
+    pinned.cert = Some(pin);
+    let mut stream = connect_webtunnel(&pinned).expect("a pinned self-signed bridge must connect");
+    stream.write_all(b"pinned").expect("write tunnel payload");
+    let mut echoed = [0_u8; 6];
+    stream.read_exact(&mut echoed).expect("read echoed payload");
+    assert_eq!(&echoed, b"pinned");
+
+    let mut wrong = fixture_bridge(&fixture, "localhost");
+    wrong.cert = Some(boring::base64::encode_block(&[0; 32]));
+    let error = connect_webtunnel(&wrong).expect_err("a wrong pin must be rejected");
+    assert!(matches!(error, WebTunnelClientError::TlsHandshake(_)), "unexpected error: {error}");
+    assert_eq!(fixture.observed_requests().len(), 1, "the secret path goes only to the pinned bridge");
+}
+
+/// Upstream `cert-domain` (and `sni-imitation`): SNI carries a cover name and
+/// the certificate is checked against another name.
+#[test]
+fn webtunnel_client_checks_the_certificate_against_cert_domain() {
+    let fixture = WebTunnelFixture::start("/secret").expect("start WebTunnel fixture");
+    let mut bridge = trusted_fixture_bridge(&fixture, "cover.example");
+    let mismatch = connect_webtunnel(&bridge).expect_err("the certificate does not name the SNI cover name");
+    assert!(matches!(mismatch, WebTunnelClientError::TlsHandshake(_)), "unexpected error: {mismatch}");
+
+    bridge.cert_domain = Some("localhost".to_owned());
+    connect_webtunnel(&bridge).expect("the certificate names cert-domain");
+}
