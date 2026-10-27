@@ -324,6 +324,73 @@ async fn abandoned_upstream_open_closes_the_upstream_socket() {
     silent.abort();
 }
 
+/// Forwards TCP to `target` until `frozen` is set; then it swallows bytes and
+/// sends nothing, like a path that died without FIN or RST.
+async fn freezable_forwarder(target: u16, frozen: Arc<std::sync::atomic::AtomicBool>) -> u16 {
+    use std::sync::atomic::Ordering;
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind forwarder");
+    let port = listener.local_addr().expect("forwarder addr").port();
+    tokio::spawn(async move {
+        while let Ok((inbound, _)) = listener.accept().await {
+            let outbound = TcpStream::connect(("127.0.0.1", target)).await.expect("connect target");
+            let (inbound_read, inbound_write) = inbound.into_split();
+            let (outbound_read, outbound_write) = outbound.into_split();
+            for (mut from, mut to) in [(inbound_read, outbound_write), (outbound_read, inbound_write)] {
+                let frozen = Arc::clone(&frozen);
+                tokio::spawn(async move {
+                    let mut chunk = [0u8; 16 * 1024];
+                    while let Ok(read) = from.read(&mut chunk).await {
+                        if read == 0 || frozen.load(Ordering::SeqCst) {
+                            std::future::pending::<()>().await;
+                        }
+                        if to.write_all(&chunk[..read]).await.is_err() {
+                            return;
+                        }
+                    }
+                });
+            }
+        }
+    });
+    port
+}
+
+/// A tunnel whose upstream path dies silently is closed by the H2 keep-alive
+/// instead of pinning both sockets and its task until the helper restarts.
+#[tokio::test]
+async fn tunnel_on_a_silently_dead_upstream_path_is_closed() {
+    let fixture = local_network_fixture::NaiveH2PaddingFixture::start("naive-user", "naive-pass")
+        .await
+        .expect("start naive h2 fixture");
+    let frozen = Arc::new(std::sync::atomic::AtomicBool::new(false));
+    let forward_port = freezable_forwarder(fixture.port(), Arc::clone(&frozen)).await;
+    let local_listener = TcpListener::bind("127.0.0.1:0").await.expect("bind local listener");
+    let local_addr = local_listener.local_addr().expect("local addr");
+    let config = NaiveProxyConfig {
+        listen: local_addr.to_string(),
+        server: "127.0.0.1".to_owned(),
+        server_port: forward_port,
+        server_name: fixture.server_name().to_owned(),
+        username: Some("naive-user".to_owned()),
+        password: Some("naive-pass".to_owned()),
+        path: None,
+        tls_config: fixture.client_tls_config(),
+        protect_socket_path: None,
+    };
+    let server = tokio::spawn(serve_listener(local_listener, Arc::new(config)));
+
+    let mut client = open_socks_tunnel(local_addr).await;
+    client.write_all(b"before").await.expect("write");
+    let mut echoed = [0u8; 6];
+    client.read_exact(&mut echoed).await.expect("echo before the path dies");
+
+    frozen.store(true, std::sync::atomic::Ordering::SeqCst);
+    tokio::time::pause();
+    let mut byte = [0u8; 1];
+    let closed = read_within_virtual_secs(&client, &mut byte, 300).await;
+    assert_eq!(closed, Some(0), "the dead tunnel must be closed");
+    server.abort();
+}
+
 #[test]
 fn padding_frame_encodes_big_endian_length_and_zero_padding() {
     let mut encoder = PaddingEncoder::default();
