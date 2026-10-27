@@ -76,8 +76,14 @@ pub fn compare_dns_responses(udp: &DnsRecordSet, encrypted: &DnsRecordSet) -> Dn
         result.comparison_score += 20;
     }
 
+    // Two caches see rotating pools and geo-steered CDN names, so a different answer count or
+    // CNAME chain is divergence only when the two answers share no address.
+    let udp_addresses = address_values(udp);
+    let encrypted_addresses = address_values(encrypted);
+    let addresses_disjoint = udp_addresses.is_disjoint(&encrypted_addresses);
+
     result.answer_count_divergence = udp.answers.len() as i32 - encrypted.answers.len() as i32;
-    if result.answer_count_divergence.unsigned_abs() >= 3 {
+    if addresses_disjoint && result.answer_count_divergence.unsigned_abs() >= 3 {
         result.comparison_signals.push("answer_count_divergent");
         result.comparison_score += 10;
     }
@@ -86,14 +92,12 @@ pub fn compare_dns_responses(udp: &DnsRecordSet, encrypted: &DnsRecordSet) -> Dn
         udp.answers.iter().filter(|record| is_address_record(record.rtype)).map(|record| record.ttl).collect();
     let encrypted_ttls: Vec<u32> =
         encrypted.answers.iter().filter(|record| is_address_record(record.rtype)).map(|record| record.ttl).collect();
+    // Kept as evidence only: a TTL is the remaining cache time (RFC 1035 section 3.2.1), so two
+    // caches of one long-TTL record differ by their cache age.
     if let (Some(&udp_ttl), Some(&encrypted_ttl)) = (udp_ttls.first(), encrypted_ttls.first()) {
         let diff = udp_ttl.abs_diff(encrypted_ttl);
         if diff > 0 {
             result.ttl_divergence = Some(diff);
-        }
-        if diff > 3600 {
-            result.comparison_signals.push("ttl_highly_divergent");
-            result.comparison_score += 15;
         }
     }
 
@@ -103,10 +107,15 @@ pub fn compare_dns_responses(udp: &DnsRecordSet, encrypted: &DnsRecordSet) -> Dn
         result.comparison_score += 10;
     }
 
-    let encrypted_cnames: BTreeSet<&str> =
-        encrypted.answers.iter().filter(|record| record.rtype == 5).map(|record| record.value.as_str()).collect();
-    for record in udp.answers.iter().filter(|record| record.rtype == 5) {
-        if !encrypted_cnames.contains(record.value.as_str()) {
+    // DNS names compare case-insensitively (RFC 4343).
+    let encrypted_cnames: BTreeSet<String> = encrypted
+        .answers
+        .iter()
+        .filter(|record| record.rtype == 5)
+        .map(|record| normalized_name(&record.value))
+        .collect();
+    for record in udp.answers.iter().filter(|record| addresses_disjoint && record.rtype == 5) {
+        if !encrypted_cnames.contains(&normalized_name(&record.value)) {
             result.extra_cnames.push(record.value.clone());
         }
     }
@@ -122,6 +131,19 @@ pub fn compare_dns_responses(udp: &DnsRecordSet, encrypted: &DnsRecordSet) -> Dn
 
     result.comparison_score = result.comparison_score.min(100);
     result
+}
+
+fn address_values(records: &DnsRecordSet) -> BTreeSet<&str> {
+    records
+        .answers
+        .iter()
+        .filter(|record| is_address_record(record.rtype))
+        .map(|record| record.value.as_str())
+        .collect()
+}
+
+fn normalized_name(name: &str) -> String {
+    name.trim_end_matches('.').to_ascii_lowercase()
 }
 
 fn is_address_record(rtype: u16) -> bool {

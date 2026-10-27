@@ -376,7 +376,38 @@ fn compare_ttl_divergence() {
     let encrypted_records = parse_record_set(&encrypted_packet);
     let result = compare_dns_responses(&udp_records, &encrypted_records);
     assert_eq!(result.ttl_divergence, Some(7200));
-    assert!(result.comparison_signals.contains(&"ttl_highly_divergent"));
+    assert!(result.comparison_signals.is_empty());
+    assert_eq!(result.comparison_score, 0);
+}
+
+#[test]
+fn cache_age_case_and_cdn_steering_are_not_divergence() {
+    // ISP cache filled two hours ago, DoH cache fresh; the same CDN name in another case; the ISP
+    // resolver also gets a steered CNAME and a larger pool that share an address with DoH.
+    let udp_packet = build_dns_response(&ResponseConfig {
+        answer_count: 6,
+        answers: vec![
+            cname_record("Edge.CDN.example", 79200),
+            cname_record("eu-west.steer.example", 79200),
+            a_record([192, 0, 2, 1], 79200),
+            a_record([192, 0, 2, 2], 79200),
+            a_record([192, 0, 2, 3], 79200),
+            a_record([192, 0, 2, 4], 79200),
+        ],
+        ..Default::default()
+    });
+    let encrypted_packet = build_dns_response(&ResponseConfig {
+        answer_count: 2,
+        answers: vec![cname_record("edge.cdn.example", 86400), a_record([192, 0, 2, 1], 86400)],
+        ..Default::default()
+    });
+
+    let result = compare_dns_responses(&parse_record_set(&udp_packet), &parse_record_set(&encrypted_packet));
+
+    assert_eq!(result.ttl_divergence, Some(7200));
+    assert!(result.extra_cnames.is_empty(), "{:?}", result.extra_cnames);
+    assert!(result.comparison_signals.is_empty(), "{:?}", result.comparison_signals);
+    assert_eq!(result.comparison_score, 0);
 }
 
 #[test]
