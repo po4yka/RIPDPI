@@ -153,6 +153,30 @@ mod tests {
     }
 
     #[test]
+    fn an_icmp_receive_ends_at_the_helper_bound_not_the_client_timeout() {
+        use std::time::{Duration, Instant};
+
+        let filter = ripdpi_privileged_ops::IcmpWrappedUdpRecvFilter {
+            bind_ip: std::net::IpAddr::from([127, 0, 0, 1]),
+            session_id: Some(0x5eed_c0de),
+            expected_code: None,
+            expected_role: None,
+            timeout_ms: 8_000,
+        };
+        let started = Instant::now();
+        let (response, fd) = super::handle_recv_icmp_wrapped_udp(filter);
+        let waited = started.elapsed();
+        assert!(fd.is_none());
+        let error = response.error.unwrap_or_default();
+        // The receive needs a raw ICMP socket (CAP_NET_RAW on Linux or Android).
+        if !error.contains("timed out") {
+            eprintln!("skipped: no raw ICMP receive here: {error}");
+            return;
+        }
+        assert!(waited < Duration::from_secs(7), "the 8 s client timeout was not bounded: {waited:?}");
+    }
+
+    #[test]
     fn spoofed_or_inconsistent_raw_packets_are_refused_before_sending() {
         let cases = [
             // Neither address belongs to this host: a spoofed packet for a third party.

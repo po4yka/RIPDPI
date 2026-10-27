@@ -322,6 +322,47 @@ mod tests {
     }
 
     #[test]
+    fn the_reap_lists_through_a_held_lock_and_removes_dead_helper_chains() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let dir = std::env::temp_dir().join(format!("nfqws2-reap-entry-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("test dir");
+        std::fs::write(dir.join("rules"), RULES).expect("rules");
+        let script = dir.join("iptables");
+        // The first listing finds the xtables lock held (exit 4); every call is logged.
+        std::fs::write(
+            &script,
+            "#!/bin/sh\nd=\"${0%/*}\"\necho \"$*\" >> \"$d/log\"\n\
+             if [ \"$3\" = -S ]; then\n  [ -e \"$d/held\" ] || { : > \"$d/held\"; exit 4; }\n  cat \"$d/rules\"\nfi\n",
+        )
+        .expect("script");
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).expect("script mode");
+
+        // PIDs 0x1c8 and 0x2d0 run no helper in the test environment.
+        super::reap_stale_state(&dir, 10234, &[script]);
+
+        let log = std::fs::read_to_string(dir.join("log")).expect("log");
+        let calls: Vec<&str> = log.lines().collect();
+        assert_eq!(
+            calls,
+            [
+                "-t mangle -S",
+                "-t mangle -S",
+                "-t mangle -D OUTPUT ! -o lo -m owner --uid-owner 10234 -j RDP27fa1c8O",
+                "-t mangle -D OUTPUT ! -o lo -m owner --uid-owner 10234 -j RDP27fa2d0O",
+                "-t mangle -D INPUT ! -i lo -m connmark --mark 0x20000000/0x20000000 -j RDP27fa1c8I",
+                "-t mangle -F RDP27fa1c8O",
+                "-t mangle -X RDP27fa1c8O",
+                "-t mangle -F RDP27fa1c8I",
+                "-t mangle -X RDP27fa1c8I",
+                "-t mangle -F RDP27fa2d0O",
+                "-t mangle -X RDP27fa2d0O",
+            ]
+        );
+        std::fs::remove_dir_all(dir).expect("remove test dir");
+    }
+
+    #[test]
     fn orphan_nfqws2_is_recognized_only_by_its_queue_and_private_pidfile() {
         let files = Path::new("/data/user/0/app/files");
         let cmdline = |pidfile: &str| {
