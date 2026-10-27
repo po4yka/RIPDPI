@@ -3,11 +3,7 @@ use crate::blockpage_fingerprints::{BlockpageFingerprint, match_blockpage};
 use super::types::{HttpObservation, HttpResponse};
 
 pub fn classify_http_response(response: &HttpResponse) -> String {
-    let blockpage_body = if response.status_code == 403 {
-        body_has_explicit_blockpage_message(&response.body)
-    } else {
-        body_has_blockpage_keywords(&response.body)
-    };
+    let blockpage_body = body_has_explicit_blockpage_message(&response.body);
     if response.status_code == 200 && !blockpage_body {
         "http_ok".to_string()
     } else if response.status_code == 451 || blockpage_body {
@@ -47,21 +43,14 @@ pub fn is_blockpage(observation: &HttpObservation) -> bool {
     observation.status == "http_blockpage"
 }
 
-pub fn body_has_blockpage_keywords(body: &[u8]) -> bool {
-    // Large pages (>8KB) from legitimate sites may contain censorship-related words
-    // in their normal content; only flag short responses as potential blockpages.
-    if body.len() > 8192 {
-        return false;
-    }
-    let text = String::from_utf8_lossy(body).to_ascii_lowercase();
-    ["blocked", "access denied", "forbidden", "restriction", "censorship"].iter().any(|needle| text.contains(needle))
-}
-
+/// A short body that says a third party blocked the site. Generic words such as "forbidden",
+/// "access denied" or "blocked" also appear on origin authorization, WAF, rate-limit and error
+/// pages, so they are not evidence for any status.
 fn body_has_explicit_blockpage_message(body: &[u8]) -> bool {
+    // Large pages from legitimate sites may quote these phrases in their normal content.
     if body.len() > 8192 {
         return false;
     }
-    // Generic Forbidden and Access Denied pages also come from origin authorization.
     let text = String::from_utf8_lossy(body).to_ascii_lowercase();
     [
         "this site has been blocked",

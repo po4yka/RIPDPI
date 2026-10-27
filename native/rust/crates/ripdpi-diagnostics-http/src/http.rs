@@ -7,8 +7,7 @@ mod types;
 mod url_helpers;
 
 pub use classifier::{
-    body_has_blockpage_keywords, classify_http_response, classify_http_response_with_fingerprints,
-    describe_http_observation, is_blockpage,
+    classify_http_response, classify_http_response_with_fingerprints, describe_http_observation, is_blockpage,
 };
 pub use probe_execution::{
     execute_doh_json_request, execute_http_request, execute_http_request_targets,

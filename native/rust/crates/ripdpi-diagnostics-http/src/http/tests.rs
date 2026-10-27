@@ -111,17 +111,6 @@ fn classify_http_response_blockpage_for_302_with_blockpage_body() {
 }
 
 #[test]
-fn classify_http_response_blockpage_for_200_with_keywords() {
-    let response = HttpResponse {
-        status_code: 200,
-        reason: "OK".to_string(),
-        headers: HashMap::new(),
-        body: b"<html>Access Denied</html>".to_vec(),
-    };
-    assert_eq!(classify_http_response(&response), "http_blockpage");
-}
-
-#[test]
 fn classify_http_response_status_for_500() {
     let response = HttpResponse {
         status_code: 500,
@@ -133,25 +122,29 @@ fn classify_http_response_status_for_500() {
 }
 
 #[test]
-fn body_has_blockpage_keywords_detects_blocked() {
-    assert!(body_has_blockpage_keywords(b"This page is Blocked by your ISP"));
+fn generic_words_on_ordinary_responses_are_not_blockpages() {
+    for (status_code, body, expected) in [
+        (429, &b"Your IP is temporarily blocked. Try again later."[..], "http_status_429"),
+        (200, &b"{\"error\":\"forbidden\",\"detail\":\"missing token\"}"[..], "http_ok"),
+        (404, &b"<h1>Access Denied</h1>"[..], "http_status_404"),
+        (503, &b"Service restriction in effect"[..], "http_status_503"),
+    ] {
+        let response =
+            HttpResponse { status_code, reason: String::new(), headers: HashMap::new(), body: body.to_vec() };
+        assert_eq!(classify_http_response(&response), expected, "status {status_code}");
+    }
 }
 
 #[test]
-fn body_has_blockpage_keywords_detects_forbidden() {
-    assert!(body_has_blockpage_keywords(b"<h1>Forbidden</h1>"));
-}
-
-#[test]
-fn body_has_blockpage_keywords_returns_false_for_normal() {
-    assert!(!body_has_blockpage_keywords(b"<html>Hello World</html>"));
-}
-
-#[test]
-fn body_has_blockpage_keywords_ignores_large_legitimate_pages() {
-    let mut page = b"<html><body>Learn how to circumvent censorship and access blocked content</body>".to_vec();
-    page.resize(9000, b' '); // Pad to >8KB to simulate a real website
-    assert!(!body_has_blockpage_keywords(&page));
+fn explicit_block_message_is_a_blockpage_for_any_status() {
+    let mut page = b"<html>This site has been blocked by the government</html>".to_vec();
+    for status_code in [200, 404, 503] {
+        let response = HttpResponse { status_code, reason: String::new(), headers: HashMap::new(), body: page.clone() };
+        assert_eq!(classify_http_response(&response), "http_blockpage", "status {status_code}");
+    }
+    page.resize(9000, b' ');
+    let large = HttpResponse { status_code: 200, reason: String::new(), headers: HashMap::new(), body: page };
+    assert_eq!(classify_http_response(&large), "http_ok");
 }
 
 #[test]
