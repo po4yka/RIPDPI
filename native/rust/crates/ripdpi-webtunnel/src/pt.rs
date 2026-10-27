@@ -270,10 +270,11 @@ fn accept_loop(listener: TcpListener, running: Arc<AtomicBool>) -> io::Result<()
                     let _ = serve_socks_client(stream).await;
                 });
             }
-            Err(error) if error.kind() == io::ErrorKind::WouldBlock => {
-                thread::sleep(ACCEPT_POLL);
-            }
-            Err(error) => return Err(error),
+            // Every accept error on the listener this process owns is
+            // transient (EMFILE, ENFILE, ENOBUFS, ECONNABORTED, EINTR): wait
+            // and retry, as upstream does for temporary errors, instead of
+            // dropping a listener the PT keeps advertising.
+            Err(_) => thread::sleep(ACCEPT_POLL),
         }
     }
     Ok(())
