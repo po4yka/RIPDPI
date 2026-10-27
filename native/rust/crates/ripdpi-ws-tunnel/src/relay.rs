@@ -2,6 +2,7 @@ mod close_handshake;
 mod downlink;
 mod error_mapping;
 mod outbound_queue;
+mod packet_split;
 mod seed_framing;
 mod uplink;
 
@@ -18,6 +19,7 @@ use tungstenite::WebSocket;
 use self::close_handshake::drive_close_handshake;
 use self::downlink::relay_loop;
 use self::outbound_queue::bounded_outbound_queue;
+use self::packet_split::PacketSplitter;
 use self::seed_framing::send_seed_frames;
 use self::uplink::spawn_uplink_thread;
 
@@ -30,7 +32,8 @@ use self::uplink::spawn_uplink_thread;
 /// Uses two threads:
 /// - Main thread: owns the WebSocket, drains outbound frames, reads inbound WS
 ///   frames, and writes to client TCP
-/// - Spawned thread: reads from client TCP and queues outbound WS binary frames
+/// - Spawned thread: reads from client TCP and queues one outbound WS binary
+///   frame per MTProto transport packet
 ///
 /// `tungstenite::WebSocket::read()` automatically replies to Ping frames with
 /// Pong, so no explicit Ping/Pong handling is needed.
@@ -39,14 +42,15 @@ pub fn ws_relay<S: Read + Write + Send + 'static>(
     mut ws: WebSocket<S>,
     seed_request: &[u8],
 ) -> io::Result<()> {
-    send_seed_frames(&mut ws, seed_request)?;
+    let mut splitter = PacketSplitter::new(seed_request);
+    send_seed_frames(&mut ws, seed_request, &mut splitter)?;
 
     let shutdown = Arc::new(AtomicBool::new(false));
     let (outbound_tx, outbound_rx) = bounded_outbound_queue();
 
     let client_reader = client.try_clone()?;
     let client_writer = client;
-    let uplink = spawn_uplink_thread(client_reader, outbound_tx, shutdown.clone())?;
+    let uplink = spawn_uplink_thread(client_reader, outbound_tx, shutdown.clone(), splitter)?;
 
     // Main thread owns the WebSocket and performs both the downlink read path
     // and the queued outbound write path.

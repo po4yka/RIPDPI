@@ -155,9 +155,16 @@ spawned `ripdpi-ws-up` thread reads client TCP into bounded `sync_channel(16)`.
 **Init:** send first 64 bytes as WS binary frame, then any `seed_request[64..]`
 remainder, then start bidirectional relay.
 
+**Packet framing:** the gateway handles one MTProto transport packet per WS
+frame, so the seed remainder and every uplink read go through `PacketSplitter`
+(`native/rust/crates/ripdpi-ws-tunnel/src/relay/packet_split.rs`): it follows the obfuscated2 keystream and the
+abridged or intermediate length headers and sends each complete packet as its
+own frame (bytes stay encrypted). A seed that is not obfuscated2, or a declared
+length above 2 MiB, passes bytes through unsplit.
+
 **Constants:** `CLIENT_READ_TIMEOUT` 250ms, `OUTBOUND_QUEUE_CAPACITY` 16,
 `MAX_OUTBOUND_BURST` 8, `OUTBOUND_QUEUE_RETRY_DELAY` 1ms,
-`CLOSE_HANDSHAKE_TIMEOUT` 5s.
+`CLOSE_HANDSHAKE_TIMEOUT` 5s, relay socket write timeout `WS_WRITE_TIMEOUT` 15s.
 
 **Shutdown:** cooperative via `AtomicBool` -- either thread sets it on EOF/error.
 `drive_close_handshake()` attempts graceful WS close. Ping/Pong handled

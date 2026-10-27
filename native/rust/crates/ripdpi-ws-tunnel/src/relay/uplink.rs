@@ -6,6 +6,7 @@ use std::thread::{self, JoinHandle};
 use std::time::Duration;
 
 use super::outbound_queue::OutboundSender;
+use super::packet_split::PacketSplitter;
 
 const CLIENT_READ_TIMEOUT: Duration = Duration::from_millis(250);
 
@@ -13,14 +14,20 @@ pub(super) fn spawn_uplink_thread(
     reader: TcpStream,
     outbound_tx: OutboundSender,
     shutdown: Arc<AtomicBool>,
+    splitter: PacketSplitter,
 ) -> io::Result<JoinHandle<()>> {
     thread::Builder::new()
         .name("ripdpi-ws-up".into())
-        .spawn(move || uplink_loop(reader, outbound_tx, &shutdown))
+        .spawn(move || uplink_loop(reader, outbound_tx, &shutdown, splitter))
         .map_err(|e| io::Error::other(format!("spawn ws-up: {e}")))
 }
 
-fn uplink_loop(mut reader: TcpStream, outbound_tx: OutboundSender, shutdown: &AtomicBool) {
+fn uplink_loop(
+    mut reader: TcpStream,
+    outbound_tx: OutboundSender,
+    shutdown: &AtomicBool,
+    mut splitter: PacketSplitter,
+) {
     // Short read timeout so we can check the shutdown flag while keeping the
     // TCP reader responsive to relay shutdown.
     let _ = reader.set_read_timeout(Some(CLIENT_READ_TIMEOUT));
@@ -33,7 +40,8 @@ fn uplink_loop(mut reader: TcpStream, outbound_tx: OutboundSender, shutdown: &At
         match reader.read(&mut buf) {
             Ok(0) => break,
             Ok(n) => {
-                if !outbound_tx.send_with_backpressure(buf[..n].to_vec(), shutdown) {
+                let frames = splitter.push(&buf[..n]);
+                if !frames.into_iter().all(|frame| outbound_tx.send_with_backpressure(frame, shutdown)) {
                     break;
                 }
             }

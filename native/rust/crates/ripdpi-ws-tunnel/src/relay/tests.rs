@@ -244,3 +244,42 @@ fn stalled_upstream_ends_the_relay_while_the_client_keeps_uploading() {
     assert!(ended.is_ok(), "the relay must end once a write to the stalled upstream times out");
     uploader.join().expect("uploader ends when the relay closes the client socket");
 }
+
+fn two_abridged_packets() -> (Vec<u8>, Vec<u8>) {
+    let first = [vec![2u8], vec![0x42; 8]].concat();
+    let second = [vec![1u8], vec![0x43; 4]].concat();
+    super::packet_split::obfuscated_client_stream(crate::mtproto::MtprotoTransportFamily::Abridged, &[&first, &second])
+}
+
+#[test]
+fn ws_relay_sends_each_coalesced_mtproto_packet_as_its_own_frame() {
+    let (init, stream) = two_abridged_packets();
+    let (mut local_app, relay_client) = tcp_pair();
+    let (ws, mut peer) = websocket_pair();
+    let relayed_init = init.clone();
+    let relay_thread = thread::spawn(move || ws_relay(relay_client, ws, &relayed_init));
+    assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == init[..]));
+
+    local_app.write_all(&stream).expect("write two packets at once");
+
+    assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == stream[..9]));
+    assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == stream[9..]));
+    local_app.shutdown(Shutdown::Write).expect("shutdown local app write");
+    wait_for_close(&mut peer);
+    relay_thread.join().expect("join relay thread").expect("relay result");
+}
+
+#[test]
+fn ws_relay_splits_the_consumed_seed_remainder_into_packets() {
+    let (init, stream) = two_abridged_packets();
+    let (_local_app, relay_client) = tcp_pair();
+    let (ws, mut peer) = websocket_pair();
+    let seed_request = [init.clone(), stream.clone()].concat();
+    let relay_thread = thread::spawn(move || ws_relay(relay_client, ws, &seed_request));
+
+    assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == init[..]));
+    assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == stream[..9]));
+    assert!(matches!(read_message_retry(&mut peer), Message::Binary(data) if data[..] == stream[9..]));
+    peer.close(None).expect("send websocket close");
+    relay_thread.join().expect("join relay thread").expect("relay result");
+}
