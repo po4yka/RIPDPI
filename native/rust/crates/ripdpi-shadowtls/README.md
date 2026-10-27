@@ -1,7 +1,8 @@
 # ripdpi-shadowtls
 
 **Responsibility:** the ShadowTLS v3 relay transport — stream camouflage that
-wraps proxied traffic behind a real TLS handshake to a cover host.
+starts a TLS handshake to a cover host and switches to framed data before the
+handshake ends (see SPEC.md, known divergences).
 **Layer:** L7 — relay transports.
 
 ## Stable identifiers / contracts

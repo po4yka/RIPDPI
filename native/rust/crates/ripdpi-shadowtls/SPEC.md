@@ -27,6 +27,14 @@ validated TLS session.
 
 - v2 is intentionally unsupported; `docs/architecture/shadowtls-version-policy.md` records the v3-only decision and the version-mismatch classifier surface.
 - The feature-gated in-tree `ShadowTlsLoopback` is a test fixture, not a production server or external-interop oracle.
+- The client never sends a TLS Finished. After its ClientHello and the
+  compatibility ChangeCipherSpec, its next record is an HMAC data frame, sent
+  as soon as the first server application-data record arrives. A real TLS 1.3
+  client, and the upstream client, which completes the handshake through the
+  server before it sends data frames, send a Finished record (53 bytes with a
+  SHA-256 suite) after the whole server flight. A passive observer can tell
+  this client apart by that record length and ordering. Closing the gap needs
+  a completed handshake on the client side.
 
 ## Non-goals
 
