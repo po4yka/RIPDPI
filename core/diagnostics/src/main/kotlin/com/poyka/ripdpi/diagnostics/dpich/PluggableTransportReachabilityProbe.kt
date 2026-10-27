@@ -6,8 +6,9 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeout
 import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -147,40 +148,45 @@ class Obfs4ReachabilityProbe(
     private val socketFactory: () -> Socket = { Socket() },
     private val randomBytes: (Int) -> ByteArray = { size -> Random.nextBytes(size) },
 ) : PtSubprobe {
-    override suspend fun run(timeoutMs: Long): PtProbeTrace =
-        withTimeout(timeoutMs) {
-            val startedAt = System.currentTimeMillis()
-            val errors = mutableListOf<String>()
-            val usable = bridges.filterNot(PtEndpoint::isDocumentationAddress)
-            if (usable.isEmpty()) {
-                // RFC 5737 placeholders never answer: report "not configured", not "blocked".
-                return@withTimeout PtProbeTrace(Obfs4Leg, "", false, 0, NoBridgesConfigured, conclusive = false)
-            }
-            var conclusive = false
-            usable.forEach { bridge ->
-                val trace = bridge.tryTcpHandshake(timeoutMs)
-                if (trace.ok) return@withTimeout trace.copy(latencyMs = System.currentTimeMillis() - startedAt)
-                conclusive = conclusive || trace.conclusive
-                errors += "${bridge.host}:${bridge.port}:${trace.error.orEmpty()}"
-            }
-            PtProbeTrace(
-                Obfs4Leg,
-                usable.joinToString {
-                    it.host
-                },
-                false,
-                System.currentTimeMillis() - startedAt,
-                errors.joinToString(),
-                conclusive = conclusive,
-            )
+    // The socket calls block, so withTimeout could never fire: one deadline bounds the whole leg instead.
+    override suspend fun run(timeoutMs: Long): PtProbeTrace {
+        val startedAt = System.currentTimeMillis()
+        val deadlineNanos = System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(timeoutMs)
+        val errors = mutableListOf<String>()
+        val usable = bridges.filterNot(PtEndpoint::isDocumentationAddress)
+        if (usable.isEmpty()) {
+            // RFC 5737 placeholders never answer: report "not configured", not "blocked".
+            return PtProbeTrace(Obfs4Leg, "", false, 0, NoBridgesConfigured, conclusive = false)
         }
+        var conclusive = false
+        for (bridge in usable) {
+            currentCoroutineContext().ensureActive()
+            val remainingMs = TimeUnit.NANOSECONDS.toMillis(deadlineNanos - System.nanoTime())
+            if (remainingMs <= 0) break
+            val trace = bridge.tryTcpHandshake(remainingMs)
+            if (trace.ok) return trace.copy(latencyMs = System.currentTimeMillis() - startedAt)
+            conclusive = conclusive || trace.conclusive
+            errors += "${bridge.host}:${bridge.port}:${trace.error.orEmpty()}"
+        }
+        return PtProbeTrace(
+            Obfs4Leg,
+            usable.joinToString {
+                it.host
+            },
+            false,
+            System.currentTimeMillis() - startedAt,
+            errors.joinToString(),
+            conclusive = conclusive,
+        )
+    }
 
     private fun PtEndpoint.tryTcpHandshake(timeoutMs: Long): PtProbeTrace {
         val startedAt = System.currentTimeMillis()
         return try {
             socketFactory().use { socket ->
                 socket.connect(InetSocketAddress(host, port), timeoutMs.toInt())
-                socket.soTimeout = (timeoutMs / 2).coerceIn(1L, MaxResponseWaitMs).toInt()
+                val leftAfterConnectMs = timeoutMs - (System.currentTimeMillis() - startedAt)
+                socket.soTimeout = minOf(timeoutMs / 2, leftAfterConnectMs).coerceIn(1L, MaxResponseWaitMs).toInt()
                 socket.getOutputStream().write(randomBytes(MockHandshakeBytes))
                 socket.getOutputStream().flush()
                 // Reachable needs a reply from the server. Silence is inconclusive: an obfs4 server stays

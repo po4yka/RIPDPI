@@ -205,6 +205,33 @@ class PluggableTransportReachabilityProbeTest {
         }
 
     @Test
+    fun blackholedObfs4BridgesShareOneTimeoutBudget() =
+        runTest {
+            val connectTimeouts = mutableListOf<Int>()
+            val probe =
+                Obfs4ReachabilityProbe(
+                    bridges = (1..4).map { index -> PtEndpoint("10.0.0.$index", 443) },
+                    socketFactory = {
+                        object : Socket() {
+                            override fun connect(
+                                endpoint: SocketAddress?,
+                                timeout: Int,
+                            ) {
+                                connectTimeouts += timeout
+                                Thread.sleep(timeout.toLong())
+                                throw SocketTimeoutException("connect timed out")
+                            }
+                        }
+                    },
+                )
+
+            val trace = probe.run(timeoutMs = 300)
+
+            assertEquals(false, trace.ok)
+            assertTrue("connect timeouts $connectTimeouts", connectTimeouts.sum() <= 300)
+        }
+
+    @Test
     fun obfs4BridgeTcpResetTriesAllBridgesBeforeBlockedTrace() =
         runTest {
             val sockets = mutableListOf<FakeSocket>()
