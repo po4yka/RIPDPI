@@ -586,10 +586,11 @@ async fn bridge_drop_preserves_sibling_and_client_close_joins_idle_pumps() {
     client.close().await.expect("repeat joined close");
 }
 
-/// AnyTLS FIN closes a stream in both directions, so an application
-/// write-shutdown must not send it: the reply would be lost.
+/// AnyTLS has no half-close. Like the reference clients, an application
+/// write-shutdown closes the stream at once, so a silent target does not keep
+/// the relay slot open until the idle timeout.
 #[tokio::test]
-async fn app_write_shutdown_keeps_the_stream_open_for_the_reply() {
+async fn app_write_shutdown_sends_fin_without_waiting_for_the_target() {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
     let fixture = AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
     let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
@@ -600,22 +601,18 @@ async fn app_write_shutdown_keeps_the_stream_open_for_the_reply() {
         .into_io()
         .expect("bridge");
     app.write_all(b"request").await.expect("write");
-    app.shutdown().await.expect("write shutdown");
     let mut reply = [0; 7];
-    tokio::time::timeout(Duration::from_secs(1), app.read_exact(&mut reply))
-        .await
-        .expect("reply deadline")
-        .expect("reply after write shutdown");
-    assert_eq!(&reply, b"request");
-    tokio::time::sleep(Duration::from_millis(100)).await;
-    assert!(fixture.observed().fin_stream_ids.is_empty(), "write shutdown must not send FIN");
-
-    drop(app);
+    app.read_exact(&mut reply).await.expect("echo before shutdown");
+    app.shutdown().await.expect("write shutdown");
     tokio::time::timeout(Duration::from_secs(1), async {
         while fixture.observed().fin_stream_ids != vec![1] {
             tokio::task::yield_now().await;
         }
     })
     .await
-    .expect("dropping the endpoint sends FIN");
+    .expect("write shutdown sends FIN while the endpoint is alive");
+
+    drop(app);
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert_eq!(fixture.observed().fin_stream_ids, vec![1], "drop after FIN must not send a second FIN");
 }

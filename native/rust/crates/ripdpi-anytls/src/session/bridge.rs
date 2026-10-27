@@ -32,13 +32,21 @@ impl AnyTlsStream {
             let stream_id = self.stream_id;
             let leftover: Vec<u8> = self.read_buffer.drain(..).collect();
             let inbound = &mut self.inbound;
+            let fin_queued = &mut self.fin_queued;
             let uplink = async {
                 let mut buffer = [0; 16 * 1024];
                 loop {
                     match app_read.read(&mut buffer).await {
-                        // AnyTLS has no half-close: a FIN would end the reply
-                        // too. Dropping the endpoint sends it.
-                        Ok(0) => std::future::pending::<()>().await,
+                        // Local EOF closes the stream, as the reference clients do;
+                        // the downlink keeps delivering frames already in flight.
+                        Ok(0) => {
+                            let fin = Frame::control(Command::Fin, stream_id);
+                            if outbound.send(Outbound::Batch(vec![fin])).await.is_err() {
+                                return;
+                            }
+                            *fin_queued = true;
+                            std::future::pending::<()>().await;
+                        }
                         Ok(read) => {
                             let frame = Frame::with_data(Command::Psh, stream_id, buffer[..read].to_vec());
                             if outbound.send(Outbound::Batch(vec![frame])).await.is_err() {
