@@ -205,7 +205,9 @@ impl Nfqws2Backend {
         if self.active.is_some() {
             return;
         }
-        stale::reap_stale_state(&self.files_dir, self.uid);
+        let programs: Vec<PathBuf> =
+            ["iptables", "ip6tables"].into_iter().filter_map(|name| firewall_program(name).ok()).collect();
+        stale::reap_stale_state(&self.files_dir, self.uid, &programs);
     }
 
     pub(crate) fn request_shutdown(&mut self) {
@@ -605,8 +607,20 @@ const XTABLES_LOCK_RETRY: Duration = Duration::from_millis(20);
 /// Runs one iptables command and retries it while the xtables lock is held,
 /// until `deadline`. Commands run without `-w`, so a held lock fails at once.
 fn run_firewall(command: &FirewallCommand, deadline: Instant) -> io::Result<()> {
+    retry_held_lock(deadline, || run_firewall_once(command, deadline, None))
+}
+
+/// Like [`run_firewall`], and returns the standard output of the command.
+fn run_firewall_output(command: &FirewallCommand, deadline: Instant) -> io::Result<Vec<u8>> {
+    retry_held_lock(deadline, || {
+        let mut output = Vec::new();
+        run_firewall_once(command, deadline, Some(&mut output)).map(|()| output)
+    })
+}
+
+fn retry_held_lock<T>(deadline: Instant, mut run: impl FnMut() -> io::Result<T>) -> io::Result<T> {
     loop {
-        match run_firewall_once(command, deadline) {
+        match run() {
             Err(error)
                 if error.kind() == io::ErrorKind::ResourceBusy && Instant::now() + XTABLES_LOCK_RETRY < deadline =>
             {
@@ -617,18 +631,20 @@ fn run_firewall(command: &FirewallCommand, deadline: Instant) -> io::Result<()> 
     }
 }
 
-fn run_firewall_once(command: &FirewallCommand, deadline: Instant) -> io::Result<()> {
+fn run_firewall_once(command: &FirewallCommand, deadline: Instant, mut output: Option<&mut Vec<u8>>) -> io::Result<()> {
     if Instant::now() >= deadline {
         return Err(io::Error::new(io::ErrorKind::TimedOut, "nfqws2 firewall deadline expired"));
     }
     let mut child = Command::new(&command.program)
         .args(&command.args)
         .stdin(Stdio::null())
-        .stdout(Stdio::null())
+        .stdout(if output.is_some() { Stdio::piped() } else { Stdio::null() })
         .stderr(Stdio::null())
         .spawn()?;
+    // Drain the pipe while polling, so a large listing cannot fill it and stall the child.
+    let mut stdout = child.stdout.take();
     loop {
-        let status = match child.try_wait() {
+        let status = match nonblocking_drain(stdout.as_mut(), output.as_deref_mut()).and_then(|()| child.try_wait()) {
             Ok(status) => status,
             Err(error) => {
                 let _ = child.kill();
@@ -637,6 +653,7 @@ fn run_firewall_once(command: &FirewallCommand, deadline: Instant) -> io::Result
             }
         };
         if let Some(status) = status {
+            nonblocking_drain(stdout.as_mut(), output.as_deref_mut())?;
             return if status.success() {
                 Ok(())
             } else if status.code() == Some(1) && matches!(command.args.get(2).map(String::as_str), Some("-C" | "-S")) {
@@ -655,6 +672,24 @@ fn run_firewall_once(command: &FirewallCommand, deadline: Instant) -> io::Result
             return Err(io::Error::new(io::ErrorKind::TimedOut, "nfqws2 firewall deadline expired"));
         }
         std::thread::sleep(Duration::from_millis(5));
+    }
+}
+
+/// Appends what `pipe` holds now to `output`, without waiting for more.
+fn nonblocking_drain(pipe: Option<&mut std::process::ChildStdout>, output: Option<&mut Vec<u8>>) -> io::Result<()> {
+    use std::io::Read;
+
+    let (Some(pipe), Some(output)) = (pipe, output) else { return Ok(()) };
+    nix::fcntl::fcntl(&*pipe, nix::fcntl::FcntlArg::F_SETFL(nix::fcntl::OFlag::O_NONBLOCK))?;
+    let mut chunk = [0u8; 4096];
+    loop {
+        match pipe.read(&mut chunk) {
+            Ok(0) => return Ok(()),
+            Ok(read) => output.extend_from_slice(&chunk[..read]),
+            Err(error) if error.kind() == io::ErrorKind::WouldBlock => return Ok(()),
+            Err(error) if error.kind() == io::ErrorKind::Interrupted => {}
+            Err(error) => return Err(error),
+        }
     }
 }
 

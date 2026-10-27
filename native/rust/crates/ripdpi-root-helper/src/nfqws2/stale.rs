@@ -13,33 +13,37 @@ use std::fs;
 use std::io;
 use std::os::unix::ffi::OsStrExt;
 use std::path::{Path, PathBuf};
-use std::process::{Command, Stdio};
-use std::time::Instant;
+use std::time::{Duration, Instant};
 
 use nix::sys::signal::{Signal, kill};
 use nix::unistd::Pid;
 use tracing::{info, warn};
 
-use super::{FIREWALL_STOP_TIMEOUT, FirewallCommand, QUEUE, firewall_program, run_firewall};
+use super::{FirewallCommand, QUEUE, run_firewall, run_firewall_output};
 
-/// Removes stale nfqws2 chains and their jumps, then kills an orphan nfqws2.
-pub(super) fn reap_stale_state(files_dir: &Path, uid: u32) {
+/// The whole firewall part of the reap: it runs before the accept loop, so a
+/// hung iptables or a long-held xtables lock must not stall the helper.
+const REAP_TIMEOUT: Duration = Duration::from_secs(3);
+
+/// Removes stale nfqws2 chains and their jumps with each of `programs`
+/// (iptables, ip6tables), then kills an orphan nfqws2.
+pub(super) fn reap_stale_state(files_dir: &Path, uid: u32, programs: &[PathBuf]) {
+    let deadline = Instant::now() + REAP_TIMEOUT;
     let own_pid = std::process::id();
     let own_comm = fs::read_to_string("/proc/self/comm").unwrap_or_default();
     let helper_alive = |pid: u32| {
         fs::read_to_string(format!("/proc/{pid}/comm")).is_ok_and(|comm| !own_comm.is_empty() && comm == own_comm)
     };
-    for name in ["iptables", "ip6tables"] {
-        let Ok(program) = firewall_program(name) else { continue };
-        let rules = match list_mangle_rules(&program) {
+    for program in programs {
+        let rules = match list_mangle_rules(program, deadline) {
             Ok(rules) => rules,
             Err(error) => {
                 warn!(%error, program = %program.display(), "could not list firewall rules for stale nfqws2 chains");
                 continue;
             }
         };
-        for command in stale_chain_cleanup(&program, &rules, uid, own_pid, helper_alive) {
-            if let Err(error) = run_firewall(&command, Instant::now() + FIREWALL_STOP_TIMEOUT) {
+        for command in stale_chain_cleanup(program, &rules, uid, own_pid, helper_alive) {
+            if let Err(error) = run_firewall(&command, deadline) {
                 warn!(%error, args = ?command.args, "stale nfqws2 firewall cleanup failed");
             }
         }
@@ -60,13 +64,11 @@ pub(super) fn reap_stale_state(files_dir: &Path, uid: u32) {
     }
 }
 
-fn list_mangle_rules(program: &Path) -> io::Result<String> {
-    let output =
-        Command::new(program).args(["-t", "mangle", "-S"]).stdin(Stdio::null()).stderr(Stdio::null()).output()?;
-    if !output.status.success() {
-        return Err(io::Error::other(format!("iptables -S failed: {}", output.status)));
-    }
-    String::from_utf8(output.stdout).map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
+fn list_mangle_rules(program: &Path, deadline: Instant) -> io::Result<String> {
+    let listing =
+        FirewallCommand { program: program.to_path_buf(), args: ["-t", "mangle", "-S"].map(str::to_owned).to_vec() };
+    String::from_utf8(run_firewall_output(&listing, deadline)?)
+        .map_err(|error| io::Error::new(io::ErrorKind::InvalidData, error))
 }
 
 /// Builds the commands that remove stale chains of `uid` from `iptables -S` output:
@@ -216,6 +218,27 @@ mod tests {
         // The pidfile names this helper's PID: only its own child is not stale.
         assert!(!nfqws2_is_stale(456, 456, 456, alive));
         assert!(nfqws2_is_stale(456, 1, 456, |_| true));
+    }
+
+    #[test]
+    fn a_hung_firewall_listing_ends_at_the_one_reap_deadline() {
+        use std::os::unix::fs::PermissionsExt;
+        use std::time::{Duration, Instant};
+
+        let dir = std::env::temp_dir().join(format!("nfqws2-reap-hang-test-{}", std::process::id()));
+        std::fs::create_dir_all(&dir).expect("test dir");
+        let script = dir.join("iptables");
+        std::fs::write(&script, "#!/bin/sh\nexec sleep 30\n").expect("script");
+        std::fs::set_permissions(&script, std::fs::Permissions::from_mode(0o700)).expect("script mode");
+
+        let started = Instant::now();
+        // Two hung programs share one deadline instead of one each.
+        super::reap_stale_state(&dir, 10234, &[script.clone(), script]);
+        let waited = started.elapsed();
+
+        assert!(waited >= super::REAP_TIMEOUT, "the listing ended early: {waited:?}");
+        assert!(waited < super::REAP_TIMEOUT + Duration::from_secs(1), "the reap blocked for {waited:?}");
+        std::fs::remove_dir_all(dir).expect("remove test dir");
     }
 
     #[test]
