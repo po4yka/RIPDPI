@@ -12,7 +12,7 @@ use tungstenite::WebSocket;
 use tungstenite::client::IntoClientRequest;
 
 use crate::transport::TargetAddress;
-use crate::transport::resolve_addresses_with_timeout;
+use crate::transport::{resolve_addresses_with_timeout, run_with_socket_watchdog};
 use crate::util::{IO_TIMEOUT, bounded_scan_io_timeout};
 
 pub type WsOverTlsStream = WebSocket<StreamOwned<ClientConnection, TcpStream>>;
@@ -251,11 +251,49 @@ fn connect_tls(
         let timeout = control.remaining_timeout()?;
         tls.sock.set_read_timeout(Some(timeout))?;
         tls.sock.set_write_timeout(Some(timeout))?;
-        if let Err(err) = tls.conn.complete_io(&mut tls.sock) {
+        if let Err(err) = tls.conn.complete_io(&mut BoundedHandshakeSocket { socket: &mut tls.sock, control }) {
             return Err(control.error_after_blocking_io(io::Error::new(err.kind(), format!("TLS handshake: {err}"))));
         }
     }
     Ok(tls)
+}
+
+/// Handshake socket I/O that checks cancellation and the scan deadline before every read and
+/// write. `complete_io` loops until the handshake ends and a socket timeout bounds only one read,
+/// so a peer that sends a few bytes within every timeout would otherwise outlive the deadline.
+struct BoundedHandshakeSocket<'a, 'b> {
+    socket: &'a mut TcpStream,
+    control: &'a WsOverTlsControl<'b>,
+}
+
+impl BoundedHandshakeSocket<'_, '_> {
+    fn before_io(&mut self) -> io::Result<()> {
+        // rustls retries an `Interrupted` read, so an abort must use another kind to end the loop.
+        let timeout = self.control.remaining_timeout().map_err(|err| match err.kind() {
+            io::ErrorKind::Interrupted => io::Error::other(err.to_string()),
+            _ => err,
+        })?;
+        self.socket.set_read_timeout(Some(timeout))?;
+        self.socket.set_write_timeout(Some(timeout))
+    }
+}
+
+impl io::Read for BoundedHandshakeSocket<'_, '_> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.before_io()?;
+        io::Read::read(self.socket, buf)
+    }
+}
+
+impl io::Write for BoundedHandshakeSocket<'_, '_> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.before_io()?;
+        io::Write::write(self.socket, buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        io::Write::flush(self.socket)
+    }
 }
 
 fn websocket_handshake(
@@ -268,9 +306,15 @@ fn websocket_handshake(
     tls.sock.set_read_timeout(Some(timeout))?;
     tls.sock.set_write_timeout(Some(timeout))?;
     let request = build_ws_request(target)?;
-    let (ws, _response) = tungstenite::client(request, tls).map_err(|err| {
-        control
-            .error_after_blocking_io(io::Error::new(io::ErrorKind::ConnectionRefused, format!("WS handshake: {err}")))
+    // tungstenite reads the Upgrade response through rustls, which loops while a peer drips bytes.
+    let socket = tls.sock.try_clone()?;
+    let (ws, _response) = run_with_socket_watchdog(socket, None, || {
+        tungstenite::client(request, tls).map_err(|err| {
+            control.error_after_blocking_io(io::Error::new(
+                io::ErrorKind::ConnectionRefused,
+                format!("WS handshake: {err}"),
+            ))
+        })
     })?;
     Ok(ws)
 }
@@ -382,6 +426,39 @@ mod tests {
             steps.timeouts[1] < steps.timeouts[0],
             "timeout must be recomputed after DNS rather than reusing a stale value"
         );
+    }
+
+    #[test]
+    fn slow_drip_tls_handshake_stops_at_the_scan_deadline() {
+        use std::io::{Read, Write};
+
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let addr = listener.local_addr().unwrap();
+        let server = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let _ = socket.read(&mut [0u8; 4096]);
+            // A record header, then one byte of the record every 100 ms: no read times out.
+            let mut chunks = std::iter::once(vec![0x16, 0x03, 0x03, 0x40, 0x00]).chain(std::iter::repeat(vec![0x00]));
+            let started = Instant::now();
+            while started.elapsed() < Duration::from_secs(4) {
+                if socket.write_all(&chunks.next().unwrap()).is_err() {
+                    return;
+                }
+                std::thread::sleep(Duration::from_millis(100));
+            }
+        });
+        let tcp = TcpStream::connect(addr).unwrap();
+        let control = WsOverTlsControl::new(&|| None);
+        let started = Instant::now();
+
+        let err = with_scan_io_deadline(Some(Instant::now() + Duration::from_millis(500)), || {
+            connect_tls(tcp, "localhost", None, Duration::from_millis(1200), &control).expect_err("slow handshake")
+        });
+
+        let elapsed = started.elapsed();
+        assert_eq!(control.error_after_blocking_io(err).to_string(), "scan_deadline_exceeded");
+        assert!(elapsed < Duration::from_secs(2), "handshake ran for {elapsed:?}");
+        server.join().unwrap();
     }
 
     #[test]

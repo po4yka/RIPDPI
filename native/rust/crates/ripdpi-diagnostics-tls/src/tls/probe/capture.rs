@@ -1,3 +1,4 @@
+use std::io::{self, Read, Write};
 use std::net::TcpStream;
 use std::sync::Arc;
 use std::time::Instant;
@@ -82,7 +83,8 @@ pub(crate) fn capture_tls_handshake(
             return Err(format!("probe_aborted:{reason}"));
         }
         refresh_tls_handshake_timeout(&mut recording)?;
-        if let Err(err) = connection.complete_io(&mut recording) {
+        let mut io = BoundedHandshakeIo { recording: &mut recording, should_abort };
+        if let Err(err) = connection.complete_io(&mut io) {
             if let Some(admin) = administrative_error_after_io(should_abort) {
                 return Err(admin);
             }
@@ -120,9 +122,106 @@ fn administrative_error_after_io(should_abort: &dyn Fn() -> Option<&'static str>
     }
 }
 
+/// Handshake socket I/O that checks cancellation and the scan deadline before every read and
+/// write. `complete_io` loops until the handshake ends, and a socket timeout only bounds one
+/// read, so a peer that sends a few bytes within every timeout would otherwise hold the probe
+/// past the deadline and past a user cancel.
+struct BoundedHandshakeIo<'a> {
+    recording: &'a mut RecordingStream<TcpStream>,
+    should_abort: &'a dyn Fn() -> Option<&'static str>,
+}
+
+impl BoundedHandshakeIo<'_> {
+    fn before_io(&mut self) -> io::Result<()> {
+        // Not `Interrupted`: rustls retries an interrupted read instead of returning.
+        if let Some(reason) = (self.should_abort)() {
+            return Err(io::Error::other(format!("probe_aborted:{reason}")));
+        }
+        refresh_tls_handshake_timeout(self.recording).map_err(|err| io::Error::new(io::ErrorKind::TimedOut, err))
+    }
+}
+
+impl Read for BoundedHandshakeIo<'_> {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        self.before_io()?;
+        self.recording.read(buf)
+    }
+}
+
+impl Write for BoundedHandshakeIo<'_> {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.before_io()?;
+        self.recording.write(buf)
+    }
+
+    fn flush(&mut self) -> io::Result<()> {
+        self.recording.flush()
+    }
+}
+
 fn refresh_tls_handshake_timeout(recording: &mut RecordingStream<TcpStream>) -> Result<(), String> {
     let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
     let socket = recording.inner_mut();
     socket.set_read_timeout(Some(timeout)).map_err(|err| err.to_string())?;
     socket.set_write_timeout(Some(timeout)).map_err(|err| err.to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::io::{Read, Write};
+    use std::net::{IpAddr, Ipv4Addr, TcpListener};
+    use std::time::{Duration, Instant};
+
+    use ripdpi_diagnostics_contracts::util::with_scan_io_deadline;
+
+    use crate::tls::{TlsClientProfile, try_tls_handshake};
+    use crate::transport::{TargetAddress, direct_transport};
+
+    /// Accepts one client, reads its ClientHello, then sends a TLS record header and one byte
+    /// of the record every 100 ms for `drip_for`: each read returns well within the socket
+    /// timeout, but the handshake never completes.
+    fn slow_drip_server(drip_for: Duration) -> (u16, std::thread::JoinHandle<()>) {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut hello = [0u8; 4096];
+            let _ = socket.read(&mut hello);
+            if socket.write_all(&[0x16, 0x03, 0x03, 0x40, 0x00]).is_err() {
+                return;
+            }
+            let started = Instant::now();
+            while started.elapsed() < drip_for {
+                std::thread::sleep(Duration::from_millis(100));
+                if socket.write_all(&[0x00]).is_err() {
+                    return;
+                }
+            }
+        });
+        (port, server)
+    }
+
+    #[test]
+    fn slow_drip_handshake_stops_at_the_scan_deadline() {
+        let (port, server) = slow_drip_server(Duration::from_secs(4));
+        let started = Instant::now();
+
+        let observation = with_scan_io_deadline(Some(Instant::now() + Duration::from_millis(500)), || {
+            try_tls_handshake(
+                &TargetAddress::Ip(IpAddr::V4(Ipv4Addr::LOCALHOST)),
+                port,
+                &direct_transport(),
+                "localhost",
+                true,
+                TlsClientProfile::Tls13Only,
+                None,
+            )
+        });
+
+        let elapsed = started.elapsed();
+        assert_eq!(observation.status, "tls_handshake_failed");
+        assert_eq!(observation.error.as_deref(), Some("scan_deadline_exceeded"));
+        assert!(elapsed < Duration::from_secs(2), "handshake ran for {elapsed:?}");
+        server.join().unwrap();
+    }
 }

@@ -6,6 +6,7 @@ mod socks5;
 mod tcp;
 mod types;
 mod udp;
+mod watchdog;
 
 pub(crate) use address::resolve_addresses_with_timeout;
 pub use address::{
@@ -23,6 +24,7 @@ pub use types::{
     TransportConnectError, TransportConnectResult, TransportError, TransportFailureStage, UdpRelayResult,
 };
 pub use udp::{relay_udp_direct, relay_udp_payload_observed};
+pub use watchdog::run_with_socket_watchdog;
 
 pub use address::start_address_resolution;
 pub use protect::protected_udp_bind;
