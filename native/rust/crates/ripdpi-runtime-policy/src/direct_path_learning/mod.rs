@@ -23,6 +23,8 @@ use scoring::{apply_attempt_budgets, ranked_arms_for_class};
 use state::{TerminalState, TupleState, block_class_from_state, clear_negative_state};
 
 const NO_TCP_FALLBACK_WINDOW_MS: u64 = 3_000;
+/// Bounds per-session tuple state; CDN IP rotation and hostless flows create new keys indefinitely.
+const MAX_DIRECT_PATH_TUPLES: usize = 4096;
 
 #[derive(Default)]
 pub struct DirectPathLearningState {
@@ -34,18 +36,37 @@ impl DirectPathLearningState {
         let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
             return;
         };
-        let entry = self.tuples.entry(tuple_key).or_default();
-        if transport == TransportProtocol::Tcp {
+        // Only existing state has anything to clear; a new default entry would carry no information.
+        if transport == TransportProtocol::Tcp
+            && let Some(entry) = self.tuples.get_mut(&tuple_key)
+        {
             entry.pending_udp_suppressed_at_ms = None;
             entry.terminal_state = None;
         }
+    }
+
+    fn tuple_entry(&mut self, tuple_key: TupleKey) -> &mut TupleState {
+        if self.tuples.len() >= MAX_DIRECT_PATH_TUPLES && !self.tuples.contains_key(&tuple_key) {
+            // shortcut: evicts an arbitrary tuple, which only forgets learned evidence; use LRU if eviction
+            // becomes frequent.
+            let victim = self
+                .tuples
+                .iter()
+                .find(|(_, entry)| entry.pending_udp_suppressed_at_ms.is_none())
+                .or_else(|| self.tuples.iter().next())
+                .map(|(key, _)| key.clone());
+            if let Some(victim) = victim {
+                self.tuples.remove(&victim);
+            }
+        }
+        self.tuples.entry(tuple_key).or_default()
     }
 
     pub fn note_udp_suppressed(&mut self, host: Option<&str>, targets: &[SocketAddr], now_ms: u64) {
         let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
             return;
         };
-        let entry = self.tuples.entry(tuple_key).or_default();
+        let entry = self.tuple_entry(tuple_key);
         entry.pending_udp_suppressed_at_ms.get_or_insert(now_ms);
         entry.terminal_state = None;
     }
@@ -54,7 +75,7 @@ impl DirectPathLearningState {
         let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
             return;
         };
-        let entry = self.tuples.entry(tuple_key).or_default();
+        let entry = self.tuple_entry(tuple_key);
         entry.udp_failed = true;
         entry.terminal_state = None;
     }
@@ -68,7 +89,7 @@ impl DirectPathLearningState {
         let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
             return;
         };
-        let entry = self.tuples.entry(tuple_key.clone()).or_default();
+        let entry = self.tuple_entry(tuple_key.clone());
         if entry.owned_stack_required_emitted {
             return;
         }
@@ -80,7 +101,7 @@ impl DirectPathLearningState {
         let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
             return;
         };
-        let entry = self.tuples.entry(tuple_key).or_default();
+        let entry = self.tuple_entry(tuple_key);
         entry.tls_post_client_hello_failed = true;
         entry.terminal_state = None;
     }
@@ -94,7 +115,7 @@ impl DirectPathLearningState {
         let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
             return;
         };
-        let entry = self.tuples.entry(tuple_key.clone()).or_default();
+        let entry = self.tuple_entry(tuple_key.clone());
         let should_emit = entry.terminal_state != Some(TerminalState::QuicSuccess);
         clear_negative_state(entry);
         entry.terminal_state = Some(TerminalState::QuicSuccess);
@@ -113,7 +134,9 @@ impl DirectPathLearningState {
         let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
             return;
         };
-        let entry = self.tuples.entry(tuple_key.clone()).or_default();
+        let Some(entry) = self.tuples.get_mut(&tuple_key) else {
+            return;
+        };
         if entry.tls_post_client_hello_failed {
             clear_negative_state(entry);
             emit_learning_signal(observer, &tuple_key, "TCP_POST_CLIENT_HELLO_FAILURE_TCP_OK", strategy_family);
@@ -134,7 +157,7 @@ impl DirectPathLearningState {
         let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
             return;
         };
-        let entry = self.tuples.entry(tuple_key.clone()).or_default();
+        let entry = self.tuple_entry(tuple_key.clone());
         if entry.terminal_state == Some(TerminalState::AllIpsFailed) {
             return;
         }
@@ -212,7 +235,7 @@ impl DirectPathLearningState {
         let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
             return;
         };
-        let entry = self.tuples.entry(tuple_key).or_default();
+        let entry = self.tuple_entry(tuple_key);
         *entry.arm_attempts.entry(arm_label).or_insert(0) += 1;
     }
 }

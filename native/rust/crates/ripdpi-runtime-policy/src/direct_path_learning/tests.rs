@@ -368,3 +368,27 @@ fn class_to_arm_ladder_walks_clean_quic_blocked_exhausted_relay_and_back() {
     let signals = telemetry.signals.lock().expect("signals");
     assert!(signals.iter().any(|s| s.2 == "QUIC_BLOCKED_TCP_OK"), "expected QUIC_BLOCKED_TCP_OK in: {:?}", *signals,);
 }
+
+#[test]
+fn attempts_and_successes_without_negative_state_do_not_create_tuples() {
+    let telemetry = RecordingTelemetry::default();
+    let mut learner = DirectPathLearningState::default();
+    for port in 1..=64u16 {
+        let targets = vec![SocketAddr::from(([203, 0, 113, 10], port))];
+        learner.note_transport_attempt(None, &targets, TransportProtocol::Tcp);
+        learner.note_transport_attempt(None, &targets, TransportProtocol::Udp);
+        learner.note_tcp_success(Some(&telemetry), None, &targets, None);
+    }
+    assert!(learner.tuples.is_empty());
+    assert!(telemetry.signals.lock().expect("signals").is_empty());
+}
+
+#[test]
+fn tuple_map_is_bounded() {
+    let mut learner = DirectPathLearningState::default();
+    for index in 0..(MAX_DIRECT_PATH_TUPLES as u32 + 16) {
+        let targets = vec![SocketAddr::from((std::net::Ipv4Addr::from(0x0A00_0000 + index), 443))];
+        learner.note_udp_failure(None, &targets);
+    }
+    assert_eq!(learner.tuples.len(), MAX_DIRECT_PATH_TUPLES);
+}
