@@ -4,9 +4,24 @@ use super::fingerprint_catalog::bundled_blockpage_fingerprints;
 use super::http_parse::parse_http_response;
 use super::response_fingerprint::match_blockpage_response;
 
-/// Generic body keywords that indicate a blockpage when no CSV fingerprint
-/// matches. Checked case-insensitively.
-const BLOCKPAGE_KEYWORDS: &[&str] = &["blocked", "access denied", "forbidden", "restriction", "censorship"];
+/// Explicit third-party block messages that count as a blockpage when no CSV
+/// fingerprint matches. Generic words such as "blocked", "forbidden" or
+/// "access denied" also appear on origin authorization, WAF and error pages,
+/// so they are not evidence. Checked case-insensitively.
+const EXPLICIT_BLOCKPAGE_MESSAGES: &[&str] = &[
+    "this site has been blocked",
+    "this website has been blocked",
+    "this page has been blocked",
+    "blocked by the government",
+    "blocked by your internet service provider",
+    "blocked by your isp",
+    "blocked by your provider",
+    "blocked by your network",
+];
+/// Large pages from legitimate sites may quote a block message in normal content.
+const MAX_EXPLICIT_BLOCKPAGE_BODY: usize = 8192;
+/// Host labels that name an ISP block or warning stub, such as `blocked.isp.example`.
+const BLOCK_STUB_HOST_LABELS: &[&str] = &["block", "blocked", "filter", "warning"];
 
 pub fn classify_http_response_block(response: &[u8]) -> Option<ClassifiedFailure> {
     let response = parse_http_response(response)?;
@@ -75,23 +90,29 @@ pub fn classify_http_response_block(response: &[u8]) -> Option<ClassifiedFailure
     Some(failure)
 }
 
-/// Check if the redirect Location header points to a known block domain.
+/// Check if the redirect Location host has a label that names a block stub.
+/// Only the host counts: paths and queries such as `/blockchain` or
+/// `?filter=x` are ordinary site URLs.
 fn match_redirect_block(headers: &[(String, String)]) -> Option<String> {
     let location = headers
         .iter()
         .find(|(name, _)| name.eq_ignore_ascii_case("location"))
-        .map(|(_, value)| value.to_lowercase())?;
-    if location.contains("block") || location.contains("filter") || location.contains("warning") {
-        return Some("redirect_block_url".to_string());
-    }
-    None
+        .map(|(_, value)| value.trim().to_ascii_lowercase())?;
+    let authority = location.split_once("//").map(|(_, rest)| rest)?;
+    let authority = authority.split(['/', '?', '#']).next().unwrap_or_default();
+    let host = authority.rsplit('@').next().unwrap_or_default();
+    let host = host.split(':').next().unwrap_or_default();
+    host.split('.').any(|label| BLOCK_STUB_HOST_LABELS.contains(&label)).then(|| "redirect_block_url".to_string())
 }
 
-/// Match generic blockpage keywords in the response body (case-insensitive).
+/// Match an explicit third-party block message in the response body (case-insensitive).
 pub(crate) fn match_body_keyword(body: &[u8]) -> Option<String> {
+    if body.len() > MAX_EXPLICIT_BLOCKPAGE_BODY {
+        return None;
+    }
     let body_lower = String::from_utf8_lossy(body).to_lowercase();
-    BLOCKPAGE_KEYWORDS
+    EXPLICIT_BLOCKPAGE_MESSAGES
         .iter()
-        .find(|keyword| body_lower.contains(**keyword))
-        .map(|keyword| format!("keyword_{}", keyword.replace(' ', "_")))
+        .any(|message| body_lower.contains(message))
+        .then(|| "explicit_blockpage_message".to_string())
 }

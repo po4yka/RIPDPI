@@ -75,13 +75,13 @@ pub fn classify_from_fields(cache: &FieldCache, fingerprints: &[BlockpageFingerp
             });
         }
 
-        // HTTP 403 with generic block keywords in body.
+        // HTTP 403 with an explicit block message in the body.
         if status == 403 && match_body_keyword(&body).is_some() {
             return Some(ClassifiedFailure::new(
                 FailureClass::HttpBlockpage,
                 FailureStage::HttpResponse,
                 FailureAction::RetryWithMatchingGroup,
-                "HTTP 403 with blockpage keywords in body",
+                "HTTP 403 with blockpage message in body",
             ));
         }
 
@@ -142,7 +142,7 @@ mod tests {
     fn http_403_with_keywords_from_cache() {
         let mut cache = FieldCache::new();
         cache.on_field(&ProtocolField::HttpStatusCode(403));
-        cache.on_field(&ProtocolField::HttpBodyChunk(b"Access Denied by policy".to_vec()));
+        cache.on_field(&ProtocolField::HttpBodyChunk(b"This site has been blocked by policy".to_vec()));
 
         let result = classify_from_fields(&cache, &empty_fingerprints());
         let failure = result.expect("should classify blockpage");
@@ -193,7 +193,7 @@ mod tests {
         let mut cache = FieldCache::new();
         cache.on_field(&ProtocolField::TlsAlertCode(0));
         cache.on_field(&ProtocolField::HttpStatusCode(403));
-        cache.on_field(&ProtocolField::HttpBodyChunk(b"Access Denied by policy".to_vec()));
+        cache.on_field(&ProtocolField::HttpBodyChunk(b"This site has been blocked by policy".to_vec()));
 
         let result = classify_from_fields(&cache, &empty_fingerprints());
         let failure = result.expect("close_notify must not mask the http blockpage");

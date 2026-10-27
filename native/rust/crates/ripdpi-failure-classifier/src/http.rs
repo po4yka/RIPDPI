@@ -29,9 +29,9 @@ mod tests {
     }
 
     #[test]
-    fn http_blockpage_detects_body_keywords_on_200() {
-        let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\nThis page is subject to censorship.";
-        let f = classify_http_blockpage(response).expect("blockpage from keyword");
+    fn http_blockpage_detects_explicit_block_message_on_200() {
+        let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\nThis site has been blocked by your ISP.";
+        let f = classify_http_blockpage(response).expect("blockpage from explicit message");
         assert_eq!(f.class, FailureClass::HttpBlockpage);
     }
 
@@ -54,19 +54,24 @@ mod tests {
     }
 
     #[test]
-    fn http_blockpage_detects_all_keywords() {
-        let keywords = ["blocked", "access denied", "forbidden", "restriction", "censorship"];
-        for keyword in keywords {
-            let response = format!("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\nThis page: {keyword}.");
-            let f = classify_http_blockpage(response.as_bytes())
-                .unwrap_or_else(|| panic!("keyword '{keyword}' should trigger blockpage detection"));
-            assert_eq!(f.class, FailureClass::HttpBlockpage);
+    fn generic_words_on_ordinary_responses_are_not_blockpages() {
+        for body in ["blocked", "access denied", "forbidden", "Restrictions apply", "censorship"] {
+            let response = format!("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\nThis page: {body}.");
+            assert!(classify_http_blockpage(response.as_bytes()).is_none(), "'{body}' alone is not evidence");
+        }
+    }
+
+    #[test]
+    fn redirects_to_site_paths_that_mention_block_words_are_not_blockpages() {
+        for location in ["https://example.com/search?filter=x", "https://example.com/blockchain", "/warning"] {
+            let response = format!("HTTP/1.1 302 Found\r\nLocation: {location}\r\n\r\n");
+            assert!(classify_http_response_block(response.as_bytes()).is_none(), "{location} is a site URL");
         }
     }
 
     #[test]
     fn http_blockpage_keyword_matching_is_case_insensitive() {
-        let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\nACCESS DENIED by firewall";
+        let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\nTHIS SITE HAS BEEN BLOCKED";
         assert!(classify_http_blockpage(response).is_some());
     }
 
