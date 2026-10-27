@@ -53,8 +53,8 @@ data class PtProbeTrace(
     val ok: Boolean,
     val latencyMs: Long,
     val error: String? = null,
-    /** False when the leg had no usable target, so neither "ok" nor "blocked" is evidence. */
-    val configured: Boolean = true,
+    /** False when the leg saw no evidence (no usable target, or only silent peers): neither "ok" nor "blocked". */
+    val conclusive: Boolean = true,
 )
 
 data class PluggableTransportResult(
@@ -112,7 +112,7 @@ class PluggableTransportReachabilityProbe(
     private fun PtProbeTrace.toObfs4Verdict(): PtVerdict =
         if (ok) {
             PtVerdict.PtOk(target)
-        } else if (leg == UnknownLeg || !configured) {
+        } else if (leg == UnknownLeg || !conclusive) {
             PtVerdict.PtError(error.orEmpty())
         } else {
             PtVerdict.PtBridgeBlocked(error.orEmpty())
@@ -154,11 +154,13 @@ class Obfs4ReachabilityProbe(
             val usable = bridges.filterNot(PtEndpoint::isDocumentationAddress)
             if (usable.isEmpty()) {
                 // RFC 5737 placeholders never answer: report "not configured", not "blocked".
-                return@withTimeout PtProbeTrace(Obfs4Leg, "", false, 0, NoBridgesConfigured, configured = false)
+                return@withTimeout PtProbeTrace(Obfs4Leg, "", false, 0, NoBridgesConfigured, conclusive = false)
             }
+            var conclusive = false
             usable.forEach { bridge ->
                 val trace = bridge.tryTcpHandshake(timeoutMs)
                 if (trace.ok) return@withTimeout trace.copy(latencyMs = System.currentTimeMillis() - startedAt)
+                conclusive = conclusive || trace.conclusive
                 errors += "${bridge.host}:${bridge.port}:${trace.error.orEmpty()}"
             }
             PtProbeTrace(
@@ -169,6 +171,7 @@ class Obfs4ReachabilityProbe(
                 false,
                 System.currentTimeMillis() - startedAt,
                 errors.joinToString(),
+                conclusive = conclusive,
             )
         }
 
@@ -180,13 +183,14 @@ class Obfs4ReachabilityProbe(
                 socket.soTimeout = (timeoutMs / 2).coerceIn(1L, MaxResponseWaitMs).toInt()
                 socket.getOutputStream().write(randomBytes(MockHandshakeBytes))
                 socket.getOutputStream().flush()
-                // An obfs4 server stays silent on an invalid handshake, so silence after a
-                // completed connect counts as reachable. A reset or an immediate close does not.
+                // Reachable needs a reply from the server. Silence is inconclusive: an obfs4 server stays
+                // silent on an invalid handshake, but so does DPI that drops data after the TCP handshake.
                 val reachable =
                     try {
                         socket.getInputStream().read() >= 0
                     } catch (_: SocketTimeoutException) {
-                        true
+                        val latencyMs = System.currentTimeMillis() - startedAt
+                        return PtProbeTrace(Obfs4Leg, "$host:$port", false, latencyMs, NoResponse, conclusive = false)
                     }
                 PtProbeTrace(Obfs4Leg, "$host:$port", reachable, System.currentTimeMillis() - startedAt)
             }
@@ -200,6 +204,7 @@ class Obfs4ReachabilityProbe(
         private const val MockHandshakeBytes = 32
         private const val MaxResponseWaitMs = 2_000L
         private const val NoBridgesConfigured = "no obfs4 bridges configured"
+        private const val NoResponse = "no response after connect"
     }
 }
 

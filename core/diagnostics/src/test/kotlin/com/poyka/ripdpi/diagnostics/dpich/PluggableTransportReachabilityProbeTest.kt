@@ -161,16 +161,24 @@ class PluggableTransportReachabilityProbeTest {
         }
 
     @Test
-    fun obfs4BridgeThatStaysSilentAfterConnectIsReachable() =
+    fun obfs4BridgeThatStaysSilentAfterConnectIsInconclusive() =
         runTest {
+            // A payload-blackhole DPI and a silent obfs4 server look the same: neither "ok" nor "blocked".
             val probe =
-                Obfs4ReachabilityProbe(
-                    bridges = listOf(PtEndpoint("10.0.0.1", 443)),
-                    socketFactory = { FakeSocket(readError = SocketTimeoutException("silent")) },
-                    randomBytes = { size -> ByteArray(size) },
+                PluggableTransportReachabilityProbe(
+                    obfs4Probe =
+                        Obfs4ReachabilityProbe(
+                            bridges = listOf(PtEndpoint("10.0.0.1", 443), PtEndpoint("10.0.0.2", 443)),
+                            socketFactory = { FakeSocket(readError = SocketTimeoutException("silent")) },
+                            randomBytes = { size -> ByteArray(size) },
+                        ),
+                    snowflakeBrokerProbe = FakePtSubprobe { PtProbeTrace("snowflake", "broker", true, 1) },
+                    snowflakeStunProbe = FakePtSubprobe { PtProbeTrace("stun", "stun", true, 1) },
+                    meekProbe = FakePtSubprobe { PtProbeTrace("meek", "front", true, 1) },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
                 )
 
-            assertTrue(probe.run(timeoutMs = 1_000).ok)
+            assertTrue(probe.run(timeoutMs = 1_000).obfs4 is PtVerdict.PtError)
         }
 
     @Test
