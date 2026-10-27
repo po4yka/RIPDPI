@@ -8,6 +8,7 @@ import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 import java.net.UnknownHostException
 
 class SystemDohDnsComparatorTest {
@@ -35,16 +36,41 @@ class SystemDohDnsComparatorTest {
         }
 
     @Test
-    fun systemFailsDohSucceedsReturnsDnsBlockHigh() =
+    fun systemNegativeAnswerDohSucceedsReturnsDnsBlockHigh() =
         runTest {
-            val result =
-                comparator(
-                    system = { throw UnknownHostException("blocked") },
-                    doh = { setOf("1.2.3.4") },
-                ).compare("example.org")
+            for (code in listOf("EAI_NODATA", "EAI_NONAME")) {
+                val result =
+                    comparator(
+                        system = { throw noSuchHost(code) },
+                        doh = { setOf("1.2.3.4") },
+                    ).compare("example.org")
 
-            assertEquals(DnsComparisonVerdict.DNS_BLOCK, result.verdict)
-            assertEquals(DnsComparisonConfidence.HIGH, result.confidence)
+                assertEquals(DnsComparisonVerdict.DNS_BLOCK, result.verdict)
+                assertEquals(DnsComparisonConfidence.HIGH, result.confidence)
+            }
+        }
+
+    @Test
+    fun systemServfailOrUnknownCauseIsNotReportedAsDnsBlock() =
+        runTest {
+            // EAI_AGAIN is what bionic returns for SERVFAIL, an upstream timeout or no network.
+            val failures =
+                listOf(
+                    noSuchHost("EAI_AGAIN"),
+                    noSuchHost("EAI_FAIL"),
+                    UnknownHostException("Unable to resolve host"),
+                )
+
+            for (failure in failures) {
+                val result =
+                    comparator(
+                        system = { throw failure },
+                        doh = { setOf("1.2.3.4") },
+                    ).compare("example.org")
+
+                assertEquals(DnsComparisonVerdict.DOWN, result.verdict)
+                assertEquals(DnsComparisonConfidence.LOW, result.confidence)
+            }
         }
 
     @Test
@@ -163,6 +189,15 @@ class SystemDohDnsComparatorTest {
                 ).compare("example.org")
 
             assertEquals(DnsMethod.PRIVATE_DNS_DOT, result.dnsMethod)
+        }
+
+    /**
+     * What Android's getAllByName throws: an UnknownHostException whose cause is a GaiException (hidden API,
+     * so an IOException stands in) with the libcore message format "<function> failed: <EAI name> (<text>)".
+     */
+    private fun noSuchHost(code: String): UnknownHostException =
+        UnknownHostException("Unable to resolve host \"example.org\"").apply {
+            initCause(IOException("android_getaddrinfo failed: $code (resolver message)"))
         }
 
     private fun comparator(

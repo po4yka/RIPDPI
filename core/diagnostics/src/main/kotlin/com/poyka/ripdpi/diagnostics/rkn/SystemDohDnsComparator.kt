@@ -86,7 +86,7 @@ class SystemDohDnsComparator(
                 currentCoroutineContext().ensureActive()
                 if (error is CancellationException && error !is TimeoutCancellationException) throw error
                 // Only a "no such host" answer is a negative answer; a timeout or other error proves nothing.
-                LookupOutcome(emptySet(), negative = error is UnknownHostException)
+                LookupOutcome(emptySet(), negative = isNegativeDnsAnswer(error))
             },
         )
 
@@ -164,6 +164,22 @@ class SystemDohDnsComparator(
         private const val DefaultTimeoutMs = 5_000L
     }
 }
+
+/**
+ * Android's getAllByName throws UnknownHostException for every getaddrinfo failure, with the (hidden)
+ * android.system.GaiException as its cause, whose message names the code: "android_getaddrinfo failed:
+ * EAI_NODATA (...)". Only EAI_NODATA and EAI_NONAME are a negative answer; EAI_AGAIN (SERVFAIL, upstream
+ * timeout, no network) and every other failure prove nothing. The whole cause chain is read because
+ * coroutine stack-trace recovery can wrap the original exception in a copy.
+ */
+private fun isNegativeDnsAnswer(error: Throwable): Boolean =
+    error is UnknownHostException &&
+        generateSequence(error.cause, Throwable::cause)
+            .take(MaxCauseDepth)
+            .any { cause -> cause.message?.let(NegativeGaiCode::containsMatchIn) == true }
+
+private val NegativeGaiCode = Regex("""failed: EAI_NO(DATA|NAME)\b""")
+private const val MaxCauseDepth = 4
 
 class SystemIpv4Resolver : Ipv4Resolver {
     override suspend fun resolve(host: String): Set<String> =
