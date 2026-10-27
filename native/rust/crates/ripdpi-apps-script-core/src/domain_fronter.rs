@@ -1,3 +1,4 @@
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use tokio::net::TcpStream;
@@ -55,7 +56,9 @@ impl FronterError {
 
 pub struct AppsScriptDomainFronter {
     connect_host: String,
-    front_domain: String,
+    /// TLS SNI names, used in turn per connection: `sniHosts`, or the front domain alone.
+    sni_hosts: Vec<String>,
+    next_sni: AtomicUsize,
     auth_key: String,
     scripts: ScriptPool,
     tls_connector: TlsConnector,
@@ -66,7 +69,12 @@ impl AppsScriptDomainFronter {
     pub fn new(config: &AppsScriptRuntimeConfig, telemetry: SharedTelemetryState) -> Self {
         Self {
             connect_host: config.google_ip.clone(),
-            front_domain: config.front_domain.clone(),
+            sni_hosts: if config.sni_hosts.is_empty() {
+                vec![config.front_domain.clone()]
+            } else {
+                config.sni_hosts.clone()
+            },
+            next_sni: AtomicUsize::new(0),
             auth_key: config.auth_key.clone(),
             scripts: ScriptPool::new(config.script_ids.clone()),
             tls_connector: tls::connector(),
@@ -175,11 +183,19 @@ impl AppsScriptDomainFronter {
     /// handshake; cancellation mid-handshake leaves a partially negotiated TLS
     /// session that is dropped without a clean close_notify.
     async fn open_fronted_stream(&self) -> Result<tokio_rustls::client::TlsStream<TcpStream>, FronterError> {
-        tls::connect_fronted_stream(&self.tls_connector, &self.connect_host, 443, &self.front_domain).await
+        tls::connect_fronted_stream(&self.tls_connector, &self.connect_host, 443, self.next_sni()).await
+    }
+
+    /// The SNI for the next front connection. Rotating over several Google names
+    /// keeps one blocked name from stopping every connection.
+    fn next_sni(&self) -> &str {
+        // Ordering: the counter only spreads connections; no state is published through it.
+        let index = self.next_sni.fetch_add(1, Ordering::Relaxed);
+        &self.sni_hosts[index % self.sni_hosts.len()]
     }
 
     /// Open a verified TLS stream to an SNI-rewrite `upstream`, presenting the
-    /// front domain as SNI.
+    /// next SNI name (see [`Self::next_sni`]).
     ///
     /// # Cancel safety
     ///
@@ -190,7 +206,7 @@ impl AppsScriptDomainFronter {
         upstream: &str,
         port: u16,
     ) -> Result<tokio_rustls::client::TlsStream<TcpStream>, FronterError> {
-        timeout(RELAY_TIMEOUT, tls::connect_fronted_stream(&self.tls_connector, upstream, port, &self.front_domain))
+        timeout(RELAY_TIMEOUT, tls::connect_fronted_stream(&self.tls_connector, upstream, port, self.next_sni()))
             .await
             .map_err(|_| FronterError::Timeout)?
     }
@@ -217,6 +233,32 @@ mod tests {
 
     use super::*;
     use crate::telemetry::RelayTelemetryState;
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn front_connections_rotate_over_the_configured_sni_hosts() {
+        let config = AppsScriptRuntimeConfig::from_json(
+            r#"{"scriptIds":["script-id"],"authKey":"secret","sniHosts":["mail.google.com","drive.google.com"]}"#,
+        )
+        .expect("config");
+        let fronter = AppsScriptDomainFronter::new(&config, Arc::new(RelayTelemetryState::new(&config)));
+        let listener = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let port = listener.local_addr().expect("address").port();
+
+        let mut names = Vec::new();
+        for _ in 0..3 {
+            let read_hello = async {
+                let (mut server, _) = listener.accept().await.expect("accept");
+                let mut hello = vec![0u8; 4096];
+                let size = tokio::io::AsyncReadExt::read(&mut server, &mut hello).await.expect("ClientHello");
+                // Dropping the server ends the handshake, so the connect returns at once.
+                String::from_utf8_lossy(&hello[..size]).into_owned()
+            };
+            let (_connect, hello) = tokio::join!(fronter.open_rewrite_stream("127.0.0.1", port), read_hello);
+            names.push(["mail.google.com", "drive.google.com"].into_iter().find(|name| hello.contains(name)));
+        }
+
+        assert_eq!(names, vec![Some("mail.google.com"), Some("drive.google.com"), Some("mail.google.com")]);
+    }
 
     #[tokio::test(flavor = "current_thread")]
     async fn a_request_that_cannot_reach_one_deployment_is_tried_on_the_next() {
