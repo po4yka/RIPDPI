@@ -33,6 +33,10 @@ impl RetryPacer {
     }
 
     pub fn record_failure(&mut self, signature: &RetrySignature, now_ms: u64) -> RetryDecision {
+        // Expired entries act exactly like absent ones; drop them so the maps stay bounded by
+        // the failures of the last window instead of every failure of the session.
+        self.signature_failures.retain(|_, state| state.suppress_until_ms >= now_ms);
+        self.family_cooldowns.retain(|_, until| *until > now_ms);
         let signature_hash = signature.hash();
         let family_delay = self.family_delay_ms(signature_hash);
         let state = self.signature_failures.entry(signature_hash).or_insert(SignatureFailureState {
@@ -150,4 +154,25 @@ fn now_ms() -> u64 {
 
 fn system_time_nanos_low() -> u64 {
     SystemTime::now().duration_since(UNIX_EPOCH).ok().map_or(0, |value| value.as_nanos() as u64)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::retry_stealth::identity::RetryLane;
+
+    #[test]
+    fn record_failure_drops_entries_whose_cooldowns_expired() {
+        let mut pacer = RetryPacer::new(RetryStealthPolicy { jitter_ratio: 0.0, ..RetryStealthPolicy::default() });
+        for host in ["a.example", "b.example", "c.example"] {
+            pacer.record_failure(&RetrySignature::new("scope", RetryLane::TcpTls, host, 0, 1), 1_000);
+        }
+        let later = 1_000 + RetryStealthPolicy::default().same_signature_window_ms + 1;
+        let fresh = RetrySignature::new("scope", RetryLane::TcpTls, "d.example", 0, 1);
+        pacer.record_failure(&fresh, later);
+
+        assert_eq!(pacer.signature_failures.len(), 1, "expired signature entries are dropped");
+        assert_eq!(pacer.family_cooldowns.len(), 1, "expired family cooldowns are dropped");
+        assert!(pacer.penalty_for(&fresh, later + 1).same_signature_cooldown_ms > 0);
+    }
 }
