@@ -144,23 +144,8 @@ async fn establish(
     let client_config = Arc::new(Config::default());
 
     let transport = async {
-        let server_addr = socket_protection
-            .resolve_host(&config.host, config.port)
-            .await
-            .map_err(SshError::Io)?
-            .into_iter()
-            .next()
-            .ok_or_else(|| SshError::Ssh("SSH server resolved to no addresses".to_string()))?;
-        let socket = match server_addr {
-            std::net::SocketAddr::V4(_) => tokio::net::TcpSocket::new_v4(),
-            std::net::SocketAddr::V6(_) => tokio::net::TcpSocket::new_v6(),
-        }
-        .map_err(|error| SshError::Ssh(error.to_string()))?;
-        use std::os::fd::AsRawFd as _;
-        socket_protection.protect_non_loopback(socket.as_raw_fd(), server_addr).map_err(SshError::Io)?;
-        let stream = socket.connect(server_addr).await.map_err(|error| SshError::Ssh(error.to_string()))?;
-
-        Ok::<_, SshError>(stream)
+        let server_addrs = socket_protection.resolve_host(&config.host, config.port).await.map_err(SshError::Io)?;
+        connect_first_reachable(&server_addrs, socket_protection, control.deadline).await
     };
     let stream = tokio::select! {
         biased;
@@ -199,6 +184,45 @@ async fn establish(
     }
     control.authenticated();
     Ok(handle)
+}
+
+/// Connects to the first address that accepts, in resolver order. Each
+/// attempt gets an equal share of the time left before `deadline`, so a
+/// blackholed first address (often IPv6) does not use up the whole deadline.
+///
+/// # Cancel safety
+///
+/// cancel-safe: dropping the future drops the socket being connected.
+async fn connect_first_reachable(
+    server_addrs: &[std::net::SocketAddr],
+    socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
+    deadline: tokio::time::Instant,
+) -> Result<tokio::net::TcpStream> {
+    use std::os::fd::AsRawFd as _;
+
+    let mut last_error = SshError::Ssh("SSH server resolved to no addresses".to_string());
+    for (index, &server_addr) in server_addrs.iter().enumerate() {
+        let remaining = u32::try_from(server_addrs.len() - index).unwrap_or(u32::MAX);
+        let share = deadline.saturating_duration_since(tokio::time::Instant::now()) / remaining;
+        let attempt = async {
+            let socket = match server_addr {
+                std::net::SocketAddr::V4(_) => tokio::net::TcpSocket::new_v4(),
+                std::net::SocketAddr::V6(_) => tokio::net::TcpSocket::new_v6(),
+            }
+            .map_err(|error| SshError::Ssh(error.to_string()))?;
+            socket_protection.protect_non_loopback(socket.as_raw_fd(), server_addr).map_err(SshError::Io)?;
+            socket.connect(server_addr).await.map_err(|error| SshError::Ssh(error.to_string()))
+        };
+        match tokio::time::timeout(share, attempt).await {
+            Ok(Ok(stream)) => return Ok(stream),
+            Ok(Err(error)) => last_error = error,
+            Err(_elapsed) => {
+                last_error =
+                    SshError::Io(std::io::Error::new(std::io::ErrorKind::TimedOut, "SSH connection timed out"));
+            }
+        }
+    }
+    Err(last_error)
 }
 
 /// # Cancel safety
@@ -309,6 +333,27 @@ mod tests {
     use super::*;
     use crate::config::SshAuth;
     use std::io;
+
+    /// Only the first resolved address was tried: a dual-stack host whose
+    /// first address is filtered failed though a later one worked.
+    #[tokio::test]
+    async fn connect_tries_the_next_address_when_one_fails() {
+        let refused = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let refused_addr = refused.local_addr().expect("refused addr");
+        drop(refused);
+        let live = tokio::net::TcpListener::bind("127.0.0.1:0").await.expect("bind live");
+        let live_addr = live.local_addr().expect("live addr");
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+
+        let stream = connect_first_reachable(
+            &[refused_addr, live_addr],
+            ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            deadline,
+        )
+        .await
+        .expect("the second address accepts");
+        assert_eq!(stream.peer_addr().expect("peer"), live_addr);
+    }
 
     /// Regression test (audit H4 siblings): a bare IPv6 literal must be
     /// rejected instead of being silently split into a corrupted host
