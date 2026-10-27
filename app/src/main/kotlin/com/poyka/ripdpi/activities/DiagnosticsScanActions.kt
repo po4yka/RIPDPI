@@ -27,6 +27,10 @@ internal class DiagnosticsScanActions(
 ) {
     private val completionTracker = DiagnosticsScanCompletionTracker()
 
+    // Set on the main thread before the start coroutine runs: activeScanProgress turns non-null only deep
+    // inside startScan, so a second tap in that window would pass the progress check.
+    private var manualStartInFlight = false
+
     fun initialize() {
         observeScanCompletion()
         observeCompletedProbes()
@@ -394,13 +398,16 @@ internal class DiagnosticsScanActions(
         selectedProfile: DiagnosticsProfileOptionUiModel?,
         allowSensitiveProfileStart: Boolean = false,
     ) {
+        if (manualStartInFlight) return
         val command =
             mutations.prepareManualScan(scanLifecycle, pathMode, selectedProfile, allowSensitiveProfileStart) ?: return
         val request = command.request
+        manualStartInFlight = true
         mutations.launch {
             if (diagnosticsScanController.hasActiveHomeRun() ||
                 diagnosticsTimelineSource.activeScanProgress.value != null
             ) {
+                manualStartInFlight = false
                 return@launch
             }
             try {
@@ -439,6 +446,8 @@ internal class DiagnosticsScanActions(
                     scanLifecycle = scanLifecycle,
                     stringResolver = stringResolver,
                 )
+            } finally {
+                manualStartInFlight = false
             }
         }
     }
@@ -531,17 +540,23 @@ private suspend fun DiagnosticsMutationRunner.handleScanStartFailure(
     scanLifecycle: MutableStateFlow<ScanLifecycleState>,
     stringResolver: StringResolver,
 ) {
-    scanLifecycle.update {
-        it.copy(
-            scanStartedAt = null,
-            activeScanPathMode = null,
-            activeScanKind = null,
-            pendingAutoOpenAuditSessionId = null,
-            accumulatedProbes = persistentListOf(),
-            hiddenProbeConflictDialog = null,
-            sensitiveProfileConsentDialog = null,
-            queuedManualScanRequest = null,
-        )
+    // A start rejected because a scan already runs must not wipe that scan's lifecycle state.
+    val rejectedForActiveScan =
+        (error as? DiagnosticsScanStartRejectedException)?.reason ==
+            DiagnosticsScanStartRejectionReason.ScanAlreadyActive
+    if (!rejectedForActiveScan) {
+        scanLifecycle.update {
+            it.copy(
+                scanStartedAt = null,
+                activeScanPathMode = null,
+                activeScanKind = null,
+                pendingAutoOpenAuditSessionId = null,
+                accumulatedProbes = persistentListOf(),
+                hiddenProbeConflictDialog = null,
+                sensitiveProfileConsentDialog = null,
+                queuedManualScanRequest = null,
+            )
+        }
     }
     if (error is com.poyka.ripdpi.data.LocalNetworkAccessRequiredException) {
         emit(
