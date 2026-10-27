@@ -182,7 +182,7 @@ fn handle_connection_with_backend(
     stream.set_read_timeout(Some(Duration::from_secs(1)))?;
     stream.set_write_timeout(Some(Duration::from_secs(10)))?;
 
-    let (data, received_fd) = protocol::recv_message(stream, "peer closed connection")?;
+    let (data, received_fd) = recv_request_within(stream, REQUEST_DEADLINE)?;
 
     let request: HelperRequest = serde_json::from_slice(&data)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("invalid request JSON: {e}")))?;
@@ -217,6 +217,27 @@ fn handle_connection_with_backend(
     send_response(stream, response, reply_fd)?;
 
     Ok(())
+}
+
+/// Total time a client has to deliver its request frame. The read timeout
+/// above restarts on every received byte, so alone it lets a client that
+/// trickles bytes hold the serial helper for hours.
+const REQUEST_DEADLINE: std::time::Duration = std::time::Duration::from_secs(2);
+
+/// Reads one request frame and shuts the connection down if it is not complete
+/// within `deadline`; the blocked read then ends with an error.
+fn recv_request_within(stream: &UnixStream, deadline: std::time::Duration) -> io::Result<(Vec<u8>, Option<OwnedFd>)> {
+    let watchdog_stream = stream.try_clone()?;
+    let (done, done_signal) = std::sync::mpsc::channel::<()>();
+    let watchdog = std::thread::Builder::new().name("request-deadline".to_owned()).spawn(move || {
+        if done_signal.recv_timeout(deadline) == Err(std::sync::mpsc::RecvTimeoutError::Timeout) {
+            let _ = watchdog_stream.shutdown(std::net::Shutdown::Both);
+        }
+    })?;
+    let received = protocol::recv_message(stream, "peer closed connection");
+    drop(done);
+    let _ = watchdog.join();
+    received
 }
 
 fn send_response(stream: &UnixStream, response: HelperResponse, reply_fd: Option<OwnedFd>) -> io::Result<()> {
@@ -467,6 +488,33 @@ mod tests {
         drop(listener);
         let _ = fs::remove_file(&socket_path);
         let _ = fs::remove_dir(&base_dir);
+    }
+
+    #[test]
+    fn a_trickling_client_is_dropped_at_the_request_deadline() {
+        use std::io::Write;
+
+        let (mut client, server) = UnixStream::pair().expect("socket pair");
+        let trickle = thread::spawn(move || {
+            // A 100-byte frame sent one byte every 300 ms: each recv returns
+            // data well inside the 1 s per-read timeout.
+            let _ = client.write_all(&100_u32.to_be_bytes());
+            for _ in 0..20 {
+                thread::sleep(std::time::Duration::from_millis(300));
+                if client.write_all(b"x").is_err() {
+                    return;
+                }
+            }
+        });
+
+        let started = std::time::Instant::now();
+        let result = handle_connection(&server, TEST_NONCE);
+        let waited = started.elapsed();
+
+        assert!(result.is_err(), "an incomplete request is an error");
+        assert!(waited < std::time::Duration::from_secs(4), "a trickling client held the helper for {waited:?}");
+        drop(server);
+        trickle.join().expect("trickle thread");
     }
 
     #[test]

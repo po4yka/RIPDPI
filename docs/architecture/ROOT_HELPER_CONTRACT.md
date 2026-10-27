@@ -73,7 +73,11 @@ cannot.
   ancillary data. The helper replies with a JSON response and, for
   `TCP_REPAIR`-class operations, an optional **replacement fd** the client
   swaps in via a `dup2`-class call.
-- The helper applies a 30 s read / 10 s write timeout per connection.
+- The helper gives a client 2 s in total to deliver its request frame, then
+  shuts the connection down. Each read also times out after 1 s, and each write
+  after 10 s. The helper serves one connection at a time, so these bounds keep a
+  slow or stalled client from blocking other commands and shutdown. The client
+  waits up to 30 s for the response.
 - The socket path is published to native code (`Tun2SocksConfig.rootHelperSocketPath`)
   **only after** the socket is confirmed connectable — never a stale path.
 
