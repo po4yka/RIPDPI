@@ -10,7 +10,7 @@ use crate::classification::{
     classify_strategy_probe_baseline_results, interleave_candidate_families, next_candidate_index,
     reorder_tcp_candidates_for_failure,
 };
-use crate::connectivity::{run_dns_probe, run_domain_probe, run_tcp_probe};
+use crate::connectivity::{run_dns_probe, run_domain_probe, run_tcp_probe, run_tcp_probe_with_cancel};
 use crate::execution::freeze_adaptive_fake_ttl_for_probe;
 use crate::strategy::detect_strategy_probe_dns_tampering;
 use crate::test_fixtures::*;
@@ -583,6 +583,33 @@ fn tcp_probe_reports_whitelist_sni_failure() {
 
     let result = run_tcp_probe(&target, &["missing.example".to_string()], &direct_transport(), None);
     assert_eq!(result.outcome, "whitelist_sni_failed");
+}
+
+#[test]
+fn cancelled_tcp_probe_skips_the_whitelist_candidates() {
+    let _serial = lock_network_probes();
+    let server = PlainFatHeaderServer::start(FatServerMode::AllowHost("allow.example".to_string()));
+    let target = TcpTarget {
+        id: "test".to_string(),
+        provider: "tls-fat".to_string(),
+        ip: "127.0.0.1".to_string(),
+        port: server.port(),
+        sni: Some("deny.example".to_string()),
+        asn: Some("AS1337".to_string()),
+        host_header: Some("deny.example".to_string()),
+        fat_header_requests: Some(8),
+        alt_port: None,
+    };
+    let cancel = std::sync::atomic::AtomicBool::new(true);
+
+    let result = run_tcp_probe_with_cancel(&target, &["allow.example".to_string()], &direct_transport(), None, &cancel);
+    let attempts = result.details.iter().find(|detail| detail.key == "attempts").expect("attempts detail");
+    assert!(
+        !attempts.value.contains("allow.example"),
+        "no whitelist candidate may run after cancel: {}",
+        attempts.value
+    );
+    assert!(!result.outcome.starts_with("whitelist_sni_"), "untested candidates are not a failure: {}", result.outcome);
 }
 
 #[test]

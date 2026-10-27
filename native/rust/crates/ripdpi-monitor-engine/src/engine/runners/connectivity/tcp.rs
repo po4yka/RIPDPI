@@ -3,7 +3,7 @@ use std::sync::Arc;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::connectivity::ProbeExecutionContext;
-use crate::connectivity::run_tcp_probe;
+use crate::connectivity::run_tcp_probe_with_cancel;
 use crate::engine::runtime::ExecutionPlan;
 use crate::tls::tls_key_log_callback_for_path;
 use crate::types::{ProbeResult, TcpTarget};
@@ -32,11 +32,11 @@ impl ConnectivityProbeFamily for TcpFamily {
         target: &Self::Target,
         plan: &ExecutionPlan,
         _probe_context: &ProbeExecutionContext,
-        _cancel: &std::sync::atomic::AtomicBool,
+        cancel: &std::sync::atomic::AtomicBool,
         _tls_verifier: Option<&Arc<dyn ServerCertVerifier>>,
     ) -> ProbeResult {
         let key_log = plan.request.diagnostic_tls_keylog_path.as_deref().map(tls_key_log_callback_for_path);
-        run_tcp_probe(target, &plan.request.whitelist_sni, &plan.transport, key_log.as_ref())
+        run_tcp_probe_with_cancel(target, &plan.request.whitelist_sni, &plan.transport, key_log.as_ref(), cancel)
     }
 }
 

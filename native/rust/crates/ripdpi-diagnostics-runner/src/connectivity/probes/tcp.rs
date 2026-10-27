@@ -4,6 +4,8 @@ use crate::connectivity::adapters::fat_header::{
 };
 use crate::connectivity::adapters::tls::TlsKeyLogCallback;
 use crate::connectivity::adapters::transport::TransportConfig;
+use std::sync::atomic::{AtomicBool, Ordering};
+
 use crate::types::{ProbeDetail, ProbeResult, TcpTarget};
 
 pub fn run_tcp_probe(
@@ -12,6 +14,19 @@ pub fn run_tcp_probe(
     transport: &TransportConfig,
     key_log: Option<&TlsKeyLogCallback>,
 ) -> ProbeResult {
+    run_tcp_probe_with_cancel(target, whitelist_sni, transport, key_log, &AtomicBool::new(false))
+}
+
+/// Like [`run_tcp_probe`], but a set `cancel` flag stops the connect retry, the whitelist SNI
+/// candidates and the alternative-port probe; only the observations already made are reported.
+pub fn run_tcp_probe_with_cancel(
+    target: &TcpTarget,
+    whitelist_sni: &[String],
+    transport: &TransportConfig,
+    key_log: Option<&TlsKeyLogCallback>,
+    cancel: &AtomicBool,
+) -> ProbeResult {
+    let cancelled = || cancel.load(Ordering::Acquire);
     let base_host_header =
         target.host_header.clone().or_else(|| target.sni.clone()).unwrap_or_else(|| target.provider.clone());
     let mut attempted_candidates = Vec::new();
@@ -27,7 +42,7 @@ pub fn run_tcp_probe(
 
     // Single retry on connect failure to distinguish transient from consistent unreachability.
     let mut probe_retry_count: usize = 0;
-    let effective_initial = if initial.status == FatHeaderStatus::ConnectFailed {
+    let effective_initial = if initial.status == FatHeaderStatus::ConnectFailed && !cancelled() {
         probe_retry_count = 1;
         let retry =
             run_fat_header_attempt_with_key_log(target, transport, &initial_candidate, &base_host_header, key_log);
@@ -45,10 +60,17 @@ pub fn run_tcp_probe(
     let mut winning_sni = None;
     let mut final_observation = effective_initial.clone();
 
-    let tried_whitelist_candidates =
-        effective_initial.status != FatHeaderStatus::Success && target.sni.is_some() && !whitelist_sni.is_empty();
+    let tried_whitelist_candidates = effective_initial.status != FatHeaderStatus::Success
+        && target.sni.is_some()
+        && !whitelist_sni.is_empty()
+        && !cancelled();
     if tried_whitelist_candidates {
+        let mut whitelist_cancelled = false;
         for candidate in whitelist_sni {
+            if cancelled() {
+                whitelist_cancelled = true;
+                break;
+            }
             let candidate_result =
                 run_fat_header_attempt_with_key_log(target, transport, candidate, candidate, key_log);
             attempted_candidates.push(format!("{}:{}", candidate, fat_status_label(&candidate_result.status)));
@@ -59,7 +81,7 @@ pub fn run_tcp_probe(
                 break;
             }
         }
-        if winning_sni.is_none() {
+        if winning_sni.is_none() && !whitelist_cancelled {
             outcome = "whitelist_sni_failed".to_string();
         }
     }
@@ -125,6 +147,7 @@ pub fn run_tcp_probe(
     // When the main port fails and an alternative port is configured, probe the
     // alt port to detect port-specific policing (e.g. middlebox targeting port 443).
     if let Some(alt_port) = target.alt_port
+        && !cancelled()
         && matches!(
             final_observation.status,
             FatHeaderStatus::ThresholdCutoff
