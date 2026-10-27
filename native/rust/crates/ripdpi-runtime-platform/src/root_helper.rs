@@ -110,6 +110,12 @@ pub fn unregister_root_helper_if(generation: RootHelperGeneration) -> bool {
     }
 }
 
+/// Identifies the current registration for caches of helper-dependent
+/// answers: the registering generation, or 0 when no helper is registered.
+pub(crate) fn registration_id() -> u64 {
+    ROOT_HELPER.read().ok().and_then(|guard| guard.as_ref().map(|registered| registered.generation.0)).unwrap_or(0)
+}
+
 /// Returns `true` if a root helper client is currently registered.
 pub fn has_root_helper() -> bool {
     ROOT_HELPER.read().is_ok_and(|guard| guard.is_some())
