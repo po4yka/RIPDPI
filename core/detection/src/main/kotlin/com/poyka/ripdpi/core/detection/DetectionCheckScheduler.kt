@@ -22,8 +22,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.distinctUntilChangedBy
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -70,11 +70,11 @@ class DetectionCheckScheduler
             if (observeJob != null) return
             observeJob =
                 scope.launch {
+                    // collectLatest: leaving Running cancels the in-flight check, and a restart gets its own check.
                     serviceStateStore.status
                         .distinctUntilChangedBy { it.first }
-                        .filter { it.first == AppStatus.Running }
-                        .collect {
-                            runQuickCheck(context)
+                        .collectLatest { (status) ->
+                            if (status == AppStatus.Running) runQuickCheck(context)
                         }
                 }
         }

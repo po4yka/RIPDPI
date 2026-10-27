@@ -12,8 +12,10 @@ import com.poyka.ripdpi.data.DefaultServiceStateStore
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -61,6 +63,49 @@ class DetectionCheckSchedulerTest {
 
             assertEquals(1, runs)
             assertTrue(history.isEmpty())
+            scheduler.stopObserving()
+        }
+
+    @Test
+    fun `VPN restart during a check cancels it and runs a fresh check for the new session`() =
+        runTest {
+            val context = RuntimeEnvironment.getApplication()
+            val state = DefaultServiceStateStore().apply { setStatus(AppStatus.Running, Mode.VPN) }
+            val fingerprint =
+                object : NetworkFingerprintProvider {
+                    override fun capture(): NetworkFingerprint = network("wifi")
+                }
+            val firstCheckGate = CompletableDeferred<Unit>()
+            val history = mutableListOf<DetectionHistoryEntry>()
+            var runs = 0
+            var completedRuns = 0
+            val runner =
+                object : DetectionCheckRunner {
+                    override suspend fun run(
+                        context: Context,
+                        config: DetectionRunnerConfig,
+                        onProgress: (suspend (DetectionProgress) -> Unit)?,
+                    ): DetectionCheckResult {
+                        runs++
+                        if (runs == 1) firstCheckGate.await()
+                        completedRuns++
+                        return cleanResult()
+                    }
+                }
+            val scheduler = DetectionCheckScheduler(context, state, fingerprint, runner, recordingHistory(history))
+
+            scheduler.startObserving(context, this)
+            runCurrent()
+            state.setStatus(AppStatus.Halted, Mode.VPN)
+            runCurrent()
+            state.setStatus(AppStatus.Running, Mode.VPN)
+            runCurrent()
+            firstCheckGate.complete(Unit)
+            advanceUntilIdle()
+
+            assertEquals(2, runs)
+            assertEquals(1, completedRuns)
+            assertEquals(1, history.size)
             scheduler.stopObserving()
         }
 
