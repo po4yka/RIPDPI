@@ -86,3 +86,23 @@ fn calling_dofile_from_a_script_fails_to_load() {
     let message = error.to_string();
     assert!(message.contains("attempt to call a nil value"), "expected a nil-call error for dofile, got: {message}");
 }
+
+/// The instruction-count hook only runs in the VM loop, so a single C call
+/// such as `string.rep('', math.maxinteger)` would never return. The engine
+/// caps the repeat count instead.
+#[test]
+fn string_rep_with_a_huge_count_fails_instead_of_looping_in_c() {
+    let engine = LuaStrategyEngine::new().expect("Lua VM should initialize");
+    engine
+        .load_bytes(
+            "rep_probe",
+            b"function huge_rep() string.rep('', math.maxinteger) return 1 end \
+              function huge_method_rep() return #(('x'):rep(1e15)) end \
+              function normal_rep() return #string.rep('ab', 3, ',') end",
+        )
+        .expect("probe script should load");
+
+    assert!(engine.call_i64("huge_rep").is_err());
+    assert!(engine.call_i64("huge_method_rep").is_err());
+    assert_eq!(engine.call_i64("normal_rep").expect("normal_rep"), 8);
+}

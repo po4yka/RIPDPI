@@ -459,6 +459,21 @@ mod enabled {
             })
             .map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
         globals.set("load", text_only_load).map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
+        // The instruction hook runs only in the VM loop: one
+        // `string.rep('', math.maxinteger)` would loop in C forever while the
+        // engine mutex is held. Cap the count at the memory limit.
+        lua.load(format!(
+            "local rep = string.rep
+            string.rep = function(s, n, sep)
+                local count = tonumber(n)
+                if count and count > {LUA_MEMORY_LIMIT_BYTES} then
+                    error('string.rep count exceeds the strategy limit', 2)
+                end
+                return rep(s, n, sep)
+            end"
+        ))
+        .exec()
+        .map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
         Ok(())
     }
 
