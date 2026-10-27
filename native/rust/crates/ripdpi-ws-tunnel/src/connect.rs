@@ -132,11 +132,17 @@ fn configure_bootstrap_socket(tcp: &TcpStream, connect_timeout: Option<Duration>
     Ok(())
 }
 
-fn configure_relay_socket(tcp: &TcpStream) -> io::Result<()> {
+/// Bound on one blocking write to the gateway. A black-holed path then fails
+/// the write and ends the relay, instead of blocking the relay thread until
+/// TCP gives up after minutes. Short under test.
+pub(crate) const WS_WRITE_TIMEOUT: Duration =
+    if cfg!(test) { Duration::from_millis(200) } else { Duration::from_secs(15) };
+
+pub(crate) fn configure_relay_socket(tcp: &TcpStream) -> io::Result<()> {
     // The relay polls reads on a short cadence so queued outbound frames do not
     // wait indefinitely behind an idle downlink.
     tcp.set_read_timeout(Some(WS_READ_TIMEOUT))?;
-    tcp.set_write_timeout(None)?;
+    tcp.set_write_timeout(Some(WS_WRITE_TIMEOUT))?;
     Ok(())
 }
 

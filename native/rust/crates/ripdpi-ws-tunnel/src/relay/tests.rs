@@ -222,3 +222,25 @@ fn ws_relay_sends_consumed_remainder_before_socket_drain() {
     peer.close(None).expect("send websocket close");
     relay_thread.join().expect("join relay thread").expect("relay result");
 }
+
+#[test]
+fn stalled_upstream_ends_the_relay_while_the_client_keeps_uploading() {
+    let (client_ws, server_ws) = websocket_pair();
+    crate::connect::configure_relay_socket(client_ws.get_ref()).expect("relay socket options");
+    let (mut app, relay_client) = tcp_pair();
+    // The gateway never reads again, so its receive buffer and our send buffer fill up.
+    let uploader = thread::spawn(move || {
+        let chunk = vec![0x5a; 64 * 1024];
+        while app.write_all(&chunk).is_ok() {}
+    });
+    let (done_tx, done_rx) = std::sync::mpsc::channel();
+    thread::spawn(move || {
+        let _ = done_tx.send(ws_relay(relay_client, client_ws, &[0u8; 64]).is_ok());
+    });
+
+    let ended = done_rx.recv_timeout(Duration::from_secs(10));
+    drop(server_ws);
+
+    assert!(ended.is_ok(), "the relay must end once a write to the stalled upstream times out");
+    uploader.join().expect("uploader ends when the relay closes the client socket");
+}
