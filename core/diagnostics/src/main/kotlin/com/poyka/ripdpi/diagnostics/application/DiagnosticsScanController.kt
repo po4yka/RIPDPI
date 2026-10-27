@@ -476,11 +476,14 @@ internal class DefaultDiagnosticsScanController
                             )
                         }.exceptionOrNull()
                     if (failure is CancellationException || failure is Error) throw failure
-                    // A failed cleanup write surfaces here (it replaces any cancellation), so retry it once.
-                    failure?.let {
-                        Logger.e(it) { "Diagnostics scan execution failed" }
-                        withContext(NonCancellable) { settleStillRunningScan(prepared) }
-                    }
+                    failure?.let { Logger.e(it) { "Diagnostics scan execution failed" } }
+                    // A failed cleanup write surfaces here (it replaces any cancellation): retry it once so the
+                    // scan does not show as running until the next process. Raw-path scans are left to the
+                    // settlement barrier, which owns their terminal record.
+                    if (failure == null || prepared.pathMode == ScanPathMode.RAW_PATH) return@launch
+                    val summary =
+                        activeScanRegistry.cancellationSummaryFor(prepared.sessionId) ?: ExecutionFailedSummary
+                    withContext(NonCancellable) { retryScanFailureWrite(prepared.sessionId, summary, scanRecordStore) }
                 }
             startup.executionJob = executionJob
             ensureStartupActive(scope)
@@ -493,24 +496,6 @@ internal class DefaultDiagnosticsScanController
             ensureStartupActive(scope)
             if (!executionRegistered || !executionJob.start()) {
                 throw CancellationException(StartupCanceledSummary)
-            }
-        }
-
-        /**
-         * One guarded retry so a scan whose failure write failed is not shown as running until the next process.
-         * Raw-path scans are left to the settlement barrier, which owns their terminal record.
-         */
-        private suspend fun settleStillRunningScan(prepared: PreparedDiagnosticsScan) {
-            if (prepared.pathMode == ScanPathMode.RAW_PATH) return
-            runCatching {
-                DiagnosticsReportPersister.persistScanFailure(
-                    prepared.sessionId,
-                    activeScanRegistry.cancellationSummaryFor(prepared.sessionId) ?: ExecutionFailedSummary,
-                    scanRecordStore,
-                )
-            }.exceptionOrNull()?.let { error ->
-                if (error is Error) throw error
-                Logger.w(error) { "Diagnostics scan left in running state" }
             }
         }
 
@@ -751,4 +736,16 @@ private suspend fun ActiveScanRegistry.cancelHiddenProbeForManualDiagnostics(
             true
         }
     }
+}
+
+private suspend fun retryScanFailureWrite(
+    sessionId: String,
+    summary: String,
+    scanRecordStore: DiagnosticsScanRecordStore,
+) {
+    val failure =
+        runCatching { DiagnosticsReportPersister.persistScanFailure(sessionId, summary, scanRecordStore) }
+            .exceptionOrNull() ?: return
+    if (failure is Error) throw failure
+    Logger.w(failure) { "Diagnostics scan left in running state" }
 }
