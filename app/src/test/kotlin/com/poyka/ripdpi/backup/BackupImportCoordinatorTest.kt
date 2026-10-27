@@ -255,6 +255,23 @@ class BackupImportCoordinatorTest {
         }
 
     @Test
+    fun `cancelling the passphrase dialog during unlock stops the unlock without an error`() =
+        runTest(StandardTestDispatcher()) {
+            val h = harness()
+            h.coordinator.openImport { encryptedArchive().inputStream() }
+            testScheduler.advanceUntilIdle()
+
+            h.coordinator.unlockEncryptedImport(ArchivePhrase.copyOf())
+            h.coordinator.cancelEncryptedImport()
+            testScheduler.advanceUntilIdle()
+
+            assertFalse(h.state.value.encryptedImportPending)
+            assertFalse(h.state.value.importing)
+            assertNull(h.state.value.importPreview)
+            assertTrue(h.restoreEffects.isEmpty())
+        }
+
+    @Test
     fun `openImport default selection turns profilesAndGroups off when nothing is restorable`() =
         runTest(StandardTestDispatcher()) {
             // SHARE backup with a credential-bearing profile: credentials are redacted,

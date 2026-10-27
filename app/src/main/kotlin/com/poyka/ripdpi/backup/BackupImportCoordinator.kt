@@ -10,6 +10,7 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -40,6 +41,7 @@ internal class BackupImportCoordinator(
     private val maxImportBytes: Int = BackupMaxImportBytes,
 ) {
     private var pendingEncryptedArchive: ByteArray? = null
+    private var unlockJob: Job? = null
 
     init {
         require(maxImportBytes > 0) { "maxImportBytes must be positive" }
@@ -95,34 +97,49 @@ internal class BackupImportCoordinator(
 
     /** Authenticates the pending FULL archive and opens the normal restore preview. */
     fun unlockEncryptedImport(passphrase: CharArray) {
-        val archive = pendingEncryptedArchive ?: return
-        if (currentState().importing || currentState().restoring) return
+        if (pendingEncryptedArchive == null || currentState().importing || currentState().restoring) return
+        // A private copy: cancelEncryptedImport zeroes the pending archive while decryption may still read it.
+        val archive = checkNotNull(pendingEncryptedArchive).copyOf()
         updateState { it.copy(importing = true) }
-        scope.launch {
-            val outcome =
-                try {
-                    val json = withContext(defaultDispatcher) { BackupEncryption.decryptToString(archive, passphrase) }
-                    previewOutcome(json)
-                } catch (cancelled: CancellationException) {
-                    updateState { it.copy(importing = false) }
-                    throw cancelled
-                } catch (_: BackupDecryptionException) {
-                    updateState { it.copy(importing = false) }
-                    emitRestoreEffect(BackupRestoreEffect.DecryptionFailed)
-                    return@launch
-                } finally {
+        unlockJob =
+            scope.launch { unlock(archive, passphrase) }.also { job ->
+                // Also runs when the dialog is cancelled before the unlock coroutine started.
+                job.invokeOnCompletion {
                     passphrase.fill('\u0000')
+                    archive.fill(0)
                 }
-            pendingEncryptedArchive?.fill(0)
-            pendingEncryptedArchive = null
-            applyOutcome(outcome, encryptedImportPending = false, encrypted = true)
-        }
+            }
+    }
+
+    private suspend fun unlock(
+        archive: ByteArray,
+        passphrase: CharArray,
+    ) {
+        val outcome =
+            try {
+                val json = withContext(defaultDispatcher) { BackupEncryption.decryptToString(archive, passphrase) }
+                previewOutcome(json)
+            } catch (cancelled: CancellationException) {
+                updateState { it.copy(importing = false) }
+                throw cancelled
+            } catch (_: BackupDecryptionException) {
+                updateState { it.copy(importing = false) }
+                emitRestoreEffect(BackupRestoreEffect.DecryptionFailed)
+                return
+            } finally {
+                passphrase.fill('\u0000')
+            }
+        pendingEncryptedArchive?.fill(0)
+        pendingEncryptedArchive = null
+        applyOutcome(outcome, encryptedImportPending = false, encrypted = true)
     }
 
     fun cancelEncryptedImport() {
+        unlockJob?.cancel()
+        unlockJob = null
         pendingEncryptedArchive?.fill(0)
         pendingEncryptedArchive = null
-        updateState { it.copy(encryptedImportPending = false) }
+        updateState { it.copy(encryptedImportPending = false, importing = false) }
     }
 
     /** Toggles one restore category in the active preview. */
