@@ -14,8 +14,10 @@ import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryResetStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
+import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.diagnostics.ProbeDetail
@@ -77,6 +79,7 @@ class DebugAutomationController
         @param:Named("diagnosticsJson")
         private val diagnosticsJson: Json,
         private val pinVerifier: PinVerifier,
+        private val artifactWriteStore: DiagnosticsArtifactWriteStore,
     ) : AutomationController,
         ServiceAutomationController {
         private val state = AtomicReference(AutomationRuntimeState())
@@ -117,6 +120,9 @@ class DebugAutomationController
                     )
                     if (config.dataPreset == AutomationDataPreset.DiagnosticsReportDemo) {
                         seedDiagnosticsReportDemo()
+                    }
+                    if (config.dataPreset == AutomationDataPreset.DiagnosticsDemo) {
+                        seedDiagnosticsEventsDemo()
                     }
                 } else if (
                     previousState.config.enabled &&
@@ -327,6 +333,26 @@ class DebugAutomationController
                     }
                 }.build()
 
+        // History and its event filters render only when runtime events exist.
+        private suspend fun seedDiagnosticsEventsDemo() {
+            val now = System.currentTimeMillis()
+            listOf(
+                Triple("info", "Automation demo proxy started", 2_000L),
+                Triple("warn", "Automation demo route retried", 1_000L),
+            ).forEachIndexed { index, (level, message, age) ->
+                artifactWriteStore.insertNativeSessionEvent(
+                    NativeSessionEventEntity(
+                        id = "automation-demo-event-$index",
+                        source = "proxy",
+                        level = level,
+                        message = message,
+                        createdAt = now - age,
+                        subsystem = "proxy",
+                    ),
+                )
+            }
+        }
+
         private suspend fun seedDiagnosticsReportDemo() {
             val finishedAt = System.currentTimeMillis()
             val startedAt = finishedAt - 12_000
@@ -517,6 +543,7 @@ class DebugAutomationController
                 family = family,
                 outcome = outcome,
                 rationale = "Automation fixture candidate",
+                notes = listOf("Automation fixture note"),
                 succeededTargets = succeededTargets,
                 totalTargets = 2,
                 weightedSuccessScore = succeededTargets * 50,

@@ -5,10 +5,16 @@ import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.FakeServiceStateStore
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.diagnostics.DiagnosticContextEntity
+import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryResetStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
+import com.poyka.ripdpi.data.diagnostics.ExportRecordEntity
+import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
+import com.poyka.ripdpi.data.diagnostics.NetworkSnapshotEntity
 import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
+import com.poyka.ripdpi.data.diagnostics.TelemetrySampleEntity
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.security.PinVerifier
@@ -112,6 +118,17 @@ class DebugAutomationControllerTest {
             assertTrue(settings.biometricEnabled)
             assertTrue(FakePinVerifier.verify("0000", settings.backupPin))
             assertEquals("cloudflare", settings.dnsProviderId)
+        }
+
+    @Test
+    fun `diagnostics demo preset seeds runtime events for history`() =
+        runTest {
+            val artifactWriteStore = RecordingArtifactWriteStore()
+            val controller = newController(artifactWriteStore = artifactWriteStore)
+
+            controller.prepareLaunch(automationIntent(dataPreset = AutomationDataPreset.DiagnosticsDemo))
+
+            assertEquals(listOf("info", "warn"), artifactWriteStore.events.map { it.level })
         }
 
     @Test
@@ -229,6 +246,7 @@ class DebugAutomationControllerTest {
         serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
         scanRecordStore: FakeDiagnosticsScanRecordStore = FakeDiagnosticsScanRecordStore(),
         historyResetStore: FakeDiagnosticsHistoryResetStore = FakeDiagnosticsHistoryResetStore(),
+        artifactWriteStore: RecordingArtifactWriteStore = RecordingArtifactWriteStore(),
     ): DebugAutomationController =
         DebugAutomationController(
             appSettingsRepository = appSettingsRepository,
@@ -242,7 +260,24 @@ class DebugAutomationControllerTest {
                     explicitNulls = false
                 },
             pinVerifier = FakePinVerifier,
+            artifactWriteStore = artifactWriteStore,
         )
+
+    private class RecordingArtifactWriteStore : DiagnosticsArtifactWriteStore {
+        val events = mutableListOf<NativeSessionEventEntity>()
+
+        override suspend fun upsertSnapshot(snapshot: NetworkSnapshotEntity) = Unit
+
+        override suspend fun upsertContextSnapshot(snapshot: DiagnosticContextEntity) = Unit
+
+        override suspend fun insertTelemetrySample(sample: TelemetrySampleEntity) = Unit
+
+        override suspend fun insertNativeSessionEvent(event: NativeSessionEventEntity) {
+            events += event
+        }
+
+        override suspend fun insertExportRecord(record: ExportRecordEntity) = Unit
+    }
 
     private object FakePinVerifier : PinVerifier {
         override fun hashPin(pin: String): String = "hash:$pin"
