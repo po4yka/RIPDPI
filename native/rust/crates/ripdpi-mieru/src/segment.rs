@@ -95,15 +95,25 @@ impl Encryptor {
         let prefix_pad = self.random_bytes(usize::from(prefix_len))?;
         let suffix_pad = self.random_bytes(usize::from(suffix_len))?;
 
+        // One write per segment, as upstream `writeOneSegment` does: separate
+        // writes would put a lone 24-byte nonce in the first TCP packet.
+        let mut segment = Vec::with_capacity(
+            NONCE_LEN
+                + sealed_meta.len()
+                + prefix_pad.len()
+                + sealed_payload.as_ref().map_or(0, Vec::len)
+                + suffix_pad.len(),
+        );
         if let Some(seed) = seed {
-            writer.write_all(&seed).await?;
+            segment.extend_from_slice(&seed);
         }
-        writer.write_all(&sealed_meta).await?;
-        writer.write_all(&prefix_pad).await?;
+        segment.extend_from_slice(&sealed_meta);
+        segment.extend_from_slice(&prefix_pad);
         if let Some(sealed) = &sealed_payload {
-            writer.write_all(sealed).await?;
+            segment.extend_from_slice(sealed);
         }
-        writer.write_all(&suffix_pad).await?;
+        segment.extend_from_slice(&suffix_pad);
+        writer.write_all(&segment).await?;
         writer.flush().await?;
         Ok(())
     }
@@ -241,5 +251,68 @@ mod tests {
             assert_eq!(blob, b"hello through the segment layer");
         };
         tokio::join!(write, read);
+    }
+
+    /// Records the size of every write call.
+    #[derive(Default)]
+    struct WriteLog(Vec<usize>);
+
+    impl AsyncWrite for WriteLog {
+        fn poll_write(
+            mut self: std::pin::Pin<&mut Self>,
+            _cx: &mut std::task::Context<'_>,
+            buf: &[u8],
+        ) -> std::task::Poll<std::io::Result<usize>> {
+            self.0.push(buf.len());
+            std::task::Poll::Ready(Ok(buf.len()))
+        }
+        fn poll_flush(
+            self: std::pin::Pin<&mut Self>,
+            _cx: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<std::io::Result<()>> {
+            std::task::Poll::Ready(Ok(()))
+        }
+        fn poll_shutdown(
+            self: std::pin::Pin<&mut Self>,
+            _cx: &mut std::task::Context<'_>,
+        ) -> std::task::Poll<std::io::Result<()>> {
+            std::task::Poll::Ready(Ok(()))
+        }
+    }
+
+    /// Upstream `writeOneSegment` sends a segment in one write. Separate
+    /// writes would expose a lone 24-byte nonce as the first TCP packet.
+    #[tokio::test]
+    async fn first_segment_is_one_write_including_the_nonce() {
+        let key = cipher::derive_key(b"pw", b"user", 1_000_000_000, 0);
+        let mut codec = Encryptor::new(key, b"user".to_vec());
+        let mut log = WriteLog::default();
+        let payload = [7u8; 100];
+        let (prefix, suffix) = (5, 9);
+        codec
+            .write_segment(
+                &mut log,
+                prefix,
+                suffix,
+                |prefix_len, suffix_len| {
+                    DataAckMeta {
+                        protocol: ProtocolType::DataClientToServer,
+                        session_id: 1,
+                        seq: 0,
+                        unack_seq: 0,
+                        window_size: 0,
+                        fragment: 0,
+                        prefix_len,
+                        payload_len: 100,
+                        suffix_len,
+                    }
+                    .marshal(1_000_000_000)
+                },
+                Some(&payload),
+            )
+            .await
+            .expect("segment");
+        let expected = NONCE_LEN + METADATA_LEN + TAG_LEN + 5 + payload.len() + TAG_LEN + 9;
+        assert_eq!(log.0, vec![expected]);
     }
 }

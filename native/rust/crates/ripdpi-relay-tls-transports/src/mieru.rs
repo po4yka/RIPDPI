@@ -105,6 +105,9 @@ impl RelaySessionFactory for MieruSessionFactory {
                     };
                     crate::protect::protect_carrier_socket(&socket, server_addr, self.socket_protection)?;
                     let stream = socket.connect(server_addr).await?;
+                    // Each segment is one write; Nagle would hold it for the
+                    // previous segment's ACK (upstream Go dials with NODELAY).
+                    stream.set_nodelay(true)?;
                     // Mieru's replay clock comes from the shared network-time provider, never
                     // a direct device-clock read. Uncalibrated it falls back to the device
                     // clock (first-contact residual; documented in ripdpi-network-time); once
