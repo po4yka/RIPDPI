@@ -1,7 +1,11 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.DnsModeEncrypted
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticsCapabilityEvidence
 import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
@@ -27,6 +31,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -978,29 +983,60 @@ class MainHomeVerifiedVpnAdmissionTest {
     @Test
     fun `verified vpn reports an unsupported DoQ resolver instead of waiting for a start that never comes`() =
         runTest {
-            var requests = 0
-            val effects = MutableSharedFlow<MainEffect>(replay = 16, extraBufferCapacity = 16)
-            val state = MutableStateFlow(HomeDiagnosticsRuntimeState(latestCompositeOutcome = compositeOutcome()))
-            val actions =
-                createActions(
-                    scope = this,
-                    effects = effects,
-                    homeDiagnosticsState = state,
-                    diagnosticsHomeWorkflowService =
-                        StubDiagnosticsHomeWorkflowService().apply {
-                            currentFingerprint =
-                                "fp-1"
-                        },
-                    requestVpnStart = { requests++ },
-                    vpnStartBlockedByDns = { true },
-                )
-            actions.startVerifiedVpn()
-            advanceUntilIdle()
+            val run = startVerifiedVpnWithDns(EncryptedDnsProtocolDoq)
 
-            assertEquals(0, requests)
-            assertFalse(state.value.waitingForVerifiedVpnStart)
-            assertTrue(effects.replayCache.any { it is MainEffect.ShowError })
+            assertEquals(0, run.requests)
+            assertFalse(run.state.value.waitingForVerifiedVpnStart)
+            assertTrue(run.effects.replayCache.any { it is MainEffect.ShowError })
         }
+
+    @Test
+    fun `verified vpn still starts with an encrypted resolver the VPN supports`() =
+        runTest {
+            val run = startVerifiedVpnWithDns(EncryptedDnsProtocolDoh)
+
+            assertEquals(1, run.requests)
+            assertTrue(run.state.value.waitingForVerifiedVpnStart)
+            assertFalse(run.effects.replayCache.any { it is MainEffect.ShowError })
+        }
+
+    private class VerifiedVpnStartRun(
+        val state: MutableStateFlow<HomeDiagnosticsRuntimeState>,
+        val effects: MutableSharedFlow<MainEffect>,
+    ) {
+        var requests = 0
+    }
+
+    // Wires the same predicate as HomeDiagnosticsStateOwner over saved encrypted-DNS settings.
+    private fun TestScope.startVerifiedVpnWithDns(protocol: String): VerifiedVpnStartRun {
+        val settings =
+            AppSettingsSerializer.defaultValue
+                .toBuilder()
+                .setDnsMode(DnsModeEncrypted)
+                .setEncryptedDnsProtocol(protocol)
+                .build()
+        val run =
+            VerifiedVpnStartRun(
+                state = MutableStateFlow(HomeDiagnosticsRuntimeState(latestCompositeOutcome = compositeOutcome())),
+                effects = MutableSharedFlow(replay = 16, extraBufferCapacity = 16),
+            )
+        val actions =
+            createActions(
+                scope = this,
+                effects = run.effects,
+                homeDiagnosticsState = run.state,
+                diagnosticsHomeWorkflowService =
+                    StubDiagnosticsHomeWorkflowService().apply {
+                        currentFingerprint =
+                            "fp-1"
+                    },
+                requestVpnStart = { run.requests++ },
+                vpnStartBlockedByDns = { hasUnsupportedVpnDoq(settings) },
+            )
+        actions.startVerifiedVpn()
+        advanceUntilIdle()
+        return run
+    }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
