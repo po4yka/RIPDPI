@@ -458,6 +458,57 @@ fn plan_udp_quic_padding_ladder_uses_ir_seed_authority() {
 }
 
 #[test]
+fn plan_udp_quic_padding_ladder_rungs_have_distinct_lengths() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.udp_chain = vec![UdpChainStep {
+        kind: UdpChainStepKind::QuicPaddingLadder,
+        count: 4,
+        split_bytes: 0,
+        activation_filter: None,
+        ip_frag_disorder: false,
+        ipv6_hop_by_hop: false,
+        ipv6_dest_opt: false,
+        ipv6_dest_opt2: false,
+        ipv6_frag_next_override: None,
+    }];
+    let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("padding.example.test")).expect("input quic");
+
+    let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+
+    let lengths = actions[1..5]
+        .iter()
+        .map(|action| match action {
+            DesyncAction::Write(packet) => packet.len(),
+            other => panic!("expected ladder packet, got {other:?}"),
+        })
+        .collect::<Vec<_>>();
+    assert!(lengths.windows(2).all(|pair| pair[0] < pair[1]), "ladder rungs must grow: {lengths:?}");
+}
+
+#[test]
+fn plan_udp_quic_multi_initial_realistic_packets_are_distinct() {
+    let mut group = DesyncGroup::new(0);
+    group.actions.udp_chain = vec![UdpChainStep {
+        kind: UdpChainStepKind::QuicMultiInitialRealistic,
+        count: 3,
+        split_bytes: 0,
+        activation_filter: None,
+        ip_frag_disorder: false,
+        ipv6_hop_by_hop: false,
+        ipv6_dest_opt: false,
+        ipv6_dest_opt2: false,
+        ipv6_frag_next_override: None,
+    }];
+    let payload = build_realistic_quic_initial(QUIC_V2_VERSION, Some("media.example.test")).expect("input quic");
+
+    let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+
+    let DesyncAction::Write(first) = &actions[1] else { panic!("expected first initial") };
+    let DesyncAction::Write(third) = &actions[3] else { panic!("expected third initial") };
+    assert_ne!(first, third, "same-profile initials must not be byte-identical");
+}
+
+#[test]
 fn plan_udp_quic_version_negotiation_decoy_uses_ir_seed_authority() {
     let mut group = DesyncGroup::new(0);
     group.actions.udp_chain = vec![UdpChainStep {

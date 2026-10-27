@@ -12,9 +12,12 @@ pub(super) fn build_quic_padding_ladder_packets(
 ) -> Vec<Vec<u8>> {
     (0..count.max(1) as usize)
         .filter_map(|idx| {
-            let mut layout =
-                QuicInitialPacketLayout::contiguous(normalized_quic.map_or(1200, |quic| quic.datagram_len.max(1200)));
-            layout.extra_tail_padding = 8 * (idx + 1);
+            // The rung goes into the minimum length too: the builder pads up to
+            // that minimum, which would otherwise absorb the tail padding.
+            let rung = 8 * (idx + 1);
+            let base = normalized_quic.map_or(1200, |quic| quic.datagram_len.max(1200));
+            let mut layout = QuicInitialPacketLayout::contiguous(base + rung);
+            layout.extra_tail_padding = rung;
             packetize_browser_like_quic_initial(
                 group,
                 normalized_quic,
@@ -36,7 +39,7 @@ pub(super) fn build_quic_multi_initial_realistic_packets(
 
     (0..count.max(2) as usize)
         .filter_map(|idx| {
-            let mut layout = QuicInitialPacketLayout::contiguous(normalized_quic.datagram_len.max(1200));
+            let mut layout = QuicInitialPacketLayout::contiguous(normalized_quic.datagram_len.max(1200) + idx * 8);
             layout.extra_tail_padding = idx * 8;
             packetize_browser_like_quic_initial(
                 group,
