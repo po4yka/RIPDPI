@@ -133,7 +133,7 @@ class CallTransportLeakCheckerTest {
         }
 
     @Test
-    fun sharedReflexiveAddressAcrossPathsIsNotALeak() =
+    fun vpnPathThatAlsoShowsTheUnderlyingAddressIsReportedAsSplitStun() =
         runTest {
             val stunClient =
                 object : CallTransportPathAwareStunClient {
@@ -158,7 +158,7 @@ class CallTransportLeakCheckerTest {
                     servers = listOf(testStunServer, otherStunServer),
                 )
 
-            assertFalse(result.category.detected)
+            assertTrue(result.category.detected)
             assertFalse(result.category.findings.any { it.description.contains("not evaluated") })
         }
 

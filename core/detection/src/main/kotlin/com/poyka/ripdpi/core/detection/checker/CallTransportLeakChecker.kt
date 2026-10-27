@@ -234,10 +234,9 @@ object CallTransportLeakChecker {
         val vpnIps = filter { it.path == CallTransportPath.VPN }.map { it.reflexiveAddress }.distinct().sorted()
         val underlyingIps =
             filter { it.path == CallTransportPath.UNDERLYING }.map { it.reflexiveAddress }.distinct().sorted()
-        // Shared addresses mean the same exit; NAT pools or partial answers can add others without a leak.
-        if (vpnIps.isEmpty() || underlyingIps.isEmpty() || vpnIps.intersect(underlyingIps.toSet()).isNotEmpty()) {
-            return null
-        }
+        // Any difference counts: a VPN-path set that also holds the underlying address is split STUN (some
+        // requests bypass the tunnel), so a shared address is evidence of the leak, not proof of one exit.
+        if (vpnIps.isEmpty() || underlyingIps.isEmpty() || vpnIps == underlyingIps) return null
         return PathMismatch(vpnIps = vpnIps, underlyingIps = underlyingIps)
     }
 
