@@ -404,3 +404,75 @@ async fn dropped_udp_session_dissociates_its_associations() {
     let [high, low] = assoc_id.to_be_bytes();
     assert_eq!(server_task.await.expect("server task"), vec![TUIC_VERSION, 0x03, high, low]);
 }
+
+/// Relays datagrams between one client source address and `server_addr`,
+/// and drops datagrams from any other client source: a NAT that black-holes
+/// a migrated path.
+async fn first_source_only_relay(server_addr: SocketAddr) -> SocketAddr {
+    let relay = Arc::new(tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("relay socket"));
+    let upstream = Arc::new(tokio::net::UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("upstream socket"));
+    upstream.connect(server_addr).await.expect("connect upstream");
+    let relay_addr = relay.local_addr().expect("relay addr");
+    let (first_tx, first_rx) = tokio::sync::watch::channel(None::<SocketAddr>);
+    let (down_relay, down_upstream) = (Arc::clone(&relay), Arc::clone(&upstream));
+    tokio::spawn(async move {
+        let mut buffer = vec![0u8; 65_535];
+        while let Ok((len, source)) = relay.recv_from(&mut buffer).await {
+            let first = *first_tx.borrow();
+            match first {
+                None => {
+                    first_tx.send_replace(Some(source));
+                }
+                Some(first) if first != source => continue,
+                Some(_) => {}
+            }
+            let _ = upstream.send(&buffer[..len]).await;
+        }
+    });
+    tokio::spawn(async move {
+        let mut buffer = vec![0u8; 65_535];
+        while let Ok(len) = down_upstream.recv(&mut buffer).await {
+            let first = *first_rx.borrow();
+            if let Some(client) = first {
+                let _ = down_relay.send_to(&buffer[..len], client).await;
+            }
+        }
+    });
+    relay_addr
+}
+
+/// A migration is validated only when the server answers on the new path.
+/// When the new source port is black-holed, the client rolls back to the old
+/// socket instead of stalling the connection.
+#[tokio::test]
+async fn migration_rolls_back_when_the_new_path_is_silent() {
+    let (server, cert_der) = fixture_server();
+    let relay_addr = first_source_only_relay(server.local_addr().expect("server addr")).await;
+    let server_task = tokio::spawn(async move {
+        let connection = server.accept().await.expect("incoming").await.expect("connection");
+        let (mut send, mut recv) = connection.accept_bi().await.expect("tcp stream");
+        let mut header = [0u8; 2 + 16];
+        recv.read_exact(&mut header).await.expect("connect header");
+        let mut payload = [0u8; 5];
+        recv.read_exact(&mut payload).await.expect("tcp payload");
+        send.write_all(&payload).await.expect("tcp echo");
+        send.finish().expect("finish");
+        connection.closed().await;
+    });
+
+    let client = fixture_client(relay_addr, cert_der, true).await;
+    let mut tcp = client.tcp_connect("echo.example:443").await.expect("tcp connect");
+    assert_eq!(
+        client.quic_migration_snapshot(),
+        (Some("reverted".to_string()), Some("path_unconfirmed_after_rebind".to_string())),
+    );
+    tcp.write_all(b"hello").await.expect("tcp write");
+    let mut echoed = [0u8; 5];
+    tokio::time::timeout(Duration::from_secs(5), tcp.read_exact(&mut echoed))
+        .await
+        .expect("the rolled-back path must carry the stream")
+        .expect("tcp read");
+    assert_eq!(&echoed, b"hello");
+    drop((tcp, client));
+    server_task.abort();
+}

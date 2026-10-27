@@ -102,13 +102,19 @@ impl TuicClient {
         Ok(Self { inner })
     }
 
+    /// Opens a TUIC `Connect` stream to `authority`.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: a cancelled call drops its stream, and a migration it
+    /// started rolls back.
     pub async fn tcp_connect(&self, authority: &str) -> io::Result<DuplexStream> {
         let target = TuicAddress::from_authority(authority)?;
         let migration = self.inner.begin_quic_migration()?;
         match self.open_tcp_stream(&target).await {
             Ok(stream) => {
                 if let Some(migration) = migration {
-                    migration.complete("path_validated_after_stream_open");
+                    migration.confirm(&self.inner.connection, "path_validated_after_stream_open").await?;
                 }
                 Ok(stream)
             }
