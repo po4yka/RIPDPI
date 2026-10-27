@@ -166,7 +166,7 @@ TCP chain steps now support runtime branching through the existing `activationFi
 - TCP-state predicates are ANDed with the existing `when_round`, `when_size_*`, and `when_stream_*` filters.
 - Unknown TCP state fails closed for that predicate. RIPDPI skips the step instead of guessing.
 - `tcp_has_ech` is derived from the current outbound TLS payload's markers, not from persistent socket state.
-- `tcp_window_below` and `tcp_mss_below` prefer TCP repair snapshot data and fall back to the existing segment hints only when a repair snapshot does not provide the value.
+- `tcp_has_timestamp`, `tcp_window_below` and `tcp_mss_below` read plain `TCP_INFO`. The probe never enters `TCP_REPAIR`, because the relay reads the same socket on another thread. The receive window comes from `tcpi_rcv_wnd`, which needs Linux 6.2 or later; on an older kernel the window is unknown and `tcp_window_below` fails closed. `tcp_mss_below` falls back to the segment hints when `TCP_INFO` reports no MSS.
 
 Supported TCP predicates (config field names; JSON uses the camelCase forms `tcpHasTimestamp` / `tcpHasEch` / `tcpWindowBelow` / `tcpMssBelow`):
 

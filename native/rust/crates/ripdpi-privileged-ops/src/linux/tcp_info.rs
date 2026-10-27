@@ -14,9 +14,6 @@ use ripdpi_desync::TcpSegmentHint;
 
 use crate::TcpActivationState;
 use crate::linux::socket_options::getsockopt_raw;
-use crate::linux::tcp_repair::{
-    TCP_NO_QUEUE, TCP_REPAIR_ON, disable_tcp_repair, set_tcp_repair, set_tcp_repair_queue, snapshot_tcp_repair_state,
-};
 
 pub(crate) const TCP_ESTABLISHED: u8 = 1;
 pub(crate) const TCPI_OPT_TIMESTAMPS: u8 = 1;
@@ -123,30 +120,37 @@ pub fn tcp_segment_hint(stream: &TcpStream) -> io::Result<Option<TcpSegmentHint>
     }))
 }
 
+/// Reads the activation-filter TCP state from plain `TCP_INFO`.
+///
+/// It never enters `TCP_REPAIR`: the relay reads the same socket on another
+/// thread, and a `recv` that starts while repair mode is on fails with `EPERM`.
 pub fn tcp_activation_state(stream: &TcpStream) -> io::Result<Option<TcpActivationState>> {
-    let Some(info) = read_tcp_info(stream.as_raw_fd())? else {
+    let fd = stream.as_raw_fd();
+    let Some(info) = read_tcp_info(fd)? else {
         return Ok(None);
     };
-    let fd = stream.as_raw_fd();
-    let snapshot = set_tcp_repair(fd, TCP_REPAIR_ON)
-        .and_then(|_| {
-            let snapshot = snapshot_tcp_repair_state(fd);
-            let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
-            let _ = disable_tcp_repair(fd);
-            snapshot
-        })
-        .ok();
 
     Ok(Some(TcpActivationState {
-        has_timestamp: Some(
-            snapshot.as_ref().is_some_and(|value| value.options.timestamp.is_some())
-                || (info.tcpi_options & TCPI_OPT_TIMESTAMPS != 0),
-        ),
-        window_size: snapshot.map(|value| i64::from(value.window_size)),
-        mss: snapshot
-            .and_then(|value| value.options.mss.map(i64::from))
-            .or_else(|| (info.tcpi_snd_mss != 0).then_some(info.tcpi_snd_mss as i64)),
+        has_timestamp: Some(info.tcpi_options & TCPI_OPT_TIMESTAMPS != 0),
+        window_size: read_tcp_rcv_wnd(fd)?.map(|window| i64::from(window.min(u32::from(u16::MAX)))),
+        mss: (info.tcpi_snd_mss != 0).then_some(info.tcpi_snd_mss as i64),
     }))
+}
+
+// Byte offset of `tcpi_rcv_wnd` (tp->rcv_wnd, Linux 6.2+) in the kernel `tcp_info`.
+pub(crate) const TCPI_RCV_WND_OFFSET: usize = 232;
+
+/// Returns the current receive window in bytes, or `None` on a kernel whose
+/// `tcp_info` ends before `tcpi_rcv_wnd`.
+pub(crate) fn read_tcp_rcv_wnd(fd: libc::c_int) -> io::Result<Option<u32>> {
+    // SAFETY: `fd` is a live socket; a zeroed `[u32; 64]` is a valid output
+    // buffer and the kernel copies at most its 256 bytes of `tcp_info`.
+    let (words, len) = unsafe { getsockopt_raw::<[u32; 64]>(fd, libc::IPPROTO_TCP, libc::TCP_INFO) }?;
+    if (len as usize) < TCPI_RCV_WND_OFFSET + size_of::<u32>() {
+        return Ok(None);
+    }
+    // The offset is 4-byte aligned, so this word is exactly that field.
+    Ok(Some(words[TCPI_RCV_WND_OFFSET / size_of::<u32>()]))
 }
 
 pub fn tcp_round_trip_time_ms(stream: &TcpStream) -> io::Result<Option<u64>> {

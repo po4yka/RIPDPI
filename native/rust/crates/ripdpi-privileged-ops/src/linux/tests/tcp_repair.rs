@@ -97,3 +97,74 @@ fn tcp_timestamp_round_trips_tsvals_above_i32_max() {
     let read_back = result.expect("TSval above i32::MAX round-trips");
     assert!(read_back.wrapping_sub(written) < 10_000, "read back {read_back:#x}, wrote {written:#x}");
 }
+
+#[test]
+fn tcp_activation_state_does_not_break_a_concurrent_reader() {
+    use std::io::{Read, Write};
+    use std::os::fd::AsRawFd;
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
+
+    use crate::linux::tcp_info::tcp_activation_state;
+    use crate::linux::tcp_repair::{TCP_REPAIR_ON, disable_tcp_repair, set_tcp_repair};
+
+    let (client, mut server) = super::connected_pair();
+    // Only a caller that can enter TCP_REPAIR (CAP_NET_ADMIN) could disturb
+    // the reader, so the check is meaningful only with that capability.
+    if set_tcp_repair(client.as_raw_fd(), TCP_REPAIR_ON).is_err() {
+        return;
+    }
+    disable_tcp_repair(client.as_raw_fd()).expect("leave TCP_REPAIR");
+
+    let stop = Arc::new(AtomicBool::new(false));
+    let writer_stop = Arc::clone(&stop);
+    let writer = std::thread::spawn(move || {
+        while !writer_stop.load(Ordering::Relaxed) {
+            if server.write_all(&[0x42; 16]).is_err() {
+                return;
+            }
+            std::thread::sleep(Duration::from_micros(50));
+        }
+    });
+    let mut reader_stream = client.try_clone().expect("clone the relay reader");
+    reader_stream.set_read_timeout(Some(Duration::from_millis(50))).expect("reader timeout");
+    let reader_stop = Arc::clone(&stop);
+    let reader = std::thread::spawn(move || {
+        let mut buffer = [0u8; 4];
+        while !reader_stop.load(Ordering::Relaxed) {
+            match reader_stream.read(&mut buffer) {
+                Ok(_) => {}
+                Err(error) if matches!(error.kind(), std::io::ErrorKind::WouldBlock | std::io::ErrorKind::TimedOut) => {
+                }
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(())
+    });
+
+    for _ in 0..5_000 {
+        tcp_activation_state(&client).expect("activation state");
+    }
+    stop.store(true, Ordering::Relaxed);
+    writer.join().expect("writer thread");
+    reader.join().expect("reader thread").expect("the relay reader never sees an error");
+}
+
+#[test]
+fn tcp_activation_state_reports_the_receive_window_without_tcp_repair() {
+    use crate::linux::tcp_info::tcp_activation_state;
+
+    let (client, _server) = super::connected_pair();
+    let state = tcp_activation_state(&client).expect("activation state").expect("TCP_INFO");
+    // Linux 6.2+ reports tcpi_rcv_wnd; the container and current Android GKI kernels have it.
+    let window = state.window_size.expect("receive window from TCP_INFO");
+    assert!((1..=i64::from(u16::MAX)).contains(&window), "window {window}");
+    assert_eq!(state.has_timestamp, Some(true));
+    assert!(state.mss.is_some_and(|mss| mss > 0));
+}
+
+#[cfg(target_env = "gnu")]
+#[test]
+fn tcpi_rcv_wnd_offset_matches_the_libc_tcp_info_layout() {
+    assert_eq!(std::mem::offset_of!(libc::tcp_info, tcpi_rcv_wnd), crate::linux::tcp_info::TCPI_RCV_WND_OFFSET);
+}
