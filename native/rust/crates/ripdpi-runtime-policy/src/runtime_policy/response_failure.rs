@@ -24,8 +24,16 @@ pub fn classify_response_failure(
         return Some(dns_tampering);
     }
 
-    if let Some(alert) = classify_tls_alert(response) {
-        return Some(alert);
+    let mut response = response;
+    loop {
+        if let Some(alert) = classify_tls_alert(response) {
+            return Some(alert);
+        }
+        match after_accepted_tls_alert(response) {
+            Some([]) => return None,
+            Some(rest) => response = rest,
+            None => break,
+        }
     }
     let trigger = detect_response_trigger(request, response);
     if let Some(http_block) = classify_http_response_block(response)
@@ -37,6 +45,17 @@ pub fn classify_response_failure(
         return Some(classify_tls_handshake_failure("TLS handshake failed before ServerHello"));
     }
     None
+}
+
+/// The bytes after a leading TLS alert record, or `None` when the response does not start with one.
+/// Called after `classify_tls_alert` returned `None`, so the alert is one it accepts: a closure
+/// alert, or a warning alert before a handshake record. The records after it are classified
+/// instead, so a warning `unrecognized_name` before a ServerHello is not "no ServerHello".
+fn after_accepted_tls_alert(response: &[u8]) -> Option<&[u8]> {
+    let [0x15, 0x03, 0x00..=0x04, len_hi, len_lo, _, _, ..] = *response else {
+        return None;
+    };
+    response.get(5 + usize::from(u16::from_be_bytes([len_hi, len_lo]))..)
 }
 
 /// A Location host-label match is only a heuristic. For a plain HTTP request it counts only when
@@ -67,6 +86,30 @@ mod tests {
     fn block_stub_redirect_to_another_site_is_a_failure() {
         let failure = classify_response_failure(REQUEST, &redirect("http://warning.isp.example/"), None);
         assert!(failure.is_some());
+    }
+
+    const SERVER_HELLO: &[u8] = &[0x16, 0x03, 0x03, 0x00, 0x04, 0x02, 0x00, 0x00, 0x00];
+
+    fn alert(level: u8, code: u8) -> Vec<u8> {
+        vec![0x15, 0x03, 0x03, 0x00, 0x02, level, code]
+    }
+
+    #[test]
+    fn accepted_tls_alerts_after_a_client_hello_do_not_fail() {
+        let client_hello = ripdpi_packets::DEFAULT_FAKE_TLS;
+        let user_canceled = alert(1, 90);
+        assert!(classify_response_failure(client_hello, &user_canceled, None).is_none());
+        let warning_then_server_hello = [alert(1, 112).as_slice(), SERVER_HELLO].concat();
+        assert!(classify_response_failure(client_hello, &warning_then_server_hello, None).is_none());
+    }
+
+    #[test]
+    fn rejected_tls_alerts_after_a_client_hello_still_fail() {
+        let client_hello = ripdpi_packets::DEFAULT_FAKE_TLS;
+        for response in [alert(2, 40), alert(1, 112), [alert(1, 112), alert(2, 40)].concat()] {
+            let failure = classify_response_failure(client_hello, &response, None).expect("alert failure");
+            assert_eq!(failure.class, ripdpi_failure_classifier::FailureClass::TlsAlert, "{response:?}");
+        }
     }
 
     #[test]
