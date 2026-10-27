@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::fs;
-use std::io::{self, Write};
+use std::io::{self, Read, Write};
 use std::path::Path;
 
 use ring::digest;
@@ -15,6 +15,9 @@ use crate::runtime_policy::{
     AUTOLEARN_PERSIST_DEBOUNCE_MS, DEFAULT_NETWORK_SCOPE_KEY, HOST_AUTOLEARN_STORE_VERSION, RuntimePolicy,
     next_temp_file_nonce, now_millis,
 };
+
+/// Same bound as the adaptive tuning store: a larger file is treated as invalid and replaced.
+pub(super) const MAX_AUTOLEARN_STORE_BYTES: u64 = 8 * 1024 * 1024;
 
 impl RuntimePolicy {
     pub(super) fn persist_host_store(&mut self, config: &RuntimeConfig) {
@@ -61,7 +64,7 @@ impl RuntimePolicy {
                 .map(|(scope, hosts)| (scope.clone(), LearnedNetworkScopeStore { hosts: hosts.clone() }))
                 .collect(),
         };
-        let payload = serde_json::to_vec_pretty(&store)
+        let payload = serde_json::to_vec(&store)
             .map_err(|err| io::Error::other(format!("failed to serialize host autolearn store: {err}")))?;
         atomic_write(Path::new(path), &payload)
     }
@@ -77,7 +80,13 @@ pub(in crate::runtime_policy) fn load_learned_host_store(
     if !path.exists() {
         return Ok(BTreeMap::new());
     }
-    let payload = fs::read(path).map_err(|_| LoadLearnedHostStoreError::Io)?;
+    let mut payload = Vec::new();
+    fs::File::open(path)
+        .and_then(|file| file.take(MAX_AUTOLEARN_STORE_BYTES + 1).read_to_end(&mut payload))
+        .map_err(|_| LoadLearnedHostStoreError::Io)?;
+    if payload.len() as u64 > MAX_AUTOLEARN_STORE_BYTES {
+        return Err(LoadLearnedHostStoreError::Invalidated);
+    }
     let store =
         serde_json::from_slice::<LearnedHostStore>(&payload).map_err(|_| LoadLearnedHostStoreError::Invalidated)?;
     if store.version != HOST_AUTOLEARN_STORE_VERSION || store.fingerprint != config_fingerprint(config) {

@@ -7,14 +7,17 @@ mod host_filter;
 mod state;
 mod store;
 
+/// Network scopes kept besides the current one; each Wi-Fi network or carrier adds a scope.
+const MAX_AUTOLEARN_SCOPES: usize = 16;
+
 pub(super) use host_filter::normalize_learned_host;
 pub(super) use state::{host_has_active_block, host_penalty_active_for_group, record_has_learned_winner};
 pub(super) use store::load_learned_host_store;
 
 use state::{ensure_host_order, host_has_active_penalty, promote_group, refresh_block_metadata};
-#[cfg(test)]
-use store::config_fingerprint;
 use store::network_scope_key;
+#[cfg(test)]
+use store::{MAX_AUTOLEARN_STORE_BYTES, config_fingerprint};
 
 use super::types::{LearnedHostRecord, PendingBlockedHost};
 use super::{
@@ -197,6 +200,20 @@ impl RuntimePolicy {
                 break;
             };
             self.learned_hosts_mut(config).remove(&host);
+        }
+        let current_scope = network_scope_key(config);
+        while self.learned_hosts_by_scope.len() > MAX_AUTOLEARN_SCOPES {
+            let oldest_scope = self
+                .learned_hosts_by_scope
+                .iter()
+                .filter(|(scope, _)| scope.as_str() != current_scope)
+                .min_by_key(|(_, hosts)| hosts.values().map(|record| record.updated_at_ms).max().unwrap_or_default())
+                .map(|(scope, _)| scope.clone());
+            let Some(scope) = oldest_scope else {
+                break;
+            };
+            self.learned_hosts_by_scope.remove(&scope);
+            self.pending_blocked_hosts_by_scope.remove(&scope);
         }
     }
 

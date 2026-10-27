@@ -494,3 +494,35 @@ fn persist_debounce_skips_rapid_second_write() {
     policy.flush_host_store(&config);
     assert!(std::path::Path::new(&store_path).exists(), "store file must exist after flush");
 }
+
+#[test]
+fn learned_scopes_are_capped_and_keep_the_current_scope() {
+    let base = autolearn_config(1, 32);
+    let mut policy = RuntimePolicy::load(&base);
+    let scope_count = MAX_AUTOLEARN_SCOPES + 4;
+    let mut last = base.clone();
+    for index in 0..scope_count {
+        let mut config = base.clone();
+        config.adaptive.network_scope_key = Some(format!("scope-{index}"));
+        policy.note_host_success(&config, "alpha.example", 0);
+        last = config;
+    }
+    assert_eq!(policy.learned_hosts_by_scope.len(), MAX_AUTOLEARN_SCOPES);
+    assert!(policy.learned_hosts(&last).contains_key("alpha.example"));
+}
+
+#[test]
+fn oversized_store_file_is_not_loaded() {
+    let config = autolearn_config(1, 32);
+    let path = config.host_autolearn.store_path.clone().expect("store path");
+    let mut policy = RuntimePolicy::load(&config);
+    policy.note_host_success(&config, "alpha.example", 0);
+    policy.flush_host_store(&config);
+    assert!(RuntimePolicy::load(&config).learned_hosts(&config).contains_key("alpha.example"));
+
+    let mut payload = fs::read(&path).expect("read store");
+    payload.resize(payload.len() + MAX_AUTOLEARN_STORE_BYTES as usize, b' ');
+    fs::write(&path, payload).expect("pad store with valid JSON whitespace");
+    assert!(RuntimePolicy::load(&config).learned_hosts(&config).is_empty());
+    let _ = fs::remove_file(&path);
+}
