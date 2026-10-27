@@ -21,6 +21,8 @@ pub(super) struct TupleState {
     /// current block-class window. Cleared alongside the rest of the negative
     /// evidence so a positive signal resets the budget.
     pub(super) arm_attempts: HashMap<&'static str, u32>,
+    /// `DirectPathLearningState` write sequence of the last update, for eviction order.
+    pub(super) last_write: u64,
 }
 
 /// Derive the block class from a recorded `TupleState`.

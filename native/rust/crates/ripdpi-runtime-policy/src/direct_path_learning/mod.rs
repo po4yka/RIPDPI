@@ -32,6 +32,8 @@ pub struct DirectPathLearningState {
     /// Lower bound of every pending UDP-suppression start, so the per-iteration UDP loop check does
     /// not scan every tuple. A cleared pending entry leaves it stale-low, which costs one extra scan.
     earliest_pending_udp_suppressed_ms: Option<u64>,
+    /// Write sequence for least-recently-written eviction at the tuple cap.
+    tuple_writes: u64,
 }
 
 impl DirectPathLearningState {
@@ -50,19 +52,20 @@ impl DirectPathLearningState {
 
     fn tuple_entry(&mut self, tuple_key: TupleKey) -> &mut TupleState {
         if self.tuples.len() >= MAX_DIRECT_PATH_TUPLES && !self.tuples.contains_key(&tuple_key) {
-            // shortcut: evicts an arbitrary tuple, which only forgets learned evidence; use LRU if eviction
-            // becomes frequent.
+            // Evict the least recently written tuple, preferring one without a pending UDP timeout.
             let victim = self
                 .tuples
                 .iter()
-                .find(|(_, entry)| entry.pending_udp_suppressed_at_ms.is_none())
-                .or_else(|| self.tuples.iter().next())
+                .min_by_key(|(_, entry)| (entry.pending_udp_suppressed_at_ms.is_some(), entry.last_write))
                 .map(|(key, _)| key.clone());
             if let Some(victim) = victim {
                 self.tuples.remove(&victim);
             }
         }
-        self.tuples.entry(tuple_key).or_default()
+        self.tuple_writes += 1;
+        let entry = self.tuples.entry(tuple_key).or_default();
+        entry.last_write = self.tuple_writes;
+        entry
     }
 
     pub fn note_udp_suppressed(&mut self, host: Option<&str>, targets: &[SocketAddr], now_ms: u64) {

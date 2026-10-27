@@ -394,6 +394,21 @@ fn tuple_map_is_bounded() {
 }
 
 #[test]
+fn tuple_cap_evicts_the_least_recently_written_tuple() {
+    let mut learner = DirectPathLearningState::default();
+    let target = |index: u32| vec![SocketAddr::from((std::net::Ipv4Addr::from(0x0A00_0000 + index), 443))];
+    for index in 0..MAX_DIRECT_PATH_TUPLES as u32 {
+        learner.note_udp_failure(None, &target(index));
+    }
+    learner.note_tls_post_client_hello_failure(None, &target(0));
+    learner.note_udp_failure(None, &target(MAX_DIRECT_PATH_TUPLES as u32));
+
+    assert_eq!(learner.block_class_for(None, &target(0)), DirectPathBlockClass::QuicBlockedAndTlsPostClientHello);
+    assert_eq!(learner.block_class_for(None, &target(1)), DirectPathBlockClass::Clean, "oldest write is evicted");
+    assert_eq!(learner.tuples.len(), MAX_DIRECT_PATH_TUPLES);
+}
+
+#[test]
 fn due_timeout_check_tracks_the_earliest_pending_suppression() {
     let telemetry = RecordingTelemetry::default();
     let first = vec!["203.0.113.10:443".parse().expect("target")];
