@@ -9,13 +9,15 @@ use tokio::sync::{Mutex, mpsc};
 use tracing::debug;
 
 use crate::client::{ActiveTask, ClientInner};
-use crate::protocol::{PacketHeader, TuicAddress};
+use crate::protocol::{PacketHeader, TuicAddress, dissociate};
 
 const CLEANUP_INTERVAL: Duration = Duration::from_secs(60);
 const REASSEMBLY_TIMEOUT: Duration = Duration::from_secs(30);
 const MAX_REASSEMBLY_SLOTS: usize = 128;
 const MAX_REASSEMBLED_PAYLOAD_SIZE: usize = 65_535;
 const MAX_DESTINATIONS_PER_UDP_SESSION: usize = 256;
+/// Bound for one best-effort `Dissociate` exchange.
+const DISSOCIATE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Maximum number of wrap-around retry attempts before declaring assoc-id space exhausted.
 const MAX_ASSOC_ID_SCAN_ATTEMPTS: u16 = 1024;
@@ -110,7 +112,7 @@ impl UdpSession {
             return Ok(route);
         }
         let mut regs = self.client.registrations.lock().await;
-        allocate_new_destination_route(
+        let (route, evicted) = allocate_new_destination_route(
             &mut destinations,
             &self.client.next_assoc_id,
             &mut regs,
@@ -122,7 +124,11 @@ impl UdpSession {
                 io::ErrorKind::ResourceBusy,
                 "TUIC UDP association-id space exhausted: too many concurrent sessions",
             )
-        })
+        })?;
+        if let Some(evicted) = evicted {
+            spawn_dissociate(&self.client.connection, vec![evicted]);
+        }
+        Ok(route)
     }
 
     pub fn quic_migration_snapshot(&self) -> (Option<String>, Option<String>) {
@@ -147,6 +153,7 @@ impl Drop for UdpSession {
         if ids.is_empty() {
             return;
         }
+        spawn_dissociate(&self.client.connection, ids.clone());
 
         // Fast path: registrations map is uncontended — remove synchronously.
         if let Ok(mut regs) = self.client.registrations.try_lock() {
@@ -171,26 +178,46 @@ impl Drop for UdpSession {
     }
 }
 
+/// Sends `Dissociate` for `assoc_ids` from a background task, when a runtime
+/// is available. Best effort: the server also frees them when the connection
+/// closes.
+fn spawn_dissociate(connection: &quinn::Connection, assoc_ids: Vec<u16>) {
+    let Ok(handle) = tokio::runtime::Handle::try_current() else {
+        return;
+    };
+    let connection = connection.clone();
+    handle.spawn(async move {
+        let sent = tokio::time::timeout(DISSOCIATE_TIMEOUT, dissociate(&connection, &assoc_ids)).await;
+        if !matches!(sent, Ok(Ok(()))) {
+            debug!("TUIC Dissociate was not sent");
+        }
+    });
+}
+
+/// Returns the new route `(assoc_id, packet_id)` and the association it
+/// evicted to stay within [`MAX_DESTINATIONS_PER_UDP_SESSION`], if any.
 fn allocate_new_destination_route(
     destinations: &mut DestinationState,
     counter: &std::sync::atomic::AtomicU16,
     registrations: &mut HashMap<u16, mpsc::Sender<UdpPacket>>,
     sender: mpsc::Sender<UdpPacket>,
     address: &str,
-) -> Option<(u16, u16)> {
+) -> Option<((u16, u16), Option<u16>)> {
     destinations.access_sequence = destinations.access_sequence.saturating_add(1);
     let last_used = destinations.access_sequence;
+    let mut evicted_id = None;
     if destinations.entries.len() >= MAX_DESTINATIONS_PER_UDP_SESSION
         && let Some(oldest_address) =
             destinations.entries.iter().min_by_key(|(_, entry)| entry.last_used).map(|(address, _)| address.clone())
         && let Some(evicted) = destinations.entries.remove(&oldest_address)
     {
         registrations.remove(&evicted.assoc_id);
+        evicted_id = Some(evicted.assoc_id);
     }
 
     let assoc_id = allocate_assoc_id(counter, registrations, sender)?;
     destinations.entries.insert(address.to_string(), DestinationEntry { assoc_id, next_packet_id: 1, last_used });
-    Some((assoc_id, 0))
+    Some(((assoc_id, 0), evicted_id))
 }
 
 #[derive(Debug)]
@@ -502,14 +529,28 @@ mod tests {
         let (sender, _receiver) = mpsc::channel(1);
         let mut registrations = HashMap::new();
         let mut destinations = DestinationState::default();
+        let mut host_1_id = None;
         for index in 0..MAX_DESTINATIONS_PER_UDP_SESSION {
             let address = format!("host-{index}.example:53");
-            allocate_new_destination_route(&mut destinations, &counter, &mut registrations, sender.clone(), &address)
-                .expect("allocate destination route");
+            let ((assoc_id, _), evicted) = allocate_new_destination_route(
+                &mut destinations,
+                &counter,
+                &mut registrations,
+                sender.clone(),
+                &address,
+            )
+            .expect("allocate destination route");
+            assert_eq!(evicted, None, "no eviction below the destination limit");
+            if index == 1 {
+                host_1_id = Some(assoc_id);
+            }
         }
         destinations.route_for_existing("host-0.example:53").expect("refresh oldest route");
-        allocate_new_destination_route(&mut destinations, &counter, &mut registrations, sender, "new.example:53")
-            .expect("allocate replacement route");
+        let (_, evicted) =
+            allocate_new_destination_route(&mut destinations, &counter, &mut registrations, sender, "new.example:53")
+                .expect("allocate replacement route");
+
+        assert_eq!(evicted, host_1_id, "the evicted association must be reported for Dissociate");
 
         assert_eq!(destinations.entries.len(), MAX_DESTINATIONS_PER_UDP_SESSION);
         assert_eq!(registrations.len(), MAX_DESTINATIONS_PER_UDP_SESSION);
@@ -532,7 +573,8 @@ mod tests {
             sender.clone(),
             "example.com:53",
         )
-        .expect("first route");
+        .expect("first route")
+        .0;
         let second = destinations.route_for_existing("example.com:53").expect("second route");
 
         assert_eq!(first, (7, 0));

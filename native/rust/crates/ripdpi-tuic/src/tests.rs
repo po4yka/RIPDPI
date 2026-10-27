@@ -372,3 +372,35 @@ async fn server_cannot_open_streams_to_the_client() {
     assert!(uni_blocked, "the server must get no uni stream credit");
     assert!(bi_blocked, "the server must get no bidi stream credit");
 }
+
+/// TUIC v5 SPEC "Dissociate": the server holds UDP sockets for an
+/// association until it gets `Dissociate` (or the connection closes), so a
+/// closed UDP session must dissociate each association it used.
+#[tokio::test]
+async fn dropped_udp_session_dissociates_its_associations() {
+    let (server, cert_der) = fixture_server();
+    let server_addr = server.local_addr().expect("server addr");
+    let (assoc_tx, assoc_rx) = tokio::sync::oneshot::channel();
+    let server_task = tokio::spawn(async move {
+        let connection = server.accept().await.expect("incoming").await.expect("connection");
+        let mut auth = connection.accept_uni().await.expect("auth stream");
+        auth.read_to_end(1024).await.expect("auth read");
+        let datagram = read_packet_datagram(&connection).await;
+        let (header, _) = PacketHeader::decode(&datagram).expect("decode packet");
+        assoc_tx.send(header.assoc_id).expect("report assoc id");
+        let mut command = tokio::time::timeout(Duration::from_secs(5), connection.accept_uni())
+            .await
+            .expect("a dropped UDP session must send Dissociate")
+            .expect("dissociate stream");
+        command.read_to_end(16).await.expect("dissociate read")
+    });
+
+    let client = fixture_client(server_addr, cert_der, false).await;
+    let udp = client.udp_session().await.expect("udp session");
+    udp.send_to("dns.example:53", b"query").await.expect("udp send");
+    let assoc_id = assoc_rx.await.expect("server saw the packet");
+    drop(udp);
+
+    let [high, low] = assoc_id.to_be_bytes();
+    assert_eq!(server_task.await.expect("server task"), vec![TUIC_VERSION, 0x03, high, low]);
+}

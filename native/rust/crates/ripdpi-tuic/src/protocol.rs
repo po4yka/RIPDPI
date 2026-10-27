@@ -171,6 +171,7 @@ pub(crate) fn classify_handshake_failure(connection: &quinn::Connection, fallbac
 pub(crate) const COMMAND_AUTHENTICATE: u8 = 0x00;
 pub(crate) const COMMAND_CONNECT: u8 = 0x01;
 pub(crate) const COMMAND_PACKET: u8 = 0x02;
+pub(crate) const COMMAND_DISSOCIATE: u8 = 0x03;
 pub(crate) const COMMAND_HEARTBEAT: u8 = 0x04;
 pub(crate) const HEARTBEAT_DATAGRAM: [u8; 2] = [TUIC_VERSION, COMMAND_HEARTBEAT];
 
@@ -358,6 +359,24 @@ pub(crate) async fn authenticate_connection(connection: &quinn::Connection, conf
     let mut send = connection.open_uni().await?;
     write_auth_payload(&mut send, &payload).await?;
     send.finish()?;
+    Ok(())
+}
+
+/// Sends `Dissociate` for each association on its own uni stream, as the
+/// reference client does, so the server frees the UDP sockets it holds for
+/// them (it frees them only on `Dissociate` or connection close).
+///
+/// # Cancel safety
+///
+/// NOT cancel-safe: an association whose stream is not finished stays
+/// allocated on the server until the connection closes.
+pub(crate) async fn dissociate(connection: &quinn::Connection, assoc_ids: &[u16]) -> io::Result<()> {
+    for &assoc_id in assoc_ids {
+        let [high, low] = assoc_id.to_be_bytes();
+        let mut send = connection.open_uni().await?;
+        send.write_all(&[TUIC_VERSION, COMMAND_DISSOCIATE, high, low]).await.map_err(io::Error::other)?;
+        send.finish()?;
+    }
     Ok(())
 }
 
