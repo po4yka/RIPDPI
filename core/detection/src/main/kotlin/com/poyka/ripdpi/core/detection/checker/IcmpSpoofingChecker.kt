@@ -15,6 +15,7 @@ import java.net.Inet4Address
 import java.net.InetAddress
 import java.util.Locale
 import java.util.concurrent.TimeUnit
+import kotlin.math.sqrt
 
 interface PingProber {
     suspend fun ping(host: String): PingProbeResult
@@ -110,22 +111,30 @@ class SystemPingProber(
             PingProbeResult.unreachable(host, address)
         }
 
-    internal fun parseRttMs(output: String): Double? {
-        singleReplyRttRegex.find(output)?.let { match ->
-            return match.groupValues[1].toDoubleOrNull()
-        }
-        summaryRttRegex.find(output)?.let { match ->
-            return match.groupValues[1].toDoubleOrNull()
-        }
-        return null
-    }
+    // The summary average (iputils and toybox) wins; without it, the mean of all replies, so a
+    // slow first (radio wake-up) reply does not stand for the whole sample.
+    internal fun parseRttMs(output: String): Double? =
+        summaryRttRegex
+            .find(output)
+            ?.groupValues
+            ?.get(1)
+            ?.toDoubleOrNull()
+            ?: replyRttsMs(output).takeIf { it.isNotEmpty() }?.average()
 
+    // iputils prints mdev; toybox does not, so derive it (population deviation, as mdev) from the replies.
     internal fun parseJitterMs(output: String): Double? =
         summaryRttRegex
             .find(output)
             ?.groupValues
             ?.getOrNull(2)
             ?.toDoubleOrNull()
+            ?: replyRttsMs(output).takeIf { it.size >= 2 }?.let { rtts ->
+                val mean = rtts.average()
+                sqrt(rtts.sumOf { (it - mean) * (it - mean) } / rtts.size)
+            }
+
+    private fun replyRttsMs(output: String): List<Double> =
+        singleReplyRttRegex.findAll(output).mapNotNull { it.groupValues[1].toDoubleOrNull() }.toList()
 
     private companion object {
         private const val PING_TIMEOUT_SECONDS = 3
