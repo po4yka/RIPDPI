@@ -7,12 +7,15 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
+import kotlinx.serialization.SerializationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.io.File
 import java.io.IOException
+import java.nio.file.Files
+import java.nio.file.StandardCopyOption
 import kotlin.math.min
 import kotlin.random.Random
 
@@ -120,7 +123,6 @@ class Ipv4WhitelistedSubnetDiscoverer(
                         .announcedPrefixes(asn.asn)
                         .filterIpv4Cidrs(config)
                 cached += cidrs.map { cidr -> CachedWhitelistSubnet(asn.provider, asn.asn, cidr) }
-                cache.save(cached)
                 emit(
                     CacheProgress(
                         provider = asn.provider,
@@ -130,6 +132,8 @@ class Ipv4WhitelistedSubnetDiscoverer(
                     ),
                 )
             }
+            // Publish only a complete run, so a failed or cancelled run keeps the previous cache.
+            cache.save(cached)
         }.flowOn(Dispatchers.IO) // Cache file I/O, JSON and sampling block; collectors run on Main.
 
     fun checkCachedSubnets(config: WhitelistedSubnetConfig = WhitelistedSubnetConfig()): Flow<SubnetCheckProgress> =
@@ -185,12 +189,30 @@ class SubnetsCache(
         if (!file.exists()) {
             emptyList()
         } else {
-            json.decodeFromString(ListSerializer(CachedWhitelistSubnet.serializer()), file.readText())
+            try {
+                json.decodeFromString(ListSerializer(CachedWhitelistSubnet.serializer()), file.readText())
+            } catch (_: SerializationException) {
+                // A torn or foreign file is a regenerable cache: drop it instead of failing every check.
+                file.delete()
+                emptyList()
+            }
         }
 
     fun save(subnets: List<CachedWhitelistSubnet>) {
-        file.parentFile?.mkdirs()
-        file.writeText(json.encodeToString(ListSerializer(CachedWhitelistSubnet.serializer()), subnets))
+        val directory = requireNotNull(file.absoluteFile.parentFile)
+        directory.mkdirs()
+        val staged = File.createTempFile(file.name, ".tmp", directory)
+        try {
+            staged.writeText(json.encodeToString(ListSerializer(CachedWhitelistSubnet.serializer()), subnets))
+            Files.move(
+                staged.toPath(),
+                file.toPath(),
+                StandardCopyOption.ATOMIC_MOVE,
+                StandardCopyOption.REPLACE_EXISTING,
+            )
+        } finally {
+            staged.delete()
+        }
     }
 }
 

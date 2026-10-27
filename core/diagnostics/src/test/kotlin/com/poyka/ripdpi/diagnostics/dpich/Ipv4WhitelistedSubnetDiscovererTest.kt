@@ -6,6 +6,7 @@ import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -51,6 +52,46 @@ class Ipv4WhitelistedSubnetDiscovererTest {
                 cache.load(),
             )
         }
+
+    @Test
+    fun failedCacheRunKeepsThePreviousCompleteCache() =
+        runTest {
+            temp.create()
+            val cache = SubnetsCache(temp.newFile("cache.json"))
+            val previous =
+                listOf(
+                    CachedWhitelistSubnet("Yandex", 13238, "203.0.113.0/24"),
+                    CachedWhitelistSubnet("VK", 28709, "192.0.2.0/24"),
+                )
+            cache.save(previous)
+            val discoverer =
+                Ipv4WhitelistedSubnetDiscoverer(
+                    asns = listOf(WhitelistAsn("Yandex", 13238), WhitelistAsn("VK", 28709)),
+                    ripeStat =
+                        RipeStatPrefixSource { asn ->
+                            if (asn == 28709) throw java.io.IOException("RIPE Stat rate limited for AS$asn")
+                            listOf("198.51.100.0/24")
+                        },
+                    cache = cache,
+                    aliveProbe = FakeSubnetAliveProbe(emptySet()),
+                )
+
+            val failure = runCatching { discoverer.cacheSubnets().toList() }.exceptionOrNull()
+
+            assertTrue(failure is java.io.IOException)
+            assertEquals(previous, cache.load())
+        }
+
+    @Test
+    fun corruptCacheFileLoadsAsEmptyAndIsRemoved() {
+        temp.create()
+        val file = temp.newFile("cache.json")
+        file.writeText("[{\"provider\":\"VK\",\"asn\":28709,\"ci")
+        val cache = SubnetsCache(file)
+
+        assertEquals(emptyList<CachedWhitelistSubnet>(), cache.load())
+        assertFalse(file.exists())
+    }
 
     @Test
     fun checkCachedSubnetsAppliesAliveThreshold() =
