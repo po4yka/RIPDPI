@@ -109,6 +109,8 @@ pub(crate) struct WireGuardTunnel {
 
 /// Room for the largest message the AWG timers make: a 148-byte initiation or a keepalive.
 const TIMER_PACKET_BUFFER: usize = 256;
+/// The boringtun device ticks its timers every 250 ms; they are rounded to a second.
+const TIMER_TICK: Duration = Duration::from_millis(250);
 
 #[derive(Default)]
 struct HandshakeReadiness {
@@ -237,19 +239,19 @@ impl WireGuardTunnel {
         self.handshake_readiness.is_established()
     }
 
-    /// Encrypt and send one IP packet. `padded` is a reused scratch buffer for AWG 3.x content padding.
+    /// Encrypt and send one IP packet. `padded` is a reused scratch buffer for AWG 3.x content padding,
+    /// `send_buf` a reused [`MAX_PACKET`] buffer for the ciphertext.
     ///
     /// # Cancel safety
     /// cancel-safe: cancellation drops at most this one datagram; the boringtun
-    /// lock is released before the send, and `padded` is rewritten on every call.
-    async fn send_ip_packet(&self, packet: &[u8], padded: &mut Vec<u8>) {
+    /// lock is released before the send, and both buffers are rewritten on every call.
+    async fn send_ip_packet(&self, packet: &[u8], padded: &mut Vec<u8>, send_buf: &mut [u8]) {
         // AWG 3.x content padding rides inside the ciphertext; the receiver trims to the IP length.
         let packet = match &self.amnezia {
             Some(codec) if codec.pad_transport_plaintext_into(packet, padded) => padded.as_slice(),
             _ => packet,
         };
-        let mut send_buf = [0u8; MAX_PACKET];
-        let result = { self.peer.lock().await.encapsulate(packet, &mut send_buf) };
+        let result = { self.peer.lock().await.encapsulate(packet, send_buf) };
         self.send_tunn_result(result).await;
         self.refresh_key_after_send().await;
     }
@@ -310,24 +312,41 @@ impl WireGuardTunnel {
     pub(crate) async fn produce_task(&self, bus: Bus) {
         let mut endpoint = bus.new_endpoint();
         let mut padded = Vec::new();
+        let mut send_buf = vec![0u8; MAX_PACKET];
         loop {
             match endpoint.recv().await {
                 Event::Shutdown => break,
-                Event::OutboundInternetPacket(packet) => self.send_ip_packet(&packet, &mut padded).await,
+                Event::OutboundInternetPacket(packet) => self.send_ip_packet(&packet, &mut padded, &mut send_buf).await,
                 _ => {}
             }
         }
     }
 
+    /// Drive the boringtun and AWG 3.x timers until the task is aborted.
+    ///
+    /// # Cancel safety
+    /// cancel-safe: the boringtun lock is not held across an await, and a timer
+    /// packet dropped by cancellation is sent again by a later tick.
     pub(crate) async fn routine_task(&self) {
         // (traffic stamp, deadline): any authenticated packet re-arms the timer with a fresh draw
         // (`timersAnyAuthenticatedPacketTraversal`), so it fires only after an idle interval.
         let mut keepalive =
             self.keepalive_range.map(|range| (self.timers.traffic_stamp(), Instant::now() + keepalive_interval(range)));
+        let mut send_buf = [0u8; TIMER_PACKET_BUFFER];
+        let mut session_expired = false;
+        let mut tick = tokio::time::interval(TIMER_TICK);
+        tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
         loop {
-            let mut send_buf = [0u8; MAX_PACKET];
+            tick.tick().await;
             let result = { self.peer.lock().await.update_timers(&mut send_buf) };
-            self.send_tunn_result(result).await;
+            // boringtun repeats ConnectionExpired on every tick until new traffic starts a handshake.
+            let expired = matches!(result, TunnResult::Err(WireGuardError::ConnectionExpired));
+            if expired && !session_expired {
+                tracing::warn!("WARP tunnel session expired; the next packet starts a new handshake");
+            } else if !expired {
+                self.send_tunn_result(result).await;
+            }
+            session_expired = expired;
             if let (Some(range), Some((armed_at, deadline))) = (self.keepalive_range, keepalive.as_mut()) {
                 let stamp = self.timers.traffic_stamp();
                 if stamp != *armed_at {
@@ -335,7 +354,6 @@ impl WireGuardTunnel {
                     *deadline = Instant::now() + keepalive_interval(range);
                 }
                 if Instant::now() < *deadline {
-                    tokio::time::sleep(Duration::from_millis(1)).await;
                     continue;
                 }
                 *deadline = Instant::now() + keepalive_interval(range);
@@ -350,7 +368,6 @@ impl WireGuardTunnel {
                 };
                 self.send_tunn_result(result).await;
             }
-            tokio::time::sleep(Duration::from_millis(1)).await;
         }
     }
 
@@ -364,9 +381,9 @@ impl WireGuardTunnel {
     /// loses the datagram it was decoding. The runtime aborts it at shutdown.
     pub(crate) async fn consume_task(&self, bus: Bus) -> io::Error {
         let endpoint = bus.new_endpoint();
+        let mut recv_buf = vec![0u8; MAX_PACKET];
+        let mut send_buf = vec![0u8; MAX_PACKET];
         loop {
-            let mut recv_buf = [0u8; MAX_PACKET];
-            let mut send_buf = [0u8; MAX_PACKET];
             let size = match self.carrier.recv(&mut recv_buf).await {
                 Ok(size) => size,
                 Err(error) if self.carrier.is_terminal_recv_error(&error) => return error,
