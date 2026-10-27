@@ -145,6 +145,11 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                 if execution.cancelled {
                     return RunnerOutcome::Cancelled;
                 }
+                if execution_should_stop(runtime) {
+                    // The deadline truncated this candidate's probes; do not record them as a failure.
+                    tracing::warn!("strategy probe: QUIC suite deadline-terminated");
+                    break;
+                }
                 let mut summary = execution.summary;
                 annotate_emitter_execution(&mut summary, &spec, fake_ttl_available, ipfrag_caps);
                 if summary.family == "quic_burst"

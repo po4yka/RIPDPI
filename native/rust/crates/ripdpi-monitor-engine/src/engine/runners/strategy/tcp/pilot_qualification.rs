@@ -58,6 +58,8 @@ pub(super) fn qualify_pilot_candidates(
             continue;
         }
         let batch_results = execute_pilot_batch(runner, plan, runtime, batch, qualifier_targets, tls_verifier);
+        // A deadline that fired during the batch truncated its probes; keep those candidates.
+        let interrupted = runtime.is_cancelled() || runtime.is_past_deadline() || runtime.is_past_stage_deadline();
 
         for (spec, maybe_execution) in batch_results {
             let Some(execution) = maybe_execution else {
@@ -65,7 +67,7 @@ pub(super) fn qualify_pilot_candidates(
                 qualified_specs.push(spec);
                 continue;
             };
-            if execution.cancelled || execution.summary.succeeded_targets > 0 {
+            if interrupted || execution.cancelled || execution.summary.succeeded_targets > 0 {
                 qualified_specs.push(spec);
             } else {
                 let summary = eliminated_candidate_summary(
