@@ -346,7 +346,6 @@ class DefaultIpComparisonEndpointClient(
                 .Builder()
                 .url(endpoint.url)
                 .header("Accept", "text/plain, application/json, */*")
-                .header("User-Agent", "RIPDPI detection")
                 .build()
         val client =
             networkStack

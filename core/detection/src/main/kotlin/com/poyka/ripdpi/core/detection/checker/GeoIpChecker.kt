@@ -132,7 +132,6 @@ object GeoIpChecker {
                 .Builder()
                 .url(url)
                 .header("Accept", "application/json")
-                .header("User-Agent", "RIPDPI detection")
                 .build()
         val response =
             DEFAULT_NETWORK_STACK.execute(

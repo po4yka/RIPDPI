@@ -174,6 +174,27 @@ class IpComparisonCheckerTest {
             }
         }
 
+    @Test
+    fun `default endpoint client sends no app identifying user agent`() =
+        runTest {
+            MockWebServer().use { server ->
+                server.start()
+                server.enqueue(MockResponse(body = "203.0.113.42"))
+                val endpoint =
+                    IpComparisonEndpointDescriptor(
+                        label = "local reflector",
+                        url = server.url("/ip").toString(),
+                        group = IpComparisonEndpointGroup.RU,
+                        addressFamily = IpComparisonAddressFamily.IPV4,
+                    )
+
+                DefaultIpComparisonEndpointClient().fetchReflectedIp(endpoint)
+
+                val userAgent = server.takeRequest().headers["User-Agent"].orEmpty()
+                assertFalse(userAgent, userAgent.contains("ripdpi", ignoreCase = true))
+            }
+        }
+
     private class FakeIpComparisonEndpointClient(
         private val endpoints: List<IpComparisonEndpointDescriptor>,
         private val waitForAllEndpoints: Boolean = false,

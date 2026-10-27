@@ -13,7 +13,6 @@ import javax.net.ssl.HttpsURLConnection
 
 object IfconfigClient {
     private const val ENDPOINT = "https://ifconfig.me/ip"
-    private const val USER_AGENT = "RIPDPI/1.0 (Android)"
 
     suspend fun fetchDirectIp(
         dispatchers: AppCoroutineDispatchers,
@@ -57,7 +56,6 @@ object IfconfigClient {
                 https.useCaches = false
                 https.connectTimeout = timeoutMs
                 https.readTimeout = timeoutMs
-                https.setRequestProperty("User-Agent", USER_AGENT)
                 https.setRequestProperty("Accept", "text/plain")
 
                 val code = https.responseCode
