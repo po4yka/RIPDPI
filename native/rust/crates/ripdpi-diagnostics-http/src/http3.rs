@@ -126,21 +126,52 @@ async fn execute(
             }
         }
     };
+    attempt_addresses(config, verifier, addresses, started, deadline, evidence).await
+}
+
+/// Minimum QUIC handshake budget of an attempt that is not the last one.
+const MIN_HANDSHAKE_SHARE: Duration = Duration::from_secs(2);
+
+/// # Cancel safety:
+/// conditionally cancel-safe: the only await is attempt, whose cancellation drops
+/// its owned resources and keeps committed evidence.
+async fn attempt_addresses(
+    config: &Http3ProbeConfig,
+    verifier: Option<&Arc<dyn ServerCertVerifier>>,
+    addresses: Vec<SocketAddr>,
+    started: Instant,
+    deadline: Instant,
+    evidence: &mut Http3Evidence,
+) -> Result<(), Failure> {
     if addresses.is_empty() {
         return Err(("NOT_OBSERVED", "no_addresses"));
     }
+    let addresses: Vec<SocketAddr> = addresses.into_iter().take(4).collect();
+    let count = addresses.len();
     let mut last = Err(("NOT_OBSERVED", "no_addresses"));
-    for address in addresses.into_iter().take(4) {
+    for (index, address) in addresses.into_iter().enumerate() {
         // Evidence belongs to one peer; never combine failed-peer TLS with another peer's response.
         let attempts = evidence.attempt_count;
         let dns_status = evidence.dns_status.clone();
         *evidence = Http3Evidence { attempt_count: attempts, dns_status, ..Http3Evidence::default() };
-        last = attempt(config, verifier, address, started, deadline, evidence).await;
+        let handshake_deadline = handshake_deadline(deadline, count - index);
+        last = attempt(config, verifier, address, started, deadline, handshake_deadline, evidence).await;
         if last.is_ok() || evidence.http3_validated {
             break;
         }
     }
     last
+}
+
+/// An equal share of the remaining time for the QUIC handshake, so a black-holed address (often
+/// the first, IPv6 one) cannot use the whole probe budget. The last attempt gets all of it.
+fn handshake_deadline(deadline: Instant, remaining_attempts: usize) -> Instant {
+    let now = Instant::now();
+    let Some(divisor) = u32::try_from(remaining_attempts).ok().filter(|count| *count > 1) else {
+        return deadline;
+    };
+    let share = (deadline.saturating_duration_since(now) / divisor).max(MIN_HANDSHAKE_SHARE);
+    (now + share).min(deadline)
 }
 
 fn client_config(verifier: Option<&Arc<dyn ServerCertVerifier>>) -> Result<quinn::ClientConfig, Failure> {
@@ -176,6 +207,7 @@ async fn attempt(
     address: SocketAddr,
     started: Instant,
     deadline: Instant,
+    handshake_deadline: Instant,
     evidence: &mut Http3Evidence,
 ) -> Result<(), Failure> {
     evidence.stage = "QUIC_HANDSHAKE".into();
@@ -188,7 +220,10 @@ async fn attempt(
     evidence.peer_address = Some(address.ip().to_string());
     let connecting = endpoint.connect(address, &config.host).map_err(|_| ("FAILED", "connect_error"))?;
     evidence.attempt_count += 1;
-    let connection = connecting.await.map_err(connection_failure)?;
+    let connection = tokio::time::timeout_at(handshake_deadline.into(), connecting)
+        .await
+        .map_err(|_| ("TIMEOUT", "timeout"))?
+        .map_err(connection_failure)?;
     evidence.tls_validated = true;
     evidence.handshake_elapsed_ms = Some(elapsed(started));
     let protocol = connection

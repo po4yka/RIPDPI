@@ -317,3 +317,39 @@ fn informational_headers_require_a_bounded_final_response() {
         server.finish();
     }
 }
+#[test]
+fn silent_first_address_leaves_time_for_the_next_one() {
+    let server = Server::start(Reply::Body(200, 12), b"h3");
+    // Bound and never read: Initials to this address get no answer.
+    let silent = std::net::UdpSocket::bind("127.0.0.1:0").unwrap();
+    let addresses = vec![silent.local_addr().unwrap(), server.address];
+    let config = server.config();
+    let started = Instant::now();
+    let deadline = started + Duration::from_secs(6);
+    let mut evidence = Http3Evidence::default();
+
+    let result = tokio::runtime::Builder::new_current_thread().enable_all().build().unwrap().block_on(async {
+        tokio::time::timeout_at(
+            deadline.into(),
+            attempt_addresses(&config, Some(&server.verifier), addresses, started, deadline, &mut evidence),
+        )
+        .await
+    });
+
+    assert_eq!(result, Ok(Ok(())), "{evidence:?}");
+    assert_eq!(evidence.status, "COMPLETE");
+    assert_eq!(evidence.attempt_count, 2);
+    assert_eq!(evidence.peer_address.as_deref(), Some("127.0.0.1"));
+    drop(silent);
+    server.finish();
+}
+#[test]
+fn only_the_last_attempt_gets_the_whole_deadline() {
+    let deadline = Instant::now() + Duration::from_secs(12);
+    assert_eq!(handshake_deadline(deadline, 1), deadline);
+    let first = handshake_deadline(deadline, 4);
+    assert!(first < deadline);
+    assert!(first.saturating_duration_since(Instant::now()) <= Duration::from_secs(3));
+    let short = Instant::now() + Duration::from_secs(1);
+    assert_eq!(handshake_deadline(short, 3), short);
+}
