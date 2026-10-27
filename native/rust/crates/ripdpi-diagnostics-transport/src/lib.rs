@@ -1,5 +1,5 @@
 // Crate-local unsafe hardening. The `unsafe` blocks in this crate are the
-// `getsockopt(IP_TTL)` FFI call in `platform_ttl` and the `getaddrinfo` lookup in
+// `getsockopt(IP_TTL)` FFI call in `platform_ttl`, the `poll` connect wait in `transport::protect`, and the `getaddrinfo` lookup in
 // `transport::address`. Re-enabling the
 // workspace-deferred `undocumented_unsafe_blocks` and
 // `multiple_unsafe_ops_per_block` lints locally turns the per-block

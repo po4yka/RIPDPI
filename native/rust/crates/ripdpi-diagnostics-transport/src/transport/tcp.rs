@@ -155,10 +155,10 @@ fn connect_addresses_with_race(addresses: &[SocketAddr]) -> Result<(TcpStream, S
     if !initial_batch.is_empty() {
         let raced = race_initial_addresses(
             initial_batch,
-            Arc::new(move |address| {
+            Arc::new(move |address, stop| {
                 let timeout =
                     bounded_scan_io_timeout(CONNECT_TIMEOUT).map_err(|_| TransportError::ScanDeadlineExceeded)?;
-                Ok(super::protect::protected_tcp_connect(address, timeout)?)
+                Ok(super::protect::protected_tcp_connect_until(address, timeout, stop)?)
             }),
         );
         if let Ok((stream, address)) = raced {
@@ -176,9 +176,12 @@ fn connect_addresses_with_race(addresses: &[SocketAddr]) -> Result<(TcpStream, S
     Err(last_error.unwrap_or(TransportError::NoAddresses))
 }
 
+/// One connect attempt; the flag is set once the race has a result.
+type RaceConnect<T> = dyn Fn(SocketAddr, &AtomicBool) -> Result<T, TransportError> + Send + Sync + 'static;
+
 fn race_initial_addresses<T>(
     addresses: Vec<SocketAddr>,
-    connect: Arc<dyn Fn(SocketAddr) -> Result<T, TransportError> + Send + Sync + 'static>,
+    connect: Arc<RaceConnect<T>>,
 ) -> Result<(T, SocketAddr), TransportError>
 where
     T: Send + 'static,
@@ -186,8 +189,8 @@ where
     let scan_deadline = active_scan_io_deadline();
     let attempt_count = addresses.len();
     let (result_tx, result_rx) = mpsc::channel();
-    // Set when the caller returns, so a delayed attempt does not open a connection that nobody
-    // reads (RFC 8305 section 5).
+    // Set when the caller returns, so a delayed or pending attempt does not complete a connection
+    // that nobody reads (RFC 8305 section 5). `connect` receives it to stop a started attempt.
     let decided = Arc::new(AtomicBool::new(false));
     for (index, address) in addresses.into_iter().enumerate() {
         let connect = Arc::clone(&connect);
@@ -203,7 +206,7 @@ where
                         return;
                     }
                 }
-                let result = with_scan_io_deadline(scan_deadline, || connect(address));
+                let result = with_scan_io_deadline(scan_deadline, || connect(address, &decided));
                 let _ = result_tx.send((address, result));
             })
             .map_err(TransportError::ConnectRaceSpawnFailed)?;
@@ -274,7 +277,7 @@ mod tests {
 
         let (winner, address) = race_initial_addresses(
             vec![first, second],
-            Arc::new(move |address| {
+            Arc::new(move |address, _| {
                 if address == first {
                     thread::sleep(Duration::from_secs(1));
                     Err(TransportError::Io(std::io::Error::other("slow failure")))
@@ -298,7 +301,7 @@ mod tests {
 
         let (_, winner) = race_initial_addresses(vec![first, second], {
             let attempted = Arc::clone(&attempted);
-            Arc::new(move |address| {
+            Arc::new(move |address, _| {
                 attempted.lock().unwrap().push(address);
                 Ok(())
             })
@@ -308,6 +311,36 @@ mod tests {
 
         assert_eq!(winner, first);
         assert_eq!(*attempted.lock().unwrap(), vec![first]);
+    }
+
+    #[test]
+    fn started_delayed_attempt_stops_once_the_first_address_wins() {
+        let first = "192.0.2.1:443".parse().expect("first address");
+        let second = "192.0.2.2:443".parse().expect("second address");
+        let (observed_tx, observed_rx) = mpsc::channel();
+
+        let (_, winner) = race_initial_addresses(vec![first, second], {
+            let observed_tx = std::sync::Mutex::new(observed_tx);
+            Arc::new(move |address, stop: &AtomicBool| {
+                if address == first {
+                    // Win after the delayed attempt has started.
+                    thread::sleep(HAPPY_EYEBALLS_DELAY + Duration::from_millis(150));
+                    return Ok(());
+                }
+                let started = Instant::now();
+                while !stop.load(Ordering::Acquire) && started.elapsed() < Duration::from_secs(5) {
+                    thread::sleep(Duration::from_millis(5));
+                }
+                let _ = observed_tx.lock().unwrap().send(Instant::now());
+                Err(TransportError::NoAddresses)
+            })
+        })
+        .expect("first attempt wins");
+        let returned = Instant::now();
+
+        let stopped = observed_rx.recv_timeout(Duration::from_secs(6)).expect("second attempt ends");
+        assert_eq!(winner, first);
+        assert!(stopped.saturating_duration_since(returned) < Duration::from_secs(1), "second attempt ran on");
     }
 
     #[test]
@@ -327,7 +360,7 @@ mod tests {
         let result = with_scan_io_deadline(Some(started + Duration::from_millis(30)), || {
             race_initial_addresses(
                 addresses,
-                Arc::new(|_| {
+                Arc::new(|_, _| {
                     thread::sleep(Duration::from_millis(300));
                     Err::<(), _>(TransportError::NoAddresses)
                 }),

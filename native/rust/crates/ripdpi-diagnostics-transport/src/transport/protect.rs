@@ -17,7 +17,8 @@
 use std::io;
 use std::net::{SocketAddr, TcpStream, UdpSocket};
 use std::os::fd::AsRawFd;
-use std::time::Duration;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 
@@ -43,6 +44,67 @@ pub(crate) fn protected_tcp_connect(target: SocketAddr, timeout: Duration) -> io
     Ok(socket.into())
 }
 
+const CONNECT_STOP_POLL_INTERVAL: Duration = Duration::from_millis(25);
+
+/// Like [`protected_tcp_connect`], but give up once `stop` is set, so an attempt that lost a
+/// connect race does not complete a connection that nobody reads (RFC 8305 section 5).
+pub(crate) fn protected_tcp_connect_until(
+    target: SocketAddr,
+    timeout: Duration,
+    stop: &AtomicBool,
+) -> io::Result<TcpStream> {
+    // Acquire pairs with the race owner's Release store when it has a result.
+    let stopped = || stop.load(Ordering::Acquire);
+    let stop_error = || io::Error::new(io::ErrorKind::Interrupted, "connect attempt stopped");
+    if stopped() {
+        return Err(stop_error());
+    }
+    let socket = Socket::new(domain_for(target), Type::STREAM, Some(Protocol::TCP))?;
+    protect_for_target(&socket, target)?;
+    socket.set_nonblocking(true)?;
+    match socket.connect(&SockAddr::from(target)) {
+        Ok(()) => {}
+        Err(error) if error.kind() == io::ErrorKind::WouldBlock || error.raw_os_error() == Some(libc::EINPROGRESS) => {
+            let deadline = Instant::now() + timeout;
+            loop {
+                if stopped() {
+                    return Err(stop_error());
+                }
+                let remaining = deadline.saturating_duration_since(Instant::now());
+                if remaining.is_zero() {
+                    return Err(io::Error::from(io::ErrorKind::TimedOut));
+                }
+                if wait_until_writable(&socket, remaining.min(CONNECT_STOP_POLL_INTERVAL))? {
+                    break;
+                }
+            }
+            if let Some(error) = socket.take_error()? {
+                return Err(error);
+            }
+            // POLLHUP without SO_ERROR: the peer is gone although no error was recorded.
+            socket.peer_addr()?;
+        }
+        Err(error) => return Err(error),
+    }
+    socket.set_nonblocking(false)?;
+    Ok(socket.into())
+}
+
+/// Wait at most `wait` for a connecting socket to become writable (connected or failed).
+fn wait_until_writable(socket: &Socket, wait: Duration) -> io::Result<bool> {
+    let mut poll_fd = libc::pollfd { fd: socket.as_raw_fd(), events: libc::POLLOUT, revents: 0 };
+    let millis = libc::c_int::try_from(wait.as_millis()).unwrap_or(libc::c_int::MAX).max(1);
+    // SAFETY: `poll_fd` is one initialized pollfd for an open socket that outlives the call.
+    match unsafe { libc::poll(&mut poll_fd, 1, millis) } {
+        0 => Ok(false),
+        -1 => {
+            let error = io::Error::last_os_error();
+            if error.kind() == io::ErrorKind::Interrupted { Ok(false) } else { Err(error) }
+        }
+        _ => Ok(true),
+    }
+}
+
 /// Bind a UDP socket at `bind_addr` for an outbound probe to `server`,
 /// protecting it if the VPN is active so the probe bypasses the tunnel.
 pub fn protected_udp_bind(bind_addr: SocketAddr, server: SocketAddr) -> io::Result<UdpSocket> {
@@ -58,6 +120,7 @@ fn domain_for(addr: SocketAddr) -> Domain {
 
 #[cfg(test)]
 mod tests {
+    use std::io::Read;
     use std::net::{Ipv4Addr, UdpSocket};
     use std::os::fd::RawFd;
     use std::sync::atomic::{AtomicI32, Ordering};
@@ -66,6 +129,45 @@ mod tests {
     use ripdpi_native_protect::{ProtectCallback, register_protect_callback, unregister_protect_callback};
 
     use super::*;
+
+    #[test]
+    fn connect_until_opens_no_connection_once_stopped() {
+        let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        listener.set_nonblocking(true).unwrap();
+        let stop = AtomicBool::new(true);
+
+        let error = protected_tcp_connect_until(listener.local_addr().unwrap(), Duration::from_secs(1), &stop)
+            .expect_err("a stopped attempt does not connect");
+
+        assert_eq!(error.kind(), io::ErrorKind::Interrupted);
+        assert_eq!(listener.accept().map(|_| ()).unwrap_err().kind(), io::ErrorKind::WouldBlock);
+    }
+
+    #[test]
+    fn connect_until_returns_a_blocking_connected_stream() {
+        let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let stop = AtomicBool::new(false);
+
+        let stream = protected_tcp_connect_until(listener.local_addr().unwrap(), Duration::from_secs(1), &stop)
+            .expect("connect to the local listener");
+        let (_peer, peer_address) = listener.accept().unwrap();
+
+        assert_eq!(stream.local_addr().unwrap(), peer_address);
+        stream.set_read_timeout(Some(Duration::from_millis(50))).unwrap();
+        let error = (&stream).read(&mut [0u8; 1]).expect_err("no data yet");
+        assert!(matches!(error.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut), "{error:?}");
+    }
+
+    #[test]
+    fn connect_until_reports_a_refused_connection() {
+        let port = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap().local_addr().unwrap().port();
+        let stop = AtomicBool::new(false);
+
+        let error = protected_tcp_connect_until(loopback(port), Duration::from_secs(1), &stop)
+            .expect_err("nothing listens on the port");
+
+        assert_eq!(error.kind(), io::ErrorKind::ConnectionRefused);
+    }
 
     // The protect callback slot is process-global; serialize the tests that
     // register/clear it so a parallel test in the same binary cannot observe a
