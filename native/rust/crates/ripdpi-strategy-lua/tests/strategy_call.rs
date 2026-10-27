@@ -74,3 +74,38 @@ fn failed_lua_call_runs_only_once() {
     assert!(strategy.plan(&ctx, &mut DesyncPlan::default()).is_err());
     assert_eq!(engine.call_i64("call_count").expect("read count"), 1);
 }
+
+#[test]
+fn lua_verdict_flags_follow_the_zapret_return_contract() {
+    let engine = LuaStrategyEngine::new().expect("lua vm");
+    engine
+        .load_bytes(
+            "verdicts",
+            br#"
+            function modify_preserve_next(desync) return VERDICT_MODIFY + VERDICT_PRESERVE_NEXT end
+            function drop_preserve_next(desync) return VERDICT_DROP | VERDICT_PRESERVE_NEXT end
+            function bad_bits(desync) return 8 end
+            "#,
+        )
+        .expect("load script");
+    let dissect = Dissect::default();
+    let conn = ConnectionState::default();
+    let caps = Capabilities::default();
+    let ctx = StrategyContext {
+        dissect: &dissect,
+        conn: &conn,
+        caps: &caps,
+        flow_id: FlowId(1),
+        payload: b"original",
+        direction: FlowDirection::Outbound,
+    };
+    let call = |function: &str| {
+        engine.register_function(function).expect("register function");
+        let mut plan = DesyncPlan::default();
+        engine.make_strategy(function).expect("make strategy").plan(&ctx, &mut plan).map(|_| plan.verdict)
+    };
+
+    assert_eq!(call("modify_preserve_next").expect("modify"), StrategyVerdict::Apply);
+    assert_eq!(call("drop_preserve_next").expect("drop"), StrategyVerdict::Drop);
+    assert!(call("bad_bits").is_err(), "a value outside the Lua verdict mask is an error");
+}

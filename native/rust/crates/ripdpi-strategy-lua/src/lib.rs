@@ -26,6 +26,8 @@ mod enabled {
     const VERDICT_PASS: i64 = 0;
     const VERDICT_MODIFY: i64 = 1;
     const VERDICT_DROP: i64 = 2;
+    const VERDICT_MASK: i64 = 3;
+    const VERDICT_PRESERVE_NEXT: i64 = 4;
 
     /// Lua backend errors.
     #[derive(Debug, Error)]
@@ -144,6 +146,9 @@ mod enabled {
             globals.set("VERDICT_PASS", VERDICT_PASS).map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
             globals.set("VERDICT_MODIFY", VERDICT_MODIFY).map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
             globals.set("VERDICT_DROP", VERDICT_DROP).map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
+            globals
+                .set("VERDICT_PRESERVE_NEXT", VERDICT_PRESERVE_NEXT)
+                .map_err(|error| LuaError::ScriptLoad(error.to_string()))?;
             drop(globals);
             harden_base_library(&lua)?;
             install_zapret_compat_globals(&lua)?;
@@ -377,11 +382,11 @@ mod enabled {
             let output = match result {
                 Value::String(output) => Some(output.as_bytes().to_vec()),
                 Value::Integer(verdict) => {
-                    call_plan.verdict = verdict_from_lua(verdict).or(call_plan.verdict);
+                    call_plan.verdict = verdict_from_lua(lua_verdict_action(verdict)?).or(call_plan.verdict);
                     None
                 }
                 Value::Number(verdict) => {
-                    call_plan.verdict = verdict_from_lua(verdict as i64).or(call_plan.verdict);
+                    call_plan.verdict = verdict_from_lua(lua_verdict_action(verdict as i64)?).or(call_plan.verdict);
                     None
                 }
                 Value::Nil | Value::Boolean(_) => None,
@@ -1438,6 +1443,15 @@ mod enabled {
             L7Protocol::Tls(dissect) => dissect.sni.as_deref(),
             _ => None,
         }
+    }
+
+    /// Strips `VERDICT_PRESERVE_NEXT` and rejects bits outside the Lua verdict
+    /// mask, as zapret2 `desync.c` does.
+    fn lua_verdict_action(verdict: i64) -> Result<i64, LuaError> {
+        if verdict & !(VERDICT_MASK | VERDICT_PRESERVE_NEXT) != 0 {
+            return Err(LuaError::Call(format!("Lua strategy returned an invalid verdict: {verdict}")));
+        }
+        Ok(verdict & VERDICT_MASK)
     }
 
     fn verdict_from_lua(verdict: i64) -> Option<StrategyVerdict> {
