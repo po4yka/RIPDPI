@@ -48,6 +48,35 @@ class SystemDohDnsComparatorTest {
         }
 
     @Test
+    fun systemTimeoutIsNotReportedAsDnsBlock() =
+        runTest {
+            val result =
+                comparator(
+                    system = {
+                        delay(60_000)
+                        setOf("1.2.3.4")
+                    },
+                    doh = { setOf("1.2.3.4") },
+                ).compare("example.org")
+
+            assertEquals(DnsComparisonVerdict.DOWN, result.verdict)
+            assertEquals(DnsComparisonConfidence.LOW, result.confidence)
+        }
+
+    @Test
+    fun systemErrorOtherThanNoSuchHostIsNotReportedAsDnsBlock() =
+        runTest {
+            val result =
+                comparator(
+                    system = { throw java.io.IOException("System resolver returned no IPv4 address") },
+                    doh = { setOf("1.2.3.4") },
+                ).compare("example.org")
+
+            assertEquals(DnsComparisonVerdict.DOWN, result.verdict)
+            assertEquals(DnsComparisonConfidence.LOW, result.confidence)
+        }
+
+    @Test
     fun bothFailReturnsDownLow() =
         runTest {
             val result =

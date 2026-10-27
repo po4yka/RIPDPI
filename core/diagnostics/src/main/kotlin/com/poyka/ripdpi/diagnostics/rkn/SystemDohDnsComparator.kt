@@ -8,11 +8,13 @@ import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.json.JSONObject
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.Inet4Address
 import java.net.InetAddress
 import java.net.URL
 import java.net.URLEncoder
+import java.net.UnknownHostException
 import java.nio.charset.StandardCharsets
 
 enum class DnsComparisonVerdict {
@@ -57,10 +59,11 @@ class SystemDohDnsComparator(
     private val dohTimeoutMs: Long = DefaultTimeoutMs,
 ) {
     suspend fun compare(host: String): DnsComparisonResult {
-        val sysIps = runLookup(systemTimeoutMs) { systemResolver.resolve(host) }
-        val dohIps = runLookup(dohTimeoutMs) { dohResolver.resolve(host) }
+        val system = runLookup(systemTimeoutMs) { systemResolver.resolve(host) }
+        val dohIps = runLookup(dohTimeoutMs) { dohResolver.resolve(host) }.ips
         return evaluate(
-            sysIps = sysIps,
+            sysIps = system.ips,
+            systemNegative = system.negative,
             dohIps = dohIps,
             dnsMethod = dnsMethodProvider(),
         )
@@ -69,7 +72,7 @@ class SystemDohDnsComparator(
     private suspend fun runLookup(
         timeoutMs: Long,
         lookup: suspend () -> Set<String>,
-    ): Set<String> =
+    ): LookupOutcome =
         runCatching {
             withTimeout(timeoutMs) {
                 lookup()
@@ -77,13 +80,19 @@ class SystemDohDnsComparator(
                     .filter(String::isNotBlank)
                     .toCollection(linkedSetOf())
             }
-        }.onFailure { error ->
-            currentCoroutineContext().ensureActive()
-            if (error is CancellationException && error !is TimeoutCancellationException) throw error
-        }.getOrDefault(emptySet())
+        }.fold(
+            onSuccess = { ips -> LookupOutcome(ips, negative = ips.isEmpty()) },
+            onFailure = { error ->
+                currentCoroutineContext().ensureActive()
+                if (error is CancellationException && error !is TimeoutCancellationException) throw error
+                // Only a "no such host" answer is a negative answer; a timeout or other error proves nothing.
+                LookupOutcome(emptySet(), negative = error is UnknownHostException)
+            },
+        )
 
     private fun evaluate(
         sysIps: Set<String>,
+        systemNegative: Boolean,
         dohIps: Set<String>,
         dnsMethod: DnsMethod,
     ): DnsComparisonResult {
@@ -92,10 +101,16 @@ class SystemDohDnsComparator(
         val confidence: DnsComparisonConfidence
 
         when {
-            sysIps.isEmpty() && dohIps.isNotEmpty() -> {
+            sysIps.isEmpty() && dohIps.isNotEmpty() && systemNegative -> {
                 verdict = DnsComparisonVerdict.DNS_BLOCK
                 confidence = DnsComparisonConfidence.HIGH
                 notes.add("System resolver failed while DoH returned A records")
+            }
+
+            sysIps.isEmpty() && dohIps.isNotEmpty() -> {
+                verdict = DnsComparisonVerdict.DOWN
+                confidence = DnsComparisonConfidence.LOW
+                notes.add("System resolver timed out or failed without an answer - DNS block not confirmed")
             }
 
             sysIps.isEmpty() && dohIps.isEmpty() -> {
@@ -140,6 +155,11 @@ class SystemDohDnsComparator(
         dohIps: Set<String>,
     ): Boolean = sysIps.intersect(dohIps).isEmpty()
 
+    private data class LookupOutcome(
+        val ips: Set<String>,
+        val negative: Boolean,
+    )
+
     private companion object {
         private const val DefaultTimeoutMs = 5_000L
     }
@@ -148,12 +168,16 @@ class SystemDohDnsComparator(
 class SystemIpv4Resolver : Ipv4Resolver {
     override suspend fun resolve(host: String): Set<String> =
         withContext(Dispatchers.IO) {
-            InetAddress
-                .getAllByName(host)
-                .asSequence()
-                .filterIsInstance<Inet4Address>()
-                .mapNotNull { address -> address.hostAddress }
-                .toCollection(linkedSetOf())
+            val addresses = InetAddress.getAllByName(host)
+            val ipv4 =
+                addresses
+                    .asSequence()
+                    .filterIsInstance<Inet4Address>()
+                    .mapNotNull { address -> address.hostAddress }
+                    .toCollection(linkedSetOf())
+            // An IPv6-only answer is an answer, not a negative one.
+            if (ipv4.isEmpty() && addresses.isNotEmpty()) throw IOException("System resolver returned no IPv4 address")
+            ipv4
         }
 }
 
