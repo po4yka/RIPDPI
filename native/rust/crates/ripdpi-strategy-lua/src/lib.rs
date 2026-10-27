@@ -1133,10 +1133,9 @@ mod enabled {
         desync
             .set("payload", lua.create_string(ctx.payload).map_err(|error| LuaError::Call(error.to_string()))?)
             .map_err(|error| LuaError::Call(error.to_string()))?;
-        let dis = create_dis_table(lua, ctx)?;
-        if socket_tcp == Some(false) {
-            dis.set("tcp", Value::Nil).map_err(to_call)?;
-        }
+        // A socket strategy knows its transport; a TUN packet only has its class.
+        let udp = socket_tcp.map_or_else(|| is_udp_classified(&ctx.dissect.proto), |tcp| !tcp);
+        let dis = create_dis_table(lua, ctx, udp)?;
         desync.set("dis", dis.clone()).map_err(to_call)?;
         desync.set("caps", create_caps_table(lua, ctx)?).map_err(|error| LuaError::Call(error.to_string()))?;
         install_zapret_call_globals(lua, ctx, Arc::clone(&call_plan), socket_tcp, &dis, &arg)?;
@@ -1144,7 +1143,7 @@ mod enabled {
         Ok(desync)
     }
 
-    fn create_dis_table(lua: &Lua, ctx: &StrategyContext<'_>) -> Result<Table, LuaError> {
+    fn create_dis_table(lua: &Lua, ctx: &StrategyContext<'_>, udp: bool) -> Result<Table, LuaError> {
         let dis = lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
         dis.set("proto", proto_name(&ctx.dissect.proto)).map_err(|error| LuaError::Call(error.to_string()))?;
         dis.set("payload", lua.create_string(ctx.payload).map_err(|error| LuaError::Call(error.to_string()))?)
@@ -1153,7 +1152,7 @@ mod enabled {
         dis.set("src_port", ctx.dissect.src_port).map_err(|error| LuaError::Call(error.to_string()))?;
         dis.set("dst_port", ctx.dissect.dst_port).map_err(|error| LuaError::Call(error.to_string()))?;
         dis.set("is_ipv6", ctx.dissect.is_ipv6).map_err(|error| LuaError::Call(error.to_string()))?;
-        if is_udp_only(&ctx.dissect.proto) {
+        if udp {
             // zapret scripts pick TCP or UDP behavior from which of these exists.
             let udp = lua.create_table().map_err(to_call)?;
             udp.set("uh_sport", ctx.dissect.src_port).map_err(to_call)?;
@@ -1400,7 +1399,10 @@ mod enabled {
     }
 
     /// Protocols that only run over UDP.
-    fn is_udp_only(proto: &L7Protocol) -> bool {
+    /// Classes that only the UDP classifiers produce. The TUN TCP classifier
+    /// yields only TLS, HTTP or unknown, so STUN and DNS here come from UDP.
+    /// An unknown class can be either transport and keeps `dis.tcp`.
+    fn is_udp_classified(proto: &L7Protocol) -> bool {
         matches!(
             proto,
             L7Protocol::Quic(_)
@@ -1409,6 +1411,8 @@ mod enabled {
                 | L7Protocol::Dht(_)
                 | L7Protocol::Discord(_)
                 | L7Protocol::UtpBitTorrent(_)
+                | L7Protocol::Stun(_)
+                | L7Protocol::Dns(_)
         )
     }
 
