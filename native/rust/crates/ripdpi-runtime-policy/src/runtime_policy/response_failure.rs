@@ -70,6 +70,13 @@ mod tests {
     }
 
     #[test]
+    fn isp_stub_paths_and_compound_labels_are_failures() {
+        for location in ["http://domru.ru/block?url=news.example.com", "http://lawfilter.isp.example/"] {
+            assert!(classify_response_failure(REQUEST, &redirect(location), None).is_some(), "{location}");
+        }
+    }
+
+    #[test]
     fn block_stub_label_on_the_requested_site_is_not_a_failure() {
         assert!(
             classify_response_failure(REQUEST, &redirect("https://warning.news.example.com/notice"), None).is_none()

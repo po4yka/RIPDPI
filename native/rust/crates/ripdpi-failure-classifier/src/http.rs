@@ -70,6 +70,50 @@ mod tests {
     }
 
     #[test]
+    fn redirects_to_isp_stub_urls_are_blockpages() {
+        for (location, provider) in [
+            ("http://domru.ru/block?url=example.com", "dom_ru_block"),
+            ("http://lawfilter.ertelecom.ru/", "rostelecom_filter"),
+            ("http://lawfilter.isp.example/", "redirect_block_url"),
+            ("http://blocklist.isp.example/?u=x", "redirect_block_url"),
+            ("http://netfilter.isp.example:8080/", "redirect_block_url"),
+            ("http://10.10.0.1/blocked.html", "redirect_block_url"),
+            ("http://stub.isp.example/block-page/", "redirect_block_url"),
+        ] {
+            let response = format!("HTTP/1.1 302 Found\r\nLocation: {location}\r\nContent-Length: 0\r\n\r\n");
+            let failure = classify_http_blockpage(response.as_bytes())
+                .unwrap_or_else(|| panic!("{location} is an ISP block stub"));
+            assert!(failure.evidence.tags.contains(&format!("provider={provider}")), "{location}: {failure:?}");
+        }
+    }
+
+    #[test]
+    fn short_pages_that_say_the_site_is_blocked_are_blockpages() {
+        for body in [
+            "<html><title>Доступ к ресурсу ограничен</title></html>",
+            "Ресурс заблокирован по решению суда",
+            "The requested resource is blocked.",
+            "Access to the resource is blocked",
+            "This URL has been blocked by the network administrator.",
+        ] {
+            let response = format!("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n{body}");
+            assert!(classify_http_blockpage(response.as_bytes()).is_some(), "'{body}' says the site is blocked");
+        }
+    }
+
+    #[test]
+    fn ordinary_pages_that_mention_blocked_are_not_blockpages() {
+        for body in [
+            "<html><h1>Sign in</h1><p>Your account has been blocked after 5 attempts. Contact support.</p></html>",
+            "<p>Pop-ups blocked on this page. Allow pop-ups to continue.</p>",
+            "<p>Ограничения сайта: только для зарегистрированных пользователей.</p>",
+        ] {
+            let response = format!("HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\n{body}");
+            assert!(classify_http_blockpage(response.as_bytes()).is_none(), "'{body}' is an ordinary page");
+        }
+    }
+
+    #[test]
     fn http_blockpage_keyword_matching_is_case_insensitive() {
         let response = b"HTTP/1.1 200 OK\r\nContent-Type: text/html\r\n\r\nTHIS SITE HAS BEEN BLOCKED";
         assert!(classify_http_blockpage(response).is_some());
