@@ -1,4 +1,3 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use tokio::net::TcpStream;
@@ -7,6 +6,7 @@ use tokio_rustls::TlsConnector;
 
 use crate::AppsScriptRuntimeConfig;
 use crate::telemetry::SharedTelemetryState;
+use scripts::{AttemptError, ScriptPool, is_deployment_error};
 
 mod headers;
 mod http;
@@ -14,6 +14,7 @@ mod redirect;
 mod relay_json;
 mod request;
 mod response;
+mod scripts;
 mod tls;
 
 const HTTP_HOST: &str = "script.google.com";
@@ -56,8 +57,7 @@ pub struct AppsScriptDomainFronter {
     connect_host: String,
     front_domain: String,
     auth_key: String,
-    script_ids: Vec<String>,
-    next_script_index: AtomicUsize,
+    scripts: ScriptPool,
     tls_connector: TlsConnector,
     telemetry: SharedTelemetryState,
 }
@@ -68,8 +68,7 @@ impl AppsScriptDomainFronter {
             connect_host: config.google_ip.clone(),
             front_domain: config.front_domain.clone(),
             auth_key: config.auth_key.clone(),
-            script_ids: config.script_ids.clone(),
-            next_script_index: AtomicUsize::new(0),
+            scripts: ScriptPool::new(config.script_ids.clone()),
             tls_connector: tls::connector(),
             telemetry,
         }
@@ -81,7 +80,7 @@ impl AppsScriptDomainFronter {
     /// partial-writes the upstream request) under a timeout; cancelling the
     /// outer future abandons the in-flight upstream request mid-exchange.
     pub async fn relay(&self, method: &str, url: &str, headers: &[(String, String)], body: &[u8]) -> Vec<u8> {
-        match timeout(RELAY_TIMEOUT, self.relay_once(method, url, headers, body)).await {
+        match timeout(RELAY_TIMEOUT, self.relay_with_failover(method, url, headers, body)).await {
             Ok(Ok(response)) => {
                 self.telemetry.record_success(response.len());
                 response
@@ -98,36 +97,76 @@ impl AppsScriptDomainFronter {
         }
     }
 
+    /// Send the request to one deployment after another until one answers. A failing
+    /// deployment cools down; a request that reached Apps Script moves on only when
+    /// repeating it is harmless (see [`AttemptError::may_retry`]).
+    ///
     /// # Cancel safety
     ///
-    /// NOT cancel-safe: send_post writes the request and then response::read /
-    /// redirect::follow consume the reply across many awaits; cancellation can
-    /// truncate the request or drop already-consumed response bytes.
-    async fn relay_once(
+    /// NOT cancel-safe: each attempt is a multi-await exchange (see `relay_once`).
+    async fn relay_with_failover(
         &self,
         method: &str,
         url: &str,
         headers: &[(String, String)],
         body: &[u8],
     ) -> Result<Vec<u8>, FronterError> {
-        let mut stream = self.open_fronted_stream().await?;
         let payload = request::build_payload_json(&self.auth_key, method, url, headers, body)?;
-        let path = format!("/macros/s/{}/exec", self.next_script_id());
+        let mut last_error = None;
+        for index in self.scripts.attempt_order() {
+            match self.relay_once(self.scripts.id(index), &payload).await {
+                Ok(response) => {
+                    self.scripts.record(index, true);
+                    return Ok(response);
+                }
+                Err(attempt) => {
+                    if attempt.deployment_fault {
+                        self.scripts.record(index, false);
+                    }
+                    let retry = attempt.may_retry(method);
+                    last_error = Some(attempt.error);
+                    if !retry {
+                        break;
+                    }
+                }
+            }
+        }
+        Err(last_error.unwrap_or_else(|| FronterError::Relay("no Apps Script deployment configured".to_string())))
+    }
 
-        http::send_post(&mut stream, &path, HTTP_HOST, &payload).await?;
-        let response = response::read(&mut stream).await?;
-        let response = redirect::follow(&mut stream, response, HTTP_HOST).await?;
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: send_post writes the request and then response::read /
+    /// redirect::follow consume the reply across many awaits; cancellation can
+    /// truncate the request or drop already-consumed response bytes.
+    async fn relay_once(&self, script_id: &str, payload: &[u8]) -> Result<Vec<u8>, AttemptError> {
+        let sent = |error| AttemptError { error, sent: true, deployment_fault: true };
+        let mut stream = self.open_fronted_stream().await.map_err(|error| AttemptError {
+            error,
+            sent: false,
+            deployment_fault: true,
+        })?;
+        let path = format!("/macros/s/{script_id}/exec");
+
+        // A request that failed while being written may still have reached Apps Script.
+        http::send_post(&mut stream, &path, HTTP_HOST, payload).await.map_err(sent)?;
+        let response = response::read(&mut stream).await.map_err(sent)?;
+        let response = redirect::follow(&mut stream, response, HTTP_HOST).await.map_err(sent)?;
 
         if response.status != 200 {
             let snippet = String::from_utf8_lossy(&response.body);
-            return Err(FronterError::Relay(format!(
+            return Err(sent(FronterError::Relay(format!(
                 "Apps Script HTTP {}: {}",
                 response.status,
                 snippet.chars().take(200).collect::<String>()
-            )));
+            ))));
         }
 
-        relay_json::parse(&response.body)
+        relay_json::parse(&response.body).map_err(|error| {
+            // An error the script reports is about the target unless it names a deployment limit.
+            let deployment_fault = !matches!(&error, FronterError::Relay(message) if !is_deployment_error(message));
+            AttemptError { error, sent: true, deployment_fault }
+        })
     }
 
     /// # Cancel safety
@@ -155,13 +194,6 @@ impl AppsScriptDomainFronter {
             .await
             .map_err(|_| FronterError::Timeout)?
     }
-
-    fn next_script_id(&self) -> String {
-        // Ordering: the counter only distributes requests across script IDs.
-        // No state is published through the selected index.
-        let index = self.next_script_index.fetch_add(1, Ordering::Relaxed);
-        self.script_ids[index % self.script_ids.len()].clone()
-    }
 }
 
 pub(crate) fn error_response(status: u16, message: &str) -> Vec<u8> {
@@ -185,6 +217,21 @@ mod tests {
 
     use super::*;
     use crate::telemetry::RelayTelemetryState;
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_request_that_cannot_reach_one_deployment_is_tried_on_the_next() {
+        let mut config =
+            AppsScriptRuntimeConfig::from_json(r#"{"scriptIds":["script-a","script-b"],"authKey":"secret"}"#)
+                .expect("config");
+        // Nothing listens on loopback port 443: every attempt fails before the request is sent.
+        config.google_ip = "127.0.0.1".to_string();
+        let fronter = AppsScriptDomainFronter::new(&config, Arc::new(RelayTelemetryState::new(&config)));
+
+        let response = fronter.relay("POST", "https://target.example/form", &[], b"data").await;
+
+        assert!(response.starts_with(b"HTTP/1.1 502 "));
+        assert!(fronter.scripts.is_cooling_now(0) && fronter.scripts.is_cooling_now(1), "both deployments were tried");
+    }
 
     #[tokio::test(flavor = "current_thread")]
     async fn a_failed_relay_marks_the_relay_degraded_without_leaking_the_target() {
