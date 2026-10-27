@@ -1404,3 +1404,49 @@ mod tls_profile_tests {
         );
     }
 }
+
+#[cfg(test)]
+mod bridge_tests {
+    use std::collections::{HashMap, VecDeque};
+    use std::sync::Arc;
+    use std::time::Duration;
+
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    use tokio::sync::mpsc;
+
+    use super::{AnyTlsStream, OwnedTasks, Owner};
+
+    /// A stalled uplink (full carrier queue) must not stop the pump from
+    /// draining the stream's downlink; one coupled loop starved the mailbox
+    /// into a reset.
+    #[tokio::test]
+    async fn a_stalled_uplink_does_not_stop_downlink_delivery() {
+        let tasks = Arc::new(OwnedTasks::default());
+        let (outbound, _stalled_carrier) = mpsc::channel(1);
+        let (inbound_tx, inbound) = mpsc::channel(32);
+        let stream = AnyTlsStream {
+            stream_id: 1,
+            outbound,
+            inbound,
+            read_buffer: VecDeque::new(),
+            streams: Arc::new(std::sync::Mutex::new(HashMap::new())),
+            fin_queued: false,
+            tasks: Arc::clone(&tasks),
+            owner: Some(Arc::new(Owner(Arc::clone(&tasks)))),
+        };
+        let mut app = stream.into_io().expect("bridge");
+        // The first chunk fills the carrier queue; the pump then waits to send the second.
+        app.write_all(b"first").await.expect("first upload");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+        app.write_all(b"second").await.expect("second upload");
+        tokio::time::sleep(Duration::from_millis(50)).await;
+
+        inbound_tx.send(b"reply".to_vec()).await.expect("downlink chunk");
+        let mut reply = [0; 5];
+        tokio::time::timeout(Duration::from_secs(1), app.read_exact(&mut reply))
+            .await
+            .expect("downlink must flow while the uplink is stalled")
+            .expect("read");
+        assert_eq!(&reply, b"reply");
+    }
+}

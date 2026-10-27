@@ -1,4 +1,4 @@
-use super::{AnyTlsError, AnyTlsStream, Owner};
+use super::{AnyTlsError, AnyTlsStream, Command, Frame, Outbound, Owner};
 use std::io;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -19,31 +19,49 @@ impl AnyTlsStream {
     /// # Cancel safety
     /// Conversion has no await. Pump cancellation ends only this logical stream;
     /// partially forwarded writes are not resumed. The client retains its join.
-    /// The select reads are cancel-safe; full writes run after branch selection.
+    /// Uplink and downlink run concurrently, so a stall in one direction does
+    /// not stop the other; the pump ends when either direction fails or the
+    /// downlink ends.
     pub fn into_io(mut self) -> Result<AnyTlsIo, AnyTlsError> {
         let owner = self.owner.take().ok_or(AnyTlsError::SessionClosed)?;
         let tasks = Arc::clone(&self.tasks);
         let (io, relay) = tokio::io::duplex(65_536);
         let abort = tasks.spawn(async move {
             let (mut app_read, mut app_write) = tokio::io::split(relay);
-            let mut buffer = [0; 16 * 1024];
-            let mut sending = true;
-            loop {
-                tokio::select! {
-                    read = app_read.read(&mut buffer), if sending => {
-                        match read {
-                            // AnyTLS has no half-close: a FIN would end the reply
-                            // too. Dropping the endpoint sends it.
-                            Ok(0) => sending = false,
-                            Ok(read) => if self.write_all(&buffer[..read]).await.is_err() { return; },
-                            Err(_) => return,
+            let outbound = self.outbound.clone();
+            let stream_id = self.stream_id;
+            let leftover: Vec<u8> = self.read_buffer.drain(..).collect();
+            let inbound = &mut self.inbound;
+            let uplink = async {
+                let mut buffer = [0; 16 * 1024];
+                loop {
+                    match app_read.read(&mut buffer).await {
+                        // AnyTLS has no half-close: a FIN would end the reply
+                        // too. Dropping the endpoint sends it.
+                        Ok(0) => std::future::pending::<()>().await,
+                        Ok(read) => {
+                            let frame = Frame::with_data(Command::Psh, stream_id, buffer[..read].to_vec());
+                            if outbound.send(Outbound::Batch(vec![frame])).await.is_err() {
+                                return;
+                            }
                         }
-                    }
-                    chunk = self.read_chunk() => {
-                        let Ok(chunk) = chunk else { return; };
-                        if app_write.write_all(&chunk).await.is_err() { return; }
+                        Err(_) => return,
                     }
                 }
+            };
+            let downlink = async {
+                if !leftover.is_empty() && app_write.write_all(&leftover).await.is_err() {
+                    return;
+                }
+                while let Some(chunk) = inbound.recv().await {
+                    if app_write.write_all(&chunk).await.is_err() {
+                        return;
+                    }
+                }
+            };
+            tokio::select! {
+                () = uplink => {}
+                () = downlink => {}
             }
         })?;
         Ok(AnyTlsIo { io, abort, _owner: owner })
