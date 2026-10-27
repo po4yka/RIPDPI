@@ -78,6 +78,12 @@ sealed interface BackupResetEffect {
      * app comes back up clean, at onboarding.
      */
     data object Wiped : BackupResetEffect
+
+    /**
+     * A wipe step failed. Earlier steps may already have erased their stores, so the
+     * screen reports the failure and the still-open dialog lets the user run it again.
+     */
+    data object Failed : BackupResetEffect
 }
 
 /**

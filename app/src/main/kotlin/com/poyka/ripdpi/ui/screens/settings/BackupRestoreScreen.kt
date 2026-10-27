@@ -181,6 +181,7 @@ private fun BackupRestartEffects(
 
     BackupResetEffectHandler(
         flow = viewModel.resetEffects,
+        snackbarHostState = snackbarHostState,
         onRestart = {
             // Restart so the freshly-wiped stores reinitialize and the app lands on
             // onboarding (no profiles / groups / settings to resume into).
@@ -464,12 +465,22 @@ internal fun BackupRestoreEffectHandler(
 @Composable
 private fun BackupResetEffectHandler(
     flow: Flow<com.poyka.ripdpi.backup.BackupResetEffect>,
+    snackbarHostState: SnackbarHostState,
     onRestart: () -> Unit,
 ) {
+    val failedMessage = stringResource(R.string.update_error_unknown)
     BackupEffectCollector(flow) { effect ->
         when (effect) {
             com.poyka.ripdpi.backup.BackupResetEffect.Wiped -> {
                 onRestart()
+            }
+
+            com.poyka.ripdpi.backup.BackupResetEffect.Failed -> {
+                snackbarHostState.showRipDpiSnackbar(
+                    message = failedMessage,
+                    tone = RipDpiSnackbarTone.Error,
+                    testTag = RipDpiTestTags.BackupExportSnackbar,
+                )
             }
         }
     }

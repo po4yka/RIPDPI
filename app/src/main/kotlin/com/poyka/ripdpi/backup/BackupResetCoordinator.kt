@@ -63,6 +63,7 @@ internal class BackupResetCoordinator(
                 // clears a store, so the still-open dialog lets the user run the reset again.
                 Logger.w { "Reset failed: ${ignored.javaClass.simpleName}" }
                 updateState { it.copy(resetting = false) }
+                emitResetEffect(BackupResetEffect.Failed)
                 return@launch
             }
             updateState {

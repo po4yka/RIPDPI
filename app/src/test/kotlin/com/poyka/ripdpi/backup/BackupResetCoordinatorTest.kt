@@ -157,7 +157,7 @@ class BackupResetCoordinatorTest {
 
             assertFalse(harness.state.value.resetting)
             assertTrue(harness.state.value.resetDialogVisible)
-            assertTrue(harness.resetEffects.isEmpty())
+            assertEquals(listOf(BackupResetEffect.Failed), harness.resetEffects)
         }
 
     // -- Harness --------------------------------------------------------------
