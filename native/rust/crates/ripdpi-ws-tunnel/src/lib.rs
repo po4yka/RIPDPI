@@ -83,7 +83,7 @@ where
         ));
     }
 
-    // fake-SNI mode disables standard TLS cert verification (see connect.rs).
+    // fake-SNI mode skips the TLS certificate hostname check (see connect.rs).
     // Refuse the connection when the operator has not explicitly acknowledged
     // the bypass via allow_insecure_sni, so a misconfigured profile cannot
     // silently route traffic through a cover-cert path.
@@ -91,7 +91,7 @@ where
     if config.fake_sni.is_some() && !config.allow_insecure_sni {
         return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
-            "WS tunnel fake_sni requires allow_insecure_sni=true (TLS cert verification would be disabled)",
+            "WS tunnel fake_sni requires allow_insecure_sni=true (the TLS hostname check would be skipped)",
         ));
     }
     if config.worker_route.is_some() && config.fake_sni.is_some() {

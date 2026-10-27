@@ -775,8 +775,9 @@ Resolves Telegram WebSocket hostnames through the active encrypted DNS context w
 The WS tunnel can present a cover domain in the TLS ClientHello SNI instead of
 `kws{dc}.web.telegram.org`, disguising the connection as traffic to a
 whitelisted service (e.g. `yandex.ru`). Because the presented certificate then
-will not match, **fake-SNI disables standard TLS certificate verification** for
-the tunnel.
+will not match the cover name, **fake-SNI skips the TLS certificate hostname
+check** for the tunnel. The certificate chain must still verify against the
+trust store, so a self-signed certificate from an on-path attacker is refused.
 
 This is gated behind an explicit operator opt-in to prevent silent
 verification bypass:
@@ -797,7 +798,7 @@ verification bypass:
 
 `NativeRuntimeSnapshot.wsTunnelFakeSniActive` is a cumulative counter of
 successful WS-tunnel handshakes established with the fake-SNI cover active
-(TLS verification disabled). It increments only on the fake-SNI path
+(TLS hostname check skipped). It increments only on the fake-SNI path
 (`RuntimeTelemetrySink::on_ws_tunnel_fake_sni_active`, fired from the
 ws-fallback success arm when the effective config has both a cover and the
 opt-in), so a non-zero value in the diagnostics export is a deploy-time signal

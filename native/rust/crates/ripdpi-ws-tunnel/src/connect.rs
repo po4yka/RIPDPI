@@ -2,7 +2,7 @@ use std::io;
 use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
-use boring::ssl::{SslConnector, SslStream, SslVerifyMode};
+use boring::ssl::{SslConnector, SslStream};
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tungstenite::WebSocket;
 
@@ -143,7 +143,7 @@ fn configure_established_ws_stream(ws: &mut WsStream) -> io::Result<()> {
     configure_relay_socket(ws.get_mut().get_ref())
 }
 
-fn build_tls_connector(fake_sni: Option<&str>) -> io::Result<SslConnector> {
+fn build_tls_connector() -> io::Result<SslConnector> {
     let mut builder = ripdpi_tls_profiles::configure_builder("chrome_stable")
         .map_err(|e| io::Error::other(format!("TLS profile: {e}")))?;
     // A WebSocket upgrade is an HTTP/1.1 request on every route (RFC 6455
@@ -151,9 +151,6 @@ fn build_tls_connector(fake_sni: Option<&str>) -> io::Result<SslConnector> {
     // profile offers h2 first; kws2/kws4 select it and then answer the
     // upgrade with HTTP/2 frames.
     builder.set_alpn_protos(HTTP11_ALPN).map_err(|e| io::Error::other(format!("TLS ALPN: {e}")))?;
-    if fake_sni.is_some() {
-        builder.set_verify(SslVerifyMode::NONE);
-    }
     Ok(builder.build())
 }
 
@@ -223,7 +220,7 @@ pub(crate) fn open_ws_tunnel_with_timeout(
         connect_timeout,
         fake_sni,
         worker_route,
-        |fake_sni, _worker_route| build_tls_connector(fake_sni),
+        |_fake_sni, _worker_route| build_tls_connector(),
     )
 }
 
@@ -253,7 +250,11 @@ fn open_ws_tunnel_with_timeout_and_connector(
     // BoringSSL TLS handshake -- produces Chrome-native cipher suite ordering,
     // GREASE values, and extension layout for DPI fingerprint evasion.
     let connector = build_connector(fake_sni, worker_route)?;
-    let tls_stream = connector
+    let mut tls_config =
+        connector.configure().map_err(|e| io::Error::other(format!("boring TLS configuration: {e}")))?;
+    // A cover SNI cannot match the gateway certificate: skip only the name check; the chain stays verified.
+    tls_config.set_verify_hostname(fake_sni.is_none());
+    let tls_stream = tls_config
         .connect(tls_host, tcp)
         .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("boring TLS: {e}")))?;
 
@@ -379,13 +380,51 @@ mod tests {
     fn tls_connector_offers_only_http11_alpn() {
         // The fixture prefers h2 like kws2/kws4 do; a WebSocket upgrade
         // needs HTTP/1.1, so no route (direct or Worker) may offer h2.
-        // The fake SNI only turns off verification of the fixture cert.
-        let selected = selected_alpn_from_connector(
-            build_tls_connector(Some("cover.example")).expect("TLS connector"),
-            "cover.example",
-        );
+        let selected = selected_alpn_from_connector(build_tls_connector().expect("TLS connector"), "cover.example");
 
         assert_eq!(selected.as_deref(), Some("http/1.1"));
+    }
+
+    #[test]
+    fn fake_sni_still_rejects_an_untrusted_certificate_chain() {
+        // Self-signed and absent from the trust store: only an on-path attacker would present it.
+        let fixture = spawn_worker_tls_ws_echo_server();
+
+        let error = open_ws_tunnel_with_timeout(
+            TelegramDc::production(2),
+            Some(fixture.addr),
+            None,
+            Some(Duration::from_secs(2)),
+            Some("cover.example"),
+            None,
+        )
+        .expect_err("an untrusted chain must fail the TLS handshake");
+
+        assert!(error.to_string().contains("boring TLS"), "{error}");
+    }
+
+    #[test]
+    fn fake_sni_accepts_a_trusted_chain_issued_for_another_name() {
+        let fixture = spawn_worker_tls_ws_echo_server();
+
+        let mut ws = open_ws_tunnel_with_timeout_and_connector(
+            TelegramDc::production(2),
+            Some(fixture.addr),
+            None,
+            Some(Duration::from_secs(2)),
+            Some("cover.example"),
+            None,
+            |_fake_sni, worker_route| test_tls_connector(&fixture.root_der, None, worker_route),
+        )
+        .expect("a trusted chain for the gateway name passes with a cover SNI");
+        ws.send(tungstenite::Message::Binary(Bytes::from_static(b"ping"))).expect("send binary");
+        let echoed = ws.read().expect("read echo");
+        ws.close(None).expect("close websocket");
+
+        assert_eq!(echoed, tungstenite::Message::Binary(Bytes::from_static(b"ping")));
+        let observed = fixture.observed.recv().expect("fixture observation");
+        fixture.handle.join().expect("fixture thread");
+        assert_eq!(observed.sni.as_deref(), Some("cover.example"));
     }
 
     #[test]
@@ -524,7 +563,10 @@ mod tests {
         });
 
         let tcp = TcpStream::connect(addr).expect("connect TLS ALPN client");
-        let stream = connector.connect(server_name, tcp).expect("client TLS connect");
+        // The fixture certificate is self-signed; this test observes ALPN, not the chain.
+        let mut config = connector.configure().expect("TLS configuration");
+        config.set_verify(SslVerifyMode::NONE);
+        let stream = config.connect(server_name, tcp).expect("client TLS connect");
         drop(stream);
         handle.join().expect("TLS ALPN fixture thread")
     }
