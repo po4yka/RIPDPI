@@ -40,9 +40,10 @@ impl ClientTransport {
         validate_request(command, fd.is_some(), !params.is_null())
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
 
-        let session_nonce = load_session_nonce(&self.session_nonce_path())?;
+        let session_nonce = load_session_nonce(&self.session_nonce_path()).map_err(not_delivered)?;
         if command != CMD_PROTOCOL_PREFLIGHT {
-            self.send_command_once(CMD_PROTOCOL_PREFLIGHT, serde_json::Value::Null, None, &session_nonce)?;
+            self.send_command_once(CMD_PROTOCOL_PREFLIGHT, serde_json::Value::Null, None, &session_nonce)
+                .map_err(not_delivered)?;
         }
         self.send_command_once(command, params, fd, &session_nonce)
     }
@@ -56,9 +57,9 @@ impl ClientTransport {
     ) -> io::Result<(HelperResponse, Option<OwnedFd>)> {
         let descriptor = validate_request(command, fd.is_some(), !params.is_null())
             .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?;
-        let stream = UnixStream::connect(&self.socket_path)?;
-        stream.set_read_timeout(Some(Duration::from_secs(30)))?;
-        stream.set_write_timeout(Some(Duration::from_secs(10)))?;
+        let stream = UnixStream::connect(&self.socket_path).map_err(not_delivered)?;
+        stream.set_read_timeout(Some(Duration::from_secs(30))).map_err(not_delivered)?;
+        stream.set_write_timeout(Some(Duration::from_secs(10))).map_err(not_delivered)?;
 
         let request = HelperRequest {
             protocol_version: Some(PROTOCOL_VERSION),
@@ -68,7 +69,8 @@ impl ClientTransport {
         };
         let json = serde_json::to_vec(&request).map_err(|e| io::Error::other(format!("serialize request: {e}")))?;
 
-        send_message(&stream, &json, fd)?;
+        // A failed or partial frame never reaches the helper's dispatcher.
+        send_message(&stream, &json, fd).map_err(not_delivered)?;
 
         let (resp_bytes, reply_fd) = recv_message(&stream, "helper closed connection")?;
 
@@ -94,6 +96,31 @@ impl ClientTransport {
     }
 }
 
+/// An error raised before the helper received the command: the helper ran
+/// nothing, so the caller can do the operation on the local path instead.
+#[derive(Debug)]
+struct NotDelivered(io::Error);
+
+impl std::fmt::Display for NotDelivered {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        self.0.fmt(formatter)
+    }
+}
+
+impl std::error::Error for NotDelivered {}
+
+fn not_delivered(error: io::Error) -> io::Error {
+    if is_not_delivered(&error) {
+        return error;
+    }
+    io::Error::new(error.kind(), NotDelivered(error))
+}
+
+/// Reports whether `error` came from a command the helper never received.
+pub(crate) fn is_not_delivered(error: &io::Error) -> bool {
+    matches!(error.get_ref(), Some(inner) if inner.is::<NotDelivered>())
+}
+
 fn session_nonce_path(socket_path: &str) -> String {
     format!("{socket_path}.nonce")
 }
@@ -109,7 +136,7 @@ fn load_session_nonce(path: &str) -> io::Result<String> {
 
 #[cfg(test)]
 mod tests {
-    use super::{ClientTransport, load_session_nonce, session_nonce_path};
+    use super::{ClientTransport, is_not_delivered, load_session_nonce, session_nonce_path};
     use std::io;
     use std::io::Write;
     use std::os::fd::AsFd;
@@ -262,7 +289,33 @@ mod tests {
         let write_error = write_fd.write_all(b"x").expect_err("client must close error reply fd");
 
         assert_eq!(error.to_string(), "synthetic helper failure");
+        assert!(!is_not_delivered(&error), "a helper-side failure must not be retried locally");
         assert_eq!(write_error.kind(), std::io::ErrorKind::BrokenPipe);
+    }
+
+    #[test]
+    fn unreachable_helper_socket_is_reported_as_not_delivered() {
+        let socket_path = std::env::temp_dir().join(format!(
+            "ripdpi-root-helper-dead-{}-{}.sock",
+            std::process::id(),
+            unique_suffix()
+        ));
+        let socket_path = socket_path.to_string_lossy().to_string();
+        let nonce_path = session_nonce_path(&socket_path);
+        std::fs::write(&nonce_path, "abcdefghijklmnopqrstuvwxyzABCDEF").expect("write nonce");
+        let request_fd = std::fs::File::open("/dev/null").expect("open request fd");
+
+        let error = ClientTransport::new(socket_path)
+            .send_command(
+                ripdpi_root_helper_protocol::CMD_SEND_FAKE_RST,
+                serde_json::json!({ "default_ttl": 64 }),
+                Some(request_fd.as_fd()),
+            )
+            .expect_err("no helper listens on the socket");
+        let _ = std::fs::remove_file(nonce_path);
+
+        assert_eq!(error.kind(), io::ErrorKind::NotFound);
+        assert!(is_not_delivered(&error));
     }
 
     #[test]
@@ -389,6 +442,7 @@ mod tests {
 
         assert_eq!(error.kind(), io::ErrorKind::InvalidData);
         assert!(error.to_string().contains("protocol version mismatch"));
+        assert!(is_not_delivered(&error), "the mutating command never reached the helper");
     }
 
     fn unique_suffix() -> u128 {

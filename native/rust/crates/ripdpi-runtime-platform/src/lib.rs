@@ -47,7 +47,7 @@
 //!
 //! - **Non-root fallback.** Every privileged path probes `with_root_helper()`
 //!   (or `has_protect_callback()`) first and falls back to a local
-//!   non-privileged path; on non-Linux targets it degrades to a static stub.
+//!   non-privileged path, also when the registered helper is unreachable; on non-Linux targets it degrades to a static stub.
 //!   Never regress this — see the non-root baseline in `RUNTIME_MODES.md`.
 //! - **JNI-free.** This crate defines the platform *port*; the Android adapters
 //!   implement the JNI side. No `jni` dependency may be added here.

@@ -2,7 +2,7 @@
 //!
 //! `send_ip_fragmented_tcp` and its `_reserved` variant (which takes
 //! pre-reserved IPv4 identifications). The entry point tries the privileged
-//! root helper first via `root_helper::with_root_helper` and otherwise falls
+//! root helper first via `root_helper::with_reachable_root_helper` and otherwise falls
 //! back to the local `ripdpi-privileged-ops` path; non-Linux targets return
 //! `Unsupported`.
 //!
@@ -44,7 +44,7 @@ pub fn send_ip_fragmented_tcp_reserved(
     ipv4_identification: Option<u16>,
 ) -> io::Result<()> {
     let ipv4_identification = fragment_identification(ipv4_identification);
-    if let Some(result) = root_helper::with_root_helper(|h| {
+    if let Some(result) = root_helper::with_reachable_root_helper(|h| {
         let res = h.send_ip_fragmented_tcp(
             stream.as_fd(),
             payload,

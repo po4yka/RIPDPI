@@ -33,7 +33,7 @@ pub fn send_ip_fragmented_udp_reserved(
     ipv4_identification: Option<u16>,
 ) -> io::Result<()> {
     let ipv4_identification = fragment_identification(ipv4_identification);
-    if let Some(result) = root_helper::with_root_helper(|h| {
+    if let Some(result) = root_helper::with_reachable_root_helper(|h| {
         h.send_ip_fragmented_udp_with_ipv6_ext(
             upstream.as_fd(),
             target,

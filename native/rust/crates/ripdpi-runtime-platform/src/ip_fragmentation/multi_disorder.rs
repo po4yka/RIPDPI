@@ -2,7 +2,7 @@
 //!
 //! `send_multi_disorder_tcp` and its `_reserved` variant (which takes
 //! pre-reserved IPv4 identifications). The entry point tries the privileged
-//! root helper first via `root_helper::with_root_helper` and otherwise falls
+//! root helper first via `root_helper::with_reachable_root_helper` and otherwise falls
 //! back to the local `ripdpi-privileged-ops` path; non-Linux targets return
 //! `Unsupported`.
 //!
@@ -43,7 +43,7 @@ pub fn send_multi_disorder_tcp_reserved(
     flags: TcpFlagOverrides,
     ipv4_identifications: &[u16],
 ) -> io::Result<()> {
-    if let Some(result) = root_helper::with_root_helper(|h| {
+    if let Some(result) = root_helper::with_reachable_root_helper(|h| {
         let res = h.send_multi_disorder_tcp(
             stream.as_fd(),
             payload,

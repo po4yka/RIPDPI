@@ -1,12 +1,13 @@
 //! Root-helper dispatch half of the fake-send privileged operations.
 //!
 //! Each function here forwards one fake-packet operation to the privileged
-//! `ripdpi-root-helper` over `with_root_helper`. The `Option` return type is
-//! the **non-root fallback signal**: `Some(result)` means a helper was
-//! registered and ran the operation (privileged path); `None` means no helper
-//! is registered, and the caller in the sibling `fake_send::*` modules must
-//! fall through to the local `ripdpi-privileged-ops` path. A `None` here is
-//! never an error — it is the rooted-vs-non-root branch.
+//! `ripdpi-root-helper` over `with_reachable_root_helper`. The `Option` return
+//! type is the **non-root fallback signal**: `Some(result)` means a helper
+//! received the operation (privileged path); `None` means no helper is
+//! registered or the registered one never received the command, and the
+//! caller in the sibling `fake_send::*` modules must fall through to the local
+//! `ripdpi-privileged-ops` path. A `None` here is never an error — it is the
+//! rooted-vs-non-root branch.
 //!
 //! ## Unsafe surface
 //!
@@ -28,7 +29,9 @@ pub(crate) fn send_fake_rst(
     flags: TcpFlagOverrides,
     ipv4_identification: Option<u16>,
 ) -> Option<io::Result<()>> {
-    root_helper::with_root_helper(|h| h.send_fake_rst(stream.as_fd(), default_ttl, flags, ipv4_identification))
+    root_helper::with_reachable_root_helper(|h| {
+        h.send_fake_rst(stream.as_fd(), default_ttl, flags, ipv4_identification)
+    })
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -42,7 +45,7 @@ pub(crate) fn send_fake_tcp(
     options: &FakeTcpOptions<'_>,
     wait: TcpStageWait,
 ) -> Option<io::Result<()>> {
-    root_helper::with_root_helper(|h| {
+    root_helper::with_reachable_root_helper(|h| {
         let res =
             h.send_fake_tcp(stream.as_fd(), original_prefix, fake_prefix, ttl, md5sig, default_ttl, options, wait)?;
         swap_stream_replacement_fd(stream, res)?;
@@ -61,7 +64,7 @@ pub(crate) fn send_ordered_tcp_segments(
     ipv4_identifications: &[u16],
     wait: TcpStageWait,
 ) -> Option<io::Result<()>> {
-    root_helper::with_root_helper(|h| {
+    root_helper::with_reachable_root_helper(|h| {
         let res = h.send_ordered_tcp_segments(
             stream.as_fd(),
             segments,
@@ -85,7 +88,7 @@ pub(crate) fn send_flagged_tcp_payload(
     flags: TcpFlagOverrides,
     ipv4_identification: Option<u16>,
 ) -> Option<io::Result<()>> {
-    root_helper::with_root_helper(|h| {
+    root_helper::with_reachable_root_helper(|h| {
         let res =
             h.send_flagged_tcp_payload(stream.as_fd(), payload, default_ttl, md5sig, flags, ipv4_identification)?;
         swap_stream_replacement_fd(stream, res)?;
@@ -102,7 +105,7 @@ pub(crate) fn send_seqovl_tcp(
     flags: TcpFlagOverrides,
     ipv4_identification: Option<u16>,
 ) -> Option<io::Result<()>> {
-    root_helper::with_root_helper(|h| {
+    root_helper::with_reachable_root_helper(|h| {
         let res = h.send_seqovl_tcp(
             stream.as_fd(),
             real_chunk,

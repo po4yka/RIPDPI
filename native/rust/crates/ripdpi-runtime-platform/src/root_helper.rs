@@ -24,10 +24,11 @@
 //! session (single active session — the common case — is unaffected: the
 //! generation increments and always matches on release).
 
+use std::io;
 use std::sync::atomic::{AtomicU64, Ordering};
 use std::sync::{Arc, RwLock};
 
-use super::root_helper_client::RootHelperClient;
+use super::root_helper_client::{RootHelperClient, is_not_delivered};
 
 /// Monotonic token identifying one [`register_root_helper_versioned`] call.
 ///
@@ -130,6 +131,23 @@ where
     Some(f(client.as_ref()))
 }
 
+/// Like [`with_root_helper`], but also returns `None` when the registered
+/// helper never received the command (dead or wedged socket, missing nonce,
+/// protocol preflight failure, oversized frame). The helper ran nothing, so
+/// the caller degrades to the local path instead of failing the operation.
+pub(crate) fn with_reachable_root_helper<F, T>(f: F) -> Option<io::Result<T>>
+where
+    F: FnOnce(&RootHelperClient) -> io::Result<T>,
+{
+    match with_root_helper(f)? {
+        Err(error) if is_not_delivered(&error) => {
+            tracing::debug!("root helper unreachable, using the local path: {error}");
+            None
+        }
+        result => Some(result),
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -165,6 +183,18 @@ mod tests {
         let lock_available = with_root_helper(|_| ROOT_HELPER.try_write().is_ok());
 
         assert_eq!(lock_available, Some(true));
+        unregister_root_helper();
+    }
+
+    #[test]
+    fn unreachable_helper_falls_back_to_the_local_path() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+        register_root_helper("/nonexistent/ripdpi-root-helper.sock".into());
+
+        assert!(with_root_helper(RootHelperClient::probe_capabilities).is_some_and(|result| result.is_err()));
+        assert!(with_reachable_root_helper(RootHelperClient::probe_capabilities).is_none());
+        let helper_error = with_reachable_root_helper(|_| -> io::Result<()> { Err(io::Error::other("refused")) });
+        assert!(helper_error.is_some_and(|result| result.is_err()), "helper-side errors still surface");
         unregister_root_helper();
     }
 

@@ -20,7 +20,7 @@ use super::root_helper;
 pub fn send_syn_hide_tcp(spec: SynHideTcpSpec, protect_path: Option<&str>) -> io::Result<()> {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     {
-        if let Some(result) = root_helper::with_root_helper(|helper| helper.send_syn_hide_tcp(spec)) {
+        if let Some(result) = root_helper::with_reachable_root_helper(|helper| helper.send_syn_hide_tcp(spec)) {
             return result;
         }
         ripdpi_privileged_ops::send_syn_hide_tcp(spec, protect_path)
@@ -37,7 +37,7 @@ pub fn send_syn_hide_tcp(spec: SynHideTcpSpec, protect_path: Option<&str>) -> io
 pub fn send_icmp_wrapped_udp(spec: &IcmpWrappedUdpSpec, protect_path: Option<&str>) -> io::Result<()> {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     {
-        if let Some(result) = root_helper::with_root_helper(|helper| helper.send_icmp_wrapped_udp(spec)) {
+        if let Some(result) = root_helper::with_reachable_root_helper(|helper| helper.send_icmp_wrapped_udp(spec)) {
             return result;
         }
         ripdpi_privileged_ops::send_icmp_wrapped_udp(spec, protect_path)
@@ -57,7 +57,7 @@ pub fn recv_icmp_wrapped_udp(
 ) -> io::Result<ReceivedIcmpWrappedUdp> {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     {
-        if let Some(result) = root_helper::with_root_helper(|helper| helper.recv_icmp_wrapped_udp(filter)) {
+        if let Some(result) = root_helper::with_reachable_root_helper(|helper| helper.recv_icmp_wrapped_udp(filter)) {
             return result;
         }
         ripdpi_privileged_ops::recv_icmp_wrapped_udp(filter, protect_path)
@@ -74,7 +74,9 @@ pub fn recv_icmp_wrapped_udp(
 pub fn send_raw_ip_packet(target: SocketAddr, packet: &[u8], protect_path: Option<&str>) -> io::Result<()> {
     #[cfg(any(target_os = "linux", target_os = "android"))]
     {
-        if let Some(result) = root_helper::with_root_helper(|helper| helper.send_raw_ip_packet(target, packet)) {
+        if let Some(result) =
+            root_helper::with_reachable_root_helper(|helper| helper.send_raw_ip_packet(target, packet))
+        {
             return result;
         }
         ripdpi_privileged_ops::send_raw_ip_packet(target, packet, protect_path)

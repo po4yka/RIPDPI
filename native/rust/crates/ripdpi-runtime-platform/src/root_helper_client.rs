@@ -17,6 +17,7 @@ mod transport;
 
 pub use capabilities::capability_outcome_from_probe_json;
 use transport::ClientTransport;
+pub(crate) use transport::is_not_delivered;
 
 /// Client for communicating with the root helper process.
 pub struct RootHelperClient {
