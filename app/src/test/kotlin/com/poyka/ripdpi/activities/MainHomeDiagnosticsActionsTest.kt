@@ -974,6 +974,33 @@ class MainHomeVerifiedVpnAdmissionTest {
             assertEquals(1, requests)
             assertTrue(state.value.waitingForVerifiedVpnStart)
         }
+
+    @Test
+    fun `verified vpn reports an unsupported DoQ resolver instead of waiting for a start that never comes`() =
+        runTest {
+            var requests = 0
+            val effects = MutableSharedFlow<MainEffect>(replay = 16, extraBufferCapacity = 16)
+            val state = MutableStateFlow(HomeDiagnosticsRuntimeState(latestCompositeOutcome = compositeOutcome()))
+            val actions =
+                createActions(
+                    scope = this,
+                    effects = effects,
+                    homeDiagnosticsState = state,
+                    diagnosticsHomeWorkflowService =
+                        StubDiagnosticsHomeWorkflowService().apply {
+                            currentFingerprint =
+                                "fp-1"
+                        },
+                    requestVpnStart = { requests++ },
+                    vpnStartBlockedByDns = { true },
+                )
+            actions.startVerifiedVpn()
+            advanceUntilIdle()
+
+            assertEquals(0, requests)
+            assertFalse(state.value.waitingForVerifiedVpnStart)
+            assertTrue(effects.replayCache.any { it is MainEffect.ShowError })
+        }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -1034,6 +1061,7 @@ private fun createActions(
     homeDiagnosticsState: MutableStateFlow<HomeDiagnosticsRuntimeState> =
         MutableStateFlow(HomeDiagnosticsRuntimeState()),
     requestVpnStart: () -> Unit = {},
+    vpnStartBlockedByDns: () -> Boolean = { false },
 ): MainHomeDiagnosticsActions =
     MainHomeDiagnosticsActions(
         mutations =
@@ -1053,6 +1081,7 @@ private fun createActions(
         homeDiagnosticsState = homeDiagnosticsState,
         stringResolver = ResourceStringResolver(),
         requestVpnStart = requestVpnStart,
+        vpnStartBlockedByDns = vpnStartBlockedByDns,
     )
 
 private fun compositeOutcome(

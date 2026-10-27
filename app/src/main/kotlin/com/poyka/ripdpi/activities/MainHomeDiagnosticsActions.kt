@@ -74,6 +74,8 @@ internal class MainHomeDiagnosticsActions(
     private val homeDiagnosticsState: MutableStateFlow<HomeDiagnosticsRuntimeState>,
     private val stringResolver: StringResolver,
     private val requestVpnStart: () -> Unit,
+    // True when the saved DNS settings make startMode(VPN) refuse to start (DoQ in VPN mode).
+    private val vpnStartBlockedByDns: () -> Boolean = { false },
     private val pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
 ) {
     private val homePcapCaptureLeaseCoordinator = pcapCaptureRuntimeController?.let(::HomePcapCaptureLeaseCoordinator)
@@ -362,6 +364,11 @@ internal class MainHomeDiagnosticsActions(
                 return@launch
             }
             if (!canStartVerifiedVpn()) return@launch
+            // startMode would only show this error and return, leaving the card waiting for a start forever.
+            if (vpnStartBlockedByDns()) {
+                mutations.emit(MainEffect.ShowError(stringResolver.getString(R.string.dns_custom_doq_unavailable)))
+                return@launch
+            }
             homeDiagnosticsState.update {
                 it.copy(
                     waitingForVerifiedVpnStart = true,

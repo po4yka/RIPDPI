@@ -85,6 +85,7 @@ internal class HomeDiagnosticsStateOwner(
             homeDiagnosticsState = this.runtimeState,
             stringResolver = stringResolver,
             requestVpnStart = requestVpnStart,
+            vpnStartBlockedByDns = { hasUnsupportedVpnDoq(settingsState.value) },
             pcapCaptureRuntimeController = pcapCaptureRuntimeController,
         )
 
