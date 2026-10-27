@@ -154,7 +154,7 @@ class DiagnosticsBootstrapperTest {
 
             bootstrapper.initialize()
             runCurrent()
-            advanceTimeBy(HANDOVER_RESUBSCRIBE_WAIT_MILLIS)
+            advanceTimeBy(HandoverResubscribeWaitMillis)
             runCurrent()
             handoverStore.publish(handoverEvent())
             advanceTimeBy(100L)
@@ -377,7 +377,7 @@ class DiagnosticsBootstrapperTest {
         )
 }
 
-private const val HANDOVER_RESUBSCRIBE_WAIT_MILLIS = 1_001L
+private const val HandoverResubscribeWaitMillis = 1_001L
 
 /** The first subscription fails as a closed database would; later ones see the live events. */
 private class FailingOnceHandoverEventStore(
