@@ -1,7 +1,12 @@
 use socket2::{Domain, Protocol, Socket, Type};
 
 pub fn probe_ip_fragmentation_capabilities() -> ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities {
-    ripdpi_runtime_platform::raw_packet::probe_ip_fragmentation_capabilities(None).unwrap_or_default()
+    // Only the root-helper path returns an error; the unprivileged probe reports missing raw sockets
+    // as false capabilities. Log the failure so it is not mistaken for an unsupported platform.
+    ripdpi_runtime_platform::raw_packet::probe_ip_fragmentation_capabilities(None).unwrap_or_else(|error| {
+        tracing::warn!(%error, "ip fragmentation capability probe failed; raw-socket candidates are skipped");
+        ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities::default()
+    })
 }
 
 pub fn supports_tcp_ip_fragmentation_for(
