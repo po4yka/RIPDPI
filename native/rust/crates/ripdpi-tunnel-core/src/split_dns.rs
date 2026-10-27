@@ -35,7 +35,7 @@ impl SplitDnsPolicy {
             return Err("split DNS default action must be tunneled");
         }
         Ok(Self {
-            rules: config.rules.clone().into_boxed_slice(),
+            rules: config.rules.iter().cloned().map(with_a_label_domains).collect(),
             coverage_reason: config.coverage_reason.clone().map(String::into_boxed_str),
             direct_resolver_candidates: config.direct_resolver_candidates.clone().into_boxed_slice(),
             geosite: load_geosite_runtime(config.geosite_db_path.as_deref()),
@@ -110,6 +110,20 @@ fn evaluate_rule(rule: &SplitDnsRule, qname: &str, geosite: Option<&GeoRuntime>)
         }
     }
     if inconclusive { RuleMatch::Inconclusive } else { RuleMatch::NoMatch }
+}
+
+/// Intercepted qnames are A-labels, so a rule domain stored in Unicode (`пример.рф`) is
+/// converted once to its A-label form (`xn--e1afmkfd.xn--p1ai`) to keep matching.
+fn with_a_label_domains(mut rule: SplitDnsRule) -> SplitDnsRule {
+    for matcher in &mut rule.domains {
+        if matcher.kind == SplitDnsMatcherKind::Geosite || matcher.value.is_ascii() {
+            continue;
+        }
+        if let Ok(name) = hickory_proto::rr::Name::from_utf8(&matcher.value) {
+            matcher.value = name.to_ascii().trim_end_matches('.').to_owned();
+        }
+    }
+    rule
 }
 
 fn load_geosite_runtime(path: Option<&str>) -> Option<std::sync::Arc<GeoRuntime>> {
@@ -302,6 +316,38 @@ mod tests {
 
             assert_eq!(policy.evaluate("scoped.example"), proxy(Some("mixed_route_constraints")));
         }
+    }
+
+    #[test]
+    fn unicode_rule_domains_match_a_label_qnames() {
+        let policy = compile(
+            vec![
+                rule(
+                    SplitDnsAction::Block,
+                    vec![matcher(SplitDnsMatcherKind::Exact, "Пример.РФ")],
+                    SplitDnsNetwork::Both,
+                    false,
+                    false,
+                ),
+                rule(
+                    SplitDnsAction::Direct,
+                    vec![matcher(SplitDnsMatcherKind::Suffix, "bücher.example")],
+                    SplitDnsNetwork::Both,
+                    false,
+                    false,
+                ),
+            ],
+            None,
+        );
+
+        assert_eq!(
+            policy.evaluate("xn--e1afmkfd.xn--p1ai."),
+            DnsPolicyDecision { plane: DnsPolicyPlane::Block, reason: None }
+        );
+        assert_eq!(
+            policy.evaluate("shop.xn--bcher-kva.example"),
+            DnsPolicyDecision { plane: DnsPolicyPlane::Direct, reason: None }
+        );
     }
 
     #[test]
