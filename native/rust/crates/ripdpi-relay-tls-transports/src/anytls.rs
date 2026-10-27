@@ -5,7 +5,7 @@ use std::sync::Arc;
 use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 use tokio::io::{AsyncRead, AsyncWrite};
 
-use crate::session_registry::{OwnedSession, SessionRegistry};
+use crate::session_registry::{OwnedSession, Registered, SessionRegistry};
 
 use crate::util::to_io_error;
 
@@ -14,7 +14,7 @@ pub use ripdpi_anytls::session::AnyTlsClientConfig;
 #[derive(Clone)]
 pub struct AnyTlsSessionFactory {
     client_config: AnyTlsClientConfig,
-    sessions: Arc<SessionRegistry<AnyTlsSession>>,
+    sessions: Arc<SessionRegistry<AnyTlsCarrier>>,
 }
 
 impl AnyTlsSessionFactory {
@@ -23,7 +23,8 @@ impl AnyTlsSessionFactory {
     }
 }
 
-pub struct AnyTlsSession {
+/// A registry-owned carrier; callers hold it as [`AnyTlsSession`].
+pub struct AnyTlsCarrier {
     client: ripdpi_anytls::session::AnyTlsClient,
 }
 
@@ -31,7 +32,10 @@ pub struct AnyTlsUdpSession {
     udp: ripdpi_anytls::session::AnyTlsUdpOverTcp,
 }
 
-impl OwnedSession for AnyTlsSession {
+/// Dropping the last handle aborts the carrier.
+pub type AnyTlsSession = Registered<AnyTlsCarrier>;
+
+impl OwnedSession for AnyTlsCarrier {
     fn abort(&self) {
         self.client.cancel();
     }
@@ -74,7 +78,7 @@ impl RelaySessionFactory for AnyTlsSessionFactory {
             .create(async {
                 let client =
                     ripdpi_anytls::session::AnyTlsClient::new(self.client_config.clone()).map_err(to_io_error)?;
-                Ok(AnyTlsSession { client })
+                Ok(AnyTlsCarrier { client })
             })
             .await
     }

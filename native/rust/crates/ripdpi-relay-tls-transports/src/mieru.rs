@@ -1,7 +1,7 @@
 use std::io;
 use std::sync::Arc;
 
-use crate::session_registry::{OwnedSession, SessionRegistry};
+use crate::session_registry::{OwnedSession, Registered, SessionRegistry};
 use ripdpi_network_time::NetworkTimeProvider;
 use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 
@@ -13,7 +13,7 @@ pub use ripdpi_mieru::{MieruConfig, MieruMux, MieruProtocol};
 pub struct MieruSessionFactory {
     config: ripdpi_mieru::MieruConfig,
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
-    sessions: Arc<SessionRegistry<MieruSession>>,
+    sessions: Arc<SessionRegistry<MieruCarrier>>,
 }
 
 impl MieruSessionFactory {
@@ -24,11 +24,15 @@ impl MieruSessionFactory {
 
 /// Every carrier owns its child tasks. Off uses a single slot and a non-reusable
 /// pool entry, so independent Off requests never share a carrier.
-pub struct MieruSession {
+/// A registry-owned carrier; callers hold it as [`MieruSession`].
+pub struct MieruCarrier {
     connection: ripdpi_mieru::MieruMuxConnection,
 }
 
-impl OwnedSession for MieruSession {
+/// Dropping the last handle aborts the carrier.
+pub type MieruSession = Registered<MieruCarrier>;
+
+impl OwnedSession for MieruCarrier {
     fn abort(&self) {
         self.connection.cancel();
     }
@@ -110,7 +114,7 @@ impl RelaySessionFactory for MieruSessionFactory {
                     let connection = ripdpi_mieru::MieruMuxConnection::connect_over(stream, &config, time)
                         .await
                         .map_err(to_io_error)?;
-                    Ok(MieruSession { connection })
+                    Ok(MieruCarrier { connection })
                 })
                 .await
                 .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "Mieru carrier connection timed out"))?

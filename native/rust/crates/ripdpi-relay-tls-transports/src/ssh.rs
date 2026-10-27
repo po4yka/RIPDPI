@@ -3,7 +3,7 @@ use std::sync::Arc;
 
 use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 
-use crate::session_registry::{OwnedSession, SessionRegistry};
+use crate::session_registry::{OwnedSession, Registered, SessionRegistry};
 use crate::util::to_io_error;
 
 pub use ripdpi_ssh::{SshAuth, SshChannelStream, SshConfig, SshHostKeyPolicy};
@@ -12,7 +12,7 @@ pub use ripdpi_ssh::{SshAuth, SshChannelStream, SshConfig, SshHostKeyPolicy};
 pub struct SshSessionFactory {
     config: ripdpi_ssh::SshConfig,
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
-    sessions: Arc<SessionRegistry<SshSession>>,
+    sessions: Arc<SessionRegistry<SshCarrier>>,
 }
 
 impl SshSessionFactory {
@@ -21,11 +21,15 @@ impl SshSessionFactory {
     }
 }
 
-pub struct SshSession {
+/// A registry-owned carrier; callers hold it as [`SshSession`].
+pub struct SshCarrier {
     client: ripdpi_ssh::SshClient,
 }
 
-impl OwnedSession for SshSession {
+/// Dropping the last handle aborts the carrier.
+pub type SshSession = Registered<SshCarrier>;
+
+impl OwnedSession for SshCarrier {
     fn abort(&self) {
         self.client.cancel();
     }
@@ -66,7 +70,7 @@ impl RelaySessionFactory for SshSessionFactory {
             .create(async {
                 let client = ripdpi_ssh::connect_with_socket_protection(&self.config, self.socket_protection)
                     .map_err(to_io_error)?;
-                Ok(SshSession { client })
+                Ok(SshCarrier { client })
             })
             .await?;
         // The registry owns construction before this cancellable readiness wait.
