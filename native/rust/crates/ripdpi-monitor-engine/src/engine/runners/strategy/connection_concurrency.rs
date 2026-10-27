@@ -30,6 +30,8 @@ const CELL_RESULT_DEADLINE: Duration = Duration::from_secs(6);
 const RESOLUTION_POLL_INTERVAL: Duration = Duration::from_millis(50);
 const MAX_PENDING_SYSTEM_RESOLUTIONS: usize = 4;
 const LOCAL_WORKER_FAILURE_SIGNAL: &str = "local_worker_failure";
+/// `bounded_scan_io_timeout` error: the local scan or stage deadline passed, which is not network evidence.
+const SCAN_DEADLINE_SIGNAL: &str = "scan_deadline_exceeded";
 
 static SYSTEM_RESOLUTION_LIMITER: LazyLock<Arc<ResolutionLimiter>> =
     LazyLock::new(|| Arc::new(ResolutionLimiter::new(MAX_PENDING_SYSTEM_RESOLUTIONS)));
@@ -136,18 +138,7 @@ where
     for (profile_index, &profile) in profiles.iter().enumerate() {
         for (level_index, &level) in levels.iter().enumerate() {
             if should_stop() {
-                for (remaining_profile_index, &remaining_profile) in profiles.iter().enumerate().skip(profile_index) {
-                    let first_level = if remaining_profile_index == profile_index { level_index } else { 0 };
-                    cells.extend(levels.iter().skip(first_level).map(|remaining_level| {
-                        skipped_cell(
-                            target,
-                            &metadata.cohort_id,
-                            remaining_profile,
-                            *remaining_level,
-                            "scan cancelled before cell execution",
-                        )
-                    }));
-                }
+                skip_remaining_cells(&mut cells, target, metadata, levels, profiles, profile_index, level_index);
                 return TargetMatrixOutcome { cells, cancelled: true };
             }
             let mut cell = if frozen {
@@ -158,6 +149,26 @@ where
                 execute(profile, level)
             };
             if !frozen && level > 1 && !cell.contaminated && cell.status != ClassifierStatus::Skipped {
+                if should_stop() {
+                    // A post-check now would only observe the expired local deadline, not the network.
+                    cells.push(skipped_cell(
+                        target,
+                        &metadata.cohort_id,
+                        profile,
+                        level,
+                        "scan cancelled before post-check",
+                    ));
+                    skip_remaining_cells(
+                        &mut cells,
+                        target,
+                        metadata,
+                        levels,
+                        profiles,
+                        profile_index,
+                        level_index + 1,
+                    );
+                    return TargetMatrixOutcome { cells, cancelled: true };
+                }
                 let mut post_check = execute(profile, 1);
                 if post_check.status != ClassifierStatus::Healthy {
                     frozen = true;
@@ -174,6 +185,29 @@ where
         }
     }
     TargetMatrixOutcome { cells, cancelled: false }
+}
+
+fn skip_remaining_cells(
+    cells: &mut Vec<ClassifierCell>,
+    target: &crate::types::DomainTarget,
+    metadata: &crate::types::ConcurrencyProbeTargetMetadata,
+    levels: &[u16],
+    profiles: &[&str],
+    profile_index: usize,
+    level_index: usize,
+) {
+    for (remaining_profile_index, &remaining_profile) in profiles.iter().enumerate().skip(profile_index) {
+        let first_level = if remaining_profile_index == profile_index { level_index } else { 0 };
+        cells.extend(levels.iter().skip(first_level).map(|remaining_level| {
+            skipped_cell(
+                target,
+                &metadata.cohort_id,
+                remaining_profile,
+                *remaining_level,
+                "scan cancelled before cell execution",
+            )
+        }));
+    }
 }
 
 fn levels_for(plan: &ExecutionPlan) -> &'static [u16] {
@@ -423,6 +457,9 @@ where
                                 drop(stream);
                                 active.fetch_sub(1, Ordering::AcqRel);
                             }
+                            Ok(Err(error)) if error == SCAN_DEADLINE_SIGNAL => {
+                                let _ = outcome_tx.send((usize::from(index), Err(SCAN_DEADLINE_SIGNAL.to_string())));
+                            }
                             Ok(Err(error)) => {
                                 let signal = classify_error(&error).to_string();
                                 let _ = outcome_tx.send((usize::from(index), Err(signal)));
@@ -491,6 +528,9 @@ where
     }
     if outcomes.iter().any(|outcome| matches!(outcome, Err(error) if error == LOCAL_WORKER_FAILURE_SIGNAL)) {
         return skipped_cell(target, cohort_id, profile, parallelism, "local concurrency worker failed");
+    }
+    if outcomes.iter().any(|outcome| matches!(outcome, Err(error) if error == SCAN_DEADLINE_SIGNAL)) {
+        return skipped_cell(target, cohort_id, profile, parallelism, "scan deadline reached during cell");
     }
     let times = launch_times.lock().expect("launch times lock");
     let launch_spread_ms =
@@ -1025,6 +1065,49 @@ mod tests {
         assert!(outcome.cells.iter().any(|cell| cell.status == ClassifierStatus::Skipped));
         let assessment = classify_connection_concurrency_matrix(&outcome.cells, Some("chrome_stable"));
         assert_eq!(assessment.verdict, ClassifierVerdict::Inconclusive);
+    }
+
+    #[test]
+    fn scan_deadline_error_skips_the_cell_without_a_network_block_signal() {
+        let cell = execute_cell_with(
+            &target(),
+            "fixture",
+            "127.0.0.1:443".parse().expect("address"),
+            "chrome_stable",
+            4,
+            None,
+            |_, _, _| -> Result<(), String> { Err("scan_deadline_exceeded".to_string()) },
+        );
+
+        assert_eq!(cell.status, ClassifierStatus::Skipped);
+        assert!(cell.block_signals.is_empty());
+    }
+
+    #[test]
+    fn deadline_after_a_cell_skips_its_post_check_instead_of_freezing_the_target() {
+        let target = target();
+        let metadata = target.concurrency_probe.as_ref().expect("metadata");
+        let level_four_done = std::cell::Cell::new(false);
+        let mut post_checks = 0;
+        let outcome = collect_target_matrix(
+            &target,
+            metadata,
+            QUICK_LEVELS,
+            &["chrome_stable"],
+            || level_four_done.get(),
+            |profile, level| {
+                if level == 4 {
+                    level_four_done.set(true);
+                } else if level_four_done.get() {
+                    post_checks += 1;
+                }
+                test_cell(profile, level, ClassifierStatus::Healthy)
+            },
+        );
+
+        assert_eq!(post_checks, 0);
+        assert!(outcome.cancelled);
+        assert!(!outcome.cells.iter().any(|cell| cell.status == ClassifierStatus::Contaminated));
     }
 
     fn test_cell(profile: &str, level: u16, status: ClassifierStatus) -> ClassifierCell {
