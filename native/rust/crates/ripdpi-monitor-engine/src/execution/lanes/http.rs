@@ -79,12 +79,31 @@ pub(super) fn run_http_strategy_probe(
     }
 }
 
-/// Same-site rule of the runtime redirect trigger: the Location host must equal the requested host
-/// or be its parent or child; a relative Location stays on the site.
+/// Same-site rule of the runtime redirect trigger, applied to the registrable domain of the
+/// requested host: a sibling such as `www.google.com` -> `consent.google.com` stays on the site, and
+/// so does a relative Location.
 fn redirect_leaves_site(host: &str, location: &str) -> bool {
-    let request = format!("GET / HTTP/1.1\r\nHost: {host}\r\n\r\n");
+    let site = registrable_domain(host);
+    let request = format!("GET / HTTP/1.1\r\nHost: {site}\r\n\r\n");
     let response = format!("HTTP/1.1 302 Found\r\nLocation: {location}\r\n\r\n");
     ripdpi_packets::is_http_redirect(request.as_bytes(), response.as_bytes())
+}
+
+/// shortcut: the last two labels, or three under a two-letter TLD with a generic second level
+/// (`bbc.co.uk`); upgrade to a public suffix list if hosted-platform siblings (`*.github.io`) matter.
+fn registrable_domain(host: &str) -> &str {
+    if host.parse::<std::net::IpAddr>().is_ok() {
+        return host;
+    }
+    let labels: Vec<&str> = host.split('.').collect();
+    let generic_second_level = |label: &str| matches!(label, "co" | "com" | "net" | "org" | "gov" | "edu" | "ac");
+    let keep = match labels.as_slice() {
+        [.., second, tld] if tld.len() == 2 && generic_second_level(second) => 3,
+        _ => 2,
+    };
+    let dropped = labels.len().saturating_sub(keep);
+    let start: usize = labels[..dropped].iter().map(|label| label.len() + 1).sum();
+    &host[start..]
 }
 
 #[cfg(test)]
@@ -145,5 +164,15 @@ mod tests {
         assert!(!redirect_leaves_site("example.com", "https://www.example.com/"));
         assert!(redirect_leaves_site("example.com", "http://warning.isp-stub.example/"));
         assert!(redirect_leaves_site("example.com", "http://203.0.113.9/"));
+    }
+
+    #[test]
+    fn sibling_subdomain_redirects_stay_on_the_site() {
+        assert!(!redirect_leaves_site("www.google.com", "https://consent.google.com/ml?continue=x"));
+        assert!(!redirect_leaves_site("www.youtube.com", "https://m.youtube.com/"));
+        assert!(!redirect_leaves_site("www.bbc.co.uk", "https://news.bbc.co.uk/"));
+        assert!(redirect_leaves_site("www.google.com", "http://warning.rt.ru/"));
+        assert!(redirect_leaves_site("www.bbc.co.uk", "https://other.co.uk/"));
+        assert!(redirect_leaves_site("10.0.0.1", "http://10.0.0.2/"));
     }
 }
