@@ -1,15 +1,20 @@
 use std::io;
-use std::sync::{Mutex, MutexGuard, TryLockError};
+use std::sync::{Arc, Mutex, MutexGuard, TryLockError};
 use std::time::{Duration, Instant};
 
 use crate::client::ClientInner;
 use crate::endpoint::build_client_udp_socket;
 
-const MIGRATION_COOLDOWN: Duration = Duration::from_secs(30);
+pub(crate) const MIGRATION_COOLDOWN: Duration =
+    if cfg!(test) { Duration::from_millis(100) } else { Duration::from_secs(30) };
+/// Reverted attempts after which the connection stops migrating: a server
+/// that never challenges a new path does not migrate.
+const MAX_MIGRATION_REVERTS: u8 = 2;
 /// How long the server may take to challenge the rebound path before the
 /// migration rolls back. It sends PATH_CHALLENGE within one RTT of the first
 /// packet it gets from the new address (RFC 9000 section 9.3).
-const PATH_EVIDENCE_TIMEOUT: Duration = if cfg!(test) { Duration::from_millis(500) } else { Duration::from_secs(3) };
+pub(crate) const PATH_EVIDENCE_TIMEOUT: Duration =
+    if cfg!(test) { Duration::from_millis(500) } else { Duration::from_secs(3) };
 const PATH_EVIDENCE_POLL: Duration = Duration::from_millis(20);
 
 pub(crate) struct QuicMigration {
@@ -21,6 +26,7 @@ struct QuicMigrationState {
     reason: Option<String>,
     validated: bool,
     cooldown_until: Option<Instant>,
+    reverts: u8,
     current_socket: std::net::UdpSocket,
     previous_socket: Option<std::net::UdpSocket>,
 }
@@ -33,6 +39,7 @@ impl QuicMigration {
                 reason: None,
                 validated: false,
                 cooldown_until: None,
+                reverts: 0,
                 current_socket,
                 previous_socket: None,
             }),
@@ -55,21 +62,21 @@ impl QuicMigration {
     }
 }
 
-type CompleteAction<'a> = Box<dyn FnOnce(&str) + Send + 'a>;
-type RollbackAction<'a> = Box<dyn FnOnce(&str) -> io::Result<()> + Send + 'a>;
+type CompleteAction = Box<dyn FnOnce(&str) + Send>;
+type RollbackAction = Box<dyn FnOnce(&str) -> io::Result<()> + Send>;
 
-pub(crate) struct MigrationAttempt<'a> {
-    complete: Option<CompleteAction<'a>>,
-    rollback: Option<RollbackAction<'a>>,
+pub(crate) struct MigrationAttempt {
+    complete: Option<CompleteAction>,
+    rollback: Option<RollbackAction>,
     /// PATH_CHALLENGE frames received before the rebind.
     path_challenges_before: u64,
 }
 
-impl<'a> MigrationAttempt<'a> {
+impl MigrationAttempt {
     fn new<C, R>(complete: C, rollback: R) -> Self
     where
-        C: FnOnce(&str) + Send + 'a,
-        R: FnOnce(&str) -> io::Result<()> + Send + 'a,
+        C: FnOnce(&str) + Send + 'static,
+        R: FnOnce(&str) -> io::Result<()> + Send + 'static,
     {
         Self { complete: Some(Box::new(complete)), rollback: Some(Box::new(rollback)), path_challenges_before: 0 }
     }
@@ -81,17 +88,32 @@ impl<'a> MigrationAttempt<'a> {
         }
     }
 
+    /// Confirms the migration from a spawned task, so that no stream or
+    /// datagram waits for the server: see [`Self::confirm`]. Call it after
+    /// the operation that sends on the new path. Without a runtime the
+    /// attempt rolls back at once.
+    pub(crate) fn confirm_in_background(self, connection: &quinn::Connection, reason: &'static str) {
+        let Ok(handle) = tokio::runtime::Handle::try_current() else {
+            return;
+        };
+        let connection = connection.clone();
+        handle.spawn(async move {
+            if let Err(error) = self.confirm(&connection, reason).await {
+                tracing::debug!(kind = ?error.kind(), "TUIC migration rollback failed");
+            }
+        });
+    }
+
     /// Completes the migration with `reason` once the server challenges the
     /// new path, and rolls it back if no challenge arrives within
-    /// [`PATH_EVIDENCE_TIMEOUT`]. Call it after the operation that sends on
-    /// the new path: opening a stream or queueing a datagram is local, and
-    /// does not show that the server can reach the new path.
+    /// [`PATH_EVIDENCE_TIMEOUT`]. Opening a stream or queueing a datagram is
+    /// local, and does not show that the server can reach the new path.
     ///
     /// # Cancel safety
     ///
     /// cancel-safe: dropping the future drops the attempt, which rolls the
     /// migration back.
-    pub(crate) async fn confirm(self, connection: &quinn::Connection, reason: &str) -> io::Result<()> {
+    async fn confirm(self, connection: &quinn::Connection, reason: &str) -> io::Result<()> {
         // Not any received packet: quinn keeps reading the old socket until
         // a packet arrives on the new one. The server sends PATH_CHALLENGE
         // only to an address it got packets from.
@@ -112,7 +134,7 @@ impl<'a> MigrationAttempt<'a> {
     }
 }
 
-impl Drop for MigrationAttempt<'_> {
+impl Drop for MigrationAttempt {
     fn drop(&mut self) {
         if let Some(rollback) = self.rollback.take() {
             let _ = rollback("operation_cancelled_after_rebind");
@@ -121,7 +143,7 @@ impl Drop for MigrationAttempt<'_> {
 }
 
 impl ClientInner {
-    pub(crate) fn begin_quic_migration(&self) -> io::Result<Option<MigrationAttempt<'_>>> {
+    pub(crate) fn begin_quic_migration(self: &Arc<Self>) -> io::Result<Option<MigrationAttempt>> {
         let mut state = self.migration.lock();
         if !self.should_attempt_quic_migration(&state) {
             return Ok(None);
@@ -137,12 +159,13 @@ impl ClientInner {
                 state.reason = Some("path_challenge_pending".to_string());
                 state.previous_socket = Some(old_socket);
                 drop(state);
+                let (on_complete, on_rollback) = (Arc::clone(self), Arc::clone(self));
                 let mut attempt = MigrationAttempt::new(
-                    move |reason| self.complete_quic_migration(reason),
+                    move |reason| on_complete.complete_quic_migration(reason),
                     move |reason| {
-                        let result = self.rollback_quic_migration(reason);
+                        let result = on_rollback.rollback_quic_migration(reason);
                         if result.is_err() {
-                            self.mark_migration_failed("rollback_failed");
+                            on_rollback.mark_migration_failed("rollback_failed");
                         }
                         result
                     },
@@ -182,6 +205,7 @@ impl ClientInner {
         state.status = Some("reverted".to_string());
         state.reason = Some(reason.to_string());
         state.validated = false;
+        state.reverts = state.reverts.saturating_add(1);
         state.cooldown_until = Some(Instant::now() + MIGRATION_COOLDOWN);
         Ok(())
     }
@@ -201,7 +225,7 @@ impl ClientInner {
         if !self.migrate_after_handshake {
             return false;
         }
-        if state.validated || state.previous_socket.is_some() {
+        if state.validated || state.previous_socket.is_some() || state.reverts >= MAX_MIGRATION_REVERTS {
             return false;
         }
         state.cooldown_until.is_none_or(|cooldown_until| cooldown_until <= Instant::now())

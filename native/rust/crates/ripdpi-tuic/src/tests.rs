@@ -1,6 +1,6 @@
 use std::net::{Ipv4Addr, SocketAddr};
 use std::sync::Arc;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 use bytes::BytesMut;
 use quinn::Endpoint;
@@ -13,6 +13,7 @@ use uuid::Uuid;
 use crate::client::TuicClient;
 use crate::config::Config;
 use crate::endpoint::{build_tls_config, ensure_crypto_provider};
+use crate::migration::{MIGRATION_COOLDOWN, PATH_EVIDENCE_TIMEOUT};
 use crate::protocol::{COMMAND_AUTHENTICATE, COMMAND_CONNECT, PacketHeader, TUIC_VERSION, TuicAddress};
 
 #[test]
@@ -217,7 +218,7 @@ async fn tuic_client_relays_tcp_and_udp() {
     assert_eq!(&echoed, b"hello");
 
     assert_eq!(
-        client.quic_migration_snapshot(),
+        wait_for_migration_status(|| client.quic_migration_snapshot(), "validated").await,
         (Some("validated".to_string()), Some("path_validated_after_stream_open".to_string()),)
     );
 
@@ -441,9 +442,26 @@ async fn first_source_only_relay(server_addr: SocketAddr) -> SocketAddr {
     relay_addr
 }
 
+/// Polls the migration snapshot until its status is `status`; the background
+/// confirmation sets it within `PATH_EVIDENCE_TIMEOUT`.
+async fn wait_for_migration_status(
+    snapshot: impl Fn() -> (Option<String>, Option<String>),
+    status: &str,
+) -> (Option<String>, Option<String>) {
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(5);
+    loop {
+        let current = snapshot();
+        if current.0.as_deref() == Some(status) || tokio::time::Instant::now() >= deadline {
+            return current;
+        }
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
+
 /// A migration is validated only when the server answers on the new path.
 /// When the new source port is black-holed, the client rolls back to the old
-/// socket instead of stalling the connection.
+/// socket instead of stalling the connection, and the stream that opened on
+/// the new path does not wait for that decision.
 #[tokio::test]
 async fn migration_rolls_back_when_the_new_path_is_silent() {
     let (server, cert_der) = fixture_server();
@@ -461,9 +479,11 @@ async fn migration_rolls_back_when_the_new_path_is_silent() {
     });
 
     let client = fixture_client(relay_addr, cert_der, true).await;
+    let started = Instant::now();
     let mut tcp = client.tcp_connect("echo.example:443").await.expect("tcp connect");
+    assert!(started.elapsed() < PATH_EVIDENCE_TIMEOUT, "tcp_connect waited for the path: {:?}", started.elapsed());
     assert_eq!(
-        client.quic_migration_snapshot(),
+        wait_for_migration_status(|| client.quic_migration_snapshot(), "reverted").await,
         (Some("reverted".to_string()), Some("path_unconfirmed_after_rebind".to_string())),
     );
     tcp.write_all(b"hello").await.expect("tcp write");
@@ -474,5 +494,39 @@ async fn migration_rolls_back_when_the_new_path_is_silent() {
         .expect("tcp read");
     assert_eq!(&echoed, b"hello");
     drop((tcp, client));
+    server_task.abort();
+}
+
+/// A server that never challenges a new path adds no latency to a connect or
+/// a datagram send, and the connection stops migrating after
+/// `MAX_MIGRATION_REVERTS` reverted attempts instead of every cooldown.
+#[tokio::test]
+async fn silent_path_stops_migration_after_repeated_reverts() {
+    let (server, cert_der) = fixture_server();
+    let relay_addr = first_source_only_relay(server.local_addr().expect("server addr")).await;
+    let server_task = tokio::spawn(async move {
+        let connection = server.accept().await.expect("incoming").await.expect("connection");
+        connection.closed().await;
+    });
+    let client = fixture_client(relay_addr, cert_der, true).await;
+    let reverted = (Some("reverted".to_string()), Some("path_unconfirmed_after_rebind".to_string()));
+
+    let started = Instant::now();
+    let first = client.tcp_connect("one.example:443").await.expect("first tcp connect");
+    assert!(started.elapsed() < PATH_EVIDENCE_TIMEOUT, "tcp_connect waited for the path: {:?}", started.elapsed());
+    assert_eq!(wait_for_migration_status(|| client.quic_migration_snapshot(), "reverted").await, reverted);
+
+    tokio::time::sleep(MIGRATION_COOLDOWN).await;
+    let udp = client.udp_session().await.expect("udp session");
+    let started = Instant::now();
+    udp.send_to("dns.example:53", b"query").await.expect("udp send");
+    assert!(started.elapsed() < PATH_EVIDENCE_TIMEOUT, "send_to waited for the path: {:?}", started.elapsed());
+    assert_eq!(client.quic_migration_snapshot().1.as_deref(), Some("path_challenge_pending"));
+    assert_eq!(wait_for_migration_status(|| client.quic_migration_snapshot(), "reverted").await, reverted);
+
+    tokio::time::sleep(MIGRATION_COOLDOWN).await;
+    let third = client.tcp_connect("three.example:443").await.expect("third tcp connect");
+    assert_eq!(client.quic_migration_snapshot(), reverted, "a third attempt must not start");
+    drop((first, third, udp, client));
     server_task.abort();
 }

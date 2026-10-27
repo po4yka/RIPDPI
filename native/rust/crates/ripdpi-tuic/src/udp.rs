@@ -71,19 +71,20 @@ impl UdpSession {
     ///
     /// # Cancel safety
     ///
-    /// cancel-safe for UDP: a migration it started rolls back, and the
-    /// datagram may already be queued, as with any lost UDP send.
+    /// cancel-safe for UDP: the datagram may already be queued, as with any
+    /// lost UDP send. A migration it started is confirmed in the background,
+    /// so the send never waits for the server.
     pub async fn send_to(&self, address: &str, payload: &[u8]) -> io::Result<()> {
         let target = TuicAddress::from_authority(address)?;
         let (assoc_id, packet_id) = self.route_for(address).await?;
         let migration = self.client.begin_quic_migration()?;
         match send_udp_payload(&self.client, assoc_id, packet_id, &target, payload) {
-            Ok(()) => match migration {
-                Some(migration) => {
-                    migration.confirm(&self.client.connection, "path_validated_after_datagram_send").await
+            Ok(()) => {
+                if let Some(migration) = migration {
+                    migration.confirm_in_background(&self.client.connection, "path_validated_after_datagram_send");
                 }
-                None => Ok(()),
-            },
+                Ok(())
+            }
             Err(error) => match migration {
                 Some(migration) => {
                     migration.rollback("datagram_send_failed_after_rebind")?;
