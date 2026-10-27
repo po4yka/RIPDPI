@@ -8,6 +8,7 @@
 //! (see `mux.rs` and `PROTOCOL.md` §7), where many sub-sessions share one carrier.
 
 use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::time::Duration;
 
 use ring::rand::{SecureRandom, SystemRandom};
@@ -20,6 +21,7 @@ use crate::config::{MieruConfig, MieruProtocol};
 use crate::error::{MieruError, Result};
 use crate::owned_tasks::OwnedTasks;
 use crate::session::{DataReader, DataWriter, open_session, socks5_connect};
+use crate::stream::end_inbound;
 
 /// Size of the in-process duplex bridging the caller to the tunnel pumps.
 const BRIDGE_BUF: usize = 64 * 1024;
@@ -93,22 +95,28 @@ impl MieruClient {
             }
         };
 
-        // Inbound: data segments -> caller reads.
+        // Inbound: data segments -> caller reads. `Ok(0)` is the server's close
+        // segment; a read error (carrier EOF or I/O, AEAD failure) is reported
+        // to the caller as an error, not as a clean end of stream.
+        let inbound_failed = Arc::new(AtomicBool::new(false));
+        let pump_failed = Arc::clone(&inbound_failed);
         let inbound = async move {
             let mut buf = vec![0u8; PUMP_BUF];
-            loop {
+            let closed_by_server = loop {
                 match reader.read(&mut buf).await {
-                    Ok(0) | Err(_) => break,
+                    Ok(0) => break true,
+                    Err(_) => break false,
                     Ok(n) => {
                         if engine_write.write_all(&buf[..n]).await.is_err() {
-                            break;
+                            break true;
                         }
                     }
                 }
-            }
+            };
+            end_inbound(&mut engine_write, closed_by_server, &pump_failed).await;
         };
 
-        Ok(MieruStream::new(caller, Arc::new(OwnedTasks::spawn(inbound, outbound)), None))
+        Ok(MieruStream::new(caller, Arc::new(OwnedTasks::spawn(inbound, outbound)), None, inbound_failed))
     }
 }
 

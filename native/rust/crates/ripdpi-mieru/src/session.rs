@@ -139,11 +139,9 @@ impl DataReader {
     /// control segments. Returns `false` on clean EOF.
     async fn fill(&mut self) -> Result<bool> {
         loop {
-            let (meta, payload) = match self.dec.read_segment(&mut self.reader).await {
-                Ok(segment) => segment,
-                Err(MieruError::Io(e)) if e.kind() == std::io::ErrorKind::UnexpectedEof => return Ok(false),
-                Err(e) => return Err(e),
-            };
+            // Only a close segment ends the session cleanly; a carrier EOF
+            // without one (an injected FIN, a cut connection) is an error.
+            let (meta, payload) = self.dec.read_segment(&mut self.reader).await?;
             // Calibrate the shared replay clock once per session from the
             // server's own (authenticated) timestamp. Done a single time: the
             // minute-granularity field would otherwise re-anchor mid-minute and

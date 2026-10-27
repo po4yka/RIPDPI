@@ -175,7 +175,14 @@ relay-pool entry.
   rejects new work. Factory shutdown also owns evicted and pending carriers.
 - *Slow consumers are isolated.* A full bounded mailbox closes that logical
   stream instead of blocking the shared reader. The shared TCP carrier still
-  has transport-level head-of-line blocking.
+  has transport-level head-of-line blocking. The client does not implement the
+  upstream per-session window, so the server is not throttled first.
+- *Only a close segment is a clean end.* As upstream `Session.Read` returns
+  `io.EOF` only after `closeSession*`, a stream reads a clean EOF only after a
+  close segment for its session. A carrier EOF or I/O error, an AEAD failure,
+  or an overflowed mailbox makes the stream read `ConnectionReset` after the
+  data already delivered, so a truncated transfer does not look complete. A
+  dead carrier also stops admitting new streams.
 - *`sessionID` reuse on close (residual).* A `closeSession*` is routed to whatever
   mailbox currently holds that random `u32` id. If an id were re-rolled for a new
   sub-session in the window after the old one was retired, a delayed close could
