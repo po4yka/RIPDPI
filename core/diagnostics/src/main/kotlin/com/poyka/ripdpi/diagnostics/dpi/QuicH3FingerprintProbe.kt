@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.serialization.RipDpiJson
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -13,6 +14,7 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.SerializationException
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import java.io.IOException
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.InetAddress
@@ -69,7 +71,26 @@ class QuicH3FingerprintProbe(
     private val timeoutMs: Int = DefaultTimeoutMs,
     private val concurrency: Int = DefaultConcurrency,
 ) {
-    suspend fun check(target: String): QuicProbeResult {
+    suspend fun check(target: String): QuicProbeResult =
+        // One unresolvable target (NXDOMAIN, a path-bearing list entry) or a packet-build failure
+        // must give that target "no QUIC answer", not fail every other target in checkAll().
+        runCatching { probeTarget(target) }.getOrElse { failure ->
+            if (failure is CancellationException || (failure !is IOException && failure !is IllegalStateException)) {
+                throw failure
+            }
+            QuicProbeResult(
+                target = target,
+                verdict = QuicProbeVerdict.QUIC_TIMEOUT,
+                chromeOk = false,
+                firefoxOk = false,
+                genericOk = false,
+                vnOk = false,
+                udpReachable = false,
+                serverInitialLatencyMs = null,
+            )
+        }
+
+    private suspend fun probeTarget(target: String): QuicProbeResult {
         val chrome = probeFingerprint(target, QuicFingerprint.CHROME_120, ::isQuicV1LongHeader)
         val firefox = probeFingerprint(target, QuicFingerprint.FIREFOX_121, ::isQuicV1LongHeader)
         val generic = probeFingerprint(target, QuicFingerprint.GENERIC_V1, ::isQuicV1LongHeader)

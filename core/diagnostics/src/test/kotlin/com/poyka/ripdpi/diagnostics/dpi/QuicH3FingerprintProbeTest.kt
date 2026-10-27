@@ -167,6 +167,32 @@ class QuicH3FingerprintProbeTest {
             assertTrue(result.vnOk)
         }
 
+    @Test
+    fun unresolvableTargetDoesNotFailTheOtherTargets() =
+        runTest {
+            val healthy = RecordingQuicUdpProbe(successes = QuicFingerprint.entries.toSet())
+            val socket =
+                object : QuicUdpProbe {
+                    override suspend fun sendInitial(
+                        target: String,
+                        port: Int,
+                        fingerprint: QuicFingerprint,
+                        packet: ByteArray,
+                        timeoutMs: Int,
+                    ): QuicProbeSample {
+                        if (target == "x.com/i/api") throw java.net.UnknownHostException(target)
+                        return healthy.sendInitial(target, port, fingerprint, packet, timeoutMs)
+                    }
+                }
+
+            val results = probe(socket).checkAll(listOf("x.com/i/api", "cloudflare.com"))
+
+            assertEquals(
+                listOf(QuicProbeVerdict.QUIC_TIMEOUT, QuicProbeVerdict.QUIC_OK),
+                results.map(QuicProbeResult::verdict),
+            )
+        }
+
     private fun probe(successes: Set<QuicFingerprint>): QuicH3FingerprintProbe =
         probe(RecordingQuicUdpProbe(successes = successes))
 
