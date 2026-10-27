@@ -8,8 +8,10 @@ use super::support::candidate_probe_details;
 use crate::execution::scoring::ProbeSample;
 
 mod outcome;
+mod same_site;
 
 use outcome::classify_http_observation;
+use same_site::redirect_leaves_site;
 
 pub(super) fn run_http_strategy_probe(
     transport: &TransportConfig,
@@ -24,23 +26,13 @@ pub(super) fn run_http_strategy_probe(
     let latency_ms = now_ms().saturating_sub(started);
     let (outcome, fingerprint_name) = classify_http_observation(&observation);
     let h3 = observation.response.as_ref().and_then(|r| r.headers.get("alt-svc")).is_some_and(|v| v.contains("h3"));
+    let location =
+        observation.response.as_ref().and_then(|r| r.headers.get("location")).filter(|_| outcome == "http_redirect");
     let mut details = candidate_probe_details(candidate, "HTTP", latency_ms);
     details.extend([
         ProbeDetail { key: "status".to_string(), value: observation.status },
         ProbeDetail { key: "error".to_string(), value: observation.error.unwrap_or_else(|| "none".to_string()) },
-        ProbeDetail {
-            key: "redirectLocation".to_string(),
-            value: if outcome == "http_redirect" {
-                observation
-                    .response
-                    .as_ref()
-                    .and_then(|r| r.headers.get("location"))
-                    .cloned()
-                    .unwrap_or_else(|| "none".to_string())
-            } else {
-                "none".to_string()
-            },
-        },
+        ProbeDetail { key: "redirectLocation".to_string(), value: location.map_or("none", String::as_str).to_string() },
     ]);
     if let Some(fp) = &fingerprint_name {
         details.push(ProbeDetail { key: "blockpageFingerprint".to_string(), value: fp.clone() });
@@ -48,12 +40,7 @@ pub(super) fn run_http_strategy_probe(
     details.push(ProbeDetail { key: "h3Advertised".to_string(), value: h3.to_string() });
     // An ISP block stub is commonly a 302 to another site, so only a same-site redirect proves the
     // candidate reached the origin.
-    let off_site_redirect = outcome == "http_redirect"
-        && observation
-            .response
-            .as_ref()
-            .and_then(|r| r.headers.get("location"))
-            .is_some_and(|location| redirect_leaves_site(&target.host, location));
+    let off_site_redirect = location.is_some_and(|location| redirect_leaves_site(&target.host, location));
     ProbeSample {
         result: ProbeResult {
             probe_type: "strategy_http".to_string(),
@@ -77,33 +64,6 @@ pub(super) fn run_http_strategy_probe(
         },
         latency_ms,
     }
-}
-
-/// Same-site rule of the runtime redirect trigger, applied to the registrable domain of the
-/// requested host: a sibling such as `www.google.com` -> `consent.google.com` stays on the site, and
-/// so does a relative Location.
-fn redirect_leaves_site(host: &str, location: &str) -> bool {
-    let site = registrable_domain(host);
-    let request = format!("GET / HTTP/1.1\r\nHost: {site}\r\n\r\n");
-    let response = format!("HTTP/1.1 302 Found\r\nLocation: {location}\r\n\r\n");
-    ripdpi_packets::is_http_redirect(request.as_bytes(), response.as_bytes())
-}
-
-/// shortcut: the last two labels, or three under a two-letter TLD with a generic second level
-/// (`bbc.co.uk`); upgrade to a public suffix list if hosted-platform siblings (`*.github.io`) matter.
-fn registrable_domain(host: &str) -> &str {
-    if host.parse::<std::net::IpAddr>().is_ok() {
-        return host;
-    }
-    let labels: Vec<&str> = host.split('.').collect();
-    let generic_second_level = |label: &str| matches!(label, "co" | "com" | "net" | "org" | "gov" | "edu" | "ac");
-    let keep = match labels.as_slice() {
-        [.., second, tld] if tld.len() == 2 && generic_second_level(second) => 3,
-        _ => 2,
-    };
-    let dropped = labels.len().saturating_sub(keep);
-    let start: usize = labels[..dropped].iter().map(|label| label.len() + 1).sum();
-    &host[start..]
 }
 
 #[cfg(test)]
