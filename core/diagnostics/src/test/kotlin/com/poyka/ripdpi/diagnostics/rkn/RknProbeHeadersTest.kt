@@ -1,9 +1,15 @@
 package com.poyka.ripdpi.diagnostics.rkn
 
+import kotlinx.coroutines.test.runTest
+import mockwebserver3.MockResponse
+import mockwebserver3.MockWebServer
+import okio.Buffer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.ByteArrayOutputStream
+import java.util.zip.GZIPOutputStream
 
 class RknProbeHeadersTest {
     @Test
@@ -23,7 +29,6 @@ class RknProbeHeadersTest {
                 "User-Agent",
                 "Accept",
                 "Accept-Language",
-                "Accept-Encoding",
                 "Sec-Fetch-Dest",
                 "Sec-Fetch-Mode",
                 "Sec-Fetch-Site",
@@ -33,6 +38,38 @@ class RknProbeHeadersTest {
             headers.keys.toList(),
         )
     }
+
+    @Test
+    fun gzipStubPageBodyReachesTheDetectorDecoded() =
+        runTest {
+            val stub = "<html><body>Доступ к информационному ресурсу ограничен</body></html>"
+            val compressed =
+                ByteArrayOutputStream().use { output ->
+                    GZIPOutputStream(output).use { it.write(stub.encodeToByteArray()) }
+                    output.toByteArray()
+                }
+            MockWebServer().use { server ->
+                server.enqueue(
+                    MockResponse
+                        .Builder()
+                        .code(200)
+                        .setHeader("Content-Type", "text/html; charset=utf-8")
+                        .setHeader("Content-Encoding", "gzip")
+                        .body(Buffer().write(compressed))
+                        .build(),
+                )
+                server.start()
+
+                val result =
+                    OkHttpRknHttpProbe().get(
+                        url = server.url("/").toString(),
+                        headers = RknProbeHeaders.build(identify = false),
+                        timeoutMs = 5_000,
+                    )
+
+                assertEquals(stub, result.bodyPreview)
+            }
+        }
 
     @Test
     fun identifyModeUsesRipdpiUserAgent() {

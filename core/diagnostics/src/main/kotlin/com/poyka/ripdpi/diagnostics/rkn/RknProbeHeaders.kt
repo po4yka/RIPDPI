@@ -14,7 +14,8 @@ object RknProbeHeaders {
             "Accept" to
                 "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
             "Accept-Language" to "en-US,en;q=0.9",
-            "Accept-Encoding" to "gzip, deflate, br",
+            // No Accept-Encoding: OkHttp then asks for gzip itself and decodes the body. With the header set
+            // here the stub page body stays compressed (and br has no decoder), so stub markers never match.
             "Sec-Fetch-Dest" to "document",
             "Sec-Fetch-Mode" to "navigate",
             "Sec-Fetch-Site" to "none",
