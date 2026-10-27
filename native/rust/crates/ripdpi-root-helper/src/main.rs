@@ -78,21 +78,24 @@ fn main() {
 
     let running = Arc::new(AtomicBool::new(true));
 
-    // Handle SIGTERM for clean shutdown.
-    // SAFETY: installing a signal disposition is `unsafe` because the handler runs
-    // asynchronously. `signal_handler` is a real `extern "C" fn` whose body only
-    // performs an `AtomicBool::store` on the `'static RUNNING` flag, which is
-    // async-signal-safe. Going through `nix`'s typed `SigHandler::Handler` instead
-    // of a raw `libc::signal` call buys two things: the handler's `extern "C"
-    // fn(c_int)` signature is type-checked at the call site, and the install result
-    // is checked rather than silently discarded. It also drops the gratuitous
-    // `signal_handler as *const () as sighandler_t` double-cast — nix performs the
-    // single, unavoidable `fn -> sighandler_t` conversion internally (the libc
-    // signal ABI is integer-typed). We replace the previously installed handler
-    // (the process default) and never need to restore it.
-    let installed = unsafe { signal::signal(Signal::SIGTERM, SigHandler::Handler(signal_handler)) };
-    if let Err(err) = installed {
-        warn!(%err, "failed to install SIGTERM handler");
+    // Handle SIGTERM, SIGHUP (the su session ends) and SIGINT for clean shutdown:
+    // their default action would exit without removing the owned nfqws2 rules.
+    for stop_signal in [Signal::SIGTERM, Signal::SIGHUP, Signal::SIGINT] {
+        // SAFETY: installing a signal disposition is `unsafe` because the handler runs
+        // asynchronously. `signal_handler` is a real `extern "C" fn` whose body only
+        // performs an `AtomicBool::store` on the `'static RUNNING` flag, which is
+        // async-signal-safe. Going through `nix`'s typed `SigHandler::Handler` instead
+        // of a raw `libc::signal` call buys two things: the handler's `extern "C"
+        // fn(c_int)` signature is type-checked at the call site, and the install result
+        // is checked rather than silently discarded. It also drops the gratuitous
+        // `signal_handler as *const () as sighandler_t` double-cast — nix performs the
+        // single, unavoidable `fn -> sighandler_t` conversion internally (the libc
+        // signal ABI is integer-typed). We replace the previously installed handler
+        // (the process default) and never need to restore it.
+        let installed = unsafe { signal::signal(stop_signal, SigHandler::Handler(signal_handler)) };
+        if let Err(err) = installed {
+            warn!(%err, signal = ?stop_signal, "failed to install shutdown signal handler");
+        }
     }
     RUNNING.store(true, Ordering::SeqCst);
 
