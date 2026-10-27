@@ -119,8 +119,10 @@ impl RelayTelemetryState {
         // Ordering: byte/error counters are diagnostics-only and may be sampled
         // independently, so Relaxed preserves atomicity without synchronization.
         self.total_bytes.fetch_add(u64::try_from(byte_count).unwrap_or(u64::MAX), Ordering::Relaxed);
-        if self.total_errors.load(Ordering::Relaxed) == 0 {
-            self.set_state("running", "healthy");
+        // The latest outcome sets the health: a success after errors recovers it.
+        // A relay that is starting or stopping keeps its lifecycle state.
+        if *self.state.lock().expect("state telemetry mutex") == "running" {
+            *self.health.lock().expect("health telemetry mutex") = "healthy".to_string();
         }
     }
 
@@ -208,6 +210,23 @@ mod tests {
         let snapshot = state.snapshot(&test_config());
         assert_eq!(Some("other.example:8443".to_string()), snapshot.last_target);
         assert_eq!(Some("other.example".to_string()), snapshot.last_host);
+    }
+
+    #[test]
+    fn a_success_after_an_error_restores_health_only_while_running() {
+        let state = RelayTelemetryState::new(&test_config());
+        state.mark_listener_bound("127.0.0.1:11980".to_string());
+        state.record_error("Apps Script relay failed: timeout".to_string());
+        assert_eq!(state.snapshot(&test_config()).health, "degraded");
+
+        state.record_success(512);
+        let snapshot = state.snapshot(&test_config());
+        assert_eq!((snapshot.state.as_str(), snapshot.health.as_str()), ("running", "healthy"));
+        assert_eq!(snapshot.total_errors, 1, "the error total stays");
+
+        state.mark_stopping();
+        state.record_success(1);
+        assert_eq!(state.snapshot(&test_config()).state, "stopping");
     }
 
     #[test]

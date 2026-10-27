@@ -162,7 +162,7 @@ mod tests {
         config.listen_host = "127.0.0.1".to_string();
         config.listen_port = 0;
         let telemetry = Arc::new(RelayTelemetryState::new(&config));
-        let relay = Arc::new(AppsScriptDomainFronter::new(&config));
+        let relay = Arc::new(AppsScriptDomainFronter::new(&config, telemetry.clone()));
         let mitm = Arc::new(Mutex::new(MitmCertManager::new_in(&dir).expect("MITM CA")));
         let stop = Arc::new(AtomicBool::new(false));
         let snapshot_config = config.clone();

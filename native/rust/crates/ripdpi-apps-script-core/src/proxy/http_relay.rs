@@ -498,7 +498,10 @@ mod tests {
     async fn local_response(request: &str, host: &str) -> String {
         let config = crate::AppsScriptRuntimeConfig::from_json(r#"{"scriptIds":["script-id"],"authKey":"secret"}"#)
             .expect("config");
-        let relay = AppsScriptDomainFronter::new(&config);
+        let relay = AppsScriptDomainFronter::new(
+            &config,
+            std::sync::Arc::new(crate::telemetry::RelayTelemetryState::new(&config)),
+        );
         let (mut client, mut server) = duplex(4096);
         client.write_all(request.as_bytes()).await.expect("write request");
         handle_request(&mut server, &mut Vec::new(), host, 443, "https", &relay).await.expect("local answer");

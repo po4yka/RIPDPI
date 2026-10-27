@@ -6,6 +6,7 @@ use tokio::time::timeout;
 use tokio_rustls::TlsConnector;
 
 use crate::AppsScriptRuntimeConfig;
+use crate::telemetry::SharedTelemetryState;
 
 mod headers;
 mod http;
@@ -36,6 +37,21 @@ pub enum FronterError {
     Timeout,
 }
 
+impl FronterError {
+    /// A short failure class for telemetry, without hosts, URLs or response text.
+    fn class(&self) -> String {
+        match self {
+            Self::Io(error) => format!("io {:?}", error.kind()),
+            Self::Tls(_) => "tls".to_string(),
+            Self::Json(_) => "invalid relay json".to_string(),
+            Self::InvalidDnsName(_) => "invalid front domain".to_string(),
+            Self::BadResponse(_) => "bad response".to_string(),
+            Self::Relay(_) => "relay error".to_string(),
+            Self::Timeout => "timeout".to_string(),
+        }
+    }
+}
+
 pub struct AppsScriptDomainFronter {
     connect_host: String,
     front_domain: String,
@@ -43,10 +59,11 @@ pub struct AppsScriptDomainFronter {
     script_ids: Vec<String>,
     next_script_index: AtomicUsize,
     tls_connector: TlsConnector,
+    telemetry: SharedTelemetryState,
 }
 
 impl AppsScriptDomainFronter {
-    pub fn new(config: &AppsScriptRuntimeConfig) -> Self {
+    pub fn new(config: &AppsScriptRuntimeConfig, telemetry: SharedTelemetryState) -> Self {
         Self {
             connect_host: config.google_ip.clone(),
             front_domain: config.front_domain.clone(),
@@ -54,6 +71,7 @@ impl AppsScriptDomainFronter {
             script_ids: config.script_ids.clone(),
             next_script_index: AtomicUsize::new(0),
             tls_connector: tls::connector(),
+            telemetry,
         }
     }
 
@@ -64,9 +82,19 @@ impl AppsScriptDomainFronter {
     /// outer future abandons the in-flight upstream request mid-exchange.
     pub async fn relay(&self, method: &str, url: &str, headers: &[(String, String)], body: &[u8]) -> Vec<u8> {
         match timeout(RELAY_TIMEOUT, self.relay_once(method, url, headers, body)).await {
-            Ok(Ok(response)) => response,
-            Ok(Err(error)) => error_response(502, &format!("Apps Script relay error: {error}")),
-            Err(_) => error_response(504, "Apps Script relay timeout"),
+            Ok(Ok(response)) => {
+                self.telemetry.record_success(response.len());
+                response
+            }
+            Ok(Err(error)) => {
+                // The class only: the error text can quote the Apps Script page or the target.
+                self.telemetry.record_error(format!("Apps Script relay failed: {}", error.class()));
+                error_response(502, &format!("Apps Script relay error: {error}"))
+            }
+            Err(_) => {
+                self.telemetry.record_error("Apps Script relay failed: timeout".to_string());
+                error_response(504, "Apps Script relay timeout")
+            }
         }
     }
 
@@ -149,4 +177,32 @@ pub(crate) fn error_response(status: u16, message: &str) -> Vec<u8> {
     );
     output.extend_from_slice(body);
     output
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::Arc;
+
+    use super::*;
+    use crate::telemetry::RelayTelemetryState;
+
+    #[tokio::test(flavor = "current_thread")]
+    async fn a_failed_relay_marks_the_relay_degraded_without_leaking_the_target() {
+        let mut config =
+            AppsScriptRuntimeConfig::from_json(r#"{"scriptIds":["script-id"],"authKey":"secret"}"#).expect("config");
+        // Nothing listens on loopback port 443, so the front connection is refused.
+        config.google_ip = "127.0.0.1".to_string();
+        let telemetry = Arc::new(RelayTelemetryState::new(&config));
+        telemetry.mark_listener_bound("127.0.0.1:11980".to_string());
+        let fronter = AppsScriptDomainFronter::new(&config, telemetry.clone());
+
+        let response = fronter.relay("GET", "https://private.example/path", &[], &[]).await;
+
+        assert!(response.starts_with(b"HTTP/1.1 502 "));
+        let snapshot = telemetry.snapshot(&config);
+        assert_eq!((snapshot.total_errors, snapshot.health.as_str()), (1, "degraded"));
+        let last_error = snapshot.last_error.expect("last error");
+        assert!(last_error.starts_with("Apps Script relay failed: "), "{last_error}");
+        assert!(!last_error.contains("private.example"), "{last_error}");
+    }
 }

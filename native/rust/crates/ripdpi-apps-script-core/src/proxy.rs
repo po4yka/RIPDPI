@@ -33,7 +33,7 @@ impl ProxyServer {
     pub fn new(config: AppsScriptRuntimeConfig, telemetry: SharedTelemetryState) -> io::Result<Self> {
         let mitm = MitmCertManager::new_in(&config.data_dir).map_err(|error| io::Error::other(error.to_string()))?;
         Ok(Self {
-            relay: Arc::new(AppsScriptDomainFronter::new(&config)),
+            relay: Arc::new(AppsScriptDomainFronter::new(&config, telemetry.clone())),
             mitm: Arc::new(Mutex::new(mitm)),
             config,
             telemetry,

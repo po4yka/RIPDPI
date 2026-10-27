@@ -153,10 +153,11 @@ mod tests {
                 r#"{"scriptIds":["script-id"],"authKey":"secret","googleIp":"127.0.0.1"}"#,
             )
             .expect("config");
+            let telemetry = Arc::new(RelayTelemetryState::new(&config));
             Self {
                 mitm: Arc::new(Mutex::new(MitmCertManager::new_in(&dir).expect("MITM CA"))),
-                relay: Arc::new(AppsScriptDomainFronter::new(&config)),
-                telemetry: Arc::new(RelayTelemetryState::new(&config)),
+                relay: Arc::new(AppsScriptDomainFronter::new(&config, telemetry.clone())),
+                telemetry,
                 dir,
             }
         }

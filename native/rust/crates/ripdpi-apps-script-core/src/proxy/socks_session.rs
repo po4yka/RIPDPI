@@ -108,8 +108,8 @@ mod tests {
             AppsScriptRuntimeConfig::from_json(r#"{"scriptIds":["script-id"],"authKey":"secret"}"#).expect("config");
         let dir = std::env::temp_dir().join(format!("ripdpi-socks-deadline-{}", std::process::id()));
         let mitm = Arc::new(Mutex::new(MitmCertManager::new_in(&dir).expect("MITM CA")));
-        let relay = Arc::new(AppsScriptDomainFronter::new(&config));
         let telemetry = Arc::new(RelayTelemetryState::new(&config));
+        let relay = Arc::new(AppsScriptDomainFronter::new(&config, telemetry.clone()));
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
         // No timer exists yet, so the paused clock cannot run ahead of the connect.
         let _client = TcpStream::connect(listener.local_addr().expect("address")).await.expect("connect");

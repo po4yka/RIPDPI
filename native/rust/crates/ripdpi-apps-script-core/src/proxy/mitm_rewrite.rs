@@ -126,7 +126,7 @@ mod tests {
         ))
         .expect("config");
         let telemetry = Arc::new(RelayTelemetryState::new(&config));
-        let relay = Arc::new(AppsScriptDomainFronter::new(&config));
+        let relay = Arc::new(AppsScriptDomainFronter::new(&config, telemetry.clone()));
 
         let upstream = TcpListener::bind("127.0.0.1:0").await.expect("bind upstream");
         let upstream_port = upstream.local_addr().expect("upstream addr").port();
