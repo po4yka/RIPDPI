@@ -32,8 +32,9 @@
 //! outbound socket is never handed to the caller.
 
 use std::io;
-use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
+use std::net::{IpAddr, SocketAddr};
 use std::os::fd::{AsRawFd, RawFd};
+use std::time::Duration;
 
 use tokio::net::{TcpSocket, TcpStream};
 
@@ -122,14 +123,25 @@ where
 /// if protection fails, resolution and connect are never attempted. Resolution
 /// still selects the concrete peer address; the matching already-protected
 /// socket is then connected to it.
+///
+/// The hostname goes to the system resolver on tokio's blocking pool, bounded
+/// by [`RESOLVE_TIMEOUT`], so a stalled lookup never blocks a runtime worker.
+///
+/// # Cancel safety
+///
+/// cancel-safe: dropping the future closes the unconnected sockets; a lookup
+/// already on the blocking pool finishes there and its result is discarded.
 pub async fn connect_protected_carrier_host<P>(host: &str, port: u16, protector: &P) -> io::Result<TcpStream>
 where
     P: CarrierSocketProtector + ?Sized,
 {
-    connect_protected_carrier_host_with_resolver(host, port, protector, std_resolve_host).await
+    connect_protected_carrier_host_with_resolver(host, port, protector, system_resolve_host).await
 }
 
-async fn connect_protected_carrier_host_with_resolver<P, R>(
+/// # Cancel safety
+///
+/// cancel-safe: as [`connect_protected_carrier_host`].
+async fn connect_protected_carrier_host_with_resolver<P, R, F>(
     host: &str,
     port: u16,
     protector: &P,
@@ -137,21 +149,32 @@ async fn connect_protected_carrier_host_with_resolver<P, R>(
 ) -> io::Result<TcpStream>
 where
     P: CarrierSocketProtector + ?Sized,
-    R: FnOnce(&str, u16) -> io::Result<Vec<SocketAddr>>,
+    R: FnOnce(String, u16) -> F,
+    F: Future<Output = io::Result<Vec<SocketAddr>>>,
 {
     if let Ok(ip) = host.parse::<IpAddr>() {
         return connect_protected_carrier(SocketAddr::new(ip, port), protector).await;
     }
 
     let sockets = ProtectedCarrierSockets::new(protector)?;
-    let target = resolver(host, port)?.into_iter().find(|addr| sockets.supports(*addr)).ok_or_else(|| {
-        io::Error::new(io::ErrorKind::AddrNotAvailable, "carrier WSS endpoint resolved no usable addresses")
-    })?;
+    let target =
+        resolver(host.to_owned(), port).await?.into_iter().find(|addr| sockets.supports(*addr)).ok_or_else(|| {
+            io::Error::new(io::ErrorKind::AddrNotAvailable, "carrier WSS endpoint resolved no usable addresses")
+        })?;
     sockets.connect(target).await
 }
 
-fn std_resolve_host(host: &str, port: u16) -> io::Result<Vec<SocketAddr>> {
-    (host, port).to_socket_addrs().map(Iterator::collect)
+/// Bound on one system lookup of the carrier host.
+const RESOLVE_TIMEOUT: Duration = Duration::from_secs(10);
+
+/// # Cancel safety
+///
+/// cancel-safe: the lookup runs on the blocking pool and owns its inputs.
+async fn system_resolve_host(host: String, port: u16) -> io::Result<Vec<SocketAddr>> {
+    match tokio::time::timeout(RESOLVE_TIMEOUT, tokio::net::lookup_host((host.as_str(), port))).await {
+        Ok(addrs) => addrs.map(Iterator::collect),
+        Err(_) => Err(io::Error::new(io::ErrorKind::TimedOut, "carrier WSS endpoint lookup timed out")),
+    }
 }
 
 struct ProtectedCarrierSockets {
@@ -314,7 +337,7 @@ mod tests {
             Ok(())
         };
         let resolver_saw_protect_count_cb = Arc::clone(&resolver_saw_protect_count);
-        let resolver = move |_host: &str, _port: u16| -> io::Result<Vec<SocketAddr>> {
+        let resolver = move |_host: String, _port: u16| async move {
             resolver_saw_protect_count_cb.store(protect_count.load(Ordering::SeqCst), Ordering::SeqCst);
             Ok(vec![addr])
         };
@@ -343,7 +366,7 @@ mod tests {
         let resolver_called_cb = Arc::clone(&resolver_called);
         let protector =
             |_fd: RawFd| -> io::Result<()> { Err(io::Error::new(io::ErrorKind::PermissionDenied, "protect rejected")) };
-        let resolver = move |_host: &str, _port: u16| -> io::Result<Vec<SocketAddr>> {
+        let resolver = move |_host: String, _port: u16| async move {
             resolver_called_cb.store(true, Ordering::SeqCst);
             Ok(vec!["127.0.0.1:443".parse().expect("socket addr")])
         };
