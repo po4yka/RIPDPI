@@ -11,6 +11,7 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import okhttp3.OkHttpClient
 import okhttp3.Request
@@ -213,12 +214,15 @@ class DefaultHomeAnalysisAugmentationSource
         private suspend fun withLoad(block: () -> List<HomeRttSample>): Pair<List<HomeRttSample>, HomeLoadEvidence> =
             coroutineScope {
                 val started = CompletableDeferred<Boolean>()
-                val loadJob = async(Dispatchers.IO) { downloadLoad(started) }
+                val loadJob = async(Dispatchers.IO) { downloadLoad(started) { isActive } }
                 val result = if (started.await()) block() else emptyList()
                 result to loadJob.await()
             }
 
-        private fun downloadLoad(started: CompletableDeferred<Boolean>): HomeLoadEvidence {
+        private fun downloadLoad(
+            started: CompletableDeferred<Boolean>,
+            isActive: () -> Boolean,
+        ): HomeLoadEvidence {
             var bytesRead = 0L
             var firstByteNs: Long? = null
             var lastByteNs: Long? = null
@@ -229,7 +233,8 @@ class DefaultHomeAnalysisAugmentationSource
                         if (!response.isSuccessful) return@use false
                         response.body.byteStream().use { stream ->
                             val buffer = ByteArray(DEFAULT_BUFFER_SIZE)
-                            while (true) {
+                            // A cancelled probe stops downloading at the next chunk.
+                            while (isActive()) {
                                 val count = stream.read(buffer)
                                 if (count < 0) break
                                 if (count > 0) {
