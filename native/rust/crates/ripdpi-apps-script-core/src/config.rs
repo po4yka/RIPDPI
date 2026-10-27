@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::env;
 use std::fmt;
 use std::io;
+use std::net::IpAddr;
 use std::path::PathBuf;
 
 use serde::Deserialize;
@@ -74,6 +75,15 @@ impl AppsScriptRuntimeConfig {
             .or(raw.listen_host.clone())
             .filter(|value| !value.trim().is_empty())
             .unwrap_or_else(|| DEFAULT_LISTEN_HOST.to_string());
+        // The SOCKS listener takes NO-AUTH only, so it must never be reachable off-device
+        // (the same rule as relay-core's validate_runtime_config).
+        let host = listen_host.trim();
+        if host != "localhost" && !host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback()) {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                format!("Apps Script SOCKS listener host `{host}` must be a loopback address"),
+            ));
+        }
         let listen_port =
             normalize_port(raw.local_socks_port.or(raw.listen_port).unwrap_or(i32::from(DEFAULT_LISTEN_PORT)))?;
         let google_ip = raw
@@ -331,6 +341,26 @@ mod tests {
         .expect("config");
 
         assert_eq!(config.script_ids, vec!["deployment-id".to_string()]);
+    }
+
+    #[test]
+    fn non_loopback_listener_host_is_rejected() {
+        for host in ["0.0.0.0", "192.168.1.20", "::", "relay.example"] {
+            for field in ["localSocksHost", "listenHost"] {
+                let error = AppsScriptRuntimeConfig::from_json(&format!(
+                    r#"{{"scriptIds":["script-id"],"authKey":"secret","{field}":"{host}"}}"#
+                ))
+                .expect_err("the NO-AUTH listener must stay on-device");
+                assert_eq!(error.kind(), io::ErrorKind::InvalidInput, "{field}={host}");
+            }
+        }
+        for host in ["127.0.0.1", "::1", "localhost", "127.0.0.2"] {
+            let config = AppsScriptRuntimeConfig::from_json(&format!(
+                r#"{{"scriptIds":["script-id"],"authKey":"secret","localSocksHost":"{host}"}}"#
+            ))
+            .expect("loopback listener host");
+            assert_eq!(config.listen_host, host);
+        }
     }
 
     #[test]
