@@ -74,10 +74,11 @@ pub(crate) fn open_probe_stream_targets_with_options_and_abort(
             )
             .map_err(|err| ProbeStreamError {
                 stage: ProbeStreamFailureStage::TlsHandshake,
-                message: err,
+                message: err.message,
                 duration_ms: started.elapsed().as_millis().max(1) as u64,
                 tcp_connect_ms: Some(tcp_connect_ms),
                 connected_addr,
+                tls_server_hello_received: Some(err.server_hello_received),
             })?;
             let local_socket_ttl = match &captured.stream {
                 ConnectionStream::Tls(stream) => platform_ttl::get_local_socket_ttl(&stream.sock),
@@ -126,6 +127,7 @@ fn open_transport_stream(
         duration_ms: started.elapsed().as_millis().max(1) as u64,
         tcp_connect_ms: None,
         connected_addr: None,
+        tls_server_hello_received: None,
     })?;
     let tcp_connect_ms = tcp_start.elapsed().as_millis() as u64;
     let connected_addr = transport_result.connected_addr;
@@ -177,5 +179,6 @@ fn stream_error(
         duration_ms: started.elapsed().as_millis().max(1) as u64,
         tcp_connect_ms: opened.map(|value| value.tcp_connect_ms),
         connected_addr: opened.and_then(|value| value.connected_addr),
+        tls_server_hello_received: None,
     }
 }

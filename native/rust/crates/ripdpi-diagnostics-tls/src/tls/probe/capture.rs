@@ -28,6 +28,18 @@ pub(crate) struct CapturedTlsHandshake {
     pub(crate) ja3_fingerprint: Option<String>,
 }
 
+/// A failed handshake and whether the server's ServerHello was processed before it failed.
+pub(crate) struct CaptureTlsError {
+    pub(crate) message: String,
+    pub(crate) server_hello_received: bool,
+}
+
+impl From<String> for CaptureTlsError {
+    fn from(message: String) -> Self {
+        Self { message, server_hello_received: false }
+    }
+}
+
 pub(crate) struct CaptureTlsHandshakeOptions<'a> {
     pub(crate) targets: &'a [TargetAddress],
     pub(crate) transport: &'a TransportConfig,
@@ -42,10 +54,10 @@ pub(crate) struct CaptureTlsHandshakeOptions<'a> {
 pub(crate) fn capture_tls_handshake(
     socket: TcpStream,
     options: &CaptureTlsHandshakeOptions<'_>,
-) -> Result<CapturedTlsHandshake, String> {
+) -> Result<CapturedTlsHandshake, CaptureTlsError> {
     let should_abort = options.should_abort;
     if let Some(reason) = should_abort() {
-        return Err(format!("probe_aborted:{reason}"));
+        return Err(format!("probe_aborted:{reason}").into());
     }
     let target = options.targets.first().ok_or_else(|| "no_tls_targets".to_string())?;
     let template_profile = planned_tls_template_profile(options.profile);
@@ -80,15 +92,15 @@ pub(crate) fn capture_tls_handshake(
     let tls_start = Instant::now();
     while connection.is_handshaking() {
         if let Some(reason) = should_abort() {
-            return Err(format!("probe_aborted:{reason}"));
+            return Err(format!("probe_aborted:{reason}").into());
         }
         refresh_tls_handshake_timeout(&mut recording)?;
         let mut io = BoundedHandshakeIo { recording: &mut recording, should_abort };
         if let Err(err) = connection.complete_io(&mut io) {
-            if let Some(admin) = administrative_error_after_io(should_abort) {
-                return Err(admin);
-            }
-            return Err(err.to_string());
+            // rustls records the negotiated version when it processes the ServerHello.
+            let server_hello_received = connection.protocol_version().is_some();
+            let message = administrative_error_after_io(should_abort).unwrap_or_else(|| err.to_string());
+            return Err(CaptureTlsError { message, server_hello_received });
         }
     }
     let tls_handshake_ms = tls_start.elapsed().as_millis() as u64;
@@ -199,6 +211,88 @@ mod tests {
             }
         });
         (port, server)
+    }
+
+    /// Answers the ClientHello with `reply(client_hello)` and closes.
+    fn scripted_server(reply: fn(&[u8]) -> Vec<u8>) -> (u16, std::thread::JoinHandle<()>) {
+        let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
+        let port = listener.local_addr().unwrap().port();
+        let server = std::thread::spawn(move || {
+            let (mut socket, _) = listener.accept().unwrap();
+            let mut hello = vec![0u8; 16 * 1024];
+            let read = socket.read(&mut hello).unwrap();
+            let _ = socket.write_all(&reply(&hello[..read]));
+            let _ = socket.read(&mut [0u8; 64]);
+        });
+        (port, server)
+    }
+
+    const HANDSHAKE_FAILURE_ALERT: [u8; 7] = [0x15, 0x03, 0x03, 0x00, 0x02, 0x02, 0x28];
+
+    /// A TLS 1.2 ServerHello (RFC 5246 section 7.4.1.3) for the first ECDHE cipher suite the
+    /// client offered, followed by a handshake_failure alert instead of the Certificate message.
+    fn server_hello_then_alert(client_hello: &[u8]) -> Vec<u8> {
+        // Record header (5) + handshake header (4) + version (2) + random (32).
+        let session_id_len = usize::from(client_hello[43]);
+        let suites_len_at = 44 + session_id_len;
+        let suites_len =
+            usize::from(u16::from_be_bytes([client_hello[suites_len_at], client_hello[suites_len_at + 1]]));
+        let suite = client_hello[suites_len_at + 2..suites_len_at + 2 + suites_len]
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .find(|suite| suite[0] == 0xc0 || **suite == [0xcc, 0xa8] || **suite == [0xcc, 0xa9])
+            .expect("the TLS 1.2 client offers an ECDHE suite")
+            .to_vec();
+        let mut body = vec![0x03, 0x03];
+        body.extend_from_slice(&[0x42; 32]);
+        body.push(0x00);
+        body.extend_from_slice(&suite);
+        body.push(0x00);
+        let mut handshake = vec![0x02, 0x00, 0x00, body.len() as u8];
+        handshake.extend_from_slice(&body);
+        let mut reply = vec![0x16, 0x03, 0x03, 0x00, handshake.len() as u8];
+        reply.extend_from_slice(&handshake);
+        reply.extend_from_slice(&HANDSHAKE_FAILURE_ALERT);
+        reply
+    }
+
+    fn probe_tls12(port: u16) -> crate::tls::TlsObservation {
+        try_tls_handshake(
+            &TargetAddress::Ip(IpAddr::V4(Ipv4Addr::LOCALHOST)),
+            port,
+            &direct_transport(),
+            "localhost",
+            true,
+            TlsClientProfile::Tls12Only,
+            None,
+        )
+    }
+
+    #[test]
+    fn server_hello_flag_follows_the_handshake_state() {
+        let (port, server) = scripted_server(server_hello_then_alert);
+        let after_server_hello = probe_tls12(port);
+        server.join().unwrap();
+        let (port, server) = scripted_server(|_| HANDSHAKE_FAILURE_ALERT.to_vec());
+        let before_server_hello = probe_tls12(port);
+        server.join().unwrap();
+
+        assert_eq!(after_server_hello.tls_alert_code, Some(0x28), "{after_server_hello:?}");
+        assert_eq!(after_server_hello.tls_server_hello_received, Some(true));
+        assert_eq!(before_server_hello.tls_alert_code, Some(0x28), "{before_server_hello:?}");
+        assert_eq!(before_server_hello.tls_server_hello_received, Some(false));
+    }
+
+    #[test]
+    fn failure_before_tls_has_no_server_hello_flag() {
+        // Bind then drop a listener: the port refuses the TCP connect.
+        let port = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap().local_addr().unwrap().port();
+
+        let observation = probe_tls12(port);
+
+        assert_ne!(observation.failure_stage, Some(crate::tls::ProbeStreamFailureStage::TlsHandshake));
+        assert_eq!(observation.tls_server_hello_received, None);
     }
 
     #[test]

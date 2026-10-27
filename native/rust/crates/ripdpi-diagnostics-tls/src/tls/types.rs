@@ -125,6 +125,9 @@ pub struct ProbeStreamError {
     pub duration_ms: u64,
     pub tcp_connect_ms: Option<u64>,
     pub connected_addr: Option<std::net::SocketAddr>,
+    /// For a TLS handshake failure, whether the ServerHello was processed first; `None` when
+    /// the failure came before the handshake.
+    pub tls_server_hello_received: Option<bool>,
 }
 
 impl std::fmt::Display for ProbeStreamError {

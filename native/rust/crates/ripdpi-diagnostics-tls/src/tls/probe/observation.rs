@@ -99,7 +99,7 @@ pub(crate) fn from_probe_error(err: ProbeStreamError, profile: TlsClientProfile)
 
     let certificate_anomaly = is_certificate_error(&err.message);
     let (tls_alert_code, tls_alert_description) = parse_alert_from_error(&err.message);
-    let tls_server_hello_received = Some(err.message.contains("AlertReceived"));
+    let tls_server_hello_received = err.tls_server_hello_received;
     let tls_dpi_signature = tls_alert_code.and_then(|code| classify_tls_dpi_signature(code, None));
 
     TlsObservation {
