@@ -105,8 +105,16 @@ internal class DefaultDiagnosticsArchiveExporter
             id: DiagnosticsExportLeaseId,
             destination: OutputStream,
         ) = withContext(Dispatchers.IO) {
-            archiveMutex.withLock {
-                archiveStage(DiagnosticsArchiveFailureCode.IO) { preparedExports.copyPrepared(id, destination) }
+            // Open under the lock, copy outside it: the destination is a DocumentsProvider stream that can
+            // block, and the open stream keeps reading even if a later discard() unlinks the file.
+            val source =
+                archiveMutex.withLock {
+                    archiveStage(DiagnosticsArchiveFailureCode.IO) {
+                        preparedExports.documentSaveSource(id).inputStream()
+                    }
+                }
+            source.use { input ->
+                archiveStage(DiagnosticsArchiveFailureCode.IO) { preparedExports.copyTo(input, destination) }
             }
         }
 

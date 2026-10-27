@@ -11,6 +11,8 @@ import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.InputStream
 import java.io.OutputStream
 import java.security.MessageDigest
 import javax.inject.Inject
@@ -135,10 +137,8 @@ internal class DiagnosticsPreparedExportManager
             return CheckedDiagnosticsExportHandoff(preview, files.artifact(files.read(id)).absolutePath)
         }
 
-        suspend fun copyPrepared(
-            id: DiagnosticsExportLeaseId,
-            destination: OutputStream,
-        ) {
+        /** Checks a document-save lease; the caller copies the returned file without holding the archive lock. */
+        suspend fun documentSaveSource(id: DiagnosticsExportLeaseId): File {
             val handoff = validateHandoff(id)
             check(
                 handoff.preview.purpose == DiagnosticsExportPurpose.SaveArchive ||
@@ -146,14 +146,19 @@ internal class DiagnosticsPreparedExportManager
             ) {
                 "Prepared export is not a document save"
             }
-            files.artifact(files.read(id)).inputStream().use { input ->
-                val buffer = ByteArray(CopyBufferBytes)
-                while (true) {
-                    currentCoroutineContext().ensureActive()
-                    val count = input.read(buffer)
-                    if (count < 0) break
-                    destination.write(buffer, 0, count)
-                }
+            return files.artifact(files.read(id))
+        }
+
+        suspend fun copyTo(
+            input: InputStream,
+            destination: OutputStream,
+        ) {
+            val buffer = ByteArray(CopyBufferBytes)
+            while (true) {
+                currentCoroutineContext().ensureActive()
+                val count = input.read(buffer)
+                if (count < 0) break
+                destination.write(buffer, 0, count)
             }
             destination.flush()
             currentCoroutineContext().ensureActive()

@@ -6,7 +6,11 @@ import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportLeaseId
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportLeasePhase
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
@@ -18,7 +22,10 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayOutputStream
 import java.io.File
+import java.io.OutputStream
 import java.security.MessageDigest
+import java.util.concurrent.CountDownLatch
+import java.util.concurrent.TimeUnit
 import java.util.zip.CRC32
 import java.util.zip.ZipFile
 
@@ -110,6 +117,47 @@ internal class PreparedDiagnosticsExportLeaseTest : DiagnosticsArchiveExporterTe
             exporter.discard(id)
             assertFalse(file.exists())
             assertFalse(stores.getExportRecords().any { it.id == id.encoded })
+        }
+
+    @Test(timeout = 30_000)
+    fun `a stalled save destination does not hold the archive lock`() =
+        runBlocking {
+            val stores = FakeDiagnosticsHistoryStores()
+            val session = diagnosticsSession("stall-session", "default", ScanPathMode.IN_PATH.name, "captured report")
+            seedSingleSessionStore(stores, session)
+            val exporter = createArchiveExporter(stores)
+            val saved = DiagnosticsExportLeaseId.create()
+            val other = DiagnosticsExportLeaseId.create()
+            exporter.prepare(saved, preparation(session.id, DiagnosticsExportPurpose.SaveArchive))
+            exporter.prepare(other, preparation(session.id, DiagnosticsExportPurpose.ShareArchive))
+            exporter.consume(saved)
+            exporter.consume(other)
+            val writing = CountDownLatch(1)
+            val release = CountDownLatch(1)
+            val stalledProvider =
+                object : OutputStream() {
+                    override fun write(b: Int) = write(byteArrayOf(b.toByte()), 0, 1)
+
+                    override fun write(
+                        b: ByteArray,
+                        off: Int,
+                        len: Int,
+                    ) {
+                        writing.countDown()
+                        release.await()
+                    }
+                }
+            val copy = launch(Dispatchers.IO) { exporter.copyPrepared(saved, stalledProvider) }
+            try {
+                assertTrue(writing.await(5, TimeUnit.SECONDS))
+
+                val validated = withTimeoutOrNull(3_000) { exporter.validateHandoff(other) }
+
+                assertTrue("archive lock held across the blocked write", validated != null)
+            } finally {
+                release.countDown()
+                copy.join()
+            }
         }
 
     private fun preparation(
