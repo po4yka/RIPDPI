@@ -10,7 +10,7 @@ import org.junit.Test
 class HttpsRrResolverTest {
     @Test
     fun parsesEchSvcParamFromHttpsRecord() {
-        val echConfig = byteArrayOf(0x01, 0x02, 0x03, 0x04)
+        val echConfig = byteArrayOf(0x00, 0x02, 0x03, 0x04)
         val record =
             Rfc9460HttpsRecordCodec.parseHttpsRdata(
                 httpsRdata(
@@ -24,6 +24,37 @@ class HttpsRrResolverTest {
         assertEquals(1, parsed.priority)
         assertEquals(".", parsed.targetName)
         assertArrayEquals(echConfig, parsed.echConfig)
+    }
+
+    @Test
+    fun malformedSvcParamsAreRejected() {
+        val echConfig = byteArrayOf(0x00, 0x02, 0x03, 0x04)
+        val alpn = svcParam(SvcParamKeyAlpn, byteArrayOf(0x02, 'h'.code.toByte(), '2'.code.toByte()))
+        val outOfOrder = listOf(svcParam(SvcParamKeyEch, echConfig), alpn)
+        val duplicateEch = listOf(svcParam(SvcParamKeyEch, echConfig), svcParam(SvcParamKeyEch, echConfig))
+        val badEchList = listOf(svcParam(SvcParamKeyEch, byteArrayOf(0x01, 0x02, 0x03, 0x04)))
+
+        for (params in listOf(outOfOrder, duplicateEch, badEchList)) {
+            assertEquals(null, Rfc9460HttpsRecordCodec.parseHttpsRdata(httpsRdata(1, ".", params)))
+        }
+        assertArrayEquals(
+            echConfig,
+            Rfc9460HttpsRecordCodec
+                .parseHttpsRdata(
+                    httpsRdata(1, ".", listOf(alpn, svcParam(SvcParamKeyEch, echConfig))),
+                )?.echConfig,
+        )
+    }
+
+    @Test
+    fun aliasModeRecordSvcParamsAreIgnored() {
+        val record =
+            Rfc9460HttpsRecordCodec.parseHttpsRdata(
+                httpsRdata(0, "alias.example", listOf(svcParam(SvcParamKeyEch, byteArrayOf(0x00, 0x01, 0x07)))),
+            )
+
+        assertEquals("alias.example", record?.targetName)
+        assertEquals(null, record?.echConfig)
     }
 
     @Test
@@ -147,5 +178,6 @@ class HttpsRrResolverTest {
 
     private companion object {
         private const val SvcParamKeyEch = 5
+        private const val SvcParamKeyAlpn = 1
     }
 }

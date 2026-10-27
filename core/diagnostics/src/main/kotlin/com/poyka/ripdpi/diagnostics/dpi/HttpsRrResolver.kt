@@ -79,7 +79,9 @@ object Rfc9460HttpsRecordCodec {
             if (target != null) {
                 val params = rdata.readSvcParams(target.nextOffset)
                 if (params.valid) {
-                    record = HttpsRrRecord(priority = priority, targetName = target.name, echConfig = params.echConfig)
+                    // RFC 9460 s2.4.2: SvcParams of an AliasMode (priority 0) record are ignored.
+                    val echConfig = params.echConfig.takeIf { priority != AliasModePriority }
+                    record = HttpsRrRecord(priority = priority, targetName = target.name, echConfig = echConfig)
                 }
             }
         }
@@ -112,19 +114,27 @@ object Rfc9460HttpsRecordCodec {
         var offset = startOffset
         var echConfig: ByteArray? = null
         var valid = true
+        var previousKey = -1
         while (valid && offset < size) {
             val param = readSvcParam(offset)
-            if (param == null) {
+            // RFC 9460 s2.2: keys must strictly increase, so an out-of-order or repeated key is malformed.
+            if (param == null || param.key <= previousKey) {
                 valid = false
             } else if (param.key == SvcParamKeyEch) {
                 echConfig = copyOfRange(param.valueOffset, param.nextOffset)
+                valid = echConfig.isEchConfigList()
+                previousKey = param.key
                 offset = param.nextOffset
             } else {
+                previousKey = param.key
                 offset = param.nextOffset
             }
         }
         return ParsedSvcParams(valid = valid, echConfig = echConfig)
     }
+
+    /** An ECHConfigList starts with its own 16-bit length, which must cover the rest of the value. */
+    private fun ByteArray.isEchConfigList(): Boolean = size > ShortByteCount && readU16(0) == size - ShortByteCount
 
     private fun ByteArray.readSvcParam(offset: Int): ParsedSvcParam? {
         if (offset + SvcParamHeaderLength > size) return null
@@ -160,6 +170,7 @@ object Rfc9460HttpsRecordCodec {
     private const val DnsRootLabelLength = 1
     private const val SvcParamHeaderLength = 4
     private const val SvcParamKeyEch = 5
+    private const val AliasModePriority = 0
     private const val MaxDnsLabelLength = 63
     private const val CompressionPointerMask = 0xc0
 }
