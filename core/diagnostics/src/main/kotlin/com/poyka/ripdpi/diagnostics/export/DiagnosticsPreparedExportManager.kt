@@ -171,7 +171,16 @@ internal class DiagnosticsPreparedExportManager
             }
 
         suspend fun cleanup() {
-            files.expiredLeases(clock).forEach { discard(requireNotNull(DiagnosticsExportLeaseId.parse(it.leaseId))) }
+            val owned = records.getExportRecords().mapTo(hashSetOf()) { it.id }
+            // A published lease whose export record is gone (for example after "Reset all settings")
+            // is no longer owned by anything and must not stay readable until it expires.
+            val orphaned =
+                files.records().filter { lease ->
+                    lease.leaseId !in owned && lease.phase in PublishedPhases
+                }
+            (files.expiredLeases(clock) + orphaned)
+                .distinctBy { it.leaseId }
+                .forEach { discard(requireNotNull(DiagnosticsExportLeaseId.parse(it.leaseId))) }
         }
 
         fun managedPaths(): Set<String> = files.records().mapTo(mutableSetOf()) { files.artifact(it).absolutePath }
@@ -225,5 +234,6 @@ internal class DiagnosticsPreparedExportManager
 
         private companion object {
             const val CopyBufferBytes = 8192
+            val PublishedPhases = setOf(DiagnosticsExportLeasePhase.Ready, DiagnosticsExportLeasePhase.HandedOff)
         }
     }
