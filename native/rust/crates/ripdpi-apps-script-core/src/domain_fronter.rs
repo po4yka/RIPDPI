@@ -1,4 +1,3 @@
-use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::Duration;
 
 use tokio::net::TcpStream;
@@ -7,7 +6,7 @@ use tokio_rustls::TlsConnector;
 
 use crate::AppsScriptRuntimeConfig;
 use crate::telemetry::SharedTelemetryState;
-use scripts::{AttemptError, ScriptPool, is_deployment_error};
+use scripts::{AttemptError, DEPLOYMENT_COOLDOWN, ScriptPool, is_deployment_error};
 
 mod headers;
 mod http;
@@ -23,6 +22,8 @@ mod failover_tests;
 
 const HTTP_HOST: &str = "script.google.com";
 const RELAY_TIMEOUT: Duration = Duration::from_secs(25);
+/// How long a front SNI name whose connection failed is used only after the others.
+const SNI_COOLDOWN: Duration = Duration::from_secs(30);
 
 #[derive(Debug, thiserror::Error)]
 pub enum FronterError {
@@ -61,9 +62,9 @@ pub struct AppsScriptDomainFronter {
     connect_host: String,
     /// The front's TLS port: 443, a loopback port in tests.
     front_port: u16,
-    /// TLS SNI names, used in turn per connection: `sniHosts`, or the front domain alone.
-    sni_hosts: Vec<String>,
-    next_sni: AtomicUsize,
+    /// TLS SNI names, used in turn per connection (`sniHosts`, or the front domain alone);
+    /// a name whose front connection failed cools down.
+    sni_hosts: ScriptPool,
     auth_key: String,
     scripts: ScriptPool,
     tls_connector: TlsConnector,
@@ -75,14 +76,12 @@ impl AppsScriptDomainFronter {
         Self {
             connect_host: config.google_ip.clone(),
             front_port: 443,
-            sni_hosts: if config.sni_hosts.is_empty() {
-                vec![config.front_domain.clone()]
-            } else {
-                config.sni_hosts.clone()
-            },
-            next_sni: AtomicUsize::new(0),
+            sni_hosts: ScriptPool::new(
+                if config.sni_hosts.is_empty() { vec![config.front_domain.clone()] } else { config.sni_hosts.clone() },
+                SNI_COOLDOWN,
+            ),
             auth_key: config.auth_key.clone(),
-            scripts: ScriptPool::new(config.script_ids.clone()),
+            scripts: ScriptPool::new(config.script_ids.clone(), DEPLOYMENT_COOLDOWN),
             tls_connector: tls::connector(),
             telemetry,
         }
@@ -155,11 +154,11 @@ impl AppsScriptDomainFronter {
     /// truncate the request or drop already-consumed response bytes.
     async fn relay_once(&self, script_id: &str, payload: &[u8]) -> Result<Vec<u8>, AttemptError> {
         let sent = |error| AttemptError { error, sent: true, deployment_fault: true };
-        let mut stream = self.open_fronted_stream().await.map_err(|error| AttemptError {
-            error,
-            sent: false,
-            deployment_fault: true,
-        })?;
+        // A front that cannot be opened is a front or SNI fault, not one of the deployment.
+        let mut stream = self
+            .connect_front(&self.connect_host, self.front_port, RELAY_TIMEOUT)
+            .await
+            .map_err(|error| AttemptError { error, sent: false, deployment_fault: false })?;
         let path = format!("/macros/s/{script_id}/exec");
 
         // A request that failed while being written may still have reached Apps Script.
@@ -183,38 +182,42 @@ impl AppsScriptDomainFronter {
         })
     }
 
+    /// Open a verified TLS stream to `host:port` with the next SNI name (round-robin, a
+    /// name that failed recently last), within `limit`, and record the name's health.
+    ///
     /// # Cancel safety
     ///
     /// NOT cancel-safe: establishes a TCP + TLS connection through a multi-step
     /// handshake; cancellation mid-handshake leaves a partially negotiated TLS
-    /// session that is dropped without a clean close_notify.
-    async fn open_fronted_stream(&self) -> Result<tokio_rustls::client::TlsStream<TcpStream>, FronterError> {
-        tls::connect_fronted_stream(&self.tls_connector, &self.connect_host, self.front_port, self.next_sni()).await
-    }
-
-    /// The SNI for the next front connection. Rotating over several Google names
-    /// keeps one blocked name from stopping every connection.
-    fn next_sni(&self) -> &str {
-        // Ordering: the counter only spreads connections; no state is published through it.
-        let index = self.next_sni.fetch_add(1, Ordering::Relaxed);
-        &self.sni_hosts[index % self.sni_hosts.len()]
+    /// session that is dropped without a clean close_notify, and records no health.
+    async fn connect_front(
+        &self,
+        host: &str,
+        port: u16,
+        limit: Duration,
+    ) -> Result<tokio_rustls::client::TlsStream<TcpStream>, FronterError> {
+        let Some(sni) = self.sni_hosts.pick() else {
+            return Err(FronterError::Relay("no front SNI name configured".to_string()));
+        };
+        let connect = tls::connect_fronted_stream(&self.tls_connector, host, port, self.sni_hosts.id(sni));
+        let result = timeout(limit, connect).await.map_err(|_| FronterError::Timeout).and_then(|result| result);
+        self.sni_hosts.record(sni, result.is_ok());
+        result
     }
 
     /// Open a verified TLS stream to an SNI-rewrite `upstream`, presenting the
-    /// next SNI name (see [`Self::next_sni`]).
+    /// next SNI name (see [`Self::connect_front`]).
     ///
     /// # Cancel safety
     ///
     /// NOT cancel-safe: same multi-step TCP + TLS handshake as
-    /// `open_fronted_stream`.
+    /// `connect_front`.
     pub(crate) async fn open_rewrite_stream(
         &self,
         upstream: &str,
         port: u16,
     ) -> Result<tokio_rustls::client::TlsStream<TcpStream>, FronterError> {
-        timeout(RELAY_TIMEOUT, tls::connect_fronted_stream(&self.tls_connector, upstream, port, self.next_sni()))
-            .await
-            .map_err(|_| FronterError::Timeout)?
+        self.connect_front(upstream, port, RELAY_TIMEOUT).await
     }
 }
 
@@ -264,21 +267,6 @@ mod tests {
         }
 
         assert_eq!(names, vec![Some("mail.google.com"), Some("drive.google.com"), Some("mail.google.com")]);
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    async fn a_request_that_cannot_reach_one_deployment_is_tried_on_the_next() {
-        let mut config =
-            AppsScriptRuntimeConfig::from_json(r#"{"scriptIds":["script-a","script-b"],"authKey":"secret"}"#)
-                .expect("config");
-        // Nothing listens on loopback port 443: every attempt fails before the request is sent.
-        config.google_ip = "127.0.0.1".to_string();
-        let fronter = AppsScriptDomainFronter::new(&config, Arc::new(RelayTelemetryState::new(&config)));
-
-        let response = fronter.relay("POST", "https://target.example/form", &[], b"data").await;
-
-        assert!(response.starts_with(b"HTTP/1.1 502 "));
-        assert!(fronter.scripts.is_cooling_now(0) && fronter.scripts.is_cooling_now(1), "both deployments were tried");
     }
 
     #[tokio::test(flavor = "current_thread")]

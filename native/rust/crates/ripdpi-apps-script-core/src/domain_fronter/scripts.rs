@@ -1,5 +1,6 @@
-//! Deployment rotation with failover: a deployment that fails is skipped for a while
-//! when another one is available, so an exhausted quota stops taking 1/N of requests.
+//! Rotation with failover over deployments (and front SNI names): one that fails is
+//! skipped for a while when another one is available, so an exhausted quota or a
+//! blocked name stops taking 1/N of requests.
 
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::time::{Duration, Instant};
@@ -7,10 +8,12 @@ use std::time::{Duration, Instant};
 use super::FronterError;
 
 /// How long a deployment that failed is tried only after the others.
-const COOLDOWN: Duration = Duration::from_secs(60);
+pub(super) const DEPLOYMENT_COOLDOWN: Duration = Duration::from_secs(60);
 
 pub(super) struct ScriptPool {
     ids: Vec<String>,
+    /// How long an entry that failed is tried only after the others.
+    cooldown: Duration,
     next: AtomicUsize,
     /// Per deployment: end of its cooldown in milliseconds since `epoch`; 0 when healthy.
     cooling_until_ms: Vec<AtomicU64>,
@@ -27,9 +30,9 @@ pub(super) struct AttemptError {
 }
 
 impl ScriptPool {
-    pub(super) fn new(ids: Vec<String>) -> Self {
+    pub(super) fn new(ids: Vec<String>, cooldown: Duration) -> Self {
         let cooling_until_ms = ids.iter().map(|_| AtomicU64::new(0)).collect();
-        Self { ids, next: AtomicUsize::new(0), cooling_until_ms, epoch: Instant::now() }
+        Self { ids, cooldown, next: AtomicUsize::new(0), cooling_until_ms, epoch: Instant::now() }
     }
 
     pub(super) fn id(&self, index: usize) -> &str {
@@ -53,8 +56,13 @@ impl ScriptPool {
         order
     }
 
+    /// The entry to use next: the first of [`Self::attempt_order`].
+    pub(super) fn pick(&self) -> Option<usize> {
+        self.attempt_order().first().copied()
+    }
+
     pub(super) fn record(&self, index: usize, healthy: bool) {
-        let until = if healthy { 0 } else { self.now_ms() + COOLDOWN.as_millis() as u64 };
+        let until = if healthy { 0 } else { self.now_ms() + self.cooldown.as_millis() as u64 };
         // Ordering: an independent per-deployment hint; a stale read only changes the try order.
         self.cooling_until_ms[index].store(until, Ordering::Relaxed);
     }
@@ -95,7 +103,7 @@ mod tests {
     use super::*;
 
     fn pool(count: usize) -> ScriptPool {
-        ScriptPool::new((0..count).map(|index| format!("script-{index}")).collect())
+        ScriptPool::new((0..count).map(|index| format!("script-{index}")).collect(), DEPLOYMENT_COOLDOWN)
     }
 
     #[test]
@@ -107,7 +115,7 @@ mod tests {
         pool.record(2, false);
         let now = pool.now_ms();
         assert_eq!(pool.attempt_order_at(now), vec![0, 1, 2], "rotation starts at 2, which is cooling");
-        let after_cooldown = now + COOLDOWN.as_millis() as u64 + 1;
+        let after_cooldown = now + DEPLOYMENT_COOLDOWN.as_millis() as u64 + 1;
         assert_eq!(pool.attempt_order_at(after_cooldown), vec![0, 1, 2]);
         assert_eq!(pool.attempt_order_at(after_cooldown), vec![1, 2, 0]);
 

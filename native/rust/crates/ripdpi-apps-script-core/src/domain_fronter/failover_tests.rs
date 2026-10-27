@@ -152,3 +152,32 @@ async fn a_get_that_a_deployment_failed_moves_to_the_next_deployment() {
     assert_eq!(front.requests(), vec!["script-a".to_string(), "script-b".to_string()]);
     assert!(fronter.scripts.is_cooling_now(0) && !fronter.scripts.is_cooling_now(1));
 }
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_sni_name_whose_handshake_failed_is_skipped_while_it_cools() {
+    // The front serves drive.google.com only, so a mail.google.com handshake fails.
+    let front = FakeFront::start(&["drive.google.com"], |_| Reply::Json(OK)).await;
+    let (fronter, _telemetry, _config) = front
+        .fronter(r#"{"scriptIds":["script-a"],"authKey":"secret","sniHosts":["mail.google.com","drive.google.com"]}"#);
+
+    let mut opened = Vec::new();
+    for _ in 0..3 {
+        opened.push(fronter.open_rewrite_stream("127.0.0.1", front.port).await.is_ok());
+    }
+
+    assert_eq!(opened, vec![false, true, true], "the failed name is not used again while it cools");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn an_sni_handshake_failure_cools_no_deployment() {
+    let front = FakeFront::start(&["drive.google.com"], |_| Reply::Json(OK)).await;
+    let (fronter, _telemetry, _config) = front.fronter(
+        r#"{"scriptIds":["script-a","script-b"],"authKey":"secret","sniHosts":["mail.google.com","drive.google.com"]}"#,
+    );
+
+    let response = fronter.relay("POST", "https://target.example/form", &[], b"data").await;
+
+    assert!(response.starts_with(b"HTTP/1.1 200 "), "{}", String::from_utf8_lossy(&response));
+    assert_eq!(front.requests(), vec!["script-b".to_string()], "the unsent request moved to the next deployment");
+    assert!(!fronter.scripts.is_cooling_now(0) && !fronter.scripts.is_cooling_now(1), "both deployments are healthy");
+}
