@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
+import com.poyka.ripdpi.core.detection.dpi.IpAddressClassifier
+import com.poyka.ripdpi.core.detection.dpi.IpAddressType
 import com.poyka.ripdpi.diagnostics.dpi.DpiAssetLoader
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -9,6 +11,8 @@ import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import java.io.IOException
+import java.net.Inet4Address
+import java.net.Inet6Address
 import java.net.InetAddress
 
 enum class BootstrapVerdict {
@@ -86,6 +90,11 @@ class DohBootstrapSpoofingDetector(
         val knownToMetadata = discoveredAsn != null || discoveredOrg != null || discoveredRange != null
         val verdict =
             when {
+                // No DoH provider serves from a loopback, private, link-local or reserved address: a sinkhole.
+                !isPublicAddress(bootstrapIp) -> {
+                    BootstrapVerdict.SPOOFED
+                }
+
                 matchesIpMetadata || (discoveredRange != null && discoveredRange in expectedRanges) -> {
                     BootstrapVerdict.OK
                 }
@@ -124,6 +133,29 @@ class DohBootstrapSpoofingDetector(
             expectedFilter = expectedFilter,
         )
 }
+
+private fun isPublicAddress(ip: String): Boolean {
+    // classify() only accepts IP literals, so this getByName never does a DNS lookup.
+    val address =
+        ip.takeIf { IpAddressClassifier.classify(it) == IpAddressType.PUBLIC }?.let(InetAddress::getByName)
+            ?: return false
+    val firstOctet = address.address.first().toInt() and ByteMask
+    return when {
+        address.isMulticastAddress -> false
+        address is Inet6Address -> firstOctet and UlaMask != UlaPrefix
+        address is Inet4Address -> firstOctet < ReservedV4FirstOctet
+        else -> true
+    }
+}
+
+private const val ByteMask = 0xFF
+
+// fc00::/7 unique local addresses.
+private const val UlaMask = 0xFE
+private const val UlaPrefix = 0xFC
+
+// 240.0.0.0/4 (reserved) and the 255.255.255.255 broadcast address.
+private const val ReservedV4FirstOctet = 240
 
 fun DpiAssetLoader.loadDohProviderFilters(): List<DohProviderFilter> =
     loadDohProviderFiltersText().parseDohProviderFilters()

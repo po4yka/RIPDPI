@@ -105,6 +105,38 @@ class DohBootstrapSpoofingDetectorTest {
         }
 
     @Test
+    fun nonPublicAddressIsSpoofedEvenWhenNoMetadataKnowsIt() =
+        runTest {
+            val sinkholes =
+                mapOf(
+                    "loopback" to "127.0.0.1",
+                    "loopback v6" to "::1",
+                    "any-local" to "0.0.0.0",
+                    "any-local v6" to "::",
+                    "private" to "10.10.34.35",
+                    "private 192.168" to "192.168.1.1",
+                    "private v6 (ULA)" to "fd00::1",
+                    "link-local" to "169.254.1.1",
+                    "link-local v6" to "fe80::1",
+                    "reserved CGNAT" to "100.64.0.1",
+                    "reserved benchmark" to "198.18.0.1",
+                    "reserved 240/4" to "240.0.0.1",
+                    "broadcast" to "255.255.255.255",
+                    "multicast" to "224.0.0.1",
+                )
+            val verdicts =
+                sinkholes.mapValues { (_, address) ->
+                    detector(
+                        resolver = mapResolver("dns.google" to listOf(address)),
+                        metadata = metadata(),
+                        providers = listOf(DohProviderFilter("Google", "dns.google", """as(15169)""")),
+                    ).checkAll().getValue("Google").verdict
+                }
+
+            assertEquals(sinkholes.mapValues { BootstrapVerdict.SPOOFED }, verdicts)
+        }
+
+    @Test
     fun matchingAddressAfterAnUnknownIpv6AnswerIsOk() =
         runTest {
             val detector =
