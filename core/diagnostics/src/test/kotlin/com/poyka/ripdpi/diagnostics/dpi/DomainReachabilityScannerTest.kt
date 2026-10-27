@@ -241,6 +241,40 @@ class DomainReachabilityScannerTest {
         }
 
     @Test
+    fun httpStreamThatStallsInsideTheTcp16BandIsReportedAsTcp16() =
+        runTest {
+            java.net.ServerSocket(0, 1, java.net.InetAddress.getLoopbackAddress()).use { server ->
+                val serverThread =
+                    Thread {
+                        server.accept().use { client ->
+                            client.getInputStream().read(ByteArray(512))
+                            client.getOutputStream().write("HTTP/1.1 200 OK\r\n".toByteArray())
+                            client.getOutputStream().write(ByteArray(18_000) { 'a'.code.toByte() })
+                            client.getOutputStream().flush()
+                            Thread.sleep(2_000)
+                        }
+                    }.apply { start() }
+                val runner =
+                    OkHttpDomainReachabilityAttemptRunner(
+                        timeoutMs = 300,
+                        endpointResolver =
+                            ReachabilityProbeEndpointResolver { domain, _ ->
+                                ReachabilityProbeEndpoint(
+                                    connectHost = "127.0.0.1",
+                                    port = server.localPort,
+                                    hostHeader = domain,
+                                )
+                            },
+                    )
+
+                val result = runner("stall.example", ReachabilityProbeKind.HTTP, emptySet())
+
+                assertEquals(AttemptStatus.TCP16_BAND_TIMEOUT, result.status)
+                serverThread.join()
+            }
+        }
+
+    @Test
     fun tlsAttemptUsesInjectedClientBuilder() =
         runTest {
             val builderCalls = AtomicInteger()

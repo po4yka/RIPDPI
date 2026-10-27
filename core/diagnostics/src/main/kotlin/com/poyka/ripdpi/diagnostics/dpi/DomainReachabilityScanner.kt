@@ -348,7 +348,14 @@ class OkHttpDomainReachabilityAttemptRunner(
         return try {
             client.newCall(request).execute().use { response ->
                 stage.set(ProbeStage.READING_DATA)
-                bytesRead = response.body.bytes().size
+                // Count as bytes arrive, so a mid-body timeout reports how far the stream got (TCP16 band).
+                val body = response.body.byteStream()
+                val buffer = ByteArray(HttpReadBufferSize)
+                var read = body.read(buffer)
+                while (read >= 0) {
+                    bytesRead += read
+                    read = body.read(buffer)
+                }
                 response.toAttemptResult(domain, kind, bytesRead, elapsedMillis(startedAt), stubIps)
             }
         } catch (error: IOException) {
@@ -403,7 +410,8 @@ class OkHttpDomainReachabilityAttemptRunner(
                 stubIps = stubIps,
                 response = response,
                 stage = stage,
-                bytesRead = bytesRead,
+                // readHttpResponse() did not return, so only the buffer knows how many bytes arrived.
+                bytesRead = response.size(),
                 startedAt = startedAt,
                 error = error,
             )
