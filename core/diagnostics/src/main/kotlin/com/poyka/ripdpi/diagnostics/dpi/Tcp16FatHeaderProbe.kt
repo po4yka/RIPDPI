@@ -3,13 +3,19 @@ package com.poyka.ripdpi.diagnostics.dpi
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
 import com.poyka.ripdpi.diagnostics.dpich.RandomHostHeaderGenerator
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withPermit
 import kotlinx.coroutines.withContext
+import okhttp3.Call
 import okhttp3.ConnectionPool
 import okhttp3.Dns
 import okhttp3.EventListener
@@ -26,6 +32,7 @@ import java.net.SocketTimeoutException
 import java.util.Locale
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import java.util.concurrent.atomic.AtomicReference
 import javax.net.ssl.SSLHandshakeException
 import kotlin.math.roundToLong
 
@@ -76,14 +83,24 @@ class Tcp16FatHeaderProbe(
     ): Tcp16ProbeResult =
         withContext(dispatcher) {
             val tracker = Tcp16ConnectionTracker()
+            // execute() blocks and ignores coroutine cancellation, so a sibling cancels the in-flight call.
+            val canceller =
+                launch(start = CoroutineStart.UNDISPATCHED) {
+                    try {
+                        awaitCancellation()
+                    } finally {
+                        tracker.cancelActiveCall()
+                    }
+                }
             try {
                 runRequestTrain(target, hintRttMs, randomHostname, tracker)
             } finally {
+                canceller.cancel()
                 tracker.close()
             }
         }
 
-    private fun runRequestTrain(
+    private suspend fun runRequestTrain(
         target: Tcp16Target,
         hintRttMs: Long?,
         randomHostname: Boolean,
@@ -94,6 +111,7 @@ class Tcp16FatHeaderProbe(
         // One host for the whole train: a new host per request makes OkHttp open a new connection each time.
         val requestedHost = if (randomHostname) RandomHostHeaderGenerator.next() else target.sni ?: target.ip
         for (requestIndex in 0 until RequestCount) {
+            currentCoroutineContext().ensureActive()
             requestedHosts += requestedHost
             val request =
                 Tcp16FatHeaderRequest(
@@ -106,6 +124,7 @@ class Tcp16FatHeaderProbe(
                 runCatching {
                     requestRunner.execute(target, request, tracker)
                 }
+            currentCoroutineContext().ensureActive()
             if (tracker.connectionCount > 1) {
                 return target.result(
                     alive = true,
@@ -268,6 +287,26 @@ class Tcp16ConnectionTracker {
         connectStarts.incrementAndGet()
     }
 
+    private val activeCall = AtomicReference<Call?>()
+
+    @Volatile
+    private var cancelled = false
+
+    /** Registers the in-flight call so [cancelActiveCall] can stop it; cancels it at once after a cancel. */
+    fun track(call: Call) {
+        activeCall.set(call)
+        if (cancelled) call.cancel()
+    }
+
+    fun untrack(call: Call) {
+        activeCall.compareAndSet(call, null)
+    }
+
+    fun cancelActiveCall() {
+        cancelled = true
+        activeCall.get()?.cancel()
+    }
+
     /** Closes the idle keep-alive socket so it does not outlive the target run. */
     fun close() {
         connectionPool.evictAll()
@@ -276,7 +315,7 @@ class Tcp16ConnectionTracker {
     fun eventListener(): EventListener =
         object : EventListener() {
             override fun connectStart(
-                call: okhttp3.Call,
+                call: Call,
                 inetSocketAddress: InetSocketAddress,
                 proxy: Proxy,
             ) {
@@ -314,12 +353,17 @@ class OkHttpTcp16RequestRunner(
             )
         call.timeout().timeout(request.timeoutMs, TimeUnit.MILLISECONDS)
         val startedNanos = System.nanoTime()
-        call.execute().use { response ->
-            val elapsedMs = ((System.nanoTime() - startedNanos) / NanosPerMillis).coerceAtLeast(1)
-            return Tcp16FatHeaderResponse(
-                statusCode = response.code,
-                elapsedMs = elapsedMs,
-            )
+        tracker.track(call)
+        try {
+            call.execute().use { response ->
+                val elapsedMs = ((System.nanoTime() - startedNanos) / NanosPerMillis).coerceAtLeast(1)
+                return Tcp16FatHeaderResponse(
+                    statusCode = response.code,
+                    elapsedMs = elapsedMs,
+                )
+            }
+        } finally {
+            tracker.untrack(call)
         }
     }
 

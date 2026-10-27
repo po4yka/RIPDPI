@@ -1,6 +1,10 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsTlsClientState
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.Dispatcher
 import mockwebserver3.MockResponse
@@ -15,8 +19,10 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicInteger
+import kotlin.system.measureTimeMillis
 
 class Tcp16FatHeaderProbeTest {
     @Test
@@ -98,6 +104,33 @@ class Tcp16FatHeaderProbeTest {
 
                 assertEquals(Tcp16Verdict.ERROR, result.verdict)
                 assertNull(result.detectedAtKb)
+            }
+        }
+
+    @Test(timeout = 30_000)
+    fun cancellingTheRunStopsTheBlockedRequestAtOnce() =
+        runBlocking {
+            MockWebServer().use { server ->
+                val seen = AtomicInteger()
+                val stalled = CountDownLatch(1)
+                server.dispatcher =
+                    object : Dispatcher() {
+                        override fun dispatch(request: RecordedRequest): MockResponse =
+                            if (seen.incrementAndGet() == 2) {
+                                stalled.countDown()
+                                MockResponse.Builder().onResponseStart(SocketEffect.Stall).build()
+                            } else {
+                                okHeadResponse()
+                            }
+                    }
+                server.start()
+                val run = launch(Dispatchers.Default) { probe().runWithRttHint(mockTarget(server), hintRttMs = 10_000) }
+                assertTrue(stalled.await(5, TimeUnit.SECONDS))
+
+                val cancelMs = measureTimeMillis { run.cancelAndJoin() }
+
+                assertTrue("cancel took $cancelMs ms", cancelMs < 3_000)
+                assertEquals(2, seen.get())
             }
         }
 
