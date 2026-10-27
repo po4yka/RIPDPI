@@ -22,6 +22,11 @@ const HEADER_ALONE_DELAY: Duration = Duration::from_millis(100);
 /// server-first protocol still works: when the stream is read and not written
 /// for [`HEADER_ALONE_DELAY`], the header goes out alone. A flush or a
 /// shutdown also sends it.
+///
+/// A first write that `T` cannot take at once still reports its length, and
+/// its bytes stay queued: the next write, flush, shutdown or read sends them,
+/// and a read parked on this stream is woken to do so. A caller that writes
+/// and then does none of these must flush, as with a buffered writer.
 pub struct TrojanStream<T> {
     inner: T,
     /// The header, until a write, flush, shutdown or the delay queues it.
@@ -33,15 +38,34 @@ pub struct TrojanStream<T> {
     /// A writer that waits for `pending` to drain. A read that drains it may
     /// take the write-readiness wake-up, so it wakes this writer.
     drain_waiter: Option<Waker>,
+    /// A read that waits on `inner`, woken when a first write leaves bytes
+    /// queued, so that it drives them out.
+    read_waiter: Option<Waker>,
 }
 
 impl<T> TrojanStream<T> {
     pub(crate) fn with_deferred_header(inner: T, header: Vec<u8>) -> Self {
-        Self { inner, header: Some(header), pending: Vec::new(), written: 0, header_timer: None, drain_waiter: None }
+        Self {
+            inner,
+            header: Some(header),
+            pending: Vec::new(),
+            written: 0,
+            header_timer: None,
+            drain_waiter: None,
+            read_waiter: None,
+        }
     }
 
     pub(crate) fn header_sent(inner: T) -> Self {
-        Self { inner, header: None, pending: Vec::new(), written: 0, header_timer: None, drain_waiter: None }
+        Self {
+            inner,
+            header: None,
+            pending: Vec::new(),
+            written: 0,
+            header_timer: None,
+            drain_waiter: None,
+            read_waiter: None,
+        }
     }
 
     /// The underlying TLS stream.
@@ -114,7 +138,15 @@ impl<T: AsyncRead + AsyncWrite + Unpin> AsyncRead for TrojanStream<T> {
             }
             Poll::Ready(Ok(())) => {}
         }
-        Pin::new(&mut this.inner).poll_read(cx, buf)
+        let poll = Pin::new(&mut this.inner).poll_read(cx, buf);
+        if poll.is_pending() {
+            if !this.read_waiter.as_ref().is_some_and(|waiter| waiter.will_wake(cx.waker())) {
+                this.read_waiter = Some(cx.waker().clone());
+            }
+        } else {
+            this.read_waiter = None;
+        }
+        poll
     }
 }
 
@@ -124,9 +156,16 @@ impl<T: AsyncWrite + Unpin> AsyncWrite for TrojanStream<T> {
         if this.header.is_some() {
             this.queue_header(buf);
             // The payload is queued with the header; a write still waiting
-            // finishes on the next write, flush or read.
-            if let Poll::Ready(Err(error)) = this.poll_drain(cx) {
-                return Poll::Ready(Err(error));
+            // finishes on the next write, flush or read. This writer may not
+            // come back, so a parked read is woken to drive the drain.
+            match this.poll_drain(cx) {
+                Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
+                Poll::Pending => {
+                    if let Some(waiter) = this.read_waiter.take() {
+                        waiter.wake();
+                    }
+                }
+                Poll::Ready(Ok(())) => {}
             }
             return Poll::Ready(Ok(buf.len()));
         }
@@ -244,5 +283,41 @@ mod tests {
             .expect("server read");
         assert_eq!(received, [b"HEADER".as_slice(), &first, &second].concat());
         writer_task.await.expect("writer task");
+    }
+
+    /// A client-first caller writes its request once and never flushes, while
+    /// the read half waits for the response: the header and the request must
+    /// still reach the server.
+    #[tokio::test]
+    async fn a_first_write_that_never_flushes_still_reaches_the_server() {
+        let (client, server) = tokio::io::duplex(PIPE_CAPACITY);
+        let (mut reader, mut writer) = tokio::io::split(TrojanStream::with_deferred_header(client, b"HEADER".to_vec()));
+        let request = vec![b'q'; 64];
+        let expected = [b"HEADER".as_slice(), &request].concat();
+        let server_task = tokio::spawn(async move {
+            let mut server = server;
+            let mut received = vec![0u8; expected.len()];
+            server.read_exact(&mut received).await.expect("server read");
+            assert_eq!(received, expected);
+            server.write_all(b"ok").await.expect("server response");
+            server
+        });
+        let reader_task = tokio::spawn(async move {
+            let mut response = [0u8; 2];
+            reader.read_exact(&mut response).await.map(|_| response)
+        });
+        tokio::time::sleep(Duration::from_millis(10)).await;
+        // One write and no flush; the writer then waits on something else.
+        let written = writer.write(&request).await.expect("request write");
+        assert_eq!(written, request.len());
+
+        let response = tokio::time::timeout(Duration::from_secs(2), reader_task)
+            .await
+            .expect("the queued request must reach the server without a flush")
+            .expect("reader task")
+            .expect("response read");
+        assert_eq!(&response, b"ok");
+        drop(writer);
+        server_task.await.expect("server task");
     }
 }
