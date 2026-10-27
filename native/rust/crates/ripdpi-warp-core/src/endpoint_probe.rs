@@ -178,10 +178,13 @@ fn encode_probe_packet(packet: &[u8], reserved: [u8; 3], amnezia: Option<&AwgWir
 }
 
 fn decode_probe_packet(packet: &[u8], amnezia: Option<&AwgWireCodec>) -> Option<Vec<u8>> {
-    match amnezia {
-        Some(codec) => codec.decode(packet),
-        None => Some(packet.to_vec()),
-    }
+    let mut packet = match amnezia {
+        Some(codec) => codec.decode(packet)?,
+        None => packet.to_vec(),
+    };
+    // A WARP edge may echo the client id in the reserved bytes; boringtun needs them zero.
+    apply_reserved_bytes(&mut packet, [0; 3]);
+    Some(packet)
 }
 
 fn probe_result_from_endpoint(

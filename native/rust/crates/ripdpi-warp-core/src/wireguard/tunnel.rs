@@ -393,7 +393,6 @@ impl WireGuardTunnel {
                     continue;
                 }
             };
-            let raw = &recv_buf[..size];
             // When AmneziaWG obfuscation is active, decode the incoming packet
             // before passing it to boringtun. Packets whose header does not
             // match any of h1-h4 (e.g. junk injected by the remote peer during
@@ -402,22 +401,25 @@ impl WireGuardTunnel {
             // `decoded_buf` holds the reconstructed WG packet (type byte +
             // payload) when amnezia is active. When inactive, `data` points
             // directly into `recv_buf` and `decoded_buf` is unused.
-            let decoded_buf: Vec<u8> = if let Some(codec) = &self.amnezia {
-                match codec.decode(raw) {
+            let mut decoded_buf: Vec<u8> = if let Some(codec) = &self.amnezia {
+                match codec.decode(&recv_buf[..size]) {
                     Some(packet) => packet,
                     None => continue,
                 }
             } else {
                 Vec::new()
             };
-            let data: &[u8] = if self.amnezia.is_some() {
-                &decoded_buf
+            let data: &mut [u8] = if self.amnezia.is_some() {
+                &mut decoded_buf
             } else {
-                if raw.is_empty() {
+                if size == 0 {
                     continue;
                 }
-                raw
+                &mut recv_buf[..size]
             };
+            // A WARP edge may echo the client id in the reserved bytes; boringtun needs them zero.
+            apply_reserved_bytes(data, [0; 3]);
+            let data: &[u8] = data;
             let result = { self.peer.lock().await.decapsulate(None, data, &mut send_buf) };
             if authenticated_by_boringtun(&result, data, self.amnezia.is_some()) {
                 self.timers.mark_traffic();
@@ -626,6 +628,78 @@ mod tests {
         routine.abort();
         result.expect("initial handshake and timer retry");
         assert_ne!(signatures[0], signatures[1]);
+    }
+
+    const CLIENT_SECRET: [u8; 32] = [21; 32];
+    const SERVER_SECRET: [u8; 32] = [42; 32];
+
+    /// A plain WireGuard peer on loopback and a client tunnel that dials it.
+    async fn tunnel_and_peer() -> (std::sync::Arc<WireGuardTunnel>, tokio::net::UdpSocket, Box<Tunn>) {
+        use base64::Engine as _;
+        use boringtun::x25519::{PublicKey, StaticSecret};
+        let encode = |bytes: [u8; 32]| base64::engine::general_purpose::STANDARD.encode(bytes);
+        let server_secret = StaticSecret::from(SERVER_SECRET);
+        let server_public = PublicKey::from(&server_secret).to_bytes();
+        let client_public = PublicKey::from(&StaticSecret::from(CLIENT_SECRET));
+        let peer_socket = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let peer = Box::new(Tunn::new(server_secret, client_public, None, None, 1, None));
+        let amnezia = WarpAmneziaConfig::default();
+        let tunnel = WireGuardTunnel::new(
+            WireGuardTunnelParams {
+                private_key: &encode(CLIENT_SECRET),
+                peer_public_key: &encode(server_public),
+                preshared_key: None,
+                persistent_keepalive: None,
+                persistent_keepalive_max: None,
+                endpoint: peer_socket.local_addr().unwrap(),
+                reserved: [0; 3],
+                source_peer_ip: "10.77.0.2".parse().unwrap(),
+                source_peer_ipv6: None,
+                amnezia_cfg: &amnezia,
+                signature_programs: ["", "", "", "", ""],
+                carrier: None,
+            },
+            &WarpPlatform::default(),
+        )
+        .await
+        .unwrap();
+        (std::sync::Arc::new(tunnel), peer_socket, peer)
+    }
+
+    fn spawn_consume(tunnel: &std::sync::Arc<WireGuardTunnel>) -> tokio::task::JoinHandle<io::Error> {
+        let tunnel = tunnel.clone();
+        tokio::spawn(async move { tunnel.consume_task(Bus::new()).await })
+    }
+
+    /// Answer the client's initiation; `edit` may rewrite the response before it is sent.
+    async fn answer_initiation(socket: &tokio::net::UdpSocket, peer: &mut Tunn, edit: impl FnOnce(&mut [u8])) {
+        let mut datagram = vec![0u8; MAX_PACKET];
+        let mut out = vec![0u8; MAX_PACKET];
+        let (size, client) = socket.recv_from(&mut datagram).await.unwrap();
+        let TunnResult::WriteToNetwork(response) = peer.decapsulate(Some(client.ip()), &datagram[..size], &mut out)
+        else {
+            panic!("the peer must answer the initiation");
+        };
+        edit(response);
+        socket.send_to(response, client).await.unwrap();
+    }
+
+    #[tokio::test]
+    async fn handshake_response_that_echoes_the_reserved_bytes_is_accepted() {
+        let (tunnel, socket, mut peer) = tunnel_and_peer().await;
+        let consume = spawn_consume(&tunnel);
+        tunnel.initiate_handshake().await.unwrap();
+        // A WARP edge may echo the client id in bytes 1..4, as Xray and sing-box clients allow.
+        answer_initiation(&socket, &mut peer, |response| response[1..4].copy_from_slice(&[0x11, 0x22, 0x33])).await;
+
+        let established = tokio::time::timeout(Duration::from_secs(2), async {
+            while !tunnel.is_handshake_established() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await;
+        consume.abort();
+        established.expect("a response with non-zero reserved bytes must complete the handshake");
     }
 
     #[test]
