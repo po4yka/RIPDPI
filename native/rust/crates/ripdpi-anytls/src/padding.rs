@@ -12,12 +12,8 @@ pub enum PaddingError {
     InvalidUtf8,
     #[error("padding scheme is missing stop")]
     MissingStop,
-    #[error("padding scheme stop must be a positive integer")]
+    #[error("padding scheme stop must be a non-negative integer")]
     InvalidStop,
-    #[error("padding scheme contains an invalid packet index: {0}")]
-    InvalidPacketIndex(String),
-    #[error("padding scheme contains an invalid range: {0}")]
-    InvalidRange(String),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -71,6 +67,9 @@ pub struct PaddingScheme {
 }
 
 impl PaddingScheme {
+    /// Parses a scheme as the reference does: keys that are not packet
+    /// indexes are ignored, invalid or oversized range parts are skipped, and
+    /// `stop=0` disables padding. Only a missing or non-numeric `stop` fails.
     pub fn parse(raw_scheme: &[u8]) -> Result<Self, PaddingError> {
         let text = std::str::from_utf8(raw_scheme).map_err(|_| PaddingError::InvalidUtf8)?;
         let mut stop = None;
@@ -87,14 +86,12 @@ impl PaddingScheme {
                 continue;
             }
 
-            let packet_index = key.parse::<u32>().map_err(|_| PaddingError::InvalidPacketIndex(key.to_owned()))?;
-            packet_rules.insert(packet_index, parse_packet_rule(value)?);
+            if let Ok(packet_index) = key.parse::<u32>() {
+                packet_rules.insert(packet_index, parse_packet_rule(value));
+            }
         }
 
         let stop = stop.ok_or(PaddingError::MissingStop)?;
-        if stop == 0 {
-            return Err(PaddingError::InvalidStop);
-        }
 
         Ok(Self {
             raw_scheme: raw_scheme.to_vec(),
@@ -221,7 +218,9 @@ impl PaddingScheme {
     }
 }
 
-fn parse_packet_rule(value: &str) -> Result<Vec<SizeRule>, PaddingError> {
+/// Skips a part that is not `c` or a positive range, or that would take the
+/// packet past one wire frame; the reference skips parts it cannot use.
+fn parse_packet_rule(value: &str) -> Vec<SizeRule> {
     let mut rules = Vec::new();
     let mut total_size: usize = 0;
     for part in value.split(',').map(str::trim).filter(|part| !part.is_empty()) {
@@ -231,17 +230,18 @@ fn parse_packet_rule(value: &str) -> Result<Vec<SizeRule>, PaddingError> {
         }
 
         let Some((min, max)) = part.split_once('-') else {
-            return Err(PaddingError::InvalidRange(part.to_owned()));
+            continue;
         };
-        let min = min.trim().parse::<usize>().map_err(|_| PaddingError::InvalidRange(part.to_owned()))?;
-        let max = max.trim().parse::<usize>().map_err(|_| PaddingError::InvalidRange(part.to_owned()))?;
+        let (Ok(min), Ok(max)) = (min.trim().parse::<usize>(), max.trim().parse::<usize>()) else {
+            continue;
+        };
         if min == 0 || max == 0 || min > usize::from(u16::MAX) || max > usize::from(u16::MAX) {
-            return Err(PaddingError::InvalidRange(part.to_owned()));
+            continue;
         }
         let (min, max) = if min <= max { (min, max) } else { (max, min) };
-        total_size = total_size.checked_add(max).ok_or_else(|| PaddingError::InvalidRange(part.to_owned()))?;
-        if total_size > usize::from(u16::MAX) {
-            return Err(PaddingError::InvalidRange(part.to_owned()));
+        match total_size.checked_add(max) {
+            Some(total) if total <= usize::from(u16::MAX) => total_size = total,
+            _ => continue,
         }
         if min == max {
             rules.push(SizeRule::Fixed(min));
@@ -249,7 +249,7 @@ fn parse_packet_rule(value: &str) -> Result<Vec<SizeRule>, PaddingError> {
             rules.push(SizeRule::Range { min, max });
         }
     }
-    Ok(rules)
+    rules
 }
 
 fn select_size(min: usize, max: usize, selector: u64) -> usize {

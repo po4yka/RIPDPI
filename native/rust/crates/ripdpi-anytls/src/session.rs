@@ -903,9 +903,11 @@ async fn run_session<S>(
                     streams.lock().unwrap_or_else(PoisonError::into_inner).remove(&frame.stream_id());
                 }
                 Command::UpdatePaddingScheme => {
-                    let scheme =
-                        PaddingScheme::parse(frame.data()).map_err(|error| AnyTlsError::Padding(error.to_string()))?;
-                    *padding_scheme.lock().await = scheme;
+                    // An unusable scheme keeps the current one; the reference
+                    // only logs it instead of closing the carrier.
+                    if let Ok(scheme) = PaddingScheme::parse(frame.data()) {
+                        *padding_scheme.lock().await = scheme;
+                    }
                 }
                 Command::HeartRequest => {
                     outbound_tx

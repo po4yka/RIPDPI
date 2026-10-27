@@ -399,6 +399,28 @@ async fn pushed_padding_scheme_outlives_the_client_that_learned_it() {
 }
 
 #[tokio::test]
+async fn an_unusable_pushed_padding_scheme_keeps_the_carrier() {
+    let fixture = AnyTlsLoopback::start(
+        "fixture-password",
+        AnyTlsLoopbackConfig { server_padding_scheme: Some("0=9-9".to_owned()), ..AnyTlsLoopbackConfig::default() },
+    )
+    .await
+    .expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+
+    let mut stream = tokio::time::timeout(
+        Duration::from_secs(5),
+        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()),
+    )
+    .await
+    .expect("open deadline")
+    .expect("a scheme without stop is ignored, not fatal");
+    stream.write_all(b"kept").await.expect("write");
+    assert_eq!(stream.read_exact_len(4).await.expect("read"), b"kept");
+    assert_eq!(fixture.observed().update_padding_scheme_count, 1);
+}
+
+#[tokio::test]
 async fn heart_request_gets_response_and_alert_closes_session() {
     let fixture = AnyTlsLoopback::start(
         "fixture-password",

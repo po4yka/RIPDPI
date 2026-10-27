@@ -47,20 +47,38 @@ fn parser_preserves_check_mark_and_fixed_ranges_in_order() {
 fn parser_rejects_invalid_or_missing_stop() {
     assert!(PaddingScheme::parse(b"0=30-30").is_err());
     assert!(PaddingScheme::parse(b"stop=not-a-number\n0=30-30").is_err());
-    assert!(PaddingScheme::parse(b"stop=0\n0=30-30").is_err());
 }
 
 #[test]
-fn parser_rejects_padding_larger_than_wire_frame() {
+fn stop_zero_disables_padding_as_in_the_reference() {
+    let scheme = PaddingScheme::parse(b"stop=0\n0=30-30").expect("stop=0 parses");
+    assert_eq!(scheme.plan_for_packet(0, 0).expect("packet 0 direct"), PaddingPlan::direct());
+}
+
+#[test]
+fn parser_skips_unknown_keys_and_invalid_parts_like_the_reference() {
+    let scheme =
+        PaddingScheme::parse(b"stop=3\nversion=2\n1=5-0,bogus,10-10,c,x-7\n2=0-0").expect("lenient scheme parses");
+    assert_eq!(
+        scheme.plan_for_packet(1, 0).expect("packet 1 plan").steps(),
+        &[PaddingStep::PayloadSize(10), PaddingStep::CheckIfNoMoreData],
+    );
+    assert_eq!(scheme.plan_for_packet(2, 0).expect("packet 2 direct"), PaddingPlan::direct());
+}
+
+#[test]
+fn parser_drops_padding_larger_than_wire_frame() {
     for size in [usize::from(u16::MAX) + 1, usize::MAX] {
-        let scheme = format!("stop=2\n1=1-{size}");
-        assert!(PaddingScheme::parse(scheme.as_bytes()).is_err());
+        let scheme = format!("stop=2\n1=1-{size},20-20");
+        let scheme = PaddingScheme::parse(scheme.as_bytes()).expect("scheme parses");
+        assert_eq!(scheme.plan_for_packet(1, 0).expect("plan").steps(), &[PaddingStep::PayloadSize(20)]);
     }
 }
 
 #[test]
-fn parser_rejects_aggregate_padding_larger_than_wire_frame() {
-    assert!(PaddingScheme::parse(b"stop=2\n1=65535-65535,65535-65535").is_err());
+fn parser_drops_parts_past_the_aggregate_wire_frame_bound() {
+    let scheme = PaddingScheme::parse(b"stop=2\n1=65535-65535,65535-65535").expect("scheme parses");
+    assert_eq!(scheme.plan_for_packet(1, 0).expect("plan").steps(), &[PaddingStep::PayloadSize(65535)]);
 }
 
 #[test]
