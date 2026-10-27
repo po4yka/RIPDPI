@@ -17,6 +17,7 @@ use std::time::Duration;
 use rustls::client::danger::ServerCertVerifier;
 
 use crate::candidates::candidate_pause_ms;
+use crate::types::StrategyProbeCandidateSummary;
 
 use super::super::super::runtime::{
     ExecutionPlan, ExecutionRuntime, ExecutionStageId, ExecutionStageRunner, RunnerOutcome,
@@ -215,6 +216,12 @@ pub(super) fn execution_should_stop(runtime: &ExecutionRuntime) -> bool {
     runtime.is_cancelled() || runtime.is_past_deadline() || runtime.is_past_stage_deadline()
 }
 
+/// Probes cut short by a stop fail with a local deadline error, so only their failures are
+/// truncated. A deadline cannot produce a success, so a non-failed candidate is real evidence.
+pub(super) fn deadline_truncated(runtime: &ExecutionRuntime, summary: &StrategyProbeCandidateSummary) -> bool {
+    execution_should_stop(runtime) && (summary.succeeded_targets == 0 || summary.outcome == "failed")
+}
+
 pub(super) fn sleep_within_active_deadline(delay: Duration) -> bool {
     let Ok(permitted) = ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout(delay) else {
         return false;
@@ -244,5 +251,25 @@ mod deadline_pacing_tests {
             std::thread::sleep(Duration::from_millis(10));
             assert!(!sleep_within_active_deadline(Duration::from_secs(30)));
         });
+    }
+
+    #[test]
+    fn only_failed_candidates_are_truncated_by_a_passed_deadline() {
+        let suite =
+            crate::candidates::build_strategy_probe_suite("quick_v1", &ripdpi_proxy_config::ProxyUiConfig::default())
+                .expect("suite");
+        let failed = crate::execution::failed_candidate_execution(&suite.tcp_candidates[0], 2, 1, "x".into()).summary;
+        let mut partial = failed.clone();
+        (partial.outcome, partial.succeeded_targets) = ("partial".to_string(), 1);
+        let mut success = failed.clone();
+        (success.outcome, success.succeeded_targets) = ("success".to_string(), 2);
+        let shared = Arc::new(std::sync::Mutex::new(crate::types::SharedState::default()));
+        let mut runtime = ExecutionRuntime::new(shared, Arc::new(std::sync::atomic::AtomicBool::new(false)));
+        assert!(!deadline_truncated(&runtime, &failed), "a failure before any deadline is evidence");
+
+        runtime.set_stage_deadline(Some(Instant::now() - Duration::from_millis(1)));
+        assert!(deadline_truncated(&runtime, &failed));
+        assert!(!deadline_truncated(&runtime, &partial));
+        assert!(!deadline_truncated(&runtime, &success));
     }
 }

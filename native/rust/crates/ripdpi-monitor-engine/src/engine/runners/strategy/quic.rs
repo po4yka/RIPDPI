@@ -18,7 +18,7 @@ use super::support::{
     FamilyFailureTracker, annotate_emitter_execution, capability_available, capability_suffix,
     missing_capability_rationale, strategy_probe_live_progress_with_targets,
 };
-use super::tcp::{execution_should_stop, sleep_within_active_deadline};
+use super::tcp::{deadline_truncated, execution_should_stop, sleep_within_active_deadline};
 
 mod selection;
 
@@ -145,7 +145,7 @@ impl ExecutionStageRunner for StrategyQuicRunner {
                 if execution.cancelled {
                     return RunnerOutcome::Cancelled;
                 }
-                if execution_should_stop(runtime) {
+                if deadline_truncated(runtime, &execution.summary) {
                     // The deadline truncated this candidate's probes; do not record them as a failure.
                     tracing::warn!("strategy probe: QUIC suite deadline-terminated");
                     break;

@@ -94,11 +94,9 @@ pub(super) fn merge_batch_results(
     tcp_candidate_total: usize,
 ) -> BatchMergeOutcome {
     let mut outcome = BatchMergeOutcome { any_cancelled: false, hostfake_family_succeeded: false };
-    // Probes that ran into the stage or scan deadline fail fast with a local deadline error, so a
-    // batch that ends past a deadline is truncated, not evidence; the lane only marks cancel as cancelled.
-    let interrupted = super::execution_should_stop(runtime);
     for (candidate_index, spec, execution) in exec_results {
-        if execution.cancelled || interrupted {
+        // The lane marks only a cancel as cancelled; a deadline shows up as failed probes.
+        if execution.cancelled || super::deadline_truncated(runtime, &execution.summary) {
             outcome.any_cancelled = true;
             continue;
         }
