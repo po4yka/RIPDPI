@@ -248,7 +248,7 @@ fn encrypted_dns_endpoint_rejects_unknown_protocols_and_plain_http_doh() {
     };
     let https = "https://dns.example/dns-query";
 
-    for protocol in ["odoh", "doh3", "", "tls"] {
+    for protocol in ["odoh", "doh3", "tls"] {
         let error = encrypted_dns_endpoint(&context(protocol, https)).expect_err(protocol);
         assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput, "{protocol:?}");
     }
@@ -258,6 +258,11 @@ fn encrypted_dns_endpoint_rejects_unknown_protocols_and_plain_http_doh() {
     }
 
     assert_eq!(encrypted_dns_endpoint(&context(" DoH ", https)).unwrap().protocol, EncryptedDnsProtocol::Doh);
+    for blank in ["", "  "] {
+        assert_eq!(encrypted_dns_endpoint(&context(blank, https)).unwrap().protocol, EncryptedDnsProtocol::Doh);
+    }
+    let error = encrypted_dns_endpoint(&context("", "http://dns.example/dns-query")).expect_err("blank protocol, http");
+    assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput);
     assert_eq!(encrypted_dns_endpoint(&context("dot", "")).unwrap().protocol, EncryptedDnsProtocol::Dot);
     for url in ["http://127.0.0.1:8053/dns-query", "http://[::1]:8053/dns-query", "http://localhost/dns-query"] {
         assert!(encrypted_dns_endpoint(&context("doh", url)).is_ok(), "loopback test resolver {url}");

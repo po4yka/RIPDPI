@@ -15,8 +15,9 @@ pub fn encrypted_dns_label(context: &ProxyEncryptedDnsContext) -> String {
 pub(crate) fn encrypted_dns_endpoint(context: &ProxyEncryptedDnsContext) -> io::Result<EncryptedDnsEndpoint> {
     let invalid = |message: String| io::Error::new(io::ErrorKind::InvalidInput, message);
     // ODoH needs relay and target config that this context does not carry, so it is refused too.
+    // A blank protocol is the legacy DoH default (older settings leave the field empty).
     let protocol = match context.protocol.trim().to_ascii_lowercase().as_str() {
-        "doh" => EncryptedDnsProtocol::Doh,
+        "" | "doh" => EncryptedDnsProtocol::Doh,
         "dot" => EncryptedDnsProtocol::Dot,
         "doq" => EncryptedDnsProtocol::Doq,
         "dnscrypt" => EncryptedDnsProtocol::DnsCrypt,
