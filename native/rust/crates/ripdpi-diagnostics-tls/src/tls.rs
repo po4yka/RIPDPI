@@ -303,18 +303,17 @@ mod tests {
     #[test]
     fn is_server_tls_version_rejection_reads_real_rustls_alert_text() {
         let ok = obs("tls_ok", false);
-        for alert in [
-            rustls::AlertDescription::ProtocolVersion,
-            rustls::AlertDescription::HandshakeFailure,
-            rustls::AlertDescription::InappropriateFallback,
-        ] {
+        for alert in [rustls::AlertDescription::ProtocolVersion, rustls::AlertDescription::InappropriateFallback] {
             let mut failed = obs("tls_handshake_failed", false);
             failed.error = Some(rustls_alert_error_text(alert));
             assert!(is_server_tls_version_rejection(&failed, &ok), "{alert:?}");
         }
-        let mut failed = obs("tls_handshake_failed", false);
-        failed.error = Some(rustls_alert_error_text(rustls::AlertDescription::UnrecognisedName));
-        assert!(!is_server_tls_version_rejection(&failed, &ok));
+        // handshake_failure is not version-specific: a middlebox can inject it on one version only.
+        for alert in [rustls::AlertDescription::HandshakeFailure, rustls::AlertDescription::UnrecognisedName] {
+            let mut failed = obs("tls_handshake_failed", false);
+            failed.error = Some(rustls_alert_error_text(alert));
+            assert!(!is_server_tls_version_rejection(&failed, &ok), "{alert:?}");
+        }
     }
 
     /// The text a failed handshake stores: `capture_tls_handshake` keeps the `Display` of the

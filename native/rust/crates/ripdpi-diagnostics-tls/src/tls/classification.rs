@@ -129,12 +129,13 @@ pub fn preferred_tls_observation<'a>(tls13: &'a TlsObservation, tls12: &'a TlsOb
 /// not that an ISP is selectively blocking it.
 ///
 /// The observation error is the rustls `Display` text (`received fatal alert: ProtocolVersion`),
-/// so the alert is read with [`parse_alert_from_error`]: protocol_version (70),
-/// handshake_failure (40) or inappropriate_fallback (86).
+/// so the alert is read with [`parse_alert_from_error`]: protocol_version (70) or
+/// inappropriate_fallback (86). handshake_failure (40) is the generic alert that injecting
+/// middleboxes also send, so it stays a `tls_version_split`.
 pub fn is_server_tls_version_rejection(tls13: &TlsObservation, tls12: &TlsObservation) -> bool {
     let failed = if tls13.status != "tls_ok" { tls13 } else { tls12 };
     let error = failed.error.as_deref().unwrap_or("");
-    matches!(parse_alert_from_error(error).0, Some(0x28 | 0x46 | 0x56))
+    matches!(parse_alert_from_error(error).0, Some(0x46 | 0x56))
 }
 pub(super) fn first_flight_plan_label(plan: &TlsTemplateFirstFlightPlan) -> String {
     format!(
