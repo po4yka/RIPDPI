@@ -87,9 +87,11 @@ Transports that honour the marker:
 | xHTTP (TLS)     | `ripdpi-xhttp` `connect::create_connection`        |
 | xHTTP (REALITY) | inherits rotation via the VLESS path above          |
 
-ShadowTLS and AnyTLS do **not** consume `ripdpi-tls-profiles` (they carry their
-own TLS layer), so the marker is a no-op there; rotation for those transports is
-out of scope for this contract.
+ShadowTLS does **not** consume `ripdpi-tls-profiles` (it carries its own TLS
+layer). AnyTLS applies its configured profile through
+`ripdpi-tls-profiles::configure_builder`, with the profile's TLS version range,
+but has no rotation path. The marker is a no-op for both; rotation for those
+transports is out of scope for this contract.
 
 ## Telemetry
 

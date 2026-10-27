@@ -7,7 +7,6 @@ use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex as StdMutex, PoisonError, Weak};
 use std::time::Duration;
 
-use boring::ssl::SslVersion;
 use boring::x509::X509;
 use sha2::{Digest, Sha256};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
@@ -766,14 +765,11 @@ async fn connect_tls<S>(config: &AnyTlsClientConfig, transport: S) -> Result<Ssl
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
+    // Keep the profile's version range: forcing TLS 1.3 only drops the TLS 1.2
+    // suites and extensions the browser sends, so the ClientHello would match no
+    // real browser. The server still negotiates TLS 1.3.
     let mut builder = ripdpi_tls_profiles::configure_builder(&config.tls_fingerprint_profile)
         .map_err(|error| AnyTlsError::TlsProfile(error.to_string()))?;
-    builder
-        .set_min_proto_version(Some(SslVersion::TLS1_3))
-        .map_err(|error| AnyTlsError::TlsConfig(error.to_string()))?;
-    builder
-        .set_max_proto_version(Some(SslVersion::TLS1_3))
-        .map_err(|error| AnyTlsError::TlsConfig(error.to_string()))?;
     if let Some(root_pem) = &config.root_certificate_pem {
         let cert = X509::from_pem(root_pem.as_bytes()).map_err(|error| AnyTlsError::TlsConfig(error.to_string()))?;
         builder.cert_store_mut().add_cert(cert).map_err(|error| AnyTlsError::TlsConfig(error.to_string()))?;
@@ -1330,5 +1326,53 @@ mod protect_tests {
         .expect("loopback no-op");
         assert_eq!(cb.last_fd.load(Ordering::Acquire), -1);
         unregister_protect_callback();
+    }
+}
+
+#[cfg(test)]
+mod tls_profile_tests {
+    use tokio::io::AsyncReadExt;
+
+    use super::{AnyTlsClientConfig, connect_tls};
+
+    /// Reads the ClientHello the client writes and returns its cipher suites.
+    async fn client_hello_cipher_suites(profile: &str) -> Vec<u16> {
+        let config = AnyTlsClientConfig {
+            server_host: "127.0.0.1".to_owned(),
+            server_port: 443,
+            server_name: "example.test".to_owned(),
+            password: "test-password".to_owned(),
+            tls_fingerprint_profile: profile.to_owned(),
+            root_certificate_pem: None,
+            client_name: "ripdpi-anytls-test/0.1.0".to_owned(),
+            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            outbound_bind_ip: None,
+        };
+        let (client, mut server) = tokio::io::duplex(64 * 1024);
+        let handshake = tokio::spawn(async move { connect_tls(&config, client).await.map(|_| ()) });
+        let mut header = [0_u8; 5];
+        server.read_exact(&mut header).await.expect("record header");
+        let mut body = vec![0_u8; usize::from(u16::from_be_bytes([header[3], header[4]]))];
+        server.read_exact(&mut body).await.expect("ClientHello");
+        handshake.abort();
+        // Handshake header (4), legacy_version (2), random (32), session id.
+        let session_id_end = 4 + 2 + 32 + 1 + usize::from(body[38]);
+        let suites_len = usize::from(u16::from_be_bytes([body[session_id_end], body[session_id_end + 1]]));
+        body[session_id_end + 2..session_id_end + 2 + suites_len]
+            .as_chunks::<2>()
+            .0
+            .iter()
+            .map(|pair| u16::from_be_bytes(*pair))
+            .collect()
+    }
+
+    #[tokio::test]
+    async fn client_hello_keeps_the_browser_profile_tls12_cipher_suites() {
+        const TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256: u16 = 0xc02f;
+        let suites = client_hello_cipher_suites("chrome").await;
+        assert!(
+            suites.contains(&TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256),
+            "a TLS 1.3-only override drops the TLS 1.2 suites a browser offers: {suites:04x?}"
+        );
     }
 }

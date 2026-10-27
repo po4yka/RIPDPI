@@ -12,7 +12,7 @@ This crate's wire format is pinned against the canonical AnyTLS Go implementatio
 
 This crate implements the AnyTLS client/outbound role only, including:
 
-- TLS 1.3 client transport over BoringSSL
+- TLS client transport over BoringSSL with the configured browser profile (TLS 1.2-1.3 range)
 - First-packet password authentication with padding0
 - Session frame codec and multiplexed TCP streams
 - UDP-over-TCP framing
