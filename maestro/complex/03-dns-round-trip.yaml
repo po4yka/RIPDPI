@@ -22,6 +22,12 @@ appId: com.poyka.ripdpi
     id: "dns-plain-address"
 - eraseText
 - inputText: "9.9.9.9"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "dns-plain-save"
+    direction: DOWN
+    centerElement: true
 - tapOn:
     id: "dns-plain-save"
 - assertVisible:
@@ -50,3 +56,6 @@ appId: com.poyka.ripdpi
     centerElement: true
 - assertVisible:
     id: "dns-plain-address"
+# The saved resolver survives leaving and reopening the screen.
+- assertVisible:
+    text: "9.9.9.9"

@@ -25,8 +25,18 @@ appId: com.poyka.ripdpi
     id: "diagnostics-section-tools"
 - tapOn:
     id: "diagnostics-expert-toggle"
+- scrollUntilVisible:
+    element:
+      id: "diagnostics-share-archive"
+    direction: DOWN
+    centerElement: true
 - assertVisible:
     id: "diagnostics-share-archive"
+- scrollUntilVisible:
+    element:
+      id: "diagnostics-save-archive"
+    direction: DOWN
+    centerElement: true
 - assertVisible:
     id: "diagnostics-save-archive"
 - scrollUntilVisible:
@@ -36,8 +46,18 @@ appId: com.poyka.ripdpi
     centerElement: true
 - assertVisible:
     id: "diagnostics-share-summary"
+- scrollUntilVisible:
+    element:
+      id: "diagnostics-save-logs"
+    direction: DOWN
+    centerElement: true
 - assertVisible:
     id: "diagnostics-save-logs"
+- scrollUntilVisible:
+    element:
+      id: "diagnostics-top-history-action"
+    direction: UP
+    centerElement: true
 - tapOn:
     id: "diagnostics-top-history-action"
 - assertVisible:

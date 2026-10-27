@@ -8,6 +8,13 @@ appId: com.poyka.ripdpi
       id: "advanced-section-activation-window"
     direction: DOWN
     centerElement: true
+    timeout: 90000
+- scrollUntilVisible:
+    element:
+      id: "advanced-round-from"
+    direction: DOWN
+    centerElement: true
+    timeout: 90000
 - assertVisible:
     id: "advanced-round-from"
 - tapOn:
@@ -18,6 +25,13 @@ appId: com.poyka.ripdpi
     id: "advanced-round-to"
 - eraseText
 - inputText: "3"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "advanced-round-save"
+    direction: DOWN
+    centerElement: true
+    timeout: 90000
 - tapOn:
     id: "advanced-round-save"
 - scrollUntilVisible:
@@ -25,6 +39,7 @@ appId: com.poyka.ripdpi
       id: "advanced-payload-size-from"
     direction: DOWN
     centerElement: true
+    timeout: 90000
 - tapOn:
     id: "advanced-payload-size-from"
 - eraseText
@@ -33,6 +48,13 @@ appId: com.poyka.ripdpi
     id: "advanced-payload-size-to"
 - eraseText
 - inputText: "512"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "advanced-payload-size-save"
+    direction: DOWN
+    centerElement: true
+    timeout: 90000
 - tapOn:
     id: "advanced-payload-size-save"
 - pressKey: Back
@@ -42,6 +64,19 @@ appId: com.poyka.ripdpi
     id: "bottom-nav-settings"
 - assertVisible:
     id: "settings-screen"
+- scrollUntilVisible:
+    element:
+      id: "settings-advanced-connectivity"
+    direction: DOWN
+    centerElement: true
+    timeout: 90000
+- runFlow:
+    when:
+      notVisible:
+        id: "settings-advanced-settings"
+    commands:
+      - tapOn:
+          id: "settings-advanced-connectivity"
 - tapOn:
     id: "settings-advanced-settings"
 - assertVisible:
@@ -51,5 +86,6 @@ appId: com.poyka.ripdpi
       id: "advanced-round-save"
     direction: DOWN
     centerElement: true
+    timeout: 90000
 - assertVisible:
     id: "advanced-round-save"

@@ -10,8 +10,6 @@ appId: com.poyka.ripdpi
       id: "diagnostics-strategy-probe-report"
     direction: DOWN
     centerElement: true
-- assertVisible:
-    id: "diagnostics-strategy-probe-summary"
 - scrollUntilVisible:
     element:
       id: "diagnostics-strategy-full-matrix-toggle"
@@ -34,6 +32,9 @@ appId: com.poyka.ripdpi
 - tapOn:
     id: "diagnostics-strategy-winning-tcp-action"
 - assertVisible:
+    id: "diagnostics-strategy-candidate-detail-sheet"
+- pressKey: Back
+- assertVisible:
     id: "diagnostics-screen"
 - scrollUntilVisible:
     element:
@@ -43,7 +44,17 @@ appId: com.poyka.ripdpi
 - tapOn:
     id: "diagnostics-strategy-winning-quic-action"
 - assertVisible:
+    id: "diagnostics-strategy-candidate-detail-sheet"
+- pressKey: Back
+- assertVisible:
     id: "diagnostics-screen"
+- scrollUntilVisible:
+    element:
+      id: "diagnostics-strategy-probe-summary"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "diagnostics-strategy-probe-summary"
 - scrollUntilVisible:
     element:
       id: "diagnostics-strategy-candidate-tlsrec-split-host"
@@ -53,6 +64,10 @@ appId: com.poyka.ripdpi
     id: "diagnostics-strategy-candidate-tlsrec-split-host"
 - assertVisible:
     id: "diagnostics-strategy-candidate-detail-sheet"
+- scrollUntilVisible:
+    element:
+      id: "diagnostics-strategy-candidate-notes-section"
+    direction: DOWN
 - assertVisible:
     id: "diagnostics-strategy-candidate-notes-section"
 - pressKey: Back

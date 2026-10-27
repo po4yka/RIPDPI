@@ -19,6 +19,11 @@ appId: com.poyka.ripdpi
     id: "dns-mode-plain-udp"
 - tapOn:
     id: "dns-mode-encrypted"
+- scrollUntilVisible:
+    element:
+      id: "dns-protocol-doh"
+    direction: DOWN
+    centerElement: true
 - assertVisible:
     id: "dns-protocol-doh"
 - assertVisible:

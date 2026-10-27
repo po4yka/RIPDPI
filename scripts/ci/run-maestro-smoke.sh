@@ -96,7 +96,9 @@ if [[ "${RUN_MAESTRO_ROUTE_FLOWS:-1}" == "1" ]]; then
 fi
 
 if [[ "${RUN_MAESTRO_COMPLEX_FLOWS:-0}" == "1" ]]; then
-  launch_automation "onboarding" "clean_home" "granted" "idle"
+  # clean_home leaves onboarding incomplete, so Home opens onboarding; a forced
+  # onboarding route would reopen it after completion.
+  launch_automation "home" "clean_home" "granted" "idle"
   run_flow "$FLOW_DIR/complex/01-onboarding-to-first-connect.yaml"
 
   launch_automation "config" "settings_ready" "granted" "idle"
@@ -108,7 +110,7 @@ if [[ "${RUN_MAESTRO_COMPLEX_FLOWS:-0}" == "1" ]]; then
   launch_automation "diagnostics" "diagnostics_report_demo" "granted" "connected_vpn"
   run_flow "$FLOW_DIR/complex/04-diagnostics-report-drilldown.yaml"
 
-  launch_automation "home" "clean_home" "vpn_missing" "idle"
+  launch_automation "home" "settings_ready" "vpn_missing" "idle"
   run_flow "$FLOW_DIR/complex/05-permission-repair-journey.yaml"
 
   launch_automation "advanced_settings" "settings_ready" "granted" "idle"
@@ -120,7 +122,7 @@ if [[ "${RUN_MAESTRO_COMPLEX_FLOWS:-0}" == "1" ]]; then
   launch_automation "biometric_prompt" "biometric_locked_with_pin" "granted" "idle"
   run_flow "$FLOW_DIR/complex/08-biometric-locked-fallback.yaml"
 
-  launch_automation "home" "clean_home" "granted" "idle"
+  launch_automation "home" "settings_ready" "granted" "idle"
   run_flow "$FLOW_DIR/complex/09-background-guidance-banners.yaml"
 fi
 

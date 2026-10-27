@@ -5,11 +5,33 @@ appId: com.poyka.ripdpi
     id: "diagnostics-screen"
 - assertVisible:
     id: "diagnostics-section-dashboard"
+- tapOn:
+    id: "diagnostics-section-scan"
+- scrollUntilVisible:
+    element:
+      id: "diagnostics-strategy-probe-report"
+    direction: DOWN
+    centerElement: true
 - assertVisible:
     id: "diagnostics-strategy-probe-report"
-- assertVisible:
-    id: "diagnostics-strategy-probe-summary"
-- assertVisible:
-    id: "diagnostics-strategy-winning-path"
+- scrollUntilVisible:
+    element:
+      id: "diagnostics-strategy-full-matrix-toggle"
+    direction: DOWN
+    centerElement: true
 - assertVisible:
     id: "diagnostics-strategy-full-matrix-toggle"
+- scrollUntilVisible:
+    element:
+      id: "diagnostics-strategy-winning-path"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "diagnostics-strategy-winning-path"
+- scrollUntilVisible:
+    element:
+      id: "diagnostics-strategy-probe-summary"
+    direction: DOWN
+    centerElement: true
+- assertVisible:
+    id: "diagnostics-strategy-probe-summary"

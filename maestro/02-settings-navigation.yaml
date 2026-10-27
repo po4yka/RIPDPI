@@ -9,6 +9,18 @@ appId: com.poyka.ripdpi
     id: "bottom-nav-settings"
 - assertVisible:
     id: "settings-screen"
+- scrollUntilVisible:
+    element:
+      id: "settings-advanced-connectivity"
+    direction: DOWN
+    centerElement: true
+- runFlow:
+    when:
+      notVisible:
+        id: "settings-advanced-settings"
+    commands:
+      - tapOn:
+          id: "settings-advanced-connectivity"
 - tapOn:
     id: "settings-advanced-settings"
 - assertVisible:

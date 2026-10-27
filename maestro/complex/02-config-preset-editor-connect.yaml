@@ -53,6 +53,11 @@ appId: com.poyka.ripdpi
     commands:
       - tapOn:
           id: "home-modes-diagnostics-header"
+- scrollUntilVisible:
+    element:
+      id: "home-mode-primary-local-dpi-bypass"
+    direction: DOWN
+    centerElement: true
 - tapOn:
     id: "home-mode-primary-local-dpi-bypass"
 - assertVisible:

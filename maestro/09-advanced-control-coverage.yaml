@@ -11,9 +11,16 @@ appId: com.poyka.ripdpi
     id: "settings-screen"
 - scrollUntilVisible:
     element:
-      id: "settings-advanced-settings"
+      id: "settings-advanced-connectivity"
     direction: DOWN
     centerElement: true
+- runFlow:
+    when:
+      notVisible:
+        id: "settings-advanced-settings"
+    commands:
+      - tapOn:
+          id: "settings-advanced-connectivity"
 - tapOn:
     id: "settings-advanced-settings"
 - assertVisible:
@@ -42,27 +49,53 @@ appId: com.poyka.ripdpi
     id: "advanced-input-proxy-port"
 - eraseText
 - inputText: "1081"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "advanced-save-proxy-port"
+    direction: DOWN
+    centerElement: true
 - tapOn:
     id: "advanced-save-proxy-port"
 - assertVisible:
     id: "advanced-save-proxy-port"
 - scrollUntilVisible:
     element:
+      id: "advanced-section-activation-window"
+    direction: DOWN
+    centerElement: true
+    timeout: 90000
+- scrollUntilVisible:
+    element:
+      id: "advanced-round-from"
+    direction: DOWN
+    centerElement: true
+    timeout: 90000
+- assertVisible:
+    id: "advanced-round-from"
+- scrollUntilVisible:
+    element:
+      id: "advanced-round-to"
+    direction: DOWN
+    centerElement: true
+    timeout: 90000
+- assertVisible:
+    id: "advanced-round-to"
+- scrollUntilVisible:
+    element:
+      id: "advanced-round-save"
+    direction: DOWN
+    centerElement: true
+    timeout: 90000
+- assertVisible:
+    id: "advanced-round-save"
+- scrollUntilVisible:
+    element:
       id: "advanced-section-protocols"
     direction: DOWN
     centerElement: true
+    timeout: 90000
 - assertVisible:
     id: "advanced-toggle-desync-http"
 - assertVisible:
     id: "advanced-toggle-desync-https"
-- scrollUntilVisible:
-    element:
-      id: "advanced-section-activation-window"
-    direction: DOWN
-    centerElement: true
-- assertVisible:
-    id: "advanced-round-from"
-- assertVisible:
-    id: "advanced-round-to"
-- assertVisible:
-    id: "advanced-round-save"

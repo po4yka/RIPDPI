@@ -3,11 +3,22 @@ appId: com.poyka.ripdpi
 - setOrientation: PORTRAIT
 - assertVisible:
     id: "home-screen"
+# Missing VPN consent surfaces when the user connects, not as a standing banner.
+- tapOn:
+    id: "connection-actuator-button"
 - assertVisible:
-    id: "home-permission-issue-banner"
+    id: "vpn-permission-dialog"
+- pressKey: Back
+- assertVisible:
+    id: "home-screen"
 - tapOn:
     id: "bottom-nav-settings"
 - assertVisible:
     id: "settings-screen"
+- scrollUntilVisible:
+    element:
+      id: "settings-permission-vpn-consent"
+    direction: DOWN
+    centerElement: true
 - assertVisible:
     id: "settings-permission-vpn-consent"

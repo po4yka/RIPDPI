@@ -23,14 +23,10 @@ appId: com.poyka.ripdpi
     id: "config-vpn-summary"
 - assertVisible:
     id: "config-vpn-relay"
-- assertVisible:
-    id: "config-vpn-protocol"
-- assertVisible:
-    id: "config-vpn-credentials"
 - tapOn:
     id: "config-mode-section-local-bypass"
-- assertVisible:
-    id: "config-local-bypass-mode"
+- tapOn:
+    id: "config-mode-proxy"
 - assertVisible:
     id: "config-local-bypass-listen-address"
 - assertVisible:

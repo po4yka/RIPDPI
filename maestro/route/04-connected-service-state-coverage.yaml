@@ -15,9 +15,21 @@ appId: com.poyka.ripdpi
     commands:
       - tapOn:
           id: "home-modes-diagnostics-header"
+- scrollUntilVisible:
+    element:
+      id: "home-mode-card-remote-vpn"
+    direction: DOWN
+    centerElement: true
 - assertVisible:
     id: "home-mode-card-remote-vpn"
 - assertVisible:
     id: "home-mode-primary-remote-vpn"
+- scrollUntilVisible:
+    element:
+      id: "connection-actuator-route-label"
+    direction: UP
+    centerElement: true
 - assertVisible:
-    id: "route-stack"
+    id: "connection-actuator-route-label"
+- assertVisible:
+    id: "connection-actuator-terminal-label"

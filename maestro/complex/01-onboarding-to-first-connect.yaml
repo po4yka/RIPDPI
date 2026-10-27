@@ -3,37 +3,26 @@ appId: com.poyka.ripdpi
 - setOrientation: PORTRAIT
 - assertVisible:
     id: "onboarding-screen"
+# Step 1: privacy.
 - tapOn:
     id: "onboarding-continue"
+# Step 2: interface persona.
+- assertVisible:
+    id: "onboarding-persona-simple"
 - tapOn:
     id: "onboarding-continue"
-- tapOn:
-    id: "onboarding-continue"
-- tapOn:
-    id: "onboarding-continue"
-- tapOn:
-    id: "onboarding-continue"
-- tapOn:
-    id: "onboarding-continue"
+# Step 3: traffic mode.
 - assertVisible:
     id: "onboarding-mode-proxy"
 - tapOn:
     id: "onboarding-mode-proxy"
 - tapOn:
     id: "onboarding-continue"
-- scrollUntilVisible:
-    element:
-      id: "onboarding-dns-adguard"
-    direction: DOWN
-    centerElement: true
-- tapOn:
-    id: "onboarding-dns-adguard"
-- tapOn:
-    id: "onboarding-continue"
+# Step 4: connection test.
 - assertVisible:
-    id: "onboarding-finish-anyway"
+    id: "onboarding-validate-action"
 - tapOn:
-    id: "onboarding-finish-anyway"
+    id: "onboarding-skip-test"
 - assertVisible:
     id: "home-screen"
 - scrollUntilVisible:
@@ -48,6 +37,11 @@ appId: com.poyka.ripdpi
     commands:
       - tapOn:
           id: "home-modes-diagnostics-header"
+- scrollUntilVisible:
+    element:
+      id: "home-mode-primary-local-dpi-bypass"
+    direction: DOWN
+    centerElement: true
 - assertVisible:
     id: "home-mode-primary-local-dpi-bypass"
 - tapOn:
