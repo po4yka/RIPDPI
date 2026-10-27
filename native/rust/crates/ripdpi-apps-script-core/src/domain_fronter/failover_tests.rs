@@ -23,6 +23,8 @@ const QUOTA_ERROR: &str = r#"{"e":"Exception: Service invoked too many times for
 enum Reply {
     /// HTTP 200 with this relay JSON body.
     Json(&'static str),
+    /// One header byte every 2 s: never a whole response, never a 10 s read timeout.
+    Drip,
 }
 
 /// A loopback front with a certificate valid for `names` only.
@@ -74,6 +76,12 @@ impl FakeFront {
                             // Keep the connection open until the client is done with it.
                             let _ = tls.read(&mut [0u8; 1]).await;
                         }
+                        Reply::Drip => loop {
+                            tokio::time::sleep(std::time::Duration::from_secs(2)).await;
+                            if tls.write_all(b"H").await.is_err() || tls.flush().await.is_err() {
+                                return;
+                            }
+                        },
                     }
                 });
             }
@@ -180,4 +188,38 @@ async fn an_sni_handshake_failure_cools_no_deployment() {
     assert!(response.starts_with(b"HTTP/1.1 200 "), "{}", String::from_utf8_lossy(&response));
     assert_eq!(front.requests(), vec!["script-b".to_string()], "the unsent request moved to the next deployment");
     assert!(!fronter.scripts.is_cooling_now(0) && !fronter.scripts.is_cooling_now(1), "both deployments are healthy");
+}
+
+#[tokio::test(flavor = "current_thread")]
+async fn a_stalled_deployment_is_cut_off_and_cools_while_the_next_one_answers() {
+    let front = FakeFront::start(
+        &["www.google.com"],
+        |script| if script == "script-a" { Reply::Drip } else { Reply::Json(OK) },
+    )
+    .await;
+    let (fronter, _telemetry, _config) = front.fronter(r#"{"scriptIds":["script-a","script-b"],"authKey":"secret"}"#);
+
+    let relay = fronter.relay("GET", "https://target.example/", &[], &[]);
+    tokio::pin!(relay);
+    let mut skipped_secs = 0;
+    let response = loop {
+        tokio::select! {
+            response = &mut relay => break response,
+            () = tokio::time::sleep(std::time::Duration::from_millis(10)) => {
+                // While the stalled deployment holds the request, skip time one second per step
+                // past its attempt bound (12.5 s for two deployments); the drip bytes flow in
+                // between, so the 10 s read timeout never fires.
+                if skipped_secs < 13 && front.requests() == ["script-a"] {
+                    skipped_secs += 1;
+                    tokio::time::pause();
+                    tokio::time::advance(std::time::Duration::from_secs(1)).await;
+                    tokio::time::resume();
+                }
+            }
+        }
+    };
+
+    assert!(response.starts_with(b"HTTP/1.1 200 "), "{}", String::from_utf8_lossy(&response));
+    assert_eq!(front.requests(), vec!["script-a".to_string(), "script-b".to_string()]);
+    assert!(fronter.scripts.is_cooling_now(0), "the stalled deployment cools");
 }

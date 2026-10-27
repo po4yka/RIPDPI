@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use tokio::net::TcpStream;
-use tokio::time::timeout;
+use tokio::time::{Instant, timeout, timeout_at};
 use tokio_rustls::TlsConnector;
 
 use crate::AppsScriptRuntimeConfig;
@@ -22,6 +22,9 @@ mod failover_tests;
 
 const HTTP_HOST: &str = "script.google.com";
 const RELAY_TIMEOUT: Duration = Duration::from_secs(25);
+/// The shortest bound on one deployment attempt (the bound is otherwise an even share of
+/// [`RELAY_TIMEOUT`]), so a slow but working deployment still has time to answer.
+const MIN_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(8);
 /// How long a front SNI name whose connection failed is used only after the others.
 const SNI_COOLDOWN: Duration = Duration::from_secs(30);
 
@@ -126,8 +129,12 @@ impl AppsScriptDomainFronter {
     ) -> Result<Vec<u8>, FronterError> {
         let payload = request::build_payload_json(&self.auth_key, method, url, headers, body)?;
         let mut last_error = None;
-        for index in self.scripts.attempt_order() {
-            match self.relay_once(self.scripts.id(index), &payload).await {
+        let order = self.scripts.attempt_order();
+        // A stalled deployment is cut off within the total budget, so the next one still has time.
+        let attempt_limit =
+            (RELAY_TIMEOUT / u32::try_from(order.len()).unwrap_or(u32::MAX).max(1)).max(MIN_ATTEMPT_TIMEOUT);
+        for index in order {
+            match self.relay_once(self.scripts.id(index), &payload, attempt_limit).await {
                 Ok(response) => {
                     self.scripts.record(index, true);
                     return Ok(response);
@@ -152,19 +159,28 @@ impl AppsScriptDomainFronter {
     /// NOT cancel-safe: send_post writes the request and then response::read /
     /// redirect::follow consume the reply across many awaits; cancellation can
     /// truncate the request or drop already-consumed response bytes.
-    async fn relay_once(&self, script_id: &str, payload: &[u8]) -> Result<Vec<u8>, AttemptError> {
+    async fn relay_once(&self, script_id: &str, payload: &[u8], limit: Duration) -> Result<Vec<u8>, AttemptError> {
+        let deadline = Instant::now() + limit;
         let sent = |error| AttemptError { error, sent: true, deployment_fault: true };
         // A front that cannot be opened is a front or SNI fault, not one of the deployment.
         let mut stream = self
-            .connect_front(&self.connect_host, self.front_port, RELAY_TIMEOUT)
+            .connect_front(&self.connect_host, self.front_port, limit)
             .await
             .map_err(|error| AttemptError { error, sent: false, deployment_fault: false })?;
         let path = format!("/macros/s/{script_id}/exec");
 
         // A request that failed while being written may still have reached Apps Script.
-        http::send_post(&mut stream, &path, HTTP_HOST, payload).await.map_err(sent)?;
-        let response = response::read(&mut stream).await.map_err(sent)?;
-        let response = redirect::follow(&mut stream, response, HTTP_HOST).await.map_err(sent)?;
+        let exchange = async {
+            http::send_post(&mut stream, &path, HTTP_HOST, payload).await?;
+            let response = response::read(&mut stream).await?;
+            redirect::follow(&mut stream, response, HTTP_HOST).await
+        };
+        // A deployment that does not answer by the deadline is cut off and cools like a failed one.
+        let response = timeout_at(deadline, exchange)
+            .await
+            .map_err(|_| FronterError::Timeout)
+            .and_then(|response| response)
+            .map_err(sent)?;
 
         if response.status != 200 {
             let snippet = String::from_utf8_lossy(&response.body);
