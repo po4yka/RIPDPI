@@ -187,6 +187,8 @@ impl AdaptivePlannerResolver {
                 self.persist_error_logged_at_ms = 0;
             }
             Err(err) => {
+                // Debounce failures too, so a full or read-only store does not rewrite on every feedback call.
+                self.last_persist_at_ms = now_ms;
                 if now_ms.saturating_sub(self.persist_error_logged_at_ms) >= ADAPTIVE_TUNING_PERSIST_ERROR_COOLDOWN_MS {
                     tracing::warn!("adaptive tuning store write failed (non-fatal): {err}");
                     self.persist_error_logged_at_ms = now_ms;

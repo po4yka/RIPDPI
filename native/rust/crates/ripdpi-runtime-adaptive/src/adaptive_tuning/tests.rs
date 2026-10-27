@@ -637,6 +637,28 @@ fn adaptive_store_debounce_defers_write_until_flush() {
 }
 
 #[test]
+fn adaptive_store_debounce_also_covers_failed_writes() {
+    let payload = b"GET / HTTP/1.1\r\nHost: failing.example.test\r\n\r\n";
+    let group = tcp_group_with_adaptive_split();
+    let (config, _tmp) = config_with_adaptive_store(vec![group.clone()]);
+    let store_path = adaptive_store_path(&config).expect("test config has store_path");
+    fs::create_dir(&store_path).expect("a directory at the store path makes the write fail");
+
+    let mut resolver = AdaptivePlannerResolver::default();
+    resolver.resolve_tcp_hints(None, 0, addr(443), Some("failing.example.test"), &group, payload);
+    resolver.note_tcp_failure(None, 0, addr(443), Some("failing.example.test"), payload);
+    resolver.persist_if_due(&config);
+    assert!(resolver.dirty, "a failed write keeps the state dirty");
+
+    fs::remove_dir(&store_path).expect("make the store path writable again");
+    resolver.persist_if_due(&config);
+    assert!(!store_path.exists(), "the next feedback inside the debounce window must not retry the write");
+
+    resolver.flush_store(&config);
+    assert!(store_path.is_file(), "flush still writes the dirty state");
+}
+
+#[test]
 fn adaptive_store_returns_none_when_host_store_path_is_missing() {
     let config = ripdpi_config::RuntimeConfig::default();
     assert_eq!(adaptive_store_path(&config), None);
