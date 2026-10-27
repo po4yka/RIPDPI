@@ -48,20 +48,86 @@ pub(super) fn reap_stale_state(files_dir: &Path, uid: u32, programs: &[PathBuf])
             }
         }
     }
+    let stale_nfqws2 = |process: &Path| -> Option<u32> {
+        let cmdline = fs::read(process.join("cmdline")).ok()?;
+        let helper_pid = orphan_nfqws2_helper_pid(&cmdline, files_dir)?;
+        let (process_uid, parent_pid) = process_ids(process)?;
+        // A running nfqws2 has dropped root to the app uid, so the app could stop it too.
+        (process_uid == uid && nfqws2_is_stale(helper_pid, parent_pid, own_pid, helper_alive)).then_some(helper_pid)
+    };
     let Ok(processes) = fs::read_dir("/proc") else { return };
     for process in processes.flatten() {
         let Some(pid) = process.file_name().to_str().and_then(|name| name.parse::<i32>().ok()) else { continue };
-        let Ok(cmdline) = fs::read(process.path().join("cmdline")) else { continue };
-        let Some(helper_pid) = orphan_nfqws2_helper_pid(&cmdline, files_dir) else { continue };
-        let Some((process_uid, parent_pid)) = process_ids(&process.path()) else { continue };
-        // A running nfqws2 has dropped root to the app uid, so the app could stop it too.
-        if process_uid == uid && nfqws2_is_stale(helper_pid, parent_pid, own_pid, helper_alive) {
-            match kill(Pid::from_raw(pid), Signal::SIGKILL) {
-                Ok(()) => info!(pid, helper_pid, "stopped an nfqws2 left by an earlier helper"),
-                Err(error) => warn!(pid, %error, "could not stop an nfqws2 left by an earlier helper"),
-            }
+        let path = process.path();
+        let Some(helper_pid) = stale_nfqws2(&path) else { continue };
+        match kill_verified(pid, || stale_nfqws2(&path).is_some()) {
+            Ok(true) => info!(pid, helper_pid, "stopped an nfqws2 left by an earlier helper"),
+            Ok(false) => {}
+            Err(error) => warn!(pid, %error, "could not stop an nfqws2 left by an earlier helper"),
         }
     }
+}
+
+/// Sends SIGKILL to `pid` if `still_stale` holds after the process is pinned,
+/// and returns whether the signal was sent.
+///
+/// A pidfd pins the process that the scan found. If that process exits and the
+/// kernel reuses its PID before the re-check, the re-check reads the new
+/// process through `/proc/<pid>` and refuses it, or the signal goes to the
+/// exited process and fails with ESRCH. A plain kill(2) could hit the new one.
+#[cfg(any(target_os = "linux", target_os = "android"))]
+fn kill_verified(pid: i32, still_stale: impl Fn() -> bool) -> io::Result<bool> {
+    use std::os::fd::{AsRawFd, FromRawFd, OwnedFd, RawFd};
+
+    // SAFETY: pidfd_open(2) takes a PID and flags by value and touches no memory
+    // of this process; it returns a new descriptor or -1 with errno set.
+    let raw = unsafe { libc::syscall(libc::SYS_pidfd_open, pid, 0 as libc::c_uint) };
+    if raw < 0 {
+        let error = io::Error::last_os_error();
+        if error.raw_os_error() != Some(libc::ENOSYS) {
+            return Err(error);
+        }
+        // Kernels before 5.3 have no pidfd: signal by PID after the re-check. This
+        // keeps the small window between the re-check and kill(2) on those kernels.
+        if !still_stale() {
+            return Ok(false);
+        }
+        kill(Pid::from_raw(pid), Signal::SIGKILL)?;
+        return Ok(true);
+    }
+    let raw = RawFd::try_from(raw).map_err(|_| io::Error::other("pidfd_open returned an invalid descriptor"))?;
+    // SAFETY: pidfd_open just returned `raw` as a new descriptor that nothing else
+    // owns, so this `OwnedFd` adopts it exactly once and closes it on drop.
+    let pidfd = unsafe { OwnedFd::from_raw_fd(raw) };
+    if !still_stale() {
+        return Ok(false);
+    }
+    // SAFETY: `pidfd` is a live pidfd borrowed for the call; a null `siginfo_t`
+    // pointer and zero flags are the documented arguments for a plain kill(2)-like signal.
+    let sent = unsafe {
+        libc::syscall(
+            libc::SYS_pidfd_send_signal,
+            pidfd.as_raw_fd(),
+            libc::SIGKILL,
+            std::ptr::null::<libc::siginfo_t>(),
+            0 as libc::c_uint,
+        )
+    };
+    if sent < 0 {
+        return Err(io::Error::last_os_error());
+    }
+    Ok(true)
+}
+
+/// Signals by PID after the re-check: the helper runs only on Android, so other
+/// hosts have no pidfd path to pin the process.
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+fn kill_verified(pid: i32, still_stale: impl Fn() -> bool) -> io::Result<bool> {
+    if !still_stale() {
+        return Ok(false);
+    }
+    kill(Pid::from_raw(pid), Signal::SIGKILL)?;
+    Ok(true)
 }
 
 fn list_mangle_rules(program: &Path, deadline: Instant) -> io::Result<String> {
@@ -239,6 +305,20 @@ mod tests {
         assert!(waited >= super::REAP_TIMEOUT, "the listing ended early: {waited:?}");
         assert!(waited < super::REAP_TIMEOUT + Duration::from_secs(1), "the reap blocked for {waited:?}");
         std::fs::remove_dir_all(dir).expect("remove test dir");
+    }
+
+    #[test]
+    fn a_process_is_killed_only_while_the_re_check_still_matches() {
+        let program = if cfg!(target_os = "android") { "/system/bin/sleep" } else { "/bin/sleep" };
+        let mut child = std::process::Command::new(program).arg("10").spawn().expect("sleeping child");
+        let pid = i32::try_from(child.id()).expect("child PID");
+
+        assert!(!super::kill_verified(pid, || false).expect("refused kill"));
+        assert_eq!(child.try_wait().expect("child status"), None, "a refused re-check must not signal");
+
+        assert!(super::kill_verified(pid, || true).expect("kill"));
+        let status = child.wait().expect("child exit");
+        assert_eq!(std::os::unix::process::ExitStatusExt::signal(&status), Some(libc::SIGKILL));
     }
 
     #[test]
