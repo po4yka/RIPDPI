@@ -10,6 +10,15 @@ pub(crate) fn emit_structured_error(error: &io::Error) {
     );
 }
 
+/// The diagnostic line for one failed client connection. It is not a
+/// `RIPDPI-ERROR` line: the service keeps the class of those for its restart
+/// policy, while a client reset, a malformed request or the readiness probe's
+/// early close is routine. It also carries no error text, which can echo
+/// client bytes and would trip the service's plain " error" matcher.
+pub(crate) fn connection_failure_line(error: &io::Error) -> String {
+    format!("naiveproxy connection ended: {}", classify_io_error(error))
+}
+
 fn sanitize_structured_message(message: &str) -> String {
     message.replace('|', "/").replace(['\n', '\r'], " ")
 }
@@ -52,5 +61,22 @@ fn classify_io_error(error: &io::Error) -> &'static str {
         "config"
     } else {
         "runtime"
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn connection_failures_are_not_helper_failures() {
+        let probe_close = io::Error::new(io::ErrorKind::UnexpectedEof, "early eof");
+        let client_text = io::Error::new(io::ErrorKind::PermissionDenied, "tls proxy-authorization error from client");
+        for error in [probe_close, client_text] {
+            let line = connection_failure_line(&error);
+            assert!(!line.starts_with("RIPDPI-ERROR"), "{line}");
+            assert!(!line.to_ascii_lowercase().contains(" error"), "{line}");
+            assert!(!line.contains("client"), "no error text: {line}");
+        }
     }
 }

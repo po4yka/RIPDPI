@@ -56,7 +56,7 @@ pub(crate) async fn open_https_connect_tunnel(
     // driver so the socket closes now, not at the peer's or kernel's timeout.
     let driver = DriverAbortGuard(Some(tokio::spawn(async move {
         if let Err(error) = connection.await {
-            eprintln!("naiveproxy h2 connection closed: {error}");
+            eprintln!("{}", crate::errors::connection_failure_line(&io::Error::other(error)));
         }
     })));
 

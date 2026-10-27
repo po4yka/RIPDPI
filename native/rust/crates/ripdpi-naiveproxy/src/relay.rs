@@ -9,7 +9,7 @@ use tokio::time::Instant;
 
 use crate::config::NaiveProxyConfig;
 use crate::connect_tunnel::{AsyncTunnel, open_https_connect_tunnel};
-use crate::errors::emit_structured_error;
+use crate::errors::{connection_failure_line, emit_structured_error};
 use crate::http_front::{read_http_connect_request, write_http_connect_failure, write_http_connect_success};
 use crate::socks5::{SocksTarget, negotiate_socks5, read_socks5_request, write_socks_reply};
 
@@ -36,11 +36,21 @@ async fn before<T>(deadline: Instant, phase: &str, future: impl Future<Output = 
 
 /// Opens the upstream tunnel within [`UPSTREAM_OPEN_TIMEOUT`].
 ///
+/// A failure is reported as a `RIPDPI-ERROR` line: DNS, TLS, auth and CONNECT
+/// failures of the server are what the service classifies. Client-side
+/// failures are not, see [`connection_failure_line`].
+///
 /// # Cancel safety
 ///
 /// cancel-safe: dropping it drops the partly opened upstream connection.
 async fn open_upstream(config: &NaiveProxyConfig, target: &SocksTarget) -> io::Result<Box<dyn AsyncTunnel>> {
-    before(Instant::now() + UPSTREAM_OPEN_TIMEOUT, "upstream open", open_https_connect_tunnel(config, target)).await
+    let opened =
+        before(Instant::now() + UPSTREAM_OPEN_TIMEOUT, "upstream open", open_https_connect_tunnel(config, target))
+            .await;
+    if let Err(error) = &opened {
+        emit_structured_error(error);
+    }
+    opened
 }
 
 pub(crate) async fn run(config: NaiveProxyConfig) -> io::Result<()> {
@@ -56,8 +66,7 @@ pub(crate) async fn serve_listener(listener: TcpListener, config: Arc<NaiveProxy
         let config = Arc::clone(&config);
         tokio::spawn(async move {
             if let Err(error) = handle_client(socket, config).await {
-                emit_structured_error(&error);
-                eprintln!("naiveproxy connection failed: {error}");
+                eprintln!("{}", connection_failure_line(&error));
             }
         });
     }
