@@ -72,7 +72,7 @@ pub fn send_prepared_with_group<P: platform::TcpDesyncPlatform + 'static>(
         let effective_payload = apply_entropy_padding(group, payload, entropy_override);
         let strategy_family = strategy_family_override.or_else(|| primary_tcp_strategy_family(group));
         if should_desync_tcp(group, context) {
-            let seed = DESYNC_SEED_BASE + progress.round.saturating_sub(1);
+            let seed = desync_seed(progress.round);
             let strategy = TcpDesyncStrategy::new(group, seed, config.network.default_ttl, context);
             // Build any injected fake decoy from the unpadded `payload` so its
             // captured-ClientHello fidelity and sizing survive entropy padding,
@@ -251,6 +251,18 @@ fn group_has_fake_steps(group: &DesyncGroup) -> bool {
                 | TcpChainStepKind::HostFake
         )
     })
+}
+
+/// Seed for the fake randomization of one send (`rand`, `rndsni` and `dupsid`
+/// fake mods, the fake SNI pick). A fixed seed made those decoy bytes the same
+/// on every connection of every user, so a censor could match them.
+fn desync_seed(round: u32) -> u32 {
+    use std::hash::{BuildHasher, Hasher};
+
+    // Each `RandomState` gets fresh per-process random keys.
+    let mut hasher = std::collections::hash_map::RandomState::new().build_hasher();
+    hasher.write_u32(DESYNC_SEED_BASE.wrapping_add(round));
+    hasher.finish() as u32
 }
 
 fn should_desync_tcp(group: &DesyncGroup, context: ActivationContext) -> bool {
