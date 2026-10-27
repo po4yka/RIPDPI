@@ -54,8 +54,12 @@ pub(crate) fn is_close_error(value: &str) -> bool {
     value.contains("unexpected eof") || value.contains("closed") || value.contains("close notify")
 }
 
+/// True when an HTTP probe status means the server was not reached. A 3xx, 4xx or 5xx response
+/// proves reachability (the runner reports 4xx/5xx as degraded, not blocked), and `invalid_target`
+/// is a local parse error.
 pub(crate) fn is_http_failure(value: &str) -> bool {
-    !matches!(value, "not_run" | "http_ok")
+    let server_responded = ["http_status_3", "http_status_4", "http_status_5"].iter().any(|p| value.starts_with(p));
+    !server_responded && !matches!(value, "not_run" | "http_ok" | "http_redirect" | "http_error" | "invalid_target")
 }
 
 pub(crate) fn is_tls_failure(value: &str) -> bool {

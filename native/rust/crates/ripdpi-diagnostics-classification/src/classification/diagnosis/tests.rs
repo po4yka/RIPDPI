@@ -360,6 +360,31 @@ fn classify_connectivity_diagnoses_detects_service_and_circumvention_blocking() 
 }
 
 #[test]
+fn responses_that_prove_the_server_was_reached_are_not_blocked_diagnoses() {
+    for status in ["http_redirect", "http_status_302", "http_status_404", "http_status_429", "http_status_503"] {
+        let diagnoses = classify_connectivity_diagnoses(
+            &connectivity_request(),
+            &[
+                connectivity_probe(
+                    "service_reachability",
+                    "Signal",
+                    "service_ok",
+                    &[("service", "Signal"), ("bootstrapStatus", status), ("mediaStatus", status)],
+                ),
+                connectivity_probe(
+                    "circumvention_reachability",
+                    "Psiphon",
+                    "circumvention_degraded",
+                    &[("tool", "Psiphon"), ("bootstrapStatus", status), ("handshakeStatus", "tls_ok")],
+                ),
+            ],
+        );
+        let blocked = ["service_bootstrap_blocked", "service_media_blocked", "circumvention_bootstrap_blocked"];
+        assert!(!diagnoses.iter().any(|d| blocked.contains(&d.code.as_str())), "{status} reached the server");
+    }
+}
+
+#[test]
 fn classify_connectivity_diagnoses_detects_youtube_throttling() {
     let diagnoses = classify_connectivity_diagnoses(
         &connectivity_request(),
