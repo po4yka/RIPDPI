@@ -149,6 +149,43 @@ async fn concurrent_opens_share_one_in_flight_tls_session() {
     assert_eq!(observed.syn_stream_ids, vec![1, 2]);
 }
 
+/// The fixture parks its frame loop in the SYNACK delay, so it answers neither
+/// the SYN nor a HeartRequest: the carrier is silently dead. The open fails
+/// after the liveness probe and the next open dials a new carrier.
+#[tokio::test]
+async fn open_on_a_silent_carrier_fails_and_evicts_it() {
+    let fixture = AnyTlsLoopback::start(
+        "fixture-password",
+        AnyTlsLoopbackConfig { synack_delay: Duration::from_secs(60), ..AnyTlsLoopbackConfig::default() },
+    )
+    .await
+    .expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+
+    let started = std::time::Instant::now();
+    let result = tokio::time::timeout(
+        Duration::from_secs(15),
+        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()),
+    )
+    .await
+    .expect("an open on a silent carrier must not wait for the caller deadline");
+    assert!(result.is_err(), "the open must fail");
+    assert!(started.elapsed() >= Duration::from_secs(7), "a probe precedes the verdict");
+
+    let second = client.clone();
+    let target_port = fixture.target_port();
+    let reopening =
+        tokio::spawn(async move { second.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), target_port).await });
+    tokio::time::timeout(Duration::from_secs(5), async {
+        while fixture.observed().tls_session_count < 2 {
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+    })
+    .await
+    .expect("the next open dials a new carrier");
+    reopening.abort();
+}
+
 #[tokio::test]
 async fn cancelling_open_closes_only_its_pending_stream() {
     let fixture = AnyTlsLoopback::start(
