@@ -82,14 +82,18 @@ class RuntimeSessionCoordinator
                         persistPendingTerminalSession()
                     } finally {
                         val hadActiveSession = activeUsageSession != null
-                        if (hadActiveSession) {
-                            deviceStateEventRecorder.recordReconnectStart()
-                            finalizeActiveUsageSession(serviceStateStore.telemetry.value)
-                        }
-                        reconnectInProgress = true
-                        deviceStateEventRecorder.beginServiceStart(mode)
-                        if (!hadActiveSession) {
-                            deviceStateEventRecorder.recordReconnectStart()
+                        try {
+                            if (hadActiveSession) {
+                                deviceStateEventRecorder.recordReconnectStart()
+                                finalizeActiveUsageSession(serviceStateStore.telemetry.value)
+                            }
+                        } finally {
+                            // The finalize flush can throw on a stuck outbox; the reconnect must still be recorded.
+                            reconnectInProgress = true
+                            deviceStateEventRecorder.beginServiceStart(mode)
+                            if (!hadActiveSession) {
+                                deviceStateEventRecorder.recordReconnectStart()
+                            }
                         }
                     }
                 }
@@ -97,15 +101,7 @@ class RuntimeSessionCoordinator
             }
 
             if (status == AppStatus.Running) {
-                stateMutex.withLock {
-                    persistPendingTerminalSession()
-                    ensureRecorderAttachedUsageSession(mode)
-                    if (reconnectInProgress) {
-                        deviceStateEventRecorder.recordRecovery()
-                    }
-                    reconnectInProgress = false
-                }
-                startSampling()
+                enterRunning(mode, attempt = 0)
                 return
             }
 
@@ -118,6 +114,50 @@ class RuntimeSessionCoordinator
                     deviceStateEventRecorder.recordStop()
                     reconnectInProgress = false
                     finalizeActiveUsageSession(serviceStateStore.telemetry.value)
+                }
+            }
+        }
+
+        private suspend fun enterRunning(
+            mode: Mode,
+            attempt: Int,
+        ) {
+            val entered =
+                runCatching {
+                    stateMutex.withLock {
+                        persistPendingTerminalSession()
+                        ensureRecorderAttachedUsageSession(mode)
+                        if (reconnectInProgress) {
+                            deviceStateEventRecorder.recordRecovery()
+                        }
+                        reconnectInProgress = false
+                    }
+                }
+            entered.exceptionOrNull()?.let { failure ->
+                // A stuck outbox blocks the new session; no later event retries it while the service stays Running.
+                if (failure is Exception && failure !is CancellationException) scheduleRunningRetry(mode, attempt)
+                throw failure
+            }
+            startSampling()
+        }
+
+        private fun scheduleRunningRetry(
+            mode: Mode,
+            attempt: Int,
+        ) {
+            if (attempt >= MaxRunningRetryAttempts) {
+                Logger.w { "Runtime session start gave up after $attempt retries" }
+                return
+            }
+            scope.launch {
+                delay(RunningRetryBaseDelayMillis shl attempt)
+                if (serviceStateStore.status.value != (AppStatus.Running to mode)) return@launch
+                val retry = runCatching { enterRunning(mode, attempt + 1) }
+                when (val failure = retry.exceptionOrNull()) {
+                    null -> Unit
+                    is CancellationException -> throw failure
+                    is Exception -> Logger.w(failure) { "Runtime session start retry ${attempt + 1} failed" }
+                    else -> throw failure
                 }
             }
         }
@@ -512,4 +552,6 @@ class RuntimeSessionCoordinator
 private const val MinDiagnosticsSampleIntervalSeconds = 5
 private const val MaxDiagnosticsSampleIntervalSeconds = 300
 private const val MillisPerSecond = 1_000L
+private const val MaxRunningRetryAttempts = 5
+private const val RunningRetryBaseDelayMillis = 5_000L
 private const val MaxTerminalAssessmentReconciliationSessions = 64

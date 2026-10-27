@@ -32,6 +32,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -592,6 +593,76 @@ internal class RuntimeTerminalRecoveryPersistenceTest : RuntimeTerminalPersisten
         }
 
     @Test
+    fun `reconnect with a stuck outbox still records the reconnect so the next run is a recovery`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val serviceStateStore = DefaultServiceStateStore()
+            val coordinatorScope = monitorScope()
+            val coordinator = createSessionCoordinator(stores, serviceStateStore, coordinatorScope)
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            coordinator.handleStatusChange(AppStatus.Running, Mode.VPN)
+            val firstRunId =
+                stores.usageSessionsState.value
+                    .single()
+                    .id
+            val stuck = finishedUsageSession(id = "stuck-reconnect", finishedAt = 1_000L)
+            stores.terminalOutboxState.value = listOf(stuckMarker(stuck))
+            stores.afterCompleteTerminalOutbox = {
+                stores.terminalOutboxState.value = listOf(stuckMarker(stuck))
+            }
+            serviceStateStore.setStatus(AppStatus.Reconnecting, Mode.VPN)
+
+            assertTrue(runCatching { coordinator.handleStatusChange(AppStatus.Reconnecting, Mode.VPN) }.isFailure)
+            stores.afterCompleteTerminalOutbox = {}
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+            coordinator.handleStatusChange(AppStatus.Running, Mode.VPN)
+            runCurrent()
+
+            assertEquals(1, stores.nativeEventsState.value.count { it.message.contains("trigger=recovery") })
+            val sessions = stores.usageSessionsState.value.filter { session -> session.id != stuck.id }
+            assertTrue(sessions.single { session -> session.id == firstRunId }.finishedAt != null)
+            assertEquals(null, sessions.single { session -> session.id != firstRunId }.finishedAt)
+            coordinatorScope.cancel()
+        }
+
+    @Test
+    fun `running with a stuck outbox retries the session start once the outbox drains`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val stuck = finishedUsageSession(id = "stuck-running", finishedAt = 1_000L)
+            stores.usageSessionsState.value = listOf(stuck)
+            stores.terminalOutboxState.value = listOf(stuckMarker(stuck))
+            stores.afterCompleteTerminalOutbox = {
+                stores.terminalOutboxState.value = listOf(stuckMarker(stuck))
+            }
+            val serviceStateStore = DefaultServiceStateStore()
+            val coordinatorScope = monitorScope()
+            val coordinator = createSessionCoordinator(stores, serviceStateStore, coordinatorScope)
+            serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+
+            assertTrue(runCatching { coordinator.handleStatusChange(AppStatus.Running, Mode.VPN) }.isFailure)
+            assertTrue(stores.usageSessionsState.value.none { session -> session.finishedAt == null })
+            stores.afterCompleteTerminalOutbox = {}
+            advanceTimeBy(RUNNING_RETRY_WAIT_MILLIS)
+            runCurrent()
+
+            assertTrue(stores.getPendingTerminalOutboxes().isEmpty())
+            assertEquals(1, stores.usageSessionsState.value.count { session -> session.finishedAt == null })
+            coordinatorScope.cancel()
+        }
+
+    private fun stuckMarker(stuck: BypassUsageSessionEntity) =
+        PendingTerminalSession(
+            activeSession = stuck,
+            finishedSession = stuck,
+            telemetry = null,
+            createdAt = requireNotNull(stuck.finishedAt),
+            terminalEvidenceSealed = false,
+            policyOutcome = null,
+            artifactBatch = RuntimeTerminalArtifactBatch(events = emptyList()),
+        ).toMarker(PendingTerminalPhase.ROOT_CAUSE_ASSESSMENT)
+
+    @Test
     fun `failure or cancellation at every terminal phase cannot reopen the detached session`() =
         runTest {
             val failures =
@@ -1117,3 +1188,5 @@ internal abstract class RuntimeTerminalPersistenceTestSupport {
         }
     }
 }
+
+private const val RUNNING_RETRY_WAIT_MILLIS = 5_001L
