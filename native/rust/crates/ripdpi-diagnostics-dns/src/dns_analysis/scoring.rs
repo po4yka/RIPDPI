@@ -2,13 +2,16 @@ use super::response::DnsResponseAnalysis;
 
 const WEIGHT_AA_ON_RECURSIVE: u32 = 15;
 const WEIGHT_NO_AUTHORITY: u32 = 10;
-const WEIGHT_NO_ADDITIONAL: u32 = 10;
 const WEIGHT_SUSPICIOUS_TTL: u32 = 15;
-const WEIGHT_NO_EDNS0: u32 = 10;
 const WEIGHT_SMALL_RESPONSE: u32 = 10;
 const WEIGHT_SINGLE_ANSWER: u32 = 5;
 const WEIGHT_MALFORMED_POINTERS: u32 = 15;
 
+/// Score protocol-level anomalies of the answer to the probe's UDP query.
+///
+/// The probe query carries no OPT record (ARCOUNT = 0), and RFC 6891 section 7 forbids an OPT
+/// record in the answer to such a query. A missing OPT or an empty additional section is
+/// therefore the expected answer and is not scored.
 pub(super) fn compute_tampering_score(analysis: &mut DnsResponseAnalysis) {
     let mut score: u32 = 0;
 
@@ -22,22 +25,12 @@ pub(super) fn compute_tampering_score(analysis: &mut DnsResponseAnalysis) {
         analysis.signals.push("no_authority");
     }
 
-    if analysis.additional_count == 0 && !analysis.has_edns0 {
-        score += WEIGHT_NO_ADDITIONAL;
-        analysis.signals.push("no_additional");
-    }
-
     if let Some(min) = analysis.min_ttl {
         let is_round = |ttl: u32| matches!(ttl, 0 | 300 | 600 | 3600 | 7200 | 86400);
         if min == 0 || (analysis.ttl_uniform && is_round(min)) {
             score += WEIGHT_SUSPICIOUS_TTL;
             analysis.signals.push("suspicious_ttl");
         }
-    }
-
-    if !analysis.has_edns0 && analysis.response_size >= 12 {
-        score += WEIGHT_NO_EDNS0;
-        analysis.signals.push("no_edns0");
     }
 
     if analysis.response_size > 0 && analysis.response_size < 64 {

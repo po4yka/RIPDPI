@@ -140,9 +140,10 @@ fn forged_response_scores_high() {
         ..Default::default()
     });
     let analysis = analyze_dns_response(&packet);
+    // 45 is the dns_response_anomaly threshold in the diagnosis layer.
     assert!(
-        analysis.tampering_score >= 60,
-        "forged response should score >= 60, got {} (signals: {:?})",
+        analysis.tampering_score >= 45,
+        "forged response should score >= 45, got {} (signals: {:?})",
         analysis.tampering_score,
         analysis.signals
     );
@@ -152,6 +153,26 @@ fn forged_response_scores_high() {
     assert!(analysis.signals.contains(&"aa_on_recursive"));
     assert!(analysis.signals.contains(&"no_authority"));
     assert!(analysis.signals.contains(&"suspicious_ttl"));
+}
+
+#[test]
+fn ordinary_answer_to_an_opt_less_query_stays_below_the_anomaly_threshold() {
+    // A compliant resolver answers the probe's OPT-less query without OPT (RFC 6891 section 7).
+    let packet = build_dns_response(&ResponseConfig {
+        ra: true,
+        answer_count: 1,
+        authority_count: 0,
+        additional_count: 0,
+        answers: vec![a_record([149, 154, 167, 99], 300)],
+        include_edns0: false,
+        ..Default::default()
+    });
+
+    let analysis = analyze_dns_response(&packet);
+
+    assert!(analysis.tampering_score < 45, "got {} (signals: {:?})", analysis.tampering_score, analysis.signals);
+    assert!(!analysis.signals.contains(&"no_edns0"));
+    assert!(!analysis.signals.contains(&"no_additional"));
 }
 
 #[test]
