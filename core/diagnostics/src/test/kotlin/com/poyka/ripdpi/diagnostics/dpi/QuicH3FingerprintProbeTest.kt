@@ -168,6 +168,25 @@ class QuicH3FingerprintProbeTest {
         }
 
     @Test
+    fun reflectedRequestIsNotCountedAsAQuicAnswer() =
+        runTest {
+            val reflector =
+                object : QuicUdpProbe {
+                    override suspend fun sendInitial(
+                        target: String,
+                        port: Int,
+                        fingerprint: QuicFingerprint,
+                        packet: ByteArray,
+                        timeoutMs: Int,
+                    ): QuicProbeSample = QuicProbeSample(response = packet, latencyMs = 5L)
+                }
+
+            val result = probe(reflector).check("echo.example")
+
+            assertFalse(result.chromeOk || result.firefoxOk || result.genericOk || result.vnOk)
+        }
+
+    @Test
     fun unresolvableTargetDoesNotFailTheOtherTargets() =
         runTest {
             val healthy = RecordingQuicUdpProbe(successes = QuicFingerprint.entries.toSet())
@@ -225,8 +244,8 @@ private class RecordingQuicUdpProbe(
                 QuicProbeSample(
                     response =
                         when (fingerprint) {
-                            QuicFingerprint.VN_PROBE -> quicLongHeader(version = 0)
-                            else -> quicLongHeader(version = QuicFingerprintFactory.QuicV1Version)
+                            QuicFingerprint.VN_PROBE -> quicReply(version = 0, request = packet)
+                            else -> quicReply(version = QuicFingerprintFactory.QuicV1Version, request = packet)
                         },
                     latencyMs = if (fingerprint == QuicFingerprint.CHROME_120) 14L else 20L,
                 )
@@ -245,12 +264,22 @@ private class RecordingQuicUdpProbe(
         }
     }
 
-    private fun quicLongHeader(version: Int): ByteArray =
-        byteArrayOf(
+    /** A server reply: addressed to the request's SCID, with the request's DCID as its own SCID. */
+    private fun quicReply(
+        version: Int,
+        request: ByteArray,
+    ): ByteArray {
+        val dcidLength = request[5].toInt() and 0xFF
+        val dcid = request.copyOfRange(6, 6 + dcidLength)
+        val scidLength = request[6 + dcidLength].toInt() and 0xFF
+        val scid = request.copyOfRange(7 + dcidLength, 7 + dcidLength + scidLength)
+        return byteArrayOf(
             0xC0.toByte(),
             ((version ushr 24) and 0xFF).toByte(),
             ((version ushr 16) and 0xFF).toByte(),
             ((version ushr 8) and 0xFF).toByte(),
             (version and 0xFF).toByte(),
-        )
+            scid.size.toByte(),
+        ) + scid + byteArrayOf(dcid.size.toByte()) + dcid
+    }
 }

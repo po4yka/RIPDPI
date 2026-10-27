@@ -153,7 +153,12 @@ class QuicH3FingerprintProbe(
                 timeoutMs = timeoutMs,
             )
         val response = sample.response ?: return QuicProbeOutcome(ok = false, timedOut = true, latencyMs = null)
-        return QuicProbeOutcome(ok = classify(response), timedOut = false, latencyMs = sample.latencyMs)
+        val answersThisProbe = echoesConnectionIds(packet, response, fingerprint == QuicFingerprint.VN_PROBE)
+        return QuicProbeOutcome(
+            ok = classify(response) && answersThisProbe,
+            timedOut = false,
+            latencyMs = sample.latencyMs,
+        )
     }
 
     private companion object {
@@ -354,6 +359,8 @@ class DatagramSocketQuicUdpProbe : QuicUdpProbe {
             val address = InetAddress.getByName(target)
             val socket = DatagramSocket()
             try {
+                // A connected socket drops datagrams from any other source.
+                socket.connect(address, port)
                 socket.soTimeout = timeoutMs
                 val startedAt = System.nanoTime()
                 socket.send(DatagramPacket(packet, packet.size, address, port))
@@ -382,6 +389,35 @@ private data class QuicProbeOutcome(
     val timedOut: Boolean,
     val latencyMs: Long?,
 )
+
+/**
+ * RFC 9000 s17.2: a server reply is addressed to the client's SCID, and a Version Negotiation reply
+ * also carries the client's DCID as its SCID. A reflected request or an unrelated datagram fails.
+ */
+private fun echoesConnectionIds(
+    sent: ByteArray,
+    reply: ByteArray,
+    versionNegotiation: Boolean,
+): Boolean {
+    val sentIds = sent.longHeaderConnectionIds()
+    val replyIds = reply.longHeaderConnectionIds()
+    return sentIds != null &&
+        replyIds != null &&
+        replyIds.first.contentEquals(sentIds.second) &&
+        (!versionNegotiation || replyIds.second.contentEquals(sentIds.first))
+}
+
+/** Returns (DCID, SCID) of a long-header packet, or null when the header is truncated. */
+private fun ByteArray.longHeaderConnectionIds(): Pair<ByteArray, ByteArray>? {
+    val dcidStart = QuicVersionEndIndex + 1
+    val scidLengthIndex = getOrNull(QuicVersionEndIndex)?.let { dcidStart + (it.toInt() and ByteMask) }
+    val scidEnd = scidLengthIndex?.let(::getOrNull)?.let { scidLengthIndex + 1 + (it.toInt() and ByteMask) }
+    return if (scidLengthIndex == null || scidEnd == null || scidEnd > size) {
+        null
+    } else {
+        copyOfRange(dcidStart, scidLengthIndex) to copyOfRange(scidLengthIndex + 1, scidEnd)
+    }
+}
 
 private fun isQuicV1LongHeader(packet: ByteArray): Boolean =
     packet.hasLongHeaderVersion(QuicFingerprintFactory.QuicV1Version)
