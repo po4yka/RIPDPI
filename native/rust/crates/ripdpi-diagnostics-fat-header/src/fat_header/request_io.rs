@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::net::IpAddr;
 
-use crate::http::read_http_headers;
+use crate::http::read_http_headers_io;
 use crate::transport::ConnectionStream;
 use crate::types::TcpTarget;
 use crate::util::MAX_HTTP_BYTES;
@@ -32,9 +32,9 @@ impl ResponseHead {
     }
 }
 
-/// Reads one response head.
-pub(super) fn read_response_headers(stream: &mut ConnectionStream) -> Result<ResponseHead, String> {
-    read_http_headers(stream, MAX_HTTP_BYTES).map(|headers| parse_response_head(&headers))
+/// Reads one response head. The error keeps its kind, so a read timeout is classified as one.
+pub(super) fn read_response_headers(stream: &mut ConnectionStream) -> std::io::Result<ResponseHead> {
+    read_http_headers_io(stream, MAX_HTTP_BYTES).map(|headers| parse_response_head(&headers))
 }
 
 fn parse_response_head(headers: &[u8]) -> ResponseHead {

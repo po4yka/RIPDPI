@@ -67,26 +67,3 @@ pub fn classify_fat_io_error(kind: ErrorKind, bytes_sent: usize, responses_seen:
         _ => FatHeaderStatus::ConnectFailed,
     }
 }
-
-pub fn classify_fat_error_message(message: &str, bytes_sent: usize, responses_seen: usize) -> FatHeaderStatus {
-    let lower = message.to_ascii_lowercase();
-    if lower.contains("timed out") {
-        if late_stage_cutoff(bytes_sent, responses_seen) {
-            FatHeaderStatus::FreezeAfterThreshold
-        } else {
-            FatHeaderStatus::Timeout
-        }
-    } else if lower.contains("connection reset")
-        || lower.contains("broken pipe")
-        || lower.contains("unexpected eof")
-        || lower.contains("connection aborted")
-    {
-        if late_stage_cutoff(bytes_sent, responses_seen) {
-            FatHeaderStatus::ThresholdCutoff
-        } else {
-            FatHeaderStatus::Reset
-        }
-    } else {
-        FatHeaderStatus::ConnectFailed
-    }
-}

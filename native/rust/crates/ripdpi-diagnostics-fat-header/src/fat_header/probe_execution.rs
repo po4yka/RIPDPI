@@ -6,7 +6,7 @@ use crate::transport::{TargetAddress, TransportConfig};
 use crate::types::TcpTarget;
 use crate::util::{FAT_HEADER_REQUESTS, fat_threshold_reached};
 
-use super::classification::{classify_fat_error_message, classify_fat_io_error};
+use super::classification::classify_fat_io_error;
 use super::request_io::{
     ResponseHead, effective_host_header, padded_head_request_len, read_response_headers, write_padded_head_request,
 };
@@ -103,10 +103,10 @@ fn run_padded_head_sequence(
                 }
             }
             Err(err) => {
-                let status = classify_fat_error_message(&err, counters.bytes_sent, counters.responses_seen);
+                let status = classify_fat_io_error(err.kind(), counters.bytes_sent, counters.responses_seen);
                 let observation = FatHeaderObservation::io_failed(
                     status,
-                    err,
+                    err.to_string(),
                     syn_ack_latency_ms,
                     Some(timing.elapsed_since_success_ms()),
                     counters.bytes_sent,

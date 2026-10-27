@@ -193,29 +193,52 @@ pub fn read_http_headers(stream: &mut ConnectionStream, max_bytes: usize) -> Res
     read_http_headers_with_initial(stream, max_bytes, Vec::new())
 }
 
+/// [`read_http_headers`] that keeps the [`std::io::ErrorKind`] of a failed read, so a caller can
+/// tell a read timeout from a reset. An EOF before any byte is `UnexpectedEof`; other framing
+/// failures are `Other` with the same text as [`read_http_headers`].
+pub fn read_http_headers_io(stream: &mut ConnectionStream, max_bytes: usize) -> std::io::Result<Vec<u8>> {
+    read_headers(stream, max_bytes, Vec::new()).map_err(|err| match err {
+        HeaderReadError::Io(err) => err,
+        HeaderReadError::Framing(message @ "unexpected eof") => std::io::Error::new(ErrorKind::UnexpectedEof, message),
+        HeaderReadError::Framing(message) => std::io::Error::other(message),
+    })
+}
+
 fn read_http_headers_with_initial(
     stream: &mut ConnectionStream,
     max_bytes: usize,
-    mut buf: Vec<u8>,
+    buf: Vec<u8>,
 ) -> Result<Vec<u8>, String> {
+    read_headers(stream, max_bytes, buf).map_err(|err| match err {
+        HeaderReadError::Io(err) => err.to_string(),
+        HeaderReadError::Framing(message) => message.to_string(),
+    })
+}
+
+enum HeaderReadError {
+    Io(std::io::Error),
+    Framing(&'static str),
+}
+
+fn read_headers(stream: &mut ConnectionStream, max_bytes: usize, mut buf: Vec<u8>) -> Result<Vec<u8>, HeaderReadError> {
     let mut chunk = [0u8; 1024];
     loop {
         if buf.len() > max_bytes {
-            return Err("response_too_large".to_string());
+            return Err(HeaderReadError::Framing("response_too_large"));
         }
         if find_headers_end(&buf).is_some() {
             return Ok(buf);
         }
-        let read = stream.read(&mut chunk).map_err(|err| err.to_string())?;
+        let read = stream.read(&mut chunk).map_err(HeaderReadError::Io)?;
         if read == 0 {
             if buf.is_empty() {
-                return Err("unexpected eof".to_string());
+                return Err(HeaderReadError::Framing("unexpected eof"));
             }
-            return Err("response_missing_headers".to_string());
+            return Err(HeaderReadError::Framing("response_missing_headers"));
         }
         buf.extend_from_slice(&chunk[..read]);
         if buf.len() > max_bytes {
-            return Err("response_too_large".to_string());
+            return Err(HeaderReadError::Framing("response_too_large"));
         }
         if find_headers_end(&buf).is_some() {
             break;
