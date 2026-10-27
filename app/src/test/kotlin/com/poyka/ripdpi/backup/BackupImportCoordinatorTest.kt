@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.rules.RuleDao
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.Flow
@@ -38,6 +39,7 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
+import kotlin.coroutines.CoroutineContext
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class BackupImportCoordinatorTest {
@@ -270,6 +272,50 @@ class BackupImportCoordinatorTest {
             assertNull(h.state.value.importPreview)
             assertTrue(h.restoreEffects.isEmpty())
         }
+
+    @Test
+    fun `a cancelled unlock that unwinds late keeps a newer import in progress`() =
+        runTest(StandardTestDispatcher()) {
+            val held = HeldDispatcher()
+            val h = harness(dispatcher = held)
+            h.coordinator.openImport { encryptedArchive().inputStream() }
+            drain(held)
+            h.coordinator.unlockEncryptedImport(ArchivePhrase.copyOf())
+            testScheduler.runCurrent()
+            val decrypt = held.tasks.removeFirst()
+
+            h.coordinator.cancelEncryptedImport()
+            h.coordinator.openImport { exportJson(BackupVariant.FULL).byteInputStream() }
+            testScheduler.runCurrent()
+            decrypt.run()
+            testScheduler.runCurrent()
+            val importingWhileNewerImportRuns = h.state.value.importing
+            drain(held)
+
+            assertTrue(importingWhileNewerImportRuns)
+            assertFalse(h.state.value.importing)
+            assertTrue(h.state.value.importPreview != null)
+        }
+
+    private fun TestScope.drain(held: HeldDispatcher) {
+        testScheduler.runCurrent()
+        while (held.tasks.isNotEmpty()) {
+            held.tasks.removeFirst().run()
+            testScheduler.runCurrent()
+        }
+    }
+
+    /** Runs dispatched work only when the test says so, like a decrypt still busy on another thread. */
+    private class HeldDispatcher : CoroutineDispatcher() {
+        val tasks = ArrayDeque<Runnable>()
+
+        override fun dispatch(
+            context: CoroutineContext,
+            block: Runnable,
+        ) {
+            tasks.addLast(block)
+        }
+    }
 
     @Test
     fun `openImport default selection turns profilesAndGroups off when nothing is restorable`() =
@@ -566,6 +612,7 @@ class BackupImportCoordinatorTest {
     private fun TestScope.harness(
         maxImportBytes: Int = BackupMaxImportBytes,
         groupRepository: ProxyGroupRepository = MutableGroupRepository(),
+        dispatcher: CoroutineDispatcher = StandardTestDispatcher(testScheduler),
     ): Harness {
         val state = MutableStateFlow(BackupRestoreUiState())
         val effects = mutableListOf<BackupRestoreEffect>()
@@ -584,7 +631,6 @@ class BackupImportCoordinatorTest {
                     com.poyka.ripdpi.data
                         .TestBackupMutationCoordinator(),
             )
-        val dispatcher = StandardTestDispatcher(testScheduler)
         val coordinator =
             BackupImportCoordinator(
                 scope = this,

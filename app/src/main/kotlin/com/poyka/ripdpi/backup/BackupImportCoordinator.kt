@@ -11,6 +11,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.ByteArrayOutputStream
@@ -120,7 +121,9 @@ internal class BackupImportCoordinator(
                 val json = withContext(defaultDispatcher) { BackupEncryption.decryptToString(archive, passphrase) }
                 previewOutcome(json)
             } catch (cancelled: CancellationException) {
-                updateState { it.copy(importing = false) }
+                // The decrypt is not interruptible, so this runs late; a dismissed dialog already cleared
+                // importing, and a newer import may own the flag by now.
+                if (unlockJob === currentCoroutineContext()[Job]) updateState { it.copy(importing = false) }
                 throw cancelled
             } catch (_: BackupDecryptionException) {
                 updateState { it.copy(importing = false) }
