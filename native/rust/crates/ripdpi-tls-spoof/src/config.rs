@@ -117,7 +117,21 @@ pub(crate) fn is_valid_dns_hostname(host: &str) -> bool {
     if host.is_empty() || host.len() > MAX_HOSTNAME_LEN {
         return false;
     }
-    host.split('.').all(is_valid_label)
+    // RFC 1123 2.1: a host name never has a numeric final label. Such names
+    // are IPv4 shorthand (`127.1`, `2130706433`, `0x7f.1`) that resolvers
+    // turn into addresses, bypassing the IP-literal checks.
+    let last_label = host.rsplit('.').next().unwrap_or(host);
+    host.split('.').all(is_valid_label) && !is_numeric_label(last_label)
+}
+
+/// A label that inet_aton reads as a number: decimal or octal digits, or
+/// `0x` followed by hex digits.
+fn is_numeric_label(label: &str) -> bool {
+    let hex = label.strip_prefix("0x").or_else(|| label.strip_prefix("0X"));
+    match hex {
+        Some(digits) => digits.bytes().all(|b| b.is_ascii_hexdigit()),
+        None => label.bytes().all(|b| b.is_ascii_digit()),
+    }
 }
 
 fn is_valid_label(label: &str) -> bool {
@@ -160,6 +174,10 @@ mod tests {
     fn ipv4_literal_rejected() {
         assert_eq!(cfg("1.2.3.4").validate(), Err(SpoofError::SniIsIpLiteral));
         assert_eq!(cfg("127.0.0.1").validate(), Err(SpoofError::SniIsIpLiteral));
+        // Shorthand IPv4 forms are not host names either (RFC 1123 2.1).
+        assert_eq!(cfg("127.1").validate(), Err(SpoofError::InvalidSniHostname));
+        assert_eq!(cfg("2130706433").validate(), Err(SpoofError::InvalidSniHostname));
+        assert_eq!(cfg("0x7f.1").validate(), Err(SpoofError::InvalidSniHostname));
     }
 
     #[test]

@@ -60,10 +60,16 @@ fn validate_destination(destination: &str) -> Result<(), SpoofError> {
         require_global_ip(v6)?;
     } else if host.parse::<IpAddr>().is_ok() {
         require_global_ip(host)?;
-    } else if !is_valid_dns_hostname(host) {
+    } else if !is_valid_dns_hostname(host) || is_localhost_name(host) {
         return Err(SpoofError::InvalidDestination);
     }
     Ok(())
+}
+
+/// `localhost` and its subdomains always resolve to loopback (RFC 6761 6.3).
+fn is_localhost_name(host: &str) -> bool {
+    let host = host.strip_suffix('.').unwrap_or(host).to_ascii_lowercase();
+    host == "localhost" || host.ends_with(".localhost")
 }
 
 /// Split a `host:port` destination. Bracketed IPv6 (`[h]:p`) is the only form
@@ -118,12 +124,17 @@ fn is_global_ipv6(s: [u16; 8]) -> bool {
         // ::/8: unspecified, loopback, and other reserved or IPv4-embedded
         // forms. Only IPv4-mapped addresses can be global, judged by the
         // IPv4 policy; everything else in this block is non-routable.
-        if s[5] == 0xffff {
+        if s[1..5] == [0, 0, 0, 0] && s[5] == 0xffff {
             return is_global_ipv4([(s[6] >> 8) as u8, s[6] as u8, (s[7] >> 8) as u8, s[7] as u8]);
         }
         return false;
     }
-    (s[0] & 0xFE00) != 0xFC00                   // fc00::/7 unique-local
+    // Translation prefixes embed an IPv4 address the relay's gateway would
+    // reach, private ones included: 64:ff9b::/96 and 64:ff9b:1::/48 NAT64,
+    // 2002::/16 6to4.
+    !(s[0] == 0x0064 && s[1] == 0xff9b)
+        && s[0] != 0x2002
+        && (s[0] & 0xFE00) != 0xFC00            // fc00::/7 unique-local
         && (s[0] & 0xFFC0) != 0xFE80            // fe80::/10 link-local
         && (s[0] & 0xFF00) != 0xFF00            // ff00::/8 multicast
         && !(s[0] == 0x2001 && s[1] == 0x0DB8) // 2001:db8::/32 documentation
@@ -175,6 +186,8 @@ mod tests {
             "93.184.216.34:443",
             "[2001:4860:4860::8888]:443",
             "upstream.example.co.uk.:8443", // trailing-dot FQDN
+            "1password.com:443",            // leading-digit label
+            "123.example.com:443",          // numeric non-final label
         ] {
             let req = SpoofRequest {
                 destination: destination.to_string(),
@@ -220,6 +233,17 @@ mod tests {
             "[fe80::1]:443",      // v6 link-local
             "[fc00::1]:443",      // v6 unique-local
             "[2001:db8::1]:443",  // documentation range
+            "127.1:443",          // inet_aton shorthand for 127.0.0.1
+            "2130706433:443",     // 127.0.0.1 as one decimal number
+            "2852039166:80",      // 169.254.169.254 as one decimal number
+            "0x7f.1:443",         // hex shorthand
+            "0177.0.0.1:443",     // octal shorthand
+            "0x7f000001:443",     // hex number
+            "localhost:22",
+            "db.localhost.:5432",
+            "[64:ff9b::a00:5]:443",         // NAT64 of 10.0.0.5
+            "[2002:a00:5::1]:443",          // 6to4 of 10.0.0.5
+            "[::1:0:0:0:ffff:808:808]:443", // not IPv4-mapped despite ffff
         ] {
             let req = SpoofRequest {
                 destination: destination.to_string(),
