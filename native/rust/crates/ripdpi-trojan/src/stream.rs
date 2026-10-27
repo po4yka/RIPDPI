@@ -102,8 +102,17 @@ impl<T: AsyncRead + AsyncWrite + Unpin> AsyncRead for TrojanStream<T> {
                 this.queue_header(&[]);
             }
         }
-        if let Poll::Ready(Err(error)) = this.poll_drain(cx) {
-            return Poll::Ready(Err(error));
+        match this.poll_drain(cx) {
+            Poll::Ready(Err(error)) => return Poll::Ready(Err(error)),
+            // This read now holds the write-readiness wake-up. A parked
+            // writer may never be woken by it (this read can end first), so
+            // wake the writer now and let it register itself again.
+            Poll::Pending => {
+                if let Some(waiter) = this.drain_waiter.take() {
+                    waiter.wake();
+                }
+            }
+            Poll::Ready(Ok(())) => {}
         }
         Pin::new(&mut this.inner).poll_read(cx, buf)
     }
@@ -200,5 +209,40 @@ mod tests {
         let mut stream = TrojanStream::with_deferred_header(Recorder::default(), b"HEADER".to_vec());
         stream.flush().await.expect("flush");
         assert_eq!(stream.get_ref().writes, vec![b"HEADER".to_vec()]);
+    }
+
+    const PIPE_CAPACITY: usize = 16;
+
+    /// A writer parked on a full pipe must not hang when the read half of a
+    /// split stream polls (and takes the write wake-up) and then ends.
+    #[tokio::test]
+    async fn a_read_that_ends_does_not_strand_a_parked_writer() {
+        let (client, server) = tokio::io::duplex(PIPE_CAPACITY);
+        let (mut reader, mut writer) = tokio::io::split(TrojanStream::with_deferred_header(client, b"HEADER".to_vec()));
+        let (mut server_read, mut server_write) = tokio::io::split(server);
+        let first = vec![b'a'; 64];
+        let second = vec![b'b'; 64];
+        let writer_task = tokio::spawn({
+            let (first, second) = (first.clone(), second.clone());
+            async move {
+                writer.write_all(&first).await.expect("first write");
+                writer.write_all(&second).await.expect("second write");
+            }
+        });
+        tokio::time::sleep(Duration::from_millis(20)).await;
+        assert!(!writer_task.is_finished(), "test precondition: the writer is parked on a full pipe");
+
+        server_write.shutdown().await.expect("server shutdown");
+        let mut buf = [0u8; 8];
+        assert_eq!(reader.read(&mut buf).await.expect("read EOF"), 0);
+        drop(reader);
+
+        let mut received = vec![0u8; 6 + first.len() + second.len()];
+        tokio::time::timeout(Duration::from_secs(2), server_read.read_exact(&mut received))
+            .await
+            .expect("the parked writer must drain after the read ends")
+            .expect("server read");
+        assert_eq!(received, [b"HEADER".as_slice(), &first, &second].concat());
+        writer_task.await.expect("writer task");
     }
 }
