@@ -53,6 +53,8 @@ data class PtProbeTrace(
     val ok: Boolean,
     val latencyMs: Long,
     val error: String? = null,
+    /** False when the leg had no usable target, so neither "ok" nor "blocked" is evidence. */
+    val configured: Boolean = true,
 )
 
 data class PluggableTransportResult(
@@ -110,7 +112,7 @@ class PluggableTransportReachabilityProbe(
     private fun PtProbeTrace.toObfs4Verdict(): PtVerdict =
         if (ok) {
             PtVerdict.PtOk(target)
-        } else if (leg == UnknownLeg) {
+        } else if (leg == UnknownLeg || !configured) {
             PtVerdict.PtError(error.orEmpty())
         } else {
             PtVerdict.PtBridgeBlocked(error.orEmpty())
@@ -149,14 +151,19 @@ class Obfs4ReachabilityProbe(
         withTimeout(timeoutMs) {
             val startedAt = System.currentTimeMillis()
             val errors = mutableListOf<String>()
-            bridges.forEach { bridge ->
+            val usable = bridges.filterNot(PtEndpoint::isDocumentationAddress)
+            if (usable.isEmpty()) {
+                // RFC 5737 placeholders never answer: report "not configured", not "blocked".
+                return@withTimeout PtProbeTrace(Obfs4Leg, "", false, 0, NoBridgesConfigured, configured = false)
+            }
+            usable.forEach { bridge ->
                 val trace = bridge.tryTcpHandshake(timeoutMs)
                 if (trace.ok) return@withTimeout trace.copy(latencyMs = System.currentTimeMillis() - startedAt)
                 errors += "${bridge.host}:${bridge.port}:${trace.error.orEmpty()}"
             }
             PtProbeTrace(
                 Obfs4Leg,
-                bridges.joinToString {
+                usable.joinToString {
                     it.host
                 },
                 false,
@@ -169,12 +176,19 @@ class Obfs4ReachabilityProbe(
         val startedAt = System.currentTimeMillis()
         return try {
             socketFactory().use { socket ->
-                socket.soTimeout = timeoutMs.toInt()
                 socket.connect(InetSocketAddress(host, port), timeoutMs.toInt())
+                socket.soTimeout = (timeoutMs / 2).coerceIn(1L, MaxResponseWaitMs).toInt()
                 socket.getOutputStream().write(randomBytes(MockHandshakeBytes))
                 socket.getOutputStream().flush()
-                val response = socket.getInputStream().read()
-                PtProbeTrace(Obfs4Leg, "$host:$port", response >= 0, System.currentTimeMillis() - startedAt)
+                // An obfs4 server stays silent on an invalid handshake, so silence after a
+                // completed connect counts as reachable. A reset or an immediate close does not.
+                val reachable =
+                    try {
+                        socket.getInputStream().read() >= 0
+                    } catch (_: SocketTimeoutException) {
+                        true
+                    }
+                PtProbeTrace(Obfs4Leg, "$host:$port", reachable, System.currentTimeMillis() - startedAt)
             }
         } catch (error: IOException) {
             PtProbeTrace(Obfs4Leg, "$host:$port", false, System.currentTimeMillis() - startedAt, error.message)
@@ -184,6 +198,8 @@ class Obfs4ReachabilityProbe(
     private companion object {
         private const val Obfs4Leg = "obfs4"
         private const val MockHandshakeBytes = 32
+        private const val MaxResponseWaitMs = 2_000L
+        private const val NoBridgesConfigured = "no obfs4 bridges configured"
     }
 }
 
@@ -396,7 +412,14 @@ data class PtEndpoint(
     val port: Int,
 ) {
     override fun toString(): String = "$host:$port"
+
+    /** True for the RFC 5737 documentation ranges, which are never routable. */
+    fun isDocumentationAddress(): Boolean =
+        DocumentationPrefixes.any { prefix -> host.startsWith(prefix) && host.count { it == '.' } == IPv4Dots }
 }
+
+private val DocumentationPrefixes = listOf("192.0.2.", "198.51.100.", "203.0.113.")
+private const val IPv4Dots = 3
 
 private fun Throwable.throwIfCancellation() {
     if (this is CancellationException) {

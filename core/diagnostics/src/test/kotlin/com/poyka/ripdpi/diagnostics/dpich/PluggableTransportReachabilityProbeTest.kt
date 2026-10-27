@@ -149,7 +149,7 @@ class PluggableTransportReachabilityProbeTest {
         runTest {
             val probe =
                 Obfs4ReachabilityProbe(
-                    bridges = listOf(PtEndpoint("203.0.113.1", 443)),
+                    bridges = listOf(PtEndpoint("10.0.0.1", 443)),
                     socketFactory = { FakeSocket(input = byteArrayOf(1)) },
                     randomBytes = { size -> ByteArray(size) { 7 } },
                 )
@@ -157,7 +157,43 @@ class PluggableTransportReachabilityProbeTest {
             val trace = probe.run(timeoutMs = 1_000)
 
             assertTrue(trace.ok)
-            assertEquals("203.0.113.1:443", trace.target)
+            assertEquals("10.0.0.1:443", trace.target)
+        }
+
+    @Test
+    fun obfs4BridgeThatStaysSilentAfterConnectIsReachable() =
+        runTest {
+            val probe =
+                Obfs4ReachabilityProbe(
+                    bridges = listOf(PtEndpoint("10.0.0.1", 443)),
+                    socketFactory = { FakeSocket(readError = SocketTimeoutException("silent")) },
+                    randomBytes = { size -> ByteArray(size) },
+                )
+
+            assertTrue(probe.run(timeoutMs = 1_000).ok)
+        }
+
+    @Test
+    fun placeholderOnlyObfs4BridgesAreReportedAsNotConfigured() =
+        runTest {
+            val sockets = mutableListOf<FakeSocket>()
+            val probe =
+                PluggableTransportReachabilityProbe(
+                    obfs4Probe =
+                        Obfs4ReachabilityProbe(
+                            bridges = listOf(PtEndpoint("192.0.2.10", 443), PtEndpoint("203.0.113.5", 443)),
+                            socketFactory = { FakeSocket(input = byteArrayOf(1)).also(sockets::add) },
+                        ),
+                    snowflakeBrokerProbe = FakePtSubprobe { PtProbeTrace("snowflake", "broker", true, 1) },
+                    snowflakeStunProbe = FakePtSubprobe { PtProbeTrace("stun", "stun", true, 1) },
+                    meekProbe = FakePtSubprobe { PtProbeTrace("meek", "front", true, 1) },
+                    ioDispatcher = StandardTestDispatcher(testScheduler),
+                )
+
+            val result = probe.run(timeoutMs = 1_000)
+
+            assertTrue(result.obfs4 is PtVerdict.PtError)
+            assertEquals(0, sockets.size)
         }
 
     @Test
@@ -168,9 +204,9 @@ class PluggableTransportReachabilityProbeTest {
                 Obfs4ReachabilityProbe(
                     bridges =
                         listOf(
-                            PtEndpoint("203.0.113.1", 443),
-                            PtEndpoint("203.0.113.2", 443),
-                            PtEndpoint("203.0.113.3", 443),
+                            PtEndpoint("10.0.0.1", 443),
+                            PtEndpoint("10.0.0.2", 443),
+                            PtEndpoint("10.0.0.3", 443),
                         ),
                     socketFactory = {
                         FakeSocket(connectError = IOException("rst")).also(sockets::add)
@@ -336,6 +372,7 @@ class PluggableTransportReachabilityProbeTest {
     private class FakeSocket(
         private val input: ByteArray = byteArrayOf(),
         private val connectError: IOException? = null,
+        private val readError: IOException? = null,
     ) : Socket() {
         val output = ByteArrayOutputStream()
 
@@ -346,7 +383,12 @@ class PluggableTransportReachabilityProbeTest {
             connectError?.let { throw it }
         }
 
-        override fun getInputStream(): InputStream = ByteArrayInputStream(input)
+        override fun getInputStream(): InputStream =
+            readError?.let { error ->
+                object : InputStream() {
+                    override fun read(): Int = throw error
+                }
+            } ?: ByteArrayInputStream(input)
 
         override fun getOutputStream(): OutputStream = output
     }
