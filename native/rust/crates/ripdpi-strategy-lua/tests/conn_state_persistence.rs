@@ -78,3 +78,49 @@ fn lua_strategy_evicts_least_recently_used_flow_at_capacity() {
     assert_eq!(engine.connection_count(FlowId(2)).expect("read count"), Some(1));
     assert_eq!(engine.connection_count(FlowId(1024)).expect("read new count"), Some(1));
 }
+
+#[test]
+fn lua_strategy_passes_an_evicted_flow_through_instead_of_restarting_it() {
+    let engine = LuaStrategyEngine::new().expect("lua vm");
+    engine
+        .load_bytes(
+            "first_packet",
+            br#"
+            function first_packet(desync)
+                if desync.conn.seen then return nil end
+                desync.conn.seen = true
+                return "first-packet-burst"
+            end
+            "#,
+        )
+        .expect("load script");
+    engine.register_function("first_packet").expect("register function");
+    let strategy = engine.make_strategy("first_packet").expect("make strategy");
+    let dissect = Dissect::default();
+    let conn = ConnectionState::default();
+    let caps = Capabilities::default();
+    let call = |flow_id| {
+        let ctx = StrategyContext {
+            dissect: &dissect,
+            conn: &conn,
+            caps: &caps,
+            flow_id: FlowId(flow_id),
+            payload: b"payload",
+            direction: FlowDirection::Outbound,
+        };
+        let mut plan = DesyncPlan::default();
+        strategy.plan(&ctx, &mut plan).expect("plan");
+        plan.actions
+    };
+
+    for flow_id in 0..=1024 {
+        assert_eq!(call(flow_id).len(), 1, "flow {flow_id} runs its first-packet branch once");
+    }
+    assert!(!engine.has_connection(FlowId(0)).expect("has connection"), "flow 0 was evicted");
+
+    assert!(call(0).is_empty(), "a later packet of an evicted flow must not rerun the first-packet branch");
+    assert!(!engine.has_connection(FlowId(0)).expect("has connection"), "the evicted flow gets no new state");
+
+    engine.close_connection(FlowId(0)).expect("close");
+    assert_eq!(call(0).len(), 1, "a closed flow id starts fresh");
+}

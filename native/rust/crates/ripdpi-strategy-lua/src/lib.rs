@@ -8,7 +8,7 @@ mod positions;
 #[cfg(feature = "lua-strategies")]
 mod enabled {
     use super::positions;
-    use std::collections::{BTreeMap, HashMap, HashSet};
+    use std::collections::{BTreeMap, HashMap, HashSet, VecDeque};
     use std::fs;
     use std::path::{Component, Path, PathBuf};
     use std::sync::{Arc, Mutex};
@@ -71,6 +71,8 @@ mod enabled {
 
     /// Per-flow state tables kept at once. At capacity the least recently
     /// used flow is evicted, so a missed `close_flow` cannot block new flows.
+    /// The same number of evicted flow ids is remembered, so a still-live
+    /// evicted flow is passed through instead of restarting its script.
     const LUA_MAX_FLOW_STATES: usize = 1024;
 
     /// Instruction-count granularity for the watchdog hook. The hook fires every
@@ -97,6 +99,8 @@ mod enabled {
         registered: HashMap<String, (RegistryKey, bool)>,
         /// Per-flow state table and the call counter value of its last use.
         conn_states: HashMap<FlowId, (RegistryKey, u64)>,
+        /// Flows whose state was evicted at capacity, oldest first.
+        evicted_flows: VecDeque<FlowId>,
         call_counter: u64,
         /// Per-call instruction-hook firing counter, reset before each script
         /// load or strategy call so the watchdog budget is per-operation rather
@@ -159,6 +163,7 @@ mod enabled {
                     lua,
                     registered: HashMap::new(),
                     conn_states: HashMap::new(),
+                    evicted_flows: VecDeque::new(),
                     call_counter: 0,
                     hook_firings,
                 })),
@@ -329,6 +334,7 @@ mod enabled {
         /// Removes per-flow Lua state.
         pub fn close_connection(&self, flow_id: FlowId) -> Result<(), LuaError> {
             let mut inner = self.inner.lock().map_err(|_| LuaError::LockPoisoned)?;
+            inner.evicted_flows.retain(|evicted| *evicted != flow_id);
             if let Some((key, _)) = inner.conn_states.remove(&flow_id) {
                 inner.lua.remove_registry_value(key).map_err(|error| LuaError::Call(error.to_string()))?;
             }
@@ -347,12 +353,22 @@ mod enabled {
             let now = inner.call_counter;
             if let Some((_, last_used)) = inner.conn_states.get_mut(&ctx.flow_id) {
                 *last_used = now;
+            } else if inner.evicted_flows.contains(&ctx.flow_id) {
+                // A fresh table would rerun the script's first-packet logic on
+                // a later packet of this flow, so the flow passes unchanged.
+                return Ok(LuaCallOutcome { output: None, actions: Vec::new(), verdict: None });
             } else {
                 if inner.conn_states.len() >= LUA_MAX_FLOW_STATES {
                     let oldest =
                         inner.conn_states.iter().min_by_key(|(_, (_, last_used))| *last_used).map(|(flow, _)| *flow);
-                    if let Some((key, _)) = oldest.and_then(|flow| inner.conn_states.remove(&flow)) {
+                    if let Some((flow, (key, _))) =
+                        oldest.and_then(|flow| inner.conn_states.remove(&flow).map(|state| (flow, state)))
+                    {
                         inner.lua.remove_registry_value(key).map_err(|error| LuaError::Call(error.to_string()))?;
+                        if inner.evicted_flows.len() >= LUA_MAX_FLOW_STATES {
+                            inner.evicted_flows.pop_front();
+                        }
+                        inner.evicted_flows.push_back(flow);
                     }
                 }
                 let table = inner.lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
