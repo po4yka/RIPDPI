@@ -129,6 +129,10 @@ fn check_raw_ip_packet(
 /// so that TUN injection does not dump the interfaces for every packet.
 const LOCAL_ADDRESS_TTL: Duration = Duration::from_secs(1);
 
+/// How long the last address list stays in use while each new read fails. After
+/// that the check fails closed, so a removed address (a stopped TUN) cannot pass.
+const LOCAL_ADDRESS_GRACE: Duration = Duration::from_secs(5);
+
 type LocalAddresses = Mutex<Option<(Instant, Vec<IpAddr>)>>;
 
 static LOCAL_ADDRESSES: LocalAddresses = Mutex::new(None);
@@ -140,8 +144,9 @@ fn has_local_address(addresses: &[IpAddr]) -> bool {
 
 /// Answers from the cached address list while it is fresh and holds one of
 /// `addresses`. Otherwise it reads the list again, because an interface (the
-/// TUN) can just have come up. A failed read keeps the last list, so one
-/// getifaddrs error does not refuse every packet; with no list it fails closed.
+/// TUN) can just have come up. A failed read keeps the last list for
+/// [`LOCAL_ADDRESS_GRACE`], so one getifaddrs error does not refuse every
+/// packet; with no list, or an older one, it fails closed.
 fn cached_local_check(
     cache: &LocalAddresses,
     addresses: &[IpAddr],
@@ -158,7 +163,15 @@ fn cached_local_check(
     }
     match read() {
         Ok(list) => *cache = Some((now, list)),
-        Err(error) => debug!(%error, "interface address read failed; the last list stays in use"),
+        Err(error) => {
+            let expired = cache
+                .as_ref()
+                .is_some_and(|(read_at, _)| now.saturating_duration_since(*read_at) >= LOCAL_ADDRESS_GRACE);
+            if expired {
+                *cache = None;
+            }
+            debug!(%error, expired, "interface address read failed");
+        }
     }
     holds(&cache)
 }
@@ -266,7 +279,7 @@ mod tests {
     }
 
     #[test]
-    fn interface_addresses_are_read_once_per_ttl_and_survive_a_failed_read() {
+    fn interface_addresses_are_read_once_per_ttl_and_survive_a_short_read_failure() {
         use std::cell::Cell;
         use std::net::IpAddr;
         use std::time::{Duration, Instant};
@@ -292,10 +305,15 @@ mod tests {
         assert!(super::cached_local_check(&cache, &[new_tun], start, read(Ok(vec![tun, new_tun]))));
         assert_eq!(reads.get(), 2);
         // After the TTL a failed read keeps the last list instead of refusing every packet.
-        let later = start + Duration::from_secs(5);
+        let later = start + Duration::from_secs(2);
         let failed = || Err(std::io::Error::other("getifaddrs failed"));
         assert!(super::cached_local_check(&cache, &[tun], later, read(failed())));
         assert!(!super::cached_local_check(&cache, &[remote], later, read(failed())));
+        // After the grace period the stale list is dropped: the check fails closed until a read succeeds.
+        let after_grace = start + Duration::from_secs(6);
+        assert!(!super::cached_local_check(&cache, &[tun], after_grace, read(failed())));
+        assert!(!super::cached_local_check(&cache, &[tun], later, read(failed())));
+        assert!(super::cached_local_check(&cache, &[tun], after_grace, read(Ok(vec![tun]))));
         // With no list at all, the check fails closed.
         assert!(!super::cached_local_check(&super::LocalAddresses::new(None), &[tun], start, read(failed())));
     }
