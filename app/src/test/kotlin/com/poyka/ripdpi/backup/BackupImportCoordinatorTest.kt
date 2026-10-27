@@ -39,6 +39,8 @@ import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
+import java.util.concurrent.CountDownLatch
+import kotlin.concurrent.thread
 import kotlin.coroutines.CoroutineContext
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -294,6 +296,39 @@ class BackupImportCoordinatorTest {
 
             assertTrue(importingWhileNewerImportRuns)
             assertFalse(h.state.value.importing)
+            assertTrue(h.state.value.importPreview != null)
+        }
+
+    @Test
+    fun `a cancelled unlock whose decrypt then fails stays silent for a newer import`() =
+        runTest(StandardTestDispatcher()) {
+            val held = HeldDispatcher()
+            val h = harness(dispatcher = held)
+            h.coordinator.openImport { encryptedArchive().inputStream() }
+            drain(held)
+            h.coordinator.unlockEncryptedImport("wrong passphrase".toCharArray())
+            testScheduler.runCurrent()
+            val decrypt = held.tasks.removeFirst()
+            val decryptStarted = CountDownLatch(1)
+            val worker =
+                thread {
+                    decryptStarted.countDown()
+                    decrypt.run()
+                }
+            decryptStarted.await()
+            // Past the dispatch-time cancellation check, inside the PBKDF2 derivation (210k iterations).
+            Thread.sleep(10L)
+
+            h.coordinator.cancelEncryptedImport()
+            h.coordinator.openImport { exportJson(BackupVariant.FULL).byteInputStream() }
+            testScheduler.runCurrent()
+            worker.join()
+            testScheduler.runCurrent()
+            val importingWhileNewerImportRuns = h.state.value.importing
+            drain(held)
+
+            assertTrue(importingWhileNewerImportRuns)
+            assertFalse(BackupRestoreEffect.DecryptionFailed in h.restoreEffects)
             assertTrue(h.state.value.importPreview != null)
         }
 

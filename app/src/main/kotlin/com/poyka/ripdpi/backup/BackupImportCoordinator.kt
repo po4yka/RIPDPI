@@ -123,11 +123,14 @@ internal class BackupImportCoordinator(
             } catch (cancelled: CancellationException) {
                 // The decrypt is not interruptible, so this runs late; a dismissed dialog already cleared
                 // importing, and a newer import may own the flag by now.
-                if (unlockJob === currentCoroutineContext()[Job]) updateState { it.copy(importing = false) }
+                if (isCurrentUnlock()) updateState { it.copy(importing = false) }
                 throw cancelled
             } catch (_: BackupDecryptionException) {
-                updateState { it.copy(importing = false) }
-                emitRestoreEffect(BackupRestoreEffect.DecryptionFailed)
+                // A wrong passphrase found only after the dialog was dismissed: same late unwind, stay silent.
+                if (isCurrentUnlock()) {
+                    updateState { it.copy(importing = false) }
+                    emitRestoreEffect(BackupRestoreEffect.DecryptionFailed)
+                }
                 return
             } finally {
                 passphrase.fill('\u0000')
@@ -136,6 +139,8 @@ internal class BackupImportCoordinator(
         pendingEncryptedArchive = null
         applyOutcome(outcome, encryptedImportPending = false, encrypted = true)
     }
+
+    private suspend fun isCurrentUnlock(): Boolean = unlockJob === currentCoroutineContext()[Job]
 
     fun cancelEncryptedImport() {
         unlockJob?.cancel()
