@@ -12,6 +12,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 import java.net.InetAddress
 import java.net.UnknownHostException
@@ -115,7 +116,8 @@ internal suspend fun resolveWithinBudget(
     lookup: () -> Array<InetAddress>,
 ): Array<InetAddress>? {
     val pending = scope.async { lookup() }
-    return withTimeoutOrNull(budgetMillis) { pending.await() }
+    // Wait on Default so the budget is wall-clock time even for a caller on a virtual-time test dispatcher.
+    return withContext(Dispatchers.Default) { withTimeoutOrNull(budgetMillis) { pending.await() } }
 }
 
 @Suppress("DEPRECATION")

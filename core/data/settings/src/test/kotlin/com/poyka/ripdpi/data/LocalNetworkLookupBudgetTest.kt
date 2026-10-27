@@ -17,7 +17,7 @@ import java.util.concurrent.CountDownLatch
 class LocalNetworkLookupBudgetTest {
     private val loopback = InetAddress.getByAddress(byteArrayOf(127, 0, 0, 1))
 
-    @Test(timeout = TEST_TIMEOUT_MILLIS)
+    @Test(timeout = TestTimeoutMillis)
     fun `answer within the budget is returned`() =
         runBlocking {
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -26,7 +26,7 @@ class LocalNetworkLookupBudgetTest {
             scope.cancel()
         }
 
-    @Test(timeout = TEST_TIMEOUT_MILLIS)
+    @Test(timeout = TestTimeoutMillis)
     fun `hung resolver gives an unknown answer after the budget instead of blocking the caller`() =
         runBlocking {
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -47,7 +47,7 @@ class LocalNetworkLookupBudgetTest {
             }
         }
 
-    @Test(timeout = TEST_TIMEOUT_MILLIS)
+    @Test(timeout = TestTimeoutMillis)
     fun `cancelled caller returns without waiting for the resolver`() =
         runBlocking {
             val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -72,4 +72,4 @@ class LocalNetworkLookupBudgetTest {
         }
 }
 
-private const val TEST_TIMEOUT_MILLIS = 20_000L
+private const val TestTimeoutMillis = 20_000L
