@@ -106,7 +106,7 @@ async fn close_sends_fin_once_and_drop_does_not_duplicate_it() {
     let mut stream =
         client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()).await.expect("open stream");
 
-    // The stream is alive before the half-close.
+    // The stream is alive before the close.
     stream.write_all(b"ping").await.expect("write");
     assert_eq!(stream.read_exact_len(4).await.expect("echo"), b"ping");
 
@@ -120,7 +120,7 @@ async fn close_sends_fin_once_and_drop_does_not_duplicate_it() {
     .await
     .expect("close must send FIN");
 
-    // Dropping after a successful half-close must not queue a second FIN for
+    // Dropping after a successful close must not queue a second FIN for
     // the same substream.
     drop(stream);
     tokio::time::sleep(Duration::from_millis(100)).await;
@@ -584,4 +584,38 @@ async fn bridge_drop_preserves_sibling_and_client_close_joins_idle_pumps() {
     // their endpoints before the stop call can report success.
     assert_eq!(second.read(&mut payload).await.expect("closed bridge"), 0);
     client.close().await.expect("repeat joined close");
+}
+
+/// AnyTLS FIN closes a stream in both directions, so an application
+/// write-shutdown must not send it: the reply would be lost.
+#[tokio::test]
+async fn app_write_shutdown_keeps_the_stream_open_for_the_reply() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let fixture = AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
+    let client = AnyTlsClient::new(client_config(&fixture, "fixture-password")).expect("client");
+    let mut app = client
+        .open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port())
+        .await
+        .expect("open")
+        .into_io()
+        .expect("bridge");
+    app.write_all(b"request").await.expect("write");
+    app.shutdown().await.expect("write shutdown");
+    let mut reply = [0; 7];
+    tokio::time::timeout(Duration::from_secs(1), app.read_exact(&mut reply))
+        .await
+        .expect("reply deadline")
+        .expect("reply after write shutdown");
+    assert_eq!(&reply, b"request");
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    assert!(fixture.observed().fin_stream_ids.is_empty(), "write shutdown must not send FIN");
+
+    drop(app);
+    tokio::time::timeout(Duration::from_secs(1), async {
+        while fixture.observed().fin_stream_ids != vec![1] {
+            tokio::task::yield_now().await;
+        }
+    })
+    .await
+    .expect("dropping the endpoint sends FIN");
 }

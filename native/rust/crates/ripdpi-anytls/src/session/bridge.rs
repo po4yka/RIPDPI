@@ -32,10 +32,9 @@ impl AnyTlsStream {
                 tokio::select! {
                     read = app_read.read(&mut buffer), if sending => {
                         match read {
-                            Ok(0) => {
-                                if self.close().await.is_err() { return; }
-                                sending = false;
-                            }
+                            // AnyTLS has no half-close: a FIN would end the reply
+                            // too. Dropping the endpoint sends it.
+                            Ok(0) => sending = false,
                             Ok(read) => if self.write_all(&buffer[..read]).await.is_err() { return; },
                             Err(_) => return,
                         }

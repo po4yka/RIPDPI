@@ -727,12 +727,10 @@ impl AnyTlsStream {
         self.inbound.recv().await.ok_or(AnyTlsError::SessionClosed)
     }
 
-    /// Half-close the substream towards the server: queue a FIN frame while
-    /// leaving the stream registered, so the inbound direction keeps working.
-    ///
-    /// Use this when the local writer is done but the peer may still send
-    /// data. Dropping the stream instead closes it in one step (route release
-    /// plus FIN). Idempotent: a second `close` is a no-op, and after a
+    /// Close the substream: queue a FIN frame. AnyTLS FIN closes the stream in
+    /// both directions, so the peer sends nothing new after it; the route
+    /// stays registered only for frames already in flight. It is not a
+    /// half-close. Idempotent: a second `close` is a no-op, and after a
     /// successful `close` the `Drop` impl no longer sends a duplicate FIN.
     ///
     /// # Cancel safety
