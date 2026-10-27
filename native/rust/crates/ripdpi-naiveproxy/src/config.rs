@@ -1,5 +1,5 @@
 use std::io::{self, Read};
-use std::net::SocketAddr;
+use std::net::{IpAddr, SocketAddr};
 use std::sync::Arc;
 
 use rustls::ClientConfig as RustlsClientConfig;
@@ -61,6 +61,7 @@ pub(crate) fn parse_config_from_reader(
     mut credentials_input: impl Read,
 ) -> io::Result<NaiveProxyConfig> {
     let listen = optional_value(&mut args, "--listen")?.unwrap_or_else(|| "127.0.0.1:11980".to_owned());
+    require_loopback_listen(&listen)?;
     let server_value: String = args
         .opt_value_from_str::<_, String>("--server")
         .map_err(invalid_args)?
@@ -99,6 +100,19 @@ pub(crate) fn parse_config_from_reader(
         tls_config: default_tls_config(),
         protect_socket_path: ripdpi_subprocess_protect::protect_path_from_env(),
     })
+}
+
+/// The local SOCKS5/HTTP front has no authentication; a non-loopback listen
+/// address would open the user's NaiveProxy account to the network.
+fn require_loopback_listen(listen: &str) -> io::Result<()> {
+    let host = listen.rsplit_once(':').map_or("", |(host, _port)| host);
+    let host = host.strip_prefix('[').and_then(|host| host.strip_suffix(']')).unwrap_or(host);
+    let loopback = host.eq_ignore_ascii_case("localhost") || host.parse::<IpAddr>().is_ok_and(|ip| ip.is_loopback());
+    if loopback {
+        Ok(())
+    } else {
+        Err(io::Error::new(io::ErrorKind::InvalidInput, "NaiveProxy --listen must be a loopback address"))
+    }
 }
 
 fn read_credentials_from_stdin(input: &mut impl Read) -> io::Result<(Option<String>, Option<String>)> {

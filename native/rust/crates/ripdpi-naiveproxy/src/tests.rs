@@ -548,6 +548,34 @@ fn config_parses_final_cli_contract() {
     assert_eq!(config.path.as_deref(), Some("/proxy"));
 }
 
+/// The listener has no authentication, so it must not be reachable from the
+/// network: only loopback listen addresses are accepted.
+#[test]
+fn config_accepts_only_a_loopback_listen_address() {
+    let parse = |listen: &str| {
+        parse_config_args_with_stdin(
+            &[
+                "--listen",
+                listen,
+                "--server",
+                "proxy.example",
+                "--server-port",
+                "443",
+                "--server-name",
+                "proxy.example",
+            ],
+            b"",
+        )
+    };
+    for loopback in ["127.0.0.1:1081", "127.8.0.1:1081", "[::1]:1081", "::1:1081", "localhost:1081"] {
+        assert!(parse(loopback).is_ok(), "{loopback}");
+    }
+    for exposed in ["0.0.0.0:1081", "192.168.1.5:1081", "[::]:1081", "proxy.example:1081", "1081"] {
+        let error = parse(exposed).expect_err(exposed);
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput, "{exposed}");
+    }
+}
+
 #[test]
 fn config_rejects_partial_auth() {
     let username_only = parse_config_args_with_stdin(
