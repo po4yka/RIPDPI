@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.activities
 
+import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsResolverActions
 import com.poyka.ripdpi.diagnostics.DiagnosticsScanController
@@ -23,7 +24,17 @@ internal class DiagnosticsMutationRunner(
     val currentUiState: () -> DiagnosticsUiState,
 ) {
     fun launch(block: suspend DiagnosticsMutationRunner.() -> Unit) {
-        scope.launch { block() }
+        scope.launch {
+            // A row removed by retention between render and tap, or a storage failure, must not reach
+            // the uncaught handler and kill the app and its VPN service. The log names only the class.
+            try {
+                block()
+            } catch (cancelled: CancellationException) {
+                throw cancelled
+            } catch (ignored: Exception) {
+                Logger.w { "Diagnostics action failed: ${ignored.javaClass.simpleName}" }
+            }
+        }
     }
 
     suspend fun emit(effect: DiagnosticsEffect) {
