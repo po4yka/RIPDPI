@@ -15,6 +15,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -127,20 +129,22 @@ internal class DiagnosticsPluggableTransportController(
     }
 
     private suspend fun runProbeAndPublish() {
-        runCatching {
-            runProbe()
-        }.onSuccess { result ->
-            _tool.value = result.toUiModel(privacyModeEnabled = false, stringResolver = stringResolver)
-        }.onFailure { error ->
-            if (error is CancellationException) throw error
-            _tool.value =
-                DiagnosticsPluggableTransportToolUiModel(
-                    state = DiagnosticsPluggableTransportState.Failed,
-                    summary = stringResolver.getString(R.string.diagnostics_pt_failed),
-                    summaryResId = R.string.diagnostics_pt_failed,
-                    errorMessage = stringResolver.userMessage(error),
-                )
-        }
+        val outcome = runCatching { runProbe() }
+        // A probe that returns without suspending after privacy mode cancelled it must not publish.
+        currentCoroutineContext().ensureActive()
+        outcome
+            .onSuccess { result ->
+                _tool.value = result.toUiModel(privacyModeEnabled = false, stringResolver = stringResolver)
+            }.onFailure { error ->
+                if (error is CancellationException) throw error
+                _tool.value =
+                    DiagnosticsPluggableTransportToolUiModel(
+                        state = DiagnosticsPluggableTransportState.Failed,
+                        summary = stringResolver.getString(R.string.diagnostics_pt_failed),
+                        summaryResId = R.string.diagnostics_pt_failed,
+                        errorMessage = stringResolver.userMessage(error),
+                    )
+            }
     }
 }
 

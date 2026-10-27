@@ -11,6 +11,8 @@ import com.poyka.ripdpi.diagnostics.dpich.PtVerdict
 import com.poyka.ripdpi.platform.AndroidStringResolver
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -261,6 +263,30 @@ class DiagnosticsRuntimeHindiPresentationTest {
             assertEquals(1, probeCalls)
             assertEquals(DiagnosticsPluggableTransportState.Disabled, controller.tool.value.state)
             assertTrue(controller.tool.value.privacyModeEnabled)
+        }
+
+    @Test
+    fun `a PT probe cancelled before it returns does not publish its result`() =
+        runTest {
+            val localizedContext = context("en")
+            val controller =
+                DiagnosticsPluggableTransportController(
+                    scope = backgroundScope,
+                    appSettingsRepository = settings(),
+                    assetLoader = DpiAssetLoader(localizedContext),
+                    stringResolver = AndroidStringResolver(localizedContext),
+                    runProbe = {
+                        // What the privacy-mode collector does from another thread while the probe finishes.
+                        currentCoroutineContext().cancel()
+                        result(PtVerdict.PtOk("Exact_Host.test"))
+                    },
+                )
+            runCurrent()
+
+            controller.run()
+            runCurrent()
+
+            assertEquals(DiagnosticsPluggableTransportState.Running, controller.tool.value.state)
         }
 
     private fun failureLabels(language: String): List<String> {
