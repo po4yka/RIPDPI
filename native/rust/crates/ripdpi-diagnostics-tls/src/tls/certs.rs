@@ -64,8 +64,7 @@ fn parse_issuer_cn(der: &[u8]) -> Option<String> {
             let (next_attr, seq_content) = read_der_sequence(attr_pos)?;
             // First element is the OID
             if let Some((value_bytes, oid_bytes)) = read_der_element(seq_content)
-                && oid_bytes.len() >= OID_CN.len()
-                && oid_bytes.ends_with(OID_CN)
+                && oid_bytes == OID_CN
             {
                 // Second element is the value (UTF8String, PrintableString, etc.)
                 if let Some((_rest, cn_bytes)) = read_der_element(value_bytes) {
@@ -88,7 +87,8 @@ fn read_der_element(data: &[u8]) -> Option<(&[u8], &[u8])> {
     let _tag = data[0];
     let (len, header_size) = read_der_length(&data[1..])?;
     let total_header = 1 + header_size;
-    let end = total_header + len;
+    // The length comes from the peer; on 32-bit targets an unchecked sum can wrap.
+    let end = total_header.checked_add(len)?;
     if end > data.len() {
         return None;
     }
@@ -121,5 +121,52 @@ fn read_der_length(data: &[u8]) -> Option<(usize, usize)> {
             length = (length << 8) | (data[1 + i] as usize);
         }
         Some((length, 1 + num_bytes))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn tlv(tag: u8, content: &[u8]) -> Vec<u8> {
+        assert!(content.len() < 0x80, "test helper encodes short lengths only");
+        let mut out = vec![tag, content.len() as u8];
+        out.extend_from_slice(content);
+        out
+    }
+
+    fn attribute(oid: &[u8], value: &str) -> Vec<u8> {
+        tlv(0x31, &tlv(0x30, &[tlv(0x06, oid), tlv(0x0c, value.as_bytes())].concat()))
+    }
+
+    fn certificate_with_issuer(issuer_rdns: &[Vec<u8>]) -> Vec<u8> {
+        let tbs = [
+            tlv(0xa0, &tlv(0x02, &[0x02])),
+            tlv(0x02, &[0x01]),
+            tlv(0x30, &tlv(0x06, &[0x2a, 0x86, 0x48, 0xce, 0x3d, 0x04, 0x03, 0x02])),
+            tlv(0x30, &issuer_rdns.concat()),
+        ]
+        .concat();
+        tlv(0x30, &tlv(0x30, &tbs))
+    }
+
+    #[test]
+    fn issuer_cn_needs_the_exact_common_name_oid() {
+        // 1.3.85.4.3 ends with the bytes of 2.5.4.3 (id-at-commonName) but is another attribute.
+        let der = certificate_with_issuer(&[
+            attribute(&[0x2b, 0x55, 0x04, 0x03], "Not a CN"),
+            attribute(&[0x55, 0x04, 0x03], "Real CA"),
+        ]);
+
+        assert_eq!(parse_issuer_cn(&der).as_deref(), Some("Real CA"));
+    }
+
+    #[test]
+    fn maximal_der_length_is_rejected_without_panicking() {
+        // 30 84 FF FF FF FF: a SEQUENCE that claims 4 GiB - 1 bytes of content.
+        let der = [0x30, 0x84, 0xff, 0xff, 0xff, 0xff, 0x30, 0x00];
+
+        assert_eq!(read_der_element(&der), None);
+        assert_eq!(parse_issuer_cn(&der), None);
     }
 }
