@@ -9,6 +9,7 @@ import com.poyka.ripdpi.diagnostics.export.DiagnosticsPreparedArtifactReader
 import com.poyka.ripdpi.diagnostics.export.PreparedExportClock
 import com.poyka.ripdpi.diagnostics.export.PreparedExportTime
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -42,6 +43,50 @@ internal class PreparedExportOrphanCleanupTest : DiagnosticsArchiveExporterTestB
                     PreparedExportClock { PreparedExportTime(1_700_000_000_000L, 1000L, 1) },
                 )
             assertTrue(runCatching { reader.checkedFile(wiped, wipedPreview.fileName) }.isFailure)
+        }
+
+    @Test fun `one lease that cannot be deleted does not stop the others from being reclaimed`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val context = TestContext()
+            val session = diagnosticsSession("stuck", "default", ScanPathMode.IN_PATH.name, "captured")
+            seedSingleSessionStore(stores, session)
+            val attemptedArchives = mutableListOf<File>()
+            var archivesStuck = false
+            val exporter =
+                createArchiveExporterForTest(
+                    stores,
+                    context,
+                    false,
+                    compositeRunService,
+                    json,
+                    preparedManager =
+                        preparedExportManagerForTest(
+                            context,
+                            stores,
+                            json,
+                            deleteFile = { file ->
+                                if (archivesStuck && file.name.endsWith(".zip")) {
+                                    attemptedArchives += file
+                                    false
+                                } else {
+                                    file.delete()
+                                }
+                            },
+                        ),
+                )
+            val leases = List(2) { DiagnosticsExportLeaseId.create() }
+            leases.forEach { lease ->
+                exporter.prepare(lease, preparation(session.id))
+                exporter.consume(lease)
+            }
+            stores.deleteExportRecords(leases.map { it.encoded })
+            archivesStuck = true
+
+            val failure = runCatching { exporter.cleanupCache() }.exceptionOrNull()
+
+            assertTrue("cleanup failure was swallowed", failure != null)
+            assertEquals(2, attemptedArchives.toSet().size)
         }
 
     private fun preparation(sessionId: String) =

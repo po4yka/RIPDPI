@@ -15,9 +15,10 @@ internal fun preparedExportManagerForTest(
     json: Json,
     clock: PreparedExportClock = PreparedExportClock { PreparedExportTime(1_700_000_000_000L, 1000L, 1) },
     logcat: LogcatSnapshotCollector = FakeLogcatSnapshotCollector(snapshot = null),
+    deleteFile: (java.io.File) -> Boolean = java.io.File::delete,
 ): DiagnosticsPreparedExportManager =
     DiagnosticsPreparedExportManager(
-        files = DiagnosticsPreparedFileStore(context.filesDir, json),
+        files = DiagnosticsPreparedFileStore(context.filesDir, json, deleteFile),
         records = records,
         clock = clock,
         zipWriter = DiagnosticsArchiveZipWriter(),

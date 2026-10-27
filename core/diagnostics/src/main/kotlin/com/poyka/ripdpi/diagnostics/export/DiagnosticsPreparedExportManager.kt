@@ -178,9 +178,19 @@ internal class DiagnosticsPreparedExportManager
                 files.records().filter { lease ->
                     lease.leaseId !in owned && lease.phase in PublishedPhases
                 }
+            // One lease that cannot be removed must not keep the others from being reclaimed.
+            var failure: Throwable? = null
             (files.expiredLeases(clock) + orphaned)
                 .distinctBy { it.leaseId }
-                .forEach { discard(requireNotNull(DiagnosticsExportLeaseId.parse(it.leaseId))) }
+                .forEach { lease ->
+                    runCatching { discard(requireNotNull(DiagnosticsExportLeaseId.parse(lease.leaseId))) }
+                        .exceptionOrNull()
+                        ?.let { error ->
+                            if (error is Error) throw error
+                            failure?.addSuppressed(error) ?: run { failure = error }
+                        }
+                }
+            failure?.let { throw it }
         }
 
         fun managedPaths(): Set<String> = files.records().mapTo(mutableSetOf()) { files.artifact(it).absolutePath }
