@@ -78,6 +78,15 @@ interface RememberedNetworkPolicyStore {
     suspend fun clearAll()
 }
 
+/**
+ * Serializes the read-modify-writes of `remembered_network_policies` made by
+ * [DefaultRememberedNetworkPolicyStore] and the terminal outbox policy checkpoint. Callers hold entity
+ * snapshots from different coroutines, so each mutation re-reads the row under this lock. Backup
+ * restore and history clears write the table without it; they replace or delete rows, and a later
+ * locked update of a deleted row writes nothing.
+ */
+internal val rememberedNetworkPolicyWriteLock = Mutex()
+
 @Singleton
 class DefaultRememberedNetworkPolicyStore
     @Inject
@@ -88,9 +97,7 @@ class DefaultRememberedNetworkPolicyStore
         private val json =
             RipDpiContractJson
 
-        // Serializes every read-modify-write of the table. Callers hold entity snapshots from
-        // different coroutines, so each mutation re-reads the row under this lock.
-        private val writeLock = Mutex()
+        private val writeLock = rememberedNetworkPolicyWriteLock
 
         override fun observePolicies(limit: Int): Flow<List<RememberedNetworkPolicyEntity>> =
             recordStore.observeRememberedNetworkPolicies(limit)
@@ -219,7 +226,9 @@ class DefaultRememberedNetworkPolicyStore
 
         /**
          * Applies [transform] to the stored row, not to the caller's snapshot, so concurrent updates
-         * are not lost. Without a stored row the snapshot itself is written, as before.
+         * are not lost. Without a stored row nothing is written and the snapshot is returned: only
+         * the remember* calls create a policy, so a missing row was deleted (by the user or a clear),
+         * and writing the snapshot would bring it back or REPLACE a newer row of the same network.
          */
         private suspend fun mutateCurrent(
             policy: RememberedNetworkPolicyEntity,
@@ -232,9 +241,7 @@ class DefaultRememberedNetworkPolicyStore
                     } else {
                         recordStore.getRememberedNetworkPolicy(policy.fingerprintHash, policy.mode)
                     }
-                // shortcut: a row deleted since the caller read it is written again; telling that apart
-                // from a first write needs callers (and their test fixtures) to store rows first.
-                persist(transform(current ?: policy))
+                if (current == null) policy else persist(transform(current))
             }
 
         private suspend fun upsertInternal(

@@ -156,8 +156,9 @@ internal class RuntimeTerminalOutbox(
 
     private suspend fun finalizeRememberedPolicy(pending: PendingTerminalSession) {
         val nextPhase = PendingTerminalPhase.SESSION_UPSERT
-        val policy = pending.policyOutcome?.let { outcome -> reconstructPolicy(outcome, pending.finishedSession) }
-        if (pending.policyOutcome != null && policy == null) {
+        val outcome = pending.policyOutcome
+        val policy = outcome?.let { reconstructPolicy(it, pending.finishedSession) }
+        if (outcome != null && policy == null) {
             pending.policyEvidenceComplete = false
         }
         val policyCheckpoint = pending.toMarker(PendingTerminalPhase.POLICY_FINALIZATION)
@@ -166,7 +167,9 @@ internal class RuntimeTerminalOutbox(
             intendedMarker = policyCheckpoint,
             checkpointSucceeded =
                 outboxStore.checkpointTerminalPolicy(
-                    policy = policy,
+                    // The checkpoint re-applies the outcome to the row read in its own transaction.
+                    policyId = policy?.id,
+                    update = { current -> outcome?.applyTo(current, pending.finishedSession.strategyJson) },
                     expectedMarker = pending.currentMarker,
                     replacementMarker = policyCheckpoint,
                 ),
@@ -195,24 +198,7 @@ internal class RuntimeTerminalOutbox(
     ): RememberedNetworkPolicyEntity? =
         policyRecordStore
             .getRememberedNetworkPolicyById(outcome.policyId)
-            ?.takeIf { policy -> policy.mode == outcome.mode }
-            ?.let { current ->
-                current.copy(
-                    status = outcome.status,
-                    strategySignatureJson =
-                        if (outcome.updateStrategySignature) {
-                            finishedSession.strategyJson
-                        } else {
-                            current.strategySignatureJson
-                        },
-                    successCount = outcome.successCount,
-                    failureCount = outcome.failureCount,
-                    consecutiveFailureCount = outcome.consecutiveFailureCount,
-                    suppressedUntil = outcome.suppressedUntil,
-                    lastValidatedAt = outcome.lastValidatedAt,
-                    updatedAt = outcome.updatedAt,
-                )
-            }
+            ?.let { current -> outcome.applyTo(current, finishedSession.strategyJson) }
 
     private suspend fun persistFinishedSession(pending: PendingTerminalSession) {
         val nextPhase = PendingTerminalPhase.ROOT_CAUSE_ASSESSMENT

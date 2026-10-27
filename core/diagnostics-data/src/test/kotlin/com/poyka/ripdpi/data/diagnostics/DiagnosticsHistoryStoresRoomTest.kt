@@ -659,7 +659,14 @@ class DiagnosticsHistoryStoresRoomTest : DiagnosticsRoomStoreTestBase() {
                 ).copy(id = 7L, failureCount = 1)
             dao.upsertRememberedNetworkPolicy(terminalPolicy.copy(failureCount = 0))
             val policyMarker = marker.copy(value = "session-upsert")
-            assertTrue(store.checkpointTerminalPolicy(terminalPolicy, artifactMarker, policyMarker))
+            assertTrue(
+                store.checkpointTerminalPolicy(
+                    policyId = terminalPolicy.id,
+                    update = { current -> current.copy(failureCount = current.failureCount + 1) },
+                    expectedMarker = artifactMarker,
+                    replacementMarker = policyMarker,
+                ),
+            )
 
             assertEquals(terminalPolicy, dao.getRememberedNetworkPolicy("terminal-policy", "vpn"))
 

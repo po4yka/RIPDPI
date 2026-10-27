@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.data.diagnostics
 
 import androidx.room.withTransaction
+import kotlinx.coroutines.sync.withLock
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -27,8 +28,14 @@ interface DiagnosticsTerminalOutboxStore {
         replacementMarker: DiagnosticsDurableStateEntity,
     ): Boolean
 
+    /**
+     * Writes `update(row)` for the stored policy [policyId], read in the same transaction as the
+     * marker swap, so a concurrent store update is not overwritten. A missing row (deleted by the
+     * user) or a null update writes no policy; the marker is still replaced.
+     */
     suspend fun checkpointTerminalPolicy(
-        policy: RememberedNetworkPolicyEntity?,
+        policyId: Long?,
+        update: (RememberedNetworkPolicyEntity) -> RememberedNetworkPolicyEntity?,
         expectedMarker: DiagnosticsDurableStateEntity,
         replacementMarker: DiagnosticsDurableStateEntity,
     ): Boolean
@@ -103,17 +110,20 @@ class RoomDiagnosticsTerminalOutboxStore
             }
 
         override suspend fun checkpointTerminalPolicy(
-            policy: RememberedNetworkPolicyEntity?,
+            policyId: Long?,
+            update: (RememberedNetworkPolicyEntity) -> RememberedNetworkPolicyEntity?,
             expectedMarker: DiagnosticsDurableStateEntity,
             replacementMarker: DiagnosticsDurableStateEntity,
         ): Boolean =
-            db.withTransaction {
-                if (!isCurrent(expectedMarker)) return@withTransaction false
-                // A policy the user deleted since the outcome was reconstructed must not come back.
-                policy
-                    ?.takeIf { dao.getRememberedNetworkPolicyById(it.id) != null }
-                    ?.let { dao.upsertRememberedNetworkPolicy(it) }
-                replaceMarkerIfCurrent(expectedMarker, replacementMarker)
+            rememberedNetworkPolicyWriteLock.withLock {
+                db.withTransaction {
+                    if (!isCurrent(expectedMarker)) return@withTransaction false
+                    policyId
+                        ?.let { id -> dao.getRememberedNetworkPolicyById(id) }
+                        ?.let(update)
+                        ?.let { policy -> dao.upsertRememberedNetworkPolicy(policy) }
+                    replaceMarkerIfCurrent(expectedMarker, replacementMarker)
+                }
             }
 
         override suspend fun checkpointTerminalSession(

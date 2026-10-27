@@ -220,7 +220,57 @@ internal data class RememberedPolicyTerminalOutcome(
     val updateStrategySignature: Boolean,
     val updatedAt: Long,
     val failureHandover: RememberedPolicyFailureHandover? = null,
-)
+) {
+    /**
+     * Applies this session's success or failure to [current], the row as stored now. The absolute
+     * counters above come from the session-start snapshot, so writing them would undo updates made
+     * by other sessions since then. Returns null when [current] is a row of another mode.
+     */
+    fun applyTo(
+        current: RememberedNetworkPolicyEntity,
+        strategySignatureJson: String,
+    ): RememberedNetworkPolicyEntity? =
+        when {
+            current.mode != mode -> {
+                null
+            }
+
+            // Only the proved branch of prepareTerminalOutcome updates the strategy signature.
+            updateStrategySignature -> {
+                current.copy(
+                    status = RememberedNetworkPolicyStatusValidated,
+                    strategySignatureJson = strategySignatureJson,
+                    successCount = current.successCount + 1,
+                    consecutiveFailureCount = 0,
+                    suppressedUntil = null,
+                    lastValidatedAt = lastValidatedAt,
+                    updatedAt = updatedAt,
+                )
+            }
+
+            else -> {
+                applyFailureTo(current)
+            }
+        }
+
+    private fun applyFailureTo(current: RememberedNetworkPolicyEntity): RememberedNetworkPolicyEntity {
+        val nextConsecutiveFailures = current.consecutiveFailureCount + 1
+        val shouldSuppress =
+            current.status == RememberedNetworkPolicyStatusValidated && nextConsecutiveFailures >= 2
+        return current.copy(
+            status = if (shouldSuppress) RememberedNetworkPolicyStatusSuppressed else current.status,
+            failureCount = current.failureCount + 1,
+            consecutiveFailureCount = nextConsecutiveFailures,
+            suppressedUntil =
+                if (shouldSuppress) {
+                    updatedAt + RememberedNetworkPolicySuppressionDurationMs
+                } else {
+                    current.suppressedUntil
+                },
+            updatedAt = updatedAt,
+        )
+    }
+}
 
 @Serializable
 internal data class RememberedPolicyFailureHandover(

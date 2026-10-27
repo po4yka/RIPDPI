@@ -55,7 +55,7 @@ class RememberedNetworkPolicyStoreTest {
         runTest {
             val result =
                 store.recordApplied(
-                    policy = rememberedPolicyEntity(status = RememberedNetworkPolicyStatusObserved),
+                    policy = stored(rememberedPolicyEntity(status = RememberedNetworkPolicyStatusObserved)),
                 )
 
             assertEquals(clock.now(), result.lastAppliedAt)
@@ -67,7 +67,7 @@ class RememberedNetworkPolicyStoreTest {
         runTest {
             val result =
                 store.recordSuccess(
-                    policy = rememberedPolicyEntity(status = RememberedNetworkPolicyStatusObserved),
+                    policy = stored(rememberedPolicyEntity(status = RememberedNetworkPolicyStatusObserved)),
                     validated = true,
                     strategySignatureJson = "strategy-v2",
                     completedAt = 2_222L,
@@ -85,9 +85,11 @@ class RememberedNetworkPolicyStoreTest {
             val result =
                 store.recordFailure(
                     policy =
-                        rememberedPolicyEntity(
-                            status = RememberedNetworkPolicyStatusValidated,
-                            consecutiveFailureCount = 1,
+                        stored(
+                            rememberedPolicyEntity(
+                                status = RememberedNetworkPolicyStatusValidated,
+                                consecutiveFailureCount = 1,
+                            ),
                         ),
                 )
 
@@ -102,9 +104,11 @@ class RememberedNetworkPolicyStoreTest {
             val result =
                 store.recordFailure(
                     policy =
-                        rememberedPolicyEntity(
-                            status = RememberedNetworkPolicyStatusValidated,
-                            consecutiveFailureCount = 1,
+                        stored(
+                            rememberedPolicyEntity(
+                                status = RememberedNetworkPolicyStatusValidated,
+                                consecutiveFailureCount = 1,
+                            ),
                         ),
                     failedAt = 9_999L,
                 )
@@ -136,6 +140,51 @@ class RememberedNetworkPolicyStoreTest {
             assertEquals(2_000L, row?.lastValidatedAt)
             assertEquals(1, row?.failureCount)
         }
+
+    @Test
+    fun `record calls after a delete do not bring the policy back`() =
+        runTest {
+            val snapshot =
+                store.rememberValidatedPolicy(
+                    policy = rememberedPolicyJson(fingerprintHash = "fingerprint-deleted"),
+                    source = RememberedNetworkPolicySource.MANUAL_SESSION,
+                    validatedAt = 1_000L,
+                )
+            store.deletePolicy(snapshot.id, snapshot.fingerprintHash)
+
+            store.recordApplied(policy = snapshot, appliedAt = 2_000L)
+            store.recordSuccess(policy = snapshot, validated = true, completedAt = 3_000L)
+            store.recordFailure(policy = snapshot, failedAt = 4_000L)
+
+            assertNull(recordStore.getRememberedNetworkPolicy("fingerprint-deleted", Mode.VPN.preferenceValue))
+        }
+
+    @Test
+    fun `a stale record call keeps the newer row of the same network`() =
+        runTest {
+            val stale =
+                store.rememberValidatedPolicy(
+                    policy = rememberedPolicyJson(fingerprintHash = "fingerprint-replaced"),
+                    source = RememberedNetworkPolicySource.MANUAL_SESSION,
+                    validatedAt = 1_000L,
+                )
+            store.deletePolicy(stale.id, stale.fingerprintHash)
+            val newer =
+                store.upsertObservedPolicy(
+                    policy = rememberedPolicyJson(fingerprintHash = "fingerprint-replaced"),
+                    source = RememberedNetworkPolicySource.MANUAL_SESSION,
+                    observedAt = 2_000L,
+                )
+
+            store.recordFailure(policy = stale, failedAt = 3_000L)
+
+            val row = recordStore.getRememberedNetworkPolicy("fingerprint-replaced", Mode.VPN.preferenceValue)
+            assertEquals(newer, row)
+            assertNull(recordStore.getRememberedNetworkPolicyById(stale.id))
+        }
+
+    private suspend fun stored(policy: RememberedNetworkPolicyEntity): RememberedNetworkPolicyEntity =
+        policy.also { recordStore.upsertRememberedNetworkPolicy(it) }
 
     @Test
     fun `typed remembered policy sources round trip through storage values`() =
@@ -190,7 +239,11 @@ private class FakeRememberedNetworkPolicyRecordStore : RememberedNetworkPolicyRe
             } else {
                 policy.copy(id = nextId++)
             }
-        state.value = state.value.filterNot { it.id == persisted.id } + persisted
+        // Same as Room REPLACE: a row with the same id or the same unique (fingerprintHash, mode) is dropped.
+        state.value =
+            state.value.filterNot {
+                it.id == persisted.id || (it.fingerprintHash == persisted.fingerprintHash && it.mode == persisted.mode)
+            } + persisted
         return persisted.id
     }
 

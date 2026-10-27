@@ -786,7 +786,7 @@ internal class RuntimeTerminalRecoveryPersistenceTest : RuntimeTerminalPersisten
             val stores = FakeDiagnosticsHistoryStores()
             val firstStateStore = DefaultServiceStateStore()
             val firstScope = monitorScope()
-            val activePolicyStore = MutableActiveConnectionPolicyStore().apply { set(activeRememberedPolicy()) }
+            val activePolicyStore = MutableActiveConnectionPolicyStore().apply { set(activeRememberedPolicy(stores)) }
             val firstCoordinator = createSessionCoordinator(stores, firstStateStore, firstScope, activePolicyStore)
             firstCoordinator.registerNetworkTransitionFlush { true }
             armTerminalFailure(stores, TerminalFailurePhase.POLICY_FINALIZATION) {
@@ -840,7 +840,7 @@ internal abstract class RuntimeTerminalPersistenceTestSupport {
         val coordinatorScope = monitorScope()
         val activePolicyStore = MutableActiveConnectionPolicyStore()
         if (phase == TerminalFailurePhase.POLICY_FINALIZATION) {
-            activePolicyStore.set(activeRememberedPolicy())
+            activePolicyStore.set(activeRememberedPolicy(stores))
         }
         val coordinator = createSessionCoordinator(stores, serviceStateStore, coordinatorScope, activePolicyStore)
         coordinator.registerNetworkTransitionFlush { true }
@@ -1016,7 +1016,8 @@ internal abstract class RuntimeTerminalPersistenceTestSupport {
             override val activePolicies: StateFlow<Map<Mode, ActiveConnectionPolicy>> = MutableStateFlow(emptyMap())
         }
 
-    protected fun activeRememberedPolicy(): ActiveConnectionPolicy =
+    /** Returns a policy that matched the remembered row it seeds into [stores]. */
+    protected fun activeRememberedPolicy(stores: FakeDiagnosticsHistoryStores): ActiveConnectionPolicy =
         ActiveConnectionPolicy(
             mode = Mode.VPN,
             policy =
@@ -1035,6 +1036,7 @@ internal abstract class RuntimeTerminalPersistenceTestSupport {
                 ),
             matchedPolicy =
                 RememberedNetworkPolicyEntity(
+                    id = 1L,
                     fingerprintHash = "terminal-policy",
                     mode = Mode.VPN.preferenceValue,
                     summaryJson = "{}",
@@ -1048,7 +1050,7 @@ internal abstract class RuntimeTerminalPersistenceTestSupport {
             fingerprintHash = "terminal-policy",
             policySignature = "terminal-policy-signature",
             appliedAt = 1L,
-        )
+        ).also { policy -> stores.rememberedPoliciesState.value = listOfNotNull(policy.matchedPolicy) }
 
     protected fun finalDataPlaneTelemetry(): ServiceTelemetrySnapshot =
         ServiceTelemetrySnapshot(

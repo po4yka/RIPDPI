@@ -199,7 +199,7 @@ internal class FakeDiagnosticsHistoryStores :
     var beforeCheckpointTerminalOutbox: suspend (DiagnosticsDurableStateEntity) -> Unit = {}
     var afterCheckpointTerminalOutbox: suspend (DiagnosticsDurableStateEntity) -> Unit = {}
     var afterCompleteTerminalOutbox: suspend () -> Unit = {}
-    var beforeCheckpointTerminalPolicy: suspend (RememberedNetworkPolicyEntity?) -> Unit = {}
+    var beforeCheckpointTerminalPolicy: suspend (Long?) -> Unit = {}
     var beforeCheckpointTerminalSession: suspend (BypassUsageSessionEntity) -> Unit = {}
     var afterInsertNativeSessionEvent: suspend (NativeSessionEventEntity) -> Unit = {}
     var beforeUpsertScanSession: suspend (ScanSessionEntity) -> Unit = {}
@@ -631,15 +631,19 @@ internal class FakeDiagnosticsHistoryStores :
     }
 
     override suspend fun checkpointTerminalPolicy(
-        policy: RememberedNetworkPolicyEntity?,
+        policyId: Long?,
+        update: (RememberedNetworkPolicyEntity) -> RememberedNetworkPolicyEntity?,
         expectedMarker: DiagnosticsDurableStateEntity,
         replacementMarker: DiagnosticsDurableStateEntity,
     ): Boolean {
-        beforeCheckpointTerminalPolicy(policy)
+        beforeCheckpointTerminalPolicy(policyId)
         if (!terminalMarkerIsCurrent(expectedMarker)) return false
-        policy?.let { value ->
-            rememberedPoliciesState.value = rememberedPoliciesState.value.upsertById(value) { it.id }
-        }
+        rememberedPoliciesState.value
+            .firstOrNull { it.id == policyId }
+            ?.let(update)
+            ?.let { value ->
+                rememberedPoliciesState.value = rememberedPoliciesState.value.upsertById(value) { it.id }
+            }
         return replaceTerminalMarker(expectedMarker, replacementMarker)
     }
 
