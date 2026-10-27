@@ -4,7 +4,9 @@
 //! The firewall journal and the nfqws2 child live only in helper memory, and
 //! the chain names carry the helper PID, so a new helper never meets the old
 //! chains. A chain or process counts as stale only when it names this app uid
-//! and a helper PID that is no longer a running helper.
+//! and a helper PID that is no longer a running helper. The reaper runs before
+//! this helper creates any state, so a chain or nfqws2 that names this helper's
+//! own PID belongs to an earlier helper whose PID the kernel reused.
 
 use std::ffi::OsStr;
 use std::fs;
@@ -47,8 +49,9 @@ pub(super) fn reap_stale_state(files_dir: &Path, uid: u32) {
         let Some(pid) = process.file_name().to_str().and_then(|name| name.parse::<i32>().ok()) else { continue };
         let Ok(cmdline) = fs::read(process.path().join("cmdline")) else { continue };
         let Some(helper_pid) = orphan_nfqws2_helper_pid(&cmdline, files_dir) else { continue };
+        let Some((process_uid, parent_pid)) = process_ids(&process.path()) else { continue };
         // A running nfqws2 has dropped root to the app uid, so the app could stop it too.
-        if helper_pid != own_pid && !helper_alive(helper_pid) && process_uid(&process.path()) == Some(uid) {
+        if process_uid == uid && nfqws2_is_stale(helper_pid, parent_pid, own_pid, helper_alive) {
             match kill(Pid::from_raw(pid), Signal::SIGKILL) {
                 Ok(()) => info!(pid, helper_pid, "stopped an nfqws2 left by an earlier helper"),
                 Err(error) => warn!(pid, %error, "could not stop an nfqws2 left by an earlier helper"),
@@ -88,7 +91,8 @@ fn stale_chain_cleanup(
                 .strip_prefix(&prefix)
                 .and_then(|rest| rest.strip_suffix('O').or_else(|| rest.strip_suffix('I')))
                 .and_then(|pid| u32::from_str_radix(pid, 16).ok())
-                .is_some_and(|pid| pid != own_pid && !helper_alive(pid))
+                // Chains that name this helper's PID are the ones it is about to create.
+                .is_some_and(|pid| pid == own_pid || !helper_alive(pid))
         })
         .collect();
     let command = |args: Vec<String>| {
@@ -129,16 +133,27 @@ fn orphan_nfqws2_helper_pid(cmdline: &[u8], files_dir: &Path) -> Option<u32> {
     pidfile.file_name()?.to_str()?.strip_prefix(".nfqws2-")?.strip_suffix(".pid")?.parse().ok()
 }
 
-fn process_uid(process: &Path) -> Option<u32> {
+/// Returns whether an nfqws2 whose pidfile names `helper_pid` has no live owner.
+/// This helper owns only its own children; another helper PID owns its nfqws2
+/// while that helper runs.
+fn nfqws2_is_stale(helper_pid: u32, parent_pid: u32, own_pid: u32, helper_alive: impl Fn(u32) -> bool) -> bool {
+    if helper_pid == own_pid { parent_pid != own_pid } else { !helper_alive(helper_pid) }
+}
+
+/// Returns the real uid and the parent PID of a `/proc/<pid>` entry.
+fn process_ids(process: &Path) -> Option<(u32, u32)> {
     let status = fs::read_to_string(process.join("status")).ok()?;
-    status.lines().find_map(|line| line.strip_prefix("Uid:"))?.split_whitespace().next()?.parse().ok()
+    let field = |name: &str| -> Option<u32> {
+        status.lines().find_map(|line| line.strip_prefix(name))?.split_whitespace().next()?.parse().ok()
+    };
+    Some((field("Uid:")?, field("PPid:")?))
 }
 
 #[cfg(test)]
 mod tests {
     use std::path::Path;
 
-    use super::{orphan_nfqws2_helper_pid, stale_chain_cleanup};
+    use super::{nfqws2_is_stale, orphan_nfqws2_helper_pid, stale_chain_cleanup};
 
     const RULES: &str = "-P PREROUTING ACCEPT\n\
         -P OUTPUT ACCEPT\n\
@@ -170,13 +185,37 @@ mod tests {
             ]
         );
         assert!(commands.iter().all(|command| command.args[..2] == ["-t", "mangle"]));
+    }
 
-        // The chains of this helper itself are never stale.
-        assert!(
-            stale_chain_cleanup(Path::new("iptables"), RULES, 10234, 456, |_| false)
-                .iter()
-                .all(|command| { !command.args.iter().any(|arg| arg.starts_with("RDP27fa1c8")) })
+    #[test]
+    fn chains_that_name_a_reused_own_pid_are_removed_at_startup() {
+        // An earlier helper with PID 456 = 0x1c8 died; this helper got the same PID.
+        // Every PID looks like a running helper, this one included.
+        let commands = stale_chain_cleanup(Path::new("iptables"), RULES, 10234, 456, |_| true);
+        let lines: Vec<String> = commands.iter().map(|command| command.args[2..].join(" ")).collect();
+        assert_eq!(
+            lines,
+            [
+                "-D OUTPUT ! -o lo -m owner --uid-owner 10234 -j RDP27fa1c8O",
+                "-D INPUT ! -i lo -m connmark --mark 0x20000000/0x20000000 -j RDP27fa1c8I",
+                "-F RDP27fa1c8O",
+                "-X RDP27fa1c8O",
+                "-F RDP27fa1c8I",
+                "-X RDP27fa1c8I",
+            ]
         );
+    }
+
+    #[test]
+    fn an_nfqws2_is_kept_only_while_its_helper_owns_it() {
+        let alive = |pid: u32| pid == 720;
+        // The pidfile names a live other helper: that helper owns the process.
+        assert!(!nfqws2_is_stale(720, 720, 456, alive));
+        // The pidfile names a dead helper.
+        assert!(nfqws2_is_stale(999, 1, 456, alive));
+        // The pidfile names this helper's PID: only its own child is not stale.
+        assert!(!nfqws2_is_stale(456, 456, 456, alive));
+        assert!(nfqws2_is_stale(456, 1, 456, |_| true));
     }
 
     #[test]

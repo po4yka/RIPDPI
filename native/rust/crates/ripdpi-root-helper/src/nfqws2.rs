@@ -198,8 +198,13 @@ impl Nfqws2Backend {
     }
 
     /// Removes chains and an nfqws2 process that an earlier helper of this app
-    /// left when it died without cleanup. Call once at startup.
+    /// left when it died without cleanup. Call once at startup, before this
+    /// helper owns any nfqws2 state.
     pub(crate) fn reap_stale_state(&self) {
+        // The reaper treats chains that name this helper's PID as stale.
+        if self.active.is_some() {
+            return;
+        }
         stale::reap_stale_state(&self.files_dir, self.uid);
     }
 
