@@ -45,16 +45,52 @@ fn ipv4_id_allocator_evicts_least_recently_used_flow_at_capacity() {
     assert_eq!(allocator.reserve(flow(1), target, IpIdMode::Seq, 1), vec![1], "evicted flow restarts");
 }
 
+#[cfg(any(target_os = "linux", target_os = "android"))]
 #[test]
-fn fragment_identification_never_uses_zero() {
-    let mut allocator = Ipv4IdAllocator::default();
-    let source = SocketAddrV4::new(Ipv4Addr::new(192, 0, 2, 14), 40004);
-    let target = SocketAddrV4::new(Ipv4Addr::new(198, 51, 100, 24), 443);
-    let zero_mode_id = allocator.reserve(source, target, IpIdMode::Zero, 1).into_iter().next();
+fn fragment_senders_never_send_ipv4_id_zero() {
+    use crate::root_helper::tests::{FakeHelper, TEST_MUTEX};
 
-    assert_eq!(crate::ipv4_ids::fragment_identification(zero_mode_id), None);
-    assert_eq!(crate::ipv4_ids::fragment_identification(Some(7)), Some(7));
-    assert_eq!(crate::ipv4_ids::fragment_identification(None), None);
+    let _lock = TEST_MUTEX.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+    let upstream = std::net::UdpSocket::bind("127.0.0.1:0").expect("bind udp");
+    let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind tcp");
+    let stream = std::net::TcpStream::connect(listener.local_addr().expect("listener addr")).expect("connect");
+    let target = SocketAddr::from((Ipv4Addr::LOCALHOST, 9));
+    let ext = ripdpi_ipfrag::Ipv6ExtHeaders::default();
+
+    // Preflight plus command for each send.
+    let helper = FakeHelper::register(serde_json::Value::Null, 4);
+    crate::ip_fragmentation::send_ip_fragmented_udp_reserved(
+        &upstream,
+        target,
+        b"payload",
+        3,
+        64,
+        None,
+        false,
+        ext,
+        Some(0),
+    )
+    .expect("udp fragments");
+    crate::ip_fragmentation::send_ip_fragmented_tcp_reserved(
+        &stream,
+        b"payload",
+        3,
+        64,
+        None,
+        false,
+        ext,
+        crate::TcpFlagOverrides::default(),
+        Some(0),
+    )
+    .expect("tcp fragments");
+    let requests = helper.finish();
+
+    let ids = requests
+        .iter()
+        .filter(|request| request.command != ripdpi_root_helper_protocol::CMD_PROTOCOL_PREFLIGHT)
+        .map(|request| request.params["ipv4_identification"].clone())
+        .collect::<Vec<_>>();
+    assert_eq!(ids, vec![serde_json::Value::Null, serde_json::Value::Null], "an ID of 0 must not reach the sender");
 }
 
 #[test]

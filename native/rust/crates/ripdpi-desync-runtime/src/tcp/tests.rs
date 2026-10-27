@@ -115,10 +115,3 @@ mod fake_ordering;
 mod outcome_receipt;
 mod special_plan;
 mod strategy_metadata;
-
-#[test]
-fn desync_seed_differs_between_sends() {
-    let seeds = (0..16).map(|_| desync_seed(1)).collect::<std::collections::HashSet<_>>();
-
-    assert!(seeds.len() > 1, "every send got the same fake randomization seed");
-}

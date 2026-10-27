@@ -26,6 +26,8 @@ struct ReceiptTestPlatform {
     fake_rst_ttls: Mutex<Vec<u32>>,
     /// Fake segments handed to the raw ordered-segment sender.
     ordered_fake_segments: Mutex<usize>,
+    /// Bytes of those fake segments, in send order.
+    ordered_fake_payloads: Mutex<Vec<Vec<u8>>>,
 }
 
 impl TcpPlatformCapabilities for ReceiptTestPlatform {
@@ -130,6 +132,7 @@ impl TcpPayloadSender for ReceiptTestPlatform {
         for segment in segments {
             if segment.use_fake_timestamp {
                 *self.ordered_fake_segments.lock().expect("ordered fake segment count") += 1;
+                self.ordered_fake_payloads.lock().expect("ordered fake payloads").push(segment.payload.to_vec());
             } else {
                 stream.write_all(segment.payload)?;
             }
@@ -1177,6 +1180,20 @@ fn hostfake_sends_fakes_beside_the_stream_and_the_payload_once() {
 
     assert_eq!(received, b"GET /watch HTTP/1.1\r\nHost: youtube.com\r\n\r\n");
     assert_eq!(*platform.ordered_fake_segments.lock().expect("ordered fake segment count"), 2);
+}
+
+#[test]
+fn hostfake_decoys_differ_between_sends_of_the_same_round() {
+    let first = ReceiptTestPlatform::default();
+    let second = ReceiptTestPlatform::default();
+
+    send_http_hostfake(&first);
+    send_http_hostfake(&second);
+
+    let first = first.ordered_fake_payloads.into_inner().expect("first fake payloads");
+    let second = second.ordered_fake_payloads.into_inner().expect("second fake payloads");
+    assert_eq!(first.len(), 2);
+    assert_ne!(first, second, "two connections sent the same decoy bytes");
 }
 
 #[test]

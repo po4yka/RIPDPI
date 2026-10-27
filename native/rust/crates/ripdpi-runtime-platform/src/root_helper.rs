@@ -277,11 +277,59 @@ where
 }
 
 #[cfg(test)]
-mod tests {
+pub(crate) mod tests {
     use super::*;
     use std::sync::Mutex;
 
-    static TEST_MUTEX: Mutex<()> = Mutex::new(());
+    use ripdpi_root_helper_protocol::{
+        CAPABILITY_VERSION, HelperRequest, HelperResponse, PROTOCOL_VERSION, recv_message, send_message,
+    };
+
+    /// Serializes tests that use the process-global registry.
+    pub(crate) static TEST_MUTEX: Mutex<()> = Mutex::new(());
+
+    /// A registered helper that answers `connections` requests with `data`
+    /// and returns the requests it received.
+    pub(crate) struct FakeHelper {
+        socket_path: String,
+        server: std::thread::JoinHandle<Vec<HelperRequest>>,
+    }
+
+    impl FakeHelper {
+        pub(crate) fn register(data: serde_json::Value, connections: usize) -> Self {
+            let unique = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).expect("clock").as_nanos();
+            let socket_path = std::env::temp_dir()
+                .join(format!("ripdpi-fake-helper-{}-{unique}.sock", std::process::id()))
+                .to_string_lossy()
+                .to_string();
+            std::fs::write(format!("{socket_path}.nonce"), "abcdefghijklmnopqrstuvwxyzABCDEF").expect("write nonce");
+            let listener = std::os::unix::net::UnixListener::bind(&socket_path).expect("bind fake helper");
+            let server = std::thread::spawn(move || {
+                (0..connections)
+                    .map(|_| {
+                        let (stream, _) = listener.accept().expect("accept client");
+                        let (request, _fd) = recv_message(&stream, "client closed").expect("request");
+                        let response =
+                            HelperResponse::success(data.clone()).with_versions(PROTOCOL_VERSION, CAPABILITY_VERSION);
+                        send_message(&stream, &serde_json::to_vec(&response).expect("response JSON"), None)
+                            .expect("send response");
+                        serde_json::from_slice(&request).expect("request JSON")
+                    })
+                    .collect()
+            });
+            register_root_helper(socket_path.clone());
+            Self { socket_path, server }
+        }
+
+        /// Unregisters the helper and returns the requests it served.
+        pub(crate) fn finish(self) -> Vec<HelperRequest> {
+            unregister_root_helper();
+            let requests = self.server.join().expect("fake helper thread");
+            let _ = std::fs::remove_file(&self.socket_path);
+            let _ = std::fs::remove_file(format!("{}.nonce", self.socket_path));
+            requests
+        }
+    }
 
     #[test]
     fn no_helper_returns_none() {

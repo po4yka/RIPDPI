@@ -55,19 +55,23 @@ fn cached_for_registration(
     supported
 }
 
-#[cfg(test)]
+#[cfg(all(test, any(target_os = "linux", target_os = "android")))]
 mod tests {
-    use std::sync::RwLock;
-
-    use super::cached_for_registration;
+    use super::seqovl_supported;
+    use crate::root_helper::tests::{FakeHelper, TEST_MUTEX};
 
     #[test]
-    fn seqovl_probe_is_cached_per_root_helper_registration() {
-        let cache = RwLock::new(None);
+    fn seqovl_support_is_probed_again_for_a_new_helper_registration() {
+        let _lock = TEST_MUTEX.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
 
-        assert!(!cached_for_registration(&cache, 0, || false), "no helper: unprivileged probe");
-        assert!(!cached_for_registration(&cache, 0, || unreachable!("cached for the same registration")));
-        assert!(cached_for_registration(&cache, 7, || true), "a new helper registration probes again");
-        assert!(!cached_for_registration(&cache, 0, || false), "after unregister the probe runs again");
+        // One preflight and one probe each; a cached answer makes no request.
+        let repair = FakeHelper::register(serde_json::json!({ "tcp_repair": true }), 2);
+        assert!(seqovl_supported(), "the helper reports TCP_REPAIR");
+        assert!(seqovl_supported(), "cached for the same registration");
+        assert_eq!(repair.finish().len(), 2);
+
+        let no_repair = FakeHelper::register(serde_json::json!({ "tcp_repair": false }), 2);
+        assert!(!seqovl_supported(), "a new registration must not reuse the old answer");
+        assert_eq!(no_repair.finish().len(), 2);
     }
 }
