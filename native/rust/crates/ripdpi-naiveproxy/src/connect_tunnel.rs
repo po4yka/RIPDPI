@@ -3,9 +3,8 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
-use std::time::Duration;
 
-use hyper_util::rt::{TokioExecutor, TokioIo, TokioTimer};
+use hyper_util::rt::{TokioExecutor, TokioIo};
 use rand::RngExt;
 use rustls::pki_types::ServerName;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
@@ -19,12 +18,6 @@ use crate::h2_connect::{
 };
 use crate::padding::{PaddingDecoder, PaddingEncoder};
 use crate::socks5::SocksTarget;
-
-/// A tunnel connection that received no frame for this long sends an H2 PING.
-const H2_KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(60);
-/// A PING not acknowledged in this time closes the connection and its tunnel,
-/// so a path that died without FIN or RST does not pin both sockets.
-const H2_KEEP_ALIVE_TIMEOUT: Duration = Duration::from_secs(20);
 
 pub trait AsyncTunnel: AsyncRead + AsyncWrite + Unpin + Send {}
 impl<T> AsyncTunnel for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
@@ -54,16 +47,8 @@ pub(crate) async fn open_https_connect_tunnel(
     let tls = connector.connect(server_name, tcp).await?;
 
     let io = TokioIo::new(tls);
-    let (mut sender, connection) = hyper::client::conn::http2::Builder::new(TokioExecutor::new())
-        .timer(TokioTimer::new())
-        .keep_alive_interval(H2_KEEP_ALIVE_INTERVAL)
-        .keep_alive_timeout(H2_KEEP_ALIVE_TIMEOUT)
-        // hyper counts an upgraded CONNECT stream as idle; the connection
-        // carries only this tunnel, so ping regardless.
-        .keep_alive_while_idle(true)
-        .handshake(io)
-        .await
-        .map_err(|error| {
+    let (mut sender, connection) =
+        hyper::client::conn::http2::handshake(TokioExecutor::new(), io).await.map_err(|error| {
             io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to negotiate NaiveProxy H2: {error}"))
         })?;
     // The driver owns the upstream TLS socket. If the open fails or its
