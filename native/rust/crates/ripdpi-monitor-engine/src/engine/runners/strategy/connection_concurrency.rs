@@ -170,7 +170,8 @@ where
                     return TargetMatrixOutcome { cells, cancelled: true };
                 }
                 let mut post_check = execute(profile, 1);
-                if post_check.status != ClassifierStatus::Healthy {
+                // A skipped post-check (local deadline or worker failure) is not network evidence.
+                if !matches!(post_check.status, ClassifierStatus::Healthy | ClassifierStatus::Skipped) {
                     frozen = true;
                     cell.contaminated = true;
                     cell.status = ClassifierStatus::Contaminated;
@@ -447,6 +448,9 @@ where
                         if start_rx.recv().is_err() {
                             return;
                         }
+                        // A timeout cut to the remaining scan time is the local deadline, not a silent drop.
+                        let clamped = ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout(CONNECT_TIMEOUT)
+                            != Ok(CONNECT_TIMEOUT);
                         launch_times.lock().unwrap_or_else(std::sync::PoisonError::into_inner).push(Instant::now());
                         match catch_unwind(AssertUnwindSafe(|| connect(target.host.as_str(), address, profile))) {
                             Ok(Ok(stream)) => {
@@ -457,7 +461,10 @@ where
                                 drop(stream);
                                 active.fetch_sub(1, Ordering::AcqRel);
                             }
-                            Ok(Err(error)) if error == SCAN_DEADLINE_SIGNAL => {
+                            Ok(Err(error))
+                                if error == SCAN_DEADLINE_SIGNAL
+                                    || (clamped && classify_error(&error) == "silent_drop") =>
+                            {
                                 let _ = outcome_tx.send((usize::from(index), Err(SCAN_DEADLINE_SIGNAL.to_string())));
                             }
                             Ok(Err(error)) => {
@@ -1108,6 +1115,44 @@ mod tests {
         assert_eq!(post_checks, 0);
         assert!(outcome.cancelled);
         assert!(!outcome.cells.iter().any(|cell| cell.status == ClassifierStatus::Contaminated));
+    }
+
+    #[test]
+    fn timeout_cut_short_by_the_scan_deadline_skips_the_cell() {
+        let deadline = Some(Instant::now() + Duration::from_secs(2));
+        let timed_out = |_: &str, _: SocketAddr, _: &str| -> Result<(), String> { Err("connection timed out".into()) };
+        let address = "127.0.0.1:443".parse().expect("address");
+        let cell = execute_cell_with(&target(), "fixture", address, "chrome_stable", 4, deadline, timed_out);
+        assert_eq!(cell.status, ClassifierStatus::Skipped);
+        assert!(cell.block_signals.is_empty());
+
+        let cell = execute_cell_with(&target(), "fixture", address, "chrome_stable", 4, None, timed_out);
+        assert_eq!(cell.status, ClassifierStatus::Blocked, "a full-length timeout is still a silent drop");
+        assert_eq!(cell.block_signals, vec!["silent_drop"]);
+    }
+
+    #[test]
+    fn skipped_post_check_does_not_freeze_the_target() {
+        let target = target();
+        let metadata = target.concurrency_probe.as_ref().expect("metadata");
+        let mut executed = Vec::new();
+        let outcome = collect_target_matrix(
+            &target,
+            metadata,
+            QUICK_LEVELS,
+            &["chrome_stable", "firefox_stable"],
+            || false,
+            |profile, level| {
+                executed.push((profile.to_string(), level));
+                let post_check = level == 1 && executed.iter().filter(|(p, _)| p == profile).count() == 3;
+                let status = if post_check { ClassifierStatus::Skipped } else { ClassifierStatus::Healthy };
+                test_cell(profile, level, status)
+            },
+        );
+
+        assert!(!outcome.cancelled);
+        assert!(!outcome.cells.iter().any(|cell| cell.status == ClassifierStatus::Contaminated));
+        assert_eq!(executed.iter().filter(|(profile, _)| profile == "firefox_stable").count(), 3);
     }
 
     fn test_cell(profile: &str, level: u16, status: ClassifierStatus) -> ClassifierCell {
