@@ -111,6 +111,63 @@ class HttpCompressionProberTest {
         }
 
     @Test
+    fun streamCutAfterComprMinKeepsTheDecodedCount() =
+        runTest {
+            val payload = kotlin.random.Random(1).nextBytes(64 * 1024)
+            val compressed = gzip(payload)
+            MockWebServer().use { server ->
+                server.enqueue(codecResponse("gzip", compressed.copyOf(compressed.size / 2)))
+                server.start()
+
+                val result =
+                    prober(includeZstd = false)
+                        .probeOne(server.url("/cut").toString(), CompressionCodec.GZIP, comprMin = 1024)
+
+                assertEquals(CompressionProbeVerdict.OK, result.verdict)
+                assertTrue("decoded ${result.decompressedBytes}", (result.decompressedBytes ?: 0L) >= 1024L)
+            }
+        }
+
+    @Test
+    fun xGzipContentEncodingIsDecodedAsGzip() =
+        runTest {
+            MockWebServer().use { server ->
+                server.enqueue(codecResponse("x-gzip", gzip(payloadBytes())))
+                server.start()
+
+                val result =
+                    prober(
+                        includeZstd = false,
+                    ).probeOne(server.url("/x-gzip").toString(), CompressionCodec.GZIP)
+
+                assertEquals(CompressionProbeVerdict.OK, result.verdict)
+            }
+        }
+
+    @Test
+    fun bodyThatStallsReturnsTimeout() =
+        runTest {
+            MockWebServer().use { server ->
+                server.enqueue(
+                    MockResponse
+                        .Builder()
+                        .code(200)
+                        .setHeader("Content-Encoding", "gzip")
+                        .bodyDelay(2, TimeUnit.SECONDS)
+                        .body(Buffer().write(gzip(payloadBytes())))
+                        .build(),
+                )
+                server.start()
+
+                val result =
+                    prober(includeZstd = false)
+                        .probeOne(server.url("/stall").toString(), CompressionCodec.GZIP, timeoutMs = 300)
+
+                assertEquals(CompressionProbeVerdict.TIMEOUT, result.verdict)
+            }
+        }
+
+    @Test
     fun timeoutReturnsTimeout() =
         runTest {
             MockWebServer().use { server ->

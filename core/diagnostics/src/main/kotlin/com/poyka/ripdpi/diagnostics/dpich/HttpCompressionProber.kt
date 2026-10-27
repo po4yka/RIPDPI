@@ -15,6 +15,7 @@ import java.io.FilterInputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.InterruptedIOException
+import java.net.SocketException
 import java.util.concurrent.TimeUnit
 import java.util.zip.GZIPInputStream
 import java.util.zip.InflaterInputStream
@@ -121,7 +122,7 @@ class HttpCompressionProber(
         client.newCall(request).execute().use { response ->
             val responseBody = response.body
             val contentEncoding = response.header("Content-Encoding").orEmpty()
-            if (!contentEncoding.equals(codec.acceptEncoding, ignoreCase = true)) {
+            if (!codec.matchesContentEncoding(contentEncoding)) {
                 return CompressionProbeResult(
                     verdict = CompressionProbeVerdict.NOT_SUPPORTED,
                     httpStatus = response.code,
@@ -146,54 +147,45 @@ class HttpCompressionProber(
         httpStatus: Int,
         comprMin: Int,
     ): CompressionProbeResult {
+        // Counted as the stream is read, so a failure mid-body still reports how far decoding got.
         var decompressedBytes = 0L
+
+        fun result(
+            failureVerdict: CompressionProbeVerdict,
+            error: String? = null,
+        ) = CompressionProbeResult(
+            verdict = if (decompressedBytes >= comprMin) CompressionProbeVerdict.OK else failureVerdict,
+            httpStatus = httpStatus,
+            compressedBytes = raw.bytesRead,
+            decompressedBytes = decompressedBytes,
+            error = error,
+        )
+
         return try {
-            decompressedBytes = countDecodedBytes(codec, raw)
-            CompressionProbeResult(
-                verdict =
-                    if (decompressedBytes >= comprMin) {
-                        CompressionProbeVerdict.OK
-                    } else {
-                        CompressionProbeVerdict.EOF_BEFORE_MIN
-                    },
-                httpStatus = httpStatus,
-                compressedBytes = raw.bytesRead,
-                decompressedBytes = decompressedBytes,
-            )
+            codec.decoder(raw).use { decoded ->
+                val buffer = ByteArray(DecodeChunkBytes)
+                while (true) {
+                    val read = decoded.read(buffer)
+                    if (read < 0) break
+                    decompressedBytes += read.toLong()
+                }
+            }
+            result(CompressionProbeVerdict.EOF_BEFORE_MIN)
         } catch (e: EOFException) {
-            CompressionProbeResult(
-                verdict = CompressionProbeVerdict.EOF_BEFORE_MIN,
-                httpStatus = httpStatus,
-                compressedBytes = raw.bytesRead,
-                decompressedBytes = decompressedBytes,
-                error = e.message,
-            )
+            result(CompressionProbeVerdict.EOF_BEFORE_MIN, e.message)
+        } catch (e: InterruptedIOException) {
+            result(CompressionProbeVerdict.TIMEOUT, e.message)
+        } catch (e: SocketException) {
+            result(CompressionProbeVerdict.CONN_ERR, e.message)
         } catch (e: IOException) {
-            CompressionProbeResult(
-                verdict = CompressionProbeVerdict.INTERNAL_ERR,
-                httpStatus = httpStatus,
-                compressedBytes = raw.bytesRead,
-                decompressedBytes = decompressedBytes,
-                error = e.message,
-            )
+            result(CompressionProbeVerdict.INTERNAL_ERR, e.message)
         }
     }
 
-    private fun countDecodedBytes(
-        codec: CompressionCodec,
-        raw: CountingInputStream,
-    ): Long {
-        var decompressedBytes = 0L
-        codec.decoder(raw).use { decoded ->
-            val buffer = ByteArray(DecodeChunkBytes)
-            while (true) {
-                val read = decoded.read(buffer)
-                if (read < 0) break
-                decompressedBytes += read.toLong()
-            }
-        }
-        return decompressedBytes
-    }
+    // RFC 9110 s8.4.1.3: x-gzip is the same coding as gzip.
+    private fun CompressionCodec.matchesContentEncoding(contentEncoding: String): Boolean =
+        contentEncoding.equals(acceptEncoding, ignoreCase = true) ||
+            (this == CompressionCodec.GZIP && contentEncoding.equals("x-gzip", ignoreCase = true))
 
     private fun CompressionCodec.decoder(raw: InputStream): InputStream =
         when (this) {
