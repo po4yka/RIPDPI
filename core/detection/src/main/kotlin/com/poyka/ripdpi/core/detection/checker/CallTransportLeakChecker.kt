@@ -103,6 +103,7 @@ object CallTransportLeakChecker {
 
             resultFrom(
                 observations = stunObservations,
+                underlyingProbed = CallTransportPath.UNDERLYING in stunPaths,
                 mtProtoReachable = mtProtoReachable || proxyMtProtoReachable,
                 proxyEndpoint = proxyEndpoint,
                 proxyStunReflexiveAddresses = proxyStun,
@@ -145,6 +146,7 @@ object CallTransportLeakChecker {
 
     private fun resultFrom(
         observations: List<CallTransportStunObservation>,
+        underlyingProbed: Boolean,
         mtProtoReachable: Boolean,
         proxyEndpoint: ProxyEndpoint?,
         proxyStunReflexiveAddresses: List<String>,
@@ -163,6 +165,11 @@ object CallTransportLeakChecker {
                             observation.reflexiveAddress,
                     )
             }
+        }
+
+        if (!underlyingProbed) {
+            // Without an underlying-path probe the comparison cannot run; say so instead of reading as clean.
+            findings += Finding("Call STUN leak: not evaluated, the underlying network path is not probed")
         }
 
         if (mismatch != null) {
@@ -227,7 +234,10 @@ object CallTransportLeakChecker {
         val vpnIps = filter { it.path == CallTransportPath.VPN }.map { it.reflexiveAddress }.distinct().sorted()
         val underlyingIps =
             filter { it.path == CallTransportPath.UNDERLYING }.map { it.reflexiveAddress }.distinct().sorted()
-        if (vpnIps.isEmpty() || underlyingIps.isEmpty() || vpnIps == underlyingIps) return null
+        // Shared addresses mean the same exit; NAT pools or partial answers can add others without a leak.
+        if (vpnIps.isEmpty() || underlyingIps.isEmpty() || vpnIps.intersect(underlyingIps.toSet()).isNotEmpty()) {
+            return null
+        }
         return PathMismatch(vpnIps = vpnIps, underlyingIps = underlyingIps)
     }
 

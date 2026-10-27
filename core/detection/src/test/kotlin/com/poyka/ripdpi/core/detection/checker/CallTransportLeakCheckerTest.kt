@@ -129,6 +129,37 @@ class CallTransportLeakCheckerTest {
             assertEquals(listOf(CallTransportStunRequest(CallTransportPath.VPN, testStunServer)), stunClient.requests)
             assertFalse(result.category.detected)
             assertEquals(listOf(CallTransportPath.VPN), result.stunObservations.map { observation -> observation.path })
+            assertTrue(result.category.findings.any { it.description.contains("not evaluated") })
+        }
+
+    @Test
+    fun sharedReflexiveAddressAcrossPathsIsNotALeak() =
+        runTest {
+            val stunClient =
+                object : CallTransportPathAwareStunClient {
+                    override val supportedPaths: Set<CallTransportPath> = CallTransportPath.entries.toSet()
+
+                    override suspend fun reflexiveAddress(
+                        path: CallTransportPath,
+                        server: CallTransportStunServer,
+                    ): String? =
+                        when {
+                            path == CallTransportPath.UNDERLYING -> "1.2.3.4"
+                            server == testStunServer -> "1.2.3.4"
+                            else -> "1.2.3.5"
+                        }
+                }
+
+            val result =
+                CallTransportLeakChecker.check(
+                    enabled = true,
+                    stunClient = stunClient,
+                    mtProtoProber = RecordingCallTransportMtProtoProber(),
+                    servers = listOf(testStunServer, otherStunServer),
+                )
+
+            assertFalse(result.category.detected)
+            assertFalse(result.category.findings.any { it.description.contains("not evaluated") })
         }
 
     @Test
@@ -249,5 +280,6 @@ class CallTransportLeakCheckerTest {
     private companion object {
         val socks5Proxy = ProxyEndpoint("127.0.0.1", 1080, ProxyType.SOCKS5)
         val testStunServer = CallTransportStunServer("stun.example.test", 19_302, CallTransportStunScope.RU)
+        val otherStunServer = CallTransportStunServer("stun2.example.test", 3_478, CallTransportStunScope.GLOBAL)
     }
 }
