@@ -34,6 +34,21 @@ class DnsIntegrityCheckerTest {
         }
 
     @Test
+    fun answersFromTheSameSlash24AreTreatedAsAgreement() =
+        runTest {
+            val result =
+                checker(
+                    udp = { listOf("104.16.132.229") },
+                    dohJson = { setOf("104.16.132.10") },
+                    dohWire = { setOf("104.16.132.10") },
+                    doqProbe = probeWithResponse("104.16.132.99"),
+                ).check(listOf("blocked.example"))
+
+            assertEquals(DnsIntegrityVerdict.DNS_OK, result.domains.single().verdict)
+            assertEquals(DoqVerdict.DOQ_OK, result.doqResults.single().verdict)
+        }
+
+    @Test
     fun udpUnavailableWhenUdpTimesOutAndDohSucceeds() =
         runTest {
             val result =

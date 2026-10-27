@@ -149,7 +149,7 @@ class DoqIntegrityProbe(
                 }
             val ips = records.filter(::isDoqIpv4Literal)
             val verdict =
-                if (ips.isNotEmpty() && dohIps.isNotEmpty() && ips.intersect(dohIps).isEmpty()) {
+                if (ips.isNotEmpty() && dohIps.isNotEmpty() && !dnsAnswersOverlap(ips.toSet(), dohIps)) {
                     DoqVerdict.DOQ_INTEGRITY_DIVERGENT
                 } else {
                     DoqVerdict.DOQ_OK

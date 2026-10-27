@@ -157,7 +157,7 @@ class DnsIntegrityChecker(
                     DnsIntegrityVerdict.FAKE_IP
                 }
 
-                udpIps.intersect(dohIps).isNotEmpty() -> {
+                dnsAnswersOverlap(udpIps, dohIps) -> {
                     DnsIntegrityVerdict.DNS_OK
                 }
 
@@ -266,3 +266,16 @@ private val NegativeOutcomes =
     )
 
 private fun isFakeIp(ip: String): Boolean = ip.split('.').let { it[0] == "198" && it[1] in setOf("18", "19") }
+
+/**
+ * IPv4 answers match when they share an address or a /24, the same rule as the native
+ * classify_dns_answer_overlap: different resolvers often steer to different edges of one CDN block.
+ */
+internal fun dnsAnswersOverlap(
+    first: Set<String>,
+    second: Set<String>,
+): Boolean =
+    first.intersect(second).isNotEmpty() ||
+        first.mapTo(hashSetOf(), ::ipv4Slash24).intersect(second.mapTo(hashSetOf(), ::ipv4Slash24)).isNotEmpty()
+
+private fun ipv4Slash24(ip: String): String = ip.substringBeforeLast('.')
