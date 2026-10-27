@@ -51,9 +51,9 @@ struct RegisteredRootHelper {
 static ROOT_HELPER: RwLock<Option<Arc<RegisteredRootHelper>>> = RwLock::new(None);
 static NEXT_GENERATION: AtomicU64 = AtomicU64::new(1);
 
-/// How long every operation skips a helper that did not take a command.
-/// Each attempt on a dead or wedged helper costs a nonce read and up to two
-/// bounded connects on the data-plane thread.
+/// How long every operation skips a helper that is gone (see
+/// [`FallbackCause::backs_off`]). Each attempt on a dead helper costs a nonce
+/// read and a connect on the data-plane thread.
 const UNREACHABLE_BACKOFF_MS: u64 = 5_000;
 
 /// Why a registered helper did not receive a command.
@@ -63,6 +63,10 @@ enum FallbackCause {
     Missing,
     /// Nothing listens on the socket.
     Refused,
+    /// The helper closed the connection before it answered the preflight.
+    /// It reads the frame as soon as it accepts and answers every
+    /// well-formed preflight, so this means the process went away.
+    Closed,
     /// The connect or the protocol preflight did not finish in time.
     TimedOut,
     /// The request frame is larger than the IPC limit.
@@ -77,6 +81,7 @@ impl FallbackCause {
         match error.kind() {
             io::ErrorKind::NotFound => Self::Missing,
             io::ErrorKind::ConnectionRefused => Self::Refused,
+            io::ErrorKind::UnexpectedEof | io::ErrorKind::ConnectionReset | io::ErrorKind::BrokenPipe => Self::Closed,
             io::ErrorKind::TimedOut | io::ErrorKind::WouldBlock => Self::TimedOut,
             io::ErrorKind::InvalidInput => Self::FrameTooLarge,
             io::ErrorKind::InvalidData | io::ErrorKind::PermissionDenied => Self::Rejected,
@@ -88,6 +93,7 @@ impl FallbackCause {
         match self {
             Self::Missing => "helper_socket_or_nonce_missing",
             Self::Refused => "helper_connection_refused",
+            Self::Closed => "helper_closed_connection",
             Self::TimedOut => "helper_timed_out",
             Self::FrameTooLarge => "request_frame_too_large",
             Self::Rejected => "helper_rejected_session",
@@ -95,10 +101,13 @@ impl FallbackCause {
         }
     }
 
-    /// An oversized frame says nothing about the helper; only that one
-    /// operation goes local.
+    /// Only a helper that is gone starts the backoff. The helper serves one
+    /// connection at a time, so a timeout usually means it is busy with
+    /// another flow's command: that one operation goes local and the next
+    /// one tries the helper again. An oversized frame or a rejected session
+    /// says nothing about whether the helper is alive.
     fn backs_off(self) -> bool {
-        self != Self::FrameTooLarge
+        matches!(self, Self::Missing | Self::Refused | Self::Closed)
     }
 
     fn bit(self) -> u8 {
@@ -239,9 +248,11 @@ where
 /// protocol preflight failure, oversized frame). The helper ran nothing, so
 /// the caller degrades to the local path instead of failing the operation.
 ///
-/// After a failed delivery other than an oversized frame, the helper is
-/// skipped for [`UNREACHABLE_BACKOFF_MS`], so the data plane does not wait on
-/// it for each operation. The first fallback per cause in an outage is logged
+/// After a failed delivery that shows the helper is gone (missing socket or
+/// nonce, refused connect, connection closed before the preflight answer),
+/// the helper is skipped for [`UNREACHABLE_BACKOFF_MS`], so the data plane
+/// does not wait on it for each operation. A busy helper (connect or
+/// preflight timeout) does not start the backoff. The first fallback per cause in an outage is logged
 /// at `warn`. The local error is returned unchanged: callers degrade on its
 /// errno (for example EPERM from a raw socket without root).
 pub(crate) fn with_reachable_root_helper<F, T>(f: F) -> Option<io::Result<T>>
@@ -376,11 +387,23 @@ pub(crate) mod tests {
         unregister_root_helper();
     }
 
+    fn temp_socket_path(tag: &str) -> String {
+        let unique = std::time::SystemTime::now().duration_since(std::time::UNIX_EPOCH).expect("clock").as_nanos();
+        std::env::temp_dir()
+            .join(format!("ripdpi-{tag}-{}-{unique}.sock", std::process::id()))
+            .to_string_lossy()
+            .to_string()
+    }
+
     #[test]
     fn unreachable_helper_is_skipped_until_the_backoff_ends() {
         let _lock = TEST_MUTEX.lock().unwrap();
-        register_root_helper("/nonexistent/ripdpi-root-helper.sock".into());
+        // The session nonce exists, the socket does not: the helper is gone.
+        let socket_path = temp_socket_path("missing-helper");
+        std::fs::write(format!("{socket_path}.nonce"), "abcdefghijklmnopqrstuvwxyzABCDEF").expect("write nonce");
+        register_root_helper(socket_path.clone());
         assert!(with_reachable_root_helper(RootHelperClient::probe_capabilities).is_none());
+        let _ = std::fs::remove_file(format!("{socket_path}.nonce"));
 
         let mut attempts = 0;
         let skipped = with_reachable_root_helper(|_| -> io::Result<()> {
@@ -394,10 +417,47 @@ pub(crate) mod tests {
     }
 
     #[test]
+    fn busy_helper_falls_back_once_without_starting_the_backoff() {
+        let _lock = TEST_MUTEX.lock().unwrap();
+        let socket_path = temp_socket_path("busy-helper");
+        std::fs::write(format!("{socket_path}.nonce"), "abcdefghijklmnopqrstuvwxyzABCDEF").expect("write nonce");
+        let listener = std::os::unix::net::UnixListener::bind(&socket_path).expect("bind busy helper");
+        let server = std::thread::spawn(move || {
+            let (stream, _) = listener.accept().expect("accept preflight");
+            let _ = recv_message(&stream, "client closed preflight").expect("preflight");
+            // Busy with another flow's command: no answer until the client gives up.
+            let _ = recv_message(&stream, "client gave up");
+        });
+        register_root_helper(socket_path.clone());
+
+        let busy = with_reachable_root_helper(RootHelperClient::probe_capabilities);
+        server.join().expect("busy helper thread");
+        let mut attempts = 0;
+        let next = with_reachable_root_helper(|_| -> io::Result<()> {
+            attempts += 1;
+            Ok(())
+        });
+        unregister_root_helper();
+        let _ = std::fs::remove_file(&socket_path);
+        let _ = std::fs::remove_file(format!("{socket_path}.nonce"));
+
+        assert!(busy.is_none(), "the timed-out op takes the local path");
+        assert!(next.is_some_and(|result| result.is_ok()), "the next op must not be skipped");
+        assert_eq!(attempts, 1, "the next op must try the busy helper again");
+    }
+
+    #[test]
     fn backoff_lasts_five_seconds_and_skips_oversized_frames() {
         let health = HelperHealth::default();
         assert!(health.record_fallback(FallbackCause::FrameTooLarge, 1_000), "first oversized frame is logged");
         assert!(!health.skips(1_001), "an oversized frame says nothing about the helper");
+        for cause in [FallbackCause::TimedOut, FallbackCause::Rejected, FallbackCause::Other] {
+            assert!(health.record_fallback(cause, 1_000), "first {cause:?} is logged");
+            assert!(!health.skips(1_001), "{cause:?} does not show that the helper is gone");
+        }
+        assert!(health.record_fallback(FallbackCause::Closed, 1_000), "first closed connection is logged");
+        assert!(health.skips(1_001), "a helper that closed before it replied is gone");
+        assert!(health.record_delivered());
 
         assert!(health.record_fallback(FallbackCause::Refused, 1_000), "first refusal is logged");
         assert!(!health.record_fallback(FallbackCause::Refused, 1_500), "a repeated cause is not logged again");
@@ -416,6 +476,9 @@ pub(crate) mod tests {
         assert_eq!(cause(io::ErrorKind::TimedOut), FallbackCause::TimedOut);
         assert_eq!(cause(io::ErrorKind::WouldBlock), FallbackCause::TimedOut);
         assert_eq!(cause(io::ErrorKind::InvalidInput), FallbackCause::FrameTooLarge);
+        for kind in [io::ErrorKind::UnexpectedEof, io::ErrorKind::ConnectionReset, io::ErrorKind::BrokenPipe] {
+            assert_eq!(cause(kind), FallbackCause::Closed, "{kind:?}");
+        }
     }
 
     #[test]

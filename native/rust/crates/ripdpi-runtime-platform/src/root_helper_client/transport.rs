@@ -16,10 +16,10 @@ use ripdpi_root_helper_protocol::{
 /// and every caller is a per-connection data-plane thread.
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(2);
 const CONNECT_RETRY_INTERVAL: Duration = Duration::from_millis(5);
-/// The protocol preflight does no work in the helper, so a helper that does
-/// not answer it within this bound is treated as unreachable. The helper
-/// serves one connection at a time, so the bound also covers a short queue of
-/// other flows' commands.
+/// The protocol preflight does no work in the helper, so a command whose
+/// preflight is not answered within this bound takes the local path. The
+/// helper serves one connection at a time, so the bound also covers a short
+/// queue of other flows' commands. A timeout does not mark the helper as down.
 const PREFLIGHT_READ_TIMEOUT: Duration = Duration::from_secs(2);
 const COMMAND_READ_TIMEOUT: Duration = Duration::from_secs(30);
 
