@@ -925,8 +925,11 @@ class XrayProviderE2ETest {
                 assertTrue(probe.awaitVpnDefaultNetwork(10_000))
                 transfer("download", "explicit-udp-recovered")
             }
-            assertTrue(state.telemetry.value.tunnelStats.txPackets > 0)
-            assertTrue(state.telemetry.value.tunnelStats.rxPackets > 0)
+            // Tunnel telemetry is sampled every 1-5 s; a fresh session may not have a sample yet.
+            awaitUntil(failureMessage = { "Tunnel stats: ${state.telemetry.value.tunnelStats}" }) {
+                state.telemetry.value.tunnelStats
+                    .let { it.txPackets > 0 && it.rxPackets > 0 }
+            }
         } finally {
             try {
                 runBlocking {
