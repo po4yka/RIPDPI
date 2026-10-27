@@ -62,7 +62,8 @@ pub(crate) async fn run(config: NaiveProxyConfig) -> io::Result<()> {
 }
 
 /// Most client connections served at once; each holds a client socket and an
-/// upstream TCP/TLS/H2 connection. Further clients wait in the listen backlog.
+/// upstream TCP/TLS/H2 connection. Further clients are closed at once, so they
+/// fail fast instead of waiting in the listen backlog for a tunnel to end.
 const MAX_CONCURRENT_TUNNELS: usize = 256;
 /// Pause after an accept failure caused by resource exhaustion.
 const ACCEPT_RETRY_DELAY: Duration = Duration::from_secs(1);
@@ -79,8 +80,9 @@ pub(crate) async fn serve_listener(listener: TcpListener, config: Arc<NaiveProxy
     serve_listener_with_limit(listener, config, MAX_CONCURRENT_TUNNELS).await
 }
 
-/// Serves at most `limit` clients at once. An accept failure of one pending
-/// connection or a resource shortage does not end the helper.
+/// Serves at most `limit` clients at once and closes clients past it. An
+/// accept failure of one pending connection or a resource shortage does not
+/// end the helper.
 ///
 /// # Cancel safety
 ///
@@ -91,8 +93,8 @@ async fn serve_listener_with_limit(
     limit: usize,
 ) -> io::Result<()> {
     let permits = Arc::new(Semaphore::new(limit));
+    let mut at_limit = false;
     loop {
-        let permit = Arc::clone(&permits).acquire_owned().await.map_err(io::Error::other)?;
         let socket = match listener.accept().await {
             Ok((socket, _)) => socket,
             Err(error) => match accept_retry_delay(&error) {
@@ -106,6 +108,15 @@ async fn serve_listener_with_limit(
                 None => return Err(error),
             },
         };
+        let Ok(permit) = Arc::clone(&permits).try_acquire_owned() else {
+            if !at_limit {
+                eprintln!("naiveproxy tunnel limit reached: refusing new clients");
+            }
+            at_limit = true;
+            drop(socket);
+            continue;
+        };
+        at_limit = false;
         let config = Arc::clone(&config);
         tokio::spawn(async move {
             let _permit = permit;
@@ -205,7 +216,7 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn clients_past_the_limit_wait_for_a_free_slot() {
+    async fn clients_past_the_limit_are_closed_at_once() {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
         let address = listener.local_addr().expect("address");
         let config = NaiveProxyConfig {
@@ -224,16 +235,20 @@ mod tests {
         let first = TcpStream::connect(address).await.expect("first client");
         tokio::time::sleep(Duration::from_millis(100)).await;
         let mut second = TcpStream::connect(address).await.expect("second client");
-        second.write_all(&[0x05, 0x01, 0x00]).await.expect("greeting");
-        let mut reply = [0_u8; 2];
-        assert!(
-            tokio::time::timeout(Duration::from_millis(300), second.read_exact(&mut reply)).await.is_err(),
-            "the second client waits while the only slot is taken"
-        );
-        drop(first);
-        tokio::time::timeout(Duration::from_secs(2), second.read_exact(&mut reply))
+        let mut byte = [0_u8; 1];
+        let refused = tokio::time::timeout(Duration::from_millis(500), second.read(&mut byte))
             .await
-            .expect("the second client is served once the slot frees")
+            .expect("a client past the limit is closed at once, not parked in the backlog");
+        assert!(matches!(refused, Ok(0) | Err(_)), "the second client is closed: {refused:?}");
+
+        drop(first);
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let mut third = TcpStream::connect(address).await.expect("third client");
+        third.write_all(&[0x05, 0x01, 0x00]).await.expect("greeting");
+        let mut reply = [0_u8; 2];
+        tokio::time::timeout(Duration::from_secs(2), third.read_exact(&mut reply))
+            .await
+            .expect("a client is served once the slot frees")
             .expect("reply");
         assert_eq!(reply, [0x05, 0x00]);
         server.abort();
