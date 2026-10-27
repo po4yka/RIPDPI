@@ -7,6 +7,9 @@
 //! reported through return values — these functions never throw Java
 //! exceptions.
 
+use std::future::Future;
+use std::time::Duration;
+
 use android_support::{JNI_VERSION, clear_relay_events_for_runtime, init_android_logging};
 use jni::objects::JString;
 use jni::sys::{jint, jlong};
@@ -64,21 +67,35 @@ pub(crate) fn relay_start_entry(_env: EnvUnowned<'_>, handle: jlong) -> jint {
         return 1;
     };
 
-    match tokio::runtime::Builder::new_multi_thread().enable_all().build().and_then(|runtime| {
-        let runtime_id = handle.to_string();
-        runtime
-            .block_on(session.run().instrument(tracing::info_span!(
-                "relay_runtime",
-                ring = "relay",
-                subsystem = "relay",
-                source = "relay",
-                runtime_id = runtime_id,
-            )))
-            .map(|_| ())
-    }) {
+    let runtime_id = handle.to_string();
+    let session_run = session.run().instrument(tracing::info_span!(
+        "relay_runtime",
+        ring = "relay",
+        subsystem = "relay",
+        source = "relay",
+        runtime_id = runtime_id,
+    ));
+    match run_to_completion(session_run) {
         Ok(()) => 0,
         Err(_) => 2,
     }
+}
+
+/// How long the stopped session's runtime waits for its blocking tasks. The
+/// service waits 5 s for `jniStart` to return after a stop.
+const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_millis(500);
+
+/// Runs `session` on a new multi-thread runtime, then shuts the runtime down
+/// within [`RUNTIME_SHUTDOWN_TIMEOUT`]. Dropping a runtime instead waits with
+/// no bound for `spawn_blocking` tasks, such as a hostname lookup parked in
+/// getaddrinfo or the JNI resolver, so a stop could overrun the service's
+/// stop budget. A task still blocked then finishes on its own thread and its
+/// result is discarded.
+fn run_to_completion(session: impl Future<Output = std::io::Result<()>>) -> std::io::Result<()> {
+    let runtime = tokio::runtime::Builder::new_multi_thread().enable_all().build()?;
+    let result = runtime.block_on(session);
+    runtime.shutdown_timeout(RUNTIME_SHUTDOWN_TIMEOUT);
+    result
 }
 
 /// `jniStop`: signal the running session to shut down so the blocked
@@ -114,4 +131,24 @@ pub(crate) fn relay_poll_telemetry_entry(mut env: EnvUnowned<'_>, handle: jlong)
 pub(crate) fn relay_destroy_entry(_env: EnvUnowned<'_>, handle: jlong) {
     remove_session(handle);
     clear_relay_events_for_runtime(&handle.to_string());
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{Duration, Instant};
+
+    use super::run_to_completion;
+
+    #[test]
+    fn a_stopped_session_returns_without_waiting_for_a_blocked_lookup() {
+        let started = Instant::now();
+        let result = run_to_completion(async {
+            // Stands in for a hostname lookup parked in getaddrinfo.
+            drop(tokio::task::spawn_blocking(|| std::thread::sleep(Duration::from_secs(4))));
+            tokio::task::yield_now().await;
+            Ok(())
+        });
+        assert!(result.is_ok());
+        assert!(started.elapsed() < Duration::from_secs(2), "start returned after {:?}", started.elapsed());
+    }
 }
