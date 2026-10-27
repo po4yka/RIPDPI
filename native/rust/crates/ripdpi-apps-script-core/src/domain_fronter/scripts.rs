@@ -75,9 +75,11 @@ impl ScriptPool {
 
 impl AttemptError {
     /// Whether the same request may go to the next deployment. A request that reached
-    /// Apps Script is repeated only when repeating it cannot change anything (GET, HEAD).
+    /// Apps Script is repeated only when the deployment failed (a target error would fail
+    /// the same way everywhere) and repeating it cannot change anything (GET, HEAD).
     pub(super) fn may_retry(&self, method: &str) -> bool {
-        !self.sent || method.eq_ignore_ascii_case("GET") || method.eq_ignore_ascii_case("HEAD")
+        let repeatable = method.eq_ignore_ascii_case("GET") || method.eq_ignore_ascii_case("HEAD");
+        !self.sent || (self.deployment_fault && repeatable)
     }
 }
 
@@ -128,6 +130,9 @@ mod tests {
         assert!(attempt(true).may_retry("HEAD"));
         assert!(!attempt(true).may_retry("POST"));
         assert!(!attempt(true).may_retry("DELETE"));
+
+        let target_error = AttemptError { error: FronterError::Timeout, sent: true, deployment_fault: false };
+        assert!(!target_error.may_retry("GET"), "a target error is not repeated on other deployments");
     }
 
     #[test]

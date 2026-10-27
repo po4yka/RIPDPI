@@ -18,6 +18,9 @@ mod response;
 mod scripts;
 mod tls;
 
+#[cfg(test)]
+mod failover_tests;
+
 const HTTP_HOST: &str = "script.google.com";
 const RELAY_TIMEOUT: Duration = Duration::from_secs(25);
 
@@ -56,6 +59,8 @@ impl FronterError {
 
 pub struct AppsScriptDomainFronter {
     connect_host: String,
+    /// The front's TLS port: 443, a loopback port in tests.
+    front_port: u16,
     /// TLS SNI names, used in turn per connection: `sniHosts`, or the front domain alone.
     sni_hosts: Vec<String>,
     next_sni: AtomicUsize,
@@ -69,6 +74,7 @@ impl AppsScriptDomainFronter {
     pub fn new(config: &AppsScriptRuntimeConfig, telemetry: SharedTelemetryState) -> Self {
         Self {
             connect_host: config.google_ip.clone(),
+            front_port: 443,
             sni_hosts: if config.sni_hosts.is_empty() {
                 vec![config.front_domain.clone()]
             } else {
@@ -106,8 +112,8 @@ impl AppsScriptDomainFronter {
     }
 
     /// Send the request to one deployment after another until one answers. A failing
-    /// deployment cools down; a request that reached Apps Script moves on only when
-    /// repeating it is harmless (see [`AttemptError::may_retry`]).
+    /// deployment cools down; a request that reached Apps Script moves on only after a
+    /// deployment fault and when repeating it is harmless (see [`AttemptError::may_retry`]).
     ///
     /// # Cancel safety
     ///
@@ -183,7 +189,7 @@ impl AppsScriptDomainFronter {
     /// handshake; cancellation mid-handshake leaves a partially negotiated TLS
     /// session that is dropped without a clean close_notify.
     async fn open_fronted_stream(&self) -> Result<tokio_rustls::client::TlsStream<TcpStream>, FronterError> {
-        tls::connect_fronted_stream(&self.tls_connector, &self.connect_host, 443, self.next_sni()).await
+        tls::connect_fronted_stream(&self.tls_connector, &self.connect_host, self.front_port, self.next_sni()).await
     }
 
     /// The SNI for the next front connection. Rotating over several Google names
