@@ -68,6 +68,10 @@ impl PresharedKey {
         if !cipher.is_aead_2022() {
             return Err(CipherError::Unsupported(format!("{cipher:?}")));
         }
+        // SIP023 writes a PSK set as `iPSK:...:uPSK`; ':' is not base64.
+        if encoded.contains(':') {
+            return Err(CipherError::IdentityHeadersUnsupported);
+        }
         let key = decode_base64_psk(encoded)?;
         if key.len() != cipher.key_len() {
             return Err(CipherError::KeyLength);
@@ -100,6 +104,11 @@ pub enum CipherError {
     /// The key material has the wrong length for this cipher.
     #[error("invalid key length")]
     KeyLength,
+
+    /// A SIP023 PSK set (`iPSK:uPSK`, for a multi-user server); identity
+    /// headers are not implemented.
+    #[error("SIP023 identity headers (iPSK:uPSK keys) are not supported")]
+    IdentityHeadersUnsupported,
 
     /// The nonce / IV has the wrong length for this cipher.
     #[error("invalid IV length")]

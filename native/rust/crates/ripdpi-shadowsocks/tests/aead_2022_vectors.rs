@@ -106,6 +106,17 @@ fn sip022_psk_parser_rejects_non_base64_and_wrong_length_material() {
     );
 }
 
+/// A SIP023 PSK set for a multi-user server is reported as unsupported, not
+/// as a generic key-length error.
+#[test]
+fn sip023_psk_set_is_reported_as_unsupported_identity_headers() {
+    let psk_set = format!("{SIP022_AES128_PSK_B64}:{SIP022_AES128_PSK_B64}");
+    assert_eq!(
+        PresharedKey::from_base64(Cipher::Aead2022Blake3Aes128Gcm, &psk_set).expect_err("PSK set"),
+        CipherError::IdentityHeadersUnsupported,
+    );
+}
+
 #[test]
 fn sip022_psk_parser_rejects_base64url_no_padding_material() {
     let standard_psk = "+/v7+/v7+/v7+/v7+/v7+w==";

@@ -13,6 +13,7 @@
 ## Non-Goals
 
 - Legacy stream ciphers are not supported and must stay rejected. This includes `rc4`, `rc4-md5`, `aes-*-cfb`, `aes-*-ctr`, `camellia-*-cfb`, `chacha20`, `chacha20-ietf`, `salsa20`, `xchacha20`, and similar pre-AEAD methods; keep `tests/reject_stream_ciphers.rs` green.
+- SIP023 extensible identity headers are not supported, so a multi-user AEAD-2022 server that needs them cannot be reached. A PSK set (`iPSK:uPSK`) fails with `CipherError::IdentityHeadersUnsupported`.
 - SIP003 and SIP003u plugins are not supported in this crate. Plugin query parameters such as obfs, simple-obfs, and v2ray-plugin must not silently change runtime behavior.
 - This crate does not own Kotlin runtime resolution, Android UI, or relay process lifecycle. Those layers should pass validated method, server, port, and credential material into relay-core.
 
