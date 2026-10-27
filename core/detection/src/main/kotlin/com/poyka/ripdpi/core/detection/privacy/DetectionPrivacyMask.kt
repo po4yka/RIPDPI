@@ -2,6 +2,7 @@
 
 package com.poyka.ripdpi.core.detection.privacy
 
+import com.poyka.ripdpi.core.detection.BypassResult
 import java.net.Inet4Address
 import java.net.Inet6Address
 import java.net.InetAddress
@@ -34,6 +35,28 @@ object DetectionPrivacyMask {
         val ipv4Masked = ipv4Regex.replace(text) { match -> maskIp(match.value, enabled = true) }
         return ipv6Regex.replace(ipv4Masked) { match -> maskIp(match.value, enabled = true) }
     }
+
+    /**
+     * Hides another app's proxy server names (outbound address, SNI, tag) in privacy mode. IP literals
+     * are left to [maskIpsInText]. Names are matched as plain text, so they are hidden in free-text
+     * findings too.
+     */
+    fun maskHostNamesInText(
+        text: String,
+        hostNames: Collection<String?>,
+        enabled: Boolean,
+    ): String {
+        if (!enabled) return text
+        return hostNames
+            .filterNotNull()
+            .map(String::trim)
+            .filter { name -> name.contains('.') && !ipv4Regex.matches(name) && !name.contains(':') }
+            .distinct()
+            .sortedByDescending(String::length)
+            .fold(text) { masked, name -> masked.replace(name, HIDDEN_VALUE, ignoreCase = true) }
+    }
+
+    const val HIDDEN_VALUE = "***"
 
     private fun maskIpv4(ip: String): String {
         val parts = ip.split(".")
@@ -69,3 +92,10 @@ object DetectionPrivacyMask {
     private const val IPV6_RADIX = 16
     private val IPV4_OCTET_RANGE = 0..255
 }
+
+/** Server names of the outbounds a local Xray API reported; exports hide them in privacy mode. */
+internal fun BypassResult.xrayHostNames(): List<String?> =
+    xrayApiScanResult
+        ?.outbounds
+        .orEmpty()
+        .flatMap { outbound -> listOf(outbound.address, outbound.sni, outbound.tag) }

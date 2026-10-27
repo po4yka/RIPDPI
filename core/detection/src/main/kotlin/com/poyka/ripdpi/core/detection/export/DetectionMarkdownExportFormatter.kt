@@ -11,41 +11,49 @@ import com.poyka.ripdpi.core.detection.VerdictNarrative
 import com.poyka.ripdpi.core.detection.VerdictNarrativeBuilder
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusChannel
 import com.poyka.ripdpi.core.detection.privacy.DetectionPrivacyMask
+import com.poyka.ripdpi.core.detection.privacy.xrayHostNames
 import com.poyka.ripdpi.core.detection.probe.XrayOutboundSummary
 
 object DetectionMarkdownExportFormatter {
     fun format(
         result: DetectionCheckResult,
         metadata: DetectionExportMetadata,
-    ): String =
-        DetectionPrivacyMask.maskIpsInText(
-            buildString {
-                val narrative = result.verdictNarrative ?: VerdictNarrativeBuilder.build(result)
-                appendLine("# RipDPI Detection Report")
-                appendLine()
-                appendSummary(result, narrative, metadata)
-                appendVerdict(result, narrative)
-                appendSectionSummary(result)
-                appendCategory("GeoIp", result.geoIp)
-                appendIpComparison(result)
-                appendCdnPulling(result)
-                appendCategory("DirectSigns", result.directSigns)
-                appendCategory("IndirectSigns", result.indirectSigns)
-                appendCategory("NativeSigns", result.nativeSigns?.category)
-                appendCategory("IcmpSpoofing", result.icmpSpoofing?.category)
-                appendCategory("RttTriangulation", result.rttTriangulation?.category)
-                appendCategory("CallTransport", result.callTransport?.category)
-                appendCategory("LocationSignals", result.locationSignals)
-                appendIpChannels(result)
-                appendLine("## TunProbeDiagnostics")
-                appendLine()
-                appendLine("- not collected")
-                appendLine()
-                appendBypass(result.bypassResult)
-                appendFooter(metadata)
-            },
+    ): String {
+        val ipMasked =
+            DetectionPrivacyMask.maskIpsInText(
+                buildString {
+                    val narrative = result.verdictNarrative ?: VerdictNarrativeBuilder.build(result)
+                    appendLine("# RipDPI Detection Report")
+                    appendLine()
+                    appendSummary(result, narrative, metadata)
+                    appendVerdict(result, narrative)
+                    appendSectionSummary(result)
+                    appendCategory("GeoIp", result.geoIp)
+                    appendIpComparison(result)
+                    appendCdnPulling(result)
+                    appendCategory("DirectSigns", result.directSigns)
+                    appendCategory("IndirectSigns", result.indirectSigns)
+                    appendCategory("NativeSigns", result.nativeSigns?.category)
+                    appendCategory("IcmpSpoofing", result.icmpSpoofing?.category)
+                    appendCategory("RttTriangulation", result.rttTriangulation?.category)
+                    appendCategory("CallTransport", result.callTransport?.category)
+                    appendCategory("LocationSignals", result.locationSignals)
+                    appendIpChannels(result)
+                    appendLine("## TunProbeDiagnostics")
+                    appendLine()
+                    appendLine("- not collected")
+                    appendLine()
+                    appendBypass(result.bypassResult, metadata.privacyMode)
+                    appendFooter(metadata)
+                },
+                enabled = metadata.privacyMode,
+            )
+        return DetectionPrivacyMask.maskHostNamesInText(
+            ipMasked,
+            result.bypassResult.xrayHostNames(),
             enabled = metadata.privacyMode,
         )
+    }
 
     private fun StringBuilder.appendSummary(
         result: DetectionCheckResult,
@@ -151,7 +159,10 @@ object DetectionMarkdownExportFormatter {
         appendLine()
     }
 
-    private fun StringBuilder.appendBypass(bypass: BypassResult) {
+    private fun StringBuilder.appendBypass(
+        bypass: BypassResult,
+        privacyMode: Boolean,
+    ) {
         appendLine("## Bypass")
         appendLine()
         appendLine("- status: ${bypass.statusTag()}")
@@ -163,15 +174,19 @@ object DetectionMarkdownExportFormatter {
         bypass.xrayApiScanResult?.let { scan ->
             appendLine("### Xray outbounds")
             scan.outbounds.forEach { outbound ->
-                appendXrayOutbound(outbound)
+                appendXrayOutbound(outbound, privacyMode)
             }
             appendLine()
         }
     }
 
-    private fun StringBuilder.appendXrayOutbound(outbound: XrayOutboundSummary) {
+    private fun StringBuilder.appendXrayOutbound(
+        outbound: XrayOutboundSummary,
+        privacyMode: Boolean,
+    ) {
+        val tag = if (privacyMode) DetectionPrivacyMask.HIDDEN_VALUE else outbound.tag
         appendLine(
-            "- tag: ${outbound.tag}, protocol: ${outbound.protocolName ?: "-"}, " +
+            "- tag: $tag, protocol: ${outbound.protocolName ?: "-"}, " +
                 "address: ${outbound.address ?: "-"}, port: ${outbound.port ?: "-"}, sni: ${outbound.sni ?: "-"}, " +
                 "senderSettingsType: ${outbound.senderSettingsType ?: "-"}, " +
                 "proxySettingsType: ${outbound.proxySettingsType ?: "-"}, " +

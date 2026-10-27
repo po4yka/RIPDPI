@@ -12,6 +12,7 @@ import com.poyka.ripdpi.core.detection.VerdictNarrativeBuilder
 import com.poyka.ripdpi.core.detection.VerdictNarrativeRow
 import com.poyka.ripdpi.core.detection.consensus.IpConsensusChannel
 import com.poyka.ripdpi.core.detection.privacy.DetectionPrivacyMask
+import com.poyka.ripdpi.core.detection.privacy.xrayHostNames
 import com.poyka.ripdpi.core.detection.probe.XrayOutboundSummary
 import com.poyka.ripdpi.serialization.RipDpiPrettyJson
 import kotlinx.serialization.json.JsonArray
@@ -28,7 +29,7 @@ object DetectionJsonExportFormatter {
         result: DetectionCheckResult,
         metadata: DetectionExportMetadata,
     ): String {
-        val context = JsonExportContext(metadata.privacyMode)
+        val context = JsonExportContext(metadata.privacyMode, result.bypassResult.xrayHostNames())
         val narrative = result.verdictNarrative ?: VerdictNarrativeBuilder.build(result)
         return json.encodeToString(
             JsonObject.serializer(),
@@ -215,7 +216,7 @@ object DetectionJsonExportFormatter {
     private fun XrayOutboundSummary.toJson(context: JsonExportContext): JsonObject =
         JsonObject(
             mapOf(
-                "tag" to context.string(tag),
+                "tag" to context.hidden(tag),
                 "protocol" to context.string(protocolName),
                 "address" to context.string(address),
                 "port" to (port?.let(::JsonPrimitive) ?: JsonNull),
@@ -229,11 +230,16 @@ object DetectionJsonExportFormatter {
 
     private class JsonExportContext(
         private val privacyMode: Boolean,
+        private val hiddenHostNames: List<String?>,
     ) {
         fun string(value: String?): JsonElement =
             value
                 ?.let { DetectionPrivacyMask.maskIpsInText(it, enabled = privacyMode) }
+                ?.let { DetectionPrivacyMask.maskHostNamesInText(it, hiddenHostNames, enabled = privacyMode) }
                 ?.let(::JsonPrimitive)
                 ?: JsonNull
+
+        fun hidden(value: String?): JsonElement =
+            if (privacyMode) JsonPrimitive(DetectionPrivacyMask.HIDDEN_VALUE) else string(value)
     }
 }
