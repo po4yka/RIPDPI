@@ -129,6 +129,9 @@ work** (it is a deliberate, security-reviewed change).
 | `CMD_SEND_ICMP_WRAPPED_UDP` | `v3/send_icmp_wrapped_udp` | Experimental: UDP wrapped in ICMP | — | — |
 | `CMD_RECV_ICMP_WRAPPED_UDP` | `v3/recv_icmp_wrapped_udp` | Experimental: receive ICMP-wrapped UDP | — | — |
 | `CMD_SEND_RAW_IP_PACKET` | `v3/send_raw_ip_packet` | Experimental: send a caller-supplied raw IP packet | — | — |
+| `CMD_START_NFQWS2` | `v3/start_nfqws2` | Start the app's nfqws2 binary as root on queue 49379 and install the private IPv4/IPv6 mangle chains | — | — |
+| `CMD_STOP_NFQWS2` | `v3/stop_nfqws2` | Stop nfqws2 and remove the owned chains | — | — |
+| `CMD_NFQWS2_STATUS` | `v3/nfqws2_status` | Report the nfqws2 state | — | — |
 | `CMD_SHUTDOWN` | `v3/shutdown` | Finish the in-flight request and exit | — | — |
 
 Per-command parameter structs live in
@@ -136,6 +139,17 @@ Per-command parameter structs live in
 `params` JSON value. The experimental commands (`send_syn_hide_tcp`,
 `send_icmp_wrapped_udp`, `recv_icmp_wrapped_udp`, `send_raw_ip_packet`) pass no
 fd — the helper opens its own raw socket; they are `lab_diagnostics_only` tier.
+The helper refuses a `send_raw_ip_packet` packet whose IP header does not match
+the buffer or the target, or whose source and destination both are not
+addresses of this host.
+
+`start_nfqws2` runs the nfqws2 binary from the app's private files directory
+as uid 0. The helper checks that the binary and the working directory are
+inside that directory and owned by the app uid, that the binary is not group-
+or other-writable, and that every file argument resolves inside that
+directory. It does not check a digest of the binary or of the Lua scripts. So any code that runs as the app uid and holds the session nonce can
+make the helper run a binary of its choice as root. This is an open risk of the
+explicit nfqws2 root mode.
 
 ### Descriptor-driven request validation
 
