@@ -20,8 +20,9 @@ use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::net::{UnixListener, UnixStream};
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Condvar, Mutex, MutexGuard, PoisonError};
+use std::time::{Duration, Instant};
 
 use nix::sys::signal::{self, SigHandler, Signal};
 use tracing::{error, info, warn};
@@ -75,6 +76,15 @@ fn main() {
         let _ = fs::remove_file(&socket_path);
         std::process::exit(1);
     }
+
+    let request_deadline = match RequestDeadline::spawn() {
+        Ok(watchdog) => watchdog,
+        Err(e) => {
+            error!(%e, "failed to start the root-helper request deadline");
+            let _ = fs::remove_file(&socket_path);
+            std::process::exit(1);
+        }
+    };
 
     let running = Arc::new(AtomicBool::new(true));
 
@@ -133,7 +143,9 @@ fn main() {
         }
         match listener.accept() {
             Ok((stream, _addr)) => {
-                if let Err(e) = handle_connection_with_backend(&stream, &session_nonce, backend.as_mut()) {
+                if let Err(e) =
+                    handle_connection_with_backend(&stream, &session_nonce, &request_deadline, backend.as_mut())
+                {
                     warn!(%e, "connection handler error");
                 }
             }
@@ -175,20 +187,19 @@ fn wait_for_connection(listener: &UnixListener, timeout_ms: libc::c_int) {
 
 #[cfg(test)]
 fn handle_connection(stream: &UnixStream, session_nonce: &str) -> io::Result<()> {
-    handle_connection_with_backend(stream, session_nonce, None)
+    handle_connection_with_backend(stream, session_nonce, &*RequestDeadline::spawn()?, None)
 }
 
 fn handle_connection_with_backend(
     stream: &UnixStream,
     session_nonce: &str,
+    request_deadline: &RequestDeadline,
     backend: Option<&mut nfqws2::Nfqws2Backend>,
 ) -> io::Result<()> {
-    use std::time::Duration;
-
     stream.set_read_timeout(Some(Duration::from_secs(1)))?;
     stream.set_write_timeout(Some(Duration::from_secs(10)))?;
 
-    let (data, received_fd) = recv_request_within(stream, REQUEST_DEADLINE)?;
+    let (data, received_fd) = request_deadline.recv_request(stream, REQUEST_DEADLINE)?;
 
     let request: HelperRequest = serde_json::from_slice(&data)
         .map_err(|e| io::Error::new(io::ErrorKind::InvalidData, format!("invalid request JSON: {e}")))?;
@@ -228,22 +239,59 @@ fn handle_connection_with_backend(
 /// Total time a client has to deliver its request frame. The read timeout
 /// above restarts on every received byte, so alone it lets a client that
 /// trickles bytes hold the serial helper for hours.
-const REQUEST_DEADLINE: std::time::Duration = std::time::Duration::from_secs(2);
+const REQUEST_DEADLINE: Duration = Duration::from_secs(2);
 
-/// Reads one request frame and shuts the connection down if it is not complete
-/// within `deadline`; the blocked read then ends with an error.
-fn recv_request_within(stream: &UnixStream, deadline: std::time::Duration) -> io::Result<(Vec<u8>, Option<OwnedFd>)> {
-    let watchdog_stream = stream.try_clone()?;
-    let (done, done_signal) = std::sync::mpsc::channel::<()>();
-    let watchdog = std::thread::Builder::new().name("request-deadline".to_owned()).spawn(move || {
-        if done_signal.recv_timeout(deadline) == Err(std::sync::mpsc::RecvTimeoutError::Timeout) {
-            let _ = watchdog_stream.shutdown(std::net::Shutdown::Both);
+/// Enforces the request deadline of the serial accept loop from one
+/// long-lived thread, so a request costs no thread spawn.
+struct RequestDeadline {
+    /// The connection whose request is being read, and its deadline.
+    armed: Mutex<Option<(UnixStream, Instant)>>,
+    wake: Condvar,
+}
+
+impl RequestDeadline {
+    fn spawn() -> io::Result<Arc<Self>> {
+        let watchdog = Arc::new(Self { armed: Mutex::new(None), wake: Condvar::new() });
+        let worker = Arc::clone(&watchdog);
+        std::thread::Builder::new().name("request-deadline".to_owned()).spawn(move || worker.run())?;
+        Ok(watchdog)
+    }
+
+    fn lock(&self) -> MutexGuard<'_, Option<(UnixStream, Instant)>> {
+        self.armed.lock().unwrap_or_else(PoisonError::into_inner)
+    }
+
+    fn run(&self) {
+        let mut armed = self.lock();
+        loop {
+            let Some(deadline) = armed.as_ref().map(|(_, deadline)| *deadline) else {
+                armed = self.wake.wait(armed).unwrap_or_else(PoisonError::into_inner);
+                continue;
+            };
+            let now = Instant::now();
+            if now < deadline {
+                armed = self.wake.wait_timeout(armed, deadline - now).unwrap_or_else(PoisonError::into_inner).0;
+            } else if let Some((stream, _)) = armed.take() {
+                // Under the lock, so the reader cannot disarm and run the request after this.
+                let _ = stream.shutdown(std::net::Shutdown::Both);
+            }
         }
-    })?;
-    let received = protocol::recv_message(stream, "peer closed connection");
-    drop(done);
-    let _ = watchdog.join();
-    received
+    }
+
+    /// Reads one request frame. If it is not complete within `timeout`, the
+    /// connection is shut down, the blocked read ends, and the request is
+    /// refused, also when its last bytes arrived just before the shutdown.
+    fn recv_request(&self, stream: &UnixStream, timeout: Duration) -> io::Result<(Vec<u8>, Option<OwnedFd>)> {
+        *self.lock() = Some((stream.try_clone()?, Instant::now() + timeout));
+        self.wake.notify_one();
+        let received = protocol::recv_message(stream, "peer closed connection");
+        // An empty slot means the watchdog shut the connection down: no response
+        // can reach the client, so the command must not run.
+        if self.lock().take().is_none() {
+            return Err(io::Error::new(io::ErrorKind::TimedOut, "root-helper request deadline expired"));
+        }
+        received
+    }
 }
 
 fn send_response(stream: &UnixStream, response: HelperResponse, reply_fd: Option<OwnedFd>) -> io::Result<()> {
@@ -521,6 +569,29 @@ mod tests {
         assert!(waited < std::time::Duration::from_secs(4), "a trickling client held the helper for {waited:?}");
         drop(server);
         trickle.join().expect("trickle thread");
+    }
+
+    #[test]
+    fn one_watchdog_bounds_each_request_and_answers_complete_ones() {
+        use std::io::Write;
+        use std::time::{Duration, Instant};
+
+        let watchdog = super::RequestDeadline::spawn().expect("watchdog");
+        for _ in 0..2 {
+            let (client, server) = UnixStream::pair().expect("socket pair");
+            send_message(&client, b"{}", None).expect("send request");
+            let (payload, _) = watchdog.recv_request(&server, Duration::from_millis(300)).expect("complete request");
+            assert_eq!(payload, b"{}");
+
+            // A frame that never completes ends at its own deadline, not an earlier one.
+            let (mut client, server) = UnixStream::pair().expect("socket pair");
+            client.write_all(&100_u32.to_be_bytes()).expect("partial frame");
+            let started = Instant::now();
+            let error = watchdog.recv_request(&server, Duration::from_millis(300)).expect_err("incomplete request");
+            let waited = started.elapsed();
+            assert_eq!(error.kind(), std::io::ErrorKind::TimedOut);
+            assert!(waited >= Duration::from_millis(300) && waited < Duration::from_secs(2), "waited {waited:?}");
+        }
     }
 
     #[test]
