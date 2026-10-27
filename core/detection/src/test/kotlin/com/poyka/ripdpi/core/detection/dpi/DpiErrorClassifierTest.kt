@@ -150,6 +150,47 @@ class DpiErrorClassifierTest {
     }
 
     @Test
+    fun `android connect exception carrying enetunreach classified as net unreachable`() {
+        val error =
+            ConnectException(
+                "failed to connect to /203.0.113.7 (port 443) from /10.0.0.2 (port 40000) after 3000ms: " +
+                    "connect failed: ENETUNREACH (Network is unreachable)",
+            )
+
+        assertEquals(DpiProbeError.NetUnreach, DpiErrorClassifier.classify(error, ProbeStage.TCP_CONNECT))
+    }
+
+    @Test
+    fun `android connect exception carrying econnreset classified as tcp rst`() {
+        val error =
+            ConnectException(
+                "failed to connect to /203.0.113.7 (port 443) from /10.0.0.2 (port 40000) after 3000ms: " +
+                    "isConnected failed: ECONNRESET (Connection reset by peer)",
+            )
+
+        assertEquals(DpiProbeError.TcpRst, DpiErrorClassifier.classify(error, ProbeStage.TCP_CONNECT))
+    }
+
+    @Test
+    fun `server bad certificate alert is not classified as tls mitm`() {
+        val error = SSLHandshakeException("Received fatal alert: bad_certificate")
+
+        assertEquals(DpiProbeError.Unknown, DpiErrorClassifier.classify(error, ProbeStage.TLS_HANDSHAKE))
+    }
+
+    @Test
+    fun `certificate path failure under a handshake exception classified as tls mitm`() {
+        val error =
+            SSLHandshakeException("Chain validation failed").apply {
+                initCause(
+                    java.security.cert.CertPathValidatorException("Trust anchor for certification path not found."),
+                )
+            }
+
+        assertEquals(DpiProbeError.TlsMitm, DpiErrorClassifier.classify(error, ProbeStage.TLS_HANDSHAKE))
+    }
+
+    @Test
     fun `cause chain traversal depth 10`() {
         val error =
             (1..9).fold<_, Throwable>(UnknownHostException("blocked.example")) { cause, index ->

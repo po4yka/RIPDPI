@@ -7,7 +7,8 @@ import java.net.ConnectException
 import java.net.NoRouteToHostException
 import java.net.SocketTimeoutException
 import java.net.UnknownHostException
-import javax.net.ssl.SSLHandshakeException
+import java.security.cert.CertPathValidatorException
+import java.security.cert.CertificateException
 import javax.net.ssl.SSLPeerUnverifiedException
 
 object DpiErrorClassifier {
@@ -58,7 +59,9 @@ object DpiErrorClassifier {
             }
         }
 
-        if (chain.any { cause -> cause is ConnectException } || fullText.hasAny(CONNECTION_REFUSED_MESSAGES)) {
+        // Android wraps ENETUNREACH, ECONNRESET and ECONNREFUSED alike in ConnectException, so the
+        // errno text decides first and the exception class is only the fallback.
+        if (fullText.hasAny(CONNECTION_REFUSED_MESSAGES)) {
             return DpiProbeError.Refused
         }
 
@@ -78,6 +81,10 @@ object DpiErrorClassifier {
             return if (stage == ProbeStage.TLS_HANDSHAKE) DpiProbeError.TlsRstTls else DpiProbeError.TcpRst
         }
 
+        if (chain.any { cause -> cause is ConnectException }) {
+            return DpiProbeError.Refused
+        }
+
         return DpiProbeError.Unknown
     }
 
@@ -88,9 +95,13 @@ object DpiErrorClassifier {
         val hasTlsVerificationException =
             chain.any { cause ->
                 cause is SSLPeerUnverifiedException ||
-                    (cause is SSLHandshakeException && fullText.hasAny(TLS_CERTIFICATE_MESSAGES))
+                    cause is CertificateException ||
+                    cause is CertPathValidatorException
             }
-        return if (hasTlsVerificationException || fullText.hasAny(TLS_CERTIFICATE_MESSAGES)) {
+        // A TLS alert names the certificate the server rejected (bad_certificate, certificate_required);
+        // that is the server's answer, not an interception.
+        val localCertificateFailure = !fullText.contains("alert") && fullText.hasAny(TLS_CERTIFICATE_MESSAGES)
+        return if (hasTlsVerificationException || localCertificateFailure) {
             DpiProbeError.TlsMitm
         } else {
             null
@@ -216,7 +227,6 @@ object DpiErrorClassifier {
         listOf(
             "certificate",
             "cert expired",
-            "expired",
             "self-signed",
             "self signed",
             "unknown ca",
