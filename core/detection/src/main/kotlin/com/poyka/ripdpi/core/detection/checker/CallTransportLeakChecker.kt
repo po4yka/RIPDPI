@@ -310,7 +310,7 @@ private class DefaultCallTransportStunClient(
                     val buffer = ByteArray(MaxUdpPacketBytes)
                     val response = DatagramPacket(buffer, buffer.size)
                     socket.receive(response)
-                    parseStunResponse(buffer.copyOf(response.length), transactionId)
+                    StunBindingResponseDecoder.reflexiveAddress(buffer.copyOf(response.length), transactionId)
                 }
             } catch (cancellation: CancellationException) {
                 throw cancellation
@@ -321,23 +321,10 @@ private class DefaultCallTransportStunClient(
 }
 
 private const val StunBindingRequest = 0x0001
-private const val StunBindingResponse = 0x0101
-private const val StunMappedAddress = 0x0001
-private const val StunXorMappedAddress = 0x0020
 private const val StunMagicCookie = 0x2112A442
 private const val StunHeaderBytes = 20
 private const val StunTransactionIdBytes = 12
-private const val StunAddressIpv4 = 0x01
 private const val MaxUdpPacketBytes = 1_500
-private const val StunAttributeHeaderBytes = 4
-private const val StunAttributeAlignmentBytes = 4
-private const val StunIpv4AddressAttributeBytes = 8
-private const val StunAddressFamilyOffset = 1
-private const val StunAddressValueOffset = 4
-private const val Ipv4AddressBytes = 4
-private const val StunAttributeTypeBytes = 2
-private const val UnsignedByteMask = 0xFF
-private const val UnsignedShortMask = 0xFFFF
 
 private fun buildStunBindingRequest(transactionId: ByteArray): ByteArray =
     ByteBuffer
@@ -348,70 +335,6 @@ private fun buildStunBindingRequest(transactionId: ByteArray): ByteArray =
         .put(transactionId)
         .array()
 
-private fun parseStunResponse(
-    packet: ByteArray,
-    transactionId: ByteArray,
-): String? {
-    if (packet.size < StunHeaderBytes) return null
-    val buffer = ByteBuffer.wrap(packet)
-    val type = buffer.short.toInt() and UnsignedShortMask
-    val length = buffer.short.toInt() and UnsignedShortMask
-    val cookie = buffer.int
-    val tx = ByteArray(StunTransactionIdBytes).also(buffer::get)
-    if (type != StunBindingResponse || cookie != StunMagicCookie || !tx.contentEquals(transactionId)) return null
-
-    var offset = StunHeaderBytes
-    while (
-        offset + StunAttributeHeaderBytes <= StunHeaderBytes + length &&
-        offset + StunAttributeHeaderBytes <= packet.size
-    ) {
-        val attrType =
-            ByteBuffer.wrap(packet, offset, StunAttributeTypeBytes).short.toInt() and UnsignedShortMask
-        val attrLength =
-            ByteBuffer.wrap(packet, offset + StunAttributeTypeBytes, StunAttributeTypeBytes).short.toInt() and
-                UnsignedShortMask
-        val valueOffset = offset + StunAttributeHeaderBytes
-        if (valueOffset + attrLength > packet.size) return null
-        when (attrType) {
-            StunXorMappedAddress -> return parseXorMappedIpv4(packet, valueOffset, attrLength)
-            StunMappedAddress -> return parseMappedIpv4(packet, valueOffset, attrLength)
-        }
-        offset =
-            valueOffset + attrLength +
-            stunAttributePadding(attrLength)
-    }
-    return null
-}
-
-private fun parseXorMappedIpv4(
-    bytes: ByteArray,
-    offset: Int,
-    length: Int,
-): String? {
-    if (!isIpv4AddressAttribute(bytes, offset, length)) {
-        return null
-    }
-    val cookieBytes = ByteBuffer.allocate(Ipv4AddressBytes).putInt(StunMagicCookie).array()
-    val address =
-        ByteArray(Ipv4AddressBytes) { index ->
-            (bytes[offset + StunAddressValueOffset + index].toInt() xor cookieBytes[index].toInt()).toByte()
-        }
-    return InetAddress.getByAddress(address).hostAddress
-}
-
-private fun parseMappedIpv4(
-    bytes: ByteArray,
-    offset: Int,
-    length: Int,
-): String? {
-    if (!isIpv4AddressAttribute(bytes, offset, length)) {
-        return null
-    }
-    return InetAddress
-        .getByAddress(bytes.copyOfRange(offset + StunAddressValueOffset, offset + StunIpv4AddressAttributeBytes))
-        .hostAddress
-}
-
 private fun CallTransportPath.label(): String =
     name
         .lowercase()
@@ -421,16 +344,3 @@ private fun CallTransportStunScope.label(): String =
     name
         .lowercase()
         .replaceFirstChar(Char::uppercaseChar)
-
-private fun stunAttributePadding(length: Int): Int =
-    (StunAttributeAlignmentBytes - (length % StunAttributeAlignmentBytes)) % StunAttributeAlignmentBytes
-
-private fun isIpv4AddressAttribute(
-    bytes: ByteArray,
-    offset: Int,
-    length: Int,
-): Boolean =
-    length >= StunIpv4AddressAttributeBytes &&
-        bytes[offset + StunAddressFamilyOffset].unsigned() == StunAddressIpv4
-
-private fun Byte.unsigned(): Int = toInt() and UnsignedByteMask

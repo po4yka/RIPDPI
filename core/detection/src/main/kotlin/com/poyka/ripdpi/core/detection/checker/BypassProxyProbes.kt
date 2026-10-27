@@ -10,6 +10,7 @@ import java.io.OutputStream
 import java.net.DatagramPacket
 import java.net.DatagramSocket
 import java.net.Inet4Address
+import java.net.Inet6Address
 import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.Socket
@@ -99,11 +100,9 @@ private const val SocksCommandConnect = 0x01
 private const val SocksCommandUdpAssociate = 0x03
 private const val SocksAddressIpv4 = 0x01
 private const val SocksAddressDomain = 0x03
+private const val SocksAddressIpv6 = 0x04
 private const val SocksSuccess = 0x00
 private const val StunBindingRequest = 0x0001
-private const val StunBindingResponse = 0x0101
-private const val StunMappedAddress = 0x0001
-private const val StunXorMappedAddress = 0x0020
 private const val StunMagicCookie = 0x2112A442
 private const val StunHeaderBytes = 20
 private const val StunTransactionIdBytes = 12
@@ -112,13 +111,8 @@ private const val SocksAddressTypeIndex = 3
 private const val SocksUdpAddressStartBytes = 4
 private const val SocksPortBytes = 2
 private const val Ipv4AddressBytes = 4
-private const val StunAttributeHeaderBytes = 4
-private const val StunAttributeAlignmentBytes = 4
-private const val StunIpv4AddressAttributeBytes = 8
-private const val StunAddressFamilyOffset = 1
-private const val StunAddressValueOffset = 4
+private const val Ipv6AddressBytes = 16
 private const val UnsignedByteMask = 0xFF
-private const val UnsignedShortMask = 0xFFFF
 private const val ByteBits = 8
 
 private fun OutputStream.writeSocks5Greeting() {
@@ -150,11 +144,20 @@ private fun OutputStream.writeSocks5TargetRequest(
 ) {
     val address = InetAddress.getByName(host)
     val bytes =
-        if (address is Inet4Address) {
-            byteArrayOf(SocksAddressIpv4.toByte()) + address.address
-        } else {
-            val domainBytes = host.encodeToByteArray()
-            byteArrayOf(SocksAddressDomain.toByte(), domainBytes.size.toByte()) + domainBytes
+        when {
+            address is Inet4Address -> {
+                byteArrayOf(SocksAddressIpv4.toByte()) + address.address
+            }
+
+            // An IPv6 literal goes as ATYP 4; a host name stays a domain for the proxy to resolve.
+            address is Inet6Address && host.contains(':') -> {
+                byteArrayOf(SocksAddressIpv6.toByte()) + address.address
+            }
+
+            else -> {
+                val domainBytes = host.encodeToByteArray()
+                byteArrayOf(SocksAddressDomain.toByte(), domainBytes.size.toByte()) + domainBytes
+            }
         }
     write(byteArrayOf(SocksVersion.toByte(), command.toByte(), 0x00) + bytes + port.toUShortBytes())
     flush()
@@ -176,17 +179,22 @@ private fun InputStream.readSocks5UdpRelay(proxyHost: String): InetSocketAddress
     check(header[1].unsigned() == SocksSuccess)
     val address =
         when (header[SocksAddressTypeIndex].unsigned()) {
-            SocksAddressIpv4 -> InetAddress.getByAddress(readFully(Ipv4AddressBytes)).hostAddress
+            SocksAddressIpv4 -> InetAddress.getByAddress(readFully(Ipv4AddressBytes)).relayHostOrNull()
+            SocksAddressIpv6 -> InetAddress.getByAddress(readFully(Ipv6AddressBytes)).relayHostOrNull()
             SocksAddressDomain -> readFully(read()).decodeToString()
             else -> error("unsupported SOCKS5 UDP relay address type")
-        }.takeUnless { it == "0.0.0.0" } ?: proxyHost
+        } ?: proxyHost
     val port = readFully(SocksPortBytes).toUShortInt()
     return InetSocketAddress(address, port)
 }
 
+// A wildcard (0.0.0.0 or ::) relay address means "the proxy's own address" (RFC 1928 s6).
+private fun InetAddress.relayHostOrNull(): String? = hostAddress.takeUnless { isAnyLocalAddress }
+
 private fun InputStream.skipSocks5Address(addressType: Int) {
     when (addressType) {
         SocksAddressIpv4 -> readFully(Ipv4AddressBytes)
+        SocksAddressIpv6 -> readFully(Ipv6AddressBytes)
         SocksAddressDomain -> readFully(read())
         else -> error("unsupported SOCKS5 address type")
     }
@@ -229,35 +237,8 @@ private fun parseSocks5UdpStunResponse(
     transactionId: ByteArray,
 ): String? {
     val stunOffset = packet.socks5UdpPayloadOffset() ?: return null
-    if (packet.size < stunOffset + StunHeaderBytes) return null
-    val stun = packet.copyOfRange(stunOffset, packet.size)
-    val buffer = ByteBuffer.wrap(stun)
-    val type = buffer.short.toInt() and UnsignedShortMask
-    val length = buffer.short.toInt() and UnsignedShortMask
-    val cookie = buffer.int
-    val tx = ByteArray(StunTransactionIdBytes).also(buffer::get)
-    if (type != StunBindingResponse || cookie != StunMagicCookie || !tx.contentEquals(transactionId)) return null
-
-    var attributeOffset = StunHeaderBytes
-    while (
-        attributeOffset + StunAttributeHeaderBytes <= StunHeaderBytes + length &&
-        attributeOffset + StunAttributeHeaderBytes <= stun.size
-    ) {
-        val attrType = ByteBuffer.wrap(stun, attributeOffset, SocksPortBytes).short.toInt() and UnsignedShortMask
-        val attrLength =
-            ByteBuffer.wrap(stun, attributeOffset + SocksPortBytes, SocksPortBytes).short.toInt() and
-                UnsignedShortMask
-        val valueOffset = attributeOffset + StunAttributeHeaderBytes
-        if (valueOffset + attrLength > stun.size) return null
-        when (attrType) {
-            StunXorMappedAddress -> return parseXorMappedIpv4(stun, valueOffset, attrLength)
-            StunMappedAddress -> return parseMappedIpv4(stun, valueOffset, attrLength)
-        }
-        attributeOffset =
-            valueOffset + attrLength +
-            ((StunAttributeAlignmentBytes - (attrLength % StunAttributeAlignmentBytes)) % StunAttributeAlignmentBytes)
-    }
-    return null
+    if (packet.size < stunOffset) return null
+    return StunBindingResponseDecoder.reflexiveAddress(packet.copyOfRange(stunOffset, packet.size), transactionId)
 }
 
 private fun ByteArray.socks5UdpPayloadOffset(): Int? {
@@ -265,6 +246,10 @@ private fun ByteArray.socks5UdpPayloadOffset(): Int? {
     return when (this[SocksAddressTypeIndex].unsigned()) {
         SocksAddressIpv4 -> {
             SocksUdpAddressStartBytes + Ipv4AddressBytes + SocksPortBytes
+        }
+
+        SocksAddressIpv6 -> {
+            SocksUdpAddressStartBytes + Ipv6AddressBytes + SocksPortBytes
         }
 
         SocksAddressDomain -> {
@@ -276,39 +261,6 @@ private fun ByteArray.socks5UdpPayloadOffset(): Int? {
             null
         }
     }
-}
-
-private fun parseXorMappedIpv4(
-    bytes: ByteArray,
-    offset: Int,
-    length: Int,
-): String? {
-    if (length < StunIpv4AddressAttributeBytes ||
-        bytes[offset + StunAddressFamilyOffset].unsigned() != SocksAddressIpv4
-    ) {
-        return null
-    }
-    val cookieBytes = ByteBuffer.allocate(Ipv4AddressBytes).putInt(StunMagicCookie).array()
-    val address =
-        ByteArray(Ipv4AddressBytes) { index ->
-            (bytes[offset + StunAddressValueOffset + index].toInt() xor cookieBytes[index].toInt()).toByte()
-        }
-    return InetAddress.getByAddress(address).hostAddress
-}
-
-private fun parseMappedIpv4(
-    bytes: ByteArray,
-    offset: Int,
-    length: Int,
-): String? {
-    if (length < StunIpv4AddressAttributeBytes ||
-        bytes[offset + StunAddressFamilyOffset].unsigned() != SocksAddressIpv4
-    ) {
-        return null
-    }
-    return InetAddress
-        .getByAddress(bytes.copyOfRange(offset + StunAddressValueOffset, offset + StunIpv4AddressAttributeBytes))
-        .hostAddress
 }
 
 private fun Int.toUShortBytes(): ByteArray =
