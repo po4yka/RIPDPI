@@ -12,7 +12,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.withTimeoutOrNull
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import java.net.InetAddress
@@ -121,31 +120,29 @@ class DefaultHomeAnalysisAugmentationSource
             }
 
         override suspend fun bufferbloat(): HomeBufferbloatResult? =
-            withTimeoutOrNull(NetworkProbeOverallTimeoutMs) {
-                withContext(Dispatchers.IO) {
-                    runCatching {
-                        val idle = measureRttSamples(BufferbloatProbes)
-                        val (loaded, load) = withLoad { measureRttSamples(BufferbloatProbes) }
-                        homeBufferbloatResult(idle, loaded, load)
-                    }.getOrNull()
-                }
+            awaitBlockingProbeWithin(NetworkProbeOverallTimeoutMs) {
+                val idle = measureRttSamples(BufferbloatProbes)
+                val (loaded, load) = withLoad { measureRttSamples(BufferbloatProbes) }
+                homeBufferbloatResult(idle, loaded, load)
             }
 
         override suspend fun dnsCharacterization(): HomeDnsCharacterization? =
-            withTimeoutOrNull(NetworkProbeOverallTimeoutMs) {
-                withContext(Dispatchers.IO) {
-                    runCatching {
-                        val cm = context.getSystemService(ConnectivityManager::class.java)
-                        val network = cm?.activeNetwork
-                        val systemResolver = homeSystemResolver(network?.let { cm.getLinkProperties(it)?.dnsServers })
-                        val systemIps = resolveSystem(DnsControlHost)
-                        val canarySystemIps = resolveSystem(DnsCanaryHost)
-                        val dohControlIps = resolveDoh(DnsControlHost)
-                        val dohCanaryIps = resolveDoh(DnsCanaryHost)
-                        characterizeHomeDns(systemIps, canarySystemIps, dohControlIps, dohCanaryIps).copy(
-                            systemResolver = systemResolver,
-                        )
-                    }.getOrNull()
+            awaitBlockingProbeWithin(NetworkProbeOverallTimeoutMs) {
+                coroutineScope {
+                    val cm = context.getSystemService(ConnectivityManager::class.java)
+                    val network = cm?.activeNetwork
+                    val systemResolver = homeSystemResolver(network?.let { cm.getLinkProperties(it)?.dnsServers })
+                    // The four lookups are independent; run them at once so one slow resolver does not add up.
+                    val systemIps = async { resolveSystem(DnsControlHost) }
+                    val canarySystemIps = async { resolveSystem(DnsCanaryHost) }
+                    val dohControlIps = async { resolveDoh(DnsControlHost) }
+                    val dohCanaryIps = async { resolveDoh(DnsCanaryHost) }
+                    characterizeHomeDns(
+                        systemIps.await(),
+                        canarySystemIps.await(),
+                        dohControlIps.await(),
+                        dohCanaryIps.await(),
+                    ).copy(systemResolver = systemResolver)
                 }
             }
 
