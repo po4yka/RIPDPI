@@ -66,6 +66,7 @@ internal class DefaultDiagnosticsScanController
             const val HiddenProbeCancellationTimeoutMs = 10_000L
             const val StartupCanceledSummary = "Diagnostics scan canceled during startup"
             const val StartupFailedSummary = "Diagnostics scan failed to start"
+            const val ExecutionFailedSummary = "Diagnostics scan failed"
         }
 
         private val startMutex = Mutex()
@@ -475,7 +476,11 @@ internal class DefaultDiagnosticsScanController
                             )
                         }.exceptionOrNull()
                     if (failure is CancellationException || failure is Error) throw failure
-                    failure?.let { Logger.e(it) { "Diagnostics scan execution failed" } }
+                    // A failed cleanup write surfaces here (it replaces any cancellation), so retry it once.
+                    failure?.let {
+                        Logger.e(it) { "Diagnostics scan execution failed" }
+                        withContext(NonCancellable) { settleStillRunningScan(prepared) }
+                    }
                 }
             startup.executionJob = executionJob
             ensureStartupActive(scope)
@@ -488,6 +493,24 @@ internal class DefaultDiagnosticsScanController
             ensureStartupActive(scope)
             if (!executionRegistered || !executionJob.start()) {
                 throw CancellationException(StartupCanceledSummary)
+            }
+        }
+
+        /**
+         * One guarded retry so a scan whose failure write failed is not shown as running until the next process.
+         * Raw-path scans are left to the settlement barrier, which owns their terminal record.
+         */
+        private suspend fun settleStillRunningScan(prepared: PreparedDiagnosticsScan) {
+            if (prepared.pathMode == ScanPathMode.RAW_PATH) return
+            runCatching {
+                DiagnosticsReportPersister.persistScanFailure(
+                    prepared.sessionId,
+                    activeScanRegistry.cancellationSummaryFor(prepared.sessionId) ?: ExecutionFailedSummary,
+                    scanRecordStore,
+                )
+            }.exceptionOrNull()?.let { error ->
+                if (error is Error) throw error
+                Logger.w(error) { "Diagnostics scan left in running state" }
             }
         }
 
