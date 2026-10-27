@@ -232,6 +232,10 @@ impl DirectPathLearningPort for ServicesStateHandle {
     }
 
     fn emit_due_direct_path_learning_timeouts(&self, now_ms: u64, observer: Option<&dyn DirectPathLearningObserver>) {
+        // Every UDP-associate loop iteration calls this; skip the exclusive lock when nothing is due.
+        if !self.0.policy.direct_path_learning.read().is_ok_and(|dpl| dpl.has_due_timeouts(now_ms)) {
+            return;
+        }
         let Ok(mut dpl) = self.0.policy.direct_path_learning.write() else {
             return;
         };

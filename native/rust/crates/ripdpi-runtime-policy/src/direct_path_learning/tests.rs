@@ -392,3 +392,22 @@ fn tuple_map_is_bounded() {
     }
     assert_eq!(learner.tuples.len(), MAX_DIRECT_PATH_TUPLES);
 }
+
+#[test]
+fn due_timeout_check_tracks_the_earliest_pending_suppression() {
+    let telemetry = RecordingTelemetry::default();
+    let first = vec!["203.0.113.10:443".parse().expect("target")];
+    let second = vec!["203.0.113.20:443".parse().expect("target")];
+    let mut learner = DirectPathLearningState::default();
+    assert!(!learner.has_due_timeouts(u64::MAX));
+
+    learner.note_udp_suppressed(Some("a.example"), &first, 1_000);
+    learner.note_udp_suppressed(Some("b.example"), &second, 2_000);
+    assert!(!learner.has_due_timeouts(3_999));
+    assert!(learner.has_due_timeouts(4_000));
+
+    learner.emit_due_timeouts(Some(&telemetry), 4_000);
+    assert_eq!(telemetry.signals.lock().expect("signals").len(), 1);
+    assert!(!learner.has_due_timeouts(4_999), "the bound moves to the remaining pending tuple");
+    assert!(learner.has_due_timeouts(5_000));
+}

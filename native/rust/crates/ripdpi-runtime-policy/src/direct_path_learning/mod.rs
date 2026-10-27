@@ -29,6 +29,9 @@ const MAX_DIRECT_PATH_TUPLES: usize = 4096;
 #[derive(Default)]
 pub struct DirectPathLearningState {
     tuples: HashMap<TupleKey, TupleState>,
+    /// Lower bound of every pending UDP-suppression start, so the per-iteration UDP loop check does
+    /// not scan every tuple. A cleared pending entry leaves it stale-low, which costs one extra scan.
+    earliest_pending_udp_suppressed_ms: Option<u64>,
 }
 
 impl DirectPathLearningState {
@@ -67,8 +70,10 @@ impl DirectPathLearningState {
             return;
         };
         let entry = self.tuple_entry(tuple_key);
-        entry.pending_udp_suppressed_at_ms.get_or_insert(now_ms);
+        let pending_since = *entry.pending_udp_suppressed_at_ms.get_or_insert(now_ms);
         entry.terminal_state = None;
+        self.earliest_pending_udp_suppressed_ms =
+            Some(self.earliest_pending_udp_suppressed_ms.map_or(pending_since, |earliest| earliest.min(pending_since)));
     }
 
     pub fn note_udp_failure(&mut self, host: Option<&str>, targets: &[SocketAddr]) {
@@ -166,7 +171,16 @@ impl DirectPathLearningState {
         emit_learning_signal(observer, &tuple_key, "ALL_IPS_FAILED", None);
     }
 
+    /// Cheap check for [`Self::emit_due_timeouts`]; callers can test it under a read lock.
+    pub fn has_due_timeouts(&self, now_ms: u64) -> bool {
+        self.earliest_pending_udp_suppressed_ms
+            .is_some_and(|earliest| now_ms.saturating_sub(earliest) >= NO_TCP_FALLBACK_WINDOW_MS)
+    }
+
     pub fn emit_due_timeouts(&mut self, observer: Option<&dyn DirectPathLearningObserver>, now_ms: u64) {
+        if !self.has_due_timeouts(now_ms) {
+            return;
+        }
         let due = self
             .tuples
             .iter()
@@ -185,6 +199,8 @@ impl DirectPathLearningState {
                 emit_learning_signal(observer, &tuple_key, "NO_TCP_FALLBACK_DETECTED", None);
             }
         }
+        self.earliest_pending_udp_suppressed_ms =
+            self.tuples.values().filter_map(|entry| entry.pending_udp_suppressed_at_ms).min();
     }
 
     /// Derive the current [`DirectPathBlockClass`] for a (host, targets) tuple.
