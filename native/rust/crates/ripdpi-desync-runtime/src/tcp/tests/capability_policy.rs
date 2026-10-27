@@ -395,6 +395,38 @@ fn transparent_tls_invariant_preserves_plaintext_for_record_and_two_phase_famili
     validate_transparent_tls_family(&payload, "two_phase_send", &two_phase_group).expect("two phase invariant");
 }
 
+/// The invariant plans with `DESYNC_SEED_BASE`; the send plans with a fresh
+/// seed. Both must give the same writes, or the invariant checks a plan that
+/// is never sent.
+#[test]
+fn transparent_tls_invariant_plan_matches_the_plan_sent_with_any_seed() {
+    let payload = rust_packet_seeds::tls_client_hello();
+    let context = activation_context_from_progress(
+        OutboundProgress { round: 1, payload_size: payload.len(), stream_start: 0, stream_end: payload.len() - 1 },
+        ActivationTransport::Tcp,
+        Some(&payload),
+        None,
+        None,
+        None,
+        AdaptivePlannerHints::default(),
+    );
+
+    for family in ["seg_pre_sni", "seg_mid_sni", "seg_post_sni", "rec_pre_sni", "rec_mid_sni", "two_phase_send"] {
+        let group = apply_transparent_tls_family(&test_group(), family, &payload).expect("family applies");
+        let plan_with = |seed| {
+            TcpDesyncStrategy::new(&group, seed, 64, context)
+                .plan_with_fake_reference(&payload, &payload)
+                .expect("plan")
+        };
+        let checked = plan_with(crate::DESYNC_SEED_BASE);
+        for _ in 0..32 {
+            let sent = plan_with(desync_seed(1));
+            assert_eq!(sent.actions, checked.actions, "{family}: sent writes differ from the checked writes");
+            assert_eq!(sent.tampered, checked.tampered, "{family}: sent bytes differ from the checked bytes");
+        }
+    }
+}
+
 #[test]
 fn tcp_capability_policy_skips_non_first_or_non_transparent_tls_arm_requests() {
     let payload = rust_packet_seeds::tls_client_hello();
