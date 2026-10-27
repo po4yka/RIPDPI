@@ -590,12 +590,24 @@ async fn run_reader(
                     }
                 }
             }
-            ProtocolType::CloseSessionRequest | ProtocolType::CloseSessionResponse | ProtocolType::CloseConnRequest => {
+            ProtocolType::CloseSessionRequest | ProtocolType::CloseSessionResponse => {
                 let removed = table.lock().unwrap_or_else(PoisonError::into_inner).remove(&session_id);
                 if let Some(mailbox) = removed {
                     // Ordering: see `MuxReader::closed_by_server`.
                     mailbox.closed_by_server.store(true, Ordering::Release);
                 }
+            }
+            // closeConnRequest has no session field upstream (metadata.go
+            // defines the type but no layout), and an upstream underlay that
+            // stops reading closes every session, whose reads then return
+            // io.EOF. So it closes the whole carrier, cleanly for every
+            // sub-session.
+            ProtocolType::CloseConnRequest => {
+                for mailbox in table.lock().unwrap_or_else(PoisonError::into_inner).values() {
+                    // Ordering: see `MuxReader::closed_by_server`.
+                    mailbox.closed_by_server.store(true, Ordering::Release);
+                }
+                break;
             }
             // open/close responses and acks: transparently skip.
             _ => {}
@@ -1181,6 +1193,10 @@ mod tests {
         }
 
         async fn close_session(&mut self, session_id: u32) {
+            self.close_segment(ProtocolType::CloseSessionRequest, session_id).await;
+        }
+
+        async fn close_segment(&mut self, protocol: ProtocolType, session_id: u32) {
             let (_, suffix) = self.enc.next_padding().expect("padding");
             self.enc
                 .write_segment(
@@ -1188,15 +1204,8 @@ mod tests {
                     0,
                     suffix,
                     |_prefix, suffix_len| {
-                        SessionMeta {
-                            protocol: ProtocolType::CloseSessionRequest,
-                            session_id,
-                            seq: 0,
-                            status_code: 0,
-                            payload_len: 0,
-                            suffix_len,
-                        }
-                        .marshal(NOW)
+                        SessionMeta { protocol, session_id, seq: 0, status_code: 0, payload_len: 0, suffix_len }
+                            .marshal(NOW)
                     },
                     None,
                 )
@@ -1226,7 +1235,7 @@ mod tests {
         (conn, server)
     }
 
-    /// Upstream `Session.Read` returns `io.EOF` only after a close segment.
+    /// A close segment for the session ends its stream with a clean EOF.
     #[tokio::test]
     async fn server_close_session_ends_the_stream_cleanly() {
         let (conn, mut server) = scripted_carrier().await;
@@ -1241,8 +1250,31 @@ mod tests {
         assert_eq!(got, b"body");
     }
 
-    /// Upstream `Session.Read` returns `io.ErrUnexpectedEOF` when the carrier
-    /// fails: a cut carrier must not look like a complete transfer.
+    /// A closeConnRequest closes the whole carrier: every sub-session, not
+    /// only the one named in the segment, ends with a clean EOF after its
+    /// data, and the carrier stops admitting streams.
+    #[tokio::test]
+    async fn close_conn_request_ends_every_sub_session_cleanly() {
+        let (conn, mut server) = scripted_carrier().await;
+        let (first, first_id) = tokio::join!(conn.open_stream("one.example:443"), server.accept_connect());
+        let (second, second_id) = tokio::join!(conn.open_stream("two.example:443"), server.accept_connect());
+        let (mut first, mut second) = (first.expect("open first"), second.expect("open second"));
+        server.data(first_id, b"first").await;
+        server.data(second_id, b"second").await;
+        server.close_segment(ProtocolType::CloseConnRequest, first_id).await;
+        drop(server);
+
+        for (stream, expected) in [(&mut first, b"first".as_slice()), (&mut second, b"second".as_slice())] {
+            let mut got = Vec::new();
+            let read = timeout(Duration::from_secs(1), stream.read_to_end(&mut got)).await;
+            read.expect("a closed carrier must end every stream").expect("clean EOF");
+            assert_eq!(got, expected);
+        }
+        assert!(conn.limit.is_closed(), "a closed carrier must stop admitting streams");
+    }
+
+    /// A cut carrier must not look like a complete transfer. This is stricter
+    /// than upstream, whose sessions read `io.EOF` when the underlay stops.
     #[tokio::test]
     async fn carrier_loss_without_close_is_a_read_error() {
         let (conn, mut server) = scripted_carrier().await;

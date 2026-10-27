@@ -184,12 +184,17 @@ relay-pool entry.
   stream instead of blocking the shared reader. The shared TCP carrier still
   has transport-level head-of-line blocking. The client does not implement the
   upstream per-session window, so the server is not throttled first.
-- *Only a close segment is a clean end.* As upstream `Session.Read` returns
-  `io.EOF` only after `closeSession*`, a stream reads a clean EOF only after a
-  close segment for its session. A carrier EOF or I/O error, an AEAD failure,
+- *Only a close segment is a clean end.* A stream reads a clean EOF only after
+  a `closeSession*` for its session, or after a `closeConnRequest`, which ends
+  every sub-session of the carrier. A carrier EOF or I/O error, an AEAD failure,
   or an overflowed mailbox makes the stream read `ConnectionReset` after the
   data already delivered, so a truncated transfer does not look complete. A
-  dead carrier also stops admitting new streams.
+  dead carrier also stops admitting new streams. This is stricter than
+  upstream: when an upstream underlay stops (`mux.go` calls `underlay.Close()`
+  after `RunEventLoop` returns), every session is closed and `Session.Read`
+  returns `io.EOF`; `io.ErrUnexpectedEOF` is only for a per-session input
+  error. Upstream defines `closeConnRequest` (`metadata.go`) but never sends
+  it and has no metadata layout for it.
 - *`sessionID` reuse on close (residual).* A `closeSession*` is routed to whatever
   mailbox currently holds that random `u32` id. If an id were re-rolled for a new
   sub-session in the window after the old one was retired, a delayed close could
