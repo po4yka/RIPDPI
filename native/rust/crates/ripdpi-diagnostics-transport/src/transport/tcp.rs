@@ -1,4 +1,5 @@
 use std::net::{SocketAddr, TcpStream};
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, mpsc};
 use std::thread;
 use std::time::Duration;
@@ -185,14 +186,22 @@ where
     let scan_deadline = active_scan_io_deadline();
     let attempt_count = addresses.len();
     let (result_tx, result_rx) = mpsc::channel();
+    // Set when the caller returns, so a delayed attempt does not open a connection that nobody
+    // reads (RFC 8305 section 5).
+    let decided = Arc::new(AtomicBool::new(false));
     for (index, address) in addresses.into_iter().enumerate() {
         let connect = Arc::clone(&connect);
         let result_tx = result_tx.clone();
+        let decided = Arc::clone(&decided);
         thread::Builder::new()
             .name(format!("ripdpi-connect-race-{index}"))
             .spawn(move || {
                 if index > 0 {
                     thread::sleep(HAPPY_EYEBALLS_DELAY);
+                    // Acquire pairs with the caller's Release store when it returns.
+                    if decided.load(Ordering::Acquire) {
+                        return;
+                    }
                 }
                 let result = with_scan_io_deadline(scan_deadline, || connect(address));
                 let _ = result_tx.send((address, result));
@@ -201,6 +210,16 @@ where
     }
     drop(result_tx);
 
+    let outcome = await_race_result(&result_rx, attempt_count, scan_deadline);
+    decided.store(true, Ordering::Release);
+    outcome
+}
+
+fn await_race_result<T>(
+    result_rx: &mpsc::Receiver<(SocketAddr, Result<T, TransportError>)>,
+    attempt_count: usize,
+    scan_deadline: Option<std::time::Instant>,
+) -> Result<(T, SocketAddr), TransportError> {
     let mut last_error = None;
     for _ in 0..attempt_count {
         let result = match scan_deadline {
@@ -269,6 +288,26 @@ mod tests {
         assert_eq!(winner, "fast success");
         assert_eq!(address, second);
         assert!(started.elapsed() < Duration::from_millis(600));
+    }
+
+    #[test]
+    fn delayed_attempt_is_skipped_after_the_first_address_wins() {
+        let first = "192.0.2.1:443".parse().expect("first address");
+        let second = "192.0.2.2:443".parse().expect("second address");
+        let attempted = Arc::new(std::sync::Mutex::new(Vec::new()));
+
+        let (_, winner) = race_initial_addresses(vec![first, second], {
+            let attempted = Arc::clone(&attempted);
+            Arc::new(move |address| {
+                attempted.lock().unwrap().push(address);
+                Ok(())
+            })
+        })
+        .expect("first attempt wins");
+        thread::sleep(HAPPY_EYEBALLS_DELAY * 2);
+
+        assert_eq!(winner, first);
+        assert_eq!(*attempted.lock().unwrap(), vec![first]);
     }
 
     #[test]
