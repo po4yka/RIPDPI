@@ -30,6 +30,7 @@ pub const fn ripdpi_ws_transport_port::TelegramDc::number(self) -> u8
 pub const fn ripdpi_ws_transport_port::TelegramDc::production(u8) -> Self
 pub const fn ripdpi_ws_transport_port::TelegramDc::raw(self) -> i32
 pub fn ripdpi_ws_transport_port::TelegramDc::ws_host(self) -> core::option::Option<alloc::string::String>
+pub const fn ripdpi_ws_transport_port::TelegramDc::ws_path(self) -> core::option::Option<&'static str>
 pub fn ripdpi_ws_transport_port::TelegramDc::ws_url(self) -> core::option::Option<alloc::string::String>
 pub struct ripdpi_ws_transport_port::WorkerBearer(_)
 impl ripdpi_ws_transport_port::WorkerBearer
