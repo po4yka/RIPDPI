@@ -1137,11 +1137,20 @@ mod enabled {
         dis.set("src_port", ctx.dissect.src_port).map_err(|error| LuaError::Call(error.to_string()))?;
         dis.set("dst_port", ctx.dissect.dst_port).map_err(|error| LuaError::Call(error.to_string()))?;
         dis.set("is_ipv6", ctx.dissect.is_ipv6).map_err(|error| LuaError::Call(error.to_string()))?;
-        let tcp = lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
-        tcp.set("th_flags", 0x10).map_err(|error| LuaError::Call(error.to_string()))?;
-        tcp.set("th_seq", 0).map_err(|error| LuaError::Call(error.to_string()))?;
-        tcp.set("th_urp", 0).map_err(|error| LuaError::Call(error.to_string()))?;
-        dis.set("tcp", tcp).map_err(|error| LuaError::Call(error.to_string()))?;
+        if is_udp_only(&ctx.dissect.proto) {
+            // zapret scripts pick TCP or UDP behavior from which of these exists.
+            let udp = lua.create_table().map_err(to_call)?;
+            udp.set("uh_sport", ctx.dissect.src_port).map_err(to_call)?;
+            udp.set("uh_dport", ctx.dissect.dst_port).map_err(to_call)?;
+            udp.set("uh_ulen", ctx.payload.len().saturating_add(8)).map_err(to_call)?;
+            dis.set("udp", udp).map_err(to_call)?;
+        } else {
+            let tcp = lua.create_table().map_err(to_call)?;
+            tcp.set("th_flags", 0x10).map_err(to_call)?;
+            tcp.set("th_seq", 0).map_err(to_call)?;
+            tcp.set("th_urp", 0).map_err(to_call)?;
+            dis.set("tcp", tcp).map_err(to_call)?;
+        }
 
         let pos = lua.create_table().map_err(|error| LuaError::Call(error.to_string()))?;
         for (marker, name) in MARKER_NAMES {
@@ -1372,6 +1381,19 @@ mod enabled {
                 .map_err(|error| LuaError::Call(error.to_string())),
             None => table.set(key, Value::Nil).map_err(|error| LuaError::Call(error.to_string())),
         }
+    }
+
+    /// Protocols that only run over UDP.
+    fn is_udp_only(proto: &L7Protocol) -> bool {
+        matches!(
+            proto,
+            L7Protocol::Quic(_)
+                | L7Protocol::Dtls(_)
+                | L7Protocol::WireGuard(_)
+                | L7Protocol::Dht(_)
+                | L7Protocol::Discord(_)
+                | L7Protocol::UtpBitTorrent(_)
+        )
     }
 
     fn proto_name(proto: &L7Protocol) -> &'static str {
