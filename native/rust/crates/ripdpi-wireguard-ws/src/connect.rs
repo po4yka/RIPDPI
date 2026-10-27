@@ -104,15 +104,11 @@ pub async fn connect_protected_carrier<P>(target: SocketAddr, protector: &P) -> 
 where
     P: CarrierSocketProtector + ?Sized,
 {
-    let socket = if target.is_ipv4() { TcpSocket::new_v4()? } else { TcpSocket::new_v6()? };
-
     // Protect BEFORE connect (vpnservice-protect-invariant). `TcpSocket` holds
     // an unconnected fd here, so this is the only correct window. Fail-closed:
     // on `Err` the `?` returns and `socket` is dropped, closing the fd, so an
     // unprotected outbound socket is never connected.
-    protector.protect_socket(socket.as_raw_fd())?;
-
-    socket.connect(target).await
+    protected_socket(target, protector)?.connect(target).await
 }
 
 /// Connect a protected outbound carrier `TcpStream` to a host/port authority.
@@ -120,9 +116,9 @@ where
 /// For hostnames, this intentionally protects the candidate carrier sockets
 /// before running hostname resolution. That keeps the WSS carrier on the same
 /// fail-closed side of the VPN-protect invariant as address-literal connects:
-/// if protection fails, resolution and connect are never attempted. Resolution
-/// still selects the concrete peer address; the matching already-protected
-/// socket is then connected to it.
+/// if protection fails, resolution and connect are never attempted. The
+/// resolved addresses are then tried in turn, families alternating, each with
+/// a bounded attempt on a protected socket.
 ///
 /// The hostname goes to the system resolver on tokio's blocking pool, bounded
 /// by [`RESOLVE_TIMEOUT`], so a stalled lookup never blocks a runtime worker.
@@ -157,11 +153,25 @@ where
     }
 
     let sockets = ProtectedCarrierSockets::new(protector)?;
-    let target =
-        resolver(host.to_owned(), port).await?.into_iter().find(|addr| sockets.supports(*addr)).ok_or_else(|| {
-            io::Error::new(io::ErrorKind::AddrNotAvailable, "carrier WSS endpoint resolved no usable addresses")
-        })?;
-    sockets.connect(target).await
+    let targets = interleave_families(resolver(host.to_owned(), port).await?);
+    sockets.connect_first(targets, protector).await
+}
+
+/// Bound on one connect attempt, so a black-holed address leaves time for the next one.
+const CONNECT_ATTEMPT_TIMEOUT: Duration = Duration::from_secs(5);
+
+/// Order addresses as RFC 8305 section 4 does: alternate families, starting with the first answer's.
+fn interleave_families(addrs: Vec<SocketAddr>) -> Vec<SocketAddr> {
+    let first_is_v6 = addrs.first().is_some_and(SocketAddr::is_ipv6);
+    let (first, second): (Vec<_>, Vec<_>) = addrs.into_iter().partition(|addr| addr.is_ipv6() == first_is_v6);
+    let mut second = second.into_iter();
+    let mut ordered = Vec::with_capacity(first.len() + second.len());
+    for addr in first {
+        ordered.push(addr);
+        ordered.extend(second.next());
+    }
+    ordered.extend(second);
+    ordered
 }
 
 /// Bound on one system lookup of the carrier host.
@@ -200,22 +210,55 @@ impl ProtectedCarrierSockets {
         Ok(Self { ipv4, ipv6 })
     }
 
-    fn supports(&self, target: SocketAddr) -> bool {
-        target.is_ipv4() || (target.is_ipv6() && self.ipv6.is_some())
-    }
-
-    async fn connect(self, target: SocketAddr) -> io::Result<TcpStream> {
-        if target.is_ipv4() {
-            self.ipv4.connect(target).await
-        } else {
-            self.ipv6
-                .ok_or_else(|| {
-                    io::Error::new(io::ErrorKind::AddrNotAvailable, "carrier WSS endpoint resolved only IPv6")
-                })?
-                .connect(target)
-                .await
+    /// Try `targets` in order, one bounded attempt each, and return the first connected stream.
+    /// The first attempt of each family uses the socket protected before resolution; later ones
+    /// use a fresh socket protected before its connect. A protect failure ends the connect.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: dropping the future closes every socket it holds.
+    async fn connect_first<P>(self, targets: Vec<SocketAddr>, protector: &P) -> io::Result<TcpStream>
+    where
+        P: CarrierSocketProtector + ?Sized,
+    {
+        let ipv6_usable = self.ipv6.is_some();
+        let (mut ipv4, mut ipv6) = (Some(self.ipv4), self.ipv6);
+        let mut last_error = None;
+        for target in targets {
+            let spare = if target.is_ipv4() {
+                ipv4.take()
+            } else if ipv6_usable {
+                ipv6.take()
+            } else {
+                continue;
+            };
+            let socket = match spare {
+                Some(socket) => socket,
+                None => protected_socket(target, protector)?,
+            };
+            match tokio::time::timeout(CONNECT_ATTEMPT_TIMEOUT, socket.connect(target)).await {
+                Ok(Ok(stream)) => return Ok(stream),
+                Ok(Err(error)) => last_error = Some(error),
+                Err(_) => {
+                    last_error = Some(io::Error::new(io::ErrorKind::TimedOut, "carrier WSS connect attempt timed out"));
+                }
+            }
         }
+        Err(last_error.unwrap_or_else(|| {
+            io::Error::new(io::ErrorKind::AddrNotAvailable, "carrier WSS endpoint resolved no usable addresses")
+        }))
     }
+}
+
+/// A new unconnected socket for `target`'s family, protected before any connect.
+fn protected_socket<P>(target: SocketAddr, protector: &P) -> io::Result<TcpSocket>
+where
+    P: CarrierSocketProtector + ?Sized,
+{
+    let socket = if target.is_ipv4() { TcpSocket::new_v4()? } else { TcpSocket::new_v6()? };
+    // Fail-closed: on `Err` the socket is dropped (fd closed) and never connected.
+    protector.protect_socket(socket.as_raw_fd())?;
+    Ok(socket)
 }
 
 #[cfg(test)]
@@ -358,6 +401,58 @@ mod tests {
 
         drop(stream);
         accept.await.expect("listener accept task joins");
+    }
+
+    /// `localhost` resolves to ::1 and 127.0.0.1; a refused first address must not end the connect.
+    #[tokio::test(flavor = "current_thread")]
+    async fn hostname_connect_falls_back_to_the_next_resolved_address() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind loopback listener");
+        let port = listener.local_addr().expect("local addr").port();
+        let accept = tokio::spawn(async move { listener.accept().await.map(|(stream, _)| stream) });
+
+        let stream = connect_protected_carrier_host("localhost", port, &|_fd: RawFd| -> io::Result<()> { Ok(()) })
+            .await
+            .expect("localhost resolves and connects");
+
+        assert_eq!(stream.peer_addr().expect("peer addr").port(), port);
+        accept.await.expect("accept task").expect("accepted");
+    }
+
+    #[tokio::test]
+    async fn refused_first_address_falls_back_to_the_next_one() {
+        let refused = TcpListener::bind("127.0.0.1:0").await.expect("bind").local_addr().expect("addr");
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind loopback listener");
+        let addr = listener.local_addr().expect("local addr");
+        let accept = tokio::spawn(async move { listener.accept().await.map(|_| ()) });
+        let protected = Arc::new(AtomicI32::new(0));
+        let protected_cb = Arc::clone(&protected);
+        let protector = move |_fd: RawFd| -> io::Result<()> {
+            protected_cb.fetch_add(1, Ordering::SeqCst);
+            Ok(())
+        };
+
+        let stream =
+            connect_protected_carrier_host_with_resolver("carrier.example.test", 443, &protector, |_, _| async {
+                Ok(vec![refused, addr])
+            })
+            .await
+            .expect("second address connects");
+
+        assert_eq!(stream.peer_addr().expect("peer addr"), addr);
+        // Two candidate sockets up front, plus a fresh protected socket for the second IPv4 attempt.
+        assert!(protected.load(Ordering::SeqCst) >= 2, "every attempted socket is protected");
+        accept.await.expect("accept task").expect("accepted");
+    }
+
+    #[test]
+    fn resolved_addresses_alternate_families_from_the_first() {
+        let v6a: SocketAddr = "[2001:db8::1]:443".parse().unwrap();
+        let v6b: SocketAddr = "[2001:db8::2]:443".parse().unwrap();
+        let v4a: SocketAddr = "192.0.2.1:443".parse().unwrap();
+        let v4b: SocketAddr = "192.0.2.2:443".parse().unwrap();
+        assert_eq!(interleave_families(vec![v6a, v6b, v4a, v4b]), vec![v6a, v4a, v6b, v4b]);
+        assert_eq!(interleave_families(vec![v4a, v6a, v6b]), vec![v4a, v6a, v6b]);
+        assert!(interleave_families(Vec::new()).is_empty());
     }
 
     #[tokio::test]
