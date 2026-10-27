@@ -3,6 +3,9 @@ use std::net::{IpAddr, SocketAddr};
 
 use ripdpi_config::AutoTtlConfig;
 
+/// Bounds per-target fake-TTL state for a long session, like `MAX_ADAPTIVE_STATES`.
+const MAX_FAKE_TTL_STATES: usize = 1024;
+
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 enum AdaptiveFakeTtlTarget {
     Host(String),
@@ -22,11 +25,13 @@ struct AdaptiveFakeTtlState {
     candidate_index: usize,
     pinned_ttl: Option<u8>,
     detected_fallback: Option<u8>,
+    last_used_seq: u64,
 }
 
 #[derive(Debug, Default)]
 pub struct AdaptiveFakeTtlResolver {
     states: HashMap<AdaptiveFakeTtlKey, AdaptiveFakeTtlState>,
+    access_sequence: u64,
 }
 
 impl AdaptiveFakeTtlResolver {
@@ -42,12 +47,22 @@ impl AdaptiveFakeTtlResolver {
             group_index,
             target: normalized_host(host).map_or(AdaptiveFakeTtlTarget::Address(dest), AdaptiveFakeTtlTarget::Host),
         };
+        if self.states.len() >= MAX_FAKE_TTL_STATES && !self.states.contains_key(&key) {
+            // shortcut: scans at most 1024 entries on insertion; index recency only if this path gets hot.
+            if let Some(oldest) =
+                self.states.iter().min_by_key(|(_, state)| state.last_used_seq).map(|(key, _)| key.clone())
+            {
+                self.states.remove(&oldest);
+            }
+        }
+        self.access_sequence = self.access_sequence.saturating_add(1);
         let state = self.states.entry(key).or_insert_with(|| AdaptiveFakeTtlState::new(config, fallback_ttl, None));
         let effective = state.detected_fallback.or(fallback_ttl);
         if state.seed != seed_ttl(config, effective) || state.candidates != candidate_order(config, effective) {
             let detected = state.detected_fallback;
             *state = AdaptiveFakeTtlState::new(config, fallback_ttl, detected);
         }
+        state.last_used_seq = self.access_sequence;
         let ttl = state.current_ttl();
         let group_label = format!("{group_index}");
         metrics::gauge!("ripdpi_fake_ttl_effective", "group" => group_label).set(f64::from(ttl));
@@ -91,7 +106,7 @@ impl AdaptiveFakeTtlState {
         let effective = detected_fallback.or(fallback_ttl);
         let candidates = candidate_order(config, effective);
         let seed = seed_ttl(config, effective);
-        Self { seed, candidates, candidate_index: 0, pinned_ttl: None, detected_fallback }
+        Self { seed, candidates, candidate_index: 0, pinned_ttl: None, detected_fallback, last_used_seq: 0 }
     }
 
     fn current_ttl(&self) -> u8 {
@@ -192,6 +207,19 @@ mod tests {
 
     fn addr(port: u16) -> SocketAddr {
         SocketAddr::from(([127, 0, 0, 1], port))
+    }
+
+    #[test]
+    fn resolver_keeps_at_most_the_most_recent_targets() {
+        let mut resolver = AdaptiveFakeTtlResolver::default();
+        let cfg = config(-1, 3, 12);
+        resolver.resolve(0, addr(443), Some("first.example"), cfg, Some(8));
+        for index in 0..MAX_FAKE_TTL_STATES {
+            resolver.resolve(0, addr(443), Some(&format!("host-{index}.example")), cfg, Some(8));
+        }
+        assert_eq!(resolver.states.len(), MAX_FAKE_TTL_STATES);
+        let first = AdaptiveFakeTtlKey { group_index: 0, target: AdaptiveFakeTtlTarget::Host("first.example".into()) };
+        assert!(!resolver.states.contains_key(&first), "the least recently resolved target is evicted");
     }
 
     #[test]
