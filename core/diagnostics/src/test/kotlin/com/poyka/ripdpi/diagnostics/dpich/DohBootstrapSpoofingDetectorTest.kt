@@ -86,6 +86,41 @@ class DohBootstrapSpoofingDetectorTest {
         }
 
     @Test
+    fun addressUnknownToEveryMetadataSourceIsNotReportedAsSpoofed() =
+        runTest {
+            val detector =
+                detector(
+                    resolver = mapResolver("cloudflare-dns.com" to listOf("104.16.248.249")),
+                    metadata = metadata(),
+                    providers =
+                        listOf(
+                            DohProviderFilter("Cloudflare", "cloudflare-dns.com", """as(13335) || org("cloudflare")"""),
+                        ),
+                )
+
+            val result = detector.checkAll().getValue("Cloudflare")
+
+            assertEquals(BootstrapVerdict.RESOLVE_FAILED, result.verdict)
+            assertEquals("104.16.248.249", result.bootstrapIp)
+        }
+
+    @Test
+    fun matchingAddressAfterAnUnknownIpv6AnswerIsOk() =
+        runTest {
+            val detector =
+                detector(
+                    resolver = mapResolver("dns.google" to listOf("2001:4860:4860::8888", "8.8.8.8")),
+                    metadata = metadata(),
+                    providers = listOf(DohProviderFilter("Google", "dns.google", """as(15169) || org("google")""")),
+                )
+
+            val result = detector.checkAll().getValue("Google")
+
+            assertEquals(BootstrapVerdict.OK, result.verdict)
+            assertEquals("8.8.8.8", result.bootstrapIp)
+        }
+
+    @Test
     fun orgSubstringFilterMatches() =
         runTest {
             val detector =

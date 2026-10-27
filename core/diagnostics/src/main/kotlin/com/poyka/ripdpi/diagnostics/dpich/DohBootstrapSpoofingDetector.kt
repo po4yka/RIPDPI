@@ -64,12 +64,12 @@ class DohBootstrapSpoofingDetector(
 
     private suspend fun checkBlocking(provider: DohProviderFilter): DohBootstrapResult =
         try {
-            val bootstrapIp = resolver.resolve(provider.dohHostname).firstOrNull()
-            if (bootstrapIp == null) {
-                provider.result(BootstrapVerdict.RESOLVE_FAILED)
-            } else {
-                provider.classify(bootstrapIp)
-            }
+            // Judge every answer: on dual-stack the first one can be an IPv6 address no table covers.
+            val results = resolver.resolve(provider.dohHostname).map { address -> provider.classify(address) }
+            results.firstOrNull { result -> result.verdict == BootstrapVerdict.OK }
+                ?: results.firstOrNull { result -> result.verdict == BootstrapVerdict.SPOOFED }
+                ?: results.firstOrNull()
+                ?: provider.result(BootstrapVerdict.RESOLVE_FAILED)
         } catch (error: CancellationException) {
             throw error
         } catch (_: IOException) {
@@ -83,11 +83,22 @@ class DohBootstrapSpoofingDetector(
         val discoveredRange = metadata.subnetForIp(bootstrapIp)
         val matchesIpMetadata = metadata.matchesFilterForIp(bootstrapIp, expectedFilterAst)
         val expectedRanges = SubnetFilterEvaluator(metadata).evaluate(expectedFilterAst)
+        val knownToMetadata = discoveredAsn != null || discoveredOrg != null || discoveredRange != null
         val verdict =
-            if (matchesIpMetadata || (discoveredRange != null && discoveredRange in expectedRanges)) {
-                BootstrapVerdict.OK
-            } else {
-                BootstrapVerdict.SPOOFED
+            when {
+                matchesIpMetadata || (discoveredRange != null && discoveredRange in expectedRanges) -> {
+                    BootstrapVerdict.OK
+                }
+
+                // No source knows this address (no geoip.db, or an address outside the bundled /24s):
+                // there is no evidence of spoofing, so report it as not verified.
+                !knownToMetadata -> {
+                    BootstrapVerdict.RESOLVE_FAILED
+                }
+
+                else -> {
+                    BootstrapVerdict.SPOOFED
+                }
             }
         return result(
             verdict = verdict,
