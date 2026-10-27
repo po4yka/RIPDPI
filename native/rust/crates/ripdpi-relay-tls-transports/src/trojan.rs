@@ -23,9 +23,16 @@ pub struct TrojanSession {
 
 pub struct TrojanUdpSession {
     stream: Box<dyn AsyncIo>,
+    reader: ripdpi_trojan::TrojanUdpReader,
 }
 
 impl TrojanUdpSession {
+    /// Sends one datagram as a Trojan UDP frame.
+    ///
+    /// # Cancel safety
+    ///
+    /// NOT cancel-safe: a cancelled write can leave a partial frame on the
+    /// stream, which must then be discarded.
     pub async fn send_to(&mut self, target: &str, payload: &[u8]) -> io::Result<()> {
         if payload.len() > ripdpi_trojan::MAX_UDP_PAYLOAD {
             // Drop it, as a lost datagram: a reference server would end the
@@ -37,8 +44,14 @@ impl TrojanUdpSession {
         self.stream.write_all(&packet).await
     }
 
+    /// Receives the next datagram.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: a partly read frame stays in the reader for the next
+    /// call (the relay UDP pump polls this in a `select!`).
     pub async fn recv_from(&mut self) -> io::Result<(String, Vec<u8>)> {
-        let packet = ripdpi_trojan::read_udp_packet(&mut self.stream).await.map_err(to_io_error)?;
+        let packet = self.reader.read_packet(&mut self.stream).await.map_err(to_io_error)?;
         Ok((trojan_authority(packet.addr, packet.port), packet.payload))
     }
 }
@@ -59,7 +72,7 @@ impl RelaySession for TrojanSession {
     async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
         let stream =
             ripdpi_trojan::TrojanClient::connect_udp_associate(&self.client_config).await.map_err(to_io_error)?;
-        Ok(TrojanUdpSession { stream: Box::new(stream) })
+        Ok(TrojanUdpSession { stream: Box::new(stream), reader: ripdpi_trojan::TrojanUdpReader::default() })
     }
 }
 
@@ -143,7 +156,8 @@ mod tests {
     #[tokio::test]
     async fn oversized_udp_datagram_is_dropped_not_sent() {
         let (local, mut remote) = tokio::io::duplex(64 * 1024);
-        let mut session = TrojanUdpSession { stream: Box::new(local) };
+        let mut session =
+            TrojanUdpSession { stream: Box::new(local), reader: ripdpi_trojan::TrojanUdpReader::default() };
         session.send_to("192.0.2.1:53", &[0; ripdpi_trojan::MAX_UDP_PAYLOAD + 1]).await.expect("dropped, not failed");
         session.send_to("192.0.2.1:53", b"query").await.expect("small datagram is sent");
         drop(session);

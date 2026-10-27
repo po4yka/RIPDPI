@@ -180,19 +180,62 @@ pub fn encode_udp_packet(addr: &TrojanAddr, port: u16, payload: &[u8]) -> Result
 ///
 /// Layout: `ATYP ADDR PORT Length CRLF Payload`
 pub fn decode_udp_packet(packet: &[u8]) -> Result<TrojanUdpPacket, TrojanError> {
+    let (packet_out, used) = decode_udp_prefix(packet)?;
+    if used != packet.len() {
+        return Err(TrojanError::TrailingBytes(packet.len() - used));
+    }
+    Ok(packet_out)
+}
+
+/// Decode the frame at the start of `bytes`; returns it and its length.
+fn decode_udp_prefix(bytes: &[u8]) -> Result<(TrojanUdpPacket, usize), TrojanError> {
     let mut cursor = 0;
-    let addr = decode_addr(packet, &mut cursor)?;
-    let port = read_u16(packet, &mut cursor, "port")?;
-    let payload_len = usize::from(read_u16(packet, &mut cursor, "payload length")?);
-    let crlf = read_exact(packet, &mut cursor, 2, "CRLF")?;
+    let addr = decode_addr(bytes, &mut cursor)?;
+    let port = read_u16(bytes, &mut cursor, "port")?;
+    let payload_len = usize::from(read_u16(bytes, &mut cursor, "payload length")?);
+    let crlf = read_exact(bytes, &mut cursor, 2, "CRLF")?;
     if crlf != b"\r\n" {
         return Err(TrojanError::InvalidCrlf);
     }
-    let payload = read_exact(packet, &mut cursor, payload_len, "payload")?.to_vec();
-    if cursor != packet.len() {
-        return Err(TrojanError::TrailingBytes(packet.len() - cursor));
+    let payload = read_exact(bytes, &mut cursor, payload_len, "payload")?.to_vec();
+    Ok((TrojanUdpPacket { addr, port, payload }, cursor))
+}
+
+/// Reads Trojan UDP ASSOCIATE frames from a stream and keeps a partial frame
+/// between calls, so a cancelled read does not desynchronise the stream.
+#[derive(Debug, Default)]
+pub struct TrojanUdpReader {
+    buffer: Vec<u8>,
+}
+
+impl TrojanUdpReader {
+    /// Read the next frame from `stream`. Use one reader per stream.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: bytes taken from the stream stay in the reader until a
+    /// whole frame is decoded, so a cancelled call loses none of them.
+    pub async fn read_packet<S>(&mut self, stream: &mut S) -> Result<TrojanUdpPacket, TrojanError>
+    where
+        S: AsyncRead + Unpin,
+    {
+        loop {
+            match decode_udp_prefix(&self.buffer) {
+                Ok((packet, used)) => {
+                    self.buffer.drain(..used);
+                    return Ok(packet);
+                }
+                Err(TrojanError::Truncated(_)) => {}
+                Err(error) => return Err(error),
+            }
+            let mut chunk = [0_u8; 4096];
+            let read = stream.read(&mut chunk).await?;
+            if read == 0 {
+                return Err(TrojanError::Io(io::Error::new(io::ErrorKind::UnexpectedEof, "Trojan UDP stream ended")));
+            }
+            self.buffer.extend_from_slice(&chunk[..read]);
+        }
     }
-    Ok(TrojanUdpPacket { addr, port, payload })
 }
 
 fn decode_addr(packet: &[u8], cursor: &mut usize) -> Result<TrojanAddr, TrojanError> {
@@ -627,6 +670,39 @@ mod tests {
     fn udp_packet_rejects_invalid_domain_utf8() {
         let packet = [0x03, 1, 0xff, 0, 53, 0, 0, 0x0d, 0x0a];
         assert!(decode_udp_packet(&packet).is_err());
+    }
+
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the in-memory pipe is dropped with the test on cancellation.
+    #[tokio::test]
+    async fn udp_reader_survives_a_cancelled_read_mid_frame() {
+        let first = encode_udp_packet(&TrojanAddr::Domain("dns.example".to_owned()), 53, b"answer").expect("frame");
+        let second = encode_udp_packet(&TrojanAddr::Ipv4(Ipv4Addr::LOCALHOST), 5353, b"next").expect("frame");
+        let (mut server, mut client) = duplex(1024);
+        let mut reader = TrojanUdpReader::default();
+
+        server.write_all(&first[..7]).await.expect("frame prefix");
+        {
+            // Poll once (it consumes the prefix and waits), then cancel.
+            let mut read = std::pin::pin!(reader.read_packet(&mut client));
+            let mut cx = std::task::Context::from_waker(std::task::Waker::noop());
+            assert!(read.as_mut().poll(&mut cx).is_pending(), "test precondition: the read waits for the rest");
+        }
+        server.write_all(&first[7..]).await.expect("frame rest");
+        server.write_all(&second).await.expect("second frame");
+
+        let packet = reader.read_packet(&mut client).await.expect("first frame after cancellation");
+        assert_eq!(
+            packet,
+            TrojanUdpPacket {
+                addr: TrojanAddr::Domain("dns.example".to_owned()),
+                port: 53,
+                payload: b"answer".to_vec()
+            }
+        );
+        let packet = reader.read_packet(&mut client).await.expect("second frame");
+        assert_eq!(packet.payload, b"next");
     }
 
     /// # Cancel safety
