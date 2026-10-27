@@ -486,6 +486,44 @@ fn plan_udp_quic_padding_ladder_rungs_have_distinct_lengths() {
 }
 
 #[test]
+fn plan_udp_quic_decoys_stay_within_a_1500_byte_path() {
+    for (kind, count) in [(UdpChainStepKind::QuicPaddingLadder, 4), (UdpChainStepKind::QuicMultiInitialRealistic, 4)] {
+        let mut group = DesyncGroup::new(0);
+        group.actions.udp_chain = vec![UdpChainStep {
+            kind,
+            count,
+            split_bytes: 0,
+            activation_filter: None,
+            ip_frag_disorder: false,
+            ipv6_hop_by_hop: false,
+            ipv6_dest_opt: false,
+            ipv6_dest_opt2: false,
+            ipv6_frag_next_override: None,
+        }];
+        for input_len in [1200, 1452, 1472] {
+            let mut payload =
+                build_realistic_quic_initial(QUIC_V2_VERSION, Some("mtu.example.test")).expect("input quic");
+            assert!(payload.len() <= input_len);
+            // A client pads its Initial datagram up to the path maximum.
+            payload.resize(input_len, 0);
+
+            let actions = plan_udp(&group, &payload, 64, udp_context(&payload));
+
+            let lengths = actions[1..=count as usize]
+                .iter()
+                .map(|action| match action {
+                    DesyncAction::Write(packet) => packet.len(),
+                    other => panic!("{kind:?}: expected decoy packet, got {other:?}"),
+                })
+                .collect::<Vec<_>>();
+            let ceiling = input_len.max(1452);
+            assert!(lengths.iter().all(|&len| len <= ceiling), "{kind:?} input {input_len}: {lengths:?}");
+            assert!(lengths.windows(2).all(|pair| pair[0] < pair[1]), "{kind:?} input {input_len}: {lengths:?}");
+        }
+    }
+}
+
+#[test]
 fn plan_udp_quic_multi_initial_realistic_packets_are_distinct() {
     let mut group = DesyncGroup::new(0);
     group.actions.udp_chain = vec![UdpChainStep {
