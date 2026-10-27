@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.diagnostics.ProbeResultEntity
 import com.poyka.ripdpi.data.diagnostics.ScanSessionEntity
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
+import com.poyka.ripdpi.security.PinVerifier
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -109,7 +110,7 @@ class DebugAutomationControllerTest {
             val settings = repository.snapshot()
             assertTrue(settings.onboardingComplete)
             assertTrue(settings.biometricEnabled)
-            assertEquals("0000", settings.backupPin)
+            assertTrue(FakePinVerifier.verify("0000", settings.backupPin))
             assertEquals("cloudflare", settings.dnsProviderId)
         }
 
@@ -240,7 +241,19 @@ class DebugAutomationControllerTest {
                     encodeDefaults = true
                     explicitNulls = false
                 },
+            pinVerifier = FakePinVerifier,
         )
+
+    private object FakePinVerifier : PinVerifier {
+        override fun hashPin(pin: String): String = "hash:$pin"
+
+        override fun verify(
+            candidatePin: String,
+            storedHash: String,
+        ): Boolean = storedHash == hashPin(candidatePin)
+
+        override fun isKeyAvailable(): Boolean = true
+    }
 
     private class FakeDiagnosticsHistoryResetStore : DiagnosticsHistoryResetStore {
         var clearCount = 0

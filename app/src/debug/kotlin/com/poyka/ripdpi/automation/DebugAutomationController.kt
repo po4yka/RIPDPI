@@ -36,6 +36,7 @@ import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.services.ServiceAutomationController
 import dagger.Binds
 import dagger.Module
@@ -75,6 +76,7 @@ class DebugAutomationController
         private val historyResetStore: DiagnosticsHistoryResetStore,
         @param:Named("diagnosticsJson")
         private val diagnosticsJson: Json,
+        private val pinVerifier: PinVerifier,
     ) : AutomationController,
         ServiceAutomationController {
         private val state = AtomicReference(AutomationRuntimeState())
@@ -319,7 +321,8 @@ class DebugAutomationController
                             setWebrtcProtectionEnabled(true)
                             setDnsProviderId("cloudflare")
                             setBiometricEnabled(true)
-                            setBackupPin("0000")
+                            // Store the PIN as the app does; a plaintext PIN is wiped at startup.
+                            setBackupPin(pinVerifier.hashPin("0000"))
                         }
                     }
                 }.build()
