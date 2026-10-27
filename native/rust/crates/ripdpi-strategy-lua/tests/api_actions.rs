@@ -123,3 +123,40 @@ fn lua_zapret_compat_actions_append_typed_plan_actions() {
         ]
     );
 }
+
+#[test]
+fn lua_plan_rejects_unbounded_action_and_byte_growth() {
+    let engine = LuaStrategyEngine::new().expect("lua vm");
+    engine
+        .load_bytes(
+            "growth",
+            br#"
+            function many_actions(desync)
+                for i = 1, 100000 do desync.set_ttl(5) end
+                return VERDICT_MODIFY
+            end
+            function many_bytes(desync)
+                local chunk = string.rep("x", 64 * 1024)
+                for i = 1, 80 do desync.rawsend(chunk) end
+                return VERDICT_MODIFY
+            end
+            "#,
+        )
+        .expect("load script");
+    let dissect = Dissect::default();
+    let ctx = StrategyContext {
+        dissect: &dissect,
+        conn: &ConnectionState::default(),
+        caps: &Capabilities::default(),
+        flow_id: FlowId(1),
+        payload: b"",
+        direction: FlowDirection::Outbound,
+    };
+
+    for function in ["many_actions", "many_bytes"] {
+        engine.register_function(function).expect("register");
+        let strategy = engine.make_strategy(function).expect("make strategy");
+        let mut plan = DesyncPlan::default();
+        assert!(strategy.plan(&ctx, &mut plan).is_err(), "{function} must exceed the plan budget");
+    }
+}

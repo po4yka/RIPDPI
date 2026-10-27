@@ -896,11 +896,35 @@ mod enabled {
         }
     }
 
+    /// Caps on what one strategy call may queue. The plan lives on the Rust
+    /// heap, outside the Lua memory limit, so a script looping over
+    /// `rawsend` could otherwise grow it until the process is killed.
+    const LUA_MAX_PLAN_ACTIONS: usize = 16 * 1024;
+    const LUA_MAX_PLAN_BYTES: usize = 4 * 1024 * 1024;
+
     #[derive(Default)]
     struct LuaCallPlan {
         actions: Vec<DesyncAction>,
+        payload_bytes: usize,
         verdict: Option<StrategyVerdict>,
         raw_socket_sends: Vec<(usize, i64, bool)>,
+    }
+
+    impl LuaCallPlan {
+        fn push(&mut self, action: DesyncAction) -> mlua::Result<()> {
+            let bytes = match &action {
+                DesyncAction::Write(bytes) | DesyncAction::RawSend(bytes) => bytes.len(),
+                DesyncAction::WriteUrgent { prefix, .. } => prefix.len(),
+                _ => 0,
+            };
+            let payload_bytes = self.payload_bytes.saturating_add(bytes);
+            if self.actions.len() >= LUA_MAX_PLAN_ACTIONS || payload_bytes > LUA_MAX_PLAN_BYTES {
+                return Err(mlua::Error::external("Lua strategy plan exceeds its action or byte budget"));
+            }
+            self.payload_bytes = payload_bytes;
+            self.actions.push(action);
+            Ok(())
+        }
     }
 
     struct LuaCallOutcome {
@@ -1143,7 +1167,7 @@ mod enabled {
                         let index = plan.actions.len();
                         plan.raw_socket_sends.push((index, seq, safe));
                     }
-                    plan.actions.push(DesyncAction::RawSend(payload.as_bytes().to_vec()));
+                    plan.push(DesyncAction::RawSend(payload.as_bytes().to_vec()))?;
                     plan.verdict = Some(StrategyVerdict::Apply);
                 }
                 Ok(true)
@@ -1213,9 +1237,9 @@ mod enabled {
                 if let Some(ttl) = ttl
                     && plan.actions.last() != Some(&DesyncAction::SetTtl(ttl))
                 {
-                    plan.actions.push(DesyncAction::SetTtl(ttl));
+                    plan.push(DesyncAction::SetTtl(ttl))?;
                 }
-                plan.actions.push(DesyncAction::Split { offset, disorder });
+                plan.push(DesyncAction::Split { offset, disorder })?;
                 plan.verdict = Some(StrategyVerdict::Apply);
                 Ok(VERDICT_MODIFY)
             })
@@ -1226,7 +1250,7 @@ mod enabled {
         let rawsend = lua
             .create_function(move |_, bytes: LuaString| {
                 let mut plan = lock_lua_call_plan(&rawsend_plan)?;
-                plan.actions.push(DesyncAction::RawSend(bytes.as_bytes().to_vec()));
+                plan.push(DesyncAction::RawSend(bytes.as_bytes().to_vec()))?;
                 plan.verdict = Some(StrategyVerdict::Apply);
                 Ok(VERDICT_MODIFY)
             })
@@ -1237,7 +1261,7 @@ mod enabled {
         let wsize = lua
             .create_function(move |_, window: u32| {
                 let mut plan = lock_lua_call_plan(&wsize_plan)?;
-                plan.actions.push(DesyncAction::SetWindowClamp(window));
+                plan.push(DesyncAction::SetWindowClamp(window))?;
                 plan.verdict = Some(StrategyVerdict::Apply);
                 Ok(VERDICT_MODIFY)
             })
@@ -1247,7 +1271,7 @@ mod enabled {
         let set_ttl_plan = Arc::clone(&call_plan);
         let set_ttl = lua
             .create_function(move |_, ttl: u8| {
-                lock_lua_call_plan(&set_ttl_plan)?.actions.push(DesyncAction::SetTtl(ttl));
+                lock_lua_call_plan(&set_ttl_plan)?.push(DesyncAction::SetTtl(ttl))?;
                 Ok(VERDICT_MODIFY)
             })
             .map_err(to_call)?;
@@ -1267,7 +1291,7 @@ mod enabled {
         let fake = lua
             .create_function(move |_, (ttl, sni_mode, payload_file): (Option<u8>, Option<String>, Option<String>)| {
                 let mut plan = lock_lua_call_plan(&fake_plan)?;
-                plan.actions.push(DesyncAction::WriteFake { ttl, sni_mode, payload_file });
+                plan.push(DesyncAction::WriteFake { ttl, sni_mode, payload_file })?;
                 plan.verdict = Some(StrategyVerdict::Apply);
                 Ok(VERDICT_MODIFY)
             })
@@ -1280,7 +1304,7 @@ mod enabled {
             .create_function(move |_, (offset, byte): (usize, u8)| {
                 let mut plan = lock_lua_call_plan(&oob_plan)?;
                 let prefix = payload.get(..offset.min(payload.len())).unwrap_or_default().to_vec();
-                plan.actions.push(DesyncAction::WriteUrgent { prefix, urgent_byte: byte });
+                plan.push(DesyncAction::WriteUrgent { prefix, urgent_byte: byte })?;
                 plan.verdict = Some(StrategyVerdict::Apply);
                 Ok(VERDICT_MODIFY)
             })
@@ -1291,7 +1315,7 @@ mod enabled {
         let fake_rst = lua
             .create_function(move |_, ttl: Option<u8>| {
                 let mut plan = lock_lua_call_plan(&fake_rst_plan)?;
-                plan.actions.push(DesyncAction::SendFakeRst { ttl });
+                plan.push(DesyncAction::SendFakeRst { ttl })?;
                 plan.verdict = Some(StrategyVerdict::Apply);
                 Ok(VERDICT_MODIFY)
             })
@@ -1302,7 +1326,7 @@ mod enabled {
         let udplen = lua
             .create_function(move |_, delta: i16| {
                 let mut plan = lock_lua_call_plan(&udplen_plan)?;
-                plan.actions.push(DesyncAction::UdpLen { delta });
+                plan.push(DesyncAction::UdpLen { delta })?;
                 plan.verdict = Some(StrategyVerdict::Apply);
                 Ok(VERDICT_MODIFY)
             })
