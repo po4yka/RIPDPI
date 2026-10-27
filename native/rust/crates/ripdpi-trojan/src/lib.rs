@@ -24,6 +24,10 @@ use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpSocket, TcpStream};
 use tokio_boring::SslStream;
 
+mod stream;
+
+pub use stream::TrojanStream;
+
 /// Trojan command byte.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TrojanCommand {
@@ -371,29 +375,38 @@ fn protect_outbound_socket<T: AsRawFd>(
 
 impl TrojanClient {
     /// Open a TCP connection to the Trojan server, complete TLS with certificate verification, then send a CONNECT request and optional first payload.
+    /// With an empty `first_payload`, the request goes out with the first write (see [`TrojanStream`]).
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the future owns the connection; dropping it closes it.
     pub async fn connect_tcp(
         config: &TrojanClientConfig,
         target_addr: &TrojanAddr,
         target_port: u16,
         first_payload: &[u8],
-    ) -> Result<SslStream<TcpStream>, TrojanError> {
+    ) -> Result<TrojanStream<SslStream<TcpStream>>, TrojanError> {
         let tcp = connect_server_tcp(config).await?;
-        connect_with_request_over(config, tcp, TrojanCommand::TcpConnect, target_addr, target_port, first_payload).await
+        connect_stream_over(config, tcp, target_addr, target_port, first_payload).await
     }
 
     /// Complete TLS and send a TCP CONNECT request over an existing transport to the Trojan server.
+    /// With an empty `first_payload`, the request goes out with the first write (see [`TrojanStream`]).
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the future owns the connection; dropping it closes it.
     pub async fn connect_tcp_over<S>(
         config: &TrojanClientConfig,
         transport: S,
         target_addr: &TrojanAddr,
         target_port: u16,
         first_payload: &[u8],
-    ) -> Result<SslStream<S>, TrojanError>
+    ) -> Result<TrojanStream<SslStream<S>>, TrojanError>
     where
         S: AsyncRead + AsyncWrite + Unpin,
     {
-        connect_with_request_over(config, transport, TrojanCommand::TcpConnect, target_addr, target_port, first_payload)
-            .await
+        connect_stream_over(config, transport, target_addr, target_port, first_payload).await
     }
 
     /// Open a TCP connection to the Trojan server, complete TLS with certificate verification, then send a UDP ASSOCIATE request.
@@ -430,6 +443,44 @@ impl TrojanClient {
     }
 }
 
+/// TLS, then a TCP CONNECT request: sent now with a first payload, or
+/// deferred to the first write without one.
+///
+/// # Cancel safety
+///
+/// cancel-safe: the future owns the transport; dropping it closes it.
+async fn connect_stream_over<S>(
+    config: &TrojanClientConfig,
+    transport: S,
+    target_addr: &TrojanAddr,
+    target_port: u16,
+    first_payload: &[u8],
+) -> Result<TrojanStream<SslStream<S>>, TrojanError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    if first_payload.is_empty() {
+        let stream = tls_connect(config, transport).await?;
+        let header = build_request(&config.password, TrojanCommand::TcpConnect, target_addr, target_port)?;
+        return Ok(TrojanStream::with_deferred_header(stream, header));
+    }
+    let stream = connect_with_request_over(
+        config,
+        transport,
+        TrojanCommand::TcpConnect,
+        target_addr,
+        target_port,
+        first_payload,
+    )
+    .await?;
+    Ok(TrojanStream::header_sent(stream))
+}
+
+/// TLS, then the request frame, written now.
+///
+/// # Cancel safety
+///
+/// cancel-safe: the future owns the transport; dropping it closes it.
 async fn connect_with_request_over<S>(
     config: &TrojanClientConfig,
     transport: S,
@@ -438,6 +489,19 @@ async fn connect_with_request_over<S>(
     target_port: u16,
     first_payload: &[u8],
 ) -> Result<SslStream<S>, TrojanError>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
+    let mut stream = tls_connect(config, transport).await?;
+    let frame = build_request_frame(&config.password, command, target_addr, target_port, first_payload)?;
+    stream.write_all(&frame).await?;
+    Ok(stream)
+}
+
+/// # Cancel safety
+///
+/// cancel-safe: the future owns the transport; dropping it closes it.
+async fn tls_connect<S>(config: &TrojanClientConfig, transport: S) -> Result<SslStream<S>, TrojanError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
@@ -450,12 +514,9 @@ where
 
     let connector = builder.build();
     let config_ssl = connector.configure().map_err(|error| TrojanError::TlsConfig(error.to_string()))?;
-    let mut stream = tokio_boring::connect(config_ssl, &config.server_name, transport)
+    tokio_boring::connect(config_ssl, &config.server_name, transport)
         .await
-        .map_err(|error| TrojanError::TlsHandshake(error.to_string()))?;
-    let frame = build_request_frame(&config.password, command, target_addr, target_port, first_payload)?;
-    stream.write_all(&frame).await?;
-    Ok(stream)
+        .map_err(|error| TrojanError::TlsHandshake(error.to_string()))
 }
 
 /// Read one Trojan UDP ASSOCIATE packet from a stream.

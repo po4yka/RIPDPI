@@ -1,0 +1,204 @@
+//! The Trojan TCP CONNECT stream, which sends the request header together
+//! with the first payload.
+
+use std::future::Future;
+use std::io;
+use std::pin::Pin;
+use std::task::{Context, Poll, Waker, ready};
+use std::time::Duration;
+
+use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
+use tokio::time::Sleep;
+
+/// How long a stream that is read but not written waits before it sends the
+/// header alone. trojan-go and Xray-core both use 100 ms.
+const HEADER_ALONE_DELAY: Duration = Duration::from_millis(100);
+
+/// A Trojan TCP CONNECT stream over `T` (the TLS stream).
+///
+/// The request header goes out in the same write as the first payload, as in
+/// trojan-go and Xray-core, so the first application-data record does not
+/// have a fixed header-only length that shows the target address type. A
+/// server-first protocol still works: when the stream is read and not written
+/// for [`HEADER_ALONE_DELAY`], the header goes out alone. A flush or a
+/// shutdown also sends it.
+pub struct TrojanStream<T> {
+    inner: T,
+    /// The header, until a write, flush, shutdown or the delay queues it.
+    header: Option<Vec<u8>>,
+    /// Queued bytes not yet written to `inner`.
+    pending: Vec<u8>,
+    written: usize,
+    header_timer: Option<Pin<Box<Sleep>>>,
+    /// A writer that waits for `pending` to drain. A read that drains it may
+    /// take the write-readiness wake-up, so it wakes this writer.
+    drain_waiter: Option<Waker>,
+}
+
+impl<T> TrojanStream<T> {
+    pub(crate) fn with_deferred_header(inner: T, header: Vec<u8>) -> Self {
+        Self { inner, header: Some(header), pending: Vec::new(), written: 0, header_timer: None, drain_waiter: None }
+    }
+
+    pub(crate) fn header_sent(inner: T) -> Self {
+        Self { inner, header: None, pending: Vec::new(), written: 0, header_timer: None, drain_waiter: None }
+    }
+
+    /// The underlying TLS stream.
+    pub fn get_ref(&self) -> &T {
+        &self.inner
+    }
+}
+
+impl<T> std::fmt::Debug for TrojanStream<T> {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        formatter.debug_struct("TrojanStream").field("header_pending", &self.header.is_some()).finish_non_exhaustive()
+    }
+}
+
+impl<T: AsyncWrite + Unpin> TrojanStream<T> {
+    fn queue_header(&mut self, payload: &[u8]) {
+        if let Some(mut frame) = self.header.take() {
+            frame.extend_from_slice(payload);
+            self.pending = frame;
+            self.written = 0;
+            self.header_timer = None;
+        }
+    }
+
+    fn poll_drain(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        while self.written < self.pending.len() {
+            let written = ready!(Pin::new(&mut self.inner).poll_write(cx, &self.pending[self.written..]))?;
+            if written == 0 {
+                return Poll::Ready(Err(io::ErrorKind::WriteZero.into()));
+            }
+            self.written += written;
+        }
+        if !self.pending.is_empty() {
+            self.pending = Vec::new();
+            self.written = 0;
+        }
+        if let Some(waiter) = self.drain_waiter.take() {
+            waiter.wake();
+        }
+        Poll::Ready(Ok(()))
+    }
+
+    fn poll_drain_for_write(&mut self, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let poll = self.poll_drain(cx);
+        if poll.is_pending() {
+            self.drain_waiter = Some(cx.waker().clone());
+        }
+        poll
+    }
+}
+
+impl<T: AsyncRead + AsyncWrite + Unpin> AsyncRead for TrojanStream<T> {
+    fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+        let this = self.get_mut();
+        if this.header.is_some() {
+            let timer = this.header_timer.get_or_insert_with(|| Box::pin(tokio::time::sleep(HEADER_ALONE_DELAY)));
+            if timer.as_mut().poll(cx).is_ready() {
+                this.queue_header(&[]);
+            }
+        }
+        if let Poll::Ready(Err(error)) = this.poll_drain(cx) {
+            return Poll::Ready(Err(error));
+        }
+        Pin::new(&mut this.inner).poll_read(cx, buf)
+    }
+}
+
+impl<T: AsyncWrite + Unpin> AsyncWrite for TrojanStream<T> {
+    fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+        let this = self.get_mut();
+        if this.header.is_some() {
+            this.queue_header(buf);
+            // The payload is queued with the header; a write still waiting
+            // finishes on the next write, flush or read.
+            if let Poll::Ready(Err(error)) = this.poll_drain(cx) {
+                return Poll::Ready(Err(error));
+            }
+            return Poll::Ready(Ok(buf.len()));
+        }
+        ready!(this.poll_drain_for_write(cx))?;
+        Pin::new(&mut this.inner).poll_write(cx, buf)
+    }
+
+    fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let this = self.get_mut();
+        this.queue_header(&[]);
+        ready!(this.poll_drain_for_write(cx))?;
+        Pin::new(&mut this.inner).poll_flush(cx)
+    }
+
+    fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+        let this = self.get_mut();
+        this.queue_header(&[]);
+        ready!(this.poll_drain_for_write(cx))?;
+        Pin::new(&mut this.inner).poll_shutdown(cx)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    use super::*;
+
+    /// Records each write call (one TLS record each on a real TLS stream);
+    /// reads never complete.
+    #[derive(Default)]
+    struct Recorder {
+        writes: Vec<Vec<u8>>,
+    }
+
+    impl AsyncRead for Recorder {
+        fn poll_read(self: Pin<&mut Self>, _cx: &mut Context<'_>, _buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+            Poll::Pending
+        }
+    }
+
+    impl AsyncWrite for Recorder {
+        fn poll_write(mut self: Pin<&mut Self>, _cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+            self.writes.push(buf.to_vec());
+            Poll::Ready(Ok(buf.len()))
+        }
+        fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+        fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Poll::Ready(Ok(()))
+        }
+    }
+
+    #[tokio::test]
+    async fn header_goes_out_with_the_first_payload() {
+        let mut stream = TrojanStream::with_deferred_header(Recorder::default(), b"HEADER".to_vec());
+        stream.write_all(b"hello").await.expect("first write");
+        stream.write_all(b"world").await.expect("second write");
+        assert_eq!(stream.get_ref().writes, vec![b"HEADERhello".to_vec(), b"world".to_vec()]);
+    }
+
+    /// A server-first protocol reads before it writes: the server waits for
+    /// the header, so it must go out alone after the delay.
+    #[tokio::test(start_paused = true)]
+    async fn a_stream_read_first_sends_the_header_alone_after_the_delay() {
+        let mut stream = TrojanStream::with_deferred_header(Recorder::default(), b"HEADER".to_vec());
+        let mut buf = [0u8; 16];
+        let early = tokio::time::timeout(HEADER_ALONE_DELAY / 2, stream.read(&mut buf)).await;
+        assert!(early.is_err(), "test precondition: the server sends nothing");
+        assert!(stream.get_ref().writes.is_empty(), "the header waits for a first payload");
+
+        let late = tokio::time::timeout(HEADER_ALONE_DELAY, stream.read(&mut buf)).await;
+        assert!(late.is_err(), "test precondition: the server sends nothing");
+        assert_eq!(stream.get_ref().writes, vec![b"HEADER".to_vec()]);
+    }
+
+    #[tokio::test]
+    async fn flush_sends_the_header() {
+        let mut stream = TrojanStream::with_deferred_header(Recorder::default(), b"HEADER".to_vec());
+        stream.flush().await.expect("flush");
+        assert_eq!(stream.get_ref().writes, vec![b"HEADER".to_vec()]);
+    }
+}

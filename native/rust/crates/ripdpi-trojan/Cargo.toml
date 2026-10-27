@@ -5,7 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
-tokio = { workspace = true, features = ["io-util", "net"] }
+tokio = { workspace = true, features = ["io-util", "net", "time"] }
 ripdpi-native-protect = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
@@ -16,7 +16,7 @@ tokio-boring = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
 
 [dev-dependencies]
-tokio = { workspace = true, features = ["io-util", "rt", "rt-multi-thread", "macros"] }
+tokio = { workspace = true, features = ["io-util", "rt", "rt-multi-thread", "macros", "test-util"] }
 local-network-fixture = { workspace = true }
 
 [lints]

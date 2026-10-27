@@ -106,3 +106,30 @@ async fn tls_client_honors_outbound_bind_ip_and_fails_closed_on_family_mismatch(
     };
     assert_eq!(io_error.kind(), std::io::ErrorKind::AddrNotAvailable);
 }
+
+/// Without a first payload, the request header goes out with the first write.
+#[tokio::test(flavor = "multi_thread")]
+async fn deferred_header_goes_out_with_the_first_write() {
+    let fixture = TrojanLoopback::start(PASSWORD).await.expect("start trojan fixture");
+    let config = TrojanClientConfig {
+        server_host: "127.0.0.1".to_owned(),
+        server_port: fixture.port(),
+        server_name: fixture.server_name().to_owned(),
+        password: PASSWORD.to_owned(),
+        tls_fingerprint_profile: "chrome_stable".to_owned(),
+        root_certificate_pem: Some(fixture.certificate_pem().to_owned()),
+        socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+        outbound_bind_ip: None,
+    };
+    let target = TrojanAddr::Ipv4(Ipv4Addr::LOCALHOST);
+    let mut stream =
+        TrojanClient::connect_tcp(&config, &target, fixture.target_port(), &[]).await.expect("connect over trojan tls");
+
+    stream.write_all(FIRST_PAYLOAD).await.expect("first write");
+    let mut echoed = vec![0_u8; FIRST_PAYLOAD.len()];
+    stream.read_exact(&mut echoed).await.expect("read echoed payload");
+    assert_eq!(echoed, FIRST_PAYLOAD);
+    let observed = fixture.observed();
+    assert_eq!(observed.command, Some(0x01));
+    assert_eq!(observed.initial_payload_len, FIRST_PAYLOAD.len());
+}
