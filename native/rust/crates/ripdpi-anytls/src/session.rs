@@ -849,6 +849,11 @@ async fn run_session<S>(
             for action in actions {
                 match action {
                     PaddingAction::Payload(payload) => writer.write_all(&payload).await?,
+                    PaddingAction::PayloadThenWaste { mut payload, waste_len } => {
+                        // One write, so the payload and its padding leave as one TLS record.
+                        payload.extend_from_slice(&Frame::with_data(Command::Waste, 0, vec![0; waste_len]).encode()?);
+                        writer.write_all(&payload).await?;
+                    }
                     PaddingAction::Waste { len } => {
                         let waste = Frame::with_data(Command::Waste, 0, vec![0; len]).encode()?;
                         writer.write_all(&waste).await?;

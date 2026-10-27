@@ -89,8 +89,9 @@ fn write_plan_splits_payload_and_appends_waste_padding() {
 
     assert_eq!(
         actions,
-        vec![PaddingAction::Payload(b"abcdef".to_vec()), PaddingAction::Waste { len: 7 }],
-        "20 byte TLS plaintext target minus 6 payload bytes minus 7 byte cmdWaste header leaves 7 bytes of waste",
+        vec![PaddingAction::PayloadThenWaste { payload: b"abcdef".to_vec(), waste_len: 7 }],
+        "20 byte TLS plaintext target minus 6 payload bytes minus 7 byte cmdWaste header leaves 7 bytes of waste, \
+         written with the payload as one record",
     );
 }
 

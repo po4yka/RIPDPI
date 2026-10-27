@@ -29,7 +29,15 @@ pub enum PaddingStep {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum PaddingAction {
     Payload(Vec<u8>),
-    Waste { len: usize },
+    /// The rest of the payload and a cmdWaste frame of `waste_len` padding
+    /// bytes, written together as one TLS record of the step's target size.
+    PayloadThenWaste {
+        payload: Vec<u8>,
+        waste_len: usize,
+    },
+    Waste {
+        len: usize,
+    },
 }
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -167,13 +175,14 @@ impl PaddingScheme {
                         actions.push(PaddingAction::Payload(remaining[..target_size].to_vec()));
                         cursor += target_size;
                     } else if !remaining.is_empty() {
-                        actions.push(PaddingAction::Payload(remaining.to_vec()));
                         cursor = payload.len();
-                        if let Some(waste_len) = target_size.checked_sub(remaining.len() + WASTE_FRAME_HEADER_LEN)
-                            && waste_len > 0
-                        {
-                            actions.push(PaddingAction::Waste { len: waste_len });
-                        }
+                        let action = match target_size.checked_sub(remaining.len() + WASTE_FRAME_HEADER_LEN) {
+                            Some(waste_len) if waste_len > 0 => {
+                                PaddingAction::PayloadThenWaste { payload: remaining.to_vec(), waste_len }
+                            }
+                            _ => PaddingAction::Payload(remaining.to_vec()),
+                        };
+                        actions.push(action);
                     } else if target_size > 0 {
                         actions.push(PaddingAction::Waste { len: target_size });
                     }
