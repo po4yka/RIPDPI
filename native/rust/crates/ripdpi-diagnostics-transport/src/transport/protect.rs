@@ -144,6 +144,38 @@ mod tests {
     }
 
     #[test]
+    fn connect_until_stops_a_pending_connect_once_stopped() {
+        // The protect slot is global: hold the lock so this non-loopback connect cannot reach
+        // another test's recording callback.
+        let _lock = TEST_LOCK.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        // TEST-NET-1 (RFC 5737) is never routed, so the SYN gets no answer and the connect stays
+        // pending. A loopback listener with a full backlog does not work: macOS resets it.
+        let target = SocketAddr::from((Ipv4Addr::new(192, 0, 2, 1), 9));
+        let stop = Arc::new(AtomicBool::new(false));
+        let stopper = {
+            let stop = Arc::clone(&stop);
+            std::thread::spawn(move || {
+                std::thread::sleep(Duration::from_millis(100));
+                stop.store(true, Ordering::Release);
+            })
+        };
+
+        let started = Instant::now();
+        let error = protected_tcp_connect_until(target, Duration::from_secs(10), &stop)
+            .expect_err("a stopped pending attempt does not connect");
+        let elapsed = started.elapsed();
+        stopper.join().unwrap();
+
+        if matches!(error.kind(), io::ErrorKind::NetworkUnreachable | io::ErrorKind::HostUnreachable) {
+            // No route on this host: the connect cannot stay pending, so there is nothing to stop.
+            eprintln!("skipped: {error}");
+            return;
+        }
+        assert_eq!(error.kind(), io::ErrorKind::Interrupted, "{error:?}");
+        assert!(elapsed < Duration::from_secs(1), "the pending connect ran on for {elapsed:?}");
+    }
+
+    #[test]
     fn connect_until_returns_a_blocking_connected_stream() {
         let listener = std::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).unwrap();
         let stop = AtomicBool::new(false);
