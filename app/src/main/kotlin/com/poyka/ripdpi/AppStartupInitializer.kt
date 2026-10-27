@@ -19,6 +19,7 @@ import com.poyka.ripdpi.services.SharedPriorsRefreshWorker
 import com.poyka.ripdpi.shortcuts.AppShortcutsPublisher
 import com.poyka.ripdpi.strategy.StrategyPackService
 import com.poyka.ripdpi.subscription.SubscriptionAutoUpdateWorker
+import com.poyka.ripdpi.subscription.followSubscriptionAutoUpdates
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -284,7 +285,14 @@ class AppStartupInitializer
                 }
             val subscriptionWorkerEnqueue =
                 runSubsystem(AppStartupSubsystem.SubscriptionAutoUpdateWorkerEnqueue) {
-                    SubscriptionAutoUpdateWorker.enqueuePeriodic(context, proxyGroupRepository.list())
+                    val groups = proxyGroupRepository.list()
+                    SubscriptionAutoUpdateWorker.enqueuePeriodic(context, groups)
+                    // Imports, edits and deletes later in this process must reschedule (or cancel) the work too.
+                    applicationScope.launch {
+                        followSubscriptionAutoUpdates(proxyGroupRepository.groups(), initial = groups) { current ->
+                            SubscriptionAutoUpdateWorker.enqueuePeriodic(context, current)
+                        }
+                    }
                 }
             val bootSessionRecorderRegistration =
                 runSubsystem(AppStartupSubsystem.BootSessionRecorderRegistration) {

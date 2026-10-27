@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.SubscriptionKind
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -53,6 +55,23 @@ class SubscriptionAutoUpdateWorkerTest {
             order = 0,
             isSelector = false,
         )
+
+    @Test
+    fun `subscription changes after startup reschedule the periodic work once per change`() =
+        runTest {
+            val noSubscription = listOf(basicGroup("b"))
+            val imported = noSubscription + subscriptionGroup("s", autoUpdateDelayMinutes = 60L)
+            val refreshed = noSubscription + subscriptionGroup("s", autoUpdateDelayMinutes = 60L).copy(name = "Renamed")
+            val shortened = noSubscription + subscriptionGroup("s", autoUpdateDelayMinutes = 30L)
+            val scheduled = mutableListOf<List<ProxyGroup>>()
+
+            followSubscriptionAutoUpdates(
+                groups = flowOf(noSubscription, imported, refreshed, shortened, noSubscription),
+                initial = noSubscription,
+            ) { scheduled += it }
+
+            assertEquals(listOf(imported, shortened, noSubscription), scheduled)
+        }
 
     @Test
     fun `enumeration includes only auto-updating long-lived subscription groups`() {

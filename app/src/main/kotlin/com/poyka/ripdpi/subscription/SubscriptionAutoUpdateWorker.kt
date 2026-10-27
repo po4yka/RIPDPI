@@ -15,6 +15,8 @@ import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.SubscriptionKind
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.catch
 import java.util.concurrent.TimeUnit
 
 /** WorkManager's hard floor for a periodic refresh interval. */
@@ -44,6 +46,41 @@ fun autoUpdateIntervalMinutes(groups: List<ProxyGroup>): Long {
             ?: WorkManagerMinIntervalMinutes
     return maxOf(shortest, WorkManagerMinIntervalMinutes)
 }
+
+/**
+ * Calls [schedule] whenever the stored subscriptions change what the periodic work must be: whether any
+ * subscription auto-updates, and at which interval. [initial] is what startup already scheduled. A
+ * failed [schedule] call is logged, and the next change tries again.
+ */
+suspend fun followSubscriptionAutoUpdates(
+    groups: Flow<List<ProxyGroup>>,
+    initial: List<ProxyGroup>?,
+    schedule: (List<ProxyGroup>) -> Unit,
+) {
+    fun key(current: List<ProxyGroup>) =
+        subscriptionsDueForAutoUpdate(current).isEmpty() to autoUpdateIntervalMinutes(current)
+    var scheduledKey = initial?.let(::key)
+    groups
+        .catch { error -> autoUpdateLog.w { "stopped following subscriptions: ${error.javaClass.simpleName}" } }
+        .collect { current ->
+            val currentKey = key(current)
+            if (currentKey != scheduledKey && trySchedule(schedule, current)) scheduledKey = currentKey
+        }
+}
+
+private fun trySchedule(
+    schedule: (List<ProxyGroup>) -> Unit,
+    groups: List<ProxyGroup>,
+): Boolean =
+    try {
+        schedule(groups)
+        true
+    } catch (ignored: Exception) {
+        autoUpdateLog.w { "rescheduling auto-update failed: ${ignored.javaClass.simpleName}" }
+        false
+    }
+
+private val autoUpdateLog = Logger.withTag("subscription-auto-update")
 
 /** Periodic adapter around the testable [SubscriptionRefreshCoordinator]. */
 @HiltWorker
