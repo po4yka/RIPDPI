@@ -535,7 +535,9 @@ mod tests {
         let target = TargetAddress::Host("localhost".to_string());
         let addrs = resolve_addresses(&target, 443).expect("resolve localhost");
 
-        assert!(addrs.iter().any(|address| address.ip().is_loopback() && address.port() == 443));
+        // Every node of the getaddrinfo list must decode to a loopback address with our port.
+        assert!(!addrs.is_empty());
+        assert!(addrs.iter().all(|address| address.ip().is_loopback() && address.port() == 443), "{addrs:?}");
     }
 
     #[test]
