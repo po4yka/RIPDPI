@@ -179,6 +179,16 @@ fn connect_addresses_with_race(addresses: &[SocketAddr]) -> Result<(TcpStream, S
 /// One connect attempt; the flag is set once the race has a result.
 type RaceConnect<T> = dyn Fn(SocketAddr, &AtomicBool) -> Result<T, TransportError> + Send + Sync + 'static;
 
+/// Sets the race's `decided` flag when dropped, so every exit of the race (also a failed spawn)
+/// stops the attempts that already started.
+struct DecideOnDrop(Arc<AtomicBool>);
+
+impl Drop for DecideOnDrop {
+    fn drop(&mut self) {
+        self.0.store(true, Ordering::Release);
+    }
+}
+
 fn race_initial_addresses<T>(
     addresses: Vec<SocketAddr>,
     connect: Arc<RaceConnect<T>>,
@@ -192,6 +202,7 @@ where
     // Set when the caller returns, so a delayed or pending attempt does not complete a connection
     // that nobody reads (RFC 8305 section 5). `connect` receives it to stop a started attempt.
     let decided = Arc::new(AtomicBool::new(false));
+    let _decide_on_exit = DecideOnDrop(Arc::clone(&decided));
     for (index, address) in addresses.into_iter().enumerate() {
         let connect = Arc::clone(&connect);
         let result_tx = result_tx.clone();
@@ -213,9 +224,7 @@ where
     }
     drop(result_tx);
 
-    let outcome = await_race_result(&result_rx, attempt_count, scan_deadline);
-    decided.store(true, Ordering::Release);
-    outcome
+    await_race_result(&result_rx, attempt_count, scan_deadline)
 }
 
 fn await_race_result<T>(
@@ -311,6 +320,20 @@ mod tests {
 
         assert_eq!(winner, first);
         assert_eq!(*attempted.lock().unwrap(), vec![first]);
+    }
+
+    #[test]
+    fn race_decision_is_set_when_the_race_returns_early() {
+        let decided = Arc::new(AtomicBool::new(false));
+        let spawn_result: Result<(), TransportError> = Err(TransportError::NoAddresses);
+        let race = || -> Result<(), TransportError> {
+            let _decide_on_exit = DecideOnDrop(Arc::clone(&decided));
+            spawn_result?;
+            Ok(())
+        };
+
+        assert!(race().is_err());
+        assert!(decided.load(Ordering::Acquire), "a started attempt would run on");
     }
 
     #[test]
