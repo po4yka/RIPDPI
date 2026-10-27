@@ -168,3 +168,30 @@ fn tcp_activation_state_reports_the_receive_window_without_tcp_repair() {
 fn tcpi_rcv_wnd_offset_matches_the_libc_tcp_info_layout() {
     assert_eq!(std::mem::offset_of!(libc::tcp_info, tcpi_rcv_wnd), crate::linux::tcp_info::TCPI_RCV_WND_OFFSET);
 }
+
+#[test]
+fn snapshot_window_is_shifted_by_the_receive_window_scale() {
+    use std::os::fd::AsRawFd;
+
+    use crate::linux::tcp_repair::{
+        TCP_NO_QUEUE, TCP_REPAIR_ON, disable_tcp_repair, set_tcp_repair, set_tcp_repair_queue,
+        snapshot_tcp_repair_state,
+    };
+
+    let (client, _server) = super::connected_pair();
+    let fd = client.as_raw_fd();
+    // The snapshot needs TCP_REPAIR (CAP_NET_ADMIN).
+    if set_tcp_repair(fd, TCP_REPAIR_ON).is_err() {
+        return;
+    }
+    let snapshot = snapshot_tcp_repair_state(fd);
+    let _ = set_tcp_repair_queue(fd, TCP_NO_QUEUE);
+    let _ = disable_tcp_repair(fd);
+    let snapshot = snapshot.expect("snapshot of a live connection");
+
+    let shift = snapshot.options.window_scale.expect("loopback negotiates window scaling").receive;
+    assert!(shift > 0, "loopback receive scale");
+    // RFC 7323 2.3: the window field of a non-SYN segment is RCV.WND >> Rcv.Wind.Shift.
+    let expected = (snapshot.repair_window.rcv_wnd >> shift).min(u32::from(u16::MAX));
+    assert_eq!(u32::from(snapshot.window_size), expected, "rcv_wnd {}", snapshot.repair_window.rcv_wnd);
+}

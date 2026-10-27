@@ -45,10 +45,13 @@ pub(crate) fn snapshot_tcp_repair_state(fd: libc::c_int) -> io::Result<TcpRepair
     set_tcp_repair_queue(fd, TCP_NO_QUEUE)?;
 
     let options = snapshot_tcp_repair_options(fd, info)?;
+    // A non-SYN segment carries RCV.WND >> Rcv.Wind.Shift (RFC 7323 2.3); rcv_wnd is in bytes.
+    let receive_shift = options.window_scale.map_or(0, |scale| u32::from(scale.receive));
+    let window = repair_window.rcv_wnd.checked_shr(receive_shift).unwrap_or(0);
     Ok(TcpRepairSnapshot {
         sequence_number,
         acknowledgment_number,
-        window_size: repair_window.rcv_wnd.min(u32::from(u16::MAX)) as u16,
+        window_size: window.min(u32::from(u16::MAX)) as u16,
         repair_window,
         options,
     })

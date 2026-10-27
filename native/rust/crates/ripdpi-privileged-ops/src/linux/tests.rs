@@ -23,7 +23,7 @@ fn sample_tcp_repair_snapshot() -> TcpRepairSnapshot {
     TcpRepairSnapshot {
         sequence_number: 0x0102_0304,
         acknowledgment_number: 0x0506_0708,
-        window_size: 4096,
+        window_size: 16, // rcv_wnd 4096 >> receive scale 8
         repair_window: TcpRepairWindow { rcv_wnd: 4096, ..Default::default() },
         options: TcpRepairOptionsSnapshot {
             mss: Some(1440),
