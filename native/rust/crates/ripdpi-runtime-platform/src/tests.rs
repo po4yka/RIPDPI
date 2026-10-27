@@ -27,6 +27,25 @@ fn ipv4_id_allocator_seqgroup_uses_same_sequential_scheme() {
 }
 
 #[test]
+fn ipv4_id_allocator_evicts_least_recently_used_flow_at_capacity() {
+    let target = SocketAddrV4::new(Ipv4Addr::new(198, 51, 100, 30), 443);
+    let flow = |port: usize| SocketAddrV4::new(Ipv4Addr::new(192, 0, 2, 30), u16::try_from(port).unwrap());
+    let mut allocator = Ipv4IdAllocator::default();
+    let capacity = crate::ipv4_ids::MAX_TRACKED_FLOWS;
+
+    for port in 0..capacity {
+        allocator.reserve(flow(port), target, IpIdMode::Seq, 1);
+    }
+    // Touch flow 0 so flow 1 becomes the least recently used one.
+    assert_eq!(allocator.reserve(flow(0), target, IpIdMode::Seq, 1), vec![2]);
+    allocator.reserve(flow(capacity), target, IpIdMode::Seq, 1);
+
+    assert_eq!(allocator.tracked_flows(), capacity);
+    assert_eq!(allocator.reserve(flow(0), target, IpIdMode::Seq, 1), vec![3], "recent flow keeps its sequence");
+    assert_eq!(allocator.reserve(flow(1), target, IpIdMode::Seq, 1), vec![1], "evicted flow restarts");
+}
+
+#[test]
 fn ipv4_id_allocator_zero_returns_zeroes() {
     let source = SocketAddrV4::new(Ipv4Addr::new(192, 0, 2, 12), 40002);
     let target = SocketAddrV4::new(Ipv4Addr::new(198, 51, 100, 22), 443);

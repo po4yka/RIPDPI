@@ -22,11 +22,23 @@ struct Ipv4FlowKey {
     target: SocketAddrV4,
 }
 
+/// Per-flow sequence state is kept for this many flows; the least recently
+/// used flow is evicted when a new one arrives, so the map stays bounded for
+/// the process lifetime.
+pub(crate) const MAX_TRACKED_FLOWS: usize = 4096;
+
 #[derive(Debug, Default)]
 #[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
 pub(crate) struct Ipv4IdAllocator {
-    next_seq_by_flow: HashMap<Ipv4FlowKey, u16>,
+    next_seq_by_flow: HashMap<Ipv4FlowKey, FlowSequence>,
+    use_counter: u64,
     rnd_state: u32,
+}
+
+#[derive(Debug)]
+struct FlowSequence {
+    next: u16,
+    last_used: u64,
 }
 
 #[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
@@ -41,12 +53,21 @@ impl Ipv4IdAllocator {
         match mode {
             IpIdMode::Seq | IpIdMode::SeqGroup => {
                 let key = Ipv4FlowKey { source, target };
-                let next = self.next_seq_by_flow.entry(key).or_insert(1);
+                self.use_counter += 1;
+                if !self.next_seq_by_flow.contains_key(&key) && self.next_seq_by_flow.len() >= MAX_TRACKED_FLOWS {
+                    let oldest =
+                        self.next_seq_by_flow.iter().min_by_key(|(_, flow)| flow.last_used).map(|(key, _)| *key);
+                    if let Some(oldest) = oldest {
+                        self.next_seq_by_flow.remove(&oldest);
+                    }
+                }
+                let flow = self.next_seq_by_flow.entry(key).or_insert(FlowSequence { next: 1, last_used: 0 });
+                flow.last_used = self.use_counter;
                 let mut ids = Vec::with_capacity(count);
                 for _ in 0..count {
-                    let current = *next;
+                    let current = flow.next;
                     ids.push(current);
-                    *next = advance_ipv4_identification(current);
+                    flow.next = advance_ipv4_identification(current);
                 }
                 ids
             }
@@ -54,6 +75,11 @@ impl Ipv4IdAllocator {
             IpIdMode::Zero => vec![0; count],
             _ => vec![0; count],
         }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn tracked_flows(&self) -> usize {
+        self.next_seq_by_flow.len()
     }
 
     fn next_random_non_zero(&mut self) -> u16 {
