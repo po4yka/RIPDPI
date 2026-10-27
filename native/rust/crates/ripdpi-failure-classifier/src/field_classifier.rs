@@ -7,7 +7,7 @@
 use ripdpi_packets::fields::FieldCache;
 
 use crate::block_detection::{BlockpageFingerprint, match_blockpage_response, match_body_keyword};
-use crate::tls::{CLOSE_NOTIFY_ALERT, tls_alert_description};
+use crate::tls::{is_closure_alert, tls_alert_description};
 use crate::{ClassifiedFailure, FailureAction, FailureClass, FailureEvidence, FailureStage};
 
 /// Classify a failure from pre-extracted protocol fields.
@@ -21,9 +21,9 @@ use crate::{ClassifiedFailure, FailureAction, FailureClass, FailureEvidence, Fai
 /// Returns `None` if no failure is detected.
 pub fn classify_from_fields(cache: &FieldCache, fingerprints: &[BlockpageFingerprint]) -> Option<ClassifiedFailure> {
     // 1. TLS alert (highest priority — unambiguous signal), except a
-    //    graceful close_notify, which is not a failure at all.
+    //    closure alert (close_notify, user_canceled), which is not a failure.
     if let Some(alert_code) = cache.tls_alert_code()
-        && alert_code != CLOSE_NOTIFY_ALERT
+        && !is_closure_alert(alert_code)
     {
         let alert_desc = tls_alert_description(Some(alert_code));
         return Some(
