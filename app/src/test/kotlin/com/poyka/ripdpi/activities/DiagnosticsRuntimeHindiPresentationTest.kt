@@ -229,6 +229,40 @@ class DiagnosticsRuntimeHindiPresentationTest {
             }
         }
 
+    @Test
+    fun `PT privacy mode enabled during a probe keeps later runs blocked`() =
+        runTest {
+            val localizedContext = context("en")
+            val settings = settings()
+            var probeCalls = 0
+            val completion = CompletableDeferred<PluggableTransportResult>()
+            val controller =
+                DiagnosticsPluggableTransportController(
+                    scope = backgroundScope,
+                    appSettingsRepository = settings,
+                    assetLoader = DpiAssetLoader(localizedContext),
+                    stringResolver = AndroidStringResolver(localizedContext),
+                    runProbe = {
+                        probeCalls += 1
+                        completion.await()
+                    },
+                )
+            runCurrent()
+            controller.run()
+            runCurrent()
+
+            settings.update { setDetectionCheckPrivacyModeEnabled(true) }
+            runCurrent()
+            completion.complete(result(PtVerdict.PtOk("Exact_Host.test")))
+            runCurrent()
+            controller.run()
+            runCurrent()
+
+            assertEquals(1, probeCalls)
+            assertEquals(DiagnosticsPluggableTransportState.Disabled, controller.tool.value.state)
+            assertTrue(controller.tool.value.privacyModeEnabled)
+        }
+
     private fun failureLabels(language: String): List<String> {
         val strings = AndroidStringResolver(context(language))
         return DpiFailureClass.entries.map { strings.getString(it.displayLabelRes) }

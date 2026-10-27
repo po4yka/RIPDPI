@@ -14,6 +14,7 @@ import com.poyka.ripdpi.platform.userMessage
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -22,7 +23,7 @@ import kotlinx.coroutines.withContext
 
 internal class DiagnosticsPluggableTransportController(
     private val scope: CoroutineScope,
-    appSettingsRepository: AppSettingsRepository,
+    private val appSettingsRepository: AppSettingsRepository,
     assetLoader: DpiAssetLoader,
     private val stringResolver: StringResolver,
     private val runProbe: suspend () -> PluggableTransportResult = { loadPluggableTransportProbe(assetLoader).run() },
@@ -35,10 +36,13 @@ internal class DiagnosticsPluggableTransportController(
             ),
         )
     val tool: StateFlow<DiagnosticsPluggableTransportToolUiModel> = _tool.asStateFlow()
+    private var probeJob: Job? = null
 
     init {
         scope.launch {
             appSettingsRepository.settings.collect { settings ->
+                // Privacy mode switched on mid-probe stops the probe, so its result cannot clear the flag.
+                if (settings.detectionCheckPrivacyModeEnabled) probeJob?.cancel()
                 val current = _tool.value
                 _tool.value =
                     current.copy(
@@ -106,21 +110,36 @@ internal class DiagnosticsPluggableTransportController(
                 summaryResId = R.string.diagnostics_pt_running,
                 privacyModeEnabled = false,
             )
-        scope.launch {
-            runCatching {
-                runProbe()
-            }.onSuccess { result ->
-                _tool.value = result.toUiModel(privacyModeEnabled = false, stringResolver = stringResolver)
-            }.onFailure { error ->
-                if (error is CancellationException) throw error
-                _tool.value =
-                    DiagnosticsPluggableTransportToolUiModel(
-                        state = DiagnosticsPluggableTransportState.Failed,
-                        summary = stringResolver.getString(R.string.diagnostics_pt_failed),
-                        summaryResId = R.string.diagnostics_pt_failed,
-                        errorMessage = stringResolver.userMessage(error),
-                    )
+        probeJob =
+            scope.launch {
+                if (appSettingsRepository.snapshot().detectionCheckPrivacyModeEnabled) {
+                    _tool.value =
+                        _tool.value.copy(
+                            state = DiagnosticsPluggableTransportState.Disabled,
+                            summary = stringResolver.getString(R.string.diagnostics_pt_privacy_disabled),
+                            summaryResId = R.string.diagnostics_pt_privacy_disabled,
+                            privacyModeEnabled = true,
+                        )
+                    return@launch
+                }
+                runProbeAndPublish()
             }
+    }
+
+    private suspend fun runProbeAndPublish() {
+        runCatching {
+            runProbe()
+        }.onSuccess { result ->
+            _tool.value = result.toUiModel(privacyModeEnabled = false, stringResolver = stringResolver)
+        }.onFailure { error ->
+            if (error is CancellationException) throw error
+            _tool.value =
+                DiagnosticsPluggableTransportToolUiModel(
+                    state = DiagnosticsPluggableTransportState.Failed,
+                    summary = stringResolver.getString(R.string.diagnostics_pt_failed),
+                    summaryResId = R.string.diagnostics_pt_failed,
+                    errorMessage = stringResolver.userMessage(error),
+                )
         }
     }
 }
