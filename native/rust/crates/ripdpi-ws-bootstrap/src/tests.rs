@@ -229,3 +229,37 @@ fn dynamic_fixture_config() -> FixtureConfig {
         ..FixtureConfig::default()
     }
 }
+
+#[test]
+fn encrypted_dns_endpoint_rejects_unknown_protocols_and_plain_http_doh() {
+    use crate::endpoint::encrypted_dns_endpoint;
+    use ripdpi_dns_resolver::EncryptedDnsProtocol;
+
+    let context = |protocol: &str, doh_url: &str| ProxyEncryptedDnsContext {
+        resolver_id: None,
+        protocol: protocol.to_string(),
+        host: "dns.example".to_string(),
+        port: 443,
+        tls_server_name: None,
+        bootstrap_ips: vec!["203.0.113.53".to_string()],
+        doh_url: Some(doh_url.to_string()),
+        dnscrypt_provider_name: None,
+        dnscrypt_public_key: None,
+    };
+    let https = "https://dns.example/dns-query";
+
+    for protocol in ["odoh", "doh3", "", "tls"] {
+        let error = encrypted_dns_endpoint(&context(protocol, https)).expect_err(protocol);
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput, "{protocol:?}");
+    }
+    for url in ["http://dns.example/dns-query", "HTTP://203.0.113.53/dns-query", "ftp://dns.example/"] {
+        let error = encrypted_dns_endpoint(&context("doh", url)).expect_err(url);
+        assert_eq!(error.kind(), std::io::ErrorKind::InvalidInput, "{url}");
+    }
+
+    assert_eq!(encrypted_dns_endpoint(&context(" DoH ", https)).unwrap().protocol, EncryptedDnsProtocol::Doh);
+    assert_eq!(encrypted_dns_endpoint(&context("dot", "")).unwrap().protocol, EncryptedDnsProtocol::Dot);
+    for url in ["http://127.0.0.1:8053/dns-query", "http://[::1]:8053/dns-query", "http://localhost/dns-query"] {
+        assert!(encrypted_dns_endpoint(&context("doh", url)).is_ok(), "loopback test resolver {url}");
+    }
+}
