@@ -12,6 +12,10 @@ import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.IpComparisonResult
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.withTimeoutOrNull
 
 enum class IpConsensusChannel {
     GEO_IP,
@@ -166,11 +170,19 @@ object IpConsensusBuilder {
         cdnPulling: CdnPullingResult?,
         callTransport: CallTransportResult? = null,
         asnResolver: SuspendingIpAsnResolver,
-    ): IpConsensusResult =
-        buildResolved(
+    ): IpConsensusResult {
+        // The GeoIP check already fetched this IP's ASN data; do not query the providers again.
+        val known = geoIp.asnInfoFromFindings()?.takeIf { it.asn != null || it.countryCode != null }
+        return buildResolved(
             observations = observationsFrom(geoIp, bypassResult, ipComparison, cdnPulling, callTransport),
-            asnResolver = asnResolver,
+            asnResolver =
+                if (known == null) {
+                    asnResolver
+                } else {
+                    SuspendingIpAsnResolver { ip -> if (ip == known.ip) known else asnResolver.resolve(ip) }
+                },
         )
+    }
 
     fun observationsFrom(callTransport: CallTransportResult): List<IpObservation> =
         callTransport.stunObservations.map { observation ->
@@ -217,7 +229,7 @@ object IpConsensusBuilder {
                 .values
                 .flatten()
                 .distinct()
-                .associateWith { ip -> asnResolver.resolve(ip) ?: IpAsnInfo(ip, null, null) }
+                .let { ips -> resolveConcurrently(ips, asnResolver) }
 
         return IpConsensusResult(
             observedIps = observedIps,
@@ -228,6 +240,19 @@ object IpConsensusBuilder {
             asnByIp = asnByIp,
         )
     }
+
+    /** Resolves all IPs at once; an IP not resolved within [AsnResolutionBudgetMs] gets no ASN data. */
+    private suspend fun resolveConcurrently(
+        ips: List<String>,
+        asnResolver: SuspendingIpAsnResolver,
+    ): Map<String, IpAsnInfo> =
+        coroutineScope {
+            ips
+                .map { ip -> async { withTimeoutOrNull(AsnResolutionBudgetMs) { asnResolver.resolve(ip) } } }
+                .awaitAll()
+                .zip(ips) { info, ip -> ip to (info ?: IpAsnInfo(ip, null, null)) }
+                .toMap()
+        }
 
     private fun observationsFrom(
         geoIp: CategoryResult,
@@ -336,5 +361,8 @@ object IpConsensusBuilder {
     }
 
     private const val CloudflareAsn = "13335"
+
+    // Matches the per-request GeoIP timeout, so one slow provider round does not cut a normal lookup.
+    private const val AsnResolutionBudgetMs = 10_000L
     private val COUNTRY_CODE_REGEX = Regex("""\(([A-Z]{2})\)""")
 }

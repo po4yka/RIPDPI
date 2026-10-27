@@ -6,6 +6,9 @@ import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.Verdict
 import com.poyka.ripdpi.core.detection.checker.VerdictEngine
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -148,6 +151,50 @@ class IpConsensusBuilderTest {
 
             assertEquals(listOf("1.1.1.1", "2.2.2.2", "3.3.3.3"), resolvedIps.sorted())
             assertEquals(setOf("1.1.1.1", "2.2.2.2", "3.3.3.3"), result.asnByIp.keys)
+        }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun resolvedBuildReusesGeoIpDataAndResolvesOtherIpsConcurrentlyWithinOneBudget() =
+        runTest {
+            val resolvedIps = mutableListOf<String>()
+            val result =
+                IpConsensusBuilder.buildResolved(
+                    geoIp =
+                        CategoryResult(
+                            name = "GeoIP",
+                            detected = false,
+                            findings =
+                                listOf(
+                                    Finding("IP: 1.1.1.1"),
+                                    Finding("ASN: AS13335"),
+                                    Finding("Country: United States (US)"),
+                                ),
+                        ),
+                    bypassResult =
+                        BypassResult(
+                            proxyEndpoint = null,
+                            directIp = "2.2.2.2",
+                            proxyIp = "3.3.3.3",
+                            xrayApiScanResult = null,
+                            findings = emptyList(),
+                            detected = false,
+                        ),
+                    ipComparison = null,
+                    cdnPulling = null,
+                    asnResolver =
+                        SuspendingIpAsnResolver { ip ->
+                            resolvedIps += ip
+                            delay(60_000)
+                            IpAsnInfo(ip = ip, asn = "64512", countryCode = "US", org = "Test")
+                        },
+                )
+
+            assertEquals(listOf("2.2.2.2", "3.3.3.3"), resolvedIps.sorted())
+            assertEquals(10_000L, currentTime)
+            assertEquals("AS13335", result.asnByIp.getValue("1.1.1.1").asn)
+            assertEquals(IpAsnInfo("2.2.2.2", null, null), result.asnByIp.getValue("2.2.2.2"))
+            assertEquals(IpAsnInfo("3.3.3.3", null, null), result.asnByIp.getValue("3.3.3.3"))
         }
 
     private fun fakeResolver(vararg entries: Pair<String, IpAsnInfo>): IpAsnResolver {
