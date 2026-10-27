@@ -8,8 +8,11 @@ import android.net.NetworkCapabilities
 import android.os.Build
 import androidx.core.content.ContextCompat
 import dagger.hilt.android.qualifiers.ApplicationContext
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.async
+import kotlinx.coroutines.withTimeoutOrNull
 import java.net.InetAddress
 import java.net.UnknownHostException
 import javax.inject.Inject
@@ -17,6 +20,7 @@ import javax.inject.Singleton
 
 private const val SystemDnsPort = 53
 private const val OtherTransportPriority = 3
+private const val HostnameLookupBudgetMillis = 2_000L
 
 /** Preflight only. Does not grant permission, change routes, or replace socket protection. */
 @Singleton
@@ -25,6 +29,9 @@ class AndroidLocalNetworkAccess
     constructor(
         @param:ApplicationContext private val context: Context,
     ) {
+        // Lookups run detached: getaddrinfo cannot be interrupted, so a caller must not wait for it.
+        private val lookupScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
         fun hasAccess(): Boolean =
             Build.VERSION.SDK_INT < LocalNetworkPermissionApi ||
                 ContextCompat.checkSelfPermission(context, LocalNetworkPermission) == PackageManager.PERMISSION_GRANTED
@@ -71,7 +78,7 @@ class AndroidLocalNetworkAccess
             if (isNumericAddress(host)) {
                 resolveEndpointBlocking(host, network)
             } else {
-                withContext(Dispatchers.IO) { resolveEndpointBlocking(host, network) }
+                resolveWithinBudget(lookupScope, HostnameLookupBudgetMillis) { resolveEndpointBlocking(host, network) }
             }
 
         private fun resolveEndpointBlocking(
@@ -92,6 +99,20 @@ class AndroidLocalNetworkAccess
 
         private fun isNumericAddress(host: String): Boolean = ':' in host || host.all { it.isDigit() || it == '.' }
     }
+
+/**
+ * Runs a blocking [lookup] detached in [scope] and waits at most [budgetMillis]. A hung resolver
+ * (dropped DNS on a censored network or during a handover) gives "no addresses", the same answer
+ * as an unknown host, and a cancelled caller returns at once instead of after the resolver timeout.
+ */
+internal suspend fun resolveWithinBudget(
+    scope: CoroutineScope,
+    budgetMillis: Long,
+    lookup: () -> Array<InetAddress>,
+): Array<InetAddress> {
+    val pending = scope.async { lookup() }
+    return withTimeoutOrNull(budgetMillis) { pending.await() } ?: emptyArray()
+}
 
 @Suppress("DEPRECATION")
 internal fun ConnectivityManager.selectLocalNetworkUnderlay(): Network? {
