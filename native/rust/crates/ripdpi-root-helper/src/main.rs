@@ -15,7 +15,7 @@ mod nfqws2;
 use std::ffi::CString;
 use std::fs;
 use std::io;
-use std::os::fd::{AsFd, FromRawFd, IntoRawFd, OwnedFd};
+use std::os::fd::{AsFd, AsRawFd, FromRawFd, IntoRawFd, OwnedFd};
 use std::os::unix::ffi::OsStrExt;
 use std::os::unix::fs::MetadataExt;
 use std::os::unix::net::{UnixListener, UnixStream};
@@ -132,7 +132,7 @@ fn main() {
                 }
             }
             Err(e) if e.kind() == io::ErrorKind::WouldBlock => {
-                std::thread::sleep(std::time::Duration::from_millis(100));
+                wait_for_connection(&listener, LOOP_POLL_MS);
                 continue;
             }
             Err(e) => {
@@ -150,6 +150,21 @@ fn main() {
     }
     info!("shutting down");
     let _ = fs::remove_file(&socket_path);
+}
+
+/// Upper bound on one idle wait of the main loop, so that the stop flag and
+/// nfqws2 supervision still run about ten times a second.
+const LOOP_POLL_MS: libc::c_int = 100;
+
+/// Waits until `listener` has a pending connection or `timeout_ms` passes.
+///
+/// A connection wakes the loop at once. A signal or a poll error only ends the
+/// wait early, and the caller then checks its flags and accepts again.
+fn wait_for_connection(listener: &UnixListener, timeout_ms: libc::c_int) {
+    let mut pollfd = libc::pollfd { fd: listener.as_raw_fd(), events: libc::POLLIN, revents: 0 };
+    // SAFETY: `pollfd` is one live, writable `pollfd`, and its descriptor stays
+    // open for the call because `listener` is borrowed.
+    let _ = unsafe { libc::poll(&raw mut pollfd, 1, timeout_ms) };
 }
 
 #[cfg(test)]
@@ -452,6 +467,27 @@ mod tests {
         drop(listener);
         let _ = fs::remove_file(&socket_path);
         let _ = fs::remove_dir(&base_dir);
+    }
+
+    #[test]
+    fn a_pending_connection_ends_the_idle_wait_at_once() {
+        let socket_path = std::path::PathBuf::from(format!("/tmp/rhw-{}-{}.sock", std::process::id(), unique_suffix()));
+        let listener = std::os::unix::net::UnixListener::bind(&socket_path).expect("bind socket");
+        listener.set_nonblocking(true).expect("nonblocking listener");
+        let connect_path = socket_path.clone();
+        let client = thread::spawn(move || {
+            thread::sleep(std::time::Duration::from_millis(50));
+            UnixStream::connect(connect_path).expect("connect")
+        });
+
+        let started = std::time::Instant::now();
+        super::wait_for_connection(&listener, 5_000);
+        let waited = started.elapsed();
+
+        assert!(waited < std::time::Duration::from_secs(1), "waited {waited:?} for a pending connection");
+        listener.accept().expect("the connection is ready after the wait");
+        drop(client.join().expect("client thread"));
+        let _ = fs::remove_file(&socket_path);
     }
 
     fn unique_suffix() -> u128 {
