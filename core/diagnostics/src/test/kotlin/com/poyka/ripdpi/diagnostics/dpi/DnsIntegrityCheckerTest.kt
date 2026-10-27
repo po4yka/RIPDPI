@@ -7,9 +7,11 @@ import com.poyka.ripdpi.diagnostics.dpich.FakeSubnetMetadataLookup
 import com.poyka.ripdpi.diagnostics.dpich.IpRange
 import com.poyka.ripdpi.diagnostics.dpich.SubnetMetadata
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.currentTime
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -42,6 +44,24 @@ class DnsIntegrityCheckerTest {
                 ).check(listOf("blocked.example"))
 
             assertEquals(DnsIntegrityVerdict.UDP_UNAVAILABLE, result.domains.single().verdict)
+        }
+
+    @OptIn(ExperimentalCoroutinesApi::class)
+    @Test
+    fun blackholedUdpIsBoundedPerDomainAndDomainsRunInParallel() =
+        runTest {
+            val domains = List(16) { index -> "d$index.example" }
+
+            val result =
+                checker(
+                    udp = { awaitCancellation() },
+                    dohJson = { setOf("5.6.7.8") },
+                    dohWire = { setOf("5.6.7.8") },
+                ).check(domains)
+
+            assertTrue(result.domains.all { it.verdict == DnsIntegrityVerdict.UDP_UNAVAILABLE })
+            // 16 domains, 8 at a time, 10 s UDP budget each: two rounds, not 16 sequential waits.
+            assertEquals(20_000L, currentTime)
         }
 
     @Test

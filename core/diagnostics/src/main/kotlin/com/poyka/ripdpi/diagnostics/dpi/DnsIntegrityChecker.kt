@@ -6,7 +6,11 @@ import com.poyka.ripdpi.diagnostics.dpich.BootstrapVerdict
 import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapResult
 import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapSpoofingDetector
 import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.sync.Semaphore
+import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withTimeoutOrNull
 
 enum class DnsIntegrityVerdict {
     DNS_OK,
@@ -60,7 +64,15 @@ class DnsIntegrityChecker(
     suspend fun check(domains: List<String>): DnsIntegrityResult {
         val dohBootstrapResults = runDohBootstrapDetector()
         val excludedDohHostnames = dohBootstrapResults.excludedDohHostnames()
-        val results = domains.map { domain -> checkDomain(domain, excludedDohHostnames) }
+        // Domains run in parallel and each UDP leg has a budget: on a network that drops UDP/53 the
+        // sequential 6-server retry loop otherwise took about a minute per domain.
+        val permits = Semaphore(DomainConcurrency)
+        val results =
+            coroutineScope {
+                domains
+                    .map { domain -> async { permits.withPermit { checkDomain(domain, excludedDohHostnames) } } }
+                    .awaitAll()
+            }
         val doqResults = runDoqProbe(domains, results)
         val stubIps =
             results
@@ -104,7 +116,11 @@ class DnsIntegrityChecker(
         excludedDohHostnames: Set<String>,
     ): DnsIntegrityDomainResult =
         coroutineScope {
-            val udp = async { dnsAttempt { udpProbe.response(domain) } }
+            val udp =
+                async {
+                    withTimeoutOrNull(UdpDomainBudgetMs) { dnsAttempt { udpProbe.response(domain) } }
+                        ?: dnsFailure(DnsResponseOutcome.TIMEOUT)
+                }
             val dohJson = async { dnsAttempt { dohJsonProbe.response(domain, excludedDohHostnames) } }
             val dohWire = async { dnsAttempt { dohWireProbe.response(domain, excludedDohHostnames) } }
             classify(domain, udp.await(), dohJson.await(), dohWire.await())
@@ -235,6 +251,8 @@ class DnsIntegrityChecker(
 
     private companion object {
         private const val StubIpMinimumOccurrences = 2
+        private const val DomainConcurrency = 8
+        private const val UdpDomainBudgetMs = 10_000L
     }
 }
 
