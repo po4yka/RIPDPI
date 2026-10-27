@@ -322,7 +322,7 @@ strategies:
 }
 
 #[test]
-fn lua_keeps_active_state_at_capacity_and_reuses_closed_flow_slot() {
+fn lua_evicts_the_oldest_flow_at_capacity_and_passes_it_through() {
     let script = write_lua_script(
         "lua-egress-active-capacity",
         r#"
@@ -344,17 +344,21 @@ end
         assert!(interceptor.handle_packet(&ipv4_tcp_packet(port, 443, b"abc")));
     }
     assert_eq!(interceptor.injector.packets.len(), 1024);
-    assert!(!interceptor.handle_packet(&ipv4_tcp_packet(11_024, 443, b"abc")));
-    assert_eq!(interceptor.injector.packets.len(), 1024);
+    // A new flow at capacity is admitted; the least recently used flow loses its state.
+    assert!(interceptor.handle_packet(&ipv4_tcp_packet(11_024, 443, b"abc")));
+    assert_eq!(packet_payload(interceptor.injector.packets.last().expect("new flow packet")), b"1");
 
-    assert!(interceptor.handle_packet(&ipv4_tcp_packet(10_000, 443, b"abc")));
-    assert_eq!(packet_payload(interceptor.injector.packets.last().expect("first flow packet")), b"2");
+    // The evicted flow is forwarded unchanged instead of restarting its script.
+    assert!(!interceptor.handle_packet(&ipv4_tcp_packet(10_000, 443, b"abc")));
+    assert_eq!(interceptor.injector.packets.len(), 1025);
+    assert!(interceptor.handle_packet(&ipv4_tcp_packet(10_001, 443, b"abc")));
+    assert_eq!(packet_payload(interceptor.injector.packets.last().expect("kept flow packet")), b"2");
 
     let src = SocketAddr::new([10, 0, 0, 2].into(), 10_000);
     let dst = SocketAddr::new([93, 184, 216, 34].into(), 443);
     interceptor.close_flow(TCP_PROTO, src, dst);
-    assert!(interceptor.handle_packet(&ipv4_tcp_packet(11_024, 443, b"abc")));
-    assert_eq!(packet_payload(interceptor.injector.packets.last().expect("new flow packet")), b"1");
+    assert!(interceptor.handle_packet(&ipv4_tcp_packet(10_000, 443, b"abc")));
+    assert_eq!(packet_payload(interceptor.injector.packets.last().expect("reopened flow packet")), b"1");
 }
 
 #[test]
