@@ -2,7 +2,7 @@
 id: TRN-1792981644014401
 title: AWG IPv6 bulk TCP stall and lost UDP echo on the arm64 emulator
 kind: bug
-status: review
+status: done
 area: transport
 priority: high
 owner: Integration owner
@@ -11,8 +11,11 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-10-26
-updated: 2026-10-26
+updated: 2026-10-27
 spec_reason: regression-tested-single-module
+closed_at: "2026-10-27T09:23:21Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Socket buffer fix 6f3446c5b (7 MiB tunnel socket buffers, regression test tunnel_socket_asks_for_buffers_beyond_the_kernel_default) is on origin/main; arm64 emulator: 160/160 sessions at 627f68bfb and 96/96 at ba228c17c with zero lost datagrams and zero RcvbufErrors; hosted CI, CodeQL, fleet-fixtures and Secret Scan passed on 3959b79bdae646fcfe9286f6b28c27df72f9519d (runs 40391039518, 40391039493, 40391039559, 40391039870)."
 ---
 
 ## Goal

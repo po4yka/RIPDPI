@@ -1,0 +1,11 @@
+{
+  "change": "in-app-import-surfaces",
+  "evidence_summary": "Requirements REQ-IMPORT-PARITY/SUBSCRIPTION/CONF/SECRETS passed in local tests; hosted CI, CodeQL, fleet-fixtures and Secret Scan passed on origin/main 3959b79bdae646fcfe9286f6b28c27df72f9519d (runs 40391039518, 40391039493, 40391039559, 40391039870).",
+  "execution_sha256": "e19e3ae8a25481f5f742e18775acdd74b0cf061f88bba8cfa4668c6fccc837c8",
+  "issue_sha256": "319082f48c47e35c2e41f526c0cb287925a89db0aa7885456074a01ef2b41e01",
+  "outcome": "done",
+  "prepared_at": "2026-10-27T09:23:20Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "AND-1792945974437056"
+}

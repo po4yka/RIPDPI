@@ -1,0 +1,11 @@
+{
+  "change": "awg3-native-engine",
+  "evidence_summary": "Client acceptance met on Android arm64 emulator evidence (96/96 sessions at ba228c17c, recorded in core/data/src/test/resources/awg-arm64-emulator-observation.json); shared deployment guard amneziawg-arm64-version-floor.json keeps guard_required true by owner decision #687 (b058531e7); no physical arm64 revalidation done; hosted CI, CodeQL, fleet-fixtures and Secret Scan passed on 3959b79bdae646fcfe9286f6b28c27df72f9519d (runs 40391039518, 40391039493, 40391039559, 40391039870).",
+  "execution_sha256": "df5d156e32f932ae2c43e0648adbf4266f52fffe9254ccd7ad9590dd30c9f206",
+  "issue_sha256": "fa2b49b54f24c6d33a9fdcddf8cac0fcc05fd9741b904e295710d39d65b11f11",
+  "outcome": "done",
+  "prepared_at": "2026-10-27T09:23:20Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TRN-1792949035079937"
+}
