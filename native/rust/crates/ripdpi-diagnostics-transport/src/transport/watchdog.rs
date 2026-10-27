@@ -14,7 +14,8 @@ const POLL_INTERVAL: Duration = Duration::from_millis(50);
 /// body read continue while a peer sends a byte within every timeout. The shutdown makes their
 /// next read or write fail, which bounds the whole operation. `socket` is a clone of the socket
 /// that `operation` uses. The caller decides from the deadline or the flag whether a failure
-/// came from the shutdown. Without a deadline and without a flag, `operation` runs directly.
+/// came from the shutdown. Without a deadline and without a flag, or when the OS refuses the
+/// watchdog thread, `operation` runs directly.
 pub fn run_with_socket_watchdog<T>(socket: TcpStream, cancel: Option<&AtomicBool>, operation: impl FnOnce() -> T) -> T {
     let deadline = active_scan_io_deadline();
     if deadline.is_none() && cancel.is_none() {
@@ -22,22 +23,28 @@ pub fn run_with_socket_watchdog<T>(socket: TcpStream, cancel: Option<&AtomicBool
     }
     let (done_tx, done_rx) = mpsc::channel::<()>();
     std::thread::scope(|scope| {
-        scope.spawn(move || {
-            loop {
-                // Acquire observes the scan owner's published cancellation flag.
-                let cancelled = cancel.is_some_and(|flag| flag.load(Ordering::Acquire));
-                if cancelled || deadline.is_some_and(|value| Instant::now() >= value) {
-                    let _ = socket.shutdown(Shutdown::Both);
-                    return;
+        let watchdog =
+            std::thread::Builder::new().name("ripdpi-socket-watchdog".to_string()).spawn_scoped(scope, move || {
+                loop {
+                    // Acquire observes the scan owner's published cancellation flag.
+                    let cancelled = cancel.is_some_and(|flag| flag.load(Ordering::Acquire));
+                    if cancelled || deadline.is_some_and(|value| Instant::now() >= value) {
+                        let _ = socket.shutdown(Shutdown::Both);
+                        return;
+                    }
+                    let wait = deadline.map_or(POLL_INTERVAL, |value| {
+                        value.saturating_duration_since(Instant::now()).min(POLL_INTERVAL)
+                    });
+                    match done_rx.recv_timeout(wait) {
+                        Ok(()) | Err(RecvTimeoutError::Disconnected) => return,
+                        Err(RecvTimeoutError::Timeout) => {}
+                    }
                 }
-                let wait = deadline
-                    .map_or(POLL_INTERVAL, |value| value.saturating_duration_since(Instant::now()).min(POLL_INTERVAL));
-                match done_rx.recv_timeout(wait) {
-                    Ok(()) | Err(RecvTimeoutError::Disconnected) => return,
-                    Err(RecvTimeoutError::Timeout) => {}
-                }
-            }
-        });
+            });
+        if watchdog.is_err() {
+            // No thread left (EAGAIN): run unbounded rather than panic; socket timeouts still bound each read.
+            return operation();
+        }
         let result = operation();
         let _ = done_tx.send(());
         result
