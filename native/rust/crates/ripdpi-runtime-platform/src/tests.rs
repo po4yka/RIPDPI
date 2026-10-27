@@ -46,6 +46,18 @@ fn ipv4_id_allocator_evicts_least_recently_used_flow_at_capacity() {
 }
 
 #[test]
+fn fragment_identification_never_uses_zero() {
+    let mut allocator = Ipv4IdAllocator::default();
+    let source = SocketAddrV4::new(Ipv4Addr::new(192, 0, 2, 14), 40004);
+    let target = SocketAddrV4::new(Ipv4Addr::new(198, 51, 100, 24), 443);
+    let zero_mode_id = allocator.reserve(source, target, IpIdMode::Zero, 1).into_iter().next();
+
+    assert_eq!(crate::ipv4_ids::fragment_identification(zero_mode_id), None);
+    assert_eq!(crate::ipv4_ids::fragment_identification(Some(7)), Some(7));
+    assert_eq!(crate::ipv4_ids::fragment_identification(None), None);
+}
+
+#[test]
 fn ipv4_id_allocator_zero_returns_zeroes() {
     let source = SocketAddrV4::new(Ipv4Addr::new(192, 0, 2, 12), 40002);
     let target = SocketAddrV4::new(Ipv4Addr::new(198, 51, 100, 22), 443);

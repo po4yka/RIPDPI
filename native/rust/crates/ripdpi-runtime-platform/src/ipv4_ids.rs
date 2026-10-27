@@ -123,6 +123,15 @@ pub(crate) fn reserve_ipv4_identifications(
     allocator.lock().map(|mut guard| guard.reserve(source, target, mode, count)).unwrap_or_default()
 }
 
+/// Returns the ID to put in both IPv4 fragments of one datagram. Zero is not
+/// usable: an `IP_HDRINCL` socket fills a zero ID per packet (raw(7)), so the
+/// two fragments would carry different IDs and never reassemble. `None` lets
+/// the sender derive a nonzero per-datagram ID.
+#[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
+pub(crate) fn fragment_identification(reserved: Option<u16>) -> Option<u16> {
+    reserved.filter(|id| *id != 0)
+}
+
 #[cfg_attr(not(any(target_os = "linux", target_os = "android")), allow(dead_code))]
 pub(crate) fn reserve_stream_ipv4_identifications(
     stream: &TcpStream,

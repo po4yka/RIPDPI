@@ -24,7 +24,7 @@ use ripdpi_config::IpIdMode;
 
 use super::super::TcpFlagOverrides;
 #[cfg(any(target_os = "linux", target_os = "android"))]
-use super::super::ipv4_ids::reserve_stream_ipv4_identifications;
+use super::super::ipv4_ids::{fragment_identification, reserve_stream_ipv4_identifications};
 #[cfg(any(target_os = "linux", target_os = "android"))]
 use super::super::root_helper;
 #[cfg(any(target_os = "linux", target_os = "android"))]
@@ -43,6 +43,7 @@ pub fn send_ip_fragmented_tcp_reserved(
     flags: TcpFlagOverrides,
     ipv4_identification: Option<u16>,
 ) -> io::Result<()> {
+    let ipv4_identification = fragment_identification(ipv4_identification);
     if let Some(result) = root_helper::with_root_helper(|h| {
         let res = h.send_ip_fragmented_tcp(
             stream.as_fd(),
