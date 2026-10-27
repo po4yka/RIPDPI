@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.conflate
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -77,7 +78,10 @@ internal class AndroidNetworkPathValidationSource
                     return@callbackFlow
                 }
 
-                val publishCurrentEvidence = { trySend(captureEvidence()) }
+                // Callbacks and both collectors publish concurrently. Capture and send under one lock
+                // so the last evidence sent is always the last captured, never an older capture.
+                val publishLock = Any()
+                val publishCurrentEvidence = { synchronized(publishLock) { trySend(captureEvidence()) } }
                 val callback =
                     object : ConnectivityManager.NetworkCallback() {
                         override fun onAvailable(network: Network) {
@@ -150,7 +154,8 @@ internal class AndroidNetworkPathValidationSource
                     vpnRouteObserver.cancel()
                     runCatching { connectivityManager.unregisterNetworkCallback(callback) }
                 }
-            }.distinctUntilChanged()
+            }.conflate()
+                .distinctUntilChanged()
 
         private fun captureEvidence(): NetworkPathValidationEvidence =
             captureCurrentPathValidationEvidence(
