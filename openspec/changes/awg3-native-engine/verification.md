@@ -1,13 +1,13 @@
 ---
 task_id: TRN-1792949035079937
 change: awg3-native-engine
-commit_sha: ba228c17c7cfb1f90a09f6af03a1c5837e1a100c
+commit_sha: 3959b79bdae646fcfe9286f6b28c27df72f9519d
 local: passed
 local_evidence: Final fix/awg-s34-floor tree at 50d1fd20493cb3394d81b1a7b92cefb8d5d14b02 plus the evidence-record commit, rebased on origin/main 978201ec17abc556db7968542d6a88cdf150ea4c. Exit 0 for the Gradle gate (:app:testGithubFullDebugUnitTest, :app:lintGithubFullDebug, :core:service:lintDebug, :app:detekt, :app:ktlintCheck and the core data, runtime-state, settings, model, engine-api, engine and service unit tests), cargo test -p ripdpi-warp-core --locked (133 tests), workspace cargo clippy --all-targets --locked -D warnings, cargo fmt --all --check, check_architecture_health --check, check_native_hotspot_budgets, check-translation-export and taskctl validate.
-remote_ci: required
-remote_ci_evidence: Hosted gates on the pushed commit are required.
+remote_ci: passed
+remote_ci_evidence: Hosted runs on origin/main 3959b79bdae646fcfe9286f6b28c27df72f9519d, which contains the integrated AWG 3.x change (socket fix 6f3446c5b, floor lift a59719c98, evidence-tree equivalent 1eb03de33 of ba228c17c), all completed with conclusion success: CI https://github.com/po4yka/RIPDPI/actions/runs/40391039518, CodeQL https://github.com/po4yka/RIPDPI/actions/runs/40391039493, fleet-fixtures https://github.com/po4yka/RIPDPI/actions/runs/40391039559 and Secret Scan https://github.com/po4yka/RIPDPI/actions/runs/40391039870.
 device: passed
-device_evidence: Android arm64 emulator only (API 35 google_apis arm64-v8a image revision 9, pixel_6, emulator 37.2.12.0) against amneziawg-go v3.1.20260828 at ba228c17c (rebased on origin/main 9d6b867f7). Matrix 96/96 sessions (AmneziaVPN 5.x and S3=S4=0 control, 12 each per MTU 1280/1420 and idle/CPU load, 4 MiB TCP and 512 lockstep UDP datagrams per family, matching SHA-256, zero lost datagrams, zero Udp RcvbufErrors). Harness 5.x 8/8 with the wrong-key negative control failing as required. Before the rebase, 627f68bfb passed 160/160 and the harness control 8/8. No physical arm64 device was run.
+device_evidence: Android arm64 emulator only (API 35 google_apis arm64-v8a image revision 9, pixel_6, emulator 37.2.12.0) against amneziawg-go v3.1.20260828 at ba228c17c (rebased on origin/main 9d6b867f7). Matrix 96/96 sessions (AmneziaVPN 5.x and S3=S4=0 control, 12 each per MTU 1280/1420 and idle/CPU load, 4 MiB TCP and 512 lockstep UDP datagrams per family, matching SHA-256, zero lost datagrams, zero Udp RcvbufErrors). Harness 5.x 8/8 with the wrong-key negative control failing as required. Before the rebase, 627f68bfb passed 160/160 and the harness control 8/8. No physical arm64 device was run. The owner approved this emulator gate; the policy fixture records physical_device_revalidated: false. The device evidence commit is ba228c17c7cfb1f90a09f6af03a1c5837e1a100c; its ripdpi-warp-core tree is identical to the integrated 1eb03de33ca20f2caa7666e6a27577b3e44fd7d6.
 artifact: not_applicable
 artifact_evidence: No release artifact is owned by this change.
 deployment: not_applicable

@@ -2,7 +2,7 @@
 id: AND-1792945974437056
 title: Import subscriptions, WireGuard/AmneziaWG configs and AmneziaVPN keys from every in-app surface
 kind: feature
-status: doing
+status: review
 area: android
 priority: high
 owner: Integration owner
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: in-app-import-surfaces
 created: 2026-10-25
-updated: 2026-10-25
+updated: 2026-10-27
 ---
 
 ## Goal
