@@ -11,7 +11,7 @@ use boring::x509::X509;
 use sha2::{Digest, Sha256};
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 use tokio::net::{TcpSocket, TcpStream};
-use tokio::sync::{Mutex, Notify, mpsc, oneshot};
+use tokio::sync::{Mutex, mpsc, oneshot};
 use tokio_boring::SslStream;
 
 use crate::frame::{Command, Frame, FrameError};
@@ -27,7 +27,8 @@ const UDP_OVER_TCP_V2_TARGET: &str = "sp.v2.udp-over-tcp.arpa";
 /// An open that has seen no inbound carrier frame for this long sends a
 /// HeartRequest.
 const CARRIER_PROBE_AFTER: Duration = Duration::from_secs(3);
-/// A carrier that sends no frame this long after a HeartRequest is dead.
+/// An open whose carrier sends no frame this long after a HeartRequest fails,
+/// and the carrier is evicted for new opens.
 const CARRIER_PROBE_TIMEOUT: Duration = Duration::from_secs(5);
 
 /// Open a protected TCP connection to the AnyTLS server.
@@ -193,8 +194,6 @@ struct SessionHandle {
     closing: Arc<AtomicBool>,
     /// Frames the carrier reader received; liveness evidence for opens.
     inbound_frames: Arc<AtomicU64>,
-    /// Ends this carrier's reader and writer.
-    kill: Arc<Notify>,
     tasks: Arc<OwnedTasks>,
 }
 
@@ -207,7 +206,6 @@ impl Clone for SessionHandle {
             settings_sent: Arc::clone(&self.settings_sent),
             closing: Arc::clone(&self.closing),
             inbound_frames: Arc::clone(&self.inbound_frames),
-            kill: Arc::clone(&self.kill),
             tasks: Arc::clone(&self.tasks),
         }
     }
@@ -408,7 +406,7 @@ impl AnyTlsClient {
         };
         if let Err(error) = send_result {
             close_pending_stream(&session, stream_id, false);
-            self.kill_session(&session).await;
+            self.clear_cached_session(&session).await;
             result_tx.send(Err(error)).ok();
             return;
         }
@@ -422,7 +420,7 @@ impl AnyTlsClient {
             result = &mut ack_rx => result,
             () = &mut carrier_dead => {
                 close_pending_stream(&session, stream_id, true);
-                self.kill_session(&session).await;
+                self.clear_cached_session(&session).await;
                 result_tx.send(Err(carrier_unresponsive())).ok();
                 return;
             }
@@ -461,13 +459,6 @@ impl AnyTlsClient {
                 result_tx.send(Err(AnyTlsError::SessionClosed)).ok();
             }
         }
-    }
-
-    /// Ends `session`'s carrier and evicts it, so the next open dials anew.
-    async fn kill_session(&self, session: &SessionHandle) {
-        session.closing.store(true, Ordering::Release);
-        session.kill.notify_one();
-        self.clear_cached_session(session).await;
     }
 
     async fn clear_cached_session(&self, session: &SessionHandle) {
@@ -586,7 +577,6 @@ impl AnyTlsClient {
             settings_sent: Arc::new(Mutex::new(false)),
             closing: Arc::new(AtomicBool::new(false)),
             inbound_frames: Arc::new(AtomicU64::new(0)),
-            kill: Arc::new(Notify::new()),
             tasks: Arc::clone(&self.tasks),
         };
         let state = Arc::downgrade(&self.state);
@@ -596,7 +586,6 @@ impl AnyTlsClient {
             streams,
             closing: Arc::clone(&session.closing),
             inbound_frames: Arc::clone(&session.inbound_frames),
-            kill: Arc::clone(&session.kill),
             tasks: Arc::clone(&self.tasks),
         };
         // Acquire the publication lock before spawning: no await can abandon an
@@ -650,7 +639,10 @@ fn carrier_unresponsive() -> AnyTlsError {
 /// Completes when the carrier of `session` stops responding: no inbound frame
 /// for [`CARRIER_PROBE_AFTER`] and then none for [`CARRIER_PROBE_TIMEOUT`]
 /// after a HeartRequest. A live server answers the request even while it is
-/// still dialing the target of a pending open.
+/// still dialing the target of a pending open. A carrier busy with a large
+/// upload can also miss the deadline (the request waits behind the upload), so
+/// the caller fails only its open and evicts the carrier; streams already on it
+/// keep running.
 ///
 /// # Cancel safety
 ///
@@ -813,7 +805,6 @@ struct SessionWorker {
     streams: Arc<StdMutex<HashMap<u32, StreamRoute>>>,
     closing: Arc<AtomicBool>,
     inbound_frames: Arc<AtomicU64>,
-    kill: Arc<Notify>,
     tasks: Arc<OwnedTasks>,
 }
 impl Drop for SessionWorker {
@@ -929,7 +920,7 @@ async fn run_session<S>(
             }
         }
     };
-    let session_result = supervise_session_io(reader, writer, &lifetime.kill).await;
+    let session_result = supervise_session_io(reader, writer).await;
     closing.store(true, Ordering::Release);
     if let Some(client_state) = client_state.upgrade() {
         let mut state = client_state.lock().await;
@@ -942,7 +933,7 @@ async fn run_session<S>(
     }
 }
 
-async fn supervise_session_io<R, W>(reader: R, writer: W, kill: &Notify) -> Result<(), AnyTlsError>
+async fn supervise_session_io<R, W>(reader: R, writer: W) -> Result<(), AnyTlsError>
 where
     R: Future<Output = Result<(), AnyTlsError>>,
     W: Future<Output = Result<(), AnyTlsError>>,
@@ -950,7 +941,6 @@ where
     tokio::pin!(reader);
     tokio::pin!(writer);
     tokio::select! {
-        () = kill.notified() => Err(carrier_unresponsive()),
         result = &mut reader => result,
         result = &mut writer => match result {
             Ok(()) => Err(AnyTlsError::SessionClosed),
@@ -1104,7 +1094,6 @@ mod session_cache_tests {
             settings_sent: Arc::new(Mutex::new(false)),
             closing: Arc::new(AtomicBool::new(false)),
             inbound_frames: Arc::new(std::sync::atomic::AtomicU64::new(0)),
-            kill: Arc::new(tokio::sync::Notify::new()),
             tasks: Arc::clone(&client.tasks),
         });
 
@@ -1176,7 +1165,6 @@ mod session_cache_tests {
             settings_sent: Arc::new(Mutex::new(false)),
             closing: Arc::new(AtomicBool::new(false)),
             inbound_frames: Arc::new(std::sync::atomic::AtomicU64::new(0)),
-            kill: Arc::new(tokio::sync::Notify::new()),
             tasks: Arc::clone(&client.tasks),
         });
         let caller = client.clone();
@@ -1260,12 +1248,10 @@ mod session_cache_tests {
         let reader = std::future::pending::<Result<(), super::AnyTlsError>>();
         let writer = std::future::ready(Err(super::AnyTlsError::Io("writer failed".to_owned())));
 
-        let kill = tokio::sync::Notify::new();
-        let result =
-            tokio::time::timeout(Duration::from_millis(100), super::supervise_session_io(reader, writer, &kill))
-                .await
-                .expect("writer failure must terminate supervision")
-                .expect_err("writer failure must close the session");
+        let result = tokio::time::timeout(Duration::from_millis(100), super::supervise_session_io(reader, writer))
+            .await
+            .expect("writer failure must terminate supervision")
+            .expect_err("writer failure must close the session");
 
         assert!(matches!(result, super::AnyTlsError::Io(error) if error == "writer failed"));
     }

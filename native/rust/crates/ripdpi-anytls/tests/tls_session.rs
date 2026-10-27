@@ -186,6 +186,74 @@ async fn open_on_a_silent_carrier_fails_and_evicts_it() {
     reopening.abort();
 }
 
+/// Forwards one carrier connection to `upstream`; while the flag is set, bytes
+/// from the server are held back, as on a path whose downlink goes quiet.
+async fn freezable_forwarder(upstream: u16) -> (u16, std::sync::Arc<std::sync::atomic::AtomicBool>) {
+    use std::sync::atomic::{AtomicBool, Ordering};
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let listener = tokio::net::TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind forwarder");
+    let port = listener.local_addr().expect("forwarder address").port();
+    let frozen = std::sync::Arc::new(AtomicBool::new(false));
+    let flag = std::sync::Arc::clone(&frozen);
+    tokio::spawn(async move {
+        let (client, _) = listener.accept().await.expect("accept carrier");
+        let server = tokio::net::TcpStream::connect((Ipv4Addr::LOCALHOST, upstream)).await.expect("connect fixture");
+        let (mut client_read, mut client_write) = client.into_split();
+        let (mut server_read, mut server_write) = server.into_split();
+        tokio::spawn(async move { tokio::io::copy(&mut client_read, &mut server_write).await.ok() });
+        let mut buffer = [0; 16 * 1024];
+        while let Ok(read @ 1..) = server_read.read(&mut buffer).await {
+            while flag.load(Ordering::Acquire) {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+            if client_write.write_all(&buffer[..read]).await.is_err() {
+                return;
+            }
+        }
+    });
+    (port, frozen)
+}
+
+/// An open that times out while the downlink is quiet (here: an upload that
+/// the server does not answer yet) fails alone; the carrier's live stream
+/// keeps its data. Fewer than 32 chunks, so the echo burst fits the stream
+/// mailbox.
+#[tokio::test]
+async fn open_timeout_during_an_upload_keeps_the_uploading_stream() {
+    use std::sync::atomic::Ordering;
+    let fixture = AnyTlsLoopback::start("fixture-password", AnyTlsLoopbackConfig::default()).await.expect("fixture");
+    let (port, frozen) = freezable_forwarder(fixture.port()).await;
+    let client =
+        AnyTlsClient::new(AnyTlsClientConfig { server_port: port, ..client_config(&fixture, "fixture-password") })
+            .expect("client");
+    let mut upload =
+        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()).await.expect("open upload");
+
+    frozen.store(true, Ordering::Release);
+    let uploader = tokio::spawn(async move {
+        for _ in 0..20 {
+            upload.write_all(&[7; 1024]).await.expect("upload chunk");
+            tokio::time::sleep(Duration::from_millis(400)).await;
+        }
+        upload
+    });
+    let second = tokio::time::timeout(
+        Duration::from_secs(15),
+        client.open_tcp(TargetAddr::Ipv4(Ipv4Addr::LOCALHOST), fixture.target_port()),
+    )
+    .await
+    .expect("the open must not wait for the caller deadline");
+    assert!(second.is_err(), "the open on a quiet carrier fails");
+
+    let mut upload = uploader.await.expect("uploader");
+    frozen.store(false, Ordering::Release);
+    let echoed = tokio::time::timeout(Duration::from_secs(5), upload.read_exact_len(20 * 1024))
+        .await
+        .expect("echo deadline")
+        .expect("the uploading stream survives the failed open");
+    assert!(echoed.iter().all(|byte| *byte == 7));
+}
+
 #[tokio::test]
 async fn cancelling_open_closes_only_its_pending_stream() {
     let fixture = AnyTlsLoopback::start(
