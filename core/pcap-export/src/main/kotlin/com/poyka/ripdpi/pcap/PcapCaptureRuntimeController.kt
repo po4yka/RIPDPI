@@ -107,7 +107,9 @@ class PcapCaptureRuntimeController
             withContext(NonCancellable) {
                 mutex.withLock {
                     if (activeBridge === bridge) {
-                        stopLocked(bridge)
+                        val stopped = stopLocked(bridge)
+                        // StopFailed keeps the lease for a retry, but this bridge is about to be destroyed.
+                        if (stopped is PcapCaptureRuntimeState.StopFailed) retireFailedStopLocked(stopped)
                     }
                     if (boundBridge === bridge) {
                         boundBridge = null
@@ -242,6 +244,17 @@ class PcapCaptureRuntimeController
             } else {
                 PcapCaptureRuntimeState.StopFailed(captureSetId, failureCode).also { mutableState.value = it }
             }
+        }
+
+        private fun retireFailedStopLocked(stopped: PcapCaptureRuntimeState.StopFailed) {
+            activeBridge = null
+            activeCaptureSetId = null
+            publishTerminalLocked(
+                PcapCaptureRuntimeState.Failed(
+                    receipt = PcapCaptureCompletionReceipt(stopped.captureSetId, null, PcapCaptureOutcome.Failed),
+                    code = stopped.code,
+                ),
+            )
         }
 
         private fun failLocked(code: String): PcapCaptureRuntimeState.Failed =

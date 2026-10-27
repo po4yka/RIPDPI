@@ -144,6 +144,30 @@ class PcapCaptureRuntimeControllerTest {
         }
 
     @Test
+    fun `retiring a tunnel whose stop throws finalizes capture so the next tunnel can bind`() =
+        runTest {
+            val retired = FakeTunnelBridge(handle = 41L)
+            val controller =
+                PcapCaptureRuntimeController(
+                    startCapture = { 7L },
+                    stopCapture = { throw IllegalStateException("native panic in pcap stop") },
+                )
+            controller.bindTunnel(retired)
+            controller.start()
+
+            controller.retireTunnel(retired)
+            controller.bindTunnel(FakeTunnelBridge(handle = 42L))
+
+            assertEquals(
+                PcapCaptureRuntimeState.Failed(
+                    receipt = PcapCaptureCompletionReceipt(7L, null, PcapCaptureOutcome.Failed),
+                    code = "stop_failed",
+                ),
+                controller.state.value,
+            )
+        }
+
+    @Test
     fun `stop failure preserves its capture lease for retry`() =
         runTest {
             val controller =
