@@ -5,6 +5,7 @@ use std::time::Duration;
 
 use tokio::io::copy_bidirectional;
 use tokio::net::{TcpListener, TcpStream};
+use tokio::sync::Semaphore;
 use tokio::time::Instant;
 
 use crate::config::NaiveProxyConfig;
@@ -60,15 +61,74 @@ pub(crate) async fn run(config: NaiveProxyConfig) -> io::Result<()> {
     serve_listener(listener, Arc::new(config)).await
 }
 
+/// Most client connections served at once; each holds a client socket and an
+/// upstream TCP/TLS/H2 connection. Further clients wait in the listen backlog.
+const MAX_CONCURRENT_TUNNELS: usize = 256;
+/// Pause after an accept failure caused by resource exhaustion.
+const ACCEPT_RETRY_DELAY: Duration = Duration::from_secs(1);
+
+#[cfg(any(target_os = "linux", target_os = "android"))]
+const ENOBUFS: i32 = 105;
+#[cfg(not(any(target_os = "linux", target_os = "android")))]
+const ENOBUFS: i32 = 55;
+const ENOMEM: i32 = 12;
+const ENFILE: i32 = 23;
+const EMFILE: i32 = 24;
+
 pub(crate) async fn serve_listener(listener: TcpListener, config: Arc<NaiveProxyConfig>) -> io::Result<()> {
+    serve_listener_with_limit(listener, config, MAX_CONCURRENT_TUNNELS).await
+}
+
+/// Serves at most `limit` clients at once. An accept failure of one pending
+/// connection or a resource shortage does not end the helper.
+///
+/// # Cancel safety
+///
+/// cancel-safe: dropping it stops accepting; spawned client tasks run on.
+async fn serve_listener_with_limit(
+    listener: TcpListener,
+    config: Arc<NaiveProxyConfig>,
+    limit: usize,
+) -> io::Result<()> {
+    let permits = Arc::new(Semaphore::new(limit));
     loop {
-        let (socket, _) = listener.accept().await?;
+        let permit = Arc::clone(&permits).acquire_owned().await.map_err(io::Error::other)?;
+        let socket = match listener.accept().await {
+            Ok((socket, _)) => socket,
+            Err(error) => match accept_retry_delay(&error) {
+                Some(delay) => {
+                    if !delay.is_zero() {
+                        eprintln!("naiveproxy accept paused: resources exhausted");
+                    }
+                    tokio::time::sleep(delay).await;
+                    continue;
+                }
+                None => return Err(error),
+            },
+        };
         let config = Arc::clone(&config);
         tokio::spawn(async move {
+            let _permit = permit;
             if let Err(error) = handle_client(socket, config).await {
                 eprintln!("{}", connection_failure_line(&error));
             }
         });
+    }
+}
+
+/// How long to wait before the next accept after `error`, or `None` when the
+/// listener itself is broken. A connection that died in the backlog is
+/// skipped at once; a descriptor or memory shortage is retried after
+/// [`ACCEPT_RETRY_DELAY`], as upstream does.
+fn accept_retry_delay(error: &io::Error) -> Option<Duration> {
+    match error.kind() {
+        io::ErrorKind::ConnectionAborted
+        | io::ErrorKind::ConnectionReset
+        | io::ErrorKind::Interrupted
+        | io::ErrorKind::WouldBlock => Some(Duration::ZERO),
+        io::ErrorKind::OutOfMemory => Some(ACCEPT_RETRY_DELAY),
+        _ if matches!(error.raw_os_error(), Some(EMFILE | ENFILE | ENOMEM | ENOBUFS)) => Some(ACCEPT_RETRY_DELAY),
+        _ => None,
     }
 }
 
@@ -127,4 +187,55 @@ async fn handle_http_front_client(
     let mut upstream = upstream;
     let _ = copy_bidirectional(&mut client, &mut upstream).await?;
     Ok(())
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+
+    #[test]
+    fn accept_failures_of_one_connection_or_resources_do_not_end_the_listener() {
+        for raw in [EMFILE, ENFILE, ENOMEM, ENOBUFS] {
+            assert_eq!(accept_retry_delay(&io::Error::from_raw_os_error(raw)), Some(ACCEPT_RETRY_DELAY), "{raw}");
+        }
+        let aborted = io::Error::from(io::ErrorKind::ConnectionAborted);
+        assert_eq!(accept_retry_delay(&aborted), Some(Duration::ZERO));
+        assert_eq!(accept_retry_delay(&io::Error::from(io::ErrorKind::InvalidInput)), None);
+    }
+
+    #[tokio::test]
+    async fn clients_past_the_limit_wait_for_a_free_slot() {
+        let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
+        let address = listener.local_addr().expect("address");
+        let config = NaiveProxyConfig {
+            listen: address.to_string(),
+            server: "proxy.example".to_owned(),
+            server_port: 443,
+            server_name: "proxy.example".to_owned(),
+            username: None,
+            password: None,
+            path: None,
+            tls_config: crate::tls::default_tls_config(),
+            protect_socket_path: None,
+        };
+        let server = tokio::spawn(serve_listener_with_limit(listener, Arc::new(config), 1));
+
+        let first = TcpStream::connect(address).await.expect("first client");
+        tokio::time::sleep(Duration::from_millis(100)).await;
+        let mut second = TcpStream::connect(address).await.expect("second client");
+        second.write_all(&[0x05, 0x01, 0x00]).await.expect("greeting");
+        let mut reply = [0_u8; 2];
+        assert!(
+            tokio::time::timeout(Duration::from_millis(300), second.read_exact(&mut reply)).await.is_err(),
+            "the second client waits while the only slot is taken"
+        );
+        drop(first);
+        tokio::time::timeout(Duration::from_secs(2), second.read_exact(&mut reply))
+            .await
+            .expect("the second client is served once the slot frees")
+            .expect("reply");
+        assert_eq!(reply, [0x05, 0x00]);
+        server.abort();
+    }
 }
