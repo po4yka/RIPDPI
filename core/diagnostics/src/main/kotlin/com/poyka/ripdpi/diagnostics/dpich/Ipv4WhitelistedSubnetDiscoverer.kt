@@ -102,16 +102,24 @@ class OkHttpSubnetAliveProbe(
                 client.newCall(request).execute().use {
                     SubnetAliveProbeResult.Alive
                 }
-            } catch (_: javax.net.ssl.SSLProtocolException) {
-                SubnetAliveProbeResult.TlsPostHandshakeFailure
-            } catch (_: javax.net.ssl.SSLPeerUnverifiedException) {
-                SubnetAliveProbeResult.TlsPostHandshakeFailure
-            } catch (_: javax.net.ssl.SSLHandshakeException) {
-                SubnetAliveProbeResult.TlsPostHandshakeFailure
-            } catch (_: IOException) {
-                SubnetAliveProbeResult.Unreachable
+            } catch (error: IOException) {
+                classifyProbeFailure(error)
             }
         }
+}
+
+// Some JDKs report a handshake read timeout as an SSLException; a silent peer is unreachable, not a TLS failure.
+private fun classifyProbeFailure(error: IOException): SubnetAliveProbeResult {
+    val timedOut = generateSequence<Throwable>(error) { it.cause }.any { it is java.io.InterruptedIOException }
+    return when {
+        timedOut -> SubnetAliveProbeResult.Unreachable
+
+        error is javax.net.ssl.SSLProtocolException ||
+            error is javax.net.ssl.SSLPeerUnverifiedException ||
+            error is javax.net.ssl.SSLHandshakeException -> SubnetAliveProbeResult.TlsPostHandshakeFailure
+
+        else -> SubnetAliveProbeResult.Unreachable
+    }
 }
 
 enum class SubnetAliveProbeResult {
