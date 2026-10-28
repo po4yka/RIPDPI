@@ -82,9 +82,9 @@ my-new-job:
 
 ## CodeQL Workflow (`codeql.yml`)
 
-- Current scope is only `language: actions`.
-- Kotlin/Java analysis remains disabled; re-check the current workflow comment and active Kotlin version before changing that decision.
-- If re-enabling Kotlin analysis, restore explicit Android/JDK build steps rather than assuming the default CodeQL autobuild is enough.
+- The matrix analyzes `actions` and `rust` with `build-mode: none` and `java-kotlin` with `build-mode: manual`.
+- The `java-kotlin` lane compiles every Kotlin module with an in-process Kotlin compiler and no build cache, so the CodeQL tracer sees each compilation. Do not replace it with autobuild.
+- Before a Kotlin bump, make sure that the pinned CodeQL bundle supports the new compiler version.
 
 ## Release Workflows (`release-candidate.yml`, `release.yml`)
 
@@ -109,7 +109,7 @@ This skill owns CI job authoring, not the release contract. For signing, R8 keep
 | Using outdated action versions from old workflow snippets | Copy the exact pinned SHA and version comment from the nearest current workflow job |
 | Forgetting schedule/manual gating on soak or load jobs | Mirror the existing `schedule || workflow_dispatch` pattern |
 | Uploading artifacts only on success | Use `if: always()` so failure artifacts are preserved |
-| Treating CodeQL as if Kotlin were enabled | The current workflow analyzes only GitHub Actions files |
+| Letting the Gradle build cache or Kotlin daemon serve the CodeQL compile | Keep `--no-build-cache` and `kotlin.compiler.execution.strategy=in-process`, or CodeQL extracts no Kotlin |
 | Hand-rolling emulator setup for instrumented tests | Use the Gradle Managed Device pattern (`RipDpiManagedDevices.kt` + a `<device>...AndroidTest` task); reserve `scripts/ci/start-android-emulator.sh` for the journeys/relay/network-e2e lanes |
 
 ## See Also
