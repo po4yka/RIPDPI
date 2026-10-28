@@ -144,13 +144,14 @@ class ReleaseP1ContractsTest(unittest.TestCase):
         self.assertGreaterEqual(
             release_workflow.count("verify_remote_release_tag.py"), 3
         )
-        self.assertIn("releases/generate-notes", release_workflow)
+        self.assertNotIn("releases/generate-notes", release_workflow)
+        self.assertIn("release-notes.md", release_workflow)
         self.assertIn("release_dossier.py", release_workflow)
         self.assertIn("verify_release_draft.py", release_workflow)
         self.assertIn("body_path: publish/release-notes.md", release_workflow)
         self.assertNotIn("generate_release_notes: true", release_workflow)
         self.assertLess(
-            release_workflow.index("releases/generate-notes"),
+            release_workflow.index("release-notes.md"),
             release_workflow.index("environment: release-publish"),
         )
 
