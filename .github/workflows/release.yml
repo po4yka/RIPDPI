@@ -152,11 +152,10 @@ jobs:
           cp "$RUNNER_TEMP/android-bom.json" "$RUNNER_TEMP/rust-bom.json" "$publish/"
           cp "$candidate/candidate-manifest.json" "$publish/"
           cp "$RUNNER_TEMP/candidate-attestation/candidate-attestation.json" "$publish/"
-          gh api --method POST \
-            "repos/$GITHUB_REPOSITORY/releases/generate-notes" \
-            -f tag_name="$GITHUB_REF_NAME" \
-            -f target_commitish="$GITHUB_SHA" \
-            --jq .body > "$publish/release-notes.md"
+          # The generate-notes API needs write access, which only the publish job holds.
+          previous_tag="$(gh api "repos/$GITHUB_REPOSITORY/releases/latest" --jq .tag_name)"
+          printf 'Full changelog: https://github.com/%s/compare/%s...%s\n' \
+            "$GITHUB_REPOSITORY" "$previous_tag" "$GITHUB_REF_NAME" > "$publish/release-notes.md"
           test -s "$publish/release-notes.md"
           waiver_args=()
           if [[ -n "$RELEASE_WAIVERS" ]]; then
