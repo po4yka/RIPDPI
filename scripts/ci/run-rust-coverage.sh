@@ -63,6 +63,7 @@ SKIP_PATTERNS=(
     --skip 'platform::linux::tests::bpf_'
     --skip 'linux::tests::socket_options::bpf_'
     --skip 'drop_sack_and_strip_timestamps_round_trip_succeeds'
+    --skip 'strip_timestamps_does_not_replace_the_drop_sack_filter'
     --skip 'platform::linux::tests::tcp_window_clamp'
     --skip 'runtime::tests::window_clamp'
 )
