@@ -18,6 +18,8 @@ internal fun rememberSettingsScreenLocalState(uiState: SettingsUiState): Setting
     var showResetConfirmDialog by rememberSaveable { mutableStateOf(false) }
     var showBiometricConfirmDialog by rememberSaveable { mutableStateOf(false) }
     var showPinRequiredDialog by rememberSaveable { mutableStateOf(false) }
+    // The PIN-required dialog asks for a PIN, so the editor must stay reachable after it.
+    var backupPinRequested by rememberSaveable { mutableStateOf(false) }
     var backupPinDraft by remember { mutableStateOf("") }
     var communityApiUrlDraft by rememberSaveable(uiState.communityApiUrl) {
         mutableStateOf(uiState.communityApiUrl)
@@ -39,7 +41,10 @@ internal fun rememberSettingsScreenLocalState(uiState: SettingsUiState): Setting
         showBiometricConfirmDialog = showBiometricConfirmDialog,
         onShowBiometricConfirmDialogChanged = { showBiometricConfirmDialog = it },
         showPinRequiredDialog = showPinRequiredDialog,
-        onShowPinRequiredDialogChanged = { showPinRequiredDialog = it },
+        onShowPinRequiredDialogChanged = { show ->
+            showPinRequiredDialog = show
+            if (show) backupPinRequested = true
+        },
         backupPinDraft = backupPinDraft,
         onBackupPinDraftChanged = { next ->
             backupPinDraft = next.filter(Char::isDigit).take(BackupPinLength)
@@ -47,7 +52,8 @@ internal fun rememberSettingsScreenLocalState(uiState: SettingsUiState): Setting
         onBackupPinDraftCleared = { backupPinDraft = "" },
         pinErrorText = pinErrorText,
         canSaveBackupPin = backupPinDraft.length == BackupPinLength,
-        showBackupPinEditor = uiState.biometricEnabled || uiState.hasBackupPin || backupPinDraft.isNotBlank(),
+        showBackupPinEditor =
+            uiState.biometricEnabled || uiState.hasBackupPin || backupPinRequested || backupPinDraft.isNotBlank(),
         communityApiUrlDraft = communityApiUrlDraft,
         onCommunityApiUrlDraftChanged = { communityApiUrlDraft = it },
     )
