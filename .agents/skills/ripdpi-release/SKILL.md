@@ -1,7 +1,6 @@
 ---
 name: ripdpi-release
 description: Explicit request only -- never invoke implicitly, never expose signing secrets. Prepares and publishes one exact-SHA RIPDPI release via the release contract. Use when asked to prepare or publish a version.
-disable-model-invocation: true
 ---
 
 # RIPDPI Release
