@@ -856,8 +856,13 @@ private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostCon
     addImportRoutes(navController)
 }
 
+// Callers leave a finished flow (an import, a launch request), so its screens are dropped,
+// not saved. The tab save/restore options are ignored when a plainly pushed screen is on top.
 internal fun NavHostController.navigateHome() {
-    navigateTopLevel(Route.Home)
+    navigate(Route.Home) {
+        launchSingleTop = true
+        popUpTo<Route.Home>()
+    }
 }
 
 private fun NavHostController.navigateTopLevel(destination: Route) {
