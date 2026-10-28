@@ -337,6 +337,71 @@ class HomeCompositeStageExecutorResumePolicyTest {
                     .status,
             )
         }
+
+    @Test
+    fun `stage that fails before its deadline is not reported as timed out`() =
+        runTest {
+            val stores = FakeDiagnosticsHistoryStores()
+            val json = diagnosticsTestJson()
+            val spec = HomeCompositeStageSpec("in-path", "In path", "in-path-profile", ScanPathMode.IN_PATH)
+            val progress = MutableStateFlow(mapOf("run" to pendingProgress(spec)))
+            val stateStore = FakeServiceStateStore(AppStatus.Running to Mode.VPN)
+            val cancelledSessionIds = mutableListOf<String>()
+            val controller =
+                object : RuntimeUnavailableController() {
+                    override suspend fun startScanOwnedBy(
+                        ownerId: String,
+                        pathMode: ScanPathMode,
+                        selectedProfileId: String?,
+                        skipActiveScanCheck: Boolean,
+                        allowSensitiveProfileStart: Boolean,
+                        scanDeadlineMs: Long?,
+                        maxCandidates: Int?,
+                        targetOverrides: DiagnosticsScanTargetOverrides?,
+                        resumeRuntimeAfterRawPath: Boolean,
+                    ): DiagnosticsManualScanStartResult = DiagnosticsManualScanStartResult.Started("session-in-path")
+
+                    override suspend fun cancelScan(sessionId: String) {
+                        cancelledSessionIds += sessionId
+                    }
+                }
+            val executor =
+                HomeCompositeStageExecutor(
+                    diagnosticsScanController = controller,
+                    diagnosticsTimelineSource = timelineSource(stores, json, backgroundScope),
+                    serviceStateStore = stateStore,
+                    runtimeCoordinator =
+                        FakeDiagnosticsRuntimeCoordinator(
+                            DiagnosticsInPathRouteLease(
+                                runtimeId = "vpn-runtime",
+                                routeGeneration = 1,
+                                issuedRevision = 1L,
+                                host = "127.0.0.1",
+                                port = 19080,
+                                credentials = DiagnosticsProxyCredentials("diagnostics", "bounded-secret"),
+                            ),
+                        ),
+                    homeRunLease = DiagnosticsHomeRunLease(),
+                )
+            val executing =
+                async {
+                    executor.executeStageWithTimeout("run", 0, spec, progress)
+                }
+            runCurrent()
+
+            stateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            val result = executing.await()
+
+            val stage =
+                progress.value
+                    .getValue("run")
+                    .stages
+                    .single()
+            assertEquals(
+                listOf(null, "In path failed", listOf("session-in-path")),
+                listOf(result, stage.headline, cancelledSessionIds),
+            )
+        }
 }
 
 private fun timelineSource(

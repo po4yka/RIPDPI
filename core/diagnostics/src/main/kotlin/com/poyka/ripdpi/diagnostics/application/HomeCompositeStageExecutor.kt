@@ -414,9 +414,13 @@ internal class HomeCompositeStageExecutor
                         targetOverrides = targetOverrides,
                     ) ?: return@run null
 
-                withTimeoutOrNull(stageTimeoutMs(spec, quickScan)) {
-                    awaitStageSignal(runId, stageIndex, spec, stageSessionId, progressState)
-                } ?: handleTimedOutStage(
+                // A stage that settles as failed also yields null; only a missing settlement is a timeout.
+                val settlement =
+                    withTimeoutOrNull(stageTimeoutMs(spec, quickScan)) {
+                        StageSettlement(awaitStageSignal(runId, stageIndex, spec, stageSessionId, progressState))
+                    }
+                settlement?.let { return@run it.result }
+                handleTimedOutStage(
                     runId = runId,
                     stageIndex = stageIndex,
                     spec = spec,
@@ -577,6 +581,10 @@ internal class HomeCompositeStageExecutor
             }
         }
     }
+
+private class StageSettlement(
+    val result: Pair<String, DiagnosticScanSession>?,
+)
 
 private object UnavailableInPathRuntimeCoordinator : DiagnosticsRuntimeCoordinator {
     override suspend fun acquireInPathRouteLease(): InPathRouteLeaseAcquisition =
