@@ -2,26 +2,26 @@
   "schemaVersion": 1,
   "description": "Per-release review of resolved RIPDPI Android application IDs against package-based circumvention-tool detection. A current exact catalog non-match is not treated as hidden identity: recognizable package tokens remain targetable through explicit Android package-visibility queries.",
   "reviewedRelease": {
-    "versionName": "0.1.4",
-    "versionCode": 12,
-    "reviewedAt": "2026-07-27"
+    "versionName": "0.2.0",
+    "versionCode": 13,
+    "reviewedAt": "2026-10-28"
   },
   "sources": [
     {
       "id": "app-level-vpn-detection",
       "repository": "censorship-bypass",
       "path": "wikis/mobile-platform-enforcement/wiki/concepts/app-level-vpn-detection.md",
-      "revision": "f3afdf4ec6567a1ef296972659ea2fc73f15e6b6",
-      "contentSha1": "590b5e6229ff7262b1031c4df9e240d0fd0a5eab",
-      "reviewedAt": "2026-07-27"
+      "revision": "32e937f5726a6c99944a074459cf2c39db01045c",
+      "contentSha1": "12f20edad10ce72641ec1d5e1ce1abbb8fa03c73",
+      "reviewedAt": "2026-10-28"
     },
     {
       "id": "mintsifry-vpn-detection-methodology",
       "repository": "censorship-bypass",
       "path": "wikis/mobile-platform-enforcement/wiki/concepts/mintsifry-vpn-detection-methodology.md",
-      "revision": "ccc2eb2d9a22db12aa547f28131ce3defc2f5384",
-      "contentSha1": "ce98242d0ca0e2c06ef58fee1adb23dbca199c69",
-      "reviewedAt": "2026-07-27"
+      "revision": "32e937f5726a6c99944a074459cf2c39db01045c",
+      "contentSha1": "7913ec680399d443ee3423bf3f644ce5ad469035",
+      "reviewedAt": "2026-10-28"
     },
     {
       "id": "rknhardering-vpn-app-catalog",
@@ -29,7 +29,7 @@
       "path": "app/src/main/java/com/notcvnt/rknhardering/vpn/VpnAppCatalog.kt",
       "revision": "49ed2d9c2ce0c35e5568993346635c60be2aef7f",
       "contentSha1": "451b7bdc63597249a27f2a37adc12d3f6c79cbd5",
-      "reviewedAt": "2026-07-27"
+      "reviewedAt": "2026-10-28"
     }
   ],
   "catalog": {
@@ -134,7 +134,7 @@
     "action": "retain-stable-id",
     "status": "approved",
     "reviewer": "RIPDPI release maintainers",
-    "approvedAt": "2026-07-27",
-    "rationale": "Retain the published application ID and signing continuity because the refreshed 34-package catalog has no exact RIPDPI match. Treat the recognizable RIPDPI and DPI tokens as exposed; the newly reviewed RuStore trust-anchor material does not change package identity matching, and the decision remains subject to review on every release or catalog change."
+    "approvedAt": "2026-10-28",
+    "rationale": "Retain the published application ID and signing continuity because the 34-package catalog is unchanged since the previous review (RKNHardering catalog blob identical) and has no exact RIPDPI match. The two wiki sources were rewritten on 2026-10-10 without package-identity changes. Treat the recognizable RIPDPI and DPI tokens as exposed; the newly reviewed RuStore trust-anchor material does not change package identity matching, and the decision remains subject to review on every release or catalog change."
   }
 }
