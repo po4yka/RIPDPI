@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.data.WarpEndpointCacheEntry
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.net.InetAddress
 import java.util.concurrent.CountDownLatch
@@ -31,6 +32,8 @@ class WarpCandidatePoolLookupTest {
             val lookups = AtomicInteger()
             // A resolver on a network that drops DNS: the call blocks and ignores cancellation.
             val resolverHeld = CountDownLatch(1)
+            // The lookup runs detached on a real thread while runTest skips the timeout in virtual time.
+            val lookupStarted = CountDownLatch(1)
             try {
                 val pool =
                     buildPreferredWarpCandidatePool(
@@ -39,11 +42,13 @@ class WarpCandidatePoolLookupTest {
                         provisioned = null,
                         lookupHost = {
                             lookups.incrementAndGet()
+                            lookupStarted.countDown()
                             resolverHeld.await(30, TimeUnit.SECONDS)
                             emptyList<InetAddress>()
                         },
                     )
 
+                assertTrue(lookupStarted.await(10, TimeUnit.SECONDS))
                 assertEquals(1, lookups.get())
                 assertEquals(
                     listOf("162.159.192.1", "162.159.192.2", "162.159.192.3"),
