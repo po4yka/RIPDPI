@@ -24,8 +24,13 @@ def validate_rulesets(payload: Any) -> None:
         raise ValueError("candidate-attempt ruleset must target tags")
     if ruleset.get("enforcement") != "active":
         raise ValueError("candidate-attempt tag ruleset must be active")
-    if ruleset.get("bypass_actors") != []:
-        raise ValueError("candidate-attempt tag ruleset must not have bypass actors")
+    if "bypass_actors" in ruleset:
+        if ruleset["bypass_actors"] != []:
+            raise ValueError("candidate-attempt tag ruleset must not have bypass actors")
+    elif ruleset.get("current_user_can_bypass") != "never":
+        # GitHub hides bypass_actors from tokens without admin access; the caller's own
+        # bypass status is the strongest signal left for the workflow token.
+        raise ValueError("candidate-attempt tag ruleset bypass actors are not verifiable")
     ref_condition = ruleset.get("conditions", {}).get("ref_name", {})
     if ref_condition.get("include") != [REF_PATTERN] or ref_condition.get("exclude") != []:
         raise ValueError("candidate-attempt tag ruleset ref condition must be exact")

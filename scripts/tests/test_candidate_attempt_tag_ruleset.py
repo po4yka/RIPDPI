@@ -28,12 +28,20 @@ class CandidateAttemptTagRulesetTest(unittest.TestCase):
     def test_accepts_active_exact_immutable_ruleset(self) -> None:
         validate_rulesets([ruleset()])
 
+    def test_accepts_hidden_bypass_actors_when_caller_cannot_bypass(self) -> None:
+        hidden = ruleset(current_user_can_bypass="never")
+        del hidden["bypass_actors"]
+        validate_rulesets([hidden])
+
     def test_rejects_missing_pattern_bypass_and_missing_protection(self) -> None:
         missing_bypass = ruleset()
         del missing_bypass["bypass_actors"]
+        bypassable = ruleset(current_user_can_bypass="always")
+        del bypassable["bypass_actors"]
         cases = (
             [],
             [missing_bypass],
+            [bypassable],
             [ruleset(bypass_actors=[{"actor_id": 1}])],
             [ruleset(bypass_actors=None)],
             [ruleset(bypass_actors={})],
