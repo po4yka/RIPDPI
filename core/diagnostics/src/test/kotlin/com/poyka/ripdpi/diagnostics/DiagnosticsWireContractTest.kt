@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.diagnostics.contract.engine.DiagnosticsEngineSchemaVersion
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeResultWire
+import com.poyka.ripdpi.diagnostics.contract.engine.EngineProbeTaskFamily
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineProgressWire
 import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanReportWire
 import com.poyka.ripdpi.diagnostics.contract.engine.ScanReportDisposition
@@ -58,6 +59,20 @@ class DiagnosticsWireContractTest {
         val decoded = contractJson.decodeFromJsonElement<EngineScanReportWire>(contractJson.encodeToJsonElement(report))
 
         assertEquals(report.candidateRuntimeCleanup, decoded.candidateRuntimeCleanup)
+    }
+
+    @Test
+    fun `report execution plan decodes every probe family the engine accepts`() {
+        val requestFamilies = EngineProbeTaskFamily.entries.map { it.name }
+        val report = contractJson.encodeToJsonElement(buildSampleReportForFieldExtraction()) as JsonObject
+        val plan = report.getValue("executionPlan") as JsonObject
+        val families = JsonArray(requestFamilies.map(::JsonPrimitive))
+        val payload =
+            JsonObject(report + ("executionPlan" to JsonObject(plan + ("probeTaskFamilies" to families)))).toString()
+
+        val decoded = contractJson.decodeEngineScanReportWire(payload)
+
+        assertEquals(requestFamilies, decoded.executionPlan?.probeTaskFamilies?.map { it.name })
     }
 
     @Test

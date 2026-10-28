@@ -41,6 +41,10 @@ enum class ExecutionPlanProbeTaskFamily {
     TELEGRAM,
     THROUGHPUT,
     DOH_JSON_SURVEY,
+    SELECTIVE_AVAILABILITY,
+    IP_FAMILY,
+    HTTP3,
+    PMTU,
 }
 
 @Serializable
