@@ -2,8 +2,8 @@
   "schemaVersion": 1,
   "description": "Per-release review of resolved RIPDPI Android application IDs against package-based circumvention-tool detection. A current exact catalog non-match is not treated as hidden identity: recognizable package tokens remain targetable through explicit Android package-visibility queries.",
   "reviewedRelease": {
-    "versionName": "0.2.0",
-    "versionCode": 13,
+    "versionName": "0.2.1",
+    "versionCode": 14,
     "reviewedAt": "2026-10-28"
   },
   "sources": [
