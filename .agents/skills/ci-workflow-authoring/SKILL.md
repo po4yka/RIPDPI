@@ -41,8 +41,7 @@ Derive the current inputs from the `workflow_dispatch.inputs` mapping in
 workflow_dispatch:
   inputs:
     soak_profile: smoke|full
-    run_maestro_smoke: true|false
-    run_appium_smoke: true|false
+    run_native_soak: true|false
 ```
 
 If you add a new manual-only lane, wire its input into both the job `if:` condition and the step logic that consumes it.

@@ -5,7 +5,7 @@ agent (the `android-test-runner` agent, Gemini, or any agent with the bundled
 `android-cli` skill) reads each journey, drives the app by vision and reasoning,
 and evaluates the assertions against what it sees on the device.
 
-These mirror the first four `maestro/` smoke flows. Because the agent reasons about
+These cover the same smoke paths as Kaspresso journeys in `app/src/androidTest`. Because the agent reasons about
 goals rather than matching resource IDs, journeys are more resilient to layout
 changes — but they require an AI agent to execute.
 
@@ -26,12 +26,12 @@ assertion from the screenshots and layout tree.
 
 ## Files
 
-| Journey | Mirrors | Flow |
-|---------|---------|------|
-| `01-cold-launch-home.journey` | `maestro/01-cold-launch-home.yaml` | Cold launch → Home, primary mode visible |
-| `02-settings-navigation.journey` | `maestro/02-settings-navigation.yaml` | Home → Settings → Advanced Settings |
-| `03-advanced-settings-edit-save.journey` | `maestro/03-advanced-settings-edit-save.yaml` | Edit + save diagnostics history retention |
-| `04-start-stop-configured-mode.journey` | `maestro/04-start-stop-configured-mode.yaml` | Toggle the primary local DPI-bypass mode |
+| Journey | Flow |
+|---------|------|
+| `01-cold-launch-home.journey` | Cold launch → Home, primary mode visible |
+| `02-settings-navigation.journey` | Home → Settings → Advanced Settings |
+| `03-advanced-settings-edit-save.journey` | Edit + save diagnostics history retention |
+| `04-start-stop-configured-mode.journey` | Toggle the primary local DPI-bypass mode |
 
 The `.journey` files are XML (root `<journey>` with a `<description>` and an
 `<actions>` list of ordered `<action>` elements), mirroring the Android Studio "New > Journey Test" template

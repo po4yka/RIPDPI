@@ -1,10 +1,11 @@
 ---
 name: android-test-runner
-description: Runs and triages Android instrumentation, Maestro, Appium, and Android CLI Journey suites on emulator or device with failure-artifact collection.
+description: Runs and triages Android instrumentation (including Kaspresso UI journeys), lab UI flows, and Android CLI Journey suites on emulator or device with failure-artifact collection.
 tools: Bash, Read, Grep, Glob
 maxTurns: 30
 skills:
   - kotlin-test-patterns
+  - kaspresso-ui-tests
   - compose-performance
 memory: project
 ---
@@ -47,7 +48,7 @@ Use the narrowest suite that covers the request:
 ./gradlew :app:ciDevicesGroupGithubFullDebugAndroidTest
 
 # Network E2E orchestration and fixture arguments
-bash scripts/ci/run-android-e2e-emulator.sh <event-name> <run-maestro> <run-appium>
+bash scripts/ci/run-android-e2e-emulator.sh
 
 # JVM/Kotlin aggregate coverage
 ./gradlew coverageReport -Pripdpi.skipNativeBuild=true
@@ -57,8 +58,8 @@ Append `-Pandroid.testInstrumentationRunnerArguments.package=<package>` or `.cla
 
 ## UI automation surfaces
 
-- `scripts/ci/run-maestro-smoke.sh` is the source of truth for default Maestro execution. It currently enumerates 10 core flows and route-specific invocations; count executions from the script because optional complex/lab groups change independently.
-- `scripts/ci/run-appium-smoke.sh` owns APK selection, Appium startup, and pytest execution. The suite currently contains 96 `test_*` functions; recompute with `rg '^\s*def test_' appium/tests -g '*.py' | wc -l` before reporting a count.
+- Kaspresso UI journeys are instrumented tests under `com.poyka.ripdpi.ui` (areas in `ui/journeys/<area>/`); run them with the connected flavored task and a `package=` filter. A comma list in `class=` ran only the first class under the orchestrator.
+- `test-lab/scripts/run-vpn-e2e.sh` and `run-proxy-e2e.sh` drive the lab connect/disconnect UI from the host with `test-lab/scripts/adb-ui-flow.py`.
 - `scripts/ci/run-android-journeys-emulator.sh` prepares the device and lists the four `journeys/*.journey` files. Android CLI has no `android journeys` subcommand; execute each journey by driving `android screen capture`, `screen resolve`, `layout`, and `adb shell input`.
 
 ## Failure artifacts
@@ -69,7 +70,7 @@ Collect before reporting:
 2. `adb exec-out screencap -p > failure-screenshot.png`.
 3. `app/build/reports/androidTests/connected/` and the failing Gradle task report.
 4. Fixture manifest/events for E2E failures.
-5. `$RUNNER_TEMP/maestro/`, `$RUNNER_TEMP/appium-smoke.log`, Appium reports/screenshots, or `$RUNNER_TEMP/journeys/` for the selected surface.
+5. `app/build/outputs/androidTest-results/connected/`, lab artifacts under `test-lab/artifacts/`, or `$RUNNER_TEMP/journeys/` for the selected surface.
 
 ## Response protocol
 

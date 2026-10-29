@@ -2,8 +2,6 @@ run-android-e2e:
   - changed-files:
     - any-glob-to-any-file:
       - 'app/**'
-      - 'appium/**'
-      - 'maestro/**'
 
 run-tun-e2e:
   - changed-files:

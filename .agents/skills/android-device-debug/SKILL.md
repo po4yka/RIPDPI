@@ -151,8 +151,9 @@ For physical devices set `RIPDPI_FIXTURE_ANDROID_HOST=127.0.0.1` before starting
 ./gradlew :app:connectedGithubFullDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a \
   -Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.e2e.NativeTelemetryGoldenSmokeTest
 
-# Maestro smoke flows
-bash scripts/ci/run-maestro-smoke.sh
+# Kaspresso UI journeys for one area
+./gradlew :app:connectedGithubFullDebugAndroidTest -Pripdpi.localNativeAbis=arm64-v8a \
+  -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.ui.journeys.settings
 
 # Coverage report
 ./gradlew :app:createGithubFullDebugAndroidTestCoverageReport -Pripdpi.localNativeAbis=x86_64

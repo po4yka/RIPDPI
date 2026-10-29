@@ -20,5 +20,5 @@ Task ID: `UIX-1793256927624290`. Part of epic `EPC-1793256695505524`; blocked by
 
 ## Risks / Trade-offs
 
-- Appium locators depend on test tags; verify the Appium contract suite.
+- Kaspresso journey locators depend on test tags; verify the Kaspresso journeys (`com.poyka.ripdpi.ui`).
 - Material 3 defaults can lower density; keep the 48dp target and readable type from the theme foundation.

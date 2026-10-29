@@ -1,6 +1,6 @@
 # External UI Automation
 
-RIPDPI now exposes a debug-only launch contract so Appium and raw `adb` flows can boot the app into deterministic UI states without depending on onboarding, biometric gating, OS dialogs, or live VPN/native services. Maestro smoke flows use the same stable selector surface, but drive visible UI navigation because Maestro's Android launch argument handling is less suitable for route-specific contract assertions.
+RIPDPI exposes a debug-only launch contract so instrumented Kaspresso journeys and raw `adb` flows can boot the app into deterministic UI states without depending on onboarding, biometric gating, OS dialogs, or live VPN/native services.
 
 ## Scope
 
@@ -12,7 +12,6 @@ RIPDPI now exposes a debug-only launch contract so Appium and raw `adb` flows ca
 ## Documents
 
 - [Selector Contract](./selector-contract.md)
-- [Appium Readiness](./appium-readiness.md)
 - [Local Network Test Lab](../../test-lab/README.md)
 
 ## Launch Contract
@@ -41,28 +40,27 @@ Supported preset values:
 
 Intent extras take precedence over mirrored instrumentation arguments with the same keys.
 
-## Maestro
+## Kaspresso journeys
 
-Smoke flows live in [`maestro/`](../../maestro/README.md).
+UI journeys are Kaspresso instrumented tests in `app/src/androidTest`. They extend
+[`RipDpiKaspressoTest`](../../app/src/androidTest/kotlin/com/poyka/ripdpi/integration/RipDpiKaspressoTest.kt),
+which starts `MainActivity` through this launch contract (`automationLaunchIntent` in
+[`AutomationTestSupport.kt`](../../app/src/androidTest/kotlin/com/poyka/ripdpi/integration/AutomationTestSupport.kt))
+and finds nodes by the selector contract. Journeys live under `com.poyka.ripdpi.ui` (`ui/journeys/<area>/`).
 
-```bash
-bash scripts/ci/run-maestro-smoke.sh
-```
-
-Repository runners also accept `MAESTRO_BIN=/path/to/maestro` and Maestro's default `~/.maestro/bin/maestro` install location, which is useful when the CLI installer did not modify the shell `PATH`.
-
-The committed Maestro pack starts from the installed app and navigates through visible controls by resource ID for the always-safe flows. `scripts/ci/run-maestro-smoke.sh` additionally launches route-preset flows with `adb shell am start -a com.poyka.ripdpi.automation.LAUNCH`, which lets Maestro cover history, logs, permission banners, connected service states, and seeded diagnostics reports while still asserting stable resource IDs. Set `RUN_MAESTRO_ROUTE_FLOWS=0` to run only the visible-navigation flows, `RUN_MAESTRO_COMPLEX_FLOWS=1` to include complex stateful journeys, or `RUN_MAESTRO_LAB_FLOWS=1` to include the live network lab flows under `test-lab/maestro/`.
-
-## Appium
-
-Python + pytest smoke tests live in [`appium/`](../../appium/README.md). They use the debug launch contract for route and fixture presets, then provide programmatic page-object-driven assertions.
+Run one area on a leased emulator (see [Local Android emulator pool](../contributor/android-emulator-pool.md)):
 
 ```bash
-cd appium
-pytest tests/ -v
+./gradlew :app:connectedGithubFullDebugAndroidTest \
+  -Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.ui.journeys.settings
 ```
 
-In CI (and to reproduce it locally) run `bash scripts/ci/run-appium-smoke.sh`, which prepares the environment before invoking pytest — mirroring the `run-maestro-smoke.sh` wrapper above.
+## Lab UI flows
+
+The local network lab smokes (`test-lab/scripts/run-vpn-e2e.sh`, `run-proxy-e2e.sh`) keep the app running between
+connect, probe, and disconnect, so they drive the UI from the host with
+[`test-lab/scripts/adb-ui-flow.py`](../../test-lab/scripts/adb-ui-flow.py) (adb and `uiautomator dump`) instead of
+instrumentation, which would stop the app process when it finishes.
 
 ## UI/UX PDF Audit
 
@@ -136,7 +134,5 @@ The underlying action is `com.poyka.ripdpi.DEBUG_PROBE`. It is declared only in 
 
 ## CI
 
-The GitHub Actions `CI` workflow exposes manual inputs on `workflow_dispatch`:
-
-- `run_maestro_smoke` -- Maestro smoke flows run after the flavor-qualified Github Full instrumentation task in the emulator lane.
-- `run_appium_smoke` -- Appium smoke tests run after Maestro (if enabled) in the same emulator lane.
+The emulator lane of the GitHub Actions `CI` workflow runs the flavor-qualified Github Full instrumentation task,
+which includes the Kaspresso journeys.

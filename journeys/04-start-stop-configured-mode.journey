@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  RIPDPI journey: toggle the primary mode. Mirrors
-  maestro/04-start-stop-configured-mode.yaml. Schema (root <journey> +
+  RIPDPI journey: toggle the primary mode. Schema (root <journey> +
   <description> + <actions>/<action>) follows the Android Studio "New > Journey Test"
   template; confirm against the installed Android CLI 1.0 template before this
   lane gates merges. See journeys/README.md.

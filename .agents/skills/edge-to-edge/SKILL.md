@@ -76,7 +76,7 @@ After any edge-to-edge change:
 
 1. Visually verify on API 35 and API 30 emulators (Android 15 and Android 11). API 35 shows enforcement; API 30 shows the pre-enforcement behavior and confirms your rule doesn't break older OS versions.
 2. Toggle gesture vs 3-button nav in the emulator (Settings → System → Gestures). Content must not clip under either nav style.
-3. For any screen that takes keyboard input, open the IME and confirm the focused field stays visible. Run the existing Maestro flow `maestro/03-advanced-settings-edit-save.yaml` as a spot check for form-field insets.
+3. For any screen that takes keyboard input, open the IME and confirm the focused field stays visible. Run `app/src/androidTest/kotlin/com/poyka/ripdpi/ui/AdvancedSettingsRetentionKaspressoTest.kt` as a spot check for form-field insets.
 4. Roborazzi screenshots at `app/src/test` must be re-recorded if inset padding on a visible surface changed: `./gradlew recordScreenshots` then review the diff.
 
 ## Out of scope

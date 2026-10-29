@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  RIPDPI journey: settings navigation. Mirrors maestro/02-settings-navigation.yaml.
+  RIPDPI journey: settings navigation.
   Schema (root <journey> + <description> + <actions>/<action>) follows the Android
   Studio "New > Journey Test" template; confirm against the installed Android
   CLI 1.0 template before this lane gates merges. See journeys/README.md.

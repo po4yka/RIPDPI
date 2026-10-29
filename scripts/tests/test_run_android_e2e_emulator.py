@@ -111,9 +111,6 @@ class RunAndroidE2eEmulatorTest(unittest.TestCase):
             [
                 "bash",
                 "scripts/ci/run-android-e2e-emulator.sh",
-                "push",
-                "false",
-                "false",
             ],
             cwd=self.repo,
             capture_output=True,

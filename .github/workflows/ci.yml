@@ -16,16 +16,6 @@ on:
         options:
           - smoke
           - full
-      run_maestro_smoke:
-        description: Run Maestro UI coverage flows after Android instrumentation
-        required: false
-        default: false
-        type: boolean
-      run_appium_smoke:
-        description: Run Appium smoke tests after Android instrumentation
-        required: false
-        default: false
-        type: boolean
       run_native_soak:
         description: Run native Rust soak suites
         required: false
@@ -261,6 +251,7 @@ jobs:
       - name: Run Android E2E result contract tests
         run: |
           python3 -m unittest \
+            scripts.tests.test_adb_ui_flow \
             scripts.tests.test_validate_android_junit_results \
             scripts.tests.test_prebuilt_android_instrumentation \
             scripts.tests.test_android_device_session \
@@ -984,15 +975,6 @@ jobs:
 
       - name: Run mutation wrapper unit test
         run: bash scripts/tests/test_run_rust_mutants.sh
-
-      # Device-free Appium page-object checks; --confcutdir skips the root
-      # conftest that opens an Appium session.
-      - name: Run Appium state-reader checks
-        working-directory: appium
-        run: |
-          python3 -m venv "$RUNNER_TEMP/appium-venv"
-          "$RUNNER_TEMP/appium-venv/bin/python" -m pip install -r requirements.txt
-          PYTHONPATH=. "$RUNNER_TEMP/appium-venv/bin/python" -m pytest --confcutdir=checks checks/
 
       # The protect-bridge test compiles Linux-only C and skips on other hosts.
       - name: Run zapret2 protect bridge and source lock tests
@@ -2753,18 +2735,6 @@ jobs:
             "$RUNNER_TEMP/pluggable-transport-download/pluggable-transport-assets.tar.gz" \
             "$RUNNER_TEMP/prebuilt-pluggable-transport-assets"
 
-      - name: Cache Appium dependencies
-        if: github.event_name == 'workflow_dispatch' && github.event.inputs.run_appium_smoke == 'true'
-        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        with:
-          path: |
-            ~/.npm
-            ~/.appium
-            ~/.cache/pip
-          key: appium-deps-${{ hashFiles('appium/requirements.txt') }}
-          restore-keys: |
-            appium-deps-
-
       - name: Enable KVM for emulator
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -2796,7 +2766,7 @@ jobs:
         env:
           RIPDPI_PREBUILT_PT_DIR: ${{ runner.temp }}/prebuilt-pluggable-transport-assets
           RIPDPI_PREBUILT_PT_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
-        run: bash scripts/ci/run-android-e2e-emulator.sh "${{ github.event_name }}" "${{ github.event.inputs.run_maestro_smoke }}" "${{ github.event.inputs.run_appium_smoke }}"
+        run: bash scripts/ci/run-android-e2e-emulator.sh
 
       - name: Capture fixture state
         if: always()
@@ -2843,10 +2813,6 @@ jobs:
             app/build/reports/coverage/
             app/build/outputs/code_coverage/
             app/build/outputs/androidTest-results/connected/
-            ${{ runner.temp }}/maestro/
-            ${{ runner.temp }}/appium-smoke.log
-            appium/appium-report.html
-            appium/screenshots/
             ${{ runner.temp }}/local-network-fixture/fixture.log
             ${{ runner.temp }}/local-network-fixture/fixture-manifest.json
             ${{ runner.temp }}/local-network-fixture/fixture-events.json

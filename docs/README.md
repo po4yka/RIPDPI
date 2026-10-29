@@ -21,7 +21,7 @@ Choose the row matching the change or failure you are investigating. Read the en
 | Change a diagnostics stage, target catalog, or report | [Diagnostics architecture](architecture/DIAGNOSTICS_ARCHITECTURE.md) | [Diagnostics system](../.agents/skills/diagnostics-system/SKILL.md) for implementation paths and contract tests |
 | Add a strategy, relay, or probe | [Architecture overview](architecture/ARCHITECTURE.md) | [Feature extension guide](architecture/FEATURE_EXTENSION_GUIDE.md), after its native-workspace prerequisites, for the relevant extension checklist |
 | Change a Compose screen, theme, or localized text | [Design spec](../DESIGN.md) | [Design system](design-system.md) and [RIPDPI Compose patterns](../.agents/skills/android-compose-patterns/SKILL.md); [locale rules](../AGENTS.md#locales) for resource changes |
-| Author or debug Appium/Maestro UI automation | [External UI automation](automation/README.md) | [Selector contract](automation/selector-contract.md) for locators; [Appium readiness](automation/appium-readiness.md) for setup and execution |
+| Author or debug Kaspresso UI journeys or lab UI flows | [External UI automation](automation/README.md) | [Selector contract](automation/selector-contract.md) for locators |
 | Build, sign, or publish a release | [Release workflow](../.agents/skills/ripdpi-release/SKILL.md) | [Signing](../.agents/skills/release-signing/SKILL.md) and [distribution channels](distribution.md) for release inputs and channel behavior |
 | Change agent instructions, skills, mirrors, hooks, or their checks | [Harness maintenance](../.claude/rules/harness-maintenance.md) | [Harness manifests](../scripts/ci/check_harness_manifests.py) and [reference audit](../scripts/ci/check_harness_links.py) for the enforced rules |
 | Create, execute, or close a portfolio task; decide whether OpenSpec is required | [Task management](tasks/README.md) | [Task board workflow](../.agents/skills/repo-task-board/SKILL.md) for the repository CLI and execution routes |
@@ -107,8 +107,6 @@ Related records: [`xray-protos` schema choice](architecture/xray-protos-schema-c
 
 - [External UI automation](automation/README.md)
 - [Selector contract](automation/selector-contract.md)
-- [Appium readiness](automation/appium-readiness.md)
-- [Maestro smoke flows](../maestro/README.md)
 
 ## User Manuals
 

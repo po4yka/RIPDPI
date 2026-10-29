@@ -25,4 +25,4 @@ Expanded and wider windows show one centered column, primary actions sit in scre
 
 ## Impact
 
-`:app` screens, navigation routes for detail panes, UI tests, Appium page objects where locators move, and screenshot fixtures. New strings land in all ten locales.
+`:app` screens, navigation routes for detail panes, UI tests, Kaspresso page objects where locators move, and screenshot fixtures. New strings land in all ten locales.

@@ -1,7 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!--
-  RIPDPI journey: edit + save an advanced setting. Mirrors
-  maestro/03-advanced-settings-edit-save.yaml. Schema (root <journey> +
+  RIPDPI journey: edit + save an advanced setting. Schema (root <journey> +
   <description> + <actions>/<action>) follows the Android Studio "New > Journey Test"
   template; confirm against the installed Android CLI 1.0 template before this
   lane gates merges. See journeys/README.md.

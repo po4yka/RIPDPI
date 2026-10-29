@@ -35,7 +35,7 @@ The TeapodStream project (referenced in `teapodstream-android-client`) implement
    - TCP unauthorized: send RST to terminate the connection cleanly.
    - UDP unauthorized: drop packet; cache port binding to reduce repeat API calls; strict source binding to prevent routing loops.
    - ICMP: provide a toggle (kernel-level UID attribution unreliable for ICMP).
-4. Add a measurement test in `appium/` or `journeys/` that opens a socket with `SO_BINDTODEVICE = "tun0"` and verifies the connection is RST'd post-countermeasure.
+4. Add a measurement test in `app/src/androidTest` (`e2e/`) or `journeys/` that opens a socket with `SO_BINDTODEVICE = "tun0"` and verifies the connection is RST'd post-countermeasure.
 
 ## Acceptance criteria
 
