@@ -121,15 +121,6 @@ interface FailoverClock {
     fun nowMillis(): Long
 }
 
-internal interface InitialRaceFailoverCoordinator {
-    fun shouldSkipInitialRelayRace(): Boolean
-
-    fun recordInitialRelaySelection(
-        profileId: String,
-        relayKind: String,
-    )
-}
-
 /** Production clock backed by [System.currentTimeMillis]. */
 object SystemFailoverClock : FailoverClock {
     override fun nowMillis(): Long = System.currentTimeMillis()
@@ -195,8 +186,7 @@ class FailoverCoordinator
         private val clock: FailoverClock,
     ) : SimpleFlavorSessionWatcher,
         ActiveTransportProvider,
-        ExplicitUserStartPreparer,
-        InitialRaceFailoverCoordinator {
+        ExplicitUserStartPreparer {
         // ── Public state ────────────────────────────────────────────────────
 
         private val _activeCandidate = MutableStateFlow<FailoverCandidate?>(null)
@@ -280,9 +270,6 @@ class FailoverCoordinator
         /** Switches performed since the last healthy observation; drives back-off. */
         private var switchesInCycle: Int = 0
 
-        /** One-shot guard so an in-session failover starts the selected candidate directly. */
-        private var skipNextInitialRelayRace: Boolean = false
-
         /** Failed startup replacements attempted since a candidate last reached Running. */
         private var startupFailureSwitchesInCycle: Int = 0
 
@@ -290,8 +277,6 @@ class FailoverCoordinator
         private var startupFailureCandidates: List<FailoverCandidate> = emptyList()
 
         private var startupFailureStartedOutsideCandidates: Boolean = false
-
-        private var initialRaceSelection: FailoverCandidate.Relay? = null
 
         private val startupRecoveryMutex = Mutex()
         private var startupRecoveryEpoch = 0L
@@ -340,29 +325,9 @@ class FailoverCoordinator
                     startupFailureSwitchesInCycle = 0
                     startupFailureCandidates = emptyList()
                     startupFailureStartedOutsideCandidates = false
-                    initialRaceSelection = null
-                    skipNextInitialRelayRace = false
                     Logger.i { "FailoverCoordinator: explicit VPN attempt restored embedded VLESS+Reality" }
                 }
             }
-        }
-
-        override fun shouldSkipInitialRelayRace(): Boolean =
-            skipNextInitialRelayRace.also { shouldSkip ->
-                if (shouldSkip) skipNextInitialRelayRace = false
-            }
-
-        override fun recordInitialRelaySelection(
-            profileId: String,
-            relayKind: String,
-        ) {
-            initialRaceSelection =
-                FailoverCandidate.Relay(
-                    priority = if (relayKind == RelayKindVlessReality) 0 else 1,
-                    profileId = profileId,
-                    relayKind = relayKind,
-                )
-            setActiveCandidate(initialRaceSelection)
         }
 
         /**
@@ -397,16 +362,7 @@ class FailoverCoordinator
                         return@launch
                     }
                     candidates = rebuilt
-                    val racedIndex =
-                        initialRaceSelection?.let { selection ->
-                            rebuilt
-                                .indexOfFirst { candidate ->
-                                    candidate is FailoverCandidate.Relay &&
-                                        candidate.profileId == selection.profileId &&
-                                        candidate.relayKind == selection.relayKind
-                                }.takeIf { it >= 0 }
-                        }
-                    activeCandidateIndex = racedIndex ?: resumeIndexOrNull() ?: 0
+                    activeCandidateIndex = resumeIndexOrNull() ?: 0
                     sessionGeneration++
                     relayHealthProbeCoordinator =
                         createRelayHealthProbeCoordinator(
@@ -415,7 +371,6 @@ class FailoverCoordinator
                     switchesInCycle = 0
                     backedOff = false
                     lastSwitchAt = 0L
-                    initialRaceSelection = null
                     // The debounce window always restarts for a new session.
                     failingsSince = null
                     observedProxyTotalErrors = null
@@ -601,7 +556,6 @@ class FailoverCoordinator
             activeCandidateIndex = nextIndex
             startupFailureSwitchesInCycle++
             setActiveCandidate(nextCandidate)
-            skipNextInitialRelayRace = true
             when (val dispatch = startupFallbackController.startVpnForStartupFallback(lease)) {
                 StartupFallbackDispatchResult.Superseded -> {
                     rollbackStartupSwitch(settingsBeforeSwitch, previousCandidate)
@@ -647,7 +601,6 @@ class FailoverCoordinator
                 activeCandidateIndex = candidates.indexOf(previous).takeIf { it >= 0 } ?: 0
             }
             setActiveCandidate(previousCandidate)
-            skipNextInitialRelayRace = false
         }
 
         // ── Internal logic ──────────────────────────────────────────────────
@@ -1163,7 +1116,6 @@ class FailoverCoordinator
                     return RelayCleanupReceipt.SwitchSuppressed
                 }
 
-                skipNextInitialRelayRace = true
                 val result =
                     serviceController.restartVpnForTransportFailover(
                         requestId = requestId,
@@ -1221,7 +1173,6 @@ class FailoverCoordinator
             } finally {
                 if (!applied && rollbackSafe) {
                     applyRequestId?.let(transportFailoverApplyTracker::cancel)
-                    skipNextInitialRelayRace = false
                     if (configWritten) {
                         withContext(NonCancellable) {
                             startupRecoveryMutex.withLock {
@@ -1576,11 +1527,6 @@ internal abstract class FailoverCoordinatorBindsModule {
     internal abstract fun bindFailoverRelayCapabilityProbe(
         probe: DefaultFailoverRelayCapabilityProbe,
     ): FailoverRelayCapabilityProbe
-
-    @Binds
-    internal abstract fun bindInitialRaceFailoverCoordinator(
-        coordinator: FailoverCoordinator,
-    ): InitialRaceFailoverCoordinator
 
     @Binds
     @Singleton

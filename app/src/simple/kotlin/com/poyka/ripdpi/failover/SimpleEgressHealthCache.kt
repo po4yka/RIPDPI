@@ -34,19 +34,6 @@ internal interface SimpleEgressHealthMemory {
         candidate: InitialRelayCandidate,
     ): Boolean
 
-    fun readWinner(
-        networkScopeKey: String?,
-        signature: String,
-        proof: EgressProof,
-    ): String?
-
-    fun writeWinner(
-        networkScopeKey: String?,
-        signature: String,
-        proof: EgressProof,
-        profileId: String,
-    )
-
     fun recordConfirmedFailure(
         scope: RelayHealthScope,
         proof: EgressProof,
@@ -67,9 +54,8 @@ internal interface SimpleEgressHealthMemory {
 /**
  * Network- and capability-scoped memory for Simple transport selection.
  *
- * Preference keys contain only hashes. Values retain the local profile id needed to restore a
- * winner, but never an endpoint or credential. A confirmed negative result is deliberately short
- * lived so a recovered transport is retried without user intervention.
+ * Preference keys contain only hashes and never an endpoint or credential. A confirmed negative
+ * result is deliberately short lived so a recovered transport is retried without user intervention.
  */
 @Singleton
 internal class SimpleEgressHealthCache
@@ -102,36 +88,6 @@ internal class SimpleEgressHealthCache
             return false
         }
 
-        override fun readWinner(
-            networkScopeKey: String?,
-            signature: String,
-            proof: EgressProof,
-        ): String? {
-            val scope = networkScopeKey?.takeIf(String::isNotBlank) ?: return null
-            val key = winnerKey(scope, signature)
-            val record = preferences.getString(key, null)?.toWinnerRecord() ?: return null
-            if (record.proof != proof || clock.nowMillis() - record.confirmedAt !in 0..WinnerTtlMillis) {
-                preferences.edit().remove(key).apply()
-                return null
-            }
-            return record.profileId
-        }
-
-        override fun writeWinner(
-            networkScopeKey: String?,
-            signature: String,
-            proof: EgressProof,
-            profileId: String,
-        ) {
-            val scope = networkScopeKey?.takeIf(String::isNotBlank) ?: return
-            preferences
-                .edit()
-                .putString(
-                    winnerKey(scope, signature),
-                    "${clock.nowMillis()}|${proof.wireValue}|$profileId",
-                ).apply()
-        }
-
         override fun recordConfirmedFailure(
             scope: RelayHealthScope,
             proof: EgressProof,
@@ -150,6 +106,7 @@ internal class SimpleEgressHealthCache
                 preferences.edit().putLong(negativeKey, clock.nowMillis()).apply()
             }
 
+            // Nothing writes winner keys any more; this prunes ones stored by older versions.
             val winnerPrefix = "winner.${sha256(persistentScope)}."
             val staleWinnerKeys =
                 preferences.all
@@ -186,11 +143,6 @@ internal class SimpleEgressHealthCache
             }
         }
 
-        private fun winnerKey(
-            networkScopeKey: String,
-            signature: String,
-        ): String = "winner.${sha256(networkScopeKey)}.$signature"
-
         private fun negativeKey(
             networkScopeKey: String,
             proof: EgressProof,
@@ -202,16 +154,14 @@ internal class SimpleEgressHealthCache
 
         private fun String.toWinnerRecord(): WinnerRecord? {
             val parts = split('|', limit = 3)
-            if (parts.size != 3) return null
+            if (parts.size != 3 || parts[0].toLongOrNull() == null) return null
             return WinnerRecord(
-                confirmedAt = parts[0].toLongOrNull() ?: return null,
                 proof = EgressProof.fromWireValue(parts[1]) ?: return null,
                 profileId = parts[2].takeIf(String::isNotBlank) ?: return null,
             )
         }
 
         private data class WinnerRecord(
-            val confirmedAt: Long,
             val proof: EgressProof,
             val profileId: String,
         )
@@ -225,7 +175,6 @@ internal class SimpleEgressHealthCache
 
         internal companion object {
             const val PreferencesName = "simple_initial_relay_race"
-            const val WinnerTtlMillis = 24L * 60L * 60L * 1_000L
             const val NegativeCooldownMillis = 15L * 60L * 1_000L
             private const val MissingTimestamp = Long.MIN_VALUE
         }

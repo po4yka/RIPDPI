@@ -429,19 +429,6 @@ private class RecordingSimpleEgressHealthMemory : SimpleEgressHealthMemory {
         candidate: com.poyka.ripdpi.services.InitialRelayCandidate,
     ): Boolean = false
 
-    override fun readWinner(
-        networkScopeKey: String?,
-        signature: String,
-        proof: EgressProof,
-    ): String? = null
-
-    override fun writeWinner(
-        networkScopeKey: String?,
-        signature: String,
-        proof: EgressProof,
-        profileId: String,
-    ) = Unit
-
     override fun recordConfirmedFailure(
         scope: com.poyka.ripdpi.services.RelayHealthScope,
         proof: EgressProof,
@@ -2070,8 +2057,6 @@ class FailoverCoordinatorTest {
             assertEquals(listOf(Mode.VPN), controller.transportRestartCalls)
             assertEquals(0, controller.actualStopCalls.size)
             assertEquals(AppStatus.Running to Mode.VPN, stateStore.status.value)
-            assertTrue(coordinator.shouldSkipInitialRelayRace())
-            assertFalse(coordinator.shouldSkipInitialRelayRace())
             coordinator.stopObserving()
         }
 
@@ -2932,12 +2917,6 @@ class FailoverCoordinatorTest {
             assertEquals(0, controller.transportRestartCalls.size)
             assertTrue("Startup recovery must select a relay candidate", settings.relayEnabled())
             assertEquals("reality-1", settings.relayProfileId())
-            assertEquals(
-                "Startup retry must bypass a second initial race",
-                true,
-                coordinator.shouldSkipInitialRelayRace(),
-            )
-            assertEquals("Initial-race bypass must be one-shot", false, coordinator.shouldSkipInitialRelayRace())
         }
 
     @Test
