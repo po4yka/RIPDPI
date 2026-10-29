@@ -170,6 +170,7 @@ internal class DiagnosticsUiInputResolver
                     report = report,
                     reportResults = latestProfileReport.results,
                     serviceMode = this?.serviceMode,
+                    sessionId = this?.id,
                 )
             }
     }

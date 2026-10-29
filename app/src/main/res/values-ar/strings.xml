@@ -2674,6 +2674,8 @@ fakeddisorder endhost</string>
     <string name="title_pcap_capture_list">التقاطات الحزم</string>
     <string name="vpn_replay_failure_header_format">آخر فشل · %1$s</string>
     <string name="vpn_replay_failure_replay">إعادة التشغيل</string>
+    <string name="vpn_replay_confirm_title">إعادة التشغيل تقطع الجلسة الحالية</string>
+    <string name="vpn_replay_confirm_message">تغيّر إعادة التشغيل استراتيجية التجاوز مؤقتاً وقد تقطع حركة المرور في الجلسة الجارية. تُستعاد الاستراتيجية الأصلية بعد ذلك.</string>
     <string name="vpn_replay_failure_recommendation_title">توصية</string>
     <string name="vpn_pcap_viewer_meta_format">الحزم: %1$d</string>
     <string name="vpn_pcap_viewer_col_no">رقم</string>

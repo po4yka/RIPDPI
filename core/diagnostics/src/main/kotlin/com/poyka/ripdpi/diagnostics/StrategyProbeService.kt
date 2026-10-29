@@ -255,8 +255,7 @@ class DefaultStrategyProbeService
                     }
                     resultInjector.inject(emittedResults)
                 } finally {
-                    withContext(NonCancellable) { snapshot?.let { activator.restore(it) } }
-                    runGuard.release()
+                    runGuard.releaseAfter { withContext(NonCancellable) { snapshot?.let { activator.restore(it) } } }
                 }
             }
     }

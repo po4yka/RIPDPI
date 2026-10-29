@@ -3,6 +3,8 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.diagnostics.replay.ProbeReplayService
 import com.poyka.ripdpi.diagnostics.replay.ReplayErrorKind
 import com.poyka.ripdpi.diagnostics.replay.ReplayProbeRequest
@@ -46,6 +48,7 @@ data class ReplayFailureUiState(
     val recommendationKey: String = "",
     val isRunning: Boolean = false,
     val errorMessage: String? = null,
+    val confirmationRequired: Boolean = false,
 )
 
 @HiltViewModel
@@ -56,21 +59,26 @@ class ReplayFailureViewModel
         private val replayResultStore: ReplayResultStore,
         private val stringResolver: StringResolver,
         private val timestamps: LocalizedTimestampFormatter,
+        private val serviceStateStore: ServiceStateStore,
     ) : ViewModel() {
         private val mutableUiState = MutableStateFlow(ReplayFailureUiState())
         val uiState: StateFlow<ReplayFailureUiState> = mutableUiState.asStateFlow()
 
         private var currentJob: Job? = null
         private var currentAttempt: ReplayAttempt? = null
+        private var pendingRequest: ReplayProbeRequest? = null
+        private var disruptionConfirmed = false
 
         fun start(
             domain: String,
             strategyId: String,
             timeoutMs: Long = DEFAULT_TIMEOUT_MS,
-            proxyConfigJson: String? = null,
+            sessionId: String? = null,
         ) {
-            currentJob?.cancel()
-            val request = ReplayProbeRequest(domain, strategyId, timeoutMs, proxyConfigJson)
+            // The old run releases the strategy guard in its finally block; wait for that before the new run.
+            val previous = currentJob
+            previous?.cancel()
+            val request = ReplayProbeRequest(domain, strategyId, timeoutMs, sessionId)
             val attempt = ReplayAttempt(request)
             currentAttempt = attempt
             val timestamp = currentTimestamp()
@@ -84,6 +92,7 @@ class ReplayFailureViewModel
                 )
             currentJob =
                 viewModelScope.launch {
+                    previous?.join()
                     try {
                         replayService
                             .run(request)
@@ -112,19 +121,46 @@ class ReplayFailureViewModel
 
         /**
          * Auto-starts the probe unless this ViewModel instance already ran
-         * the same (domain, strategyId) target. Configuration changes
-         * recreate the composition but retain the ViewModel, so the retained
-         * [currentAttempt] suppresses duplicate auto-starts; a genuinely new
-         * target restarts the probe.
+         * the same target. Configuration changes recreate the composition but
+         * retain the ViewModel, so the retained [currentAttempt] suppresses
+         * duplicate auto-starts; a genuinely new target restarts the probe.
          */
         fun ensureStarted(
             domain: String,
             strategyId: String,
-            proxyConfigJson: String? = null,
+            sessionId: String? = null,
         ) {
-            val target = ReplayProbeRequest(domain, strategyId, DEFAULT_TIMEOUT_MS, proxyConfigJson)
+            val target = ReplayProbeRequest(domain, strategyId, DEFAULT_TIMEOUT_MS, sessionId)
             if (currentAttempt?.request?.copy(timeoutMs = DEFAULT_TIMEOUT_MS) == target) return
-            start(domain = domain, strategyId = strategyId, proxyConfigJson = proxyConfigJson)
+            if (pendingRequest == target) return
+            requestStart(domain, strategyId, sessionId)
+        }
+
+        /** Starts a replay, after one confirmation when a VPN or proxy session is running. */
+        fun requestStart(
+            domain: String,
+            strategyId: String,
+            sessionId: String? = null,
+        ) {
+            if (disruptionConfirmed || serviceStateStore.status.value.first == AppStatus.Halted) {
+                pendingRequest = null
+                start(domain = domain, strategyId = strategyId, sessionId = sessionId)
+            } else {
+                pendingRequest = ReplayProbeRequest(domain, strategyId, DEFAULT_TIMEOUT_MS, sessionId)
+                mutableUiState.update { it.copy(confirmationRequired = true) }
+            }
+        }
+
+        fun confirmDisruption() {
+            val pending = pendingRequest ?: return
+            disruptionConfirmed = true
+            pendingRequest = null
+            mutableUiState.update { it.copy(confirmationRequired = false) }
+            start(pending.domain, pending.strategyId, pending.timeoutMs, pending.sessionId)
+        }
+
+        fun dismissDisruption() {
+            mutableUiState.update { it.copy(confirmationRequired = false) }
         }
 
         fun cancel() {

@@ -155,7 +155,7 @@ data class ReplayHttpClient(
  * the diagnostics module.
  */
 fun interface ReplayHttpClientFactory {
-    fun build(
+    suspend fun build(
         request: ReplayProbeRequest,
         listener: EventListener,
     ): ReplayHttpClient

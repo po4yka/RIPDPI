@@ -11,11 +11,13 @@ internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
     report: StrategyProbeReport,
     reportResults: List<ProbeResult>,
     serviceMode: String?,
+    sessionId: String? = null,
 ): DiagnosticsStrategyProbeReportUiModel =
     this.toStrategyProbeReportUiModelDelegate(
         report = report,
         reportResults = reportResults,
         serviceMode = serviceMode,
+        sessionId = sessionId,
     )
 
 internal class StrategySignaturePresenter(

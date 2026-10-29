@@ -180,6 +180,7 @@ internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
     report: StrategyProbeReport,
     reportResults: List<ProbeResult>,
     serviceMode: String?,
+    sessionId: String? = null,
 ): DiagnosticsStrategyProbeReportUiModel {
     val strategyReportSummaryMapper = StrategyReportSummaryMapper(context)
     val candidateDetails =
@@ -188,6 +189,7 @@ internal fun DiagnosticsUiFactorySupport.toStrategyProbeReportUiModel(
             report = report,
             reportResults = reportResults,
             serviceMode = serviceMode,
+            sessionId = sessionId,
         )
     val winningPath = report.buildStrategyProbeWinningPath(candidateDetails, context)
 
@@ -220,6 +222,7 @@ internal fun DiagnosticsUiFactorySupport.buildStrategyProbeCandidateDetails(
     report: StrategyProbeReport,
     reportResults: List<ProbeResult>,
     serviceMode: String?,
+    sessionId: String? = null,
 ): Map<String, DiagnosticsStrategyProbeCandidateDetailUiModel> {
     val reportResultsByCandidateId = reportResults.groupByStrategyProbeCandidateId()
 
@@ -233,6 +236,7 @@ internal fun DiagnosticsUiFactorySupport.buildStrategyProbeCandidateDetails(
                 recommended =
                     candidate.id == report.recommendation?.tcpCandidateId ||
                         candidate.id == report.recommendation?.quicCandidateId,
+                sessionId = sessionId,
             )
     }
 }
@@ -516,6 +520,7 @@ private fun DiagnosticsUiFactorySupport.toCandidateDetailUiModel(
     serviceMode: String?,
     candidateResults: List<ProbeResult>,
     recommended: Boolean,
+    sessionId: String?,
 ): DiagnosticsStrategyProbeCandidateDetailUiModel =
     DiagnosticsStrategyProbeCandidateDetailUiModel(
         id = candidate.id,
@@ -543,7 +548,7 @@ private fun DiagnosticsUiFactorySupport.toCandidateDetailUiModel(
             buildStrategyProbeResultGroups(
                 candidateResults = candidateResults,
             ).toImmutableList(),
-        proxyConfigJson = candidate.proxyConfigJson,
+        replaySessionId = sessionId?.takeIf { candidate.proxyConfigJson != null },
     )
 
 private fun DiagnosticsUiFactorySupport.toStrategyProbeRecommendationUiModel(

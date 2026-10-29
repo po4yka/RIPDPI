@@ -19,6 +19,15 @@ class StrategyProbeRunGuard
         fun release() {
             active.set(false)
         }
+
+        /** Runs [cleanup], then frees the guard even when [cleanup] throws. */
+        suspend fun releaseAfter(cleanup: suspend () -> Unit) {
+            try {
+                cleanup()
+            } finally {
+                release()
+            }
+        }
     }
 
 /**

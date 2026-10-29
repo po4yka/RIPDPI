@@ -25,11 +25,13 @@ internal class CandidateDetailMapper {
         report: StrategyProbeReport,
         reportResults: List<ProbeResult>,
         serviceMode: String?,
+        sessionId: String? = null,
     ): Map<String, DiagnosticsStrategyProbeCandidateDetailUiModel> =
         factory.buildStrategyProbeCandidateDetails(
             report = report,
             reportResults = reportResults,
             serviceMode = serviceMode,
+            sessionId = sessionId,
         )
 }
 

@@ -2944,6 +2944,8 @@ Source: %2$s</string>
     <string name="title_pcap_capture_list">Packet captures</string>
     <string name="vpn_replay_failure_header_format">Last failure · %1$s</string>
     <string name="vpn_replay_failure_replay">Replay</string>
+    <string name="vpn_replay_confirm_title">Replay disrupts the live session</string>
+    <string name="vpn_replay_confirm_message">The replay temporarily switches the bypass strategy and can interrupt traffic in the running session. The original strategy is restored afterwards.</string>
     <string name="vpn_replay_failure_recommendation_title">Recommendation</string>
     <string name="vpn_pcap_viewer_meta_format">Packets: %1$d</string>
     <string name="vpn_pcap_viewer_col_no">NO</string>

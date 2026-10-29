@@ -6,8 +6,10 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeActivator
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidate
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateProvider
 import com.poyka.ripdpi.diagnostics.StrategyProbeRunGuard
+import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -20,10 +22,12 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class StrategyScopedProbeReplayTest {
-    private val activator = FakeActivator()
-    private val nativeApplier = FakeNativeApplier(activator)
+    private val state = StrategyState()
+    private val activator = FakeActivator(state)
+    private val nativeApplier = FakeNativeApplier(state)
     private val guard = StrategyProbeRunGuard()
     private val nativeConfig = RipDpiProxyUIPreferences().toNativeConfigJson()
+    private var storedConfig: String? = nativeConfig
     private val request = ReplayProbeRequest(domain = "example.org", strategyId = "split", timeoutMs = 1_000L)
     private val finished =
         ReplayStepEvent.Finished(ReplayVerdict.Success, ReplayStepKind.FirstByte, recommendationKey = "")
@@ -38,8 +42,25 @@ class StrategyScopedProbeReplayTest {
                 },
             activator = activator,
             proxyConfigApplier = nativeApplier,
+            configSource = { _, _ -> storedConfig },
             runGuard = guard,
         )
+
+    private suspend fun runNative() {
+        replay(ProbeReplayService { flow { emit(finished) } }).run(nativeRequest()).toList()
+    }
+
+    private fun nativeRequest() = request.copy(strategyId = "tlsrec_split_host", sessionId = "session-1")
+
+    private suspend fun failureOf(block: suspend () -> Unit): IllegalStateException {
+        try {
+            block()
+        } catch (expected: IllegalStateException) {
+            return expected
+        }
+        fail("expected failure")
+        error("unreachable")
+    }
 
     @Test
     fun `replay runs under the requested strategy and restores the original after success`() =
@@ -49,31 +70,26 @@ class StrategyScopedProbeReplayTest {
                 replay(
                     ProbeReplayService {
                         flow {
-                            activeDuringRun = activator.active
+                            activeDuringRun = state.active
                             emit(finished)
                         }
                     },
-                ).run(request).toList()
+                ).run(request)
+                    .toList()
 
             assertEquals(listOf<ReplayStepEvent>(finished), events)
             assertEquals("split", activeDuringRun)
-            assertEquals("previous", activator.active)
+            assertEquals("previous", state.active)
             assertFalse(guard.isHeld())
         }
 
     @Test
     fun `original strategy is restored when the replay fails`() =
         runTest {
-            val failing = ProbeReplayService { flow { error("boom") } }
+            val error = failureOf { replay(ProbeReplayService { flow { error("boom") } }).run(request).toList() }
 
-            try {
-                replay(failing).run(request).toList()
-                fail("expected failure")
-            } catch (expected: IllegalStateException) {
-                assertEquals("boom", expected.message)
-            }
-
-            assertEquals("previous", activator.active)
+            assertEquals("boom", error.message)
+            assertEquals("previous", state.active)
             assertFalse(guard.isHeld())
         }
 
@@ -84,8 +100,8 @@ class StrategyScopedProbeReplayTest {
             val suspended =
                 ProbeReplayService {
                     flow {
-                        started.complete(activator.active)
-                        kotlinx.coroutines.awaitCancellation()
+                        started.complete(state.active)
+                        awaitCancellation()
                     }
                 }
 
@@ -94,7 +110,7 @@ class StrategyScopedProbeReplayTest {
             job.cancel()
             job.join()
 
-            assertEquals("previous", activator.active)
+            assertEquals("previous", state.active)
             assertFalse(guard.isHeld())
         }
 
@@ -102,35 +118,52 @@ class StrategyScopedProbeReplayTest {
     fun `unknown strategy id fails without activating anything`() =
         runTest {
             var ran = false
-            val delegate = ProbeReplayService { flow { ran = true } }
+            val error =
+                failureOf {
+                    replay(ProbeReplayService { flow { ran = true } })
+                        .run(request.copy(strategyId = "tlsrec_split_host"))
+                        .toList()
+                }
 
-            try {
-                replay(delegate).run(request.copy(strategyId = "tlsrec_split_host")).toList()
-                fail("expected failure")
-            } catch (expected: IllegalStateException) {
-                assertTrue(expected.message.orEmpty().contains("tlsrec_split_host"))
-            }
-
+            assertTrue(error.message.orEmpty().contains("tlsrec_split_host"))
             assertFalse(ran)
-            assertEquals("previous", activator.active)
-            assertEquals(0, activator.activations)
+            assertEquals("previous", state.active)
+            assertEquals(0, state.activations)
             assertFalse(guard.isHeld())
         }
 
     @Test
-    fun `replay fails while another strategy run holds the guard and leaves it held`() =
+    fun `strategy probe run holding the guard rejects a replay, and a replay holds the guard while it runs`() =
         runTest {
             assertTrue(guard.tryAcquire())
-
-            try {
-                replay(ProbeReplayService { flow { emit(finished) } }).run(request).toList()
-                fail("expected failure")
-            } catch (expected: IllegalStateException) {
-                assertTrue(expected.message.orEmpty().contains("already active"))
-            }
-
-            assertEquals(0, activator.activations)
+            val error = failureOf { replay(ProbeReplayService { flow { emit(finished) } }).run(request).toList() }
+            assertTrue(error.message.orEmpty().contains("already active"))
+            assertEquals(0, state.activations)
             assertTrue(guard.isHeld())
+            guard.release()
+
+            var probeCouldStart: Boolean? = null
+            replay(
+                ProbeReplayService {
+                    flow {
+                        probeCouldStart = guard.tryAcquire()
+                        emit(finished)
+                    }
+                },
+            ).run(request)
+                .toList()
+            assertEquals(false, probeCouldStart)
+            assertFalse(guard.isHeld())
+        }
+
+    @Test
+    fun `guard is freed when restore throws`() =
+        runTest {
+            state.restoreFails = true
+
+            failureOf { replay(ProbeReplayService { flow { emit(finished) } }).run(request).toList() }
+
+            assertFalse(guard.isHeld())
         }
 
     @Test
@@ -140,7 +173,7 @@ class StrategyScopedProbeReplayTest {
             replay(
                 ProbeReplayService {
                     flow {
-                        activeDuringRun = activator.active
+                        activeDuringRun = state.active
                         emit(finished)
                     }
                 },
@@ -148,21 +181,16 @@ class StrategyScopedProbeReplayTest {
                 .toList()
 
             assertEquals("native", activeDuringRun)
-            assertEquals("previous", activator.active)
-            assertEquals(0, activator.activations)
+            assertEquals("previous", state.active)
+            assertEquals(0, state.activations)
             assertFalse(guard.isHeld())
         }
 
     @Test
     fun `native candidate config is restored after failure and cancellation`() =
         runTest {
-            try {
-                replay(ProbeReplayService { flow { error("boom") } }).run(nativeRequest()).toList()
-                fail("expected failure")
-            } catch (expected: IllegalStateException) {
-                assertEquals("boom", expected.message)
-            }
-            assertEquals("previous", activator.active)
+            failureOf { replay(ProbeReplayService { flow { error("boom") } }).run(nativeRequest()).toList() }
+            assertEquals("previous", state.active)
 
             val started = CompletableDeferred<String?>()
             val job =
@@ -170,55 +198,37 @@ class StrategyScopedProbeReplayTest {
                     replay(
                         ProbeReplayService {
                             flow {
-                                started.complete(activator.active)
-                                kotlinx.coroutines.awaitCancellation()
+                                started.complete(state.active)
+                                awaitCancellation()
                             }
                         },
-                    ).run(nativeRequest()).toList()
+                    ).run(nativeRequest())
+                        .toList()
                 }
             assertEquals("native", started.await())
             job.cancel()
             job.join()
 
-            assertEquals("previous", activator.active)
+            assertEquals("previous", state.active)
             assertFalse(guard.isHeld())
         }
 
     @Test
-    fun `undecodable native config fails without applying anything`() =
+    fun `missing or undecodable native config fails without applying and without leaking the config`() =
         runTest {
-            try {
-                replay(ProbeReplayService { flow { emit(finished) } })
-                    .run(request.copy(strategyId = "tlsrec_split_host", proxyConfigJson = "not json"))
-                    .toList()
-                fail("expected failure")
-            } catch (expected: IllegalStateException) {
-                assertTrue(expected.message.orEmpty().contains("tlsrec_split_host"))
-            }
+            storedConfig = null
+            val missing = failureOf { runNative() }
+            assertTrue(missing.message.orEmpty().contains("not found"))
 
-            assertEquals("previous", activator.active)
-            assertEquals(0, nativeApplier.applications)
+            storedConfig = "secret-token-not-json"
+            val invalid = failureOf { runNative() }
+            assertTrue(invalid.message.orEmpty().contains("invalid"))
+            assertFalse(invalid.message.orEmpty().contains("secret-token"))
+
+            assertEquals("previous", state.active)
+            assertEquals(0, state.applications)
             assertFalse(guard.isHeld())
         }
-
-    private fun nativeRequest() = request.copy(strategyId = "tlsrec_split_host", proxyConfigJson = nativeConfig)
-
-    private class FakeNativeApplier(
-        private val state: FakeActivator,
-    ) : ProxyConfigStrategyApplier {
-        var applications = 0
-
-        override suspend fun capture(): StrategyProbeActivationSnapshot = StrategyProbeActivationSnapshot(state.active)
-
-        override suspend fun apply(preferences: RipDpiProxyUIPreferences) {
-            applications += 1
-            state.active = "native"
-        }
-
-        override suspend fun restore(snapshot: StrategyProbeActivationSnapshot) {
-            state.active = snapshot.snapshotId
-        }
-    }
 
     private fun StrategyProbeRunGuard.isHeld(): Boolean =
         if (tryAcquire()) {
@@ -228,19 +238,41 @@ class StrategyScopedProbeReplayTest {
             true
         }
 
-    class FakeActivator : StrategyProbeActivator {
+    private class StrategyState {
         var active: String = "previous"
         var activations = 0
+        var applications = 0
+        var restoreFails = false
+    }
 
-        override suspend fun capture(): StrategyProbeActivationSnapshot = StrategyProbeActivationSnapshot(active)
+    private class FakeActivator(
+        private val state: StrategyState,
+    ) : StrategyProbeActivator {
+        override suspend fun capture(): StrategyProbeActivationSnapshot = StrategyProbeActivationSnapshot(state.active)
 
         override suspend fun activate(candidate: StrategyProbeCandidate) {
-            activations += 1
-            active = candidate.id
+            state.activations += 1
+            state.active = candidate.id
         }
 
         override suspend fun restore(snapshot: StrategyProbeActivationSnapshot) {
-            active = snapshot.snapshotId
+            state.active = snapshot.snapshotId
+            check(!state.restoreFails) { "restore failed" }
+        }
+    }
+
+    private class FakeNativeApplier(
+        private val state: StrategyState,
+    ) : ProxyConfigStrategyApplier {
+        override suspend fun apply(preferences: RipDpiProxyUIPreferences): ProxyStrategySnapshot {
+            val original = AppSettings.newBuilder().setOobData(state.active).build()
+            state.applications += 1
+            state.active = "native"
+            return ProxyStrategySnapshot(original = original, applied = original)
+        }
+
+        override suspend fun restore(snapshot: ProxyStrategySnapshot) {
+            state.active = snapshot.original.oobData
         }
     }
 }

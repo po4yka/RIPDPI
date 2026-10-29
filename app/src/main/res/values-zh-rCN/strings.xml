@@ -2786,6 +2786,8 @@ fake_burst 3</string>
     <string name="title_pcap_capture_list">数据包捕获</string>
     <string name="vpn_replay_failure_header_format">最近失败 · %1$s</string>
     <string name="vpn_replay_failure_replay">重放</string>
+    <string name="vpn_replay_confirm_title">重放会中断当前会话</string>
+    <string name="vpn_replay_confirm_message">重放会临时切换绕过策略，并可能中断正在运行的会话的流量。重放结束后会恢复原策略。</string>
     <string name="vpn_replay_failure_recommendation_title">建议</string>
     <string name="vpn_pcap_viewer_meta_format">数据包数：%1$d</string>
     <string name="vpn_pcap_viewer_col_no">编号</string>

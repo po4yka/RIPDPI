@@ -47,6 +47,7 @@ fun ReplayFailureScreen(
     probeSummary: String,
     steps: ImmutableList<ReplayStep>,
     recommendation: String,
+    isRunning: Boolean,
     onReplay: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
@@ -86,6 +87,7 @@ fun ReplayFailureScreen(
                 RipDpiButton(
                     text = stringResource(R.string.vpn_replay_failure_replay),
                     onClick = onReplay,
+                    enabled = !isRunning,
                     variant = RipDpiButtonVariant.Outline,
                     leadingIcon = RipDpiIcons.Refresh,
                 )
@@ -204,6 +206,7 @@ private fun ReplayFailureScreenLightPreview() {
             probeSummary = "Probe replay · youtube.com · TLS ClientHello",
             steps = sampleSteps,
             recommendation = "Possible RST + SNI inspection · try tlsrec_split_host instead",
+            isRunning = false,
             onReplay = {},
             onBack = {},
         )
@@ -219,6 +222,7 @@ private fun ReplayFailureScreenDarkPreview() {
             probeSummary = "Probe replay · youtube.com · TLS ClientHello",
             steps = sampleSteps,
             recommendation = "Possible RST + SNI inspection · try tlsrec_split_host instead",
+            isRunning = false,
             onReplay = {},
             onBack = {},
         )

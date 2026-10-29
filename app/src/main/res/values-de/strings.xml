@@ -2789,6 +2789,8 @@ Quelle: %2$s</string>
     <string name="title_pcap_capture_list">Paketmitschnitte</string>
     <string name="vpn_replay_failure_header_format">Letzter Fehler · %1$s</string>
     <string name="vpn_replay_failure_replay">Wiederholen</string>
+    <string name="vpn_replay_confirm_title">Die Wiederholung unterbricht die aktive Sitzung</string>
+    <string name="vpn_replay_confirm_message">Die Wiederholung wechselt vorübergehend die Umgehungsstrategie und kann den Datenverkehr der laufenden Sitzung unterbrechen. Danach wird die ursprüngliche Strategie wiederhergestellt.</string>
     <string name="vpn_replay_failure_recommendation_title">Empfehlung</string>
     <string name="vpn_pcap_viewer_meta_format">Pakete: %1$d</string>
     <string name="vpn_pcap_viewer_col_no">NR.</string>

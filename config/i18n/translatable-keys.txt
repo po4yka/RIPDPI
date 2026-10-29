@@ -4976,6 +4976,8 @@ app:vpn_quality_strip_critical_title
 app:vpn_quality_strip_nominal_title
 app:vpn_quality_strip_reprobe
 app:vpn_quality_strip_warning_title
+app:vpn_replay_confirm_message
+app:vpn_replay_confirm_title
 app:vpn_replay_failure_header_format
 app:vpn_replay_failure_recommendation_title
 app:vpn_replay_failure_replay

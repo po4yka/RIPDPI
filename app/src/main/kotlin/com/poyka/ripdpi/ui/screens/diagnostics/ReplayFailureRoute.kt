@@ -7,6 +7,9 @@ import androidx.compose.ui.res.stringResource
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 
 /**
  * Default replay target for preview/test callers. Production callers should drive
@@ -19,13 +22,13 @@ private const val DefaultReplayStrategyId = "default"
 fun ReplayFailureRoute(
     domain: String = DefaultReplayDomain,
     strategyId: String = DefaultReplayStrategyId,
-    proxyConfigJson: String? = null,
+    sessionId: String? = null,
     onBack: () -> Unit,
     viewModel: ReplayFailureViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(domain, strategyId, proxyConfigJson) {
+    LaunchedEffect(domain, strategyId, sessionId) {
         // Auto-start the probe for this target session. ensureStarted keys
         // the dedup on the retained request rather than on UI state, so a
         // configuration change (new composition, same ViewModel and target)
@@ -33,7 +36,7 @@ fun ReplayFailureRoute(
         viewModel.ensureStarted(
             domain = domain,
             strategyId = strategyId,
-            proxyConfigJson = proxyConfigJson,
+            sessionId = sessionId,
         )
     }
 
@@ -46,16 +49,35 @@ fun ReplayFailureRoute(
             ""
         }
 
+    if (state.confirmationRequired) {
+        RipDpiDialog(
+            onDismissRequest = viewModel::dismissDisruption,
+            title = stringResource(R.string.vpn_replay_confirm_title),
+            dismissAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.config_cancel),
+                    onClick = viewModel::dismissDisruption,
+                ),
+            confirmAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.vpn_replay_failure_replay),
+                    onClick = viewModel::confirmDisruption,
+                ),
+            visuals = RipDpiDialogVisuals(message = stringResource(R.string.vpn_replay_confirm_message)),
+        )
+    }
+
     ReplayFailureScreen(
         timestampLabel = state.timestampLabel,
         probeSummary = state.probeSummary,
         steps = state.steps,
         recommendation = recommendation,
+        isRunning = state.isRunning,
         onReplay = {
-            viewModel.start(
+            viewModel.requestStart(
                 domain = domain,
                 strategyId = strategyId,
-                proxyConfigJson = proxyConfigJson,
+                sessionId = sessionId,
             )
         },
         onBack = onBack,

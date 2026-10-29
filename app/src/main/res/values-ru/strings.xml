@@ -2659,6 +2659,8 @@ fakeddisorder endhost</string>
     <string name="title_pcap_capture_list">Захваты пакетов</string>
     <string name="vpn_replay_failure_header_format">Последний сбой · %1$s</string>
     <string name="vpn_replay_failure_replay">Повторить</string>
+    <string name="vpn_replay_confirm_title">Повтор прервёт активный сеанс</string>
+    <string name="vpn_replay_confirm_message">Повтор временно переключает стратегию обхода и может прервать трафик в работающем сеансе. После повтора исходная стратегия возвращается.</string>
     <string name="vpn_replay_failure_recommendation_title">Рекомендация</string>
     <string name="vpn_pcap_viewer_meta_format">Пакеты: %1$d</string>
     <string name="vpn_pcap_viewer_col_no">№</string>

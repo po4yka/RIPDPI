@@ -304,7 +304,7 @@ sealed class Route {
     data class ReplayFailure(
         val domain: String = "",
         val strategyId: String = "",
-        val proxyConfigJson: String? = null,
+        val sessionId: String? = null,
     ) : Route() {
         @kotlinx.serialization.Transient
         override val stableRoute = "replay_failure"

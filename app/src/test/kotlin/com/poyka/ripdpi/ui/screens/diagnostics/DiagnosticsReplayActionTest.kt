@@ -30,10 +30,10 @@ class DiagnosticsReplayActionTest {
     }
 
     @Test
-    fun `native candidate with a proxy config routes with that config`() {
+    fun `native candidate with a saved scan routes with that session`() {
         assertEquals(
-            Route.ReplayFailure("www.youtube.com", "tlsrec_split_host", "{\"k\":1}"),
-            replayRouteFor("tlsrec_split_host", "{\"k\":1}", probe("www.youtube.com")),
+            Route.ReplayFailure("www.youtube.com", "tlsrec_split_host", "session-1"),
+            replayRouteFor("tlsrec_split_host", "session-1", probe("www.youtube.com")),
         )
     }
 

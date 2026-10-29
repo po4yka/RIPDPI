@@ -2794,6 +2794,8 @@ fakeddisorder endhost</string>
     <string name="title_pcap_capture_list">ضبط بسته‌ها</string>
     <string name="vpn_replay_failure_header_format">آخرین خطا · %1$s</string>
     <string name="vpn_replay_failure_replay">پخش مجدد</string>
+    <string name="vpn_replay_confirm_title">بازپخش نشست فعال را مختل می‌کند</string>
+    <string name="vpn_replay_confirm_message">بازپخش موقتاً راهبرد دور زدن را عوض می‌کند و ممکن است ترافیک نشست در حال اجرا را قطع کند. پس از آن راهبرد اصلی بازگردانده می‌شود.</string>
     <string name="vpn_replay_failure_recommendation_title">پیشنهاد</string>
     <string name="vpn_pcap_viewer_meta_format">بسته‌ها: %1$d</string>
     <string name="vpn_pcap_viewer_col_no">ش</string>

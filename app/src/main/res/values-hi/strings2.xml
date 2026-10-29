@@ -1183,6 +1183,8 @@
     <string name="title_pcap_capture_list">पैकेट कैप्चर</string>
     <string name="vpn_replay_failure_header_format">अंतिम विफलता · %1$s</string>
     <string name="vpn_replay_failure_replay">रीप्ले</string>
+    <string name="vpn_replay_confirm_title">रीप्ले चालू सत्र को बाधित करता है</string>
+    <string name="vpn_replay_confirm_message">रीप्ले अस्थायी रूप से बाईपास रणनीति बदलता है और चल रहे सत्र का ट्रैफ़िक रोक सकता है। बाद में मूल रणनीति बहाल कर दी जाती है।</string>
     <string name="vpn_replay_failure_recommendation_title">अनुशंसा</string>
     <string name="vpn_pcap_viewer_meta_format">पैकेट: %1$d</string>
     <string name="vpn_pcap_viewer_col_no">क्र.</string>

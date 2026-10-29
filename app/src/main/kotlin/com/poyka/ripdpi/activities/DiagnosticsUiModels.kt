@@ -657,7 +657,8 @@ data class DiagnosticsStrategyProbeCandidateDetailUiModel(
     val metrics: ImmutableList<DiagnosticsMetricUiModel>,
     val signature: ImmutableList<DiagnosticsFieldUiModel>,
     val resultGroups: ImmutableList<DiagnosticsProbeGroupUiModel>,
-    val proxyConfigJson: String? = null,
+    /** Saved scan whose stored config replays this candidate; null when the candidate has no config. */
+    val replaySessionId: String? = null,
 )
 
 @Stable

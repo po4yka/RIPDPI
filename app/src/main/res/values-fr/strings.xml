@@ -2789,6 +2789,8 @@ Source : %2$s</string>
     <string name="title_pcap_capture_list">Captures de paquets</string>
     <string name="vpn_replay_failure_header_format">Dernier échec · %1$s</string>
     <string name="vpn_replay_failure_replay">Relire</string>
+    <string name="vpn_replay_confirm_title">La relecture perturbe la session active</string>
+    <string name="vpn_replay_confirm_message">La relecture change temporairement la stratégie de contournement et peut interrompre le trafic de la session en cours. La stratégie d\u2019origine est ensuite rétablie.</string>
     <string name="vpn_replay_failure_recommendation_title">Recommandation</string>
     <string name="vpn_pcap_viewer_meta_format">Paquets : %1$d</string>
     <string name="vpn_pcap_viewer_col_no">N°</string>

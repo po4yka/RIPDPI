@@ -4,6 +4,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.replay.ProbeReplayService
 import com.poyka.ripdpi.diagnostics.replay.ReplayProbeRequest
 import com.poyka.ripdpi.diagnostics.replay.ReplayResultStore
@@ -11,6 +13,7 @@ import com.poyka.ripdpi.diagnostics.replay.ReplayStepEvent
 import com.poyka.ripdpi.diagnostics.replay.ReplayVerdict
 import com.poyka.ripdpi.platform.LocalizedTimestampFormatter
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.testsupport.FakeServiceStateStore
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Dispatchers
@@ -51,6 +54,12 @@ class ReplayFailureRouteAutoStartTest {
     val composeRule = createComposeRule()
 
     private val formatter = LocalizedTimestampFormatter(RuntimeEnvironment.getApplication())
+    private val serviceStateStore = FakeServiceStateStore()
+
+    private fun newViewModel(
+        service: ProbeReplayService,
+        store: ReplayResultStore = ReplayResultStore(),
+    ) = ReplayFailureViewModel(service, store, FakeStringResolver(), formatter, serviceStateStore)
 
     private class RecordingProbeReplayService : ProbeReplayService {
         val requests = mutableListOf<ReplayProbeRequest>()
@@ -122,7 +131,7 @@ class ReplayFailureRouteAutoStartTest {
             try {
                 val service = SuspendedFirstProbeReplayService()
                 val store = ReplayResultStore()
-                val viewModel = ReplayFailureViewModel(service, store, FakeStringResolver(), formatter)
+                val viewModel = newViewModel(service, store)
 
                 viewModel.ensureStarted(domain = "a.example", strategyId = "s1")
                 runCurrent()
@@ -130,16 +139,15 @@ class ReplayFailureRouteAutoStartTest {
                 viewModel.ensureStarted(domain = "b.example", strategyId = "s1")
                 runCurrent()
 
-                assertEquals(listOf("a.example", "b.example"), service.requests.map { it.domain })
+                // The new run waits for the old run to finish releasing the strategy guard.
                 service.firstCancellationStarted.await()
-                val beforeRelease = store.recent()
-                assertEquals(1, beforeRelease.size)
-                assertEquals("b.example", beforeRelease.single().request.domain)
-                assertEquals(ReplayVerdict.Success, beforeRelease.single().verdict)
+                assertEquals(listOf("a.example"), service.requests.map { it.domain })
+                assertEquals(0, store.recent().size)
 
                 service.releaseFirstCancellation.complete(Unit)
                 runCurrent()
 
+                assertEquals(listOf("a.example", "b.example"), service.requests.map { it.domain })
                 val resultsByDomain = store.recent().associateBy { it.request.domain }
                 assertEquals(2, resultsByDomain.size)
                 assertEquals(ReplayVerdict.Cancelled, resultsByDomain.getValue("a.example").verdict)
@@ -152,7 +160,7 @@ class ReplayFailureRouteAutoStartTest {
     @Test
     fun `changing probe target restarts auto start`() {
         val service = RecordingProbeReplayService()
-        val viewModel = ReplayFailureViewModel(service, ReplayResultStore(), FakeStringResolver(), formatter)
+        val viewModel = newViewModel(service)
         var domain by mutableStateOf("a.example")
 
         composeRule.setContent {
@@ -175,7 +183,7 @@ class ReplayFailureRouteAutoStartTest {
     @Test
     fun `ensure started skips retained target and starts new target`() {
         val service = RecordingProbeReplayService()
-        val viewModel = ReplayFailureViewModel(service, ReplayResultStore(), FakeStringResolver(), formatter)
+        val viewModel = newViewModel(service)
 
         viewModel.ensureStarted(domain = "a.example", strategyId = "s1")
         viewModel.ensureStarted(domain = "a.example", strategyId = "s1")
@@ -190,5 +198,36 @@ class ReplayFailureRouteAutoStartTest {
             service.requests.map { it.domain },
         )
         assertEquals("s2", service.requests.last().strategyId)
+    }
+
+    @Test
+    fun `running session asks for confirmation before the replay starts`() {
+        val service = RecordingProbeReplayService()
+        serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+        val viewModel = newViewModel(service)
+
+        viewModel.ensureStarted(domain = "a.example", strategyId = "s1")
+        viewModel.ensureStarted(domain = "a.example", strategyId = "s1")
+
+        assertEquals(emptyList<String>(), service.requests.map { it.domain })
+        assertEquals(true, viewModel.uiState.value.confirmationRequired)
+
+        viewModel.confirmDisruption()
+
+        assertEquals(listOf("a.example"), service.requests.map { it.domain })
+        assertEquals(false, viewModel.uiState.value.confirmationRequired)
+    }
+
+    @Test
+    fun `dismissed confirmation never starts the replay`() {
+        val service = RecordingProbeReplayService()
+        serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+        val viewModel = newViewModel(service)
+
+        viewModel.ensureStarted(domain = "a.example", strategyId = "s1")
+        viewModel.dismissDisruption()
+
+        assertEquals(emptyList<String>(), service.requests.map { it.domain })
+        assertEquals(false, viewModel.uiState.value.confirmationRequired)
     }
 }

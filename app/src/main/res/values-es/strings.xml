@@ -2789,6 +2789,8 @@ Origen: %2$s</string>
     <string name="title_pcap_capture_list">Capturas de paquetes</string>
     <string name="vpn_replay_failure_header_format">Último fallo · %1$s</string>
     <string name="vpn_replay_failure_replay">Repetir</string>
+    <string name="vpn_replay_confirm_title">La repetición interrumpe la sesión activa</string>
+    <string name="vpn_replay_confirm_message">La repetición cambia temporalmente la estrategia de elusión y puede interrumpir el tráfico de la sesión en curso. Después se restaura la estrategia original.</string>
     <string name="vpn_replay_failure_recommendation_title">Recomendación</string>
     <string name="vpn_pcap_viewer_meta_format">Paquetes: %1$d</string>
     <string name="vpn_pcap_viewer_col_no">N.º</string>

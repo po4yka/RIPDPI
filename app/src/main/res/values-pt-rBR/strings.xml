@@ -2854,6 +2854,8 @@ Fonte: %2$s</string>
     <string name="title_pcap_capture_list">Capturas de pacotes</string>
     <string name="vpn_replay_failure_header_format">Última falha · %1$s</string>
     <string name="vpn_replay_failure_replay">Repetir</string>
+    <string name="vpn_replay_confirm_title">A repetição interrompe a sessão ativa</string>
+    <string name="vpn_replay_confirm_message">A repetição troca temporariamente a estratégia de contorno e pode interromper o tráfego da sessão em andamento. Depois, a estratégia original é restaurada.</string>
     <string name="vpn_replay_failure_recommendation_title">Recomendação</string>
     <string name="vpn_pcap_viewer_meta_format">Pacotes: %1$d</string>
     <string name="vpn_pcap_viewer_col_no">Nº</string>
