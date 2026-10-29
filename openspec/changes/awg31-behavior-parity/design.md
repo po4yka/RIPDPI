@@ -105,6 +105,12 @@ Receive outcomes must distinguish: rejected candidate; cookie challenge; accepte
 
 Required cookie oracles use real packets and deterministic low load thresholds: MAC1-valid forged response causes a cookie challenge but never readiness or session timestamps; invalid MAC1 fails with either flag; enabled cookies require valid source-bound MAC2 under load; disabled cookies reach Noise verification without MAC2 but still reject forged Noise; valid and invalid incoming cookie replies update only cookie state. Test a foreign UDP source and the WebSocket carrier policy independently. Retain a separate per-peer budget of ten expensive handshake attempts and ten emitted cookie challenges per second, matching the current backend's handshake threshold. Reset the budget with monotonic time; invalid MAC1 cannot consume it, and ordinary authenticated transport is outside it. This resource bound is an explicit local safety limit, not exact Go load-policy parity. Test boundary, reset, exhaustion, and recovery without disabling authentication.
 
+### UDP-window lifetime
+
+The initial window is 500 bytes. Outbound transport raises it to the unpadded message size; inbound valid empty/IP transport raises it to the authenticated datagram size minus the 16-byte AEAD tag. The bound is the configured inner MTU (1280..1500) plus S4 and 32 transport bytes. This cap is a deliberate local bound; it does not claim the unbounded Go heuristic is identical.
+
+The codec belongs to one fixed-endpoint tunnel/carrier. Rekey within that tunnel retains its window. A new endpoint or carrier connection creates a new tunnel and codec with a fresh 500-byte window. Foreign UDP sources are rejected; endpoint roaming is outside this change. Go resets its peer window in `SetEndpointFromPacket` when the endpoint changes. RIPDPI uses tunnel replacement for that boundary.
+
 ### Implementation progress
 
 Candidate decoding now prepares at most four layouts without changing codec state. The backend tries transport, initiation, response, then cookie. Transport takes priority because cookie encryption uses a public-key-derived key and does not prove peer identity. A cookie challenge remains provisional until all other candidates fail. Only the selected result commits its conversion context; authenticated malformed transport terminates the search after replay consumption.

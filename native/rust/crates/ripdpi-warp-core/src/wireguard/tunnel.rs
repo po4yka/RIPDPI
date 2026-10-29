@@ -733,7 +733,11 @@ mod tests {
         for (empty, corrupt, expected_length) in [(false, false, 500), (true, true, 500), (true, false, 1216)] {
             let config = WarpAmneziaConfig {
                 enabled: true,
-                v3: crate::config::AwgV3Config { content_padding_addition: "1000".into(), ..Default::default() },
+                v3: crate::config::AwgV3Config {
+                    content_padding_addition: "1000".into(),
+                    rekey_timeout: "0-1".into(),
+                    ..Default::default()
+                },
                 ..Default::default()
             };
             let (tunnel, socket, mut peer) = tunnel_and_peer_with_config(config).await;
@@ -772,9 +776,18 @@ mod tests {
                 tunnel.send_ip_packet(&ip, &mut datagram).await;
                 let (size, _) = socket.recv_from(&mut datagram).await.unwrap();
                 assert_eq!(size, expected_length, "empty={empty}, corrupt={corrupt}");
+                // Rekey keeps the same endpoint and its learned window.
+                tunnel.initiate_handshake().await.unwrap();
+                answer_initiation(&socket, &mut peer, |_| {}).await;
+                let (size, _) = socket.recv_from(&mut datagram).await.unwrap();
+                assert!(matches!(peer.decapsulate(None, &datagram[..size], &mut plaintext), TunnResult::Done));
+                tunnel.send_ip_packet(&ip, &mut datagram).await;
+                let (size, _) = socket.recv_from(&mut datagram).await.unwrap();
+                assert_eq!(size, expected_length, "rekey must retain the endpoint window");
             })
             .await;
             consumer.abort();
+            let _ = consumer.await;
             result.expect("typed receive outcome controls the real wire length");
         }
     }

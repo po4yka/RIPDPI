@@ -188,21 +188,28 @@ fn transport_padding_respects_the_learned_udp_window() {
 #[test]
 fn unauthenticated_transport_does_not_grow_the_udp_window_and_growth_is_capped() {
     use crate::amneziawg::{AwgParams, AwgWireCodec};
-    let padded = AwgV3Config { content_padding_addition: "1000-1000".into(), ..Default::default() };
-    let codec = AwgWireCodec::new(AwgParams::from_config(&config(padded, 12), &[""; 5]).unwrap());
-    // A spoofed 65 KB datagram with a valid H4 decodes, but boringtun has not authenticated it.
-    let mut spoofed = vec![0u8; 65_000];
-    spoofed[12..16].copy_from_slice(&450u32.to_le_bytes());
-    assert!(codec.decode(&spoofed).is_some());
-    let length = codec.padded_len(400);
-    // 400 + 32 + 12 = 444 of the default 500-byte window: at most 56 padding bytes.
-    assert_eq!(length, 456, "decode alone must not move the window");
+    for mtu in [1280, 1420] {
+        for prefix in [0, 12, 200] {
+            let padded = AwgV3Config { content_padding_addition: "65535".into(), ..Default::default() };
+            let params = AwgParams::from_config(&config(padded, prefix), &[""; 5]).unwrap();
+            let codec = AwgWireCodec::new(params.clone()).with_mtu(mtu);
+            // A spoofed 65 KB datagram with a valid H4 decodes but has no authentication proof.
+            let mut spoofed = vec![0u8; 65_000];
+            spoofed[prefix as usize..prefix as usize + 4].copy_from_slice(&450u32.to_le_bytes());
+            assert!(codec.decode(&spoofed).is_some());
+            let framing = 32 + prefix as usize;
+            assert_eq!(codec.padded_len(100), 500 - framing, "decode alone cannot raise the window");
 
-    codec.observe_authenticated_transport(65_000);
-    let length = codec.padded_len(400);
-    // Capped at 1500 + 32 + S4 = 1544, which leaves 1100 bytes of space: 1000 fit.
-    assert_eq!(length, 1400);
-    assert_eq!(codec.padded_len(1200), 1200 + 300, "the capped window bounds padding to 1544 - 1244 bytes");
+            codec.observe_authenticated_transport(1000);
+            assert_eq!(codec.padded_len(100), 984 - framing, "receive learning excludes the 16-byte AEAD tag");
+            codec.observe_authenticated_transport(65_000);
+            for payload in [0, 100, mtu - 1, mtu] {
+                assert_eq!(codec.padded_len(payload) + framing, mtu + framing, "the MTU bounds CPA");
+            }
+            let fresh = AwgWireCodec::new(params).with_mtu(mtu);
+            assert_eq!(fresh.padded_len(100), 500 - framing, "a new endpoint/carrier starts at 500");
+        }
+    }
 }
 
 #[test]
