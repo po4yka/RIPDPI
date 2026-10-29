@@ -21,13 +21,17 @@ data class RipDpiShapeTokens(
 
 val DefaultRipDpiShapes = RipDpiShapeTokens()
 
+/** Full M3 corner scale (4/8/12/16/20/28/32/48dp), reusing the RDS radii that already equal each step. */
 val RipDpiShapes =
     Shapes(
-        extraSmall = RoundedCornerShape(DefaultRipDpiComponents.shapes.compactCornerRadius),
-        small = RoundedCornerShape(DefaultRipDpiComponents.shapes.mediumCornerRadius),
+        extraSmall = RoundedCornerShape(DefaultRipDpiComponents.shapes.extraSmallCornerRadius),
+        small = RoundedCornerShape(DefaultRipDpiComponents.shapes.compactCornerRadius),
         medium = RoundedCornerShape(DefaultRipDpiComponents.shapes.largeCornerRadius),
         large = RoundedCornerShape(DefaultRipDpiComponents.shapes.controlCornerRadius),
+        largeIncreased = RoundedCornerShape(DefaultRipDpiComponents.shapes.controlIncreasedCornerRadius),
         extraLarge = RoundedCornerShape(DefaultRipDpiComponents.shapes.pillCornerRadius),
+        extraLargeIncreased = RoundedCornerShape(DefaultRipDpiComponents.shapes.pillIncreasedCornerRadius),
+        extraExtraLarge = RoundedCornerShape(DefaultRipDpiComponents.shapes.heroCornerRadius),
     )
 
 internal val LocalRipDpiShapes = staticCompositionLocalOf { DefaultRipDpiShapes }
