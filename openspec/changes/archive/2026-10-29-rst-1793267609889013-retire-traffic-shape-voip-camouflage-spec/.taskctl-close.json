@@ -1,0 +1,11 @@
+{
+  "change": "rst-1793267609889013-retire-traffic-shape-voip-camouflage-spec",
+  "evidence_summary": "Spec retired via archive sync with retire_capabilities; no reference to ripdpi-traffic-shape or TrafficShapeConfig remains outside archive; deletion commits dd81a2831 and 6cba60ff6; cargo metadata lists no traffic-shape member",
+  "execution_sha256": "60bf4a1dc4ab6a3c9a3987b2fb7642025ddb3fd2c26b211f955e6faa892b6eff",
+  "issue_sha256": "c29decca702674376b6368a7ff193afd9e93bc5f45ce21579770372403c149fd",
+  "outcome": "done",
+  "prepared_at": "2026-10-29T09:55:45Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1793267609889013"
+}
