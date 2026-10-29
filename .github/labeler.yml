@@ -4,7 +4,6 @@ run-android-e2e:
       - 'app/**'
       - 'appium/**'
       - 'maestro/**'
-      - 'core/network/**'
 
 run-tun-e2e:
   - changed-files:
