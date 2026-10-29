@@ -185,11 +185,6 @@ internal fun encodeSocksUdpFrame(
     }
 }
 
-internal fun decodeSocksUdpPayload(
-    frame: ByteArray,
-    length: Int,
-): ByteArray? = decodeSocksUdpDatagram(frame, length)?.payload
-
 private data class DecodedSocksUdpDatagram(
     val target: InetSocketAddress,
     val payload: ByteArray,

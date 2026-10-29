@@ -29,6 +29,3 @@ internal fun RipDpiProxyPreferences.withSessionLocalProxyOverrides(
         listenPortOverride = listenPortOverride,
         authToken = authToken,
     )
-
-internal fun RipDpiProxyPreferences.withLocalAuthToken(token: String?): RipDpiProxyPreferences =
-    withSessionLocalProxyOverrides(authToken = token)

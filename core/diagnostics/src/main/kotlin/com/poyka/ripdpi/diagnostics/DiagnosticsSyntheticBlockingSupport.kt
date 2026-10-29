@@ -61,12 +61,6 @@ internal fun ScanReport.hasFatHeaderOnlySyntheticBlocking(): Boolean {
         healthyDirectTlsCount >= MinimumHealthyDirectTlsProbesForSyntheticBlocking
 }
 
-internal fun ScanReport.hasOnlySyntheticFatHeaderBlocking(): Boolean {
-    val hasBlockingFatHeader = results.any(ProbeResult::isBlockingFatHeaderProbe)
-    val hasRealReachabilityFailure = results.any(ProbeResult::isRealReachabilityBlockingProbe)
-    return pathMode == ScanPathMode.RAW_PATH && hasBlockingFatHeader && !hasRealReachabilityFailure
-}
-
 internal fun ScanReport.directPathHealthState(): DirectPathHealthState {
     val hasHealthyDirectTls =
         results.count(ProbeResult::isHealthyDomainTlsReachability) >= MinimumHealthyDirectTlsProbesForSyntheticBlocking

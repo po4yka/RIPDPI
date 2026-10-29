@@ -164,9 +164,6 @@ fun primaryDesyncMethod(tcpSteps: List<TcpChainStepModel>): String =
 fun tlsPreludeTcpChainStep(tcpSteps: List<TcpChainStepModel>): TcpChainStepModel? =
     tcpSteps.firstOrNull { it.kind.isTlsPrelude }
 
-fun tlsPreludeTcpChainSteps(tcpSteps: List<TcpChainStepModel>): List<TcpChainStepModel> =
-    tcpSteps.filter { it.kind.isTlsPrelude }
-
 fun replaceTlsPreludeTcpChainSteps(
     tcpSteps: List<TcpChainStepModel>,
     newPreludeSteps: List<TcpChainStepModel>,

@@ -8,9 +8,9 @@ import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactReadStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactWriteStore
 import com.poyka.ripdpi.data.diagnostics.NativeSessionEventEntity
 import com.poyka.ripdpi.diagnostics.RuntimeArtifactPersister
+import com.poyka.ripdpi.diagnostics.toKeyValueTokens
 import kotlinx.coroutines.flow.first
 import java.security.MessageDigest
-import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -281,19 +281,6 @@ private data class ProcessExitClassification(
             )
     }
 }
-
-internal fun String.toProcessExitCorrelationTokens(): Map<String, String> = toKeyValueTokens()
-
-private fun String.toKeyValueTokens(): Map<String, String> =
-    split(' ', ';')
-        .asSequence()
-        .mapNotNull { token ->
-            val separator = token.indexOf('=')
-            if (separator <= 0 || separator == token.lastIndex) return@mapNotNull null
-            val key = token.substring(0, separator).lowercase(Locale.US)
-            val value = token.substring(separator + 1).trim(',', '"').lowercase(Locale.US)
-            key to value
-        }.toMap()
 
 private fun String.sha256Hex(): String {
     val bytes = MessageDigest.getInstance("SHA-256").digest(toByteArray(Charsets.UTF_8))

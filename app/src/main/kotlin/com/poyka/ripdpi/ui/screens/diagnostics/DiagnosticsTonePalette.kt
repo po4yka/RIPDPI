@@ -6,7 +6,6 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsHealth
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.DiagnosticsTone
-import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 
@@ -50,15 +49,6 @@ internal fun metricTone(tone: DiagnosticsTone): RipDpiMetricTone =
         DiagnosticsTone.Negative -> RipDpiMetricTone.Negative
         DiagnosticsTone.Info -> RipDpiMetricTone.Info
         DiagnosticsTone.Neutral -> RipDpiMetricTone.Neutral
-    }
-
-@Composable
-internal fun warningBannerTone(health: DiagnosticsHealth): WarningBannerTone =
-    when (health) {
-        DiagnosticsHealth.Healthy -> WarningBannerTone.Info
-        DiagnosticsHealth.Attention -> WarningBannerTone.Warning
-        DiagnosticsHealth.Degraded -> WarningBannerTone.Error
-        DiagnosticsHealth.Idle -> WarningBannerTone.Restricted
     }
 
 internal fun liveHeroTone(health: DiagnosticsHealth): RipDpiMetricTone =

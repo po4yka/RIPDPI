@@ -65,13 +65,6 @@ internal object DiagnosticShareLinkDeepLink {
 private fun String.isValidShareFragment(): Boolean =
     isNotBlank() && length <= DiagnosticShareLinkMaxFragmentChars && ShareFragmentPattern.matches(this)
 
-internal object DiagnosticShareLinkUrl {
-    fun build(
-        baseUrl: String,
-        fragment: String,
-    ): String = "${baseUrl.trimEnd('/')}?v=1#$fragment"
-}
-
 internal object SharedResultRenderFormatter {
     fun originLabel(payload: ShareLinkPayload): String =
         if (payload.asn == 0) {

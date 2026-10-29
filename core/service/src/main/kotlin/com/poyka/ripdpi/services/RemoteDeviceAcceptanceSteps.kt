@@ -321,7 +321,6 @@ internal const val StepRecoveryReceiptPersistence = "recovery_receipt_persistenc
 internal const val StepUidPolicyQualification = "uid_policy_qualification"
 internal const val StepAmneziaWgRuntime = "amneziawg_runtime"
 internal const val ErrorServiceNotRunning = "service_not_running"
-internal const val ErrorTransportMismatch = "transport_mismatch"
 internal const val ErrorListenerUnavailable = "local_listener_unavailable"
 internal const val ErrorProbe = "probe_error"
 internal const val ErrorIpv4Egress = "ipv4_egress_failed"
