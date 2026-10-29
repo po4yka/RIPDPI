@@ -2,7 +2,7 @@
 id: TRN-1793271658511991
 title: Complete AmneziaWG 3.1 behavior and verification
 kind: feature
-status: backlog
+status: doing
 area: transport
 priority: high
 owner: protocol-runtime
@@ -16,7 +16,7 @@ updated: 2026-10-29
 
 ## Goal
 
-Complete AmneziaWG 3.1 runtime behavior and profile handling against pinned upstream peers. Close findings F01-F16 in the linked OpenSpec design while preserving authentication, replay protection, bounded parsing, secret storage, and existing profiles. This record starts in backlog; the current delivery is planning only.
+Complete AmneziaWG 3.1 runtime behavior and profile handling against pinned upstream peers. Close findings F01-F16 in the linked OpenSpec design while preserving authentication, replay protection, bounded parsing, secret storage, and existing profiles. Execution started on 2026-10-29 with the boringtun boundary and timer/cookie contracts.
 
 ## Acceptance criteria
 
@@ -28,7 +28,7 @@ Resolve the backend extension boundary first. Implement native state and packet 
 
 ## Ownership
 
-Planning owner: protocol-runtime. Future native, profile/UI, and acceptance writers use separate worktrees with the paths assigned in the design. One integration owner serializes dependency manifests/lockfiles, any schema or JNI changes, locale sets, and evidence fixtures. The shared arm64 deployment guard is outside this change's write scope.
+Implementation owner: protocol-runtime in the existing dedicated worktree. This owner controls the native runtime, the pinned boringtun patch, dependency manifests and lockfile, and current task artifacts. The boundary reviewer is read-only. Future profile/UI and acceptance writers need separate worktrees and assigned paths before they start. The integration owner also serializes any schema or JNI changes, locale sets, and evidence fixtures. The shared arm64 deployment guard is outside this change's write scope.
 
 ## Completion boundary
 

@@ -17,7 +17,7 @@ Native paths below use `N = native/rust/crates/ripdpi-warp-core`. Editor paths u
 
 ## Execution
 
-- [ ] TRN-1793272189489544 Define the boringtun extension boundary and timer-cookie state contracts with independent regression oracles #research !high @item:TRN-1793271658511991
+- [x] TRN-1793272189489544 Define the boringtun extension boundary and timer-cookie state contracts with independent regression oracles #research !high @item:TRN-1793271658511991
 - [ ] TRN-1793272215354505 Apply configurable rekey retry expiry idle and attempt limits with deterministic role and boundary tests #bug !high @item:TRN-1793271658511991
 - [ ] TRN-1793272215891212 Pad all outgoing transport including automatic and persistent keepalives with independent length and MTU tests #bug !high @item:TRN-1793271658511991
 - [ ] TRN-1793272216407538 Distinguish authenticated padded keepalives from malformed payloads and verify replay-safe result handling #bug !high @item:TRN-1793271658511991

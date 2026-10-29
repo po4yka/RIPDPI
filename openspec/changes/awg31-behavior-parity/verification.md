@@ -119,6 +119,10 @@ Run independent `pr-reviewer` review on the implementation diff. Add async cance
 
 Populate every evidence category only from its observed result. `device` must include both fresh emulator and required physical acceptance; `artifact` must refer to the exact rebuilt and tested binaries. If a required peer, device, or hosted run is unavailable, mark it required or blocked with its reason. Do not archive or close the portfolio task until the required categories are resolved through the task lifecycle.
 
+## Execution record
+
+- 2026-10-29, TRN-1793272189489544: inspected the locked boringtun 0.7.1 source and Go `b5928efb6ca19f0153958460c3d141f04abc5c2e`; resolved the vendor patch, timer sample/equality rules, typed authentication outcomes, carrier source identity and bounded cookie admission in `design.md`. The boringtun archive checksum matches the existing lockfile. Independent read-only review identified retry-reset, zero-range and expiry-boundary corrections; all were applied and the reviewer reported no remaining blocker to the contract commit or timer step. Task and strict OpenSpec validation passed. This completes the boundary study only; G1-G7 remain required.
+
 ## Historical baseline — not implementation acceptance
 
 - Source `941f92ada478ec202b7b335d0f0b487deeee763b`: research observed `cargo test -p ripdpi-warp-core --lib --locked`, 151 passed, zero failed, zero ignored.
