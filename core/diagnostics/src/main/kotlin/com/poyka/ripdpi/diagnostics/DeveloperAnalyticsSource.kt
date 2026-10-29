@@ -34,10 +34,3 @@ data class DeveloperStageProbeEvidence(
 interface DeveloperAnalyticsSource {
     suspend fun collect(context: DeveloperAnalyticsContext): DeveloperAnalyticsPayload
 }
-
-object NoopDeveloperAnalyticsSource : DeveloperAnalyticsSource {
-    override suspend fun collect(context: DeveloperAnalyticsContext): DeveloperAnalyticsPayload =
-        DeveloperAnalyticsPayload(
-            notes = listOf("Developer analytics source not bound — noop payload."),
-        )
-}

@@ -154,10 +154,6 @@ abstract class BundledDiagnosticsProfileSourceModule {
     ): BundledDiagnosticsCatalogOverrideSource
 }
 
-internal object EmptyBundledDiagnosticsCatalogOverrideSource : BundledDiagnosticsCatalogOverrideSource {
-    override fun readProfilesJsonOrNull(): String? = null
-}
-
 private const val DiagnosticsCatalogOverrideRelativePath = "diagnostics/default_profiles.override.json"
 
 private fun BundledDiagnosticsCatalogWire.mergeOverride(

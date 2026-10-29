@@ -8,7 +8,3 @@ data class HomeDetectorCatalogSnapshot(
 interface HomeDetectorCatalogSource {
     fun snapshot(): HomeDetectorCatalogSnapshot
 }
-
-object NoopHomeDetectorCatalogSource : HomeDetectorCatalogSource {
-    override fun snapshot(): HomeDetectorCatalogSnapshot = HomeDetectorCatalogSnapshot()
-}

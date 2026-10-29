@@ -127,6 +127,7 @@ dependencies {
     testFixturesImplementation(libs.okhttp.tls)
 
     testImplementation(libs.bundles.unit.test)
+    testImplementation(testFixtures(project(":core:engine-api")))
     testImplementation(libs.kotlinx.serialization.json)
     testImplementation(libs.okhttp.mockwebserver)
     testImplementation(libs.okhttp.tls)

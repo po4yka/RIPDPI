@@ -19,13 +19,3 @@ interface HomeAnalysisAugmentationSource {
 
     suspend fun dnsCharacterization(): HomeDnsCharacterization?
 }
-
-object NoopHomeAnalysisAugmentationSource : HomeAnalysisAugmentationSource {
-    override suspend fun networkCharacter(): HomeNetworkCharacterSummary? = null
-
-    override suspend fun routingSanity(): HomeRoutingSanitySummary? = null
-
-    override suspend fun bufferbloat(): HomeBufferbloatResult? = null
-
-    override suspend fun dnsCharacterization(): HomeDnsCharacterization? = null
-}

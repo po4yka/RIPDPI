@@ -77,8 +77,3 @@ data class HomeDetectionStageOutcome(
 interface HomeDetectionStageRunner {
     suspend fun run(onProgress: suspend (label: String, detail: String) -> Unit): HomeDetectionStageOutcome?
 }
-
-object NoopHomeDetectionStageRunner : HomeDetectionStageRunner {
-    override suspend fun run(onProgress: suspend (label: String, detail: String) -> Unit): HomeDetectionStageOutcome? =
-        null
-}

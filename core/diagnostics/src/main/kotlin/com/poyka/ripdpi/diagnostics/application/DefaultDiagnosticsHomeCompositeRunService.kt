@@ -721,9 +721,3 @@ internal class DefaultDiagnosticsHomeCompositeRunService
             packetCaptureCoordinator.clear(runId)
         }
     }
-
-internal object UnavailableVpnRouteEvidenceProvider : VpnRouteEvidenceProvider {
-    override val changes = MutableStateFlow(0L)
-
-    override fun capture(): VpnRouteEvidence = VpnRouteEvidence()
-}

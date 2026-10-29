@@ -494,11 +494,6 @@ internal class DefaultConnectionPolicyResolver
         )
     }
 
-internal val EmptyDestinationRoutingPolicySource =
-    DestinationRoutingPolicySource {
-        DestinationRoutingPolicySnapshot.Available(DestinationRoutingPolicy(canonicalDigest = ""))
-    }
-
 private fun DestinationRoutingPolicySnapshot.policyOrThrow(): DestinationRoutingPolicy =
     when (this) {
         is DestinationRoutingPolicySnapshot.Available -> {

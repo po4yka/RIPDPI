@@ -9,6 +9,10 @@ plugins {
 
 extensions.configure<LibraryExtension> {
     namespace = "com.poyka.ripdpi.core.engineapi"
+
+    testFixtures {
+        enable = true
+    }
 }
 
 dependencies {
