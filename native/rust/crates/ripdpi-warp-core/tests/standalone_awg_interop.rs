@@ -63,6 +63,23 @@ async fn exchange(runtime: &AmneziaWgRuntime, ready: &Notify) -> Result<(SocketA
         address.ip().is_loopback() && address.port() != 0,
         "runtime must publish actual bound SOCKS port: {address}"
     );
+    match std::env::var("RIPDPI_AWG_SCENARIO").unwrap_or_else(|_| "payload".into()).as_str() {
+        "small-datagrams" => exchange_small_datagrams(address).await?,
+        "payload" => exchange_payload(address).await?,
+        other => anyhow::bail!("unknown AWG scenario {other}"),
+    }
+    let accepted = runtime.telemetry().total_sessions;
+    let mut stalled = TcpStream::connect(address).await?;
+    stalled.write_all(&[5]).await?;
+    while runtime.telemetry().total_sessions == accepted {
+        tokio::task::yield_now().await;
+    }
+    Ok((address, stalled))
+}
+
+/// # Cancel safety
+/// cancel-safe: each owned socket and partial exchange is dropped on cancellation.
+async fn exchange_payload(address: SocketAddr) -> Result<()> {
     let (mut tcp, _) = socks_request(address, 1, SocketAddr::from((Ipv4Addr::new(10, 77, 0, 1), 41001))).await?;
     let payload: Vec<u8> = (0..4096).map(|index| (index % 251) as u8).collect();
     tcp.write_u32(payload.len() as u32).await?;
@@ -113,13 +130,28 @@ async fn exchange(runtime: &AmneziaWgRuntime, ready: &Notify) -> Result<(SocketA
         responses.contains(&first6) && responses.contains(&second6),
         "IPv6 UDP replies must preserve each actual remote source"
     );
-    let accepted = runtime.telemetry().total_sessions;
-    let mut stalled = TcpStream::connect(address).await?;
-    stalled.write_all(&[5]).await?;
-    while runtime.telemetry().total_sessions == accepted {
-        tokio::task::yield_now().await;
+    Ok(())
+}
+
+/// # Cancel safety
+/// cancel-safe: local association and UDP sockets are dropped on cancellation.
+async fn exchange_small_datagrams(address: SocketAddr) -> Result<()> {
+    let (_control, relay) = socks_request(address, 3, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
+    ensure!(relay.ip().is_loopback() && relay.port() != 0, "unsafe UDP association listener");
+    let udp = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await?;
+    let frames = [udp_frame(41002, b"awg-padding-check"), udp_frame(41003, b"awg-padding-check")];
+    for frame in &frames {
+        udp.send_to(frame, relay).await?;
     }
-    Ok((address, stalled))
+    let mut replies = Vec::new();
+    for _ in 0..2 {
+        let mut bytes = [0; 2048];
+        let (size, source) = udp.recv_from(&mut bytes).await?;
+        ensure!(source == relay, "unexpected padding-probe response source");
+        replies.push(bytes[..size].to_vec());
+    }
+    ensure!(frames.iter().all(|frame| replies.contains(frame)), "small payload/source differs");
+    Ok(())
 }
 
 /// # Cancel safety

@@ -10,9 +10,10 @@ import (
 // NewDevice starts Read with the old offset before the fixture can apply its config.
 type configuredTUN struct {
 	tun.Device
-	ready     chan struct{}
-	release   sync.Once
-	firstRead sync.Once
+	ready      chan struct{}
+	release    sync.Once
+	firstRead  sync.Once
+	acceptedIP func([]int)
 }
 
 func newConfiguredTUN(inner tun.Device) *configuredTUN {
@@ -34,4 +35,16 @@ func (t *configuredTUN) Close() error {
 	// IpcSet can fail before configured; Close must still release the reader.
 	t.configured()
 	return t.Device.Close()
+}
+
+func (t *configuredTUN) Write(bufs [][]byte, offset int) (int, error) {
+	lengths := make([]int, len(bufs))
+	for i, packet := range bufs {
+		lengths[i] = len(packet) - offset
+	}
+	count, err := t.Device.Write(bufs, offset)
+	if t.acceptedIP != nil && count > 0 {
+		t.acceptedIP(lengths[:count])
+	}
+	return count, err
 }

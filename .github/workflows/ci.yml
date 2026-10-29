@@ -333,6 +333,8 @@ jobs:
         run: |
           python3 -m unittest \
             scripts.tests.test_android_awg_interop_evidence \
+            scripts.tests.test_awg_wire_validation \
+            scripts.tests.test_linux_awg_interop_runner \
             scripts.tests.test_android_hysteria_udp_fixture \
             scripts.tests.test_android_peer_diagnostics \
             scripts.tests.test_android_so_bind_physical_evidence \

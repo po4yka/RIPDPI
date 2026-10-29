@@ -96,8 +96,9 @@ func (p wireProfile) matchesHeader(index int, header uint32) bool {
 
 // Measurements come from the actual received and sent datagrams, before upstream decoding.
 type wireObservation struct {
-	mu      sync.Mutex
-	profile wireProfile
+	mu       sync.Mutex
+	profile  wireProfile
+	evidence wireEvidence
 	// Protected profile only: raw headers inside a configured range, handshake trailers, transport sizes.
 	clearHeaders   int
 	trailers       int
@@ -177,6 +178,7 @@ func (o *wireObservation) observe(packet []byte, inbound bool) {
 		if !wire.matchesHeader(index, header) {
 			continue
 		}
+		o.evidence.record(wire, packet, inbound, index)
 		if wire.headerKey != nil && wire.matchesHeader(index, raw) {
 			o.clearHeaders++
 		}
@@ -230,6 +232,7 @@ func (o *wireObservation) finish(cycles int) error {
 		return fmt.Errorf("wire observation: %d protected headers travelled in the clear", o.clearHeaders)
 	}
 	result := map[string]any{
+		"schema_version": 2, "evidence": o.evidence, "padding": wire.padding,
 		"wire_profile": wire.name, "handshakes": o.handshakes,
 		"fresh_signature_packets": len(o.signatures), "h4_in_values": len(o.inbound[3]), "h4_out_values": len(o.outbound[3]),
 		"signature_order": "I1-I5,Jc,initiation", "signature_tags": []string{"b", "r", "rd", "rc", "t"},

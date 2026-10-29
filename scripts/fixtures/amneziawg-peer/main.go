@@ -282,6 +282,11 @@ func run() error {
 			return errors.New("RIPDPI_AWG_UDP_SERIES must be an integer from 1 through 4096")
 		}
 	}
+	scenario := os.Getenv("RIPDPI_AWG_SCENARIO")
+	if scenario != "" && scenario != "payload" && scenario != "small-datagrams" {
+		return errors.New("unknown fixture scenario")
+	}
+	small := scenario == "small-datagrams"
 	profile, err := selectWireProfile(os.Getenv("RIPDPI_AWG_PROFILE"))
 	if err != nil {
 		return err
@@ -323,7 +328,8 @@ func run() error {
 	}
 	bind.observation.profile = profile
 	configured := newConfiguredTUN(tun)
-	peer := device.NewDevice(configured, bind, device.NewLogger(device.LogLevelSilent, ""))
+	configured.acceptedIP = bind.observation.acceptedIP
+	peer := device.NewDevice(configured, bind, &device.Logger{Verbosef: bind.observation.verbose, Errorf: device.DiscardLogf})
 	defer peer.Close()
 	config := fmt.Sprintf("private_key=%s\nlisten_port=0\n%spublic_key=%s\npreshared_key=%s\n%sallowed_ip=10.77.0.2/32\nallowed_ip=fd77::2/128\n", hex.EncodeToString(server.Bytes()), profile.iface, hex.EncodeToString(client.PublicKey().Bytes()), hex.EncodeToString(bytes.Repeat([]byte{5}, 32)), profile.peer)
 	if err = peer.IpcSet(config); err != nil {
@@ -371,6 +377,9 @@ func run() error {
 	}
 	defer second6.Close()
 	expected := 4
+	if small {
+		expected = 1
+	}
 	results := make(chan error, 8)
 	serve := func(exchange func() error) {
 		for cycle := 0; cycle < cycles; cycle++ {
@@ -381,10 +390,12 @@ func run() error {
 		}
 		results <- nil
 	}
-	go serve(func() error { return echoTCP(tcp) })
 	go serve(func() error { return echoUDPPair(first, second) })
-	go serve(func() error { return echoTCP(tcp6) })
-	go serve(func() error { return echoUDPPair(first6, second6) })
+	if !small {
+		go serve(func() error { return echoTCP(tcp) })
+		go serve(func() error { return echoTCP(tcp6) })
+		go serve(func() error { return echoUDPPair(first6, second6) })
+	}
 	if series > 0 {
 		for _, address := range []string{"10.77.0.1:41007", "[fd77::1]:41008"} {
 			socket, err := network.ListenUDPAddrPort(netip.MustParseAddrPort(address))
@@ -439,6 +450,9 @@ func run() error {
 				case <-timer.C:
 					return fmt.Errorf("incomplete exchanges: %d/%d", completed, expected)
 				}
+			}
+			if err := bind.observation.finishCounters(peer.IpcGet); err != nil {
+				return err
 			}
 			return bind.observation.finish(cycles)
 		case <-timer.C:

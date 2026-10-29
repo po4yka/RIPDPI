@@ -8,6 +8,7 @@ Only the fixture binary binds host sockets, and its transport restricts them to 
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import hashlib
 import ipaddress
 import json
@@ -24,6 +25,11 @@ import time
 ROOT = Path(__file__).resolve().parents[2]
 PEER = ROOT / "scripts/fixtures/amneziawg-peer"
 RUST = ROOT / "native/rust"
+WIRE_SPEC = importlib.util.spec_from_file_location("awg_wire_validation", Path(__file__).with_name("awg_wire_validation.py"))
+WIRE = importlib.util.module_from_spec(WIRE_SPEC)
+WIRE_SPEC.loader.exec_module(WIRE)
+validate_wire_observation = WIRE.validate_wire_observation
+
 PEERS = {
     "v3.1.20260814": ("1b86b2ae0e493e7ea93f8c1a0f0cb6735b1551f1", "h1:l2AhBD+sFycU8Im81n/bZORMxW7fWtlZJEuJ4Hh0+z0="),
     "v3.1.20260828": ("b5928efb6ca19f0153958460c3d141f04abc5c2e", "h1:D8d8gGvwXcTxUIsE4z6F6vjy4/VZddu95vMNtOygh1c="),
@@ -126,12 +132,12 @@ def run_case(binary: Path, test_binary: Path, case: Path, env: dict[str, str], c
                     test_log.flush()
                     checked([str(test_binary), "--no-capture"], RUST,
                             dict(env, RIPDPI_AWG_INTEROP_ENDPOINT=endpoint), timeout=35, output=test_log)
-                peer.stdin.write("stop\n")
-                peer.stdin.flush()
-                code = peer.wait(timeout=5)
-                if code != 0:
-                    raise RuntimeError(f"independent peer failed: exit {code}")
-                completed = json.loads(peer.stdout.readline(16384))
+                completion, _ = peer.communicate(input="stop\n", timeout=5)
+                if peer.returncode != 0:
+                    raise RuntimeError(f"independent peer failed: exit {peer.returncode}")
+                if len(completion) > 1 << 20:
+                    raise ValueError("peer observation exceeds the bounded report size")
+                completed = json.loads(completion)
                 if not isinstance(completed, dict) or not isinstance(completed.get("wire_observation"), dict):
                     raise ValueError("peer completion has no wire observation")
                 return completed["wire_observation"]
@@ -143,6 +149,7 @@ def run() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--peer", action="append", choices=PEERS)
     parser.add_argument("--profile", action="append", choices=PROFILES)
+    parser.add_argument("--scenario", action="append", choices=("payload", "small-datagrams"))
     parser.add_argument("--output-dir", type=Path, default=ROOT / "build/reports/awg-standalone" / str(time.time_ns()))
     parser.add_argument("--candidate-patch", action="store_true")
     args = parser.parse_args()
@@ -177,8 +184,9 @@ def run() -> None:
     shutil.copy2(executables[0], test_binary)
     identity["test_binary_sha256"] = hashlib.sha256(test_binary.read_bytes()).hexdigest()
     versions, profiles = args.peer or list(PEERS), args.profile or list(PROFILES)
+    scenarios = args.scenario or ["payload", "small-datagrams"]
     report = {"schema_version": 1, "identity": identity, "requested_peers": versions,
-              "requested_profiles": profiles, "mtus": [1280, 1420], "cycles": 4, "peer_builds": [], "cases": []}
+              "requested_profiles": profiles, "requested_scenarios": scenarios, "mtus": [1280, 1420], "cycles": 4, "peer_builds": [], "cases": []}
     failed = False
     for version in versions:
         try:
@@ -191,23 +199,25 @@ def run() -> None:
             continue
         digest = hashlib.sha256(binary.read_bytes()).hexdigest()
         for profile in profiles:
-            for mtu in (1280, 1420):
-                case = output / f"{version}-{profile}-{mtu}"
-                case.mkdir()
-                result = {"peer_version": version, "peer_sha": PEERS[version][0], "peer_binary_sha256": digest,
-                          "profile": profile, "mtu": mtu, "cycles": 4}
-                started = time.monotonic()
-                try:
-                    result["observation"] = run_case(binary, test_binary, case,
-                        dict(env, RIPDPI_AWG_PROFILE=profile, RIPDPI_AWG_INTEROP_MTU=str(mtu)), 4)
-                    result["status"] = "passed"
-                except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
-                    result.update(status="failed", error=str(error))
-                    failed = True
-                result["elapsed_seconds"] = round(time.monotonic() - started, 3)
-                report["cases"].append(result)
-                (output / "results.json").write_text(json.dumps(report, indent=2) + "\n")
-                print(f"{result['status']}: {version} {profile} MTU {mtu}", flush=True)
+            for scenario in scenarios:
+                for mtu in (1280, 1420):
+                    case = output / f"{version}-{profile}-{scenario}-{mtu}"
+                    case.mkdir()
+                    result = {"peer_version": version, "peer_sha": PEERS[version][0], "peer_binary_sha256": digest,
+                              "profile": profile, "scenario": scenario, "mtu": mtu, "cycles": 4}
+                    started = time.monotonic()
+                    try:
+                        result["observation"] = run_case(binary, test_binary, case,
+                            dict(env, RIPDPI_AWG_PROFILE=profile, RIPDPI_AWG_SCENARIO=scenario, RIPDPI_AWG_INTEROP_MTU=str(mtu)), 4)
+                        validate_wire_observation(result["observation"], profile, mtu, 4, scenario)
+                        result["status"] = "passed"
+                    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+                        result.update(status="failed", error=str(error))
+                        failed = True
+                    result["elapsed_seconds"] = round(time.monotonic() - started, 3)
+                    report["cases"].append(result)
+                    (output / "results.json").write_text(json.dumps(report, indent=2) + "\n")
+                    print(f"{result['status']}: {version} {profile} {scenario} MTU {mtu}", flush=True)
     if failed:
         raise SystemExit("AWG matrix has failed cases; see results.json and per-case logs")
 

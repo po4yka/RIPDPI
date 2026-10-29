@@ -165,12 +165,23 @@ prove those acceptance categories or production DPI behavior.
 
 `build-gate --lane ripdpi -- python3 scripts/tests/run-standalone-awg-interop.py`
 checks both Go revisions, seven named profiles, MTU 1280/1420, and four sessions
-per case. `--peer` and `--profile` select a smaller diagnostic run; its receipt
+per case, for both payload and small-datagram scenarios (56 cases). `--peer`,
+`--profile`, and `--scenario` select a smaller diagnostic run; its receipt
 lists the selected cases. Use `--candidate-patch` only for local development; new
 files must be staged so the archived patch includes them. JSON and logs are kept
 under `build/reports/awg-standalone/`. The fixture performs one empty TUN read after
 IpcSet so the pinned Go reader reloads S4 before its first actual payload. The
 upstream-control test proves the old offset; this does not patch upstream.
+
+Wire schema 2 records length histograms, a bounded event journal, accepted IP
+lengths, authenticated keepalive counts, and four redacted peer counters. The
+small-datagram scenario sends two 17-byte UDP payloads (45-byte IPv4 packets)
+per session. An independent validator checks aggregate CPA, RT, alignment,
+handshake trailer, HP, and authenticated byte constraints. Histograms do not
+associate each plaintext with its transport counter. An all-zero RT sample
+fails as missing evidence; keep its receipt and repeat the bounded case.
+Timer and cookie scenarios remain separate requirements. Android evidence v2
+uses the same validator; a schema upgrade does not replace a fresh device run.
 
 Linux acceptance uses `scripts/tests/run-linux-awg-interop.py` inside a new VM
 created by `test-lab/acceptance/vm/lab_vm.py`. It refuses root execution, a missing

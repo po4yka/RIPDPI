@@ -52,6 +52,17 @@ class ProcessCleanupTests(unittest.TestCase):
             self.assertEqual(json.loads((root / "metadata.json").read_text()), {})
             self.assertIn("go: downloading", (root / "download.log").read_text())
 
+    def test_large_peer_observation_is_drained_before_waiting_for_exit(self):
+        with tempfile.TemporaryDirectory(prefix="awg-report-pipe-test-") as directory:
+            case = Path(directory)
+            peer, runtime = case / "peer", case / "runtime"
+            peer.write_text(f"#!{sys.executable}\nimport json,sys\nprint(json.dumps({{'endpoint':'127.0.0.1:51820'}}), flush=True)\nsys.stdin.readline()\nprint(json.dumps({{'wire_observation':{{'payload':'x'*200000}}}}), flush=True)\n")
+            runtime.write_text(f"#!{sys.executable}\n")
+            peer.chmod(0o700)
+            runtime.chmod(0o700)
+            result = RUNNER.run_case(peer, runtime, case, dict(os.environ), 1)
+            self.assertEqual(len(result["payload"]), 200000)
+
     def test_missing_peer_endpoint_is_a_controlled_failure(self):
         with tempfile.TemporaryDirectory(prefix="awg-startup-test-") as directory:
             case = Path(directory)

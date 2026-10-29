@@ -139,9 +139,23 @@ class EvidenceValidationTest(unittest.TestCase):
                 self.evidence["cycles"].append(value)
         self.evidence["wire_observations"] = []
         for mtu in (1280, 1420):
-            observation = {"wire_profile": self.profile, "handshakes": 4}
-            if protected:
-                observation.update(padding=[12, 12, 12, 12], headers_in_clear=0)
+            prefix = 12 if protected else 0
+            empty = prefix + 32 + (10 if protected else 0)
+            count = (8*tcp_bytes + mtu-1)//mtu
+            observation = {
+                "schema_version": 2, "wire_profile": self.profile, "handshakes": 4,
+                "fresh_signature_packets": 4, "signature_order": "I1-I5,Jc,initiation",
+                "signature_tags": ["b", "r", "rd", "rc", "t"],
+                "padding": [12, 12, 12, 12] if protected else [8, 12, 0, 0],
+                "evidence": {
+                    "lengths": [[{str(167 if protected else 156): 4}, None, None, {str(empty): 4, str(prefix+32+mtu): count}],
+                                [None, {str(115 if protected else 104): 4}, None, {str(prefix+32+mtu): count}]],
+                    "authenticated_keepalives": 4, "ip_lengths": {str(mtu): count},
+                    "peer_counters": {"rx_bytes": 592+4*(empty-prefix)+count*(mtu+32), "tx_bytes": count*(mtu+32),
+                                      "last_handshake_time_sec": 1, "last_handshake_time_nsec": 0},
+                },
+            }
+            if protected: observation["headers_in_clear"] = 0
             content = json.dumps({"wire_observation": observation}).encode()
             self.evidence["wire_observations"].append({"mtu": mtu, **observation, "artifact": self.artifact(f"peer-{mtu}.json", content)})
         self.evidence["negative_control"] = None
@@ -165,6 +179,15 @@ class EvidenceValidationTest(unittest.TestCase):
 
     def test_complete_validator_unit_fixture_is_accepted(self):
         self.validate()
+
+    def test_missing_authenticated_evidence_fails_after_artifact_digest_update(self):
+        changed = copy.deepcopy(self.evidence)
+        value = changed["wire_observations"][0]
+        value["evidence"]["peer_counters"]["rx_bytes"] = 0
+        observation = {k: v for k, v in value.items() if k not in ("mtu", "artifact")}
+        value["artifact"] = self.artifact("missing-auth.json", json.dumps({"wire_observation": observation}).encode())
+        with self.assertRaisesRegex(ValueError, "authenticated byte accounting"):
+            self.validate(changed)
 
     def test_nonce_source_scope_and_missing_matrix_are_rejected(self):
         with self.assertRaises(ValueError):
@@ -249,10 +272,11 @@ class AmneziaVpn5xEvidenceTest(EvidenceValidationTest):
         with self.assertRaises(ValueError):
             self.validate(changed)
         changed = copy.deepcopy(self.evidence)
-        observation = {"wire_profile": self.profile, "handshakes": 4, "padding": [12, 12, 12, 12], "headers_in_clear": 1}
+        observation = {k: v for k, v in changed["wire_observations"][0].items() if k not in ("mtu", "artifact")}
+        observation["headers_in_clear"] = 1
         changed["wire_observations"][0] = {"mtu": 1280, **observation,
                                            "artifact": self.artifact("clear.json", json.dumps({"wire_observation": observation}).encode())}
-        with self.assertRaisesRegex(ValueError, "header protection not observed"):
+        with self.assertRaisesRegex(ValueError, "protected header exposed"):
             self.validate(changed)
 
     def test_udp_series_is_required(self):

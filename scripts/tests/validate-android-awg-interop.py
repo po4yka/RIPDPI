@@ -2,6 +2,7 @@
 """Validate invocation-bound Android AWG native-core evidence; never grants TUN acceptance."""
 
 import argparse
+import importlib.util
 import hashlib
 import json
 from pathlib import Path
@@ -9,7 +10,12 @@ import re
 import sys
 import zipfile
 
-VERSION = "android_awg_native_interop_v1"
+WIRE_SPEC = importlib.util.spec_from_file_location("awg_wire_validation", Path(__file__).with_name("awg_wire_validation.py"))
+WIRE = importlib.util.module_from_spec(WIRE_SPEC)
+WIRE_SPEC.loader.exec_module(WIRE)
+validate_wire_observation = WIRE.validate_wire_observation
+
+VERSION = "android_awg_native_interop_v2"
 PEER_COMMIT = "b5928efb6ca19f0153958460c3d141f04abc5c2e"
 METHOD = "com.poyka.ripdpi.testing.awginterop.AwgNativeInteropTest#nativeCoreExchangesDualStackPayloads"
 NEGATIVE_METHOD = "com.poyka.ripdpi.testing.awginterop.AwgNativeInteropTest#nativeCoreRefusesMismatchedHeaderProtection"
@@ -68,6 +74,11 @@ def validate_observations(base, data):
         recorded = json.loads(artifact(base, value["artifact"]).read_text())["wire_observation"]
         require(recorded == {k: v for k, v in value.items() if k not in ("mtu", "artifact")}, "wire observation differs from peer artifact")
         require(value["wire_profile"] == data["profile"] and value["handshakes"] >= 4, "peer did not observe every session")
+        evidence = validate_wire_observation(recorded, data["profile"], value["mtu"], 4)
+        sent = sum(m["sent_bytes"] for c in data["cycles"] if c["mtu"] == value["mtu"]
+                   for m in c["measurements"] if m["protocol"] == "tcp")
+        require(sum(int(size)*count for size, count in evidence["ip_lengths"].items()) >= sent,
+                "authenticated IP volume is below reported TCP payload")
         if data["profile"] == "amneziavpn-5x":
             require(value["padding"] == [12, 12, 12, 12] and value["headers_in_clear"] == 0, "S1-S4 or header protection not observed")
 

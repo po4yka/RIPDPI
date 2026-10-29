@@ -273,11 +273,12 @@ def device_cycles(args, adb, output):
                         raise ValueError("native instrumentation did not produce exactly one measurement record")
                     records[0]["instrumentation"] = artifact(path, output)
                     cycles.append(records[0])
-                peer.stdin.write("stop\n")
-                peer.stdin.flush()
-                if peer.wait(timeout=10) != 0:
-                    raise ValueError(f"independent peer exchanges failed: {peer.stderr.read(4096)}")
-                lines = [line for line in peer.stdout.read().splitlines() if line.startswith('{"wire_observation"')]
+                completion, diagnostics = peer.communicate(input="stop\n", timeout=10)
+                if peer.returncode != 0:
+                    raise ValueError(f"independent peer exchanges failed: {diagnostics[:4096]}")
+                if len(completion) > 1 << 20:
+                    raise ValueError("peer observation exceeds the bounded report size")
+                lines = [line for line in completion.splitlines() if line.startswith('{"wire_observation"')]
                 if len(lines) != 1:
                     raise ValueError("independent peer did not report one wire observation")
                 path = output / f"peer-observation-{mtu}.json"
@@ -286,7 +287,7 @@ def device_cycles(args, adb, output):
             finally:
                 stop_peer(peer)
     negative = negative_control(args, adb, output) if args.profile == "amneziavpn-5x" else None
-    data = {"version": "android_awg_native_interop_v1", "nonce": args.nonce, "profile": args.profile,
+    data = {"version": "android_awg_native_interop_v2", "nonce": args.nonce, "profile": args.profile,
             **json.loads((output / "identity.json").read_text()),
             "scope": "native_core", "device_class": "emulator", "abi": "arm64-v8a", "api": cycles[0]["api"],
             "peer": {"version": "v3.1.20260828", "commit": PEER_COMMIT, "go": GO_VERSION}, "cycles": cycles,
