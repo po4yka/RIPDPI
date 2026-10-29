@@ -16,6 +16,11 @@ on:
         options:
           - smoke
           - full
+      run_ui_journeys:
+        description: Run the Kaspresso UI journeys after Android instrumentation
+        required: false
+        default: false
+        type: boolean
       run_native_soak:
         description: Run native Rust soak suites
         required: false
@@ -2766,6 +2771,7 @@ jobs:
         env:
           RIPDPI_PREBUILT_PT_DIR: ${{ runner.temp }}/prebuilt-pluggable-transport-assets
           RIPDPI_PREBUILT_PT_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
+          RIPDPI_RUN_UI_JOURNEYS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_ui_journeys == 'true' }}
         run: bash scripts/ci/run-android-e2e-emulator.sh
 
       - name: Capture fixture state

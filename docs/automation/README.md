@@ -134,5 +134,5 @@ The underlying action is `com.poyka.ripdpi.DEBUG_PROBE`. It is declared only in 
 
 ## CI
 
-The emulator lane of the GitHub Actions `CI` workflow runs the flavor-qualified Github Full instrumentation task,
-which includes the Kaspresso journeys.
+The emulator lane of the GitHub Actions `CI` workflow runs selected instrumentation classes. Start the workflow
+manually with `run_ui_journeys` to also run every Kaspresso journey in `com.poyka.ripdpi.ui.journeys` in that lane.
