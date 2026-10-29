@@ -29,10 +29,8 @@ pub(crate) fn classified_error(class: FailureClass, kind: io::ErrorKind, message
 
 /// Recover the failure class tagged by [`classified_error`], if any.
 ///
-/// Today's consumers are the contract tests pinning end-to-end class
-/// propagation; production classification wiring (the failure-classifier
-/// boundary) consumes this same accessor once relay failures feed it.
-#[cfg_attr(not(test), allow(dead_code))]
+/// Only the contract tests that pin end-to-end class propagation use it.
+#[cfg(test)]
 pub(crate) fn relay_failure_class(error: &io::Error) -> Option<FailureClass> {
     // Walk the source chain so a class tagged inside a hop (e.g. TUIC's
     // version classification) survives the chain layer's hop-error wrapping.
