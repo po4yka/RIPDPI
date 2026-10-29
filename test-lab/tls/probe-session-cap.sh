@@ -6,7 +6,7 @@
 # sessions to a single foreign exit IP trips a silent-drop window. The cap
 # (`ExitIpSessionLimiter` / `ExitIpSessionCaps`, default
 # `DEFAULT_EXIT_IP_SESSION_CAP = 8`, in
-# native/rust/crates/ripdpi-proxy-runtime/src/exit_ip_cap.rs) keeps the
+# native/rust/crates/ripdpi-session-limit/src/lib.rs) keeps the
 # outbound profile under that ceiling; this probe opens COUNT concurrent TLS
 # sessions to ENDPOINT, holds them open *simultaneously* (a barrier ensures
 # every handshake is live at once), and verifies all COUNT establish within

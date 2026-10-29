@@ -295,6 +295,14 @@ The matrix writes `summary.tsv` plus one probe JSON per scenario and covers read
 
 Use `--mode diagnostics` for a lab reachability smoke without requiring an active RIPDPI service. Use `--mode proxy` after proxy mode is running; that mode requires local proxy readiness on the configured loopback listener. Use `--mode vpn` after VPN mode is running; that mode requires Android VPN transport and end-to-end lab traffic success. VPN mode does not require the fixed `127.0.0.1:1080` listener because the service may use an ephemeral authenticated internal SOCKS hop between the tunnel and proxy.
 
+## Manual TLS Session-Cap Probe
+
+`test-lab/tls/probe-session-cap.sh` is a manual host probe. No workflow runs it. It opens `RIPDPI_TLS_PROBE_COUNT` (default 5) concurrent TLS sessions to one endpoint, holds them open together, and checks that all sessions connect and that the count stays at or under the per-exit-IP cap (`DEFAULT_EXIT_IP_SESSION_CAP = 8` in `native/rust/crates/ripdpi-session-limit/src/lib.rs`). The default endpoint is the lab Caddy TLS server at `127.0.0.1:8443`. If the endpoint is unreachable, the probe skips with exit 0.
+
+```bash
+./test-lab/tls/probe-session-cap.sh [host:port]
+```
+
 ## Artifacts
 
 - Probe JSON: `test-lab/artifacts/probe-<profile>-<mode>.json`
