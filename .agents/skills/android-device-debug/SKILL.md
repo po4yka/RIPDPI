@@ -44,7 +44,7 @@ adb -s <serial> <command>             # one-off targeting
 ### Install
 
 ```bash
-adb install -r app/build/outputs/apk/githubFull/debug/app-github-full-debug.apk
+adb install -r app/build/outputs/apk/githubFull/debug/app-github-full-universal-debug.apk
 ```
 
 ### Launch with Automation Extras
@@ -285,7 +285,7 @@ authorized cleanup. See the pool document for complete lifecycle rules.
 | Task | Command |
 |------|---------|
 | List devices | `adb devices -l` |
-| Install debug APK | `adb install -r app/build/outputs/apk/githubFull/debug/app-github-full-debug.apk` |
+| Install debug APK | `adb install -r app/build/outputs/apk/githubFull/debug/app-github-full-universal-debug.apk` |
 | Launch app (clean) | `adb shell am start -n com.poyka.ripdpi/.activities.MainActivity --ez com.poyka.ripdpi.automation.ENABLED true --ez com.poyka.ripdpi.automation.RESET_STATE true` |
 | Native logs | `adb logcat -s ripdpi-native:V ripdpi-tunnel-native:V` |
 | Screenshot | `adb exec-out screencap -p > screenshot.png` |
