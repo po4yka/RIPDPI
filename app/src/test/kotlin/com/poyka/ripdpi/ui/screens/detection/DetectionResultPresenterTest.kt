@@ -19,6 +19,11 @@ class DetectionResultPresenterTest {
             .build()
 
     @Test
+    fun `runnerConfig runs location signals check with default settings`() {
+        assertTrue(DetectionResultPresenter.runnerConfig(settings(), "pkg").includeLocationCheck)
+    }
+
+    @Test
     fun `runnerConfig sets ownProxyPort only when proxyPort positive`() {
         assertNull(DetectionResultPresenter.runnerConfig(settings { proxyPort = 0 }, "pkg").ownProxyPort)
         assertEquals(

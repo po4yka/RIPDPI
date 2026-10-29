@@ -74,7 +74,6 @@ private fun AppSettings.toDetectionRunnerConfig(packageName: String): DetectionR
         ownProxyPort = proxyPort.takeIf { it > 0 },
         ownPackageName = packageName,
         includeBypassCheck = detectionCheckIncludeBypass,
-        includeLocationCheck = detectionCheckIncludeLocation,
         includeRttTriangulationCheck =
             detectionCheckNetworkRequestsEnabled && detectionCheckRttTriangulationEnabled,
         includeCdnPullingCheck =
