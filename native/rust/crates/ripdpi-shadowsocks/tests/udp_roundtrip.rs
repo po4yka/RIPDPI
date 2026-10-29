@@ -145,3 +145,50 @@ fn udp_server_recipient_is_checked_before_replay_state() {
         );
     }
 }
+
+#[test]
+fn udp_aead2022_bounds_server_sessions_without_forgetting_replays() {
+    for (cipher, credential) in [
+        (Cipher::Aead2022Blake3Aes128Gcm, "AAECAwQFBgcICQoLDA0ODw=="),
+        (Cipher::Aead2022Blake3Aes256Gcm, FIXTURE_PSK_AES256_B64),
+        (Cipher::Aead2022Blake3Chacha20Poly1305, FIXTURE_PSK_CHACHA_B64),
+    ] {
+        let session = |id| {
+            Aead2022UdpSession::new(cipher, PresharedKey::from_base64(cipher, credential).expect("psk"), id)
+                .expect("session")
+        };
+        let client_id = *b"SID-CLNT";
+        let mut client = session(client_id);
+        let mut previous = session(0u64.to_be_bytes());
+        let mut current = session(1u64.to_be_bytes());
+        let previous_packet = previous.encrypt_server(SIP022_TIMESTAMP, client_id, b"previous").expect("packet");
+        let current_packet = current.encrypt_server(SIP022_TIMESTAMP, client_id, b"current").expect("packet");
+        for packet in [&previous_packet, &current_packet] {
+            client.decrypt(packet, Aead2022UdpPacketType::Server, SIP022_TIMESTAMP).expect("first two sessions");
+        }
+        for id in 2u64..130 {
+            let packet =
+                session(id.to_be_bytes()).encrypt_server(SIP022_TIMESTAMP, client_id, b"excess").expect("packet");
+            assert!(
+                client.decrypt(&packet, Aead2022UdpPacketType::Server, SIP022_TIMESTAMP).is_err(),
+                "{cipher:?} must reject excess server sessions"
+            );
+        }
+        for packet in [&previous_packet, &current_packet] {
+            assert_eq!(
+                client.decrypt(packet, Aead2022UdpPacketType::Server, SIP022_TIMESTAMP),
+                Err(CipherError::Replay)
+            );
+        }
+        for sender in [&mut previous, &mut current] {
+            let packet = sender.encrypt_server(SIP022_TIMESTAMP, client_id, b"still active").expect("packet");
+            assert_eq!(
+                client
+                    .decrypt(&packet, Aead2022UdpPacketType::Server, SIP022_TIMESTAMP)
+                    .expect("existing session")
+                    .payload,
+                b"still active"
+            );
+        }
+    }
+}
