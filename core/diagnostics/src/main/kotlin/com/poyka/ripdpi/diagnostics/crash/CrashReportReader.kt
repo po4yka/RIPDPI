@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.diagnostics.crash
 
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.diagnostics.export.redactDiagnosticsFreeText
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
@@ -47,8 +48,15 @@ class CrashReportReader(
                 appendLine(" (Android ${report.androidVersion}, SDK ${report.sdkInt})")
                 appendLine("Thread: ${report.threadName}")
                 appendLine()
-                appendLine(report.stacktrace)
+                appendLine(redactCrashText(report.stacktrace))
             }
         return title to body
     }
 }
+
+// Exception messages can carry proxy links, tokens and addresses. Skip the logcat
+// host-name rule here: it would also erase package names from the stack frames.
+private val AnySchemeUriRegex = Regex("\\b[a-z][a-z0-9+.-]*://\\S+", RegexOption.IGNORE_CASE)
+
+internal fun redactCrashText(value: String): String =
+    redactDiagnosticsFreeText(value).replace(AnySchemeUriRegex, "<uri-redacted>")

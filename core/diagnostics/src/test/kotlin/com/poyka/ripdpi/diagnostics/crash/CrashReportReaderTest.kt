@@ -96,6 +96,27 @@ class CrashReportReaderTest {
     }
 
     @Test
+    fun `buildShareText redacts secrets but keeps stack frames`() {
+        val secretUuid = "3f1c2b9a-7d4e-4a10-9b2c-8e5f6a7b8c9d"
+        val report =
+            sampleReport.copy(
+                stacktrace =
+                    "java.lang.IllegalStateException: import failed for " +
+                        "vless://$secretUuid@relay.example.net:443?security=reality " +
+                        "token=abc123secret from 203.0.113.7\n" +
+                        "\tat com.poyka.ripdpi.services.Foo.bar(Foo.kt:42)",
+            )
+
+        val (_, body) = createReader().buildShareText(report)
+
+        assertFalse(body.contains(secretUuid))
+        assertFalse(body.contains("relay.example.net"))
+        assertFalse(body.contains("abc123secret"))
+        assertFalse(body.contains("203.0.113.7"))
+        assertTrue(body.contains("at com.poyka.ripdpi.services.Foo.bar(Foo.kt:42)"))
+    }
+
+    @Test
     fun `delete is safe when file does not exist`() {
         val reader = createReader()
 
