@@ -1,24 +1,19 @@
 package com.poyka.ripdpi.widget.theme
 
-import androidx.compose.ui.graphics.Color
 import androidx.glance.color.ColorProvider
+import com.poyka.ripdpi.ui.theme.DarkRipDpiExtendedColors
+import com.poyka.ripdpi.ui.theme.LightRipDpiExtendedColors
+import com.poyka.ripdpi.ui.theme.ripDpiDarkColorScheme
+import com.poyka.ripdpi.ui.theme.ripDpiLightColorScheme
 
-// Light palette values sourced from ui/theme/Color.kt
-private val LightOnPrimary = Color(0xFFFFFFFF)
-private val LightSuccess = Color(0xFF047857)
-private val LightError = Color(0xFFB91C1C)
-private val LightWarning = Color(0xFFB45309)
-private val LightMutedForeground = Color(0xFF575757)
+// Widgets read the same standard-contrast schemes and derived RDS roles as the app theme; no hex lives here.
+private val Light = ripDpiLightColorScheme()
+private val Dark = ripDpiDarkColorScheme()
+private val LightRds = LightRipDpiExtendedColors
+private val DarkRds = DarkRipDpiExtendedColors
 
-// Dark palette values sourced from ui/theme/Color.kt
-private val DarkOnPrimary = Color(0xFF121212)
-private val DarkSuccess = Color(0xFF34D399)
-private val DarkError = Color(0xFFF87171)
-private val DarkWarning = Color(0xFFFBBF24)
-private val DarkMutedForeground = Color(0xFFA3A3A3)
-
-internal val GlanceOnPrimary = ColorProvider(day = LightOnPrimary, night = DarkOnPrimary)
-internal val GlanceSuccess = ColorProvider(day = LightSuccess, night = DarkSuccess)
-internal val GlanceError = ColorProvider(day = LightError, night = DarkError)
-internal val GlanceWarning = ColorProvider(day = LightWarning, night = DarkWarning)
-internal val GlanceMutedForeground = ColorProvider(day = LightMutedForeground, night = DarkMutedForeground)
+internal val GlanceOnPrimary = ColorProvider(day = Light.onPrimary, night = Dark.onPrimary)
+internal val GlanceSuccess = ColorProvider(day = LightRds.success, night = DarkRds.success)
+internal val GlanceError = ColorProvider(day = LightRds.destructive, night = DarkRds.destructive)
+internal val GlanceWarning = ColorProvider(day = LightRds.warning, night = DarkRds.warning)
+internal val GlanceMutedForeground = ColorProvider(day = LightRds.mutedForeground, night = DarkRds.mutedForeground)
