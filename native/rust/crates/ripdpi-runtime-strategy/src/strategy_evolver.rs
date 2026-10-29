@@ -71,9 +71,7 @@ mod tests;
 mod thompson_sampling;
 mod types;
 
-// Re-exported for the Thompson scorer surface; UCB1 remains production default.
-#[allow(unused_imports)]
-pub use thompson_sampling::{BetaParams, ThompsonSampling, sample_beta};
+pub use thompson_sampling::BetaParams;
 
 // Re-exported so callers (including the JNI bridge) can verify and apply
 // signed shared-priors bundles without reaching into sub-modules.
