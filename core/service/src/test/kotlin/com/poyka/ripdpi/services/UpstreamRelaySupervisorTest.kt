@@ -1477,6 +1477,7 @@ class UpstreamRelaySupervisorTest {
                                     realityPublicKey = TestVlessRealityPublicKey,
                                     realityShortId = "abcd1234",
                                     vlessTransport = RelayVlessTransportXhttp,
+                                    vlessFlow = "",
                                     xhttpPath = "/xhttp",
                                     xhttpHost = "origin.example",
                                 ),

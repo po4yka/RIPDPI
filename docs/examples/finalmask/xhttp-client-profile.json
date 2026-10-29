@@ -7,6 +7,7 @@
   "realityPublicKey": "q6urq6urq6urq6urq6urq6urq6urq6urq6urq6urq6s=",
   "realityShortId": "abcd1234",
   "vlessTransport": "xhttp",
+  "vlessFlow": "",
   "xhttpPath": "/xhttp",
   "xhttpHost": "origin.example.com",
   "udpEnabled": false

@@ -630,6 +630,7 @@
     <string name="config_relay_server_name">نام سرور TLS</string>
     <string name="config_relay_reality_public_key">کلید عمومی Reality</string>
     <string name="config_relay_reality_short_id">شناسهٔ کوتاه Reality</string>
+    <string name="config_relay_vless_flow">حالت VLESS</string>
     <string name="config_relay_vless_transport">حمل‌و‌نقل VLESS</string>
     <string name="config_relay_protocol_section_recommended">پیشنهادی</string>
     <string name="config_relay_protocol_section_tls">انتقال‌های TLS</string>

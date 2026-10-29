@@ -65,9 +65,9 @@ const val DefaultSnowflakeFrontDomain = "app.datapacket.com,www.datapacket.com"
 // The earlier built-in pair; that front no longer routes to the broker.
 const val RetiredSnowflakeBrokerUrl = "https://snowflake-broker.torproject.net/"
 const val RetiredSnowflakeFrontDomain = "cdn.sstatic.net"
-private const val RelayXhttpModeAutoValue = "auto"
-private const val RelayXhttpModeStreamUpValue = "stream-up"
-private const val RelayXhttpModeStreamOneValue = "stream-one"
+private const val RelayXhttpModeAutoValue = RelayXhttpModeAuto
+private const val RelayXhttpModeStreamUpValue = RelayXhttpModeStreamUp
+private const val RelayXhttpModeStreamOneValue = RelayXhttpModeStreamOne
 
 private val RelayKindsWithNativeSettings =
     setOf(
@@ -154,8 +154,17 @@ fun normalizeRelayVlessTransport(
 ): String =
     when {
         normalizeRelayKind(relayKind.orEmpty()) == RelayKindCloudflareTunnel -> RelayVlessTransportXhttp
-        value.trim().lowercase() == RelayVlessTransportXhttp -> RelayVlessTransportXhttp
-        else -> RelayVlessTransportRealityTcp
+
+        value.trim().lowercase() in
+            setOf(
+                "",
+                "tcp",
+                "raw",
+                RelayVlessTransportRealityTcp,
+            )
+        -> RelayVlessTransportRealityTcp
+
+        else -> value.trim().lowercase()
     }
 
 /**
@@ -181,11 +190,15 @@ fun normalizeRelaySecurityLayer(
             RelaySecurityLayerReality
         }
 
-        else -> {
+        "" -> {
             when (normalizeRelayKind(relayKind.orEmpty())) {
                 RelayKindVless -> RelaySecurityLayerTls
                 else -> RelaySecurityLayerReality
             }
+        }
+
+        else -> {
+            value.trim().lowercase()
         }
     }
 
@@ -233,7 +246,8 @@ fun normalizeRelayXhttpMode(value: String?): String =
     when (value?.trim()?.lowercase()) {
         RelayXhttpModeStreamUpValue -> RelayXhttpModeStreamUpValue
         RelayXhttpModeStreamOneValue -> RelayXhttpModeStreamOneValue
-        else -> RelayXhttpModeAutoValue
+        "", null, RelayXhttpModeAutoValue -> RelayXhttpModeAutoValue
+        else -> value.trim().lowercase()
     }
 
 data class RelayFinalmaskModel(

@@ -5,7 +5,8 @@ import com.poyka.ripdpi.data.DefaultRelayLocalSocksPort
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.RelayKindOff
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
-import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.RelayKindVless
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.normalizeRelayCongestionControl
 import com.poyka.ripdpi.data.normalizeRelayKind
 import com.poyka.ripdpi.data.normalizeRelayStringList
@@ -25,11 +26,7 @@ internal fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig 
         serverName = config.serverName.trim(),
         realityPublicKey = config.realityPublicKey.trim(),
         realityShortId = config.realityShortId.trim(),
-        // XTLS Vision is TLS/REALITY-TCP only; the native xHTTP builder rejects any flow.
-        vlessFlow =
-            config.vlessFlow.trim().ifBlank {
-                if (vlessTransport == RelayVlessTransportXhttp) "" else com.poyka.ripdpi.data.RelayVlessFlowVision
-            },
+        vlessFlow = config.vlessFlow.trim(),
         vlessTransport = vlessTransport,
         xhttpPath = config.xhttpPath.trim(),
         xhttpHost = config.xhttpHost.trim(),
@@ -61,12 +58,18 @@ internal fun normalizeRelayConfig(config: RipDpiRelayConfig): RipDpiRelayConfig 
         localSocksHost = config.localSocksHost.ifBlank { DefaultRelayLocalSocksHost },
         localSocksPort = config.localSocksPort.takeIf { it in 1..MaxValidPortNumber } ?: DefaultRelayLocalSocksPort,
         udpEnabled =
-            relayProfileSupportsUdpAssociation(
-                normalizedKind,
-                config.udpEnabled,
-                config.vlessTransport,
-                config.vlessFlow,
-            ),
+            if (normalizedKind in
+                setOf(RelayKindVless, RelayKindVlessReality)
+            ) {
+                config.udpEnabled
+            } else {
+                relayProfileSupportsUdpAssociation(
+                    normalizedKind,
+                    config.udpEnabled,
+                    config.vlessTransport,
+                    config.vlessFlow,
+                )
+            },
         tcpFallbackEnabled = normalizedKind != RelayKindShadowTlsV3 && config.tcpFallbackEnabled,
     )
 }

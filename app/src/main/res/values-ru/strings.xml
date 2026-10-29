@@ -2048,6 +2048,7 @@ fakeddisorder endhost</string>
     <string name="config_relay_server">Сервер реле</string>
     <string name="config_relay_title">Протокол исходящего реле</string>
     <string name="config_relay_udp">Включить UDP-реле</string>
+    <string name="config_relay_vless_flow">Режим VLESS</string>
     <string name="config_relay_vless_transport">Транспорт VLESS</string>
     <string name="config_relay_vless_uuid">VLESS UUID</string>
     <string name="config_relay_xhttp_host">Переопределение хоста xHTTP</string>

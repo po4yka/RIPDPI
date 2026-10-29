@@ -643,6 +643,7 @@
     <string name="config_relay_server_name">TLS server name</string>
     <string name="config_relay_reality_public_key">Reality public key</string>
     <string name="config_relay_reality_short_id">Reality short ID</string>
+    <string name="config_relay_vless_flow">VLESS flow</string>
     <string name="config_relay_vless_transport">VLESS transport</string>
     <string name="config_relay_vless_transport_reality_tcp" translatable="false">Reality TCP</string>
     <string name="config_relay_vless_transport_xhttp" translatable="false">xHTTP</string>

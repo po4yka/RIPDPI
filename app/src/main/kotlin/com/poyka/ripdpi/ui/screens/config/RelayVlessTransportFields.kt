@@ -3,16 +3,25 @@ package com.poyka.ripdpi.ui.screens.config
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
+import com.poyka.ripdpi.activities.selectedVlessFlow
+import com.poyka.ripdpi.data.NativeVlessCapabilities
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
+import com.poyka.ripdpi.data.RelayKindVless
+import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RelaySecurityLayerReality
+import com.poyka.ripdpi.data.RelaySecurityLayerTls
+import com.poyka.ripdpi.data.RelayVlessFlowVision
+import com.poyka.ripdpi.data.RelayVlessFlowVisionUdp443
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.RelayXhttpModeAuto
-import com.poyka.ripdpi.data.RelayXhttpModeStreamOne
 import com.poyka.ripdpi.data.RelayXhttpModeStreamUp
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
@@ -34,18 +43,24 @@ internal fun VlessTransportFields(
         horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
-        VlessTransportChip(
-            selectedTransport = draft.relayVlessTransport,
-            transport = RelayVlessTransportRealityTcp,
-            labelRes = R.string.config_relay_vless_transport_reality_tcp,
-            onRelayVlessTransportChanged = actions.onRelayVlessTransportChanged,
-        )
-        VlessTransportChip(
-            selectedTransport = draft.relayVlessTransport,
-            transport = RelayVlessTransportXhttp,
-            labelRes = R.string.config_relay_vless_transport_xhttp,
-            onRelayVlessTransportChanged = actions.onRelayVlessTransportChanged,
-        )
+        NativeVlessCapabilities.transports(draft.vlessSecurity()).forEach { transport ->
+            VlessTransportChip(
+                selectedTransport = draft.relayVlessTransport,
+                transport = transport,
+                labelRes =
+                    if (transport ==
+                        RelayVlessTransportRealityTcp
+                    ) {
+                        R.string.config_relay_vless_transport_reality_tcp
+                    } else {
+                        R.string.config_relay_vless_transport_xhttp
+                    },
+                onRelayVlessTransportChanged = actions.onRelayVlessTransportChanged,
+            )
+        }
+    }
+    if (draft.relayKind in setOf(RelayKindVless, RelayKindVlessReality)) {
+        VlessFlowFields(draft, actions)
     }
     if (draft.showsXhttpFields()) {
         XhttpFields(draft = draft, actions = actions)
@@ -89,24 +104,19 @@ internal fun XhttpFields(
         horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
-        XhttpModeChip(
-            selectedMode = draft.relayXhttpMode,
-            mode = RelayXhttpModeAuto,
-            labelRes = R.string.config_relay_xhttp_mode_auto,
-            onRelayXhttpModeChanged = actions.onRelayXhttpModeChanged,
-        )
-        XhttpModeChip(
-            selectedMode = draft.relayXhttpMode,
-            mode = RelayXhttpModeStreamUp,
-            labelRes = R.string.config_relay_xhttp_mode_stream_up,
-            onRelayXhttpModeChanged = actions.onRelayXhttpModeChanged,
-        )
-        XhttpModeChip(
-            selectedMode = draft.relayXhttpMode,
-            mode = RelayXhttpModeStreamOne,
-            labelRes = R.string.config_relay_xhttp_mode_stream_one,
-            onRelayXhttpModeChanged = actions.onRelayXhttpModeChanged,
-        )
+        NativeVlessCapabilities.xhttpModes(draft.vlessSecurity()).forEach { mode ->
+            XhttpModeChip(
+                selectedMode = draft.relayXhttpMode,
+                mode = mode,
+                labelRes =
+                    when (mode) {
+                        RelayXhttpModeAuto -> R.string.config_relay_xhttp_mode_auto
+                        RelayXhttpModeStreamUp -> R.string.config_relay_xhttp_mode_stream_up
+                        else -> R.string.config_relay_xhttp_mode_stream_one
+                    },
+                onRelayXhttpModeChanged = actions.onRelayXhttpModeChanged,
+            )
+        }
     }
 }
 
@@ -140,3 +150,39 @@ private fun XhttpModeChip(
 
 internal fun ConfigDraft.showsXhttpFields(): Boolean =
     relayKind == RelayKindCloudflareTunnel || relayVlessTransport == RelayVlessTransportXhttp
+
+private fun ConfigDraft.vlessSecurity(): String =
+    if (relayKind == RelayKindVless) RelaySecurityLayerTls else RelaySecurityLayerReality
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun VlessFlowFields(
+    draft: ConfigDraft,
+    actions: RelayVlessActions,
+) {
+    Text(
+        text = stringResource(R.string.config_relay_vless_flow),
+        modifier = Modifier.fillMaxWidth(),
+        style = RipDpiThemeTokens.type.caption,
+        color = RipDpiThemeTokens.colors.mutedForeground,
+    )
+    val selectedFlow = draft.selectedVlessFlow().trim().let { if (it in listOf("none", "off")) "" else it }
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+    ) {
+        NativeVlessCapabilities.flows(draft.vlessSecurity(), draft.relayVlessTransport).forEach { flow ->
+            RipDpiChip(
+                text =
+                    when (flow) {
+                        "" -> stringResource(R.string.semantic_state_off)
+                        RelayVlessFlowVision -> "Vision"
+                        RelayVlessFlowVisionUdp443 -> "Vision + UDP/443"
+                        else -> flow
+                    },
+                selected = selectedFlow == flow,
+                onClick = { actions.onRelayVlessFlowChanged(flow) },
+            )
+        }
+    }
+}

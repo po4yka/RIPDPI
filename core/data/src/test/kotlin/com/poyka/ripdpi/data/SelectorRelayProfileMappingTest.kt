@@ -97,12 +97,13 @@ class SelectorRelayProfileMappingTest {
             listOf(
                 reality.copy(flow = ""),
                 reality.copy(flow = " "),
-                reality.copy(flow = "unsupported-flow"),
-                reality.copy(xhttpPath = "/stream"),
-                reality.copy(xhttpHost = "front.example"),
-                reality.copy(xhttpPath = ""),
-                reality.copy(xhttpHost = "", flow = RelayVlessFlowVisionUdp443),
+                reality.copy(xhttpPath = "/stream", flow = ""),
+                reality.copy(xhttpHost = "front.example", flow = ""),
+                reality.copy(xhttpPath = "", flow = ""),
             )
+        listOf(reality.copy(flow = "unsupported-flow"), reality.copy(xhttpPath = "/stream")).forEach { profile ->
+            assertTrue(runCatching { mapRelayProfile(storedProfile(profile)) }.isFailure)
+        }
         unsupported.forEach { profile ->
             assertFalse(checkNotNull(mapRelayProfile(storedProfile(profile))).profile.udpEnabled)
         }
@@ -121,7 +122,8 @@ class SelectorRelayProfileMappingTest {
                     uuid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
                     serverName = "relay.example",
                     xhttpPath = "/stream",
-                    flow = RelayVlessFlowVision,
+                    flow = "",
+                    xhttpMode = "stream-one",
                 ),
                 ProxyProfile.Ssh(
                     id = "ssh",

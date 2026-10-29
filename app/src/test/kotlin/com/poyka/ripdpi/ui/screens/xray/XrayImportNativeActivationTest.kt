@@ -233,18 +233,23 @@ class XrayImportNativeActivationTest {
                 { "outbounds": [ {
                   "tag": "bad-xhttp-mode", "protocol": "vless",
                   "settings": { "vnext": [ { "address": "edge.example.com", "port": 443,
-                    "users": [ { "id": "$uuid", "flow": "xtls-rprx-vision" } ] } ] },
+                    "users": [ { "id": "$uuid", "flow": "" } ] } ] },
                   "streamSettings": { "network": "xhttp", "security": "reality",
                     "realitySettings": { "publicKey": "$pbk", "serverName": "www.cloudflare.com", "shortId": "ab12" },
                     "xhttpSettings": { "path": "/tunnel", "mode": "$unsupportedMode" } }
                 } ] }
                 """.trimIndent()
 
+            val rejected = XrayConfigImportParser.parse(config, "preview") as XrayConfigImportResult.Translated
+            assertTrue(rejected.profiles.isEmpty())
+            val requested =
+                (firstProfile(config.replace(unsupportedMode, "stream-one")) as ProxyProfile.VlessReality)
+                    .copy(xhttpMode = unsupportedMode)
             val error =
                 runCatching {
                     activator.activate(
                         activator.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation),
-                        firstProfile(config),
+                        requested,
                     )
                 }.exceptionOrNull()
 
@@ -280,7 +285,7 @@ class XrayImportNativeActivationTest {
                 { "outbounds": [ {
                   "tag": "host-only-xhttp", "protocol": "vless",
                   "settings": { "vnext": [ { "address": "edge.example.com", "port": 443,
-                    "users": [ { "id": "$uuid", "flow": "xtls-rprx-vision" } ] } ] },
+                    "users": [ { "id": "$uuid", "flow": "" } ] } ] },
                   "streamSettings": { "network": "xhttp", "security": "reality",
                     "realitySettings": { "publicKey": "$pbk", "serverName": "www.cloudflare.com", "shortId": "ab12" },
                     "xhttpSettings": { "host": "carrier.example.com" } }
@@ -422,6 +427,7 @@ class XrayImportNativeActivationTest {
                     fingerprint = "firefox",
                     xhttpPath = "",
                     xhttpHost = "",
+                    xhttpMode = "stream-one",
                 )
 
             assertTrue(
@@ -902,7 +908,7 @@ class XrayProviderPersistenceTest {
                     "users": [ { "id": "$uuid", "flow": "" } ] } ] },
                   "streamSettings": { "network": "xhttp", "security": "tls",
                     "tlsSettings": { "serverName": "cdn.example", "fingerprint": "firefox" },
-                    "xhttpSettings": { "path": "", "host": "", "mode": "auto" } } } ] }
+                    "xhttpSettings": { "path": "", "host": "", "mode": "stream-one" } } } ] }
                 """.trimIndent()
 
             persistence.persist(

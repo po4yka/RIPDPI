@@ -407,6 +407,7 @@ private fun relayKindFieldActions(actions: ModeEditorActions): RelayKindFieldAct
                 onRelayRealityPublicKeyChanged = actions.onRelayRealityPublicKeyChanged,
                 onRelayRealityShortIdChanged = actions.onRelayRealityShortIdChanged,
                 onRelayVlessTransportChanged = actions.onRelayVlessTransportChanged,
+                onRelayVlessFlowChanged = actions.onRelayVlessFlowChanged,
                 onRelayXhttpPathChanged = actions.onRelayXhttpPathChanged,
                 onRelayXhttpHostChanged = actions.onRelayXhttpHostChanged,
                 onRelayXhttpModeChanged = actions.onRelayXhttpModeChanged,

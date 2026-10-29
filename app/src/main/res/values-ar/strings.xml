@@ -626,6 +626,7 @@
     <string name="config_relay_server_name">اسم خادم TLS</string>
     <string name="config_relay_reality_public_key">المفتاح العام لـ Reality</string>
     <string name="config_relay_reality_short_id">المعرّف القصير لـ Reality</string>
+    <string name="config_relay_vless_flow">وضع VLESS</string>
     <string name="config_relay_vless_transport">بروتوكول نقل VLESS</string>
     <string name="config_relay_protocol_section_recommended">موصى بها</string>
     <string name="config_relay_protocol_section_tls">وسائل نقل TLS</string>

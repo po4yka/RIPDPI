@@ -29,7 +29,7 @@
         "type": "xhttp",
         "path": "/ci-xhttp",
         "host": "ci-xhttp.example.invalid",
-        "mode": "auto"
+        "mode": "stream-up"
       }
     },
     {

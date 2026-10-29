@@ -26,8 +26,7 @@ fun relayProfileSupportsUdpAssociation(
         (
             kindId != RelayKindVlessReality ||
                 (
-                    vlessTransport == RelayVlessTransportRealityTcp &&
-                        vlessFlow.trim() in setOf(RelayVlessFlowVision, RelayVlessFlowVisionUdp443)
+                    NativeVlessCapabilities.supportsUdp(vlessTransport, vlessFlow)
                 )
         )
 

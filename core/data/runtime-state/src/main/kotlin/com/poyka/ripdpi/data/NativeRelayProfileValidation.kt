@@ -2,6 +2,44 @@ package com.poyka.ripdpi.data
 
 import java.util.Base64
 
+/** Capability-only check used before import previews and durable writes. */
+fun nativeVlessProfileRejection(profile: ProxyProfile): String? =
+    when (profile) {
+        is ProxyProfile.VlessReality -> {
+            NativeVlessCapabilities.rejection(
+                RelaySecurityLayerReality,
+                if (profile.xhttpPath != null ||
+                    profile.xhttpHost != null
+                ) {
+                    RelayVlessTransportXhttp
+                } else {
+                    RelayVlessTransportRealityTcp
+                },
+                profile.flow,
+                profile.xhttpMode,
+            )
+        }
+
+        is ProxyProfile.Vless -> {
+            NativeVlessCapabilities.rejection(
+                RelaySecurityLayerTls,
+                if (profile.xhttpPath != null ||
+                    profile.xhttpHost != null
+                ) {
+                    RelayVlessTransportXhttp
+                } else {
+                    RelayVlessTransportRealityTcp
+                },
+                profile.flow,
+                profile.xhttpMode,
+            )
+        }
+
+        else -> {
+            null
+        }
+    }
+
 /**
  * Validates profiles before they are persisted as native relay records.
  *
@@ -24,9 +62,7 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
                 realityPublicKey = profile.realityPublicKey,
                 realityShortId = profile.realityShortId,
             )
-            if (profile.xhttpPath != null || profile.xhttpHost != null) {
-                validateRelayXhttpMode(profile.xhttpMode)
-            }
+            require(nativeVlessProfileRejection(profile) == null) { nativeVlessProfileRejection(profile).orEmpty() }
             true
         }
 
@@ -35,10 +71,7 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
             require(profile.serverPort in RelayPortRange) { "VLESS requires a valid server port" }
             require(!profile.serverName.isNullOrBlank()) { "VLESS requires a TLS server name" }
             require(isValidVlessUuid(profile.uuid)) { "VLESS requires a valid UUID" }
-            require(profile.xhttpPath != null || profile.xhttpHost != null) {
-                "VLESS native backend supports only xHTTP transport"
-            }
-            validateRelayXhttpMode(profile.xhttpMode)
+            require(nativeVlessProfileRejection(profile) == null) { nativeVlessProfileRejection(profile).orEmpty() }
             true
         }
 
@@ -118,15 +151,7 @@ fun validateRelayXhttpMode(value: String) {
 }
 
 fun isValidRelayXhttpMode(value: String): Boolean =
-    when (value.trim()) {
-        "",
-        RelayXhttpModeAuto,
-        RelayXhttpModeStreamUp,
-        RelayXhttpModeStreamOne,
-        -> true
-
-        else -> false
-    }
+    value.trim().ifEmpty { RelayXhttpModeAuto } in NativeVlessCapabilities.xhttpModes(RelaySecurityLayerReality)
 
 // Each validator accepts exactly what reaches Rust: the UUID is passed unchanged and native parse_uuid
 // rejects whitespace, while the relay config normalization trims the Reality key and short ID.

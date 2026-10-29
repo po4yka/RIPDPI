@@ -37,6 +37,7 @@ internal data class RelayVlessActions(
     val onRelayRealityPublicKeyChanged: (String) -> Unit = {},
     val onRelayRealityShortIdChanged: (String) -> Unit = {},
     val onRelayVlessTransportChanged: (String) -> Unit = {},
+    val onRelayVlessFlowChanged: (String) -> Unit = {},
     val onRelayXhttpPathChanged: (String) -> Unit = {},
     val onRelayXhttpHostChanged: (String) -> Unit = {},
     val onRelayXhttpModeChanged: (String) -> Unit = {},

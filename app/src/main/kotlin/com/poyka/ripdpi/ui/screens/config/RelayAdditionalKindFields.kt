@@ -19,6 +19,7 @@ internal fun VlessPlainRelayFields(
 ) {
     // The plain TLS backend supports xHTTP only; the Reality transport selector does not apply.
     VlessUuidField(draft, actions)
+    VlessFlowFields(draft, actions)
     XhttpFields(draft, actions)
 }
 

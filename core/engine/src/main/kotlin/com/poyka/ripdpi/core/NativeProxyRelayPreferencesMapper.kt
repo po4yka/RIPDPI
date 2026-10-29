@@ -1,6 +1,9 @@
 package com.poyka.ripdpi.core
 
-import com.poyka.ripdpi.data.RelayVlessFlowVision
+import com.poyka.ripdpi.data.NativeVlessCapabilities
+import com.poyka.ripdpi.data.RelayKindVless
+import com.poyka.ripdpi.data.RelaySecurityLayerReality
+import com.poyka.ripdpi.data.RelaySecurityLayerTls
 import com.poyka.ripdpi.data.toRelaySettingsModel
 import com.poyka.ripdpi.proto.AppSettings
 
@@ -17,7 +20,11 @@ internal fun buildRelayConfig(settings: AppSettings): RipDpiRelayConfig {
         serverName = relay.profile.serverName,
         realityPublicKey = relay.profile.realityPublicKey,
         realityShortId = relay.profile.realityShortId,
-        vlessFlow = RelayVlessFlowVision,
+        vlessFlow =
+            NativeVlessCapabilities.defaultFlow(
+                if (relay.kind == RelayKindVless) RelaySecurityLayerTls else RelaySecurityLayerReality,
+                relay.profile.vlessTransport,
+            ),
         vlessTransport = relay.profile.vlessTransport,
         xhttpPath = relay.profile.xhttpPath,
         xhttpHost = relay.profile.xhttpHost,

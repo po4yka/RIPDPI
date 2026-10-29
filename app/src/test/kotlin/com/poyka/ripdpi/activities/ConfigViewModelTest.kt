@@ -178,6 +178,47 @@ class ConfigViewModelTest {
     }
 
     @Test
+    fun `editing Vision transport requires an explicit supported flow choice and preserves source`() {
+        val source =
+            RelayProfileRecord(
+                id = "editable",
+                kind = RelayKindVlessReality,
+                server = "relay.example",
+                serverPort = 443,
+                serverName = "relay.example",
+                realityPublicKey = validRealityPublicKey,
+                vlessFlow = com.poyka.ripdpi.data.RelayVlessFlowVision,
+            )
+        val draft =
+            defaultDraft.copy(
+                relayEnabled = true,
+                relayKind = RelayKindVlessReality,
+                relayProfileId = source.id,
+                relayServer = source.server,
+                relayServerPort = "443",
+                relayServerName = source.serverName,
+                relayRealityPublicKey = source.realityPublicKey,
+                relayVlessUuid = validVlessUuid,
+                sourceRelayProfile = source,
+                editingRelayProfileId = source.id,
+                editingRelayProfileAtOpen = source,
+                relayVlessTransport = RelayVlessTransportXhttp,
+            )
+        assertEquals("unsupported", validateConfigDraft(draft)[ConfigFieldRelayCredentials])
+        assertEquals(source.vlessFlow, draft.toRelayProfileRecord(source.id).vlessFlow)
+        val selected = draft.copy(relayVlessFlow = "")
+        assertEquals(null, validateConfigDraft(selected)[ConfigFieldRelayCredentials])
+        assertEquals("", selected.toRelayProfileRecord(source.id).vlessFlow)
+        assertEquals(source.vlessFlow, selected.withRelayArtifacts(source, null).selectedVlessFlow())
+        assertEquals(com.poyka.ripdpi.data.RelayVlessFlowVision, source.vlessFlow)
+        assertEquals(
+            "unsupported",
+            validateConfigDraft(selected.copy(relayUdpEnabled = true))[ConfigFieldRelayCredentials],
+        )
+        assertTrue(selected.copy(relayUdpEnabled = true).toRelayProfileRecord(source.id).udpEnabled)
+    }
+
+    @Test
     fun `proxy draft marks proxy preset as selected`() {
         val presets = buildConfigPresets(defaultDraft.copy(mode = Mode.Proxy))
 

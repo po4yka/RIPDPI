@@ -281,19 +281,20 @@ class VlessRealityImportTest {
     }
 
     @Test
-    fun `plain vless URI without reality params produces Vless not VlessReality`() {
+    fun `plain TCP VLESS URI remains available for lossless preview`() {
         val uri = "vless://cccccccc-cccc-cccc-cccc-cccccccccccc@plain.example.com:443?type=tcp#plain"
 
         val profile = ProxyUriCodec.parse(uri)
 
-        assertTrue("expected Vless, got ${profile?.javaClass?.simpleName}", profile is ProxyProfile.Vless)
+        assertTrue(profile is ProxyProfile.Vless)
+        assertTrue(nativeVlessProfileRejection(profile as ProxyProfile.Vless) != null)
     }
 
     @Test
     fun `plain vless xhttp uri preserves identity and empty transport`() {
         val uri =
             "vless://cccccccc-cccc-cccc-cccc-cccccccccccc@203.0.113.4:443" +
-                "?security=tls&sni=cdn.example&type=xhttp&path=&host=&flow=&fp=firefox#plain"
+                "?security=tls&sni=cdn.example&type=xhttp&mode=stream-up&path=&host=&flow=&fp=firefox#plain"
 
         val reparsed = ProxyUriCodec.parse(ProxyUriCodec.encode(ProxyUriCodec.parse(uri)!!)) as ProxyProfile.Vless
 

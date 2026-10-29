@@ -1,6 +1,11 @@
 package com.poyka.ripdpi.data.subscription
 
+import com.poyka.ripdpi.data.NativeVlessCapabilities
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.RelaySecurityLayerReality
+import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.nativeVlessProfileRejection
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import com.poyka.ripdpi.data.uri.ProxyUriCodec
 import com.poyka.ripdpi.serialization.RipDpiLenientJson
@@ -157,7 +162,7 @@ object XrayConfigImportParser {
         val skipped = mutableListOf<XraySkippedNode>()
         outbounds.forEachIndexed { index, element ->
             val obj = element as? JsonObject ?: return@forEachIndexed
-            when (val mapped = mapOutbound(obj, groupId)) {
+            when (val mapped = mapOutbound(obj, groupId).validateNativeCapabilities()) {
                 is OutboundMapping.Profile -> {
                     profiles += mapped.profile
                 }
@@ -175,6 +180,15 @@ object XrayConfigImportParser {
         }
         return XrayConfigImportResult.Translated(profiles, skipped)
     }
+
+    private fun OutboundMapping.validateNativeCapabilities(): OutboundMapping =
+        if (this is OutboundMapping.Profile) {
+            nativeVlessProfileRejection(profile)?.let {
+                OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, it)
+            } ?: this
+        } else {
+            this
+        }
 
     private sealed interface OutboundMapping {
         data class Profile(
@@ -371,6 +385,11 @@ object XrayConfigImportParser {
             return
         }
         val profile = ProxyUriCodec.parse(line)
+        val capabilityRejection = nativeVlessLinkSkip(profile, index, scheme)
+        if (capabilityRejection != null) {
+            skipped += capabilityRejection
+            return
+        }
         when (profile) {
             is ProxyProfile.VlessReality -> {
                 val unsupportedFingerprint =
@@ -444,11 +463,28 @@ object XrayConfigImportParser {
     }
 }
 
+private fun nativeVlessLinkSkip(
+    profile: ProxyProfile?,
+    index: Int,
+    scheme: String,
+): XraySkippedNode? {
+    val rejection = profile?.let(::nativeVlessProfileRejection)
+    return if (rejection == null) {
+        null
+    } else {
+        // Keep the existing raw TLS skip category for UI consumers.
+        val reason =
+            if (profile is ProxyProfile.Vless && profile.xhttpPath == null && profile.xhttpHost == null) {
+                XraySkipReason.VLESS_REQUIRES_REALITY
+            } else {
+                XraySkipReason.UNSUPPORTED_TRANSPORT
+            }
+        XraySkippedNode(index, "$scheme link", reason, rejection)
+    }
+}
+
 /** Base64 encodes input in groups of four characters; the unit used to pad. */
 private const val Base64GroupSize = 4
-
-/** Default XTLS flow stamped on a REALITY profile when the source omits one. */
-private const val DefaultRealityFlow = "xtls-rprx-vision"
 
 // ---------------------------------------------------------------------
 // File-private helpers (the sister parsers keep their own copies; these are
@@ -503,7 +539,11 @@ private fun buildVlessReality(
         realityShortId = reality.string("shortId").orEmpty(),
         serverName = reality.string("serverName") ?: address,
         // XTLS Vision runs only over raw TLS/REALITY streams; xHTTP configs omit `flow`.
-        flow = user.rawString("flow") ?: if (isXhttp) "" else DefaultRealityFlow,
+        flow =
+            user.rawString("flow") ?: NativeVlessCapabilities.defaultFlow(
+                RelaySecurityLayerReality,
+                if (isXhttp) RelayVlessTransportXhttp else RelayVlessTransportRealityTcp,
+            ),
         fingerprint = reality.string("fingerprint"),
         xhttpPath = if (isXhttp) xhttp?.rawString("path").orEmpty() else null,
         xhttpHost = if (isXhttp) xhttp?.rawString("host") else null,

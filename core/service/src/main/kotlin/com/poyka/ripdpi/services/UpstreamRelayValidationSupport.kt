@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.InitialTransportSelectionException
+import com.poyka.ripdpi.data.NativeVlessCapabilities
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
@@ -21,8 +22,9 @@ import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayMasqueTcpProtocolHttp2
 import com.poyka.ripdpi.data.RelayMasqueTcpProtocolHttp3
+import com.poyka.ripdpi.data.RelaySecurityLayerReality
+import com.poyka.ripdpi.data.RelaySecurityLayerTls
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
-import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.StrategyFeatureCloudflareConsumeValidation
 import com.poyka.ripdpi.data.StrategyFeatureCloudflarePublish
@@ -32,7 +34,6 @@ import com.poyka.ripdpi.data.StrategyFeatureNaiveProxyWatchdog
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.isValidVlessUuid
 import com.poyka.ripdpi.data.relayProfileSupportsUdpAssociation
-import com.poyka.ripdpi.data.validateRelayXhttpMode
 import com.poyka.ripdpi.data.validateVlessRealityEndpointFields
 import java.net.URI
 
@@ -418,19 +419,26 @@ private fun validateVlessRealityFeatures(config: RipDpiRelayConfig) {
         realityPublicKey = config.realityPublicKey,
         realityShortId = config.realityShortId,
     )
-    if (config.vlessTransport == RelayVlessTransportXhttp) {
-        validateRelayXhttpMode(config.xhttpMode)
-    }
+    NativeVlessCapabilities.validate(
+        RelaySecurityLayerReality,
+        config.vlessTransport,
+        config.vlessFlow,
+        config.xhttpMode,
+        config.udpEnabled,
+    )
 }
 
 private fun validatePlainVlessFeatures(config: RipDpiRelayConfig) {
     require(config.server.isNotBlank()) { "VLESS requires a server hostname" }
     require(config.serverPort in relayPortRange) { "VLESS requires a valid server port" }
     require(config.serverName.isNotBlank()) { "VLESS requires a TLS server name" }
-    require(config.vlessTransport == RelayVlessTransportXhttp) {
-        "VLESS native backend supports only xHTTP transport"
-    }
-    validateRelayXhttpMode(config.xhttpMode)
+    NativeVlessCapabilities.validate(
+        RelaySecurityLayerTls,
+        config.vlessTransport,
+        config.vlessFlow,
+        config.xhttpMode,
+        config.udpEnabled,
+    )
 }
 
 private val relayPortRange = 1..65535

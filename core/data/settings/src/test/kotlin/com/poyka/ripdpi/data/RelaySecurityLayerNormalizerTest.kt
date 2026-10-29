@@ -38,7 +38,14 @@ class RelaySecurityLayerNormalizerTest {
     fun `normalizeRelaySecurityLayer falls back to reality when unspecified`() {
         // No kind hint, no value: preserve the legacy vless_reality default.
         assertEquals(RelaySecurityLayerReality, normalizeRelaySecurityLayer(""))
-        assertEquals(RelaySecurityLayerReality, normalizeRelaySecurityLayer("bogus"))
+        assertEquals("bogus", normalizeRelaySecurityLayer("bogus"))
+    }
+
+    @Test
+    fun `unsupported transport and XHTTP mode remain available for rejection`() {
+        assertEquals("grpc", normalizeRelayVlessTransport("grpc", RelayKindVlessReality))
+        assertEquals("packet-up", normalizeRelayXhttpMode("packet-up"))
+        assertEquals("stream-down", normalizeRelayXhttpMode("stream-down"))
     }
 
     @Test

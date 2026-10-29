@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindOff
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayMieruMtuDefault
 import com.poyka.ripdpi.data.RelaySettingsModel
 import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
@@ -29,6 +30,7 @@ internal fun ConfigDraft.withRelaySettings(relay: RelaySettingsModel): ConfigDra
         relayRealityPublicKey = relay.profile.realityPublicKey,
         relayRealityShortId = relay.profile.realityShortId,
         relayVlessTransport = relay.profile.vlessTransport,
+        relayVlessFlow = null,
         relayXhttpPath = relay.profile.xhttpPath,
         relayXhttpHost = relay.profile.xhttpHost,
         relayXhttpMode = relay.profile.xhttpMode,
@@ -177,7 +179,9 @@ private fun AppSettings.Builder.applyRelayDraft(draft: ConfigDraft): AppSettings
         setRelayNaivePath(draft.relayNaivePath)
         setRelayLocalSocksHost("127.0.0.1")
         setRelayLocalSocksPort(draft.relayLocalSocksPort.toIntOrNull() ?: DefaultRelayLocalSocksPort)
-        setRelayUdpEnabled(draft.relayUdpEnabled && draft.relayKind.supportsRelayUdpMode())
+        setRelayUdpEnabled(
+            draft.relayUdpEnabled && (draft.relayKind == RelayKindVless || draft.relayKind.supportsRelayUdpMode()),
+        )
         setRelayTcpFallbackEnabled(draft.relayMasqueUseHttp2Fallback)
         setRelayFinalmaskType(normalizeRelayFinalmaskType(draft.relayFinalmaskType))
         setRelayFinalmaskHeaderHex(draft.relayFinalmaskHeaderHex)

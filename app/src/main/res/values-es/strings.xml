@@ -1098,6 +1098,7 @@ fake_burst 3</string>
     <string name="config_relay_masque_privacy_pass_invalid_provider">Privacy Pass está desactivado porque la URL del proveedor configurado no es válida.</string>
     <string name="config_relay_profile_id">ID del perfil</string>
     <string name="config_relay_server">Servidor de relay</string>
+    <string name="config_relay_vless_flow">Modo VLESS</string>
     <string name="config_relay_vless_transport">Transporte VLESS</string>
     <string name="config_relay_xhttp_path">Ruta xHTTP</string>
     <string name="config_udp_chain_hint">Las ráfagas fake UDP ahora viven dentro del editor de estrategia de bypass como contadores fake_burst.</string>

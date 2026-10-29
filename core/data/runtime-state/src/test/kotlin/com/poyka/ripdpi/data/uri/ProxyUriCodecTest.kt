@@ -40,10 +40,11 @@ class ProxyUriCodecTest {
     }
 
     @Test
-    fun `plain vless uri remains supported`() {
+    fun `plain TLS VLESS XHTTP with an explicit mode remains supported`() {
         val profile =
             ProxyUriCodec.parse(
-                "vless://11111111-2222-3333-4444-555555555555@example.com:443#plain",
+                "vless://11111111-2222-3333-4444-555555555555@example.com:443" +
+                    "?security=tls&type=xhttp&mode=stream-one#plain",
             )
 
         assertTrue(profile is ProxyProfile.Vless)
@@ -87,7 +88,8 @@ class ProxyUriCodecTest {
     fun `plain vless ipv6 host debrackets on import and re-brackets on export`() {
         val profile =
             ProxyUriCodec.parse(
-                "vless://11111111-2222-3333-4444-555555555555@[2001:db8::1]:443#v6plain",
+                "vless://11111111-2222-3333-4444-555555555555@[2001:db8::1]:443" +
+                    "?security=tls&type=xhttp&mode=stream-up#v6plain",
             )
         assertTrue(profile is ProxyProfile.Vless)
         assertEquals("2001:db8::1", (profile as ProxyProfile.Vless).server)
@@ -310,7 +312,8 @@ class ProxyUriCodecTest {
             ProxyUriCodec.parse("trojan://secret@t.example:443?sni=t.example#My Node {1}") as ProxyProfile.Trojan
         val spacedQuery =
             ProxyUriCodec.parse(
-                "vless://11111111-2222-3333-4444-555555555555@h.example:443?type=xhttp&path=/a b&sni=h.example#x",
+                "vless://11111111-2222-3333-4444-555555555555@h.example:443" +
+                    "?type=xhttp&mode=stream-up&path=/a b&sni=h.example#x",
             ) as ProxyProfile.Vless
 
         assertEquals("US | Node 1", vless.displayName)
@@ -344,7 +347,11 @@ class ProxyUriCodecTest {
         assertNull(ProxyUriCodec.parse("$base&type=xhttp&security=tls&$postQuantum#pq"))
         assertNull(ProxyUriCodec.parse("$base&type=xhttp&security=none#plain"))
         assertNull(ProxyUriCodec.parse("$base&type=tcp&headerType=http#http"))
-        assertTrue(ProxyUriCodec.parse("$base&type=xhttp&security=tls&encryption=none#ok") is ProxyProfile.Vless)
+        assertTrue(
+            ProxyUriCodec.parse(
+                "$base&type=xhttp&security=tls&mode=stream-one&encryption=none#ok",
+            ) is ProxyProfile.Vless,
+        )
     }
 
     @Test

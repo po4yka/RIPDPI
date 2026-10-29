@@ -49,6 +49,8 @@ import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayKindVless
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
@@ -64,6 +66,7 @@ import com.poyka.ripdpi.ui.screens.config.RelayMasqueActions
 import com.poyka.ripdpi.ui.screens.config.RelayTuicActions
 import com.poyka.ripdpi.ui.screens.config.RelayVlessActions
 import com.poyka.ripdpi.ui.screens.config.TuicRelayFields
+import com.poyka.ripdpi.ui.screens.config.VlessFlowFields
 import com.poyka.ripdpi.ui.screens.config.VlessTransportFields
 import com.poyka.ripdpi.ui.screens.customization.AboutPackageRow
 import com.poyka.ripdpi.ui.screens.dns.DnsOptionCard
@@ -295,6 +298,48 @@ class ReadabilityFormsLayoutTest {
         ) {
             VlessTransportFields(ConfigDraft(relayVlessTransport = RelayVlessTransportXhttp), RelayVlessActions())
         }
+    }
+
+    @Test
+    fun visionFlowChoicesStayReadable() {
+        assertMatrix(
+            strings =
+                listOf(
+                    text(R.string.config_relay_vless_flow),
+                    text(R.string.semantic_state_off),
+                    "Vision",
+                    "Vision + UDP/443",
+                ),
+        ) {
+            VlessFlowFields(ConfigDraft(relayKind = RelayKindVlessReality), RelayVlessActions())
+        }
+    }
+
+    @Test
+    fun tlsXhttpChoicesExcludeUnsupportedAutoAndTcp() {
+        assertMatrix(
+            labels =
+                listOf(
+                    R.string.config_relay_vless_transport_xhttp,
+                    R.string.config_relay_xhttp_mode_stream_up,
+                    R.string.config_relay_xhttp_mode_stream_one,
+                ),
+        ) {
+            VlessTransportFields(
+                ConfigDraft(relayKind = RelayKindVless, relayVlessTransport = RelayVlessTransportXhttp),
+                RelayVlessActions(),
+            )
+        }
+        assertTrue(
+            composeRule.onAllNodesWithText(text(R.string.config_relay_xhttp_mode_auto)).fetchSemanticsNodes().isEmpty(),
+        )
+        assertTrue(
+            composeRule
+                .onAllNodesWithText(
+                    text(R.string.config_relay_vless_transport_reality_tcp),
+                ).fetchSemanticsNodes()
+                .isEmpty(),
+        )
     }
 
     @Test

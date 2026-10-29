@@ -521,6 +521,7 @@
     <string name="config_relay_profile_id_taken">此配置文件 ID 已属于其他已保存的配置文件。</string>
     <string name="config_relay_section">中继</string>
     <string name="config_relay_title">出站中继协议</string>
+    <string name="config_relay_vless_flow">VLESS 流控</string>
     <string name="config_relay_vless_transport">VLESS 传输</string>
     <string name="config_save">保存</string>
     <string name="config_udp_chain_hint">UDP fake 突发现已作为 fake_burst 计数存在于绕过策略编辑器内。</string>

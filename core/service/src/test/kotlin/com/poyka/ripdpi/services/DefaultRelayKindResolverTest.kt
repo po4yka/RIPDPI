@@ -130,6 +130,8 @@ class DefaultRelayKindResolverTest {
                     serverName = "edge.example.com",
                     vlessTransport = RelayVlessTransportXhttp,
                     xhttpPath = "/xhttp",
+                    xhttpMode = "stream-one",
+                    vlessFlow = "",
                     xhttpHost = "origin.example.com",
                 )
 

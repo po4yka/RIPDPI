@@ -19,7 +19,8 @@ class Base64SubscriptionParserTest {
         listOf(
             trojanUri("a"),
             trojanUri("b"),
-            "vless://00000000-0000-0000-0000-000000000000@v.example.com:443#vnode",
+            "vless://00000000-0000-0000-0000-000000000000@v.example.com:443" +
+                "?security=tls&type=xhttp&mode=stream-one#vnode",
         ).joinToString("\n")
 
     @Test

@@ -1098,6 +1098,7 @@ fake_burst 3</string>
     <string name="config_relay_masque_privacy_pass_invalid_provider">Privacy Pass est désactivé car l\'URL du fournisseur configuré est invalide.</string>
     <string name="config_relay_profile_id">ID de profil</string>
     <string name="config_relay_server">Serveur relais</string>
+    <string name="config_relay_vless_flow">Mode VLESS</string>
     <string name="config_relay_vless_transport">Transport VLESS</string>
     <string name="config_relay_xhttp_path">Chemin xHTTP</string>
     <string name="config_udp_chain_hint">Les rafales factices UDP se trouvent désormais dans l\'éditeur de stratégie de contournement sous forme de compteurs fake_burst.</string>

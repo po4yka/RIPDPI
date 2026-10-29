@@ -109,6 +109,7 @@ data class ConfigDraft(
     val relayRealityPublicKey: String = "",
     val relayRealityShortId: String = "",
     val relayVlessTransport: String = RelayVlessTransportRealityTcp,
+    val relayVlessFlow: String? = null,
     val relayXhttpPath: String = "",
     val relayXhttpHost: String = "",
     val relayXhttpMode: String = RelayXhttpModeAuto,

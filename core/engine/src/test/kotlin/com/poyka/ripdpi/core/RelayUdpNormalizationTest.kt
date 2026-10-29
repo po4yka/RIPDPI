@@ -8,7 +8,6 @@ import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
-import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayVlessFlowVision
 import com.poyka.ripdpi.data.RelayVlessFlowVisionUdp443
@@ -58,30 +57,32 @@ class RelayUdpNormalizationTest {
     }
 
     @Test
-    fun `normalization cannot default an unsupported Reality mode into UDP support`() {
+    fun `normalization retains unsupported VLESS requests for explicit admission rejection`() {
         val original = relay(RelayKindVlessReality)
         val unsupported =
             listOf(RelayVlessTransportXhttp, "", "unknown").map { original.copy(vlessTransport = it) } +
                 listOf("", " ", "unsupported-flow").map { original.copy(vlessFlow = it) }
         unsupported.forEach { config ->
             val preferences = RipDpiProxyUIPreferences(relay = config)
-            assertFalse(preferences.relay.udpEnabled)
-            assertFalse(encodedUdp(preferences))
+            assertEquals(true, preferences.relay.udpEnabled)
+            assertEquals(true, encodedUdp(preferences))
+            assertEquals(config.vlessFlow.trim(), preferences.relay.vlessFlow)
+            if (config.vlessTransport == "unknown") assertEquals("unknown", preferences.relay.vlessTransport)
         }
     }
 
     @Test
-    fun `blank flow stays blank over xHTTP and defaults to Vision over Reality TCP`() {
+    fun `explicit blank flow stays blank over XHTTP and Reality TCP`() {
         val xhttp = relay(RelayKindVlessReality).copy(vlessTransport = RelayVlessTransportXhttp, vlessFlow = " ")
         val tcp = relay(RelayKindVlessReality).copy(vlessTransport = RelayVlessTransportRealityTcp, vlessFlow = "")
 
         assertEquals("", RipDpiProxyUIPreferences(relay = xhttp).relay.vlessFlow)
-        assertEquals(RelayVlessFlowVision, RipDpiProxyUIPreferences(relay = tcp).relay.vlessFlow)
+        assertEquals("", RipDpiProxyUIPreferences(relay = tcp).relay.vlessFlow)
     }
 
     @Test
     fun `TCP only and unknown kinds remain disabled after normalization`() {
-        listOf(RelayKindVless, RelayKindSsh, RelayKindMieru, "unknown").forEach { kind ->
+        listOf(RelayKindSsh, RelayKindMieru, "unknown").forEach { kind ->
             val preferences = RipDpiProxyUIPreferences(relay = relay(kind))
             assertFalse(kind, preferences.relay.udpEnabled)
             assertFalse(kind, encodedUdp(preferences))

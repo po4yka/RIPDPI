@@ -394,7 +394,7 @@ class XrayConfigImportParserTest {
                 "users": [ { "id": "$uuid", "flow": "" } ] } ] },
               "streamSettings": { "network": "xhttp", "security": "tls",
                 "tlsSettings": { "serverName": "cdn.example", "fingerprint": "firefox" },
-                "xhttpSettings": { "path": "", "host": "", "mode": "auto" } } } ] }
+                "xhttpSettings": { "path": "", "host": "", "mode": "stream-up" } } } ] }
             """.trimIndent()
 
         val profile = translate(config).profiles.single() as ProxyProfile.Vless
@@ -632,6 +632,28 @@ class XrayConfigImportParserTest {
             assertEquals(1, result.skipped.size)
             assertTrue(!result.skipped.toString().contains(fixtureValue))
         }
+    }
+
+    @Test
+    fun `JSON import uses the same native flow and security mode admission as stored profiles`() {
+        val base = flatRealityConfig()
+        val variants =
+            listOf(
+                base.replace("\"flow\":\"\"", "\"flow\":\"xtls-rprx-vision\""),
+                base.replace("\"flow\":\"\"", "\"flow\":\"unavailable-flow\""),
+                base.replace("\"mode\":\"stream-one\"", "\"mode\":\"packet-up\""),
+                base.replace("\"mode\":\"stream-one\"", "\"mode\":\"stream-down\""),
+                """{"outbounds":[{"protocol":"vless",
+              "settings":{"address":"h.example","port":443,"id":"$uuid","encryption":"none"},
+              "streamSettings":{"method":"xhttp","security":"tls",
+                "tlsSettings":{"serverName":"h.example"},"xhttpSettings":{"path":"/stream","mode":"auto"}}}]}""",
+            )
+        variants.forEach { input ->
+            val rejected = translate(input)
+            assertTrue(rejected.profiles.isEmpty())
+            assertEquals(XraySkipReason.UNSUPPORTED_TRANSPORT, rejected.skipped.single().reason)
+        }
+        assertEquals(1, translate(base).profiles.size)
     }
 
     private fun flatRealityConfig(): String =

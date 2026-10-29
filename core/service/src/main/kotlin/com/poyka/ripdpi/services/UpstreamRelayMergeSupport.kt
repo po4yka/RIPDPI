@@ -23,7 +23,7 @@ internal fun mergeRelayConfig(
         vlessTransport = profile.vlessTransport.ifBlank { config.vlessTransport },
         xhttpPath = if (profile.vlessTransport == RelayVlessTransportXhttp) profile.xhttpPath else config.xhttpPath,
         xhttpHost = if (profile.vlessTransport == RelayVlessTransportXhttp) profile.xhttpHost else config.xhttpHost,
-        xhttpMode = profile.xhttpMode.ifBlank { config.xhttpMode },
+        xhttpMode = profile.xhttpMode,
         cloudflareTunnelMode = profile.cloudflareTunnelMode.ifBlank { config.cloudflareTunnelMode },
         cloudflarePublishLocalOriginUrl =
             profile.cloudflarePublishLocalOriginUrl.ifBlank { config.cloudflarePublishLocalOriginUrl },

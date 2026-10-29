@@ -33,6 +33,7 @@ internal fun ConfigDraft.withRelayArtifacts(
     copy(
         sourceRelayProfile = profile,
         sourceRelayCredentials = credentials,
+        relayVlessFlow = null,
         editingRelayProfileId = profile?.id.orEmpty(),
         editingRelayProfileAtOpen = profile,
         editingRelayCredentialsAtOpen = credentials,
@@ -106,6 +107,7 @@ internal fun ConfigDraft.withSavedRelayIdentity(
         relayProfileId = profile.id,
         sourceRelayProfile = profile,
         sourceRelayCredentials = credentials,
+        relayVlessFlow = null,
         editingRelayProfileId = profile.id,
         editingRelayProfileAtOpen = profile,
         editingRelayCredentialsAtOpen = credentials,
@@ -140,9 +142,7 @@ internal fun ConfigDraft.toRelayProfileRecord(profileId: String): RelayProfileRe
         securityLayer =
             source?.securityLayer
                 ?: if (relayKind == RelayKindVless) RelaySecurityLayerTls else RelayProfileRecord().securityLayer,
-        vlessFlow =
-            source?.vlessFlow
-                ?: if (relayKind == RelayKindVless) "" else RelayProfileRecord().vlessFlow,
+        vlessFlow = selectedVlessFlow(),
         realityPublicKey = relayRealityPublicKey,
         realityShortId = relayRealityShortId,
         vlessTransport = relayVlessTransport,
@@ -191,7 +191,7 @@ internal fun ConfigDraft.toRelayProfileRecord(profileId: String): RelayProfileRe
         ptWebTunnelUrl = relayWebTunnelUrl,
         ptSnowflakeBrokerUrl = relaySnowflakeBrokerUrl.ifBlank { DefaultSnowflakeBrokerUrl },
         ptSnowflakeFrontDomain = relaySnowflakeFrontDomain.ifBlank { DefaultSnowflakeFrontDomain },
-        udpEnabled = relayUdpEnabled && relayKind.supportsRelayUdpMode(),
+        udpEnabled = relayUdpEnabled && (relayKind == RelayKindVless || relayKind.supportsRelayUdpMode()),
         tcpFallbackEnabled = relayMasqueUseHttp2Fallback,
         localSocksPort = relayLocalSocksPort.toIntOrNull() ?: DefaultRelayLocalSocksPort,
         finalmaskType = normalizeRelayFinalmaskType(relayFinalmaskType),
@@ -451,3 +451,10 @@ internal suspend fun migrateLegacyChainHopProfile(
     }
     return profileId
 }
+
+internal fun ConfigDraft.selectedVlessFlow(): String =
+    relayVlessFlow ?: matchingSourceRelayProfile(relayProfileId.ifBlank { DefaultRelayProfileId })?.vlessFlow
+        ?: com.poyka.ripdpi.data.NativeVlessCapabilities.defaultFlow(
+            if (relayKind == RelayKindVless) RelaySecurityLayerTls else com.poyka.ripdpi.data.RelaySecurityLayerReality,
+            relayVlessTransport,
+        )

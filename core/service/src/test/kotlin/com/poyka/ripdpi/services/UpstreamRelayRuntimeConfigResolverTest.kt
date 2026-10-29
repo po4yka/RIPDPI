@@ -574,6 +574,64 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
         }
 }
 
+class UpstreamRelayVlessAdmissionTest : UpstreamRelayRuntimeConfigResolverTestFixture() {
+    @Test
+    fun `stored TLS automatic mode cannot inherit a supported caller mode`() =
+        runTest {
+            val profile =
+                RelayProfileRecord(
+                    id = "tls-auto",
+                    kind = RelayKindVless,
+                    server = "relay.example",
+                    serverPort = 443,
+                    serverName = "relay.example",
+                    vlessTransport = RelayVlessTransportXhttp,
+                    vlessFlow = "",
+                    xhttpPath = "/stream",
+                    xhttpMode = "",
+                )
+            val profileStore = TestRelayProfileStore().apply { save(profile) }
+            val resolver =
+                resolver(
+                    relayProfileStore = profileStore,
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = profile.id,
+                                    vlessUuid = "55555555-5555-5555-5555-555555555555",
+                                ),
+                            )
+                        },
+                )
+            val config =
+                RipDpiRelayConfig(
+                    enabled = true,
+                    kind = RelayKindVless,
+                    profileId = profile.id,
+                    server = "relay.example",
+                    serverPort = 443,
+                    serverName = "relay.example",
+                    vlessTransport = RelayVlessTransportXhttp,
+                    vlessFlow = "",
+                    xhttpMode = "stream-one",
+                )
+            val error =
+                runCatching {
+                    resolver.resolve(
+                        config = config,
+                        inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                        expectedSelection =
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
+                    )
+                }.exceptionOrNull()
+            assertTrue(error is IllegalArgumentException)
+            assertEquals("", profileStore.load(profile.id)?.xhttpMode)
+            assertEquals("stream-one", config.xhttpMode)
+        }
+}
+
 class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntimeConfigResolverTestFixture() {
     @Test
     fun `resolve default family leaves vless settings untouched`() =
@@ -603,7 +661,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             serverName = "relay.example",
                             realityPublicKey = TestVlessRealityPublicKey,
                             realityShortId = TestVlessRealityShortId,
-                            vlessFlow = "xtls-rprx-vision-udp443",
+                            vlessFlow = "",
                             vlessTransport = RelayVlessTransportXhttp,
                             xhttpPath = "/xhttp",
                             xhttpHost = "origin.example",
@@ -616,7 +674,6 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                 )
 
             assertEquals(RelayKindVlessReality, resolved.kind)
-            // XTLS Vision runs only on raw TCP; the native xHTTP builder rejects any flow.
             assertEquals("", resolved.vlessFlow)
             assertEquals(RelayVlessTransportXhttp, resolved.vlessTransport)
             assertEquals("/xhttp", resolved.xhttpPath)
@@ -783,6 +840,7 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                                     realityPublicKey = TestVlessRealityPublicKey,
                                     realityShortId = TestVlessRealityShortId,
                                     vlessTransport = RelayVlessTransportXhttp,
+                                    vlessFlow = "",
                                     xhttpPath = "",
                                     xhttpHost = "",
                                 ),
@@ -891,6 +949,8 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             serverName = "relay.example",
                             vlessTransport = RelayVlessTransportXhttp,
                             xhttpPath = "/xhttp",
+                            xhttpMode = "stream-one",
+                            vlessFlow = "",
                             xhttpHost = "origin.example",
                         ),
                     inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),

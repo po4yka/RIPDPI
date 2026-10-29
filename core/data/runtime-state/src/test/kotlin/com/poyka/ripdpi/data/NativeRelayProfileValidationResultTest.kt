@@ -11,6 +11,52 @@ import org.junit.Test
  */
 class NativeRelayProfileValidationResultTest {
     @Test
+    fun `admission rejects unsupported flows and TLS automatic XHTTP without changing profiles`() {
+        val reality =
+            ProxyProfile.VlessReality(
+                id = "reality",
+                displayName = "Reality",
+                groupId = "group",
+                server = "example.com",
+                serverPort = 443,
+                uuid = "11111111-2222-3333-4444-555555555555",
+                realityPublicKey = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+                realityShortId = "",
+                serverName = "example.com",
+                flow = "unsupported-flow",
+            )
+        val tls =
+            ProxyProfile.Vless(
+                id = "tls",
+                displayName = "TLS",
+                groupId = "group",
+                server = "example.com",
+                serverPort = 443,
+                uuid = reality.uuid,
+                serverName = "example.com",
+                flow = "",
+                xhttpPath = "/stream",
+                xhttpMode = "auto",
+            )
+
+        assertTrue(validateNativeRelayProfileResult(reality).isFailure)
+        assertTrue(
+            validateNativeRelayProfileResult(
+                reality.copy(flow = RelayVlessFlowVision, xhttpPath = "/stream"),
+            ).isFailure,
+        )
+        assertTrue(validateNativeRelayProfileResult(tls).isFailure)
+        assertTrue(validateNativeRelayProfileResult(tls.copy(xhttpMode = RelayXhttpModeStreamOne)).isSuccess)
+        assertTrue(
+            validateNativeRelayProfileResult(
+                tls.copy(flow = RelayVlessFlowVision, xhttpMode = RelayXhttpModeStreamOne),
+            ).isFailure,
+        )
+        org.junit.Assert.assertEquals("unsupported-flow", reality.flow)
+        org.junit.Assert.assertEquals("auto", tls.xhttpMode)
+    }
+
+    @Test
     fun `result is failure for invalid vless reality fields instead of throwing`() {
         val invalid =
             ProxyProfile.VlessReality(

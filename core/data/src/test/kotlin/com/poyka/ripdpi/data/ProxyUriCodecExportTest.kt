@@ -39,6 +39,8 @@ class ProxyUriCodecExportTest {
                 server = "edge.example.com",
                 serverPort = 8443,
                 uuid = "abc-uuid",
+                xhttpPath = "/stream",
+                xhttpMode = "stream-one",
             )
 
         val parsed = ProxyUriCodec.parse(ProxyUriCodec.encode(profile))
@@ -63,7 +65,7 @@ class ProxyUriCodecExportTest {
                 realityPublicKey = "public-key",
                 realityShortId = "ab12",
                 serverName = "front.example.com",
-                flow = "xtls-rprx-vision",
+                flow = "",
                 fingerprint = "chrome",
                 xhttpPath = "/x",
                 xhttpHost = "cdn.example.com",
@@ -294,6 +296,8 @@ class ProxyUriCodecExportTest {
                 server = "example.com",
                 serverPort = 443,
                 uuid = "uuid",
+                xhttpPath = "/stream",
+                xhttpMode = "stream-one",
             )
 
         val uri = ProxyUriCodec.encode(profile)

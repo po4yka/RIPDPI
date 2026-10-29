@@ -14,6 +14,25 @@ class ClashSubscriptionParserTest {
     private val groupId = "sub-clash"
 
     @Test
+    fun `explicit empty REALITY flow is preserved instead of enabling Vision`() {
+        val payload =
+            """
+            proxies:
+              - name: no-flow
+                type: vless
+                server: relay.example
+                port: 443
+                uuid: 11111111-2222-3333-4444-555555555555
+                flow: ""
+                reality-opts:
+                  public-key: AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=
+            """.trimIndent()
+        val result = ClashSubscriptionParser.parse(payload, groupId)
+        assertTrue(result.errors.isEmpty())
+        assertEquals("", (result.profiles.single() as ProxyProfile.VlessReality).flow)
+    }
+
+    @Test
     fun `detects clash yaml by the proxies top level key`() {
         assertTrue(ClashSubscriptionParser.looksLikeClash("proxies:\n  - {}"))
         assertFalse(ClashSubscriptionParser.looksLikeClash("{\"outbounds\":[]}"))

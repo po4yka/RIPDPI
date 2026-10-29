@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import com.poyka.ripdpi.data.testMutationPreparationSource
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import okhttp3.OkHttpClient
@@ -53,6 +54,70 @@ class SubscriptionReserveRefreshTest : SubscriptionRefreshTestSupport() {
             assertEquals("relay.example.com", (stored.members.single() as ProxyProfile.Trojan).server)
             assertEquals(3_000L, stored.subscription!!.lastUpdated)
         }
+
+    @Test
+    fun `malformed VLESS fields in sing-box and Clash preserve the accepted group`() =
+        runTest {
+            val payloads =
+                listOf(
+                    realitySingBoxPayload.replace(validUuid, "malformed-uuid"),
+                    realitySingBoxPayload.replace(validKey, "malformed-key"),
+                    realityClashPayload.replace(validUuid, "malformed-uuid"),
+                    realityClashPayload.replace(validKey, "malformed-key"),
+                )
+            payloads.forEach { assertRejectedRefreshPreservesGroup(it) }
+        }
+
+    @Test
+    fun `unavailable native VLESS XHTTP combinations preserve the accepted group`() =
+        runTest {
+            val tlsAuto =
+                """{"outbounds":[{"type":"vless","tag":"tls-auto","server":"relay.example","server_port":443,
+                  "uuid":"$validUuid","flow":"","tls":{"enabled":true,"server_name":"target.example"},
+                  "transport":{"type":"xhttp","path":"/supported","mode":"auto"}}]}"""
+            val xhttp = """"transport":{"type":"xhttp","path":"/supported","mode":"stream-one"},"""
+            val realityVision = realitySingBoxPayload.replace("\"server_port\":443,", "\"server_port\":443,$xhttp")
+            listOf(tlsAuto, realityVision).forEach { assertRejectedRefreshPreservesGroup(it) }
+        }
+
+    private suspend fun assertRejectedRefreshPreservesGroup(payload: String) {
+        val fixture = fixture(now = 3_000L, initialMembers = listOf(reserve("saved")))
+        fixture.repository.update(
+            fixture.repository.list().single().let {
+                it.copy(
+                    isSelector = true,
+                    failover = SelectorFailover("https://probe.example/", 60, 50),
+                    cloudflareMemberIds = setOf("saved"),
+                    subscription = it.subscription!!.copy(lastUpdated = 1_000L),
+                )
+            },
+        )
+        val before = fixture.repository.list().single()
+        val beforeSubscription = checkNotNull(before.subscription)
+        server.enqueue(response(200, payload))
+
+        val result = fixture.coordinator.refresh(before.id)
+        val after = fixture.repository.list().single()
+
+        assertEquals(SubscriptionRefreshResult.Failed(SubscriptionRefreshFailure.PARSE_ERROR, false), result)
+        assertEquals(
+            before,
+            after.copy(subscription = before.subscription, ownershipGeneration = before.ownershipGeneration),
+        )
+        assertEquals(
+            beforeSubscription,
+            after.subscription?.copy(
+                lastRefreshAttemptAtEpochMillis = beforeSubscription.lastRefreshAttemptAtEpochMillis,
+                lastRefreshFailure = beforeSubscription.lastRefreshFailure,
+            ),
+        )
+        assertTrue(
+            fixture.awgRepository
+                .observeProfiles()
+                .first()
+                .isEmpty(),
+        )
+    }
 
     @Test
     fun `response from a replaced source cannot overwrite the current catalogue`() =
@@ -159,6 +224,24 @@ class SubscriptionReserveRefreshTest : SubscriptionRefreshTestSupport() {
                     response
                 }.build()
     }
+
+    private val validUuid = "550e8400-e29b-41d4-a716-446655440000"
+    private val validKey = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8"
+    private val realitySingBoxPayload =
+        """{"outbounds":[{"type":"vless","tag":"reality","server":"relay.example","server_port":443,
+          "uuid":"$validUuid","flow":"xtls-rprx-vision","tls":{"enabled":true,"server_name":"target.example",
+          "reality":{"enabled":true,"public_key":"$validKey","short_id":"abcd"}}}]}"""
+    private val realityClashPayload =
+        """proxies:
+          |  - name: reality
+          |    type: vless
+          |    server: relay.example
+          |    port: 443
+          |    uuid: $validUuid
+          |    sni: target.example
+          |    flow: xtls-rprx-vision
+          |    reality-opts: {public-key: $validKey, short-id: abcd}
+        """.trimMargin()
 
     private val unsupportedPayload =
         "tuic://22222222-2222-2222-2222-222222222222:fixture@unsupported.example:443#unsupported"

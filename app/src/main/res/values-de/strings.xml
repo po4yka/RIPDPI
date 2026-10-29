@@ -1098,6 +1098,7 @@ fake_burst 3</string>
     <string name="config_relay_masque_privacy_pass_invalid_provider">Privacy Pass ist deaktiviert, weil die konfigurierte Anbieter-URL ungültig ist.</string>
     <string name="config_relay_profile_id">Profil-ID</string>
     <string name="config_relay_server">Relay-Server</string>
+    <string name="config_relay_vless_flow">VLESS-Modus</string>
     <string name="config_relay_vless_transport">VLESS-Transport</string>
     <string name="config_relay_xhttp_path">xHTTP-Pfad</string>
     <string name="config_udp_chain_hint">UDP-Fake-Bursts befinden sich jetzt im Bypass-Strategie-Editor als fake_burst-Anzahl.</string>

@@ -628,6 +628,7 @@
     <string name="config_relay_server_name">TLS सर्वर नाम</string>
     <string name="config_relay_reality_public_key">Reality सार्वजनिक कुंजी</string>
     <string name="config_relay_reality_short_id">Reality शॉर्ट ID</string>
+    <string name="config_relay_vless_flow">VLESS मोड</string>
     <string name="config_relay_vless_transport">VLESS ट्रांसपोर्ट</string>
     <string name="config_relay_protocol_section_recommended">अनुशंसित</string>
     <string name="config_relay_protocol_section_tls">TLS ट्रांसपोर्ट</string>

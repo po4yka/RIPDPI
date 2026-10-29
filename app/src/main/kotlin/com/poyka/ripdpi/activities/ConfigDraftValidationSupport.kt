@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NativeVlessCapabilities
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayKindAnyTls
@@ -35,12 +36,12 @@ import com.poyka.ripdpi.data.RelayMieruMultiplexingOff
 import com.poyka.ripdpi.data.RelayMieruProtocolTcp
 import com.poyka.ripdpi.data.RelayMieruProtocolUdp
 import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.RelaySecurityLayerReality
+import com.poyka.ripdpi.data.RelaySecurityLayerTls
 import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
-import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.isSupportedChainEntryHop
 import com.poyka.ripdpi.data.isSupportedChainExitHop
-import com.poyka.ripdpi.data.isValidRelayXhttpMode
 import com.poyka.ripdpi.data.isValidVlessUuid
 import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
@@ -232,10 +233,8 @@ private fun validatePlainVlessDraft(draft: ConfigDraft): Map<String, String> =
                 draft.relayServerName.isBlank() || !isValidVlessUuid(draft.relayVlessUuid),
             ),
         )
-        if (draft.relayVlessTransport != RelayVlessTransportXhttp || draft.relayUdpEnabled) {
+        if (draft.nativeVlessRejection(RelaySecurityLayerTls) != null) {
             put(ConfigFieldRelayCredentials, "unsupported")
-        } else if (!isValidRelayXhttpMode(draft.relayXhttpMode)) {
-            put(ConfigFieldRelayCredentials, "invalid")
         }
     }
 
@@ -339,10 +338,19 @@ private fun validateVlessRealityDraft(draft: ConfigDraft): Map<String, String> =
         if (draft.relayServer.isBlank()) put(ConfigFieldRelayServer, "required")
         if (!validatePort(draft.relayServerPort)) put(ConfigFieldRelayServerPort, "invalid_port")
         vlessRealityCredentialError(draft)?.let { put(ConfigFieldRelayCredentials, it) }
-        if (draft.relayVlessTransport == RelayVlessTransportXhttp && draft.relayUdpEnabled) {
+        if (draft.nativeVlessRejection(RelaySecurityLayerReality) != null) {
             put(ConfigFieldRelayCredentials, "unsupported")
         }
     }
+
+private fun ConfigDraft.nativeVlessRejection(security: String): String? =
+    NativeVlessCapabilities.rejection(
+        security,
+        relayVlessTransport,
+        selectedVlessFlow(),
+        relayXhttpMode,
+        relayUdpEnabled,
+    )
 
 private fun validateCloudflareTunnelDraft(draft: ConfigDraft): Map<String, String> =
     buildMap {

@@ -1,7 +1,11 @@
 package com.poyka.ripdpi.data.uri
 
+import com.poyka.ripdpi.data.NativeVlessCapabilities
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.RelaySecurityLayerReality
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
+import com.poyka.ripdpi.data.normalizeRelayVlessTransport
 import java.net.URI
 import java.net.URLEncoder
 import java.util.Base64
@@ -290,12 +294,11 @@ object ProxyUriCodec {
     ): ProxyProfile.VlessReality? {
         val realityPublicKey = publicKey?.takeIf(String::isNotBlank)
         val transportType = queryValue(rawQuery, "type")?.lowercase()
-        // RIPDPI's VLESS+REALITY client only implements plain TCP and xhttp.
-        val supportedTransport = transportType == null || transportType in setOf("tcp", "xhttp")
+        val nativeTransport = normalizeRelayVlessTransport(transportType.orEmpty())
+        val supportedTransport = nativeTransport in NativeVlessCapabilities.transports(RelaySecurityLayerReality)
         return if (realityPublicKey != null && supportedTransport) {
-            val isXhttp = transportType == "xhttp"
-            // XTLS Vision runs only over raw TLS/REALITY streams; xHTTP links omit `flow`.
-            val defaultFlow = if (isXhttp) "" else "xtls-rprx-vision"
+            val isXhttp = nativeTransport == RelayVlessTransportXhttp
+            val defaultFlow = NativeVlessCapabilities.defaultFlow(RelaySecurityLayerReality, nativeTransport)
             ProxyProfile.VlessReality(
                 id = newId(),
                 displayName = displayName(parsed.fragment, host),
@@ -324,8 +327,7 @@ object ProxyUriCodec {
         port: Int,
         rawQuery: String?,
     ): ProxyProfile.Vless? {
-        // The plain VLESS backend is TLS with raw TCP or xHTTP and no VLESS encryption. Any other
-        // transport, header obfuscation or security would import as a node that never connects.
+        // Preserve representable TLS profiles for preview; native admission checks capabilities.
         val transportType = queryValue(rawQuery, "type")?.lowercase()
         val supported =
             transportType in setOf(null, "tcp", "raw", "xhttp") &&

@@ -631,6 +631,7 @@
     <string name="config_relay_server_name">Nome do servidor TLS</string>
     <string name="config_relay_reality_public_key">Chave pública Reality</string>
     <string name="config_relay_reality_short_id">ID curto Reality</string>
+    <string name="config_relay_vless_flow">Modo VLESS</string>
     <string name="config_relay_vless_transport">Transporte VLESS</string>
     <string name="config_relay_protocol_section_recommended">Recomendados</string>
     <string name="config_relay_protocol_section_tls">Transportes TLS</string>

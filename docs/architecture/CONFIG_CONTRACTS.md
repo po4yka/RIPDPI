@@ -54,6 +54,16 @@ Rust deserialization → RuntimeConfig
 
 ---
 
+## Native VLESS admission
+
+`core/data/settings/.../NativeVlessCapabilities.kt` owns the native VLESS security,
+transport, flow, XHTTP mode, and UDP combinations. Native URI/JSON import,
+profile persistence, the editor, and service admission use this policy. Generic
+URI, SingBox, and Clash records can retain unsupported data for preview; automatic native
+refresh rejects unavailable combinations before replacing stored members.
+Unknown transport and mode values remain available for explicit rejection.
+The typed libXray provider has its own capabilities and validation.
+
 ## 1. Protobuf field compatibility rules
 
 Owner: `core/data/model/src/main/proto/app_settings.proto` (proto3,

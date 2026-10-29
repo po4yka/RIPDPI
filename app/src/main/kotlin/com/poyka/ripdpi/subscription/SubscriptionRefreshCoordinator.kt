@@ -34,6 +34,7 @@ import com.poyka.ripdpi.data.subscription.readBoundedSubscriptionPayload
 import com.poyka.ripdpi.data.subscription.receivedMigration
 import com.poyka.ripdpi.data.subscription.toSelectorFailover
 import com.poyka.ripdpi.data.subscription.withUserinfoHeader
+import com.poyka.ripdpi.data.validateNativeRelayProfileResult
 import com.poyka.ripdpi.proxyimport.subscriptionHost
 import dagger.Module
 import dagger.Provides
@@ -512,7 +513,12 @@ class SubscriptionRefreshCoordinator private constructor(
                     clearRelayMembers = true,
                 )
         }
-        return parsed
+        return parsed?.takeIf { outcome ->
+            outcome.profiles.none { profile ->
+                (profile is ProxyProfile.Vless || profile is ProxyProfile.VlessReality) &&
+                    validateNativeRelayProfileResult(profile).isFailure
+            }
+        }
     }
 
     private fun rejectsRelayBundle(
