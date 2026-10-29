@@ -2,7 +2,9 @@ package com.poyka.ripdpi.ui.journeys.diagnostics
 
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.performClick
 import com.poyka.ripdpi.activities.DiagnosticsApproachMode
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.automation.AutomationDataPreset
@@ -116,7 +118,9 @@ class DiagnosticsToolsKaspressoTest :
         run {
             step("The Logs action opens the logs screen") {
                 openExpertTools()
-                composeRule.clickTag(RipDpiTestTags.DiagnosticsOpenLogs)
+                composeRule.requireTag(RipDpiTestTags.DiagnosticsOpenLogs)
+                // The tag sits on the whole card; the Manage button is the clickable part.
+                composeRule.onAllNodes(hasText("Manage")).onFirst().performClick()
                 composeRule.waitForTag(RipDpiTestTags.LogsScreen)
             }
             step("Back returns to diagnostics") {

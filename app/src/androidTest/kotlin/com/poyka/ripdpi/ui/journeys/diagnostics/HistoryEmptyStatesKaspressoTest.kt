@@ -10,13 +10,13 @@ import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.Assert.assertFalse
 import org.junit.Test
 
-/** The `clean_home` preset clears runtime history, so every History section shows its empty state. */
+/** The `settings_ready` preset clears runtime history, so every History section shows its empty state. */
 @HiltAndroidTest
 class HistoryEmptyStatesKaspressoTest :
     RipDpiKaspressoTest(
         automationLaunchIntent(
             startRoute = Route.History.stableRoute,
-            dataPreset = AutomationDataPreset.CleanHome,
+            dataPreset = AutomationDataPreset.SettingsReady,
         ),
     ) {
     @Test

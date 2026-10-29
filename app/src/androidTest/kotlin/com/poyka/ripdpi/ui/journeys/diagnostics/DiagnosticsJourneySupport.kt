@@ -51,9 +51,12 @@ internal fun AutomationRule.waitForNoTag(
  */
 internal fun AutomationRule.reveal(matcher: SemanticsMatcher): Boolean {
     if (!exists(matcher)) {
-        val containerCount = onAllNodes(hasScrollToNodeAction()).fetchSemanticsNodes().size
+        // Vertical containers only: scrolling the horizontal section pager would leave the current page.
+        val verticalLists =
+            hasScrollToNodeAction() and SemanticsMatcher.keyIsDefined(SemanticsProperties.VerticalScrollAxisRange)
+        val containerCount = onAllNodes(verticalLists).fetchSemanticsNodes().size
         for (index in 0 until containerCount) {
-            runCatching { onAllNodes(hasScrollToNodeAction())[index].performScrollToNode(matcher) }
+            runCatching { onAllNodes(verticalLists)[index].performScrollToNode(matcher) }
             if (exists(matcher)) break
         }
     }
@@ -82,12 +85,12 @@ internal fun AutomationRule.toggleState(tag: String): ToggleableState? =
         .config
         .getOrNull(SemanticsProperties.ToggleableState)
 
-internal fun AutomationRule.isSelected(tag: String): Boolean =
-    onAllNodes(hasTestTag(tag))
-        .onFirst()
-        .fetchSemanticsNode()
-        .config
-        .getOrNull(SemanticsProperties.Selected) == true
+/** Chips are checkbox toggleables; selectable rows expose `Selected`. Either marks the option as chosen. */
+internal fun AutomationRule.isSelected(tag: String): Boolean {
+    val config = onAllNodes(hasTestTag(tag)).onFirst().fetchSemanticsNode().config
+    return config.getOrNull(SemanticsProperties.Selected) == true ||
+        config.getOrNull(SemanticsProperties.ToggleableState) == ToggleableState.On
+}
 
 internal fun AutomationRule.stateDescription(tag: String): String? =
     onAllNodes(hasTestTag(tag))

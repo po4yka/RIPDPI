@@ -34,7 +34,7 @@ class LogsKaspressoTest :
     RipDpiKaspressoTest(
         automationLaunchIntent(
             startRoute = Route.Logs.stableRoute,
-            dataPreset = AutomationDataPreset.DiagnosticsDemo,
+            dataPreset = AutomationDataPreset.SettingsReady,
         ),
     ) {
     @Inject
