@@ -15,6 +15,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.android.controller.ActivityController
 import org.robolectric.shadows.ShadowActivity
 import java.net.URLEncoder
+import java.util.concurrent.TimeUnit
 
 /**
  * Robolectric tests for [ImportHandlerActivity]: given an inbound VIEW intent, the
@@ -24,6 +25,32 @@ import java.net.URLEncoder
  */
 @RunWith(RobolectricTestRunner::class)
 class ImportHandlerActivityTest {
+    @Test
+    fun `destroying the activity cancels a stalled provider without a late launch`() {
+        val provider = StalledImportProvider()
+        val uri = provider.register("destroyed-import")
+        val intent =
+            Intent(
+                Intent.ACTION_SEND,
+                null,
+                ApplicationProvider.getApplicationContext(),
+                ImportHandlerActivity::class.java,
+            ).setType("text/plain").putExtra(Intent.EXTRA_STREAM, uri)
+        val controller = Robolectric.buildActivity(ImportHandlerActivity::class.java, intent).create()
+        try {
+            assertTrue(provider.entered.await(2, TimeUnit.SECONDS))
+            controller.destroy()
+            assertTrue(provider.cancellationEntered.await(1, TimeUnit.SECONDS))
+        } finally {
+            provider.release()
+            assertTrue(provider.returned.await(2, TimeUnit.SECONDS))
+        }
+        org.robolectric.Shadows
+            .shadowOf(android.os.Looper.getMainLooper())
+            .idle()
+        assertNull(shadowOf(controller.get()).nextStartedActivity)
+    }
+
     private fun enc(value: String): String = URLEncoder.encode(value, "UTF-8")
 
     private fun launch(uri: String): ActivityController<ImportHandlerActivity> {

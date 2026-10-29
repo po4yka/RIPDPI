@@ -5,14 +5,16 @@ import android.content.ContentResolver
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
-import android.os.Handler
-import android.os.Looper
 import android.widget.Toast
 import androidx.core.content.IntentCompat
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.MainActivity
-import kotlin.concurrent.thread
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.launch
 
 /**
  * Trampoline activity for inbound proxy share links, subscription deep links, and shared
@@ -32,7 +34,7 @@ import kotlin.concurrent.thread
  * input surfaces a typed [Toast] and finishes without forwarding — never a crash.
  */
 class ImportHandlerActivity : Activity() {
-    private val mainHandler = Handler(Looper.getMainLooper())
+    private val importScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -47,7 +49,7 @@ class ImportHandlerActivity : Activity() {
     }
 
     override fun onDestroy() {
-        mainHandler.removeCallbacksAndMessages(null)
+        importScope.cancel()
         super.onDestroy()
     }
 
@@ -196,20 +198,12 @@ class ImportHandlerActivity : Activity() {
         return uri.scheme == ContentResolver.SCHEME_CONTENT && owner != packageName
     }
 
-    /** Reads [uri] off the main thread; a provider that stalls hits the timeout instead of an ANR. */
+    /** Cancelling the Activity also cancels its bounded import operation. */
     private fun readSharedFile(uri: Uri) {
-        var settled = false
-        val settle: (String?) -> Unit = { text ->
-            if (!settled) {
-                settled = true
-                text?.let(ImportPayloadClassifier::classify)?.let(::forward) ?: toast(R.string.import_error_unsupported)
-                finish()
-            }
-        }
-        mainHandler.postDelayed({ settle(null) }, SharedFileReadTimeoutMillis)
-        thread(name = "ripdpi-share-import", isDaemon = true) {
-            val text = readImportText(contentResolver, uri)
-            mainHandler.post { settle(text) }
+        importScope.launch {
+            val text = readImportText(applicationContext.contentResolver, uri)
+            text?.let(ImportPayloadClassifier::classify)?.let(::forward) ?: toast(R.string.import_error_unsupported)
+            finish()
         }
     }
 
@@ -266,7 +260,5 @@ class ImportHandlerActivity : Activity() {
 
         /** Opaque process-local hand-off token for [ImportLaunchRoute.AMNEZIAWG_EDITOR]. */
         const val EXTRA_AMNEZIAWG_IMPORT_TOKEN: String = "com.poyka.ripdpi.extra.IMPORT_AMNEZIAWG_TOKEN"
-
-        private const val SharedFileReadTimeoutMillis = 3_000L
     }
 }

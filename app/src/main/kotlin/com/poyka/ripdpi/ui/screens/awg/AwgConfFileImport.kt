@@ -10,9 +10,7 @@ import com.poyka.ripdpi.proxyimport.ImportPayloadClassifier
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.proxyimport.readImportText
 import com.poyka.ripdpi.ui.navigation.Route
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 
 /**
  * Returns an action that opens the system file picker for a WireGuard / AmneziaWG `.conf`
@@ -29,7 +27,7 @@ internal fun rememberAwgConfFileImport(onOpenEditor: (Route) -> Unit): () -> Uni
         rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
             if (uri != null) {
                 scope.launch {
-                    val text = withContext(Dispatchers.IO) { readImportText(context.contentResolver, uri) }.orEmpty()
+                    val text = readImportText(context.applicationContext.contentResolver, uri).orEmpty()
                     val conf = (ImportPayloadClassifier.classify(text) as? ImportPayload.WireGuardConf)?.conf ?: text
                     val token = PendingProxyImportStore.process.stageAmneziaWgConf(conf) ?: return@launch
                     onOpenEditor(Route.AmneziaWgProfile(importToken = token))
