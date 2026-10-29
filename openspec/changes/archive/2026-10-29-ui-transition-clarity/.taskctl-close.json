@@ -1,0 +1,11 @@
+{
+  "change": "ui-transition-clarity",
+  "evidence_summary": "Source 3a902bddea2d7cab970fe9e3a0b6ff7f81a6703e: 121 focused tests and 16 golden tests passed; staticAnalysis, lint, architecture health passed; CI run 39044755755 with ci-required passed (47 jobs, 17 skips, no failures); API 37 arm64 device checks passed with zero crashes and ANRs.",
+  "execution_sha256": "0c694e1d8e3d213141a9cdbdfd04af74f67c3a8cba32451cc5facb88ffc63a31",
+  "issue_sha256": "91ed0d2bc0ee00cf3b1060429e5af3fd144f68e21d39fa15ba03ffbaae5a7026",
+  "outcome": "done",
+  "prepared_at": "2026-10-29T09:45:51Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "UIX-1792244042561922"
+}

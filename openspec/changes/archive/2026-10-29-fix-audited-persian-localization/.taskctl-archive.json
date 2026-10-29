@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-10-29T09:45:50Z",
+  "change": "fix-audited-persian-localization",
+  "commit_sha": "73dc62806735a11e7b62fa46cdfebb1e1db01fca",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "UIX-1792059951283875"
+}

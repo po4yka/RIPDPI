@@ -2,7 +2,7 @@
 id: UIX-1792059951283875
 title: Correct audited Persian localization
 kind: bug
-status: review
+status: done
 area: ui
 priority: high
 owner: Localization maintainers
@@ -11,8 +11,11 @@ blocked_by: []
 spec_mode: required
 openspec_change: fix-audited-persian-localization
 created: 2026-10-15
-updated: 2026-10-15
+updated: 2026-10-29
 status_detail: All confirmed Persian corrections are on main; local gates and all seven source CI workflows pass.
+closed_at: "2026-10-29T09:45:51Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Source 73dc62806735a11e7b62fa46cdfebb1e1db01fca: final and rebased local gates passed; all seven push workflows passed, CI 38733825932 and ci-required passed. Physical-device acceptance is separate."
 ---
 
 ## Goal

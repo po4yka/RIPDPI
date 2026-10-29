@@ -1,0 +1,11 @@
+{
+  "change": "fix-audited-french-localization",
+  "evidence_summary": "Source abb49ce0daca560d6acd7d606d4650f50e44793a on main: 40 resource tests, locale parity, 2546 app tests, 297 screenshot tests, lint, staticAnalysis and architecture health passed; CI 38547366408 and ci-required passed. No physical-device acceptance claimed.",
+  "execution_sha256": "00f918fa68b15569fca8601fe4f91401f0dd57979cd850430b560fbb4b919819",
+  "issue_sha256": "d270044f361cc92b525a12538ad04fc83d6881a647acf4bf54ae8f0e746d7289",
+  "outcome": "done",
+  "prepared_at": "2026-10-29T09:46:20Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "UIX-1791958951401122"
+}

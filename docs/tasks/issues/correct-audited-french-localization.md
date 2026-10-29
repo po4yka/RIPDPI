@@ -2,7 +2,7 @@
 id: UIX-1791958951401122
 title: Correct audited French localization
 kind: bug
-status: review
+status: done
 area: ui
 priority: high
 owner: Localization maintainers
@@ -11,7 +11,10 @@ blocked_by: []
 spec_mode: required
 openspec_change: fix-audited-french-localization
 created: 2026-10-14
-updated: 2026-10-14
+updated: 2026-10-29
+closed_at: "2026-10-29T09:46:20Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Source abb49ce0daca560d6acd7d606d4650f50e44793a on main: 40 resource tests, locale parity, 2546 app tests, 297 screenshot tests, lint, staticAnalysis and architecture health passed; CI 38547366408 and ci-required passed. No physical-device acceptance claimed."
 ---
 
 ## Goal

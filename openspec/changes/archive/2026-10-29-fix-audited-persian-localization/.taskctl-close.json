@@ -1,0 +1,11 @@
+{
+  "change": "fix-audited-persian-localization",
+  "evidence_summary": "Source 73dc62806735a11e7b62fa46cdfebb1e1db01fca: final and rebased local gates passed; all seven push workflows passed, CI 38733825932 and ci-required passed. Physical-device acceptance is separate.",
+  "execution_sha256": "5dc8340c69dc18004730acfdae1a35cf14b5a881f3454b83800d4627818e7917",
+  "issue_sha256": "a7d4b454ee09d3f85172ffa9bb023d485664f403632a4445729c11376ba9f355",
+  "outcome": "done",
+  "prepared_at": "2026-10-29T09:45:51Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "UIX-1792059951283875"
+}

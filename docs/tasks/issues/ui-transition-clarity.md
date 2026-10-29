@@ -2,7 +2,7 @@
 id: UIX-1792244042561922
 title: Clarify connection feedback and reconnect changes
 kind: feature
-status: review
+status: done
 area: ui
 priority: high
 owner: UI transition integration
@@ -11,8 +11,11 @@ blocked_by: []
 spec_mode: required
 openspec_change: ui-transition-clarity
 created: 2026-10-17
-updated: 2026-10-17
+updated: 2026-10-29
 status_detail: Implementation, local gates, real APK emulator acceptance, main push, and exact-source hosted CI passed.
+closed_at: "2026-10-29T09:45:51Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Source 3a902bddea2d7cab970fe9e3a0b6ff7f81a6703e: 121 focused tests and 16 golden tests passed; staticAnalysis, lint, architecture health passed; CI run 39044755755 with ci-required passed (47 jobs, 17 skips, no failures); API 37 arm64 device checks passed with zero crashes and ANRs."
 ---
 
 ## Goal

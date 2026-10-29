@@ -2,7 +2,7 @@
 id: UIX-1792040423920590
 title: Correct audited Arabic localization
 kind: bug
-status: review
+status: done
 area: ui
 priority: high
 owner: Localization maintainers
@@ -11,8 +11,11 @@ blocked_by: []
 spec_mode: required
 openspec_change: fix-audited-arabic-localization
 created: 2026-10-15
-updated: 2026-10-15
+updated: 2026-10-29
 status_detail: Published source 632f25dc; all seven hosted workflows and combined local gates passed.
+closed_at: "2026-10-29T09:45:50Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Source 632f25dc83af9ab13c11665ba0d8b406d7abc6df: final and rebased local gates passed; all seven push workflows passed, CI 38701531805 and ci-required passed. No physical-device acceptance claimed."
 ---
 
 ## Goal

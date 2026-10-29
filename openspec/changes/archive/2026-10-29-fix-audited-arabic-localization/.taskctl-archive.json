@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-10-29T09:45:50Z",
+  "change": "fix-audited-arabic-localization",
+  "commit_sha": "632f25dc83af9ab13c11665ba0d8b406d7abc6df",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "UIX-1792040423920590"
+}
