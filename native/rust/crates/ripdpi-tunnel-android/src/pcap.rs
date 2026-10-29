@@ -5,11 +5,8 @@
 //! type). The local type carries owned bytes, since it crosses the
 //! queue boundary into the writer thread.
 //!
-//! Some metadata accessors are intentionally kept for the JNI/session
-//! registry and host-side tests even when a given build path does not
-//! consume them directly, so the dead-code allowance is scoped to this
-//! module.
-#![allow(dead_code)]
+//! Live packets reach the queue through [`PcapPacketObserver`], which the
+//! session installs on the tunnel `Stats`.
 
 use std::collections::HashSet;
 use std::fs::{self, File};
@@ -195,6 +192,7 @@ impl PcapCaptureSet {
 
     /// Try to enqueue a record. Lock-free. On queue-full, increments
     /// the drops counter and returns false -- capture is best-effort.
+    #[cfg(test)]
     pub fn submit(&self, record: PcapCaptureRecord) -> bool {
         // Ordering: `stop` publishes capture retirement before any caller can enqueue another owned packet.
         let Some(_admission) = self.admissions.try_acquire() else {
@@ -213,12 +211,8 @@ impl PcapCaptureSet {
     /// file, and exit. Returns the metadata of every file written.
     pub fn stop(mut self) -> WriterStopResult {
         self.request_stop();
-        let mut result = WriterStopResult {
-            set_id: self.set_id,
-            files: Vec::new(),
-            total_drops: self.drops.load(Ordering::Relaxed),
-            failure: None,
-        };
+        let mut result =
+            WriterStopResult { files: Vec::new(), total_drops: self.drops.load(Ordering::Relaxed), failure: None };
         if let Some(handle) = self.writer_thread.take() {
             match join_writer_bounded(handle, WRITER_STOP_TIMEOUT) {
                 Ok(writer_result) => {
@@ -331,7 +325,6 @@ fn now_micros() -> u64 {
 
 #[derive(Debug)]
 pub struct WriterStopResult {
-    pub set_id: u64,
     pub files: Vec<PcapCaptureMetadata>,
     pub total_drops: u64,
     pub failure: Option<PcapWriterFailure>,
