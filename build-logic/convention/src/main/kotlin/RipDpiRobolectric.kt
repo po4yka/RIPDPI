@@ -10,6 +10,8 @@ internal fun Project.configureRipDpiRobolectric() {
     tasks.withType(Test::class.java).configureEach {
         javaLauncher.set(toolchains.launcherFor { languageVersion.set(JavaLanguageVersion.of(21)) })
         systemProperty("robolectric.looperMode", "PAUSED")
+        // Each fork is a Robolectric JVM; half the cores keeps Gradle, the compiler and the other forks responsive.
+        maxParallelForks = (Runtime.getRuntime().availableProcessors() / 2).coerceAtLeast(1)
         jvmArgs(
             "--add-opens=java.base/java.lang=ALL-UNNAMED",
             "--add-opens=java.base/java.util=ALL-UNNAMED",
