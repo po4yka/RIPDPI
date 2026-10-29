@@ -55,8 +55,6 @@ appId: com.poyka.ripdpi
     direction: DOWN
     centerElement: true
 - assertNotVisible:
-    id: "home-permission-issue-banner"
-- assertNotVisible:
     id: "home-permission-recommendation-banner"
 - assertNotVisible:
     id: "home-background-guidance-banner"

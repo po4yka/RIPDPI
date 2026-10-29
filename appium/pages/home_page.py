@@ -18,9 +18,7 @@ class HomePage(BasePage):
     LOCAL_BYPASS_CARD = "home-mode-card-local-dpi-bypass"
     HISTORY_CARD = "bottom-nav-diagnostics"
     STATS_GRID = "home-mode-card-remote-vpn"
-    PERMISSION_ISSUE_BANNER = "home-permission-issue-banner"
     PERMISSION_REC_BANNER = "home-permission-recommendation-banner"
-    ERROR_BANNER = "home-error-banner"
     WARNING_BANNER_DISMISS = "warning-banner-dismiss"
     BACKGROUND_GUIDANCE_BANNER = "home-background-guidance-banner"
 
@@ -84,16 +82,12 @@ class HomePage(BasePage):
     def is_history_card_visible(self) -> bool:
         return self.is_visible(self.HISTORY_CARD)
 
-    def is_permission_banner_visible(self) -> bool:
-        return self.is_visible(self.PERMISSION_ISSUE_BANNER)
-
     def is_permission_recommendation_visible(self) -> bool:
         return self.is_visible(self.PERMISSION_REC_BANNER)
 
     def is_any_permission_guidance_visible(self) -> bool:
         return (
-            self.is_visible(self.PERMISSION_ISSUE_BANNER)
-            or self.is_visible(self.PERMISSION_REC_BANNER)
+            self.is_visible(self.PERMISSION_REC_BANNER)
             or self.is_visible(self.BACKGROUND_GUIDANCE_BANNER)
         )
 
