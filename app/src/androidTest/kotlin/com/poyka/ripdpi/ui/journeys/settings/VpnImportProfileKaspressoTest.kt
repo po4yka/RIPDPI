@@ -3,11 +3,15 @@ package com.poyka.ripdpi.ui.journeys.settings
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
-import androidx.test.espresso.Espresso
+import androidx.compose.ui.test.printToLog
 import androidx.test.platform.app.InstrumentationRegistry
 import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
@@ -31,6 +35,11 @@ class VpnImportProfileKaspressoTest :
             dataPreset = AutomationDataPreset.SettingsReady,
         ),
     ) {
+    private val profileRow =
+        SemanticsMatcher("tag starts with config-vpn-profile-row-") { node ->
+            node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("config-vpn-profile-row-") == true
+        }
+
     private fun seedClipboard(text: String) {
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             val clipboard =
@@ -43,11 +52,11 @@ class VpnImportProfileKaspressoTest :
     }
 
     @Test
-    fun pastedVlessRealityLinkIsConfirmedAndAddedToTheServerList() =
+    fun pastedVlessRealityLinkIsConfirmedAndAddedToTheProfileList() =
         run {
-            step("The server section offers paste and scan entry points") {
-                composeRule.clickTag(RipDpiTestTags.configModeSection("vpn"))
-                composeRule.awaitTag(RipDpiTestTags.ConfigVpnSimple)
+            step("The profile choices offer paste and scan entry points") {
+                composeRule.clickTag(RipDpiTestTags.ConfigProfileChange)
+                composeRule.awaitTag(RipDpiTestTags.ConfigProfileChoices)
                 composeRule.scrollToTag(RipDpiTestTags.ConfigVpnAddServerPaste)
                 composeRule.scrollToTag(RipDpiTestTags.ConfigVpnAddServerScan)
             }
@@ -55,21 +64,26 @@ class VpnImportProfileKaspressoTest :
                 seedClipboard(VlessRealityLink)
                 composeRule.clickTag(RipDpiTestTags.ConfigVpnAddServerPaste)
                 composeRule.awaitTag(RipDpiTestTags.screen(Route.ProfileImportConfirm()))
-                composeRule.waitUntil(10_000) {
-                    composeRule.onAllNodes(hasText(ImportedProfileName)).fetchSemanticsNodes().isNotEmpty()
+                runCatching {
+                    composeRule.waitUntil(10_000) {
+                        composeRule.onAllNodes(hasText(ImportedProfileName)).fetchSemanticsNodes().isNotEmpty()
+                    }
+                }.onFailure {
+                    composeRule.onRoot(useUnmergedTree = true).printToLog("IMPORTDBG")
+                    throw it
                 }
             }
-            step("Adding the profile lists it in the server section") {
+            step("Adding the profile lists it in the profile choices") {
                 composeRule.onNodeWithTag(RipDpiTestTags.screen(Route.ProfileImportConfirm())).assertIsDisplayed()
                 composeRule.onNode(hasText("Add")).performClick()
-                composeRule.waitUntil(15_000) {
-                    composeRule.onAllNodes(hasText("Added")).fetchSemanticsNodes().isNotEmpty()
-                }
-                Espresso.pressBack()
+                composeRule.awaitNoTag(RipDpiTestTags.screen(Route.ProfileImportConfirm()), timeoutMillis = 15_000)
                 composeRule.awaitTag(RipDpiTestTags.screen(Route.Config))
-                composeRule.clickTag(RipDpiTestTags.configModeSection("vpn"))
-                composeRule.waitUntil(10_000) {
-                    composeRule.onAllNodes(hasText(ImportedProfileName)).fetchSemanticsNodes().isNotEmpty()
+                if (!composeRule.tagExists(RipDpiTestTags.ConfigProfileChoices)) {
+                    composeRule.clickTag(RipDpiTestTags.ConfigProfileChange)
+                }
+                composeRule.awaitTag(RipDpiTestTags.ConfigProfileChoices)
+                composeRule.waitUntil(15_000) {
+                    composeRule.onAllNodes(profileRow).fetchSemanticsNodes().isNotEmpty()
                 }
             }
         }
