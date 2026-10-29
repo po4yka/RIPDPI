@@ -559,7 +559,7 @@ class DiagnosticsHomeCompositeRunServiceEdgeCasesTest {
             persistencePorts =
                 HomeCompositePersistencePorts(
                     scanRecordStore = stores,
-                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                    comparisonScanCoordinator = ComparisonScanCoordinator(),
                     homeRunPersistence =
                         HomeDiagnosticsRunPersistence(
                             stores,

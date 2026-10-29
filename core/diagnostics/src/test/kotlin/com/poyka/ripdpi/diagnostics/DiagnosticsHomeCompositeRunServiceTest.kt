@@ -103,7 +103,7 @@ class DiagnosticsHomeCompositeRunCancellationTest {
                     persistencePorts =
                         HomeCompositePersistencePorts(
                             scanRecordStore = stores,
-                            comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                            comparisonScanCoordinator = ComparisonScanCoordinator(),
                             homeRunPersistence =
                                 HomeDiagnosticsRunPersistence(
                                     stores,
@@ -210,7 +210,7 @@ class DiagnosticsHomeCompositeRunCancellationTest {
                     persistencePorts =
                         HomeCompositePersistencePorts(
                             scanRecordStore = stores,
-                            comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                            comparisonScanCoordinator = ComparisonScanCoordinator(),
                             homeRunPersistence =
                                 HomeDiagnosticsRunPersistence(
                                     stores,
@@ -450,7 +450,7 @@ private fun serializedLifecycleWorkflowService(): DiagnosticsHomeWorkflowService
 private fun serializedLifecyclePersistencePorts(stores: FakeDiagnosticsHistoryStores) =
     HomeCompositePersistencePorts(
         scanRecordStore = stores,
-        comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+        comparisonScanCoordinator = ComparisonScanCoordinator(),
         homeRunPersistence =
             HomeDiagnosticsRunPersistence(
                 stores,
@@ -507,7 +507,7 @@ class DiagnosticsHomeCompositeRunSettlementTest {
                     persistencePorts =
                         HomeCompositePersistencePorts(
                             scanRecordStore = stores,
-                            comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                            comparisonScanCoordinator = ComparisonScanCoordinator(),
                             homeRunPersistence =
                                 HomeDiagnosticsRunPersistence(
                                     stores,
@@ -626,7 +626,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     persistencePorts =
                         HomeCompositePersistencePorts(
                             scanRecordStore = stores,
-                            comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                            comparisonScanCoordinator = ComparisonScanCoordinator(),
                             homeRunPersistence =
                                 HomeDiagnosticsRunPersistence(
                                     stores,
@@ -871,7 +871,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     persistencePorts =
                         HomeCompositePersistencePorts(
                             scanRecordStore = stores,
-                            comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                            comparisonScanCoordinator = ComparisonScanCoordinator(),
                             homeRunPersistence =
                                 HomeDiagnosticsRunPersistence(
                                     stores,
@@ -963,7 +963,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     persistencePorts =
                         HomeCompositePersistencePorts(
                             scanRecordStore = stores,
-                            comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                            comparisonScanCoordinator = ComparisonScanCoordinator(),
                             homeRunPersistence =
                                 HomeDiagnosticsRunPersistence(
                                     stores,
@@ -1087,7 +1087,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
                     persistencePorts =
                         HomeCompositePersistencePorts(
                             scanRecordStore = stores,
-                            comparisonScanCoordinator = ComparisonScanCoordinator(stores, diagnosticsTestJson()),
+                            comparisonScanCoordinator = ComparisonScanCoordinator(),
                             homeRunPersistence =
                                 HomeDiagnosticsRunPersistence(
                                     stores,
@@ -1287,7 +1287,7 @@ class DiagnosticsHomeCompositeRunServiceTest {
             persistencePorts =
                 HomeCompositePersistencePorts(
                     scanRecordStore = stores,
-                    comparisonScanCoordinator = ComparisonScanCoordinator(stores, json),
+                    comparisonScanCoordinator = ComparisonScanCoordinator(),
                     homeRunPersistence = HomeDiagnosticsRunPersistence(stores, TestDiagnosticsHistoryClock(), json),
                     probeResultCache = NoOpProbeResultCache(),
                 ),

@@ -102,7 +102,7 @@ class HomeCompositeStoppedRuntimePathComparisonTest {
                     persistencePorts =
                         HomeCompositePersistencePorts(
                             scanRecordStore = stores,
-                            comparisonScanCoordinator = ComparisonScanCoordinator(stores, json),
+                            comparisonScanCoordinator = ComparisonScanCoordinator(),
                             homeRunPersistence =
                                 HomeDiagnosticsRunPersistence(
                                     stores,

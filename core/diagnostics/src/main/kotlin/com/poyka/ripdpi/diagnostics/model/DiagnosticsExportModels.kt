@@ -32,10 +32,3 @@ data class BundledDiagnosticProfile(
     val version: Int,
     val request: ScanRequest,
 )
-
-@Serializable
-data class BundledDiagnosticsCatalog(
-    val schemaVersion: Int = 1,
-    val generatedAt: String? = null,
-    val profiles: List<BundledDiagnosticProfile> = emptyList(),
-)

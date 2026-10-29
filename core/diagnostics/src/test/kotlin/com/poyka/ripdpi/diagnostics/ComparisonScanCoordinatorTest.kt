@@ -6,11 +6,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class ComparisonScanCoordinatorTest {
-    private val coordinator =
-        ComparisonScanCoordinator(
-            scanRecordStore = FakeDiagnosticsHistoryStores(),
-            json = diagnosticsTestJson(),
-        )
+    private val coordinator = ComparisonScanCoordinator()
 
     @Test
     @Suppress("detekt.LongMethod")

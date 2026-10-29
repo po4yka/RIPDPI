@@ -1,74 +1,12 @@
 package com.poyka.ripdpi.diagnostics
 
-import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
-import kotlinx.serialization.json.Json
 import javax.inject.Inject
-import javax.inject.Named
 import javax.inject.Singleton
 
 @Singleton
 class ComparisonScanCoordinator
     @Inject
-    constructor(
-        private val scanRecordStore: DiagnosticsScanRecordStore,
-        @param:Named("diagnosticsJson")
-        private val json: Json,
-    ) {
-        suspend fun compareReports(
-            rawPathSessionId: String,
-            inPathSessionId: String,
-        ): PathComparisonResult {
-            val rawReport =
-                scanRecordStore.getScanSession(rawPathSessionId)?.let {
-                    DiagnosticsSessionQueries.decodeScanReport(json, it.reportJson)
-                }
-            val inPathReport =
-                scanRecordStore
-                    .getScanSession(
-                        inPathSessionId,
-                    )?.let { DiagnosticsSessionQueries.decodeScanReport(json, it.reportJson) }
-            if (rawReport == null || inPathReport == null) {
-                return PathComparisonResult(
-                    rawPathSessionId = rawPathSessionId,
-                    inPathSessionId = inPathSessionId,
-                    summary = "Comparison unavailable: missing report data",
-                )
-            }
-
-            val assessment =
-                assessConnectivity(
-                    rawReports = listOf(rawReport),
-                    inPathReport = inPathReport,
-                    rawPathSessionIds = listOf(rawPathSessionId),
-                    inPathSessionId = inPathSessionId,
-                )
-            val rawOutcomes = aggregateTargets(listOf(rawReport))
-            val inPathOutcomes = aggregateTargets(listOf(inPathReport))
-            val domainComparisons =
-                (rawOutcomes.keys + inPathOutcomes.keys)
-                    .sorted()
-                    .mapNotNull { target ->
-                        val raw = rawOutcomes[target] ?: return@mapNotNull null
-                        if (raw.kind != TargetKind.DOMAIN) return@mapNotNull null
-                        val inPath = inPathOutcomes[target]
-                        DomainPathComparison(
-                            domain = target,
-                            rawPathOutcome = raw.outcome,
-                            inPathOutcome = inPath?.outcome ?: NotTested,
-                            vpnBypasses = !raw.success && (inPath?.success == true),
-                            isControl = raw.isControl,
-                        )
-                    }
-
-            return PathComparisonResult(
-                rawPathSessionId = rawPathSessionId,
-                inPathSessionId = inPathSessionId,
-                domainComparisons = domainComparisons,
-                summary = assessment.assessmentSummary,
-                assessment = assessment,
-            )
-        }
-
+    constructor() {
         fun assessConnectivity(
             rawReports: List<ScanReport>,
             inPathReport: ScanReport?,
@@ -394,20 +332,10 @@ class ComparisonScanCoordinator
         }
     }
 
-private const val NotTested = "not_tested"
-
-private enum class TargetKind {
-    DOMAIN,
-    SERVICE,
-    CIRCUMVENTION,
-}
-
 private data class TargetOutcome(
     val id: String,
-    val kind: TargetKind,
     val isControl: Boolean = false,
     val success: Boolean,
-    val outcome: String,
 )
 
 private fun merge(
@@ -437,10 +365,8 @@ private fun domainTargetOutcome(fact: DomainObservationFact): TargetOutcome {
             fact.tls12Status == TlsProbeStatus.CERT_INVALID
     return TargetOutcome(
         id = fact.host,
-        kind = TargetKind.DOMAIN,
         isControl = fact.isControl,
         success = success && !failure,
-        outcome = domainOutcomeLabel(fact),
     )
 }
 
@@ -450,12 +376,10 @@ private fun serviceTargetOutcome(
 ): TargetOutcome =
     TargetOutcome(
         id = target,
-        kind = TargetKind.SERVICE,
         success =
             fact.endpointStatus == EndpointProbeStatus.OK ||
                 fact.bootstrapStatus == HttpProbeStatus.OK ||
                 fact.mediaStatus == HttpProbeStatus.OK,
-        outcome = serviceOutcomeLabel(fact),
     )
 
 private fun circumventionTargetOutcome(
@@ -464,70 +388,7 @@ private fun circumventionTargetOutcome(
 ): TargetOutcome =
     TargetOutcome(
         id = target,
-        kind = TargetKind.CIRCUMVENTION,
         success =
             fact.handshakeStatus == EndpointProbeStatus.OK ||
                 fact.bootstrapStatus == HttpProbeStatus.OK,
-        outcome = circumventionOutcomeLabel(fact),
     )
-
-private fun domainOutcomeLabel(fact: DomainObservationFact): String =
-    when {
-        fact.httpStatus == HttpProbeStatus.OK -> {
-            "http_ok"
-        }
-
-        fact.httpStatus == HttpProbeStatus.BLOCKPAGE -> {
-            "http_blockpage"
-        }
-
-        fact.httpStatus == HttpProbeStatus.UNREACHABLE -> {
-            "http_unreachable"
-        }
-
-        fact.tls13Status == TlsProbeStatus.OK || fact.tls12Status == TlsProbeStatus.OK -> {
-            "tls_ok"
-        }
-
-        fact.tls13Status == TlsProbeStatus.VERSION_SPLIT ||
-            fact.tls12Status == TlsProbeStatus.VERSION_SPLIT -> {
-            "tls_version_split"
-        }
-
-        fact.tls13Status == TlsProbeStatus.CERT_INVALID ||
-            fact.tls12Status == TlsProbeStatus.CERT_INVALID -> {
-            "tls_cert_invalid"
-        }
-
-        fact.tls13Status == TlsProbeStatus.HANDSHAKE_FAILED ||
-            fact.tls12Status == TlsProbeStatus.HANDSHAKE_FAILED -> {
-            "tls_handshake_failed"
-        }
-
-        fact.transportFailure != TransportFailureKind.NONE -> {
-            "transport_${fact.transportFailure.name.lowercase()}"
-        }
-
-        else -> {
-            NotTested
-        }
-    }
-
-private fun serviceOutcomeLabel(fact: ServiceObservationFact): String =
-    when {
-        fact.endpointStatus == EndpointProbeStatus.OK -> "service_ok"
-        fact.endpointStatus == EndpointProbeStatus.BLOCKED -> "service_blocked"
-        fact.endpointStatus == EndpointProbeStatus.FAILED -> "service_failed"
-        fact.bootstrapStatus == HttpProbeStatus.UNREACHABLE -> "bootstrap_unreachable"
-        fact.quicStatus == QuicProbeStatus.ERROR -> "quic_error"
-        else -> NotTested
-    }
-
-private fun circumventionOutcomeLabel(fact: CircumventionObservationFact): String =
-    when {
-        fact.handshakeStatus == EndpointProbeStatus.OK -> "circumvention_ok"
-        fact.handshakeStatus == EndpointProbeStatus.BLOCKED -> "circumvention_blocked"
-        fact.handshakeStatus == EndpointProbeStatus.FAILED -> "circumvention_failed"
-        fact.bootstrapStatus == HttpProbeStatus.UNREACHABLE -> "bootstrap_unreachable"
-        else -> NotTested
-    }

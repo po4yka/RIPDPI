@@ -136,12 +136,6 @@ interface RipDpiProxyBindings {
 }
 
 @Serializable
-data class RipDpiGeoDatabaseVersions(
-    val geoipVersion: String? = null,
-    val geositeVersion: String? = null,
-)
-
-@Serializable
 data class RipDpiGeoIpMetadata(
     val countryCode: String? = null,
     val asn: Int? = null,

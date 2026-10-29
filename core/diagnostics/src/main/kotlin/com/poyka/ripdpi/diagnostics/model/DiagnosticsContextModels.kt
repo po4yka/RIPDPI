@@ -21,20 +21,6 @@ data class NativeSessionEvent(
 )
 
 @Serializable
-data class PassiveMonitorSnapshot(
-    val activeMode: String?,
-    val connectionState: String,
-    val networkType: String,
-    val publicIp: String?,
-    val txPackets: Long,
-    val txBytes: Long,
-    val rxPackets: Long,
-    val rxBytes: Long,
-    val nativeEvents: List<NativeSessionEvent> = emptyList(),
-    val capturedAt: Long,
-)
-
-@Serializable
 data class NetworkSnapshotModel(
     val transport: String,
     val capabilities: List<String>,
@@ -313,22 +299,4 @@ data class HomeReproAction(
     val actionId: String,
     val label: String,
     val summary: String,
-)
-
-@Serializable
-data class PathComparisonResult(
-    val rawPathSessionId: String,
-    val inPathSessionId: String,
-    val domainComparisons: List<DomainPathComparison> = emptyList(),
-    val summary: String = "",
-    val assessment: ConnectivityAssessment? = null,
-)
-
-@Serializable
-data class DomainPathComparison(
-    val domain: String,
-    val rawPathOutcome: String,
-    val inPathOutcome: String,
-    val vpnBypasses: Boolean,
-    val isControl: Boolean = false,
 )
