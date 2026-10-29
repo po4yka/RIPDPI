@@ -29,7 +29,7 @@ The runtime MUST reject legacy Shadowsocks UDP and MUST preserve supported legac
 
 ### Requirement: REQ-SS2022-BOUND - Bound server replay state
 
-An SS2022 UDP client MUST retain at most two server sessions and MUST reject excess rotation until the old session has been inactive for strictly more than 60 seconds. Invalid packets MUST NOT change replay state.
+An SS2022 UDP client MUST retain at most two server sessions and MUST reject excess rotation until the old session has been inactive for strictly more than 61 seconds, including a one-second guard for timestamp precision. Invalid packets MUST NOT change replay state.
 
 #### Scenario: A relay sends many authenticated session IDs
 

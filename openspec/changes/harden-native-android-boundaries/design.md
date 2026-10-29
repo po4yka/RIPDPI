@@ -11,7 +11,7 @@ The audit was made at 022af2d070ef. Implementation starts at 12878ea4c13f. The u
 
 - Generate session credentials for every configured relay frontend. Reuse the native RFC1929 implementation for GAS and Cloudflare wrappers. Deliver NaiveProxy local credentials through stdin and require them on both SOCKS and HTTP CONNECT. Authenticate readiness and the owned PT bridge. Raw upstream PT listeners accept caller-supplied PT arguments; they do not receive the saved fixed-target bridge configuration through this frontend contract.
 - The user chose removal of legacy Shadowsocks UDP. Remove the legacy datagram codec/path and update capability callers while keeping TCP. This avoids a finite cache that later admits old ciphertext.
-- SS2022 keeps current and previous authenticated sessions. Use monotonic inactivity time and strict greater-than-60-second retirement. Authenticate and validate recipient/type/timestamp before changing state.
+- SS2022 keeps current and previous authenticated sessions. Use monotonic inactivity time and strict greater-than-61-second retirement. The extra second covers inclusive timestamp acceptance with whole-second precision. Authenticate and validate recipient/type/timestamp before changing state.
 - Import uses bounded admission and cancellable provider open. Reads must use a deadline-aware descriptor path so a silent pipe cannot retain a blocked read indefinitely. Cancellation must not block the main thread on an uncooperative provider.
 - Fixed-read completion sets length outside debug assertions, including zero-length reads. Tests exercise real buffer completion in a Linux release build without requiring kernel io-uring access.
 
