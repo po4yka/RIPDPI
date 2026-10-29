@@ -20,10 +20,6 @@
         <item quantity="one">%1$s · %2$d بسته</item>
         <item quantity="other">%1$s · %2$d بسته</item>
     </plurals>
-    <plurals name="vpn_export_consent_meta_format">
-        <item quantity="one">%1$s · %2$d بسته</item>
-        <item quantity="other">%1$s · %2$d بسته</item>
-    </plurals>
     <plurals name="vpn_pcap_capture_drops_format">
         <item quantity="one">%1$d بسته زیر بار از دست رفت</item>
         <item quantity="other">%1$d بسته زیر بار از دست رفت</item>

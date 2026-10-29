@@ -2,7 +2,6 @@
 <resources>
     <string name="config_saved_profile_title">Gespeichertes Profil</string>
     <string name="config_profile_change">Profil ändern</string>
-    <string name="config_profile_choices">Profilauswahl</string>
     <string name="config_connection_scope_vpn">Datenverkehr: für das lokale VPN ausgewählte Apps</string>
     <string name="config_connection_scope_proxy">Datenverkehr: Apps, die diesen Proxy verwenden</string>
     <string name="config_connection_path_direct">Pfad: direkte Verbindung</string>

@@ -20,10 +20,6 @@
         <item quantity="one">%1$s · %2$d Paket</item>
         <item quantity="other">%1$s · %2$d Pakete</item>
     </plurals>
-    <plurals name="vpn_export_consent_meta_format">
-        <item quantity="one">%1$s · %2$d Paket</item>
-        <item quantity="other">%1$s · %2$d Pakete</item>
-    </plurals>
     <plurals name="vpn_pcap_capture_drops_format">
         <item quantity="one">%1$d Paket unter Last verworfen</item>
         <item quantity="other">%1$d Pakete unter Last verworfen</item>

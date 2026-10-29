@@ -2,7 +2,6 @@
 <resources>
     <string name="config_saved_profile_title">Сохранённый профиль</string>
     <string name="config_profile_change">Изменить профиль</string>
-    <string name="config_profile_choices">Выбор профиля</string>
     <string name="config_connection_scope_vpn">Трафик: приложения, выбранные для локального VPN</string>
     <string name="config_connection_scope_proxy">Трафик: приложения, настроенные на этот прокси</string>
     <string name="config_connection_path_direct">Путь: прямое подключение</string>

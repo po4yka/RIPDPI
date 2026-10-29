@@ -25,8 +25,6 @@ class ArabicLocalizationRegressionsTest(unittest.TestCase):
     def test_support_chain_share_and_device_gate_copy_is_not_english_fallback(self):
         source = resources("app", "values")
         keys = [key for key in self.ar if key.startswith(("support_settings_", "config_chain_", "profile_share_"))]
-        # The applied-action resource is dormant. The active Apply button has its own key.
-        keys.remove("support_settings_applied_action")
         keys += ["ripdpi_desync_method_setting", "config_relay_finalmask_fragment",
                  "config_relay_finalmask_fragment_help", "config_relay_finalmask_header",
                  "config_relay_finalmask_header_help", "config_relay_finalmask_noise",

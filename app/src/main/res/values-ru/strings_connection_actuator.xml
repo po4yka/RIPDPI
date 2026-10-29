@@ -17,10 +17,6 @@
     <string name="home_connection_stage_route">Маршрут</string>
     <string name="home_connection_stage_tunnel">Туннель</string>
     <string name="home_connection_actuator_action_android_managed">Управляется блокировкой Android</string>
-    <string name="home_connection_stage_state_pending">ожидание</string>
-    <string name="home_connection_stage_state_active">активно</string>
-    <string name="home_connection_stage_state_complete">завершено</string>
-    <string name="home_connection_stage_state_warning">предупреждение</string>
     <string name="home_connection_stage_state_failed">сбой</string>
     <string name="home_connection_actuator_action_cancel">Отменить подключение</string>
     <string name="home_connection_actuator_action_retry">Повторить</string>

@@ -10,7 +10,6 @@
     <string name="detection_check_subtitle">Проверьте, насколько заметна ваша настройка VPN/прокси.</string>
     <string name="detection_check_start">Запустить проверку</string>
     <string name="detection_check_stop">Остановить</string>
-    <string name="detection_check_running">Выполняются проверки обнаружения\u2026</string>
     <string name="detection_check_verdict_not_detected">Не обнаружено</string>
     <string name="detection_check_verdict_needs_review">Требует проверки</string>
     <string name="detection_check_verdict_detected">Обнаружено</string>
@@ -28,8 +27,6 @@
     <string name="detection_onboarding_skip">Пропустить</string>
     <string name="detection_permission_rationale">Android относит эти разрешения к местоположению, потому что идентификаторы Wi-Fi и сотовой сети могут указывать, где вы находитесь. RIPDPI не использует их для отслеживания; проверки используют их только для различения поведения сети, сырые идентификаторы не сохраняются, а экспорт диагностики их скрывает.</string>
     <string name="detection_permission_settings">Разрешения были отклонены. Откройте настройки только если хотите, чтобы проверки читали идентификаторы Wi-Fi или сотовой сети; сырые идентификаторы не сохраняются, а экспорт диагностики их скрывает.</string>
-    <string name="detection_permission_open_settings">Открыть настройки</string>
-    <string name="detection_stealth_score">Видимость</string>
     <string name="detection_privacy_mode">Режим приватности</string>
     <string name="detection_history_title">История</string>
     <string name="detection_check_category_dns_leak">Утечка DNS</string>
@@ -45,7 +42,6 @@
     <string name="detection_community_loading">Загружаем статистику сообщества…</string>
     <string name="detection_community_error">Не удалось загрузить статистику сообщества</string>
     <string name="detection_community_retry">Повторить</string>
-    <string name="detection_verdict_label">Вердикт</string>
     <string name="detection_status_ok">ОК</string>
     <string name="detection_status_review">Проверить</string>
     <string name="detection_status_detected">Обнаружено</string>
@@ -58,7 +54,6 @@
     <string name="detection_finding_ok">ОК</string>
     <string name="detection_score_improved">Оценка улучшилась</string>
     <string name="detection_score_degraded">Оценка ухудшилась</string>
-    <string name="detection_score_unchanged">Без изменений</string>
     <string name="detection_stealth_score_a11y">Оценка скрытности %1$d</string>
     <string name="detection_resistance_active_title">Сопротивление обнаружению настроено</string>
     <string name="detection_resistance_badge_default">По умолчанию</string>

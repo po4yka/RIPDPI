@@ -21,7 +21,6 @@
     <string name="profile_utility_empty">没有已保存的配置文件。</string>
     <string name="profile_utility_disclosure">检查会测量 HTTP 请求。检查并选择仅在检查成功后应用配置文件。</string>
     <string name="profile_utility_command_failed">无法完成命令。请检查配置文件状态。</string>
-    <string name="profile_utility_applying">正在应用配置文件…</string>
     <string name="profile_utility_selection_failed">无法应用配置文件。请检查已保存和已应用的配置文件。</string>
     <string name="profile_utility_url">检查 URL</string>
     <string name="profile_utility_applied">已应用配置文件</string>

@@ -2,7 +2,6 @@
 <resources>
     <string name="config_saved_profile_title">الملف الشخصي المحفوظ</string>
     <string name="config_profile_change">تغيير الملف الشخصي</string>
-    <string name="config_profile_choices">خيارات الملف الشخصي</string>
     <string name="config_connection_scope_vpn">حركة البيانات: التطبيقات المحددة لشبكة VPN المحلية</string>
     <string name="config_connection_scope_proxy">حركة البيانات: التطبيقات المضبوطة لاستخدام هذا الوكيل</string>
     <string name="config_connection_path_direct">المسار: اتصال مباشر</string>

@@ -22,7 +22,7 @@ class ChineseLocalizationRegressionsTest(unittest.TestCase):
         extra = ("updates_section_title", "diagnostics_save_logs_body", "diagnostics_pcap_card_body_idle",
                  "diagnostics_share_archive_line", "settings_diagnostics_retention_body",
                  "settings_diagnostics_export_history_body", "title_local_bypass_config",
-                 "home_mode_card_remote_relay_disabled_hint", "ripdpi_desync_method_setting",
+                 "ripdpi_desync_method_setting",
                  "data_transparency_no_browsing", "data_transparency_no_personal_data",
                  "data_transparency_export_explicit", "data_transparency_export_control")
         for key in self.en:
@@ -46,7 +46,6 @@ class ChineseLocalizationRegressionsTest(unittest.TestCase):
         retention = text(self.zh["settings_diagnostics_retention_body"])
         for term in ("应用", "删除", "其他位置"):
             self.assertIn(term, retention)
-        self.assertIn("脱敏", text(self.zh["share_link_preview_privacy_message"]))
 
     def test_network_authority_is_not_an_organization_or_permission(self):
         keys = (

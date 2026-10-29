@@ -25,11 +25,6 @@
         <item quantity="many">%1$s · %2$d pacotes</item>
         <item quantity="other">%1$s · %2$d pacotes</item>
     </plurals>
-    <plurals name="vpn_export_consent_meta_format">
-        <item quantity="one">%1$s · %2$d pacote</item>
-        <item quantity="many">%1$s · %2$d pacotes</item>
-        <item quantity="other">%1$s · %2$d pacotes</item>
-    </plurals>
     <plurals name="vpn_pcap_capture_drops_format">
         <item quantity="one">%1$d pacote descartado sob carga</item>
         <item quantity="many">%1$d pacotes descartados sob carga</item>

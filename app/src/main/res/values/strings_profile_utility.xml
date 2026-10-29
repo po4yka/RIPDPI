@@ -21,7 +21,6 @@
     <string name="profile_utility_empty">No saved profiles.</string>
     <string name="profile_utility_disclosure">Check measures an HTTP request. Check and select applies the profile only after a successful check.</string>
     <string name="profile_utility_command_failed">Command could not be completed. Check the profile state.</string>
-    <string name="profile_utility_applying">Applying profile…</string>
     <string name="profile_utility_selection_failed">Profile could not be applied. Check the saved and applied profiles.</string>
     <string name="profile_utility_url">Probe URL</string>
     <string name="profile_utility_applied">Applied profile</string>

@@ -9,23 +9,12 @@
     <string name="startup_recovery_failed_body">RIPDPI could not safely finish recovering local settings. The app will remain offline until recovery succeeds.</string>
     <string name="startup_recovery_retry">Try again</string>
     <string name="vpn_connect">Connect</string>
-    <string name="vpn_disconnect">Disconnect</string>
     <string name="vpn_connected">Connected</string>
     <string name="vpn_disconnected">Disconnected</string>
-    <string name="proxy_start">Start</string>
-    <string name="proxy_stop">Stop</string>
     <string name="home">Status</string>
     <string name="config">Connection</string>
     <string name="settings">Settings</string>
     <string name="diagnostics">Diagnostics</string>
-    <string name="bottom_nav_home_compact">Status</string>
-    <string name="bottom_nav_config_compact">Connect</string>
-    <string name="bottom_nav_diagnostics_compact">Checks</string>
-    <string name="bottom_nav_settings_compact">Settings</string>
-    <string name="bottom_nav_home_maximum">Status</string>
-    <string name="bottom_nav_config_maximum">Connect</string>
-    <string name="bottom_nav_diagnostics_maximum">Checks</string>
-    <string name="bottom_nav_settings_maximum">Settings</string>
     <string name="logs">Logs</string>
     <string name="persona_simple">Guided</string>
     <string name="persona_advanced">Advanced</string>
@@ -90,15 +79,11 @@
     <string name="strategy_tuner_rate_format">%1$d%%</string>
     <string name="strategy_tuner_apply">Apply</string>
     <string name="strategy_tuner_applied">Applied</string>
-    <string name="diagnostics_simple_funnel_title">Network check</string>
     <string name="diagnostics_simple_funnel_body">Run a check, review the results, and choose the next step.</string>
     <string name="diagnostics_simple_funnel_verdict_running">Checking this network…</string>
-    <string name="diagnostics_simple_funnel_memory_format">On this network, %1$s worked last time.</string>
     <string name="diagnostics_simple_funnel_check_action">Check network</string>
-    <string name="diagnostics_simple_funnel_apply_action">Apply path</string>
     <string name="diagnostics_simple_funnel_review_action">Review choices</string>
     <string name="history_title">History</string>
-    <string name="diagnostics_overview_section">Overview</string>
     <string name="diagnostics_dashboard_section">Dashboard</string>
     <string name="diagnostics_scan_section">Scan</string>
 
@@ -114,7 +99,6 @@
     <string name="diagnostics_action_in_path">Check active connection</string>
     <string name="diagnostics_action_cancel">Cancel active scan</string>
     <string name="diagnostics_profiles_title">Active profile</string>
-    <string name="diagnostics_profiles_body">Choose whether Diagnostics should validate the current path or run isolated strategy trials that return a manual recommendation.</string>
     <string name="diagnostics_remembered_networks_title">Remembered networks</string>
     <string name="diagnostics_probe_profile_title">Automatic probing</string>
     <string name="diagnostics_probe_path_title">Path restriction</string>
@@ -373,8 +357,6 @@
     <string name="history_events_empty_body">Connection events will appear here when RIPDPI records them.</string>
     <string name="diagnostics_history_background_probe_badge">Background automatic probing</string>
     <string name="history_open_action">Open history</string>
-    <string name="diagnostics_open_history_title">Persistent history moved out of Diagnostics</string>
-    <string name="diagnostics_open_history_body">Use the dedicated History screen for saved connection sessions, previous scans, and the durable event feed.</string>
     <string name="diagnostics_open_history_action">Open history</string>
     <string name="diagnostics_overview_automatic_probe_title">Hidden automatic probing finished</string>
     <string name="diagnostics_overview_automatic_probe_detail_format">Completed %1$s</string>
@@ -401,17 +383,9 @@
     <string name="diagnostics_support_details_copied">Diagnostic error details copied</string>
     <string name="diagnostics_save_logs_title">Save local logs</string>
     <string name="diagnostics_save_logs_body">Export the same app-scoped logcat snapshot as a plain-text file when you need just the local app trace; this file is created only after you choose where to save it.</string>
-    <string name="home_status_section">Connection</string>
     <string name="home_status_connecting">Connecting</string>
     <string name="home_status_attention">Attention</string>
-    <string name="home_status_disconnected_title">Ready to connect</string>
-    <string name="home_status_disconnected_body">Start RIPDPI when you want to route traffic through this device.</string>
-    <string name="home_status_connecting_title">Preparing local protection</string>
-    <string name="home_status_connecting_body">Grant Android VPN permission if prompted. Setup continues on-device.</string>
-    <string name="home_status_connected_title">Protected locally</string>
-    <string name="home_status_connected_body">Traffic is currently routed through the selected local mode.</string>
     <string name="home_status_error_title">Secure line needs attention</string>
-    <string name="home_status_error_body">Review the message below and try again.</string>
     <string name="home_network_condition_captive_title">Sign-in required</string>
     <string name="home_network_condition_captive_body">This network needs you to sign in before traffic can pass. Captive-portal assist is on and will turn off automatically.</string>
     <string name="home_network_condition_captive_action">Open sign-in page</string>
@@ -421,22 +395,12 @@
     <string name="home_network_condition_whitelist_message">%1$s %2$s</string>
     <string name="home_network_condition_no_connectivity_title">No connectivity</string>
     <string name="home_network_condition_no_connectivity_body">This network has no working route. Check your connection and try again.</string>
-    <string name="home_permission_issue_with_retry">%1$s Use the connection button to continue the permission flow.</string>
     <string name="home_permission_issue_with_settings">%1$s Open Settings or use the button below to repair access.</string>
-    <string name="home_setup_health_title">Setup health</string>
     <string name="home_modes_diagnostics_title">Modes &amp; diagnostics</string>
-    <string name="home_setup_health_collapsed_format">Items needing attention: %1$d</string>
-    <string name="home_setup_health_expanded">Review setup items and recovery actions.</string>
     <string name="home_connection_button_connecting">Connecting\u2026</string>
-    <string name="home_overview_title">Overview</string>
-    <string name="home_approach_title">Optimization approach</string>
-    <string name="home_approach_cta">Open Diagnostics and review approach analytics</string>
-    <string name="home_diagnostics_section">Diagnostics</string>
     <string name="home_diagnostics_stage_status_failed">Failed</string>
     <string name="home_diagnostics_stage_status_skipped">Skipped</string>
     <string name="home_diagnostics_stage_status_passed">Passed</string>
-    <string name="home_diagnostics_title">Audit this network and prepare verified launch</string>
-    <string name="home_diagnostics_body">Run the full built-in audit on this network, apply any actionable bypass, DNS, or WARP settings, then launch a VPN and verify access on the working path.</string>
     <string name="home_control_plane_health_title">Control-plane status needs review</string>
     <string name="home_control_plane_health_body">One or more update feeds fell back to a safe local snapshot or rejected the latest refresh. Review advanced settings before relying on the current state.</string>
     <string name="home_control_plane_health_action">Open advanced settings</string>
@@ -564,22 +528,12 @@
     <string name="home_diagnostics_dns_resolver_poisoning">Possible DNS poisoning detected.</string>
     <string name="home_diagnostics_dns_resolver_doh_unreachable">DoH endpoints unreachable; DNS path may be hijacked.</string>
     <string name="home_diagnostics_dns_resolver_unknown">DNS characterization inconclusive.</string>
-    <string name="home_diagnostics_stage_recommendation_marker">active recommendation</string>
-    <string name="home_diagnostics_stage_failed_marker">failed</string>
     <string name="home_diagnostics_quick_scan">Quick scan</string>
-    <string name="home_diagnostics_quick_scan_body">Strategy probe only, ~90 seconds</string>
-    <string name="home_history_title">Review saved sessions and failures</string>
-    <string name="home_history_body">History keeps durable connection sessions, sampled runtime diagnostics, and native failures outside the live Diagnostics tools.</string>
-    <string name="home_history_cta">Open history</string>
-    <string name="home_stat_duration">Duration</string>
-    <string name="home_stat_traffic">Traffic</string>
     <string name="home_stat_mode">Mode</string>
     <string name="home_stat_route">Route</string>
     <string name="home_stat_quality">Quality</string>
     <string name="home_quality_excellent">Excellent</string>
     <string name="home_quality_good">Good</string>
-    <string name="home_quality_connecting">Connecting</string>
-    <string name="home_quality_offline">Offline</string>
     <string name="home_mode_vpn">Local VPN</string>
     <string name="home_mode_proxy">Local proxy</string>
     <string name="home_mode_local_dpi_bypass">Local bypass</string>
@@ -590,7 +544,6 @@
     <string name="home_connection_actuator_state_vpn_unverified">Local processes are running; VPN connectivity is unverified</string>
     <string name="home_connection_actuator_state_vpn_unavailable">Local processes are running; VPN connectivity is unavailable</string>
     <string name="home_mode_card_connecting">Starting...</string>
-    <string name="home_mode_card_remote_relay_disabled_hint">Enable a relay in Configure to turn this on</string>
     <string name="home_mode_card_remote_server_unknown">Server not configured</string>
     <string name="home_mode_card_diagnostic_empty">No analysis yet</string>
     <string name="home_mode_card_status_active">Active</string>
@@ -603,8 +556,6 @@
     <string name="home_mode_card_disable">Disable</string>
     <string name="home_mode_card_run_scan">Check network</string>
     <string name="home_mode_card_configure">Configure</string>
-    <string name="home_route_local">On-device</string>
-    <string name="config_overview_title">Profile</string>
     <string name="title_local_bypass_config">Local bypass config</string>
     <string name="title_vpn_config">VPN config</string>
     <string name="config_local_bypass_section_body">Tune the on-device proxy path, DNS, and bypass strategy controls.</string>
@@ -637,16 +588,13 @@
     <string name="config_vpn_profiles_title">Servers</string>
     <string name="config_vpn_profiles_empty_body">Paste a vless://, ss://, trojan://, hysteria2://, or similar profile link to add a server.</string>
     <string name="config_vpn_profiles_empty_value">No servers yet</string>
-    <string name="config_vpn_profiles_more">+%1$d more</string>
     <string name="config_mode_section">Mode</string>
     <string name="config_presets_section">Profiles</string>
-    <string name="config_summary_section">Current values</string>
     <string name="config_network_section">Network</string>
     <string name="config_relay_section">Relay</string>
     <string name="config_engine_section">Engine</string>
     <string name="config_overrides_section">Overrides</string>
     <string name="config_badge_active">Active</string>
-    <string name="config_edit_current">Edit profile</string>
     <string name="config_save">Save</string>
     <string name="config_cancel">Cancel</string>
     <string name="unsaved_changes_title">Discard unsaved changes?</string>
@@ -698,8 +646,6 @@
     <string name="config_relay_vless_transport">VLESS transport</string>
     <string name="config_relay_vless_transport_reality_tcp" translatable="false">Reality TCP</string>
     <string name="config_relay_vless_transport_xhttp" translatable="false">xHTTP</string>
-    <string name="config_relay_cloudflare_tunnel_note">Use your user-managed Cloudflare Tunnel hostname here. P0 expects that hostname to front your own xHTTP/VLESS origin; RIPDPI does not manage cloudflared tokens or TryCloudflare setup.</string>
-    <string name="config_relay_presets_title">Relay presets</string>
     <string name="config_relay_protocol_section_recommended">Recommended</string>
     <string name="config_relay_protocol_section_tls">TLS transports</string>
     <string name="config_relay_protocol_section_quic">QUIC transports</string>
@@ -732,18 +678,6 @@
     <string name="config_relay_naive_path">HTTP path (optional)</string>
     <string name="config_relay_naive_path_helper">Leave blank for the default CONNECT endpoint, or use an absolute path such as /proxy.</string>
     <string name="config_relay_naive_path_error_absolute">Path must start with /.</string>
-    <string name="config_relay_chain_entry_server">Entry hop server</string>
-    <string name="config_relay_chain_entry_port">Entry hop port</string>
-    <string name="config_relay_chain_entry_sni">Entry hop server name</string>
-    <string name="config_relay_chain_entry_public_key">Entry hop public key</string>
-    <string name="config_relay_chain_entry_short_id">Entry hop short ID</string>
-    <string name="config_relay_chain_entry_uuid">Entry hop UUID</string>
-    <string name="config_relay_chain_exit_server">Exit hop server</string>
-    <string name="config_relay_chain_exit_port">Exit hop port</string>
-    <string name="config_relay_chain_exit_sni">Exit hop server name</string>
-    <string name="config_relay_chain_exit_public_key">Exit hop public key</string>
-    <string name="config_relay_chain_exit_short_id">Exit hop short ID</string>
-    <string name="config_relay_chain_exit_uuid">Exit hop UUID</string>
     <string name="config_relay_chain_editor_intro">Build an ordered chain of saved relay profiles. The first hop is the entry, the last is the exit. Long-press a hop to drag it into place. UDP is disabled for chains.</string>
     <string name="config_relay_chain_hop_entry">Hop %1$d · Entry</string>
     <string name="config_relay_chain_hop_exit">Hop %1$d · Exit</string>
@@ -790,7 +724,6 @@
     <string name="config_chain_summary_label">Bypass strategy: %1$s</string>
     <string name="config_chain_cli_override_note">CLI overrides bypass strategy</string>
     <string name="config_chain_editor_label">Bypass strategy</string>
-    <string name="config_chain_editor_helper">Use [tcp] and [udp] sections. Markers accept numeric or semantic offsets. The HTTPS section below can author single tlsrec and randomized tlsrandrec steps visually, while the Hostfake and fake approximation cards explain hostname-targeted fake chunks and retransmission-style approximations. Linux/Android-only approximations are available as fakedsplit host+1 and fakeddisorder endhost for HTTP or TLS SNI-adjacent payloads.</string>
     <string name="config_chain_editor_helper_brief">Use [tcp] and [udp] sections with numeric or semantic offset markers.</string>
     <string name="config_chain_editor_helper_full">The HTTPS section below can author single tlsrec and randomized tlsrandrec steps visually, while the Hostfake and fake approximation cards explain hostname-targeted fake chunks and retransmission-style approximations. Linux/Android-only approximations are available as fakedsplit host+1 and fakeddisorder endhost for HTTP or TLS SNI-adjacent payloads.</string>
     <string name="action_learn_more">Learn more</string>
@@ -1459,8 +1392,6 @@ fakeddisorder endhost</string>
     <string name="strategy_config_native_unavailable">Native strategy bindings are not available in this process.</string>
     <string name="strategy_config_lua_valid_title">Lua script is valid</string>
     <string name="strategy_config_lua_valid_body">The script parsed successfully without execution.</string>
-    <string name="strategy_config_lua_loaded_title">Lua script loaded</string>
-    <string name="strategy_config_lua_loaded_body">Registered functions are available to the native strategy engine.</string>
     <string name="strategy_config_reloaded_title">Strategy config reloaded</string>
     <string name="strategy_config_reloaded_body">Loaded Lua scripts were refreshed.</string>
     <string name="strategy_config_reload_failed_title">Reload failed</string>
@@ -1545,15 +1476,9 @@ fakeddisorder endhost</string>
     <string name="title_app_customization">App icon</string>
     <string name="save_logs">Save logs</string>
     <string name="logs_clear">Clear</string>
-    <string name="logs_overview_section">Diagnostics</string>
-    <string name="logs_overview_title">On-device event stream</string>
-    <string name="logs_overview_body">Review the latest local DNS, connection, warning, and error activity captured by RIPDPI on this device.</string>
     <string name="logs_status_live">Live buffer</string>
     <string name="logs_status_empty">Waiting for activity</string>
     <string name="logs_buffer_title">Buffer</string>
-    <string name="logs_latest_title">Latest event</string>
-    <string name="logs_latest_empty">No local events have been captured yet.</string>
-    <string name="logs_latest_none">Idle</string>
     <string name="logs_filters_section">Filters</string>
     <string name="logs_filters_helper">Filter by subsystem or severity to focus on the runtime you are debugging.</string>
     <string name="logs_filters_summary_compact">Subsystems: %1$d • Severities: %2$d</string>
@@ -1571,7 +1496,6 @@ fakeddisorder endhost</string>
     <string name="logs_auto_scroll_body">Keep the latest matching entry in view while new diagnostics arrive.</string>
     <string name="logs_active_session_title">Only active session</string>
     <string name="logs_active_session_body">Show the current connection or diagnostics session first and hide older persisted history.</string>
-    <string name="logs_stream_section">Log stream</string>
     <string name="logs_stream_title">Recent entries</string>
     <string name="logs_entries_count">Entries: %1$d</string>
     <string name="logs_copy_entry">Copy %1$s log at %2$s</string>
@@ -1580,27 +1504,11 @@ fakeddisorder endhost</string>
     <string name="logs_filtered_empty_title">No entries match the current filters</string>
     <string name="logs_filtered_empty_body">Open Filters to inspect other events in the local buffer.</string>
     <string name="splash_subtitle">Local connectivity tool</string>
-    <string name="onboarding_skip">Set up later</string>
-    <string name="onboarding_set_up_later">Set up later</string>
-    <string name="onboarding_skip_confirm_title">Finish setup later?</string>
-    <string name="onboarding_skip_confirm_body">You have started choosing how RIPDPI should run. You can finish later from settings, but the app may not be ready to connect until setup is complete.</string>
-    <string name="onboarding_skip_confirm_continue">Continue setup</string>
     <string name="onboarding_continue">Continue</string>
-    <string name="onboarding_get_started">Get started</string>
     <string name="onboarding_setup_finish">Finish</string>
 
     <string name="onboarding_local_first_title">Private by design</string>
     <string name="onboarding_local_first_body">Everything runs on your device.</string>
-    <string name="onboarding_permission_title">A local VPN, not a remote one</string>
-    <string name="onboarding_permission_body">Android requires VPN permission to route traffic through the app. RIPDPI uses a local tunnel, while DNS and connectivity checks may contact the provider or test endpoint you choose.</string>
-    <string name="onboarding_modes_title">Presets or full control</string>
-    <string name="onboarding_modes_body">Start with a preset that works out of the box, or configure every parameter manually. You can always change your mind.</string>
-    <string name="onboarding_diagnostics_title">Built-in diagnostics</string>
-    <string name="onboarding_diagnostics_body">Detect DPI interference and analyze your network health without leaving the app.</string>
-    <string name="onboarding_bypass_modes_title">VPN or Proxy \u2014 your choice</string>
-    <string name="onboarding_bypass_modes_body">Route traffic through a local VPN for full coverage, or use a local proxy for fine-grained control. Switch anytime.</string>
-    <string name="onboarding_privacy_title">Transparent by design</string>
-    <string name="onboarding_privacy_body">No telemetry, no tracking, no accounts. Settings and diagnostics history stay on your device unless you explicitly export them.</string>
 
     <string name="onboarding_setup_mode_title">Choose traffic mode</string>
     <string name="config_traffic_mode_title">Choose traffic mode</string>
@@ -1608,44 +1516,20 @@ fakeddisorder endhost</string>
     <string name="onboarding_setup_mode_vpn_body">Routes all app traffic through a local on-device VPN. Full coverage, no manual setup.</string>
     <string name="onboarding_setup_mode_proxy_title">Proxy mode</string>
     <string name="onboarding_setup_mode_proxy_body">Runs a local proxy for apps or clients that support manual proxy configuration.</string>
-    <string name="onboarding_setup_dns_title">Choose DNS</string>
     <string name="onboarding_setup_dns_system">System default</string>
     <string name="dns_unknown_provider">Unknown provider</string>
     <string name="onboarding_setup_dns_system_body">Use your network\'s DNS servers as-is.</string>
-    <string name="onboarding_setup_dns_provider_body">%1$s resolver using %2$s as its primary address.</string>
     <string name="onboarding_setup_dns_cloudflare_body">Fast general-purpose DNS resolver.</string>
-    <string name="onboarding_setup_dns_google_body">Reliable DNS by Google.</string>
     <string name="onboarding_setup_dns_quad9_body">Security-focused DNS resolver.</string>
     <string name="onboarding_setup_dns_adguard_body">DNS resolver with ad and tracker filtering.</string>
     <string name="onboarding_setup_validate_title">Test connection</string>
-    <string name="onboarding_setup_validate_mode_title">Validate %1$s</string>
     <string name="onboarding_step_progress">Step %1$d of %2$d</string>
-    <string name="onboarding_setup_test_title">Test your connection</string>
-    <string name="onboarding_setup_test_run">Run test</string>
-    <string name="onboarding_setup_test_running">Checking connection\u2026</string>
-    <string name="onboarding_setup_test_success">Connected in %1$d ms</string>
-    <string name="onboarding_setup_test_failed">Connection failed: %1$s</string>
-    <string name="onboarding_setup_test_hint">Verify your internet connection before getting started.</string>
-    <string name="onboarding_validation_run">Validate selected mode</string>
-    <string name="onboarding_validation_retry">Retry validation</string>
-    <string name="onboarding_validation_finish_anyway">Finish anyway</string>
     <string name="onboarding_validation_finish_keep_running">Finish and keep running</string>
     <string name="onboarding_validation_finish_disconnected">Finish disconnected</string>
-    <string name="onboarding_validation_idle_hint">Start %1$s and make sure traffic works through it before finishing.</string>
-    <string name="onboarding_validation_requesting_notifications">Requesting notifications permission\u2026</string>
-    <string name="onboarding_validation_requesting_vpn_permission">Requesting VPN permission\u2026</string>
-    <string name="onboarding_validation_starting_vpn">Starting VPN mode\u2026</string>
-    <string name="onboarding_validation_starting_proxy">Starting proxy mode\u2026</string>
-    <string name="onboarding_validation_busy_hint">This can take a moment. If Android asks for permission, allow it to continue.</string>
-    <string name="onboarding_validation_checking_vpn">Checking traffic through VPN mode\u2026</string>
-    <string name="onboarding_validation_checking_proxy">Checking traffic through proxy mode\u2026</string>
-    <string name="onboarding_validation_success">%1$s validated in %2$d ms.</string>
     <string name="onboarding_validation_failed">Validation failed: %1$s</string>
     <string name="onboarding_validation_failed_generic">The selected mode could not be validated.</string>
     <string name="onboarding_validation_notifications_required">Allow notifications so RIPDPI can show validation service status.</string>
     <string name="onboarding_validation_vpn_permission_denied">VPN permission was denied, so RIPDPI could not validate VPN mode.</string>
-    <string name="onboarding_validation_switch_to_vpn">Switch to VPN</string>
-    <string name="onboarding_validation_switch_to_proxy">Switch to proxy</string>
 
     <!-- intro chips -->
     <string name="onboarding_chip_no_account">No account</string>
@@ -1658,7 +1542,6 @@ fakeddisorder endhost</string>
     <string name="onboarding_chip_local_config">Local config</string>
     <!-- per-screen skip -->
     <string name="onboarding_skip_setup">Skip setup</string>
-    <string name="onboarding_use_recommended">Use recommended</string>
     <string name="onboarding_skip_test">Skip test</string>
     <!-- mode badges -->
     <string name="onboarding_badge_recommended">Recommended</string>
@@ -1684,8 +1567,6 @@ fakeddisorder endhost</string>
     <string name="onboarding_test_permission_note">Android may ask for permission before RIPDPI can create a local VPN tunnel. No remote VPN server is used.</string>
     <string name="onboarding_test_failed_permission">Android requires permission before RIPDPI can create a local VPN tunnel on this device. No remote VPN server is used.</string>
     <string name="onboarding_test_state_permission">Android will ask for permission to create a local VPN connection.</string>
-    <string name="onboarding_test_state_dns">Checking DNS resolution…</string>
-    <string name="onboarding_test_state_connectivity">Checking network connectivity…</string>
     <string name="onboarding_test_success_title">Setup complete</string>
     <string name="onboarding_test_success_body">RIPDPI is ready to use.</string>
     <string name="onboarding_test_failed_title">Connection test failed</string>
@@ -1694,8 +1575,6 @@ fakeddisorder endhost</string>
     <string name="onboarding_test_row_state_active">In progress</string>
     <string name="onboarding_test_row_state_done">Done</string>
     <string name="onboarding_test_row_state_failed">Failed</string>
-    <string name="logs_failed">Failed to collect logs</string>
-    <string name="debug_bundle_failed">Failed to prepare support bundle</string>
     <string name="proxy_address">%1$s:%2$s</string>
     <string name="theme_settings">Theme</string>
     <string name="dbs_ip_setting" translatable="false">DNS</string>
@@ -2451,7 +2330,6 @@ Source: %2$s</string>
     <string name="diagnostics_scan_raw_only_format">%1$s requires direct-network scanning because it launches isolated temporary strategy trials.</string>
     <string name="diagnostics_scan_in_path_service_halted">Start the RIPDPI service before running in-path diagnostics.</string>
     <string name="diagnostics_scan_workflow_blocked_command_line_body_format">%1$s is blocked because %2$s is enabled. Turn it off in advanced settings before running this workflow so RIPDPI can launch isolated temporary strategy trials with the visual configuration.</string>
-    <string name="diagnostics_scan_blocked_setting_label">Blocked setting</string>
     <string name="diagnostics_scan_open_advanced_settings">Open advanced settings</string>
     <string name="diagnostics_scan_vpn_permission_warning_title">VPN permission recommended</string>
     <string name="diagnostics_scan_vpn_permission_warning_body_format">%1$s recommendations assume VPN routing. Without VPN permission, the recommended strategy cannot be applied in VPN mode. Grant permission before running this audit for actionable results.</string>
@@ -2634,7 +2512,6 @@ Source: %2$s</string>
     <string name="detection_check_subtitle">Check how visible your VPN/proxy setup is.</string>
     <string name="detection_check_start">Run check</string>
     <string name="detection_check_stop">Stop</string>
-    <string name="detection_check_running">Running detection checks\u2026</string>
     <string name="detection_check_verdict_not_detected">Not detected</string>
     <string name="detection_check_verdict_needs_review">Needs review</string>
     <string name="detection_check_verdict_detected">Detected</string>
@@ -2672,8 +2549,6 @@ Source: %2$s</string>
     <string name="owned_stack_browser_empty_body">No response body.</string>
     <string name="detection_permission_rationale">Android labels these as location permissions because Wi-Fi and cellular identity can imply where you are. RIPDPI does not use them for tracking; checks use them only to distinguish network behavior, raw identifiers are not stored, and diagnostics exports redact sensitive identifiers.</string>
     <string name="detection_permission_settings">Permissions were denied. Open settings only if you want detection checks to read Wi-Fi or cellular identity; raw identifiers are not persisted and diagnostics exports redact them.</string>
-    <string name="detection_permission_open_settings">Open settings</string>
-    <string name="detection_stealth_score">Visibility</string>
     <string name="detection_privacy_mode">Privacy mode</string>
     <string name="detection_history_title">History</string>
     <string name="detection_check_category_dns_leak">DNS leak</string>
@@ -2689,7 +2564,6 @@ Source: %2$s</string>
     <string name="detection_community_loading">Loading community stats…</string>
     <string name="detection_community_error">Could not load community stats</string>
     <string name="detection_community_retry">Retry</string>
-    <string name="detection_verdict_label">Verdict</string>
     <string name="detection_status_ok">OK</string>
     <string name="detection_status_review">Review</string>
     <string name="detection_status_detected">Detected</string>
@@ -2703,7 +2577,6 @@ Source: %2$s</string>
     <string name="detection_finding_ok">OK</string>
     <string name="detection_score_improved">Score improved</string>
     <string name="detection_score_degraded">Score degraded</string>
-    <string name="detection_score_unchanged">Unchanged</string>
     <string name="detection_stealth_score_a11y">Stealth score %1$d</string>
     <string name="routing_protection_section_title">App routing protection</string>
     <string name="routing_protection_summary_title">Routing suggestions use installed-app matches only</string>
@@ -2753,9 +2626,6 @@ Source: %2$s</string>
     <string name="shortcut_diagnostics">Run diagnostics</string>
     <string name="shortcut_diagnostics_short">Diagnostics</string>
     <string name="shortcut_diagnostics_disabled">Diagnostics unavailable</string>
-    <string name="shortcut_stop_vpn">Stop VPN</string>
-    <string name="shortcut_stop_vpn_short">Stop</string>
-    <string name="shortcut_stop_vpn_disabled">VPN is not running</string>
     <string name="shortcut_open_config">Open profiles</string>
     <string name="shortcut_open_config_short">Profiles</string>
     <string name="shortcut_open_settings">Open settings</string>
@@ -2788,7 +2658,6 @@ Source: %2$s</string>
         <item quantity="one">%d failed</item>
         <item quantity="other">%d failed</item>
     </plurals>
-    <string name="settings_danger_section">Danger zone</string>
     <string name="settings_reset_title">Reset settings</string>
     <string name="settings_reset_body">Restore every setting to its default value. Profiles, groups, routing rules, and diagnostics history are kept.</string>
     <string name="settings_reset_action">Reset</string>
@@ -2869,7 +2738,6 @@ Source: %2$s</string>
     <string name="import_confirm_add_action">Add</string>
     <string name="import_profile_confirm_error">This profile could not be imported. Check that the link is complete and valid.</string>
     <string name="relay_editor_activation_failed">Couldn\'t activate this profile. Check the details and try again.</string>
-    <string name="import_confirm_done_action">Added</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">Imported configuration</string>
     <string name="import_subscription_confirm_title">Add subscription</string>
@@ -2902,22 +2770,18 @@ Source: %2$s</string>
     <string name="profile_share_title">Share profile</string>
     <string name="profile_share_warning_title">This QR code contains secrets</string>
     <string name="profile_share_warning_body">The QR code and link embed your credentials. Only share them with someone you trust, over a channel you trust.</string>
-    <string name="profile_share_warning_acknowledge">I understand</string>
-    <string name="profile_share_warning_wait">Read the warning…</string>
     <string name="profile_share_loading_title">Loading profile</string>
     <string name="profile_share_loading_body">Preparing the saved profile for export.</string>
     <string name="profile_share_qr_body">Scan this QR code in Hiddify or another compatible client.</string>
     <string name="profile_share_link_title">Subscription link</string>
     <string name="profile_share_link_body">Paste this link into Hiddify, AmneziaVPN, or RIPDPI import.</string>
     <string name="profile_share_subscription_label">Subscription/profile link</string>
-    <string name="profile_share_uri_label">Profile link</string>
     <string name="profile_share_copy_uri_action">Copy link</string>
     <string name="profile_share_share_link_action">Share link</string>
     <string name="profile_share_sheet_title">Setup sheet</string>
     <string name="profile_share_sheet_body">One-page instructions for printing or sending with the QR/link.</string>
     <string name="profile_share_copy_sheet_action">Copy setup sheet</string>
     <string name="profile_share_share_sheet_action">Share setup sheet</string>
-    <string name="profile_share_share_image_action">Share QR image</string>
     <string name="profile_share_unshareable_title">Profile cannot be shared</string>
     <string name="profile_share_unshareable_body">This profile has no shareable link form.</string>
     <string name="profile_share_qr_content_description">QR code for the saved profile</string>
@@ -3041,7 +2905,6 @@ Source: %2$s</string>
     <string name="widget_action_disconnect">Disconnect</string>
     <string name="widget_status_running">Running</string>
     <string name="widget_status_halted">Halted</string>
-    <string name="widget_status_connecting">Connecting</string>
     <string name="widget_status_reconnecting">Reconnecting</string>
     <string name="widget_status_unknown">Unknown</string>
     <string name="widget_telemetry_uptime">Uptime</string>
@@ -3055,39 +2918,6 @@ Source: %2$s</string>
     <!-- RDS deferred VPN surfaces -->
     <string name="title_replay_failure">Replay failure</string>
     <string name="title_replay_history">Past replays</string>
-    <string name="title_handshake_timeline">Handshake timeline</string>
-    <string name="vpn_handshake_timeline_title">Handshake timeline</string>
-    <string name="vpn_handshake_timeline_subtitle_default">cloudflare-dns.com · UDP/443 · attempt 1 of 3</string>
-    <string name="vpn_handshake_timeline_first_packet_label">First packet ready</string>
-    <string name="vpn_handshake_timeline_slowest_default">Slowest stage MTU probe · &gt; budget by 100 ms</string>
-    <string name="vpn_handshake_timeline_next_budget_default">Next attempt budget 2.0 s</string>
-    <string name="title_throughput_graph">Throughput graph</string>
-    <string name="vpn_throughput_graph_title">Throughput</string>
-    <string name="vpn_throughput_graph_down_now_default">1.42 MiB/s</string>
-    <string name="vpn_throughput_graph_up_now_default">312 KiB/s</string>
-    <string name="vpn_throughput_graph_session_default">↓ 128 MiB</string>
-    <string name="vpn_throughput_graph_stat_down_label">Down now</string>
-    <string name="vpn_throughput_graph_stat_up_label">Up now</string>
-    <string name="vpn_throughput_graph_stat_session_label">Session</string>
-    <string name="vpn_throughput_graph_legend_down">Down</string>
-    <string name="vpn_throughput_graph_legend_up">Up</string>
-    <string name="vpn_throughput_graph_caption">Throughput graph · rolling 1m / 5m / 30m / 1h · down (foreground) + up (info) · session totals below.</string>
-    <string name="title_latency_graph">Latency graph</string>
-    <string name="vpn_latency_graph_title">RTT &amp; loss · last 60 s</string>
-    <string name="vpn_latency_graph_p50_format">p50 %s</string>
-    <string name="vpn_latency_graph_p95_format">p95 %s</string>
-    <string name="vpn_latency_graph_p50_default">32 ms</string>
-    <string name="vpn_latency_graph_p95_default">128 ms</string>
-    <string name="vpn_latency_graph_now_default">32 ms</string>
-    <string name="vpn_latency_graph_p99_default">184 ms</string>
-    <string name="vpn_latency_graph_spikes_default">3</string>
-    <string name="vpn_latency_graph_loss_default">4.1%</string>
-    <string name="vpn_latency_graph_loss_label">Packet loss</string>
-    <string name="vpn_latency_graph_legend_now">Now</string>
-    <string name="vpn_latency_graph_legend_p99">p99</string>
-    <string name="vpn_latency_graph_legend_spikes">Spikes &gt;100 ms</string>
-    <string name="vpn_latency_graph_caption">Latency / loss timeline · rolling 60 s · 100 ms dashed threshold · separate loss bar with current %%.</string>
-    <string name="title_state_machine">Connection state machine</string>
     <string name="vpn_state_machine_title">Connection state machine</string>
     <string name="vpn_state_machine_current_prefix">Current</string>
     <string name="vpn_state_machine_transitions_default">9 transitions / 24 h</string>
@@ -3128,10 +2958,6 @@ Source: %2$s</string>
     <string name="vpn_confirm_disconnect_body">Apps lose the bypass until you connect again. Active calls and downloads may stop.</string>
     <string name="vpn_confirm_disconnect_stay">Stay connected</string>
     <string name="vpn_confirm_disconnect_disconnect">Disconnect</string>
-    <string name="vpn_export_consent_title_format">Export %1$s</string>
-    <string name="vpn_export_consent_redact_label">Redact endpoint IPs to 0.0.0.0</string>
-    <string name="vpn_export_consent_cancel">Cancel</string>
-    <string name="vpn_export_consent_confirm">Export</string>
 
     <!-- What's-new card -->
 
@@ -3154,21 +2980,10 @@ Source: %2$s</string>
     <string name="vpn_quality_strip_body_nominal">Tunnel is up and indicators are within their normal range.</string>
     <string name="vpn_quality_strip_body_warning">Tunnel is up but performance has dropped. Indicators are outside their normal range.</string>
     <string name="vpn_quality_strip_body_critical">Tunnel is up but quality is poor. Most indicators are well outside normal range.</string>
-    <string name="vpn_quality_strip_since_format">Since %1$s</string>
     <string name="vpn_quality_strip_reprobe">Re-measure</string>
-    <string name="vpn_quality_strip_dismiss">Dismiss</string>
     <string name="vpn_quality_metric_loss">Loss</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
     <string name="vpn_quality_metric_jitter">Jitter</string>
-    <string name="vpn_quality_graph_throughput_title">RTT</string>
-    <string name="vpn_quality_graph_latency_title">Jitter</string>
-    <string name="vpn_quality_graph_samples_format">%1$d samples</string>
-    <string name="vpn_quality_graph_legend_now">Now</string>
-    <string name="vpn_quality_graph_legend_p50">p50</string>
-    <string name="vpn_quality_graph_caption">RTT + jitter graphs · rolling 60 s sample window.</string>
-    <string name="vpn_quality_graph_value_ms">%1$d ms</string>
-    <string name="vpn_quality_graph_p50_ms">p50 %1$d ms</string>
-    <string name="vpn_quality_graph_avg_ms">avg %1$d ms</string>
     <string name="vpn_pcap_capture_list_empty">Turn on packet capture in Advanced settings.</string>
     <string name="vpn_pcap_loading">Loading packet captures…</string>
     <string name="vpn_pcap_read_failed">Could not read PCAP data.</string>
@@ -3183,69 +2998,18 @@ Source: %2$s</string>
     <string name="vpn_dev_pcap_consent_warning">When enabled, packet headers, TLS SNI hostnames, endpoint IPs, and strategy fingerprints from the next VPN session are written to a rotating 64 MiB on-disk capture. Captures stay app-private until you explicitly export them.</string>
 
     <!-- OOM recovery surface -->
-    <string name="title_oom_recovery">OOM recovery</string>
-    <string name="oom_recovery_title">OOM recovery</string>
-    <string name="oom_recovery_banner_title">RIPDPI was stopped by Android</string>
-    <string name="oom_recovery_banner_body">The system killed the VPN service at %1$s (likely memory pressure). The tunnel was down for %2$s before this restart.</string>
     <string name="oom_recovery_action_reconnect">Reconnect</string>
-    <string name="oom_recovery_action_view_incident">View incident</string>
-    <string name="oom_recovery_action_dismiss">Dismiss</string>
-    <string name="oom_recovery_sample_kill_time">12:42 UTC</string>
-    <string name="oom_recovery_sample_downtime">4 m 18 s</string>
 
     <!-- Strategy A/B comparison surface -->
-    <string name="title_strategy_ab">Strategy A/B</string>
-    <string name="strategy_ab_title">Strategy A/B</string>
-    <string name="strategy_ab_action_switch">Switch</string>
-    <string name="strategy_ab_badge_current">CURRENT</string>
-    <string name="strategy_ab_badge_candidate">CANDIDATE</string>
 
     <!-- Strategy import screen -->
-    <string name="title_strategy_import">Strategy import</string>
-    <string name="strategy_import_title">Strategy import</string>
-    <string name="strategy_import_source_file_title">From file</string>
-    <string name="strategy_import_source_file_sub">.json, .cfg, or a saved bundle from another install</string>
-    <string name="strategy_import_source_qr_title">Scan QR</string>
-    <string name="strategy_import_source_qr_sub">From a shared RIPDPI install or a relay invite</string>
-    <string name="strategy_import_source_url_title">From URL</string>
-    <string name="strategy_import_source_url_sub" translatable="false">https://po4yka.github.io/RIPDPI/share?v=1#…</string>
-    <string name="strategy_import_source_clipboard_title">Paste from clipboard</string>
-    <string name="strategy_import_source_clipboard_sub">Auto-detects URL, JSON, or raw strategy args</string>
-    <string name="strategy_import_recent_title">Recent imports</string>
-    <string name="strategy_import_caption">Strategy import · 4 sources (file / QR / URL / clipboard) · auto-detection on paste · recent imports for fast re-import.</string>
 
     <!-- Profile Variants screen -->
-    <string name="title_profile_variants">Profile variants</string>
-    <string name="profile_variants_title">Profile variants</string>
-    <string name="profile_variants_chip_balanced">BALANCED</string>
-    <string name="profile_variants_chip_aggressive">AGGRESSIVE</string>
-    <string name="profile_variants_chip_stealth">STEALTH</string>
-    <string name="profile_variants_name_balanced">Balanced</string>
-    <string name="profile_variants_name_aggressive">Aggressive</string>
-    <string name="profile_variants_name_stealth">Stealth</string>
-    <string name="profile_variants_desc_balanced">Optimised balance of speed, reliability, and detection avoidance. Recommended for most networks.</string>
-    <string name="profile_variants_desc_aggressive">Maximum throughput with reduced overhead. Best for high-speed networks where detection risk is acceptable.</string>
-    <string name="profile_variants_desc_stealth">Minimises traffic fingerprint at the cost of speed. Suited for heavily monitored or restricted networks.</string>
     <string name="profile_variants_metric_latency">Latency</string>
-    <string name="profile_variants_metric_throughput">Throughput</string>
-    <string name="profile_variants_metric_detection">Detection risk</string>
     <string name="profile_variants_cta_select">Select</string>
     <string name="profile_variants_cta_selected">Active</string>
-    <string name="profile_variants_caption">Profile variants · gallery of strategy presets (Balanced / Aggressive / Stealth) · tinted header chip · 3-row metric strip · Select CTA.</string>
 
     <!-- Share link preview card -->
-    <string name="share_link_preview_eyebrow_link">Generated link</string>
-    <string name="share_link_preview_eyebrow_payload">Fragment payload</string>
-    <string name="share_link_preview_copy_action">Copy</string>
-    <string name="share_link_preview_row_version">Schema version — currently %1$s</string>
-    <string name="share_link_preview_row_asn">Origin ASN — %1$s</string>
-    <string name="share_link_preview_row_asn_redacted">Origin ASN — redacted</string>
-    <string name="share_link_preview_row_timestamp">Timestamp, in minutes since %1$s</string>
-    <string name="share_link_preview_row_commit">Strategy-bundle hash — %1$s</string>
-    <string name="share_link_preview_row_items">Per-endpoint {alive, dpi} tuples — %1$d</string>
-    <string name="share_link_preview_privacy_title">Stays on device</string>
-    <string name="share_link_preview_privacy_message">The fragment never leaves the device — it\'s decoded locally by the recipient. Hostnames are hashed unless redaction is off.</string>
-    <string name="share_link_preview_privacy_emphasis">never leaves the device</string>
     <string name="diagnostics_pcap_captures_label">Packet captures</string>
     <string name="diagnostics_pcap_captures_description">Browse and export recorded PCAP files</string>
     <string name="diagnostics_past_replays_label">Past replays</string>
@@ -3326,14 +3090,11 @@ Source: %2$s</string>
     <string name="rule_editor_network_udp" translatable="false">UDP</string>
     <string name="rule_editor_network_both">TCP and UDP</string>
     <string name="rule_editor_process_label">Process name</string>
-    <string name="rule_editor_apps_label">Apps</string>
     <string name="rule_editor_apps_selected">Apps: %1$d selected</string>
     <string name="rule_editor_outbound_label">Outbound</string>
     <string name="rule_editor_outbound_proxy">Proxy</string>
     <string name="rule_editor_outbound_bypass">Bypass (direct)</string>
     <string name="rule_editor_outbound_block">Block</string>
-    <string name="rule_editor_outbound_profile">Profile: %1$s</string>
-    <string name="rule_editor_outbound_group">Group: %1$s</string>
     <string name="outbound_group_fallback">Group #%1$d</string>
     <string name="outbound_profile_fallback">Profile #%1$d</string>
     <string name="rule_editor_save">Save</string>
@@ -3408,7 +3169,6 @@ Source: %2$s</string>
     <string name="asset_provider_updated_never">Never updated</string>
     <!-- Backup &amp; Restore -->
     <string name="title_backup_restore">Backup &amp; restore</string>
-    <string name="settings_backup_section">Backup &amp; restore</string>
     <string name="settings_backup_body">Export your profiles, groups, rules, and settings to a file.</string>
     <string name="backup_export_section">Export</string>
     <string name="backup_export_intro_title">Backup stays on your device</string>
@@ -3519,10 +3279,6 @@ Source: %2$s</string>
     <string name="xray_import_error_unparseable">Not a valid Xray config or share link.</string>
     <string name="xray_skip_vmess_removed">VMess is not supported.</string>
     <string name="xray_skip_vless_requires_reality">Plain VLESS is unsupported; REALITY is required.</string>
-    <string name="xray_skip_non_proxy">Utility outbound (%1$s) — nothing to import.</string>
-    <string name="xray_skip_unsupported_protocol">%1$s is not supported natively.</string>
-    <string name="xray_skip_unsupported_transport">The %1$s transport is not supported natively.</string>
-    <string name="xray_skip_unsupported_fingerprint">The %1$s TLS fingerprint is not supported natively.</string>
     <string name="xray_skip_malformed">Malformed or incomplete outbound.</string>
     <string name="xray_provider_card_title">Xray provider</string>
     <string name="xray_provider_settings_section_title">Xray provider</string>
@@ -3571,7 +3327,6 @@ Source: %2$s</string>
     <string name="stale_tier_aging">aging</string>
     <string name="stale_tier_stale">stale</string>
     <string name="stale_tier_expired">expired</string>
-    <string name="cd_port_matrix_cell">%1$s port %2$s %3$s</string>
     <string name="clipboard_label_log_entry">Log entry</string>
 
     <!-- l10n-sweep: relay config field labels -->
@@ -3622,7 +3377,6 @@ Source: %2$s</string>
     <!-- l10n-sweep: diagnostics -->
     <string name="diagnostics_byoh_copy_csv">Copy CSV</string>
     <string name="diagnostics_compatible_sni_empty">No compatible entries found.</string>
-    <string name="port_matrix_title">Port matrix</string>
     <string name="rkn_fetch_public_ip_asn_title">Fetch public IP and ASN for diagnostic context</string>
     <string name="rkn_self_info_ip">IP</string>
     <string name="rkn_self_info_isp">ISP</string>
@@ -3902,14 +3656,12 @@ Source: %2$s</string>
     <string name="diagnostics_dns_availability_metric_available">available</string>
     <string name="diagnostics_dns_availability_metric_servers">servers</string>
     <string name="diagnostics_dns_availability_running">Surveying public DNS resolvers...</string>
-    <string name="diagnostics_dns_integrity_complete_clean">No DNS substitution detected across %1$d bundled domains.</string>
     <string name="diagnostics_dns_integrity_complete_flagged">DNS integrity warnings: domains %1$d/%2$d, DoQ checks %3$d, DoH bootstrap checks %4$d.</string>
     <string name="diagnostics_dns_integrity_doh_bootstrap_label">DoH bootstrap %1$s: %2$s</string>
     <string name="diagnostics_dns_integrity_doq_label">DoQ %1$s %2$s: %3$s</string>
     <string name="diagnostics_dns_integrity_failed">DNS integrity check failed.</string>
     <string name="diagnostics_dns_integrity_metric_bootstrap_flagged">bootstrap flagged</string>
     <string name="diagnostics_dns_integrity_metric_checked">checked</string>
-    <string name="diagnostics_dns_integrity_metric_doh_blocked">DoH blocked</string>
     <string name="diagnostics_dns_integrity_metric_doh_bootstrap">DoH bootstrap</string>
     <string name="diagnostics_dns_integrity_metric_doq_checks">DoQ checks</string>
     <string name="diagnostics_dns_integrity_metric_doq_flagged">DoQ flagged</string>
@@ -4038,7 +3790,6 @@ Source: %2$s</string>
     <string name="diagnostics_value_off">off</string>
     <string name="diagnostics_value_timeout">timeout</string>
     <string name="diagnostics_value_unavailable">unavailable</string>
-    <string name="diagnostics_value_unknown">unknown</string>
     <string name="diagnostics_value_unresolved">unresolved</string>
     <string name="home_diagnostics_verification_busy">VPN verification is busy</string>
     <string name="home_diagnostics_verification_could_not_start">VPN verification could not start</string>
@@ -4050,9 +3801,7 @@ Source: %2$s</string>
     <string name="logs_mode_proxy">Proxy</string>
     <string name="logs_mode_vpn">VPN</string>
     <string name="owned_stack_browser_request_failed">Owned-stack request failed.</string>
-    <string name="port_matrix_host_port_header">HOST / PORT</string>
     <string name="profile_share_setup_sheet_template">RIPDPI setup sheet\n\nProfile: %1$s\nType: %2$s\n\nSubscription/profile link:\n%3$s\n\nHiddify:\n1. Open Hiddify.\n2. Choose Add profile.\n3. Scan the QR code or paste the link above.\n\nAmneziaVPN:\n1. Open AmneziaVPN.\n2. Choose Add server from link or QR.\n3. Scan the QR code or paste the link above.\n\nKeep this sheet private. The QR code and link contain credentials.</string>
-    <string name="a11y_loading">Loading</string>
     <string name="percent_value">%1$d%%</string>
     <string name="relay_kind_obfs4_label">obfs4</string>
     <string name="relay_kind_shadowtls_v3_label">ShadowTLS v3</string>
@@ -4116,7 +3865,6 @@ Source: %2$s</string>
     <string name="support_settings_change_summary">%1$s to %2$s</string>
     <string name="support_settings_no_changes">No setting changes were found.</string>
     <string name="support_settings_apply_action">Apply changes</string>
-    <string name="support_settings_applied_action">Applied</string>
     <string name="support_settings_restart_ask">Restart may be needed after applying.</string>
     <string name="support_settings_restart_required">Restart is required after applying.</string>
     <string name="support_settings_restart_never">No restart is expected.</string>

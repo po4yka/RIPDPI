@@ -21,7 +21,6 @@
     <string name="profile_utility_empty">Aucun profil enregistré.</string>
     <string name="profile_utility_disclosure">Vérifier mesure une requête HTTP. Vérifier et sélectionner applique le profil uniquement après une vérification réussie.</string>
     <string name="profile_utility_command_failed">Impossible de terminer la commande. Vérifiez l’état du profil.</string>
-    <string name="profile_utility_applying">Application du profil…</string>
     <string name="profile_utility_selection_failed">Impossible d’appliquer le profil. Vérifiez les profils enregistré et appliqué.</string>
     <string name="profile_utility_url">URL de vérification</string>
     <string name="profile_utility_applied">Profil appliqué</string>

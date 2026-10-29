@@ -17,10 +17,6 @@
     <string name="home_connection_stage_tunnel">Túnel</string>
     <string name="home_connection_stage_route">Rota</string>
     <string name="home_connection_actuator_action_android_managed">Gerenciado pelo bloqueio do Android</string>
-    <string name="home_connection_stage_state_pending">pendente</string>
-    <string name="home_connection_stage_state_active">ativo</string>
-    <string name="home_connection_stage_state_complete">concluído</string>
-    <string name="home_connection_stage_state_warning">aviso</string>
     <string name="home_connection_stage_state_failed">falhou</string>
     <string name="home_connection_actuator_action_cancel">Cancelar conexão</string>
     <string name="home_connection_actuator_action_retry">Tentar novamente</string>

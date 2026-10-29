@@ -21,7 +21,6 @@
     <string name="profile_utility_empty">No hay perfiles guardados.</string>
     <string name="profile_utility_disclosure">Comprobar mide una solicitud HTTP. Comprobar y seleccionar aplica el perfil solo tras una comprobación correcta.</string>
     <string name="profile_utility_command_failed">No se pudo completar el comando. Revisa el estado del perfil.</string>
-    <string name="profile_utility_applying">Aplicando perfil…</string>
     <string name="profile_utility_selection_failed">No se pudo aplicar el perfil. Revisa los perfiles guardado y aplicado.</string>
     <string name="profile_utility_url">URL de comprobación</string>
     <string name="profile_utility_applied">Perfil aplicado</string>

@@ -18,10 +18,6 @@
     <string name="home_connection_stage_tunnel">Tunnel</string>
     <string name="home_connection_stage_route">Route</string>
     <string name="home_connection_actuator_action_android_managed">Managed by Android lockdown</string>
-    <string name="home_connection_stage_state_pending">pending</string>
-    <string name="home_connection_stage_state_active">active</string>
-    <string name="home_connection_stage_state_complete">complete</string>
-    <string name="home_connection_stage_state_warning">warning</string>
     <string name="home_connection_stage_state_failed">failed</string>
     <string name="home_connection_actuator_action_cancel">Cancel connection</string>
     <string name="home_connection_actuator_action_retry">Try again</string>

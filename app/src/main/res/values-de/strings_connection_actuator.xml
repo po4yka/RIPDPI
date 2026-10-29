@@ -17,10 +17,6 @@
     <string name="home_connection_actuator_state_direct_degraded">Verbunden · Warnung: %1$s</string>
     <string name="home_connection_stage_tunnel">Tunnel</string>
     <string name="home_connection_actuator_action_android_managed">Von Android-Sperre verwaltet</string>
-    <string name="home_connection_stage_state_pending">ausstehend</string>
-    <string name="home_connection_stage_state_active">aktiv</string>
-    <string name="home_connection_stage_state_complete">abgeschlossen</string>
-    <string name="home_connection_stage_state_warning">Warnung</string>
     <string name="home_connection_stage_state_failed">fehlgeschlagen</string>
     <string name="home_connection_actuator_action_cancel">Verbindung abbrechen</string>
     <string name="home_connection_actuator_action_retry">Erneut versuchen</string>

@@ -25,7 +25,6 @@ ENGLISH_PROSE = (
     'support_settings_change_summary',
     'support_settings_no_changes',
     'support_settings_apply_action',
-    'support_settings_applied_action',
     'support_settings_restart_ask',
     'support_settings_restart_required',
     'support_settings_restart_never',
@@ -80,7 +79,6 @@ ENGLISH_PROSE = (
     'config_chain_move_up',
     'config_chain_move_down',
     'config_chain_remove_block',
-    'home_mode_card_remote_relay_disabled_hint',
     'title_local_bypass_config',
     'config_relay_finalmask_off',
     'config_relay_finalmask_off_help',
@@ -141,7 +139,6 @@ SEMANTIC_KEYS = (
     'ripdpi_tls_prelude_https_disabled_title',
     'tls_fake_profile_scope_off',
     'adaptive_split_saved_body',
-    'share_link_preview_privacy_message',
     'diagnostics_status_suppressed',
     'diagnostics_remediation_quic_relay_summary',
     'pause_clock_failed',
@@ -151,9 +148,6 @@ SEMANTIC_KEYS = (
 
 LATENT_KEYS = (
     'home_diagnostics_detection_permission_required',
-    'home_mode_card_remote_relay_disabled_hint',
-    'support_settings_applied_action',
-    'share_link_preview_privacy_message',
 )
 
 
@@ -164,8 +158,8 @@ class FrenchLocalizationRegressionsTest(unittest.TestCase):
         cls.en = resources("app", "values")
 
     def test_audited_prose_has_no_english_fallback(self):
-        self.assertEqual((90, 48, 4), (len(ENGLISH_PROSE), len(SEMANTIC_KEYS), len(LATENT_KEYS)))
-        self.assertEqual(138, len(set(ENGLISH_PROSE + SEMANTIC_KEYS)))
+        self.assertEqual((88, 47, 1), (len(ENGLISH_PROSE), len(SEMANTIC_KEYS), len(LATENT_KEYS)))
+        self.assertEqual(135, len(set(ENGLISH_PROSE + SEMANTIC_KEYS)))
         self.assertTrue(set(LATENT_KEYS) <= set(ENGLISH_PROSE + SEMANTIC_KEYS))
         for key in ENGLISH_PROSE:
             with self.subTest(key=key, production_reachability=key not in LATENT_KEYS):
@@ -222,13 +216,6 @@ class FrenchLocalizationRegressionsTest(unittest.TestCase):
             with self.subTest(key=key):
                 self.assertRegex(text(self.fr[key]), r"géré(?:e|s)? par RIPDPI")
                 self.assertNotRegex(text(self.fr[key]), r"owned|détenue|propriétaire")
-
-    def test_redaction_does_not_mean_writing(self):
-        value = text(self.fr["share_link_preview_privacy_message"]).casefold()
-        self.assertIn("masquage", value)
-        self.assertNotIn("rédaction", value)
-        self.assertIn("hachés", value)
-        self.assertIn("décodé", value)
 
     def test_strategy_and_recovery_grammar_preserves_feminine_agreement(self):
         keys = [key for key in SEMANTIC_KEYS if key.startswith(("activation_window_", "adaptive_", "ripdpi_", "quic_fake_", "tls_fake_"))

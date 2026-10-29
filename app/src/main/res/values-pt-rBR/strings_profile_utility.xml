@@ -21,7 +21,6 @@
     <string name="profile_utility_empty">Nenhum perfil salvo.</string>
     <string name="profile_utility_disclosure">Verificar mede uma solicitação HTTP. Verificar e selecionar aplica o perfil somente após uma verificação bem-sucedida.</string>
     <string name="profile_utility_command_failed">Não foi possível concluir o comando. Verifique o estado do perfil.</string>
-    <string name="profile_utility_applying">Aplicando perfil…</string>
     <string name="profile_utility_selection_failed">Não foi possível aplicar o perfil. Verifique os perfis salvo e aplicado.</string>
     <string name="profile_utility_url">URL de verificação</string>
     <string name="profile_utility_applied">Perfil aplicado</string>

@@ -7,23 +7,12 @@
     <string name="startup_recovery_failed_body">RIPDPI 无法安全完成本地设置恢复。在恢复成功之前，应用将保持离线。</string>
     <string name="startup_recovery_retry">重试</string>
     <string name="vpn_connect">连接</string>
-    <string name="vpn_disconnect">断开</string>
     <string name="vpn_connected">已连接</string>
     <string name="vpn_disconnected">已断开</string>
-    <string name="proxy_start">启动</string>
-    <string name="proxy_stop">停止</string>
     <string name="home">状态</string>
     <string name="config">连接</string>
     <string name="settings">设置</string>
     <string name="diagnostics">诊断</string>
-    <string name="bottom_nav_home_compact">状态</string>
-    <string name="bottom_nav_config_compact">连接</string>
-    <string name="bottom_nav_diagnostics_compact">检查</string>
-    <string name="bottom_nav_settings_compact">设置</string>
-    <string name="bottom_nav_home_maximum">状态</string>
-    <string name="bottom_nav_config_maximum">连接</string>
-    <string name="bottom_nav_diagnostics_maximum">检查</string>
-    <string name="bottom_nav_settings_maximum">设置</string>
     <string name="logs">日志</string>
     <string name="persona_simple">引导</string>
     <string name="persona_advanced">高级</string>
@@ -88,15 +77,11 @@
     <string name="strategy_tuner_rate_format">%1$d%%</string>
     <string name="strategy_tuner_apply">应用</string>
     <string name="strategy_tuner_applied">已应用</string>
-    <string name="diagnostics_simple_funnel_title">网络检查</string>
     <string name="diagnostics_simple_funnel_body">运行检查，查看结果，然后选择下一步。</string>
     <string name="diagnostics_simple_funnel_verdict_running">正在检查此网络…</string>
-    <string name="diagnostics_simple_funnel_memory_format">在此网络上，%1$s 上次可用。</string>
     <string name="diagnostics_simple_funnel_check_action">检查网络</string>
-    <string name="diagnostics_simple_funnel_apply_action">应用路径</string>
     <string name="diagnostics_simple_funnel_review_action">查看选择</string>
     <string name="history_title">历史</string>
-    <string name="diagnostics_overview_section">概览</string>
     <string name="diagnostics_dashboard_section">仪表板</string>
     <string name="diagnostics_scan_section">扫描</string>
 
@@ -112,7 +97,6 @@
     <string name="diagnostics_action_in_path">检查活动连接</string>
     <string name="diagnostics_action_cancel">取消当前扫描</string>
     <string name="diagnostics_profiles_title">活动配置文件</string>
-    <string name="diagnostics_profiles_body">选择诊断应验证当前路径，还是运行返回手动建议的隔离策略试验。</string>
     <string name="diagnostics_remembered_networks_title">已记住的网络</string>
     <string name="diagnostics_probe_profile_title">自动探测</string>
     <string name="diagnostics_probe_path_title">路径限制</string>
@@ -365,8 +349,6 @@
     <string name="history_events_empty_body">RIPDPI 记录的连接事件将显示在此处。</string>
     <string name="diagnostics_history_background_probe_badge">后台自动探测</string>
     <string name="history_open_action">打开历史</string>
-    <string name="diagnostics_open_history_title">持久历史已移出诊断</string>
-    <string name="diagnostics_open_history_body">使用专用的「历史」屏幕查看已保存的连接会话、之前的扫描以及持久事件源。</string>
     <string name="diagnostics_open_history_action">打开历史</string>
     <string name="diagnostics_overview_automatic_probe_title">隐藏的自动探测已完成</string>
     <string name="diagnostics_overview_automatic_probe_detail_format">完成于 %1$s</string>
@@ -391,17 +373,9 @@
     <string name="diagnostics_support_details_copied">已复制诊断错误详情</string>
     <string name="diagnostics_save_logs_title">保存本地日志</string>
     <string name="diagnostics_save_logs_body">如果只需要本应用的本地日志，可将同一份应用范围内的 logcat 快照导出为纯文本文件；只有在你选择保存位置后才会创建此文件。</string>
-    <string name="home_status_section">连接</string>
     <string name="home_status_connecting">连接中</string>
     <string name="home_status_attention">注意</string>
-    <string name="home_status_disconnected_title">准备连接</string>
-    <string name="home_status_disconnected_body">当您想通过此设备路由流量时启动 RIPDPI。</string>
-    <string name="home_status_connecting_title">准备本地保护</string>
-    <string name="home_status_connecting_body">如果出现提示，请授予 Android VPN 权限。设置在设备上继续。</string>
-    <string name="home_status_connected_title">本地受保护</string>
-    <string name="home_status_connected_body">流量当前通过所选的本地模式路由。</string>
     <string name="home_status_error_title">安全线路需要关注</string>
-    <string name="home_status_error_body">查看下方的消息并重试。</string>
     <string name="home_network_condition_captive_title">需要登录</string>
     <string name="home_network_condition_captive_body">此网络需要先登录才能放行流量。强制门户辅助已开启，并将自动关闭。</string>
     <string name="home_network_condition_captive_action">打开登录页面</string>
@@ -411,22 +385,12 @@
     <string name="home_network_condition_whitelist_message">%1$s %2$s</string>
     <string name="home_network_condition_no_connectivity_title">无连接</string>
     <string name="home_network_condition_no_connectivity_body">此网络没有可用路由。请检查你的连接并重试。</string>
-    <string name="home_permission_issue_with_retry">%1$s 使用连接按钮继续权限流程。</string>
     <string name="home_permission_issue_with_settings">%1$s 打开设置或使用下方按钮以修复访问权限。</string>
-    <string name="home_setup_health_title">设置健康</string>
     <string name="home_modes_diagnostics_title">模式和诊断</string>
-    <string name="home_setup_health_collapsed_format">需要注意的项目：%1$d</string>
-    <string name="home_setup_health_expanded">检查设置项目和恢复操作。</string>
     <string name="home_connection_button_connecting">连接中…</string>
-    <string name="home_overview_title">概览</string>
-    <string name="home_approach_title">优化方法</string>
-    <string name="home_approach_cta">打开诊断并查看方法分析</string>
-    <string name="home_diagnostics_section">诊断</string>
     <string name="home_diagnostics_stage_status_failed">失败</string>
     <string name="home_diagnostics_stage_status_skipped">已跳过</string>
     <string name="home_diagnostics_stage_status_passed">已通过</string>
-    <string name="home_diagnostics_title">审计此网络并准备已验证的启动</string>
-    <string name="home_diagnostics_body">在此网络上运行完整的内置审计，应用任何可操作的绕过、DNS 或 WARP 设置，然后启动 VPN 并在工作路径上验证访问。</string>
     <string name="home_control_plane_health_title">控制平面状态需要审查</string>
     <string name="home_control_plane_health_body">一个或多个更新源回退到安全的本地快照或拒绝了最新的刷新。在依赖当前状态之前查看高级设置。</string>
     <string name="home_control_plane_health_action">打开高级设置</string>
@@ -545,9 +509,6 @@
     <string name="config_placeholder_tls_record_marker">sniext+4</string>
     <string name="config_preset_proxy_body">用于本地绕过模式的配置文件，采用相同的基础调校。</string>
     <string name="config_presets_section">配置文件</string>
-    <string name="config_relay_chain_entry_public_key">入口跳板公钥</string>
-    <string name="config_relay_chain_entry_uuid">入口跳板 UUID</string>
-    <string name="config_relay_chain_exit_short_id">出口跳板 short ID</string>
     <string name="config_relay_credentials_body">此配置文件在启动前需要安全凭据材料。</string>
     <string name="config_relay_hysteria_salamander">Salamander 密钥</string>
     <string name="config_relay_local_port">本地中继 SOCKS 端口</string>
@@ -598,7 +559,6 @@
     <string name="detection_community_title">社区</string>
     <string name="detection_finding_ok">正常</string>
     <string name="detection_onboarding_allow">允许</string>
-    <string name="detection_permission_open_settings">打开设置</string>
     <string name="detection_privacy_mode">隐私模式</string>
     <string name="detection_resistance_badge_low_port">低端口 QUIC</string>
     <string name="detection_resistance_entropy_mode_title">熵塑形模式</string>
@@ -658,7 +618,6 @@
     <string name="diagnostics_metric_rss">进程 RSS</string>
     <string name="diagnostics_metric_telemetry_error">遥测错误</string>
     <string name="diagnostics_metric_winning_strategy">胜出策略</string>
-    <string name="diagnostics_scan_blocked_setting_label">被阻止的设置</string>
     <string name="diagnostics_scan_raw_path_format">%1$s 测试临时候选策略，并返回供手动应用的建议。</string>
     <string name="diagnostics_section_carrier">运营商</string>
     <string name="diagnostics_section_wifi">Wi-Fi</string>
@@ -719,14 +678,11 @@
     <string name="diagnostics_pcap_disclosure_body">录制会将原始 IP 数据包字节写入本地文件，其中可能包含数据包有效载荷。文件保留 24 小时或最近 3 个，以限制更严格者为准；之后清理程序会删除旧的捕获文件。PCAP 文件是独立的原始工件；已脱敏的诊断归档不会嵌入这些文件。</string>
     <string name="home_diagnostics_regression_failed_label">新增失败</string>
     <string name="home_diagnostics_routing_sanity_section">应用路由健全性</string>
-    <string name="home_diagnostics_stage_failed_marker">失败</string>
     <string name="home_diagnostics_verified_sheet_title">已验证 VPN 结果</string>
-    <string name="home_history_cta">打开历史记录</string>
     <string name="home_mode_card_connecting">正在启动…</string>
     <string name="home_mode_card_enable">启用</string>
     <string name="home_mode_card_status_active">活动</string>
     <string name="home_mode_local_dpi_bypass">本地绕过</string>
-    <string name="home_quality_connecting">连接中</string>
     <string name="home_remediation_browser_relay_step_choose_preset">选择浏览器伪装预设,如 NaiveProxy 或 ShadowTLS,然后重新运行分析。</string>
     <string name="home_remediation_browser_relay_title">优先使用浏览器伪装中继</string>
     <string name="home_remediation_command_line_title">完整分析被阻止</string>
@@ -764,10 +720,8 @@
     <string name="logs_empty_body">启动 RIPDPI 或触发诊断事件,以填充设备端事件流。</string>
     <string name="logs_filtered_empty_body">打开筛选器，查看本地缓冲区中的其他事件。</string>
     <string name="logs_filters_summary_compact">子系统：%1$d • 严重级别：%2$d</string>
-    <string name="logs_overview_body">查看 RIPDPI 在本设备上捕获的最新本地 DNS、连接、警告和错误活动。</string>
     <string name="logs_service_failure_format">%1$s 服务启动失败:%2$s</string>
     <string name="logs_severity_title">严重级别</string>
-    <string name="logs_stream_section">日志流</string>
     <string name="logs_subsystem_service">SERVICE</string>
     <string name="network_strategy_memory_clear_action">清除已记忆网络</string>
     <string name="network_strategy_memory_helper">仅已验证的网络匹配会自动应用。原始 SSID、BSSID 和运营商标识不会进入存储。</string>
@@ -821,21 +775,14 @@
     <string name="notice_telemetry_salt_reset_message">下次连接时将生成新的盐值。之前记录的指纹哈希将无法再被关联。</string>
     <string name="onboarding_continue">继续</string>
     <string name="onboarding_local_first_body">一切都在你的设备上运行。</string>
-    <string name="onboarding_permission_body">Android 需要 VPN 权限才能将流量路由经过应用。RIPDPI 使用本地隧道，但 DNS 和连接检查可能会联系你选择的提供方或测试端点。</string>
     <string name="onboarding_setup_dns_adguard_body">带广告和追踪器过滤的 DNS 解析器。</string>
     <string name="onboarding_setup_dns_system_body">原样使用你网络的 DNS 服务器。</string>
-    <string name="onboarding_setup_dns_provider_body">%1$s 解析器，主地址为 %2$s。</string>
     <string name="onboarding_setup_mode_proxy_body">为支持手动代理配置的应用或客户端运行本地代理。</string>
     <string name="onboarding_setup_mode_vpn_title">VPN 模式</string>
-    <string name="onboarding_setup_test_run">运行测试</string>
     <string name="onboarding_setup_validate_title">测试连接</string>
-    <string name="onboarding_setup_validate_mode_title">验证 %1$s</string>
     <string name="onboarding_step_progress">第 %1$d 步,共 %2$d 步</string>
     <string name="onboarding_validation_failed_generic">所选模式无法通过验证。</string>
     <string name="onboarding_validation_finish_keep_running">完成并保持运行</string>
-    <string name="onboarding_validation_requesting_vpn_permission">正在请求 VPN 权限…</string>
-    <string name="onboarding_validation_starting_vpn">正在启动 VPN 模式…</string>
-    <string name="onboarding_validation_busy_hint">这可能需要一点时间。如果 Android 请求权限,请允许以继续。</string>
     <string name="onboarding_validation_vpn_permission_denied">VPN 权限被拒绝,因此 RIPDPI 无法验证 VPN 模式。</string>
     <string name="owned_stack_browser_banner_android17">当平台栈提供 ECH 数据时,本设备可通过网络安全配置使用 Android 17 平台 ECH 偏好。</string>
     <string name="owned_stack_browser_empty_body">无响应正文。</string>
@@ -1109,22 +1056,17 @@ fakeddisorder endhost</string>
     <string name="blockcheck_confidence_high">高</string>
     <string name="blockcheck_entry_title">策略探测</string>
     <string name="config_buffer_helper">套接字缓冲区大小(字节)。</string>
-    <string name="config_chain_editor_helper">使用 [tcp] 和 [udp] 区段。标记可接受数字或语义偏移量。下方的 HTTPS 区段可以可视化地编写单个 tlsrec 和随机化的 tlsrandrec 步骤;Hostfake 和 fake 近似卡片则解释针对主机名的伪造分片和重传式近似。仅适用于 Linux/Android 的近似可作为 fakedsplit host+1 和 fakeddisorder endhost 用于 HTTP 或 TLS SNI 相邻载荷。</string>
     <string name="config_cli_banner_title">命令行覆盖已启用</string>
     <string name="config_default_ttl_summary">出站数据包的 TTL 覆盖值</string>
     <string name="config_editor_title">编辑配置文件</string>
     <string name="config_error_invalid_marker">请输入有效的标记表达式。</string>
     <string name="config_error_required">此字段为必填项。</string>
     <string name="config_listen_address_summary">本地代理监听器绑定的位置</string>
-    <string name="config_overview_title">配置文件</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_proxy_port">1080</string>
     <string name="config_port_helper">请使用 %1$d 到 %2$d 之间的端口。</string>
     <string name="config_preset_proxy_title">本地绕过配置文件</string>
     <string name="config_proxy_helper">本地代理监听器绑定的位置。</string>
-    <string name="config_relay_chain_entry_server">入口跳服务器</string>
-    <string name="config_relay_chain_exit_port">出口跳端口</string>
-    <string name="config_relay_chain_exit_sni">出口跳服务器名</string>
     <string name="config_relay_credentials_title">缺少中继凭据</string>
     <string name="config_relay_import">导入</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
@@ -1164,7 +1106,6 @@ fakeddisorder endhost</string>
     <string name="detection_check_category_dns_leak">DNS 泄漏</string>
     <string name="detection_check_category_ip_comparison">IP 比对</string>
     <string name="detection_check_category_tls">TLS 指纹</string>
-    <string name="detection_check_running">正在运行检测检查…</string>
     <string name="detection_check_subtitle">检查您的 VPN/代理设置的可见性。</string>
     <string name="detection_community_avg_score">平均隐匿评分:%d/100</string>
     <string name="detection_community_local_title">您的统计数据</string>
@@ -1185,7 +1126,6 @@ fakeddisorder endhost</string>
     <string name="detection_resistance_summary_exploration">自适应探索</string>
     <string name="detection_resistance_summary_quic">QUIC 传输</string>
     <string name="detection_score_degraded">评分下降</string>
-    <string name="detection_score_unchanged">无变化</string>
     <string name="detection_stealth_score_a11y">隐身评分 %1$d</string>
     <string name="detection_status_review">审查</string>
     <string name="diagnostics_autolearn_off">关闭</string>
@@ -1285,14 +1225,10 @@ fakeddisorder endhost</string>
     <string name="home_diagnostics_network_captive_portal">强制门户</string>
     <string name="home_diagnostics_network_public_ip">公网 IP</string>
     <string name="home_diagnostics_no_settings_applied">未自动应用任何设置。</string>
-    <string name="home_diagnostics_quick_scan_body">仅策略探测,约 90 秒</string>
     <string name="home_diagnostics_regression_recovered_label">新近恢复</string>
     <string name="home_diagnostics_routing_sanity_summary">已配置的已知 VPN 检测应用：%1$d。条目总数：%2$d。</string>
-    <string name="home_diagnostics_stage_recommendation_marker">活动建议</string>
-    <string name="home_history_title">查看已保存的会话和失败记录</string>
     <string name="home_mode_card_diagnostic_empty">暂无分析</string>
     <string name="home_mode_card_diagnostic_status_review">查看最新审计</string>
-    <string name="home_mode_card_remote_relay_disabled_hint">在“配置”中启用中继以开启此功能</string>
     <string name="home_mode_card_status_busy">繁忙</string>
     <string name="home_mode_proxy">本地代理</string>
     <string name="home_quality_excellent">极佳</string>
@@ -1305,7 +1241,6 @@ fakeddisorder endhost</string>
     <string name="home_remediation_quic_relay_step_enable_relay">为您当前的模式启用上游中继路径。</string>
     <string name="home_remediation_review_step_compare_results">检查哪些阶段失败或不完整。</string>
     <string name="home_remediation_stale_step_open_diagnostics">打开诊断。</string>
-    <string name="home_route_local">设备本地</string>
     <string name="home_stat_route">路由</string>
     <string name="host_autolearn_action_host_promoted">已提升最佳路由</string>
     <string name="host_autolearn_cli_status_title">由命令行控制</string>
@@ -1332,8 +1267,6 @@ fakeddisorder endhost</string>
     <string name="logs_buffer_title">缓冲区</string>
     <string name="logs_empty_title">暂无日志</string>
     <string name="logs_filtered_empty_title">没有条目匹配当前过滤器</string>
-    <string name="logs_latest_empty">尚未捕获任何本地事件。</string>
-    <string name="logs_overview_section">诊断</string>
     <string name="logs_severity_debug">DEBUG</string>
     <string name="logs_severity_warn">WARN</string>
     <string name="logs_stream_title">最近条目</string>
@@ -1350,23 +1283,12 @@ fakeddisorder endhost</string>
     <string name="notice_pin_key_lost_title">备用 PIN 已重置</string>
     <string name="notice_strategy_pack_refresh_failed_title">无法刷新策略包</string>
     <string name="notice_telemetry_salt_reset_title">遥测盐值已重置</string>
-    <string name="onboarding_diagnostics_body">无需离开应用即可检测 DPI 干扰并分析您的网络健康状况。</string>
     <string name="onboarding_local_first_title">隐私优先设计</string>
-    <string name="onboarding_permission_title">本地 VPN,而非远程 VPN</string>
     <string name="onboarding_setup_dns_cloudflare_body">快速的通用 DNS 解析器。</string>
     <string name="onboarding_setup_dns_system">系统默认</string>
     <string name="dns_unknown_provider">未知提供商</string>
     <string name="onboarding_setup_mode_proxy_title">代理模式</string>
-    <string name="onboarding_setup_test_running">正在检查连接…</string>
-    <string name="onboarding_skip">稍后设置</string>
-    <string name="onboarding_set_up_later">稍后设置</string>
-    <string name="onboarding_skip_confirm_title">稍后完成设置？</string>
-    <string name="onboarding_skip_confirm_body">你已经开始选择 RIPDPI 的运行方式。可以稍后在设置中完成，但在完成设置前，应用可能还不能连接。</string>
-    <string name="onboarding_skip_confirm_continue">继续设置</string>
     <string name="onboarding_validation_failed">验证失败:%1$s</string>
-    <string name="onboarding_validation_idle_hint">启动 %1$s 并在完成前确认流量可通过它。</string>
-    <string name="onboarding_validation_retry">重试验证</string>
-    <string name="onboarding_validation_success">%1$s 在 %2$d 毫秒内验证通过。</string>
     <string name="oob_data">OOB 数据</string>
     <string name="owned_stack_browser_banner_fallback">Android 平台 HttpEngine 在此处不可用。RIPDPI 使用其原生自有 TLS 抓取器,以便浏览器外壳仍可工作。</string>
     <string name="owned_stack_browser_error_title">自有栈请求失败</string>
@@ -1655,9 +1577,6 @@ fake_burst 3</string>
     <string name="config_preset_custom_body">用于手动 DNS、代理端点、引擎数值和可选命令行覆盖的配置文件。</string>
     <string name="config_preset_recommended_body">适用于大多数网络的推荐配置文件。保留本地 VPN 路径和安全的 RIPDPI 调校。</string>
     <string name="config_relay_body">将代理流量通过远程中继服务器发送。密钥保留在本设备上由 keystore 支持的凭据存储中。</string>
-    <string name="config_relay_chain_entry_short_id">入口跳短 ID</string>
-    <string name="config_relay_chain_exit_public_key">出口跳公钥</string>
-    <string name="config_relay_chain_exit_uuid">出口跳 UUID</string>
     <string name="config_relay_chain_editor_intro">用已保存的中继配置文件构建一条有序链。第一跳为入口，最后一跳为出口。长按某一跳即可拖动排序。链不支持 UDP。</string>
     <string name="config_relay_chain_hop_entry">第 %1$d 跳 · 入口</string>
     <string name="config_relay_chain_hop_exit">第 %1$d 跳 · 出口</string>
@@ -1683,7 +1602,6 @@ fake_burst 3</string>
     <string name="config_relay_server_port">中继端口</string>
     <string name="config_relay_xhttp_host">xHTTP host 覆盖</string>
     <string name="config_relay_xhttp_mode">xHTTP 模式</string>
-    <string name="config_summary_section">当前值</string>
     <string name="config_validation_banner_title">部分值仍需处理</string>
     <string name="config_vpn_credentials_title">中继凭据</string>
     <string name="config_vpn_section_body">调整 VPN 路径设置、中继传输和 DNS 行为。</string>
@@ -1699,7 +1617,6 @@ fake_burst 3</string>
     <string name="config_vpn_profiles_title">服务器</string>
     <string name="config_vpn_profiles_empty_body">粘贴 vless://、ss://、trojan://、hysteria2:// 或类似配置文件链接来添加服务器。</string>
     <string name="config_vpn_profiles_empty_value">还没有服务器</string>
-    <string name="config_vpn_profiles_more">另有 %1$d 个</string>
     <string name="confirm_clear_remembered_networks_title">清除已记住的网络?</string>
     <string name="confirm_forget_learned_hosts_title">忘记已学习的主机?</string>
     <string name="confirm_reset_activation_window_title">重置激活窗口?</string>
@@ -1720,7 +1637,6 @@ fake_burst 3</string>
     <string name="data_transparency_network_diagnostics">网络诊断:传输类型、信号强度、DNS 配置</string>
     <string name="data_transparency_no_external_servers">不会自动向外部服务器发送任何数据</string>
     <string name="data_transparency_retention_period">可配置保留期(1–365 天)</string>
-    <string name="debug_bundle_failed">支持包准备失败</string>
     <string name="desync_https">HTTPS 绕过策略</string>
     <string name="detection_check_category_geoip">GeoIP</string>
     <string name="detection_check_category_location">位置信号</string>
@@ -1744,7 +1660,6 @@ fake_burst 3</string>
     <string name="detection_resistance_summary_off">关闭</string>
     <string name="detection_resistance_summary_tls">TLS 握手配置文件</string>
     <string name="detection_score_improved">评分已提升</string>
-    <string name="detection_stealth_score">可见性</string>
     <string name="diagnostics_autolearn_host_blocked">检测到被屏蔽的主机</string>
     <string name="diagnostics_autolearn_store_reset">重置已存储的主机</string>
     <string name="diagnostics_body_idle">启动 RIPDPI 或运行扫描以填充诊断分析。</string>
@@ -1860,8 +1775,6 @@ fake_burst 3</string>
     <string name="home_remediation_quic_relay_step_open_mode_editor">打开配置文件编辑器。</string>
     <string name="home_remediation_review_step_open_history">打开历史记录。</string>
     <string name="home_remediation_stale_step_rerun">在当前网络上运行一次新的分析。</string>
-    <string name="home_stat_duration">时长</string>
-    <string name="home_stat_traffic">流量</string>
     <string name="host_autolearn_action_store_reset">重置已存储的主机</string>
     <string name="host_autolearn_enabled_body">记住每个 HTTP Host 或 TLS SNI 上获胜的 TCP 路由,并在后续连接中优先使用。</string>
     <string name="host_autolearn_last_update_label">最近更新</string>
@@ -1887,8 +1800,6 @@ fake_burst 3</string>
     <string name="logs_entries_count">日志条数：%1$d</string>
     <string name="logs_copy_entry">复制 %2$s 的%1$s日志</string>
     <string name="logs_filters_helper">按子系统或严重程度筛选,以聚焦您正在调试的运行时。</string>
-    <string name="logs_latest_none">空闲</string>
-    <string name="logs_overview_title">设备上事件流</string>
     <string name="logs_severity_error">ERROR</string>
     <string name="logs_status_empty">等待活动</string>
     <string name="logs_subsystem_diagnostics">DIAGNOSTICS</string>
@@ -1905,21 +1816,9 @@ fake_burst 3</string>
     <string name="notice_learned_hosts_cleared_next_start_title">已学习主机将在下次启动时清除</string>
     <string name="notice_remembered_networks_cleared_message">RIPDPI 已移除所有已存储的按网络路由策略。当前设置保持不变。</string>
     <string name="notice_strategy_packs_refreshed_message">RIPDPI 已下载、验证并激活此设备允许的最新策略包目录。</string>
-    <string name="onboarding_bypass_modes_body">通过本地 VPN 路由流量以获得完整覆盖,或使用本地代理进行精细控制。可随时切换。</string>
-    <string name="onboarding_diagnostics_title">内置诊断</string>
-    <string name="onboarding_modes_body">从开箱即用的预设开始,或手动配置每个参数。随时可改变主意。</string>
-    <string name="onboarding_privacy_body">无遥测、无追踪、无账号。设置和诊断历史会保留在你的设备上，除非你明确导出。</string>
-    <string name="onboarding_setup_dns_google_body">由 Google 提供的可靠 DNS。</string>
-    <string name="onboarding_setup_dns_title">选择 DNS</string>
     <string name="onboarding_setup_mode_title">选择流量模式</string>
     <string name="config_traffic_mode_title">选择流量模式</string>
-    <string name="onboarding_setup_test_failed">连接失败:%1$s</string>
-    <string name="onboarding_setup_test_success">已在 %1$d 毫秒内连接</string>
-    <string name="onboarding_validation_checking_proxy">正在通过代理模式检查流量…</string>
-    <string name="onboarding_validation_finish_anyway">仍然完成</string>
     <string name="onboarding_validation_notifications_required">请允许通知,以便 RIPDPI 显示验证服务状态。</string>
-    <string name="onboarding_validation_run">验证所选模式</string>
-    <string name="onboarding_validation_switch_to_proxy">切换到代理</string>
     <string name="owned_stack_browser_backend_http_engine">Android HttpEngine</string>
     <string name="owned_stack_browser_banner_platform">这里可用 Android 平台 HttpEngine,但 Android 17 平台 ECH 不可用。RIPDPI 仍可机会性地使用 HttpEngine,并在必要时回退到原生自有 TLS。</string>
     <string name="owned_stack_browser_open_action">在 RIPDPI 浏览器中打开</string>
@@ -2038,7 +1937,6 @@ fake_burst 3</string>
     <string name="settings_biometric_pin_required_title">需要备用 PIN</string>
     <string name="settings_community_api_url_helper">留空以使用默认端点。</string>
     <string name="settings_connectivity_dns_body_proxy">加密 DNS 可以解析本地代理的目标域名。设备 DNS 不会更改。</string>
-    <string name="settings_danger_section">危险区域</string>
     <string name="settings_diagnostics_monitor_body">在 RIPDPI 运行期间持续采样连接遥测、网络状态和上下文。</string>
     <string name="settings_diagnostics_retention_title">历史保留(天)</string>
     <string name="settings_exclude_russian_apps_title">排除俄罗斯应用</string>
@@ -2061,7 +1959,6 @@ fake_burst 3</string>
     <string name="strategy_config_import_failed_title">导入失败</string>
     <string name="strategy_config_imported_title">配置已导入</string>
     <string name="strategy_config_lua_function_missing">所选脚本未注册 Lua 函数 %1$s。</string>
-    <string name="strategy_config_lua_loaded_body">已注册的函数可供原生策略引擎使用。</string>
     <string name="strategy_config_lua_path_required_body">请在验证或加载前选择或输入 Lua 脚本路径。</string>
     <string name="strategy_config_native_unavailable">原生策略绑定在此进程中不可用。</string>
     <string name="strategy_config_reload_action">重新加载</string>
@@ -2175,7 +2072,6 @@ fake_burst 3</string>
     <string name="config_chain_cli_override_note">CLI 设置优先于绕过策略</string>
     <string name="config_command_line_helper">启用命令行设置时生效。</string>
     <string name="config_dns_disabled_helper">DNS 覆盖仅在本地 VPN 模式下应用。</string>
-    <string name="config_edit_current">编辑配置文件</string>
     <string name="config_chain_block_valid">链已通过策略注册模型校验。</string>
     <string name="config_chain_block_invalid">链无效：%1$s</string>
     <string name="config_chain_block_invalid_body">打开原始 DSL 视图，修正语法或顺序后即可继续编辑块。</string>
@@ -2194,10 +2090,6 @@ fake_burst 3</string>
     <string name="config_placeholder_split_marker">host</string>
     <string name="config_preset_custom_title">手动配置文件</string>
     <string name="config_preset_recommended_title">推荐配置文件</string>
-    <string name="config_relay_chain_entry_port">入口跳点端口</string>
-    <string name="config_relay_chain_entry_sni">入口跳点服务器名称</string>
-    <string name="config_relay_chain_exit_server">出口跳点服务器</string>
-    <string name="config_relay_cloudflare_tunnel_note">请在此处使用您自管的 Cloudflare Tunnel 主机名。P0 期望该主机名前置于您自己的 xHTTP/VLESS 源站;RIPDPI 不管理 cloudflared 令牌或 TryCloudflare 配置。</string>
     <string name="config_relay_hysteria_password">Hysteria 密码</string>
     <string name="config_relay_naive_username">NaiveProxy 用户名</string>
     <string name="config_relay_naive_username_helper">用于上游 HTTP Basic 认证。</string>
@@ -2213,7 +2105,6 @@ fake_burst 3</string>
     <string name="config_relay_masque_http2">允许 HTTP/2 TCP 回退</string>
     <string name="config_relay_masque_pkcs12_dialog_title">导入 PKCS#12 身份</string>
     <string name="config_relay_masque_privacy_pass_invalid_provider">Privacy Pass 已禁用,因为配置的提供者 URL 无效。</string>
-    <string name="config_relay_presets_title">中继预设</string>
     <string name="config_relay_protocol_section_recommended">推荐</string>
     <string name="config_relay_protocol_section_tls">TLS 传输</string>
     <string name="config_relay_protocol_section_quic">QUIC 传输</string>
@@ -2283,7 +2174,6 @@ fake_burst 3</string>
     <string name="detection_resistance_summary_quic_low_port">绑定低源端口</string>
     <string name="detection_resistance_tls_fingerprint_body">适用于应用自身发起的 HTTPS 和 TLS 连接,包括配置下发、目录刷新、引导检查、诊断元数据查询以及内置的 RIPDPI 浏览器。该自有栈浏览器路径中的平台 ECH 需要 Android 17 或更新版本。</string>
     <string name="detection_status_detected">已检测到</string>
-    <string name="detection_verdict_label">结论</string>
     <string name="diagnostics_autolearn_penalized">已惩罚失败路由</string>
     <string name="diagnostics_body_attention">检测到警告或部分失败。请将最新扫描结果与当前实时监视器进行对比。</string>
     <string name="diagnostics_error_connect_failure">连接失败</string>
@@ -2381,7 +2271,6 @@ fake_burst 3</string>
     <string name="home_diagnostics_share_failed">分享分析日志和结果失败。</string>
     <string name="home_diagnostics_copy_support_code">复制以供支持使用</string>
     <string name="home_diagnostics_verification_failed">无法启动短时验证探测。</string>
-    <string name="home_history_body">历史记录保留持久的连接会话、采样的运行时诊断,以及实时诊断工具之外的原生故障。</string>
     <string name="home_mode_card_connected_format">已连接 %1$s</string>
     <string name="home_connection_actuator_state_vpn_checking">本地进程正在运行；正在检查 VPN 连接</string>
     <string name="home_connection_actuator_state_vpn_unverified">本地进程正在运行；VPN 连接尚未验证</string>
@@ -2390,7 +2279,6 @@ fake_burst 3</string>
     <string name="home_mode_card_run_scan">检查网络</string>
     <string name="home_mode_diagnostic_scan">诊断扫描</string>
     <string name="home_mode_vpn">本地 VPN</string>
-    <string name="home_quality_offline">离线</string>
     <string name="home_remediation_browser_relay_summary">主页分析发现直连模式存在 TLS/IP 类故障。请打开“配置文件编辑器”，并切换到浏览器伪装中继预设。</string>
     <string name="home_remediation_command_line_step_retry">返回主页并再次运行完整分析。</string>
     <string name="home_remediation_no_actionable_step_review">查看最新审计详情和证据。</string>
@@ -2425,9 +2313,7 @@ fake_burst 3</string>
     <string name="http_fake_profile_scope_ready">当 TCP 链为 HTTP 流量加入完整 fake 步骤时即可就绪。</string>
     <string name="logs_auto_scroll_body">在新诊断到达时,保持最新匹配条目可见。</string>
     <string name="logs_clear">清空</string>
-    <string name="logs_failed">收集日志失败</string>
     <string name="logs_filters_section">过滤器</string>
-    <string name="logs_latest_title">最新事件</string>
     <string name="logs_severity_info">INFO</string>
     <string name="logs_status_live">实时缓冲</string>
     <string name="logs_subsystem_proxy">PROXY</string>
@@ -2443,20 +2329,10 @@ fake_burst 3</string>
     <string name="notice_learned_hosts_cleared_title">已清除已学习的主机</string>
     <string name="notice_remembered_networks_cleared_title">已清除记忆的网络</string>
     <string name="notice_strategy_packs_refreshed_title">策略包已刷新</string>
-    <string name="onboarding_bypass_modes_title">VPN 或代理 — 任您选择</string>
-    <string name="onboarding_get_started">开始</string>
-    <string name="onboarding_modes_title">预设或完全自定义</string>
-    <string name="onboarding_privacy_title">天生透明</string>
     <string name="onboarding_setup_dns_quad9_body">侧重安全的 DNS 解析器。</string>
     <string name="onboarding_setup_finish">完成</string>
     <string name="onboarding_setup_mode_vpn_body">通过设备上的本地 VPN 路由全部应用流量。全面覆盖,无需手动配置。</string>
-    <string name="onboarding_setup_test_hint">开始前先验证您的互联网连接。</string>
-    <string name="onboarding_setup_test_title">测试您的连接</string>
-    <string name="onboarding_validation_checking_vpn">正在通过 VPN 模式检查流量…</string>
     <string name="onboarding_validation_finish_disconnected">断开连接结束</string>
-    <string name="onboarding_validation_requesting_notifications">正在请求通知权限…</string>
-    <string name="onboarding_validation_starting_proxy">正在启动代理模式…</string>
-    <string name="onboarding_validation_switch_to_vpn">切换到 VPN</string>
     <string name="owned_stack_browser_backend_native_fallback">RIPDPI 原生回退</string>
     <string name="owned_stack_browser_banner_title">自有栈路径</string>
     <string name="owned_stack_browser_status_value">HTTP %1$d · %2$s</string>
@@ -2583,9 +2459,6 @@ fake_burst 3</string>
     <string name="settings_warning_backup_pin_title">建议设置备用 PIN</string>
     <string name="shortcut_diagnostics_short">诊断</string>
     <string name="shortcut_quick_connect">快速连接</string>
-    <string name="shortcut_stop_vpn">停止 VPN</string>
-    <string name="shortcut_stop_vpn_short">停止</string>
-    <string name="shortcut_stop_vpn_disabled">VPN 未运行</string>
     <string name="shortcut_open_config">打开配置文件</string>
     <string name="shortcut_open_config_short">配置文件</string>
     <string name="shortcut_open_settings">打开设置</string>
@@ -2598,7 +2471,6 @@ fake_burst 3</string>
     <string name="strategy_config_import_too_large">请选择不超过 %1$d KB 的文件。</string>
     <string name="strategy_config_invalid_title">配置未通过验证</string>
     <string name="strategy_config_lua_function_placeholder">加载后自动发现</string>
-    <string name="strategy_config_lua_loaded_title">Lua 脚本已加载</string>
     <string name="strategy_config_lua_path_required_title">需要脚本路径</string>
     <string name="strategy_config_reload_failed_title">重新加载失败</string>
     <string name="strategy_config_saved_restart_pending_body">服务重启正在应用已保存的策略配置。</string>
@@ -2711,7 +2583,6 @@ fake_burst 3</string>
     <string name="import_confirm_add_action">添加</string>
     <string name="import_profile_confirm_error">无法导入此配置文件。请检查链接是否完整且有效。</string>
     <string name="relay_editor_activation_failed">无法激活此配置文件。请检查详细信息后重试。</string>
-    <string name="import_confirm_done_action">已添加</string>
     <string name="import_profile_summary_endpoint">%1$s · %2$s:%3$d</string>
     <string name="import_profile_summary_raw">已导入的配置</string>
     <string name="import_subscription_confirm_title">添加订阅</string>
@@ -2744,22 +2615,18 @@ fake_burst 3</string>
     <string name="profile_share_title">分享配置文件</string>
     <string name="profile_share_warning_title">此二维码包含机密信息</string>
     <string name="profile_share_warning_body">二维码和链接中嵌入了你的凭据。仅通过可信渠道分享给你信任的人。</string>
-    <string name="profile_share_warning_acknowledge">我已了解</string>
-    <string name="profile_share_warning_wait">请阅读警告…</string>
     <string name="profile_share_loading_title">正在加载配置文件</string>
     <string name="profile_share_loading_body">正在准备导出已保存的配置文件。</string>
     <string name="profile_share_qr_body">使用 Hiddify 或其他兼容客户端扫描此二维码。</string>
     <string name="profile_share_link_title">订阅链接</string>
     <string name="profile_share_link_body">将此链接粘贴到 Hiddify、AmneziaVPN 或 RIPDPI 的导入界面。</string>
     <string name="profile_share_subscription_label">订阅/配置文件链接</string>
-    <string name="profile_share_uri_label">配置文件链接</string>
     <string name="profile_share_copy_uri_action">复制链接</string>
     <string name="profile_share_share_link_action">分享链接</string>
     <string name="profile_share_sheet_title">设置说明</string>
     <string name="profile_share_sheet_body">单页设置说明，可打印或随二维码、链接一同发送。</string>
     <string name="profile_share_copy_sheet_action">复制设置说明</string>
     <string name="profile_share_share_sheet_action">分享设置说明</string>
-    <string name="profile_share_share_image_action">分享二维码图片</string>
     <string name="profile_share_unshareable_title">此配置文件无法分享</string>
     <string name="profile_share_unshareable_body">此配置文件没有可分享的链接形式。</string>
     <string name="profile_share_qr_content_description">已保存配置文件的二维码</string>
@@ -2881,7 +2748,6 @@ fake_burst 3</string>
     <string name="widget_action_disconnect">断开</string>
     <string name="widget_status_running">运行中</string>
     <string name="widget_status_halted">已停止</string>
-    <string name="widget_status_connecting">连接中</string>
     <string name="widget_status_reconnecting">正在重新连接</string>
     <string name="widget_status_unknown">未知</string>
     <string name="widget_telemetry_uptime">运行时间</string>
@@ -2894,39 +2760,6 @@ fake_burst 3</string>
     <!-- RDS deferred VPN surfaces -->
     <string name="title_replay_failure">重放失败</string>
     <string name="title_replay_history">过往重放</string>
-    <string name="title_handshake_timeline">握手时间线</string>
-    <string name="vpn_handshake_timeline_title">握手时间线</string>
-    <string name="vpn_handshake_timeline_subtitle_default">cloudflare-dns.com · UDP/443 · 第 1 次尝试 / 共 3 次</string>
-    <string name="vpn_handshake_timeline_first_packet_label">首个数据包就绪</string>
-    <string name="vpn_handshake_timeline_slowest_default">最慢阶段：MTU probe · 超出预算 100 毫秒</string>
-    <string name="vpn_handshake_timeline_next_budget_default">下次尝试预算 2.0 秒</string>
-    <string name="title_throughput_graph">吞吐量图表</string>
-    <string name="vpn_throughput_graph_title">吞吐量</string>
-    <string name="vpn_throughput_graph_down_now_default">1.42 MiB/s</string>
-    <string name="vpn_throughput_graph_up_now_default">312 KiB/s</string>
-    <string name="vpn_throughput_graph_session_default">↓ 128 MiB</string>
-    <string name="vpn_throughput_graph_stat_down_label">下行</string>
-    <string name="vpn_throughput_graph_stat_up_label">上行</string>
-    <string name="vpn_throughput_graph_stat_session_label">本次</string>
-    <string name="vpn_throughput_graph_legend_down">下行</string>
-    <string name="vpn_throughput_graph_legend_up">上行</string>
-    <string name="vpn_throughput_graph_caption">吞吐量图表 · 滚动窗口 1分 / 5分 / 30分 / 1时 · 下行（前景色）+ 上行（信息色）· 会话总量见下。</string>
-    <string name="title_latency_graph">延迟图表</string>
-    <string name="vpn_latency_graph_title">RTT 与丢包 · 最近 60 秒</string>
-    <string name="vpn_latency_graph_p50_format">p50 %s</string>
-    <string name="vpn_latency_graph_p95_format">p95 %s</string>
-    <string name="vpn_latency_graph_p50_default">32 ms</string>
-    <string name="vpn_latency_graph_p95_default">128 ms</string>
-    <string name="vpn_latency_graph_now_default">32 ms</string>
-    <string name="vpn_latency_graph_p99_default">184 ms</string>
-    <string name="vpn_latency_graph_spikes_default">3</string>
-    <string name="vpn_latency_graph_loss_default">4.1%</string>
-    <string name="vpn_latency_graph_loss_label">丢包率</string>
-    <string name="vpn_latency_graph_legend_now">当前</string>
-    <string name="vpn_latency_graph_legend_p99">p99</string>
-    <string name="vpn_latency_graph_legend_spikes">尖峰 &gt;100 ms</string>
-    <string name="vpn_latency_graph_caption">延迟/丢包时间线 · 滚动 60 秒 · 100 ms 虚线阈值 · 单独丢包条显示当前百分比。</string>
-    <string name="title_state_machine">连接状态机</string>
     <string name="vpn_state_machine_title">连接状态机</string>
     <string name="vpn_state_machine_current_prefix">当前</string>
     <string name="vpn_state_machine_transitions_default">9 次转换 / 24 小时</string>
@@ -2967,10 +2800,6 @@ fake_burst 3</string>
     <string name="vpn_confirm_disconnect_body">在你重新连接之前，应用将失去绕过功能。进行中的通话和下载可能会中断。</string>
     <string name="vpn_confirm_disconnect_stay">保持连接</string>
     <string name="vpn_confirm_disconnect_disconnect">断开连接</string>
-    <string name="vpn_export_consent_title_format">导出 %1$s</string>
-    <string name="vpn_export_consent_redact_label">将端点 IP 隐去为 0.0.0.0</string>
-    <string name="vpn_export_consent_cancel">取消</string>
-    <string name="vpn_export_consent_confirm">导出</string>
 
     <!-- What's-new card -->
 
@@ -2993,21 +2822,10 @@ fake_burst 3</string>
     <string name="vpn_quality_strip_body_nominal">隧道已建立，指标处于正常范围。</string>
     <string name="vpn_quality_strip_body_warning">隧道已建立但性能下降。指标超出正常范围。</string>
     <string name="vpn_quality_strip_body_critical">隧道已建立但质量较差。大部分指标远超正常范围。</string>
-    <string name="vpn_quality_strip_since_format">自 %1$s</string>
     <string name="vpn_quality_strip_reprobe">重新测量</string>
-    <string name="vpn_quality_strip_dismiss">忽略</string>
     <string name="vpn_quality_metric_loss">丢包</string>
     <string name="vpn_quality_metric_rtt_p50">RTT p50</string>
     <string name="vpn_quality_metric_jitter">抖动</string>
-    <string name="vpn_quality_graph_throughput_title">RTT</string>
-    <string name="vpn_quality_graph_latency_title">抖动</string>
-    <string name="vpn_quality_graph_samples_format">%1$d 个样本</string>
-    <string name="vpn_quality_graph_legend_now">当前</string>
-    <string name="vpn_quality_graph_legend_p50">p50</string>
-    <string name="vpn_quality_graph_caption">RTT + 抖动图表 · 滚动 60 秒窗口。</string>
-    <string name="vpn_quality_graph_value_ms">%1$d ms</string>
-    <string name="vpn_quality_graph_p50_ms">p50 %1$d ms</string>
-    <string name="vpn_quality_graph_avg_ms">平均 %1$d ms</string>
     <string name="vpn_pcap_capture_list_empty">请在高级设置中开启数据包捕获。</string>
     <string name="vpn_pcap_loading">正在加载数据包捕获…</string>
     <string name="vpn_pcap_read_failed">无法读取 PCAP 数据。</string>
@@ -3022,68 +2840,18 @@ fake_burst 3</string>
     <string name="vpn_dev_pcap_consent_warning">启用后，下次 VPN 会话中的数据包头、TLS SNI 主机名、目标 IP 及策略指纹将被写入设备上的最大 64 MiB 循环捕获文件。捕获数据始终为应用私有，直到您主动导出为止。</string>
 
     <!-- OOM recovery surface -->
-    <string name="title_oom_recovery">OOM 恢复</string>
-    <string name="oom_recovery_title">OOM 恢复</string>
-    <string name="oom_recovery_banner_title">RIPDPI 被 Android 停止</string>
-    <string name="oom_recovery_banner_body">系统在 %1$s 终止了 VPN 服务（可能是内存压力）。在此次重启前，隧道中断了 %2$s。</string>
     <string name="oom_recovery_action_reconnect">重新连接</string>
-    <string name="oom_recovery_action_view_incident">查看事件</string>
-    <string name="oom_recovery_action_dismiss">关闭</string>
-    <string name="oom_recovery_sample_kill_time">12:42 UTC</string>
-    <string name="oom_recovery_sample_downtime">4 分 18 秒</string>
 
     <!-- Strategy A/B comparison surface -->
-    <string name="title_strategy_ab">策略 A/B</string>
-    <string name="strategy_ab_title">策略 A/B</string>
-    <string name="strategy_ab_action_switch">切换</string>
-    <string name="strategy_ab_badge_current">当前</string>
-    <string name="strategy_ab_badge_candidate">候选</string>
 
     <!-- Strategy import screen -->
-    <string name="title_strategy_import">导入策略</string>
-    <string name="strategy_import_title">导入策略</string>
-    <string name="strategy_import_source_file_title">从文件</string>
-    <string name="strategy_import_source_file_sub">.json、.cfg 或来自其他安装的保存包</string>
-    <string name="strategy_import_source_qr_title">扫描二维码</string>
-    <string name="strategy_import_source_qr_sub">来自其他 RIPDPI 安装或中继邀请</string>
-    <string name="strategy_import_source_url_title">从 URL</string>
-    <string name="strategy_import_source_clipboard_title">从剪贴板粘贴</string>
-    <string name="strategy_import_source_clipboard_sub">自动检测 URL、JSON 或策略参数</string>
-    <string name="strategy_import_recent_title">最近导入</string>
-    <string name="strategy_import_caption">策略导入 · 4 个来源（文件 / 二维码 / URL / 剪贴板）· 粘贴时自动检测 · 快速重新导入。</string>
 
     <!-- Profile Variants screen -->
-    <string name="title_profile_variants">配置文件变体</string>
-    <string name="profile_variants_title">配置文件变体</string>
-    <string name="profile_variants_chip_balanced">均衡</string>
-    <string name="profile_variants_chip_aggressive">激进</string>
-    <string name="profile_variants_chip_stealth">隐匿</string>
-    <string name="profile_variants_name_balanced">均衡</string>
-    <string name="profile_variants_name_aggressive">激进</string>
-    <string name="profile_variants_name_stealth">隐匿</string>
-    <string name="profile_variants_desc_balanced">速度、可靠性与规避检测之间的最优平衡。适用于大多数网络。</string>
-    <string name="profile_variants_desc_aggressive">以较低开销实现最大吞吐量。适合高速网络，可接受一定检测风险。</string>
-    <string name="profile_variants_desc_stealth">以牺牲速度为代价将流量指纹降至最低。适用于监控严格或访问受限的网络。</string>
     <string name="profile_variants_metric_latency">延迟</string>
-    <string name="profile_variants_metric_throughput">吞吐量</string>
-    <string name="profile_variants_metric_detection">检测风险</string>
     <string name="profile_variants_cta_select">选择</string>
     <string name="profile_variants_cta_selected">已激活</string>
-    <string name="profile_variants_caption">配置文件变体 · 策略预设画廊（均衡 / 激进 / 隐匿）· 彩色标题芯片 · 3 行指标条 · 选择按钮。</string>
 
     <!-- Share link preview card -->
-    <string name="share_link_preview_eyebrow_link">生成的链接</string>
-    <string name="share_link_preview_eyebrow_payload">片段内容</string>
-    <string name="share_link_preview_copy_action">复制</string>
-    <string name="share_link_preview_row_version">架构版本 — 当前 %1$s</string>
-    <string name="share_link_preview_row_asn">来源 ASN — %1$s</string>
-    <string name="share_link_preview_row_asn_redacted">来源 ASN — 已隐藏</string>
-    <string name="share_link_preview_row_timestamp">时间戳，自 %1$s 起的分钟数</string>
-    <string name="share_link_preview_row_commit">策略包哈希 — %1$s</string>
-    <string name="share_link_preview_row_items">每个端点的 {alive, dpi} 元组 — %1$d</string>
-    <string name="share_link_preview_privacy_title">保留在设备上</string>
-    <string name="share_link_preview_privacy_message">片段永远不会离开设备，由接收方在本地解码。除非已关闭脱敏，否则主机名会被哈希处理。</string>
-    <string name="share_link_preview_privacy_emphasis">永远不会离开设备</string>
     <string name="diagnostics_pcap_captures_label">数据包捕获</string>
     <string name="diagnostics_pcap_captures_description">浏览并导出已录制的 PCAP 文件</string>
     <string name="diagnostics_past_replays_label">历史回放</string>
@@ -3154,14 +2922,11 @@ fake_burst 3</string>
     <string name="rule_editor_network_label">网络</string>
     <string name="rule_editor_network_both">TCP 和 UDP</string>
     <string name="rule_editor_process_label">进程名称</string>
-    <string name="rule_editor_apps_label">应用</string>
     <string name="rule_editor_apps_selected">应用：已选择 %1$d 个</string>
     <string name="rule_editor_outbound_label">出站</string>
     <string name="rule_editor_outbound_proxy">代理</string>
     <string name="rule_editor_outbound_bypass">绕过（直连）</string>
     <string name="rule_editor_outbound_block">拦截</string>
-    <string name="rule_editor_outbound_profile">配置文件：%1$s</string>
-    <string name="rule_editor_outbound_group">分组：%1$s</string>
     <string name="outbound_group_fallback">分组 #%1$d</string>
     <string name="outbound_profile_fallback">配置文件 #%1$d</string>
     <string name="rule_editor_save">保存</string>
@@ -3235,7 +3000,6 @@ fake_burst 3</string>
     <string name="asset_provider_updated_never">从未更新</string>
     <!-- Backup &amp; Restore -->
     <string name="title_backup_restore">备份与恢复</string>
-    <string name="settings_backup_section">备份与恢复</string>
     <string name="settings_backup_body">将配置文件、分组、规则和设置导出到文件。</string>
     <string name="backup_export_section">导出</string>
     <string name="backup_export_intro_title">备份仅保存在本机</string>
@@ -3333,7 +3097,6 @@ fake_burst 3</string>
     <string name="onboarding_chip_local_config">本地配置</string>
     <!-- per-screen skip -->
     <string name="onboarding_skip_setup">跳过设置</string>
-    <string name="onboarding_use_recommended">使用推荐设置</string>
     <string name="onboarding_skip_test">跳过测试</string>
     <!-- mode badges -->
     <string name="onboarding_badge_recommended">推荐</string>
@@ -3359,8 +3122,6 @@ fake_burst 3</string>
     <string name="onboarding_test_change_dns">更改 DNS</string>
     <string name="onboarding_test_finish_without">不测试直接完成</string>
     <string name="onboarding_test_state_permission">Android 将请求创建本地 VPN 连接的权限。</string>
-    <string name="onboarding_test_state_dns">正在检查 DNS 解析…</string>
-    <string name="onboarding_test_state_connectivity">正在检查网络连接…</string>
     <string name="onboarding_test_success_title">设置完成</string>
     <string name="onboarding_test_success_body">RIPDPI 已可使用。</string>
     <string name="onboarding_test_failed_title">连接测试失败</string>
@@ -3395,10 +3156,6 @@ fake_burst 3</string>
     <string name="xray_import_error_unparseable">不是有效的 Xray 配置或分享链接。</string>
     <string name="xray_skip_vmess_removed">不支持 VMess。</string>
     <string name="xray_skip_vless_requires_reality">不支持普通 VLESS；需要 REALITY。</string>
-    <string name="xray_skip_non_proxy">工具类出站 (%1$s)——无可导入内容。</string>
-    <string name="xray_skip_unsupported_protocol">原生不支持 %1$s。</string>
-    <string name="xray_skip_unsupported_transport">原生不支持 %1$s 传输。</string>
-    <string name="xray_skip_unsupported_fingerprint">原生不支持 %1$s TLS 指纹。</string>
     <string name="xray_skip_malformed">出站格式错误或不完整。</string>
     <string name="xray_provider_card_title">Xray 提供方</string>
     <string name="xray_provider_settings_section_title">Xray 提供方</string>
@@ -3445,7 +3202,6 @@ fake_burst 3</string>
     <string name="stale_tier_aging">渐旧</string>
     <string name="stale_tier_stale">陈旧</string>
     <string name="stale_tier_expired">过期</string>
-    <string name="cd_port_matrix_cell">%1$s 端口 %2$s %3$s</string>
     <string name="clipboard_label_log_entry">日志条目</string>
     <string name="relay_kind_naiveproxy_label">NaiveProxy</string>
     <string name="relay_chain_missing_trust_title">缺少信任元数据</string>
@@ -3490,7 +3246,6 @@ fake_burst 3</string>
     <string name="routing_protection_available_description">已安装已知的白名单敏感应用。在假定分流仍然不可见之前，请为匹配的预设启用直连路由。</string>
     <string name="diagnostics_byoh_copy_csv">复制 CSV</string>
     <string name="diagnostics_compatible_sni_empty">未找到兼容的条目。</string>
-    <string name="port_matrix_title">端口矩阵</string>
     <string name="rkn_fetch_public_ip_asn_title">获取公网 IP 和 ASN 以提供诊断上下文</string>
     <string name="rkn_self_info_ip">IP</string>
     <string name="rkn_self_info_isp">ISP</string>
@@ -3762,14 +3517,12 @@ fake_burst 3</string>
     <string name="diagnostics_dns_availability_metric_available">可用</string>
     <string name="diagnostics_dns_availability_metric_servers">服务器</string>
     <string name="diagnostics_dns_availability_running">正在调查公共 DNS 解析器……</string>
-    <string name="diagnostics_dns_integrity_complete_clean">在 %1$d 个内置域名中未检测到 DNS 替换。</string>
     <string name="diagnostics_dns_integrity_complete_flagged">DNS 完整性警告：域名 %1$d/%2$d，DoQ 检查 %3$d，DoH 引导检查 %4$d。</string>
     <string name="diagnostics_dns_integrity_doh_bootstrap_label">DoH 引导 %1$s：%2$s</string>
     <string name="diagnostics_dns_integrity_doq_label">DoQ %1$s %2$s：%3$s</string>
     <string name="diagnostics_dns_integrity_failed">DNS 完整性检查失败。</string>
     <string name="diagnostics_dns_integrity_metric_bootstrap_flagged">引导被标记</string>
     <string name="diagnostics_dns_integrity_metric_checked">已检查</string>
-    <string name="diagnostics_dns_integrity_metric_doh_blocked">DoH 被阻断</string>
     <string name="diagnostics_dns_integrity_metric_doh_bootstrap">DoH 引导</string>
     <string name="diagnostics_dns_integrity_metric_doq_checks">DoQ 检查</string>
     <string name="diagnostics_dns_integrity_metric_doq_flagged">DoQ 被标记</string>
@@ -3898,7 +3651,6 @@ fake_burst 3</string>
     <string name="diagnostics_value_off">关闭</string>
     <string name="diagnostics_value_timeout">超时</string>
     <string name="diagnostics_value_unavailable">不可用</string>
-    <string name="diagnostics_value_unknown">未知</string>
     <string name="diagnostics_value_unresolved">未解析</string>
     <string name="home_diagnostics_verification_busy">VPN 验证繁忙中</string>
     <string name="home_diagnostics_verification_could_not_start">VPN 验证无法启动</string>
@@ -3910,9 +3662,7 @@ fake_burst 3</string>
     <string name="logs_mode_proxy">代理</string>
     <string name="logs_mode_vpn">VPN</string>
     <string name="owned_stack_browser_request_failed">自有栈请求失败。</string>
-    <string name="port_matrix_host_port_header">主机 / 端口</string>
     <string name="profile_share_setup_sheet_template">RIPDPI 设置说明\n\n配置文件：%1$s\n类型：%2$s\n\n订阅/配置文件链接：\n%3$s\n\nHiddify：\n1. 打开 Hiddify。\n2. 选择添加配置文件。\n3. 扫描二维码或粘贴上方链接。\n\nAmneziaVPN：\n1. 打开 AmneziaVPN。\n2. 选择通过链接或二维码添加服务器。\n3. 扫描二维码或粘贴上方链接。\n\n请妥善保管此说明，不要公开分享。二维码和链接包含凭据。</string>
-    <string name="a11y_loading">加载中</string>
     <string name="percent_value">%1$d%%</string>
     <string name="relay_kind_obfs4_label">obfs4</string>
     <string name="relay_kind_shadowtls_v3_label">ShadowTLS v3</string>
@@ -3976,7 +3726,6 @@ fake_burst 3</string>
     <string name="support_settings_change_summary">%1$s → %2$s</string>
     <string name="support_settings_no_changes">未发现设置更改。</string>
     <string name="support_settings_apply_action">应用更改</string>
-    <string name="support_settings_applied_action">已应用</string>
     <string name="support_settings_restart_ask">应用后可能需要重启。</string>
     <string name="support_settings_restart_required">应用后必须重启。</string>
     <string name="support_settings_restart_never">预计无需重启。</string>

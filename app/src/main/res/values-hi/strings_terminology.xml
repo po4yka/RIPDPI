@@ -20,10 +20,6 @@
         <item quantity="one">%1$s · %2$d पैकेट</item>
         <item quantity="other">%1$s · %2$d पैकेट</item>
     </plurals>
-    <plurals name="vpn_export_consent_meta_format">
-        <item quantity="one">%1$s · %2$d पैकेट</item>
-        <item quantity="other">%1$s · %2$d पैकेट</item>
-    </plurals>
     <plurals name="vpn_pcap_capture_drops_format">
         <item quantity="one">लोड के तहत %1$d पैकेट छोड़ा गया</item>
         <item quantity="other">लोड के तहत %1$d पैकेट छोड़े गए</item>

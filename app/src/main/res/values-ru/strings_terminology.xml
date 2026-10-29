@@ -30,12 +30,6 @@
         <item quantity="many">%1$s · %2$d пакетов</item>
         <item quantity="other">%1$s · %2$d пакета</item>
     </plurals>
-    <plurals name="vpn_export_consent_meta_format">
-        <item quantity="one">%1$s · %2$d пакет</item>
-        <item quantity="few">%1$s · %2$d пакета</item>
-        <item quantity="many">%1$s · %2$d пакетов</item>
-        <item quantity="other">%1$s · %2$d пакета</item>
-    </plurals>
     <plurals name="vpn_pcap_capture_drops_format">
         <item quantity="one">%1$d пакет потерян под нагрузкой</item>
         <item quantity="few">%1$d пакета потеряно под нагрузкой</item>

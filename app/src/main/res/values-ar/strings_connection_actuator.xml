@@ -17,10 +17,6 @@
     <string name="home_connection_stage_tunnel">النفق</string>
     <string name="home_connection_stage_route">المسار</string>
     <string name="home_connection_actuator_action_android_managed">مُدار بواسطة قفل Android</string>
-    <string name="home_connection_stage_state_pending">قيد الانتظار</string>
-    <string name="home_connection_stage_state_active">نشط</string>
-    <string name="home_connection_stage_state_complete">مكتمل</string>
-    <string name="home_connection_stage_state_warning">تحذير</string>
     <string name="home_connection_stage_state_failed">فاشل</string>
     <string name="home_connection_actuator_action_cancel">إلغاء الاتصال</string>
     <string name="home_connection_actuator_action_retry">إعادة المحاولة</string>

@@ -119,11 +119,7 @@ SEMANTIC_KEYS = (
 )
 
 LATENT_KEYS = (
-    'support_settings_applied_action',
-    'home_mode_card_remote_relay_disabled_hint',
-    'onboarding_privacy_title',
     'home_diagnostics_detection_permission_required',
-    'share_link_preview_privacy_message',
 )
 
 REDACTION_KEYS = (
@@ -147,9 +143,9 @@ class GermanLocalizationRegressionsTest(unittest.TestCase):
         cls.en = resources("app", "values")
 
     def test_audited_prose_has_no_english_fallback(self):
-        self.assertEqual((87, 20, 5), (len(ENGLISH_PROSE), len(SEMANTIC_KEYS), len(LATENT_KEYS)))
+        self.assertEqual((87, 20, 1), (len(ENGLISH_PROSE), len(SEMANTIC_KEYS), len(LATENT_KEYS)))
         audited = ENGLISH_PROSE + SEMANTIC_KEYS + LATENT_KEYS
-        self.assertEqual(112, len(set(audited)))
+        self.assertEqual(108, len(set(audited)))
         self.assertTrue(set(audited) <= self.de.keys())
         keys = ENGLISH_PROSE + LATENT_KEYS[:3]
         for key in keys:
@@ -163,9 +159,6 @@ class GermanLocalizationRegressionsTest(unittest.TestCase):
                 value = text(self.de[key]).casefold()
                 self.assertNotIn("redig", value)
                 self.assertRegex(value, r"unkenntlich|schw[aä]rz|entfern|ausblend")
-        privacy = text(self.de["share_link_preview_privacy_message"]).casefold()
-        self.assertNotIn("entschlüss", privacy)
-        self.assertRegex(privacy, r"decod|dekod")
 
     def test_diagnostic_and_network_semantics(self):
         for key in CONTROL_KEYS:

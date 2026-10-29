@@ -99,8 +99,7 @@ class HindiLocalizationRegressionsTest(unittest.TestCase):
 
     def test_privacy_state_and_network_meanings(self):
         for key in ("backup_share_redacted_action", "backup_share_redacted_subject",
-                    "backup_share_reminder_title", "diagnostics_device_gate_share",
-                    "share_link_preview_row_asn_redacted", "share_link_preview_privacy_message"):
+                    "backup_share_reminder_title", "diagnostics_device_gate_share"):
             with self.subTest(key=key):
                 value = text(self.hi[key])
                 self.assertNotIn("संपादित", value)

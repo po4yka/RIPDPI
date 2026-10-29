@@ -21,7 +21,6 @@
     <string name="profile_utility_empty">لا توجد ملفات محفوظة.</string>
     <string name="profile_utility_disclosure">يقيس الفحص طلب HTTP. يطبق الفحص والاختيار الملف فقط بعد نجاح الفحص.</string>
     <string name="profile_utility_command_failed">تعذر إكمال الأمر. تحقق من حالة الملف.</string>
-    <string name="profile_utility_applying">جارٍ تطبيق الملف…</string>
     <string name="profile_utility_selection_failed">تعذر تطبيق الملف. تحقق من الملف المحفوظ والملف المطبق.</string>
     <string name="profile_utility_url">عنوان URL للفحص</string>
     <string name="profile_utility_applied">الملف المُطبّق</string>

@@ -40,14 +40,6 @@
         <item quantity="many">%1$s · %2$d حزمة</item>
         <item quantity="other">%1$s · %2$d حزمة</item>
     </plurals>
-    <plurals name="vpn_export_consent_meta_format">
-        <item quantity="zero">%1$s · %2$d حزم</item>
-        <item quantity="one">%1$s · %2$d حزمة</item>
-        <item quantity="two">%1$s · %2$d حزمتان</item>
-        <item quantity="few">%1$s · %2$d حزم</item>
-        <item quantity="many">%1$s · %2$d حزمة</item>
-        <item quantity="other">%1$s · %2$d حزمة</item>
-    </plurals>
     <plurals name="vpn_pcap_capture_drops_format">
         <item quantity="zero">تم إسقاط %1$d حزم تحت الحمل</item>
         <item quantity="one">تم إسقاط %1$d حزمة تحت الحمل</item>

@@ -17,10 +17,6 @@
     <string name="home_connection_stage_tunnel">टनल</string>
     <string name="home_connection_stage_route">रूट</string>
     <string name="home_connection_actuator_action_android_managed">Android लॉकडाउन द्वारा प्रबंधित</string>
-    <string name="home_connection_stage_state_pending">लंबित</string>
-    <string name="home_connection_stage_state_active">सक्रिय</string>
-    <string name="home_connection_stage_state_complete">पूर्ण</string>
-    <string name="home_connection_stage_state_warning">चेतावनी</string>
     <string name="home_connection_stage_state_failed">विफल</string>
     <string name="home_connection_actuator_action_cancel">कनेक्शन रद्द करें</string>
     <string name="home_connection_actuator_action_retry">फिर से प्रयास करें</string>

@@ -21,7 +21,6 @@
     <string name="profile_utility_empty">نمایه ذخیره‌شده‌ای وجود ندارد.</string>
     <string name="profile_utility_disclosure">بررسی، یک درخواست HTTP را اندازه می‌گیرد. بررسی و انتخاب فقط پس از بررسی موفق، نمایه را اعمال می‌کند.</string>
     <string name="profile_utility_command_failed">فرمان کامل نشد. وضعیت نمایه را بررسی کنید.</string>
-    <string name="profile_utility_applying">در حال اعمال نمایه…</string>
     <string name="profile_utility_selection_failed">نمایه اعمال نشد. نمایه ذخیره‌شده و اعمال‌شده را بررسی کنید.</string>
     <string name="profile_utility_url">نشانی بررسی</string>
     <string name="profile_utility_applied">نمایه اعمال‌شده</string>

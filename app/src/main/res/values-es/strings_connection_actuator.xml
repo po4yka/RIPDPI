@@ -17,10 +17,6 @@
     <string name="home_connection_actuator_state_direct_degraded">Conectado · advertencia: %1$s</string>
     <string name="home_connection_stage_tunnel">Túnel</string>
     <string name="home_connection_actuator_action_android_managed">Gestionado por bloqueo de Android</string>
-    <string name="home_connection_stage_state_pending">pendiente</string>
-    <string name="home_connection_stage_state_active">activo</string>
-    <string name="home_connection_stage_state_complete">completado</string>
-    <string name="home_connection_stage_state_warning">advertencia</string>
     <string name="home_connection_stage_state_failed">con error</string>
     <string name="home_connection_actuator_action_cancel">Cancelar conexión</string>
     <string name="home_connection_actuator_action_retry">Reintentar</string>

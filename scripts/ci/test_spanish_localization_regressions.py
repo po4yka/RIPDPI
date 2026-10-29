@@ -13,7 +13,6 @@ EXTRA_PROSE = (
     "data_transparency_export_control", "title_local_bypass_config",
     "data_transparency_export_explicit", "data_transparency_no_personal_data",
     "diagnostics_save_logs_body", "diagnostics_pcap_card_body_idle", "diagnostics_share_archive_line",
-    "home_mode_card_remote_relay_disabled_hint",
 )
 EDITOR_REFERENCES = (
     "diagnostics_remediation_browser_relay_step_open_mode_editor",
@@ -58,7 +57,6 @@ class SpanishLocalizationRegressionsTest(unittest.TestCase):
             with self.subTest(key=key):
                 self.assertIn("ocultan", text(self.es[key]))
                 self.assertNotIn("redact", text(self.es[key]))
-        self.assertIn("ocultación", text(self.es["share_link_preview_privacy_message"]))
 
     def test_recovery_names_match_visible_actions(self):
         for key in EDITOR_REFERENCES:

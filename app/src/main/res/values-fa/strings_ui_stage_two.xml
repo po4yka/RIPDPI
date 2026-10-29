@@ -2,7 +2,6 @@
 <resources>
     <string name="config_saved_profile_title">نمایهٔ ذخیره‌شده</string>
     <string name="config_profile_change">تغییر نمایه</string>
-    <string name="config_profile_choices">انتخاب نمایه</string>
     <string name="config_connection_scope_vpn">ترافیک: برنامه‌های انتخاب‌شده برای VPN محلی</string>
     <string name="config_connection_scope_proxy">ترافیک: برنامه‌های تنظیم‌شده برای استفاده از این پراکسی</string>
     <string name="config_connection_path_direct">مسیر: اتصال مستقیم</string>

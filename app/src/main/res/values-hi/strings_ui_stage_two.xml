@@ -2,7 +2,6 @@
 <resources>
     <string name="config_saved_profile_title">सहेजी गई प्रोफ़ाइल</string>
     <string name="config_profile_change">प्रोफ़ाइल बदलें</string>
-    <string name="config_profile_choices">प्रोफ़ाइल विकल्प</string>
     <string name="config_connection_scope_vpn">ट्रैफ़िक: स्थानीय VPN के लिए चुने गए ऐप</string>
     <string name="config_connection_scope_proxy">ट्रैफ़िक: इस प्रॉक्सी का उपयोग करने के लिए कॉन्फ़िगर किए गए ऐप</string>
     <string name="config_connection_path_direct">पथ: सीधा कनेक्शन</string>
