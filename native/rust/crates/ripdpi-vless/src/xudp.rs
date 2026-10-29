@@ -283,16 +283,21 @@ async fn run_writer<W>(
     reader_abort.abort();
 }
 
-/// # Cancel safety
+/// # Cancel safety:
 ///
-/// NOT cancel-safe: a cancelled write may leave a frame prefix on the carrier.
+/// NOT cancel-safe: a cancelled write or flush may leave a frame prefix on the carrier.
 /// Only the dedicated writer task calls this helper, and every error is
 /// terminal for that carrier before the next frame can be accepted.
 async fn write_frame<W>(writer: &mut W, frame: &[u8], write_timeout: Duration) -> io::Result<()>
 where
     W: AsyncWrite + Unpin,
 {
-    match timeout(write_timeout, writer.write_all(frame)).await {
+    match timeout(write_timeout, async {
+        writer.write_all(frame).await?;
+        writer.flush().await
+    })
+    .await
+    {
         Ok(result) => result,
         Err(_) => Err(io::Error::new(io::ErrorKind::TimedOut, "XUDP carrier write timed out")),
     }
@@ -728,6 +733,40 @@ mod tests {
         allowed.send_to("example.com:443", b"quic").await.expect("vision-udp443 permits UDP/443");
         let mut encoded = [0_u8; 32];
         assert!(peer.read(&mut encoded).await.expect("read permitted UDP/443 frame") > 0);
+    }
+
+    #[tokio::test]
+    /// # Cancel safety:
+    /// cancel-safe: the test owns and drops the session and both carrier ends.
+    async fn buffered_writer_flushes_each_frame_before_confirming_send() {
+        let (stream, mut peer) = tokio::io::duplex(128);
+        let buffered = tokio::io::BufWriter::with_capacity(4096, stream);
+        let mut session = VlessXudpSession::new(buffered, false).expect("buffered session");
+
+        session.send_to("example.com:53", b"query").await.expect("send buffered datagram");
+
+        let frame = timeout(Duration::from_secs(1), read_encoded_frame(&mut peer))
+            .await
+            .expect("a confirmed datagram must be visible without another send");
+        assert!(frame.ends_with(b"query"));
+    }
+
+    #[tokio::test]
+    /// # Cancel safety:
+    /// cancel-safe: the dedicated writer owns partial frame state and the test drops the carrier.
+    async fn buffered_writer_flush_timeout_closes_the_write_queue() {
+        let (stream, _peer) = tokio::io::duplex(1);
+        let buffered = tokio::io::BufWriter::with_capacity(4096, stream);
+        let mut session =
+            VlessXudpSession::new_with_write_timeout(buffered, false, Duration::from_millis(20)).expect("session");
+
+        let error = session.send_to("example.com:53", &[0x5a; 128]).await.expect_err("flush must time out");
+
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        assert_eq!(
+            session.send_to("example.com:53", b"next").await.expect_err("timed-out carrier must close").kind(),
+            io::ErrorKind::BrokenPipe,
+        );
     }
 
     #[tokio::test]
