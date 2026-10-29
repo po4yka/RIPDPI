@@ -54,6 +54,7 @@ jobs:
         with:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
+          config-file: ./.github/codeql/codeql-config.yml
 
       # The tracer sees only compilers that run in this process tree: keep
       # kotlinc in-process and bypass the build cache so every task compiles.

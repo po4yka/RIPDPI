@@ -1,0 +1,14 @@
+name: RIPDPI CodeQL config
+
+# Test code holds fixture credentials and keys on purpose. Alerts inside
+# #[cfg(test)] modules cannot be excluded by path.
+paths-ignore:
+  - native/rust/crates/*/tests
+  - native/rust/crates/*/benches
+  - native/rust/crates/local-network-fixture
+
+query-filters:
+  # Flags every zero-initialized buffer that later receives RNG or KDF output;
+  # the first triage found 0 true positives in 246 alerts.
+  - exclude:
+      id: rust/hard-coded-cryptographic-value
