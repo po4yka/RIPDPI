@@ -92,15 +92,16 @@ class DesignSystemSourceRulesTest {
     }
 
     @Test
-    fun `app theme does not opt into platform dynamic color palettes`() {
+    fun `only the app theme selects platform dynamic color palettes`() {
         val dynamicPaletteUsage =
             Regex("\\b(dynamicLightColorScheme|dynamicDarkColorScheme|DynamicColors)\\b")
 
         assertNoOffendingFiles(
             files = uiSourceFiles(mainAppRoot),
-            message = "RIPDPI uses governed fixed theme palettes; dynamic color requires contrast coverage first",
+            message = "platform dynamic color palettes are selected only in RipDpiTheme",
         ) { source ->
-            dynamicPaletteUsage.containsMatchIn(source.text)
+            source.path != "app/src/main/kotlin/com/poyka/ripdpi/ui/theme/RipDpiTheme.kt" &&
+                dynamicPaletteUsage.containsMatchIn(source.text)
         }
     }
 
