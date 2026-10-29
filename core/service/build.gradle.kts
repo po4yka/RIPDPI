@@ -1,4 +1,5 @@
 import com.android.build.api.dsl.LibraryExtension
+import com.poyka.ripdpi.buildlogic.SharedPriorsKey
 import java.util.Properties
 
 plugins {
@@ -51,16 +52,8 @@ val sharedPriorsPriorsUrl =
         "sharedPriors.priorsUrl",
         "RIPDPI_SHARED_PRIORS_PRIORS_URL",
     )
-val sharedPriorsPublicKey =
-    localOrEnv(
-        "sharedPriors.publicKey",
-        "RIPDPI_SHARED_PRIORS_PUB_KEY",
-    )?.trim().orEmpty()
-// Mirrors the validation in the rust-native convention plugin: a set key must be 64 hex characters.
-val sharedPriorsPublicKeyConfigured = sharedPriorsPublicKey.matches(Regex("[0-9a-fA-F]{64}"))
-check(sharedPriorsPublicKey.isEmpty() || sharedPriorsPublicKeyConfigured) {
-    "sharedPriors.publicKey / RIPDPI_SHARED_PRIORS_PUB_KEY must be 64 hex characters"
-}
+// Same resolver as the rust-native convention plugin: native and BuildConfig cannot disagree.
+val sharedPriorsPublicKeyConfigured = SharedPriorsKey.resolve(project).get().isNotEmpty()
 
 extensions.configure<LibraryExtension> {
     namespace = "com.poyka.ripdpi.core.service"

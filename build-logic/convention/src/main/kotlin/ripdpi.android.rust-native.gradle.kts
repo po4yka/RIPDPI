@@ -1,4 +1,5 @@
 import com.android.build.api.dsl.LibraryExtension
+import com.poyka.ripdpi.buildlogic.SharedPriorsKey
 import groovy.json.JsonOutput
 import groovy.json.JsonSlurper
 import org.gradle.api.DefaultTask
@@ -1675,31 +1676,7 @@ val buildNfqws2 =
         outputDir.set(generatedNfqws2AssetsDir)
     }
 
-val sharedPriorsPublicKeyProvider =
-    providers
-        .gradleProperty("sharedPriors.publicKey")
-        .orElse(
-            providers.provider {
-                rootProject
-                    .file("local.properties")
-                    .takeIf { it.isFile }
-                    ?.let { file ->
-                        java.util
-                            .Properties()
-                            .apply { file.inputStream().use(::load) }
-                            .getProperty("sharedPriors.publicKey")
-                    }
-            },
-        ).orElse(providers.environmentVariable("RIPDPI_SHARED_PRIORS_PUB_KEY"))
-        .map(String::trim)
-        .map { key ->
-            if (key.isNotEmpty() && !Regex("[0-9a-fA-F]{64}").matches(key)) {
-                throw GradleException(
-                    "sharedPriors.publicKey / RIPDPI_SHARED_PRIORS_PUB_KEY must be 64 hex characters",
-                )
-            }
-            key
-        }
+val sharedPriorsPublicKeyProvider = SharedPriorsKey.resolve(project)
 
 val buildRustNativeLibs =
     tasks.register<BuildRustNativeLibsTask>("buildRustNativeLibs") {

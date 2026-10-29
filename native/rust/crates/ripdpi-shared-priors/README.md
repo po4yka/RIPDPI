@@ -23,7 +23,8 @@ The channel is off until the owner supplies a public key and two release URLs at
 | Manifest URL | `sharedPriors.manifestUrl` | `RIPDPI_SHARED_PRIORS_MANIFEST_URL` |
 | Priors URL | `sharedPriors.priorsUrl` | `RIPDPI_SHARED_PRIORS_PRIORS_URL` |
 
-- The Gradle `buildRustNativeLibs` task passes the key to cargo as `RIPDPI_SHARED_PRIORS_PUB_KEY`; this crate reads it with `option_env!` at compile time. A changed key reruns the task and cargo rebuilds the crate. Unset or empty keeps the all-zero key (channel disabled); a set but malformed value fails the build.
+- One Gradle resolver (`SharedPriorsKey` in build-logic) serves both the cargo build and `:core:service`. It takes the first non-blank value from the Gradle property, `local.properties`, then the environment variable. The key must be 64 hex characters and not all zero, otherwise the Gradle build fails.
+- The `buildRustNativeLibs` task passes the key to cargo as `RIPDPI_SHARED_PRIORS_PUB_KEY`, and a changed key reruns the task. `build.rs` writes the key into `OUT_DIR`, and `manifest.rs` includes it, so compiler caches such as sccache hash the key as source content. Without a key the build embeds the all-zero key (channel disabled); a malformed or all-zero value fails the build.
 - `:core:service` sets `BuildConfig.SHARED_PRIORS_PUBLIC_KEY_CONFIGURED`. The refresh worker downloads nothing unless the key and both URLs are set.
 - Selection uses verified priors in `ripdpi-runtime-strategy`: a prior is worth at most 8 pseudo-observations, so local field data takes over as it accumulates.
 
@@ -41,4 +42,4 @@ The signature is ed25519 over exactly these bytes:
 b"ripdpi-shared-priors-v1\0" (24 bytes) || SHA-256(priors file) (32 bytes) || issued_at_unix as i64 little-endian (8 bytes)
 ```
 
-`issued_at_unix` must increase with each release (rollback watermark). Keep the private key offline; only the public half goes into the build settings above.
+`issued_at_unix` must be strictly greater than the stored watermark. A lower value is rejected as a rollback. An equal value is accepted only when the priors SHA-256 is identical (an idempotent re-apply); an equal value with different content is rejected as a conflicting release. Keep the private key offline; only the public half goes into the build settings above.
