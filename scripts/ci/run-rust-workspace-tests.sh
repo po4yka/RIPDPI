@@ -47,12 +47,13 @@ echo "==> tests (workspace)"
 # (run-rust-network-e2e.sh, run-rust-turmoil-tests.sh) and platform tests
 # needing CAP_NET_ADMIN.
 bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" --workspace \
-  -E 'not binary(network_e2e) and not binary(tun_e2e) and not ((package(=ripdpi-tunnel-core) or package(=ripdpi-dns-resolver)) and test(turmoil_)) and not test(/^platform::linux::tests::bpf_/) and not (package(=ripdpi-privileged-ops) and test(/::bpf_/)) and not test(/^platform::linux::tests::tcp_window_clamp/) and not test(/^runtime::tests::window_clamp/)' \
+  -E 'not binary(network_e2e) and not binary(tun_e2e) and not ((package(=ripdpi-tunnel-core) or package(=ripdpi-dns-resolver)) and test(turmoil_)) and not test(/^platform::linux::tests::bpf_/) and not (package(=ripdpi-privileged-ops) and test(/::bpf_/)) and not (package(=ripdpi-proxy-runtime) and test(=runtime::routing::connect::post_connect::tests::strip_timestamps_does_not_replace_the_drop_sack_filter)) and not test(/^platform::linux::tests::tcp_window_clamp/) and not test(/^runtime::tests::window_clamp/)' \
   "${NEXTEST_ARGS[@]}"
 
 if [[ "$(uname -s)" == "Linux" ]]; then
   echo "==> socket-filter tests (runner UID with CAP_NET_ADMIN)"
   python3 "$repo_root/scripts/ci/run-linux-bpf-tests.py"
+  python3 "$repo_root/scripts/ci/run-linux-bpf-tests.py" --suite proxy-runtime
 fi
 
 # Keep workspace feature unification so the smoke test reuses the same binaries.

@@ -45,6 +45,10 @@ class LinuxBpfTestRunnerTest(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "inventory changed"):
             runner.select_tests(self.listing(names), "network-e2e")
 
+    def test_proxy_runtime_suite_selects_only_the_attached_filter_test(self):
+        name = "runtime::routing::connect::post_connect::tests::strip_timestamps_does_not_replace_the_drop_sack_filter"
+        self.assertEqual([name], runner.select_tests(self.listing({name, "runtime::tests::stop_latch"}), "proxy-runtime"))
+
     def test_missing_network_filter_test_fails(self):
         with self.assertRaisesRegex(ValueError, "inventory changed"):
             runner.select_tests(self.listing({"http_round_trip"}), "network-e2e")

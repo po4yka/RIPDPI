@@ -28,6 +28,12 @@ SUITES = {
         "tests": {"drop_sack_and_strip_timestamps_round_trip_succeeds"},
         "name_markers": ["drop_sack", "strip_timestamps"],
     },
+    "proxy-runtime": {
+        "package": "ripdpi-proxy-runtime", "target": "ripdpi_proxy_runtime", "kind": "lib",
+        "cargo_args": ["--lib"],
+        "tests": {"runtime::routing::connect::post_connect::tests::strip_timestamps_does_not_replace_the_drop_sack_filter"},
+        "name_markers": ["drop_sack", "strip_timestamps"],
+    },
 }
 
 
