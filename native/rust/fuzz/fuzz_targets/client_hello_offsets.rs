@@ -7,11 +7,12 @@ use libfuzzer_sys::fuzz_target;
 fn structured_tls_variant(data: &[u8]) -> Vec<u8> {
     let seed = data.get(..4).and_then(|bytes| bytes.try_into().ok()).map(u32::from_le_bytes).unwrap_or(11);
     let host = format!("{}.example", common::ascii_label(data.get(4..).unwrap_or_default(), "tls-", 24));
-    let randomized = ripdpi_packets::randomize_tls_seeded_like_c(ripdpi_packets::DEFAULT_FAKE_TLS, seed);
+    let mut randomized = ripdpi_packets::DEFAULT_FAKE_TLS.to_vec();
+    let _ = ripdpi_packets::randomize_tls_seeded_inplace(&mut randomized, seed);
     let renamed = ripdpi_packets::change_tls_sni_seeded_like_c(
-        &randomized.bytes,
+        &randomized,
         host.as_bytes(),
-        randomized.bytes.len().saturating_add(host.len()).saturating_add(64),
+        randomized.len().saturating_add(host.len()).saturating_add(64),
         seed.rotate_left(1),
     );
     if ripdpi_packets::is_tls_client_hello(&renamed.bytes) {

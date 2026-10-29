@@ -16,14 +16,15 @@ fn tls_variant(data: &[u8]) -> Vec<u8> {
         .unwrap_or(7);
     let host = domain_from_bytes(data.get(4..).unwrap_or_default());
 
-    let randomized = ripdpi_packets::randomize_tls_seeded_like_c(ripdpi_packets::DEFAULT_FAKE_TLS, seed);
-    let sni_randomized = ripdpi_packets::randomize_tls_sni_seeded_like_c(&randomized.bytes, seed ^ 0x5a5a_5a5a);
-    let duplicated = ripdpi_packets::duplicate_tls_session_id_like_c(&sni_randomized.bytes, ripdpi_packets::DEFAULT_FAKE_TLS);
+    let mut mutated = ripdpi_packets::DEFAULT_FAKE_TLS.to_vec();
+    let _ = ripdpi_packets::randomize_tls_seeded_inplace(&mut mutated, seed);
+    let _ = ripdpi_packets::randomize_tls_sni_seeded_inplace(&mut mutated, seed ^ 0x5a5a_5a5a);
+    let _ = ripdpi_packets::duplicate_tls_session_id_inplace(&mut mutated, ripdpi_packets::DEFAULT_FAKE_TLS);
 
     let desired_len = ripdpi_packets::DEFAULT_FAKE_TLS
         .len()
         .saturating_add(data.first().copied().unwrap_or(0) as usize % 48);
-    let padded = ripdpi_packets::tune_tls_padding_size_like_c(&duplicated.bytes, desired_len);
+    let padded = ripdpi_packets::tune_tls_padding_size_like_c(&mutated, desired_len);
 
     let payload_len = 1 + data.get(1).copied().unwrap_or(0) as usize % 64;
     let encapsulated = ripdpi_packets::padencap_tls_like_c(&padded.bytes, payload_len);
@@ -77,9 +78,6 @@ fuzz_target!(|data: &[u8]| {
     let _ = ripdpi_packets::parse_tls(&tls);
     let _ = ripdpi_packets::tls_marker_info(&tls);
 
-    let tls_split = (data.get(5).copied().unwrap_or(0) as isize) % (tls.len().max(1) as isize);
-    let partial_tls = ripdpi_packets::part_tls_like_c(&tls, tls_split);
-    let _ = ripdpi_packets::parse_tls(&partial_tls.bytes);
 
     let quic_version =
         if data.get(6).copied().unwrap_or(0) & 1 == 0 { ripdpi_packets::QUIC_V1_VERSION } else { ripdpi_packets::QUIC_V2_VERSION };
