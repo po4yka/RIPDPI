@@ -1,55 +1,11 @@
 package com.poyka.ripdpi.ui.theme
 
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.automirrored.outlined.Article
-import androidx.compose.material.icons.automirrored.outlined.DriveFileMove
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
-import androidx.compose.material.icons.automirrored.outlined.OpenInNew
-import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.Archive
-import androidx.compose.material.icons.outlined.Cancel
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.ContentCopy
-import androidx.compose.material.icons.outlined.ContentPaste
-import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.Dns
-import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.FileOpen
-import androidx.compose.material.icons.outlined.History
-import androidx.compose.material.icons.outlined.Home
-import androidx.compose.material.icons.outlined.Image
-import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.KeyboardArrowDown
-import androidx.compose.material.icons.outlined.KeyboardArrowUp
-import androidx.compose.material.icons.outlined.LocationOn
-import androidx.compose.material.icons.outlined.Lock
-import androidx.compose.material.icons.outlined.LockOpen
-import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.NetworkCheck
-import androidx.compose.material.icons.outlined.NoPhotography
-import androidx.compose.material.icons.outlined.PhotoCamera
-import androidx.compose.material.icons.outlined.Public
-import androidx.compose.material.icons.outlined.QrCodeScanner
-import androidx.compose.material.icons.outlined.Refresh
-import androidx.compose.material.icons.outlined.Remove
-import androidx.compose.material.icons.outlined.ReportProblem
-import androidx.compose.material.icons.outlined.Restore
-import androidx.compose.material.icons.outlined.Science
-import androidx.compose.material.icons.outlined.Search
-import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material.icons.outlined.Share
-import androidx.compose.material.icons.outlined.Shield
-import androidx.compose.material.icons.outlined.Star
-import androidx.compose.material.icons.outlined.TaskAlt
-import androidx.compose.material.icons.outlined.Timer
-import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material.icons.outlined.Videocam
-import androidx.compose.material.icons.outlined.Visibility
-import androidx.compose.material.icons.outlined.VpnKey
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.ui.theme.RipDpiSymbolPaths as P
 
 object RipDpiIconSizes {
     val Small = 16.dp
@@ -59,55 +15,74 @@ object RipDpiIconSizes {
     val Large = 32.dp
 }
 
-// Keep iconography on a single outlined Material language. Screens should import only this facade.
+private const val SymbolViewport = 960f
+
+// Icon composables replace the fill with their tint, so the builder color only marks the path as filled.
+private fun symbol(
+    name: String,
+    pathData: String,
+    autoMirror: Boolean = false,
+): ImageVector =
+    ImageVector
+        .Builder(
+            name = "RipDpiIcons.$name",
+            defaultWidth = 24.dp,
+            defaultHeight = 24.dp,
+            viewportWidth = SymbolViewport,
+            viewportHeight = SymbolViewport,
+            autoMirror = autoMirror,
+        ).addPath(pathData = addPathNodes(pathData), fill = SolidColor(Color.Black))
+        .build()
+
+// Keep iconography on a single outlined Material Symbols language. Screens should import only this facade.
 object RipDpiIcons {
-    val Home: ImageVector = Icons.Outlined.Home
-    val Config: ImageVector = Icons.Outlined.Tune
-    val Logs: ImageVector = Icons.AutoMirrored.Outlined.Article
-    val Settings: ImageVector = Icons.Outlined.Settings
-    val Connected: ImageVector = Icons.Outlined.TaskAlt
-    val Offline: ImageVector = Icons.Outlined.Cancel
-    val Vpn: ImageVector = Icons.Outlined.VpnKey
-    val Dns: ImageVector = Icons.Outlined.Dns
-    val Advanced: ImageVector = Icons.Outlined.Tune
-    val Search: ImageVector = Icons.Outlined.Search
-    val Warning: ImageVector = Icons.Outlined.ReportProblem
-    val Error: ImageVector = Icons.Outlined.Cancel
-    val Info: ImageVector = Icons.Outlined.Info
-    val Lock: ImageVector = Icons.Outlined.Lock
-    val LockOpen: ImageVector = Icons.Outlined.LockOpen
-    val Copy: ImageVector = Icons.Outlined.ContentCopy
-    val Favorite: ImageVector = Icons.Outlined.Star
-    val Share: ImageVector = Icons.Outlined.Share
-    val ChevronRight: ImageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight
-    val Back: ImageVector = Icons.AutoMirrored.Outlined.ArrowBack
-    val Overflow: ImageVector = Icons.Outlined.MoreVert
-    val Close: ImageVector = Icons.Outlined.Close
-    val Check: ImageVector = Icons.Outlined.Check
-    val KeyboardArrowDown: ImageVector = Icons.Outlined.KeyboardArrowDown
-    val KeyboardArrowUp: ImageVector = Icons.Outlined.KeyboardArrowUp
-    val LocationOn: ImageVector = Icons.Outlined.LocationOn
-    val NetworkCheck: ImageVector = Icons.Outlined.NetworkCheck
-    val Public: ImageVector = Icons.Outlined.Public
-    val Remove: ImageVector = Icons.Outlined.Remove
-    val Shield: ImageVector = Icons.Outlined.Shield
-    val Timer: ImageVector = Icons.Outlined.Timer
-    val Videocam: ImageVector = Icons.Outlined.Videocam
-    val Visibility: ImageVector = Icons.Outlined.Visibility
-    val QrCodeScanner: ImageVector = Icons.Outlined.QrCodeScanner
-    val PhotoCamera: ImageVector = Icons.Outlined.PhotoCamera
-    val Image: ImageVector = Icons.Outlined.Image
-    val Refresh: ImageVector = Icons.Outlined.Refresh
-    val Archive: ImageVector = Icons.Outlined.Archive
-    val Delete: ImageVector = Icons.Outlined.Delete
-    val Add: ImageVector = Icons.Outlined.Add
-    val Paste: ImageVector = Icons.Outlined.ContentPaste
-    val Import: ImageVector = Icons.Outlined.FileOpen
-    val OpenExternal: ImageVector = Icons.AutoMirrored.Outlined.OpenInNew
-    val MoveTo: ImageVector = Icons.AutoMirrored.Outlined.DriveFileMove
-    val Restore: ImageVector = Icons.Outlined.Restore
-    val History: ImageVector = Icons.Outlined.History
-    val Edit: ImageVector = Icons.Outlined.Edit
-    val Tuner: ImageVector = Icons.Outlined.Science
-    val CameraOff: ImageVector = Icons.Outlined.NoPhotography
+    val Home: ImageVector by lazy { symbol("Home", P.Home) }
+    val Config: ImageVector by lazy { symbol("Config", P.Tune) }
+    val Logs: ImageVector by lazy { symbol("Logs", P.Article, autoMirror = true) }
+    val Settings: ImageVector by lazy { symbol("Settings", P.Settings) }
+    val Connected: ImageVector by lazy { symbol("Connected", P.TaskAlt) }
+    val Offline: ImageVector by lazy { symbol("Offline", P.Cancel) }
+    val Vpn: ImageVector by lazy { symbol("Vpn", P.VpnKey) }
+    val Dns: ImageVector by lazy { symbol("Dns", P.Dns) }
+    val Advanced: ImageVector by lazy { symbol("Advanced", P.Tune) }
+    val Search: ImageVector by lazy { symbol("Search", P.Search) }
+    val Warning: ImageVector by lazy { symbol("Warning", P.Warning) }
+    val Error: ImageVector by lazy { symbol("Error", P.Cancel) }
+    val Info: ImageVector by lazy { symbol("Info", P.Info) }
+    val Lock: ImageVector by lazy { symbol("Lock", P.Lock) }
+    val LockOpen: ImageVector by lazy { symbol("LockOpen", P.LockOpen) }
+    val Copy: ImageVector by lazy { symbol("Copy", P.ContentCopy) }
+    val Favorite: ImageVector by lazy { symbol("Favorite", P.Star) }
+    val Share: ImageVector by lazy { symbol("Share", P.Share) }
+    val ChevronRight: ImageVector by lazy { symbol("ChevronRight", P.KeyboardArrowRight, autoMirror = true) }
+    val Back: ImageVector by lazy { symbol("Back", P.ArrowBack, autoMirror = true) }
+    val Overflow: ImageVector by lazy { symbol("Overflow", P.MoreVert) }
+    val Close: ImageVector by lazy { symbol("Close", P.Close) }
+    val Check: ImageVector by lazy { symbol("Check", P.Check) }
+    val KeyboardArrowDown: ImageVector by lazy { symbol("KeyboardArrowDown", P.KeyboardArrowDown) }
+    val KeyboardArrowUp: ImageVector by lazy { symbol("KeyboardArrowUp", P.KeyboardArrowUp) }
+    val LocationOn: ImageVector by lazy { symbol("LocationOn", P.LocationOn) }
+    val NetworkCheck: ImageVector by lazy { symbol("NetworkCheck", P.NetworkCheck) }
+    val Public: ImageVector by lazy { symbol("Public", P.Public) }
+    val Remove: ImageVector by lazy { symbol("Remove", P.Remove) }
+    val Shield: ImageVector by lazy { symbol("Shield", P.Shield) }
+    val Timer: ImageVector by lazy { symbol("Timer", P.Timer) }
+    val Videocam: ImageVector by lazy { symbol("Videocam", P.Videocam) }
+    val Visibility: ImageVector by lazy { symbol("Visibility", P.Visibility) }
+    val QrCodeScanner: ImageVector by lazy { symbol("QrCodeScanner", P.QrCodeScanner) }
+    val PhotoCamera: ImageVector by lazy { symbol("PhotoCamera", P.PhotoCamera) }
+    val Image: ImageVector by lazy { symbol("Image", P.Image) }
+    val Refresh: ImageVector by lazy { symbol("Refresh", P.Refresh) }
+    val Archive: ImageVector by lazy { symbol("Archive", P.Archive) }
+    val Delete: ImageVector by lazy { symbol("Delete", P.Delete) }
+    val Add: ImageVector by lazy { symbol("Add", P.Add) }
+    val Paste: ImageVector by lazy { symbol("Paste", P.ContentPaste) }
+    val Import: ImageVector by lazy { symbol("Import", P.FileOpen) }
+    val OpenExternal: ImageVector by lazy { symbol("OpenExternal", P.OpenInNew, autoMirror = true) }
+    val MoveTo: ImageVector by lazy { symbol("MoveTo", P.DriveFileMove, autoMirror = true) }
+    val Restore: ImageVector by lazy { symbol("Restore", P.SettingsBackupRestore) }
+    val History: ImageVector by lazy { symbol("History", P.History) }
+    val Edit: ImageVector by lazy { symbol("Edit", P.Edit) }
+    val Tuner: ImageVector by lazy { symbol("Tuner", P.Science) }
+    val CameraOff: ImageVector by lazy { symbol("CameraOff", P.NoPhotography) }
 }
