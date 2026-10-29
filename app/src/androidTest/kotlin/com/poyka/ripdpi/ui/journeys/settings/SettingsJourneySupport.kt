@@ -2,10 +2,13 @@ package com.poyka.ripdpi.ui.journeys.settings
 
 import androidx.compose.ui.test.hasScrollToNodeAction
 import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.ComposeTestRule
+import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.printToLog
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.runBlocking
@@ -43,7 +46,10 @@ internal fun ComposeTestRule.scrollToTag(tag: String) {
             if (tagExists(tag)) break
         }
     }
-    awaitTag(tag)
+    runCatching { awaitTag(tag) }.onFailure {
+        onRoot(useUnmergedTree = true).printToLog("SCROLLDBG-$tag")
+        throw it
+    }
     runCatching { onNode(hasTestTag(tag)).performScrollTo() }
 }
 
@@ -58,4 +64,11 @@ internal fun ComposeTestRule.awaitSettings(
     predicate: (AppSettings) -> Boolean,
 ) {
     waitUntil(timeoutMillis) { predicate(runBlocking { repository.snapshot() }) }
+}
+
+internal fun ComposeTestRule.awaitSelected(
+    tag: String,
+    timeoutMillis: Long = UiTimeoutMillis,
+) {
+    waitUntil(timeoutMillis) { onAllNodes(hasTestTag(tag) and isSelected()).fetchSemanticsNodes().isNotEmpty() }
 }

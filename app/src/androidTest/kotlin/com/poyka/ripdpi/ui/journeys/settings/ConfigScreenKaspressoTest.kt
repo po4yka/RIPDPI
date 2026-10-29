@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.journeys.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
@@ -49,7 +48,7 @@ class ConfigScreenKaspressoTest :
             step("Selecting the proxy chip selects it, deselects VPN and persists proxy mode") {
                 composeRule.clickTag(RipDpiTestTags.configModeSection("local_bypass"))
                 composeRule.clickTag(proxyChip)
-                composeRule.onNodeWithTag(proxyChip).assertIsSelected()
+                composeRule.awaitSelected(proxyChip)
                 composeRule.awaitSettings(repository = appSettingsRepository) {
                     it.ripdpiMode ==
                         Mode.Proxy.preferenceValue
@@ -59,7 +58,7 @@ class ConfigScreenKaspressoTest :
             }
             step("Selecting the VPN chip switches back") {
                 composeRule.clickTag(vpnChip)
-                composeRule.onNodeWithTag(vpnChip).assertIsSelected()
+                composeRule.awaitSelected(vpnChip)
                 composeRule.awaitSettings(repository = appSettingsRepository) {
                     it.ripdpiMode ==
                         Mode.VPN.preferenceValue
@@ -142,6 +141,7 @@ class ConfigScreenKaspressoTest :
         run {
             step("Select proxy mode and open the connection details") {
                 composeRule.clickTag(proxyChip)
+                composeRule.awaitSelected(proxyChip)
                 composeRule.clickTag(RipDpiTestTags.ConfigConnectionDetails)
             }
             step("The details show the automatic strategy and the precedence note") {
