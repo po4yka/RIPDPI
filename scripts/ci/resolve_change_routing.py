@@ -95,7 +95,6 @@ RELEASE_BUILD_LOGIC_FILENAMES: Final = frozenset(
 
 WORKFLOW_FILES: Final = frozenset(
     {
-        ".github/workflows/codeql-tracker.yml",
         ".github/workflows/codeql.yml",
         ".github/workflows/i18n-export.yml",
         ".github/workflows/i18n-locale-drift.yml",
