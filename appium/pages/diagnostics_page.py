@@ -157,18 +157,6 @@ class DiagnosticsPage(BasePage):
     def type_events_search(self, query: str) -> None:
         self.clear_and_type(self.EVENTS_SEARCH, query)
 
-    def tap_session_path_filter(self, path_mode: str) -> None:
-        self.tap(f"diagnostics-session-path-{path_mode}")
-
-    def tap_session_status_filter(self, status: str) -> None:
-        self.tap(f"diagnostics-session-status-{status}")
-
-    def tap_event_source_filter(self, source: str) -> None:
-        self.tap(f"diagnostics-event-source-{source}")
-
-    def tap_event_severity_filter(self, severity: str) -> None:
-        self.tap(f"diagnostics-event-severity-{severity}")
-
     # -- overview helpers --------------------------------------------------------
 
     def swipe_to_dashboard_section(self) -> None:
