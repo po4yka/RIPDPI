@@ -2550,6 +2550,7 @@ fakeddisorder endhost</string>
     <string name="awg_field_i4">I4</string>
     <string name="awg_field_i5">I5</string>
     <string name="awg_field_invalid">Недопустимое значение для этого поля.</string>
+    <string name="awg_hp_prefix_min">Для защиты заголовка установите %1$s не менее %2$d.</string>
     <string name="awg_cohort_picker_label">Пресет когорты</string>
     <string name="awg_cohort_custom">Свой</string>
     <string name="awg_cohort_locked_hint">Поля обфускации заданы выбранной когортой. Выберите \"Свой\", чтобы их изменить.</string>

@@ -414,6 +414,27 @@ class AmneziaWgProfileViewModelTest {
     }
 
     @Test
+    fun `invalid header nonce prefix blocks saving and activation until corrected`() =
+        runTest {
+            val vm = viewModel()
+            vm.onConfPasted(
+                "[Interface]\nPrivateKey = k==\nAddress = 10.8.0.2/32\n" +
+                    "HeaderProtectionKey = AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=\n" +
+                    "S1 = 12\nS2 = 12\nS3 = 12\nS4 = 12\n" +
+                    "[Peer]\nPublicKey = p==\nEndpoint = vpn.example.com:51820",
+            )
+            assertTrue(vm.uiState.value.canActivate)
+            vm.onFieldChanged(AwgEditorField.S3, "11")
+            assertFalse(vm.uiState.value.canActivate)
+            vm.onConnect()
+            advanceUntilIdle()
+            assertTrue(dao.allProfiles().isEmpty())
+            assertNull(activator.lastActivated)
+            vm.onFieldChanged(AwgEditorField.S3, "12")
+            assertTrue(vm.uiState.value.canActivate)
+        }
+
+    @Test
     fun `a fresh editor cannot activate and connect is a no-op`() =
         runTest {
             val viewModel = viewModel()

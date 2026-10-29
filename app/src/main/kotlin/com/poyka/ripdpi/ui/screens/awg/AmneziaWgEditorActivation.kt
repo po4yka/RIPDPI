@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
  * Blank AllowedIPs selects full routes for the configured address families.
  */
 fun AmneziaWgEditorState.toActivationRequest(profileId: String): AwgActivationRequest {
+    require(obfuscationConsistent()) { "AmneziaWG obfuscation parameters are invalid" }
     val addresses = rawText(AwgEditorField.ADDRESS).split(',').map(String::trim).filter(String::isNotEmpty)
     val (ipv6, ipv4) = addresses.partition { ':' in it }
     require(ipv4.size == 1 && ipv6.size <= 1) { "AmneziaWG requires one IPv4 and at most one IPv6 address" }

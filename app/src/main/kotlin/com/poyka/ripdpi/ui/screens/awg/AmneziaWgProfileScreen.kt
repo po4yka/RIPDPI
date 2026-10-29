@@ -23,6 +23,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgProfileForm
+import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 import com.poyka.ripdpi.security.AppPinCheck
 import com.poyka.ripdpi.security.SecretRevealPinViewModel
 import com.poyka.ripdpi.security.rememberSecretRevealGate
@@ -452,7 +453,24 @@ private fun PlainField(
                 label = stringResource(labelRes),
                 placeholder = placeholder,
                 helperText = helperText,
-                errorText = if (hasError) stringResource(R.string.awg_field_invalid) else null,
+                errorText =
+                    when {
+                        editor.hasHeaderProtectionPrefixError(field) -> {
+                            stringResource(
+                                R.string.awg_hp_prefix_min,
+                                field.name,
+                                AmneziaWgV3Parameters.HeaderNonceBytes,
+                            )
+                        }
+
+                        hasError -> {
+                            stringResource(R.string.awg_field_invalid)
+                        }
+
+                        else -> {
+                            null
+                        }
+                    },
                 testTag = RipDpiTestTags.awgField(field.name),
             ),
         behavior =

@@ -2668,6 +2668,7 @@ fake_burst 3</string>
     <string name="awg_field_i4">I4</string>
     <string name="awg_field_i5">I5</string>
     <string name="awg_field_invalid">此字段的值无效。</string>
+    <string name="awg_hp_prefix_min">要保护标头，请将 %1$s 设为 %2$d 或更大。</string>
     <string name="awg_cohort_picker_label">群组预设</string>
     <string name="awg_cohort_custom">自定义</string>
     <string name="awg_cohort_locked_hint">混淆字段由所选群组设定。选择“自定义”可编辑这些字段。</string>

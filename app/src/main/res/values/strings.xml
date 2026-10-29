@@ -2825,6 +2825,7 @@ Source: %2$s</string>
     <string name="awg_field_i4">I4</string>
     <string name="awg_field_i5">I5</string>
     <string name="awg_field_invalid">Not a valid value for this field.</string>
+    <string name="awg_hp_prefix_min">Set %1$s to %2$d or more for header protection.</string>
     <string name="awg_cohort_picker_label">Cohort preset</string>
     <string name="awg_cohort_custom">Custom</string>
     <string name="awg_cohort_locked_hint">Obfuscation fields are set by the selected cohort. Choose \"Custom\" to edit them.</string>

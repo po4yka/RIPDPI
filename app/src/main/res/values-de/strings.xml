@@ -2671,6 +2671,7 @@ Quelle: %2$s</string>
     <string name="awg_field_i4">I4</string>
     <string name="awg_field_i5">I5</string>
     <string name="awg_field_invalid">Kein gültiger Wert für dieses Feld.</string>
+    <string name="awg_hp_prefix_min">Setzen Sie %1$s für den Header-Schutz auf mindestens %2$d.</string>
     <string name="awg_cohort_picker_label">Kohorten-Vorlage</string>
     <string name="awg_cohort_custom">Benutzerdefiniert</string>
     <string name="awg_cohort_locked_hint">Die Verschleierungsfelder werden von der gewählten Kohorte festgelegt. Wählen Sie \"Benutzerdefiniert\", um sie zu bearbeiten.</string>

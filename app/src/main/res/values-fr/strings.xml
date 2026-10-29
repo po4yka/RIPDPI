@@ -2671,6 +2671,7 @@ Source : %2$s</string>
     <string name="awg_field_i4">I4</string>
     <string name="awg_field_i5">I5</string>
     <string name="awg_field_invalid">Valeur non valide pour ce champ.</string>
+    <string name="awg_hp_prefix_min">Pour protéger les en-têtes, définissez %1$s sur %2$d ou plus.</string>
     <string name="awg_cohort_picker_label">Préréglage de cohorte</string>
     <string name="awg_cohort_custom">Personnalisé</string>
     <string name="awg_cohort_locked_hint">Les champs d\'obfuscation sont définis par la cohorte sélectionnée. Choisissez \"Personnalisé\" pour les modifier.</string>

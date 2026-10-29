@@ -111,6 +111,19 @@ class AmneziaWgRuntimeConfigResolverTest {
                         v3 = v3.copy(headerProtectionKey = key),
                     ),
             )
+        for (size in listOf(0, 11)) {
+            val obfuscation = protected.obfuscation
+            listOf(
+                obfuscation.copy(s1 = size),
+                obfuscation.copy(s2 = size),
+                obfuscation.copy(s3 = size),
+                obfuscation.copy(s4 = size),
+            ).forEach { invalid ->
+                assertThrows(
+                    IllegalArgumentException::class.java,
+                ) { resolver.resolve(protected.copy(obfuscation = invalid)) }
+            }
+        }
         val resolved = resolver.resolve(protected)
         assertEquals(12 to 12, resolved.amnezia.s3 to resolved.amnezia.s4)
         assertEquals(key, resolved.amnezia.v3.headerProtectionKey)

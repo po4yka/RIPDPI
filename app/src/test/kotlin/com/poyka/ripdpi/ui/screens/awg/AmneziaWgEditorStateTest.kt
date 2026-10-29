@@ -4,7 +4,9 @@ import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.requireRuntimeReady
+import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
+import com.poyka.ripdpi.data.wireguard.AwgHeaderProtectionKey
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -67,6 +69,44 @@ class AmneziaWgEditorStateTest {
                 assertEquals(0 to 0, request.persistentKeepalive to request.persistentKeepaliveMax)
             }
         }
+    }
+
+    @Test
+    fun `header protection requires all four nonce prefixes before readiness and save`() {
+        val key = AwgHeaderProtectionKey(Base64.getEncoder().encodeToString(ByteArray(32) { 3 }))
+        val fields = listOf(AwgEditorField.S1, AwgEditorField.S2, AwgEditorField.S3, AwgEditorField.S4)
+        val initial = activatableState()
+        val protected =
+            fields.fold(initial.copy(form = initial.form.copy(v3 = AmneziaWgV3Parameters(headerProtectionKey = key)))) {
+                editor,
+                field,
+                ->
+                editor.updateField(field, "12")
+            }
+        assertTrue(protected.isActivatable())
+        fields.forEach { field ->
+            for (size in listOf("", "0", "11")) {
+                val invalid = protected.updateField(field, size)
+                assertTrue(field.name, invalid.hasFieldError(field))
+                assertFalse(field.name, invalid.isActivatable())
+                val error =
+                    assertThrows(IllegalArgumentException::class.java) { invalid.toActivationRequest("profile") }
+                assertFalse(error.message.orEmpty().contains(key.value))
+            }
+            val valid = protected.updateField(field, "13")
+            assertFalse(valid.hasFieldError(field))
+            assertTrue(valid.isActivatable())
+            assertEquals(
+                key,
+                valid
+                    .toActivationRequest("profile")
+                    .obfuscation.v3.headerProtectionKey,
+            )
+        }
+        val zero = AwgHeaderProtectionKey(Base64.getEncoder().encodeToString(ByteArray(32)))
+        val disabled = initial.copy(form = initial.form.copy(v3 = AmneziaWgV3Parameters(headerProtectionKey = zero)))
+        assertTrue(disabled.isActivatable())
+        assertTrue(fields.none(disabled::hasFieldError))
     }
 
     private val rtkSouth =

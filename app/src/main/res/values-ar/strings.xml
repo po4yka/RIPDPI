@@ -2621,6 +2621,7 @@ fakeddisorder endhost</string>
     <string name="awg_field_i4">I4</string>
     <string name="awg_field_i5">I5</string>
     <string name="awg_field_invalid">القيمة غير صالحة لهذا الحقل.</string>
+    <string name="awg_hp_prefix_min">لحماية الترويسة، اضبط %1$s على %2$d أو أكثر.</string>
     <string name="awg_cohort_picker_label">إعداد مسبق للمجموعة</string>
     <string name="awg_cohort_custom">مخصص</string>
     <string name="awg_cohort_locked_hint">يتم تعيين حقول التشويش من خلال المجموعة المحددة. اختر \"مخصص\" لتعديلها.</string>

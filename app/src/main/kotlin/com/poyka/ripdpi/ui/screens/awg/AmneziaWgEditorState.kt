@@ -112,10 +112,25 @@ data class AmneziaWgEditorState(
     /** Raw user-typed text for [field] (empty when never edited). */
     fun rawText(field: AwgEditorField): String = rawTextByField[field].orEmpty()
 
-    /** `true` when [field]'s raw text is non-empty but fails [AwgEditorField.validate]. */
+    /** Invalid raw text or a prefix that cannot hold the configured header-protection nonce. */
     fun hasFieldError(field: AwgEditorField): Boolean {
         val raw = rawTextByField[field].orEmpty()
-        return raw.isNotEmpty() && field.validate(raw) == null
+        return (raw.isNotEmpty() && field.validate(raw) == null) || hasHeaderProtectionPrefixError(field)
+    }
+
+    fun hasHeaderProtectionPrefixError(field: AwgEditorField): Boolean {
+        if (!form.v3.headerProtectionEnabled) return false
+        val size =
+            when (field) {
+                AwgEditorField.S1 -> form.s1
+                AwgEditorField.S2 -> form.s2
+                AwgEditorField.S3 -> form.s3
+                AwgEditorField.S4 -> form.s4
+                else -> return false
+            }
+        val edited = rawTextByField[field]
+        val effectiveSize = if (edited == null) size else edited.toIntOrNull()
+        return effectiveSize == null || effectiveSize < AmneziaWgV3Parameters.HeaderNonceBytes
     }
 
     /**
@@ -205,6 +220,7 @@ data class AmneziaWgEditorState(
         val wireProfileValid =
             runCatching {
                 AmneziaWgWireProfile.requireScalars(form.jc, form.jmin, form.jmax, form.s1, form.s2, form.s3, form.s4)
+                form.v3.requireValid(listOf(form.s1, form.s2, form.s3, form.s4))
                 AmneziaWgWireProfile.requireValid(
                     form.wireProfile,
                     listOf(form.h1, form.h2, form.h3, form.h4),

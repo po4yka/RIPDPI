@@ -1066,6 +1066,7 @@
     <string name="awg_field_i4">I4</string>
     <string name="awg_field_i5">I5</string>
     <string name="awg_field_invalid">इस फ़ील्ड के लिए मान्य मान नहीं है।</string>
+    <string name="awg_hp_prefix_min">हेडर सुरक्षा के लिए %1$s को %2$d या अधिक पर सेट करें।</string>
     <string name="awg_cohort_picker_label">Cohort प्रीसेट</string>
     <string name="awg_cohort_custom">कस्टम</string>
     <string name="awg_cohort_locked_hint">Obfuscation फ़ील्ड चुने गए cohort द्वारा सेट किए जाते हैं। इन्हें संपादित करने के लिए \"कस्टम\" चुनें।</string>

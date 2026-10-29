@@ -2676,6 +2676,7 @@ fakeddisorder endhost</string>
     <string name="awg_field_i4">I4</string>
     <string name="awg_field_i5">I5</string>
     <string name="awg_field_invalid">مقدار معتبری برای این فیلد نیست.</string>
+    <string name="awg_hp_prefix_min">برای محافظت از سربرگ، %1$s را روی %2$d یا بیشتر تنظیم کنید.</string>
     <string name="awg_cohort_picker_label">پیش‌تنظیم گروه</string>
     <string name="awg_cohort_custom">سفارشی</string>
     <string name="awg_cohort_locked_hint">فیلدهای مبهم‌سازی توسط گروه برگزیده تعیین می‌شوند. برای ویرایش آن‌ها «سفارشی» را برگزینید.</string>

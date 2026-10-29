@@ -2745,6 +2745,7 @@ Fonte: %2$s</string>
     <string name="awg_field_i4">I4</string>
     <string name="awg_field_i5">I5</string>
     <string name="awg_field_invalid">Valor inválido para este campo.</string>
+    <string name="awg_hp_prefix_min">Para proteger o cabeçalho, defina %1$s como %2$d ou mais.</string>
     <string name="awg_cohort_picker_label">Predefinição de coorte</string>
     <string name="awg_cohort_custom">Personalizado</string>
     <string name="awg_cohort_locked_hint">Os campos de ofuscação são definidos pela coorte selecionada. Escolha \"Personalizado\" para editá-los.</string>
