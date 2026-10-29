@@ -125,10 +125,8 @@ class ScanAdmissionService
                 }
             }
 
-        @Suppress("ReturnCount", "UnusedParameter")
-        suspend fun admitAutomaticProbe(
-            settings: com.poyka.ripdpi.proto.AppSettings,
-        ): com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity? {
+        @Suppress("ReturnCount")
+        suspend fun admitAutomaticProbe(): com.poyka.ripdpi.data.diagnostics.DiagnosticProfileEntity? {
             if (homeRunLease.isActive() || activeScanRegistry.hasActiveScan()) {
                 return null
             }

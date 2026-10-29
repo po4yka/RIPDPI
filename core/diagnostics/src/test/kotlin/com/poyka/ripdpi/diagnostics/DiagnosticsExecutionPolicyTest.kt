@@ -250,7 +250,7 @@ class DiagnosticsExecutionPolicyTest {
                     homeRunLease = DiagnosticsHomeRunLease(),
                 )
 
-            val admitted = service.admitAutomaticProbe(defaultDiagnosticsAppSettings())
+            val admitted = service.admitAutomaticProbe()
 
             assertNull(admitted)
         }
@@ -271,7 +271,7 @@ class DiagnosticsExecutionPolicyTest {
             )
             val service = scanAdmissionService(stores, activeScanRegistry(stores, backgroundScope, json), json)
 
-            assertNull(service.admitAutomaticProbe(defaultDiagnosticsAppSettings()))
+            assertNull(service.admitAutomaticProbe())
         }
 
     @Test

@@ -184,10 +184,7 @@ fun ServerCapabilityRecord.isFreshDirectPolicy(nowMillis: Long): Boolean {
  * when both the stored and the current value are known, so an unknown current
  * signal never wrongly drops a valid policy.
  */
-fun ServerCapabilityRecord.isInvalidatedByEnvironment(
-    environment: DirectPolicyEnvironment,
-    @Suppress("UNUSED_PARAMETER") nowMillis: Long,
-): Boolean {
+fun ServerCapabilityRecord.isInvalidatedByEnvironment(environment: DirectPolicyEnvironment): Boolean {
     val asnChanged =
         observedAsn != null && environment.currentAsn != null && observedAsn != environment.currentAsn
     val echChanged =
@@ -205,7 +202,7 @@ fun ServerCapabilityRecord.isRuntimeUsableDirectPolicy(nowMillis: Long): Boolean
 fun ServerCapabilityRecord.isRuntimeUsableDirectPolicy(
     nowMillis: Long,
     environment: DirectPolicyEnvironment,
-): Boolean = isRuntimeUsableDirectPolicy(nowMillis) && !isInvalidatedByEnvironment(environment, nowMillis)
+): Boolean = isRuntimeUsableDirectPolicy(nowMillis) && !isInvalidatedByEnvironment(environment)
 
 fun ServerCapabilityRecord.effectiveTransportPolicyEnvelope(): TransportPolicyEnvelope {
     val existingEnvelope = transportPolicyEnvelope

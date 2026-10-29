@@ -274,7 +274,7 @@ class DiagnosticsDnsReprobeCancellationTest {
                 )
             assertNull(
                 "Admission must reject an automatic probe while a DNS-corrected re-probe is pending",
-                admission.admitAutomaticProbe(settings),
+                admission.admitAutomaticProbe(),
             )
 
             // The reservation is released once the resume wait times out and cleanup
@@ -285,8 +285,8 @@ class DiagnosticsDnsReprobeCancellationTest {
                 runCurrent()
             }
             assertFalse(fixtures.activeScanRegistry.hasActiveScan())
-            assertTrue(admission.admitAutomaticProbe(settings) != null)
-            assertTrue(admission.admitAutomaticProbe(settings) != null)
+            assertTrue(admission.admitAutomaticProbe() != null)
+            assertTrue(admission.admitAutomaticProbe() != null)
         }
 
     private fun testInPathRouteLease() =

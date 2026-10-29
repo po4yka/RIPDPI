@@ -629,7 +629,7 @@ class DiagnosticsScanDnsCorrectedReprobeTest {
             val admission =
                 admissionService.admitManualStart(selectedProfileId = "automatic-probing")
             assertTrue(admission is ManualStartAdmission.HiddenAutomaticProbeConflict)
-            assertNull(admissionService.admitAutomaticProbe(settings))
+            assertNull(admissionService.admitAutomaticProbe())
 
             releaseHandoff.complete(Unit)
             runCurrent()

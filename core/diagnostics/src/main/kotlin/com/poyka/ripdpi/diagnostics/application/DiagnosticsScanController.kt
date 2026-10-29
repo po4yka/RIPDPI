@@ -326,7 +326,7 @@ internal class DefaultDiagnosticsScanController
                         return@withAutomaticAdmission AutomaticProbeLaunchOutcome.RETRY
                     }
                     val profile =
-                        scanAdmissionService.admitAutomaticProbe(settings)
+                        scanAdmissionService.admitAutomaticProbe()
                             ?: return@withAutomaticAdmission AutomaticProbeLaunchOutcome.RETRY
                     val prepared =
                         scanRequestFactory.prepareScan(

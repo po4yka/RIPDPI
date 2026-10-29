@@ -171,7 +171,7 @@ class DiagnosticsArchiveSessionSelector
             val primaryEventSource =
                 primarySession?.id?.let { sessionId -> loadSessionEventSource(sessionId) }
                     ?: emptyNativeEventArchiveSource()
-            val primary = buildPrimarySessionData(primarySession, primaryResults, primaryEventSource, sourceData)
+            val primary = buildPrimarySessionData(primarySession, primaryEventSource, sourceData)
             val isComposite = compositeOutcome != null && request.homeRunId != null
             val compositeStages =
                 compositeStageSelector.build(
@@ -294,7 +294,6 @@ class DiagnosticsArchiveSessionSelector
 
         private fun buildPrimarySessionData(
             primarySession: ScanSessionEntity?,
-            @Suppress("UnusedParameter") primaryResults: List<ProbeResultEntity>,
             primaryEventSource: DiagnosticsNativeEventArchiveSource,
             sourceData: DiagnosticsArchiveSourceData,
         ): PrimarySessionData {

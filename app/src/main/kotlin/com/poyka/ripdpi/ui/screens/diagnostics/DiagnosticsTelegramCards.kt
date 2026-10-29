@@ -58,7 +58,6 @@ internal fun TelegramResultCard(
             avgBps = details["downloadAvgBps"],
             peakBps = details["downloadPeakBps"],
             bytes = details["downloadBytes"],
-            durationMs = details["downloadDurationMs"],
             error = details["downloadError"],
         )
 
@@ -68,7 +67,6 @@ internal fun TelegramResultCard(
             avgBps = details["uploadAvgBps"],
             peakBps = details["uploadPeakBps"],
             bytes = details["uploadBytes"],
-            durationMs = details["uploadDurationMs"],
             error = details["uploadError"],
         )
 
@@ -109,7 +107,6 @@ internal fun TelegramResultCard(
     }
 }
 
-@Suppress("UnusedParameter")
 @Composable
 private fun TelegramTransferSection(
     label: String,
@@ -117,7 +114,6 @@ private fun TelegramTransferSection(
     avgBps: String?,
     peakBps: String?,
     bytes: String?,
-    durationMs: String?,
     error: String?,
 ) {
     val colors = RipDpiThemeTokens.colors

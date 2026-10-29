@@ -49,14 +49,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
 
-/**
- * @param ruleId informational for callers/NavHost; the ViewModel reads it from [SavedStateHandle],
- *   so it is intentionally not consumed here.
- */
-@Suppress("UNUSED_PARAMETER")
 @Composable
 fun RuleEditorRoute(
-    ruleId: Long,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     viewModel: RuleEditorViewModel = hiltViewModel(),

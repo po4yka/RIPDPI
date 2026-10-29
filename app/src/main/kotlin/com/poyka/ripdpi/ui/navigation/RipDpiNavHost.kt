@@ -785,9 +785,8 @@ private fun NavGraphBuilder.addAdvancedSettingsRoutes(
             onEditRule = { id -> navController.navigate(Route.RuleEditor(id)) },
         )
     }
-    composable<Route.RuleEditor> { entry ->
-        val ruleEditorRoute = entry.toRoute<Route.RuleEditor>()
-        RuleEditorRoute(ruleId = ruleEditorRoute.ruleId, onBack = { navController.popBackStack() })
+    composable<Route.RuleEditor> {
+        RuleEditorRoute(onBack = { navController.popBackStack() })
     }
     composable<Route.AppCustomization> {
         val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }

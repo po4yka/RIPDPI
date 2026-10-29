@@ -89,7 +89,7 @@ class ServerCapabilityDirectPolicyTest {
         val record = confirmedRecord(observedAsn = 64_500)
         val environment = DirectPolicyEnvironment(currentAsn = 64_999)
 
-        assertTrue(record.isInvalidatedByEnvironment(environment, now))
+        assertTrue(record.isInvalidatedByEnvironment(environment))
         assertFalse(record.isRuntimeUsableDirectPolicy(now, environment))
     }
 
@@ -98,7 +98,7 @@ class ServerCapabilityDirectPolicyTest {
         val record = confirmedRecord(observedAsn = 64_500)
         val environment = DirectPolicyEnvironment(currentAsn = 64_500)
 
-        assertFalse(record.isInvalidatedByEnvironment(environment, now))
+        assertFalse(record.isInvalidatedByEnvironment(environment))
         assertTrue(record.isRuntimeUsableDirectPolicy(now, environment))
     }
 
@@ -106,7 +106,7 @@ class ServerCapabilityDirectPolicyTest {
     fun `unknown current asn never invalidates`() {
         val record = confirmedRecord(observedAsn = 64_500)
 
-        assertFalse(record.isInvalidatedByEnvironment(DirectPolicyEnvironment(), now))
+        assertFalse(record.isInvalidatedByEnvironment(DirectPolicyEnvironment()))
     }
 
     // ---- ECH-capability-change invalidation ----
@@ -116,7 +116,7 @@ class ServerCapabilityDirectPolicyTest {
         val record = confirmedRecord(echCapable = true)
         val environment = DirectPolicyEnvironment(echCapable = false)
 
-        assertTrue(record.isInvalidatedByEnvironment(environment, now))
+        assertTrue(record.isInvalidatedByEnvironment(environment))
     }
 
     @Test
@@ -124,7 +124,7 @@ class ServerCapabilityDirectPolicyTest {
         val record = confirmedRecord(echCapable = true)
         val environment = DirectPolicyEnvironment(echCapable = true)
 
-        assertFalse(record.isInvalidatedByEnvironment(environment, now))
+        assertFalse(record.isInvalidatedByEnvironment(environment))
     }
 
     @Test
