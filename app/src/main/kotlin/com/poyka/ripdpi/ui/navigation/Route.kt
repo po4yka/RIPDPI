@@ -301,6 +301,21 @@ sealed class Route {
     }
 
     @Serializable
+    data class ReplayFailure(
+        val domain: String = "",
+        val strategyId: String = "",
+    ) : Route() {
+        @kotlinx.serialization.Transient
+        override val stableRoute = "replay_failure"
+
+        @kotlinx.serialization.Transient
+        override val titleRes = R.string.title_replay_failure
+
+        @kotlinx.serialization.Transient
+        override val icon: ImageVector? = null
+    }
+
+    @Serializable
     data class SharedDiagnosticResult(
         val fragment: String = "",
     ) : Route() {
@@ -512,6 +527,7 @@ sealed class Route {
                     PcapViewer(),
                     PcapCaptureList,
                     ReplayHistory,
+                    ReplayFailure(),
                     SharedDiagnosticResult(),
                     OwnedStackBrowser(),
                     ProfileImportConfirm(),

@@ -111,6 +111,7 @@ data class DiagnosticsScreenActions(
     val onOpenOwnedStackBrowser: (String) -> Unit = {},
     val onOpenPcapCaptureList: () -> Unit = {},
     val onOpenPastReplays: () -> Unit = {},
+    val onReplayProbe: ((Route.ReplayFailure) -> Unit)? = null,
     val onTogglePcapRecording: () -> Unit = {},
     val onRunDnsIntegrityCheck: () -> Unit = {},
     val onRunRemoteDeviceAcceptance: () -> Unit = {},
@@ -487,7 +488,12 @@ private fun DiagnosticsScreenDialogs(
         selectedSessionDetail = uiState.selectedSessionDetail,
         selectedApproachDetail = uiState.selectedApproachDetail,
         selectedEvent = uiState.selectedEvent,
-        probePresentation = DiagnosticsProbeSheetPresentation(uiState.selectedProbe, expertMode),
+        probePresentation =
+            DiagnosticsProbeSheetPresentation(
+                selectedProbe = uiState.selectedProbe,
+                expertMode = expertMode,
+                onReplayProbe = actions.onReplayProbe,
+            ),
         selectedStrategyProbeCandidate = uiState.selectedStrategyProbeCandidate,
         onDismissSessionDetail = actions.onDismissSessionDetail,
         onToggleSensitiveSessionDetails = actions.onToggleSensitiveSessionDetails,

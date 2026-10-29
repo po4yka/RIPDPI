@@ -576,6 +576,7 @@ private fun diagnosticsRouteCallbacks(
         onOpenOwnedStackBrowser = { url -> navController.navigate(Route.OwnedStackBrowser(initialUrl = url)) },
         onOpenPcapCaptureList = { navController.navigate(Route.PcapCaptureList) },
         onOpenPastReplays = { navController.navigate(Route.ReplayHistory) },
+        onReplayProbe = { route -> navController.navigate(route) },
         onInitialSectionHandled = { onDiagnosticsInitialSectionChanged(null) },
         onCancelHomeAnalysis = mainViewModel::onCancelHomeAnalysis,
         onCheckNetwork = mainViewModel::onRunHomeQuickAnalysis,
@@ -854,6 +855,7 @@ private fun NavGraphBuilder.addDetectionSettingsRoutes(navController: NavHostCon
         )
     }
     addImportRoutes(navController)
+    addReplayRoutes(navController)
 }
 
 // Callers leave a finished flow (an import, a launch request), so its screens are dropped,
@@ -944,6 +946,7 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.PcapViewer().stableRoute to { hasRoute<Route.PcapViewer>() },
         Route.PcapCaptureList.stableRoute to { hasRoute<Route.PcapCaptureList>() },
         Route.ReplayHistory.stableRoute to { hasRoute<Route.ReplayHistory>() },
+        Route.ReplayFailure().stableRoute to { hasRoute<Route.ReplayFailure>() },
         Route.OwnedStackBrowser().stableRoute to { hasRoute<Route.OwnedStackBrowser>() },
         Route.SharedDiagnosticResult().stableRoute to { hasRoute<Route.SharedDiagnosticResult>() },
         Route.ProfileImportConfirm().stableRoute to { hasRoute<Route.ProfileImportConfirm>() },

@@ -44,6 +44,7 @@ internal fun DiagnosticsScreenActions.withNavigationCallbacks(
         onOpenOwnedStackBrowser = callbacks.onOpenOwnedStackBrowser,
         onOpenPcapCaptureList = callbacks.onOpenPcapCaptureList,
         onOpenPastReplays = callbacks.onOpenPastReplays,
+        onReplayProbe = callbacks.onReplayProbe,
         onCancelScan = {
             if (homeDiagnostics.compositeRunBusy) callbacks.onCancelHomeAnalysis() else viewModel.cancelScan()
         },

@@ -31,6 +31,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
+import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -42,6 +43,7 @@ private const val SessionDetailMaxEvents = 6
 internal data class DiagnosticsProbeSheetPresentation(
     val selectedProbe: DiagnosticsProbeResultUiModel?,
     val expertMode: Boolean = true,
+    val onReplayProbe: ((Route.ReplayFailure) -> Unit)? = null,
 )
 
 @Suppress("LongMethod", "CyclomaticComplexMethod")
@@ -64,6 +66,7 @@ internal fun DiagnosticsBottomSheetHost(
     onDismissApproachDetail: () -> Unit,
 ) {
     val expertMode = probePresentation.expertMode
+    val onReplayProbe = probePresentation.onReplayProbe
     val colors = RipDpiThemeTokens.colors
 
     if (selectedStrategyProbeCandidate == null) {
@@ -348,6 +351,18 @@ internal fun DiagnosticsBottomSheetHost(
                     )
                     group.items.forEach { probe ->
                         ProbeResultRow(probe = probe, onClick = null)
+                        val replayRoute = replayRouteFor(candidate.id, probe)
+                        if (onReplayProbe != null && replayRoute != null) {
+                            RipDpiButton(
+                                text = stringResource(R.string.vpn_replay_failure_replay),
+                                onClick = { onReplayProbe(replayRoute) },
+                                variant = RipDpiButtonVariant.Outline,
+                                modifier =
+                                    Modifier
+                                        .fillMaxWidth()
+                                        .ripDpiTestTag(RipDpiTestTags.DiagnosticsProbeReplayAction),
+                            )
+                        }
                     }
                 }
             }

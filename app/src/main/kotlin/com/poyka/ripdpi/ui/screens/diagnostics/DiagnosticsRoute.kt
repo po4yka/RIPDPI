@@ -40,6 +40,7 @@ import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.showRipDpiSnackbar
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
+import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.xray.XrayProviderToolUiModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import kotlinx.coroutines.CoroutineScope
@@ -451,6 +452,7 @@ data class DiagnosticsRouteCallbacks(
     val onOpenOwnedStackBrowser: (String) -> Unit = {},
     val onOpenPcapCaptureList: () -> Unit = {},
     val onOpenPastReplays: () -> Unit = {},
+    val onReplayProbe: (Route.ReplayFailure) -> Unit = {},
     val onInitialSectionHandled: () -> Unit = {},
     val onCancelHomeAnalysis: () -> Unit = {},
     val onCheckNetwork: () -> Unit = {},

@@ -119,7 +119,8 @@ class RipDpiNavHostLogicTest {
     fun `route registry and stable matchers cover every NavHost destination`() {
         val navHostSource = File("src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt").readText()
         val importNavigationSource =
-            File("src/main/kotlin/com/poyka/ripdpi/ui/navigation/ImportNavigation.kt").readText()
+            File("src/main/kotlin/com/poyka/ripdpi/ui/navigation/ImportNavigation.kt").readText() +
+                File("src/main/kotlin/com/poyka/ripdpi/ui/navigation/ReplayNavigation.kt").readText()
         val registeredDestinationTypes =
             Regex("""composable<Route\.([A-Za-z0-9_]+)>""")
                 .findAll(navHostSource + importNavigationSource)
@@ -349,7 +350,6 @@ class RipDpiNavHostLogicTest {
                 "strategy_ab",
                 "strategy_import",
                 "profile_variants",
-                "replay_failure",
             )
 
         removedRoutes.forEach { stableRoute ->
@@ -406,6 +406,7 @@ private val ExpectedRootScreenTags: Map<String, String> =
         Route.PcapViewer().stableRoute to "pcap_viewer-screen",
         Route.PcapCaptureList.stableRoute to "pcap_capture_list-screen",
         Route.ReplayHistory.stableRoute to "replay_history-screen",
+        Route.ReplayFailure().stableRoute to "replay_failure-screen",
         Route.SharedDiagnosticResult().stableRoute to "shared_diagnostic_result-screen",
         Route.OwnedStackBrowser().stableRoute to "owned_stack_browser-screen",
         Route.ProfileImportConfirm().stableRoute to "import/profile_confirm-screen",
@@ -483,6 +484,7 @@ private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
         Route.PcapViewer().stableRoute to setOf(ReachabilityMechanism.ParentCallback),
         Route.PcapCaptureList.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
         Route.ReplayHistory.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
+        Route.ReplayFailure().stableRoute to setOf(ReachabilityMechanism.ParentCallback),
         Route.SharedDiagnosticResult().stableRoute to setOf(ReachabilityMechanism.LaunchRequest),
         Route.OwnedStackBrowser().stableRoute to setOf(ReachabilityMechanism.ParentCallback),
         Route.ProfileImportConfirm().stableRoute to
