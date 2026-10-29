@@ -13,8 +13,14 @@ cargo fmt --manifest-path "$workspace_manifest" --all --check
 echo "==> runtime crate boundaries"
 python3 "$repo_root/scripts/ci/check_runtime_crate_boundaries.py"
 
+echo "==> unsafe-boundary scanner self-tests"
+python3 -m unittest discover -s "$repo_root/scripts/ci/tests" -p 'test_check_unsafe_boundaries.py' -v
+
 echo "==> unsafe-boundary allowlist guard"
 python3 "$repo_root/scripts/ci/check_unsafe_boundaries.py"
+
+echo "==> FFI header surface guard"
+python3 "$repo_root/scripts/ci/check_ffi_headers.py"
 
 echo "==> FFI panic-boundary scanner self-tests"
 # Run the scanner's unit tests first so a regex regression surfaces here

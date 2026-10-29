@@ -24,6 +24,9 @@ on:
       - "scripts/ci/check-locale-parity.sh"
       - "scripts/ci/check_localized_settings_options.py"
       - "scripts/ci/test_*localization_regressions.py"
+      - "README*.md"
+      - "docs/fa/README.md"
+      - "scripts/check-readme-selectors.sh"
       - ".github/workflows/i18n-locale-drift.yml"
   pull_request:
     paths:
@@ -35,6 +38,9 @@ on:
       - "scripts/ci/check-locale-parity.sh"
       - "scripts/ci/check_localized_settings_options.py"
       - "scripts/ci/test_*localization_regressions.py"
+      - "README*.md"
+      - "docs/fa/README.md"
+      - "scripts/check-readme-selectors.sh"
       - ".github/workflows/i18n-locale-drift.yml"
 
 permissions:
@@ -50,3 +56,5 @@ jobs:
         run: scripts/ci/check-locale-parity.sh
       - name: Check audited localization regressions
         run: python3 -m unittest discover -s scripts/ci -p 'test_*localization_regressions.py'
+      - name: Check README language selectors
+        run: bash scripts/check-readme-selectors.sh

@@ -322,6 +322,45 @@ jobs:
       - name: Run native hotspot budgets
         run: python3 scripts/ci/check_native_hotspot_budgets.py
 
+      - name: Run native hotspot budget unit tests
+        run: python3 scripts/ci/test_native_hotspot_budgets.py
+
+      - name: Run WS transport layer contract tests
+        run: python3 scripts/ci/test_ws_transport_layer_contract.py
+
+      - name: Run Android packet smoke library tests
+        run: bash scripts/ci/test-android-packet-smoke-lib.sh
+
+      - name: Run script and evidence tool unit tests
+        run: |
+          python3 -m unittest \
+            scripts.tests.test_android_awg_interop_evidence \
+            scripts.tests.test_android_hysteria_udp_fixture \
+            scripts.tests.test_android_peer_diagnostics \
+            scripts.tests.test_android_so_bind_physical_evidence \
+            scripts.tests.test_asn_exposure_denylist_assets \
+            scripts.tests.test_build_phase0_baseline \
+            scripts.tests.test_check_file_loc_limits \
+            scripts.tests.test_check_runtime_crate_boundaries \
+            scripts.tests.test_e2e_vpn_deploy_uri_summary \
+            scripts.tests.test_extract_pluggable_transport_artifact \
+            scripts.tests.test_generate_update_metadata \
+            scripts.tests.test_home_disclosure_selector_contract \
+            scripts.tests.test_linux_bpf_test_runner \
+            scripts.tests.test_offline_strategy_simulator \
+            scripts.tests.test_packet_smoke_generator \
+            scripts.tests.test_pmtud_local_evidence \
+            scripts.tests.test_so_bindtodevice_evidence \
+            scripts.tests.test_so_bindtodevice_lane \
+            scripts.tests.test_standalone_awg_interop_runner \
+            scripts.tests.test_summarize_coverage \
+            scripts.tests.test_target37_lan_fixture \
+            scripts.tests.test_target37_network_smoke \
+            scripts.tests.test_tls_template_acceptance \
+            scripts.tests.test_verify_native_bloat \
+            scripts.tests.test_verify_native_elfs \
+            scripts.tests.test_verify_native_sizes
+
       - name: Upload architecture health reports
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
