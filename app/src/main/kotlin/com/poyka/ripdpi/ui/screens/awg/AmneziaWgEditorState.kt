@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgCohortPreset
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.applyCohortPreset
+import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 
 /**
@@ -67,11 +68,31 @@ enum class AwgEditorField(
      */
     fun validate(raw: String): Any? =
         when (this) {
-            JC -> raw.toIntOrNull()?.takeIf { it in 0..AmneziaWgWireProfile.MaximumJunkPackets }
-            JMIN, JMAX, S1, S2, S3, S4 -> raw.toIntOrNull()?.takeIf { it in 0..AmneziaWgWireProfile.MaximumPacket }
-            H1, H2, H3, H4 -> raw.takeIf { AmneziaWgWireProfile.headerIsValid(it, name.last().digitToInt()) }
-            I1, I2, I3, I4, I5 -> raw.takeIf { AmneziaWgWireProfile.signatureSize(it) != null }
-            else -> raw
+            PERSISTENT_KEEPALIVE -> {
+                raw.takeIf {
+                    it.isBlank() || AmneziaWgV3Parameters.parsePersistentKeepalive(it.trim()) != null
+                }
+            }
+
+            JC -> {
+                raw.toIntOrNull()?.takeIf { it in 0..AmneziaWgWireProfile.MaximumJunkPackets }
+            }
+
+            JMIN, JMAX, S1, S2, S3, S4 -> {
+                raw.toIntOrNull()?.takeIf { it in 0..AmneziaWgWireProfile.MaximumPacket }
+            }
+
+            H1, H2, H3, H4 -> {
+                raw.takeIf { AmneziaWgWireProfile.headerIsValid(it, name.last().digitToInt()) }
+            }
+
+            I1, I2, I3, I4, I5 -> {
+                raw.takeIf { AmneziaWgWireProfile.signatureSize(it) != null }
+            }
+
+            else -> {
+                raw
+            }
         }
 }
 
@@ -162,6 +183,7 @@ data class AmneziaWgEditorState(
             form.peerPublicKey.isNotBlank() &&
             rawText(AwgEditorField.ADDRESS).isNotBlank() &&
             obfuscationConsistent() &&
+            !hasFieldError(AwgEditorField.PERSISTENT_KEEPALIVE) &&
             (form.carrier != AwgActivationRequest.CARRIER_WS || form.carrierWsUrl.isNotBlank())
 
     /**

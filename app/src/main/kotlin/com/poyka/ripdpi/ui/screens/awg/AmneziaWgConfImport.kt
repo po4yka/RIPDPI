@@ -69,9 +69,14 @@ private fun AmneziaWgEditorState.transportRawText(parsed: WireGuardConfModel): M
         iface.dns.takeIf { it.isNotEmpty() }?.let { put(AwgEditorField.DNS, it.joinToString(", ")) }
         iface.mtu?.let { put(AwgEditorField.MTU, it.toString()) }
         peer?.allowedIps?.takeIf { it.isNotEmpty() }?.let { put(AwgEditorField.ALLOWED_IPS, it.joinToString(", ")) }
-        peer?.persistentKeepalive?.let { low ->
-            put(AwgEditorField.PERSISTENT_KEEPALIVE, peer.persistentKeepaliveMax?.let { "$low-$it" } ?: "$low")
-        }
+        put(
+            AwgEditorField.PERSISTENT_KEEPALIVE,
+            peer
+                ?.persistentKeepalive
+                ?.let { low ->
+                    peer.persistentKeepaliveMax?.let { "$low-$it" } ?: "$low"
+                }.orEmpty(),
+        )
     }
 }
 

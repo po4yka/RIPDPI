@@ -24,6 +24,36 @@ import org.junit.Test
  * The codec must round-trip an [AmneziaWgProfile] losslessly.
  */
 class AmneziaWgUriCodecTest {
+    @Test
+    fun `keepalive grammar rejects invalid input and preserves fixed and ranged values`() {
+        val uri = AmneziaWgUriCodec.encode(fullProfile().copy(persistentKeepalive = 25))
+        javaClass.getResourceAsStream("/contract/awg-keepalive-invalid.txt")!!.bufferedReader().useLines { lines ->
+            lines.forEach { raw ->
+                val encoded = java.net.URLEncoder.encode(raw, "UTF-8")
+                assertNull(
+                    raw,
+                    AmneziaWgUriCodec.decode(uri.replace("persistent_keepalive=25", "persistent_keepalive=$encoded")),
+                )
+            }
+        }
+        listOf(
+            "0" to (0 to null),
+            "0-0" to (0 to null),
+            "1" to (1 to null),
+            "25-25" to (25 to null),
+            "25-35" to (25 to 35),
+            "65535" to (65535 to null),
+            "1-65535" to (1 to 65535),
+        ).forEach { (raw, expected) ->
+            val parsed =
+                requireNotNull(
+                    AmneziaWgUriCodec.decode(uri.replace("persistent_keepalive=25", "persistent_keepalive=$raw")),
+                )
+            assertEquals(raw, expected, parsed.persistentKeepalive to parsed.persistentKeepaliveMax)
+            assertEquals(parsed, AmneziaWgUriCodec.decode(AmneziaWgUriCodec.encode(parsed)))
+        }
+    }
+
     private fun fullProfile() =
         AmneziaWgProfile(
             name = "Tokyo edge",

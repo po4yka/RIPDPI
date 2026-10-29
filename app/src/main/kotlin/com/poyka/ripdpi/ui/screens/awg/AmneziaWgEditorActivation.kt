@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.awg
 
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.toActivationRequest
+import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 
 /**
  * Projects the editor into an [AwgActivationRequest] for the standalone
@@ -19,12 +20,12 @@ fun AmneziaWgEditorState.toActivationRequest(profileId: String): AwgActivationRe
     val mtu =
         rawText(AwgEditorField.MTU).trim().toIntOrNull()?.takeIf { it > 0 }
             ?: AwgActivationRequest.DEFAULT_MTU
-    // A `.conf` range such as `25-35` (AWG 3.x) picks a random interval in that span.
-    val keepaliveRange = rawText(AwgEditorField.PERSISTENT_KEEPALIVE).trim().split('-').map { it.trim().toIntOrNull() }
-    val keepalive = keepaliveRange.first()?.takeIf { it >= 0 } ?: 0
-    // `0-N` means "off", as in the parser.
-    val keepaliveMax =
-        keepaliveRange.getOrNull(1)?.takeIf { keepaliveRange.size == 2 && keepalive > 0 && it > keepalive } ?: 0
+    val (keepalive, keepaliveMax) =
+        requireNotNull(
+            AmneziaWgV3Parameters.parsePersistentKeepalive(
+                rawText(AwgEditorField.PERSISTENT_KEEPALIVE).trim().ifEmpty { "0" },
+            ),
+        ) { "AmneziaWG persistent keepalive must be 0 or an ordered positive range up to 65535" }
     return form.toActivationRequest(
         profileId = profileId,
         interfaceAddressV4 = ipv4.single(),
@@ -33,7 +34,7 @@ fun AmneziaWgEditorState.toActivationRequest(profileId: String): AwgActivationRe
         allowedIps = rawText(AwgEditorField.ALLOWED_IPS).commaSeparatedValues(),
         mtu = mtu,
         persistentKeepalive = keepalive,
-        persistentKeepaliveMax = keepaliveMax,
+        persistentKeepaliveMax = keepaliveMax ?: 0,
     )
 }
 

@@ -73,12 +73,10 @@ internal fun parseConfRange(
 internal fun parseKeepaliveRange(
     key: String,
     value: String,
-): Pair<Int, Int?> {
-    val bounds = parseConfRange(key, value).split('-').map(String::toInt)
-    // `0` means "keepalive off"; a `0-N` range reads the same way instead of failing a whole import.
-    val high = bounds.last().takeIf { it != bounds.first() && bounds.first() > 0 }
-    return bounds.first() to high
-}
+): Pair<Int, Int?> =
+    requireNotNull(AmneziaWgV3Parameters.parsePersistentKeepalive(value)) {
+        "WireGuard config key '$key' expects 0 or an ordered positive range up to 65535"
+    }
 
 /** amneziawg-tools `parse_bool`: `on`/`off` or a decimal number (non-zero = on); UAPI `true`/`false`. */
 private fun parseConfBool(

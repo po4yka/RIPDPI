@@ -24,7 +24,7 @@ Native paths below use `N = native/rust/crates/ripdpi-warp-core`. Editor paths u
 - [x] TRN-1793272216991110 Apply DisableCookies through backend load handling and verify both flag states authentication and work bounds #bug !high @item:TRN-1793271658511991
 - [x] TRN-1793272217604418 Authenticate ambiguous receive candidates and verify valid transport collision fallback without duplicate delivery #bug !high @item:TRN-1793271658511991
 - [x] TRN-1793272218210665 Retain bounded authenticated UDP-window learning and verify MTU endpoint reset and hostile datagrams #feature !high @item:TRN-1793271658511991
-- [ ] TRN-1793272218937903 Unify keepalive input grammar across editor config and URI with invalid-input and stored-value regressions #bug !high @item:TRN-1793271658511991
+- [x] TRN-1793272218937903 Unify keepalive input grammar across editor config and URI with invalid-input and stored-value regressions #bug !high @item:TRN-1793271658511991
 - [ ] TRN-1793272219644936 Validate Header Protection and v3 constraints before save and activation readiness with editor regressions #bug !high @item:TRN-1793271658511991
 - [ ] TRN-1793272220215141 Expose supported v3 settings and explicit cohort replacement with secret-safe round trips and locale checks #feature !high @item:TRN-1793271658511991
 - [ ] TRN-1793272220792888 Document and test numeric header junk and CPS compatibility limits without copying upstream unsafe behavior #chore !high @item:TRN-1793271658511991

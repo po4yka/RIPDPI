@@ -130,11 +130,16 @@ class AmneziaWgWgQuickConfTest {
     }
 
     @Test
-    fun `a share link with a zero-based keepalive range means no keepalive`() {
+    fun `a share link rejects a zero-based keepalive range and preserves zero off`() {
         val uri = AmneziaWgUriCodec.encode(profile)
         assertTrue(uri.contains("persistent_keepalive=25-35"))
         val decoded = AmneziaWgUriCodec.decode(uri.replace("persistent_keepalive=25-35", "persistent_keepalive=0-35"))
-        assertEquals(0, decoded?.persistentKeepalive)
-        assertEquals(null, decoded?.persistentKeepaliveMax)
+        assertEquals(null, decoded)
+        val off =
+            requireNotNull(
+                AmneziaWgUriCodec.decode(uri.replace("persistent_keepalive=25-35", "persistent_keepalive=0-0")),
+            )
+        assertEquals(0, off.persistentKeepalive)
+        assertEquals(null, off.persistentKeepaliveMax)
     }
 }

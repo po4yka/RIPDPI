@@ -8,8 +8,10 @@ import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.File
 import java.util.Base64
 
 /**
@@ -20,6 +22,53 @@ import java.util.Base64
  * identity group (keys, server, port) is always editable and never touched by a preset.
  */
 class AmneziaWgEditorStateTest {
+    @Test
+    fun `keepalive grammar blocks invalid edits and activation without coercion`() {
+        val root =
+            generateSequence(File(".").canonicalFile) { it.parentFile }
+                .first { File(it, "settings.gradle.kts").isFile }
+        File(root, "core/data/src/test/resources/contract/awg-keepalive-invalid.txt").readLines().forEach { raw ->
+            val editor = activatableState().updateField(AwgEditorField.PERSISTENT_KEEPALIVE, raw)
+            assertEquals(raw, editor.rawText(AwgEditorField.PERSISTENT_KEEPALIVE))
+            assertTrue(raw, editor.hasFieldError(AwgEditorField.PERSISTENT_KEEPALIVE))
+            assertFalse(raw, editor.isActivatable())
+            assertThrows(raw, IllegalArgumentException::class.java) { editor.toActivationRequest("profile") }
+        }
+        listOf(
+            "" to (0 to 0),
+            "0" to (0 to 0),
+            "0-0" to (0 to 0),
+            "1" to (1 to 0),
+            "25-25" to (25 to 0),
+            "25-35" to (25 to 35),
+            "65535" to (65535 to 0),
+            "1-65535" to (1 to 65535),
+        ).forEach { (raw, expected) ->
+            val editor = activatableState().updateField(AwgEditorField.PERSISTENT_KEEPALIVE, raw)
+            assertFalse(raw, editor.hasFieldError(AwgEditorField.PERSISTENT_KEEPALIVE))
+            assertTrue(raw, editor.isActivatable())
+            val request = editor.toActivationRequest("profile")
+            assertEquals(raw, expected, request.persistentKeepalive to request.persistentKeepaliveMax)
+        }
+    }
+
+    @Test
+    fun `importing absent or off keepalive replaces an earlier invalid or positive value`() {
+        for (previous in listOf("0-1", "25-35")) {
+            for (line in listOf("", "PersistentKeepalive = off")) {
+                val conf =
+                    "[Interface]\nPrivateKey = k==\nAddress = 10.8.0.2/32\n" +
+                        "[Peer]\nPublicKey = p==\nEndpoint = vpn.example.com:51820\n$line"
+                val edited = activatableState().updateField(AwgEditorField.PERSISTENT_KEEPALIVE, previous)
+                val imported = (edited.importConf(conf, catalog) as AwgConfImport.Imported).editor
+                assertEquals("", imported.rawText(AwgEditorField.PERSISTENT_KEEPALIVE))
+                assertTrue(imported.isActivatable())
+                val request = imported.toActivationRequest("profile")
+                assertEquals(0 to 0, request.persistentKeepalive to request.persistentKeepaliveMax)
+            }
+        }
+    }
+
     private val rtkSouth =
         AwgCohortPreset(
             id = "rtk_south",

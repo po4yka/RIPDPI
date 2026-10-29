@@ -358,15 +358,30 @@ class WireGuardConfParserTest {
     }
 
     @Test
-    fun `persistent keepalive off and a zero-based range both mean no keepalive`() {
+    fun `persistent keepalive preserves off and rejects malformed ranges`() {
         val off = WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = off")).peers.single()
         assertNull(off.persistentKeepalive)
         assertNull(off.persistentKeepaliveMax)
         val zero = WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = 0")).peers.single()
         assertEquals(0, zero.persistentKeepalive)
-        val zeroRange = WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = 0-35")).peers.single()
-        assertEquals(0, zeroRange.persistentKeepalive)
-        assertNull(zeroRange.persistentKeepaliveMax)
+        listOf(
+            "0-0" to (0 to null),
+            "1" to (1 to null),
+            "25-25" to (25 to null),
+            "25-35" to (25 to 35),
+            "65535" to (65535 to null),
+            "1-65535" to (1 to 65535),
+        ).forEach { (raw, expected) ->
+            val peer = WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = $raw")).peers.single()
+            assertEquals(raw, expected, peer.persistentKeepalive to peer.persistentKeepaliveMax)
+        }
+        javaClass.getResourceAsStream("/contract/awg-keepalive-invalid.txt")!!.bufferedReader().useLines { lines ->
+            lines.forEach { raw ->
+                assertThrows(raw, IllegalArgumentException::class.java) {
+                    WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = $raw"))
+                }
+            }
+        }
     }
 
     @Test

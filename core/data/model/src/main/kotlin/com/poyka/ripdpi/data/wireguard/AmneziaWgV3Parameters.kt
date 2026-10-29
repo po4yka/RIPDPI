@@ -96,6 +96,16 @@ data class AmneziaWgV3Parameters(
             return bounds != null && bounds.last() <= MaximumRange && bounds.first() <= bounds.last()
         }
 
+        /** Keepalive `0`/`0-0` disables it; nonzero ranges must start at one or more. */
+        fun parsePersistentKeepalive(value: String): Pair<Int, Int?>? {
+            if (!rangeIsValid(value)) return null
+            val bounds = value.split('-').map(String::toInt)
+            val low = bounds.first()
+            val high = bounds.last()
+            if (low == 0 && high != 0) return null
+            return low to high.takeIf { it != low }
+        }
+
         fun isHeaderProtectionKey(value: String): Boolean = decodeKey(value) != null
 
         private fun decodeKey(value: String): ByteArray? =

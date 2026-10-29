@@ -56,8 +56,6 @@ internal class UriKeepalive(
 /** Parses `persistent_keepalive=lo[-hi]`; absent = no keepalive; malformed or `0-N` = `null`. */
 internal fun parseUriKeepalive(value: String?): UriKeepalive? {
     if (value == null) return UriKeepalive(null, null)
-    val bounds = value.takeIf { AmneziaWgV3Parameters.rangeIsValid(it) }?.split('-')?.map(String::toInt)
-    // `0` means "keepalive off"; a `0-N` range reads the same way.
-    val high = bounds?.last()?.takeIf { it != bounds.first() && bounds.first() > 0 }
-    return bounds?.let { UriKeepalive(it.first(), high) }
+    val (low, high) = AmneziaWgV3Parameters.parsePersistentKeepalive(value) ?: return null
+    return UriKeepalive(low, high)
 }
