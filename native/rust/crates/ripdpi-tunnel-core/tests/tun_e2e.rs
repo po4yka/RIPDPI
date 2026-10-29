@@ -17,7 +17,7 @@ use std::thread::JoinHandle;
 use std::time::{Duration, Instant};
 
 use local_network_fixture::{FixtureConfig, FixtureEvent, FixtureManifest, FixtureStack};
-use ripdpi_tunnel_core::{Stats, run_tunnel, run_tunnel_with_ready};
+use ripdpi_tunnel_core::{PacketObserver, Stats, run_tunnel, run_tunnel_with_ready};
 use tokio_util::sync::CancellationToken;
 use tracing_subscriber::EnvFilter;
 
@@ -681,4 +681,66 @@ fn stats_count_packets_and_bytes() {
 
     cancel.cancel();
     tunnel_thread.join().expect("tunnel thread panicked").expect("tunnel error");
+}
+
+#[derive(Default)]
+struct RecordingPacketObserver {
+    inbound: Mutex<Vec<Vec<u8>>>,
+    outbound: Mutex<Vec<Vec<u8>>>,
+}
+
+impl PacketObserver for RecordingPacketObserver {
+    fn on_inbound(&self, packet: &[u8]) {
+        self.inbound.lock().expect("inbound lock").push(packet.to_vec());
+    }
+
+    fn on_outbound(&self, packet: &[u8]) {
+        self.outbound.lock().expect("outbound lock").push(packet.to_vec());
+    }
+}
+
+/// E2E-04: a packet observer installed while the io loop runs (the PCAP
+/// capture hook) sees the exact packets read from and written to the TUN fd.
+#[test]
+fn packet_observer_sees_both_tun_directions_while_running() {
+    let _guard = test_guard();
+    init_test_tracing();
+
+    let fixture = FixtureStack::start(tun_fixture_config()).expect("start fixture");
+    let manifest = fixture.manifest();
+    let socks5_addr = format!("{}:{}", manifest.bind_host, manifest.socks5_port).parse().expect("parse socks5 addr");
+
+    let (tunnel_fd, harness) = socketpair_tun().expect("create socketpair");
+    let config = test_tunnel_config(socks5_addr);
+    let cancel = CancellationToken::new();
+    let stats = Arc::new(Stats::new());
+    let (cancel_clone, stats_clone) = (cancel.clone(), stats.clone());
+    let tunnel_thread = std::thread::spawn(move || {
+        let rt = tokio::runtime::Builder::new_current_thread().enable_all().build().expect("build tokio runtime");
+        rt.block_on(run_tunnel(config, tunnel_fd, cancel_clone, stats_clone))
+    });
+    std::thread::sleep(Duration::from_millis(100));
+
+    // Install after the loop started, as the Diagnostics capture button does.
+    let observer = Arc::new(RecordingPacketObserver::default());
+    stats.set_packet_observer(Arc::clone(&observer) as Arc<dyn PacketObserver>);
+
+    let dst_ip = manifest.fixture_ipv4.parse::<std::net::Ipv4Addr>().expect("fixture ipv4").octets();
+    let syn = build_tcp_syn(CLIENT_IP, dst_ip, CLIENT_PORT, manifest.tcp_echo_port);
+    harness.inject_packet(&syn).expect("inject SYN");
+    let syn_ack =
+        recv_tcp_with_flags(&harness, TCP_SYN | TCP_ACK, Duration::from_secs(3)).expect("expected SYN-ACK from tunnel");
+
+    stats.clear_packet_observer();
+    cancel.cancel();
+    tunnel_thread.join().expect("tunnel thread panicked").expect("tunnel error");
+
+    let inbound = observer.inbound.lock().expect("inbound lock");
+    let outbound = observer.outbound.lock().expect("outbound lock");
+    assert!(inbound.contains(&syn), "observer must see the SYN read from TUN; saw {} inbound", inbound.len());
+    assert!(
+        outbound.contains(&syn_ack),
+        "observer must see the SYN-ACK written to TUN; saw {} outbound",
+        outbound.len()
+    );
 }
