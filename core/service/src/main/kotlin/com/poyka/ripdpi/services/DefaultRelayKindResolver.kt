@@ -13,7 +13,7 @@ internal class DefaultRelayKindResolver
                 relayKind = request.mergedConfig.kind,
                 credentials = request.credentials,
             )
-            validateSharedRelayTransportFeatures(request.mergedConfig)
+            validateSharedRelayTransportFeatures(request.mergedConfig, request.credentials?.shadowsocksMethod)
             validateDefaultRelayFeatures(
                 config = request.mergedConfig,
                 tlsFingerprintProfile = request.requestedTlsProfile,

@@ -333,6 +333,29 @@ async fn relay_runtime_builds_shadowsocks_backend_and_connects_tcp_fixture() {
     }
 }
 
+/// # Cancel safety:
+/// cancel-safe: no carrier is opened and the local backend is dropped.
+#[tokio::test]
+async fn legacy_shadowsocks_rejects_udp_and_keeps_tcp_capability() {
+    for method in ["aes-128-gcm", "aes-256-gcm", "chacha20-ietf-poly1305"] {
+        let mut config = sample_config("shadowsocks");
+        shadowsocks_config_mut(&mut config).method = method.to_owned();
+        shadowsocks_config_mut(&mut config).password = Some("fixture-password".to_owned());
+        config.common.udp_enabled = true;
+        let planned = planned_backend_capabilities(&config);
+        assert!(planned.tcp);
+        assert!(!planned.udp);
+        let backend = build_backend(&config).await.expect("legacy backend");
+        assert!(!backend.udp_capable());
+        assert_eq!(
+            validate_runtime_config(&config, &backend).expect_err("reject UDP").kind(),
+            io::ErrorKind::Unsupported
+        );
+        config.common.udp_enabled = false;
+        validate_runtime_config(&config, &backend).expect("legacy TCP remains supported");
+    }
+}
+
 /// # Cancel safety
 ///
 /// cancel-safe: cancellation drops local session state and fixture runtime.
@@ -341,7 +364,6 @@ async fn relay_runtime_builds_shadowsocks_udp_associate_fixture() {
     const PAYLOAD: &[u8] = b"relay-core shadowsocks udp payload";
 
     for (method, credential) in [
-        ("aes-256-gcm", "secret"),
         ("2022-blake3-aes-128-gcm", "AAECAwQFBgcICQoLDA0ODw=="),
         ("2022-blake3-aes-256-gcm", "Zml4dHVyZS1wc2stYWVzMjU2Z2NtLTMyYnl0ZWtleSE="),
         ("2022-blake3-chacha20-poly1305", "Zml4dHVyZS1wc2stY2hhY2hhMjBwb2x5MTMwNS1rZXk="),
@@ -460,7 +482,7 @@ fn relay_planned_capabilities_are_pinned_for_every_kind() {
         ("shadowtls_v3", true, false, false, true),
         ("trojan", true, true, false, true),
         ("anytls", true, true, true, true),
-        ("shadowsocks", true, true, false, true),
+        ("shadowsocks", true, false, false, true), // the sample profile uses legacy AEAD
         ("tor", true, false, true, false),
         ("naiveproxy", true, false, false, true),
     ];

@@ -21,7 +21,14 @@ fun mapRelayProfile(
             RelayVlessTransportRealityTcp
         }
     val vlessFlow = profile.vlessFlow()
-    val udpEnabled = relayProfileSupportsUdpAssociation(relayKind, true, vlessTransport, vlessFlow)
+    val udpEnabled =
+        relayProfileSupportsUdpAssociation(
+            relayKind,
+            true,
+            vlessTransport,
+            vlessFlow,
+            shadowsocksMethod = (profile as? ProxyProfile.Shadowsocks)?.method,
+        )
     val relayProfile =
         RelayProfileRecord(
             id = profileId,

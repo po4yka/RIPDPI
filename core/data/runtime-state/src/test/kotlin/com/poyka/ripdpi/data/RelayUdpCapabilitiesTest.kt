@@ -7,6 +7,48 @@ import org.junit.Test
 
 class RelayUdpCapabilitiesTest {
     @Test
+    fun `Shadowsocks UDP requires a supported SS2022 method`() {
+        listOf("aes-128-gcm", "aes-256-gcm", "chacha20-ietf-poly1305", "", "2022-unknown", null).forEach { method ->
+            assertFalse(
+                method,
+                relayProfileSupportsUdpAssociation(
+                    RelayKindShadowsocks,
+                    true,
+                    RelayVlessTransportRealityTcp,
+                    RelayVlessFlowVision,
+                    method,
+                ),
+            )
+        }
+        listOf(
+            "2022-blake3-aes-128-gcm",
+            "2022-blake3-aes-256-gcm",
+            "2022-blake3-chacha20-poly1305",
+        ).forEach { method ->
+            assertTrue(
+                method,
+                relayProfileSupportsUdpAssociation(
+                    RelayKindShadowsocks,
+                    true,
+                    RelayVlessTransportRealityTcp,
+                    RelayVlessFlowVision,
+                    " ${method.uppercase()} ",
+                ),
+            )
+            assertFalse(
+                method,
+                relayProfileSupportsUdpAssociation(
+                    RelayKindShadowsocks,
+                    false,
+                    RelayVlessTransportRealityTcp,
+                    RelayVlessFlowVision,
+                    method,
+                ),
+            )
+        }
+    }
+
+    @Test
     fun `seven native UDP kinds preserve support and explicit disable`() {
         val supported =
             listOf(
@@ -29,6 +71,7 @@ class RelayUdpCapabilitiesTest {
                         enabled,
                         RelayVlessTransportRealityTcp,
                         RelayVlessFlowVision,
+                        shadowsocksMethod = "2022-blake3-aes-128-gcm",
                     ),
                 )
             }

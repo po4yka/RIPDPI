@@ -992,6 +992,55 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
         }
 
     @Test
+    fun `legacy Shadowsocks UDP is rejected before runtime activation`() =
+        runTest {
+            listOf("aes-128-gcm", "aes-256-gcm", "chacha20-ietf-poly1305").forEach { method ->
+                val resolver =
+                    resolver(
+                        relayCredentialStore =
+                            TestRelayCredentialStore().apply {
+                                save(
+                                    RelayCredentialRecord(
+                                        profileId = "shadowsocks",
+                                        shadowsocksMethod = method,
+                                        shadowsocksPassword = credentialFixture("shadowsocks"),
+                                    ),
+                                )
+                            },
+                    )
+                val config =
+                    RipDpiRelayConfig(
+                        enabled = true,
+                        kind = RelayKindShadowsocks,
+                        profileId = "shadowsocks",
+                        server = "ss.example",
+                        serverPort = 8388,
+                        udpEnabled = true,
+                    )
+                val error =
+                    runCatching {
+                        resolver.resolve(
+                            config,
+                            testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                            com.poyka.ripdpi.data
+                                .RuntimeConfigurationSelection("native"),
+                        )
+                    }.exceptionOrNull()
+                assertTrue(error is IllegalArgumentException)
+                assertTrue(error?.message.orEmpty().contains("SS2022"))
+                val tcp =
+                    resolver.resolve(
+                        config.copy(udpEnabled = false),
+                        testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
+                    )
+                assertFalse(tcp.udpEnabled)
+                assertEquals(method, tcp.shadowsocksMethod)
+            }
+        }
+
+    @Test
     fun `resolve shadowsocks family carries method password and udp setting`() =
         runTest {
             val resolver =
@@ -1001,8 +1050,8 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
                             save(
                                 RelayCredentialRecord(
                                     profileId = "shadowsocks",
-                                    shadowsocksMethod = "aes-256-gcm",
-                                    shadowsocksPassword = credentialFixture("shadowsocks"),
+                                    shadowsocksMethod = "2022-blake3-aes-128-gcm",
+                                    shadowsocksPassword = "AAECAwQFBgcICQoLDA0ODw==", // Fixture key.
                                 ),
                             )
                         },
@@ -1028,8 +1077,8 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
 
             assertEquals(RelayKindShadowsocks, resolved.kind)
             assertTrue(resolved.udpEnabled)
-            assertEquals("aes-256-gcm", resolved.shadowsocksMethod)
-            assertEquals(credentialFixture("shadowsocks"), resolved.shadowsocksPassword)
+            assertEquals("2022-blake3-aes-128-gcm", resolved.shadowsocksMethod)
+            assertEquals("AAECAwQFBgcICQoLDA0ODw==", resolved.shadowsocksPassword)
         }
 
     @Test

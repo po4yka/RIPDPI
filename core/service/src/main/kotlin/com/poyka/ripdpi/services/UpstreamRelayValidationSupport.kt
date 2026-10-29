@@ -139,7 +139,10 @@ internal fun validateTrojanRelayCredentials(
     requireRelayCredentials(profileId, !credentials?.trojanPassword.isNullOrBlank())
 }
 
-internal fun validateSharedRelayTransportFeatures(config: RipDpiRelayConfig) {
+internal fun validateSharedRelayTransportFeatures(
+    config: RipDpiRelayConfig,
+    shadowsocksMethod: String? = null,
+) {
     // The shared data-layer predicate applies native kind support, the explicit
     // UDP toggle and the Reality transport/flow gates. Service descriptor UDP
     // flags derive from the same kind predicate and remain checked against Rust.
@@ -150,9 +153,11 @@ internal fun validateSharedRelayTransportFeatures(config: RipDpiRelayConfig) {
                 udpEnabled = config.udpEnabled,
                 vlessTransport = config.vlessTransport,
                 vlessFlow = config.vlessFlow,
+                shadowsocksMethod = shadowsocksMethod,
             ),
     ) {
-        "Relay UDP mode requires a UDP-capable kind and profile; VLESS Reality requires direct TCP with XTLS Vision"
+        "Relay UDP requires a capable profile; VLESS Reality needs direct TCP with XTLS Vision; " +
+            "Shadowsocks needs SS2022"
     }
 }
 
@@ -173,6 +178,7 @@ internal fun validateRelayEgressRequirements(
                             udpEnabled = config.udpEnabled,
                             vlessTransport = config.vlessTransport,
                             vlessFlow = config.vlessFlow,
+                            shadowsocksMethod = config.shadowsocksMethod,
                         )
                 ) -> "UDP ASSOCIATE"
 

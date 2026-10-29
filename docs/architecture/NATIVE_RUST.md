@@ -287,7 +287,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-masque` | MASQUE / HTTP-3 proxy transport | Transport client | `ripdpi-diagnostics-dns`, `ripdpi-hysteria2`, `ripdpi-tls-profiles` | `quinn`, `boring` | Keep |
 | `ripdpi-tuic` | TUIC v5 transport | Transport client | — (leaf) | `quinn` | Keep |
 | `ripdpi-shadowtls` | ShadowTLS v3 camouflage | Transport client | — (leaf) | Used by `relay-core` | Keep |
-| `ripdpi-shadowsocks` | Shadowsocks transport | Transport client | — (leaf) | Used by `relay-core`; TCP + UDP capable | Keep |
+| `ripdpi-shadowsocks` | Shadowsocks transport | Transport client | — (leaf) | Used by `relay-core`; TCP for legacy AEAD and SS2022, UDP for SS2022 only | Keep |
 | `ripdpi-trojan` | Trojan transport | Transport client | `ripdpi-tls-profiles` | Used by `relay-core`; TCP + UDP capable | Keep |
 | `ripdpi-anytls` | AnyTLS transport | Transport client | `ripdpi-tls-profiles` | Used by `relay-core`; TCP + UDP capable | Keep |
 | `ripdpi-mieru` | Mieru TCP relay transport | Transport client | — | UDP capability intentionally disabled | Keep |

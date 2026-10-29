@@ -5,7 +5,6 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use ripdpi_shadowsocks::{
     Aead2022UdpPacketType, Aead2022UdpSession, Cipher, PresharedKey, SecretString, TcpStream as ShadowsocksTcpCodec,
-    UdpPacket,
 };
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream, UdpSocket};
@@ -270,43 +269,26 @@ where
     }
 }
 
+/// # Cancel safety:
+/// cancel-safe: cancellation drops both owned UDP sockets and codec state.
 async fn handle_udp_packets(socket: UdpSocket, cipher: Cipher, password: String) -> io::Result<()> {
-    let secret = SecretString::new(password.clone());
-    let mut aead2022 = if cipher.is_aead_2022() {
-        let psk = PresharedKey::from_base64(cipher, &password).map_err(to_io)?;
-        Some(Aead2022UdpSession::new(cipher, psk, *b"fixture1").map_err(to_io)?)
-    } else {
-        None
-    };
-    let legacy = UdpPacket::new(cipher, false);
+    if !cipher.is_aead_2022() {
+        return Err(io::Error::new(io::ErrorKind::Unsupported, "Shadowsocks UDP requires SS2022"));
+    }
+    let psk = PresharedKey::from_base64(cipher, &password).map_err(to_io)?;
+    let mut codec = Aead2022UdpSession::new(cipher, psk, *b"fixture1").map_err(to_io)?;
     let relay = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await?;
     let mut buffer = vec![0_u8; 65_535];
     loop {
         let (read, peer) = socket.recv_from(&mut buffer).await?;
-        let (plain, client_session_id) = match &mut aead2022 {
-            Some(codec) => {
-                let packet =
-                    codec.decrypt(&buffer[..read], Aead2022UdpPacketType::Client, unix_timestamp()).map_err(to_io)?;
-                (packet.payload, Some(packet.session_id))
-            }
-            None => (legacy.decrypt(&secret, &buffer[..read]).map_err(to_io)?, None),
-        };
-        let (target, payload) = decode_address(&plain)?;
+        let packet = codec.decrypt(&buffer[..read], Aead2022UdpPacketType::Client, unix_timestamp()).map_err(to_io)?;
+        let (target, payload) = decode_address(&packet.payload)?;
         relay.send_to(payload, target).await?;
         let mut response = vec![0_u8; 65_535];
         let (response_len, source) = relay.recv_from(&mut response).await?;
         let response_plain = encode_address(source, &response[..response_len]);
-        let packet = match &mut aead2022 {
-            Some(codec) => codec
-                .encrypt_server(
-                    unix_timestamp(),
-                    client_session_id.expect("SIP022 packet carries a client session ID"),
-                    &response_plain,
-                )
-                .map_err(to_io)?,
-            None => legacy.encrypt(&secret, &response_plain).map_err(to_io)?,
-        };
-        socket.send_to(&packet, peer).await?;
+        let response = codec.encrypt_server(unix_timestamp(), packet.session_id, &response_plain).map_err(to_io)?;
+        socket.send_to(&response, peer).await?;
     }
 }
 

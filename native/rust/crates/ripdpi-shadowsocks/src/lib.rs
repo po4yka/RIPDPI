@@ -7,7 +7,7 @@
 //! - `2022-blake3-aes-256-gcm`
 //! - `2022-blake3-chacha20-poly1305`
 //!
-//! Legacy AEAD (SIP004):
+//! Legacy AEAD (SIP004, TCP only; UDP requires AEAD-2022):
 //! - `aes-128-gcm`
 //! - `aes-256-gcm`
 //! - `chacha20-ietf-poly1305`
@@ -29,5 +29,5 @@ pub mod uri;
 
 pub use cipher::{Cipher, CipherError, CipherKey, PresharedKey, SecretString};
 pub use tcp::TcpStream;
-pub use udp::{Aead2022UdpPacket, Aead2022UdpPacketType, Aead2022UdpSession, UdpPacket};
+pub use udp::{Aead2022UdpPacket, Aead2022UdpPacketType, Aead2022UdpSession};
 pub use uri::{ShadowsocksUri, UriError};

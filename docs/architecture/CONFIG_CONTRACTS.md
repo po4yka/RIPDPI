@@ -151,7 +151,10 @@ Imported profile mapping and service admission share the VLESS sub-mode UDP
 predicate. Reality TCP with Vision or Vision UDP443 supports UDP; XHTTP, flowless
 Reality, plain TLS VLESS, SSH, and Mieru do not. A profile that lacks required UDP
 must still fail before the proxy starts. Engine normalization must retain the resolved
-UDP flag for every supported kind, including AnyTLS, Trojan, and Shadowsocks.
+UDP flag for every supported kind, including AnyTLS, Trojan, and SS2022 Shadowsocks. Legacy Shadowsocks AEAD
+profiles support TCP only. UDP requires `2022-blake3-aes-128-gcm`,
+`2022-blake3-aes-256-gcm`, or `2022-blake3-chacha20-poly1305`; an explicit
+legacy UDP request is rejected before the runtime opens a carrier.
 Raw unsupported Reality sub-modes must remain ineligible before defaults apply.
 The native proxy's UDP requirement guard
 remains authoritative at the JSON boundary.

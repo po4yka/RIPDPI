@@ -12,6 +12,24 @@ import org.junit.Test
 
 class SelectorRelayProfileMappingTest {
     @Test
+    fun `Shadowsocks imports enable UDP only for SS2022 and preserve TCP credentials`() {
+        listOf(
+            "aes-128-gcm" to "legacy-test-key",
+            "aes-256-gcm" to "legacy-test-key",
+            "chacha20-ietf-poly1305" to "legacy-test-key",
+            "2022-blake3-aes-128-gcm" to "AAECAwQFBgcICQoLDA0ODw==",
+            "2022-blake3-aes-256-gcm" to "Zml4dHVyZS1wc2stYWVzMjU2Z2NtLTMyYnl0ZWtleSE=",
+            "2022-blake3-chacha20-poly1305" to "Zml4dHVyZS1wc2stY2hhY2hhMjBwb2x5MTMwNS1rZXk=",
+        ).forEach { (method, password) ->
+            val imported = ProxyProfile.Shadowsocks("ss", "ss", "group", "ss.example", 8388, method, password)
+            val mapped = checkNotNull(mapRelayProfile(imported))
+            assertEquals(method, method.startsWith("2022-"), mapped.profile.udpEnabled)
+            assertEquals(method, mapped.credentials.shadowsocksMethod)
+            assertEquals(password, mapped.credentials.shadowsocksPassword)
+        }
+    }
+
+    @Test
     fun `canonical selector mapping has stable timestamp and complete credential bytes`() {
         val member = member("original")
         val first = checkNotNull(mapRelayProfile(member))

@@ -15,7 +15,7 @@ fun relayKindSupportsUdpAssociation(kindId: String): Boolean =
         else -> false
     }
 
-/** Apply the explicit UDP toggle and the native Reality transport/flow limits. */
+/** Apply transport and flow gates to a projected profile without credentials. */
 fun relayProfileSupportsUdpAssociation(
     kindId: String,
     udpEnabled: Boolean,
@@ -29,4 +29,19 @@ fun relayProfileSupportsUdpAssociation(
                     vlessTransport == RelayVlessTransportRealityTcp &&
                         vlessFlow.trim() in setOf(RelayVlessFlowVision, RelayVlessFlowVisionUdp443)
                 )
+        )
+
+/** Check the cipher as well when importing or resolving a profile with credentials. */
+fun relayProfileSupportsUdpAssociation(
+    kindId: String,
+    udpEnabled: Boolean,
+    vlessTransport: String,
+    vlessFlow: String,
+    shadowsocksMethod: String?,
+): Boolean =
+    relayProfileSupportsUdpAssociation(kindId, udpEnabled, vlessTransport, vlessFlow) &&
+        (
+            kindId != RelayKindShadowsocks ||
+                shadowsocksMethod?.trim()?.lowercase() in
+                setOf("2022-blake3-aes-128-gcm", "2022-blake3-aes-256-gcm", "2022-blake3-chacha20-poly1305")
         )

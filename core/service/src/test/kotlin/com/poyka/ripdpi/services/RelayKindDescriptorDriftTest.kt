@@ -165,7 +165,10 @@ class RelayKindDescriptorDriftTest {
             RelayKindTuicV5,
             RelayKindVlessReality,
         ).forEach { kind ->
-            validateSharedRelayTransportFeatures(RipDpiRelayConfig(kind = kind, udpEnabled = true))
+            validateSharedRelayTransportFeatures(
+                RipDpiRelayConfig(kind = kind, udpEnabled = true),
+                shadowsocksMethod = "2022-blake3-aes-128-gcm",
+            )
         }
     }
 

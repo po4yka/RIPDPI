@@ -141,6 +141,8 @@ fn relay_transport_registry_is_consistent() {
             // The descriptor says the kind can carry UDP; the effective
             // profile capability additionally requires the existing opt-in.
             capability_config.common.udp_enabled = true;
+        } else if descriptor.kind_id == "shadowsocks" {
+            shadowsocks_config_mut(&mut capability_config).method = "2022-blake3-aes-128-gcm".to_owned();
         }
         let capabilities = planned_backend_capabilities(&capability_config);
         assert_eq!(

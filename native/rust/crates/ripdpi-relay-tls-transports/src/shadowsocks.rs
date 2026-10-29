@@ -9,7 +9,6 @@ use ripdpi_network_time::{NetworkTimeProvider, TimeSource};
 use ripdpi_relay_mux::{RelayCapabilities, RelaySession, RelaySessionFactory};
 use ripdpi_shadowsocks::{
     Aead2022UdpPacketType, Aead2022UdpSession, Cipher, PresharedKey, SecretString, TcpStream as ShadowsocksTcpCodec,
-    UdpPacket,
 };
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream, ReadBuf};
 use tokio::net::{TcpSocket, TcpStream, UdpSocket};
@@ -63,7 +62,7 @@ pub struct ShadowsocksSession {
 pub struct ShadowsocksUdpSession {
     socket: UdpSocket,
     config: Arc<ShadowsocksClientConfig>,
-    codec: ShadowsocksUdpCodec,
+    codec: Aead2022UdpSession,
     receive_buffer: Vec<u8>,
     /// Whether this session has calibrated the shared network-time provider from
     /// a server packet's authenticated timestamp (done once per session).
@@ -80,12 +79,12 @@ struct ShadowsocksClientConfig {
     socket_protection: ripdpi_native_protect::SocketProtectionPolicy,
 }
 
-enum ShadowsocksUdpCodec {
-    Legacy(UdpPacket),
-    Aead2022(Aead2022UdpSession),
-}
-
 impl ShadowsocksSessionFactory {
+    /// Reports profile-level UDP support before creating the session factory.
+    pub fn supports_udp(method: &str) -> bool {
+        Cipher::from_name(method).is_ok_and(Cipher::is_aead_2022)
+    }
+
     pub fn new(
         server_host: String,
         server_port: u16,
@@ -127,6 +126,9 @@ impl RelaySession for ShadowsocksSession {
     /// cancel-safe: a cancelled open drops its owned UDP socket before use.
     async fn open_datagram(&self) -> Result<Self::Datagram, Self::Error> {
         let config = Arc::clone(&self.config);
+        if !config.cipher.is_aead_2022() {
+            return Err(io::Error::new(io::ErrorKind::Unsupported, "Shadowsocks UDP requires SS2022"));
+        }
         let addrs = config.socket_protection.resolve_host(&config.server_host, config.server_port).await?;
         let server_addr = match config.outbound_bind_ip {
             Some(ip) => addrs.into_iter().find(|addr| addr.is_ipv4() == ip.is_ipv4()),
@@ -140,14 +142,10 @@ impl RelaySession for ShadowsocksSession {
         // the first send so it bypasses the app's own TUN route. REL-1.
         crate::protect::protect_carrier_socket(&socket, server_addr, config.socket_protection)?;
         socket.connect(server_addr).await?;
-        let codec = if config.cipher.is_aead_2022() {
-            let psk = PresharedKey::from_base64(config.cipher, &config.password).map_err(invalid_input)?;
-            let mut session_id = [0_u8; 8];
-            rand::rng().fill(&mut session_id);
-            ShadowsocksUdpCodec::Aead2022(Aead2022UdpSession::new(config.cipher, psk, session_id).map_err(to_io)?)
-        } else {
-            ShadowsocksUdpCodec::Legacy(UdpPacket::new(config.cipher, false))
-        };
+        let psk = PresharedKey::from_base64(config.cipher, &config.password).map_err(invalid_input)?;
+        let mut session_id = [0_u8; 8];
+        rand::rng().fill(&mut session_id);
+        let codec = Aead2022UdpSession::new(config.cipher, psk, session_id).map_err(to_io)?;
         Ok(ShadowsocksUdpSession { socket, config, codec, receive_buffer: vec![0_u8; BUFFER_SIZE], calibrated: false })
     }
 }
@@ -161,7 +159,7 @@ impl RelaySessionFactory for ShadowsocksSessionFactory {
     type Error = io::Error;
 
     fn capabilities(&self) -> RelayCapabilities {
-        RelayCapabilities { tcp: true, udp: true, reusable: false }
+        RelayCapabilities { tcp: true, udp: self.config.cipher.is_aead_2022(), reusable: false }
     }
 
     async fn create_session(&self) -> Result<Arc<Self::Session>, Self::Error> {
@@ -171,16 +169,12 @@ impl RelaySessionFactory for ShadowsocksSessionFactory {
 }
 
 impl ShadowsocksUdpSession {
+    /// # Cancel safety:
+    /// cancel-safe: cancellation can skip a packet ID but never reuse a nonce.
     pub async fn send_to(&mut self, target: &str, payload: &[u8]) -> io::Result<()> {
         let plain = encode_address(target, payload)?;
-        let secret = SecretString::new(self.config.password.clone());
-        let packet = match &mut self.codec {
-            ShadowsocksUdpCodec::Legacy(codec) => codec.encrypt(&secret, &plain).map_err(to_io)?,
-            ShadowsocksUdpCodec::Aead2022(codec) => {
-                let now = NetworkTimeProvider::shared().now_unix_u64();
-                codec.encrypt(Aead2022UdpPacketType::Client, now, &plain).map_err(to_io)?
-            }
-        };
+        let now = NetworkTimeProvider::shared().now_unix_u64();
+        let packet = self.codec.encrypt(Aead2022UdpPacketType::Client, now, &plain).map_err(to_io)?;
         self.socket.send(&packet).await?;
         Ok(())
     }
@@ -194,41 +188,28 @@ impl ShadowsocksUdpSession {
     ///
     /// cancel-safe: `UdpSocket::recv` is cancel-safe and a dropped datagram has no other state.
     pub async fn recv_from(&mut self) -> io::Result<(String, Vec<u8>)> {
-        let secret = SecretString::new(self.config.password.clone());
-        let (plain, server_timestamp) = loop {
+        let packet = loop {
             let read = match self.socket.recv(&mut self.receive_buffer).await {
                 Ok(read) => read,
                 Err(error) if error.kind() == io::ErrorKind::ConnectionRefused => continue,
                 Err(error) => return Err(error),
             };
-            let decoded = match &mut self.codec {
-                ShadowsocksUdpCodec::Legacy(codec) => {
-                    codec.decrypt(&secret, &self.receive_buffer[..read]).map(|plain| (plain, None))
-                }
-                ShadowsocksUdpCodec::Aead2022(codec) => {
-                    let now = NetworkTimeProvider::shared().now_unix_u64();
-                    codec
-                        .decrypt(&self.receive_buffer[..read], Aead2022UdpPacketType::Server, now)
-                        .map(|packet| (packet.payload, Some(packet.timestamp)))
-                }
-            };
-            if let Ok(decoded) = decoded {
-                break decoded;
+            let now = NetworkTimeProvider::shared().now_unix_u64();
+            if let Ok(packet) = self.codec.decrypt(&self.receive_buffer[..read], Aead2022UdpPacketType::Server, now) {
+                break packet;
             }
         };
         // Calibrate the shared replay clock once per session from the server's
         // authenticated SIP022 timestamp (second granularity), so other
         // transports (and future sessions) derive freshness from network time
         // rather than the device clock.
-        if let Some(timestamp) = server_timestamp
-            && !self.calibrated
-        {
+        if !self.calibrated {
             // SIP022 stamps whole seconds, so a stamp is within 1 s of the server clock.
             let source = TimeSource::new("shadowsocks", &self.config.server_host, self.config.server_port, 1);
-            NetworkTimeProvider::shared().calibrate(i64::try_from(timestamp).unwrap_or(i64::MAX), source);
+            NetworkTimeProvider::shared().calibrate(i64::try_from(packet.timestamp).unwrap_or(i64::MAX), source);
             self.calibrated = true;
         }
-        let (target, payload) = decode_address(&plain)?;
+        let (target, payload) = decode_address(&packet.payload)?;
         Ok((target, payload.to_vec()))
     }
 }
@@ -505,6 +486,32 @@ mod tests {
     use tokio::io::ReadBuf;
     use tokio::sync::Notify;
 
+    /// # Cancel safety:
+    /// cancel-safe: no connection is opened by the rejected datagram request.
+    #[tokio::test]
+    async fn legacy_methods_keep_tcp_but_reject_udp_before_resolution() {
+        for method in ["aes-128-gcm", "aes-256-gcm", "chacha20-ietf-poly1305"] {
+            let factory = ShadowsocksSessionFactory::new(
+                "invalid.test".into(),
+                443,
+                method.into(),
+                "test-credential".into(),
+                None,
+                ripdpi_native_protect::SocketProtectionPolicy::Inactive,
+            )
+            .expect("legacy TCP config");
+            let capabilities = factory.capabilities();
+            assert!(capabilities.tcp);
+            assert!(!capabilities.udp, "legacy method {method} must not advertise UDP");
+            let session = factory.create_session().await.expect("session");
+            let Err(error) = session.open_datagram().await else {
+                panic!("legacy UDP must be rejected");
+            };
+            assert_eq!(error.kind(), io::ErrorKind::Unsupported);
+            assert!(error.to_string().contains("SS2022"));
+        }
+    }
+
     /// # Cancel safety
     ///
     /// cancel-safe: cancellation drops the unconnected UDP socket.
@@ -513,8 +520,8 @@ mod tests {
         let factory = ShadowsocksSessionFactory::new(
             "::1".into(),
             443,
-            "aes-128-gcm".into(),
-            "test-credential".into(),
+            "2022-blake3-aes-128-gcm".into(),
+            "AAECAwQFBgcICQoLDA0ODw==".into(),
             None,
             ripdpi_native_protect::SocketProtectionPolicy::Inactive,
         )
@@ -673,14 +680,16 @@ mod tests {
         assert_eq!(&encoded[19..], &b"payload"[..]);
     }
 
+    /// # Cancel safety:
+    /// cancel-safe: the test runtime owns the sockets and drops them on cancellation.
     #[tokio::test]
     async fn udp_receive_reuses_session_buffer_across_datagrams() {
         let server = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind server");
         let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind client");
         socket.connect(server.local_addr().expect("server address")).await.expect("connect client");
         let client_addr = socket.local_addr().expect("client address");
-        let cipher = Cipher::AeadAes128Gcm;
-        let credential = "test-credential";
+        let cipher = Cipher::Aead2022Blake3Aes128Gcm;
+        let credential = "AAECAwQFBgcICQoLDA0ODw==";
         let mut session = ShadowsocksUdpSession {
             socket,
             config: Arc::new(ShadowsocksClientConfig {
@@ -691,17 +700,25 @@ mod tests {
                 outbound_bind_ip: None,
                 socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
             }),
-            codec: ShadowsocksUdpCodec::Legacy(UdpPacket::new(cipher, false)),
+            codec: Aead2022UdpSession::new(
+                cipher,
+                PresharedKey::from_base64(cipher, credential).expect("PSK"),
+                *b"SID-CLNT",
+            )
+            .expect("codec"),
             receive_buffer: vec![0_u8; BUFFER_SIZE],
             calibrated: false,
         };
         let receive_buffer = session.receive_buffer.as_ptr();
-        let encoder = UdpPacket::new(cipher, false);
-        let secret = SecretString::new(credential.to_owned());
+        let mut encoder =
+            Aead2022UdpSession::new(cipher, PresharedKey::from_base64(cipher, credential).expect("PSK"), *b"SID-SRVR")
+                .expect("encoder");
 
         for payload in [b"first".as_slice(), b"second".as_slice()] {
             let plain = encode_address("192.0.2.1:53", payload).expect("encode datagram");
-            let packet = encoder.encrypt(&secret, &plain).expect("encrypt datagram");
+            let packet = encoder
+                .encrypt_server(NetworkTimeProvider::shared().now_unix_u64(), *b"SID-CLNT", &plain)
+                .expect("encrypt datagram");
             server.send_to(&packet, client_addr).await.expect("send datagram");
 
             let (target, received) = session.recv_from().await.expect("receive datagram");
@@ -713,14 +730,16 @@ mod tests {
 
     /// One spoofed, corrupted or replayed downlink datagram is dropped; the
     /// association keeps delivering the next authentic one.
+    /// # Cancel safety:
+    /// cancel-safe: the test runtime owns the sockets and drops them on cancellation.
     #[tokio::test]
     async fn udp_receive_drops_a_datagram_that_fails_authentication() {
         let server = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind server");
         let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await.expect("bind client");
         socket.connect(server.local_addr().expect("server address")).await.expect("connect client");
         let client_addr = socket.local_addr().expect("client address");
-        let cipher = Cipher::AeadAes128Gcm;
-        let credential = "test-credential";
+        let cipher = Cipher::Aead2022Blake3Aes128Gcm;
+        let credential = "AAECAwQFBgcICQoLDA0ODw==";
         let mut session = ShadowsocksUdpSession {
             socket,
             config: Arc::new(ShadowsocksClientConfig {
@@ -731,15 +750,22 @@ mod tests {
                 outbound_bind_ip: None,
                 socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
             }),
-            codec: ShadowsocksUdpCodec::Legacy(UdpPacket::new(cipher, false)),
+            codec: Aead2022UdpSession::new(
+                cipher,
+                PresharedKey::from_base64(cipher, credential).expect("PSK"),
+                *b"SID-CLNT",
+            )
+            .expect("codec"),
             receive_buffer: vec![0_u8; BUFFER_SIZE],
             calibrated: false,
         };
         server.send_to(&[0xAB_u8; 64], client_addr).await.expect("send garbage datagram");
         let plain = encode_address("192.0.2.1:53", b"authentic").expect("encode datagram");
-        let packet = UdpPacket::new(cipher, false)
-            .encrypt(&SecretString::new(credential.to_owned()), &plain)
-            .expect("encrypt datagram");
+        let packet =
+            Aead2022UdpSession::new(cipher, PresharedKey::from_base64(cipher, credential).expect("PSK"), *b"SID-SRVR")
+                .expect("encoder")
+                .encrypt_server(NetworkTimeProvider::shared().now_unix_u64(), *b"SID-CLNT", &plain)
+                .expect("encrypt datagram");
         server.send_to(&packet, client_addr).await.expect("send datagram");
 
         let (target, received) = tokio::time::timeout(std::time::Duration::from_secs(5), session.recv_from())

@@ -27,8 +27,8 @@ fn relay_transport_descriptor_for(config: &ResolvedRelayRuntimeConfig) -> Option
 /// The generic TCP / UDP / connection-reuse capabilities are read from the
 /// [`RelayTransportDescriptor`] table — the single source of truth for these
 /// `relay_kind`-keyed facts. VLESS Reality then applies its profile-local
-/// `udp_enabled`, transport, and flow gates to that kind capability. The
-/// `Unsupported` catch-all has no descriptor row and reports the empty
+/// `udp_enabled`, transport, and flow gates to that kind capability. Shadowsocks
+/// UDP additionally requires an SS2022 method. The `Unsupported` catch-all has no descriptor row and reports the empty
 /// [`RelayCapabilities::default`] profile.
 pub(crate) fn planned_backend_capabilities(config: &ResolvedRelayRuntimeConfig) -> RelayCapabilities {
     let Some(descriptor) = relay_transport_descriptor_for(config) else {
@@ -42,6 +42,8 @@ pub(crate) fn planned_backend_capabilities(config: &ResolvedRelayRuntimeConfig) 
             && config.common.udp_enabled
             && vless.vless_transport == "reality_tcp"
             && matches!(vless.vless_flow.trim(), "xtls-rprx-vision" | "xtls-rprx-vision-udp443")
+    } else if let RelayBackendConfig::Shadowsocks(shadowsocks) = &config.backend {
+        descriptor.udp && ripdpi_relay_tls_transports::ShadowsocksSessionFactory::supports_udp(&shadowsocks.method)
     } else {
         descriptor.udp
     };
