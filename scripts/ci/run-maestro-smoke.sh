@@ -126,6 +126,18 @@ if [[ "${RUN_MAESTRO_COMPLEX_FLOWS:-0}" == "1" ]]; then
   run_flow "$FLOW_DIR/complex/09-background-guidance-banners.yaml"
 fi
 
+if [[ "${RUN_MAESTRO_UI_REFACTOR_FLOWS:-0}" == "1" ]]; then
+  # These flows relaunch the app themselves; seed a completed-onboarding state
+  # first so they open at Home. status-setup-health passes its own automation
+  # arguments, and onboarding-personas clears app state, so it runs last.
+  for flow in diagnose-apply local-bypass-auto-retest navigation-spine-logs vpn-import-profile; do
+    launch_automation "home" "settings_ready"
+    run_flow "$FLOW_DIR/ui-refactor/$flow.yaml"
+  done
+  run_flow "$FLOW_DIR/ui-refactor/status-setup-health.yaml"
+  run_flow "$FLOW_DIR/ui-refactor/onboarding-personas.yaml"
+fi
+
 if [[ "${RUN_MAESTRO_LAB_FLOWS:-0}" == "1" ]]; then
   run_flow "$LAB_FLOW_DIR/connect-proxy.yaml"
   run_flow "$LAB_FLOW_DIR/disconnect-proxy.yaml"

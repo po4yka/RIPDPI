@@ -40,6 +40,12 @@ Run the complex journey tier:
 RUN_MAESTRO_COMPLEX_FLOWS=1 bash scripts/ci/run-maestro-smoke.sh
 ```
 
+Run the UI-refactor tier (`maestro/ui-refactor/`):
+
+```bash
+RUN_MAESTRO_UI_REFACTOR_FLOWS=1 bash scripts/ci/run-maestro-smoke.sh
+```
+
 ## Flows
 
 - `01-cold-launch-home.yaml`
