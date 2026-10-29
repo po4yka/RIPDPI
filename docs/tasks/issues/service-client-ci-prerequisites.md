@@ -2,7 +2,7 @@
 id: CIC-1792987990860435
 title: Restore service client CI prerequisites
 kind: bug
-status: doing
+status: review
 area: ci
 priority: high
 owner: po4yka
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: cic-1792987990860435-service-client-ci-prerequisites
 created: 2026-10-26
-updated: 2026-10-26
+updated: 2026-10-29
+status_detail: All execution steps checked; awaiting archive verification
 ---
 
 ## Goal

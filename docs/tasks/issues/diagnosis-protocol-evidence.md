@@ -2,7 +2,7 @@
 id: DGN-1791484491005718
 title: Scope diagnosis controls to measured protocols
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: medium
 owner: controls
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: diagnosis-protocol-evidence
 created: 2026-10-08
-updated: 2026-10-08
+updated: 2026-10-29
+status_detail: All execution steps checked; awaiting archive verification
 ---
 
 ## Goal

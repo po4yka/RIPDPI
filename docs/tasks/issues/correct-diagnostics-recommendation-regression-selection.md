@@ -2,7 +2,7 @@
 id: DGN-1790433260349809
 title: Correct diagnostics recommendation and regression selection
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: Diagnostics recommendation writer
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: correct-diagnostics-recommendation-regression-selection
 created: 2026-09-26
-updated: 2026-09-26
+updated: 2026-10-29
+status_detail: All execution steps checked; awaiting archive verification
 ---
 
 ## Goal

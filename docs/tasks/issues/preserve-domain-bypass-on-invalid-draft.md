@@ -2,7 +2,7 @@
 id: UIX-1790432223307662
 title: Keep bypass rule when all draft domains are invalid
 kind: bug
-status: doing
+status: review
 area: ui
 priority: high
 owner: App audit
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: preserve-domain-bypass-on-invalid-draft
 created: 2026-09-26
-updated: 2026-09-26
+updated: 2026-10-29
+status_detail: All execution steps checked; awaiting archive verification
 ---
 
 ## Goal

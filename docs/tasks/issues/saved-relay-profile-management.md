@@ -2,7 +2,7 @@
 id: RLY-1790329719797199
 title: Make saved relay profiles selectable and editable
 kind: bug
-status: doing
+status: review
 area: relay
 priority: high
 owner: UI agent
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: saved-relay-profile-management
 created: 2026-09-25
-updated: 2026-09-25
+updated: 2026-10-29
+status_detail: All execution steps checked; awaiting archive verification
 ---
 
 ## Goal

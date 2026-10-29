@@ -2,7 +2,7 @@
 id: DGN-1790430642039687
 title: Correct QUIC and STUN reachability probes
 kind: bug
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: Diagnostics network probe writer
@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: dgn-1790430642039687-correct-quic-stun-reachability-probes
 created: 2026-09-26
-updated: 2026-09-26
+updated: 2026-10-29
+status_detail: All execution steps checked; awaiting archive verification
 ---
 
 ## Goal
