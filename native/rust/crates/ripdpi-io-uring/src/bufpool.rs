@@ -143,6 +143,17 @@ pub struct BufferHandle {
 }
 
 impl BufferHandle {
+    #[cfg(test)]
+    pub(crate) fn test_buffer(bytes: &[u8]) -> Self {
+        let pool = RegisteredBufferPool {
+            buffers: vec![UnsafeCell::new(bytes.to_vec().into_boxed_slice())].into_boxed_slice(),
+            _iovecs: Vec::new(),
+            free_list: Mutex::new(Vec::new()),
+            buffer_size: bytes.len(),
+        };
+        Self { pool: Arc::new(pool), index: 0, len: 0 }
+    }
+
     pub(crate) fn belongs_to(&self, pool: &Arc<RegisteredBufferPool>) -> bool {
         Arc::ptr_eq(&self.pool, pool)
     }

@@ -43,11 +43,9 @@ impl InFlight {
         match self {
             Self::PlainWrite { .. } => CompletionResult::plain(result, flags),
             Self::FixedRead { mut buffer, .. } => {
-                if result > 0 {
-                    debug_assert!(
-                        buffer.set_len(result as usize),
-                        "kernel returned more bytes than the registered buffer capacity"
-                    );
+                if result >= 0 {
+                    let length_is_valid = buffer.set_len(result as usize);
+                    debug_assert!(length_is_valid, "kernel returned more bytes than the registered buffer capacity");
                 }
                 CompletionResult::with_buffer(result, flags, buffer)
             }
@@ -278,6 +276,28 @@ fn push_entry(ring: &mut IoUring, entry: &Entry) -> bool {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn fixed_read_completion_sets_exact_payload_length() {
+        for previous_length in [0, 8] {
+            let mut buffer = BufferHandle::test_buffer(b"new-stale");
+            assert!(buffer.set_len(previous_length));
+            let fd = std::fs::File::open("/dev/null").expect("test descriptor").into();
+            let completion = InFlight::FixedRead { _fd: fd, buffer }.complete(3, 0);
+            assert_eq!(completion.result, 3);
+            assert_eq!(&*completion.into_buffer().expect("returned buffer"), b"new");
+        }
+    }
+
+    #[test]
+    fn fixed_read_completion_clears_payload_on_eof() {
+        let mut buffer = BufferHandle::test_buffer(b"stale");
+        assert!(buffer.set_len(5));
+        let fd = std::fs::File::open("/dev/null").expect("test descriptor").into();
+        let completion = InFlight::FixedRead { _fd: fd, buffer }.complete(0, 0);
+        assert_eq!(completion.result, 0);
+        assert!(completion.into_buffer().expect("returned buffer").is_empty());
+    }
 
     #[test]
     fn submission_budget_caps_kernel_visible_resources() {
