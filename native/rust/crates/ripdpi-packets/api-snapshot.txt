@@ -187,7 +187,6 @@ pub fn ripdpi_packets::build_realistic_quic_initial(u32, core::option::Option<&s
 pub fn ripdpi_packets::change_tls_sni_seeded_like_c(&[u8], &[u8], usize, u32) -> ripdpi_packets::PacketMutation
 pub fn ripdpi_packets::default_fake_quic_compat() -> alloc::vec::Vec<u8>
 pub fn ripdpi_packets::duplicate_tls_session_id_inplace(&mut [u8], &[u8]) -> isize
-pub fn ripdpi_packets::duplicate_tls_session_id_like_c(&[u8], &[u8]) -> ripdpi_packets::PacketMutation
 pub fn ripdpi_packets::http_fake_profile_bytes(ripdpi_packets::HttpFakeProfile) -> &'static [u8]
 pub fn ripdpi_packets::http_marker_info(&[u8]) -> core::option::Option<ripdpi_packets::HttpMarkerInfo>
 pub fn ripdpi_packets::is_http(&[u8]) -> bool
@@ -207,11 +206,8 @@ pub fn ripdpi_packets::parse_quic_initial_seed(&[u8]) -> core::option::Option<ri
 pub fn ripdpi_packets::parse_tls(&[u8]) -> core::option::Option<&[u8]>
 pub fn ripdpi_packets::parse_tls_client_hello_handshake_layout(&[u8]) -> core::option::Option<ripdpi_packets::TlsClientHelloLayout>
 pub fn ripdpi_packets::parse_tls_client_hello_layout(&[u8]) -> core::option::Option<ripdpi_packets::TlsClientHelloLayout>
-pub fn ripdpi_packets::part_tls_like_c(&[u8], isize) -> ripdpi_packets::PacketMutation
 pub fn ripdpi_packets::randomize_tls_seeded_inplace(&mut [u8], u32) -> isize
-pub fn ripdpi_packets::randomize_tls_seeded_like_c(&[u8], u32) -> ripdpi_packets::PacketMutation
 pub fn ripdpi_packets::randomize_tls_sni_seeded_inplace(&mut [u8], u32) -> isize
-pub fn ripdpi_packets::randomize_tls_sni_seeded_like_c(&[u8], u32) -> ripdpi_packets::PacketMutation
 pub fn ripdpi_packets::remove_tls_key_share_group_like_c(&[u8], u16) -> ripdpi_packets::PacketMutation
 pub fn ripdpi_packets::second_level_domain_span(&[u8]) -> core::option::Option<(usize, usize)>
 pub fn ripdpi_packets::tamper_quic_initial_split_crypto(&[u8], usize) -> core::option::Option<alloc::vec::Vec<u8>>

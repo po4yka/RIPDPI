@@ -1,4 +1,6 @@
-use crate::types::{OracleRng, PacketMutation};
+use crate::types::OracleRng;
+#[cfg(test)]
+use crate::types::PacketMutation;
 use crate::util::{fill_random_tls_host_like_c, read_u16};
 
 use super::super::detect::{is_tls_client_hello, tls_marker_info};
@@ -52,6 +54,7 @@ pub fn randomize_tls_seeded_inplace(buf: &mut [u8], seed: u32) -> isize {
     0
 }
 
+#[cfg(test)]
 pub fn randomize_tls_seeded_like_c(input: &[u8], seed: u32) -> PacketMutation {
     let mut output = input.to_vec();
     let rc = randomize_tls_seeded_inplace(&mut output, seed);
@@ -68,6 +71,7 @@ pub fn randomize_tls_sni_seeded_inplace(buf: &mut [u8], seed: u32) -> isize {
     0
 }
 
+#[cfg(test)]
 pub fn randomize_tls_sni_seeded_like_c(input: &[u8], seed: u32) -> PacketMutation {
     let mut output = input.to_vec();
     let rc = randomize_tls_sni_seeded_inplace(&mut output, seed);
@@ -87,6 +91,7 @@ pub fn duplicate_tls_session_id_inplace(fake: &mut [u8], original: &[u8]) -> isi
     0
 }
 
+#[cfg(test)]
 pub fn duplicate_tls_session_id_like_c(fake_input: &[u8], original_input: &[u8]) -> PacketMutation {
     let mut output = fake_input.to_vec();
     let rc = duplicate_tls_session_id_inplace(&mut output, original_input);
