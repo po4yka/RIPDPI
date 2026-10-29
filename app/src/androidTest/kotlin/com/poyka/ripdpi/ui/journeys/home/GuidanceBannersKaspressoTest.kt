@@ -15,6 +15,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import dagger.hilt.android.testing.HiltAndroidTest
 import io.github.kakaocup.compose.node.element.ComposeScreen
 import io.github.kakaocup.compose.node.element.KNode
+import org.junit.Assert.assertEquals
 import org.junit.Test
 import javax.inject.Inject
 
@@ -60,10 +61,11 @@ class SettingsGuidanceBannerKaspressoTest :
                 composeRule.waitForTag(RipDpiTestTags.screen(Route.Settings))
                 composeRule.waitForTagGone(RipDpiTestTags.SettingsBackgroundGuidanceBanner)
             }
-            step("Home no longer shows the guidance row") {
+            step("Home keeps only the lockdown notice, the guidance notice is gone") {
                 composeRule.onNode(hasTestTag(RipDpiTestTags.bottomNav(Route.Home))).performClick()
                 composeRule.waitForTag(RipDpiTestTags.screen(Route.Home))
-                composeRule.waitForTagGone(RipDpiTestTags.HomeSetupHealthRow)
+                composeRule.waitForTag(RipDpiTestTags.HomeSetupHealthRow)
+                composeRule.waitForTagGone(RipDpiTestTags.HomeAdvisoryMore)
             }
         }
 }
@@ -83,14 +85,16 @@ class HomeGuidanceRowKaspressoTest :
     fun reviewingTheBackgroundGuidanceRowDismissesItPersistently() =
         run {
             ComposeScreen.onComposeScreen<HomePage>(composeRule) {
-                step("Guidance row is shown under granted permissions") {
+                step("Guidance notice sits behind the lockdown notice's disclosure") {
                     setupHealthRow.assertIsDisplayed()
-                    advisoryPrimary.assertIsDisplayed()
+                    advisoryMore.scrollAndClick()
+                    setupHealthDetails.assertIsDisplayed()
+                    assertEquals(1, composeRule.tagCount(RipDpiTestTags.HomeSetupHealthAction))
                 }
-                step("Acting on it stores the dismissal and removes the row") {
-                    advisoryPrimary.scrollAndClick()
+                step("Acting on it stores the dismissal and removes the disclosure") {
+                    composeRule.clickAdvisoryAt(0)
                     composeRule.waitForSettings(appSettingsRepository) { it.backgroundGuidanceDismissed }
-                    composeRule.waitForTagGone(RipDpiTestTags.HomeSetupHealthRow)
+                    composeRule.waitForTagGone(RipDpiTestTags.HomeAdvisoryMore)
                 }
             }
         }
@@ -112,14 +116,14 @@ class HomeBatteryReviewKaspressoTest :
     fun batteryReviewRowLeadsAndActingOnItPersistsTheDismissal() =
         run {
             ComposeScreen.onComposeScreen<HomePage>(composeRule) {
-                step("Recommendation row is shown with the remaining guidance behind the disclosure") {
+                step("Battery and guidance notices sit behind the lockdown notice's disclosure") {
                     setupHealthRow.assertIsDisplayed()
-                    advisoryPrimary.assertIsDisplayed()
                     advisoryMore.scrollAndClick()
                     setupHealthDetails.assertIsDisplayed()
+                    assertEquals(2, composeRule.tagCount(RipDpiTestTags.HomeSetupHealthAction))
                 }
-                step("Acting on the battery row stores the banner dismissal") {
-                    advisoryPrimary.scrollAndClick()
+                step("Acting on the battery notice (listed first) stores the banner dismissal") {
+                    composeRule.clickAdvisoryAt(0)
                     composeRule.waitForSettings(appSettingsRepository) { it.batteryBannerDismissed }
                 }
             }

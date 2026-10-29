@@ -33,10 +33,8 @@ private class OnboardingPage(
 @HiltAndroidTest
 class OnboardingKaspressoTest :
     RipDpiKaspressoTest(
-        automationLaunchIntent(
-            startRoute = Route.Onboarding.stableRoute,
-            dataPreset = AutomationDataPreset.CleanHome,
-        ),
+        // No start route: the incomplete-onboarding startup destination is the real first-run path.
+        automationLaunchIntent(dataPreset = AutomationDataPreset.CleanHome),
     ) {
     @Inject
     lateinit var appSettingsRepository: AppSettingsRepository
@@ -68,19 +66,19 @@ class OnboardingKaspressoTest :
     @Test
     fun advancedPersonaWithProxyModeCompletesOnboardingAndPersistsChoices() {
         walkOnboarding(persona = { it.personaAdvanced }, mode = { it.modeProxy })
-        composeRule.waitForTag(RipDpiTestTags.screen(Route.Home))
         composeRule.waitForSettings(appSettingsRepository) {
             it.onboardingComplete && it.uiPersona == "advanced" && it.ripdpiMode == Mode.Proxy.preferenceValue
         }
+        composeRule.waitForTag(RipDpiTestTags.screen(Route.Home))
     }
 
     @Test
     fun simplePersonaWithVpnModeCompletesOnboardingAndPersistsChoices() {
         walkOnboarding(persona = { it.personaSimple }, mode = { it.modeVpn })
-        composeRule.waitForTag(RipDpiTestTags.screen(Route.Home))
         composeRule.waitForSettings(appSettingsRepository) {
             it.onboardingComplete && it.uiPersona == "simple" && it.ripdpiMode == Mode.VPN.preferenceValue
         }
+        composeRule.waitForTag(RipDpiTestTags.screen(Route.Home))
     }
 
     @Test
@@ -90,8 +88,8 @@ class OnboardingKaspressoTest :
                 step("Skip setup on the intro page") { skip.performClick() }
             }
             step("Home appears and onboarding is persisted as complete") {
-                composeRule.waitForTag(RipDpiTestTags.screen(Route.Home))
                 composeRule.waitForSettings(appSettingsRepository) { it.onboardingComplete }
+                composeRule.waitForTag(RipDpiTestTags.screen(Route.Home))
             }
         }
 }

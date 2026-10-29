@@ -5,6 +5,8 @@ import androidx.compose.ui.test.SemanticsNodeInteractionsProvider
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.onRoot
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.printToString
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import com.poyka.ripdpi.activities.MainActivity
@@ -89,4 +91,11 @@ internal fun JourneyComposeRule.waitForSettings(
     predicate: (AppSettings) -> Boolean,
 ) = waitWithTree("settings predicate never held", timeoutMillis) {
     predicate(runBlocking { repository.snapshot() })
+}
+
+/** Clicks the nth notice inside the expanded advisory disclosure. */
+internal fun JourneyComposeRule.clickAdvisoryAt(index: Int) {
+    val node = onAllNodes(hasTestTag(RipDpiTestTags.HomeSetupHealthAction))[index]
+    node.performScrollTo()
+    node.performClick()
 }
