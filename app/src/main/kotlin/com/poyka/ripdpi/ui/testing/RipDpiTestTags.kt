@@ -127,6 +127,11 @@ internal object RipDpiTestTags {
     const val DiagnosticProfileSearch = "diagnostic-profile-search"
     const val RelayProfileSearch = "relay-profile-search"
     const val RelayProfileSearchSheet = "relay-profile-search-sheet"
+    const val SshHostKeyFetch = "ssh-host-key-fetch"
+    const val SshHostKeyFetchError = "ssh-host-key-fetch-error"
+    const val SshHostKeyTrustDialog = "ssh-host-key-trust-dialog"
+    const val SshHostKeyTrustConfirm = "ssh-host-key-trust-confirm"
+    const val SshHostKeyTrustDismiss = "ssh-host-key-trust-dismiss"
     const val DiagnosticProfileSearchSheet = "diagnostic-profile-search-sheet"
     val profileSearchQuery: (String) -> String = { scope -> "$scope-query" }
     val profileSearchClear: (String) -> String = { scope -> "$scope-clear" }

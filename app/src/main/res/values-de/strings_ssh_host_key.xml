@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ssh_host_key_fetch_action">Hostschlüssel abrufen</string>
+    <string name="ssh_host_key_fetch_error_invalid">Prüfen Sie Serveradresse und Port.</string>
+    <string name="ssh_host_key_fetch_error_timeout">Der Server hat nicht rechtzeitig geantwortet.</string>
+    <string name="ssh_host_key_fetch_error_connect">Verbindung zum Server fehlgeschlagen.</string>
+    <string name="ssh_host_key_fetch_error_handshake">Der Server hat den SSH-Handshake nicht abgeschlossen.</string>
+    <string name="ssh_host_key_fetch_error_protection">Erteilen Sie die VPN-Berechtigung und versuchen Sie es erneut.</string>
+    <string name="ssh_host_key_fetch_error_network">Das Netzwerk ist nicht verfügbar oder hat sich geändert. Versuchen Sie es erneut.</string>
+    <string name="ssh_host_key_fetch_error_busy">Eine andere Hostschlüsselprüfung läuft bereits. Versuchen Sie es gleich noch einmal.</string>
+    <string name="ssh_host_key_fetch_error_generic">Hostschlüssel konnte nicht abgerufen werden.</string>
+    <string name="ssh_host_key_trust_title">Diesem Hostschlüssel vertrauen?</string>
+    <string name="ssh_host_key_trust_body">Vertrauen Sie diesem Schlüssel nur, wenn er mit dem Fingerabdruck Ihres Serveradministrators übereinstimmt.</string>
+    <string name="ssh_host_key_trust_mismatch">Dieser Schlüssel weicht vom verankerten Fingerabdruck ab. Der Serverschlüssel wurde geändert, oder die Verbindung wird möglicherweise abgefangen.</string>
+    <string name="ssh_host_key_trust_key_type">Schlüsseltyp: %1$s</string>
+    <string name="ssh_host_key_trust_confirm">Schlüssel vertrauen</string>
+    <string name="ssh_host_key_trust_dismiss">Abbrechen</string>
+</resources>

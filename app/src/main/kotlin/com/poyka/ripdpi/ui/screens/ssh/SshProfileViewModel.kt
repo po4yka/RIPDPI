@@ -7,13 +7,18 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigRelayArtifactRepository
 import com.poyka.ripdpi.activities.RelayProfileNotFoundException
+import com.poyka.ripdpi.core.SshHostKeyProbeFailure
+import com.poyka.ripdpi.core.SshHostKeyProbeResult
 import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
+import com.poyka.ripdpi.services.SshHostKeyObserver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -36,7 +41,14 @@ data class SshProfileUiState(
     val editing: Boolean = false,
     @StringRes val errorMessage: Int? = null,
     val notFound: Boolean = false,
-)
+    val hostKeyFetch: SshHostKeyFetchState = SshHostKeyFetchState.Idle,
+) {
+    /** The fetch needs a server and a valid port; the observer validates the endpoint again. */
+    val canFetchHostKey: Boolean
+        get() =
+            SshEditorField.SERVER.validate(editor.rawText(SshEditorField.SERVER)) != null &&
+                SshEditorField.SERVER_PORT.validate(editor.rawText(SshEditorField.SERVER_PORT)) != null
+}
 
 /**
  * Backing [ViewModel] for the SSH profile editor screen.
@@ -58,6 +70,7 @@ class SshProfileViewModel
     constructor(
         private val relayActivator: RelayProfileActivator,
         private val relayArtifacts: ConfigRelayArtifactRepository,
+        private val hostKeyObserver: SshHostKeyObserver,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(SshProfileUiState(editor = SshProfileEditorState.initial()))
         val uiState: StateFlow<SshProfileUiState> = _uiState.asStateFlow()
@@ -66,6 +79,7 @@ class SshProfileViewModel
         private var completed = false
         private var editingDraft: ConfigDraft? = null
         private var requestedEditProfileId: String? = null
+        private var hostKeyJob: Job? = null
 
         fun loadProfile(profileId: String) {
             if (profileId.isBlank()) {
@@ -113,8 +127,85 @@ class SshProfileViewModel
             raw: String,
         ) {
             if (_uiState.value.editing && field == SshEditorField.DISPLAY_NAME) return
-            _uiState.update { it.copy(editor = it.editor.updateField(field, raw), errorMessage = null) }
+            // A key observed for the old endpoint must not be offered for trust after the endpoint changes.
+            val endpointChanged = field == SshEditorField.SERVER || field == SshEditorField.SERVER_PORT
+            if (endpointChanged) hostKeyJob?.cancel()
+            _uiState.update {
+                it.copy(
+                    editor = it.editor.updateField(field, raw),
+                    errorMessage = null,
+                    hostKeyFetch = if (endpointChanged) SshHostKeyFetchState.Idle else it.hostKeyFetch,
+                )
+            }
         }
+
+        /**
+         * Observes the server's host key without credentials. A re-tap restarts the fetch. The
+         * observed key only waits for confirmation: [onHostKeyTrustConfirmed] pins it.
+         */
+        fun onFetchHostKey() {
+            val state = _uiState.value
+            if (!state.canFetchHostKey) return
+            val server = state.editor.rawText(SshEditorField.SERVER).trim()
+            val port = SshEditorField.SERVER_PORT.validate(state.editor.rawText(SshEditorField.SERVER_PORT)) as Int
+            hostKeyJob?.cancel()
+            _uiState.update { it.copy(hostKeyFetch = SshHostKeyFetchState.InProgress) }
+            hostKeyJob =
+                viewModelScope.launch {
+                    val result =
+                        runCatching { hostKeyObserver.observe(server, port) }
+                            .getOrElse { error ->
+                                if (error is CancellationException) throw error
+                                SshHostKeyProbeResult.Failed(SshHostKeyProbeFailure.InternalFailure)
+                            }
+                    // A cancelled fetch (re-tap, endpoint edit, screen left) must not publish its result.
+                    ensureActive()
+                    _uiState.update { current ->
+                        current.copy(hostKeyFetch = result.toFetchState(current.editor))
+                    }
+                }
+        }
+
+        /** Pins the observed key after the user explicitly trusts it. */
+        fun onHostKeyTrustConfirmed() {
+            _uiState.update { current ->
+                val pending = current.hostKeyFetch as? SshHostKeyFetchState.PendingConfirmation ?: return@update current
+                current.copy(
+                    editor = current.editor.updateField(SshEditorField.HOST_KEY_FINGERPRINT, pending.fingerprint),
+                    hostKeyFetch = SshHostKeyFetchState.Idle,
+                )
+            }
+        }
+
+        /** Discards the observed key; the pinned fingerprint stays unchanged. */
+        fun onHostKeyTrustDismissed() {
+            _uiState.update { current ->
+                if (current.hostKeyFetch is SshHostKeyFetchState.PendingConfirmation) {
+                    current.copy(hostKeyFetch = SshHostKeyFetchState.Idle)
+                } else {
+                    current
+                }
+            }
+        }
+
+        private fun SshHostKeyProbeResult.toFetchState(editor: SshProfileEditorState): SshHostKeyFetchState =
+            when (this) {
+                is SshHostKeyProbeResult.Observed -> {
+                    SshHostKeyFetchState.PendingConfirmation(
+                        fingerprint = fingerprintSha256,
+                        algorithm = algorithm,
+                        differsFromPinned =
+                            sshFingerprintDiffers(
+                                editor.rawText(SshEditorField.HOST_KEY_FINGERPRINT),
+                                fingerprintSha256,
+                            ),
+                    )
+                }
+
+                is SshHostKeyProbeResult.Failed -> {
+                    SshHostKeyFetchState.Failed(reason.messageRes())
+                }
+            }
 
         /** Selects the auth type [value] from the whitelist. */
         fun onAuthTypeSelected(value: String) {

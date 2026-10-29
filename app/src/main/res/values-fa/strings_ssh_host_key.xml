@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ssh_host_key_fetch_action">دریافت کلید میزبان</string>
+    <string name="ssh_host_key_fetch_error_invalid">نشانی و درگاه سرور را بررسی کنید.</string>
+    <string name="ssh_host_key_fetch_error_timeout">سرور به‌موقع پاسخ نداد.</string>
+    <string name="ssh_host_key_fetch_error_connect">اتصال به سرور ممکن نشد.</string>
+    <string name="ssh_host_key_fetch_error_handshake">سرور دست‌دهی SSH را کامل نکرد.</string>
+    <string name="ssh_host_key_fetch_error_protection">اجازهٔ VPN را بدهید و دوباره تلاش کنید.</string>
+    <string name="ssh_host_key_fetch_error_network">شبکه در دسترس نیست یا تغییر کرده است. دوباره تلاش کنید.</string>
+    <string name="ssh_host_key_fetch_error_busy">بررسی دیگری برای کلید میزبان در حال اجراست. کمی بعد دوباره تلاش کنید.</string>
+    <string name="ssh_host_key_fetch_error_generic">دریافت کلید میزبان ممکن نشد.</string>
+    <string name="ssh_host_key_trust_title">به این کلید میزبان اعتماد می‌کنید؟</string>
+    <string name="ssh_host_key_trust_body">فقط وقتی به این کلید اعتماد کنید که با اثرانگشت ارائه‌شده از سوی مدیر سرور یکسان باشد.</string>
+    <string name="ssh_host_key_trust_mismatch">این کلید با اثرانگشت پین‌شده فرق دارد. کلید سرور تغییر کرده یا ممکن است کسی اتصال را شنود کند.</string>
+    <string name="ssh_host_key_trust_key_type">نوع کلید: %1$s</string>
+    <string name="ssh_host_key_trust_confirm">اعتماد به کلید</string>
+    <string name="ssh_host_key_trust_dismiss">لغو</string>
+</resources>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ssh_host_key_fetch_action">جلب مفتاح المضيف</string>
+    <string name="ssh_host_key_fetch_error_invalid">تحقق من عنوان الخادم والمنفذ.</string>
+    <string name="ssh_host_key_fetch_error_timeout">لم يستجب الخادم في الوقت المحدد.</string>
+    <string name="ssh_host_key_fetch_error_connect">تعذّر الاتصال بالخادم.</string>
+    <string name="ssh_host_key_fetch_error_handshake">لم يُكمل الخادم مصافحة SSH.</string>
+    <string name="ssh_host_key_fetch_error_protection">امنح إذن VPN ثم أعد المحاولة.</string>
+    <string name="ssh_host_key_fetch_error_network">الشبكة غير متاحة أو تغيّرت. أعد المحاولة.</string>
+    <string name="ssh_host_key_fetch_error_busy">يجري فحص آخر لمفتاح المضيف. أعد المحاولة بعد قليل.</string>
+    <string name="ssh_host_key_fetch_error_generic">تعذّر جلب مفتاح المضيف.</string>
+    <string name="ssh_host_key_trust_title">هل تثق بمفتاح المضيف هذا؟</string>
+    <string name="ssh_host_key_trust_body">لا تثق بهذا المفتاح إلا إذا طابق البصمة التي قدّمها مسؤول الخادم.</string>
+    <string name="ssh_host_key_trust_mismatch">يختلف هذا المفتاح عن البصمة المثبّتة. ربما تغيّر مفتاح الخادم، أو قد يعترض أحدٌ الاتصال.</string>
+    <string name="ssh_host_key_trust_key_type">نوع المفتاح: %1$s</string>
+    <string name="ssh_host_key_trust_confirm">الثقة بالمفتاح</string>
+    <string name="ssh_host_key_trust_dismiss">إلغاء</string>
+</resources>

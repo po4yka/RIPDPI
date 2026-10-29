@@ -80,6 +80,8 @@ fun SshProfileRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
     LifecycleEventEffect(viewModel.savedEvents) { onBack() }
     // Revealed secrets hide again when the app goes to the background or the screen closes.
+    // A host-key fetch is not cancelled here: rotation would restart it, and the slot the cancelled
+    // probe keeps would answer Busy. It runs in viewModelScope, so leaving the screen cancels it.
     LifecycleStartEffect(viewModel) { onStopOrDispose { viewModel.onSecretsRelocked() } }
     val revealPrivateKey = rememberSecretRevealGate(viewModel::onPrivateKeyRevealAuthorized, appPin)
     val revealPassphrase = rememberSecretRevealGate(viewModel::onPassphraseRevealAuthorized, appPin)
@@ -93,6 +95,9 @@ fun SshProfileRoute(
         onRevealPassphrase = onRequestPassphraseReveal ?: revealPassphrase,
         onSave = viewModel::onSave,
         modifier = modifier,
+        onFetchHostKey = viewModel::onFetchHostKey,
+        onHostKeyTrustConfirmed = viewModel::onHostKeyTrustConfirmed,
+        onHostKeyTrustDismissed = viewModel::onHostKeyTrustDismissed,
     )
 }
 
@@ -107,6 +112,9 @@ internal fun SshProfileScreen(
     onRevealPassphrase: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
+    onFetchHostKey: () -> Unit = {},
+    onHostKeyTrustConfirmed: () -> Unit = {},
+    onHostKeyTrustDismissed: () -> Unit = {},
 ) {
     SecureWindowEffect()
     RipDpiContentScreenScaffold(
@@ -130,7 +138,10 @@ internal fun SshProfileScreen(
         }
         EndpointSection(uiState.editor, onFieldChanged, uiState.editing)
         AuthSection(uiState.editor, onFieldChanged, onAuthTypeSelected, onRevealPrivateKey, onRevealPassphrase)
-        HostKeySection(uiState.editor, onFieldChanged, onStrictHostKeyChanged)
+        HostKeySection(uiState, onFieldChanged, onStrictHostKeyChanged, onFetchHostKey)
+        (uiState.hostKeyFetch as? SshHostKeyFetchState.PendingConfirmation)?.let { pending ->
+            SshHostKeyTrustDialog(pending, onConfirm = onHostKeyTrustConfirmed, onDismiss = onHostKeyTrustDismissed)
+        }
         RelayEditorActionRow(
             text = stringResource(R.string.ssh_save_action),
             onClick = onSave,
@@ -218,10 +229,12 @@ private fun AuthSection(
 
 @Composable
 private fun HostKeySection(
-    editor: SshProfileEditorState,
+    uiState: SshProfileUiState,
     onFieldChanged: (SshEditorField, String) -> Unit,
     onStrictHostKeyChanged: (Boolean) -> Unit,
+    onFetchHostKey: () -> Unit,
 ) {
+    val editor = uiState.editor
     RipDpiCard {
         RipDpiPanelHeader(
             title = stringResource(R.string.ssh_section_host_key),
@@ -232,6 +245,11 @@ private fun HostKeySection(
             R.string.ssh_field_host_key_fingerprint,
             editor,
             onFieldChanged,
+        )
+        SshHostKeyFetchControls(
+            state = uiState.hostKeyFetch,
+            enabled = uiState.canFetchHostKey && !uiState.loading,
+            onFetch = onFetchHostKey,
         )
         RipDpiSwitch(
             checked = editor.strictHostKey,

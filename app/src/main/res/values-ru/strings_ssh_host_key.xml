@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ssh_host_key_fetch_action">Получить ключ хоста</string>
+    <string name="ssh_host_key_fetch_error_invalid">Проверьте адрес и порт сервера.</string>
+    <string name="ssh_host_key_fetch_error_timeout">Сервер не ответил вовремя.</string>
+    <string name="ssh_host_key_fetch_error_connect">Не удалось подключиться к серверу.</string>
+    <string name="ssh_host_key_fetch_error_handshake">Сервер не завершил SSH-рукопожатие.</string>
+    <string name="ssh_host_key_fetch_error_protection">Разрешите доступ к VPN и повторите попытку.</string>
+    <string name="ssh_host_key_fetch_error_network">Сеть недоступна или изменилась. Повторите попытку.</string>
+    <string name="ssh_host_key_fetch_error_busy">Уже выполняется другая проверка ключа хоста. Повторите чуть позже.</string>
+    <string name="ssh_host_key_fetch_error_generic">Не удалось получить ключ хоста.</string>
+    <string name="ssh_host_key_trust_title">Доверять этому ключу хоста?</string>
+    <string name="ssh_host_key_trust_body">Доверяйте ключу, только если он совпадает с отпечатком от администратора сервера.</string>
+    <string name="ssh_host_key_trust_mismatch">Этот ключ отличается от закреплённого отпечатка. Ключ сервера изменился, или соединение может быть перехвачено.</string>
+    <string name="ssh_host_key_trust_key_type">Тип ключа: %1$s</string>
+    <string name="ssh_host_key_trust_confirm">Доверять ключу</string>
+    <string name="ssh_host_key_trust_dismiss">Отмена</string>
+</resources>

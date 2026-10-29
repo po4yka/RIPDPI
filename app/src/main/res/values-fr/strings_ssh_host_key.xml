@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ssh_host_key_fetch_action">Récupérer la clé de l\'hôte</string>
+    <string name="ssh_host_key_fetch_error_invalid">Vérifiez l\'adresse et le port du serveur.</string>
+    <string name="ssh_host_key_fetch_error_timeout">Le serveur n\'a pas répondu à temps.</string>
+    <string name="ssh_host_key_fetch_error_connect">Impossible de se connecter au serveur.</string>
+    <string name="ssh_host_key_fetch_error_handshake">Le serveur n\'a pas terminé la négociation SSH.</string>
+    <string name="ssh_host_key_fetch_error_protection">Autorisez l\'accès VPN, puis réessayez.</string>
+    <string name="ssh_host_key_fetch_error_network">Le réseau est indisponible ou a changé. Réessayez.</string>
+    <string name="ssh_host_key_fetch_error_busy">Une autre vérification de clé d\'hôte est en cours. Réessayez dans un instant.</string>
+    <string name="ssh_host_key_fetch_error_generic">Impossible de récupérer la clé de l\'hôte.</string>
+    <string name="ssh_host_key_trust_title">Faire confiance à cette clé d\'hôte ?</string>
+    <string name="ssh_host_key_trust_body">Ne faites confiance à cette clé que si elle correspond à l\'empreinte fournie par l\'administrateur du serveur.</string>
+    <string name="ssh_host_key_trust_mismatch">Cette clé diffère de l\'empreinte épinglée. La clé du serveur a changé, ou la connexion est peut-être interceptée.</string>
+    <string name="ssh_host_key_trust_key_type">Type de clé : %1$s</string>
+    <string name="ssh_host_key_trust_confirm">Faire confiance</string>
+    <string name="ssh_host_key_trust_dismiss">Annuler</string>
+</resources>

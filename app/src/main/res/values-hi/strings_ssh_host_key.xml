@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ssh_host_key_fetch_action">होस्ट कुंजी प्राप्त करें</string>
+    <string name="ssh_host_key_fetch_error_invalid">सर्वर का पता और पोर्ट जाँचें।</string>
+    <string name="ssh_host_key_fetch_error_timeout">सर्वर ने समय पर जवाब नहीं दिया।</string>
+    <string name="ssh_host_key_fetch_error_connect">सर्वर से कनेक्ट नहीं हो सका।</string>
+    <string name="ssh_host_key_fetch_error_handshake">सर्वर ने SSH हैंडशेक पूरा नहीं किया।</string>
+    <string name="ssh_host_key_fetch_error_protection">VPN अनुमति दें, फिर दोबारा कोशिश करें।</string>
+    <string name="ssh_host_key_fetch_error_network">नेटवर्क उपलब्ध नहीं है या बदल गया है। दोबारा कोशिश करें।</string>
+    <string name="ssh_host_key_fetch_error_busy">होस्ट कुंजी की दूसरी जाँच चल रही है। थोड़ी देर बाद दोबारा कोशिश करें।</string>
+    <string name="ssh_host_key_fetch_error_generic">होस्ट कुंजी प्राप्त नहीं हो सकी।</string>
+    <string name="ssh_host_key_trust_title">इस होस्ट कुंजी पर भरोसा करें?</string>
+    <string name="ssh_host_key_trust_body">इस कुंजी पर तभी भरोसा करें जब यह आपके सर्वर व्यवस्थापक से मिले फ़िंगरप्रिंट से मेल खाए।</string>
+    <string name="ssh_host_key_trust_mismatch">यह कुंजी पिन किए गए फ़िंगरप्रिंट से अलग है। सर्वर की कुंजी बदल गई है, या कोई कनेक्शन को बीच में रोक रहा हो सकता है।</string>
+    <string name="ssh_host_key_trust_key_type">कुंजी का प्रकार: %1$s</string>
+    <string name="ssh_host_key_trust_confirm">कुंजी पर भरोसा करें</string>
+    <string name="ssh_host_key_trust_dismiss">रद्द करें</string>
+</resources>

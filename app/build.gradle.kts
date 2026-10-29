@@ -429,6 +429,8 @@ dependencies {
     implementation(project(":core:diagnostics"))
     implementation(project(":core:pcap-export"))
     implementation(project(":core:service"))
+    // SshHostKeyObserver returns the engine-api probe result types to the SSH editor.
+    implementation(project(":core:engine-api"))
 
     // Proto DataStore
     implementation(libs.androidx.datastore)

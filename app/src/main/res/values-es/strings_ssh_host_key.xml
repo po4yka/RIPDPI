@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ssh_host_key_fetch_action">Obtener clave del host</string>
+    <string name="ssh_host_key_fetch_error_invalid">Revisa la dirección y el puerto del servidor.</string>
+    <string name="ssh_host_key_fetch_error_timeout">El servidor no respondió a tiempo.</string>
+    <string name="ssh_host_key_fetch_error_connect">No se pudo conectar con el servidor.</string>
+    <string name="ssh_host_key_fetch_error_handshake">El servidor no completó el protocolo de enlace SSH.</string>
+    <string name="ssh_host_key_fetch_error_protection">Concede el permiso de VPN y vuelve a intentarlo.</string>
+    <string name="ssh_host_key_fetch_error_network">La red no está disponible o ha cambiado. Vuelve a intentarlo.</string>
+    <string name="ssh_host_key_fetch_error_busy">Ya hay otra comprobación de clave del host en curso. Inténtalo de nuevo en breve.</string>
+    <string name="ssh_host_key_fetch_error_generic">No se pudo obtener la clave del host.</string>
+    <string name="ssh_host_key_trust_title">¿Confiar en esta clave del host?</string>
+    <string name="ssh_host_key_trust_body">Confía en esta clave solo si coincide con la huella que te dio el administrador del servidor.</string>
+    <string name="ssh_host_key_trust_mismatch">Esta clave no coincide con la huella fijada. La clave del servidor cambió o alguien podría estar interceptando la conexión.</string>
+    <string name="ssh_host_key_trust_key_type">Tipo de clave: %1$s</string>
+    <string name="ssh_host_key_trust_confirm">Confiar en la clave</string>
+    <string name="ssh_host_key_trust_dismiss">Cancelar</string>
+</resources>

@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ssh_host_key_fetch_action">Obter chave de host</string>
+    <string name="ssh_host_key_fetch_error_invalid">Verifique o endereço e a porta do servidor.</string>
+    <string name="ssh_host_key_fetch_error_timeout">O servidor não respondeu a tempo.</string>
+    <string name="ssh_host_key_fetch_error_connect">Não foi possível conectar ao servidor.</string>
+    <string name="ssh_host_key_fetch_error_handshake">O servidor não concluiu o handshake SSH.</string>
+    <string name="ssh_host_key_fetch_error_protection">Conceda a permissão de VPN e tente de novo.</string>
+    <string name="ssh_host_key_fetch_error_network">A rede está indisponível ou mudou. Tente de novo.</string>
+    <string name="ssh_host_key_fetch_error_busy">Outra verificação de chave de host está em andamento. Tente de novo em instantes.</string>
+    <string name="ssh_host_key_fetch_error_generic">Não foi possível obter a chave de host.</string>
+    <string name="ssh_host_key_trust_title">Confiar nesta chave de host?</string>
+    <string name="ssh_host_key_trust_body">Confie nesta chave somente se ela corresponder à impressão digital fornecida pelo administrador do servidor.</string>
+    <string name="ssh_host_key_trust_mismatch">Esta chave é diferente da impressão digital fixada. A chave do servidor mudou ou a conexão pode estar sendo interceptada.</string>
+    <string name="ssh_host_key_trust_key_type">Tipo de chave: %1$s</string>
+    <string name="ssh_host_key_trust_confirm">Confiar na chave</string>
+    <string name="ssh_host_key_trust_dismiss">Cancelar</string>
+</resources>

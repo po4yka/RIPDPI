@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="ssh_host_key_fetch_action">Fetch host key</string>
+    <string name="ssh_host_key_fetch_error_invalid">Check the server address and port.</string>
+    <string name="ssh_host_key_fetch_error_timeout">The server did not respond in time.</string>
+    <string name="ssh_host_key_fetch_error_connect">Could not connect to the server.</string>
+    <string name="ssh_host_key_fetch_error_handshake">The server did not complete the SSH handshake.</string>
+    <string name="ssh_host_key_fetch_error_protection">Allow the VPN permission, then try again.</string>
+    <string name="ssh_host_key_fetch_error_network">The network is unavailable or changed. Try again.</string>
+    <string name="ssh_host_key_fetch_error_busy">Another host key check is running. Try again shortly.</string>
+    <string name="ssh_host_key_fetch_error_generic">Could not fetch the host key.</string>
+    <string name="ssh_host_key_trust_title">Trust this host key?</string>
+    <string name="ssh_host_key_trust_body">Trust this key only if it matches the fingerprint from your server administrator.</string>
+    <string name="ssh_host_key_trust_mismatch">This key differs from the pinned fingerprint. The server key changed, or someone may be intercepting the connection.</string>
+    <string name="ssh_host_key_trust_key_type">Key type: %1$s</string>
+    <string name="ssh_host_key_trust_confirm">Trust key</string>
+    <string name="ssh_host_key_trust_dismiss">Cancel</string>
+</resources>

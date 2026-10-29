@@ -3,6 +3,8 @@ package com.poyka.ripdpi.ui.screens.ssh
 import app.cash.turbine.test
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigRelayArtifactRepository
+import com.poyka.ripdpi.core.SshHostKeyProbeFailure
+import com.poyka.ripdpi.core.SshHostKeyProbeResult
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultRelayProfileId
@@ -14,14 +16,18 @@ import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
+import com.poyka.ripdpi.services.SshHostKeyObserver
 import com.poyka.ripdpi.util.MainDispatcherRule
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -40,11 +46,18 @@ class SshProfileViewModelTest {
 
     // Named *Fixture so the no-secrets pre-commit hook excludes the line.
     private val passwordFixture = "ssh-vm-fixture-secret"
+    private val observedFingerprintFixture = "SHA256:n4bQgYhMfWWaL+qgxVrQFaO/TxsrC4Is0V1sFbDwCgg"
+    private val observedFingerprintUrlSafeFixture = "SHA256:n4bQgYhMfWWaL-qgxVrQFaO_TxsrC4Is0V1sFbDwCgg="
+    private val mixedAlphabetFingerprintFixture = "SHA256:n4bQgYhMfWWaL-qgxVrQFaO/TxsrC4Is0V1sFbDwCgg"
+    private val otherFingerprintFixture = "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+
+    private fun observed(fingerprint: String) = SshHostKeyProbeResult.Observed(fingerprint, "ssh-ed25519")
 
     private fun viewModel(
         profileStore: RelayProfileStore,
         credentialStore: RelayCredentialStore,
         settings: AppSettingsRepository,
+        hostKeyObserver: SshHostKeyObserver = FakeSshHostKeyObserver(),
     ): SshProfileViewModel =
         SshProfileViewModel(
             RelayProfileActivator(
@@ -65,7 +78,165 @@ class SshProfileViewModelTest {
                         settings,
                     ),
             ),
+            hostKeyObserver,
         )
+
+    private fun hostKeyViewModel(observer: SshHostKeyObserver): SshProfileViewModel =
+        viewModel(FakeRelayProfileStore(), FakeRelayCredentialStore(), FakeAppSettingsRepository(), observer)
+            .apply {
+                onFieldChanged(SshEditorField.SERVER, "ssh.example")
+                onFieldChanged(SshEditorField.SERVER_PORT, "2222")
+            }
+
+    private fun SshProfileViewModel.pinnedFingerprint(): String =
+        uiState.value.editor.rawText(SshEditorField.HOST_KEY_FINGERPRINT)
+
+    @Test
+    fun `fetched host key waits for confirmation and confirm pins it`() =
+        runTest {
+            val viewModel = hostKeyViewModel(FakeSshHostKeyObserver(observed(observedFingerprintFixture)))
+
+            viewModel.onFetchHostKey()
+            advanceUntilIdle()
+
+            assertEquals(
+                SshHostKeyFetchState.PendingConfirmation(
+                    fingerprint = observedFingerprintFixture,
+                    algorithm = "ssh-ed25519",
+                    differsFromPinned = false,
+                ),
+                viewModel.uiState.value.hostKeyFetch,
+            )
+            assertEquals("", viewModel.pinnedFingerprint())
+
+            viewModel.onHostKeyTrustConfirmed()
+
+            assertEquals(observedFingerprintFixture, viewModel.pinnedFingerprint())
+            assertEquals(SshHostKeyFetchState.Idle, viewModel.uiState.value.hostKeyFetch)
+        }
+
+    @Test
+    fun `dismissing the trust step leaves the pinned fingerprint unchanged`() =
+        runTest {
+            val viewModel = hostKeyViewModel(FakeSshHostKeyObserver(observed(observedFingerprintFixture)))
+
+            viewModel.onFetchHostKey()
+            advanceUntilIdle()
+            viewModel.onHostKeyTrustDismissed()
+            viewModel.onHostKeyTrustConfirmed()
+
+            assertEquals("", viewModel.pinnedFingerprint())
+            assertEquals(SshHostKeyFetchState.Idle, viewModel.uiState.value.hostKeyFetch)
+        }
+
+    @Test
+    fun `failed fetch shows the mapped error and keeps the field`() =
+        runTest {
+            val viewModel =
+                hostKeyViewModel(
+                    FakeSshHostKeyObserver(SshHostKeyProbeResult.Failed(SshHostKeyProbeFailure.Timeout)),
+                )
+
+            viewModel.onFetchHostKey()
+            advanceUntilIdle()
+
+            assertEquals(
+                SshHostKeyFetchState.Failed(R.string.ssh_host_key_fetch_error_timeout),
+                viewModel.uiState.value.hostKeyFetch,
+            )
+            assertEquals("", viewModel.pinnedFingerprint())
+        }
+
+    @Test
+    fun `a key that differs from the pinned fingerprint is flagged`() =
+        runTest {
+            val viewModel = hostKeyViewModel(FakeSshHostKeyObserver(observed(observedFingerprintFixture)))
+            viewModel.onFieldChanged(SshEditorField.HOST_KEY_FINGERPRINT, otherFingerprintFixture)
+
+            viewModel.onFetchHostKey()
+            advanceUntilIdle()
+
+            val pending = viewModel.uiState.value.hostKeyFetch as SshHostKeyFetchState.PendingConfirmation
+            assertTrue(pending.differsFromPinned)
+            assertEquals(otherFingerprintFixture, viewModel.pinnedFingerprint())
+        }
+
+    @Test
+    fun `the same key pinned in url-safe base64 is not flagged`() =
+        runTest {
+            val viewModel = hostKeyViewModel(FakeSshHostKeyObserver(observed(observedFingerprintFixture)))
+            viewModel.onFieldChanged(SshEditorField.HOST_KEY_FINGERPRINT, observedFingerprintUrlSafeFixture)
+
+            viewModel.onFetchHostKey()
+            advanceUntilIdle()
+
+            val pending = viewModel.uiState.value.hostKeyFetch as SshHostKeyFetchState.PendingConfirmation
+            assertFalse(pending.differsFromPinned)
+        }
+
+    @Test
+    fun `editing the endpoint during a fetch drops the late result`() =
+        runTest {
+            val gate = CompletableDeferred<SshHostKeyProbeResult>()
+            val viewModel = hostKeyViewModel(FakeSshHostKeyObserver(gates = listOf(gate)))
+
+            viewModel.onFetchHostKey()
+            advanceUntilIdle()
+            assertEquals(SshHostKeyFetchState.InProgress, viewModel.uiState.value.hostKeyFetch)
+
+            viewModel.onFieldChanged(SshEditorField.SERVER, "other.example")
+            gate.complete(observed(observedFingerprintFixture))
+            advanceUntilIdle()
+
+            assertEquals(SshHostKeyFetchState.Idle, viewModel.uiState.value.hostKeyFetch)
+            assertEquals("", viewModel.pinnedFingerprint())
+        }
+
+    @Test
+    fun `a re-tap ignores the late result of the first fetch`() =
+        runTest {
+            val first = CompletableDeferred<SshHostKeyProbeResult>()
+            val second = CompletableDeferred<SshHostKeyProbeResult>()
+            val viewModel = hostKeyViewModel(FakeSshHostKeyObserver(gates = listOf(first, second)))
+
+            viewModel.onFetchHostKey()
+            advanceUntilIdle()
+            viewModel.onFetchHostKey()
+            advanceUntilIdle()
+            second.complete(observed(otherFingerprintFixture))
+            advanceUntilIdle()
+            first.complete(observed(observedFingerprintFixture))
+            advanceUntilIdle()
+
+            val pending = viewModel.uiState.value.hostKeyFetch as SshHostKeyFetchState.PendingConfirmation
+            assertEquals(otherFingerprintFixture, pending.fingerprint)
+        }
+
+    @Test
+    fun `a pin that mixes base64 alphabets is flagged as different`() =
+        runTest {
+            val viewModel = hostKeyViewModel(FakeSshHostKeyObserver(observed(observedFingerprintFixture)))
+            viewModel.onFieldChanged(SshEditorField.HOST_KEY_FINGERPRINT, mixedAlphabetFingerprintFixture)
+
+            viewModel.onFetchHostKey()
+            advanceUntilIdle()
+
+            val pending = viewModel.uiState.value.hostKeyFetch as SshHostKeyFetchState.PendingConfirmation
+            assertTrue(pending.differsFromPinned)
+        }
+
+    @Test
+    fun `fetch is unavailable without a valid port`() =
+        runTest {
+            val viewModel = hostKeyViewModel(FakeSshHostKeyObserver(observed(observedFingerprintFixture)))
+            viewModel.onFieldChanged(SshEditorField.SERVER_PORT, "99999")
+
+            assertFalse(viewModel.uiState.value.canFetchHostKey)
+            viewModel.onFetchHostKey()
+            advanceUntilIdle()
+
+            assertEquals(SshHostKeyFetchState.Idle, viewModel.uiState.value.hostKeyFetch)
+        }
 
     @Test
     fun `onSave activates the ssh relay with udp disabled and flips saved`() =
@@ -248,5 +419,24 @@ private class FakeAppSettingsRepository : AppSettingsRepository {
 
     override suspend fun replace(settings: AppSettings) {
         state.value = settings
+    }
+}
+
+/**
+ * Answers each call with the next of [gates], or with [result] when none is left. A gated call
+ * ignores cancellation, like a native probe that finishes after its caller has gone.
+ */
+private class FakeSshHostKeyObserver(
+    private val result: SshHostKeyProbeResult = SshHostKeyProbeResult.Failed(SshHostKeyProbeFailure.InternalFailure),
+    gates: List<CompletableDeferred<SshHostKeyProbeResult>> = emptyList(),
+) : SshHostKeyObserver {
+    private val pendingGates = ArrayDeque(gates)
+
+    override suspend fun observe(
+        server: String,
+        port: Int,
+    ): SshHostKeyProbeResult {
+        val gate = pendingGates.removeFirstOrNull() ?: return result
+        return withContext(NonCancellable) { gate.await() }
     }
 }

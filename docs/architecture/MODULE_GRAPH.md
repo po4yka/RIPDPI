@@ -59,6 +59,7 @@ graph LR
   :app --> :core:diagnostics
   :app --> :core:pcap-export
   :app --> :core:service
+  :app --> :core:engine-api
   :core:data --> :core:data:model
   :core:data --> :core:data:catalog
   :core:data --> :core:data:settings
