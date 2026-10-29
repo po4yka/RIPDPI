@@ -91,6 +91,7 @@ import dagger.hilt.android.testing.UninstallModules
 import kotlinx.serialization.json.Json
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -370,6 +371,39 @@ class MainActivityShellInstrumentedTest {
                     command is MainActivityHostCommand.RequestVpnConsent
                 }
             }
+        } finally {
+            restoreScenarioIntent(originalIntent)
+        }
+    }
+
+    @Test
+    fun vpnDialogDismissClosesItWithoutConsentOrStart() {
+        mutablePermissionStatusProvider.snapshot =
+            PermissionSnapshot(
+                vpnConsent = PermissionStatus.RequiresSystemPrompt,
+                notifications = PermissionStatus.Granted,
+                batteryOptimization = PermissionStatus.Granted,
+            )
+        val originalIntent = sendConfiguredStartIntent()
+
+        try {
+            composeRule.waitUntil(timeoutMillis = 5_000) {
+                composeRule
+                    .onAllNodes(hasTestTag(RipDpiTestTags.VpnPermissionDialog))
+                    .fetchSemanticsNodes(atLeastOneRootRequired = false)
+                    .isNotEmpty()
+            }
+            composeRule.onNodeWithTag(RipDpiTestTags.VpnPermissionDialogDismiss).performClick()
+            composeRule.waitUntil(timeoutMillis = 5_000) {
+                composeRule
+                    .onAllNodes(hasTestTag(RipDpiTestTags.VpnPermissionDialog))
+                    .fetchSemanticsNodes(atLeastOneRootRequired = false)
+                    .isEmpty()
+            }
+            assertFalse(
+                recordingMainActivityHost.commands.any { it is MainActivityHostCommand.RequestVpnConsent },
+            )
+            assertTrue(recordingServiceController.startedModes.isEmpty())
         } finally {
             restoreScenarioIntent(originalIntent)
         }
