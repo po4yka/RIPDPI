@@ -92,16 +92,14 @@ Composing the live runtime stack for each mode. Owners: `service.runtime.*`,
 ### 3. DNS & leak handling
 
 The encrypted-DNS pipeline, leak detection, and ECH/bootstrap config refresh.
-Owners: `services.dns.*` (incl. `.bootstrap`, `.failover`), `services.leak.*`,
-`services.selector.*`; the flat `Dns*`, `VpnDns*`, `VpnResolver*`,
+Owners: `services.dns.*` (incl. `.failover`), `services.selector.*`; the flat `Dns*`, `VpnDns*`, `VpnResolver*`,
 `VpnEncryptedDnsFailoverController`, `*ResolverCache` / `ResolverOverrideStore`,
-`CaptivePortal*`, `Ipv6Leak*`, `CdnEch*`, `SharedPriors*` files.
+`CdnEch*`, `SharedPriors*` files.
 
 - **`VpnDnsPolicyCoordinator`** coordinates DNS refresh planning + encrypted-DNS
   failover for a VPN session.
-- **`DnsLeakDetector`** / **`Ipv6LeakDetector`** detect leaks; a confirmed leak
-  drives `VpnEncryptedDnsFailoverController` onto the strict resolver.
-- `services.dns.bootstrap` resolves the encrypted-DNS endpoints themselves.
+- There is no DNS or IPv6 leak detector in this module; leak detection does not
+  drive `VpnEncryptedDnsFailoverController`.
 
 ### 4. Root helper
 
@@ -152,9 +150,9 @@ Contract: [`TELEMETRY_CONTRACT.md`](../../docs/architecture/TELEMETRY_CONTRACT.m
 ### 8. Network handover
 
 Detecting and reacting to underlying-network changes (Wi-Fi ↔ cellular).
-Owners: `services.network.*`; the flat `NetworkHandover{Monitor,Processor}`,
+Owners: `services.network.NetworkCondition`; the flat `NetworkHandover{Monitor,Processor}`,
 `ServiceRuntimeHandover{Coordinator,Restarter}`, `PolicyHandoverEventStore`,
-`ConnectivityDegradationClassifier`, `EnvironmentDetector` files.
+`EnvironmentDetector` files.
 
 - **`NetworkHandoverMonitor`** emits a `NetworkHandoverEvent` on a qualifying
   switch; **`NetworkHandoverProcessor`** reacts with a retry-backed restart.

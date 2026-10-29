@@ -6,8 +6,8 @@ import com.poyka.ripdpi.data.DnsModeEncrypted
  * DNS address injected into the VPN tunnel for encrypted-mode profiles.
  *
  * This is the internal map-DNS intercept address that tun2socks forwards
- * all DNS queries through; the interceptor then applies [SplitStrictDnsPolicy]
- * routing before forwarding to the appropriate resolver plane.
+ * all DNS queries through; the interceptor then applies
+ * its routing before forwarding to the appropriate resolver plane.
  */
 internal const val VpnInterceptorDnsAddress = "198.18.0.53"
 

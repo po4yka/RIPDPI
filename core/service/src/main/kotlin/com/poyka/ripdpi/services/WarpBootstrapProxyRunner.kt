@@ -26,13 +26,6 @@ interface WarpBootstrapProxyRunner {
 }
 
 @Singleton
-class PassthroughWarpBootstrapProxyRunner
-    @Inject
-    constructor() : WarpBootstrapProxyRunner {
-        override suspend fun <T> withBootstrapProxy(block: suspend (WarpBootstrapProxyConfig?) -> T): T = block(null)
-    }
-
-@Singleton
 internal class ManagedWarpBootstrapProxyRunner
     @Inject
     constructor(
