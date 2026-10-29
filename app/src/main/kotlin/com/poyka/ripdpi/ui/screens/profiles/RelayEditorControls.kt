@@ -40,6 +40,7 @@ internal fun RelaySecretField(
     onReveal: () -> Unit,
     errorText: String? = null,
     testTag: String? = null,
+    enabled: Boolean = true,
 ) {
     RipDpiTextField(
         value = value,
@@ -49,11 +50,13 @@ internal fun RelaySecretField(
         behavior =
             RipDpiTextFieldBehavior(
                 textObfuscationMode = if (revealed) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
+                enabled = enabled,
             ),
         trailingContent = {
             RipDpiButton(
                 text = stringResource(R.string.ssh_reveal_secret_action),
                 onClick = onReveal,
+                enabled = enabled,
                 variant = RipDpiButtonVariant.Secondary,
                 leadingIcon = RipDpiIcons.Visibility,
             )

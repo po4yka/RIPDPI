@@ -68,6 +68,8 @@ data class AmneziaWgProfileUiState(
     val cohortOptions: ImmutableList<AwgCohortOption>,
     val privateKeyRevealed: Boolean = false,
     val presharedKeyRevealed: Boolean = false,
+    val headerProtectionKeyRevealed: Boolean = false,
+    val pendingCohortId: String? = null,
     /**
      * `true` exactly when the editor carries the identity fields required to
      * open a tunnel. Drives the Connect action's enabled state.
@@ -161,7 +163,24 @@ class AmneziaWgProfileViewModel
                 return
             }
             val preset = catalog.find(cohortId) ?: return
-            mutateEditor { it.selectCohort(preset) }
+            _uiState.update { state ->
+                if (state.editor.hasV3Edits()) {
+                    state.copy(pendingCohortId = cohortId)
+                } else {
+                    state.withEditor(state.editor.selectCohort(preset))
+                }
+            }
+        }
+
+        fun onCohortReplacementConfirmed() {
+            _uiState.update { state ->
+                val preset = state.pendingCohortId?.let(catalog::find) ?: return@update state
+                state.withEditor(state.editor.selectCohort(preset)).copy(headerProtectionKeyRevealed = false)
+            }
+        }
+
+        fun onCohortReplacementCancelled() {
+            _uiState.update { it.copy(pendingCohortId = null) }
         }
 
         /**
@@ -186,6 +205,9 @@ class AmneziaWgProfileViewModel
                     is AwgConfImport.Imported -> {
                         state.withEditor(result.editor).copy(
                             ignoredPeerCount = result.ignoredPeerCount,
+                            privateKeyRevealed = false,
+                            presharedKeyRevealed = false,
+                            headerProtectionKeyRevealed = false,
                         )
                     }
                 }
@@ -214,6 +236,7 @@ class AmneziaWgProfileViewModel
 
         /** Requests system VPN consent before saving or activating the selected profile. */
         fun onConnect() {
+            if (_uiState.value.pendingCohortId != null) return
             val editor = _uiState.value.editor
             if (!editor.isActivatable() || _uiState.value.activationStatus == AwgActivationStatus.Connecting) return
             _uiState.update { it.copy(activationStatus = AwgActivationStatus.Connecting) }
@@ -295,9 +318,15 @@ class AmneziaWgProfileViewModel
             _uiState.update { it.copy(presharedKeyRevealed = true) }
         }
 
-        /** Re-hides both secret fields (e.g. when the screen is left). */
+        fun onHeaderProtectionKeyRevealAuthorized() {
+            _uiState.update { it.copy(headerProtectionKeyRevealed = true) }
+        }
+
+        /** Re-hides all secret fields when the screen is left. */
         fun onSecretsRelocked() {
-            _uiState.update { it.copy(privateKeyRevealed = false, presharedKeyRevealed = false) }
+            _uiState.update {
+                it.copy(privateKeyRevealed = false, presharedKeyRevealed = false, headerProtectionKeyRevealed = false)
+            }
         }
     }
 
@@ -305,6 +334,7 @@ class AmneziaWgProfileViewModel
 private fun AmneziaWgProfileUiState.withEditor(nextEditor: AmneziaWgEditorState): AmneziaWgProfileUiState =
     copy(
         editor = nextEditor,
+        pendingCohortId = null,
         canActivate = nextEditor.isActivatable(),
         confImportFailure = null,
         activationStatus =

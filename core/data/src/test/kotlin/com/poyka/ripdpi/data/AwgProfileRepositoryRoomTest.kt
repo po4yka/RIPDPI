@@ -249,7 +249,13 @@ internal class AwgProfileRepositoryRoomTest : AwgProfileRepositoryRoomFixture() 
                                 AmneziaWgV3Parameters(
                                     headerProtectionKey = AwgHeaderProtectionKey(key),
                                     contentPaddingAddition = "10-100",
+                                    rekeyAfterTime = "100-120",
+                                    rekeyTimeout = "3-7",
+                                    rejectAfterTime = "150-180",
+                                    keepaliveTimeout = "5-15",
+                                    maxHandshakeAttempts = "15-20",
                                     randomTrailers = true,
+                                    disableCookies = true,
                                 ),
                         ),
                 )

@@ -196,6 +196,17 @@ class RipDpiAmneziaWgConfigSerializationTest {
         // The value class serializes as the plain base64 string the native side decodes.
         assertEquals(JsonPrimitive("AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM="), v3["headerProtectionKey"])
         assertEquals(JsonPrimitive(true), v3["randomTrailers"])
+        assertEquals(JsonPrimitive(true), v3["disableCookies"])
+        mapOf(
+            "contentPaddingAddition" to "10-100",
+            "rekeyAfterTime" to "100-120",
+            "rekeyTimeout" to "3-7",
+            "rejectAfterTime" to "150-180",
+            "keepaliveTimeout" to "5-15",
+            "maxHandshakeAttempts" to "15-20",
+        ).forEach { (key, value) ->
+            assertEquals(JsonPrimitive(value), v3[key])
+        }
         // A config without 3.x keys emits no v3 object, keeping AWG 1.x/2.0 JSON unchanged.
         val legacy = fullConfig.copy(amnezia = fullConfig.amnezia.copy(v3 = AmneziaWgV3Parameters()))
         val legacyAmnezia = RipDpiJson.parseToJsonElement(RipDpiJson.encodeToString(legacy)).jsonObject["amnezia"]

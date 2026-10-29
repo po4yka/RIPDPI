@@ -6,6 +6,7 @@ import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.applyCohortPreset
 import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
+import com.poyka.ripdpi.data.wireguard.AwgHeaderProtectionKey
 
 /**
  * Every editable field of the AmneziaWG profile editor.
@@ -22,6 +23,7 @@ import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
  */
 enum class AwgEditorField(
     val isObfuscation: Boolean,
+    val isV3: Boolean = false,
 ) {
     // Identity / standard WireGuard fields — always editable.
     SERVER(isObfuscation = false),
@@ -60,6 +62,15 @@ enum class AwgEditorField(
     I3(isObfuscation = true),
     I4(isObfuscation = true),
     I5(isObfuscation = true),
+    HEADER_PROTECTION_KEY(isObfuscation = true, isV3 = true),
+    CONTENT_PADDING_ADDITION(isObfuscation = true, isV3 = true),
+    REKEY_AFTER_TIME(isObfuscation = true, isV3 = true),
+    REKEY_TIMEOUT(isObfuscation = true, isV3 = true),
+    REJECT_AFTER_TIME(isObfuscation = true, isV3 = true),
+    KEEPALIVE_TIMEOUT(isObfuscation = true, isV3 = true),
+    MAX_HANDSHAKE_ATTEMPTS(isObfuscation = true, isV3 = true),
+    RANDOM_TRAILERS(isObfuscation = true, isV3 = true),
+    DISABLE_COOKIES(isObfuscation = true, isV3 = true),
     ;
 
     /**
@@ -68,6 +79,23 @@ enum class AwgEditorField(
      */
     fun validate(raw: String): Any? =
         when (this) {
+            HEADER_PROTECTION_KEY -> {
+                raw.takeIf { it.isEmpty() || AmneziaWgV3Parameters.isHeaderProtectionKey(it) }
+            }
+
+            CONTENT_PADDING_ADDITION, REKEY_AFTER_TIME, REKEY_TIMEOUT, REJECT_AFTER_TIME,
+            KEEPALIVE_TIMEOUT, MAX_HANDSHAKE_ATTEMPTS,
+            -> {
+                raw.takeIf {
+                    it.isEmpty() ||
+                        AmneziaWgV3Parameters.rangeIsValid(it)
+                }
+            }
+
+            RANDOM_TRAILERS, DISABLE_COOKIES -> {
+                raw.toBooleanStrictOrNull()
+            }
+
             PERSISTENT_KEEPALIVE -> {
                 raw.takeIf {
                     it.isBlank() || AmneziaWgV3Parameters.parsePersistentKeepalive(it.trim()) != null
@@ -109,6 +137,11 @@ data class AmneziaWgEditorState(
     val rawTextByField: Map<AwgEditorField, String>,
     val obfuscationLocked: Boolean,
 ) {
+    override fun toString(): String =
+        "AmneziaWgEditorState(form=$form, editedFields=${rawTextByField.keys}, obfuscationLocked=$obfuscationLocked)"
+
+    fun hasV3Edits(): Boolean = form.v3.isSet || AwgEditorField.entries.any { it.isV3 && hasFieldError(it) }
+
     /** Raw user-typed text for [field] (empty when never edited). */
     fun rawText(field: AwgEditorField): String = rawTextByField[field].orEmpty()
 
@@ -119,7 +152,6 @@ data class AmneziaWgEditorState(
     }
 
     fun hasHeaderProtectionPrefixError(field: AwgEditorField): Boolean {
-        if (!form.v3.headerProtectionEnabled) return false
         val size =
             when (field) {
                 AwgEditorField.S1 -> form.s1
@@ -130,7 +162,8 @@ data class AmneziaWgEditorState(
             }
         val edited = rawTextByField[field]
         val effectiveSize = if (edited == null) size else edited.toIntOrNull()
-        return effectiveSize == null || effectiveSize < AmneziaWgV3Parameters.HeaderNonceBytes
+        return form.v3.headerProtectionEnabled &&
+            (effectiveSize == null || effectiveSize < AmneziaWgV3Parameters.HeaderNonceBytes)
     }
 
     /**
@@ -252,62 +285,170 @@ data class AmneziaWgEditorState(
     }
 }
 
-// Flat dispatch over the fixed editable-field set; the branch count is inherent
-// to the AmneziaWG field set, not accidental complexity (mirrors the same
-// CyclomaticComplexMethod suppression on WireGuardConfParser.applyInterfaceKey).
-@Suppress("CyclomaticComplexMethod")
 private fun AwgProfileForm.applyField(
     field: AwgEditorField,
     parsed: Any,
 ): AwgProfileForm =
+    when {
+        field.isV3 -> applyV3Field(field, parsed)
+        field.isObfuscation -> applyLegacyObfuscationField(field, parsed)
+        else -> applyIdentityField(field, parsed)
+    }
+
+private fun AwgProfileForm.applyIdentityField(
+    field: AwgEditorField,
+    parsed: Any,
+): AwgProfileForm =
     when (field) {
-        AwgEditorField.SERVER -> copy(server = parsed as String)
+        AwgEditorField.SERVER -> {
+            copy(server = parsed as String)
+        }
 
-        AwgEditorField.SERVER_PORT -> copy(serverPort = (parsed as String).toIntOrNull() ?: serverPort)
+        AwgEditorField.SERVER_PORT -> {
+            copy(serverPort = (parsed as String).toIntOrNull() ?: serverPort)
+        }
 
-        AwgEditorField.INTERFACE_PRIVATE_KEY -> copy(interfacePrivateKey = parsed as String)
+        AwgEditorField.INTERFACE_PRIVATE_KEY -> {
+            copy(interfacePrivateKey = parsed as String)
+        }
 
-        AwgEditorField.PEER_PUBLIC_KEY -> copy(peerPublicKey = parsed as String)
+        AwgEditorField.PEER_PUBLIC_KEY -> {
+            copy(peerPublicKey = parsed as String)
+        }
 
-        AwgEditorField.PRESHARED_KEY -> copy(presharedKey = parsed as String)
+        AwgEditorField.PRESHARED_KEY -> {
+            copy(presharedKey = parsed as String)
+        }
 
-        AwgEditorField.CARRIER_WS_URL -> copy(carrierWsUrl = parsed as String)
+        AwgEditorField.CARRIER_WS_URL -> {
+            copy(carrierWsUrl = parsed as String)
+        }
 
-        AwgEditorField.JC -> copy(jc = parsed as Int)
+        else -> {
+            this
+        }
+    }
 
-        AwgEditorField.JMIN -> copy(jmin = parsed as Int)
+private fun AwgProfileForm.applyLegacyObfuscationField(
+    field: AwgEditorField,
+    parsed: Any,
+): AwgProfileForm =
+    when (field) {
+        AwgEditorField.JC -> {
+            copy(jc = parsed as Int)
+        }
 
-        AwgEditorField.JMAX -> copy(jmax = parsed as Int)
+        AwgEditorField.JMIN -> {
+            copy(jmin = parsed as Int)
+        }
 
-        AwgEditorField.S1 -> copy(s1 = parsed as Int)
+        AwgEditorField.JMAX -> {
+            copy(jmax = parsed as Int)
+        }
 
-        AwgEditorField.S2 -> copy(s2 = parsed as Int)
+        AwgEditorField.S1 -> {
+            copy(s1 = parsed as Int)
+        }
 
-        AwgEditorField.S3 -> copy(s3 = parsed as Int)
+        AwgEditorField.S2 -> {
+            copy(s2 = parsed as Int)
+        }
 
-        AwgEditorField.S4 -> copy(s4 = parsed as Int)
+        AwgEditorField.S3 -> {
+            copy(s3 = parsed as Int)
+        }
 
-        AwgEditorField.H1 -> copy(h1 = parsed as String)
+        AwgEditorField.S4 -> {
+            copy(s4 = parsed as Int)
+        }
 
-        AwgEditorField.H2 -> copy(h2 = parsed as String)
+        AwgEditorField.H1 -> {
+            copy(h1 = parsed as String)
+        }
 
-        AwgEditorField.H3 -> copy(h3 = parsed as String)
+        AwgEditorField.H2 -> {
+            copy(h2 = parsed as String)
+        }
 
-        AwgEditorField.H4 -> copy(h4 = parsed as String)
+        AwgEditorField.H3 -> {
+            copy(h3 = parsed as String)
+        }
 
-        AwgEditorField.I1 -> copy(i1 = parsed as String)
+        AwgEditorField.H4 -> {
+            copy(h4 = parsed as String)
+        }
 
-        AwgEditorField.I2 -> copy(i2 = parsed as String)
+        AwgEditorField.I1 -> {
+            copy(i1 = parsed as String)
+        }
 
-        AwgEditorField.I3 -> copy(i3 = parsed as String)
+        AwgEditorField.I2 -> {
+            copy(i2 = parsed as String)
+        }
 
-        AwgEditorField.I4 -> copy(i4 = parsed as String)
+        AwgEditorField.I3 -> {
+            copy(i3 = parsed as String)
+        }
 
-        AwgEditorField.I5 -> copy(i5 = parsed as String)
+        AwgEditorField.I4 -> {
+            copy(i4 = parsed as String)
+        }
 
-        // ADDRESS/DNS/MTU/PEER_ENDPOINT/ALLOWED_IPS/PERSISTENT_KEEPALIVE are not
-        // first-class AwgProfileForm columns; their raw text is tracked separately.
-        else -> this
+        AwgEditorField.I5 -> {
+            copy(i5 = parsed as String)
+        }
+
+        else -> {
+            this
+        }
+    }
+
+private fun AwgProfileForm.applyV3Field(
+    field: AwgEditorField,
+    parsed: Any,
+): AwgProfileForm =
+    when (field) {
+        AwgEditorField.HEADER_PROTECTION_KEY -> {
+            copy(
+                v3 = v3.copy(headerProtectionKey = AwgHeaderProtectionKey(parsed as String)),
+            )
+        }
+
+        AwgEditorField.CONTENT_PADDING_ADDITION -> {
+            copy(v3 = v3.copy(contentPaddingAddition = parsed as String))
+        }
+
+        AwgEditorField.REKEY_AFTER_TIME -> {
+            copy(v3 = v3.copy(rekeyAfterTime = parsed as String))
+        }
+
+        AwgEditorField.REKEY_TIMEOUT -> {
+            copy(v3 = v3.copy(rekeyTimeout = parsed as String))
+        }
+
+        AwgEditorField.REJECT_AFTER_TIME -> {
+            copy(v3 = v3.copy(rejectAfterTime = parsed as String))
+        }
+
+        AwgEditorField.KEEPALIVE_TIMEOUT -> {
+            copy(v3 = v3.copy(keepaliveTimeout = parsed as String))
+        }
+
+        AwgEditorField.MAX_HANDSHAKE_ATTEMPTS -> {
+            copy(v3 = v3.copy(maxHandshakeAttempts = parsed as String))
+        }
+
+        AwgEditorField.RANDOM_TRAILERS -> {
+            copy(v3 = v3.copy(randomTrailers = parsed as Boolean))
+        }
+
+        AwgEditorField.DISABLE_COOKIES -> {
+            copy(v3 = v3.copy(disableCookies = parsed as Boolean))
+        }
+
+        else -> {
+            this
+        }
     }
 
 internal fun AwgProfileForm.identityRawText(): Map<AwgEditorField, String> =
@@ -333,11 +474,18 @@ internal fun AwgProfileForm.obfuscationRawText(): Map<AwgEditorField, String> =
         put(AwgEditorField.H2, h2)
         put(AwgEditorField.H3, h3)
         put(AwgEditorField.H4, h4)
-        // I1..I5 are signature programs: only seed raw text when present so an empty
-        // payload column does not flag a spurious field error in the editor.
-        if (i1.isNotEmpty()) put(AwgEditorField.I1, i1)
-        if (i2.isNotEmpty()) put(AwgEditorField.I2, i2)
-        if (i3.isNotEmpty()) put(AwgEditorField.I3, i3)
-        if (i4.isNotEmpty()) put(AwgEditorField.I4, i4)
-        if (i5.isNotEmpty()) put(AwgEditorField.I5, i5)
+        put(AwgEditorField.I1, i1)
+        put(AwgEditorField.I2, i2)
+        put(AwgEditorField.I3, i3)
+        put(AwgEditorField.I4, i4)
+        put(AwgEditorField.I5, i5)
+        put(AwgEditorField.HEADER_PROTECTION_KEY, v3.headerProtectionKey.value)
+        put(AwgEditorField.CONTENT_PADDING_ADDITION, v3.contentPaddingAddition)
+        put(AwgEditorField.REKEY_AFTER_TIME, v3.rekeyAfterTime)
+        put(AwgEditorField.REKEY_TIMEOUT, v3.rekeyTimeout)
+        put(AwgEditorField.REJECT_AFTER_TIME, v3.rejectAfterTime)
+        put(AwgEditorField.KEEPALIVE_TIMEOUT, v3.keepaliveTimeout)
+        put(AwgEditorField.MAX_HANDSHAKE_ATTEMPTS, v3.maxHandshakeAttempts)
+        put(AwgEditorField.RANDOM_TRAILERS, v3.randomTrailers.toString())
+        put(AwgEditorField.DISABLE_COOKIES, v3.disableCookies.toString())
     }

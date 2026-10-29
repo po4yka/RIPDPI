@@ -56,7 +56,7 @@ import kotlinx.collections.immutable.toImmutableList
  * AmneziaWG profile editor destination.
  *
  * Surfaces every standard WireGuard field (private key, address, DNS, MTU, peer public
- * key, peer endpoint, allowed IPs, preshared key, persistent keepalive) plus all 16
+ * key, peer endpoint, allowed IPs, preshared key, persistent keepalive) plus the legacy and v3
  * AmneziaWG obfuscation fields in one labeled "Obfuscation" section — the field ordering
  * follows amnezia-vpn/amneziawg-android's editor (Apache-2.0). A cohort-preset picker fills
  * and locks the obfuscation group and collapses it behind a "Show values" toggle; "Custom"
@@ -99,15 +99,19 @@ fun AmneziaWgProfileRoute(
     LifecycleStartEffect(viewModel) { onStopOrDispose { viewModel.onSecretsRelocked() } }
     val revealPrivateKey = rememberSecretRevealGate(viewModel::onPrivateKeyRevealAuthorized, appPin)
     val revealPresharedKey = rememberSecretRevealGate(viewModel::onPresharedKeyRevealAuthorized, appPin)
+    val revealHeaderProtectionKey = rememberSecretRevealGate(viewModel::onHeaderProtectionKeyRevealAuthorized, appPin)
     AmneziaWgProfileScreen(
         uiState = uiState,
         onBack = onBack,
         onFieldChanged = viewModel::onFieldChanged,
         onCohortSelected = viewModel::onCohortSelected,
+        onConfirmCohortReplacement = viewModel::onCohortReplacementConfirmed,
+        onCancelCohortReplacement = viewModel::onCohortReplacementCancelled,
         onCarrierSelected = viewModel::onCarrierSelected,
         onPasteConf = viewModel::onPasteConf,
         onRevealPrivateKey = onRequestPrivateKeyReveal ?: revealPrivateKey,
         onRevealPresharedKey = onRequestPresharedKeyReveal ?: revealPresharedKey,
+        onRevealHeaderProtectionKey = revealHeaderProtectionKey,
         onConnect = viewModel::onConnect,
         modifier = modifier,
     )
@@ -124,9 +128,15 @@ internal fun AmneziaWgProfileScreen(
     onRevealPrivateKey: () -> Unit,
     onRevealPresharedKey: () -> Unit,
     onConnect: () -> Unit,
+    onRevealHeaderProtectionKey: () -> Unit,
+    onConfirmCohortReplacement: () -> Unit,
+    onCancelCohortReplacement: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     SecureWindowEffect()
+    if (uiState.pendingCohortId != null) {
+        AwgCohortReplacementDialog(onConfirmCohortReplacement, onCancelCohortReplacement)
+    }
     RipDpiContentScreenScaffold(
         title = stringResource(R.string.awg_editor_title),
         navigationIcon = RipDpiIcons.Back,
@@ -172,7 +182,7 @@ internal fun AmneziaWgProfileScreen(
         InterfaceSection(uiState, onFieldChanged, onRevealPrivateKey)
         PeerSection(uiState, onFieldChanged, onRevealPresharedKey)
         CarrierSection(uiState, onFieldChanged, onCarrierSelected)
-        ObfuscationSection(uiState, onFieldChanged, onCohortSelected)
+        ObfuscationSection(uiState, onFieldChanged, onCohortSelected, onRevealHeaderProtectionKey)
         ConnectSection(
             canActivate = uiState.canActivate,
             activationStatus = uiState.activationStatus,
@@ -343,6 +353,7 @@ private fun ObfuscationSection(
     uiState: AmneziaWgProfileUiState,
     onFieldChanged: (AwgEditorField, String) -> Unit,
     onCohortSelected: (String) -> Unit,
+    onRevealHeaderProtectionKey: () -> Unit,
 ) {
     val editor = uiState.editor
     val customLabel = stringResource(R.string.awg_cohort_custom)
@@ -387,6 +398,7 @@ private fun ObfuscationSection(
         }
         if (!editor.obfuscationLocked || expanded) {
             ObfuscationFields(editor, onFieldChanged)
+            AwgV3Fields(uiState, onFieldChanged, onRevealHeaderProtectionKey)
         }
     }
 }
@@ -433,7 +445,7 @@ private fun ObfuscationFields(
 }
 
 @Composable
-private fun PlainField(
+internal fun PlainField(
     field: AwgEditorField,
     labelRes: Int,
     editor: AmneziaWgEditorState,

@@ -109,6 +109,81 @@ class AmneziaWgEditorStateTest {
         assertTrue(fields.none(disabled::hasFieldError))
     }
 
+    @Test
+    fun `all v3 fields edit and reach activation while invalid drafts stay visible`() {
+        val key = Base64.getEncoder().encodeToString(ByteArray(32) { 4 })
+        val values =
+            listOf(
+                AwgEditorField.HEADER_PROTECTION_KEY to key,
+                AwgEditorField.CONTENT_PADDING_ADDITION to "10-100",
+                AwgEditorField.REKEY_AFTER_TIME to "100-120",
+                AwgEditorField.REKEY_TIMEOUT to "3-7",
+                AwgEditorField.REJECT_AFTER_TIME to "150-180",
+                AwgEditorField.KEEPALIVE_TIMEOUT to "5-15",
+                AwgEditorField.MAX_HANDSHAKE_ATTEMPTS to "15-20",
+                AwgEditorField.RANDOM_TRAILERS to "true",
+                AwgEditorField.DISABLE_COOKIES to "true",
+            )
+        val prefixes =
+            listOf(AwgEditorField.S1, AwgEditorField.S2, AwgEditorField.S3, AwgEditorField.S4)
+                .fold(activatableState()) { state, field -> state.updateField(field, "12") }
+        val editor = values.fold(prefixes) { state, (field, value) -> state.updateField(field, value) }
+        val expected =
+            AmneziaWgV3Parameters(
+                headerProtectionKey = AwgHeaderProtectionKey(key),
+                contentPaddingAddition = "10-100",
+                rekeyAfterTime = "100-120",
+                rekeyTimeout = "3-7",
+                rejectAfterTime = "150-180",
+                keepaliveTimeout = "5-15",
+                maxHandshakeAttempts = "15-20",
+                randomTrailers = true,
+                disableCookies = true,
+            )
+        assertTrue(editor.isActivatable())
+        assertEquals(expected, editor.toActivationRequest("profile").obfuscation.v3)
+        values.forEach { (field, value) -> assertEquals(value, editor.rawText(field)) }
+        assertFalse(editor.toString().contains(key))
+        listOf(
+            AwgEditorField.HEADER_PROTECTION_KEY to "invalid-fixture-key",
+            AwgEditorField.REKEY_TIMEOUT to "1-2-3",
+        ).forEach { (field, value) ->
+            val invalid = editor.updateField(field, value)
+            assertEquals(value, invalid.rawText(field))
+            assertTrue(invalid.hasFieldError(field))
+            assertFalse(invalid.isActivatable())
+            assertThrows(IllegalArgumentException::class.java) { invalid.toActivationRequest("profile") }
+        }
+        val cleared =
+            values.fold(editor) { state, (field, _) ->
+                state.updateField(
+                    field,
+                    if (field == AwgEditorField.RANDOM_TRAILERS ||
+                        field == AwgEditorField.DISABLE_COOKIES
+                    ) {
+                        "false"
+                    } else {
+                        ""
+                    },
+                )
+            }
+        assertEquals(AmneziaWgV3Parameters(), cleared.form.v3)
+        assertFalse(cleared.hasV3Edits())
+    }
+
+    @Test
+    fun `preset replacement clears absent signature text as well as form values`() {
+        val editor = activatableState().updateField(AwgEditorField.I1, "<r 3>").selectCohort(rtkSouth)
+        assertEquals("", editor.form.i1)
+        assertEquals("", editor.rawText(AwgEditorField.I1))
+    }
+
+    @Test
+    fun `editor diagnostics do not include raw credentials`() {
+        val editor = activatableState().updateField(AwgEditorField.INTERFACE_PRIVATE_KEY, "private-fixture-value")
+        assertFalse(editor.toString().contains("private-fixture-value"))
+    }
+
     private val rtkSouth =
         AwgCohortPreset(
             id = "rtk_south",

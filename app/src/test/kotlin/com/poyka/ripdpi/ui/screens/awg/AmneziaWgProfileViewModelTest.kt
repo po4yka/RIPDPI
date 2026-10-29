@@ -435,6 +435,84 @@ class AmneziaWgProfileViewModelTest {
         }
 
     @Test
+    fun `selecting a legacy preset preserves v3 settings until replacement is confirmed`() {
+        val vm = viewModel()
+        vm.onConfPasted(
+            "[Interface]\nPrivateKey = k==\nAddress = 10.8.0.2/32\nRandomTrailers = on\n" +
+                "S1 = 12\nS2 = 12\nS3 = 12\nS4 = 12\n" +
+                "HeaderProtectionKey = AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM=\n" +
+                "[Peer]\nPublicKey = p==\nEndpoint = vpn.example.com:51820",
+        )
+        val before = vm.uiState.value.editor
+        vm.onCohortSelected("rtk_south")
+        assertEquals(before, vm.uiState.value.editor)
+        assertEquals("rtk_south", vm.uiState.value.pendingCohortId)
+        vm.onCohortReplacementCancelled()
+        assertNull(vm.uiState.value.pendingCohortId)
+        assertEquals(before, vm.uiState.value.editor)
+        vm.onCohortSelected("rtk_south")
+        vm.onCohortReplacementConfirmed()
+        val replaced = vm.uiState.value.editor
+        assertNull(vm.uiState.value.pendingCohortId)
+        assertFalse(replaced.form.v3.isSet)
+        assertEquals("", replaced.rawText(AwgEditorField.HEADER_PROTECTION_KEY))
+        assertEquals(before.form.interfacePrivateKey, replaced.form.interfacePrivateKey)
+        assertTrue(replaced.obfuscationLocked)
+        assertEquals(replaced, replaced.updateField(AwgEditorField.REKEY_TIMEOUT, "2"))
+    }
+
+    @Test
+    fun `v3 edits persist through save reload and activation with the key relocked on import`() =
+        runTest {
+            val vm = viewModel()
+            fillRequiredIdentity(vm)
+            listOf(AwgEditorField.S1, AwgEditorField.S2, AwgEditorField.S3, AwgEditorField.S4).forEach {
+                vm.onFieldChanged(it, "12")
+            }
+            val key = "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM="
+            vm.onFieldChanged(AwgEditorField.HEADER_PROTECTION_KEY, key)
+            listOf(
+                AwgEditorField.CONTENT_PADDING_ADDITION,
+                AwgEditorField.REKEY_AFTER_TIME,
+                AwgEditorField.REKEY_TIMEOUT,
+                AwgEditorField.REJECT_AFTER_TIME,
+                AwgEditorField.KEEPALIVE_TIMEOUT,
+                AwgEditorField.MAX_HANDSHAKE_ATTEMPTS,
+            ).forEach {
+                vm.onFieldChanged(it, "10-20")
+            }
+            vm.onFieldChanged(AwgEditorField.RANDOM_TRAILERS, "true")
+            vm.onFieldChanged(AwgEditorField.DISABLE_COOKIES, "true")
+            val expected = vm.uiState.value.editor.form.v3
+            vm.onConnect()
+            advanceUntilIdle()
+            val activated = requireNotNull(activator.lastActivated)
+            assertEquals(expected, activated.obfuscation.v3)
+            assertEquals(
+                expected,
+                repository
+                    .load(activated.profileId)!!
+                    .request.obfuscation.v3,
+            )
+            assertTrue(dao.allProfiles().none { it.requestJson.contains(key) })
+            vm.onHeaderProtectionKeyRevealAuthorized()
+            assertTrue(vm.uiState.value.headerProtectionKeyRevealed)
+            vm.onSecretsRelocked()
+            assertFalse(vm.uiState.value.headerProtectionKeyRevealed)
+            vm.onHeaderProtectionKeyRevealAuthorized()
+            vm.onConfPasted(
+                "[Interface]\nPrivateKey = k==\nAddress = 10.8.0.2/32\n" +
+                    "[Peer]\nPublicKey = p==\nEndpoint = vpn.example.com:51820",
+            )
+            assertFalse(vm.uiState.value.headerProtectionKeyRevealed)
+            assertEquals(
+                "",
+                vm.uiState.value.editor
+                    .rawText(AwgEditorField.HEADER_PROTECTION_KEY),
+            )
+        }
+
+    @Test
     fun `a fresh editor cannot activate and connect is a no-op`() =
         runTest {
             val viewModel = viewModel()

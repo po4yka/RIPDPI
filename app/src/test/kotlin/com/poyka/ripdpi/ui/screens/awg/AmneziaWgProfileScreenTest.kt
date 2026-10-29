@@ -62,7 +62,7 @@ import org.robolectric.shadows.ShadowBiometricManager
 /**
  * Robolectric Compose UI tests for [AmneziaWgProfileScreen].
  *
- * Asserts the editor surfaces every standard WireGuard field and all 16 obfuscation
+ * Asserts the editor surfaces every standard WireGuard field and all legacy/v3 obfuscation
  * fields inline, and that picking a cohort preset locks the obfuscation inputs while the
  * "Custom" sentinel frees them.
  */
@@ -130,6 +130,7 @@ class AmneziaWgProfileScreenTest {
         composeRule.runOnIdle {
             viewModel.onPrivateKeyRevealAuthorized()
             viewModel.onPresharedKeyRevealAuthorized()
+            viewModel.onHeaderProtectionKeyRevealAuthorized()
         }
 
         composeRule.runOnIdle { owner.moveTo(Lifecycle.State.CREATED) }
@@ -137,6 +138,7 @@ class AmneziaWgProfileScreenTest {
         composeRule.runOnIdle {
             assertFalse(viewModel.uiState.value.privateKeyRevealed)
             assertFalse(viewModel.uiState.value.presharedKeyRevealed)
+            assertFalse(viewModel.uiState.value.headerProtectionKeyRevealed)
         }
     }
 
@@ -301,6 +303,33 @@ class AmneziaWgProfileScreenTest {
     }
 
     @Test
+    fun `v3 switches and preset confirmation apply only the chosen action`() {
+        val vm = viewModel()
+        val context = RuntimeEnvironment.getApplication()
+        composeRule.setContent { RipDpiTheme { ScreenUnderTest(vm) } }
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.awgField(AwgEditorField.RANDOM_TRAILERS.name))
+            .performScrollTo()
+            .performClick()
+        composeRule.runOnIdle {
+            assertTrue(vm.uiState.value.editor.form.v3.randomTrailers)
+            vm.onCohortSelected("rtk_south")
+        }
+        composeRule.onNodeWithText(context.getString(R.string.awg_cohort_replace_title)).assertExists()
+        composeRule.onNodeWithText(context.getString(R.string.config_cancel)).performClick()
+        composeRule.runOnIdle {
+            assertTrue(vm.uiState.value.editor.form.v3.randomTrailers)
+            assertNull(vm.uiState.value.pendingCohortId)
+            vm.onCohortSelected("rtk_south")
+        }
+        composeRule.onNodeWithText(context.getString(R.string.awg_cohort_replace_action)).performClick()
+        composeRule.runOnIdle {
+            assertFalse(vm.uiState.value.editor.form.v3.isSet)
+            assertTrue(vm.uiState.value.editor.obfuscationLocked)
+        }
+    }
+
+    @Test
     fun `the editor renders the standard wireguard fields`() {
         val viewModel = viewModel()
         composeRule.setContent { RipDpiTheme { ScreenUnderTest(viewModel) } }
@@ -332,6 +361,15 @@ class AmneziaWgProfileScreenTest {
             AwgEditorField.S4,
             AwgEditorField.H1,
             AwgEditorField.I5,
+            AwgEditorField.HEADER_PROTECTION_KEY,
+            AwgEditorField.CONTENT_PADDING_ADDITION,
+            AwgEditorField.REKEY_AFTER_TIME,
+            AwgEditorField.REKEY_TIMEOUT,
+            AwgEditorField.REJECT_AFTER_TIME,
+            AwgEditorField.KEEPALIVE_TIMEOUT,
+            AwgEditorField.MAX_HANDSHAKE_ATTEMPTS,
+            AwgEditorField.RANDOM_TRAILERS,
+            AwgEditorField.DISABLE_COOKIES,
         ).forEach { field ->
             composeRule
                 .onNodeWithTag(RipDpiTestTags.awgField(field.name))
@@ -446,6 +484,9 @@ private fun ScreenUnderTest(viewModel: AmneziaWgProfileViewModel) {
         onRevealPrivateKey = viewModel::onPrivateKeyRevealAuthorized,
         onRevealPresharedKey = viewModel::onPresharedKeyRevealAuthorized,
         onConnect = viewModel::onConnect,
+        onRevealHeaderProtectionKey = viewModel::onHeaderProtectionKeyRevealAuthorized,
+        onConfirmCohortReplacement = viewModel::onCohortReplacementConfirmed,
+        onCancelCohortReplacement = viewModel::onCohortReplacementCancelled,
     )
 }
 

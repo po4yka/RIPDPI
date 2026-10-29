@@ -149,6 +149,9 @@ class AmneziaWgProfileScreenshotTest {
                 onRevealPrivateKey = {},
                 onRevealPresharedKey = {},
                 onConnect = {},
+                onRevealHeaderProtectionKey = {},
+                onConfirmCohortReplacement = {},
+                onCancelCohortReplacement = {},
             )
         }
     }
