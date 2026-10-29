@@ -4,31 +4,28 @@
 //! fixed number of blocking reads and waiting for every CQE can stall forever
 //! when fewer packets than the requested batch arrive.
 
-use std::os::fd::BorrowedFd;
-
-use crate::bufpool::BufferHandle;
-use crate::ring::IoUringDriver;
-
 /// Maximum number of packets to write in a single batch.
 pub const TUN_WRITE_BATCH_SIZE: usize = 64;
 
-fn is_complete_packet_write(result: i32, packet_len: usize) -> bool {
-    usize::try_from(result).is_ok_and(|written| written == packet_len)
-}
-
-/// Try to acquire a buffer slot large enough to hold `pkt`. Returns `None`
-/// when the pool is exhausted or `pkt` is larger than `pool.buffer_size()`,
-/// in which case the caller should use the plain `Write` fallback path.
-fn try_acquire_for_packet(uring: &IoUringDriver, pkt: &[u8]) -> Option<BufferHandle> {
-    if pkt.len() > uring.buffer_size() {
-        return None;
-    }
-    uring.acquire_buffer()
-}
-
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::bufpool::BufferHandle;
+    use crate::ring::IoUringDriver;
+
+    fn is_complete_packet_write(result: i32, packet_len: usize) -> bool {
+        usize::try_from(result).is_ok_and(|written| written == packet_len)
+    }
+
+    /// Try to acquire a buffer slot large enough to hold `pkt`. Returns `None`
+    /// when the pool is exhausted or `pkt` is larger than `pool.buffer_size()`,
+    /// in which case the caller should use the plain `Write` fallback path.
+    fn try_acquire_for_packet(uring: &IoUringDriver, pkt: &[u8]) -> Option<BufferHandle> {
+        if pkt.len() > uring.buffer_size() {
+            return None;
+        }
+        uring.acquire_buffer()
+    }
+
     fn try_driver(capacity: u16, buffer_size: usize) -> Option<IoUringDriver> {
         IoUringDriver::start(capacity, buffer_size).ok()
     }
