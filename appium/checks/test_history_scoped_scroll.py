@@ -2,13 +2,10 @@
 
 from __future__ import annotations
 
-import sys
 import unittest
-from pathlib import Path
 
 from selenium.common.exceptions import TimeoutException
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "appium"))
 from pages.base_page import BasePage
 from pages.history_page import HistoryPage
 
