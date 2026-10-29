@@ -84,7 +84,6 @@ class DiagnosticsArchiveSessionSelector
                 prepareSelectionInputs(
                     request = request,
                     primarySession = primarySession,
-                    primaryResults = primaryResults,
                     sourceData = sourceData,
                     compositeOutcome = compositeOutcome,
                     compositeSessions = compositeSessions,
@@ -153,7 +152,6 @@ class DiagnosticsArchiveSessionSelector
         private suspend fun prepareSelectionInputs(
             request: DiagnosticsArchiveRequest,
             primarySession: ScanSessionEntity?,
-            primaryResults: List<ProbeResultEntity>,
             sourceData: DiagnosticsArchiveSourceData,
             compositeOutcome: DiagnosticsHomeCompositeOutcome?,
             compositeSessions: List<ScanSessionEntity>,
