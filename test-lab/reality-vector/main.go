@@ -101,9 +101,9 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Plaintext: version(0x00 0x00 0x01) | reserved(0) | be32(now) | short_id(8 padded).
+	// Plaintext: compatibility version(26.10.29) | reserved(0) | be32(now) | short_id(8 padded).
 	pt := make([]byte, 16)
-	pt[0], pt[1], pt[2] = 0x00, 0x00, 0x01
+	pt[0], pt[1], pt[2] = 26, 10, 29
 	pt[3] = 0x00
 	binary.BigEndian.PutUint32(pt[4:8], nowSecs)
 	copy(pt[8:], shortID)

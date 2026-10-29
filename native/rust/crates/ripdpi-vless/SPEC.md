@@ -36,6 +36,12 @@ See `wire.rs` for the encoder; the response header is one version byte + one add
 8. The REALITY-only connector puts `X25519MLKEM768:X25519` first in the curve list, for every TLS profile and KEM group override. XTLS/REALITY since 2026-09-08 (Xray v26.9.9) treats a ClientHello without an X25519MLKEM768 share ahead of the X25519 share as a non-REALITY client.
 9. Standard certificate verification is disabled because REALITY uses its own authentication model.
 
+The admission payload declares handshake compatibility version `26.10.29`,
+reviewed against Xray-core `0afec66085a85191e9dd2a4a6646c7c9a94688d1` and
+REALITY `83f621788ca88b83179810b12baa7ae518aacb83`. This permits compatible
+server min/max version checks; it does not claim complete Xray feature parity.
+The full protocol pin and supported scope remain in `SPEC_VERSION.md`.
+
 The vendored BoringSSL hook surface is declared in `reality_hook.rs`;
 `reality_seal.rs` owns the HKDF/AES-GCM sealing logic. The exact BoringSSL pin
 lives in `native/rust/Cargo.toml`; `tests/reality_hook_vector.json` and

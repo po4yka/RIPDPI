@@ -41,14 +41,15 @@ pub(crate) const SESSION_ID_LEN: usize = 32;
 
 const SESSION_ID_END: usize = SESSION_ID_OFFSET + SESSION_ID_LEN;
 
+// Handshake compatibility reference: Xray v26.10.29, not complete feature parity.
+const REALITY_CLIENT_VERSION: [u8; 3] = [26, 10, 29];
+
 /// Build the 16-byte session_id plaintext. Layout matches xray-core's
-/// REALITY client (version 1.x signature, reserved 0, big-endian unix
+/// REALITY client (reviewed compatibility version, reserved 0, big-endian unix
 /// timestamp, short_id padded to 8 bytes).
 pub(crate) fn build_session_id_plaintext(short_id: &[u8], now_secs: u32) -> [u8; 16] {
     let mut pt = [0u8; 16];
-    pt[0] = 0x00;
-    pt[1] = 0x00;
-    pt[2] = 0x01;
+    pt[..3].copy_from_slice(&REALITY_CLIENT_VERSION);
     pt[3] = 0x00;
     pt[4..8].copy_from_slice(&now_secs.to_be_bytes());
     let sid_len = short_id.len().min(8);
@@ -338,12 +339,12 @@ mod tests {
         assert!(result.is_err(), "raw_hello < 71 bytes must error");
     }
 
-    /// Plaintext layout: version `0x00 0x00 0x01`, reserved zero,
+    /// Plaintext layout: compatibility version 26.10.29, reserved zero,
     /// timestamp big-endian, short_id padded.
     #[test]
     fn plaintext_layout_matches_xray_reality_signature() {
         let pt = build_session_id_plaintext(&[0xAB, 0xCD], 0x01020304);
-        assert_eq!(pt[0..3], [0x00, 0x00, 0x01]);
+        assert_eq!(pt[0..3], [26, 10, 29]);
         assert_eq!(pt[3], 0x00);
         assert_eq!(pt[4..8], [0x01, 0x02, 0x03, 0x04]);
         assert_eq!(pt[8..10], [0xAB, 0xCD]);
@@ -359,11 +360,48 @@ mod tests {
         assert_eq!(pt[8..16], [0xAA; 8]);
     }
 
+    #[test]
+    fn sealed_admission_matches_reviewed_server_version_bounds() {
+        let (client_private, server_public, random, short_id, raw, now) = frozen_vector_inputs();
+        let sealed = seal_session_id(&client_private, &server_public, &random, &short_id, &raw, now)
+            .expect("seal admission payload");
+
+        // Decode as the server: its static private key and the client's public share.
+        let server_private = StaticSecret::from([0x22; 32]);
+        let client_public = PublicKey::from(&StaticSecret::from(client_private));
+        let shared = server_private.diffie_hellman(&client_public);
+        let salt = hkdf::Salt::new(hkdf::HKDF_SHA256, &random[..20]);
+        let extracted = salt.extract(shared.as_bytes());
+        let info: [&[u8]; 1] = [b"REALITY"];
+        let expanded = extracted.expand(&info, AuthKeyLen).expect("server HKDF");
+        let mut key_bytes = [0; 32];
+        expanded.fill(&mut key_bytes).expect("server AuthKey");
+        let key = LessSafeKey::new(UnboundKey::new(&AES_256_GCM, &key_bytes).expect("server AEAD"));
+        let mut aad = raw;
+        aad[39..71].fill(0);
+        let mut ciphertext = sealed;
+        let plaintext = key
+            .open_in_place(
+                Nonce::assume_unique_for_key(random[20..].try_into().expect("nonce")),
+                Aad::from(aad),
+                &mut ciphertext,
+            )
+            .expect("server admits the sealed payload");
+
+        let version: [u8; 3] = plaintext[..3].try_into().expect("client version");
+        assert!(version >= [26, 3, 27], "a compatible configured minimum must admit this client");
+        assert!(version <= [26, 10, 29], "the reviewed maximum must admit this client");
+        assert!(version < [26, 10, 30], "a minimum above the reviewed version must reject this client");
+        assert_eq!(version, [26, 10, 29]);
+        assert_eq!(&plaintext[4..8], &now.to_be_bytes());
+        assert_eq!(&plaintext[8..10], short_id.as_slice());
+    }
+
     /// **Frozen test vector.** Locks the output of `seal_session_id`
     /// against accidental regression (a wrong-direction salt slice,
     /// an off-by-one in the AAD zeroing window, a swap from
     /// AES-256-GCM to some other AEAD). The expected bytes were
-    /// captured from this same implementation; if a future commit
+    /// confirmed by the independent Go reference; if a future commit
     /// changes the seal output, this test fails and the diff must be
     /// reviewed against `docs/design/reality-boringssl-patch.md`
     /// before re-blessing.
@@ -377,8 +415,8 @@ mod tests {
         let sealed =
             seal_session_id(&priv_key, &server_pub, &client_random, &short_id, &raw, now).expect("seal frozen vector");
         let expected: [u8; SESSION_ID_LEN] = [
-            0x17, 0xa7, 0xaf, 0x6b, 0x73, 0x36, 0x79, 0x33, 0xc3, 0x4d, 0xdc, 0x9a, 0x7a, 0x3a, 0xfb, 0xc1, 0x7b, 0x75,
-            0xfa, 0x06, 0x3c, 0x98, 0xb6, 0xaa, 0xda, 0x10, 0x7d, 0xc5, 0x90, 0x85, 0x3d, 0xe0,
+            0x0d, 0xad, 0xb3, 0x6b, 0x73, 0x36, 0x79, 0x33, 0xc3, 0x4d, 0xdc, 0x9a, 0x7a, 0x3a, 0xfb, 0xc1, 0x65, 0x25,
+            0x83, 0x9a, 0xc7, 0x48, 0xcb, 0xf8, 0x7f, 0x10, 0xde, 0xfb, 0x2b, 0xa4, 0x38, 0x60,
         ];
         assert_eq!(sealed, expected, "frozen vector regressed; review against the Reality spec before re-blessing");
     }
