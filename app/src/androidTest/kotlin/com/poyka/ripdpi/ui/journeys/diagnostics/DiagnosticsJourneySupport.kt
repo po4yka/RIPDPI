@@ -12,6 +12,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.test.ext.junit.rules.ActivityScenarioRule
+import androidx.test.platform.app.InstrumentationRegistry
+import androidx.test.uiautomator.UiDevice
 import com.poyka.ripdpi.activities.MainActivity
 
 internal typealias AutomationRule = AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>
@@ -95,6 +97,7 @@ internal fun AutomationRule.stateDescription(tag: String): String? =
         .getOrNull(SemanticsProperties.StateDescription)
 
 internal fun AutomationRule.pressBack() {
-    activityRule.scenario.onActivity { activity -> activity.onBackPressedDispatcher.onBackPressed() }
+    // UiDevice delivers Back to the focused window, so it also closes dialog-hosted bottom sheets.
+    UiDevice.getInstance(InstrumentationRegistry.getInstrumentation()).pressBack()
     waitForIdle()
 }
