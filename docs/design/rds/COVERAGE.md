@@ -169,7 +169,7 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 
 ### ✅ Full Implementation
 
-- **Easing Curves** (`motion-easing-curves.html`) — `EmphasizedDecelerate`, `EmphasizedAccelerate`, `StandardEasing`, `EaseInOutEasing` exposed via `RipDpiMotion` companion
+- **Easing Curves** (`motion-easing-curves.html`) — `EmphasizedDecelerate`, `EmphasizedAccelerate`, `StandardEasing` exposed via `RipDpiMotion` companion
 - **Reduced Motion** (`motion-reduced-motion.html`) — `LocalReducedMotion` CompositionLocal + `RipDpiMotion.reducedMotion` field, wired via `ValueAnimator.areAnimatorsEnabled()` (covers `ANIMATOR_DURATION_SCALE == 0` and API 33+ "remove animations")
 - **Page Transitions** (`motion-page-transitions.html`) — `pageEnterSpec`, `pageExitSpec`, `modalEnterSpec`, `scrimFadeSpec` on `RipDpiMotion` (320 ms EmphasizedDecelerate)
 - **Tokens** (`motion-tokens.html`) — `RipDpiMotion` data class with `quick/state/emphasized/route` duration buckets + scale tokens

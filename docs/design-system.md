@@ -95,7 +95,6 @@ Bind each resolver exactly once with `styleResolver` or `ripDpiStyleSurface`. Ch
 | `rdsBackgroundAlpha(Float)` | Replacement alpha for a solid fill; does not fade children or shadows |
 | `rdsBorder(Color, Dp)` | Border color and width; zero means no border |
 | `rdsCornerRadius(Dp)` | Numeric radius with the component shape as fallback |
-| `rdsContainerAlpha(Float)` | Shell alpha where its appearance modifier is attached |
 | `rdsContentScale(Float)` | Content transform, or whole-shell transform for Chip |
 | `rdsContentAlpha(Float)` | Content alpha where the component attaches its content modifier |
 | `rdsMinHeight(Dp)` | Optional layout minimum; required component targets still apply |
@@ -145,7 +144,7 @@ Usage rules:
 |----------------|---------------------|-----------------------|--------------------|
 | Primary and secondary actions | `ui/components/buttons/RipDpiButton.kt` | `state.button`, `type.button`, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
 | Icon-only actions | `ui/components/buttons/RipDpiIconButton.kt` | `state.iconButton`, icon sizes, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
-| Secure connection actuator | `ui/components/inputs/RipDpiConnectionActuator.kt` | `state.actuator`, `state.actuatorStage`, actuator component metrics, `RipDpiIcons`, `motion` | `RipDpiDesignSystemScreenshotCatalog`, home screenshots |
+| Secure connection actuator | `ui/components/inputs/RipDpiConnectionActuator.kt` | `state.actuator`, `state.actuatorStage`, `RipDpiIcons`, `motion` | `RipDpiDesignSystemScreenshotCatalog`, home screenshots |
 | Secure route profiles and capabilities | `ui/components/routes/RipDpiRouteComponents.kt` | `state.route`, route surface roles, `type.monoSmall`, `RipDpiIcons` | `RipDpiDesignSystemScreenshotCatalog` |
 | Filter and selection chips | `ui/components/inputs/RipDpiChip.kt` | `state.chip`, `type.smallLabel`, `shapes`, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
 | Text and config fields | `ui/components/inputs/RipDpiTextField.kt` | `state.textField`, `type.monoValue`, `type.monoConfig`, component metrics | `RipDpiDesignSystemScreenshotCatalog` |

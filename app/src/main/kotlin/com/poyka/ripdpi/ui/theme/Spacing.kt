@@ -57,10 +57,7 @@ data class RipDpiShapeMetrics(
     val largeCornerRadius: Dp = 12.dp,
     val controlCornerRadius: Dp = 16.dp,
     val controlIncreasedCornerRadius: Dp = 20.dp,
-    val cardCornerRadius: Dp = 16.dp,
-    val chipCornerRadius: Dp = 12.dp,
     val pillCornerRadius: Dp = 28.dp,
-    val pillIncreasedCornerRadius: Dp = 32.dp,
     val heroCornerRadius: Dp = 48.dp,
 )
 
@@ -93,24 +90,6 @@ data class RipDpiInputMetrics(
     val switchTrackHeight: Dp = 32.dp,
     val switchThumbSize: Dp = 24.dp,
     val switchThumbPadding: Dp = 4.dp,
-)
-
-@Immutable
-data class RipDpiActuatorMetrics(
-    val railHeight: Dp = 56.dp,
-    /** Ceiling on the drag track, so commit travel stays a single-thumb sweep. */
-    val railMaxWidth: Dp = 480.dp,
-    val trackInset: Dp = 6.dp,
-    val carriageWidth: Dp = 76.dp,
-    val carriageHeight: Dp = 44.dp,
-    val terminalSlotWidth: Dp = 56.dp,
-    val terminalSlotHeight: Dp = 44.dp,
-    val pipelineHeight: Dp = 28.dp,
-    val gripWidth: Dp = 2.dp,
-    val gripHeight: Dp = 16.dp,
-    val stageIconSize: Dp = 12.dp,
-    val stageHorizontalPadding: Dp = 5.dp,
-    val stageIconGap: Dp = 3.dp,
 )
 
 @Immutable
@@ -166,11 +145,6 @@ data class RipDpiFeedbackMetrics(
 )
 
 @Immutable
-data class RipDpiTooltipMetrics(
-    val richMaxWidth: Dp = 320.dp,
-)
-
-@Immutable
 data class RipDpiContentMetrics(
     val scrollableNarrativeMaxHeight: Dp = 220.dp,
 )
@@ -180,13 +154,11 @@ data class RipDpiComponents(
     val shapes: RipDpiShapeMetrics = RipDpiShapeMetrics(),
     val buttons: RipDpiButtonMetrics = RipDpiButtonMetrics(),
     val inputs: RipDpiInputMetrics = RipDpiInputMetrics(),
-    val actuator: RipDpiActuatorMetrics = RipDpiActuatorMetrics(),
     val rows: RipDpiRowMetrics = RipDpiRowMetrics(),
     val sheets: RipDpiSheetMetrics = RipDpiSheetMetrics(),
     val navigation: RipDpiNavigationMetrics = RipDpiNavigationMetrics(),
     val indicators: RipDpiIndicatorMetrics = RipDpiIndicatorMetrics(),
     val feedback: RipDpiFeedbackMetrics = RipDpiFeedbackMetrics(),
-    val tooltip: RipDpiTooltipMetrics = RipDpiTooltipMetrics(),
     val content: RipDpiContentMetrics = RipDpiContentMetrics(),
 )
 

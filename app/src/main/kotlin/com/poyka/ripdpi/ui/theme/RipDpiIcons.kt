@@ -4,7 +4,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.outlined.DriveFileMove
-import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.outlined.KeyboardArrowRight
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Add
@@ -81,7 +80,6 @@ object RipDpiIcons {
     val Favorite: ImageVector = Icons.Outlined.Star
     val Share: ImageVector = Icons.Outlined.Share
     val ChevronRight: ImageVector = Icons.AutoMirrored.Outlined.KeyboardArrowRight
-    val ChevronLeft: ImageVector = Icons.AutoMirrored.Outlined.KeyboardArrowLeft
     val Back: ImageVector = Icons.AutoMirrored.Outlined.ArrowBack
     val Overflow: ImageVector = Icons.Outlined.MoreVert
     val Close: ImageVector = Icons.Outlined.Close

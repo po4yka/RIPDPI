@@ -52,10 +52,6 @@ fun StylePropertyProviderScope.rdsCornerRadius(radius: Dp) {
     RipDpiStyleProperties.cornerRadius.provide(radius)
 }
 
-fun StylePropertyProviderScope.rdsContainerAlpha(alpha: Float) {
-    RipDpiStyleProperties.containerAlpha.provide(alpha)
-}
-
 fun StylePropertyProviderScope.rdsContentScale(scale: Float) {
     RipDpiStyleProperties.contentScale.provide(scale)
 }

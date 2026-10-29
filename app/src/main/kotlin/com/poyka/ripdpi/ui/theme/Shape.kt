@@ -14,9 +14,7 @@ data class RipDpiShapeTokens(
     val md: Shape = RoundedCornerShape(DefaultRipDpiComponents.shapes.mediumCornerRadius),
     val lg: Shape = RoundedCornerShape(DefaultRipDpiComponents.shapes.largeCornerRadius),
     val xl: Shape = RoundedCornerShape(DefaultRipDpiComponents.shapes.controlCornerRadius),
-    val xlIncreased: Shape = RoundedCornerShape(DefaultRipDpiComponents.shapes.controlIncreasedCornerRadius),
     val xxl: Shape = RoundedCornerShape(DefaultRipDpiComponents.shapes.pillCornerRadius),
-    val xxlIncreased: Shape = RoundedCornerShape(DefaultRipDpiComponents.shapes.pillIncreasedCornerRadius),
     val xxxl: Shape = RoundedCornerShape(DefaultRipDpiComponents.shapes.heroCornerRadius),
     val full: Shape = CircleShape,
 )

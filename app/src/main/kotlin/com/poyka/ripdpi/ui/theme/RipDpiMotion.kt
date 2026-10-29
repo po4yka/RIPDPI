@@ -44,7 +44,6 @@ data class RipDpiMotion(
     val routeDurationMillis: Int = 260,
     val pressScale: Float = 0.98f,
     val selectionScale: Float = 1.02f,
-    val emphasisScale: Float = 1.04f,
 ) {
     fun duration(baseDurationMillis: Int): Int =
         when {
@@ -222,9 +221,6 @@ data class RipDpiMotion(
 
         /** M3 standard -- use for on-screen property changes (color, opacity). */
         val StandardEasing = CubicBezierEasing(0.2f, 0.0f, 0.0f, 1.0f)
-
-        /** CSS ease-in-out (cubic-bezier(0.42, 0, 0.58, 1)) -- for symmetric breathe / pulse. */
-        val EaseInOutEasing = CubicBezierEasing(0.42f, 0.0f, 0.58f, 1.0f)
 
         /** M3 Expressive standard spring -- critically damped, no overshoot. */
         const val StandardSpringDamping = 1f

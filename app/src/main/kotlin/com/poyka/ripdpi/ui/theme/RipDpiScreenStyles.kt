@@ -36,12 +36,6 @@ internal object RipDpiScreenStyles {
             rdsBackground(colors.background)
             rdsBorder(colors.border, RipDpiStroke.Thin)
         }
-    val matrixPanel =
-        CommonStyle {
-            val colors = LocalRipDpiExtendedColors.currentValue
-            rdsBackground(colors.card)
-            rdsBorder(colors.cardBorder, RipDpiStroke.Thin)
-        }
 }
 
 internal val RipDpiComponentStyles.screens: RipDpiScreenStyles

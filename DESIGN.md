@@ -166,9 +166,7 @@ rounded:
   md: 10px
   lg: 12px
   xl: 16px
-  xlIncreased: 20px
   xxl: 28px
-  xxlIncreased: 32px
   xxxl: 48px
   full: 999px
 spacing:
@@ -590,7 +588,6 @@ Corners are rounded but restrained:
 
 - `xs`, `sm`, and `md` are for compact controls, small clusters, and subtle shape changes.
 - `lg` and `xl` are the default radii for chips, rows, buttons, cards, and fields.
-- `xlIncreased` and `xxlIncreased` are for expressive pressed or emphasized states, not a new default baseline.
 - `xxl`, `xxxl`, and `full` are for pills, hero surfaces, and circular controls where the shape communicates function.
 
 The shape language should feel precise and engineered, not soft or playful.

@@ -74,8 +74,6 @@ data class RipDpiNavigationSurfaceRoles(
 data class RipDpiActuatorSurfaceRoles(
     val rail: RipDpiSurfaceRole = RipDpiSurfaceRole.ActuatorRail,
     val carriage: RipDpiSurfaceRole = RipDpiSurfaceRole.ActuatorCarriage,
-    val terminalSlot: RipDpiSurfaceRole = RipDpiSurfaceRole.ActuatorTerminalSlot,
-    val pipelineSegment: RipDpiSurfaceRole = RipDpiSurfaceRole.ActuatorPipelineSegment,
 )
 
 @Immutable
@@ -189,7 +187,6 @@ data class RipDpiRouteAvailabilityStateRoles(
     val available: RipDpiRouteAvailabilityStateRole = RipDpiRouteAvailabilityStateRole.Available,
     val selected: RipDpiRouteAvailabilityStateRole = RipDpiRouteAvailabilityStateRole.Selected,
     val configured: RipDpiRouteAvailabilityStateRole = RipDpiRouteAvailabilityStateRole.Configured,
-    val needsSetup: RipDpiRouteAvailabilityStateRole = RipDpiRouteAvailabilityStateRole.NeedsSetup,
     val restricted: RipDpiRouteAvailabilityStateRole = RipDpiRouteAvailabilityStateRole.Restricted,
     val active: RipDpiRouteAvailabilityStateRole = RipDpiRouteAvailabilityStateRole.Active,
     val degraded: RipDpiRouteAvailabilityStateRole = RipDpiRouteAvailabilityStateRole.Degraded,
