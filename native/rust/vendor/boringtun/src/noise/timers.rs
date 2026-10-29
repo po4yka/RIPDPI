@@ -53,6 +53,7 @@ mod awg_tests {
     use super::*;
     use crate::noise::awg::{AwgTimerConfig, TimerRange};
     use crate::x25519::{PublicKey, StaticSecret};
+    use std::convert::TryInto;
 
     fn peer() -> Tunn {
         Tunn::new(
@@ -351,6 +352,105 @@ mod awg_tests {
             a.update_timers_at(now, &mut packet),
             TunnResult::Done
         ));
+    }
+
+    #[test]
+    fn automatic_empty_and_queued_data_use_the_transport_padding_policy() {
+        struct Padding;
+        impl crate::noise::TransportPadding for Padding {
+            fn padded_len(&self, len: usize) -> usize {
+                len + 300
+            }
+        }
+        let a_key = StaticSecret::from([7; 32]);
+        let b_key = StaticSecret::from([9; 32]);
+        let mut a = Tunn::new(a_key.clone(), PublicKey::from(&b_key), None, None, 0, None);
+        let mut b = Tunn::new(b_key, PublicKey::from(&a_key), None, None, 1, None);
+        let config = AwgTimerConfig {
+            persistent_keepalive: Some(TimerRange::fixed(3)),
+            ..Default::default()
+        };
+        a.set_awg_timer_config(config).unwrap();
+        b.set_awg_timer_config(config).unwrap();
+        a.set_transport_padding(std::sync::Arc::new(Padding))
+            .unwrap();
+        let mut first = [0; 2048];
+        let mut second = [0; 2048];
+        let TunnResult::WriteToNetwork(init) = a.encapsulate(&ip(), &mut first) else {
+            panic!("init")
+        };
+        let TunnResult::WriteToNetwork(response) = b.decapsulate(None, init, &mut second) else {
+            panic!("response")
+        };
+        let TunnResult::WriteToNetwork(confirm) = a.decapsulate(None, response, &mut first) else {
+            panic!("confirm")
+        };
+        assert_eq!(
+            confirm.len(),
+            332,
+            "automatic confirmation is padded beyond the former 256-byte timer buffer"
+        );
+        assert!(matches!(
+            b.decapsulate(None, confirm, &mut second),
+            TunnResult::Done
+        ));
+        let TunnResult::WriteToNetwork(queued) = a.decapsulate(None, &[], &mut first) else {
+            panic!("queued IP")
+        };
+        assert_eq!(queued.len(), 352, "20 IP + 300 padding + 32 framing");
+        let TunnResult::WriteToTunnelV4(received, _) = b.decapsulate(None, queued, &mut second)
+        else {
+            panic!("IP")
+        };
+        assert_eq!(received, ip());
+        let now = a.timers[TimeCurrent] + Duration::from_secs(3);
+        let TunnResult::WriteToNetwork(idle) = a.update_timers_at(now, &mut first) else {
+            panic!("persistent empty")
+        };
+        assert_eq!(idle.len(), 332);
+        assert!(matches!(
+            b.decapsulate(None, idle, &mut second),
+            TunnResult::Done
+        ));
+    }
+
+    #[test]
+    fn short_empty_output_keeps_handshake_response_and_nonce_reusable() {
+        let a_key = StaticSecret::from([7; 32]);
+        let b_key = StaticSecret::from([9; 32]);
+        let mut a = Tunn::new(a_key.clone(), PublicKey::from(&b_key), None, None, 0, None);
+        let mut b = Tunn::new(b_key, PublicKey::from(&a_key), None, None, 1, None);
+        a.set_awg_timer_config(AwgTimerConfig::default()).unwrap();
+        let mut first = [0; 256];
+        let mut second = [0; 256];
+        let mut short = [0; 31];
+        let TunnResult::WriteToNetwork(init) = a.format_handshake_initiation(&mut first, false)
+        else {
+            panic!("init")
+        };
+        let TunnResult::WriteToNetwork(response) = b.decapsulate(None, init, &mut second) else {
+            panic!("response")
+        };
+        assert!(matches!(
+            a.decapsulate(None, response, &mut short),
+            TunnResult::Err(WireGuardError::DestinationBufferTooSmall)
+        ));
+        let TunnResult::WriteToNetwork(confirm) = a.decapsulate(None, response, &mut first) else {
+            panic!("same response")
+        };
+        assert_eq!(u64::from_le_bytes(confirm[8..16].try_into().unwrap()), 0);
+        assert!(matches!(
+            a.encapsulate(&[], &mut short),
+            TunnResult::Err(WireGuardError::DestinationBufferTooSmall)
+        ));
+        let TunnResult::WriteToNetwork(empty) = a.encapsulate(&[], &mut first) else {
+            panic!("empty")
+        };
+        assert_eq!(
+            u64::from_le_bytes(empty[8..16].try_into().unwrap()),
+            1,
+            "buffer failure must not consume nonce"
+        );
     }
 
     #[test]

@@ -414,6 +414,13 @@ pub(crate) struct AwgWireCodec {
     udp_window: UdpWindow,
 }
 
+impl boringtun::noise::TransportPadding for AwgWireCodec {
+    fn padded_len(&self, plaintext_len: usize) -> usize {
+        plaintext_len
+            + self.params.v3.transport_padding(plaintext_len, self.params.size_padding[3] as usize, &self.udp_window)
+    }
+}
+
 impl AwgWireCodec {
     pub(crate) fn new(params: AwgParams) -> Self {
         Self::with_mac_keys(params, None)
@@ -426,6 +433,12 @@ impl AwgWireCodec {
     fn with_mac_keys(params: AwgParams, mac_keys: Option<AwgMacKeys>) -> Self {
         let udp_window = UdpWindow::for_transport_prefix(params.size_padding[3]);
         Self { params, mac_keys, mac_state: Mutex::new(AwgMacState::default()), udp_window }
+    }
+
+    /// Set the same inner MTU used by the virtual interfaces before sharing the codec.
+    pub(crate) fn with_mtu(mut self, mtu: usize) -> Self {
+        self.udp_window = UdpWindow::for_transport_mtu(self.params.size_padding[3], mtu);
+        self
     }
 
     pub(crate) fn params(&self) -> &AwgParams {
@@ -482,20 +495,6 @@ impl AwgWireCodec {
             self.rewrite_outbound_handshake_macs(&mut wire_packet);
         }
         self.seal_envelope(wire_packet, index)
-    }
-
-    /// AWG 3.x content padding: writes the IP packet plus trailing zeros into the
-    /// reused `out` buffer and returns `true`, or returns `false` when no padding applies.
-    pub(crate) fn pad_transport_plaintext_into(&self, packet: &[u8], out: &mut Vec<u8>) -> bool {
-        let s4 = self.params.size_padding[3] as usize;
-        let padding = self.params.v3.transport_padding(packet.len(), s4, &self.udp_window);
-        if padding == 0 {
-            return false;
-        }
-        out.clear();
-        out.extend_from_slice(packet);
-        out.resize(packet.len() + padding, 0);
-        true
     }
 
     /// Learn the UDP window from a transport datagram that boringtun authenticated.

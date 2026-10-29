@@ -704,6 +704,7 @@ impl AmneziaWgRuntime {
                 reserved: [0u8; 3],
                 source_peer_ip,
                 source_peer_ipv6,
+                mtu: self.config.mtu.max(1280) as usize,
                 amnezia_cfg: &amnezia_cfg,
                 signature_programs: [
                     self.config.amnezia.i1.as_str(),

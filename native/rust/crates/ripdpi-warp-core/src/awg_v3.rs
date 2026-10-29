@@ -163,13 +163,16 @@ impl AwgV3Params {
     }
 
     /// Zero bytes to append to a transport plaintext before encryption
-    /// (`randomPaddingAddition`, else `randomTrailer`). `0` when both are off.
+    /// (`randomPaddingAddition`, else `randomTrailer`, else 16-byte alignment).
+    /// Alignment stops at the configured inner MTU, as in Go calculatePaddingSize.
     pub(crate) fn transport_padding(&self, plaintext_len: usize, s4: usize, udp_window: &UdpWindow) -> usize {
-        if self.content_padding.is_none() && !self.random_trailers {
-            return 0;
-        }
         let packet_size = plaintext_len + MESSAGE_SIZES[TRANSPORT_INDEX] + s4;
         udp_window.raise(packet_size);
+        if self.content_padding.is_none() && !self.random_trailers {
+            let mtu = udp_window.mtu;
+            let last = if plaintext_len > mtu { plaintext_len % mtu } else { plaintext_len };
+            return last.next_multiple_of(16).min(mtu) - last;
+        }
         let Some(space) = (udp_window.get() as usize).checked_sub(packet_size) else {
             return 0;
         };
@@ -185,6 +188,7 @@ impl AwgV3Params {
 pub(crate) struct UdpWindow {
     size: AtomicU32,
     limit: u32,
+    mtu: usize,
 }
 
 /// Largest IP packet a tunnel carries (Ethernet MTU); the window never grows past it plus framing.
@@ -199,8 +203,13 @@ impl Default for UdpWindow {
 impl UdpWindow {
     /// A window that starts at 500 and is capped at `S4 + 32 + 1500`.
     pub(crate) fn for_transport_prefix(s4: u32) -> Self {
-        let limit = MAX_TUNNEL_IP_PACKET + MESSAGE_SIZES[TRANSPORT_INDEX] as u32 + s4;
-        Self { size: AtomicU32::new(DEFAULT_UDP_WINDOW), limit }
+        Self::for_transport_mtu(s4, MAX_TUNNEL_IP_PACKET as usize)
+    }
+
+    pub(crate) fn for_transport_mtu(s4: u32, mtu: usize) -> Self {
+        let mtu = mtu.clamp(1280, MAX_TUNNEL_IP_PACKET as usize);
+        let limit = mtu as u32 + MESSAGE_SIZES[TRANSPORT_INDEX] as u32 + s4;
+        Self { size: AtomicU32::new(DEFAULT_UDP_WINDOW), limit, mtu }
     }
 
     // Relaxed: the window is a size heuristic; no other memory is published through it.

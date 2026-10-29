@@ -57,6 +57,13 @@ impl<'a> From<WireGuardError> for TunnResult<'a> {
     }
 }
 
+/// Supplies the plaintext length, including zero padding, for every transport message.
+/// Called under the peer lock. Implementations must be bounded, nonblocking, and
+/// must not call back into the tunnel. The backend checks output-buffer capacity.
+pub trait TransportPadding: Send + Sync {
+    fn padded_len(&self, plaintext_len: usize) -> usize;
+}
+
 /// Tunnel represents a point-to-point WireGuard connection
 pub struct Tunn {
     /// The handshake currently in progress
@@ -73,6 +80,7 @@ pub struct Tunn {
     rx_bytes: usize,
     rate_limiter: Arc<RateLimiter>,
     awg_timers: Option<awg::AwgTimers>,
+    transport_padding: Option<Arc<dyn TransportPadding>>,
 }
 
 type MessageType = u32;
@@ -219,6 +227,7 @@ impl Tunn {
             packet_queue: VecDeque::new(),
             timers: Timers::new(persistent_keepalive, rate_limiter.is_none()),
             awg_timers: None,
+            transport_padding: None,
 
             rate_limiter: rate_limiter.unwrap_or_else(|| {
                 Arc::new(RateLimiter::new(&static_public, PEER_HANDSHAKE_RATE_LIMIT))
@@ -240,6 +249,36 @@ impl Tunn {
         }
         self.awg_timers = Some(awg::AwgTimers::new(config));
         Ok(())
+    }
+
+    /// Install padding before the first packet. Queued plaintext stays unpadded
+    /// until it is encrypted, so automatic and queued messages use the same policy.
+    pub fn set_transport_padding(
+        &mut self,
+        padding: Arc<dyn TransportPadding>,
+    ) -> Result<(), &'static str> {
+        if self.handshake.is_in_progress()
+            || self.sessions.iter().any(Option::is_some)
+            || !self.packet_queue.is_empty()
+        {
+            return Err("Transport padding must be set before tunnel use");
+        }
+        self.transport_padding = Some(padding);
+        Ok(())
+    }
+
+    fn padded_len(&self, plaintext_len: usize, capacity: usize) -> Result<usize, WireGuardError> {
+        let padded_len = self
+            .transport_padding
+            .as_ref()
+            .map_or(plaintext_len, |policy| policy.padded_len(plaintext_len));
+        if capacity < DATA_OVERHEAD_SZ
+            || padded_len < plaintext_len
+            || padded_len > capacity - DATA_OVERHEAD_SZ
+        {
+            return Err(WireGuardError::DestinationBufferTooSmall);
+        }
+        Ok(padded_len)
     }
 
     /// Update the private key and clear existing sessions
@@ -277,7 +316,11 @@ impl Tunn {
             })
         }) {
             // Send the packet using an established session
-            let packet = session.format_packet_data(src, dst);
+            let padded_len = match self.padded_len(src.len(), dst.len()) {
+                Ok(length) => length,
+                Err(error) => return TunnResult::Err(error),
+            };
+            let packet = session.format_packet_data(src, padded_len, dst);
             self.timer_tick(TimerName::TimeLastPacketSent);
             // Exclude Keepalive packets from timer update.
             if !src.is_empty() {
@@ -392,9 +435,10 @@ impl Tunn {
             remote_idx = p.sender_idx
         );
 
+        let padded_len = self.padded_len(0, dst.len())?;
         let session = self.handshake.receive_handshake_response(p)?;
 
-        let keepalive_packet = session.format_packet_data(&[], dst);
+        let keepalive_packet = session.format_packet_data(&[], padded_len, dst);
         // Store new session in ring buffer
         let l_idx = session.local_index();
         let index = l_idx % N_SESSIONS;

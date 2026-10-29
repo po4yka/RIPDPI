@@ -276,6 +276,7 @@ mod tests {
                 reserved: [0; 3],
                 source_peer_ip: "10.77.0.2".parse().expect("source"),
                 source_peer_ipv6: None,
+                mtu: 1420,
                 amnezia_cfg: &amnezia,
                 signature_programs: [""; 5],
                 carrier: Some(WgCarrier::PlainTestWs(Box::new(SplitWsCarrier::new(sender, receiver)))),

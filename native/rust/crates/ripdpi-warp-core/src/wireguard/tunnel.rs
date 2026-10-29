@@ -1,5 +1,6 @@
 use std::io;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
@@ -79,6 +80,8 @@ pub(crate) struct WireGuardTunnelParams<'a> {
     /// Local interface IPv4 used to classify inbound tunnel packets.
     pub source_peer_ip: IpAddr,
     pub source_peer_ipv6: Option<Ipv6Addr>,
+    /// Inner MTU used for transport padding bounds.
+    pub mtu: usize,
     /// AmneziaWG `Jc/Jmin/Jmax/H1..H4/S1..S4` obfuscation knobs.
     pub amnezia_cfg: &'a WarpAmneziaConfig,
     /// AmneziaWG 3.1 `I1..I5` signature programs. Empty strings = unset.
@@ -99,12 +102,10 @@ pub(crate) struct WireGuardTunnel {
     source_peer_ip: IpAddr,
     source_peer_ipv6: Option<Ipv6Addr>,
     reserved: [u8; 3],
-    amnezia: Option<AwgWireCodec>,
+    amnezia: Option<Arc<AwgWireCodec>>,
     handshake_readiness: HandshakeReadiness,
 }
 
-/// Room for the largest message the AWG timers make: a 148-byte initiation or a keepalive.
-const TIMER_PACKET_BUFFER: usize = 256;
 /// The boringtun device ticks its timers every 250 ms; they are rounded to a second.
 const TIMER_TICK: Duration = Duration::from_millis(250);
 
@@ -141,6 +142,7 @@ impl WireGuardTunnel {
             reserved,
             source_peer_ip,
             source_peer_ipv6,
+            mtu,
             amnezia_cfg,
             signature_programs,
             carrier,
@@ -161,7 +163,8 @@ impl WireGuardTunnel {
             amnezia_cfg,
             &signature_programs,
             AwgMacKeys::new(local_public_key, peer_public_key),
-        )?;
+        )?
+        .map(|codec| Arc::new(codec.with_mtu(mtu)));
         let mut peer = Box::new(Tunn::new(
             private_key,
             boringtun::x25519::PublicKey::from(peer_public_key),
@@ -188,6 +191,9 @@ impl WireGuardTunnel {
                 None => None,
             };
             peer.set_awg_timer_config(timers).map_err(anyhow::Error::msg)?;
+        }
+        if let Some(codec) = &amnezia {
+            peer.set_transport_padding(codec.clone()).map_err(anyhow::Error::msg)?;
         }
         Ok(Self {
             peer: tokio::sync::Mutex::new(peer),
@@ -253,18 +259,13 @@ impl WireGuardTunnel {
         self.handshake_readiness.is_established()
     }
 
-    /// Encrypt and send one IP packet. `padded` is a reused scratch buffer for AWG 3.x content padding,
-    /// `send_buf` a reused [`MAX_PACKET`] buffer for the ciphertext.
+    /// Encrypt and send one IP packet with backend transport padding.
+    /// `send_buf` is a reused [`MAX_PACKET`] buffer for the ciphertext.
     ///
     /// # Cancel safety:
     /// NOT cancel-safe: encryption advances the nonce and timers before carrier I/O.
     /// The owning producer is cancelled only at shutdown; the peer lock is released before I/O.
-    async fn send_ip_packet(&self, packet: &[u8], padded: &mut Vec<u8>, send_buf: &mut [u8]) {
-        // AWG 3.x content padding rides inside the ciphertext; the receiver trims to the IP length.
-        let packet = match &self.amnezia {
-            Some(codec) if codec.pad_transport_plaintext_into(packet, padded) => padded.as_slice(),
-            _ => packet,
-        };
+    async fn send_ip_packet(&self, packet: &[u8], send_buf: &mut [u8]) {
         let result = { self.peer.lock().await.encapsulate(packet, send_buf) };
         self.send_tunn_result(result).await;
     }
@@ -324,12 +325,11 @@ impl WireGuardTunnel {
     /// The runtime aborts and joins this producer only when the tunnel shuts down.
     pub(crate) async fn produce_task(&self, bus: Bus) {
         let mut endpoint = bus.new_endpoint();
-        let mut padded = Vec::new();
         let mut send_buf = vec![0u8; MAX_PACKET];
         loop {
             match endpoint.recv().await {
                 Event::Shutdown => break,
-                Event::OutboundInternetPacket(packet) => self.send_ip_packet(&packet, &mut padded, &mut send_buf).await,
+                Event::OutboundInternetPacket(packet) => self.send_ip_packet(&packet, &mut send_buf).await,
                 _ => {}
             }
         }
@@ -341,7 +341,7 @@ impl WireGuardTunnel {
     /// NOT cancel-safe: a timer transition can commit before its packet is sent.
     /// This task is aborted at tunnel shutdown; peer locks are released before carrier I/O.
     pub(crate) async fn routine_task(&self) {
-        let mut send_buf = [0u8; TIMER_PACKET_BUFFER];
+        let mut send_buf = vec![0u8; MAX_PACKET];
         let mut session_expired = false;
         let mut tick = tokio::time::interval(TIMER_TICK);
         tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
@@ -504,6 +504,7 @@ mod tests {
             reserved: [0u8; 3],
             source_peer_ip: IpAddr::V4(Ipv4Addr::new(10, 8, 0, 2)),
             source_peer_ipv6: None,
+            mtu: 1420,
             amnezia_cfg: &amnezia,
             signature_programs: ["", "", "", "", ""],
             carrier: None,
@@ -570,6 +571,7 @@ mod tests {
                     reserved: [0; 3],
                     source_peer_ip: "10.77.0.2".parse().unwrap(),
                     source_peer_ipv6: None,
+                    mtu: 1420,
                     amnezia_cfg: &config,
                     signature_programs: config.signature_programs(),
                     carrier: None,
@@ -618,6 +620,14 @@ mod tests {
 
     /// A plain WireGuard peer on loopback and a client tunnel that dials it.
     async fn tunnel_and_peer() -> (std::sync::Arc<WireGuardTunnel>, tokio::net::UdpSocket, Box<Tunn>) {
+        tunnel_and_peer_with_config(WarpAmneziaConfig::default()).await
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: test setup drops all local resources if cancelled.
+    async fn tunnel_and_peer_with_config(
+        amnezia: WarpAmneziaConfig,
+    ) -> (std::sync::Arc<WireGuardTunnel>, tokio::net::UdpSocket, Box<Tunn>) {
         use base64::Engine as _;
         use boringtun::x25519::{PublicKey, StaticSecret};
         let encode = |bytes: [u8; 32]| base64::engine::general_purpose::STANDARD.encode(bytes);
@@ -625,8 +635,10 @@ mod tests {
         let server_public = PublicKey::from(&server_secret).to_bytes();
         let client_public = PublicKey::from(&StaticSecret::from(CLIENT_SECRET));
         let peer_socket = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
-        let peer = Box::new(Tunn::new(server_secret, client_public, None, None, 1, None));
-        let amnezia = WarpAmneziaConfig::default();
+        let mut peer = Box::new(Tunn::new(server_secret, client_public, None, None, 1, None));
+        if amnezia.enabled {
+            peer.set_awg_timer_config(AwgTimerConfig::default()).unwrap();
+        }
         let tunnel = WireGuardTunnel::new(
             WireGuardTunnelParams {
                 private_key: &encode(CLIENT_SECRET),
@@ -638,6 +650,7 @@ mod tests {
                 reserved: [0; 3],
                 source_peer_ip: "10.77.0.2".parse().unwrap(),
                 source_peer_ipv6: None,
+                mtu: 1420,
                 amnezia_cfg: &amnezia,
                 signature_programs: ["", "", "", "", ""],
                 carrier: None,
@@ -667,6 +680,40 @@ mod tests {
         socket.send_to(response, client).await.unwrap();
     }
 
+    /// # Cancel safety:
+    /// NOT cancel-safe: this test drives a live tunnel and must abort its receive task on exit.
+    #[tokio::test]
+    async fn configured_padding_reaches_automatic_empty_and_data_over_the_carrier() {
+        let config = WarpAmneziaConfig {
+            enabled: true,
+            v3: crate::config::AwgV3Config { content_padding_addition: "300".into(), ..Default::default() },
+            ..Default::default()
+        };
+        let (tunnel, socket, mut peer) = tunnel_and_peer_with_config(config).await;
+        let consume = spawn_consume(&tunnel);
+        let result = tokio::time::timeout(Duration::from_secs(2), async {
+            tunnel.initiate_handshake().await.unwrap();
+            answer_initiation(&socket, &mut peer, |_| {}).await;
+            let mut datagram = [0; 2048];
+            let mut plaintext = [0; 2048];
+            let (size, _) = socket.recv_from(&mut datagram).await.unwrap();
+            assert_eq!(size, 332, "automatic empty transport: 300 padding + 32 framing");
+            assert!(matches!(peer.decapsulate(None, &datagram[..size], &mut plaintext), TunnResult::Done));
+            let ip = [0x45, 0, 0, 20, 0, 0, 0, 0, 64, 17, 0, 0, 10, 77, 0, 2, 1, 1, 1, 1];
+            tunnel.send_ip_packet(&ip, &mut datagram).await;
+            let (size, _) = socket.recv_from(&mut datagram).await.unwrap();
+            assert_eq!(size, 352, "20 IP + 300 padding + 32 framing");
+            let TunnResult::WriteToTunnelV4(received, _) = peer.decapsulate(None, &datagram[..size], &mut plaintext)
+            else {
+                panic!("IP delivery")
+            };
+            assert_eq!(received, ip);
+        })
+        .await;
+        consume.abort();
+        result.expect("padded carrier round trip");
+    }
+
     #[tokio::test]
     async fn handshake_response_that_echoes_the_reserved_bytes_is_accepted() {
         let (tunnel, socket, mut peer) = tunnel_and_peer().await;
@@ -691,7 +738,7 @@ mod tests {
         let consume = spawn_consume(&tunnel);
         // A minimal IPv4/UDP header from the interface address; boringtun queues it and starts a handshake.
         let ip_packet = [0x45, 0, 0, 20, 0, 0, 0, 0, 64, 17, 0, 0, 10, 77, 0, 2, 1, 1, 1, 1];
-        tunnel.send_ip_packet(&ip_packet, &mut Vec::new(), &mut vec![0u8; MAX_PACKET]).await;
+        tunnel.send_ip_packet(&ip_packet, &mut vec![0u8; MAX_PACKET]).await;
         answer_initiation(&socket, &mut peer, |_| {}).await;
 
         let delivered = tokio::time::timeout(Duration::from_secs(2), async {

@@ -2,6 +2,7 @@ use base64::{Engine as _, engine::general_purpose::STANDARD};
 
 use super::*;
 use crate::config::{AwgV3Config, SecretString};
+use boringtun::noise::TransportPadding as _;
 
 /// Byte-exact vectors printed by a Go program that applies the
 /// `golang.org/x/crypto/chacha20` construction of amneziawg-go v3.1 `send.go`
@@ -100,11 +101,11 @@ fn trailers_are_refused_when_random_trailers_is_off() {
 }
 
 #[test]
-fn defaults_keep_the_awg_2_wire_bytes() {
+fn defaults_keep_handshake_bytes_and_align_transport() {
     let v3 = params(AwgV3Config::default(), 0);
     let message = vec![7u8; 148];
     assert_eq!(v3.seal(message.clone(), 0, 0, &UdpWindow::default()), Some(message));
-    assert_eq!(v3.transport_padding(100, 0, &UdpWindow::default()), 0);
+    assert_eq!(v3.transport_padding(100, 0, &UdpWindow::default()), 12);
     assert_eq!(v3.timer_config(), boringtun::noise::awg::AwgTimerConfig::default());
 }
 
@@ -193,15 +194,40 @@ fn unauthenticated_transport_does_not_grow_the_udp_window_and_growth_is_capped()
     let mut spoofed = vec![0u8; 65_000];
     spoofed[12..16].copy_from_slice(&450u32.to_le_bytes());
     assert!(codec.decode(&spoofed).is_some());
-    let mut out = Vec::new();
-    assert!(codec.pad_transport_plaintext_into(&[0x45; 400], &mut out));
+    let length = codec.padded_len(400);
     // 400 + 32 + 12 = 444 of the default 500-byte window: at most 56 padding bytes.
-    assert_eq!(out.len(), 456, "decode alone must not move the window");
+    assert_eq!(length, 456, "decode alone must not move the window");
 
     codec.observe_authenticated_transport(65_000);
-    assert!(codec.pad_transport_plaintext_into(&[0x45; 400], &mut out));
+    let length = codec.padded_len(400);
     // Capped at 1500 + 32 + S4 = 1544, which leaves 1100 bytes of space: 1000 fit.
-    assert_eq!(out.len(), 1400);
-    assert!(codec.pad_transport_plaintext_into(&[0x45; 1200], &mut out));
-    assert_eq!(out.len(), 1200 + 300, "the capped window bounds padding to 1544 - 1244 bytes");
+    assert_eq!(length, 1400);
+    assert_eq!(codec.padded_len(1200), 1200 + 300, "the capped window bounds padding to 1544 - 1244 bytes");
+}
+
+#[test]
+fn transport_padding_precedence_and_alignment_match_independent_lengths() {
+    for mtu in [1280, 1420] {
+        let window = UdpWindow::for_transport_mtu(12, mtu);
+        let fixed = params(AwgV3Config { content_padding_addition: "37".into(), ..Default::default() }, 12);
+        let both = params(
+            AwgV3Config { content_padding_addition: "37".into(), random_trailers: true, ..Default::default() },
+            12,
+        );
+        let random = params(AwgV3Config { random_trailers: true, ..Default::default() }, 12);
+        let aligned = params(AwgV3Config::default(), 12);
+        for length in [0, 20, 400] {
+            assert_eq!(fixed.transport_padding(length, 12, &window), 37);
+            assert_eq!(both.transport_padding(length, 12, &window), 37, "CPA takes precedence over RT");
+            assert!(random.transport_padding(length, 12, &window) < 500 - 44 - length);
+        }
+        assert_eq!(aligned.transport_padding(0, 12, &window), 0);
+        assert_eq!(aligned.transport_padding(20, 12, &window), 12);
+        assert_eq!(aligned.transport_padding(31, 12, &window), 1);
+        assert_eq!(aligned.transport_padding(32, 12, &window), 0);
+        assert_eq!(aligned.transport_padding(mtu - 1, 12, &window), 1);
+        assert_eq!(aligned.transport_padding(mtu, 12, &window), 0);
+        assert_eq!(both.transport_padding(mtu, 12, &window), 0, "maximum payload has no padding room");
+        assert_eq!(fixed.transport_padding(mtu - 1, 12, &window), 1);
+    }
 }

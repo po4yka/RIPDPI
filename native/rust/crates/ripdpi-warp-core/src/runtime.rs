@@ -156,6 +156,7 @@ impl WarpRuntime {
                     reserved,
                     source_peer_ip,
                     source_peer_ipv6,
+                    mtu: self.config.mtu.max(1280) as usize,
                     amnezia_cfg: &self.config.amnezia,
                     // AWG 2.0 I1..I5 special-junk frames, sourced from the
                     // resolved WARP config's own `i1..i5` hex fields. Empty
