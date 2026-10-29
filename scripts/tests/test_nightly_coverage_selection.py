@@ -39,10 +39,10 @@ class NightlyCoverageSelectionTest(unittest.TestCase):
         source = COVERAGE_SCRIPT.read_text(encoding="utf-8")
         function = source.split("bpf_coverage_suites() {", 1)[1].split("\n}\n", 1)[0]
         for packages, expected in (
-            ("", ["socket-options", "network-e2e"]),
-            ("ripdpi-proxy-runtime", ["network-e2e"]),
+            ("", ["socket-options", "network-e2e", "proxy-runtime"]),
+            ("ripdpi-proxy-runtime", ["network-e2e", "proxy-runtime"]),
             ("ripdpi-privileged-ops", ["socket-options"]),
-            ("ripdpi-proxy-runtime@0.1.0 ripdpi-config", ["network-e2e"]),
+            ("ripdpi-proxy-runtime@0.1.0 ripdpi-config", ["network-e2e", "proxy-runtime"]),
             ("ripdpi-config", []),
         ):
             with self.subTest(packages=packages):
