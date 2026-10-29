@@ -82,8 +82,9 @@ data class RipDpiExtendedColors(
 )
 
 /**
- * Derives the RDS neutral and destructive roles from the Material scheme so contrast and (later) dynamic color
- * reach RDS components. Success, warning, info, restricted, and scrim stay RDS-owned.
+ * Derives the RDS neutral and destructive roles from the Material scheme so contrast and dynamic color reach RDS
+ * components. Cards follow the Material outlined card: page surface plus an outlineVariant border.
+ * Success, warning, info, restricted, and scrim stay RDS-owned.
  */
 fun ripDpiExtendedColors(
     scheme: ColorScheme,
@@ -92,7 +93,7 @@ fun ripDpiExtendedColors(
     RipDpiExtendedColors(
         background = scheme.surface,
         foreground = scheme.onSurface,
-        card = scheme.surfaceContainerLow,
+        card = scheme.surface,
         cardForeground = scheme.onSurface,
         muted = scheme.surfaceContainerHigh,
         mutedForeground = scheme.onSurfaceVariant,

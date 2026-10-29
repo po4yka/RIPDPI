@@ -92,7 +92,7 @@ class RipDpiColorContrastTest {
         val colors = ripDpiExtendedColors(scheme, isDark = true)
 
         assertEquals(scheme.surface, colors.background)
-        assertEquals(scheme.surfaceContainerLow, colors.card)
+        assertEquals(scheme.surface, colors.card)
         assertEquals(scheme.onSurfaceVariant, colors.mutedForeground)
         assertEquals(scheme.outlineVariant, colors.border)
         assertEquals(scheme.error, colors.destructive)

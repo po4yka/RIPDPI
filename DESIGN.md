@@ -6,7 +6,7 @@ colors:
   primary: "#575F6B"
   background: "#FBF9FA"
   foreground: "#1B1B1D"
-  card: "#F5F3F4"
+  card: "#FBF9FA"
   cardForeground: "#1B1B1D"
   muted: "#EAE7E9"
   mutedForeground: "#474748"
@@ -511,7 +511,7 @@ Core UI uses the Material 3 color roles of a scheme generated with Google materi
 - `background`, `card`, and `muted` define the page, card, and secondary-surface hierarchy.
 - `foreground`, `cardForeground`, and `mutedForeground` define the text hierarchy.
 - `primary` is the Material `primary` role, a calm slate. Filled primary actions use it with `onPrimary`.
-- `background` is `surface`, `card` is `surfaceContainerLow`, `muted` is `surfaceContainerHigh`, `inputBackground` is `surfaceContainerHighest`, and `border`, `cardBorder`, and `divider` are `outlineVariant`.
+- `background` is `surface`, `card` is `surface` (an outlined card bordered by `cardBorder`), `muted` is `surfaceContainerHigh`, `inputBackground` is `surfaceContainerHighest`, and `border`, `cardBorder`, and `divider` are `outlineVariant`.
 - `accent` and `accentForeground` are for selected status cards or emphasized neutral surfaces, not for playful branding.
 - `border`, `cardBorder`, `divider`, `hairline`, `outline`, and `outlineVariant` encode structure and focus.
 
