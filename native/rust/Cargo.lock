@@ -5713,8 +5713,6 @@ dependencies = [
  "ripdpi-diagnostics-transport",
  "ripdpi-tls-profiles",
  "rustls",
- "serde",
- "serde_json",
  "tracing",
  "webpki-roots",
 ]
