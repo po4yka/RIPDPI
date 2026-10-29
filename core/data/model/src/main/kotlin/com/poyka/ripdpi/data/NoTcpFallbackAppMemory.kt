@@ -1,8 +1,7 @@
 package com.poyka.ripdpi.data
 
 /**
- * Per-app-family `NO_TCP_FALLBACK` memory — the live-owner Kotlin mirror of the
- * native reference type `ripdpi_runtime_policy::app_family_memory::AppFamilyMemory`.
+ * Per-app-family `NO_TCP_FALLBACK` memory.
  *
  * When an app never retries over TCP after a UDP/QUIC suppression event (the
  * `NO_TCP_FALLBACK` heuristic fires for its traffic), the app's package identity

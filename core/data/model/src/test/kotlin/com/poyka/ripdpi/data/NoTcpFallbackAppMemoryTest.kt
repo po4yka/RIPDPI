@@ -5,11 +5,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 /**
- * Mirrors the native reference suite for
- * `ripdpi_runtime_policy::app_family_memory::AppFamilyMemory` so the Kotlin
- * live owner and the Rust reference stay behaviourally identical, plus the
- * conservative-by-default guarantees that close the epic's NO_TCP_FALLBACK
- * ship-definition item.
+ * Covers per-app-family memory behaviour and the conservative-by-default
+ * guarantees that close the epic's NO_TCP_FALLBACK ship-definition item.
  */
 class NoTcpFallbackAppMemoryTest {
     @Test
