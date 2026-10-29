@@ -7,12 +7,14 @@ import os
 from pathlib import Path
 import socket
 import subprocess
+import sys
 import tempfile
 import threading
 import time
 import unittest
 
 
+@unittest.skipUnless(sys.platform.startswith("linux"), "bridge uses Linux-only SOCK_CLOEXEC/SOCK_NONBLOCK")
 class ProtectBridgeTest(unittest.TestCase):
     @classmethod
     def setUpClass(cls):

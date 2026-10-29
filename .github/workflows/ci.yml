@@ -995,6 +995,10 @@ jobs:
           "$RUNNER_TEMP/appium-venv/bin/python" -m pip install -r requirements.txt
           PYTHONPATH=. "$RUNNER_TEMP/appium-venv/bin/python" -m pytest --confcutdir=checks checks/
 
+      # The protect-bridge test compiles Linux-only C and skips on other hosts.
+      - name: Run zapret2 protect bridge and source lock tests
+        run: python3 -m unittest discover -s native/zapret2/tests -p "test_*.py" -v
+
       - uses: ./.github/actions/upload-build-observability
         if: always()
         with:
