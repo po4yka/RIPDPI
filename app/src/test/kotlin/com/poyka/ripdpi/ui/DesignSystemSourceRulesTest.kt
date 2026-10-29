@@ -108,13 +108,9 @@ class DesignSystemSourceRulesTest {
     fun `accent container token is not used as foreground content`() {
         val foregroundOnlyFiles =
             setOf(
-                "app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiTooltipRich.kt",
                 "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/blockcheck/BlockcheckRoute.kt",
                 "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionHistoryCommunityCards.kt",
                 "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/detection/DetectionResultCards.kt",
-                "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/HandshakeTimelineScreen.kt",
-                "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/PortMatrixScreen.kt",
-                "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/QualityGraphsScreen.kt",
                 "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/history/HistoryFilters.kt",
                 "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/settings/DesyncSection.kt",
             )
