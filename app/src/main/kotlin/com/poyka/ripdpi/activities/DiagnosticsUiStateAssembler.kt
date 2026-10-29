@@ -477,9 +477,3 @@ internal fun resolveCurrentConnectionState(
     }
 
 private const val UnknownCurrentNetworkType = "unknown"
-
-internal fun DiagnosticsSessionRowUiModel.toLastScanSummary(): String =
-    listOf(
-        metrics.firstOrNull { it.label.contains("confidence", ignoreCase = true) }?.value ?: status,
-        startedAtLabel,
-    ).joinToString(" · ")

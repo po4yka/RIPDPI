@@ -228,11 +228,6 @@ class DiagnosticsViewModel
 
         fun selectSection(section: DiagnosticsSection) = selectionActions.selectSection(section)
 
-        val lastScanSummary: String?
-            get() =
-                uiState.value.scan.latestSession
-                    ?.toLastScanSummary()
-
         fun updateSelectiveMatrixHosts(input: String) = selectionActions.updateSelectiveMatrixHosts(input)
 
         fun selectProfile(profileId: String) = selectionActions.selectProfile(profileId)

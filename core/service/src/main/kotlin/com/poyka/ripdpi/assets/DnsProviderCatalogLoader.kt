@@ -4,9 +4,7 @@ import android.content.Context
 import com.poyka.ripdpi.data.DnsProviderCatalog
 import com.poyka.ripdpi.data.DnsProviderCatalogEntry
 import com.poyka.ripdpi.data.DnsProviderCustom
-import com.poyka.ripdpi.data.DnsProviderDefinition
 import com.poyka.ripdpi.data.dnsProviderCatalogFromJson
-import com.poyka.ripdpi.data.toDnsProviderDefinition
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -77,9 +75,6 @@ class DnsProviderCatalogLoader(
 
     /** Looks up a bundled provider entry by its stable id. */
     fun byId(id: String): DnsProviderCatalogEntry? = loadCatalog().byId(id)
-
-    /** Maps a bundled entry onto the legacy [DnsProviderDefinition] used by the DNS settings pipeline. */
-    fun definitionById(id: String): DnsProviderDefinition? = byId(id)?.toDnsProviderDefinition()
 
     /**
      * Selectable presets for settings UI: every bundled entry followed by the user-defined custom

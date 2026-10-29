@@ -42,10 +42,7 @@ data class HostAutolearnUiState(
     val hostAutolearnLastHost: String? = null,
     val hostAutolearnLastGroup: Int? = null,
     val hostAutolearnLastAction: String? = null,
-) {
-    val wsTunnelWorkerConfigured: Boolean
-        get() = wsTunnelWorkerUrl.isNotBlank() && wsTunnelWorkerCredentialRef.isNotBlank()
-}
+)
 
 @Stable
 data class WarpUiState(
@@ -101,13 +98,6 @@ data class WarpUiState(
     val amneziaControlsEnabled: Boolean
         get() = enabled && amneziaPreset == WarpAmneziaPresetCustom && amneziaEnabled
 
-    val hasManualEndpointOverride: Boolean
-        get() =
-            manualEndpointHost.isNotBlank() ||
-                manualEndpointIpv4.isNotBlank() ||
-                manualEndpointIpv6.isNotBlank() ||
-                manualEndpointPort != DefaultWarpManualEndpointPort
-
     val hasZeroTrustOrganization: Boolean
         get() = zeroTrustOrg.isNotBlank()
 
@@ -158,15 +148,10 @@ data class RoutingProtectionUiState(
     val presets: ImmutableList<RoutingProtectionPresetUiState> = persistentListOf(),
     val detectedApps: ImmutableList<RoutingProtectionDetectedAppUiState> = persistentListOf(),
     val suggestions: ImmutableList<RoutingProtectionSuggestionUiState> = persistentListOf(),
-    val transportVpnDisclosure: String =
-        "Application exclusion does not hide TRANSPORT_VPN checks made by the app itself.",
 ) {
     val detectedAppCount: Int
         get() = detectedApps.size
 
     val enabledPresetCount: Int
         get() = enabledPresetIds.size
-
-    val hasDetectedRiskyApps: Boolean
-        get() = detectedApps.isNotEmpty()
 }

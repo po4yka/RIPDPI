@@ -185,9 +185,6 @@ data class DesyncCoreUiState(
     val primaryHostFakeStep: TcpChainStepModel?
         get() = hostFakeSteps.firstOrNull()
 
-    val fakeOrderingStepCount: Int
-        get() = fakeOrderingSteps.size
-
     val hasFakeOrderingOverrides: Boolean
         get() =
             fakeOrderingSteps.any {

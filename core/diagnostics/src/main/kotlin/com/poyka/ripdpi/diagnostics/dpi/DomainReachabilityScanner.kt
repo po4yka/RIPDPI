@@ -643,10 +643,6 @@ private object DefaultReachabilityProbeEndpointResolver : ReachabilityProbeEndpo
 }
 
 object TlsVersionPinner {
-    fun tls13Spec(): ConnectionSpec = tlsSpec(TlsVersion.TLS_1_3)
-
-    fun tls12Spec(): ConnectionSpec = tlsSpec(TlsVersion.TLS_1_2)
-
     fun tlsSpec(version: TlsVersion): ConnectionSpec =
         ConnectionSpec
             .Builder(ConnectionSpec.MODERN_TLS)

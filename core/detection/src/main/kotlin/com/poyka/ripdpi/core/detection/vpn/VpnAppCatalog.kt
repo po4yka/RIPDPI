@@ -293,8 +293,6 @@ object VpnAppCatalog {
             ),
         )
 
-    val knownPackageNames: Set<String> = signatures.mapTo(linkedSetOf()) { it.packageName }
-
     val localhostProxyPorts: List<Int> =
         signatures
             .flatMapTo(linkedSetOf()) { it.defaultPorts }

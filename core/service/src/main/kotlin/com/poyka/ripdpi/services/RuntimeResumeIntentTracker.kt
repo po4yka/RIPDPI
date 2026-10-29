@@ -20,8 +20,6 @@ class RuntimeResumeIntentTracker
         private var state = State()
         private val ownedRecovery = mutableMapOf<ResumeLease, com.poyka.ripdpi.data.RuntimeActivationReceipt>()
 
-        internal fun currentDurableAuthority() = pauseAuthority.snapshotAuthority()
-
         internal fun captureResumeLease(): ResumeLease =
             synchronized(lock) {
                 ResumeLease(state.generation, pauseAuthority.snapshotAuthority())

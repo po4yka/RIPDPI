@@ -22,8 +22,6 @@ object IpAddressClassifier {
             else -> IpAddressType.PUBLIC
         }
     }
-
-    fun isLocal(ip: String): Boolean = classify(ip) == IpAddressType.LOCAL
 }
 
 private fun String.parseIpLiteralOrNull(): InetAddress? {
