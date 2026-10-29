@@ -19,13 +19,11 @@ socket2 = { workspace = true }
 ripdpi-runtime-platform = { workspace = true }
 ripdpi-privileged-ops = { workspace = true }
 rustls = { workspace = true }
-ringbuf = { workspace = true }
 smoltcp = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "sync", "time"] }
 tokio-util = { workspace = true, features = ["rt"] }
 thiserror = { workspace = true }
 tracing = { workspace = true }
-anyhow = { workspace = true }
 hickory-proto = { workspace = true }
 hex = { workspace = true }
 lru = { workspace = true }

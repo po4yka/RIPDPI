@@ -18,7 +18,6 @@ ripdpi-vless = { workspace = true }
 ripdpi-native-protect = { workspace = true }
 rand = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "net", "sync"] }
-tokio-boring = { workspace = true }
 
 [lints]
 workspace = true

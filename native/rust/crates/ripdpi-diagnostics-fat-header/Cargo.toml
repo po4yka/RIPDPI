@@ -13,11 +13,3 @@ ripdpi-diagnostics-http = { workspace = true }
 ripdpi-diagnostics-tls = { workspace = true }
 ripdpi-diagnostics-transport = { workspace = true }
 rustls = { workspace = true }
-
-[features]
-hickory = ["ripdpi-diagnostics-http/hickory", "ripdpi-diagnostics-tls/hickory"]
-quic-native = [
-    "ripdpi-diagnostics-http/quic-native",
-    "ripdpi-diagnostics-tls/quic-native",
-    "ripdpi-diagnostics-transport/quic-native",
-]

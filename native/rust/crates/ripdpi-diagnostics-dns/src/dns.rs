@@ -6,9 +6,6 @@ mod udp;
 pub use encrypted_observation::resolve_via_encrypted_dns_with_observations;
 pub use semantics::parse_dns_response_semantics;
 
-#[cfg(feature = "hickory")]
-mod hickory_probe;
-
 pub use ripdpi_ech_dns::{
     EchResolutionOutcome, EncryptedDnsEchResolver, bootstrap_ips_for_resolver, build_dns_query_with_type,
     build_fallback_encrypted_dns_endpoints, ech_public_name, encrypted_dns_endpoint_for_resolver_id,
@@ -19,8 +16,6 @@ pub use ripdpi_ech_dns::{
     resolve_via_encrypted_dns, resolve_via_encrypted_dns_with_raw, skip_dns_name,
 };
 
-#[cfg(feature = "hickory")]
-pub use hickory_probe::resolve_via_hickory_dns;
 pub use udp::{
     UdpDnsResolution, classify_udp_dns_error, is_retryable_udp_dns_error, resolve_via_udp_with_observations,
     resolve_via_udp_with_raw,

@@ -8,7 +8,6 @@ license.workspace = true
 workspace = true
 
 [dependencies]
-log = { workspace = true }
 tracing = { workspace = true }
 ripdpi-diagnostics-candidates = { workspace = true }
 ripdpi-diagnostics-classification = { workspace = true }
@@ -25,23 +24,5 @@ ripdpi-proxy-config = { workspace = true }
 rustls = { workspace = true }
 
 [dev-dependencies]
-local-network-fixture = { workspace = true }
 rcgen = { workspace = true }
 ripdpi-diagnostics-probes = { workspace = true }
-
-[features]
-hickory = [
-    "ripdpi-diagnostics-candidates/hickory",
-    "ripdpi-diagnostics-dns/hickory",
-    "ripdpi-diagnostics-fat-header/hickory",
-    "ripdpi-diagnostics-http/hickory",
-    "ripdpi-diagnostics-tls/hickory",
-]
-quic-native = [
-    "ripdpi-diagnostics-candidates/quic-native",
-    "ripdpi-diagnostics-dns/quic-native",
-    "ripdpi-diagnostics-fat-header/quic-native",
-    "ripdpi-diagnostics-http/quic-native",
-    "ripdpi-diagnostics-tls/quic-native",
-    "ripdpi-diagnostics-transport/quic-native",
-]

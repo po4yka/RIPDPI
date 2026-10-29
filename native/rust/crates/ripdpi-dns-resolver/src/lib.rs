@@ -3,8 +3,6 @@
 mod dnscrypt;
 mod doh_pipeline;
 mod health;
-#[cfg(feature = "hickory-backend")]
-mod hickory_backend;
 mod https_service_binding;
 mod odoh;
 mod pool;

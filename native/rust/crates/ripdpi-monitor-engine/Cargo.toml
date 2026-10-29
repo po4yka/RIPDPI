@@ -19,15 +19,12 @@ ripdpi-proxy-config = { workspace = true }
 ripdpi-runtime-platform = { workspace = true }
 ripdpi-telemetry = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
-libc = { workspace = true }
-md5 = { workspace = true }
 metrics = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
 rustls = { workspace = true }
 socket2 = { workspace = true }
-tokio = { workspace = true, optional = true, features = ["net", "rt", "time"] }
 loom = { workspace = true, optional = true }
 
 [dev-dependencies]

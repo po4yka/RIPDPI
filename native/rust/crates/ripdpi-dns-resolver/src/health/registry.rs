@@ -58,12 +58,6 @@ impl HealthRegistry {
         Self { inner: Arc::new(Mutex::new(HealthRegistryInner { scopes: HashMap::new(), half_life, clock })) }
     }
 
-    /// Records an SNI-blocked outcome for a named endpoint.
-    /// Uses elevated latency penalty (4000ms) to deprioritize blocked providers faster.
-    pub fn record_sni_blocked(&self, label: &str) {
-        self.record_sni_blocked_in_scope(&ResolverNetworkScope::global(), label);
-    }
-
     pub fn record_sni_blocked_in_scope(&self, scope: &ResolverNetworkScope, label: &str) {
         self.record_endpoint_outcome_in_scope(scope, label, false, 4000);
     }

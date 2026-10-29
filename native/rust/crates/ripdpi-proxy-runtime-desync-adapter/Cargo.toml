@@ -30,7 +30,6 @@ tracing = { workspace = true }
 
 [dev-dependencies]
 libc = { workspace = true }
-tempfile = "3.27"
 
 [features]
 loom = ["dep:loom", "ripdpi-desync-runtime/loom"]

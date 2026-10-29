@@ -15,14 +15,12 @@ ripdpi-native-protect = { workspace = true }
 hyper = { workspace = true }
 hyper-util = { workspace = true }
 rustls = { workspace = true }
-tokio-rustls = { workspace = true }
 boring = { workspace = true }
 tokio-boring = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
 ring = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 tracing = { workspace = true }
-thiserror = { workspace = true }
 webpki-roots = { workspace = true }
 url = { workspace = true }
 bytes = { workspace = true }

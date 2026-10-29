@@ -13,7 +13,6 @@ crypto_box = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }
 hickory-proto = { workspace = true }
-hickory-resolver = { workspace = true, optional = true }
 lru = { workspace = true }
 metrics = { workspace = true }
 odoh-rs = { workspace = true }
@@ -32,9 +31,6 @@ tokio-boring = { workspace = true }
 quinn = { workspace = true }
 url = { workspace = true }
 webpki-roots = { workspace = true }
-
-[features]
-hickory-backend = ["dep:hickory-resolver"]
 
 [dev-dependencies]
 local-network-fixture = { workspace = true }

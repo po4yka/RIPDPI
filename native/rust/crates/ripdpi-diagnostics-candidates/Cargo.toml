@@ -18,7 +18,3 @@ ripdpi-proxy-config = { workspace = true }
 ripdpi-runtime-platform = { workspace = true }
 serde_json = { workspace = true }
 socket2 = { workspace = true }
-
-[features]
-hickory = ["ripdpi-diagnostics-dns/hickory"]
-quic-native = ["ripdpi-diagnostics-dns/quic-native"]

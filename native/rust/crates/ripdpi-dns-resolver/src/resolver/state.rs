@@ -22,7 +22,6 @@ pub(crate) struct ResolverInner {
     pub(crate) endpoint: EncryptedDnsEndpoint,
     pub(crate) transport: EncryptedDnsTransport,
     pub(crate) timeout: Duration,
-    #[cfg_attr(feature = "hickory-backend", allow(dead_code))]
     pub(crate) doh_client: Option<reqwest::Client>,
     pub(crate) connect_hooks: EncryptedDnsConnectHooks,
     pub(crate) dot_tls_config: Arc<ClientConfig>,
@@ -34,10 +33,6 @@ pub(crate) struct ResolverInner {
     pub(crate) dot_extra_roots: Vec<CertificateDer<'static>>,
     pub(crate) dot_pin_verifier: Option<Arc<dyn ServerCertVerifier>>,
     pub(crate) dot_unpinned_custom_verifier_requested: bool,
-    #[cfg(feature = "hickory-backend")]
-    pub(crate) tls_roots: Vec<CertificateDer<'static>>,
-    #[cfg(feature = "hickory-backend")]
-    pub(crate) tls_verifier: Option<Arc<dyn ServerCertVerifier>>,
     /// The selected DNSCrypt certificate and the Unix time it was fetched.
     pub(crate) dnscrypt_state: Mutex<Option<(DnsCryptCachedCertificate, u32)>>,
     pub(crate) connection_pool: ConnectionPool,
@@ -123,7 +118,7 @@ pub(crate) fn build_inner(
     } else {
         (dot_tls_config.clone(), dot_tls_config.clone())
     };
-    let dot_extra_roots = tls_roots.clone();
+    let dot_extra_roots = tls_roots;
     let dot_unpinned_custom_verifier_requested =
         tls_verifiers.tls_verifier.is_some() && tls_verifiers.dot_pin_verifier.is_none();
 
@@ -139,10 +134,6 @@ pub(crate) fn build_inner(
         dot_extra_roots,
         dot_pin_verifier: tls_verifiers.dot_pin_verifier,
         dot_unpinned_custom_verifier_requested,
-        #[cfg(feature = "hickory-backend")]
-        tls_roots,
-        #[cfg(feature = "hickory-backend")]
-        tls_verifier: tls_verifiers.tls_verifier,
         dnscrypt_state: Mutex::new(None),
         connection_pool: ConnectionPool::default(),
         health,

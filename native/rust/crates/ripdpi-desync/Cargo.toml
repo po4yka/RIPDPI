@@ -15,9 +15,9 @@ ripdpi-ipfrag = { workspace = true }
 ripdpi-packets = { workspace = true }
 ripdpi-strategy-trait = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
-ring = { workspace = true }
 
 [dev-dependencies]
 aes = { workspace = true }
 golden-test-support = { workspace = true }
+ring = { workspace = true }
 serde_json = "1.0"

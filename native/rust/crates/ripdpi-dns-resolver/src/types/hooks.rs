@@ -108,11 +108,6 @@ impl EncryptedDnsConnectHooks {
     pub(crate) fn requires_direct_udp_binder(&self) -> bool {
         self.direct_udp_binder_required
     }
-
-    #[cfg(feature = "hickory-backend")]
-    pub(crate) fn has_dot_tls_connector_builder(&self) -> bool {
-        self.dot_tls_connector_builder.is_some()
-    }
 }
 
 impl fmt::Debug for EncryptedDnsConnectHooks {

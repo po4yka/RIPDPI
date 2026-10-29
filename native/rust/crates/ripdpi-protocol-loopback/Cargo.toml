@@ -14,7 +14,6 @@ workspace = true
 [dependencies]
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt", "rt-multi-thread", "sync", "time"] }
 thiserror = { workspace = true }
-tracing = { workspace = true }
 quinn = { workspace = true }
 rustls = { workspace = true }
 rcgen = { workspace = true }

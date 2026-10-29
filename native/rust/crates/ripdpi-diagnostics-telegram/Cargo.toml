@@ -15,11 +15,3 @@ ripdpi-diagnostics-transport = { workspace = true }
 ripdpi-ws-transport-port = { workspace = true }
 rustls = { workspace = true }
 tracing = { workspace = true }
-
-[features]
-hickory = ["ripdpi-diagnostics-http/hickory", "ripdpi-diagnostics-tls/hickory"]
-quic-native = [
-    "ripdpi-diagnostics-http/quic-native",
-    "ripdpi-diagnostics-tls/quic-native",
-    "ripdpi-diagnostics-transport/quic-native",
-]

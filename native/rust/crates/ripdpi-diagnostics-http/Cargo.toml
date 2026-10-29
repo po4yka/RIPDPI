@@ -26,7 +26,3 @@ webpki-roots = { workspace = true }
 quic-mtu-test-util = { workspace = true }
 rcgen = { workspace = true }
 ripdpi-native-protect = { workspace = true }
-
-[features]
-hickory = ["ripdpi-diagnostics-tls/hickory"]
-quic-native = ["ripdpi-diagnostics-tls/quic-native", "ripdpi-diagnostics-transport/quic-native"]

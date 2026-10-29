@@ -10,7 +10,6 @@ ripdpi-native-protect = { workspace = true }
 sha2 = { workspace = true }
 hex = { workspace = true }
 thiserror = { workspace = true }
-tracing = { workspace = true }
 boring = { workspace = true }
 tokio-boring = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }

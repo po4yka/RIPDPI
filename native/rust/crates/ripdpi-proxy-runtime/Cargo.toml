@@ -9,8 +9,8 @@ workspace = true
 
 [dependencies]
 ripdpi-proxy-runtime-adapter = { workspace = true }
-ripdpi-geo = { workspace = true }
 ripdpi-runtime-api = { workspace = true }
+ripdpi-geo = { workspace = true }
 ripdpi-session-limit = { workspace = true }
 ripdpi-ws-transport-port = { workspace = true }
 tracing = { workspace = true }

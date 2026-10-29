@@ -17,7 +17,6 @@ getrandom = "0.4"
 # implements both, so the carrier stays transport-agnostic.
 futures = { workspace = true }
 thiserror = { workspace = true }
-tracing = { workspace = true }
 rustls = { workspace = true }
 tokio-rustls = { workspace = true }
 tokio-tungstenite = { workspace = true }
