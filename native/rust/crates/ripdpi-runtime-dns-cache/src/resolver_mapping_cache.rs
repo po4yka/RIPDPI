@@ -50,11 +50,8 @@ pub struct ResolverMappingCache {
 }
 
 impl ResolverMappingCache {
-    /// Default entry lifetime. Mirrors the transport-policy "family" cache's
-    /// 7-day TTL (`ripdpi-failure-classifier` `TransportPolicyCache::DEFAULT_TTL_SECS`)
-    /// so a learned per-`(host, NetProfile)` resolver preference ages out on the
-    /// same schedule as the per-`(host, …, net_profile)` transport policy it
-    /// complements.
+    /// Default entry lifetime: 7 days, so a learned per-`(host, NetProfile)`
+    /// resolver preference ages out after one week of disuse.
     pub const DEFAULT_TTL: Duration = Duration::from_secs(7 * 24 * 3600);
 
     pub fn new(capacity: usize) -> Self {

@@ -11,7 +11,6 @@ mod quic;
 mod strategy_execution;
 mod tls;
 mod transport;
-mod transport_policy_cache;
 mod types;
 
 pub use block_detection::{
@@ -41,8 +40,4 @@ pub use {
     },
     connection_freeze::classify_connection_freeze,
     dns::confirm_dns_tampering,
-    transport_policy_cache::{
-        AccessTypeTag, AtomicFile, CachedTransportPolicy, DEFAULT_TTL_SECS, NetProfileKey, TransportPolicyCache,
-        TransportPolicyCacheKey,
-    },
 };
