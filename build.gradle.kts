@@ -5,7 +5,6 @@ import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Exec
-import org.gradle.api.tasks.InputDirectory
 import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.Internal
@@ -32,13 +31,13 @@ plugins {
     alias(libs.plugins.ktlint) apply false
     alias(libs.plugins.roborazzi) apply false
     alias(libs.plugins.compose.preview) apply false
-    alias(libs.plugins.module.graph)
     jacoco
 }
 
 // Generates docs/architecture/MODULE_GRAPH.md -- a Mermaid graph of inter-module
-// dependencies. Regenerate with `./gradlew createModuleGraph` (or `just module-graph`);
-// CI fails (gradle-static-analysis job) if the committed file is stale.
+// dependencies. The plugin is applied from settings.gradle.kts. Regenerate with
+// `./gradlew createModuleGraph` (or `just module-graph`), with no task after it on the
+// command line: the plugin's task options cannot be parsed there. No CI job checks freshness.
 moduleGraphConfig {
     readmePath = "docs/architecture/MODULE_GRAPH.md"
     heading = "## Module Graph"

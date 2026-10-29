@@ -9,6 +9,8 @@ pluginManagement {
 
 plugins {
     id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
+    // Since 0.14 only the settings plugin makes every project contribute its module edges.
+    id("dev.iurysouza.modulegraph.settings") version "0.15.0"
 }
 
 dependencyResolutionManagement {

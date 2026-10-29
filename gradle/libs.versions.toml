@@ -41,7 +41,6 @@ robolectric = "4.17"
 roborazzi = "1.77.0"
 leakcanary = "2.14"
 compose-preview-plugin = "2.74.0"
-module-graph = "0.15.0"
 retrofit = "3.0.0"
 okhttp = "5.5.1"
 profileinstaller = "1.4.1"
@@ -228,4 +227,3 @@ hilt = { id = "com.google.dagger.hilt.android", version.ref = "hilt" }
 google-protobuf = { id = "com.google.protobuf", version.ref = "protobuf-plugin" }
 roborazzi = { id = "io.github.takahirom.roborazzi", version.ref = "roborazzi" }
 compose-preview = { id = "ee.schimke.composeai.preview", version.ref = "compose-preview-plugin" }
-module-graph = { id = "dev.iurysouza.modulegraph", version.ref = "module-graph" }
