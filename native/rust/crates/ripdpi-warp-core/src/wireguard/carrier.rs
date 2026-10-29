@@ -56,6 +56,12 @@ pub(crate) enum WgCarrier {
     PlainTestWs(Box<SplitWsCarrier<PlainTestWsStream>>),
 }
 
+/// Metadata from the actual carrier receive, without a configured-endpoint substitute.
+pub(crate) struct ReceivedDatagram {
+    pub len: usize,
+    pub source: Option<SocketAddr>,
+}
+
 impl WgCarrier {
     /// Send one WireGuard datagram over the carrier.
     ///
@@ -87,7 +93,7 @@ impl WgCarrier {
 
     /// Receive the next WireGuard datagram from the carrier into `buf`.
     ///
-    /// On the UDP arm this is `UdpSocket::recv(buf)`. On the WS arm the next
+    /// On the UDP arm this is `UdpSocket::recv_from(buf)` with the actual source. On the WS arm the next
     /// binary frame is unframed and copied into `buf`; a frame longer than `buf`
     /// is rejected with [`io::ErrorKind::InvalidData`] rather than silently
     /// truncating a WireGuard packet (the caller's `recv_buf` is `MAX_PACKET`,
@@ -96,12 +102,15 @@ impl WgCarrier {
     ///
     /// # Cancel safety
     ///
-    /// cancel-safe: the UDP arm is a single `recv`; the WS arm delegates to
+    /// cancel-safe: the UDP arm is a single `recv_from`; the WS arm delegates to
     /// `WsCarrier::recv_datagram`, which is cancel-safe (a dropped read resumes
     /// at the next frame boundary). The async mutex guard is released on drop.
-    pub(crate) async fn recv(&self, buf: &mut [u8]) -> io::Result<usize> {
+    pub(crate) async fn recv(&self, buf: &mut [u8]) -> io::Result<ReceivedDatagram> {
         match self {
-            Self::Udp(socket) => socket.recv(buf).await,
+            Self::Udp(socket) => {
+                let (len, source) = socket.recv_from(buf).await?;
+                Ok(ReceivedDatagram { len, source: Some(source) })
+            }
             Self::Ws(carrier) => {
                 let datagram = carrier.receiver.lock().await.recv_datagram().await.map_err(ws_error_to_io)?;
                 if datagram.len() > buf.len() {
@@ -111,7 +120,7 @@ impl WgCarrier {
                     ));
                 }
                 buf[..datagram.len()].copy_from_slice(&datagram);
-                Ok(datagram.len())
+                Ok(ReceivedDatagram { len: datagram.len(), source: None })
             }
             #[cfg(test)]
             Self::PlainTestWs(carrier) => {
@@ -123,7 +132,7 @@ impl WgCarrier {
                     ));
                 }
                 buf[..datagram.len()].copy_from_slice(&datagram);
-                Ok(datagram.len())
+                Ok(ReceivedDatagram { len: datagram.len(), source: None })
             }
         }
     }
@@ -431,8 +440,9 @@ mod tests {
             let Ok(Ok(size)) = tokio::time::timeout(Duration::from_secs(2), carrier.recv(&mut recv_buf)).await else {
                 break;
             };
+            assert!(size.source.is_none(), "WS frames have no UDP source address");
             let mut decap_buf = [0u8; MAX_WG];
-            let _ = initiator.decapsulate(None, &recv_buf[..size], &mut decap_buf);
+            let _ = initiator.decapsulate(None, &recv_buf[..size.len], &mut decap_buf);
 
             // After the response, try to encapsulate a real data packet; success
             // (WriteToNetwork) means the Noise handshake completed. The payload is

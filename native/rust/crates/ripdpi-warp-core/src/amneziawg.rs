@@ -578,18 +578,15 @@ impl AwgWireCodec {
         let mut state = self.mac_state();
         state.issued_cookie = state.issued_cookie.filter(|cookie| cookie.is_fresh());
         let issued_cookie = state.issued_cookie.map(|cookie| cookie.value);
-        if bool::from(wire_mac2.ct_eq(&[0; 16])) {
-            vanilla_packet[mac2_offset..].fill(0);
-        } else {
-            let Some(cookie) = issued_cookie else {
-                return false;
-            };
+        // Invalid or absent MAC2 must reach the backend's cookie/load policy.
+        // MAC1 is already verified; only a valid source cookie can translate MAC2.
+        vanilla_packet[mac2_offset..].fill(0);
+        if let Some(cookie) = issued_cookie {
             let expected_wire_mac2 = keyed_blake2s_16(&cookie, &wire_packet[..mac2_offset]);
-            if !bool::from(wire_mac2.ct_eq(&expected_wire_mac2)) {
-                return false;
+            if bool::from(wire_mac2.ct_eq(&expected_wire_mac2)) {
+                let vanilla_mac2 = keyed_blake2s_16(&cookie, &vanilla_packet[..mac2_offset]);
+                vanilla_packet[mac2_offset..].copy_from_slice(&vanilla_mac2);
             }
-            let vanilla_mac2 = keyed_blake2s_16(&cookie, &vanilla_packet[..mac2_offset]);
-            vanilla_packet[mac2_offset..].copy_from_slice(&vanilla_mac2);
         }
         state.last_inbound = Some(HandshakeMacState {
             sender_index: u32::from_le_bytes(wire_packet[4..8].try_into().expect("handshake sender index")),
@@ -1421,6 +1418,10 @@ mod tests {
         };
         let wire_retry = client_codec.encode(&retry).expect("encode cookie-authenticated retry");
         assert!(!bool::from(wire_retry[wire_retry.len() - 16..].ct_eq(&[0; 16])));
+        let mut bad_mac2 = wire_retry.clone();
+        *bad_mac2.last_mut().unwrap() ^= 1;
+        let absent_mac2 = server_codec.decode(&bad_mac2).expect("MAC2 admission belongs to the backend");
+        assert_eq!(&absent_mac2[absent_mac2.len() - 16..], &[0; 16]);
         let vanilla_retry = server_codec.decode(&wire_retry).expect("validate AWG MAC2 and translate retry");
 
         let mut response_buf = [0u8; 2048];

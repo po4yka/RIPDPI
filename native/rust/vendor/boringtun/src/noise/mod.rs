@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: BSD-3-Clause
 
 pub mod awg;
+pub mod awg_cookies;
 pub mod errors;
 pub mod handshake;
 pub mod rate_limiter;
@@ -97,6 +98,7 @@ pub struct Tunn {
     awg_timers: Option<awg::AwgTimers>,
     transport_padding: Option<Arc<dyn TransportPadding>>,
     receive_outcome: ReceiveOutcome,
+    awg_admission: Option<awg_cookies::Admission>,
 }
 
 type MessageType = u32;
@@ -245,6 +247,7 @@ impl Tunn {
             awg_timers: None,
             transport_padding: None,
             receive_outcome: ReceiveOutcome::Rejected,
+            awg_admission: None,
 
             rate_limiter: rate_limiter.unwrap_or_else(|| {
                 Arc::new(RateLimiter::new(&static_public, PEER_HANDSHAKE_RATE_LIMIT))
@@ -265,6 +268,23 @@ impl Tunn {
             return Err("AWG timer policy must be set before tunnel use");
         }
         self.awg_timers = Some(awg::AwgTimers::new(config));
+        self.awg_admission = Some(awg_cookies::Admission::new(false));
+        Ok(())
+    }
+
+    /// Select cookie admission before traffic; this does not disable MAC1 or Noise checks.
+    pub fn set_awg_disable_cookies(&mut self, disabled: bool) -> Result<(), &'static str> {
+        if self.handshake.is_in_progress()
+            || self.sessions.iter().any(Option::is_some)
+            || !self.packet_queue.is_empty()
+        {
+            return Err("AWG cookie policy must be set before tunnel use");
+        }
+        let admission = self
+            .awg_admission
+            .as_mut()
+            .ok_or("AWG timer policy must be configured first")?;
+        admission.disabled = disabled;
         Ok(())
     }
 
@@ -369,8 +389,11 @@ impl Tunn {
         datagram: &[u8],
         dst: &'a mut [u8],
     ) -> (TunnResult<'a>, ReceiveOutcome) {
-        let result = self.decapsulate(src_addr, datagram, dst);
-        (result, self.receive_outcome)
+        self.decapsulate_from(
+            src_addr.map(|ip| awg_cookies::CookieSource::Udp(std::net::SocketAddr::new(ip, 0))),
+            datagram,
+            dst,
+        )
     }
 
     /// Receives a UDP datagram from the network and parses it.
@@ -385,6 +408,26 @@ impl Tunn {
         datagram: &[u8],
         dst: &'a mut [u8],
     ) -> TunnResult<'a> {
+        self.decapsulate_with_outcome(src_addr, datagram, dst).0
+    }
+
+    /// Receive with the actual carrier source. UDP cookies bind both address and port.
+    pub fn decapsulate_from<'a>(
+        &mut self,
+        source: Option<awg_cookies::CookieSource>,
+        datagram: &[u8],
+        dst: &'a mut [u8],
+    ) -> (TunnResult<'a>, ReceiveOutcome) {
+        let result = self.decapsulate_inner(source, datagram, dst);
+        (result, self.receive_outcome)
+    }
+
+    fn decapsulate_inner<'a>(
+        &mut self,
+        source: Option<awg_cookies::CookieSource>,
+        datagram: &[u8],
+        dst: &'a mut [u8],
+    ) -> TunnResult<'a> {
         self.receive_outcome = ReceiveOutcome::Rejected;
         self.refresh_awg_time();
         if datagram.is_empty() {
@@ -393,10 +436,22 @@ impl Tunn {
         }
 
         let mut cookie = [0u8; COOKIE_REPLY_SZ];
-        let packet = match self
-            .rate_limiter
-            .verify_packet(src_addr, datagram, &mut cookie)
-        {
+        let verified = if let Some(admission) = &mut self.awg_admission {
+            self.rate_limiter.verify_awg_packet(
+                source,
+                datagram,
+                &mut cookie,
+                admission,
+                self.timers[TimerName::TimeCurrent],
+            )
+        } else {
+            let ip = match source {
+                Some(awg_cookies::CookieSource::Udp(address)) => Some(address.ip()),
+                _ => None,
+            };
+            self.rate_limiter.verify_packet(ip, datagram, &mut cookie)
+        };
+        let packet = match verified {
             Ok(packet) => packet,
             Err(TunnResult::WriteToNetwork(cookie)) => {
                 if dst.len() < cookie.len() {

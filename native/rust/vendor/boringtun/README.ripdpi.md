@@ -25,12 +25,15 @@ Local changes:
   AWG payloads are empty transport; malformed IP consumes replay state without
   updating readiness, receive timers, or the UDP window. IPv4 length and IHL
   checks reject truncated headers and invalid total lengths.
+- `noise/awg_cookies.rs` bounds expensive handshake attempts and cookie challenges
+  per peer. `rate_limiter.rs` applies MAC1 first and source-bound MAC2 under load;
+  DisableCookies bypasses only that MAC2 branch. UDP binds address and port, while
+  a connected carrier uses an opaque connection identifier.
 - `noise/timers.rs` selects the AWG policy only when configured, and contains real
   encrypted-peer regression tests with deterministic elapsed time.
 
 The contract and independent expected outcomes are in
-`openspec/changes/awg31-behavior-parity/design.md` at the repository root. Cookie admission
-and ambiguous-candidate handling remain separate execution steps.
+`openspec/changes/awg31-behavior-parity/design.md` at the repository root. Ambiguous-candidate handling remains a separate execution step.
 
 From `native/rust`, run:
 
@@ -51,3 +54,8 @@ The root lockfile was regenerated with Cargo 1.98.1 and a targeted update of
 boringtun 0.7.1. Cargo also chose existing compatible getrandom and Windows
 packages for several dependency edges. No registry package version was added or
 removed. These resolver changes are not hand-written lockfile edits.
+
+AWG runtime callers use `decapsulate_from` with the observed UDP source or the
+carrier connection identity. The legacy IP-only API remains available for plain
+WireGuard compatibility; its AWG adapter uses port zero and cannot prove a UDP
+port binding. RIPDPI production receives use the source-aware entry point.

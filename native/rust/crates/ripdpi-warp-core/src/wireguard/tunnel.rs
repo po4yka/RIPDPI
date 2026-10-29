@@ -6,6 +6,7 @@ use std::time::Duration;
 
 use anyhow::Context;
 use boringtun::noise::awg::{AwgTimerConfig, TimerRange};
+use boringtun::noise::awg_cookies::CookieSource;
 use boringtun::noise::errors::WireGuardError;
 use boringtun::noise::{ReceiveOutcome, Tunn, TunnResult};
 use bytes::Bytes;
@@ -14,7 +15,7 @@ use super::carrier::WgCarrier;
 use super::keys::{apply_reserved_bytes, decode_key};
 use super::routing::route_protocol;
 use super::socket::bind_tunnel_socket;
-use crate::amneziawg::{AwgMacKeys, AwgParams, AwgParamsError, AwgWireCodec, rand_u32};
+use crate::amneziawg::{AwgMacKeys, AwgParams, AwgParamsError, AwgWireCodec, fill_random, rand_u32};
 use crate::config::WarpAmneziaConfig;
 use crate::platform::WarpPlatform;
 use crate::support::MAX_PACKET;
@@ -104,6 +105,7 @@ pub(crate) struct WireGuardTunnel {
     reserved: [u8; 3],
     amnezia: Option<Arc<AwgWireCodec>>,
     handshake_readiness: HandshakeReadiness,
+    carrier_cookie_id: [u8; 16],
 }
 
 /// The boringtun device ticks its timers every 250 ms; they are rounded to a second.
@@ -194,10 +196,13 @@ impl WireGuardTunnel {
                 None => None,
             };
             peer.set_awg_timer_config(timers).map_err(anyhow::Error::msg)?;
+            peer.set_awg_disable_cookies(amnezia_cfg.v3.disable_cookies).map_err(anyhow::Error::msg)?;
         }
         if let Some(codec) = &amnezia {
             peer.set_transport_padding(codec.clone()).map_err(anyhow::Error::msg)?;
         }
+        let mut carrier_cookie_id = [0; 16];
+        fill_random(&mut carrier_cookie_id);
         Ok(Self {
             peer: tokio::sync::Mutex::new(peer),
             carrier,
@@ -208,6 +213,7 @@ impl WireGuardTunnel {
             reserved,
             amnezia,
             handshake_readiness: HandshakeReadiness::default(),
+            carrier_cookie_id,
         })
     }
 
@@ -374,14 +380,20 @@ impl WireGuardTunnel {
         let mut recv_buf = vec![0u8; MAX_PACKET];
         let mut send_buf = vec![0u8; MAX_PACKET];
         loop {
-            let size = match self.carrier.recv(&mut recv_buf).await {
-                Ok(size) => size,
+            let received = match self.carrier.recv(&mut recv_buf).await {
+                Ok(received) => received,
                 Err(error) if self.carrier.is_terminal_recv_error(&error) => return error,
                 Err(error) => {
                     tracing::warn!("WARP tunnel recv failed: {error}");
                     tokio::time::sleep(Duration::from_millis(10)).await;
                     continue;
                 }
+            };
+            let size = received.len;
+            let source = match received.source {
+                Some(address) if address == self.endpoint => CookieSource::Udp(address),
+                Some(_) => continue,
+                None => CookieSource::Connection(self.carrier_cookie_id),
             };
             // When AmneziaWG obfuscation is active, decode the incoming packet
             // before passing it to boringtun. Packets whose header does not
@@ -410,7 +422,7 @@ impl WireGuardTunnel {
             // A WARP edge may echo the client id in the reserved bytes; boringtun needs them zero.
             apply_reserved_bytes(data, [0; 3]);
             let data: &[u8] = data;
-            let (result, outcome) = { self.peer.lock().await.decapsulate_with_outcome(None, data, &mut send_buf) };
+            let (result, outcome) = { self.peer.lock().await.decapsulate_from(Some(source), data, &mut send_buf) };
             self.handshake_readiness.observe(outcome);
             if matches!(outcome, ReceiveOutcome::TransportEmpty | ReceiveOutcome::TransportIp) {
                 // The UDP window learns only from datagrams that passed AEAD and the replay check.
@@ -825,6 +837,40 @@ mod tests {
         tunnel.handshake_readiness.observe(outcome);
         assert!(tunnel.is_handshake_established());
         assert!(responder.time_since_last_handshake().is_some());
+    }
+
+    /// # Cancel safety:
+    /// NOT cancel-safe: the test owns a receive task and aborts it after the bounded exchange.
+    #[tokio::test]
+    async fn authenticated_response_from_foreign_udp_port_cannot_establish_the_tunnel() {
+        let (tunnel, socket, mut peer) =
+            tunnel_and_peer_with_config(WarpAmneziaConfig { enabled: true, ..Default::default() }).await;
+        let consumer = spawn_consume(&tunnel);
+        let result = tokio::time::timeout(Duration::from_secs(2), async {
+            tunnel.initiate_handshake().await.unwrap();
+            let mut datagram = [0; 2048];
+            let mut output = [0; 2048];
+            let (size, client) = socket.recv_from(&mut datagram).await.unwrap();
+            let TunnResult::WriteToNetwork(response) = peer.decapsulate(None, &datagram[..size], &mut output) else {
+                panic!("response")
+            };
+            let foreign = tokio::net::UdpSocket::bind("127.0.0.1:0").await.unwrap();
+            foreign.send_to(response, client).await.unwrap();
+            assert!(
+                tokio::time::timeout(Duration::from_millis(100), socket.recv(&mut datagram)).await.is_err(),
+                "a foreign response must not produce confirmation"
+            );
+            assert!(!tunnel.is_handshake_established());
+            socket.send_to(response, client).await.unwrap();
+            let (size, _) = socket.recv_from(&mut datagram).await.unwrap();
+            assert_eq!(&datagram[..4], &[4, 0, 0, 0]);
+            assert!(size >= 32);
+            assert!(tunnel.is_handshake_established());
+        })
+        .await;
+        consumer.abort();
+        let _ = consumer.await;
+        result.expect("source-bound receive");
     }
 
     #[test]

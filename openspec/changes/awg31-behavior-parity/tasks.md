@@ -21,7 +21,7 @@ Native paths below use `N = native/rust/crates/ripdpi-warp-core`. Editor paths u
 - [x] TRN-1793272215354505 Apply configurable rekey retry expiry idle and attempt limits with deterministic role and boundary tests #bug !high @item:TRN-1793271658511991
 - [x] TRN-1793272215891212 Pad all outgoing transport including automatic and persistent keepalives with independent length and MTU tests #bug !high @item:TRN-1793271658511991
 - [x] TRN-1793272216407538 Distinguish authenticated padded keepalives from malformed payloads and verify replay-safe result handling #bug !high @item:TRN-1793271658511991
-- [ ] TRN-1793272216991110 Apply DisableCookies through backend load handling and verify both flag states authentication and work bounds #bug !high @item:TRN-1793271658511991
+- [x] TRN-1793272216991110 Apply DisableCookies through backend load handling and verify both flag states authentication and work bounds #bug !high @item:TRN-1793271658511991
 - [ ] TRN-1793272217604418 Authenticate ambiguous receive candidates and verify valid transport collision fallback without duplicate delivery #bug !high @item:TRN-1793271658511991
 - [ ] TRN-1793272218210665 Retain bounded authenticated UDP-window learning and verify MTU endpoint reset and hostile datagrams #feature !high @item:TRN-1793271658511991
 - [ ] TRN-1793272218937903 Unify keepalive input grammar across editor config and URI with invalid-input and stored-value regressions #bug !high @item:TRN-1793271658511991

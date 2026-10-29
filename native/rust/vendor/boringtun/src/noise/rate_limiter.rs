@@ -149,6 +149,51 @@ impl RateLimiter {
         Ok(&mut dst[..super::COOKIE_REPLY_SZ])
     }
 
+    /// AWG admission preserves MAC1 and Noise authentication with either cookie flag.
+    pub(super) fn verify_awg_packet<'a, 'b>(
+        &self,
+        source: Option<super::awg_cookies::CookieSource>,
+        src: &'a [u8],
+        dst: &'b mut [u8],
+        admission: &mut super::awg_cookies::Admission,
+        now: std::time::Duration,
+    ) -> Result<Packet<'a>, TunnResult<'b>> {
+        let packet = Tunn::parse_incoming_packet(src)?;
+        if let Packet::HandshakeInit(HandshakeInit { sender_idx, .. })
+        | Packet::HandshakeResponse(HandshakeResponse { sender_idx, .. }) = packet
+        {
+            let (msg, macs) = src.split_at(src.len() - 32);
+            let (mac1, mac2) = macs.split_at(16);
+            let expected = b2s_keyed_mac_16(&self.mac1_key, msg);
+            verify_slices_are_equal(&expected, mac1)
+                .map_err(|_| TunnResult::Err(WireGuardError::InvalidMac))?;
+            admission.advance(now);
+            self.reset_count();
+            let under_load = self.is_under_load();
+            if !admission.disabled && under_load {
+                let source = source.ok_or(TunnResult::Err(WireGuardError::UnderLoad))?;
+                let epoch =
+                    Instant::now().duration_since(self.start_time).as_secs() / COOKIE_REFRESH;
+                let cookie =
+                    b2s_keyed_mac_16_2(&self.secret_key, &epoch.to_le_bytes(), &source.bytes());
+                let expected = b2s_keyed_mac_16_2(&cookie, msg, mac1);
+                if verify_slices_are_equal(&expected, mac2).is_err() {
+                    if !admission.challenge() {
+                        return Err(TunnResult::Err(WireGuardError::UnderLoad));
+                    }
+                    return Err(TunnResult::WriteToNetwork(
+                        self.format_cookie_reply(sender_idx, cookie, mac1, dst)
+                            .map_err(TunnResult::Err)?,
+                    ));
+                }
+            }
+            if !admission.handshake() {
+                return Err(TunnResult::Err(WireGuardError::UnderLoad));
+            }
+        }
+        Ok(packet)
+    }
+
     /// Verify the MAC fields on the datagram, and apply rate limiting if needed
     pub fn verify_packet<'a, 'b>(
         &self,
