@@ -56,7 +56,8 @@ class AdvancedSettingsControlsKaspressoTest :
             composeRule.awaitTag(RipDpiTestTags.screen(Route.AdvancedSettings))
             tags.forEach { tag ->
                 step("Reach $tag") {
-                    composeRule.awaitDisplayed(tag)
+                    composeRule.scrollToTag(tag)
+                    composeRule.onNodeWithTag(tag).assertExists()
                 }
             }
         }
