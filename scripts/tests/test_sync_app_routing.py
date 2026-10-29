@@ -138,5 +138,17 @@ class WritePolicyCheckModeTest(unittest.TestCase):
         self.assertEqual(0, result)
 
 
+class CommittedManifestTest(unittest.TestCase):
+    def test_policy_file_exists_and_has_preset(self) -> None:
+        root = sync_app_routing.repo_root()
+        manifest = sync_app_routing.load_manifest(root / sync_app_routing.DEFAULT_MANIFEST)
+        policy_path = root / manifest["policyFile"]
+
+        self.assertTrue(policy_path.is_file(), f"policyFile does not exist: {manifest['policyFile']}")
+        policy = json.loads(policy_path.read_text(encoding="utf-8"))
+        preset_ids = [preset.get("id") for preset in policy.get("presets", [])]
+        self.assertIn(manifest["presetId"], preset_ids)
+
+
 if __name__ == "__main__":
     unittest.main()

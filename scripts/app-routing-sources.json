@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "policyFile": "core/data/src/main/assets/integrations/app-routing-policy.json",
+  "policyFile": "core/data/settings/src/main/assets/integrations/app-routing-policy.json",
   "presetId": "russian-mainstream",
   "sources": [
     {
