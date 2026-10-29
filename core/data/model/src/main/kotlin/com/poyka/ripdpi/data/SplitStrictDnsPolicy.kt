@@ -46,20 +46,6 @@ enum class StrictEncryptedDnsProtocol {
 }
 
 /**
- * Classifies a domain into a resolver plane routing bucket.
- *
- * - [PROXY]: domain is tunnelled; must use the PROXY encrypted resolver.
- * - [DIRECT]: domain's connect route is DIRECT; may use the DIRECT resolver.
- * - [BLOCK]: domain is refused/blocked; no resolution occurs.
- */
-@Serializable
-enum class DomainClass {
-    PROXY,
-    DIRECT,
-    BLOCK,
-}
-
-/**
  * Configuration for a single resolver plane within [SplitStrictDnsPolicy].
  *
  * @param plane              Which resolver plane this spec describes.

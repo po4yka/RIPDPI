@@ -32,23 +32,3 @@ data class Socks5OutboundRuntimeState(
     val username: Redacted? = null,
     val password: Redacted? = null,
 )
-
-/**
- * Runtime profile for an HTTP CONNECT outbound proxy node.
- *
- * - [username] / [password] are [Redacted] for the same reason as in
- *   [Socks5OutboundRuntimeState].
- * - [tls] controls whether the connection to the proxy itself is TLS-wrapped
- *   (i.e. an HTTPS proxy).
- * - [sni] is the TLS SNI override used when [tls] is `true`; `null` means
- *   use [server] as the SNI.
- */
-@Serializable
-data class HttpProxyOutboundRuntimeState(
-    val server: String,
-    val port: Int,
-    val username: Redacted? = null,
-    val password: Redacted? = null,
-    val tls: Boolean = false,
-    val sni: String? = null,
-)

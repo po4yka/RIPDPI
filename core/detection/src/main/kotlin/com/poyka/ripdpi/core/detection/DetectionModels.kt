@@ -228,11 +228,6 @@ data class CallTransportStunServer(
     val scope: CallTransportStunScope,
 )
 
-data class CallTransportStunRequest(
-    val path: CallTransportPath,
-    val server: CallTransportStunServer,
-)
-
 data class CallTransportStunObservation(
     val path: CallTransportPath,
     val server: CallTransportStunServer,

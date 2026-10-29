@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.data.DnsResolverPlane
-import com.poyka.ripdpi.data.DomainClass
 import com.poyka.ripdpi.data.Ipv6Policy
 import com.poyka.ripdpi.data.SplitStrictDnsPolicy
 import com.poyka.ripdpi.data.SplitStrictResolverSpec
@@ -93,14 +92,6 @@ class SplitStrictDnsPolicyModelTest {
     // ------------------------------------------------------------------
     // 3. Direct DNS only valid for DIRECT-route domains
     // ------------------------------------------------------------------
-
-    @Test
-    fun `DomainClass has PROXY and DIRECT variants`() {
-        // Verifies the discriminator enum is present
-        assertNotNull(DomainClass.PROXY)
-        assertNotNull(DomainClass.DIRECT)
-        assertNotNull(DomainClass.BLOCK)
-    }
 
     @Test
     fun `direct allowlist domains use DIRECT domain class`() {

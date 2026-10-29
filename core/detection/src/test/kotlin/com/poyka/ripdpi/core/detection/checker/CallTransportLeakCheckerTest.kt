@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.core.detection.checker
 
 import com.poyka.ripdpi.core.detection.CallTransportPath
-import com.poyka.ripdpi.core.detection.CallTransportStunRequest
 import com.poyka.ripdpi.core.detection.CallTransportStunScope
 import com.poyka.ripdpi.core.detection.CallTransportStunServer
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
@@ -283,3 +282,8 @@ class CallTransportLeakCheckerTest {
         val otherStunServer = CallTransportStunServer("stun2.example.test", 3_478, CallTransportStunScope.GLOBAL)
     }
 }
+
+private data class CallTransportStunRequest(
+    val path: CallTransportPath,
+    val server: CallTransportStunServer,
+)
