@@ -9,6 +9,7 @@ internal fun unsupportedNativeVlessOptions(
     outbound: JsonObject,
     settings: JsonObject?,
     stream: JsonObject?,
+    transport: String?,
 ): String? {
     val peers = settings?.get("vnext") as? JsonArray
     val peer = peers?.firstOrNull() as? JsonObject
@@ -22,11 +23,14 @@ internal fun unsupportedNativeVlessOptions(
         !user.hasStringFields("id", "flow", "encryption", "email") -> "VLESS user options"
         user?.get("encryption")?.let { it != JsonPrimitive("none") } == true -> "VLESS Encryption"
         user?.get("level")?.let { it != JsonPrimitive(0) } == true -> "VLESS user policy"
-        else -> unsupportedStreamOptions(stream)
+        else -> unsupportedStreamOptions(stream, transport)
     }
 }
 
-private fun unsupportedStreamOptions(stream: JsonObject?): String? {
+private fun unsupportedStreamOptions(
+    stream: JsonObject?,
+    transport: String?,
+): String? {
     val reality = stream?.get("realitySettings") as? JsonObject
     val tls = stream?.get("tlsSettings") as? JsonObject
     val xhttp = stream?.get("xhttpSettings") as? JsonObject
@@ -65,7 +69,7 @@ private fun unsupportedStreamOptions(stream: JsonObject?): String? {
             "XHTTP options"
         }
 
-        xhttp != null && stream?.get("network") != JsonPrimitive("xhttp") -> {
+        xhttp != null && transport != "xhttp" -> {
             "XHTTP transport options"
         }
 

@@ -515,6 +515,48 @@ class XrayConfigImportParserTest {
         assertEquals("firefox", profile.fingerprint)
     }
 
+    @Test
+    fun `method selects XHTTP alone and overrides legacy network`() {
+        for (legacy in listOf(null, "tcp", "grpc")) {
+            val transport = "\"method\":\"xhttp\"" + (legacy?.let { ",\"network\":\"$it\"" } ?: "")
+            val config = supportedRealityConfig().replace("\"network\":\"xhttp\"", transport)
+            val profile = translate(config).profiles.single() as ProxyProfile.VlessReality
+            assertEquals("/supported", profile.xhttpPath)
+            assertEquals("cdn.example", profile.xhttpHost)
+            assertEquals("stream-one", profile.xhttpMode)
+            assertEquals("", profile.flow)
+        }
+    }
+
+    @Test
+    fun `method raw overrides legacy XHTTP without adding an HTTP transport`() {
+        val config =
+            """{ "outbounds":[{"protocol":"vless",
+              "settings":{"vnext":[{"address":"h.example","port":443,"users":[{"id":"$uuid"}]}]},
+              "streamSettings":{"method":"raw","network":"xhttp","security":"reality",
+                "realitySettings":{"publicKey":"$pbk"}}}]}"""
+        val profile = translate(config).profiles.single() as ProxyProfile.VlessReality
+        assertNull(profile.xhttpPath)
+        assertNull(profile.xhttpHost)
+        assertEquals("xtls-rprx-vision", profile.flow)
+    }
+
+    @Test
+    fun `unsupported method rejects instead of falling back to network without exposing its value`() {
+        val fixtureValue = "sensitive-transport-value"
+        for (method in listOf("grpc", "", fixtureValue)) {
+            val config =
+                """{ "outbounds":[{"protocol":"vless",
+                  "settings":{"vnext":[{"address":"h.example","port":443,"users":[{"id":"$uuid"}]}]},
+                  "streamSettings":{"method":"$method","network":"tcp","security":"reality",
+                    "realitySettings":{"publicKey":"$pbk"}}}]}"""
+            val result = translate(config)
+            assertTrue(result.profiles.isEmpty())
+            assertEquals(XraySkipReason.UNSUPPORTED_TRANSPORT, result.skipped.single().reason)
+            assertTrue(!result.skipped.toString().contains(fixtureValue))
+        }
+    }
+
     private fun supportedRealityConfig(): String =
         """{ "outbounds": [ { "tag":"supported node", "protocol":"vless",
           "settings":{"vnext":[{"address":"h.example","port":443,

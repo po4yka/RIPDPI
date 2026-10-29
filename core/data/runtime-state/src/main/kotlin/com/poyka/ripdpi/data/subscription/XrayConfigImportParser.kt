@@ -245,9 +245,9 @@ object XrayConfigImportParser {
         val tls = stream?.get("tlsSettings") as? JsonObject
         val publicKey = reality?.string("publicKey")
         val isReality = security == "reality" || !publicKey.isNullOrBlank()
-        val transport = stream?.string("network")?.lowercase()
+        val transport = stream.vlessTransport()
         val fingerprint = reality?.string("fingerprint") ?: tls?.string("fingerprint")
-        val unsupportedOptions = unsupportedNativeVlessOptions(outbound, settings, stream)
+        val unsupportedOptions = unsupportedNativeVlessOptions(outbound, settings, stream, transport)
         return when {
             address == null || port == null || user == null || uuid == null -> {
                 OutboundMapping.Skip(XraySkipReason.MALFORMED)
@@ -258,7 +258,7 @@ object XrayConfigImportParser {
             }
 
             transport != null && transport !in setOf("raw", "tcp", "xhttp") -> {
-                OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, transport)
+                OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, safeVlessTransportDetail(transport))
             }
 
             fingerprint != null && normalizeImportedTlsFingerprint(fingerprint) == null -> {
@@ -279,7 +279,7 @@ object XrayConfigImportParser {
 
             else -> {
                 OutboundMapping.Profile(
-                    buildVlessReality(stream, reality, user, address, port, uuid, publicKey, tag, groupId),
+                    buildVlessReality(stream, reality, user, address, port, uuid, publicKey, tag, groupId, transport),
                 )
             }
         }
@@ -488,10 +488,10 @@ private fun buildVlessReality(
     publicKey: String,
     tag: String?,
     groupId: String,
+    transport: String?,
 ): ProxyProfile.VlessReality {
-    val network = stream?.string("network")?.lowercase()
-    val xhttp = if (network == "xhttp") stream["xhttpSettings"] as? JsonObject else null
-    val isXhttp = network == "xhttp"
+    val xhttp = if (transport == "xhttp") stream?.get("xhttpSettings") as? JsonObject else null
+    val isXhttp = transport == "xhttp"
     return ProxyProfile.VlessReality(
         id = newId(),
         displayName = tag ?: address,
@@ -537,6 +537,15 @@ private fun buildPlainVless(
         xhttpMode = xhttp?.rawString("mode") ?: com.poyka.ripdpi.data.RelayXhttpModeAuto,
     )
 }
+
+private fun JsonObject?.vlessTransport(): String? =
+    ((this?.get("method") ?: this?.get("network")) as? JsonPrimitive)?.contentOrNull?.lowercase()
+
+private fun safeVlessTransportDetail(transport: String): String =
+    when (transport) {
+        "grpc", "websocket", "ws", "httpupgrade", "h2", "http", "quic", "mkcp", "kcp", "hysteria", "masque" -> transport
+        else -> "VLESS transport"
+    }
 
 private fun JsonObject?.unsupportedTcpOnlyTransport(): String? =
     this?.string("network")?.lowercase()?.takeIf { it !in setOf("raw", "tcp") }
