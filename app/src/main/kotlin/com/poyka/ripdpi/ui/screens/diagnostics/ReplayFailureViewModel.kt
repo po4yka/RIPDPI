@@ -67,7 +67,6 @@ class ReplayFailureViewModel
         private var currentJob: Job? = null
         private var currentAttempt: ReplayAttempt? = null
         private var pendingRequest: ReplayProbeRequest? = null
-        private var disruptionConfirmed = false
 
         fun start(
             domain: String,
@@ -136,13 +135,13 @@ class ReplayFailureViewModel
             requestStart(domain, strategyId, sessionId)
         }
 
-        /** Starts a replay, after one confirmation when a VPN or proxy session is running. */
+        /** Starts a replay, after a confirmation for this request when a VPN or proxy session is running. */
         fun requestStart(
             domain: String,
             strategyId: String,
             sessionId: String? = null,
         ) {
-            if (disruptionConfirmed || serviceStateStore.status.value.first == AppStatus.Halted) {
+            if (serviceStateStore.status.value.first == AppStatus.Halted) {
                 pendingRequest = null
                 start(domain = domain, strategyId = strategyId, sessionId = sessionId)
             } else {
@@ -153,7 +152,6 @@ class ReplayFailureViewModel
 
         fun confirmDisruption() {
             val pending = pendingRequest ?: return
-            disruptionConfirmed = true
             pendingRequest = null
             mutableUiState.update { it.copy(confirmationRequired = false) }
             start(pending.domain, pending.strategyId, pending.timeoutMs, pending.sessionId)
@@ -164,8 +162,8 @@ class ReplayFailureViewModel
         }
 
         fun cancel() {
+            // Keep the reference: a later start() joins this job while it restores the strategy.
             currentJob?.cancel()
-            currentJob = null
             mutableUiState.update { it.copy(isRunning = false) }
         }
 

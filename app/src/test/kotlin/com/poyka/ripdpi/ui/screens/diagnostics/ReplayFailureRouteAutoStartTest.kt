@@ -219,6 +219,49 @@ class ReplayFailureRouteAutoStartTest {
     }
 
     @Test
+    fun `each replay request asks for confirmation again while a session runs`() {
+        val service = RecordingProbeReplayService()
+        serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+        val viewModel = newViewModel(service)
+
+        viewModel.requestStart(domain = "a.example", strategyId = "s1")
+        viewModel.confirmDisruption()
+        assertEquals(listOf("a.example"), service.requests.map { it.domain })
+
+        viewModel.requestStart(domain = "b.example", strategyId = "s1")
+
+        assertEquals(true, viewModel.uiState.value.confirmationRequired)
+        assertEquals(listOf("a.example"), service.requests.map { it.domain })
+    }
+
+    @Test
+    @OptIn(ExperimentalCoroutinesApi::class)
+    fun `start after cancel waits for the cancelled run to finish restoring`() =
+        runTest {
+            Dispatchers.setMain(StandardTestDispatcher(testScheduler))
+            try {
+                val service = SuspendedFirstProbeReplayService()
+                val viewModel = newViewModel(service)
+
+                viewModel.start(domain = "a.example", strategyId = "s1")
+                runCurrent()
+                viewModel.cancel()
+                viewModel.start(domain = "b.example", strategyId = "s1")
+                runCurrent()
+
+                service.firstCancellationStarted.await()
+                assertEquals(listOf("a.example"), service.requests.map { it.domain })
+
+                service.releaseFirstCancellation.complete(Unit)
+                runCurrent()
+
+                assertEquals(listOf("a.example", "b.example"), service.requests.map { it.domain })
+            } finally {
+                Dispatchers.setMain(UnconfinedTestDispatcher())
+            }
+        }
+
+    @Test
     fun `dismissed confirmation never starts the replay`() {
         val service = RecordingProbeReplayService()
         serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
