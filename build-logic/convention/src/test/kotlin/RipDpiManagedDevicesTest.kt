@@ -12,8 +12,8 @@ class RipDpiManagedDevicesTest {
     fun `target SDK device explicitly uses 16 KB pages`() {
         val target = ripDpiManagedDeviceSpecs.single { it.apiLevel == 37 }
         assertTrue(target.force16KbPages)
-        val workflow = repoRoot().resolve(".github/workflows/ci.yml").readText()
-        assertContains(workflow, "api: 37\n            system-image: google_apis_ps16k")
+        val ciTarget = ciInstrumentedDevices().single { it.api == 37 }
+        assertEquals("google_apis_ps16k", ciTarget.systemImage)
     }
 
     @Test
@@ -43,20 +43,21 @@ class RipDpiManagedDevicesTest {
     fun `instrumented CI workflow mirrors managed device smoke matrix`() {
         val workflow = repoRoot().resolve(".github/workflows/ci.yml").readText()
         val job = workflow.substringAfter("  android-instrumented-tests:").substringBefore("\n  rust-loom:")
+        val expected =
+            ripDpiManagedDeviceSpecs.filter(RipDpiManagedDeviceSpec::includeInCiGroup).map { spec ->
+                val image =
+                    when {
+                        spec.force16KbPages -> "google_apis_ps16k"
+                        spec.systemImageSource == "aosp" -> "default"
+                        else -> "google_apis"
+                    }
+                CiDevice(spec.name, spec.apiLevel, image, pullRequest = false)
+            }
 
-        assertContains(job, "- device: pixel6Api27Aosp\n            api: 27\n            system-image: default")
-        assertContains(job, "- device: pixel6Api33Google\n            api: 33\n            system-image: google_apis")
-        assertContains(job, "- device: pixel6Api35Google\n            api: 35\n            system-image: google_apis")
-        assertContains(job, "- device: pixel6Api36Google\n            api: 36\n            system-image: google_apis")
-        assertContains(
-            job,
-            "- device: pixel6Api37Google\n            api: 37\n            system-image: google_apis_ps16k",
-        )
+        assertContains(job, "include: \${{ fromJSON(needs.change-routing.outputs.instrumented_devices) }}")
         assertContains(job, "--api \"\${{ matrix.api }}\"")
-        assertEquals(
-            listOf(27, 33, 35, 36, 37),
-            Regex("api: (\\d+)").findAll(job).map { it.groupValues[1].toInt() }.toList(),
-        )
+        assertEquals(expected, ciInstrumentedDevices().map { it.copy(pullRequest = false) })
+        assertEquals(listOf(27, 35, 37), ciInstrumentedDevices().filter(CiDevice::pullRequest).map(CiDevice::api))
     }
 
     @Test
@@ -66,6 +67,26 @@ class RipDpiManagedDevicesTest {
 
         assertFalse(job.contains("Verify API 37 LAN permission on a real TCP and UDP endpoint"))
         assertFalse(job.contains("run_target37_network_smoke.py"))
+    }
+
+    private data class CiDevice(
+        val name: String,
+        val api: Int,
+        val systemImage: String,
+        val pullRequest: Boolean,
+    )
+
+    // change-routing emits the emulator matrix as a JSON list; PRs run the pull_request subset.
+    private fun ciInstrumentedDevices(): List<CiDevice> {
+        val workflow = repoRoot().resolve(".github/workflows/ci.yml").readText()
+        val devices = workflow.substringAfter("      - id: devices").substringBefore("]'")
+        return Regex(
+            "\\{\"device\": \"(\\w+)\", \"api\": (\\d+), \"system-image\": \"(\\w+)\", \"pull_request\": (true|false)\\}",
+        ).findAll(devices)
+            .map { match ->
+                val (name, api, image, pullRequest) = match.destructured
+                CiDevice(name, api.toInt(), image, pullRequest.toBoolean())
+            }.toList()
     }
 
     private fun repoRoot(): Path = Path.of(System.getProperty("user.dir")).resolve("../..").normalize()
