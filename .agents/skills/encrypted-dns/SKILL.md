@@ -46,7 +46,6 @@ At a high level:
 - `https_service_binding.rs` + `https_service_binding/{cursor,dto,ech,records}.rs` -- HTTPS/SVCB record
   parsing (used by ODoH config discovery and ECH).
 - `odoh.rs` -- ODoH client-side config resolution and HPKE query/response handling (no submodule split yet).
-- `hickory_backend.rs` -- optional feature-gated `hickory-resolver` backend for DoH/DoT.
 - `types/` -- `EncryptedDnsProtocol`, `EncryptedDnsEndpoint`, `EncryptedDnsError`, `EncryptedDnsConnectHooks`,
   `OdohEndpointConfig`, and related public types, re-exported from `lib.rs`.
 - `tests/{mod,pipeline,pool,https_service_binding}.rs` -- integration tests (see Testing patterns below).
@@ -151,21 +150,6 @@ is hardcoded bootstrap IPs in `EncryptedDnsEndpoint::bootstrap_ips`.
 DoQ). When a TCP connector hook is set, DoH falls back to manual HTTP/1.1
 over the hooked TCP stream (`exchange_doh_manually()`) instead of reqwest.
 
-## hickory-resolver backend
-
-The `hickory-backend` feature flag (`Cargo.toml`) enables an alternative code
-path that routes DoH and DoT through `hickory-resolver` instead of the manual
-reqwest/tokio-rustls implementations.
-
-**Fallback conditions** (`can_use_hickory()` in `resolver/dispatch.rs`):
-- Custom TLS roots are provided -> manual path (hickory uses its own root store)
-- Custom TLS verifier is set -> manual path
-- DirectTcpConnector hook is set -> manual path (hickory manages its own sockets)
-- SOCKS5 transport with DoT -> manual path (hickory does not support SOCKS5)
-
-DNSCrypt always uses the manual path because hickory-resolver has no DNSCrypt
-support. DoQ is not routed through hickory either.
-
 ## DNS tamper detection
 
 The diagnostics runner uses encrypted DNS as a ground-truth oracle to
@@ -248,10 +232,7 @@ layout has moved further since):
 5. **pool.rs**: No changes needed -- `ResolverPool` is protocol-agnostic. It
    delegates to `EncryptedDnsResolver::exchange_with_metadata()`.
 
-6. **hickory_backend.rs** (optional): If hickory-resolver gains support for
-   the protocol, add `exchange_dox()` and wire `can_use_hickory()` fallback.
-
-7. **tests/**: Add integration tests following the existing patterns in
+6. **tests/**: Add integration tests following the existing patterns in
    `tests/pool.rs` / `tests/pipeline.rs`:
    - Spawn a local server (see `DnsCryptTestServer`, TLS listener patterns)
    - Create an endpoint pointing to `127.0.0.1` with the local port

@@ -45,7 +45,6 @@ members = [
     "crates/ripdpi-ws-bootstrap",
     "crates/ripdpi-ws-transport-port",
     "crates/ripdpi-telemetry",
-    "crates/ripdpi-traffic-shape",
     "crates/ripdpi-native-protect",
     "crates/ripdpi-flow-app-attribution",
     "crates/ripdpi-android-bridge-support",
@@ -108,7 +107,6 @@ members = [
     "crates/ripdpi-naiveproxy",
     "crates/ripdpi-cloudflare-origin",
     "crates/ripdpi-tls-profiles",
-    "crates/ripdpi-tls-spoof",
     "crates/ripdpi-webtunnel",
     "crates/ripdpi-xhttp",
     "crates/ripdpi-trojan",
@@ -169,7 +167,6 @@ ripdpi-shared-priors = { path = "crates/ripdpi-shared-priors" }
 ripdpi-ws-bootstrap = { path = "crates/ripdpi-ws-bootstrap" }
 ripdpi-ws-transport-port = { path = "crates/ripdpi-ws-transport-port" }
 ripdpi-telemetry = { path = "crates/ripdpi-telemetry" }
-ripdpi-traffic-shape = { path = "crates/ripdpi-traffic-shape" }
 ripdpi-native-protect = { path = "crates/ripdpi-native-protect" }
 ripdpi-flow-app-attribution = { path = "crates/ripdpi-flow-app-attribution" }
 ripdpi-android-bridge-support = { path = "crates/ripdpi-android-bridge-support" }

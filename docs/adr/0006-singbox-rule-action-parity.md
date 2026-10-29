@@ -49,7 +49,7 @@ full sing-box rule-action parity and does not reshape learned transport policy.
    |---|---|
    | `tcpFamily` `REC_PRE_SNI`/`REC_MID_SNI` | `tls_record_fragment` |
    | `tcpFamily` `SEG_PRE_SNI`/`SEG_MID_SNI`/`SEG_POST_SNI` | `tls_fragment` (+ `tls_fragment_fallback_delay`) |
-   | relay-side `ripdpi-tls-spoof` pre-handshake SNI desync | `tls_spoof` + `tls_spoof_method` (1.14) |
+   | server-side sing-box native `tls_spoof` pre-handshake SNI desync (the in-repo `ripdpi-tls-spoof` crate was removed) | `tls_spoof` + `tls_spoof_method` (1.14) |
    | `dnsMode` / IP-family selection | `resolve.strategy` (`prefer_ipv4`/…) |
    | `outcome = NO_DIRECT_SOLUTION` | `reject` (give up direct) — loose analogy |
 
@@ -64,10 +64,10 @@ A thin, additive **strategy-expression (de)serialization layer** at the import/e
 - An export mapper: `TransportPolicy` → a sing-box-vocabulary `route-options`-shaped JSON fragment (`tcpFamily` → `tls_fragment`/`tls_record_fragment`; the tls_spoof work → `tls_spoof`/`tls_spoof_method`; `dnsMode` → `resolve.strategy`).
 - An import mapper for the reverse, tolerant of sing-box fields RIPDPI does not model (ignored, not errored).
 - This lives next to the strategy-pack pipeline (the existing `CensorLab-style offline strategy-pack` work), leaves `TransportPolicyEnvelope` version 1 untouched, and needs no schema bump.
-- The implemented relay-side `ripdpi-tls-spoof` config follows the `tls_spoof` / `tls_spoof_method` vocabulary; any future strategy-expression mapper should reuse that surface rather than inventing a parallel one.
+- The in-repo `ripdpi-tls-spoof` crate was removed as unconsumed; the server-side route is sing-box native `tls_spoof`. Any future tls-spoof config follows the `tls_spoof` / `tls_spoof_method` vocabulary; any future strategy-expression mapper should reuse that surface rather than inventing a parallel one.
 
 ## References
 
 - sing-box rule action — <https://sing-box.sagernet.org/configuration/route/rule_action/> (1.12 `tls_fragment`/`tls_record_fragment`; 1.13 `bypass`/`reject` ICMP; 1.14 `tls_spoof`/`tls_spoof_method`, `resolve.timeout`/`disable_optimistic_cache`).
 - `core/data/model/src/main/kotlin/com/poyka/ripdpi/data/TransportPolicy.kt` — the learned per-host policy/envelope this ADR compares against.
-- [`docs/native/proxy-engine.md`](../native/proxy-engine.md) — current `ripdpi-tls-spoof` runtime and scope.
+- [`docs/native/proxy-engine.md`](../native/proxy-engine.md) — current proxy-engine runtime and scope.

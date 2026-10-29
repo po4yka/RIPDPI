@@ -4678,15 +4678,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c33a9471896f1c69cecef8d20cbe2f7accd12527ce60845ff44c153bb2a21b49"
 
 [[package]]
-name = "portable-atomic-util"
-version = "0.2.7"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c2a106d1259c23fac8e543272398ae0e3c0b8d33c88ed73d0cc71b0f1d902618"
-dependencies = [
- "portable-atomic",
-]
-
-[[package]]
 name = "postage"
 version = "0.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5271,17 +5262,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ringbuf"
-version = "0.5.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b58b631e416dd7d84549d7e6a50f767e111f9b03e30d04f40072f6618f386aaf"
-dependencies = [
- "crossbeam-utils",
- "portable-atomic",
- "portable-atomic-util",
-]
-
-[[package]]
 name = "ripdpi-amneziawg-android"
 version = "0.1.0"
 dependencies = [
@@ -5290,7 +5270,6 @@ dependencies = [
  "log",
  "ripdpi-native-protect",
  "ripdpi-warp-core",
- "ripdpi-wireguard-ws",
  "serde",
  "serde_json",
  "tokio",
@@ -5364,7 +5343,6 @@ dependencies = [
  "serde",
  "serde_json",
  "sha2 0.11.1",
- "socket2",
  "tokio",
  "tokio-boring",
  "tokio-rustls",
@@ -5513,7 +5491,6 @@ dependencies = [
  "aes",
  "libc",
  "local-network-fixture",
- "log",
  "nix 0.31.3",
  "ring",
  "ripdpi-config",
@@ -5546,7 +5523,6 @@ dependencies = [
  "ripdpi-subprocess-protect",
  "ripdpi-vless",
  "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -5558,8 +5534,6 @@ name = "ripdpi-config"
 version = "0.1.0"
 dependencies = [
  "ripdpi-packets",
- "serde_json",
- "tempfile",
 ]
 
 [[package]]
@@ -5638,13 +5612,10 @@ name = "ripdpi-diagnostics-dns"
 version = "0.1.0"
 dependencies = [
  "hickory-proto",
- "hickory-resolver",
  "ripdpi-diagnostics-contracts",
  "ripdpi-diagnostics-transport",
  "ripdpi-dns-resolver",
  "ripdpi-ech-dns",
- "ripdpi-tls-profiles",
- "tokio",
  "tracing",
 ]
 
@@ -5701,8 +5672,6 @@ dependencies = [
 name = "ripdpi-diagnostics-runner"
 version = "0.1.0"
 dependencies = [
- "local-network-fixture",
- "log",
  "rcgen",
  "ripdpi-diagnostics-candidates",
  "ripdpi-diagnostics-classification",
@@ -5775,7 +5744,6 @@ dependencies = [
  "futures",
  "hex",
  "hickory-proto",
- "hickory-resolver",
  "local-network-fixture",
  "lru",
  "metrics",
@@ -5807,7 +5775,6 @@ dependencies = [
  "ripdpi-diagnostics-transport",
  "ripdpi-dns-resolver",
  "ripdpi-tls-profiles",
- "socket2",
 ]
 
 [[package]]
@@ -5908,10 +5875,8 @@ dependencies = [
  "rustls",
  "serde",
  "serde_json",
- "thiserror 2.0.21",
  "tokio",
  "tokio-boring",
- "tokio-rustls",
  "tracing",
  "url",
  "webpki-roots",
@@ -5933,11 +5898,9 @@ name = "ripdpi-monitor-engine"
 version = "0.1.0"
 dependencies = [
  "golden-test-support",
- "libc",
  "local-network-fixture",
  "log",
  "loom",
- "md5",
  "metrics",
  "native-soak-support",
  "rcgen",
@@ -5955,7 +5918,6 @@ dependencies = [
  "serde_json",
  "socket2",
  "thiserror 2.0.21",
- "tokio",
  "tracing",
 ]
 
@@ -6035,7 +5997,6 @@ dependencies = [
  "nom 8.0.0",
  "proptest",
  "ring",
- "serde_json",
  "tls-parser",
 ]
 
@@ -6078,7 +6039,6 @@ dependencies = [
  "rustls",
  "thiserror 2.0.21",
  "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -6086,7 +6046,6 @@ name = "ripdpi-proxy-config"
 version = "0.1.0"
 dependencies = [
  "golden-test-support",
- "proptest",
  "ripdpi-config",
  "ripdpi-packets",
  "serde",
@@ -6175,7 +6134,6 @@ dependencies = [
  "ripdpi-strategy-registry",
  "ripdpi-strategy-trait",
  "socket2",
- "tempfile",
  "tracing",
 ]
 
@@ -6263,7 +6221,6 @@ dependencies = [
  "ripdpi-trojan",
  "ripdpi-vless",
  "tokio",
- "tokio-boring",
 ]
 
 [[package]]
@@ -6300,7 +6257,6 @@ dependencies = [
  "ring",
  "ripdpi-config",
  "ripdpi-desync",
- "ripdpi-failure-classifier",
  "ripdpi-packets",
  "ripdpi-proxy-config",
  "ripdpi-runtime-decision-ports",
@@ -6436,7 +6392,6 @@ dependencies = [
  "aes-gcm",
  "base64 0.23.1",
  "blake3",
- "bytes",
  "chacha20poly1305 0.11.0",
  "hex",
  "hkdf 0.13.0",
@@ -6444,8 +6399,6 @@ dependencies = [
  "rand 0.10.3",
  "sha1 0.11.0",
  "thiserror 2.0.21",
- "tokio",
- "tracing",
 ]
 
 [[package]]
@@ -6618,24 +6571,8 @@ dependencies = [
  "serde_json",
  "sha2 0.11.1",
  "thiserror 2.0.21",
- "tokio",
- "tokio-boring",
  "tracing",
  "webpki-roots",
-]
-
-[[package]]
-name = "ripdpi-tls-spoof"
-version = "0.1.0"
-dependencies = [
- "etherparse",
- "libc",
- "ripdpi-packets",
- "serde",
- "serde_json",
- "socket2",
- "thiserror 2.0.21",
- "tracing",
 ]
 
 [[package]]
@@ -6651,14 +6588,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ripdpi-traffic-shape"
-version = "0.1.0"
-dependencies = [
- "futures",
- "tokio",
-]
-
-[[package]]
 name = "ripdpi-trojan"
 version = "0.1.0"
 dependencies = [
@@ -6671,7 +6600,6 @@ dependencies = [
  "thiserror 2.0.21",
  "tokio",
  "tokio-boring",
- "tracing",
 ]
 
 [[package]]
@@ -6712,10 +6640,8 @@ dependencies = [
  "golden-test-support",
  "jni",
  "libc",
- "local-network-fixture",
  "log",
  "loom",
- "native-soak-support",
  "nix 0.31.3",
  "once_cell",
  "proptest",
@@ -6724,7 +6650,6 @@ dependencies = [
  "ripdpi-quality",
  "ripdpi-runtime-platform",
  "ripdpi-telemetry",
- "ripdpi-tun-driver",
  "ripdpi-tunnel-config",
  "ripdpi-tunnel-core",
  "serde",
@@ -6750,7 +6675,6 @@ dependencies = [
 name = "ripdpi-tunnel-core"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "etherparse",
  "hex",
  "hickory-proto",
@@ -6761,7 +6685,6 @@ dependencies = [
  "quinn",
  "rcgen",
  "ring",
- "ringbuf",
  "ripdpi-collections",
  "ripdpi-dns-resolver",
  "ripdpi-flow-app-attribution",
@@ -6806,7 +6729,6 @@ dependencies = [
 name = "ripdpi-vless"
 version = "0.1.0"
 dependencies = [
- "aes",
  "android-support",
  "base64 0.23.1",
  "boring",
@@ -6818,7 +6740,6 @@ dependencies = [
  "ripdpi-dns-resolver",
  "ripdpi-ech-dns",
  "ripdpi-native-protect",
- "ripdpi-relay-mux",
  "ripdpi-session-limit",
  "ripdpi-tls-profiles",
  "socket2",
@@ -6912,7 +6833,6 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tokio-tungstenite",
- "tracing",
  "tungstenite",
  "url",
  "webpki-roots",
