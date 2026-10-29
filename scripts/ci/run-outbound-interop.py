@@ -11,6 +11,7 @@ import tempfile
 ROOT = Path(__file__).resolve().parents[2]
 RUNNER = ROOT / "scripts/tests/run-outbound-interop.py"
 REPOSITORIES = {
+    "vless": "https://github.com/XTLS/Xray-core.git",
     "ssh": "https://github.com/enfein/mieru.git",
     "mieru": "https://github.com/enfein/mieru.git",
     "anytls": "https://github.com/anytls/anytls-go.git",

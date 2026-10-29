@@ -1700,7 +1700,7 @@ jobs:
       - name: Run relay interoperability suite
         run: bash scripts/ci/run-rust-relay-interoperability.sh
 
-      - name: Run pinned SSH, Mieru, and AnyTLS upstream peers
+      - name: Run pinned VLESS, SSH, Mieru, and AnyTLS upstream peers
         env:
           GOTOOLCHAIN: go1.27.2
           GOSUMDB: sum.golang.org

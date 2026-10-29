@@ -103,3 +103,29 @@ Before Xray is offered as a *recommended* fallback:
 4. Process-death persistence verified via `adb shell am kill`.
 5. The native artifact verified by `verifyLibXrayArtifacts` against the pins in
    `gradle/libs.versions.toml`.
+
+
+## Native VLESS upstream interop
+
+The outbound oracle builds the unmodified Xray-core revision
+`0afec66085a85191e9dd2a4a6646c7c9a94688d1` with its unchanged Go module files.
+It starts REALITY listeners, a TLS decoy, and application targets on loopback.
+Generated key material exists only for that peer process. Routing denies every
+application target except the owned echo, stalled, and closed endpoints.
+
+On macOS, run the compiler-backed test through the build gate:
+
+```bash
+build-gate -- python3 scripts/tests/run-outbound-interop.py \
+  --protocol vless --source-dir /path/to/clean/pinned/Xray-core \
+  --test reality_tcp_exchanges_payload_with_upstream
+```
+
+The existing `scripts/ci/run-outbound-interop.py` dispatcher runs every registered
+VLESS case in CI, alongside SSH, Mieru, and AnyTLS. It fetches the exact source
+revision and fails if a selected test executes zero tests or stays ignored.
+The matrix covers 64 KiB REALITY TCP, fragmented inner TLS 1.3 with Vision,
+XUDP single-send flushing and two targets, invalid keys/short IDs/UUIDs,
+minimum and maximum admission versions, stalled connections, and remote close.
+This is host-side protocol evidence; it does not establish Android VPN routing,
+external-network reachability, or a release artifact's behavior.

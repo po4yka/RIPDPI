@@ -21,11 +21,13 @@ import tempfile
 
 ROOT = Path(__file__).resolve().parents[2]
 REVISIONS = {
+    "vless": "0afec66085a85191e9dd2a4a6646c7c9a94688d1",
     "mieru": "155ebbd60f86e472586a60d7ffe58ec8f8682cb1",
     "anytls": "2012ef89768409f45437f1c06a7af5f6eea402ad",
     "ssh": "155ebbd60f86e472586a60d7ffe58ec8f8682cb1",
 }
 TESTS = {
+    "vless": ("reality_tcp_exchanges_payload_with_upstream", "vision_fragmented_tls_exchanges_payload_with_upstream", "xudp_two_targets_exchange_with_upstream", "upstream_rejects_invalid_reality_admission", "upstream_enforces_reality_version_bounds", "stalled_or_closed_connections_are_bounded"),
     "ssh": ("password_auth_exchanges_payload_with_upstream", "encrypted_private_key_auth_exchanges_payload_with_upstream", "changed_host_key_is_rejected_before_authentication"),
     "mieru": ("tcp_stream_exchanges_payload_with_upstream", "multiplexed_tcp_streams_exchange_without_cross_contamination", "tests::backend_fixture_tests::mieru_off_socks_payload_and_stop_with_upstream"),
     "anytls": ("tcp_stream_exchanges_payload_with_upstream", "udp_datagrams_exchange_with_upstream", "upstream_rejects_wrong_password"),
@@ -122,13 +124,13 @@ def run(arguments: list[str] | None = None) -> None:
                         raise TimeoutError("upstream peer startup deadline exceeded")
                     announcement = peer.stdout.readline(4096).strip()
                 endpoints = json.loads(announcement)
-                for key in ("endpoint", "tcp", "udp", "stats"):
+                for key in ("endpoint", "tcp", "udp", "udp2", "stats", "tls", "vision", "minimum", "maximum", "stall", "closed", "stall_relay"):
                     if key in endpoints:
                         host, port = endpoints[key].rsplit(":", 1)
                         if not ipaddress.ip_address(host).is_loopback or not 0 < int(port) <= 65535:
                             raise ValueError("upstream peer must expose only loopback endpoints")
                 test_env = dict(env, RIPDPI_OUTBOUND_INTEROP_ENDPOINT=endpoints["endpoint"])
-                for key in ("tcp", "udp", "stats", "certificate", "fingerprint", "private_key"):
+                for key in ("tcp", "udp", "udp2", "stats", "tls", "vision", "minimum", "maximum", "stall", "closed", "stall_relay", "uuid", "public_key", "short_id", "certificate", "fingerprint", "private_key"):
                     if key in endpoints:
                         test_env[f"RIPDPI_OUTBOUND_{key.upper()}"] = endpoints[key]
                 checked(test + ["--", "--ignored", "--exact", "--nocapture"], ROOT / "native/rust", test_env, limit=35, expected_test=args.test)
