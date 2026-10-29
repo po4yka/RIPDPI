@@ -19,6 +19,7 @@ jobs:
   analyze:
     name: Analyze (${{ matrix.language }})
     runs-on: ubuntu-24.04
+    timeout-minutes: 90
     permissions:
       security-events: write
       contents: read
@@ -28,15 +29,25 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # java-kotlin disabled: CodeQL v4 does not yet support Kotlin 2.3.20.
-          # Re-enable once github/codeql-action supports this version.
-          # - language: java-kotlin
-          #   build-mode: manual
           - language: actions
+            build-mode: none
+          # Kotlin has no build-mode none; CodeQL extracts it by tracing kotlinc.
+          - language: java-kotlin
+            build-mode: manual
+          # Rust extraction reads Cargo metadata through rustup and the pinned
+          # native/rust/rust-toolchain.toml; it does not compile the workspace.
+          - language: rust
             build-mode: none
 
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-android-rust
+        if: matrix.language == 'java-kotlin'
+        with:
+          setup-rust: "false"
+          setup-android-ndk: "false"
+          gradle-cache-read-only: "true"
 
       - name: Initialize CodeQL
         uses: github/codeql-action/init@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1
@@ -44,8 +55,17 @@ jobs:
           languages: ${{ matrix.language }}
           build-mode: ${{ matrix.build-mode }}
 
-      # java-kotlin build steps removed while Kotlin 2.3.20 support is pending.
-      # Restore JDK/Android SDK setup and compileDebugKotlin when re-enabling.
+      # The tracer sees only compilers that run in this process tree: keep
+      # kotlinc in-process and bypass the build cache so every task compiles.
+      # The Kotlin/Java sources are JVM-only, so the Rust native build is skipped.
+      - name: Compile Kotlin and Java sources
+        if: matrix.language == 'java-kotlin'
+        run: >-
+          ./gradlew
+          compileDebugKotlin compileKotlin :app:compileGithubFullDebugKotlin
+          -Pripdpi.skipNativeBuild=true
+          -Pkotlin.compiler.execution.strategy=in-process
+          --no-build-cache --no-configuration-cache --no-daemon
 
       - name: Perform CodeQL analysis
         uses: github/codeql-action/analyze@9b3254085494b55a0f7c4c2b3d2d52cc712ce370 # v4.39.1

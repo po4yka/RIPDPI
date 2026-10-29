@@ -108,14 +108,14 @@ run_coverage() {
 # Match the selected test scope, not the report scope or transitive dependencies.
 bpf_coverage_suites() {
     if [[ -z "${test_package_specs//[[:space:]]/}" ]]; then
-        printf '%s\n' socket-options network-e2e
+        printf '%s\n' socket-options network-e2e proxy-runtime
         return
     fi
     local package
     for package in $test_package_specs; do
         case "${package%%@*}" in
             ripdpi-privileged-ops) printf '%s\n' socket-options ;;
-            ripdpi-proxy-runtime) printf '%s\n' network-e2e ;;
+            ripdpi-proxy-runtime) printf '%s\n' network-e2e proxy-runtime ;;
         esac
     done
 }
