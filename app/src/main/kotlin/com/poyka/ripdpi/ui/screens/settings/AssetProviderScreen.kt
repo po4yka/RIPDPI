@@ -110,6 +110,7 @@ fun AssetProviderRoute(
         onCustomUrlChanged = viewModel::updateCustomBaseUrl,
         onCheckForUpdates = viewModel::checkForUpdates,
         onRetryConfigurationPersistence = viewModel::retryConfigurationPersistence,
+        onDismissResult = viewModel::dismissResult,
         onImportGeoip = { geoipImportLauncher.launch(GeoAssetImportMimeTypes) },
         onImportGeosite = { geositeImportLauncher.launch(GeoAssetImportMimeTypes) },
         modifier = modifier,
@@ -198,6 +199,7 @@ internal fun AssetProviderScreen(
     onCustomUrlChanged: (String) -> Unit,
     onCheckForUpdates: () -> Unit,
     onRetryConfigurationPersistence: () -> Unit = {},
+    onDismissResult: () -> Unit = {},
     onImportGeoip: () -> Unit,
     onImportGeosite: () -> Unit,
     modifier: Modifier = Modifier,
@@ -239,7 +241,12 @@ internal fun AssetProviderScreen(
         }
         state.resultBanner?.let { banner ->
             item(key = "asset_provider_result") {
-                WarningBanner(title = banner.title, message = banner.message, tone = banner.tone)
+                WarningBanner(
+                    title = banner.title,
+                    message = banner.message,
+                    tone = banner.tone,
+                    onDismiss = onDismissResult,
+                )
             }
         }
         item(key = "asset_provider_picker") {

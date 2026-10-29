@@ -64,6 +64,10 @@ class AssetProviderViewModelTest {
             advanceUntilIdle()
             assertNull(viewModel.uiState.value.activeOperation)
             assertEquals(AssetProviderCheckOutcome.Imported, viewModel.uiState.value.lastResult)
+
+            viewModel.dismissResult()
+            runCurrent()
+            assertNull(viewModel.uiState.value.lastResult)
         }
 
     @Test
