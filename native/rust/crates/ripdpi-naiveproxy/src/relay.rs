@@ -154,13 +154,15 @@ async fn handle_client(client: TcpStream, config: Arc<NaiveProxyConfig>) -> io::
     handle_http_front_client(client, config, setup_deadline).await
 }
 
+/// # Cancel safety:
+/// cancel-safe: cancellation drops the owned client and upstream. A timed out handshake closes the client.
 async fn handle_socks5_client(
     mut client: TcpStream,
     config: Arc<NaiveProxyConfig>,
     setup_deadline: Instant,
 ) -> io::Result<()> {
     let target = before(setup_deadline, "SOCKS5 request", async {
-        negotiate_socks5(&mut client).await?;
+        negotiate_socks5(&mut client, &config).await?;
         read_socks5_request(&mut client).await
     })
     .await?;
@@ -179,12 +181,15 @@ async fn handle_socks5_client(
     Ok(())
 }
 
+/// # Cancel safety:
+/// cancel-safe: cancellation drops the owned client and upstream. A timed out handshake closes the client.
 async fn handle_http_front_client(
     mut client: TcpStream,
     config: Arc<NaiveProxyConfig>,
     setup_deadline: Instant,
 ) -> io::Result<()> {
-    let target = before(setup_deadline, "HTTP CONNECT request", read_http_connect_request(&mut client)).await?;
+    let target =
+        before(setup_deadline, "HTTP CONNECT request", read_http_connect_request(&mut client, &config)).await?;
 
     let upstream = match open_upstream(&config, &target).await {
         Ok(stream) => stream,
@@ -216,6 +221,8 @@ mod tests {
     }
 
     #[tokio::test]
+    /// # Cancel safety:
+    /// cancel-safe: the test runtime drops the owned sockets and listener task at the end.
     async fn clients_past_the_limit_are_closed_at_once() {
         let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind");
         let address = listener.local_addr().expect("address");
@@ -229,6 +236,8 @@ mod tests {
             path: None,
             tls_config: crate::tls::default_tls_config(),
             protect_socket_path: None,
+            local_username: "local-user".to_owned(),
+            local_password: "local-pass".to_owned(),
         };
         let server = tokio::spawn(serve_listener_with_limit(listener, Arc::new(config), 1));
 
@@ -244,13 +253,13 @@ mod tests {
         drop(first);
         tokio::time::sleep(Duration::from_millis(100)).await;
         let mut third = TcpStream::connect(address).await.expect("third client");
-        third.write_all(&[0x05, 0x01, 0x00]).await.expect("greeting");
+        third.write_all(&[0x05, 0x01, 0x02]).await.expect("greeting");
         let mut reply = [0_u8; 2];
         tokio::time::timeout(Duration::from_secs(2), third.read_exact(&mut reply))
             .await
             .expect("a client is served once the slot frees")
             .expect("reply");
-        assert_eq!(reply, [0x05, 0x00]);
+        assert_eq!(reply, [0x05, 0x02]);
         server.abort();
     }
 }

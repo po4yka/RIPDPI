@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
+import com.poyka.ripdpi.core.localSocksCredentialsOrNull
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
@@ -26,6 +27,7 @@ private const val NaiveProxyRestartBudgetWindowMs = 60_000L
 private const val NaiveProxyRestartBudgetMaxAttempts = 3
 private const val NaiveProxyProbeFailureClass = "relay_compatibility"
 private val NaiveProxySupportedProbeSchemas = 1..1
+private const val NaiveProxyLocalAuthFeature = "local-listener-auth"
 
 internal data class NaiveProxyRestartDecision(
     val shouldRestart: Boolean,
@@ -63,24 +65,27 @@ internal fun naiveProxyCommandArguments(config: ResolvedRipDpiRelayConfig): List
         add(config.serverPort.toString())
         add("--server-name")
         add(config.serverName)
-        if (config.naiveUsername != null || config.naivePassword != null) {
-            add(NaiveProxyCredentialsStdinFlag)
-        }
+        add(NaiveProxyCredentialsStdinFlag)
         config.naivePath.takeIf(String::isNotBlank)?.let {
             add("--path")
             add(it)
         }
     }
 
-internal fun naiveProxyCredentialsStdin(config: ResolvedRipDpiRelayConfig): ByteArray? {
-    if (config.naiveUsername == null && config.naivePassword == null) {
-        return null
-    }
+internal fun naiveProxyCredentialsStdin(config: ResolvedRipDpiRelayConfig): ByteArray {
+    val localCredentials =
+        requireNotNull(localSocksCredentialsOrNull(config.localSocksUsername, config.localSocksPassword)) {
+            "NaiveProxy requires local listener credentials"
+        }
     val encoder = Base64.getEncoder()
     return buildString {
         append(encoder.encodeToString(config.naiveUsername.orEmpty().toByteArray(Charsets.UTF_8)))
         append('\n')
         append(encoder.encodeToString(config.naivePassword.orEmpty().toByteArray(Charsets.UTF_8)))
+        append('\n')
+        append(encoder.encodeToString(localCredentials.username.toByteArray(Charsets.UTF_8)))
+        append('\n')
+        append(encoder.encodeToString(localCredentials.password.toByteArray(Charsets.UTF_8)))
         append('\n')
     }.toByteArray(Charsets.UTF_8)
 }
@@ -104,7 +109,13 @@ open class NaiveProxyManager
                     versionArguments = listOf("--version"),
                     runtimeKind = config.kind,
                     upstreamAddress = "${config.server}:${config.serverPort}",
-                    redactedValues = listOfNotNull(config.naiveUsername, config.naivePassword),
+                    redactedValues =
+                        listOfNotNull(
+                            config.naiveUsername,
+                            config.naivePassword,
+                            config.localSocksUsername,
+                            config.localSocksPassword,
+                        ),
                     commandArguments = naiveProxyCommandArguments(config),
                     standardInput = naiveProxyCredentialsStdin(config),
                 )
@@ -116,6 +127,13 @@ open class NaiveProxyManager
                             config = config,
                             spec = spec,
                             message = "unsupported NaiveProxy probe schema_version ${result.probe.schemaVersion}",
+                        )
+                    }
+                    if (NaiveProxyLocalAuthFeature !in result.probe.features) {
+                        rejectPrelaunch(
+                            config = config,
+                            spec = spec,
+                            message = "NaiveProxy helper does not support local listener authentication",
                         )
                     }
                 }

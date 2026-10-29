@@ -11,6 +11,7 @@ package com.poyka.ripdpi.services
 import android.net.InetAddresses
 import android.os.Build
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.core.LocalSocksCredentials
 import java.io.Closeable
 import java.io.EOFException
 import java.io.IOException
@@ -20,6 +21,7 @@ import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
 import java.net.SocketException
+import java.security.MessageDigest
 import java.util.Collections
 import java.util.concurrent.Semaphore
 import kotlin.concurrent.thread
@@ -139,6 +141,7 @@ internal class ManagedClientSocksBridge(
     private val listenPort: Int,
     private val upstreamListener: InetSocketAddress,
     private val bridgeSpec: ManagedClientSocksBridgeSpec,
+    private val credentials: LocalSocksCredentials,
 ) : Closeable {
     private val activeSockets = Collections.synchronizedSet(mutableSetOf<Socket>())
     private val clientSlots = Semaphore(MaxConcurrentBridgeClients)
@@ -148,7 +151,7 @@ internal class ManagedClientSocksBridge(
     @Volatile private var acceptThread: Thread? = null
 
     fun start() {
-        // The bridge offers NO-AUTH, so it must never listen beyond this device.
+        // This listener is only for the app's local proxy stack.
         val loopback =
             listenHost.equals("localhost", ignoreCase = true) ||
                 parseNumericAddressOrNull(listenHost)?.isLoopbackAddress == true
@@ -257,17 +260,7 @@ internal class ManagedClientSocksBridge(
     private fun negotiateOuterHandshake(socket: Socket) {
         val input = socket.getInputStream()
         val output = socket.getOutputStream()
-        require(readByte(input) == 0x05) { "Unsupported SOCKS version" }
-        val methodCount = readByte(input)
-        val methods = ByteArray(methodCount)
-        readFully(input, methods)
-        if (methods.none { it == 0x00.toByte() }) {
-            output.write(byteArrayOf(0x05, 0xFF.toByte()))
-            output.flush()
-            error("No supported SOCKS authentication methods")
-        }
-        output.write(byteArrayOf(0x05, 0x00))
-        output.flush()
+        authenticateOuter(input, output)
 
         require(readByte(input) == 0x05) { "Unsupported SOCKS request version" }
         val command = readByte(input)
@@ -286,6 +279,32 @@ internal class ManagedClientSocksBridge(
         }
         skipAddress(input, atyp)
         readU16(input)
+    }
+
+    private fun authenticateOuter(
+        input: java.io.InputStream,
+        output: java.io.OutputStream,
+    ) {
+        require(readByte(input) == 0x05) { "Unsupported SOCKS version" }
+        val methodCount = readByte(input)
+        val methods = ByteArray(methodCount)
+        readFully(input, methods)
+        if (methods.none { it == 0x02.toByte() }) {
+            output.write(byteArrayOf(0x05, 0xFF.toByte()))
+            output.flush()
+            error("No supported SOCKS authentication methods")
+        }
+        output.write(byteArrayOf(0x05, 0x02))
+        output.flush()
+        require(readByte(input) == 0x01) { "Unsupported SOCKS authentication version" }
+        val username = ByteArray(readByte(input)).also { readFully(input, it) }
+        val password = ByteArray(readByte(input)).also { readFully(input, it) }
+        val usernameMatches = MessageDigest.isEqual(username, credentials.username.toByteArray(Charsets.UTF_8))
+        val passwordMatches = MessageDigest.isEqual(password, credentials.password.toByteArray(Charsets.UTF_8))
+        val accepted = usernameMatches and passwordMatches
+        output.write(byteArrayOf(0x01, if (accepted) 0x00 else 0x01))
+        output.flush()
+        require(accepted) { "Invalid local SOCKS credentials" }
     }
 
     private fun connectUpstream(socket: Socket) {

@@ -202,18 +202,16 @@ internal class UpstreamRelaySupervisor(
                     localNetworkDependent = false,
                 )
             }
-        // Loopback is reachable by every installed app: the native listener requires per-session RFC 1929
-        // credentials. Helper and subprocess relays own listeners that cannot check them.
-        val listenerCredentials =
-            LocalSocksCredentials.generate().takeIf { helperRuntimeFactory(configResolution.config) == null }
+        // Loopback is reachable by every installed app, including helper and wrapper listeners.
+        val listenerCredentials = LocalSocksCredentials.generate()
         val resolvedConfig =
             configResolution.config
                 .let { resolved ->
                     if (localPortOverride == null) resolved else resolved.copy(localSocksPort = localPortOverride)
                 }.withNetworkMode(networkMode)
                 .copy(
-                    localSocksUsername = listenerCredentials?.username,
-                    localSocksPassword = listenerCredentials?.password,
+                    localSocksUsername = listenerCredentials.username,
+                    localSocksPassword = listenerCredentials.password,
                 )
         validateRelayEgressRequirements(resolvedConfig, requirements)
         val runtime = createRuntime(resolvedConfig)
@@ -277,11 +275,9 @@ internal class UpstreamRelaySupervisor(
         try {
             runtime.awaitReady()
             val endpoint = resolveLocalProxyEndpoint(runtime.pollTelemetry(), authToken = null)
+            LocalSocksCredentialRegistry.register(endpoint.host, endpoint.port, listenerCredentials)
             slot.endpoint =
-                listenerCredentials?.let { credentials ->
-                    LocalSocksCredentialRegistry.register(endpoint.host, endpoint.port, credentials)
-                    endpoint.copy(username = credentials.username, password = credentials.password)
-                } ?: endpoint
+                endpoint.copy(username = listenerCredentials.username, password = listenerCredentials.password)
             // The completion handler may have run before the endpoint existed.
             if (job.isCompleted) slot.releaseListenerCredentials()
             return slot

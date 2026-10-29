@@ -20,6 +20,8 @@ pub struct NaiveProxyConfig {
     pub(crate) server_name: String,
     pub(crate) username: Option<String>,
     pub(crate) password: Option<String>,
+    pub(crate) local_username: String,
+    pub(crate) local_password: String,
     pub(crate) path: Option<String>,
     pub(crate) tls_config: Arc<RustlsClientConfig>,
     /// Path to the parent's `VpnService.protect()` Unix domain socket, read
@@ -44,6 +46,7 @@ impl std::fmt::Debug for NaiveProxyConfig {
             .field("server_name", &self.server_name)
             .field("username", &username)
             .field("password", &password)
+            .field("local_credentials", &"<redacted>")
             .field("path", &self.path)
             .field("protect_socket_path", &self.protect_socket_path)
             .finish_non_exhaustive()
@@ -74,8 +77,10 @@ pub(crate) fn parse_config_from_reader(
         .filter(|value| !value.trim().is_empty())
         .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "missing --server-name"))?;
     let use_credentials_stdin = args.contains("--credentials-stdin");
-    let (username, password) =
-        if use_credentials_stdin { read_credentials_from_stdin(&mut credentials_input)? } else { (None, None) };
+    if !use_credentials_stdin {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "NaiveProxy requires --credentials-stdin"));
+    }
+    let (username, password, local_username, local_password) = read_credentials_from_stdin(&mut credentials_input)?;
     if username.is_some() ^ password.is_some() {
         return Err(io::Error::new(
             io::ErrorKind::InvalidInput,
@@ -95,25 +100,57 @@ pub(crate) fn parse_config_from_reader(
         server_name,
         username,
         password,
+        local_username,
+        local_password,
         path,
         tls_config: default_tls_config(),
         protect_socket_path: ripdpi_subprocess_protect::protect_path_from_env(),
     })
 }
 
-fn read_credentials_from_stdin(input: &mut impl Read) -> io::Result<(Option<String>, Option<String>)> {
+type StdinCredentials = (Option<String>, Option<String>, String, String);
+
+fn read_credentials_from_stdin(input: &mut impl Read) -> io::Result<StdinCredentials> {
+    const MAX_CREDENTIAL_BYTES: u64 = 16 * 1024;
     let mut payload = String::new();
-    input.read_to_string(&mut payload)?;
+    input.take(MAX_CREDENTIAL_BYTES + 1).read_to_string(&mut payload)?;
+    if payload.len() as u64 > MAX_CREDENTIAL_BYTES {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "NaiveProxy credential stdin is too large"));
+    }
     let mut lines = payload.lines();
     let username = decode_stdin_credential(lines.next(), "username")?;
     let password = decode_stdin_credential(lines.next(), "password")?;
-    if lines.any(|line| !line.trim().is_empty()) {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "NaiveProxy credential stdin contains unexpected extra data",
-        ));
+    let local_username = required_local_credential(lines.next(), "local username")?;
+    let local_password = required_local_credential(lines.next(), "local password")?;
+    if local_username.contains(':') || lines.any(|line| !line.trim().is_empty()) {
+        return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid NaiveProxy credential stdin"));
     }
-    Ok((normalize_optional(username.as_deref()), normalize_optional(password.as_deref())))
+    Ok((
+        normalize_optional(username.as_deref()),
+        normalize_optional(password.as_deref()),
+        local_username,
+        local_password,
+    ))
+}
+
+fn required_local_credential(line: Option<&str>, name: &str) -> io::Result<String> {
+    decode_stdin_credential(line, name)?
+        .filter(|value| (1..=255).contains(&value.len()))
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "invalid local listener credentials"))
+}
+
+impl NaiveProxyConfig {
+    pub(crate) fn accepts_local_credentials(&self, username: &[u8], password: &[u8]) -> bool {
+        let username_matches = secret_eq(username, self.local_username.as_bytes());
+        let password_matches = secret_eq(password, self.local_password.as_bytes());
+        username_matches & password_matches
+    }
+}
+
+// Match the relay listener: do not exit at the first different byte.
+fn secret_eq(candidate: &[u8], expected: &[u8]) -> bool {
+    candidate.len() == expected.len()
+        && candidate.iter().zip(expected).fold(0u8, |diff, (left, right)| diff | (left ^ right)) == 0
 }
 
 fn decode_stdin_credential(value: Option<&str>, field_name: &str) -> io::Result<Option<String>> {
@@ -202,6 +239,8 @@ mod tests {
             server_name: "www.example.com".to_owned(),
             username: Some("naive-user".to_owned()),
             password: Some("naive-pass".to_owned()),
+            local_username: "local-user".to_owned(),
+            local_password: "local-pass".to_owned(),
             path: Some("/proxy".to_owned()),
             tls_config: default_tls_config(),
             protect_socket_path: None,
@@ -214,6 +253,8 @@ mod tests {
         let dbg = format!("{cfg:?}");
         assert!(!dbg.contains("naive-user"), "Debug output exposes username: {dbg}",);
         assert!(!dbg.contains("naive-pass"), "Debug output exposes password: {dbg}",);
+        assert!(!dbg.contains("local-user"));
+        assert!(!dbg.contains("local-pass"));
         assert!(dbg.contains("<redacted>"), "redaction marker should be present: {dbg}");
         assert!(dbg.contains("example.com"), "server should remain visible: {dbg}");
     }
@@ -234,7 +275,7 @@ mod tests {
         let dbg = format!("{cfg:?}");
         assert!(dbg.contains("username: \"None\""), "absent username should render as None: {dbg}");
         assert!(dbg.contains("password: \"None\""), "absent password should render as None: {dbg}");
-        assert!(!dbg.contains("<redacted>"), "no redaction marker when no credentials set: {dbg}");
+        assert!(dbg.contains("<redacted>"), "local credentials must always be redacted: {dbg}");
     }
 
     /// Install a temporary subscriber that captures every event's

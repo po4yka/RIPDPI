@@ -18,7 +18,73 @@ use crate::relay::serve_listener;
 use crate::socks5::SocksTarget;
 use crate::tls::default_tls_config;
 
+/// # Cancel safety:
+/// cancel-safe: this test owns the local client and aborts the listener after the exchange.
 #[tokio::test]
+async fn local_socks_rejects_no_auth_before_connecting_upstream() {
+    let upstream = TcpListener::bind("127.0.0.1:0").await.expect("bind upstream sentinel");
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind local listener");
+    let address = listener.local_addr().expect("local address");
+    let config = NaiveProxyConfig {
+        server: "127.0.0.1".to_owned(),
+        server_port: upstream.local_addr().expect("upstream address").port(),
+        ..naive_config_with_auth()
+    };
+    let server = tokio::spawn(serve_listener(listener, Arc::new(config)));
+    let mut client = TcpStream::connect(address).await.expect("connect local listener");
+    client.write_all(&[5, 1, 0]).await.expect("offer no auth");
+    let mut reply = [0; 2];
+    client.read_exact(&mut reply).await.expect("read auth rejection");
+    server.abort();
+    assert_eq!(reply, [5, 255]);
+    assert!(tokio::time::timeout(std::time::Duration::from_millis(50), upstream.accept()).await.is_err());
+}
+
+/// # Cancel safety:
+/// cancel-safe: the test runtime owns and drops every socket and spawned task.
+#[tokio::test]
+async fn invalid_local_credentials_never_open_upstream() {
+    let upstream = TcpListener::bind("127.0.0.1:0").await.expect("bind upstream sentinel");
+    let listener = TcpListener::bind("127.0.0.1:0").await.expect("bind local listener");
+    let address = listener.local_addr().expect("local address");
+    let config = NaiveProxyConfig {
+        server: "127.0.0.1".to_owned(),
+        server_port: upstream.local_addr().expect("upstream address").port(),
+        ..naive_config_with_auth()
+    };
+    let server = tokio::spawn(serve_listener(listener, Arc::new(config)));
+    for pair in [b"\x01\x0awrong-user\x0alocal-pass".as_slice(), b"\x01\x0alocal-user\x0awrong-pass"] {
+        let mut client = TcpStream::connect(address).await.expect("connect local listener");
+        client.write_all(&[5, 1, 2]).await.expect("offer auth");
+        let mut reply = [0; 2];
+        client.read_exact(&mut reply).await.expect("auth method");
+        assert_eq!(reply, [5, 2]);
+        client.write_all(pair).await.expect("bad credentials");
+        client.read_exact(&mut reply).await.expect("auth rejection");
+        assert_eq!(reply, [1, 1]);
+    }
+    for headers in [
+        "",
+        "Proxy-Authorization: Basic d3JvbmctdXNlcjpsb2NhbC1wYXNz\r\n",
+        "Proxy-Authorization: Basic bG9jYWwtdXNlcjp3cm9uZy1wYXNz\r\n",
+        "Proxy-Authorization: Basic not-base64\r\n",
+        "Proxy-Authorization: Basic bG9jYWwtdXNlcjpsb2NhbC1wYXNz\r\nProxy-Authorization: Basic bG9jYWwtdXNlcjpsb2NhbC1wYXNz\r\n",
+    ] {
+        let mut client = TcpStream::connect(address).await.expect("connect local HTTP listener");
+        client
+            .write_all(format!("CONNECT example.com:443 HTTP/1.1\r\n{headers}\r\n").as_bytes())
+            .await
+            .expect("send request");
+        let reply = read_http_headers(&mut client).await.expect("HTTP auth rejection");
+        assert!(reply.starts_with("HTTP/1.1 407"), "{reply}");
+    }
+    server.abort();
+    assert!(tokio::time::timeout(std::time::Duration::from_millis(50), upstream.accept()).await.is_err());
+}
+
+#[tokio::test]
+/// # Cancel safety:
+/// cancel-safe: the test runtime drops its owned sockets and tasks when the test ends.
 async fn socks5_tunnel_round_trip_reaches_target_via_https_proxy() {
     let fixture = local_network_fixture::NaiveH2PaddingFixture::start("naive-user", "naive-pass")
         .await
@@ -35,6 +101,8 @@ async fn socks5_tunnel_round_trip_reaches_target_via_https_proxy() {
         path: None,
         tls_config: fixture.client_tls_config(),
         protect_socket_path: None,
+        local_username: "local-user".to_owned(),
+        local_password: "local-pass".to_owned(),
     };
 
     let server = tokio::spawn(async move {
@@ -42,10 +110,7 @@ async fn socks5_tunnel_round_trip_reaches_target_via_https_proxy() {
     });
 
     let mut client = TcpStream::connect(local_addr).await.expect("connect local socks");
-    client.write_all(&[0x05, 0x01, 0x00]).await.expect("write greeting");
-    let mut auth_reply = [0u8; 2];
-    client.read_exact(&mut auth_reply).await.expect("read greeting reply");
-    assert_eq!(auth_reply, [0x05, 0x00]);
+    authenticate_local(&mut client).await;
 
     let connect_request = build_socks_connect_request("127.0.0.1", 443);
     client.write_all(&connect_request).await.expect("write connect request");
@@ -65,6 +130,8 @@ async fn socks5_tunnel_round_trip_reaches_target_via_https_proxy() {
 }
 
 #[tokio::test]
+/// # Cancel safety:
+/// cancel-safe: the test runtime drops its owned sockets and tasks when the test ends.
 async fn socks5_client_round_trip_over_h2_naive_padding_fixture() {
     let fixture = local_network_fixture::NaiveH2PaddingFixture::start("naive-user", "naive-pass")
         .await
@@ -81,6 +148,8 @@ async fn socks5_client_round_trip_over_h2_naive_padding_fixture() {
         path: None,
         tls_config: fixture.client_tls_config(),
         protect_socket_path: None,
+        local_username: "local-user".to_owned(),
+        local_password: "local-pass".to_owned(),
     };
 
     let server = tokio::spawn(async move {
@@ -88,10 +157,7 @@ async fn socks5_client_round_trip_over_h2_naive_padding_fixture() {
     });
 
     let mut client = TcpStream::connect(local_addr).await.expect("connect local socks");
-    client.write_all(&[0x05, 0x01, 0x00]).await.expect("write greeting");
-    let mut auth_reply = [0u8; 2];
-    client.read_exact(&mut auth_reply).await.expect("read greeting reply");
-    assert_eq!(auth_reply, [0x05, 0x00]);
+    authenticate_local(&mut client).await;
 
     let connect_request = build_socks_connect_request("127.0.0.1", 443);
     client.write_all(&connect_request).await.expect("write connect request");
@@ -114,6 +180,8 @@ async fn socks5_client_round_trip_over_h2_naive_padding_fixture() {
 }
 
 #[tokio::test]
+/// # Cancel safety:
+/// cancel-safe: the test runtime drops its owned sockets and tasks when the test ends.
 async fn http_front_connect_round_trip_over_h2_naive_padding_fixture() {
     let fixture = local_network_fixture::NaiveH2PaddingFixture::start("naive-user", "naive-pass")
         .await
@@ -130,6 +198,8 @@ async fn http_front_connect_round_trip_over_h2_naive_padding_fixture() {
         path: None,
         tls_config: fixture.client_tls_config(),
         protect_socket_path: None,
+        local_username: "local-user".to_owned(),
+        local_password: "local-pass".to_owned(),
     };
 
     let server = tokio::spawn(async move {
@@ -138,7 +208,7 @@ async fn http_front_connect_round_trip_over_h2_naive_padding_fixture() {
 
     let mut client = TcpStream::connect(local_addr).await.expect("connect local http front");
     client
-        .write_all(b"CONNECT example.com:443 HTTP/1.1\r\nHost: example.com:443\r\n\r\n")
+        .write_all(b"CONNECT example.com:443 HTTP/1.1\r\nHost: example.com:443\r\nProxy-Authorization: Basic bG9jYWwtdXNlcjpsb2NhbC1wYXNz\r\n\r\n")
         .await
         .expect("write connect request");
     let response = read_http_headers(&mut client).await.expect("read connect response");
@@ -158,6 +228,8 @@ async fn http_front_connect_round_trip_over_h2_naive_padding_fixture() {
 }
 
 #[tokio::test]
+/// # Cancel safety:
+/// cancel-safe: the test runtime drops its owned sockets and tasks when the test ends.
 async fn helper_reconnects_after_upstream_h2_stream_failure() {
     let fixture = local_network_fixture::NaiveH2PaddingFixture::start_closing_first_tunnel_after_payload(
         "naive-user",
@@ -177,6 +249,8 @@ async fn helper_reconnects_after_upstream_h2_stream_failure() {
         path: None,
         tls_config: fixture.client_tls_config(),
         protect_socket_path: None,
+        local_username: "local-user".to_owned(),
+        local_password: "local-pass".to_owned(),
     };
 
     let server = tokio::spawn(async move {
@@ -236,7 +310,9 @@ async fn read_within_virtual_secs(client: &TcpStream, buf: &mut [u8], secs: u64)
 
 /// An upstream that accepts TCP and never answers the TLS ClientHello (the
 /// censored-path case) must fail the CONNECT instead of holding the client.
-#[tokio::test(start_paused = true)]
+#[tokio::test]
+/// # Cancel safety:
+/// cancel-safe: the test runtime drops its owned sockets and tasks when the test ends.
 async fn stalled_upstream_tls_fails_socks_connect_after_deadline() {
     let upstream = TcpListener::bind("127.0.0.1:0").await.expect("bind blackhole upstream");
     let upstream_port = upstream.local_addr().expect("upstream addr").port();
@@ -258,9 +334,9 @@ async fn stalled_upstream_tls_fails_socks_connect_after_deadline() {
     let server = tokio::spawn(serve_listener(local_listener, Arc::new(config)));
 
     let mut client = TcpStream::connect(local_addr).await.expect("connect local socks");
-    client.write_all(&[0x05, 0x01, 0x00]).await.expect("write greeting");
-    let mut auth_reply = [0u8; 2];
-    client.read_exact(&mut auth_reply).await.expect("read greeting reply");
+    authenticate_local(&mut client).await;
+    // Keep real socket authentication ahead of the virtual setup deadline.
+    tokio::time::pause();
     client.write_all(&build_socks_connect_request("127.0.0.1", 443)).await.expect("write connect request");
     let mut connect_reply = [0u8; 10];
     let replied = read_within_virtual_secs(&client, &mut connect_reply, 120).await;
@@ -479,12 +555,11 @@ fn build_socks_connect_request(host: &str, port: u16) -> Vec<u8> {
     request
 }
 
+/// # Cancel safety:
+/// cancel-safe: the test runtime drops its owned sockets and tasks when the test ends.
 async fn open_socks_tunnel(local_addr: std::net::SocketAddr) -> TcpStream {
     let mut client = TcpStream::connect(local_addr).await.expect("connect local socks");
-    client.write_all(&[0x05, 0x01, 0x00]).await.expect("write greeting");
-    let mut auth_reply = [0u8; 2];
-    client.read_exact(&mut auth_reply).await.expect("read greeting reply");
-    assert_eq!(auth_reply, [0x05, 0x00]);
+    authenticate_local(&mut client).await;
 
     let connect_request = build_socks_connect_request("127.0.0.1", 443);
     client.write_all(&connect_request).await.expect("write connect request");
@@ -516,6 +591,8 @@ fn naive_config_with_auth() -> NaiveProxyConfig {
         path: Some("/proxy".to_owned()),
         tls_config: default_tls_config(),
         protect_socket_path: None,
+        local_username: "local-user".to_owned(),
+        local_password: "local-pass".to_owned(),
     }
 }
 
@@ -535,7 +612,7 @@ fn config_parses_final_cli_contract() {
             "--path",
             "/proxy",
         ],
-        b"YWxpY2U=\nc2VjcmV0\n",
+        b"YWxpY2U=\nc2VjcmV0\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n",
     )
     .expect("parse final naiveproxy cli");
 
@@ -545,6 +622,8 @@ fn config_parses_final_cli_contract() {
     assert_eq!(config.server_name, "sni.example");
     assert_eq!(config.username.as_deref(), Some("alice"));
     assert_eq!(config.password.as_deref(), Some("secret"));
+    assert_eq!(config.local_username, "local-user");
+    assert_eq!(config.local_password, "local-pass");
     assert_eq!(config.path.as_deref(), Some("/proxy"));
 }
 
@@ -552,17 +631,44 @@ fn config_parses_final_cli_contract() {
 fn config_rejects_partial_auth() {
     let username_only = parse_config_args_with_stdin(
         &["--server", "proxy.example", "--server-port", "443", "--server-name", "proxy.example", "--credentials-stdin"],
-        b"YWxpY2U=\n\n",
+        b"YWxpY2U=\n\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n",
     );
     let password_only = parse_config_args_with_stdin(
         &["--server", "proxy.example", "--server-port", "443", "--server-name", "proxy.example", "--credentials-stdin"],
-        b"\nc2VjcmV0\n",
+        b"\nc2VjcmV0\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n",
     );
 
     assert!(username_only.is_err());
     assert!(password_only.is_err());
 }
 
+#[test]
+fn config_requires_bounded_local_credentials_even_without_upstream_auth() {
+    let args = ["--server", "proxy.example:443", "--server-name", "proxy.example", "--credentials-stdin"];
+    let local_pair = b"\n\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n";
+    let config = parse_config_args_with_stdin(&args, local_pair).expect("local-only credentials");
+    assert!(config.username.is_none());
+    assert!(config.password.is_none());
+    assert_eq!(config.local_username, "local-user");
+    for invalid in [b"\n\n".as_slice(), b"\n\nbG9jYWwtdXNlcg==\n\n", b"\n\n\nbG9jYWwtcGFzcw==\n"] {
+        assert!(parse_config_args_with_stdin(&args, invalid).is_err());
+    }
+    assert!(parse_config_args_with_stdin(&args, &vec![b'A'; 16 * 1024 + 1]).is_err());
+    assert!(parse_config_args_with_stdin(&args[..4], local_pair).is_err());
+}
+
 fn parse_config_args_with_stdin(args: &[&str], stdin: &[u8]) -> std::io::Result<NaiveProxyConfig> {
     parse_config_from_reader(pico_args::Arguments::from_vec(args.iter().map(OsString::from).collect()), stdin)
+}
+
+/// # Cancel safety:
+/// NOT cancel-safe: partial authentication consumes bytes; a failing test drops the client.
+async fn authenticate_local(client: &mut TcpStream) {
+    client.write_all(&[5, 1, 2]).await.expect("offer local auth");
+    let mut reply = [0; 2];
+    client.read_exact(&mut reply).await.expect("read auth method");
+    assert_eq!(reply, [5, 2]);
+    client.write_all(b"\x01\x0alocal-user\x0alocal-pass").await.expect("send local auth");
+    client.read_exact(&mut reply).await.expect("read auth status");
+    assert_eq!(reply, [1, 0]);
 }

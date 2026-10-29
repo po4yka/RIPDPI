@@ -144,7 +144,7 @@ class SubprocessRelayComponentsTest {
             val probe =
                 SubprocessRelayReadinessProbe(
                     connector =
-                        SocksReadinessConnector { _, _ ->
+                        SocksReadinessConnector { _, _, _ ->
                             attempts += 1
                             attempts >= 2
                         },
@@ -153,7 +153,7 @@ class SubprocessRelayComponentsTest {
                 )
 
             probe.waitUntilReady(
-                config = sampleResolvedRelayConfig(),
+                config = sampleResolvedRelayConfig().copy(localSocksUsername = "user", localSocksPassword = "pass"),
                 isRunning = { true },
                 onFailure = { error("unexpected failure: $it") },
             )
@@ -167,7 +167,7 @@ class SubprocessRelayComponentsTest {
             var failure: String? = null
             val probe =
                 SubprocessRelayReadinessProbe(
-                    connector = SocksReadinessConnector { _, _ -> false },
+                    connector = SocksReadinessConnector { _, _, _ -> false },
                     pollIntervalMs = 10L,
                     timeoutMs = 50L,
                 )
@@ -175,7 +175,11 @@ class SubprocessRelayComponentsTest {
             val result =
                 runCatching {
                     probe.waitUntilReady(
-                        config = sampleResolvedRelayConfig(),
+                        config =
+                            sampleResolvedRelayConfig().copy(
+                                localSocksUsername = "user",
+                                localSocksPassword = "pass",
+                            ),
                         isRunning = { true },
                         onFailure = { failure = it },
                     )

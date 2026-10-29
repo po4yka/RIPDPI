@@ -1,6 +1,7 @@
 use std::io;
 use std::net::SocketAddr;
 
+use crate::config::NaiveProxyConfig;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
@@ -19,7 +20,9 @@ impl SocksTarget {
     }
 }
 
-pub(crate) async fn negotiate_socks5(client: &mut TcpStream) -> io::Result<()> {
+/// # Cancel safety:
+/// NOT cancel-safe: a partial handshake consumes bytes. The caller closes the client on timeout.
+pub(crate) async fn negotiate_socks5(client: &mut TcpStream, config: &NaiveProxyConfig) -> io::Result<()> {
     let mut greeting = [0u8; 2];
     client.read_exact(&mut greeting).await?;
     if greeting[0] != 0x05 {
@@ -29,13 +32,23 @@ pub(crate) async fn negotiate_socks5(client: &mut TcpStream) -> io::Result<()> {
     let method_count = usize::from(greeting[1]);
     let mut methods = vec![0u8; method_count];
     client.read_exact(&mut methods).await?;
-    if methods.contains(&0x00) {
-        client.write_all(&[0x05, 0x00]).await?;
-        Ok(())
-    } else {
+    if !methods.contains(&0x02) {
         client.write_all(&[0x05, 0xff]).await?;
-        Err(io::Error::new(io::ErrorKind::Unsupported, "client does not support unauthenticated SOCKS5"))
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "SOCKS5 authentication is required"));
     }
+    client.write_all(&[0x05, 0x02]).await?;
+    if client.read_u8().await? != 0x01 {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid SOCKS5 authentication version"));
+    }
+    let mut username = vec![0; usize::from(client.read_u8().await?)];
+    client.read_exact(&mut username).await?;
+    let mut password = vec![0; usize::from(client.read_u8().await?)];
+    client.read_exact(&mut password).await?;
+    if !config.accepts_local_credentials(&username, &password) {
+        client.write_all(&[1, 1]).await?;
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "invalid local SOCKS5 credentials"));
+    }
+    client.write_all(&[1, 0]).await
 }
 
 pub(crate) async fn read_socks5_request(client: &mut TcpStream) -> io::Result<SocksTarget> {

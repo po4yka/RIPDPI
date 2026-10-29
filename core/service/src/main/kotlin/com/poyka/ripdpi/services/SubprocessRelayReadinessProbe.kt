@@ -1,24 +1,23 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.LocalSocks5Client
+import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
+import com.poyka.ripdpi.core.localSocksCredentialsOrNull
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
-import java.io.IOException
 import java.net.InetSocketAddress
 import java.net.Socket
 
 private const val RelayReadyPollIntervalMs = 100L
 private const val RelayReadyTimeoutMs = 5_000L
 private const val SocksReadinessConnectTimeoutMs = 250
-private const val SocksVersion5: Byte = 0x05
-private const val SocksNoAuthMethod: Byte = 0x00
-private const val SocksMethodCount: Byte = 0x01
-private const val SocksReadinessResponseLength = 2
 
 internal fun interface SocksReadinessConnector {
     fun canConnect(
         host: String,
         port: Int,
+        credentials: LocalSocksCredentials,
     ): Boolean
 }
 
@@ -26,16 +25,13 @@ internal class SocketSocksReadinessConnector : SocksReadinessConnector {
     override fun canConnect(
         host: String,
         port: Int,
+        credentials: LocalSocksCredentials,
     ): Boolean =
         runCatching {
             Socket().use { socket ->
                 socket.connect(InetSocketAddress(host, port), SocksReadinessConnectTimeoutMs)
                 socket.soTimeout = SocksReadinessConnectTimeoutMs
-                socket.getOutputStream().write(byteArrayOf(SocksVersion5, SocksMethodCount, SocksNoAuthMethod))
-                val response = socket.getInputStream().readFully(SocksReadinessResponseLength)
-                if (!response.contentEquals(byteArrayOf(SocksVersion5, SocksNoAuthMethod))) {
-                    error("unexpected SOCKS5 readiness response")
-                }
+                LocalSocks5Client.authenticate(socket.getInputStream(), socket.getOutputStream(), credentials)
             }
             true
         }.getOrDefault(false)
@@ -51,6 +47,8 @@ internal class SubprocessRelayReadinessProbe(
         isRunning: () -> Boolean,
         onFailure: (String) -> Unit,
     ) {
+        val credentials =
+            requireNotNull(localSocksCredentialsOrNull(config.localSocksUsername, config.localSocksPassword))
         var ready = false
         withTimeoutOrNull<Unit>(timeoutMs) {
             while (!ready) {
@@ -59,7 +57,7 @@ internal class SubprocessRelayReadinessProbe(
                     onFailure(message)
                     error(message)
                 }
-                ready = connector.canConnect(config.localSocksHost, config.localSocksPort)
+                ready = connector.canConnect(config.localSocksHost, config.localSocksPort, credentials)
                 if (!ready) {
                     delay(pollIntervalMs)
                 }
@@ -96,17 +94,4 @@ internal class SubprocessRelayReadinessProbe(
         onFailure(message)
         error(message)
     }
-}
-
-private fun java.io.InputStream.readFully(length: Int): ByteArray {
-    val buffer = ByteArray(length)
-    var offset = 0
-    while (offset < length) {
-        val read = read(buffer, offset, length - offset)
-        if (read < 0) {
-            throw IOException("Unexpected end of readiness probe stream")
-        }
-        offset += read
-    }
-    return buffer
 }

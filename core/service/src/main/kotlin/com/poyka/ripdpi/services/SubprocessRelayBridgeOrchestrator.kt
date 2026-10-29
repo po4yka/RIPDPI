@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
+import com.poyka.ripdpi.core.localSocksCredentialsOrNull
 import java.net.InetSocketAddress
 
 internal class SubprocessRelayBridgeOrchestrator {
@@ -25,6 +26,10 @@ internal class SubprocessRelayBridgeOrchestrator {
                 listenPort = config.localSocksPort,
                 upstreamListener = listener,
                 bridgeSpec = bridgeSpec,
+                credentials =
+                    requireNotNull(
+                        localSocksCredentialsOrNull(config.localSocksUsername, config.localSocksPassword),
+                    ),
             ).also { bridge ->
                 bridge.start()
             }

@@ -3,7 +3,7 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -17,6 +17,8 @@ class NaiveProxyRuntimePolicyTest {
                 serverName = "sni.example",
                 localSocksHost = "127.0.0.2",
                 localSocksPort = 11980,
+                localSocksUsername = "local-user",
+                localSocksPassword = "local-pass", // Fixture credential.
                 naiveUsername = "alice",
                 naivePassword = "secret",
                 naivePath = "/proxy",
@@ -42,28 +44,35 @@ class NaiveProxyRuntimePolicyTest {
         )
         assertFalse(args.contains("alice"))
         assertFalse(args.contains("secret"))
+        assertFalse(args.contains("local-user"))
+        assertFalse(args.contains("local-pass"))
     }
 
     @Test
     fun `manager writes naive credentials to stdin payload`() {
         val config =
             sampleResolvedRelayConfig(kind = RelayKindNaiveProxy).copy(
+                localSocksUsername = "local-user",
+                localSocksPassword = "local-pass", // Fixture credential.
                 naiveUsername = "alice",
                 naivePassword = "secret",
             )
 
-        assertEquals("YWxpY2U=\nc2VjcmV0\n", naiveProxyCredentialsStdin(config)?.toString(Charsets.UTF_8))
+        assertEquals(
+            "YWxpY2U=\nc2VjcmV0\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n",
+            naiveProxyCredentialsStdin(config).toString(Charsets.UTF_8),
+        )
     }
 
     @Test
-    fun `manager omits credential stdin payload when auth is absent`() {
+    fun `manager rejects absent local listener credentials`() {
         val config =
             sampleResolvedRelayConfig(kind = RelayKindNaiveProxy).copy(
                 naiveUsername = null,
                 naivePassword = null,
             )
 
-        assertNull(naiveProxyCredentialsStdin(config))
+        assertThrows(IllegalArgumentException::class.java) { naiveProxyCredentialsStdin(config) }
     }
 
     @Test

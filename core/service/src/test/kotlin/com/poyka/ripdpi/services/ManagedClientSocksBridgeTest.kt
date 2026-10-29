@@ -1,8 +1,12 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.LocalSocks5Client
+import com.poyka.ripdpi.core.LocalSocksCredentials
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -11,12 +15,14 @@ import java.io.DataInputStream
 import java.net.InetSocketAddress
 import java.net.ServerSocket
 import java.net.Socket
+import java.net.SocketTimeoutException
 
 private const val MaxBridgeClients = 64
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class ManagedClientSocksBridgeTest {
+    private val credentials = LocalSocksCredentials("local-user", "local-pass")
     private val bridges = mutableListOf<ManagedClientSocksBridge>()
 
     @After
@@ -52,9 +58,39 @@ class ManagedClientSocksBridgeTest {
     }
 
     @Test
+    fun `missing or wrong credentials cannot open the fixed target bridge`() {
+        ServerSocket(0).use { upstream ->
+            upstream.soTimeout = 100
+            val port = bridge(InetSocketAddress("127.0.0.1", upstream.localPort))
+            Socket("127.0.0.1", port).use { socket ->
+                socket.soTimeout = 1_000
+                socket.getOutputStream().write(byteArrayOf(5, 1, 0))
+                val input = DataInputStream(socket.getInputStream())
+                assertEquals(5, input.readUnsignedByte())
+                assertEquals(255, input.readUnsignedByte())
+            }
+            listOf(
+                LocalSocksCredentials("wrong-user", credentials.password),
+                LocalSocksCredentials(credentials.username, "wrong-pass"),
+            ).forEach { wrong ->
+                assertFalse(SocketSocksReadinessConnector().canConnect("127.0.0.1", port, wrong))
+            }
+            assertThrows(SocketTimeoutException::class.java) { upstream.accept() }
+        }
+    }
+
+    @Test
+    fun `readiness accepts only the current session credentials`() {
+        val port = bridge()
+        assertTrue(SocketSocksReadinessConnector().canConnect("127.0.0.1", port, credentials))
+        assertFalse(SocketSocksReadinessConnector().canConnect("127.0.0.1", port, LocalSocksCredentials.generate()))
+    }
+
+    @Test
     fun `non-loopback listen host is refused before binding`() {
         val bridge =
             ManagedClientSocksBridge(
+                credentials = credentials,
                 listenHost = "0.0.0.0",
                 listenPort = freePort(),
                 upstreamListener = InetSocketAddress("127.0.0.1", freePort()),
@@ -81,6 +117,7 @@ class ManagedClientSocksBridgeTest {
     private fun bridge(upstream: InetSocketAddress = InetSocketAddress("127.0.0.1", freePort())): Int {
         val port = freePort()
         ManagedClientSocksBridge(
+            credentials = credentials,
             listenHost = "127.0.0.1",
             listenPort = port,
             upstreamListener = upstream,
@@ -98,7 +135,7 @@ class ManagedClientSocksBridgeTest {
         return port
     }
 
-    /** Sends a NO-AUTH greeting and [request], and returns the REP byte of the bridge reply. */
+    /** Sends an authenticated greeting and [request], and returns the REP byte of the bridge reply. */
     private fun requestReply(
         port: Int,
         request: ByteArray,
@@ -107,10 +144,7 @@ class ManagedClientSocksBridgeTest {
             socket.soTimeout = 5_000
             val output = socket.getOutputStream()
             val input = DataInputStream(socket.getInputStream())
-            output.write(byteArrayOf(0x05, 0x01, 0x00))
-            output.flush()
-            assertEquals(0x05, input.readUnsignedByte())
-            assertEquals(0x00, input.readUnsignedByte())
+            LocalSocks5Client.authenticate(input, output, credentials)
             output.write(request)
             output.flush()
             assertEquals(0x05, input.readUnsignedByte())

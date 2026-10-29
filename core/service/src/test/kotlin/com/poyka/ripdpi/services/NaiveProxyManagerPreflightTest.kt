@@ -28,6 +28,35 @@ import java.util.concurrent.TimeUnit
 @Config(sdk = [35])
 @OptIn(ExperimentalCoroutinesApi::class)
 class NaiveProxyManagerPreflightTest {
+    private fun naiveConfig() =
+        sampleResolvedRelayConfig(kind = RelayKindNaiveProxy).copy(
+            localSocksUsername = "local-user",
+            localSocksPassword = "local-pass", // Fixture credential.
+        )
+
+    @Test
+    fun `helper without local auth support is rejected before launch`() =
+        runTest {
+            val processPort =
+                FakeNaiveProxyProcessPort(
+                    probeResult =
+                        NaiveProxyPreflightResult.Probed(
+                            NaiveProxyProbe(schemaVersion = 1, helperVersion = "0.1.0", features = emptyList()),
+                        ),
+                )
+            val failure =
+                runCatching {
+                    NaiveProxyManager(
+                        processPort,
+                        processPort,
+                    ).start(naiveConfig())
+                }.exceptionOrNull()
+
+            assertTrue(failure is NaiveProxyCompatibilityException)
+            assertTrue(failure?.message.orEmpty().contains("local listener authentication"))
+            assertEquals(0, processPort.mainLaunches)
+        }
+
     @Test
     fun `schema mismatch is rejected before relay subprocess starts`() =
         runTest {
@@ -39,7 +68,7 @@ class NaiveProxyManagerPreflightTest {
                                 NaiveProxyProbe(
                                     schemaVersion = 2,
                                     helperVersion = "0.2.0",
-                                    features = listOf("ready-signal"),
+                                    features = listOf("ready-signal", "local-listener-auth"),
                                 ),
                         ),
                 )
@@ -47,7 +76,7 @@ class NaiveProxyManagerPreflightTest {
 
             val error =
                 runCatching {
-                    manager.start(sampleResolvedRelayConfig(kind = RelayKindNaiveProxy))
+                    manager.start(naiveConfig())
                 }.exceptionOrNull()
 
             assertTrue(error is ServiceStartupRejectedException)
@@ -69,7 +98,7 @@ class NaiveProxyManagerPreflightTest {
         }
 
     @Test
-    fun `supported probe delegates to the unchanged relay launch spec`() =
+    fun `supported probe delegates to the authenticated relay launch spec`() =
         runTest {
             val processPort =
                 FakeNaiveProxyProcessPort(
@@ -78,13 +107,13 @@ class NaiveProxyManagerPreflightTest {
                             NaiveProxyProbe(
                                 schemaVersion = 1,
                                 helperVersion = "0.1.0",
-                                features = listOf("ready-signal"),
+                                features = listOf("ready-signal", "local-listener-auth"),
                             ),
                         ),
                 )
             val manager = NaiveProxyManager(processPort, processPort)
 
-            manager.start(sampleResolvedRelayConfig(kind = RelayKindNaiveProxy))
+            manager.start(naiveConfig())
 
             assertEquals(listOf("probe", "main"), processPort.events)
             assertEquals(1, processPort.mainLaunches)
@@ -107,7 +136,7 @@ class NaiveProxyManagerPreflightTest {
 
             val error =
                 runCatching {
-                    manager.start(sampleResolvedRelayConfig(kind = RelayKindNaiveProxy))
+                    manager.start(naiveConfig())
                 }.exceptionOrNull()
 
             assertTrue(error is NaiveProxyCompatibilityException)
@@ -122,11 +151,15 @@ class NaiveProxyManagerPreflightTest {
                 FakeNaiveProxyProcessPort(
                     probeResult =
                         NaiveProxyPreflightResult.Probed(
-                            NaiveProxyProbe(schemaVersion = 1, helperVersion = "0.1.0", features = emptyList()),
+                            NaiveProxyProbe(
+                                schemaVersion = 1,
+                                helperVersion = "0.1.0",
+                                features = listOf("local-listener-auth"),
+                            ),
                         ),
                 )
             val manager = NaiveProxyManager(processPort, processPort)
-            val config = sampleResolvedRelayConfig(kind = RelayKindNaiveProxy)
+            val config = naiveConfig()
 
             manager.start(config)
             manager.start(config)
@@ -221,7 +254,7 @@ class NaiveProxyManagerPreflightTest {
                     context = RuntimeEnvironment.getApplication(),
                     protectPathProvider = ActiveProtectSocketPathProvider(),
                 )
-            val config = sampleResolvedRelayConfig(kind = RelayKindNaiveProxy)
+            val config = naiveConfig()
             val spec =
                 SubprocessSocksRelayLaunchSpec(
                     binaryName = "ripdpi-naiveproxy",

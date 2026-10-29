@@ -24,6 +24,7 @@ import com.poyka.ripdpi.data.RelayKindObfs4
 import com.poyka.ripdpi.data.RelayKindSnowflake
 import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayKindVlessReality
+import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayMasqueAuthModeBearer
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
@@ -48,6 +49,7 @@ import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Assert.fail
@@ -1112,6 +1114,40 @@ class UpstreamRelaySupervisorTest {
         }
 
     @Test
+    fun `helper endpoints publish session credentials and release them on stop`() =
+        runTest {
+            val configurations =
+                listOf(
+                    sampleResolvedRelayConfig(kind = RelayKindNaiveProxy),
+                    sampleResolvedRelayConfig(kind = RelayKindGoogleAppsScript),
+                    sampleResolvedRelayConfig(kind = RelayKindWebTunnel),
+                    sampleResolvedRelayConfig(kind = RelayKindCloudflareTunnel).copy(
+                        cloudflareTunnelMode = RelayCloudflareTunnelModePublishLocalOrigin,
+                    ),
+                )
+            configurations.forEach { resolved ->
+                val supervisor =
+                    UpstreamRelaySupervisor(
+                        scope = backgroundScope,
+                        dispatcher = StandardTestDispatcher(testScheduler),
+                        relayFactory = TestRipDpiRelayFactory(),
+                        naiveProxyRuntimeFactory = TestNaiveProxyRuntimeFactory(),
+                        googleAppsScriptRelayRuntimeFactory = TestGoogleAppsScriptRelayRuntimeFactory(),
+                        cloudflarePublishRuntimeFactory = TestCloudflarePublishRuntimeFactory(),
+                        pluggableTransportRuntimeFactory = TestPluggableTransportRuntimeFactory(),
+                        runtimeConfigResolver = TestUpstreamRelayRuntimeConfigResolver(resolved),
+                    )
+                val endpoint = supervisor.startEndpointFixture().endpoint
+                val credentials = LocalSocksCredentialRegistry.lookup(endpoint.host, endpoint.port)
+                assertNotNull("helper kind=${resolved.kind}", credentials)
+                assertEquals(credentials?.username, endpoint.username)
+                assertEquals(credentials?.password, endpoint.password)
+                supervisor.stop()
+                assertNull(LocalSocksCredentialRegistry.lookup(endpoint.host, endpoint.port))
+            }
+        }
+
+    @Test
     fun `start delegates runtime config resolution before selecting runtime`() =
         runTest {
             val relayFactory = TestRipDpiRelayFactory()
@@ -1149,8 +1185,8 @@ class UpstreamRelaySupervisorTest {
             assertEquals(listOf(requestedConfig to quicMigrationConfig), runtimeConfigResolver.requests)
             assertEquals(1, naiveFactory.runtimes.size)
             assertEquals(0, relayFactory.runtimes.size)
-            // A subprocess relay owns a listener that cannot check RFC 1929 credentials.
-            assertNull(
+            // Helper listeners require the same per-session authentication as native listeners.
+            assertNotNull(
                 naiveFactory.runtimes
                     .single()
                     .lastConfig

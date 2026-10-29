@@ -4,10 +4,21 @@ use std::net::SocketAddr;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::TcpStream;
 
+use crate::config::NaiveProxyConfig;
 use crate::socks5::SocksTarget;
+use base64::Engine;
 
-pub(crate) async fn read_http_connect_request(client: &mut TcpStream) -> io::Result<SocksTarget> {
+/// # Cancel safety:
+/// NOT cancel-safe: partial headers consume bytes. The caller closes the socket on timeout.
+pub(crate) async fn read_http_connect_request(
+    client: &mut TcpStream,
+    config: &NaiveProxyConfig,
+) -> io::Result<SocksTarget> {
     let headers = read_headers(client).await?;
+    if !has_local_authorization(&headers, config) {
+        client.write_all(b"HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"local\"\r\nConnection: close\r\n\r\n").await?;
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "invalid local HTTP proxy credentials"));
+    }
     let request_line =
         headers.lines().next().ok_or_else(|| io::Error::new(io::ErrorKind::InvalidData, "empty HTTP request"))?;
     let mut parts = request_line.split_whitespace();
@@ -23,6 +34,24 @@ pub(crate) async fn read_http_connect_request(client: &mut TcpStream) -> io::Res
     }
 
     parse_authority(authority)
+}
+
+fn has_local_authorization(headers: &str, config: &NaiveProxyConfig) -> bool {
+    let mut values = headers.lines().skip(1).filter_map(|line| {
+        let (name, value) = line.split_once(':')?;
+        name.eq_ignore_ascii_case("Proxy-Authorization").then_some(value.trim())
+    });
+    let Some(value) = values.next() else { return false };
+    if values.next().is_some() {
+        return false;
+    }
+    let Some((scheme, encoded)) = value.split_once(' ') else { return false };
+    if !scheme.eq_ignore_ascii_case("Basic") {
+        return false;
+    }
+    let Ok(decoded) = base64::engine::general_purpose::STANDARD.decode(encoded.trim()) else { return false };
+    let Some(separator) = decoded.iter().position(|byte| *byte == b':') else { return false };
+    config.accepts_local_credentials(&decoded[..separator], &decoded[separator + 1..])
 }
 
 pub(crate) async fn write_http_connect_success(client: &mut TcpStream) -> io::Result<()> {

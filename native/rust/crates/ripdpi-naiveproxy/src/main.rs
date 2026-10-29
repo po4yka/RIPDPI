@@ -33,6 +33,7 @@ const PROBE_FEATURES: &[&str] = &[
     "naive-padding",
     "structured-error",
     "ready-signal",
+    "local-listener-auth",
 ];
 
 fn render_probe_line(schema_version: u32, helper_version: &str, features: &[&str]) -> String {
@@ -81,6 +82,7 @@ mod probe_tests {
             "naive-padding",
             "structured-error",
             "ready-signal",
+            "local-listener-auth",
         ] {
             assert!(PROBE_FEATURES.contains(&required), "expected feature {required} not in PROBE_FEATURES",);
         }

@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.LocalSocks5Client
+import com.poyka.ripdpi.core.LocalSocksCredentials
 import org.junit.Assert.assertArrayEquals
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -16,6 +18,7 @@ import java.util.concurrent.atomic.AtomicReference
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class PluggableTransportSocksBridgeWireTest {
+    private val credentials = LocalSocksCredentials("local-user", "local-pass")
     // -------------------------------------------------------------------------
     // parseManagedClientListenerLine
     // -------------------------------------------------------------------------
@@ -224,6 +227,7 @@ class PluggableTransportSocksBridgeWireTest {
         val port = ServerSocket(0).use { it.localPort }
         val bridge =
             ManagedClientSocksBridge(
+                credentials = credentials,
                 listenHost = "127.0.0.1",
                 listenPort = port,
                 upstreamListener = InetSocketAddress("127.0.0.1", 9),
@@ -239,10 +243,10 @@ class PluggableTransportSocksBridgeWireTest {
             // A second client still gets the SOCKS5 greeting, so the bridge survived.
             Socket("127.0.0.1", port).use { socket ->
                 socket.soTimeout = 5_000
-                socket.getOutputStream().write(byteArrayOf(0x05, 0x01, 0x00))
+                socket.getOutputStream().write(byteArrayOf(0x05, 0x01, 0x02))
                 val reply = ByteArray(2)
                 DataInputStream(socket.getInputStream()).readFully(reply)
-                assertArrayEquals(byteArrayOf(0x05, 0x00), reply)
+                assertArrayEquals(byteArrayOf(0x05, 0x02), reply)
             }
         } finally {
             bridge.close()
@@ -262,7 +266,12 @@ class PluggableTransportSocksBridgeWireTest {
                         val output = pt.getOutputStream()
                         input.readFully(ByteArray(3)) // greeting: VER, NMETHODS=1, NO-AUTH
                         output.write(byteArrayOf(0x05, 0x00))
-                        input.readFully(ByteArray(10)) // CONNECT to an IPv4 target
+                        val target = ByteArray(10)
+                        input.readFully(target)
+                        assertArrayEquals(
+                            byteArrayOf(5, 1, 0, 1, 192.toByte(), 0, 2, 1, 1, 187.toByte()),
+                            target,
+                        )
                         Thread.sleep(idleMillis) // a slow bridge dial before the reply
                         output.write(byteArrayOf(0x05, 0x00, 0x00, 0x01, 0, 0, 0, 0, 0, 0))
                         output.flush()
@@ -278,6 +287,7 @@ class PluggableTransportSocksBridgeWireTest {
             val port = ServerSocket(0).use { it.localPort }
             val bridge =
                 ManagedClientSocksBridge(
+                    credentials = credentials,
                     listenHost = "127.0.0.1",
                     listenPort = port,
                     upstreamListener = InetSocketAddress("127.0.0.1", fakePt.localPort),
@@ -289,11 +299,8 @@ class PluggableTransportSocksBridgeWireTest {
                     socket.soTimeout = 30_000
                     val input = DataInputStream(socket.getInputStream())
                     val output = socket.getOutputStream()
-                    output.write(byteArrayOf(0x05, 0x01, 0x00))
-                    val greeting = ByteArray(2)
-                    input.readFully(greeting)
-                    assertArrayEquals(byteArrayOf(0x05, 0x00), greeting)
-                    output.write(byteArrayOf(0x05, 0x01, 0x00, 0x01, 192.toByte(), 0, 2, 1, 0x01, 0xBB.toByte()))
+                    LocalSocks5Client.authenticate(input, output, credentials)
+                    output.write(byteArrayOf(0x05, 0x01, 0x00, 0x01, 198.toByte(), 51, 100, 2, 0, 80))
                     val reply = ByteArray(10)
                     input.readFully(reply)
                     assertEquals("CONNECT reply code", 0x00, reply[1].toInt())
