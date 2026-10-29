@@ -63,7 +63,6 @@
 
 mod feedback;
 mod lifecycle;
-mod prior_store;
 mod probe_results;
 mod selection;
 mod shared_priors;
@@ -87,7 +86,7 @@ pub use shared_priors::{
     SHARED_PRIORS_PUB_KEY, SharedPriorsError, SharedPriorsManifest, apply_global_shared_priors,
     apply_global_shared_priors_with_embedded_key, apply_priors, apply_priors_with_embedded_key, canonical_combo_hash,
     global_protocol_threat_priors_len, global_shared_priors_len, is_production_key_set, latest_protocol_threat_priors,
-    latest_shared_priors,
+    latest_shared_priors, with_shared_priors,
 };
 
 use std::collections::HashMap;
@@ -151,13 +150,6 @@ pub struct StrategyEvolver {
     /// the standard score. Defaults to `false` so existing callers see
     /// unchanged behaviour.
     pub penalties_enabled: bool,
-    /// Shared Beta posteriors keyed by canonical combo hash. Populated by
-    /// [`Self::apply_shared_priors`] from a verified GitHub-hosted bundle.
-    /// Selection blends them with local counts at a capped weight (see
-    /// `selection::SHARED_PRIOR_WEIGHT_CAP`): the "field data wins" merge rule
-    /// lives at the consumption site so the bundle stays a pure prior store.
-    /// The process-global registry takes precedence when it holds records.
-    shared_priors: HashMap<u64, BetaParams>,
     /// Test-only override for the monotonic clock; production code leaves
     /// this `None` and the evolver uses [`Instant`] deltas.
     #[cfg(test)]

@@ -4,6 +4,8 @@
 
 pub mod coarse_payload;
 pub mod jitter;
+#[cfg(test)]
+mod key_hex;
 pub mod manifest;
 pub mod parser;
 pub mod uploader;
@@ -11,7 +13,7 @@ mod watermark;
 
 use std::collections::HashMap;
 use std::path::Path;
-use std::sync::{OnceLock, RwLock};
+use std::sync::{Arc, Mutex, OnceLock, PoisonError, RwLock};
 
 pub use {
     manifest::{ManifestError, SHARED_PRIORS_PUB_KEY, SharedPriorsManifest, is_production_key_set},
@@ -129,10 +131,38 @@ struct RegistryState {
     protocol_threats: ProtocolThreatPriors,
 }
 
-static SHARED_PRIORS_REGISTRY: OnceLock<RwLock<RegistryState>> = OnceLock::new();
+/// Readers clone the `Arc` under a short read lock and release it; a refresh
+/// swaps the whole snapshot, so readers never see a partial update.
+static SHARED_PRIORS_REGISTRY: OnceLock<RwLock<Arc<RegistryState>>> = OnceLock::new();
+/// Serializes whole refreshes (watermark check-and-store plus publish) so two
+/// concurrent applies cannot interleave while the registry lock stays free
+/// during watermark file I/O.
+static APPLY_LOCK: Mutex<()> = Mutex::new(());
 
-fn registry() -> &'static RwLock<RegistryState> {
-    SHARED_PRIORS_REGISTRY.get_or_init(|| RwLock::new(RegistryState::default()))
+fn registry() -> &'static RwLock<Arc<RegistryState>> {
+    SHARED_PRIORS_REGISTRY.get_or_init(|| RwLock::new(Arc::new(RegistryState::default())))
+}
+
+#[cfg(any(test, feature = "test-support"))]
+thread_local! {
+    static THREAD_SNAPSHOT: std::cell::RefCell<Option<Arc<RegistryState>>> = const { std::cell::RefCell::new(None) };
+}
+
+fn snapshot() -> Arc<RegistryState> {
+    #[cfg(any(test, feature = "test-support"))]
+    if let Some(local) = THREAD_SNAPSHOT.with(|cell| cell.borrow().clone()) {
+        return local;
+    }
+    Arc::clone(&registry().read().unwrap_or_else(PoisonError::into_inner))
+}
+
+/// Test seam: shadow the process-wide registry for the current thread only,
+/// so tests never leak priors into concurrently running tests. `None` removes
+/// the shadow.
+#[cfg(any(test, feature = "test-support"))]
+pub fn set_thread_priors_for_tests(priors: Option<HashMap<u64, PriorParams>>) {
+    let state = priors.map(|priors| Arc::new(RegistryState { priors, ..RegistryState::default() }));
+    THREAD_SNAPSHOT.with(|cell| *cell.borrow_mut() = state);
 }
 
 pub fn apply_global_shared_priors(
@@ -142,8 +172,11 @@ pub fn apply_global_shared_priors(
     watermark_path: &Path,
 ) -> Result<usize, ApplyError> {
     let applied = apply_priors(manifest_bytes, priors_bytes, public_key)?;
-    let mut guard = registry().write().expect("shared priors registry poisoned");
-    publish_verified(applied, watermark_path, &mut guard)
+    let _apply = APPLY_LOCK.lock().unwrap_or_else(PoisonError::into_inner);
+    let mut next = RegistryState::default();
+    let count = publish_verified(applied, watermark_path, &mut next)?;
+    *registry().write().unwrap_or_else(PoisonError::into_inner) = Arc::new(next);
+    Ok(count)
 }
 
 fn publish_verified(
@@ -166,19 +199,24 @@ pub fn apply_global_shared_priors_with_embedded_key(
 }
 
 pub fn latest_shared_priors() -> HashMap<u64, PriorParams> {
-    registry().read().expect("shared priors registry poisoned").priors.clone()
+    snapshot().priors.clone()
+}
+
+/// Run `f` over the current priors without cloning the map.
+pub fn with_shared_priors<R>(f: impl FnOnce(&HashMap<u64, PriorParams>) -> R) -> R {
+    f(&snapshot().priors)
 }
 
 pub fn global_shared_priors_len() -> usize {
-    registry().read().expect("shared priors registry poisoned").priors.len()
+    snapshot().priors.len()
 }
 
 pub fn latest_protocol_threat_priors() -> ProtocolThreatPriors {
-    registry().read().expect("shared priors registry poisoned").protocol_threats.clone()
+    snapshot().protocol_threats.clone()
 }
 
 pub fn global_protocol_threat_priors_len() -> usize {
-    registry().read().expect("shared priors registry poisoned").protocol_threats.len()
+    snapshot().protocol_threats.len()
 }
 
 #[cfg(test)]

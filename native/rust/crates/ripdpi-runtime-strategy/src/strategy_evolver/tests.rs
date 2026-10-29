@@ -1360,81 +1360,6 @@ fn monotonic_clock_survives_systemtime_jumps() {
 // Shared-priors integration
 // -----------------------------------------------------------------
 
-#[test]
-fn apply_shared_priors_loads_records_under_test_key() {
-    use shared_priors::manifest::test_support::{generate_test_key, sign_manifest_bytes};
-
-    let priors =
-        b"{\"combo_hash\": 1, \"alpha\": 12.0, \"beta\": 4.0}\n{\"combo_hash\": 2, \"alpha\": 3.0, \"beta\": 1.0}\n";
-    let key = generate_test_key();
-    let manifest = sign_manifest_bytes(&key, priors, 1, "https://example/p.ndjson");
-
-    let mut evolver = StrategyEvolver::new(true, 0.0);
-    let count = evolver
-        .apply_shared_priors(manifest.as_bytes(), priors, &key.public_bytes)
-        .expect("apply must succeed under test key");
-    assert_eq!(count, 2);
-    assert_eq!(evolver.shared_priors_len(), 2);
-}
-
-#[test]
-fn apply_shared_priors_fail_secure_keeps_existing_store() {
-    use shared_priors::manifest::test_support::{generate_test_key, sign_manifest_bytes};
-
-    let priors = b"{\"combo_hash\": 1, \"alpha\": 12.0, \"beta\": 4.0}\n";
-    let key = generate_test_key();
-    let manifest = sign_manifest_bytes(&key, priors, 1, "https://example/p.ndjson");
-    let mut evolver = StrategyEvolver::new(true, 0.0);
-    evolver.apply_shared_priors(manifest.as_bytes(), priors, &key.public_bytes).expect("first apply must succeed");
-    assert_eq!(evolver.shared_priors_len(), 1);
-
-    // Second call: a tampered payload. Verification must fail and the
-    // previously-loaded prior must remain in place.
-    let tampered = b"{\"combo_hash\": 1, \"alpha\": 99.0, \"beta\": 4.0}\n";
-    let err = evolver
-        .apply_shared_priors(manifest.as_bytes(), tampered, &key.public_bytes)
-        .expect_err("tampered apply must fail");
-    assert!(matches!(err, ApplyError::Manifest(ManifestError::HashMismatch)));
-    assert_eq!(evolver.shared_priors_len(), 1, "fail-secure: existing priors must survive a failed refresh");
-}
-
-#[test]
-fn shared_prior_for_returns_loaded_record_by_canonical_hash() {
-    use shared_priors::manifest::test_support::{generate_test_key, sign_manifest_bytes};
-
-    // Pre-compute the canonical hash of a specific combo so the bundle
-    // can reference it. The combo here is `Some(AutoHost) split offset
-    // + fake_ttl=8`, which yields a stable canonical hash by design.
-    let combo = StrategyCombo {
-        split_offset_base: Some(OffsetBase::AutoHost),
-        tls_record_offset_base: None,
-        tlsrandrec_profile: None,
-        udp_burst_profile: None,
-        quic_fake_profile: None,
-        fake_ttl: Some(8),
-        entropy_mode: None,
-        timing_jitter_profile: None,
-        oob_byte_placement: None,
-    };
-    let hash = canonical_combo_hash(&combo);
-    let priors_json = format!("{{\"combo_hash\": {hash}, \"alpha\": 7.0, \"beta\": 3.0}}\n");
-    let key = generate_test_key();
-    let manifest = sign_manifest_bytes(&key, priors_json.as_bytes(), 1, "https://example/p.ndjson");
-
-    let mut evolver = StrategyEvolver::new(true, 0.0);
-    evolver
-        .apply_shared_priors(manifest.as_bytes(), priors_json.as_bytes(), &key.public_bytes)
-        .expect("apply must succeed");
-
-    let prior = evolver.shared_prior_for(&combo).expect("prior should be loaded for this combo");
-    assert!((prior.alpha - 7.0).abs() < f64::EPSILON);
-    assert!((prior.beta - 3.0).abs() < f64::EPSILON);
-
-    // A different combo must not match.
-    let other_combo = StrategyCombo::default_combo();
-    assert!(evolver.shared_prior_for(&other_combo).is_none());
-}
-
 // -----------------------------------------------------------------
 // EnvironmentKind context segregation
 // -----------------------------------------------------------------
@@ -1487,25 +1412,34 @@ fn evolver_per_context_state_segregates_by_environment() {
     assert!(e.contexts.contains_key(&emulator_ctx));
 }
 
-#[test]
-fn embedded_key_apply_short_circuits_until_release_key_lands() {
-    use shared_priors::manifest::test_support::{generate_test_key, sign_manifest_bytes};
-
-    let priors = b"{\"combo_hash\": 1, \"alpha\": 12.0, \"beta\": 4.0}\n";
-    let key = generate_test_key();
-    let manifest = sign_manifest_bytes(&key, priors, 1, "https://example/p.ndjson");
-
-    let mut evolver = StrategyEvolver::new(true, 0.0);
-    let err = evolver
-        .apply_shared_priors_with_embedded_key(manifest.as_bytes(), priors)
-        .expect_err("placeholder embedded key must reject");
-    assert!(matches!(err, ApplyError::Manifest(ManifestError::NoProductionKey)));
-    assert_eq!(evolver.shared_priors_len(), 0, "no priors should be stored after a rejected apply");
-}
-
 // -----------------------------------------------------------------
 // Shared-priors consumption in selection
 // -----------------------------------------------------------------
+
+use super::selection::{SHARED_PRIOR_WEIGHT_CAP, blended_success_mean};
+
+/// Shadows the global priors registry for the current test thread and clears
+/// the shadow on drop, so tests stay order-independent.
+struct ThreadPriors;
+
+impl ThreadPriors {
+    fn set(entries: &[(&StrategyCombo, f64, f64)]) -> Self {
+        let map = entries
+            .iter()
+            .map(|(combo, alpha, beta)| {
+                (canonical_combo_hash(combo), ripdpi_shared_priors::PriorParams { alpha: *alpha, beta: *beta })
+            })
+            .collect();
+        ripdpi_shared_priors::set_thread_priors_for_tests(Some(map));
+        Self
+    }
+}
+
+impl Drop for ThreadPriors {
+    fn drop(&mut self) {
+        ripdpi_shared_priors::set_thread_priors_for_tests(None);
+    }
+}
 
 fn tls_evolver_with_local_winner(winner_stats: ComboStats) -> (StrategyEvolver, StrategyCombo, StrategyCombo) {
     let mut evolver = StrategyEvolver::new(true, 0.0);
@@ -1528,17 +1462,24 @@ fn local_stats(attempts: u32, successes: u32) -> ComboStats {
 
 #[test]
 fn selection_is_unchanged_without_shared_priors() {
-    let (mut evolver, winner, _) = tls_evolver_with_local_winner(local_stats(3, 1));
-    assert_eq!(evolver.shared_priors_len(), 0);
+    let (mut evolver, winner, candidate) = tls_evolver_with_local_winner(local_stats(3, 1));
     for _ in 0..20 {
         assert_eq!(evolver.select_next_combo(), winner);
     }
+    // Priors that name neither the base nor any candidate arm change nothing.
+    let unrelated = StrategyCombo { fake_ttl: Some(77), ..StrategyCombo::default_combo() };
+    let _priors = ThreadPriors::set(&[(&unrelated, 40.0, 2.0)]);
+    assert_eq!(evolver.select_next_combo(), winner);
+    // Control: the same evolver does switch once a prior names the candidate,
+    // so the checks above would fail if the no-priors guard were ignored.
+    let _priors = ThreadPriors::set(&[(&candidate, 40.0, 2.0)]);
+    assert_eq!(evolver.select_next_combo(), candidate);
 }
 
 #[test]
 fn strong_prior_wins_when_no_field_data() {
     let (mut evolver, winner, candidate) = tls_evolver_with_local_winner(local_stats(3, 1));
-    evolver.shared_priors.insert(canonical_combo_hash(&candidate), BetaParams { alpha: 40.0, beta: 2.0 });
+    let _priors = ThreadPriors::set(&[(&candidate, 40.0, 2.0)]);
     assert_ne!(evolver.select_next_combo(), winner);
     assert_eq!(evolver.select_next_combo(), candidate);
 }
@@ -1546,13 +1487,72 @@ fn strong_prior_wins_when_no_field_data() {
 #[test]
 fn contrary_field_data_beats_strong_prior() {
     let (mut evolver, winner, candidate) = tls_evolver_with_local_winner(local_stats(20, 20));
-    evolver.shared_priors.insert(canonical_combo_hash(&candidate), BetaParams { alpha: 40.0, beta: 2.0 });
+    let _priors = ThreadPriors::set(&[(&candidate, 40.0, 2.0)]);
     assert_eq!(evolver.select_next_combo(), winner, "a perfect local record must outrank an unobserved prior");
 
     // The prior arm collected its own bad field data: it must lose too.
     let (mut evolver, winner, candidate) = tls_evolver_with_local_winner(local_stats(3, 1));
-    evolver.shared_priors.insert(canonical_combo_hash(&candidate), BetaParams { alpha: 40.0, beta: 2.0 });
     let context = evolver.current_learning_context.clone();
-    evolver.contexts.get_mut(&context).expect("context").combos.insert(candidate, local_stats(30, 3));
+    evolver.contexts.get_mut(&context).expect("context").combos.insert(candidate.clone(), local_stats(30, 3));
+    let _priors = ThreadPriors::set(&[(&candidate, 40.0, 2.0)]);
     assert_eq!(evolver.select_next_combo(), winner);
+}
+
+#[test]
+fn cooled_and_frozen_prior_arms_are_skipped() {
+    let (mut evolver, winner, candidate) = tls_evolver_with_local_winner(local_stats(3, 1));
+    let _priors = ThreadPriors::set(&[(&candidate, 40.0, 2.0)]);
+
+    evolver.combos.insert(candidate.clone(), ComboStats { cooldown_until_ms: Some(10_000), ..ComboStats::new() });
+    evolver.set_test_clock_ms(100);
+    assert_eq!(evolver.select_next_combo(), winner, "cooling arm must be skipped");
+
+    evolver.combos.insert(candidate.clone(), local_stats(5, 5));
+    evolver.max_arm_attempts = 5;
+    assert_eq!(evolver.select_next_combo(), winner, "frozen arm must be skipped");
+
+    evolver.max_arm_attempts = u32::MAX;
+    assert_eq!(evolver.select_next_combo(), candidate);
+}
+
+#[test]
+fn prior_for_wrong_bucket_arm_is_ignored() {
+    let (mut evolver, winner, _) = tls_evolver_with_local_winner(local_stats(3, 1));
+    let quic = pilot_combo_for_bucket(LearningTargetBucket::Quic);
+    assert!(!combo_matches_bucket(&quic, LearningTargetBucket::Tls));
+    let _priors = ThreadPriors::set(&[(&quic, 40.0, 1.0)]);
+    assert_eq!(evolver.select_next_combo(), winner);
+}
+
+#[test]
+fn pilot_and_explore_paths_ignore_priors() {
+    let (_, _, candidate) = tls_evolver_with_local_winner(local_stats(3, 1));
+    let _priors = ThreadPriors::set(&[(&candidate, 1000.0, 1.0)]);
+
+    // Pilot: a bucket that has not been piloted still returns the pilot arm.
+    let mut fresh = StrategyEvolver::new(true, 0.0);
+    fresh.current_learning_context =
+        LearningContext { target_bucket: LearningTargetBucket::Tls, ..LearningContext::default() };
+    fresh.combos.insert(StrategyCombo::default_combo(), local_stats(1, 1));
+    assert_eq!(fresh.select_next_combo(), pilot_combo_for_bucket(LearningTargetBucket::Tls));
+
+    // Explore: epsilon 1.0 stays random over the pool instead of locking onto the prior arm.
+    let (mut explorer, _, _) = tls_evolver_with_local_winner(local_stats(3, 1));
+    explorer.explore_epsilon = 1.0;
+    let picks: std::collections::HashSet<StrategyCombo> = (0..200).map(|_| explorer.select_next_combo()).collect();
+    assert!(picks.len() > 1, "exploration must remain random, got {picks:?}");
+}
+
+#[test]
+fn prior_weight_is_capped() {
+    let local = local_stats(8, 0);
+    // alpha + beta below the cap: weight is the full pseudo-count (4).
+    let below = blended_success_mean(Some(&BetaParams { alpha: 3.0, beta: 1.0 }), Some(&local)).expect("mean");
+    assert!((below - 0.25).abs() < 1e-9, "got {below}");
+    // Exactly at the cap and far above it weigh the same (8).
+    let at = blended_success_mean(Some(&BetaParams { alpha: 6.0, beta: 2.0 }), Some(&local)).expect("mean");
+    let above = blended_success_mean(Some(&BetaParams { alpha: 750.0, beta: 250.0 }), Some(&local)).expect("mean");
+    assert!((at - 0.375).abs() < 1e-9, "got {at}");
+    assert!((above - 0.375).abs() < 1e-9, "got {above}");
+    assert!((SHARED_PRIOR_WEIGHT_CAP - 8.0).abs() < f64::EPSILON);
 }

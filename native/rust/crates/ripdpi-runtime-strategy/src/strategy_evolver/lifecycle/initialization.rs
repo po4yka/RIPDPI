@@ -32,7 +32,6 @@ impl StrategyEvolver {
             cooldown_ms: DEFAULT_COOLDOWN_MS,
             max_arm_attempts: u32::MAX,
             penalties_enabled: false,
-            shared_priors: HashMap::new(),
             #[cfg(test)]
             test_clock_override_ms: None,
         }

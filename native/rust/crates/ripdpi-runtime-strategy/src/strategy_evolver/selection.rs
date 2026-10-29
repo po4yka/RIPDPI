@@ -1,7 +1,9 @@
+use std::collections::HashMap;
+
 use ripdpi_config::{OffsetBase, QuicFakeProfile};
 
 use super::StrategyEvolver;
-use super::shared_priors::canonical_combo_hash;
+use super::shared_priors::{canonical_combo_hash, with_shared_priors};
 use super::thompson_sampling::BetaParams;
 use super::types::{
     COMBO_POOL, ComboStats, ContextBanditState, LearningTargetBucket, StrategyCombo, StrategyFamily, combo_fitness_at,
@@ -18,12 +20,12 @@ impl StrategyEvolver {
     /// strictly better prior-backed arm; with no priors loaded it is returned
     /// untouched.
     fn apply_shared_prior_overlay(&self, base: StrategyCombo) -> StrategyCombo {
-        let priors = self.effective_shared_priors();
+        let context = &self.current_learning_context;
+        let bucket = context.target_bucket;
+        let priors = shared_priors_for_candidates(&base, bucket);
         if priors.is_empty() {
             return base;
         }
-        let context = &self.current_learning_context;
-        let bucket = context.target_bucket;
         let Some(state) = self.contexts.get(context) else {
             return base;
         };
@@ -42,7 +44,8 @@ impl StrategyEvolver {
             if !priors.contains_key(&canonical_combo_hash(&combo)) {
                 continue;
             }
-            let stats = state.combos.get(&combo);
+            // Same cooldown and attempt-budget source as random exploration.
+            let stats = self.combos.get(&combo);
             if stats.is_some_and(|s| s.is_cooled(now_ms) || s.attempts >= self.max_arm_attempts) {
                 continue;
             }
@@ -191,8 +194,27 @@ pub(crate) const SHARED_PRIOR_WEIGHT_CAP: f64 = 8.0;
 /// Mean assumed for an arm with neither prior nor local data.
 const UNKNOWN_ARM_MEAN: f64 = 0.5;
 
+/// Verified priors for `base` and every bucket-matching pool arm, read from the
+/// process-global registry (which enforces the rollback watermark) under one
+/// short read. Empty when no priors are loaded.
+fn shared_priors_for_candidates(base: &StrategyCombo, bucket: LearningTargetBucket) -> HashMap<u64, BetaParams> {
+    with_shared_priors(|all| {
+        if all.is_empty() {
+            return HashMap::new();
+        }
+        let pool = (0..COMBO_POOL.len()).map(combo_from_pool).filter(|combo| combo_matches_bucket(combo, bucket));
+        std::iter::once(base.clone())
+            .chain(pool)
+            .filter_map(|combo| {
+                let hash = canonical_combo_hash(&combo);
+                all.get(&hash).map(|prior| (hash, BetaParams { alpha: prior.alpha, beta: prior.beta }))
+            })
+            .collect()
+    })
+}
+
 /// Success-rate estimate combining a capped shared prior with local counts.
-fn blended_success_mean(prior: Option<&BetaParams>, stats: Option<&ComboStats>) -> Option<f64> {
+pub(super) fn blended_success_mean(prior: Option<&BetaParams>, stats: Option<&ComboStats>) -> Option<f64> {
     let (weight, prior_mean) = prior
         .filter(|p| p.alpha.is_finite() && p.beta.is_finite() && p.alpha > 0.0 && p.beta > 0.0)
         .map_or((0.0, 0.0), |p| ((p.alpha + p.beta).min(SHARED_PRIOR_WEIGHT_CAP), p.mean()));

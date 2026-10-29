@@ -5,7 +5,7 @@ pub use ripdpi_shared_priors::{
     SHARED_PRIORS_PUB_KEY, SharedPriorsError, SharedPriorsManifest, apply_global_shared_priors,
     apply_global_shared_priors_with_embedded_key, apply_priors, apply_priors_with_embedded_key,
     global_protocol_threat_priors_len, global_shared_priors_len, is_production_key_set, latest_protocol_threat_priors,
-    latest_shared_priors,
+    latest_shared_priors, with_shared_priors,
 };
 
 use crate::strategy_evolver::types::{
@@ -53,11 +53,6 @@ fn fnv1a_64(bytes: &[u8]) -> u64 {
         hash = hash.wrapping_mul(0x0000_0100_0000_01b3);
     }
     hash
-}
-
-#[cfg(test)]
-pub(crate) mod manifest {
-    pub(crate) use ripdpi_shared_priors::manifest::test_support;
 }
 
 #[cfg(test)]
