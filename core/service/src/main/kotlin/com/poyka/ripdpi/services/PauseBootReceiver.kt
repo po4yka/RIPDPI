@@ -18,6 +18,8 @@ class PauseBootReceiver : BroadcastReceiver() {
         context: Context,
         intent: Intent,
     ) {
+        // Exported for system broadcasts: ignore any other action an app sends.
+        if (intent.action != Intent.ACTION_BOOT_COMPLETED && intent.action != Intent.ACTION_MY_PACKAGE_REPLACED) return
         val pending = goAsync()
         CoroutineScope(Dispatchers.IO).launch {
             try {
