@@ -62,6 +62,7 @@
 extern crate log;
 
 pub mod client;
+#[cfg(test)]
 pub mod server;
 pub mod util;
 
@@ -203,6 +204,7 @@ pub enum SocksError {
     #[error("Authentication rejected `{0}`")]
     AuthenticationRejected(String),
 
+    #[cfg(test)]
     #[error(transparent)]
     ServerError(#[from] server::SocksServerError),
 
