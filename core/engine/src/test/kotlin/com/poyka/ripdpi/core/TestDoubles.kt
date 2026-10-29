@@ -30,16 +30,6 @@ class FakeRipDpiSshHostKeyBindings : RipDpiSshHostKeyBindings {
     }
 }
 
-class FakeProxyPreferencesResolver(
-    private var preferences: RipDpiProxyPreferences = RipDpiProxyUIPreferences(),
-) : ProxyPreferencesResolver {
-    override suspend fun resolve(): RipDpiProxyPreferences = preferences
-
-    fun setPreferences(preferences: RipDpiProxyPreferences) {
-        this.preferences = preferences
-    }
-}
-
 class FakeRipDpiProxyFactory(
     private val proxy: RipDpiProxyRuntime,
 ) : RipDpiProxyFactory {

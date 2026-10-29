@@ -1,10 +1,8 @@
 package com.poyka.ripdpi.testing
 
 import android.os.ParcelFileDescriptor
-import com.poyka.ripdpi.core.ProxyPreferencesResolver
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
-import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.Tun2SocksConfig
@@ -398,22 +396,6 @@ enum class VpnSessionFaultTarget {
     ESTABLISH,
 }
 
-class FixedProxyPreferencesResolver(
-    private val preferences: com.poyka.ripdpi.core.RipDpiProxyPreferences = RipDpiProxyUIPreferences(),
-) : ProxyPreferencesResolver {
-    override suspend fun resolve(): com.poyka.ripdpi.core.RipDpiProxyPreferences = preferences
-}
-
-class MutableProxyPreferencesResolver(
-    private var delegate: ProxyPreferencesResolver = FixedProxyPreferencesResolver(),
-) : ProxyPreferencesResolver {
-    override suspend fun resolve(): com.poyka.ripdpi.core.RipDpiProxyPreferences = delegate.resolve()
-
-    fun replaceWith(delegate: ProxyPreferencesResolver) {
-        this.delegate = delegate
-    }
-}
-
 class RecordingNetworkHandoverMonitor : NetworkHandoverMonitor {
     private val eventFlow = MutableSharedFlow<NetworkHandoverEvent>(extraBufferCapacity = 8)
 
@@ -453,8 +435,6 @@ object IntegrationTestOverrides {
         private set
     lateinit var vpnTunnelSessionProvider: RecordingVpnTunnelSessionProvider
         private set
-    lateinit var proxyPreferencesResolver: ProxyPreferencesResolver
-        private set
     lateinit var networkHandoverMonitor: RecordingNetworkHandoverMonitor
         private set
     lateinit var permissionWatchdog: RecordingPermissionWatchdog
@@ -471,16 +451,8 @@ object IntegrationTestOverrides {
         proxyFactory = RecordingRipDpiProxyFactory(orderEvents)
         tun2SocksBridgeFactory = RecordingTun2SocksBridgeFactory(orderEvents)
         vpnTunnelSessionProvider = RecordingVpnTunnelSessionProvider(orderEvents)
-        proxyPreferencesResolver = MutableProxyPreferencesResolver()
         networkHandoverMonitor = RecordingNetworkHandoverMonitor()
         permissionWatchdog = RecordingPermissionWatchdog()
-    }
-
-    fun overrideProxyPreferencesResolver(resolver: ProxyPreferencesResolver) {
-        (proxyPreferencesResolver as? MutableProxyPreferencesResolver)?.replaceWith(resolver)
-            ?: run {
-                proxyPreferencesResolver = MutableProxyPreferencesResolver(resolver)
-            }
     }
 
     fun orderSnapshot(): List<String> = orderEvents.toList()

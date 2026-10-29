@@ -1,61 +1,13 @@
 package com.poyka.ripdpi.core
 
-import android.content.Context
-import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
-import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.data.TunnelStats
-import com.poyka.ripdpi.data.WsTunnelWorkerCredentialStore
-import com.poyka.ripdpi.data.resolveTransport
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
 import javax.inject.Singleton
-
-interface ProxyPreferencesResolver {
-    suspend fun resolve(): RipDpiProxyPreferences
-}
-
-@Singleton
-class DefaultProxyPreferencesResolver
-    @Inject
-    constructor(
-        @param:ApplicationContext private val context: Context,
-        private val appSettingsRepository: AppSettingsRepository,
-        private val strategyPackStateStore: StrategyPackStateStore,
-        private val wsTunnelWorkerCredentialStore: WsTunnelWorkerCredentialStore,
-    ) : ProxyPreferencesResolver {
-        override suspend fun resolve(): RipDpiProxyPreferences {
-            val settings = appSettingsRepository.snapshot()
-            val hostAutolearnStorePath = resolveHostAutolearnStorePath(context)
-            val morphPolicy =
-                strategyPackStateStore.state.value.morphPolicy
-                    ?.toRipDpiMorphPolicy()
-            val geoDatabasePaths = resolveGeoDatabasePaths(context)
-            return if (settings.enableCmdSettings) {
-                RipDpiProxyCmdPreferences(
-                    settings.cmdArgs,
-                    hostAutolearnStorePath,
-                    runtimeContext = null,
-                    geoipDbPath = geoDatabasePaths.geoipDbPath,
-                    geositeDbPath = geoDatabasePaths.geositeDbPath,
-                )
-            } else {
-                val workerTransport = wsTunnelWorkerCredentialStore.resolveTransport(settings)
-                RipDpiProxyUIPreferences.fromSettings(
-                    settings,
-                    hostAutolearnStorePath,
-                    runtimeContext = RipDpiRuntimeContext(morphPolicy = morphPolicy),
-                    geoipDbPath = geoDatabasePaths.geoipDbPath,
-                    geositeDbPath = geoDatabasePaths.geositeDbPath,
-                    workerBearer = workerTransport?.authBearer?.value,
-                )
-            }
-        }
-    }
 
 interface RipDpiProxyFactory {
     fun create(): RipDpiProxyRuntime
@@ -180,14 +132,6 @@ class DefaultNetworkDiagnosticsBridgeFactory
     ) : NetworkDiagnosticsBridgeFactory {
         override fun create(): NetworkDiagnosticsBridge = NetworkDiagnostics(bindings)
     }
-
-@Module
-@InstallIn(SingletonComponent::class)
-abstract class ProxyPreferencesResolverModule {
-    @Binds
-    @Singleton
-    abstract fun bindProxyPreferencesResolver(resolver: DefaultProxyPreferencesResolver): ProxyPreferencesResolver
-}
 
 @Module
 @InstallIn(SingletonComponent::class)

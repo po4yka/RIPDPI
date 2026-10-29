@@ -7,8 +7,6 @@ import android.os.Build
 import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.rule.GrantPermissionRule
-import com.poyka.ripdpi.core.ProxyPreferencesResolver
-import com.poyka.ripdpi.core.ProxyPreferencesResolverModule
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyFactoryModule
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
@@ -77,7 +75,6 @@ import kotlin.time.Duration.Companion.seconds
 @HiltAndroidTest
 @UninstallModules(
     AppSettingsRepositoryModule::class,
-    ProxyPreferencesResolverModule::class,
     RipDpiProxyFactoryModule::class,
     Tun2SocksBridgeFactoryModule::class,
     ServiceStateStoreModule::class,
@@ -104,10 +101,6 @@ class ServiceLifecycleIntegrationTest {
     @BindValue
     @JvmField
     var appSettingsRepository: AppSettingsRepository = IntegrationTestOverrides.appSettingsRepository
-
-    @BindValue
-    @JvmField
-    var proxyPreferencesResolver: ProxyPreferencesResolver = IntegrationTestOverrides.proxyPreferencesResolver
 
     @BindValue
     @JvmField
@@ -159,7 +152,6 @@ class ServiceLifecycleIntegrationTest {
     fun setUp() {
         val bindings = resetServiceLifecycleIntegrationBindings()
         appSettingsRepository = bindings.appSettingsRepository
-        proxyPreferencesResolver = bindings.proxyPreferencesResolver
         proxyFactory = bindings.proxyFactory
         tun2SocksBridgeFactory = bindings.tun2SocksBridgeFactory
         orderedServiceStateStore = bindings.serviceStateStore

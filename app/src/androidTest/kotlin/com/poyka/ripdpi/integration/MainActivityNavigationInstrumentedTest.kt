@@ -22,8 +22,6 @@ import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.MainActivity
 import com.poyka.ripdpi.activities.MainActivityHost
 import com.poyka.ripdpi.activities.MainActivityHostCommand
-import com.poyka.ripdpi.core.ProxyPreferencesResolver
-import com.poyka.ripdpi.core.ProxyPreferencesResolverModule
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyFactoryModule
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
@@ -96,7 +94,6 @@ import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsScanController
 import com.poyka.ripdpi.testing.StubInstrumentedDiagnosticsTimelineSource
 import com.poyka.ripdpi.testing.StubInstrumentedLastExitInspector
 import com.poyka.ripdpi.testing.StubInstrumentedMemoryProfilingRegistrar
-import com.poyka.ripdpi.testing.StubInstrumentedProxyPreferencesResolver
 import com.poyka.ripdpi.testing.StubInstrumentedRipDpiProxyFactory
 import com.poyka.ripdpi.testing.StubInstrumentedTun2SocksBridgeFactory
 import com.poyka.ripdpi.testing.StubInstrumentedVpnTunnelSessionProvider
@@ -223,7 +220,6 @@ private fun AndroidComposeTestRule<*, MainActivity>.pressBack() {
 @HiltAndroidTest
 @UninstallModules(
     AppSettingsRepositoryModule::class,
-    ProxyPreferencesResolverModule::class,
     RipDpiProxyFactoryModule::class,
     Tun2SocksBridgeFactoryModule::class,
     ServiceStateStoreModule::class,
@@ -261,10 +257,6 @@ class MainActivityNavigationInstrumentedTest {
     @JvmField
     var appSettingsRepository: AppSettingsRepository =
         FakeInstrumentedAppSettingsRepository(navigationSettings())
-
-    @BindValue
-    @JvmField
-    var proxyPreferencesResolver: ProxyPreferencesResolver = StubInstrumentedProxyPreferencesResolver()
 
     @BindValue
     @JvmField
@@ -581,7 +573,6 @@ class MainActivityNavigationInstrumentedTest {
 @HiltAndroidTest
 @UninstallModules(
     AppSettingsRepositoryModule::class,
-    ProxyPreferencesResolverModule::class,
     RipDpiProxyFactoryModule::class,
     Tun2SocksBridgeFactoryModule::class,
     ServiceStateStoreModule::class,
@@ -621,10 +612,6 @@ class MainActivityOnboardingStartupInstrumentedTest {
         FakeInstrumentedAppSettingsRepository(
             navigationSettings(onboardingComplete = false),
         )
-
-    @BindValue
-    @JvmField
-    var proxyPreferencesResolver: ProxyPreferencesResolver = StubInstrumentedProxyPreferencesResolver()
 
     @BindValue
     @JvmField
@@ -774,7 +761,6 @@ class MainActivityOnboardingStartupInstrumentedTest {
 @HiltAndroidTest
 @UninstallModules(
     AppSettingsRepositoryModule::class,
-    ProxyPreferencesResolverModule::class,
     RipDpiProxyFactoryModule::class,
     Tun2SocksBridgeFactoryModule::class,
     ServiceStateStoreModule::class,
@@ -815,10 +801,6 @@ class MainActivityBiometricStartupInstrumentedTest {
         FakeInstrumentedAppSettingsRepository(
             navigationSettings(biometricEnabled = true).toBuilder().setBackupPin("1234").build(),
         )
-
-    @BindValue
-    @JvmField
-    var proxyPreferencesResolver: ProxyPreferencesResolver = StubInstrumentedProxyPreferencesResolver()
 
     @BindValue
     @JvmField

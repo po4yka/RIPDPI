@@ -6,10 +6,8 @@ import com.poyka.ripdpi.activities.MainActivityHost
 import com.poyka.ripdpi.activities.MainActivityHostCommand
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.activities.mapNotificationPermissionResult
-import com.poyka.ripdpi.core.ProxyPreferencesResolver
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.RipDpiProxyRuntime
-import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
 import com.poyka.ripdpi.core.Tun2SocksBridge
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.core.Tun2SocksConfig
@@ -496,10 +494,6 @@ class FakeInstrumentedServiceStateStore(
     private fun publishHistory(event: ServiceHistoryEvent) {
         check(historyEventStream.trySend(event).isSuccess) { "Service history event stream is unavailable" }
     }
-}
-
-class StubInstrumentedProxyPreferencesResolver : ProxyPreferencesResolver {
-    override suspend fun resolve(): com.poyka.ripdpi.core.RipDpiProxyPreferences = RipDpiProxyUIPreferences()
 }
 
 class StubInstrumentedRipDpiProxyRuntime : RipDpiProxyRuntime {

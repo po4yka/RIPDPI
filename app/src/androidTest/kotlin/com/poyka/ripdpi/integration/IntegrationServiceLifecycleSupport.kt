@@ -2,7 +2,6 @@ package com.poyka.ripdpi.integration
 
 import android.content.Context
 import android.content.Intent
-import com.poyka.ripdpi.core.ProxyPreferencesResolver
 import com.poyka.ripdpi.core.RipDpiProxyFactory
 import com.poyka.ripdpi.core.Tun2SocksBridgeFactory
 import com.poyka.ripdpi.data.AppSettingsRepository
@@ -26,7 +25,6 @@ import kotlinx.coroutines.withTimeout
 
 internal data class ServiceLifecycleIntegrationBindings(
     val appSettingsRepository: AppSettingsRepository,
-    val proxyPreferencesResolver: ProxyPreferencesResolver,
     val proxyFactory: RipDpiProxyFactory,
     val tun2SocksBridgeFactory: Tun2SocksBridgeFactory,
     val serviceStateStore: OrderedServiceStateStore,
@@ -39,7 +37,6 @@ internal fun resetServiceLifecycleIntegrationBindings(): ServiceLifecycleIntegra
     IntegrationTestOverrides.reset()
     return ServiceLifecycleIntegrationBindings(
         appSettingsRepository = IntegrationTestOverrides.appSettingsRepository,
-        proxyPreferencesResolver = IntegrationTestOverrides.proxyPreferencesResolver,
         proxyFactory = IntegrationTestOverrides.proxyFactory,
         tun2SocksBridgeFactory = IntegrationTestOverrides.tun2SocksBridgeFactory,
         serviceStateStore = IntegrationTestOverrides.serviceStateStore,
