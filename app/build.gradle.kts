@@ -468,6 +468,16 @@ dependencies {
     androidTestUtil(libs.androidx.test.orchestrator)
     androidTestImplementation(libs.androidx.test.espresso.core)
     androidTestImplementation(libs.androidx.test.uiautomator)
+    // Material breaks androidTest resource linking (attr/drawerLayoutStyle) and the app is Compose-only;
+    // protobuf-lite 3.0.1 (via espresso-contrib's accessibility framework) shadows the app's protobuf-javalite.
+    androidTestImplementation(libs.kaspresso) {
+        exclude(group = "com.google.android.material")
+        exclude(group = "com.google.protobuf", module = "protobuf-lite")
+    }
+    androidTestImplementation(libs.kaspresso.compose.support) {
+        exclude(group = "com.google.android.material")
+        exclude(group = "com.google.protobuf", module = "protobuf-lite")
+    }
     androidTestImplementation(platform(libs.androidx.compose.bom))
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     androidTestImplementation(project(":core:diagnostics-data"))
