@@ -363,6 +363,7 @@ extensions.configure<ApplicationExtension> {
     buildTypes {
         release {
             signingConfig = signingConfigs.findByName("release")
+            testProguardFiles("proguard-androidtest-rules.pro")
             buildConfigField("String", "VERSION_NAME", "\"${defaultConfig.versionName}\"")
             buildConfigField("String", "GIT_COMMIT", "\"$gitCommit\"")
             buildConfigField("String", "NATIVE_LIB_VERSION", "\"$nativeLibVersion\"")
