@@ -10,7 +10,7 @@ contract: every unsafe operation reachable from safe code must either be impossi
 to misuse (enforced by types/lifetimes/visibility/RAII) or documented and allowlisted
 through this guard.
 
-The companion file `scripts/ci/unsafe-boundary-allowlist.toml` records the EXISTING
+The companion file `ci/unsafe-boundary-allowlist.toml` records the EXISTING
 unsafe-boundary surface snapshotted from main at the time this guard was introduced.
 Each entry must include the file, the pattern, why the boundary is sound, who enforces
 the preconditions, the owner, and a review date.

@@ -301,24 +301,6 @@ review_date = "2026-11-15"
 # invoked by the OS/runtime, never directly from Rust code.
 # ---------------------------------------------------------------------------
 [[entries]]
-file = "native/rust/crates/ripdpi-proxy-runtime/src/process.rs"
-pattern = 'extern "C" fn'
-reason = "SIGCHLD/SIGTERM signal handler installed via libc::sigaction"
-preconditions = "Invoked asynchronously by the OS; must remain async-signal-safe (no allocation, no mutex)"
-enforcement = "Body only performs atomic flag stores; reviewed each time it changes"
-owner = "proxy-runtime"
-review_date = "2026-11-15"
-
-[[entries]]
-file = "native/rust/crates/ripdpi-proxy-runtime-adapter/src/platform.rs"
-pattern = 'extern "C" fn'
-reason = "Connect-hook callback handed to socket2 for platform connect customization"
-preconditions = "Invoked by socket2 with a borrowed SOCKET handle valid for the call"
-enforcement = "Callback delegates to a `Box<dyn Fn>` whose lifetime is owned by the caller"
-owner = "proxy-runtime-adapter"
-review_date = "2026-11-15"
-
-[[entries]]
 file = "native/rust/crates/ripdpi-root-helper/src/main.rs"
 pattern = 'extern "C" fn'
 reason = "Root-helper SIGCHLD reaper signal handler"
@@ -356,22 +338,6 @@ reason = "Materialize the `received`-prefixed window of an `[MaybeUninit<u8>; 81
 preconditions = "`recv_from` initialised exactly the first `received` bytes; `received <= buf.len()`"
 enforcement = "Caller is a private function inside the same module; the buffer is a stack `[MaybeUninit<u8>; 8192]` that outlives the slice"
 owner = "privileged-ops"
-review_date = "2026-11-15"
-
-# ---------------------------------------------------------------------------
-# `CStr::from_ptr` adapter over a POSIX `uname(2)` `release` field. The
-# field is a fixed-size `[c_char; N]` inside a local `libc::utsname` that
-# `uname(2)` is contractually required to populate with a NUL-terminated
-# string; the returned `&CStr` is consumed in the same function before the
-# `utsname` goes out of scope.
-# ---------------------------------------------------------------------------
-[[entries]]
-file = "native/rust/crates/ripdpi-io-uring/src/probe.rs"
-pattern = "CStr::from_ptr"
-reason = "Parse the kernel version string from a successfully-populated `libc::utsname.release` field"
-preconditions = "`uname(2)` returned 0 (checked), guaranteeing `utsname.release` is a NUL-terminated byte sequence within the fixed-size array; pointer is aligned and the array outlives the `&CStr`"
-enforcement = "POSIX `uname(2)` contract for NUL termination; lifetime bounded by the enclosing `kernel_version_at_least` function — `release.to_string_lossy()` consumes the borrow before `utsname` drops"
-owner = "io-uring"
 review_date = "2026-11-15"
 
 # ---------------------------------------------------------------------------
@@ -714,15 +680,6 @@ review_date = "2026-11-15"
 # neither targets a type with a validity invariant (no references, no
 # NonNull, no NonZero*, no bool/char/enum in either case).
 # ---------------------------------------------------------------------------
-[[entries]]
-file = "native/rust/crates/ripdpi-io-uring/src/probe.rs"
-pattern = "mem::zeroed"
-reason = "`std::mem::zeroed::<libc::utsname>()` produces a zero-initialised libc::utsname for `libc::uname(&mut utsname)` to populate"
-preconditions = "`libc::utsname` is `#[repr(C)]` with fields that are all `[c_char; N]` arrays (`sysname`, `nodename`, `release`, `version`, `machine`, `domainname`). `c_char` is `i8` on most Unix targets; the zero bit pattern represents `0i8` which is both a valid `i8` value AND the C NUL terminator (the contractually expected initial state for unfilled C strings)."
-enforcement = "Field-by-field zero-validity: every field is `[c_char; N]` (= `[i8; N]`), and `i8` has no validity invariant beyond 'is an i8' — zero bytes trivially satisfy that. The variable is immediately handed to `libc::uname(&mut utsname)` which the kernel contract requires to populate every field; only `release.as_ptr()` is read post-call (already allowlisted under issue #6's `CStr::from_ptr` entry). No `bool`/`char`/enum/reference/NonNull/NonZero/function pointer field exists; no validity violation is possible."
-owner = "io-uring"
-review_date = "2026-11-15"
-
 [[entries]]
 file = "native/rust/crates/ripdpi-privileged-ops/src/linux/mmap_region.rs"
 pattern = "ptr::write_bytes"
