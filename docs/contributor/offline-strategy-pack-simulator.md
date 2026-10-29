@@ -88,7 +88,7 @@ offline-sim-<bucket-slug>-<clusterFingerprintHash[:12]>      # simulated provena
 offline-<bucket-slug>-<clusterFingerprintHash[:12]>          # field provenance
 ```
 
-The `offline-sim-` prefix is applied by `build_strategy_pack` in
+The `offline-sim-` prefix is applied by `build_generated_pack` in
 `scripts/analytics/strategy_pack.py` whenever `provenance == "simulated"`. Because
 the fingerprint hash is a pure function of deterministic input, re-running the same
 `(scenarios, seed, count)` reproduces the same pack ids.

@@ -327,33 +327,11 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 ## 5. Crates that must stay Android/JNI-free
 
 Every crate **except the 13 L8 crates** must not depend on `jni`,
-`android-support`, `android_logger`, or any `ndk-*` crate. That is **104 crates**
-— all of L0–L7:
-
-> `feature-contract-harness`, `golden-test-support`, `local-network-fixture`,
-> `native-soak-support`, `ripdpi-bench`, `ripdpi-cli`, `ripdpi-packets`, `ripdpi-tls-profiles`,
-> `ripdpi-socks5-core`, `ripdpi-ipfrag`, `ripdpi-collections`, `ripdpi-geo`,
-> `ripdpi-protocol-detect`, `ripdpi-protocol-loopback`, `ripdpi-dns-resolver`,
-> `ripdpi-pcap`, `ripdpi-flow-app-attribution`,
-> `ripdpi-config`, `ripdpi-proxy-config`, `ripdpi-tunnel-config`,
-> `ripdpi-strategy-config`, `ripdpi-strategy-trait`, `ripdpi-runtime-api`,
-> `ripdpi-runtime-decision-ports`, `ripdpi-diagnostics-contracts`,
-> `ripdpi-telemetry`, `ripdpi-ws-transport-port`, `ripdpi-desync`, `ripdpi-desync-runtime`,
-> `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-session-limit`,
-> `ripdpi-shared-priors`, `ripdpi-quality`, `ripdpi-runtime-decision-engine`,
-> `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`,
-> `ripdpi-runtime-strategy`, `ripdpi-strategy-core`, `ripdpi-strategy-http`,
-> `ripdpi-strategy-ipv6`,
-> `ripdpi-strategy-lua`, `ripdpi-strategy-udp`, `ripdpi-strategy-window`,
-> `ripdpi-strategy-registry`, `ripdpi-proxy-runtime`,
-> `ripdpi-proxy-runtime-adapter`, `ripdpi-proxy-runtime-desync-adapter`,
-> `ripdpi-runtime-services`, `ripdpi-runtime-dns-cache`, `ripdpi-tunnel-core`,
-> `ripdpi-tunnel-intercept`, `ripdpi-ws-bootstrap`, `ripdpi-runtime-platform`,
-> `ripdpi-native-protect`, `ripdpi-tun-driver`, `ripdpi-io-uring`,
-> `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`,
-> `ripdpi-root-helper`, the 10 `ripdpi-diagnostics-*` crates (all except
-> `-contracts`, which is L2 and also JNI-free), the 3 `ripdpi-monitor-*`
-> crates, and the L7 relay-transport crates.
+`android-support`, `android_logger`, or any `ndk-*` crate. That is every crate in layers L0-L7 of [§2](#2-crate-taxonomy), including the
+support crates, the 10 `ripdpi-diagnostics-*` crates other than `-contracts`
+(which is L2 and also JNI-free), the 3 `ripdpi-monitor-*` crates, and the L7
+relay-transport crates. The layer rows in §2 are the list; this document does
+not repeat the names.
 
 Load-bearing cases: `ripdpi-runtime-platform` and `ripdpi-native-protect` are
 the *platform ports* — they must define the abstraction and stay JNI-free so
@@ -428,7 +406,7 @@ declared in `[workspace.metadata.ripdpi]`:
 - `feature-contract-harness` is also L0 test infrastructure, but it is a
   workspace member rather than part of the metadata allowlist above.
 
-When reasoning about what ships, exclude all seven L0 crates. `local-network-fixture`
+When reasoning about what ships, exclude all L0 crates. `local-network-fixture`
 also builds a fixture `bin`, `feature-contract-harness` is test-only, and
 `ripdpi-bench` is a Criterion harness — none is a runtime artifact.
 

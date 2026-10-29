@@ -445,7 +445,7 @@ validated recommendations drive remembered-policy persistence.
 ### Compatibility checks
 
 - Never renumber or reuse a field; reserve removed fields by number **and** name.
-- A new UI string must land in the default file and all eight translations in the same commit;
+- A new UI string must land in the default file and all nine translations in the same commit;
   `language_name_*` keys stay byte-identical across locales.
 - The setting only takes effect after a runtime restart unless it is wired into
   live handover re-resolution — decide and document which.

@@ -121,7 +121,7 @@ Additional modules include `:quality:detekt-rules` and `:baselineprofile`. Conve
 
 ### Native artifacts
 
-Repository-owned Android outputs include `libripdpi.so`, `libripdpi-tunnel.so`, `libripdpi-relay.so`, `libripdpi-warp.so`, `libripdpi-amneziawg.so`, and the `ripdpi-root-helper` executable. Kotlin bridges live under `core/engine`; service-owned lifecycle integration lives under `core/service`. Supported ABIs are armeabi-v7a, arm64-v8a, x86, and x86_64.
+Repository-owned Android outputs include `libripdpi.so`, `libripdpi-tunnel.so`, `libripdpi-relay.so`, `libripdpi-warp.so`, `libripdpi-amneziawg.so`, and the `ripdpi-root-helper` executable. Helper executables `ripdpi-naiveproxy` and `ripdpi-cloudflare-origin` ship as jniLibs; the artifact table in `docs/architecture/ARCHITECTURE.md` lists all native artifacts. Kotlin bridges live under `core/engine`; service-owned lifecycle integration lives under `core/service`. Supported ABIs are armeabi-v7a, arm64-v8a, x86, and x86_64.
 
 Relay, diagnostics, VPN protection, root-helper IPC, candidate-family, and transport details are maintained in `docs/architecture/` and their source registries. Validate schema versions from code before changing both sides of a Kotlin/Rust contract.
 

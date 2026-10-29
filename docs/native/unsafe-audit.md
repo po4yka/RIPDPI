@@ -69,7 +69,7 @@ Use this map instead of starting every audit from a raw `unsafe` grep.
 | Module | Invariant family | Current containment | Review status |
 | --- | --- | --- | --- |
 | `ripdpi-privileged-ops/src/linux/` | socket ABI, raw fd ownership, `sockaddr` casts, raw socket and socket-option syscalls | `socket_options`, `fd`, raw-packet helpers, and TCP repair modules keep unsafe behind focused wrappers | active hotspot; largest remaining syscall surface |
-| `ripdpi-root-helper-protocol/src/scm_rights.rs` | ancillary data traversal, fd rejection cleanup, `recvmsg` setup | shared `extract_scm_rights_fd`, `recv_line_with_optional_fd`, unit and integration coverage for fd transfer and rejection paths | wrapped |
+| `ripdpi-root-helper-protocol/src/scm_rights.rs` | ancillary data traversal, fd rejection cleanup, `recvmsg` setup | shared `extract_scm_rights_fds`, `recv_exact_with_optional_fd`, `recv_message`, unit and integration coverage for fd transfer and rejection paths | wrapped |
 | `ripdpi-runtime-platform/src/root_helper_client.rs` | Unix-socket IPC with fd passing | delegates receive-side unsafe to `ripdpi-root-helper-protocol` SCM_RIGHTS helpers | wrapped |
 | `ripdpi-root-helper/src/handlers/fd_adoption.rs` | adopting SCM_RIGHTS-owned TCP/UDP fds | small `adopt_*` helpers keep `from_raw_fd` localized | wrapped |
 | `ripdpi-android-vpn-protect-adapter/src/`, `ripdpi-android/src/ffi/vpn_protect_bridge.rs`, and `ripdpi-android-bridge-support/src/lib.rs` | JNI env/object lifetimes, `Send`/`Sync` promises, handle/error helpers | narrow helpers plus explicit `SAFETY` notes | comment-sensitive |

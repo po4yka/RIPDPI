@@ -66,6 +66,7 @@ auto-generated Mermaid graph at
 | `:xray-protos` | Java-library: Xray/V2Ray protobuf schemas (VLESS, Reality, transport) + gRPC; consumed by `:core:detection` |
 | `:quality:detekt-rules` | Custom detekt rules (DI guardrails, Hilt ViewModel checks) |
 | `:baselineprofile` | Baseline profile generation for runtime performance |
+| `:testing:awg-interop` | Instrumentation-test module: native AmneziaWG interoperability tests against `libripdpi-amneziawg.so` |
 | `:testing:socket-bind-probe` | Instrumentation-test helper: unprivileged `SO_BINDTODEVICE` bind-to-device probe library consumed by `:app` androidTest |
 
 > **Note:** This table reflects the current `settings.gradle.kts`. The split

@@ -850,7 +850,7 @@ Diagnose:
 Logs:
 
 - give Logs a real navigation entry: it must be reachable from Diagnose Advanced tools and from Settings, not only through previews or internal routes
-- keep the order `LogsOverviewCard`, `LogsFiltersSection`, then the stream section
+- keep the order `LogsToolbar` (filters and actions entry points), then `LogsStreamSection`; `LogsFiltersSection` opens in a bottom sheet from the toolbar, not inline
 - use `SettingsRow` for filters and facts only, and `LogRow` for actual log entries
 - keep the stream inside `LogsStreamCard` with `LogRow` and quiet separators
 - render empty states as cards, not loose body text

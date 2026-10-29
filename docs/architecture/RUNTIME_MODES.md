@@ -149,8 +149,10 @@ RipDpiVpnService  → ConnectionPolicyResolver.resolve()
        (ephemeral localhost bind) + a fresh authToken (mandatory local auth)
   2. ProxyRuntimeSupervisor.start() waits for readiness, polls telemetry,
        resolves the actual ephemeral listenerAddress (fails closed if none)
-  3. RipDpiVpnService.startTun2Socks()
-       → Tun2SocksTunnel.start(config, tunFd)   — core/engine/.../core/Tun2SocksTunnel.kt
+  3. VpnTunnelRuntime.start()              — core/service/.../services/VpnTunnelRuntime.kt
+       → buildVpnTun2SocksConfig()          — core/service/.../services/VpnTun2SocksConfig.kt
+       → Tun2SocksBridge.start(config, tunFd, flowAttributionBridge)
+         (NativeTun2SocksBridge → Tun2SocksTunnel, core/engine/.../core/)
        → jniCreate(configJson) → jniStart(handle, tunFd)   — libripdpi-tunnel.so
        → ripdpi_tunnel_core::run_tunnel()  on a native worker thread (NON-blocking start)
 ```
@@ -161,7 +163,7 @@ proxy runtime, which applies the desync pipeline before traffic egresses.
 
 **`libripdpi-tunnel.so` depends on `libripdpi.so` already being active** — the
 tunnel forwards into the proxy's SOCKS endpoint. Stop chain:
-`RipDpiVpnService.stopTun2Socks()` → `Tun2SocksTunnel.stop()` → `jniStop` →
+`VpnTunnelRuntime.stop()` → `Tun2SocksBridge.stop()` → `Tun2SocksTunnel.stop()` → `jniStop` →
 `CancellationToken::cancel()` → worker join. See
 [`docs/native/tunnel.md`](../native/tunnel.md) § App Call Chain.
 
@@ -276,7 +278,7 @@ When `dns_mode = "encrypted"`, VPN mode intercepts DNS inside the tunnel rather
 than leaking plaintext UDP/53 (see [`docs/native/tunnel.md`](../native/tunnel.md)
 § DNS interception flow):
 
-- `RipDpiVpnService.buildTun2SocksConfig()` enables a **MapDNS** listener at
+- `buildVpnTun2SocksConfig()` (`VpnTun2SocksConfig.kt`) enables a **MapDNS** listener at
   `198.18.0.53:53` with a synthetic `198.18.0.0/15` address pool and passes the
   active encrypted-resolver definition (DoH / DoT / DNSCrypt / DoQ) into
   `Tun2SocksConfig`.
@@ -307,7 +309,7 @@ mode-specific orchestration through concrete subclasses and composed collaborato
 | Transition | What happens |
 |------------|--------------|
 | **Start (proxy)** | `onStartCommand` → `startForeground` (≤5 s) → `ConnectionPolicyResolver.resolve()` → `RipDpiProxy.startProxy()` → blocking `jniStart` |
-| **Start (VPN)** | `startForeground` → resolve policy → start proxy (ephemeral port + fresh auth token) → `ProxyRuntimeSupervisor` waits for the listener address → `startTun2Socks()` |
+| **Start (VPN)** | `startForeground` → resolve policy → start proxy (ephemeral port + fresh auth token) → `ProxyRuntimeSupervisor` waits for the listener address → `VpnTunnelRuntime.start()` (starts the TUN bridge) |
 | **Network handover** | `NetworkHandoverMonitor` → **full proxy+tunnel restart under the service mutex**; auth token and ephemeral port rotate. A DNS-only rebuild reuses the existing endpoint (proxy not restarted). |
 | **Raw-path diagnostics** | VPN service is **stopped** before probing, then reconstructed afterward; protect mechanisms unregister/re-register across the boundary |
 | **Revoke (VPN)** | `onRevoke()` sets `revoked = true` and runs the shell-delegate revoke path; `onDestroy` tears the session down |
@@ -327,7 +329,7 @@ mode-specific orchestration through concrete subclasses and composed collaborato
   foreground service / one `VpnService` session at a time.
 - **Tunnel depends on the proxy.** `libripdpi-tunnel.so` forwards into
   `libripdpi.so`'s SOCKS endpoint; the proxy must be ready (and its ephemeral
-  listener address resolved) before `startTun2Socks()`. VPN startup **fails
+  listener address resolved) before `VpnTunnelRuntime.start()` starts the TUN bridge. VPN startup **fails
   closed** if the proxy never publishes a listener address.
 - **`protect()` is mandatory in VPN mode.** Any upstream socket opened without
   protection loops into the TUN with exponential traffic growth. Raw-path scans
