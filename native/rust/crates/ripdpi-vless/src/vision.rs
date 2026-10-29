@@ -17,10 +17,11 @@
 //! ```
 //!
 //! The receiver reconstructs the byte stream purely from the `content` fields,
-//! so chunk boundaries need not align with TLS records. Padding stops once the
-//! first inner Application-Data (`0x17`) record is observed: that chunk carries
-//! `Direct` (the xtls splice signal), and the stream is raw afterwards in that
-//! direction. The two directions transition independently.
+//! so chunk boundaries need not align with TLS records. Padding can stop after
+//! a complete inner Application-Data (`0x17`) record, when the write ends at a
+//! record boundary: that chunk carries `Direct` (the xtls splice signal), and
+//! the stream is raw afterwards in that direction. The directions transition
+//! independently.
 //!
 //! RIPDPI writes the VLESS request header eagerly before this wrapper engages,
 //! so the xray "hide-header" zero-content chunk is not emitted. The UUID still
@@ -231,20 +232,23 @@ impl<S> VisionStream<S> {
     }
 
     /// Walk the outgoing TLS records in `buf`, tracking record boundaries across
-    /// writes. Returns `true` once the first inner application-data record
-    /// (after at least one handshake record) begins in this buffer — the signal
-    /// to stop padding.
+    /// writes. Returns `true` after an inner application-data record completes
+    /// (after at least one handshake record), only if no partial record remains
+    /// at the end of this buffer.
     fn note_records(&mut self, buf: &[u8]) -> bool {
         if self.w_not_tls {
             return false;
         }
         let mut pos = 0;
-        let mut reached = false;
+        let mut completed_appdata = false;
         while pos < buf.len() {
             if self.w_rec_remaining > 0 {
                 let skip = self.w_rec_remaining.min(buf.len() - pos);
                 self.w_rec_remaining -= skip;
                 pos += skip;
+                if self.w_rec_remaining == 0 && self.w_hdr[0] == TLS_APPLICATION_DATA && self.w_seen_handshake {
+                    completed_appdata = true;
+                }
                 continue;
             }
             while self.w_hdr_len < TLS_RECORD_HEADER_LEN && pos < buf.len() {
@@ -266,19 +270,16 @@ impl<S> VisionStream<S> {
                 return false;
             }
             let record_len = usize::from(u16::from_be_bytes([self.w_hdr[3], self.w_hdr[4]]));
-            if record_type == TLS_APPLICATION_DATA && self.w_seen_handshake {
-                reached = true;
-            }
             if record_type == TLS_HANDSHAKE {
                 self.w_seen_handshake = true;
             }
             self.w_rec_remaining = record_len;
             self.w_hdr_len = 0;
-            if reached {
-                break;
+            if record_len == 0 && record_type == TLS_APPLICATION_DATA && self.w_seen_handshake {
+                completed_appdata = true;
             }
         }
-        reached
+        completed_appdata && self.w_rec_remaining == 0 && self.w_hdr_len == 0
     }
 
     /// Run the XtlsUnpadding state machine over `r_inbuf`, moving de-padded
@@ -561,7 +562,7 @@ mod tests {
     use std::pin::Pin;
     use std::task::{Context, Poll};
 
-    use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, ReadBuf};
+    use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt, DuplexStream, ReadBuf};
 
     use super::*;
 
@@ -637,6 +638,126 @@ mod tests {
     impl XtlsDirectRead for ReadModeSpy {
         fn poll_read_direct(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
             AsyncRead::poll_read(Pin::new(&mut self.get_mut().direct), cx, buf)
+        }
+    }
+
+    struct ModeIo {
+        outer: DuplexStream,
+        direct: DuplexStream,
+    }
+
+    impl AsyncRead for ModeIo {
+        fn poll_read(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+            Pin::new(&mut self.get_mut().outer).poll_read(cx, buf)
+        }
+    }
+
+    impl AsyncWrite for ModeIo {
+        fn poll_write(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+            Pin::new(&mut self.get_mut().outer).poll_write(cx, buf)
+        }
+
+        fn poll_flush(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Pin::new(&mut self.get_mut().outer).poll_flush(cx)
+        }
+
+        fn poll_shutdown(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Pin::new(&mut self.get_mut().outer).poll_shutdown(cx)
+        }
+    }
+
+    impl XtlsDirectRead for ModeIo {
+        fn poll_read_direct(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
+            Pin::new(&mut self.get_mut().direct).poll_read(cx, buf)
+        }
+    }
+
+    impl XtlsDirectWrite for ModeIo {
+        fn poll_write_direct(self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &[u8]) -> Poll<io::Result<usize>> {
+            Pin::new(&mut self.get_mut().direct).poll_write(cx, buf)
+        }
+
+        fn poll_flush_direct(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Pin::new(&mut self.get_mut().direct).poll_flush(cx)
+        }
+
+        fn poll_shutdown_direct(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
+            Pin::new(&mut self.get_mut().direct).poll_shutdown(cx)
+        }
+    }
+
+    /// # Cancel safety:
+    /// NOT cancel-safe: the test owns both endpoints and never cancels a partial frame read.
+    async fn assert_padded_write(
+        stream: &mut VisionStream<ModeIo>,
+        peer: &mut DuplexStream,
+        payload: &[u8],
+        first: bool,
+        expected_command: u8,
+    ) {
+        stream.write_all(payload).await.expect("write inner record fragment");
+        stream.flush().await.expect("flush padded fragment");
+        if first {
+            let mut uuid = [0; 16];
+            peer.read_exact(&mut uuid).await.expect("first chunk UUID");
+            assert_eq!(uuid, TEST_UUID);
+        }
+        let mut header = [0; 5];
+        peer.read_exact(&mut header).await.expect("Vision chunk header");
+        assert_eq!(header[0], expected_command, "Direct must wait for a complete TLS record");
+        assert_eq!(usize::from(u16::from_be_bytes([header[1], header[2]])), payload.len());
+        let mut content = vec![0; payload.len()];
+        peer.read_exact(&mut content).await.expect("Vision content");
+        assert_eq!(content, payload, "padding must preserve all inner bytes");
+        let mut padding = vec![0; usize::from(u16::from_be_bytes([header[3], header[4]]))];
+        peer.read_exact(&mut padding).await.expect("Vision padding");
+    }
+
+    #[tokio::test]
+    /// # Cancel safety:
+    /// NOT cancel-safe: each case owns its endpoints and completes every frame operation in order.
+    async fn direct_waits_for_complete_inner_records_across_writes() {
+        let handshake = [0x16, 0x03, 0x01, 0x00, 0x01, 0x01];
+        let application = [0x17, 0x03, 0x03, 0x00, 0x04, 0xaa, 0xbb, 0xcc, 0xdd];
+        let next_record = [0x17, 0x03, 0x03, 0x00, 0x02, 0xee, 0xff];
+        let cases = [
+            vec![application[..6].to_vec(), application[6..].to_vec()],
+            vec![
+                application[..2].to_vec(),
+                application[2..4].to_vec(),
+                application[4..6].to_vec(),
+                application[6..].to_vec(),
+            ],
+            vec![[application.as_slice(), &next_record[..6]].concat(), next_record[6..].to_vec()],
+            vec![application[..6].to_vec(), [&application[6..], next_record.as_slice()].concat()],
+            vec![[application.as_slice(), &next_record[..2]].concat(), next_record[2..].to_vec()],
+            vec![[application.as_slice(), next_record.as_slice()].concat()],
+        ];
+        for fragments in cases {
+            let (outer, mut outer_peer) = tokio::io::duplex(65_536);
+            let (direct, mut direct_peer) = tokio::io::duplex(1024);
+            let mut stream = VisionStream::new_vision(ModeIo { outer, direct }, TEST_UUID);
+            let hello = server_hello(Some([0x03, 0x04]), TLS_AES_128_GCM_SHA256);
+            let mut downlink = Vec::new();
+            encode_padding_chunk(&mut downlink, Some(&TEST_UUID), CMD_CONTINUE, &hello, 0);
+            outer_peer.write_all(&downlink).await.expect("peer ServerHello");
+            let mut received_hello = vec![0; hello.len()];
+            stream.read_exact(&mut received_hello).await.expect("read ServerHello");
+            assert_eq!(received_hello, hello);
+            assert_padded_write(&mut stream, &mut outer_peer, &handshake, true, CMD_CONTINUE).await;
+            for (index, fragment) in fragments.iter().enumerate() {
+                let command = if index + 1 == fragments.len() { CMD_DIRECT } else { CMD_CONTINUE };
+                assert_padded_write(&mut stream, &mut outer_peer, fragment, false, command).await;
+                let mut probe = [0; 1];
+                let probe_read = direct_peer.read(&mut probe);
+                tokio::pin!(probe_read);
+                assert!(futures::poll!(&mut probe_read).is_pending(), "no record prefix may escape as raw bytes");
+            }
+            stream.write_all(&next_record).await.expect("write next complete raw record");
+            stream.flush().await.expect("flush direct transport");
+            let mut raw = [0; 7];
+            direct_peer.read_exact(&mut raw).await.expect("direct record");
+            assert_eq!(raw, next_record, "the raw transport must start at a TLS record header");
         }
     }
 
@@ -716,6 +837,8 @@ mod tests {
     }
 
     #[tokio::test]
+    /// # Cancel safety:
+    /// NOT cancel-safe: the test completes each write before checking the owned output.
     async fn inner_tls12_or_unanswered_handshake_ends_padding_without_direct() {
         let handshake = [TLS_HANDSHAKE, 0x03, 0x01, 0x00, 0x02, 0xaa, 0xbb];
         let appdata = [TLS_APPLICATION_DATA, 0x03, 0x03, 0x00, 0x03, 0x01, 0x02, 0x03];
@@ -725,7 +848,8 @@ mod tests {
                 VisionStream::new_vision(WriteModeSpy { outer_tls: Vec::new(), direct: Vec::new() }, TEST_UUID);
             writer.xtls_enabled = downlink;
             writer.write_all(&handshake).await.expect("write handshake");
-            writer.write_all(&appdata).await.expect("write appdata");
+            writer.write_all(&appdata[..6]).await.expect("write partial appdata");
+            writer.write_all(&appdata[6..]).await.expect("complete appdata");
             writer.write_all(b"after").await.expect("write after transition");
             writer.flush().await.expect("flush");
 
