@@ -204,6 +204,28 @@ class StrategyProbeServiceTest {
         }
 
     @Test
+    fun `guard is released when restore throws`() =
+        runTest {
+            val activator = FakeStrategyProbeActivator().also { it.failRestoreOnce = true }
+            val service =
+                DefaultStrategyProbeService(
+                    candidateProvider =
+                        FakeStrategyProbeCandidateProvider(listOf(StrategyProbeCandidate("split", "Split"))),
+                    activator = activator,
+                    transport = FakeProbeTransport { StrategyProbeConnectionResult.Success(latencyMs = 10) },
+                    dnsComparator = FakeDnsComparator(StrategyProbeDnsComparison.NoDifference),
+                    resultInjector = FakeStrategyProbeResultInjector(),
+                    runGuard = StrategyProbeRunGuard(),
+                )
+            val config = StrategyProbeConfig(testDomains = listOf("example.test"), timeoutMs = 1_000)
+
+            val first = runCatching { service.run(config).toList() }
+
+            assertTrue(first.exceptionOrNull() is IllegalStateException)
+            assertEquals(1, service.run(config).toList().size)
+        }
+
+    @Test
     fun `run flags dns tampering when doh and local address sets differ`() =
         runTest {
             val service =
@@ -426,6 +448,7 @@ private class FakeStrategyProbeCandidateProvider(
 private class FakeStrategyProbeActivator : StrategyProbeActivator {
     val activatedIds = mutableListOf<String>()
     var restored = false
+    var failRestoreOnce = false
 
     override suspend fun capture(): StrategyProbeActivationSnapshot = StrategyProbeActivationSnapshot("previous")
 
@@ -435,6 +458,10 @@ private class FakeStrategyProbeActivator : StrategyProbeActivator {
 
     override suspend fun restore(snapshot: StrategyProbeActivationSnapshot) {
         assertEquals("previous", snapshot.snapshotId)
+        if (failRestoreOnce) {
+            failRestoreOnce = false
+            error("restore failed")
+        }
         restored = true
     }
 }
