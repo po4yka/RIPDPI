@@ -132,7 +132,8 @@ verbatim:
 > codes from `DirectModeReasonCode` in
 > `core/data/model/src/main/kotlin/com/poyka/ripdpi/data/TransportPolicy.kt`;
 > the verdict→reason mapping is in
-> `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/orchestrator/OrchestratorTypes.kt`.
+> `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/DirectModePolicySupport.kt`
+> (`deriveReasonCode` and `buildVerdict`).
 > Adjacent result taxonomies that should reuse the same locale vocabulary:
 > `DiagnosticsOutcomeBucket` (Healthy / Attention / Failed / Inconclusive) and
 > `Verdict` (NOT_DETECTED / NEEDS_REVIEW / DETECTED) in

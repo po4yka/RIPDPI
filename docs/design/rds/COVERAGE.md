@@ -122,7 +122,6 @@ Row totals are a recount of the audited bullets in this file: 30 components + 36
 
 ### ✅ Full Implementation Continued
 
-- **State Machine** (`vpn-state-machine.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/StateMachineScreen.kt`; 7-node Canvas state graph (Disconnected / Permissioning / Connecting / Tunneling / Reconnecting / Failed / Degraded) with directed edges, active-node ring, active-edge dashed highlight, and colour-coded legend. Sample data in `StateMachineSampleData.kt`. Roborazzi `stateMachine` screenshot in `RdsComponentsScreenshotTest.kt`; goldens require explicit bless. Route registered as `Route.StateMachine`.
 
 ### ✅ Full Implementation Continued
 
@@ -297,15 +296,13 @@ Three Rust+JNI+Kotlin subsystems back the VPN-flow screens that were previously 
 
 ### PCAP export subsystem
 
-✅ **Current:** `ripdpi-pcap` handles classic libpcap read/write/redaction; `ripdpi-tunnel-android` owns the capture set and JNI exports (`jniPcapStart`, `jniPcapStop`, `jniPcapListCaptures`, `jniPcapRedactToFile`); `:core:pcap-export` provides `PcapBridge`, `PcapController`, and `PcapReader`; the Advanced Settings capture toggle and consent dialog are wired; diagnostics can navigate to `PcapCaptureListRoute`.
-
-⚠️ **Known limits:** `PcapCaptureListRoute` currently uses demo metadata and capture selection does not yet route parsed capture packets into `PcapViewerRoute`; `PcapViewerRoute` renders demo packets. `PcapReader` already exists in `:core:pcap-export`; the remaining app integration is selected-capture route state plus reader-record-to-`PcapPacket` mapping, not a Rust/JNI capture gap.
+✅ **Current:** `ripdpi-pcap` handles classic libpcap read/write/redaction; `ripdpi-tunnel-android` owns the capture set and JNI exports (`jniPcapStart`, `jniPcapStop`, `jniPcapListCaptures`, `jniPcapRedactToFile`); `:core:pcap-export` provides `PcapBridge`, `PcapController`, and `PcapReader`; the Advanced Settings capture toggle and consent dialog are wired; diagnostics can navigate to `PcapCaptureListRoute`. `PcapCaptureListRoute` lists real captures through `controller.listCaptures`, and `PcapViewerRoute` reads the selected capture through `readCapturePackets` (`PcapCaptureContent.kt`), which uses `PcapReader`.
 
 ### Replay orchestrator
 
-✅ **Current:** `:core:diagnostics/replay/` defines the replay model, `ProbeReplayService`, OkHttp-backed `DefaultProbeReplayService`, `ReplayRecommendationEngine`, JSON catalog parity tests, `ReplayProbeResult`, `runToCompletion`, and an in-memory `ReplayResultStore`; `ReplayFailureViewModel`, `ReplayFailureRoute`, and `ReplayHistoryRoute` are Hilt/navigation wired; diagnostics archive export reads recent replay results and writes `replay-results.json` through `ReplayArchiveEntryBuilder`.
+✅ **Current:** `:core:diagnostics/replay/` defines the replay model, `ProbeReplayService`, OkHttp-backed `DefaultProbeReplayService`, `ReplayRecommendationEngine`, JSON catalog parity tests, `ReplayProbeResult`, and a `ReplayResultStore`. Strategy-scoped replay uses `StrategyScopedProbeReplay`, `ScanCandidateConfigSource`, and `ProxyConfigStrategyApplier` in `replay/`, and `StrategyProbeRunGuard` in `:core:diagnostics`; `ReplayFailureViewModel`, `ReplayFailureRoute`, and `ReplayHistoryRoute` are Hilt/navigation wired; diagnostics archive export reads recent replay results and writes `replay-results.json` through `ReplayArchiveEntryBuilder`.
 
-⚠️ **Known limits:** `ReplayFailureRoute` still starts from default domain/strategy constants until typed navigation arguments land.
+`Route.ReplayFailure(domain, strategyId, sessionId)` carries typed navigation arguments.
 
 ### Shared discipline
 

@@ -64,7 +64,8 @@ exponentially weighted moving averages (EWMA).
 **How scores influence pool selection** (`pool/ranking.rs:try_order()`):
 1. `HealthRegistry::rank_indices()` sorts endpoints by composite score (best first)
 2. Cold-start override: if the top-ranked endpoint has zero observations, the
-   `FallbackCache` (LRU) promotes the most recently successful endpoint to rank 0
+   `fallback_cache` field (an `LruCache` in `pool.rs`) promotes the most recently
+   successful endpoint to rank 0
 3. Round-robin injection: every N-th call, the rotation counter promotes a
    non-top-2 endpoint to position 1, preventing starvation of lower-ranked
    endpoints that may have recovered

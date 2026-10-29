@@ -32,11 +32,11 @@ The RIPDPI implementation MUST satisfy this portfolio criterion: Test (Compose/R
 - **WHEN** the linked change is exercised under the conditions defined by the portfolio task
 - **THEN** the observed result MUST demonstrate that Test (Compose/Robolectric or unit on the VM): changing the session key triggers a refresh
 
-### Requirement: REQ-UIX-1786264762917972-004 — /gradlew :app:testDebugUnitTest --locked green; goldens unchanged
+### Requirement: REQ-UIX-1786264762917972-004 — /gradlew :app:testGithubFullDebugUnitTest --locked green; goldens unchanged
 
-The RIPDPI implementation MUST satisfy this portfolio criterion: /gradlew :app:testDebugUnitTest --locked green; goldens unchanged.
+The RIPDPI implementation MUST satisfy this portfolio criterion: /gradlew :app:testGithubFullDebugUnitTest --locked green; goldens unchanged.
 
 #### Scenario: Verify criterion 4
 
 - **WHEN** the linked change is exercised under the conditions defined by the portfolio task
-- **THEN** the observed result MUST demonstrate that /gradlew :app:testDebugUnitTest --locked green; goldens unchanged
+- **THEN** the observed result MUST demonstrate that /gradlew :app:testGithubFullDebugUnitTest --locked green; goldens unchanged

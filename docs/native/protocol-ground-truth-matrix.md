@@ -75,7 +75,7 @@ This is a point-in-time snapshot derived from source at audit time, not a living
 | Step | Declared | Impl | Evidence | Gap |
 |---|---|---|---|---|
 | DoH | declared | **full** | `ripdpi-dns-resolver/src/resolver/doh/` (`request_exchange.rs`, `manual_exchange.rs`), `doh_pipeline.rs`; dispatch `resolver/dispatch.rs:9` | none — RFC 8484 `application/dns-message`, reqwest + manual HTTP/1.1-over-TLS paths. |
-| DoT | declared | **full** | dispatch `resolver/dispatch.rs:10`; `hickory_backend.rs:34-78` (Direct) + manual `resolver/dot.rs:10-80` (boring TLS, RFC 1035 length-prefix) | none — hickory path on Direct transport, manual boring-TLS fallback when custom roots/verifier set. |
+| DoT | declared | **full** | dispatch `resolver/dispatch.rs:8`; `resolver/dot.rs:18-95` (`exchange_dot`, boring TLS, RFC 1035 length-prefix framing, session reuse, optional pin verifier) | none — one boring-TLS path for every transport. |
 | DNSCrypt | declared | **full** | `resolver/dnscrypt_transport.rs:35-156` (cert fetch + Ed25519 + box); `dnscrypt/cipher.rs:14-58` (XSalsa20Poly1305 `0x0001` / XChaCha20Poly1305 `0x0002`) | none. |
 | DoQ | declared (unconditional) | **full engine / by-design SOCKS5 block** | `resolver/doq.rs:11-32` impl (SOCKS5 guard `:12-16`, error `:13-15`); QUIC exchange `:67-87` (RFC 9250 2-byte prefix) | **By-design (2026-06-01):** the DoQ wire engine is complete; it deliberately errors over the **SOCKS5** transport ("SOCKS5 is TCP-only") and so is unavailable on the proxy-runtime path, but works on Direct/VPN. Matrix line refs corrected from the prior `:11-27`/`:14`. |
 | Plain UDP-53 | (undocumented) | **absent (in Rust)** | `RipDpiRuntimeContext.kt:227` null; no UdpSocket resolver | Handled by Android system resolver only; no Rust path. |

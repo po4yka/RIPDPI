@@ -81,7 +81,7 @@ Chose option 1: the four commits implement a single architectural shape (decompo
 
 - Confirm (informational, not blocking) `cargo check -p ripdpi-android`, `-p ripdpi-android-proxy-adapter`, `-p ripdpi-runtime-adaptive`, `-p ripdpi-proxy-runtime` clean before any feature work resumes on these crates. Smallest sufficient check; this ADR does not run the commands.
 - Confirm (informational) Gradle configuration cache is unaffected (no `build-logic/` touch in this diff range, so risk is nil) and that release `cargo build --release -p ripdpi-android` still emits a single `libripdpi.so` with the expected ABI set.
-- Confirm (informational) WARP orchestrator and Diagnostics UI tests still pass (`./gradlew :app:testDebugUnitTest`). Existing `WarpEnrollmentOrchestratorTest` was updated in 9884feef and is the regression net.
+- Confirm (informational) WARP orchestrator and Diagnostics UI tests still pass (`./gradlew :app:testGithubFullDebugUnitTest`). Existing `WarpEnrollmentOrchestratorTest` was updated in 9884feef and is the regression net.
 - No signoff required for this ADR; existing unit and connectivity fixture tests are the regression net.
 - Not required. No telemetry, payload-capture, permission, or unsafe-surface change in this diff range. The JNI surface is byte-identical (verified above).
 
@@ -92,7 +92,7 @@ Smallest checks required before downstream implementation work resumes on the af
 1. `cargo check -p ripdpi-android` — confirms the cdylib still links the seven adapter crates.
 2. `cargo check -p ripdpi-runtime-adaptive` and `cargo check -p ripdpi-proxy-runtime` — confirms the policy-extraction edge.
 3. `cargo nextest run -p ripdpi-proxy-runtime` and `-p ripdpi-runtime-adaptive` — exercises preserved policy contract.
-4. `./gradlew :app:testDebugUnitTest --tests "*WarpEnrollmentOrchestratorTest*"` — confirms the orchestrator split keeps existing assertions passing.
+4. `./gradlew :app:testGithubFullDebugUnitTest --tests "*WarpEnrollmentOrchestratorTest*"` — confirms the orchestrator split keeps existing assertions passing.
 5. `cargo test -p ripdpi-android jni_baseline_is_non_empty_and_contains_expected_symbols` plus the `jni-symbol-diff.yml` CI workflow against `libripdpi.so`.
 
 This ADR does not run those commands; they are required of the Senior engineer who picks up the next change in either subsystem.
