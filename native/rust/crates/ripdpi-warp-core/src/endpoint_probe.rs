@@ -1,17 +1,23 @@
 use std::net::{Ipv4Addr, SocketAddr};
+use std::sync::Arc;
 use std::time::Duration;
 
-use boringtun::noise::{Tunn, TunnResult};
+use boringtun::noise::awg::TimerRange;
+use boringtun::noise::awg_cookies::CookieSource;
+use boringtun::noise::{ReceiveOutcome, Tunn, TunnResult};
 use socket2::{Domain, Protocol, Socket, Type};
 use tokio::net::UdpSocket;
-use tokio::time::{Instant, timeout, timeout_at};
+#[cfg(test)]
+use tokio::time::timeout;
+use tokio::time::{Instant, timeout_at};
 
 use crate::amneziawg::{AwgMacKeys, AwgWireCodec, rand_u32};
 use crate::config::{ResolvedWarpRuntimeEndpoint, WarpEndpointProbeRequest, WarpEndpointProbeResult, resolve_endpoint};
 use crate::platform::{WarpPlatform, protect_socket_if_configured};
 use crate::support::MAX_PACKET;
 use crate::wireguard::{
-    apply_reserved_bytes, build_authenticated_awg_codec, decode_key, reserved_bytes_from_client_id,
+    ReceiveOutput, apply_reserved_bytes, build_authenticated_awg_codec, decode_key, receive_packet,
+    reserved_bytes_from_client_id,
 };
 
 /// Typed error returned by [`probe_endpoint`] / [`probe_endpoint_with_platform`].
@@ -59,10 +65,15 @@ impl std::error::Error for WarpProbeError {
     }
 }
 
+/// # Cancel safety:
+/// NOT cancel-safe: cancellation can stop a handshake prelude; all probe resources are dropped.
 pub async fn probe_endpoint(request: WarpEndpointProbeRequest) -> Result<WarpEndpointProbeResult, WarpProbeError> {
     probe_endpoint_with_platform(request, &WarpPlatform::default()).await
 }
 
+/// # Cancel safety:
+/// NOT cancel-safe: handshake and timer state can advance before outbound I/O.
+/// The probe owns and drops its socket and peer when cancelled.
 pub async fn probe_endpoint_with_platform(
     request: WarpEndpointProbeRequest,
     platform: &WarpPlatform,
@@ -79,7 +90,8 @@ pub async fn probe_endpoint_with_platform(
         &request.amnezia.signature_programs(),
         AwgMacKeys::new(local_public_key, peer_public_key),
     )
-    .map_err(|error| WarpProbeError::InvalidAwgParameters(error.to_string()))?;
+    .map_err(|error| WarpProbeError::InvalidAwgParameters(error.to_string()))?
+    .map(Arc::new);
     // Fail-closed on a malformed PSK rather than silently probing without it:
     // a probe that succeeds without the PSK the live tunnel will use is a false
     // positive. An empty PSK (the WARP default) is `None`, not an error.
@@ -95,60 +107,113 @@ pub async fn probe_endpoint_with_platform(
         0,
         None,
     ));
+    if let Some(codec) = &amnezia {
+        let mut timers = codec.params().v3().timer_config();
+        timers.persistent_keepalive = request.amnezia.persistent_keepalive_opt().map(TimerRange::fixed);
+        peer.set_awg_timer_config(timers).map_err(|error| WarpProbeError::Handshake(error.to_owned()))?;
+        peer.set_awg_disable_cookies(request.amnezia.v3.disable_cookies)
+            .map_err(|error| WarpProbeError::Handshake(error.to_owned()))?;
+        peer.set_transport_padding(codec.clone()).map_err(|error| WarpProbeError::Handshake(error.to_owned()))?;
+    }
     let udp = bind_probe_socket(endpoint, platform).map_err(WarpProbeError::Io)?;
     let mut outbound = [0u8; MAX_PACKET];
-    let handshake = match peer.format_handshake_initiation(&mut outbound, true) {
-        TunnResult::WriteToNetwork(packet) => encode_probe_packet(packet, reserved, amnezia.as_ref())
-            .ok_or_else(|| WarpProbeError::Handshake("AmneziaWG packet encoding failed".to_owned()))?,
-        TunnResult::Err(error) => return Err(WarpProbeError::Handshake(format!("{error:?}"))),
-        _ => return Err(WarpProbeError::Handshake("handshake initiation did not produce a packet".to_owned())),
-    };
     let started_at = std::time::Instant::now();
     let deadline = Instant::now() + Duration::from_millis(request.timeout_ms.max(250));
-    if let Some(codec) = amnezia.as_ref() {
-        for packet in codec.params().handshake_prelude(&mut rand_u32) {
-            timeout_at(deadline, udp.send_to(&packet, endpoint))
+    match peer.format_handshake_initiation(&mut outbound, true) {
+        TunnResult::WriteToNetwork(packet) => {
+            send_probe_packet(&udp, endpoint, packet, reserved, amnezia.as_deref(), deadline).await?;
+        }
+        TunnResult::Err(error) => return Err(WarpProbeError::Handshake(format!("{error:?}"))),
+        _ => return Err(WarpProbeError::Handshake("handshake initiation did not produce a packet".to_owned())),
+    }
+    let mut recv_buf = [0u8; MAX_PACKET];
+    let mut decap_buf = [0u8; MAX_PACKET];
+    let mut tick = tokio::time::interval(Duration::from_millis(250));
+    tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+    loop {
+        if Instant::now() >= deadline {
+            return Err(WarpProbeError::Timeout);
+        }
+        let received = timeout_at(deadline, async {
+            tokio::select! {
+                received = udp.recv_from(&mut recv_buf) => Some(received),
+                _ = tick.tick() => None,
+            }
+        })
+        .await
+        .map_err(|_| WarpProbeError::Timeout)?;
+        if Instant::now() >= deadline {
+            return Err(WarpProbeError::Timeout);
+        }
+        let Some(received) = received else {
+            if let TunnResult::WriteToNetwork(packet) = peer.update_timers(&mut outbound) {
+                send_probe_packet(&udp, endpoint, packet, reserved, amnezia.as_deref(), deadline).await?;
+            }
+            continue;
+        };
+        let (size, source) = received.map_err(WarpProbeError::Io)?;
+        if source != endpoint {
+            continue;
+        }
+        let (result, outcome) = receive_packet(
+            &mut peer,
+            amnezia.as_deref(),
+            CookieSource::Udp(source),
+            &mut recv_buf[..size],
+            &mut decap_buf,
+        );
+        if let ReceiveOutput::Network(length) = result {
+            send_probe_packet(&udp, endpoint, &decap_buf[..length], reserved, amnezia.as_deref(), deadline).await?;
+        }
+        if matches!(
+            outcome,
+            ReceiveOutcome::HandshakeResponse | ReceiveOutcome::TransportEmpty | ReceiveOutcome::TransportIp
+        ) {
+            if Instant::now() >= deadline {
+                return Err(WarpProbeError::Timeout);
+            }
+            return Ok(probe_result_from_endpoint(endpoint, &request.endpoint, started_at.elapsed()));
+        }
+    }
+}
+
+/// # Cancel safety:
+/// NOT cancel-safe: cancellation can stop the prelude after some signature/junk packets.
+/// The caller drops the complete probe on cancellation or deadline expiry.
+async fn send_probe_packet(
+    udp: &UdpSocket,
+    endpoint: SocketAddr,
+    packet: &[u8],
+    reserved: [u8; 3],
+    codec: Option<&AwgWireCodec>,
+    deadline: Instant,
+) -> Result<(), WarpProbeError> {
+    if Instant::now() >= deadline {
+        return Err(WarpProbeError::Timeout);
+    }
+    let payload = encode_probe_packet(packet, reserved, codec)
+        .ok_or_else(|| WarpProbeError::Handshake("AmneziaWG packet encoding failed".to_owned()))?;
+    if packet.first() == Some(&1)
+        && let Some(codec) = codec
+    {
+        for junk in codec.params().handshake_prelude(&mut rand_u32) {
+            if Instant::now() >= deadline {
+                return Err(WarpProbeError::Timeout);
+            }
+            timeout_at(deadline, udp.send_to(&junk, endpoint))
                 .await
                 .map_err(|_| WarpProbeError::Timeout)?
                 .map_err(WarpProbeError::Io)?;
         }
     }
-    timeout_at(deadline, udp.send_to(&handshake, endpoint))
+    if Instant::now() >= deadline {
+        return Err(WarpProbeError::Timeout);
+    }
+    timeout_at(deadline, udp.send_to(&payload, endpoint))
         .await
         .map_err(|_| WarpProbeError::Timeout)?
         .map_err(WarpProbeError::Io)?;
-
-    let mut recv_buf = [0u8; MAX_PACKET];
-    let mut decap_buf = [0u8; MAX_PACKET];
-    loop {
-        let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
-        if remaining.is_zero() {
-            return Err(WarpProbeError::Timeout);
-        }
-        let (size, source) = timeout(remaining, udp.recv_from(&mut recv_buf))
-            .await
-            .map_err(|_| WarpProbeError::Timeout)?
-            .map_err(WarpProbeError::Io)?;
-        if source.ip() != endpoint.ip() {
-            continue;
-        }
-        let Some(packet) = decode_probe_packet(&recv_buf[..size], amnezia.as_ref()) else {
-            continue;
-        };
-        match peer.decapsulate(Some(source.ip()), &packet, &mut decap_buf) {
-            TunnResult::WriteToNetwork(response) => {
-                let Some(payload) = encode_probe_packet(response, reserved, amnezia.as_ref()) else {
-                    continue;
-                };
-                udp.send_to(&payload, endpoint).await.map_err(WarpProbeError::Io)?;
-                return Ok(probe_result_from_endpoint(endpoint, &request.endpoint, started_at.elapsed()));
-            }
-            TunnResult::Done | TunnResult::WriteToTunnelV4(_, _) | TunnResult::WriteToTunnelV6(_, _) => {
-                return Ok(probe_result_from_endpoint(endpoint, &request.endpoint, started_at.elapsed()));
-            }
-            TunnResult::Err(_) => {}
-        }
-    }
+    Ok(())
 }
 
 fn bind_probe_socket(endpoint: SocketAddr, platform: &WarpPlatform) -> std::io::Result<UdpSocket> {
@@ -175,16 +240,6 @@ fn encode_probe_packet(packet: &[u8], reserved: [u8; 3], amnezia: Option<&AwgWir
             payload
         }),
     }
-}
-
-fn decode_probe_packet(packet: &[u8], amnezia: Option<&AwgWireCodec>) -> Option<Vec<u8>> {
-    let mut packet = match amnezia {
-        Some(codec) => codec.decode(packet)?,
-        None => packet.to_vec(),
-    };
-    // A WARP edge may echo the client id in the reserved bytes; boringtun needs them zero.
-    apply_reserved_bytes(&mut packet, [0; 3]);
-    Some(packet)
 }
 
 fn probe_result_from_endpoint(
@@ -266,6 +321,57 @@ mod tests {
             request.amnezia = invalid;
             assert!(matches!(probe_endpoint(request).await, Err(WarpProbeError::InvalidAwgParameters(_))));
         }
+    }
+
+    /// # Cancel safety:
+    /// NOT cancel-safe: the test owns a probe task and joins it after the bounded exchange.
+    #[tokio::test]
+    async fn an_authenticated_cookie_reply_does_not_make_a_probe_succeed() {
+        use base64::Engine as _;
+        use boringtun::noise::rate_limiter::RateLimiter;
+        use boringtun::x25519::{PublicKey, StaticSecret};
+        let receiver = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let server_key = StaticSecret::from([9; 32]);
+        let server_public = PublicKey::from(&server_key);
+        let client_key = StaticSecret::from([7; 32]);
+        let mut server = Tunn::new(
+            server_key,
+            PublicKey::from(&client_key),
+            None,
+            None,
+            1,
+            Some(Arc::new(RateLimiter::new(&server_public, 0))),
+        );
+        let mut request = request_with_psk("");
+        request.endpoint.ipv4 = Some("127.0.0.1".into());
+        request.endpoint.port = i32::from(receiver.local_addr().unwrap().port());
+        request.private_key = base64::engine::general_purpose::STANDARD.encode([7; 32]);
+        request.peer_public_key = base64::engine::general_purpose::STANDARD.encode(server_public.as_bytes());
+        let probe = tokio::spawn(probe_endpoint(request));
+        let mut input = [0; 2048];
+        let mut out = [0; 2048];
+        let (size, client) = timeout(Duration::from_secs(1), receiver.recv_from(&mut input)).await.unwrap().unwrap();
+        let TunnResult::WriteToNetwork(cookie) = server.decapsulate(Some(client.ip()), &input[..size], &mut out) else {
+            panic!("challenge")
+        };
+        assert_eq!(&cookie[..4], &[3, 0, 0, 0]);
+        receiver.send_to(cookie, client).await.unwrap();
+        let result = probe.await.unwrap();
+        assert!(matches!(result, Err(WarpProbeError::Timeout)), "cookie is not authenticated peer proof: {result:?}");
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: this test owns two local sockets and creates no tasks.
+    #[tokio::test]
+    async fn expired_probe_deadline_prevents_a_ready_udp_send() {
+        let sender = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let receiver = UdpSocket::bind("127.0.0.1:0").await.unwrap();
+        let deadline = Instant::now() - Duration::from_secs(1);
+        assert!(matches!(
+            send_probe_packet(&sender, receiver.local_addr().unwrap(), &[1; 148], [0; 3], None, deadline).await,
+            Err(WarpProbeError::Timeout)
+        ));
+        assert_eq!(receiver.try_recv(&mut [0; 256]).unwrap_err().kind(), std::io::ErrorKind::WouldBlock);
     }
 
     #[tokio::test]

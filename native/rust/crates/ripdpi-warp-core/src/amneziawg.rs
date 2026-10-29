@@ -406,6 +406,18 @@ struct AwgMacState {
     issued_cookie: Option<TimedCookie>,
 }
 
+#[derive(Clone, Copy)]
+enum ReceiveContext {
+    Handshake(HandshakeMacState),
+    Cookie(TimedCookie),
+}
+
+/// One decoded layout with uncommitted MAC-domain state.
+pub(crate) struct AwgDecodeCandidate {
+    pub packet: Vec<u8>,
+    context: Option<ReceiveContext>,
+}
+
 #[derive(Debug)]
 pub(crate) struct AwgWireCodec {
     params: AwgParams,
@@ -502,32 +514,54 @@ impl AwgWireCodec {
         self.udp_window.observe_inbound_transport(datagram_len);
     }
 
-    /// Reverse [`AwgWireCodec::encode`] for a packet received from the peer.
-    ///
-    /// Returns a complete vanilla WireGuard packet or `None` when the packet
-    /// has an unknown layout or fails AWG MAC/cookie authentication.
-    pub(crate) fn decode(&self, packet: &[u8]) -> Option<Vec<u8>> {
-        let (index, mut wire) = self.params.v3.open(packet, &self.params.size_padding, &self.params.magic_headers)?;
+    /// Decode at most four layouts without changing cookie or handshake conversion state.
+    pub(crate) fn decode_candidates(&self, packet: &[u8]) -> Vec<AwgDecodeCandidate> {
+        self.params
+            .v3
+            .open_candidates(packet, &self.params.size_padding, &self.params.magic_headers)
+            .into_iter()
+            .filter_map(|(index, wire)| self.decode_candidate(index, wire))
+            .collect()
+    }
+
+    fn decode_candidate(&self, index: usize, mut wire: Vec<u8>) -> Option<AwgDecodeCandidate> {
         let vanilla_type = ((index + 1) as u32).to_le_bytes();
         if index == 3 {
-            // Transport needs no MAC translation: rewrite the type in place and skip the copy.
             if self.params.headers_active() {
                 wire[..4].copy_from_slice(&vanilla_type);
             }
-            return Some(wire);
+            return Some(AwgDecodeCandidate { packet: wire, context: None });
         }
         let mut vanilla_packet = wire.clone();
-
         if self.params.headers_active() {
             vanilla_packet[..4].copy_from_slice(&vanilla_type);
         }
         if index == 2 && self.mac_keys.is_some() {
-            return self.decode_cookie_reply(&wire, vanilla_packet);
+            let (packet, cookie) = self.decode_cookie_reply(&wire)?;
+            return Some(AwgDecodeCandidate { packet, context: Some(ReceiveContext::Cookie(cookie)) });
         }
-        if index <= 1 && !self.rewrite_inbound_handshake_macs(&wire, &mut vanilla_packet) {
-            return None;
+        let context = if index <= 1 && self.mac_keys.is_some() {
+            Some(ReceiveContext::Handshake(self.rewrite_inbound_handshake_macs(&wire, &mut vanilla_packet)?))
+        } else {
+            None
+        };
+        Some(AwgDecodeCandidate { packet: vanilla_packet, context })
+    }
+
+    pub(crate) fn commit_candidate(&self, candidate: &AwgDecodeCandidate) {
+        match candidate.context {
+            Some(ReceiveContext::Handshake(handshake)) => self.mac_state().last_inbound = Some(handshake),
+            Some(ReceiveContext::Cookie(cookie)) => self.mac_state().received_cookie = Some(cookie),
+            None => {}
         }
-        Some(vanilla_packet)
+    }
+
+    /// Codec-only tests retain the original single-layout convenience entry point.
+    #[cfg(test)]
+    pub(crate) fn decode(&self, packet: &[u8]) -> Option<Vec<u8>> {
+        let candidate = self.decode_candidates(packet).into_iter().next()?;
+        self.commit_candidate(&candidate);
+        Some(candidate.packet)
     }
 
     /// `S` prefix, 3.x header protection, and trailer around a final AWG message.
@@ -558,26 +592,25 @@ impl AwgWireCodec {
         });
     }
 
-    fn rewrite_inbound_handshake_macs(&self, wire_packet: &[u8], vanilla_packet: &mut [u8]) -> bool {
-        let Some(keys) = self.mac_keys else {
-            return true;
-        };
-        let Some((mac1_offset, mac2_offset)) = handshake_mac_offsets(wire_packet.len()) else {
-            return false;
-        };
+    fn rewrite_inbound_handshake_macs(
+        &self,
+        wire_packet: &[u8],
+        vanilla_packet: &mut [u8],
+    ) -> Option<HandshakeMacState> {
+        let keys = self.mac_keys?;
+        let (mac1_offset, mac2_offset) = handshake_mac_offsets(wire_packet.len())?;
         let wire_mac1: [u8; 16] = wire_packet[mac1_offset..mac2_offset].try_into().expect("16-byte MAC1 range");
         let expected_wire_mac1 = keyed_blake2s_16(&mac1_key(keys.local_public_key), &wire_packet[..mac1_offset]);
         if !bool::from(wire_mac1.ct_eq(&expected_wire_mac1)) {
-            return false;
+            return None;
         }
 
         let vanilla_mac1 = keyed_blake2s_16(&mac1_key(keys.local_public_key), &vanilla_packet[..mac1_offset]);
         vanilla_packet[mac1_offset..mac2_offset].copy_from_slice(&vanilla_mac1);
 
         let wire_mac2: [u8; 16] = wire_packet[mac2_offset..].try_into().expect("16-byte MAC2 range");
-        let mut state = self.mac_state();
-        state.issued_cookie = state.issued_cookie.filter(|cookie| cookie.is_fresh());
-        let issued_cookie = state.issued_cookie.map(|cookie| cookie.value);
+        let issued_cookie =
+            self.mac_state().issued_cookie.filter(|cookie| cookie.is_fresh()).map(|cookie| cookie.value);
         // Invalid or absent MAC2 must reach the backend's cookie/load policy.
         // MAC1 is already verified; only a valid source cookie can translate MAC2.
         vanilla_packet[mac2_offset..].fill(0);
@@ -588,12 +621,11 @@ impl AwgWireCodec {
                 vanilla_packet[mac2_offset..].copy_from_slice(&vanilla_mac2);
             }
         }
-        state.last_inbound = Some(HandshakeMacState {
+        Some(HandshakeMacState {
             sender_index: u32::from_le_bytes(wire_packet[4..8].try_into().expect("handshake sender index")),
             vanilla_mac1,
             wire_mac1,
-        });
-        true
+        })
     }
 
     fn encode_cookie_reply(&self, packet: &[u8], index: usize) -> Option<Vec<u8>> {
@@ -618,19 +650,16 @@ impl AwgWireCodec {
         self.seal_envelope(wire_packet, index)
     }
 
-    fn decode_cookie_reply(&self, wire_packet: &[u8], _vanilla_packet: Vec<u8>) -> Option<Vec<u8>> {
+    fn decode_cookie_reply(&self, wire_packet: &[u8]) -> Option<(Vec<u8>, TimedCookie)> {
         if wire_packet.len() != COOKIE_REPLY_SIZE {
             return None;
         }
         let keys = self.mac_keys?;
         let receiver = u32::from_le_bytes(wire_packet[4..8].try_into().ok()?);
-        let mut state = self.mac_state();
-        let handshake = state.last_outbound.filter(|handshake| handshake.sender_index == receiver)?;
+        let handshake = self.mac_state().last_outbound.filter(|handshake| handshake.sender_index == receiver)?;
         let cookie = decrypt_cookie(wire_packet, cookie_key(keys.peer_public_key), handshake.wire_mac1)?;
-        state.received_cookie = Some(TimedCookie { value: cookie, received_at: Instant::now() });
-        drop(state);
-
-        build_cookie_reply(3, receiver, cookie, keys.peer_public_key, handshake.vanilla_mac1)
+        let packet = build_cookie_reply(3, receiver, cookie, keys.peer_public_key, handshake.vanilla_mac1)?;
+        Some((packet, TimedCookie { value: cookie, received_at: Instant::now() }))
     }
 }
 
@@ -1394,14 +1423,21 @@ mod tests {
             other => panic!("expected initial handshake, got {other:?}"),
         };
         let wire_init = client_codec.encode(&init).expect("encode initial handshake");
-        let vanilla_init = server_codec.decode(&wire_init).expect("decode initial handshake");
+        let initial_candidates = server_codec.decode_candidates(&wire_init);
+        assert_eq!(initial_candidates.len(), 1);
+        let vanilla_init = &initial_candidates[0].packet;
 
         let mut cookie_buf = [0u8; 2048];
-        let vanilla_cookie = match server.decapsulate(source_ip, &vanilla_init, &mut cookie_buf) {
+        let vanilla_cookie = match server.decapsulate(source_ip, vanilla_init, &mut cookie_buf) {
             TunnResult::WriteToNetwork(packet) => packet.to_vec(),
             other => panic!("under-load peer must issue a cookie, got {other:?}"),
         };
         assert_eq!(u32::from_le_bytes(vanilla_cookie[..4].try_into().unwrap()), 3);
+        assert!(
+            server_codec.encode(&vanilla_cookie).is_none(),
+            "preparing candidates must not commit MAC-domain state"
+        );
+        server_codec.commit_candidate(&initial_candidates[0]);
         let wire_cookie = server_codec.encode(&vanilla_cookie).expect("translate cookie to AWG MAC1 domain");
         assert!(
             HeaderRange::parse(&config.h3).unwrap().contains(u32::from_le_bytes(wire_cookie[3..7].try_into().unwrap()))

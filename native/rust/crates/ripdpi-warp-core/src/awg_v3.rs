@@ -122,23 +122,25 @@ impl AwgV3Params {
         Some(out)
     }
 
-    /// Classify a datagram like `DeterminePacketTypeAndPadding` and return the
-    /// type index and the unprotected AWG message without prefix or trailer.
-    pub(crate) fn open(
+    /// Return every bounded layout candidate. Header/length matches are not authentication.
+    pub(crate) fn open_candidates(
         &self,
         packet: &[u8],
         size_padding: &[u32; WG_MESSAGE_TYPE_COUNT],
         headers: &[HeaderRange; WG_MESSAGE_TYPE_COUNT],
-    ) -> Option<(usize, Vec<u8>)> {
+    ) -> Vec<(usize, Vec<u8>)> {
         let type_mask = match &self.header_key {
             Some(key) => {
+                let Some(nonce) = packet.first_chunk() else { return Vec::new() };
                 let mut mask = [0u8; 4];
-                apply_keystream(key, packet.first_chunk()?, &mut mask);
+                apply_keystream(key, nonce, &mut mask);
                 u32::from_le_bytes(mask)
             }
             None => 0,
         };
-        let index = (0..WG_MESSAGE_TYPE_COUNT).find(|&index| {
+        let mut candidates = Vec::new();
+        // Try transport first. A publicly forgeable cookie must not hide valid encrypted data.
+        for index in [TRANSPORT_INDEX, 0, 1, COOKIE_INDEX] {
             let pad = size_padding[index] as usize;
             let expected = pad + MESSAGE_SIZES[index];
             let size_matches = if index == TRANSPORT_INDEX {
@@ -146,20 +148,36 @@ impl AwgV3Params {
             } else {
                 packet.len() == expected || (self.random_trailers && packet.len() > expected)
             };
-            size_matches
-                && packet
+            if !size_matches
+                || !packet
                     .get(pad..pad + 4)
                     .and_then(|bytes| bytes.try_into().ok())
                     .is_some_and(|bytes| headers[index].contains(u32::from_le_bytes(bytes) ^ type_mask))
-        })?;
-        let pad = size_padding[index] as usize;
-        let end = if index == TRANSPORT_INDEX { packet.len() } else { pad + MESSAGE_SIZES[index] };
-        let mut message = packet[pad..end].to_vec();
-        if let Some(key) = &self.header_key {
-            let masked = masked_len(index, message.len());
-            apply_keystream(key, packet.first_chunk()?, &mut message[..masked]);
+            {
+                continue;
+            }
+            let end = if index == TRANSPORT_INDEX { packet.len() } else { expected };
+            let mut message = packet[pad..end].to_vec();
+            if let Some(key) = &self.header_key {
+                let masked = masked_len(index, message.len());
+                // The nonce was checked above before a candidate could be produced.
+                if let Some(nonce) = packet.first_chunk() {
+                    apply_keystream(key, nonce, &mut message[..masked]);
+                }
+            }
+            candidates.push((index, message));
         }
-        Some((index, message))
+        candidates
+    }
+
+    #[cfg(test)]
+    pub(crate) fn open(
+        &self,
+        packet: &[u8],
+        size_padding: &[u32; WG_MESSAGE_TYPE_COUNT],
+        headers: &[HeaderRange; WG_MESSAGE_TYPE_COUNT],
+    ) -> Option<(usize, Vec<u8>)> {
+        self.open_candidates(packet, size_padding, headers).into_iter().next()
     }
 
     /// Zero bytes to append to a transport plaintext before encryption

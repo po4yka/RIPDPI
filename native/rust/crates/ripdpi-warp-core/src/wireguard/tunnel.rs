@@ -13,6 +13,7 @@ use bytes::Bytes;
 
 use super::carrier::WgCarrier;
 use super::keys::{apply_reserved_bytes, decode_key};
+use super::receive::{ReceiveOutput, receive_packet};
 use super::routing::route_protocol;
 use super::socket::bind_tunnel_socket;
 use crate::amneziawg::{AwgMacKeys, AwgParams, AwgParamsError, AwgWireCodec, fill_random, rand_u32};
@@ -395,34 +396,10 @@ impl WireGuardTunnel {
                 Some(_) => continue,
                 None => CookieSource::Connection(self.carrier_cookie_id),
             };
-            // When AmneziaWG obfuscation is active, decode the incoming packet
-            // before passing it to boringtun. Packets whose header does not
-            // match any of h1-h4 (e.g. junk injected by the remote peer during
-            // its own handshake setup) are silently discarded.
-            //
-            // `decoded_buf` holds the reconstructed WG packet (type byte +
-            // payload) when amnezia is active. When inactive, `data` points
-            // directly into `recv_buf` and `decoded_buf` is unused.
-            let mut decoded_buf: Vec<u8> = if let Some(codec) = &self.amnezia {
-                match codec.decode(&recv_buf[..size]) {
-                    Some(packet) => packet,
-                    None => continue,
-                }
-            } else {
-                Vec::new()
+            let (result, outcome) = {
+                let mut peer = self.peer.lock().await;
+                receive_packet(&mut peer, self.amnezia.as_deref(), source, &mut recv_buf[..size], &mut send_buf)
             };
-            let data: &mut [u8] = if self.amnezia.is_some() {
-                &mut decoded_buf
-            } else {
-                if size == 0 {
-                    continue;
-                }
-                &mut recv_buf[..size]
-            };
-            // A WARP edge may echo the client id in the reserved bytes; boringtun needs them zero.
-            apply_reserved_bytes(data, [0; 3]);
-            let data: &[u8] = data;
-            let (result, outcome) = { self.peer.lock().await.decapsulate_from(Some(source), data, &mut send_buf) };
             self.handshake_readiness.observe(outcome);
             if matches!(outcome, ReceiveOutcome::TransportEmpty | ReceiveOutcome::TransportIp) {
                 // The UDP window learns only from datagrams that passed AEAD and the replay check.
@@ -431,23 +408,27 @@ impl WireGuardTunnel {
                 }
             }
             match result {
-                TunnResult::WriteToNetwork(packet) => {
+                ReceiveOutput::Network(length) => {
+                    let packet = &send_buf[..length];
                     if let Err(error) = self.send_outbound_packet(packet).await {
                         tracing::warn!("WARP tunnel send failed: {error}");
                     }
-                    self.send_queued_packets(&mut send_buf).await;
+                    if outcome != ReceiveOutcome::CookieChallenge {
+                        self.send_queued_packets(&mut send_buf).await;
+                    }
                 }
-                TunnResult::WriteToTunnelV4(packet, _) | TunnResult::WriteToTunnelV6(packet, _) => {
+                ReceiveOutput::Ip(length) => {
+                    let packet = &send_buf[..length];
                     if let Some(protocol) = route_protocol(packet, self.source_peer_ip, self.source_peer_ipv6) {
                         endpoint.send(Event::InboundInternetPacket(protocol, Bytes::copy_from_slice(packet)));
                     }
                 }
-                TunnResult::Done => {
+                ReceiveOutput::None => {
                     if outcome == ReceiveOutcome::TransportEmpty {
                         tracing::debug!("WireGuard authenticated empty transport received");
                     }
                 }
-                TunnResult::Err(error) => {
+                ReceiveOutput::Error(error) => {
                     tracing::warn!("WARP tunnel decapsulation failed: {error:?}");
                 }
             }

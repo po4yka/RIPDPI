@@ -107,6 +107,10 @@ Required cookie oracles use real packets and deterministic low load thresholds: 
 
 ### Implementation progress
 
+Candidate decoding now prepares at most four layouts without changing codec state. The backend tries transport, initiation, response, then cookie. Transport takes priority because cookie encryption uses a public-key-derived key and does not prove peer identity. A cookie challenge remains provisional until all other candidates fail. Only the selected result commits its conversion context; authenticated malformed transport terminates the search after replay consumption.
+
+The same receive boundary serves the tunnel and endpoint probe. Inspection found that the probe also treated a cookie response as success and used the first decoded layout. It now requires an accepted Noise response or valid transport, retains the full UDP source address, and uses backend retries. Explicit deadline checks bound ready socket operations as well as awaited operations; continuously ready input cannot extend the probe deadline.
+
 Readiness follows the handshake role: the initiator becomes ready after an accepted Noise response; the responder becomes ready after the first authenticated transport confirms its issued session. An accepted INIT alone is not handshake completion. An invalid incoming cookie changes no cookie, timer, or readiness state.
 
 The boundary study selects an in-repository patch of the existing dependency and records the timer/event, source identity, bounded admission, and cookie/authentication contracts above. No backend implementation or runtime acceptance is implied by this design entry.
