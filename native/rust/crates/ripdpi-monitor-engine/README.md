@@ -14,7 +14,8 @@ monolithic `ripdpi-monitor` became — it is reached over JNI through
 
 `ripdpi-diagnostics-contracts`, `ripdpi-failure-classifier`, `ripdpi-proxy-config`,
 `ripdpi-monitor-lane-adapter`, `ripdpi-config`, `ripdpi-packets`,
-`ripdpi-runtime-platform`, `ripdpi-telemetry`; `rustls`, `tokio`.
+`ripdpi-runtime-platform`, `ripdpi-telemetry`, `ripdpi-tls-profiles`; `rustls`,
+`tokio`.
 
 ## Extension points
 

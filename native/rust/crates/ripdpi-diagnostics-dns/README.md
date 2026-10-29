@@ -12,7 +12,7 @@ compression-pointer validation), the DNS oracle, CDN/ECH config tracking
 ## Main dependencies
 
 `ripdpi-diagnostics-contracts`, `ripdpi-diagnostics-transport`,
-`ripdpi-dns-resolver`, `ripdpi-tls-profiles`; `hickory-proto`,
+`ripdpi-dns-resolver`, `ripdpi-ech-dns`; `hickory-proto`,
 `hickory-resolver`, `tokio`.
 
 ## Extension points

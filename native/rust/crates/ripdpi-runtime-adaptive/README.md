@@ -24,8 +24,7 @@ pacing, and connection morphing.
 
 ## Dependencies
 
-- **Upstream:** `ripdpi-config`, `ripdpi-desync`, `ripdpi-failure-classifier`,
-  `ripdpi-packets`, `ripdpi-proxy-config`, `ripdpi-runtime-decision-ports`,
+- **Upstream:** `ripdpi-config`, `ripdpi-desync`, `ripdpi-packets`, `ripdpi-proxy-config`, `ripdpi-runtime-decision-ports`,
   `ripdpi-runtime-policy`; `ring`, `serde`, `serde_json`, `metrics`, `tracing`.
 - **Downstream:** `ripdpi-runtime-services` (and `ripdpi-bench`).
 

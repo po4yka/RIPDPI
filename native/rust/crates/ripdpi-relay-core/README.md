@@ -23,11 +23,12 @@ the Android relay bridge depends on. Relay selection is keyed by the
 
 ## Dependency direction
 
-**Upstream:** `ripdpi-relay-mux`, `ripdpi-relay-tls-transports`, and transport
-crates including `ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-shadowtls`,
-`ripdpi-tuic`, `ripdpi-vless`, `ripdpi-xhttp`, `ripdpi-trojan`,
-`ripdpi-anytls`, `ripdpi-shadowsocks`, `ripdpi-tor`, `ripdpi-mieru`, and
-`ripdpi-ssh`. **Downstream:**
+**Upstream:** `ripdpi-failure-classifier`, `ripdpi-relay-mux`,
+`ripdpi-relay-tls-transports`, `ripdpi-hysteria2`, `ripdpi-masque`,
+`ripdpi-tuic`, `ripdpi-vless`, and `ripdpi-xhttp`. The other protocol crates
+(`ripdpi-anytls`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-tor`,
+`ripdpi-trojan`, `ripdpi-mieru`, `ripdpi-ssh`) come through
+`ripdpi-relay-tls-transports`. **Downstream:**
 `ripdpi-relay-android` → `libripdpi-relay.so`.
 
 ## Non-root fallback

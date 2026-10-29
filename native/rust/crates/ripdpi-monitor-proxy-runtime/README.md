@@ -11,7 +11,8 @@ session contributes evidence without a dedicated active scan.
 ## Main dependencies
 
 `ripdpi-monitor-engine`, `ripdpi-proxy-runtime`, `ripdpi-runtime-api`,
-`ripdpi-diagnostics-transport`.
+`ripdpi-diagnostics-contracts`, `ripdpi-diagnostics-transport`,
+`ripdpi-ws-transport-port`.
 
 ## Extension points
 

@@ -11,7 +11,8 @@ consumes.
 ## Main dependencies
 
 `ripdpi-diagnostics-contracts`, `ripdpi-diagnostics-http`,
-`ripdpi-diagnostics-tls`, `ripdpi-diagnostics-transport`.
+`ripdpi-diagnostics-tls`, `ripdpi-diagnostics-transport`,
+`ripdpi-ws-transport-port`.
 
 ## Extension points
 

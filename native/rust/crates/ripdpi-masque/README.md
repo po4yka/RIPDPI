@@ -9,7 +9,7 @@ Selected by `relay_kind = "masque"`. The MASQUE / CONNECT-UDP exchange is govern
 
 ## Dependency direction
 
-**Upstream:** `ripdpi-diagnostics-dns`, `ripdpi-hysteria2`, `ripdpi-tls-profiles` (`quinn`, `boring`, `reqwest`, `rustls`). **Downstream:** `ripdpi-relay-core`.
+**Upstream:** `ripdpi-ech-dns`, `ripdpi-hysteria2`, `ripdpi-native-protect`, `ripdpi-tls-profiles` (`quinn`, `boring`, `reqwest`, `rustls`). **Downstream:** `ripdpi-relay-core`.
 
 ## Non-root fallback
 

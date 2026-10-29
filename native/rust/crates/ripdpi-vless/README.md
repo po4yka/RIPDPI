@@ -17,9 +17,8 @@ hand — `boring` / `tokio-boring` are pinned to exact versions in the workspace
 
 ## Dependency direction
 
-**Upstream:** `ripdpi-relay-mux`, `ripdpi-dns-resolver`, `ripdpi-ech-dns`,
-`ripdpi-tls-profiles`, `ripdpi-native-protect`, and the shared protocol/config
-crates. **Downstream:** `ripdpi-relay-core`, `ripdpi-relay-tls-transports`,
+**Upstream:** `ripdpi-dns-resolver`, `ripdpi-ech-dns`, `ripdpi-native-protect`,
+`ripdpi-session-limit`, `ripdpi-tls-profiles`. **Downstream:** `ripdpi-relay-core`, `ripdpi-relay-tls-transports`,
 `ripdpi-xhttp`, `ripdpi-cloudflare-origin`.
 
 ## Non-root fallback

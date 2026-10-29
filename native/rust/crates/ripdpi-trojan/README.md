@@ -2,7 +2,7 @@
 
 Trojan outbound client library for RIPDPI relay-core integration.
 
-**Upstream:** `ripdpi-tls-profiles` for the BoringSSL/TLS client path. **Downstream:** `ripdpi-relay-tls-transports`, then `ripdpi-relay-core`.
+**Upstream:** `ripdpi-tls-profiles` for the BoringSSL/TLS client path and `ripdpi-native-protect` for socket protection. **Downstream:** `ripdpi-relay-tls-transports`, then `ripdpi-relay-core`.
 
 ## Protocol Notes
 

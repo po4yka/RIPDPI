@@ -2,7 +2,7 @@
 
 `ripdpi-naiveproxy` is a subprocess helper managed by `NaiveProxyManager.kt`. It remains a binary crate and must not be moved into `relay-core`, `RelayBackend` / `RelayKind`, `libripdpi-relay.so`, or the `RelayNativeConfig` schema.
 
-**Upstream:** `ripdpi-tls-profiles` for the TLS profile catalog. **Downstream:** Android service code launches the helper as a subprocess through `NaiveProxyManager.kt`; no Rust relay-core crate depends on it.
+**Upstream:** `ripdpi-tls-profiles` for the TLS profile catalog and `ripdpi-subprocess-protect` for socket protection. **Downstream:** Android service code launches the helper as a subprocess through `NaiveProxyManager.kt`; no Rust relay-core crate depends on it.
 
 ## Implementation Target
 

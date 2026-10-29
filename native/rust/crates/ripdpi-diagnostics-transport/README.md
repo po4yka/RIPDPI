@@ -10,7 +10,8 @@ transport (`ws_tls`). The lowest probe layer; it carries no protocol semantics.
 
 ## Main dependencies
 
-`ripdpi-diagnostics-contracts`, `ripdpi-socks5-core`; `rustls`, `tokio`.
+`ripdpi-diagnostics-contracts`, `ripdpi-native-protect`, `ripdpi-socks5-core`;
+`rustls`, `tokio`.
 
 ## Extension points
 

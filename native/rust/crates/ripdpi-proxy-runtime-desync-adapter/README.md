@@ -6,7 +6,7 @@
 
 ## Dependencies
 
-- **Upstream:** `ripdpi-config`, `ripdpi-desync`, `ripdpi-desync-runtime`, `ripdpi-failure-classifier`, `ripdpi-ipfrag`, `ripdpi-packets`, `ripdpi-proxy-config`, `ripdpi-runtime-api`, `ripdpi-runtime-decision-ports`, `ripdpi-runtime-platform`, `ripdpi-runtime-services`, `ripdpi-session`.
+- **Upstream:** `ripdpi-config`, `ripdpi-desync`, `ripdpi-desync-runtime`, `ripdpi-failure-classifier`, `ripdpi-ipfrag`, `ripdpi-packets`, `ripdpi-protocol-detect`, `ripdpi-proxy-config`, `ripdpi-runtime-api`, `ripdpi-runtime-decision-ports`, `ripdpi-runtime-platform`, `ripdpi-runtime-services`, `ripdpi-session`, `ripdpi-strategy-config`, `ripdpi-strategy-registry`, `ripdpi-strategy-trait`.
 - **Downstream:** `ripdpi-proxy-runtime` and related runtime wiring.
 
 ## Boundaries

@@ -16,7 +16,7 @@ The stable helper CLI is `ripdpi-cloudflare-origin --config-stdin`. The Android 
 
 ## Dependency direction
 
-**Upstream:** `ripdpi-vless` (`tokio`). **Downstream:** none — it is a
+**Upstream:** `ripdpi-vless`, `ripdpi-subprocess-protect` (`tokio`). **Downstream:** none — it is a
 standalone binary launched by the Android subprocess supervisor.
 
 ## Non-root fallback
