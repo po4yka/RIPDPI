@@ -2497,6 +2497,8 @@ Quelle: %2$s</string>
     <string name="settings_reset_dialog_body">Dies stellt alle Einstellungen auf ihre Standardwerte zurück, und alle Anpassungen gehen verloren. Profile, Gruppen, Routing-Regeln und der Diagnoseverlauf bleiben erhalten.</string>
     <string name="settings_support_section">Support</string>
     <string name="settings_theme_body">Wählen Sie, ob die App dem Systemdesign folgt oder fest bleibt.</string>
+    <string name="settings_dynamic_color_title">Hintergrundfarben verwenden</string>
+    <string name="settings_dynamic_color_body">App-Farben an das Hintergrundbild anpassen (Android 12+).</string>
     <string name="settings_warning_backup_pin_title">Backup-PIN empfohlen</string>
     <string name="shortcut_diagnostics_short">Diagnose</string>
     <string name="shortcut_open_config">Profile öffnen</string>

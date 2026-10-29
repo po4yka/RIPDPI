@@ -15,6 +15,7 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .newBuilder()
             .setAppTheme("system")
             .setHapticFeedbackDisabled(false)
+            .setDynamicColorEnabled(false)
             .setUiPersona("simple")
             .setRipdpiMode("vpn")
             .setDnsIp(defaultDns.dnsIp)

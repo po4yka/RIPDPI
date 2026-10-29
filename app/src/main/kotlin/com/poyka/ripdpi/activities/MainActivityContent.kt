@@ -56,6 +56,7 @@ internal fun MainActivityContent(
     RipDpiTheme(
         themePreference = startupState.theme,
         contrastLevel = rememberSystemContrastLevel(),
+        dynamicColor = startupState.dynamicColor,
         hapticFeedbackDisabled = startupState.hapticFeedbackDisabled || !startupState.isReady,
     ) {
         when (startupState.readiness) {

@@ -38,6 +38,7 @@ internal fun AppSettings.toUiState(
         settings = this,
         appTheme = appTheme.ifEmpty { "system" },
         hapticFeedbackDisabled = hapticFeedbackDisabled,
+        dynamicColorEnabled = dynamicColorEnabled,
         uiPersona = uiPersona.ifEmpty { "simple" },
         appIconVariant = LauncherIconManager.normalizeIconKey(appIconVariant),
         themedAppIconEnabled =

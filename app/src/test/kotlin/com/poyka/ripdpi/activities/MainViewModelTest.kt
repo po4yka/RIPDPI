@@ -2369,6 +2369,11 @@ class MainViewModelTest {
             repository.update { setHapticFeedbackDisabled(false) }
             runCurrent()
             assertFalse(viewModel.startupState.value.hapticFeedbackDisabled)
+            assertFalse(viewModel.startupState.value.dynamicColor)
+
+            repository.update { setDynamicColorEnabled(true) }
+            runCurrent()
+            assertTrue(viewModel.startupState.value.dynamicColor)
             assertTrue(controller.startedModes.isEmpty())
             collector.cancel()
         }

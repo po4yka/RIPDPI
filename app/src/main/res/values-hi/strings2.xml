@@ -286,6 +286,8 @@
     <string name="settings_backup_pin_clear">PIN साफ़ करें</string>
     <string name="settings_appearance_section">इंटरफ़ेस</string>
     <string name="settings_theme_body">चुनें कि ऐप सिस्टम थीम का अनुसरण करे या स्थिर रहे।</string>
+    <string name="settings_dynamic_color_title">वॉलपेपर के रंग इस्तेमाल करें</string>
+    <string name="settings_dynamic_color_body">ऐप के रंग वॉलपेपर से मिलाएँ (Android 12 और बाद के संस्करण)।</string>
     <string name="settings_customization_body">ऐप आइकन, अनुकूली आकार, और थीम वाले आइकन विकल्प।</string>
     <string name="settings_support_section">सहायता</string>
     <string name="settings_support_debug_bundle_title">सहायता बंडल साझा करें</string>

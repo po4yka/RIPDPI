@@ -7,6 +7,7 @@ internal fun AppSettingsSnapshot.withUiRuntimeSnapshot(settings: AppSettings): A
         rootUiRuntime =
             rootUiRuntime.copy(
                 hapticFeedbackDisabled = settings.hapticFeedbackDisabled,
+                dynamicColorEnabled = settings.dynamicColorEnabled,
                 onboardingComplete = settings.onboardingComplete,
                 webrtcProtectionEnabled = settings.webrtcProtectionEnabled,
                 biometricEnabled = settings.biometricEnabled,
@@ -18,6 +19,7 @@ internal fun AppSettingsSnapshot.withUiRuntimeSnapshot(settings: AppSettings): A
 internal fun AppSettings.Builder.applyRootUiRuntimeSnapshot(snapshot: AppSettingsSnapshot): AppSettings.Builder =
     setAppTheme(snapshot.rootUiRuntime.appTheme)
         .setHapticFeedbackDisabled(snapshot.rootUiRuntime.hapticFeedbackDisabled)
+        .setDynamicColorEnabled(snapshot.rootUiRuntime.dynamicColorEnabled)
         .setRipdpiMode(snapshot.rootUiRuntime.mode.preferenceValue)
         .setIpv6Enable(snapshot.dns.ipv6Enabled)
         .setEnableCmdSettings(snapshot.proxyDesync.enableCommandLineSettings)

@@ -2497,6 +2497,8 @@ Source : %2$s</string>
     <string name="settings_reset_dialog_body">Cela restaurera tous les paramètres à leurs valeurs par défaut et toutes les personnalisations seront perdues. Les profils, groupes, règles de routage et l\'historique de diagnostic sont conservés.</string>
     <string name="settings_support_section">Assistance</string>
     <string name="settings_theme_body">Choisissez si l\'application suit le thème du système ou reste fixe.</string>
+    <string name="settings_dynamic_color_title">Utiliser les couleurs du fond d\'écran</string>
+    <string name="settings_dynamic_color_body">Adapter les couleurs de l\'application à votre fond d\'écran (Android 12+).</string>
     <string name="settings_warning_backup_pin_title">PIN de secours recommandé</string>
     <string name="shortcut_diagnostics_short">Diagnostics</string>
     <string name="shortcut_open_config">Ouvrir les profils</string>

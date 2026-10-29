@@ -192,6 +192,7 @@ data class MainStartupState(
         com.poyka.ripdpi.AppStartupReadinessState.Pending,
     val theme: String = "system",
     val hapticFeedbackDisabled: Boolean = false,
+    val dynamicColor: Boolean = false,
     val startDestination: Route = Route.Home,
 ) {
     val isReady: Boolean

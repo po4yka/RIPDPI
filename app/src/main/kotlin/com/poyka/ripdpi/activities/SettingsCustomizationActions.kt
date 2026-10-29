@@ -131,6 +131,12 @@ internal class SettingsCustomizationActions(
         }
     }
 
+    fun setDynamicColorEnabled(enabled: Boolean) {
+        mutations.updateSetting(key = "dynamicColorEnabled", value = enabled.toString()) {
+            setDynamicColorEnabled(enabled)
+        }
+    }
+
     fun setAppTheme(theme: String) {
         mutations.updateSetting(
             key = "appTheme",

@@ -1949,6 +1949,8 @@ fake_burst 3</string>
     <string name="settings_strategy_pack_allow_rollback_override_title">允许策略包回滚</string>
     <string name="settings_telemetry_salt_reset_action">重置遥测盐值</string>
     <string name="settings_theme_body">选择应用是跟随系统主题还是保持固定。</string>
+    <string name="settings_dynamic_color_title">使用壁纸颜色</string>
+    <string name="settings_dynamic_color_body">让应用配色匹配你的壁纸（Android 12 及以上）。</string>
     <string name="settings_warning_backup_pin_body">设置一个四位备用 PIN,以便在生物识别不可用时仍能解锁 RIPDPI。</string>
     <string name="shortcut_diagnostics_disabled">诊断不可用</string>
     <string name="shortcut_quick_connect_short">连接</string>

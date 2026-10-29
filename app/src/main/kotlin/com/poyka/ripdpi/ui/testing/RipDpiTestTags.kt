@@ -208,6 +208,7 @@ internal object RipDpiTestTags {
     const val SettingsBackupPinWarning = "settings-backup-pin-warning"
     const val SettingsHapticFeedback = "settings-haptic-feedback"
     const val SettingsThemeDropdown = "settings-theme-dropdown"
+    const val SettingsDynamicColor = "settings-dynamic-color"
     const val SettingsLanguage = "settings-language"
     const val SettingsPersona = "settings-persona"
     const val SettingsPersonaSheet = "settings-persona-sheet"

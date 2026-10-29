@@ -97,5 +97,6 @@ private fun mainStartupState(
         readiness = readiness,
         theme = settings.appTheme.ifEmpty { "system" },
         hapticFeedbackDisabled = settings.hapticFeedbackDisabled,
+        dynamicColor = settings.dynamicColorEnabled,
         startDestination = resolveStartupDestination(settings),
     )

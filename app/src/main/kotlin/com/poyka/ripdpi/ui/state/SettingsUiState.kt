@@ -25,6 +25,7 @@ data class SettingsUiState(
     val settings: AppSettings = AppSettingsSerializer.defaultValue,
     val appTheme: String = "system",
     val hapticFeedbackDisabled: Boolean = false,
+    val dynamicColorEnabled: Boolean = false,
     val uiPersona: String = "simple",
     val appIconVariant: String = LauncherIconManager.DefaultIconKey,
     val themedAppIconEnabled: Boolean = true,

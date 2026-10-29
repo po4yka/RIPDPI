@@ -21,6 +21,7 @@ fun RipDpiTheme(
     themePreference: String = "system",
     contrastLevel: RipDpiContrastLevel = RipDpiContrastLevel.Standard,
     hapticFeedbackDisabled: Boolean = false,
+    @Suppress("UNUSED_PARAMETER") dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val isDark =

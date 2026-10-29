@@ -1662,6 +1662,8 @@ fakeddisorder endhost</string>
     <string name="settings_reset_dialog_title">تنظیمات بازنشانی شود؟</string>
     <string name="settings_support_section">پشتیبانی</string>
     <string name="settings_theme_body">انتخاب کنید آیا برنامه از تم سیستم پیروی کند یا ثابت بماند.</string>
+    <string name="settings_dynamic_color_title">استفاده از رنگ‌های تصویر زمینه</string>
+    <string name="settings_dynamic_color_body">هماهنگ کردن رنگ‌های برنامه با تصویر زمینه (Android 12 به بعد).</string>
     <string name="settings_vpn_flag_warning_title">پرچم VPN قابل‌مشاهده است</string>
     <string name="settings_webrtc_body">نشت‌های کشف peer که می‌توانند تونل محلی را دور بزنند کاهش دهید.</string>
     <string name="settings_start_on_boot_title">اجرا هنگام روشن شدن</string>

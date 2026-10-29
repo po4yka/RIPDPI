@@ -6,6 +6,7 @@ import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
@@ -17,6 +18,19 @@ class HapticFeedbackPersistenceTest {
         val exported = appSettingsJson.parseToJsonElement(restored.toJson()).jsonObject
 
         assertEquals(JsonPrimitive(true), exported["hapticFeedbackDisabled"])
+    }
+
+    @Test
+    fun `dynamic color defaults off and survives JSON round trip`() {
+        assertFalse(AppSettingsSerializer.defaultValue.dynamicColorEnabled)
+        assertFalse(appSettingsFromJson("""{"appTheme":"dark"}""").dynamicColorEnabled)
+
+        val on =
+            AppSettingsSerializer.defaultValue
+                .toBuilder()
+                .setDynamicColorEnabled(true)
+                .build()
+        assertTrue(appSettingsFromJson(on.toJson()).dynamicColorEnabled)
     }
 
     @Test

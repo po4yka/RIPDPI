@@ -34,6 +34,19 @@ class SettingsCustomizationActionsTest {
             assertTrue(harness.controller.receiverEnabledCalls.isEmpty())
         }
 
+    @Test
+    fun `dynamic color choice persists both values`() =
+        runTest {
+            val harness = buildHarness(batteryIgnored = false)
+            harness.actions.setDynamicColorEnabled(true)
+            advanceUntilIdle()
+            assertTrue(harness.repository.snapshot().dynamicColorEnabled)
+
+            harness.actions.setDynamicColorEnabled(false)
+            advanceUntilIdle()
+            assertFalse(harness.repository.snapshot().dynamicColorEnabled)
+        }
+
     private class RecordingStartOnBootController(
         var batteryIgnored: Boolean,
     ) : StartOnBootController(ApplicationProvider.getApplicationContext()) {

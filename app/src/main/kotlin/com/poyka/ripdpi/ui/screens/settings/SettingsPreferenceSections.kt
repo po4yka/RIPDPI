@@ -326,6 +326,7 @@ private fun handleBiometricToggle(
 internal fun SettingsAppearanceSection(
     uiState: SettingsUiState,
     actions: SettingsScreenActions,
+    dynamicColorSupported: Boolean = isDynamicColorSupported(),
 ) {
     val colors = RipDpiThemeTokens.colors
     val themeLabels = stringArrayResource(R.array.themes)
@@ -354,6 +355,16 @@ internal fun SettingsAppearanceSection(
                 RipDpiTestTags.dropdownOption(RipDpiTestTags.SettingsThemeDropdown, value)
             },
         )
+        if (dynamicColorSupported) {
+            HorizontalDivider(color = colors.divider)
+            SettingsRow(
+                title = stringResource(R.string.settings_dynamic_color_title),
+                subtitle = stringResource(R.string.settings_dynamic_color_body),
+                checked = uiState.dynamicColorEnabled,
+                onCheckedChange = actions.onDynamicColorChanged,
+                testTag = RipDpiTestTags.SettingsDynamicColor,
+            )
+        }
         HorizontalDivider(color = colors.divider)
         HapticFeedbackPreference(
             disabled = uiState.hapticFeedbackDisabled,
@@ -658,3 +669,7 @@ private fun FullTunnelHelperFooter(
     )
     HorizontalDivider(color = RipDpiThemeTokens.colors.divider)
 }
+
+/** Wallpaper-derived colors exist only on Android 12 (API 31) and later. */
+internal fun isDynamicColorSupported(sdkInt: Int = android.os.Build.VERSION.SDK_INT): Boolean =
+    sdkInt >= android.os.Build.VERSION_CODES.S

@@ -63,6 +63,42 @@ class SettingsPreferencesGroupingTest {
     }
 
     @Test
+    @Config(sdk = [31])
+    fun `dynamic color switch is offered on Android 12 and updates`() {
+        val state = androidx.compose.runtime.mutableStateOf(SettingsUiState())
+        val choices = mutableListOf<Boolean>()
+        composeRule.setContent {
+            RipDpiTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    SettingsAppearanceSection(
+                        uiState = state.value,
+                        actions =
+                            noOpActions().copy(onDynamicColorChanged = {
+                                choices += it
+                                state.value = state.value.copy(dynamicColorEnabled = it)
+                            }),
+                    )
+                }
+            }
+        }
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsDynamicColor).performScrollTo().performClick()
+        assertEquals(listOf(true), choices)
+    }
+
+    @Test
+    @Config(sdk = [30])
+    fun `dynamic color switch is hidden before Android 12`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    SettingsAppearanceSection(uiState = SettingsUiState(), actions = noOpActions())
+                }
+            }
+        }
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsDynamicColor).assertDoesNotExist()
+    }
+
+    @Test
     fun `haptic choices expose and update the selected value`() {
         val state = androidx.compose.runtime.mutableStateOf(SettingsUiState())
         val choices = mutableListOf<Boolean>()
