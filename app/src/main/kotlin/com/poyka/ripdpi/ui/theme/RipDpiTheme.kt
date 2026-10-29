@@ -45,9 +45,8 @@ fun RipDpiTheme(
     val languageTags = LocalConfiguration.current.locales.toLanguageTags()
     val type = remember(languageTags) { RipDpiTypeScale.withLocaleList(LocaleList(languageTags)) }
     val typography = remember(type) { ripDpiTypography(type) }
-    val colorScheme = if (isDark) ripDpiDarkColorScheme() else ripDpiLightColorScheme()
-    val baseColors = if (isDark) DarkRipDpiExtendedColors else LightRipDpiExtendedColors
-    val extendedColors = baseColors.adjustForContrast(contrastLevel, isDark)
+    val colorScheme = if (isDark) ripDpiDarkColorScheme(contrastLevel) else ripDpiLightColorScheme(contrastLevel)
+    val extendedColors = ripDpiExtendedColors(colorScheme, isDark)
     val density = LocalDensity.current
     val screenWidthDp =
         with(density) {

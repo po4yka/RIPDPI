@@ -258,7 +258,10 @@ class RipDpiStylesTest {
         composeRule.runOnIdle { dark = true }
         assertPixel(Surface, DarkRipDpiExtendedColors.border)
         composeRule.runOnIdle { contrast = RipDpiContrastLevel.High }
-        assertPixel(Surface, DarkRipDpiExtendedColors.adjustForContrast(RipDpiContrastLevel.High, isDark = true).border)
+        assertPixel(
+            Surface,
+            ripDpiExtendedColors(ripDpiDarkColorScheme(RipDpiContrastLevel.High), isDark = true).border,
+        )
     }
 
     @Test

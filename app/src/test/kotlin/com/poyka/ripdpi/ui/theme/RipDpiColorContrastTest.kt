@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -70,6 +71,32 @@ class RipDpiColorContrastTest {
         val contrast = contrastRatio(DarkRipDpiExtendedColors.mutedForeground, DarkRipDpiExtendedColors.background)
 
         assertTrue("Expected AA contrast for dark secondary text, was $contrast", contrast >= 4.5f)
+    }
+
+    @Test
+    fun `every Material scheme keeps core text pairs readable at all contrast levels`() {
+        RipDpiContrastLevel.entries.forEach { level ->
+            val schemes = mapOf("light" to ripDpiLightColorScheme(level), "dark" to ripDpiDarkColorScheme(level))
+            schemes.forEach { (mode, s) ->
+                assertAaContrast("$mode $level onSurface", s.onSurface, s.surface)
+                assertAaContrast("$mode $level onSurfaceVariant", s.onSurfaceVariant, s.surfaceContainerHigh)
+                assertAaContrast("$mode $level onPrimary", s.onPrimary, s.primary)
+                assertAaContrast("$mode $level onError", s.onError, s.error)
+            }
+        }
+    }
+
+    @Test
+    fun `RDS neutral roles come from the selected Material scheme`() {
+        val scheme = ripDpiDarkColorScheme(RipDpiContrastLevel.High)
+        val colors = ripDpiExtendedColors(scheme, isDark = true)
+
+        assertEquals(scheme.surface, colors.background)
+        assertEquals(scheme.surfaceContainerLow, colors.card)
+        assertEquals(scheme.onSurfaceVariant, colors.mutedForeground)
+        assertEquals(scheme.outlineVariant, colors.border)
+        assertEquals(scheme.error, colors.destructive)
+        assertEquals(DarkRipDpiExtendedColors.success, colors.success)
     }
 
     private fun assertAaContrast(

@@ -80,9 +80,9 @@ data class RipDpiButtonStateTokens(
             }
 
             RipDpiButtonStateRole.Secondary -> {
-                val base = colorScheme.secondary
+                val base = colorScheme.secondaryContainer
                 (if (isPressed) lerp(base, colorScheme.surfaceVariant, SecondaryPressedLerp) else base) to
-                    colorScheme.onSecondary
+                    colorScheme.onSecondaryContainer
             }
 
             RipDpiButtonStateRole.Outline,

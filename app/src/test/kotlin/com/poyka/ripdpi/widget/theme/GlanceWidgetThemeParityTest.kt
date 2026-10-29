@@ -99,12 +99,12 @@ class GlanceWidgetThemeParityTest {
 
     private companion object {
         // Pinned snapshot of RipDpiGlanceColors.kt. If Glance edits, mirror here.
-        const val LIGHT_PRIMARY_HEX = 0xFF1A1A1AL
-        const val LIGHT_BACKGROUND_HEX = 0xFFFAFAFAL
-        const val LIGHT_SURFACE_HEX = 0xFFFFFFFFL
+        const val LIGHT_PRIMARY_HEX = 0xFF1B1B1DL
+        const val LIGHT_BACKGROUND_HEX = 0xFFFBF9FAL
+        const val LIGHT_SURFACE_HEX = 0xFFF5F3F4L
         const val LIGHT_SUCCESS_HEX = 0xFF047857L
-        const val DARK_PRIMARY_HEX = 0xFFE8E8E8L
-        const val DARK_BACKGROUND_HEX = 0xFF121212L
+        const val DARK_PRIMARY_HEX = 0xFFE4E2E3L
+        const val DARK_BACKGROUND_HEX = 0xFF131314L
 
         val EXPECTED_LIGHT: List<Pair<String, Long>> =
             listOf(

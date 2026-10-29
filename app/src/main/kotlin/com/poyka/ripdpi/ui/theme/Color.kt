@@ -1,39 +1,15 @@
 package com.poyka.ripdpi.ui.theme
 
 import androidx.compose.material3.ColorScheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 
-private val LightBackground = Color(0xFFFAFAFA)
-private val LightForeground = Color(0xFF1A1A1A)
-private val LightSurfaceVariant = Color(0xFFF0F0F0)
-private val LightOnSurfaceVariant = Color(0xFF444444)
-private val LightCard = Color(0xFFFFFFFF)
-private val LightCardForeground = Color(0xFF1A1A1A)
-private val LightPrimary = Color(0xFF1A1A1A)
-private val LightPrimaryForeground = Color(0xFFFFFFFF)
-private val LightSecondary = Color(0xFFF0F0F0)
-private val LightSecondaryForeground = Color(0xFF1A1A1A)
-private val LightMuted = Color(0xFFF5F5F5)
-private val LightMutedForeground = Color(0xFF575757)
-private val LightAccent = Color(0xFFE8E8E8)
-private val LightAccentForeground = Color(0xFF1A1A1A)
-private val LightOutline = Color(0xFF757575)
-private val LightOutlineVariant = Color(0xFFD0D0D0)
-private val LightBorder = Color(0xFFE0E0E0)
-private val LightInputBackground = Color(0xFFF5F5F5)
 private val LightSuccess = Color(0xFF047857)
 private val LightWarning = Color(0xFFB45309)
 private val LightWarningForeground = Color(0xFFFFFFFF)
 private val LightWarningContainer = Color(0xFFFFF7ED)
 private val LightWarningContainerForeground = Color(0xFF1A1A1A)
-private val LightDestructive = Color(0xFFB91C1C)
-private val LightDestructiveForeground = Color(0xFFFFFFFF)
-private val LightDestructiveContainer = Color(0xFFFEF2F2)
-private val LightDestructiveContainerForeground = Color(0xFF7F1D1D)
 private val LightInfo = Color(0xFF1D4ED8)
 private val LightInfoForeground = Color(0xFFFFFFFF)
 private val LightInfoContainer = Color(0xFFEFF6FF)
@@ -42,39 +18,14 @@ private val LightRestricted = Color(0xFF6B7280)
 private val LightRestrictedForeground = Color(0xFFFFFFFF)
 private val LightRestrictedContainer = Color(0xFFF3F4F6)
 private val LightRestrictedContainerForeground = Color(0xFF374151)
-private val LightDivider = Color(0xFFF0F0F0)
-private val LightCardBorder = Color(0xFFE8E8E8)
-
-private val DarkBackground = Color(0xFF121212)
-private val DarkForeground = Color(0xFFE8E8E8)
-private val DarkSurfaceVariant = Color(0xFF222222)
-private val DarkOnSurfaceVariant = Color(0xFFCCCCCC)
-private val DarkCard = Color(0xFF1A1A1A)
-private val DarkCardForeground = Color(0xFFE8E8E8)
-private val DarkPrimary = Color(0xFFE8E8E8)
-private val DarkPrimaryForeground = Color(0xFF121212)
-private val DarkSecondary = Color(0xFF222222)
-private val DarkSecondaryForeground = Color(0xFFE8E8E8)
-private val DarkMuted = Color(0xFF1E1E1E)
-private val DarkMutedForeground = Color(0xFFA3A3A3)
-private val DarkAccent = Color(0xFF2A2A2A)
-private val DarkAccentForeground = Color(0xFFE8E8E8)
-private val DarkOutline = Color(0xFF616161)
-private val DarkOutlineVariant = Color(0xFF333333)
-private val DarkBorder = Color(0xFF2A2A2A)
-private val DarkInputBackground = Color(0xFF1E1E1E)
-private val DarkSuccess = Color(0xFF34D399)
-private val DarkWarning = Color(0xFFFBBF24)
-private val DarkWarningForeground = Color(0xFF1C1917)
 
 // Dark tone containers stay near-neutral, not a saturated block. The text keeps a muted tint of
 // the tone, so a container with no icon or border (a metric pill) still reads as its tone.
+private val DarkSuccess = Color(0xFF34D399)
+private val DarkWarning = Color(0xFFFBBF24)
+private val DarkWarningForeground = Color(0xFF1C1917)
 private val DarkWarningContainer = Color(0xFF2B261D)
 private val DarkWarningContainerForeground = Color(0xFFF3DDB0)
-private val DarkDestructive = Color(0xFFF87171)
-private val DarkDestructiveForeground = Color(0xFF210A0A)
-private val DarkDestructiveContainer = Color(0xFF450A0A)
-private val DarkDestructiveContainerForeground = Color(0xFFFECACA)
 private val DarkInfo = Color(0xFF60A5FA)
 private val DarkInfoForeground = Color(0xFF0A2342)
 private val DarkInfoContainer = Color(0xFF1D242D)
@@ -83,72 +34,15 @@ private val DarkRestricted = Color(0xFF9CA3AF)
 private val DarkRestrictedForeground = Color(0xFF111827)
 private val DarkRestrictedContainer = Color(0xFF1F2937)
 private val DarkRestrictedContainerForeground = Color(0xFFE5E7EB)
-private val DarkDivider = Color(0xFF222222)
-private val DarkCardBorder = Color(0xFF2A2A2A)
 
 private val LightScrim = Color(0x99000000)
 private val DarkScrim = Color(0xCC000000)
-
-val RipDpiHairlineColor = Color(0xFF666666)
 
 enum class RipDpiContrastLevel {
     Standard,
     Medium,
     High,
 }
-
-private const val MediumMutedBlend = 0.2f
-private const val MediumBorderBlend = 0.15f
-private const val HighMutedBlend = 0.45f
-private const val HighBorderBlend = 0.35f
-private const val HighOutlineBlend = 0.4f
-private const val HighInputBackgroundBlend = 0.08f
-
-fun RipDpiExtendedColors.adjustForContrast(
-    level: RipDpiContrastLevel,
-    isDark: Boolean,
-): RipDpiExtendedColors =
-    when (level) {
-        RipDpiContrastLevel.Standard -> {
-            this
-        }
-
-        RipDpiContrastLevel.Medium -> {
-            copy(
-                mutedForeground = blendToward(mutedForeground, foreground, MediumMutedBlend),
-                border = blendToward(border, foreground, MediumBorderBlend),
-                cardBorder = blendToward(cardBorder, foreground, MediumBorderBlend),
-                outlineVariant = blendToward(outlineVariant, foreground, MediumMutedBlend),
-            )
-        }
-
-        RipDpiContrastLevel.High -> {
-            copy(
-                mutedForeground = blendToward(mutedForeground, foreground, HighMutedBlend),
-                border = blendToward(border, foreground, HighBorderBlend),
-                cardBorder = blendToward(cardBorder, foreground, HighBorderBlend),
-                outlineVariant = blendToward(outlineVariant, foreground, HighOutlineBlend),
-                inputBackground =
-                    if (isDark) {
-                        blendToward(inputBackground, foreground, HighInputBackgroundBlend)
-                    } else {
-                        inputBackground
-                    },
-            )
-        }
-    }
-
-private fun blendToward(
-    from: Color,
-    to: Color,
-    fraction: Float,
-): Color =
-    Color(
-        red = from.red + (to.red - from.red) * fraction,
-        green = from.green + (to.green - from.green) * fraction,
-        blue = from.blue + (to.blue - from.blue) * fraction,
-        alpha = from.alpha,
-    )
 
 @Immutable
 data class RipDpiExtendedColors(
@@ -187,145 +81,54 @@ data class RipDpiExtendedColors(
     val scrim: Color,
 )
 
-val LightRipDpiExtendedColors =
+/**
+ * Derives the RDS neutral and destructive roles from the Material scheme so contrast and (later) dynamic color
+ * reach RDS components. Success, warning, info, restricted, and scrim stay RDS-owned.
+ */
+fun ripDpiExtendedColors(
+    scheme: ColorScheme,
+    isDark: Boolean,
+): RipDpiExtendedColors =
     RipDpiExtendedColors(
-        background = LightBackground,
-        foreground = LightForeground,
-        card = LightCard,
-        cardForeground = LightCardForeground,
-        muted = LightMuted,
-        mutedForeground = LightMutedForeground,
-        accent = LightAccent,
-        accentForeground = LightAccentForeground,
-        border = LightBorder,
-        cardBorder = LightCardBorder,
-        inputBackground = LightInputBackground,
-        success = LightSuccess,
-        warning = LightWarning,
-        warningForeground = LightWarningForeground,
-        warningContainer = LightWarningContainer,
-        warningContainerForeground = LightWarningContainerForeground,
-        destructive = LightDestructive,
-        destructiveForeground = LightDestructiveForeground,
-        destructiveContainer = LightDestructiveContainer,
-        destructiveContainerForeground = LightDestructiveContainerForeground,
-        info = LightInfo,
-        infoForeground = LightInfoForeground,
-        infoContainer = LightInfoContainer,
-        infoContainerForeground = LightInfoContainerForeground,
-        restricted = LightRestricted,
-        restrictedForeground = LightRestrictedForeground,
-        restrictedContainer = LightRestrictedContainer,
-        restrictedContainerForeground = LightRestrictedContainerForeground,
-        divider = LightDivider,
-        hairline = RipDpiHairlineColor,
-        outline = LightOutline,
-        outlineVariant = LightOutlineVariant,
-        scrim = LightScrim,
+        background = scheme.surface,
+        foreground = scheme.onSurface,
+        card = scheme.surfaceContainerLow,
+        cardForeground = scheme.onSurface,
+        muted = scheme.surfaceContainerHigh,
+        mutedForeground = scheme.onSurfaceVariant,
+        accent = scheme.secondaryContainer,
+        accentForeground = scheme.onSecondaryContainer,
+        border = scheme.outlineVariant,
+        cardBorder = scheme.outlineVariant,
+        inputBackground = scheme.surfaceContainerHighest,
+        success = if (isDark) DarkSuccess else LightSuccess,
+        warning = if (isDark) DarkWarning else LightWarning,
+        warningForeground = if (isDark) DarkWarningForeground else LightWarningForeground,
+        warningContainer = if (isDark) DarkWarningContainer else LightWarningContainer,
+        warningContainerForeground = if (isDark) DarkWarningContainerForeground else LightWarningContainerForeground,
+        destructive = scheme.error,
+        destructiveForeground = scheme.onError,
+        destructiveContainer = scheme.errorContainer,
+        destructiveContainerForeground = scheme.onErrorContainer,
+        info = if (isDark) DarkInfo else LightInfo,
+        infoForeground = if (isDark) DarkInfoForeground else LightInfoForeground,
+        infoContainer = if (isDark) DarkInfoContainer else LightInfoContainer,
+        infoContainerForeground = if (isDark) DarkInfoContainerForeground else LightInfoContainerForeground,
+        restricted = if (isDark) DarkRestricted else LightRestricted,
+        restrictedForeground = if (isDark) DarkRestrictedForeground else LightRestrictedForeground,
+        restrictedContainer = if (isDark) DarkRestrictedContainer else LightRestrictedContainer,
+        restrictedContainerForeground =
+            if (isDark) DarkRestrictedContainerForeground else LightRestrictedContainerForeground,
+        divider = scheme.outlineVariant,
+        hairline = scheme.outline,
+        outline = scheme.outline,
+        outlineVariant = scheme.outlineVariant,
+        scrim = if (isDark) DarkScrim else LightScrim,
     )
 
-val DarkRipDpiExtendedColors =
-    RipDpiExtendedColors(
-        background = DarkBackground,
-        foreground = DarkForeground,
-        card = DarkCard,
-        cardForeground = DarkCardForeground,
-        muted = DarkMuted,
-        mutedForeground = DarkMutedForeground,
-        accent = DarkAccent,
-        accentForeground = DarkAccentForeground,
-        border = DarkBorder,
-        cardBorder = DarkCardBorder,
-        inputBackground = DarkInputBackground,
-        success = DarkSuccess,
-        warning = DarkWarning,
-        warningForeground = DarkWarningForeground,
-        warningContainer = DarkWarningContainer,
-        warningContainerForeground = DarkWarningContainerForeground,
-        destructive = DarkDestructive,
-        destructiveForeground = DarkDestructiveForeground,
-        destructiveContainer = DarkDestructiveContainer,
-        destructiveContainerForeground = DarkDestructiveContainerForeground,
-        info = DarkInfo,
-        infoForeground = DarkInfoForeground,
-        infoContainer = DarkInfoContainer,
-        infoContainerForeground = DarkInfoContainerForeground,
-        restricted = DarkRestricted,
-        restrictedForeground = DarkRestrictedForeground,
-        restrictedContainer = DarkRestrictedContainer,
-        restrictedContainerForeground = DarkRestrictedContainerForeground,
-        divider = DarkDivider,
-        hairline = RipDpiHairlineColor,
-        outline = DarkOutline,
-        outlineVariant = DarkOutlineVariant,
-        scrim = DarkScrim,
-    )
+val LightRipDpiExtendedColors = ripDpiExtendedColors(ripDpiLightColorScheme(), isDark = false)
 
-fun ripDpiLightColorScheme(): ColorScheme =
-    lightColorScheme(
-        primary = LightPrimary,
-        onPrimary = LightPrimaryForeground,
-        primaryContainer = LightAccent,
-        onPrimaryContainer = LightAccentForeground,
-        secondary = LightSecondary,
-        onSecondary = LightSecondaryForeground,
-        secondaryContainer = LightMuted,
-        onSecondaryContainer = LightForeground,
-        tertiary = LightAccent,
-        onTertiary = LightAccentForeground,
-        tertiaryContainer = LightSurfaceVariant,
-        onTertiaryContainer = LightForeground,
-        error = LightDestructive,
-        onError = LightDestructiveForeground,
-        errorContainer = LightDestructiveContainer,
-        onErrorContainer = LightDestructive,
-        background = LightBackground,
-        onBackground = LightForeground,
-        surface = LightCard,
-        onSurface = LightCardForeground,
-        surfaceVariant = LightSurfaceVariant,
-        onSurfaceVariant = LightOnSurfaceVariant,
-        outline = LightOutline,
-        outlineVariant = LightOutlineVariant,
-        scrim = LightScrim,
-        inverseSurface = DarkCard,
-        inverseOnSurface = DarkForeground,
-        inversePrimary = DarkPrimary,
-        surfaceTint = LightPrimary,
-    )
-
-fun ripDpiDarkColorScheme(): ColorScheme =
-    darkColorScheme(
-        primary = DarkPrimary,
-        onPrimary = DarkPrimaryForeground,
-        primaryContainer = DarkAccent,
-        onPrimaryContainer = DarkAccentForeground,
-        secondary = DarkSecondary,
-        onSecondary = DarkSecondaryForeground,
-        secondaryContainer = DarkMuted,
-        onSecondaryContainer = DarkForeground,
-        tertiary = DarkAccent,
-        onTertiary = DarkAccentForeground,
-        tertiaryContainer = DarkSurfaceVariant,
-        onTertiaryContainer = DarkForeground,
-        error = DarkDestructive,
-        onError = DarkDestructiveForeground,
-        errorContainer = DarkDestructiveContainer,
-        onErrorContainer = DarkDestructive,
-        background = DarkBackground,
-        onBackground = DarkForeground,
-        surface = DarkCard,
-        onSurface = DarkCardForeground,
-        surfaceVariant = DarkSurfaceVariant,
-        onSurfaceVariant = DarkOnSurfaceVariant,
-        outline = DarkOutline,
-        outlineVariant = DarkOutlineVariant,
-        scrim = DarkScrim,
-        inverseSurface = LightCard,
-        inverseOnSurface = LightForeground,
-        inversePrimary = LightPrimary,
-        surfaceTint = DarkPrimary,
-    )
+val DarkRipDpiExtendedColors = ripDpiExtendedColors(ripDpiDarkColorScheme(), isDark = true)
 
 internal val LocalRipDpiExtendedColors = staticCompositionLocalOf { LightRipDpiExtendedColors }
 internal val LocalRipDpiContrastLevel = staticCompositionLocalOf { RipDpiContrastLevel.Standard }
