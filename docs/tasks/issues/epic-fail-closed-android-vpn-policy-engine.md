@@ -2,7 +2,7 @@
 id: EPC-1786264762917557
 title: Epic - Fail-closed Android VPN policy engine
 kind: epic
-status: review
+status: blocked
 area: epic
 priority: critical
 owner: unassigned
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: epc-1786264762917557-epic-fail-closed-android-vpn-policy-engine
 created: 2026-05-01
 updated: 2026-10-29
-status_detail: All execution steps checked; awaiting archive verification
+status_detail: "Current-source physical Android acceptance is unavailable: no adb device attached; Android 17 reconnect persistence, per-package egress, and remaining kernel/device matrix are open."
 ---
 
 ## Goal
