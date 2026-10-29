@@ -167,8 +167,6 @@ MONITOR_ENGINE_FORBIDDEN_DEPENDENCIES = frozenset(
         "ripdpi-diagnostics-dns",
         "ripdpi-diagnostics-fat-header",
         "ripdpi-diagnostics-http",
-        "ripdpi-diagnostics-net",
-        "ripdpi-diagnostics-protocols",
         "ripdpi-diagnostics-runner",
         "ripdpi-diagnostics-telegram",
         "ripdpi-diagnostics-tls",
