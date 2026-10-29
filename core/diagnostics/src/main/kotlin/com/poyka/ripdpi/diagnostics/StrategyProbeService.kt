@@ -42,7 +42,6 @@ import java.net.InetSocketAddress
 import java.net.Proxy
 import java.util.TreeSet
 import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Named
 import javax.inject.Singleton
@@ -200,14 +199,13 @@ class DefaultStrategyProbeService
         private val transport: StrategyProbeTransport,
         private val dnsComparator: StrategyProbeDnsComparator,
         private val resultInjector: StrategyProbeResultInjector,
+        private val runGuard: StrategyProbeRunGuard,
     ) : StrategyProbeService {
         // One run at a time: an overlapping run would capture the other run's candidate as the original.
         // A second run fails at once instead of waiting: a collector that starts a run would deadlock.
-        private val runActive = AtomicBoolean(false)
-
         override fun run(config: StrategyProbeConfig): Flow<StrategyProbeResult> =
             flow {
-                check(runActive.compareAndSet(false, true)) { "A strategy probe run is already active" }
+                check(runGuard.tryAcquire()) { "A strategy probe run is already active" }
                 var snapshot: StrategyProbeActivationSnapshot? = null
                 try {
                     snapshot = activator.capture()
@@ -258,7 +256,7 @@ class DefaultStrategyProbeService
                     resultInjector.inject(emittedResults)
                 } finally {
                     withContext(NonCancellable) { snapshot?.let { activator.restore(it) } }
-                    runActive.set(false)
+                    runGuard.release()
                 }
             }
     }
@@ -688,7 +686,7 @@ private fun List<String>.normalizedDomains(): List<String> =
         .distinct()
         .toList()
 
-private fun builtInStrategyProbeCandidates(): List<StrategyProbeCandidate> =
+internal fun builtInStrategyProbeCandidates(): List<StrategyProbeCandidate> =
     listOf(
         StrategyProbeCandidate("split", "Split", "[tcp]\nsplit auto(balanced)"),
         StrategyProbeCandidate("fake", "Fake packet", "[tcp]\nfake auto(host)"),

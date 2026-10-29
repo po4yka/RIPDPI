@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics.replay
 
-import dagger.Binds
+import com.poyka.ripdpi.diagnostics.StrategyProbeActivator
+import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateProvider
+import com.poyka.ripdpi.diagnostics.StrategyProbeRunGuard
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -31,33 +33,36 @@ import javax.inject.Singleton
  */
 @Module
 @InstallIn(SingletonComponent::class)
-abstract class ProbeReplayModule {
-    @Binds
+object ProbeReplayModule {
+    private const val ReplayProxyHost = "127.0.0.1"
+    private const val ReplayProxyPort = 1080
+
+    @Provides
     @Singleton
-    abstract fun bindProbeReplayService(impl: DefaultProbeReplayService): ProbeReplayService
+    fun provideProbeReplayService(
+        impl: DefaultProbeReplayService,
+        candidateProvider: StrategyProbeCandidateProvider,
+        activator: StrategyProbeActivator,
+        runGuard: StrategyProbeRunGuard,
+    ): ProbeReplayService = StrategyScopedProbeReplay(impl, candidateProvider, activator, runGuard)
 
-    companion object {
-        private const val ReplayProxyHost = "127.0.0.1"
-        private const val ReplayProxyPort = 1080
-
-        @Provides
-        @Singleton
-        fun provideReplayHttpClientFactory(): ReplayHttpClientFactory =
-            ReplayHttpClientFactory { request, listener ->
-                val client =
-                    OkHttpClient
-                        .Builder()
-                        .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress(ReplayProxyHost, ReplayProxyPort)))
-                        .callTimeout(request.timeoutMs, TimeUnit.MILLISECONDS)
-                        .connectTimeout(request.timeoutMs, TimeUnit.MILLISECONDS)
-                        .readTimeout(request.timeoutMs, TimeUnit.MILLISECONDS)
-                        .writeTimeout(request.timeoutMs, TimeUnit.MILLISECONDS)
-                        .eventListener(listener)
-                        .build()
-                ReplayHttpClient(
-                    client = client,
-                    url = "https://${request.domain}/".toHttpUrl(),
-                )
-            }
-    }
+    @Provides
+    @Singleton
+    fun provideReplayHttpClientFactory(): ReplayHttpClientFactory =
+        ReplayHttpClientFactory { request, listener ->
+            val client =
+                OkHttpClient
+                    .Builder()
+                    .proxy(Proxy(Proxy.Type.SOCKS, InetSocketAddress(ReplayProxyHost, ReplayProxyPort)))
+                    .callTimeout(request.timeoutMs, TimeUnit.MILLISECONDS)
+                    .connectTimeout(request.timeoutMs, TimeUnit.MILLISECONDS)
+                    .readTimeout(request.timeoutMs, TimeUnit.MILLISECONDS)
+                    .writeTimeout(request.timeoutMs, TimeUnit.MILLISECONDS)
+                    .eventListener(listener)
+                    .build()
+            ReplayHttpClient(
+                client = client,
+                url = "https://${request.domain}/".toHttpUrl(),
+            )
+        }
 }

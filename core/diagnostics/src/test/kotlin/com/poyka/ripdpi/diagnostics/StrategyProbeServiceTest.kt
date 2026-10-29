@@ -160,6 +160,7 @@ class StrategyProbeServiceTest {
                         },
                     dnsComparator = FakeDnsComparator(StrategyProbeDnsComparison.NoDifference),
                     resultInjector = FakeStrategyProbeResultInjector(),
+                    runGuard = StrategyProbeRunGuard(),
                 )
             val config = StrategyProbeConfig(testDomains = listOf("example.test"), timeoutMs = 1_000)
 
@@ -188,6 +189,7 @@ class StrategyProbeServiceTest {
                     transport = FakeProbeTransport { StrategyProbeConnectionResult.Success(latencyMs = 10) },
                     dnsComparator = FakeDnsComparator(StrategyProbeDnsComparison.NoDifference),
                     resultInjector = FakeStrategyProbeResultInjector(),
+                    runGuard = StrategyProbeRunGuard(),
                 )
             val config = StrategyProbeConfig(testDomains = listOf("example.test"), timeoutMs = 1_000)
             var nested: Result<List<StrategyProbeResult>>? = null
@@ -390,6 +392,7 @@ class StrategyProbeServiceTest {
                 transport = transport,
                 dnsComparator = dnsComparator,
                 resultInjector = injector,
+                runGuard = StrategyProbeRunGuard(),
             )
         return TestStrategyProbeService(service = service, activator = activator, injector = injector)
     }
