@@ -2,7 +2,7 @@
 id: TRN-1793295071036802
 title: Fix audited VLESS REALITY client defects
 kind: bug
-status: doing
+status: review
 area: transport
 priority: high
 owner: VLESS client remediation
