@@ -68,7 +68,6 @@ class NativeDependencyGraphTest(unittest.TestCase):
         combined = (scripts / "run-rust-native-checks.sh").read_text()
         self.assertIn('bash "$repo_root/scripts/ci/run-rust-workspace-tests.sh"', combined)
         self.assertIn('bash "$repo_root/scripts/ci/run-rust-turmoil-tests.sh"', combined)
-        self.assertIn("--features socks4", combined)
         self.assertNotIn("-p local-network-fixture", combined)
 
     def test_jni_symbol_guard_builds_only_the_consumed_abi(self) -> None:

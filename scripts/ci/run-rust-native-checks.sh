@@ -117,15 +117,5 @@ else
   fi
 fi
 
-NEXTEST_PROFILE="${CI:+ci}"
-NEXTEST_ARGS=(${NEXTEST_PROFILE:+--profile "$NEXTEST_PROFILE"})
-
 bash "$repo_root/scripts/ci/run-rust-workspace-tests.sh"
 bash "$repo_root/scripts/ci/run-rust-turmoil-tests.sh"
-
-# ripdpi-socks5-core gates its SOCKS4 module behind the optional `socks4`
-# feature (default = []), so the workspace run above never compiles or
-# exercises socks4::* tests. Run the crate explicitly with the feature so the
-# SOCKS4 reply round-trip / no-panic tests stay in the merge gate.
-echo "==> tests (ripdpi-socks5-core, socks4 feature)"
-bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --locked --manifest-path "$workspace_manifest" -p ripdpi-socks5-core --features socks4 "${NEXTEST_ARGS[@]}"

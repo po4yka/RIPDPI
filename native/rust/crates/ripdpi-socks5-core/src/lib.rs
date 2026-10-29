@@ -11,8 +11,6 @@
 //! ## Features
 //!
 //! - An `async`/`.await` [SOCKS5](https://tools.ietf.org/html/rfc1928) implementation.
-//! - An `async`/`.await` [SOCKS4 Client](https://www.openssh.com/txt/socks4.protocol) implementation.
-//! - An `async`/`.await` [SOCKS4a Client](https://www.openssh.com/txt/socks4a.protocol) implementation.
 //! - No **unsafe** code
 //! - Built on top of the [Tokio](https://tokio.rs/) runtime
 //! - Ultra lightweight and scalable
@@ -66,9 +64,6 @@ extern crate log;
 pub mod client;
 pub mod server;
 pub mod util;
-
-#[cfg(feature = "socks4")]
-pub mod socks4;
 
 use std::fmt;
 use std::io;
@@ -222,10 +217,6 @@ pub enum SocksError {
 
     #[error("Error with reply: {0}.")]
     ReplyError(#[from] ReplyError),
-
-    #[cfg(feature = "socks4")]
-    #[error("Error with reply: {0}.")]
-    ReplySocks4Error(#[from] socks4::ReplyError),
 
     #[error("Argument input error: `{0}`.")]
     ArgumentInputError(&'static str),

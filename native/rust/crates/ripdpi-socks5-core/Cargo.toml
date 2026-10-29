@@ -14,10 +14,6 @@ categories = [
 ]
 keywords = ["io", "proxy", "vpn", "async", "socks"]
 
-[features]
-default = []
-socks4 = []
-
 [lints]
 workspace = true
 
