@@ -2,9 +2,6 @@
   <a href="docs/screenshots/de/feature-graphic.png"><img src="docs/screenshots/de/feature-graphic.png" width="100%" alt="RIPDPI-Grafik für Google Play"/></a>
 </p>
 
-<h1 align="center">RIPDPI</h1>
-<p align="center"><b>Routing & Internet Performance Diagnostics Platform Interface</b></p>
-
 <p align="center">
   <a href="https://github.com/po4yka/RIPDPI/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/po4yka/RIPDPI/ci.yml?style=flat-square&label=CI" alt="CI"/></a>
   <a href="https://github.com/po4yka/RIPDPI/releases/latest"><img src="https://img.shields.io/github/v/release/po4yka/RIPDPI?style=flat-square" alt="Release"/></a>
@@ -20,9 +17,46 @@
 > [!WARNING]
 > **Das Projekt befindet sich in einer aktiven Entwicklungsphase.** Neue Funktionen werden hinzugefügt und häufig werden umfangreiche Refactorings durchgeführt, um die Qualität der Codebasis zu verbessern. Dabei werden Coding-Agenten intensiv eingesetzt, daher sind auf `main` aktuell **Breaking Changes, Schema-Migrationen und teilweise fehlerhafte Funktionalität möglich**. Wenn Sie auf eine Regression stoßen, [öffnen Sie bitte ein Issue](https://github.com/po4yka/RIPDPI/issues) — Ihr Feedback hilft, das Projekt zu stabilisieren.
 
-RIPDPI ist ein Toolkit zur Diagnose und Optimierung von Netzwerkpfaden für Android. Es wendet konfigurierbare Paketstrategien direkt auf dem Gerät an, kann eine Verbindung zu von Ihnen kontrollierten Relay-Servern herstellen und führt verbindungsbezogene Diagnosen durch, um zu ermitteln, warum ein bestimmtes Ziel ausfällt oder beeinträchtigt ist. Die drei Funktionen arbeiten unabhängig voneinander oder in Kombination.
+RIPDPI ist ein Android-Toolkit zur Diagnose und Optimierung des Netzwerkpfads. Es misst, warum ein Ziel ausfällt oder sich verschlechtert, wendet konfigurierbare Paketstrategien auf dem Gerät an und kann über Relay-Server verbinden, die Sie kontrollieren. Jede Fähigkeit funktioniert einzeln oder in Kombination.
 
-## Drei Säulen
+## Den Pfad sehen, nicht nur einen Schalter
+
+<p align="center">
+  <a href="docs/screenshots/de/01-hero.png"><img src="docs/screenshots/de/01-hero.png" width="380" alt="Verbindung steuern — echter Startbildschirm"/></a>
+  <a href="docs/screenshots/de/02-diagnostics.png"><img src="docs/screenshots/de/02-diagnostics.png" width="380" alt="Netzwerkdiagnose — echte Prüfergebnisse"/></a>
+</p>
+
+<p align="center">
+  <a href="docs/screenshots/de/03-relays.png"><img src="docs/screenshots/de/03-relays.png" width="380" alt="Relay auswählen — echte Einstellungen"/></a>
+  <a href="docs/screenshots/de/04-dns.png"><img src="docs/screenshots/de/04-dns.png" width="380" alt="Verschlüsseltes DNS — echte Einstellungen"/></a>
+</p>
+
+<p align="center">
+  <a href="docs/screenshots/de/05-strategies.png"><img src="docs/screenshots/de/05-strategies.png" width="380" alt="Paketstrategie — echte Steuerelemente"/></a>
+  <a href="docs/screenshots/de/06-local-tools.png"><img src="docs/screenshots/de/06-local-tools.png" width="380" alt="Sicherung und Wiederherstellung — echte Einstellungen"/></a>
+</p>
+
+Google Play-Bilder mit echten App-Ansichten. Öffne ein Bild in voller Größe. [Aufnahme und Export](play-store-screenshots/README.md).
+
+Statt einer einzigen globalen Richtlinie klassifiziert RIPDPI jedes Ziel und jedes Netzwerk getrennt, merkt sich validierte Ergebnisse und macht seine Fehlerurteile sichtbar. Beginnen Sie lokal; setzen Sie ein Relay erst ein, wenn sich der direkte Pfad nicht wiederherstellen lässt.
+
+## Schnellstart
+
+Richten Sie die [Build-Voraussetzungen](#build-requirements) ein, einschließlich der Toolchain für das echte libXray-AAR, bevor Sie diese Befehle ausführen.
+
+Den Android-Debug-APK aus dem Quellcode bauen:
+
+```bash
+git clone https://github.com/po4yka/RIPDPI.git
+cd RIPDPI
+bash scripts/native/build-libxray.sh
+bash scripts/native/verify-libxray-artifacts.sh
+./gradlew assembleDebug
+```
+
+Lesen Sie die [Build-Voraussetzungen und Ausgabepfade](#build-requirements), bevor Sie ein Gerät oder einen Release-Build vorbereiten.
+
+## Drei Fähigkeiten, ein Entscheidungskreislauf
 
 ### Paketstrategien auf dem Gerät
 
@@ -32,12 +66,21 @@ Unterstützte Techniken: TCP-Segmentaufteilung und -Unordnung, Einschleusung gef
 
 Wenn kein Relay konfiguriert ist, verlässt der Datenverkehr das Gerät direkt – die einzigen Änderungen am Pfad sind die Mutationen auf dem Gerät.
 
-### VPN-Relay
+### Diagnose
 
-Leitet lokalen Proxy- oder VPN-Datenverkehr verschlüsselt über Relay-Protokolle an einen von Ihnen konfigurierten Server weiter:
+Prüft jedes Verbindungsziel einzeln und erzeugt eines von drei typisierten Ergebnissen:
 
-> [!NOTE]
-> Die Protokollmatrix spiegelt die aktuellen Quellcode-Registries wider. Umgebende übersetzte Prosa kann hinter `README.md` zurückbleiben, bis eine menschliche Überprüfung erfolgt.
+- `TRANSPARENT_WORKS` — ein geprüfter transparenter Pfad funktioniert, mit oder ohne Strategien auf dem Gerät
+- `OWNED_STACK_ONLY` – funktioniert nur über den app-eigenen TLS-Stack
+- `NO_DIRECT_SOLUTION` — im Budget dieses Laufs war keine geprüfte direkte Lösung erfolgreich; ein Relay oder einen weiteren Test erwägen
+
+Ein vermuteter Block wird separat in `transportClass` erfasst, etwa als `IP_BLOCK_SUSPECT`, `SNI_TLS_SUSPECT` oder `QUIC_BLOCK_SUSPECT`. Diese Klassen beschreiben Hinweise auf eine mögliche Ursache; sie sind keine weiteren Ergebnisvarianten und kein Nachweis einer Blockierung.
+
+Urteile werden pro Netzwerk-Fingerabdruck gespeichert und automatisch wiedergegeben, sobald dasselbe Netzwerk erneut erkannt wird. Der Diagnosebildschirm ergänzt TCP- und QUIC-Strategie-Probing aus den Suites `ripdpi-diagnostics-candidates` (quick/full-matrix), die Erkennung von DNS-Manipulationen, Empfehlungen für DoH-/DoT-/DNSCrypt-/DoQ-Resolver sowie exportierbare Diagnosearchive.
+
+### Optionales VPN-Relay
+
+Leitet den Datenverkehr des lokalen Proxys oder VPNs über verschlüsselte Relay-Protokolle zu einem von Ihnen konfigurierten Server:
 
 | Kind / protocol | Integration tier | Scope | Traffic |
 | --- | --- | --- | --- |
@@ -64,25 +107,13 @@ Leitet lokalen Proxy- oder VPN-Datenverkehr verschlüsselt über Relay-Protokoll
 
 Einfaches `vless` hat ein natives xHTTP/TLS-Backend; andere einfache VLESS-Transporte werden von diesem Backend nicht unterstützt. VLESS Reality nutzt XUDP nur bei aktiviertem UDP, dem Transport `reality_tcp` und dem Flow `xtls-rprx-vision` oder `xtls-rprx-vision-udp443`. xHTTP unterstützt nur TCP.
 
-Snowflake verbleibt absichtlich als externe Go-Binärdatei; siehe die [Entscheidung gegen Snowflake in nativem Rust](docs/architecture/snowflake-native-rust-decision.md). VLESS Reality verwendet kein echtes ECH; siehe [ADR 0001](docs/adr/0001-reality-ech.md) für die ausschließliche GREASE-Richtlinie.
+Snowflake bleibt bewusst eine externe Go-Binärdatei; siehe die [Entscheidung gegen ein natives Rust-Snowflake](docs/architecture/snowflake-native-rust-decision.md). VLESS Reality verwendet kein echtes ECH; zur reinen GREASE-Richtlinie siehe [ADR 0001](docs/adr/0001-reality-ech.md).
 
-WARP und AmneziaWG sind separate VPN/Tunnel-Profiloberflächen und keine `relay_kind`-Werte in der Relay-Core-Registry.
+WARP und AmneziaWG sind getrennte VPN-/Tunnel-Profilbereiche und keine `relay_kind`-Werte der relay-core-Registry.
 
-Sowohl der lokale Proxy-Modus als auch der Android-VPN-Weiterleitungsmodus funktionieren mit oder ohne konfiguriertes Relay.
+Sowohl der lokale Proxy-Modus als auch der Android-VPN-Umleitungsmodus funktionieren mit oder ohne konfiguriertes Relay.
 
-### Diagnose
-
-Prüft jedes Verbindungsziel einzeln und erzeugt eines von drei typisierten Ergebnissen:
-
-- `TRANSPARENT_WORKS` — ein geprüfter transparenter Pfad funktioniert, mit oder ohne Strategien auf dem Gerät
-- `OWNED_STACK_ONLY` – funktioniert nur über den app-eigenen TLS-Stack
-- `NO_DIRECT_SOLUTION` — im Budget dieses Laufs war keine geprüfte direkte Lösung erfolgreich; ein Relay oder einen weiteren Test erwägen
-
-Ein vermuteter Block wird separat in `transportClass` erfasst, etwa als `IP_BLOCK_SUSPECT`, `SNI_TLS_SUSPECT` oder `QUIC_BLOCK_SUSPECT`. Diese Klassen beschreiben Hinweise auf eine mögliche Ursache; sie sind keine weiteren Ergebnisvarianten und kein Nachweis einer Blockierung.
-
-Urteile werden pro Netzwerk-Fingerabdruck gespeichert und automatisch wiedergegeben, sobald dasselbe Netzwerk erneut erkannt wird. Der Diagnosebildschirm ergänzt TCP- und QUIC-Strategie-Probing aus den Suites `ripdpi-diagnostics-candidates` (quick/full-matrix), die Erkennung von DNS-Manipulationen, Empfehlungen für DoH-/DoT-/DNSCrypt-/DoQ-Resolver sowie exportierbare Diagnosearchive.
-
-## Warum RIPDPI
+## Warum dieser Ansatz
 
 Moderne Android-Netzwerke wenden regelmäßig L7-Fingerprinting (TLS JA3/JA4, QUIC), aggressives QoS in Mobilfunk- und öffentlichen WLAN-Netzen, MTU- und ECN-Desync sowie durch Middleboxen verursachte TLS-Handshake-Abbrüche an – was dazu führt, dass einige Ziele ausfallen, während andere im selben Netzwerk einwandfrei funktionieren. Eine einzelne globale Einstellung kann nicht alle Fälle abdecken.
 
@@ -93,31 +124,14 @@ Das Designprinzip von RIPDPI: Jedes Ziel und jedes Netzwerk separat klassifizier
 3. **Auf ein getunneltes Relay zurückgreifen, wenn der direkte Pfad beeinträchtigt ist.** Die Relay-Matrix oben unterscheidet native relay-core backends, helper subprocesses, external pluggable transports und separate VPN/tunnel profile surfaces.
 4. **Ehrliche Berichterstattung.** Urteile sind typisiert und werden angezeigt; Ergebnisse des Fehlerklassifizierers werden offengelegt, statt unterdrückt; exportierte Diagnose-Bundles entfernen Geheimnisse.
 
-## Screenshots
-
-<p align="center">
-  <a href="docs/screenshots/de/01-hero.png"><img src="docs/screenshots/de/01-hero.png" width="380" alt="Verbindung steuern — echter Startbildschirm"/></a>
-  <a href="docs/screenshots/de/02-diagnostics.png"><img src="docs/screenshots/de/02-diagnostics.png" width="380" alt="Netzwerkdiagnose — echte Prüfergebnisse"/></a>
-</p>
-
-<p align="center">
-  <a href="docs/screenshots/de/03-relays.png"><img src="docs/screenshots/de/03-relays.png" width="380" alt="Relay auswählen — echte Einstellungen"/></a>
-  <a href="docs/screenshots/de/04-dns.png"><img src="docs/screenshots/de/04-dns.png" width="380" alt="Verschlüsseltes DNS — echte Einstellungen"/></a>
-</p>
-
-<p align="center">
-  <a href="docs/screenshots/de/05-strategies.png"><img src="docs/screenshots/de/05-strategies.png" width="380" alt="Paketstrategie — echte Steuerelemente"/></a>
-  <a href="docs/screenshots/de/06-local-tools.png"><img src="docs/screenshots/de/06-local-tools.png" width="380" alt="Sicherung und Wiederherstellung — echte Einstellungen"/></a>
-</p>
-
-Google Play-Bilder mit echten App-Ansichten. Öffne ein Bild in voller Größe. [Aufnahme und Export](play-store-screenshots/README.md).
-
 ## Funktionen
 
 - **Proxy-Modus**: lokaler SOCKS5-Proxy auf dem konfigurierten Localhost-Port.
-- **VPN-Modus**: leitet den Android-Datenverkehr des Geräts über eine lokale TUN-zu-SOCKS-Brücke mittels `VpnService` weiter.
+- **VPN-Modus**: leitet den Datenverkehr des Android-Geräts über `VpnService` durch eine lokale TUN-zu-SOCKS-Bridge.
 - **Profilimport**: Ein gemeinsamer Klassifikator bedient den QR-Scanner (Kamera oder gespeichertes Bild), die Zwischenablage und das Android-Teilen-Menü (Full-Variante). Er akzeptiert Proxy-URIs (`vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, `tuic://`, `mieru://`, `ssh://`), Abonnement-Links (`https://` sowie die Abonnement-Links `ripdpi://`, `sing-box://`, NekoBox `sn://`, Clash, v2rayNG und Hiddify), WireGuard-/AmneziaWG-`.conf`-Text, `amneziawg://`-Links und AmneziaVPN-`vpn://`-Schlüssel, auch als mehrteilige QR-Serie. **Profil hinzufügen** in den VPN-Einstellungen öffnet außerdem einen Bildschirm für Abonnement-Links und eine `.conf`-Dateiauswahl. Profile lassen sich auch als QR-Code teilen.
+- **Links für Support-Einstellungen**: `ripdpi://support-config` und verifizierte HTTPS-Support-Links können nach Bestätigung durch den Nutzer einen vom Support bereitgestellten Patch für jede gespeicherte App-Einstellung anzeigen und anwenden.
 - **Abonnements**: base64-, Clash / Clash.Meta-YAML-, sing-box-JSON- und WireGuard-INI-Abonnementformate mit automatischer Hintergrundaktualisierung, Erkennung doppelter Profile, Selector-/urltest-Gruppen und Multi-Mirror-Auslieferung.
+- **Server-Migrationsbelege**: Ein Ersatz-Abonnement kann eine exakte Zustellidentität beibehalten. Im Abonnementstatus lässt sich ein angegebener Ersatzpfad gezielt testen und ein lokaler JSON-Beleg teilen. Reality/Vision, XHTTP und Hysteria2 nutzen isolierte Kandidatenprüfungen; AmneziaWG erfordert, zuerst das importierte Ersatzprofil zu verbinden. Belege „nur empfangen“ und „getestet“ sind getrennt; keiner wird automatisch hochgeladen.
 - **Verschlüsseltes DNS**: Unterstützung für DoH-, DoT-, DNSCrypt- und DoQ-Resolver in VPN-bezogenen Pfaden.
 - **Strategie-Steuerung**: TCP-Familien für Split/Unordnung/Fake, TLS-Record-Fragmentierung und Fake-Profile, QUIC-Handshake-Variation, Variation des UDP-Längenfelds, IPv6-Erweiterungsheader, Lua-`rawsend`, schrittweise Aktivierungsfilter, IPv4-ID-Steuerung und OOB-Einschleusung.
 - **Netzwerkbezogenes Richtlinien-Gedächtnis**: validierte autoritätsspezifische Urteile, mit einem Netzwerk-Fingerabdruck verschlüsselt; werden bei erneuter Verbindung automatisch wiedergegeben.
@@ -139,19 +153,21 @@ Verwendet den Android-`VpnService`, um den Gerätedatenverkehr durch die lokale 
 
 ## Datenschutz
 
-RIPDPI zeichnet betriebliche Metadaten zur Diagnose und Fehlerbehebung auf: Netzwerk-Snapshots, Resolver-Status, Routenentscheidungen, Scan-Ergebnisse, Dienststatus und native Laufzeitereignisse.
+RIPDPI erfasst Betriebsmetadaten für Diagnose und Fehlersuche: Netzwerk-Snapshots, Resolver-Status, Routing-Entscheidungen, Scan-Ergebnisse, Dienstzustand und native Laufzeitereignisse.
 
-Im normalen Betrieb zeichnet RIPDPI keine Pakete auf, speichert keine Datenverkehrs-Nutzdaten und protokolliert keine TLS-Geheimnisse. Die erweiterte Paketerfassung ist ein ausdrücklich zu aktivierendes Diagnosewerkzeug: Rohe Paketbytes werden lokal mit begrenzter Aufbewahrung gespeichert und nur dann in ein Archiv aufgenommen, wenn der Benutzer dieses Archiv bewusst teilt.
+Im Normalbetrieb werden keine Pakete mitgeschnitten, keine Nutzdaten des Datenverkehrs gespeichert und keine TLS-Geheimnisse aufgezeichnet. Der erweiterte Paketmitschnitt ist ein ausdrücklich zu aktivierendes Diagnosewerkzeug: Er speichert rohe Paketbytes lokal mit begrenzter Aufbewahrung und nimmt sie nur dann in ein Archiv auf, wenn der Nutzer dieses Archiv bewusst teilt.
 
-Der Datenschutz des Relay-Verkehrs hängt von dem von Ihnen konfigurierten Relay-Endpunkt und -Profil ab.
+Die Privatsphäre des Relay-Datenverkehrs hängt vom Relay-Endpunkt und dem von Ihnen konfigurierten Profil ab.
 
-## Build
+Mehrstufige Relay-Ketten führen eine geordnete Liste von 2 bis 4 TCP-Hops (Eingang, optionale Zwischenstationen, Ausgang). Das gespeicherte Profilmodell, das native Wire-Schema (`chainHops`), die Telemetrie pro Hop und der Ketteneditor tragen alle die geordnete Hop-Liste; die frühere Zwei-Hop-Form `chainEntry`/`chainExit` bleibt als abwärtskompatible Spiegelung (hop[0]/hop[last]) erhalten, damit bestehende Zwei-Hop-Konfigurationen sauber migrieren. Die Grenze von 2 bis 4 wird als typisierter Validierungsfehler durchgesetzt, nicht durch stilles Abschneiden. UDP über eine Kette wird bewusst nicht unterstützt (`udpCapable=false`). Eine Kette verbessert die Anti-Korrelation nur, wenn die Hops in unterschiedlichen Vertrauensdomänen liegen; derselbe Betreiber oder dieselbe Jurisdiktion über mehrere Hops hinweg kann falsche Sicherheit vermitteln und wird in der Oberfläche als Warnung angezeigt.
 
-Voraussetzungen: JDK 17, Android SDK (platform `37.1`, CMake `3.31.6`), Android NDK `29.0.14206865`, Rust-Toolchain `1.98.1`, Android-Rust-Targets für die benötigten ABIs.
+## Build-Voraussetzungen
+
+Voraussetzungen: JDK 17, Android SDK (Plattform `37.1`, CMake `3.31.6`), Android NDK `29.0.14206865`, Rust-Toolchain `1.98.1`, Android-Rust-Targets für die benötigten ABIs, [`just`](https://just.systems) (Task-Runner; die Rezepte der `justfile` spiegeln CI) und [`lefthook`](https://github.com/evilmartians/lefthook) (einmal `lefthook install` ausführen, um die Pre-Commit-Prüfungen einzurichten).
 
 Ein neuer Checkout benötigt vor der APK-Paketierung auch das echte libXray-AAR mit den Projekt-Patches. amd64-Go, die festgelegten Versionen von `gomobile` und `gobind` sowie `ANDROID_NDK_HOME` gemäß [libXray-Anleitung](docs/native/libxray-packaging.md#build) vorbereiten. Der Erzeuger benötigt ein neues oder leeres Verzeichnis `native/xray/artifacts/` und Zugriff auf die festgelegten Quellen. Ein geprüftes, zu den aktuellen Versionen passendes Artefaktverzeichnis lässt sich mit `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts` an Gradle übergeben; die Paketierungsprüfung bleibt aktiv.
 
-Die erforderlichen SDK-Pakete mit Android CLI 1.0+ installieren:
+Installieren Sie die benötigten SDK-Pakete mit Android CLI 1.0+:
 
 ```bash
 android sdk install platforms/android-37.1 ndk/29.0.14206865 cmake/3.31.6
@@ -183,6 +199,10 @@ Lokale Debug-Builds verwenden Stub-Starter für Snowflake, obfs4, WebTunnel und 
 ./gradlew testDebugUnitTest
 bash scripts/ci/run-rust-native-checks.sh
 bash scripts/ci/run-rust-network-e2e.sh
+./test-lab/scripts/start-lab.sh --profile emulator
+./test-lab/scripts/adb-install-debug.sh
+./test-lab/scripts/adb-run-probe-emulator.sh --mode diagnostics
+./test-lab/scripts/stop-lab.sh
 python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 ```
 
@@ -190,12 +210,23 @@ Details: [docs/testing.md](docs/testing.md)
 
 ## Dokumentation
 
+**Neu bei RIPDPI?** Empfohlene Lesereihenfolge:
+[Architekturübersicht](docs/architecture/ARCHITECTURE.md) →
+[Laufzeitmodi](docs/architecture/RUNTIME_MODES.md) →
+[nativer Rust-Workspace](docs/architecture/NATIVE_RUST.md) →
+[Kotlin/Rust-JNI-Vertrag](docs/architecture/JNI_CONTRACT.md) →
+[Konfigurationsverträge](docs/architecture/CONFIG_CONTRACTS.md) →
+[Leitfaden zur Funktionserweiterung](docs/architecture/FEATURE_EXTENSION_GUIDE.md).
+
 - [Native Integration und Module](docs/native/README.md)
-- [Laufzeitumgebung der Paketstrategien](docs/packet-strategy-runtime.md)
+- [Paketstrategie-Laufzeit](docs/packet-strategy-runtime.md)
 - [Proxy-Engine und Strategie-Schnittstelle](docs/native/proxy-engine.md)
-- [TUN-zu-SOCKS-Brücke](docs/native/tunnel.md)
+- [TUN-zu-SOCKS-Bridge](docs/native/tunnel.md)
 - [Strategie-Pack- und TLS-Katalog-Operationen](docs/strategy-pack-operations.md)
 - [Beispiele für Relay-Profile](docs/relay-profile-examples.md)
+- [Serverkonfiguration importieren](docs/server-integration.md)
+- [Lokales Netzwerk-Testlabor](test-lab/README.md)
+- [Externe UI-Automatisierung](docs/automation/README.md)
 - [Architektur-Notizen](docs/architecture/README.md)
 - [Roadmap](ROADMAP.md)
 

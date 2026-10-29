@@ -2,9 +2,6 @@
   <a href="docs/screenshots/en/feature-graphic.png"><img src="docs/screenshots/en/feature-graphic.png" width="100%" alt="Google Play के लिए RIPDPI बैनर (English fallback)"/></a>
 </p>
 
-<h1 align="center">RIPDPI</h1>
-<p align="center"><b>Routing & Internet Performance Diagnostics Platform Interface</b></p>
-
 <p align="center">
   <a href="https://github.com/po4yka/RIPDPI/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/po4yka/RIPDPI/ci.yml?style=flat-square&label=CI" alt="CI"/></a>
   <a href="https://github.com/po4yka/RIPDPI/releases/latest"><img src="https://img.shields.io/github/v/release/po4yka/RIPDPI?style=flat-square" alt="Release"/></a>
@@ -20,77 +17,9 @@
 > [!WARNING]
 > **यह प्रोजेक्ट विकास के एक सक्रिय चरण में है।** नई सुविधाएँ जोड़ी जा रही हैं और कोड बेस की गुणवत्ता सुधारने के लिए अक्सर बड़े रीफ़ैक्टरिंग किए जाते हैं। इस काम के लिए कोडिंग एजेंट्स का भारी उपयोग होता है, इसलिए **फ़िलहाल `main` पर ब्रेकिंग बदलाव, स्कीमा माइग्रेशन और आंशिक रूप से टूटी हुई कार्यक्षमता संभव है**। यदि आपको कोई रिग्रेशन मिले, तो कृपया [एक issue खोलें](https://github.com/po4yka/RIPDPI/issues) — आपकी प्रतिक्रिया प्रोजेक्ट को स्थिर करने में मदद करती है।
 
-RIPDPI एक Android नेटवर्क-पाथ डायग्नोस्टिक्स और ऑप्टिमाइज़ेशन टूलकिट है। यह डिवाइस पर ही कॉन्फ़िगर करने योग्य पैकेट रणनीतियाँ लागू करता है, आपके द्वारा नियंत्रित relay सर्वरों से जुड़ सकता है, और यह पहचानने के लिए प्रति-कनेक्शन डायग्नोस्टिक्स चलाता है कि प्रत्येक लक्ष्य क्यों विफल हो रहा है या ख़राब हो रहा है। ये तीनों क्षमताएँ स्वतंत्र रूप से या संयोजन में काम करती हैं।
+RIPDPI नेटवर्क पथ के निदान और अनुकूलन के लिए एक Android टूलकिट है। यह मापता है कि कोई लक्ष्य क्यों विफल या धीमा हो रहा है, डिवाइस पर कॉन्फ़िगर करने योग्य पैकेट रणनीतियाँ लागू करता है, और आपके नियंत्रण वाले relay सर्वरों के माध्यम से कनेक्ट कर सकता है। हर क्षमता स्वतंत्र रूप से या मिलाकर काम करती है।
 
-## तीन स्तंभ
-
-### डिवाइस पर पैकेट रणनीतियाँ
-
-ट्रैफ़िक को किसी relay सर्वर पर भेजे बिना डिवाइस पर ही कॉन्फ़िगर करने योग्य पैकेट-स्तरीय रूपांतरण लागू करता है। मुख्य पाथ के लिए root की आवश्यकता नहीं है।
-
-समर्थित तकनीकें: TCP सेगमेंट स्प्लिटिंग और डिसऑर्डर, फ़र्ज़ी पैकेट इंजेक्शन, OOB (urgent pointer), TLS record फ़्रैगमेंटेशन, फ़र्ज़ी TLS first-flight, QUIC handshake विविधता, UDP length-field विविधता, IPv6 extension-header प्रविष्टि, Lua-परिभाषित raw पैकेट प्रेषण, और अनुकूली semantic मार्कर जो लाइव `TCP_INFO` के विरुद्ध स्थिति निर्धारित करते हैं। रणनीति श्रृंखलाएँ इस रिपॉज़िटरी के Rust crates से बनाई जाती हैं, किसी बाहरी रणनीति बाइनरी के बिना।
-
-जब कोई relay कॉन्फ़िगर नहीं होता, तो ट्रैफ़िक सीधे डिवाइस से बाहर निकलता है — डिवाइस पर किए गए रूपांतरण ही पाथ में एकमात्र बदलाव होते हैं।
-
-### VPN relay
-
-स्थानीय proxy या VPN ट्रैफ़िक को एन्क्रिप्टेड relay प्रोटोकॉल के माध्यम से आपके द्वारा कॉन्फ़िगर किए गए सर्वर तक चेन करता है:
-
-| प्रकार / प्रोटोकॉल | इंटीग्रेशन स्तर | दायरा | ट्रैफ़िक |
-| --- | --- | --- | --- |
-| `vless_reality` / VLESS Reality TCP | Native relay-core बैकएंड (`ripdpi-vless`) | Client relay | TCP + UDP (XUDP) |
-| `vless_reality` / xHTTP transport | Native relay-core बैकएंड (`ripdpi-xhttp`) | Client relay | TCP |
-| `cloudflare_tunnel` | Native xHTTP relay पाथ साथ ही वैकल्पिक Cloudflare publish रनटाइम | Client relay / local-origin publish | TCP |
-| `hysteria2` | Native relay-core बैकएंड (`ripdpi-hysteria2`) | Client relay | TCP + UDP |
-| `tuic_v5` | Native relay-core बैकएंड (`ripdpi-tuic`) | Client relay | TCP + UDP |
-| `masque` | Native relay-core बैकएंड (`ripdpi-masque`): TCP के लिए HTTP/2 classic CONNECT, UDP के लिए HTTP/3 CONNECT-UDP | Client relay | TCP + UDP |
-| `shadowtls_v3` | profile-समर्थित आंतरिक relay के साथ Native relay-core बैकएंड (`ripdpi-shadowtls`) | Client relay | TCP |
-| `trojan` | Native relay-core बैकएंड (`ripdpi-trojan`) | Client relay | TCP + UDP |
-| `anytls` | Native relay-core बैकएंड (`ripdpi-anytls`) | Client relay | TCP + UDP |
-| `shadowsocks` | Native relay-core बैकएंड (`ripdpi-shadowsocks`) | Client relay | TCP + UDP |
-| `tor` | bridge/PT bootstrap के साथ Native Arti-समर्थित relay-core बैकएंड (`ripdpi-tor`) | वैकल्पिक client गुमनामी relay | TCP |
-| `naiveproxy` | Android service कोड द्वारा निगरानी किया जाने वाला बाहरी helper प्रोसेस (`ripdpi-naiveproxy`) | Client relay | TCP |
-| `google_apps_script` | `libripdpi-relay.so` द्वारा चयनित रिपॉज़िटरी-आंतरिक Rust Apps Script relay रनटाइम (`ripdpi-apps-script-core`) | Client relay पाथ | TCP |
-| `snowflake` | बाहरी Go pluggable-transport बाइनरी (`ripdpi-snowflake`) | Client PT relay | TCP |
-| `webtunnel` | रिपॉज़िटरी-आंतरिक Rust pluggable-transport helper बाइनरी (`ripdpi-webtunnel`) | Client PT relay | TCP |
-| `obfs4` | बाहरी pluggable-transport बाइनरी (`ripdpi-obfs4`) | Client PT relay | TCP |
-| `chain_relay` | संदर्भित relay profiles पर Native relay-core संरचना | क्रमबद्ध 2-4 hop client relay | TCP |
-| `mieru` | Native relay-core बैकएंड (`ripdpi-mieru`); कस्टम UDP/TCP wire engine लंबित रहने तक UDP relay बंद रखा गया | Client relay | TCP |
-| `ssh` | Native relay-core बैकएंड (`ripdpi-ssh`) | Client relay | TCP |
-| `vless` / xHTTP transport | Native relay-core बैकएंड (`ripdpi-xhttp`), xHTTP/TLS | Client relay | TCP |
-
-साधारण `vless` के लिए native xHTTP/TLS backend है; यह backend अन्य साधारण VLESS transports का समर्थन नहीं करता। VLESS Reality में UDP केवल तब XUDP का उपयोग करता है जब UDP सक्षम हो, transport `reality_tcp` हो और flow `xtls-rprx-vision` या `xtls-rprx-vision-udp443` हो। xHTTP केवल TCP का समर्थन करता है।
-
-Snowflake जानबूझकर एक बाहरी Go बाइनरी बना रहता है; देखें [Snowflake native Rust no-go निर्णय](docs/architecture/snowflake-native-rust-decision.md)। VLESS Reality असली ECH का उपयोग नहीं करता; GREASE-only नीति के लिए [ADR 0001](docs/adr/0001-reality-ech.md) देखें।
-
-WARP और AmneziaWG अलग VPN/tunnel profile सतहें हैं, relay-core रजिस्ट्री में `relay_kind` मान नहीं।
-
-स्थानीय proxy मोड और Android VPN पुनर्निर्देशन मोड दोनों relay कॉन्फ़िगर किए जाने या न किए जाने के साथ काम करते हैं।
-
-### डायग्नोस्टिक्स
-
-हर कनेक्शन लक्ष्य को अलग से स्कैन करता है और तीन typed परिणामों में से एक देता है:
-
-- `TRANSPARENT_WORKS` — जाँचा गया transparent पाथ काम करता है, डिवाइस की रणनीतियों के साथ या उनके बिना
-- `OWNED_STACK_ONLY` — केवल ऐप के स्वामित्व वाले TLS stack के माध्यम से काम करता है
-- `NO_DIRECT_SOLUTION` — इस रन के बजट में जाँचा गया कोई सीधा समाधान सफल नहीं हुआ; relay या अन्य परीक्षण पर विचार करें
-
-संदिग्ध ब्लॉक अलग से `transportClass` में दर्ज होता है, जैसे `IP_BLOCK_SUSPECT`, `SNI_TLS_SUSPECT` या `QUIC_BLOCK_SUSPECT`। ये वर्ग संभावित कारण के संकेत बताते हैं; ये अतिरिक्त परिणाम प्रकार या ब्लॉक का प्रमाण नहीं हैं।
-
-निर्णय प्रति नेटवर्क फ़िंगरप्रिंट संग्रहीत किए जाते हैं और जब वही नेटवर्क फिर से देखा जाता है तो स्वचालित रूप से दोहराए जाते हैं। डायग्नोस्टिक्स स्क्रीन में `ripdpi-diagnostics-candidates` quick/full-matrix सूट से TCP और QUIC रणनीति probing, DNS छेड़छाड़ का पता लगाना, DoH/DoT/DNSCrypt/DoQ resolver सिफ़ारिशें, और निर्यात योग्य डायग्नोस्टिक आर्काइव जोड़े जाते हैं।
-
-## RIPDPI क्यों
-
-आधुनिक Android नेटवर्क नियमित रूप से L7 फ़िंगरप्रिंटिंग (TLS JA3/JA4, QUIC), सेल्युलर और सार्वजनिक Wi-Fi पर आक्रामक QoS, MTU और ECN desync, और middlebox-प्रेरित TLS handshake aborts लागू करते हैं — जिससे कुछ लक्ष्य विफल हो जाते हैं जबकि उसी नेटवर्क पर अन्य ठीक काम करते हैं। एक एकल वैश्विक सेटिंग सभी मामलों को संबोधित नहीं कर सकती।
-
-RIPDPI का डिज़ाइन सिद्धांत: प्रत्येक लक्ष्य और प्रत्येक नेटवर्क को अलग-अलग वर्गीकृत करें, सबसे हल्का फ़िक्स लागू करें जो काम करे, और उसे याद रखें।
-
-1. **प्रति-लक्ष्य, प्रति-नेटवर्क उत्तर** — एक वैश्विक नीति नहीं। डायग्नोस्टिक्स प्रत्येक authority को वर्गीकृत करते हैं और निर्णय को एक नेटवर्क फ़िंगरप्रिंट हैश से जोड़कर संग्रहीत करते हैं।
-2. **जब नेटवर्क समस्या हो तो स्थानीय पाथ को रूपांतरित करें।** Semantic मार्कर, अनुकूली split प्लेसमेंट, फ़र्ज़ी-payload श्रृंखलाएँ, OOB/disorder, यादृच्छिक TLS records, QUIC फ़िंगरप्रिंट विविधता — रिपॉज़िटरी-आंतरिक Rust crates से इकट्ठा किया गया।
-3. **जब सीधा पाथ ख़राब हो तो tunneled relay पर फ़ॉलबैक करें।** ऊपर दिया गया relay मैट्रिक्स native relay-core बैकएंड, helper subprocesses, बाहरी pluggable transports, और अलग VPN/tunnel profile सतहों के बीच अंतर करता है ताकि असमर्थित या वैकल्पिक पाथ एक ही सुविधा लेबल के पीछे छिपे न रहें।
-4. **ईमानदार रिपोर्टिंग।** निर्णय टाइप्ड होते हैं और प्रदर्शित किए जाते हैं; failure classifier परिणामों को दबाने के बजाय सामने लाया जाता है; डायग्नोस्टिक निर्यात बंडल रहस्यों को रिडैक्ट करते हैं।
-
-## स्क्रीनशॉट
+## केवल स्विच नहीं, पूरा रास्ता देखें
 
 **बैनर और कार्ड की भाषा: English fallback.** हिन्दी में Google Play सामग्री अभी उपलब्ध नहीं है।
 
@@ -111,21 +40,108 @@ RIPDPI का डिज़ाइन सिद्धांत: प्रत्य
 
 Google Play सामग्री में ऐप की वास्तविक स्क्रीन हैं। पूरा आकार देखने के लिए चित्र खोलें। [स्क्रीन कैप्चर और एक्सपोर्ट](play-store-screenshots/README.md).
 
+एक ही वैश्विक नीति के बजाय RIPDPI हर लक्ष्य और हर नेटवर्क को अलग-अलग वर्गीकृत करता है, सत्यापित परिणाम याद रखता है, और अपने विफलता-निर्णयों को दृश्यमान बनाता है। स्थानीय रूप से शुरू करें; relay तभी जोड़ें जब सीधा पथ बहाल न हो सके।
+
+## त्वरित शुरुआत
+
+ये कमांड चलाने से पहले [build आवश्यकताएँ](#build-requirements) तैयार करें, जिनमें वास्तविक libXray AAR टूलचेन शामिल है।
+
+स्रोत से Android debug APK बनाएँ:
+
+```bash
+git clone https://github.com/po4yka/RIPDPI.git
+cd RIPDPI
+bash scripts/native/build-libxray.sh
+bash scripts/native/verify-libxray-artifacts.sh
+./gradlew assembleDebug
+```
+
+डिवाइस या release build तैयार करने से पहले [build आवश्यकताएँ और आउटपुट पथ](#build-requirements) देखें।
+
+## तीन क्षमताएँ, एक निर्णय-चक्र
+
+### डिवाइस पर पैकेट रणनीतियाँ
+
+ट्रैफ़िक को किसी relay सर्वर पर भेजे बिना डिवाइस पर ही कॉन्फ़िगर करने योग्य पैकेट-स्तरीय रूपांतरण लागू करता है। मुख्य पाथ के लिए root की आवश्यकता नहीं है।
+
+समर्थित तकनीकें: TCP सेगमेंट स्प्लिटिंग और डिसऑर्डर, फ़र्ज़ी पैकेट इंजेक्शन, OOB (urgent pointer), TLS record फ़्रैगमेंटेशन, फ़र्ज़ी TLS first-flight, QUIC handshake विविधता, UDP length-field विविधता, IPv6 extension-header प्रविष्टि, Lua-परिभाषित raw पैकेट प्रेषण, और अनुकूली semantic मार्कर जो लाइव `TCP_INFO` के विरुद्ध स्थिति निर्धारित करते हैं। रणनीति श्रृंखलाएँ इस रिपॉज़िटरी के Rust crates से बनाई जाती हैं, किसी बाहरी रणनीति बाइनरी के बिना।
+
+जब कोई relay कॉन्फ़िगर नहीं होता, तो ट्रैफ़िक सीधे डिवाइस से बाहर निकलता है — डिवाइस पर किए गए रूपांतरण ही पाथ में एकमात्र बदलाव होते हैं।
+
+### डायग्नोस्टिक्स
+
+हर कनेक्शन लक्ष्य को अलग से स्कैन करता है और तीन typed परिणामों में से एक देता है:
+
+- `TRANSPARENT_WORKS` — जाँचा गया transparent पाथ काम करता है, डिवाइस की रणनीतियों के साथ या उनके बिना
+- `OWNED_STACK_ONLY` — केवल ऐप के स्वामित्व वाले TLS stack के माध्यम से काम करता है
+- `NO_DIRECT_SOLUTION` — इस रन के बजट में जाँचा गया कोई सीधा समाधान सफल नहीं हुआ; relay या अन्य परीक्षण पर विचार करें
+
+संदिग्ध ब्लॉक अलग से `transportClass` में दर्ज होता है, जैसे `IP_BLOCK_SUSPECT`, `SNI_TLS_SUSPECT` या `QUIC_BLOCK_SUSPECT`। ये वर्ग संभावित कारण के संकेत बताते हैं; ये अतिरिक्त परिणाम प्रकार या ब्लॉक का प्रमाण नहीं हैं।
+
+निर्णय प्रति नेटवर्क फ़िंगरप्रिंट संग्रहीत किए जाते हैं और जब वही नेटवर्क फिर से देखा जाता है तो स्वचालित रूप से दोहराए जाते हैं। डायग्नोस्टिक्स स्क्रीन में `ripdpi-diagnostics-candidates` quick/full-matrix सूट से TCP और QUIC रणनीति probing, DNS छेड़छाड़ का पता लगाना, DoH/DoT/DNSCrypt/DoQ resolver सिफ़ारिशें, और निर्यात योग्य डायग्नोस्टिक आर्काइव जोड़े जाते हैं।
+
+### वैकल्पिक VPN relay
+
+स्थानीय proxy या VPN ट्रैफ़िक को एन्क्रिप्टेड relay प्रोटोकॉल के माध्यम से आपके द्वारा कॉन्फ़िगर किए गए सर्वर तक चेन करता है:
+
+| Kind / protocol | Integration tier | Scope | Traffic |
+| --- | --- | --- | --- |
+| `vless_reality` / VLESS Reality TCP | Native relay-core backend (`ripdpi-vless`) | Client relay | TCP + UDP (XUDP) |
+| `vless_reality` / xHTTP transport | Native relay-core backend (`ripdpi-xhttp`) | Client relay | TCP |
+| `cloudflare_tunnel` | Native xHTTP relay path plus optional Cloudflare publish runtime | Client relay / local-origin publish | TCP |
+| `hysteria2` | Native relay-core backend (`ripdpi-hysteria2`) | Client relay | TCP + UDP |
+| `tuic_v5` | Native relay-core backend (`ripdpi-tuic`) | Client relay | TCP + UDP |
+| `masque` | Native relay-core backend (`ripdpi-masque`): HTTP/2 classic CONNECT for TCP, HTTP/3 CONNECT-UDP for UDP | Client relay | TCP + UDP |
+| `shadowtls_v3` | Native relay-core backend (`ripdpi-shadowtls`) with a profile-backed inner relay | Client relay | TCP |
+| `trojan` | Native relay-core backend (`ripdpi-trojan`) | Client relay | TCP + UDP |
+| `anytls` | Native relay-core backend (`ripdpi-anytls`) | Client relay | TCP + UDP |
+| `shadowsocks` | Native relay-core backend (`ripdpi-shadowsocks`) | Client relay | TCP + UDP |
+| `tor` | Native Arti-backed relay-core backend (`ripdpi-tor`) with bridge/PT bootstrap | Opt-in client anonymity relay | TCP |
+| `naiveproxy` | External helper process (`ripdpi-naiveproxy`) supervised by Android service code | Client relay | TCP |
+| `google_apps_script` | In-repository Rust Apps Script relay runtime (`ripdpi-apps-script-core`) selected by `libripdpi-relay.so` | Client relay path | TCP |
+| `snowflake` | External Go pluggable-transport binary (`ripdpi-snowflake`) | Client PT relay | TCP |
+| `webtunnel` | In-repository Rust pluggable-transport helper binary (`ripdpi-webtunnel`) | Client PT relay | TCP |
+| `obfs4` | External pluggable-transport binary (`ripdpi-obfs4`) | Client PT relay | TCP |
+| `chain_relay` | Native relay-core composition over referenced relay profiles | Ordered 2-4 hop client relay | TCP |
+| `mieru` | Native relay-core backend (`ripdpi-mieru`); UDP relay gated off pending the custom UDP/TCP wire engine | Client relay | TCP |
+| `ssh` | Native relay-core backend (`ripdpi-ssh`) | Client relay | TCP |
+| `vless` / xHTTP transport | Native relay-core backend (`ripdpi-xhttp`), xHTTP/TLS | Client relay | TCP |
+
+साधारण `vless` के लिए native xHTTP/TLS backend है; यह backend अन्य साधारण VLESS transports का समर्थन नहीं करता। VLESS Reality में UDP केवल तब XUDP का उपयोग करता है जब UDP सक्षम हो, transport `reality_tcp` हो और flow `xtls-rprx-vision` या `xtls-rprx-vision-udp443` हो। xHTTP केवल TCP का समर्थन करता है।
+
+Snowflake जानबूझकर एक बाहरी Go बाइनरी बना रहता है; देखें [Snowflake native Rust no-go निर्णय](docs/architecture/snowflake-native-rust-decision.md)। VLESS Reality असली ECH का उपयोग नहीं करता; GREASE-only नीति के लिए [ADR 0001](docs/adr/0001-reality-ech.md) देखें।
+
+WARP और AmneziaWG अलग VPN/tunnel profile सतहें हैं, relay-core रजिस्ट्री में `relay_kind` मान नहीं।
+
+स्थानीय proxy मोड और Android VPN पुनर्निर्देशन मोड दोनों relay कॉन्फ़िगर किए जाने या न किए जाने के साथ काम करते हैं।
+
+## यह दृष्टिकोण क्यों
+
+आधुनिक Android नेटवर्क नियमित रूप से L7 फ़िंगरप्रिंटिंग (TLS JA3/JA4, QUIC), सेल्युलर और सार्वजनिक Wi-Fi पर आक्रामक QoS, MTU और ECN desync, और middlebox-प्रेरित TLS handshake aborts लागू करते हैं — जिससे कुछ लक्ष्य विफल हो जाते हैं जबकि उसी नेटवर्क पर अन्य ठीक काम करते हैं। एक एकल वैश्विक सेटिंग सभी मामलों को संबोधित नहीं कर सकती।
+
+RIPDPI का डिज़ाइन सिद्धांत: प्रत्येक लक्ष्य और प्रत्येक नेटवर्क को अलग-अलग वर्गीकृत करें, सबसे हल्का फ़िक्स लागू करें जो काम करे, और उसे याद रखें।
+
+1. **प्रति-लक्ष्य, प्रति-नेटवर्क उत्तर** — एक वैश्विक नीति नहीं। डायग्नोस्टिक्स प्रत्येक authority को वर्गीकृत करते हैं और निर्णय को एक नेटवर्क फ़िंगरप्रिंट हैश से जोड़कर संग्रहीत करते हैं।
+2. **जब नेटवर्क समस्या हो तो स्थानीय पाथ को रूपांतरित करें।** Semantic मार्कर, अनुकूली split प्लेसमेंट, फ़र्ज़ी-payload श्रृंखलाएँ, OOB/disorder, यादृच्छिक TLS records, QUIC फ़िंगरप्रिंट विविधता — रिपॉज़िटरी-आंतरिक Rust crates से इकट्ठा किया गया।
+3. **जब सीधा पाथ ख़राब हो तो tunneled relay पर फ़ॉलबैक करें।** ऊपर दिया गया relay मैट्रिक्स native relay-core बैकएंड, helper subprocesses, बाहरी pluggable transports, और अलग VPN/tunnel profile सतहों के बीच अंतर करता है ताकि असमर्थित या वैकल्पिक पाथ एक ही सुविधा लेबल के पीछे छिपे न रहें।
+4. **ईमानदार रिपोर्टिंग।** निर्णय टाइप्ड होते हैं और प्रदर्शित किए जाते हैं; failure classifier परिणामों को दबाने के बजाय सामने लाया जाता है; डायग्नोस्टिक निर्यात बंडल रहस्यों को रिडैक्ट करते हैं।
+
 ## सुविधाएँ
 
 - **Proxy मोड**: कॉन्फ़िगर किए गए localhost पोर्ट पर स्थानीय SOCKS5 proxy।
-- **VPN मोड**: `VpnService` के माध्यम से स्थानीय TUN-to-SOCKS bridge से Android डिवाइस ट्रैफ़िक को रूट करता है।
+- **VPN मोड**: `VpnService` के माध्यम से Android डिवाइस ट्रैफ़िक को स्थानीय TUN-to-SOCKS ब्रिज से होकर रूट करता है।
 - **Profile import**: एक साझा classifier QR scanner (कैमरा या सहेजी गई इमेज), clipboard और Android share sheet (full experience) को संभालता है। यह proxy URI (`vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, `tuic://`, `mieru://`, `ssh://`), subscription link (`https://` तथा `ripdpi://`, `sing-box://`, NekoBox `sn://`, Clash, v2rayNG और Hiddify के subscription link), WireGuard / AmneziaWG `.conf` टेक्स्ट, `amneziawg://` link और AmneziaVPN `vpn://` key स्वीकार करता है, जिसमें कई QR कोड वाली series भी शामिल है। VPN settings में **प्रोफ़ाइल जोड़ें** एक subscription-link स्क्रीन और `.conf` file picker भी खोलता है। प्रोफ़ाइल को QR कोड के रूप में भी साझा किया जा सकता है।
 - **समर्थन सेटिंग्स लिंक**: `ripdpi://support-config` और सत्यापित HTTPS समर्थन लिंक उपयोगकर्ता की पुष्टि के बाद किसी भी संग्रहीत ऐप सेटिंग के लिए समर्थन-प्रदत्त पैच का पूर्वावलोकन और उसे लागू कर सकते हैं।
 - **सदस्यताएँ (Subscriptions)**: पृष्ठभूमि स्वचालित-अद्यतन, डुप्लिकेट-profile पहचान, selector/urltest समूह, और बहु-mirror वितरण के साथ base64, Clash / Clash.Meta YAML, sing-box JSON, और WireGuard-INI सदस्यता प्रारूप।
-- **एन्क्रिप्टेड DNS**: VPN-संबंधी पाथों में DoH, DoT, DNSCrypt, और DoQ resolver समर्थन।
+- **सर्वर माइग्रेशन रसीदें**: प्रतिस्थापन सदस्यता एक सटीक वितरण पहचान बनाए रख सकती है। Subscription status में घोषित प्रतिस्थापन पथ का स्पष्ट रूप से परीक्षण करें और स्थानीय JSON रसीद साझा करें। Reality/Vision, XHTTP और Hysteria2 अलग-थलग candidate probes का उपयोग करते हैं; AmneziaWG के लिए पहले आयातित प्रतिस्थापन profile से कनेक्ट करना ज़रूरी है। केवल-प्राप्त और परीक्षित रसीदें अलग हैं; कोई भी स्वतः अपलोड नहीं होती।
+- **सदस्यताएँ (Subscriptions)**: पृष्ठभूमि स्वचालित-अद्यतन, डुप्लिकेट-profile पहचान, selector/urltest समूह, और बहु-mirror वितरण के साथ base64, Clash / Clash.Meta YAML, sing-box JSON, और WireGuard-INI सदस्यता प्रारूप।
 - **रणनीति नियंत्रण**: TCP split/disorder/fake परिवार, TLS record फ़्रैगमेंटेशन और fake प्रोफ़ाइल, QUIC handshake विविधता, UDP length-field विविधता, IPv6 extension headers, Lua `rawsend`, प्रति-step सक्रियण फ़िल्टर, IPv4 ID नियंत्रण, और OOB इंजेक्शन।
-- **प्रति-नेटवर्क नीति स्मृति**: एक नेटवर्क फ़िंगरप्रिंट से जुड़े सत्यापित प्रति-authority निर्णय; पुनः कनेक्ट होने पर स्वचालित रूप से दोहराए जाते हैं।
+- **प्रति-नेटवर्क नीति स्मृति**: नेटवर्क फ़िंगरप्रिंट से जुड़े सत्यापित प्रति-authority निर्णय; पुनः कनेक्ट होने पर स्वतः दोहराए जाते हैं।
 - **अनुकूली probing**: पहली बार देखे गए नेटवर्क के लिए स्वचालित रणनीति probing; नेटवर्क handover पर पृष्ठभूमि `quick_v1` पुनः-जाँच।
-- **Handover-जागरूक पुनरारंभ**: Wi-Fi, सेल्युलर, और रोमिंग के बीच संक्रमण पर लाइव नीति पुनर्मूल्यांकन।
+- **Handover-जागरूक पुनरारंभ**: Wi-Fi, सेल्युलर और रोमिंग के बीच बदलाव पर नीति का live पुनर्मूल्यांकन।
 - **RIPDPI Browser**: उन HTTPS लक्ष्यों के लिए ऐप-स्वामित्व वाला browser जिन्हें स्वामित्व वाले TLS stack की आवश्यकता है; ऐप-उत्पन्न अनुरोधों के लिए साझा `SecureHttpClient` पाथ।
+- **रनटाइम टेलीमेट्री और लॉग**: proxy जीवनचक्र, route निर्णय, DNS failover घटनाएँ, निदान प्रगति और नेटिव रनटाइम घटनाएँ — ऐप-इन-हिस्ट्री और सपोर्ट एक्सपोर्ट के रूप में उपलब्ध।
 - **रनटाइम टेलीमेट्री और लॉग**: proxy जीवनचक्र, route निर्णय, DNS failover घटनाएँ, डायग्नोस्टिक्स प्रगति, और native रनटाइम घटनाएँ — ऐप-आंतरिक इतिहास और समर्थन निर्यात के रूप में उपलब्ध।
-- **वैकल्पिक root helper**: rooted डिवाइसों पर, एक विशेषाधिकार प्राप्त helper प्रोसेस के माध्यम से raw-socket संचालन (FakeRst, MultiDisorder, IP फ़्रैगमेंटेशन, पूर्ण SeqOverlap, raw IPv4/IPv6 पैकेट उत्सर्जन) अनलॉक करता है।
 
 ## रनटाइम मोड
 
@@ -147,7 +163,7 @@ Relay ट्रैफ़िक गोपनीयता आपके द्व�
 
 बहु-hop relay श्रृंखलाएँ 2-4 TCP hops की एक क्रमबद्ध सूची ले जाती हैं (entry, वैकल्पिक मध्यवर्ती, exit)। संग्रहीत profile मॉडल, native wire schema (`chainHops`), प्रति-hop टेलीमेट्री, और chain editor सभी क्रमबद्ध hop सूची ले जाते हैं, जबकि पुराने दो-hop `chainEntry`/`chainExit` आकार को पश्च-संगत मिरर (hop[0]/hop[last]) के रूप में संरक्षित रखा गया है ताकि मौजूदा दो-hop कॉन्फ़िगरेशन साफ़-सुथरे ढंग से माइग्रेट हों। 2-4 की सीमा को एक टाइप्ड validation त्रुटि के रूप में लागू किया जाता है, न कि चुपचाप काट देने के रूप में। chain के माध्यम से UDP जानबूझकर असमर्थित है (`udpCapable=false`)। एक chain anti-correlation को केवल तभी बेहतर बनाती है जब hops विभिन्न trust domains में हों; hops पर समान operator या अधिकार-क्षेत्र का पुनः उपयोग झूठा विश्वास पैदा कर सकता है और इसे UX में एक चेतावनी स्थिति के रूप में सामने लाया जाता है।
 
-## Build
+## Build आवश्यकताएँ
 
 आवश्यकताएँ: JDK 17, Android SDK (platform `37.1`, CMake `3.31.6`), Android NDK `29.0.14206865`, Rust toolchain `1.98.1`, आवश्यक ABIs के लिए Android Rust targets, [`just`](https://just.systems) (task runner; `justfile` recipes CI को प्रतिबिंबित करती हैं), और [`lefthook`](https://github.com/evilmartians/lefthook) (pre-commit gates को वायर करने के लिए एक बार `lefthook install` चलाएँ)।
 
@@ -196,25 +212,25 @@ python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 
 ## दस्तावेज़ीकरण
 
-**RIPDPI में नए हैं?** अनुशंसित पठन पाथ:
+**RIPDPI में नए हैं?** पढ़ने का अनुशंसित क्रम:
 [आर्किटेक्चर अवलोकन](docs/architecture/ARCHITECTURE.md) →
 [रनटाइम मोड](docs/architecture/RUNTIME_MODES.md) →
-[native Rust workspace](docs/architecture/NATIVE_RUST.md) →
-[Kotlin/Rust JNI contract](docs/architecture/JNI_CONTRACT.md) →
-[config contracts](docs/architecture/CONFIG_CONTRACTS.md) →
-[feature extension guide](docs/architecture/FEATURE_EXTENSION_GUIDE.md)।
+[नेटिव Rust workspace](docs/architecture/NATIVE_RUST.md) →
+[Kotlin/Rust JNI अनुबंध](docs/architecture/JNI_CONTRACT.md) →
+[कॉन्फ़िग अनुबंध](docs/architecture/CONFIG_CONTRACTS.md) →
+[फ़ीचर विस्तार गाइड](docs/architecture/FEATURE_EXTENSION_GUIDE.md)।
 
 - [Native इंटीग्रेशन और मॉड्यूल](docs/native/README.md)
 - [पैकेट रणनीति रनटाइम](docs/packet-strategy-runtime.md)
 - [Proxy engine और रणनीति सतह](docs/native/proxy-engine.md)
-- [TUN-to-SOCKS bridge](docs/native/tunnel.md)
+- [TUN-to-SOCKS ब्रिज](docs/native/tunnel.md)
 - [Strategy-pack और TLS catalog संचालन](docs/strategy-pack-operations.md)
 - [Relay profile उदाहरण](docs/relay-profile-examples.md)
 - [एक सर्वर कॉन्फ़िगरेशन import करना](docs/server-integration.md)
 - [स्थानीय नेटवर्क test lab](test-lab/README.md)
 - [बाहरी UI स्वचालन](docs/automation/README.md)
 - [आर्किटेक्चर नोट्स](docs/architecture/README.md)
-- [Roadmap](ROADMAP.md)
+- [रोडमैप](ROADMAP.md)
 
 ## RIPDPI का अनुवाद करें
 

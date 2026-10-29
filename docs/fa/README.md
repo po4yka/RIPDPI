@@ -4,9 +4,6 @@
   <a href="../../docs/screenshots/fa/feature-graphic.png"><img src="../../docs/screenshots/fa/feature-graphic.png" width="100%" alt="بنر RIPDPI برای Google Play"/></a>
 </p>
 
-<h1 align="center">RIPDPI</h1>
-<p align="center"><b>Routing & Internet Performance Diagnostics Platform Interface</b></p>
-
 <p align="center">
   <a href="https://github.com/po4yka/RIPDPI/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/po4yka/RIPDPI/ci.yml?style=flat-square&label=CI" alt="CI"/></a>
   <a href="https://github.com/po4yka/RIPDPI/releases/latest"><img src="https://img.shields.io/github/v/release/po4yka/RIPDPI?style=flat-square" alt="نسخه"/></a>
@@ -22,9 +19,46 @@
 > [!WARNING]
 > **این پروژه در فاز فعال توسعه قرار دارد.** ویژگی‌های جدید در حال افزوده شدن هستند و بازآرایی‌های (refactoring) گسترده‌ای به‌طور مکرر برای بهبود کیفیت کدبیس انجام می‌شود. در این کار از عامل‌های کدنویسی (coding agents) به‌طور گسترده استفاده می‌شود، بنابراین در شاخهٔ `main` در حال حاضر **breaking changes، مهاجرت‌های اسکیما و عملکرد بخشی ناقص ممکن است رخ دهد**. اگر با یک رگرسیون مواجه شدید، لطفاً [یک issue باز کنید](https://github.com/po4yka/RIPDPI/issues) — بازخورد شما به پایدارسازی پروژه کمک می‌کند.
 
-RIPDPI یک جعبه‌ابزار اندرویدی برای تشخیص و بهینه‌سازی مسیر شبکه است. راهبردهای بسته‌ای قابل پیکربندی را روی دستگاه اعمال می‌کند، می‌تواند به سرورهای رلهٔ تحت کنترل شما متصل شود و تشخیص هر اتصال را اجرا می‌کند تا مشخص شود چرا هر مقصدی شکست می‌خورد یا کیفیتش افت می‌کند. سه قابلیت به‌صورت مستقل یا ترکیبی کار می‌کنند.
+RIPDPI یک جعبه‌ابزار اندرویدی برای تشخیص و بهینه‌سازی مسیر شبکه است. اندازه می‌گیرد چرا یک مقصد شکست می‌خورد یا کیفیتش افت می‌کند، راهبردهای بسته‌ای قابل پیکربندی را روی دستگاه اعمال می‌کند و می‌تواند از طریق سرورهای رلهٔ تحت کنترل شما متصل شود. هر قابلیت به‌صورت مستقل یا ترکیبی کار می‌کند.
 
-## سه ستون
+## مسیر را ببینید، نه فقط یک کلید
+
+<p align="center">
+  <a href="../../docs/screenshots/fa/01-hero.png"><img src="../../docs/screenshots/fa/01-hero.png" width="380" alt="کنترل اتصال — صفحهٔ اصلی واقعی"/></a>
+  <a href="../../docs/screenshots/fa/02-diagnostics.png"><img src="../../docs/screenshots/fa/02-diagnostics.png" width="380" alt="عیب‌یابی شبکه — نتایج واقعی بررسی"/></a>
+</p>
+
+<p align="center">
+  <a href="../../docs/screenshots/fa/03-relays.png"><img src="../../docs/screenshots/fa/03-relays.png" width="380" alt="انتخاب رله — تنظیمات واقعی"/></a>
+  <a href="../../docs/screenshots/fa/04-dns.png"><img src="../../docs/screenshots/fa/04-dns.png" width="380" alt="DNS رمزگذاری‌شده — تنظیمات واقعی"/></a>
+</p>
+
+<p align="center">
+  <a href="../../docs/screenshots/fa/05-strategies.png"><img src="../../docs/screenshots/fa/05-strategies.png" width="380" alt="راهبرد بسته‌ها — کنترل‌های واقعی"/></a>
+  <a href="../../docs/screenshots/fa/06-local-tools.png"><img src="../../docs/screenshots/fa/06-local-tools.png" width="380" alt="پشتیبان‌گیری و بازیابی — تنظیمات واقعی"/></a>
+</p>
+
+تصاویر Google Play با صفحه‌های واقعی برنامه. برای دیدن اندازهٔ کامل، تصویر را باز کنید. [ثبت تصویر و خروجی](../../play-store-screenshots/README.md).
+
+RIPDPI به‌جای یک سیاست سراسری واحد، هر مقصد و هر شبکه را جداگانه طبقه‌بندی می‌کند، نتایج اعتبارسنجی‌شده را به یاد می‌سپارد و حکم‌های شکست خود را قابل مشاهده می‌کند. از حالت محلی شروع کنید؛ فقط وقتی که مسیر مستقیم قابل بازیابی نیست، رله را وارد کنید.
+
+## شروع سریع
+
+پیش از اجرای این دستورها، [پیش‌نیازهای ساخت](#build-requirements) را آماده کنید، از جمله زنجیرهٔ ابزار AAR واقعی libXray.
+
+APK اشکال‌زدایی (debug) اندروید را از سورس بسازید:
+
+```bash
+git clone https://github.com/po4yka/RIPDPI.git
+cd RIPDPI
+bash scripts/native/build-libxray.sh
+bash scripts/native/verify-libxray-artifacts.sh
+./gradlew assembleDebug
+```
+
+پیش از آماده‌سازی دستگاه یا ساخت release، [پیش‌نیازهای ساخت و مسیرهای خروجی](#build-requirements) را ببینید.
+
+## سه قابلیت، یک چرخهٔ تصمیم‌گیری
 
 ### راهبردهای بستهٔ روی دستگاه
 
@@ -34,12 +68,21 @@ RIPDPI یک جعبه‌ابزار اندرویدی برای تشخیص و بهی
 
 وقتی رله‌ای پیکربندی نشده باشد، ترافیک مستقیماً از دستگاه خارج می‌شود — تغییرات روی دستگاه تنها چیزی هستند که در مسیر اعمال می‌گردد.
 
-### رلهٔ VPN
+### تشخیص
 
-ترافیک پراکسی یا VPN محلی را از طریق پروتکل‌های رمزنگاری‌شده به سروری که شما پیکربندی می‌کنید زنجیر می‌کند:
+هر مقصد اتصال را جداگانه پویش می‌کند و یکی از سه نتیجهٔ نوع‌دار را تولید می‌کند:
 
-> [!NOTE]
-> ماتریس پروتکل‌ها با رجیستری‌های فعلی کد منبع مطابقت دارد. متن ترجمه‌شدهٔ پیرامون ممکن است تا بازبینی انسانی از `README.md` عقب باشد.
+- `TRANSPARENT_WORKS` — یک مسیر شفاف آزموده‌شده کار می‌کند، با یا بدون راهبردهای روی دستگاه
+- `OWNED_STACK_ONLY` — فقط از طریق پشتهٔ TLS متعلق به برنامه کار می‌کند
+- `NO_DIRECT_SOLUTION` — هیچ راه‌حل مستقیم آزموده‌شده‌ای در بودجهٔ این اجرا موفق نشد؛ رله یا آزمون دیگری را در نظر بگیرید
+
+ظن به مسدودسازی جداگانه در `transportClass` ثبت می‌شود، برای نمونه `IP_BLOCK_SUSPECT`، `SNI_TLS_SUSPECT` یا `QUIC_BLOCK_SUSPECT`. این کلاس‌ها نشانه‌های یک علت احتمالی را توصیف می‌کنند؛ نه گونه‌های اضافی نتیجه هستند و نه اثبات مسدودسازی.
+
+نتایج به ازای اثر انگشت هر شبکه ذخیره می‌شوند و وقتی همان شبکه دوباره دیده شود، به‌صورت خودکار بازپخش می‌گردند. صفحهٔ تشخیص شامل کاوش راهبرد TCP و QUIC از مجموعه‌های `ripdpi-diagnostics-candidates` (quick/full-matrix)، شناسایی دستکاری DNS، توصیه‌های تحلیل‌گر DoH/DoT/DNSCrypt/DoQ، و بایگانی‌های تشخیص قابل صادرات است.
+
+### رلهٔ VPN اختیاری
+
+ترافیک پراکسی یا VPN محلی را از طریق پروتکل‌های رلهٔ رمزنگاری‌شده به سروری که شما پیکربندی می‌کنید زنجیر می‌کند:
 
 | Kind / protocol | Integration tier | Scope | Traffic |
 | --- | --- | --- | --- |
@@ -66,25 +109,13 @@ RIPDPI یک جعبه‌ابزار اندرویدی برای تشخیص و بهی
 
 برای `vless` ساده یک backend بومی xHTTP/TLS وجود دارد؛ این backend از دیگر ترانسپورت‌های VLESS ساده پشتیبانی نمی‌کند. UDP در VLESS Reality فقط وقتی از XUDP استفاده می‌کند که UDP فعال باشد، ترانسپورت `reality_tcp` و flow برابر `xtls-rprx-vision` یا `xtls-rprx-vision-udp443` باشد. xHTTP فقط TCP را پشتیبانی می‌کند.
 
-Snowflake intentionally remains an external Go binary; see the [Snowflake native Rust no-go decision](../architecture/snowflake-native-rust-decision.md). VLESS Reality does not use real ECH; see [ADR 0001](../adr/0001-reality-ech.md) for the GREASE-only policy.
+Snowflake عمداً یک باینری خارجی Go باقی می‌ماند؛ [تصمیم عدم انتقال Snowflake به Rust بومی](../../docs/architecture/snowflake-native-rust-decision.md) را ببینید. VLESS Reality از ECH واقعی استفاده نمی‌کند؛ برای سیاست فقط-GREASE به [ADR 0001](../../docs/adr/0001-reality-ech.md) مراجعه کنید.
 
-WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` values in the relay-core registry.
+WARP و AmneziaWG سطوح پروفایل VPN/تونل جداگانه‌ای هستند و مقدارهای `relay_kind` در رجیستری relay-core نیستند.
 
-هم حالت پراکسی محلی و هم حالت تغییر مسیر VPN اندرویدی با یا بدون رلهٔ پیکربندی‌شده کار می‌کنند.
+هم حالت پراکسی محلی و هم حالت تغییر مسیر VPN اندروید با یا بدون رلهٔ پیکربندی‌شده کار می‌کنند.
 
-### تشخیص
-
-هر مقصد اتصال را جداگانه پویش می‌کند و یکی از سه نتیجهٔ نوع‌دار را تولید می‌کند:
-
-- `TRANSPARENT_WORKS` — یک مسیر شفاف آزموده‌شده کار می‌کند، با یا بدون راهبردهای روی دستگاه
-- `OWNED_STACK_ONLY` — فقط از طریق پشتهٔ TLS متعلق به برنامه کار می‌کند
-- `NO_DIRECT_SOLUTION` — هیچ راه‌حل مستقیم آزموده‌شده‌ای در بودجهٔ این اجرا موفق نشد؛ رله یا آزمون دیگری را در نظر بگیرید
-
-ظن به مسدودسازی جداگانه در `transportClass` ثبت می‌شود، برای نمونه `IP_BLOCK_SUSPECT`، `SNI_TLS_SUSPECT` یا `QUIC_BLOCK_SUSPECT`. این کلاس‌ها نشانه‌های یک علت احتمالی را توصیف می‌کنند؛ نه گونه‌های اضافی نتیجه هستند و نه اثبات مسدودسازی.
-
-نتایج به ازای اثر انگشت هر شبکه ذخیره می‌شوند و وقتی همان شبکه دوباره دیده شود، به‌صورت خودکار بازپخش می‌گردند. صفحهٔ تشخیص شامل کاوش راهبرد TCP و QUIC از مجموعه‌های `ripdpi-diagnostics-candidates` (quick/full-matrix)، شناسایی دستکاری DNS، توصیه‌های تحلیل‌گر DoH/DoT/DNSCrypt/DoQ، و بایگانی‌های تشخیص قابل صادرات است.
-
-## چرا RIPDPI
+## چرا این رویکرد
 
 شبکه‌های مدرن اندرویدی معمولاً اثر انگشت‌گیری L7 (TLS JA3/JA4، QUIC)، QoS تهاجمی روی شبکه‌های همراه و وای‌فای عمومی، ناسازگاری MTU و ECN، و قطع دست‌دهی TLS توسط جعبهٔ میانی را اعمال می‌کنند — این مداخلات باعث می‌شوند برخی اهداف شکست بخورند در حالی که اهداف دیگر روی همان شبکه به‌خوبی کار می‌کنند. یک تنظیم سراسری واحد نمی‌تواند به همهٔ موارد پاسخ دهد.
 
@@ -95,31 +126,14 @@ WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` va
 ۳. **اگر مسیر مستقیم تنزل یافت، به رلهٔ تونل‌شده برگرد.** ماتریس رله در بالا پشتیبان‌های بومی relay-core، فرایندهای کمکی، ترانسپورت‌های قابل اتصال خارجی و سطوح پروفایل VPN/تونل جداگانه را از هم متمایز می‌کند.
 ۴. **گزارش‌دهی صادقانه.** نتایج نوع‌دار و قابل‌نمایش‌اند؛ نتایج طبقه‌بند شکست سرکوب نمی‌شوند، بلکه به‌وضوح نشان داده می‌شوند؛ بسته‌های صادرات تشخیصی اطلاعات حساس را ویرایش می‌کنند.
 
-## تصاویر صفحه
-
-<p align="center">
-  <a href="../../docs/screenshots/fa/01-hero.png"><img src="../../docs/screenshots/fa/01-hero.png" width="380" alt="کنترل اتصال — صفحهٔ اصلی واقعی"/></a>
-  <a href="../../docs/screenshots/fa/02-diagnostics.png"><img src="../../docs/screenshots/fa/02-diagnostics.png" width="380" alt="عیب‌یابی شبکه — نتایج واقعی بررسی"/></a>
-</p>
-
-<p align="center">
-  <a href="../../docs/screenshots/fa/03-relays.png"><img src="../../docs/screenshots/fa/03-relays.png" width="380" alt="انتخاب رله — تنظیمات واقعی"/></a>
-  <a href="../../docs/screenshots/fa/04-dns.png"><img src="../../docs/screenshots/fa/04-dns.png" width="380" alt="DNS رمزگذاری‌شده — تنظیمات واقعی"/></a>
-</p>
-
-<p align="center">
-  <a href="../../docs/screenshots/fa/05-strategies.png"><img src="../../docs/screenshots/fa/05-strategies.png" width="380" alt="راهبرد بسته‌ها — کنترل‌های واقعی"/></a>
-  <a href="../../docs/screenshots/fa/06-local-tools.png"><img src="../../docs/screenshots/fa/06-local-tools.png" width="380" alt="پشتیبان‌گیری و بازیابی — تنظیمات واقعی"/></a>
-</p>
-
-تصاویر Google Play با صفحه‌های واقعی برنامه. برای دیدن اندازهٔ کامل، تصویر را باز کنید. [ثبت تصویر و خروجی](../../play-store-screenshots/README.md).
-
 ## ویژگی‌ها
 
 - **حالت پراکسی**: پراکسی SOCKS5 محلی روی پورت localhost پیکربندی‌شده.
 - **حالت VPN**: ترافیک دستگاه اندرویدی را از طریق یک پل TUN-به-SOCKS محلی با استفاده از `VpnService` مسیریابی می‌کند.
-- **وارد کردن پروفایل**: اسکن و تولید QR، به‌علاوهٔ وارد کردن از کلیپ‌بورد و اشتراک‌گذاری. تجزیهٔ کلیپ‌بورد/اشتراک‌گذاری از کدک URI پراکسی استفاده می‌کند که `vless://`، `ss://`، `trojan://`، `hysteria2://`، `hy2://`، `anytls://`، `tuic://`، `mieru://` و `ssh://` را می‌پذیرد؛ اسکن QR در حال حاضر برای `vless://`، `ss://`، `trojan://`، `hysteria2://`، `hy2://`، `tuic://` و `mieru://` موفق است. AmneziaWG از کدک جداگانهٔ `amneziawg://` استفاده می‌کند. فیلترهای intent اندروید همچنین `ssh://` را به trampoline وارد کردن نمایان می‌کنند، و کدک URI پراکسی آن را تجزیه و در هر دو جهت کدگذاری می‌کند.
+- **وارد کردن پروفایل**: یک طبقه‌بند مشترک به اسکنر QR (دوربین یا تصویر ذخیره‌شده)، کلیپ‌بورد و منوی اشتراک‌گذاری اندروید (تجربهٔ کامل) خدمت می‌کند. این طبقه‌بند URIهای پراکسی (`vless://`، `ss://`، `trojan://`، `hysteria2://`، `hy2://`، `anytls://`، `tuic://`، `mieru://`، `ssh://`)، پیوندهای اشتراک (`https://` به‌علاوهٔ پیوندهای اشتراک `ripdpi://`، `sing-box://`، `sn://` در NekoBox، Clash، v2rayNG و Hiddify)، متن `.conf` در WireGuard / AmneziaWG، پیوندهای `amneziawg://` و کلیدهای `vpn://` در AmneziaVPN، از جمله مجموعه‌های چندکدی QR آن‌ها را می‌پذیرد. **افزودن پروفایل** در تنظیمات VPN همچنین صفحهٔ پیوند اشتراک و انتخاب‌گر فایل `.conf` را باز می‌کند. پروفایل‌ها را می‌توان به‌صورت کد QR نیز به اشتراک گذاشت.
+- **پیوندهای تنظیمات پشتیبانی**: `ripdpi://support-config` و پیوندهای HTTPS تأییدشدهٔ پشتیبانی می‌توانند پس از تأیید کاربر، یک وصلهٔ ارائه‌شده از سوی پشتیبانی را برای هر تنظیم ذخیره‌شدهٔ برنامه پیش‌نمایش و اعمال کنند.
 - **اشتراک‌ها**: فرمت‌های اشتراک base64، Clash / Clash.Meta YAML، sing-box JSON و WireGuard-INI با به‌روزرسانی خودکار پس‌زمینه، شناسایی پروفایل‌های تکراری، گروه‌های selector/urltest و تحویل چند‌آینه‌ای.
+- **رسیدهای مهاجرت سرور**: یک اشتراک جایگزین می‌تواند هویت تحویل دقیق را حفظ کند. در وضعیت اشتراک، یک مسیر جایگزین اعلام‌شده را صریحاً آزمایش کنید و یک رسید JSON محلی به اشتراک بگذارید. Reality/Vision، XHTTP و Hysteria2 از کاوش‌های ایزولهٔ نامزد استفاده می‌کنند؛ AmneziaWG ابتدا نیاز دارد پروفایل جایگزین واردشده را متصل کنید. رسیدهای «فقط دریافت‌شده» و «آزموده‌شده» از هم متمایزند؛ هیچ‌کدام به‌صورت خودکار بارگذاری نمی‌شوند.
 - **DNS رمزنگاری‌شده**: پشتیبانی از تحلیل‌گرهای DoH، DoT، DNSCrypt و DoQ در مسیرهای مرتبط با VPN.
 - **کنترل‌های راهبرد**: خانوادهٔ split/disorder/fake برای TCP، قطعه‌بندی رکورد TLS و پروفایل‌های ساختگی، تنوع دست‌دهی QUIC، تنوع فیلد طول UDP، هدرهای افزونهٔ IPv6، `rawsend` در Lua، فیلترهای فعال‌سازی به ازای هر مرحله، کنترل شناسهٔ IPv4 و تزریق OOB.
 - **حافظهٔ سیاست به ازای هر شبکه**: نتایج اعتبارسنجی‌شده به ازای هر مرجع که با کلید اثر انگشت شبکه ذخیره می‌شوند؛ هنگام اتصال مجدد به‌صورت خودکار بازپخش می‌گردند.
@@ -147,9 +161,11 @@ RIPDPI فراداده‌های عملیاتی را برای تشخیص و عیب
 
 حریم خصوصی ترافیک رله به نقطهٔ پایانی رله و پروفایلی که شما پیکربندی می‌کنید بستگی دارد.
 
-## ساخت
+زنجیره‌های رلهٔ چندگامی یک فهرست مرتب از ۲ تا ۴ گام TCP را حمل می‌کنند (ورودی، گام‌های میانی اختیاری، خروجی). مدل پروفایل ذخیره‌شده، اسکیمای بومی انتقال (`chainHops`)، سنجش به ازای هر گام و ویرایشگر زنجیره، همگی فهرست مرتب گام‌ها را حمل می‌کنند و شکل قدیمی دوگامی `chainEntry`/`chainExit` به‌عنوان آینهٔ سازگار با گذشته (hop[0]/hop[last]) حفظ شده است تا پیکربندی‌های دوگامی موجود به‌سادگی مهاجرت کنند. محدودیت ۲ تا ۴ به‌صورت یک خطای اعتبارسنجی نوع‌دار اعمال می‌شود، نه با برش بی‌صدا. UDP از طریق زنجیره عمداً پشتیبانی نمی‌شود (`udpCapable=false`). زنجیره فقط وقتی ضدهمبستگی را بهبود می‌دهد که گام‌ها در دامنه‌های اعتماد متفاوتی باشند؛ استفادهٔ مجدد از یک اپراتور یا حوزهٔ قضایی در چند گام می‌تواند اطمینان کاذب ایجاد کند و در رابط کاربری به‌صورت هشدار نمایش داده می‌شود.
 
-پیش‌نیازها: JDK 17، Android SDK (platform `37.1`, CMake `3.31.6`)، Android NDK `29.0.14206865`، زنجیرهٔ ابزار Rust `1.98.1`، و اهداف Rust اندروید برای ABIهای مورد نیاز.
+## پیش‌نیازهای ساخت
+
+پیش‌نیازها: JDK 17، Android SDK (platform `37.1`, CMake `3.31.6`)، Android NDK `29.0.14206865`، زنجیرهٔ ابزار Rust `1.98.1`، اهداف Rust اندروید برای ABIهای مورد نیاز، [`just`](https://just.systems) (اجراکنندهٔ وظایف؛ دستورهای `justfile` با CI هم‌خوانند) و [`lefthook`](https://github.com/evilmartians/lefthook) (یک بار `lefthook install` را اجرا کنید تا بررسی‌های pre-commit فعال شوند).
 
 یک checkout تازه پیش از بسته‌بندی APK به AAR واقعی libXray با وصله‌های پروژه نیز نیاز دارد. Go با معماری amd64، نسخه‌های تثبیت‌شدهٔ `gomobile` و `gobind` و `ANDROID_NDK_HOME` را طبق [راهنمای libXray](../native/libxray-packaging.md#build) آماده کنید. تولیدکننده به پوشهٔ جدید یا خالی `native/xray/artifacts/` و دسترسی به منابع تثبیت‌شده نیاز دارد. برای استفادهٔ دوباره از پوشهٔ تأییدشده و سازگار با نسخه‌های فعلی، `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts` را به Gradle بدهید؛ بررسی بسته‌بندی همچنان اجرا می‌شود.
 
@@ -185,6 +201,10 @@ bash scripts/native/verify-libxray-artifacts.sh
 ./gradlew testDebugUnitTest
 bash scripts/ci/run-rust-native-checks.sh
 bash scripts/ci/run-rust-network-e2e.sh
+./test-lab/scripts/start-lab.sh --profile emulator
+./test-lab/scripts/adb-install-debug.sh
+./test-lab/scripts/adb-run-probe-emulator.sh --mode diagnostics
+./test-lab/scripts/stop-lab.sh
 python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 ```
 
@@ -192,12 +212,23 @@ python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 
 ## مستندات
 
+**با RIPDPI تازه‌وارد هستید؟** مسیر مطالعهٔ پیشنهادی:
+[نمای کلی معماری](../../docs/architecture/ARCHITECTURE.md) ←
+[حالت‌های زمان اجرا](../../docs/architecture/RUNTIME_MODES.md) ←
+[فضای کاری Rust بومی](../../docs/architecture/NATIVE_RUST.md) ←
+[قرارداد JNI میان Kotlin و Rust](../../docs/architecture/JNI_CONTRACT.md) ←
+[قراردادهای پیکربندی](../../docs/architecture/CONFIG_CONTRACTS.md) ←
+[راهنمای گسترش ویژگی‌ها](../../docs/architecture/FEATURE_EXTENSION_GUIDE.md).
+
 - [یکپارچه‌سازی بومی و ماژول‌ها](../../docs/native/README.md)
 - [زمان اجرای راهبرد بسته](../../docs/packet-strategy-runtime.md)
 - [موتور پراکسی و سطح راهبرد](../../docs/native/proxy-engine.md)
 - [پل TUN-به-SOCKS](../../docs/native/tunnel.md)
 - [عملیات بستهٔ راهبرد و فهرست TLS](../../docs/strategy-pack-operations.md)
 - [نمونه‌های پروفایل رله](../../docs/relay-profile-examples.md)
+- [وارد کردن پیکربندی سرور](../../docs/server-integration.md)
+- [آزمایشگاه آزمون شبکهٔ محلی](../../test-lab/README.md)
+- [خودکارسازی خارجی رابط کاربری](../../docs/automation/README.md)
 - [یادداشت‌های معماری](../../docs/architecture/README.md)
 - [نقشهٔ راه](../../ROADMAP.md)
 

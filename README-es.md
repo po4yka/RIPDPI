@@ -2,9 +2,6 @@
   <a href="docs/screenshots/es/feature-graphic.png"><img src="docs/screenshots/es/feature-graphic.png" width="100%" alt="Gráfico de RIPDPI para Google Play"/></a>
 </p>
 
-<h1 align="center">RIPDPI</h1>
-<p align="center"><b>Routing & Internet Performance Diagnostics Platform Interface</b></p>
-
 <p align="center">
   <a href="https://github.com/po4yka/RIPDPI/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/po4yka/RIPDPI/ci.yml?style=flat-square&label=CI" alt="CI"/></a>
   <a href="https://github.com/po4yka/RIPDPI/releases/latest"><img src="https://img.shields.io/github/v/release/po4yka/RIPDPI?style=flat-square" alt="Release"/></a>
@@ -20,9 +17,46 @@
 > [!WARNING]
 > **El proyecto se encuentra en una fase activa de desarrollo.** Se están añadiendo nuevas funcionalidades y se realizan refactorizaciones de gran alcance con frecuencia para mejorar la calidad del código base. En este trabajo se utilizan agentes de codificación de forma intensiva, por lo que actualmente en `main` son posibles **cambios disruptivos (breaking changes), migraciones de esquema y funcionalidades parcialmente rotas**. Si encuentras una regresión, por favor [abre una issue](https://github.com/po4yka/RIPDPI/issues) — tus comentarios ayudan a estabilizar el proyecto.
 
-RIPDPI es un conjunto de herramientas de Android para el diagnóstico y la optimización de la ruta de red. Aplica estrategias de paquetes configurables en el dispositivo, puede conectarse a servidores de relevo que tú controlas y ejecuta diagnósticos por conexión para identificar por qué cada destino está fallando o degradándose. Las tres capacidades funcionan de forma independiente o combinada.
+RIPDPI es un conjunto de herramientas Android para diagnosticar y optimizar la ruta de red. Mide por qué un destino falla o se degrada, aplica estrategias de paquetes configurables en el dispositivo y puede conectarse mediante servidores de relevo que usted controla. Cada capacidad funciona de forma independiente o combinada.
 
-## Tres pilares
+## Ver la ruta, no solo un interruptor
+
+<p align="center">
+  <a href="docs/screenshots/es/01-hero.png"><img src="docs/screenshots/es/01-hero.png" width="380" alt="Control de conexión — pantalla real"/></a>
+  <a href="docs/screenshots/es/02-diagnostics.png"><img src="docs/screenshots/es/02-diagnostics.png" width="380" alt="Diagnóstico de red — resultados reales"/></a>
+</p>
+
+<p align="center">
+  <a href="docs/screenshots/es/03-relays.png"><img src="docs/screenshots/es/03-relays.png" width="380" alt="Selección de relay — ajustes reales"/></a>
+  <a href="docs/screenshots/es/04-dns.png"><img src="docs/screenshots/es/04-dns.png" width="380" alt="DNS cifrado — ajustes reales"/></a>
+</p>
+
+<p align="center">
+  <a href="docs/screenshots/es/05-strategies.png"><img src="docs/screenshots/es/05-strategies.png" width="380" alt="Estrategia de paquetes — controles reales"/></a>
+  <a href="docs/screenshots/es/06-local-tools.png"><img src="docs/screenshots/es/06-local-tools.png" width="380" alt="Copia de seguridad y restauración — ajustes reales"/></a>
+</p>
+
+Imágenes para Google Play con pantallas reales de la aplicación. Abre una imagen a tamaño completo. [Captura y exportación](play-store-screenshots/README.md).
+
+En lugar de una única política global, RIPDPI clasifica cada destino y cada red por separado, recuerda los resultados validados y hace visibles sus veredictos de fallo. Empiece en local; introduzca un relevo solo cuando no se pueda recuperar la ruta directa.
+
+## Inicio rápido
+
+Prepare los [requisitos de compilación](#build-requirements), incluida la cadena de herramientas del AAR real de libXray, antes de ejecutar estos comandos.
+
+Compile el APK de depuración de Android desde el código fuente:
+
+```bash
+git clone https://github.com/po4yka/RIPDPI.git
+cd RIPDPI
+bash scripts/native/build-libxray.sh
+bash scripts/native/verify-libxray-artifacts.sh
+./gradlew assembleDebug
+```
+
+Consulte los [requisitos de compilación y las rutas de salida](#build-requirements) antes de preparar un dispositivo o una compilación de release.
+
+## Tres capacidades, un ciclo de decisión
 
 ### Estrategias de paquetes en el dispositivo
 
@@ -32,12 +66,21 @@ Técnicas soportadas: división y desordenamiento de segmentos TCP, inyección d
 
 Cuando no hay relevo configurado, el tráfico sale del dispositivo directamente: las mutaciones en el dispositivo son el único cambio en la ruta.
 
-### Relevo VPN
+### Diagnósticos
 
-Encadena el tráfico del proxy local o de la VPN a través de protocolos de relevo cifrados hacia un servidor que tú configuras:
+Escanea cada destino de forma independiente y produce uno de tres resultados tipados:
 
-> [!NOTE]
-> La matriz de protocolos refleja los registros actuales del código fuente. La prosa traducida circundante puede no estar al día con `README.md` hasta la próxima revisión humana.
+- `TRANSPARENT_WORKS` — una ruta transparente probada funciona, con o sin estrategias en el dispositivo
+- `OWNED_STACK_ONLY` — funciona solo a través de la pila TLS propia de la aplicación
+- `NO_DIRECT_SOLUTION` — ninguna solución directa probada tuvo éxito dentro del presupuesto de esta ejecución; considere un relevo u otra prueba
+
+La sospecha de bloqueo se registra por separado en `transportClass`, por ejemplo `IP_BLOCK_SUSPECT`, `SNI_TLS_SUSPECT` o `QUIC_BLOCK_SUSPECT`. Estas clases describen indicios de una posible causa; no son variantes adicionales del resultado ni una prueba de bloqueo.
+
+Los veredictos se almacenan por huella de red y se reproducen automáticamente cuando se ve la misma red de nuevo. La pantalla de diagnósticos añade sondeo de estrategias TCP y QUIC desde las suites `ripdpi-diagnostics-candidates` (quick/full-matrix), detección de manipulación de DNS, recomendaciones de resolutores DoH/DoT/DNSCrypt/DoQ y archivos de diagnóstico exportables.
+
+### Relevo VPN opcional
+
+Encadena el tráfico del proxy local o de la VPN a través de protocolos de relevo cifrados hacia un servidor que usted configura:
 
 | Kind / protocol | Integration tier | Scope | Traffic |
 | --- | --- | --- | --- |
@@ -64,25 +107,13 @@ Encadena el tráfico del proxy local o de la VPN a través de protocolos de rele
 
 El `vless` simple tiene un backend nativo xHTTP/TLS; ese backend no admite otros transportes VLESS simples. VLESS Reality usa XUDP para UDP solo si UDP está activado, el transporte es `reality_tcp` y el flow es `xtls-rprx-vision` o `xtls-rprx-vision-udp443`. xHTTP solo admite TCP.
 
-Snowflake intentionally remains an external Go binary; see the [Snowflake native Rust no-go decision](docs/architecture/snowflake-native-rust-decision.md). VLESS Reality does not use real ECH; see [ADR 0001](docs/adr/0001-reality-ech.md) for the GREASE-only policy.
+Snowflake permanece intencionadamente como un binario externo en Go; consulte la [decisión de no migrar Snowflake a Rust nativo](docs/architecture/snowflake-native-rust-decision.md). VLESS Reality no usa ECH real; consulte el [ADR 0001](docs/adr/0001-reality-ech.md) para la política solo GREASE.
 
-WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` values in the relay-core registry.
+WARP y AmneziaWG son superficies de perfil VPN/túnel independientes, no valores de `relay_kind` del registro de relay-core.
 
-Tanto el modo proxy local como el modo de redirección VPN de Android funcionan con o sin relevo configurado.
+Tanto el modo de proxy local como el modo de redirección VPN de Android funcionan con o sin un relevo configurado.
 
-### Diagnósticos
-
-Escanea cada destino de forma independiente y produce uno de tres resultados tipados:
-
-- `TRANSPARENT_WORKS` — una ruta transparente probada funciona, con o sin estrategias en el dispositivo
-- `OWNED_STACK_ONLY` — funciona solo a través de la pila TLS propia de la aplicación
-- `NO_DIRECT_SOLUTION` — ninguna solución directa probada tuvo éxito dentro del presupuesto de esta ejecución; considere un relevo u otra prueba
-
-La sospecha de bloqueo se registra por separado en `transportClass`, por ejemplo `IP_BLOCK_SUSPECT`, `SNI_TLS_SUSPECT` o `QUIC_BLOCK_SUSPECT`. Estas clases describen indicios de una posible causa; no son variantes adicionales del resultado ni una prueba de bloqueo.
-
-Los veredictos se almacenan por huella de red y se reproducen automáticamente cuando se ve la misma red de nuevo. La pantalla de diagnósticos añade sondeo de estrategias TCP y QUIC desde las suites `ripdpi-diagnostics-candidates` (quick/full-matrix), detección de manipulación de DNS, recomendaciones de resolutores DoH/DoT/DNSCrypt/DoQ y archivos de diagnóstico exportables.
-
-## Por qué RIPDPI
+## Por qué este enfoque
 
 Las redes modernas de Android aplican habitualmente fingerprinting L7 (TLS JA3/JA4, QUIC), QoS agresivo en redes móviles y Wi-Fi públicas, desincronización de MTU y ECN y abortos de handshake TLS inducidos por middleboxes: esto provoca que algunos destinos fallen mientras que otros en la misma red funcionan bien. Un único ajuste global no puede abordar todos los casos.
 
@@ -93,31 +124,14 @@ Principio de diseño de RIPDPI: clasificar cada destino y cada red por separado,
 3. **Recurrir a un relevo tunelizado cuando la ruta directa está degradada.** La matriz de relevo anterior distingue entre backends nativos del núcleo de relevo, subprocesos auxiliares, transportes conectables externos y superficies VPN/túnel separadas.
 4. **Reporte honesto.** Los veredictos son tipados y se muestran; los resultados del clasificador de fallos se exponen en lugar de suprimirse; los paquetes de exportación de diagnósticos redactan los secretos.
 
-## Capturas de pantalla
-
-<p align="center">
-  <a href="docs/screenshots/es/01-hero.png"><img src="docs/screenshots/es/01-hero.png" width="380" alt="Control de conexión — pantalla real"/></a>
-  <a href="docs/screenshots/es/02-diagnostics.png"><img src="docs/screenshots/es/02-diagnostics.png" width="380" alt="Diagnóstico de red — resultados reales"/></a>
-</p>
-
-<p align="center">
-  <a href="docs/screenshots/es/03-relays.png"><img src="docs/screenshots/es/03-relays.png" width="380" alt="Selección de relay — ajustes reales"/></a>
-  <a href="docs/screenshots/es/04-dns.png"><img src="docs/screenshots/es/04-dns.png" width="380" alt="DNS cifrado — ajustes reales"/></a>
-</p>
-
-<p align="center">
-  <a href="docs/screenshots/es/05-strategies.png"><img src="docs/screenshots/es/05-strategies.png" width="380" alt="Estrategia de paquetes — controles reales"/></a>
-  <a href="docs/screenshots/es/06-local-tools.png"><img src="docs/screenshots/es/06-local-tools.png" width="380" alt="Copia de seguridad y restauración — ajustes reales"/></a>
-</p>
-
-Imágenes para Google Play con pantallas reales de la aplicación. Abre una imagen a tamaño completo. [Captura y exportación](play-store-screenshots/README.md).
-
 ## Funcionalidades
 
 - **Modo proxy**: proxy SOCKS5 local en el puerto localhost configurado.
 - **Modo VPN**: enruta el tráfico del dispositivo Android a través de un puente local TUN-a-SOCKS mediante `VpnService`.
 - **Importación de perfiles**: un clasificador común atiende el escáner QR (cámara o imagen guardada), el portapapeles y la hoja de compartir de Android (experiencia completa). Acepta URI de proxy (`vless://`, `ss://`, `trojan://`, `hysteria2://`, `hy2://`, `anytls://`, `tuic://`, `mieru://`, `ssh://`), enlaces de suscripción (`https://` y los enlaces de suscripción `ripdpi://`, `sing-box://`, NekoBox `sn://`, Clash, v2rayNG y Hiddify), texto `.conf` de WireGuard / AmneziaWG, enlaces `amneziawg://` y claves `vpn://` de AmneziaVPN, incluida su serie de varios códigos QR. **Añadir perfil** en los ajustes de VPN también abre una pantalla de enlace de suscripción y un selector de archivos `.conf`. Los perfiles también se pueden compartir como código QR.
+- **Enlaces de ajustes de soporte**: `ripdpi://support-config` y los enlaces HTTPS de soporte verificados pueden mostrar una vista previa y, tras la confirmación del usuario, aplicar un parche proporcionado por soporte a cualquier ajuste persistido de la aplicación.
 - **Suscripciones**: formatos de suscripción base64, Clash / Clash.Meta YAML, sing-box JSON y WireGuard-INI con actualización automática en segundo plano, detección de perfiles duplicados, grupos selector/urltest y entrega multi-mirror.
+- **Recibos de migración de servidor**: una suscripción de reemplazo puede conservar una identidad de entrega exacta. En el estado de la suscripción, pruebe explícitamente una ruta de reemplazo declarada y comparta un recibo JSON local. Reality/Vision, XHTTP y Hysteria2 usan sondeos aislados de candidatos; AmneziaWG requiere conectar primero el perfil de reemplazo importado. Los recibos de solo recibido y los probados son distintos; ninguno se sube automáticamente.
 - **DNS cifrado**: soporte de resolutores DoH, DoT, DNSCrypt y DoQ en las rutas relacionadas con VPN.
 - **Controles de estrategia**: familias TCP split/disorder/fake, fragmentación de registros TLS y perfiles falsos, variación de handshake QUIC, variación del campo de longitud UDP, cabeceras de extensión IPv6, `rawsend` Lua, filtros de activación por paso, control de IPv4 ID e inyección OOB.
 - **Memoria de política por red**: veredictos por autoridad validados e indexados por una huella de red; reproducidos automáticamente al reconectar.
@@ -139,19 +153,21 @@ Utiliza `VpnService` de Android para redirigir el tráfico del dispositivo a tra
 
 ## Privacidad
 
-RIPDPI registra metadatos operativos para diagnósticos y resolución de problemas: instantáneas de la red, estado del resolutor, decisiones de ruta, resultados de escaneo, estado del servicio y eventos del runtime nativo.
+RIPDPI registra metadatos operativos para diagnóstico y resolución de problemas: instantáneas de red, estado del resolvedor, decisiones de ruta, resultados de análisis, estado del servicio y eventos del runtime nativo.
 
-En el funcionamiento normal RIPDPI no captura paquetes, no conserva las cargas útiles del tráfico ni registra secretos TLS. La captura avanzada de paquetes es una herramienta de diagnóstico que requiere activación explícita: almacena bytes de paquetes sin procesar localmente con retención limitada y solo los incluye en un archivo cuando el usuario decide compartirlo.
+En el funcionamiento normal no captura paquetes, no conserva cargas útiles de tráfico ni registra secretos TLS. La captura avanzada de paquetes es una herramienta de diagnóstico de activación explícita: guarda los bytes sin procesar localmente con una retención acotada y los incluye en un archivo solo cuando el usuario comparte ese archivo de forma deliberada.
 
-La privacidad del tráfico de relevo depende del endpoint de relevo y del perfil que tú configures.
+La privacidad del tráfico de relevo depende del endpoint de relevo y del perfil que usted configure.
 
-## Compilación
+Las cadenas de relevo de varios saltos llevan una lista ordenada de 2 a 4 saltos TCP (entrada, intermedios opcionales y salida). El modelo de perfil almacenado, el esquema de transmisión nativo (`chainHops`), la telemetría por salto y el editor de cadenas llevan la lista ordenada de saltos, y la forma heredada de dos saltos `chainEntry`/`chainExit` se conserva como espejo retrocompatible (hop[0]/hop[last]) para que las configuraciones de dos saltos existentes migren sin problemas. El límite de 2 a 4 se aplica como un error de validación tipado, no como un truncamiento silencioso. UDP a través de una cadena no se admite de forma intencionada (`udpCapable=false`). Una cadena solo mejora la anticorrelación cuando los saltos están en dominios de confianza distintos; reutilizar el mismo operador o jurisdicción en varios saltos puede dar una falsa sensación de seguridad y se muestra como advertencia en la interfaz.
 
-Requisitos: JDK 17, Android SDK (platform `37.1`, CMake `3.31.6`), Android NDK `29.0.14206865`, toolchain de Rust `1.98.1`, targets de Rust para Android para las ABI necesarias.
+## Requisitos de compilación
+
+Requisitos: JDK 17, Android SDK (plataforma `37.1`, CMake `3.31.6`), Android NDK `29.0.14206865`, toolchain de Rust `1.98.1`, targets de Android para Rust de las ABI necesarias, [`just`](https://just.systems) (ejecutor de tareas; las recetas de `justfile` reflejan CI) y [`lefthook`](https://github.com/evilmartians/lefthook) (ejecute `lefthook install` una vez para activar las comprobaciones pre-commit).
 
 Un checkout nuevo también necesita el AAR real de libXray con los parches del proyecto antes de empaquetar el APK. Prepare Go amd64, las versiones fijadas de `gomobile` y `gobind`, y `ANDROID_NDK_HOME` según [la guía de libXray](docs/native/libxray-packaging.md#build). El productor necesita un directorio `native/xray/artifacts/` nuevo o vacío y acceso a las fuentes fijadas. Para reutilizar un directorio verificado compatible con las versiones actuales, pase `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts` a Gradle; la comprobación de empaquetado sigue verificándolo.
 
-Instale los paquetes SDK necesarios con Android CLI 1.0+:
+Instale los paquetes de SDK necesarios con Android CLI 1.0+:
 
 ```bash
 android sdk install platforms/android-37.1 ndk/29.0.14206865 cmake/3.31.6
@@ -183,6 +199,10 @@ Las compilaciones debug locales usan lanzadores stub para Snowflake, obfs4, WebT
 ./gradlew testDebugUnitTest
 bash scripts/ci/run-rust-native-checks.sh
 bash scripts/ci/run-rust-network-e2e.sh
+./test-lab/scripts/start-lab.sh --profile emulator
+./test-lab/scripts/adb-install-debug.sh
+./test-lab/scripts/adb-run-probe-emulator.sh --mode diagnostics
+./test-lab/scripts/stop-lab.sh
 python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 ```
 
@@ -190,12 +210,23 @@ Detalles: [docs/testing.md](docs/testing.md)
 
 ## Documentación
 
+**¿Nuevo en RIPDPI?** Ruta de lectura recomendada:
+[Visión general de la arquitectura](docs/architecture/ARCHITECTURE.md) →
+[modos de ejecución](docs/architecture/RUNTIME_MODES.md) →
+[workspace Rust nativo](docs/architecture/NATIVE_RUST.md) →
+[contrato JNI Kotlin/Rust](docs/architecture/JNI_CONTRACT.md) →
+[contratos de configuración](docs/architecture/CONFIG_CONTRACTS.md) →
+[guía de extensión de funcionalidades](docs/architecture/FEATURE_EXTENSION_GUIDE.md).
+
 - [Integración nativa y módulos](docs/native/README.md)
 - [Runtime de estrategias de paquetes](docs/packet-strategy-runtime.md)
 - [Motor proxy y superficie de estrategias](docs/native/proxy-engine.md)
 - [Puente TUN-a-SOCKS](docs/native/tunnel.md)
 - [Operaciones de strategy-pack y catálogo TLS](docs/strategy-pack-operations.md)
 - [Ejemplos de perfiles de relevo](docs/relay-profile-examples.md)
+- [Importación de una configuración de servidor](docs/server-integration.md)
+- [Laboratorio local de pruebas de red](test-lab/README.md)
+- [Automatización externa de la interfaz](docs/automation/README.md)
 - [Notas de arquitectura](docs/architecture/README.md)
 - [Hoja de ruta](ROADMAP.md)
 

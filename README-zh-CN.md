@@ -2,9 +2,6 @@
   <a href="docs/screenshots/zh-CN/feature-graphic.png"><img src="docs/screenshots/zh-CN/feature-graphic.png" width="100%" alt="RIPDPI 的 Google Play 宣传横幅"/></a>
 </p>
 
-<h1 align="center">RIPDPI</h1>
-<p align="center"><b>路由与互联网性能诊断平台界面</b></p>
-
 <p align="center">
   <a href="https://github.com/po4yka/RIPDPI/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/po4yka/RIPDPI/ci.yml?style=flat-square&label=CI" alt="CI"/></a>
   <a href="https://github.com/po4yka/RIPDPI/releases/latest"><img src="https://img.shields.io/github/v/release/po4yka/RIPDPI?style=flat-square" alt="发布"/></a>
@@ -20,9 +17,46 @@
 > [!WARNING]
 > **本项目正处于积极开发阶段。** 我们正在持续添加新功能，并经常进行大规模重构以提升代码库的质量。该工作高度依赖编码代理（coding agents），因此 `main` 分支目前**可能出现破坏性变更（breaking changes）、模式迁移以及部分功能不完整的情况**。如果遇到回归问题，请[提交 issue](https://github.com/po4yka/RIPDPI/issues)——您的反馈有助于稳定项目。
 
-RIPDPI 是一款适用于 Android 的网络路径诊断与优化工具包。它可以在设备端应用可配置的数据包策略，可以连接到您自己控制的中继服务器，并且对每个连接运行诊断，识别每个目标失败或退化的原因。这三种能力可以独立工作，也可以组合使用。
+RIPDPI 是一套 Android 网络路径诊断与优化工具。它测量某个目标为何失败或性能下降，在设备上应用可配置的数据包策略，并可通过您自己控制的中继服务器连接。每种能力既可单独使用，也可组合使用。
 
-## 三大支柱
+## 看见路径，而不只是一个开关
+
+<p align="center">
+  <a href="docs/screenshots/zh-CN/01-hero.png"><img src="docs/screenshots/zh-CN/01-hero.png" width="380" alt="连接控制 — 真实主屏幕"/></a>
+  <a href="docs/screenshots/zh-CN/02-diagnostics.png"><img src="docs/screenshots/zh-CN/02-diagnostics.png" width="380" alt="网络诊断 — 真实检查结果"/></a>
+</p>
+
+<p align="center">
+  <a href="docs/screenshots/zh-CN/03-relays.png"><img src="docs/screenshots/zh-CN/03-relays.png" width="380" alt="中继选择 — 真实设置"/></a>
+  <a href="docs/screenshots/zh-CN/04-dns.png"><img src="docs/screenshots/zh-CN/04-dns.png" width="380" alt="加密 DNS — 真实设置"/></a>
+</p>
+
+<p align="center">
+  <a href="docs/screenshots/zh-CN/05-strategies.png"><img src="docs/screenshots/zh-CN/05-strategies.png" width="380" alt="数据包策略 — 真实控制界面"/></a>
+  <a href="docs/screenshots/zh-CN/06-local-tools.png"><img src="docs/screenshots/zh-CN/06-local-tools.png" width="380" alt="备份与恢复 — 真实设置"/></a>
+</p>
+
+Google Play 宣传素材使用真实应用界面。点击图片可查看完整尺寸。[截图与导出](play-store-screenshots/README.md)。
+
+RIPDPI 不采用单一的全局策略，而是分别对每个目标和每个网络进行分类，记住已验证的结果，并让失败判定可见。先从本地开始；只有在直连路径无法恢复时，才引入中继。
+
+## 快速开始
+
+运行这些命令之前，请先准备好[构建要求](#build-requirements)，包括真实的 libXray AAR 工具链。
+
+从源码构建 Android debug APK：
+
+```bash
+git clone https://github.com/po4yka/RIPDPI.git
+cd RIPDPI
+bash scripts/native/build-libxray.sh
+bash scripts/native/verify-libxray-artifacts.sh
+./gradlew assembleDebug
+```
+
+在准备设备或 release 构建之前，请参阅[构建要求和输出路径](#build-requirements)。
+
+## 三种能力，一个决策闭环
 
 ### 设备端数据包策略
 
@@ -32,12 +66,21 @@ RIPDPI 是一款适用于 Android 的网络路径诊断与优化工具包。它�
 
 未配置中继时，流量直接从设备出口——设备端变换是路径上唯一的更改。
 
-### VPN 中继
+### 诊断
 
-通过加密中继协议将本地代理或 VPN 流量链接到您配置的服务器：
+分别扫描每个连接目标，并产生三种类型化结果之一：
 
-> [!NOTE]
-> 协议矩阵反映当前源代码注册表。周围的译文可能滞后于 `README.md`，待人工审核后同步。
+- `TRANSPARENT_WORKS` — 经过测试的透明路径有效，可能使用了设备端策略，也可能没有
+- `OWNED_STACK_ONLY` — 仅通过应用的自有 TLS 堆栈工作
+- `NO_DIRECT_SOLUTION` — 在本次运行的预算内，没有经过测试的直接解决方案成功；可考虑中继或其他测试
+
+疑似阻断单独记录在 `transportClass` 中，例如 `IP_BLOCK_SUSPECT`、`SNI_TLS_SUSPECT` 或 `QUIC_BLOCK_SUSPECT`。这些分类描述可能原因的迹象，并非额外的结果类型，也不代表已经证实阻断。
+
+判定结果按网络指纹存储，当再次见到同一网络时自动重放。诊断屏幕添加了来自 `ripdpi-diagnostics-candidates` quick/full-matrix 套件的 TCP 和 QUIC 策略探测、DNS 篡改检测、DoH/DoT/DNSCrypt/DoQ 解析器建议，以及可导出的诊断存档。
+
+### 可选的 VPN 中继
+
+将本地代理或 VPN 流量通过加密的中继协议串接到您配置的服务器：
 
 | Kind / protocol | Integration tier | Scope | Traffic |
 | --- | --- | --- | --- |
@@ -64,25 +107,13 @@ RIPDPI 是一款适用于 Android 的网络路径诊断与优化工具包。它�
 
 普通 `vless` 具有原生 xHTTP/TLS 后端；该后端不支持其他普通 VLESS 传输。VLESS Reality 仅在启用 UDP、传输为 `reality_tcp` 且 flow 为 `xtls-rprx-vision` 或 `xtls-rprx-vision-udp443` 时通过 XUDP 支持 UDP。xHTTP 仅支持 TCP。
 
-Snowflake intentionally remains an external Go binary; see the [Snowflake native Rust no-go decision](docs/architecture/snowflake-native-rust-decision.md). VLESS Reality does not use real ECH; see [ADR 0001](docs/adr/0001-reality-ech.md) for the GREASE-only policy.
+Snowflake 有意保持为外部 Go 二进制文件；参见 [Snowflake 不迁移到原生 Rust 的决定](docs/architecture/snowflake-native-rust-decision.md)。VLESS Reality 不使用真实的 ECH；仅 GREASE 的策略参见 [ADR 0001](docs/adr/0001-reality-ech.md)。
 
-WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` values in the relay-core registry.
+WARP 和 AmneziaWG 是独立的 VPN/隧道配置界面，不是 relay-core 注册表中的 `relay_kind` 取值。
 
-本地代理模式和 Android VPN 重定向模式都可在配置或未配置中继时工作。
+本地代理模式和 Android VPN 重定向模式在配置或未配置中继时均可工作。
 
-### 诊断
-
-分别扫描每个连接目标，并产生三种类型化结果之一：
-
-- `TRANSPARENT_WORKS` — 经过测试的透明路径有效，可能使用了设备端策略，也可能没有
-- `OWNED_STACK_ONLY` — 仅通过应用的自有 TLS 堆栈工作
-- `NO_DIRECT_SOLUTION` — 在本次运行的预算内，没有经过测试的直接解决方案成功；可考虑中继或其他测试
-
-疑似阻断单独记录在 `transportClass` 中，例如 `IP_BLOCK_SUSPECT`、`SNI_TLS_SUSPECT` 或 `QUIC_BLOCK_SUSPECT`。这些分类描述可能原因的迹象，并非额外的结果类型，也不代表已经证实阻断。
-
-判定结果按网络指纹存储，当再次见到同一网络时自动重放。诊断屏幕添加了来自 `ripdpi-diagnostics-candidates` quick/full-matrix 套件的 TCP 和 QUIC 策略探测、DNS 篡改检测、DoH/DoT/DNSCrypt/DoQ 解析器建议，以及可导出的诊断存档。
-
-## 为什么选择 RIPDPI
+## 为什么采用这种方法
 
 现代 Android 网络经常应用 L7 指纹识别（TLS JA3/JA4、QUIC）、对蜂窝和公共 Wi-Fi 进行激进的 QoS、MTU 和 ECN 失调，以及中间盒导致的 TLS 握手中止——导致某些目标失败而同一网络上的其他目标却能正常工作。单一的全局设置无法解决所有情况。
 
@@ -93,31 +124,14 @@ RIPDPI 的设计原则：分别对每个目标和每个网络进行分类，应�
 3. **当直接路径退化时，退回到隧道中继。** 上方的中继矩阵区分了原生 relay-core 后端、辅助子进程、外部可插拔传输层，以及独立的 VPN/隧道配置文件层。
 4. **诚实的报告。** 判定结果是类型化的并显示出来；故障分类器的结果是显示而非抑制；诊断导出包会编辑机密信息。
 
-## 截图
-
-<p align="center">
-  <a href="docs/screenshots/zh-CN/01-hero.png"><img src="docs/screenshots/zh-CN/01-hero.png" width="380" alt="连接控制 — 真实主屏幕"/></a>
-  <a href="docs/screenshots/zh-CN/02-diagnostics.png"><img src="docs/screenshots/zh-CN/02-diagnostics.png" width="380" alt="网络诊断 — 真实检查结果"/></a>
-</p>
-
-<p align="center">
-  <a href="docs/screenshots/zh-CN/03-relays.png"><img src="docs/screenshots/zh-CN/03-relays.png" width="380" alt="中继选择 — 真实设置"/></a>
-  <a href="docs/screenshots/zh-CN/04-dns.png"><img src="docs/screenshots/zh-CN/04-dns.png" width="380" alt="加密 DNS — 真实设置"/></a>
-</p>
-
-<p align="center">
-  <a href="docs/screenshots/zh-CN/05-strategies.png"><img src="docs/screenshots/zh-CN/05-strategies.png" width="380" alt="数据包策略 — 真实控制界面"/></a>
-  <a href="docs/screenshots/zh-CN/06-local-tools.png"><img src="docs/screenshots/zh-CN/06-local-tools.png" width="380" alt="备份与恢复 — 真实设置"/></a>
-</p>
-
-Google Play 宣传素材使用真实应用界面。点击图片可查看完整尺寸。[截图与导出](play-store-screenshots/README.md)。
-
 ## 功能
 
 - **代理模式**：在配置的本地主机端口上运行本地 SOCKS5 代理。
-- **VPN 模式**：通过 `VpnService` 经由本地 TUN-到-SOCKS 桥接路由 Android 设备流量。
+- **VPN 模式**：通过 `VpnService`，经由本地 TUN-to-SOCKS 桥接转发 Android 设备流量。
 - **配置文件导入**：同一个分类器服务于二维码扫描（相机或已保存的图片）、剪贴板和 Android 分享表单（完整版）。它接受代理 URI（`vless://`、`ss://`、`trojan://`、`hysteria2://`、`hy2://`、`anytls://`、`tuic://`、`mieru://`、`ssh://`）、订阅链接（`https://` 以及 `ripdpi://`、`sing-box://`、NekoBox `sn://`、Clash、v2rayNG 和 Hiddify 的订阅链接）、WireGuard / AmneziaWG `.conf` 文本、`amneziawg://` 链接和 AmneziaVPN `vpn://` 密钥（包括多个二维码组成的系列）。VPN 设置中的**添加配置文件**还可打开订阅链接页面和 `.conf` 文件选择器。配置文件也可以通过二维码分享。
+- **支持设置链接**：`ripdpi://support-config` 和经过验证的 HTTPS 支持链接可以在用户确认后，预览并应用由支持方提供的补丁，修改任何已持久化的应用设置。
 - **订阅**：支持 base64、Clash / Clash.Meta YAML、sing-box JSON 和 WireGuard-INI 订阅格式，具备后台自动更新、重复配置文件检测、selector/urltest 分组以及多镜像分发。
+- **服务器迁移回执**：替换订阅可以保留精确的投递标识。在订阅状态中，可以显式测试已声明的替换路径，并分享本地 JSON 回执。Reality/Vision、XHTTP 和 Hysteria2 使用隔离的候选探测；AmneziaWG 需要先连接已导入的替换配置。“仅接收”和“已测试”的回执相互区分；两者都不会自动上传。
 - **加密 DNS**：在 VPN 相关路径中支持 DoH、DoT、DNSCrypt 和 DoQ 解析器。
 - **策略控制**：TCP split/disorder/fake 系列、TLS 记录分片和伪造配置文件、QUIC 握手变种、UDP 长度字段变种、IPv6 扩展头、Lua `rawsend`、每步骤激活过滤器、IPv4 ID 控制以及 OOB 注入。
 - **每网络策略记忆**：经过验证的、按权威的判定结果以网络指纹为键；重新连接时自动重放。
@@ -139,19 +153,21 @@ Google Play 宣传素材使用真实应用界面。点击图片可查看完整�
 
 ## 隐私
 
-RIPDPI 记录用于诊断和故障排除的操作元数据：网络快照、解析器状态、路由决策、扫描结果、服务状态和原生运行时事件。
+RIPDPI 会记录用于诊断和故障排查的运行元数据：网络快照、解析器状态、路由决策、扫描结果、服务状态和原生运行时事件。
 
-正常运行时，RIPDPI 不捕获数据包、不持久化流量负载，也不记录 TLS 机密。高级数据包捕获是一项必须明确启用的诊断工具：原始数据包字节仅在本地限时保存，并且只有在用户主动分享归档时才会包含在归档中。
+正常运行时不会抓取数据包、持久化流量负载或记录 TLS 密钥。高级抓包是需要明确选择启用的诊断工具：原始数据包字节仅在本地以有限保留期存储，只有在用户有意分享该归档时才会包含其中。
 
-中继流量隐私取决于您配置的中继端点和配置文件。
+中继流量的隐私取决于您配置的中继端点和配置文件。
 
-## 构建
+多跳中继链携带一个有序的列表，包含 2–4 个 TCP 跳（入口、可选的中间跳、出口）。已存储的配置模型、原生线路模式（`chainHops`）、每跳遥测和链编辑器都携带这一有序跳列表；旧的两跳形式 `chainEntry`/`chainExit` 作为向后兼容的镜像（hop[0]/hop[last]）保留，使现有的两跳配置能够平滑迁移。2–4 的限制通过类型化的校验错误强制执行，而不是静默截断。经由链的 UDP 被有意不支持（`udpCapable=false`）。只有当各跳处于不同的信任域时，链才能提升反关联性；多跳复用同一运营方或司法辖区会造成虚假的安全感，界面中会将其作为警告显示。
 
-要求：JDK 17、Android SDK (platform `37.1`, CMake `3.31.6`)、Android NDK `29.0.14206865`、Rust 工具链 `1.98.1`、所需 ABI 的 Android Rust 目标。
+## 构建要求
+
+要求：JDK 17、Android SDK（平台 `37.1`，CMake `3.31.6`）、Android NDK `29.0.14206865`、Rust 工具链 `1.98.1`、所需 ABI 的 Android Rust 目标、[`just`](https://just.systems)（任务运行器；`justfile` 中的配方与 CI 一致）以及 [`lefthook`](https://github.com/evilmartians/lefthook)（运行一次 `lefthook install` 以接入 pre-commit 检查）。
 
 新的 checkout 在打包 APK 前还需要带有项目补丁的真实 libXray AAR。按 [libXray 打包说明](docs/native/libxray-packaging.md#build)准备 amd64 Go、固定版本的 `gomobile` 和 `gobind` 以及 `ANDROID_NDK_HOME`。生成脚本需要新的或空的 `native/xray/artifacts/` 目录，并能访问固定版本的源码。要复用已经验证且符合当前版本的产物目录，可向 Gradle 传入 `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts`；打包检查仍会验证该目录。
 
-使用 Android CLI 1.0+ 安装所需 SDK 软件包：
+使用 Android CLI 1.0+ 安装所需的 SDK 包：
 
 ```bash
 android sdk install platforms/android-37.1 ndk/29.0.14206865 cmake/3.31.6
@@ -183,6 +199,10 @@ APK 输出位于对应变体目录中，例如 `app/build/outputs/apk/githubFull
 ./gradlew testDebugUnitTest
 bash scripts/ci/run-rust-native-checks.sh
 bash scripts/ci/run-rust-network-e2e.sh
+./test-lab/scripts/start-lab.sh --profile emulator
+./test-lab/scripts/adb-install-debug.sh
+./test-lab/scripts/adb-run-probe-emulator.sh --mode diagnostics
+./test-lab/scripts/stop-lab.sh
 python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 ```
 
@@ -190,12 +210,23 @@ python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 
 ## 文档
 
+**初次接触 RIPDPI？** 推荐阅读顺序：
+[架构概览](docs/architecture/ARCHITECTURE.md) →
+[运行时模式](docs/architecture/RUNTIME_MODES.md) →
+[原生 Rust 工作区](docs/architecture/NATIVE_RUST.md) →
+[Kotlin/Rust JNI 契约](docs/architecture/JNI_CONTRACT.md) →
+[配置契约](docs/architecture/CONFIG_CONTRACTS.md) →
+[功能扩展指南](docs/architecture/FEATURE_EXTENSION_GUIDE.md)。
+
 - [原生集成与模块](docs/native/README.md)
 - [数据包策略运行时](docs/packet-strategy-runtime.md)
 - [代理引擎与策略表面](docs/native/proxy-engine.md)
-- [TUN-到-SOCKS 桥接](docs/native/tunnel.md)
+- [TUN-to-SOCKS 桥接](docs/native/tunnel.md)
 - [策略包与 TLS 目录操作](docs/strategy-pack-operations.md)
 - [中继配置文件示例](docs/relay-profile-examples.md)
+- [导入服务器配置](docs/server-integration.md)
+- [本地网络测试实验室](test-lab/README.md)
+- [外部 UI 自动化](docs/automation/README.md)
 - [架构说明](docs/architecture/README.md)
 - [路线图](ROADMAP.md)
 
