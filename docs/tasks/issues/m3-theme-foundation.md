@@ -2,7 +2,7 @@
 id: UIX-1793256778917552
 title: Adopt the Material 3 theme foundation
 kind: feature
-status: backlog
+status: doing
 area: ui
 priority: high
 owner: UI overhaul
