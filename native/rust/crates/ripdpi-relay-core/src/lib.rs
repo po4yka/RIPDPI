@@ -6,6 +6,8 @@
 //! telemetry projection as separate runtime slices.
 
 #![forbid(unsafe_code)]
+// Relay composition nests deadline and cancellation futures beyond the default query depth.
+#![recursion_limit = "256"]
 
 mod backend;
 mod config;
