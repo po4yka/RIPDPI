@@ -9,7 +9,6 @@ import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.HistorySection
 import com.poyka.ripdpi.activities.LogSeverity
 import com.poyka.ripdpi.activities.LogSubsystem
-import com.poyka.ripdpi.activities.LogType
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.settings.ActivationWindowDimension
@@ -512,19 +511,6 @@ internal object RipDpiTestTags {
     val diagnosticsLiveProbe: (String) -> String =
         { probeKey -> "diagnostics-live-probe-${sanitize(probeKey)}" }
 
-    val diagnosticsSessionPathFilter: (String) -> String =
-        { pathMode -> "diagnostics-session-path-${sanitize(pathMode)}" }
-
-    val diagnosticsSessionStatusFilter: (String) -> String =
-        { status -> "diagnostics-session-status-${sanitize(status)}" }
-
-    val diagnosticsEventSourceFilter: (String) -> String =
-        { source -> "diagnostics-event-source-${sanitize(source)}" }
-
-    val diagnosticsEventSeverityFilter: (String) -> String =
-        { severity -> "diagnostics-event-severity-${sanitize(severity)}" }
-
-    val logsFilter: (LogType) -> String = { type -> "logs-filter-${sanitize(type.name)}" }
     val logsSubsystemFilter: (LogSubsystem) -> String = { type -> "logs-subsystem-${sanitize(type.name)}" }
     val logsSeverityFilter: (LogSeverity) -> String = { severity -> "logs-severity-${sanitize(severity.name)}" }
     val logsEntry: (String) -> String = { id -> "logs-entry-${sanitize(id)}" }

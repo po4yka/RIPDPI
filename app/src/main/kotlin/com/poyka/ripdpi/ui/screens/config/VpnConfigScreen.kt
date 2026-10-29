@@ -250,7 +250,10 @@ internal fun VpnProfileItem(
     onProfileSelect: (String) -> Unit,
     onProfileEdit: (String) -> Unit,
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
+    Column(
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configVpnProfile(profile.id)),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+    ) {
         SettingsRow(
             title = profile.selectorLabel,
             subtitle = profile.trustLabel,

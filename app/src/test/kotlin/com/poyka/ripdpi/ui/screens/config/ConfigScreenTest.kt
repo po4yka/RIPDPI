@@ -422,6 +422,7 @@ class ConfigScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigConnectionSummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
         composeRule.onNodeWithText("Add profile").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.configVpnProfile("default")).assertExists()
         composeRule
             .onNodeWithTag(RipDpiTestTags.configVpnProfileRow("default"))
             .assertHasClickAction()
