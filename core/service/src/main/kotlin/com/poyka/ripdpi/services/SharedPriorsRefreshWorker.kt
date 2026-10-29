@@ -43,15 +43,18 @@ private const val minRefreshIntervalMs = SharedPriorsRefreshIntervalHours * 60L 
 internal data class SharedPriorsReleaseConfig(
     val manifestUrl: String,
     val priorsUrl: String,
+    val publicKeyConfigured: Boolean,
 ) {
+    // Without the embedded key the native side rejects every bundle, so never download one.
     val isConfigured: Boolean
-        get() = manifestUrl.isNotBlank() && priorsUrl.isNotBlank()
+        get() = publicKeyConfigured && manifestUrl.isNotBlank() && priorsUrl.isNotBlank()
 }
 
 private fun sharedPriorsReleaseConfigFromBuildConfig(): SharedPriorsReleaseConfig =
     SharedPriorsReleaseConfig(
         manifestUrl = BuildConfig.SHARED_PRIORS_MANIFEST_URL.trim(),
         priorsUrl = BuildConfig.SHARED_PRIORS_PRIORS_URL.trim(),
+        publicKeyConfigured = BuildConfig.SHARED_PRIORS_PUBLIC_KEY_CONFIGURED,
     )
 
 @HiltWorker

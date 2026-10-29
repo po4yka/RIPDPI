@@ -11,6 +11,7 @@ class SharedPriorsReleaseConfigTest {
             SharedPriorsReleaseConfig(
                 manifestUrl = "",
                 priorsUrl = "https://example.com/shared-priors.bin",
+                publicKeyConfigured = true,
             )
 
         assertFalse(config.isConfigured)
@@ -22,6 +23,7 @@ class SharedPriorsReleaseConfigTest {
             SharedPriorsReleaseConfig(
                 manifestUrl = "https://example.com/shared-priors.json",
                 priorsUrl = "",
+                publicKeyConfigured = true,
             )
 
         assertFalse(config.isConfigured)
@@ -33,8 +35,21 @@ class SharedPriorsReleaseConfigTest {
             SharedPriorsReleaseConfig(
                 manifestUrl = "https://example.com/shared-priors.json",
                 priorsUrl = "https://example.com/shared-priors.bin",
+                publicKeyConfigured = true,
             )
 
         assertTrue(config.isConfigured)
+    }
+
+    @Test
+    fun `release config is disabled when the public key is missing`() {
+        val config =
+            SharedPriorsReleaseConfig(
+                manifestUrl = "https://example.com/shared-priors.json",
+                priorsUrl = "https://example.com/shared-priors.bin",
+                publicKeyConfigured = false,
+            )
+
+        assertFalse(config.isConfigured)
     }
 }

@@ -83,6 +83,12 @@ abstract class BuildRustNativeLibsTask
         @get:Input
         abstract val cmakeVersion: Property<String>
 
+        // Hex ed25519 release key embedded by ripdpi-shared-priors at compile time
+        // (RIPDPI_SHARED_PRIORS_PUB_KEY). An Input so a key change reruns the task.
+        @get:Input
+        @get:Optional
+        abstract val sharedPriorsPublicKey: Property<String>
+
         @get:Input
         abstract val cargoProfile: Property<String>
 
@@ -389,6 +395,9 @@ abstract class BuildRustNativeLibsTask
                     put("CARGO_TARGET_${targetEnv}_LINKER", config.linker.absolutePath)
                     put("CARGO_TARGET_${targetEnv}_AR", config.ar.absolutePath)
                     put("CARGO_TARGET_DIR", abiCargoTargetDir.absolutePath)
+                    // Always set (possibly empty) so a stale value in the daemon environment
+                    // never leaks into the build; empty means "shared priors not configured".
+                    put("RIPDPI_SHARED_PRIORS_PUB_KEY", sharedPriorsPublicKey.orNull.orEmpty())
                     // The cmake crate (used by boring-sys) reads CMAKE to select the cmake
                     // binary.  The Android SDK cmake lacks macOS platform defaults, preventing
                     // `-isysroot MacOSX.sdk` from being injected when cross-compiling for Android.
@@ -1666,6 +1675,32 @@ val buildNfqws2 =
         outputDir.set(generatedNfqws2AssetsDir)
     }
 
+val sharedPriorsPublicKeyProvider =
+    providers
+        .gradleProperty("sharedPriors.publicKey")
+        .orElse(
+            providers.provider {
+                rootProject
+                    .file("local.properties")
+                    .takeIf { it.isFile }
+                    ?.let { file ->
+                        java.util
+                            .Properties()
+                            .apply { file.inputStream().use(::load) }
+                            .getProperty("sharedPriors.publicKey")
+                    }
+            },
+        ).orElse(providers.environmentVariable("RIPDPI_SHARED_PRIORS_PUB_KEY"))
+        .map(String::trim)
+        .map { key ->
+            if (key.isNotEmpty() && !Regex("[0-9a-fA-F]{64}").matches(key)) {
+                throw GradleException(
+                    "sharedPriors.publicKey / RIPDPI_SHARED_PRIORS_PUB_KEY must be 64 hex characters",
+                )
+            }
+            key
+        }
+
 val buildRustNativeLibs =
     tasks.register<BuildRustNativeLibsTask>("buildRustNativeLibs") {
         group = "build"
@@ -1697,6 +1732,7 @@ val buildRustNativeLibs =
         ndkVersion.set(providers.gradleProperty("ripdpi.nativeNdkVersion"))
         cmakeVersion.set(providers.gradleProperty("ripdpi.nativeCmakeVersion"))
         cargoProfile.set(rustNativeCargoProfile)
+        sharedPriorsPublicKey.set(sharedPriorsPublicKeyProvider)
         minSdk.set(providers.gradleProperty("ripdpi.minSdk").map(String::toInt))
         abis.set(rustNativeAbis)
         abiParallelism.set(rustNativeAbiParallelism)

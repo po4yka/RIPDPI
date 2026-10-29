@@ -51,6 +51,16 @@ val sharedPriorsPriorsUrl =
         "sharedPriors.priorsUrl",
         "RIPDPI_SHARED_PRIORS_PRIORS_URL",
     )
+val sharedPriorsPublicKey =
+    localOrEnv(
+        "sharedPriors.publicKey",
+        "RIPDPI_SHARED_PRIORS_PUB_KEY",
+    )?.trim().orEmpty()
+// Mirrors the validation in the rust-native convention plugin: a set key must be 64 hex characters.
+val sharedPriorsPublicKeyConfigured = sharedPriorsPublicKey.matches(Regex("[0-9a-fA-F]{64}"))
+check(sharedPriorsPublicKey.isEmpty() || sharedPriorsPublicKeyConfigured) {
+    "sharedPriors.publicKey / RIPDPI_SHARED_PRIORS_PUB_KEY must be 64 hex characters"
+}
 
 extensions.configure<LibraryExtension> {
     namespace = "com.poyka.ripdpi.core.service"
@@ -79,6 +89,11 @@ extensions.configure<LibraryExtension> {
             "String",
             "SHARED_PRIORS_PRIORS_URL",
             buildConfigString(sharedPriorsPriorsUrl),
+        )
+        buildConfigField(
+            "boolean",
+            "SHARED_PRIORS_PUBLIC_KEY_CONFIGURED",
+            sharedPriorsPublicKeyConfigured.toString(),
         )
     }
 
