@@ -44,7 +44,7 @@ Execution:       ripdpi-proxy-runtime
 
 Orchestration:   ripdpi-relay-core, ripdpi-tunnel-core, ripdpi-tunnel-config,
                  ripdpi-monitor-engine, ripdpi-monitor-proxy-runtime,
-                 ripdpi-telemetry, ripdpi-io-uring, ripdpi-tun-driver
+                 ripdpi-telemetry, ripdpi-tun-driver
 
 Platform/JNI:    ripdpi-android, ripdpi-android-proxy-adapter,
                  ripdpi-android-telemetry-adapter, ripdpi-android-diagnostics-adapter,

@@ -147,7 +147,7 @@ This is a point-in-time snapshot derived from source at audit time, not a living
 | Step | Declared | Impl | Evidence | Gap |
 |---|---|---|---|---|
 | Mixed inbound: SOCKS4 + SOCKS5 + HTTP CONNECT on one port | (undocumented) | **full** | `ripdpi-proxy-runtime/src/runtime/types.rs:29` (`Mixed { shadowsocks_enabled }`); `runtime/handshake.rs:53` (`fn handle_mixed`), first-byte peek `:62-63` (`b'C'`→HTTP CONNECT), `:73` (`0x04`→SOCKS4), `:74` (`0x05`→SOCKS5) | Single-listener multi-protocol dispatch is undocumented. |
-| SOCKS4 / SOCKS4a inbound CONNECT | (undocumented) | **full** | `ripdpi-proxy-runtime/src/runtime/handshake.rs:103` (`fn handle_socks4`); `ripdpi-socks5-core/src/socks4/` | SOCKS4 inbound entirely undeclared in docs. |
+| SOCKS4 / SOCKS4a inbound CONNECT | (undocumented) | **full** | `ripdpi-proxy-runtime/src/runtime/handshake.rs:126` (`fn handle_socks4`) | SOCKS4 inbound entirely undeclared in docs. |
 | Byte-prefixed mode (SOCKS4/5, no HTTP CONNECT) + optional Shadowsocks | implied (shadowsocks surface) | **full** | `types.rs:30` (`BytePrefixed { shadowsocks_enabled }`); `handshake.rs:38-39` (`0x04`/`0x05` only) | Separate from Mixed; HTTP CONNECT is *not* in the byte-prefixed arm. |
 | Mode selection from config | (undocumented) | **full** | `ripdpi-proxy-runtime-adapter/src/model/config/proxy_handshake.rs` (`proxy_protocol_mode`, listener-level modes take precedence over byte-prefixed); `ripdpi-proxy-runtime/src/runtime/state/handshake.rs` (`ProxyProtocolMode::Mixed` → `RuntimeProxyProtocolMode::Mixed`) | Precedence order undocumented. |
 

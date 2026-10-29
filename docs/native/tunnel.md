@@ -159,8 +159,6 @@ adopt_tun_fd() → OwnedFd (RAII live)
 
 **O_CLOEXEC requirement:** The dup is issued with `O_CLOEXEC` (via `F_DUPFD_CLOEXEC`). `root_helper::register_for_worker` in `worker.rs` may spawn a child process immediately after the dup is created and before `AsyncDevice::from_fd` registers the fd with the tokio reactor. Without `O_CLOEXEC`, the child inherits the TUN fd, which remains open in the child process after `run_tunnel` returns and the parent closes its copy.
 
-**IoUringTunContext note:** `io_loop.rs` defines `IoUringTunContext.tun_fd: OwnedFd` (pub(crate)) for a future batch-write path. This field must be a SEPARATE dup from the fd passed to `run_tunnel`. Never pass the same raw fd number to both; each `OwnedFd` calls `libc::close` independently on drop. This field is `pub(crate)` until the io_uring path is fully wired and audited.
-
 **Consistency with the proxy/pcap fd contract:** The pcap path in `session/pcap.rs` uses `ParcelFileDescriptor.detachFd()` (Kotlin surrenders ownership) + immediate `OwnedFd::from_raw_fd` wrap (Rust takes sole ownership, no dup). The TUN path uses `.fd()` peek (Kotlin retains ownership) + atomic dup-with-CLOEXEC (Rust owns an independent fd). Both patterns share the same invariant: from the moment native code receives a raw fd integer, it is wrapped in an RAII owner before any code path (including panic and early return) can exit without closing it.
 
 ## Methods Actually Used

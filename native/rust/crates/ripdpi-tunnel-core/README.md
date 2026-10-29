@@ -2,11 +2,11 @@
 
 **Layer:** L4 -- runtime / application.
 
-`ripdpi-tunnel-core` owns the TUN-to-SOCKS runtime loop and composes tunnel config, TUN driver I/O, DNS, SOCKS, interception, platform primitives, and optional io_uring support.
+`ripdpi-tunnel-core` owns the TUN-to-SOCKS runtime loop and composes tunnel config, TUN driver I/O, DNS, SOCKS, interception, and platform primitives.
 
 ## Dependencies
 
-- **Upstream:** `ripdpi-tunnel-config`, `ripdpi-tunnel-intercept`, `ripdpi-flow-app-attribution`, `ripdpi-tun-driver`, `ripdpi-dns-resolver`, `ripdpi-collections`, `ripdpi-runtime-platform`, `ripdpi-privileged-ops`, `ripdpi-socks5-core`, `ripdpi-packets`, `ripdpi-geo`, and optional `ripdpi-io-uring`.
+- **Upstream:** `ripdpi-tunnel-config`, `ripdpi-tunnel-intercept`, `ripdpi-flow-app-attribution`, `ripdpi-tun-driver`, `ripdpi-dns-resolver`, `ripdpi-collections`, `ripdpi-runtime-platform`, `ripdpi-privileged-ops`, `ripdpi-socks5-core`, `ripdpi-packets`, `ripdpi-geo`.
 - **Downstream:** `ripdpi-tunnel-android`.
 
 ## Boundaries

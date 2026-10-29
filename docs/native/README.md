@@ -296,7 +296,6 @@ Structured telemetry, diagnostics-event payloads, and strategy-probe progress/re
 - `native/rust/crates/ripdpi-warp-android` -- JNI bridge for WARP runtime lifecycle
 - `native/rust/crates/ripdpi-ws-tunnel` -- MTProto WebSocket tunnel for Telegram traffic through official web gateways
 - `native/rust/crates/ripdpi-ipfrag` -- IP-level packet fragmentation for path optimization (TCP and UDP/QUIC)
-- `native/rust/crates/ripdpi-io-uring` -- io_uring async I/O support (Linux only)
 - `native/rust/crates/ripdpi-desync` -- packet strategy planning
 - `native/rust/crates/ripdpi-failure-classifier` -- connection failure classification and block signal detection
 - `native/rust/crates/ripdpi-session` -- session state machine and policy store

@@ -17,7 +17,6 @@ You are an unsafe Rust auditor for the RIPDPI project (workspace at `native/rust
 Known concentrations (verify current state before auditing):
 - `ripdpi-desync-runtime/`, `ripdpi-runtime-platform/`, and `ripdpi-privileged-ops/` -- desync packet execution, platform socket ops, and privileged raw-packet helpers
 - `ripdpi-runtime-platform/src/{socket_options.rs,raw_packet.rs,ip_fragmentation/}` and `ripdpi-privileged-ops/src/linux/` -- raw syscalls, socket options
-- `ripdpi-io-uring/` -- io-uring ring buffer setup
 - `ripdpi-root-helper/` -- privileged socket handling, TCP_REPAIR, SCM_RIGHTS
 - `ripdpi-android-vpn-protect-adapter/src/lib.rs` -- JNI thread attachment and VPN socket protection
 - `ripdpi-vless/src/reality.rs` -- protocol implementation
@@ -75,7 +74,7 @@ MIRIFLAGS="-Zmiri-tree-borrows -Zmiri-disable-isolation -Zmiri-symbolic-alignmen
   cargo +nightly miri test --locked -p <crate-name> --no-default-features
 ```
 
-Known Miri limitations: cannot test io-uring, raw sockets, or JNI. Focus on pure logic crates.
+Known Miri limitations: cannot test raw sockets or JNI. Focus on pure logic crates.
 
 ## Syscall FFI Wrapper Protocol
 

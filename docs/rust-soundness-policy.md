@@ -225,7 +225,6 @@ The repository already enforces this through the following scan patterns (see "C
 | `crates/ripdpi-geo/src/mapped_file.rs` | `slice::from_raw_parts` → `&[u8]` | RAII `MappedFile` owns the mmap; slice borrows `&self`. |
 | `crates/ripdpi-privileged-ops/.../icmp_wrapped_udp.rs` | `slice::from_raw_parts` → `&[u8]` | `recv_from` contract initialises the first `received` bytes of a stack `MaybeUninit` buffer; slice is consumed in-scope. |
 | `crates/ripdpi-desync-runtime/src/platform/registry.rs` | `&*pointer` → `&dyn TcpDesyncPlatform` | RAII `Restore` guard scoped to a closure; non-owning observer. |
-| `crates/ripdpi-io-uring/src/probe.rs` | `CStr::from_ptr` → `&CStr` | POSIX `uname(2)` NUL-termination contract; lifetime bounded by the local `utsname`. |
 
 ## `Clone` on owner-named types
 
@@ -257,7 +256,7 @@ Types whose names end in `Handle`, `Owner`, `Guard`, `Token`, `Resource`, `Regis
 | `ripdpi-proxy-runtime-adapter/src/model/services.rs` | `ReprobeResetHandle` | Arc-backed (wraps `ServicesStateHandle` which wraps `Arc<ServicesState>`). |
 | `ripdpi-runtime-services/src/lib.rs` | `ServicesStateHandle` | Arc-backed newtype: `pub(crate) Arc<ServicesState>`. |
 
-The load-bearing move-only owner handles (`BufferHandle`, `PendingBuffer`, `RootHelperRegistration`, `MmapRegion`, `MappedFile`, `RegisteredBufferPool`, `JniProtectCallback × 2`, `OwnedRxToken`, `OwnedTxToken`) correctly do NOT derive `Clone`, and the canonical owner handles (`BufferHandle`, `PendingBuffer`, `RootHelperRegistration`) carry explicit compile-fail `AmbiguousIfCopy`/`AmbiguousIfClone` const blocks that fail to compile if a future change ever derives `Clone`.
+The load-bearing move-only owner handles (`RootHelperRegistration`, `MmapRegion`, `MappedFile`, `JniProtectCallback × 2`, `OwnedRxToken`, `OwnedTxToken`) correctly do NOT derive `Clone`, and the canonical owner handle (`RootHelperRegistration`) carries explicit compile-fail `AmbiguousIfCopy`/`AmbiguousIfClone` const blocks that fail to compile if a future change ever derives `Clone`.
 
 ## `Copy` on owner-named types
 
@@ -293,9 +292,6 @@ The only sound `Copy` semantics on a type whose name ends in `Handle`, `Owner`, 
 
 | File | Type | Block kind |
 |---|---|---|
-| `ripdpi-io-uring/src/bufpool.rs` | `BufferHandle<'pool>` | `AmbiguousIfCopy` const block |
-| `ripdpi-io-uring/src/bufpool.rs` | `PendingBuffer<'pool>` | `AmbiguousIfCopy` const block |
-| `ripdpi-io-uring/src/bufpool.rs` | `RegisteredBufferPool` | `AmbiguousIfCopy` const block (added with issue #14) |
 | `ripdpi-privileged-ops/src/linux/mmap_region.rs` | `MmapRegion` | `AmbiguousIfCopy` const block (added with issue #14) |
 | `ripdpi-geo/src/mapped_file.rs` | `MappedFile` | `AmbiguousIfCopy` const block (added with issue #14) |
 | `ripdpi-proxy-runtime/src/runtime/listeners.rs` | `RootHelperRegistration` | `AmbiguousIfCopy` const block |
@@ -359,7 +355,7 @@ Required regression tests for every custom-refcount allowlist:
 - `unsafe { Arc::from_raw(ptr) }` without a matching prior `Arc::into_raw(arc)` from the SAME `Arc` allocation. Producing the pointer any other way (cast from a `&T`, `Box::into_raw`, pointer arithmetic) is UB.
 - A "manual `Weak`" using `Arc::downgrade` + a side channel that stores raw pointers. Use `Weak<T>` directly; the std API already handles upgrade race conditions.
 
-**Workspace inventory.** Zero manual-refcount sites in production. All shared ownership uses `Arc<T>` with the standard derive Clone or explicit `Arc::clone(&...)` calls. Pool-style "release(index)" methods that the initial grep flagged (e.g. `BufferHandle::release`, `VirtualPortPool::release`) are **index-based ownership transfer** into a `Mutex<Vec<u16>>` free list, not refcounting; they were audited under soundness issues #1, #2, #7, #8, #9, #10 and remain sound by the move-only handle + mutex protocol.
+**Workspace inventory.** Zero manual-refcount sites in production. All shared ownership uses `Arc<T>` with the standard derive Clone or explicit `Arc::clone(&...)` calls. Pool-style "release(index)" methods that the initial grep flagged (e.g. `VirtualPortPool::release`) are **index-based ownership transfer** into a `Mutex<Vec<u16>>` free list, not refcounting; they were audited under soundness issues #1, #2, #7, #8, #9, #10 and remain sound by the move-only handle + mutex protocol.
 
 ## `Box::into_raw` / `Box::from_raw` ownership transfer
 
@@ -433,7 +429,7 @@ The eight-point audit checklist (issue #16):
 
 1. **Safe `Vec` ownership.** Pass `Vec<T>` by value across internal APIs; accept `&[T]` or `&mut [T]` from FFI callers and `Vec::from(slice)` or `.to_vec()` if you need to own. Lets the type system prove every checklist point trivially.
 2. **`Vec::with_capacity` + `spare_capacity_mut` + `set_len`.** When initialising a buffer in-place from a `recv`/`read`/foreign-fill call, allocate with `Vec::with_capacity(N)`, pass `spare_capacity_mut()` (returns `&mut [MaybeUninit<T>]`), then assert `set_len(n)` for the actually-initialised prefix `n`. The `Vec` was always Rust-owned; only the "initialised-up-to" cursor changed. This is the std- library-blessed equivalent of `from_raw_parts` for the common "Rust allocates, foreign code writes" pattern.
-3. **A typed buffer wrapper.** When the buffer's lifecycle is more complex than a single `recv` (e.g. io_uring `IORING_REGISTER_BUFFERS`, page-aligned ring buffers, `MAP_PRIVATE` mmap), wrap the allocation in an owner type whose API is `&[u8] / &mut [u8]` and whose `Drop` handles the matching cleanup. The workspace has two reference implementations: `BufferHandle` in `ripdpi-io-uring/src/bufpool.rs` (move-only handle into a `Box<[UnsafeCell<Box<[u8]>>]>` pool) and `MappedFile` in `ripdpi-geo/src/mapped_file.rs` (mmap-backed read-only `&[u8]`).
+3. **A typed buffer wrapper.** When the buffer's lifecycle is more complex than a single `recv` (e.g. kernel-registered I/O buffers, page-aligned ring buffers, `MAP_PRIVATE` mmap), wrap the allocation in an owner type whose API is `&[u8] / &mut [u8]` and whose `Drop` handles the matching cleanup. The workspace reference implementation is `MappedFile` in `ripdpi-geo/src/mapped_file.rs` (mmap-backed read-only `&[u8]`).
 4. **`unsafe fn` boundary + caller contract.** Only when the buffer genuinely originates from a foreign allocator and Rust must take ownership. The function becomes `unsafe fn` with a `# Safety` section that enumerates all eight checklist points; the caller enters `unsafe { … }` with their own SAFETY comment per the documentation contract above. The workspace has zero functions of this shape today.
 
 **Anti-patterns.**
@@ -442,7 +438,7 @@ The eight-point audit checklist (issue #16):
 - `let mut v = Vec::with_capacity(N); recv(v.as_mut_ptr(), N); unsafe { v.set_len(N); }` — bypasses `spare_capacity_mut`'s `MaybeUninit` typing and is hard to audit. The correct shape is `recv(v.spare_capacity_mut().as_mut_ptr() as *mut u8, N); unsafe { v.set_len(N); }` — the `set_len` line is still `unsafe`, but the SAFETY comment can reference the initialisation contract of `recv` instead of hand-waving about the buffer.
 - `String::from_raw_parts(ptr, len, cap)` where bytes are not validated UTF-8. `String` carries the UTF-8 invariant; reconstituting from raw without validating is UB on any subsequent string operation. Use `String::from_utf8(vec)` (release-mode validation) on a Rust-owned `Vec<u8>` instead.
 
-**Workspace inventory.** As of issue #16: **zero** production occurrences of `Vec::from_raw_parts`, `Vec::from_raw_parts_in`, `String::from_raw_parts`, or `Vec::set_len` (verified via `rg '\bVec(::<[^>]*>)?::(from_raw_parts(_in)?|set_len)\b'` and `rg '\bString::from_raw_parts\b'` across all crates). The "Rust allocates, foreign code writes" pattern is handled by `BufferHandle` and `Vec::with_capacity + spare_capacity_mut`; the io_uring fixed buffers are `Box<[u8]>` allocated by `Vec::new(...).into_boxed_slice()` and never round-trip through raw parts. The two `set_len` hits in the workspace are `BufferHandle::set_len(&mut self, usize)` (a safe inherent method on a typed wrapper that clamps to the underlying buffer capacity) and `std::fs::File::set_len` (truncation syscall); neither is `Vec::set_len`.
+**Workspace inventory.** As of issue #16: **zero** production occurrences of `Vec::from_raw_parts`, `Vec::from_raw_parts_in`, `String::from_raw_parts`, or `Vec::set_len` (verified via `rg '\bVec(::<[^>]*>)?::(from_raw_parts(_in)?|set_len)\b'` and `rg '\bString::from_raw_parts\b'` across all crates). The "Rust allocates, foreign code writes" pattern is handled by `Vec::with_capacity + spare_capacity_mut`. The `set_len` hit in the workspace is `std::fs::File::set_len` (truncation syscall), not `Vec::set_len`. (The removed `ripdpi-io-uring` crate held the former `BufferHandle` wrapper.)
 
 **Allowlist entry requirements.** A `Vec::from_raw_parts`, `Vec::from_raw_parts_in`, or `String::from_raw_parts` allowlist entry's `enforcement` field MUST address every point of the eight-point checklist above (the same five-field rubric as `Box::from_raw` is insufficient because `Vec` carries `len` and `cap` separately and because `String` adds the UTF-8 invariant):
 
@@ -571,7 +567,7 @@ The audit checklist for every `Vec::set_len(n)` site:
 
 1. **Safe `Vec::push` / `Vec::extend` / `Vec::extend_from_slice`.** The bytes are typed `T` on the way in; no `MaybeUninit` exists; no `set_len` needed.
 2. **`Vec::with_capacity` + `spare_capacity_mut` + guarded `set_len`.** Use when a foreign filler (`recv`, `read`, FFI buffer fill) writes into a Rust-allocated buffer. The `spare_capacity_mut()` typing (`&mut [MaybeUninit<T>]`) keeps the uninitialised state visible to the type system; the filler writes through `MaybeUninit::write`; the matching `set_len(n)` runs only after the filler reports `n`. This is the workspace's recommended idiom for the "Rust allocates, foreign code writes" pattern, demonstrated end- to-end by `vec_with_capacity_spare_capacity_round_trip_models_recv_fill` in `soundness-canaries/src/lib.rs`.
-3. **A typed buffer wrapper.** When the lifecycle spans multiple operations (e.g. io_uring fixed buffers), encapsulate the spare-region writing in a safe `&mut [u8]`-handing-out wrapper. The workspace's `BufferHandle` in `ripdpi-io-uring/src/bufpool.rs` is the reference: `BufferHandle::set_len(&mut self, len: usize)` is a SAFE inherent method that clamps to `buffer_size`; the caller never sees `MaybeUninit<u8>` or the bare `Vec::set_len`.
+3. **A typed buffer wrapper.** When the lifecycle spans multiple operations (e.g. kernel-registered fixed buffers), encapsulate the spare-region writing in a safe `&mut [u8]`-handing-out wrapper. Its `set_len(&mut self, len: usize)` must be a SAFE inherent method that clamps to the buffer size; the caller never sees `MaybeUninit<u8>` or the bare `Vec::set_len`.
 
 **Anti-patterns.**
 
@@ -708,7 +704,7 @@ The audit checklist for every potential lifetime-extension site:
 
 **Rule.** Application code SHOULD NOT extend reference lifetimes through `transmute` or raw-pointer tricks. The preferred shapes, in order:
 
-1. **Tie the reference's lifetime to a real owner.** `fn get(&self) -> &T` is sugar for `fn get<'a>(&'a self) -> &'a T` — the returned `&T` cannot outlive `&self`, the borrow checker enforces it. The workspace's `MappedFile::as_slice(&self) -> &[u8]`, `BufferHandle::deref(&self) -> &[u8]`, and the `*const u8` returns from `MmapRegion::as_ptr(&self)` (followed by caller-side `&*ptr` bounded by the same `&self`) all use this shape.
+1. **Tie the reference's lifetime to a real owner.** `fn get(&self) -> &T` is sugar for `fn get<'a>(&'a self) -> &'a T` — the returned `&T` cannot outlive `&self`, the borrow checker enforces it. The workspace's `MappedFile::as_slice(&self) -> &[u8]` and the `*const u8` returns from `MmapRegion::as_ptr(&self)` (followed by caller-side `&*ptr` bounded by the same `&self`) all use this shape.
 2. **Return owned values.** `fn get(&self) -> String` instead of `fn get(&self) -> &'static str` when the data is per-instance.
 3. **`Arc<T>` for shared ownership.** Clone the `Arc` instead of extending a reference; the language tracks the refcount for you.
 4. **`Cow<'a, T>`** when the data may or may not need to be owned (e.g. parser output that might be a borrow into the input OR a fresh owned string after sanitisation).
@@ -886,7 +882,7 @@ The workspace has ONE production callback-with-context system: `RealityHookGuard
 
 ### Rule
 
-1. **Context allocation is `Box::into_raw`** (or a typed wrapper thereof — `Arc::into_raw`, `RegisteredBufferPool`, etc.). The allocator must be Rust's global allocator on BOTH sides (alloc with `Box::new`, free with `Box::from_raw`). NEVER mix `libc::malloc` / `libc::free` with `Box::*_raw` (see § "Allocator mismatch across FFI").
+1. **Context allocation is `Box::into_raw`** (or a typed wrapper thereof — `Arc::into_raw`, etc.). The allocator must be Rust's global allocator on BOTH sides (alloc with `Box::new`, free with `Box::from_raw`). NEVER mix `libc::malloc` / `libc::free` with `Box::*_raw` (see § "Allocator mismatch across FFI").
 
 2. **The context pointer is owned by a RAII guard struct** named `*Guard`, `*Registration`, `*Hook`, or `*Slot` whose Drop impl reclaims the box. The guard is move-only (no `Clone`/`Copy`) so safe code cannot duplicate the owning handle. See § "`Clone` on owner-named types" and "`Copy` on owner-named types" for the scanner enforcement.
 
@@ -1022,7 +1018,7 @@ A `Drop` implementation MUST NOT dereference a raw back-pointer under any circum
 
 In order of preference for a child-of-parent relationship where the child's Drop must notify the parent:
 
-1. **Lifetime-bound `&'a Parent`**. The child cannot outlive the parent because the borrow check forbids it. The Drop impl reads `self.parent.method()` through a safe `&Parent` reference. Examples in the workspace: `ripdpi-io-uring/src/bufpool.rs::BufferHandle<'pool>` returns its slot to `RegisteredBufferPool` via `&'pool` borrow; `ripdpi-android-proxy-adapter/src/lifecycle.rs::IdleGuard<'_>` resets `ProxySessionState` via `&'a Mutex<...>`; `ripdpi-desync-runtime/src/platform/registry.rs::Restore<'_>` restores a thread-local via `&'a RefCell<...>`.
+1. **Lifetime-bound `&'a Parent`**. The child cannot outlive the parent because the borrow check forbids it. The Drop impl reads `self.parent.method()` through a safe `&Parent` reference. Examples in the workspace: `ripdpi-android-proxy-adapter/src/lifecycle.rs::IdleGuard<'_>` resets `ProxySessionState` via `&'a Mutex<...>`; `ripdpi-desync-runtime/src/platform/registry.rs::Restore<'_>` restores a thread-local via `&'a RefCell<...>`.
 
 2. **`Arc<Parent>`**. The parent stays alive for the child's entire lifetime (including Drop) because the strong count contains the child's reference. The Drop impl reads `self.parent.method()` through `Arc::deref`. Examples: `ripdpi-proxy-runtime/src/runtime/state/listener.rs:: ClientSlotGuard` decrements a shared `Arc<AtomicUsize>`; `ripdpi-relay-mux/src/lease.rs::LeaseGuard<S>` releases leases through `Arc<Mutex<RelayMuxState<S>>>`.
 
@@ -1043,8 +1039,6 @@ Audit log: the workspace has ZERO production occurrences of a raw back-pointer f
 
 | Drop impl | Parent relationship | Safe shape used |
 |---|---|---|
-| `BufferHandle<'pool>` | RegisteredBufferPool returns slot to free-list | Lifetime-bound `&'pool` |
-| `PendingBuffer<'pool>` | RegisteredBufferPool returns slot | Lifetime-bound `&'pool` |
 | `IdleGuard<'_>` | ProxySessionState reset to Idle | Lifetime-bound `&'a Mutex<...>` |
 | `Restore<'_>` | Thread-local slot restored | Lifetime-bound `&'a RefCell<...>` |
 | `ClientSlotGuard` | Shared AtomicUsize decremented | `Arc<AtomicUsize>` |
@@ -1117,10 +1111,9 @@ Audit log: the workspace has ONE production `MaybeUninit` site plus ONE producti
 |---|---|---|
 | `crates/ripdpi-privileged-ops/.../icmp_wrapped_udp.rs:27` | `[MaybeUninit<u8>; 8192]` stack buffer | `u8: !Drop`, so panic leaves no resources to leak. The slice constructed in the SAFETY block is sized to `received` (the contract-fulfilled prefix). |
 | `crates/soundness-canaries/src/lib.rs::tests` (test code) | `Vec<u8>::with_capacity + spare_capacity_mut + set_len(n)` | `u8: !Drop`, plus test isolation. Documents the canonical workspace shape. |
-| `crates/ripdpi-io-uring/src/bufpool.rs::RegisteredBufferPool::new` | `Vec::collect` + fallible `register_buffers(&iovecs)?` | All buffers are FULLY initialised with `vec![0u8; ...]` BEFORE the fallible syscall; Err branch drops them via standard `Vec<Box<[u8]>>` Drop. No partial-init window. |
 | `crates/ripdpi-privileged-ops/.../mmap_region.rs::MmapRegion::new` | Single fallible step (`mmap_anonymous`) | Err branch: nothing has been allocated yet. Ok branch: the `NonNull<u8>` is moved into `Self` infallibly. No partial-init window. |
 
-The `BufferHandle::set_len` and `File::set_len` callers in the workspace are safe inherent methods on those types, not the `unsafe Vec::set_len` form. Scanner excludes them.
+The `File::set_len` callers in the workspace are safe inherent methods, not the `unsafe Vec::set_len` form. Scanner excludes them.
 
 ### CI surface
 
@@ -1176,7 +1169,6 @@ Audit log (2026-05-17): every Drop impl in `native/rust/crates/*` has been revie
 |---|---|---|
 | `TemporaryProxyRuntime` | `control.request_shutdown()` → wake via `TcpStream::connect(addr)` → `take()` + `handle.join()` | `ripdpi-monitor-proxy-runtime/src/lib.rs` |
 | `EchoLoopback` | `take()` shutdown sender → fire-and-forget (test fixture) | `ripdpi-protocol-loopback/src/lib.rs` |
-| `IoUringDriver` | `tx.send(Shutdown)` → `take()` + `join()` thread; field order is irrelevant because the body completes the handshake | `ripdpi-io-uring/src/ring/driver.rs` |
 | `TunnelSessionHarness` | `cleanup()` chains `active_handle.take()` → cancel → join → remove from registry | `ripdpi-tunnel-android/src/session/state_machine.rs` |
 | `UdpDnsServer` / `Socks5RelayServer` | `stop.store(true)` → wake socket → `take()` + `join()` thread | `ripdpi-monitor-engine/src/test_fixtures.rs` |
 | `FixtureStack` | `stop.store(true)` → wake all TCP/UDP listeners → drain & join every handle in a single loop | `local-network-fixture/src/stack.rs` |
@@ -1225,8 +1217,8 @@ The escape valve `ManuallyDrop` provides (suppress automatic Drop while keeping 
 
 `ManuallyDrop<T>` (qualified as `std::mem::ManuallyDrop<T>`, `core::mem::ManuallyDrop<T>`, or unqualified) is FORBIDDEN in production Rust crates under `native/rust/crates/*/src/**`. Any new occurrence must restructure to one of:
 
-1. **`Option<T>`** with `Option::take()` for explicit teardown ordering. The borrow checker proves the value is consumed exactly once; `Drop` runs automatically on the `None` slot (which is trivial); the `Some` case runs `T`'s destructor at the explicit `take()` site. This is the canonical replacement and matches the rest of the workspace's discipline (`TemporaryProxyRuntime::handle`, `EchoLoopback::shutdown` + `join_handle`, `IoUringDriver::thread`, etc.).
-2. **Private RAII guard** (`ScopedHandle<T, F>`, `BufferHandle<'pool>`, `IdleGuard<'_>`). The destructor is the single ownership-transfer point; safe code cannot bypass it (move-only handle, no `Copy`/`Clone`).
+1. **`Option<T>`** with `Option::take()` for explicit teardown ordering. The borrow checker proves the value is consumed exactly once; `Drop` runs automatically on the `None` slot (which is trivial); the `Some` case runs `T`'s destructor at the explicit `take()` site. This is the canonical replacement and matches the rest of the workspace's discipline (`TemporaryProxyRuntime::handle`, `EchoLoopback::shutdown` + `join_handle`, etc.).
+2. **Private RAII guard** (`ScopedHandle<T, F>`, `IdleGuard<'_>`). The destructor is the single ownership-transfer point; safe code cannot bypass it (move-only handle, no `Copy`/`Clone`).
 3. **Explicit enum state** (`Idle` / `Running` / `Destroyed` carrying the resource inside the active variant). The variant's `Drop` runs at the transition point; the state transition is in `match`-checked safe code.
 4. **`mem::take` + `Default`** when the value's `Default:: default()` is provably cheap to drop (`Vec::new()`, `None`, `String::new()`). Use `mem::take` to swap the field out for the empty value and consume the original by value, calling `T`'s destructor through `drop()`.
 
@@ -1255,7 +1247,7 @@ The scanner-side allowlist validator (`scripts/ci/check_unsafe_boundaries.py::lo
 
 `scripts/ci/check_unsafe_boundaries.py` runs on every PR (via `scripts/ci/run-rust-lint.sh`). The `ManuallyDrop` pattern in that scanner's `PATTERNS` dict flags any new occurrence of the type. The four unit tests in `scripts/ci/tests/test_check_unsafe_boundaries.py` cover the field-shape match, the local-binding match, the substring guard (must NOT match `ManuallyDropped` / `manually_drop_*`), and the whitespace-tolerant `ManuallyDrop  <T>` form.
 
-`mem::forget` is a separate but related pattern that suppresses Drop without `ManuallyDrop`. The five production `mem::forget` sites in the workspace (`soundness-canaries/src/lib.rs::take`, `ripdpi-io-uring/src/bufpool.rs::into_pending`, `ripdpi-privileged-ops/src/linux/fd.rs::close_owned_fd`, `ripdpi-android-proxy-adapter/src/lifecycle.rs::start_session`'s `IdleGuard` disarm, and the same disarm pattern in `ripdpi-proxy-runtime/src/runtime/listeners.rs`) are each allowlisted with documented enforcement and matching construction sites. New `mem::forget` occurrences inherit the existing allowlist discipline -- no new CI surface needed because the unsafe-boundary scanner already requires the allowlist entry on the surrounding `Box::into_raw` / `unsafe impl Send` / `Vec::set_len` patterns that the `mem::forget` site typically pairs with.
+`mem::forget` is a separate but related pattern that suppresses Drop without `ManuallyDrop`. The four production `mem::forget` sites in the workspace (`soundness-canaries/src/lib.rs::take`, `ripdpi-privileged-ops/src/linux/fd.rs::close_owned_fd`, `ripdpi-android-proxy-adapter/src/lifecycle.rs::start_session`'s `IdleGuard` disarm, and the same disarm pattern in `ripdpi-proxy-runtime/src/runtime/listeners.rs`) are each allowlisted with documented enforcement and matching construction sites. New `mem::forget` occurrences inherit the existing allowlist discipline -- no new CI surface needed because the unsafe-boundary scanner already requires the allowlist entry on the surrounding `Box::into_raw` / `unsafe impl Send` / `Vec::set_len` patterns that the `mem::forget` site typically pairs with.
 
 ### Cross-references
 
@@ -1291,7 +1283,7 @@ A boolean field named `registered`, `is_alive`, `destroyed`, `initialized`, `dis
 
 **Rule.** `UnsafeCell<T>` permits interior mutability **but does not by itself make aliasing or threading sound.** Every `*cell.get()` deref must be guarded by an exclusivity protocol that the type system can enforce. The protocol must specify:
 
-1. **The aliasing model.** Who is allowed to hold `&T` and `&mut T` simultaneously, and what makes simultaneous mutation impossible? Standard answers: move-only handle + free list (the `BufferHandle` design), `Mutex<T>`/`RwLock<T>` (locks), `Cell<T>`/`RefCell<T>` (single-threaded runtime check), atomics (lock-free primitive types).
+1. **The aliasing model.** Who is allowed to hold `&T` and `&mut T` simultaneously, and what makes simultaneous mutation impossible? Standard answers: move-only handle + free list, `Mutex<T>`/`RwLock<T>` (locks), `Cell<T>`/`RefCell<T>` (single-threaded runtime check), atomics (lock-free primitive types).
 
 2. **The synchronisation model.** When the cell is shared across threads, what supplies the release/acquire happens-before edge? Standard answers: `Mutex` unlock/lock, atomic operation, channel send/receive, thread spawn/join.
 
@@ -1304,7 +1296,7 @@ A boolean field named `registered`, `is_alive`, `destroyed`, `initialized`, `dis
 - A safe public method `fn get(&self) -> &mut T` (without `Mutex`- style guard wrapping) that derefs `*cell.get()`. The signature promises shared-to-exclusive without a runtime check; the type system can't see the exclusivity protocol and neither can callers.
 - Returning the raw pointer from `cell.get()` to safe callers. The pointer is fine inside `unsafe { }`; surfacing it to safe code gives the caller a tool that bypasses the borrow check.
 
-**Workspace inventory.** The only production `UnsafeCell` use is `Box<[UnsafeCell<Box<[u8]>>]>` in `crates/ripdpi-io-uring/src/` `bufpool.rs`. Its exclusivity protocol is documented in the next section and exercised by runtime tests in `bufpool::tests`. The scanner's `UnsafeCell::get` pattern (see "Custom scan" table) gates any new occurrence through the allowlist with the three-model template above.
+**Workspace inventory.** The workspace has no production `UnsafeCell` use. The last one was the buffer pool in the removed `ripdpi-io-uring` crate. The scanner's `UnsafeCell::get` pattern (see "Custom scan" table) gates any new occurrence through the allowlist with the three-model template above.
 
 ## Creating `&mut T` from raw memory
 
@@ -1314,11 +1306,11 @@ A boolean field named `registered`, `is_alive`, `destroyed`, `initialized`, `dis
 
 Concrete obligations:
 
-1. **`&mut self` is the local exclusivity proof.** A method that derefs `*cell.get()` to `&mut T` must take `&mut self`. The borrow checker then rules out aliased mutable access for a single owner. The `BufferHandle::as_mut_buf(&mut self)` and `BufferHandle::deref_mut(&mut self)` patterns in `bufpool.rs` are the canonical examples.
+1. **`&mut self` is the local exclusivity proof.** A method that derefs `*cell.get()` to `&mut T` must take `&mut self`. The borrow checker then rules out aliased mutable access for a single owner. An `as_mut_buf(&mut self)` or `deref_mut(&mut self)` accessor on a move-only handle is the canonical shape.
 
-2. **Container exclusivity is the upstream proof.** When the cell lives in a shared structure (a `Box<[UnsafeCell<T>]>` indexed by a handle, a `Mutex<T>`, etc.), the structure must enforce that at most one borrower exists per cell. The `BufferHandle` free-list discipline is one such protocol; `Mutex<T>` and `RwLock<T>` are the std-library equivalents. `Cell<T>` and `RefCell<T>` are alternatives for single-threaded use.
+2. **Container exclusivity is the upstream proof.** When the cell lives in a shared structure (a `Box<[UnsafeCell<T>]>` indexed by a handle, a `Mutex<T>`, etc.), the structure must enforce that at most one borrower exists per cell. A free list of indices, guarded by a mutex, that hands out move-only handles is one such protocol; `Mutex<T>` and `RwLock<T>` are the std-library equivalents. `Cell<T>` and `RefCell<T>` are alternatives for single-threaded use.
 
-3. **Cross-thread synchronisation is a release/acquire edge.** When multiple threads access the cell, the protocol that transfers ownership of the cell must supply a happens-before relationship — typically a `Mutex` unlock/lock pair or an `AtomicUsize::store`/ `load` with `Release`/`Acquire`. `bufpool.rs::RegisteredBufferPool` uses the `Mutex<Vec<u16>>` free list for this.
+3. **Cross-thread synchronisation is a release/acquire edge.** When multiple threads access the cell, the protocol that transfers ownership of the cell must supply a happens-before relationship — typically a `Mutex` unlock/lock pair or an `AtomicUsize::store`/ `load` with `Release`/`Acquire`. A `Mutex<Vec<u16>>` free list is one way to do this.
 
 4. **Move-only handles encode "at most one accessor".** A non-`Copy`, non-`Clone` handle whose constructor is gated by an exclusivity protocol (acquire from a registry, mutex lock, type-state transition) is a compile-time proof that safe code cannot duplicate the access right. The runtime checks (free-list bookkeeping, mutex contention) are necessary; the non-`Copy`/non-`Clone` constraint is what makes them sufficient.
 
@@ -1333,13 +1325,7 @@ Concrete obligations:
 - A safe `pub fn` that constructs `&mut T` from a `*mut T` parameter without internal validation. Either validate (null, alignment, exclusivity) before the conversion, or make the function `unsafe fn` with a `# Safety` section enumerating every precondition.
 - Two methods with `&mut self` that each cache a `*mut T` in struct fields and re-deref later, allowing one call to mutate through a pointer the other call cached. The fields must be `&mut T` borrows bound to `&mut self`, or the cache must be invalidated on every mutation.
 
-**Existing benign use.** The only `*cell.get()` → `&mut T` site in the workspace is `bufpool.rs`. Its exclusivity proof:
-- `BufferHandle` is move-only (no `Copy`/`Clone`).
-- The `RegisteredBufferPool::acquire()` constructor pops a unique index from a `Mutex<Vec<u16>>` free list under a lock; at most one `BufferHandle` exists per cell.
-- `as_mut_buf(&mut self)` and `deref_mut(&mut self)` are anchored to `&mut self`, so two simultaneous `&mut [u8]` borrows from one handle cannot compile.
-- `Drop` (and `PendingBuffer::complete`) push the index back to the free list; the next `acquire` may legitimately reuse the slot because the previous handle is gone.
-- Runtime regressions in `bufpool::tests` witness this lifecycle.
-- The compile-fail half (`!Copy + !Clone`, `&mut self`-anchored borrow, no `BufferHandle` constructor outside the crate) is enforced by the type system per "Compile-fail enforcement" below.
+**Existing benign use.** The workspace has no `*cell.get()` → `&mut T` site. The last one was `bufpool.rs` in the removed `ripdpi-io-uring` crate. A new site must document its exclusivity proof against the obligations above.
 
 ## `unsafe impl Send` and `unsafe impl Sync`
 
@@ -1353,12 +1339,11 @@ Concrete obligations:
 
 **Negative (`!Send` / `!Sync`) types** must use the trait-dispatch ambiguity trick (`AmbiguousIfSend<A>` / `AmbiguousIfSync<A>` overlapping blanket impls) to lock the absence of Send/Sync. This is the stable-Rust equivalent of `static_assertions::assert_not_impl_any!`. The pattern is in-place on `MmapRegion` in `crates/ripdpi-privileged-ops/src/linux/` `mmap_region.rs`; copy it verbatim for any future `!Send` type.
 
-**The four manual `unsafe impl Send + Sync` impls in production**:
+**The three manual `unsafe impl Send + Sync` impls in production**:
 
 | Type | File | Cross-thread enforcement |
 |---|---|---|
 | `MappedFile` | `ripdpi-geo/src/mapped_file.rs` | Read-only mmap; no interior mutability; single owner; Drop munmaps once. |
-| `RegisteredBufferPool` | `ripdpi-io-uring/src/bufpool.rs` | `Mutex<Vec<u16>>` free list supplies happens-before; per-cell access via the unique `BufferHandle` whose index is mutex-guarded. |
 | `JniProtectCallback` (warp-android) | `ripdpi-warp-android/src/vpn_protect.rs` | JNI spec: `JavaVM` is thread-safe; `Global<JObject>` is GC-pinned across threads; `protect()` uses `attach_current_thread` per invocation. |
 | `JniProtectCallback` (vpn-protect-adapter) | `ripdpi-android-vpn-protect-adapter/src/lib.rs` | Same as above (duplicate of the warp-android impl). |
 
@@ -1411,9 +1396,6 @@ We don't ship a separate `trybuild` harness — the Rust type system itself acts
 
 | Misuse | Rejected by |
 |---|---|
-| `BufferHandle { pool, index, len }` from outside `ripdpi-io-uring` | private fields; only `RegisteredBufferPool::acquire` constructs the handle. |
-| `PendingBuffer::complete(self, wrong_pool)` | `PendingBuffer<'pool>` borrows the issuing pool; there is no longer a `pool` argument. |
-| `let copy: BufferHandle = handle.clone()` | `BufferHandle` doesn't implement `Clone`. |
 | `dup2_fd(some_int, some_int)` from another crate | `pub(crate)`; integers must first be converted via `BorrowedFd::borrow_raw`, which is itself `unsafe`. |
 | `swap_replacement_fd(target, replacement)` from safe code | signature is now `pub unsafe fn`; callers must enter `unsafe { … }` with their own SAFETY comment. |
 | `alloc_region(len)` from anywhere | helper removed; only the RAII `MmapRegion` newtype is reachable. |

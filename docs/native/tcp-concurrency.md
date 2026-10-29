@@ -58,4 +58,4 @@ The current evidence supports a bounded hybrid model, not a full async conversio
 - the outbound half still owns desync execution, socket mutation, and retry-sensitive blocking behavior
 - a more aggressive async rewrite would increase risk in the most protocol-sensitive part of the relay path without measurement showing that it is required yet
 
-Future work can revisit `io_uring` or task-based relay only if the load artifacts show the remaining two-thread budget is still a material bottleneck.
+Future work can revisit a task-based relay only if the load artifacts show the remaining two-thread budget is still a material bottleneck.

@@ -2,7 +2,7 @@
 
 **Layer:** L1 -- protocol / core.
 
-`ripdpi-socks5-core` provides SOCKS5/SOCKS4 protocol primitives used by relay, tunnel, DNS, and proxy paths.
+`ripdpi-socks5-core` provides SOCKS5 client protocol primitives. Its consumers are `ripdpi-diagnostics-transport`, `ripdpi-dns-resolver`, `ripdpi-proxy-runtime-adapter`, and `ripdpi-tunnel-core`. The `server` module is test-only. The crate has no SOCKS4 code; SOCKS4 inbound handling lives in `ripdpi-proxy-runtime`.
 
 ## Boundaries
 

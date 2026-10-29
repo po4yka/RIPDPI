@@ -6,7 +6,7 @@
 
 The platform port — the runtime's single window onto OS-level networking. It
 does **not** implement privileged syscalls itself; those live in
-`ripdpi-privileged-ops`, `ripdpi-native-protect`, `ripdpi-io-uring`, and the
+`ripdpi-privileged-ops`, `ripdpi-native-protect`, and the
 `ripdpi-root-helper-*` crates. What this crate adds is *adaptation*: a stable,
 organized public surface, non-root / non-Linux fallbacks, and the
 root-helper-vs-local dispatch every privileged operation needs.
@@ -25,9 +25,9 @@ Thin `pub use` aggregators — no logic, only a stable, named public surface:
 ### 2. OS-primitive adapter modules (private `mod`)
 
 Thin `#[cfg]`-split wrappers over a single upstream primitive crate
-(`ripdpi-privileged-ops` / `ripdpi-io-uring`), each with a non-Linux fallback.
+(`ripdpi-privileged-ops`), each with a non-Linux fallback.
 They hold no process state and perform no root-helper dispatch:
-`bpf_timestamp`, `capabilities`, `io_uring`, `original_destination`,
+`bpf_timestamp`, `capabilities`, `original_destination`,
 `process`, `retransmit`, `socket_options`, `tcp_info`, `ttl`.
 
 ### 3. Runtime-adaptation modules
@@ -50,7 +50,7 @@ privileged root helper and a local path at call time: `vpn_protect`,
 
 - **Upstream:** `ripdpi-capabilities`, `ripdpi-config`, `ripdpi-desync`,
   `ripdpi-ipfrag`, `ripdpi-native-protect`, `ripdpi-privileged-ops`,
-  `ripdpi-root-helper-protocol`, `ripdpi-io-uring`; plus `libc`, `nix`,
+  `ripdpi-root-helper-protocol`; plus `libc`, `nix`,
   `serde`, `serde_json`, `tracing`.
 - **Downstream (10 direct consumers):** `ripdpi-proxy-runtime-adapter`,
   `ripdpi-proxy-runtime-desync-adapter`, `ripdpi-tunnel-android`,

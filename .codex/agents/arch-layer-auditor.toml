@@ -18,7 +18,7 @@ Protocol:       ripdpi-desync, ripdpi-desync-runtime, ripdpi-dns-resolver, ripdp
 Runtime-ports:  ripdpi-runtime-api (port traits: BackgroundProbes, telemetry sinks), ripdpi-runtime-policy (PolicyPort trait + RuntimePolicy impl), ripdpi-runtime-adaptive (AdaptivePort trait + concrete resolvers), ripdpi-runtime-strategy, ripdpi-runtime-dns-cache, ripdpi-runtime-platform (capability traits)
 Runtime-wiring: ripdpi-runtime-services (wires concrete resolvers to port traits; ONLY binary/entry crates may depend on this)
 Execution:      ripdpi-proxy-runtime (MUST NOT depend on runtime-* other than runtime-api and runtime-platform; fan-out MUST be <= 9)
-Orchestration:  ripdpi-relay-core, ripdpi-tunnel-core, ripdpi-tunnel-config, ripdpi-monitor-engine, ripdpi-monitor-proxy-runtime, ripdpi-telemetry, ripdpi-io-uring, ripdpi-tun-driver
+Orchestration:  ripdpi-relay-core, ripdpi-tunnel-core, ripdpi-tunnel-config, ripdpi-monitor-engine, ripdpi-monitor-proxy-runtime, ripdpi-telemetry, ripdpi-tun-driver
 Platform/JNI:   ripdpi-android, ripdpi-android-proxy-adapter, ripdpi-android-telemetry-adapter, ripdpi-android-diagnostics-adapter, ripdpi-android-fetch-adapter, ripdpi-android-platform-adapter, ripdpi-android-vpn-protect-adapter, ripdpi-android-bridge-support, ripdpi-tunnel-android, ripdpi-relay-android, ripdpi-warp-android, ripdpi-root-helper, ripdpi-cli, ripdpi-bench
 
 ## Workflow

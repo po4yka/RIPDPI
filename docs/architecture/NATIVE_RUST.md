@@ -87,7 +87,7 @@ inventory aid; verify against `native/rust/Cargo.toml` and
 | L2 | **contracts / config** | 10 | `ripdpi-config`, `ripdpi-proxy-config`, `ripdpi-tunnel-config`, `ripdpi-strategy-config`, `ripdpi-strategy-trait`, `ripdpi-runtime-api`, `ripdpi-runtime-decision-ports`, `ripdpi-diagnostics-contracts`, `ripdpi-telemetry`, `ripdpi-ws-transport-port` |
 | L3 | **domain logic** | 18 | `ripdpi-desync`, `ripdpi-desync-runtime`, `ripdpi-failure-classifier`, `ripdpi-session`, `ripdpi-session-limit`, `ripdpi-shared-priors`, `ripdpi-quality`, `ripdpi-runtime-decision-engine`, `ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`, `ripdpi-runtime-strategy`, `ripdpi-strategy-core`, `ripdpi-strategy-http`, `ripdpi-strategy-ipv6`, `ripdpi-strategy-lua`, `ripdpi-strategy-udp`, `ripdpi-strategy-window`, `ripdpi-strategy-registry` |
 | L4 | **runtime / application** | 8 | `ripdpi-proxy-runtime`, `ripdpi-proxy-runtime-adapter`, `ripdpi-proxy-runtime-desync-adapter`, `ripdpi-runtime-services`, `ripdpi-runtime-dns-cache`, `ripdpi-tunnel-core`, `ripdpi-tunnel-intercept`, `ripdpi-ws-bootstrap` |
-| L5 | **platform / privileged** | 9 | `ripdpi-runtime-platform`, `ripdpi-native-protect`, `ripdpi-subprocess-protect`, `ripdpi-tun-driver`, `ripdpi-io-uring`, `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, `ripdpi-root-helper` |
+| L5 | **platform / privileged** | 8 | `ripdpi-runtime-platform`, `ripdpi-native-protect`, `ripdpi-subprocess-protect`, `ripdpi-tun-driver`, `ripdpi-capabilities`, `ripdpi-privileged-ops`, `ripdpi-root-helper-protocol`, `ripdpi-root-helper` |
 | L6 | **diagnostics / monitor** | 13 | 10 × `ripdpi-diagnostics-*` (all except `-contracts`) + `ripdpi-monitor-engine`, `ripdpi-monitor-lane-adapter`, `ripdpi-monitor-proxy-runtime` |
 | L7 | **relay transports** | 22 | `ripdpi-relay-core`, `ripdpi-relay-mux`, `ripdpi-hysteria2`, `ripdpi-masque`, `ripdpi-tuic`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-trojan`, `ripdpi-anytls`, `ripdpi-tor`, `ripdpi-vless`, `ripdpi-xhttp`, `ripdpi-webtunnel`, `ripdpi-cloudflare-origin`, `ripdpi-naiveproxy`, `ripdpi-relay-tls-transports`, `ripdpi-warp-core`, `ripdpi-wireguard-ws`, `ripdpi-apps-script-core`, `ripdpi-ws-tunnel`, `ripdpi-mieru`, `ripdpi-ssh` |
 | L8 | **Android / JNI adapters** | 13 | `android-support`, the seven `ripdpi-android-*` adapters, `ripdpi-android`, `ripdpi-tunnel-android`, `ripdpi-relay-android`, `ripdpi-warp-android`, `ripdpi-amneziawg-android` |
@@ -182,7 +182,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 |-------|----------------|-------------|-------------------|-----------------|--------|
 | `ripdpi-packets` | Protocol classification + field extraction (TLS/HTTP/QUIC), mutation markers | Traits + registry + types | — (leaf) | Fan-in 21 | Keep — treat as core API |
 | `ripdpi-tls-profiles` | TLS fingerprint / ClientHello profile catalog | Profile constants + types | `ripdpi-packets` | Fan-in 16; pulls `boring` | Keep |
-| `ripdpi-socks5-core` | SOCKS5 / SOCKS4 protocol primitives | Codec types | — (leaf) | Shared by relay + tunnel + dns | Keep |
+| `ripdpi-socks5-core` | SOCKS5 client protocol primitives; the server module is test-only | Codec types | — (leaf) | Used by `ripdpi-diagnostics-transport`, `ripdpi-dns-resolver`, `ripdpi-proxy-runtime-adapter`, `ripdpi-tunnel-core` | Keep |
 | `ripdpi-ipfrag` | IP-level fragmentation (TCP + UDP/QUIC, v4/v6) | Functions + types | — (leaf) | Fan-in 6 | Keep |
 | `ripdpi-collections` | Generic data structures | Container types | — (leaf) | Low | Keep |
 | `ripdpi-geo` | Geo / IP database lookup (maxminddb) | Lookup API | — (leaf) | Used by `ripdpi-proxy-runtime` | Keep |
@@ -236,7 +236,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 
 | Crate | Responsibility | API surface | Key internal deps | Coupling / risk | Action |
 |-------|----------------|-------------|-------------------|-----------------|--------|
-| `ripdpi-proxy-runtime` | Local SOCKS5 proxy runtime | Runtime entrypoint | `ripdpi-proxy-runtime-adapter`, `ripdpi-runtime-api`, `ripdpi-geo`, `ripdpi-io-uring` | Core of `libripdpi.so` | Keep |
+| `ripdpi-proxy-runtime` | Local SOCKS5 proxy runtime | Runtime entrypoint | `ripdpi-proxy-runtime-adapter`, `ripdpi-geo` | Core of `libripdpi.so` | Keep |
 | `ripdpi-proxy-runtime-adapter` | Composition/wiring for the proxy runtime | Builder/wiring API | 10 internal deps | High fan-out — wiring crate | Keep thin; resist absorbing logic |
 | `ripdpi-proxy-runtime-desync-adapter` | Wires desync pipeline into the proxy runtime | Adapter API | **12 internal deps** | Highest fan-out in workspace — god-adapter risk | Watch — keep wiring-only |
 | `ripdpi-runtime-services` | Runtime service composition | Service API | `ripdpi-runtime-{adaptive,api,policy,strategy}`, … | Mid | Keep |
@@ -253,7 +253,6 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-native-protect` | `VpnService.protect` socket-protection mechanism (port) | Protect-callback API | — (leaf) | Fan-in 3 | Keep — keep JNI-free |
 | `ripdpi-subprocess-protect` | Socket protection helpers for managed subprocesses | Async socket API | — | Used by subprocess relay paths | Keep — keep JNI-free |
 | `ripdpi-tun-driver` | Raw TUN device socket handling | Driver API | — (leaf) | `tun-rs` | Keep |
-| `ripdpi-io-uring` | io_uring async I/O (Linux) | I/O API | — (leaf) | Linux-only path | Keep |
 | `ripdpi-capabilities` | Device capability model + detection | Capability types | — (leaf) | Feeds privileged-ops + platform | Keep |
 | `ripdpi-privileged-ops` | Privileged raw-socket operations | Op functions | `ripdpi-capabilities`, `ripdpi-config`, `ripdpi-desync`, `ripdpi-ipfrag` | Privileged path | Keep — see [§7](#7-root-helper--privileged-crates) |
 | `ripdpi-root-helper-protocol` | Root-helper Unix-socket IPC protocol | Wire types | — (leaf) | IPC contract crate | Keep — golden-locked |
