@@ -566,3 +566,4 @@ local-debug-crates = [
 
 [patch.crates-io]
 boring-sys = { path = "vendor/boring-sys" }
+boringtun = { path = "vendor/boringtun" }

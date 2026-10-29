@@ -42,6 +42,11 @@ python3 "$repo_root/scripts/ci/test_native_architecture_contracts.py"
 echo "==> native architecture contracts"
 python3 "$repo_root/scripts/ci/check_native_architecture_contracts.py"
 
+# This patched dependency has its own workspace and must not be skipped by --workspace.
+echo "==> tests (AWG backend)"
+bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo test --locked \
+  --manifest-path "$repo_root/native/rust/vendor/boringtun/Cargo.toml" --lib
+
 echo "==> tests (workspace)"
 # Exclude integration test binaries that have their own CI steps
 # (run-rust-network-e2e.sh, run-rust-turmoil-tests.sh) and platform tests

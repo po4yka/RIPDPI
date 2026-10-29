@@ -2,7 +2,7 @@
 
 ## Objective
 
-Close findings F01-F16 from `design.md` and satisfy the linked delta specification. These are future execution steps. None is complete when the planning documents are committed.
+Close findings F01-F16 from `design.md` and satisfy the linked delta specification. Execution status is recorded below. Step checks do not replace the combined acceptance gates.
 
 ## Ownership
 
@@ -18,7 +18,7 @@ Native paths below use `N = native/rust/crates/ripdpi-warp-core`. Editor paths u
 ## Execution
 
 - [x] TRN-1793272189489544 Define the boringtun extension boundary and timer-cookie state contracts with independent regression oracles #research !high @item:TRN-1793271658511991
-- [ ] TRN-1793272215354505 Apply configurable rekey retry expiry idle and attempt limits with deterministic role and boundary tests #bug !high @item:TRN-1793271658511991
+- [x] TRN-1793272215354505 Apply configurable rekey retry expiry idle and attempt limits with deterministic role and boundary tests #bug !high @item:TRN-1793271658511991
 - [ ] TRN-1793272215891212 Pad all outgoing transport including automatic and persistent keepalives with independent length and MTU tests #bug !high @item:TRN-1793271658511991
 - [ ] TRN-1793272216407538 Distinguish authenticated padded keepalives from malformed payloads and verify replay-safe result handling #bug !high @item:TRN-1793271658511991
 - [ ] TRN-1793272216991110 Apply DisableCookies through backend load handling and verify both flag states authentication and work bounds #bug !high @item:TRN-1793271658511991

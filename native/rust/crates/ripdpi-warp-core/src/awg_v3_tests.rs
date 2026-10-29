@@ -105,7 +105,7 @@ fn defaults_keep_the_awg_2_wire_bytes() {
     let message = vec![7u8; 148];
     assert_eq!(v3.seal(message.clone(), 0, 0, &UdpWindow::default()), Some(message));
     assert_eq!(v3.transport_padding(100, 0, &UdpWindow::default()), 0);
-    assert_eq!(v3.rekey_after_time(), None);
+    assert_eq!(v3.timer_config(), boringtun::noise::awg::AwgTimerConfig::default());
 }
 
 #[test]
@@ -127,7 +127,7 @@ fn header_protection_needs_twelve_byte_prefixes_and_a_valid_key() {
 #[test]
 fn range_keys_follow_upstream_uint_range_rules() {
     let with = |text: &str| AwgV3Config { rekey_timeout: text.into(), ..Default::default() };
-    for valid in ["", "0", "5", "3-7", "7-7", "65535"] {
+    for valid in ["", "0", "0-3", "5", "3-7", "7-7", "65535"] {
         assert!(AwgV3Params::from_config(&config(with(valid), 0), &[0; 4]).is_ok(), "{valid}");
     }
     for invalid in ["7-3", "65536", "1-70000", "x", " 5", "-1"] {
@@ -138,8 +138,32 @@ fn range_keys_follow_upstream_uint_range_rules() {
         );
     }
     let rekey = AwgV3Config { rekey_after_time: "100-120".into(), ..Default::default() };
-    let sample = params(rekey, 0).rekey_after_time().unwrap().as_secs();
-    assert!((100..=120).contains(&sample));
+    assert_eq!(params(rekey, 0).timer_config().rekey_after, TimerRange::new(100, 120).unwrap());
+}
+
+#[test]
+fn every_timer_range_is_preserved_for_the_backend_policy() {
+    let config = AwgV3Config {
+        rekey_after_time: "200-240".into(),
+        rekey_timeout: "1-3".into(),
+        reject_after_time: "300-350".into(),
+        keepalive_timeout: "4-7".into(),
+        max_handshake_attempts: "1-2".into(),
+        ..Default::default()
+    };
+    assert_eq!(
+        params(config, 0).timer_config(),
+        AwgTimerConfig {
+            rekey_after: TimerRange::new(200, 240).unwrap(),
+            rekey_timeout: TimerRange::new(1, 3).unwrap(),
+            reject_after: TimerRange::new(300, 350).unwrap(),
+            keepalive_timeout: TimerRange::new(4, 7).unwrap(),
+            max_handshake_attempts: TimerRange::new(1, 2).unwrap(),
+            persistent_keepalive: None,
+        }
+    );
+    let zero = AwgV3Config { rekey_timeout: "0".into(), reject_after_time: "0-0".into(), ..Default::default() };
+    assert_eq!(params(zero, 0).timer_config(), AwgTimerConfig::default());
 }
 
 #[test]

@@ -1,14 +1,14 @@
 use std::io;
 use std::net::{IpAddr, Ipv6Addr, SocketAddr};
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 
 use anyhow::Context;
+use boringtun::noise::awg::{AwgTimerConfig, TimerRange};
 use boringtun::noise::errors::WireGuardError;
 use boringtun::noise::{Tunn, TunnResult};
 use bytes::Bytes;
 
-use super::awg_timers::{AwgTimers, keepalive_interval};
 use super::carrier::WgCarrier;
 use super::keys::{apply_reserved_bytes, decode_key};
 use super::routing::route_protocol;
@@ -101,10 +101,6 @@ pub(crate) struct WireGuardTunnel {
     reserved: [u8; 3],
     amnezia: Option<AwgWireCodec>,
     handshake_readiness: HandshakeReadiness,
-    /// AWG 3.x keepalive range in seconds; boringtun's fixed keepalive is off when set.
-    keepalive_range: Option<(u16, u16)>,
-    /// Stamps for the AWG 3.x keepalive range and `RekeyAfterTime`.
-    timers: AwgTimers,
 }
 
 /// Room for the largest message the AWG timers make: a 148-byte initiation or a keepalive.
@@ -130,6 +126,10 @@ impl HandshakeReadiness {
 }
 
 impl WireGuardTunnel {
+    /// Construct the peer and validate its policy before it processes traffic.
+    ///
+    /// # Cancel safety:
+    /// cancel-safe: construction has no suspension point; owned sockets are dropped on error.
     pub(crate) async fn new(params: WireGuardTunnelParams<'_>, platform: &WarpPlatform) -> anyhow::Result<Self> {
         let WireGuardTunnelParams {
             private_key,
@@ -157,11 +157,16 @@ impl WireGuardTunnel {
         };
         let private_key = boringtun::x25519::StaticSecret::from(private_key);
         let local_public_key = boringtun::x25519::PublicKey::from(&private_key).to_bytes();
-        let peer = Box::new(Tunn::new(
+        let amnezia = build_authenticated_awg_codec(
+            amnezia_cfg,
+            &signature_programs,
+            AwgMacKeys::new(local_public_key, peer_public_key),
+        )?;
+        let mut peer = Box::new(Tunn::new(
             private_key,
             boringtun::x25519::PublicKey::from(peer_public_key),
             preshared_key,
-            if keepalive_range.is_some() { None } else { persistent_keepalive },
+            persistent_keepalive,
             0,
             None,
         ));
@@ -172,11 +177,18 @@ impl WireGuardTunnel {
             Some(carrier) => carrier,
             None => WgCarrier::Udp(bind_tunnel_socket(endpoint, platform)?),
         };
-        let amnezia = build_authenticated_awg_codec(
-            amnezia_cfg,
-            &signature_programs,
-            AwgMacKeys::new(local_public_key, peer_public_key),
-        )?;
+        if amnezia.is_some() || keepalive_range.is_some() {
+            let mut timers =
+                amnezia.as_ref().map_or_else(AwgTimerConfig::default, |codec| codec.params().v3().timer_config());
+            timers.persistent_keepalive = match persistent_keepalive.filter(|value| *value != 0) {
+                Some(low) => Some(
+                    TimerRange::new(low, persistent_keepalive_max.unwrap_or(low))
+                        .ok_or_else(|| anyhow::anyhow!("invalid persistent keepalive range"))?,
+                ),
+                None => None,
+            };
+            peer.set_awg_timer_config(timers).map_err(anyhow::Error::msg)?;
+        }
         Ok(Self {
             peer: tokio::sync::Mutex::new(peer),
             carrier,
@@ -187,13 +199,15 @@ impl WireGuardTunnel {
             reserved,
             amnezia,
             handshake_readiness: HandshakeReadiness::default(),
-            keepalive_range,
-            timers: AwgTimers::new(),
         })
     }
 
     /// Send a complete initiation prelude under the same lock as its packet.
     /// Retries, rekeys, and the first initiation all pass through this path.
+    ///
+    /// # Cancel safety:
+    /// NOT cancel-safe: cancellation can stop a prelude after junk or leave a WS frame buffered.
+    /// The carrier finishes buffered frames on the next send; shutdown drops the carrier.
     async fn send_outbound_packet(&self, packet: &[u8]) -> io::Result<()> {
         let _outbound = self.outbound.lock().await;
         let payload = self
@@ -207,10 +221,6 @@ impl WireGuardTunnel {
             }
         }
         self.carrier.send_to(&payload, self.endpoint).await?;
-        if wireguard_message_type(packet) == Some(1) {
-            self.timers.mark_initiation();
-        }
-        self.timers.mark_traffic();
         Ok(())
     }
 
@@ -220,6 +230,10 @@ impl WireGuardTunnel {
     /// a dead or wire-incompatible peer would otherwise look connected. The
     /// authenticated response observed by [`Self::consume_task`] is the remote
     /// readiness proof.
+    ///
+    /// # Cancel safety:
+    /// NOT cancel-safe: the backend commits the initiation before carrier I/O.
+    /// Cancellation belongs to startup failure or tunnel shutdown.
     pub(crate) async fn initiate_handshake(&self) -> io::Result<()> {
         let mut send_buf = [0u8; MAX_PACKET];
         let payload = {
@@ -242,9 +256,9 @@ impl WireGuardTunnel {
     /// Encrypt and send one IP packet. `padded` is a reused scratch buffer for AWG 3.x content padding,
     /// `send_buf` a reused [`MAX_PACKET`] buffer for the ciphertext.
     ///
-    /// # Cancel safety
-    /// cancel-safe: cancellation drops at most this one datagram; the boringtun
-    /// lock is released before the send, and both buffers are rewritten on every call.
+    /// # Cancel safety:
+    /// NOT cancel-safe: encryption advances the nonce and timers before carrier I/O.
+    /// The owning producer is cancelled only at shutdown; the peer lock is released before I/O.
     async fn send_ip_packet(&self, packet: &[u8], padded: &mut Vec<u8>, send_buf: &mut [u8]) {
         // AWG 3.x content padding rides inside the ciphertext; the receiver trims to the IP length.
         let packet = match &self.amnezia {
@@ -252,34 +266,6 @@ impl WireGuardTunnel {
             _ => packet,
         };
         let result = { self.peer.lock().await.encapsulate(packet, send_buf) };
-        self.send_tunn_result(result).await;
-        self.refresh_key_after_send().await;
-    }
-
-    /// AWG 3.x `RekeyAfterTime` (`keepKeyFreshSending`): after a send, start a
-    /// handshake once our session is older than a fresh sample, at most once per
-    /// `rekeyMinTimeout`. boringtun's fixed 120 s rekey still applies when the
-    /// sample is larger. boringtun does not expose the initiator role; a RIPDPI
-    /// client starts every session, so the session stamp comes from our responses.
-    ///
-    /// # Cancel safety
-    /// cancel-safe: the boringtun lock is not held across an await, and a dropped
-    /// initiation is retried by the next send or by boringtun's own timers.
-    async fn refresh_key_after_send(&self) {
-        let Some(limit) = self.amnezia.as_ref().and_then(|codec| codec.params().v3().rekey_after_time()) else {
-            return;
-        };
-        if !self.timers.early_rekey_due(limit) {
-            return;
-        }
-        let mut send_buf = [0u8; TIMER_PACKET_BUFFER];
-        let result = {
-            let mut peer = self.peer.lock().await;
-            match peer.time_since_last_handshake() {
-                Some(age) if age > limit => peer.format_handshake_initiation(&mut send_buf, false),
-                _ => TunnResult::Done,
-            }
-        };
         self.send_tunn_result(result).await;
     }
 
@@ -296,6 +282,11 @@ impl WireGuardTunnel {
         }
     }
 
+    /// Send a backend result after releasing the peer lock.
+    ///
+    /// # Cancel safety:
+    /// NOT cancel-safe: cancellation can interrupt an initiation prelude or carrier write.
+    /// The caller must stop the tunnel when cancelled.
     async fn send_tunn_result<'a>(&self, result: TunnResult<'a>) {
         match result {
             TunnResult::WriteToNetwork(packet) => {
@@ -312,9 +303,9 @@ impl WireGuardTunnel {
     /// Send the packets boringtun queued while no session existed. Its docs ask
     /// for an empty-datagram `decapsulate` after each `WriteToNetwork` until `Done`.
     ///
-    /// # Cancel safety
-    /// cancel-safe: the boringtun lock is not held across an await; cancellation
-    /// loses at most the packet being sent, and the rest stay queued.
+    /// # Cancel safety:
+    /// NOT cancel-safe: a packet is removed from the backend queue before carrier I/O.
+    /// Cancellation is limited to shutdown; packets still in the queue are then discarded.
     async fn send_queued_packets(&self, send_buf: &mut [u8]) {
         // The queue holds at most 256 packets; one that fails to encrypt is requeued and ends the loop with Done.
         loop {
@@ -326,6 +317,11 @@ impl WireGuardTunnel {
         }
     }
 
+    /// Forward outbound traffic until shutdown.
+    ///
+    /// # Cancel safety:
+    /// NOT cancel-safe: a received bus packet can be encrypted but not sent.
+    /// The runtime aborts and joins this producer only when the tunnel shuts down.
     pub(crate) async fn produce_task(&self, bus: Bus) {
         let mut endpoint = bus.new_endpoint();
         let mut padded = Vec::new();
@@ -339,16 +335,12 @@ impl WireGuardTunnel {
         }
     }
 
-    /// Drive the boringtun and AWG 3.x timers until the task is aborted.
+    /// Drive the backend's selected WireGuard or AWG policy until the task is aborted.
     ///
-    /// # Cancel safety
-    /// cancel-safe: the boringtun lock is not held across an await, and a timer
-    /// packet dropped by cancellation is sent again by a later tick.
+    /// # Cancel safety:
+    /// NOT cancel-safe: a timer transition can commit before its packet is sent.
+    /// This task is aborted at tunnel shutdown; peer locks are released before carrier I/O.
     pub(crate) async fn routine_task(&self) {
-        // (traffic stamp, deadline): any authenticated packet re-arms the timer with a fresh draw
-        // (`timersAnyAuthenticatedPacketTraversal`), so it fires only after an idle interval.
-        let mut keepalive =
-            self.keepalive_range.map(|range| (self.timers.traffic_stamp(), Instant::now() + keepalive_interval(range)));
         let mut send_buf = [0u8; TIMER_PACKET_BUFFER];
         let mut session_expired = false;
         let mut tick = tokio::time::interval(TIMER_TICK);
@@ -364,27 +356,6 @@ impl WireGuardTunnel {
                 self.send_tunn_result(result).await;
             }
             session_expired = expired;
-            if let (Some(range), Some((armed_at, deadline))) = (self.keepalive_range, keepalive.as_mut()) {
-                let stamp = self.timers.traffic_stamp();
-                if stamp != *armed_at {
-                    *armed_at = stamp;
-                    *deadline = Instant::now() + keepalive_interval(range);
-                }
-                if Instant::now() < *deadline {
-                    continue;
-                }
-                *deadline = Instant::now() + keepalive_interval(range);
-                let result = {
-                    let mut peer = self.peer.lock().await;
-                    // Only an established session sends; an empty encapsulate would otherwise queue a handshake.
-                    if peer.time_since_last_handshake().is_some() {
-                        peer.encapsulate(&[], &mut send_buf)
-                    } else {
-                        TunnResult::Done
-                    }
-                };
-                self.send_tunn_result(result).await;
-            }
         }
     }
 
@@ -392,10 +363,9 @@ impl WireGuardTunnel {
     /// fails for good, and return that terminal error. Transient UDP errors
     /// are retried.
     ///
-    /// # Cancel safety
-    ///
-    /// cancel-safe: the carrier receive is cancel-safe and a dropped task only
-    /// loses the datagram it was decoding. The runtime aborts it at shutdown.
+    /// # Cancel safety:
+    /// NOT cancel-safe: decoding can commit replay, handshake and timer state before
+    /// an outbound response finishes. The runtime aborts and joins this task at shutdown.
     pub(crate) async fn consume_task(&self, bus: Bus) -> io::Error {
         let endpoint = bus.new_endpoint();
         let mut recv_buf = vec![0u8; MAX_PACKET];
@@ -439,16 +409,11 @@ impl WireGuardTunnel {
             let data: &[u8] = data;
             let result = { self.peer.lock().await.decapsulate(None, data, &mut send_buf) };
             if authenticated_by_boringtun(&result, data, self.amnezia.is_some()) {
-                self.timers.mark_traffic();
-                match wireguard_message_type(data) {
-                    Some(2) => self.timers.mark_session(),
-                    // The UDP window learns only from datagrams that passed AEAD and the replay check.
-                    Some(4) => {
-                        if let Some(codec) = &self.amnezia {
-                            codec.observe_authenticated_transport(size);
-                        }
-                    }
-                    _ => {}
+                // The UDP window learns only from datagrams that passed AEAD and the replay check.
+                if wireguard_message_type(data) == Some(4)
+                    && let Some(codec) = &self.amnezia
+                {
+                    codec.observe_authenticated_transport(size);
                 }
             }
             match result {

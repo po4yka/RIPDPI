@@ -6,20 +6,12 @@
 // "AmneziaWG outbound support" (task
 // `fork-boringtun-and-add-amneziawg-handshake-obfuscation`).
 //
-// # Crate-vs-module resolution
+// # Backend boundary
 //
-// The task spec sketches an internal `ripdpi-amneziawg-core` crate forked
-// from `boringtun`. The task's own `Scope` contract, however, restricts
-// edits to `ripdpi-warp-core/**` and `ripdpi-warp-android/**` -- it does
-// not permit registering a brand-new workspace member. `ripdpi-warp-core`
-// *already* depends on `boringtun` and *already* owns a WireGuard tunnel
-// (`wireguard::WireGuardTunnel`) plus an embryonic Amnezia wire codec
-// (`amnezia::AmneziaCodec`). The Noise primitives therefore do not need to
-// be forked at all: `boringtun` is consumed as-is and AmneziaWG is purely
-// an *additive* obfuscation layer wrapped around it. Implementing that
-// layer as a first-class module here keeps the change inside the declared
-// scope, avoids vendoring a second copy of the Noise handshake, and matches
-// the existing crate layout (`amnezia.rs`, `wireguard/`, `virtual_iface/`).
+// This module owns the AWG wire envelope, signatures, and handshake MAC conversion.
+// The patched boringtun 0.7.1 backend owns Noise, session keys, replay protection,
+// and the opt-in AWG timer policy. Its source and provenance are under
+// `native/rust/vendor/boringtun`. Ordinary WireGuard retains the default policy.
 //
 // # License attribution
 //

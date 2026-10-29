@@ -6,7 +6,8 @@
 //! unchanged; this module only wraps and unwraps a complete AWG message.
 
 use std::sync::atomic::{AtomicU32, Ordering};
-use std::time::Duration;
+
+use boringtun::noise::awg::{AwgTimerConfig, TimerRange};
 
 use chacha20::ChaCha20;
 use chacha20::cipher::{KeyIvInit, StreamCipher};
@@ -34,7 +35,7 @@ pub(crate) struct AwgV3Params {
     header_key: Option<[u8; 32]>,
     content_padding: Option<HeaderRange>,
     random_trailers: bool,
-    rekey_after_time: Option<HeaderRange>,
+    timers: AwgTimerConfig,
 }
 
 impl std::fmt::Debug for AwgV3Params {
@@ -43,18 +44,13 @@ impl std::fmt::Debug for AwgV3Params {
             .field("header_protection", &self.header_key.is_some())
             .field("content_padding", &self.content_padding)
             .field("random_trailers", &self.random_trailers)
-            .field("rekey_after_time", &self.rekey_after_time)
+            .field("timers", &self.timers)
             .finish()
     }
 }
 
 impl AwgV3Params {
     /// Validate the 3.x keys of `cfg`. `size_padding` is the validated `S1..S4`.
-    ///
-    /// `DisableCookies` only changes the responder's under-load path, which a
-    /// RIPDPI client never runs, so it is carried but has no effect here.
-    /// `RekeyTimeout`, `RejectAfterTime`, `KeepaliveTimeout`, and
-    /// `MaxHandshakeAttempts` are validated; boringtun keeps its fixed RFC timers for them.
     pub(crate) fn from_config(
         cfg: &WarpAmneziaConfig,
         size_padding: &[u32; WG_MESSAGE_TYPE_COUNT],
@@ -73,21 +69,24 @@ impl AwgV3Params {
             return Err(AwgParamsError::HeaderProtectionPaddingTooSmall { index, value: size_padding[index] });
         }
         let content_padding = parse_range("ContentPaddingAddition", &cfg.v3.content_padding_addition)?;
-        let rekey_after_time = parse_range("RekeyAfterTime", &cfg.v3.rekey_after_time)?;
-        for (name, text) in [
-            ("RekeyTimeout", &cfg.v3.rekey_timeout),
-            ("RejectAfterTime", &cfg.v3.reject_after_time),
-            ("KeepaliveTimeout", &cfg.v3.keepalive_timeout),
-            ("MaxHandshakeAttempts", &cfg.v3.max_handshake_attempts),
-        ] {
-            parse_range(name, text)?;
-        }
-        Ok(Self { header_key, content_padding, random_trailers: cfg.v3.random_trailers, rekey_after_time })
+        let defaults = AwgTimerConfig::default();
+        let timers = AwgTimerConfig {
+            rekey_after: timer_range("RekeyAfterTime", &cfg.v3.rekey_after_time, defaults.rekey_after)?,
+            rekey_timeout: timer_range("RekeyTimeout", &cfg.v3.rekey_timeout, defaults.rekey_timeout)?,
+            reject_after: timer_range("RejectAfterTime", &cfg.v3.reject_after_time, defaults.reject_after)?,
+            keepalive_timeout: timer_range("KeepaliveTimeout", &cfg.v3.keepalive_timeout, defaults.keepalive_timeout)?,
+            max_handshake_attempts: timer_range(
+                "MaxHandshakeAttempts",
+                &cfg.v3.max_handshake_attempts,
+                defaults.max_handshake_attempts,
+            )?,
+            persistent_keepalive: None,
+        };
+        Ok(Self { header_key, content_padding, random_trailers: cfg.v3.random_trailers, timers })
     }
 
-    /// A fresh `RekeyAfterTime` sample, drawn per check like `keyRefreshTimeoutSending`.
-    pub(crate) fn rekey_after_time(&self) -> Option<Duration> {
-        self.rekey_after_time.map(|range| Duration::from_secs(u64::from(range.sample())))
+    pub(crate) fn timer_config(&self) -> AwgTimerConfig {
+        self.timers
     }
 
     /// Wrap a final AWG message: `S` random prefix, header protection, then a
@@ -237,6 +236,15 @@ fn random_below(n: usize) -> usize {
 }
 
 /// Parse an optional `lo` or `lo-hi` range. Empty and `0` mean "not set" (`UintRange.IsZero`).
+fn timer_range(name: &'static str, text: &str, default: TimerRange) -> Result<TimerRange, AwgParamsError> {
+    match parse_range(name, text)? {
+        None => Ok(default),
+        Some(range) => {
+            TimerRange::new(range.low() as u16, range.high() as u16).ok_or(AwgParamsError::InvalidRange { name })
+        }
+    }
+}
+
 fn parse_range(name: &'static str, text: &str) -> Result<Option<HeaderRange>, AwgParamsError> {
     if text.is_empty() {
         return Ok(None);

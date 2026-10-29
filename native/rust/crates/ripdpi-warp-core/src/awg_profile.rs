@@ -32,6 +32,9 @@ impl HeaderRange {
         };
         Some(Self { low, high })
     }
+    pub(crate) fn low(self) -> u32 {
+        self.low
+    }
     pub(crate) fn high(self) -> u32 {
         self.high
     }

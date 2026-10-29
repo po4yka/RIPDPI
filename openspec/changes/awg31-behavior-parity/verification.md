@@ -16,7 +16,7 @@ deployment_evidence: No deployment is owned by this change; the shared arm64 dep
 
 # Verification
 
-This is an implementation acceptance plan. No implementation gate has passed for this change. `commit_sha` stays null until results identify an implementation revision. The documentation commit and planning validation must not fill the implementation evidence fields.
+This is an implementation acceptance plan. Step-level checks are recorded below; the combined implementation gates remain required. `commit_sha` stays null until results identify an implementation revision. The documentation commit and planning validation must not fill the implementation evidence fields.
 
 ## Requirement evidence
 
@@ -45,8 +45,10 @@ Run from the repository root unless a gate states another directory. Use the rep
 From `native/rust`:
 
 ```sh
+build-gate --lane ripdpi -- cargo test --manifest-path vendor/boringtun/Cargo.toml --lib --locked --jobs 4
 build-gate --lane ripdpi -- cargo test -p ripdpi-warp-core --locked --jobs 4
 cargo fmt --all -- --check
+cargo fmt --manifest-path vendor/boringtun/Cargo.toml -- --check
 build-gate --lane ripdpi -- cargo clippy --workspace --all-targets --locked --jobs 4 -- -D warnings
 ```
 
@@ -122,6 +124,8 @@ Populate every evidence category only from its observed result. `device` must in
 ## Execution record
 
 - 2026-10-29, TRN-1793272189489544: inspected the locked boringtun 0.7.1 source and Go `b5928efb6ca19f0153958460c3d141f04abc5c2e`; resolved the vendor patch, timer sample/equality rules, typed authentication outcomes, carrier source identity and bounded cookie admission in `design.md`. The boringtun archive checksum matches the existing lockfile. Independent read-only review identified retry-reset, zero-range and expiry-boundary corrections; all were applied and the reviewer reported no remaining blocker to the contract commit or timer step. Task and strict OpenSpec validation passed. This completes the boundary study only; G1-G7 remain required.
+
+- 2026-10-29, TRN-1793272215354505: added the opt-in timer policy inside the pinned boringtun backend and removed the outer AWG scheduler. All five range policies and persistent keepalive now use backend session events. The ordinary WireGuard constructor retains its existing policy. Tests reproduced the one-second retry defect, the padded-empty idle defect, and two key-generation refresh defects before their fixes. Final checks used Rust/Cargo 1.98.1: backend `--lib` 23 passed, zero failed/ignored; `ripdpi-warp-core` 150 passed, zero failed/ignored; workspace Clippy with all targets and `-D warnings` passed; both rustfmt checks, locked Cargo metadata, architecture health, shell syntax, and harness locked-command audit passed. The CI workspace test script now runs the backend suite explicitly. Independent protocol and async reviews found no remaining blocker after corrections. The root lockfile contains Cargo resolver normalization of compatible existing getrandom/Windows dependency edges; no registry package version was added or removed. G4-G7 traffic, device, artifact, and hosted evidence remains required. Authenticated zero-padding recognition moved forward from the empty-payload step because timer correctness depends on it; that step's full result/replay/malformed-payload contract is still open.
 
 ## Historical baseline — not implementation acceptance
 
