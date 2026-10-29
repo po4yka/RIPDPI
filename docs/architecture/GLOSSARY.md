@@ -55,7 +55,7 @@ body is the persisted identity; session context is re-derived. See
 
 **in-path scan** — A diagnostics scan that runs *through* the active proxy or
 VPN path, measuring targets as the user's traffic actually experiences them.
-Selected by `diagnostics_default_scan_path_mode = "in_path"`. Contrast
+Selected by the scan request path mode `in_path`. Contrast
 **raw-path scan**.
 
 **monitor lane** — A parallel probe-execution track inside the diagnostics
@@ -102,7 +102,7 @@ and [`JNI_CONTRACT.md`](JNI_CONTRACT.md) §10.
 **raw-path scan** — A diagnostics scan that **stops the VPN service** and
 connects directly (no **TUN**), so `setsockopt(IP_TTL)` and fake-packet
 techniques work without a **protect callback**. Selected by
-`diagnostics_default_scan_path_mode = "raw_path"`. Contrast **in-path scan**.
+the scan request path mode `raw_path`. Contrast **in-path scan**.
 
 **relay** — Chaining the local proxy or VPN traffic through an encrypted
 transport to a server or bridge path the user configures. Current relay-kind

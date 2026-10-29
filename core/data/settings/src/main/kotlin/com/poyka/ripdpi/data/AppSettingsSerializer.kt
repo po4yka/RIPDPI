@@ -133,7 +133,6 @@ object AppSettingsSerializer : Serializer<AppSettings> {
             .setWsTunnelWorkerCredentialRef("")
             .setDiagnosticsMonitorEnabled(true)
             .setDiagnosticsSampleIntervalSeconds(15)
-            .setDiagnosticsDefaultScanPathMode("raw_path")
             .setDiagnosticsAutoResumeAfterRawScan(true)
             .setDiagnosticsActiveProfileId("default")
             .setDiagnosticsHistoryRetentionDays(14)

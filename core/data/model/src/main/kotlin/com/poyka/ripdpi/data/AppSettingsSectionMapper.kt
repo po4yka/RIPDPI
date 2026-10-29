@@ -83,7 +83,6 @@ private fun AppSettings.diagnosticsSection(): DiagnosticsSettingsSection =
     DiagnosticsSettingsSection(
         diagnosticsMonitorEnabled = diagnosticsMonitorEnabled,
         diagnosticsSampleIntervalSeconds = diagnosticsSampleIntervalSeconds,
-        diagnosticsDefaultScanPathMode = diagnosticsDefaultScanPathMode,
         diagnosticsAutoResumeAfterRawScan = diagnosticsAutoResumeAfterRawScan,
         diagnosticsActiveProfileId = diagnosticsActiveProfileId,
         diagnosticsHistoryRetentionDays = diagnosticsHistoryRetentionDays,
@@ -214,7 +213,6 @@ private fun AppSettings.rootSection(): RootSettingsSection =
 private fun AppSettings.detectionSection(): DetectionSettingsSection =
     DetectionSettingsSection(
         detectionCheckIncludeBypass = detectionCheckIncludeBypass,
-        detectionCheckIncludeLocation = detectionCheckIncludeLocation,
         detectionCheckRttTriangulationEnabled = detectionCheckRttTriangulationEnabled,
         detectionCheckPrivacyModeEnabled = detectionCheckPrivacyModeEnabled,
         rknDiagnosticsFetchSelfInfoEnabled = rknDiagnosticsFetchSelfInfoEnabled,
@@ -244,6 +242,5 @@ private fun AppSettings.detectionSection(): DetectionSettingsSection =
 
 private fun AppSettings.telemetrySection(): TelemetrySettingsSection =
     TelemetrySettingsSection(
-        communityComparisonEnabled = communityComparisonEnabled,
         communityApiUrl = communityApiUrl,
     )

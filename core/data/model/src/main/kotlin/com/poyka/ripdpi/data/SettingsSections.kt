@@ -76,7 +76,6 @@ data class DnsSettingsSection(
 data class DiagnosticsSettingsSection(
     val diagnosticsMonitorEnabled: Boolean = false,
     val diagnosticsSampleIntervalSeconds: Int = 0,
-    val diagnosticsDefaultScanPathMode: String = "",
     val diagnosticsAutoResumeAfterRawScan: Boolean = false,
     val diagnosticsActiveProfileId: String = "",
     val diagnosticsHistoryRetentionDays: Int = 0,
@@ -207,7 +206,6 @@ data class RootSettingsSection(
 /** Detection-check probe settings — every `detection_check_*` and diagnostic-probe field. */
 data class DetectionSettingsSection(
     val detectionCheckIncludeBypass: Boolean = false,
-    val detectionCheckIncludeLocation: Boolean = false,
     val detectionCheckRttTriangulationEnabled: Boolean = false,
     val detectionCheckPrivacyModeEnabled: Boolean = false,
     val rknDiagnosticsFetchSelfInfoEnabled: Boolean = false,
@@ -237,7 +235,6 @@ data class DetectionSettingsSection(
 
 /** Anonymous, opt-in community-comparison telemetry settings. */
 data class TelemetrySettingsSection(
-    val communityComparisonEnabled: Boolean = false,
     val communityApiUrl: String = "",
 )
 

@@ -121,7 +121,6 @@ class AppSettingsSectionMapperTest {
         )
         assertEquals(
             TelemetrySettingsSection(
-                communityComparisonEnabled = true,
                 communityApiUrl = "https://example.test/api",
             ),
             sections.telemetry,
@@ -176,7 +175,6 @@ class AppSettingsSectionMapperTest {
             .setDetectionCheckIncludeBypass(true)
             .setDetectionCheckTunProbeMode("strict_same_path")
             .setDpiSuiteConcurrency(50)
-            .setCommunityComparisonEnabled(true)
             .setCommunityApiUrl("https://example.test/api")
             .build()
 }

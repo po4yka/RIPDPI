@@ -180,8 +180,8 @@ Diagnostics scans probe targets and produce typed verdicts. Driven from
 `core/engine/.../core/NetworkDiagnostics.kt`
 (`jniCreate` / `jniStartScan` / `jniPollProgress` / `jniTakeReport` /
 `jniPollPassiveEvents` / `jniCancelScan` / `jniDestroy`), backed by the
-`ripdpi-monitor-engine` crate linked into `libripdpi.so`. The path mode is
-`diagnostics_default_scan_path_mode` in `app_settings.proto`.
+`ripdpi-monitor-engine` crate linked into `libripdpi.so`. The path mode is a
+per-request scan field; there is no persisted default.
 
 **In-path scan** (`"in_path"`). Probes run **through the active proxy or VPN
 path**, measuring targets exactly as the user's traffic experiences them. The
