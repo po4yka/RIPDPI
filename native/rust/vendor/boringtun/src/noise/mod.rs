@@ -57,6 +57,21 @@ impl<'a> From<WireGuardError> for TunnResult<'a> {
     }
 }
 
+/// Authentication result of one received datagram, separate from generated output.
+/// Cookie traffic does not prove the peer's identity. Malformed transport consumed
+/// an authenticated replay counter, but must not deliver data or update readiness.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ReceiveOutcome {
+    Rejected,
+    CookieChallenge,
+    CookieAccepted,
+    HandshakeInitiation,
+    HandshakeResponse,
+    TransportEmpty,
+    TransportIp,
+    TransportMalformed,
+}
+
 /// Supplies the plaintext length, including zero padding, for every transport message.
 /// Called under the peer lock. Implementations must be bounded, nonblocking, and
 /// must not call back into the tunnel. The backend checks output-buffer capacity.
@@ -81,6 +96,7 @@ pub struct Tunn {
     rate_limiter: Arc<RateLimiter>,
     awg_timers: Option<awg::AwgTimers>,
     transport_padding: Option<Arc<dyn TransportPadding>>,
+    receive_outcome: ReceiveOutcome,
 }
 
 type MessageType = u32;
@@ -228,6 +244,7 @@ impl Tunn {
             timers: Timers::new(persistent_keepalive, rate_limiter.is_none()),
             awg_timers: None,
             transport_padding: None,
+            receive_outcome: ReceiveOutcome::Rejected,
 
             rate_limiter: rate_limiter.unwrap_or_else(|| {
                 Arc::new(RateLimiter::new(&static_public, PEER_HANDSHAKE_RATE_LIMIT))
@@ -344,6 +361,18 @@ impl Tunn {
         self.format_handshake_initiation(dst, false)
     }
 
+    /// Receive with an explicit authentication result. Empty queue-drain calls
+    /// produce Rejected: outgoing work is not evidence of an incoming peer.
+    pub fn decapsulate_with_outcome<'a>(
+        &mut self,
+        src_addr: Option<IpAddr>,
+        datagram: &[u8],
+        dst: &'a mut [u8],
+    ) -> (TunnResult<'a>, ReceiveOutcome) {
+        let result = self.decapsulate(src_addr, datagram, dst);
+        (result, self.receive_outcome)
+    }
+
     /// Receives a UDP datagram from the network and parses it.
     /// Returns TunnResult.
     ///
@@ -356,6 +385,7 @@ impl Tunn {
         datagram: &[u8],
         dst: &'a mut [u8],
     ) -> TunnResult<'a> {
+        self.receive_outcome = ReceiveOutcome::Rejected;
         self.refresh_awg_time();
         if datagram.is_empty() {
             // Indicates a repeated call
@@ -369,6 +399,10 @@ impl Tunn {
         {
             Ok(packet) => packet,
             Err(TunnResult::WriteToNetwork(cookie)) => {
+                if dst.len() < cookie.len() {
+                    return TunnResult::Err(WireGuardError::DestinationBufferTooSmall);
+                }
+                self.receive_outcome = ReceiveOutcome::CookieChallenge;
                 dst[..cookie.len()].copy_from_slice(cookie);
                 return TunnResult::WriteToNetwork(&mut dst[..cookie.len()]);
             }
@@ -420,6 +454,7 @@ impl Tunn {
         }
 
         tracing::debug!(message = "Sending handshake_response", local_idx = index);
+        self.receive_outcome = ReceiveOutcome::HandshakeInitiation;
 
         Ok(TunnResult::WriteToNetwork(packet))
     }
@@ -456,6 +491,7 @@ impl Tunn {
         }
 
         tracing::debug!("Sending keepalive");
+        self.receive_outcome = ReceiveOutcome::HandshakeResponse;
 
         Ok(TunnResult::WriteToNetwork(keepalive_packet)) // Send a keepalive as a response
     }
@@ -474,6 +510,7 @@ impl Tunn {
         self.timer_tick(TimerName::TimeCookieReceived);
 
         tracing::debug!("Did set cookie");
+        self.receive_outcome = ReceiveOutcome::CookieAccepted;
 
         Ok(TunnResult::Done)
     }
@@ -513,12 +550,17 @@ impl Tunn {
             session.receive_packet_data(packet, dst)?
         };
 
-        self.set_current_session(r_idx);
-
-        self.timer_tick(TimerName::TimeLastPacketReceived);
-
         let result = self.validate_decapsulated_packet(decapsulated_packet);
+        self.receive_outcome = match &result {
+            TunnResult::Done => ReceiveOutcome::TransportEmpty,
+            TunnResult::WriteToTunnelV4(..) | TunnResult::WriteToTunnelV6(..) => {
+                ReceiveOutcome::TransportIp
+            }
+            _ => ReceiveOutcome::TransportMalformed,
+        };
         if !matches!(result, TunnResult::Err(_)) {
+            self.set_current_session(r_idx);
+            self.timer_tick(TimerName::TimeLastPacketReceived);
             if let Some(awg) = &mut self.awg_timers {
                 let now = self.timers[TimerName::TimeCurrent];
                 if !awg.confirmed[idx] {
@@ -595,9 +637,16 @@ impl Tunn {
         let (computed_len, src_ip_address) = match packet.len() {
             0 => return TunnResult::Done, // This is keepalive, and not an error
             _ if packet[0] >> 4 == 4 && packet.len() >= IPV4_MIN_HEADER_SIZE => {
+                let header_len = usize::from(packet[0] & 15) * 4;
+                if header_len < IPV4_MIN_HEADER_SIZE || header_len > packet.len() {
+                    return TunnResult::Err(WireGuardError::InvalidPacket);
+                }
                 let len_bytes: [u8; IP_LEN_SZ] = packet[IPV4_LEN_OFF..IPV4_LEN_OFF + IP_LEN_SZ]
                     .try_into()
                     .unwrap();
+                if usize::from(u16::from_be_bytes(len_bytes)) < header_len {
+                    return TunnResult::Err(WireGuardError::InvalidPacket);
+                }
                 let addr_bytes: [u8; IPV4_IP_SZ] = packet
                     [IPV4_SRC_IP_OFF..IPV4_SRC_IP_OFF + IPV4_IP_SZ]
                     .try_into()

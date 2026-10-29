@@ -147,3 +147,15 @@ The execution tasks and `verification.md` are the authoritative gate mapping. Ex
 Required implementation gates include `cargo test -p ripdpi-warp-core --locked` from `native/rust`, affected Kotlin module tests, full static analysis, locale lint for changed strings, independent review, and the host/emulator/physical acceptance receipts. Review uses `pr-reviewer`; add async, unsafe, and JNI specialist review only when the actual diff touches those areas. Do not bless or weaken fixtures or baselines to obtain a pass.
 
 Research baseline only: `cargo test -p ripdpi-warp-core --lib --locked` observed 151 passed, zero failed, zero ignored at the baseline SHA. The historical emulator record reports 96/96 at `ba228c17c7cfb1f90a09f6af03a1c5837e1a100c`. Neither result proves the future requirements or physical acceptance. Planning validation is separate from every implementation gate.
+
+### Receive validation compatibility exception
+
+Ordinary WireGuard keeps its default timer policy and wire format. The shared
+receive boundary now rejects malformed authenticated IPv4 headers (invalid IHL,
+total length below the header, or truncation) before peer-state updates. Malformed
+IPv6 is also excluded from peer proof. Such packets still consume their replay
+counter, but do not update readiness, session selection, receive timers, byte
+metrics, or the UDP window. This is a deliberate input-validation exception to
+legacy boringtun behavior, which could report an empty IP packet for IPv4 total
+length zero. A regression covers valid ordinary WireGuard traffic after rejection.
+All-zero nonempty padding is accepted only when the AWG policy is active.

@@ -21,12 +21,16 @@ Local changes:
 - `noise/session.rs` adds zero padding inside AEAD. The optional `TransportPadding`
   policy in `noise/mod.rs` covers data, queued packets, and automatic keepalives.
   Buffer checks precede handshake consumption and nonce advancement.
+- `ReceiveOutcome` separates generated output from peer authentication. All-zero
+  AWG payloads are empty transport; malformed IP consumes replay state without
+  updating readiness, receive timers, or the UDP window. IPv4 length and IHL
+  checks reject truncated headers and invalid total lengths.
 - `noise/timers.rs` selects the AWG policy only when configured, and contains real
   encrypted-peer regression tests with deterministic elapsed time.
 
 The contract and independent expected outcomes are in
-`openspec/changes/awg31-behavior-parity/design.md` at the repository root. Cookie
-and receive-result changes remain separate execution steps.
+`openspec/changes/awg31-behavior-parity/design.md` at the repository root. Cookie admission
+and ambiguous-candidate handling remain separate execution steps.
 
 From `native/rust`, run:
 

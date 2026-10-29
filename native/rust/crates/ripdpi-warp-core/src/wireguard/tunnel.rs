@@ -7,7 +7,7 @@ use std::time::Duration;
 use anyhow::Context;
 use boringtun::noise::awg::{AwgTimerConfig, TimerRange};
 use boringtun::noise::errors::WireGuardError;
-use boringtun::noise::{Tunn, TunnResult};
+use boringtun::noise::{ReceiveOutcome, Tunn, TunnResult};
 use bytes::Bytes;
 
 use super::carrier::WgCarrier;
@@ -115,8 +115,11 @@ struct HandshakeReadiness {
 }
 
 impl HandshakeReadiness {
-    fn observe_authenticated_packet(&self, packet: &[u8]) {
-        if wireguard_message_type(packet) == Some(2) {
+    fn observe(&self, outcome: ReceiveOutcome) {
+        if matches!(
+            outcome,
+            ReceiveOutcome::HandshakeResponse | ReceiveOutcome::TransportEmpty | ReceiveOutcome::TransportIp
+        ) {
             self.established.store(true, Ordering::SeqCst);
         }
     }
@@ -407,18 +410,16 @@ impl WireGuardTunnel {
             // A WARP edge may echo the client id in the reserved bytes; boringtun needs them zero.
             apply_reserved_bytes(data, [0; 3]);
             let data: &[u8] = data;
-            let result = { self.peer.lock().await.decapsulate(None, data, &mut send_buf) };
-            if authenticated_by_boringtun(&result, data, self.amnezia.is_some()) {
+            let (result, outcome) = { self.peer.lock().await.decapsulate_with_outcome(None, data, &mut send_buf) };
+            self.handshake_readiness.observe(outcome);
+            if matches!(outcome, ReceiveOutcome::TransportEmpty | ReceiveOutcome::TransportIp) {
                 // The UDP window learns only from datagrams that passed AEAD and the replay check.
-                if wireguard_message_type(data) == Some(4)
-                    && let Some(codec) = &self.amnezia
-                {
+                if let Some(codec) = &self.amnezia {
                     codec.observe_authenticated_transport(size);
                 }
             }
             match result {
                 TunnResult::WriteToNetwork(packet) => {
-                    self.handshake_readiness.observe_authenticated_packet(data);
                     if let Err(error) = self.send_outbound_packet(packet).await {
                         tracing::warn!("WARP tunnel send failed: {error}");
                     }
@@ -430,41 +431,15 @@ impl WireGuardTunnel {
                     }
                 }
                 TunnResult::Done => {
-                    self.handshake_readiness.observe_authenticated_packet(data);
-                }
-                TunnResult::Err(WireGuardError::InvalidPacket) if is_padded_keepalive(data, self.amnezia.is_some()) => {
-                    tracing::debug!("AmneziaWG padded keepalive received");
+                    if outcome == ReceiveOutcome::TransportEmpty {
+                        tracing::debug!("WireGuard authenticated empty transport received");
+                    }
                 }
                 TunnResult::Err(error) => {
                     tracing::warn!("WARP tunnel decapsulation failed: {error:?}");
                 }
             }
         }
-    }
-}
-
-/// An AWG 3.x peer pads keepalives with zeros inside the ciphertext. boringtun
-/// decrypts and authenticates them, then rejects the zero "IP header" as
-/// `InvalidPacket`. For a well-sized transport packet that is the only source of
-/// `InvalidPacket`, because the size and type checks already passed.
-/// Smallest transport message boringtun decrypts (`DATA_OVERHEAD_SZ`); shorter ones fail before AEAD.
-const MIN_AUTHENTICATED_TRANSPORT: usize = 32;
-
-fn is_padded_keepalive(decoded: &[u8], awg_active: bool) -> bool {
-    // boringtun 0.7.1 reports InvalidPacket for a transport message only before AEAD when it is
-    // shorter than 32 bytes, so the length check keeps an unauthenticated datagram out of here.
-    awg_active && decoded.len() >= MIN_AUTHENTICATED_TRANSPORT && wireguard_message_type(decoded) == Some(4)
-}
-
-/// Whether boringtun accepted `decoded` as an authenticated message (MAC, AEAD, and replay checks).
-fn authenticated_by_boringtun(result: &TunnResult<'_>, decoded: &[u8], awg_active: bool) -> bool {
-    match result {
-        TunnResult::WriteToNetwork(_) | TunnResult::WriteToTunnelV4(..) | TunnResult::WriteToTunnelV6(..) => true,
-        // A cookie reply also yields Done; its key derives from the public server key, so only
-        // a transport keepalive proves the peer.
-        TunnResult::Done => wireguard_message_type(decoded) == Some(4),
-        TunnResult::Err(WireGuardError::InvalidPacket) => is_padded_keepalive(decoded, awg_active),
-        TunnResult::Err(_) => false,
     }
 }
 
@@ -758,43 +733,117 @@ mod tests {
         assert_eq!(delivered.expect("the queued packet must follow the handshake"), ip_packet);
     }
 
-    #[test]
-    fn only_boringtun_authenticated_transport_may_teach_the_udp_window() {
-        let mut transport = [0u8; MIN_AUTHENTICATED_TRANSPORT];
-        transport[0] = 4;
-        assert!(!authenticated_by_boringtun(&TunnResult::Err(WireGuardError::InvalidAeadTag), &transport, true));
-        assert!(!authenticated_by_boringtun(&TunnResult::Err(WireGuardError::DuplicateCounter), &transport, true));
-        assert!(!authenticated_by_boringtun(&TunnResult::Err(WireGuardError::NoCurrentSession), &transport, true));
-        assert!(authenticated_by_boringtun(&TunnResult::Done, &transport, true));
-        assert!(authenticated_by_boringtun(&TunnResult::Err(WireGuardError::InvalidPacket), &transport, true));
-        assert!(!authenticated_by_boringtun(&TunnResult::Err(WireGuardError::InvalidPacket), &transport, false));
-        assert!(!authenticated_by_boringtun(&TunnResult::Err(WireGuardError::InvalidPacket), &[1, 0, 0, 0], true));
-        assert!(
-            !authenticated_by_boringtun(
-                &TunnResult::Err(WireGuardError::InvalidPacket),
-                &[4, 0, 0, 0, 1, 0, 0, 0],
-                true
-            ),
-            "a short transport fails before AEAD and must not count as authenticated",
-        );
-        let mut cookie = [0u8; 64];
-        cookie[0] = 3;
-        assert!(
-            !authenticated_by_boringtun(&TunnResult::Done, &cookie, true),
-            "a forgeable cookie reply is not traffic"
-        );
+    /// # Cancel safety:
+    /// NOT cancel-safe: the test owns a receive task and aborts it after the bounded exchange.
+    #[tokio::test]
+    async fn only_valid_authenticated_transport_changes_the_wire_padding_window() {
+        for (empty, corrupt, expected_length) in [(false, false, 500), (true, true, 500), (true, false, 1216)] {
+            let config = WarpAmneziaConfig {
+                enabled: true,
+                v3: crate::config::AwgV3Config { content_padding_addition: "1000".into(), ..Default::default() },
+                ..Default::default()
+            };
+            let (tunnel, socket, mut peer) = tunnel_and_peer_with_config(config).await;
+            let bus = Bus::new();
+            let mut events = bus.new_endpoint();
+            let consumer = {
+                let tunnel = tunnel.clone();
+                tokio::spawn(async move { tunnel.consume_task(bus).await })
+            };
+            let result = tokio::time::timeout(Duration::from_secs(2), async {
+                tunnel.initiate_handshake().await.unwrap();
+                answer_initiation(&socket, &mut peer, |_| {}).await;
+                let mut datagram = [0; 2048];
+                let mut plaintext = [0; 2048];
+                let (size, client) = socket.recv_from(&mut datagram).await.unwrap();
+                assert!(matches!(peer.decapsulate(None, &datagram[..size], &mut plaintext), TunnResult::Done));
+                let payload = vec![if empty { 0 } else { 1 }; 1200];
+                let TunnResult::WriteToNetwork(packet) = peer.encapsulate(&payload, &mut datagram) else {
+                    panic!("candidate")
+                };
+                if corrupt {
+                    *packet.last_mut().unwrap() ^= 1;
+                }
+                socket.send_to(packet, client).await.unwrap();
+                // A following authenticated IP packet marks receive-loop progress without growing the window.
+                let marker = [0x45, 0, 0, 20, 0, 0, 0, 0, 64, 17, 0, 0, 1, 1, 1, 1, 10, 77, 0, 2];
+                let TunnResult::WriteToNetwork(packet) = peer.encapsulate(&marker, &mut datagram) else {
+                    panic!("marker")
+                };
+                socket.send_to(packet, client).await.unwrap();
+                let Event::InboundInternetPacket(_, received) = events.recv().await else { panic!("IP event") };
+                assert_eq!(received.as_ref(), marker);
+                let mut ip = vec![0; 400];
+                ip[..20].copy_from_slice(&marker);
+                ip[2..4].copy_from_slice(&400u16.to_be_bytes());
+                tunnel.send_ip_packet(&ip, &mut datagram).await;
+                let (size, _) = socket.recv_from(&mut datagram).await.unwrap();
+                assert_eq!(size, expected_length, "empty={empty}, corrupt={corrupt}");
+            })
+            .await;
+            consumer.abort();
+            result.expect("typed receive outcome controls the real wire length");
+        }
+    }
+
+    /// # Cancel safety:
+    /// cancel-safe: the test owns its peers; no task or carrier operation is started.
+    #[tokio::test]
+    async fn fresh_responder_waits_for_valid_transport_before_publishing_readiness() {
+        let (tunnel, _, mut initiator) =
+            tunnel_and_peer_with_config(WarpAmneziaConfig { enabled: true, ..Default::default() }).await;
+        let mut first = [0; 512];
+        let mut second = [0; 512];
+        let TunnResult::WriteToNetwork(init) = initiator.format_handshake_initiation(&mut first, false) else {
+            panic!("init")
+        };
+        let mut responder = tunnel.peer.lock().await;
+        let (TunnResult::WriteToNetwork(response), outcome) =
+            responder.decapsulate_with_outcome(None, init, &mut second)
+        else {
+            panic!("response")
+        };
+        assert_eq!(outcome, ReceiveOutcome::HandshakeInitiation);
+        tunnel.handshake_readiness.observe(outcome);
+        assert!(!tunnel.is_handshake_established());
+        let TunnResult::WriteToNetwork(confirm) = initiator.decapsulate(None, response, &mut first) else {
+            panic!("confirm")
+        };
+        let confirm = confirm.to_vec();
+        let TunnResult::WriteToNetwork(malformed) = initiator.encapsulate(&[1; 120], &mut first) else {
+            panic!("malformed")
+        };
+        let (result, outcome) = responder.decapsulate_with_outcome(None, malformed, &mut second);
+        assert!(matches!(result, TunnResult::Err(WireGuardError::InvalidPacket)));
+        assert_eq!(outcome, ReceiveOutcome::TransportMalformed);
+        tunnel.handshake_readiness.observe(outcome);
+        assert!(!tunnel.is_handshake_established());
+        assert!(responder.time_since_last_handshake().is_none());
+        let (result, outcome) = responder.decapsulate_with_outcome(None, &confirm, &mut second);
+        assert!(matches!(result, TunnResult::Done));
+        assert_eq!(outcome, ReceiveOutcome::TransportEmpty);
+        tunnel.handshake_readiness.observe(outcome);
+        assert!(tunnel.is_handshake_established());
+        assert!(responder.time_since_last_handshake().is_some());
     }
 
     #[test]
-    fn handshake_readiness_only_accepts_an_authenticated_response() {
-        let readiness = HandshakeReadiness::default();
-        assert!(!readiness.is_established());
-
-        readiness.observe_authenticated_packet(&[1, 0, 0, 0]);
-        readiness.observe_authenticated_packet(&[2, 0, 0]);
-        assert!(!readiness.is_established(), "an initiation or truncated header cannot publish readiness");
-
-        readiness.observe_authenticated_packet(&[2, 0, 0, 0]);
-        assert!(readiness.is_established(), "a response accepted by boringtun publishes readiness");
+    fn handshake_readiness_requires_peer_proof_from_backend() {
+        for accepted in [ReceiveOutcome::HandshakeResponse, ReceiveOutcome::TransportEmpty, ReceiveOutcome::TransportIp]
+        {
+            let readiness = HandshakeReadiness::default();
+            for rejected in [
+                ReceiveOutcome::Rejected,
+                ReceiveOutcome::CookieChallenge,
+                ReceiveOutcome::CookieAccepted,
+                ReceiveOutcome::HandshakeInitiation,
+                ReceiveOutcome::TransportMalformed,
+            ] {
+                readiness.observe(rejected);
+                assert!(!readiness.is_established());
+            }
+            readiness.observe(accepted);
+            assert!(readiness.is_established());
+        }
     }
 }

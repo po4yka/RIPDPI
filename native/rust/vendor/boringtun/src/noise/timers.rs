@@ -88,12 +88,18 @@ mod awg_tests {
     }
 
     fn established(config: AwgTimerConfig) -> (Tunn, Tunn) {
+        established_with_policy(Some(config))
+    }
+
+    fn established_with_policy(config: Option<AwgTimerConfig>) -> (Tunn, Tunn) {
         let a_key = StaticSecret::from([7; 32]);
         let b_key = StaticSecret::from([9; 32]);
         let mut a = Tunn::new(a_key.clone(), PublicKey::from(&b_key), None, None, 0, None);
         let mut b = Tunn::new(b_key, PublicKey::from(&a_key), None, None, 1, None);
-        a.set_awg_timer_config(config).unwrap();
-        b.set_awg_timer_config(config).unwrap();
+        if let Some(config) = config {
+            a.set_awg_timer_config(config).unwrap();
+            b.set_awg_timer_config(config).unwrap();
+        }
         let mut first = [0; 512];
         let mut second = [0; 512];
         let TunnResult::WriteToNetwork(init) = a.format_handshake_initiation(&mut first, false)
@@ -451,6 +457,162 @@ mod awg_tests {
             1,
             "buffer failure must not consume nonce"
         );
+    }
+
+    #[test]
+    fn malformed_ipv4_total_length_is_not_an_authenticated_ip_payload() {
+        let (mut a, mut b) = established(AwgTimerConfig::default());
+        let mut first = [0; 256];
+        let mut second = [0; 256];
+        let mut malformed = ip();
+        malformed[3] = 0;
+        let TunnResult::WriteToNetwork(packet) = a.encapsulate(&malformed, &mut first) else {
+            panic!("encrypted malformed")
+        };
+        assert!(matches!(
+            b.decapsulate(None, packet, &mut second),
+            TunnResult::Err(WireGuardError::InvalidPacket)
+        ));
+    }
+
+    #[test]
+    fn receive_outcomes_separate_empty_malformed_ip_corruption_and_replay() {
+        use crate::noise::ReceiveOutcome as O;
+        let mut short_v4 = ip();
+        short_v4[3] = 0;
+        let mut bad_ihl = ip();
+        bad_ihl[0] = 0x44;
+        let mut long_ihl = ip();
+        long_ihl[0] = 0x4f;
+        let mut v6 = [0; 40];
+        v6[0] = 0x60;
+        let mut short_v6 = v6;
+        short_v6[5] = 1;
+        for (plaintext, expected) in [
+            (vec![], O::TransportEmpty),
+            (vec![0; 120], O::TransportEmpty),
+            (vec![1; 120], O::TransportMalformed),
+            (short_v4.to_vec(), O::TransportMalformed),
+            (bad_ihl.to_vec(), O::TransportMalformed),
+            (long_ihl.to_vec(), O::TransportMalformed),
+            (short_v6.to_vec(), O::TransportMalformed),
+            (ip().to_vec(), O::TransportIp),
+            (v6.to_vec(), O::TransportIp),
+        ] {
+            let (mut a, mut b) = established(AwgTimerConfig::default());
+            let mut first = [0; 512];
+            let mut second = [0; 512];
+            let TunnResult::WriteToNetwork(packet) = a.encapsulate(&plaintext, &mut first) else {
+                panic!("ciphertext")
+            };
+            let before = b.timers[TimeLastPacketReceived];
+            let now = b.timers[TimeCurrent] + Duration::from_secs(1);
+            b.timers[TimeCurrent] = now;
+            let mut corrupt = packet.to_vec();
+            *corrupt.last_mut().unwrap() ^= 1;
+            let (result, outcome) = b.decapsulate_with_outcome(None, &corrupt, &mut second);
+            assert!(matches!(
+                result,
+                TunnResult::Err(WireGuardError::InvalidAeadTag)
+            ));
+            assert_eq!(outcome, O::Rejected);
+            assert_eq!(b.timers[TimeLastPacketReceived], before);
+            let (result, outcome) = b.decapsulate_with_outcome(None, packet, &mut second);
+            assert_eq!(outcome, expected);
+            match expected {
+                O::TransportEmpty => assert!(matches!(result, TunnResult::Done)),
+                O::TransportIp => assert!(matches!(
+                    result,
+                    TunnResult::WriteToTunnelV4(..) | TunnResult::WriteToTunnelV6(..)
+                )),
+                O::TransportMalformed => assert!(matches!(
+                    result,
+                    TunnResult::Err(WireGuardError::InvalidPacket)
+                )),
+                _ => unreachable!(),
+            }
+            assert_eq!(
+                b.rx_bytes,
+                if expected == O::TransportIp {
+                    plaintext.len()
+                } else {
+                    0
+                }
+            );
+            assert_eq!(
+                b.timers[TimeLastPacketReceived],
+                if expected == O::TransportMalformed {
+                    before
+                } else {
+                    now
+                }
+            );
+            let (result, outcome) = b.decapsulate_with_outcome(None, packet, &mut second);
+            assert!(matches!(
+                result,
+                TunnResult::Err(WireGuardError::DuplicateCounter)
+            ));
+            assert_eq!(
+                outcome,
+                O::Rejected,
+                "even malformed authenticated plaintext consumes replay counter"
+            );
+        }
+    }
+
+    #[test]
+    fn ciphertext_from_another_key_is_not_peer_proof_and_does_not_consume_replay() {
+        use crate::noise::ReceiveOutcome as O;
+        let (mut a, mut b) = established(AwgTimerConfig::default());
+        let (mut unrelated, _) = established(AwgTimerConfig::default());
+        let mut first = [0; 256];
+        let mut second = [0; 256];
+        let mut out = [0; 256];
+        let TunnResult::WriteToNetwork(valid) = a.encapsulate(&ip(), &mut first) else {
+            panic!("valid")
+        };
+        let TunnResult::WriteToNetwork(wrong_key) = unrelated.encapsulate(&ip(), &mut second)
+        else {
+            panic!("wrong key")
+        };
+        // Target the right session index, but retain ciphertext encrypted under unrelated ephemeral keys.
+        wrong_key[..8].copy_from_slice(&valid[..8]);
+        assert_eq!(
+            b.decapsulate_with_outcome(None, wrong_key, &mut out).1,
+            O::Rejected
+        );
+        assert_eq!(
+            b.decapsulate_with_outcome(None, valid, &mut out).1,
+            O::TransportIp
+        );
+    }
+
+    #[test]
+    fn ordinary_wireguard_keeps_valid_traffic_but_rejects_malformed_ip_without_timer_refresh() {
+        let (mut a, mut b) = established_with_policy(None);
+        let mut first = [0; 256];
+        let mut second = [0; 256];
+        let before = b.timers[TimeLastPacketReceived];
+        b.timers[TimeCurrent] = before + Duration::from_secs(1);
+        let mut malformed = ip();
+        malformed[3] = 0;
+        let TunnResult::WriteToNetwork(packet) = a.encapsulate(&malformed, &mut first) else {
+            panic!("malformed")
+        };
+        assert_eq!(
+            b.decapsulate_with_outcome(None, packet, &mut second).1,
+            crate::noise::ReceiveOutcome::TransportMalformed
+        );
+        assert_eq!(b.timers[TimeLastPacketReceived], before);
+        let TunnResult::WriteToNetwork(packet) = a.encapsulate(&ip(), &mut first) else {
+            panic!("valid")
+        };
+        let (TunnResult::WriteToTunnelV4(delivered, _), crate::noise::ReceiveOutcome::TransportIp) =
+            b.decapsulate_with_outcome(None, packet, &mut second)
+        else {
+            panic!("IP delivery")
+        };
+        assert_eq!(delivered, ip());
     }
 
     #[test]
