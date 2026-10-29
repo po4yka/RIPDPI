@@ -62,9 +62,6 @@ object SingBoxDeepLinkParser {
     private const val HIDDIFY_PATH_IMPORT_HOST = "import"
     private const val BOOTSTRAP_PATH_PREFIX = "/bootstrap/"
 
-    /** Schemes this parser can accept; the manifest registers the same set. */
-    val supportedSchemes: Set<String> get() = SUPPORTED_HOSTS.keys
-
     /**
      * Parses [deepLink] into a [SingBoxDeepLinkResult]. Never throws: malformed
      * percent-encoding yields [SingBoxDeepLinkResult.Error.BadEncoding], a missing `url=`

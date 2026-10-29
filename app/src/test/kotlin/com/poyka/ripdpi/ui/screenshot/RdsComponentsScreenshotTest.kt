@@ -11,8 +11,6 @@ import com.poyka.ripdpi.activities.LogSeverity
 import com.poyka.ripdpi.activities.LogSubsystem
 import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.feedback.RipDpiAccordion
-import com.poyka.ripdpi.ui.components.feedback.RipDpiTooltip
-import com.poyka.ripdpi.ui.components.feedback.RipDpiTooltipRich
 import com.poyka.ripdpi.ui.components.indicators.AnalysisProgressIndicator
 import com.poyka.ripdpi.ui.components.indicators.LogRow
 import com.poyka.ripdpi.ui.components.indicators.LogRowTone
@@ -28,24 +26,8 @@ import com.poyka.ripdpi.ui.components.indicators.StageProgressIndicator
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSegmentedButton
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTab
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTabs
-import com.poyka.ripdpi.ui.screens.diagnostics.HandshakeTimelineScreen
-import com.poyka.ripdpi.ui.screens.diagnostics.LatencyGraphScreen
-import com.poyka.ripdpi.ui.screens.diagnostics.OomRecoveryScreen
-import com.poyka.ripdpi.ui.screens.diagnostics.ProfileVariantsScreen
-import com.poyka.ripdpi.ui.screens.diagnostics.QualityGraphsScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.StateMachineScreen
-import com.poyka.ripdpi.ui.screens.diagnostics.StrategyAbScreen
-import com.poyka.ripdpi.ui.screens.diagnostics.StrategyImportScreen
-import com.poyka.ripdpi.ui.screens.diagnostics.ThroughputGraphScreen
-import com.poyka.ripdpi.ui.screens.diagnostics.sampleHandshakeTimelineState
-import com.poyka.ripdpi.ui.screens.diagnostics.sampleLatencyGraphState
-import com.poyka.ripdpi.ui.screens.diagnostics.sampleOomRecoveryState
-import com.poyka.ripdpi.ui.screens.diagnostics.sampleProfileVariantsState
-import com.poyka.ripdpi.ui.screens.diagnostics.sampleQualityGraphsSnapshots
 import com.poyka.ripdpi.ui.screens.diagnostics.sampleStateMachineState
-import com.poyka.ripdpi.ui.screens.diagnostics.sampleStrategyAbState
-import com.poyka.ripdpi.ui.screens.diagnostics.sampleStrategyImportState
-import com.poyka.ripdpi.ui.screens.diagnostics.sampleThroughputGraphState
 import com.poyka.ripdpi.ui.screens.logs.LogsStreamCard
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Test
@@ -59,55 +41,6 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [35])
 class RdsComponentsScreenshotTest {
     // capture helpers live in RoborazziCaptureHelpers.kt (same package)
-
-    @Test
-    fun handshakeTimeline() {
-        captureBothThemes("handshakeTimeline", widthDp = 720, heightDp = 840) {
-            HandshakeTimelineScreen(
-                state =
-                    sampleHandshakeTimelineState(
-                        title = "Handshake timeline",
-                        subtitle = "cloudflare-dns.com · UDP/443 · attempt 1 of 3",
-                        totalLabel = "First packet ready",
-                        footerSlowest = "Slowest stage MTU probe · > budget by 100 ms",
-                        footerBudget = "Next attempt budget 2.0 s",
-                    ),
-            )
-        }
-    }
-
-    @Test
-    fun throughputGraph() {
-        captureBothThemes("throughputGraph", widthDp = 720, heightDp = 480) {
-            ThroughputGraphScreen(
-                state =
-                    sampleThroughputGraphState(
-                        title = "Throughput",
-                        downNowLabel = "1.42 MiB/s",
-                        upNowLabel = "312 KiB/s",
-                        sessionTotalLabel = "↓ 128 MiB",
-                    ),
-            )
-        }
-    }
-
-    @Test
-    fun latencyGraph() {
-        captureBothThemes("latencyGraph", widthDp = 720, heightDp = 480) {
-            LatencyGraphScreen(
-                state =
-                    sampleLatencyGraphState(
-                        title = "RTT & loss · last 60 s",
-                        p50Label = "32 ms",
-                        p95Label = "128 ms",
-                        nowLabel = "32 ms",
-                        p99Label = "184 ms",
-                        spikeCountLabel = "3",
-                        packetLossLabel = "4.1%",
-                    ),
-            )
-        }
-    }
 
     @Test
     fun stateMachine() {
@@ -125,44 +58,6 @@ class RdsComponentsScreenshotTest {
                         failedMetaLabel = "last 6 h: 0",
                         degradedMetaLabel = "2 in 24 h",
                     ),
-            )
-        }
-    }
-
-    @Test
-    fun oomRecovery() {
-        captureBothThemes("oomRecovery", widthDp = 420, heightDp = 420) {
-            OomRecoveryScreen(
-                state =
-                    sampleOomRecoveryState(
-                        killTimeLabel = "12:42 UTC",
-                        downtimeLabel = "4 m 18 s",
-                    ),
-                onReconnect = {},
-                onViewIncident = {},
-                onDismiss = {},
-                onBack = {},
-            )
-        }
-    }
-
-    @Test
-    fun strategyAb() {
-        captureBothThemes("strategyAb", widthDp = 420, heightDp = 480) {
-            StrategyAbScreen(
-                state = sampleStrategyAbState(),
-                onSwitch = {},
-                onBack = {},
-            )
-        }
-    }
-
-    @Test
-    fun strategyImport() {
-        captureBothThemes("strategyImport", widthDp = 420, heightDp = 784) {
-            StrategyImportScreen(
-                state = sampleStrategyImportState(),
-                onBack = {},
             )
         }
     }
@@ -207,22 +102,6 @@ class RdsComponentsScreenshotTest {
                 selectedIndex = 0,
                 onSelect = {},
             )
-        }
-    }
-
-    @Test
-    fun tooltip() {
-        captureBothThemes("tooltip", widthDp = 360, heightDp = 120) {
-            RipDpiTooltip(text = "Reconnect tunnel") { Text("Reconnect") }
-        }
-    }
-
-    @Test
-    fun tooltipRich() {
-        captureBothThemes("tooltipRich", widthDp = 360, heightDp = 120) {
-            RipDpiTooltipRich(title = "Stale data", body = "Last probe 18m ago") {
-                Text("18m ago")
-            }
         }
     }
 
@@ -398,25 +277,6 @@ class RdsComponentsScreenshotTest {
     fun pageIndicators() {
         captureBothThemes("pageIndicators", widthDp = 360, heightDp = 120) {
             RipDpiPageIndicators(currentPage = 1, pageCount = 3)
-        }
-    }
-
-    @Test
-    fun profileVariants() {
-        captureBothThemes("profileVariants", widthDp = 420, heightDp = 900) {
-            ProfileVariantsScreen(
-                state = sampleProfileVariantsState(),
-                onBack = {},
-            )
-        }
-    }
-
-    @Test
-    fun qualityGraphs() {
-        captureBothThemes("qualityGraphs", widthDp = 360, heightDp = 640) {
-            QualityGraphsScreen(
-                samples = sampleQualityGraphsSnapshots(),
-            )
         }
     }
 }

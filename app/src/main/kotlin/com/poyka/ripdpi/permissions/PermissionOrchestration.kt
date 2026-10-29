@@ -59,19 +59,6 @@ data class PermissionSnapshot(
             PermissionKind.Notifications -> notifications
             PermissionKind.BatteryOptimization -> batteryOptimization
         }
-
-    fun withStatus(
-        kind: PermissionKind,
-        status: PermissionStatus,
-    ): PermissionSnapshot =
-        when (kind) {
-            PermissionKind.LocalNetwork -> copy(localNetwork = status)
-            PermissionKind.VpnConsent -> copy(vpnConsent = status)
-            PermissionKind.AlwaysOnVpn -> copy(alwaysOnVpn = status)
-            PermissionKind.VpnLockdown -> copy(vpnLockdown = status)
-            PermissionKind.Notifications -> copy(notifications = status)
-            PermissionKind.BatteryOptimization -> copy(batteryOptimization = status)
-        }
 }
 
 sealed interface PermissionAction {

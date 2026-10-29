@@ -11,11 +11,6 @@ const val DnsProviderCatalogSchemaVersion = 1
 /** Default port shared by every bundled encrypted resolver (DoH/DoT/DoQ over 443). */
 private const val DnsProviderCatalogDefaultPort = 443
 
-/** Coarse, advisory TSPU-risk hints used purely for UI annotation — never a network-scope input. */
-const val DnsProviderTspuRiskHigh = "high"
-const val DnsProviderTspuRiskLowMedium = "low-medium"
-const val DnsProviderTspuRiskDomestic = "domestic"
-
 /**
  * Machine-readable filtering / logging facts for a catalog entry, derived from the curated
  * human-readable filtering note. Absent fields default to the conservative interpretation

@@ -144,15 +144,3 @@ internal fun ruleSummaryCounts(rule: RuleEntity): RuleSummaryCounts =
         apps = rule.packages.size,
         network = rule.network,
     )
-
-/**
- * True when every matcher field on [rule] is empty — such a rule cannot be saved (the outbound
- * action is not a matcher, so it is intentionally excluded from this check).
- */
-internal fun RuleEntity.hasNoMatchers(): Boolean =
-    domains.isBlank() &&
-        ipCidrs.isBlank() &&
-        ports.isBlank() &&
-        sourcePorts.isBlank() &&
-        processName.isBlank() &&
-        packages.isEmpty()

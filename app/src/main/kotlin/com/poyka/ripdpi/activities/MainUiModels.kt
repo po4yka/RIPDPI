@@ -118,9 +118,6 @@ data class MainUiState(
 
     val isConnected: Boolean
         get() = connectionState == ConnectionState.Connected
-
-    val isConnecting: Boolean
-        get() = connectionState == ConnectionState.Connecting
 }
 
 internal fun shouldStopLocalBypassToggle(state: MainUiState): Boolean =

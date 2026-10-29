@@ -215,30 +215,6 @@ internal object DiagnosticsReportPersister {
         }
     }
 
-    suspend fun persistServiceNativeEvents(
-        serviceTelemetry: com.poyka.ripdpi.data.ServiceTelemetrySnapshot,
-        artifactWriteStore: DiagnosticsArtifactWriteStore,
-    ) {
-        (serviceTelemetry.proxyTelemetry.nativeEvents + serviceTelemetry.tunnelTelemetry.nativeEvents)
-            .forEach { event ->
-                artifactWriteStore.insertNativeSessionEvent(
-                    NativeSessionEventEntity(
-                        id = UUID.randomUUID().toString(),
-                        sessionId = null,
-                        source = event.source,
-                        level = event.level,
-                        message = event.message,
-                        createdAt = event.createdAt,
-                        runtimeId = event.runtimeId,
-                        mode = event.mode,
-                        policySignature = event.policySignature,
-                        fingerprintHash = event.fingerprintHash,
-                        subsystem = event.subsystem,
-                    ),
-                )
-            }
-    }
-
     private suspend fun bridgeEventsToHistory(
         report: EngineScanReportWire,
         artifactWriteStore: DiagnosticsArtifactWriteStore,

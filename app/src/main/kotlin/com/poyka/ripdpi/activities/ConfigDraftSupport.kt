@@ -239,17 +239,6 @@ data class ConfigDraft(
             desyncMethod = parsed?.let { primaryDesyncMethod(it.tcpSteps) } ?: desyncMethod,
         )
     }
-
-    fun withStrategyChain(
-        tcpSteps: List<TcpChainStepModel>,
-        udpSteps: List<UdpChainStepModel>,
-    ): ConfigDraft =
-        copy(
-            tcpChainSteps = tcpSteps.toImmutableList(),
-            udpChainSteps = udpSteps.toImmutableList(),
-            chainDsl = formatStrategyChainDsl(tcpSteps, udpSteps),
-            desyncMethod = primaryDesyncMethod(tcpSteps),
-        )
 }
 
 internal object TcpChainStepImmutableListSerializer : KSerializer<ImmutableList<TcpChainStepModel>> {

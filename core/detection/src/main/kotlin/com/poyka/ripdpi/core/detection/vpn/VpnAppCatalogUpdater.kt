@@ -4,7 +4,6 @@ import android.content.Context
 import com.poyka.ripdpi.core.detection.VpnAppKind
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.encodeToString
 
 @Serializable
 data class RemoteVpnAppEntry(
@@ -29,20 +28,6 @@ object VpnAppCatalogUpdater {
         } catch (_: Exception) {
             emptyList()
         }
-    }
-
-    fun saveExtraEntries(
-        context: Context,
-        entries: List<RemoteVpnAppEntry>,
-    ) {
-        val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-        prefs.edit().putString(KEY_EXTRA_ENTRIES, json.encodeToString(entries)).apply()
-    }
-
-    fun mergedSignatures(context: Context): List<VpnAppSignature> {
-        val extra = loadExtraEntries(context)
-        val builtinNames = VpnAppCatalog.knownPackageNames
-        return VpnAppCatalog.signatures + extra.filter { it.packageName !in builtinNames }
     }
 
     private fun RemoteVpnAppEntry.toSignature(): VpnAppSignature =

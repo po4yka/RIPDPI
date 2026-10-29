@@ -18,7 +18,6 @@ const val WarpAmneziaPresetCustom = "custom"
 
 // Backward-compatible aliases for older persisted values.
 const val WarpAmneziaPresetBalanced = WarpAmneziaPresetQuicImitation
-const val WarpAmneziaPresetAggressive = WarpAmneziaPresetTlsImitation
 private val warpPayloadGenCatalogJson = RipDpiJson
 
 @Serializable

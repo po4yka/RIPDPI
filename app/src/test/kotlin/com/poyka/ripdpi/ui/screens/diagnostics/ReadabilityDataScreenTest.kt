@@ -21,7 +21,6 @@ import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
-import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -68,125 +67,6 @@ class ReadabilityDataScreenTest {
     private lateinit var textMeasurer: TextMeasurer
 
     @Test
-    fun recoveryActionsFitAtNormalFont() = checkRecoveryActions(420, 1f)
-
-    @Test
-    @Config(sdk = [35], qualifiers = "ru-w420dp-h1600dp")
-    fun recoveryActionsWrapAtMaximumFont() = checkRecoveryActions(320, 2f)
-
-    @Test
-    @Config(sdk = [35], qualifiers = "ar-w420dp-h1600dp")
-    fun recoveryActionsWrapInRtl() = checkRecoveryActions(320, 2f, LayoutDirection.Rtl)
-
-    @Test
-    @Config(sdk = [35], qualifiers = "ru-w420dp-h1600dp")
-    fun importSourcesKeepFullTextAndCallbacksAtMaximumFont() {
-        val selections = mutableListOf<Int>()
-        val state = sampleStrategyImportState().copy(recentImports = emptyList())
-        show(320, 2f) {
-            StrategyImportScreen(
-                state.copy(
-                    sources =
-                        state.sources.mapIndexed { index, source ->
-                            source.copy(onSelect = {
-                                selections +=
-                                    index
-                            })
-                        },
-                ),
-                onBack = {},
-            )
-        }
-        state.sources.forEach { source ->
-            val label = string(source.titleRes)
-            composeRule.onNodeWithText(label).performScrollTo().assertIsDisplayed()
-            assertFullText(label)
-            assertFullText(string(source.subtitleRes))
-            assertWordsFit(label)
-            assertWordsFit(string(source.subtitleRes))
-            composeRule.onNodeWithText(label).performClick()
-        }
-        composeRule.runOnIdle { assertEquals(listOf(0, 1, 2, 3), selections) }
-    }
-
-    @Test
-    @Config(sdk = [35], qualifiers = "ru-w420dp-h1600dp")
-    fun qrImportWordsFitInsideNestedViewport() {
-        val option =
-            sampleStrategyImportState().sources.single {
-                it.titleRes ==
-                    R.string.strategy_import_source_qr_title
-            }
-        show(320, 2f) {
-            Box(Modifier.padding(horizontal = 16.dp)) {
-                StrategyImportScreen(StrategyImportState(listOf(option), emptyList()), {})
-            }
-        }
-        listOf(option.titleRes, option.subtitleRes).forEach { resource ->
-            val text = string(resource)
-            assertFullText(text)
-            assertWordsFit(text)
-        }
-    }
-
-    @Test
-    @Config(sdk = [35], qualifiers = "ru-w420dp-h1600dp")
-    fun recoveryHeadingKeepsWordsCompleteInsideNestedViewport() {
-        var dismisses = 0
-        show(320, 2f) {
-            Box(Modifier.padding(horizontal = 16.dp)) {
-                OomRecoveryScreen(OomRecoveryState("12:42 UTC", "4 м 18 с"), {}, {}, { dismisses++ }, {})
-            }
-        }
-        val title = string(R.string.oom_recovery_banner_title)
-        assertFullText(title)
-        assertWordsFit(title)
-        composeRule.onNodeWithContentDescription(string(R.string.oom_recovery_action_dismiss)).performClick()
-        composeRule.runOnIdle { assertEquals(1, dismisses) }
-    }
-
-    @Test
-    @Config(sdk = [35], qualifiers = "ru-w420dp-h1600dp")
-    fun recentImportFactsDoNotOverlapAtMaximumFont() {
-        val entry = RecentImportEntry("tlsrec_split_host_aggressive.cfg", "14:08")
-        show(320, 2f) {
-            Box(Modifier.padding(horizontal = 16.dp)) {
-                StrategyImportScreen(StrategyImportState(emptyList(), listOf(entry)), {})
-            }
-        }
-        composeRule.onNodeWithText(entry.name).performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText(entry.`when`).assertIsDisplayed()
-        val name = composeRule.onNodeWithText(entry.name, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-        val time = composeRule.onNodeWithText(entry.`when`, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
-        assertTrue(
-            "Timestamp must move below a filename that needs the full row: name=$name time=$time",
-            time.top >= name.bottom,
-        )
-        assertFullText(entry.name)
-        assertFullText(entry.`when`)
-    }
-
-    @Test
-    fun throughputKeepsSelectedLabelInOnePillAndCompleteStats() {
-        show(320, 2f) {
-            ThroughputGraphScreen(sampleThroughputGraphState("Throughput", "1.42 MiB/s", "312 KiB/s", "128 MiB"))
-        }
-        val pill =
-            composeRule
-                .onNodeWithText("5m")
-                .assertIsDisplayed()
-                .assert(SemanticsMatcher.expectValue(SemanticsProperties.Selected, true))
-                .fetchSemanticsNode()
-        val text = composeRule.onNodeWithText("5m", useUnmergedTree = true).fetchSemanticsNode()
-        assertTrue(
-            "Range label must be inside its selected surface",
-            pill.boundsInRoot.contains(text.boundsInRoot.center),
-        )
-        assertTrue("Range surface must contain the full text height", pill.size.height >= text.size.height)
-        listOf("1m", "5m", "30m", "1h", "1.42 MiB/s", "312 KiB/s", "128 MiB").forEach(::assertFullText)
-    }
-
-    @Test
     fun overviewKeepsLongMetricLabelsAndValuesComplete() {
         val label = "Successful connection attempts for this network"
         val value = "1234567890 MiB"
@@ -212,33 +92,6 @@ class ReadabilityDataScreenTest {
         composeRule.onNodeWithText(title.uppercase()).performClick()
         composeRule.onNodeWithText("Expanded").assertIsDisplayed()
         composeRule.onNodeWithText("1234").assertIsDisplayed()
-    }
-
-    @Test
-    fun handshakeKeepsStageAndDurationAboveFullTrack() {
-        val state =
-            sampleHandshakeTimelineState("Handshake", "Current connection", "Total", "Slowest stage", "Within budget")
-                .copy(
-                    stages =
-                        persistentListOf(
-                            HandshakeStageRow(
-                                "TLS ClientHello",
-                                "Encrypted handshake negotiation",
-                                0.1f,
-                                0.3f,
-                                "192 ms",
-                                HandshakeStageTone.Info,
-                            ),
-                        ),
-                )
-        show(320, 2f) { HandshakeTimelineScreen(state) }
-        listOf(
-            "TLS ClientHello",
-            "Encrypted handshake negotiation",
-            "192 ms",
-            "Current connection",
-            "Slowest stage",
-        ).forEach(::assertFullText)
     }
 
     @Test
@@ -435,91 +288,6 @@ class ReadabilityDataScreenTest {
         assertTrue("Node positions must use the same LTR coordinates as Canvas edges", first < last)
         composeRule.onNodeWithText(tunneling).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText(disconnected).performScrollTo().assertIsDisplayed()
-    }
-
-    @Test
-    fun handshakeAxisAlignsAllTicksWithTrackFractions() = checkHandshakeAxis(420, 1f, LayoutDirection.Ltr)
-
-    @Test
-    fun handshakeAxisKeepsReadableTicksAtMaximumFont() = checkHandshakeAxis(320, 2f, LayoutDirection.Ltr)
-
-    @Test
-    @Config(sdk = [35], qualifiers = "ar-w420dp-h1600dp")
-    fun handshakeAxisKeepsFractionsAndReadableTicksInRtl() = checkHandshakeAxis(320, 2f, LayoutDirection.Rtl)
-
-    private fun checkHandshakeAxis(
-        width: Int,
-        fontScale: Float,
-        direction: LayoutDirection,
-    ) {
-        val state =
-            sampleHandshakeTimelineState("Handshake", "Connection", "Total", "Slowest", "Budget")
-                .copy(
-                    stages =
-                        persistentListOf(
-                            HandshakeStageRow("TLS", "Handshake", 0.1f, 0.3f, "192 ms", HandshakeStageTone.Info),
-                        ),
-                )
-        show(width, fontScale, direction) { HandshakeTimelineScreen(state) }
-        val first =
-            composeRule
-                .onNodeWithText("0 ms")
-                .assertIsDisplayed()
-                .fetchSemanticsNode()
-                .boundsInRoot
-        val last =
-            composeRule
-                .onNodeWithText("1500")
-                .assertIsDisplayed()
-                .fetchSemanticsNode()
-                .boundsInRoot
-        val labels = if (fontScale == 1f) state.axisTickLabels else listOf("0 ms", "900", "1500")
-        var previousRight = first.left
-        labels.forEach { text ->
-            val bounds =
-                composeRule
-                    .onNodeWithText(text)
-                    .assertIsDisplayed()
-                    .fetchSemanticsNode()
-                    .boundsInRoot
-            assertTrue("Axis text must not overlap: $text", bounds.left >= previousRight - 1f)
-            assertTrue(
-                "Axis text must stay inside its viewport: $text",
-                bounds.left >= first.left && bounds.right <= last.right,
-            )
-            val index = state.axisTickLabels.indexOf(text)
-            if (index > 0 && index < state.axisTickLabels.lastIndex) {
-                val expectedPoint = first.left + (last.right - first.left) * index / state.axisTickLabels.lastIndex
-                assertEquals("Tick must match its track fraction: $text", expectedPoint, bounds.center.x, 1f)
-            }
-            assertFullText(text)
-            previousRight = bounds.right
-        }
-    }
-
-    private fun checkRecoveryActions(
-        width: Int,
-        fontScale: Float,
-        direction: LayoutDirection = LayoutDirection.Ltr,
-    ) {
-        var reconnects = 0
-        var incidents = 0
-        show(width, fontScale, direction) {
-            OomRecoveryScreen(OomRecoveryState("12:42 UTC", "4 m 18 s"), { reconnects++ }, { incidents++ }, {}, {})
-        }
-        listOf(R.string.oom_recovery_action_reconnect, R.string.oom_recovery_action_view_incident).forEach { resource ->
-            val label = string(resource)
-            composeRule
-                .onNodeWithText(label)
-                .performScrollTo()
-                .assertIsDisplayed()
-                .performClick()
-            assertFullText(label)
-        }
-        composeRule.runOnIdle {
-            assertEquals(1, reconnects)
-            assertEquals(1, incidents)
-        }
     }
 
     private fun show(

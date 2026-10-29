@@ -80,20 +80,6 @@ internal fun diagnosticsArchiveSaveFeedback(
     )
 }
 
-internal fun diagnosticsArchiveShareFeedback(
-    error: Throwable,
-    context: DiagnosticsExportSupportContext = DiagnosticsExportSupportContext.current(),
-): DiagnosticsExportFeedback =
-    buildDiagnosticsExportFeedback(
-        error = error,
-        context = context,
-        operation = "diagnostics_archive_share",
-        stage = "archive_prepare",
-        cleanup = "not_applicable",
-        messageRes = R.string.home_diagnostics_share_failed,
-        fallbackSupportCode = DiagnosticsExportSupportCodes.ArchiveIo,
-    )
-
 private fun buildDiagnosticsExportFeedback(
     error: Throwable,
     context: DiagnosticsExportSupportContext,

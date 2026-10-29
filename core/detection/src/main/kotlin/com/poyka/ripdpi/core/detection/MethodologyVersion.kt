@@ -2,10 +2,6 @@ package com.poyka.ripdpi.core.detection
 
 object MethodologyVersion {
     const val CURRENT = "2026-04-mincifry-v1"
-    const val DESCRIPTION =
-        "Based on Russian Ministry of Digital Development methodology " +
-            "for detecting VPN/proxy circumvention tools. " +
-            "Extended with DNS leak, WebRTC leak, and TLS fingerprint checks."
     const val CHECKER_COUNT = 8
 
     fun summary(): String =

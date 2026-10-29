@@ -9,7 +9,6 @@ import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.core.detection.NativeSignsResult
 import org.json.JSONObject
-import java.io.File
 import java.net.NetworkInterface
 
 data class NativeSignsSnapshot(
@@ -225,55 +224,6 @@ class JniNativeSignsBridge : NativeSignsBridge {
     }
 
     private external fun jniSnapshot(): String?
-}
-
-class ProcfsNativeSignsBridge : NativeSignsBridge {
-    override fun snapshot(): NativeSignsSnapshot =
-        NativeSignsSnapshot(
-            nativeInterfaces = procNetDevices(),
-            mapsLines = readLines("/proc/self/maps"),
-            mountsLines = readLines("/proc/mounts"),
-            rootArtifacts = rootArtifacts(),
-            selinuxMode = selinuxMode(),
-        )
-
-    private fun procNetDevices(): List<String> =
-        readLines("/proc/net/dev")
-            .drop(2)
-            .mapNotNull { line -> line.substringBefore(':').trim().takeIf(String::isNotBlank) }
-
-    private fun rootArtifacts(): List<String> =
-        buildList {
-            val path = System.getenv("PATH")
-            path
-                .orEmpty()
-                .split(File.pathSeparator)
-                .map { File(it, "su") }
-                .filter(File::exists)
-                .forEach { add(it.path) }
-            RootArtifactPaths.filter { File(it).exists() }.forEach(::add)
-        }
-
-    private fun selinuxMode(): String? =
-        when (readText("/sys/fs/selinux/enforce")?.trim()) {
-            "0" -> "permissive"
-            "1" -> "enforcing"
-            else -> null
-        }
-
-    private fun readLines(path: String): List<String> = readText(path)?.lineSequence()?.toList().orEmpty()
-
-    private fun readText(path: String): String? = runCatching { File(path).readText() }.getOrNull()
-
-    private companion object {
-        val RootArtifactPaths =
-            listOf(
-                "/data/adb/magisk",
-                "/data/adb/ksu",
-                "/data/adb/ap",
-                "/data/adb/modules",
-            )
-    }
 }
 
 private fun JSONObject.toNativeSignsSnapshot(): NativeSignsSnapshot =

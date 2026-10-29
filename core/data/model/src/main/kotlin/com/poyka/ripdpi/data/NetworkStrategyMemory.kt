@@ -16,7 +16,6 @@ const val RememberedNetworkPolicyProofDurationMs = 60_000L
 const val RememberedNetworkPolicyProofTransferBytes = 256L * 1024L
 const val RememberedNetworkPolicySuppressionDurationMs = 24L * 60L * 60L * 1_000L
 const val RememberedNetworkPolicyRetentionLimit = 64
-const val LegacyRememberedNetworkPolicySourceStrategyProbe = "strategy_probe"
 
 @Serializable
 enum class RememberedNetworkPolicySource(

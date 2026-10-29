@@ -68,17 +68,6 @@ class DiagnosticsArchiveFileStore(
 
     internal fun deleteArchive(file: File) = deleteVerified(file)
 
-    internal fun getRecentPcapFiles(maxFiles: Int = 3): List<File> {
-        val pcapDir = pcapDirectory
-        if (!pcapDir.exists()) return emptyList()
-        return pcapDir
-            .listFiles()
-            .orEmpty()
-            .filter { it.isFile && it.extension == "pcap" }
-            .sortedByDescending { it.lastModified() }
-            .take(maxFiles)
-    }
-
     suspend fun cleanupPcapFiles() =
         withCaptureStorageLock { activeCaptureSetId ->
             val pcapDir = pcapDirectory

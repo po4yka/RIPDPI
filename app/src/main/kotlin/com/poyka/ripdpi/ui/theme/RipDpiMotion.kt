@@ -195,99 +195,11 @@ data class RipDpiMotion(
 
     // === Connection-state actuator motion fingerprints (motion-connection-states.html) ===
 
-    /**
-     * Concentric ring expansion for the Connecting state.
-     * Inset → scale(1.4), opacity 0.7 → 0, 2 s `StandardEasing`, infinite, restart.
-     * Animate a Float 0f → 1f and use it to drive both `scale` (1.0 + 0.4*t) and
-     * `alpha` (0.7 * (1 - t)).
-     */
-    fun connectRingSpec(): InfiniteRepeatableSpec<Float> =
-        infiniteRepeatable(
-            animation = tween(durationMillis = 2_000, easing = StandardEasing),
-            repeatMode = RepeatMode.Restart,
-        )
-
     // === Data-ticker motion (motion-data-ticker.html) ===
-
-    /**
-     * Sliding-digit ticker for live metered values (KB/s, RTT, etc.).
-     * 320 ms `EmphasizedDecelerate`, one-shot per digit change. Each digit
-     * column animates its translationY between the value rows. The 320 ms
-     * matches the spec card's `cubic-bezier(0.05, 0.7, 0.1, 1)` decelerate.
-     */
-    fun digitSlideSpec(): TweenSpec<Float> =
-        tween(durationMillis = duration(emphasizedDurationMillis), easing = EmphasizedDecelerate)
-
-    /**
-     * Countdown bar for known-duration affordances (reconnect, snooze, probe).
-     * Linear easing — the user reads remaining time, so the visual rate must
-     * match clock time. The caller supplies the total countdown duration.
-     */
-    fun countdownSpec(totalMillis: Int): TweenSpec<Float> =
-        tween(durationMillis = duration(totalMillis), easing = LinearEasing)
 
     // === Page-transition motion (motion-page-transitions.html) ===
 
-    /**
-     * Child page enters from the right (push). Drives translationX from
-     * 1.0f (off-screen right, screen-width units) to 0f. 320 ms
-     * EmphasizedDecelerate, matches OS-level forward-nav feel.
-     */
-    fun pageEnterSpec(): TweenSpec<Float> =
-        tween(durationMillis = duration(emphasizedDurationMillis), easing = EmphasizedDecelerate)
-
-    /**
-     * Parent page parallax-exits on push. Drives translationX from 0f to
-     * -0.25f (-25% of screen width) AND alpha from 1.0f to 0.5f in lock-step.
-     * Same 320 ms emphasized curve so it stays synchronized with the
-     * incoming child.
-     */
-    fun pageExitSpec(): TweenSpec<Float> =
-        tween(durationMillis = duration(emphasizedDurationMillis), easing = EmphasizedDecelerate)
-
-    /**
-     * Modal sheet slides up from the bottom. Drives translationY from 1.0f
-     * (off-screen bottom, sheet-height units) to 0f. Same 320 ms emphasized
-     * curve as horizontal page transitions for cross-axis consistency.
-     */
-    fun modalEnterSpec(): TweenSpec<Float> =
-        tween(durationMillis = duration(emphasizedDurationMillis), easing = EmphasizedDecelerate)
-
-    /**
-     * Scrim fade behind modal sheets. Drives alpha from 0f to 0.4f. Same
-     * 320 ms emphasized curve so scrim and sheet rise together.
-     */
-    fun scrimFadeSpec(): TweenSpec<Float> =
-        tween(durationMillis = duration(emphasizedDurationMillis), easing = EmphasizedDecelerate)
-
     // === Toast choreography (motion-toast-choreography.html) ===
-
-    /**
-     * Toast rise from below into the front slot. Drives translationY from
-     * +80f (px below) to 0f and scale from 0.95f to 1.0f in lock-step.
-     * 320 ms EmphasizedDecelerate for a settled landing.
-     */
-    fun toastEnterSpec(): TweenSpec<Float> =
-        tween(durationMillis = duration(emphasizedDurationMillis), easing = EmphasizedDecelerate)
-
-    /**
-     * Toast pushed back to the next stack slot when a newer toast arrives.
-     * Drives translationY (0 -> -12 -> -26), scale (1.0 -> 0.97 -> 0.93),
-     * alpha (1.0 -> 0.75 -> 0.4). 220 ms state curve so the push-back is
-     * snappier than the enter; consumers chain two pushBack invocations
-     * for front -> slot-2 -> slot-3.
-     */
-    fun toastPushBackSpec(): TweenSpec<Float> =
-        tween(durationMillis = duration(stateDurationMillis), easing = StandardEasing)
-
-    /**
-     * Toast exit (auto-timeout or swipe-throw). Drives translationY from
-     * -26f (slot-3 settled) to -58f and alpha from 0.4f to 0f. 220 ms
-     * state curve. For swipe-dismiss, the consumer drives translationX
-     * 1:1 with the finger and triggers exitSpec at > 40 % screen width.
-     */
-    fun toastExitSpec(): TweenSpec<Float> =
-        tween(durationMillis = duration(stateDurationMillis), easing = StandardEasing)
 
     /** Disabled motion snaps; reduced motion uses critical damping without bounce. */
     fun <T> motionAwareSpring(expressive: Boolean = false): FiniteAnimationSpec<T> =

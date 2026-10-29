@@ -12,11 +12,9 @@ const val DefaultTlsRandRecMinFragmentSize = 16
 const val DefaultTlsRandRecMaxFragmentSize = 96
 const val AdaptiveMarkerBalanced = "auto(balanced)"
 const val AdaptiveMarkerHost = "auto(host)"
-const val AdaptiveMarkerMidSld = "auto(midsld)"
 const val AdaptiveMarkerEndHost = "auto(endhost)"
 const val AdaptiveMarkerMethod = "auto(method)"
 const val AdaptiveMarkerSniExt = "auto(sniext)"
-const val AdaptiveMarkerExtLen = "auto(extlen)"
 
 private const val MaxOffsetExpressionParts = 3
 

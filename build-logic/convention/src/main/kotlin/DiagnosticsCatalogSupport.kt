@@ -79,21 +79,3 @@ internal fun parsePackRef(packRef: String): Pair<String, Int> {
 
 internal fun DiagnosticsCatalogIndex.requirePack(id: String): TargetPackDefinition =
     requireNotNull(this[id]) { "Missing diagnostics pack: $id" }
-
-internal fun TargetPackDefinition?.orEmptyDomains(): List<DomainTargetDefinition> = this?.domainTargets.orEmpty()
-
-internal fun TargetPackDefinition?.orEmptyDns(): List<DnsTargetDefinition> = this?.dnsTargets.orEmpty()
-
-internal fun TargetPackDefinition?.orEmptyTcp(): List<TcpTargetDefinition> = this?.tcpTargets.orEmpty()
-
-internal fun TargetPackDefinition?.orEmptyQuic(): List<QuicTargetDefinition> = this?.quicTargets.orEmpty()
-
-internal fun TargetPackDefinition?.orEmptyServices(): List<ServiceTargetDefinition> = this?.serviceTargets.orEmpty()
-
-internal fun TargetPackDefinition?.orEmptyCircumvention(): List<CircumventionTargetDefinition> =
-    this?.circumventionTargets.orEmpty()
-
-internal fun TargetPackDefinition?.orEmptyThroughput(): List<ThroughputTargetDefinition> =
-    this?.throughputTargets.orEmpty()
-
-internal fun TargetPackDefinition?.orEmptyWhitelist(): List<String> = this?.whitelistSni.orEmpty()

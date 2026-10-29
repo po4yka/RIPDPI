@@ -235,7 +235,9 @@ class ImportIntentFilterTest {
             assertTrue("Expected a resolved filter for the singbox deep link", priorities.isNotEmpty())
             assertTrue(
                 "RIPDPI singbox filter priority ${priorities.first()} must be < 0 (SFA default)",
-                priorities.all { it < ImportManifestPriority.SING_BOX_FOR_ANDROID_DEFAULT },
+                priorities.all {
+                    it < 0 // sing-box-for-Android default intent-filter priority
+                },
             )
         } else {
             assertTrue("Simple experience must not expose singbox import filters", priorities.isEmpty())

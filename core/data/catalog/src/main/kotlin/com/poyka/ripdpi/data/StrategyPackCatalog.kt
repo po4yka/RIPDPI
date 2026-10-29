@@ -29,10 +29,6 @@ const val StrategyFeatureMasqueCloudflareDirect = "masque_cloudflare_direct"
 const val StrategyFeatureNaiveProxyWatchdog = "naiveproxy_watchdog"
 
 const val QuicMigrationStatusNotAttempted = "not_attempted"
-const val QuicMigrationStatusRebindOnly = "rebind_only"
-const val QuicMigrationStatusValidated = "validated"
-const val QuicMigrationStatusReverted = "reverted"
-const val QuicMigrationStatusFailed = "failed"
 
 /**
  * Protocol type whose runtime config is server-coordinated fixed config:

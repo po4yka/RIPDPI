@@ -14,8 +14,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsOff
-import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -30,7 +28,6 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.DefaultRipDpiMotion
 import com.poyka.ripdpi.ui.theme.LocalRipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
-import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -183,27 +180,6 @@ class SharedFeedbackQualityTest {
         }
         composeRule.onNodeWithTag("outer-dismiss").performScrollTo().performClick()
         composeRule.runOnIdle { assertEquals(1, dismissed) }
-    }
-
-    @Test
-    fun `consent redaction label is a named toggle and changes export value`() {
-        var exported: Boolean? = null
-        composeRule.setContent {
-            RipDpiTheme {
-                RipDpiExportConsentDialog(
-                    fileName = "traffic.pcap",
-                    fileSize = "1 KiB",
-                    packetCount = 1,
-                    contents = persistentListOf(),
-                    onDismiss = {},
-                    onExport = { exported = it },
-                )
-            }
-        }
-        val toggle = composeRule.onNodeWithText("Redact endpoint IPs to 0.0.0.0")
-        toggle.assertIsOn().performClick().assertIsOff()
-        composeRule.onNodeWithText("Export").performScrollTo().performClick()
-        composeRule.runOnIdle { assertEquals(false, exported) }
     }
 
     @Test

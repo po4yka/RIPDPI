@@ -5,8 +5,6 @@ import kotlinx.serialization.Serializable
 const val NetworkEdgePreferenceRetentionLimit = 256
 const val NetworkEdgePreferenceRetentionMaxAgeMs = 30L * 24L * 60L * 60L * 1_000L
 const val NetworkEdgePreferencePerHostLimit = 6
-const val NetworkEdgePreferencePlannerLimit = 4
-const val PreferredEdgeRuntimeFallbackCount = 2
 
 const val PreferredEdgeTransportTcp = "tcp"
 const val PreferredEdgeTransportQuic = "quic"

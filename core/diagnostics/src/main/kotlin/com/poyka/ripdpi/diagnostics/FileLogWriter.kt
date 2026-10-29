@@ -100,8 +100,6 @@ class FileLogWriter(
             }
         }
 
-    fun readLogContent(): String? = readLogSnapshot()?.content
-
     private fun ensureLogDir() {
         if (!logDir.exists()) {
             logDir.mkdirs()

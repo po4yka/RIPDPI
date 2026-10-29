@@ -1,14 +1,12 @@
 package com.poyka.ripdpi.core
 
 import com.poyka.ripdpi.data.ActivationFilterModel
-import com.poyka.ripdpi.data.AppRoutingPolicyModePrompt
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlDelta
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMax
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlMin
 import com.poyka.ripdpi.data.DefaultAdaptiveFallbackCachePrefixV4
 import com.poyka.ripdpi.data.DefaultAdaptiveFallbackCacheTtlSeconds
-import com.poyka.ripdpi.data.DefaultAppRoutingRussianPresetId
 import com.poyka.ripdpi.data.DefaultEntropyPaddingMax
 import com.poyka.ripdpi.data.DefaultEntropyPaddingTargetPermil
 import com.poyka.ripdpi.data.DefaultEvolutionCooldownAfterFailures
@@ -27,7 +25,6 @@ import com.poyka.ripdpi.data.DefaultWarpLocalSocksPort
 import com.poyka.ripdpi.data.DefaultWarpManualEndpointPort
 import com.poyka.ripdpi.data.DefaultWarpScannerMaxRttMs
 import com.poyka.ripdpi.data.DefaultWarpScannerParallelism
-import com.poyka.ripdpi.data.DhtMitigationModeOff
 import com.poyka.ripdpi.data.EntropyModeDisabled
 import com.poyka.ripdpi.data.FakePayloadProfileCompatDefault
 import com.poyka.ripdpi.data.FakeTlsSourceProfile
@@ -378,11 +375,4 @@ data class RipDpiWarpConfig(
     val amnezia: RipDpiWarpAmneziaConfig = RipDpiWarpAmneziaConfig(),
     val localSocksHost: String = "127.0.0.1",
     val localSocksPort: Int = DefaultWarpLocalSocksPort,
-)
-
-data class RipDpiRoutingProtectionConfig(
-    val appRoutingPolicyMode: String = AppRoutingPolicyModePrompt,
-    val appRoutingEnabledPresetIds: List<String> = listOf(DefaultAppRoutingRussianPresetId),
-    val antiCorrelationEnabled: Boolean = false,
-    val dhtMitigationMode: String = DhtMitigationModeOff,
 )
