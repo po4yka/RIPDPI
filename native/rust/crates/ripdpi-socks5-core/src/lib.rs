@@ -112,7 +112,6 @@ pub enum Socks5Command {
     UDPAssociate,
 }
 
-#[allow(dead_code)]
 impl Socks5Command {
     #[inline]
     #[rustfmt::skip]
@@ -124,6 +123,7 @@ impl Socks5Command {
         }
     }
 
+    #[cfg(test)]
     #[inline]
     #[rustfmt::skip]
     fn from_u8(code: u8) -> Option<Socks5Command> {

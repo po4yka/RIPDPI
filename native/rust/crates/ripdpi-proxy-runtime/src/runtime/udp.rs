@@ -32,7 +32,7 @@ use self::upstream_pump::{UdpUpstreamPollScratch, pump_udp_upstream_responses};
 use super::adaptive::emit_due_direct_path_learning_timeouts;
 use super::state::RuntimeState;
 
-#[allow(dead_code)]
+#[cfg(test)]
 pub(crate) fn encode_socks5_udp_packet(target: SocketAddr, payload: &[u8]) -> Vec<u8> {
     RuntimeState::encode_socks5_udp_packet(target, payload)
 }

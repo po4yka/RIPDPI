@@ -16,7 +16,7 @@ impl RuntimeState {
     ) -> Option<ParsedSocks5UdpPacket<'a>> {
         runtime_parse_socks5_udp_packet_with_host(&self.udp_packet_parser, packet, resolve_name)
     }
-    #[allow(dead_code)]
+    #[cfg(test)]
     pub(in crate::runtime) fn encode_socks5_udp_packet(target: SocketAddr, payload: &[u8]) -> Vec<u8> {
         encode_socks5_udp_packet(target, payload)
     }

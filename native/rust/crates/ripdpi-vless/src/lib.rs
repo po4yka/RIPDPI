@@ -189,39 +189,6 @@ where
 }
 
 impl VlessRealityClient {
-    /// Establish one VLESS+Reality carrier for the configured SagerNet
-    /// sing-mux/yamux session. The carrier's VLESS destination is fixed by the
-    /// upstream protocol; individual destinations are requested on yamux
-    /// substreams afterwards.
-    ///
-    /// # Cancel safety
-    ///
-    /// conditionally cancel-safe: dropping this future discards its exclusively
-    /// owned incomplete carrier; partial remote handshake/request bytes cannot
-    /// be resumed or returned to the pool.
-    pub async fn connect_mux(config: &VlessRealityConfig, bind_ip: Option<IpAddr>) -> io::Result<VlessYamuxSession> {
-        if config.mux.is_none() {
-            return Err(io::Error::new(io::ErrorKind::InvalidInput, "VLESS mux session requested without mux config"));
-        }
-        let address = Self::resolve_server_endpoint(config, bind_ip).await?;
-        Self::connect_mux_to(config, bind_ip, address).await
-    }
-
-    /// Establish one VLESS+Reality mux carrier to an already-resolved relay endpoint.
-    ///
-    /// # Cancel safety
-    ///
-    /// conditionally cancel-safe: dropping this future discards its exclusively
-    /// owned incomplete carrier; partial remote handshake/request bytes cannot
-    /// be resumed or returned to the pool.
-    async fn connect_mux_to(
-        config: &VlessRealityConfig,
-        bind_ip: Option<IpAddr>,
-        address: SocketAddr,
-    ) -> io::Result<VlessYamuxSession> {
-        Self::connect_mux_to_guarded(config, bind_ip, address, ()).await
-    }
-
     /// # Cancel safety
     ///
     /// conditionally cancel-safe: the guard remains paired with the exclusively
@@ -735,27 +702,6 @@ mod carrier_limit_tests {
         );
 
         drop(wait_for_released_slot(&limiter, endpoint).await);
-    }
-
-    #[tokio::test]
-    async fn missing_mux_config_fails_before_endpoint_resolution() {
-        let config = VlessRealityConfig {
-            server: "192.0.2.20".to_string(),
-            port: 9,
-            uuid: [0; 16],
-            server_name: "invalid.example".to_string(),
-            tls_fingerprint_profile: "chrome_stable".to_string(),
-            reality_public_key: [0; 32],
-            reality_short_id: Vec::new(),
-            mux: None,
-            flow: crate::addons::VlessFlow::None,
-            kem_groups: None,
-            socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,
-        };
-
-        let error = VlessRealityClient::connect_mux(&config, None).await.err().expect("missing mux must fail locally");
-
-        assert_eq!(error.kind(), io::ErrorKind::InvalidInput);
     }
 }
 
