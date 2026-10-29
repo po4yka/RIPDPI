@@ -22,7 +22,7 @@ use spawn::{UdpWorkerConfig, spawn_udp_worker};
 /// # Cancel safety
 ///
 /// Synchronous and cancel-safe. The non-cancel-safe
-/// [`UdpSession::connect`](crate::session::UdpSession::connect)
+/// [`UdpSession::connect_with_memory_budget`](crate::session::UdpSession::connect_with_memory_budget)
 /// sequence runs in the spawned worker, never in the single task that owns the
 /// TUN/smoltcp state. The worker drops it on cancellation or after
 /// `connect_timeout`, and observes cancellation in every later send/receive.

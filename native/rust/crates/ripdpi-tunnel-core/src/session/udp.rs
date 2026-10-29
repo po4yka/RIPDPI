@@ -10,10 +10,9 @@ use tokio::sync::{Mutex, OwnedSemaphorePermit, Semaphore};
 use tokio_util::sync::CancellationToken;
 
 use super::protect::protect_socket_if_available;
-use super::socks5::{
-    Auth, TargetAddr, associate, decode_udp_frame, decode_udp_target_frame, encode_udp_frame, encode_udp_target_frame,
-    handshake,
-};
+use super::socks5::{Auth, TargetAddr, associate, decode_udp_target_frame, encode_udp_target_frame, handshake};
+#[cfg(test)]
+use super::socks5::{decode_udp_frame, encode_udp_frame};
 
 /// Default timeout waiting for a UDP response from the relay.
 const DEFAULT_RECV_TIMEOUT: Duration = Duration::from_secs(10);
@@ -114,6 +113,7 @@ pub struct UdpSession {
 }
 
 impl UdpSession {
+    #[cfg(test)]
     /// Establish a SOCKS5 UDP ASSOCIATE session to `proxy_addr`.
     ///
     /// Both the TCP control connection and the UDP relay socket are protected
@@ -190,6 +190,7 @@ impl UdpSession {
         self
     }
 
+    #[cfg(test)]
     /// Send a UDP datagram through the established SOCKS5 relay.
     ///
     /// # Cancel safety
@@ -217,6 +218,7 @@ impl UdpSession {
         Ok(())
     }
 
+    #[cfg(test)]
     /// Receive a UDP datagram from the established SOCKS5 relay.
     ///
     /// - `cancel`: signals early termination (returns `Ok(None)`).
@@ -308,6 +310,7 @@ impl UdpSession {
         }
     }
 
+    #[cfg(test)]
     /// Convenience helper: send one datagram and wait for one reply.
     ///
     /// # Cancel safety

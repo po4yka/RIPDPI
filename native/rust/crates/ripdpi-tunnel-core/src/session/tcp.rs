@@ -12,7 +12,9 @@ use super::protect::protect_socket_if_available;
 use super::socks5::{Auth, TargetAddr};
 use crate::stats::{Stats, TcpConnectObservation};
 
+#[cfg(test)]
 const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+#[cfg(test)]
 const DEFAULT_READ_WRITE_TIMEOUT: Duration = Duration::from_secs(300);
 const RELAY_DRAIN_GRACE: Duration = Duration::from_secs(1);
 
@@ -37,6 +39,7 @@ pub struct TcpSession {
 }
 
 impl TcpSession {
+    #[cfg(test)]
     pub fn new(proxy_addr: SocketAddr, auth: Auth, target: TargetAddr) -> Self {
         Self {
             proxy_addr,
@@ -90,7 +93,7 @@ impl TcpSession {
     /// default (a no-op for protect), but a non-loopback proxy address is a
     /// supported configuration whose socket would otherwise be routed back into
     /// the TUN the VPN owns, producing a packet loop. This mirrors
-    /// [`super::udp::UdpSession::connect`]. See
+    /// [`super::udp::UdpSession::connect_with_memory_budget`]. See
     /// `.claude/rules/vpnservice-protect-invariant.md`.
     ///
     /// # Cancel safety
@@ -365,6 +368,7 @@ fn timed_out(operation: &'static str) -> io::Error {
     io::Error::new(io::ErrorKind::TimedOut, format!("{operation} timed out"))
 }
 
+#[cfg(test)]
 /// Bidirectionally splice bytes between `local` and `proxy` until both sides close.
 ///
 /// Returns `(forward_bytes, backward_bytes)`:
