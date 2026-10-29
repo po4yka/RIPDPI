@@ -40,8 +40,4 @@ impl RuntimeState {
     ) -> io::Result<SocketAddr> {
         runtime_resolve_host_via_encrypted_dns(host, self.runtime_context.as_ref(), protect_path, ipv6_enabled)
     }
-    #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-    pub(in crate::runtime) fn io_uring_driver(&self) -> Option<&std::sync::Arc<ripdpi_io_uring::IoUringDriver>> {
-        self.io_uring.as_ref()
-    }
 }

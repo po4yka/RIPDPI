@@ -6,42 +6,10 @@ use super::super::state::RuntimeState;
 use super::failure_retry::record_stream_relay_success;
 use super::session::RelaySession;
 use super::stream_copy::{CONNECTION_FREEZE_MARKER, RelayStreamSettings, relay_streams};
-#[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-use super::stream_copy_uring;
 use crate::runtime::types::{RuntimeConnectionRoute, RuntimeRelayTimeouts};
 
-#[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
 #[inline(never)]
-pub(super) fn relay_with_uring_if_available(
-    client: TcpStream,
-    upstream: TcpStream,
-    state: &RuntimeState,
-    route: RuntimeConnectionRoute,
-    session_state: RelaySession,
-    success_host: Option<String>,
-) -> io::Result<RelaySession> {
-    let _active_upstream = state.register_active_upstream_tcp_socket(&upstream)?;
-    let relay_settings = relay_stream_settings(state, route.group_index)?;
-    let uring_driver =
-        ripdpi_io_uring::io_uring_capabilities().fixed_buffers.then(|| state.io_uring_driver()).flatten();
-    if let Some(driver) = uring_driver.filter(|_| !relay_settings.group.rotation_enabled()) {
-        return stream_copy_uring::relay_streams_uring(
-            client,
-            upstream,
-            state,
-            route.group_index,
-            relay_settings,
-            session_state,
-            success_host,
-            driver,
-        );
-    }
-    relay_streams(client, upstream, state, route.group_index, relay_settings, session_state, success_host)
-}
-
-#[cfg(not(all(feature = "io-uring", any(target_os = "linux", target_os = "android"))))]
-#[inline(never)]
-pub(super) fn relay_with_uring_if_available(
+pub(super) fn relay_established_streams(
     client: TcpStream,
     upstream: TcpStream,
     state: &RuntimeState,

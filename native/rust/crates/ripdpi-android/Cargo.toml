@@ -33,4 +33,3 @@ jni = { workspace = true, features = ["invocation"] }
 
 [features]
 loom = ["ripdpi-android-proxy-adapter/loom"]
-io-uring = ["ripdpi-android-proxy-adapter/io-uring"]

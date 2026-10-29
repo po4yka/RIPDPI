@@ -1,5 +1,5 @@
 // Crate-local hardening matching the unsafe-bearing crate convention
-// (`ripdpi-vless`, `ripdpi-io-uring`, `ripdpi-privileged-ops`,
+// (`ripdpi-vless`, `ripdpi-privileged-ops`,
 // `ripdpi-proxy-runtime`). The only unsafe in this crate is the JNI
 // readiness callback (`readiness.rs`): the manual `Send`/`Sync` impls on
 // `JniReadinessCallback` and the `JavaVM::from_raw` clone. Re-enabling these

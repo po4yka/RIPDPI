@@ -98,15 +98,10 @@ else
       export "CARGO_TARGET_${target_upper}_AR=$ndk_bin/llvm-ar"
     done
 
-    # Exclude ripdpi-io-uring: the upstream io-uring crate (0.7.x) has
-    # broken cross-compilation for ARM/i686 targets (u16/u32 type mismatch
-    # in prebuilt sys.rs).  The crate is a Linux-only optional dependency
-    # and is validated by the host-native workspace tests instead.
     for target in aarch64-linux-android armv7-linux-androideabi i686-linux-android x86_64-linux-android; do
       echo "  -> $target"
       clean_android_boring_sys_build_cache "${CARGO_TARGET_DIR:-$repo_root/native/rust/target}" "$target"
-      RUSTC_WRAPPER="" cargo check --locked --manifest-path "$workspace_manifest" --workspace \
-        --exclude ripdpi-io-uring --target "$target"
+      RUSTC_WRAPPER="" cargo check --locked --manifest-path "$workspace_manifest" --workspace --target "$target"
     done
 
     if [[ "$previous_boring_cpplib_was_set" -eq 1 ]]; then

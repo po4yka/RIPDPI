@@ -31,7 +31,7 @@
 // `unsafe impl Send`/`Send` and `JavaVM::from_raw` clone. Re-enabling the
 // workspace-deferred `undocumented_unsafe_blocks` lint locally turns the
 // `// SAFETY:` requirement into a build-time error, matching the convention
-// already adopted by ripdpi-vless / ripdpi-io-uring / ripdpi-privileged-ops /
+// already adopted by ripdpi-vless / ripdpi-privileged-ops /
 // ripdpi-proxy-runtime while the rest of the workspace migrates gradually.
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(clippy::multiple_unsafe_ops_per_block)]

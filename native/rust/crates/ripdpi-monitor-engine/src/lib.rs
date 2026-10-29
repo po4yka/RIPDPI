@@ -5,7 +5,7 @@
 // `undocumented_unsafe_blocks` lint locally turns the inline SAFETY-comment
 // requirement into a build-time error, and `multiple_unsafe_ops_per_block`
 // forces a separate justification per unsafe operation — matching the floor
-// already opted into by ripdpi-vless / ripdpi-io-uring / ripdpi-privileged-ops /
+// already opted into by ripdpi-vless / ripdpi-privileged-ops /
 // ripdpi-proxy-runtime while the rest of the workspace migrates gradually.
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(clippy::multiple_unsafe_ops_per_block)]

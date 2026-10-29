@@ -118,8 +118,6 @@ impl RuntimeState {
             selected_tls_profile,
             pcap_hook: None,
             ws_transport,
-            #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-            io_uring: None,
         }
     }
 }

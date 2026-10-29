@@ -41,7 +41,7 @@
     {
       "description": "Never auto-bump deliberately exact-pinned crates (see native/rust/Cargo.toml)",
       "matchManagers": ["cargo"],
-      "matchPackageNames": ["boring", "tokio-boring", "io-uring", "russh", "odoh-rs", "rand"],
+      "matchPackageNames": ["boring", "tokio-boring", "russh", "odoh-rs", "rand"],
       "matchCurrentValue": "/^=/",
       "enabled": false
     }

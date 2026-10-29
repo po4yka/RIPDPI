@@ -29,19 +29,10 @@ impl FirstResponseOutcome {
     }
 }
 
-#[cfg(all(test, feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-#[derive(Default)]
-pub(super) struct CopyPathCounters {
-    pub(super) fixed_writes: std::sync::atomic::AtomicUsize,
-    pub(super) fallbacks: std::sync::atomic::AtomicUsize,
-}
-
 pub(super) struct RelaySession {
     state: RuntimeSessionState,
     first_response: FirstResponseOutcome,
     pending_response: Option<PendingFirstResponse>,
-    #[cfg(all(test, feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-    pub(super) copy_path: Arc<CopyPathCounters>,
     pub(super) lua_flow: Option<std::sync::Arc<ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaFlow>>,
 }
 
@@ -67,8 +58,6 @@ impl FirstOutboundSession {
             state: self.state,
             first_response: self.first_response,
             pending_response: self.pending_response,
-            #[cfg(all(test, feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-            copy_path: Arc::default(),
             lua_flow: self.lua_flow,
         }
     }
@@ -108,8 +97,6 @@ impl RelaySession {
         RelaySharedSession {
             state: Arc::new(Mutex::new(self.state)),
             first_response: Arc::new(Mutex::new(self.first_response)),
-            #[cfg(all(test, feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-            copy_path: self.copy_path,
             lua_flow: self.lua_flow,
         }
     }
@@ -133,8 +120,6 @@ impl RelaySession {
 pub(super) struct RelaySharedSession {
     state: Arc<Mutex<RuntimeSessionState>>,
     first_response: Arc<Mutex<FirstResponseOutcome>>,
-    #[cfg(all(test, feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-    pub(super) copy_path: Arc<CopyPathCounters>,
     pub(super) lua_flow: Option<std::sync::Arc<ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaFlow>>,
 }
 
@@ -145,8 +130,6 @@ impl RelaySharedSession {
             state: state.clone(),
             first_response,
             pending_response: None,
-            #[cfg(all(test, feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-            copy_path: self.copy_path.clone(),
             lua_flow: self.lua_flow.clone(),
         })
     }

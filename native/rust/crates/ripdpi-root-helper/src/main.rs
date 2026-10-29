@@ -1,7 +1,7 @@
 // Lint floor for a crate that contains `unsafe` (raw-fd adoption over
 // SCM_RIGHTS, `libc::close`/`libc::chown`/`libc::signal` syscall wrappers).
 // Mirrors the convention adopted by ripdpi-vless / ripdpi-privileged-ops /
-// ripdpi-io-uring / ripdpi-proxy-runtime: re-enable the workspace-deferred
+// ripdpi-proxy-runtime: re-enable the workspace-deferred
 // unsafe-documentation lints locally so every `unsafe` block in this crate
 // carries an inline `// SAFETY:` rationale (or a `# Safety` rustdoc block for
 // `unsafe fn`) at build time, ahead of the gradual workspace-wide migration.

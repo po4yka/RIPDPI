@@ -360,31 +360,6 @@ review_date = "2026-11-15"
 # § "Compile-fail enforcement".
 # ---------------------------------------------------------------------------
 [[entries]]
-file = "native/rust/crates/ripdpi-io-uring/src/bufpool.rs"
-pattern = "UnsafeCell::get"
-reason = "Produce `&mut [u8]` / `&[u8]` views into a registered io_uring buffer through the `BufferHandle` exclusivity protocol"
-preconditions = "At most one `BufferHandle` exists per `buffers[index]` at any moment (free-list invariant); `&mut self` on `as_mut_buf`/`DerefMut` rules out aliased mutable access for a single owner; cross-thread happens-before is supplied by the `Mutex<Vec<u16>>` free list"
-enforcement = "Move-only `BufferHandle` + `Mutex`-guarded free list + `&mut self`-anchored borrows + RAII Drop that returns the index exactly once; SAFETY comments at lines 53-54, 145-148, 173-174, 184 name the invariant; runtime regressions in `bufpool::tests`"
-owner = "io-uring"
-review_date = "2026-11-15"
-
-[[entries]]
-file = "native/rust/crates/ripdpi-io-uring/src/bufpool.rs"
-pattern = "raw pointer in public fn"
-reason = "Expose the stable registered buffer address only to crate-private io_uring opcode construction"
-preconditions = "The caller retains the move-only BufferHandle in InFlight until the matching CQE; the Arc-owned boxed allocation is not reallocated or released while that handle exists"
-enforcement = "Both as_ptr and as_mut_ptr are pub(crate) and called only by ring::driver_loop; BufferHandle is !Copy/!Clone, its free-list slot is exclusive, and InFlight owns the handle through completion"
-owner = "io-uring-runtime"
-review_date = "2026-11-15"
-
-# ---------------------------------------------------------------------------
-# `unsafe impl Send / unsafe impl Sync` — each manual auto-trait impl in
-# production carries a SAFETY comment and a `const _: fn() = || { … }`
-# compile-fail regression block that locks the claim to the current
-# ground truth (any future field change that breaks Send/Sync fails to
-# compile). Soundness arguments are audited per issues #4, #7, #8.
-# ---------------------------------------------------------------------------
-[[entries]]
 file = "native/rust/crates/ripdpi-geo/src/mapped_file.rs"
 pattern = "unsafe impl Send/Sync"
 reason = "MappedFile owns a MAP_PRIVATE read-only mmap; only observable op is `as_slice` returning `&[u8]`"
@@ -394,35 +369,12 @@ owner = "geo"
 review_date = "2026-11-15"
 
 [[entries]]
-file = "native/rust/crates/ripdpi-io-uring/src/bufpool.rs"
-pattern = "unsafe impl Send/Sync"
-reason = "RegisteredBufferPool with private UnsafeCell-backed slots and Mutex-guarded free list"
-preconditions = "iovecs are read-only after construction; per-cell access goes through the unique BufferHandle whose index is owned via the Mutex<Vec<u16>> free list"
-enforcement = "Free-list mutex supplies happens-before; move-only BufferHandle + `&mut self`-anchored borrows enforce exclusivity; compile-fail const block locks the Send+Sync claim; runtime regressions in bufpool::tests"
-owner = "io-uring"
-review_date = "2026-11-15"
-
-# ---------------------------------------------------------------------------
-# `raw usize handle in public fn` — handle types are integer indices into a
-# Mutex-guarded HashMap, NOT raw pointers. Forging a handle returns
-# `None`/`Option<...>`; the handle space is monotonic.
-# ---------------------------------------------------------------------------
-[[entries]]
 file = "native/rust/crates/android-support/src/handles.rs"
 pattern = "raw usize handle in public fn"
 reason = "HandleRegistry::get/remove(&self, handle: u64) — integer keys into a Mutex<HashMap>"
 preconditions = "Handle is an index, not a pointer; `Option::None` returned for unknown keys; insert monotonically allocates new IDs"
 enforcement = "Mutex-guarded HashMap lookup returns Option; no raw pointer dereference; pattern is `pub fn get(&self, handle: u64) -> Option<Arc<T>>`"
 owner = "android-support"
-review_date = "2026-11-15"
-
-[[entries]]
-file = "native/rust/crates/ripdpi-io-uring/src/ring/completion.rs"
-pattern = "raw usize handle in public fn"
-reason = "CompletionFuture/CompletionRegistry use a u64 token to index a Mutex<HashMap<u64, WakerSlot>>"
-preconditions = "Token is an index, not a pointer; lookups return Option/handle empty state; tokens issued monotonically by the registry"
-enforcement = "Mutex-guarded HashMap; no raw pointer dereference; functions are pub(crate) only"
-owner = "io-uring"
 review_date = "2026-11-15"
 
 [[entries]]

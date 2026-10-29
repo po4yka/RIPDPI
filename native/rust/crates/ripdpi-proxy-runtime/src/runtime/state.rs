@@ -159,9 +159,6 @@ pub(super) struct RuntimeState {
     selected_tls_profile: String,
     pcap_hook: Option<super::desync::PcapHook>,
     ws_transport: std::sync::Arc<dyn WsTransport>,
-    /// io_uring driver for zero-copy relay (Linux 6.0+, optional).
-    #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-    io_uring: Option<std::sync::Arc<ripdpi_io_uring::IoUringDriver>>,
 }
 
 #[derive(Clone)]
@@ -338,8 +335,6 @@ impl RuntimeState {
             selected_tls_profile,
             pcap_hook: None,
             ws_transport,
-            #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-            io_uring: None,
         })
     }
 

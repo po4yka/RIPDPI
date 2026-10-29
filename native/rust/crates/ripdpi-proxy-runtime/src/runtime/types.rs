@@ -79,11 +79,6 @@ impl RuntimeRelayGroupSettings {
         Self { inner }
     }
 
-    #[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-    pub(super) fn rotation_enabled(&self) -> bool {
-        self.inner.rotation_enabled
-    }
-
     pub(super) fn drop_sack(&self) -> bool {
         self.inner.drop_sack
     }

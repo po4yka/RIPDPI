@@ -30,7 +30,7 @@
 // (`EnvUnowned::from_raw`, `JString::from_raw`). Re-enable the workspace-deferred
 // unsafe-documentation lints locally so every `unsafe` block keeps its inline
 // `// SAFETY:` invariant and no block fuses multiple unsafe operations — matching
-// the convention in `ripdpi-vless` / `ripdpi-io-uring` / `ripdpi-privileged-ops`
+// the convention in `ripdpi-vless` / `ripdpi-privileged-ops`
 // / `ripdpi-proxy-runtime` (per the `rust-unsafe` skill's lint floor).
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(clippy::multiple_unsafe_ops_per_block)]

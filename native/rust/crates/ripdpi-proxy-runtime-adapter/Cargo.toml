@@ -34,4 +34,3 @@ tracing = { workspace = true }
 # crate.
 daemonize = []
 loom = ["ripdpi-proxy-runtime-desync-adapter/loom", "ripdpi-runtime-api/loom"]
-io-uring = ["ripdpi-runtime-platform/io-uring"]

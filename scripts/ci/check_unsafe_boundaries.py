@@ -266,10 +266,8 @@ PATTERNS: dict[str, re.Pattern[str]] = {
     # issue is when `T` is the carrier of a `bool` field that
     # cannot be 0), `char` (high surrogates etc.), enums (must be
     # a declared variant), and function pointers (null). Issue #21
-    # audit found ONE production occurrence: `mem::zeroed::<libc::
-    # utsname>()` in `ripdpi-io-uring/src/probe.rs` — sound because
-    # `utsname` is `#[repr(C)]` with only `[c_char; N]` fields, and
-    # zero bytes represent empty NUL-terminated C strings. New
+    # audit found ONE production occurrence, a `mem::zeroed::<libc::
+    # utsname>()` in a crate that was later removed. New
     # occurrences must restructure to safe constructors / Default /
     # MaybeUninit staged init / explicit field initialisation or
     # earn an allowlist entry naming each field's zero-validity

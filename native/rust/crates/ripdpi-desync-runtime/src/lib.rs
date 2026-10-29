@@ -7,7 +7,7 @@
 // Re-enabling the workspace-deferred `undocumented_unsafe_blocks` lint
 // crate-locally turns that into a build-time error while the rest of the
 // workspace continues the gradual migration; the matching opt-in already
-// lives in ripdpi-vless / ripdpi-io-uring / ripdpi-privileged-ops /
+// lives in ripdpi-vless / ripdpi-privileged-ops /
 // ripdpi-proxy-runtime.
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(clippy::multiple_unsafe_ops_per_block)]

@@ -6,7 +6,7 @@
 // `undocumented_unsafe_blocks` and `multiple_unsafe_ops_per_block` lints
 // locally turns the per-block SAFETY documentation requirement into a
 // build-time error, matching the convention in `ripdpi-vless`,
-// `ripdpi-io-uring`, `ripdpi-privileged-ops`, and `ripdpi-proxy-runtime`.
+// `ripdpi-privileged-ops`, and `ripdpi-proxy-runtime`.
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(clippy::multiple_unsafe_ops_per_block)]
 

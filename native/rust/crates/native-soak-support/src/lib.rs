@@ -4,7 +4,7 @@
 // workspace-deferred unsafe-documentation lints locally so that every
 // `unsafe` block in this crate carries a justifying `// SAFETY:` comment and
 // each unsafe operation is accounted for individually, matching the
-// convention already opted into by ripdpi-vless / ripdpi-io-uring /
+// convention already opted into by ripdpi-vless /
 // ripdpi-privileged-ops / ripdpi-proxy-runtime.
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(clippy::multiple_unsafe_ops_per_block)]

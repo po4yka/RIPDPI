@@ -10,7 +10,7 @@
 // rust-unsafe skill lint floor, every `unsafe { }` block must carry an inline
 // SAFETY comment and each unsafe op must be individually justified, so the FFI
 // invariants stay auditable next to the operation. Matches the opt-in already
-// landed in ripdpi-vless / ripdpi-io-uring / ripdpi-privileged-ops /
+// landed in ripdpi-vless / ripdpi-privileged-ops /
 // ripdpi-proxy-runtime while the rest of the workspace migrates.
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(clippy::multiple_unsafe_ops_per_block)]

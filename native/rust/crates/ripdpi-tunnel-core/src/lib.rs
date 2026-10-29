@@ -18,8 +18,6 @@ pub mod stats;
 pub mod tunnel_api;
 pub mod uid_policy;
 
-#[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-pub use io_loop::IoUringTunContext;
 pub use {
     classify::{IpClass, classify_ip_packet},
     device::TunDevice,

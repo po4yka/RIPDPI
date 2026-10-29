@@ -6,15 +6,13 @@ mod pending_response;
 mod platform;
 mod session;
 mod stream_copy;
-#[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-mod stream_copy_uring;
 
 use std::io;
 use std::net::{SocketAddr, TcpStream};
 
 use ripdpi_proxy_runtime_adapter::model::runtime_api::AttemptCorrelationId;
 
-use self::execution::{RelayResultContext, record_relay_result, relay_with_uring_if_available};
+use self::execution::{RelayResultContext, record_relay_result, relay_established_streams};
 use self::failure_retry::{PreparedRelay, prepare_relay};
 use super::state::RuntimeState;
 use super::types::RuntimeConnectionRoute;
@@ -48,7 +46,7 @@ pub(super) fn relay(
     let _active_upstream = state.register_active_tcp_socket(&upstream)?;
 
     let relay_result =
-        relay_with_uring_if_available(client, upstream, state, route.clone(), session_state, success_host.clone());
+        relay_established_streams(client, upstream, state, route.clone(), session_state, success_host.clone());
     let relay_timeouts = state.relay_timeouts(route.group_index)?;
     let primary_strategy_family = state.primary_tcp_strategy_family(route.group_index);
     record_relay_result(

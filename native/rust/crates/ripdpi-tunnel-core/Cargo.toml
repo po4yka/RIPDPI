@@ -31,10 +31,8 @@ etherparse = { workspace = true }
 ripdpi-socks5-core = { workspace = true }
 ripdpi-packets = { workspace = true }
 ripdpi-geo = { workspace = true }
-ripdpi-io-uring = { workspace = true, optional = true }
 
 [features]
-io-uring = ["dep:ripdpi-io-uring"]
 
 [dev-dependencies]
 tokio = { workspace = true, features = ["rt-multi-thread", "test-util", "time"] }

@@ -59,17 +59,13 @@ cargo +nightly miri test --locked -p ripdpi-privileged-ops experimental_tier3
 #       OwnedFd::from_raw_fd / Box round-trip is tractable IF the
 #       libc::close + socketpair calls are gated behind a stub like
 #       ripdpi-vless's `miri-stubs`. Add the feature first.
-#   - ripdpi-io-uring              `unsafe impl Send/Sync` for
-#       RegisteredBufferPool — Stacked-Borrows/aliasing of the buffer
-#       pool is tractable, but only for tests that do NOT submit to a
-#       real ring (io_uring syscalls are unsupported under Miri).
 #   - ripdpi-protocol-detect / ripdpi-geo  small slice/transmute-class
 #       unsafe with no syscall surface — best low-risk next additions.
 #
 # Needs an FFI-stub feature BEFORE it can be added (mirror the
 # `miri-stubs` pattern: substitute the syscall/JNI calls with
 # Miri-friendly stand-ins, exercise only the unsafe ownership dance):
-#   - ripdpi-runtime-platform      io_uring / protect / process / socket
+#   - ripdpi-runtime-platform      protect / process / socket
 #       all reach libc + netlink + JNI.
 #   - ripdpi-tunnel-core           AsyncDevice::from_fd takes a live
 #       kernel TUN fd; io_loop.rs shares raw fds.

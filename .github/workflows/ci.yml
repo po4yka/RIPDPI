@@ -218,7 +218,6 @@ jobs:
             scripts.tests.test_build_observability_contracts \
             scripts.tests.test_check_ci_preflight \
             scripts.tests.test_ci_native_dependency_graph \
-            scripts.tests.test_rust_proxy_uring_gate \
             scripts.tests.test_native_size_policy \
             scripts.tests.test_prebuilt_android_instrumentation \
             scripts.tests.test_ci_tool_pinning \
@@ -1521,11 +1520,6 @@ jobs:
 
       - name: Run Rust workspace tests and architecture checks
         run: bash scripts/ci/run-rust-workspace-tests.sh
-
-      - name: Run Linux io_uring proxy runtime tests
-        if: ${{ !cancelled() }}
-        timeout-minutes: 10
-        run: bash scripts/ci/run-rust-proxy-uring-tests.sh
 
       # The network E2E and turmoil binaries reuse this job's compiled
       # workspace instead of rebuilding it in separate jobs. They still run

@@ -7,7 +7,7 @@
 //! no `unsafe { }` blocks, `unsafe fn` bodies, or `unsafe impl`s); panic
 //! containment lives in `android_support::ffi_boundary` / `catch_unwind` so a
 //! Rust panic never unwinds across the FFI boundary. The lint floor below
-//! matches the convention used by `ripdpi-vless` / `ripdpi-io-uring` /
+//! matches the convention used by `ripdpi-vless` /
 //! `ripdpi-privileged-ops` / `ripdpi-proxy-runtime`: it locks the crate to the
 //! "every `unsafe { }` carries a `// SAFETY:` comment" contract immediately, so
 //! any future raw-pointer / FFI `unsafe` block added here is rejected at build

@@ -82,7 +82,6 @@ members = [
     "crates/ripdpi-tunnel-android",
     "crates/ripdpi-cli",
     "crates/ripdpi-bench",
-    "crates/ripdpi-io-uring",
     "crates/ripdpi-capabilities",
     "crates/ripdpi-privileged-ops",
     "crates/ripdpi-protocol-detect",
@@ -195,7 +194,6 @@ ripdpi-config = { path = "crates/ripdpi-config" }
 ripdpi-desync = { path = "crates/ripdpi-desync" }
 ripdpi-desync-runtime = { path = "crates/ripdpi-desync-runtime" }
 ripdpi-cli = { path = "crates/ripdpi-cli" }
-ripdpi-io-uring = { path = "crates/ripdpi-io-uring" }
 ripdpi-capabilities = { path = "crates/ripdpi-capabilities" }
 ripdpi-privileged-ops = { path = "crates/ripdpi-privileged-ops" }
 ripdpi-protocol-detect = { path = "crates/ripdpi-protocol-detect" }
@@ -249,7 +247,6 @@ anyhow = "1"
 crypto_box = { version = "0.9", features = ["chacha20", "salsa20"] }
 etherparse = "0.21"
 pico-args = "0.5"
-pollster = "1.0"
 hex = "0.4"
 jni = "0.22"
 libc = "0.2"
@@ -305,10 +302,8 @@ yamux = "0.14"
 boring = "=5.3.0"
 tokio-boring = "=5.3.0"
 webpki-roots = "1.0"
-io-uring = "=0.7.15"
 flume = "0.12"
 crossbeam-queue = "0.3"
-waker-fn = "1"
 x25519-dalek = { version = "3", features = ["static_secrets", "getrandom"] }
 h3 = "0.0.8"
 h3-quinn = "0.0.10"

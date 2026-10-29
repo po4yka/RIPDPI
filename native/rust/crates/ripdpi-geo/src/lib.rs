@@ -2,7 +2,7 @@
 // (`mapped_file::MappedFile`) backed by raw `libc::mmap` / `libc::munmap`,
 // `std::slice::from_raw_parts`, and manual `unsafe impl Send/Sync`. Per the
 // rust-unsafe lint-floor convention already adopted by ripdpi-vless /
-// ripdpi-io-uring / ripdpi-privileged-ops / ripdpi-proxy-runtime, enabling
+// ripdpi-privileged-ops / ripdpi-proxy-runtime, enabling
 // these lints locally turns the per-block `// SAFETY:` requirement into a
 // build-time error while the rest of the workspace migrates gradually.
 #![warn(clippy::undocumented_unsafe_blocks)]

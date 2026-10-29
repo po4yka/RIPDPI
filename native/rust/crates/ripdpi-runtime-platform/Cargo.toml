@@ -20,10 +20,6 @@ serde_json = { workspace = true }
 libc = { workspace = true }
 nix = { workspace = true }
 tracing = { workspace = true }
-ripdpi-io-uring = { workspace = true, optional = true }
-
-[features]
-io-uring = ["dep:ripdpi-io-uring"]
 
 [dev-dependencies]
 android-support = { workspace = true }

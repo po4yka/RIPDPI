@@ -2,7 +2,7 @@
 //!
 //! This crate is the runtime's single window onto OS-level networking. It does
 //! not implement privileged syscalls itself — those live in
-//! `ripdpi-privileged-ops`, `ripdpi-native-protect`, `ripdpi-io-uring`, and the
+//! `ripdpi-privileged-ops`, `ripdpi-native-protect`, and the
 //! `ripdpi-root-helper-*` crates. What this crate adds is *adaptation*: a
 //! stable, organized public surface, non-root / non-Linux fallbacks, and the
 //! root-helper-vs-local dispatch every privileged operation needs.
@@ -30,10 +30,10 @@
 //! ## 2. OS-primitive adapter modules (private `mod`)
 //!
 //! Thin `#[cfg]`-split wrappers over a single upstream primitive crate. Each
-//! has a Linux/Android arm that delegates to `ripdpi-privileged-ops` (or
-//! `ripdpi-io-uring`) and a non-Linux arm with a static fallback. They hold no
+//! has a Linux/Android arm that delegates to `ripdpi-privileged-ops` and a
+//! non-Linux arm with a static fallback. They hold no
 //! process state and perform no root-helper dispatch:
-//! `bpf_timestamp`, `capabilities`, `io_uring`, `original_destination`,
+//! `bpf_timestamp`, `capabilities`, `original_destination`,
 //! `process`, `retransmit`, `socket_options`, `tcp_info`, `ttl`.
 //!
 //! ## 3. Runtime-adaptation modules
@@ -56,7 +56,7 @@
 // Lint floor for unsafe-bearing crates (see the `rust-unsafe` skill): every
 // `unsafe { ... }` block needs a preceding `// SAFETY:` note, and a block may
 // not bundle multiple unsafe operations under one comment. Matches the floor
-// already opted into by `ripdpi-io-uring` / `ripdpi-privileged-ops` /
+// already opted into by `ripdpi-privileged-ops` /
 // `ripdpi-proxy-runtime`.
 #![warn(clippy::undocumented_unsafe_blocks)]
 #![warn(clippy::multiple_unsafe_ops_per_block)]
@@ -74,8 +74,6 @@ pub mod vpn;
 // ===== OS-primitive adapter modules (private) — thin syscall wrappers =====
 mod bpf_timestamp;
 mod capabilities;
-#[cfg(all(feature = "io-uring", any(target_os = "linux", target_os = "android")))]
-mod io_uring;
 mod original_destination;
 mod process;
 mod retransmit;
