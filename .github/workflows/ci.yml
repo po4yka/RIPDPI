@@ -986,6 +986,15 @@ jobs:
       - name: Run mutation wrapper unit test
         run: bash scripts/tests/test_run_rust_mutants.sh
 
+      # Device-free Appium page-object checks; --confcutdir skips the root
+      # conftest that opens an Appium session.
+      - name: Run Appium state-reader checks
+        working-directory: appium
+        run: |
+          python3 -m venv "$RUNNER_TEMP/appium-venv"
+          "$RUNNER_TEMP/appium-venv/bin/python" -m pip install -r requirements.txt
+          PYTHONPATH=. "$RUNNER_TEMP/appium-venv/bin/python" -m pytest --confcutdir=checks checks/
+
       - uses: ./.github/actions/upload-build-observability
         if: always()
         with:
