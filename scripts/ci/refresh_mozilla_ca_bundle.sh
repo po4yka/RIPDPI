@@ -6,8 +6,11 @@
 # Usage:
 #   scripts/ci/refresh_mozilla_ca_bundle.sh [--write]
 #
-# Without --write: checks freshness + diff size vs upstream, non-zero exit
-# if the in-tree bundle is stale or drifted. Use in CI.
+# Without --write: checks the bundle age and root count, non-zero exit if
+# the in-tree bundle is older than MAX_AGE_DAYS or too small. The age is the
+# last commit that touched the bundle (CI needs full history, for example
+# actions/checkout fetch-depth: 0); outside a Git checkout it falls back to
+# the file mtime. Run weekly by .github/workflows/tls-catalog-refresh.yml.
 # With --write: overwrites the in-tree bundle from upstream. Use locally
 # when refreshing.
 
@@ -40,19 +43,24 @@ if "$write_mode"; then
     exit 0
 fi
 
-# Freshness guard (by mtime, falling back to file-system ctime on macOS).
-if command -v stat >/dev/null 2>&1; then
+# Freshness guard. A fresh checkout resets the file mtime, so prefer the
+# commit time of the last change to the bundle.
+mtime=""
+if command -v git >/dev/null 2>&1; then
+    mtime=$(git log -1 --format=%ct -- "$BUNDLE_PATH" 2>/dev/null || true)
+fi
+if [[ -z "$mtime" ]]; then
     if mtime=$(stat -f %m "$BUNDLE_PATH" 2>/dev/null); then :;
     else mtime=$(stat -c %Y "$BUNDLE_PATH"); fi
-    now=$(date +%s)
-    age_days=$(( (now - mtime) / 86400 ))
-    if (( age_days > MAX_AGE_DAYS )); then
-        echo "error: $BUNDLE_PATH is $age_days days old (> $MAX_AGE_DAYS)." >&2
-        echo "refresh with: $0 --write" >&2
-        exit 1
-    fi
-    echo "ok: bundle age is $age_days days"
 fi
+now=$(date +%s)
+age_days=$(( (now - mtime) / 86400 ))
+if (( age_days > MAX_AGE_DAYS )); then
+    echo "error: $BUNDLE_PATH is $age_days days old (> $MAX_AGE_DAYS)." >&2
+    echo "refresh with: $0 --write" >&2
+    exit 1
+fi
+echo "ok: bundle age is $age_days days"
 
 count=$(grep -c 'BEGIN CERTIFICATE' "$BUNDLE_PATH" || echo 0)
 if (( count < 100 )); then

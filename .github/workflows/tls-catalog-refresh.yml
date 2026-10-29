@@ -24,3 +24,15 @@ jobs:
 
       - name: Run TLS catalog refresh tests
         run: python3 -m unittest scripts.tests.test_tls_catalog_refresh
+
+  verify-mozilla-ca-bundle:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          # The freshness check reads the bundle's last commit time.
+          fetch-depth: 0
+
+      - name: Check Mozilla CA bundle freshness
+        run: scripts/ci/refresh_mozilla_ca_bundle.sh
