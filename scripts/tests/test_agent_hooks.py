@@ -43,7 +43,7 @@ class HookPolicyTest(unittest.TestCase):
             {
                 "cwd": str(ROOT),
                 "tool_input": {
-                    "patch": "*** Begin Patch\n*** Update File: scripts/ci/module-deps-baseline.json\n@@\n*** End Patch"
+                    "patch": "*** Begin Patch\n*** Update File: config/static/file-loc-baseline.json\n@@\n*** End Patch"
                 },
             },
         )

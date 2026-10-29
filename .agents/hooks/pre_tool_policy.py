@@ -15,8 +15,6 @@ from extract_hook_paths import extract_paths
 PROTECTED_PATHS = {
     "config/static/architecture-health-baseline.json",
     "config/static/file-loc-baseline.json",
-    "scripts/ci/module-deps-baseline.json",
-    "scripts/ci/rust-allow-baseline.json",
 }
 PROTECTED_NAMES = {"detekt-baseline.xml", "lint-baseline.xml"}
 

@@ -1398,7 +1398,7 @@ The dedicated `rust-miri` job runs `scripts/ci/run-rust-miri.sh`, which extends 
 
 ## Lint waivers
 
-The two `clippy::*` lints listed under "JNI/FFI allowances" in `native/rust/Cargo.toml` are the only blanket waivers. They exist because JNI macros and JNI-exported raw-pointer arguments would otherwise require per-symbol `#[allow(...)]` annotations that conflict with the no-baseline- extension policy enforced by `scripts/ci/check_rust_allow_guard.py`.
+The two `clippy::*` lints listed under "JNI/FFI allowances" in `native/rust/Cargo.toml` are the only blanket waivers. They exist because JNI macros and JNI-exported raw-pointer arguments would otherwise require per-symbol `#[allow(...)]` annotations that conflict with the no-baseline-extension policy.
 
 No additional waivers may be added without:
 
