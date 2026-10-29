@@ -1,6 +1,6 @@
 ---
 name: material-3
-description: MD3 vocabulary, component catalog, and a compliance-audit rubric across Web/Flutter/Compose. Use for MD3 tokens/components or an audit -- RIPDPI disables dynamic color (see android-compose-patterns).
+description: MD3 vocabulary, component catalog, and a compliance-audit rubric across Web/Flutter/Compose. Use for MD3 tokens/components or an audit -- RIPDPI owns dynamic color in RipDpiTheme only (see android-compose-patterns).
 user-invocable: true
 argument-hint: "[component|theme|layout|scaffold|audit] [description or URL]"
 ---
@@ -9,7 +9,7 @@ argument-hint: "[component|theme|layout|scaffold|audit] [description or URL]"
 
 This skill guides implementation of Google's Material Design 3 (MD3) — a personal, adaptive, expressive design system. MD3 uses dynamic color, tonal surfaces, rounded shapes, and spring-based motion to create UIs that feel alive and personal.
 
-**RIPDPI note:** this repo's Compose implementation disables Material You / dynamic color and reads its color scheme, spacing, and typography through `RipDpiThemeTokens` (see the `android-compose-patterns` skill and `docs/design/rds/README.md`). Use this skill here for MD3 vocabulary, the component catalog, and the compliance-audit rubric only — do not add `dynamicLightColorScheme`/`dynamicDarkColorScheme` calls in this repo.
+**RIPDPI note:** this repo's Compose theme (`RipDpiTheme`) selects one of six generated Material 3 schemes (neutral seed `#36414F`, light and dark at three contrast levels that follow the system setting) and, only when the user turns on the opt-in Settings switch on Android 12+, the system dynamic scheme. Screens read colors, spacing, and typography through `RipDpiThemeTokens` (see the `android-compose-patterns` skill, `DESIGN.md`, and `docs/design-system.md`). Use this skill here for MD3 vocabulary, the component catalog, and the compliance-audit rubric. Call `dynamicLightColorScheme`/`dynamicDarkColorScheme` only inside `RipDpiTheme`; never in screens or components.
 
 ## Philosophy
 
@@ -194,7 +194,7 @@ MaterialTheme(
 }
 ```
 
-`dynamicLightColorScheme`/`dynamicDarkColorScheme` derive the scheme from the user's wallpaper (Android 12+, Material You). **Do not use them in RIPDPI** — this repo supplies its own `ColorScheme` through `RipDpiThemeTokens` instead (see the `android-compose-patterns` skill).
+`dynamicLightColorScheme`/`dynamicDarkColorScheme` derive the scheme from the user's wallpaper (Android 12+, Material You). In RIPDPI only `RipDpiTheme` calls them, behind the opt-in `dynamic_color_enabled` setting; screens and components consume the resulting roles through `RipDpiThemeTokens`.
 
 ## M3 Expressive (May 2025)
 

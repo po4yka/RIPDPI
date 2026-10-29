@@ -17,13 +17,13 @@ When any of these disagree, the Compose theme code and screenshot baselines win.
 
 | Layer | Compose source | What it owns |
 |-------|----------------|--------------|
-| Colors | `ui/theme/Color.kt` | Semantic background, text, border, feedback, and status roles plus contrast adaptation |
-| Typography | `ui/theme/Type.kt` | Geist families, text-role naming, weight hierarchy, and Material 3 mapping |
+| Colors | `ui/theme/RipDpiColorSchemes.kt`, `ui/theme/Color.kt`, `ui/theme/SystemContrast.kt` | Six generated Material 3 schemes, RDS roles derived from the selected scheme, fixed status roles, system contrast level, and dynamic color selection |
+| Typography | `ui/theme/Type.kt` | Geist families, text-role naming, weight hierarchy, and the full Material 3 baseline and emphasized scale |
 | Spacing | `ui/theme/Spacing.kt` | 4px-derived spacing scale |
 | Layout | `ui/theme/Spacing.kt` | Width classes, max widths, section gaps, scaffold dimensions |
 | Component metrics | `ui/theme/Spacing.kt` | Control heights, paddings, switch and actuator sizes, badge sizes, row heights |
-| Shapes | `ui/theme/Shape.kt` | Rounded-corner token scale and Material 3 shape bridge |
-| Motion | `ui/theme/RipDpiMotion.kt` | Durations, scales, easing, spring behavior, reduced-motion handling |
+| Shapes | `ui/theme/Shape.kt` | Rounded-corner token scale and the full Material 3 corner scale, including increased tokens |
+| Motion | `ui/theme/RipDpiMotion.kt` | Durations, scales, easing, spring behavior, reduced-motion handling, and `RipDpiMotionScheme` for Material components |
 | Surface tokens | `ui/theme/RipDpiSurface.kt` | First-class panel, modal, feedback, menu, and navigation-chrome surfaces |
 | State tokens | `ui/theme/RipDpiState.kt` | First-class pressed, focused, disabled, loading, selected, and semantic tone resolution for shared components |
 | Component styles | `ui/theme/RipDpiComponentStyles.kt` and family extensions | Typed `CommonStyle` recipes that apply existing RDS values during layout and drawing |
@@ -189,15 +189,18 @@ RIPDPI supports:
 
 - light theme
 - dark theme
-- contrast levels `Standard`, `Medium`, and `High`
+- contrast levels `Standard`, `Medium`, and `High`, which follow the system contrast setting on Android 14 and later
+- opt-in dynamic color on Android 12 and later (`dynamic_color_enabled` in AppSettings, off by default)
 
 The design contract is semantic, not palette-branching. Screens should keep the same structure and role assignment across variants.
 
 Variant rules:
 
 - Light and dark themes preserve the same component hierarchy and density.
-- High contrast strengthens muted text, border, and outline relationships instead of recoloring the interface.
-- New UI should be reviewed in at least light, dark, and one large-font or high-contrast configuration.
+- Each contrast level selects its generated scheme. High contrast strengthens text, outline, and container relationships instead of recoloring the interface.
+- Dynamic color replaces the Material roles and the RDS roles derived from them. Fixed status roles (`success`, `warning`, `info`, `restricted`) stay unchanged; check status containers with dynamic color on.
+- Read colors through `RipDpiThemeTokens.colors` or `MaterialTheme.colorScheme` where the source rules allow it; never add a hard-coded neutral color.
+- New UI should be reviewed in at least light, dark, one large-font or high-contrast configuration, and with dynamic color on.
 
 Current screenshot coverage already includes these checks through:
 

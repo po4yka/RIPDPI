@@ -1,29 +1,29 @@
 ---
 version: alpha
 name: RIPDPI
-description: Monochrome-first Android VPN utility UI with compact operator tooling, explicit state visibility, and restrained semantic status color.
+description: Calm Material 3 Android VPN utility UI on a low-chroma neutral seed scheme, with compact operator tooling, explicit state visibility, and restrained semantic status color.
 colors:
-  primary: "#1A1A1A"
-  background: "#FAFAFA"
-  foreground: "#1A1A1A"
-  card: "#FFFFFF"
-  cardForeground: "#1A1A1A"
-  muted: "#F5F5F5"
-  mutedForeground: "#575757"
-  accent: "#E8E8E8"
-  accentForeground: "#1A1A1A"
-  border: "#E0E0E0"
-  cardBorder: "#E8E8E8"
-  inputBackground: "#F5F5F5"
+  primary: "#575F6B"
+  background: "#FBF9FA"
+  foreground: "#1B1B1D"
+  card: "#F5F3F4"
+  cardForeground: "#1B1B1D"
+  muted: "#EAE7E9"
+  mutedForeground: "#474748"
+  accent: "#DFE2EB"
+  accentForeground: "#42474E"
+  border: "#C8C6C7"
+  cardBorder: "#C8C6C7"
+  inputBackground: "#E4E2E3"
   success: "#047857"
   warning: "#B45309"
   warningForeground: "#FFFFFF"
   warningContainer: "#FFF7ED"
   warningContainerForeground: "#1A1A1A"
-  destructive: "#B91C1C"
+  destructive: "#BA1A1A"
   destructiveForeground: "#FFFFFF"
-  destructiveContainer: "#FEF2F2"
-  destructiveContainerForeground: "#7F1D1D"
+  destructiveContainer: "#FFDAD6"
+  destructiveContainerForeground: "#93000A"
   info: "#1D4ED8"
   infoForeground: "#FFFFFF"
   infoContainer: "#EFF6FF"
@@ -32,10 +32,10 @@ colors:
   restrictedForeground: "#FFFFFF"
   restrictedContainer: "#F3F4F6"
   restrictedContainerForeground: "#374151"
-  divider: "#F0F0F0"
-  hairline: "#666666"
-  outline: "#757575"
-  outlineVariant: "#D0D0D0"
+  divider: "#C8C6C7"
+  hairline: "#777778"
+  outline: "#777778"
+  outlineVariant: "#C8C6C7"
   scrim: "#000000"
 typography:
   screenTitle:
@@ -500,17 +500,18 @@ components:
 
 ## Overview
 
-RIPDPI is an operator-facing Android utility, not a lifestyle product. The interface should feel quiet, deliberate, and technically trustworthy. The visual language is monochrome-first: dense information, strong contrast, stable geometry, and narrow use of semantic status color only when the state itself matters.
+RIPDPI is an operator-facing Android utility, not a lifestyle product. The interface should feel quiet, deliberate, and technically trustworthy. The visual language is Material 3 on a low-chroma neutral seed: dense information, strong contrast, stable geometry, and narrow use of semantic status color only when the state itself matters.
 
-The YAML tokens above describe the default light-theme baseline that agents can reuse across tools. The implementation adapts those roles for dark theme and high-contrast modes in Compose; those rules are part of the design contract and are described in the prose below.
+The YAML tokens above describe the default light-theme baseline at standard contrast that agents can reuse across tools. The Compose implementation selects one of six generated Material 3 schemes (light and dark at standard, medium, and high contrast) and derives these roles from it; those rules are part of the design contract and are described in the prose below.
 
 ## Colors
 
-Core UI uses achromatic structure:
+Core UI uses the Material 3 color roles of a scheme generated with Google material-color-utilities (`SchemeNeutral`, seed `#36414F`, 2021 spec). `app/src/main/kotlin/com/poyka/ripdpi/ui/theme/RipDpiColorSchemes.kt` holds the generated values; regenerate them with the same tool instead of editing single colors. The RDS role names map onto Material roles:
 
 - `background`, `card`, and `muted` define the page, card, and secondary-surface hierarchy.
 - `foreground`, `cardForeground`, and `mutedForeground` define the text hierarchy.
-- `primary` is a portability alias for the same deep ink role as `foreground`.
+- `primary` is the Material `primary` role, a calm slate. Filled primary actions use it with `onPrimary`.
+- `background` is `surface`, `card` is `surfaceContainerLow`, `muted` is `surfaceContainerHigh`, `inputBackground` is `surfaceContainerHighest`, and `border`, `cardBorder`, and `divider` are `outlineVariant`.
 - `accent` and `accentForeground` are for selected status cards or emphasized neutral surfaces, not for playful branding.
 - `border`, `cardBorder`, `divider`, `hairline`, `outline`, and `outlineVariant` encode structure and focus.
 
@@ -522,7 +523,9 @@ Status color is intentionally scarce and semantic:
 - `info` and `infoContainer` mean explanatory state or guidance.
 - `restricted` and `restrictedContainer` mean limited capability or unavailable mode.
 
-Dark mode preserves the same role mapping instead of inventing a separate visual identity. Contrast settings increase readability by tightening muted, border, and outline relationships without making the app visually loud.
+Dark mode preserves the same role mapping instead of inventing a separate visual identity. Contrast levels select the matching generated scheme, which strengthens text, outline, and container relationships without making the app visually loud. `destructive` roles come from the Material `error` roles; `success`, `warning`, `info`, and `restricted` are fixed semantic roles outside the Material scheme.
+
+Dynamic color is an opt-in Settings switch on Android 12 and later, off by default. When it is on, Material roles come from the system wallpaper scheme and the RDS roles derive from it; the fixed semantic status roles do not change.
 
 ## Typography
 
@@ -533,6 +536,8 @@ Typography uses bundled Geist families only:
 - `Geist Pixel Circle` for the home brand mark only.
 
 Primary content uses a readable mobile scale: `body` and its emphasis variants are `16sp/24sp`; supporting text uses `secondaryBody` at `14sp/20sp`. `cardTitle` is `18sp/24sp` for mode and profile names. Reserve `caption` at `12sp/16sp` for metadata. Use these semantic roles instead of shrinking text to fit a control. The portable YAML expresses text sizes in px; Android implements them in sp and respects system font scale.
+
+Material `Typography` defines all fifteen baseline styles and all fifteen emphasized styles in Geist Sans. Display and headline styles use the Material 3 sizes; the other baseline styles map to the RDS roles above. Emphasized styles step up one weight (Normal to Medium, Medium to Bold), because the bundled Geist family ships Normal, Medium, and Bold.
 
 Reserved usage matters:
 
@@ -584,7 +589,7 @@ Role rules:
 
 ## Shapes
 
-Corners are rounded but restrained:
+Corners are rounded but restrained. Material `Shapes` covers the full Material 3 corner scale (4, 8, 12, 16, 20, 28, 32, and 48dp) and reuses the RDS radii:
 
 - `xs`, `sm`, and `md` are for compact controls, small clusters, and subtle shape changes.
 - `lg` and `xl` are the default radii for chips, rows, buttons, cards, and fields.
@@ -624,7 +629,7 @@ Component behavior rules:
 
 Do:
 
-- keep the default UI monochrome-first
+- keep the default UI calm and low-chroma
 - use semantic status color sparingly and intentionally
 - reuse shared tokens before introducing local values
 - preserve stable hierarchy in light, dark, and high-contrast modes
@@ -677,7 +682,7 @@ Interaction scale is modest:
 - Selection can grow to `1.02`.
 - Emphasis can reach `1.04`.
 
-Compose implementation uses both cubic easing and spring motion. Reduced-motion behavior is mandatory:
+Compose implementation uses both cubic easing and spring motion. `MaterialTheme` receives `RipDpiMotionScheme`, derived from `RipDpiMotion`: Material fast, default, and slow specs map to the quick, state, and emphasized buckets, so Material and RDS components share one motion language. Reduced-motion behavior is mandatory:
 
 - if animations are disabled, durations collapse to zero
 - if reduced motion applies, durations are reduced and infinite motion is disabled
@@ -703,17 +708,14 @@ Icon rules are strict:
 
 ## Theme Variants
 
-RIPDPI has three runtime presentation dimensions:
+RIPDPI has four runtime presentation dimensions:
 
 - Light theme: the baseline defined in the YAML tokens above
 - Dark theme: same hierarchy and semantics, inverted for low-light use without changing personality
 - Contrast level: `Standard`, `Medium`, and `High`
+- Dynamic color: off by default; an opt-in Settings switch on Android 12 and later
 
-Contrast changes tighten readability rather than recolor the app:
-
-- `Medium` strengthens muted text and borders
-- `High` strengthens muted text, borders, and outline relationships further
-- dark high-contrast also nudges `inputBackground` toward stronger separation
+The contrast level follows the system setting on Android 14 and later (`UiModeManager.getContrast()`, updated while the app runs) and is `Standard` on older versions. Each level selects its generated Material 3 scheme, so Material-hosted and RDS components change together. Contrast changes tighten readability rather than recolor the app.
 
 Agents should preserve semantic role names across variants rather than introducing theme-specific content branches unless a screen is intentionally showing theme comparison.
 
@@ -770,7 +772,7 @@ Onboarding, auth, and permission flows:
 
 - use `RipDpiIntroScaffold`
 - center the core narrative, keep the footer action stable, and preserve large-font integrity
-- use larger spacing and stronger title treatment without abandoning the monochrome personality
+- use larger spacing and stronger title treatment without abandoning the calm low-chroma personality
 - include persona selection before permissions, defer permissions until they are needed, and offer an optional first diagnostics check
 
 ## Layout Recipes

@@ -84,7 +84,7 @@ fun ExampleScreen(uiState: UiState, onAction: () -> Unit) { /* ... */ }
 - Split Route (stateful) from Screen (stateless) composables
 - Use `collectAsStateWithLifecycle()` (not `collectAsState()`)
 - Pass callbacks, not ViewModel references, to Screen composables
-- Use `RipDpiThemeTokens` for colors, spacing, typography
+- Use `RipDpiThemeTokens` for colors, spacing, typography. `RipDpiTheme` owns color selection: generated Material 3 seed schemes per contrast level, or the system dynamic scheme when the opt-in setting is on. Do not select or build a `ColorScheme` anywhere else.
 
 ## Representative ViewModels
 
