@@ -166,17 +166,30 @@ val RipDpiTypeScale =
         brandStatus = monoStyle(fontSize = 13, lineHeight = 18, fontWeight = FontWeight.Medium),
     )
 
-private val MaterialTypographyDefaults = Typography()
-
 val RipDpiTypography = ripDpiTypography(RipDpiTypeScale)
 
-internal fun ripDpiTypography(type: RipDpiTextStyles): Typography =
-    Typography(
-        displayLarge = MaterialTypographyDefaults.displayLarge.copy(localeList = type.body.localeList),
-        displayMedium = MaterialTypographyDefaults.displayMedium.copy(localeList = type.body.localeList),
-        displaySmall = MaterialTypographyDefaults.displaySmall.copy(localeList = type.body.localeList),
-        headlineLarge = MaterialTypographyDefaults.headlineLarge.copy(localeList = type.body.localeList),
-        headlineMedium = MaterialTypographyDefaults.headlineMedium.copy(localeList = type.body.localeList),
+private fun TextStyle.emphasized(): TextStyle =
+    copy(fontWeight = if (fontWeight == FontWeight.Normal) FontWeight.Medium else FontWeight.Bold)
+
+internal fun ripDpiTypography(type: RipDpiTextStyles): Typography {
+    val locales = type.body.localeList
+
+    fun display(
+        fontSize: Int,
+        lineHeight: Int,
+    ) = sansStyle(fontSize, lineHeight, FontWeight.Normal).copy(localeList = locales)
+
+    val displayLarge = display(57, 64)
+    val displayMedium = display(45, 52)
+    val displaySmall = display(36, 44)
+    val headlineLarge = display(32, 40)
+    val headlineMedium = display(28, 36)
+    return Typography(
+        displayLarge = displayLarge,
+        displayMedium = displayMedium,
+        displaySmall = displaySmall,
+        headlineLarge = headlineLarge,
+        headlineMedium = headlineMedium,
         headlineSmall = type.screenTitle,
         titleLarge = type.appBarTitle,
         titleMedium = type.bodyEmphasis,
@@ -187,6 +200,22 @@ internal fun ripDpiTypography(type: RipDpiTextStyles): Typography =
         labelLarge = type.button,
         labelMedium = type.smallLabel,
         labelSmall = type.navLabel,
+        displayLargeEmphasized = displayLarge.emphasized(),
+        displayMediumEmphasized = displayMedium.emphasized(),
+        displaySmallEmphasized = displaySmall.emphasized(),
+        headlineLargeEmphasized = headlineLarge.emphasized(),
+        headlineMediumEmphasized = headlineMedium.emphasized(),
+        headlineSmallEmphasized = type.screenTitle.emphasized(),
+        titleLargeEmphasized = type.appBarTitle.emphasized(),
+        titleMediumEmphasized = type.bodyEmphasis.emphasized(),
+        titleSmallEmphasized = type.sectionTitle.emphasized(),
+        bodyLargeEmphasized = type.body.emphasized(),
+        bodyMediumEmphasized = type.secondaryBody.emphasized(),
+        bodySmallEmphasized = type.caption.emphasized(),
+        labelLargeEmphasized = type.button.emphasized(),
+        labelMediumEmphasized = type.smallLabel.emphasized(),
+        labelSmallEmphasized = type.navLabel.emphasized(),
     )
+}
 
 internal val LocalRipDpiTextStyles = staticCompositionLocalOf { RipDpiTypeScale }
