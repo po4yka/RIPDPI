@@ -543,6 +543,7 @@ private fun DiagnosticsUiFactorySupport.toCandidateDetailUiModel(
             buildStrategyProbeResultGroups(
                 candidateResults = candidateResults,
             ).toImmutableList(),
+        proxyConfigJson = candidate.proxyConfigJson,
     )
 
 private fun DiagnosticsUiFactorySupport.toStrategyProbeRecommendationUiModel(

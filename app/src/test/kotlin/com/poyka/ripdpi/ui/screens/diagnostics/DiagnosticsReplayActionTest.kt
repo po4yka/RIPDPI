@@ -25,16 +25,24 @@ class DiagnosticsReplayActionTest {
     fun `failed probe with host and candidate id routes to replay failure`() {
         assertEquals(
             Route.ReplayFailure(domain = "www.youtube.com", strategyId = "split"),
-            replayRouteFor("split", probe("www.youtube.com")),
+            replayRouteFor("split", null, probe("www.youtube.com")),
+        )
+    }
+
+    @Test
+    fun `native candidate with a proxy config routes with that config`() {
+        assertEquals(
+            Route.ReplayFailure("www.youtube.com", "tlsrec_split_host", "{\"k\":1}"),
+            replayRouteFor("tlsrec_split_host", "{\"k\":1}", probe("www.youtube.com")),
         )
     }
 
     @Test
     fun `no replay route without a failed probe, a hostname target, or an activatable candidate id`() {
-        assertNull(replayRouteFor("split", probe("www.youtube.com", DiagnosticsTone.Positive)))
-        assertNull(replayRouteFor("split", probe("")))
-        assertNull(replayRouteFor("split", probe("https://a.example/x")))
-        assertNull(replayRouteFor(" ", probe("www.youtube.com")))
-        assertNull(replayRouteFor("tlsrec_split_host", probe("www.youtube.com")))
+        assertNull(replayRouteFor("split", null, probe("www.youtube.com", DiagnosticsTone.Positive)))
+        assertNull(replayRouteFor("split", null, probe("")))
+        assertNull(replayRouteFor("split", null, probe("https://a.example/x")))
+        assertNull(replayRouteFor(" ", null, probe("www.youtube.com")))
+        assertNull(replayRouteFor("tlsrec_split_host", null, probe("www.youtube.com")))
     }
 }

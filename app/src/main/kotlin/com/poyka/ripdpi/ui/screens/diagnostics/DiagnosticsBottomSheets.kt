@@ -351,7 +351,7 @@ internal fun DiagnosticsBottomSheetHost(
                     )
                     group.items.forEach { probe ->
                         ProbeResultRow(probe = probe, onClick = null)
-                        val replayRoute = replayRouteFor(candidate.id, probe)
+                        val replayRoute = replayRouteFor(candidate.id, candidate.proxyConfigJson, probe)
                         if (onReplayProbe != null && replayRoute != null) {
                             RipDpiButton(
                                 text = stringResource(R.string.vpn_replay_failure_replay),

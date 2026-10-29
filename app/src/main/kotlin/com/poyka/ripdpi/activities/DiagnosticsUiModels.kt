@@ -657,6 +657,7 @@ data class DiagnosticsStrategyProbeCandidateDetailUiModel(
     val metrics: ImmutableList<DiagnosticsMetricUiModel>,
     val signature: ImmutableList<DiagnosticsFieldUiModel>,
     val resultGroups: ImmutableList<DiagnosticsProbeGroupUiModel>,
+    val proxyConfigJson: String? = null,
 )
 
 @Stable

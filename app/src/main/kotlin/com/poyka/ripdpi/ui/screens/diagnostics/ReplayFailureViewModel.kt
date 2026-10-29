@@ -67,9 +67,10 @@ class ReplayFailureViewModel
             domain: String,
             strategyId: String,
             timeoutMs: Long = DEFAULT_TIMEOUT_MS,
+            proxyConfigJson: String? = null,
         ) {
             currentJob?.cancel()
-            val request = ReplayProbeRequest(domain, strategyId, timeoutMs)
+            val request = ReplayProbeRequest(domain, strategyId, timeoutMs, proxyConfigJson)
             val attempt = ReplayAttempt(request)
             currentAttempt = attempt
             val timestamp = currentTimestamp()
@@ -119,10 +120,11 @@ class ReplayFailureViewModel
         fun ensureStarted(
             domain: String,
             strategyId: String,
+            proxyConfigJson: String? = null,
         ) {
-            val request = currentAttempt?.request
-            if (request != null && request.domain == domain && request.strategyId == strategyId) return
-            start(domain = domain, strategyId = strategyId)
+            val target = ReplayProbeRequest(domain, strategyId, DEFAULT_TIMEOUT_MS, proxyConfigJson)
+            if (currentAttempt?.request?.copy(timeoutMs = DEFAULT_TIMEOUT_MS) == target) return
+            start(domain = domain, strategyId = strategyId, proxyConfigJson = proxyConfigJson)
         }
 
         fun cancel() {

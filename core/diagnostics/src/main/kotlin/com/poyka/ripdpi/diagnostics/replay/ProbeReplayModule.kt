@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.replay
 
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.diagnostics.StrategyProbeActivator
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateProvider
 import com.poyka.ripdpi.diagnostics.StrategyProbeRunGuard
@@ -43,8 +44,16 @@ object ProbeReplayModule {
         impl: DefaultProbeReplayService,
         candidateProvider: StrategyProbeCandidateProvider,
         activator: StrategyProbeActivator,
+        appSettingsRepository: AppSettingsRepository,
         runGuard: StrategyProbeRunGuard,
-    ): ProbeReplayService = StrategyScopedProbeReplay(impl, candidateProvider, activator, runGuard)
+    ): ProbeReplayService =
+        StrategyScopedProbeReplay(
+            delegate = impl,
+            candidateProvider = candidateProvider,
+            activator = activator,
+            proxyConfigApplier = SettingsProxyConfigStrategyApplier(appSettingsRepository),
+            runGuard = runGuard,
+        )
 
     @Provides
     @Singleton

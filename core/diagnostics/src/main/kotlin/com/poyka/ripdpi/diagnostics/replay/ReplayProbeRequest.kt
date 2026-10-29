@@ -9,4 +9,6 @@ data class ReplayProbeRequest(
     val domain: String,
     val strategyId: String,
     val timeoutMs: Long,
+    /** Full proxy config of a native scan candidate; null for ids [StrategyProbeCandidateProvider] resolves. */
+    val proxyConfigJson: String? = null,
 )

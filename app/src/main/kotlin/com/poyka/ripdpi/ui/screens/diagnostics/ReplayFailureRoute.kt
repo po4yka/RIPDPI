@@ -19,12 +19,13 @@ private const val DefaultReplayStrategyId = "default"
 fun ReplayFailureRoute(
     domain: String = DefaultReplayDomain,
     strategyId: String = DefaultReplayStrategyId,
+    proxyConfigJson: String? = null,
     onBack: () -> Unit,
     viewModel: ReplayFailureViewModel = hiltViewModel(),
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
 
-    LaunchedEffect(domain, strategyId) {
+    LaunchedEffect(domain, strategyId, proxyConfigJson) {
         // Auto-start the probe for this target session. ensureStarted keys
         // the dedup on the retained request rather than on UI state, so a
         // configuration change (new composition, same ViewModel and target)
@@ -32,6 +33,7 @@ fun ReplayFailureRoute(
         viewModel.ensureStarted(
             domain = domain,
             strategyId = strategyId,
+            proxyConfigJson = proxyConfigJson,
         )
     }
 
@@ -53,6 +55,7 @@ fun ReplayFailureRoute(
             viewModel.start(
                 domain = domain,
                 strategyId = strategyId,
+                proxyConfigJson = proxyConfigJson,
             )
         },
         onBack = onBack,

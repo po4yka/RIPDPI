@@ -12,6 +12,7 @@ internal fun NavGraphBuilder.addReplayRoutes(navController: NavHostController) {
         ReplayFailureRoute(
             domain = route.domain,
             strategyId = route.strategyId,
+            proxyConfigJson = route.proxyConfigJson,
             onBack = { navController.navigateUp() },
         )
     }
