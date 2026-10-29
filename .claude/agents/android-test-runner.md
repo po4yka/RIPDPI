@@ -33,7 +33,7 @@ android docs fetch '<kb-url>'
 - The tested application variant is `GithubFullDebug`.
 - Local native ABI defaults to `host` through `ripdpi.localNativeAbisDefault=host`; override with `-Pripdpi.localNativeAbis=x86_64` for an x86_64 emulator.
 - Build with `./gradlew :app:assembleGithubFullDebug :app:assembleGithubFullDebugAndroidTest`.
-- The universal debug APK used by automation is `app/build/outputs/apk/github/debug/app-github-universal-debug.apk`; scripts may also select another APK under that flavored directory.
+- The universal debug APK used by automation is `app/build/outputs/apk/githubFull/debug/app-github-full-universal-debug.apk`; scripts may also select another APK under that flavored directory.
 
 ## Suite selection
 

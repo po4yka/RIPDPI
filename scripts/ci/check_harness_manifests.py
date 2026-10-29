@@ -366,7 +366,7 @@ def validate_specialist_ground_truth() -> None:
         "android-test-runner": (
             "connectedGithubFullDebugAndroidTest",
             "ripdpi.localNativeAbisDefault=host",
-            "app-github-universal-debug.apk",
+            "app-github-full-universal-debug.apk",
         ),
         "native-verifier": (
             "libripdpi-relay.so",

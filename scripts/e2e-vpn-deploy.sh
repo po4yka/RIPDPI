@@ -24,7 +24,7 @@
 #   RIPDPI_E2E_DEVICE      adb -s SERIAL override
 #   RIPDPI_E2E_HOST        host the app dials (default localhost — for AVD use 10.0.2.2)
 #   RIPDPI_E2E_PORT        VLESS port on host  (default 31443)
-#   RIPDPI_E2E_APK         path to APK (default app/build/outputs/apk/github/debug/app-github-universal-debug.apk)
+#   RIPDPI_E2E_APK         path to APK (default app/build/outputs/apk/githubFull/debug/app-github-full-universal-debug.apk)
 #
 # Exit codes:
 #   0   PASS (proxy import succeeded; no fatal markers in logcat)
@@ -39,7 +39,7 @@ deploy_dir="${RIPDPI_VPN_DEPLOY_DIR:-${HOME}/GitHub/ripdpi-vpn-deploy}"
 host="${RIPDPI_E2E_HOST:-localhost}"
 port="${RIPDPI_E2E_PORT:-31443}"
 pkg="com.poyka.ripdpi"
-apk="${RIPDPI_E2E_APK:-${repo_root}/app/build/outputs/apk/github/debug/app-github-universal-debug.apk}"
+apk="${RIPDPI_E2E_APK:-${repo_root}/app/build/outputs/apk/githubFull/debug/app-github-full-universal-debug.apk}"
 adb_opt=()
 [[ -n "${RIPDPI_E2E_DEVICE:-}" ]] && adb_opt=(-s "$RIPDPI_E2E_DEVICE")
 

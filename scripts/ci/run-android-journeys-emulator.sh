@@ -40,7 +40,7 @@ adb wait-for-device
 
 # --- Install the app under test -------------------------------------------
 # Use a prebuilt APK when RIPDPI_JOURNEYS_APK is set; otherwise assemble the
-# github/debug variant (the variant exercised by the connected test lanes).
+# githubFull/debug variant (the variant exercised by the connected test lanes).
 apk="${RIPDPI_JOURNEYS_APK:-}"
 if [[ -z "$apk" ]]; then
   echo "Assembling :app:assembleGithubFullDebug ..."
@@ -54,7 +54,10 @@ if [[ -z "$apk" ]]; then
     )
   fi
   ( cd "$ROOT_DIR" && ./gradlew --no-daemon --profile :app:assembleGithubFullDebug "${pt_gradle_args[@]}" )
-  apk="$(find "$ROOT_DIR/app/build/outputs/apk/github/debug" -name '*.apk' -print -quit 2>/dev/null || true)"
+  apk_dir="$ROOT_DIR/app/build/outputs/apk/githubFull/debug"
+  apk="$apk_dir/app-github-full-universal-debug.apk"
+  # ABI splits off (-Pripdpi.enableAbiSplits=false) produce a single unsuffixed APK.
+  [[ -f "$apk" ]] || apk="$apk_dir/app-github-full-debug.apk"
 fi
 if [[ -z "$apk" || ! -f "$apk" ]]; then
   echo "Could not locate the app APK to install (set RIPDPI_JOURNEYS_APK)." >&2

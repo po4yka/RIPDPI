@@ -65,7 +65,8 @@ if [ -n "${APPIUM_APK_PATH:-}" ]; then
 else
   APK_PATH=""
   for candidate in \
-    "$ROOT_DIR/app/build/outputs/apk/github/debug/app-github-universal-debug.apk" \
+    "$ROOT_DIR/app/build/outputs/apk/githubFull/debug/app-github-full-universal-debug.apk" \
+    "$ROOT_DIR/app/build/outputs/apk/githubFull/debug/app-github-full-debug.apk" \
     "$ROOT_DIR/app/build/outputs/apk/debug/app-universal-debug.apk" \
     "$ROOT_DIR/app/build/outputs/apk/debug/app-debug.apk"; do
     if [ -f "$candidate" ]; then

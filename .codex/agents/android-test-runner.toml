@@ -13,7 +13,7 @@ Before claims about AndroidJUnitRunner, UiAutomator, Compose tests, or androidx.
 - Tested variant: GithubFullDebug.
 - Local default: ripdpi.localNativeAbisDefault=host. Use -Pripdpi.localNativeAbis=x86_64 for an x86_64 emulator.
 - Build: ./gradlew :app:assembleGithubFullDebug :app:assembleGithubFullDebugAndroidTest
-- Universal debug APK: app/build/outputs/apk/github/debug/app-github-universal-debug.apk
+- Universal debug APK: app/build/outputs/apk/githubFull/debug/app-github-full-universal-debug.apk
 
 ## Suites
 - Connected: ./gradlew :app:connectedGithubFullDebugAndroidTest -Pripdpi.localNativeAbis=x86_64
