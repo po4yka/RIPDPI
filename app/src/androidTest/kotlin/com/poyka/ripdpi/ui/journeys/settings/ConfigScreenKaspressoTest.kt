@@ -42,8 +42,7 @@ class ConfigScreenKaspressoTest :
             step("The server section shows the VPN summary and relay row") {
                 composeRule.clickTag(RipDpiTestTags.configModeSection("vpn"))
                 composeRule.awaitTag(RipDpiTestTags.ConfigVpnSummary)
-                composeRule.scrollToTag(RipDpiTestTags.ConfigVpnRelay)
-                composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnRelay).assertIsDisplayed()
+                composeRule.awaitDisplayed(RipDpiTestTags.ConfigVpnRelay)
             }
             step("Selecting the proxy chip selects it, deselects VPN and persists proxy mode") {
                 composeRule.clickTag(RipDpiTestTags.configModeSection("local_bypass"))
@@ -145,10 +144,8 @@ class ConfigScreenKaspressoTest :
                 composeRule.clickTag(RipDpiTestTags.ConfigConnectionDetails)
             }
             step("The details show the automatic strategy and the precedence note") {
-                composeRule.scrollToTag(RipDpiTestTags.ConfigLocalBypassStrategyAuto)
-                composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassStrategyAuto).assertIsDisplayed()
-                composeRule.scrollToTag(RipDpiTestTags.ConfigLocalBypassPrecedenceNote)
-                composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassPrecedenceNote).assertIsDisplayed()
+                composeRule.awaitDisplayed(RipDpiTestTags.ConfigLocalBypassStrategyAuto)
+                composeRule.awaitDisplayed(RipDpiTestTags.ConfigLocalBypassPrecedenceNote)
             }
             step("Retest strategies opens diagnostics") {
                 composeRule.clickTag(RipDpiTestTags.ConfigLocalBypassRetest)

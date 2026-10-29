@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.journeys.settings
 
-import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performTextReplacement
 import com.poyka.ripdpi.automation.AutomationDataPreset
@@ -57,8 +56,7 @@ class AdvancedSettingsControlsKaspressoTest :
             composeRule.awaitTag(RipDpiTestTags.screen(Route.AdvancedSettings))
             tags.forEach { tag ->
                 step("Reach $tag") {
-                    composeRule.scrollToTag(tag)
-                    composeRule.onNodeWithTag(tag).assertIsDisplayed()
+                    composeRule.awaitDisplayed(tag)
                 }
             }
         }

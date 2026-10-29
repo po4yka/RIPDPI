@@ -9,9 +9,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.printToLog
 import androidx.test.platform.app.InstrumentationRegistry
 import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
@@ -64,19 +62,17 @@ class VpnImportProfileKaspressoTest :
                 seedClipboard(VlessRealityLink)
                 composeRule.clickTag(RipDpiTestTags.ConfigVpnAddServerPaste)
                 composeRule.awaitTag(RipDpiTestTags.screen(Route.ProfileImportConfirm()))
-                runCatching {
-                    composeRule.waitUntil(10_000) {
-                        composeRule.onAllNodes(hasText(ImportedProfileName)).fetchSemanticsNodes().isNotEmpty()
-                    }
-                }.onFailure {
-                    composeRule.onRoot(useUnmergedTree = true).printToLog("IMPORTDBG")
-                    throw it
+                composeRule.waitUntil(10_000) {
+                    composeRule.onAllNodes(hasText(ImportedProfileName)).fetchSemanticsNodes().isNotEmpty()
                 }
             }
             step("Adding the profile lists it in the profile choices") {
                 composeRule.onNodeWithTag(RipDpiTestTags.screen(Route.ProfileImportConfirm())).assertIsDisplayed()
                 composeRule.onNode(hasText("Add")).performClick()
                 composeRule.awaitNoTag(RipDpiTestTags.screen(Route.ProfileImportConfirm()), timeoutMillis = 15_000)
+                if (!composeRule.tagExists(RipDpiTestTags.screen(Route.Config))) {
+                    composeRule.clickTag(RipDpiTestTags.bottomNav(Route.Config))
+                }
                 composeRule.awaitTag(RipDpiTestTags.screen(Route.Config))
                 if (!composeRule.tagExists(RipDpiTestTags.ConfigProfileChoices)) {
                     composeRule.clickTag(RipDpiTestTags.ConfigProfileChange)

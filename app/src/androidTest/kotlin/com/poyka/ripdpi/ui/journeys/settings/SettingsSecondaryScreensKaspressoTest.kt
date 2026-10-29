@@ -84,10 +84,8 @@ class SettingsSecondaryScreensKaspressoTest :
                 composeRule.awaitTag(RipDpiTestTags.screen(Route.About))
             }
             step("The source code and readme links are present") {
-                composeRule.scrollToTag(RipDpiTestTags.AboutSourceCode)
-                composeRule.onNodeWithTag(RipDpiTestTags.AboutSourceCode).assertIsDisplayed()
-                composeRule.scrollToTag(RipDpiTestTags.AboutReadme)
-                composeRule.onNodeWithTag(RipDpiTestTags.AboutReadme).assertIsDisplayed()
+                composeRule.awaitDisplayed(RipDpiTestTags.AboutSourceCode)
+                composeRule.awaitDisplayed(RipDpiTestTags.AboutReadme)
             }
         }
 }
