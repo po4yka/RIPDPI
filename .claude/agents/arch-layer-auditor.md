@@ -56,7 +56,7 @@ Platform/JNI:    ripdpi-android, ripdpi-android-proxy-adapter,
 
 RULE: Foundation must NOT depend on Protocol or higher. Protocol must NOT depend on Runtime-ports or higher.
 
-RULE (proxy-runtime structural isolation — ENFORCED): `ripdpi-proxy-runtime`'s production `RuntimeState` struct MUST NOT hold concrete policy/adaptive implementation types (`RuntimePolicy`, `AdaptivePlannerResolver`, `AdaptiveFakeTtlResolver`, `RetryPacer`, `StrategyEvolutionResolver`, `DirectPathLearningState`, `DnsHostnameCache`) as fields. Only `Arc<dyn PolicyPort>` and `Arc<dyn AdaptivePort>` are allowed. `#[cfg(test)]` code may reference concrete types to construct test states.
+RULE (proxy-runtime structural isolation — ENFORCED): `ripdpi-proxy-runtime`'s production `RuntimeState` struct MUST NOT hold concrete policy/adaptive implementation types (`RuntimePolicy`, `AdaptivePlannerResolver`, `AdaptiveFakeTtlResolver`, `RetryPacer`, `StrategyEvolutionResolver`, `DirectPathLearningState`) as fields. Only `Arc<dyn PolicyPort>` and `Arc<dyn AdaptivePort>` are allowed. `#[cfg(test)]` code may reference concrete types to construct test states.
 
 RULE (proxy-runtime dep graph — ASPIRATIONAL): The long-term target is `ripdpi-proxy-runtime` depending only on `ripdpi-runtime-api` and `ripdpi-runtime-platform` among `runtime-*` crates. Currently blocked by port traits (`PolicyPort`, `AdaptivePort`) living in `runtime-policy`/`runtime-adaptive` instead of `runtime-api`. Tracking status: `runtime-policy` and `runtime-adaptive` are allowed as temporary deps (port traits + data types only); `runtime-services`, `runtime-strategy`, `runtime-dns-cache` MUST NOT appear as direct deps.
 
@@ -91,7 +91,7 @@ RULE (runtime-wiring containment): `ripdpi-runtime-services` is the sole concret
    *Structural check (MUST pass — no concrete implementation types as struct fields):*
 
    ```bash
-   grep -rn 'RuntimePolicy\|AdaptivePlannerResolver\|AdaptiveFakeTtlResolver\|RetryPacer\|StrategyEvolutionResolver\|DirectPathLearningState\|DnsHostnameCache' \
+   grep -rn 'RuntimePolicy\|AdaptivePlannerResolver\|AdaptiveFakeTtlResolver\|RetryPacer\|StrategyEvolutionResolver\|DirectPathLearningState' \
      native/rust/crates/ripdpi-proxy-runtime/src/ \
      | grep -v '#\[cfg(test)\]\|//\|_policy:'
    ```

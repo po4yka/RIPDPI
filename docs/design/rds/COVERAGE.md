@@ -291,7 +291,7 @@ Three Rust+JNI+Kotlin subsystems back the VPN-flow screens that were previously 
 
 ### Connection-quality telemetry
 
-✅ **Current:** `ripdpi-quality` provides `QualityWindow` and `ConnectionQualitySnapshot`; `ripdpi-tunnel-core` emits loss via `Stats::emit_loss_pct`; `ripdpi-tunnel-android` records RTT, success/failure, and retransmit-derived loss; `ripdpi-relay-android`, `ripdpi-warp-android`, and `ripdpi-android-proxy-adapter` have quality-window plumbing; Kotlin exposes `ConnectionQualitySnapshot`, `MainQualityResolver`, `HomeDegradationStrip`, and `QualityGraphsScreen`.
+✅ **Current:** `ripdpi-quality` provides `QualityWindow` and `ConnectionQualitySnapshot`; `ripdpi-tunnel-core` emits loss via `Stats::emit_loss_pct`; `ripdpi-tunnel-android` records RTT, success/failure, and retransmit-derived loss; `ripdpi-relay-android`, `ripdpi-warp-android`, and `ripdpi-android-proxy-adapter` have quality-window plumbing; Kotlin exposes `ConnectionQualitySnapshot`, `MainQualityResolver`, and `HomeDegradationStrip`.
 
 ⚠️ **Known limits:** relay/warp/proxy quality samples may still report `loss_pct = 0.0` until those producers emit richer loss signals.
 
