@@ -160,3 +160,52 @@ unchanged. Fresh host peers, current-source emulator runs, physical arm64 produc
 service tests, exact artifacts, and hosted CI are separate required evidence in
 `openspec/changes/awg31-behavior-parity/verification.md`. Local unit tests do not
 prove those acceptance categories or production DPI behavior.
+
+## Pinned host peer runners
+
+`build-gate --lane ripdpi -- python3 scripts/tests/run-standalone-awg-interop.py`
+checks both Go revisions, seven named profiles, MTU 1280/1420, and four sessions
+per case. `--peer` and `--profile` select a smaller diagnostic run; its receipt
+lists the selected cases. Use `--candidate-patch` only for local development; new
+files must be staged so the archived patch includes them. JSON and logs are kept
+under `build/reports/awg-standalone/`. The fixture performs one empty TUN read after
+IpcSet so the pinned Go reader reloads S4 before its first actual payload. The
+upstream-control test proves the old offset; this does not patch upstream.
+
+Linux acceptance uses `scripts/tests/run-linux-awg-interop.py` inside a new VM
+created by `test-lab/acceptance/vm/lab_vm.py`. It refuses root execution, a missing
+VM receipt, a receipt for a different machine-id/hostname, or a pre-existing AWG
+module. Keep the original owner receipt and record the guest hostname plus
+SHA-256 of the stripped `/etc/machine-id` as `guest_hostname` and
+`guest_machine_id_sha256` in the kernel run's receipt, through the owned VM command.
+Do not use a shared host or a container that shares its kernel.
+
+The pinned sources are:
+
+- Kernel `4569c4c67f3a57414969260cafbbd04694fbaae0`, from
+  `https://codeload.github.com/amnezia-vpn/amneziawg-linux-kernel-module/tar.gz/4569c4c67f3a57414969260cafbbd04694fbaae0`.
+- Tools `ee0f0a9aa34ff0a0da4b3433b9512781cfe02843` (`v3.1.20260812`), from
+  `https://codeload.github.com/amnezia-vpn/amneziawg-tools/tar.gz/ee0f0a9aa34ff0a0da4b3433b9512781cfe02843`.
+
+The runner checks each archive digest before extraction. Install matching kernel
+headers, build-essential, kmod, iproute2, tcpdump, pkg-config, libssl-dev, and rustup
+inside the owned VM. Build the Rust `standalone_awg_interop` test with the repository's
+pinned toolchain, `--locked --features awg-interop --no-run --message-format=json`,
+and a writable target directory. Build the Go fixture for Linux with the Go version
+from its `go.mod`; cross-compilation from the host is supported. Record the source
+SHA, any candidate patch digest, and compiler outputs before the run.
+
+Pass `--vm-owner`, `--identity`, `--kernel-archive`, `--tools-archive`, `--test-binary`,
+`--fixture`, and a new `--output-dir` to the Linux runner. It builds module/tools
+without root, loads only its module, creates one namespace per case, verifies netlink
+readback, and exercises the same payload test through ordinary OS echo sockets.
+It records module/tools/test/fixture hashes, traffic counters, and per-case PCAP,
+then removes namespaces and unloads its module. The fixed public fixture keys are
+not production credentials; readback reports exclude keys.
+
+The Linux pin still uses a fixed 180-second age limit in `send.c` and `receive.c`.
+Its retry-exhaustion zeroization uses three times `RekeyAfterTime`; session-created
+zeroization uses three times `RejectAfterTime`. Treat these as reference-peer
+limitations, not RIPDPI requirements. Payload success and configuration readback
+do not prove the timer, cookie, trailer, or padding feature assertions assigned to
+the separate wire-validation gate.

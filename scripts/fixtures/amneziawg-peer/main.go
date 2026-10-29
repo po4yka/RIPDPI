@@ -286,6 +286,20 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	switch os.Getenv("RIPDPI_AWG_KERNEL_MODE") {
+	case "config":
+		config, err := kernelConfig(profile)
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Print(config)
+		return err
+	case "echo":
+		return kernelEcho(cycles)
+	case "":
+	default:
+		return errors.New("unknown kernel fixture mode")
+	}
 	server, err := ecdh.X25519().NewPrivateKey(bytes.Repeat([]byte{9}, 32))
 	if err != nil {
 		return err
