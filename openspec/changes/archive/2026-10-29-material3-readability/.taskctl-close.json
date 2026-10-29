@@ -1,0 +1,11 @@
+{
+  "change": "material3-readability",
+  "evidence_summary": "Full CI run 40831691401 at c9d5727ef passed 50 jobs incl. verify-roborazzi and API 27-37 instrumentation; recorded 1283-test UI gate, 88 API 37 emulator captures, and 33 reviewed fixtures.",
+  "execution_sha256": "5e4302d1fcff382fccb3274b5ea53280d66b413a64a4ada19c68fbfb3e00f021",
+  "issue_sha256": "a684dd01099bf33ce4bb809dc68adcda005cc93617f3980e720c230ce5cfd0af",
+  "outcome": "done",
+  "prepared_at": "2026-10-29T08:11:40Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "UIX-1791793531264679"
+}

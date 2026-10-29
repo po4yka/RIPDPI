@@ -1,15 +1,15 @@
 ---
 task_id: UIX-1791532861060606
 change: connection-control-redesign
-commit_sha: null
+commit_sha: 061441d2acae1634870aaa9c686c0990884bd1d8
 local: passed
 local_evidence: 122 UI, resolver, and theme tests passed with no failures or skips. App and service lint and staticAnalysis passed in the native-less profile. Independent review found no remaining actionable defect.
-remote_ci: required
-remote_ci_evidence: The user authorized main integration and push. Hosted CI remains pending.
-device: required
-device_evidence: No device or emulator acceptance was performed.
-artifact: blocked
-artifact_evidence: Eight Compose renders on SDK 36 were inspected. The required SDK 37 render was rejected by the preview plugin, which supports SDK 21 through 36. A full APK build also lacks real libXray artifacts.
+remote_ci: passed
+remote_ci_evidence: Manual full CI run 40831691401 at c9d5727ef, which contains this change, passed all 50 executed jobs, including verify-roborazzi, gradle-static-analysis, kotlin-coverage, debug builds for three flavors, and instrumented tests on API 27, 33, 35, 36, and 37.
+device: passed
+device_evidence: Real native githubFull debug APKs from fd92c013c and 061441d2a ran on leased RIPDPI_Pool_2 (API 35 ARM64, 320dp at 160dpi) with a real local VPN connection. Connect, cancel, and guarded disconnect, non-interactive route text, pending feedback without stage marks, strategy details, and 2x font in English and Arabic in both themes were observed. Error states, keyboard, TalkBack, lockdown, and reconnect review were not observed on a device; host tests cover them.
+artifact: passed
+artifact_evidence: Hosted verify-roborazzi passed in run 40831691401 at c9d5727ef. Device captures and UI dumps with SHA-256 manifests were retained outside the repository for both device passes.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
@@ -115,3 +115,29 @@ The combined Full/Simple Roborazzi command stopped at verifyEmbeddedRelayBundle:
 
 
 The Full-only Roborazzi check ran on SDK 35 and produced expected/actual/compare images. Home scenes differ because the rail and timer stage display were removed. The transition scene still had old hard-coded secure-line labels; its source now uses Connecting, Relay, and Cancel connection, with no retired stage fixture. The updated actual image was inspected at fontScale 2.0. Golden PNGs remain unchanged; explicit authorization for affected fixtures is still required. Setup-health text differences also include changes already present on main and must be classified before any fixture update.
+
+## Closure evidence (2026-10-29)
+
+Hosted CI: manual full run 40831691401 at `c9d5727ef890568c104e04e487623ec6d2e2227e` passed all 50 executed jobs with no failures. It replaces the earlier pending push run.
+
+Artifact: the SDK 37 preview limitation no longer blocks evidence. Hosted `verify-roborazzi` passed, and installed captures replace preview renders.
+
+Device: two passes ran on the leased `RIPDPI_Pool_2` emulator (API 35, ARM64, `google_apis_playstore`, 320x640 at 160dpi). The real native APKs were built with a verified prebuilt libXray AAR through `-Pripdpi.prebuiltXrayAarDir`:
+
+- `fd92c013c`: APK SHA-256 `16f91fefbf60795b6223c06efe4163ed4f0440c2b57f8e69b6b08c9b4c7de8c9`.
+- `061441d2a`: APK SHA-256 `6cb6115e3a0a2e2423a7e829acf3c07077ae40b789e9b25ecfec8788e14f7fe7`.
+
+A real local VPN connection was established.
+
+Observed:
+
+- Disconnected shows Connect, Connecting shows a visible Cancel, and Connected shows Disconnect. These are separate click targets.
+- Disconnect asks for confirmation. Stay connected keeps the session, and confirm disconnects.
+- The route and exit labels are text without a click action.
+- Connecting shows a spinner with text and no stage marks.
+- Strategy details expand.
+- At 2x font, light and dark in English and Arabic, nothing clips or overlaps.
+
+The first pass found an untranslated Arabic strategy value. Commit `061441d2a` fixed it, and the second pass observed the localized value in Arabic and Russian.
+
+Not observed on a device: error states, the 5 s pending state, keyboard and TalkBack activation, lockdown, the 4 s expiry, and reconnect review. The recorded host tests cover them. No physical device was used.

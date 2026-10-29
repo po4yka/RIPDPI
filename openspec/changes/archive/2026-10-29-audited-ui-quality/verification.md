@@ -1,13 +1,13 @@
 ---
 task_id: UIX-1791538891055420
 change: audited-ui-quality
-commit_sha: 8be992fd514de802295a451e8ce69cd8f0130ab4
+commit_sha: 061441d2acae1634870aaa9c686c0990884bd1d8
 local: passed
 local_evidence: 2341 app tests and 1689 core tests passed without failures or skips. Static analysis and locale lint passed.
-remote_ci: required
-remote_ci_evidence: Main was pushed at 160e2e16581770dfeba3bae413e9ec0727cc0595. GitHub CI run 37934017957 is pending; other triggered gates are running.
-device: required
-device_evidence: Native APK and device acceptance have not been observed.
+remote_ci: passed
+remote_ci_evidence: Manual full CI run 40831691401 at c9d5727ef, which contains this change, passed all 50 executed jobs, including verify-roborazzi, gradle-static-analysis, kotlin-coverage, debug builds for three flavors, and instrumented tests on API 27, 33, 35, 36, and 37. The earlier run 37934017957 was cancelled.
+device: passed
+device_evidence: A real native githubFull debug APK from 061441d2a ran on leased RIPDPI_Pool_2 (API 35 ARM64, 320dp). Observed: masked SSH password with FLAG_SECURE during edit and reveal; a real connectivity scan with measured results; selected and checked semantics; localized Russian and Arabic tool texts; reachable dialog actions at 2x font. Recovery failure paths and running tool-state labels were not observed on a device; host tests cover them.
 artifact: passed
 artifact_evidence: The user approved 50 inspected PNG updates. Full golden verify passed 285 tests, with one existing ignored RTL test. All 396 expected hashes stayed unchanged during verify.
 deployment: not_applicable
@@ -26,11 +26,11 @@ the tested production and test sources are unchanged.
 
 | Requirement | Step | Observed evidence | Result |
 |---|---|---|---|
-| REQ-UIQ-INPUT | UIX-1791539016251165 | Native keyboard, toggle, focus, and accessible-name tests. The old focus targets failed seven cases with the same platform Keyboard harness. The legacy positional dropdown API is tested. | passed in Full combined gate |
-| REQ-UIQ-LAYOUT | UIX-1791539016251165 | Bounded and unbounded dialogs, font scale 2, RTL, and Home action wrapping. Five shared SDK 36 previews inspected. | passed in Full combined gate |
-| REQ-UIQ-CREDENTIAL | UIX-1791539018423234 | Password masking, secure-window setup and release, and share-dialog policy. | passed in Full combined gate |
-| REQ-UIQ-RECOVERY | UIX-1791539018423234 | Draft retention, load/save retry, catalog reload, refresh serialization, and cancellation. Twelve setup SDK 36 previews inspected. | passed in Full combined gate |
-| REQ-UIQ-EVIDENCE | UIX-1791539020136173 | Results follow the selected or running profile. Consent, busy selection, tuner feedback, and typed tool states are tested. Compact and RTL layouts were inspected. | passed in Full combined gate |
+| REQ-UIQ-INPUT | UIX-1791539016251165 | Native keyboard, toggle, focus, and accessible-name tests. The old focus targets failed seven cases with the same platform Keyboard harness. The legacy positional dropdown API is tested. Passed in the Full combined gate. | passed |
+| REQ-UIQ-LAYOUT | UIX-1791539016251165 | Bounded and unbounded dialogs, font scale 2, RTL, and Home action wrapping. Five shared SDK 36 previews inspected. Passed in the Full combined gate. | passed |
+| REQ-UIQ-CREDENTIAL | UIX-1791539018423234 | Password masking, secure-window setup and release, and share-dialog policy. Passed in the Full combined gate. | passed |
+| REQ-UIQ-RECOVERY | UIX-1791539018423234 | Draft retention, load/save retry, catalog reload, refresh serialization, and cancellation. Twelve setup SDK 36 previews inspected. Passed in the Full combined gate. | passed |
+| REQ-UIQ-EVIDENCE | UIX-1791539020136173 | Results follow the selected or running profile. Consent, busy selection, tuner feedback, and typed tool states are tested. Compact and RTL layouts were inspected. Passed in the Full combined gate. | passed |
 | REQ-UIQ-LOCALE | UIX-1791539021807814 | All ten locales have the new keys. Full/Simple app lint, service lint, locale parity, and translation-export checks passed. | passed |
 
 ## Complete combined gate
@@ -145,3 +145,18 @@ translation export, harness, fleet, Secret Scan, and CodeQL runs were
 in progress. These states do not establish hosted CI acceptance.
 The task is in review; native device and hosted CI acceptance remain
 separate from the completed local implementation and main delivery.
+
+## Closure evidence (2026-10-29)
+
+Hosted CI: manual full run 40831691401 at `c9d5727ef890568c104e04e487623ec6d2e2227e` passed all 50 executed jobs with no failures. It replaces the cancelled run 37934017957.
+
+Device: the real native APK from `061441d2a` (SHA-256 `6cb6115e3a0a2e2423a7e829acf3c07077ae40b789e9b25ecfec8788e14f7fe7`) ran on the leased `RIPDPI_Pool_2` emulator (API 35, ARM64, 320x640 at 160dpi). The emulator had network access.
+
+- REQ-UIQ-CREDENTIAL: observed. The SSH profile editor password node is `password=true` until Reveal. `dumpsys window` shows `SECURE` while the editor is open and during reveal, and the window is no longer secure after leaving it. Only dummy values were entered, and nothing was saved.
+- REQ-UIQ-EVIDENCE: observed. One connectivity scan completed with 21 probes (20 healthy, 1 inconclusive), and the dashboard showed the measured time and the active VPN path. The start feedback named the selected profile.
+- REQ-UIQ-INPUT: observed. The selected tab exposes `selected=true`. The profile filter chips expose `checkable=true`, and the active chip is `checked=true`. During the scan the run controls are replaced by non-clickable lock cards. One tap produced one result.
+- REQ-UIQ-LOCALE: observed for Russian and Arabic Tools titles and descriptions, with no English leak. Running and done tool-state labels did not appear without launching a tool; host tests and locale lint cover them.
+- REQ-UIQ-LAYOUT: observed. At 2x font the disconnect dialog scrolls, and both actions stay reachable.
+- REQ-UIQ-RECOVERY: not observed on a device, because no fault was injected. The recorded host tests cover the failure paths.
+
+No physical device or TalkBack was used.

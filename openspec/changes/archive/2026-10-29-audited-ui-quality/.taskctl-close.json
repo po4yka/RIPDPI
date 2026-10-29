@@ -1,0 +1,11 @@
+{
+  "change": "audited-ui-quality",
+  "evidence_summary": "Full CI run 40831691401 at c9d5727ef passed 50 jobs; real APK 061441d2a on API 35 emulator observed masked SSH password with FLAG_SECURE, a measured connectivity scan, checked/selected semantics, localized RU/AR tools, and reachable 2x dialogs.",
+  "execution_sha256": "de81453fba1b0d4139a897b5f57d3c571457a114b7dc9c3a7c071b9d27a44d17",
+  "issue_sha256": "319daa63d6d83ad02642ec578e7906879df37ba6509931954094ffa695b751b3",
+  "outcome": "done",
+  "prepared_at": "2026-10-29T08:11:40Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "UIX-1791538891055420"
+}

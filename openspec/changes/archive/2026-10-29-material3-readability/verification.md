@@ -2,13 +2,13 @@
 task_id: UIX-1791793531264679
 change: material3-readability
 commit_sha: cd3e418103b8b2b68aa3b521aa5bbde07ebd2d9b
-local: required
+local: passed
 local_evidence: The rebased 1283-test UI and activity selection passed without failures, errors, or skips. The final no-cache gate passed app/service lint and complete static analysis. The real ARM64 APK build passed without skipNativeBuild.
-remote_ci: not_applicable
-remote_ci_evidence: Local implementation and main commits only; push is not requested.
-device: required
+remote_ci: passed
+remote_ci_evidence: Manual full CI run 40831691401 at c9d5727ef, which contains this change, passed all 50 executed jobs, including verify-roborazzi, gradle-static-analysis, kotlin-coverage, design-md-lint, Full/Play/F-Droid debug builds, and instrumented tests on API 27, 33, 35, 36, and 37.
+device: passed
 device_evidence: Final APK cd3e41810 passed 88 reviewed captures on the leased API 37 ARM64 emulator at 411dp, 420dpi, and 200% font. Both themes and same-process EN to RU permission text passed. Installed bytes match the retained APK.
-artifact: required
+artifact: passed
 artifact_evidence: All 33 changed or new fixtures were reviewed. Strict whole-family verification passed Full 298 cases and Simple 310 cases without failures or errors, with 30 existing variant assumptions. Exact tested source, test, and screenshot trees match the integrated fixture commit.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
@@ -201,3 +201,7 @@ Golden commit `852a9cdba271989f5920e83b155213b14d4fa78d` was integrated as `d911
 The retained golden evidence directory is `/Users/npochaev/.codex/visualizations/2026/10/12/01a12f2d-479e-7a20-af97-5645507716e9/emulator-followup-goldens/cd3e4181`. It contains owning compare and record logs, strict XML and counts, each expected/actual/diff review, and the integration tree receipt. `record-manifest.json` has SHA-256 `51b67a82bc16fbb19452e07f6632d79ec8234dfed1950ad3febc1f653c369cb4`. All 24 new and nine existing fixtures were accepted; no existing dimensions changed. The unrelated upstream Arabic metric fixture is unchanged.
 
 The final architecture check has 21 indicators, no new or worsened entries, and no stale entries. Locked Cargo metadata has 116 workspace members. DESIGN.md lint has no errors or warnings. Task contracts passed for 128 tasks and 362 steps; all nine execution steps are complete and the portfolio item is in review.
+
+## Closure evidence (2026-10-29)
+
+The local, device, and artifact results recorded above were observed by the integration owner at the stated commits; their states were left at `required` pending review. Closure review accepted them without new claims. Hosted evidence: manual full CI run 40831691401 at `c9d5727ef890568c104e04e487623ec6d2e2227e` passed all 50 executed jobs with no failures, including `verify-roborazzi`, `gradle-static-analysis`, `kotlin-coverage`, `design-md-lint`, the three debug flavor builds, and the five instrumented-test API levels.

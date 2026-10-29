@@ -2,7 +2,7 @@
 id: UIX-1791793531264679
 title: Improve Material 3 readability and navigation
 kind: feature
-status: review
+status: done
 area: ui
 priority: high
 owner: ui-integration
@@ -11,8 +11,11 @@ blocked_by: []
 spec_mode: required
 openspec_change: material3-readability
 created: 2026-10-12
-updated: 2026-10-13
+updated: 2026-10-29
 status_detail: Installed API 37 ARM64 acceptance passed 88 captures in both themes at 200% font. UI/activity tests, lint, static analysis, native APK, and strict Full/Simple screenshot gates passed. Main integration is authorized; no push is owned.
+closed_at: "2026-10-29T08:11:40Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Full CI run 40831691401 at c9d5727ef passed 50 jobs incl. verify-roborazzi and API 27-37 instrumentation; recorded 1283-test UI gate, 88 API 37 emulator captures, and 33 reviewed fixtures.
 ---
 
 ## Goal

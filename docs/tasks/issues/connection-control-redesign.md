@@ -2,7 +2,7 @@
 id: UIX-1791532861060606
 title: Make connection controls clear and accessible
 kind: feature
-status: review
+status: done
 area: ui
 priority: high
 owner: Connection UI
@@ -11,8 +11,11 @@ blocked_by: []
 spec_mode: required
 openspec_change: connection-control-redesign
 created: 2026-10-09
-updated: 2026-10-09
+updated: 2026-10-29
 status_detail: The Mobbin-based UI redesign passed 122 local tests, app/service lint, and staticAnalysis. Eight SDK 36 Compose renders were inspected and independent review is complete. Target SDK 37 preview, real native APK, device acceptance, hosted CI, and golden acceptance remain unverified or blocked.
+closed_at: "2026-10-29T08:11:40Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Full CI run 40831691401 at c9d5727ef passed 50 jobs incl. verify-roborazzi; two real-APK passes on API 35 emulator with a live local VPN observed actions, route text, pending feedback, and 2x EN/AR layouts; Arabic label fix 061441d2a.
 ---
 
 ## Goal
