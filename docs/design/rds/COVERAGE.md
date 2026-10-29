@@ -14,7 +14,7 @@ not preview files, and no longer reconcile against the 147-file inventory.
 | Category | Count | Have | Partial | Missing | Status |
 |----------|-------|------|---------|---------|--------|
 | **Components** | 30 | 30 | 0 | 0 | ✅ Complete |
-| **VPN flow screens** | 36 | 36 | 0 | 0 | ✅ Complete |
+| **VPN flow screens** | 36 | 35 | 0 | 1 | ⚠️ Missing |
 | **Android platform surfaces** | 16 | 16 | 0 | 0 | ✅ Complete |
 | **Motion specs** | 9 | 8 | 0 | 1 | ⚠️ Missing |
 | **Diagnostic screens** | 7 | 7 | 0 | 0 | ✅ Complete |
@@ -24,7 +24,7 @@ not preview files, and no longer reconcile against the 147-file inventory.
 | **One-offs** | 6 | 5 | 0 | 1 | ⚠️ Missing |
 | **Reference-only cards** | 17 | — | — | — | 📚 Docs |
 
-**Overall Coverage:** 109 of 114 audited specs have verified Kotlin implementations; 5 are missing an implementation.
+**Overall Coverage:** 108 of 114 audited specs have verified Kotlin implementations; 6 are missing an implementation.
 
 Row totals are a recount of the audited bullets in this file: 30 components + 36 vpn flow screens + 16 android platform surfaces + 9 motion specs + 7 diagnostic screens + 5 share flow + 3 gesture interactions + 2 onboarding + 6 one-offs = **114 audited**, plus 17 reference-only cards. They no longer equal the 146 `preview/*.html` inventory: rows whose Kotlin implementation was deleted as unused on 2026-08-14 were removed from the audit while their preview specs remain on disk.
 
@@ -93,7 +93,7 @@ Row totals are a recount of the audited bullets in this file: 30 components + 36
 
 ---
 
-## VPN Flow Screens (36 entries, 36 ✅ = 100% implemented)
+## VPN Flow Screens (36 entries, 35 ✅ = 97% implemented)
 
 ### ✅ Full Implementation
 
@@ -122,6 +122,7 @@ Row totals are a recount of the audited bullets in this file: 30 components + 36
 
 ### ✅ Full Implementation Continued
 
+- **State Machine** (`vpn-state-machine.html`) — ❌ **Missing** — implementation removed 2026-10-29 as unused (no production call site); spec retained.
 
 ### ✅ Full Implementation Continued
 

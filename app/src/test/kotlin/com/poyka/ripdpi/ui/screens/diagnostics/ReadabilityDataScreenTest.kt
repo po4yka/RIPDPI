@@ -16,9 +16,6 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasAnyAncestor
-import androidx.compose.ui.test.hasScrollAction
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
@@ -115,75 +112,6 @@ class ReadabilityDataScreenTest {
     }
 
     @Test
-    @Config(sdk = [35], qualifiers = "ru-w420dp-h1600dp")
-    fun stateDiagramKeepsLocalizedNodeTextAndScrollsToBothEdges() = checkStateDiagram(320, 2f, 1f)
-
-    @Test
-    @Config(sdk = [35], qualifiers = "ru-w420dp-h1600dp-420dpi")
-    fun stateDiagramNativeWidthsFitAtPreviewDensity() = checkStateDiagram(420, 1f, 2.625f)
-
-    private fun checkStateDiagram(
-        width: Int,
-        fontScale: Float,
-        density: Float,
-    ) {
-        val state =
-            sampleStateMachineState(
-                "Туннель",
-                "24 перехода",
-                "простой",
-                "разрешение ОС",
-                "рукопожатие",
-                "12 м 14 с",
-                "отсрочка",
-                "посл. 6 ч: 0",
-                "2 за 24 ч",
-            )
-        show(width, fontScale, density = density) { StateMachineScreen(state) }
-        val nodeLabels =
-            listOf(
-                R.string.vpn_state_machine_node_disconnected,
-                R.string.vpn_state_machine_node_permissioning,
-                R.string.vpn_state_machine_node_connecting,
-                R.string.vpn_state_machine_node_tunneling,
-                R.string.vpn_state_machine_node_reconnecting,
-                R.string.vpn_state_machine_node_failed,
-                R.string.vpn_state_machine_node_degraded,
-            )
-        nodeLabels.forEach { resource ->
-            val label = string(resource)
-            assertFullText(label)
-            val node =
-                composeRule.onNode(
-                    hasText(label) and
-                        hasAnyAncestor(SemanticsMatcher.keyIsDefined(SemanticsProperties.HorizontalScrollAxisRange)),
-                    useUnmergedTree = true,
-                )
-            node.performScrollTo().assertIsDisplayed()
-            val layouts = mutableListOf<TextLayoutResult>()
-            node.performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
-            val layout = layouts.single()
-            val nativeWidth = node.fetchSemanticsNode().size.width
-            val requiredWidth = textMeasurer.measure(label, layout.layoutInput.style, maxLines = 1).size.width
-            assertTrue(
-                "Node label must contain every native glyph: $label native=$nativeWidth required=$requiredWidth " +
-                    "intrinsic=${layout.multiParagraph.intrinsics.maxIntrinsicWidth}",
-                nativeWidth >= requiredWidth && nativeWidth >= layout.multiParagraph.intrinsics.maxIntrinsicWidth,
-            )
-        }
-        composeRule
-            .onNode(
-                hasText(string(R.string.vpn_state_machine_node_tunneling)) and hasAnyAncestor(hasScrollAction()),
-            ).performScrollTo()
-            .assertIsDisplayed()
-        composeRule
-            .onNodeWithText(
-                string(R.string.vpn_state_machine_node_disconnected),
-            ).performScrollTo()
-            .assertIsDisplayed()
-    }
-
-    @Test
     @Config(sdk = [35], qualifiers = "ar-w420dp-h1600dp")
     fun clearFiltersHasFullLabelAndMinimumTargetInRtl() {
         var clears = 0
@@ -253,41 +181,6 @@ class ReadabilityDataScreenTest {
             assertEquals(1, applies)
             assertEquals(1, exports)
         }
-    }
-
-    @Test
-    @Config(sdk = [35], qualifiers = "ar-w420dp-h1600dp")
-    fun coordinateDiagramsKeepTimeAndNodeDirectionInRtl() {
-        val state =
-            sampleStateMachineState(
-                "current",
-                "24",
-                "idle",
-                "prompt",
-                "handshake",
-                "12m",
-                "retry",
-                "failed",
-                "degraded",
-            )
-        show(320, 2f, LayoutDirection.Rtl) { StateMachineScreen(state) }
-        val disconnected = string(R.string.vpn_state_machine_node_disconnected)
-        val tunneling = string(R.string.vpn_state_machine_node_tunneling)
-        assertFullText(disconnected)
-        assertFullText(tunneling)
-        val first =
-            composeRule
-                .onNodeWithText(disconnected)
-                .fetchSemanticsNode()
-                .positionInRoot.x
-        val last =
-            composeRule
-                .onNodeWithText(tunneling)
-                .fetchSemanticsNode()
-                .positionInRoot.x
-        assertTrue("Node positions must use the same LTR coordinates as Canvas edges", first < last)
-        composeRule.onNodeWithText(tunneling).performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithText(disconnected).performScrollTo().assertIsDisplayed()
     }
 
     private fun show(

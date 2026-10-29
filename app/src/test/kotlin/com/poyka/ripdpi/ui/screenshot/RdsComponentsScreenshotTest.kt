@@ -26,8 +26,6 @@ import com.poyka.ripdpi.ui.components.indicators.StageProgressIndicator
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSegmentedButton
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTab
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTabs
-import com.poyka.ripdpi.ui.screens.diagnostics.StateMachineScreen
-import com.poyka.ripdpi.ui.screens.diagnostics.sampleStateMachineState
 import com.poyka.ripdpi.ui.screens.logs.LogsStreamCard
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Test
@@ -41,26 +39,6 @@ import org.robolectric.annotation.GraphicsMode
 @Config(sdk = [35])
 class RdsComponentsScreenshotTest {
     // capture helpers live in RoborazziCaptureHelpers.kt (same package)
-
-    @Test
-    fun stateMachine() {
-        captureBothThemes("stateMachine", widthDp = 720, heightDp = 580) {
-            StateMachineScreen(
-                state =
-                    sampleStateMachineState(
-                        currentStateLabel = "Tunneling",
-                        transitionCountLabel = "9 transitions / 24 h",
-                        disconnectedMetaLabel = "idle",
-                        permissioningMetaLabel = "os prompt",
-                        connectingMetaLabel = "handshake",
-                        tunnelingMetaLabel = "12 m 14 s",
-                        reconnectingMetaLabel = "backoff",
-                        failedMetaLabel = "last 6 h: 0",
-                        degradedMetaLabel = "2 in 24 h",
-                    ),
-            )
-        }
-    }
 
     @Test
     fun staleDataBadge() {
