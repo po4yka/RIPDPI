@@ -2,7 +2,7 @@
 id: TRN-1793300518162274
 title: Modernize native VLESS REALITY compatibility
 kind: feature
-status: doing
+status: review
 area: transport
 priority: high
 owner: VLESS compatibility package
@@ -31,4 +31,4 @@ Implement real Xray interop, modern lossless native VLESS import, and shared cap
 - Primary agent alone writes main, task records, and shared capability integration.
 - Isolated import worker owns parser and subscription preservation changes.
 - Isolated interop worker owns VLESS upstream tests and existing runner integration.
-- Workers prepare scoped patches; only the primary agent commits and pushes on main. No shared schema, dependency, locale, or baseline edits.
+- Workers prepare scoped patches; only the primary agent commits and pushes on main. The primary agent owns the new flow label across all ten locales. No shared schema, dependency, or baseline edits.
