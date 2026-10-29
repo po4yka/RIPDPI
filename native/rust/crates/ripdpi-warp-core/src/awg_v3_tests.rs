@@ -127,16 +127,30 @@ fn header_protection_needs_twelve_byte_prefixes_and_a_valid_key() {
 
 #[test]
 fn range_keys_follow_upstream_uint_range_rules() {
-    let with = |text: &str| AwgV3Config { rekey_timeout: text.into(), ..Default::default() };
-    for valid in ["", "0", "0-3", "5", "3-7", "7-7", "65535"] {
-        assert!(AwgV3Params::from_config(&config(with(valid), 0), &[0; 4]).is_ok(), "{valid}");
-    }
-    for invalid in ["7-3", "65536", "1-70000", "x", " 5", "-1"] {
-        assert_eq!(
-            AwgV3Params::from_config(&config(with(invalid), 0), &[0; 4]),
-            Err(AwgParamsError::InvalidRange { name: "RekeyTimeout" }),
-            "{invalid}"
-        );
+    let fields: [(&str, fn(&mut AwgV3Config) -> &mut String); 6] = [
+        ("ContentPaddingAddition", |c| &mut c.content_padding_addition),
+        ("RekeyAfterTime", |c| &mut c.rekey_after_time),
+        ("RekeyTimeout", |c| &mut c.rekey_timeout),
+        ("RejectAfterTime", |c| &mut c.reject_after_time),
+        ("KeepaliveTimeout", |c| &mut c.keepalive_timeout),
+        ("MaxHandshakeAttempts", |c| &mut c.max_handshake_attempts),
+    ];
+    for (name, field) in fields {
+        for valid in ["", "0", "0-0", "0-3", "5", "3-7", "7-7", "65535", "0-65535", "65535-65535"] {
+            let mut v3 = AwgV3Config::default();
+            *field(&mut v3) = valid.into();
+            assert!(AwgV3Params::from_config(&config(v3, 0), &[0; 4]).is_ok(), "{name}: {valid}");
+        }
+        for invalid in ["7-3", "65536", "1-65536", "1-2-3", "x", " 5", "-1", "+1", "01", "１", "99999999999999999999"]
+        {
+            let mut v3 = AwgV3Config::default();
+            *field(&mut v3) = invalid.into();
+            assert_eq!(
+                AwgV3Params::from_config(&config(v3, 0), &[0; 4]),
+                Err(AwgParamsError::InvalidRange { name }),
+                "{name}: {invalid}"
+            );
+        }
     }
     let rekey = AwgV3Config { rekey_after_time: "100-120".into(), ..Default::default() };
     assert_eq!(params(rekey, 0).timer_config().rekey_after, TimerRange::new(100, 120).unwrap());

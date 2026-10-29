@@ -210,6 +210,11 @@ mod tests {
             "<r 1281>",
             "<t >",
             "<d>",
+            "<d 1>",
+            "<ds 1>",
+            "<dz 1>",
+            "<t> <t>",
+            "<r 1277><t>",
             "<t> ",
             "<t",
             "<r 1><r 1280>",
@@ -219,6 +224,14 @@ mod tests {
         }
         assert!(SignatureProgram::parse(&"<t>".repeat(65)).is_none());
         assert!(SignatureProgram::parse("<r 1280>").is_some());
+        assert_eq!(SignatureProgram::parse("<r 1276><t>").unwrap().size, 1280);
+        assert_eq!(SignatureProgram::parse(&format!("<b 0x{}>", "aa".repeat(1280))).unwrap().size, 1280);
+        assert!(SignatureProgram::parse(&"x".repeat(4097)).is_none());
+        for tag in ["r", "rd", "rc"] {
+            for count in ["-1", "4294967296", "18446744073709551616", "１"] {
+                assert!(SignatureProgram::parse(&format!("<{tag} {count}>")).is_none());
+            }
+        }
         assert!(SignatureProgram::parse(&"<t>".repeat(64)).is_some());
         assert!(SignatureProgram::parse(&format!("<b 0x{}>", "aa".repeat(1281))).is_none());
     }

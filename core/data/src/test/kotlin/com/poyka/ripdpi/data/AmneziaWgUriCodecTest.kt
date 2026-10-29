@@ -54,6 +54,38 @@ class AmneziaWgUriCodecTest {
         }
     }
 
+    @Test
+    fun `all v3 URI range keys reject overflow and preserve boundary values`() {
+        val base = AmneziaWgUriCodec.encode(fullProfile())
+        listOf(
+            "content_padding_addition",
+            "rekey_after_time",
+            "rekey_timeout",
+            "reject_after_time",
+            "keepalive_timeout",
+            "max_handshake_attempts",
+        ).forEach { key ->
+            fun uri(value: String) = base.replace("#", "&$key=${java.net.URLEncoder.encode(value, "UTF-8")}#")
+            listOf("0", "0-0", "0-65535", "65535", "65535-65535").forEach { value ->
+                val decoded = requireNotNull(AmneziaWgUriCodec.decode(uri(value)))
+                assertEquals(
+                    listOf(value),
+                    decoded.awg.v3.ranges
+                        .map { it.second }
+                        .filter { it.isNotEmpty() },
+                )
+                assertEquals(decoded, AmneziaWgUriCodec.decode(AmneziaWgUriCodec.encode(decoded)))
+            }
+            listOf("65536", "1-65536", "1-2-3", "-1", "+1", "01", "１", "99999999999999999999").forEach { value ->
+                assertNull("$key: $value", AmneziaWgUriCodec.decode(uri(value)))
+            }
+        }
+        listOf("<d 1>", "<ds 1>", "<dz 1>", "<r 1277><t>").forEach { program ->
+            val uri = base.replace(Regex("i1=[^&]*"), "i1=${java.net.URLEncoder.encode(program, "UTF-8")}")
+            assertNull(AmneziaWgUriCodec.decode(uri))
+        }
+    }
+
     private fun fullProfile() =
         AmneziaWgProfile(
             name = "Tokyo edge",

@@ -56,6 +56,5 @@ internal class UriKeepalive(
 /** Parses `persistent_keepalive=lo[-hi]`; absent = no keepalive; malformed or `0-N` = `null`. */
 internal fun parseUriKeepalive(value: String?): UriKeepalive? {
     if (value == null) return UriKeepalive(null, null)
-    val (low, high) = AmneziaWgV3Parameters.parsePersistentKeepalive(value) ?: return null
-    return UriKeepalive(low, high)
+    return AmneziaWgV3Parameters.parsePersistentKeepalive(value)?.let { (low, high) -> UriKeepalive(low, high) }
 }

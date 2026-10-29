@@ -267,6 +267,41 @@ class WireGuardConfParserTest {
     }
 
     @Test
+    fun `every v3 range preserves bounded values and rejects malformed input`() {
+        val keys =
+            listOf(
+                "ContentPaddingAddition",
+                "RekeyAfterTime",
+                "RekeyTimeout",
+                "RejectAfterTime",
+                "KeepaliveTimeout",
+                "MaxHandshakeAttempts",
+            )
+        keys.forEach { key ->
+            fun conf(value: String) = "[Interface]\nPrivateKey = k\n$key = $value"
+            listOf("0", "0-0", "0-65535", "65535", "65535-65535").forEach { value ->
+                val parsed = WireGuardConfParser.parse(conf(value)) as AmneziaWgConfig
+                assertEquals(
+                    value,
+                    parsed.awg.v3.ranges
+                        .single { it.first == key }
+                        .second,
+                )
+            }
+            listOf("65536", "1-65536", "1-2-3", "-1", "+1", "01", "１", "99999999999999999999").forEach { value ->
+                assertThrows("$key: $value", IllegalArgumentException::class.java) {
+                    WireGuardConfParser.parse(conf(value))
+                }
+            }
+        }
+        listOf("<d 1>", "<ds 1>", "<dz 1>", "<r 1277><t>").forEach { program ->
+            assertThrows(IllegalArgumentException::class.java) {
+                WireGuardConfParser.parse("[Interface]\nPrivateKey = k\nI1 = $program")
+            }
+        }
+    }
+
+    @Test
     fun `conf with only Jc still parses as AmneziaWgConfig`() {
         val partialAwg =
             """

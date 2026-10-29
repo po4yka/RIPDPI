@@ -33,7 +33,7 @@ Jmin 10, Jmax 50, H1 to H4 = 1 to 4, `ContentPaddingAddition = 10-100`, `RandomT
 Every AWG message has this layout: `S` random bytes, then the message, then an optional trailer.
 `S` is S1, S2, S3, or S4 for initiation, response, cookie reply, and transport.
 
-1. **Header protection.** When the key is set, the sender makes an IETF ChaCha20 stream
+1. **Header protection.** When a valid nonzero key is set, the sender makes an IETF ChaCha20 stream
    (12-byte nonce, block counter 0) with the key and the first 12 bytes of the `S` prefix as the
    nonce (`noise-protocol.go:647-656`). It XORs the stream into the message after the MACs are
    final:
@@ -41,7 +41,7 @@ Every AWG message has this layout: `S` random bytes, then the message, then an o
      (`send.go:149-171`, `send.go:199-228`, `send.go:258-276`).
    - Transport: only the 16-byte header (type, receiver, counter) (`send.go:632-640`).
      The ciphertext is not changed.
-2. **Prefix size rule.** When the key is set, S1, S2, S3, and S4 must each be at least 12
+2. **Prefix size rule.** When a valid nonzero key is set, S1, S2, S3, and S4 must each be at least 12
    (`HeaderCipherNonceSize`, `noise-types.go:23`; check in `uapi.go:852-859`).
 3. **Random trailer.** When `RandomTrailers` is on, the sender adds random bytes after a
    handshake or cookie message. The length is uniform in `[0, W - (S + size))`, or 0 when
@@ -60,7 +60,7 @@ The UDP window `W` starts at 500 (`constants.go:27`, `peer.go:83`). It increases
 `S4 + 32 + plaintext` sent (`send.go:584-587`) and to the largest `S4 + 16 + plaintext` received
 (`receive.go:518-521`). It resets to 500 when the endpoint changes (`peer.go:288-291`).
 
-## Receive classification
+## Reference receive classification
 
 The receiver drops datagrams shorter than 32 bytes (`receive.go:137`). With header protection on,
 it uses the first 12 datagram bytes as the nonce and gets a 4-byte type mask from the first
@@ -71,11 +71,11 @@ the size is at least `S4 + 32`. The unmasked type must be in the H range of that
 receiver then removes the trailer and unmasks the rest of the protected bytes with the same
 keystream (`receive.go:159-245`).
 
-## Behavior outside the datagram
+## Reference behavior outside the datagram
 
 - `DisableCookies = on` stops the responder under-load path. The responder does not check MAC2
-  and does not send cookie replies (`receive.go:372-387`). A client that only starts handshakes
-  is not affected.
+  and does not send cookie replies (`receive.go:372-387`). RIPDPI admission also handles
+  received handshake responses, as described below.
 - Timer ranges replace the WireGuard constants: retransmit uses `RekeyTimeout`; send rekey uses
   `RekeyAfterTime`; key expiry uses the high bound of `RejectAfterTime`; passive keepalive uses
   `KeepaliveTimeout`; the retry limit uses `MaxHandshakeAttempts` (`timers.go:228-318`,
@@ -84,25 +84,79 @@ keystream (`receive.go:159-245`).
   packet (`timers.go:198-203`).
 - Junk packets have a length in `[Jmin, Jmax)` in this version (`noise-protocol.go:632-645`).
 
-## RIPDPI implementation limits
+## RIPDPI behavior and deliberate limits
 
-- RIPDPI applies no Android arm64 S3/S4 floor. Non-zero S3/S4 and header protection start on
-  every platform. The evidence is from an Android arm64 emulator against amneziawg-go
-  v3.1.20260828 with the AmneziaVPN 5.x profile (S1-S4 = 12, header protection, content padding,
-  random trailers), see `openspec/changes/archive/2026-10-27-awg3-native-engine/verification.md` and
-  [the preserved emulator observation](../../core/data/src/test/resources/awg-arm64-emulator-observation.json).
-  The shared `contract/amneziawg-arm64-version-floor.json` deployment policy
-  still requires physical Android arm64 revalidation before lifting its guard.
-  No physical arm64 device has revalidated amneziawg-go#110.
-- boringtun owns the Noise timers. RIPDPI applies `RekeyAfterTime` after each data send
-  (earlier than the fixed 120 s only), at most once in 5 s (`rekeyMinTimeout`). It applies the
-  `PersistentKeepalive` range with its own timer, which each authenticated packet resets. `RekeyTimeout`, `RejectAfterTime`, `KeepaliveTimeout`, and `MaxHandshakeAttempts` are
-  validated but boringtun keeps its fixed values.
-- RIPDPI does not pad its own keepalives or pad transport data to a multiple of 16. boringtun
-  rejects a padded keepalive from the peer as an invalid packet after authentication; RIPDPI
-  treats that result as a keepalive.
-- The UDP window learns only from datagrams that boringtun authenticated, and it stops at
-  `S4 + 32 + 1500` bytes.
-- RIPDPI does not send cookie replies as a client, so `DisableCookies` has no effect.
-- Junk lengths stay in `[Jmin, Jmax]`. The receiver ignores junk, so this does not change
-  interoperability.
+RIPDPI uses `awg-3.1-ranges-v1` as its bounded input profile. It does not claim full
+Go parser equivalence. The source owners are `awg_profile.rs`, `awg_v3.rs`,
+`amneziawg.rs`, the `wireguard` module, and the patched backend under
+`native/rust/vendor/boringtun`. Kotlin validates the same profile before activation.
+
+- All five timer fields reach the opt-in boringtun AWG policy. The backend owns
+  session age, initiator/responder roles, retries, attempt exhaustion, idle keepalive,
+  and expiry at the high bound of `RejectAfterTime`. Persistent keepalive uses a new
+  sampled interval after authenticated traffic. Standard WireGuard keeps its default policy.
+- Every outgoing transport path applies padding before AEAD: payload, queued data,
+  explicit empty transport, automatic response, and timer keepalive. Nonzero CPA
+  takes precedence over RT; with both off, plaintext aligns to 16 bytes within MTU.
+- The backend reports authenticated payload, padded all-zero keepalive, malformed
+  plaintext, and rejected authentication separately. Malformed authenticated transport
+  consumes its replay counter but does not mark readiness, deliver data, count as a
+  keepalive, or grow the UDP window. IPv4 header and declared-length checks also apply
+  to the standard WireGuard path.
+- Receive classification tries at most four layouts: transport, initiation, response,
+  then cookie. Each candidate must authenticate. A cookie challenge is provisional
+  while later candidates are tried. An accepted candidate commits codec context. If none
+  accepts, only the selected provisional challenge commits its cookie context.
+  This differs from the reference's first matching layout and handles ambiguous H/S layouts.
+- The window starts at 500. Local outgoing plaintext size and accepted incoming transport
+  can grow it. Receive learning
+  subtracts the 16-byte AEAD tag from the datagram length; the bound is effective MTU
+  plus S4 plus 32. Rekey keeps the window; a fresh tunnel/endpoint codec resets it.
+  RIPDPI uses a configured fixed endpoint and rejects foreign UDP sources before decoding.
+- `DisableCookies` bypasses only under-load MAC2 admission. Both flag states retain
+  MAC1 and Noise authentication, plus independent limits of ten expensive handshake
+  attempts and ten cookie challenges per second per peer. Cookies bind to the actual
+  UDP address/port or a private WebSocket connection identity. Incoming cookies do
+  not by themselves establish readiness.
+
+## Portable input subset
+
+| Input | RIPDPI contract |
+| --- | --- |
+| Six v3 range fields | Canonical ASCII decimal `lo` or `lo-hi`, `0 <= lo <= hi <= 65535`. No sign, leading zeros, internal spaces, extra separators, or overflow. Empty means unset. `0` and `0-0` disable CPA or select timer defaults. Other zero-low ranges are valid. |
+| PersistentKeepalive | `0`/`0-0` means off. Positive scalar, equal, and ordered ranges through 65535 are valid. `0-N` with positive N is rejected. Absent and `.conf off` remain off. |
+| H1-H4 | Canonical unsigned 32-bit values/ranges, including 4294967295. Ranges must be disjoint. Each is above 4 or is its own standard singleton (H1=1 through H4=4). |
+| Jc | Integer 0 through 128. |
+| Jmin, Jmax, S1-S4 | Integers 0 through 1280. Jmin must not exceed Jmax, even with Jc=0. Initiation and response totals must differ: `148+S1 != 92+S2`. HP requires every S to be at least 12. |
+| Junk size | Inclusive `[Jmin, Jmax]`, including equal bounds. This differs from the pinned Go exclusive upper bound. No exact uniform-distribution claim is made for junk. |
+| HP key | Empty means off; otherwise a Base64 value that decodes to 32 bytes. All-zero key means off. The editor masks it; credential storage keeps it outside Room profile JSON. |
+| Flags | `.conf` accepts on/off, true/false, and ASCII decimal integers (zero=false). The RIPDPI URI accepts only on/off. |
+
+The scalar J/S parser is not the canonical range-text parser. Do not infer the
+range text restrictions for those scalar fields. Known ignored `.conf` interface
+keys remain separate from unknown keys, which fail with typed errors without values.
+
+CPS supports these tags in I1-I5:
+
+- `<b 0x...>`: nonempty lowercase hex, with an even digit count.
+- `<r N>`: random bytes; `<rd N>`: ASCII digits; `<rc N>`: ASCII letters.
+  N is canonical decimal from 1 through 1280.
+- `<t>`: four-byte Unix timestamp in network byte order.
+
+A program has at most 64 tags, 4096 ASCII text bytes, and 1280 output bytes.
+Tags are adjacent with no intervening whitespace. Empty I fields mean no packet.
+`d`, `ds`, and `dz` are unsupported. Malformed counts, integer overflow, excess
+output, and unsupported tags fail before packet generation. Each send generates
+fresh dynamic values. CPS and junk packets do not receive AWG message trailers.
+
+## Acceptance scope
+
+RIPDPI applies no runtime Android arm64 S3/S4 floor. The preserved emulator result
+at `ba228c17c7cfb1f90a09f6af03a1c5837e1a100c` is historical evidence for the earlier
+implementation, not acceptance of these changes. See
+[the preserved observation](../../core/data/src/test/resources/awg-arm64-emulator-observation.json).
+The shared `contract/amneziawg-arm64-version-floor.json` deployment guard remains
+unchanged. Fresh host peers, current-source emulator runs, physical arm64 production
+service tests, exact artifacts, and hosted CI are separate required evidence in
+`openspec/changes/awg31-behavior-parity/verification.md`. Local unit tests do not
+prove those acceptance categories or production DPI behavior.

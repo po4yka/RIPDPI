@@ -27,6 +27,8 @@ class AmneziaWgWireProfileTest {
         assertEquals(12, AmneziaWgWireProfile.signatureSize("<b 0x01ab><r 2><rd 2><rc 2><t>"))
         assertEquals(0, AmneziaWgWireProfile.signatureSize(""))
         assertEquals(1280, AmneziaWgWireProfile.signatureSize("<r 1280>"))
+        assertEquals(1280, AmneziaWgWireProfile.signatureSize("<r 1276><t>"))
+        assertEquals(1280, AmneziaWgWireProfile.signatureSize("<b 0x${"aa".repeat(1280)}>"))
         assertEquals(256, AmneziaWgWireProfile.signatureSize("<t>".repeat(64)))
         listOf(
             "deadbeef",
@@ -38,6 +40,12 @@ class AmneziaWgWireProfileTest {
             "<r 1281>",
             "<t >",
             "<d>",
+            "<d 1>",
+            "<ds 1>",
+            "<dz 1>",
+            "<t> <t>",
+            "<r 1277><t>",
+            "x".repeat(4097),
             "<t> ",
             "<t",
             "<r 1><r 1280>",
@@ -46,6 +54,11 @@ class AmneziaWgWireProfileTest {
             "<b 0x${"aa".repeat(1281)}>",
         ).forEach {
             assertNull(it, AmneziaWgWireProfile.signatureSize(it))
+        }
+        listOf("r", "rd", "rc").forEach { tag ->
+            listOf("-1", "4294967296", "18446744073709551616", "１").forEach { count ->
+                assertNull(AmneziaWgWireProfile.signatureSize("<$tag $count>"))
+            }
         }
     }
 
