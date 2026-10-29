@@ -145,8 +145,6 @@ internal class DiagnosticsSessionsUiStateFactory
             support.buildSessionsUiModel(
                 sessions = input.sessions,
                 sessionRows = sessionRows,
-                sessionPathMode = input.sessionPathMode,
-                sessionStatus = input.sessionStatus,
                 sessionSearch = input.sessionSearch,
                 selectedSessionDetail = input.selectedSessionDetail,
             )

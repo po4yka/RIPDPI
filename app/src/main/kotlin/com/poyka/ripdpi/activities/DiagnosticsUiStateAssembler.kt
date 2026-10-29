@@ -338,8 +338,6 @@ internal class DiagnosticsUiStateAssembler
                 selectedApproachMode = controls.selection.selectedApproachMode,
                 selectedProbe = controls.selection.selectedProbe,
                 selectedEventId = controls.selection.selectedEventId,
-                sessionPathMode = controls.filter.sessionPathModeFilter,
-                sessionStatus = controls.filter.sessionStatusFilter,
                 sessionSearch = controls.filter.sessionSearch,
                 eventSource = controls.filter.eventSourceFilter,
                 eventSeverity = controls.filter.eventSeverityFilter,

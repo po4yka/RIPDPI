@@ -363,8 +363,6 @@ private fun rememberDiagnosticsScreenActions(
         onSelectProbe = remember(viewModel) { viewModel::selectProbe },
         onDismissProbeDetail = remember(viewModel) { viewModel::dismissProbeDetail },
         onToggleSensitiveSessionDetails = remember(viewModel) { viewModel::toggleSensitiveSessionDetails },
-        onSessionPathFilter = remember(viewModel) { viewModel::setSessionPathModeFilter },
-        onSessionStatusFilter = remember(viewModel) { viewModel::setSessionStatusFilter },
         onSessionSearch = remember(viewModel) { viewModel::setSessionSearch },
         onToggleEventFilter = remember(viewModel) { viewModel::toggleEventFilter },
         onEventSearch = remember(viewModel) { viewModel::setEventSearch },

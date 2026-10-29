@@ -1007,8 +1007,6 @@ internal data class SelectionState(
 )
 
 internal data class FilterState(
-    val sessionPathModeFilter: String? = null,
-    val sessionStatusFilter: String? = null,
     val sessionSearch: String = "",
     val eventSourceFilter: String? = null,
     val eventSeverityFilter: String? = null,

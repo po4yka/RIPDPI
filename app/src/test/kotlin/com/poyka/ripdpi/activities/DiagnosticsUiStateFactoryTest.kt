@@ -263,8 +263,6 @@ private fun diagnosticsUiStateInput(sessions: List<com.poyka.ripdpi.diagnostics.
         selectedApproachMode = DiagnosticsApproachMode.Profiles,
         selectedProbe = null,
         selectedEventId = null,
-        sessionPathMode = null,
-        sessionStatus = null,
         sessionSearch = "",
         eventSource = null,
         eventSeverity = null,

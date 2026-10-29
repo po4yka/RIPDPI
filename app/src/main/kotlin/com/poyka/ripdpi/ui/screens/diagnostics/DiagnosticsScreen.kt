@@ -86,8 +86,6 @@ data class DiagnosticsScreenActions(
     val onSelectProbe: (DiagnosticsProbeResultUiModel) -> Unit = {},
     val onDismissProbeDetail: () -> Unit = {},
     val onToggleSensitiveSessionDetails: () -> Unit = {},
-    val onSessionPathFilter: (String?) -> Unit = {},
-    val onSessionStatusFilter: (String?) -> Unit = {},
     val onSessionSearch: (String) -> Unit = {},
     val onToggleEventFilter: (String?, String?) -> Unit = { _, _ -> },
     val onEventSearch: (String) -> Unit = {},

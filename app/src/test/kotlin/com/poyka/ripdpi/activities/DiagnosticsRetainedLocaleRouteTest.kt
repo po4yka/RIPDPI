@@ -115,8 +115,6 @@ class DiagnosticsRetainedLocaleRouteTest {
                     .first(),
             )
             viewModel.selectApproach("custom-profile")
-            viewModel.setSessionPathModeFilter("RAW_PATH")
-            viewModel.setSessionStatusFilter("completed")
             viewModel.setSessionSearch("Scan")
         }
         composeRule.waitUntil(5_000) { viewModel.uiState.value.selectedApproachDetail != null }
@@ -169,8 +167,6 @@ class DiagnosticsRetainedLocaleRouteTest {
                 .label,
         )
         assertEquals("example.org", requireNotNull(state.selectedProbe).target)
-        assertEquals("RAW_PATH", state.sessions.filters.pathMode)
-        assertEquals("completed", state.sessions.filters.status)
         assertEquals("Scan", state.sessions.filters.query)
     }
 

@@ -43,8 +43,6 @@ internal data class DiagnosticsUiStateInput(
     val selectedApproachMode: DiagnosticsApproachMode,
     val selectedProbe: DiagnosticsProbeResultUiModel?,
     val selectedEventId: String?,
-    val sessionPathMode: String?,
-    val sessionStatus: String?,
     val sessionSearch: String,
     val eventSource: String?,
     val eventSeverity: String?,

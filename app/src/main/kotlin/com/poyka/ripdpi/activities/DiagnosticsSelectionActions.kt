@@ -168,14 +168,6 @@ internal suspend fun DiagnosticsMutationRunner.loadSessionDetail(
 internal class DiagnosticsFilterActions(
     private val filters: MutableStateFlow<FilterState>,
 ) {
-    fun setSessionPathModeFilter(pathMode: String?) {
-        filters.update { it.copy(sessionPathModeFilter = toggleValue(it.sessionPathModeFilter, pathMode)) }
-    }
-
-    fun setSessionStatusFilter(status: String?) {
-        filters.update { it.copy(sessionStatusFilter = toggleValue(it.sessionStatusFilter, status)) }
-    }
-
     fun setSessionSearch(query: String) {
         filters.update { it.copy(sessionSearch = query) }
     }

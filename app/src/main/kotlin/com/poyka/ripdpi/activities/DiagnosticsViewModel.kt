@@ -257,10 +257,6 @@ class DiagnosticsViewModel
 
         fun toggleSensitiveSessionDetails() = selectionActions.toggleSensitiveSessionDetails()
 
-        fun setSessionPathModeFilter(pathMode: String?) = filterActions.setSessionPathModeFilter(pathMode)
-
-        fun setSessionStatusFilter(status: String?) = filterActions.setSessionStatusFilter(status)
-
         fun setSessionSearch(query: String) = filterActions.setSessionSearch(query)
 
         fun toggleEventFilter(
