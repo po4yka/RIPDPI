@@ -30,7 +30,8 @@ class FlowError(RuntimeError):
 
 
 def adb(*args: str) -> str:
-    return subprocess.run(["adb", *args], check=True, capture_output=True, text=True).stdout
+    # A hung adb or uiautomator call must fail the flow so the caller's cleanup trap runs.
+    return subprocess.run(["adb", *args], check=True, capture_output=True, text=True, timeout=30).stdout
 
 
 def parse_dump(raw: str) -> ET.Element:
@@ -79,9 +80,12 @@ def tap(node: ET.Element) -> None:
 
 
 def scroll_to(tag: str, attempts: int = 8) -> ET.Element:
+    """Find a tagged node, swiping down first and then back up; the screen may be scrolled past it."""
     width, height = map(int, re.findall(r"\d+", adb("shell", "wm", "size"))[-2:])
+    low, high = str(height * 3 // 4), str(height // 3)
+    swipes = [(low, high)] * attempts + [(high, low)] * (attempts * 2)
     previous_bounds = None
-    for _ in range(attempts * 4):
+    for _ in range(len(swipes) + 20):  # 20 extra dumps let a moving node settle
         node = find_node(screen(), tag=tag)
         if node is not None:
             # A swipe keeps flinging; tap only once the node stops moving.
@@ -90,9 +94,12 @@ def scroll_to(tag: str, attempts: int = 8) -> ET.Element:
             previous_bounds = node.get("bounds")
             time.sleep(0.3)
             continue
+        if not swipes:
+            break
         previous_bounds = None
-        adb("shell", "input", "swipe", str(width // 2), str(height * 3 // 4), str(width // 2), str(height // 3), "300")
-    raise FlowError(f"{tag} not found after {attempts} scrolls")
+        start, end = swipes.pop(0)
+        adb("shell", "input", "swipe", str(width // 2), start, str(width // 2), end, "300")
+    raise FlowError(f"{tag} not found or still moving after scrolling both ways")
 
 
 def show_modes() -> None:
@@ -161,7 +168,7 @@ def main() -> int:
     args = parser.parse_args()
     try:
         FLOWS[args.flow]()
-    except (FlowError, subprocess.CalledProcessError) as error:
+    except (FlowError, subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
         print(f"adb-ui-flow {args.flow} failed: {error}", file=sys.stderr)
         return 1
     print(f"adb-ui-flow {args.flow} passed")
