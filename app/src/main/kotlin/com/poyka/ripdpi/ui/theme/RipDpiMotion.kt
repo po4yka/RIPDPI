@@ -25,6 +25,7 @@ import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
+import androidx.compose.material3.MotionScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
@@ -233,6 +234,42 @@ data class RipDpiMotion(
 }
 
 val DefaultRipDpiMotion = RipDpiMotion()
+
+/**
+ * Material motion scheme backed by the RDS duration buckets: fast = quick, default = state, slow = emphasized.
+ * Spatial specs use the emphasized-decelerate curve and effects specs the standard curve. Disabled animations
+ * snap; reduced motion uses the reduced RDS durations via [RipDpiMotion.duration].
+ */
+@Immutable
+internal class RipDpiMotionScheme(
+    private val motion: RipDpiMotion,
+) : MotionScheme {
+    private fun <T> spec(
+        baseDurationMillis: Int,
+        easing: Easing,
+    ): FiniteAnimationSpec<T> =
+        if (motion.animationsEnabled) motion.durationTween(baseDurationMillis, easing) else snap()
+
+    override fun <T> defaultSpatialSpec(): FiniteAnimationSpec<T> =
+        spec(motion.stateDurationMillis, RipDpiMotion.EmphasizedDecelerate)
+
+    override fun <T> fastSpatialSpec(): FiniteAnimationSpec<T> =
+        spec(motion.quickDurationMillis, RipDpiMotion.EmphasizedDecelerate)
+
+    override fun <T> slowSpatialSpec(): FiniteAnimationSpec<T> =
+        spec(motion.emphasizedDurationMillis, RipDpiMotion.EmphasizedDecelerate)
+
+    override fun <T> defaultEffectsSpec(): FiniteAnimationSpec<T> =
+        spec(motion.stateDurationMillis, RipDpiMotion.StandardEasing)
+
+    override fun <T> fastEffectsSpec(): FiniteAnimationSpec<T> =
+        spec(motion.quickDurationMillis, RipDpiMotion.StandardEasing)
+
+    override fun <T> slowEffectsSpec(): FiniteAnimationSpec<T> =
+        spec(motion.emphasizedDurationMillis, RipDpiMotion.StandardEasing)
+}
+
+internal fun RipDpiMotion.toMotionScheme(): MotionScheme = RipDpiMotionScheme(this)
 
 /** Spring spec for interactive press/release animations (M3 Expressive standard scheme). */
 private fun <T> standardSpringSpec(): SpringSpec<T> =

@@ -63,6 +63,7 @@ fun RipDpiTheme(
         remember(baseMotion, hapticFeedbackDisabled) {
             baseMotion.copy(hapticsEnabled = baseMotion.hapticsEnabled && !hapticFeedbackDisabled)
         }
+    val motionScheme = remember(motion) { motion.toMotionScheme() }
     val surfaces =
         ripDpiSurfaceTokens(
             colors = extendedColors,
@@ -95,6 +96,7 @@ fun RipDpiTheme(
             colorScheme = colorScheme,
             typography = typography,
             shapes = RipDpiShapes,
+            motionScheme = motionScheme,
             content = content,
         )
     }
