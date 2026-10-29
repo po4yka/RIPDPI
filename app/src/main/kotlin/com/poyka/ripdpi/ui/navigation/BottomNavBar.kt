@@ -51,7 +51,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.bottomNavigationContentAlpha
-import com.poyka.ripdpi.ui.theme.bottomNavigationFocusBorderColor
 import com.poyka.ripdpi.ui.theme.navigationBar
 import com.poyka.ripdpi.ui.theme.navigationIndicator
 import com.poyka.ripdpi.ui.theme.rememberBottomNavigationItemStyle
@@ -306,11 +305,6 @@ private fun BottomNavItemIcon(
         )
     }
 }
-
-internal fun bottomNavFocusBorderColor(
-    isFocused: Boolean,
-    outlineColor: Color,
-): Color = bottomNavigationFocusBorderColor(isFocused, outlineColor)
 
 @Preview(showBackground = true)
 @Composable

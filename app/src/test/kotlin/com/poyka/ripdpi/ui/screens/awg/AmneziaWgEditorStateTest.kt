@@ -162,7 +162,7 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
-    fun `populateFromConf fills every field from a parsed awg config`() {
+    fun `importConf fills every field from a parsed awg config`() {
         val conf =
             """
             [Interface]
@@ -184,7 +184,7 @@ class AmneziaWgEditorStateTest {
             Endpoint = vpn.example.com:51820
             """.trimIndent()
 
-        val state = AmneziaWgEditorState.initial().populateFromConf(conf, catalog)
+        val state = (AmneziaWgEditorState.initial().importConf(conf, catalog) as AwgConfImport.Imported).editor
 
         assertEquals("privkey==", state.form.interfacePrivateKey)
         assertEquals("peerpub==", state.form.peerPublicKey)
@@ -198,7 +198,7 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
-    fun `populateFromConf seeds Address, DNS, AllowedIPs, MTU and keepalive (P1-12)`() {
+    fun `importConf seeds Address, DNS, AllowedIPs, MTU and keepalive (P1-12)`() {
         val privateKey = Base64.getEncoder().encodeToString(ByteArray(32) { 1 })
         val peerPublicKey = Base64.getEncoder().encodeToString(ByteArray(32) { 2 })
         val conf =
@@ -217,7 +217,7 @@ class AmneziaWgEditorStateTest {
             PersistentKeepalive = 25
             """.trimIndent()
 
-        val state = AmneziaWgEditorState.initial().populateFromConf(conf, catalog)
+        val state = (AmneziaWgEditorState.initial().importConf(conf, catalog) as AwgConfImport.Imported).editor
 
         // Previously these were silently discarded; a blank Address also blocked
         // activation. They must now be seeded into the editor raw text.
@@ -237,7 +237,7 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
-    fun `populateFromConf with non-matching params lands on custom and stays unlocked`() {
+    fun `importConf with non-matching params lands on custom and stays unlocked`() {
         val conf =
             """
             [Interface]
@@ -257,7 +257,7 @@ class AmneziaWgEditorStateTest {
             Endpoint = host.example.com:443
             """.trimIndent()
 
-        val state = AmneziaWgEditorState.initial().populateFromConf(conf, catalog)
+        val state = (AmneziaWgEditorState.initial().importConf(conf, catalog) as AwgConfImport.Imported).editor
 
         assertEquals(AwgProfileForm.CUSTOM_COHORT_ID, state.form.cohortId)
         assertFalse(state.obfuscationLocked)
@@ -265,12 +265,10 @@ class AmneziaWgEditorStateTest {
     }
 
     @Test
-    fun `populateFromConf on malformed input leaves the state unchanged`() {
-        val before = AmneziaWgEditorState.initial().updateField(AwgEditorField.SERVER, "keep.me")
+    fun `importConf rejects malformed input`() {
+        val result = AmneziaWgEditorState.initial().importConf("this is not a wg conf", catalog)
 
-        val after = before.populateFromConf("this is not a wg conf", catalog)
-
-        assertEquals("keep.me", after.form.server)
+        assertTrue(result is AwgConfImport.Failed)
     }
 
     @Test

@@ -9,12 +9,6 @@ import com.poyka.ripdpi.data.wireguard.WireGuardConfModel
 import com.poyka.ripdpi.data.wireguard.WireGuardConfParser
 import com.poyka.ripdpi.data.wireguard.WireGuardConfUnknownKeyException
 
-/** Replaces the editor state from a `.conf`, or returns this state unchanged when it cannot. */
-fun AmneziaWgEditorState.populateFromConf(
-    conf: String,
-    catalog: AwgCohortCatalogData,
-): AmneziaWgEditorState = (importConf(conf, catalog) as? AwgConfImport.Imported)?.editor ?: this
-
 /**
  * Imports a WireGuard or AmneziaWG `.conf` through [WireGuardConfParser]. A plain
  * WireGuard config becomes an AmneziaWG profile with no obfuscation (`Jc`/`S` = 0,

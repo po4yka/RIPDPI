@@ -3,19 +3,6 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.platform.StringResolver
 
-internal fun initialDiagnosticsDpiToolsUiModel(strings: StringResolver): DiagnosticsDpiToolsUiModel =
-    DiagnosticsDpiToolsUiModel(
-        dnsIntegrity = initialDiagnosticsDnsIntegrityUiModel(strings),
-        dnsAvailability = initialDiagnosticsDnsAvailabilityUiModel(strings),
-        domainReachability = initialDiagnosticsDomainReachabilityUiModel(strings),
-        rknBlockDiagnosis = initialDiagnosticsRknBlockDiagnosisUiModel(strings),
-        compressionProbe = initialDiagnosticsCompressionProbeUiModel(strings),
-        tcp16FatHeader = initialDiagnosticsTcp16FatHeaderUiModel(strings),
-        allowlistSni = initialDiagnosticsAllowlistSniUiModel(strings),
-        byohCompatibility = initialDiagnosticsByohUiModel(strings),
-        dpiSuite = initialDiagnosticsDpiSuiteUiModel(strings),
-    )
-
 internal fun initialDiagnosticsDnsIntegrityUiModel(strings: StringResolver) =
     DiagnosticsDnsIntegrityToolUiModel(
         summary = strings.getString(R.string.diagnostics_dns_integrity_idle_summary),

@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import com.poyka.ripdpi.ui.theme.bottomNavigationFocusBorderColor
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -365,7 +366,7 @@ class BottomNavBarTest {
                 .assert(SemanticsMatcher.keyIsDefined(SemanticsActions.RequestFocus))
         }
         val outline = Color(0xFF123456)
-        assertEquals(outline, bottomNavFocusBorderColor(isFocused = true, outlineColor = outline))
-        assertEquals(Color.Transparent, bottomNavFocusBorderColor(isFocused = false, outlineColor = outline))
+        assertEquals(outline, bottomNavigationFocusBorderColor(isFocused = true, outlineColor = outline))
+        assertEquals(Color.Transparent, bottomNavigationFocusBorderColor(isFocused = false, outlineColor = outline))
     }
 }

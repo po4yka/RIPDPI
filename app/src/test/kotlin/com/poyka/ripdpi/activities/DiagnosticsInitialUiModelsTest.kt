@@ -43,23 +43,22 @@ class DiagnosticsInitialUiModelsTest {
     @Test
     fun `initial states resolve fallback copy through string resources`() {
         val strings = FakeStringResolver()
-        val dpiTools = initialDiagnosticsDpiToolsUiModel(strings)
         val actual =
             listOf(
-                dpiTools.dnsIntegrity.summary,
-                dpiTools.dnsAvailability.summary,
-                dpiTools.domainReachability.summary,
-                dpiTools.rknBlockDiagnosis.headline,
-                dpiTools.rknBlockDiagnosis.confidenceNote,
-                dpiTools.rknBlockDiagnosis.summary,
-                dpiTools.compressionProbe.summary,
-                dpiTools.tcp16FatHeader.summary,
-                dpiTools.allowlistSni.summary,
-                dpiTools.byohCompatibility.summary,
-                dpiTools.byohCompatibility.requirementsSummary,
+                initialDiagnosticsDnsIntegrityUiModel(strings).summary,
+                initialDiagnosticsDnsAvailabilityUiModel(strings).summary,
+                initialDiagnosticsDomainReachabilityUiModel(strings).summary,
+                initialDiagnosticsRknBlockDiagnosisUiModel(strings).headline,
+                initialDiagnosticsRknBlockDiagnosisUiModel(strings).confidenceNote,
+                initialDiagnosticsRknBlockDiagnosisUiModel(strings).summary,
+                initialDiagnosticsCompressionProbeUiModel(strings).summary,
+                initialDiagnosticsTcp16FatHeaderUiModel(strings).summary,
+                initialDiagnosticsAllowlistSniUiModel(strings).summary,
+                initialDiagnosticsByohUiModel(strings).summary,
+                initialDiagnosticsByohUiModel(strings).requirementsSummary,
                 initialDiagnosticsCidrWhitelistUiModel(strings).summary,
                 initialDiagnosticsIpv4WhitelistUiModel(strings).summary,
-                dpiTools.dpiSuite.summary,
+                initialDiagnosticsDpiSuiteUiModel(strings).summary,
             )
         val expected =
             listOf(
