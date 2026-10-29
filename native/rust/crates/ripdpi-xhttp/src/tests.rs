@@ -88,22 +88,32 @@ fn stream_one_and_stream_up_paths_differ_only_by_session_segment() {
 
 #[test]
 fn protocol_mode_parses_xray_identifiers() {
-    assert_eq!(XhttpProtocolMode::parse("stream-up").unwrap(), XhttpProtocolMode::StreamUp);
-    assert_eq!(XhttpProtocolMode::parse("  stream-up  ").unwrap(), XhttpProtocolMode::StreamUp);
-    assert_eq!(XhttpProtocolMode::parse("stream-one").unwrap(), XhttpProtocolMode::StreamOne);
-    // "" / "auto" resolve to the back-compat default (StreamUp).
-    assert_eq!(XhttpProtocolMode::parse("").unwrap(), XhttpProtocolMode::StreamUp);
-    assert_eq!(XhttpProtocolMode::parse("auto").unwrap(), XhttpProtocolMode::StreamUp);
+    for is_reality in [false, true] {
+        assert_eq!(XhttpProtocolMode::parse("stream-up", is_reality).unwrap(), XhttpProtocolMode::StreamUp);
+        assert_eq!(XhttpProtocolMode::parse("  stream-up  ", is_reality).unwrap(), XhttpProtocolMode::StreamUp);
+        assert_eq!(XhttpProtocolMode::parse("stream-one", is_reality).unwrap(), XhttpProtocolMode::StreamOne);
+    }
+}
+
+#[test]
+fn protocol_mode_resolves_auto_in_security_context() {
+    for mode in ["", "auto", "  auto  "] {
+        assert_eq!(XhttpProtocolMode::parse(mode, true).unwrap(), XhttpProtocolMode::StreamOne);
+        assert!(XhttpProtocolMode::parse(mode, false).is_err(), "TLS auto requires unsupported packet-up");
+    }
 }
 
 #[test]
 fn protocol_mode_parse_rejects_unimplemented_modes() {
     // `packet-up` and `stream-down` are upstream modes but not implemented here; rejecting them prevents a silent downgrade to `stream-up`, and the error must not echo user-supplied values.
-    for unsupported in ["packet-up", "stream-down", "garbage"] {
-        let Err(err) = XhttpProtocolMode::parse(unsupported) else {
-            panic!("{unsupported:?} must be rejected");
-        };
-        assert!(!err.to_string().contains(unsupported), "error must redact the offending value: {err}");
+    for is_reality in [false, true] {
+        for unsupported in ["packet-up", "stream-down", "garbage"] {
+            let Err(err) = XhttpProtocolMode::parse(unsupported, is_reality) else {
+                panic!("{unsupported:?} must be rejected");
+            };
+            assert!(!err.to_string().contains(unsupported), "error must redact the offending value: {err}");
+            assert!(!format!("{err:?}").contains(unsupported), "Debug must redact the offending value");
+        }
     }
 }
 
@@ -155,6 +165,23 @@ fn with_protocol_mode_threads_choice_through() {
     .expect("config")
     .with_protocol_mode(XhttpProtocolMode::StreamOne);
     assert_eq!(XhttpProtocolMode::StreamOne, cfg.protocol_mode);
+}
+
+#[test]
+fn xhttp_tls_auto_rejects_unimplemented_packet_up() {
+    for mode in ["", "auto", "  auto  "] {
+        let config = XhttpTlsConfig::from_strings(
+            "edge.example",
+            443,
+            "edge.example",
+            "550e8400-e29b-41d4-a716-446655440000",
+            "/api",
+            "",
+            "chrome_stable",
+        )
+        .expect("TLS config");
+        assert!(config.with_protocol_mode_str(mode).is_err(), "TLS auto must not become stream-up");
+    }
 }
 
 #[test]

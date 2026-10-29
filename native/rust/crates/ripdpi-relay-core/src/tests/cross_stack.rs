@@ -14,6 +14,9 @@ use std::time::Duration;
 /// xHTTP framing, or VLESS) breaks this even when the per-crate tests pass.
 /// Closes the single-stream cross-stack criterion on
 /// `add-protocol-cross-stack-chain-tests-vless-over-xhttp-over-reality`.
+///
+/// # Cancel safety:
+/// NOT cancel-safe: the test owns and discards the carrier after any partial I/O.
 #[tokio::test]
 async fn cross_stack_vless_over_xhttp_over_reality_single_stream() {
     let server = XhttpRealityLoopback::start().await.expect("start xhttp/reality fixture");
@@ -29,6 +32,7 @@ async fn cross_stack_vless_over_xhttp_over_reality_single_stream() {
     vless.reality_short_id = String::new();
     vless.uuid = Some("11111111-1111-1111-1111-111111111111".to_string());
     vless.xhttp_path = "/tunnel".to_string();
+    vless.xhttp_mode = "stream-up".to_string();
 
     let backend = build_backend(&config).await.expect("build VLESS-over-xHTTP-over-Reality backend");
     let target = RelayTargetAddr::Ip(SocketAddr::new(IpAddr::V4(Ipv4Addr::LOCALHOST), server.target_port()));

@@ -197,10 +197,17 @@ fn relay_transport_registry_is_consistent() {
 
 /// The plain `vless` registration is native only for xHTTP/TLS; unsupported
 /// transports fail closed instead of building an inert backend.
+///
+/// # Cancel safety:
+/// cancel-safe: the test owns the backends and does not connect a carrier.
 #[tokio::test]
 async fn relay_transport_registry_dispatches_plain_vless_xhttp_only() {
     let mut xhttp = sample_config("vless");
     plain_vless_config_mut(&mut xhttp).vless_flow = "none".to_string();
+    let error = build_backend(&xhttp).await.err().expect("TLS auto requires unimplemented packet-up");
+    assert_eq!(io::ErrorKind::InvalidInput, error.kind());
+    assert!(error.to_string().contains("automatic mode requires REALITY"));
+    plain_vless_config_mut(&mut xhttp).xhttp_mode = "stream-up".to_string();
     match build_backend(&xhttp).await.expect("plain vless xhttp backend") {
         RelayBackend::Xhttp(_) => {}
         other => panic!("plain vless xhttp must build Xhttp, got {:?}", std::mem::discriminant(&other)),

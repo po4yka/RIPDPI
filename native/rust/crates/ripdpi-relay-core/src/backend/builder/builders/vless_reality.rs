@@ -49,7 +49,8 @@ fn build_xhttp(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> i
                 socket_protector: context.socket_protector.clone(),
                 xmux: ripdpi_xhttp::XmuxConfig::default(),
                 finalmask: finalmask_config(&config.common.finalmask),
-                protocol_mode: ripdpi_xhttp::XhttpProtocolMode::parse(&vless.xhttp_mode).map_err(invalid_input)?,
+                protocol_mode: ripdpi_xhttp::XhttpProtocolMode::parse(&vless.xhttp_mode, true)
+                    .map_err(invalid_input)?,
             }),
         },
         context.pool_config,

@@ -18,8 +18,8 @@
 //!    download body (response header), after which bytes proxy to the request's
 //!    target (the fixture's embedded echo).
 //!
-//! Only stream-up is implemented — that is what `XhttpProtocolMode::default()`
-//! and the relay backend use. This is a dev/test fixture, never a production
+//! Only stream-up is implemented; test profiles must select that mode explicitly.
+//! This is a dev/test fixture, never a production
 //! xHTTP server. See `docs/architecture/protocol-loopback-harness-design.md`.
 
 use std::collections::HashMap;

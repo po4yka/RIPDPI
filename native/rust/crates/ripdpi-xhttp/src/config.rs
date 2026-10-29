@@ -63,13 +63,13 @@ pub enum XhttpProtocolMode {
 }
 
 impl XhttpProtocolMode {
-    /// Parse the xray `mode` string. Accepts `""` and `"auto"` as the
-    /// back-compat default ([`Self::StreamUp`]); rejects modes that are
-    /// not yet implemented (`packet-up`, `stream-down`) with a named
-    /// error so a misconfigured profile does not silently downgrade.
-    pub fn parse(value: &str) -> Result<Self, ProtocolModeParseError> {
+    /// Resolve the xray `mode` string without a separate download endpoint.
+    /// REALITY auto uses stream-one. TLS auto requires packet-up, which is
+    /// not implemented, so it fails instead of changing the wire mode.
+    pub fn parse(value: &str, is_reality: bool) -> Result<Self, ProtocolModeParseError> {
         match value.trim() {
-            "" | "auto" | "stream-up" => Ok(Self::StreamUp),
+            "" | "auto" if is_reality => Ok(Self::StreamOne),
+            "stream-up" => Ok(Self::StreamUp),
             "stream-one" => Ok(Self::StreamOne),
             other => Err(ProtocolModeParseError(other.to_owned())),
         }
@@ -87,7 +87,7 @@ impl fmt::Debug for ProtocolModeParseError {
 
 impl fmt::Display for ProtocolModeParseError {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str("unsupported xHTTP mode; expected 'stream-up', 'stream-one', '', or 'auto'")
+        f.write_str("unsupported xHTTP mode; use 'stream-up' or 'stream-one'; automatic mode requires REALITY")
     }
 }
 
@@ -237,10 +237,10 @@ impl XhttpTlsConfig {
         self
     }
 
-    /// Parse the xray `mode` identifier (`stream-up`, `stream-one`,
-    /// `""`/`"auto"`) and attach it.
+    /// Parse an explicit TLS mode (`stream-up` or `stream-one`). Automatic
+    /// TLS mode requires unimplemented packet-up and is rejected.
     pub fn with_protocol_mode_str(self, mode: &str) -> Result<Self, ConfigError> {
-        let parsed = XhttpProtocolMode::parse(mode)?;
+        let parsed = XhttpProtocolMode::parse(mode, false)?;
         Ok(self.with_protocol_mode(parsed))
     }
 

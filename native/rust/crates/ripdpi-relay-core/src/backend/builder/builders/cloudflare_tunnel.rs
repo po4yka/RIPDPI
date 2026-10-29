@@ -19,7 +19,8 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
         &cloudflare.xhttp_host,
         &config.common.tls_fingerprint_profile,
     )
-    .map_err(invalid_input)?;
+    .map_err(invalid_input)?
+    .with_protocol_mode(ripdpi_xhttp::XhttpProtocolMode::StreamUp);
     tls.bind_ip = context.outbound_bind_ip;
     tls.socket_protector = context.socket_protector.clone();
     tls.finalmask = finalmask_config(&config.common.finalmask);
