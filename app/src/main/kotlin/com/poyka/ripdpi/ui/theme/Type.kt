@@ -166,6 +166,12 @@ val RipDpiTypeScale =
         brandStatus = monoStyle(fontSize = 13, lineHeight = 18, fontWeight = FontWeight.Medium),
     )
 
+private val DisplayLargeStyle = sansStyle(fontSize = 57, lineHeight = 64, fontWeight = FontWeight.Normal)
+private val DisplayMediumStyle = sansStyle(fontSize = 45, lineHeight = 52, fontWeight = FontWeight.Normal)
+private val DisplaySmallStyle = sansStyle(fontSize = 36, lineHeight = 44, fontWeight = FontWeight.Normal)
+private val HeadlineLargeStyle = sansStyle(fontSize = 32, lineHeight = 40, fontWeight = FontWeight.Normal)
+private val HeadlineMediumStyle = sansStyle(fontSize = 28, lineHeight = 36, fontWeight = FontWeight.Normal)
+
 val RipDpiTypography = ripDpiTypography(RipDpiTypeScale)
 
 private fun TextStyle.emphasized(): TextStyle =
@@ -174,16 +180,11 @@ private fun TextStyle.emphasized(): TextStyle =
 internal fun ripDpiTypography(type: RipDpiTextStyles): Typography {
     val locales = type.body.localeList
 
-    fun display(
-        fontSize: Int,
-        lineHeight: Int,
-    ) = sansStyle(fontSize, lineHeight, FontWeight.Normal).copy(localeList = locales)
-
-    val displayLarge = display(57, 64)
-    val displayMedium = display(45, 52)
-    val displaySmall = display(36, 44)
-    val headlineLarge = display(32, 40)
-    val headlineMedium = display(28, 36)
+    val displayLarge = DisplayLargeStyle.copy(localeList = locales)
+    val displayMedium = DisplayMediumStyle.copy(localeList = locales)
+    val displaySmall = DisplaySmallStyle.copy(localeList = locales)
+    val headlineLarge = HeadlineLargeStyle.copy(localeList = locales)
+    val headlineMedium = HeadlineMediumStyle.copy(localeList = locales)
     return Typography(
         displayLarge = displayLarge,
         displayMedium = displayMedium,
