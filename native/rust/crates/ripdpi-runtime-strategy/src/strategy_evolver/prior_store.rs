@@ -1,5 +1,10 @@
 use super::StrategyEvolver;
-use super::shared_priors::{ApplyError, SHARED_PRIORS_PUB_KEY, apply_priors, canonical_combo_hash};
+use std::collections::HashMap;
+
+use super::shared_priors::{
+    ApplyError, SHARED_PRIORS_PUB_KEY, apply_priors, canonical_combo_hash, global_shared_priors_len,
+    latest_shared_priors,
+};
 use super::thompson_sampling::BetaParams;
 use super::types::StrategyCombo;
 
@@ -9,9 +14,8 @@ impl StrategyEvolver {
     /// returns `Err` without touching existing prior state.
     /// On success returns the number of records loaded.
     ///
-    /// The priors live in a parallel store consulted by Thompson-style
-    /// scoring; the UCB1 selection path is unaffected, so
-    /// existing field data continues to dominate ranking decisions.
+    /// Selection blends these priors with local counts at a capped weight, so
+    /// field data dominates as it accumulates.
     pub fn apply_shared_priors(
         &mut self,
         manifest_bytes: &[u8],
@@ -44,11 +48,23 @@ impl StrategyEvolver {
     }
 
     /// Returns the shared Beta prior for `combo`, if loaded. Used by
-    /// diagnostics and Thompson-style scoring; the production UCB1 path does
-    /// not consult this map.
+    /// diagnostics and tests.
     pub fn shared_prior_for(&self, combo: &StrategyCombo) -> Option<&BetaParams> {
         let hash = canonical_combo_hash(combo);
         self.shared_priors.get(&hash)
+    }
+
+    /// Priors that selection consults: the process-global registry (filled by
+    /// the verified JNI refresh path) when it holds records, otherwise the
+    /// per-evolver store. Empty means selection runs unchanged.
+    pub(super) fn effective_shared_priors(&self) -> HashMap<u64, BetaParams> {
+        if global_shared_priors_len() > 0 {
+            return latest_shared_priors()
+                .into_iter()
+                .map(|(hash, prior)| (hash, BetaParams { alpha: prior.alpha, beta: prior.beta }))
+                .collect();
+        }
+        self.shared_priors.clone()
     }
 
     /// Number of priors currently loaded. Zero on a freshly-constructed

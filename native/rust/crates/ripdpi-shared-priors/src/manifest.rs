@@ -18,10 +18,10 @@
 //!              || issued_at_unix.to_le_bytes() (8 bytes)
 //! ```
 //!
-//! Until a real release key is published, [`SHARED_PRIORS_PUB_KEY`] is the
-//! all-zero placeholder; [`is_production_key_set`] returns `false` and
-//! [`verify_manifest`] short-circuits with [`ManifestError::NoProductionKey`].
-//! Production builds must replace the placeholder with the release public key.
+//! [`SHARED_PRIORS_PUB_KEY`] is taken from the `RIPDPI_SHARED_PRIORS_PUB_KEY`
+//! environment variable at compile time. Without it the key is all zeros;
+//! [`is_production_key_set`] returns `false` and [`verify_manifest`]
+//! short-circuits with [`ManifestError::NoProductionKey`].
 
 use base64::Engine;
 use ring::signature;
@@ -29,12 +29,57 @@ use ring::signature;
 /// Currently the only supported manifest schema version.
 pub const SHARED_PRIORS_MANIFEST_VERSION: u32 = 1;
 
-/// ed25519 public key for the shared-priors release channel. All zeros is
-/// the placeholder until the project's release-signing key is generated and
-/// the public half is embedded here. Until then, [`is_production_key_set`]
-/// reports `false` and [`verify_manifest`] rejects every signature with
+/// Build-time environment variable carrying the release public key as 64 hex
+/// characters. Unset or empty means "channel not configured" (all-zero key);
+/// a set but malformed value fails the build.
+pub const SHARED_PRIORS_PUB_KEY_ENV: &str = "RIPDPI_SHARED_PRIORS_PUB_KEY";
+
+/// ed25519 public key for the shared-priors release channel, read from
+/// `RIPDPI_SHARED_PRIORS_PUB_KEY` when this crate is compiled. All zeros
+/// means no key was supplied: [`is_production_key_set`] reports `false` and
+/// [`verify_manifest`] rejects every signature with
 /// [`ManifestError::NoProductionKey`].
-pub const SHARED_PRIORS_PUB_KEY: [u8; 32] = [0u8; 32];
+pub const SHARED_PRIORS_PUB_KEY: [u8; 32] = embedded_pub_key(option_env!("RIPDPI_SHARED_PRIORS_PUB_KEY"));
+
+/// Why a build-time key string was rejected.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum PubKeyParseError {
+    BadLength,
+    BadHexDigit,
+}
+
+/// Parse a 64-character hex string into a 32-byte key. Usable in const context.
+pub const fn parse_pub_key_hex(hex: &str) -> Result<[u8; 32], PubKeyParseError> {
+    let bytes = hex.as_bytes();
+    if bytes.len() != 64 {
+        return Err(PubKeyParseError::BadLength);
+    }
+    let mut out = [0u8; 32];
+    let mut i = 0;
+    while i < 32 {
+        let (Some(hi), Some(lo)) = (hex_digit(bytes[2 * i]), hex_digit(bytes[2 * i + 1])) else {
+            return Err(PubKeyParseError::BadHexDigit);
+        };
+        out[i] = (hi << 4) | lo;
+        i += 1;
+    }
+    Ok(out)
+}
+
+/// Resolve the compile-time env value: unset or empty gives the all-zero
+/// "not configured" key; a malformed value aborts compilation so a build never
+/// silently ships without the key the owner meant to embed.
+#[allow(clippy::panic, reason = "const evaluation: a malformed key must fail the build")]
+const fn embedded_pub_key(env: Option<&str>) -> [u8; 32] {
+    match env {
+        None => [0u8; 32],
+        Some(hex) if hex.is_empty() => [0u8; 32],
+        Some(hex) => match parse_pub_key_hex(hex) {
+            Ok(key) => key,
+            Err(_) => panic!("RIPDPI_SHARED_PRIORS_PUB_KEY must be exactly 64 hex characters"),
+        },
+    }
+}
 
 /// Domain-separation tag prefixing the signing input. Prevents cross-protocol
 /// signature reuse — signatures intended for other RIPDPI release artefacts
@@ -126,7 +171,7 @@ pub fn verify_manifest(
 
     let signature_bytes = decode_base64_64(&parsed.signature_ed25519).ok_or(ManifestError::BadSignatureFormat)?;
 
-    if public_key == &SHARED_PRIORS_PUB_KEY && !is_production_key_set() {
+    if public_key == &[0u8; 32] {
         return Err(ManifestError::NoProductionKey);
     }
 
@@ -172,7 +217,7 @@ fn decode_hex_32(s: &str) -> Option<[u8; 32]> {
     Some(out)
 }
 
-fn hex_digit(c: u8) -> Option<u8> {
+const fn hex_digit(c: u8) -> Option<u8> {
     match c {
         b'0'..=b'9' => Some(c - b'0'),
         b'a'..=b'f' => Some(c - b'a' + 10),
@@ -291,8 +336,35 @@ mod tests {
         // builds that have not embedded a real signing key yet.
         let key = generate_test_key();
         let manifest = sign_manifest_bytes(&key, SAMPLE_PRIORS, 1_745_798_400, "https://example/priors.ndjson");
-        let err = verify_manifest(manifest.as_bytes(), SAMPLE_PRIORS, &SHARED_PRIORS_PUB_KEY)
-            .expect_err("placeholder key must reject");
+        let err =
+            verify_manifest(manifest.as_bytes(), SAMPLE_PRIORS, &[0u8; 32]).expect_err("placeholder key must reject");
+        assert!(matches!(err, ManifestError::NoProductionKey), "got {err:?}");
+    }
+
+    #[test]
+    fn pub_key_hex_accepts_valid_and_rejects_malformed() {
+        let hex = "00112233445566778899aabbccddeeff00112233445566778899AABBCCDDEEFF";
+        let key = parse_pub_key_hex(hex).expect("valid hex");
+        assert_eq!(key[0], 0x00);
+        assert_eq!(key[1], 0x11);
+        assert_eq!(key[15], 0xff);
+        assert_eq!(key[31], 0xff);
+        assert_eq!(parse_pub_key_hex("abcd"), Err(PubKeyParseError::BadLength));
+        assert_eq!(parse_pub_key_hex(&"g".repeat(64)), Err(PubKeyParseError::BadHexDigit));
+    }
+
+    #[test]
+    fn unset_or_empty_env_means_not_configured() {
+        assert_eq!(embedded_pub_key(None), [0u8; 32]);
+        assert_eq!(embedded_pub_key(Some("")), [0u8; 32]);
+        assert_eq!(embedded_pub_key(Some(&"ab".repeat(32))), [0xab; 32]);
+    }
+
+    #[test]
+    fn zero_public_key_always_rejects() {
+        let key = generate_test_key();
+        let manifest = sign_manifest_bytes(&key, SAMPLE_PRIORS, 1_745_798_400, "https://example/priors.ndjson");
+        let err = verify_manifest(manifest.as_bytes(), SAMPLE_PRIORS, &[0u8; 32]).expect_err("zero key must reject");
         assert!(matches!(err, ManifestError::NoProductionKey), "got {err:?}");
     }
 

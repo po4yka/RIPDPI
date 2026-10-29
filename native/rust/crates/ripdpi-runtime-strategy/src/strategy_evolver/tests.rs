@@ -1502,3 +1502,57 @@ fn embedded_key_apply_short_circuits_until_release_key_lands() {
     assert!(matches!(err, ApplyError::Manifest(ManifestError::NoProductionKey)));
     assert_eq!(evolver.shared_priors_len(), 0, "no priors should be stored after a rejected apply");
 }
+
+// -----------------------------------------------------------------
+// Shared-priors consumption in selection
+// -----------------------------------------------------------------
+
+fn tls_evolver_with_local_winner(winner_stats: ComboStats) -> (StrategyEvolver, StrategyCombo, StrategyCombo) {
+    let mut evolver = StrategyEvolver::new(true, 0.0);
+    let context = LearningContext { target_bucket: LearningTargetBucket::Tls, ..LearningContext::default() };
+    evolver.current_learning_context = context.clone();
+    let winner = pilot_combo_for_bucket(LearningTargetBucket::Tls);
+    let candidate = StrategyCombo { fake_ttl: Some(6), ..winner.clone() };
+    assert!(combo_matches_bucket(&candidate, LearningTargetBucket::Tls));
+    evolver.combos.insert(winner.clone(), winner_stats.clone());
+    let state = evolver.contexts.entry(context).or_default();
+    state.piloted_buckets.insert(LearningTargetBucket::Tls);
+    state.combos.insert(winner.clone(), winner_stats);
+    state.niche_winners.insert(LearningTargetBucket::Tls, winner.clone());
+    (evolver, winner, candidate)
+}
+
+fn local_stats(attempts: u32, successes: u32) -> ComboStats {
+    ComboStats { attempts, successes, ..ComboStats::new() }
+}
+
+#[test]
+fn selection_is_unchanged_without_shared_priors() {
+    let (mut evolver, winner, _) = tls_evolver_with_local_winner(local_stats(3, 1));
+    assert_eq!(evolver.shared_priors_len(), 0);
+    for _ in 0..20 {
+        assert_eq!(evolver.select_next_combo(), winner);
+    }
+}
+
+#[test]
+fn strong_prior_wins_when_no_field_data() {
+    let (mut evolver, winner, candidate) = tls_evolver_with_local_winner(local_stats(3, 1));
+    evolver.shared_priors.insert(canonical_combo_hash(&candidate), BetaParams { alpha: 40.0, beta: 2.0 });
+    assert_ne!(evolver.select_next_combo(), winner);
+    assert_eq!(evolver.select_next_combo(), candidate);
+}
+
+#[test]
+fn contrary_field_data_beats_strong_prior() {
+    let (mut evolver, winner, candidate) = tls_evolver_with_local_winner(local_stats(20, 20));
+    evolver.shared_priors.insert(canonical_combo_hash(&candidate), BetaParams { alpha: 40.0, beta: 2.0 });
+    assert_eq!(evolver.select_next_combo(), winner, "a perfect local record must outrank an unobserved prior");
+
+    // The prior arm collected its own bad field data: it must lose too.
+    let (mut evolver, winner, candidate) = tls_evolver_with_local_winner(local_stats(3, 1));
+    evolver.shared_priors.insert(canonical_combo_hash(&candidate), BetaParams { alpha: 40.0, beta: 2.0 });
+    let context = evolver.current_learning_context.clone();
+    evolver.contexts.get_mut(&context).expect("context").combos.insert(candidate, local_stats(30, 3));
+    assert_eq!(evolver.select_next_combo(), winner);
+}

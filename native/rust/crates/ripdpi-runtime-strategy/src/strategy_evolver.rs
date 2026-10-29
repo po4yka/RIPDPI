@@ -153,10 +153,10 @@ pub struct StrategyEvolver {
     pub penalties_enabled: bool,
     /// Shared Beta posteriors keyed by canonical combo hash. Populated by
     /// [`Self::apply_shared_priors`] from a verified GitHub-hosted bundle.
-    /// The UCB1 selection path does not consume these today; they are exposed
-    /// for Thompson-style scoring and diagnostics. The "field data wins" merge rule lives at the
-    /// consumption site rather than at apply time so the bundle stays a
-    /// pure prior store.
+    /// Selection blends them with local counts at a capped weight (see
+    /// `selection::SHARED_PRIOR_WEIGHT_CAP`): the "field data wins" merge rule
+    /// lives at the consumption site so the bundle stays a pure prior store.
+    /// The process-global registry takes precedence when it holds records.
     shared_priors: HashMap<u64, BetaParams>,
     /// Test-only override for the monotonic clock; production code leaves
     /// this `None` and the evolver uses [`Instant`] deltas.

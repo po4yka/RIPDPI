@@ -1,13 +1,69 @@
 use ripdpi_config::{OffsetBase, QuicFakeProfile};
 
 use super::StrategyEvolver;
+use super::shared_priors::canonical_combo_hash;
+use super::thompson_sampling::BetaParams;
 use super::types::{
-    COMBO_POOL, ContextBanditState, LearningTargetBucket, StrategyCombo, StrategyFamily, combo_fitness_at,
+    COMBO_POOL, ComboStats, ContextBanditState, LearningTargetBucket, StrategyCombo, StrategyFamily, combo_fitness_at,
     combo_from_pool,
 };
 
 impl StrategyEvolver {
+    /// Let verified shared priors outrank the exploit choice for an arm with
+    /// little local data. Each arm scores its blended success mean:
+    /// `(w * prior_mean + local_successes) / (w + local_attempts)` with
+    /// `w = min(alpha + beta, SHARED_PRIOR_WEIGHT_CAP)`. The cap makes the
+    /// prior worth at most [`SHARED_PRIOR_WEIGHT_CAP`] local observations, so
+    /// field data takes over as it accumulates. `base` is replaced only by a
+    /// strictly better prior-backed arm; with no priors loaded it is returned
+    /// untouched.
+    fn apply_shared_prior_overlay(&self, base: StrategyCombo) -> StrategyCombo {
+        let priors = self.effective_shared_priors();
+        if priors.is_empty() {
+            return base;
+        }
+        let context = &self.current_learning_context;
+        let bucket = context.target_bucket;
+        let Some(state) = self.contexts.get(context) else {
+            return base;
+        };
+        let now_ms = self.monotonic_now_ms();
+        let blended = |combo: &StrategyCombo| {
+            blended_success_mean(priors.get(&canonical_combo_hash(combo)), state.combos.get(combo))
+                .unwrap_or(UNKNOWN_ARM_MEAN)
+        };
+        let mut best = base.clone();
+        let mut best_mean = blended(&base);
+        for idx in 0..COMBO_POOL.len() {
+            let combo = combo_from_pool(idx);
+            if combo == base || !combo_matches_bucket(&combo, bucket) {
+                continue;
+            }
+            if !priors.contains_key(&canonical_combo_hash(&combo)) {
+                continue;
+            }
+            let stats = state.combos.get(&combo);
+            if stats.is_some_and(|s| s.is_cooled(now_ms) || s.attempts >= self.max_arm_attempts) {
+                continue;
+            }
+            let mean = blended(&combo);
+            if mean > best_mean {
+                best_mean = mean;
+                best = combo;
+            }
+        }
+        best
+    }
+
     pub(super) fn select_next_combo(&mut self) -> StrategyCombo {
+        let (combo, exploit) = self.select_next_combo_base();
+        if exploit { self.apply_shared_prior_overlay(combo) } else { combo }
+    }
+
+    /// Epsilon-greedy + UCB1 selection. The flag is `true` only for the
+    /// exploit paths (niche winner, family-best), the only ones a verified
+    /// shared prior may override.
+    fn select_next_combo_base(&mut self) -> (StrategyCombo, bool) {
         let context = self.current_learning_context.clone();
         let bucket = context.target_bucket;
         let bucket_piloted = self.contexts.get(&context).is_some_and(|state| state.piloted_buckets.contains(&bucket));
@@ -15,27 +71,29 @@ impl StrategyEvolver {
         let half_life = self.decay_half_life_ms;
 
         if self.combos.is_empty() {
-            return pilot_combo_for_bucket(bucket);
+            return (pilot_combo_for_bucket(bucket), false);
         }
         if !bucket_piloted {
-            return pilot_combo_for_bucket(bucket);
+            return (pilot_combo_for_bucket(bucket), false);
         }
         if self.lcg_f64() < self.explore_epsilon {
-            return self.pick_non_cooled_random_for_bucket(bucket, now_ms);
+            return (self.pick_non_cooled_random_for_bucket(bucket, now_ms), false);
         }
         let Some(state) = self.contexts.get(&context) else {
-            return self.pick_non_cooled_random_for_bucket(bucket, now_ms);
+            return (self.pick_non_cooled_random_for_bucket(bucket, now_ms), false);
         };
         if let Some(niche) = state.niche_winners.get(&bucket)
             && state.combos.get(niche).is_some_and(|stats| !stats.is_cooled(now_ms))
         {
-            return niche.clone();
+            return (niche.clone(), true);
         }
         let Some(family) = Self::select_next_family(state, bucket) else {
-            return self.pick_non_cooled_random_for_bucket(bucket, now_ms);
+            return (self.pick_non_cooled_random_for_bucket(bucket, now_ms), false);
         };
-        Self::best_context_combo_for_family(state, family, now_ms, half_life)
-            .unwrap_or_else(|| self.pick_non_cooled_random_for_bucket(bucket, now_ms))
+        match Self::best_context_combo_for_family(state, family, now_ms, half_life) {
+            Some(combo) => (combo, true),
+            None => (self.pick_non_cooled_random_for_bucket(bucket, now_ms), false),
+        }
     }
 
     /// Random-from-pool fallback that prefers combos not currently cooling.
@@ -126,6 +184,21 @@ impl StrategyEvolver {
             })
             .map(|(combo, _)| combo)
     }
+}
+
+/// Maximum number of pseudo-observations a shared prior is worth.
+pub(crate) const SHARED_PRIOR_WEIGHT_CAP: f64 = 8.0;
+/// Mean assumed for an arm with neither prior nor local data.
+const UNKNOWN_ARM_MEAN: f64 = 0.5;
+
+/// Success-rate estimate combining a capped shared prior with local counts.
+fn blended_success_mean(prior: Option<&BetaParams>, stats: Option<&ComboStats>) -> Option<f64> {
+    let (weight, prior_mean) = prior
+        .filter(|p| p.alpha.is_finite() && p.beta.is_finite() && p.alpha > 0.0 && p.beta > 0.0)
+        .map_or((0.0, 0.0), |p| ((p.alpha + p.beta).min(SHARED_PRIOR_WEIGHT_CAP), p.mean()));
+    let (attempts, successes) = stats.map_or((0.0, 0.0), |s| (f64::from(s.attempts), f64::from(s.successes)));
+    let total = weight + attempts;
+    (total > 0.0).then(|| (weight * prior_mean + successes) / total)
 }
 
 pub(super) fn combo_matches_bucket(combo: &StrategyCombo, bucket: LearningTargetBucket) -> bool {
