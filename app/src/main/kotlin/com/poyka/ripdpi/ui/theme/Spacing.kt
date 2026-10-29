@@ -58,6 +58,7 @@ data class RipDpiShapeMetrics(
     val controlCornerRadius: Dp = 16.dp,
     val controlIncreasedCornerRadius: Dp = 20.dp,
     val pillCornerRadius: Dp = 28.dp,
+    val pillIncreasedCornerRadius: Dp = 32.dp,
     val heroCornerRadius: Dp = 48.dp,
 )
 
