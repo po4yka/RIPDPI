@@ -1,6 +1,6 @@
 use std::net::SocketAddr;
 
-use crate::model::config::{RuntimeConfig, WsTunnelSettings, ws_tunnel_always_enabled, ws_tunnel_fallback_enabled};
+use crate::model::config::WsTunnelSettings;
 
 pub use ripdpi_ws_bootstrap::*;
 
@@ -19,19 +19,11 @@ pub fn tunnel_target(target: SocketAddr) -> Option<ripdpi_ws_bootstrap::Telegram
     }
 }
 
-pub fn should_tunnel_first(target: SocketAddr, config: &RuntimeConfig) -> Option<ripdpi_ws_bootstrap::TelegramDc> {
-    ws_tunnel_always_enabled(config).then(|| tunnel_target(target)).flatten()
-}
-
 pub fn should_tunnel_first_with(
     target: SocketAddr,
     settings: &WsTunnelSettings,
 ) -> Option<ripdpi_ws_bootstrap::TelegramDc> {
     settings.always_enabled.then(|| tunnel_target(target)).flatten()
-}
-
-pub fn should_tunnel_fallback(target: SocketAddr, config: &RuntimeConfig) -> Option<ripdpi_ws_bootstrap::TelegramDc> {
-    ws_tunnel_fallback_enabled(config).then(|| tunnel_target(target)).flatten()
 }
 
 pub fn should_tunnel_fallback_with(

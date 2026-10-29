@@ -327,10 +327,6 @@ impl TorRelayClient {
         Ok(Self { inner })
     }
 
-    pub fn from_arti_client(inner: ArtiTorClient<PreferredRuntime>) -> Self {
-        Self { inner: Arc::new(inner) }
-    }
-
     /// Proactively drive (and await) Arti's bootstrap, bounded by `timeout`.
     ///
     /// `create_unbootstrapped` leaves Arti in `OnDemand` mode where bootstrap is

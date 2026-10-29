@@ -94,8 +94,8 @@ use ripdpi_proxy_runtime_adapter::model::runtime_api::{
 };
 use ripdpi_proxy_runtime_adapter::model::services::GeoMatcher;
 use ripdpi_proxy_runtime_adapter::model::services::{
-    ReprobeResetHandle, RuntimeDecisionEngine, RuntimeDecisionInputs, ServicesStateHandle, new_decision_engine,
-    new_services_handle, reprobe_reset_handle,
+    ReprobeResetHandle, RuntimeDecisionInputs, ServicesStateHandle, new_decision_engine, new_services_handle,
+    reprobe_reset_handle,
 };
 use ripdpi_proxy_runtime_adapter::model::tcp_rotation::CircularTcpRotationController;
 use ripdpi_proxy_runtime_adapter::raw_packet_requirements::{
@@ -133,18 +133,6 @@ pub(super) struct RuntimeState {
     destination_routing: DestinationRoutingEvaluator,
     awg_dns_servers: Box<[IpAddr]>,
     services: ServicesStateHandle,
-    /// Single decision boundary that proxy-runtime now composes through —
-    /// see `ripdpi-runtime-decision-engine`. Today this engine delegates
-    /// to the existing `services` ports byte-identically; consumers reach
-    /// for it instead of touching individual port traits so future
-    /// enrichment lands behind one seam, not at every call site. The
-    /// `dead_code` allow is the migration anchor: the field is held by
-    /// the state so per-flow routing call sites can switch to
-    /// `decide_flow_route` without further plumbing, and the startup
-    /// `on_runtime_decision_snapshot` telemetry hook already consumes
-    /// the per-runtime decision the engine produces.
-    #[allow(dead_code)]
-    decision_engine: RuntimeDecisionEngine,
     active_clients: Arc<AtomicUsize>,
     active_tcp_sockets: ActiveSocketRegistry,
     active_upstream_tcp_sockets: ActiveSocketRegistry,
@@ -335,7 +323,6 @@ impl RuntimeState {
             destination_routing,
             awg_dns_servers: config.awg_dns_servers.clone().into_boxed_slice(),
             services: handle,
-            decision_engine,
             active_clients: Arc::new(AtomicUsize::new(0)),
             active_tcp_sockets: ActiveSocketRegistry::default(),
             active_upstream_tcp_sockets: ActiveSocketRegistry::default(),

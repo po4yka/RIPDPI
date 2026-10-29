@@ -44,7 +44,6 @@ impl RuntimeState {
     ) -> Self {
         let ws_transport = std::sync::Arc::new(ripdpi_ws_tunnel::TelegramWsTransport);
         let handle = new_services_handle(config.clone(), telemetry.clone(), runtime_context.clone());
-        let decision_engine = new_decision_engine(&handle);
         let geo_matcher = super::super::geo::load_runtime_geo_matcher(&config);
         let destination_routing = DestinationRoutingEvaluator::compile(&config.destination_routing);
         let RuntimeConfigProjection {
@@ -101,7 +100,6 @@ impl RuntimeState {
             destination_routing,
             awg_dns_servers: config.awg_dns_servers.clone().into_boxed_slice(),
             services: handle,
-            decision_engine,
             active_clients: Arc::new(AtomicUsize::new(0)),
             active_tcp_sockets: ActiveSocketRegistry::default(),
             active_upstream_tcp_sockets: ActiveSocketRegistry::default(),

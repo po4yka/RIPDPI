@@ -138,8 +138,6 @@ pub ripdpi_failure_classifier::PatternType::Prefix
 pub struct ripdpi_failure_classifier::AccessTypeTag(pub u8)
 impl ripdpi_failure_classifier::AccessTypeTag
 pub const ripdpi_failure_classifier::AccessTypeTag::CELLULAR: Self
-pub const ripdpi_failure_classifier::AccessTypeTag::ETHERNET: Self
-pub const ripdpi_failure_classifier::AccessTypeTag::UNKNOWN: Self
 pub const ripdpi_failure_classifier::AccessTypeTag::VPN: Self
 pub const ripdpi_failure_classifier::AccessTypeTag::WIFI: Self
 pub struct ripdpi_failure_classifier::AtomicFile

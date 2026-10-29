@@ -112,17 +112,6 @@ where
     relay_ws(client, ws, &seed_request)
 }
 
-/// Probe whether the WebSocket tunnel endpoint for a given DC is reachable.
-///
-/// Performs a TLS + WebSocket handshake to `wss://kws{dc}.web.telegram.org/apiws`
-/// without sending any MTProto data. Returns `Ok(())` if the endpoint accepts
-/// the WSS connection, or an error describing why it failed.
-///
-/// Intended for diagnostics/monitoring, not for relaying traffic.
-pub fn probe_ws_tunnel(dc: TelegramDc) -> io::Result<()> {
-    probe_ws_tunnel_with_addr(dc, None)
-}
-
 /// Probe the WebSocket tunnel endpoint for a given DC using an optional
 /// pre-resolved address.
 pub fn probe_ws_tunnel_with_addr(dc: TelegramDc, resolved_addr: Option<SocketAddr>) -> io::Result<()> {

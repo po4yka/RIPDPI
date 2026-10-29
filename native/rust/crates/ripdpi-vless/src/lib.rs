@@ -260,22 +260,6 @@ impl VlessRealityClient {
         Self::connect_with_optional_bind(config, None, target).await
     }
 
-    /// Open `TCP -> Reality TLS -> VLESS handshake -> VisionStream` while binding
-    /// the underlying TCP socket to a specific local IP.
-    ///
-    /// # Cancel safety
-    ///
-    /// conditionally cancel-safe: delegates to
-    /// `connect_with_optional_bind`, which drops rather than resumes its
-    /// exclusively owned incomplete carrier.
-    pub async fn connect_with_bind(
-        config: &VlessRealityConfig,
-        bind_ip: IpAddr,
-        target: &str,
-    ) -> io::Result<VlessRealityStream> {
-        Self::connect_with_optional_bind(config, Some(bind_ip), target).await
-    }
-
     /// Open `TCP -> Reality TLS -> VLESS handshake -> VisionStream` to an
     /// already-resolved relay endpoint.
     ///

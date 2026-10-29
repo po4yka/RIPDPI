@@ -16,12 +16,6 @@ pub enum DesyncMode {
     Fake = 5,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PartSpec {
-    pub mode: DesyncMode,
-    pub offset: OffsetExpr,
-}
-
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum TcpChainStepKind {

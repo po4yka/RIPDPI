@@ -12,48 +12,6 @@ use crate::ring::IoUringDriver;
 /// Maximum number of packets to write in a single batch.
 pub const TUN_WRITE_BATCH_SIZE: usize = 64;
 
-/// Submit a batch of writes to the TUN fd from the smoltcp tx_queue.
-///
-/// Returns the number of packets successfully submitted. Each packet is staged
-/// through the registered buffer pool and submitted via `IORING_OP_WRITE_FIXED`
-/// when a slot is available. When the pool is exhausted, or the packet does not
-/// fit in `pool.buffer_size()`, the path falls back to a caller-owned plain
-/// `opcode::Write`. The buffer slot is returned to the pool only after the
-/// matching completion is reaped.
-///
-/// This is a blocking function.
-pub fn batch_tun_write(uring: &IoUringDriver, tun_fd: BorrowedFd<'_>, packets: &[Vec<u8>]) -> std::io::Result<usize> {
-    let mut written = 0;
-    for pkt in packets.iter().take(TUN_WRITE_BATCH_SIZE) {
-        let result = match try_acquire_for_packet(uring, pkt) {
-            Some(mut handle) => {
-                let len = pkt.len();
-                handle.as_mut_buf()[..len].copy_from_slice(pkt);
-                debug_assert!(handle.set_len(len), "packet was checked against the registered buffer size");
-                crate::ring::block_on_completion(uring.write_fixed(tun_fd, handle))
-            }
-            None => {
-                // Pool exhausted or packet larger than buffer_size; fall
-                // back to a plain caller-owned write.
-                let future = uring.write(tun_fd, pkt.clone());
-                crate::ring::block_on_completion(future)
-            }
-        };
-
-        if is_complete_packet_write(result.result, pkt.len()) {
-            written += 1;
-        } else if result.result >= 0 {
-            log::warn!("io_uring TUN short write: wrote {} of {} bytes", result.result, pkt.len());
-            break;
-        } else {
-            log::warn!("io_uring TUN write failed: errno={}", -result.result);
-            break;
-        }
-    }
-
-    Ok(written)
-}
-
 fn is_complete_packet_write(result: i32, packet_len: usize) -> bool {
     usize::try_from(result).is_ok_and(|written| written == packet_len)
 }

@@ -73,17 +73,7 @@ pub struct QuicBiStream {
     recv: quinn::RecvStream,
 }
 
-impl QuicBiStream {
-    /// Wrap a raw `quinn` send/recv stream pair.
-    pub fn from_streams(send: quinn::SendStream, recv: quinn::RecvStream) -> Self {
-        Self { send, recv }
-    }
-
-    /// Split the bi-stream into its independent send and receive halves.
-    pub fn into_halves(self) -> (quinn::SendStream, quinn::RecvStream) {
-        (self.send, self.recv)
-    }
-}
+impl QuicBiStream {}
 
 impl AsyncRead for QuicBiStream {
     fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {

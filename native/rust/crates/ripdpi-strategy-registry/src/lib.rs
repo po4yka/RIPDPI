@@ -297,11 +297,6 @@ impl StrategyRegistry {
             .chain(std::iter::once(LUA_STEP_DESCRIPTOR))
     }
 
-    /// Looks up a strategy step descriptor by stable ID.
-    pub fn step_descriptor(id: &str) -> Option<StrategyStepDescriptor> {
-        Self::step_descriptors().find(|descriptor| descriptor.id == id)
-    }
-
     /// Validates a candidate arm against the default fixed-config protocol hints.
     ///
     /// Rejects arms that would mutate a fixed-config protocol's params (e.g. an

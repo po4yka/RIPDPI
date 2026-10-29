@@ -91,10 +91,6 @@ pub fn host_autolearn_enabled(config: &RuntimeConfig) -> bool {
     config.host_autolearn.enabled
 }
 
-pub fn strategy_evolution_enabled(config: &RuntimeConfig) -> bool {
-    config.adaptive.strategy_evolution
-}
-
 #[derive(Clone)]
 pub struct ProcessSettings {
     pub daemonize: bool,

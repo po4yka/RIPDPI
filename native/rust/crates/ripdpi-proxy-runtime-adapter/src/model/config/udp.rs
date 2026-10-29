@@ -29,21 +29,6 @@ pub fn should_rebind_udp_source_port_with(
         && policy.after_handshake
 }
 
-pub fn should_rebind_udp_source_port(
-    config: &RuntimeConfig,
-    group_index: usize,
-    quic_migrated: bool,
-    round_count: u32,
-    inbound_payload: &[u8],
-) -> bool {
-    should_rebind_udp_source_port_with(
-        udp_source_rebind_policy(config, group_index),
-        quic_migrated,
-        round_count,
-        inbound_payload,
-    )
-}
-
 #[derive(Clone, Copy)]
 pub struct UdpGroupSocketSettings {
     pub bind_low_port: bool,

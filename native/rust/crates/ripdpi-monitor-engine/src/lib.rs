@@ -19,8 +19,6 @@ mod session;
 pub mod contracts;
 pub mod wire;
 
-use ripdpi_proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
-
 pub(crate) use probes::{
     blockpage_fingerprints, candidates, cdn_ech, classification, connectivity, http, observations, strategy, telegram,
     tls, transport, util,
@@ -43,7 +41,3 @@ pub use execution::{
 };
 pub use platform::{MonitorPlatformBridge, ScopedMonitorLogLevel};
 pub use session::{MAX_REQUEST_WIRE_BYTES, MonitorSession};
-
-pub fn parse_proxy_config_payload_json(json: &str) -> Result<ProxyConfigPayload, String> {
-    parse_proxy_config_json(json).map_err(|err| err.to_string())
-}

@@ -8,14 +8,6 @@ pub fn relay_timeout_settings(config: &RuntimeConfig) -> RuntimeTimeoutSettings 
     config.timeouts
 }
 
-pub fn group_drop_sack_enabled(config: &RuntimeConfig, group_index: usize) -> Option<bool> {
-    selected_desync_group(config, group_index).map(|group| group.actions.drop_sack)
-}
-
-pub fn group_rotation_policy_enabled(config: &RuntimeConfig, group_index: usize) -> bool {
-    selected_desync_group(config, group_index).is_some_and(|group| group.actions.rotation_policy.is_some())
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct RelayGroupSettings {
     pub drop_sack: bool,
@@ -80,13 +72,6 @@ pub fn tcp_rotation_seed_with(
 
 pub fn primary_tcp_strategy_family_with(table: &RelayGroupSettingsTable, group_index: usize) -> Option<&'static str> {
     table.primary_strategy_families.get(group_index).copied().flatten()
-}
-
-pub fn tcp_rotation_seed(
-    config: &RuntimeConfig,
-    group_index: usize,
-) -> io::Result<Option<(DesyncGroup, RotationPolicy)>> {
-    tcp_rotation_seed_with(&relay_group_settings_table(config), group_index)
 }
 
 pub fn primary_tcp_strategy_family_for_group(config: &RuntimeConfig, group_index: usize) -> Option<&'static str> {

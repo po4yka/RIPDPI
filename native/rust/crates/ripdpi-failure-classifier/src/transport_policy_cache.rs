@@ -40,10 +40,8 @@ pub const DEFAULT_TTL_SECS: u64 = 7 * 24 * 3600;
 pub struct AccessTypeTag(pub u8);
 
 impl AccessTypeTag {
-    pub const UNKNOWN: Self = Self(0);
     pub const WIFI: Self = Self(1);
     pub const CELLULAR: Self = Self(2);
-    pub const ETHERNET: Self = Self(3);
     pub const VPN: Self = Self(4);
 }
 

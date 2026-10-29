@@ -247,7 +247,7 @@ pub mod udp {
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr, UdpSocket};
     use std::time::Duration;
 
-    use socket2::{Domain, Protocol, SockAddr, Socket, Type};
+    use socket2::{Domain, Protocol, Socket, Type};
 
     pub fn protect_socket(socket: &Socket, protect_path: &str) -> io::Result<()> {
         ripdpi_runtime_platform::vpn::protect_proxy_socket(socket, Some(protect_path))
@@ -259,12 +259,6 @@ pub mod udp {
 
     pub fn is_connection_refused(err: &io::Error) -> bool {
         err.raw_os_error() == Some(libc::ECONNREFUSED)
-    }
-
-    pub fn bind_udp_socket(bind_addr: SocketAddr, protect_path: Option<&str>) -> io::Result<UdpSocket> {
-        let socket = new_udp_socket(bind_addr, protect_path)?;
-        socket.bind(&SockAddr::from(bind_addr))?;
-        configure_udp_socket(socket)
     }
 
     pub fn build_udp_upstream_socket(

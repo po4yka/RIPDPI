@@ -302,11 +302,6 @@ impl<S> WsTransport<S> {
     pub fn from_websocket(inner: WebSocketStream<S>) -> Self {
         Self { inner, read_buf: BytesMut::new(), read_closed: false }
     }
-
-    /// Consume the transport and return the underlying WebSocket stream.
-    pub fn into_websocket(self) -> WebSocketStream<S> {
-        self.inner
-    }
 }
 
 impl<S> AsyncRead for WsTransport<S>

@@ -383,9 +383,6 @@ pub const fn ripdpi_config::OffsetExpr::supports_fake_offset(self) -> bool
 pub const fn ripdpi_config::OffsetExpr::tls_host(i64) -> Self
 pub const fn ripdpi_config::OffsetExpr::tls_marker(ripdpi_config::OffsetBase, i64) -> Self
 pub const fn ripdpi_config::OffsetExpr::with_repeat_skip(self, i32, i32) -> Self
-pub struct ripdpi_config::PartSpec
-pub ripdpi_config::PartSpec::mode: ripdpi_config::DesyncMode
-pub ripdpi_config::PartSpec::offset: ripdpi_config::OffsetExpr
 pub struct ripdpi_config::RotationCandidate
 pub ripdpi_config::RotationCandidate::tcp_chain: alloc::vec::Vec<ripdpi_config::TcpChainStep>
 pub struct ripdpi_config::RotationPolicy
