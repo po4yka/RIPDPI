@@ -1,3 +1,4 @@
 schema: ripdpi-change
 created: 2026-10-29
 goal: RST-1793267609889013 Retire traffic-shape VoIP camouflage spec
+retire_capabilities: true
