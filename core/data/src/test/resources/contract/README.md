@@ -14,6 +14,32 @@ These files are **vendored byte-identical** from the server repo
 | `cohort-fingerprint.golden.json` | `ripdpi-vpn-deploy/contract/cohort-fingerprint.golden.json` |
 | `amneziawg-arm64-version-floor.json` | `ripdpi-vpn-deploy/contract/amneziawg-arm64-version-floor.json` |
 
+Other files in this directory are contract schemas, examples, and fixtures that
+tests read. They are listed here by purpose:
+
+| File | Purpose |
+|------|---------|
+| `ripdpi-bundle.hysteria-port-hopping.json` | Sing-box document with a Hysteria2 port-hopping outbound |
+| `ripdpi-bundle.payload-failover.json` | Deterministic deployer output for the explicit payload-failover policy |
+| `cascade-asn-attestation.schema.json` | Schema: RU cascade candidate ASN attestation |
+| `cascade-leg-health.schema.json` | Schema: cascade ingress-to-egress leg health evidence |
+| `cascade-leg-probe-config.schema.json` | Schema: operator-side authenticated cascade leg probe configuration |
+| `network-exposure-artifact.schema.json` | Schema: network exposure artifact |
+| `network-exposure-policy.schema.json` | Schema: network exposure policy |
+| `observability-evidence.schema.json` | Schema: observability evidence |
+| `observability-expected-inventory.schema.json` | Schema: observability expected inventory |
+| `observability-expected-inventory.example.json` | Example: observability expected inventory |
+| `observability-metric-manifest.schema.json` | Schema: observability metric manifest |
+| `observability-metric-manifest.example.json` | Example: observability metric manifest |
+| `observability-topology.schema.json` | Schema: observability topology |
+| `probe-matrix-config.schema.json` | Schema: probe matrix configuration |
+| `probe-matrix-report.schema.json` | Schema: probe matrix report |
+| `probe-matrix-target.schema.json` | Schema: secret-bearing probe matrix target profile |
+| `protocol-liveness.schema.json` | Schema: protocol liveness sentinel policy |
+| `real-vps-awg-nat-evidence.schema.json` | Schema: real VPS AmneziaWG NAT evidence (v4) |
+| `snell-refinement-result.schema.json` | Schema: Snell refinement result |
+| `negative/` | Invalid bundle documents that the bundle schema must reject (see `negative/README.md`) |
+
 The server emits the `ripdpi` object; this client parses it
 (`SingBoxSubscriptionParser`). The schema is the single source of truth for
 that object's shape, and `RipdpiBundleContractTest` validates this side against

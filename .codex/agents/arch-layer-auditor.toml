@@ -34,7 +34,7 @@ Platform/JNI:   ripdpi-android, ripdpi-android-proxy-adapter, ripdpi-android-tel
    Structural check (MUST pass): grep -rn 'RuntimePolicy\|AdaptivePlannerResolver\|AdaptiveFakeTtlResolver\|RetryPacer\|StrategyEvolutionResolver\|DirectPathLearningState\|DnsHostnameCache' native/rust/crates/ripdpi-proxy-runtime/src/ | grep -v '#\[cfg(test)\]\|//\|_policy:'
    Any output is a VIOLATION.
    Dep graph check (MUST pass): cd native/rust && cargo tree --locked -p ripdpi-proxy-runtime --depth 1 --edges normal --prefix none | grep '^ripdpi-' | sort -u
-   FAIL if any of these appear: ripdpi-runtime-strategy, ripdpi-runtime-dns-cache, ripdpi-runtime-learning.
+   FAIL if any of these appear: ripdpi-runtime-strategy, ripdpi-runtime-dns-cache.
    NOTE: ripdpi-runtime-policy, ripdpi-runtime-adaptive, ripdpi-runtime-services are currently allowed (port traits not yet in runtime-api — see Known Limitations).
    Fan-out check (measure current graph; do not preserve a snapshot count): cargo tree --locked -p ripdpi-proxy-runtime --depth 1 --edges normal | grep -c '^[├└]── ripdpi-'
 7. runtime-wiring containment check: Run: cd native/rust && cargo tree --locked --workspace --edges normal --prefix none | grep 'ripdpi-runtime-services' | sort -u

@@ -159,4 +159,4 @@ loop and must own DNS too.
 - `core/engine-api/.../XrayProviderOrchestrator.kt` — dual-restart orchestration.
 - `core/engine-api/.../RipDpiXrayRuntime.kt` — protect-first Xray lifecycle.
 - `.claude/rules/vpnservice-protect-invariant.md` — why protect-first matters.
-- `docs/tasks/issues/bridge-tun-traffic-through-xray-local-inbound.md` — task.
+- `openspec/changes/archive/2026-08-28-out-1786264762917422-bridge-tun-traffic-through-xray-local-inbound/` — archived change.

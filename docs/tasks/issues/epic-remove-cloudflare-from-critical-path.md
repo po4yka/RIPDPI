@@ -115,7 +115,7 @@ The three open milestones are **operator/deploy-side and gated on provisioning r
 ### Milestone 3 — Cloudflare XHTTP/HTTPS profiles manual / low-priority when degraded
 - [ ] Keep `enable_cdn_front: false` (baseline in `group_vars/all.yml` + `vpn-fullstack.yml` + `vpn-p1p2.yml`) so no CF outbound is auto-emitted into the client urltest pool.
 - [ ] Client auto-failover is already wired: `scripts/emit-singbox.sh` emits a `urltest` group (tag `auto`, `url: generate_204`, `interval: 5m`, `tolerance: 50`) that passes over a degraded/throttling outbound — **provided the direct non-CDN outbound is in the bundle** (it is when `enable_nginx_xhttp: true`).
-- [ ] Per-cohort repoint on degradation: edit the cohort `group_vars` (`vpn-fullstack.yml` / `vpn-p1p2.yml`) + re-run `make emit-singbox CLIENT=<name>` (see deploy-repo `RUNBOOK-add-fallback.md`).
+- [ ] Per-cohort repoint on degradation: edit the cohort `group_vars` (`vpn-fullstack.yml` / `vpn-p1p2.yml`) + re-run `make emit-singbox CLIENT=<name>` (see `ripdpi-vpn-deploy:RUNBOOK-add-fallback.md`).
 - [ ] Wire the degradation signal: enable the per-ASN payload-throttle probe cron by exporting `PAYLOAD_THROTTLE_HOST` (`scripts/install-operator-crons.sh` — opt-in @daily; **off until set**), and pair it with `ansible/roles/watchdog` (`enable_watchdog: true` — already the default; verify it has not been overridden in your host vars) for alert-and-demote.
 - [ ] **Honest scope:** demotion is *signal (probe) + manual `enable_cdn_front` toggle + client-side urltest auto-failover* — there is **no closed-loop auto-disable of CF** in the deploy code. The checklist closes the milestone operationally, not by automation alone.
 

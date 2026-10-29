@@ -2,7 +2,6 @@
 paths:
   - "native/rust/**"
   - ".github/workflows/**/*.yml"
-  - ".github/workflows/**/*.yaml"
 ---
 
 ## Rust toolchain pin and `--locked` discipline

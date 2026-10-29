@@ -41,9 +41,12 @@ New developers should read these in order:
 
 [Architecture decision records](adr/README.md) index settled protocol decisions, including the Snowflake native Rust no-go and the VLESS Reality ECH policy.
 
+Related records: [`xray-protos` schema choice](architecture/xray-protos-schema-choice.md) documents the Xray protobuf module decision.
+
 ## Native Libraries
 
 - [Native integration and modules](native/README.md)
+- [TLS ClientHello fingerprint rotation](native/tls-fingerprint-rotation.md)
 - [Packet strategy runtime](packet-strategy-runtime.md)
 - [Proxy engine and strategy surface](native/proxy-engine.md)
 - [TUN-to-SOCKS bridge](native/tunnel.md)
@@ -73,6 +76,10 @@ New developers should read these in order:
 ## Testing & CI
 
 - [Short CI triage route](contributor/ci-triage.md)
+- [Xray provider regression matrix](contributor/xray-regression-matrix.md)
+- [Resolver-selection cache verification](contributor/resolver-selection-cache-verification.md)
+- [Offline strategy-pack simulator and the sim-to-field gap](contributor/offline-strategy-pack-simulator.md)
+- [zapret2 verification examples](contributor/zapret2-verification-examples.md)
 - [Feature test checklist](feature-test-checklist.md)
 - [Testing, E2E, golden contracts, and soak coverage](testing.md)
 - [Strict local VPN acceptance](../test-lab/acceptance/README.md)

@@ -89,7 +89,7 @@ keystream (`receive.go:159-245`).
 - RIPDPI applies no Android arm64 S3/S4 floor. Non-zero S3/S4 and header protection start on
   every platform. The evidence is from an Android arm64 emulator against amneziawg-go
   v3.1.20260828 with the AmneziaVPN 5.x profile (S1-S4 = 12, header protection, content padding,
-  random trailers), see `openspec/changes/awg3-native-engine/verification.md` and
+  random trailers), see `openspec/changes/archive/2026-10-27-awg3-native-engine/verification.md` and
   [the preserved emulator observation](../../core/data/src/test/resources/awg-arm64-emulator-observation.json).
   The shared `contract/amneziawg-arm64-version-floor.json` deployment policy
   still requires physical Android arm64 revalidation before lifting its guard.

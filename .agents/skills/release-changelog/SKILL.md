@@ -86,7 +86,7 @@ Use this structure unless the evidence suggests a smaller release:
 ```markdown
 # RIPDPI vX.Y.Z
 
-`versionCode N` · M commits since [vA.B.C](compare-url)
+`versionCode N` · M commits since vA.B.C (link to the GitHub compare URL for vA.B.C...vX.Y.Z)
 
 One concise release-theme paragraph.
 

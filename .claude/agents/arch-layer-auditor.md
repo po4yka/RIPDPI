@@ -58,7 +58,7 @@ RULE: Foundation must NOT depend on Protocol or higher. Protocol must NOT depend
 
 RULE (proxy-runtime structural isolation — ENFORCED): `ripdpi-proxy-runtime`'s production `RuntimeState` struct MUST NOT hold concrete policy/adaptive implementation types (`RuntimePolicy`, `AdaptivePlannerResolver`, `AdaptiveFakeTtlResolver`, `RetryPacer`, `StrategyEvolutionResolver`, `DirectPathLearningState`, `DnsHostnameCache`) as fields. Only `Arc<dyn PolicyPort>` and `Arc<dyn AdaptivePort>` are allowed. `#[cfg(test)]` code may reference concrete types to construct test states.
 
-RULE (proxy-runtime dep graph — ASPIRATIONAL): The long-term target is `ripdpi-proxy-runtime` depending only on `ripdpi-runtime-api` and `ripdpi-runtime-platform` among `runtime-*` crates. Currently blocked by port traits (`PolicyPort`, `AdaptivePort`) living in `runtime-policy`/`runtime-adaptive` instead of `runtime-api`. Tracking status: `runtime-policy` and `runtime-adaptive` are allowed as temporary deps (port traits + data types only); `runtime-services`, `runtime-strategy`, `runtime-dns-cache`, `runtime-learning` MUST NOT appear as direct deps.
+RULE (proxy-runtime dep graph — ASPIRATIONAL): The long-term target is `ripdpi-proxy-runtime` depending only on `ripdpi-runtime-api` and `ripdpi-runtime-platform` among `runtime-*` crates. Currently blocked by port traits (`PolicyPort`, `AdaptivePort`) living in `runtime-policy`/`runtime-adaptive` instead of `runtime-api`. Tracking status: `runtime-policy` and `runtime-adaptive` are allowed as temporary deps (port traits + data types only); `runtime-services`, `runtime-strategy`, `runtime-dns-cache` MUST NOT appear as direct deps.
 
 RULE (runtime-wiring containment): `ripdpi-runtime-services` is the sole concrete-wiring crate. Only binary/entry crates (`ripdpi-cli`, `ripdpi-bench`, `ripdpi-android-proxy-adapter`, `ripdpi-monitor-proxy-runtime`, and other Platform/JNI crates) may depend on it. Its presence as a direct dep of `ripdpi-proxy-runtime` is a known limitation (ServicesState constructed in RuntimeState::new) pending migration of ServicesState construction to binary entry crates.
 
@@ -106,8 +106,7 @@ RULE (runtime-wiring containment): `ripdpi-runtime-services` is the sole concret
      | grep '^ripdpi-' | sort -u
    ```
 
-   FAIL if any of these appear: `ripdpi-runtime-strategy`, `ripdpi-runtime-dns-cache`,
-   `ripdpi-runtime-learning`. (`ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`,
+   FAIL if any of these appear: `ripdpi-runtime-strategy`, `ripdpi-runtime-dns-cache`. (`ripdpi-runtime-policy`, `ripdpi-runtime-adaptive`,
    `ripdpi-runtime-services` are currently allowed — see KNOWN LIMITATIONS below.)
 
    *Fan-out (measure from the current graph; do not preserve a snapshot count):*
