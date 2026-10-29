@@ -360,4 +360,40 @@ class ProxyUriCodecTest {
         val normalizedPin = (0 until 32).joinToString("") { "%02x".format(it * 7 + 3) }
         val colonUpperPin = normalizedPin.uppercase().chunked(2).joinToString(":")
     }
+
+    @Test
+    fun `vless reality rejects unsupported or ambiguous query options`() {
+        val base =
+            "vless://11111111-2222-3333-4444-555555555555@example.com:443" +
+                "?type=xhttp&security=reality&pbk=PUBLICKEY123&sni=cdn.example&path=%2Fsupported"
+        for (option in listOf(
+            "encryption=mlkem768x25519plus.secret",
+            "mldsa65Verify=secret",
+            "spx=%2Fsecret",
+            "extra=%7B%22downloadSettings%22%3A%7B%7D%7D",
+            "newAuthOption=secret",
+            "headerType=http",
+            "sid=ab&sid=cd",
+            "newAuthOption",
+        )) {
+            assertNull(
+                "unsupported query must fail: ${option.substringBefore('=')}",
+                ProxyUriCodec.parse("$base&$option"),
+            )
+        }
+    }
+
+    @Test
+    fun `supported vless query retains connection fields and fragment metadata`() {
+        val input =
+            "vless://11111111-2222-3333-4444-555555555555@example.com:443" +
+                "?type=xhttp&security=reality&pbk=PUBLICKEY123&sni=cdn.example&sid=abcd&flow=&fp=firefox" +
+                "&path=%2Fsupported&host=cdn.example&mode=stream-one&encryption=none&headerType=none#My%20node"
+        val profile = ProxyUriCodec.parse(input) as ProxyProfile.VlessReality
+        assertEquals("My node", profile.displayName)
+        assertEquals("", profile.flow)
+        assertEquals("/supported", profile.xhttpPath)
+        assertEquals("stream-one", profile.xhttpMode)
+        assertEquals("abcd", profile.realityShortId)
+    }
 }

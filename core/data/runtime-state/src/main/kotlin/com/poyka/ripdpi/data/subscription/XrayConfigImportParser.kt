@@ -199,7 +199,7 @@ object XrayConfigImportParser {
         val tag = obj.string("tag")
         return when (protocol) {
             "vless" -> {
-                mapVless(settings, stream, tag, groupId)
+                mapVless(obj, settings, stream, tag, groupId)
             }
 
             "trojan" -> {
@@ -229,6 +229,7 @@ object XrayConfigImportParser {
     }
 
     private fun mapVless(
+        outbound: JsonObject,
         settings: JsonObject?,
         stream: JsonObject?,
         tag: String?,
@@ -246,9 +247,14 @@ object XrayConfigImportParser {
         val isReality = security == "reality" || !publicKey.isNullOrBlank()
         val transport = stream?.string("network")?.lowercase()
         val fingerprint = reality?.string("fingerprint") ?: tls?.string("fingerprint")
+        val unsupportedOptions = unsupportedNativeVlessOptions(outbound, settings, stream)
         return when {
             address == null || port == null || user == null || uuid == null -> {
                 OutboundMapping.Skip(XraySkipReason.MALFORMED)
+            }
+
+            unsupportedOptions != null -> {
+                OutboundMapping.Skip(XraySkipReason.UNSUPPORTED_TRANSPORT, unsupportedOptions)
             }
 
             transport != null && transport !in setOf("raw", "tcp", "xhttp") -> {

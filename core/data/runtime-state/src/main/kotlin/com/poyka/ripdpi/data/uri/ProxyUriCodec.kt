@@ -267,6 +267,7 @@ object ProxyUriCodec {
         val host = parsed.host?.takeIf { it.isNotBlank() }?.let(::unbracketIpv6) ?: return null
         val port = parsed.port.takeIf { it > 0 } ?: return null
         val rawQuery = parsed.rawQuery
+        if (!supportsNativeVlessUriOptions(rawQuery)) return null
         // Detect REALITY only when usable key material is present. A bare
         // security=reality flag without pbk cannot complete a REALITY handshake.
         val security = queryValue(rawQuery, "security")

@@ -467,4 +467,59 @@ class XrayConfigImportParserTest {
         val profile = translate(config).profiles.single() as ProxyProfile.Trojan
         assertEquals("cdn.example.com", profile.serverName)
     }
+
+    @Test
+    fun `unsupported native VLESS options are rejected without exposing values`() {
+        val fixtureValue = "sensitive-import-value"
+        val base = supportedRealityConfig()
+        val variants =
+            listOf(
+                base.replace("\"publicKey\":", "\"mldsa65Verify\":\"$fixtureValue\",\"publicKey\":"),
+                base.replace("\"publicKey\":", "\"spiderX\":\"/$fixtureValue\",\"publicKey\":"),
+                base.replace("\"publicKey\":", "\"newAuthOption\":\"$fixtureValue\",\"publicKey\":"),
+                base.replace("\"encryption\":\"none\"", "\"encryption\":\"mlkem768x25519plus.$fixtureValue\""),
+                base.replace("\"id\":", "\"newUserOption\":\"$fixtureValue\",\"id\":"),
+                base.replace("\"mode\":", "\"extra\":{\"downloadSettings\":{\"address\":\"$fixtureValue\"}},\"mode\":"),
+                base.replace("\"mode\":", "\"downloadSettings\":{\"address\":\"$fixtureValue\"},\"mode\":"),
+                base.replace("\"mode\":", "\"newTransportOption\":\"$fixtureValue\",\"mode\":"),
+                base.replace("\"network\":", "\"sockopt\":{\"dialerProxy\":\"$fixtureValue\"},\"network\":"),
+                base.replace("\"protocol\":", "\"mux\":{\"enabled\":true},\"protocol\":"),
+                base.replace("\"mode\":\"stream-one\"", "\"mode\":9"),
+                base.replace("\"show\":false", "\"show\":true"),
+                base.replace("\"security\":\"reality\"", "\"security\":\"tls\""),
+            )
+        variants.forEachIndexed { index, config ->
+            val result = translate(config)
+            assertTrue("variant $index must not produce a downgraded profile", result.profiles.isEmpty())
+            assertEquals(XraySkipReason.UNSUPPORTED_TRANSPORT, result.skipped.single().reason)
+            assertTrue(
+                result.skipped
+                    .single()
+                    .detail
+                    .orEmpty()
+                    .isNotBlank(),
+            )
+            assertTrue(!result.skipped.toString().contains(fixtureValue))
+        }
+    }
+
+    @Test
+    fun `supported native VLESS settings and label still import`() {
+        val profile = translate(supportedRealityConfig()).profiles.single() as ProxyProfile.VlessReality
+        assertEquals("supported node", profile.displayName)
+        assertEquals("", profile.flow)
+        assertEquals("/supported", profile.xhttpPath)
+        assertEquals("cdn.example", profile.xhttpHost)
+        assertEquals("stream-one", profile.xhttpMode)
+        assertEquals("abcd", profile.realityShortId)
+        assertEquals("firefox", profile.fingerprint)
+    }
+
+    private fun supportedRealityConfig(): String =
+        """{ "outbounds": [ { "tag":"supported node", "protocol":"vless",
+          "settings":{"vnext":[{"address":"h.example","port":443,
+            "users":[{"id":"$uuid","encryption":"none","flow":"","level":0,"email":"label@example"}]}]},
+          "streamSettings":{"network":"xhttp","security":"reality",
+            "realitySettings":{"publicKey":"$pbk","serverName":"cdn.example","shortId":"abcd","fingerprint":"firefox","show":false},
+            "xhttpSettings":{"path":"/supported","host":"cdn.example","mode":"stream-one"}}}]}"""
 }
