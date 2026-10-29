@@ -7,6 +7,7 @@ Only the fixture binary binds host sockets, and its transport restricts them to 
 
 from __future__ import annotations
 
+import argparse
 import hashlib
 import ipaddress
 import json
@@ -17,13 +18,17 @@ import selectors
 import signal
 import shutil
 import subprocess
-import tempfile
+import time
 
 
 ROOT = Path(__file__).resolve().parents[2]
 PEER = ROOT / "scripts/fixtures/amneziawg-peer"
 RUST = ROOT / "native/rust"
-UPSTREAM = "amneziawg-go v3.1.20260828 (b5928efb6ca19f0153958460c3d141f04abc5c2e)"
+PEERS = {
+    "v3.1.20260814": ("1b86b2ae0e493e7ea93f8c1a0f0cb6735b1551f1", "h1:l2AhBD+sFycU8Im81n/bZORMxW7fWtlZJEuJ4Hh0+z0="),
+    "v3.1.20260828": ("b5928efb6ca19f0153958460c3d141f04abc5c2e", "h1:D8d8gGvwXcTxUIsE4z6F6vjy4/VZddu95vMNtOygh1c="),
+}
+PROFILES = ("awg-3.1-ranges-v1", "amneziavpn-5x", "v3-cpa", "v3-trailers", "v3-cpa-trailers", "v3-aligned", "v3-fixed-headers")
 GO_DIRECTIVE = re.compile(r"^go\s+(1\.\d+(?:\.\d+)?)\s*$", re.MULTILINE)
 
 
@@ -34,8 +39,9 @@ def peer_go_toolchain(go_mod: Path = PEER / "go.mod") -> str:
     return f"go{match.group(1)}"
 
 
-def checked(command: list[str], cwd: Path, env: dict[str, str], timeout: int = 600) -> None:
-    with subprocess.Popen(command, cwd=cwd, env=env, start_new_session=True) as process:
+def checked(command: list[str], cwd: Path, env: dict[str, str], timeout: int = 600, output=None, stderr=None) -> None:
+    with subprocess.Popen(command, cwd=cwd, env=env, start_new_session=True, stdout=output,
+                          stderr=stderr if stderr is not None else subprocess.STDOUT if output else None) as process:
         try:
             code = process.wait(timeout=timeout)
             if code != 0:
@@ -65,73 +71,145 @@ def terminate_process_group(process: subprocess.Popen) -> None:
         process.wait(timeout=3)
 
 
+def verify_peer_source(version: str, metadata: dict) -> Path:
+    revision, checksum = PEERS[version]
+    if (metadata.get("Origin", {}).get("Hash") != revision or metadata.get("Sum") != checksum
+            or metadata.get("Version") != version or not isinstance(metadata.get("Dir"), str)):
+        raise ValueError(f"upstream identity mismatch for {version}")
+    return Path(metadata["Dir"])
+
+
+def build_peer(version: str, output: Path, env: dict[str, str]) -> Path:
+    download = output / f"{version}-download.json"
+    with download.open("w") as log, (output / f"{version}-download.log").open("w") as diagnostics:
+        checked(["go", "mod", "download", "-json", f"github.com/amnezia-vpn/amneziawg-go/v3@{version}"],
+                output, env, timeout=120, output=log, stderr=diagnostics)
+    metadata = json.loads(download.read_text())
+    source = verify_peer_source(version, metadata)
+    fixture = output / version
+    fixture.mkdir()
+    for path in PEER.glob("*.go"):
+        shutil.copy2(path, fixture / path.name)
+    module = (PEER / "go.mod").read_text()
+    module += f"\nreplace github.com/amnezia-vpn/amneziawg-go/v3 => {source}\n"
+    (fixture / "go.mod").write_text(module)
+    shutil.copy2(PEER / "go.sum", fixture / "go.sum")
+    binary = fixture / "amneziawg-peer"
+    with (fixture / "build.log").open("w") as log:
+        checked(["go", "test", "-mod=readonly", "-p", "2", "./..."], fixture, env, output=log)
+        checked(["go", "build", "-mod=readonly", "-p", "2", "-trimpath", "-o", str(binary), "."], fixture, env, output=log)
+    (fixture / "source.json").write_text(json.dumps(metadata, indent=2) + "\n")
+    return binary
+
+
+def run_case(binary: Path, test_binary: Path, case: Path, env: dict[str, str], cycles: int) -> dict:
+    with (case / "peer.log").open("w") as peer_log, (case / "runtime.log").open("w") as test_log:
+        with subprocess.Popen([str(binary)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                              stderr=peer_log, text=True, env=env, start_new_session=True) as peer:
+            try:
+                assert peer.stdout is not None and peer.stdin is not None
+                with selectors.DefaultSelector() as selector:
+                    selector.register(peer.stdout, selectors.EVENT_READ)
+                    if not selector.select(timeout=15):
+                        raise TimeoutError("independent peer startup deadline exceeded")
+                    line = peer.stdout.readline(4096)
+                startup = json.loads(line)
+                if not isinstance(startup, dict) or not isinstance(startup.get("endpoint"), str):
+                    raise ValueError("peer startup has no endpoint")
+                endpoint = startup["endpoint"]
+                host, port = endpoint.rsplit(":", 1)
+                address = ipaddress.ip_address(host)
+                if address.version != 4 or not address.is_loopback or not 0 < int(port) <= 65535:
+                    raise ValueError("peer exposed a non-loopback or invalid endpoint")
+                for cycle in range(cycles):
+                    test_log.write(f"session {cycle}\n")
+                    test_log.flush()
+                    checked([str(test_binary), "--no-capture"], RUST,
+                            dict(env, RIPDPI_AWG_INTEROP_ENDPOINT=endpoint), timeout=35, output=test_log)
+                peer.stdin.write("stop\n")
+                peer.stdin.flush()
+                code = peer.wait(timeout=5)
+                if code != 0:
+                    raise RuntimeError(f"independent peer failed: exit {code}")
+                completed = json.loads(peer.stdout.readline(16384))
+                if not isinstance(completed, dict) or not isinstance(completed.get("wire_observation"), dict):
+                    raise ValueError("peer completion has no wire observation")
+                return completed["wire_observation"]
+            finally:
+                terminate_process_group(peer)
+
+
 def run() -> None:
-    env = dict(os.environ, GOMAXPROCS="2", GOTOOLCHAIN=peer_go_toolchain(), RIPDPI_AWG_INTEROP_MTU="1420", RIPDPI_AWG_INTEROP_CYCLES="4")
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--peer", action="append", choices=PEERS)
+    parser.add_argument("--profile", action="append", choices=PROFILES)
+    parser.add_argument("--output-dir", type=Path, default=ROOT / "build/reports/awg-standalone" / str(time.time_ns()))
+    parser.add_argument("--candidate-patch", action="store_true")
+    args = parser.parse_args()
+    output = args.output_dir.resolve()
+    status = subprocess.check_output(["git", "status", "--porcelain", "--untracked-files=all"], cwd=ROOT, text=True)
+    if status and not args.candidate_patch:
+        raise ValueError("commit implementation or use --candidate-patch for local evidence")
+    if any(line.startswith("??") for line in status.splitlines()):
+        raise ValueError("stage new source files before candidate evidence")
+    output.mkdir(parents=True, exist_ok=False)
+    identity = {"source_sha": subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=ROOT, text=True).strip()}
+    if status:
+        patch = subprocess.check_output(["git", "diff", "--binary", "HEAD"], cwd=ROOT)
+        (output / "candidate.patch").write_bytes(patch)
+        identity["candidate_patch_sha256"] = hashlib.sha256(patch).hexdigest()
+    env = dict(os.environ, GOMAXPROCS="2", GOTOOLCHAIN=peer_go_toolchain(), RIPDPI_AWG_INTEROP_CYCLES="4")
     test = ["cargo", "test", "--locked", "-p", "ripdpi-warp-core", "--features", "awg-interop",
             "--test", "standalone_awg_interop", "--jobs", "2"]
-    with tempfile.TemporaryDirectory(prefix="ripdpi-awg-peer-") as directory:
-        # Read Cargo's selected executable before the peer starts. The finite
-        # wire test must not wait for another build's Cargo directory lock.
-        messages = Path(directory) / "cargo-artifacts.jsonl"
-        with messages.open("w", encoding="utf-8") as output:
-            with subprocess.Popen(test + ["--no-run", "--message-format=json"], cwd=RUST,
-                                  env=env, stdout=output, start_new_session=True) as process:
+    messages = output / "cargo-artifacts.jsonl"
+    with messages.open("w") as log:
+        checked(test + ["--no-run", "--message-format=json"], RUST, env, output=log)
+    executables = []
+    for line in messages.read_text().splitlines():
+        if not line.startswith("{"): continue
+        message = json.loads(line)
+        if (message.get("reason") == "compiler-artifact" and message.get("target", {}).get("name") == "standalone_awg_interop"
+                and message.get("executable")):
+            executables.append(message["executable"])
+    if len(executables) != 1:
+        raise ValueError("Cargo did not return one standalone AWG test executable")
+    test_binary = output / "standalone-awg-test"
+    shutil.copy2(executables[0], test_binary)
+    identity["test_binary_sha256"] = hashlib.sha256(test_binary.read_bytes()).hexdigest()
+    versions, profiles = args.peer or list(PEERS), args.profile or list(PROFILES)
+    report = {"schema_version": 1, "identity": identity, "requested_peers": versions,
+              "requested_profiles": profiles, "mtus": [1280, 1420], "cycles": 4, "peer_builds": [], "cases": []}
+    failed = False
+    for version in versions:
+        try:
+            binary = build_peer(version, output, env)
+            report["peer_builds"].append({"peer_version": version, "status": "passed"})
+        except (OSError, ValueError, subprocess.SubprocessError) as error:
+            report["peer_builds"].append({"peer_version": version, "status": "failed", "error": str(error)})
+            (output / "results.json").write_text(json.dumps(report, indent=2) + "\n")
+            failed = True
+            continue
+        digest = hashlib.sha256(binary.read_bytes()).hexdigest()
+        for profile in profiles:
+            for mtu in (1280, 1420):
+                case = output / f"{version}-{profile}-{mtu}"
+                case.mkdir()
+                result = {"peer_version": version, "peer_sha": PEERS[version][0], "peer_binary_sha256": digest,
+                          "profile": profile, "mtu": mtu, "cycles": 4}
+                started = time.monotonic()
                 try:
-                    code = process.wait(timeout=600)
-                    if code != 0:
-                        raise subprocess.CalledProcessError(code, test)
-                finally:
-                    terminate_process_group(process)
-        executables = []
-        for line in messages.read_text(encoding="utf-8").splitlines():
-            message = json.loads(line)
-            if (message.get("reason") == "compiler-artifact"
-                    and message.get("target", {}).get("name") == "standalone_awg_interop"
-                    and message.get("executable")):
-                executables.append(message["executable"])
-        if len(executables) != 1:
-            raise ValueError("Cargo did not return one standalone AWG test executable")
-        test_binary = Path(directory) / "standalone-awg-test"
-        shutil.copy2(executables[0], test_binary)
-        binary = Path(directory) / "amneziawg-peer"
-        checked(["go", "build", "-mod=readonly", "-p", "2", "-trimpath", "-o", str(binary), "."], PEER, env)
-        print(f"Independent peer: {UPSTREAM}; sha256={hashlib.sha256(binary.read_bytes()).hexdigest()}", flush=True)
-        for mtu in (1280, 1420):
-            env["RIPDPI_AWG_INTEROP_MTU"] = str(mtu)
-            with subprocess.Popen([str(binary)], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
-                                  stderr=None, text=True, env=env) as peer:
-                try:
-                    assert peer.stdout is not None and peer.stdin is not None
-                    with selectors.DefaultSelector() as selector:
-                        selector.register(peer.stdout, selectors.EVENT_READ)
-                        if not selector.select(timeout=15):
-                            raise TimeoutError("independent peer startup deadline exceeded")
-                        line = peer.stdout.readline(4096)
-                    endpoint = json.loads(line)["endpoint"]
-                    host, port = endpoint.rsplit(":", 1)
-                    address = ipaddress.ip_address(host)
-                    if address.version != 4 or not address.is_loopback or not 0 < int(port) <= 65535:
-                        raise ValueError("peer exposed a non-loopback or invalid endpoint")
-                    for cycle in range(4):
-                        print(f"MTU {mtu}, session {cycle}", flush=True)
-                        checked([str(test_binary), "--nocapture"], RUST,
-                                dict(env, RIPDPI_AWG_INTEROP_ENDPOINT=endpoint), timeout=35)
-                    peer.stdin.write("stop\n")
-                    peer.stdin.flush()
-                    code = peer.wait(timeout=5)
-                    if code != 0:
-                        raise RuntimeError(f"independent peer failed: exit {code}")
-                    observation = json.loads(peer.stdout.readline(4096))["wire_observation"]
-                    print(json.dumps(observation, sort_keys=True), flush=True)
-                    print("PASS: real AWG handshake, IPv4/IPv6 TCP and UDP sources, stalled-client shutdown", flush=True)
-                finally:
-                    if peer.poll() is None:
-                        peer.terminate()
-                        try:
-                            peer.wait(timeout=3)
-                        except subprocess.TimeoutExpired:
-                            peer.kill()
-                            peer.wait(timeout=3)
+                    result["observation"] = run_case(binary, test_binary, case,
+                        dict(env, RIPDPI_AWG_PROFILE=profile, RIPDPI_AWG_INTEROP_MTU=str(mtu)), 4)
+                    result["status"] = "passed"
+                except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+                    result.update(status="failed", error=str(error))
+                    failed = True
+                result["elapsed_seconds"] = round(time.monotonic() - started, 3)
+                report["cases"].append(result)
+                (output / "results.json").write_text(json.dumps(report, indent=2) + "\n")
+                print(f"{result['status']}: {version} {profile} MTU {mtu}", flush=True)
+    if failed:
+        raise SystemExit("AWG matrix has failed cases; see results.json and per-case logs")
 
 
 if __name__ == "__main__":

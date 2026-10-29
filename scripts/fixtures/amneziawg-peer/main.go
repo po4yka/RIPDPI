@@ -308,12 +308,14 @@ func run() error {
 		return err
 	}
 	bind.observation.profile = profile
-	peer := device.NewDevice(tun, bind, device.NewLogger(device.LogLevelSilent, ""))
+	configured := newConfiguredTUN(tun)
+	peer := device.NewDevice(configured, bind, device.NewLogger(device.LogLevelSilent, ""))
 	defer peer.Close()
 	config := fmt.Sprintf("private_key=%s\nlisten_port=0\n%spublic_key=%s\npreshared_key=%s\n%sallowed_ip=10.77.0.2/32\nallowed_ip=fd77::2/128\n", hex.EncodeToString(server.Bytes()), profile.iface, hex.EncodeToString(client.PublicKey().Bytes()), hex.EncodeToString(bytes.Repeat([]byte{5}, 32)), profile.peer)
 	if err = peer.IpcSet(config); err != nil {
 		return err
 	}
+	configured.configured()
 	if err = peer.Up(); err != nil {
 		return err
 	}

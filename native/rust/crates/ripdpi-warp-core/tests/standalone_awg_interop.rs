@@ -144,23 +144,7 @@ async fn standalone_profile_exchanges_tcp_and_udp_with_independent_awg_peer() ->
         mtu: std::env::var("RIPDPI_AWG_INTEROP_MTU")?.parse()?,
         local_socks_host: "127.0.0.1".into(),
         local_socks_port: 0,
-        amnezia: AmneziaWgObfuscation {
-            jc: 4,
-            jmin: 64,
-            jmax: 96,
-            s1: 8,
-            s2: 12,
-            h1: "100-199".into(),
-            h2: "200-299".into(),
-            h3: "300-399".into(),
-            h4: "400-499".into(),
-            i1: "<b 0xf0f1><r 16><rd 8><rc 8><t>".into(),
-            i2: "<b 0xf2>".into(),
-            i3: "<b 0xf3>".into(),
-            i4: "<b 0xf4>".into(),
-            i5: "<b 0xf5>".into(),
-            ..Default::default()
-        },
+        amnezia: profile_obfuscation(&std::env::var("RIPDPI_AWG_PROFILE").unwrap_or_default())?,
         ..Default::default()
     });
     let ready = Arc::new(Notify::new());
@@ -190,4 +174,62 @@ async fn standalone_profile_exchanges_tcp_and_udp_with_independent_awg_peer() ->
     ensure!(runtime.telemetry().active_sessions == 0, "accepted handlers remain after shutdown");
     ensure!(TcpStream::connect(address).await.is_err(), "SOCKS listener leaked after shutdown");
     Ok(())
+}
+
+fn profile_obfuscation(name: &str) -> Result<AmneziaWgObfuscation> {
+    let mut profile = AmneziaWgObfuscation {
+        jc: 4,
+        jmin: 64,
+        jmax: 96,
+        s1: 8,
+        s2: 12,
+        h1: "100-199".into(),
+        h2: "200-299".into(),
+        h3: "300-399".into(),
+        h4: "400-499".into(),
+        i1: "<b 0xf0f1><r 16><rd 8><rc 8><t>".into(),
+        i2: "<b 0xf2>".into(),
+        i3: "<b 0xf3>".into(),
+        i4: "<b 0xf4>".into(),
+        i5: "<b 0xf5>".into(),
+        ..Default::default()
+    };
+    if name.is_empty() || name == "awg-3.1-ranges-v1" {
+        return Ok(profile);
+    }
+    ensure!(
+        ["amneziavpn-5x", "v3-cpa", "v3-trailers", "v3-cpa-trailers", "v3-aligned", "v3-fixed-headers"].contains(&name),
+        "unknown AWG profile {name}"
+    );
+    profile.s1 = 12;
+    profile.s2 = 20;
+    profile.s3 = 16;
+    profile.s4 = 24;
+    if name != "v3-aligned" {
+        profile.v3.header_protection_key.0 = STANDARD.encode([3; 32]);
+    }
+    if name != "v3-aligned" && name != "v3-trailers" {
+        profile.v3.content_padding_addition = "16".into();
+    }
+    profile.v3.random_trailers =
+        matches!(name, "v3-trailers" | "v3-cpa-trailers" | "v3-fixed-headers" | "amneziavpn-5x");
+    if name == "v3-fixed-headers" {
+        profile.h1 = "101".into();
+        profile.h2 = "202".into();
+        profile.h3 = "303".into();
+        profile.h4 = "404".into();
+    }
+    if name == "amneziavpn-5x" {
+        profile.s2 = 12;
+        profile.s3 = 12;
+        profile.s4 = 12;
+        profile.v3.content_padding_addition = "10-100".into();
+        profile.v3.rekey_after_time = "100-120".into();
+        profile.v3.rekey_timeout = "3-7".into();
+        profile.v3.reject_after_time = "150-180".into();
+        profile.v3.keepalive_timeout = "5-15".into();
+        profile.v3.max_handshake_attempts = "15-20".into();
+        profile.v3.disable_cookies = true;
+    }
+    Ok(profile)
 }

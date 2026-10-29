@@ -1,6 +1,7 @@
 """Process-lifecycle regression for the standalone AWG interop runner."""
 
 import importlib.util
+import json
 import os
 from pathlib import Path
 import signal
@@ -32,6 +33,33 @@ class ProcessCleanupTests(unittest.TestCase):
 
             with self.assertRaisesRegex(ValueError, "missing supported Go directive"):
                 RUNNER.peer_go_toolchain(go_mod)
+
+    def test_peer_source_rejects_revision_checksum_and_version_substitution(self):
+        version = "v3.1.20260814"
+        good = {"Version": version, "Origin": {"Hash": "1b86b2ae0e493e7ea93f8c1a0f0cb6735b1551f1"},
+                "Sum": "h1:l2AhBD+sFycU8Im81n/bZORMxW7fWtlZJEuJ4Hh0+z0=", "Dir": "/fixture/source"}
+        self.assertEqual(RUNNER.verify_peer_source(version, good), Path("/fixture/source"))
+        for key, wrong in (("Version", "v3.1.20260828"), ("Origin", {"Hash": "0" * 40}), ("Sum", "wrong")):
+            with self.subTest(key=key), self.assertRaisesRegex(ValueError, "identity mismatch"):
+                RUNNER.verify_peer_source(version, dict(good, **{key: wrong}))
+
+    def test_download_diagnostics_do_not_corrupt_json_stdout(self):
+        with tempfile.TemporaryDirectory(prefix="awg-download-test-") as directory:
+            root = Path(directory)
+            with (root / "metadata.json").open("w") as output, (root / "download.log").open("w") as errors:
+                RUNNER.checked([sys.executable, "-c", "import sys; print('{}'); print('go: downloading toolchain', file=sys.stderr)"],
+                               root, dict(os.environ), output=output, stderr=errors)
+            self.assertEqual(json.loads((root / "metadata.json").read_text()), {})
+            self.assertIn("go: downloading", (root / "download.log").read_text())
+
+    def test_missing_peer_endpoint_is_a_controlled_failure(self):
+        with tempfile.TemporaryDirectory(prefix="awg-startup-test-") as directory:
+            case = Path(directory)
+            peer = case / "peer"
+            peer.write_text(f"#!{sys.executable}\nprint('{{}}', flush=True)\n")
+            peer.chmod(0o700)
+            with self.assertRaisesRegex(ValueError, "no endpoint"):
+                RUNNER.run_case(peer, case / "unused-test", case, dict(os.environ), 1)
 
     def test_timeout_terminates_descendant_that_ignores_term(self):
         with tempfile.TemporaryDirectory(prefix="awg-timeout-test-") as directory:
