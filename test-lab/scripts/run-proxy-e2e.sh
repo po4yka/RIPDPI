@@ -10,11 +10,10 @@ out_dir="$lab_root/artifacts/proxy-e2e-$(date +%Y%m%d-%H%M%S)"
 timeout_ms=7000
 skip_start=false
 skip_install=false
-skip_maestro=false
+skip_ui=false
 keep_lab=false
-maestro_bin=""
 lab_started=false
-maestro_ran=false
+ui_ran=false
 android_serial="${ANDROID_SERIAL:-}"
 device_state_captured=false
 
@@ -22,7 +21,7 @@ usage() {
   cat <<'USAGE'
 Usage: test-lab/scripts/run-proxy-e2e.sh [options]
 
-Runs the local proxy mode against the RIPDPI local-network lab with Maestro and
+Runs the local proxy mode against the RIPDPI local-network lab with adb UI flows and
 the debug local-network probe.
 
 Options:
@@ -31,7 +30,7 @@ Options:
   --timeout-ms <milliseconds>     Debug probe timeout. Default: 7000.
   --skip-start                    Reuse an already-running lab.
   --skip-install                  Do not install the debug APK.
-  --skip-maestro                  Do not run Maestro connect/disconnect flows.
+  --skip-ui                     Do not run the adb UI connect/disconnect flows.
   --keep-lab                      Leave Docker lab running after completion.
   -h, --help                      Show this help.
 USAGE
@@ -59,8 +58,8 @@ while [[ $# -gt 0 ]]; do
       skip_install=true
       shift
       ;;
-    --skip-maestro)
-      skip_maestro=true
+    --skip-ui)
+      skip_ui=true
       shift
       ;;
     --keep-lab)
@@ -96,28 +95,6 @@ mkdir -p "$out_dir"
 device_state_root="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-proxy-device-state.XXXXXX")"
 device_state_dir="$device_state_root/session"
 
-resolve_maestro() {
-  if [[ -n "${MAESTRO_BIN:-}" ]]; then
-    if [[ -x "$MAESTRO_BIN" ]]; then
-      maestro_bin="$MAESTRO_BIN"
-      return 0
-    fi
-    echo "MAESTRO_BIN is set but is not executable: $MAESTRO_BIN" >&2
-    return 1
-  fi
-
-  if maestro_bin="$(command -v maestro 2>/dev/null)"; then
-    return 0
-  fi
-
-  local default_bin="$HOME/.maestro/bin/maestro"
-  if [[ -x "$default_bin" ]]; then
-    maestro_bin="$default_bin"
-    return 0
-  fi
-
-  return 1
-}
 
 seed_debug_automation_state() {
   adb shell am start \
@@ -149,13 +126,8 @@ wake_unlock_device() {
   "$script_dir/adb-wake-unlock.sh"
 }
 
-run_maestro_flow() {
-  local flow="$1"
-  local maestro_args=(test)
-  if [[ -n "${ANDROID_SERIAL:-}" ]]; then
-    maestro_args+=(--udid "$ANDROID_SERIAL")
-  fi
-  "$maestro_bin" "${maestro_args[@]}" "$flow"
+run_ui_flow() {
+  python3 "$script_dir/adb-ui-flow.py" "$1"
 }
 
 assert_proxy_service_stopped() {
@@ -191,11 +163,11 @@ cleanup() {
     collect_failure_artifacts "$status"
   fi
 
-  if [[ "$maestro_ran" == "true" ]]; then
+  if [[ "$ui_ran" == "true" ]]; then
     wake_unlock_device >/dev/null 2>&1 || true
     resume_debug_automation_state >/dev/null 2>&1 || true
     wake_unlock_device >/dev/null 2>&1 || true
-    run_maestro_flow "$lab_root/maestro/disconnect-proxy.yaml" >/dev/null 2>&1 || true
+    run_ui_flow disconnect-proxy >/dev/null 2>&1 || true
     sleep 2
     assert_proxy_service_stopped >/dev/null 2>&1 || true
   fi
@@ -237,19 +209,13 @@ if [[ "$skip_install" != "true" ]]; then
   "$script_dir/adb-install-debug.sh"
 fi
 
-if [[ "$skip_maestro" != "true" ]]; then
-  if resolve_maestro; then
-    grant_runtime_permissions
-    wake_unlock_device
-    seed_debug_automation_state
-    wake_unlock_device
-    maestro_ran=true
-    run_maestro_flow "$lab_root/maestro/connect-proxy.yaml"
-  else
-    echo "maestro is not available; cannot drive the proxy connect flow." >&2
-    echo "Install Maestro, set MAESTRO_BIN, add it to PATH, or rerun with --skip-maestro only after manually connecting proxy mode." >&2
-    exit 2
-  fi
+if [[ "$skip_ui" != "true" ]]; then
+  grant_runtime_permissions
+  wake_unlock_device
+  seed_debug_automation_state
+  wake_unlock_device
+  ui_ran=true
+  run_ui_flow connect-proxy
 fi
 
 "$script_dir/adb-run-probe.sh" \
@@ -260,14 +226,14 @@ fi
   --timeout-ms "$timeout_ms" \
   --out-dir "$out_dir"
 
-if [[ "$maestro_ran" == "true" ]]; then
+if [[ "$ui_ran" == "true" ]]; then
   wake_unlock_device
   resume_debug_automation_state
   wake_unlock_device
-  run_maestro_flow "$lab_root/maestro/disconnect-proxy.yaml"
+  run_ui_flow disconnect-proxy
   sleep 2
   assert_proxy_service_stopped
-  maestro_ran=false
+  ui_ran=false
 fi
 
 echo "Proxy E2E smoke passed. Artifacts: $out_dir"

@@ -9,8 +9,7 @@ out_dir=""
 skip_install=false
 skip_start=false
 keep_lab=false
-skip_maestro=false
-maestro_bin=""
+skip_ui=false
 android_serial="${ANDROID_SERIAL:-}"
 device_state_captured=false
 
@@ -25,7 +24,7 @@ Options:
   --skip-install              Do not install the debug APK.
   --skip-start                Do not restart the Docker lab.
   --keep-lab                  Leave the Docker lab running after the smoke.
-  --skip-maestro              Do not run Maestro connect/disconnect flows.
+  --skip-ui                 Do not run the adb UI connect/disconnect flows.
   -h, --help                  Show this help.
 USAGE
 }
@@ -56,8 +55,8 @@ while [[ $# -gt 0 ]]; do
       keep_lab=true
       shift
       ;;
-    --skip-maestro)
-      skip_maestro=true
+    --skip-ui)
+      skip_ui=true
       shift
       ;;
     -h|--help)
@@ -80,35 +79,6 @@ case "$profile" in
     ;;
 esac
 
-resolve_maestro() {
-  if [[ -n "${MAESTRO_BIN:-}" ]]; then
-    if [[ -x "$MAESTRO_BIN" ]]; then
-      maestro_bin="$MAESTRO_BIN"
-      return 0
-    fi
-    echo "MAESTRO_BIN is set but is not executable: $MAESTRO_BIN" >&2
-    return 1
-  fi
-
-  if maestro_bin="$(command -v maestro 2>/dev/null)"; then
-    return 0
-  fi
-
-  local default_bin="$HOME/.maestro/bin/maestro"
-  if [[ -x "$default_bin" ]]; then
-    maestro_bin="$default_bin"
-    return 0
-  fi
-
-  return 1
-}
-
-if [[ "$skip_maestro" != "true" ]] && ! resolve_maestro; then
-  echo "maestro is not available; cannot drive the VPN connect flow." >&2
-  echo "Install Maestro, set MAESTRO_BIN, add it to PATH, or rerun with --skip-maestro only after manually connecting VPN mode." >&2
-  exit 2
-fi
-
 if [[ -z "$android_serial" ]]; then
   echo "ANDROID_SERIAL is required; destructive device tests never auto-select a target." >&2
   exit 2
@@ -121,7 +91,7 @@ mkdir -p "$out_dir"
 device_state_root="$(mktemp -d "${TMPDIR:-/tmp}/ripdpi-vpn-device-state.XXXXXX")"
 device_state_dir="$device_state_root/session"
 
-maestro_ran=false
+ui_ran=false
 lab_started=false
 archive_path=""
 
@@ -149,19 +119,16 @@ resume_debug_automation_state() {
 
 grant_runtime_permissions() {
   adb shell pm grant com.poyka.ripdpi android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
+  # The automation "granted" preset skips the in-app consent request, so grant real VPN consent here.
+  adb shell appops set com.poyka.ripdpi ACTIVATE_VPN allow
 }
 
 wake_unlock_device() {
   "$script_dir/adb-wake-unlock.sh"
 }
 
-run_maestro_flow() {
-  local flow="$1"
-  local maestro_args=(test)
-  if [[ -n "${ANDROID_SERIAL:-}" ]]; then
-    maestro_args+=(--udid "$ANDROID_SERIAL")
-  fi
-  "$maestro_bin" "${maestro_args[@]}" "$flow"
+run_ui_flow() {
+  python3 "$script_dir/adb-ui-flow.py" "$1"
 }
 
 assert_vpn_service_stopped() {
@@ -202,11 +169,11 @@ cleanup() {
     collect_failure_artifacts "$status"
   fi
 
-  if [[ "$maestro_ran" == "true" ]]; then
+  if [[ "$ui_ran" == "true" ]]; then
     wake_unlock_device >/dev/null 2>&1 || true
     resume_debug_automation_state >/dev/null 2>&1 || true
     wake_unlock_device >/dev/null 2>&1 || true
-    run_maestro_flow "$lab_root/maestro/disconnect-vpn.yaml" >/dev/null 2>&1 || true
+    run_ui_flow disconnect-vpn >/dev/null 2>&1 || true
     sleep 2
     assert_vpn_service_stopped >/dev/null 2>&1 || true
   fi
@@ -248,13 +215,13 @@ if [[ "$skip_install" != "true" ]]; then
   "$script_dir/adb-install-debug.sh"
 fi
 
-if [[ "$skip_maestro" != "true" ]]; then
+if [[ "$skip_ui" != "true" ]]; then
   grant_runtime_permissions
   wake_unlock_device
   seed_debug_automation_state
   wake_unlock_device
-  maestro_ran=true
-  run_maestro_flow "$lab_root/maestro/connect-vpn.yaml"
+  ui_ran=true
+  run_ui_flow connect-vpn
 fi
 
 "$script_dir/adb-run-probe.sh" \
@@ -265,14 +232,14 @@ fi
   --timeout-ms "$timeout_ms" \
   --out-dir "$out_dir"
 
-if [[ "$maestro_ran" == "true" ]]; then
+if [[ "$ui_ran" == "true" ]]; then
   wake_unlock_device
   resume_debug_automation_state
   wake_unlock_device
-  run_maestro_flow "$lab_root/maestro/disconnect-vpn.yaml"
+  run_ui_flow disconnect-vpn
   sleep 2
   assert_vpn_service_stopped
-  maestro_ran=false
+  ui_ran=false
 fi
 
 echo "VPN E2E smoke passed. Artifacts: $out_dir"

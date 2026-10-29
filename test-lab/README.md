@@ -27,23 +27,23 @@ For a physical device:
 ./test-lab/scripts/stop-lab.sh
 ```
 
-For the full VPN-mode smoke on a prepared emulator or attached device, use the orchestrator. It restarts the lab, installs the debug APK unless skipped, uses Maestro connect/disconnect flows when `maestro` is on `PATH`, `MAESTRO_BIN` is set, or Maestro is installed at `~/.maestro/bin/maestro`, runs the debug probe in VPN mode, and archives failure artifacts. Before Maestro starts the real service, the script launches the debug app once with automation extras so the persisted test state is deterministic: onboarding complete, mode `vpn`, relay disabled, permissions granted, motion disabled, and `SERVICE_PRESET=live`.
+For the full VPN-mode smoke on a prepared emulator or attached device, use the orchestrator. It restarts the lab, installs the debug APK unless skipped, drives the connect/disconnect UI flows with `scripts/adb-ui-flow.py` (adb and `uiautomator dump`, no extra tools), runs the debug probe in VPN mode, and archives failure artifacts. Before the UI flow starts the real service, the script launches the debug app once with automation extras so the persisted test state is deterministic: onboarding complete, mode `vpn`, relay disabled, permissions granted, motion disabled, and `SERVICE_PRESET=live`.
 
 ```bash
 ./test-lab/scripts/run-vpn-e2e.sh --profile emulator
 ./test-lab/scripts/run-vpn-e2e.sh --profile device --keep-lab
 ```
 
-`run-vpn-e2e.sh` requires Maestro unless `--skip-maestro` is passed. Use `--skip-maestro` only when VPN mode is already connected by a manual or external automation flow; otherwise the VPN probe cannot validate Android VPN transport. The bundled Maestro VPN flows target stable Compose test-tag resource IDs, not localized button labels.
+Pass `--skip-ui` only when VPN mode is already connected by a manual or external automation flow; otherwise the VPN probe cannot validate Android VPN transport. The scripts pre-grant VPN consent with `adb shell appops set com.poyka.ripdpi ACTIVATE_VPN allow`. The UI flows target stable Compose test-tag resource IDs; only the connection status is matched by English text.
 
-For the matching proxy-mode smoke, use `run-proxy-e2e.sh`. It uses the same lab startup, install, automation seeding, Maestro, and debug-probe pattern, but it drives the local proxy card and checks that no RIPDPI foreground service remains after the disconnect flow:
+For the matching proxy-mode smoke, use `run-proxy-e2e.sh`. It uses the same lab startup, install, automation seeding, adb UI flow, and debug-probe pattern, but it drives the local proxy card and checks that no RIPDPI foreground service remains after the disconnect flow:
 
 ```bash
 ./test-lab/scripts/run-proxy-e2e.sh --profile emulator
 ./test-lab/scripts/run-proxy-e2e.sh --profile device --keep-lab
 ```
 
-`run-proxy-e2e.sh` also requires Maestro unless `--skip-maestro` is passed. Use `--skip-maestro` only after a manual or external flow has already connected proxy mode.
+For `run-proxy-e2e.sh`, pass `--skip-ui` only after a manual or external flow has already connected proxy mode.
 
 The debug probe writes JSON to:
 

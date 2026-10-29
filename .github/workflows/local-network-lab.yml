@@ -82,24 +82,22 @@ jobs:
           jq -e '.checks[] | select(.name == "production_relay_matrix" and .status == "manual")' \
             "$RUNNER_TEMP/feature-gap-readiness-with-relay.json"
 
-      - name: Validate VPN E2E Maestro precondition
+      - name: Validate VPN E2E device precondition
         run: |
           set -euo pipefail
-          mkdir -p "$RUNNER_TEMP/no-maestro-home"
           set +e
-          HOME="$RUNNER_TEMP/no-maestro-home" \
-            PATH=/usr/bin:/bin:/usr/sbin:/sbin \
+          env -u ANDROID_SERIAL \
             ./test-lab/scripts/run-vpn-e2e.sh \
               --skip-start \
               --skip-install \
-              --out-dir "$RUNNER_TEMP/ripdpi-missing-maestro-fast-fail" \
-              >"$RUNNER_TEMP/ripdpi-missing-maestro-fast-fail.log" 2>&1
+              --out-dir "$RUNNER_TEMP/ripdpi-missing-serial-fast-fail" \
+              >"$RUNNER_TEMP/ripdpi-missing-serial-fast-fail.log" 2>&1
           status=$?
           set -e
-          cat "$RUNNER_TEMP/ripdpi-missing-maestro-fast-fail.log"
+          cat "$RUNNER_TEMP/ripdpi-missing-serial-fast-fail.log"
           test "$status" -eq 2
-          grep -q "maestro is not available; cannot drive the VPN connect flow" \
-            "$RUNNER_TEMP/ripdpi-missing-maestro-fast-fail.log"
+          grep -q "ANDROID_SERIAL is required" "$RUNNER_TEMP/ripdpi-missing-serial-fast-fail.log"
+          python3 -m unittest scripts.tests.test_adb_ui_flow
 
       - name: Validate workflow YAML
         run: |
@@ -150,7 +148,7 @@ jobs:
         run: |
           cat <<'MSG'
           Full VPN-mode E2E requires an Android emulator or attached device,
-          ADB install access, and Maestro UI automation. Run it on a prepared
+          ADB install access, and adb UI automation. Run it on a prepared
           host with:
 
             ./test-lab/scripts/run-vpn-e2e.sh --profile emulator

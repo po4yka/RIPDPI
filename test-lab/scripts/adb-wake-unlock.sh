@@ -48,5 +48,5 @@ for ((attempt = 1; attempt <= max_attempts; attempt += 1)); do
   dismiss_keyguard
 done
 
-echo "Android target still appears locked after wake/dismiss attempts; unlock the device or disable secure lock before running Maestro E2E flows." >&2
+echo "Android target still appears locked after wake/dismiss attempts; unlock the device or disable secure lock before running the lab E2E UI flows." >&2
 exit 1

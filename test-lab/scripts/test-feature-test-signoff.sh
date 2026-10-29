@@ -43,8 +43,7 @@ Status: **complete**.
 | --- | --- | --- | --- |
 | Use `docs/feature-test-checklist.md` as the source checklist | Fixture evidence | Covered locally | None |
 | Fix all issues found during the local pass | Fixture evidence | Covered locally | None |
-| Verify Appium installation and current app flows | Fixture evidence | Covered locally | None |
-| Verify Maestro installation and current smoke flows | Fixture evidence | Covered locally | None |
+| Verify Kaspresso instrumented UI journeys | Fixture evidence | Covered locally | None |
 | Verify static local quality gates for the current head | Fixture evidence | Covered locally | None |
 | Verify local artifacts referenced by the evidence ledger exist | Fixture evidence | Covered locally | None |
 | Verify remaining environment readiness | Fixture evidence | Covered locally | None |
@@ -65,8 +64,7 @@ Status: **complete**.
 | --- | --- | --- | --- |
 | Use `docs/feature-test-checklist.md` as the source checklist | Fixture evidence | Covered locally | None |
 | Fix all issues found during the local pass | Fixture evidence | Covered locally | None |
-| Verify Appium installation and current app flows | Fixture evidence | Covered locally | None |
-| Verify Maestro installation and current smoke flows | Fixture evidence | Covered locally | None |
+| Verify Kaspresso instrumented UI journeys | Fixture evidence | Covered locally | None |
 | Verify static local quality gates for the current head | Fixture evidence | Covered locally | None |
 | Verify local artifacts referenced by the evidence ledger exist | Fixture evidence | Covered locally | None |
 | Verify remaining environment readiness | Fixture evidence | Covered locally | None |

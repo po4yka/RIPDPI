@@ -12,12 +12,12 @@ This directory implements the repository-local network testing harness for RIPDP
 - DNS, HTTP, HTTPS, TCP echo, and UDP echo probes.
 - DNS over UDP with DNS-over-TCP fallback for host network paths where Docker UDP replies are not reliable.
 - VPN active-transport checks and mode-specific local proxy readiness checks.
-- VPN-mode E2E orchestration script for lab restart, debug APK install, debug automation state seeding, Maestro connect/disconnect, VPN probe execution, and failure artifact archiving. `--skip-maestro` is reserved for already-connected manual or external automation runs.
-- Proxy-mode E2E orchestration script for the same lab/probe path, Maestro local-card connect/disconnect, mock-relay readiness evidence, and a foreground-service leak assertion after disconnect.
+- VPN-mode E2E orchestration script for lab restart, debug APK install, debug automation state seeding, adb UI connect/disconnect (`scripts/adb-ui-flow.py`), VPN probe execution, and failure artifact archiving. `--skip-ui` is reserved for already-connected manual or external automation runs.
+- Proxy-mode E2E orchestration script for the same lab/probe path, adb UI local-card connect/disconnect, mock-relay readiness evidence, and a foreground-service leak assertion after disconnect.
 - Basic typed failure codes derived from the failing exception/stage.
 - Log collection with denylist redaction.
 - Packet capture start/stop helpers.
-- Maestro flows for VPN connect, disconnect, diagnostics, reconnect, and lab profile setup. VPN and proxy flows use stable Home mode-card test-tag resource IDs and target their mode cards directly so the smoke validates the intended runtime mode rather than a generic visible status label.
+- adb UI flows (`scripts/adb-ui-flow.py`) for proxy and VPN connect, disconnect, and proxy-to-VPN reconnect. The flows use stable Home mode-card test-tag resource IDs and target their mode cards directly so the smoke validates the intended runtime mode rather than a generic visible status label.
 - Manual/nightly GitHub Actions lab doctor that validates test-lab scripts, checks the Docker Compose model, starts the emulator-profile lab, probes host endpoints, and uploads `test-lab/artifacts`.
 
 ## Explicit MVP Boundaries
@@ -26,7 +26,7 @@ This directory implements the repository-local network testing harness for RIPDP
 - UDP echo is tested and reported independently. On host paths that still drop UDP replies after the macOS host fallback, the probe returns a typed UDP timeout and a `Degraded` verdict while preserving successful DNS, HTTP, HTTPS, and TCP results.
 - The mock relay implements only a minimal lab JSON handshake. The reference relay directory remains documentation-only until a stable relay server contract is selected.
 - Linux `netem` scripts require an external VM/router path and are not invoked by default on macOS.
-- Hosted CI does not run the full Android VPN-mode smoke by default because it requires an emulator/device, ADB install access, and Maestro. The workflow keeps that lane as a manual documented step while nightly runs exercise the Docker lab, shell contracts, and the missing-Maestro fast-fail guard.
+- Hosted CI does not run the full Android VPN-mode smoke by default because it requires an emulator/device, ADB install access, and adb UI automation. The workflow keeps that lane as a manual documented step while nightly runs exercise the Docker lab, shell contracts, and the missing-`ANDROID_SERIAL` fast-fail guard.
 
 ## Production Guardrail
 
