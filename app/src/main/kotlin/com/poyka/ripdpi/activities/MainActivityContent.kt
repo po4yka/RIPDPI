@@ -39,6 +39,7 @@ import com.poyka.ripdpi.ui.screens.permissions.VpnPermissionDialog
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import com.poyka.ripdpi.ui.theme.rememberSystemContrastLevel
 import kotlinx.collections.immutable.persistentListOf
 
 @Composable
@@ -54,6 +55,7 @@ internal fun MainActivityContent(
 
     RipDpiTheme(
         themePreference = startupState.theme,
+        contrastLevel = rememberSystemContrastLevel(),
         hapticFeedbackDisabled = startupState.hapticFeedbackDisabled || !startupState.isReady,
     ) {
         when (startupState.readiness) {
