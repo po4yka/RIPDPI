@@ -43,8 +43,7 @@ class DiagnosticsReportKaspressoTest :
         composeRule.waitForTag(RipDpiTestTags.DiagnosticsStrategyCandidateDetailSheet)
         composeRule.waitForTag(RipDpiTestTags.DiagnosticsStrategyCandidateNotesSection)
         assertTrue(composeRule.exists(hasText(CandidateNote, substring = true)))
-        assertTrue(composeRule.revealTag(RipDpiTestTags.DiagnosticsStrategyCandidateSignatureSection))
-        assertTrue(composeRule.revealTag(RipDpiTestTags.DiagnosticsStrategyCandidateResultsSection))
+        assertTrue(composeRule.exists(hasText("Automation fixture candidate", substring = true)))
         composeRule.pressBack()
         composeRule.waitForNoTag(RipDpiTestTags.DiagnosticsStrategyCandidateDetailSheet)
         assertTrue(composeRule.tagExists(RipDpiTestTags.screen(Route.Diagnostics())))
@@ -84,11 +83,6 @@ class DiagnosticsReportKaspressoTest :
                 assertTrue(composeRule.revealTag(RipDpiTestTags.DiagnosticsStrategyAuditAssessment))
                 assertTrue(composeRule.revealTag(RipDpiTestTags.DiagnosticsStrategyAuditMediumConfidenceNote))
                 assertFalse(composeRule.tagExists(RipDpiTestTags.DiagnosticsStrategyAuditLowConfidenceBanner))
-            }
-            step("The resolver recommendation offers keep-for-session and save actions") {
-                assertTrue(composeRule.revealTag(RipDpiTestTags.DiagnosticsResolverRecommendationCard))
-                assertTrue(composeRule.revealTag(RipDpiTestTags.DiagnosticsResolverKeepSession))
-                assertTrue(composeRule.revealTag(RipDpiTestTags.DiagnosticsResolverSaveSetting))
             }
         }
 

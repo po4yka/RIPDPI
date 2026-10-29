@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.journeys.diagnostics
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
@@ -50,12 +51,20 @@ class LogsKaspressoTest :
         composeRule.waitForNoTag(RipDpiTestTags.LogsFiltersSheet)
     }
 
+    // A service failure is also surfaced outside the logs screen, so only count rows inside the stream.
+    private fun failureRowShown(): Boolean =
+        composeRule.exists(
+            hasText(FailureText, substring = true) and hasAnyAncestor(hasTestTag(RipDpiTestTags.LogsStream)),
+        )
+
     private fun publishServiceHistory() {
+        // StateFlow conflates back-to-back writes, so let the first lifecycle row land before the next status.
         serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
+        composeRule.waitForTag(RipDpiTestTags.LogsStream)
         serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
         serviceStateStore.emitFailed(Sender.Proxy, FailureReason.NativeError(FailureText))
         composeRule.waitForTag(RipDpiTestTags.LogsStream)
-        composeRule.waitUntil(timeoutMillis = 10_000) { composeRule.exists(hasText(FailureText, substring = true)) }
+        composeRule.waitUntil(timeoutMillis = 10_000) { failureRowShown() }
     }
 
     @Test
@@ -139,7 +148,7 @@ class LogsKaspressoTest :
                 composeRule.clickTag(RipDpiTestTags.logsSeverityFilter(LogSeverity.Error))
                 closeSheet()
                 composeRule.waitUntil(timeoutMillis = 5_000) {
-                    !composeRule.exists(hasText(FailureText, substring = true))
+                    !failureRowShown()
                 }
                 assertTrue(composeRule.tagExists(RipDpiTestTags.LogsStream))
             }
@@ -158,7 +167,7 @@ class LogsKaspressoTest :
                 composeRule.waitForTag(RipDpiTestTags.LogsStream)
                 composeRule.waitUntil(
                     timeoutMillis = 5_000,
-                ) { composeRule.exists(hasText(FailureText, substring = true)) }
+                ) { failureRowShown() }
             }
         }
 
