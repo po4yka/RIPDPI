@@ -1,6 +1,12 @@
 #!/usr/bin/env python3
 """Run the real native client through the owned pinned Hysteria DNS fixture.
 
+Manual-only fixture checker: no CI workflow runs it. It starts the fixture
+and runs the ignored Rust test
+android_fixture_routes_synthetic_dns_and_rejects_wrong_pin_and_destination
+in native/rust/crates/ripdpi-hysteria2/tests/upstream_interop.rs, which
+needs this script for its endpoint and credentials.
+
 Run through build-gate. Uses loopback only; no device or provider access.
 """
 
