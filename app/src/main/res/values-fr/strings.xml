@@ -944,7 +944,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_tlsrandrec_min_body">Borne inférieure en octets pour chaque enregistrement de queue aléatoire. Plage autorisée : 1 à 4096 octets.</string>
     <string name="routing_protection_detected_packages">Packages détectés : %1$s</string>
     <string name="routing_protection_dht_title">Atténuation du déclencheur DHT</string>
-    <string name="routing_protection_policy_prompt_body">Afficher des suggestions de routage quand des applis à risque sont présentes.</string>
     <string name="routing_protection_summary_title">Les suggestions de routage utilisent uniquement les correspondances d\'applis installées</string>
     <string name="semantic_state_expanded">Développé</string>
     <string name="settings_advanced_body">Drapeaux RIPDPI de bas niveau, écouteurs de proxy et substitutions de protocole</string>
@@ -2480,7 +2479,6 @@ Source : %2$s</string>
     <string name="ripdpi_tlsrandrec_max_error">La taille maximale de fragment doit être comprise entre le minimum enregistré et 4096 octets.</string>
     <string name="routing_protection_anti_correlation_body">Prévu pour la pression de liste blanche mobile. Il maintient les destinations nationales directes tout en poussant les chemins à forte composante CDN via VPN ou relais.</string>
     <string name="routing_protection_dht_drop_warn_title">Rejeter et avertir</string>
-    <string name="routing_protection_policy_off_body">Masquer les suggestions de routage et laisser la politique inchangée.</string>
     <string name="routing_protection_section_title">Protection du routage des applications</string>
     <string name="semantic_action_expand">Développer</string>
     <string name="settings">Paramètres</string>
@@ -2610,8 +2608,6 @@ Source : %2$s</string>
     <string name="import_clipboard_unknown_no_scheme">Le presse-papiers ne contient pas de lien proxy pris en charge.</string>
     <string name="import_clipboard_empty_title">Le presse-papiers est vide</string>
     <string name="import_clipboard_empty_body">Copiez d\'abord un lien proxy, puis réessayez l\'importation.</string>
-    <string name="import_clipboard_clear_after_title">Vider le presse-papiers après l\'importation</string>
-    <string name="import_clipboard_clear_after_body">Retirer le lien copié du presse-papiers une fois importé.</string>
 
     <!-- Profile share: QR + URI -->
     <string name="profile_share_action">Partager le profil</string>
@@ -2763,28 +2759,6 @@ Source : %2$s</string>
     <!-- RDS deferred VPN surfaces -->
     <string name="title_replay_failure">Échec de la relecture</string>
     <string name="title_replay_history">Rejeux passés</string>
-    <string name="vpn_state_machine_title">Automate d\'état de connexion</string>
-    <string name="vpn_state_machine_current_prefix">Actuel</string>
-    <string name="vpn_state_machine_transitions_default">9 transitions / 24 h</string>
-    <string name="vpn_state_machine_node_disconnected">Déconnecté</string>
-    <string name="vpn_state_machine_node_permissioning">Autorisation</string>
-    <string name="vpn_state_machine_node_connecting">Connexion</string>
-    <string name="vpn_state_machine_node_tunneling">Tunnelisation</string>
-    <string name="vpn_state_machine_node_reconnecting">Reconnexion</string>
-    <string name="vpn_state_machine_node_failed">Échec</string>
-    <string name="vpn_state_machine_node_degraded">Dégradé</string>
-    <string name="vpn_state_machine_meta_idle">inactif</string>
-    <string name="vpn_state_machine_meta_os_prompt">invite OS</string>
-    <string name="vpn_state_machine_meta_handshake">négociation</string>
-    <string name="vpn_state_machine_meta_tunneling_default">12 m 14 s</string>
-    <string name="vpn_state_machine_meta_backoff">attente</string>
-    <string name="vpn_state_machine_meta_failed_default">dern. 6 h : 0</string>
-    <string name="vpn_state_machine_meta_degraded_default">2 en 24 h</string>
-    <string name="vpn_state_machine_legend_idle">Inactif</string>
-    <string name="vpn_state_machine_legend_transition">Transition</string>
-    <string name="vpn_state_machine_legend_healthy">Sain</string>
-    <string name="vpn_state_machine_legend_degraded">Dégradé</string>
-    <string name="vpn_state_machine_legend_failed">Échec</string>
     <string name="title_pcap_viewer">Capture de paquets</string>
     <string name="title_pcap_capture_list">Captures de paquets</string>
     <string name="vpn_replay_failure_header_format">Dernier échec · %1$s</string>
@@ -2815,8 +2789,6 @@ Source : %2$s</string>
     <string name="vpn_replay_rec_handshake_alert">Alerte de handshake TLS · essayez un autre profil TLS</string>
     <string name="vpn_replay_rec_timeout_no_response">Pas de réponse dans le délai · essayez une autre stratégie</string>
     <string name="vpn_replay_rec_generic_fallback">La sonde a échoué · essayez une autre stratégie</string>
-    <string name="vpn_replay_save_to_archive">Enregistrer dans l\'archive de diagnostic</string>
-    <string name="vpn_replay_history_title">Rejeux passés</string>
     <string name="vpn_replay_history_empty">Aucun rejeu pour le moment</string>
     <string name="vpn_replay_history_verdict_success">Succès</string>
     <string name="vpn_replay_history_verdict_failure">Échec</string>

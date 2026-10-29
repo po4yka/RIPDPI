@@ -1633,7 +1633,6 @@ fakeddisorder endhost</string>
     <string name="routing_protection_dht_body">کنترل می‌کند که هنگام فعال بودن مسیریابی تقسیم‌شده، CIDRهای trigger شناخته‌شده چگونه مدیریت شوند.</string>
     <string name="routing_protection_dht_off_title">خاموش</string>
     <string name="routing_protection_policy_body">پیشنهادها هرگز خودکار اعمال نمی‌شوند. حالت اعلان توصیه‌های مسیریابی را وقتی برنامه‌های پرخطر نصب باشند قابل‌مشاهده نگه می‌دارد.</string>
-    <string name="routing_protection_policy_prompt_body">وقتی برنامه‌های پرخطر حضور دارند، پیشنهادهای مسیریابی را نشان بده.</string>
     <string name="routing_protection_section_title">حفاظت مسیریابی برنامه</string>
     <string name="save_logs">ذخیره گزارش‌ها</string>
     <string name="semantic_state_collapsed">جمع‌شده</string>
@@ -2041,7 +2040,6 @@ fakeddisorder endhost</string>
     <string name="routing_protection_anti_correlation_title">حالت ضد همبستگی</string>
     <string name="routing_protection_dht_bypass_title">عبور مستقیم</string>
     <string name="routing_protection_dht_title">کاهش تریگر DHT</string>
-    <string name="routing_protection_policy_off_body">پیشنهادهای مسیریابی را پنهان کن و خط‌مشی را بدون تغییر باقی بگذار.</string>
     <string name="routing_protection_policy_prompt_title">پرسش</string>
     <string name="routing_protection_summary_body">برنامه‌های پرخطر شناسایی‌شده: %1$d. پیش‌تنظیم‌های فعال: %2$d.</string>
     <string name="routing_protection_suggestion_line">%1$s: %2$s</string>
@@ -2615,8 +2613,6 @@ fakeddisorder endhost</string>
     <string name="import_clipboard_unknown_no_scheme">بریده‌دان شامل پیوند پراکسی پشتیبانی‌شده‌ای نیست.</string>
     <string name="import_clipboard_empty_title">بریده‌دان خالی است</string>
     <string name="import_clipboard_empty_body">ابتدا یک پیوند پراکسی را رونوشت کنید، سپس درون‌ریزی را دوباره امتحان کنید.</string>
-    <string name="import_clipboard_clear_after_title">پاک‌سازی بریده‌دان پس از درون‌ریزی</string>
-    <string name="import_clipboard_clear_after_body">حذف پیوند رونوشت‌شده از بریده‌دان پس از درون‌ریزی آن.</string>
 
     <!-- Profile share: QR + URI -->
     <string name="profile_share_action">هم‌رسانی نمایه</string>
@@ -2768,28 +2764,6 @@ fakeddisorder endhost</string>
     <!-- RDS deferred VPN surfaces -->
     <string name="title_replay_failure">پخش مجدد ناموفق</string>
     <string name="title_replay_history">بازپخش‌های قبلی</string>
-    <string name="vpn_state_machine_title">ماشین حالت اتصال</string>
-    <string name="vpn_state_machine_current_prefix">فعلی</string>
-    <string name="vpn_state_machine_transitions_default">۹ انتقال / ۲۴ ساعت</string>
-    <string name="vpn_state_machine_node_disconnected">قطع‌شده</string>
-    <string name="vpn_state_machine_node_permissioning">مجوزدهی</string>
-    <string name="vpn_state_machine_node_connecting">در حال اتصال</string>
-    <string name="vpn_state_machine_node_tunneling">تونل‌سازی</string>
-    <string name="vpn_state_machine_node_reconnecting">اتصال مجدد</string>
-    <string name="vpn_state_machine_node_failed">خطا</string>
-    <string name="vpn_state_machine_node_degraded">تخریب‌شده</string>
-    <string name="vpn_state_machine_meta_idle">بیکار</string>
-    <string name="vpn_state_machine_meta_os_prompt">درخواست سیستم</string>
-    <string name="vpn_state_machine_meta_handshake">دست‌دهی</string>
-    <string name="vpn_state_machine_meta_tunneling_default">۱۲ د ۱۴ ث</string>
-    <string name="vpn_state_machine_meta_backoff">تأخیر</string>
-    <string name="vpn_state_machine_meta_failed_default">۶ ساعت اخیر: ۰</string>
-    <string name="vpn_state_machine_meta_degraded_default">۲ در ۲۴ ساعت</string>
-    <string name="vpn_state_machine_legend_idle">بیکار</string>
-    <string name="vpn_state_machine_legend_transition">انتقال</string>
-    <string name="vpn_state_machine_legend_healthy">سالم</string>
-    <string name="vpn_state_machine_legend_degraded">تخریب‌شده</string>
-    <string name="vpn_state_machine_legend_failed">خطا</string>
     <string name="title_pcap_viewer">ضبط بسته‌ها</string>
     <string name="title_pcap_capture_list">ضبط بسته‌ها</string>
     <string name="vpn_replay_failure_header_format">آخرین خطا · %1$s</string>
@@ -2820,8 +2794,6 @@ fakeddisorder endhost</string>
     <string name="vpn_replay_rec_handshake_alert">هشدار دست‌دهی TLS · یک نمایهٔ TLS دیگر را امتحان کنید</string>
     <string name="vpn_replay_rec_timeout_no_response">پاسخی در زمان مهلت دریافت نشد · یک راهبرد دیگر امتحان کنید</string>
     <string name="vpn_replay_rec_generic_fallback">کاوش ناموفق بود · یک راهبرد دیگر امتحان کنید</string>
-    <string name="vpn_replay_save_to_archive">ذخیره در بایگانی عیب‌یابی</string>
-    <string name="vpn_replay_history_title">بازپخش‌های قبلی</string>
     <string name="vpn_replay_history_empty">هنوز بازپخشی وجود ندارد</string>
     <string name="vpn_replay_history_verdict_success">موفق</string>
     <string name="vpn_replay_history_verdict_failure">ناموفق</string>

@@ -840,9 +840,7 @@
     <string name="routing_protection_policy_title">सुझाव मोड</string>
     <string name="routing_protection_policy_body">सुझाव कभी स्वतः लागू नहीं होते। प्रॉम्प्ट मोड जोखिमपूर्ण ऐप इंस्टॉल होने पर रूटिंग सलाह को दिखाए रखता है।</string>
     <string name="routing_protection_policy_prompt_title">प्रॉम्प्ट</string>
-    <string name="routing_protection_policy_prompt_body">जोखिमपूर्ण ऐप मौजूद होने पर रूटिंग सुझाव दिखाएँ।</string>
     <string name="routing_protection_policy_off_title">बंद</string>
-    <string name="routing_protection_policy_off_body">रूटिंग सुझाव छिपाएँ और नीति अपरिवर्तित रखें।</string>
     <string name="routing_protection_anti_correlation_title">एंटी-कोरिलेशन मोड</string>
     <string name="routing_protection_anti_correlation_body">मोबाइल व्हाइटलिस्ट दबाव के लिए बनाया गया है। यह घरेलू गंतव्यों को सीधा रखता है और CDN-भारी पथों को VPN या रिले के माध्यम से भेजता है।</string>
     <string name="routing_protection_dht_title">DHT ट्रिगर शमन</string>
@@ -1006,8 +1004,6 @@
     <string name="import_clipboard_unknown_no_scheme">क्लिपबोर्ड में कोई समर्थित प्रॉक्सी लिंक नहीं है।</string>
     <string name="import_clipboard_empty_title">क्लिपबोर्ड खाली है</string>
     <string name="import_clipboard_empty_body">पहले कोई प्रॉक्सी शेयर लिंक कॉपी करें, फिर आयात फिर से आज़माएँ।</string>
-    <string name="import_clipboard_clear_after_title">आयात के बाद क्लिपबोर्ड साफ़ करें</string>
-    <string name="import_clipboard_clear_after_body">कॉपी किए गए लिंक को आयात हो जाने के बाद क्लिपबोर्ड से हटा दें।</string>
 
     <!-- Profile share: QR + URI -->
     <string name="profile_share_action">प्रोफ़ाइल शेयर करें</string>
@@ -1157,28 +1153,6 @@
     <!-- RDS deferred VPN surfaces -->
     <string name="title_replay_failure">रीप्ले विफलता</string>
     <string name="title_replay_history">पिछले रीप्ले</string>
-    <string name="vpn_state_machine_title">कनेक्शन स्टेट मशीन</string>
-    <string name="vpn_state_machine_current_prefix">वर्तमान</string>
-    <string name="vpn_state_machine_transitions_default">9 ट्रांज़िशन / 24 h</string>
-    <string name="vpn_state_machine_node_disconnected">डिस्कनेक्ट</string>
-    <string name="vpn_state_machine_node_permissioning">अनुमति ले रहा है</string>
-    <string name="vpn_state_machine_node_connecting">कनेक्ट हो रहा है</string>
-    <string name="vpn_state_machine_node_tunneling">टनलिंग</string>
-    <string name="vpn_state_machine_node_reconnecting">पुनः कनेक्ट हो रहा है</string>
-    <string name="vpn_state_machine_node_failed">विफल</string>
-    <string name="vpn_state_machine_node_degraded">क्षीण</string>
-    <string name="vpn_state_machine_meta_idle">निष्क्रिय</string>
-    <string name="vpn_state_machine_meta_os_prompt">os प्रॉम्प्ट</string>
-    <string name="vpn_state_machine_meta_handshake">हैंडशेक</string>
-    <string name="vpn_state_machine_meta_tunneling_default">12 m 14 s</string>
-    <string name="vpn_state_machine_meta_backoff">बैकऑफ़</string>
-    <string name="vpn_state_machine_meta_failed_default">पिछले 6 h: 0</string>
-    <string name="vpn_state_machine_meta_degraded_default">24 h में 2</string>
-    <string name="vpn_state_machine_legend_idle">निष्क्रिय</string>
-    <string name="vpn_state_machine_legend_transition">ट्रांज़िशन</string>
-    <string name="vpn_state_machine_legend_healthy">स्वस्थ</string>
-    <string name="vpn_state_machine_legend_degraded">क्षीण</string>
-    <string name="vpn_state_machine_legend_failed">विफल</string>
     <string name="title_pcap_viewer">पैकेट कैप्चर</string>
     <string name="title_pcap_capture_list">पैकेट कैप्चर</string>
     <string name="vpn_replay_failure_header_format">अंतिम विफलता · %1$s</string>
@@ -1209,8 +1183,6 @@
     <string name="vpn_replay_rec_handshake_alert">TLS हैंडशेक अलर्ट · कोई अन्य TLS प्रोफ़ाइल आज़माएँ</string>
     <string name="vpn_replay_rec_timeout_no_response">टाइमआउट के भीतर कोई प्रतिक्रिया नहीं · कोई अन्य रणनीति आज़माएँ</string>
     <string name="vpn_replay_rec_generic_fallback">प्रोब विफल · कोई अन्य रणनीति आज़माएँ</string>
-    <string name="vpn_replay_save_to_archive">डायग्नोस्टिक्स आर्काइव में सहेजें</string>
-    <string name="vpn_replay_history_title">पिछले रीप्ले</string>
     <string name="vpn_replay_history_empty">अभी तक कोई पिछला रीप्ले नहीं</string>
     <string name="vpn_replay_history_verdict_success">सफल</string>
     <string name="vpn_replay_history_verdict_failure">विफल</string>

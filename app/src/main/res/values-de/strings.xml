@@ -944,7 +944,6 @@ fakeddisorder endhost</string>
     <string name="ripdpi_tlsrandrec_min_body">Untere Byte-Grenze für jeden randomisierten Tail-Datensatz. Erlaubter Bereich: 1 bis 4096 Bytes.</string>
     <string name="routing_protection_detected_packages">Erkannte Pakete: %1$s</string>
     <string name="routing_protection_dht_title">DHT-Trigger-Minderung</string>
-    <string name="routing_protection_policy_prompt_body">Routing-Vorschläge anzeigen, wenn riskante Apps vorhanden sind.</string>
     <string name="routing_protection_summary_title">Routing-Vorschläge verwenden nur Übereinstimmungen installierter Apps</string>
     <string name="semantic_state_expanded">Erweitert</string>
     <string name="settings_advanced_body">Low-Level-RIPDPI-Flags, Proxy-Listener und Protokoll-Überschreibungen</string>
@@ -2480,7 +2479,6 @@ Quelle: %2$s</string>
     <string name="ripdpi_tlsrandrec_max_error">Die maximale Fragmentgröße muss zwischen dem gespeicherten Minimum und 4096 Bytes liegen.</string>
     <string name="routing_protection_anti_correlation_body">Gedacht für mobilen Whitelist-Druck. Inländische Ziele bleiben direkt, während CDN-lastige Pfade über VPN oder Relay geleitet werden.</string>
     <string name="routing_protection_dht_drop_warn_title">Verwerfen und warnen</string>
-    <string name="routing_protection_policy_off_body">Routing-Vorschläge ausblenden und die Richtlinie unverändert lassen.</string>
     <string name="routing_protection_section_title">App-Routing-Schutz</string>
     <string name="semantic_action_expand">Erweitern</string>
     <string name="settings">Einstellungen</string>
@@ -2610,8 +2608,6 @@ Quelle: %2$s</string>
     <string name="import_clipboard_unknown_no_scheme">Die Zwischenablage enthält keinen unterstützten Proxy-Link.</string>
     <string name="import_clipboard_empty_title">Zwischenablage ist leer</string>
     <string name="import_clipboard_empty_body">Kopieren Sie zuerst einen Proxy-Link und versuchen Sie den Import dann erneut.</string>
-    <string name="import_clipboard_clear_after_title">Zwischenablage nach Import leeren</string>
-    <string name="import_clipboard_clear_after_body">Den kopierten Link nach dem Import aus der Zwischenablage entfernen.</string>
 
     <!-- Profile share: QR + URI -->
     <string name="profile_share_action">Profil teilen</string>
@@ -2763,28 +2759,6 @@ Quelle: %2$s</string>
     <!-- RDS deferred VPN surfaces -->
     <string name="title_replay_failure">Wiederholung fehlgeschlagen</string>
     <string name="title_replay_history">Frühere Wiederholungen</string>
-    <string name="vpn_state_machine_title">Verbindungszustandsautomat</string>
-    <string name="vpn_state_machine_current_prefix">Aktuell</string>
-    <string name="vpn_state_machine_transitions_default">9 Übergänge / 24 h</string>
-    <string name="vpn_state_machine_node_disconnected">Getrennt</string>
-    <string name="vpn_state_machine_node_permissioning">Berechtigung</string>
-    <string name="vpn_state_machine_node_connecting">Verbinden</string>
-    <string name="vpn_state_machine_node_tunneling">Tunneln</string>
-    <string name="vpn_state_machine_node_reconnecting">Neu verbinden</string>
-    <string name="vpn_state_machine_node_failed">Fehler</string>
-    <string name="vpn_state_machine_node_degraded">Degradiert</string>
-    <string name="vpn_state_machine_meta_idle">inaktiv</string>
-    <string name="vpn_state_machine_meta_os_prompt">OS-Prompt</string>
-    <string name="vpn_state_machine_meta_handshake">Handshake</string>
-    <string name="vpn_state_machine_meta_tunneling_default">12 m 14 s</string>
-    <string name="vpn_state_machine_meta_backoff">Wartezeit</string>
-    <string name="vpn_state_machine_meta_failed_default">letzt. 6 h: 0</string>
-    <string name="vpn_state_machine_meta_degraded_default">2 in 24 h</string>
-    <string name="vpn_state_machine_legend_idle">Inaktiv</string>
-    <string name="vpn_state_machine_legend_transition">Übergang</string>
-    <string name="vpn_state_machine_legend_healthy">Gesund</string>
-    <string name="vpn_state_machine_legend_degraded">Degradiert</string>
-    <string name="vpn_state_machine_legend_failed">Fehler</string>
     <string name="title_pcap_viewer">Paketmitschnitt</string>
     <string name="title_pcap_capture_list">Paketmitschnitte</string>
     <string name="vpn_replay_failure_header_format">Letzter Fehler · %1$s</string>
@@ -2815,8 +2789,6 @@ Quelle: %2$s</string>
     <string name="vpn_replay_rec_handshake_alert">TLS-Handshake-Alert · versuchen Sie ein anderes TLS-Profil</string>
     <string name="vpn_replay_rec_timeout_no_response">Keine Antwort im Zeitlimit · versuchen Sie eine andere Strategie</string>
     <string name="vpn_replay_rec_generic_fallback">Probe fehlgeschlagen · versuchen Sie eine andere Strategie</string>
-    <string name="vpn_replay_save_to_archive">In Diagnose-Archiv speichern</string>
-    <string name="vpn_replay_history_title">Frühere Wiederholungen</string>
     <string name="vpn_replay_history_empty">Noch keine Wiederholungen</string>
     <string name="vpn_replay_history_verdict_success">Erfolg</string>
     <string name="vpn_replay_history_verdict_failure">Fehler</string>

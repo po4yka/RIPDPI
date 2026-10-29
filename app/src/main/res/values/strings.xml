@@ -2586,9 +2586,7 @@ Source: %2$s</string>
     <string name="routing_protection_policy_title">Suggestion mode</string>
     <string name="routing_protection_policy_body">Suggestions never auto-apply. Prompt mode keeps routing advice visible when risky apps are installed.</string>
     <string name="routing_protection_policy_prompt_title">Prompt</string>
-    <string name="routing_protection_policy_prompt_body">Show routing suggestions when risky apps are present.</string>
     <string name="routing_protection_policy_off_title">Off</string>
-    <string name="routing_protection_policy_off_body">Hide routing suggestions and leave policy unchanged.</string>
     <string name="routing_protection_anti_correlation_title">Anti-correlation mode</string>
     <string name="routing_protection_anti_correlation_body">Intended for mobile whitelist pressure. It keeps domestic destinations direct while pushing CDN-heavy paths through VPN or relay.</string>
     <string name="routing_protection_dht_title">DHT trigger mitigation</string>
@@ -2762,8 +2760,6 @@ Source: %2$s</string>
     <string name="import_clipboard_unknown_no_scheme">The clipboard does not hold a supported proxy link.</string>
     <string name="import_clipboard_empty_title">Clipboard is empty</string>
     <string name="import_clipboard_empty_body">Copy a proxy share link first, then try the import again.</string>
-    <string name="import_clipboard_clear_after_title">Clear clipboard after import</string>
-    <string name="import_clipboard_clear_after_body">Remove the copied link from the clipboard once it has been imported.</string>
 
     <!-- Profile share: QR + URI -->
     <string name="profile_share_action">Share profile</string>
@@ -2918,28 +2914,6 @@ Source: %2$s</string>
     <!-- RDS deferred VPN surfaces -->
     <string name="title_replay_failure">Replay failure</string>
     <string name="title_replay_history">Past replays</string>
-    <string name="vpn_state_machine_title">Connection state machine</string>
-    <string name="vpn_state_machine_current_prefix">Current</string>
-    <string name="vpn_state_machine_transitions_default">9 transitions / 24 h</string>
-    <string name="vpn_state_machine_node_disconnected">Disconnected</string>
-    <string name="vpn_state_machine_node_permissioning">Permissioning</string>
-    <string name="vpn_state_machine_node_connecting">Connecting</string>
-    <string name="vpn_state_machine_node_tunneling">Tunneling</string>
-    <string name="vpn_state_machine_node_reconnecting">Reconnecting</string>
-    <string name="vpn_state_machine_node_failed">Failed</string>
-    <string name="vpn_state_machine_node_degraded">Degraded</string>
-    <string name="vpn_state_machine_meta_idle">idle</string>
-    <string name="vpn_state_machine_meta_os_prompt">os prompt</string>
-    <string name="vpn_state_machine_meta_handshake">handshake</string>
-    <string name="vpn_state_machine_meta_tunneling_default">12 m 14 s</string>
-    <string name="vpn_state_machine_meta_backoff">backoff</string>
-    <string name="vpn_state_machine_meta_failed_default">last 6 h: 0</string>
-    <string name="vpn_state_machine_meta_degraded_default">2 in 24 h</string>
-    <string name="vpn_state_machine_legend_idle">Idle</string>
-    <string name="vpn_state_machine_legend_transition">Transition</string>
-    <string name="vpn_state_machine_legend_healthy">Healthy</string>
-    <string name="vpn_state_machine_legend_degraded">Degraded</string>
-    <string name="vpn_state_machine_legend_failed">Failed</string>
     <string name="title_pcap_viewer">Packet capture</string>
     <string name="title_pcap_capture_list">Packet captures</string>
     <string name="vpn_replay_failure_header_format">Last failure · %1$s</string>
@@ -2970,8 +2944,6 @@ Source: %2$s</string>
     <string name="vpn_replay_rec_handshake_alert">TLS handshake alert · try a different TLS profile</string>
     <string name="vpn_replay_rec_timeout_no_response">No response within timeout · try a different strategy</string>
     <string name="vpn_replay_rec_generic_fallback">Probe failed · try a different strategy</string>
-    <string name="vpn_replay_save_to_archive">Save to diagnostics archive</string>
-    <string name="vpn_replay_history_title">Past replays</string>
     <string name="vpn_replay_history_empty">No past replays yet</string>
     <string name="vpn_replay_history_verdict_success">Success</string>
     <string name="vpn_replay_history_verdict_failure">Failure</string>

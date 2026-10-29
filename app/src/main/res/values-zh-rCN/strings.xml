@@ -1386,7 +1386,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="ripdpi_tlsrandrec_min_title">最小分片大小</string>
     <string name="routing_protection_detected_packages">检测到的包:%1$s</string>
     <string name="routing_protection_dht_off_title">关闭</string>
-    <string name="routing_protection_policy_off_body">隐藏路由建议,保持策略不变。</string>
     <string name="routing_protection_policy_title">建议模式</string>
     <string name="save_logs">保存日志</string>
     <string name="semantic_state_expanded">已展开</string>
@@ -2431,7 +2430,6 @@ fake_burst 3</string>
     <string name="routing_protection_anti_correlation_body">面向移动端的白名单压力场景。它使国内目的地保持直连,同时将以 CDN 为主的路径推送到 VPN 或中继。</string>
     <string name="routing_protection_dht_bypass_title">直连绕过</string>
     <string name="routing_protection_full_tunnel_active">全局隧道模式已激活,因此应用排除和反关联提示目前被抑制。</string>
-    <string name="routing_protection_policy_prompt_body">当存在风险应用时显示路由建议。</string>
     <string name="routing_protection_summary_body">检测到的风险应用：%1$d。已启用的预设：%2$d。</string>
     <string name="routing_protection_suggestion_line">%1$s：%2$s</string>
     <string name="semantic_action_expand">展开</string>
@@ -2607,8 +2605,6 @@ fake_burst 3</string>
     <string name="import_clipboard_unknown_no_scheme">剪贴板中没有受支持的代理链接。</string>
     <string name="import_clipboard_empty_title">剪贴板为空</string>
     <string name="import_clipboard_empty_body">请先复制一个代理分享链接，然后重试导入。</string>
-    <string name="import_clipboard_clear_after_title">导入后清空剪贴板</string>
-    <string name="import_clipboard_clear_after_body">链接导入后将其从剪贴板中移除。</string>
 
     <!-- Profile share: QR + URI -->
     <string name="profile_share_action">分享配置文件</string>
@@ -2760,28 +2756,6 @@ fake_burst 3</string>
     <!-- RDS deferred VPN surfaces -->
     <string name="title_replay_failure">重放失败</string>
     <string name="title_replay_history">过往重放</string>
-    <string name="vpn_state_machine_title">连接状态机</string>
-    <string name="vpn_state_machine_current_prefix">当前</string>
-    <string name="vpn_state_machine_transitions_default">9 次转换 / 24 小时</string>
-    <string name="vpn_state_machine_node_disconnected">已断开</string>
-    <string name="vpn_state_machine_node_permissioning">授权中</string>
-    <string name="vpn_state_machine_node_connecting">连接中</string>
-    <string name="vpn_state_machine_node_tunneling">隧道中</string>
-    <string name="vpn_state_machine_node_reconnecting">重新连接</string>
-    <string name="vpn_state_machine_node_failed">失败</string>
-    <string name="vpn_state_machine_node_degraded">降级</string>
-    <string name="vpn_state_machine_meta_idle">空闲</string>
-    <string name="vpn_state_machine_meta_os_prompt">系统提示</string>
-    <string name="vpn_state_machine_meta_handshake">握手</string>
-    <string name="vpn_state_machine_meta_tunneling_default">12 分 14 秒</string>
-    <string name="vpn_state_machine_meta_backoff">退避</string>
-    <string name="vpn_state_machine_meta_failed_default">近 6 小时: 0</string>
-    <string name="vpn_state_machine_meta_degraded_default">24 小时内 2 次</string>
-    <string name="vpn_state_machine_legend_idle">空闲</string>
-    <string name="vpn_state_machine_legend_transition">转换</string>
-    <string name="vpn_state_machine_legend_healthy">健康</string>
-    <string name="vpn_state_machine_legend_degraded">降级</string>
-    <string name="vpn_state_machine_legend_failed">失败</string>
     <string name="title_pcap_viewer">数据包捕获</string>
     <string name="title_pcap_capture_list">数据包捕获</string>
     <string name="vpn_replay_failure_header_format">最近失败 · %1$s</string>
@@ -2812,8 +2786,6 @@ fake_burst 3</string>
     <string name="vpn_replay_rec_handshake_alert">TLS 握手警报 · 试试其他 TLS 配置文件</string>
     <string name="vpn_replay_rec_timeout_no_response">超时未响应 · 试试其他策略</string>
     <string name="vpn_replay_rec_generic_fallback">探测失败 · 试试其他策略</string>
-    <string name="vpn_replay_save_to_archive">保存到诊断存档</string>
-    <string name="vpn_replay_history_title">过往重放</string>
     <string name="vpn_replay_history_empty">暂无重放</string>
     <string name="vpn_replay_history_verdict_success">成功</string>
     <string name="vpn_replay_history_verdict_failure">失败</string>
