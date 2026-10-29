@@ -1,8 +1,11 @@
 package com.poyka.ripdpi.ui.theme
 
+import android.os.Build
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.dynamicDarkColorScheme
+import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -10,6 +13,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalInspectionMode
@@ -21,7 +25,7 @@ fun RipDpiTheme(
     themePreference: String = "system",
     contrastLevel: RipDpiContrastLevel = RipDpiContrastLevel.Standard,
     hapticFeedbackDisabled: Boolean = false,
-    @Suppress("UNUSED_PARAMETER") dynamicColor: Boolean = false,
+    dynamicColor: Boolean = false,
     content: @Composable () -> Unit,
 ) {
     val isDark =
@@ -46,7 +50,21 @@ fun RipDpiTheme(
     val languageTags = LocalConfiguration.current.locales.toLanguageTags()
     val type = remember(languageTags) { RipDpiTypeScale.withLocaleList(LocaleList(languageTags)) }
     val typography = remember(type) { ripDpiTypography(type) }
-    val colorScheme = if (isDark) ripDpiDarkColorScheme(contrastLevel) else ripDpiLightColorScheme(contrastLevel)
+    val context = LocalContext.current
+    val colorScheme =
+        when {
+            dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
+                if (isDark) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+            }
+
+            isDark -> {
+                ripDpiDarkColorScheme(contrastLevel)
+            }
+
+            else -> {
+                ripDpiLightColorScheme(contrastLevel)
+            }
+        }
     val extendedColors = ripDpiExtendedColors(colorScheme, isDark)
     val density = LocalDensity.current
     val screenWidthDp =
