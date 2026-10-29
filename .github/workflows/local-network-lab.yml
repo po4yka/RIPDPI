@@ -42,6 +42,15 @@ jobs:
           test-lab/scripts/test-adb-install-debug.sh
           test-lab/scripts/test-lab-corefile.sh
 
+      - name: Validate host fixture and helper self-tests
+        run: |
+          set -euo pipefail
+          test-lab/scripts/test-adb-wake-unlock.sh
+          test-lab/scripts/test-host-dns.sh
+          test-lab/scripts/test-host-fault-controls.sh
+          test-lab/scripts/test-host-udp-echo.sh
+          test-lab/scripts/test-local-workflow-evidence.sh
+
       - name: Validate custom probe broadcast
         run: |
           set -euo pipefail
