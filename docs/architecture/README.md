@@ -53,11 +53,11 @@ Cross-boundary contract docs:
 
 ## Adaptive Runtime
 
-**Direct-mode dispatcher:** Direct-path observations are converted into `DirectPathBlockClass`, then ranked transport arms. Attempt budgets and Config/Diagnostics/Home remediation selection use the same direct-mode result path.
+**Direct-mode learning signals:** Direct-path observations become learning signals. These signals feed telemetry only. They do not rank transport arms, set attempt budgets, or select remediation.
 
-**Offline learner:** UCB1 remains the production scorer. Thompson sampling exists as a standalone implementation; rarity penalties, attempt budgets, shared-priors transport, and environment segregation are opt-in or supporting pieces.
+**Offline learner:** UCB1 remains the production scorer. Rarity penalties, attempt budgets, shared-priors transport, and environment segregation are opt-in or supporting pieces.
 
-**Shared priors:** Bundles are fail-secure: parser, manifest verification, production key, and manifest/priors URLs must all validate before data reaches the evolver. The remaining release task is embedding the production ed25519 public key and populating the catalog URLs.
+**Shared priors:** Bundles are fail-secure: parser, manifest verification, public key, and manifest/priors URLs must all validate before data reaches the evolver. No key or URL is committed. The owner must supply the ed25519 public key and the two bundle URLs at build time (`sharedPriors.publicKey` Gradle property, `local.properties`, or `RIPDPI_SHARED_PRIORS_PUB_KEY`). See [`ripdpi-shared-priors`](../../native/rust/crates/ripdpi-shared-priors/README.md#provisioning-owner).
 
 **Environment calibration:** Android environment detection is wired for bandit key segregation. Per-family emulator-to-field calibration factors remain a research spike.
 
@@ -71,15 +71,6 @@ Cross-boundary contract docs:
 - Kotlin persists refreshed bytes with `EncryptedSharedPreferences` and seeds the native updater on process start.
 
 Current TLS consumers do not read the process-wide updater snapshot. The MASQUE path resolves per-target ECH directly through encrypted DNS via `resolve_outbound_ech_config_via_encrypted_dns`; the updater is a refresh/persistence cache until a future consumer is explicitly wired to it.
-
-## io_uring
-
-The io_uring path has two landed performance improvements:
-
-- completion waiters use event-driven wakeup through `Thread::unpark`;
-- TUN writes can stage packets into registered buffers and submit `WriteFixed`.
-
-`native/rust/crates/ripdpi-io-uring/benches/io_uring_acceptance.rs` is the acceptance benchmark harness for plain write versus registered-buffer write paths across representative payload sizes.
 
 ## Additional Documents
 

@@ -4,14 +4,15 @@
 
 ## Responsibility
 
-Strategy selection, scoring, and evolution for the runtime. Ranks desync
-strategy arms, applies penalties and cooldowns, drives outbound failover, and
-runs the Geneva-style strategy evolver that explores adaptive dimensions.
+Strategy selection, scoring, and evolution for the runtime. It holds the
+adaptive strategy profiles and the Geneva-style strategy evolver that explores
+adaptive dimensions. It also holds a standalone Bayesian arm scorer.
 
 ## What belongs here
 
-- `scoring` — strategy-arm ranking and penalty/cooldown logic.
-- `outbound_failover` — failover ordering across strategy arms.
+- `scoring` — standalone Bayesian arm scorer (`score_arm`,
+  `compute_posterior`, `ScoringContext`). No production code calls it; only
+  its unit tests use it.
 - `profiles` — adaptive strategy profiles.
 - `strategy_evolver` — epsilon-greedy / UCB1 combo exploration.
 
@@ -30,13 +31,13 @@ runs the Geneva-style strategy evolver that explores adaptive dimensions.
 
 ## Public API stability
 
-The evolver and scoring types are consumed by `ripdpi-runtime-services`; keep
-the selection/ranking surface stable. `ripdpi-shared-priors` integration is
+`ripdpi-runtime-services` consumes the evolver types; keep the selection
+surface stable. `ripdpi-shared-priors` integration is
 fail-secure — preserve that contract when changing prior consumption.
 
 ## Bayesian arm score
 
-The standalone arm scorer uses `alpha / (alpha + beta + threat_beta)` before subtracting the TTFB, byte-overhead, repeated-attempt, and rarity terms. `threat_beta` is exactly `3.0` only when the signed shared-priors snapshot contains an unexpired `active_broad` record matching both the arm's canonical protocol class and the current opaque SHA-256 network scope; otherwise it is zero. This bounded pseudo-failure prior acts before local failures accumulate and is diluted by later empirical successes. It is independent of the existing `0.20 * rarity_penalty`, which is still applied once based on recent local success history. The separate UCB1 combo scorer and its attempt-based rarity logic are unchanged.
+The standalone arm scorer in `scoring.rs` has no production caller. It uses `alpha / (alpha + beta + threat_beta)` before subtracting the TTFB, byte-overhead, repeated-attempt, and rarity terms. `threat_beta` is exactly `3.0` only when the signed shared-priors snapshot contains an unexpired `active_broad` record matching both the arm's canonical protocol class and the current opaque SHA-256 network scope; otherwise it is zero. This bounded pseudo-failure prior acts before local failures accumulate and is diluted by later empirical successes. It is independent of the existing `0.20 * rarity_penalty`, which is still applied once based on recent local success history. The UCB1 combo scorer in `strategy_evolver` is the production scorer. It has its own attempt-based rarity logic.
 
 ---
 Part of the RIPDPI native Rust workspace — see

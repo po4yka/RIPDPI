@@ -665,9 +665,8 @@ This enables proxy chaining: client -> RIPDPI (desync) -> upstream SOCKS -> inte
 
 ### Runtime adaptation
 
-The shared runtime layer now also adds:
+The shared runtime layer now also adds the items below. The native runtime does not do relay failover. The Kotlin layer does it: see [`FailoverCoordinator`](../../app/src/simple/kotlin/com/poyka/ripdpi/failover/FailoverCoordinator.kt) and [`InitialRelayRaceRunner`](../../core/service/src/main/kotlin/com/poyka/ripdpi/services/InitialRelayRaceRunner.kt).
 
-- **Priority-based outbound failover** (`OutboundFailover`) which walks `OutboundRole` in strict priority order: Primary REALITY → HTTPS fallback → Hysteria2. Hysteria2 is gated behind UDP/443 viability confirmation.
 - Geneva-style strategy evolution (`StrategyEvolver`) with epsilon-greedy + UCB1 selection across combo dimensions, configurable via `strategy_evolution` (bool) and `evolution_epsilon_permil` (default 100 = 10% exploration rate)
 - host autolearn and per-host preferred group promotion scoped by `networkScopeKey`, with configurable `penalty_ttl_secs` (default 21600 -- 6h), `max_hosts` (default 512), and optional `store_path` for persistence
 - `cache_prefix` (u8) for isolated policy caches when multiple profiles share storage, with `cache_ttl` and optional `cache_file`

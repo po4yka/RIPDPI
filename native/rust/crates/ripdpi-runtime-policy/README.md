@@ -5,14 +5,14 @@
 ## Responsibility
 
 The runtime policy engine: it decides *which* transport and strategy a
-connection should use based on learned outcomes. Holds per-app-family memory,
-direct-path block-class learning, transport policy, and the policy ports that
-the runtime-services layer implements against.
+connection should use based on learned outcomes. Holds direct-path learning
+signals, transport policy, and the policy ports that the runtime-services layer
+implements against.
 
 ## What belongs here
 
-- `AppFamilyMemory` — per-app-family outcome memory.
-- `direct_path_learning` — direct-path block-class classification and learning.
+- `direct_path_learning` — direct-path learning signals. They feed telemetry
+  only; they do not rank or select transport arms.
 - `runtime_policy` and `transport_policy` decision logic.
 - The `PolicyPort` / `DirectPathLearningPort` traits (hexagonal ports).
 
