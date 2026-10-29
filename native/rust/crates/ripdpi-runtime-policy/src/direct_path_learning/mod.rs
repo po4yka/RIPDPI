@@ -1,5 +1,4 @@
-// Ranked-arm dispatcher for adaptive direct-path learning.
-#![allow(dead_code)]
+// Adaptive direct-path learning: per-tuple evidence and learning signals.
 
 use std::collections::HashMap;
 use std::net::SocketAddr;
@@ -8,19 +7,14 @@ use crate::runtime_policy::TransportProtocol;
 
 mod key;
 mod observer;
-mod scoring;
 mod state;
 
 pub use key::direct_path_ip_set_digest;
 pub use observer::DirectPathLearningObserver;
-pub use scoring::{DirectPathBlockClass, RankedArm};
 
 use key::{TupleKey, tuple_key_for_targets};
 use observer::emit_learning_signal;
-#[cfg(test)]
-use scoring::DEFAULT_ATTEMPT_BUDGET;
-use scoring::{apply_attempt_budgets, ranked_arms_for_class};
-use state::{TerminalState, TupleState, block_class_from_state, clear_negative_state};
+use state::{TerminalState, TupleState, clear_negative_state};
 
 const NO_TCP_FALLBACK_WINDOW_MS: u64 = 3_000;
 /// Bounds per-session tuple state; CDN IP rotation and hostless flows create new keys indefinitely.
@@ -204,58 +198,6 @@ impl DirectPathLearningState {
         }
         self.earliest_pending_udp_suppressed_ms =
             self.tuples.values().filter_map(|entry| entry.pending_udp_suppressed_at_ms).min();
-    }
-
-    /// Derive the current [`DirectPathBlockClass`] for a (host, targets) tuple.
-    ///
-    /// Returns `DirectPathBlockClass::Clean` when no negative evidence has been
-    /// recorded yet, so callers can always obtain a valid class without special-
-    /// casing the absent-tuple case.
-    pub fn block_class_for(&self, host: Option<&str>, targets: &[SocketAddr]) -> DirectPathBlockClass {
-        let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
-            return DirectPathBlockClass::Clean;
-        };
-        let Some(entry) = self.tuples.get(&tuple_key) else {
-            return DirectPathBlockClass::Clean;
-        };
-        block_class_from_state(entry)
-    }
-
-    /// Return a ranked list of transport arms for the given (host, targets) tuple.
-    ///
-    /// Arms are ordered from highest priority (index 0) to lowest. The list
-    /// always contains at least one entry. Callers may iterate and attempt
-    /// each arm in order, stopping on the first success. Each arm's
-    /// `attempt_budget` reflects the *remaining* budget after subtracting
-    /// previously recorded attempts via [`Self::note_arm_attempt`]; arms
-    /// whose budget is fully exhausted are dropped from the list. When all
-    /// arms for the current class are exhausted the list collapses to a
-    /// single `relay_fallback` entry so callers always have an escalation
-    /// path.
-    pub fn ranked_arms_for(&self, host: Option<&str>, targets: &[SocketAddr]) -> Vec<RankedArm> {
-        let class = self.block_class_for(host, targets);
-        let mut arms = ranked_arms_for_class(class);
-
-        let attempts: Option<&HashMap<&'static str, u32>> = tuple_key_for_targets(host, targets)
-            .as_ref()
-            .and_then(|key| self.tuples.get(key))
-            .map(|entry| &entry.arm_attempts);
-        apply_attempt_budgets(&mut arms, attempts);
-
-        arms
-    }
-
-    /// Record an attempt against the arm `arm_label` for the (host, targets)
-    /// tuple. Subsequent calls to [`Self::ranked_arms_for`] subtract the
-    /// recorded attempts from the arm's `attempt_budget`; once the budget is
-    /// exhausted the arm is dropped from the ranked list. Counters are reset
-    /// when a positive signal clears the negative state for the tuple.
-    pub fn note_arm_attempt(&mut self, host: Option<&str>, targets: &[SocketAddr], arm_label: &'static str) {
-        let Some(tuple_key) = tuple_key_for_targets(host, targets) else {
-            return;
-        };
-        let entry = self.tuple_entry(tuple_key);
-        *entry.arm_attempts.entry(arm_label).or_insert(0) += 1;
     }
 }
 
