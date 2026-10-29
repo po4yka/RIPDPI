@@ -30,6 +30,7 @@ class VerifyNativeElfsTest(unittest.TestCase):
             lib_dir = repo_root / "app/build/intermediates/merged_native_libs/debug/mergeDebugNativeLibs/out/lib"
 
             with patch.dict(os.environ, {}, clear=False):
+                os.environ.pop("CI", None)
                 expected = verify_native_elfs.resolved_expected_abis(repo_root, lib_dir, None)
 
             self.assertEqual({"arm64-v8a"}, expected)
@@ -52,6 +53,7 @@ class VerifyNativeElfsTest(unittest.TestCase):
             lib_dir = repo_root / "app/build/intermediates/merged_native_libs/debug/mergeDebugNativeLibs/out/lib"
 
             with patch.dict(os.environ, {}, clear=False):
+                os.environ.pop("CI", None)
                 expected = verify_native_elfs.resolved_expected_abis(repo_root, lib_dir, None)
 
             self.assertEqual({"x86_64"}, expected)
