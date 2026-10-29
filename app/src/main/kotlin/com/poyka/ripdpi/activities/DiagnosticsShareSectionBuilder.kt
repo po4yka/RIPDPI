@@ -47,7 +47,7 @@ internal fun DiagnosticsUiFactorySupport.buildShareUiModel(
                         append(
                             context.getString(
                                 R.string.diagnostics_share_approach_format,
-                                summary.displayName,
+                                summary.localizedDisplayName(context),
                                 summary.uiVerificationLabel(context),
                             ),
                         )
@@ -64,7 +64,7 @@ internal fun DiagnosticsUiFactorySupport.buildShareUiModel(
                             ?.let { summary ->
                                 DiagnosticsMetricUiModel(
                                     label = context.getString(R.string.diagnostics_metric_approach),
-                                    value = summary.displayName,
+                                    value = summary.localizedDisplayName(context),
                                     tone = summary.toDiagnosticsTone(),
                                 )
                             },

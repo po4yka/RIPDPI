@@ -1,14 +1,30 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.diagnostics.BypassApproachKind
+import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.platform.StringResolver
 
-internal fun DiagnosticProfile.localizedBundledName(strings: StringResolver): String {
-    if (source != "bundled") return name
+internal fun DiagnosticProfile.localizedBundledName(strings: StringResolver): String =
+    if (source == "bundled") localizedBundledProfileName(id, name, strings) else name
+
+/** Localizes a stored bundled-profile name; a renamed profile or unknown id keeps its stored name. */
+internal fun localizedBundledProfileName(
+    id: String,
+    name: String,
+    strings: StringResolver,
+): String {
     val bundled = bundledProfileTitles[id]
     return if (bundled != null && name == bundled.first) strings.getString(bundled.second) else name
 }
+
+internal fun BypassApproachSummary.localizedDisplayName(strings: StringResolver): String =
+    if (approachId.kind == BypassApproachKind.Profile) {
+        localizedBundledProfileName(approachId.value, displayName, strings)
+    } else {
+        displayName
+    }
 
 private val bundledProfileTitles =
     mapOf(

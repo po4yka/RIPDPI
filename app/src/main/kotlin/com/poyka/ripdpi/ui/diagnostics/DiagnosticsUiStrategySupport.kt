@@ -25,6 +25,7 @@ import com.poyka.ripdpi.activities.auditAssessmentMetrics
 import com.poyka.ripdpi.activities.auditConfidenceLabel
 import com.poyka.ripdpi.activities.auditConfidenceTone
 import com.poyka.ripdpi.activities.formatDurationMs
+import com.poyka.ripdpi.activities.localizedDisplayName
 import com.poyka.ripdpi.activities.successMetricTone
 import com.poyka.ripdpi.activities.toDiagnosticsTone
 import com.poyka.ripdpi.activities.toProbeResultUiModel
@@ -134,7 +135,7 @@ internal fun DiagnosticsUiFactorySupport.toApproachRowUiModel(
     DiagnosticsApproachRowUiModel(
         id = summary.approachId.value,
         kind = mode,
-        title = summary.displayName,
+        title = summary.localizedDisplayName(context),
         subtitle = summary.secondaryLabel,
         verificationState = summary.uiVerificationLabel(context),
         lastValidatedResult =

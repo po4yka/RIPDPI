@@ -187,7 +187,12 @@ internal class MainConnectionActions(
         val summary = strategySummary ?: profileSummary ?: return null
         return HomeApproachSummaryUiState(
             // The mode is already the actuator's route label, so the title is only the step chain.
-            title = if (strategySummary != null) strategySignature.chainSummary else summary.displayName,
+            title =
+                if (strategySummary != null) {
+                    strategySignature.chainSummary
+                } else {
+                    summary.localizedDisplayName(stringResolver)
+                },
             facets =
                 strategySignature
                     .localizedHomeStrategyFacets(stringResolver)

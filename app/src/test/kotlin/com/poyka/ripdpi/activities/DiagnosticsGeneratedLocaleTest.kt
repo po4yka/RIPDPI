@@ -4,6 +4,11 @@ import android.content.Context
 import android.content.res.Configuration
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.diagnostics.BypassApproachId
+import com.poyka.ripdpi.diagnostics.BypassApproachKind
+import com.poyka.ripdpi.diagnostics.BypassApproachSummary
+import com.poyka.ripdpi.diagnostics.BypassApproachVerificationState
+import com.poyka.ripdpi.diagnostics.BypassRuntimeHealthSummary
 import com.poyka.ripdpi.diagnostics.Diagnosis
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.ScanKind
@@ -43,6 +48,44 @@ class DiagnosticsGeneratedLocaleTest {
                 assertEquals("Custom Ω", profile.copy(name = "Custom Ω").localizedBundledName(strings))
                 assertEquals(profile.name, profile.copy(id = "future-profile").localizedBundledName(strings))
             }
+        }
+    }
+
+    @Test
+    fun `home approach summary for the bundled default profile shows the localized title`() {
+        val strings = LocaleStrings(ApplicationProvider.getApplicationContext())
+
+        fun summary(
+            kind: BypassApproachKind,
+            name: String,
+        ) = BypassApproachSummary(
+            approachId = BypassApproachId(kind, "default"),
+            displayName = name,
+            secondaryLabel = "Profile",
+            verificationState = BypassApproachVerificationState.NOT_EVALUATED,
+            validatedScanCount = 0,
+            validatedSuccessCount = 0,
+            validatedSuccessRate = null,
+            lastValidatedResult = null,
+            usageCount = 0,
+            totalRuntimeDurationMs = 0L,
+            recentRuntimeHealth = BypassRuntimeHealthSummary(),
+            lastUsedAt = null,
+        )
+        for (tag in listOf("ar", "ru")) {
+            strings.select(tag)
+            val expected = strings.getString(R.string.diagnostics_profile_connectivity_title)
+            assertNotEquals(tag, "Default diagnostics", expected)
+            assertEquals(
+                tag,
+                expected,
+                summary(BypassApproachKind.Profile, "Default diagnostics").localizedDisplayName(strings),
+            )
+            assertEquals("My Ω", summary(BypassApproachKind.Profile, "My Ω").localizedDisplayName(strings))
+            assertEquals(
+                "Default diagnostics",
+                summary(BypassApproachKind.Strategy, "Default diagnostics").localizedDisplayName(strings),
+            )
         }
     }
 
