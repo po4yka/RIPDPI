@@ -183,7 +183,7 @@ Defined solely in `BuiltInDnsProviders` (`DnsResolverConfig.kt`); the Rust crate
 has no equivalent default-ordering constant, it just resolves whatever endpoint
 list it is given. Do not silently reorder the built-in providers or change the
 default provider unless the user explicitly asks for it -- ordering changes
-propagate to `CriticalResolverChain` and `EncryptedDnsPathSelection` and are
+propagate to `EncryptedDnsPathSelection` and are
 compatibility-sensitive for existing remembered-policy state.
 
 ### DNS.SB TLS server name

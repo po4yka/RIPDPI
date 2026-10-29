@@ -58,8 +58,8 @@ which subset runs and in what order. Runners for stages not in
 Each probe result is optionally mapped to a structured `ProbeObservation` via
 `observations.rs`. The observation includes an `ObservationKind` discriminator
 and a fact struct specific to the probe type (e.g., `DnsObservationFact`,
-`DomainObservationFact`). Observations power the classifier
-(`DiagnosticsFindingProjector`) which produces `Diagnosis` entries.
+`DomainObservationFact`). Observations are the engine report evidence that
+the Rust classifier turns into `Diagnosis` entries.
 
 The analysis version is tracked as `ENGINE_ANALYSIS_VERSION = "observations_v1"`
 and included in the report as `engine_analysis_version`.

@@ -126,10 +126,6 @@ internal data class ScanPlan(
     val confirmGoodDpiEvidence: ConfirmGoodDpiEvidence? = null,
 )
 
-internal data class RawScanReport(
-    val report: EngineScanReportWire,
-)
-
 internal data class DerivedScanReport(
     val report: EngineScanReportWire,
 )

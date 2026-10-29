@@ -62,16 +62,6 @@ class TlsKeylogWriter(
     }
 }
 
-data class TlsKeylogSettings(
-    val path: String? = null,
-    val debugModeEnabled: Boolean = false,
-) {
-    val visibleInSettings: Boolean = debugModeEnabled
-
-    fun effectiveTlsKeylogPath(privacyModeEnabled: Boolean): String? =
-        path.takeUnless { privacyModeEnabled || it.isNullOrBlank() }
-}
-
 class TlsKeylogPathValidator(
     private val appFilesDir: File,
     private val safRoots: List<File> = emptyList(),
