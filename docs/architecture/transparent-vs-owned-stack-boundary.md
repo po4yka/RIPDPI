@@ -1,5 +1,7 @@
 # Transparent vs Owned-Stack Mode Boundary
 
+> **Status: historical.** The Kotlin types this document describes (`TransportMode`, `TransportPolicyStub`, `ArmStats`, the direct-mode orchestrator and `TransportModeBoundaryTest`) were never wired into production and were removed on 2026-10-29. The mode distinction itself still applies; no code currently enforces it through these types.
+
 ## Overview
 
 RIPDPI operates in two distinct product modes that must never be conflated:
