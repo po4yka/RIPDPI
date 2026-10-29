@@ -40,9 +40,9 @@ class SubscriptionReserveRefreshTest : SubscriptionRefreshTestSupport() {
         }
 
     @Test
-    fun `accepted refresh replaces removed reserves and reports only usable members`() =
+    fun `fully supported refresh replaces removed reserves`() =
         runTest {
-            server.enqueue(response(200, "$trojanPayload\n$unsupportedPayload"))
+            server.enqueue(response(200, trojanPayload))
             val fixture = fixture(now = 3_000L, initialMembers = listOf(reserve("removed")))
 
             val result = fixture.coordinator.refresh("subscription-group")

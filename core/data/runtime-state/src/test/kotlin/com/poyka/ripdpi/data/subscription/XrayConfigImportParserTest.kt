@@ -410,7 +410,7 @@ class XrayConfigImportParserTest {
     fun `plain tls xhttp share link maps to native Vless`() {
         val link =
             "vless://$uuid@203.0.113.4:443?security=tls&sni=cdn.example" +
-                "&type=xhttp&path=&host=&flow=&fp=firefox#plain"
+                "&type=xhttp&path=&host=&flow=&fp=firefox&mode=stream-up#plain"
 
         val profile = translate(link).profiles.single() as ProxyProfile.Vless
 
@@ -556,6 +556,90 @@ class XrayConfigImportParserTest {
             assertTrue(!result.skipped.toString().contains(fixtureValue))
         }
     }
+
+    @Test
+    fun `flat password settings retain all supported native fields`() {
+        val legacy = translate(supportedRealityConfig()).profiles.single() as ProxyProfile.VlessReality
+        val modern = translate(flatRealityConfig()).profiles.single() as ProxyProfile.VlessReality
+
+        assertEquals(legacy.copy(id = modern.id), modern)
+    }
+
+    @Test
+    fun `modern raw REALITY and TLS XHTTP settings retain endpoint and transport`() {
+        val reality =
+            translate(
+                """{"outbounds":[{"protocol":"vless",
+                  "settings":{"address":"edge.example","port":8443,"id":"$uuid","flow":"xtls-rprx-vision"},
+                  "streamSettings":{"method":"raw","security":"reality",
+                    "realitySettings":{"password":"$pbk","serverName":"target.example","shortId":"abcd"}}}]}""",
+            ).profiles.single() as ProxyProfile.VlessReality
+        assertEquals("edge.example", reality.server)
+        assertEquals(8443, reality.serverPort)
+        assertEquals("target.example", reality.serverName)
+        assertEquals("xtls-rprx-vision", reality.flow)
+        assertNull(reality.xhttpPath)
+
+        val tls =
+            translate(
+                """{"outbounds":[{"protocol":"vless",
+                  "settings":{"address":"edge.example","port":8443,"id":"$uuid","flow":"","encryption":"none"},
+                  "streamSettings":{"method":"xhttp","security":"tls","tlsSettings":{"serverName":"target.example"},
+                    "xhttpSettings":{"path":"/tls","host":"cdn.example","mode":"stream-up"}}}]}""",
+            ).profiles.single() as ProxyProfile.Vless
+        assertEquals("edge.example", tls.server)
+        assertEquals(8443, tls.serverPort)
+        assertEquals("target.example", tls.serverName)
+        assertEquals("/tls", tls.xhttpPath)
+        assertEquals("cdn.example", tls.xhttpHost)
+        assertEquals("stream-up", tls.xhttpMode)
+        assertEquals("", tls.flow)
+    }
+
+    @Test
+    fun `equal REALITY key aliases import in either settings shape`() {
+        for (config in listOf(supportedRealityConfig(), flatRealityConfig())) {
+            val both =
+                if (config.contains("\"password\":")) {
+                    config.replace("\"password\":", "\"publicKey\":\"$pbk\",\"password\":")
+                } else {
+                    config.replace("\"publicKey\":", "\"password\":\"$pbk\",\"publicKey\":")
+                }
+            val profile = translate(both).profiles.single() as ProxyProfile.VlessReality
+            assertEquals(pbk, profile.realityPublicKey)
+        }
+    }
+
+    @Test
+    fun `ambiguous or malformed modern settings reject without exposing imported values`() {
+        val base = flatRealityConfig()
+        val fixtureValue = "private-test-value"
+        val variants =
+            listOf(
+                base.replace("\"password\":", "\"publicKey\":\"$fixtureValue\",\"password\":"),
+                base.replace("\"password\":\"$pbk\"", "\"password\":\"\""),
+                base.replace("\"password\":\"$pbk\"", "\"password\":9"),
+                base.replace("\"password\":", "\"publicKey\":\"\",\"password\":"),
+                base.replace("\"address\":", "\"vnext\":[],\"address\":"),
+                base.replace("\"address\":", "\"newOption\":\"$fixtureValue\",\"address\":"),
+                base.replace("\"id\":\"$uuid\"", "\"id\":23"),
+                base.replace("\"encryption\":\"none\"", "\"encryption\":\"$fixtureValue\""),
+                base.replace("\"password\":", "\"mldsa65Verify\":\"$fixtureValue\",\"password\":"),
+            )
+        variants.forEachIndexed { index, config ->
+            val result = translate(config)
+            assertTrue("variant $index must not produce a downgraded profile", result.profiles.isEmpty())
+            assertEquals(1, result.skipped.size)
+            assertTrue(!result.skipped.toString().contains(fixtureValue))
+        }
+    }
+
+    private fun flatRealityConfig(): String =
+        """{ "outbounds": [ { "tag":"supported node", "protocol":"vless",
+          "settings":{"address":"h.example","port":443,"id":"$uuid","encryption":"none","flow":"","level":0,"email":"label@example"},
+          "streamSettings":{"method":"xhttp","security":"reality",
+            "realitySettings":{"password":"$pbk","serverName":"cdn.example","shortId":"abcd","fingerprint":"firefox","show":false},
+            "xhttpSettings":{"path":"/supported","host":"cdn.example","mode":"stream-one"}}}]}"""
 
     private fun supportedRealityConfig(): String =
         """{ "outbounds": [ { "tag":"supported node", "protocol":"vless",

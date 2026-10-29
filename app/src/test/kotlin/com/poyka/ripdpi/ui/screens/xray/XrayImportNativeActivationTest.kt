@@ -35,18 +35,21 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import com.poyka.ripdpi.testsupport.NoOpProfileMutationCoordinator
 import com.poyka.ripdpi.ui.screens.proxyimport.NativeRelayProfileActivator
+import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Rule
 import org.junit.Test
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore as DurableXrayProviderSelectionStore
 
@@ -478,6 +481,72 @@ class XrayImportNativeActivationTest {
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class XrayProviderPersistenceTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    @Test
+    fun `rejected native import preserves profiles credentials and active selection`() =
+        runTest {
+            val groups = FakeProxyGroupRepository()
+            val profiles = FakeRelayProfileStore()
+            val credentials = FakeRelayCredentialStore()
+            val settings = FakeAppSettingsRepository()
+            val savedProfile = xrayProfile()
+            val durableProfiles = FakeDurableXrayProfileStore(seed = DefaultXrayProfileId to savedProfile)
+            val durableSelection =
+                FakeDurableXrayProviderSelectionStore(
+                    XrayProviderSelectionRecord(
+                        providerKind = XrayProviderSelectionRecord.ProviderKindXray,
+                        activeProfileId = DefaultXrayProfileId,
+                    ),
+                )
+            val selection = XrayProviderSelectionStore()
+            val mutations =
+                FakeXrayProfileMutationCoordinator(
+                    settingsRepository = settings,
+                    durableProfileStore = durableProfiles,
+                    durableSelectionStore = durableSelection,
+                    relayProfileStore = profiles,
+                    relayCredentialStore = credentials,
+                )
+            val activator = NativeRelayProfileActivator(groups, RelayProfileActivator(mutations))
+            val initial = firstProfile("trojan://saved-fixture@prior.example:8443#Saved")
+            activator.activate(
+                activator.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation),
+                initial,
+            )
+            val beforeSettings = settings.snapshot()
+            val beforeGroups = groups.list()
+            val beforeProfiles = profiles.list()
+            val beforeCredentials = credentials.load(DefaultRelayProfileId)
+            val beforeSelection = durableSelection.current()
+            val vm =
+                XrayProfileImportViewModel(
+                    persistence(settings, durableProfiles, durableSelection, selection, activator, mutations),
+                )
+            advanceUntilIdle()
+            vm.selectOption(XrayServiceModeOption.NativeProxy)
+            vm.onRawInputChange(
+                "vless://$uuid@edge.example:443?security=reality&pbk=$pbk&sni=target.example&type=grpc",
+            )
+            vm.validate()
+            vm.confirm()
+            advanceUntilIdle()
+
+            assertFalse(vm.uiState.value.canFinish)
+            assertFalse(vm.uiState.value.acceptedConfigReady)
+            assertTrue(
+                vm.uiState.value.skipped
+                    .isNotEmpty(),
+            )
+            assertEquals(beforeSettings, settings.snapshot())
+            assertEquals(beforeGroups, groups.list())
+            assertEquals(beforeProfiles, profiles.list())
+            assertEquals(beforeCredentials, credentials.load(DefaultRelayProfileId))
+            assertEquals(beforeSelection, durableSelection.current())
+            assertEquals(savedProfile, durableProfiles.load(DefaultXrayProfileId))
+        }
+
     private fun xrayProfile(): XrayProfile =
         XrayProfile(
             name = "tokyo",

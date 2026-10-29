@@ -235,15 +235,15 @@ object XrayConfigImportParser {
         tag: String?,
         groupId: String,
     ): OutboundMapping {
-        val vnext = (settings?.get("vnext") as? JsonArray)?.firstObject()
-        val user = (vnext?.get("users") as? JsonArray)?.firstObject()
-        val address = vnext?.string("address")
-        val port = vnext?.int("port")
+        val peer = settings.nativeVlessPeer()
+        val user = settings.nativeVlessUser()
+        val address = peer?.string("address")
+        val port = peer?.int("port")
         val uuid = user?.string("id")
         val security = stream?.string("security")?.lowercase()
         val reality = stream?.get("realitySettings") as? JsonObject
         val tls = stream?.get("tlsSettings") as? JsonObject
-        val publicKey = reality?.string("publicKey")
+        val publicKey = reality.nativeRealityPublicKey()
         val isReality = security == "reality" || !publicKey.isNullOrBlank()
         val transport = stream.vlessTransport()
         val fingerprint = reality?.string("fingerprint") ?: tls?.string("fingerprint")
@@ -649,6 +649,8 @@ private fun JsonArray.firstObject(): JsonObject? = firstOrNull() as? JsonObject
 
 private fun JsonObject.string(key: String): String? =
     (this[key] as? JsonPrimitive)?.contentOrNull?.takeIf { it.isNotBlank() }
+
+private fun JsonObject?.nativeRealityPublicKey(): String? = this?.string("password") ?: this?.string("publicKey")
 
 private fun JsonObject.rawString(key: String): String? = (this[key] as? JsonPrimitive)?.contentOrNull
 

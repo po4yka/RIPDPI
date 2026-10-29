@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.subscription
 
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.SelectorFailover
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.SubscriptionLifecycleState
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
@@ -8,6 +9,7 @@ import com.poyka.ripdpi.data.routing.PackageRoutingAction
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.routing.PackageRoutingRuleOrigin
 import com.poyka.ripdpi.data.subscription.MaxSubscriptionPayloadBytes
+import com.poyka.ripdpi.data.subscription.WireGuardIniSubscriptionParser
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
@@ -55,6 +57,130 @@ class SubscriptionRefreshCoordinatorTest : SubscriptionRefreshTestSupport() {
                     .single()
                     .members.size,
             )
+        }
+
+    @Test
+    fun `mixed supported and rejected URI refresh retains the complete prior group`() =
+        runTest {
+            val key = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8"
+            val valid =
+                "vless://550e8400-e29b-41d4-a716-446655440000@relay.example:443" +
+                    "?security=reality&pbk=$key&sni=target.example&type=tcp#valid"
+            val prior =
+                ProxyProfile.Trojan(
+                    id = "prior-member",
+                    groupId = "subscription-group",
+                    displayName = "Saved node",
+                    server = "prior.example",
+                    serverPort = 8443,
+                    password = "fixture-password",
+                )
+            val rule =
+                PackageRoutingRule(
+                    packageName = "com.saved.app",
+                    action = PackageRoutingAction.BYPASS,
+                    origin = PackageRoutingRuleOrigin.Subscription("subscription-group"),
+                )
+            val fixture = fixture(now = 3_000L, initialRules = listOf(rule), initialMembers = listOf(prior))
+            fixture.repository.update(
+                fixture.repository.list().single().copy(
+                    isSelector = true,
+                    failover = SelectorFailover("https://saved.example/probe", 600, 50),
+                    cloudflareMemberIds = setOf(prior.id),
+                ),
+            )
+            val before = fixture.repository.list().single()
+            val beforeSubscription = checkNotNull(before.subscription)
+            server.enqueue(response(200, valid + "\n" + valid.replace("type=tcp", "type=grpc")))
+
+            val result = fixture.coordinator.refresh(before.id)
+            val after = fixture.repository.list().single()
+
+            assertTrue(result is SubscriptionRefreshResult.Failed)
+            assertEquals(SubscriptionRefreshFailure.PARSE_ERROR, (result as SubscriptionRefreshResult.Failed).failure)
+            assertEquals(
+                before,
+                after.copy(subscription = before.subscription, ownershipGeneration = before.ownershipGeneration),
+            )
+            assertEquals(
+                before.subscription,
+                after.subscription?.copy(
+                    lastRefreshAttemptAtEpochMillis = beforeSubscription.lastRefreshAttemptAtEpochMillis,
+                    lastRefreshFailure = beforeSubscription.lastRefreshFailure,
+                ),
+            )
+            assertTrue(
+                fixture.awgRepository
+                    .observeProfiles()
+                    .first()
+                    .isEmpty(),
+            )
+
+            server.enqueue(response(200, valid.replace("type=tcp", "type=grpc")))
+            assertTrue(fixture.coordinator.refresh(before.id) is SubscriptionRefreshResult.Failed)
+            assertEquals(
+                after,
+                fixture.repository
+                    .list()
+                    .single()
+                    .copy(ownershipGeneration = after.ownershipGeneration),
+            )
+
+            server.enqueue(response(200, valid))
+            assertTrue(fixture.coordinator.refresh(before.id) is SubscriptionRefreshResult.Updated)
+            val supported =
+                fixture.repository
+                    .list()
+                    .single()
+                    .members
+                    .single() as ProxyProfile.VlessReality
+            assertEquals("relay.example", supported.server)
+            assertEquals(key, supported.realityPublicKey)
+            assertEquals("target.example", supported.serverName)
+        }
+
+    @Test
+    fun `mixed rejected sing-box and Clash nodes cannot replace prior members`() =
+        runTest {
+            val payloads =
+                listOf(
+                    """{"outbounds":[
+                      {"type":"shadowsocks","tag":"valid","server":"relay.example","server_port":443,
+                       "method":"aes-256-gcm","password":"fixture"},
+                      {"type":"vless","tag":"unsupported","server":"relay.example","server_port":443,
+                       "uuid":"550e8400-e29b-41d4-a716-446655440000","transport":{"type":"grpc"}}]}""",
+                    """proxies:
+                      |  - {name: valid, type: trojan, server: relay.example, port: 443, password: fixture}
+                      |  - {name: unsupported, type: vmess, server: relay.example, port: 443}
+                    """.trimMargin(),
+                )
+            for (payload in payloads) {
+                val prior =
+                    ProxyProfile.Trojan(
+                        id = "prior-member",
+                        groupId = "subscription-group",
+                        displayName = "Saved node",
+                        server = "prior.example",
+                        serverPort = 8443,
+                        password = "fixture-password",
+                    )
+                val fixture = fixture(now = 3_000L, initialMembers = listOf(prior))
+                val before = fixture.repository.list().single()
+                server.enqueue(response(200, payload))
+
+                val result = fixture.coordinator.refresh(before.id)
+                val after = fixture.repository.list().single()
+
+                assertTrue(result is SubscriptionRefreshResult.Failed)
+                assertEquals(
+                    SubscriptionRefreshFailure.PARSE_ERROR,
+                    (result as SubscriptionRefreshResult.Failed).failure,
+                )
+                assertEquals(
+                    before,
+                    after.copy(subscription = before.subscription, ownershipGeneration = before.ownershipGeneration),
+                )
+            }
         }
 
     @Test
@@ -225,6 +351,57 @@ class SubscriptionRefreshCoordinatorTest : SubscriptionRefreshTestSupport() {
                     .single()
                     .members,
             )
+        }
+
+    @Test
+    fun `mixed valid and malformed WireGuard peers preserve saved subscription profiles`() =
+        runTest {
+            val key = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
+            for (obfuscation in listOf("", "Jc = 3\nS1 = 25")) {
+                val fixture = fixture(now = 3_000L)
+                server.enqueue(response(200, AwgOnlyPackageRoutePayload))
+                assertTrue(fixture.coordinator.refresh("subscription-group") is SubscriptionRefreshResult.Updated)
+                val before = fixture.repository.list().single()
+                val savedProfiles = fixture.awgRepository.observeProfiles().first()
+                assertEquals(1, savedProfiles.size)
+                val valid =
+                    """[Interface]
+                    |PrivateKey = $key
+                    |Address = 10.8.0.2/32
+                    |$obfuscation
+                    |[Peer]
+                    |PublicKey = $key
+                    |AllowedIPs = 0.0.0.0/0
+                    |Endpoint = fresh.example:51820
+                    """.trimMargin()
+                val mixed = valid + "\n[Peer]\nPublicKey = $key\nAllowedIPs = 0.0.0.0/0\n"
+                val parsed = WireGuardIniSubscriptionParser.parse(mixed, before.id)
+                assertEquals(1, parsed.profiles.size + parsed.amneziaWgProfiles.size)
+                assertEquals(1, parsed.warnings.size)
+                server.enqueue(response(200, mixed))
+
+                val result = fixture.coordinator.refresh(before.id)
+                val after = fixture.repository.list().single()
+
+                assertEquals(SubscriptionRefreshResult.Failed(SubscriptionRefreshFailure.PARSE_ERROR, false), result)
+                assertEquals(
+                    before,
+                    after.copy(subscription = before.subscription, ownershipGeneration = before.ownershipGeneration),
+                )
+                assertEquals(before.subscription?.lastUpdated, after.subscription?.lastUpdated)
+                assertEquals(savedProfiles, fixture.awgRepository.observeProfiles().first())
+
+                val control = fixture(now = 3_000L)
+                server.enqueue(response(200, valid))
+                assertTrue(control.coordinator.refresh(before.id) is SubscriptionRefreshResult.Updated)
+                assertEquals(
+                    1,
+                    control.awgRepository
+                        .observeProfiles()
+                        .first()
+                        .size,
+                )
+            }
         }
 
     @Test

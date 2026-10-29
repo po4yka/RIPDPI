@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data.subscription
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
+import kotlinx.serialization.json.intOrNull
 
 /** Reject settings that cannot survive conversion to a native relay profile. */
 internal fun unsupportedNativeVlessOptions(
@@ -10,20 +11,54 @@ internal fun unsupportedNativeVlessOptions(
     settings: JsonObject?,
     stream: JsonObject?,
     transport: String?,
-): String? {
-    val peers = settings?.get("vnext") as? JsonArray
-    val peer = peers?.firstOrNull() as? JsonObject
-    val users = peer?.get("users") as? JsonArray
-    val user = users?.firstOrNull() as? JsonObject
-    return when {
+): String? =
+    when {
         !outbound.hasOnly("tag", "protocol", "settings", "streamSettings") -> "VLESS outbound options"
-        !settings.hasOnly("vnext") || peers?.size != 1 -> "VLESS settings"
-        !peer.hasOnly("address", "port", "users") || users?.size != 1 -> "VLESS peers"
-        !user.hasOnly("id", "flow", "encryption", "level", "email") -> "VLESS user options"
-        !user.hasStringFields("id", "flow", "encryption", "email") -> "VLESS user options"
-        user?.get("encryption")?.let { it != JsonPrimitive("none") } == true -> "VLESS Encryption"
-        user?.get("level")?.let { it != JsonPrimitive(0) } == true -> "VLESS user policy"
-        else -> unsupportedStreamOptions(stream, transport)
+        else -> unsupportedVlessSettings(settings) ?: unsupportedStreamOptions(stream, transport)
+    }
+
+private fun unsupportedVlessSettings(settings: JsonObject?): String? {
+    val peers = settings?.get("vnext") as? JsonArray
+    val legacy = settings?.containsKey("vnext") == true
+    val peer = settings.nativeVlessPeer()
+    val users = peer?.get("users") as? JsonArray
+    val user = settings.nativeVlessUser()
+    return when {
+        legacy && (!settings.hasOnly("vnext") || peers?.size != 1) -> {
+            "VLESS settings"
+        }
+
+        !legacy && !settings.hasOnly("address", "port", "id", "flow", "encryption", "level", "email") -> {
+            "VLESS settings"
+        }
+
+        legacy && (!peer.hasOnly("address", "port", "users") || users?.size != 1) -> {
+            "VLESS peers"
+        }
+
+        !peer.hasStringFields("address") || !peer.hasIntegerPort() -> {
+            "VLESS endpoint"
+        }
+
+        legacy && !user.hasOnly("id", "flow", "encryption", "level", "email") -> {
+            "VLESS user options"
+        }
+
+        !user.hasStringFields("id", "flow", "encryption", "email") -> {
+            "VLESS user options"
+        }
+
+        user?.get("encryption")?.let { it != JsonPrimitive("none") } == true -> {
+            "VLESS Encryption"
+        }
+
+        user?.get("level")?.let { it != JsonPrimitive(0) } == true -> {
+            "VLESS user policy"
+        }
+
+        else -> {
+            null
+        }
     }
 }
 
@@ -79,10 +114,34 @@ private fun unsupportedStreamOptions(
     }
 }
 
+internal fun JsonObject?.nativeVlessPeer(): JsonObject? =
+    if (this?.containsKey("vnext") == true) {
+        (this["vnext"] as? JsonArray)?.firstOrNull() as? JsonObject
+    } else {
+        this
+    }
+
+internal fun JsonObject?.nativeVlessUser(): JsonObject? =
+    if (this?.containsKey("vnext") == true) {
+        (nativeVlessPeer()?.get("users") as? JsonArray)?.firstOrNull() as? JsonObject
+    } else {
+        this
+    }
+
 private fun supportsRealityOptions(reality: JsonObject?): Boolean =
-    reality.hasOnly("publicKey", "serverName", "shortId", "fingerprint", "show") &&
-        reality.hasStringFields("publicKey", "serverName", "shortId", "fingerprint") &&
+    reality.hasOnly("password", "publicKey", "serverName", "shortId", "fingerprint", "show") &&
+        reality.hasStringFields("password", "publicKey", "serverName", "shortId", "fingerprint") &&
+        listOf("password", "publicKey").all { field ->
+            reality?.get(field)?.let { (it as? JsonPrimitive)?.content?.isNotBlank() == true } != false
+        } &&
+        (
+            reality?.containsKey("password") != true || reality.containsKey("publicKey") != true ||
+                reality["password"] == reality["publicKey"]
+        ) &&
         reality?.get("show") in setOf(null, JsonPrimitive(false))
+
+private fun JsonObject?.hasIntegerPort(): Boolean =
+    (this?.get("port") as? JsonPrimitive)?.let { !it.isString && it.intOrNull != null } == true
 
 private fun supportsTlsOptions(tls: JsonObject?): Boolean =
     tls.hasOnly("serverName", "fingerprint", "allowInsecure") &&

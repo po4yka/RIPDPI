@@ -72,7 +72,7 @@ data class XrayImportUiState(
         get() =
             restoreStatus == XrayImportRestoreStatus.Ready &&
                 !persisting &&
-                (!requiresXrayProfile || acceptedConfigReady)
+                ((!requiresXrayProfile && rawInput.isBlank()) || acceptedConfigReady)
 }
 
 /**

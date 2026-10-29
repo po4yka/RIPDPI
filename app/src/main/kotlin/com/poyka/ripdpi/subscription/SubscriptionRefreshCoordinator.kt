@@ -340,6 +340,7 @@ class SubscriptionRefreshCoordinator private constructor(
                         } else {
                             null
                         }
+                    require(wireGuard?.warnings.isNullOrEmpty())
                     val wireGuardCount =
                         singBox.orEmptyAwgCount() +
                             wireGuard?.let { it.amneziaWgProfiles.size + it.profiles.size }.orZero()
@@ -480,16 +481,11 @@ class SubscriptionRefreshCoordinator private constructor(
         val selector = SelectorUrltestGroupImport.import(body, groupId)
         // A recognised bundle must not fall through to AWG-only success after
         // its relay topology or payload policy fails: that would erase the last working members.
-        val rejectedTopology = singBox != null && selector is SelectorUrltestImportResult.Error
         val members =
             (selector as? SelectorUrltestImportResult.Success)
                 ?.let { it.group?.members ?: it.profiles }
                 .orEmpty()
-                .filterNot { it is ProxyProfile.RawConfig }
-        val hasRelayCandidates = singBox?.let { it.profiles.isNotEmpty() || it.skipped.isNotEmpty() } == true
-        if (rejectedTopology || (hasRelayCandidates && members.isEmpty())) {
-            return null
-        }
+        if (rejectsRelayBundle(singBox, selector, members)) return null
         var parsed =
             if (selector is SelectorUrltestImportResult.Success && members.isNotEmpty()) {
                 RefreshOutcome.Updated(
@@ -503,15 +499,9 @@ class SubscriptionRefreshCoordinator private constructor(
             } else {
                 null
             }
-        if (parsed == null && ClashSubscriptionParser.looksLikeClash(body)) {
-            val clash = ClashSubscriptionParser.parse(body, groupId)
-            if (clash.profiles.isNotEmpty()) parsed = RefreshOutcome.Updated(clash.profiles, null)
+        if (parsed == null && wireGuardCount == 0) {
+            parsed = parseSimpleProfiles(body, groupId)
         }
-        if (parsed == null) {
-            val base64 = Base64SubscriptionParser.parse(body, groupId)
-            if (base64.profiles.isNotEmpty()) parsed = RefreshOutcome.Updated(base64.profiles, null)
-        }
-        parsed = supportedProfileOutcome(parsed)
         if (parsed == null && wireGuardCount > 0) {
             parsed =
                 RefreshOutcome.Updated(
@@ -525,13 +515,33 @@ class SubscriptionRefreshCoordinator private constructor(
         return parsed
     }
 
-    private fun supportedProfileOutcome(parsed: RefreshOutcome.Updated?): RefreshOutcome.Updated? =
-        parsed?.let { outcome ->
-            outcome.profiles
-                .filterNot { it is ProxyProfile.RawConfig }
-                .takeIf { it.isNotEmpty() }
-                ?.let { outcome.copy(profiles = it) }
-        }
+    private fun rejectsRelayBundle(
+        singBox: SingBoxParseResult.Success?,
+        selector: SelectorUrltestImportResult,
+        members: List<ProxyProfile>,
+    ): Boolean {
+        if (singBox == null) return false
+        val rejectedNodes = singBox.skipped.isNotEmpty() || singBox.profiles.any { it is ProxyProfile.RawConfig }
+        val missingMembers = singBox.profiles.isNotEmpty() && members.isEmpty()
+        return selector is SelectorUrltestImportResult.Error || rejectedNodes || missingMembers
+    }
+
+    private fun parseSimpleProfiles(
+        body: String,
+        groupId: String,
+    ): RefreshOutcome.Updated? {
+        val profiles =
+            if (ClashSubscriptionParser.looksLikeClash(body)) {
+                val clash = ClashSubscriptionParser.parse(body, groupId)
+                clash.takeIf { it.errors.isEmpty() }?.profiles.orEmpty()
+            } else {
+                val base64 = Base64SubscriptionParser.parse(body, groupId)
+                base64.takeIf { it.warnings.isEmpty() }?.profiles.orEmpty()
+            }
+        return profiles
+            .takeIf { it.isNotEmpty() && it.none { node -> node is ProxyProfile.RawConfig } }
+            ?.let { RefreshOutcome.Updated(it, null) }
+    }
 
     private fun parsedWireGuardProfiles(
         singBox: SingBoxParseResult.Success?,
