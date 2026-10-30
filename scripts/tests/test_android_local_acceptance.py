@@ -281,6 +281,20 @@ class EvidenceTests(unittest.TestCase):
                 with self.assertRaises(runner.Blocked):
                     runner.owned_instrumentation_component(listing)
 
+    def test_leak_scan_counts_app_output_and_skips_fixture_files(self):
+        with tempfile.TemporaryDirectory() as raw:
+            out = Path(raw)
+            (out / "naiveproxy").mkdir()
+            (out / "naiveproxy/Caddyfile").write_text("secret-pw 10.0.2.2:8443")
+            (out / "android-logcat.log").write_text("ok secret-pw\nsecret-pw 10.0.2.2:8443")
+            (out / "clean.json").write_text("{}")
+            scan = runner.scan_for_leaks(
+                out, {"pw": "secret-pw", "dest": "10.0.2.2:8443"}, ("naiveproxy",)
+            )
+            self.assertEqual({"pw": 2, "dest": 1}, scan["totals"])
+            self.assertEqual({"android-logcat.log", "clean.json"}, set(scan["files"]))
+            self.assertFalse(scan["clean"])
+
     def test_naiveproxy_scenario_takes_the_binary_the_lab_supplies(self):
         base = [
             "runner",

@@ -567,6 +567,24 @@ def start_migration_peer(
     return manifest
 
 
+# Fixture-owned files hold the password and endpoint by design; the scan covers app output only.
+NAIVE_SCAN_EXCLUDED = ("naiveproxy", "naiveproxy-ca", "peer-manifest.json", "peer.log", "leak-scan.json")
+
+
+def scan_for_leaks(out: Path, needles: dict[str, str], excluded: tuple[str, ...]) -> dict:
+    """Count each needle per evidence file. `excluded` names top-level entries of `out` the fixture owns."""
+    counts: dict[str, dict[str, int]] = {}
+    for path in sorted(out.rglob("*")):
+        relative = path.relative_to(out)
+        if not path.is_file() or relative.parts[0] in excluded:
+            continue
+        data = path.read_bytes()
+        found = {name: data.count(value.encode()) for name, value in needles.items()}
+        counts[str(relative)] = found
+    totals = {name: sum(file[name] for file in counts.values()) for name in needles}
+    return {"files": counts, "totals": totals, "clean": not any(totals.values())}
+
+
 class NaiveProcessSampler:
     """Sample `ps -A -o NAME,ARGS` during the NaiveProxy phases and keep the distinct client lines."""
 
@@ -1873,6 +1891,27 @@ def main() -> int:
         report["peer_diagnostics"] = peer_diagnostics.capture(out)
         if installed:
             capture_scoped_logcat(adb, out, report["logcat_scope"])
+            if naiveproxy is not None and report["status"] != "blocked":
+                try:
+                    scan = scan_for_leaks(
+                        out,
+                        {
+                            "proxy_password": naiveproxy.password,
+                            "destination": f"{naiveproxy.advertise_host}:{naiveproxy.server_port}",
+                        },
+                        NAIVE_SCAN_EXCLUDED,
+                    )
+                    (out / "leak-scan.json").write_text(json.dumps(scan, indent=2) + "\n")
+                    health = re.findall(
+                        r"NaiveProxyHealth.*phase=(\S+) health=(\S+)",
+                        (out / "android-logcat.log").read_text(errors="replace"),
+                    )
+                    (out / "naive-health.json").write_text(json.dumps(health, indent=2) + "\n")
+                    if not scan["clean"] and report["status"] == "passed":
+                        raise RuntimeError(f"leak scan found a secret or destination: {scan['totals']}")
+                except Exception as error:
+                    report["status"] = "failed"
+                    report["error"] = str(error)
             for package in (test_package, PACKAGE):
                 try:
                     command(

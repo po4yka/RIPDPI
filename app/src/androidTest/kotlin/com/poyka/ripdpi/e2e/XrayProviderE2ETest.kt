@@ -1007,6 +1007,8 @@ class XrayProviderE2ETest {
         try {
             selectorActive.clearStandalone()
 
+            fun relayHealth(): String = state.telemetry.value.relayTelemetry.health
+
             // Each failure phase must leave neither the server nor the destination with a receipt.
             fun assertFailsClosed(
                 label: String,
@@ -1034,6 +1036,9 @@ class XrayProviderE2ETest {
                 // Neither the server nor the destination saw the flow: no direct bypass.
                 assertEquals(connectsBefore, readControl("naive-receipts").getInt("connects"))
                 assertEquals(destinationBefore, readControl("transport-receipts").getJSONArray("receipts").length())
+                val health = relayHealth()
+                Log.i("NaiveProxyHealth", "phase=$label health=$health")
+                assertTrue("$label must not report healthy: $health", health != "healthy")
             }
 
             // An empty pin selects the upstream client; a non-empty pin selects the Rust helper.
@@ -1063,6 +1068,13 @@ class XrayProviderE2ETest {
             // The runner samples the process list during each phase and checks which executable ran.
             startNaive("")
             assertRoutedTransfer("naive-upstream")
+            // Health turns healthy only after an upstream open succeeded; allow a bounded wait for the projection.
+            try {
+                awaitUntil(timeoutMs = 15_000) { relayHealth() == "healthy" }
+            } finally {
+                Log.i("NaiveProxyHealth", "phase=naive-upstream health=${relayHealth()}")
+            }
+            assertEquals("healthy", relayHealth())
             assertFailsClosed("naive-upstream-wrong-password") {
                 startNaive("", password = "wrong-" + manifest.getString("naivePassword").reversed())
             }
