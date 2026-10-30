@@ -12,6 +12,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasScrollToIndexAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -253,6 +254,33 @@ class LogsViewportTest {
             assertEquals(1, clearCount)
         }
         composeRule.onNodeWithTag(RipDpiTestTags.logsEntry("event-0")).assertIsDisplayed()
+    }
+
+    @Test
+    @Config(qualifiers = "en-w1300dp-h900dp-mdpi")
+    fun `expanded window shows the selected entry beside the stream`() {
+        val entry =
+            LogEntry(
+                id = "pane-entry",
+                createdAtMs = 1L,
+                timestamp = "12:34:56",
+                subsystem = LogSubsystem.Service,
+                severity = LogSeverity.Info,
+                message = "Service started",
+                source = "service",
+            )
+        composeRule.setContent {
+            RipDpiTheme {
+                TestLogsScreen(LogsUiState(logs = persistentListOf(entry), filteredLogs = persistentListOf(entry)))
+            }
+        }
+        composeRule.onNodeWithTag(RipDpiTestTags.LogsDetailPlaceholder).assertExists()
+
+        composeRule.onNodeWithTag(RipDpiTestTags.logsEntry(entry.id)).performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag(RipDpiTestTags.LogsDetailPane).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.logsEntry(entry.id)).assertIsSelected()
     }
 
     @Composable

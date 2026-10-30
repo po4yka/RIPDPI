@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.logs
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -16,6 +17,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -32,9 +34,11 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.tooling.preview.Preview
@@ -64,6 +68,7 @@ import com.poyka.ripdpi.ui.components.indicators.LogRowTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
+import com.poyka.ripdpi.ui.components.navigation.RipDpiListDetailLayout
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
@@ -73,6 +78,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.RipDpiWidthClass
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -124,41 +130,88 @@ internal fun LogsScreen(
     var showFilters by rememberSaveable { mutableStateOf(false) }
     var showActions by rememberSaveable { mutableStateOf(false) }
 
+    val twoPane = RipDpiThemeTokens.layout.widthClass >= RipDpiWidthClass.Expanded
+    var selectedEntryId by rememberSaveable { mutableStateOf<String?>(null) }
     val topBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    RipDpiScreenScaffold(
-        scrollBehavior = topBarScrollBehavior,
-        modifier =
-            modifier
-                .ripDpiTestTag(RipDpiTestTags.LogsScreen)
-                .fillMaxSize()
-                .ripDpiScreenBackground(),
-        snackbarHost = { RipDpiSnackbarHost(snackbarHostState) },
-        topBar = {
-            RipDpiTopAppBar(
-                scrollBehavior = topBarScrollBehavior,
-                title = stringResource(R.string.logs),
-                navigationIcon = RipDpiIcons.Back,
-                onNavigationClick = onBack,
+    val list: @Composable () -> Unit = {
+        RipDpiScreenScaffold(
+            scrollBehavior = topBarScrollBehavior,
+            modifier =
+                modifier
+                    .ripDpiTestTag(RipDpiTestTags.LogsScreen)
+                    .fillMaxSize()
+                    .ripDpiScreenBackground(),
+            snackbarHost = { RipDpiSnackbarHost(snackbarHostState) },
+            topBar = {
+                RipDpiTopAppBar(
+                    scrollBehavior = topBarScrollBehavior,
+                    title = stringResource(R.string.logs),
+                    navigationIcon = RipDpiIcons.Back,
+                    onNavigationClick = onBack,
+                )
+            },
+        ) { innerPadding ->
+            LogsContent(
+                uiState = uiState,
+                innerPadding = innerPadding,
+                onShowFilters = { showFilters = true },
+                onShowActions = { showActions = true },
+                onShowCopiedSnackbar = onShowCopiedSnackbar,
+                selectedEntryId = selectedEntryId.takeIf { twoPane },
+                onSelectEntry = if (twoPane) ({ selectedEntryId = it }) else null,
             )
-        },
-    ) { innerPadding ->
-        LogsContent(
-            uiState = uiState,
-            innerPadding = innerPadding,
-            onShowFilters = { showFilters = true },
-            onShowActions = { showActions = true },
-            onShowCopiedSnackbar = onShowCopiedSnackbar,
-        )
+        }
     }
+    if (twoPane) {
+        RipDpiListDetailLayout(
+            showList = true,
+            listPane = list,
+            detailPane = { LogsDetailPane(uiState.filteredLogs.firstOrNull { it.id == selectedEntryId }) },
+        )
+    } else {
+        list()
+    }
+    LogsSheets(
+        uiState = uiState,
+        showFilters = showFilters,
+        showActions = showActions,
+        onDismissFilters = { showFilters = false },
+        onDismissActions = { showActions = false },
+        onToggleSubsystemFilter = onToggleSubsystemFilter,
+        onToggleSeverityFilter = onToggleSeverityFilter,
+        onAutoScrollChanged = onAutoScrollChanged,
+        onActiveSessionOnlyChanged = onActiveSessionOnlyChanged,
+        onSaveLogs = onSaveLogs,
+        onShareSupportBundle = onShareSupportBundle,
+        onClearLogs = onClearLogs,
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LogsSheets(
+    uiState: LogsUiState,
+    showFilters: Boolean,
+    showActions: Boolean,
+    onDismissFilters: () -> Unit,
+    onDismissActions: () -> Unit,
+    onToggleSubsystemFilter: (LogSubsystem) -> Unit,
+    onToggleSeverityFilter: (LogSeverity) -> Unit,
+    onAutoScrollChanged: (Boolean) -> Unit,
+    onActiveSessionOnlyChanged: (Boolean) -> Unit,
+    onSaveLogs: () -> Unit,
+    onShareSupportBundle: () -> Unit,
+    onClearLogs: () -> Unit,
+) {
     if (showFilters) {
         RipDpiBottomSheet(
-            onDismissRequest = { showFilters = false },
+            onDismissRequest = { onDismissFilters() },
             title = stringResource(R.string.logs_filters_section),
             testTag = RipDpiTestTags.LogsFiltersSheet,
             primaryAction =
                 RipDpiSheetAction(
                     label = stringResource(R.string.app_picker_done),
-                    onClick = { showFilters = false },
+                    onClick = { onDismissFilters() },
                     testTag = RipDpiTestTags.LogsSheetDone,
                     wrapLabel = true,
                 ),
@@ -175,17 +228,17 @@ internal fun LogsScreen(
     if (showActions) {
         LogsActionsSheet(
             uiState = uiState,
-            onDismiss = { showActions = false },
+            onDismiss = onDismissActions,
             onSaveLogs = {
-                showActions = false
+                onDismissActions()
                 onSaveLogs()
             },
             onShareSupportBundle = {
-                showActions = false
+                onDismissActions()
                 onShareSupportBundle()
             },
             onClearLogs = {
-                showActions = false
+                onDismissActions()
                 onClearLogs()
             },
         )
@@ -199,6 +252,8 @@ private fun LogsContent(
     onShowFilters: () -> Unit,
     onShowActions: () -> Unit,
     onShowCopiedSnackbar: () -> Unit,
+    selectedEntryId: String?,
+    onSelectEntry: ((String) -> Unit)?,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
@@ -222,6 +277,8 @@ private fun LogsContent(
             LogsStreamSection(
                 uiState = uiState,
                 onShowCopiedSnackbar = onShowCopiedSnackbar,
+                selectedEntryId = selectedEntryId,
+                onSelectEntry = onSelectEntry,
                 modifier = Modifier.fillMaxWidth().weight(1f),
             )
         }
@@ -267,6 +324,8 @@ private fun LogsToolbar(
 private fun LogsStreamSection(
     uiState: LogsUiState,
     onShowCopiedSnackbar: () -> Unit,
+    selectedEntryId: String?,
+    onSelectEntry: ((String) -> Unit)?,
     modifier: Modifier = Modifier,
 ) {
     val filteredLogs = uiState.filteredLogs
@@ -307,6 +366,8 @@ private fun LogsStreamSection(
             LogsStreamCard(
                 entries = filteredLogs,
                 listState = listState,
+                selectedEntryId = selectedEntryId,
+                onSelectEntry = onSelectEntry,
                 onCopyEntry = { entry ->
                     clipboardManager?.setPrimaryClip(
                         ClipData.newPlainText(
@@ -491,6 +552,8 @@ internal fun LogsStreamCard(
     listState: androidx.compose.foundation.lazy.LazyListState,
     onCopyEntry: (LogEntry) -> Unit,
     modifier: Modifier = Modifier,
+    selectedEntryId: String? = null,
+    onSelectEntry: ((String) -> Unit)? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
@@ -541,6 +604,8 @@ internal fun LogsStreamCard(
                         ),
                     showDivider = index < entries.lastIndex,
                     onCopy = { onCopyEntry(entry) },
+                    selected = entry.id == selectedEntryId,
+                    onSelect = onSelectEntry?.let { select -> { select(entry.id) } },
                 )
             }
         }
@@ -553,6 +618,8 @@ private fun LogsStreamEntry(
     copyContentDescription: String,
     showDivider: Boolean,
     onCopy: () -> Unit,
+    selected: Boolean,
+    onSelect: (() -> Unit)?,
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
@@ -561,7 +628,16 @@ private fun LogsStreamEntry(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .ripDpiTestTag(RipDpiTestTags.logsEntry(entry.id)),
+                .ripDpiTestTag(RipDpiTestTags.logsEntry(entry.id))
+                .then(
+                    if (onSelect == null) {
+                        Modifier
+                    } else {
+                        Modifier
+                            .background(if (selected) colors.accent else Color.Transparent)
+                            .selectable(selected = selected, role = Role.Tab, onClick = onSelect)
+                    },
+                ),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
         LogRow(
@@ -588,7 +664,7 @@ private fun LogsStreamEntry(
 
 private const val ShortIdLength = 8
 
-private fun metadataChips(entry: LogEntry): ImmutableList<String> =
+internal fun metadataChips(entry: LogEntry): ImmutableList<String> =
     buildList {
         add(entry.source.lowercase())
         add(severityLabelValue(entry.severity))
@@ -643,7 +719,7 @@ private fun LogsEmptyStateCard(
 }
 
 @Composable
-private fun subsystemLabel(subsystem: LogSubsystem): String =
+internal fun subsystemLabel(subsystem: LogSubsystem): String =
     stringResource(
         when (subsystem) {
             LogSubsystem.Service -> R.string.logs_subsystem_service
@@ -672,7 +748,7 @@ private fun severityLabelValue(severity: LogSeverity): String =
         LogSeverity.Error -> "error"
     }
 
-private fun logRowTone(entry: LogEntry): LogRowTone =
+internal fun logRowTone(entry: LogEntry): LogRowTone =
     when {
         entry.severity == LogSeverity.Error -> LogRowTone.Error
         entry.severity == LogSeverity.Warn -> LogRowTone.Warning
