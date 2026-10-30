@@ -26,6 +26,7 @@ The strict app import guard rejects the complete com.poyka.ripdpi.core package. 
 - Incorrect failure conversion could change UI messages: cover every native status and service-generated failure and retain exhaustive source mapping.
 - Cancellation and protection must not regress: keep the owned runner and native path unchanged and run their existing tests.
 - Documentation-only CI may skip analysis: inspect exact implementation revision jobs rather than accepting only the summary badge.
+- The first source CI run found a stale invocation of the deleted Maestro/Appium selector suite. Use the current ADB driver tests in that step and reject missing workflow test modules with a repository-wide regression. Preserve all preflight dependencies and success conditions.
 
 ## Migration Plan
 

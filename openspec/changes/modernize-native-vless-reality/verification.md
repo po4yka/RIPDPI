@@ -2,10 +2,10 @@
 task_id: TRN-1793300518162274
 change: modernize-native-vless-reality
 commit_sha: 577c2368fc8a35487988fad8ecdb31ff032302f7
-local: blocked
-local_evidence: All scoped gates passed with 6939 JVM tests, 140 Rust library tests, six real Xray cases, Android lint, Kotlin lint and detekt, architecture checks, and independent reviews. Full staticAnalysis is blocked only by existing SSH app-engine boundary imports from dba366973; those files are unchanged by this package.
-remote_ci: required
-remote_ci_evidence: The three separate implementation commits are on main and pushed to origin. Hosted CI and CodeQL acceptance remain pending.
+local: passed
+local_evidence: Original scoped gates passed with 6939 JVM tests, 140 Rust library tests, six real Xray cases, Android lint, Kotlin lint and detekt, architecture checks, and independent reviews. The separate SSH repair fd66b33ec resolved the existing app-engine boundary blocker; full staticAnalysis then passed without exclusions or skip-native flags. The repair also passed all 5225 app/service tests and AndroidTest Kotlin compilation.
+remote_ci: blocked
+remote_ci_evidence: Hosted full staticAnalysis and all CodeQL languages passed at d675424c8. Overall CI exposed unsupported implicit auto mode in Simple test fixtures, repaired and fully tested locally in b198c6e42, and a separate rust-fuzz-smoke E0425 compile failure. Overall hosted acceptance remains blocked; no gates or alert states were changed.
 device: not_applicable
 device_evidence: Host interop and Robolectric layout checks were run. Physical Android VPN and network handover acceptance are not claimed.
 artifact: not_applicable
@@ -48,9 +48,13 @@ The combined Gradle run completed successfully in 3 minutes 23 seconds. It inclu
 - Robolectric readability checks passed at 320/420 dp and font scale 1/2. Existing profile flow stays unchanged until the user selects a supported value.
 - Commit hooks remained enabled for each implementation commit.
 
-## Unresolved gate
+## Resolved local blocker and hosted acceptance
 
-`./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true` failed at `verifyAppEngineBoundary` only. The SSH editor imports internal `SshHostKeyProbeFailure` / `SshHostKeyProbeResult` types in `SshHostKeyFetch.kt`, `SshProfileViewModel.kt`, and `SshProfileViewModelTest.kt`. These files came from the separate committed SSH work and are unchanged by the three implementation commits. No rule, baseline, or dependency boundary was weakened. The local category remains blocked and this change must not be archived as fully verified until that gate and hosted CI are resolved.
+The original `./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true` failed at `verifyAppEngineBoundary` because the separate SSH editor imported internal probe types. The follow-up SSH repair `fd66b33ec` introduced service-owned observation results and removed those imports. `build-gate --lane ripdpi -- ./gradlew staticAnalysis` then passed in full, including native builds, without changing a rule, baseline, dependency boundary, or allowlist. All 5225 app/service JVM tests and instrumentation Kotlin compilation also passed. The original VLESS interop and Rust results above were not rerun by this follow-up.
+
+The first hosted source run exposed an unrelated stale invocation of a deleted Maestro/Appium selector test. Commit `d675424c8` uses the current ADB driver tests in that step and adds a regression for missing workflow test modules. All existing gate conditions remain in place. [Hosted full static analysis](https://github.com/po4yka/RIPDPI/actions/runs/41009144800/job/123911162076) and [all three CodeQL languages](https://github.com/po4yka/RIPDPI/actions/runs/41009144991) passed at that exact revision, with no open code-scanning alerts.
+
+Hosted Simple tests found twelve seed-fixture failures: omitted TLS+xHTTP mode resolves to unsupported `auto`. The production CI bundle already declares `stream-up`. Commit `b198c6e42` makes both synthetic seed bundles use that supported mode without changing capability checks. All 3405 Simple app tests then passed locally, followed by another full staticAnalysis run. The separate [rust-fuzz-smoke compile failure](https://github.com/po4yka/RIPDPI/actions/runs/41009144800/job/123911533221) calls four test-only packet APIs from a normal dependency build. Overall hosted acceptance remains blocked, and this change must not be archived as fully verified. Hosted results for the final test-fixture-only commit are not claimed.
 
 ## Scope
 

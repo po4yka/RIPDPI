@@ -2,7 +2,7 @@
 id: SVC-1793330036179924
 title: Decouple SSH editor from engine probe contracts
 kind: bug
-status: doing
+status: review
 area: service
 priority: high
 owner: SSH service boundary repair
