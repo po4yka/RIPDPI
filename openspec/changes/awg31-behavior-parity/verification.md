@@ -1,22 +1,22 @@
 ---
 task_id: TRN-1793271658511991
 change: awg31-behavior-parity
-commit_sha: null
-local: required
-local_evidence: null
+commit_sha: "c5a8eb7920e0808375f9fdb68e59b531bc296c5d"
+local: "passed"
+local_evidence: "G1 native tests/fmt/workspace Clippy; G2 affected-module unit tests; G3 static/locale/architecture/locked metadata; G4 pinned peers and 129 evidence tests; independent integration and follow-up reviews. See execution records and final receipts below."
 remote_ci: required
-remote_ci_evidence: null
-device: required
-device_evidence: null
-artifact: required
-artifact_evidence: null
+remote_ci_evidence: "Required. Implementation push and manual hosted CI run await separate user authorization. The remote job branch still points to planning commit d5965546bc1b5a92aed4ed4bf7b9d78d864f1bfe."
+device: "passed"
+device_evidence: "API 37 arm64 emulator native matrix: 23 cases and 88 positive JNI sessions at MTU 1280/1420. Editor render v2: five completed locale/font cases and 60 hash-verified PNGs with visual inspection of selected normal/error/RTL/large-font/dialog states. Physical-device and private-LAN acceptance are excluded."
+artifact: "passed"
+artifact_evidence: "Exact JNI test APK/native library/Go peer and production editor APK/test APK hashes are recorded below. Production APK rendering does not prove production VpnService transport."
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change; the shared arm64 deployment guard remains unchanged.
 ---
 
 # Verification
 
-This is an implementation acceptance plan. Step-level checks are recorded below; the combined implementation gates remain required. `commit_sha` stays null until results identify an implementation revision. The documentation commit and planning validation must not fill the implementation evidence fields.
+Local implementation, host, emulator, editor and artifact gates have passing receipts. Hosted CI remains required. `commit_sha` identifies the latest tested code revision; the source and artifact identities below keep native-core transport and production-editor rendering separate. Later verification-only commits do not change those tested inputs.
 
 ## Accepted scope revision
 
@@ -24,25 +24,25 @@ On 2026-10-30 the user excluded physical-device and private-LAN acceptance and r
 
 ## Requirement evidence
 
-Each row names the primary owning step. Its step contract includes supporting native, configuration, and acceptance steps. All results below are pending.
+Each row names the primary owning step. Its step contract includes supporting native, configuration, and acceptance steps. The table reports observed results for the accepted scope; hosted CI remains required.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-AWG3-WIRE | TRN-1793272215891212 | Required G1 length/MTU regressions and G4-G5 pinned-peer observations for data, automatic and persistent keepalive, HP and trailers | Required; not run for the implementation |
-| REQ-AWG3-HOSTILE | TRN-1793272218210665 | Required G1 hostile/authenticated/replay/reset cases and G4-G5 carrier-bound receipts | Required; not run for the implementation |
-| REQ-AWG3-CONTRACT | TRN-1793272220215141 | Required G2 import/edit/storage/export/activation and redaction tests plus G5 UI evidence | Required; not run for the implementation |
-| REQ-AWG31-TIMERS | TRN-1793272215354505 | Required G1 deterministic role/state/boundary tests and G4-G5 timed peer events after the backend decision | Required; not run for the implementation |
-| REQ-AWG31-CLASSIFY | TRN-1793272217604418 | Required G1 independent authenticated collision, failure-state and replay tests plus G4 peer case | Required; not run for the implementation |
-| REQ-AWG31-EMPTY | TRN-1793272216407538 | Required G1 authenticated zero/nonzero malformed/replay tests and G4 empty-packet peer result | Required; not run for the implementation |
-| REQ-AWG31-COOKIES | TRN-1793272216991110 | Required G1 and G4 both flag states, both handshake directions, cookie messages, MAC failure and bounded load | Required; not run for the implementation |
-| REQ-AWG31-INPUT | TRN-1793272218937903 | Required G2 shared grammar and HP readiness tests, including supporting step TRN-1793272219644936 | Required; not run for the implementation |
-| REQ-AWG31-EDITOR | TRN-1793272220215141 | Required G2 preset replacement/cancel and v3 tests, G3 locale parity, G5 rendered editor checks | Required; not run for the implementation |
-| REQ-AWG31-SUBSET | TRN-1793272220792888 | Required G1-G3 CPS/numeric/header/junk boundaries and updated compatibility documentation | Required; not run for the implementation |
-| REQ-AWG31-EVIDENCE | TRN-1793272223722013 | Required G4 validator negative controls, pinned matrix, G5 emulator, G6 scope exclusion, tested artifacts and G7 hosted CI/review receipts | Required; not run for the implementation |
+| REQ-AWG3-WIRE | TRN-1793272215891212 | G1 length/MTU regressions and G4-G5 pinned-peer observations for data, automatic and persistent keepalive, HP and trailers | Passed for the accepted scope |
+| REQ-AWG3-HOSTILE | TRN-1793272218210665 | G1 hostile/authenticated/replay/reset cases and G4-G5 carrier-bound receipts | Passed for the accepted scope |
+| REQ-AWG3-CONTRACT | TRN-1793272220215141 | G2 import/edit/storage/export/activation and redaction tests plus G5 UI evidence | Passed for the accepted scope |
+| REQ-AWG31-TIMERS | TRN-1793272215354505 | G1 deterministic role/state/boundary tests and G4-G5 timed peer events after the backend decision | Passed for the accepted scope |
+| REQ-AWG31-CLASSIFY | TRN-1793272217604418 | G1 independent authenticated collision, failure-state and replay tests plus G4 peer case | Passed for the accepted scope |
+| REQ-AWG31-EMPTY | TRN-1793272216407538 | G1 authenticated zero/nonzero malformed/replay tests and G4 empty-packet peer result | Passed for the accepted scope |
+| REQ-AWG31-COOKIES | TRN-1793272216991110 | G1 and G4 both flag states, both handshake directions, cookie messages, MAC failure and bounded load | Passed for the accepted scope |
+| REQ-AWG31-INPUT | TRN-1793272218937903 | G2 shared grammar and HP readiness tests, including supporting step TRN-1793272219644936 | Passed for the accepted scope |
+| REQ-AWG31-EDITOR | TRN-1793272220215141 | G2 preset replacement/cancel and v3 tests, G3 locale parity, G5 rendered editor checks | Passed for the accepted scope |
+| REQ-AWG31-SUBSET | TRN-1793272220792888 | G1-G3 CPS/numeric/header/junk boundaries and updated compatibility documentation | Passed for the accepted scope |
+| REQ-AWG31-EVIDENCE | TRN-1793272223722013 | G4 validator negative controls, pinned matrix, G5 emulator, G6 scope exclusion, tested artifacts and G7 hosted CI/review receipts | Local passed; hosted CI required |
 
 ## Gate commands and acceptance
 
-Run from the repository root unless a gate states another directory. Use the repository build gate for compilation. Commands below are planned gates, not a record of commands run in this planning task. Re-run passing checks only after their inputs change.
+Run from the repository root unless a gate states another directory. Use the repository build gate for compilation. Commands below define the gates. Observed runs are listed in the execution record and final local receipts. Re-run passing checks only after their inputs change.
 
 ### G1 — Native behavior
 
@@ -211,3 +211,48 @@ Validate these documents with `./taskctl generate-board`, `./taskctl validate`, 
 - 2026-10-30, G5 editor first run: the en case passed all assertions and produced 13 hash-bound PNGs, which were inspected for normal fields, S4 error and keyboard/range error. The de case emitted all render evidence but timed out during teardown after locale restoration recreated the still-open Activity. It is not a pass. The test now closes the Activity before OS locale restore/readback on API 33+, and restores AppCompat locales through a live delegate before close on older APIs. Settings remain under an unconditional finally. Runtime assertions and the 240-second runner limit are unchanged. Owning Kotlin compilation, detekt, ktlint and independent read-only review passed; a fresh full locale/font run remains required. Failed-run receipts stay in `build/reports/awg31/editor-current-20261030`.
 
 - 2026-10-30, G5 editor cleanup rerun: all five assertion runs passed at source `d53340ea40138ebacd9acb365e712d29ed60fc4f` (en/de/ar/fa at font scale 1.0; en at 1.3), including actual OS locale restoration and all production-editor assertions. Owning app lint passed. Visual inspection found that the preset-confirmation PNGs contained the Activity background instead of the dialog, so this run does not complete rendered acceptance. The pinned Compose capture implementation selects a dialog Window only when IsDialog is on the selected node or an ancestor; a semantics root above IsDialog falls back to the Activity Window. The test now selects the actual isDialog node, asserts the expected dialog count, and records render schema v2 with the image surface. No secure flag, runtime assertion or timeout changed. Compilation, detekt, ktlint and independent source review passed. All five render cases must run again and their actual dialog pixels must be inspected.
+
+## Final local receipts
+
+Native transport passed at `79f4f1b9cb804ae242ba5f3e1b1c1e1d851a700e`. The native runner, fixture, validator, Rust and minimal Android host inputs are unchanged since that revision. Production app/core/Rust/build inputs are unchanged since the combined G2/G3 gate at `ac07fd828`; later code changes affect only the editor instrumentation test and evidence tooling. Its current compilation, detekt, ktlint and independent reviews passed. Locked Cargo metadata and architecture health passed; there are zero stale baseline entries. The final offline evidence suite passed 129 tests.
+
+Editor render v2 passed at `c5a8eb7920e0808375f9fdb68e59b531bc296c5d`, with fresh nonces under `awg31-editor-dialog-20261030`. All five instrumentation runs completed without skips: en/de/ar/fa at font scale 1.0 and en at 1.3. Each produced 12 PNGs. All five cases exercised real HP reveal and lifecycle re-lock, actual IME visibility, invalid HP/S4/range input, disabled activation, preset cancel/replacement and locale restoration. The service stayed halted and FLAG_SECURE remained set. The runner verified every PNG hash. Visual inspection confirmed actual dialog content, readable German and RTL text, and readable fields/buttons at scale 1.3. The images contain only public fixture values. This is production-editor rendering through the shared Hilt test application, not production VpnService transport.
+
+Receipts:
+
+- Native matrix: `build/reports/awg31/android-matrix-grant-query-20261030/matrix.json`.
+- Editor cases and PNG manifests: `build/reports/awg31/editor-dialog-20261030/results.json`.
+- Native G1: `build/reports/awg31/final-native-results.json`.
+- Combined G2/G3 and genuine production artifact build: `build/reports/awg31/final-combined-kotlin-artifacts.log`.
+- Current UI owner checks and rebuild: `build/reports/awg31/editor-dialog-check-final.log` and `build/reports/awg31/editor-dialog-assemble.log`.
+- Evidence tests and architecture: `build/reports/awg31/final-query-evidence-tests.log` and `build/reports/awg31/final-query-architecture.log`.
+
+The native matrix command used the documented full matrix entry point with `--temporary-reason 'AWG acceptance requires clean credential storage; the existing API 37 pool user stays locked'`. The canonical Go checkout was `build/reports/awg31/android-peer-source`. The source, nonce and directory are recorded above. A separate matrix CLI validation passed with the exact Git-resolved source SHA.
+
+For each editor case, the owned temporary API 37 arm64 pool lease installed the two hashed APKs and ran:
+
+```sh
+adb -s "$ANDROID_SERIAL" shell am instrument -w -r \
+  -e class com.poyka.ripdpi.e2e.AwgV3EditorAcceptanceTest#productionEditorStates \
+  -e awgUiSourceSha "$AWG_UI_SOURCE_SHA" -e awgUiNonce "$AWG_UI_NONCE" \
+  -e awgUiLocale "$AWG_UI_LOCALE" \
+  com.poyka.ripdpi.test/com.poyka.ripdpi.HiltTestRunner
+```
+
+The run used en/de/ar/fa with system font scale 1.0, then en at 1.3. The runner restored the prior font setting, required exactly one completed test, pulled the app-owned evidence directory and verified schema v2, source, nonce, locale, actual font scale/direction, reveal/re-lock coverage, one actual dialog image and every PNG hash. The pool wrapper stopped and removed only its temporary AVD. It did not change stored pool credentials.
+
+### Exact artifact identities
+
+| Artifact | SHA-256 | Tested scope |
+|---|---|---|
+| Native-core JNI library | `d72373c2f803552cf40f295b02e6d5fd3f4509245515873ae0d5f68b44f870dc` | Native transport matrix |
+| Native-core test APK | `0d711be21e9c3f8c37802973e604e4a314008fc68751cbed399fc297e50006ea` | Native transport matrix |
+| Pinned Go peer binary | `14f907f54735f063addf38b21a04070ef9044a4aa72669c8bd29c1457d4ce968` | Native transport matrix |
+| Production arm64 APK | `8962272f18402a2d18c9649e354355f0eac7361727c6f66dd675ad5e0a0b014d` | Editor rendering |
+| Production APK AWG library entry | `2b1b6f2ba0231f4d36bf2d19112b3d7b30bde645964e7360861fec2ef0bb3ee3` | Build identity; no production transport claim |
+| Editor test APK | `9617ab060e5b9ce9022da028de205be2ce76608104387a25b4b072cee480bb9c` | Editor rendering |
+| Native matrix receipt | `c4f16d1ebe79137b619f85fdfbe7b7336f71d6264c01567eb38d0554f6d0982c` | 23 completed cases |
+| Editor identity manifest | `b55e2fc5b9cb37dc469635ffecb94036b766ad4e35b95cfe1dd2aca4bd2ae136` | All 13 native entry hashes |
+| Editor result receipt | `cc7020837449e99971cf47f20c5d4b249896d348dbc616c4c24cfdf2fd539bee` | Five cases and 60 PNGs |
+
+G7 independent source review has no remaining actionable findings. The final task stays open for hosted CI on the published implementation commit. Planning-branch CI does not satisfy this gate. Physical/private-LAN acceptance and deployment remain excluded; the shared arm64 deployment guard is unchanged.
