@@ -110,7 +110,7 @@ Preserve modifier order. Button and IconButton scale only content; Chip scales i
 
 - Material hosts keep their explicit APIs: `Surface`, `Scaffold`, modal sheets, menus, tooltips, dividers, text, and icons. This includes the Material shells of banners, dialogs, sheets, snackbars, context menus, degradation strips, export consent, and metric pills. Their owned badges, handles, and stripes can use styles.
 - Canvas renderers, telemetry plots, progress drawing, and navigation transitions retain their drawing or animation algorithms. Styles do not own their feature geometry.
-- App-shell navigation uses `RipDpiNavigationSuiteScaffold` over Material 3 `NavigationSuiteScaffold`: a bar on compact windows, a collapsed rail on medium and expanded windows, and an expanded rail on large and extra-large windows. Container and indicator colors come from the `bottomBar` and `bottomBarIndicator` surface roles; item colors come from the theme foreground and muted foreground.
+- App-shell navigation uses `RipDpiNavigationSuiteScaffold` over Material 3 `NavigationSuiteScaffold`: a bar on compact windows, a collapsed rail on medium and expanded windows (expanded rail at 1.2x font scale and above), and an expanded rail on large and extra-large windows. Tabs perform selection haptics through `rememberRipDpiHapticPerformer`. Container and indicator colors come from the `bottomBar` and `bottomBarIndicator` surface roles; item colors come from the theme foreground and muted foreground.
 - Components that only arrange or delegate to styled RDS controls do not need an extra resolver. Do not add a style node that has no visible effect.
 - Keep the experimental opt-in local to affected files. Do not enable inherited text-style flags or use the transitional `Style`, `styleable`, `styleAppearance`, or `stylePlacement` APIs.
 
@@ -424,7 +424,7 @@ Motion rules:
 - Action labels wrap and grow with the container. A control height is a minimum.
 - Choice groups use intrinsic chip widths in a wrapping layout. Do not enforce equal-width chips or fixed chip heights.
 - Headers reserve space for controls. Put long facts and status badges below the title when needed.
-- Bottom navigation measures complete labels. Keep one row when it fits; use two columns, then one column if required. Two-column fallback uses text-only items with natural height and at least 48dp targets; decorative icons do not consume an extra row. Preserve full labels, destination order, selection, focus, and callbacks. Allow wrapping at extreme widths.
+- The navigation bar keeps one row. At 1.5x font scale and above it hides visible labels and each icon keeps its label as its accessible name. Medium and expanded windows switch from the collapsed rail to the expanded rail at 1.2x font scale, the lowest scale where a collapsed-rail label breaks a word. Preserve full labels, destination order, selection, focus, and callbacks.
 - Diagrams retain readable text and use scrolling when their geometry exceeds the viewport. Do not shrink text with the drawing.
 - At large font scale, app-bar navigation and actions occupy a separate row above the complete title. Add this row only when controls exist. The title has no fixed line limit.
 - Text styles and Material typography take an explicit locale from the app resource configuration. Cache these styles by language tags and preserve type metrics.
