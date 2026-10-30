@@ -1,33 +1,31 @@
 package com.poyka.ripdpi.ui.journeys.home
 
-import androidx.compose.ui.test.SemanticsNodeInteractionsProvider
-import androidx.compose.ui.test.hasTestTag
 import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
 import com.poyka.ripdpi.integration.automationLaunchIntent
+import com.poyka.ripdpi.ui.journeys.JourneyPage
+import com.poyka.ripdpi.ui.journeys.JourneyRule
+import com.poyka.ripdpi.ui.journeys.waitForSettings
+import com.poyka.ripdpi.ui.journeys.waitForTag
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import dagger.hilt.android.testing.HiltAndroidTest
-import io.github.kakaocup.compose.node.element.ComposeScreen
-import io.github.kakaocup.compose.node.element.KNode
 import org.junit.Test
 import javax.inject.Inject
 
 private class OnboardingPage(
-    provider: SemanticsNodeInteractionsProvider,
-) : ComposeScreen<OnboardingPage>(provider, { hasTestTag(RipDpiTestTags.screen(Route.Onboarding)) }) {
-    fun tagged(tag: String): KNode = onNode { hasTestTag(tag) }
-
-    val skip = tagged(RipDpiTestTags.OnboardingSkip)
-    val next = tagged(RipDpiTestTags.OnboardingContinue)
-    val personaSimple = tagged(RipDpiTestTags.OnboardingPersonaSimple)
-    val personaAdvanced = tagged(RipDpiTestTags.OnboardingPersonaAdvanced)
-    val modeVpn = tagged(RipDpiTestTags.OnboardingModeVpn)
-    val modeProxy = tagged(RipDpiTestTags.OnboardingModeProxy)
-    val validate = tagged(RipDpiTestTags.OnboardingValidateAction)
-    val skipTest = tagged(RipDpiTestTags.OnboardingSkipTest)
+    rule: JourneyRule,
+) : JourneyPage<OnboardingPage>(rule, RipDpiTestTags.screen(Route.Onboarding)) {
+    val skip = RipDpiTestTags.OnboardingSkip
+    val next = RipDpiTestTags.OnboardingContinue
+    val personaSimple = RipDpiTestTags.OnboardingPersonaSimple
+    val personaAdvanced = RipDpiTestTags.OnboardingPersonaAdvanced
+    val modeVpn = RipDpiTestTags.OnboardingModeVpn
+    val modeProxy = RipDpiTestTags.OnboardingModeProxy
+    val validate = RipDpiTestTags.OnboardingValidateAction
+    val skipTest = RipDpiTestTags.OnboardingSkipTest
 }
 
 @HiltAndroidTest
@@ -40,25 +38,25 @@ class OnboardingKaspressoTest :
     lateinit var appSettingsRepository: AppSettingsRepository
 
     private fun walkOnboarding(
-        persona: (OnboardingPage) -> KNode,
-        mode: (OnboardingPage) -> KNode,
+        persona: (OnboardingPage) -> String,
+        mode: (OnboardingPage) -> String,
     ) = run {
-        ComposeScreen.onComposeScreen<OnboardingPage>(composeRule) {
-            step("Privacy page continues to the persona page") { next.performClick() }
+        with(OnboardingPage(composeRule)) {
+            step("Privacy page continues to the persona page") { click(next) }
             step("Pick the persona and continue") {
-                composeRule.waitForTag(RipDpiTestTags.OnboardingPersonaSimple)
-                persona(this@onComposeScreen).performClick()
-                next.performClick()
+                waitFor(personaSimple)
+                click(persona(this))
+                click(next)
             }
             step("Pick the traffic mode and continue") {
-                composeRule.waitForTag(RipDpiTestTags.OnboardingModeVpn)
-                mode(this@onComposeScreen).performClick()
-                next.performClick()
+                waitFor(modeVpn)
+                click(mode(this))
+                click(next)
             }
             step("Connection test page offers the validation action, skip the test") {
-                composeRule.waitForTag(RipDpiTestTags.OnboardingValidateAction)
-                validate.assertIsDisplayed()
-                skipTest.performClick()
+                waitFor(validate)
+                node(validate).assertIsDisplayed()
+                click(skipTest)
             }
         }
     }
@@ -84,8 +82,8 @@ class OnboardingKaspressoTest :
     @Test
     fun skippingFromTheIntroCompletesOnboarding() =
         run {
-            ComposeScreen.onComposeScreen<OnboardingPage>(composeRule) {
-                step("Skip setup on the intro page") { skip.performClick() }
+            with(OnboardingPage(composeRule)) {
+                step("Skip setup on the intro page") { click(skip) }
             }
             step("Home appears and onboarding is persisted as complete") {
                 composeRule.waitForSettings(appSettingsRepository) { it.onboardingComplete }

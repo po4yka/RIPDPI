@@ -8,7 +8,6 @@ import com.poyka.ripdpi.integration.RipDpiKaspressoTest
 import com.poyka.ripdpi.integration.automationLaunchIntent
 import com.poyka.ripdpi.ui.navigation.Route
 import dagger.hilt.android.testing.HiltAndroidTest
-import io.github.kakaocup.compose.node.element.ComposeScreen
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import javax.inject.Inject
@@ -30,20 +29,17 @@ class SetupHealthKaspressoTest :
     @Test
     fun missingVpnConsentKeepsSetupHealthAndAllModeCardsAvailable() =
         run {
-            ComposeScreen.onComposeScreen<HomePage>(composeRule) {
+            with(HomePage(composeRule)) {
                 step("Setup health row is shown and the service is halted") {
-                    setupHealthRow.assertIsDisplayed()
-                    advisoryPrimary.assertIsDisplayed()
+                    node(setupHealthRow).assertIsDisplayed()
+                    node(advisoryPrimary).assertIsDisplayed()
                     assertEquals(AppStatus.Halted, serviceStateStore.status.value.first)
                 }
                 step("Expanding the disclosure shows all three mode cards") {
-                    expandModes(composeRule)
-                    localBypassCard.performScrollTo()
-                    localBypassCard.assertIsDisplayed()
-                    remoteVpnCard.performScrollTo()
-                    remoteVpnCard.assertIsDisplayed()
-                    diagnosticCard.performScrollTo()
-                    diagnosticCard.assertIsDisplayed()
+                    expandModes()
+                    awaitDisplayed(localBypassCard)
+                    awaitDisplayed(remoteVpnCard)
+                    awaitDisplayed(diagnosticCard)
                 }
             }
         }

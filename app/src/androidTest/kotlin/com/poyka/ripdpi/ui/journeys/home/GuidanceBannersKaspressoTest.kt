@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.journeys.home
 
-import androidx.compose.ui.test.SemanticsNodeInteractionsProvider
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
 import com.poyka.ripdpi.automation.AutomationDataPreset
@@ -8,26 +7,15 @@ import com.poyka.ripdpi.automation.AutomationPermissionPreset
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
 import com.poyka.ripdpi.integration.automationLaunchIntent
-import com.poyka.ripdpi.integration.scrollAndClick
-import com.poyka.ripdpi.permissions.PermissionKind
+import com.poyka.ripdpi.ui.journeys.waitForNoTag
+import com.poyka.ripdpi.ui.journeys.waitForSettings
+import com.poyka.ripdpi.ui.journeys.waitForTag
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import dagger.hilt.android.testing.HiltAndroidTest
-import io.github.kakaocup.compose.node.element.ComposeScreen
-import io.github.kakaocup.compose.node.element.KNode
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import javax.inject.Inject
-
-private class SettingsPage(
-    provider: SemanticsNodeInteractionsProvider,
-) : ComposeScreen<SettingsPage>(provider, { hasTestTag(RipDpiTestTags.screen(Route.Settings)) }) {
-    fun tagged(tag: String): KNode = onNode { hasTestTag(tag) }
-
-    val guidanceBanner = tagged(RipDpiTestTags.SettingsBackgroundGuidanceBanner)
-    val bannerDismiss = tagged(RipDpiTestTags.WarningBannerDismiss)
-    val batteryPermission = tagged(RipDpiTestTags.settingsPermission(PermissionKind.BatteryOptimization))
-}
 
 @HiltAndroidTest
 class SettingsGuidanceBannerKaspressoTest :
@@ -43,15 +31,17 @@ class SettingsGuidanceBannerKaspressoTest :
     @Test
     fun dismissingTheBackgroundGuidanceBannerPersistsAcrossNavigation() =
         run {
-            ComposeScreen.onComposeScreen<SettingsPage>(composeRule) {
+            with(SettingsPage(composeRule)) {
                 step("Guidance banner is shown") {
-                    guidanceBanner.performScrollTo()
-                    guidanceBanner.assertIsDisplayed()
+                    awaitDisplayed(guidanceBanner)
                 }
                 step("Dismiss stores the flag and removes the banner") {
-                    bannerDismiss.scrollAndClick()
-                    composeRule.waitForSettings(appSettingsRepository) { it.backgroundGuidanceDismissed }
-                    composeRule.waitForTagGone(RipDpiTestTags.SettingsBackgroundGuidanceBanner)
+                    click(bannerDismiss)
+                    composeRule.waitForSettings(
+                        appSettingsRepository,
+                        timeoutMillis = 5_000,
+                    ) { it.backgroundGuidanceDismissed }
+                    composeRule.waitForNoTag(RipDpiTestTags.SettingsBackgroundGuidanceBanner, timeoutMillis = 5_000)
                 }
             }
             step("Leave and return to Settings, the banner stays dismissed") {
@@ -59,13 +49,13 @@ class SettingsGuidanceBannerKaspressoTest :
                 composeRule.waitForTag(RipDpiTestTags.screen(Route.Home))
                 composeRule.onNode(hasTestTag(RipDpiTestTags.bottomNav(Route.Settings))).performClick()
                 composeRule.waitForTag(RipDpiTestTags.screen(Route.Settings))
-                composeRule.waitForTagGone(RipDpiTestTags.SettingsBackgroundGuidanceBanner)
+                composeRule.waitForNoTag(RipDpiTestTags.SettingsBackgroundGuidanceBanner, timeoutMillis = 5_000)
             }
             step("Home keeps only the lockdown notice, the guidance notice is gone") {
                 composeRule.onNode(hasTestTag(RipDpiTestTags.bottomNav(Route.Home))).performClick()
                 composeRule.waitForTag(RipDpiTestTags.screen(Route.Home))
                 composeRule.waitForTag(RipDpiTestTags.HomeSetupHealthRow)
-                composeRule.waitForTagGone(RipDpiTestTags.HomeAdvisoryMore)
+                composeRule.waitForNoTag(RipDpiTestTags.HomeAdvisoryMore, timeoutMillis = 5_000)
             }
         }
 }
@@ -84,17 +74,20 @@ class HomeGuidanceRowKaspressoTest :
     @Test
     fun reviewingTheBackgroundGuidanceRowDismissesItPersistently() =
         run {
-            ComposeScreen.onComposeScreen<HomePage>(composeRule) {
+            with(HomePage(composeRule)) {
                 step("Guidance notice sits behind the lockdown notice's disclosure") {
-                    setupHealthRow.assertIsDisplayed()
-                    advisoryMore.scrollAndClick()
-                    setupHealthDetails.assertIsDisplayed()
-                    assertEquals(1, composeRule.tagCount(RipDpiTestTags.HomeSetupHealthAction))
+                    node(setupHealthRow).assertIsDisplayed()
+                    click(advisoryMore)
+                    node(setupHealthDetails).assertIsDisplayed()
+                    assertEquals(1, count(setupHealthAction))
                 }
                 step("Acting on it stores the dismissal and removes the disclosure") {
-                    composeRule.clickAdvisoryAt(0)
-                    composeRule.waitForSettings(appSettingsRepository) { it.backgroundGuidanceDismissed }
-                    composeRule.waitForTagGone(RipDpiTestTags.HomeAdvisoryMore)
+                    clickAdvisoryAt(0)
+                    composeRule.waitForSettings(
+                        appSettingsRepository,
+                        timeoutMillis = 5_000,
+                    ) { it.backgroundGuidanceDismissed }
+                    composeRule.waitForNoTag(RipDpiTestTags.HomeAdvisoryMore, timeoutMillis = 5_000)
                 }
             }
         }
@@ -115,16 +108,19 @@ class HomeBatteryReviewKaspressoTest :
     @Test
     fun batteryReviewRowLeadsAndActingOnItPersistsTheDismissal() =
         run {
-            ComposeScreen.onComposeScreen<HomePage>(composeRule) {
+            with(HomePage(composeRule)) {
                 step("Battery and guidance notices sit behind the lockdown notice's disclosure") {
-                    setupHealthRow.assertIsDisplayed()
-                    advisoryMore.scrollAndClick()
-                    setupHealthDetails.assertIsDisplayed()
-                    assertEquals(2, composeRule.tagCount(RipDpiTestTags.HomeSetupHealthAction))
+                    node(setupHealthRow).assertIsDisplayed()
+                    click(advisoryMore)
+                    node(setupHealthDetails).assertIsDisplayed()
+                    assertEquals(2, count(setupHealthAction))
                 }
                 step("Acting on the battery notice (listed first) stores the banner dismissal") {
-                    composeRule.clickAdvisoryAt(0)
-                    composeRule.waitForSettings(appSettingsRepository) { it.batteryBannerDismissed }
+                    clickAdvisoryAt(0)
+                    composeRule.waitForSettings(
+                        appSettingsRepository,
+                        timeoutMillis = 5_000,
+                    ) { it.batteryBannerDismissed }
                 }
             }
         }
@@ -142,10 +138,9 @@ class SettingsBatteryReviewKaspressoTest :
     @Test
     fun batteryOptimizationPermissionCardIsListed() =
         run {
-            ComposeScreen.onComposeScreen<SettingsPage>(composeRule) {
+            with(SettingsPage(composeRule)) {
                 step("Battery optimization permission row is shown") {
-                    batteryPermission.performScrollTo()
-                    batteryPermission.assertIsDisplayed()
+                    awaitDisplayed(batteryPermission)
                 }
             }
         }

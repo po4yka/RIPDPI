@@ -7,11 +7,8 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
 import com.poyka.ripdpi.integration.automationLaunchIntent
-import com.poyka.ripdpi.integration.scrollAndClick
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import dagger.hilt.android.testing.HiltAndroidTest
-import io.github.kakaocup.compose.node.element.ComposeScreen
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import javax.inject.Inject
@@ -31,16 +28,15 @@ class HomeIdleKaspressoTest :
     @Test
     fun modeCardsAppearAfterDiagnosticsDisclosureExpands() =
         run {
-            ComposeScreen.onComposeScreen<HomePage>(composeRule) {
-                step("Expand the modes disclosure") { expandModes(composeRule) }
+            with(HomePage(composeRule)) {
+                step("Expand the modes disclosure") { expandModes() }
                 step("Local DPI bypass, remote VPN and diagnostic cards are shown") {
                     listOf(localBypassCard, remoteVpnCard, diagnosticCard).forEach {
-                        it.performScrollTo()
-                        it.assertIsDisplayed()
+                        awaitDisplayed(it)
                     }
                 }
                 step("No error snackbar shows during normal operation") {
-                    assertEquals(0, composeRule.tagCount(RipDpiTestTags.MainErrorSnackbar))
+                    assertEquals(0, count(errorSnackbar))
                 }
             }
         }
@@ -48,20 +44,18 @@ class HomeIdleKaspressoTest :
     @Test
     fun localBypassToggleStartsAndStopsProxyService() =
         run {
-            ComposeScreen.onComposeScreen<HomePage>(composeRule) {
+            with(HomePage(composeRule)) {
                 step("Service starts halted") {
                     assertEquals(AppStatus.Halted, serviceStateStore.status.value.first)
-                    expandModes(composeRule)
+                    expandModes()
                 }
                 step("Enabling local bypass dispatches a running proxy service") {
-                    localBypassPrimary.scrollAndClick()
-                    composeRule.waitForServiceState(serviceStateStore, AppStatus.Running, Mode.Proxy)
+                    click(localBypassPrimary)
+                    waitForServiceState(serviceStateStore, AppStatus.Running, Mode.Proxy)
                 }
                 step("Disabling local bypass returns the service to halted") {
-                    localBypassPrimary.scrollAndClick()
-                    composeRule.waitUntil(timeoutMillis = 10_000) {
-                        serviceStateStore.status.value.first == AppStatus.Halted
-                    }
+                    click(localBypassPrimary)
+                    waitForHalted(serviceStateStore)
                 }
             }
         }
@@ -82,25 +76,21 @@ class HomeConnectedProxyKaspressoTest :
     @Test
     fun connectedProxyPresetShowsLocalBypassActiveAndToggleReturnsToIdle() =
         run {
-            ComposeScreen.onComposeScreen<HomePage>(composeRule) {
+            with(HomePage(composeRule)) {
                 step("Preset reports a running proxy and Home shows the route labels") {
                     assertEquals(AppStatus.Running to Mode.Proxy, serviceStateStore.status.value)
-                    actuatorRouteLabel.performScrollTo()
-                    actuatorRouteLabel.assertIsDisplayed()
-                    actuatorTerminalLabel.assertIsDisplayed()
+                    awaitDisplayed(actuatorRouteLabel)
+                    node(actuatorTerminalLabel).assertIsDisplayed()
                 }
                 step("Local bypass card is shown") {
-                    expandModes(composeRule)
-                    localBypassCard.performScrollTo()
-                    localBypassCard.assertIsDisplayed()
+                    expandModes()
+                    awaitDisplayed(localBypassCard)
                 }
                 step("Stopping returns to idle, enabling again runs the proxy") {
-                    localBypassPrimary.scrollAndClick()
-                    composeRule.waitUntil(timeoutMillis = 10_000) {
-                        serviceStateStore.status.value.first == AppStatus.Halted
-                    }
-                    localBypassPrimary.scrollAndClick()
-                    composeRule.waitForServiceState(serviceStateStore, AppStatus.Running, Mode.Proxy)
+                    click(localBypassPrimary)
+                    waitForHalted(serviceStateStore)
+                    click(localBypassPrimary)
+                    waitForServiceState(serviceStateStore, AppStatus.Running, Mode.Proxy)
                 }
             }
         }
@@ -121,21 +111,18 @@ class HomeConnectedVpnKaspressoTest :
     @Test
     fun connectedVpnPresetShowsRemoteVpnCardAndRouteLabels() =
         run {
-            ComposeScreen.onComposeScreen<HomePage>(composeRule) {
+            with(HomePage(composeRule)) {
                 step("Preset reports a running VPN service") {
                     assertEquals(AppStatus.Running to Mode.VPN, serviceStateStore.status.value)
-                    expandModes(composeRule)
+                    expandModes()
                 }
                 step("Remote VPN card and its primary action are shown") {
-                    remoteVpnCard.performScrollTo()
-                    remoteVpnCard.assertIsDisplayed()
-                    remoteVpnPrimary.performScrollTo()
-                    remoteVpnPrimary.assertIsDisplayed()
+                    awaitDisplayed(remoteVpnCard)
+                    awaitDisplayed(remoteVpnPrimary)
                 }
                 step("Connection actuator shows route and terminal labels") {
-                    actuatorRouteLabel.performScrollTo()
-                    actuatorRouteLabel.assertIsDisplayed()
-                    actuatorTerminalLabel.assertIsDisplayed()
+                    awaitDisplayed(actuatorRouteLabel)
+                    node(actuatorTerminalLabel).assertIsDisplayed()
                 }
             }
         }
@@ -153,13 +140,11 @@ class HomeLiveServiceKaspressoTest :
     @Test
     fun liveServicePresetStillRendersHomeModeCards() =
         run {
-            ComposeScreen.onComposeScreen<HomePage>(composeRule) {
+            with(HomePage(composeRule)) {
                 step("Expand modes and see the cards") {
-                    expandModes(composeRule)
-                    localBypassCard.performScrollTo()
-                    localBypassCard.assertIsDisplayed()
-                    diagnosticCard.performScrollTo()
-                    diagnosticCard.assertIsDisplayed()
+                    expandModes()
+                    awaitDisplayed(localBypassCard)
+                    awaitDisplayed(diagnosticCard)
                 }
             }
         }
