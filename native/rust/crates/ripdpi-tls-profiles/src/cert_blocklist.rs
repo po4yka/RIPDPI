@@ -102,6 +102,17 @@ fn spki_sha256(cert: &CertificateDer<'_>) -> Option<SpkiHash> {
     spki_der(cert.as_ref()).map(|spki| Sha256::digest(spki).into())
 }
 
+/// Whether a DER certificate's SPKI hash is in `blocked`.
+fn der_cert_blocked_by(der: &[u8], blocked: &[SpkiHash]) -> bool {
+    spki_der(der).is_some_and(|spki| blocked.contains(&Sha256::digest(spki).into()))
+}
+
+/// Whether a DER certificate is on the production blocklist. The BoringSSL
+/// clients call it for every certificate of the chain they built.
+pub(crate) fn der_cert_is_blocked(der: &[u8]) -> bool {
+    der_cert_blocked_by(der, &BLOCKED_SPKI_SHA256)
+}
+
 /// Wraps a verifier and additionally rejects chains that present a
 /// blocklisted certificate (end entity or any intermediate).
 #[derive(Debug)]
@@ -235,6 +246,14 @@ mod tests {
             leaf: leaf.der().clone(),
             intermediate_spki: int_spki,
         }
+    }
+
+    #[test]
+    fn der_check_used_by_boringssl_matches_the_spki_hash() {
+        let chain = chain();
+        assert!(der_cert_blocked_by(chain.intermediate.as_ref(), &[chain.intermediate_spki]));
+        assert!(!der_cert_blocked_by(chain.leaf.as_ref(), &[chain.intermediate_spki]));
+        assert!(!der_cert_is_blocked(chain.intermediate.as_ref()), "a test key is not on the production list");
     }
 
     fn verify(chain: &Chain, blocked: Vec<SpkiHash>) -> Result<ServerCertVerified, rustls::Error> {
