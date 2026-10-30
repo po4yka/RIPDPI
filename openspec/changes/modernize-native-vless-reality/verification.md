@@ -1,11 +1,11 @@
 ---
 task_id: TRN-1793300518162274
 change: modernize-native-vless-reality
-commit_sha: b232683b6193d052c4e2e35c9309c275c8a36ba8
+commit_sha: 90f151afb1871c484ee184aa7d5159dc0e514402
 local: passed
 local_evidence: Original scoped gates passed with 6939 JVM tests, 140 Rust library tests, six real Xray cases, Android lint, Kotlin lint and detekt, architecture checks, and independent reviews. The separate SSH repair fd66b33ec resolved the existing app-engine boundary blocker; full staticAnalysis then passed without exclusions or skip-native flags. The repair also passed all 5225 app/service tests and AndroidTest Kotlin compilation.
-remote_ci: required
-remote_ci_evidence: The SSH, Simple fixture, UI audit, and standalone fuzz blockers are repaired. CodeQL passed all three languages at b232683b6. Full CI 41023398772 found a stale Kaspresso class selector: five of six cases executed on API 37. The selector repair retains all six cases and exact counts; full acceptance of that repair is pending. No gate was weakened or alert dismissed.
+remote_ci: passed
+remote_ci_evidence: Full CI 41039550816 passed all 50 jobs at 90f151afb1871c484ee184aa7d5159dc0e514402, including staticAnalysis, UI audit, fuzz, upstream interop, all native ABIs, debug/release builds, and all five Android APIs. API 37 executed all six smoke cases with zero failures, errors, or skips. CodeQL 41039363672 passed all three languages with no extraction warnings or errors and zero open alerts. No gate was weakened.
 device: not_applicable
 device_evidence: Host interop and Robolectric layout checks were run. Physical Android VPN and network handover acceptance are not claimed.
 artifact: not_applicable
@@ -58,7 +58,9 @@ Hosted Simple tests found twelve seed-fixture failures: omitted TLS+xHTTP mode r
 
 Commits `90f4d8f51` and `423cc6626` repair the exact UI audit exclusion check and the standalone fuzz graph. The latter uses public packet APIs and the existing vendored BoringSSL hooks without changing production code or disabling checks. Its [hosted fuzz smoke](https://github.com/po4yka/RIPDPI/actions/runs/41018197242/job/123940246669) passed five input regressions and all eighteen ASan target builds. Both affected fuzz targets also completed 1000 ASan iterations locally.
 
-[CodeQL at b232683b6](https://github.com/po4yka/RIPDPI/actions/runs/41022269149) passed Actions, Rust, and Kotlin/Java. [Full combined-revision CI](https://github.com/po4yka/RIPDPI/actions/runs/41023398772) failed because the API 37 smoke selected an old Home class name and executed five of six cases. The corrected selector still requires all six cases; a new full run is pending. Earlier push runs were cancelled by parallel main updates. Do not archive this change as fully verified until full CI succeeds.
+[Full CI](https://github.com/po4yka/RIPDPI/actions/runs/41039550816) passed all 50 jobs at `90f151afb`, including staticAnalysis, UI audit, fuzz, real upstream interop, all four native ABIs, debug/release builds, all five Android APIs, and ci-required. [CodeQL](https://github.com/po4yka/RIPDPI/actions/runs/41039363672) passed Actions, Rust, and Java/Kotlin at the same revision, with no extraction errors or warnings and zero open alerts.
+
+The full follow-up repaired the old Home smoke selector (`87eab4287`), the moved exact async exception binding (`c7bec985b`), and API 37 guest memory pressure (`a04fd44a6`). Its [API 37 evidence](https://github.com/po4yka/RIPDPI/actions/runs/41039550816/job/124023427476) contains all six smoke cases with zero failures, errors, or skips. The guest config confirms 6144 MiB RAM. No scanner, baseline, count, skip guard, or assertion was reduced. Earlier cancelled runs are not acceptance evidence.
 
 ## Scope
 

@@ -2,7 +2,7 @@
 id: CIC-1793341538890939
 title: Restore UI audit and Rust fuzz CI gates
 kind: bug
-status: doing
+status: review
 area: ci
 priority: high
 owner: CI regression repair

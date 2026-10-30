@@ -1,11 +1,11 @@
 ---
 task_id: SVC-1793330036179924
 change: decouple-ssh-editor-engine-contracts
-commit_sha: b232683b6193d052c4e2e35c9309c275c8a36ba8
+commit_sha: 90f151afb1871c484ee184aa7d5159dc0e514402
 local: passed
 local_evidence: The unchanged boundary gate and full staticAnalysis passed. All 5225 Full app and service unit tests and all 3405 Simple app tests passed with zero failures, errors, or skips; AndroidTest Kotlin compilation and independent review passed. CI contract repair passed 41 focused tests, the full 279-test script and evidence set, and actionlint. Full staticAnalysis passed again after the Simple fixture repair.
-remote_ci: required
-remote_ci_evidence: The Simple fixtures, UI audit, and fuzz failures are repaired in b198c6e42, 90f4d8f51, and 423cc6626. Their hosted checks passed before parallel pushes cancelled the overall run. CodeQL passed all three languages at b232683b6. Full CI 41023398772 found a stale Kaspresso class selector: five of six cases executed on API 37. The selector repair retains all six cases and exact counts; full acceptance of that repair is pending. No gate was weakened or alert dismissed.
+remote_ci: passed
+remote_ci_evidence: Full CI 41039550816 passed all 50 jobs at 90f151afb1871c484ee184aa7d5159dc0e514402, including staticAnalysis, UI audit, fuzz, upstream interop, all native ABIs, debug/release builds, and all five Android APIs. API 37 executed all six smoke cases with zero failures, errors, or skips. CodeQL 41039363672 passed all three languages with no extraction warnings or errors and zero open alerts. No gate was weakened.
 device: not_applicable
 device_evidence: No device or VPN acceptance is owned by this in-process contract repair.
 artifact: not_applicable
@@ -20,7 +20,7 @@ deployment_evidence: No deployment is owned by this repair.
 |---|---|---|---|
 | REQ-SERVICE-BOUNDARY | SVC-1793330193449658 | fd66b33ec; service-owned result types and unchanged verifyAppEngineBoundary passed. | passed |
 | REQ-OBSERVATION-PARITY | SVC-1793330193449658 | fd66b33ec; all native and service failure meanings, success data, cancellation, and editor trust tests passed. | passed |
-| REQ-VALIDATION | SVC-1793330193449658 | Full staticAnalysis passed locally and in hosted source runs. All CodeQL languages passed at b232683b6; full CI acceptance of the Kaspresso selector repair is pending. | required |
+| REQ-VALIDATION | SVC-1793330193449658 | Full staticAnalysis passed locally. Full hosted CI passed all 50 jobs at 90f151afb, including all five Android APIs; all three CodeQL languages passed with zero open alerts. | passed |
 
 ## Observed local checks
 
@@ -43,7 +43,9 @@ deployment_evidence: No deployment is owned by this repair.
 
 ## Combined acceptance
 
-[CodeQL](https://github.com/po4yka/RIPDPI/actions/runs/41022269149) passed all three languages at `b232683b6`. The [full manual CI](https://github.com/po4yka/RIPDPI/actions/runs/41023398772) for that exact revision failed because the API 37 smoke selected an old Home class name and executed five of six cases. The corrected selector still requires all six cases; a new full run is pending. Earlier push runs were cancelled by parallel updates to main. Do not archive this change as fully verified until full CI completes successfully.
+[Full CI](https://github.com/po4yka/RIPDPI/actions/runs/41039550816) passed all 50 jobs at `90f151afb`, including staticAnalysis, UI audit, fuzz, real upstream interop, native/Android builds, all five Android APIs, and ci-required. [CodeQL](https://github.com/po4yka/RIPDPI/actions/runs/41039363672) passed all three languages on the same revision, with no extraction errors or warnings and zero open alerts.
+
+The full follow-up found and repaired the old Home smoke selector (`87eab4287`), the moved exact async exception binding (`c7bec985b`), and API 37 guest memory pressure (`a04fd44a6`). Its [API 37 result](https://github.com/po4yka/RIPDPI/actions/runs/41039550816/job/124023427476) contains all six smoke cases with zero failures, errors, or skips. No scanner, baseline, count, skip guard, or test assertion was reduced. Earlier cancelled runs are not acceptance evidence.
 
 Source commits: `fd66b33ec` (SSH boundary), `d675424c8` (current UI driver CI contract), `b198c6e42` (supported Simple test fixture mode), `90f4d8f51` (exact UI audit exclusions), and `423cc6626` (standalone fuzz repair).
 
