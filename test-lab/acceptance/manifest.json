@@ -32,6 +32,10 @@
       "independent-hysteria2-tcp-udp",
       "independent-hysteria2-auth-rejection",
       "independent-hysteria2-tls-rejection",
+      "independent-naiveproxy-tcp",
+      "independent-naiveproxy-auth-rejection",
+      "independent-naiveproxy-tls-rejection",
+      "independent-naiveproxy-target-refusal",
       "independent-hysteria2-hopping-ipv4-plain-fixed",
       "independent-hysteria2-hopping-ipv4-plain-random",
       "independent-hysteria2-hopping-ipv4-salamander-fixed",
@@ -119,6 +123,10 @@
       "independent-hysteria2-tcp-udp",
       "independent-hysteria2-auth-rejection",
       "independent-hysteria2-tls-rejection",
+      "independent-naiveproxy-tcp",
+      "independent-naiveproxy-auth-rejection",
+      "independent-naiveproxy-tls-rejection",
+      "independent-naiveproxy-target-refusal",
       "independent-hysteria2-hopping-ipv4-plain-fixed",
       "independent-hysteria2-hopping-ipv4-plain-random",
       "independent-hysteria2-hopping-ipv4-salamander-fixed",
@@ -596,6 +604,70 @@
       "id": "independent-hysteria2-tls-rejection",
       "adapter": "peers",
       "protocol": "hysteria2",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity",
+        "destination-receipts"
+      ]
+    },
+    {
+      "id": "independent-naiveproxy-tcp",
+      "adapter": "peers",
+      "protocol": "naiveproxy",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity",
+        "destination-receipts"
+      ]
+    },
+    {
+      "id": "independent-naiveproxy-auth-rejection",
+      "adapter": "peers",
+      "protocol": "naiveproxy",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity",
+        "destination-receipts"
+      ]
+    },
+    {
+      "id": "independent-naiveproxy-tls-rejection",
+      "adapter": "peers",
+      "protocol": "naiveproxy",
+      "tier": "independent-peer",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 1800,
+      "checks": [
+        "exact-test-executed",
+        "pinned-peer-identity",
+        "destination-receipts"
+      ]
+    },
+    {
+      "id": "independent-naiveproxy-target-refusal",
+      "adapter": "peers",
+      "protocol": "naiveproxy",
       "tier": "independent-peer",
       "platforms": [
         "darwin",

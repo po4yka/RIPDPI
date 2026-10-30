@@ -20,6 +20,7 @@ sys.path.insert(0, str(DIRECTORY))
 catalog = importlib.import_module("catalog")
 hysteria = importlib.import_module("hysteria")
 hysteria_hopping = importlib.import_module("hysteria_hopping")
+naiveproxy = importlib.import_module("naiveproxy")
 
 SPEC = importlib.util.spec_from_file_location(
     "acceptance_peer_runner", DIRECTORY / "run.py"
@@ -363,6 +364,25 @@ runner.main(['--prepare', '--scenario', 'native-tuic-tcp'])
             (Path(directory) / "hysteria-v2.13.0-linux-arm64").write_bytes(b"tampered")
             with self.assertRaisesRegex(ValueError, "digest mismatch"):
                 hysteria.binary(Path(directory))
+
+    def test_prepared_naiveproxy_server_identity_and_digest_are_verified(self):
+        with tempfile.TemporaryDirectory() as directory:
+            cache = Path(directory)
+            with self.assertRaises(FileNotFoundError):
+                naiveproxy.binary(cache)
+            base = naiveproxy.root(cache)
+            base.mkdir(parents=True)
+            server = base / "caddy-forwardproxy-naive"
+            server.write_bytes(b"prepared server")
+            record = base / "peer.json"
+            record.write_text(json.dumps(dict(naiveproxy.identity(), sha256=naiveproxy.go_toolchain.digest(server))))
+            self.assertEqual(server, naiveproxy.binary(cache)[0])
+            server.write_bytes(b"tampered")
+            with self.assertRaisesRegex(ValueError, "digest mismatch"):
+                naiveproxy.binary(cache)
+            record.write_text(json.dumps(dict(naiveproxy.identity(), revision="0" * 40, sha256="")))
+            with self.assertRaisesRegex(ValueError, "pinned sources"):
+                naiveproxy.binary(cache)
 
     def test_missing_prerequisite_produces_blocked_bound_report(self):
         with (

@@ -71,3 +71,24 @@ SIGTERM raises an exception and unwinds adapter cleanup. Owned process groups,
 socket workers, peer sockets, and private temporary files are closed before the
 report is written. A timeout, missing prerequisite, missing test, ignored test,
 identity mismatch, receipt mismatch, or cleanup failure cannot produce a pass.
+
+## NaiveProxy
+
+The peer is klzgrad/forwardproxy `v2.11.7-naive2` (commit `e747854e7874`) on
+Caddy `v2.11.7`, built the way the fork's release workflow builds it: the
+pinned Caddy tag with the fork's two Caddy patches, then the forwardproxy
+module. Preparation checks the source revisions and patch digests, builds with
+the pinned Go toolchain, and records the binary SHA-256; every run checks that
+record and digest before it starts the server. A generic `xcaddy` build is not
+an equivalent artifact.
+
+OpenSSL creates a one-day private test CA and a `naive.test` leaf in a private
+temporary directory. Only the test client config trusts that CA; production
+trust is unchanged. The server binds loopback with basic auth and an ACL that
+allows only loopback destinations. Four exact helper tests cover payload
+exchange by domain and by IP authority, wrong-password rejection (407), default
+public-root TLS rejection, and a refused target. The server answers CONNECT 200
+before it dials, so a refused target is an accepted tunnel that ends without
+destination bytes. Each negative case first exchanges one payload, so a missing
+server cannot pass as an expected rejection. Destinations record the SHA-256 of
+every payload they echo.

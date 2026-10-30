@@ -228,6 +228,37 @@ for purpose, test in {
         "tls_scope": "Explicit insecure mode for local payload/auth; separate default secure rejection. No trusted-CA acceptance claim.",
     }
 
+# Receipts: the payload case reaches the destination by domain and by IP; each
+# negative case first proves the server works with one exchange.
+for purpose, (test, receipts) in {
+    "tcp": ("independent_peer_exchanges_payload_by_domain_and_ip", 2),
+    "auth-rejection": ("independent_peer_rejects_wrong_auth", 1),
+    "tls-rejection": ("independent_peer_rejects_untrusted_certificate", 1),
+    "target-refusal": ("independent_peer_ends_tunnel_to_refused_target", 1),
+}.items():
+    SCENARIOS[f"independent-naiveproxy-{purpose}"] = {
+        "protocol": "naiveproxy",
+        "tier": "independent-peer",
+        "driver": "naiveproxy",
+        "package": "ripdpi-naiveproxy",
+        "target": "bin",
+        "test": f"independent_peer_tests::{test}",
+        "ignored": True,
+        "receipts": receipts,
+        "checks": [
+            "exact-test-executed",
+            "pinned-peer-identity",
+            "destination-receipts",
+        ],
+        "peer_identity": {
+            "implementation": "klzgrad/forwardproxy on Caddy",
+            "repository": "https://github.com/klzgrad/forwardproxy.git",
+            "revision": "e747854e78743dba85c039b38ed185fb11d93667",
+            "caddy_version": "v2.11.7",
+        },
+        "tls_scope": "Private test CA trusted only by the test client config; production trust rejection is a separate case.",
+    }
+
 for ipv6 in (False, True):
     for salamander in (False, True):
         for randomized in (False, True):

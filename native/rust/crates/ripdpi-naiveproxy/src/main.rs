@@ -118,4 +118,6 @@ async fn main() -> io::Result<()> {
 }
 
 #[cfg(test)]
+mod independent_peer_tests;
+#[cfg(test)]
 mod tests;

@@ -17,6 +17,7 @@ import time
 from catalog import SCENARIOS, UPSTREAM, EXTERNAL_BOUNDARIES
 import hysteria
 import hysteria_hopping
+import naiveproxy
 import go_toolchain
 
 ROOT = Path(__file__).resolve().parents[3]
@@ -179,6 +180,9 @@ def prepare(case, args):
     args.cache_dir.mkdir(parents=True, exist_ok=True)
     if driver == "cargo":
         checked(cargo_command(case, True), RUST)
+    elif driver == "naiveproxy":
+        naiveproxy.prepare(args.cache_dir)
+        checked(cargo_command(case, True), RUST)
     elif driver in ("hysteria2", "hysteria2-hopping"):
         hysteria.binary(args.cache_dir, prepare=True)
         checked(cargo_command(endpoint_case(case), True), RUST)
@@ -310,6 +314,26 @@ def execute(case, args, result):
             result["peer_identity"]["sha256"] = peer["sha256"]
             if not (valid and hopped and connected):
                 raise RuntimeError("Hysteria remote hopping acceptance receipts failed")
+    elif driver == "naiveproxy":
+        # Compilation happens before starting a peer with a finite lifetime.
+        checked(cargo_command(case, True), RUST)
+        result["_peer_cleanup"] = {"passed": True}
+        with naiveproxy.peer(args.cache_dir, args.out_dir, args.run_id, result["_peer_cleanup"]) as peer:
+            checked(cargo_command(case), RUST, dict(os.environ, **peer["env"]), timeout=60)
+            received = peer["receipts"]
+            valid = (
+                not peer["errors"]
+                and len(received) == case["receipts"]
+                and all(item["transport"] == "tcp" and item["sha256"] == peer["payload_sha256"] for item in received)
+            )
+            result["checks"].append({"id": "destination-receipts", "passed": valid})
+            (args.out_dir / "receipts.json").write_text(
+                json.dumps({"run_id": args.run_id, "receipts": received}, indent=2) + "\n"
+            )
+            result["artifacts"].append("receipts.json")
+            result["peer_identity"]["sha256"] = peer["sha256"]
+            if not valid:
+                raise RuntimeError("destination receipts do not match the scenario")
     elif driver == "hysteria2":
         # Compilation happens before starting a peer with a finite lifetime.
         checked(cargo_command(endpoint_case(case), True), RUST)
