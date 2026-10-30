@@ -1437,7 +1437,7 @@ Quelle: %2$s</string>
     <string name="settings_backup_pin_save">PIN speichern</string>
     <string name="settings_biometric_confirm_enable">Aktivieren</string>
     <string name="settings_biometric_pin_required_ok">OK</string>
-    <string name="settings_community_api_url_helper">Leer lassen, um den Standardendpunkt zu verwenden.</string>
+    <string name="settings_community_api_url_helper">Leer lassen, um nur mit den eigenen Prüfungen zu vergleichen.</string>
     <string name="settings_connectivity_dns_body_proxy">Verschlüsseltes DNS kann Zielnamen des lokalen Proxys auflösen. Geräte-DNS bleibt unverändert.</string>
     <string name="settings_diagnostics_export_history_body">Gespeicherte Verlaufstabellen hinzufügen, wenn Sie ausdrücklich ein Diagnosearchiv zum Teilen oder für den lokalen Export erstellen.</string>
     <string name="settings_diagnostics_retention_body">Wie lange gespeicherte Verbindungssitzungen, Messwerte, Diagnoseberichte und Exportdatensätze im App-Speicher bleiben, bevor die Bereinigung sie löscht. Archive oder Protokolldateien, die Sie an anderer Stelle speichern, bleiben dort, bis Sie sie löschen.</string>

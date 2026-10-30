@@ -2341,7 +2341,7 @@ fakeddisorder endhost</string>
     <string name="copied_to_clipboard">تم النسخ إلى الحافظة</string>
     <string name="diagnostics_probe_copy_action">نسخ النتيجة</string>
     <string name="settings_community_api_url_label">رابط API المجتمع</string>
-    <string name="settings_community_api_url_helper">اتركه فارغاً لاستخدام نقطة الوصول الافتراضية.</string>
+    <string name="settings_community_api_url_helper">اتركه فارغاً للمقارنة بفحوصاتك فقط.</string>
     <string name="settings_community_api_url_save">حفظ</string>
     <string name="settings_community_api_url_reset">إعادة التعيين إلى الافتراضي</string>
     <string name="settings_clear_community_cache">مسح ذاكرة التخزين المؤقت للمجتمع</string>

@@ -750,7 +750,7 @@
     <string name="diagnostics_probe_copy_action">परिणाम कॉपी करें</string>
 
     <string name="settings_community_api_url_label">कम्युनिटी API URL</string>
-    <string name="settings_community_api_url_helper">डिफ़ॉल्ट एंडपॉइंट उपयोग करने के लिए खाली छोड़ें।</string>
+    <string name="settings_community_api_url_helper">केवल अपनी जाँचों से तुलना करने के लिए खाली छोड़ें।</string>
     <string name="settings_community_api_url_save">सहेजें</string>
     <string name="settings_community_api_url_reset">डिफ़ॉल्ट पर रीसेट करें</string>
     <string name="settings_clear_community_cache">कम्युनिटी कैश साफ़ करें</string>

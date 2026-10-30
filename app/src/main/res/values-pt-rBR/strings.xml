@@ -2434,7 +2434,7 @@ Fonte: %2$s</string>
     <string name="diagnostics_probe_copy_action">Copiar resultado</string>
 
     <string name="settings_community_api_url_label">URL da API da comunidade</string>
-    <string name="settings_community_api_url_helper">Deixe vazio para usar o endpoint padrão.</string>
+    <string name="settings_community_api_url_helper">Deixe vazio para comparar apenas com suas próprias verificações.</string>
     <string name="settings_community_api_url_save">Salvar</string>
     <string name="settings_community_api_url_reset">Redefinir para o padrão</string>
     <string name="settings_clear_community_cache">Limpar cache da comunidade</string>

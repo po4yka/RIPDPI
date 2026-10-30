@@ -1437,7 +1437,7 @@ Source : %2$s</string>
     <string name="settings_backup_pin_save">Enregistrer le PIN</string>
     <string name="settings_biometric_confirm_enable">Activer</string>
     <string name="settings_biometric_pin_required_ok">OK</string>
-    <string name="settings_community_api_url_helper">Laisser vide pour utiliser le point de terminaison par défaut.</string>
+    <string name="settings_community_api_url_helper">Laisser vide pour comparer uniquement avec vos propres vérifications.</string>
     <string name="settings_connectivity_dns_body_proxy">Le DNS chiffré peut résoudre les noms cibles du proxy local. Le DNS de l’appareil reste inchangé.</string>
     <string name="settings_diagnostics_export_history_body">Inclure les tables d’historique enregistrées lorsque vous créez explicitement une archive de diagnostic pour la partager ou l’exporter localement.</string>
     <string name="settings_diagnostics_retention_body">Durée de conservation des sessions de connexion, échantillons, rapports de diagnostic et enregistrements d’export dans le stockage de l’application avant leur suppression. Les archives et journaux enregistrés ailleurs y restent jusqu’à leur suppression par vos soins.</string>

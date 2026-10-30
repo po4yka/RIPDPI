@@ -1935,7 +1935,7 @@ fake_burst 3</string>
     <string name="settings_biometric_body_without_pin">生物识别解锁已启用。请添加备用 PIN 以备后用。</string>
     <string name="settings_biometric_confirm_title">启用身份验证?</string>
     <string name="settings_biometric_pin_required_title">需要备用 PIN</string>
-    <string name="settings_community_api_url_helper">留空以使用默认端点。</string>
+    <string name="settings_community_api_url_helper">留空则仅与您自己的检查结果比较。</string>
     <string name="settings_connectivity_dns_body_proxy">加密 DNS 可以解析本地代理的目标域名。设备 DNS 不会更改。</string>
     <string name="settings_diagnostics_monitor_body">在 RIPDPI 运行期间持续采样连接遥测、网络状态和上下文。</string>
     <string name="settings_diagnostics_retention_title">历史保留(天)</string>

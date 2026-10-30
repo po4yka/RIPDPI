@@ -53,9 +53,6 @@ class CommunityComparisonClient internal constructor(
         }
 
     companion object {
-        const val DEFAULT_STATS_URL =
-            "https://raw.githubusercontent.com/AnyKnew/ripdpi-community-stats/main/stats.json"
-
         private fun defaultClient(): OkHttpClient =
             OkHttpClient
                 .Builder()

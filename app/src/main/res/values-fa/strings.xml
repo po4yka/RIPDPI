@@ -2454,7 +2454,7 @@ fakeddisorder endhost</string>
     <string name="settings_biometric_confirm_message">هر بار که داشبورد را باز می‌کنید باید هویت خود را تأیید کنید.</string>
     <string name="settings_biometric_pin_required_message">پیش از فعال‌سازی بازگشایی بیومتریک، یک PIN پشتیبان تنظیم کنید. اگر احراز هویت بیومتریک در دسترس نباشد، PIN دسترسی جایگزین فراهم می‌کند.</string>
     <string name="settings_biometric_title">احراز هویت اجباری</string>
-    <string name="settings_community_api_url_helper">برای استفاده از نقطه پایانی پیش‌فرض خالی بگذارید.</string>
+    <string name="settings_community_api_url_helper">برای مقایسه فقط با بررسی‌های خودتان خالی بگذارید.</string>
     <string name="settings_community_api_url_save">ذخیره</string>
     <string name="settings_connectivity_section">اتصال</string>
     <string name="settings_data_transparency_body">چه چیزی روی این دستگاه ذخیره می‌شود، تا چه مدت نگه داشته می‌شود و چه زمانی از دستگاه خارج می‌شود.</string>

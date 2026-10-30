@@ -1437,7 +1437,7 @@ Origen: %2$s</string>
     <string name="settings_backup_pin_save">Guardar PIN</string>
     <string name="settings_biometric_confirm_enable">Activar</string>
     <string name="settings_biometric_pin_required_ok">Aceptar</string>
-    <string name="settings_community_api_url_helper">Deja vacío para usar el endpoint por defecto.</string>
+    <string name="settings_community_api_url_helper">Deja vacío para comparar solo con tus propias comprobaciones.</string>
     <string name="settings_connectivity_dns_body_proxy">El DNS cifrado puede resolver los nombres del proxy local. El DNS del dispositivo no cambia.</string>
     <string name="settings_diagnostics_export_history_body">Adjunta las tablas de historial guardadas cuando crees explícitamente un archivo de diagnóstico para compartirlo o exportarlo localmente.</string>
     <string name="settings_diagnostics_retention_body">Tiempo durante el que las sesiones de conexión, muestras, informes de diagnóstico y registros de exportación guardados permanecen en el almacenamiento de la aplicación antes de que la limpieza los elimine. Los archivos o registros que guardes en otros lugares permanecen allí hasta que los elimines.</string>
