@@ -1078,6 +1078,8 @@ class XrayProviderE2ETest {
             assertFailsClosed("naive-upstream-wrong-password") {
                 startNaive("", password = "wrong-" + manifest.getString("naivePassword").reversed())
             }
+            // The upstream ERR_PROXY_AUTH_* close maps to the auth class, as the Rust helper's 407 does.
+            awaitUntil(timeoutMs = 15_000) { relayHealth() == "degraded" }
         } finally {
             runBlocking {
                 controller.stop()

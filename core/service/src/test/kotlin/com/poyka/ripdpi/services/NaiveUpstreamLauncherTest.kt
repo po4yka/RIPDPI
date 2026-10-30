@@ -609,13 +609,32 @@ class NaiveUpstreamLauncherTest {
     }
 
     @Test
+    fun `a proxy credential rejection is an auth failure`() {
+        val parser = SubprocessRelayOutputParser()
+        // Recorded from the pinned upstream client with a wrong password against Caddy forwardproxy.
+        val rejected = closePrefix + "Connection 0 closed: ERR_PROXY_AUTH_UNSUPPORTED"
+
+        for (code in listOf("ERR_PROXY_AUTH_UNSUPPORTED", "net::ERR_PROXY_AUTH_REQUESTED")) {
+            parser.parse(recordedUpstreamLines.last(), upstreamSpec)
+            assertEquals(
+                SubprocessRelayOutputEvent.Error(
+                    upstreamSpec.runtimeKind,
+                    "auth",
+                    "proxy rejected the credentials: $code",
+                ),
+                parser.parse(rejected.replace("ERR_PROXY_AUTH_UNSUPPORTED", code), upstreamSpec),
+            )
+        }
+    }
+
+    @Test
     fun `proxy rejection closes produce no health evidence and reset clears announcements`() {
         val parser = SubprocessRelayOutputParser()
         parser.parse(recordedUpstreamLines.last(), upstreamSpec)
 
         assertEquals(
-            SubprocessRelayOutputEvent.PlainError("upstream connection closed: ERR_PROXY_AUTH_REQUESTED"),
-            parser.parse(closePrefix + "Connection 0 closed: ERR_PROXY_AUTH_REQUESTED", upstreamSpec),
+            SubprocessRelayOutputEvent.PlainError("upstream connection closed: ERR_PROXY_CONNECTION_FAILED"),
+            parser.parse(closePrefix + "Connection 0 closed: ERR_PROXY_CONNECTION_FAILED", upstreamSpec),
         )
         parser.parse(recordedUpstreamLines.last().replace("Connection 0", "Connection 2"), upstreamSpec)
         assertEquals(
