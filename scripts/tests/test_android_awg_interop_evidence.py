@@ -408,5 +408,51 @@ class ScenarioCliReportingTest(unittest.TestCase):
         self.assertNotIn('dual-stack',output.getvalue())
 
 
+
+
+class InstrumentationFailureEvidenceTest(unittest.TestCase):
+    def test_timeout_retains_partial_output_and_stops_only_test_host(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/"instrumentation.txt"
+            failure=subprocess.TimeoutExpired(['adb'],240,output=b'INSTRUMENTATION_STATUS: test=owned-test',stderr=b'owned failure')
+            result=subprocess.CompletedProcess(['adb'],0,stdout='1234\n',stderr='')
+            logs=subprocess.CompletedProcess(['adb'],0,stdout='owned pid stack',stderr='')
+            with patch.object(RUNNER,'checked',side_effect=failure),patch.object(RUNNER.subprocess,'run',side_effect=[result,logs,result,result,result]) as command:
+                with self.assertRaises(subprocess.TimeoutExpired):RUNNER.instrumentation(['adb'],['adb','-s','emulator-unit'],path,240)
+            self.assertIn('owned-test',path.read_text())
+            self.assertIn('owned failure',path.read_text())
+            self.assertEqual(path.with_name('instrumentation-logcat-1234.txt').read_text(),'owned pid stack')
+            self.assertEqual(command.call_args.args[0],['adb','-s','emulator-unit','shell','am','force-stop',RUNNER.PACKAGE])
+
+
+
+
+class DiagnosticWriteFailureTest(unittest.TestCase):
+    def test_diagnostic_write_failure_still_stops_owned_instrumentation(self):
+        import subprocess
+        failure=subprocess.TimeoutExpired(['adb'],240,output=b'partial output')
+        with patch.object(RUNNER,'checked',side_effect=failure),patch.object(Path,'write_text',side_effect=OSError('unit disk failure')),patch.object(RUNNER.subprocess,'run') as command:
+            with self.assertRaises(subprocess.TimeoutExpired) as observed:
+                RUNNER.instrumentation(['adb'],['adb','-s','emulator-unit'],Path('unwritable'),240)
+        self.assertIs(observed.exception,failure)
+        self.assertEqual(command.call_args.args[0],['adb','-s','emulator-unit','shell','am','force-stop',RUNNER.PACKAGE])
+
+
+
+
+class DeadInstrumentationDiagnosticsTest(unittest.TestCase):
+    def test_dead_process_diagnostics_are_scoped_to_test_package_uid(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/"instrumentation.txt"
+            failure=subprocess.TimeoutExpired(['adb'],240,output=b'partial')
+            result=lambda text:subprocess.CompletedProcess(['adb'],0,stdout=text,stderr='')
+            with patch.object(RUNNER,'checked',side_effect=failure),patch.object(RUNNER.subprocess,'run',side_effect=[result(''),result('package:'+RUNNER.PACKAGE+' uid:12345'),result('owned crash'),result(''),result(''),result('')]) as command:
+                with self.assertRaises(subprocess.TimeoutExpired):RUNNER.instrumentation(['adb'],['adb'],path,240)
+            self.assertEqual(path.with_name('instrumentation-logcat-uid-12345.txt').read_text(),'owned crash')
+            self.assertIn('--uid=12345',command.call_args_list[2].args[0])
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -39,6 +39,45 @@ def checked(command, *, cwd=ROOT, env=None, timeout=900):
     return subprocess.run(command, cwd=cwd, env=env, check=True, timeout=timeout, text=True, capture_output=True).stdout.strip()
 
 
+def instrumentation(command, adb, path, timeout):
+    try:
+        log = checked(command, timeout=timeout)
+    except (subprocess.CalledProcessError, subprocess.TimeoutExpired) as error:
+        def text(value):
+            return value.decode("utf-8", errors="replace") if isinstance(value, bytes) else value or ""
+        try:
+            path.write_text((text(error.stdout) + "\n" + text(error.stderr))[-(1 << 20):])
+            process = subprocess.run(adb + ["shell", "pidof", PACKAGE], capture_output=True, text=True, timeout=10, check=False)
+            if not process.stdout.strip():
+                package = subprocess.run(adb + ["shell", "cmd", "package", "list", "packages", "-U", PACKAGE],
+                                         capture_output=True, text=True, timeout=10, check=False)
+                uids = re.findall(r"\buid:(\d+)\b", package.stdout)
+                if len(uids) == 1:
+                    logcat = subprocess.run(adb + ["logcat", "-d", "--uid=" + uids[0], "-v", "threadtime"],
+                                            capture_output=True, text=True, timeout=10, check=False)
+                    path.with_name(path.stem + "-logcat-uid-" + uids[0] + ".txt").write_text(logcat.stdout[-(1 << 20):])
+            for pid in process.stdout.split():
+                if not pid.isascii() or not pid.isdecimal(): continue
+                logcat = subprocess.run(adb + ["logcat", "-d", "--pid=" + pid, "-v", "threadtime"],
+                                        capture_output=True, text=True, timeout=10, check=False)
+                path.with_name(path.stem + "-logcat-" + pid + ".txt").write_text(logcat.stdout[-(1 << 20):])
+            for kind in ("exit-info", "processes"):
+                state = subprocess.run(adb + ["shell", "dumpsys", "activity", kind, PACKAGE],
+                                       capture_output=True, text=True, timeout=10, check=False)
+                path.with_name(path.stem + "-" + kind + ".txt").write_text((state.stdout + state.stderr)[-(1 << 20):])
+        except (OSError, subprocess.SubprocessError):
+            pass
+        finally:
+            # Killing the adb client alone does not stop Android instrumentation.
+            try:
+                subprocess.run(adb + ["shell", "am", "force-stop", PACKAGE], capture_output=True, timeout=10, check=False)
+            except (OSError, subprocess.SubprocessError):
+                pass
+        raise
+    path.write_text(log + "\n")
+    return log
+
+
 def artifact(path, output):
     with path.open("rb") as stream:
         checksum = hashlib.file_digest(stream, "sha256").hexdigest()
@@ -254,12 +293,11 @@ def negative_control(args, adb, output):
                           stderr=subprocess.PIPE, text=True, env=env) as peer:
         try:
             ready, port = await_peer(peer)
-            log = checked(adb + ["shell", "am", "instrument", "-w", "-r", "-e", "class", NEGATIVE_METHOD,
+            path = output / "instrumentation-negative-control.txt"
+            log = instrumentation(adb + ["shell", "am", "instrument", "-w", "-r", "-e", "class", NEGATIVE_METHOD,
                                  "-e", "awgPeerPort", port, "-e", "awgPublicKey", ready["public_key"], "-e", "awgMtu", "1280",
                                  "-e", "awgProfile", args.profile, "-e", "awgHeaderKey", WRONG_HEADER_KEY,
-                                 "-e", "awgNonce", args.nonce, RUNNER], timeout=90)
-            path = output / "instrumentation-negative-control.txt"
-            path.write_text(log + "\n")
+                                 "-e", "awgNonce", args.nonce, RUNNER], adb, path, timeout=90)
             peer.stdin.write("stop\n")
             peer.stdin.flush()
             # No exchange completes, so the peer exits at its session deadline.
@@ -296,9 +334,8 @@ def device_cycles(args, adb, output):
                                      "-e", "awgPeerPort", port, "-e", "awgPublicKey", ready["public_key"],
                                      "-e", "awgMtu", str(mtu), "-e", "awgCycle", str(cycle),
                                      "-e", "awgNonce", args.nonce] + profile_arguments(args) + [RUNNER]
-                    log = checked(command, timeout=240)
                     path = output / f"instrumentation-{mtu}-{cycle}.txt"
-                    path.write_text(log + "\n")
+                    log = instrumentation(command, adb, path, timeout=240)
                     records = [json.loads(line.removeprefix("INSTRUMENTATION_STATUS: awgEvidence="))
                                for line in log.splitlines() if line.startswith("INSTRUMENTATION_STATUS: awgEvidence=")]
                     if len(records) != 1:
