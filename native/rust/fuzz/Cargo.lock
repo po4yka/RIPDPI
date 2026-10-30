@@ -1922,6 +1922,7 @@ dependencies = [
  "ripdpi-diagnostics-contracts",
  "ripdpi-native-protect",
  "ripdpi-socks5-core",
+ "ripdpi-tls-profiles",
  "rustls",
  "socket2",
  "tokio",
