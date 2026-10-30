@@ -107,6 +107,7 @@ assets are packaged into the APK. See
 | `libripdpi-amneziawg.so` | JNI shared library | `crates/ripdpi-amneziawg-android` | `RipDpiAmneziaWg.kt` | Standalone and VPN-composed AmneziaWG runtime |
 | `ripdpi-root-helper` | Standalone ELF binary | `crates/ripdpi-root-helper` | `RootHelperManager.kt`, `RootDetector.kt` | Privileged raw-socket ops, rooted devices only |
 | `ripdpi-naiveproxy` | Standalone helper binary | `crates/ripdpi-naiveproxy` | `Subprocess*` services | NaiveProxy relay helper process |
+| `libripdpi-naive-chromium.so` | Prebuilt upstream helper executable | `native/naiveproxy-upstream/sources.json` (pinned klzgrad/naiveproxy release; fetched by `scripts/ci/fetch-naive-upstream.py`) | `Subprocess*` services | Chromium-based NaiveProxy client for pin-free profiles |
 | `ripdpi-cloudflare-origin` | Standalone helper binary | `crates/ripdpi-cloudflare-origin` | `Cloudflare*` services | Local xHTTP origin helper for Cloudflare Tunnel publish mode |
 | `ripdpi-webtunnel` | Pluggable-transport helper binary | `crates/ripdpi-webtunnel` | Tor PT bootstrap path | WebTunnel managed-client helper |
 
