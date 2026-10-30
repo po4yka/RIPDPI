@@ -94,16 +94,19 @@ mod probe_tests {
 
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> io::Result<()> {
-    if std::env::args().skip(1).any(|value| value == VERSION_FLAG) {
+    // `args_os`: a non-UTF-8 argument must not panic before any mode is chosen.
+    let args: Vec<std::ffi::OsString> = std::env::args_os().skip(1).collect();
+    let has_flag = |flag: &str| args.iter().any(|value| value == flag);
+    if has_flag(VERSION_FLAG) {
         println!("ripdpi-naiveproxy {}", env!("CARGO_PKG_VERSION"));
         return Ok(());
     }
-    if std::env::args().skip(1).any(|value| value == PROBE_FLAG) {
+    if has_flag(PROBE_FLAG) {
         emit_probe_line();
         return Ok(());
     }
 
-    if std::env::args().skip(1).any(|value| value == resolve::RESOLVE_FLAG) {
+    if args.first().is_some_and(|value| value == resolve::RESOLVE_FLAG) {
         return resolve::run_resolve_mode().await;
     }
 

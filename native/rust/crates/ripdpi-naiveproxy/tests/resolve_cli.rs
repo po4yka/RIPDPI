@@ -29,3 +29,29 @@ fn invalid_arguments_print_a_dns_error_line_and_exit_nonzero() {
         assert_eq!(stderr.lines().count(), 1, "{stderr}");
     }
 }
+
+#[cfg(unix)]
+#[test]
+fn non_utf8_arguments_print_a_dns_error_line_without_panicking() {
+    use std::ffi::OsStr;
+    use std::os::unix::ffi::OsStrExt;
+
+    let bad = OsStr::from_bytes(b"a\xffb.example");
+    let out = Command::new(env!("CARGO_BIN_EXE_ripdpi-naiveproxy"))
+        .arg("--resolve")
+        .arg(bad)
+        .args(["--server-port", "443"])
+        .env_remove("RIPDPI_PROTECT_PATH")
+        .output()
+        .unwrap();
+    assert_eq!(out.status.code(), Some(1));
+    let stderr = String::from_utf8_lossy(&out.stderr);
+    assert!(stderr.starts_with("RIPDPI-ERROR|naiveproxy|dns|"), "{stderr}");
+    assert!(!stderr.contains("panicked"), "{stderr}");
+}
+
+#[test]
+fn resolve_is_detected_only_as_the_first_argument() {
+    let out = run(&["--server-port", "443", "--resolve", "1.2.3.4"]);
+    assert!(!String::from_utf8_lossy(&out.stdout).starts_with("RIPDPI-RESOLVED|"));
+}
