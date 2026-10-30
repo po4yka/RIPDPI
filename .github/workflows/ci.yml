@@ -340,7 +340,7 @@ jobs:
             scripts.tests.test_e2e_vpn_deploy_uri_summary \
             scripts.tests.test_extract_pluggable_transport_artifact \
             scripts.tests.test_generate_update_metadata \
-            scripts.tests.test_home_disclosure_selector_contract \
+            scripts.tests.test_adb_ui_flow \
             scripts.tests.test_linux_bpf_test_runner \
             scripts.tests.test_offline_strategy_simulator \
             scripts.tests.test_packet_smoke_generator \

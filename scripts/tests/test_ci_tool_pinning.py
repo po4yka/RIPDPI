@@ -17,6 +17,14 @@ def ci_jobs(source: str) -> dict[str, str]:
 
 
 class CiToolPinningTest(unittest.TestCase):
+    def test_workflow_unittest_modules_exist(self) -> None:
+        paths = [*(ROOT / ".github/workflows").glob("*.yml"), *(ROOT / ".github/actions").glob("*/action.yml")]
+        for path in sorted(paths):
+            modules = set(re.findall(r"\bscripts\.tests\.test_[A-Za-z0-9_]+\b", path.read_text(encoding="utf-8")))
+            for module in sorted(modules):
+                with self.subTest(path=path.name, module=module):
+                    self.assertTrue((ROOT / (module.replace(".", "/") + ".py")).is_file(), module)
+
     def test_ci_does_not_wrap_rustc_with_sccache(self) -> None:
         # The GHA sccache backend measured 0% hits while Swatinem/rust-cache
         # already restores target/; it only added cache entries and latency.
