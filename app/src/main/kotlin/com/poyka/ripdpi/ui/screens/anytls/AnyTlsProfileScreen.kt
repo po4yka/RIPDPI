@@ -10,6 +10,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
@@ -80,6 +81,7 @@ internal fun AnyTlsProfileScreen(
             onClick = onSave,
             enabled = uiState.editor.isComplete && !uiState.saving,
             hint = stringResource(R.string.relay_editor_save_incomplete_hint).takeUnless { uiState.editor.isComplete },
+            testTag = RipDpiTestTags.relayEditorSave(RelayKindAnyTls),
         )
     }
 }
@@ -115,6 +117,7 @@ private fun CredentialsSection(
             label = stringResource(R.string.anytls_field_password),
             value = editor.rawText(AnyTlsEditorField.PASSWORD),
             onValueChange = { onFieldChanged(AnyTlsEditorField.PASSWORD, it) },
+            testTag = RipDpiTestTags.relayEditorField(RelayKindAnyTls, AnyTlsEditorField.PASSWORD.name),
             errorText =
                 stringResource(R.string.anytls_field_invalid).takeIf {
                     editor.hasFieldError(AnyTlsEditorField.PASSWORD)
@@ -157,6 +160,7 @@ private fun PlainField(
                 label = stringResource(labelRes),
                 placeholder = placeholder,
                 helperText = helperText,
+                testTag = RipDpiTestTags.relayEditorField(RelayKindAnyTls, field.name),
                 errorText = if (hasError) stringResource(R.string.anytls_field_invalid) else null,
             ),
         behavior = RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(keyboardType = keyboardType)),

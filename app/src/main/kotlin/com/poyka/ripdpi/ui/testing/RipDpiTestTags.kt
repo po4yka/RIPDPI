@@ -642,6 +642,16 @@ internal object RipDpiTestTags {
 
     val appPickerApp: (String) -> String = { packageName -> "app-picker-app-${sanitize(packageName)}" }
 
+    /** A field of the AnyTLS, Mieru or SSH profile editor; [kind] is the relay kind. */
+    val relayEditorField: (String, String) -> String = { kind, field ->
+        "relay-editor-${sanitize(kind)}-field-${sanitize(field)}"
+    }
+
+    val relayEditorSave: (String) -> String = { kind -> "relay-editor-${sanitize(kind)}-save" }
+
+    /** The Reveal button of the secret field tagged with the given tag. */
+    val secretReveal: (String) -> String = { fieldTag -> "$fieldTag-reveal" }
+
     private fun sanitize(value: String): String =
         value
             .replace(Regex("([a-z0-9])([A-Z])"), "$1-$2")

@@ -19,6 +19,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -56,6 +57,7 @@ internal fun RelaySecretField(
             RipDpiButton(
                 text = stringResource(R.string.ssh_reveal_secret_action),
                 onClick = onReveal,
+                modifier = Modifier.ripDpiTestTag(testTag?.let(RipDpiTestTags.secretReveal)),
                 enabled = enabled,
                 variant = RipDpiButtonVariant.Secondary,
                 leadingIcon = RipDpiIcons.Visibility,
@@ -71,6 +73,7 @@ internal fun RelayPasswordField(
     value: String,
     onValueChange: (String) -> Unit,
     errorText: String? = null,
+    testTag: String? = null,
 ) {
     var revealed by remember { mutableStateOf(false) }
     RelaySecretField(
@@ -80,6 +83,7 @@ internal fun RelayPasswordField(
         onValueChange = onValueChange,
         onReveal = { revealed = true },
         errorText = errorText,
+        testTag = testTag,
     )
 }
 

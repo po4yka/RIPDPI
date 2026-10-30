@@ -12,6 +12,7 @@ import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.security.AppPinCheck
@@ -147,6 +148,7 @@ internal fun SshProfileScreen(
             onClick = onSave,
             enabled = uiState.editor.isComplete && !uiState.saving && !uiState.loading,
             hint = stringResource(R.string.relay_editor_save_incomplete_hint).takeUnless { uiState.editor.isComplete },
+            testTag = RipDpiTestTags.relayEditorSave(RelayKindSsh),
         )
     }
 }
@@ -218,6 +220,7 @@ private fun AuthSection(
                 label = stringResource(R.string.ssh_field_password),
                 value = editor.rawText(SshEditorField.PASSWORD),
                 onValueChange = { onFieldChanged(SshEditorField.PASSWORD, it) },
+                testTag = RipDpiTestTags.relayEditorField(RelayKindSsh, SshEditorField.PASSWORD.name),
                 errorText =
                     stringResource(R.string.ssh_field_invalid).takeIf {
                         editor.hasFieldError(SshEditorField.PASSWORD)
@@ -282,6 +285,7 @@ private fun PlainField(
                 label = stringResource(labelRes),
                 placeholder = placeholder,
                 helperText = helperText,
+                testTag = RipDpiTestTags.relayEditorField(RelayKindSsh, field.name),
                 errorText = if (hasError) stringResource(R.string.ssh_field_invalid) else null,
             ),
         behavior =

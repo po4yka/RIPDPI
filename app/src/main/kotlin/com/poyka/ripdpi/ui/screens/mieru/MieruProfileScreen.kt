@@ -11,6 +11,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.RelayKindMieru
 import com.poyka.ripdpi.data.RelayMieruMtuDefault
 import com.poyka.ripdpi.data.RelayMieruMtuMax
 import com.poyka.ripdpi.data.RelayMieruMtuMin
@@ -148,6 +149,7 @@ internal fun MieruProfileScreen(
             onClick = onSave,
             enabled = uiState.editor.isComplete && !uiState.saving && !uiState.loading,
             hint = stringResource(R.string.relay_editor_save_incomplete_hint).takeUnless { uiState.editor.isComplete },
+            testTag = RipDpiTestTags.relayEditorSave(RelayKindMieru),
         )
     }
 }
@@ -191,6 +193,7 @@ private fun CredentialsSection(
             label = stringResource(R.string.mieru_field_password),
             value = editor.rawText(MieruEditorField.PASSWORD),
             onValueChange = { onFieldChanged(MieruEditorField.PASSWORD, it) },
+            testTag = RipDpiTestTags.relayEditorField(RelayKindMieru, MieruEditorField.PASSWORD.name),
             errorText =
                 stringResource(R.string.mieru_field_invalid).takeIf {
                     editor.hasFieldError(MieruEditorField.PASSWORD)
@@ -256,6 +259,7 @@ private fun PlainField(
                 label = stringResource(labelRes),
                 placeholder = placeholder,
                 helperText = helperText,
+                testTag = RipDpiTestTags.relayEditorField(RelayKindMieru, field.name),
                 errorText = if (hasError) stringResource(R.string.mieru_field_invalid) else null,
             ),
         behavior =
