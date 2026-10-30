@@ -149,6 +149,9 @@ def await_idle_guest(adb, timeout=1200, poll=10, settle=300):
         uptime = float(checked(adb + ["shell", "cat", "/proc/uptime"]).split()[0])
         load = float(checked(adb + ["shell", "cat", "/proc/loadavg"]).split()[0])
         if booted and uptime >= settle and load <= cores:
+            state = checked(adb + ["shell", "am", "get-started-user-state", "0"])
+            if state != "RUNNING_UNLOCKED":
+                raise ValueError(f"emulator user is {state}; use an unlocked lease or a temporary AVD with clean credential storage")
             return load
         if time.monotonic() >= deadline:
             raise ValueError(f"emulator stayed busy: one-minute load {load} on {cores} cores")

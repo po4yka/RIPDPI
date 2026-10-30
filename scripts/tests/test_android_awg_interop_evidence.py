@@ -83,12 +83,20 @@ class IdleGuestTest(unittest.TestCase):
         samples = ["4",
                    "1", "26.1 46.3", "1.88 0.41 0.13 17/1118 1634",  # quiet before the post-boot storm
                    "1", "320.0 600.0", "62.48 24.85 9.43 31/2374 4350",
-                   "1", "540.5 1075.9", "3.90 9.0 8.0 2/2392 5848"]
+                   "1", "540.5 1075.9", "3.90 9.0 8.0 2/2392 5848", "RUNNING_UNLOCKED"]
         with patch.object(RUNNER, "checked", side_effect=samples) as command, \
                 patch.object(RUNNER.time, "sleep") as sleep:
             self.assertEqual(RUNNER.await_idle_guest(["adb"]), 3.9)
         self.assertEqual(command.call_count, len(samples))
         self.assertEqual(sleep.call_count, 2)
+
+    def test_locked_user_fails_before_instrumentation_without_changing_credentials(self):
+        samples = ["4", "1", "540.5 1075.9", "3.90 9.0 8.0 2/2392 5848", "RUNNING_LOCKED"]
+        with patch.object(RUNNER, "checked", side_effect=samples) as command:
+            with self.assertRaisesRegex(ValueError, "clean credential storage"):
+                RUNNER.await_idle_guest(["adb"])
+        self.assertEqual(command.call_count, len(samples))
+        self.assertEqual(command.call_args.args[0], ["adb", "shell", "am", "get-started-user-state", "0"])
 
     def test_a_guest_that_never_settles_fails_before_any_run(self):
         with patch.object(RUNNER, "checked", side_effect=["4"] + ["1", "900.0 1.0", "62.0 0 0 1/1 1"] * 3), \
