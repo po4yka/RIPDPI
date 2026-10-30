@@ -484,7 +484,7 @@ fn relay_planned_capabilities_are_pinned_for_every_kind() {
         ("anytls", true, true, true, true),
         ("shadowsocks", true, false, false, true), // the sample profile uses legacy AEAD
         ("tor", true, false, true, false),
-        ("naiveproxy", true, false, false, true),
+        ("naiveproxy", true, false, false, false),
     ];
 
     for (kind_id, tcp, udp, reusable, bind_ip) in pinned {

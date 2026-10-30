@@ -22,10 +22,11 @@ The completion target is documented in `README.md`. The architecture remains sub
 
 ## Helper contract
 
-Helper stdout markers:
+Helper output markers (the service reads stdout and stderr as one merged stream):
 
 - `RIPDPI-READY` — listener is bound and handshake completed
-- `RIPDPI-ERROR <code>` — structured failure with classification text
+- `RIPDPI-ERROR <code>` — structured failure with classification text; `auth` only for a 407 CONNECT reply, `http_connect` for other non-200 replies
+- `RIPDPI-RECOVERED|naiveproxy|` — first successful upstream open after a stream failure
 - `RIPDPI-PROBE <json>` — `--probe` capability report including `socks5-listener`, `http-front-listener`, `h2-connect-upstream`, `naive-padding`, `structured-error`, and `ready-signal`
 
 The Android side (`NaiveProxyManager`, `SubprocessSocksRelayManager`) requires a valid schema-1 `--probe` result before every launch and classifies compatibility refusal separately from DNS / TLS / HTTP CONNECT / auth runtime failures. Existing readiness and structured-error processing begins only after that preflight succeeds.

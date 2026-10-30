@@ -125,12 +125,8 @@ fn read_credentials_from_stdin(input: &mut impl Read) -> io::Result<StdinCredent
     if local_username.contains(':') || lines.any(|line| !line.trim().is_empty()) {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid NaiveProxy credential stdin"));
     }
-    Ok((
-        normalize_optional(username.as_deref()),
-        normalize_optional(password.as_deref()),
-        local_username,
-        local_password,
-    ))
+    // Upstream credentials are secrets: keep their decoded bytes, spaces included.
+    Ok((username, password, local_username, local_password))
 }
 
 fn required_local_credential(line: Option<&str>, name: &str) -> io::Result<String> {

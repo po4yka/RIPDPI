@@ -9,10 +9,12 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceTimeBy
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -58,8 +60,6 @@ class SubprocessRelayReadinessSignalTest {
         }
 
         override suspend fun waitForExit(): Int = exit.await()
-
-        override suspend fun pollTelemetry(): NativeRuntimeSnapshot = NativeRuntimeSnapshot(source = "relay")
 
         override fun noteRestarting(reason: String) = Unit
 
@@ -162,6 +162,43 @@ class SubprocessRelayReadinessSignalTest {
             startJob.join()
 
             assertEquals("stop during backoff must not launch a new helper", 1, manager.startCount)
+        }
+
+    @Test
+    fun `naive stream failure after ready does not make a later crash terminal`() =
+        runTest {
+            val subprocess = subprocessManager()
+            val manager = FakeNaiveProxyManager(subprocess, startGate = CompletableDeferred(Unit))
+            val runtime = NaiveProxyRuntime(manager)
+            val startJob = launch { runtime.start(sampleResolvedRelayConfig(kind = RelayKindNaiveProxy)) }
+            runCurrent()
+
+            subprocess.handleProcessOutputEvent(SubprocessRelayOutputEvent.Ready("naiveproxy", "0.1.0"))
+            subprocess.handleProcessOutputEvent(
+                SubprocessRelayOutputEvent.Error("naiveproxy", "auth", "upstream rejected CONNECT with status 407"),
+            )
+            manager.exit.complete(1)
+            advanceUntilIdle()
+            startJob.join()
+
+            assertTrue("a crash after a stream failure must restart, got ${manager.startCount}", manager.startCount > 1)
+        }
+
+    @Test
+    fun `naive recovery line clears the stream failure shown in telemetry`() =
+        runTest {
+            val subprocess = subprocessManager()
+            subprocess.handleProcessOutputEvent(SubprocessRelayOutputEvent.Ready("naiveproxy", "0.1.0"))
+            subprocess.handleProcessOutputEvent(
+                SubprocessRelayOutputEvent.Error("naiveproxy", "connect", "naiveproxy upstream open timed out"),
+            )
+            assertEquals("connect", subprocess.pollTelemetry().lastFailureClass)
+
+            subprocess.handleProcessOutputEvent(SubprocessRelayOutputEvent.Recovered("naiveproxy"))
+
+            val telemetry = subprocess.pollTelemetry()
+            assertNull(telemetry.lastFailureClass)
+            assertNull(telemetry.lastError)
         }
 
     @Test

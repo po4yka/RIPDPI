@@ -1,13 +1,15 @@
 use std::io;
 
 const STRUCTURED_ERROR_PREFIX: &str = "RIPDPI-ERROR|naiveproxy|";
+/// Tells the service that an upstream open succeeded after a reported failure.
+pub(crate) const RECOVERED_LINE: &str = "RIPDPI-RECOVERED|naiveproxy|";
 
 pub(crate) fn emit_structured_error(error: &io::Error) {
-    eprintln!(
-        "{STRUCTURED_ERROR_PREFIX}{}|{}",
-        classify_io_error(error),
-        sanitize_structured_message(&error.to_string())
-    );
+    eprintln!("{}", structured_error_line(error));
+}
+
+pub(crate) fn structured_error_line(error: &io::Error) -> String {
+    format!("{STRUCTURED_ERROR_PREFIX}{}|{}", classify_io_error(error), sanitize_structured_message(&error.to_string()))
 }
 
 /// The diagnostic line for one failed client connection. It is not a
@@ -25,10 +27,8 @@ fn sanitize_structured_message(message: &str) -> String {
 
 fn classify_io_error(error: &io::Error) -> &'static str {
     let message = error.to_string().to_ascii_lowercase();
-    if error.kind() == io::ErrorKind::PermissionDenied
-        || message.contains("proxy-authorization")
-        || message.contains("status 407")
-    {
+    // Only the proxy's 407 is auth; a socket-level EACCES/EPERM (protect, firewall) is a connect failure.
+    if message.contains("proxy-authorization") || message.contains("status 407") {
         "auth"
     } else if message.contains("connect response")
         || message.contains("connect with status")
@@ -55,6 +55,7 @@ fn classify_io_error(error: &io::Error) -> &'static str {
             | io::ErrorKind::TimedOut
             | io::ErrorKind::BrokenPipe
             | io::ErrorKind::NotConnected
+            | io::ErrorKind::PermissionDenied
     ) {
         "connect"
     } else if matches!(error.kind(), io::ErrorKind::InvalidInput | io::ErrorKind::Unsupported) {
@@ -67,6 +68,18 @@ fn classify_io_error(error: &io::Error) -> &'static str {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::connect_tunnel::connect_status_error;
+
+    #[test]
+    fn only_407_connect_rejection_is_an_auth_failure() {
+        assert_eq!(classify_io_error(&connect_status_error(http::StatusCode::PROXY_AUTHENTICATION_REQUIRED)), "auth");
+        for status in
+            [http::StatusCode::FORBIDDEN, http::StatusCode::BAD_GATEWAY, http::StatusCode::SERVICE_UNAVAILABLE]
+        {
+            assert_eq!(classify_io_error(&connect_status_error(status)), "http_connect", "{status}");
+        }
+        assert_eq!(classify_io_error(&io::Error::from_raw_os_error(13)), "connect", "EACCES is not auth");
+    }
 
     #[test]
     fn connection_failures_are_not_helper_failures() {

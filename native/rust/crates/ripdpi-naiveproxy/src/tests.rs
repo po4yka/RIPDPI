@@ -9,9 +9,8 @@ use tokio::net::{TcpListener, TcpStream};
 
 use crate::config::NaiveProxyConfig;
 use crate::h2_connect::{
-    CONNECT_PADDING_HEADER_MAX, CONNECT_PADDING_HEADER_MIN, PayloadPaddingMode, RESPONSE_PADDING_HEADER_MAX,
-    RESPONSE_PADDING_HEADER_MIN, build_h2_connect_request, generate_connect_padding_header,
-    negotiate_payload_padding_from_response,
+    CONNECT_PADDING_HEADER_MAX, CONNECT_PADDING_HEADER_MIN, PayloadPaddingMode, build_h2_connect_request,
+    generate_connect_padding_header, negotiate_payload_padding_from_response,
 };
 use crate::padding::{MAX_PADDED_FRAMES, PaddingDecoder, PaddingEncoder};
 use crate::relay::serve_listener;
@@ -351,21 +350,7 @@ async fn stalled_upstream_tls_fails_socks_connect_after_deadline() {
 /// spawned H2 driver must not keep the upstream TLS socket open.
 #[tokio::test]
 async fn abandoned_upstream_open_closes_the_upstream_socket() {
-    use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
-
-    crate::tls::ensure_rustls_provider();
-    let certified = rcgen::generate_simple_self_signed(vec!["proxy.example".to_owned()]).expect("self-signed cert");
-    let cert_der = certified.cert.der().clone();
-    let key_der = PrivateKeyDer::from(PrivatePkcs8KeyDer::from(certified.signing_key.serialize_der()));
-    let mut server_config = rustls::ServerConfig::builder()
-        .with_no_client_auth()
-        .with_single_cert(vec![cert_der.clone()], key_der)
-        .expect("server config");
-    server_config.alpn_protocols = vec![b"h2".to_vec()];
-    let mut roots = rustls::RootCertStore::empty();
-    roots.add(cert_der).expect("trust fixture cert");
-    let mut client_config = rustls::ClientConfig::builder().with_root_certificates(roots).with_no_client_auth();
-    client_config.alpn_protocols = vec![b"h2".to_vec()];
+    let (server_config, client_config) = self_signed_upstream_tls();
 
     // An upstream that completes TLS and then never answers the H2 CONNECT.
     let upstream = TcpListener::bind("127.0.0.1:0").await.expect("bind upstream");
@@ -519,32 +504,104 @@ fn h2_connect_rejects_request_padding_outside_spec_range() {
     assert!(build_h2_connect_request(&config, &SocksTarget::Domain("example.com".to_owned(), 443), too_long).is_err());
 }
 
+/// Upstream decision table: `padding-type-reply` first, then legacy `padding`.
 #[test]
-fn h2_connect_response_without_padding_disables_payload_padding() {
-    let headers = http::HeaderMap::new();
-    let negotiated = negotiate_payload_padding_from_response(true, &headers).expect("negotiate no padding");
+fn h2_connect_response_padding_negotiation_follows_upstream_order() {
+    use PayloadPaddingMode::{Plain, Variant1};
+    let legacy_padding = "~".repeat(45);
+    let cases: [(&[(&str, &str)], Option<PayloadPaddingMode>); 9] = [
+        (&[], Some(Plain)),
+        // Legacy Go forwardproxy: `padding` only, any length, even empty.
+        (&[("padding", legacy_padding.as_str())], Some(Variant1)),
+        (&[("padding", "")], Some(Variant1)),
+        (&[("padding", &"~".repeat(200))], Some(Variant1)),
+        // An explicit type wins over the presence or absence of `padding`.
+        (&[("padding-type-reply", "1")], Some(Variant1)),
+        (&[("padding-type-reply", "0"), ("padding", legacy_padding.as_str())], Some(Plain)),
+        (&[("padding-type-reply", "2"), ("padding", legacy_padding.as_str())], None),
+        (&[("padding-type-reply", "1, 0")], None),
+        (&[("padding-type-reply", "1"), ("padding-type-reply", "1")], None),
+    ];
+    for (pairs, expected) in cases {
+        let mut headers = http::HeaderMap::new();
+        for (name, value) in pairs {
+            headers.append(*name, value.parse().expect("header value"));
+        }
+        let negotiated = negotiate_payload_padding_from_response(true, &headers).ok();
+        assert_eq!(negotiated, expected, "{pairs:?}");
+    }
+    let mut padded = http::HeaderMap::new();
+    padded.insert("padding-type-reply", "1".parse().expect("header value"));
+    assert_eq!(negotiate_payload_padding_from_response(false, &padded).ok(), Some(Plain));
+}
 
-    assert_eq!(negotiated, PayloadPaddingMode::Plain);
+/// An HTTP/1.1 or no-ALPN server must fail the open before any H2 bytes reach it.
+#[tokio::test]
+async fn upstream_without_h2_alpn_is_rejected_before_the_h2_preface() {
+    let (mut server_config, client_config) = self_signed_upstream_tls();
+    for server_alpn in [vec![], vec![b"http/1.1".to_vec()]] {
+        server_config.alpn_protocols = server_alpn.clone();
+        let mut client_config = client_config.clone();
+        // Offer http/1.1 too, so an H1-only server completes the handshake instead of alerting.
+        client_config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+        let upstream = TcpListener::bind("127.0.0.1:0").await.expect("bind upstream");
+        let upstream_port = upstream.local_addr().expect("upstream addr").port();
+        let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(server_config.clone()));
+        let server = tokio::spawn(async move {
+            let (socket, _) = upstream.accept().await.expect("accept upstream");
+            let mut tls = acceptor.accept(socket).await.expect("upstream TLS accept");
+            let mut received = Vec::new();
+            let _ = tls.read_to_end(&mut received).await;
+            received
+        });
+        let config = NaiveProxyConfig {
+            server: "127.0.0.1".to_owned(),
+            server_port: upstream_port,
+            server_name: "proxy.example".to_owned(),
+            tls_config: Arc::new(client_config),
+            ..naive_config_with_auth()
+        };
+
+        let target = SocksTarget::Domain("example.com".to_owned(), 443);
+        let Err(error) = crate::connect_tunnel::open_https_connect_tunnel(&config, &target).await else {
+            panic!("server ALPN {server_alpn:?} must be rejected");
+        };
+
+        assert!(error.to_string().contains("h2 ALPN"), "{error}");
+        let received =
+            tokio::time::timeout(std::time::Duration::from_secs(3), server).await.expect("closed").expect("join");
+        assert!(received.is_empty(), "no H2 preface may follow server ALPN {server_alpn:?}: {received:?}");
+    }
 }
 
 #[test]
-fn h2_connect_response_with_padding_reply_enables_variant1() {
-    let mut headers = http::HeaderMap::new();
-    headers.insert("padding", "~".repeat(RESPONSE_PADDING_HEADER_MIN).parse().expect("padding header"));
-    headers.insert("padding-type-reply", "1".parse().expect("padding type"));
-
-    let negotiated = negotiate_payload_padding_from_response(true, &headers).expect("negotiate variant1");
-
-    assert_eq!(negotiated, PayloadPaddingMode::Variant1);
+fn config_keeps_upstream_credential_whitespace() {
+    let args = ["--server", "proxy.example:443", "--server-name", "proxy.example", "--credentials-stdin"];
+    // base64(" alice "), base64(" s3cret\t"), base64("local-user"), base64("local-pass")
+    let stdin = b"IGFsaWNlIA==\nIHMzY3JldAk=\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n";
+    let config = parse_config_args_with_stdin(&args, stdin).expect("credentials with spaces");
+    assert_eq!(config.username.as_deref(), Some(" alice "));
+    assert_eq!(config.password.as_deref(), Some(" s3cret\t"));
 }
 
-#[test]
-fn h2_connect_rejects_response_padding_outside_spec_range() {
-    let mut headers = http::HeaderMap::new();
-    headers.insert("padding", "~".repeat(RESPONSE_PADDING_HEADER_MAX + 1).parse().expect("padding header"));
-    headers.insert("padding-type-reply", "1".parse().expect("padding type"));
+/// A self-signed `proxy.example` server config and a client config that trusts it, both H2-only.
+fn self_signed_upstream_tls() -> (rustls::ServerConfig, rustls::ClientConfig) {
+    use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
 
-    assert!(negotiate_payload_padding_from_response(true, &headers).is_err());
+    crate::tls::ensure_rustls_provider();
+    let certified = rcgen::generate_simple_self_signed(vec!["proxy.example".to_owned()]).expect("self-signed cert");
+    let cert_der = certified.cert.der().clone();
+    let key_der = PrivateKeyDer::from(PrivatePkcs8KeyDer::from(certified.signing_key.serialize_der()));
+    let mut server_config = rustls::ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(vec![cert_der.clone()], key_der)
+        .expect("server config");
+    server_config.alpn_protocols = vec![b"h2".to_vec()];
+    let mut roots = rustls::RootCertStore::empty();
+    roots.add(cert_der).expect("trust fixture cert");
+    let mut client_config = rustls::ClientConfig::builder().with_root_certificates(roots).with_no_client_auth();
+    client_config.alpn_protocols = vec![b"h2".to_vec()];
+    (server_config, client_config)
 }
 
 fn build_socks_connect_request(host: &str, port: u16) -> Vec<u8> {

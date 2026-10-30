@@ -22,7 +22,6 @@ import javax.inject.Singleton
 private const val NaiveProxyBinaryName = "ripdpi-naiveproxy"
 private const val NaiveProxyCredentialsStdinFlag = "--credentials-stdin"
 private const val NaiveProxyRestartDelayMs = 750L
-private const val NaiveProxyDnsRestartDelayMs = 1_500L
 private const val NaiveProxyRestartBudgetWindowMs = 60_000L
 private const val NaiveProxyRestartBudgetMaxAttempts = 3
 private const val NaiveProxyProbeFailureClass = "relay_compatibility"
@@ -35,25 +34,17 @@ internal data class NaiveProxyRestartDecision(
     val reasonLabel: String = "unexpected_exit",
 )
 
-internal fun naiveProxyRestartDecision(
-    exitCode: Int,
-    lastFailureClass: String?,
-): NaiveProxyRestartDecision {
+/**
+ * The helper exits only on a startup failure, which `start()` already throws, or on
+ * a crash. Upstream failures after READY belong to single client streams, so they do
+ * not decide whether a crashed helper restarts; the restart budget bounds retries.
+ */
+internal fun naiveProxyRestartDecision(exitCode: Int): NaiveProxyRestartDecision =
     if (exitCode == 0) {
-        return NaiveProxyRestartDecision(shouldRestart = false, reasonLabel = "clean_exit")
+        NaiveProxyRestartDecision(shouldRestart = false, reasonLabel = "clean_exit")
+    } else {
+        NaiveProxyRestartDecision(shouldRestart = true)
     }
-    return when (lastFailureClass?.trim()?.lowercase()) {
-        "auth" -> NaiveProxyRestartDecision(false, reasonLabel = "auth")
-        "http_connect" -> NaiveProxyRestartDecision(false, reasonLabel = "http_connect")
-        "tls" -> NaiveProxyRestartDecision(false, reasonLabel = "tls")
-        "config" -> NaiveProxyRestartDecision(false, reasonLabel = "config")
-        "dns" -> NaiveProxyRestartDecision(true, delayMillis = NaiveProxyDnsRestartDelayMs, reasonLabel = "dns")
-        "connect" -> NaiveProxyRestartDecision(true, reasonLabel = "connect")
-        "runtime" -> NaiveProxyRestartDecision(true, reasonLabel = "runtime")
-        "helper_exit" -> NaiveProxyRestartDecision(true, reasonLabel = "helper_exit")
-        else -> NaiveProxyRestartDecision(true, reasonLabel = "unexpected_exit")
-    }
-}
 
 internal fun naiveProxyCommandArguments(config: ResolvedRipDpiRelayConfig): List<String> =
     buildList {
@@ -119,6 +110,15 @@ open class NaiveProxyManager
                     commandArguments = naiveProxyCommandArguments(config),
                     standardInput = naiveProxyCredentialsStdin(config),
                 )
+            if (config.outboundBindIp.isNotBlank()) {
+                // The helper cannot bind a source address; refuse instead of dialing from another one.
+                rejectPrelaunch(
+                    config = config,
+                    spec = spec,
+                    message = "NaiveProxy does not support an outbound bind IP",
+                    failureClass = "config",
+                )
+            }
             val binary = launchDelegate.resolveBinary(NaiveProxyBinaryName)
             when (val result = preflightProbe.run(binary)) {
                 is NaiveProxyPreflightResult.Probed -> {
@@ -153,11 +153,12 @@ open class NaiveProxyManager
             config: ResolvedRipDpiRelayConfig,
             spec: SubprocessSocksRelayLaunchSpec,
             message: String,
+            failureClass: String = NaiveProxyProbeFailureClass,
         ): Nothing {
             launchDelegate.notePrelaunchFailure(
                 config = config,
                 spec = spec,
-                failureClass = NaiveProxyProbeFailureClass,
+                failureClass = failureClass,
                 message = message,
             )
             throw NaiveProxyCompatibilityException(message)
@@ -268,7 +269,7 @@ class NaiveProxyRuntime
                 if (stopping) {
                     return exitCode
                 }
-                val restartDecision = naiveProxyRestartDecision(exitCode, manager.pollTelemetry().lastFailureClass)
+                val restartDecision = naiveProxyRestartDecision(exitCode)
                 if (!restartDecision.shouldRestart) {
                     return exitCode
                 }

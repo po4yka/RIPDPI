@@ -20,7 +20,7 @@ pub(crate) fn tls_config_with_ech_setup(setup: &EchSetup) -> Result<Arc<RustlsCl
     )?
     .with_root_certificates(roots)
     .with_no_client_auth();
-    config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
+    config.alpn_protocols = vec![b"h2".to_vec()];
     Ok(Arc::new(config))
 }
 
@@ -39,7 +39,7 @@ mod tests {
     fn naive_proxy_tls_config_uses_ech_facade_grease_for_outbound_tunnel() {
         let config = tls_config_with_ech_setup(&EchSetup::Grease).expect("ECH TLS config");
 
-        assert_eq!(config.alpn_protocols, vec![b"h2".to_vec(), b"http/1.1".to_vec()]);
+        assert_eq!(config.alpn_protocols, vec![b"h2".to_vec()]);
         assert!(rustls_client_hello_has_ech_extension(config), "NaiveProxy must send ECH or GREASE");
     }
 

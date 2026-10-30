@@ -58,6 +58,29 @@ class NaiveProxyManagerPreflightTest {
         }
 
     @Test
+    fun `configured outbound bind IP is rejected before launch`() =
+        runTest {
+            val processPort =
+                FakeNaiveProxyProcessPort(
+                    probeResult =
+                        NaiveProxyPreflightResult.Probed(
+                            NaiveProxyProbe(1, "0.1.0", listOf("ready-signal", "local-listener-auth")),
+                        ),
+                )
+
+            val failure =
+                runCatching {
+                    NaiveProxyManager(processPort, processPort).start(naiveConfig().copy(outboundBindIp = "192.0.2.10"))
+                }.exceptionOrNull()
+
+            assertTrue(failure is NaiveProxyCompatibilityException)
+            assertTrue(failure?.message.orEmpty().contains("outbound bind IP"))
+            assertEquals("config", processPort.lastFailureClass)
+            assertEquals(emptyList<String>(), processPort.events)
+            assertEquals(0, processPort.mainLaunches)
+        }
+
+    @Test
     fun `schema mismatch is rejected before relay subprocess starts`() =
         runTest {
             val processPort =

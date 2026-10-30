@@ -43,7 +43,8 @@ The current implementation includes:
 - a mandatory `--probe` preflight before every helper launch and watchdog restart
 - schema validation of the `RIPDPI-PROBE` capability line before the main process starts
 - readiness handshake through explicit `RIPDPI-READY` signaling
-- structured failure signaling through `RIPDPI-ERROR`
+- structured failure signaling through `RIPDPI-ERROR`. An error before `RIPDPI-READY` fails the start. An error after it belongs to one client stream: it shows in telemetry but does not stop a crashed helper from restarting, and the helper prints `RIPDPI-RECOVERED|naiveproxy|` when a later upstream open succeeds, which clears it
+- a configured outbound bind IP is refused before launch, because the helper cannot bind a source address
 - Android-side classification for DNS, TLS, HTTP `CONNECT`, and auth failures
 - credential-redacted surfaced logs and error text
 - graceful stop handling

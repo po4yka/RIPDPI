@@ -65,6 +65,10 @@ class SubprocessRelayComponentsTest {
             SubprocessRelayOutputEvent.PlainError("PROXY-ERROR bind failed"),
             parser.parse("PROXY-ERROR bind failed", spec),
         )
+        assertEquals(
+            SubprocessRelayOutputEvent.Recovered(runtimeKind = "naiveproxy"),
+            parser.parse("RIPDPI-RECOVERED|naiveproxy|", spec),
+        )
         assertNull(parser.parse("[NOTICE] started", spec))
     }
 

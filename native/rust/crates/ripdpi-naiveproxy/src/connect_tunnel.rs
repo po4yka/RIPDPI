@@ -1,5 +1,4 @@
 use std::io;
-use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -8,7 +7,6 @@ use hyper_util::rt::{TokioExecutor, TokioIo};
 use rand::RngExt;
 use rustls::pki_types::ServerName;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
-use tokio::net::lookup_host;
 use tokio_rustls::TlsConnector;
 
 use crate::config::NaiveProxyConfig;
@@ -32,9 +30,12 @@ pub(crate) async fn open_https_connect_tunnel(
     config: &NaiveProxyConfig,
     target: &SocksTarget,
 ) -> io::Result<Box<dyn AsyncTunnel>> {
-    let upstream_socket = resolve_first(&config.server, config.server_port).await?;
-    let tcp = ripdpi_subprocess_protect::protected_tcp_connect(upstream_socket, config.protect_socket_path.as_deref())
-        .await?;
+    // The protected connector tries every resolved address; TLS keeps `server_name`.
+    let tcp = ripdpi_subprocess_protect::protected_tcp_connect(
+        (config.server.as_str(), config.server_port),
+        config.protect_socket_path.as_deref(),
+    )
+    .await?;
     tcp.set_nodelay(true)?;
 
     let server_name = ServerName::try_from(config.server_name.clone()).map_err(|error| {
@@ -45,6 +46,10 @@ pub(crate) async fn open_https_connect_tunnel(
     })?;
     let connector = TlsConnector::from(Arc::clone(&config.tls_config));
     let tls = connector.connect(server_name, tcp).await?;
+    // This helper speaks only H2: never send an H2 preface after an HTTP/1.1 or no-ALPN handshake.
+    if tls.get_ref().1.alpn_protocol() != Some(b"h2".as_slice()) {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "NaiveProxy server TLS did not negotiate h2 ALPN"));
+    }
 
     let io = TokioIo::new(tls);
     let (mut sender, connection) =
@@ -66,10 +71,7 @@ pub(crate) async fn open_https_connect_tunnel(
     })?;
 
     if response.status() != http::StatusCode::OK {
-        return Err(io::Error::new(
-            io::ErrorKind::PermissionDenied,
-            format!("NaiveProxy upstream rejected CONNECT with status {}", response.status()),
-        ));
+        return Err(connect_status_error(response.status()));
     }
     let padding_mode = negotiate_payload_padding_from_response(true, response.headers())?;
     let upgraded = hyper::upgrade::on(response).await.map_err(|error| {
@@ -102,11 +104,14 @@ impl Drop for DriverAbortGuard {
     }
 }
 
-async fn resolve_first(host: &str, port: u16) -> io::Result<SocketAddr> {
-    lookup_host((host, port))
-        .await?
-        .next()
-        .ok_or_else(|| io::Error::new(io::ErrorKind::AddrNotAvailable, "NaiveProxy server resolved to no addresses"))
+/// Only 407 is a proxy-authentication failure; any other non-200 is a CONNECT rejection.
+pub(crate) fn connect_status_error(status: http::StatusCode) -> io::Error {
+    let kind = if status == http::StatusCode::PROXY_AUTHENTICATION_REQUIRED {
+        io::ErrorKind::PermissionDenied
+    } else {
+        io::ErrorKind::Other
+    };
+    io::Error::new(kind, format!("NaiveProxy upstream rejected CONNECT with status {status}"))
 }
 
 struct NaivePaddingStream<S> {

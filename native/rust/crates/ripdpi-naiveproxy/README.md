@@ -18,8 +18,8 @@ This crate intentionally does not aim for a TLS or HTTP/2 fingerprint identical 
 
 ## Implementation Status
 
-- Upstream tunnels use HTTP/2 CONNECT over TLS with `h2` ALPN, `:method = CONNECT`, `:authority = target`, `Proxy-Authorization`, `padding`, and `padding-type-request: 1, 0` headers.
-- Payload padding uses the NaiveProxy Variant1 frame format and is enabled only when the client sent request padding and the upstream response includes `padding` plus `padding-type-reply: 1`; otherwise the tunnel remains plain HTTP/2 proxy interop.
+- Upstream tunnels use HTTP/2 CONNECT over TLS. The helper offers only `h2` ALPN and rejects a server that negotiates another protocol or none before it sends the HTTP/2 preface. It tries each resolved server address in turn. Tunnels use `:method = CONNECT`, `:authority = target`, `Proxy-Authorization`, `padding`, and `padding-type-request: 1, 0` headers.
+- Payload padding uses the NaiveProxy Variant1 frame format. As upstream does, an explicit `padding-type-reply` decides (`1` is Variant1, `0` is plain, other values fail the tunnel); without it, a `padding` response header (the legacy Go forwardproxy reply) selects Variant1. Otherwise the tunnel stays plain HTTP/2 proxy interop.
 - The local front listener requires per-session credentials: RFC 1929 for SOCKS5 and Basic Proxy-Authorization for HTTP/1.x CONNECT. Rejected clients cannot open an upstream connection. Both front protocols use the same HTTP/2 CONNECT upstream path.
 - The subprocess CLI contract is `--listen`, `--server`, `--server-port`, `--server-name`, required `--credentials-stdin`, and optional `--path`. Stdin has four base64 lines: upstream username, upstream password, local username, and local password. The upstream pair can be empty; the local pair is required. Each local value is 1–255 UTF-8 bytes, and the local username cannot contain a colon. The complete stdin payload is limited to 16 KiB. Credentials never appear in process argv.
 - `RIPDPI-PROBE` reports `socks5-listener`, `http-front-listener`, `h2-connect-upstream`, `naive-padding`, `structured-error`, `ready-signal`, and `local-listener-auth` capability tags. Android rejects helpers that do not advertise local authentication.
@@ -28,7 +28,7 @@ This crate intentionally does not aim for a TLS or HTTP/2 fingerprint identical 
 
 ## Padding Protocol Notes
 
-- Payload padding is negotiated per CONNECT tunnel. The client sends a `padding` header on the CONNECT request; payload padding is active only if the server response also includes `padding`. Upstream source also negotiates `padding-type-request` / `padding-type-reply`; Variant1 has wire value `1`, and `0` means no padding.
+- Payload padding is negotiated per CONNECT tunnel. The client sends a `padding` header on the CONNECT request; the response is decided as described above. Variant1 has wire value `1`, and `0` means no padding.
 - Variant1 payload frame format is three bytes of header followed by payload bytes and zero padding bytes: two-byte big-endian `original_data_size`, one-byte `padding_size`, `original_data`, then `padding_size` zero bytes.
 - `kFirstPaddings = 8`: only the first eight reads and first eight writes on each bidirectional stream are framed; later bytes pass through unframed.
 - `padding_size` per payload frame is uniformly distributed in `[0, 255]`. `original_data_size` is at most `65535`; larger writes must be split into multiple frames.

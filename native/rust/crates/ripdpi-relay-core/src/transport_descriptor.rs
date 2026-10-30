@@ -271,7 +271,7 @@ pub(crate) static RELAY_TRANSPORT_REGISTRATIONS: &[RelayTransportRegistration] =
             tcp: true,
             udp: false,
             reusable: false,
-            supports_outbound_bind_ip: true,
+            supports_outbound_bind_ip: false,
         },
         // NaiveProxy is the one documented subprocess-fallback kind: a concrete,
         // descriptor-backed transport with no in-process builder.

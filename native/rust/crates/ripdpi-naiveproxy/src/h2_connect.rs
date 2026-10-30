@@ -12,8 +12,6 @@ use crate::socks5::SocksTarget;
 
 pub const CONNECT_PADDING_HEADER_MIN: usize = 16;
 pub const CONNECT_PADDING_HEADER_MAX: usize = 32;
-pub const RESPONSE_PADDING_HEADER_MIN: usize = 30;
-pub const RESPONSE_PADDING_HEADER_MAX: usize = 62;
 
 const PADDING_HEADER: &str = "padding";
 const PADDING_TYPE_REQUEST_HEADER: &str = "padding-type-request";
@@ -85,31 +83,27 @@ fn nonindex_header_value(mut unique_bits: u64, len: usize) -> String {
         .collect()
 }
 
+/// Upstream `NaiveProxyDelegate` order: an explicit `padding-type-reply` decides;
+/// without it, a legacy `padding` header (the Go forwardproxy fork) means Variant1.
 pub fn negotiate_payload_padding_from_response(
     request_sent_padding: bool,
     headers: &HeaderMap,
 ) -> io::Result<PayloadPaddingMode> {
-    let Some(padding) = headers.get(PADDING_HEADER) else {
-        return Ok(PayloadPaddingMode::Plain);
-    };
     if !request_sent_padding {
         return Ok(PayloadPaddingMode::Plain);
     }
-
-    validate_padding_header_len(
-        padding.as_bytes().len(),
-        RESPONSE_PADDING_HEADER_MIN,
-        RESPONSE_PADDING_HEADER_MAX,
-        "CONNECT response padding header",
-    )?;
-
-    match headers.get(PADDING_TYPE_REPLY_HEADER).map(HeaderValue::as_bytes) {
-        None => Ok(PayloadPaddingMode::Variant1),
-        Some(value) if value == PADDING_TYPE_VARIANT1.as_bytes() => Ok(PayloadPaddingMode::Variant1),
-        Some(value) if value == PADDING_TYPE_NONE.as_bytes() => Ok(PayloadPaddingMode::Plain),
-        Some(value) => Err(io::Error::new(
+    let mut replies = headers.get_all(PADDING_TYPE_REPLY_HEADER).iter();
+    match (replies.next().map(HeaderValue::as_bytes), replies.next()) {
+        (None, _) if headers.contains_key(PADDING_HEADER) => Ok(PayloadPaddingMode::Variant1),
+        (None, _) => Ok(PayloadPaddingMode::Plain),
+        (Some(value), None) if value == PADDING_TYPE_VARIANT1.as_bytes() => Ok(PayloadPaddingMode::Variant1),
+        (Some(value), None) if value == PADDING_TYPE_NONE.as_bytes() => Ok(PayloadPaddingMode::Plain),
+        (Some(value), _) => Err(io::Error::new(
             io::ErrorKind::InvalidData,
-            format!("unsupported NaiveProxy padding-type-reply {}", String::from_utf8_lossy(value)),
+            format!(
+                "unsupported NaiveProxy padding-type-reply {}",
+                String::from_utf8_lossy(&value[..value.len().min(16)])
+            ),
         )),
     }
 }

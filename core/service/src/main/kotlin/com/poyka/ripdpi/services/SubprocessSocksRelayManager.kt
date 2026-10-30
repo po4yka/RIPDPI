@@ -227,7 +227,7 @@ class SubprocessSocksRelayManager
             runtimeStateOverride = "failed"
         }
 
-        private fun handleProcessOutputEvent(event: SubprocessRelayOutputEvent) {
+        internal fun handleProcessOutputEvent(event: SubprocessRelayOutputEvent) {
             when (event) {
                 is SubprocessRelayOutputEvent.ManagedClientListener -> {
                     bridgeOrchestrator.noteManagedClientListener(event.listener)
@@ -243,6 +243,14 @@ class SubprocessSocksRelayManager
                     lastFailureClass = event.failureClass
                     lastError = event.message
                     runtimeStateOverride = "failed"
+                }
+
+                is SubprocessRelayOutputEvent.Recovered -> {
+                    lastFailureClass = null
+                    lastError = null
+                    if (runtimeStateOverride == "failed") {
+                        runtimeStateOverride = null
+                    }
                 }
 
                 is SubprocessRelayOutputEvent.PlainError -> {
