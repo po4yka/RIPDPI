@@ -48,7 +48,6 @@ data class RipDpiLayout(
     val sectionGap: Dp = 20.dp,
     val groupGap: Dp = 16.dp,
     val appBarMinHeight: Dp = 56.dp,
-    val bottomBarHeight: Dp = 64.dp,
 )
 
 @Immutable
@@ -114,15 +113,6 @@ data class RipDpiSheetMetrics(
 )
 
 @Immutable
-data class RipDpiNavigationMetrics(
-    val bottomNavIndicatorWidth: Dp = 64.dp,
-    val bottomNavIndicatorHeight: Dp = 28.dp,
-    val bottomNavHorizontalPadding: Dp = 0.dp,
-    val bottomNavIndicatorTopOffset: Dp = 10.dp,
-    val railItemLabelGap: Dp = 2.dp,
-)
-
-@Immutable
 data class RipDpiIndicatorMetrics(
     val statusMarkerSmall: Dp = 8.dp,
     val statusMarkerMedium: Dp = 9.dp,
@@ -159,7 +149,6 @@ data class RipDpiComponents(
     val inputs: RipDpiInputMetrics = RipDpiInputMetrics(),
     val rows: RipDpiRowMetrics = RipDpiRowMetrics(),
     val sheets: RipDpiSheetMetrics = RipDpiSheetMetrics(),
-    val navigation: RipDpiNavigationMetrics = RipDpiNavigationMetrics(),
     val indicators: RipDpiIndicatorMetrics = RipDpiIndicatorMetrics(),
     val feedback: RipDpiFeedbackMetrics = RipDpiFeedbackMetrics(),
     val content: RipDpiContentMetrics = RipDpiContentMetrics(),
@@ -208,7 +197,6 @@ fun ripDpiLayoutFor(widthClass: RipDpiWidthClass): RipDpiLayout =
                 sectionGap = 20.dp,
                 groupGap = 16.dp,
                 appBarMinHeight = 56.dp,
-                bottomBarHeight = 64.dp,
             )
         }
 
@@ -225,7 +213,6 @@ fun ripDpiLayoutFor(widthClass: RipDpiWidthClass): RipDpiLayout =
                 sectionGap = 24.dp,
                 groupGap = 20.dp,
                 appBarMinHeight = 60.dp,
-                bottomBarHeight = 72.dp,
             )
         }
 
@@ -245,7 +232,6 @@ fun ripDpiLayoutFor(widthClass: RipDpiWidthClass): RipDpiLayout =
                 sectionGap = 28.dp,
                 groupGap = 24.dp,
                 appBarMinHeight = 64.dp,
-                bottomBarHeight = 72.dp,
             )
         }
     }
