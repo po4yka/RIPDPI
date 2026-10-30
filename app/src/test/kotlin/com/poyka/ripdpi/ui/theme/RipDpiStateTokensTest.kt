@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.theme
 
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.cards.SettingsRowVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import org.junit.Assert.assertEquals
@@ -14,35 +13,6 @@ class RipDpiStateTokensTest {
             components = DefaultRipDpiComponents,
             motion = DefaultRipDpiMotion,
         )
-
-    @Test
-    fun `text field focused error uses emphasized border and foreground content`() {
-        val style =
-            tokens.textField.resolve(
-                enabled = true,
-                hasError = true,
-                isFocused = true,
-                isEmpty = false,
-            )
-
-        assertEquals(LightRipDpiExtendedColors.destructive, style.border)
-        assertEquals(2.dp, style.borderWidth)
-        assertEquals(LightRipDpiExtendedColors.foreground, style.content)
-    }
-
-    @Test
-    fun `filled text field without focus keeps muted content until interaction`() {
-        val style =
-            tokens.textField.resolve(
-                enabled = true,
-                hasError = false,
-                isFocused = false,
-                isEmpty = false,
-            )
-
-        assertEquals(LightRipDpiExtendedColors.mutedForeground, style.content)
-        assertEquals(LightRipDpiExtendedColors.outlineVariant, style.border)
-    }
 
     @Test
     fun `selected chip resolves selected scale and inverted colors`() {

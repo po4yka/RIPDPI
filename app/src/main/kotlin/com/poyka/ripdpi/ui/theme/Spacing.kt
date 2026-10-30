@@ -76,7 +76,6 @@ data class RipDpiButtonMetrics(
 data class RipDpiInputMetrics(
     val controlHeight: Dp = 48.dp,
     val fieldHorizontalPadding: Dp = 17.dp,
-    val fieldFocusedHorizontalPadding: Dp = 18.dp,
     val textFieldLabelGap: Dp = 6.dp,
     val multilineFieldMinHeight: Dp = 96.dp,
     val multilineFieldVerticalPadding: Dp = 12.dp,
