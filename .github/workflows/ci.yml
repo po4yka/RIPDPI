@@ -2622,7 +2622,7 @@ jobs:
           declare -A anchors=(
             [settings]=ConfigScreenKaspressoTest#sectionsAndModeChipsSwitchTheVisibleConfiguration
             [diagnostics]=LogsKaspressoTest#severityAndSubsystemChipsFilterTheStream
-            [home]=HomeKaspressoTest#modeCardsAppearAfterDiagnosticsDisclosureExpands
+            [home]=HomeIdleKaspressoTest#modeCardsAppearAfterDiagnosticsDisclosureExpands
             [imports]=SubscriptionImportKaspressoTest#typedSubscriptionLinkIsSavedAndListedWhenTheFirstRefreshFails
             [profiles]=ProfileEditorsKaspressoTest#savedMieruProfileReopensWithTheEnteredValues
           )
