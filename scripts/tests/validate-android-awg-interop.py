@@ -21,6 +21,7 @@ METHOD = "com.poyka.ripdpi.testing.awginterop.AwgNativeInteropTest#nativeCoreExc
 NEGATIVE_METHOD = "com.poyka.ripdpi.testing.awginterop.AwgNativeInteropTest#nativeCoreRefusesMismatchedHeaderProtection"
 # Per profile: minimum TCP bytes and lockstep UDP datagrams per family and session.
 PROFILES = {"awg-3.1-ranges-v1": (1, 0), "amneziavpn-5x": (4 << 20, 512)}
+PROFILES.update({name: (1, 0) for name in ("v3-cpa", "v3-trailers", "v3-cpa-trailers", "v3-aligned", "v3-fixed-headers")})
 SHA256 = re.compile(r"[0-9a-f]{64}\Z")
 
 

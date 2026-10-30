@@ -27,6 +27,7 @@ PACKAGE = "com.poyka.ripdpi.testing.awginterop.test"
 RUNNER = f"{PACKAGE}/androidx.test.runner.AndroidJUnitRunner"
 # Per profile: TCP bytes per family and session, lockstep UDP datagrams per family and session.
 PROFILES = {"awg-3.1-ranges-v1": (4096, 0), "amneziavpn-5x": (4 << 20, 512)}
+PROFILES.update({name: (4096, 0) for name in ("v3-cpa", "v3-trailers", "v3-cpa-trailers", "v3-aligned", "v3-fixed-headers")})
 # Public fixture keys: the peer uses 0x03 * 32; the negative control sends 0x04 * 32.
 HEADER_KEY = base64.b64encode(bytes([3]) * 32).decode()
 WRONG_HEADER_KEY = base64.b64encode(bytes([4]) * 32).decode()
@@ -195,7 +196,7 @@ def device(args):
 def profile_arguments(args):
     tcp_bytes, udp_series = PROFILES[args.profile]
     values = ["-e", "awgProfile", args.profile, "-e", "awgTcpBytes", str(tcp_bytes), "-e", "awgUdpSeries", str(udp_series)]
-    return values + (["-e", "awgHeaderKey", HEADER_KEY] if args.profile == "amneziavpn-5x" else [])
+    return values + (["-e", "awgHeaderKey", HEADER_KEY] if args.profile not in ("awg-3.1-ranges-v1", "v3-aligned") else [])
 
 
 def await_peer(peer):

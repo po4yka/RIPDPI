@@ -297,6 +297,28 @@ class AwgNativeInteropTest {
                 config.put("persistentKeepalive", 25).put("persistentKeepaliveMax", 35)
             }
 
+            "v3-cpa", "v3-trailers", "v3-cpa-trailers", "v3-aligned", "v3-fixed-headers" -> {
+                val parameters = JSONObject()
+                if (profile != "v3-aligned") {
+                    parameters.put("headerProtectionKey", requireNotNull(args.getString("awgHeaderKey")))
+                }
+                if (profile != "v3-aligned" && profile != "v3-trailers") {
+                    parameters.put("contentPaddingAddition", "16")
+                }
+                parameters.put("randomTrailers", profile in setOf("v3-trailers", "v3-cpa-trailers", "v3-fixed-headers"))
+                amnezia
+                    .put("s1", 12)
+                    .put("s2", 20)
+                    .put("s3", 16)
+                    .put("s4", 24)
+                    .put("v3", parameters)
+                if (profile == "v3-fixed-headers") {
+                    listOf(101, 202, 303, 404).forEachIndexed { index, header ->
+                        amnezia.put("h${index + 1}", header.toString())
+                    }
+                }
+            }
+
             else -> {
                 error("unknown awgProfile $profile")
             }

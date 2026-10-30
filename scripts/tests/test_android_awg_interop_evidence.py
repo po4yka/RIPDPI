@@ -139,23 +139,24 @@ class EvidenceValidationTest(unittest.TestCase):
                 self.evidence["cycles"].append(value)
         self.evidence["wire_observations"] = []
         for mtu in (1280, 1420):
-            prefix = 12 if protected else 0
-            empty = prefix + 32 + (10 if protected else 0)
+            padding,hp,trailers,cpa=VALIDATOR.WIRE.PROFILES[self.profile]
+            prefix = padding[3]
+            empty = prefix + 32 + (cpa[0] if cpa else 1 if trailers else 0)
             count = (8*tcp_bytes + mtu-1)//mtu
             observation = {
                 "schema_version": 2, "wire_profile": self.profile, "handshakes": 4,
                 "fresh_signature_packets": 4, "signature_order": "I1-I5,Jc,initiation",
                 "signature_tags": ["b", "r", "rd", "rc", "t"],
-                "padding": [12, 12, 12, 12] if protected else [8, 12, 0, 0],
+                "padding": padding,
                 "evidence": {
-                    "lengths": [[{str(167 if protected else 156): 4}, None, None, {str(empty): 4, str(prefix+32+mtu): count}],
-                                [None, {str(115 if protected else 104): 4}, None, {str(prefix+32+mtu): count}]],
+                    "lengths": [[{str(padding[0]+148+(7 if trailers else 0)): 4}, None, None, {str(empty): 4, str(prefix+32+mtu): count}],
+                                [None, {str(padding[1]+92+(11 if trailers else 0)): 4}, None, {str(prefix+32+mtu): count}]],
                     "authenticated_keepalives": 4, "ip_lengths": {str(mtu): count},
                     "peer_counters": {"rx_bytes": 592+4*(empty-prefix)+count*(mtu+32), "tx_bytes": count*(mtu+32),
                                       "last_handshake_time_sec": 1, "last_handshake_time_nsec": 0},
                 },
             }
-            if protected: observation["headers_in_clear"] = 0
+            if hp: observation["headers_in_clear"] = 0
             content = json.dumps({"wire_observation": observation}).encode()
             self.evidence["wire_observations"].append({"mtu": mtu, **observation, "artifact": self.artifact(f"peer-{mtu}.json", content)})
         self.evidence["negative_control"] = None
@@ -284,6 +285,24 @@ class AmneziaVpn5xEvidenceTest(EvidenceValidationTest):
         changed["cycles"][0]["measurements"] = [v for v in changed["cycles"][0]["measurements"] if v["protocol"] != "udp_series"]
         with self.assertRaises(ValueError):
             self.validate(changed)
+
+
+
+
+class CpaAndroidEvidence(EvidenceValidationTest):
+    profile="v3-cpa"
+
+class TrailerAndroidEvidence(EvidenceValidationTest):
+    profile="v3-trailers"
+
+class CombinedAndroidEvidence(EvidenceValidationTest):
+    profile="v3-cpa-trailers"
+
+class AlignedAndroidEvidence(EvidenceValidationTest):
+    profile="v3-aligned"
+
+class FixedAndroidEvidence(EvidenceValidationTest):
+    profile="v3-fixed-headers"
 
 
 if __name__ == "__main__":

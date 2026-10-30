@@ -412,8 +412,6 @@ class NegativeTransportSemantics(unittest.TestCase):
             with self.subTest(phase=index), self.assertRaises(ValueError):validate_negative_transport(bad,1280)
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 def kernel_response_observation(disabled=False):
@@ -481,3 +479,7 @@ class NativeKernelCookies(unittest.TestCase):
             for mutate in (lambda o:o['indices'].__setitem__(2,1),lambda o:o['events'].pop(),lambda o:o['native']['actions'].pop(),lambda o:o['events'][-1].update(receiver=1),lambda o:o['events'][3].update(at_ns=8_000_000_000),lambda o:o['native'].update(mac2=disabled),lambda o:o['injection_capture_ns'].__setitem__(-1,3_500_000_000)):
                 bad=copy.deepcopy(good);mutate(bad)
                 with self.assertRaises(ValueError):validate_native_kernel_cookie(bad,1280,scenario)
+
+
+if __name__ == "__main__":
+    unittest.main()
