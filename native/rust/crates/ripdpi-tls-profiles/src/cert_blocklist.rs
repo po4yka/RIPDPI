@@ -46,6 +46,7 @@ const fn nibble(digit: u8) -> u8 {
     match digit {
         b'0'..=b'9' => digit - b'0',
         b'a'..=b'f' => digit - b'a' + 10,
+        // Infallible at runtime: only const-evaluated, so a bad digit fails the build.
         _ => panic!("blocklist hash must be lowercase hex"),
     }
 }
@@ -92,10 +93,11 @@ fn spki_der(cert: &[u8]) -> Option<&[u8]> {
     for _ in 0..5 {
         rest = der_tlv(rest)?.2;
     }
-    let (_, content, after) = der_tlv(rest)?;
-    let consumed = rest.len() - after.len();
-    debug_assert!(content.len() <= consumed);
-    Some(&rest[..consumed])
+    let (tag, _, after) = der_tlv(rest)?;
+    if tag != 0x30 {
+        return None;
+    }
+    Some(&rest[..rest.len() - after.len()])
 }
 
 fn spki_sha256(cert: &CertificateDer<'_>) -> Option<SpkiHash> {
@@ -107,10 +109,29 @@ fn der_cert_blocked_by(der: &[u8], blocked: &[SpkiHash]) -> bool {
     spki_der(der).is_some_and(|spki| blocked.contains(&Sha256::digest(spki).into()))
 }
 
-/// Whether a DER certificate is on the production blocklist. The BoringSSL
-/// clients call it for every certificate of the chain they built.
-pub(crate) fn der_cert_is_blocked(der: &[u8]) -> bool {
-    der_cert_blocked_by(der, &BLOCKED_SPKI_SHA256)
+/// Installs the blocklist as the BoringSSL verify callback (mode PEER). It
+/// runs for every certificate of the chain BoringSSL built, after BoringSSL's
+/// own check. A later `set_verify` on the builder replaces the callback and
+/// removes the check, so callers must not call it.
+pub fn install_cert_blocklist(builder: &mut boring::ssl::SslContextBuilder) {
+    install_cert_blocklist_with(builder, BLOCKED_SPKI_SHA256.to_vec());
+}
+
+fn install_cert_blocklist_with(builder: &mut boring::ssl::SslContextBuilder, blocked: Vec<SpkiHash>) {
+    builder.set_verify_callback(boring::ssl::SslVerifyMode::PEER, move |preverified, context| {
+        if !preverified {
+            return false;
+        }
+        // Fails closed: a certificate that cannot be re-encoded counts as blocked.
+        let rejected = context
+            .current_cert()
+            .and_then(|cert| cert.to_der().ok())
+            .is_none_or(|der| der_cert_blocked_by(&der, &blocked));
+        if rejected {
+            context.set_error(Err(boring::x509::X509VerifyError::CERT_REVOKED));
+        }
+        !rejected
+    });
 }
 
 /// Wraps a verifier and additionally rejects chains that present a
@@ -198,6 +219,7 @@ pub fn blocklisting_webpki_verifier(
 ///
 /// # Errors
 /// Returns the rustls verifier builder error, for example when `roots` is empty.
+/// Unlike `with_root_certificates`, an empty `roots` fails here, not at the handshake.
 pub fn with_blocklisted_roots(
     builder: ConfigBuilder<ClientConfig, WantsVerifier>,
     roots: RootCertStore,
@@ -249,11 +271,67 @@ mod tests {
     }
 
     #[test]
-    fn der_check_used_by_boringssl_matches_the_spki_hash() {
+    fn der_walker_rejects_malformed_input_without_panicking() {
         let chain = chain();
-        assert!(der_cert_blocked_by(chain.intermediate.as_ref(), &[chain.intermediate_spki]));
-        assert!(!der_cert_blocked_by(chain.leaf.as_ref(), &[chain.intermediate_spki]));
-        assert!(!der_cert_is_blocked(chain.intermediate.as_ref()), "a test key is not on the production list");
+        let leaf = chain.leaf.as_ref();
+        assert!(spki_der(leaf).is_some());
+        for bad in
+            [&[][..], &[0x30], &[0x30, 0x80], &[0x30, 0x85, 1, 1, 1, 1, 1], &[0x30, 0x82, 0xff], &[0x30, 0x05, 1]]
+        {
+            assert!(der_tlv(bad).is_none(), "{bad:?}");
+            assert!(spki_der(bad).is_none(), "{bad:?}");
+        }
+        for cut in 0..leaf.len() {
+            let _ = spki_der(&leaf[..cut]);
+        }
+    }
+
+    /// A real BoringSSL handshake: the chain verifies with an empty list and
+    /// fails once the intermediate's SPKI is listed.
+    #[test]
+    fn boringssl_handshake_rejects_a_blocklisted_intermediate() {
+        use boring::pkey::PKey;
+        use boring::ssl::{SslAcceptor, SslConnector, SslMethod};
+        use boring::x509::X509;
+
+        let root_key = KeyPair::generate().expect("root key");
+        let root = ca_params("test root").self_signed(&root_key).expect("root");
+        let root_issuer = Issuer::new(ca_params("test root"), root_key);
+        let int_key = KeyPair::generate().expect("int key");
+        let intermediate = ca_params("test intermediate").signed_by(&int_key, &root_issuer).expect("intermediate");
+        let int_spki: SpkiHash = Sha256::digest(PublicKeyData::subject_public_key_info(&int_key)).into();
+        let int_issuer = Issuer::new(ca_params("test intermediate"), int_key);
+        let leaf_key = KeyPair::generate().expect("leaf key");
+        let leaf = CertificateParams::new(vec!["example.test".to_string()])
+            .expect("leaf params")
+            .signed_by(&leaf_key, &int_issuer)
+            .expect("leaf");
+
+        let handshake = |blocked: Vec<SpkiHash>| {
+            let mut acceptor = SslAcceptor::mozilla_intermediate(SslMethod::tls()).expect("acceptor");
+            acceptor.set_certificate(&X509::from_der(leaf.der()).expect("leaf x509")).expect("leaf cert");
+            acceptor.add_extra_chain_cert(X509::from_der(intermediate.der()).expect("int x509")).expect("chain");
+            acceptor
+                .set_private_key(&PKey::private_key_from_der(&leaf_key.serialize_der()).expect("leaf key der"))
+                .expect("private key");
+            let acceptor = acceptor.build();
+            let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+            let address = listener.local_addr().expect("address");
+            let server = std::thread::spawn(move || {
+                let (stream, _) = listener.accept().expect("accept");
+                let _ = acceptor.accept(stream);
+            });
+            let mut connector = SslConnector::builder(SslMethod::tls()).expect("connector");
+            connector.cert_store_mut().add_cert(X509::from_der(root.der()).expect("root x509")).expect("root");
+            install_cert_blocklist_with(&mut connector, blocked);
+            let stream = std::net::TcpStream::connect(address).expect("connect");
+            let result = connector.build().connect("example.test", stream).map(drop).map_err(|error| error.to_string());
+            server.join().expect("server thread");
+            result
+        };
+
+        assert!(handshake(Vec::new()).is_ok(), "the chain must verify without a blocklist entry");
+        assert!(handshake(vec![int_spki]).is_err(), "a blocklisted intermediate must fail the handshake");
     }
 
     fn verify(chain: &Chain, blocked: Vec<SpkiHash>) -> Result<ServerCertVerified, rustls::Error> {

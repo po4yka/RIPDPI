@@ -21,6 +21,7 @@ pub(super) fn client_config_with_ech_setup(setup: &EchSetup) -> Result<ClientCon
         ClientConfig::builder_with_provider(rustls::crypto::aws_lc_rs::default_provider().into()),
         setup,
     )?;
+    // Infallible: the store is seeded from webpki_roots::TLS_SERVER_ROOTS and no CRLs are set.
     let mut config = ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, roots)
         .expect("bundled webpki roots are non-empty")
         .with_no_client_auth();

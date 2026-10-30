@@ -42,6 +42,7 @@ pub(super) fn build_standard_client_config_with_key_log(
     let mut config = if let Some(verifier) = tls_verifier {
         builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth()
     } else {
+        // Infallible: the store is seeded from webpki_roots::TLS_SERVER_ROOTS and no CRLs are set.
         ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, default_root_store())
             .expect("bundled webpki roots are non-empty")
             .with_no_client_auth()

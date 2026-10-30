@@ -20,6 +20,7 @@ pub(crate) fn build_rustls_config() -> Arc<RustlsClientConfig> {
     let builder = RustlsClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
         .with_safe_default_protocol_versions()
         .expect("shadowtls rustls versions");
+    // Infallible: the store is seeded from webpki_roots::TLS_SERVER_ROOTS and no CRLs are set.
     Arc::new(
         ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, roots)
             .expect("bundled webpki roots are non-empty")

@@ -11,15 +11,7 @@ pub fn configure_builder(profile: &str) -> Result<SslConnectorBuilder, Error> {
     validate_profile_config(config)?;
     apply::apply_profile(&mut builder, config)?;
     trust::seed_default_trust(&mut builder)?;
-    // The same SPKI blocklist as the rustls clients: BoringSSL runs this for
-    // every certificate of the chain it built, after its own check.
-    builder.set_verify_callback(SslVerifyMode::PEER, |preverified, context| {
-        preverified
-            && !context
-                .current_cert()
-                .and_then(|cert| cert.to_der().ok())
-                .is_some_and(|der| cert_blocklist::der_cert_is_blocked(&der))
-    });
+    cert_blocklist::install_cert_blocklist(&mut builder);
     Ok(builder)
 }
 

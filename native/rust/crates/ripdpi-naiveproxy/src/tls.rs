@@ -52,6 +52,7 @@ pub(crate) fn tls_config_with_ech_setup(
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(PinnedLeafVerifier { pin, provider }))
             .with_no_client_auth(),
+        // Infallible: the store is seeded from webpki_roots::TLS_SERVER_ROOTS and no CRLs are set.
         None => ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, roots)
             .expect("bundled webpki roots are non-empty")
             .with_no_client_auth(),

@@ -53,7 +53,7 @@ fn build_connector(config: &WebTunnelBridgeConfig, http11_only: bool) -> Result<
         builder.set_custom_verify_callback(SslVerifyMode::PEER, move |ssl| verify_pinned_chain(ssl, &pin));
         return Ok(builder.build());
     }
-    builder.set_verify(SslVerifyMode::PEER);
+    // configure_builder already verifies the peer; set_verify here would drop its blocklist callback.
     if let Some(root_pem) = &config.root_certificate_pem {
         let root = X509::from_pem(root_pem.as_bytes()).map_err(WebTunnelTlsError::TrustRoot)?;
         builder.cert_store_mut().add_cert(root).map_err(WebTunnelTlsError::TrustRoot)?;

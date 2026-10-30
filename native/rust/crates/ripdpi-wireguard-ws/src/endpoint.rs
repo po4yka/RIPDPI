@@ -160,6 +160,7 @@ fn default_tls_connector() -> TlsConnector {
     let builder = ClientConfig::builder_with_provider(rustls::crypto::aws_lc_rs::default_provider().into())
         .with_safe_default_protocol_versions()
         .expect("aws-lc-rs provider supports default TLS versions");
+    // Infallible: the store is seeded from webpki_roots::TLS_SERVER_ROOTS and no CRLs are set.
     let mut config = ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, roots)
         .expect("bundled webpki roots are non-empty")
         .with_no_client_auth();
