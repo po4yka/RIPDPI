@@ -2,7 +2,7 @@
 id: TRN-1793271658511991
 title: Complete AmneziaWG 3.1 behavior and verification
 kind: feature
-status: doing
+status: review
 area: transport
 priority: high
 owner: protocol-runtime
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: awg31-behavior-parity
 created: 2026-10-29
 updated: 2026-10-30
+status_detail: All 16 steps passed for the approved host/emulator scope. CI 41041125755 passed at 5519a84e236b67d13d91efcd02cdd0c984cd617b; exact native/editor artifacts and independent review are recorded. Physical-device and private-LAN acceptance remain excluded; the deployment guard is unchanged.
 ---
 
 ## Goal

@@ -32,7 +32,7 @@ Native paths below use `N = native/rust/crates/ripdpi-warp-core`. Editor paths u
 - [x] TRN-1793272221979823 Make wire validators assert padding trailers idle timers and cookie behavior with missing-feature negative controls #feature !high @item:TRN-1793271658511991
 - [x] TRN-1793272222631098 Run current-source pooled Android arm64 emulator feature and payload acceptance and retain scoped receipts #feature !high @item:TRN-1793271658511991
 - [x] TRN-1793272223181197 Record the approved emulator-only acceptance scope and preserve the deployment guard #feature !high @item:TRN-1793271658511991 @scope:emulator-only
-- [ ] TRN-1793272223722013 Complete affected-module static contract and independent-review gates and record hosted CI and final evidence #chore !high @item:TRN-1793271658511991
+- [x] TRN-1793272223722013 Complete affected-module static contract and independent-review gates and record hosted CI and final evidence #chore !high @item:TRN-1793271658511991
 
 ## Step contracts
 

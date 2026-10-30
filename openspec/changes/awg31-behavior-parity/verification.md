@@ -1,11 +1,11 @@
 ---
 task_id: TRN-1793271658511991
 change: awg31-behavior-parity
-commit_sha: "f8f7512dc05865559731dcf5a456dd86ae02a650"
+commit_sha: "5519a84e236b67d13d91efcd02cdd0c984cd617b"
 local: "passed"
 local_evidence: "G1 native tests/fmt/workspace Clippy; G2 affected-module unit tests; G3 static/locale/architecture/locked metadata; G4 pinned peers and 129 evidence tests; independent integration and follow-up reviews. See execution records and final receipts below."
-remote_ci: required
-remote_ci_evidence: "Run 41034877092 exposed inherited CI environment in two local-ABI verifier tests; fixed without changing production ABI policy. Superseding run https://github.com/po4yka/RIPDPI/actions/runs/41038331539 at 3dae188df48a3180510dbfaba852bfb4f6d1d063 passed preflight, but found an orphaned io-uring adapter and a stale guide route expectation. Both causes reproduced and owner checks now pass. A new full hosted run is required."
+remote_ci: "passed"
+remote_ci_evidence: "CI https://github.com/po4yka/RIPDPI/actions/runs/41041125755 completed with success at 5519a84e236b67d13d91efcd02cdd0c984cd617b. All 50 selected jobs passed, including ci-required and instrumentation API 27/33/35/36/37. Fourteen conditional jobs were skipped by existing route/opt-in conditions; they are not passing evidence. Earlier failures and their fixes are recorded below."
 device: "passed"
 device_evidence: "Native matrix passed at 79f4f1b9c. Editor v2 passed at 3dae188df: five explicit cases, 60 hashed PNGs, and separate default-discovery/partial/empty invocation controls. Physical-device and private-LAN acceptance are excluded by the user."
 artifact: "passed"
@@ -16,7 +16,7 @@ deployment_evidence: No deployment is owned by this change; the shared arm64 dep
 
 # Verification
 
-Local implementation, host, emulator, editor and artifact gates have passing receipts. Hosted CI remains required. `commit_sha` identifies the latest tested code revision; the source and artifact identities below keep native-core transport and production-editor rendering separate. Later verification-only commits do not change those tested inputs.
+Local implementation, host, emulator, editor, artifact and hosted CI gates have passing receipts. `commit_sha` identifies the latest tested code revision; the source and artifact identities below keep native-core transport and production-editor rendering separate. Later verification-only commits do not change those tested inputs.
 
 ## Accepted scope revision
 
@@ -24,7 +24,7 @@ On 2026-10-30 the user excluded physical-device and private-LAN acceptance and r
 
 ## Requirement evidence
 
-Each row names the primary owning step. Its step contract includes supporting native, configuration, and acceptance steps. The table reports observed results for the accepted scope; hosted CI remains required.
+Each row names the primary owning step. Its step contract includes supporting native, configuration, and acceptance steps. The table reports observed results for the accepted scope, including the successful hosted CI implementation run.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
@@ -38,7 +38,7 @@ Each row names the primary owning step. Its step contract includes supporting na
 | REQ-AWG31-INPUT | TRN-1793272218937903 | G2 shared grammar and HP readiness tests, including supporting step TRN-1793272219644936 | Passed for the accepted scope |
 | REQ-AWG31-EDITOR | TRN-1793272220215141 | G2 preset replacement/cancel and v3 tests, G3 locale parity, G5 rendered editor checks | Passed for the accepted scope |
 | REQ-AWG31-SUBSET | TRN-1793272220792888 | G1-G3 CPS/numeric/header/junk boundaries and updated compatibility documentation | Passed for the accepted scope |
-| REQ-AWG31-EVIDENCE | TRN-1793272223722013 | G4 validator negative controls, pinned matrix, G5 emulator, G6 scope exclusion, tested artifacts and G7 hosted CI/review receipts | Local passed; hosted CI required |
+| REQ-AWG31-EVIDENCE | TRN-1793272223722013 | G4 validator negative controls, pinned matrix, G5 emulator, G6 scope exclusion, tested artifacts and G7 hosted CI/review receipts | Passed for the accepted scope |
 
 ## Gate commands and acceptance
 
@@ -255,7 +255,7 @@ The run used en/de/ar/fa with system font scale 1.0, then en at 1.3. The runner 
 | Editor identity manifest | `ed7242a334e315e8e8302ccc059856a1a20abff909a66f989ac4e8e310eb56bc` | All 13 native entry hashes |
 | Editor result receipt | `b6be85fcb9ba414eb53dc518bdb4ae443a1b4c282417d013bc860ae41a310810` | Five cases and 60 PNGs |
 
-G7 independent source review has no remaining actionable findings. The final task stays open for hosted CI on the published implementation commit. Planning-branch CI does not satisfy this gate. Physical/private-LAN acceptance and deployment remain excluded; the shared arm64 deployment guard is unchanged.
+G7 independent source review has no remaining actionable findings. Hosted implementation CI passed at `5519a84e236b67d13d91efcd02cdd0c984cd617b`; this is separate from the earlier planning-branch run. All 50 selected jobs passed, including the required aggregate, all five instrumentation APIs, native/workspace/static/coverage gates, three debug variants and six release variants. Fourteen jobs were skipped by existing route or opt-in conditions and are not passing evidence. Physical/private-LAN acceptance and deployment remain excluded; the shared arm64 deployment guard is unchanged. Later lifecycle commits change only task/specification records.
 
 - 2026-10-30, hosted CI first implementation run: the user authorized push and CI. Commit `9ee2013a250b224653b3d8c3441fd47d14b2830c` was pushed to the job branch and workflow CI run [41034877092](https://github.com/po4yka/RIPDPI/actions/runs/41034877092) started on that exact SHA. Task/OpenSpec, Android E2E contracts, cargo-deny, design lint and release gates passed. The architecture job passed architecture/LoC/hotspot contracts, then failed two local-ABI unit cases because they inherited `CI=true`. This blocked the preflight barrier and dependent Rust/Android jobs; skipped jobs are not passing evidence. The same two failures reproduced locally with `CI=true`. The two local-case tests now set an empty CI value only inside their patch context; the separate CI full-ABI test and production verifier are unchanged. All eight owner tests and the exact 374-test CI script/evidence suite passed locally with `CI=true`. A fresh hosted run remains required. Receipts: `build/reports/awg31/ci-abi-reproduction.log`, `ci-abi-fix-tests.log`, and `ci-script-suite-local.log`.
 
@@ -266,3 +266,5 @@ G7 independent source review has no remaining actionable findings. The final tas
 - 2026-10-30, Linux CI cleanup: hosted run [41038331539](https://github.com/po4yka/RIPDPI/actions/runs/41038331539) at `3dae188df48a3180510dbfaba852bfb4f6d1d063` passed the architecture/preflight barrier and workspace tests. Its Linux Clippy gate found three orphaned items in the TUN adapter whose only production caller was removed by commit `0ed689233`. The same three errors reproduced with Linux-target library Clippy. Removed the unused adapter module rather than suppress warnings or restore an unused public API. All live driver and buffer-pool tests remain unchanged. In the owned Linux VM, all 22 crate tests passed; a no-capture run confirmed actual ring tests without unavailable-ring returns. Crate Clippy with `--all-targets --locked -- -D warnings` passed on Linux; Linux-target library Clippy and workspace formatting also passed locally. The VM was stopped after these checks. Independent source review found no remaining issue. Receipts: `build/reports/awg31/linux-uring-lib-reproduction.log`, `linux-uring-lib-fixed.log`, `linux-uring-tests.log`, `linux-uring-runtime.log`, `linux-uring-clippy.log`, and `linux-uring-vm-stop.log`. The full hosted gate remains required.
 
 - 2026-10-30, guide contract cleanup: the same hosted run stopped `build-android-tests` on the stale expectation of nine excluded guide routes. Commit `c2544e269` had added the real replay route and its typed exclusion without updating this test. The failure reproduced locally. The test now checks the exact current ten-route list, including `replay_failure`; reasons and exact flow partition checks remain in place. All 13 guide tests passed, and independent review confirmed the expectation against the actual spec. Receipts: `build/reports/awg31/guide-contract-reproduction.log` and `guide-contract-fixed.log`. Skipped downstream jobs in this failed run do not count as passing evidence.
+
+- 2026-10-30, final hosted implementation gate: [CI run 41041125755](https://github.com/po4yka/RIPDPI/actions/runs/41041125755) completed with `success` at `5519a84e236b67d13d91efcd02cdd0c984cd617b`. The recorded job set has 64 completed jobs: 50 successful and 14 skipped under existing conditions, with zero failed, cancelled or timed-out jobs. The two repaired jobs (`rust-lint` and `build-android-tests`) passed their original complete gates. Instrumentation API 27, 33, 35, 36 and 37 passed; all GitHub/F-Droid/Play debug and Simple/Full release variants passed. Superseded runs were cancelled only after replacement dispatch. The workflow and its thresholds were unchanged. Receipt: `build/reports/awg31/ci-run-41041125755.json`. This resolves the final hosted category and execution step for the user-approved host/emulator scope.
