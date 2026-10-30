@@ -1,9 +1,5 @@
 package com.poyka.ripdpi.ui.journeys.diagnostics
 
-import androidx.compose.ui.semantics.SemanticsActions
-import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.onFirst
-import androidx.compose.ui.test.performSemanticsAction
 import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
@@ -139,13 +135,8 @@ class DiagnosticsScanProgressKaspressoTest :
             step("Cancelling the running scan leaves the progress state") {
                 with(DiagnosticsPage(composeRule)) {
                     startRawScan()
-                    require(scanCancelAction)
-                    // An injected touch on this just-inserted list item did not reach its handler on the
-                    // emulator; the semantics action runs the same onClick.
-                    rule
-                        .onAllNodes(hasTestTag(scanCancelAction))
-                        .onFirst()
-                        .performSemanticsAction(SemanticsActions.OnClick)
+                    // An injected touch on this just-inserted list item did not reach its handler on the emulator.
+                    activate(scanCancelAction)
                     // Cancellation waits up to two 4 s native grace periods before it settles.
                     waitGone(scanStateProgress, timeoutMillis = 30_000)
                 }

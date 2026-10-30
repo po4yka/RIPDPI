@@ -63,6 +63,7 @@ Results: `app/build/outputs/androidTest-results/connected/**/TEST-*.xml` (file n
 | Symptom | Cause |
 |---|---|
 | Click has no effect, later wait times out | Node was off-screen; act through the page (`click(tag)`), not a raw `performClick()` |
+| Tap right after typing, or on a just-inserted list item, sometimes has no effect | The soft keyboard (or an item still settling) took the touch outside Compose idling; use `activate(tag)`, which runs the click action without a touch |
 | `Unable to resolve activity` for `MainActivity` | Broken device package state; retry on a `--temporary` device |
 | `UnsatisfiedLinkError` for `libripdpi.so` | Run built with `-Pripdpi.skipNativeBuild=true` |
 | `NoSuchMethodError` in `GeneratedMessageLite` | `protobuf-lite` leaked in; keep the exclusion on the Kaspresso dependencies in `app/build.gradle.kts` |

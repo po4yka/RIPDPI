@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.journeys
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.state.ToggleableState
@@ -14,6 +15,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.printToString
 import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.platform.app.InstrumentationRegistry
@@ -61,6 +63,15 @@ internal abstract class JourneyPage<T : JourneyPage<T>>(
     fun require(tag: String) = rule.requireTag(tag)
 
     fun click(tag: String) = rule.clickTag(tag)
+
+    /**
+     * Runs the node's click action without an injected touch. Use it only where a window outside
+     * Compose idling (the soft keyboard, a just-inserted lazy item) can swallow a tap at that moment.
+     */
+    fun activate(tag: String) {
+        rule.requireTag(tag)
+        rule.onAllNodes(hasTestTag(tag)).onFirst().performSemanticsAction(SemanticsActions.OnClick)
+    }
 
     fun awaitDisplayed(tag: String) = rule.awaitDisplayed(tag)
 

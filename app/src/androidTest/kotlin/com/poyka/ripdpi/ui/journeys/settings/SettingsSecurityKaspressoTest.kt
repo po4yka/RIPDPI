@@ -1,7 +1,9 @@
 package com.poyka.ripdpi.ui.journeys.settings
 
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTextReplacement
 import androidx.test.espresso.Espresso
 import com.poyka.ripdpi.automation.AutomationDataPreset
@@ -30,7 +32,10 @@ class SettingsBackupPinWarningKaspressoTest :
                 }
                 composeRule.waitForTag(RipDpiTestTags.BiometricPromptPinField)
                 composeRule.onNode(hasTestTag(RipDpiTestTags.BiometricPromptPinField)).performTextReplacement("0000")
-                composeRule.onNode(hasTestTag(RipDpiTestTags.BiometricPromptPrimaryAction)).performClick()
+                // The soft keyboard opens over Unlock at an unpredictable moment, so submit through the action.
+                composeRule
+                    .onNode(hasTestTag(RipDpiTestTags.BiometricPromptPrimaryAction))
+                    .performSemanticsAction(SemanticsActions.OnClick)
                 composeRule.waitForTag(RipDpiTestTags.screen(Route.Home))
             }
             with(SettingsPage(composeRule)) {
