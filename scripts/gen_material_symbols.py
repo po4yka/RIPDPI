@@ -13,7 +13,7 @@ from pathlib import Path
 
 ANDROID = "{http://schemas.android.com/apk/res/android}"
 
-# Kotlin constant name -> Material Symbols name
+# Kotlin constant name -> Material Symbols name, or "<name>/<file stem without _24px>" for a file variant
 ICONS = {
     "Add": "add", "Archive": "archive", "ArrowBack": "arrow_back", "Article": "article",
     "Cancel": "cancel", "Check": "check", "Close": "close", "ContentCopy": "content_copy",
@@ -26,7 +26,7 @@ ICONS = {
     "PhotoCamera": "photo_camera", "Public": "public", "QrCodeScanner": "qr_code_scanner",
     "Refresh": "refresh", "Remove": "remove", "Science": "science", "Search": "search",
     "Settings": "settings", "SettingsBackupRestore": "settings_backup_restore", "Share": "share",
-    "Shield": "shield", "Star": "star", "TaskAlt": "task_alt", "Timer": "timer", "Tune": "tune",
+    "Shield": "shield", "Star": "star", "StarFilled": "star/star_fill1", "TaskAlt": "task_alt", "Timer": "timer", "Tune": "tune",
     "Videocam": "videocam", "Visibility": "visibility", "VpnKey": "vpn_key", "Warning": "warning",
 }
 
@@ -40,7 +40,8 @@ lines = [
     "internal object RipDpiSymbolPaths {",
 ]
 for const, name in sorted(ICONS.items()):
-    xml = root / f"symbols/android/{name}/materialsymbolsoutlined/{name}_24px.xml"
+    folder, _, stem = name.partition("/")
+    xml = root / f"symbols/android/{folder}/materialsymbolsoutlined/{stem or folder}_24px.xml"
     vector = ET.parse(xml).getroot()
     assert vector.get(f"{ANDROID}viewportWidth") == "960", name
     assert vector.get(f"{ANDROID}viewportHeight") == "960", name
