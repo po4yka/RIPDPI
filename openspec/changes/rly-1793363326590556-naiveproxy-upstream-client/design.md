@@ -42,9 +42,10 @@ The upstream client:
   - Rejected: `/proc/self/fd/0`. Upstream's file read is not guaranteed to accept pipes, and this would add an untested dependency on its behavior.
 - **Protected DNS through the Rust helper.** `ripdpi-naiveproxy --resolve HOST --server-port N` reuses `resolve_server_addrs` and prints `RIPDPI-RESOLVED|<ip>[,<ip>…]`, then exits.
   - Kotlin runs it before the upstream launch, but only for hostname servers, and builds `MAP host ip` with IPv6 in brackets.
-  - With socket protection active (VPN mode) the lookup is protected DoH. In proxy-only mode there is no protect path, so the helper uses the system resolver, as relay mode does.
+  - With socket protection active (VPN mode) the lookup is protected DoH. In proxy-only mode there is no protect path, so the same DoH pipeline runs without protect hooks; the system resolver is never used.
+  - The answers are ordered by a bounded concurrent TCP connect test (protected sockets in VPN mode), so the single `MAP` target is a reachable address. A handover restarts the runtime, so each new network resolves again.
   - A failure or empty result rejects the start with class `dns`.
-  - Rejected: the system resolver in VPN mode. It would regress F11.
+  - Rejected: the system resolver in either mode. It would regress F11 and allow DNS poisoning of the proxy host.
   - Rejected: a new Kotlin DoH client. It would duplicate the protected resolver.
 - **Lifecycle.** The upstream client reuses `SubprocessSocksRelayManager`:
   - the same process supervisor (with the waitForExit yield from dfa955da3);
@@ -90,3 +91,8 @@ The upstream client:
   - the `android-naiveproxy` scenario for both a pin-free and a pinned profile;
   - the wire comparison showing no HRR and the upstream JA4;
   - the release per-ABI APK size gate.
+
+## Upstream output and health
+
+- The upstream client logs at INFO level, including each destination (`Connection N to host:port`). A dedicated parser maps `negotiated padding type` and `closed: OK` lines to upstream-OK evidence, maps error lines to fixed messages without destinations, URLs or credentials, and drops every other line. Raw upstream text never reaches logs, telemetry or exports.
+- Redaction also covers the base64 Basic form of the proxy credentials.
