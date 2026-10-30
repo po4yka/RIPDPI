@@ -27,7 +27,7 @@ Paths below are relative to the repository root. Line numbers are baseline obser
 | F13 | CPS accepts bounded b/t/r/rc/rd syntax, lowercase hex, no inter-tag whitespace, positive lengths, at most 1280 bytes and 64 tags. Upstream also has undocumented d/ds/dz forms. | Preserve the strict subset with negative and boundary tests; unsupported tags get explicit errors. Adding undocumented tags is not required. |
 | F14 | `tests/standalone_awg_interop.rs:147` uses legacy S values and v3 defaults even with a Go 3.1 peer. | Add real 5.x/v3 feature profiles while preserving the baseline profile. |
 | F15 | `scripts/fixtures/amneziawg-peer/wire_observation.go` collects sizes for the Android fixture, but `scripts/tests/validate-android-awg-interop.py:64` mainly asserts configured S values and absence of clear headers. | Assert actual padding/trailer distributions and lengths, idle behavior, timers, cookies, and negative controls. A successful transfer alone cannot pass these features. |
-| F16 | Existing emulator evidence is tied to an earlier revision; the fixture exercises the native engine rather than full production VpnService and direct physical transport. | Run current-source emulator and separately authorized physical arm64/artifact acceptance; keep the shared deployment guard unchanged. |
+| F16 | Existing emulator evidence is tied to an earlier revision; the fixture exercises the native engine rather than full production VpnService and direct physical transport. | Run current-source emulator, editor and exact tested-artifact acceptance. Physical/private-LAN acceptance is excluded by the user decision on 2026-10-30; keep the shared deployment guard unchanged. |
 
 The nine v3 settings are HeaderProtectionKey, ContentPaddingAddition, RandomTrailers, DisableCookies, RekeyAfterTime, RekeyTimeout, RejectAfterTime, KeepaliveTimeout, and MaxHandshakeAttempts. Persistent keepalive is a separate scalar/range setting.
 
@@ -44,7 +44,7 @@ The nine v3 settings are HeaderProtectionKey, ContentPaddingAddition, RandomTrai
 - Goal: close F01-F16 with explicit behavior, safe compatibility limits, and evidence that fails when a feature is absent.
 - Goal: preserve existing AWG/WireGuard profiles, secret isolation, replay protection, offline use, and VPN socket protection.
 - Non-goal: replace cryptographic primitives, deploy a server, migrate external users, add a required service, promise DPI bypass, or lift the shared arm64 deployment guard.
-- Non-goal: production implementation in this planning commit.
+- Non-goal: physical-device or private-LAN acceptance, production VpnService transport acceptance, or physical network handover proof, as requested by the user on 2026-10-30.
 
 ## Decisions
 
@@ -147,14 +147,14 @@ Preserve `AmneziaWgV3Parameters`, `AwgActivationRequest`, `AmneziaWgRuntimeConfi
 2. Resolve and record the backend boundary, then add independent regressions before each fix. Native packet fixes and profile input work can proceed independently after boundary ownership is assigned.
 3. Complete runtime behavior, UI/round-trip handling, and compatibility notes. Keep persisted JSON and secret formats unchanged where possible; no Room migration is currently required. If a migration becomes necessary, revise the spec and add backward/forward fixtures before implementing it.
 4. Extend pinned host peers and wire validators, then run current-source Android emulator acceptance. Keep baseline profiles alongside HP on/off, fixed/ranged H, unequal S, CPA/RT modes, idle, retry/rekey/expiry, malformed input, replay, loss, load, restart, and endpoint-change cases.
-5. Run separately authorized physical arm64 acceptance with the production service and exact rebuilt artifacts. Obtain hosted CI and exact-artifact receipts. Preserve the shared deployment guard and route its later removal through its existing owner decision.
+5. Record the user-approved exclusion of physical-device and private-LAN acceptance. Obtain hosted CI and exact tested emulator artifact receipts. Preserve the shared deployment guard; no production-service, direct-LAN or physical handover acceptance is claimed.
 6. Roll back implementation commits and binaries together if acceptance fails. Do not clear saved profiles or secrets. Document the newly rejected input grammar so rollback is not presented as restoring source text already lost by older parsing.
 
 ## Validation strategy
 
 The execution tasks and `verification.md` are the authoritative gate mapping. Extend existing tests before adding new suites. Native unit coverage belongs in `awg_v3_tests.rs`, `awg_timers.rs` and the owning tunnel tests; interoperability belongs in `standalone_awg_interop.rs`. Kotlin coverage belongs in existing parser, editor, resolver, repository, and serialization suites.
 
-Required implementation gates include `cargo test -p ripdpi-warp-core --locked` from `native/rust`, affected Kotlin module tests, full static analysis, locale lint for changed strings, independent review, and the host/emulator/physical acceptance receipts. Review uses `pr-reviewer`; add async, unsafe, and JNI specialist review only when the actual diff touches those areas. Do not bless or weaken fixtures or baselines to obtain a pass.
+Required implementation gates include `cargo test -p ripdpi-warp-core --locked` from `native/rust`, affected Kotlin module tests, full static analysis, locale lint for changed strings, independent review, and the host/emulator acceptance receipts and the documented physical/private-LAN scope exclusion. Review uses `pr-reviewer`; add async, unsafe, and JNI specialist review only when the actual diff touches those areas. Do not bless or weaken fixtures or baselines to obtain a pass.
 
 Research baseline only: `cargo test -p ripdpi-warp-core --lib --locked` observed 151 passed, zero failed, zero ignored at the baseline SHA. The historical emulator record reports 96/96 at `ba228c17c7cfb1f90a09f6af03a1c5837e1a100c`. Neither result proves the future requirements or physical acceptance. Planning validation is separate from every implementation gate.
 

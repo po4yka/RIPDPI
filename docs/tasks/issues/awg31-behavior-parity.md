@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: awg31-behavior-parity
 created: 2026-10-29
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 ## Goal
@@ -20,7 +20,7 @@ Complete AmneziaWG 3.1 runtime behavior and profile handling against pinned upst
 
 ## Acceptance criteria
 
-All modified and added requirements in `openspec/changes/awg31-behavior-parity/specs/awg3-native-engine/spec.md` have passing evidence mapped in `verification.md`. Timer fields and DisableCookies affect runtime behavior; every transport packet follows padding policy; ambiguous receive classification and authenticated malformed payloads are handled safely. Profile input, readiness, v3 editing, and preset replacement have regression coverage. Host, emulator, hosted CI, physical arm64, and exact-artifact checks are recorded separately. The shared deployment guard remains unchanged.
+All modified and added requirements in `openspec/changes/awg31-behavior-parity/specs/awg3-native-engine/spec.md` have passing evidence mapped in `verification.md`. Timer fields and DisableCookies affect runtime behavior; every transport packet follows padding policy; ambiguous receive classification and authenticated malformed payloads are handled safely. Profile input, readiness, v3 editing, and preset replacement have regression coverage. Host, emulator, hosted CI and exact tested-artifact checks are recorded separately. Physical-device and private-LAN acceptance are excluded by the user decision on 2026-10-30; no production-service or physical transport pass is claimed. The shared deployment guard remains unchanged.
 
 ## Scope and sequence
 
@@ -31,6 +31,8 @@ Resolve the backend extension boundary first. Implement native state and packet 
 Implementation owner: protocol-runtime in the existing dedicated worktree. This owner controls the native runtime, the pinned boringtun patch, dependency manifests and lockfile, and current task artifacts. The boundary reviewer is read-only. Future profile/UI and acceptance writers need separate worktrees and assigned paths before they start. The integration owner also serializes any schema or JNI changes, locale sets, and evidence fixtures. The shared arm64 deployment guard is outside this change's write scope.
 
 Android feature preparation: `android-feature-client` owns only `testing/awg-interop/src/androidTest/kotlin/` in a separate worktree. `protocol-runtime` owns Android Python runners, evidence schema/validators/tests, documentation and task state in the current worktree. No writer changes JNI signatures or production Rust for this preparation. The integration owner validates the combined tree and commits the accepted Kotlin and Python changes.
+
+Editor acceptance owner: `editor-acceptance` owns only the isolated `AwgV3EditorAcceptanceTest.kt`; `protocol-runtime` retains all other files and task state.
 
 ## Completion boundary
 

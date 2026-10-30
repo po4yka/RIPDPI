@@ -13,7 +13,7 @@ Native paths below use `N = native/rust/crates/ripdpi-warp-core`. Editor paths u
 1. Resolve the backend boundary in TRN-1793272189489544 before native state-machine changes. Record concrete transition semantics and the supported extension mechanism in the design.
 2. Implement native behavior and regression tests in TRN-1793272215354505 through TRN-1793272218210665. Profile input and editor work in TRN-1793272218937903 through TRN-1793272220215141 can run independently with separate ownership. Complete compatibility documentation in TRN-1793272220792888 with the final behavior.
 3. Complete host peers and feature validators in TRN-1793272221414509 and TRN-1793272221979823 before device acceptance. Harness development can start earlier; passing acceptance requires the combined implementation.
-4. Complete emulator, physical/artifact, and final gates in the last three steps. A missing physical device or failed upstream peer remains a reported blocker, not a waived result.
+4. Complete emulator/artifact and final gates, and record the approved physical/private-LAN exclusion in the scope step. A missing required emulator, failed peer or missing hosted CI remains a reported blocker; excluded physical-device acceptance is not a prerequisite or a passing result.
 
 ## Execution
 
@@ -31,7 +31,7 @@ Native paths below use `N = native/rust/crates/ripdpi-warp-core`. Editor paths u
 - [x] TRN-1793272221414509 Add pinned Go and Linux host peer profiles covering real v3 behavior and isolate upstream startup failures #feature !high @item:TRN-1793271658511991
 - [x] TRN-1793272221979823 Make wire validators assert padding trailers idle timers and cookie behavior with missing-feature negative controls #feature !high @item:TRN-1793271658511991
 - [ ] TRN-1793272222631098 Run current-source pooled Android arm64 emulator feature and payload acceptance and retain scoped receipts #feature !high @item:TRN-1793271658511991
-- [ ] TRN-1793272223181197 Run authorized physical arm64 production-service and exact-artifact acceptance while preserving the deployment guard #feature !high @item:TRN-1793271658511991
+- [x] TRN-1793272223181197 Record the approved emulator-only acceptance scope and preserve the deployment guard #feature !high @item:TRN-1793271658511991 @scope:emulator-only
 - [ ] TRN-1793272223722013 Complete affected-module static contract and independent-review gates and record hosted CI and final evidence #chore !high @item:TRN-1793271658511991
 
 ## Step contracts
@@ -52,7 +52,7 @@ Native paths below use `N = native/rust/crates/ripdpi-warp-core`. Editor paths u
 | TRN-1793272221414509 | F14; `N/tests/standalone_awg_interop.rs`, `P`, `scripts/tests/run-standalone-awg-interop.py`, owning CI workflow | Preserve baseline and add actual v3 profiles for Go August 14/August 28 and the pinned Linux revision. Isolate Linux kernel testing in a disposable VM/CI environment. Resolve or report upstream startup failures; distinguish known peer limitations without silently skipping cases. Gate G4 records exact versions and results. |
 | TRN-1793272221979823 | F15; `P/wire_observation.go`, its Go tests, Android validator and Python tests, `testing/awg-interop` | Validate HP, each packet type's trailer bounds, data/empty padding lengths, timing events, cookie load behavior, and loss/restart outcomes. Keep CPS/junk free of unintended trailers. Tests remove or alter each claimed feature and require validator failure. Gates G4-G5. Version the observation schema if its contract changes. |
 | TRN-1793272222631098 | F16; pooled Android runner, `testing/awg-interop`, evidence owned by these tools | Run current-source arm64 baseline and 5.x/v3 profiles at MTU 1280/1420 with restarts, IPv4/IPv6 TCP/UDP/DNS, exact hashes, zero unexplained payload loss, wrong-HP-key rejection, and feature assertions. Inspect v3 editor normal/error/preset states and locale layouts on a leased emulator. Gate G5; record emulator scope explicitly. |
-| TRN-1793272223181197 | F16; production-service acceptance integration under `test-lab/acceptance`, exact rebuilt APK/native artifacts, evidence | Use an explicitly authorized owned physical arm64 device, lock and installation receipt, reachable private-LAN peer, and full VpnService path. Verify socket protection, routing, DNS, restart/handover and no unintended bypass along with AWG features. Identify app/native SHA-256, source, device and peer; USB test-only bridge is not direct transport evidence. Gate G6. Do not modify the shared deployment guard. |
+| TRN-1793272223181197 | F16; proposal, design, evidence requirement and `verification.md` | Record the user decision of 2026-10-30 to exclude physical-device and private-LAN acceptance. Reconcile all active criteria and keep exact tested emulator artifact receipts required. Gate G6 is not applicable; no physical, production-service or direct-LAN pass is claimed. Preserve the shared deployment guard. |
 | TRN-1793272223722013 | F01-F16; affected tests/CI and `verification.md` | Run G1-G7 on the combined implementation, resolve reviews, attach exact-source hosted CI/device/artifact receipts, and map every requirement. Keep missing categories required or blocked. Never treat planning validation as implementation acceptance. |
 
 ## Verification

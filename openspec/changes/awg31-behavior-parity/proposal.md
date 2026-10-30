@@ -15,7 +15,7 @@ The analysis used RIPDPI `941f92ada478ec202b7b335d0f0b487deeee763b` and amneziaw
 - Validate keepalive text consistently across the editor, URI, and configuration import. Validate Header Protection prefix rules before enabling activation.
 - Show and edit v3 settings, protect the Header Protection key, and make preset replacement of server-coordinated values explicit.
 - Preserve bounded CPS/junk parsing, authenticated UDP-window learning, key storage, and existing routing/VPN protection.
-- Expand host and Android peer checks to observe each feature, then require separate physical arm64 and exact-artifact acceptance.
+- Expand host and Android peer checks to observe each feature, require current-source emulator and exact tested-artifact acceptance. Physical-device and private-LAN acceptance are excluded by the user decision on 2026-10-30.
 - BREAKING validation correction: reject malformed keepalive ranges and nonzero ranges that start at zero instead of silently converting them to another interval or off. Preserve existing stored off values; do not invent lost source values.
 - Wire behavior correction: pad outgoing keepalives and apply standard 16-byte data padding when custom padding is off. Ordinary WireGuard/AWG profiles must retain authenticated connectivity.
 
@@ -28,6 +28,10 @@ The analysis used RIPDPI `941f92ada478ec202b7b335d0f0b487deeee763b` and amneziaw
 ### Modified Capabilities
 
 - `awg3-native-engine`: complete behavioral support, safe profile handling, and feature-specific interoperability evidence.
+
+## Acceptance scope
+
+On 2026-10-30 the user removed physical-device and private-LAN acceptance from this change. Completion requires host, arm64 emulator, editor, exact tested-artifact, local and hosted CI evidence. It does not claim production VpnService transport, direct device-to-LAN routing or physical handover acceptance. The shared arm64 deployment guard stays unchanged.
 
 ## Impact
 

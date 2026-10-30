@@ -123,12 +123,12 @@ The implementation MUST document its bounded subset separately from unsupported 
 
 ### Requirement: REQ-AWG31-EVIDENCE — Prove each feature on pinned peers and artifacts
 
-Acceptance MUST map changed behavior to regression tests and independent wire observations where applicable. Feature validators MUST fail when the feature is absent. Host, emulator, physical device, hosted CI, and artifact evidence MUST remain separate and identify exact revisions. This change MUST NOT lift the shared arm64 deployment guard automatically.
+Acceptance MUST map changed behavior to regression tests and independent wire observations where applicable. Feature validators MUST fail when the feature is absent. Host, emulator, hosted CI and tested-artifact evidence MUST remain separate and identify exact revisions. This change MUST NOT lift the shared arm64 deployment guard automatically.
 
-#### Scenario: Pinned peers and physical artifacts
+#### Scenario: Pinned peers and tested emulator artifacts
 
-- **WHEN** interoperability and physical arm64 acceptance results are recorded
-- **THEN** Go 3.1 and Linux peer revisions and known upstream limitations are explicit, and physical receipts include the source, APK and native artifact hashes, device, peer, profile, and result.
+- **WHEN** interoperability and arm64 emulator acceptance results are recorded
+- **THEN** Go 3.1 and Linux peer revisions and known upstream limitations are explicit, and emulator receipts include the source, APK and native artifact hashes, emulator identity, peer, profile, and result. The physical/private-LAN exclusion approved by the user on 2026-10-30 is explicit and is not a passing test result or production VpnService transport acceptance.
 
 #### Scenario: Payload succeeds but a feature is missing
 
@@ -138,4 +138,4 @@ Acceptance MUST map changed behavior to regression tests and independent wire ob
 #### Scenario: Historical emulator evidence
 
 - **WHEN** an earlier source revision has a successful emulator record
-- **THEN** it is retained as historical evidence and does not satisfy current-source, physical-device, or exact-artifact acceptance.
+- **THEN** it is retained as historical evidence and does not satisfy current-source or exact-tested-artifact acceptance.

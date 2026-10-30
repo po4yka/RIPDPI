@@ -18,6 +18,10 @@ deployment_evidence: No deployment is owned by this change; the shared arm64 dep
 
 This is an implementation acceptance plan. Step-level checks are recorded below; the combined implementation gates remain required. `commit_sha` stays null until results identify an implementation revision. The documentation commit and planning validation must not fill the implementation evidence fields.
 
+## Accepted scope revision
+
+On 2026-10-30 the user excluded physical-device and private-LAN acceptance and requested completion without them. Host and emulator checks keep their existing requirements. Earlier execution entries describe the scope at their recorded time; they do not restore the excluded G6 requirement.
+
 ## Requirement evidence
 
 Each row names the primary owning step. Its step contract includes supporting native, configuration, and acceptance steps. All results below are pending.
@@ -34,7 +38,7 @@ Each row names the primary owning step. Its step contract includes supporting na
 | REQ-AWG31-INPUT | TRN-1793272218937903 | Required G2 shared grammar and HP readiness tests, including supporting step TRN-1793272219644936 | Required; not run for the implementation |
 | REQ-AWG31-EDITOR | TRN-1793272220215141 | Required G2 preset replacement/cancel and v3 tests, G3 locale parity, G5 rendered editor checks | Required; not run for the implementation |
 | REQ-AWG31-SUBSET | TRN-1793272220792888 | Required G1-G3 CPS/numeric/header/junk boundaries and updated compatibility documentation | Required; not run for the implementation |
-| REQ-AWG31-EVIDENCE | TRN-1793272223722013 | Required G4 validator negative controls, pinned matrix, G5 emulator, G6 physical/artifact and G7 hosted CI/review receipts | Required; not run for the implementation |
+| REQ-AWG31-EVIDENCE | TRN-1793272223722013 | Required G4 validator negative controls, pinned matrix, G5 emulator, G6 scope exclusion, tested artifacts and G7 hosted CI/review receipts | Required; not run for the implementation |
 
 ## Gate commands and acceptance
 
@@ -116,19 +120,17 @@ The matrix has 23 cases under one pool lease: seven payload profiles, seven smal
 
 Use a leased emulator to render the production editor. Inspect v3 normal/error states, HP validation, preset replacement/cancel, keyboard/scrolling, accessibility, RTL and long locale text. Record source and screenshots without secrets; do not infer visual correctness from unit tests alone.
 
-### G6 — Physical arm64 and exact artifacts
+### G6 — Physical/private-LAN scope excluded
 
-Follow `test-lab/acceptance/README.md#owned-physical-transport-runs` after explicit authorization for the named device. Extend the existing acceptance owner if its AWG production-service scenario cannot prove the contract; record its exact scenario and command before the run. Require the exact serial, device lock, fresh-install ownership receipt, private LAN addresses, a reachable direct peer, and the production VpnService path. Keep private installation details out of committed evidence.
+The user explicitly removed physical-device and private-LAN acceptance on 2026-10-30. This gate is not applicable to completion. No device serial, installation, physical receipt, direct-LAN test or handover test is required or performed for this gate. No physical or production VpnService transport pass is claimed.
 
-Record source SHA, clean-tree state, APK SHA-256, each tested native artifact SHA-256 and ABI, device/OS, peer revision and binary/container digest, sanitized profile parameters, MTU, test matrix, traces, and pass/fail result. Verify protected socket routing, DNS, IPv4/IPv6 traffic, restart/handover, no unintended bypass, and AWG feature observations. A loopback sentinel or the USB test-only datagram bridge is not direct device-to-LAN evidence. Emulator success is not physical evidence.
-
-Rebuild and test the exact candidate artifacts; do not reuse an earlier APK and label it current-source. The shared `core/data/src/test/resources/contract/amneziawg-arm64-version-floor.json` guard remains unchanged even when this gate passes. Its later change belongs to its existing owner decision.
+G5 still requires exact current-source emulator runtime and editor results, including source, APK/native hashes, ABI, profile, peer and case identity. The shared `core/data/src/test/resources/contract/amneziawg-arm64-version-floor.json` deployment guard remains unchanged. This scope decision does not authorize its removal or deployment.
 
 ### G7 — Combined review, hosted CI, and completion
 
 Run independent `pr-reviewer` review on the implementation diff. Add async cancellation, unsafe Rust, and JNI review when the diff triggers the relevant repository rules. Resolve correctness findings without weakening gates. Record hosted workflow URLs, exact checked commit and conclusion after the implementation is pushed under separate authorization. Planning-branch CI does not satisfy this implementation gate.
 
-Populate every evidence category only from its observed result. `device` must include both fresh emulator and required physical acceptance; `artifact` must refer to the exact rebuilt and tested binaries. If a required peer, device, or hosted run is unavailable, mark it required or blocked with its reason. Do not archive or close the portfolio task until the required categories are resolved through the task lifecycle.
+Populate every evidence category only from its observed result. `device` must include fresh emulator runtime and editor acceptance; `artifact` must refer to the exact rebuilt and tested binaries. If a required peer, device, or hosted run is unavailable, mark it required or blocked with its reason. Do not archive or close the portfolio task until the required categories are resolved through the task lifecycle.
 
 ## Execution record
 
@@ -179,6 +181,8 @@ Populate every evidence category only from its observed result. `device` must in
 - 2026-10-30, TRN-1793272221979823, Android profile preparation slice (step remains open): the runner, evidence validator and Kotlin native test configuration now accept all five existing v3 feature profiles in addition to baseline and 5.x. Protected profiles receive the HP key; aligned and baseline omit it. S1-S4, CPA, RT and fixed H values match the pinned host profiles. Eighty-one Android evidence tests passed through both module discovery and direct file invocation; review found and corrected a main-guard placement that hid the new classes in direct invocation. The native wire test guard was moved to the end for the same reason. Android test Kotlin compilation and module `lintDebug` passed. This module has no `detekt` task; the attempted task lookup failed and is not reported as a passed check. Independent profile review found no remaining issue. These checks establish profile preparation only; feature scenario execution, versioned Android evidence and leased emulator acceptance remain required.
 
 - 2026-10-30, TRN-1793272221979823, Android feature harness slice: added the real-JNI feature method and small/timer/cookie/negative clients in an isolated Kotlin worktree. The integrated files match the worker's checked hashes. Kotlin compilation, module Android lint and ktlint passed. Android evidence v3 separates payload and feature completion; the runner retains bulk/DNS/restart/wrong-HP requirements and dispatches feature observations to the existing semantic peer validators. The exact 23-case matrix shares one immutable build and one leased emulator, with a complete-case and artifact/candidate binding validator. Eighty-six Android evidence tests passed through both module discovery and direct invocation; all 121 Python owner tests passed. Review corrected matrix CLI field access and feature-only dual-stack wording; their CLI regressions pass. Protocol review has no remaining finding. This completes step-13 harness implementation and local checks. Actual current-source matrix execution and rendered editor acceptance remain required under step 14; no G5 runtime result is inferred from these checks.
+
+- 2026-10-30, TRN-1793272223181197: the user explicitly excluded physical-device and private-LAN acceptance and requested completion without them. Proposal, design, evidence requirements, stage order, step contract and G6 now state that scope. The stable execution ID records this decision; it does not record a physical test. G5 emulator runtime/editor, exact tested artifacts, local checks and G7 hosted CI remain required. Strict OpenSpec and task validation passed after the scope update. The shared arm64 deployment guard is unchanged.
 
 ## Historical baseline — not implementation acceptance
 
