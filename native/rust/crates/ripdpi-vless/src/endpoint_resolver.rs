@@ -54,9 +54,53 @@ pub async fn resolve_server_addrs(
 
     match protect {
         Some(protect) => {
-            resolve_hostname_via_protected_doh(server, port, bind_ip, protect, &PROTECTED_RELAY_DNS_RESOLVER_IDS).await
+            resolve_hostname_via_doh(server, port, bind_ip, Some(protect), &PROTECTED_RELAY_DNS_RESOLVER_IDS).await
         }
         None => resolve_hostname_via_system_dns(server, port, bind_ip).await,
+    }
+}
+
+/// Like [`resolve_server_addrs`], but a hostname never reaches the system
+/// resolver: it goes through the same DoH pipeline and resolver ids, with
+/// protected sockets when `protect` is `Some` and plain direct sockets when it
+/// is `None`.
+///
+/// # Cancel safety
+///
+/// cancel-safe: see [`resolve_server_addrs`]; the lookup holds no state outside its future.
+pub async fn resolve_server_addrs_encrypted(
+    server: &str,
+    port: u16,
+    bind_ip: Option<IpAddr>,
+    protect: Option<Box<SocketProtectFn>>,
+) -> io::Result<Vec<SocketAddr>> {
+    if let Ok(ip) = server.parse::<IpAddr>() {
+        return Ok(vec![select_address_family(SocketAddr::new(ip, port), bind_ip, "relay server")?]);
+    }
+    resolve_hostname_via_doh(server, port, bind_ip, protect, &PROTECTED_RELAY_DNS_RESOLVER_IDS).await
+}
+
+/// One TCP connect to `target`, bounded by `timeout`, and the socket is closed
+/// on return. With `protect` the socket is protected before connecting;
+/// loopback targets never need protection and skip it.
+///
+/// # Cancel safety
+///
+/// cancel-safe: dropping it drops the connect; a protected blocking connect
+/// ends within `timeout` and closes its socket.
+pub async fn probe_tcp_reachable(
+    target: SocketAddr,
+    timeout: Duration,
+    protect: Option<std::sync::Arc<Box<SocketProtectFn>>>,
+) -> io::Result<()> {
+    match protect {
+        Some(protect) if !target.ip().is_loopback() => {
+            connect_protected_bootstrap(target, None, timeout, protect).await.map(drop)
+        }
+        _ => tokio::time::timeout(timeout, tokio::net::TcpStream::connect(target))
+            .await
+            .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "tcp probe timed out"))?
+            .map(drop),
     }
 }
 
@@ -96,20 +140,27 @@ async fn resolve_hostname_via_system_dns(
     .map_err(|error| io::Error::other(format!("system relay DNS task failed: {error}")))?
 }
 
+/// Without `protect` the pipeline keeps its default direct sockets.
+///
 /// # Cancel safety
 ///
 /// cancel-safe: dropping it drops the resolver pipeline and its pending requests.
-async fn resolve_hostname_via_protected_doh(
+async fn resolve_hostname_via_doh(
     server: &str,
     port: u16,
     bind_ip: Option<IpAddr>,
-    protect: Box<SocketProtectFn>,
+    protect: Option<Box<SocketProtectFn>>,
     resolver_ids: &[&str],
 ) -> io::Result<Vec<SocketAddr>> {
-    let protect = std::sync::Arc::new(protect);
-    let hooks = EncryptedDnsConnectHooks::new().require_direct_tcp_connector().with_direct_tcp_connector(
-        move |target, timeout| connect_protected_bootstrap(target, bind_ip, timeout, protect.clone()),
-    );
+    let hooks = match protect {
+        Some(protect) => {
+            let protect = std::sync::Arc::new(protect);
+            EncryptedDnsConnectHooks::new().require_direct_tcp_connector().with_direct_tcp_connector(
+                move |target, timeout| connect_protected_bootstrap(target, bind_ip, timeout, protect.clone()),
+            )
+        }
+        None => EncryptedDnsConnectHooks::new(),
+    };
     let primary_id = resolver_ids.first().ok_or_else(|| {
         io::Error::new(io::ErrorKind::InvalidInput, "protected relay DNS needs a primary resolver id")
     })?;
@@ -248,10 +299,40 @@ mod tests {
     #[tokio::test]
     async fn protected_doh_requires_a_primary_resolver_id() {
         let protect: Box<SocketProtectFn> = Box::new(|_| Ok(()));
-        let err = resolve_hostname_via_protected_doh("relay.invalid", 443, None, protect, &[])
+        let err = resolve_hostname_via_doh("relay.invalid", 443, None, Some(protect), &[])
             .await
             .expect_err("empty resolver id list must fail before any network I/O");
 
         assert!(err.to_string().contains("primary resolver id"), "unexpected error: {err}");
+    }
+
+    #[tokio::test]
+    async fn unprotected_encrypted_lookup_uses_doh_not_system_dns() {
+        // An empty id list fails inside the DoH builder; the system resolver has no such error.
+        let err = resolve_hostname_via_doh("relay.invalid", 443, None, None, &[])
+            .await
+            .expect_err("empty resolver id list must fail before any network I/O");
+
+        assert!(err.to_string().contains("primary resolver id"), "unexpected error: {err}");
+    }
+
+    #[tokio::test]
+    async fn encrypted_lookup_echoes_ip_literals() {
+        let addrs = resolve_server_addrs_encrypted("192.0.2.9", 443, None, None).await.expect("literal");
+
+        assert_eq!(addrs, vec![SocketAddr::new(IpAddr::from([192, 0, 2, 9]), 443)]);
+    }
+
+    #[tokio::test]
+    async fn probe_accepts_an_open_port_and_rejects_a_closed_one() {
+        let listener = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+        let open = listener.local_addr().expect("addr");
+        let closed = {
+            let l = std::net::TcpListener::bind("127.0.0.1:0").expect("bind");
+            l.local_addr().expect("addr")
+        };
+
+        assert!(probe_tcp_reachable(open, Duration::from_secs(1), None).await.is_ok());
+        assert!(probe_tcp_reachable(closed, Duration::from_secs(1), None).await.is_err());
     }
 }

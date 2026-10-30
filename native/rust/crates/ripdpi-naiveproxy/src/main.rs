@@ -7,6 +7,7 @@ mod extra_headers;
 pub mod h2_connect;
 mod http_front;
 pub mod padding;
+mod reachability;
 mod relay;
 mod resolve;
 mod session;

@@ -10,6 +10,7 @@ use std::io;
 use std::net::{IpAddr, SocketAddr};
 
 use crate::errors::resolve_error_line;
+use crate::reachability::{PROBE_STEP_BOUND, PROBE_TIMEOUT, order_by_reachability};
 
 pub(crate) const RESOLVE_FLAG: &str = "--resolve";
 const SERVER_PORT_FLAG: &str = "--server-port";
@@ -56,20 +57,38 @@ pub(crate) fn render_resolved_line(addrs: &[SocketAddr]) -> io::Result<String> {
     Ok(format!("{RESOLVED_PREFIX}{}", ips.join(",")))
 }
 
-/// With a protect path the lookup is protected DoH. Without one it is the
-/// system resolver, as in relay mode (`resolve_upstream` in `connect_tunnel`).
-/// An IP-literal host is echoed without any lookup.
+/// The lookup is always DoH: protected sockets with a protect path, plain
+/// direct sockets without one. There is no system-resolver fallback. The
+/// answers are then ordered so addresses that accept a TCP connection come
+/// first. An IP-literal host is echoed without any lookup or probe.
 ///
 /// # Cancel safety
 ///
-/// cancel-safe: see [`ripdpi_vless::endpoint_resolver::resolve_server_addrs`].
+/// cancel-safe: see [`ripdpi_vless::endpoint_resolver::resolve_server_addrs_encrypted`]
+/// and [`order_by_reachability`].
 pub(crate) async fn resolve_line(args: &ResolveArgs, protect_path: Option<String>) -> io::Result<String> {
-    let protect = protect_path.map(|path| {
+    let protect_fn = |path: String| {
         Box::new(move |fd| ripdpi_subprocess_protect::protect_fd(fd, &path))
             as Box<ripdpi_vless::endpoint_resolver::SocketProtectFn>
-    });
-    let addrs = ripdpi_vless::endpoint_resolver::resolve_server_addrs(&args.host, args.port, None, protect).await?;
-    render_resolved_line(&addrs)
+    };
+    let is_literal = args.host.parse::<IpAddr>().is_ok();
+    let addrs = ripdpi_vless::endpoint_resolver::resolve_server_addrs_encrypted(
+        &args.host,
+        args.port,
+        None,
+        protect_path.clone().map(protect_fn),
+    )
+    .await?;
+    if is_literal {
+        return render_resolved_line(&addrs);
+    }
+    let shared: Option<std::sync::Arc<Box<ripdpi_vless::endpoint_resolver::SocketProtectFn>>> =
+        protect_path.map(|path| std::sync::Arc::new(protect_fn(path)));
+    let ordered = order_by_reachability(addrs, PROBE_STEP_BOUND, |target| {
+        ripdpi_vless::endpoint_resolver::probe_tcp_reachable(target, PROBE_TIMEOUT, shared.clone())
+    })
+    .await;
+    render_resolved_line(&ordered)
 }
 
 /// Runs the mode: one stdout line and exit 0, or one error line and exit 1.
