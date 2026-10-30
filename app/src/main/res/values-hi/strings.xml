@@ -658,6 +658,7 @@
     <string name="config_relay_naive_password_helper">सुरक्षित रिले क्रेडेंशियल स्टोर में संग्रहीत।</string>
     <string name="config_relay_naive_path">HTTP पथ (वैकल्पिक)</string>
     <string name="config_relay_naive_path_helper">डिफ़ॉल्ट CONNECT एंडपॉइंट के लिए खाली छोड़ें, या /proxy जैसे पूर्ण पथ का उपयोग करें।</string>
+    <string name="config_relay_naive_path_pin_notice">प्रमाणपत्र पिन के बिना यह पथ नहीं भेजा जाता। पथ का उपयोग करने के लिए नीचे पिन सेट करें।</string>
     <string name="config_relay_naive_path_error_absolute">पथ / से शुरू होना चाहिए।</string>
     <string name="config_relay_naive_extra_headers">अतिरिक्त हेडर (वैकल्पिक)</string>
     <string name="config_relay_naive_extra_headers_helper">प्रति पंक्ति एक हेडर, Name: value प्रारूप में। हर CONNECT अनुरोध के साथ भेजा जाता है। मान एन्क्रिप्टेड रूप में सहेजे जाते हैं।</string>

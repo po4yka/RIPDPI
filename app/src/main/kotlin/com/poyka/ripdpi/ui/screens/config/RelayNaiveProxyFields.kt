@@ -50,7 +50,14 @@ internal fun NaiveProxyRelayFields(
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.config_relay_naive_path),
-                helperText = stringResource(R.string.config_relay_naive_path_helper),
+                helperText =
+                    stringResource(
+                        if (draft.relayNaivePath.isNotBlank() && draft.relayNaiveServerPinSha256.isBlank()) {
+                            R.string.config_relay_naive_path_pin_notice
+                        } else {
+                            R.string.config_relay_naive_path_helper
+                        },
+                    ),
                 errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayNaivePath]),
             ),
     )

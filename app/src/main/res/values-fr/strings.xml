@@ -2166,6 +2166,7 @@ Source : %2$s</string>
     <string name="config_relay_naive_password_helper">Stocké dans le magasin sécurisé des identifiants de relais.</string>
     <string name="config_relay_naive_path">Chemin HTTP (facultatif)</string>
     <string name="config_relay_naive_path_helper">Laisser vide pour le point de terminaison CONNECT par défaut, ou utiliser un chemin absolu comme /proxy.</string>
+    <string name="config_relay_naive_path_pin_notice">Ce chemin n\'est pas envoyé sans épinglage de certificat. Définissez une empreinte ci-dessous pour utiliser le chemin.</string>
     <string name="config_relay_naive_path_error_absolute">Le chemin doit commencer par /.</string>
     <string name="config_relay_naive_extra_headers">En-têtes supplémentaires (facultatif)</string>
     <string name="config_relay_naive_extra_headers_helper">Un en-tête par ligne au format Name: value. Envoyés avec chaque requête CONNECT. Les valeurs sont stockées chiffrées.</string>

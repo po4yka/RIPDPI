@@ -661,6 +661,7 @@
     <string name="config_relay_naive_password_helper">Armazenada no armazenamento seguro de credenciais do retransmissor.</string>
     <string name="config_relay_naive_path">Caminho HTTP (opcional)</string>
     <string name="config_relay_naive_path_helper">Deixe em branco para usar o endpoint CONNECT padrão, ou informe um caminho absoluto como /proxy.</string>
+    <string name="config_relay_naive_path_pin_notice">Este caminho não é enviado sem uma fixação de certificado. Defina uma fixação abaixo para usar o caminho.</string>
     <string name="config_relay_naive_path_error_absolute">O caminho deve começar com /.</string>
     <string name="config_relay_naive_extra_headers">Cabeçalhos extras (opcional)</string>
     <string name="config_relay_naive_extra_headers_helper">Um cabeçalho por linha no formato Name: value. Enviados em cada solicitação CONNECT. Os valores são armazenados criptografados.</string>

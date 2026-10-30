@@ -2166,6 +2166,7 @@ Origen: %2$s</string>
     <string name="config_relay_naive_password_helper">Se guarda en el almacén seguro de credenciales de relay.</string>
     <string name="config_relay_naive_path">Ruta HTTP (opcional)</string>
     <string name="config_relay_naive_path_helper">Déjalo vacío para el endpoint CONNECT predeterminado, o usa una ruta absoluta como /proxy.</string>
+    <string name="config_relay_naive_path_pin_notice">Esta ruta no se envía sin una fijación de certificado. Define una fijación abajo para usar la ruta.</string>
     <string name="config_relay_naive_path_error_absolute">La ruta debe empezar por /.</string>
     <string name="config_relay_naive_extra_headers">Cabeceras adicionales (opcional)</string>
     <string name="config_relay_naive_extra_headers_helper">Una cabecera por línea con el formato Name: value. Se envían con cada solicitud CONNECT. Los valores se guardan cifrados.</string>

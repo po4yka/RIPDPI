@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.ui.screens.config
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertCountEquals
@@ -127,6 +130,21 @@ class RelayFieldsTest {
         }
 
         composeRule.onNodeWithText("Path must start with /.").assertExists()
+    }
+
+    @Test
+    fun naiveProxyPathNoticeShowsOnlyWithoutPin() {
+        val notice = "This path is not sent without a certificate pin. Set a pin below to use the path."
+        var draft by mutableStateOf(ConfigDraft(relayKind = RelayKindNaiveProxy, relayNaivePath = "/proxy"))
+        composeRule.setContent {
+            RipDpiTheme { RelayKindFields(draft = draft, uiState = ConfigUiState()) }
+        }
+
+        composeRule.onNodeWithText(notice).assertExists()
+        draft = draft.copy(relayNaiveServerPinSha256 = "ab".repeat(32))
+        composeRule.onNodeWithText(notice).assertDoesNotExist()
+        draft = draft.copy(relayNaiveServerPinSha256 = "", relayNaivePath = "")
+        composeRule.onNodeWithText(notice).assertDoesNotExist()
     }
 
     @Test

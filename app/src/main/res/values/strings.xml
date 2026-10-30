@@ -678,6 +678,7 @@
     <string name="config_relay_naive_password_helper">Stored in the secure relay credential store.</string>
     <string name="config_relay_naive_path">HTTP path (optional)</string>
     <string name="config_relay_naive_path_helper">Leave blank for the default CONNECT endpoint, or use an absolute path such as /proxy.</string>
+    <string name="config_relay_naive_path_pin_notice">This path is not sent without a certificate pin. Set a pin below to use the path.</string>
     <string name="config_relay_naive_path_error_absolute">Path must start with /.</string>
     <string name="config_relay_naive_extra_headers">Extra headers (optional)</string>
     <string name="config_relay_naive_extra_headers_helper">One header per line as Name: value. Sent with every CONNECT request. Values are stored encrypted.</string>

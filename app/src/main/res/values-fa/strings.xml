@@ -659,6 +659,7 @@
     <string name="config_relay_naive_password_helper">در مخزن امن اعتبارنامه‌های رله ذخیره می‌شود.</string>
     <string name="config_relay_naive_path">مسیر HTTP (اختیاری)</string>
     <string name="config_relay_naive_path_helper">برای نقطه پایانی پیش‌فرض CONNECT خالی بگذارید، یا یک مسیر مطلق مانند /proxy وارد کنید.</string>
+    <string name="config_relay_naive_path_pin_notice">بدون پین گواهی، این مسیر ارسال نمی‌شود. برای استفاده از مسیر، پایین‌تر یک پین تنظیم کنید.</string>
     <string name="config_relay_naive_path_error_absolute">مسیر باید با / شروع شود.</string>
     <string name="config_relay_naive_extra_headers">سرصفحه‌های اضافی (اختیاری)</string>
     <string name="config_relay_naive_extra_headers_helper">هر سرصفحه در یک خط با قالب Name: value. با هر درخواست CONNECT ارسال می‌شود. مقادیر به‌صورت رمزگذاری‌شده ذخیره می‌شوند.</string>

@@ -2166,6 +2166,7 @@ Quelle: %2$s</string>
     <string name="config_relay_naive_password_helper">Wird im sicheren Relay-Anmeldedatenspeicher gespeichert.</string>
     <string name="config_relay_naive_path">HTTP-Pfad (optional)</string>
     <string name="config_relay_naive_path_helper">Leer lassen für den Standard-CONNECT-Endpunkt oder einen absoluten Pfad wie /proxy verwenden.</string>
+    <string name="config_relay_naive_path_pin_notice">Dieser Pfad wird ohne Zertifikats-Pin nicht gesendet. Legen Sie unten einen Pin fest, um den Pfad zu verwenden.</string>
     <string name="config_relay_naive_path_error_absolute">Der Pfad muss mit / beginnen.</string>
     <string name="config_relay_naive_extra_headers">Zusätzliche Header (optional)</string>
     <string name="config_relay_naive_extra_headers_helper">Ein Header pro Zeile im Format Name: value. Wird mit jeder CONNECT-Anfrage gesendet. Die Werte werden verschlüsselt gespeichert.</string>

@@ -656,6 +656,7 @@
     <string name="config_relay_naive_password_helper">مُخزَّنة في مخزن بيانات اعتماد الترحيل الآمن.</string>
     <string name="config_relay_naive_path">مسار HTTP (اختياري)</string>
     <string name="config_relay_naive_path_helper">اتركه فارغاً لنقطة نهاية CONNECT الافتراضية، أو استخدم مساراً مطلقاً مثل /proxy.</string>
+    <string name="config_relay_naive_path_pin_notice">لا يُرسل هذا المسار بدون تثبيت الشهادة. حدّد تثبيتًا أدناه لاستخدام المسار.</string>
     <string name="config_relay_naive_path_error_absolute">يجب أن يبدأ المسار بـ /.</string>
     <string name="config_relay_naive_extra_headers">ترويسات إضافية (اختياري)</string>
     <string name="config_relay_naive_extra_headers_helper">ترويسة واحدة في كل سطر بالصيغة Name: value. تُرسل مع كل طلب CONNECT. تُخزَّن القيم مشفرة.</string>
