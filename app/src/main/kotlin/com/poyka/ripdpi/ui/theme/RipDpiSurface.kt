@@ -17,7 +17,6 @@ enum class RipDpiSurfaceRole {
     BottomSheet,
     Banner,
     Snackbar,
-    SwitchThumb,
     BottomSheetIconBadge,
     DialogIconBadge,
     DialogDestructiveIconBadge,
@@ -59,7 +58,6 @@ data class RipDpiSurfaceTokens(
             RipDpiSurfaceRole.BottomSheet,
             RipDpiSurfaceRole.Banner,
             RipDpiSurfaceRole.Snackbar,
-            RipDpiSurfaceRole.SwitchThumb,
             RipDpiSurfaceRole.BottomSheetIconBadge,
             RipDpiSurfaceRole.DialogIconBadge,
             RipDpiSurfaceRole.DialogDestructiveIconBadge,
@@ -170,15 +168,6 @@ data class RipDpiSurfaceTokens(
                     border = Color.Transparent,
                     content = colorScheme.inverseOnSurface,
                     shadowElevation = 18.dp,
-                )
-            }
-
-            RipDpiSurfaceRole.SwitchThumb -> {
-                RipDpiSurfaceStyle(
-                    container = colors.foreground,
-                    border = Color.Transparent,
-                    content = colors.background,
-                    shadowElevation = 3.dp,
                 )
             }
 

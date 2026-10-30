@@ -67,14 +67,6 @@ data class RipDpiChipStateStyle(
 )
 
 @Immutable
-data class RipDpiSwitchStateStyle(
-    val track: Color,
-    val thumb: Color,
-    val alpha: Float,
-    val trackBorder: Color = Color.Transparent,
-)
-
-@Immutable
 data class RipDpiSettingsRowStateStyle(
     val container: Color,
     val border: Color,

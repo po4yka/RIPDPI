@@ -59,7 +59,6 @@ data class RipDpiFeedbackSurfaceRoles(
 @Immutable
 data class RipDpiInputSurfaceRoles(
     val dropdownMenu: RipDpiSurfaceRole = RipDpiSurfaceRole.DropdownMenu,
-    val switchThumb: RipDpiSurfaceRole = RipDpiSurfaceRole.SwitchThumb,
 )
 
 @Immutable

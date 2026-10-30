@@ -92,10 +92,6 @@ object RipDpiComponentStyles {
             rdsContentPadding(start = padding, end = padding)
         }
 
-    /** Each switch fill has its own alpha; neither style fades children or shadows. */
-    val switchTrack = switchStyle(thumb = false)
-    val switchThumb = switchStyle(thumb = true)
-
     val screenBackground =
         CommonStyle {
             rdsBackground(LocalRipDpiExtendedColors.currentValue.background)
@@ -126,19 +122,3 @@ private fun surfaceStyle(
         RipDpiStyleProperties.borderWidth.provide(if (resolved.border == Color.Transparent) 0.dp else RipDpiStroke.Thin)
     }
 }
-
-private fun switchStyle(thumb: Boolean) =
-    CommonStyle {
-        val motion = LocalRipDpiMotion.currentValue
-        val resolved =
-            LocalRipDpiStateTokens.currentValue.switch.resolve(
-                checked = state.isChecked,
-                enabled = state.isEnabled,
-                isPressed = state.isPressed,
-            )
-        animate(motion.stateTween<Float>()) {
-            rdsBackground(if (thumb) resolved.thumb else resolved.track)
-            if (!thumb) rdsBorder(resolved.trackBorder, RipDpiStroke.Thick)
-        }
-        animate(motion.quickTween<Float>()) { rdsBackgroundAlpha(resolved.alpha) }
-    }

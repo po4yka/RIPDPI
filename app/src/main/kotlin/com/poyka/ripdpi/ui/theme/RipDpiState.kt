@@ -8,7 +8,6 @@ import androidx.compose.runtime.staticCompositionLocalOf
 data class RipDpiStateTokens(
     val textField: RipDpiTextFieldStateTokens,
     val chip: RipDpiChipStateTokens,
-    val switch: RipDpiSwitchStateTokens,
     val settingsRow: RipDpiSettingsRowStateTokens,
     val banner: RipDpiBannerStateTokens,
     val actuator: RipDpiActuatorStateTokens,
@@ -24,7 +23,6 @@ fun ripDpiStateTokens(
     RipDpiStateTokens(
         textField = RipDpiTextFieldStateTokens(colors),
         chip = RipDpiChipStateTokens(colors, colorScheme, components.shapes, motion),
-        switch = RipDpiSwitchStateTokens(colors, colorScheme),
         settingsRow = RipDpiSettingsRowStateTokens(colors),
         banner = RipDpiBannerStateTokens(colors),
         actuator = RipDpiActuatorStateTokens(colors, colorScheme),
