@@ -24,12 +24,15 @@ class HelperExecutableJniLibsTaskTest {
                 setOf(
                     "libripdpi-naiveproxy.so",
                     "libripdpi-cloudflare-origin.so",
+                    "libripdpi-naive-chromium.so",
                     "liblyrebird.upstream.so",
                 ),
                 abiDir.list().orEmpty().toSet(),
             )
             assertEquals("naive-elf", abiDir.resolve("libripdpi-naiveproxy.so").readText())
             assertEquals("lyrebird-elf", abiDir.resolve("liblyrebird.upstream.so").readText())
+            assertEquals("chromium-elf", abiDir.resolve("libripdpi-naive-chromium.so").readText())
+            assertTrue(abiDir.resolve("libripdpi-naive-chromium.so").canExecute())
             assertTrue(abiDir.resolve("liblyrebird.upstream.so").canExecute())
             assertEquals(
                 ptRoot.resolve(PluggableTransportManifestPath).readText(),
@@ -76,6 +79,33 @@ class HelperExecutableJniLibsTaskTest {
     }
 
     @Test
+    fun `missing upstream naive client fails and names the fetch command`() {
+        withProject { projectDir, task ->
+            configure(task, projectDir, writePtAssets(projectDir, upstreamBytes = null))
+            projectDir.resolve("naive-upstream/arm64-v8a/libnaive.so").delete()
+
+            val message = assertFailsWith<GradleException> { task.stage() }.message.orEmpty()
+            assertTrue(message.contains("arm64-v8a"), message)
+            assertTrue(message.contains(sha256("chromium-elf")), message)
+            assertTrue(message.contains(NaiveUpstreamFetchCommand), message)
+        }
+    }
+
+    @Test
+    fun `tampered upstream naive client fails the digest check`() {
+        withProject { projectDir, task ->
+            configure(task, projectDir, writePtAssets(projectDir, upstreamBytes = null))
+            projectDir.resolve("naive-upstream/arm64-v8a/libnaive.so").writeText("tampered")
+
+            val message = assertFailsWith<GradleException> { task.stage() }.message.orEmpty()
+            assertTrue(message.contains("arm64-v8a"), message)
+            assertTrue(message.contains(sha256("tampered")), message)
+            assertTrue(message.contains(sha256("chromium-elf")), message)
+            assertTrue(message.contains(NaiveUpstreamFetchCommand), message)
+        }
+    }
+
+    @Test
     fun `library name rejects path segments`() {
         assertEquals("libripdpi-naiveproxy.so", helperExecutableJniLibName("ripdpi-naiveproxy"))
         assertFailsWith<IllegalArgumentException> { helperExecutableJniLibName("../escape") }
@@ -100,6 +130,12 @@ class HelperExecutableJniLibsTaskTest {
         projectDir.resolve("origin/arm64-v8a/ripdpi-cloudflare-origin").writeWithParents("origin-elf")
         task.directHelperRoots.from(projectDir.resolve("naive"), projectDir.resolve("origin"))
         task.directHelperNames.set(listOf("ripdpi-naiveproxy", "ripdpi-cloudflare-origin"))
+        projectDir.resolve("naive-upstream/arm64-v8a/libnaive.so").writeWithParents("chromium-elf")
+        projectDir.resolve("naive-sources.json").writeText(
+            """{"schemaVersion":1,"abis":{"arm64-v8a":{"libnaiveSha256":"${sha256("chromium-elf")}"}}}""",
+        )
+        task.naiveUpstreamRoot.from(projectDir.resolve("naive-upstream"))
+        task.naiveUpstreamManifest.set(projectDir.resolve("naive-sources.json"))
         task.pluggableTransportAssetsDir.set(ptRoot)
         task.abis.set(listOf("arm64-v8a"))
         task.jniLibsDir.set(projectDir.resolve("jniLibs"))

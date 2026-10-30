@@ -9,10 +9,12 @@ import org.gradle.api.GradleException
 import org.gradle.api.file.ConfigurableFileCollection
 import org.gradle.api.file.DirectoryProperty
 import org.gradle.api.file.FileSystemOperations
+import org.gradle.api.file.RegularFileProperty
 import org.gradle.api.provider.ListProperty
 import org.gradle.api.tasks.CacheableTask
 import org.gradle.api.tasks.Input
 import org.gradle.api.tasks.InputDirectory
+import org.gradle.api.tasks.InputFile
 import org.gradle.api.tasks.InputFiles
 import org.gradle.api.tasks.OutputDirectory
 import org.gradle.api.tasks.PathSensitive
@@ -24,6 +26,10 @@ import java.util.HexFormat
 import javax.inject.Inject
 
 internal const val PluggableTransportManifestPath = "metadata/pluggable-transports.json"
+
+/** Helper executable name of the pinned upstream NaiveProxy client; the source file is `libnaive.so`. */
+internal const val NaiveChromiumHelperName = "ripdpi-naive-chromium"
+internal const val NaiveUpstreamFetchCommand = "python3 scripts/ci/fetch-naive-upstream.py"
 
 /**
  * Packaged jniLibs file name of an app-launched helper executable. The runtime resolves the same
@@ -46,7 +52,10 @@ internal fun helperExecutableJniLibName(executableName: String): String {
  *
  * Direct helpers come from `<root>/<abi>/<name>`. Pluggable transports come from the PT asset
  * task output: the task stages each upstream binary named in `pluggable-transports.json` after it
- * verifies the recorded SHA-256, and republishes the manifest as the only PT asset.
+ * verifies the recorded SHA-256, and republishes the manifest as the only PT asset. The upstream
+ * NaiveProxy client comes from `<naiveUpstreamRoot>/<abi>/libnaive.so`, which
+ * `scripts/ci/fetch-naive-upstream.py` writes; the task re-verifies its SHA-256 from
+ * `native/naiveproxy-upstream/sources.json` and never downloads.
  */
 @CacheableTask
 abstract class HelperExecutableJniLibsTask
@@ -64,6 +73,14 @@ abstract class HelperExecutableJniLibsTask
         @get:InputDirectory
         @get:PathSensitive(PathSensitivity.RELATIVE)
         abstract val pluggableTransportAssetsDir: DirectoryProperty
+
+        @get:InputFiles
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        abstract val naiveUpstreamRoot: ConfigurableFileCollection
+
+        @get:InputFile
+        @get:PathSensitive(PathSensitivity.RELATIVE)
+        abstract val naiveUpstreamManifest: RegularFileProperty
 
         @get:Input
         abstract val abis: ListProperty<String>
@@ -84,11 +101,13 @@ abstract class HelperExecutableJniLibsTask
                 throw GradleException("Pluggable transport manifest is missing: ${manifestFile.absolutePath}")
             }
             val records = parseArtifactRecords(manifestFile)
+            val naiveDigests = parseNaiveUpstreamDigests(naiveUpstreamManifest.get().asFile)
 
             fileSystemOperations.delete { delete(jniLibsRoot, metadataRoot) }
             for (abi in abis.get()) {
                 val abiDir = jniLibsRoot.resolve(abi).apply { mkdirs() }
                 stageDirectHelpers(abi, abiDir)
+                stageNaiveUpstream(abi, abiDir, naiveDigests)
                 stagePluggableTransports(abi, abiDir, ptRoot, records)
             }
             manifestFile.copyTo(metadataRoot.resolve(PluggableTransportManifestPath), overwrite = true)
@@ -109,6 +128,45 @@ abstract class HelperExecutableJniLibsTask
                     )
                 }
                 stageExecutable(candidates.single(), abiDir.resolve(helperExecutableJniLibName(name)))
+            }
+        }
+
+        private fun stageNaiveUpstream(
+            abi: String,
+            abiDir: File,
+            digests: Map<String, String>,
+        ) {
+            val expected =
+                digests[abi]
+                    ?: throw GradleException("sources.json has no libnaive.so digest for $abi")
+            val candidates =
+                naiveUpstreamRoot.files
+                    .map { root -> root.resolve(abi).resolve("libnaive.so") }
+                    .filter(File::isFile)
+            val hint = "Run `$NaiveUpstreamFetchCommand` to fetch and verify it."
+            if (candidates.size != 1) {
+                throw GradleException(
+                    "Upstream NaiveProxy libnaive.so for $abi is missing (expected sha256 $expected). $hint",
+                )
+            }
+            val source = candidates.single()
+            val actual = sha256(source)
+            if (actual != expected) {
+                throw GradleException(
+                    "Upstream NaiveProxy libnaive.so for $abi has sha256 $actual, expected $expected. $hint",
+                )
+            }
+            stageExecutable(source, abiDir.resolve(helperExecutableJniLibName(NaiveChromiumHelperName)))
+        }
+
+        private fun parseNaiveUpstreamDigests(manifestFile: File): Map<String, String> {
+            val root = Json.parseToJsonElement(manifestFile.readText(Charsets.UTF_8)).jsonObject
+            val abiEntries =
+                root["abis"]?.jsonObject
+                    ?: throw GradleException("Upstream NaiveProxy sources.json has no abis object")
+            return abiEntries.mapValues { (abi, entry) ->
+                entry.jsonObject.stringOrNull("libnaiveSha256")
+                    ?: throw GradleException("Upstream NaiveProxy sources.json has no libnaiveSha256 for $abi")
             }
         }
 

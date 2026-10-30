@@ -1930,6 +1930,9 @@ val stageHelperExecutableJniLibs =
             (rustNaiveProxyArtifactSpecs + rustCloudflareOriginArtifactSpecs).map { it.substringAfterLast('|') },
         )
         pluggableTransportAssetsDir.set(buildPluggableTransportAssets.flatMap { it.outputDir })
+        // Fetched by scripts/ci/fetch-naive-upstream.py; Gradle verifies it and never downloads.
+        naiveUpstreamRoot.from(rootProject.layout.projectDirectory.dir("native/naiveproxy-upstream/artifacts"))
+        naiveUpstreamManifest.set(rootProject.layout.projectDirectory.file("native/naiveproxy-upstream/sources.json"))
         abis.set(rustNativeAbis)
         jniLibsDir.set(generatedHelperExecutableJniLibsDir)
         pluggableTransportMetadataDir.set(generatedPtMetadataAssetsDir)
