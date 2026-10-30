@@ -24,6 +24,7 @@
     <string name="onboarding_persona_simple_body">Обычные элементы остаются видимыми, а экспертные детали свернуты.</string>
     <string name="onboarding_persona_advanced_body">Показывать все диагностики, профили и низкоуровневые настройки.</string>
     <string name="settings_logs_body">Открыть живой поток журналов приложения, сервиса и диагностики.</string>
+    <string name="settings_detail_placeholder">Выберите настройку, чтобы открыть её здесь.</string>
     <string name="settings_subscription_failover_body">Посмотрите, какой сервер подписки активен и какие автоматические переключения произошли недавно.</string>
     <string name="diagnostics_open_logs_body">Открыть живой поток журналов с фильтрами для сервиса, прокси, туннеля и диагностики.</string>
     <string name="diagnostics_title">Диагностика</string>

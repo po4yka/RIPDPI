@@ -1806,6 +1806,7 @@ Origen: %2$s</string>
     <string name="onboarding_persona_simple_body">Los controles cotidianos quedan visibles y los detalles expertos colapsados.</string>
     <string name="onboarding_persona_advanced_body">Muestra todos los diagnósticos, perfiles y ajustes de bajo nivel.</string>
     <string name="settings_logs_body">Abre el flujo en vivo de registros de la app, el servicio y los diagnósticos.</string>
+    <string name="settings_detail_placeholder">Selecciona un ajuste para abrirlo aquí.</string>
     <string name="settings_subscription_failover_body">Consulta el servidor de suscripción activo y las conmutaciones automáticas recientes.</string>
     <string name="diagnostics_open_logs_body">Abre el flujo en vivo de registros con filtros para servicio, proxy, túnel y diagnósticos.</string>
     <string name="logs_buffer_title">Búfer</string>

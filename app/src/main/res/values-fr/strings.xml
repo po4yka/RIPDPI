@@ -1806,6 +1806,7 @@ Source : %2$s</string>
     <string name="onboarding_persona_simple_body">Les contrôles courants restent visibles et les détails experts restent repliés.</string>
     <string name="onboarding_persona_advanced_body">Affiche tous les diagnostics, profils et réglages de bas niveau.</string>
     <string name="settings_logs_body">Ouvre le flux en direct des journaux de l’application, du service et des diagnostics.</string>
+    <string name="settings_detail_placeholder">Sélectionnez un réglage pour l\'ouvrir ici.</string>
     <string name="settings_subscription_failover_body">Consultez le serveur d\'abonnement actif et les basculements automatiques récents.</string>
     <string name="diagnostics_open_logs_body">Ouvre le flux en direct des journaux avec des filtres pour le service, le proxy, le tunnel et les diagnostics.</string>
     <string name="logs_buffer_title">Tampon</string>

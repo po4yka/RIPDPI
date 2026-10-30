@@ -1806,6 +1806,7 @@ Quelle: %2$s</string>
     <string name="onboarding_persona_simple_body">Alltagssteuerung bleibt sichtbar, Expertendetails bleiben eingeklappt.</string>
     <string name="onboarding_persona_advanced_body">Zeigt alle Diagnosen, Profile und Low-Level-Einstellungen an.</string>
     <string name="settings_logs_body">Öffnet den Live-Protokollstrom für App, Dienst und Diagnose.</string>
+    <string name="settings_detail_placeholder">Wähle eine Einstellung, um sie hier zu öffnen.</string>
     <string name="settings_subscription_failover_body">Zeigt den aktiven Abonnementserver und die letzten automatischen Serverwechsel an.</string>
     <string name="diagnostics_open_logs_body">Öffnet den Live-Protokollstrom mit Filtern für Dienst, Proxy, Tunnel und Diagnose.</string>
     <string name="logs_buffer_title">Puffer</string>

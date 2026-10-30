@@ -42,6 +42,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.dns.dnsSettingsRowSubtitle
 import com.poyka.ripdpi.ui.screens.dns.localizedSummary
 import com.poyka.ripdpi.ui.state.SettingsUiState
@@ -65,6 +66,7 @@ internal fun SettingsConnectivitySection(
                 subtitle = dnsSettingsRowSubtitle(vpn = uiState.isVpn),
                 value = uiState.dns.localizedSummary(),
                 onClick = actions.onOpenDnsSettings,
+                variant = settingsDetailVariant(Route.DnsSettings),
                 showDivider = true,
                 testTag = RipDpiTestTags.SettingsDnsSettings,
             )
@@ -73,6 +75,7 @@ internal fun SettingsConnectivitySection(
                 subtitle = stringResource(R.string.settings_subscription_status_body),
                 showChevron = true,
                 onClick = actions.onOpenSubscriptionStatus,
+                variant = settingsDetailVariant(Route.SubscriptionStatus),
                 showDivider = true,
                 testTag = RipDpiTestTags.SettingsSubscriptionStatus,
             )
@@ -81,6 +84,7 @@ internal fun SettingsConnectivitySection(
                 subtitle = stringResource(R.string.settings_profiles_body),
                 showChevron = true,
                 onClick = actions.onOpenProfileUtility,
+                variant = settingsDetailVariant(Route.ProfileUtility),
                 showDivider = true,
                 testTag = RipDpiTestTags.SettingsProfileUtility,
             )
@@ -89,6 +93,7 @@ internal fun SettingsConnectivitySection(
                 subtitle = stringResource(R.string.settings_subscription_failover_body),
                 showChevron = true,
                 onClick = actions.onOpenSubscriptionFailover,
+                variant = settingsDetailVariant(Route.SubscriptionFailover),
                 showDivider = true,
                 testTag = RipDpiTestTags.SettingsSubscriptionFailover,
             )
@@ -127,6 +132,7 @@ private fun SettingsAdvancedConnectivitySection(
             subtitle = stringResource(R.string.settings_advanced_body),
             showChevron = true,
             onClick = actions.onOpenAdvancedSettings,
+            variant = settingsDetailVariant(Route.AdvancedSettings),
             showDivider = true,
             testTag = RipDpiTestTags.SettingsAdvancedSettings,
         )
@@ -135,6 +141,7 @@ private fun SettingsAdvancedConnectivitySection(
             subtitle = stringResource(R.string.settings_domain_bypass_body),
             showChevron = true,
             onClick = actions.onOpenDomainBypass,
+            variant = settingsDetailVariant(Route.DomainBypassList),
             showDivider = true,
             testTag = RipDpiTestTags.SettingsDomainBypass,
         )
@@ -143,6 +150,7 @@ private fun SettingsAdvancedConnectivitySection(
             subtitle = stringResource(R.string.settings_routing_rules_body),
             showChevron = true,
             onClick = actions.onOpenRoutingRules,
+            variant = settingsDetailVariant(Route.Routes),
             showDivider = true,
             testTag = RipDpiTestTags.SettingsRoutingRules,
         )
@@ -151,6 +159,7 @@ private fun SettingsAdvancedConnectivitySection(
             subtitle = stringResource(R.string.settings_split_tunnel_body),
             showChevron = true,
             onClick = actions.onOpenSplitTunnel,
+            variant = settingsDetailVariant(Route.SplitTunnel),
             showDivider = true,
             testTag = RipDpiTestTags.SettingsSplitTunnel,
         )
@@ -159,6 +168,7 @@ private fun SettingsAdvancedConnectivitySection(
             subtitle = stringResource(R.string.settings_root_mode_strategies_body),
             showChevron = true,
             onClick = actions.onOpenRootModeStrategies,
+            variant = settingsDetailVariant(Route.RootModeStrategies),
             testTag = RipDpiTestTags.SettingsRootModeStrategies,
         )
     }
@@ -199,6 +209,7 @@ internal fun SettingsSecuritySection(
                 title = stringResource(R.string.title_data_transparency),
                 subtitle = stringResource(R.string.settings_data_transparency_body),
                 onClick = actions.onOpenDataTransparency,
+                variant = settingsDetailVariant(Route.DataTransparency),
                 showChevron = true,
                 testTag = RipDpiTestTags.SettingsDataTransparency,
             )
@@ -378,6 +389,7 @@ internal fun SettingsAppearanceSection(
             value = stringResource(LauncherIconManager.resolveOption(uiState.appIconVariant).labelRes),
             showChevron = true,
             onClick = actions.onOpenCustomization,
+            variant = settingsDetailVariant(Route.AppCustomization),
             testTag = RipDpiTestTags.SettingsCustomization,
         )
     }
@@ -463,6 +475,7 @@ internal fun SettingsSupportSection(
             title = stringResource(R.string.title_detection_check),
             subtitle = stringResource(R.string.detection_check_subtitle),
             onClick = actions.onOpenDetectionCheck,
+            variant = settingsDetailVariant(Route.DetectionCheck),
             showChevron = true,
             showDivider = true,
         )
@@ -478,6 +491,7 @@ internal fun SettingsSupportSection(
             subtitle = stringResource(R.string.settings_about_body),
             value = appVersionName,
             onClick = actions.onOpenAbout,
+            variant = settingsDetailVariant(Route.About),
             showDivider = true,
             testTag = RipDpiTestTags.SettingsAbout,
         )
@@ -494,6 +508,7 @@ private fun SettingsMaintenanceRows(
         title = stringResource(R.string.title_backup_restore),
         subtitle = stringResource(R.string.settings_backup_body),
         onClick = actions.onOpenBackupRestore,
+        variant = settingsDetailVariant(Route.BackupRestore),
         showChevron = true,
         showDivider = true,
         testTag = RipDpiTestTags.SettingsBackupRestore,

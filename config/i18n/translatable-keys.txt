@@ -4494,6 +4494,7 @@ app:settings_connectivity_dns_body_proxy
 app:settings_connectivity_section
 app:settings_customization_body
 app:settings_data_transparency_body
+app:settings_detail_placeholder
 app:settings_diagnostics_export_history_body
 app:settings_diagnostics_export_history_title
 app:settings_diagnostics_monitor_body

@@ -23,6 +23,7 @@
     <string name="onboarding_persona_simple_body">日常控制保持可见，专家细节保持折叠。</string>
     <string name="onboarding_persona_advanced_body">显示所有诊断、配置文件和底层设置。</string>
     <string name="settings_logs_body">打开应用、服务和诊断的实时日志流。</string>
+    <string name="settings_detail_placeholder">选择一项设置，在此处打开。</string>
     <string name="settings_subscription_failover_body">查看当前使用的订阅服务器和最近的自动切换。</string>
     <string name="diagnostics_open_logs_body">打开带有服务、代理、隧道和诊断过滤器的实时日志流。</string>
     <string name="diagnostics_title">诊断</string>

@@ -61,12 +61,13 @@ fun RipDpiTopAppBar(
     actions: (@Composable RowScope.() -> Unit)? = null,
     scrollBehavior: TopAppBarScrollBehavior? = null,
 ) {
-    val hasNavigation = navigationIcon != null && onNavigationClick != null
+    // Beside its list the detail pane needs no back arrow: the list is the way back.
+    val hasNavigation = navigationIcon != null && onNavigationClick != null && !LocalShownBesideList.current
     val stackTitle =
         LocalDensity.current.fontScale >= TopAppBarStackFontScale && (hasNavigation || actions != null)
     val titleContent: @Composable () -> Unit = { Text(text = title, modifier = Modifier.semantics { heading() }) }
     val navigationContent: @Composable () -> Unit = {
-        if (navigationIcon != null && onNavigationClick != null) {
+        if (hasNavigation && navigationIcon != null && onNavigationClick != null) {
             RipDpiIconButton(
                 icon = navigationIcon,
                 contentDescription = navigationContentDescription ?: stringResource(R.string.navigation_back),

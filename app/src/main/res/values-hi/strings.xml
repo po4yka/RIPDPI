@@ -24,6 +24,7 @@
     <string name="onboarding_persona_simple_body">रोज़मर्रा के नियंत्रण दिखते रहते हैं जबकि विशेषज्ञ विवरण संकुचित रहते हैं।</string>
     <string name="onboarding_persona_advanced_body">सभी जाँच, प्रोफ़ाइल और निम्न-स्तरीय सेटिंग्स दिखाएँ।</string>
     <string name="settings_logs_body">लाइव ऐप, सेवा और जाँच लॉग स्ट्रीम खोलें।</string>
+    <string name="settings_detail_placeholder">यहाँ खोलने के लिए कोई सेटिंग चुनें।</string>
     <string name="settings_subscription_failover_body">देखें कि कौन-सा सदस्यता सर्वर सक्रिय है और हाल के स्वचालित स्विचओवर।</string>
     <string name="diagnostics_open_logs_body">सेवा, प्रॉक्सी, टनल और जाँच प्रविष्टियों के फ़िल्टर के साथ लाइव लॉग स्ट्रीम खोलें।</string>
     <string name="diagnostics_title">जाँच</string>

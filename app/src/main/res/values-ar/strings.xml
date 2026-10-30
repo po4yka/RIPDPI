@@ -25,6 +25,7 @@
     <string name="onboarding_persona_simple_body">تبقى عناصر التحكم اليومية ظاهرة وتبقى التفاصيل الخبيرة مطوية.</string>
     <string name="onboarding_persona_advanced_body">عرض كل أدوات التشخيص والملفات الشخصية والإعدادات منخفضة المستوى.</string>
     <string name="settings_logs_body">افتح بث السجلات الحي للتطبيق والخدمة والتشخيص.</string>
+    <string name="settings_detail_placeholder">اختر إعدادًا لفتحه هنا.</string>
     <string name="settings_subscription_failover_body">اعرف خادم الاشتراك النشط وعمليات التبديل التلقائي الأخيرة.</string>
     <string name="diagnostics_open_logs_body">افتح بث السجلات الحي مع فلاتر للخدمة والوكيل والنفق والتشخيص.</string>
     <string name="diagnostics_title">التشخيصات</string>

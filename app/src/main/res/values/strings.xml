@@ -25,6 +25,7 @@
     <string name="onboarding_persona_simple_body">Everyday controls stay visible while expert details stay collapsed.</string>
     <string name="onboarding_persona_advanced_body">Show all diagnostics, profiles, and low-level settings.</string>
     <string name="settings_logs_body">Open the live app, service, and diagnostics log stream.</string>
+    <string name="settings_detail_placeholder">Select a setting to open it here.</string>
     <string name="settings_subscription_failover_body">See which subscription server is active and recent automatic switchovers.</string>
     <string name="diagnostics_open_logs_body">Open the live log stream with filters for service, proxy, tunnel, and diagnostics entries.</string>
     <string name="diagnostics_title">Diagnostics</string>

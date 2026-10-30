@@ -1,11 +1,13 @@
 package com.poyka.ripdpi.ui.navigation
 
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -35,6 +37,8 @@ import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
+import com.poyka.ripdpi.ui.components.navigation.LocalShownBesideList
+import com.poyka.ripdpi.ui.components.navigation.RipDpiListDetailLayout
 import com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckRoute
 import com.poyka.ripdpi.ui.screens.browser.OwnedStackBrowserRoute
 import com.poyka.ripdpi.ui.screens.config.ConfigModeSection
@@ -66,7 +70,7 @@ import com.poyka.ripdpi.ui.screens.settings.DataTransparencyRoute
 import com.poyka.ripdpi.ui.screens.settings.DomainBypassListRoute
 import com.poyka.ripdpi.ui.screens.settings.RememberedNetworksRoute
 import com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesRoute
-import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
+import com.poyka.ripdpi.ui.screens.settings.SettingsDetailPlaceholder
 import com.poyka.ripdpi.ui.screens.settings.SplitTunnelRoute
 import com.poyka.ripdpi.ui.screens.settings.StrategyConfigRoute
 import com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverRoute
@@ -193,9 +197,53 @@ fun RipDpiNavHost(
                 }
             },
         ) { innerPadding ->
+            RipDpiNavPanes(
+                navController = navController,
+                startDestination = startDestination,
+                motion = motion,
+                actions = actions,
+                mainViewModel = mainViewModel,
+                pauseViewModel = pauseViewModel,
+                permissionSummary = permissionSummary,
+                diagnosticsInitialSection = diagnosticsInitialSection,
+                modifier = Modifier.padding(innerPadding).consumeWindowInsets(innerPadding),
+            )
+        }
+    }
+}
+
+/** The NavHost, with the Settings list beside it while a Settings list-detail pair is current on a wide window. */
+@Composable
+private fun RipDpiNavPanes(
+    navController: NavHostController,
+    startDestination: Route,
+    motion: RipDpiMotion,
+    actions: RipDpiNavHostActions,
+    mainViewModel: MainViewModel,
+    pauseViewModel: HomePauseViewModel,
+    permissionSummary: PermissionSummaryUiState,
+    diagnosticsInitialSection: MutableState<DiagnosticsSection?>,
+    modifier: Modifier = Modifier,
+) {
+    val currentBackStackEntry by navController.currentBackStackEntryAsState()
+    val settingsListDetail = navController.settingsListDetailFor(currentBackStackEntry)
+    // Always laid out through the list-detail layout so the NavHost keeps its place in composition.
+    RipDpiListDetailLayout(
+        showList = settingsListDetail != null,
+        modifier = modifier,
+        listPane = {
+            SettingsListPane(
+                navController = navController,
+                selected = settingsListDetail?.selected,
+                actions = actions,
+                mainViewModel = mainViewModel,
+                permissionSummary = permissionSummary,
+            )
+        },
+        detailPane = {
             RipDpiNavGraph(
                 startDestination = startDestination,
-                innerPadding = innerPadding,
+                innerPadding = PaddingValues(),
                 navController = navController,
                 motion = motion,
                 actions = actions,
@@ -205,8 +253,8 @@ fun RipDpiNavHost(
                 diagnosticsInitialSection = diagnosticsInitialSection.value,
                 onDiagnosticsInitialSectionChanged = { diagnosticsInitialSection.value = it },
             )
-        }
-    }
+        },
+    )
 }
 
 /** No tab is selected, so no bottom bar or rail shows, while onboarding is on the back stack. */
@@ -593,49 +641,17 @@ private fun NavGraphBuilder.addSettingsRoutes(
         composable<Route.Settings>(
             deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://settings" }),
         ) {
-            SettingsHomeRoute(navController, it, actions, mainViewModel, permissionSummary)
+            if (LocalShownBesideList.current) {
+                SettingsDetailPlaceholder()
+            } else {
+                val settingsGraphEntry =
+                    remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
+                SettingsHomeRoute(navController, settingsGraphEntry, actions, mainViewModel, permissionSummary)
+            }
         }
         addAdvancedSettingsRoutes(navController, mainViewModel)
         addDetectionSettingsRoutes(navController)
     }
-}
-
-@Composable
-private fun SettingsHomeRoute(
-    navController: NavHostController,
-    backStackEntry: NavBackStackEntry,
-    actions: RipDpiNavHostActions,
-    mainViewModel: MainViewModel,
-    permissionSummary: PermissionSummaryUiState,
-) {
-    val settingsGraphEntry =
-        remember(navController, backStackEntry) {
-            navController.getBackStackEntry<SettingsGraph>()
-        }
-    val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
-    SettingsRoute(
-        onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
-        onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },
-        onOpenCustomization = { navController.navigate(Route.AppCustomization) },
-        onOpenAbout = { navController.navigate(Route.About) },
-        onOpenDataTransparency = { navController.navigate(Route.DataTransparency) },
-        onOpenDetectionCheck = { navController.navigate(Route.DetectionCheck) },
-        onOpenSubscriptionFailover = { navController.navigate(Route.SubscriptionFailover) },
-        onOpenSubscriptionStatus = { navController.navigate(Route.SubscriptionStatus) },
-        onOpenProfileUtility = { navController.navigate(Route.ProfileUtility) },
-        onOpenDomainBypass = { navController.navigate(Route.DomainBypassList) },
-        onOpenRoutingRules = { navController.navigate(Route.Routes) },
-        onOpenSplitTunnel = { navController.navigate(Route.SplitTunnel) },
-        onOpenRootModeStrategies = { navController.navigate(Route.RootModeStrategies) },
-        onOpenBackupRestore = { navController.navigate(Route.BackupRestore) },
-        onOpenLogs = { navController.navigate(Route.Logs) { launchSingleTop = true } },
-        onShareDebugBundle = actions.onShareDebugBundle,
-        permissionSummary = permissionSummary,
-        onRepairPermission = actions.onRepairPermission,
-        onOpenVpnPermissionDialog = mainViewModel::onOpenVpnPermissionRequested,
-        onDismissBackgroundGuidance = mainViewModel::onDismissBackgroundGuidance,
-        viewModel = settingsViewModel,
-    )
 }
 
 private fun NavGraphBuilder.addAdvancedSettingsRoutes(

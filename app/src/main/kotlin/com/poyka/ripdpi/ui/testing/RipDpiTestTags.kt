@@ -230,6 +230,7 @@ internal object RipDpiTestTags {
     const val HomeSubscriptionExpiryBanner = "home-subscription-expiry-banner"
     const val SettingsDataTransparency = "settings-data-transparency"
     const val SettingsAbout = "settings-about"
+    const val SettingsDetailPlaceholder = "settings-detail-placeholder"
     const val SettingsStrategyConfig = "settings-strategy-config"
     const val SettingsBlockcheck = "settings-blockcheck"
     const val SettingsDomainBypass = "settings-domain-bypass"
