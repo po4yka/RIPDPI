@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.RipDpiProxyCmdPreferences
 import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DnsResolverPlane
+import com.poyka.ripdpi.data.InMemoryStrategyPackStateStore
 import com.poyka.ripdpi.data.LocalNetworkAccessRequiredException
 import com.poyka.ripdpi.data.LocalNetworkPermission
 import com.poyka.ripdpi.data.Mode
@@ -241,6 +242,7 @@ class ConnectionPolicyDestinationRoutingTest {
                 environmentDetector = EnvironmentDetector(),
                 proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                 activeProtectSocketPathProvider = protection,
+                strategyPackStateStore = InMemoryStrategyPackStateStore(),
             ),
     )
 }

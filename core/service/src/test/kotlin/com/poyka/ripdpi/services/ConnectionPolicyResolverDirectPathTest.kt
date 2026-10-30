@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.DirectModeOutcome
 import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.data.DnsMode
+import com.poyka.ripdpi.data.InMemoryStrategyPackStateStore
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
@@ -17,6 +18,9 @@ import com.poyka.ripdpi.data.PreferredEdgeTransportTcp
 import com.poyka.ripdpi.data.PreferredStack
 import com.poyka.ripdpi.data.QuicMode
 import com.poyka.ripdpi.data.ServerCapabilityObservation
+import com.poyka.ripdpi.data.StrategyPackMorphPolicy
+import com.poyka.ripdpi.data.StrategyPackRuntimeState
+import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.data.TcpFamily
 import com.poyka.ripdpi.data.TransportPolicy
 import kotlinx.coroutines.test.runTest
@@ -32,6 +36,39 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class ConnectionPolicyResolverDirectPathTest {
+    @Test
+    fun `resolver passes the selected strategy pack morph policy to the native config`() =
+        runTest {
+            val stateStore = InMemoryStrategyPackStateStore()
+            stateStore.update(
+                StrategyPackRuntimeState(
+                    morphPolicyId = "balanced",
+                    morphPolicy =
+                        StrategyPackMorphPolicy(
+                            id = "balanced",
+                            firstFlightSizeMin = 320,
+                            firstFlightSizeMax = 768,
+                            paddingEnvelopeMin = 16,
+                            paddingEnvelopeMax = 96,
+                            tcpBurstCadenceMs = listOf(0, 12, 24),
+                        ),
+                ),
+            )
+            val resolver = buildResolver(sampleFingerprint(), TestServerCapabilityStore(), stateStore)
+
+            val resolution = resolver.resolve(mode = Mode.Proxy)
+            val morphPolicy =
+                decodeRipDpiProxyUiPreferences(resolution.proxyPreferences.toNativeConfigJson())
+                    ?.runtimeContext
+                    ?.morphPolicy
+
+            assertEquals("balanced", morphPolicy?.id)
+            assertEquals(320, morphPolicy?.firstFlightSizeMin)
+            assertEquals(768, morphPolicy?.firstFlightSizeMax)
+            assertEquals(96, morphPolicy?.paddingEnvelopeMax)
+            assertEquals(listOf(0, 12, 24), morphPolicy?.tcpBurstCadenceMs)
+        }
+
     @Test
     fun `resolver injects direct path capabilities into runtime context for startup policy`() =
         runTest {
@@ -124,6 +161,7 @@ class ConnectionPolicyResolverDirectPathTest {
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
                         ),
                 )
 
@@ -205,6 +243,7 @@ class ConnectionPolicyResolverDirectPathTest {
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
                         ),
                 )
 
@@ -277,6 +316,7 @@ class ConnectionPolicyResolverDirectPathTest {
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
                         ),
                 )
 
@@ -344,6 +384,7 @@ class ConnectionPolicyResolverDirectPathTest {
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
                         ),
                 )
 
@@ -408,6 +449,7 @@ class ConnectionPolicyResolverDirectPathTest {
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
                         ),
                 )
 
@@ -482,6 +524,7 @@ class ConnectionPolicyResolverDirectPathTest {
     private fun buildResolver(
         fingerprint: NetworkFingerprint,
         capabilityStore: TestServerCapabilityStore,
+        strategyPackStateStore: StrategyPackStateStore = InMemoryStrategyPackStateStore(),
     ): DefaultConnectionPolicyResolver =
         DefaultConnectionPolicyResolver(
             runtimeConfigurationCapture =
@@ -506,6 +549,7 @@ class ConnectionPolicyResolverDirectPathTest {
                     environmentDetector = EnvironmentDetector(),
                     proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                     activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                    strategyPackStateStore = strategyPackStateStore,
                 ),
         )
 

@@ -11,6 +11,7 @@ import com.poyka.ripdpi.core.routing.DestinationRoutingNetwork
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.core.routing.DestinationRoutingRule
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.InMemoryStrategyPackStateStore
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RememberedNetworkPolicyJson
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
@@ -240,6 +241,7 @@ class ProxyServiceAutoApplyLifecycleTest {
                         environmentDetector = EnvironmentDetector(),
                         proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                         activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                        strategyPackStateStore = InMemoryStrategyPackStateStore(),
                     ),
             )
         val coordinator =

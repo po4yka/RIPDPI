@@ -6,6 +6,7 @@ import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AsnRoutingMapCatalog
 import com.poyka.ripdpi.data.AsnRoutingMapEntry
+import com.poyka.ripdpi.data.InMemoryStrategyPackStateStore
 import com.poyka.ripdpi.data.Mode
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -72,6 +73,7 @@ class ConnectionPolicyAutolearnTest {
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
                         ),
                 )
 

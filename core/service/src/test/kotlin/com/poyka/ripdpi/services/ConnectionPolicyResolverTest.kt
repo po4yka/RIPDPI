@@ -25,6 +25,7 @@ import com.poyka.ripdpi.data.EncryptedDnsPathCandidate
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
+import com.poyka.ripdpi.data.InMemoryStrategyPackStateStore
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.data.PreferredEdgeIpVersionV4
@@ -159,6 +160,7 @@ class ConnectionPolicyResolverTest {
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
                         ),
                 )
 
@@ -253,6 +255,7 @@ class ConnectionPolicyResolverTest {
                                         EmptyWsTunnelWorkerCredentialStore,
                                     ),
                                 activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                                strategyPackStateStore = InMemoryStrategyPackStateStore(),
                             ),
                     )
 
@@ -336,6 +339,7 @@ class ConnectionPolicyResolverTest {
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(store),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
                         ),
                 )
 
@@ -411,6 +415,7 @@ class ConnectionPolicyResolverTest {
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
                         ),
                 )
 
@@ -462,6 +467,7 @@ class ConnectionPolicyResolverTest {
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
                         ),
                 )
 
@@ -517,6 +523,7 @@ class ConnectionPolicyResolverTest {
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
                         ),
                 )
 
@@ -582,6 +589,7 @@ class ConnectionPolicyResolverTest {
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
                         ),
                 )
 
@@ -641,6 +649,7 @@ class ConnectionPolicyResolverTest {
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
                         ),
                 )
 
@@ -694,6 +703,7 @@ class ConnectionPolicyResolverTest {
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
                         ),
                 )
 
@@ -758,6 +768,7 @@ class LuaConnectionPolicyResolverTest {
                                                 EmptyWsTunnelWorkerCredentialStore,
                                             ),
                                         activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                                        strategyPackStateStore = InMemoryStrategyPackStateStore(),
                                     ),
                             )
                         val resolution = resolver.resolve(mode = mode)
@@ -883,6 +894,7 @@ class ConnectionPolicyAwgResolverTest {
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
                         ),
                 )
 
@@ -960,6 +972,7 @@ class ConnectionPolicyAwgResolverTest {
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
                         ),
                 )
 
@@ -1059,6 +1072,7 @@ class ConnectionPolicyStartAdmissionTest {
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
                         ),
                 )
 
@@ -1100,6 +1114,7 @@ class ConnectionPolicyStartAdmissionTest {
                             environmentDetector = EnvironmentDetector(),
                             proxySessionSecretResolver = ProxySessionSecretResolver(EmptyWsTunnelWorkerCredentialStore),
                             activeProtectSocketPathProvider = testActiveProtectSocketPathProvider(),
+                            strategyPackStateStore = InMemoryStrategyPackStateStore(),
                         ),
                 )
 

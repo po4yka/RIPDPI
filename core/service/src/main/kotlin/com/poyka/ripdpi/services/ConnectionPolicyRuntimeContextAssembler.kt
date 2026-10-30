@@ -12,6 +12,7 @@ import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.core.resolveGeoDatabasePaths
 import com.poyka.ripdpi.core.resolveHostAutolearnStorePath
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
+import com.poyka.ripdpi.core.toRipDpiMorphPolicy
 import com.poyka.ripdpi.core.toRipDpiRuntimeContext
 import com.poyka.ripdpi.core.withDestinationRoutingPolicy
 import com.poyka.ripdpi.core.withoutPacketStrategies
@@ -20,6 +21,7 @@ import com.poyka.ripdpi.data.DirectPolicyEnvironment
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PreferredEdgeCandidate
 import com.poyka.ripdpi.data.ServerCapabilityStore
+import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.diagnostics.NetworkEdgePreferenceStore
 import com.poyka.ripdpi.data.effectiveTransportPolicyEnvelope
@@ -46,6 +48,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
         private val environmentDetector: EnvironmentDetector,
         private val proxySessionSecretResolver: ProxySessionSecretResolver,
         private val activeProtectSocketPathProvider: ActiveProtectSocketPathProvider,
+        private val strategyPackStateStore: StrategyPackStateStore,
     ) {
         suspend fun captureProtectPath(
             mode: Mode,
@@ -138,11 +141,15 @@ internal class ConnectionPolicyRuntimeContextAssembler
             directPathCapabilities: List<RipDpiDirectPathCapability>,
         ): RipDpiRuntimeContext? {
             val dnsRuntimeContext = activeDns.toRipDpiRuntimeContext()
+            val morphPolicy =
+                strategyPackStateStore.state.value.morphPolicy
+                    ?.toRipDpiMorphPolicy()
             return when {
                 protectPath == null &&
                     dnsRuntimeContext == null &&
                     preferredEdges.isEmpty() &&
-                    directPathCapabilities.isEmpty() -> {
+                    directPathCapabilities.isEmpty() &&
+                    morphPolicy == null -> {
                     null
                 }
 
@@ -151,6 +158,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
                         protectPath = protectPath,
                         preferredEdges = preferredEdges,
                         directPathCapabilities = directPathCapabilities,
+                        morphPolicy = morphPolicy,
                     )
                 }
 
@@ -159,6 +167,7 @@ internal class ConnectionPolicyRuntimeContextAssembler
                         protectPath = protectPath,
                         preferredEdges = preferredEdges,
                         directPathCapabilities = directPathCapabilities,
+                        morphPolicy = morphPolicy,
                     )
                 }
             }
@@ -209,7 +218,8 @@ internal class ConnectionPolicyRuntimeContextAssembler
                     destinationRouting = destinationRouting,
                     geoipDbPath = geoPaths.geoipDbPath,
                     geositeDbPath = geoPaths.geositeDbPath,
-                    runtimeContext = effectiveRuntimeContext,
+                    // The user's explicit CLI strategy is applied as written, without pack morphing.
+                    runtimeContext = effectiveRuntimeContext?.copy(morphPolicy = null),
                 )
             } else {
                 RipDpiProxyUIPreferences
