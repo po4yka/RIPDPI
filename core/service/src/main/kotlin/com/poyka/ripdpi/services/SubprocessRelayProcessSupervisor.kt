@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import kotlinx.coroutines.yield
 import java.io.IOException
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.thread
@@ -67,6 +68,9 @@ internal class SubprocessRelayProcessSupervisor(
 
     suspend fun waitForExit(): Int {
         val activeProcess = process ?: return 0
+        // Relay runtimes start undispatched on an IO worker, where withContext(IO) never suspends;
+        // yield first so the blocking wait cannot hold the caller's thread and stall the VPN start.
+        yield()
         val exitCode = activeProcess.waitFor()
         release(activeProcess)
         return exitCode

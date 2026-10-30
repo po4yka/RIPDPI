@@ -1,5 +1,9 @@
 package com.poyka.ripdpi.services
 
+import kotlinx.coroutines.CoroutineStart
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -12,8 +16,10 @@ import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
 import java.io.OutputStream
+import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicReference
+import kotlin.concurrent.thread
 
 class SubprocessRelayProcessSupervisorTest {
     @Test
@@ -60,6 +66,29 @@ class SubprocessRelayProcessSupervisorTest {
             assertTrue(supervisor.waitForExit() == 0)
             assertFalse(supervisor.isRunning())
         }
+
+    @Test
+    fun `wait for exit returns control to an undispatched caller on an io worker`() {
+        val exit = CountDownLatch(1)
+        val supervisor = supervisor(FakeProcess(exitOnBlockingWait = true, blockingWaitGate = exit))
+        supervisor.start(ProcessBuilder(), launchSpec(), onOutputEvent = {})
+        val launchReturned = CountDownLatch(1)
+        val runner =
+            thread {
+                runBlocking(Dispatchers.IO) {
+                    val waiter = launch(start = CoroutineStart.UNDISPATCHED) { supervisor.waitForExit() }
+                    launchReturned.countDown()
+                    waiter.join()
+                }
+            }
+
+        val returned = launchReturned.await(5, TimeUnit.SECONDS)
+        exit.countDown()
+        runner.join(5_000)
+
+        assertTrue("the helper exit wait must not block the starting thread", returned)
+        assertFalse(supervisor.isRunning())
+    }
 
     @Test
     fun `failed stdin initialization retains process when termination is unconfirmed`() {
@@ -119,6 +148,7 @@ private class FakeProcess(
     private val failOutput: Boolean = false,
     var stopException: IOException? = null,
     private val stdoutFailure: IOException? = null,
+    private val blockingWaitGate: CountDownLatch? = null,
 ) : Process() {
     private var running = true
     var destroyedForcibly = false
@@ -143,6 +173,7 @@ private class FakeProcess(
     override fun getErrorStream(): InputStream = ByteArrayInputStream(byteArrayOf())
 
     override fun waitFor(): Int {
+        blockingWaitGate?.await()
         if (exitOnBlockingWait) running = false
         return 0
     }
