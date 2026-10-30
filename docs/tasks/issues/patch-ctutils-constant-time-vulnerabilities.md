@@ -2,7 +2,7 @@
 id: RST-1792736814489197
 title: Patch ctutils constant-time vulnerabilities
 kind: chore
-status: doing
+status: review
 area: rust-native
 priority: high
 owner: Dependency security maintenance
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-10-23
-updated: 2026-10-23
+updated: 2026-10-30
 spec_reason: dependency-only
 ---
 
@@ -45,3 +45,5 @@ Dependency security maintenance owns `native/rust/Cargo.lock`, `native/rust/fuzz
 - All 18 real fuzz binaries link successfully using the configured nightly, rustc `1.101.0-nightly (7189d39d9 2026-10-22)`, and cargo-fuzz 0.13.2. Because that cargo-fuzz version has no locked option, independently reviewed local-only instrumentation adds only `--locked` to child Cargo commands. Actual compiler fingerprints retain ASan, coverage, cfg(fuzzing), and debug assertions. No repository workflow or compiler feature was changed; the candidate lock hash remains unchanged.
 - Local packet smoke executes its two initial corpus runs, then exits 1 because LSan cannot attach to its own thread in this cloud execution environment (errno 1). A minimal ASan program reproduces the environment failure. The empty crash artifact does not establish a product defect. A single ordinary elevated execution attempt fails before starting the command because the execution wrapper cannot initialize; no security setting or sanitizer was changed, and no workaround was attempted. YAML fuzz runtime remains unexecuted under the same unresolved limitation. These runtime gates are not reported as passing.
 - The earlier minimal head `d0552d25e313bd0cb4cbcf62be85cdc2031f0023` passed all six workflows, including CI (46 successful jobs, 18 skipped), CodeQL, and L7 adversarial checks. Those results do not certify this synchronization. The new exact head needs fresh required CI and hosted runtime evidence without implicit lock drift; independent review and merge approval remain required. The execution record deliberately remains 2/4 complete.
+- Merged as #654 (`5e778024b`, exact head `f1ab65f16`). On that exact head, `ci-required` (run 39920289628), CodeQL, `cargo-deny`, `rust-workspace-tests`, `rust-lint`, `rust-miri`, and all six `fuzz-nightly` shards (run 39921030244, ASan defaults unchanged, 18 targets, about 56 million executions, no sanitizer findings) succeeded, and the PR records the independent lock/advisory/task review. These hosted runs supply the packet/YAML fuzz runtime evidence that the local cloud LSan limitation blocked.
+- Post-merge `main` (`f0d30a8c4`): the native lock resolves ctutils 0.4.5 (patch bump in #659 by the dependency security gate) and the fuzz lock resolves ctutils 0.4.4 with the reviewed checksum; `cargo metadata --locked` passes for both workspaces on pinned Rust 1.98.1.
