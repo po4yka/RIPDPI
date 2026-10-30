@@ -19,14 +19,37 @@ const PROTECTED_RELAY_DNS_RESOLVER_IDS: [&str; 2] = ["adguard", "dnssb"];
 
 pub type SocketProtectFn = dyn Fn(RawFd) -> io::Result<()> + Send + Sync + 'static;
 
+/// # Cancel safety
+///
+/// cancel-safe: see [`resolve_server_addrs`].
 pub async fn resolve_server_addr(
     server: &str,
     port: u16,
     bind_ip: Option<IpAddr>,
     protect: Option<Box<SocketProtectFn>>,
 ) -> io::Result<SocketAddr> {
+    resolve_server_addrs(server, port, bind_ip, protect)
+        .await?
+        .into_iter()
+        .next()
+        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "relay server resolved to no addresses"))
+}
+
+/// Every usable relay server address, in resolver order and never empty. With a
+/// `protect` callback the hostname goes through protected DoH, never system DNS.
+///
+/// # Cancel safety
+///
+/// cancel-safe: no caller-visible state spans an `.await`; a cancelled lookup
+/// drops its resolver, and a blocking task already started finishes on its own.
+pub async fn resolve_server_addrs(
+    server: &str,
+    port: u16,
+    bind_ip: Option<IpAddr>,
+    protect: Option<Box<SocketProtectFn>>,
+) -> io::Result<Vec<SocketAddr>> {
     if let Ok(ip) = server.parse::<IpAddr>() {
-        return select_address_family(SocketAddr::new(ip, port), bind_ip, "relay server");
+        return Ok(vec![select_address_family(SocketAddr::new(ip, port), bind_ip, "relay server")?]);
     }
 
     match protect {
@@ -37,35 +60,52 @@ pub async fn resolve_server_addr(
     }
 }
 
-async fn resolve_hostname_via_system_dns(server: &str, port: u16, bind_ip: Option<IpAddr>) -> io::Result<SocketAddr> {
+fn matching_family(
+    candidates: impl Iterator<Item = SocketAddr>,
+    bind_ip: Option<IpAddr>,
+) -> io::Result<Vec<SocketAddr>> {
+    let addresses: Vec<SocketAddr> =
+        candidates.filter(|address| bind_ip.is_none_or(|bind_ip| address.is_ipv4() == bind_ip.is_ipv4())).collect();
+    if !addresses.is_empty() {
+        return Ok(addresses);
+    }
+    let message = if bind_ip.is_some() {
+        "relay server has no address matching outbound bind IP family"
+    } else {
+        "relay server resolved to no addresses"
+    };
+    Err(io::Error::new(io::ErrorKind::InvalidInput, message))
+}
+
+/// # Cancel safety
+///
+/// cancel-safe: dropping it detaches the blocking lookup, which owns its inputs.
+async fn resolve_hostname_via_system_dns(
+    server: &str,
+    port: u16,
+    bind_ip: Option<IpAddr>,
+) -> io::Result<Vec<SocketAddr>> {
     let server = server.to_owned();
     tokio::task::spawn_blocking(move || {
-        let mut candidates = (server.as_str(), port)
+        let candidates = (server.as_str(), port)
             .to_socket_addrs()
             .map_err(|error| io::Error::new(error.kind(), format!("resolve relay hostname: {error}")))?;
-        match bind_ip {
-            Some(bind_ip) => candidates.find(|address| address.is_ipv4() == bind_ip.is_ipv4()).ok_or_else(|| {
-                io::Error::new(
-                    io::ErrorKind::InvalidInput,
-                    "relay server has no address matching outbound bind IP family",
-                )
-            }),
-            None => candidates
-                .next()
-                .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "relay server resolved to no addresses")),
-        }
+        matching_family(candidates, bind_ip)
     })
     .await
     .map_err(|error| io::Error::other(format!("system relay DNS task failed: {error}")))?
 }
 
+/// # Cancel safety
+///
+/// cancel-safe: dropping it drops the resolver pipeline and its pending requests.
 async fn resolve_hostname_via_protected_doh(
     server: &str,
     port: u16,
     bind_ip: Option<IpAddr>,
     protect: Box<SocketProtectFn>,
     resolver_ids: &[&str],
-) -> io::Result<SocketAddr> {
+) -> io::Result<Vec<SocketAddr>> {
     let protect = std::sync::Arc::new(protect);
     let hooks = EncryptedDnsConnectHooks::new().require_direct_tcp_connector().with_direct_tcp_connector(
         move |target, timeout| connect_protected_bootstrap(target, bind_ip, timeout, protect.clone()),
@@ -89,12 +129,13 @@ async fn resolve_hostname_via_protected_doh(
         .resolve(server)
         .await
         .map_err(|error| io::Error::other(format!("resolve relay hostname through protected DNS: {error}")))?;
-    doh_ip_answer_candidates(&lookup)
+    let candidates = doh_ip_answer_candidates(&lookup)
         .into_iter()
         .filter_map(|candidate| candidate.ip.parse::<IpAddr>().ok())
-        .find(|ip| bind_ip.is_none_or(|bind_ip| ip.is_ipv4() == bind_ip.is_ipv4()))
-        .map(|ip| SocketAddr::new(ip, port))
-        .ok_or_else(|| io::Error::new(io::ErrorKind::InvalidInput, "protected relay DNS returned no usable address"))
+        .map(|ip| SocketAddr::new(ip, port));
+    matching_family(candidates, bind_ip).map_err(|error| {
+        io::Error::new(error.kind(), format!("protected relay DNS returned no usable address: {error}"))
+    })
 }
 
 /// Runs the protect callback (a binder call on Android) and the blocking

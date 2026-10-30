@@ -5933,6 +5933,7 @@ dependencies = [
  "ripdpi-packets",
  "ripdpi-subprocess-protect",
  "ripdpi-tls-profiles",
+ "ripdpi-vless",
  "rustls",
  "tokio",
  "tokio-rustls",

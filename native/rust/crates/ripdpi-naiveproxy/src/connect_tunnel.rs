@@ -1,4 +1,5 @@
 use std::io;
+use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
@@ -31,11 +32,10 @@ pub(crate) async fn open_https_connect_tunnel(
     target: &SocksTarget,
 ) -> io::Result<Box<dyn AsyncTunnel>> {
     // The protected connector tries every resolved address; TLS keeps `server_name`.
-    let tcp = ripdpi_subprocess_protect::protected_tcp_connect(
-        (config.server.as_str(), config.server_port),
-        config.protect_socket_path.as_deref(),
-    )
-    .await?;
+    let addresses = resolve_upstream(config).await?;
+    let tcp =
+        ripdpi_subprocess_protect::protected_tcp_connect(addresses.as_slice(), config.protect_socket_path.as_deref())
+            .await?;
     tcp.set_nodelay(true)?;
 
     let server_name = ServerName::try_from(config.server_name.clone()).map_err(|error| {
@@ -102,6 +102,21 @@ impl Drop for DriverAbortGuard {
             driver.abort();
         }
     }
+}
+
+/// Server addresses for the upstream dial. While the VPN protects sockets, a
+/// hostname goes through protected DoH like the in-process relays do, so the
+/// proxy name never leaves as plain DNS on the underlying network.
+///
+/// # Cancel safety
+///
+/// cancel-safe: see [`ripdpi_vless::endpoint_resolver::resolve_server_addrs`].
+async fn resolve_upstream(config: &NaiveProxyConfig) -> io::Result<Vec<SocketAddr>> {
+    let protect = config.protect_socket_path.clone().map(|path| {
+        Box::new(move |fd| ripdpi_subprocess_protect::protect_fd(fd, &path))
+            as Box<ripdpi_vless::endpoint_resolver::SocketProtectFn>
+    });
+    ripdpi_vless::endpoint_resolver::resolve_server_addrs(&config.server, config.server_port, None, protect).await
 }
 
 /// Only 407 is a proxy-authentication failure; any other non-200 is a CONNECT rejection.

@@ -15,6 +15,7 @@ pico-args.workspace = true
 rand = { workspace = true }
 ripdpi-subprocess-protect = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
+ripdpi-vless = { workspace = true }
 rustls.workspace = true
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 tokio-rustls.workspace = true

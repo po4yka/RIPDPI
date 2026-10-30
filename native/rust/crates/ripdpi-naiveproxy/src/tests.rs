@@ -584,6 +584,25 @@ fn config_keeps_upstream_credential_whitespace() {
     assert_eq!(config.password.as_deref(), Some(" s3cret\t"));
 }
 
+/// While the VPN protects sockets, the proxy hostname must resolve through
+/// protected DoH: a protect failure stops it before any system DNS lookup.
+#[tokio::test]
+async fn protected_upstream_hostname_never_uses_system_dns() {
+    let missing_protect_socket = std::env::temp_dir().join(format!("ripdpi-naive-no-protect-{}", std::process::id()));
+    let config = NaiveProxyConfig {
+        server: "proxy.invalid".to_owned(),
+        protect_socket_path: Some(missing_protect_socket.to_string_lossy().into_owned()),
+        ..naive_config_with_auth()
+    };
+
+    let target = SocksTarget::Domain("example.com".to_owned(), 443);
+    let Err(error) = crate::connect_tunnel::open_https_connect_tunnel(&config, &target).await else {
+        panic!("an unprotectable resolver socket must fail the open");
+    };
+
+    assert!(error.to_string().contains("protected DNS"), "{error}");
+}
+
 /// A self-signed `proxy.example` server config and a client config that trusts it, both H2-only.
 fn self_signed_upstream_tls() -> (rustls::ServerConfig, rustls::ClientConfig) {
     use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};

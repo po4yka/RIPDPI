@@ -38,6 +38,7 @@ fn classify_io_error(error: &io::Error) -> &'static str {
     } else if error.kind() == io::ErrorKind::AddrNotAvailable
         || error.kind() == io::ErrorKind::NotFound
         || message.contains("resolved to no addresses")
+        || message.contains("resolve relay hostname")
         || message.contains("dns")
     {
         "dns"
