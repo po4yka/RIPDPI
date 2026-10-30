@@ -24,6 +24,9 @@ ripdpi-ws-tunnel = { path = "../crates/ripdpi-ws-tunnel" }
 ripdpi-xhttp = { path = "../crates/ripdpi-xhttp" }
 thiserror = "2"
 
+[patch.crates-io]
+boring-sys = { path = "../vendor/boring-sys" }
+
 [[bin]]
 name = "packets_parse"
 path = "fuzz_targets/packets_parse.rs"

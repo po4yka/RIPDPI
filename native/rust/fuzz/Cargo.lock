@@ -63,12 +63,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "allocator-api2"
-version = "0.2.21"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
-
-[[package]]
 name = "anyhow"
 version = "1.0.102"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -188,8 +182,6 @@ dependencies = [
 [[package]]
 name = "boring-sys"
 version = "5.3.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4ebc865c335508b2eb7bdcfd35e644ce00ddf385a8feda9b5b9031d8b0b49c35"
 dependencies = [
  "bindgen",
  "cmake",
@@ -898,8 +890,6 @@ version = "0.17.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ed5909b6e89a2db4456e54cd5f673791d7eca6732202bbf2a9cc504fe2f9b84a"
 dependencies = [
- "allocator-api2",
- "equivalent",
  "foldhash 0.2.0",
 ]
 
@@ -1408,9 +1398,9 @@ checksum = "616ec5685824bcc94416c6d4a7a446eea774a31efd7062c8480ba6fd06d7a6e5"
 
 [[package]]
 name = "lru"
-version = "0.18.0"
+version = "0.19.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8a860605968fce16869fd239cf4237a82f3ac470723415db603b0e8b6c8d4fb9"
+checksum = "4a9f71e3591c7ec44d3e563e87bf14ddc2bada8519dca046e5b0e560cd004e2d"
 dependencies = [
  "hashbrown 0.17.1",
 ]
@@ -1907,7 +1897,6 @@ version = "0.1.0"
 dependencies = [
  "linkme",
  "rand",
- "ring",
  "ripdpi-config",
  "ripdpi-ipfrag",
  "ripdpi-packets",
@@ -1977,7 +1966,6 @@ dependencies = [
  "ripdpi-diagnostics-transport",
  "ripdpi-dns-resolver",
  "ripdpi-tls-profiles",
- "socket2",
 ]
 
 [[package]]
@@ -2027,15 +2015,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ripdpi-relay-mux"
-version = "0.1.0"
-dependencies = [
- "rand",
- "thiserror 2.0.18",
- "tokio",
-]
-
-[[package]]
 name = "ripdpi-session"
 version = "0.1.0"
 dependencies = [
@@ -2052,10 +2031,8 @@ version = "0.1.0"
 dependencies = [
  "anyhow",
  "log",
- "socket2",
  "thiserror 2.0.18",
  "tokio",
- "tokio-stream",
 ]
 
 [[package]]
@@ -2083,7 +2060,6 @@ dependencies = [
  "rustls",
  "sha2",
  "thiserror 2.0.18",
- "tokio-boring",
  "tracing",
 ]
 
@@ -2100,7 +2076,6 @@ dependencies = [
 name = "ripdpi-vless"
 version = "0.1.0"
 dependencies = [
- "aes",
  "base64 0.23.1",
  "boring",
  "foreign-types-shared",
@@ -2110,7 +2085,6 @@ dependencies = [
  "ripdpi-dns-resolver",
  "ripdpi-ech-dns",
  "ripdpi-native-protect",
- "ripdpi-relay-mux",
  "ripdpi-session-limit",
  "ripdpi-tls-profiles",
  "socket2",
@@ -2598,9 +2572,9 @@ dependencies = [
 
 [[package]]
 name = "tokio-boring"
-version = "5.1.0"
+version = "5.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f7c8b403954655fa821f069961b8c414b52d3bc67597e993463946c633fe4b46"
+checksum = "eed262597ccbc7d443f02ee8d20eb845cea242bbea79e7481ba6218003214970"
 dependencies = [
  "boring",
  "boring-sys",
@@ -2625,17 +2599,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1729aa945f29d91ba541258c8df89027d5792d85a8841fb65e8bf0f4ede4ef61"
 dependencies = [
  "rustls",
- "tokio",
-]
-
-[[package]]
-name = "tokio-stream"
-version = "0.1.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "32da49809aab5c3bc678af03902d4ccddea2a87d028d86392a4b1560c6906c70"
-dependencies = [
- "futures-core",
- "pin-project-lite",
  "tokio",
 ]
 

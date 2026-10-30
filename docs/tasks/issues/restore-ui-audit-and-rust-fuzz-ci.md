@@ -28,4 +28,4 @@ Restore the UI audit and Rust fuzz checks without reducing coverage or changing 
 
 ## Scope
 
-This is test and tooling repair only. No production dependency, Rust public export, feature gate, workflow condition, quality threshold, audit exclusion, or golden fixture changes.
+This is test and tooling repair only. No production dependency, Rust public export, feature gate, workflow condition, quality threshold, audit exclusion, or golden fixture changes. Synchronize only the standalone fuzz lockfile with the current path dependency graph; its lru 0.19.0 and tokio-boring 5.3.0 versions already match the main workspace lockfile.

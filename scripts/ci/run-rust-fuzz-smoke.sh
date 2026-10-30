@@ -101,6 +101,12 @@ run_fuzz_target() {
   run_fuzz run "$target" "$scratch_corpus" -- -artifact_prefix="$scratch_artifacts/" "$@"
 }
 
+# cargo-fuzz has no --locked flag; test its inputs with a locked graph first.
+(
+  cd "$fuzz_dir"
+  cargo "+$rust_toolchain" test --locked --test tls_record_inputs
+)
+
 if [[ -n "${RIPDPI_FUZZ_SECONDS:-}" ]]; then
   for target in "${selected_targets[@]}"; do
     echo "==> fuzz nightly shard $shard_index/$shard_count: run $target for ${RIPDPI_FUZZ_SECONDS}s"

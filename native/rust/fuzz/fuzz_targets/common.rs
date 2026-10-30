@@ -21,6 +21,24 @@ pub fn ascii_label(bytes: &[u8], prefix: &str, max_len: usize) -> String {
     label
 }
 
+pub fn split_tls_record(packet: &[u8], split: usize) -> Vec<u8> {
+    let Some(header) = packet.get(..5) else {
+        return packet.to_vec();
+    };
+    let record_len = usize::from(u16::from_be_bytes([header[3], header[4]]));
+    if split > record_len || split > packet.len() - 5 {
+        return packet.to_vec();
+    }
+    let mut output = Vec::with_capacity(packet.len() + 5);
+    output.extend_from_slice(&header[..3]);
+    output.extend_from_slice(&(split as u16).to_be_bytes());
+    output.extend_from_slice(&packet[5..5 + split]);
+    output.extend_from_slice(&header[..3]);
+    output.extend_from_slice(&((record_len - split) as u16).to_be_bytes());
+    output.extend_from_slice(&packet[5 + split..]);
+    output
+}
+
 pub fn packet_smoke() {
     static ONCE: OnceLock<()> = OnceLock::new();
     ONCE.get_or_init(|| {
