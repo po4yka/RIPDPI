@@ -24,6 +24,7 @@ Restore the UI audit and Rust fuzz checks without reducing coverage or changing 
 - The UI audit checks the exact approved route exclusions and retains typed metadata and exact flow partition checks.
 - Every declared Rust fuzz target builds with normal dependency APIs; TLS mutation and split-record inputs remain exercised.
 - Regression tests cover shared fuzz record construction, including boundaries and malformed inputs.
+- The API 37 smoke resolves all six declared Kaspresso testcases and keeps exact execution and skip checks.
 - Local guide and fuzz gates pass, followed by green hosted CI and CodeQL for the pushed revision.
 
 ## Scope

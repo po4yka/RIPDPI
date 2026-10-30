@@ -1,11 +1,11 @@
 ---
 task_id: TRN-1793300518162274
 change: modernize-native-vless-reality
-commit_sha: 577c2368fc8a35487988fad8ecdb31ff032302f7
+commit_sha: b232683b6193d052c4e2e35c9309c275c8a36ba8
 local: passed
 local_evidence: Original scoped gates passed with 6939 JVM tests, 140 Rust library tests, six real Xray cases, Android lint, Kotlin lint and detekt, architecture checks, and independent reviews. The separate SSH repair fd66b33ec resolved the existing app-engine boundary blocker; full staticAnalysis then passed without exclusions or skip-native flags. The repair also passed all 5225 app/service tests and AndroidTest Kotlin compilation.
-remote_ci: blocked
-remote_ci_evidence: Hosted full staticAnalysis and all CodeQL languages passed at d675424c8. Overall CI exposed unsupported implicit auto mode in Simple test fixtures, repaired and fully tested locally in b198c6e42, and a separate rust-fuzz-smoke E0425 compile failure. Overall hosted acceptance remains blocked; no gates or alert states were changed.
+remote_ci: required
+remote_ci_evidence: The SSH, Simple fixture, UI audit, and standalone fuzz blockers are repaired. CodeQL passed all three languages at b232683b6. Full CI 41023398772 found a stale Kaspresso class selector: five of six cases executed on API 37. The selector repair retains all six cases and exact counts; full acceptance of that repair is pending. No gate was weakened or alert dismissed.
 device: not_applicable
 device_evidence: Host interop and Robolectric layout checks were run. Physical Android VPN and network handover acceptance are not claimed.
 artifact: not_applicable
@@ -54,7 +54,11 @@ The original `./gradlew staticAnalysis -Pripdpi.skipNativeBuild=true` failed at 
 
 The first hosted source run exposed an unrelated stale invocation of a deleted Maestro/Appium selector test. Commit `d675424c8` uses the current ADB driver tests in that step and adds a regression for missing workflow test modules. All existing gate conditions remain in place. [Hosted full static analysis](https://github.com/po4yka/RIPDPI/actions/runs/41009144800/job/123911162076) and [all three CodeQL languages](https://github.com/po4yka/RIPDPI/actions/runs/41009144991) passed at that exact revision, with no open code-scanning alerts.
 
-Hosted Simple tests found twelve seed-fixture failures: omitted TLS+xHTTP mode resolves to unsupported `auto`. The production CI bundle already declares `stream-up`. Commit `b198c6e42` makes both synthetic seed bundles use that supported mode without changing capability checks. All 3405 Simple app tests then passed locally, followed by another full staticAnalysis run. The separate [rust-fuzz-smoke compile failure](https://github.com/po4yka/RIPDPI/actions/runs/41009144800/job/123911533221) calls four test-only packet APIs from a normal dependency build. Overall hosted acceptance remains blocked, and this change must not be archived as fully verified. Hosted results for the final test-fixture-only commit are not claimed.
+Hosted Simple tests found twelve seed-fixture failures: omitted TLS+xHTTP mode resolves to unsupported `auto`. The production CI bundle already declares `stream-up`. Commit `b198c6e42` makes both synthetic seed bundles use that supported mode without changing capability checks. All 3405 Simple app tests then passed locally, followed by another full staticAnalysis run. Later [hosted Simple and UI audit tests](https://github.com/po4yka/RIPDPI/actions/runs/41018197242/job/123940246449) passed at `423cc6626`.
+
+Commits `90f4d8f51` and `423cc6626` repair the exact UI audit exclusion check and the standalone fuzz graph. The latter uses public packet APIs and the existing vendored BoringSSL hooks without changing production code or disabling checks. Its [hosted fuzz smoke](https://github.com/po4yka/RIPDPI/actions/runs/41018197242/job/123940246669) passed five input regressions and all eighteen ASan target builds. Both affected fuzz targets also completed 1000 ASan iterations locally.
+
+[CodeQL at b232683b6](https://github.com/po4yka/RIPDPI/actions/runs/41022269149) passed Actions, Rust, and Kotlin/Java. [Full combined-revision CI](https://github.com/po4yka/RIPDPI/actions/runs/41023398772) failed because the API 37 smoke selected an old Home class name and executed five of six cases. The corrected selector still requires all six cases; a new full run is pending. Earlier push runs were cancelled by parallel main updates. Do not archive this change as fully verified until full CI succeeds.
 
 ## Scope
 

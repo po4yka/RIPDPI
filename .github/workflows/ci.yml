@@ -2363,7 +2363,7 @@ jobs:
           smoke=(
             settings.ConfigScreenKaspressoTest#sectionsAndModeChipsSwitchTheVisibleConfiguration
             settings.DnsSettingsKaspressoTest#plainUdpResolverIsPersistedOnSave
-            home.HomeKaspressoTest#modeCardsAppearAfterDiagnosticsDisclosureExpands
+            home.HomeIdleKaspressoTest#modeCardsAppearAfterDiagnosticsDisclosureExpands
             home.OnboardingKaspressoTest#skippingFromTheIntroCompletesOnboarding
             diagnostics.HistoryEventsKaspressoTest#searchNarrowsTheEventList
             diagnostics.LogsKaspressoTest#severityAndSubsystemChipsFilterTheStream
