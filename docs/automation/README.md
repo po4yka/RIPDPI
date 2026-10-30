@@ -138,5 +138,5 @@ The `CI` workflow runs the Kaspresso journeys from the prebuilt instrumentation 
 
 - On pull requests, `android-instrumented-tests` runs a six-journey smoke set on the API 37 emulator.
 - Every night (`41 2 * * *`), and when the workflow is started manually with `run_ui_journeys`, `android-ui-journeys`
-  runs every journey in `com.poyka.ripdpi.ui.journeys` on an API 37 emulator and uploads the JUnit results.
+  runs every journey in `com.poyka.ripdpi.ui.journeys` on API 37 and API 31 emulators and uploads the JUnit results.
 - Both upload the Kaspresso failure screenshots and view hierarchies from `/sdcard/Documents`.

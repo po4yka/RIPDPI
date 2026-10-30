@@ -8,6 +8,14 @@ description: "RIPDPI Kaspresso UI journeys: launch-contract presets, page object
 UI journeys are Kaspresso instrumented tests in `app/src/androidTest`, grouped by area under
 `com.poyka.ripdpi.ui.journeys.<area>` (settings, diagnostics, home).
 
+Two kinds of UI instrumentation live side by side:
+
+- Journeys (`ui/journeys/`) start the real `MainActivity` through the automation launch contract and walk a user flow
+  across screens with seeded data.
+- Component acceptance tests (`ui/*InstrumentedTest.kt`, `ui/HomeLatencyDetailsAcceptanceTest.kt`) render one
+  component with `createComposeRule().setContent { ... }` and fixed state to check motion policy, RTL, font scale,
+  pixels or TalkBack. Keep them there: a full-app journey cannot pin those conditions.
+
 ## Write a journey
 
 1. Extend `app/src/androidTest/kotlin/com/poyka/ripdpi/integration/RipDpiKaspressoTest.kt` and annotate the class
@@ -67,7 +75,7 @@ Results: `app/build/outputs/androidTest-results/connected/**/TEST-*.xml` (file n
   The list is in the "Run Kaspresso UI journey smoke" step of `.github/workflows/ci.yml`; renaming a listed test
   needs the same change there.
 - Nightly (`41 2 * * *`) and manual runs with `run_ui_journeys`: the `android-ui-journeys` job runs the whole
-  `com.poyka.ripdpi.ui.journeys` package. Both use the orchestrator with `clearPackageData`.
+  `com.poyka.ripdpi.ui.journeys` package on API 37 and API 31 emulators. Both use the orchestrator with `clearPackageData`.
 
 Lab smokes that must keep the app running between steps (`test-lab/scripts/run-vpn-e2e.sh`) use
 `test-lab/scripts/adb-ui-flow.py` from the host instead of instrumentation.

@@ -2538,6 +2538,14 @@ jobs:
     needs: [change-routing, android-instrumentation-apks]
     runs-on: ubuntu-24.04
     timeout-minutes: 90
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - api: 37
+            system-image: google_apis_ps16k
+          - api: 31
+            system-image: google_apis
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -2560,13 +2568,13 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
-      - name: Provision UI journeys emulator
+      - name: Provision API ${{ matrix.api }} UI journeys emulator
         run: |
           bash scripts/ci/start-android-emulator.sh --fresh \
-            --avd ui-journeys \
-            --api 37 \
+            --avd ui-journeys-${{ matrix.api }} \
+            --api ${{ matrix.api }} \
             --arch x86_64 \
-            --target google_apis_ps16k \
+            --target ${{ matrix.system-image }} \
             --boot-timeout 600
 
       # One instrumentation call per area keeps each run well inside the runner's 30-minute call limit.
@@ -2583,7 +2591,7 @@ jobs:
             results="$RUNNER_TEMP/android-ui-journeys-results/$area"
             if python3 scripts/ci/prebuilt_android_instrumentation.py run \
               --bundle "$RUNNER_TEMP/instrumentation-apks" --sha "$GITHUB_SHA" \
-              --variant githubFullDebug --api 37 \
+              --variant githubFullDebug --api ${{ matrix.api }} \
               --results "$results" \
               --test-package "com.poyka.ripdpi.ui.journeys.$area"; then
               python3 scripts/ci/validate_android_junit_results.py "$results" \
@@ -2608,19 +2616,19 @@ jobs:
         if: always()
         run: |
           bash scripts/ci/capture-android-emulator-diagnostics.sh \
-            --avd ui-journeys \
+            --avd ui-journeys-${{ matrix.api }} \
             --output-dir "$RUNNER_TEMP/android-ui-journeys-diagnostics"
 
       - name: Stop UI journeys emulator
         timeout-minutes: 1
         if: always()
-        run: bash scripts/ci/stop-android-emulator.sh --avd ui-journeys
+        run: bash scripts/ci/stop-android-emulator.sh --avd ui-journeys-${{ matrix.api }}
 
       - name: Upload UI journeys artifacts
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
-          name: android-ui-journeys-artifacts
+          name: android-ui-journeys-artifacts-api${{ matrix.api }}
           path: |
             ${{ runner.temp }}/android-ui-journeys-results/
             ${{ runner.temp }}/android-ui-journeys-diagnostics/
