@@ -9,14 +9,8 @@ import androidx.compose.ui.unit.dp
 
 /** Cached recipes read the current RDS tokens only when their attached resolver runs. */
 object RipDpiComponentStyles {
-    private val buttons = RipDpiButtonStateRole.entries.associateWith(::buttonStyle)
-    private val iconButtons = RipDpiIconButtonStateRole.entries.associateWith(::iconButtonStyle)
     private val surfaces = RipDpiSurfaceRole.entries.associateWith { surfaceStyle(it) }
     private val outlinedSurfaces = RipDpiSurfaceRole.entries.associateWith { surfaceStyle(it, outlined = true) }
-
-    fun button(role: RipDpiButtonStateRole): CommonStyle = buttons.getValue(role)
-
-    fun iconButton(role: RipDpiIconButtonStateRole): CommonStyle = iconButtons.getValue(role)
 
     /** Border width, shape, shadow, and disabled content alpha remain component-owned. */
     fun surface(role: RipDpiSurfaceRole): CommonStyle = surfaces.getValue(role)
@@ -120,54 +114,6 @@ object RipDpiComponentStyles {
             rdsBackground(if (state.isSelected) colors.foreground else colors.muted)
         }
 }
-
-private fun buttonStyle(role: RipDpiButtonStateRole) =
-    CommonStyle {
-        val tokens = LocalRipDpiStateTokens.currentValue
-        val components = LocalRipDpiComponents.currentValue
-        val motion = LocalRipDpiMotion.currentValue
-        val resolved =
-            tokens.button.resolve(
-                role = role,
-                enabled = state.isEnabled,
-                loading = state[RipDpiStyleStateKeys.Loading],
-                isPressed = state.isPressed,
-                isFocused = state.isFocused,
-            )
-        animate(motion.stateTween<Float>()) { rdsBackground(resolved.container) }
-        animate(motion.quickTween<Float>()) { RipDpiStyleProperties.borderColor.provide(resolved.border) }
-        RipDpiStyleProperties.borderWidth.provide(resolved.borderWidth)
-        rdsCornerRadius(resolved.cornerRadius)
-        rdsContentScale(resolved.scale)
-        val horizontal =
-            components.buttons.horizontalPadding -
-                if (state[RipDpiStyleStateKeys.Compact]) components.buttons.focusedHorizontalPaddingOffset else 0.dp
-        rdsContentPadding(
-            horizontal,
-            components.buttons.verticalPadding,
-            horizontal,
-            components.buttons.verticalPadding,
-        )
-        rdsMinHeight(components.buttons.minHeight)
-        // Loading fades only Text; preserve that animation in the component.
-    }
-
-private fun iconButtonStyle(role: RipDpiIconButtonStateRole) =
-    CommonStyle {
-        val motion = LocalRipDpiMotion.currentValue
-        val resolved =
-            LocalRipDpiStateTokens.currentValue.iconButton.resolve(
-                role = role,
-                enabled = state.isEnabled,
-                loading = state[RipDpiStyleStateKeys.Loading],
-                selected = state.isSelected,
-                isPressed = state.isPressed,
-                isFocused = state.isFocused,
-            )
-        animate(motion.stateTween<Float>()) { rdsBackground(resolved.container) }
-        animate(motion.quickTween<Float>()) { rdsBorder(resolved.border, resolved.borderWidth) }
-        rdsContentScale(resolved.scale)
-    }
 
 private fun surfaceStyle(
     role: RipDpiSurfaceRole,

@@ -1,27 +1,27 @@
-@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
-
 package com.poyka.ripdpi.ui.components.buttons
 
 import androidx.compose.animation.AnimatedContent
-import androidx.compose.animation.animateColorAsState
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.style.CommonStyle
-import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.FilledIconButton
+import androidx.compose.material3.FilledTonalIconButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.IconButtonColors
+import androidx.compose.material3.IconButtonDefaults
+import androidx.compose.material3.LocalContentColor
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.NonRestartableComposable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
@@ -32,16 +32,13 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.indicators.RipDpiStaticCircularProgressIndicator
-import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
-import com.poyka.ripdpi.ui.theme.RipDpiStyleStateKeys
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.ui.theme.rememberRipDpiSpringStyle
-import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
-import com.poyka.ripdpi.ui.theme.ripDpiStyleContent
-import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
+
+private const val DisabledIconContentAlpha = 0.38f
 
 enum class RipDpiIconButtonStyle {
     Ghost,
@@ -56,38 +53,12 @@ enum class RipDpiIconButtonStyle {
     Warning,
 }
 
-@Composable
-@NonRestartableComposable
-fun RipDpiIconButton(
-    icon: ImageVector,
-    contentDescription: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    style: RipDpiIconButtonStyle = RipDpiIconButtonStyle.Ghost,
-    enabled: Boolean = true,
-    loading: Boolean = false,
-    selected: Boolean = false,
-    density: RipDpiControlDensity = RipDpiControlDensity.Default,
-    interactionSource: MutableInteractionSource? = null,
-    hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Action,
-) {
-    RipDpiIconButton(
-        icon = icon,
-        contentDescription = contentDescription,
-        onClick = onClick,
-        modifier = modifier,
-        style = style,
-        enabled = enabled,
-        loading = loading,
-        selected = selected,
-        density = density,
-        interactionSource = interactionSource,
-        hapticFeedback = hapticFeedback,
-        visualStyle = CommonStyle,
-    )
-}
-
-@Suppress("LongMethod", "CyclomaticComplexMethod")
+/**
+ * Icon action on Material 3: Ghost, Destructive, and Warning render [IconButton], Tonal renders
+ * [FilledTonalIconButton], Filled renders [FilledIconButton], and Outline renders
+ * [OutlinedIconButton]. [selected] changes only the tonal container; the action stays a button.
+ */
+@Suppress("LongMethod")
 @Composable
 fun RipDpiIconButton(
     icon: ImageVector,
@@ -98,87 +69,49 @@ fun RipDpiIconButton(
     enabled: Boolean = true,
     loading: Boolean = false,
     selected: Boolean = false,
+    // Both densities keep the 48dp target and default icon size; the parameter stays for callers.
+    @Suppress("UNUSED_PARAMETER", "UnusedParameter")
     density: RipDpiControlDensity = RipDpiControlDensity.Default,
     interactionSource: MutableInteractionSource? = null,
     hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Action,
-    visualStyle: CommonStyle = CommonStyle,
 ) {
-    val components = RipDpiThemeTokens.components
     val motion = RipDpiThemeTokens.motion
     val shape = RipDpiThemeTokens.shapes.xl
     val inspectionMode = LocalInspectionMode.current
-    val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
-    val styleState =
-        rememberUpdatedStyleState(resolvedInteractionSource) {
-            it.isEnabled = enabled
-            it.isSelected = selected
-            it[RipDpiStyleStateKeys.Loading] = loading
-            it[RipDpiStyleStateKeys.Compact] = density == RipDpiControlDensity.Compact
-        }
-    val stateRole = RipDpiThemeTokens.stateRoles.iconButton.fromStyle(style)
-    val state =
-        RipDpiThemeTokens.state.iconButton.resolve(
-            role = stateRole,
-            enabled = enabled,
-            loading = loading,
-            selected = selected,
-            isPressed = styleState.isPressed,
-            isFocused = styleState.isFocused,
-        )
-    val defaults =
-        rememberRipDpiSpringStyle(
-            defaults = RipDpiThemeTokens.styles.iconButton(stateRole),
-            scale = state.scale,
-        )
-    val styleResolver = rememberRipDpiStyleResolver(defaults, visualStyle, styleState)
-    val isInteractive = enabled && !loading
-    val iconSize =
-        when (density) {
-            RipDpiControlDensity.Default -> RipDpiIconSizes.Default
-            RipDpiControlDensity.Compact -> RipDpiIconSizes.Default
-        }
-    val animatedIconTint by animateColorAsState(
-        targetValue = state.content,
-        animationSpec = motion.stateTween(),
-        label = "iconButtonTint",
-    )
+    val performHaptic = rememberRipDpiHapticPerformer()
     val loadingLabel = stringResource(R.string.cd_loading)
-    val accessibilityName = contentDescription
-    Row(
-        modifier =
-            modifier
-                .size(components.buttons.iconButtonSize)
-                .ripDpiStyleSurface(styleResolver, shape = shape, clip = true)
-                .semantics {
-                    this.contentDescription = accessibilityName
-                    if (loading) stateDescription = loadingLabel
-                }.ripDpiClickable(
-                    enabled = isInteractive,
-                    role = Role.Button,
-                    interactionSource = resolvedInteractionSource,
-                    hapticFeedback = hapticFeedback,
-                    onClick = onClick,
-                ).ripDpiStyleContent(styleResolver),
-        horizontalArrangement = Arrangement.Center,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
+    val buttonModifier =
+        modifier
+            .size(RipDpiThemeTokens.components.buttons.iconButtonSize)
+            .semantics {
+                this.contentDescription = contentDescription
+                if (loading) stateDescription = loadingLabel
+            }
+    val isInteractive = enabled && !loading
+    val colors = ripDpiIconButtonColors(style, enabled = enabled, selected = selected)
+    val handleClick = {
+        performHaptic(hapticFeedback)
+        onClick()
+    }
+    val content: @Composable () -> Unit = {
         AnimatedContent(
             targetState = loading,
             transitionSpec = { motion.quickContentTransform() },
             label = "iconButtonContent",
         ) { isLoading ->
+            val tint = LocalContentColor.current
             if (isLoading) {
                 if (shouldUseStaticButtonLoadingIndicator(inspectionMode, motion.allowsInfiniteMotion)) {
                     RipDpiStaticCircularProgressIndicator(
-                        modifier = Modifier.size(iconSize),
-                        color = animatedIconTint,
+                        modifier = Modifier.size(RipDpiIconSizes.Default),
+                        color = tint,
                         trackColor = RipDpiThemeTokens.colors.muted,
                         strokeWidth = RipDpiStroke.Thick,
                     )
                 } else {
                     CircularProgressIndicator(
-                        modifier = Modifier.size(iconSize),
-                        color = animatedIconTint,
+                        modifier = Modifier.size(RipDpiIconSizes.Default),
+                        color = tint,
                         strokeWidth = RipDpiStroke.Thick,
                     )
                 }
@@ -186,12 +119,115 @@ fun RipDpiIconButton(
                 Icon(
                     imageVector = icon,
                     contentDescription = null,
-                    tint = animatedIconTint,
-                    modifier = Modifier.size(iconSize),
+                    tint = tint,
+                    modifier = Modifier.size(RipDpiIconSizes.Default),
                 )
             }
         }
     }
+
+    when (style) {
+        RipDpiIconButtonStyle.Ghost,
+        RipDpiIconButtonStyle.Destructive,
+        RipDpiIconButtonStyle.Warning,
+        -> {
+            IconButton(
+                onClick = handleClick,
+                modifier = buttonModifier,
+                enabled = isInteractive,
+                colors = colors,
+                interactionSource = interactionSource,
+                shape = shape,
+                content = content,
+            )
+        }
+
+        RipDpiIconButtonStyle.Tonal -> {
+            FilledTonalIconButton(
+                onClick = handleClick,
+                modifier = buttonModifier,
+                enabled = isInteractive,
+                shape = shape,
+                colors = colors,
+                interactionSource = interactionSource,
+                content = content,
+            )
+        }
+
+        RipDpiIconButtonStyle.Filled -> {
+            FilledIconButton(
+                onClick = handleClick,
+                modifier = buttonModifier,
+                enabled = isInteractive,
+                shape = shape,
+                colors = colors,
+                interactionSource = interactionSource,
+                content = content,
+            )
+        }
+
+        RipDpiIconButtonStyle.Outline -> {
+            OutlinedIconButton(
+                onClick = handleClick,
+                modifier = buttonModifier,
+                enabled = isInteractive,
+                shape = shape,
+                colors = colors,
+                border = BorderStroke(RipDpiStroke.Thin, RipDpiThemeTokens.colors.border),
+                interactionSource = interactionSource,
+                content = content,
+            )
+        }
+    }
+}
+
+/**
+ * Maps RDS roles into Material icon button colors. A disabled icon uses the standard disabled
+ * alpha; a loading icon (enabled but busy) uses the muted foreground.
+ */
+@Composable
+internal fun ripDpiIconButtonColors(
+    style: RipDpiIconButtonStyle,
+    enabled: Boolean,
+    selected: Boolean,
+): IconButtonColors {
+    val colors = RipDpiThemeTokens.colors
+    val disabledContent =
+        if (enabled) colors.mutedForeground else colors.foreground.copy(alpha = DisabledIconContentAlpha)
+    val (container, content) =
+        when (style) {
+            RipDpiIconButtonStyle.Ghost, RipDpiIconButtonStyle.Outline -> {
+                Color.Transparent to colors.foreground
+            }
+
+            RipDpiIconButtonStyle.Tonal -> {
+                (if (selected) MaterialTheme.colorScheme.surfaceVariant else colors.accent) to
+                    colors.foreground
+            }
+
+            RipDpiIconButtonStyle.Filled -> {
+                colors.foreground to colors.background
+            }
+
+            RipDpiIconButtonStyle.Destructive -> {
+                Color.Transparent to colors.destructive
+            }
+
+            RipDpiIconButtonStyle.Warning -> {
+                Color.Transparent to colors.warning
+            }
+        }
+    val disabledContainer =
+        when (style) {
+            RipDpiIconButtonStyle.Tonal, RipDpiIconButtonStyle.Filled -> colors.border
+            else -> Color.Transparent
+        }
+    return IconButtonDefaults.iconButtonColors(
+        containerColor = container,
+        contentColor = content,
+        disabledContainerColor = disabledContainer,
+        disabledContentColor = disabledContent,
+    )
 }
 
 @Preview(showBackground = true)

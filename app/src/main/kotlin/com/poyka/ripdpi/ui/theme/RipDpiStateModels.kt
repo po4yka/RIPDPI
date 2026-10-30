@@ -4,23 +4,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 
-enum class RipDpiButtonStateRole {
-    Primary,
-    Secondary,
-    Outline,
-    Ghost,
-    Destructive,
-}
-
-enum class RipDpiIconButtonStateRole {
-    Ghost,
-    Tonal,
-    Filled,
-    Outline,
-    Destructive,
-    Warning,
-}
-
 enum class RipDpiSettingsRowStateRole {
     Default,
     Tonal,
@@ -60,26 +43,6 @@ enum class RipDpiRouteAvailabilityStateRole {
     Degraded,
     Failed,
 }
-
-@Immutable
-data class RipDpiButtonStateStyle(
-    val container: Color,
-    val content: Color,
-    val border: Color,
-    val borderWidth: Dp,
-    val cornerRadius: Dp,
-    val scale: Float,
-    val contentAlpha: Float,
-)
-
-@Immutable
-data class RipDpiIconButtonStateStyle(
-    val container: Color,
-    val content: Color,
-    val border: Color,
-    val borderWidth: Dp,
-    val scale: Float,
-)
 
 @Immutable
 data class RipDpiTextFieldStateStyle(

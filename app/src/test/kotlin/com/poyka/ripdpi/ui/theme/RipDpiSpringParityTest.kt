@@ -4,9 +4,6 @@ package com.poyka.ripdpi.ui.theme
 
 import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.PressInteraction
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.size
@@ -19,7 +16,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.toPixelMap
@@ -28,15 +24,10 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
-import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
-import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -54,92 +45,6 @@ import kotlin.math.abs
 class RipDpiSpringParityTest {
     @get:Rule
     val composeRule = createComposeRule()
-
-    @Test
-    fun `button interrupted scale and radius match typed legacy springs`() {
-        val source = MutableInteractionSource()
-        lateinit var scale: State<Float>
-        lateinit var radius: State<Dp>
-        show {
-            val pressed by source.collectIsPressedAsState()
-            val motion = RipDpiThemeTokens.motion
-            val state =
-                RipDpiThemeTokens.state.button.resolve(
-                    role = RipDpiThemeTokens.stateRoles.button.fromVariant(RipDpiButtonVariant.Primary),
-                    enabled = true,
-                    loading = false,
-                    isPressed = pressed,
-                    isFocused = false,
-                )
-            scale = animateFloatAsState(state.scale, motion.motionAwareSpring(), label = "legacyScale")
-            radius = animateDpAsState(state.cornerRadius, motion.motionAwareSpring(), label = "legacyRadius")
-            Column {
-                RipDpiButton(
-                    text = Label,
-                    onClick = {},
-                    modifier = Modifier.size(200.dp, 64.dp).testTag(Actual),
-                    interactionSource = source,
-                    visualStyle = blueShell,
-                )
-                ReferenceShell(radius, scale = null)
-            }
-        }
-        val originalWidth = textWidth()
-        interrupt(source, scale) {
-            assertEquals(
-                "Content scale must preserve typed spring velocity",
-                scale.value,
-                textWidth() / originalWidth,
-                0.001f,
-            )
-            assertCornerMatchesReference()
-        }
-    }
-
-    @Test
-    fun `icon button interrupted scale matches typed legacy spring`() {
-        val source = MutableInteractionSource()
-        lateinit var scale: State<Float>
-        show {
-            val pressed by source.collectIsPressedAsState()
-            val motion = RipDpiThemeTokens.motion
-            val state =
-                RipDpiThemeTokens.state.iconButton.resolve(
-                    role =
-                        RipDpiThemeTokens.stateRoles.iconButton.fromStyle(
-                            RipDpiIconButtonStyle.Ghost,
-                        ),
-                    enabled = true,
-                    loading = false,
-                    selected = false,
-                    isPressed = pressed,
-                    isFocused = false,
-                )
-            scale = animateFloatAsState(state.scale, motion.motionAwareSpring(), label = "legacyScale")
-            RipDpiIconButton(
-                icon = RipDpiIcons.Check,
-                contentDescription = Label,
-                onClick = {},
-                modifier = Modifier.testTag(Actual),
-                interactionSource = source,
-            )
-        }
-        interrupt(source, scale) {
-            val coordinates =
-                composeRule
-                    .onNodeWithTag(Actual)
-                    .fetchSemanticsNode()
-                    .layoutInfo.coordinates
-            val left = coordinates.localToRoot(Offset.Zero)
-            val right = coordinates.localToRoot(Offset(coordinates.size.width.toFloat(), 0f))
-            assertEquals(
-                "Content transform must preserve typed spring velocity",
-                scale.value,
-                (right.x - left.x) / coordinates.size.width,
-                0.001f,
-            )
-        }
-    }
 
     @Test
     fun `chip interrupted painted scale and radius match typed legacy springs`() {
@@ -181,39 +86,6 @@ class RipDpiSpringParityTest {
         assertCornerMatchesReference()
     }
 
-    @Test
-    fun `disabling motion snaps an active spring and caller scale still wins`() {
-        val source = MutableInteractionSource()
-        val animationsEnabled = mutableStateOf(true)
-        val caller = mutableStateOf<CommonStyle>(CommonStyle)
-        show {
-            CompositionLocalProvider(
-                LocalRipDpiMotion provides
-                    RipDpiMotion(
-                        animationsEnabled = animationsEnabled.value,
-                        hapticsEnabled = false,
-                    ),
-            ) {
-                RipDpiButton(
-                    text = Label,
-                    onClick = {},
-                    modifier = Modifier.size(200.dp, 64.dp),
-                    interactionSource = source,
-                    visualStyle = caller.value,
-                )
-            }
-        }
-        val originalWidth = textWidth()
-        composeRule.runOnIdle { assertTrue(source.tryEmit(PressInteraction.Press(Offset.Zero))) }
-        advance(64)
-        composeRule.runOnIdle { animationsEnabled.value = false }
-        advance(16)
-        assertEquals(DefaultRipDpiMotion.pressScale, textWidth() / originalWidth, 0.001f)
-        composeRule.runOnIdle { caller.value = CommonStyle { rdsContentScale(0.5f) } }
-        advance(16)
-        assertEquals(0.5f, textWidth() / originalWidth, 0.001f)
-    }
-
     private fun show(content: @Composable () -> Unit) {
         composeRule.mainClock.autoAdvance = false
         composeRule.setContent {
@@ -248,37 +120,11 @@ class RipDpiSpringParityTest {
         }
     }
 
-    private fun interrupt(
-        source: MutableInteractionSource,
-        referenceScale: State<Float>,
-        assertFrame: () -> Unit,
-    ) {
-        val press = PressInteraction.Press(Offset.Zero)
-        composeRule.runOnIdle { assertTrue(source.tryEmit(press)) }
-        advance(64)
-        assertTrue("Forward control must animate the press", abs(referenceScale.value - 1f) > 0.001f)
-        // A matching forward leg is the control before velocity is reversed.
-        assertFrame()
-        composeRule.runOnIdle { assertTrue(source.tryEmit(PressInteraction.Release(press))) }
-        repeat(8) {
-            advance(16)
-            assertFrame()
-        }
-        advance(500)
-        assertFrame()
-    }
-
     private fun advance(millis: Long) {
         composeRule.waitForIdle()
         composeRule.mainClock.advanceTimeBy(millis)
         composeRule.waitForIdle()
     }
-
-    private fun textWidth(): Float =
-        composeRule
-            .onNodeWithText(Label, useUnmergedTree = true)
-            .fetchSemanticsNode()
-            .boundsInRoot.width
 
     private fun assertCornerMatchesReference() {
         val actual = composeRule.onNodeWithTag(Actual).captureToImage().toPixelMap()
