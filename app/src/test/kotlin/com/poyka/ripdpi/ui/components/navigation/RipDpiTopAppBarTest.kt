@@ -102,6 +102,38 @@ class RipDpiTopAppBarTest {
     }
 
     @Test
+    @Config(qualifiers = "w1300dp-h900dp")
+    fun wideWindowKeepsTheBackgroundFullWidthAndTheControlsInTheContentColumn() {
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f)) {
+                RipDpiTheme {
+                    RipDpiTopAppBar(
+                        "Logs",
+                        Modifier.testTag("bar"),
+                        navigationIcon = RipDpiIcons.Back,
+                        onNavigationClick = {},
+                        actions = {
+                            RipDpiIconButton(
+                                icon = RipDpiIcons.Search,
+                                contentDescription = "Search",
+                                onClick = {},
+                            )
+                        },
+                    )
+                }
+            }
+        }
+        val bar = composeRule.onNodeWithTag("bar").fetchSemanticsNode().boundsInRoot
+        val back = composeRule.onNodeWithContentDescription(backLabel()).fetchSemanticsNode().boundsInRoot
+        val search = composeRule.onNodeWithContentDescription("Search").fetchSemanticsNode().boundsInRoot
+        // Expanded windows cap the content column at 960dp, centered in the 1300dp window.
+        val columnStart = (1300f - 960f) / 2
+        assertEquals(1300f, bar.width, 0.5f)
+        assertTrue("Back sits inside the centered column: $back", back.left >= columnStart)
+        assertTrue("Search sits inside the centered column: $search", search.right <= 1300f - columnStart)
+    }
+
+    @Test
     fun largeTitleWithoutControlsDoesNotReserveAnEmptyToolbarRow() {
         val label = RuntimeEnvironment.getApplication().getString(R.string.settings)
         val width = mutableStateOf(320)
