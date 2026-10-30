@@ -128,12 +128,25 @@ data class RipDpiMotion(
             fadeOut(animationSpec = quickTween(easing = EmphasizedAccelerate))
         }
 
-    fun routePopExitTransition(targetScale: Float = 0.992f): ExitTransition =
+    // The back gesture seeks pop transitions by its progress, so both sides share one linear spec:
+    // the outgoing screen then tracks the finger and does not vanish before the gesture commits.
+    fun <T> routePopTween(): TweenSpec<T> = routeTween(easing = LinearEasing)
+
+    fun routePopEnterTransition(initialScale: Float = 0.992f): EnterTransition =
+        if (!animationsEnabled) {
+            EnterTransition.None
+        } else {
+            fadeIn(animationSpec = routePopTween()) +
+                scaleIn(initialScale = initialScale, animationSpec = routePopTween())
+        }
+
+    // Material predictive back: the outgoing screen shrinks toward 90% and fades out.
+    fun routePopExitTransition(targetScale: Float = 0.9f): ExitTransition =
         if (!animationsEnabled) {
             ExitTransition.None
         } else {
-            fadeOut(animationSpec = quickTween(easing = EmphasizedAccelerate)) +
-                scaleOut(targetScale = targetScale, animationSpec = quickTween(easing = EmphasizedAccelerate))
+            fadeOut(animationSpec = routePopTween()) +
+                scaleOut(targetScale = targetScale, animationSpec = routePopTween())
         }
 
     fun nestedEnterTransition(): EnterTransition =

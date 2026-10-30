@@ -314,7 +314,7 @@ private fun RipDpiNavGraph(
                 .consumeWindowInsets(innerPadding),
         enterTransition = { motion.routeEnterTransition() },
         exitTransition = { motion.routeExitTransition() },
-        popEnterTransition = { motion.routeEnterTransition(initialScale = 0.992f) },
+        popEnterTransition = { motion.routePopEnterTransition() },
         popExitTransition = { motion.routePopExitTransition() },
     ) {
         addPrimaryRoutes(
