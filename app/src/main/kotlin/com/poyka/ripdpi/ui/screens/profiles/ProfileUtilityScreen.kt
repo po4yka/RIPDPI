@@ -249,7 +249,7 @@ private fun ProfileUtilityHeader(
             )
         }
         RipDpiIconButton(
-            icon = RipDpiIcons.Favorite,
+            icon = if (profile.favorite) RipDpiIcons.FavoriteFilled else RipDpiIcons.Favorite,
             contentDescription =
                 stringResource(
                     if (profile.favorite) {

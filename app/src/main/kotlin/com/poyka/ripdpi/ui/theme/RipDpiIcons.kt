@@ -53,6 +53,7 @@ object RipDpiIcons {
     val LockOpen: ImageVector by lazy { symbol("LockOpen", P.LockOpen) }
     val Copy: ImageVector by lazy { symbol("Copy", P.ContentCopy) }
     val Favorite: ImageVector by lazy { symbol("Favorite", P.Star) }
+    val FavoriteFilled: ImageVector by lazy { symbol("FavoriteFilled", P.StarFilled) }
     val Share: ImageVector by lazy { symbol("Share", P.Share) }
     val ChevronRight: ImageVector by lazy { symbol("ChevronRight", P.KeyboardArrowRight, autoMirror = true) }
     val Back: ImageVector by lazy { symbol("Back", P.ArrowBack, autoMirror = true) }

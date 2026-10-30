@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.profiles
 
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
+import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -168,6 +169,25 @@ class ProfileUtilityScreenTest {
         render(state(), actions(favorite = { ref, generation, value -> requests += Triple(ref, generation, value) }))
         composeRule.onNodeWithTag(ProfileUtilityTestTags.action(reference, "favorite")).performScrollTo().performClick()
         assertEquals(listOf(Triple(reference, 7L, true)), requests)
+    }
+
+    @Test
+    fun `favorite button is not selected for a non favorite profile`() {
+        render(state(), actions())
+        composeRule
+            .onNodeWithTag(ProfileUtilityTestTags.action(reference, "favorite"))
+            .performScrollTo()
+            .assertIsNotSelected()
+    }
+
+    @Test
+    fun `favorite button is selected for a favorite profile`() {
+        val favorite = state().let { it.copy(profiles = persistentListOf(it.profiles.single().copy(favorite = true))) }
+        render(favorite, actions())
+        composeRule
+            .onNodeWithTag(ProfileUtilityTestTags.action(reference, "favorite"))
+            .performScrollTo()
+            .assertIsSelected()
     }
 
     @Test

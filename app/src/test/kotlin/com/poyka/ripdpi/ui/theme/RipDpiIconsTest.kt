@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.theme
 
 import androidx.compose.ui.graphics.vector.ImageVector
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -23,6 +24,11 @@ class RipDpiIconsTest {
             assertEquals(name, 960f, icon.viewportWidth, 0f)
             assertEquals(name, 960f, icon.viewportHeight, 0f)
         }
+    }
+
+    @Test
+    fun `favorite has a distinct filled variant`() {
+        assertNotEquals(RipDpiIcons.Favorite.root, RipDpiIcons.FavoriteFilled.root)
     }
 
     @Test
