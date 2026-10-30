@@ -21,6 +21,7 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -185,10 +186,13 @@ internal fun DetectionCheckScreen(
         onRequestPermissions = onRequestPermissions,
     )
 
+    val topBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     RipDpiScreenScaffold(
+        scrollBehavior = topBarScrollBehavior,
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.DetectionCheck)),
         topBar = {
             com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar(
+                scrollBehavior = topBarScrollBehavior,
                 title = stringResource(R.string.title_detection_check),
                 navigationIcon = RipDpiIcons.Back,
                 onNavigationClick = onBack,

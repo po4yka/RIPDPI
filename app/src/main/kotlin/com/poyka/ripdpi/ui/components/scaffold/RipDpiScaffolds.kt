@@ -22,10 +22,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.zIndex
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
@@ -50,12 +53,14 @@ fun RipDpiScreenScaffold(
     topBar: @Composable () -> Unit = {},
     snackbarHost: @Composable () -> Unit = {},
     bottomBar: @Composable () -> Unit = {},
+    scrollBehavior: TopAppBarScrollBehavior? = null,
     content: @Composable (PaddingValues) -> Unit,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val scrollModifier = scrollBehavior?.let { Modifier.nestedScroll(it.nestedScrollConnection) } ?: Modifier
 
     Scaffold(
-        modifier = modifier.ripDpiAutomationTreeRoot(),
+        modifier = modifier.then(scrollModifier).ripDpiAutomationTreeRoot(),
         containerColor = colors.background,
         topBar = topBar,
         snackbarHost = snackbarHost,
@@ -77,11 +82,14 @@ fun RipDpiContentScreenScaffold(
 ) {
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
+    val topBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
     RipDpiScreenScaffold(
         modifier = modifier,
+        scrollBehavior = topBarScrollBehavior,
         topBar = {
             RipDpiTopAppBar(
+                scrollBehavior = topBarScrollBehavior,
                 title = title,
                 navigationIcon = navigationIcon,
                 onNavigationClick = onNavigationClick,
@@ -130,11 +138,14 @@ fun RipDpiSettingsScaffold(
 ) {
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
+    val topBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
 
     RipDpiScreenScaffold(
         modifier = modifier.imePadding(),
+        scrollBehavior = topBarScrollBehavior,
         topBar = {
             RipDpiTopAppBar(
+                scrollBehavior = topBarScrollBehavior,
                 title = title,
                 navigationIcon = navigationIcon,
                 onNavigationClick = onNavigationClick,

@@ -21,6 +21,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -123,7 +124,9 @@ internal fun LogsScreen(
     var showFilters by rememberSaveable { mutableStateOf(false) }
     var showActions by rememberSaveable { mutableStateOf(false) }
 
+    val topBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     RipDpiScreenScaffold(
+        scrollBehavior = topBarScrollBehavior,
         modifier =
             modifier
                 .ripDpiTestTag(RipDpiTestTags.LogsScreen)
@@ -132,6 +135,7 @@ internal fun LogsScreen(
         snackbarHost = { RipDpiSnackbarHost(snackbarHostState) },
         topBar = {
             RipDpiTopAppBar(
+                scrollBehavior = topBarScrollBehavior,
                 title = stringResource(R.string.logs),
                 navigationIcon = RipDpiIcons.Back,
                 onNavigationClick = onBack,

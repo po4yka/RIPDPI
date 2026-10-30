@@ -14,6 +14,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
@@ -95,10 +96,13 @@ fun PcapViewerScreen(
     var selectedIndex by rememberSaveable { mutableIntStateOf(initiallySelectedIndex) }
     val listState = rememberLazyListState()
 
+    val topBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     RipDpiScreenScaffold(
+        scrollBehavior = topBarScrollBehavior,
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.PcapViewer())),
         topBar = {
             RipDpiTopAppBar(
+                scrollBehavior = topBarScrollBehavior,
                 title = stringResource(R.string.title_pcap_viewer),
                 navigationIcon = RipDpiIcons.Back,
                 onNavigationClick = onBack,
