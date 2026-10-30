@@ -18,6 +18,7 @@ type packetEvent struct {
 	Length    int    `json:"length"`
 	Receiver  uint32 `json:"receiver,omitempty"`
 	Counter   uint64 `json:"counter,omitempty"`
+	Dropped   bool   `json:"dropped,omitempty"`
 }
 
 type wireEvidence struct {

@@ -17,6 +17,7 @@ import (
 	"net/netip"
 	"os"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -118,7 +119,9 @@ func (b *loopbackBind) Send(packets [][]byte, endpoint conn.Endpoint) error {
 		return net.ErrClosed
 	}
 	for _, packet := range packets {
-		b.observation.observe(packet, false)
+		if b.observation.observe(packet, false) {
+			continue
+		}
 		n, err := socket.WriteToUDPAddrPort(packet, target.AddrPort)
 		if err != nil {
 			return err
@@ -283,10 +286,14 @@ func run() error {
 		}
 	}
 	scenario := os.Getenv("RIPDPI_AWG_SCENARIO")
-	if scenario != "" && scenario != "payload" && scenario != "small-datagrams" {
+	if scenario != "" && scenario != "payload" && scenario != "small-datagrams" && scenario != "timer-persistent" && scenario != "timer-idle" && scenario != "timer-retry-loss" && scenario != "timer-rekey" && scenario != "timer-retry-exhaust" && scenario != "timer-reject" {
 		return errors.New("unknown fixture scenario")
 	}
-	small := scenario == "small-datagrams"
+	timed := strings.HasPrefix(scenario, "timer-")
+	small := scenario == "small-datagrams" || timed
+	if timed && (cycles != 1 || os.Getenv("RIPDPI_AWG_PROFILE") != "v3-cpa-trailers") {
+		return errors.New("timer scenarios require one session and v3-cpa-trailers")
+	}
 	profile, err := selectWireProfile(os.Getenv("RIPDPI_AWG_PROFILE"))
 	if err != nil {
 		return err
@@ -327,6 +334,9 @@ func run() error {
 		return err
 	}
 	bind.observation.profile = profile
+	if timed {
+		bind.observation.scenario = scenario
+	}
 	configured := newConfiguredTUN(tun)
 	configured.acceptedIP = bind.observation.acceptedIP
 	peer := device.NewDevice(configured, bind, &device.Logger{Verbosef: bind.observation.verbose, Errorf: device.DiscardLogf})
@@ -380,6 +390,9 @@ func run() error {
 	if small {
 		expected = 1
 	}
+	if scenario == "timer-persistent" || scenario == "timer-retry-exhaust" {
+		expected = 0
+	}
 	results := make(chan error, 8)
 	serve := func(exchange func() error) {
 		for cycle := 0; cycle < cycles; cycle++ {
@@ -390,7 +403,20 @@ func run() error {
 		}
 		results <- nil
 	}
-	go serve(func() error { return echoUDPPair(first, second) })
+	if scenario != "timer-persistent" && scenario != "timer-retry-exhaust" {
+		go serve(func() error {
+			if err := echoUDPPair(first, second); err != nil {
+				return err
+			}
+			if scenario == "timer-rekey" || scenario == "timer-reject" {
+				if err := echoUDPPair(first, second); err != nil {
+					return err
+				}
+				return echoUDPPair(first, second)
+			}
+			return nil
+		})
+	}
 	if !small {
 		go serve(func() error { return echoTCP(tcp) })
 		go serve(func() error { return echoTCP(tcp6) })

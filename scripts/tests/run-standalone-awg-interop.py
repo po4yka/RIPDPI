@@ -140,7 +140,15 @@ def run_case(binary: Path, test_binary: Path, case: Path, env: dict[str, str], c
                 completed = json.loads(completion)
                 if not isinstance(completed, dict) or not isinstance(completed.get("wire_observation"), dict):
                     raise ValueError("peer completion has no wire observation")
-                return completed["wire_observation"]
+                observation = completed["wire_observation"]
+                if env.get("RIPDPI_AWG_SCENARIO") == "timer-reject":
+                    test_log.flush()
+                    probes = [json.loads(line.removeprefix("AWG_EXPIRED_PROBE ")) for line in
+                              (case / "runtime.log").read_text().splitlines() if line.startswith("AWG_EXPIRED_PROBE ")]
+                    if len(probes) != 1:
+                        raise ValueError("missing runtime expiry probe")
+                    observation["expired_probe"] = probes[0]
+                return observation
             finally:
                 terminate_process_group(peer)
 
@@ -149,7 +157,7 @@ def run() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--peer", action="append", choices=PEERS)
     parser.add_argument("--profile", action="append", choices=PROFILES)
-    parser.add_argument("--scenario", action="append", choices=("payload", "small-datagrams"))
+    parser.add_argument("--scenario", action="append", choices=("payload", "small-datagrams", *WIRE.TIMER_SCENARIOS))
     parser.add_argument("--output-dir", type=Path, default=ROOT / "build/reports/awg-standalone" / str(time.time_ns()))
     parser.add_argument("--candidate-patch", action="store_true")
     args = parser.parse_args()
@@ -184,9 +192,11 @@ def run() -> None:
     shutil.copy2(executables[0], test_binary)
     identity["test_binary_sha256"] = hashlib.sha256(test_binary.read_bytes()).hexdigest()
     versions, profiles = args.peer or list(PEERS), args.profile or list(PROFILES)
-    scenarios = args.scenario or ["payload", "small-datagrams"]
+    scenarios = args.scenario or ["payload", "small-datagrams", *(WIRE.TIMER_SCENARIOS if "v3-cpa-trailers" in profiles else ())]
+    if any(scenario in WIRE.TIMER_SCENARIOS for scenario in scenarios) and "v3-cpa-trailers" not in profiles:
+        parser.error("timer scenarios require --profile v3-cpa-trailers")
     report = {"schema_version": 1, "identity": identity, "requested_peers": versions,
-              "requested_profiles": profiles, "requested_scenarios": scenarios, "mtus": [1280, 1420], "cycles": 4, "peer_builds": [], "cases": []}
+              "requested_profiles": profiles, "requested_scenarios": scenarios, "mtus": [1280, 1420], "cycles_by_scenario": {s: 1 if s in WIRE.TIMER_SCENARIOS else 4 for s in scenarios}, "peer_builds": [], "cases": []}
     failed = False
     for version in versions:
         try:
@@ -200,16 +210,22 @@ def run() -> None:
         digest = hashlib.sha256(binary.read_bytes()).hexdigest()
         for profile in profiles:
             for scenario in scenarios:
+                if scenario in WIRE.TIMER_SCENARIOS and profile != "v3-cpa-trailers":
+                    continue
+                cycles = 1 if scenario in WIRE.TIMER_SCENARIOS else 4
                 for mtu in (1280, 1420):
                     case = output / f"{version}-{profile}-{scenario}-{mtu}"
                     case.mkdir()
                     result = {"peer_version": version, "peer_sha": PEERS[version][0], "peer_binary_sha256": digest,
-                              "profile": profile, "scenario": scenario, "mtu": mtu, "cycles": 4}
+                              "profile": profile, "scenario": scenario, "mtu": mtu, "cycles": cycles}
                     started = time.monotonic()
                     try:
                         result["observation"] = run_case(binary, test_binary, case,
-                            dict(env, RIPDPI_AWG_PROFILE=profile, RIPDPI_AWG_SCENARIO=scenario, RIPDPI_AWG_INTEROP_MTU=str(mtu)), 4)
-                        validate_wire_observation(result["observation"], profile, mtu, 4, scenario)
+                            dict(env, RIPDPI_AWG_PROFILE=profile, RIPDPI_AWG_SCENARIO=scenario, RIPDPI_AWG_INTEROP_MTU=str(mtu), RIPDPI_AWG_INTEROP_CYCLES=str(cycles)), cycles)
+                        if scenario in WIRE.TIMER_SCENARIOS:
+                            WIRE.validate_timer_observation(result["observation"], mtu, scenario)
+                        else:
+                            validate_wire_observation(result["observation"], profile, mtu, cycles, scenario)
                         result["status"] = "passed"
                     except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
                         result.update(status="failed", error=str(error))

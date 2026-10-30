@@ -54,7 +54,15 @@ fn udp_frame(port: u16, payload: &[u8]) -> Vec<u8> {
 
 /// # Cancel safety
 /// cancel-safe: all client sockets are owned here and dropped on timeout; the owner stops the runtime.
-async fn exchange(runtime: &AmneziaWgRuntime, ready: &Notify) -> Result<(SocketAddr, TcpStream)> {
+async fn exchange(runtime: &AmneziaWgRuntime, ready: &Notify) -> Result<Option<(SocketAddr, TcpStream)>> {
+    if std::env::var("RIPDPI_AWG_SCENARIO").unwrap_or_default() == "timer-retry-exhaust" {
+        ensure!(
+            timeout(Duration::from_millis(7500), ready.notified()).await.is_err(),
+            "lost responses must not establish readiness"
+        );
+        ensure!(runtime.telemetry().state != "running", "exhausted handshake must stay unready");
+        return Ok(None);
+    }
     ready.notified().await;
     let telemetry = runtime.telemetry();
     ensure!(telemetry.state == "running", "runtime not ready after authenticated handshake");
@@ -64,7 +72,23 @@ async fn exchange(runtime: &AmneziaWgRuntime, ready: &Notify) -> Result<(SocketA
         "runtime must publish actual bound SOCKS port: {address}"
     );
     match std::env::var("RIPDPI_AWG_SCENARIO").unwrap_or_else(|_| "payload".into()).as_str() {
-        "small-datagrams" => exchange_small_datagrams(address).await?,
+        "small-datagrams" | "timer-retry-loss" => exchange_small_datagrams(address).await?,
+        "timer-persistent" => tokio::time::sleep(Duration::from_millis(6200)).await,
+        "timer-idle" => {
+            exchange_small_datagrams(address).await?;
+            tokio::time::sleep(Duration::from_millis(3700)).await;
+        }
+        "timer-reject" => {
+            exchange_small_datagrams(address).await?;
+            exchange_expiry(address).await?;
+        }
+        "timer-rekey" => {
+            exchange_small_datagrams(address).await?;
+            tokio::time::sleep(Duration::from_millis(2500)).await;
+            exchange_small_datagrams(address).await?;
+            tokio::time::sleep(Duration::from_millis(300)).await;
+            exchange_small_datagrams(address).await?;
+        }
         "payload" => exchange_payload(address).await?,
         other => anyhow::bail!("unknown AWG scenario {other}"),
     }
@@ -74,7 +98,7 @@ async fn exchange(runtime: &AmneziaWgRuntime, ready: &Notify) -> Result<(SocketA
     while runtime.telemetry().total_sessions == accepted {
         tokio::task::yield_now().await;
     }
-    Ok((address, stalled))
+    Ok(Some((address, stalled)))
 }
 
 /// # Cancel safety
@@ -155,6 +179,40 @@ async fn exchange_small_datagrams(address: SocketAddr) -> Result<()> {
 }
 
 /// # Cancel safety
+/// cancel-safe: recv_from cancellation consumes no datagram. The inner timeout retains both
+/// sockets; outer cancellation drops them.
+async fn exchange_expiry(address: SocketAddr) -> Result<()> {
+    let (_control, relay) = socks_request(address, 3, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
+    ensure!(relay.ip().is_loopback() && relay.port() != 0, "unsafe expiry-probe relay");
+    let udp = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await?;
+    tokio::time::sleep(Duration::from_millis(4500)).await;
+    for (phase, payload) in [b"awg-expired-probe", b"awg-recover-probe"].into_iter().enumerate() {
+        let frames = [udp_frame(41002, payload), udp_frame(41003, payload)];
+        for frame in &frames {
+            udp.send_to(frame, relay).await?;
+        }
+        let mut bytes = [0; 2048];
+        if phase == 0 {
+            let started = tokio::time::Instant::now();
+            ensure!(
+                timeout(Duration::from_secs(1), udp.recv_from(&mut bytes)).await.is_err(),
+                "expired key delivered data while fresh responses were dropped"
+            );
+            println!("AWG_EXPIRED_PROBE {{\"no_reply\":true,\"wait_ms\":{}}}", started.elapsed().as_millis());
+            tokio::time::sleep(Duration::from_secs(3)).await;
+        }
+        let mut replies = Vec::new();
+        for _ in 0..2 {
+            let (size, source) = udp.recv_from(&mut bytes).await?;
+            ensure!(source == relay, "unexpected expiry-probe response source");
+            replies.push(bytes[..size].to_vec());
+        }
+        ensure!(frames.iter().all(|frame| replies.contains(frame)), "expiry recovery payload/source differs");
+    }
+    Ok(())
+}
+
+/// # Cancel safety
 /// NOT cancel-safe: this test owns a runtime task and explicitly stops, aborts if needed, and joins it.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn standalone_profile_exchanges_tcp_and_udp_with_independent_awg_peer() -> Result<()> {
@@ -162,7 +220,7 @@ async fn standalone_profile_exchanges_tcp_and_udp_with_independent_awg_peer() ->
         .context("run this feature through scripts/tests/run-standalone-awg-interop.py")?
         .parse()?;
     ensure!(endpoint.is_ipv4() && endpoint.ip().is_loopback() && endpoint.port() != 0, "peer must be IPv4 loopback");
-    let runtime = AmneziaWgRuntime::new(AmneziaWgProfileConfig {
+    let mut config = AmneziaWgProfileConfig {
         enabled: true,
         profile_id: "awg-independent-loopback-interop".into(),
         private_key: STANDARD.encode([7; 32]),
@@ -178,7 +236,30 @@ async fn standalone_profile_exchanges_tcp_and_udp_with_independent_awg_peer() ->
         local_socks_port: 0,
         amnezia: profile_obfuscation(&std::env::var("RIPDPI_AWG_PROFILE").unwrap_or_default())?,
         ..Default::default()
-    });
+    };
+    match std::env::var("RIPDPI_AWG_SCENARIO").unwrap_or_default().as_str() {
+        "timer-persistent" => {
+            config.persistent_keepalive = 1;
+            config.persistent_keepalive_max = 2;
+        }
+        "timer-idle" => config.amnezia.v3.keepalive_timeout = "1".into(),
+        "timer-retry-loss" => config.amnezia.v3.rekey_timeout = "1".into(),
+        "timer-retry-exhaust" => {
+            config.amnezia.v3.rekey_timeout = "1".into();
+            config.amnezia.v3.max_handshake_attempts = "1".into();
+        }
+        "timer-reject" => {
+            config.amnezia.v3.reject_after_time = "3-4".into();
+            config.amnezia.v3.rekey_timeout = "1".into();
+            config.amnezia.v3.keepalive_timeout = "1".into();
+        }
+        "timer-rekey" => {
+            config.amnezia.v3.rekey_after_time = "2".into();
+            config.amnezia.v3.rekey_timeout = "1".into();
+        }
+        _ => {}
+    }
+    let runtime = AmneziaWgRuntime::new(config);
     let ready = Arc::new(Notify::new());
     let signal = Arc::clone(&ready);
     runtime.set_readiness_observer(Arc::new(move || signal.notify_one()));
@@ -193,7 +274,10 @@ async fn standalone_profile_exchanges_tcp_and_udp_with_independent_awg_peer() ->
         anyhow::bail!("runtime shutdown exceeded deadline");
     }
     stopped.context("shutdown timeout")??.context("runtime failed")?;
-    let (address, mut stalled) = outcome.context("independent AWG exchange deadline exceeded")??;
+    let Some((address, mut stalled)) = outcome.context("independent AWG exchange deadline exceeded")?? else {
+        ensure!(runtime.telemetry().state == "idle", "exhausted runtime did not stop");
+        return Ok(());
+    };
     ensure!(runtime.telemetry().state == "idle", "runtime did not stop");
     let mut byte = [0];
     let read = timeout(Duration::from_millis(500), stalled.read(&mut byte)).await;

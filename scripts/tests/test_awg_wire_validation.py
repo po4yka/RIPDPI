@@ -2,7 +2,7 @@
 import copy
 import unittest
 
-from scripts.tests.awg_wire_validation import validate_wire_observation
+from scripts.tests.awg_wire_validation import validate_wire_observation, validate_timer_observation
 
 
 def small_cpa_observation():
@@ -96,6 +96,148 @@ class WireSemantics(unittest.TestCase):
             changed["evidence"]["lengths"][0][3] = {"56": 4, "101": 8} if profile == "v3-aligned" else {"80": 4, "500": 8}
             account_transport(changed)
             with self.assertRaises(ValueError): validate_wire_observation(changed, profile, 1280, 4, "small-datagrams")
+
+
+def timer_observation(scenario):
+    # Independent times and wire lengths for the fixed CPA=16 profile.
+    rows = [(0, "in", 1, 200, 0), (.01, "out", 2, 130, 0)]
+    if scenario == "timer-retry-loss":
+        rows += [(1, "in", 1, 200, 0), (1.01, "out", 2, 130, 0)]
+    start = 1.02 if scenario == "timer-retry-loss" else .02
+    rows += [(start, "in", 4, 72, 101)]
+    if scenario == "timer-persistent":
+        rows += [(t, "in", 4, 72, 101) for t in (1.02, 3.02, 4.02, 6.02)]
+        elapsed = 6.22
+    else:
+        rows += [(start+.01, "in", 4, 117, 101), (start+.02, "in", 4, 117, 101),
+                 (start+.03, "out", 4, 117, 1), (start+.04, "out", 4, 117, 1)]
+        elapsed = start+.1
+        if scenario == "timer-idle":
+            rows += [(1.06, "in", 4, 72, 101), (2.06, "in", 4, 72, 101)]
+            elapsed = 3.76
+        elif scenario == "timer-rekey":
+            rows += [(2.5, "in", 1, 200, 0), (2.51, "out", 2, 130, 0), (2.52, "in", 4, 72, 202)]
+            rows += [(t, direction, 4, 117, receiver) for t, direction, receiver in
+                     ((2.53,"in",202),(2.54,"in",202),(2.55,"out",2),(2.56,"out",2),
+                      (2.83,"in",202),(2.84,"in",202),(2.85,"out",2),(2.86,"out",2))]
+            elapsed = 2.96
+    result = small_cpa_observation()
+    result.update(scenario=scenario, elapsed_ns=int(elapsed*1e9))
+    evidence = result["evidence"]
+    evidence.update(events=[], events_dropped=0)
+    for index, (time, direction, kind, length, receiver) in enumerate(rows, 1):
+        event = dict(id=index, at_ns=int(time*1e9), direction=direction, type=kind, length=length)
+        if receiver: event.update(receiver=receiver, counter=index)
+        if scenario == "timer-retry-loss" and index == 2: event["dropped"] = True
+        evidence["events"].append(event)
+    recount_timer(result)
+    return result
+
+
+def recount_timer(observation):
+    from collections import Counter
+    evidence = observation["evidence"]
+    events = evidence["events"]
+    evidence["lengths"] = [[dict(Counter(str(e["length"]) for e in events if e["direction"] == side and e["type"] == kind))
+                           for kind in range(1, 5)] for side in ("in", "out")]
+    incoming = [e for e in events if e["direction"] == "in"]
+    initiations = sum(e["type"] == 1 for e in incoming)
+    evidence["authenticated_keepalives"] = sum(e["type"] == 4 and e["length"] == 72 for e in incoming)
+    ip_count = sum(e["type"] == 4 and e["length"] == 117 for e in incoming)
+    evidence["ip_lengths"] = {"45": ip_count} if ip_count else {}
+    evidence["peer_counters"]["rx_bytes"] = initiations*148 + sum(e["length"]-24 for e in incoming if e["type"] == 4)
+    observation.update(handshakes=initiations, fresh_signature_packets=initiations)
+    for index, event in enumerate(events, 1): event["id"] = index
+
+
+class TimerSemantics(unittest.TestCase):
+    def test_independent_timer_examples_and_missing_features(self):
+        for scenario in ("timer-persistent", "timer-idle", "timer-retry-loss", "timer-rekey"):
+            good = timer_observation(scenario)
+            validate_timer_observation(good, 1280, scenario)
+            bad = copy.deepcopy(good)
+            events = bad["evidence"]["events"]
+            if scenario in ("timer-persistent", "timer-idle"):
+                # Removing the periodic/idle behavior keeps histograms and auth
+                # counters internally consistent; the timing oracle must fail.
+                events[:] = [e for e in events if not (e["type"] == 4 and e["length"] == 72 and e["at_ns"] > 500_000_000)]
+                recount_timer(bad)
+            elif scenario == "timer-retry-loss":
+                events[1].pop("dropped")
+            else:
+                for event in events:
+                    if event.get("receiver") == 202: event["receiver"] = 101
+            with self.subTest(scenario=scenario), self.assertRaises(ValueError):
+                validate_timer_observation(bad, 1280, scenario)
+
+    def test_exhaustion_requires_attempt_limit_and_silence(self):
+        good = timer_observation("timer-retry-loss")
+        good.update(scenario="timer-retry-exhaust", elapsed_ns=7_500_000_000)
+        events = good["evidence"]["events"]
+        events[:] = events[:4] + [dict(id=5, at_ns=2_000_000_000, direction="in", type=1, length=200),
+                                 dict(id=6, at_ns=2_010_000_000, direction="out", type=2, length=130, dropped=True)]
+        events[3]["dropped"] = True
+        good["evidence"]["peer_counters"]["last_handshake_time_sec"] = 0
+        recount_timer(good)
+        validate_timer_observation(good, 1280, "timer-retry-exhaust")
+        boundary = copy.deepcopy(good)
+        for event, at in zip(boundary["evidence"]["events"][2:], (1.75, 1.76, 3.5, 3.51)):
+            event["at_ns"] = int(at*1e9)
+        validate_timer_observation(boundary, 1280, "timer-retry-exhaust")
+        for mutation in (
+            lambda o: o.update(elapsed_ns=3_200_000_000),
+            lambda o: o["evidence"]["events"].pop(),
+            lambda o: o["evidence"]["events"][3].update(dropped=False),
+            lambda o: o["evidence"]["peer_counters"].update(last_handshake_time_sec=1),
+        ):
+            bad = copy.deepcopy(good)
+            mutation(bad)
+            recount_timer(bad)
+            with self.assertRaises(ValueError): validate_timer_observation(bad, 1280, "timer-retry-exhaust")
+
+    def test_expiry_requires_stimulus_loss_old_key_rejection_and_recovery(self):
+        good = timer_observation("timer-rekey")
+        good.update(scenario="timer-reject", elapsed_ns=8_900_000_000, expired_probe=dict(no_reply=True, wait_ms=1000))
+        events = good["evidence"]["events"]
+        initial = events[:7]
+        recovery = events[7:]
+        for event in recovery: event["at_ns"] += 5_700_000_000
+        drops = []
+        for time in (4.6, 5.8, 7.0):
+            drops += [dict(at_ns=int(time*1e9), direction="in", type=1, length=200),
+                      dict(at_ns=int((time+.01)*1e9), direction="out", type=2, length=130, dropped=True)]
+        events[:] = initial + drops + recovery
+        recount_timer(good)
+        validate_timer_observation(good, 1280, "timer-reject")
+        for mutation in (
+            lambda o: o.pop("expired_probe"),
+            lambda o: o["expired_probe"].update(no_reply=False),
+            lambda o: o["evidence"]["events"][8].update(dropped=False),
+            lambda o: o["evidence"]["events"][-3].update(receiver=101),
+        ):
+            bad = copy.deepcopy(good)
+            mutation(bad)
+            with self.assertRaises(ValueError): validate_timer_observation(bad, 1280, "timer-reject")
+
+    def test_retry_rejects_the_old_five_second_interval(self):
+        bad = timer_observation("timer-retry-loss")
+        for event in bad["evidence"]["events"][2:]: event["at_ns"] += 4_000_000_000
+        bad["elapsed_ns"] += 4_000_000_000
+        with self.assertRaisesRegex(ValueError, "retry interval"):
+            validate_timer_observation(bad, 1280, "timer-retry-loss")
+
+    def test_timer_windows_order_authentication_and_prelude_are_required(self):
+        for mutation in (
+            lambda o: o.update(elapsed_ns=1_000_000_000),
+            lambda o: o["evidence"].update(events_dropped=1),
+            lambda o: o["evidence"]["events"][3].update(at_ns=100_000_000),
+            lambda o: o["evidence"]["events"][3].update(id=9),
+            lambda o: o["evidence"].update(authenticated_keepalives=0),
+            lambda o: o.update(fresh_signature_packets=0),
+        ):
+            observation = timer_observation("timer-persistent")
+            mutation(observation)
+            with self.assertRaises(ValueError): validate_timer_observation(observation, 1280, "timer-persistent")
 
 
 if __name__ == "__main__":

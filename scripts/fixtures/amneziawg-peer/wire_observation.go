@@ -96,9 +96,11 @@ func (p wireProfile) matchesHeader(index int, header uint32) bool {
 
 // Measurements come from the actual received and sent datagrams, before upstream decoding.
 type wireObservation struct {
-	mu       sync.Mutex
-	profile  wireProfile
-	evidence wireEvidence
+	mu        sync.Mutex
+	profile   wireProfile
+	scenario  string
+	responses int
+	evidence  wireEvidence
 	// Protected profile only: raw headers inside a configured range, handshake trailers, transport sizes.
 	clearHeaders   int
 	trailers       int
@@ -111,7 +113,7 @@ type wireObservation struct {
 	failure        string
 }
 
-func (o *wireObservation) observe(packet []byte, inbound bool) {
+func (o *wireObservation) observe(packet []byte, inbound bool) bool {
 	o.mu.Lock()
 	defer o.mu.Unlock()
 	if o.signatures == nil {
@@ -143,21 +145,21 @@ func (o *wireObservation) observe(packet []byte, inbound bool) {
 			}
 			o.signatures[string(packet[2:18])] = true
 			o.stage = 1
-			return
+			return false
 		}
 		if o.stage >= 1 && o.stage <= 4 {
 			if len(packet) != 1 || packet[0] != byte(0xf1+o.stage) {
 				o.failure = "I1-I5 order mismatch"
 			}
 			o.stage++
-			return
+			return false
 		}
 		if o.stage >= 5 && o.stage <= 8 {
 			if len(packet) < 64 || len(packet) > 96 {
 				o.failure = "Jc junk must follow I1-I5"
 			}
 			o.stage++
-			return
+			return false
 		}
 	}
 	wire := o.wire()
@@ -179,6 +181,14 @@ func (o *wireObservation) observe(packet []byte, inbound bool) {
 			continue
 		}
 		o.evidence.record(wire, packet, inbound, index)
+		dropped := false
+		if !inbound && index == 1 {
+			o.responses++
+			dropped = (o.scenario == "timer-retry-loss" && o.responses == 1) || o.scenario == "timer-retry-exhaust" || (o.scenario == "timer-reject" && o.responses > 1 && time.Since(o.evidence.start) < 8*time.Second)
+			if dropped {
+				o.evidence.Events[len(o.evidence.Events)-1].Dropped = true
+			}
+		}
 		if wire.headerKey != nil && wire.matchesHeader(index, raw) {
 			o.clearHeaders++
 		}
@@ -200,11 +210,12 @@ func (o *wireObservation) observe(packet []byte, inbound bool) {
 		} else {
 			o.outbound[index][header] = true
 		}
-		return
+		return dropped
 	}
 	if inbound {
 		o.failure = "packet outside configured header ranges"
 	}
+	return false
 }
 
 func (o *wireObservation) wire() wireProfile {
@@ -224,7 +235,7 @@ func (o *wireObservation) finish(cycles int) error {
 	if o.wire().fixedHeaders {
 		minimumHeaders = 1
 	}
-	if o.handshakes < cycles || len(o.signatures) < cycles || len(o.inbound[0]) == 0 || len(o.outbound[1]) == 0 || len(o.inbound[3]) < minimumHeaders || len(o.outbound[3]) < minimumHeaders {
+	if o.handshakes < cycles || len(o.signatures) < cycles || len(o.inbound[0]) == 0 || len(o.outbound[1]) == 0 || (o.scenario == "" && (len(o.inbound[3]) < minimumHeaders || len(o.outbound[3]) < minimumHeaders)) {
 		return fmt.Errorf("incomplete wire observation: handshakes=%d fresh-signatures=%d H4-in=%d H4-out=%d", o.handshakes, len(o.signatures), len(o.inbound[3]), len(o.outbound[3]))
 	}
 	wire := o.wire()
@@ -233,6 +244,7 @@ func (o *wireObservation) finish(cycles int) error {
 	}
 	result := map[string]any{
 		"schema_version": 2, "evidence": o.evidence, "padding": wire.padding,
+		"scenario": o.scenario, "elapsed_ns": time.Since(o.evidence.start).Nanoseconds(),
 		"wire_profile": wire.name, "handshakes": o.handshakes,
 		"fresh_signature_packets": len(o.signatures), "h4_in_values": len(o.inbound[3]), "h4_out_values": len(o.outbound[3]),
 		"signature_order": "I1-I5,Jc,initiation", "signature_tags": []string{"b", "r", "rd", "rc", "t"},

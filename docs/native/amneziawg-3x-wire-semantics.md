@@ -165,7 +165,8 @@ prove those acceptance categories or production DPI behavior.
 
 `build-gate --lane ripdpi -- python3 scripts/tests/run-standalone-awg-interop.py`
 checks both Go revisions, seven named profiles, MTU 1280/1420, and four sessions
-per case, for both payload and small-datagram scenarios (56 cases). `--peer`,
+per case, for both payload and small-datagram scenarios (56 cases). Six timer
+scenarios add 24 single-session cases on `v3-cpa-trailers`. `--peer`,
 `--profile`, and `--scenario` select a smaller diagnostic run; its receipt
 lists the selected cases. Use `--candidate-patch` only for local development; new
 files must be staged so the archived patch includes them. JSON and logs are kept
@@ -180,7 +181,14 @@ per session. An independent validator checks aggregate CPA, RT, alignment,
 handshake trailer, HP, and authenticated byte constraints. Histograms do not
 associate each plaintext with its transport counter. An all-zero RT sample
 fails as missing evidence; keep its receipt and repeat the bounded case.
-Timer and cookie scenarios remain separate requirements. Android evidence v2
+Timer scenarios check persistent interval bounds, passive keepalives after two
+data events, retry after a dropped response, retry exhaustion and silence,
+age rekey with fresh-key payload, and expired-key rejection with recovery.
+Outgoing response-loss events are explicit in the bounded journal. The retry
+bound includes upstream jitter and the runtime's 250 ms timer poll. Exact
+boundary and resampling behavior remains covered by backend unit tests; these
+wall-clock cases do not prove repeated random selection. Cookie load scenarios
+remain required. Android evidence v2
 uses the same validator; a schema upgrade does not replace a fresh device run.
 
 Linux acceptance uses `scripts/tests/run-linux-awg-interop.py` inside a new VM
