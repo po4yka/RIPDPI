@@ -2,7 +2,7 @@
 id: TRN-1793271658511991
 title: Complete AmneziaWG 3.1 behavior and verification
 kind: feature
-status: review
+status: done
 area: transport
 priority: high
 owner: protocol-runtime
@@ -13,6 +13,9 @@ openspec_change: awg31-behavior-parity
 created: 2026-10-29
 updated: 2026-10-30
 status_detail: All 16 steps passed for the approved host/emulator scope. CI 41041125755 passed at 5519a84e236b67d13d91efcd02cdd0c984cd617b; exact native/editor artifacts and independent review are recorded. Physical-device and private-LAN acceptance remain excluded; the deployment guard is unchanged.
+closed_at: "2026-10-30T11:11:43Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: All 16 steps passed for the approved host/emulator scope. CI 41041125755 passed at 5519a84e236b67d13d91efcd02cdd0c984cd617b (50 successful jobs). Pinned host/kernel timer, padding and MAC2 cookie retry evidence, 23 arm64 emulator cases, five editor cases with 60 hashed PNGs, exact artifacts and independent reviews are recorded in the archive. Physical-device/private-LAN acceptance is excluded by the user; the deployment guard is unchanged.
 ---
 
 ## Goal

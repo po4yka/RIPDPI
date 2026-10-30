@@ -28,17 +28,17 @@ Each row names the primary owning step. Its step contract includes supporting na
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-AWG3-WIRE | TRN-1793272215891212 | G1 length/MTU regressions and G4-G5 pinned-peer observations for data, automatic and persistent keepalive, HP and trailers | Passed for the accepted scope |
-| REQ-AWG3-HOSTILE | TRN-1793272218210665 | G1 hostile/authenticated/replay/reset cases and G4-G5 carrier-bound receipts | Passed for the accepted scope |
-| REQ-AWG3-CONTRACT | TRN-1793272220215141 | G2 import/edit/storage/export/activation and redaction tests plus G5 UI evidence | Passed for the accepted scope |
-| REQ-AWG31-TIMERS | TRN-1793272215354505 | G1 deterministic role/state/boundary tests and G4-G5 timed peer events after the backend decision | Passed for the accepted scope |
-| REQ-AWG31-CLASSIFY | TRN-1793272217604418 | G1 independent authenticated collision, failure-state and replay tests plus G4 peer case | Passed for the accepted scope |
-| REQ-AWG31-EMPTY | TRN-1793272216407538 | G1 authenticated zero/nonzero malformed/replay tests and G4 empty-packet peer result | Passed for the accepted scope |
-| REQ-AWG31-COOKIES | TRN-1793272216991110 | G1 and G4 both flag states, both handshake directions, cookie messages, MAC failure and bounded load | Passed for the accepted scope |
-| REQ-AWG31-INPUT | TRN-1793272218937903 | G2 shared grammar and HP readiness tests, including supporting step TRN-1793272219644936 | Passed for the accepted scope |
-| REQ-AWG31-EDITOR | TRN-1793272220215141 | G2 preset replacement/cancel and v3 tests, G3 locale parity, G5 rendered editor checks | Passed for the accepted scope |
-| REQ-AWG31-SUBSET | TRN-1793272220792888 | G1-G3 CPS/numeric/header/junk boundaries and updated compatibility documentation | Passed for the accepted scope |
-| REQ-AWG31-EVIDENCE | TRN-1793272223722013 | G4 validator negative controls, pinned matrix, G5 emulator, G6 scope exclusion, tested artifacts and G7 hosted CI/review receipts | Passed for the accepted scope |
+| REQ-AWG3-WIRE | TRN-1793272215891212 | G1 length/MTU regressions and G4-G5 pinned-peer observations for data, automatic and persistent keepalive, HP and trailers | passed |
+| REQ-AWG3-HOSTILE | TRN-1793272218210665 | G1 hostile/authenticated/replay/reset cases and G4-G5 carrier-bound receipts | passed |
+| REQ-AWG3-CONTRACT | TRN-1793272220215141 | G2 import/edit/storage/export/activation and redaction tests plus G5 UI evidence | passed |
+| REQ-AWG31-TIMERS | TRN-1793272215354505 | G1 deterministic role/state/boundary tests and G4-G5 timed peer events after the backend decision | passed |
+| REQ-AWG31-CLASSIFY | TRN-1793272217604418 | G1 independent authenticated collision, failure-state and replay tests plus G4 peer case | passed |
+| REQ-AWG31-EMPTY | TRN-1793272216407538 | G1 authenticated zero/nonzero malformed/replay tests and G4 empty-packet peer result | passed |
+| REQ-AWG31-COOKIES | TRN-1793272216991110 | G1 and G4 both flag states, both handshake directions, cookie messages, MAC failure and bounded load | passed |
+| REQ-AWG31-INPUT | TRN-1793272218937903 | G2 shared grammar and HP readiness tests, including supporting step TRN-1793272219644936 | passed |
+| REQ-AWG31-EDITOR | TRN-1793272220215141 | G2 preset replacement/cancel and v3 tests, G3 locale parity, G5 rendered editor checks | passed |
+| REQ-AWG31-SUBSET | TRN-1793272220792888 | G1-G3 CPS/numeric/header/junk boundaries and updated compatibility documentation | passed |
+| REQ-AWG31-EVIDENCE | TRN-1793272223722013 | G4 validator negative controls, pinned matrix, G5 emulator, G6 scope exclusion, tested artifacts and G7 hosted CI/review receipts | passed |
 
 ## Gate commands and acceptance
 
@@ -268,3 +268,7 @@ G7 independent source review has no remaining actionable findings. Hosted implem
 - 2026-10-30, guide contract cleanup: the same hosted run stopped `build-android-tests` on the stale expectation of nine excluded guide routes. Commit `c2544e269` had added the real replay route and its typed exclusion without updating this test. The failure reproduced locally. The test now checks the exact current ten-route list, including `replay_failure`; reasons and exact flow partition checks remain in place. All 13 guide tests passed, and independent review confirmed the expectation against the actual spec. Receipts: `build/reports/awg31/guide-contract-reproduction.log` and `guide-contract-fixed.log`. Skipped downstream jobs in this failed run do not count as passing evidence.
 
 - 2026-10-30, final hosted implementation gate: [CI run 41041125755](https://github.com/po4yka/RIPDPI/actions/runs/41041125755) completed with `success` at `5519a84e236b67d13d91efcd02cdd0c984cd617b`. The recorded job set has 64 completed jobs: 50 successful and 14 skipped under existing conditions, with zero failed, cancelled or timed-out jobs. The two repaired jobs (`rust-lint` and `build-android-tests`) passed their original complete gates. Instrumentation API 27, 33, 35, 36 and 37 passed; all GitHub/F-Droid/Play debug and Simple/Full release variants passed. Superseded runs were cancelled only after replacement dispatch. The workflow and its thresholds were unchanged. Receipt: `build/reports/awg31/ci-run-41041125755.json`. This resolves the final hosted category and execution step for the user-approved host/emulator scope.
+
+- 2026-10-30, archive reconciliation: taskctl archived this change as `2026-10-30-awg31-behavior-parity` and synchronized eight added and three modified requirements, with no removed or renamed requirement. Its only warning states that the delta Purpose was not copied because the main spec already has an authoritative Purpose. The spec-sync rule requires retaining that existing Purpose; it still covers AWG 3.x execution and HP privacy. Reviewed the resulting main spec and retained `REQ-AWG3-FLOOR` unchanged. No requirement or scenario was lost. The requirement table now uses the exact terminal value `passed` required by the archive validator; the accepted scope and evidence remain explicit above. No validation rule or acceptance threshold changed.
+
+- 2026-10-30, main-spec strict validation: the synchronized wire requirement exceeded the 500-character requirement-text limit. Shortened only its wording in the main spec. Header protection and pinned version, all three outgoing transport classes, custom-padding precedence, default 16-byte alignment, effective MTU and bounded carrier overhead remain mandatory. Scenarios and all other requirement bodies are unchanged. The validator and its limit are unchanged.

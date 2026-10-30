@@ -1,0 +1,11 @@
+{
+  "change": "awg31-behavior-parity",
+  "evidence_summary": "All 16 steps passed for the approved host/emulator scope. CI 41041125755 passed at 5519a84e236b67d13d91efcd02cdd0c984cd617b (50 successful jobs). Pinned host/kernel timer, padding and MAC2 cookie retry evidence, 23 arm64 emulator cases, five editor cases with 60 hashed PNGs, exact artifacts and independent reviews are recorded in the archive. Physical-device/private-LAN acceptance is excluded by the user; the deployment guard is unchanged.",
+  "execution_sha256": "cca4d60b5fde407773710d44405ae26c95e1433bb0fe6060491dc1349b5b6bcc",
+  "issue_sha256": "00129f5c566ef60eaf2e5975eac3f752f242222be4612c6a6094d16edd8a99ce",
+  "outcome": "done",
+  "prepared_at": "2026-10-30T11:11:43Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TRN-1793271658511991"
+}
