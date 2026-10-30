@@ -2,7 +2,7 @@
 id: UIX-1793256778917552
 title: Adopt the Material 3 theme foundation
 kind: feature
-status: review
+status: done
 area: ui
 priority: high
 owner: UI overhaul
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: m3-theme-foundation
 created: 2026-10-29
 updated: 2026-10-30
+closed_at: "2026-10-30T07:35:12Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Archived OpenSpec change m3-theme-foundation after CI run 41016181081 passed all 50 jobs at fb00ea9ec and emulator checks passed for contrast, dynamic color, themes and icons.
 ---
 
 ## Goal

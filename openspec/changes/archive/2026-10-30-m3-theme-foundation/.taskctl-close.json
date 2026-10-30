@@ -1,0 +1,11 @@
+{
+  "change": "m3-theme-foundation",
+  "evidence_summary": "Archived OpenSpec change m3-theme-foundation after CI run 41016181081 passed all 50 jobs at fb00ea9ec and emulator checks passed for contrast, dynamic color, themes and icons.",
+  "execution_sha256": "77eb9b902e3a1f3d63a6693af42de654077cc188ecd73184b1c985e81966f111",
+  "issue_sha256": "15c6d96421cd7b6dfd98389076f8eae4ef1ead2975d6fd8e5c9f9bbb548d5527",
+  "outcome": "done",
+  "prepared_at": "2026-10-30T07:35:12Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "UIX-1793256778917552"
+}
