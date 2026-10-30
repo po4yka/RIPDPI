@@ -128,12 +128,16 @@ impl TcpMorphMutations {
 
     fn apply_to(&self, group: &DesyncGroup) -> DesyncGroup {
         let mut morphed = group.clone();
-        if let Some(target) = self.entropy_target_permil {
-            morphed.actions.entropy_mode = EntropyMode::Popcount;
-            morphed.actions.entropy_padding_target_permil = Some(target);
-        }
-        if let Some(max) = self.entropy_padding_max {
-            morphed.actions.entropy_padding_max = max;
+        // Entropy padding is prepended to the real stream; without fake steps it
+        // corrupts the application data (same guard as the TCP send path).
+        if group_has_fake_steps(group) {
+            if let Some(target) = self.entropy_target_permil {
+                morphed.actions.entropy_mode = EntropyMode::Popcount;
+                morphed.actions.entropy_padding_target_permil = Some(target);
+            }
+            if let Some(max) = self.entropy_padding_max {
+                morphed.actions.entropy_padding_max = max;
+            }
         }
         if let Some(size) = self.fake_tls_size {
             morphed.actions.fake_tls_size = size;
@@ -220,6 +224,18 @@ fn oob_byte_placement_offset(placement: AdaptiveOobBytePlacement) -> OffsetExpr 
     }
 }
 
+fn group_has_fake_steps(group: &DesyncGroup) -> bool {
+    group.effective_tcp_chain().iter().any(|step| {
+        matches!(
+            step.kind(),
+            TcpChainStepKind::Fake
+                | TcpChainStepKind::FakeSplit
+                | TcpChainStepKind::FakeDisorder
+                | TcpChainStepKind::HostFake
+        )
+    })
+}
+
 fn step_supports_cadence(kind: TcpChainStepKind) -> bool {
     matches!(
         kind,
@@ -239,8 +255,9 @@ fn step_supports_cadence(kind: TcpChainStepKind) -> bool {
 
 #[cfg(test)]
 mod tests {
-    use ripdpi_config::{DesyncGroup, OffsetBase, OffsetExpr, TcpChainStep, TcpChainStepKind};
+    use ripdpi_config::{DesyncGroup, EntropyMode, OffsetBase, OffsetExpr, TcpChainStep, TcpChainStepKind};
     use ripdpi_desync::{AdaptiveOobBytePlacement, AdaptivePlannerHints, AdaptiveTimingJitterProfile};
+    use ripdpi_proxy_config::ProxyMorphPolicy;
 
     use super::apply_tcp_morph_policy_to_group;
 
@@ -281,5 +298,53 @@ mod tests {
 
         assert_eq!(morphed.actions.tcp_chain[0].offset(), OffsetExpr::host(1));
         assert_eq!(morphed.actions.tcp_chain[1].offset(), OffsetExpr::marker(OffsetBase::EndHost, 0));
+    }
+
+    fn balanced_policy() -> ProxyMorphPolicy {
+        ProxyMorphPolicy {
+            id: "balanced".to_string(),
+            first_flight_size_min: 320,
+            first_flight_size_max: 768,
+            padding_envelope_min: 16,
+            padding_envelope_max: 96,
+            entropy_target_permil: 3400,
+            tcp_burst_cadence_ms: vec![0, 12, 24],
+            tls_burst_cadence_ms: vec![0, 8],
+            quic_burst_profile: "compat_burst".to_string(),
+            fake_packet_shape_profile: "compat_default".to_string(),
+        }
+    }
+
+    #[test]
+    fn morph_policy_leaves_entropy_padding_off_for_groups_without_fake_steps() {
+        let mut group = DesyncGroup::new(0);
+        group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Split, OffsetExpr::host(1))];
+
+        let morphed = apply_tcp_morph_policy_to_group(
+            Some(&balanced_policy()),
+            &group,
+            b"GET / HTTP/1.1\r\nHost: example.test\r\n\r\n",
+            AdaptivePlannerHints::default(),
+        );
+
+        assert_eq!(morphed.actions.entropy_mode, EntropyMode::Disabled);
+        assert_eq!(morphed.actions.entropy_padding_target_permil, None);
+    }
+
+    #[test]
+    fn morph_policy_enables_entropy_padding_for_groups_with_fake_steps() {
+        let mut group = DesyncGroup::new(0);
+        group.actions.tcp_chain = vec![TcpChainStep::new(TcpChainStepKind::Fake, OffsetExpr::host(1))];
+
+        let morphed = apply_tcp_morph_policy_to_group(
+            Some(&balanced_policy()),
+            &group,
+            b"GET / HTTP/1.1\r\nHost: example.test\r\n\r\n",
+            AdaptivePlannerHints::default(),
+        );
+
+        assert_eq!(morphed.actions.entropy_mode, EntropyMode::Popcount);
+        assert_eq!(morphed.actions.entropy_padding_target_permil, Some(3400));
+        assert_eq!(morphed.actions.entropy_padding_max, 96);
     }
 }
