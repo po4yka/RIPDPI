@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.journeys.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.test.espresso.Espresso
 import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.Mode
@@ -71,7 +70,7 @@ class ConfigScreenKaspressoTest :
                 DnsSettingsPage(composeRule).awaitScreen()
             }
             step("Back returns to the config screen") {
-                Espresso.pressBack()
+                device.exploit.pressBack()
                 ConfigPage(composeRule).awaitScreen()
             }
         }

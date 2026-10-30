@@ -43,6 +43,13 @@ python3 scripts/ci/android-avd-pool.py run --api 37 --arch arm64-v8a --target go
 Select tests with `package=` or one `class=`; a comma list in the Gradle `class=` property ran only the first class.
 Results: `app/build/outputs/androidTest-results/connected/**/TEST-*.xml` (file names contain spaces).
 
+## Failure artifacts
+
+`RipDpiKaspressoTest` adds Kaspresso interceptors that, on a failed step, save a screenshot and the view hierarchy to
+`/sdcard/Documents/{screenshots,view_hierarchy}/<class>/<test>/`. They survive app uninstall; pull them with
+`adb pull /sdcard/Documents`. CI pulls them into the journey artifacts. Timeouts from `waitForTag` and other
+`waitWithTree` waits also put the Compose semantics tree in the failure message.
+
 ## Triage
 
 | Symptom | Cause |

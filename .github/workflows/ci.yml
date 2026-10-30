@@ -2388,6 +2388,8 @@ jobs:
           evidence_dir="$RUNNER_TEMP/android-instrumented-results/${{ matrix.device }}/github-full-ui-journeys-smoke"
           mkdir -p "$evidence_dir"
           cp -R app/build/outputs/androidTest-results/connected/debug/flavors/githubFull/. "$evidence_dir/"
+          # Kaspresso failure screenshots and view hierarchies; absent when every journey passed.
+          adb pull /sdcard/Documents "$evidence_dir/kaspresso" || true
 
       - name: Run JNI strategy instrumentation on ${{ matrix.device }}
         if: matrix.api == 35
@@ -2594,6 +2596,12 @@ jobs:
             fi
           done
           exit "$status"
+
+      - name: Pull Kaspresso failure artifacts
+        if: always()
+        timeout-minutes: 3
+        # Failure screenshots and view hierarchies; absent when every journey passed.
+        run: adb pull /sdcard/Documents "$RUNNER_TEMP/android-ui-journeys-results/kaspresso" || true
 
       - name: Capture UI journeys emulator diagnostics
         timeout-minutes: 3
