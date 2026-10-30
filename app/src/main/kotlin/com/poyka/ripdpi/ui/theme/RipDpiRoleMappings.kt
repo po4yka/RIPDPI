@@ -1,8 +1,6 @@
 package com.poyka.ripdpi.ui.theme
 
 import androidx.compose.runtime.Immutable
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
-import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRowVariant
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
@@ -97,44 +95,6 @@ data class RipDpiSurfaceRoleMappings(
 )
 
 @Immutable
-data class RipDpiButtonStateRoles(
-    val primary: RipDpiButtonStateRole = RipDpiButtonStateRole.Primary,
-    val secondary: RipDpiButtonStateRole = RipDpiButtonStateRole.Secondary,
-    val outline: RipDpiButtonStateRole = RipDpiButtonStateRole.Outline,
-    val ghost: RipDpiButtonStateRole = RipDpiButtonStateRole.Ghost,
-    val destructive: RipDpiButtonStateRole = RipDpiButtonStateRole.Destructive,
-) {
-    fun fromVariant(variant: RipDpiButtonVariant): RipDpiButtonStateRole =
-        when (variant) {
-            RipDpiButtonVariant.Primary -> primary
-            RipDpiButtonVariant.Secondary -> secondary
-            RipDpiButtonVariant.Outline -> outline
-            RipDpiButtonVariant.Ghost -> ghost
-            RipDpiButtonVariant.Destructive -> destructive
-        }
-}
-
-@Immutable
-data class RipDpiIconButtonStateRoles(
-    val ghost: RipDpiIconButtonStateRole = RipDpiIconButtonStateRole.Ghost,
-    val tonal: RipDpiIconButtonStateRole = RipDpiIconButtonStateRole.Tonal,
-    val filled: RipDpiIconButtonStateRole = RipDpiIconButtonStateRole.Filled,
-    val outline: RipDpiIconButtonStateRole = RipDpiIconButtonStateRole.Outline,
-    val destructive: RipDpiIconButtonStateRole = RipDpiIconButtonStateRole.Destructive,
-    val warning: RipDpiIconButtonStateRole = RipDpiIconButtonStateRole.Warning,
-) {
-    fun fromStyle(style: RipDpiIconButtonStyle): RipDpiIconButtonStateRole =
-        when (style) {
-            RipDpiIconButtonStyle.Ghost -> ghost
-            RipDpiIconButtonStyle.Tonal -> tonal
-            RipDpiIconButtonStyle.Filled -> filled
-            RipDpiIconButtonStyle.Outline -> outline
-            RipDpiIconButtonStyle.Destructive -> destructive
-            RipDpiIconButtonStyle.Warning -> warning
-        }
-}
-
-@Immutable
 data class RipDpiSettingsRowStateRoles(
     val default: RipDpiSettingsRowStateRole = RipDpiSettingsRowStateRole.Default,
     val tonal: RipDpiSettingsRowStateRole = RipDpiSettingsRowStateRole.Tonal,
@@ -195,8 +155,6 @@ data class RipDpiRouteAvailabilityStateRoles(
 
 @Immutable
 data class RipDpiStateRoleMappings(
-    val button: RipDpiButtonStateRoles = RipDpiButtonStateRoles(),
-    val iconButton: RipDpiIconButtonStateRoles = RipDpiIconButtonStateRoles(),
     val settingsRow: RipDpiSettingsRowStateRoles = RipDpiSettingsRowStateRoles(),
     val banner: RipDpiBannerStateRoles = RipDpiBannerStateRoles(),
     val actuator: RipDpiActuatorStateRoles = RipDpiActuatorStateRoles(),

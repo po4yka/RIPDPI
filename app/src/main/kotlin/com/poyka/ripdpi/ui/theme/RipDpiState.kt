@@ -6,8 +6,6 @@ import androidx.compose.runtime.staticCompositionLocalOf
 
 @Immutable
 data class RipDpiStateTokens(
-    val button: RipDpiButtonStateTokens,
-    val iconButton: RipDpiIconButtonStateTokens,
     val textField: RipDpiTextFieldStateTokens,
     val chip: RipDpiChipStateTokens,
     val switch: RipDpiSwitchStateTokens,
@@ -24,8 +22,6 @@ fun ripDpiStateTokens(
     motion: RipDpiMotion,
 ): RipDpiStateTokens =
     RipDpiStateTokens(
-        button = RipDpiButtonStateTokens(colors, colorScheme, components.shapes, motion),
-        iconButton = RipDpiIconButtonStateTokens(colors, colorScheme, motion),
         textField = RipDpiTextFieldStateTokens(colors),
         chip = RipDpiChipStateTokens(colors, colorScheme, components.shapes, motion),
         switch = RipDpiSwitchStateTokens(colors, colorScheme),

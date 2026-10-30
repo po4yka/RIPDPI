@@ -24,7 +24,6 @@ import androidx.compose.foundation.style.styleResolver
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -71,7 +70,6 @@ private val ConnectionCommitKeys = setOf(Key.Enter, Key.NumPadEnter, Key.Spaceba
 
 /** Status and route information remain outside the connection action target. */
 @Composable
-@NonRestartableComposable
 fun RipDpiConnectionActuator(
     state: HomeConnectionActuatorUiState,
     onActivate: () -> Unit,
@@ -79,27 +77,6 @@ fun RipDpiConnectionActuator(
     modifier: Modifier = Modifier,
     onCopyFaultDetail: (() -> Unit)? = null,
     testTag: String? = null,
-) {
-    RipDpiConnectionActuator(
-        state = state,
-        onActivate = onActivate,
-        onDeactivate = onDeactivate,
-        modifier = modifier,
-        onCopyFaultDetail = onCopyFaultDetail,
-        testTag = testTag,
-        visualStyle = CommonStyle,
-    )
-}
-
-@Composable
-fun RipDpiConnectionActuator(
-    state: HomeConnectionActuatorUiState,
-    onActivate: () -> Unit,
-    onDeactivate: () -> Unit,
-    modifier: Modifier = Modifier,
-    onCopyFaultDetail: (() -> Unit)? = null,
-    testTag: String? = null,
-    visualStyle: CommonStyle = CommonStyle,
 ) {
     val resolved = state.withResolvedLabels()
     val style = RipDpiThemeTokens.state.actuator.resolve(role = state.status.toThemeRole())
@@ -159,7 +136,6 @@ fun RipDpiConnectionActuator(
             hapticFeedback = RipDpiHapticFeedback.None,
             variant = if (state.isActivationAvailable) RipDpiButtonVariant.Primary else RipDpiButtonVariant.Outline,
             wrapLabel = true,
-            visualStyle = visualStyle,
             onClick = onAction,
         )
         AnimatedVisibility(

@@ -42,7 +42,6 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -236,74 +235,6 @@ class RipDpiStylesTest {
         val child = composeRule.onNodeWithTag("style-content").fetchSemanticsNode().boundsInRoot
         assertEquals(20f, child.left - outer.left, 0.1f)
         assertEquals(4f, child.top - outer.top, 0.1f)
-    }
-
-    @Test
-    fun `cached button recipe follows theme and contrast when animations are disabled`() {
-        var dark by mutableStateOf(false)
-        var contrast by mutableStateOf(RipDpiContrastLevel.Standard)
-        val style = RipDpiComponentStyles.button(RipDpiButtonStateRole.Primary)
-        composeRule.setContent {
-            CompositionLocalProvider(LocalInspectionMode provides true) {
-                RipDpiTheme(themePreference = if (dark) "dark" else "light", contrastLevel = contrast) {
-                    CompositionLocalProvider(LocalRipDpiMotion provides RipDpiMotion(animationsEnabled = false)) {
-                        val state = rememberUpdatedStyleState(null) { it.isEnabled = false }
-                        val resolver = rememberRipDpiStyleResolver(style, CommonStyle, state)
-                        Box(Modifier.size(80.dp).testTag(Surface).ripDpiStyleSurface(resolver))
-                    }
-                }
-            }
-        }
-        assertPixel(Surface, LightRipDpiExtendedColors.border)
-        composeRule.runOnIdle { dark = true }
-        assertPixel(Surface, DarkRipDpiExtendedColors.border)
-        composeRule.runOnIdle { contrast = RipDpiContrastLevel.High }
-        assertPixel(
-            Surface,
-            ripDpiExtendedColors(ripDpiDarkColorScheme(RipDpiContrastLevel.High), isDark = true).border,
-        )
-    }
-
-    @Test
-    fun `button visual override cannot shrink its target or enable loading actions`() {
-        var loading by mutableStateOf(false)
-        var clicks = 0
-        val caller =
-            CommonStyle {
-                rdsBackground(Color.Blue)
-                rdsMinHeight(1.dp)
-                rdsContentPadding()
-                rdsContentScale(0.5f)
-            }
-        composeRule.setContent {
-            CompositionLocalProvider(LocalInspectionMode provides true, LocalDensity provides Density(1f)) {
-                RipDpiTheme(themePreference = "light") {
-                    RipDpiButton(
-                        text = "Go",
-                        onClick = { clicks++ },
-                        modifier = Modifier.width(80.dp).testTag(Surface),
-                        loading = loading,
-                        visualStyle = caller,
-                    )
-                }
-            }
-        }
-        val button = composeRule.onNodeWithTag(Surface)
-        button.assertHeightIsEqualTo(48.dp).assertWidthIsEqualTo(80.dp)
-        assertPixel(Surface, Color.Blue, x = 0.1f)
-        button.performTouchInput {
-            click(
-                androidx.compose.ui.geometry
-                    .Offset(4f, 24f),
-            )
-        }
-        composeRule.runOnIdle {
-            assertEquals(1, clicks)
-            loading = true
-        }
-        button.assertIsNotEnabled().performClick()
-        button.assertHeightIsEqualTo(48.dp)
-        composeRule.runOnIdle { assertEquals(1, clicks) }
     }
 
     @Test

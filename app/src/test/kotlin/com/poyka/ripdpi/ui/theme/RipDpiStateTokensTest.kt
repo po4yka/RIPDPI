@@ -3,8 +3,6 @@ package com.poyka.ripdpi.ui.theme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
-import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
 import com.poyka.ripdpi.ui.components.cards.SettingsRowVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import org.junit.Assert.assertEquals
@@ -19,22 +17,6 @@ class RipDpiStateTokensTest {
             components = DefaultRipDpiComponents,
             motion = DefaultRipDpiMotion,
         )
-
-    @Test
-    fun `primary button disabled resolves muted palette`() {
-        val style =
-            tokens.button.resolve(
-                role = RipDpiButtonStateRole.Primary,
-                enabled = false,
-                loading = false,
-                isPressed = false,
-                isFocused = false,
-            )
-
-        assertEquals(LightRipDpiExtendedColors.border, style.container)
-        assertEquals(LightRipDpiExtendedColors.mutedForeground, style.content)
-        assertEquals(0.dp, style.borderWidth)
-    }
 
     @Test
     fun `text field focused error uses emphasized border and foreground content`() {
@@ -142,22 +124,6 @@ class RipDpiStateTokensTest {
     @Test
     fun `state role mappings centralize component variant translation`() {
         assertEquals(
-            RipDpiButtonStateRole.Destructive,
-            DefaultRipDpiStateRoleMappings.button.fromVariant(RipDpiButtonVariant.Destructive),
-        )
-        assertEquals(
-            RipDpiIconButtonStateRole.Outline,
-            DefaultRipDpiStateRoleMappings.iconButton.fromStyle(RipDpiIconButtonStyle.Outline),
-        )
-        assertEquals(
-            RipDpiIconButtonStateRole.Destructive,
-            DefaultRipDpiStateRoleMappings.iconButton.fromStyle(RipDpiIconButtonStyle.Destructive),
-        )
-        assertEquals(
-            RipDpiIconButtonStateRole.Warning,
-            DefaultRipDpiStateRoleMappings.iconButton.fromStyle(RipDpiIconButtonStyle.Warning),
-        )
-        assertEquals(
             RipDpiSettingsRowStateRole.Selected,
             DefaultRipDpiStateRoleMappings.settingsRow.fromVariant(SettingsRowVariant.Selected),
         )
@@ -165,49 +131,5 @@ class RipDpiStateTokensTest {
             RipDpiBannerStateRole.Restricted,
             DefaultRipDpiStateRoleMappings.banner.fromTone(WarningBannerTone.Restricted),
         )
-    }
-
-    @Test
-    fun `destructive and warning icon buttons keep a transparent container and a semantic tint`() {
-        val destructive =
-            tokens.iconButton.resolve(
-                role = RipDpiIconButtonStateRole.Destructive,
-                enabled = true,
-                loading = false,
-                selected = false,
-                isPressed = false,
-                isFocused = false,
-            )
-        val warning =
-            tokens.iconButton.resolve(
-                role = RipDpiIconButtonStateRole.Warning,
-                enabled = true,
-                loading = false,
-                selected = false,
-                isPressed = false,
-                isFocused = false,
-            )
-
-        assertEquals(LightRipDpiExtendedColors.destructive, destructive.content)
-        assertEquals(LightRipDpiExtendedColors.warning, warning.content)
-        // These are ghost-shaped roles: the tint carries the meaning, the container stays out of the way.
-        assertEquals(Color.Transparent, destructive.container)
-        assertEquals(Color.Transparent, warning.container)
-    }
-
-    @Test
-    fun `a disabled destructive icon button stops shouting`() {
-        val disabled =
-            tokens.iconButton.resolve(
-                role = RipDpiIconButtonStateRole.Destructive,
-                enabled = false,
-                loading = false,
-                selected = false,
-                isPressed = false,
-                isFocused = false,
-            )
-
-        // Material disabled content: the foreground at 38% alpha, clearly weaker than any enabled tint.
-        assertEquals(LightRipDpiExtendedColors.foreground.copy(alpha = 0.38f), disabled.content)
     }
 }
