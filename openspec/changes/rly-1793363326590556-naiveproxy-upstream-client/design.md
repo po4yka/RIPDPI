@@ -40,10 +40,11 @@ The upstream client:
   - The file is deleted once readiness succeeds, because upstream reads its config only at startup. It is also deleted on any start failure and on stop.
   - The redaction list covers every credential, the same as now.
   - Rejected: `/proc/self/fd/0`. Upstream's file read is not guaranteed to accept pipes, and this would add an untested dependency on its behavior.
-- **Protected DNS through the Rust helper.** `ripdpi-naiveproxy --resolve HOST --server-port N` reuses `resolve_server_addrs` under the protect path and prints `RIPDPI-RESOLVED|<ip>[,<ip>…]`, then exits.
+- **Protected DNS through the Rust helper.** `ripdpi-naiveproxy --resolve HOST --server-port N` reuses `resolve_server_addrs` and prints `RIPDPI-RESOLVED|<ip>[,<ip>…]`, then exits.
   - Kotlin runs it before the upstream launch, but only for hostname servers, and builds `MAP host ip` with IPv6 in brackets.
+  - With socket protection active (VPN mode) the lookup is protected DoH. In proxy-only mode there is no protect path, so the helper uses the system resolver, as relay mode does.
   - A failure or empty result rejects the start with class `dns`.
-  - Rejected: the system resolver. It would regress F11.
+  - Rejected: the system resolver in VPN mode. It would regress F11.
   - Rejected: a new Kotlin DoH client. It would duplicate the protected resolver.
 - **Lifecycle.** The upstream client reuses `SubprocessSocksRelayManager`:
   - the same process supervisor (with the waitForExit yield from dfa955da3);

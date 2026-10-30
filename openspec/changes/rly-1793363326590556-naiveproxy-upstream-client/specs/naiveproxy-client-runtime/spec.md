@@ -55,18 +55,23 @@ The upstream client's local listener MUST bind only a loopback address and MUST 
 - **WHEN** a local SOCKS client connects to the upstream listener without the generated credentials
 - **THEN** the listener refuses the session and makes no upstream request
 
-### Requirement: REQ-RLY-1793363326590556-005 — The proxy host resolves through protected DoH
+### Requirement: REQ-RLY-1793363326590556-005 — The proxy host resolves through protected DoH when socket protection is active
 
-The implementation MUST resolve a hostname proxy server through RIPDPI's protected encrypted resolver, and MUST pass the result to the upstream client as a static host mapping. The upstream client MUST then use that address while keeping the hostname for TLS SNI and certificate verification. If resolution fails, the start MUST fail closed with the `dns` failure class instead of using the system resolver. An IP-literal server MUST be used as given.
+With socket protection active (VPN mode), the implementation MUST resolve a hostname proxy server through RIPDPI's protected encrypted resolver. In proxy-only mode it MUST use the system resolver, as the Rust helper does. It MUST pass the result to the upstream client as a static host mapping, keeping the hostname for TLS SNI and certificate verification. A failed resolution MUST fail the start with the `dns` failure class. An IP-literal server MUST be used as given.
 
-#### Scenario: Hostname server
+#### Scenario: Hostname server in VPN mode
 
-- **WHEN** the profile server is a hostname and protected DoH returns an address
+- **WHEN** socket protection is active, the profile server is a hostname and protected DoH returns an address
 - **THEN** the upstream client connects to that address and presents the hostname as SNI
 
-#### Scenario: Protected resolution fails
+#### Scenario: Hostname server in proxy-only mode
 
-- **WHEN** protected DoH cannot resolve the proxy hostname
+- **WHEN** socket protection is inactive and the profile server is a hostname
+- **THEN** the system resolver supplies the address and the upstream client connects to it with the hostname as SNI
+
+#### Scenario: Resolution fails
+
+- **WHEN** the resolver cannot resolve the proxy hostname
 - **THEN** the relay start fails with the `dns` failure class and no upstream client process remains
 
 ### Requirement: REQ-RLY-1793363326590556-006 — Readiness, failure and exit follow the relay contract
