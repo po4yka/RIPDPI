@@ -38,6 +38,7 @@ import com.poyka.ripdpi.data.ProfileUtilityReference
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindHysteria2
+import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.ResolverOverrideStore
@@ -946,6 +947,111 @@ class XrayProviderE2ETest {
                 }
             } finally {
                 automatic.close()
+            }
+        }
+    }
+
+    @Test
+    fun naiveProxyRoutesTcpThroughHelperAndWrongPinFailsClosed() {
+        check(InstrumentationRegistry.getArguments().getString("ripdpi.usbDataScope") != "true")
+        val relayId = "owned-naiveproxy-acceptance"
+        val oldProfile = runBlocking { relayProfiles.load(relayId) }
+        val oldCredentials = runBlocking { relayCredentials.load(relayId) }
+        val arguments = InstrumentationRegistry.getArguments()
+        val transportPort = manifest.getInt("transportPort")
+
+        fun startNaive(pin: String) {
+            runBlocking { controller.stop() }
+            awaitUntil(timeoutMs = 30_000) { state.status.value.first == AppStatus.Halted }
+            runBlocking {
+                relayProfiles.save(
+                    RelayProfileRecord(
+                        id = relayId,
+                        kind = RelayKindNaiveProxy,
+                        server = requireNotNull(arguments.getString("ripdpi.naiveHost")),
+                        serverPort = requireNotNull(arguments.getString("ripdpi.naivePort")).toInt(),
+                        serverName = "naive.test",
+                        naivePath = "/",
+                    ),
+                )
+                // The credentials come from the fixture manifest, not from instrumentation argv.
+                relayCredentials.save(
+                    RelayCredentialRecord(
+                        profileId = relayId,
+                        naiveUsername = manifest.getString("naiveUser"),
+                        naivePassword = manifest.getString("naivePassword"),
+                        naiveServerPinSha256 = pin,
+                    ),
+                )
+                selection.update(XrayProviderSelectionRecord())
+                settings.update {
+                    relayEnabled = true
+                    relayKind = RelayKindNaiveProxy
+                    relayProfileId = relayId
+                    // NaiveProxy carries TCP CONNECT only; the VPN start rejects a relay lacking UDP ASSOCIATE otherwise.
+                    setUdpAssociateEnabled(false)
+                    tlsFingerprintProfile = TlsFingerprintProfileFirefoxStable
+                }
+                val started = controller.start(Mode.VPN)
+                assertTrue("NaiveProxy start was not accepted: $started", started is ServiceStartResult.Accepted)
+            }
+            try {
+                awaitServiceStatus(state, AppStatus.Running, Mode.VPN, timeoutMs = 30_000)
+            } catch (error: AssertionError) {
+                throw AssertionError("NaiveProxy start did not run; failure=$lastFailure; ${error.message}", error)
+            }
+        }
+        try {
+            selectorActive.clearStandalone()
+            val transportBefore = readControl("transport-receipts").getJSONArray("receipts").length()
+            val wrongPinRunning =
+                try {
+                    startNaive("0".repeat(64))
+                    true
+                } catch (_: AssertionError) {
+                    // The helper may refuse the unpinned server at startup; the VPN then never runs, which is closed.
+                    false
+                }
+            if (!wrongPinRunning) {
+                assertTrue(state.status.value.first != AppStatus.Running)
+                assertEquals(0, readControl("naive-receipts").getInt("connects"))
+                assertEquals(transportBefore, readControl("transport-receipts").getJSONArray("receipts").length())
+            }
+            if (wrongPinRunning) {
+                bindTestProcessDnsProbeService(10_000).use { probe ->
+                    assertTrue(probe.awaitVpnDefaultNetwork(10_000))
+                    val connectsBefore = readControl("naive-receipts").getInt("connects")
+                    val result = probe.transfer("download", "naive-wrong-pin", port = transportPort)
+                    assertFalse("A wrong pin must fail closed: $result", result.getBoolean("ok"))
+                    // Neither the server nor the destination saw the flow: no direct bypass.
+                    assertEquals(connectsBefore, readControl("naive-receipts").getInt("connects"))
+                    assertEquals(transportBefore, readControl("transport-receipts").getJSONArray("receipts").length())
+                }
+            }
+            startNaive(requireNotNull(arguments.getString("ripdpi.naivePin")))
+            bindTestProcessDnsProbeService(10_000).use { probe ->
+                assertTrue(probe.awaitVpnDefaultNetwork(10_000))
+                val connectsBefore = readControl("naive-receipts").getInt("connects")
+                val id = "naive-download-${SystemClock.elapsedRealtime()}"
+                val result = probe.transfer("download", id, port = transportPort)
+                assertTrue("NaiveProxy transfer failed: $result", result.getBoolean("ok"))
+                assertTrue(result.getInt("uid") != Process.myUid())
+                awaitUntil {
+                    val receipts = readControl("transport-receipts").getJSONArray("receipts")
+                    (0 until receipts.length()).any { index ->
+                        val receipt = receipts.getJSONObject(index)
+                        receipt.getString("id") == id && receipt.getInt("bytes") == result.getInt("bytes") &&
+                            receipt.getString("sha256") == result.getString("sha256")
+                    }
+                }
+                assertTrue(readControl("naive-receipts").getInt("connects") > connectsBefore)
+            }
+        } finally {
+            runBlocking {
+                controller.stop()
+                awaitUntil(timeoutMs = 30_000) { state.status.value.first == AppStatus.Halted }
+                if (oldProfile == null) relayProfiles.clear(relayId) else relayProfiles.save(oldProfile)
+                if (oldCredentials == null) relayCredentials.clear(relayId) else relayCredentials.save(oldCredentials)
             }
         }
     }

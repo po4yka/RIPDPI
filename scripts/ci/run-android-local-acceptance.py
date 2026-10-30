@@ -30,6 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from android_nginx_fixture import NginxFixture
 from android_owned_installation import OwnedInstallation
 from android_hysteria_fixture import HysteriaFixture, verify_binary
+from android_naiveproxy_fixture import NaiveProxyFixture, verify_binary as verify_naive_binary
 from android_peer_diagnostics import OwnedPeerDiagnostics
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -46,6 +47,10 @@ SCENARIOS = {
     "android-hysteria": [
         PREFIX
         + "XrayProviderE2ETest#hysteriaCompletesTransfersSleepWakeAndUdpFailureFallsBackToSavedTcp"
+    ],
+    "android-naiveproxy": [
+        PREFIX
+        + "XrayProviderE2ETest#naiveProxyRoutesTcpThroughHelperAndWrongPinFailsClosed"
     ],
     "android-transactions": [
         PREFIX
@@ -904,6 +909,11 @@ def arguments() -> argparse.Namespace:
         type=Path,
         help="verified pinned Hysteria2 v2.13.0 peer binary",
     )
+    parser.add_argument(
+        "--naiveproxy-binary",
+        type=Path,
+        help="prepared Caddy forwardproxy NaiveProxy peer (test-lab/acceptance/peers/naiveproxy.py)",
+    )
     parser.add_argument("--prepare", action="store_true")
     parser.add_argument("--prepared-dir", type=Path)
     parser.add_argument(
@@ -974,6 +984,11 @@ def arguments() -> argparse.Namespace:
         and not args.hysteria_binary
     ):
         parser.error("Hysteria acceptance requires --hysteria-binary")
+    if args.scenario == "android-naiveproxy":
+        if not args.naiveproxy_binary:
+            parser.error("NaiveProxy acceptance requires --naiveproxy-binary")
+        if args.physical_device:
+            parser.error("android-naiveproxy runs on the emulator only")
     return args
 
 
@@ -1051,6 +1066,7 @@ def main() -> int:
     installed = False
     nginx = None
     hysteria = None
+    naiveproxy = None
     udp_bridge = None
     migration_origin = None
     migration_identity = {}
@@ -1163,6 +1179,7 @@ def main() -> int:
             "android-xray",
             "android-transactions",
             "android-hysteria",
+            "android-naiveproxy",
             "android-migration",
         ):
             receipt_port = args.xray_control_port or 0
@@ -1208,6 +1225,7 @@ def main() -> int:
                         in (
                             "android-transactions",
                             "android-hysteria",
+                            "android-naiveproxy",
                             "android-migration",
                         )
                         else []
@@ -1306,6 +1324,30 @@ def main() -> int:
                     "implementation": "hysteria",
                     "version": "2.13.0",
                     "binary_sha256": digest(args.hysteria_binary),
+                }
+            if protocol_scenario == "android-naiveproxy":
+                naive_digest = verify_naive_binary(args.naiveproxy_binary)
+                naiveproxy = NaiveProxyFixture(
+                    out / "naiveproxy",
+                    args.naiveproxy_binary,
+                    "127.0.0.1",
+                    peer_manifest,
+                    receipt_port,
+                    advertise_host=args.xray_host,
+                )
+                naiveproxy.start()
+                receipt_port = naiveproxy.port
+                instrumentation.update(
+                    {
+                        "ripdpi.xrayFixturePort": str(receipt_port),
+                        "ripdpi.naiveHost": naiveproxy.advertise_host,
+                        "ripdpi.naivePort": str(naiveproxy.server_port),
+                        "ripdpi.naivePin": naiveproxy.manifest["naivePin"],
+                    }
+                )
+                report["peer_identity"]["naiveproxy"] = {
+                    "implementation": "klzgrad/forwardproxy on Caddy",
+                    "binary_sha256": naive_digest,
                 }
             if protocol_scenario == "android-migration":
                 from android_migration_fixture import MigrationFixture
@@ -1595,6 +1637,7 @@ def main() -> int:
                 "android-xray",
                 "android-transactions",
                 "android-hysteria",
+                "android-naiveproxy",
                 "android-migration",
             ):
                 for endpoint in (
@@ -1768,6 +1811,11 @@ def main() -> int:
         if migration_origin is not None:
             try:
                 migration_origin.close()
+            except Exception as error:
+                cleanup_errors.append(str(error))
+        if naiveproxy is not None:
+            try:
+                naiveproxy.close()
             except Exception as error:
                 cleanup_errors.append(str(error))
         if hysteria is not None:

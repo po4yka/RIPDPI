@@ -138,6 +138,16 @@ production probes and reload. It then checks explicit UDP recovery. This proves
 the named local device path; it does not prove a filtered/control-network
 comparison or Wi-Fi-to-cellular continuity.
 
+`android-naiveproxy` requires `--naiveproxy-binary`, the prepared Caddy
+forwardproxy peer from `test-lab/acceptance/peers/naiveproxy.py` (its recorded
+digest in the sibling `peer.json` must match). The peer presents a self-signed
+leaf, so the saved profile trusts it only through its leaf SHA-256 pin. It checks
+that a wrong pin fails closed with no receipt at the server or destination, then
+that a TCP transfer through the real VPN and helper reaches the owned destination
+with a matching payload digest. The server forwards through a loopback CONNECT
+mapper that admits only the owned destination. This scenario runs on the emulator
+only.
+
 `android-awg` uses the saved-profile activator, the real VPN service and the native
 engine with an independent AmneziaWG Go peer. It checks range headers, special
 junk packets, UDP DNS, upload, download, a 60-second stream and a new handshake

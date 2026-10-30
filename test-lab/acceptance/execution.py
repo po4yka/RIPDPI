@@ -146,6 +146,7 @@ def adapter_command(
             "physical_peer",
             "owned_installation",
             "hysteria_binary",
+            "naiveproxy_binary",
             "prepared_dir",
             "xray_artifact_dir",
             "fixture_host",

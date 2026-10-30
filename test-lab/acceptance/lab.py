@@ -52,6 +52,7 @@ def parser() -> argparse.ArgumentParser:
     cli.add_argument("--physical-peer")
     cli.add_argument("--owned-installation", type=Path)
     cli.add_argument("--hysteria-binary", type=Path)
+    cli.add_argument("--naiveproxy-binary", type=Path)
     cli.add_argument(
         "--min-free-gib",
         type=int,

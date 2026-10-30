@@ -64,6 +64,9 @@
       "android-xray",
       "android-network"
     ],
+    "android-naiveproxy": [
+      "android-naiveproxy"
+    ],
     "android-usb": [
       "android-usb-transactions",
       "android-usb-hysteria",
@@ -140,6 +143,7 @@
       "android-awg",
       "android-migration",
       "android-hysteria",
+      "android-naiveproxy",
       "android-transactions",
       "android-xray",
       "android-network",
@@ -882,6 +886,20 @@
       "timeout_seconds": 7200,
       "checks": [
         "hysteriaCompletesTransfersSleepWakeAndUdpFailureFallsBackToSavedTcp"
+      ]
+    },
+    {
+      "id": "android-naiveproxy",
+      "adapter": "android",
+      "protocol": "naiveproxy-pinned-leaf-tcp",
+      "tier": "android-tun",
+      "platforms": [
+        "darwin",
+        "linux"
+      ],
+      "timeout_seconds": 7200,
+      "checks": [
+        "naiveProxyRoutesTcpThroughHelperAndWrongPinFailsClosed"
       ]
     },
     {

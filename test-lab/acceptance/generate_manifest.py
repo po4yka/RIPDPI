@@ -41,6 +41,7 @@ def generate():
                     "android-xray": "vless-reality-xhttp",
                     "android-transactions": "vless-reality-nginx-tls-xhttp",
                     "android-hysteria": "hysteria2-salamander-tcp-reserve",
+                    "android-naiveproxy": "naiveproxy-pinned-leaf-tcp",
                     "android-awg": "amneziawg-3.1-tun",
                     "android-migration": "https-refresh-vless-migration",
                     "android-network": "direct-tun-dns",
@@ -71,8 +72,12 @@ def generate():
         "android": [
             r["id"]
             for r in rows
-            if r["adapter"] == "android" and not r["id"].startswith("android-usb-")
+            if r["adapter"] == "android"
+            and not r["id"].startswith("android-usb-")
+            and r["id"] != "android-naiveproxy"
         ],
+        # Needs the separately prepared NaiveProxy server peer, so it stays out of the CI android profile.
+        "android-naiveproxy": ["android-naiveproxy"],
         "android-usb": [r["id"] for r in rows if r["id"].startswith("android-usb-")],
         "routed": [
             r["id"] for r in rows if r["adapter"] == "vm" and r["id"] != "packet-engine"
