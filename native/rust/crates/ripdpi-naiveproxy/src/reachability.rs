@@ -20,7 +20,10 @@ pub(crate) const PROBE_STEP_BOUND: Duration = Duration::from_secs(3);
 ///
 /// # Cancel safety
 ///
-/// cancel-safe: the probes live in a `JoinSet` that aborts them when the future is dropped.
+/// cancel-safe: the probes live in a `JoinSet` that aborts them when the future is
+/// dropped. In protected mode an aborted probe detaches its blocking connect, which
+/// ends within the probe timeout after protect returns. Resolve mode exits the
+/// process explicitly after its one output line, so a detached task cannot keep it alive.
 pub(crate) async fn order_by_reachability<F, Fut>(
     addrs: Vec<SocketAddr>,
     step_bound: Duration,

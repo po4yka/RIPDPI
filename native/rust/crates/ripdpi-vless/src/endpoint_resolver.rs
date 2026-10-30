@@ -77,7 +77,22 @@ pub async fn resolve_server_addrs_encrypted(
     if let Ok(ip) = server.parse::<IpAddr>() {
         return Ok(vec![select_address_family(SocketAddr::new(ip, port), bind_ip, "relay server")?]);
     }
-    resolve_hostname_via_doh(server, port, bind_ip, protect, &PROTECTED_RELAY_DNS_RESOLVER_IDS).await
+    resolve_hostname_via_doh(server, port, bind_ip, protect, encrypted_resolver_ids()).await
+}
+
+#[cfg(test)]
+thread_local! {
+    static TEST_RESOLVER_IDS: std::cell::Cell<Option<&'static [&'static str]>> = const { std::cell::Cell::new(None) };
+}
+
+/// The resolver ids of the encrypted lookup. Tests can override them to prove
+/// that the public path fails inside the DoH builder and never reaches the system resolver.
+fn encrypted_resolver_ids() -> &'static [&'static str] {
+    #[cfg(test)]
+    if let Some(ids) = TEST_RESOLVER_IDS.with(std::cell::Cell::get) {
+        return ids;
+    }
+    &PROTECTED_RELAY_DNS_RESOLVER_IDS
 }
 
 /// One TCP connect to `target`, bounded by `timeout`, and the socket is closed
@@ -86,8 +101,10 @@ pub async fn resolve_server_addrs_encrypted(
 ///
 /// # Cancel safety
 ///
-/// cancel-safe: dropping it drops the connect; a protected blocking connect
-/// ends within `timeout` and closes its socket.
+/// cancel-safe: dropping it drops the connect. In protected mode, aborting
+/// detaches the blocking connect, which ends within `timeout` after protect
+/// returns and closes its socket. A short-lived caller such as resolve mode
+/// exits the process explicitly, so the detached task cannot keep it alive.
 pub async fn probe_tcp_reachable(
     target: SocketAddr,
     timeout: Duration,
@@ -196,7 +213,7 @@ async fn resolve_hostname_via_doh(
 /// # Cancel safety
 ///
 /// Cancel-safe: dropping the future detaches the blocking connect, which
-/// ends within `timeout` and closes its socket.
+/// ends within `timeout` after protect returns and closes its socket.
 async fn connect_protected_bootstrap(
     target: SocketAddr,
     bind_ip: Option<IpAddr>,
@@ -313,6 +330,17 @@ mod tests {
             .await
             .expect_err("empty resolver id list must fail before any network I/O");
 
+        assert!(err.to_string().contains("primary resolver id"), "unexpected error: {err}");
+    }
+
+    #[tokio::test]
+    async fn public_encrypted_lookup_never_uses_the_system_resolver() {
+        // `localhost` resolves through getaddrinfo; with no resolver ids only the DoH builder can answer.
+        TEST_RESOLVER_IDS.with(|ids| ids.set(Some(&[])));
+        let result = resolve_server_addrs_encrypted("localhost", 443, None, None).await;
+        TEST_RESOLVER_IDS.with(|ids| ids.set(None));
+
+        let err = result.expect_err("an empty resolver id list must not fall back to system DNS");
         assert!(err.to_string().contains("primary resolver id"), "unexpected error: {err}");
     }
 

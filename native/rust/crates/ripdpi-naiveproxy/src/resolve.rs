@@ -6,8 +6,12 @@
 
 use std::collections::HashSet;
 use std::ffi::OsString;
+use std::future::Future;
 use std::io;
 use std::net::{IpAddr, SocketAddr};
+use std::time::Duration;
+
+use tokio::time::Instant;
 
 use crate::errors::resolve_error_line;
 use crate::reachability::{PROBE_STEP_BOUND, PROBE_TIMEOUT, order_by_reachability};
@@ -57,6 +61,18 @@ pub(crate) fn render_resolved_line(addrs: &[SocketAddr]) -> io::Result<String> {
     Ok(format!("{RESOLVED_PREFIX}{}", ips.join(",")))
 }
 
+/// One overall deadline for the whole mode, below the 10 s the Kotlin caller
+/// allows before it kills the process.
+pub(crate) const RESOLVE_DEADLINE: Duration = Duration::from_secs(8);
+/// Reachability ordering is skipped when less than this remains.
+const MIN_REACHABILITY_BUDGET: Duration = Duration::from_millis(500);
+
+/// The time the reachability step may use: its own bound or what remains,
+/// whichever is smaller, and none when too little remains to be useful.
+fn reachability_budget(remaining: Duration) -> Option<Duration> {
+    (remaining >= MIN_REACHABILITY_BUDGET).then(|| remaining.min(PROBE_STEP_BOUND))
+}
+
 /// The lookup is always DoH: protected sockets with a protect path, plain
 /// direct sockets without one. There is no system-resolver fallback. The
 /// answers are then ordered so addresses that accept a TCP connection come
@@ -64,34 +80,66 @@ pub(crate) fn render_resolved_line(addrs: &[SocketAddr]) -> io::Result<String> {
 ///
 /// # Cancel safety
 ///
-/// cancel-safe: see [`ripdpi_vless::endpoint_resolver::resolve_server_addrs_encrypted`]
-/// and [`order_by_reachability`].
+/// cancel-safe: see [`resolve_line_within`]; it holds no state of its own.
 pub(crate) async fn resolve_line(args: &ResolveArgs, protect_path: Option<String>) -> io::Result<String> {
     let protect_fn = |path: String| {
         Box::new(move |fd| ripdpi_subprocess_protect::protect_fd(fd, &path))
             as Box<ripdpi_vless::endpoint_resolver::SocketProtectFn>
     };
-    let is_literal = args.host.parse::<IpAddr>().is_ok();
-    let addrs = ripdpi_vless::endpoint_resolver::resolve_server_addrs_encrypted(
-        &args.host,
-        args.port,
-        None,
-        protect_path.clone().map(protect_fn),
+    let shared: Option<std::sync::Arc<Box<ripdpi_vless::endpoint_resolver::SocketProtectFn>>> =
+        protect_path.clone().map(|path| std::sync::Arc::new(protect_fn(path)));
+    resolve_line_within(
+        args,
+        RESOLVE_DEADLINE,
+        ripdpi_vless::endpoint_resolver::resolve_server_addrs_encrypted(
+            &args.host,
+            args.port,
+            None,
+            protect_path.map(protect_fn),
+        ),
+        |target, timeout| ripdpi_vless::endpoint_resolver::probe_tcp_reachable(target, timeout, shared.clone()),
     )
-    .await?;
-    if is_literal {
+    .await
+}
+
+/// The deadline, lookup and reachability policy behind [`resolve_line`], with
+/// the network steps injected. The lookup runs under `deadline`; an expired
+/// deadline is a `TimedOut` error. Reachability gets [`reachability_budget`]
+/// of what remains and is skipped for a single address, which keeps the
+/// resolver order.
+///
+/// # Cancel safety
+///
+/// cancel-safe: the lookup and the probes are owned futures; dropping this
+/// future drops them (see [`order_by_reachability`] for detached blocking connects).
+async fn resolve_line_within<L, P, PFut>(
+    args: &ResolveArgs,
+    deadline: Duration,
+    lookup: L,
+    probe: P,
+) -> io::Result<String>
+where
+    L: Future<Output = io::Result<Vec<SocketAddr>>>,
+    P: Fn(SocketAddr, Duration) -> PFut,
+    PFut: Future<Output = io::Result<()>> + Send + 'static,
+{
+    let started = Instant::now();
+    let addrs = tokio::time::timeout(deadline, lookup)
+        .await
+        .map_err(|_| io::Error::new(io::ErrorKind::TimedOut, "DNS lookup timed out"))??;
+    if args.host.parse::<IpAddr>().is_ok() || addrs.len() < 2 {
         return render_resolved_line(&addrs);
     }
-    let shared: Option<std::sync::Arc<Box<ripdpi_vless::endpoint_resolver::SocketProtectFn>>> =
-        protect_path.map(|path| std::sync::Arc::new(protect_fn(path)));
-    let ordered = order_by_reachability(addrs, PROBE_STEP_BOUND, |target| {
-        ripdpi_vless::endpoint_resolver::probe_tcp_reachable(target, PROBE_TIMEOUT, shared.clone())
-    })
-    .await;
+    let Some(budget) = reachability_budget(deadline.saturating_sub(started.elapsed())) else {
+        return render_resolved_line(&addrs);
+    };
+    let ordered = order_by_reachability(addrs, budget, |target| probe(target, PROBE_TIMEOUT.min(budget))).await;
     render_resolved_line(&ordered)
 }
 
 /// Runs the mode: one stdout line and exit 0, or one error line and exit 1.
+/// The process exits explicitly after the line, so a blocking connect that a
+/// timeout detached cannot keep it alive.
 ///
 /// # Cancel safety
 ///
@@ -104,10 +152,12 @@ pub(crate) async fn run_resolve_mode() -> io::Result<()> {
     match outcome {
         Ok(line) => {
             println!("{line}");
-            Ok(())
+            let _ = io::Write::flush(&mut io::stdout());
+            std::process::exit(0);
         }
         Err(error) => {
             eprintln!("{}", resolve_error_line(&error));
+            let _ = io::Write::flush(&mut io::stderr());
             std::process::exit(1);
         }
     }
@@ -189,6 +239,80 @@ mod tests {
         assert_eq!(resolve_line(&parsed("1.2.3.4", 443), dead.clone()).await.unwrap(), "RIPDPI-RESOLVED|1.2.3.4");
         assert_eq!(resolve_line(&parsed("::1", 443), dead).await.unwrap(), "RIPDPI-RESOLVED|::1");
         assert_eq!(resolve_line(&parsed("2001:db8::7", 443), None).await.unwrap(), "RIPDPI-RESOLVED|2001:db8::7");
+    }
+
+    fn sock(text: &str) -> SocketAddr {
+        text.parse().unwrap()
+    }
+
+    #[tokio::test]
+    async fn a_single_address_skips_reachability() {
+        let probe = |_: SocketAddr, _: Duration| async { panic!("a single address must not be probed") };
+        let line = resolve_line_within(
+            &parsed("a.example", 443),
+            RESOLVE_DEADLINE,
+            async { Ok(vec![sock("192.0.2.1:443")]) },
+            probe,
+        )
+        .await
+        .unwrap();
+        assert_eq!(line, "RIPDPI-RESOLVED|192.0.2.1");
+    }
+
+    #[tokio::test]
+    async fn reachable_addresses_come_first_within_the_budget() {
+        let good = sock("192.0.2.2:443");
+        let probe = move |target: SocketAddr, timeout: Duration| async move {
+            assert!(timeout <= PROBE_STEP_BOUND);
+            if target == good { Ok(()) } else { Err(io::Error::other("refused")) }
+        };
+        let line = resolve_line_within(
+            &parsed("a.example", 443),
+            RESOLVE_DEADLINE,
+            async { Ok(vec![sock("192.0.2.1:443"), good]) },
+            probe,
+        )
+        .await
+        .unwrap();
+        assert_eq!(line, "RIPDPI-RESOLVED|192.0.2.2,192.0.2.1");
+    }
+
+    #[test]
+    fn reachability_budget_is_capped_and_skipped_when_short() {
+        assert_eq!(reachability_budget(Duration::from_secs(8)), Some(PROBE_STEP_BOUND));
+        assert_eq!(reachability_budget(Duration::from_millis(1200)), Some(Duration::from_millis(1200)));
+        assert_eq!(reachability_budget(Duration::from_millis(500)), Some(Duration::from_millis(500)));
+        assert_eq!(reachability_budget(Duration::from_millis(499)), None);
+        assert_eq!(reachability_budget(Duration::ZERO), None);
+    }
+
+    #[tokio::test]
+    async fn little_time_left_after_the_lookup_keeps_resolver_order() {
+        let probe = |_: SocketAddr, _: Duration| async { panic!("no budget left, so no probe") };
+        let line = resolve_line_within(
+            &parsed("a.example", 443),
+            Duration::from_millis(400),
+            async { Ok(vec![sock("192.0.2.1:443"), sock("192.0.2.2:443")]) },
+            probe,
+        )
+        .await
+        .unwrap();
+        assert_eq!(line, "RIPDPI-RESOLVED|192.0.2.1,192.0.2.2");
+    }
+
+    #[tokio::test]
+    async fn an_expired_deadline_during_the_lookup_is_a_dns_error() {
+        let probe = |_: SocketAddr, _: Duration| async { Ok(()) };
+        let error = resolve_line_within(
+            &parsed("a.example", 443),
+            Duration::from_millis(50),
+            std::future::pending::<io::Result<Vec<SocketAddr>>>(),
+            probe,
+        )
+        .await
+        .unwrap_err();
+        assert_eq!(error.kind(), io::ErrorKind::TimedOut);
+        assert_eq!(resolve_error_line(&error), "RIPDPI-ERROR|naiveproxy|dns|DNS lookup timed out");
     }
 
     #[test]
