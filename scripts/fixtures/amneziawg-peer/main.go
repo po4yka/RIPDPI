@@ -33,6 +33,7 @@ type loopbackBind struct {
 	mu          sync.Mutex
 	socket      *net.UDPConn
 	observation wireObservation
+	cookies     *cookieExercise
 }
 
 func newPeerBind() (*loopbackBind, error) {
@@ -72,6 +73,10 @@ func (b *loopbackBind) Open(port uint16) ([]conn.ReceiveFunc, uint16, error) {
 		}
 		if !b.allows(remote.Addr()) {
 			return 0, errors.New("non-loopback peer")
+		}
+		if b.cookies != nil && b.cookies.intercept(packets[0][:size], remote) {
+			sizes[0] = 0
+			return 0, nil
 		}
 		b.observation.observe(packets[0][:size], true)
 		sizes[0] = size
@@ -286,12 +291,13 @@ func run() error {
 		}
 	}
 	scenario := os.Getenv("RIPDPI_AWG_SCENARIO")
-	if scenario != "" && scenario != "payload" && scenario != "small-datagrams" && scenario != "timer-persistent" && scenario != "timer-idle" && scenario != "timer-retry-loss" && scenario != "timer-rekey" && scenario != "timer-retry-exhaust" && scenario != "timer-reject" {
+	if scenario != "" && scenario != "payload" && scenario != "small-datagrams" && scenario != "timer-persistent" && scenario != "timer-idle" && scenario != "timer-retry-loss" && scenario != "timer-rekey" && scenario != "timer-retry-exhaust" && scenario != "timer-reject" && scenario != "cookies-enabled" && scenario != "cookies-disabled" {
 		return errors.New("unknown fixture scenario")
 	}
+	cookie := strings.HasPrefix(scenario, "cookies-")
 	timed := strings.HasPrefix(scenario, "timer-")
-	small := scenario == "small-datagrams" || timed
-	if timed && (cycles != 1 || os.Getenv("RIPDPI_AWG_PROFILE") != "v3-cpa-trailers") {
+	small := scenario == "small-datagrams" || timed || cookie
+	if (timed || cookie) && (cycles != 1 || os.Getenv("RIPDPI_AWG_PROFILE") != "v3-cpa-trailers") {
 		return errors.New("timer scenarios require one session and v3-cpa-trailers")
 	}
 	profile, err := selectWireProfile(os.Getenv("RIPDPI_AWG_PROFILE"))
@@ -334,13 +340,21 @@ func run() error {
 		return err
 	}
 	bind.observation.profile = profile
-	if timed {
+	if timed || cookie {
 		bind.observation.scenario = scenario
+	}
+	if cookie {
+		bind.cookies = newCookieExercise(bind, profile, client.PublicKey().Bytes())
+		bind.observation.cookies = bind.cookies
+		bind.observation.evidence.start = bind.cookies.started
 	}
 	configured := newConfiguredTUN(tun)
 	configured.acceptedIP = bind.observation.acceptedIP
 	peer := device.NewDevice(configured, bind, &device.Logger{Verbosef: bind.observation.verbose, Errorf: device.DiscardLogf})
 	defer peer.Close()
+	if cookie {
+		bind.cookies.device = peer
+	}
 	config := fmt.Sprintf("private_key=%s\nlisten_port=0\n%spublic_key=%s\npreshared_key=%s\n%sallowed_ip=10.77.0.2/32\nallowed_ip=fd77::2/128\n", hex.EncodeToString(server.Bytes()), profile.iface, hex.EncodeToString(client.PublicKey().Bytes()), hex.EncodeToString(bytes.Repeat([]byte{5}, 32)), profile.peer)
 	if err = peer.IpcSet(config); err != nil {
 		return err
@@ -403,7 +417,9 @@ func run() error {
 		}
 		results <- nil
 	}
-	if scenario != "timer-persistent" && scenario != "timer-retry-exhaust" {
+	if cookie {
+		go serve(func() error { return bind.cookies.run(first, scenario == "cookies-disabled") })
+	} else if scenario != "timer-persistent" && scenario != "timer-retry-exhaust" {
 		go serve(func() error {
 			if err := echoUDPPair(first, second); err != nil {
 				return err

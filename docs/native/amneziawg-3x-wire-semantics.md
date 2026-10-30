@@ -166,7 +166,8 @@ prove those acceptance categories or production DPI behavior.
 `build-gate --lane ripdpi -- python3 scripts/tests/run-standalone-awg-interop.py`
 checks both Go revisions, seven named profiles, MTU 1280/1420, and four sessions
 per case, for both payload and small-datagram scenarios (56 cases). Six timer
-scenarios add 24 single-session cases on `v3-cpa-trailers`. `--peer`,
+scenarios add 24 single-session cases on `v3-cpa-trailers`. Two cookie policies
+add eight more cases on that profile. `--peer`,
 `--profile`, and `--scenario` select a smaller diagnostic run; its receipt
 lists the selected cases. Use `--candidate-patch` only for local development; new
 files must be staged so the archived patch includes them. JSON and logs are kept
@@ -187,8 +188,15 @@ age rekey with fresh-key payload, and expired-key rejection with recovery.
 Outgoing response-loss events are explicit in the bounded journal. The retry
 bound includes upstream jitter and the runtime's 250 ms timer poll. Exact
 boundary and resampling behavior remains covered by backend unit tests; these
-wall-clock cases do not prove repeated random selection. Cookie load scenarios
-remain required. Android evidence v2
+wall-clock cases do not prove repeated random selection. Cookie load scenarios use public Go Noise/cookie APIs on the existing socket.
+They require invalid MAC1 rejection, a fresh Noise handshake at the last free
+expensive-work slot, authenticated cookie challenges, valid/invalid MAC2
+handling, independent challenge/work limits, and fresh-key recovery. Go TAI64N
+must advance before each fresh initiation. An authenticated UDP FENCE/ACK pair
+provides a receive-queue barrier within each admission window. This ordering
+claim is limited to the owned loopback flow; it is not a WAN loss/reordering
+guarantee. Cookie source-address/port binding remains backend-unit evidence.
+Android evidence v2
 uses the same validator; a schema upgrade does not replace a fresh device run.
 
 Linux acceptance uses `scripts/tests/run-linux-awg-interop.py` inside a new VM

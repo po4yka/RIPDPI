@@ -2,7 +2,7 @@
 import copy
 import unittest
 
-from scripts.tests.awg_wire_validation import validate_wire_observation, validate_timer_observation
+from scripts.tests.awg_wire_validation import validate_wire_observation, validate_timer_observation, validate_cookie_observation
 
 
 def small_cpa_observation():
@@ -238,6 +238,93 @@ class TimerSemantics(unittest.TestCase):
             observation = timer_observation("timer-persistent")
             mutation(observation)
             with self.assertRaises(ValueError): validate_timer_observation(observation, 1280, "timer-persistent")
+
+
+def cookie_observation(disabled=False):
+    from collections import Counter
+    result = small_cpa_observation()
+    result.update(scenario="cookies-disabled" if disabled else "cookies-enabled", elapsed_ns=4_000_000_000,
+                  handshakes=1, fresh_signature_packets=1)
+    events = []
+    def event(time, direction, kind, length, receiver=0):
+        item = dict(id=len(events)+1, at_ns=int(time*1e9), direction=direction, type=kind, length=length)
+        if receiver: item.update(receiver=receiver, counter=len(events))
+        events.append(item)
+    event(0,"in",1,200);event(.01,"out",2,130);event(.02,"in",4,72,101);event(.1,"in",4,110,101)
+    names = ["invalid-mac1","admission"] + (["exhausted-noise"] if disabled else ["bad-mac2","valid-mac2"]) + ["challenge-budget","recovery"]
+    phases = []
+    for index, name in enumerate(names):
+        start = 1.2+index*.05 if name not in ("challenge-budget","recovery") else 2.5 if name=="challenge-budget" else 3.7
+        count = {"invalid-mac1":4,"admission":11,"challenge-budget":21}.get(name,1)
+        sent = [dict(sha256=str(index+1)*64,at_ns=int(start*1e9)+i*1000) for i in range(count)]
+        if name=="admission": sent[9]["sha256"]="a"*64
+        replies=[]
+        for _ in range(2 if name=="admission" else int(name in ("challenge-budget","recovery"))):
+            replies.append(dict(type=2,length=130,authenticated=False,at_ns=int((start+.005)*1e9)))
+        challenges=0 if disabled else {"admission":1,"bad-mac2":1,"challenge-budget":10}.get(name,0)
+        replies += [dict(type=3,length=100,authenticated=True,at_ns=int((start+.006)*1e9)) for _ in range(challenges)]
+        if name=="recovery": event(start+.005,"in",2,130);event(start+.007,"out",4,72,2)
+        event(start+.011,"out",4,100+len("FENCE:"+name),2 if name=="recovery" else 1)
+        event(start+.019,"in",4,100+len("ACK:"+name),202 if name=="recovery" else 101)
+        phases.append(dict(name=name,sent=sent,responses=replies,fence_ns=int((start+.01)*1e9),ack_ns=int((start+.03)*1e9)))
+    event(3.74,"out",4,111,2)
+    evidence=result["evidence"]
+    evidence.update(events=events,events_dropped=0,authenticated_keepalives=1)
+    evidence["lengths"]=[[dict(Counter(str(e["length"]) for e in events if e["direction"]==side and e["type"]==kind))
+                          for kind in range(1,5)] for side in ("in","out")]
+    evidence["ip_lengths"]=dict(Counter(str(e["length"]-72) for e in events if e["direction"]=="in" and e["type"]==4 and e["length"]>72))
+    evidence["peer_counters"]["rx_bytes"]=240+sum(e["length"]-24 for e in events if e["direction"]=="in" and e["type"]==4)
+    result["cookies"]=dict(phases=phases,admission_window_ns=250_000_000,recovery_confirmed=True)
+    return result
+
+
+class CookieSemantics(unittest.TestCase):
+    def test_both_cookie_policies_require_budget_edge_and_authenticated_recovery(self):
+        for disabled in (False,True):
+            good=cookie_observation(disabled)
+            validate_cookie_observation(good,1280,good["scenario"])
+            for mutation in (
+                lambda o: o["cookies"].update(recovery_confirmed=False),
+                lambda o: o["cookies"].update(admission_window_ns=1_000_000_000),
+                lambda o: o["cookies"]["phases"][1]["sent"][9].update(sha256=o["cookies"]["phases"][1]["sent"][0]["sha256"]),
+                lambda o: o["cookies"]["phases"][1]["responses"].pop(0),
+                lambda o: o["evidence"]["events"][-2].update(receiver=101),
+            ):
+                bad=copy.deepcopy(good);mutation(bad)
+                with self.assertRaises(ValueError):validate_cookie_observation(bad,1280,bad["scenario"])
+
+    def test_missing_auth_bad_mac1_mac2_and_excess_challenges_fail(self):
+        good=cookie_observation()
+        for phase_index, change in ((0,"add"),(1,"auth"),(2,"remove"),(3,"add"),(4,"add")):
+            bad=copy.deepcopy(good)
+            phase=bad["cookies"]["phases"][phase_index]
+            if change=="auth": phase["responses"][-1]["authenticated"]=False
+            elif change=="remove": phase["responses"]=[]
+            else: phase["responses"].append(dict(type=3,length=100,authenticated=True,at_ns=phase["fence_ns"]))
+            with self.subTest(phase=phase_index), self.assertRaises(ValueError):
+                validate_cookie_observation(bad,1280,bad["scenario"])
+        bad=cookie_observation(True)
+        phase=bad["cookies"]["phases"][2]
+        phase["responses"].append(dict(type=2,length=130,authenticated=False,at_ns=phase["fence_ns"]))
+        with self.assertRaises(ValueError):validate_cookie_observation(bad,1280,bad["scenario"])
+
+    def test_missing_cookie_or_response_trailers_fail(self):
+        for kind, base in ((2,112),(3,80)):
+            bad=cookie_observation()
+            for phase in bad["cookies"]["phases"]:
+                for response in phase["responses"]:
+                    if response["type"]==kind: response["length"]=base
+            with self.assertRaisesRegex(ValueError,"RT not observed"):
+                validate_cookie_observation(bad,1280,bad["scenario"])
+
+    def test_unaccounted_journal_packet_cannot_supply_a_fence(self):
+        good=cookie_observation()
+        bad=copy.deepcopy(good)
+        event=copy.deepcopy(bad["evidence"]["events"][-1])
+        event.update(id=event["id"]+1,at_ns=3_750_000_000)
+        bad["evidence"]["events"].append(event)
+        with self.assertRaisesRegex(ValueError,"journal differs from histograms"):
+            validate_cookie_observation(bad,1280,bad["scenario"])
 
 
 if __name__ == "__main__":

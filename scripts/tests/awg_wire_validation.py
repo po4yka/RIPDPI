@@ -79,7 +79,7 @@ def validate_wire_observation(observation, profile, mtu, cycles, scenario="paylo
             "authenticated byte accounting or key confirmation missing")
     if cpa and cpa[0] == cpa[1] and cpa[0] < 20:
         require(incoming[3][padding[3]+32+cpa[0]] >= keepalives, "empty transport CPA missing")
-    require(scenario in ("payload", "small-datagrams", *TIMER_SCENARIOS), "unknown observation scenario")
+    require(scenario in ("payload", "small-datagrams", *TIMER_SCENARIOS, *COOKIE_SCENARIOS), "unknown observation scenario")
     if scenario == "small-datagrams":
         require(ip_lengths == {45: 2*cycles} and keepalives == cycles, "small-datagram plaintext oracle differs")
         framing = padding[3]+32
@@ -110,9 +110,7 @@ def validate_wire_observation(observation, profile, mtu, cycles, scenario="paylo
 TIMER_SCENARIOS = ("timer-persistent", "timer-idle", "timer-retry-loss", "timer-retry-exhaust", "timer-rekey", "timer-reject")
 
 
-def validate_timer_observation(observation, mtu, scenario):
-    require(scenario in TIMER_SCENARIOS and observation.get("scenario") == scenario, "timer scenario differs")
-    evidence = validate_wire_observation(observation, "v3-cpa-trailers", mtu, 1, scenario)
+def validate_event_journal(observation, evidence, mtu):
     events = evidence.get("events")
     elapsed = observation.get("elapsed_ns")
     require(type(elapsed) is int and 0 < elapsed < 20_000_000_000, "missing bounded observation window")
@@ -131,6 +129,14 @@ def validate_timer_observation(observation, mtu, scenario):
             require(type(event.get("receiver")) is int and event["receiver"] > 0 and
                     type(event.get("counter", 0)) is int and event.get("counter", 0) >= 0, "missing transport key/counter")
     require(counts == [[histogram(value, mtu+180) for value in side] for side in evidence["lengths"]], "journal differs from histograms")
+    return events
+
+
+def validate_timer_observation(observation, mtu, scenario):
+    require(scenario in TIMER_SCENARIOS and observation.get("scenario") == scenario, "timer scenario differs")
+    evidence = validate_wire_observation(observation, "v3-cpa-trailers", mtu, 1, scenario)
+    events = validate_event_journal(observation, evidence, mtu)
+    elapsed = observation["elapsed_ns"]
     initiations = [e for e in events if e["direction"] == "in" and e["type"] == 1]
     responses = [e for e in events if e["direction"] == "out" and e["type"] == 2]
     incoming = [e for e in events if e["direction"] == "in" and e["type"] == 4]
@@ -187,4 +193,71 @@ def validate_timer_observation(observation, mtu, scenario):
         require(any(e["receiver"] == keepalives[1]["receiver"] and e["at_ns"] > keepalives[1]["at_ns"] for e in data), "new key has no accepted payload")
     if scenario not in ("timer-retry-loss", "timer-retry-exhaust", "timer-reject"):
         require(not any(e.get("dropped") for e in responses), "unexpected response loss")
+    return evidence
+
+
+COOKIE_SCENARIOS = ("cookies-enabled", "cookies-disabled")
+
+
+def validate_cookie_observation(observation, mtu, scenario):
+    require(scenario in COOKIE_SCENARIOS and observation.get("scenario") == scenario, "cookie scenario differs")
+    evidence = validate_wire_observation(observation, "v3-cpa-trailers", mtu, 1, scenario)
+    cookie = observation.get("cookies", {})
+    require(type(cookie.get("admission_window_ns")) is int and 0 < cookie["admission_window_ns"] < 750_000_000,
+            "cookie admission window was not bounded")
+    disabled = scenario == "cookies-disabled"
+    expected = ["invalid-mac1", "admission"] + (["exhausted-noise"] if disabled else ["bad-mac2", "valid-mac2"]) + ["challenge-budget", "recovery"]
+    phases = cookie.get("phases")
+    require(isinstance(phases, list) and [p.get("name") for p in phases] == expected, "cookie phases missing")
+    events = validate_event_journal(observation, evidence, mtu)
+    expected_ips = Counter({38:1}) # ARM:cookie plus one authenticated ACK per phase.
+    expected_ips.update(28+len("ACK:"+name) for name in expected)
+    require(histogram(evidence.get("ip_lengths"),mtu) == expected_ips, "cookie plaintext/fence accounting differs")
+    previous_ack = 0
+    for phase in phases:
+        name = phase["name"]
+        sent = phase.get("sent")
+        require(isinstance(sent, list) and len(sent) == {"invalid-mac1":4,"admission":11,"challenge-budget":21}.get(name,1), "cookie injection count differs")
+        for packet in sent:
+            digest = packet.get("sha256")
+            require(isinstance(digest,str) and len(digest)==64 and all(c in "0123456789abcdef" for c in digest), "cookie injection identity missing")
+            require(type(packet.get("at_ns")) is int and previous_ack < packet["at_ns"] <= phase.get("fence_ns",0), "cookie send/fence order differs")
+        hashes = [packet["sha256"] for packet in sent]
+        if name == "admission":
+            require(hashes[:9] == [hashes[0]]*9 and hashes[9] != hashes[0] and hashes[10] == hashes[0],
+                    "admission lacks fresh Noise at the expensive-budget edge")
+        else:
+            require(len(set(hashes)) == 1, "replayed Noise bytes differ")
+        fence, ack = phase.get("fence_ns"), phase.get("ack_ns")
+        require(type(fence) is int and type(ack) is int and fence < ack and ack-sent[0]["at_ns"] < 750_000_000, "cookie phase crossed its budget window")
+        # S4 + transport framing + CPA + IPv4/UDP + marker length.
+        for direction, marker in (("out","FENCE:"),("in","ACK:")):
+            length = 24+32+16+28+len(marker+name)
+            matches = [e for e in events if e.get("direction")==direction and e.get("type")==4 and
+                       e.get("length")==length and fence <= e.get("at_ns",0) <= ack]
+            require(len(matches)==1, "authenticated cookie processing fence missing")
+        responses = phase.get("responses") or []
+        require(isinstance(responses,list) and len(responses)<=11, "cookie response bound differs")
+        for response in responses:
+            require(response.get("type") in (2,3) and sent[0]["at_ns"] <= response.get("at_ns",0) <= ack, "cookie response phase differs")
+            base = 112 if response["type"]==2 else 80
+            require(type(response.get("length")) is int and base <= response["length"] <= 499, "cookie/response trailer bound differs")
+            if response["type"]==3: require(response.get("authenticated") is True, "cookie challenge authentication missing")
+        h2 = sum(r["type"]==2 for r in responses)
+        h3 = sum(r["type"]==3 for r in responses)
+        expected_h2 = 2 if name == "admission" else int(name in ("challenge-budget","recovery"))
+        expected_h3 = 0 if disabled else {"admission":1,"bad-mac2":1,"challenge-budget":10}.get(name,0)
+        require((h2,h3)==(expected_h2,expected_h3), "MAC1/MAC2 admission or cookie budget differs")
+        if name in ("challenge-budget","recovery"):
+            require(sent[0]["at_ns"]-previous_ack >= 1_000_000_000, "cookie budget reset interval missing")
+        previous_ack = ack
+    responses = [response for phase in phases for response in (phase.get("responses") or [])]
+    require(any(r["type"] == 2 and r["length"] > 112 for r in responses), "response RT not observed")
+    if not disabled:
+        require(any(r["type"] == 3 and r["length"] > 80 for r in responses), "cookie RT not observed")
+    require(cookie.get("recovery_confirmed") is True, "cookie recovery key confirmation missing")
+    first_key = next(e["receiver"] for e in events if e.get("direction")=="in" and e.get("type")==4)
+    recovery = phases[-1]
+    require(any(e.get("direction")=="in" and e.get("type")==4 and e.get("receiver")!=first_key and
+                recovery["fence_ns"] <= e["at_ns"] <= recovery["ack_ns"] for e in events), "cookie recovery has no fresh-key payload")
     return evidence

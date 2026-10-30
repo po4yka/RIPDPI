@@ -73,6 +73,7 @@ async fn exchange(runtime: &AmneziaWgRuntime, ready: &Notify) -> Result<Option<(
     );
     match std::env::var("RIPDPI_AWG_SCENARIO").unwrap_or_else(|_| "payload".into()).as_str() {
         "small-datagrams" | "timer-retry-loss" => exchange_small_datagrams(address).await?,
+        "cookies-enabled" | "cookies-disabled" => exchange_cookies(address).await?,
         "timer-persistent" => tokio::time::sleep(Duration::from_millis(6200)).await,
         "timer-idle" => {
             exchange_small_datagrams(address).await?;
@@ -213,6 +214,34 @@ async fn exchange_expiry(address: SocketAddr) -> Result<()> {
 }
 
 /// # Cancel safety
+/// cancel-safe: the owned association and UDP socket drop on outer cancellation.
+async fn exchange_cookies(address: SocketAddr) -> Result<()> {
+    let (_control, relay) = socks_request(address, 3, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
+    ensure!(relay.ip().is_loopback() && relay.port() != 0, "unsafe cookie-probe relay");
+    let udp = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await?;
+    udp.send_to(&udp_frame(41002, b"ARM:cookie"), relay).await?;
+    let disabled = std::env::var("RIPDPI_AWG_SCENARIO").unwrap_or_default() == "cookies-disabled";
+    let phases: &[&str] = if disabled {
+        &["invalid-mac1", "admission", "exhausted-noise", "challenge-budget", "recovery"]
+    } else {
+        &["invalid-mac1", "admission", "bad-mac2", "valid-mac2", "challenge-budget", "recovery"]
+    };
+    for phase in phases {
+        let mut bytes = [0; 512];
+        let (size, source) = udp.recv_from(&mut bytes).await?;
+        ensure!(
+            source == relay && bytes[..size] == udp_frame(41002, format!("FENCE:{phase}").as_bytes()),
+            "cookie fence source, phase or payload differs"
+        );
+        udp.send_to(&udp_frame(41002, format!("ACK:{phase}").as_bytes()), relay).await?;
+    }
+    let mut bytes = [0; 512];
+    let (size, source) = udp.recv_from(&mut bytes).await?;
+    ensure!(source == relay && bytes[..size] == udp_frame(41002, b"DONE:cookie"), "cookie recovery completion differs");
+    Ok(())
+}
+
+/// # Cancel safety
 /// NOT cancel-safe: this test owns a runtime task and explicitly stops, aborts if needed, and joins it.
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn standalone_profile_exchanges_tcp_and_udp_with_independent_awg_peer() -> Result<()> {
@@ -238,6 +267,7 @@ async fn standalone_profile_exchanges_tcp_and_udp_with_independent_awg_peer() ->
         ..Default::default()
     };
     match std::env::var("RIPDPI_AWG_SCENARIO").unwrap_or_default().as_str() {
+        "cookies-disabled" => config.amnezia.v3.disable_cookies = true,
         "timer-persistent" => {
             config.persistent_keepalive = 1;
             config.persistent_keepalive_max = 2;
