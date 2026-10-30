@@ -240,6 +240,8 @@ fun RipDpiIntroScaffold(
                 .ripDpiAutomationTreeRoot()
                 .fillMaxSize()
                 .ripDpiScreenBackground()
+                // The footer actions stay above the keyboard while a field (the backup PIN) has focus.
+                .imePadding()
                 .padding(horizontal = layout.horizontalPadding),
     ) {
         Box(

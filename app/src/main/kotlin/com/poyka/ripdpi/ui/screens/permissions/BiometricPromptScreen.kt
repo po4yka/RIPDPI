@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.fragment.app.FragmentActivity
@@ -282,6 +283,7 @@ fun BiometricPromptScreen(
                 BiometricPromptPinInput(
                     pin = pin,
                     onPinChanged = onPinChanged,
+                    onSubmitPin = onSubmitPin,
                     pinError = pinError,
                     horizontalPadding = introLayout.bodyHorizontalPadding,
                 )
@@ -410,6 +412,7 @@ private fun BiometricPromptFooter(
 private fun BiometricPromptPinInput(
     pin: String,
     onPinChanged: (String) -> Unit,
+    onSubmitPin: () -> Unit,
     pinError: String?,
     horizontalPadding: androidx.compose.ui.unit.Dp,
 ) {
@@ -433,7 +436,9 @@ private fun BiometricPromptPinInput(
                 ),
             behavior =
                 RipDpiTextFieldBehavior(
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    keyboardOptions =
+                        KeyboardOptions(keyboardType = KeyboardType.NumberPassword, imeAction = ImeAction.Done),
+                    onKeyboardAction = { onSubmitPin() },
                     textObfuscationMode = TextObfuscationMode.Hidden,
                 ),
         )

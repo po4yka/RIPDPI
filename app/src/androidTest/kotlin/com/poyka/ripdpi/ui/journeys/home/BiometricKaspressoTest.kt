@@ -18,7 +18,7 @@ private class BiometricPage(
     val secondary = RipDpiTestTags.BiometricPromptSecondaryAction
     val pinField = RipDpiTestTags.BiometricPromptPinField
 
-    /** Typing opens the soft keyboard over Unlock at an unpredictable moment, so submit through the action. */
+    /** Typing opens the soft keyboard at an unpredictable moment and moves Unlock, so submit through the action. */
     fun submit() = activate(primary)
 }
 
@@ -48,7 +48,8 @@ class BiometricKaspressoTest :
                 }
                 step("The correct PIN unlocks Home") {
                     node(pinField).performTextReplacement("0000")
-                    submit()
+                    // The keyboard's Done key submits the PIN.
+                    node(pinField).performImeAction()
                     waitFor(RipDpiTestTags.screen(Route.Home))
                 }
             }
