@@ -1,5 +1,6 @@
 #![forbid(unsafe_code)]
 
+mod check;
 mod config;
 mod connect_tunnel;
 mod errors;
@@ -109,6 +110,9 @@ async fn main() -> io::Result<()> {
 
     if args.first().is_some_and(|value| value == resolve::RESOLVE_FLAG) {
         return resolve::run_resolve_mode().await;
+    }
+    if has_flag(check::CHECK_FLAG) {
+        return check::run_check_mode(args).await;
     }
 
     match parse_config() {

@@ -125,6 +125,13 @@ class ConfigViewModel
                         .isConfigPending()
                 },
             )
+        internal val naiveProfileCheck =
+            ConfigNaiveProfileCheckRunner(
+                viewModelScope,
+                importDependencies.naiveProxyProfileCheck,
+                _effects,
+                stringResolver,
+            )
         private val relayProfileSelector =
             ConfigRelayProfileSelector(
                 dependencies = dependencies,

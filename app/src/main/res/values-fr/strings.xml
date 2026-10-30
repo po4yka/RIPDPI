@@ -2167,6 +2167,15 @@ Source : %2$s</string>
     <string name="config_relay_naive_path">Chemin HTTP (facultatif)</string>
     <string name="config_relay_naive_path_helper">Laisser vide pour le point de terminaison CONNECT par défaut, ou utiliser un chemin absolu comme /proxy.</string>
     <string name="config_relay_naive_path_pin_notice">Ce chemin n\'est pas envoyé sans épinglage de certificat. Définissez une empreinte ci-dessous pour utiliser le chemin.</string>
+    <string name="config_relay_naive_check">Tester la connexion</string>
+    <string name="config_relay_naive_check_running">Test de la connexion au serveur NaïveProxy…</string>
+    <string name="config_relay_naive_check_ok">Le serveur a répondu et n\'a pas refusé les identifiants.</string>
+    <string name="config_relay_naive_check_auth">Le serveur a refusé le nom d\'utilisateur ou le mot de passe.</string>
+    <string name="config_relay_naive_check_tls">La négociation TLS a échoué. Vérifiez le nom du serveur, le certificat ou l\'empreinte.</string>
+    <string name="config_relay_naive_check_dns">Le nom du serveur n\'a pas pu être résolu.</string>
+    <string name="config_relay_naive_check_connect">Le serveur est injoignable. Vérifiez l\'adresse et le port.</string>
+    <string name="config_relay_naive_check_timeout">Le serveur n\'a pas répondu à temps.</string>
+    <string name="config_relay_naive_check_failed">Le test n\'a pas pu s\'exécuter. Vérifiez les champs du profil.</string>
     <string name="config_relay_naive_path_error_absolute">Le chemin doit commencer par /.</string>
     <string name="config_relay_naive_extra_headers">En-têtes supplémentaires (facultatif)</string>
     <string name="config_relay_naive_extra_headers_helper">Un en-tête par ligne au format Name: value. Envoyés avec chaque requête CONNECT. Les valeurs sont stockées chiffrées.</string>

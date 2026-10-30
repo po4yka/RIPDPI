@@ -679,6 +679,15 @@
     <string name="config_relay_naive_path">HTTP path (optional)</string>
     <string name="config_relay_naive_path_helper">Leave blank for the default CONNECT endpoint, or use an absolute path such as /proxy.</string>
     <string name="config_relay_naive_path_pin_notice">This path is not sent without a certificate pin. Set a pin below to use the path.</string>
+    <string name="config_relay_naive_check">Test connection</string>
+    <string name="config_relay_naive_check_running">Testing the connection to the NaïveProxy server…</string>
+    <string name="config_relay_naive_check_ok">The server answered and did not reject the credentials.</string>
+    <string name="config_relay_naive_check_auth">The server rejected the user name or password.</string>
+    <string name="config_relay_naive_check_tls">The TLS handshake failed. Check the server name, the certificate or the pin.</string>
+    <string name="config_relay_naive_check_dns">The app cannot find the address of the server name.</string>
+    <string name="config_relay_naive_check_connect">The server could not be reached. Check the address and the port.</string>
+    <string name="config_relay_naive_check_timeout">The server did not answer in time.</string>
+    <string name="config_relay_naive_check_failed">The test could not run. Check the profile fields.</string>
     <string name="config_relay_naive_path_error_absolute">Path must start with /.</string>
     <string name="config_relay_naive_extra_headers">Extra headers (optional)</string>
     <string name="config_relay_naive_extra_headers_helper">One header per line as Name: value. Sent with every CONNECT request. Values are stored encrypted.</string>

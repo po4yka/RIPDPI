@@ -1139,3 +1139,63 @@ fn config_rejects_a_malformed_server_pin() {
         assert!(parse_config_args_with_stdin(&args, stdin).is_err(), "{bad}");
     }
 }
+
+/// A server that answers every CONNECT with `status`, as forwardproxy answers a
+/// target it cannot dial.
+async fn status_upstream(status: http::StatusCode) -> (NaiveProxyConfig, tokio::task::JoinHandle<()>) {
+    let (server_config, client_config) = self_signed_upstream_tls();
+    let upstream = TcpListener::bind("127.0.0.1:0").await.expect("bind upstream");
+    let port = upstream.local_addr().expect("upstream addr").port();
+    let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(server_config));
+    let server = tokio::spawn(async move {
+        loop {
+            let (socket, _) = upstream.accept().await.expect("accept upstream");
+            let Ok(tls) = acceptor.accept(socket).await else { continue };
+            tokio::spawn(async move {
+                let service =
+                    hyper::service::service_fn(move |_request: http::Request<hyper::body::Incoming>| async move {
+                        let mut response = http::Response::new(http_body_util::Empty::<bytes::Bytes>::new());
+                        *response.status_mut() = status;
+                        Ok::<_, std::convert::Infallible>(response)
+                    });
+                let _ = hyper::server::conn::http2::Builder::new(hyper_util::rt::TokioExecutor::new())
+                    .serve_connection(hyper_util::rt::TokioIo::new(tls), service)
+                    .await;
+            });
+        }
+    });
+    let config = NaiveProxyConfig {
+        server: "127.0.0.1".to_owned(),
+        server_port: port,
+        server_name: "proxy.example".to_owned(),
+        tls_config: Arc::new(client_config),
+        ..naive_config_with_auth()
+    };
+    (config, server)
+}
+
+/// The check reports whether the server took the credentials, not whether the
+/// reserved check target is reachable.
+///
+/// # Cancel safety:
+/// cancel-safe: the test owns the fixture, the servers and every open.
+#[tokio::test]
+async fn check_mode_separates_credential_rejection_from_other_answers() {
+    let fixture = local_network_fixture::NaiveH2PaddingFixture::start("naive-user", "naive-pass")
+        .await
+        .expect("start naive h2 fixture");
+    let wrong = NaiveProxyConfig { password: Some("wrong-pass".to_owned()), ..fixture_config(&fixture) };
+    assert_eq!(crate::check::check_outcome(&wrong).await, "auth");
+
+    let (bad_gateway, server) = status_upstream(http::StatusCode::BAD_GATEWAY).await;
+    assert_eq!(crate::check::check_outcome(&bad_gateway).await, "ok", "a non-407 answer accepted the credentials");
+    server.abort();
+
+    let closed = TcpListener::bind("127.0.0.1:0").await.expect("bind closed port");
+    let closed_port = closed.local_addr().expect("closed addr").port();
+    drop(closed);
+    let refused = NaiveProxyConfig { server_port: closed_port, ..fixture_config(&fixture) };
+    assert_eq!(crate::check::check_outcome(&refused).await, "connect");
+
+    assert_eq!(crate::check::check_line("auth"), "RIPDPI-CHECK|naiveproxy|auth");
+}

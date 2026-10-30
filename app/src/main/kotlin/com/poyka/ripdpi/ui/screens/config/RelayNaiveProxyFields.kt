@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.ui.screens.config
 
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
@@ -11,6 +13,8 @@ import com.poyka.ripdpi.activities.ConfigFieldRelayNaiveExtraHeaders
 import com.poyka.ripdpi.activities.ConfigFieldRelayNaivePath
 import com.poyka.ripdpi.activities.ConfigFieldRelayNaiveServerPin
 import com.poyka.ripdpi.activities.ConfigUiState
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
@@ -90,5 +94,11 @@ internal fun NaiveProxyRelayFields(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Ascii),
             ),
+    )
+    RipDpiButton(
+        text = stringResource(R.string.config_relay_naive_check),
+        onClick = actions.onRelayNaiveCheckClicked,
+        modifier = Modifier.fillMaxWidth(),
+        variant = RipDpiButtonVariant.Outline,
     )
 }

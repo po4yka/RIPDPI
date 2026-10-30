@@ -2167,6 +2167,15 @@ Origen: %2$s</string>
     <string name="config_relay_naive_path">Ruta HTTP (opcional)</string>
     <string name="config_relay_naive_path_helper">Déjalo vacío para el endpoint CONNECT predeterminado, o usa una ruta absoluta como /proxy.</string>
     <string name="config_relay_naive_path_pin_notice">Esta ruta no se envía sin una fijación de certificado. Define una fijación abajo para usar la ruta.</string>
+    <string name="config_relay_naive_check">Probar conexión</string>
+    <string name="config_relay_naive_check_running">Probando la conexión con el servidor NaïveProxy…</string>
+    <string name="config_relay_naive_check_ok">El servidor respondió y no rechazó las credenciales.</string>
+    <string name="config_relay_naive_check_auth">El servidor rechazó el nombre de usuario o la contraseña.</string>
+    <string name="config_relay_naive_check_tls">Falló el protocolo de enlace TLS. Revisa el nombre del servidor, el certificado o el pin.</string>
+    <string name="config_relay_naive_check_dns">No se pudo resolver el nombre del servidor.</string>
+    <string name="config_relay_naive_check_connect">No se pudo contactar con el servidor. Revisa la dirección y el puerto.</string>
+    <string name="config_relay_naive_check_timeout">El servidor no respondió a tiempo.</string>
+    <string name="config_relay_naive_check_failed">No se pudo ejecutar la prueba. Revisa los campos del perfil.</string>
     <string name="config_relay_naive_path_error_absolute">La ruta debe empezar por /.</string>
     <string name="config_relay_naive_extra_headers">Cabeceras adicionales (opcional)</string>
     <string name="config_relay_naive_extra_headers_helper">Una cabecera por línea con el formato Name: value. Se envían con cada solicitud CONNECT. Los valores se guardan cifrados.</string>

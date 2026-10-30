@@ -2167,6 +2167,15 @@ Quelle: %2$s</string>
     <string name="config_relay_naive_path">HTTP-Pfad (optional)</string>
     <string name="config_relay_naive_path_helper">Leer lassen für den Standard-CONNECT-Endpunkt oder einen absoluten Pfad wie /proxy verwenden.</string>
     <string name="config_relay_naive_path_pin_notice">Dieser Pfad wird ohne Zertifikats-Pin nicht gesendet. Legen Sie unten einen Pin fest, um den Pfad zu verwenden.</string>
+    <string name="config_relay_naive_check">Verbindung testen</string>
+    <string name="config_relay_naive_check_running">Verbindung zum NaïveProxy-Server wird getestet…</string>
+    <string name="config_relay_naive_check_ok">Der Server hat geantwortet und die Zugangsdaten nicht abgelehnt.</string>
+    <string name="config_relay_naive_check_auth">Der Server hat Benutzername oder Passwort abgelehnt.</string>
+    <string name="config_relay_naive_check_tls">Der TLS-Handshake ist fehlgeschlagen. Prüfen Sie Servername, Zertifikat oder Pin.</string>
+    <string name="config_relay_naive_check_dns">Der Servername konnte nicht aufgelöst werden.</string>
+    <string name="config_relay_naive_check_connect">Der Server ist nicht erreichbar. Prüfen Sie Adresse und Port.</string>
+    <string name="config_relay_naive_check_timeout">Der Server hat nicht rechtzeitig geantwortet.</string>
+    <string name="config_relay_naive_check_failed">Der Test konnte nicht ausgeführt werden. Prüfen Sie die Profilfelder.</string>
     <string name="config_relay_naive_path_error_absolute">Der Pfad muss mit / beginnen.</string>
     <string name="config_relay_naive_extra_headers">Zusätzliche Header (optional)</string>
     <string name="config_relay_naive_extra_headers_helper">Ein Header pro Zeile im Format Name: value. Wird mit jeder CONNECT-Anfrage gesendet. Die Werte werden verschlüsselt gespeichert.</string>

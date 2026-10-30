@@ -2100,6 +2100,15 @@ fake_burst 3</string>
     <string name="config_relay_naive_path">HTTP 路径（可选）</string>
     <string name="config_relay_naive_path_helper">留空以使用默认 CONNECT 端点，或使用 /proxy 这样的绝对路径。</string>
     <string name="config_relay_naive_path_pin_notice">没有证书固定时，不会发送此路径。请在下方设置固定值以使用该路径。</string>
+    <string name="config_relay_naive_check">测试连接</string>
+    <string name="config_relay_naive_check_running">正在测试与 NaïveProxy 服务器的连接…</string>
+    <string name="config_relay_naive_check_ok">服务器已响应，且未拒绝凭据。</string>
+    <string name="config_relay_naive_check_auth">服务器拒绝了用户名或密码。</string>
+    <string name="config_relay_naive_check_tls">TLS 握手失败。请检查服务器名称、证书或固定值。</string>
+    <string name="config_relay_naive_check_dns">无法解析服务器名称。</string>
+    <string name="config_relay_naive_check_connect">无法连接到服务器。请检查地址和端口。</string>
+    <string name="config_relay_naive_check_timeout">服务器未及时响应。</string>
+    <string name="config_relay_naive_check_failed">无法运行测试。请检查配置文件字段。</string>
     <string name="config_relay_naive_path_error_absolute">路径必须以 / 开头。</string>
     <string name="config_relay_naive_extra_headers">额外请求头（可选）</string>
     <string name="config_relay_naive_extra_headers_helper">每行一个请求头，格式为 Name: value。随每个 CONNECT 请求发送。值以加密方式存储。</string>

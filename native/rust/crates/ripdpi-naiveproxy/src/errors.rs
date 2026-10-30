@@ -31,7 +31,7 @@ fn sanitize_structured_message(message: &str) -> String {
     message.replace('|', "/").replace(['\n', '\r'], " ")
 }
 
-fn classify_io_error(error: &io::Error) -> &'static str {
+pub(crate) fn classify_io_error(error: &io::Error) -> &'static str {
     let message = error.to_string().to_ascii_lowercase();
     // Only the proxy's 407 is auth; a socket-level EACCES/EPERM (protect, firewall) is a connect failure.
     if message.contains("proxy-authorization") || message.contains("status 407") {

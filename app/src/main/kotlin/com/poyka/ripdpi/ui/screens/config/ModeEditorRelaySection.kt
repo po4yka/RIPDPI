@@ -460,6 +460,7 @@ private fun relayKindFieldActions(actions: ModeEditorActions): RelayKindFieldAct
                 onRelayNaivePathChanged = actions.onRelayNaivePathChanged,
                 onRelayNaiveExtraHeadersChanged = actions.onRelayNaiveExtraHeadersChanged,
                 onRelayNaiveServerPinChanged = actions.onRelayNaiveServerPinChanged,
+                onRelayNaiveCheckClicked = actions.onRelayNaiveCheckClicked,
                 onRelayPtBridgeLineChanged = actions.onRelayPtBridgeLineChanged,
                 onRelayWebTunnelUrlChanged = actions.onRelayWebTunnelUrlChanged,
                 onRelaySnowflakeBrokerUrlChanged = actions.onRelaySnowflakeBrokerUrlChanged,

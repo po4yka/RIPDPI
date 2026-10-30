@@ -660,6 +660,15 @@
     <string name="config_relay_naive_path">مسیر HTTP (اختیاری)</string>
     <string name="config_relay_naive_path_helper">برای نقطه پایانی پیش‌فرض CONNECT خالی بگذارید، یا یک مسیر مطلق مانند /proxy وارد کنید.</string>
     <string name="config_relay_naive_path_pin_notice">بدون پین گواهی، این مسیر ارسال نمی‌شود. برای استفاده از مسیر، پایین‌تر یک پین تنظیم کنید.</string>
+    <string name="config_relay_naive_check">آزمایش اتصال</string>
+    <string name="config_relay_naive_check_running">در حال آزمایش اتصال به سرور NaïveProxy…</string>
+    <string name="config_relay_naive_check_ok">سرور پاسخ داد و اطلاعات ورود را رد نکرد.</string>
+    <string name="config_relay_naive_check_auth">سرور نام کاربری یا گذرواژه را رد کرد.</string>
+    <string name="config_relay_naive_check_tls">دست‌دهی TLS ناموفق بود. نام سرور، گواهی یا پین را بررسی کنید.</string>
+    <string name="config_relay_naive_check_dns">نام سرور قابل تبدیل به نشانی نبود.</string>
+    <string name="config_relay_naive_check_connect">سرور در دسترس نیست. نشانی و درگاه را بررسی کنید.</string>
+    <string name="config_relay_naive_check_timeout">سرور به‌موقع پاسخ نداد.</string>
+    <string name="config_relay_naive_check_failed">آزمایش اجرا نشد. فیلدهای نمایه را بررسی کنید.</string>
     <string name="config_relay_naive_path_error_absolute">مسیر باید با / شروع شود.</string>
     <string name="config_relay_naive_extra_headers">سرصفحه‌های اضافی (اختیاری)</string>
     <string name="config_relay_naive_extra_headers_helper">هر سرصفحه در یک خط با قالب Name: value. با هر درخواست CONNECT ارسال می‌شود. مقادیر به‌صورت رمزگذاری‌شده ذخیره می‌شوند.</string>

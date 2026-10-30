@@ -1993,6 +1993,15 @@ fakeddisorder endhost</string>
     <string name="config_relay_naive_path">HTTP-путь (необязательно)</string>
     <string name="config_relay_naive_path_helper">Оставьте пустым для стандартной конечной точки CONNECT или укажите абсолютный путь, например /proxy.</string>
     <string name="config_relay_naive_path_pin_notice">Без закрепления сертификата этот путь не отправляется. Чтобы использовать путь, задайте закрепление ниже.</string>
+    <string name="config_relay_naive_check">Проверить подключение</string>
+    <string name="config_relay_naive_check_running">Проверка подключения к серверу NaïveProxy…</string>
+    <string name="config_relay_naive_check_ok">Сервер ответил и не отклонил учётные данные.</string>
+    <string name="config_relay_naive_check_auth">Сервер отклонил имя пользователя или пароль.</string>
+    <string name="config_relay_naive_check_tls">Ошибка рукопожатия TLS. Проверьте имя сервера, сертификат или пин.</string>
+    <string name="config_relay_naive_check_dns">Не удалось разрешить имя сервера.</string>
+    <string name="config_relay_naive_check_connect">Сервер недоступен. Проверьте адрес и порт.</string>
+    <string name="config_relay_naive_check_timeout">Сервер не ответил вовремя.</string>
+    <string name="config_relay_naive_check_failed">Не удалось выполнить проверку. Проверьте поля профиля.</string>
     <string name="config_relay_naive_path_error_absolute">Путь должен начинаться с /.</string>
     <string name="config_relay_naive_extra_headers">Дополнительные заголовки (необязательно)</string>
     <string name="config_relay_naive_extra_headers_helper">По одному заголовку в строке в формате Name: value. Отправляются с каждым запросом CONNECT. Значения хранятся в зашифрованном виде.</string>

@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.RelayPresetCatalog
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.security.MasqueClientCredentialImporter
 import com.poyka.ripdpi.services.MasquePrivacyPassAvailability
+import com.poyka.ripdpi.services.NaiveProxyProfileCheck
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.ui.screens.xray.XrayNativeProviderSelection
 import javax.inject.Inject
@@ -34,4 +35,5 @@ class ConfigImportDependencies
     constructor(
         val masqueClientCredentialImporter: MasqueClientCredentialImporter,
         val masquePrivacyPassAvailability: MasquePrivacyPassAvailability,
+        val naiveProxyProfileCheck: NaiveProxyProfileCheck,
     )

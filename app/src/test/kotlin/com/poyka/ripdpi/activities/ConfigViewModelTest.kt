@@ -58,6 +58,7 @@ import com.poyka.ripdpi.security.ImportedMasqueClientIdentity
 import com.poyka.ripdpi.security.MasqueClientCredentialImporter
 import com.poyka.ripdpi.services.MasquePrivacyPassAvailability
 import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
+import com.poyka.ripdpi.services.NaiveProxyCheckOutcome
 import com.poyka.ripdpi.ui.screens.xray.XrayNativeProviderSelection
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CancellationException
@@ -950,6 +951,7 @@ class ConfigViewModelProviderModeTest {
                 ConfigImportDependencies(
                     masqueClientCredentialImporter = NoOpMasqueClientCredentialImporter,
                     masquePrivacyPassAvailability = NoOpMasquePrivacyPassAvailability,
+                    naiveProxyProfileCheck = { _, _ -> NaiveProxyCheckOutcome.Failed },
                 ),
             stringResolver = ResourceStringResolver(),
         )
@@ -2002,6 +2004,7 @@ private fun createConfigViewModel(
             ConfigImportDependencies(
                 masqueClientCredentialImporter = masqueClientCredentialImporter,
                 masquePrivacyPassAvailability = NoOpMasquePrivacyPassAvailability,
+                naiveProxyProfileCheck = { _, _ -> NaiveProxyCheckOutcome.Failed },
             ),
         stringResolver = ResourceStringResolver(),
     )

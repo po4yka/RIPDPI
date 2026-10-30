@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.RelayPresetCatalog
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.services.NaiveProxyCheckOutcome
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
@@ -110,6 +111,7 @@ class ConfigViewModelSnapshotTest {
                 ConfigImportDependencies(
                     masqueClientCredentialImporter = NoOpMasqueClientCredentialImporter,
                     masquePrivacyPassAvailability = NoOpMasquePrivacyPassAvailability,
+                    naiveProxyProfileCheck = { _, _ -> NaiveProxyCheckOutcome.Failed },
                 ),
             stringResolver = ResourceStringResolver(),
         )

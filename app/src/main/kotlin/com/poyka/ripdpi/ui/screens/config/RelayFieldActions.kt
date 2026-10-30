@@ -89,6 +89,7 @@ internal data class RelayMiscKindActions(
     val onRelayNaivePathChanged: (String) -> Unit = {},
     val onRelayNaiveExtraHeadersChanged: (String) -> Unit = {},
     val onRelayNaiveServerPinChanged: (String) -> Unit = {},
+    val onRelayNaiveCheckClicked: () -> Unit = {},
     val onRelayPtBridgeLineChanged: (String) -> Unit = {},
     val onRelayWebTunnelUrlChanged: (String) -> Unit = {},
     val onRelaySnowflakeBrokerUrlChanged: (String) -> Unit = {},

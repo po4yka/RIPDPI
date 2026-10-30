@@ -657,6 +657,15 @@
     <string name="config_relay_naive_path">مسار HTTP (اختياري)</string>
     <string name="config_relay_naive_path_helper">اتركه فارغاً لنقطة نهاية CONNECT الافتراضية، أو استخدم مساراً مطلقاً مثل /proxy.</string>
     <string name="config_relay_naive_path_pin_notice">لا يُرسل هذا المسار بدون تثبيت الشهادة. حدّد تثبيتًا أدناه لاستخدام المسار.</string>
+    <string name="config_relay_naive_check">اختبار الاتصال</string>
+    <string name="config_relay_naive_check_running">جارٍ اختبار الاتصال بخادم NaïveProxy…</string>
+    <string name="config_relay_naive_check_ok">استجاب الخادم ولم يرفض بيانات الاعتماد.</string>
+    <string name="config_relay_naive_check_auth">رفض الخادم اسم المستخدم أو كلمة المرور.</string>
+    <string name="config_relay_naive_check_tls">فشلت مصافحة TLS. تحقق من اسم الخادم أو الشهادة أو تثبيت الشهادة.</string>
+    <string name="config_relay_naive_check_dns">تعذّر تحليل اسم الخادم.</string>
+    <string name="config_relay_naive_check_connect">تعذّر الوصول إلى الخادم. تحقق من العنوان والمنفذ.</string>
+    <string name="config_relay_naive_check_timeout">لم يستجب الخادم في الوقت المحدد.</string>
+    <string name="config_relay_naive_check_failed">تعذّر تشغيل الاختبار. تحقق من حقول الملف الشخصي.</string>
     <string name="config_relay_naive_path_error_absolute">يجب أن يبدأ المسار بـ /.</string>
     <string name="config_relay_naive_extra_headers">ترويسات إضافية (اختياري)</string>
     <string name="config_relay_naive_extra_headers_helper">ترويسة واحدة في كل سطر بالصيغة Name: value. تُرسل مع كل طلب CONNECT. تُخزَّن القيم مشفرة.</string>
