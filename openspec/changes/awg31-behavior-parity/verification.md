@@ -1,15 +1,15 @@
 ---
 task_id: TRN-1793271658511991
 change: awg31-behavior-parity
-commit_sha: "c5a8eb7920e0808375f9fdb68e59b531bc296c5d"
+commit_sha: "f8f7512dc05865559731dcf5a456dd86ae02a650"
 local: "passed"
 local_evidence: "G1 native tests/fmt/workspace Clippy; G2 affected-module unit tests; G3 static/locale/architecture/locked metadata; G4 pinned peers and 129 evidence tests; independent integration and follow-up reviews. See execution records and final receipts below."
 remote_ci: required
-remote_ci_evidence: "Initial implementation CI run https://github.com/po4yka/RIPDPI/actions/runs/41034877092 at 9ee2013a250b224653b3d8c3441fd47d14b2830c failed two environment-sensitive verifier unit tests. The local-case tests now isolate CI only within their context; production ABI policy is unchanged. A new hosted run is required."
-device: "required"
-device_evidence: "Native matrix passed at 79f4f1b9c and editor v2 passed at c5a8eb792. The default-suite invocation guard is now corrected; fresh exclusion/invalid-argument controls and all five explicit UI cases are required for the updated test APK."
-artifact: "required"
-artifact_evidence: "Native-core artifact hashes remain valid. The changed editor instrumentation APK must be rebuilt and tested; production source/native inputs are unchanged."
+remote_ci_evidence: "Run 41034877092 exposed inherited CI environment in two local-ABI verifier tests; fixed without changing production ABI policy. Superseding run https://github.com/po4yka/RIPDPI/actions/runs/41038331539 at 3dae188df48a3180510dbfaba852bfb4f6d1d063 passed preflight, but found an orphaned io-uring adapter and a stale guide route expectation. Both causes reproduced and owner checks now pass. A new full hosted run is required."
+device: "passed"
+device_evidence: "Native matrix passed at 79f4f1b9c. Editor v2 passed at 3dae188df: five explicit cases, 60 hashed PNGs, and separate default-discovery/partial/empty invocation controls. Physical-device and private-LAN acceptance are excluded by the user."
+artifact: "passed"
+artifact_evidence: "Native-core matrix identities and the rebuilt production/editor APK identities are recorded below. All 13 packaged native library hashes match the prior editor build. The Linux io-uring cleanup has separate owner checks."
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change; the shared arm64 deployment guard remains unchanged.
 ---
@@ -214,17 +214,17 @@ Validate these documents with `./taskctl generate-board`, `./taskctl validate`, 
 
 ## Final local receipts
 
-Native transport passed at `79f4f1b9cb804ae242ba5f3e1b1c1e1d851a700e`. The native runner, fixture, validator, Rust and minimal Android host inputs are unchanged since that revision. Production app/core/Rust/build inputs are unchanged since the combined G2/G3 gate at `ac07fd828`; later code changes affect only the editor instrumentation test and evidence tooling. Its current compilation, detekt, ktlint and independent reviews passed. Locked Cargo metadata and architecture health passed; there are zero stale baseline entries. The final offline evidence suite passed 129 tests.
+Native transport passed at `79f4f1b9cb804ae242ba5f3e1b1c1e1d851a700e`. The AWG native runner, fixture, validator, backend and minimal Android host inputs are unchanged since that revision. Production Kotlin and build inputs are unchanged since the combined G2/G3 gate at `ac07fd828`. Later changes affect editor instrumentation and evidence tooling, plus removal of the unused io-uring TUN adapter left by an earlier repository cleanup. The live io-uring driver and its contract tests are unchanged; Linux owner checks are recorded separately. Current editor compilation, detekt, ktlint and independent reviews passed. Locked Cargo metadata and architecture health passed; there are zero stale baseline entries. The final offline evidence suite passed 129 tests.
 
-Editor render v2 passed at `c5a8eb7920e0808375f9fdb68e59b531bc296c5d`, with fresh nonces under `awg31-editor-dialog-20261030`. All five instrumentation runs completed without skips: en/de/ar/fa at font scale 1.0 and en at 1.3. Each produced 12 PNGs. All five cases exercised real HP reveal and lifecycle re-lock, actual IME visibility, invalid HP/S4/range input, disabled activation, preset cancel/replacement and locale restoration. The service stayed halted and FLAG_SECURE remained set. The runner verified every PNG hash. Visual inspection confirmed actual dialog content, readable German and RTL text, and readable fields/buttons at scale 1.3. The images contain only public fixture values. This is production-editor rendering through the shared Hilt test application, not production VpnService transport.
+Editor render v2 passed at `3dae188df48a3180510dbfaba852bfb4f6d1d063`, with fresh nonces under `awg31-editor-optin-20261030`. All five instrumentation runs completed without skips: en/de/ar/fa at font scale 1.0 and en at 1.3. Each produced 12 PNGs. All five cases exercised real HP reveal and lifecycle re-lock, actual IME visibility, invalid HP/S4/range input, disabled activation, preset cancel/replacement and locale restoration. The service stayed halted and FLAG_SECURE remained set. The runner verified every PNG hash. Visual inspection confirmed actual dialog content, readable German and RTL text, and readable fields/buttons at scale 1.3. The images contain only public fixture values. This is production-editor rendering through the shared Hilt test application, not production VpnService transport.
 
 Receipts:
 
 - Native matrix: `build/reports/awg31/android-matrix-grant-query-20261030/matrix.json`.
-- Editor cases and PNG manifests: `build/reports/awg31/editor-dialog-20261030/results.json`.
+- Editor cases and PNG manifests: `build/reports/awg31/editor-optin-20261030/results.json`.
 - Native G1: `build/reports/awg31/final-native-results.json`.
 - Combined G2/G3 and genuine production artifact build: `build/reports/awg31/final-combined-kotlin-artifacts.log`.
-- Current UI owner checks and rebuild: `build/reports/awg31/editor-dialog-check-final.log` and `build/reports/awg31/editor-dialog-assemble.log`.
+- Current UI owner checks and rebuild: `build/reports/awg31/editor-optin-check.log` and `build/reports/awg31/editor-optin-assemble.log`.
 - Evidence tests and architecture: `build/reports/awg31/final-query-evidence-tests.log` and `build/reports/awg31/final-query-architecture.log`.
 
 The native matrix command used the documented full matrix entry point with `--temporary-reason 'AWG acceptance requires clean credential storage; the existing API 37 pool user stays locked'`. The canonical Go checkout was `build/reports/awg31/android-peer-source`. The source, nonce and directory are recorded above. A separate matrix CLI validation passed with the exact Git-resolved source SHA.
@@ -248,15 +248,21 @@ The run used en/de/ar/fa with system font scale 1.0, then en at 1.3. The runner 
 | Native-core JNI library | `d72373c2f803552cf40f295b02e6d5fd3f4509245515873ae0d5f68b44f870dc` | Native transport matrix |
 | Native-core test APK | `0d711be21e9c3f8c37802973e604e4a314008fc68751cbed399fc297e50006ea` | Native transport matrix |
 | Pinned Go peer binary | `14f907f54735f063addf38b21a04070ef9044a4aa72669c8bd29c1457d4ce968` | Native transport matrix |
-| Production arm64 APK | `8962272f18402a2d18c9649e354355f0eac7361727c6f66dd675ad5e0a0b014d` | Editor rendering |
+| Production arm64 APK | `97b94f47c4a4e616400d4b0ace884f8239640d7ddcb070724be794a0031551c4` | Editor rendering |
 | Production APK AWG library entry | `2b1b6f2ba0231f4d36bf2d19112b3d7b30bde645964e7360861fec2ef0bb3ee3` | Build identity; no production transport claim |
-| Editor test APK | `9617ab060e5b9ce9022da028de205be2ce76608104387a25b4b072cee480bb9c` | Editor rendering |
+| Editor test APK | `06f43fdbd1a1634fcf462af40c42e73f4f3dc133071f162165f80bc2a4d360cd` | Editor rendering |
 | Native matrix receipt | `c4f16d1ebe79137b619f85fdfbe7b7336f71d6264c01567eb38d0554f6d0982c` | 23 completed cases |
-| Editor identity manifest | `b55e2fc5b9cb37dc469635ffecb94036b766ad4e35b95cfe1dd2aca4bd2ae136` | All 13 native entry hashes |
-| Editor result receipt | `cc7020837449e99971cf47f20c5d4b249896d348dbc616c4c24cfdf2fd539bee` | Five cases and 60 PNGs |
+| Editor identity manifest | `ed7242a334e315e8e8302ccc059856a1a20abff909a66f989ac4e8e310eb56bc` | All 13 native entry hashes |
+| Editor result receipt | `b6be85fcb9ba414eb53dc518bdb4ae443a1b4c282417d013bc860ae41a310810` | Five cases and 60 PNGs |
 
 G7 independent source review has no remaining actionable findings. The final task stays open for hosted CI on the published implementation commit. Planning-branch CI does not satisfy this gate. Physical/private-LAN acceptance and deployment remain excluded; the shared arm64 deployment guard is unchanged.
 
 - 2026-10-30, hosted CI first implementation run: the user authorized push and CI. Commit `9ee2013a250b224653b3d8c3441fd47d14b2830c` was pushed to the job branch and workflow CI run [41034877092](https://github.com/po4yka/RIPDPI/actions/runs/41034877092) started on that exact SHA. Task/OpenSpec, Android E2E contracts, cargo-deny, design lint and release gates passed. The architecture job passed architecture/LoC/hotspot contracts, then failed two local-ABI unit cases because they inherited `CI=true`. This blocked the preflight barrier and dependent Rust/Android jobs; skipped jobs are not passing evidence. The same two failures reproduced locally with `CI=true`. The two local-case tests now set an empty CI value only inside their patch context; the separate CI full-ABI test and production verifier are unchanged. All eight owner tests and the exact 374-test CI script/evidence suite passed locally with `CI=true`. A fresh hosted run remains required. Receipts: `build/reports/awg31/ci-abi-reproduction.log`, `ci-abi-fix-tests.log`, and `ci-script-suite-local.log`.
 
 - 2026-10-30, default instrumentation discovery review: ordinary hosted CI uses explicit integration/JNI/Xray selectors and does not run the editor acceptance class. The repository `just test-instrumented` entry point runs the full GMD suite, however, and would discover the argument-dependent class without its owned nonce/source. The test now follows the existing reconnect-driver opt-in contract before any settings mutation: no dedicated AWG arguments means implicit-discovery exclusion; any dedicated argument, including an empty or partial request, retains strict validation and must not skip. Class/package runner arguments alone are not opt-in. Compilation, detekt, ktlint and independent source review passed. The required acceptance collector still rejects skips. Fresh exclusion/invalid-argument controls and all five explicit render cases remain required before restoring device/artifact passed status.
+
+- 2026-10-30, editor invocation guard acceptance: source `3dae188df48a3180510dbfaba852bfb4f6d1d063` passed all five explicit UI cases and all 60 PNG hash checks. Representative German/Arabic dialog images and large-font fields were visually inspected. Separate controls excluded implicit discovery and rejected partial and empty explicit requests; these controls emitted no acceptance evidence and are not positive acceptance cases. All 13 native library entries match the prior editor build. Receipts: `build/reports/awg31/editor-optin-20261030/results.json`, `identity.json`, and `invocation-controls/results.json`.
+
+- 2026-10-30, Linux CI cleanup: hosted run [41038331539](https://github.com/po4yka/RIPDPI/actions/runs/41038331539) at `3dae188df48a3180510dbfaba852bfb4f6d1d063` passed the architecture/preflight barrier and workspace tests. Its Linux Clippy gate found three orphaned items in the TUN adapter whose only production caller was removed by commit `0ed689233`. The same three errors reproduced with Linux-target library Clippy. Removed the unused adapter module rather than suppress warnings or restore an unused public API. All live driver and buffer-pool tests remain unchanged. In the owned Linux VM, all 22 crate tests passed; a no-capture run confirmed actual ring tests without unavailable-ring returns. Crate Clippy with `--all-targets --locked -- -D warnings` passed on Linux; Linux-target library Clippy and workspace formatting also passed locally. The VM was stopped after these checks. Independent source review found no remaining issue. Receipts: `build/reports/awg31/linux-uring-lib-reproduction.log`, `linux-uring-lib-fixed.log`, `linux-uring-tests.log`, `linux-uring-runtime.log`, `linux-uring-clippy.log`, and `linux-uring-vm-stop.log`. The full hosted gate remains required.
+
+- 2026-10-30, guide contract cleanup: the same hosted run stopped `build-android-tests` on the stale expectation of nine excluded guide routes. Commit `c2544e269` had added the real replay route and its typed exclusion without updating this test. The failure reproduced locally. The test now checks the exact current ten-route list, including `replay_failure`; reasons and exact flow partition checks remain in place. All 13 guide tests passed, and independent review confirmed the expectation against the actual spec. Receipts: `build/reports/awg31/guide-contract-reproduction.log` and `guide-contract-fixed.log`. Skipped downstream jobs in this failed run do not count as passing evidence.
