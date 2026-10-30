@@ -2389,6 +2389,8 @@ jobs:
             home.OnboardingKaspressoTest#skippingFromTheIntroCompletesOnboarding
             diagnostics.HistoryEventsKaspressoTest#searchNarrowsTheEventList
             diagnostics.LogsKaspressoTest#severityAndSubsystemChipsFilterTheStream
+            diagnostics.DiagnosticsToolsKaspressoTest#idleScanSectionOffersBothRunActions
+            profiles.ProfileEditorsKaspressoTest#savedMieruProfileReopensWithTheEnteredValues
           )
           selector="$(printf 'com.poyka.ripdpi.ui.journeys.%s,' "${smoke[@]}")"
           rm -rf app/build/outputs/androidTest-results/connected/debug/flavors/githubFull
