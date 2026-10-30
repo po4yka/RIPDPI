@@ -15,6 +15,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
+import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
+import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -22,6 +24,9 @@ import com.poyka.ripdpi.ui.theme.RipDpiWidthClass
 import kotlinx.collections.immutable.ImmutableList
 
 private const val IconOnlyNavigationBarFontScale = 1.5f
+
+// The collapsed rail first breaks a word at 1.2x (pt-BR "Configurações"; ru and de at 1.25x).
+internal const val ExpandedRailFontScale = 1.2f
 
 @Immutable
 data class RipDpiNavigationItem(
@@ -34,7 +39,7 @@ data class RipDpiNavigationItem(
 
 /**
  * App-shell navigation: a bar on compact windows, a collapsed rail on medium and expanded windows,
- * and an expanded rail on large and extra-large windows. The form follows
+ * and an expanded rail on large and extra-large windows or at large font scale. The form follows
  * [RipDpiThemeTokens.layout] so the shell and the layout tokens share one width class.
  */
 @Composable
@@ -49,12 +54,17 @@ fun RipDpiNavigationSuiteScaffold(
     val roles = RipDpiThemeTokens.surfaceRoles.navigation
     val container = surfaces.resolve(roles.bottomBar).container
     val indicator = surfaces.resolve(roles.bottomBarIndicator).container
+    val fontScale = LocalDensity.current.fontScale
+    val performHaptic = rememberRipDpiHapticPerformer()
     val suiteType =
-        if (showNavigation) ripDpiNavigationSuiteType(RipDpiThemeTokens.layout.widthClass) else NavigationSuiteType.None
+        if (showNavigation) {
+            ripDpiNavigationSuiteType(RipDpiThemeTokens.layout.widthClass, fontScale)
+        } else {
+            NavigationSuiteType.None
+        }
     // Large fonts cannot fit four bar labels in one row: the bar keeps icons and each icon keeps its label as its name.
     val iconOnly =
-        suiteType == NavigationSuiteType.ShortNavigationBarCompact &&
-            LocalDensity.current.fontScale >= IconOnlyNavigationBarFontScale
+        suiteType == NavigationSuiteType.ShortNavigationBarCompact && fontScale >= IconOnlyNavigationBarFontScale
     val itemColors =
         ShortNavigationBarItemDefaults.colors(
             selectedIconColor = colors.foreground,
@@ -69,7 +79,10 @@ fun RipDpiNavigationSuiteScaffold(
             items.forEach { item ->
                 NavigationSuiteItem(
                     selected = item.selected,
-                    onClick = item.onClick,
+                    onClick = {
+                        performHaptic(RipDpiHapticFeedback.Selection)
+                        item.onClick()
+                    },
                     icon = {
                         Icon(
                             imageVector = item.icon,
@@ -113,9 +126,24 @@ fun RipDpiNavigationSuiteScaffold(
     )
 }
 
-internal fun ripDpiNavigationSuiteType(widthClass: RipDpiWidthClass): NavigationSuiteType =
+internal fun ripDpiNavigationSuiteType(
+    widthClass: RipDpiWidthClass,
+    fontScale: Float,
+): NavigationSuiteType =
     when (widthClass) {
-        RipDpiWidthClass.Compact -> NavigationSuiteType.ShortNavigationBarCompact
-        RipDpiWidthClass.Medium, RipDpiWidthClass.Expanded -> NavigationSuiteType.WideNavigationRailCollapsed
-        RipDpiWidthClass.Large, RipDpiWidthClass.ExtraLarge -> NavigationSuiteType.WideNavigationRailExpanded
+        RipDpiWidthClass.Compact -> {
+            NavigationSuiteType.ShortNavigationBarCompact
+        }
+
+        RipDpiWidthClass.Medium, RipDpiWidthClass.Expanded -> {
+            if (fontScale >= ExpandedRailFontScale) {
+                NavigationSuiteType.WideNavigationRailExpanded
+            } else {
+                NavigationSuiteType.WideNavigationRailCollapsed
+            }
+        }
+
+        RipDpiWidthClass.Large, RipDpiWidthClass.ExtraLarge -> {
+            NavigationSuiteType.WideNavigationRailExpanded
+        }
     }
