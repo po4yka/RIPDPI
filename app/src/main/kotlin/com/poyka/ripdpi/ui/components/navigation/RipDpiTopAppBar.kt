@@ -1,19 +1,19 @@
 package com.poyka.ripdpi.ui.components.navigation
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.widthIn
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarColors
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
+import androidx.compose.material3.TwoRowsTopAppBar
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.derivedStateOf
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
@@ -28,88 +28,79 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val TopAppBarStackFontScale = 1.5f
 
+// Material hides the expanded title semantics past this collapse fraction.
+private const val CollapsedTitleFraction = 0.5f
+
+/**
+ * Screen top app bar on Material 3. The small bar grows to fit a wrapped title; at large font with
+ * navigation or actions the title moves to the full-width expanded row of a two-row bar, so it
+ * never shares a narrow slot with the controls. Wire [scrollBehavior] to the screen's scroll
+ * container with `Modifier.nestedScroll(scrollBehavior.nestedScrollConnection)`.
+ */
 @Composable
 fun RipDpiTopAppBar(
     title: String,
     modifier: Modifier = Modifier,
-    navigationIcon: androidx.compose.ui.graphics.vector.ImageVector? = null,
+    navigationIcon: ImageVector? = null,
     onNavigationClick: (() -> Unit)? = null,
     navigationContentDescription: String? = null,
     navigationEnabled: Boolean = true,
     actions: (@Composable RowScope.() -> Unit)? = null,
+    scrollBehavior: TopAppBarScrollBehavior? = null,
 ) {
-    val layout = RipDpiThemeTokens.layout
-    val spacing = RipDpiThemeTokens.spacing
-    val containerMaxWidth = layout.contentMaxWidth + layout.horizontalPadding + layout.horizontalPadding
-    val separateTitle = LocalDensity.current.fontScale >= TopAppBarStackFontScale
-    val hasControls = (navigationIcon != null && onNavigationClick != null) || actions != null
-
-    Box(
-        modifier = modifier.fillMaxWidth().padding(horizontal = layout.horizontalPadding),
-        contentAlignment = Alignment.Center,
-    ) {
-        Column(Modifier.widthIn(max = containerMaxWidth).fillMaxWidth()) {
-            if (!separateTitle || hasControls) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().heightIn(min = layout.appBarMinHeight),
-                    horizontalArrangement = Arrangement.spacedBy(spacing.md),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    TopAppBarNavigation(
-                        navigationIcon,
-                        onNavigationClick,
-                        navigationContentDescription,
-                        navigationEnabled,
-                    )
-                    if (separateTitle) {
-                        Spacer(Modifier.weight(1f))
-                    } else {
-                        TopAppBarTitle(title, Modifier.weight(1f))
-                    }
-                    if (actions != null) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-                            verticalAlignment = Alignment.CenterVertically,
-                            content = actions,
-                        )
-                    }
-                }
-            }
-            if (separateTitle) {
-                TopAppBarTitle(title, Modifier.fillMaxWidth().padding(bottom = spacing.sm))
-            }
+    val hasNavigation = navigationIcon != null && onNavigationClick != null
+    val stackTitle =
+        LocalDensity.current.fontScale >= TopAppBarStackFontScale && (hasNavigation || actions != null)
+    val titleContent: @Composable () -> Unit = { Text(text = title, modifier = Modifier.semantics { heading() }) }
+    val navigationContent: @Composable () -> Unit = {
+        if (navigationIcon != null && onNavigationClick != null) {
+            RipDpiIconButton(
+                icon = navigationIcon,
+                contentDescription = navigationContentDescription ?: stringResource(R.string.navigation_back),
+                onClick = onNavigationClick,
+                style = RipDpiIconButtonStyle.Ghost,
+                enabled = navigationEnabled,
+            )
         }
     }
-}
+    val actionsContent: @Composable RowScope.() -> Unit = actions ?: {}
+    val colors = ripDpiTopAppBarColors()
 
-@Composable
-private fun TopAppBarNavigation(
-    icon: androidx.compose.ui.graphics.vector.ImageVector?,
-    onClick: (() -> Unit)?,
-    contentDescription: String?,
-    enabled: Boolean,
-) {
-    if (icon != null && onClick != null) {
-        RipDpiIconButton(
-            icon = icon,
-            contentDescription = contentDescription ?: stringResource(R.string.navigation_back),
-            onClick = onClick,
-            style = RipDpiIconButtonStyle.Ghost,
-            enabled = enabled,
+    if (stackTitle) {
+        // The collapsed row shares width with the controls, so it shows the title only once the bar
+        // has collapsed; otherwise its hidden copy would wrap there and inflate the expanded bar.
+        val collapsed by remember(scrollBehavior) {
+            derivedStateOf { (scrollBehavior?.state?.collapsedFraction ?: 0f) >= CollapsedTitleFraction }
+        }
+        TwoRowsTopAppBar(
+            title = { expanded -> if (expanded || collapsed) titleContent() },
+            modifier = modifier,
+            navigationIcon = navigationContent,
+            actions = actionsContent,
+            colors = colors,
+            scrollBehavior = scrollBehavior,
+        )
+    } else {
+        TopAppBar(
+            title = titleContent,
+            modifier = modifier,
+            navigationIcon = navigationContent,
+            actions = actionsContent,
+            colors = colors,
+            scrollBehavior = scrollBehavior,
         )
     }
 }
 
 @Composable
-private fun TopAppBarTitle(
-    title: String,
-    modifier: Modifier,
-) {
-    Text(
-        text = title,
-        modifier = modifier.semantics { heading() },
-        style = RipDpiThemeTokens.type.appBarTitle,
-        color = RipDpiThemeTokens.colors.foreground,
+private fun ripDpiTopAppBarColors(): TopAppBarColors {
+    val colors = RipDpiThemeTokens.colors
+    return TopAppBarDefaults.topAppBarColors(
+        containerColor = colors.background,
+        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+        navigationIconContentColor = colors.foreground,
+        titleContentColor = colors.foreground,
+        actionIconContentColor = colors.foreground,
     )
 }
 

@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -31,13 +32,16 @@ internal fun ModeEditorScreen(
 ) {
     val layout = RipDpiThemeTokens.layout
 
+    val topBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     RipDpiScreenScaffold(
+        scrollBehavior = topBarScrollBehavior,
         modifier =
             modifier
                 .ripDpiTestTag(RipDpiTestTags.screen(Route.ModeEditor))
                 .fillMaxSize(),
         topBar = {
             RipDpiTopAppBar(
+                scrollBehavior = topBarScrollBehavior,
                 title = stringResource(R.string.title_mode_editor),
                 navigationIcon = RipDpiIcons.Back,
                 onNavigationClick = actions.onBack,

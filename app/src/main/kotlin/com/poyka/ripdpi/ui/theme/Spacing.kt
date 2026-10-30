@@ -47,7 +47,6 @@ data class RipDpiLayout(
     val cardPadding: Dp = 16.dp,
     val sectionGap: Dp = 20.dp,
     val groupGap: Dp = 16.dp,
-    val appBarMinHeight: Dp = 56.dp,
 )
 
 @Immutable
@@ -196,7 +195,6 @@ fun ripDpiLayoutFor(widthClass: RipDpiWidthClass): RipDpiLayout =
                 cardPadding = 16.dp,
                 sectionGap = 20.dp,
                 groupGap = 16.dp,
-                appBarMinHeight = 56.dp,
             )
         }
 
@@ -212,7 +210,6 @@ fun ripDpiLayoutFor(widthClass: RipDpiWidthClass): RipDpiLayout =
                 cardPadding = 18.dp,
                 sectionGap = 24.dp,
                 groupGap = 20.dp,
-                appBarMinHeight = 60.dp,
             )
         }
 
@@ -231,7 +228,6 @@ fun ripDpiLayoutFor(widthClass: RipDpiWidthClass): RipDpiLayout =
                 cardPadding = 20.dp,
                 sectionGap = 28.dp,
                 groupGap = 24.dp,
-                appBarMinHeight = 64.dp,
             )
         }
     }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -50,10 +51,13 @@ fun PcapCaptureListScreen(
     failed: Boolean = false,
     onRetry: () -> Unit = {},
 ) {
+    val topBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     RipDpiScreenScaffold(
+        scrollBehavior = topBarScrollBehavior,
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.PcapCaptureList)),
         topBar = {
             RipDpiTopAppBar(
+                scrollBehavior = topBarScrollBehavior,
                 title = stringResource(R.string.title_pcap_capture_list),
                 navigationIcon = RipDpiIcons.Back,
                 onNavigationClick = onBack,

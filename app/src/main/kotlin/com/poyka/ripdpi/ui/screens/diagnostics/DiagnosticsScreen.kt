@@ -13,6 +13,8 @@ import androidx.compose.foundation.pager.PagerState
 import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.TopAppBarDefaults
+import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -214,7 +216,9 @@ private fun DiagnosticsScreenFrame(
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
 
+    val topBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     RipDpiScreenScaffold(
+        scrollBehavior = topBarScrollBehavior,
         modifier =
             modifier
                 .ripDpiTestTag(RipDpiTestTags.screen(Route.Diagnostics()))
@@ -227,6 +231,7 @@ private fun DiagnosticsScreenFrame(
                 debugInfoAvailable = uiState.performance != null,
                 onToggleDebugInfo = onToggleDebugInfo,
                 topBarExtraActions = topBarExtraActions,
+                scrollBehavior = topBarScrollBehavior,
             )
         },
     ) { innerPadding ->
@@ -286,8 +291,10 @@ private fun DiagnosticsTopBar(
     debugInfoAvailable: Boolean,
     onToggleDebugInfo: () -> Unit,
     topBarExtraActions: @Composable () -> Unit,
+    scrollBehavior: TopAppBarScrollBehavior,
 ) {
     RipDpiTopAppBar(
+        scrollBehavior = scrollBehavior,
         title = stringResource(R.string.diagnostics_title),
         modifier =
             if (BuildConfig.DEBUG && debugInfoAvailable) {

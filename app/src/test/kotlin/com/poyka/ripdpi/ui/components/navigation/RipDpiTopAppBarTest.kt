@@ -2,7 +2,10 @@ package com.poyka.ripdpi.ui.components.navigation
 
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.requiredHeight
 import androidx.compose.foundation.layout.requiredWidth
+import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.Alignment
@@ -10,8 +13,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.isHeading
@@ -21,6 +28,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
@@ -30,9 +39,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
-import com.poyka.ripdpi.ui.theme.RipDpiSpacing
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
-import com.poyka.ripdpi.ui.theme.ripDpiLayoutForWidth
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -52,10 +59,25 @@ class RipDpiTopAppBarTest {
     val composeRule = createComposeRule()
 
     @Test
-    fun largeRussianTitleRemainsCompleteAtNarrowWidth() {
-        val label = "Восстановление после нехватки памяти"
+    fun largeRussianTitleWrapsCompletelyAtNarrowWidth() {
+        assertTitleWrapsCompletely("Восстановление после нехватки памяти", LayoutDirection.Ltr)
+    }
+
+    @Test
+    @Config(qualifiers = "ar-w420dp-h1200dp")
+    fun largeArabicTitleWrapsCompletelyInRtl() {
+        assertTitleWrapsCompletely("الاستعادة بعد نفاد الذاكرة في الجهاز", LayoutDirection.Rtl)
+    }
+
+    private fun assertTitleWrapsCompletely(
+        label: String,
+        layoutDirection: LayoutDirection,
+    ) {
         composeRule.setContent {
-            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = 2f)) {
+            CompositionLocalProvider(
+                LocalDensity provides Density(density = 1f, fontScale = 2f),
+                LocalLayoutDirection provides layoutDirection,
+            ) {
                 RipDpiTheme {
                     Box(modifier = Modifier.requiredWidth(320.dp)) {
                         RipDpiTopAppBar(label, navigationIcon = RipDpiIcons.Back, onNavigationClick = {})
@@ -70,9 +92,13 @@ class RipDpiTopAppBarTest {
             .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
         assertTrue(layouts.isNotEmpty())
         layouts.forEach { layout ->
+            assertTrue("A long title at 2x font wraps onto several lines", layout.lineCount > 1)
             assertFalse("The complete title must remain visible", layout.hasVisualOverflow)
             (0 until layout.lineCount).forEach { line -> assertFalse(layout.isLineEllipsized(line)) }
         }
+        val title = composeRule.onNodeWithText(label, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val back = composeRule.onNodeWithContentDescription(backLabel()).fetchSemanticsNode().boundsInRoot
+        assertTrue("The wrapped title sits below the back button, not beside it", title.top >= back.bottom)
     }
 
     @Test
@@ -105,18 +131,9 @@ class RipDpiTopAppBarTest {
                         .assertIsDisplayed()
                         .fetchSemanticsNode()
                         .boundsInRoot
-                assertEquals("No empty controls row above the title", bar.top, title.top, 1f)
-                assertEquals(
-                    "The title uses the full content width",
-                    viewport - ripDpiLayoutForWidth(viewport).horizontalPadding.value * 2,
-                    title.width,
-                    1f,
-                )
-                assertEquals(
-                    "Only the existing title bottom padding remains",
-                    RipDpiSpacing().sm.value,
-                    bar.bottom - title.bottom,
-                    1f,
+                assertTrue(
+                    "No empty controls row above the title",
+                    title.top - bar.top < TopAppBarDefaults.TopAppBarExpandedHeight.value,
                 )
             }
         }
@@ -147,9 +164,77 @@ class RipDpiTopAppBarTest {
                     .assertIsDisplayed()
                     .fetchSemanticsNode()
                     .boundsInRoot
-            assertEquals("The real Settings title starts without an empty toolbar row", scaffold.top, title.top, 1f)
+            assertTrue(
+                "The real Settings title starts without an empty toolbar row",
+                title.top - scaffold.top < TopAppBarDefaults.TopAppBarExpandedHeight.value,
+            )
         }
     }
+
+    @Test
+    fun settingsScaffoldCollapsesTheBarOnScrollAndKeepsTheTitleReadable() {
+        val label = "Восстановление после нехватки памяти"
+        composeRule.setContent {
+            CompositionLocalProvider(LocalDensity provides Density(1f, 2f)) {
+                RipDpiTheme {
+                    Box(Modifier.requiredWidth(320.dp).requiredHeight(900.dp)) {
+                        RipDpiSettingsScaffold(
+                            label,
+                            Modifier.testTag("settings-scaffold"),
+                            navigationIcon = RipDpiIcons.Back,
+                            onNavigationClick = {},
+                        ) {
+                            items(60) { index -> Text("Row $index") }
+                        }
+                    }
+                }
+            }
+        }
+        val expanded = composeRule.onNodeWithText(label, useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+        val back = composeRule.onNodeWithContentDescription(backLabel()).fetchSemanticsNode().boundsInRoot
+        assertTrue("Expanded at 2x, the title has its own row", expanded.top >= back.bottom)
+
+        composeRule.onNodeWithTag("settings-scaffold").performTouchInput { swipeUp() }
+        composeRule.waitForIdle()
+
+        // The merged tree is what TalkBack reads; Material clears the hidden expanded title from it.
+        val collapsed =
+            composeRule
+                .onNodeWithText(label)
+                .assertIsDisplayed()
+                .fetchSemanticsNode()
+        assertTrue("The scroll behavior collapsed the title row", collapsed.boundsInRoot.top < expanded.top)
+        val layouts = mutableListOf<TextLayoutResult>()
+        composeRule
+            .onNodeWithText(label)
+            .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+        layouts.forEach { layout ->
+            (0 until layout.lineCount).forEach { line -> assertFalse(layout.isLineEllipsized(line)) }
+        }
+    }
+
+    @Test
+    fun backButtonKeepsItsLabelAndRole() {
+        var clicks = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                RipDpiTopAppBar(
+                    "Logs",
+                    navigationIcon = RipDpiIcons.Back,
+                    onNavigationClick = { clicks++ },
+                )
+            }
+        }
+        composeRule
+            .onNodeWithContentDescription(backLabel())
+            .assertIsDisplayed()
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Button))
+            .assertHasClickAction()
+            .performClick()
+        assertEquals(1, clicks)
+    }
+
+    private fun backLabel(): String = RuntimeEnvironment.getApplication().getString(R.string.navigation_back)
 
     @Test
     fun explicitNavigationAndRowScopeActionStayReachableAtNormalAndLargeFont() {
@@ -220,7 +305,7 @@ class RipDpiTopAppBarTest {
                 }
             }
         }
-        // Font scale 2 moves the bar title to its own row; both layouts must keep the heading.
+        // Font scale 2 moves the title to the two-row bar's expanded row; both layouts must keep the heading.
         listOf(1f, 2f).forEach { fontScale ->
             composeRule.runOnIdle { scale.value = fontScale }
             listOf("Diagnostics", "NETWORK", "Probe results").forEach { heading ->

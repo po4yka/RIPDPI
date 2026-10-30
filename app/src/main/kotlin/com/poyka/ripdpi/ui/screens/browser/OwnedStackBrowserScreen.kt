@@ -11,6 +11,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -93,7 +94,9 @@ internal fun OwnedStackBrowserScreen(
     onOpen: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val topBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     RipDpiScreenScaffold(
+        scrollBehavior = topBarScrollBehavior,
         modifier =
             modifier
                 .fillMaxSize()
@@ -101,6 +104,7 @@ internal fun OwnedStackBrowserScreen(
                 .ripDpiTestTag(RipDpiTestTags.screen(Route.OwnedStackBrowser())),
         topBar = {
             RipDpiTopAppBar(
+                scrollBehavior = topBarScrollBehavior,
                 title = stringResource(R.string.title_owned_stack_browser),
                 navigationIcon = RipDpiIcons.Back,
                 onNavigationClick = onBack,
