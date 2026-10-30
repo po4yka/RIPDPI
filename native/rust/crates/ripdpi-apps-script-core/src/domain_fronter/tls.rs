@@ -21,7 +21,9 @@ pub(super) fn client_config_with_ech_setup(setup: &EchSetup) -> Result<ClientCon
         ClientConfig::builder_with_provider(rustls::crypto::aws_lc_rs::default_provider().into()),
         setup,
     )?;
-    let mut config = builder.with_root_certificates(roots).with_no_client_auth();
+    let mut config = ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, roots)
+        .expect("bundled webpki roots are non-empty")
+        .with_no_client_auth();
     // The relay speaks HTTP/1.1 to the front; a ClientHello without ALPN is unlike any browser's.
     config.alpn_protocols = vec![b"http/1.1".to_vec()];
     Ok(config)

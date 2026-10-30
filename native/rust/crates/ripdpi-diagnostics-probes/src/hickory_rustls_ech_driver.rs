@@ -154,7 +154,12 @@ impl EchHandshakeDriver for HickoryRustlsEchHandshakeDriver {
             match rustls::ClientConfig::builder_with_provider(Arc::new(rustls::crypto::aws_lc_rs::default_provider()))
                 .with_ech(EchMode::Enable(ech_cfg))
             {
-                Ok(builder) => builder.with_root_certificates(root_store).with_no_client_auth(),
+                Ok(builder) => match ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, root_store) {
+                    Ok(builder) => builder.with_no_client_auth(),
+                    Err(e) => {
+                        return EchHandshakeOutcome::SetupError { detail: format!("verifier-build-error: {e}") };
+                    }
+                },
                 Err(e) => {
                     return EchHandshakeOutcome::SetupError { detail: format!("ech-clientconfig-build-error: {e}") };
                 }

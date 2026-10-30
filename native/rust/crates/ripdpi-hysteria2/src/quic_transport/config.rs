@@ -16,7 +16,6 @@
 
 use std::sync::Arc;
 
-use rustls::client::WebPkiServerVerifier;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::pki_types::{CertificateDer, ServerName, UnixTime};
 use rustls::{DigitallySignedStruct, RootCertStore, SignatureScheme};
@@ -145,22 +144,29 @@ impl QuicTransportConfig {
                 let ca_verifier = if insecure {
                     None
                 } else {
-                    let verifier =
-                        WebPkiServerVerifier::builder_with_provider(Arc::new(webpki_root_store()), provider.clone())
-                            .build()
-                            .map_err(|error| {
-                                HysteriaError::Io(std::io::Error::new(
-                                    std::io::ErrorKind::InvalidInput,
-                                    format!("failed to build the CA certificate verifier: {error}"),
-                                ))
-                            })?;
+                    let verifier = ripdpi_tls_profiles::cert_blocklist::blocklisting_webpki_verifier(
+                        Arc::new(webpki_root_store()),
+                        provider.clone(),
+                    )
+                    .map_err(|error| {
+                        HysteriaError::Io(std::io::Error::new(
+                            std::io::ErrorKind::InvalidInput,
+                            format!("failed to build the CA certificate verifier: {error}"),
+                        ))
+                    })?;
                     Some(verifier)
                 };
                 let verifier = PinnedCertificateVerifier::new(pin, ca_verifier, provider)?;
                 builder.dangerous().with_custom_certificate_verifier(Arc::new(verifier))
             }
             (None, true) => builder.dangerous().with_custom_certificate_verifier(Arc::new(NoCertificateVerification)),
-            (None, false) => builder.with_root_certificates(webpki_root_store()),
+            (None, false) => ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, webpki_root_store())
+                .map_err(|error| {
+                    HysteriaError::Io(std::io::Error::new(
+                        std::io::ErrorKind::InvalidInput,
+                        format!("failed to build the CA certificate verifier: {error}"),
+                    ))
+                })?,
         };
         let mut tls_config = builder.with_no_client_auth();
         tls_config.alpn_protocols = self.alpn_protocols.clone();

@@ -278,7 +278,8 @@ async fn h2_proxy_handshake_sends_grease_ech_without_a_published_config() {
 #[test]
 fn h3_proxy_handshake_sends_grease_ech_without_a_published_config() {
     let config = grease_test_config(MasqueTcpProtocol::Http3);
-    let tls_config = crate::h3::h3_tls_config(&config, rustls::RootCertStore::empty()).expect("H3 TLS config");
+    let roots = rustls::RootCertStore::from_iter(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    let tls_config = crate::h3::h3_tls_config(&config, roots).expect("H3 TLS config");
     let server_name = rustls::pki_types::ServerName::try_from("masque.example").expect("server name");
     let mut connection = rustls::ClientConnection::new(Arc::new(tls_config), server_name).expect("client");
     let mut record = Vec::new();

@@ -57,7 +57,9 @@ fn build_ech_client_config(ech_config_bytes_b64: &str) -> io::Result<ClientConfi
         .map_err(|error| io::Error::other(format!("enable ECH: {error}")))?;
     let mut roots = RootCertStore::empty();
     roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-    let mut config = builder.with_root_certificates(roots).with_no_client_auth();
+    let mut config = ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, roots)
+        .map_err(|error| io::Error::other(format!("build certificate verifier: {error}")))?
+        .with_no_client_auth();
     config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
     Ok(config)
 }

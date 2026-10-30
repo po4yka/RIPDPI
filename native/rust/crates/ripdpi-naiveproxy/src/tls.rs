@@ -52,7 +52,9 @@ pub(crate) fn tls_config_with_ech_setup(
             .dangerous()
             .with_custom_certificate_verifier(Arc::new(PinnedLeafVerifier { pin, provider }))
             .with_no_client_auth(),
-        None => builder.with_root_certificates(roots).with_no_client_auth(),
+        None => ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, roots)
+            .expect("bundled webpki roots are non-empty")
+            .with_no_client_auth(),
     };
     config.alpn_protocols = vec![b"h2".to_vec()];
     Ok(Arc::new(config))

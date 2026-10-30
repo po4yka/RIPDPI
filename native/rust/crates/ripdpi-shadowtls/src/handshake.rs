@@ -17,11 +17,12 @@ pub(crate) struct ParsedServerHello {
 pub(crate) fn build_rustls_config() -> Arc<RustlsClientConfig> {
     let mut roots = RootCertStore::empty();
     roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
+    let builder = RustlsClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+        .with_safe_default_protocol_versions()
+        .expect("shadowtls rustls versions");
     Arc::new(
-        RustlsClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
-            .with_safe_default_protocol_versions()
-            .expect("shadowtls rustls versions")
-            .with_root_certificates(roots)
+        ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, roots)
+            .expect("bundled webpki roots are non-empty")
             .with_no_client_auth(),
     )
 }

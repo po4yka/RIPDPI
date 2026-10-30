@@ -14,6 +14,7 @@ socket2 = { workspace = true }
 tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-thread", "sync", "time"] }
 tracing = { workspace = true }
 uuid = { version = "1", default-features = false, features = ["std"] }
+ripdpi-tls-profiles = { workspace = true }
 webpki-roots = { workspace = true }
 
 [dev-dependencies]

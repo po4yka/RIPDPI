@@ -23,7 +23,6 @@
 use std::fmt;
 use std::sync::Arc;
 
-use rustls::client::WebPkiServerVerifier;
 use rustls::client::danger::{HandshakeSignatureValid, ServerCertVerified, ServerCertVerifier};
 use rustls::crypto::CryptoProvider;
 use rustls::crypto::hash::{Hash, HashAlgorithm};
@@ -100,14 +99,14 @@ fn digests_equal(left: &CertificatePinSha256, right: &CertificatePinSha256) -> b
 pub(crate) struct PinnedCertificateVerifier {
     pin: CertificatePinSha256,
     /// `Some` when the profile is not `insecure`: the CA chain must also pass.
-    ca_verifier: Option<Arc<WebPkiServerVerifier>>,
+    ca_verifier: Option<Arc<dyn ServerCertVerifier>>,
     provider: Arc<CryptoProvider>,
 }
 
 impl PinnedCertificateVerifier {
     pub(crate) fn new(
         pin: CertificatePinSha256,
-        ca_verifier: Option<Arc<WebPkiServerVerifier>>,
+        ca_verifier: Option<Arc<dyn ServerCertVerifier>>,
         provider: Arc<CryptoProvider>,
     ) -> Result<Self> {
         if sha256_hasher().is_none() {
@@ -273,8 +272,7 @@ mod tests {
         let provider = ring_provider();
         let mut roots = rustls::RootCertStore::empty();
         roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-        let ca = WebPkiServerVerifier::builder_with_provider(Arc::new(roots), provider.clone())
-            .build()
+        let ca = ripdpi_tls_profiles::cert_blocklist::blocklisting_webpki_verifier(Arc::new(roots), provider.clone())
             .expect("webpki verifier");
         let verifier = PinnedCertificateVerifier::new(pin, Some(ca), provider).expect("verifier");
 

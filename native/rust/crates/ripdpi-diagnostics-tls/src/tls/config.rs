@@ -42,7 +42,9 @@ pub(super) fn build_standard_client_config_with_key_log(
     let mut config = if let Some(verifier) = tls_verifier {
         builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth()
     } else {
-        builder.with_root_certificates(default_root_store()).with_no_client_auth()
+        ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, default_root_store())
+            .expect("bundled webpki roots are non-empty")
+            .with_no_client_auth()
     };
     if let Some(key_log) = key_log {
         config.key_log = key_log.clone();
@@ -99,7 +101,9 @@ pub(super) fn build_ech_client_config(
     let mut config = if let Some(verifier) = tls_verifier {
         builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth()
     } else {
-        builder.with_root_certificates(default_root_store()).with_no_client_auth()
+        ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, default_root_store())
+            .map_err(|err| err.to_string())?
+            .with_no_client_auth()
     };
     if let Some(key_log) = key_log {
         config.key_log = key_log.clone();

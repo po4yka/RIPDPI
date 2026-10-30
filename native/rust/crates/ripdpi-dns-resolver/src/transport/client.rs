@@ -24,7 +24,10 @@ pub(crate) fn build_client_config(
     if let Some(verifier) = verifier {
         Ok(Arc::new(builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth()))
     } else {
-        Ok(Arc::new(builder.with_root_certificates(default_root_store(extra_roots)?).with_no_client_auth()))
+        let builder =
+            ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, default_root_store(extra_roots)?)
+                .map_err(|err| EncryptedDnsError::ClientBuild(format!("build certificate verifier: {err}")))?;
+        Ok(Arc::new(builder.with_no_client_auth()))
     }
 }
 
@@ -109,7 +112,9 @@ fn doh_tls_config_with_ech_setup(
     let mut config = if let Some(verifier) = tls_verifier {
         builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth()
     } else {
-        builder.with_root_certificates(default_root_store(tls_roots)?).with_no_client_auth()
+        ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, default_root_store(tls_roots)?)
+            .map_err(|err| EncryptedDnsError::ClientBuild(format!("build certificate verifier: {err}")))?
+            .with_no_client_auth()
     };
     config.alpn_protocols = vec![b"h2".to_vec(), b"http/1.1".to_vec()];
     Ok(config)

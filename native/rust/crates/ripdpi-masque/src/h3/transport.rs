@@ -16,12 +16,13 @@ pub(crate) const H3_KEEP_ALIVE_INTERVAL: std::time::Duration = std::time::Durati
 /// The rustls config of the H3 proxy handshake, with the published ECH config
 /// or GREASE ECH (aws-lc-rs supplies the HPKE suites for both).
 pub(crate) fn h3_tls_config(config: &MasqueConfig, roots: RootCertStore) -> io::Result<rustls::ClientConfig> {
-    let builder = ripdpi_tls_profiles::configure_rustls_ech(
+    let ech_builder = ripdpi_tls_profiles::configure_rustls_ech(
         rustls::ClientConfig::builder_with_provider(rustls::crypto::aws_lc_rs::default_provider().into()),
         &ech_setup(config),
     )
-    .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid MASQUE ECH config: {error}")))?
-    .with_root_certificates(roots);
+    .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid MASQUE ECH config: {error}")))?;
+    let builder = ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(ech_builder, roots)
+        .map_err(|error| io::Error::other(format!("failed to build MASQUE certificate verifier: {error}")))?;
     let mut tls_config = if let Some((certificates, private_key)) = load_client_identity(config)? {
         builder
             .with_client_auth_cert(certificates, private_key)

@@ -365,10 +365,11 @@ fn websocket_handshake(
 fn default_tls_config(key_log: Option<WsTlsKeyLogCallback>) -> Arc<ClientConfig> {
     let mut roots = RootCertStore::empty();
     roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-    let mut config = ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
+    let builder = ClientConfig::builder_with_provider(rustls::crypto::ring::default_provider().into())
         .with_safe_default_protocol_versions()
-        .expect("ring provider supports default TLS versions")
-        .with_root_certificates(roots)
+        .expect("ring provider supports default TLS versions");
+    let mut config = ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, roots)
+        .expect("bundled webpki roots are non-empty")
         .with_no_client_auth();
     if let Some(key_log) = key_log {
         config.key_log = key_log;

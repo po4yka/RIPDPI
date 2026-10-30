@@ -26,6 +26,7 @@ tungstenite = { workspace = true }
 # invariant). Same workspace-pinned tokio every other crate uses.
 tokio = { workspace = true, features = ["net", "time"] }
 url = { workspace = true }
+ripdpi-tls-profiles = { workspace = true }
 webpki-roots = { workspace = true }
 
 [dev-dependencies]

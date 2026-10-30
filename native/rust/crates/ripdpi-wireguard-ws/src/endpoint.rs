@@ -157,10 +157,11 @@ fn validate_binary_subprotocol(headers: &HeaderMap<HeaderValue>) -> Result<(), W
 fn default_tls_connector() -> TlsConnector {
     let mut roots = RootCertStore::empty();
     roots.extend(webpki_roots::TLS_SERVER_ROOTS.iter().cloned());
-    let mut config = ClientConfig::builder_with_provider(rustls::crypto::aws_lc_rs::default_provider().into())
+    let builder = ClientConfig::builder_with_provider(rustls::crypto::aws_lc_rs::default_provider().into())
         .with_safe_default_protocol_versions()
-        .expect("aws-lc-rs provider supports default TLS versions")
-        .with_root_certificates(roots)
+        .expect("aws-lc-rs provider supports default TLS versions");
+    let mut config = ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, roots)
+        .expect("bundled webpki roots are non-empty")
         .with_no_client_auth();
     config.alpn_protocols = vec![b"http/1.1".to_vec()];
     TlsConnector::from(Arc::new(config))

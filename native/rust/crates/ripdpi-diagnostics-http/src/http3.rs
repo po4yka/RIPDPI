@@ -182,7 +182,9 @@ fn client_config(verifier: Option<&Arc<dyn ServerCertVerifier>>) -> Result<quinn
     let mut tls = if let Some(verifier) = verifier {
         builder.dangerous().with_custom_certificate_verifier(verifier.clone()).with_no_client_auth()
     } else {
-        builder.with_root_certificates(roots).with_no_client_auth()
+        ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(builder, roots)
+            .map_err(|_| ("FAILED", "tls_error"))?
+            .with_no_client_auth()
     };
     tls.alpn_protocols = vec![b"h3".to_vec()];
     let crypto = quinn::crypto::rustls::QuicClientConfig::try_from(tls).map_err(|_| ("FAILED", "tls_error"))?;

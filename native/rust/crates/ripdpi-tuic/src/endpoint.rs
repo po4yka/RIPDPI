@@ -127,7 +127,10 @@ pub(crate) fn build_tls_config(
         }
     }
 
-    let mut tls_config = RustlsClientConfig::builder().with_root_certificates(roots).with_no_client_auth();
+    let mut tls_config =
+        ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(RustlsClientConfig::builder(), roots)
+            .map_err(io::Error::other)?
+            .with_no_client_auth();
     tls_config.alpn_protocols = vec![b"h3".to_vec()];
     tls_config.enable_early_data = enable_early_data;
     Ok(tls_config)

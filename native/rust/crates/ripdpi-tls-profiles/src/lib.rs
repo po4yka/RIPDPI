@@ -4,6 +4,7 @@ use thiserror::Error;
 
 mod apply;
 mod builder;
+pub mod cert_blocklist;
 mod chrome;
 pub mod ech;
 mod edge;

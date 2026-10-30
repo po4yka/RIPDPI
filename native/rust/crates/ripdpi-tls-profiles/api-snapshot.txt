@@ -1,4 +1,16 @@
 pub mod ripdpi_tls_profiles
+pub mod ripdpi_tls_profiles::cert_blocklist
+pub struct ripdpi_tls_profiles::cert_blocklist::BlocklistingVerifier
+impl rustls::verify::ServerCertVerifier for ripdpi_tls_profiles::cert_blocklist::BlocklistingVerifier
+pub fn ripdpi_tls_profiles::cert_blocklist::BlocklistingVerifier::requires_raw_public_keys(&self) -> bool
+pub fn ripdpi_tls_profiles::cert_blocklist::BlocklistingVerifier::root_hint_subjects(&self) -> core::option::Option<&[rustls::msgs::handshake::DistinguishedName]>
+pub fn ripdpi_tls_profiles::cert_blocklist::BlocklistingVerifier::supported_verify_schemes(&self) -> alloc::vec::Vec<rustls::enums::SignatureScheme>
+pub fn ripdpi_tls_profiles::cert_blocklist::BlocklistingVerifier::verify_server_cert(&self, &rustls_pki_types::CertificateDer<'_>, &[rustls_pki_types::CertificateDer<'_>], &rustls_pki_types::server_name::ServerName<'_>, &[u8], rustls_pki_types::UnixTime) -> core::result::Result<rustls::verify::ServerCertVerified, rustls::error::Error>
+pub fn ripdpi_tls_profiles::cert_blocklist::BlocklistingVerifier::verify_tls12_signature(&self, &[u8], &rustls_pki_types::CertificateDer<'_>, &rustls::verify::DigitallySignedStruct) -> core::result::Result<rustls::verify::HandshakeSignatureValid, rustls::error::Error>
+pub fn ripdpi_tls_profiles::cert_blocklist::BlocklistingVerifier::verify_tls13_signature(&self, &[u8], &rustls_pki_types::CertificateDer<'_>, &rustls::verify::DigitallySignedStruct) -> core::result::Result<rustls::verify::HandshakeSignatureValid, rustls::error::Error>
+pub fn ripdpi_tls_profiles::cert_blocklist::blocklisting_webpki_verifier(alloc::sync::Arc<rustls::webpki::anchors::RootCertStore>, alloc::sync::Arc<rustls::crypto::CryptoProvider>) -> core::result::Result<alloc::sync::Arc<dyn rustls::verify::ServerCertVerifier>, rustls::webpki::VerifierBuilderError>
+pub fn ripdpi_tls_profiles::cert_blocklist::with_blocklisted_roots(rustls::builder::ConfigBuilder<rustls::client::client_conn::ClientConfig, rustls::builder::WantsVerifier>, rustls::webpki::anchors::RootCertStore) -> core::result::Result<rustls::builder::ConfigBuilder<rustls::client::client_conn::ClientConfig, rustls::client::builder::WantsClientCert>, rustls::webpki::VerifierBuilderError>
+pub fn ripdpi_tls_profiles::cert_blocklist::with_cert_blocklist(alloc::sync::Arc<dyn rustls::verify::ServerCertVerifier>) -> alloc::sync::Arc<dyn rustls::verify::ServerCertVerifier>
 pub mod ripdpi_tls_profiles::ech
 pub enum ripdpi_tls_profiles::ech::EchConfigError
 pub ripdpi_tls_profiles::ech::EchConfigError::MalformedConfigList
