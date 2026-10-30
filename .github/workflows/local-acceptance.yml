@@ -150,6 +150,7 @@ jobs:
           rust-targets: x86_64-linux-android
           rust-cache-shared-key: local-acceptance-android
       - uses: ./.github/actions/build-xray
+      - uses: ./.github/actions/fetch-naive-upstream
       - name: Build source-pinned pluggable transports
         run: >-
           ./gradlew :core:engine:buildPluggableTransportAssets
