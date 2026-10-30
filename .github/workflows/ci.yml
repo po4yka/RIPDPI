@@ -2105,6 +2105,8 @@ jobs:
           gradle-cache-read-only: "true"
 
       - uses: ./.github/actions/fetch-naive-upstream
+        with:
+          abis: x86_64
 
       - name: Download verified managed Xray runtime
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -2208,6 +2210,8 @@ jobs:
           path: ${{ runner.temp }}/native-shard-x86_64
 
       - uses: ./.github/actions/fetch-naive-upstream
+        with:
+          abis: x86_64
 
       - name: Download verified managed Xray runtime
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2

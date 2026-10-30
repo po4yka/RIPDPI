@@ -129,6 +129,11 @@ jobs:
       - uses: ./.github/actions/build-xray
         if: inputs.reuse_capture_run == ''
 
+      - uses: ./.github/actions/fetch-naive-upstream
+        if: inputs.reuse_capture_run == ''
+        with:
+          abis: x86_64
+
       - name: Build actual current app before booting emulator
         if: inputs.reuse_capture_run == ''
         run: >-

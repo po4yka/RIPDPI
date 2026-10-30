@@ -4,6 +4,12 @@ description: >-
   HelperExecutableJniLibsTask stages as jniLibs. The cache key is the pin manifest, and the
   script verifies every digest on a cache hit and a miss.
 
+inputs:
+  abis:
+    description: Space-separated ABIs to fetch, for jobs that set ripdpi.nativeAbisOverride. Empty fetches every ABI.
+    required: false
+    default: ""
+
 runs:
   using: composite
   steps:
@@ -15,4 +21,9 @@ runs:
 
     - name: Fetch and verify upstream NaiveProxy client
       shell: bash
-      run: python3 scripts/ci/fetch-naive-upstream.py
+      env:
+        FETCH_ABIS: ${{ inputs.abis }}
+      run: |
+        args=()
+        for abi in $FETCH_ABIS; do args+=(--abi "$abi"); done
+        python3 scripts/ci/fetch-naive-upstream.py "${args[@]}"
