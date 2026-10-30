@@ -42,7 +42,7 @@ python3 "$repo_root/scripts/ci/test_native_architecture_contracts.py"
 echo "==> native architecture contracts"
 python3 "$repo_root/scripts/ci/check_native_architecture_contracts.py"
 
-# This patched dependency has its own workspace and must not be skipped by --workspace.
+# This patched dependency has its own workspace, so the workspace-wide run below skips it.
 echo "==> tests (AWG backend)"
 bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo test --locked \
   --manifest-path "$repo_root/native/rust/vendor/boringtun/Cargo.toml" --lib
