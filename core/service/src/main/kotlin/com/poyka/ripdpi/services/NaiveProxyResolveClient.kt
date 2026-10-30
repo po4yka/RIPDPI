@@ -6,8 +6,10 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.runInterruptible
 import java.io.IOException
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.concurrent.thread
 
 private const val ResolveTimeoutMillis = 10_000L
 private const val ResolveReapTimeoutMillis = 500L
@@ -78,11 +80,7 @@ internal class DefaultNaiveProxyResolveClient
                 val process = processStarter(command, environment)
                 try {
                     process.outputStream.close()
-                    if (process.waitFor(timeoutMillis, TimeUnit.MILLISECONDS)) {
-                        parse(process.exitValue(), process.inputStream.bufferedReader().use { it.readText() })
-                    } else {
-                        NaiveProxyResolveResult.Failed("resolver timed out")
-                    }
+                    awaitResult(process)
                 } finally {
                     terminate(process)
                 }
@@ -91,6 +89,29 @@ internal class DefaultNaiveProxyResolveClient
             } catch (_: SecurityException) {
                 NaiveProxyResolveResult.Failed("resolver could not run")
             }
+
+        // Drain while the process runs: a full pipe would block it until the timeout.
+        private fun awaitResult(process: Process): NaiveProxyResolveResult {
+            val output = AtomicReference<String?>(null)
+            val reader =
+                thread(name = "naive-resolve-output", isDaemon = true) {
+                    try {
+                        output.set(process.inputStream.bufferedReader().use { it.readText() })
+                    } catch (_: IOException) {
+                        // Closed by terminate: no output.
+                    }
+                }
+            if (!process.waitFor(timeoutMillis, TimeUnit.MILLISECONDS)) {
+                return NaiveProxyResolveResult.Failed("resolver timed out")
+            }
+            reader.join(ResolveReapTimeoutMillis)
+            val text = output.get()
+            return if (text == null) {
+                NaiveProxyResolveResult.Failed("resolver output could not be read")
+            } else {
+                parse(process.exitValue(), text)
+            }
+        }
 
         private fun parse(
             exitCode: Int,

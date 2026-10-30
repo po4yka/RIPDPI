@@ -52,9 +52,11 @@ internal class SubprocessRelayOutputParser {
                     parseManagedClientListenerLine(trimmed, bridgeSpec.methodName)
                 }
 
+        // The upstream Chromium client does not speak the RIPDPI-* protocol; its lines are plain output.
         return when {
             trimmed.isBlank() -> null
             managedClientListener != null -> SubprocessRelayOutputEvent.ManagedClientListener(managedClientListener)
+            spec.binaryName == NaiveUpstreamBinaryName -> parsePlainError(trimmed)
             else -> parseStructuredEvent(trimmed) ?: parsePlainError(trimmed)
         }
     }

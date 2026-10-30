@@ -7,6 +7,7 @@ import java.nio.file.Files
 import java.nio.file.StandardOpenOption
 import java.nio.file.attribute.PosixFilePermissions
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
 
 private const val NaiveUpstreamConfigDirName = "naive"
 private const val OwnerOnlyFilePermissions = "rw-------"
@@ -110,6 +111,7 @@ internal fun naiveUpstreamRedactions(values: NaiveUpstreamConfigValues): List<St
 internal class NaiveUpstreamConfigStore(
     private val baseDirectory: () -> File,
 ) {
+    private val staleSwept = AtomicBoolean(false)
     private val directory: File get() = File(baseDirectory(), NaiveUpstreamConfigDirName)
 
     @Throws(IOException::class)
@@ -119,8 +121,11 @@ internal class NaiveUpstreamConfigStore(
             Files.createDirectories(dir, ownerOnly(OwnerOnlyDirPermissions))
         }
         Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString(OwnerOnlyDirPermissions))
-        // A crash can leave a file behind; one runtime owns this directory, so drop every leftover.
-        directory.listFiles()?.forEach { it.delete() }
+        // A crash can leave a file behind. No runtime is active at the first write after process start,
+        // so drop every leftover once; later writes must not touch a file another start still reads.
+        if (staleSwept.compareAndSet(false, true)) {
+            directory.listFiles()?.forEach { it.delete() }
+        }
         val file = dir.resolve("${UUID.randomUUID()}.json")
         // Created with mode 0600 before any byte is written.
         Files.createFile(file, ownerOnly(OwnerOnlyFilePermissions))

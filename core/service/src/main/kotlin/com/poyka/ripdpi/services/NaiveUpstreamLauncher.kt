@@ -1,14 +1,18 @@
 package com.poyka.ripdpi.services
 
 import android.content.Context
+import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.localSocksCredentialsOrNull
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import com.poyka.ripdpi.data.NaiveExtraHeadersResult
+import com.poyka.ripdpi.data.parseNaiveExtraHeaders
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.runInterruptible
 import java.io.File
 import java.io.IOException
+import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -55,6 +59,14 @@ internal class DefaultNaiveUpstreamVersionProbe
             }
     }
 
+/** A DNS hostname (letters, digits, `-`, `.`) or an IP literal; anything else could inject config text. */
+internal fun isValidProxyHost(host: String): Boolean =
+    isIpLiteralHost(host) ||
+        (host.isNotEmpty() && host.split('.').all { label -> label.isNotEmpty() && label.all(::isHostnameChar) })
+
+private fun isHostnameChar(char: Char): Boolean =
+    char in 'A'..'Z' || char in 'a'..'z' || char in '0'..'9' || char == '-'
+
 internal fun isPinnedUpstreamVersion(line: String?): Boolean {
     val rest = line?.takeIf { it.startsWith(NaiveUpstreamVersionPrefix) }?.removePrefix(NaiveUpstreamVersionPrefix)
     // "naive 154.0.8037.491" is another release, not the pinned one.
@@ -83,13 +95,30 @@ internal class NaiveUpstreamLauncher
             NaiveUpstreamConfigStore { context.noBackupFilesDir },
         )
 
-        @Volatile private var activeConfigFile: File? = null
+        private val ownedFiles: MutableSet<File> = ConcurrentHashMap.newKeySet()
 
         suspend fun start(config: ResolvedRipDpiRelayConfig) {
             val prelaunchSpec = launchSpec(config, emptyList(), emptyList())
             if (config.outboundBindIp.isNotBlank()) {
                 reject(config, prelaunchSpec, "NaiveProxy does not support an outbound bind IP", "config")
             }
+            val proxyHost = proxyHost(config)
+            if (!isValidProxyHost(config.server) || !isValidProxyHost(proxyHost)) {
+                reject(config, prelaunchSpec, "NaiveProxy server host is not a valid hostname or IP", "config")
+            }
+            val local =
+                localSocksCredentialsOrNull(config.localSocksUsername, config.localSocksPassword)
+                    ?: reject(config, prelaunchSpec, "NaiveProxy requires local listener credentials", "config")
+            val extraHeaders =
+                when (val parsed = parseNaiveExtraHeaders(config.naiveExtraHeaders)) {
+                    is NaiveExtraHeadersResult.Valid -> {
+                        parsed.normalized
+                    }
+
+                    is NaiveExtraHeadersResult.Invalid -> {
+                        reject(config, prelaunchSpec, "NaiveProxy extra headers are invalid: ${parsed.error}", "config")
+                    }
+                }
             val binary = launchDelegate.resolveBinary(NaiveUpstreamBinaryName)
             val versionLine = versionProbe.versionLine(binary)
             if (!isPinnedUpstreamVersion(versionLine)) {
@@ -100,7 +129,7 @@ internal class NaiveUpstreamLauncher
                     "relay_compatibility",
                 )
             }
-            val values = configValues(config, mappedAddress(config, prelaunchSpec))
+            val values = configValues(config, local, extraHeaders, mappedAddress(config, prelaunchSpec))
             val redactions = naiveUpstreamRedactions(values) + naiveExtraHeaderRedactions(config.naiveExtraHeaders)
             val file =
                 try {
@@ -108,20 +137,22 @@ internal class NaiveUpstreamLauncher
                 } catch (_: IOException) {
                     reject(config, prelaunchSpec, "NaiveProxy upstream config could not be written", "config")
                 }
-            activeConfigFile = file
+            ownedFiles += file
             try {
                 launchDelegate.start(binary, config, launchSpec(config, listOf(file.absolutePath), redactions))
             } finally {
                 // Upstream reads the file at startup only: readiness has passed or the start failed.
-                cleanup()
+                ownedFiles -= file
+                configStore.delete(file)
             }
         }
 
-        /** Idempotent; also called on stop. */
+        /** Idempotent; also called on stop. Deletes only files this runtime created. */
         fun cleanup() {
-            val file = activeConfigFile
-            activeConfigFile = null
-            configStore.delete(file)
+            ownedFiles.toList().forEach { file ->
+                ownedFiles -= file
+                configStore.delete(file)
+            }
         }
 
         private suspend fun mappedAddress(
@@ -136,7 +167,9 @@ internal class NaiveUpstreamLauncher
             val result = resolveClient.resolve(helper, config.server, config.serverPort, config.socketProtection)
             return when (result) {
                 is NaiveProxyResolveResult.Resolved -> {
-                    result.addresses.first()
+                    val valid = result.addresses.map(String::trim).filter(::isIpLiteralHost)
+                    valid.firstOrNull { !it.contains(':') } ?: valid.firstOrNull()
+                        ?: reject(config, spec, "NaiveProxy protected DNS returned no valid address", "dns")
                 }
 
                 is NaiveProxyResolveResult.Failed -> {
@@ -151,13 +184,11 @@ internal class NaiveUpstreamLauncher
 
         private fun configValues(
             config: ResolvedRipDpiRelayConfig,
+            local: LocalSocksCredentials,
+            extraHeaders: String,
             mappedAddress: String?,
-        ): NaiveUpstreamConfigValues {
-            val local =
-                requireNotNull(localSocksCredentialsOrNull(config.localSocksUsername, config.localSocksPassword)) {
-                    "NaiveProxy requires local listener credentials"
-                }
-            return NaiveUpstreamConfigValues(
+        ): NaiveUpstreamConfigValues =
+            NaiveUpstreamConfigValues(
                 proxyHost = proxyHost(config),
                 proxyPort = config.serverPort,
                 proxyUsername = config.naiveUsername.orEmpty(),
@@ -166,10 +197,9 @@ internal class NaiveUpstreamLauncher
                 localPassword = local.password,
                 localHost = config.localSocksHost,
                 localPort = config.localSocksPort,
-                extraHeaders = config.naiveExtraHeaders,
+                extraHeaders = extraHeaders,
                 mappedAddress = mappedAddress?.takeIf { !isIpLiteralHost(proxyHost(config)) },
             )
-        }
 
         private fun launchSpec(
             config: ResolvedRipDpiRelayConfig,

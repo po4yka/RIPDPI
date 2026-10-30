@@ -356,6 +356,173 @@ class NaiveUpstreamLauncherTest {
             )
         }
 
+    @Test
+    fun `lf separated extra headers are written as crlf`() =
+        runTest {
+            manager().start(config().copy(naiveExtraHeaders = "X-One: 1\nX-Two: 2"))
+
+            val json = JSONObject(requireNotNull(delegate.configAtLaunch))
+            assertEquals("X-One: 1\r\nX-Two: 2", json.getString("extra-headers"))
+        }
+
+    @Test
+    fun `reserved extra header names are rejected as config before launch`() =
+        runTest {
+            for (raw in listOf("Proxy-Authorization: Basic abc", "Host: evil.example")) {
+                delegate.failureClass = null
+
+                val error = runCatching { manager().start(config().copy(naiveExtraHeaders = raw)) }.exceptionOrNull()
+
+                assertTrue(raw, error is NaiveProxyCompatibilityException)
+                assertEquals("config", delegate.failureClass)
+            }
+            assertEquals(0, delegate.starts)
+            assertFalse(configDir().exists())
+        }
+
+    @Test
+    fun `missing local listener credentials are rejected as config`() =
+        runTest {
+            val error =
+                runCatching {
+                    manager().start(config().copy(localSocksUsername = null, localSocksPassword = null))
+                }.exceptionOrNull()
+
+            assertTrue(error is NaiveProxyCompatibilityException)
+            assertEquals("config", delegate.failureClass)
+            assertEquals(0, delegate.starts)
+        }
+
+    @Test
+    fun `proxy hosts that could inject config text are rejected as config`() =
+        runTest {
+            val hosts = listOf("a b.example", "a,b.example", "a;b", "*.example", "a/b", "u@host", "a\nb", "a\u0000b")
+            for (host in hosts) {
+                val candidates =
+                    listOf(config().copy(server = host, serverName = ""), config().copy(serverName = host))
+                for (candidate in candidates) {
+                    delegate.failureClass = null
+
+                    val error = runCatching { manager().start(candidate) }.exceptionOrNull()
+
+                    assertTrue(host, error is NaiveProxyCompatibilityException)
+                    assertEquals("config", delegate.failureClass)
+                }
+            }
+            assertEquals(0, delegate.starts)
+        }
+
+    @Test
+    fun `resolved addresses are validated and ipv4 is preferred`() =
+        runTest {
+            resolver.result = NaiveProxyResolveResult.Resolved(listOf("garbage;x", "2001:db8::7", "203.0.113.9"))
+
+            manager().start(config())
+
+            val json = JSONObject(requireNotNull(delegate.configAtLaunch))
+            assertEquals("MAP relay.example 203.0.113.9", json.getString("host-resolver-rules"))
+        }
+
+    @Test
+    fun `an ipv6 address is used when no ipv4 address is valid`() =
+        runTest {
+            resolver.result = NaiveProxyResolveResult.Resolved(listOf("bad host", "2001:db8::7", "2001:db8::8"))
+
+            manager().start(config())
+
+            val json = JSONObject(requireNotNull(delegate.configAtLaunch))
+            assertEquals("MAP relay.example [2001:db8::7]", json.getString("host-resolver-rules"))
+        }
+
+    @Test
+    fun `an all garbage resolve result is rejected as dns`() =
+        runTest {
+            resolver.result = NaiveProxyResolveResult.Resolved(listOf("evil;rule", "x y"))
+
+            val error = runCatching { manager().start(config()) }.exceptionOrNull()
+
+            assertTrue(error is NaiveProxyCompatibilityException)
+            assertEquals("dns", delegate.failureClass)
+            assertEquals(0, delegate.starts)
+        }
+
+    @Test
+    fun `cleanup of one write leaves an overlapping write in place`() {
+        val store = NaiveUpstreamConfigStore { baseDir }
+        val first = store.write("{}")
+        val second = store.write("{}")
+
+        store.delete(first)
+
+        assertFalse(first.exists())
+        assertTrue(second.exists())
+    }
+
+    @Test
+    fun `an overlapping start keeps its config file when another start finishes or stops`() =
+        runTest {
+            resolver.result = NaiveProxyResolveResult.Resolved(listOf("203.0.113.7"))
+            var other: File? = null
+            val store = NaiveUpstreamConfigStore { baseDir }
+            delegate.onStart = { other = store.write("{}") }
+            val launcher = NaiveUpstreamLauncher(delegate, resolver, { versionLine }, store)
+
+            launcher.start(config())
+            launcher.cleanup()
+
+            assertTrue(requireNotNull(other).exists())
+        }
+
+    @Test
+    fun `stale files are swept once at the first write of a process`() {
+        val dir = configDir().apply { mkdirs() }
+        val stale = File(dir, "stale.json").apply { writeText("{}") }
+        val store = NaiveUpstreamConfigStore { baseDir }
+
+        val first = store.write("{}")
+        val late = File(dir, "late.json").apply { writeText("{}") }
+        val second = store.write("{}")
+
+        assertFalse(stale.exists())
+        assertTrue(first.exists() && second.exists() && late.exists())
+    }
+
+    @Test
+    fun `an upstream line shaped like the helper protocol does not flip health`() {
+        val spec =
+            SubprocessSocksRelayLaunchSpec(
+                binaryName = NaiveUpstreamBinaryName,
+                commandArguments = emptyList(),
+                runtimeKind = RelayKindNaiveProxy,
+                redactedValues = listOf("secret"),
+            )
+        val parser = SubprocessRelayOutputParser()
+
+        assertNull(parser.parse("RIPDPI-UPSTREAM-OK|naiveproxy|", spec))
+        assertNull(parser.parse("RIPDPI-READY|naiveproxy|1", spec))
+        assertNull(parser.parse("RIPDPI-ERROR|naiveproxy|auth|bad", spec))
+        assertEquals(
+            SubprocessRelayOutputEvent.PlainError("[ERROR] leaked <redacted>"),
+            parser.parse("[ERROR] leaked secret", spec),
+        )
+        assertTrue(
+            parser.parse("RIPDPI-UPSTREAM-OK|naiveproxy|", spec.copy(binaryName = "ripdpi-naiveproxy")) is
+                SubprocessRelayOutputEvent.UpstreamOk,
+        )
+    }
+
+    @Test
+    fun `resolve client does not stall on output larger than the pipe buffer`() =
+        runTest {
+            val binary =
+                script("yes xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx | head -n 20000; echo 'RIPDPI-RESOLVED|192.0.2.1'")
+
+            val result =
+                client(timeoutMillis = 4_000L).resolve(binary, "relay.example", 443, RelaySocketProtection.Inactive)
+
+            assertEquals(NaiveProxyResolveResult.Resolved(listOf("192.0.2.1")), result)
+        }
+
     private class RecordingResolver : NaiveProxyResolveClient {
         var result: NaiveProxyResolveResult = NaiveProxyResolveResult.Resolved(listOf("203.0.113.7"))
         val calls = mutableListOf<String>()
@@ -382,6 +549,7 @@ class NaiveUpstreamLauncherTest {
         var configPathAtLaunch: String? = null
         var permissionsAtLaunch: String? = null
         var dirPermissionsAtLaunch: String? = null
+        var onStart: (() -> Unit)? = null
 
         override fun resolveBinary(binaryName: String) = NaiveProxyBinaryRef("/native-lib/lib$binaryName.so")
 
@@ -391,6 +559,7 @@ class NaiveUpstreamLauncherTest {
             spec: SubprocessSocksRelayLaunchSpec,
         ) {
             starts += 1
+            onStart?.invoke()
             lastSpec = spec
             lastBinary = binary
             if (spec.binaryName == NaiveUpstreamBinaryName) {
