@@ -2,7 +2,7 @@
 id: RLY-1793363326590556
 title: Ship the pinned upstream NaiveProxy client for real-certificate profiles
 kind: feature
-status: backlog
+status: doing
 area: relay
 priority: high
 owner: unassigned
