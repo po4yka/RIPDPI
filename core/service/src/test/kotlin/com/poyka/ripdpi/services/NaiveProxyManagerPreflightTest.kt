@@ -32,6 +32,8 @@ class NaiveProxyManagerPreflightTest {
         sampleResolvedRelayConfig(kind = RelayKindNaiveProxy).copy(
             localSocksUsername = "local-user",
             localSocksPassword = "local-pass", // Fixture credential.
+            // A pin selects the Rust helper, whose preflight these tests cover.
+            naiveServerPinSha256 = "a".repeat(64),
         )
 
     @Test
@@ -49,6 +51,7 @@ class NaiveProxyManagerPreflightTest {
                     NaiveProxyManager(
                         processPort,
                         processPort,
+                        unusedUpstreamLauncher(processPort),
                     ).start(naiveConfig())
                 }.exceptionOrNull()
 
@@ -70,7 +73,8 @@ class NaiveProxyManagerPreflightTest {
 
             val failure =
                 runCatching {
-                    NaiveProxyManager(processPort, processPort).start(naiveConfig().copy(outboundBindIp = "192.0.2.10"))
+                    NaiveProxyManager(processPort, processPort, unusedUpstreamLauncher(processPort))
+                        .start(naiveConfig().copy(outboundBindIp = "192.0.2.10"))
                 }.exceptionOrNull()
 
             assertTrue(failure is NaiveProxyCompatibilityException)
@@ -95,7 +99,7 @@ class NaiveProxyManagerPreflightTest {
                                 ),
                         ),
                 )
-            val manager = NaiveProxyManager(processPort, processPort)
+            val manager = NaiveProxyManager(processPort, processPort, unusedUpstreamLauncher(processPort))
 
             val error =
                 runCatching {
@@ -134,7 +138,7 @@ class NaiveProxyManagerPreflightTest {
                             ),
                         ),
                 )
-            val manager = NaiveProxyManager(processPort, processPort)
+            val manager = NaiveProxyManager(processPort, processPort, unusedUpstreamLauncher(processPort))
 
             manager.start(naiveConfig())
 
@@ -155,7 +159,7 @@ class NaiveProxyManagerPreflightTest {
                             "NaiveProxy helper does not support the required probe",
                         ),
                 )
-            val manager = NaiveProxyManager(processPort, processPort)
+            val manager = NaiveProxyManager(processPort, processPort, unusedUpstreamLauncher(processPort))
 
             val error =
                 runCatching {
@@ -181,7 +185,7 @@ class NaiveProxyManagerPreflightTest {
                             ),
                         ),
                 )
-            val manager = NaiveProxyManager(processPort, processPort)
+            val manager = NaiveProxyManager(processPort, processPort, unusedUpstreamLauncher(processPort))
             val config = naiveConfig()
 
             manager.start(config)

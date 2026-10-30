@@ -48,6 +48,7 @@ class SubprocessRelayReadinessSignalTest {
     ) : NaiveProxyManager(
             DefaultNaiveProxyLaunchDelegate(subprocessManager),
             NaiveProxyPreflightProbe { error("unused by overridden start") },
+            unusedUpstreamLauncher(DefaultNaiveProxyLaunchDelegate(subprocessManager)),
         ) {
         val exit = CompletableDeferred<Int>()
         var startCount = 0

@@ -18,6 +18,9 @@ import javax.inject.Singleton
 
 enum class SubprocessSocketProtectionCapability {
     ProtectSocketPath,
+
+    /** The helper cannot call protect(); the VPN excludes the app's own UID from the TUN instead. */
+    OwnUidExcluded,
     Unsupported,
 }
 
@@ -50,6 +53,9 @@ internal fun resolveSubprocessProtectPath(
     activeProtectPath: String?,
 ): String? {
     if (config.socketProtection == RelaySocketProtection.Inactive) {
+        return null
+    }
+    if (spec.protectionCapability == SubprocessSocketProtectionCapability.OwnUidExcluded) {
         return null
     }
     val supportsProtectSocketPath =

@@ -22,7 +22,7 @@ import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
 
-private const val NaiveProxyBinaryName = "ripdpi-naiveproxy"
+private const val NaiveProxyBinaryName = NaiveRustHelperBinaryName
 private const val NaiveProxyCredentialsStdinFlag = "--credentials-stdin"
 private const val NaiveProxyRestartDelayMs = 750L
 private const val NaiveProxyRestartBudgetWindowMs = 60_000L
@@ -72,7 +72,7 @@ internal fun naiveProxyCommandArguments(config: ResolvedRipDpiRelayConfig): List
         }
     }
 
-private fun naiveExtraHeaderRedactions(headers: String): List<String> =
+internal fun naiveExtraHeaderRedactions(headers: String): List<String> =
     when (val parsed = parseNaiveExtraHeaders(headers)) {
         is NaiveExtraHeadersResult.Valid -> parsed.values
         is NaiveExtraHeadersResult.Invalid -> listOf(headers)
@@ -106,14 +106,25 @@ open class NaiveProxyManager
     internal constructor(
         private val launchDelegate: NaiveProxyLaunchDelegate,
         private val preflightProbe: NaiveProxyPreflightProbe,
+        private val upstreamLauncher: NaiveUpstreamLauncher,
     ) {
         @Inject
         internal constructor(
             subprocessManager: SubprocessSocksRelayManager,
             preflightProbe: DefaultNaiveProxyPreflightProbe,
-        ) : this(DefaultNaiveProxyLaunchDelegate(subprocessManager), preflightProbe)
+            upstreamLauncher: NaiveUpstreamLauncher,
+        ) : this(DefaultNaiveProxyLaunchDelegate(subprocessManager), preflightProbe, upstreamLauncher)
 
+        /** A server certificate pin is the one feature only the Rust helper has; without it, run upstream. */
         open suspend fun start(config: ResolvedRipDpiRelayConfig) {
+            if (config.naiveServerPinSha256.isBlank()) {
+                upstreamLauncher.start(config)
+            } else {
+                startRustHelper(config)
+            }
+        }
+
+        private suspend fun startRustHelper(config: ResolvedRipDpiRelayConfig) {
             val spec =
                 SubprocessSocksRelayLaunchSpec(
                     binaryName = NaiveProxyBinaryName,
@@ -190,7 +201,13 @@ open class NaiveProxyManager
 
         open fun noteRestarting(reason: String) = launchDelegate.noteRestarting(reason)
 
-        open suspend fun stop() = launchDelegate.stop()
+        open suspend fun stop() {
+            try {
+                launchDelegate.stop()
+            } finally {
+                upstreamLauncher.cleanup()
+            }
+        }
     }
 
 internal class NaiveProxyCompatibilityException(
