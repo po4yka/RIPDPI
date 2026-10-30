@@ -74,10 +74,7 @@ def generate():
             for r in rows
             if r["adapter"] == "android"
             and not r["id"].startswith("android-usb-")
-            and r["id"] != "android-naiveproxy"
         ],
-        # Needs the separately prepared NaiveProxy server peer, so it stays out of the CI android profile.
-        "android-naiveproxy": ["android-naiveproxy"],
         "android-usb": [r["id"] for r in rows if r["id"].startswith("android-usb-")],
         "routed": [
             r["id"] for r in rows if r["adapter"] == "vm" and r["id"] != "packet-engine"

@@ -124,6 +124,29 @@ def write_report(out: Path, report: dict) -> None:
     )
 
 
+DEFAULT_PEER_CACHE = Path.home() / ".cache/ripdpi-acceptance/peers"
+
+
+def naiveproxy_binary(options: dict) -> Path:
+    """An explicit binary wins; otherwise build or reuse the pinned peer in the cache."""
+    if options.get("naiveproxy_binary") is not None:
+        return Path(options["naiveproxy_binary"])
+    import sys
+
+    peers = str(Path(__file__).resolve().parent / "peers")
+    if peers not in sys.path:
+        sys.path.insert(0, peers)
+    import naiveproxy
+
+    cache = Path(options.get("cache_dir") or DEFAULT_PEER_CACHE)
+    cache.mkdir(parents=True, exist_ok=True)
+    try:
+        return naiveproxy.binary(cache, "naive")[0]
+    except FileNotFoundError:
+        naiveproxy.prepare(cache, "naive")
+        return naiveproxy.binary(cache, "naive")[0]
+
+
 def adapter_command(
     repo: Path, scenario: dict, run_id: str, out: Path, options: dict
 ) -> list[str]:
@@ -159,6 +182,8 @@ def adapter_command(
     for key in allowed[scenario["adapter"]]:
         if options.get(key) is not None:
             command.extend(["--" + key.replace("_", "-"), str(options[key])])
+    if scenario["id"] == "android-naiveproxy" and options.get("naiveproxy_binary") is None:
+        command.extend(["--naiveproxy-binary", str(naiveproxy_binary(options))])
     if scenario["adapter"] == "android" and not options.get("owned_installation"):
         command.extend(
             [

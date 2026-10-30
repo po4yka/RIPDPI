@@ -60,12 +60,10 @@
       "android-awg",
       "android-migration",
       "android-hysteria",
+      "android-naiveproxy",
       "android-transactions",
       "android-xray",
       "android-network"
-    ],
-    "android-naiveproxy": [
-      "android-naiveproxy"
     ],
     "android-usb": [
       "android-usb-transactions",

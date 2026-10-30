@@ -281,6 +281,26 @@ class EvidenceTests(unittest.TestCase):
                 with self.assertRaises(runner.Blocked):
                     runner.owned_instrumentation_component(listing)
 
+    def test_naiveproxy_scenario_takes_the_binary_the_lab_supplies(self):
+        base = [
+            "runner",
+            "--run-id",
+            "naive-test",
+            "--out-dir",
+            "/tmp/owned",
+            "--serial",
+            "emulator-5554",
+            "--scenario",
+            "android-naiveproxy",
+        ]
+        with patch.object(runner.sys, "argv", base), patch("sys.stderr"):
+            with self.assertRaises(SystemExit):
+                runner.arguments()
+        with patch.object(
+            runner.sys, "argv", base + ["--naiveproxy-binary", "/tmp/peer/caddy"]
+        ):
+            self.assertEqual(Path("/tmp/peer/caddy"), runner.arguments().naiveproxy_binary)
+
     def test_usb_scope_requires_its_own_named_scenario_and_no_lan_addresses(self):
         base = [
             "runner",

@@ -1,5 +1,6 @@
 """Runner failure controls use isolated temporary Git repositories."""
 
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -9,6 +10,7 @@ import unittest
 from unittest.mock import patch
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "peers"))
 from execution import adapter_command, run_suite, source_identity, signal_group
 from verify_report import verify
 from contract import ContractError
@@ -109,6 +111,55 @@ class ExecutionTests(unittest.TestCase):
         self.assertEqual(
             str(explicit), command[command.index("--owned-installation") + 1]
         )
+
+    def naive_scenario(self):
+        real = json.loads((Path(__file__).resolve().parents[1] / "manifest.json").read_text())
+        self.assertIn("android-naiveproxy", real["profiles"]["android"])
+        return next(row for row in real["scenarios"] if row["id"] == "android-naiveproxy")
+
+    def test_naiveproxy_binary_is_prepared_when_flag_is_missing(self):
+        import naiveproxy
+
+        cache = self.base / "peer-cache"
+        built = []
+
+        def fake_prepare(directory, variant="naive"):
+            base = naiveproxy.root(directory, variant)
+            base.mkdir(parents=True)
+            (base / "caddy-forwardproxy-naive").write_bytes(b"peer")
+            digest = hashlib.sha256(b"peer").hexdigest()
+            (base / "peer.json").write_text(
+                json.dumps(dict(naiveproxy.identity(variant), sha256=digest))
+            )
+            built.append(variant)
+
+        with patch.object(naiveproxy, "prepare", fake_prepare):
+            first = adapter_command(
+                self.repo, self.naive_scenario(), "run-test", self.out / "n", {"cache_dir": cache}
+            )
+            second = adapter_command(
+                self.repo, self.naive_scenario(), "run-test", self.out / "n", {"cache_dir": cache}
+            )
+        expected = str(naiveproxy.root(cache) / "caddy-forwardproxy-naive")
+        for command in (first, second):
+            self.assertEqual(expected, command[command.index("--naiveproxy-binary") + 1])
+        self.assertEqual(["naive"], built)
+
+    def test_explicit_naiveproxy_binary_is_used_as_given(self):
+        import naiveproxy
+
+        explicit = self.base / "mine" / "caddy"
+        with patch.object(naiveproxy, "prepare", side_effect=AssertionError("must not build")):
+            command = adapter_command(
+                self.repo,
+                self.naive_scenario(),
+                "run-test",
+                self.out / "n",
+                {"naiveproxy_binary": explicit, "cache_dir": self.base / "unused"},
+            )
+        self.assertEqual(1, command.count("--naiveproxy-binary"))
+        self.assertEqual(str(explicit), command[command.index("--naiveproxy-binary") + 1])
+        self.assertFalse((self.base / "unused").exists())
 
     def test_valid_run(self):
         report = self.run_suite(self.executor)

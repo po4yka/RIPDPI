@@ -138,9 +138,12 @@ production probes and reload. It then checks explicit UDP recovery. This proves
 the named local device path; it does not prove a filtered/control-network
 comparison or Wi-Fi-to-cellular continuity.
 
-`android-naiveproxy` requires `--naiveproxy-binary`, the prepared Caddy
-forwardproxy peer from `test-lab/acceptance/peers/naiveproxy.py` (its recorded
-digest in the sibling `peer.json` must match). The peer presents a self-signed
+`android-naiveproxy` runs in the `android` profile. Without `--naiveproxy-binary`
+the lab reuses or builds the pinned Caddy forwardproxy peer from
+`test-lab/acceptance/peers/naiveproxy.py` in `--cache-dir` (default
+`~/.cache/ripdpi-acceptance/peers`; the first build needs network access and the
+pinned Go toolchain). An explicit `--naiveproxy-binary` is used as given; its
+recorded digest in the sibling `peer.json` must match. The peer presents a self-signed
 leaf, so the saved profile trusts it only through its leaf SHA-256 pin. It checks
 that a wrong pin fails closed with no receipt at the server or destination, then
 that a TCP transfer through the real VPN and helper reaches the owned destination

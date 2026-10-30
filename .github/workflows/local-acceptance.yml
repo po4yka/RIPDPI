@@ -160,6 +160,13 @@ jobs:
         run: |
           python3 scripts/ci/android_nginx_fixture.py --prepare-image
           python3 scripts/ci/android_hysteria_fixture.py --prepare-binary "$RUNNER_TEMP/hysteria-peer"
+      - name: Cache pinned NaiveProxy peer
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/ripdpi-acceptance/peers
+          key: naiveproxy-peer-${{ runner.os }}-${{ hashFiles('test-lab/acceptance/peers/naiveproxy.py', 'test-lab/acceptance/peers/go_toolchain.py') }}
+      - name: Prepare pinned NaiveProxy peer
+        run: python3 -c 'import sys; sys.path.insert(0, "test-lab/acceptance"); from execution import naiveproxy_binary; print(naiveproxy_binary({}))'
       - name: Enable KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
