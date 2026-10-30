@@ -157,7 +157,7 @@ private fun SplitTunnelSystemManagedCard(onOpenSystemSettings: () -> Unit) {
             RipDpiButton(
                 text = stringResource(R.string.split_tunnel_open_system_settings),
                 onClick = onOpenSystemSettings,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.SplitTunnelOpenSystemSettings),
                 variant = RipDpiButtonVariant.Outline,
                 density = RipDpiControlDensity.Compact,
                 leadingIcon = RipDpiIcons.OpenExternal,

@@ -103,6 +103,7 @@ internal fun RememberedNetworksScreen(
             message = stringResource(R.string.remembered_networks_delete_confirm_body),
             confirmLabel = stringResource(R.string.remembered_networks_delete_confirm_confirm),
             dismissLabel = stringResource(R.string.remembered_networks_delete_confirm_dismiss),
+            confirmTestTag = RipDpiTestTags.RememberedNetworksDeleteConfirm,
             onDismiss = { pendingDelete = null },
             onConfirm = {
                 pendingDelete = null
@@ -162,12 +163,19 @@ private fun RememberedNetworksConfirmDialog(
     dismissLabel: String,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
+    confirmTestTag: String? = null,
 ) {
     RipDpiDialog(
         onDismissRequest = onDismiss,
         title = title,
         dismissAction = RipDpiDialogAction(label = dismissLabel, onClick = onDismiss),
-        confirmAction = RipDpiDialogAction(label = confirmLabel, onClick = onConfirm, destructive = true),
+        confirmAction =
+            RipDpiDialogAction(
+                label = confirmLabel,
+                onClick = onConfirm,
+                testTag = confirmTestTag,
+                destructive = true,
+            ),
         visuals = RipDpiDialogVisuals(message = message, tone = RipDpiDialogTone.Destructive),
     )
 }

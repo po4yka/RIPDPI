@@ -253,6 +253,7 @@ internal fun DomainBypassEditorCard(
                 RipDpiButton(
                     text = stringResource(R.string.config_save),
                     onClick = onSave,
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DomainBypassSave),
                     enabled = state.isDraftInitialized && (state.cleanCount > 0 || state.errors.isEmpty()),
                     density = RipDpiControlDensity.Compact,
                 )

@@ -125,6 +125,7 @@ internal fun RoutesScreen(
             confirmAction =
                 RipDpiDialogAction(
                     label = stringResource(R.string.rule_editor_delete),
+                    testTag = RipDpiTestTags.RoutesDeleteConfirm,
                     destructive = true,
                     onClick = {
                         pendingDelete = null
@@ -253,6 +254,7 @@ private fun RuleListRow(
     ) {
         RuleListRowSummary(row = row, onToggleEnabled = onToggleEnabled)
         RuleListRowControls(
+            ruleId = row.rule.id,
             index = index,
             count = count,
             onMoveUp = onMoveUp,
@@ -300,6 +302,7 @@ private fun RuleListRowSummary(
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun RuleListRowControls(
+    ruleId: Long,
     index: Int,
     count: Int,
     onMoveUp: () -> Unit,
@@ -336,6 +339,7 @@ private fun RuleListRowControls(
         RipDpiButton(
             text = stringResource(R.string.rule_editor_delete),
             onClick = onDelete,
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.routesRuleDelete(ruleId)),
             variant = RipDpiButtonVariant.Destructive,
             density = RipDpiControlDensity.Compact,
             leadingIcon = RipDpiIcons.Delete,

@@ -261,6 +261,7 @@ private fun androidx.compose.foundation.lazy.LazyListScope.matchersSection(
                 onValueChange = onDomainsChange,
                 label = stringResource(R.string.rule_editor_domains_label),
                 helperText = stringResource(R.string.rule_editor_domains_helper),
+                testTag = RipDpiTestTags.RuleEditorDomains,
             )
             MultilineMatcher(
                 value = state.ipCidrs,
@@ -372,6 +373,7 @@ private fun MultilineMatcher(
     onValueChange: (String) -> Unit,
     label: String,
     helperText: String,
+    testTag: String? = null,
 ) {
     RipDpiConfigTextField(
         value = value,
@@ -380,6 +382,7 @@ private fun MultilineMatcher(
             RipDpiTextFieldDecoration(
                 label = label,
                 helperText = helperText,
+                testTag = testTag,
             ),
         behavior =
             RipDpiTextFieldBehavior(

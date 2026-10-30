@@ -28,6 +28,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.ripDpiToggleable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 /**
@@ -116,7 +117,7 @@ fun AppPickerSheet(
             RipDpiButton(
                 text = stringResource(R.string.app_picker_done),
                 onClick = { onConfirm(selection) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.AppPickerDone),
                 density = RipDpiControlDensity.Compact,
                 trailingIcon = com.poyka.ripdpi.ui.theme.RipDpiIcons.Check,
             )
@@ -137,6 +138,7 @@ private fun AppPickerRow(
         modifier =
             Modifier
                 .fillMaxWidth()
+                .ripDpiTestTag(RipDpiTestTags.appPickerApp(app.packageName))
                 .ripDpiToggleable(
                     value = checked,
                     role = Role.Checkbox,

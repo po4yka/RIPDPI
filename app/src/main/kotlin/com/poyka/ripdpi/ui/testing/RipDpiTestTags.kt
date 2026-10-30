@@ -236,6 +236,7 @@ internal object RipDpiTestTags {
     const val SettingsBlockcheck = "settings-blockcheck"
     const val SettingsDomainBypass = "settings-domain-bypass"
     const val DomainBypassEditor = "domain-bypass-editor"
+    const val DomainBypassSave = "domain-bypass-save"
     const val SettingsAssetProvider = "settings-asset-provider"
     const val SettingsBackupRestore = "settings-backup-restore"
     const val BackupExportButton = "backup-export-button"
@@ -263,17 +264,22 @@ internal object RipDpiTestTags {
     const val SettingsRoutingRules = "settings-routing-rules"
     const val RoutesList = "routes-list"
     const val RoutesAddRule = "routes-add-rule"
+    const val RoutesDeleteConfirm = "routes-delete-confirm"
+    val routesRuleDelete: (Long) -> String = { id -> "routes-rule-delete-$id" }
     const val RuleEditorName = "rule-editor-name"
     const val RuleEditorSave = "rule-editor-save"
+    const val RuleEditorDomains = "rule-editor-domains"
     const val RuleEditorOutbound = "rule-editor-outbound"
     const val AppPickerSheet = "app-picker-sheet"
     const val AppPickerSearch = "app-picker-search"
+    const val AppPickerDone = "app-picker-done"
     const val SettingsSplitTunnel = "settings-split-tunnel"
     const val SettingsRootModeStrategies = "settings-root-mode-strategies"
     const val RootModeStrategiesConfigure = "root-mode-strategies-configure"
     const val RootModeToggle = "root-mode-toggle"
     const val SplitTunnelModeSelector = "split-tunnel-mode-selector"
     const val SplitTunnelEditApps = "split-tunnel-edit-apps"
+    const val SplitTunnelOpenSystemSettings = "split-tunnel-open-system-settings"
     const val StrategyConfigSource = "strategy-config-source"
     const val StrategyConfigEditor = "strategy-config-editor"
     const val StrategyConfigLuaPath = "strategy-config-lua-path"
@@ -426,6 +432,7 @@ internal object RipDpiTestTags {
 
     const val RememberedNetworksEmpty = "remembered-networks-empty"
     const val RememberedNetworksClearAll = "remembered-networks-clear-all"
+    const val RememberedNetworksDeleteConfirm = "remembered-networks-delete-confirm"
     val rememberedNetworkCard: (Long) -> String = { id -> "remembered-network-card-$id" }
     val rememberedNetworkDelete: (Long) -> String = { id -> "remembered-network-delete-$id" }
 
@@ -632,6 +639,8 @@ internal object RipDpiTestTags {
     }
 
     fun awgField(field: String): String = "awg-field-${sanitize(field)}"
+
+    val appPickerApp: (String) -> String = { packageName -> "app-picker-app-${sanitize(packageName)}" }
 
     private fun sanitize(value: String): String =
         value
