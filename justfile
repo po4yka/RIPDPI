@@ -34,19 +34,19 @@ task-tools:
 
 # ─── Build ────────────────────────────────────────────────────────
 
-# Fetch and verify the digest-pinned upstream NaiveProxy client staged into APKs
+# Fetch and verify the digest-pinned upstream NaiveProxy client; APK builds need it once
 [group('build')]
 fetch-naive-upstream:
     python3 scripts/ci/fetch-naive-upstream.py
 
 # Build the representative GitHub full debug APK (includes native code)
 [group('build')]
-build: fetch-naive-upstream
+build:
     ./gradlew :app:assembleGithubFullDebug
 
 # Build release APK
 [group('build')]
-build-release: fetch-naive-upstream
+build-release:
     ./gradlew :app:assembleRelease
 
 # Build Rust native .so libraries for Android
