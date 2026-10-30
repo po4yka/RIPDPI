@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.navigation
 
 import android.content.Context
 import android.content.res.Configuration
+import android.widget.FrameLayout
 import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
@@ -9,6 +10,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -200,6 +202,39 @@ class TopLevelNavigationScaffoldTest {
             RipDpiTheme { TopLevelNavigationScaffold(selectedRoute = null, onNavigate = {}) {} }
         }
         Route.topLevel.forEach { composeRule.onAllNodesWithTag(RipDpiTestTags.bottomNav(it)).assertCountEquals(0) }
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h900dp")
+    fun `reselecting the current tab gives no selection haptic`() {
+        val previousStaticMotion = System.getProperty("ripdpi.staticMotion")
+        System.setProperty("ripdpi.staticMotion", "false")
+        try {
+            val haptics = mutableListOf<Int>()
+            // A ViewGroup, because Material ripples attach their container to the nearest one.
+            val view =
+                object : FrameLayout(ApplicationProvider.getApplicationContext()) {
+                    override fun performHapticFeedback(feedbackConstant: Int): Boolean {
+                        haptics += feedbackConstant
+                        return true
+                    }
+                }
+            composeRule.setContent {
+                var selected by androidx.compose.runtime.remember { mutableStateOf<Route>(Route.Home) }
+                RipDpiTheme {
+                    CompositionLocalProvider(LocalView provides view) {
+                        TopLevelNavigationScaffold(selectedRoute = selected, onNavigate = { selected = it }) {}
+                    }
+                }
+            }
+            composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(Route.Home)).performClick()
+            composeRule.runOnIdle { assertEquals(emptyList<Int>(), haptics) }
+            composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(Route.Config)).performClick()
+            composeRule.runOnIdle { assertEquals(1, haptics.size) }
+        } finally {
+            previousStaticMotion?.let { System.setProperty("ripdpi.staticMotion", it) }
+                ?: System.clearProperty("ripdpi.staticMotion")
+        }
     }
 
     private fun setNavigation(fontScale: Float = 1f): MutableList<Route> {

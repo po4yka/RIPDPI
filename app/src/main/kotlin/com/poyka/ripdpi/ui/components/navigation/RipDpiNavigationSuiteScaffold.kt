@@ -80,7 +80,7 @@ fun RipDpiNavigationSuiteScaffold(
                 NavigationSuiteItem(
                     selected = item.selected,
                     onClick = {
-                        performHaptic(RipDpiHapticFeedback.Selection)
+                        if (!item.selected) performHaptic(RipDpiHapticFeedback.Selection)
                         item.onClick()
                     },
                     icon = {
