@@ -1,8 +1,11 @@
-"""Pinned Caddy + klzgrad/forwardproxy NaiveProxy server with destination receipts.
+"""Pinned Caddy forward-proxy servers for NaiveProxy, with destination receipts.
 
-Preparation builds the server the way the fork's release workflow does: the
-pinned Caddy tag with the fork's two patches, plus the pinned forwardproxy
-module. Runs use the prepared binary only after its recorded digest matches.
+`naive`: klzgrad/forwardproxy, built the way the fork's release workflow does
+(the pinned Caddy tag with the fork's two patches, plus the module). It answers
+with NaiveProxy padding. `plain`: the stock caddyserver/forwardproxy on
+unpatched Caddy v2.11.7 (its go.mod minimum, v2.8.4, panics loading TLS under
+the pinned Go); a standard HTTP/2 CONNECT proxy that never pads.
+Runs use a prepared binary only after its recorded identity and digest match.
 """
 
 from contextlib import contextmanager
@@ -33,6 +36,12 @@ PATCHES = {
     "caddy-sing-quic-bbrv1.patch": "298a057cf1640718a14157bcd22a37575538adffba5189e7a7ecd54bffe7cb8e",
     "caddy-read-idle-timeout.patch": "02583f364374e9461cee9b954349b87e0390d600319beafcf52ebcc5e2947eab",
 }
+# Stock module, no padding, built on the same Caddy tag as the naive peer, unpatched.
+PLAIN_FORWARDPROXY = (
+    "https://github.com/caddyserver/forwardproxy.git",
+    "0aab84dad4fc2830789f34e27b4d7bc22a40889e",
+)
+PLAIN_CADDY_VERSION = CADDY[1]
 GO_VERSION = go_toolchain.OUTBOUND_VERSION
 SERVER_NAME = "naive.test"
 MAIN_GO = """package main
@@ -47,7 +56,15 @@ func main() { caddycmd.Main() }
 """
 
 
-def identity():
+def identity(variant="naive"):
+    if variant == "plain":
+        return {
+            "implementation": "caddyserver/forwardproxy on Caddy",
+            "repository": PLAIN_FORWARDPROXY[0],
+            "revision": PLAIN_FORWARDPROXY[1],
+            "caddy_version": PLAIN_CADDY_VERSION,
+            "go_version": GO_VERSION,
+        }
     return {
         "implementation": "klzgrad/forwardproxy on Caddy",
         "repository": FORWARDPROXY[0],
@@ -59,7 +76,9 @@ def identity():
     }
 
 
-def root(cache):
+def root(cache, variant="naive"):
+    if variant == "plain":
+        return cache / f"naiveproxy-plain-forwardproxy-{PLAIN_FORWARDPROXY[1][:12]}"
     return cache / f"naiveproxy-forwardproxy-{FORWARDPROXY[1][:12]}"
 
 
@@ -77,29 +96,33 @@ def checkout(directory, repository, ref, revision):
         raise ValueError(f"{repository} checkout is {head}, not the pinned {revision}")
 
 
-def prepare(cache):
+def prepare(cache, variant="naive"):
     """Fetch, patch, and build the server while preparation is online."""
-    base = root(cache)
+    base = root(cache, variant)
     forwardproxy, caddy, module = base / "forwardproxy", base / "caddy", base / "build"
-    checkout(forwardproxy, FORWARDPROXY[0], FORWARDPROXY[1], FORWARDPROXY[1])
-    if (forwardproxy / "CADDY_VERSION").read_text().strip() != CADDY[1]:
-        raise ValueError("forwardproxy CADDY_VERSION differs from the pinned Caddy tag")
-    fresh_caddy = not caddy.exists()
-    checkout(caddy, CADDY[0], f"refs/tags/{CADDY[1]}", CADDY[2])
-    for name, expected in PATCHES.items():
-        if go_toolchain.digest(forwardproxy / name) != expected:
-            raise ValueError(f"forwardproxy patch digest mismatch: {name}")
-        if fresh_caddy:
-            subprocess.run(["git", "apply", str(forwardproxy / name)], cwd=caddy, check=True, timeout=60)
+    if variant == "plain":
+        checkout(forwardproxy, PLAIN_FORWARDPROXY[0], PLAIN_FORWARDPROXY[1], PLAIN_FORWARDPROXY[1])
+        caddy_require, caddy_replace = PLAIN_CADDY_VERSION, ""
+    else:
+        checkout(forwardproxy, FORWARDPROXY[0], FORWARDPROXY[1], FORWARDPROXY[1])
+        if (forwardproxy / "CADDY_VERSION").read_text().strip() != CADDY[1]:
+            raise ValueError("forwardproxy CADDY_VERSION differs from the pinned Caddy tag")
+        fresh_caddy = not caddy.exists()
+        checkout(caddy, CADDY[0], f"refs/tags/{CADDY[1]}", CADDY[2])
+        for name, expected in PATCHES.items():
+            if go_toolchain.digest(forwardproxy / name) != expected:
+                raise ValueError(f"forwardproxy patch digest mismatch: {name}")
+            if fresh_caddy:
+                subprocess.run(["git", "apply", str(forwardproxy / name)], cwd=caddy, check=True, timeout=60)
+        caddy_require, caddy_replace = CADDY[1], "replace github.com/caddyserver/caddy/v2 => ../caddy\n"
     toolchain = go_toolchain.prepare(cache, GO_VERSION, forwardproxy)
     module.mkdir(exist_ok=True)
     (module / "main.go").write_text(MAIN_GO)
     (module / "go.mod").write_text(
         "module ripdpi.test/naiveproxy-peer\n\ngo 1.26\n\n"
-        f"require (\n\tgithub.com/caddyserver/caddy/v2 {CADDY[1]}\n"
+        f"require (\n\tgithub.com/caddyserver/caddy/v2 {caddy_require}\n"
         "\tgithub.com/caddyserver/forwardproxy v0.0.0\n)\n\n"
-        "replace github.com/caddyserver/caddy/v2 => ../caddy\n"
-        "replace github.com/caddyserver/forwardproxy => ../forwardproxy\n"
+        f"{caddy_replace}replace github.com/caddyserver/forwardproxy => ../forwardproxy\n"
     )
     # Preparation is the online step: the runtime environment's GOPROXY=off is lifted here only.
     env = {
@@ -118,18 +141,18 @@ def prepare(cache):
         check=True,
         timeout=1800,
     )
-    metadata = dict(identity(), sha256=go_toolchain.digest(output))
+    metadata = dict(identity(variant), sha256=go_toolchain.digest(output))
     (base / "peer.json").write_text(json.dumps(metadata, indent=2) + "\n")
     return metadata
 
 
-def binary(cache):
-    base = root(cache)
+def binary(cache, variant="naive"):
+    base = root(cache, variant)
     path, record = base / "caddy-forwardproxy-naive", base / "peer.json"
     if not path.is_file() or not record.is_file():
         raise FileNotFoundError("NaiveProxy server peer is not prepared; run the scenario with --prepare")
     metadata = json.loads(record.read_text())
-    if {key: metadata.get(key) for key in identity()} != identity():
+    if {key: metadata.get(key) for key in identity(variant)} != identity(variant):
         raise ValueError("prepared NaiveProxy server does not match the pinned sources")
     if go_toolchain.digest(path) != metadata["sha256"]:
         raise ValueError("prepared NaiveProxy server digest mismatch")
@@ -165,8 +188,8 @@ def free_port():
 
 
 @contextmanager
-def peer(cache, out_dir, run_id, cleanup):
-    executable, digest = binary(cache)
+def peer(cache, out_dir, run_id, cleanup, variant="naive"):
+    executable, digest = binary(cache, variant)
     payload = f"ripdpi-acceptance:{run_id}".encode()
     destinations = hysteria.Destinations(payload)
     closed_port = free_port()
@@ -206,7 +229,8 @@ def peer(cache, out_dir, run_id, cleanup):
                             if time.monotonic() >= deadline:
                                 raise TimeoutError("NaiveProxy server readiness deadline exceeded")
                             time.sleep(0.05)
-                    print(f"Independent peer: klzgrad/forwardproxy {FORWARDPROXY[1]}; sha256={digest}", flush=True)
+                    pin = identity(variant)
+                    print(f"Independent peer: {pin['implementation']} {pin['revision']}; sha256={digest}", flush=True)
                     yield {
                         "env": {
                             "RIPDPI_NAIVE_ENDPOINT": f"127.0.0.1:{port}",

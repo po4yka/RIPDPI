@@ -259,6 +259,19 @@ for purpose, (test, receipts) in {
         "tls_scope": "Private test CA trusted only by the test client config; production trust rejection is a separate case.",
     }
 
+# The stock module never pads: the helper must fall back to plain HTTP/2
+# CONNECT, and the receipts prove the destination got unframed bytes.
+SCENARIOS["independent-naiveproxy-plain-tcp"] = dict(
+    SCENARIOS["independent-naiveproxy-tcp"],
+    variant="plain",
+    peer_identity={
+        "implementation": "caddyserver/forwardproxy on Caddy",
+        "repository": "https://github.com/caddyserver/forwardproxy.git",
+        "revision": "0aab84dad4fc2830789f34e27b4d7bc22a40889e",
+        "caddy_version": "v2.11.7",
+    },
+)
+
 for ipv6 in (False, True):
     for salamander in (False, True):
         for randomized in (False, True):

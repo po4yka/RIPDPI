@@ -181,7 +181,7 @@ def prepare(case, args):
     if driver == "cargo":
         checked(cargo_command(case, True), RUST)
     elif driver == "naiveproxy":
-        naiveproxy.prepare(args.cache_dir)
+        naiveproxy.prepare(args.cache_dir, case.get("variant", "naive"))
         checked(cargo_command(case, True), RUST)
     elif driver in ("hysteria2", "hysteria2-hopping"):
         hysteria.binary(args.cache_dir, prepare=True)
@@ -318,7 +318,9 @@ def execute(case, args, result):
         # Compilation happens before starting a peer with a finite lifetime.
         checked(cargo_command(case, True), RUST)
         result["_peer_cleanup"] = {"passed": True}
-        with naiveproxy.peer(args.cache_dir, args.out_dir, args.run_id, result["_peer_cleanup"]) as peer:
+        with naiveproxy.peer(
+            args.cache_dir, args.out_dir, args.run_id, result["_peer_cleanup"], case.get("variant", "naive")
+        ) as peer:
             checked(cargo_command(case), RUST, dict(os.environ, **peer["env"]), timeout=60)
             received = peer["receipts"]
             valid = (

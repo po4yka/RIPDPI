@@ -92,3 +92,9 @@ before it dials, so a refused target is an accepted tunnel that ends without
 destination bytes. Each negative case first exchanges one payload, so a missing
 server cannot pass as an expected rejection. Destinations record the SHA-256 of
 every payload they echo.
+
+`independent-naiveproxy-plain-tcp` runs the same payload test against the stock
+caddyserver/forwardproxy (commit `0aab84dad4fc`) on unpatched Caddy `v2.11.7`.
+That server never offers padding, so the helper must use plain HTTP/2 CONNECT;
+the destination receipts prove the origin received unframed bytes. (Caddy
+`v2.8.4`, the module's go.mod minimum, panics loading TLS under the pinned Go.)
