@@ -1212,6 +1212,17 @@ jobs:
               "${test_apks[0]}" >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Check per-ABI release APK size budget
+        if: matrix.shard.id == 'github-full'
+        # Keep the budget equal to the release-candidate.yml gate, so an
+        # overrun fails here instead of after the release candidate build.
+        run: |
+          set -euo pipefail
+          mapfile -t apks < <(find app/build/outputs/apk/githubFull/release -name "*.apk")
+          test "${#apks[@]}" -eq 1
+          python3 scripts/ci/check_abi_apk_size_budget.py "${apks[0]}" --max-abi-apk-size-mib 170 \
+            | tee -a "$GITHUB_STEP_SUMMARY"
+
       - uses: ./.github/actions/upload-build-observability
         if: always()
         with:
