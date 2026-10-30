@@ -60,7 +60,7 @@ Row totals are a recount of the audited bullets in this file: 30 components + 36
 - **Text Field** (`components-text-field.html`) — Input validation and state management present
 - **Switch** (`components-switch.html`) — Material3 Switch in settings, DNS screens
 - **Top App Bar** (`components-top-app-bar.html`) — CenterAlignedTopAppBar and standard TopAppBar across all screens
-- **Bottom Nav** (`components-bottom-nav.html`) — `NavigationBar` and `BottomNavBar` implemented
+- **Bottom Nav** (`components-bottom-nav.html`) — Material 3 `NavigationSuiteScaffold` shows a short navigation bar on compact windows through `app/src/main/kotlin/com/poyka/ripdpi/ui/components/navigation/RipDpiNavigationSuiteScaffold.kt`
 - **Tabs** (`components-tabs.html`) — Tab/TabRow usage in diagnostics and settings
 - **Chips** (`components-chips.html`) — FilterChip, InputChip, SuggestionChip in use
 - **Icon Buttons** (`components-icon-buttons.html`) — `RipDpiIconButton` with 6 styles: Ghost, Tonal, Filled,
@@ -155,7 +155,7 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 
 ### ✅ Full Implementation Continued
 
-- **Nav Rail** (`android-nav-rail.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavRail.kt`; wired into RipDpiNavHost via rememberIsWideScreen() at the 600dp breakpoint
+- **Nav Rail** (`android-nav-rail.html`) — Material 3 wide navigation rail from `app/src/main/kotlin/com/poyka/ripdpi/ui/components/navigation/RipDpiNavigationSuiteScaffold.kt`; collapsed on medium and expanded windows, expanded on large and extra-large windows or at large font, chosen from the `RipDpiThemeTokens.layout` width class and wired through `TopLevelNavigationScaffold`
 - **Glance Widget** (`android-glance-widget.html`) — `app/src/main/kotlin/com/poyka/ripdpi/widget/{ConnectToggleWidget, ModePickerWidget, StatusDisplayWidget, TelemetryWidget}.kt`; SizeMode.Responsive across 3 size buckets; theme via RipDpiGlanceTheme; Hilt-injected state via WidgetEntryPoint + WidgetStateLoader
 - **QS Tile** (`android-qs-tile.html`) — `app/src/main/kotlin/com/poyka/ripdpi/services/QuickTileService.kt` + `QuickTileController.kt`; Hilt-injected (`AppSettingsRepository`, `ServiceController`, `ServiceStateStore`); manifest entry under `.services.QuickTileService`
 

@@ -32,7 +32,7 @@ For any composable that touches a screen edge, you must pick **one** inset sourc
 |---|---|---|
 | `WindowInsets.safeDrawing` | Default for most content surfaces. Union of system bars + display cutout + IME. | What you want unless you have a specific reason otherwise. |
 | `WindowInsets.systemBars` | Only the status + navigation bars. Use when you explicitly want to draw under a display cutout. | Rare in RIPDPI; status bar is the common case. |
-| `WindowInsets.navigationBars` | Bottom nav only. Use for a custom bottom bar that should sit above the system nav gesture area. | The app shell bar comes from `NavigationSuiteScaffold` (`RipDpiNavigationSuiteScaffold.kt`), which pads and consumes this inset itself. |
+| `WindowInsets.navigationBars` | Bottom nav only. Use for a custom bottom bar that should sit above the system nav gesture area. | The app shell bar comes from `NavigationSuiteScaffold` (`RipDpiNavigationSuiteScaffold.kt`), which pads its own inset; the content gets the navigation inset exactly once, because `RipDpiNavHost.kt` applies and consumes the NavHost `Scaffold` padding. |
 | `WindowInsets.statusBars` | Top system bar only. Rare — prefer `safeDrawing` so cutouts are handled. | Use when you want to draw behind the status bar but respect the nav bar normally. |
 | `WindowInsets.ime` | Keyboard insets. | Combine with others via `union()` for fields that must stay above the keyboard. |
 
