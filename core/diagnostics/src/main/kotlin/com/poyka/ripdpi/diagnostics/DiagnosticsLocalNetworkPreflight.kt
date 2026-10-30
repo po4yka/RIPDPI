@@ -159,7 +159,10 @@ private class LocalNetworkScanFilter(
 }
 
 private suspend fun AndroidLocalNetworkAccess.requireDnsTarget(target: DnsTarget) {
-    target.udpServer?.let { requireDirectEndpoint(it, DnsPort) }
+    target.udpServer?.let { server ->
+        val (host, port) = splitDnsServer(server)
+        requireDirectEndpoint(host, port)
+    }
     if (target.encryptedBootstrapIps.isNotEmpty()) {
         target.encryptedBootstrapIps.forEach { requireDirectEndpoint(it, target.encryptedPort ?: HttpsPort) }
     } else {
@@ -192,3 +195,19 @@ private suspend fun AndroidLocalNetworkAccess.requireProbeUrl(url: String) {
 }
 
 private fun URI.networkPort(): Int = port.takeIf { it > 0 } ?: if (scheme == "http") HttpPort else HttpsPort
+
+private val BracketedDnsServer = Regex("""^\[(.+)]:(\d+)$""")
+
+/** Catalog UDP servers are `host:port` or `[ipv6]:port`; a bare host or IPv6 address uses port 53. */
+private fun splitDnsServer(server: String): Pair<String, Int> {
+    BracketedDnsServer.matchEntire(server)?.let { match ->
+        return match.groupValues[1] to match.groupValues[2].toInt()
+    }
+    val colon = server.indexOf(':')
+    val port = server.substring(colon + 1).toIntOrNull()
+    return if (colon > 0 && colon == server.lastIndexOf(':') && port != null) {
+        server.substring(0, colon) to port
+    } else {
+        server to DnsPort
+    }
+}

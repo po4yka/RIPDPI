@@ -112,6 +112,31 @@ class DiagnosticsLocalNetworkPreflightTest {
         }
 
     @Test
+    fun `raw scan reads catalog host and port DNS servers as their address`() =
+        runTest {
+            val context = ApplicationProvider.getApplicationContext<Application>()
+            shadowOf(context).denyPermissions(LocalNetworkPermission)
+            shadowOf(context.getSystemService(ConnectivityManager::class.java)).clearAllNetworks()
+            val publicServer = DnsTarget(domain = "public.example", udpServer = "8.8.8.8:53")
+            val request =
+                EngineScanRequestWire(
+                    profileId = "catalog-dns",
+                    displayName = "Catalog DNS servers",
+                    pathMode = ScanPathMode.RAW_PATH,
+                    dnsTargets =
+                        listOf(
+                            DnsTarget(domain = "lan.example", udpServer = "192.168.50.2:53"),
+                            DnsTarget(domain = "lan6.example", udpServer = "[fd00::1]:5353"),
+                            publicServer,
+                        ),
+                )
+
+            val admission = AndroidLocalNetworkAccess(context).prepareScanEndpoints(request)
+
+            assertEquals(listOf(publicServer), admission.request.dnsTargets)
+        }
+
+    @Test
     fun `JSON survey remains when another DNS candidate for the domain is admitted`() =
         runTest {
             val context = ApplicationProvider.getApplicationContext<Application>()

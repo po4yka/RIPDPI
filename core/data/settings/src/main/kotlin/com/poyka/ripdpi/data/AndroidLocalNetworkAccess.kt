@@ -80,11 +80,9 @@ class AndroidLocalNetworkAccess
             host: String,
             network: Network?,
         ): Array<InetAddress>? =
-            if (isNumericAddress(host)) {
-                resolveEndpointBlocking(host, network)
-            } else {
-                resolveWithinBudget(lookupScope, HostnameLookupBudgetMillis) { resolveEndpointBlocking(host, network) }
-            }
+            // Off the caller's thread even for a "numeric" host: a misread one (such as host:port) goes to DNS,
+            // and callers run on the main thread.
+            resolveWithinBudget(lookupScope, HostnameLookupBudgetMillis) { resolveEndpointBlocking(host, network) }
 
         private fun resolveEndpointBlocking(
             host: String,
