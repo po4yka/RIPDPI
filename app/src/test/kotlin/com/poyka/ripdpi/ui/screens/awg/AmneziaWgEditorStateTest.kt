@@ -29,7 +29,7 @@ class AmneziaWgEditorStateTest {
         val root =
             generateSequence(File(".").canonicalFile) { it.parentFile }
                 .first { File(it, "settings.gradle.kts").isFile }
-        File(root, "core/data/src/test/resources/contract/awg-keepalive-invalid.txt").readLines().forEach { raw ->
+        File(root, "core/data/src/test/resources/awg-keepalive-invalid.txt").readLines().forEach { raw ->
             val editor = activatableState().updateField(AwgEditorField.PERSISTENT_KEEPALIVE, raw)
             assertEquals(raw, editor.rawText(AwgEditorField.PERSISTENT_KEEPALIVE))
             assertTrue(raw, editor.hasFieldError(AwgEditorField.PERSISTENT_KEEPALIVE))
