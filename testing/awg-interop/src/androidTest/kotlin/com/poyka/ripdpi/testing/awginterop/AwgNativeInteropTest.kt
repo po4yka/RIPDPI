@@ -168,6 +168,11 @@ class AwgNativeInteropTest {
         assertNoActiveVpn(context)
     }
 
+    @Test
+    fun nativeCoreExercisesFeatureScenario() {
+        AwgFeatureInteropHost(this).run()
+    }
+
     /** Negative control: a header protection key that differs from the peer's must never authenticate. */
     @Test
     fun nativeCoreRefusesMismatchedHeaderProtection() {
@@ -230,7 +235,7 @@ class AwgNativeInteropTest {
         assertNoActiveVpn(context)
     }
 
-    private fun config(
+    internal fun config(
         args: Bundle,
         mtu: Int,
     ): JSONObject {
@@ -363,7 +368,7 @@ class AwgNativeInteropTest {
             .put("received_sha256", hex(receivedDigest.digest()))
     }
 
-    private fun awaitListener(
+    internal fun awaitListener(
         bindings: RipDpiAmneziaWgNativeBindings,
         handle: Long,
         exit: AtomicInteger,
@@ -384,7 +389,7 @@ class AwgNativeInteropTest {
         error("authenticated AWG readiness deadline exceeded")
     }
 
-    private fun assertNoActiveVpn(context: Context) {
+    internal fun assertNoActiveVpn(context: Context) {
         val connectivity = context.getSystemService(ConnectivityManager::class.java)
         assertFalse(
             "This native-core host must not establish an Android VPN",
@@ -394,7 +399,7 @@ class AwgNativeInteropTest {
         )
     }
 
-    private fun awaitIpv4Underlay(context: Context) {
+    internal fun awaitIpv4Underlay(context: Context) {
         val connectivity = context.getSystemService(ConnectivityManager::class.java)
         val endpoint = InetAddress.getByName("10.0.2.2")
         val deadline = System.nanoTime() + 15_000_000_000L
@@ -430,7 +435,7 @@ class AwgNativeInteropTest {
         }
     }
 
-    private fun socks(
+    internal fun socks(
         listener: InetSocketAddress,
         command: Int,
         host: String,

@@ -29,7 +29,7 @@ Native paths below use `N = native/rust/crates/ripdpi-warp-core`. Editor paths u
 - [x] TRN-1793272220215141 Expose supported v3 settings and explicit cohort replacement with secret-safe round trips and locale checks #feature !high @item:TRN-1793271658511991
 - [x] TRN-1793272220792888 Document and test numeric header junk and CPS compatibility limits without copying upstream unsafe behavior #chore !high @item:TRN-1793271658511991
 - [x] TRN-1793272221414509 Add pinned Go and Linux host peer profiles covering real v3 behavior and isolate upstream startup failures #feature !high @item:TRN-1793271658511991
-- [ ] TRN-1793272221979823 Make wire validators assert padding trailers idle timers and cookie behavior with missing-feature negative controls #feature !high @item:TRN-1793271658511991
+- [x] TRN-1793272221979823 Make wire validators assert padding trailers idle timers and cookie behavior with missing-feature negative controls #feature !high @item:TRN-1793271658511991
 - [ ] TRN-1793272222631098 Run current-source pooled Android arm64 emulator feature and payload acceptance and retain scoped receipts #feature !high @item:TRN-1793271658511991
 - [ ] TRN-1793272223181197 Run authorized physical arm64 production-service and exact-artifact acceptance while preserving the deployment guard #feature !high @item:TRN-1793271658511991
 - [ ] TRN-1793272223722013 Complete affected-module static contract and independent-review gates and record hosted CI and final evidence #chore !high @item:TRN-1793271658511991

@@ -22,6 +22,7 @@ ROOT = Path(__file__).resolve().parents[2]
 RUST = ROOT / "native/rust"
 PEER_COMMIT = "b5928efb6ca19f0153958460c3d141f04abc5c2e"
 METHOD = "com.poyka.ripdpi.testing.awginterop.AwgNativeInteropTest#nativeCoreExchangesDualStackPayloads"
+FEATURE_METHOD = "com.poyka.ripdpi.testing.awginterop.AwgNativeInteropTest#nativeCoreExercisesFeatureScenario"
 NEGATIVE_METHOD = "com.poyka.ripdpi.testing.awginterop.AwgNativeInteropTest#nativeCoreRefusesMismatchedHeaderProtection"
 PACKAGE = "com.poyka.ripdpi.testing.awginterop.test"
 RUNNER = f"{PACKAGE}/androidx.test.runner.AndroidJUnitRunner"
@@ -49,6 +50,10 @@ def validator():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+WIRE = validator().WIRE
+SCENARIOS = ("payload", "small-datagrams", *WIRE.TIMER_SCENARIOS, *WIRE.COOKIE_SCENARIOS, *WIRE.NEGATIVE_SCENARIOS)
 
 
 @contextmanager
@@ -190,12 +195,33 @@ def device(args):
     checked(adb + ["install", "-r", str(output / "test.apk")], timeout=120)
     with emulator_vpn_authorization(adb), emulator_single_underlay(adb):
         await_idle_guest(adb)
-        device_cycles(args, adb, output)
+        if args.matrix:
+            cases = [(profile, scenario) for profile in PROFILES for scenario in ("payload", "small-datagrams")]
+            cases += [("v3-cpa-trailers", scenario) for scenario in SCENARIOS if scenario not in ("payload", "small-datagrams")]
+            matrix = {"version": "android_awg_native_matrix_v1", "nonce": args.nonce,
+                      "source_sha": json.loads((output / "identity.json").read_text())["source_sha"],
+                      "candidate_patch": json.loads((output / "identity.json").read_text())["candidate_patch"],
+                      "artifacts": {"native_library": artifact(output / "libripdpi-amneziawg.so", output),
+                                    "test_apk": artifact(output / "test.apk", output), "peer_binary": artifact(output / "peer-binary", output)},
+                      "cases": [], "expected_cases": len(cases)}
+            results = matrix["cases"]
+            for profile, scenario in cases:
+                case = output / "cases" / f"{profile}-{scenario}"
+                case.mkdir(parents=True, exist_ok=False)
+                for name in ("test.apk", "libripdpi-amneziawg.so", "peer-binary", "identity.json", "candidate.patch"):
+                    if (output / name).exists(): os.link(output / name, case / name)
+                selected = argparse.Namespace(**{**vars(args), "profile": profile, "scenario": scenario, "output_dir": case})
+                device_cycles(selected, adb, case)
+                results.append({"profile": profile, "scenario": scenario, "evidence": artifact(case / "evidence.json", output)})
+                (output / "matrix.json").write_text(json.dumps(matrix, indent=2) + "\n")
+            validator().validate_matrix(output / "matrix.json", args.nonce, matrix["source_sha"])
+        else:
+            device_cycles(args, adb, output)
 
 
 def profile_arguments(args):
     tcp_bytes, udp_series = PROFILES[args.profile]
-    values = ["-e", "awgProfile", args.profile, "-e", "awgTcpBytes", str(tcp_bytes), "-e", "awgUdpSeries", str(udp_series)]
+    values = ["-e", "awgScenario", args.scenario, "-e", "awgProfile", args.profile, "-e", "awgTcpBytes", str(tcp_bytes), "-e", "awgUdpSeries", str(udp_series)]
     return values + (["-e", "awgHeaderKey", HEADER_KEY] if args.profile not in ("awg-3.1-ranges-v1", "v3-aligned") else [])
 
 
@@ -250,18 +276,23 @@ def negative_control(args, adb, output):
 
 def device_cycles(args, adb, output):
     cycles, observations = [], []
+    feature = args.scenario != "payload"
+    expected_cycles = 1 if feature else 4
+    method = FEATURE_METHOD if feature else METHOD
     for mtu in (1280, 1420):
-        env = dict(os.environ, RIPDPI_AWG_INTEROP_MTU=str(mtu), RIPDPI_AWG_INTEROP_DNS="1", RIPDPI_AWG_INTEROP_CYCLES="4",
+        env = dict(os.environ, RIPDPI_AWG_INTEROP_MTU=str(mtu), RIPDPI_AWG_INTEROP_DNS="0" if feature else "1", RIPDPI_AWG_INTEROP_CYCLES=str(expected_cycles),
+                   RIPDPI_AWG_SCENARIO=args.scenario,
                    RIPDPI_AWG_PROFILE=args.profile)
-        if PROFILES[args.profile][1]:
+        env.pop("RIPDPI_AWG_UDP_SERIES", None)
+        if not feature and PROFILES[args.profile][1]:
             env["RIPDPI_AWG_UDP_SERIES"] = str(PROFILES[args.profile][1])
         with subprocess.Popen([str(output / "peer-binary")], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                               stderr=subprocess.PIPE, text=True, env=env) as peer:
             try:
                 ready, port = await_peer(peer)
                 # Retain this live peer and endpoint through baseline + three restarts.
-                for cycle in range(4):
-                    command = adb + ["shell", "am", "instrument", "-w", "-r", "-e", "class", METHOD,
+                for cycle in range(expected_cycles):
+                    command = adb + ["shell", "am", "instrument", "-w", "-r", "-e", "class", method,
                                      "-e", "awgPeerPort", port, "-e", "awgPublicKey", ready["public_key"],
                                      "-e", "awgMtu", str(mtu), "-e", "awgCycle", str(cycle),
                                      "-e", "awgNonce", args.nonce] + profile_arguments(args) + [RUNNER]
@@ -287,8 +318,8 @@ def device_cycles(args, adb, output):
                 observations.append({"mtu": mtu, **json.loads(lines[0])["wire_observation"], "artifact": artifact(path, output)})
             finally:
                 stop_peer(peer)
-    negative = negative_control(args, adb, output) if args.profile == "amneziavpn-5x" else None
-    data = {"version": "android_awg_native_interop_v2", "nonce": args.nonce, "profile": args.profile,
+    negative = negative_control(args, adb, output) if not feature and args.profile == "amneziavpn-5x" else None
+    data = {"version": "android_awg_native_interop_v3", "scenario": args.scenario, "nonce": args.nonce, "profile": args.profile,
             **json.loads((output / "identity.json").read_text()),
             "scope": "native_core", "device_class": "emulator", "abi": "arm64-v8a", "api": cycles[0]["api"],
             "peer": {"version": "v3.1.20260828", "commit": PEER_COMMIT, "go": GO_VERSION}, "cycles": cycles,
@@ -311,10 +342,16 @@ def main():
     parser.add_argument("--avd-profile", default="pixel_6", help="emulator hardware profile of the pool slot")
     parser.add_argument("--temporary-reason", help="use a temporary AVD instead of a pool slot, for this reason")
     parser.add_argument("--profile", choices=sorted(PROFILES), default="awg-3.1-ranges-v1", help="peer and client AWG envelope")
+    parser.add_argument("--scenario", choices=SCENARIOS, default="payload")
+    parser.add_argument("--matrix", action="store_true", help="run every payload/profile and supported feature case under one pool lease")
     parser.add_argument("--candidate-patch", action="store_true",
                         help="build HEAD plus uncommitted tracked changes and archive them as candidate.patch")
     parser.add_argument("--device-phase", action="store_true", help=argparse.SUPPRESS)
     args = parser.parse_args()
+    if args.scenario not in ("payload", "small-datagrams") and args.profile != "v3-cpa-trailers":
+        parser.error("controlled scenarios require v3-cpa-trailers")
+    if args.matrix and (args.profile != "awg-3.1-ranges-v1" or args.scenario != "payload"):
+        parser.error("--matrix selects its own complete profile/scenario set")
     if not re.fullmatch(r"[a-zA-Z0-9_-]{8,128}", args.nonce):
         parser.error("nonce must be 8..128 ASCII alphanumeric, underscore or hyphen characters")
     if os.environ.get("BUILD_GATE_HELD") != "1":
@@ -328,7 +365,8 @@ def main():
                      "--arch", "arm64-v8a", "--target", args.target, "--profile", args.avd_profile] +
                     (["--temporary", "--reason", args.temporary_reason] if args.temporary_reason else []) + ["--",
                      sys.executable, str(Path(__file__).resolve()), "--device-phase", "--output-dir", str(args.output_dir),
-                     "--nonce", args.nonce, "--api", args.api, "--profile", args.profile], timeout=5400)
+                     "--nonce", args.nonce, "--api", args.api, "--profile", args.profile, "--scenario", args.scenario] +
+                    (["--matrix"] if args.matrix else []), timeout=5400)
     except (ValueError, OSError, subprocess.SubprocessError) as error:
         detail = error.stderr if isinstance(error, subprocess.CalledProcessError) else str(error)
         print(f"FAIL: {detail}", file=sys.stderr)

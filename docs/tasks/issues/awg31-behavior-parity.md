@@ -30,6 +30,8 @@ Resolve the backend extension boundary first. Implement native state and packet 
 
 Implementation owner: protocol-runtime in the existing dedicated worktree. This owner controls the native runtime, the pinned boringtun patch, dependency manifests and lockfile, and current task artifacts. The boundary reviewer is read-only. Future profile/UI and acceptance writers need separate worktrees and assigned paths before they start. The integration owner also serializes any schema or JNI changes, locale sets, and evidence fixtures. The shared arm64 deployment guard is outside this change's write scope.
 
+Android feature preparation: `android-feature-client` owns only `testing/awg-interop/src/androidTest/kotlin/` in a separate worktree. `protocol-runtime` owns Android Python runners, evidence schema/validators/tests, documentation and task state in the current worktree. No writer changes JNI signatures or production Rust for this preparation. The integration owner validates the combined tree and commits the accepted Kotlin and Python changes.
+
 ## Completion boundary
 
 Do not close this task when planning validation passes. Implementation steps stay unchecked until their evidence exists. Historical emulator results and the research baseline are not current implementation acceptance. No server deployment or production DPI claim is part of this task.

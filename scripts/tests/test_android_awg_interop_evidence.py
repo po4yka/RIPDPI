@@ -7,9 +7,12 @@ import json
 import io
 from pathlib import Path
 import tempfile
+import sys
 import unittest
 from unittest.mock import patch
 import zipfile
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 SPEC = importlib.util.spec_from_file_location("awg_evidence", Path(__file__).with_name("validate-android-awg-interop.py"))
 VALIDATOR = importlib.util.module_from_spec(SPEC)
@@ -106,7 +109,7 @@ class EvidenceValidationTest(unittest.TestCase):
         protected = self.profile == "amneziavpn-5x"
         tcp_bytes = 4 << 20 if protected else 100
         self.evidence = {
-            "version": VALIDATOR.VERSION, "nonce": self.nonce, "source_sha": self.sha, "profile": self.profile, "candidate_patch": None,
+            "scenario": "payload", "version": VALIDATOR.VERSION, "nonce": self.nonce, "source_sha": self.sha, "profile": self.profile, "candidate_patch": None,
             "scope": "native_core", "device_class": "emulator", "abi": "arm64-v8a", "api": 32,
             "peer": {"version": "v3.1.20260828", "commit": VALIDATOR.PEER_COMMIT, "go": "go1.27.3"},
             "artifacts": {name: self.artifact(name, b"unit fixture, not native code")
@@ -303,6 +306,106 @@ class AlignedAndroidEvidence(EvidenceValidationTest):
 
 class FixedAndroidEvidence(EvidenceValidationTest):
     profile="v3-fixed-headers"
+
+
+
+class FeatureEvidenceValidationTest(unittest.TestCase):
+    def setUp(self):
+        self.base=EvidenceValidationTest('test_complete_validator_unit_fixture_is_accepted')
+        self.base.profile='v3-cpa-trailers';self.base.setUp();self.addCleanup(self.base.doCleanups)
+
+    def configure(self,scenario,observation):
+        data=copy.deepcopy(self.base.evidence);data['scenario']=scenario
+        data['cycles']=[c for c in data['cycles'] if c['cycle']==0]
+        names=[]
+        if scenario in VALIDATOR.WIRE.COOKIE_SCENARIOS:names=['invalid-mac1','admission']+(['exhausted-noise'] if scenario=='cookies-disabled' else ['bad-mac2','valid-mac2'])+['challenge-budget','recovery']
+        if scenario=='negative-transport':names=['corrupt','wrong-hp','foreign-source','replay','ambiguous','malformed-ip']
+        for cycle in data['cycles']:
+            cycle.pop('instrumentation');cycle.update(scenario=scenario,measurements=[],feature=dict(scenario=scenario,completed=True,elapsed_ms=10000,phases=names))
+            if scenario=='timer-reject':cycle['feature']['expired_probe']=dict(no_reply=True,wait_ms=1000)
+            identity='INSTRUMENTATION_STATUS: class='+VALIDATOR.FEATURE_METHOD.split('#')[0]+'\nINSTRUMENTATION_STATUS: test='+VALIDATOR.FEATURE_METHOD.split('#')[1]+'\n'
+            log=identity+'INSTRUMENTATION_STATUS_CODE: 1\nINSTRUMENTATION_STATUS: awgEvidence='+json.dumps(cycle)+'\nINSTRUMENTATION_STATUS_CODE: 2\n'+identity+'INSTRUMENTATION_STATUS_CODE: 0\nINSTRUMENTATION_CODE: -1\n'
+            cycle['instrumentation']=self.base.artifact(f'feature-{cycle["mtu"]}.txt',log.encode())
+        data['wire_observations']=[]
+        for mtu in (1280,1420):
+            recorded=copy.deepcopy(observation)
+            recorded.pop('expired_probe',None) # client-owned probe is bound separately to its log.
+            artifact=self.base.artifact(f'feature-peer-{mtu}.json',json.dumps(dict(wire_observation=recorded)).encode())
+            data['wire_observations'].append(dict(mtu=mtu,**recorded,artifact=artifact))
+        return data
+
+    def test_feature_peer_and_client_bindings_and_missing_controls(self):
+        from scripts.tests.test_awg_wire_validation import small_cpa_observation,timer_observation,cookie_observation,negative_transport_observation,recount_timer
+        small=small_cpa_observation();small.update(scenario='small-datagrams',handshakes=1,fresh_signature_packets=1)
+        small['evidence'].update(lengths=[[{'200':1},None,None,{'72':1,'117':2}],[None,{'130':1},None,{'117':2}]],authenticated_keepalives=1,ip_lengths={'45':2})
+        small['evidence']['peer_counters'].update(rx_bytes=382,tx_bytes=364)
+        observations=[small,*[timer_observation(s) for s in ('timer-persistent','timer-idle','timer-retry-loss','timer-rekey')],cookie_observation(False),cookie_observation(True),negative_transport_observation()]
+        exhausted=timer_observation('timer-retry-loss');exhausted.update(scenario='timer-retry-exhaust',elapsed_ns=7_500_000_000)
+        exhausted['evidence']['events']=[dict(at_ns=int((t+offset)*1e9),direction=d,type=k,length=l,dropped=True) for t in (0,1.2,2.4) for offset,d,k,l in ((0,'in',1,200),(.01,'out',2,130))]
+        # Only the responses are deliberately dropped.
+        for event in exhausted['evidence']['events']:
+            if event['type']==1:event.pop('dropped')
+        recount_timer(exhausted);exhausted['evidence']['peer_counters'].update(last_handshake_time_sec=0,tx_bytes=390);observations.append(exhausted)
+        rejected=timer_observation('timer-rekey');rejected.update(scenario='timer-reject',elapsed_ns=8_900_000_000,expired_probe=dict(no_reply=True,wait_ms=1000))
+        events=rejected['evidence']['events'];initial=events[:7];recovery=events[7:]
+        for event in recovery:event['at_ns']+=5_700_000_000
+        drops=[]
+        for t in (4.6,5.8,7.0):drops.extend([dict(at_ns=int(t*1e9),direction='in',type=1,length=200),dict(at_ns=int((t+.01)*1e9),direction='out',type=2,length=130,dropped=True)])
+        events[:]=initial+drops+recovery;recount_timer(rejected);observations.append(rejected)
+        for observation in observations:
+            scenario=observation['scenario'];good=self.configure(scenario,observation)
+            self.base.validate(good)
+            for mutate in (lambda d:d['cycles'].pop(),lambda d:d.update(scenario='payload'),lambda d:d['cycles'][0].update(scenario='payload'),lambda d:d['cycles'][0]['feature'].update(completed=False),lambda d:d['cycles'][0]['feature'].update(elapsed_ms=0)):
+                bad=copy.deepcopy(good);mutate(bad)
+                with self.subTest(scenario=scenario),self.assertRaises(ValueError):self.base.validate(bad)
+            changed=copy.deepcopy(good)
+            value=changed['wire_observations'][0];value['evidence']['authenticated_keepalives']+=1
+            recorded={k:v for k,v in value.items() if k not in ('mtu','artifact')}
+            value['artifact']=self.base.artifact('feature-mutated-peer.json',json.dumps(dict(wire_observation=recorded)).encode())
+            with self.assertRaises(ValueError):self.base.validate(changed)
+
+    def test_runner_preserves_scenario_in_the_leased_phase(self):
+        from unittest.mock import patch
+        import os
+        argv=['run-android-awg-interop.py','--output-dir',str(self.base.root/'unused'),'--nonce','unit-scenario-run','--profile','v3-cpa-trailers','--scenario','timer-idle','--api','35']
+        with patch.object(RUNNER.sys,'argv',argv),patch.dict(os.environ,{'BUILD_GATE_HELD':'1'}),patch.object(RUNNER,'build'),patch.object(RUNNER,'checked',return_value='') as command:
+            self.assertEqual(RUNNER.main(),0)
+        values=command.call_args.args[0]
+        self.assertEqual(values[values.index('--scenario')+1],'timer-idle')
+        self.assertEqual(values[values.index('--profile',values.index('--device-phase'))+1],'v3-cpa-trailers')
+
+
+
+
+class MatrixCompletenessTest(unittest.TestCase):
+    def test_a_partial_matrix_cannot_claim_completion(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path=Path(directory)/"matrix.json"
+            data=dict(version="android_awg_native_matrix_v1",nonce="matrix-unit",source_sha="a"*40,expected_cases=23,cases=[])
+            path.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError,"incomplete Android feature matrix"):
+                VALIDATOR.validate_matrix(path,"matrix-unit","a"*40)
+            data['cases']=[dict(profile="awg-3.1-ranges-v1",scenario="payload")]*23
+            path.write_text(json.dumps(data))
+            with self.assertRaisesRegex(ValueError,"incomplete Android feature matrix"):
+                VALIDATOR.validate_matrix(path,"matrix-unit","a"*40)
+
+
+
+
+class ScenarioCliReportingTest(unittest.TestCase):
+    def test_valid_matrix_does_not_require_single_case_fields(self):
+        argv=['validate-android-awg-interop.py','--matrix','--evidence','matrix.json','--nonce','matrix-unit','--source-sha','a'*40]
+        with patch.object(VALIDATOR.sys,'argv',argv),patch.object(VALIDATOR,'validate_matrix',return_value={'version':'android_awg_native_matrix_v1'}),patch('sys.stdout',new_callable=io.StringIO) as output:
+            self.assertEqual(VALIDATOR.main(),0)
+        self.assertIn('complete profile/feature matrix',output.getvalue())
+
+    def test_feature_cli_does_not_claim_dual_stack_payload(self):
+        argv=['validate-android-awg-interop.py','--evidence','feature.json','--nonce','feature-unit','--source-sha','a'*40]
+        with patch.object(VALIDATOR.sys,'argv',argv),patch.object(VALIDATOR,'validate',return_value={'scenario':'timer-idle','candidate_patch':None}),patch('sys.stdout',new_callable=io.StringIO) as output:
+            self.assertEqual(VALIDATOR.main(),0)
+        self.assertIn('feature scenario timer-idle',output.getvalue())
+        self.assertNotIn('dual-stack',output.getvalue())
 
 
 if __name__ == "__main__":
