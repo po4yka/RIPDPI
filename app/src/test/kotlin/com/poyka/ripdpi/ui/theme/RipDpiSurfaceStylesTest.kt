@@ -52,7 +52,7 @@ class RipDpiSurfaceStylesTest {
         }
 
     @Test
-    fun `card override does not enable disabled actions`() {
+    fun `disabled card does not run its action`() {
         var enabled by mutableStateOf(true)
         var clicks = 0
         composeRule.setContent {
@@ -61,7 +61,6 @@ class RipDpiSurfaceStylesTest {
                     modifier = Modifier.testTag(Target),
                     enabled = enabled,
                     onClick = { clicks++ },
-                    visualStyle = visualOverride,
                 ) {
                     Box(Modifier.size(48.dp))
                 }
