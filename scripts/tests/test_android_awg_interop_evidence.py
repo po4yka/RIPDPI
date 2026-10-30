@@ -60,7 +60,7 @@ class LocalNetworkAuthorizationTest(unittest.TestCase):
         for previous in (True, False):
             for failure in (True, False):
                 with self.subTest(previous=previous, failure=failure):
-                    report = permission + ": granted=" + str(previous).lower()
+                    report = "0" if previous else "-1"
                     with patch.object(RUNNER, "checked", side_effect=["37", report, "", ""]) as command:
                         try:
                             with RUNNER.emulator_local_network_authorization(["adb"]):
@@ -79,9 +79,9 @@ class LocalNetworkAuthorizationTest(unittest.TestCase):
                 pass
             self.assertEqual(command.call_count, 1)
 
-    def test_unknown_or_multiple_user_grants_refuse_before_mutation(self):
+    def test_unknown_permission_result_refuses_before_mutation(self):
         permission = "android.permission.ACCESS_LOCAL_NETWORK"
-        for report in ("missing", (permission + ": granted=true\n") * 2):
+        for report in ("missing", "0\n-1"):
             with patch.object(RUNNER, "checked", side_effect=["37", report]) as command:
                 with self.assertRaisesRegex(ValueError, "prior emulator local network"):
                     with RUNNER.emulator_local_network_authorization(["adb"]):
@@ -90,7 +90,7 @@ class LocalNetworkAuthorizationTest(unittest.TestCase):
 
     def test_failed_grant_still_attempts_restore(self):
         permission = "android.permission.ACCESS_LOCAL_NETWORK"
-        with patch.object(RUNNER, "checked", side_effect=["37", permission + ": granted=false", OSError("grant failure"), ""]) as command:
+        with patch.object(RUNNER, "checked", side_effect=["37", "-1", OSError("grant failure"), ""]) as command:
             with self.assertRaises(OSError):
                 with RUNNER.emulator_local_network_authorization(["adb"]):
                     self.fail("failed grant cannot start the native test")

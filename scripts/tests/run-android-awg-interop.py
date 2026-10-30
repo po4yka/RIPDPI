@@ -122,11 +122,10 @@ def emulator_local_network_authorization(adb):
         yield
         return
     permission = "android.permission.ACCESS_LOCAL_NETWORK"
-    report = checked(adb + ["shell", "dumpsys", "package", PACKAGE])
-    states = re.findall(re.escape(permission) + r": granted=(true|false)\b", report)
-    if len(states) != 1:
+    state = checked(adb + ["shell", "dumpsys", "package", "check-permission", permission, PACKAGE, "0"])
+    if state not in ("0", "-1"):
         raise ValueError("cannot determine prior emulator local network permission")
-    granted = states[0] == "true"
+    granted = state == "0"
     try:
         if not granted:
             checked(adb + ["shell", "pm", "grant", PACKAGE, permission])
