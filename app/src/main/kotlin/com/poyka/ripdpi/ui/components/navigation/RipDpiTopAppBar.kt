@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.components.navigation
 
 import androidx.compose.foundation.layout.RowScope
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarColors
@@ -95,9 +94,11 @@ fun RipDpiTopAppBar(
 @Composable
 private fun ripDpiTopAppBarColors(): TopAppBarColors {
     val colors = RipDpiThemeTokens.colors
+    // Scrolled content raises the bar to the same surface as the navigation bar.
+    val scrolled = RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.navigation.bottomBar).container
     return TopAppBarDefaults.topAppBarColors(
         containerColor = colors.background,
-        scrolledContainerColor = MaterialTheme.colorScheme.surfaceContainer,
+        scrolledContainerColor = scrolled,
         navigationIconContentColor = colors.foreground,
         titleContentColor = colors.foreground,
         actionIconContentColor = colors.foreground,
