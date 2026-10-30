@@ -32,7 +32,7 @@ private const val DefaultWaitMillis = 10_000L
 /**
  * Page object for one screen of a UI journey. Subclasses name the screen's test tags as properties;
  * the actions below take a tag and work for lazy-list items that are not composed yet.
- * Use it as `ConfigPage(composeRule) { click(vpnChip) }`.
+ * Use it as `with(ConfigPage(composeRule)) { click(vpnChip) }`.
  */
 internal abstract class JourneyPage<T : JourneyPage<T>>(
     val rule: JourneyRule,
