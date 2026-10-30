@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
+import android.net.InetAddresses
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.Build
@@ -80,27 +81,32 @@ class AndroidLocalNetworkAccess
             host: String,
             network: Network?,
         ): Array<InetAddress>? =
-            // Off the caller's thread even for a "numeric" host: a misread one (such as host:port) goes to DNS,
-            // and callers run on the main thread.
-            resolveWithinBudget(lookupScope, HostnameLookupBudgetMillis) { resolveEndpointBlocking(host, network) }
+            // A literal is answered inline so it never queues behind stuck hostname lookups. Anything
+            // else may need DNS and callers run on the main thread, so it goes off-thread with a budget.
+            literalAddress(host)?.let { arrayOf(it) }
+                ?: resolveWithinBudget(lookupScope, HostnameLookupBudgetMillis) {
+                    resolveEndpointBlocking(host, network)
+                }
 
         private fun resolveEndpointBlocking(
             host: String,
             network: Network?,
         ): Array<InetAddress> =
             try {
-                if (isNumericAddress(host)) {
-                    arrayOf(InetAddress.getByName(host))
-                } else {
-                    network?.getAllByName(host) ?: InetAddress.getAllByName(host)
-                }
+                network?.getAllByName(host) ?: InetAddress.getAllByName(host)
             } catch (_: UnknownHostException) {
                 // DNS failure is not evidence of denied LAN access. The actual operation
                 // still resolves its peer and reports its own error; no route is changed here.
                 emptyArray()
             }
 
-        private fun isNumericAddress(host: String): Boolean = ':' in host || host.all { it.isDigit() || it == '.' }
+        // Below API 29 there is no DNS-free literal parser; those hosts take the budgeted path.
+        private fun literalAddress(host: String): InetAddress? =
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && InetAddresses.isNumericAddress(host)) {
+                InetAddresses.parseNumericAddress(host)
+            } else {
+                null
+            }
     }
 
 /**

@@ -201,7 +201,7 @@ private val BracketedDnsServer = Regex("""^\[(.+)]:(\d+)$""")
 /** Catalog UDP servers are `host:port` or `[ipv6]:port`; a bare host or IPv6 address uses port 53. */
 private fun splitDnsServer(server: String): Pair<String, Int> {
     BracketedDnsServer.matchEntire(server)?.let { match ->
-        return match.groupValues[1] to match.groupValues[2].toInt()
+        return match.groupValues[1] to (match.groupValues[2].toIntOrNull() ?: DnsPort)
     }
     val colon = server.indexOf(':')
     val port = server.substring(colon + 1).toIntOrNull()
