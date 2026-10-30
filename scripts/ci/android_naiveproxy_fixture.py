@@ -1,7 +1,8 @@
-"""Owned NaiveProxy server (Caddy + klzgrad/forwardproxy) with a self-signed leaf.
+"""Owned NaiveProxy server (Caddy + klzgrad/forwardproxy) with a lab-CA-signed leaf.
 
-The server presents a self-signed leaf certificate, so the app trusts it only through the
-per-profile leaf SHA-256 pin. The server forwards only to a loopback CONNECT mapper that
+The server presents a leaf signed by a one-day lab CA. The Rust helper trusts the leaf through
+the per-profile SHA-256 pin. The upstream client has no pin; the emulator trusts the lab CA
+through a tmpfs overlay of /system/etc/security/cacerts (LabTrust). The server forwards only to a loopback CONNECT mapper that
 admits the one owned destination and counts the tunnels it opens. Credentials stay in a
 private Caddyfile and in the manifest served on the owned control port; they never reach argv.
 """
@@ -48,24 +49,97 @@ def verify_binary(path: Path) -> str:
     return digest
 
 
-def self_signed_leaf(directory: Path) -> tuple[Path, Path, str]:
-    """Create a one-day self-signed leaf and return (certificate, key, SHA-256 of its DER)."""
-    cert, key = directory / "leaf.pem", directory / "leaf.key"
-    subprocess.run(
-        [
-            "openssl", "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1",
-            "-nodes", "-days", "1", "-subj", f"/CN={SERVER_NAME}",
-            "-addext", f"subjectAltName=DNS:{SERVER_NAME}",
-            "-keyout", str(key), "-out", str(cert),
-        ],
-        check=True,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.DEVNULL,
-        timeout=60,
+def _openssl(*args: str, stdin: bytes | None = None) -> bytes:
+    return subprocess.run(
+        ["openssl", *args], check=True, capture_output=True, timeout=60, input=stdin
+    ).stdout
+
+
+def lab_ca(directory: Path) -> tuple[Path, Path]:
+    """Create a one-day lab CA under a new private directory and return (certificate, key)."""
+    directory.mkdir(mode=0o700, parents=True, exist_ok=False)
+    cert, key = directory / "ca.pem", directory / "ca.key"
+    _openssl(
+        "req", "-x509", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1",
+        "-nodes", "-days", "1", "-subj", "/CN=RIPDPI acceptance lab CA",
+        "-addext", "basicConstraints=critical,CA:TRUE,pathlen:0",
+        "-addext", "keyUsage=critical,keyCertSign,cRLSign",
+        "-keyout", str(key), "-out", str(cert),
     )
     key.chmod(0o600)
+    return cert, key
+
+
+def signed_leaf(directory: Path, ca_cert: Path, ca_key: Path) -> tuple[Path, Path, str]:
+    """Issue a one-day server leaf from the lab CA; return (certificate, key, SHA-256 of its DER)."""
+    cert, key = directory / "leaf.pem", directory / "leaf.key"
+    request, extensions = directory / "leaf.csr", directory / "leaf.ext"
+    _openssl(
+        "req", "-new", "-newkey", "ec", "-pkeyopt", "ec_paramgen_curve:prime256v1",
+        "-nodes", "-subj", f"/CN={SERVER_NAME}", "-keyout", str(key), "-out", str(request),
+    )
+    key.chmod(0o600)
+    extensions.write_text(
+        f"subjectAltName=DNS:{SERVER_NAME}\nbasicConstraints=CA:FALSE\n"
+        "keyUsage=critical,digitalSignature\nextendedKeyUsage=serverAuth\n"
+    )
+    _openssl(
+        "x509", "-req", "-in", str(request), "-CA", str(ca_cert), "-CAkey", str(ca_key),
+        "-CAcreateserial", "-days", "1", "-extfile", str(extensions), "-out", str(cert),
+    )
     der = ssl.PEM_cert_to_DER_cert(cert.read_text())
     return cert, key, hashlib.sha256(der).hexdigest()
+
+
+SYSTEM_CACERTS = "/system/etc/security/cacerts"
+
+
+class LabTrust:
+    """Make an emulator trust the lab CA by overlaying a tmpfs on the system CA directory.
+
+    Run before the app is installed: `adb root` restarts adbd and kills a running instrumentation.
+    The overlay lives in the device's global mount namespace and is gone after a reboot; remove()
+    unmounts it earlier. Neither the app nor its trust configuration changes.
+    """
+
+    def __init__(self, adb: list[str], ca_cert: Path):
+        self.adb = adb
+        self.ca_cert = ca_cert
+        self.mounted = False
+
+    def _run(self, *args: str, timeout: int = 60) -> str:
+        return subprocess.run(
+            [*self.adb, *args], check=True, capture_output=True, text=True, timeout=timeout
+        ).stdout
+
+    def install(self) -> str:
+        """Mount the overlay and return the hash-named file that carries the lab CA."""
+        name = _openssl("x509", "-in", str(self.ca_cert), "-noout", "-subject_hash_old").decode().strip() + ".0"
+        self._run("root")
+        self._run("wait-for-device")
+        if self._run("shell", "id", "-u").strip() != "0":
+            raise RuntimeError("lab trust needs adb root on the emulator")
+        if self._run("shell", f"grep -c ' {SYSTEM_CACERTS} tmpfs ' /proc/mounts || true").strip() != "0":
+            raise RuntimeError("a CA overlay is already mounted; remove it or reboot the emulator")
+        stage = "/data/local/tmp/ripdpi-lab-cacerts"
+        self._run("shell", f"rm -rf {stage} && mkdir -p {stage} && cp {SYSTEM_CACERTS}/* {stage}/")
+        self._run("push", str(self.ca_cert), f"{stage}/{name}")
+        self.mounted = True
+        self._run(
+            "shell",
+            f"mount -t tmpfs tmpfs {SYSTEM_CACERTS} && cp {stage}/* {SYSTEM_CACERTS}/ "
+            f"&& chown root:root {SYSTEM_CACERTS}/* && chmod 644 {SYSTEM_CACERTS}/* "
+            f"&& chcon u:object_r:system_file:s0 {SYSTEM_CACERTS} {SYSTEM_CACERTS}/* "
+            f"&& rm -rf {stage}",
+        )
+        if self._run("shell", f"ls {SYSTEM_CACERTS}/{name}").strip() != f"{SYSTEM_CACERTS}/{name}":
+            raise RuntimeError("lab CA is absent from the overlay")
+        return name
+
+    def remove(self):
+        if self.mounted:
+            self._run("shell", f"umount {SYSTEM_CACERTS}")
+            self.mounted = False
 
 
 class ConnectMapper:
@@ -157,8 +231,10 @@ class NaiveProxyFixture:
         manifest: dict,
         peer_control_port: int,
         advertise_host: str | None = None,
+        ca: tuple[Path, Path] | None = None,
     ):
         self.directory = directory
+        self.ca = ca
         self.executable = executable
         self.host = private_ipv4(host)
         self.advertise_host = private_ipv4(advertise_host or host)
@@ -181,7 +257,8 @@ class NaiveProxyFixture:
         digest = verify_binary(self.executable)
         self.directory.mkdir(mode=0o700, parents=True, exist_ok=False)
         try:
-            cert, key, pin = self_signed_leaf(self.directory)
+            ca_cert, ca_key = self.ca or lab_ca(self.directory / "ca")
+            cert, key, pin = signed_leaf(self.directory, ca_cert, ca_key)
             self.mapper = ConnectMapper(port)
             with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as reserve:
                 reserve.bind((self.host, 0))

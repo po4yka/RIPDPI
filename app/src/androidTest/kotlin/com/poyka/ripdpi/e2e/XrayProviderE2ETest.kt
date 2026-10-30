@@ -952,7 +952,7 @@ class XrayProviderE2ETest {
     }
 
     @Test
-    fun naiveProxyRoutesTcpThroughHelperAndWrongPinFailsClosed() {
+    fun naiveProxyRoutesTcpThroughUpstreamAndHelperAndFailsClosed() {
         check(InstrumentationRegistry.getArguments().getString("ripdpi.usbDataScope") != "true")
         val relayId = "owned-naiveproxy-acceptance"
         val oldProfile = runBlocking { relayProfiles.load(relayId) }
@@ -960,7 +960,10 @@ class XrayProviderE2ETest {
         val arguments = InstrumentationRegistry.getArguments()
         val transportPort = manifest.getInt("transportPort")
 
-        fun startNaive(pin: String) {
+        fun startNaive(
+            pin: String,
+            password: String = manifest.getString("naivePassword"),
+        ) {
             runBlocking { controller.stop() }
             awaitUntil(timeoutMs = 30_000) { state.status.value.first == AppStatus.Halted }
             runBlocking {
@@ -979,7 +982,7 @@ class XrayProviderE2ETest {
                     RelayCredentialRecord(
                         profileId = relayId,
                         naiveUsername = manifest.getString("naiveUser"),
-                        naivePassword = manifest.getString("naivePassword"),
+                        naivePassword = password,
                         naiveServerPinSha256 = pin,
                     ),
                 )
@@ -1003,48 +1006,65 @@ class XrayProviderE2ETest {
         }
         try {
             selectorActive.clearStandalone()
-            val transportBefore = readControl("transport-receipts").getJSONArray("receipts").length()
-            val wrongPinRunning =
-                try {
-                    startNaive("0".repeat(64))
-                    true
-                } catch (_: AssertionError) {
-                    // The helper may refuse the unpinned server at startup; the VPN then never runs, which is closed.
-                    false
+
+            // Each failure phase must leave neither the server nor the destination with a receipt.
+            fun assertFailsClosed(
+                label: String,
+                start: () -> Unit,
+            ) {
+                val destinationBefore = readControl("transport-receipts").getJSONArray("receipts").length()
+                val running =
+                    try {
+                        start()
+                        true
+                    } catch (_: AssertionError) {
+                        // The client may refuse the server at startup; the VPN then never runs, which is closed.
+                        false
+                    }
+                val connectsBefore = readControl("naive-receipts").getInt("connects")
+                if (!running) {
+                    assertTrue(state.status.value.first != AppStatus.Running)
+                } else {
+                    bindTestProcessDnsProbeService(10_000).use { probe ->
+                        assertTrue(probe.awaitVpnDefaultNetwork(10_000))
+                        val result = probe.transfer("download", label, port = transportPort)
+                        assertFalse("$label must fail closed: $result", result.getBoolean("ok"))
+                    }
                 }
-            if (!wrongPinRunning) {
-                assertTrue(state.status.value.first != AppStatus.Running)
-                assertEquals(0, readControl("naive-receipts").getInt("connects"))
-                assertEquals(transportBefore, readControl("transport-receipts").getJSONArray("receipts").length())
+                // Neither the server nor the destination saw the flow: no direct bypass.
+                assertEquals(connectsBefore, readControl("naive-receipts").getInt("connects"))
+                assertEquals(destinationBefore, readControl("transport-receipts").getJSONArray("receipts").length())
             }
-            if (wrongPinRunning) {
+
+            // An empty pin selects the upstream client; a non-empty pin selects the Rust helper.
+            fun assertRoutedTransfer(prefix: String) {
                 bindTestProcessDnsProbeService(10_000).use { probe ->
                     assertTrue(probe.awaitVpnDefaultNetwork(10_000))
                     val connectsBefore = readControl("naive-receipts").getInt("connects")
-                    val result = probe.transfer("download", "naive-wrong-pin", port = transportPort)
-                    assertFalse("A wrong pin must fail closed: $result", result.getBoolean("ok"))
-                    // Neither the server nor the destination saw the flow: no direct bypass.
-                    assertEquals(connectsBefore, readControl("naive-receipts").getInt("connects"))
-                    assertEquals(transportBefore, readControl("transport-receipts").getJSONArray("receipts").length())
+                    val id = "$prefix-${SystemClock.elapsedRealtime()}"
+                    val result = probe.transfer("download", id, port = transportPort)
+                    assertTrue("NaiveProxy transfer failed: $result", result.getBoolean("ok"))
+                    assertTrue(result.getInt("uid") != Process.myUid())
+                    awaitUntil {
+                        val receipts = readControl("transport-receipts").getJSONArray("receipts")
+                        (0 until receipts.length()).any { index ->
+                            val receipt = receipts.getJSONObject(index)
+                            receipt.getString("id") == id && receipt.getInt("bytes") == result.getInt("bytes") &&
+                                receipt.getString("sha256") == result.getString("sha256")
+                        }
+                    }
+                    assertTrue(readControl("naive-receipts").getInt("connects") > connectsBefore)
                 }
             }
+
+            assertFailsClosed("naive-wrong-pin") { startNaive("0".repeat(64)) }
             startNaive(requireNotNull(arguments.getString("ripdpi.naivePin")))
-            bindTestProcessDnsProbeService(10_000).use { probe ->
-                assertTrue(probe.awaitVpnDefaultNetwork(10_000))
-                val connectsBefore = readControl("naive-receipts").getInt("connects")
-                val id = "naive-download-${SystemClock.elapsedRealtime()}"
-                val result = probe.transfer("download", id, port = transportPort)
-                assertTrue("NaiveProxy transfer failed: $result", result.getBoolean("ok"))
-                assertTrue(result.getInt("uid") != Process.myUid())
-                awaitUntil {
-                    val receipts = readControl("transport-receipts").getJSONArray("receipts")
-                    (0 until receipts.length()).any { index ->
-                        val receipt = receipts.getJSONObject(index)
-                        receipt.getString("id") == id && receipt.getInt("bytes") == result.getInt("bytes") &&
-                            receipt.getString("sha256") == result.getString("sha256")
-                    }
-                }
-                assertTrue(readControl("naive-receipts").getInt("connects") > connectsBefore)
+            assertRoutedTransfer("naive-helper")
+            // The runner samples the process list during each phase and checks which executable ran.
+            startNaive("")
+            assertRoutedTransfer("naive-upstream")
+            assertFailsClosed("naive-upstream-wrong-password") {
+                startNaive("", password = "wrong-" + manifest.getString("naivePassword").reversed())
             }
         } finally {
             runBlocking {

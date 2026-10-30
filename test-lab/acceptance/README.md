@@ -143,13 +143,19 @@ the lab reuses or builds the pinned Caddy forwardproxy peer from
 `test-lab/acceptance/peers/naiveproxy.py` in `--cache-dir` (default
 `~/.cache/ripdpi-acceptance/peers`; the first build needs network access and the
 pinned Go toolchain). An explicit `--naiveproxy-binary` is used as given; its
-recorded digest in the sibling `peer.json` must match. The peer presents a self-signed
-leaf, so the saved profile trusts it only through its leaf SHA-256 pin. It checks
-that a wrong pin fails closed with no receipt at the server or destination, then
-that a TCP transfer through the real VPN and helper reaches the owned destination
-with a matching payload digest. The server forwards through a loopback CONNECT
-mapper that admits only the owned destination. This scenario runs on the emulator
-only.
+recorded digest in the sibling `peer.json` must match. The peer presents a leaf signed by a
+one-day lab CA. Before the app is installed the runner uses `adb root` to overlay a tmpfs on
+`/system/etc/security/cacerts` that holds the stock CAs plus the lab CA, and it unmounts the
+overlay in cleanup (a reboot also clears it). Product code and the app trust configuration do not
+change. The scenario checks that a wrong pin fails closed with no receipt at the server or
+destination, then that a TCP transfer through the real VPN and the Rust helper (pinned profile)
+reaches the owned destination with a matching payload digest. It repeats the transfer for a
+pin-free profile, which runs the upstream Chromium client: the profile uses the IP-literal server
+with `serverName` `naive.test`, which the launcher maps to the IP, and the runner samples
+`ps -A -o NAME,ARGS` to prove that `libripdpi-naive-chromium.so` ran with only a config path as
+argv. A wrong proxy password for the upstream client must fail closed. Fetch the upstream client
+first with `python3 scripts/ci/fetch-naive-upstream.py`. The server forwards through a loopback
+CONNECT mapper that admits only the owned destination. This scenario runs on the emulator only.
 
 `android-awg` uses the saved-profile activator, the real VPN service and the native
 engine with an independent AmneziaWG Go peer. It checks range headers, special

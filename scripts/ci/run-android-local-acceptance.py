@@ -22,6 +22,7 @@ import re
 import signal
 import subprocess
 import sys
+import threading
 import time
 import urllib.request
 import xml.etree.ElementTree as ET
@@ -30,7 +31,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 from android_nginx_fixture import NginxFixture
 from android_owned_installation import OwnedInstallation
 from android_hysteria_fixture import HysteriaFixture, verify_binary
-from android_naiveproxy_fixture import NaiveProxyFixture, verify_binary as verify_naive_binary
+from android_naiveproxy_fixture import LabTrust, NaiveProxyFixture, lab_ca, verify_binary as verify_naive_binary
 from android_peer_diagnostics import OwnedPeerDiagnostics
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -50,7 +51,7 @@ SCENARIOS = {
     ],
     "android-naiveproxy": [
         PREFIX
-        + "XrayProviderE2ETest#naiveProxyRoutesTcpThroughHelperAndWrongPinFailsClosed"
+        + "XrayProviderE2ETest#naiveProxyRoutesTcpThroughUpstreamAndHelperAndFailsClosed"
     ],
     "android-transactions": [
         PREFIX
@@ -566,6 +567,62 @@ def start_migration_peer(
     return manifest
 
 
+class NaiveProcessSampler:
+    """Sample `ps -A -o NAME,ARGS` during the NaiveProxy phases and keep the distinct client lines."""
+
+    UPSTREAM = "libripdpi-naive-chromium.so"
+    HELPER = "ripdpi-naiveproxy"
+
+    def __init__(self, adb: list[str], secret: str):
+        self.adb = adb
+        self.secret = secret
+        self.lines: set[str] = set()
+        self.leaked = False
+        self.running = threading.Event()
+        self.thread = threading.Thread(target=self.poll, daemon=True)
+
+    def start(self):
+        self.running.set()
+        self.thread.start()
+
+    def stop(self):
+        self.running.clear()
+        self.thread.join(timeout=15)
+
+    def poll(self):
+        while self.running.is_set():
+            try:
+                listing = subprocess.run(
+                    self.adb + ["shell", "ps", "-A", "-o", "NAME,ARGS"],
+                    capture_output=True, text=True, timeout=10,
+                ).stdout
+            except (OSError, subprocess.SubprocessError):
+                continue
+            for line in listing.splitlines():
+                if self.UPSTREAM in line or self.HELPER in line:
+                    self.lines.add(line.strip())
+                    self.leaked = self.leaked or self.secret in line
+            time.sleep(0.25)
+
+    def require(self):
+        """Fail unless both clients ran, and the upstream argv held only the config path."""
+        verdict = self.verdict()
+        if verdict["credential_in_argv"]:
+            raise RuntimeError("a NaiveProxy credential reached a process argv")
+        if not verdict["upstream"] or not verdict["helper"]:
+            raise RuntimeError("the sampler did not see both the upstream client and the helper")
+        for line in verdict["upstream"]:
+            # The columns are NAME then ARGS, and ARGS starts with argv[0].
+            argv = line.split()[1:]
+            if len(argv) != 2 or not argv[1].endswith(".json"):
+                raise RuntimeError("the upstream client argv is not exactly one config path")
+
+    def verdict(self) -> dict:
+        upstream = sorted(line for line in self.lines if self.UPSTREAM in line)
+        helper = sorted(line for line in self.lines if self.HELPER in line)
+        return {"upstream": upstream, "helper": helper, "credential_in_argv": self.leaked}
+
+
 def prepare(
     out: Path, abi: str, source: str, xray_artifact_dir: Path | None = None
 ) -> dict:
@@ -874,6 +931,12 @@ def runtime_summary(out: Path, report: dict) -> dict:
 def arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scenario", choices=SCENARIOS)
+    parser.add_argument(
+        "--capture-tls",
+        action="store_true",
+        help="android-naiveproxy: capture the server's TLS handshakes with tshark (needs BPF access)",
+    )
+    parser.add_argument("--capture-interface", default="lo0")
     parser.add_argument("--run-id", required=True)
     parser.add_argument("--out-dir", required=True, type=Path)
     parser.add_argument(
@@ -1067,6 +1130,8 @@ def main() -> int:
     nginx = None
     hysteria = None
     naiveproxy = None
+    naive_trust = None
+    naive_ca = None
     udp_bridge = None
     migration_origin = None
     migration_identity = {}
@@ -1139,6 +1204,15 @@ def main() -> int:
             )
             installation.prepare()
             report["installation_scope"] = "owned-fresh-installation"
+        if protocol_scenario == "android-naiveproxy":
+            # adb root restarts adbd, so it runs here, before install and instrumentation.
+            report["phase"] = "lab-trust"
+            naive_ca = lab_ca(out / "naiveproxy-ca")
+            naive_trust = LabTrust(adb, naive_ca[0])
+            report["lab_trust"] = {
+                "overlay": "/system/etc/security/cacerts",
+                "ca_file": naive_trust.install(),
+            }
         for kind in ("app", "test"):
             report["phase"] = "install-" + kind
             command(
@@ -1334,6 +1408,7 @@ def main() -> int:
                     peer_manifest,
                     receipt_port,
                     advertise_host=args.xray_host,
+                    ca=naive_ca,
                 )
                 naiveproxy.start()
                 receipt_port = naiveproxy.port
@@ -1631,8 +1706,46 @@ def main() -> int:
             for key, value in instrumentation.items():
                 launch.extend(["-e", key, value])
             launch.append(component)
-            output = run(launch, test_dir / "instrumentation.log", timeout=600)
+            sampler = (
+                NaiveProcessSampler(adb, naiveproxy.password)
+                if protocol_scenario == "android-naiveproxy"
+                else None
+            )
+            capture = None
+            if sampler is not None:
+                sampler.start()
+                if args.capture_tls:
+                    sys.path.insert(0, str(ROOT / "test-lab/acceptance/tools"))
+                    import tls_capture_summary
+
+                    capture = subprocess.Popen(
+                        tls_capture_summary.capture_command(
+                            args.capture_interface, naiveproxy.server_port, str(test_dir / "tls.pcap")
+                        ),
+                        stdout=subprocess.DEVNULL,
+                        stderr=(test_dir / "tshark.log").open("w"),
+                    )
+                    time.sleep(3)
+                    if capture.poll() is not None:
+                        raise Blocked("tshark capture did not start; see tshark.log")
+            try:
+                output = run(launch, test_dir / "instrumentation.log", timeout=600)
+            finally:
+                if sampler is not None:
+                    sampler.stop()
+                if capture is not None:
+                    time.sleep(1)
+                    capture.terminate()
+                    capture.wait(timeout=15)
+                    (test_dir / "tls-summary.json").write_text(
+                        json.dumps(tls_capture_summary.summarize_pcap(str(test_dir / "tls.pcap")), indent=2) + "\n"
+                    )
             parse_instrumentation(output, method)
+            if sampler is not None:
+                (test_dir / "naive-processes.json").write_text(
+                    json.dumps(sampler.verdict(), indent=2) + "\n"
+                )
+                sampler.require()
             if protocol_scenario in (
                 "android-xray",
                 "android-transactions",
@@ -1816,6 +1929,11 @@ def main() -> int:
         if naiveproxy is not None:
             try:
                 naiveproxy.close()
+            except Exception as error:
+                cleanup_errors.append(str(error))
+        if naive_trust is not None:
+            try:
+                naive_trust.remove()
             except Exception as error:
                 cleanup_errors.append(str(error))
         if hysteria is not None:

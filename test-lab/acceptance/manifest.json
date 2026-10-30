@@ -897,7 +897,7 @@
       ],
       "timeout_seconds": 7200,
       "checks": [
-        "naiveProxyRoutesTcpThroughHelperAndWrongPinFailsClosed"
+        "naiveProxyRoutesTcpThroughUpstreamAndHelperAndFailsClosed"
       ]
     },
     {
