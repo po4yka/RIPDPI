@@ -23,9 +23,9 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
-import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.captureToImage
@@ -33,10 +33,12 @@ import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
@@ -65,6 +67,9 @@ import org.junit.rules.TestName
 import org.junit.runner.RunWith
 import java.io.File
 
+// Frames sampled for the exit fade: well past the 120 ms quick tween.
+private const val ExitFrameBudget = 12
+
 /** Controlled production presentation only. Real reconnect/network acceptance is a separate suite. */
 @RunWith(AndroidJUnit4::class)
 class HomeLatencyDetailsAcceptanceTest {
@@ -84,7 +89,7 @@ class HomeLatencyDetailsAcceptanceTest {
         origin()
             .performScrollTo()
             .assertHasClickAction()
-            .assertHeightIsAtLeast(48.dp)
+            .assertTouchHeightIsAtLeast(48.dp)
             .performClick()
         detailText(R.string.measurement_quality_p95, 64L).assertIsDisplayed()
         compose.runOnUiThread {
@@ -170,8 +175,17 @@ class HomeLatencyDetailsAcceptanceTest {
         advance(32)
         assertTrue("The settled pane must stop changing pixels", settled.sameAs(capture("stable")))
         dismiss().performScrollTo().performClick()
-        advance(32)
-        val leaving = capture("leaving")
+        // Sample frame by frame: the fade starts on the frame after the click, so a fixed offset can land
+        // before its first visible step. The pane must change pixels while it still exists.
+        var leaving = settled
+        repeat(ExitFrameBudget) {
+            if (!settled.sameAs(leaving)) return@repeat
+            advance(16)
+            if (compose.onAllNodesWithTag(RipDpiTestTags.LatencyDetailDialog).fetchSemanticsNodes().isEmpty()) {
+                return@repeat
+            }
+            leaving = capture("leaving")
+        }
         assertEquals(settled.width, leaving.width)
         assertEquals(settled.height, leaving.height)
         assertFalse("Normal exit must change actual rendered pixels", settled.sameAs(leaving))
@@ -222,7 +236,7 @@ class HomeLatencyDetailsAcceptanceTest {
     @Test
     fun rtlAndFont2KeepTheCompleteValuesAndDismissReachable() {
         render(motion = RipDpiMotion(reducedMotion = true), largeRtl = true) { LatencyHome(latencyQuality()) }
-        origin().performScrollTo().assertHeightIsAtLeast(48.dp).performClick()
+        origin().performScrollTo().assertTouchHeightIsAtLeast(48.dp).performClick()
         detailText(R.string.measurement_quality_p95, 64L).performScrollTo().assertIsDisplayed()
         assertVisibleEvidence()
         capture("rtl-font2-values")
@@ -369,6 +383,14 @@ class HomeLatencyDetailsAcceptanceTest {
         hasText(strings.getString(resource, *arguments)) and
             hasAnyAncestor(hasTestTag(RipDpiTestTags.LatencyDetailDialog)),
     )
+
+    // The chip keeps its visible size; ripDpiClickable's minimum interactive size provides the 48dp touch area.
+    private fun SemanticsNodeInteraction.assertTouchHeightIsAtLeast(minimum: Dp): SemanticsNodeInteraction {
+        val node = fetchSemanticsNode()
+        val height = with(node.layoutInfo.density) { node.touchBoundsInRoot.height.toDp() }
+        assertTrue("Touch height is $height, expected at least $minimum", height >= minimum - 0.5.dp)
+        return this
+    }
 
     private fun advance(millis: Long) {
         compose.waitForIdle()
