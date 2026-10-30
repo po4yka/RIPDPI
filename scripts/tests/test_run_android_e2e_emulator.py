@@ -50,14 +50,7 @@ if count == 2 and os.environ.get("WRITE_WRONG_VARIANT_ONLY") == "1":
 else:
     results_dir = results_root
 results_dir.mkdir(parents=True)
-if count == 3:
-    xml = """<?xml version="1.0" encoding="UTF-8"?>
-<testsuite tests="1" skipped="0" failures="0" errors="0">
-  <testcase classname="com.poyka.ripdpi.ui.journeys.settings.ConfigScreenKaspressoTest"
-      name="sectionsAndModeChipsSwitchTheVisibleConfiguration" />
-</testsuite>
-"""
-elif count == 1:
+if count == 1:
     xml = """<?xml version="1.0" encoding="UTF-8"?>
 <testsuite tests="1" skipped="0" failures="0" errors="0">
   <testcase classname="com.poyka.ripdpi.e2e.EnvironmentPreflightE2ETest"
@@ -162,22 +155,6 @@ class RunAndroidE2eEmulatorTest(unittest.TestCase):
         self.assertIn(
             "-Pandroid.testInstrumentationRunnerArguments.class=com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest",
             invocations[1],
-        )
-
-    def test_runner_runs_ui_journeys_only_when_requested(self) -> None:
-        completed = self.run_runner(RIPDPI_RUN_UI_JOURNEYS="true")
-
-        self.assertEqual(completed.returncode, 0, completed.stderr)
-        invocations = [
-            json.loads(line)
-            for line in (self.runner_temp / "gradle-args.jsonl")
-            .read_text(encoding="utf-8")
-            .splitlines()
-        ]
-        self.assertEqual(len(invocations), 3)
-        self.assertIn(
-            "-Pandroid.testInstrumentationRunnerArguments.package=com.poyka.ripdpi.ui.journeys",
-            invocations[2],
         )
 
     def test_runner_rejects_missing_second_run_results(self) -> None:

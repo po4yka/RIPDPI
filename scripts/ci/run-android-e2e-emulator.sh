@@ -23,8 +23,6 @@ PREFLIGHT_TEST="$PREFLIGHT_CLASS#environmentSupportsFixtureReachabilityAndVpnCon
 STRATEGY_ENGINE_JNI_CLASS="com.poyka.ripdpi.jni.StrategyEngineJniInstrumentedTest"
 STRATEGY_ENGINE_JNI_TEST="$STRATEGY_ENGINE_JNI_CLASS#strategyConfigValidationAcceptsRegistryYaml"
 STRATEGY_ENGINE_JNI_TEST_COUNT=5
-UI_JOURNEYS_PACKAGE="com.poyka.ripdpi.ui.journeys"
-UI_JOURNEYS_TEST="$UI_JOURNEYS_PACKAGE.settings.ConfigScreenKaspressoTest#sectionsAndModeChipsSwitchTheVisibleConfiguration"
 
 bash scripts/ci/wait-for-android-package-manager.sh
 
@@ -89,17 +87,4 @@ if ! run_target \
   "-Pandroid.testInstrumentationRunnerArguments.class=$STRATEGY_ENGINE_JNI_CLASS"; then
   adb_cmd logcat -d > android-logcat.txt || true
   exit 1
-fi
-
-if [ "${RIPDPI_RUN_UI_JOURNEYS:-false}" = "true" ]; then
-  if ! run_target \
-    "$UI_JOURNEYS_PACKAGE" \
-    "$UI_JOURNEYS_TEST" \
-    "" \
-    "" \
-    true \
-    "-Pandroid.testInstrumentationRunnerArguments.package=$UI_JOURNEYS_PACKAGE"; then
-    adb_cmd logcat -d > android-logcat.txt || true
-    exit 1
-  fi
 fi

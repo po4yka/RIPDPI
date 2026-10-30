@@ -17,7 +17,7 @@ on:
           - smoke
           - full
       run_ui_journeys:
-        description: Run the Kaspresso UI journeys after Android instrumentation
+        description: Run the full Kaspresso UI journey suite on an API 37 emulator
         required: false
         default: false
         type: boolean
@@ -60,6 +60,7 @@ on:
     # Daily security signal; each expensive lane gets its own weekly window so
     # scheduled runs stay actionable instead of repeating the entire suite.
     - cron: "23 3 * * *"
+    - cron: "41 2 * * *" # Daily: Kaspresso UI journeys
     - cron: "7 4 * * 1" # Monday: Rust performance benchmarks
     - cron: "19 4 * * 2" # Tuesday: native endurance checks
     - cron: "43 4 * * 3" # Wednesday: coverage
@@ -75,6 +76,8 @@ concurrency:
       && format('ci-pr-{0}', github.event.pull_request.number)
       || github.event_name == 'push'
       && format('ci-push-{0}', github.ref)
+      || github.event_name == 'schedule' && github.event.schedule == '41 2 * * *'
+      && format('ci-ui-journeys-{0}', github.ref)
       || format('ci-{0}-{1}', github.event_name, github.ref) }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' || github.event_name == 'push' }}
 
@@ -568,7 +571,7 @@ jobs:
     if: >-
       !cancelled() &&
       needs.ci-preflight.result == 'success' &&
-      github.event_name != 'schedule' &&
+      (github.event_name != 'schedule' || github.event.schedule == '41 2 * * *') &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
     runs-on: ubuntu-24.04
     timeout-minutes: 30
@@ -665,7 +668,7 @@ jobs:
       needs.ci-preflight.result == 'success' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true') &&
       (github.event_name != 'schedule' ||
-      github.event.schedule == '11 4 * * 4' || github.event.schedule == '27 4 * * 5')
+      github.event.schedule == '11 4 * * 4' || github.event.schedule == '27 4 * * 5' || github.event.schedule == '41 2 * * *')
     runs-on: ubuntu-24.04
     timeout-minutes: 45
     steps:
@@ -740,7 +743,7 @@ jobs:
       needs.ci-preflight.result == 'success' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true') &&
       (github.event_name != 'schedule' ||
-      github.event.schedule == '11 4 * * 4' || github.event.schedule == '27 4 * * 5')
+      github.event.schedule == '11 4 * * 4' || github.event.schedule == '27 4 * * 5' || github.event.schedule == '41 2 * * *')
     runs-on: ubuntu-24.04
     timeout-minutes: 60
     outputs:
@@ -2167,7 +2170,7 @@ jobs:
       needs.rust-native-x86_64.result == 'success' &&
       needs.pluggable-transport-assets.result == 'success' &&
       needs.xray-native.result == 'success' &&
-      github.event_name != 'schedule' &&
+      (github.event_name != 'schedule' || github.event.schedule == '41 2 * * *') &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_android_ci == 'true')
     needs: [change-routing, rust-native-x86_64, pluggable-transport-assets, xray-native]
     runs-on: ubuntu-24.04
@@ -2353,6 +2356,39 @@ jobs:
           mkdir -p "$evidence_dir"
           cp -R app/build/outputs/androidTest-results/connected/debug/flavors/githubSimple/. "$evidence_dir/"
 
+      - name: Run Kaspresso UI journey smoke on ${{ matrix.device }}
+        id: ui-journey-smoke
+        if: matrix.api == 37
+        run: |
+          smoke=(
+            settings.ConfigScreenKaspressoTest#sectionsAndModeChipsSwitchTheVisibleConfiguration
+            settings.DnsSettingsKaspressoTest#plainUdpResolverIsPersistedOnSave
+            home.HomeKaspressoTest#modeCardsAppearAfterDiagnosticsDisclosureExpands
+            home.OnboardingKaspressoTest#skippingFromTheIntroCompletesOnboarding
+            diagnostics.HistoryEventsKaspressoTest#searchNarrowsTheEventList
+            diagnostics.LogsKaspressoTest#severityAndSubsystemChipsFilterTheStream
+          )
+          selector="$(printf 'com.poyka.ripdpi.ui.journeys.%s,' "${smoke[@]}")"
+          rm -rf app/build/outputs/androidTest-results/connected/debug/flavors/githubFull
+          python3 scripts/ci/prebuilt_android_instrumentation.py run \
+            --bundle "$RUNNER_TEMP/instrumentation-apks" --sha "$GITHUB_SHA" \
+            --variant githubFullDebug --api ${{ matrix.api }} \
+            --results app/build/outputs/androidTest-results/connected/debug/flavors/githubFull \
+            --test-class "${selector%,}"
+          python3 scripts/ci/validate_android_junit_results.py \
+            app/build/outputs/androidTest-results/connected/debug/flavors/githubFull \
+            --require-test com.poyka.ripdpi.ui.journeys.settings.ConfigScreenKaspressoTest#sectionsAndModeChipsSwitchTheVisibleConfiguration \
+            --expected-count 1 \
+            --expected-total-count "${#smoke[@]}" \
+            --forbid-skips
+
+      - name: Preserve Kaspresso UI journey smoke evidence on ${{ matrix.device }}
+        if: always() && matrix.api == 37 && steps.ui-journey-smoke.outcome != 'skipped'
+        run: |
+          evidence_dir="$RUNNER_TEMP/android-instrumented-results/${{ matrix.device }}/github-full-ui-journeys-smoke"
+          mkdir -p "$evidence_dir"
+          cp -R app/build/outputs/androidTest-results/connected/debug/flavors/githubFull/. "$evidence_dir/"
+
       - name: Run JNI strategy instrumentation on ${{ matrix.device }}
         if: matrix.api == 35
         run: |
@@ -2490,6 +2526,96 @@ jobs:
             ${{ runner.temp }}/android-instrumented-results/
             app/build/outputs/managed_device_android_test_additional_output/
             ${{ runner.temp }}/android-instrumented-${{ matrix.device }}/
+          retention-days: 7
+
+  android-ui-journeys:
+    if: >-
+      !cancelled() && needs.android-instrumentation-apks.result == 'success' &&
+      ((github.event_name == 'schedule' && github.event.schedule == '41 2 * * *') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.run_ui_journeys == 'true'))
+    needs: [change-routing, android-instrumentation-apks]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - uses: ./.github/actions/setup-android-rust
+        with:
+          setup-java: "false"
+          setup-gradle: "false"
+          setup-rust: "false"
+          setup-android-ndk: "false"
+
+      - name: Download instrumentation APK bundle
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: android-instrumentation-apks
+          path: ${{ runner.temp }}/instrumentation-apks
+
+      - name: Enable KVM for emulator
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+
+      - name: Provision UI journeys emulator
+        run: |
+          bash scripts/ci/start-android-emulator.sh --fresh \
+            --avd ui-journeys \
+            --api 37 \
+            --arch x86_64 \
+            --target google_apis_ps16k \
+            --boot-timeout 600
+
+      # One instrumentation call per area keeps each run well inside the runner's 30-minute call limit.
+      - name: Run Kaspresso UI journeys
+        run: |
+          declare -A anchors=(
+            [settings]=ConfigScreenKaspressoTest#sectionsAndModeChipsSwitchTheVisibleConfiguration
+            [diagnostics]=LogsKaspressoTest#severityAndSubsystemChipsFilterTheStream
+            [home]=HomeKaspressoTest#modeCardsAppearAfterDiagnosticsDisclosureExpands
+          )
+          declare -A minimums=([settings]=24 [diagnostics]=21 [home]=14)
+          status=0
+          for area in settings diagnostics home; do
+            results="$RUNNER_TEMP/android-ui-journeys-results/$area"
+            if python3 scripts/ci/prebuilt_android_instrumentation.py run \
+              --bundle "$RUNNER_TEMP/instrumentation-apks" --sha "$GITHUB_SHA" \
+              --variant githubFullDebug --api 37 \
+              --results "$results" \
+              --test-package "com.poyka.ripdpi.ui.journeys.$area"; then
+              python3 scripts/ci/validate_android_junit_results.py "$results" \
+                --require-test "com.poyka.ripdpi.ui.journeys.$area.${anchors[$area]}" \
+                --expected-count 1 \
+                --minimum-total-count "${minimums[$area]}" \
+                --forbid-skips || status=1
+            else
+              status=1
+            fi
+          done
+          exit "$status"
+
+      - name: Capture UI journeys emulator diagnostics
+        timeout-minutes: 3
+        if: always()
+        run: |
+          bash scripts/ci/capture-android-emulator-diagnostics.sh \
+            --avd ui-journeys \
+            --output-dir "$RUNNER_TEMP/android-ui-journeys-diagnostics"
+
+      - name: Stop UI journeys emulator
+        timeout-minutes: 1
+        if: always()
+        run: bash scripts/ci/stop-android-emulator.sh --avd ui-journeys
+
+      - name: Upload UI journeys artifacts
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: android-ui-journeys-artifacts
+          path: |
+            ${{ runner.temp }}/android-ui-journeys-results/
+            ${{ runner.temp }}/android-ui-journeys-diagnostics/
           retention-days: 7
 
   rust-loom:
@@ -2771,7 +2897,6 @@ jobs:
         env:
           RIPDPI_PREBUILT_PT_DIR: ${{ runner.temp }}/prebuilt-pluggable-transport-assets
           RIPDPI_PREBUILT_PT_MANIFEST_SHA256: ${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}
-          RIPDPI_RUN_UI_JOURNEYS: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.run_ui_journeys == 'true' }}
         run: bash scripts/ci/run-android-e2e-emulator.sh
 
       - name: Capture fixture state
@@ -3259,6 +3384,7 @@ jobs:
       - nightly-rust-coverage
       - android-network-e2e
       - android-journeys
+      - android-ui-journeys
       - android-relay-emulator-smoke
       - linux-tun-e2e
       - so-bindtodevice-e2e

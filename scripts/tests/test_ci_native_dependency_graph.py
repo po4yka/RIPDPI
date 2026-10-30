@@ -148,8 +148,12 @@ class NativeDependencyGraphTest(unittest.TestCase):
         self.assertIn("needs: [change-routing, android-instrumentation-apks]", source)
         self.assertIn("needs.android-instrumentation-apks.result == 'success'", source)
         self.assertIn("name: android-instrumentation-apks", source)
-        self.assertEqual(4, source.count("prebuilt_android_instrumentation.py run"))
-        self.assertEqual(4, source.count('--sha "$GITHUB_SHA"'))
+        self.assertEqual(5, source.count("prebuilt_android_instrumentation.py run"))
+        self.assertEqual(5, source.count('--sha "$GITHUB_SHA"'))
+        journeys = job_source("android-ui-journeys")
+        self.assertNotIn("./gradlew", journeys)
+        self.assertIn("needs: [change-routing, android-instrumentation-apks]", journeys)
+        self.assertEqual(1, journeys.count('--sha "$GITHUB_SHA"'))
         self.assertIn(
             "include: ${{ fromJSON(needs.change-routing.outputs.instrumented_devices) }}",
             source,

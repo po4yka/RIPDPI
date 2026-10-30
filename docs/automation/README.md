@@ -134,5 +134,8 @@ The underlying action is `com.poyka.ripdpi.DEBUG_PROBE`. It is declared only in 
 
 ## CI
 
-The emulator lane of the GitHub Actions `CI` workflow runs selected instrumentation classes. Start the workflow
-manually with `run_ui_journeys` to also run every Kaspresso journey in `com.poyka.ripdpi.ui.journeys` in that lane.
+The `CI` workflow runs the Kaspresso journeys from the prebuilt instrumentation APKs:
+
+- On pull requests, `android-instrumented-tests` runs a six-journey smoke set on the API 37 emulator.
+- Every night (`41 2 * * *`), and when the workflow is started manually with `run_ui_journeys`, `android-ui-journeys`
+  runs every journey in `com.poyka.ripdpi.ui.journeys` on an API 37 emulator and uploads the JUnit results.
