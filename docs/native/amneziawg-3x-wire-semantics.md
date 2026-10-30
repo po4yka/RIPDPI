@@ -238,6 +238,19 @@ It records module/tools/test/fixture hashes, traffic counters, and per-case PCAP
 then removes namespaces and unloads its module. The fixed public fixture keys are
 not production credentials; readback reports exclude keys.
 
+The default Linux matrix has 40 cases: payload and small-datagram cases for all
+seven profiles at both MTUs, plus six timer scenarios at both MTUs. Select a subset
+with repeated `--scenario` arguments. Timer scenarios use one session and the
+`v3-cpa-trailers` profile: `timer-persistent`, `timer-idle`, `timer-retry-loss`,
+`timer-retry-exhaust`, `timer-rekey`, and `timer-reject`. A loopback relay in the
+owned namespace applies response loss. Captures on both relay legs must match
+each datagram digest, occurrence count, direction, and client endpoint. A dropped
+response must exist on the kernel leg and have no client-leg copy. Missing frames,
+kernel capture drops, or backward capture timestamps reject the evidence.
+The inner capture and complete kernel byte counters provide indirect authenticated
+keepalive accounting; they are not a kernel authentication callback. Timer cases
+test RIPDPI policy against a kernel responder with its own default timers.
+
 The Linux pin still uses a fixed 180-second age limit in `send.c` and `receive.c`.
 Its retry-exhaustion zeroization uses three times `RekeyAfterTime`; session-created
 zeroization uses three times `RejectAfterTime`. Treat these as reference-peer

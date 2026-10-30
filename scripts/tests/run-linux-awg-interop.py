@@ -136,7 +136,7 @@ def stop_owned(process: subprocess.Popen, signal_name="TERM"):
 
 
 def start_capture(prefix, interface, path, log, filters):
-    process = subprocess.Popen(prefix + ["tcpdump", "--immediate-mode", "-U", "-i", interface, "-w", str(path), *filters],
+    process = subprocess.Popen(prefix + ["tcpdump", "--immediate-mode", "-U", "-B", "16384", "-s", "65535", "-i", interface, "-w", str(path), *filters],
                                stdout=log, stderr=subprocess.PIPE, text=True, start_new_session=True)
     try:
         with selectors.DefaultSelector() as selector:
@@ -151,28 +151,30 @@ def start_capture(prefix, interface, path, log, filters):
         raise
 
 
-def capture_statistics(text):
+def capture_statistics(text, allow_empty=False):
     captured = re.findall(r"^(\d+) packets? captured$", text, re.MULTILINE)
     dropped = re.findall(r"^(\d+) packets? dropped by kernel$", text, re.MULTILINE)
-    if len(captured) != 1 or len(dropped) != 1 or int(captured[0]) == 0 or int(dropped[0]) != 0:
+    if len(captured) != 1 or len(dropped) != 1 or (int(captured[0]) == 0 and not allow_empty) or int(dropped[0]) != 0:
         raise ValueError("capture statistics missing or packets dropped")
     return {"packets": int(captured[0]), "dropped_packets": int(dropped[0])}
 
 
-def finish_capture(process, log):
+def finish_capture(process, log, allow_empty=False):
     stop_owned(process, "INT")
     if process.returncode != 0: raise ValueError("packet capture failed")
     text = process.stderr.read()
     log.write(text)
     log.flush()
-    return capture_statistics(text)
+    return capture_statistics(text, allow_empty)
 
 
 def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int, scenario: str) -> dict:
+    timed = scenario in WIRE.TIMER_SCENARIOS
+    cycles = 1 if timed else 4
     namespace = f"awg31-{os.getpid()}-{index}"
     prefix = ["sudo", "-n", "ip", "netns", "exec", namespace]
     user = ["setpriv", f"--reuid={os.getuid()}", f"--regid={os.getgid()}", "--clear-groups"]
-    env = dict(os.environ, RIPDPI_AWG_PROFILE=profile, RIPDPI_AWG_INTEROP_MTU=str(mtu), RIPDPI_AWG_INTEROP_CYCLES="4", RIPDPI_AWG_SCENARIO=scenario)
+    env = dict(os.environ, RIPDPI_AWG_PROFILE=profile, RIPDPI_AWG_INTEROP_MTU=str(mtu), RIPDPI_AWG_INTEROP_CYCLES=str(cycles), RIPDPI_AWG_SCENARIO=scenario)
     config = checked([args.fixture], env=dict(env, RIPDPI_AWG_KERNEL_MODE="config"))
     conf = output / "fixture.conf"
     conf.write_text(config)
@@ -195,43 +197,62 @@ def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int
             checked(ip + ["-6", "route", "add", "fd77::2/128", "dev", "awg31"])
             baseline = checked(prefix + [tools, "show", "awg31", "transfer"]).split()
             if len(baseline) != 3 or list(map(int,baseline[1:])) != [0,0]: raise ValueError("kernel transfer baseline is not zero")
-            capture = start_capture(prefix,"lo",output/"wire.pcap",capture_log,["udp","port","51820"])
-            if scenario == "small-datagrams":
+            if scenario == "small-datagrams" or timed:
                 inner_capture = start_capture(prefix,"awg31",output/"inner.pcap",inner_log,["udp","and","(","port","41002","or","port","41003",")"])
             settings = [f"{key}={value}" for key, value in env.items() if key.startswith("RIPDPI_AWG_")]
             echo = subprocess.Popen(prefix + user + ["env", *settings, "RIPDPI_AWG_KERNEL_MODE=echo", str(args.fixture)],
-                                    stdout=subprocess.PIPE, stderr=peer_log, text=True, start_new_session=True)
+                                    stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=peer_log, text=True, start_new_session=True)
             with selectors.DefaultSelector() as selector:
                 selector.register(echo.stdout, selectors.EVENT_READ)
                 if not selector.select(timeout=10): raise TimeoutError("kernel echo readiness deadline")
                 ready = json.loads(echo.stdout.readline(4096))
-            if not isinstance(ready, dict) or ready.get("endpoint") != "127.0.0.1:51820": raise ValueError("unexpected kernel endpoint")
+            endpoint = ready.get("endpoint", "") if isinstance(ready, dict) else ""
+            if not re.fullmatch(r"127\.0\.0\.1:[0-9]+", endpoint) or not 0 < int(endpoint.rsplit(":",1)[1]) <= 65535:
+                raise ValueError("unexpected kernel endpoint")
+            if not timed and endpoint != "127.0.0.1:51820": raise ValueError("direct kernel endpoint differs")
+            wire_filter = ["udp","port","51820"]
+            if timed: wire_filter += ["or","udp","port",endpoint.rsplit(":",1)[1]]
+            capture = start_capture(prefix,"lo",output/"wire.pcap",capture_log,wire_filter)
             # env is passed after sudo, which otherwise removes the test settings.
             settings = [f"{key}={value}" for key, value in dict(env, RIPDPI_AWG_INTEROP_ENDPOINT=ready["endpoint"]).items() if key.startswith("RIPDPI_AWG_")]
-            for cycle in range(4):
+            for cycle in range(cycles):
                 runtime_log.write(f"session {cycle}\n")
                 runtime_log.flush()
                 checked(prefix + user + ["env", *settings, args.test_binary, "--no-capture"], output=runtime_log, timeout=35)
-            echo.wait(timeout=5)
+            completion, _ = echo.communicate(input="stop\n" if timed else "", timeout=5)
             if echo.returncode != 0: raise ValueError("kernel echo failed")
-            completed = json.loads(echo.stdout.readline(4096))
-            if not isinstance(completed, dict) or completed.get("completed_sessions") != 4: raise ValueError("kernel echo session count mismatch")
+            if len(completion) > 1 << 20: raise ValueError("kernel report exceeds bound")
+            completed = json.loads(completion)
+            if not isinstance(completed, dict) or completed.get("completed_sessions") != cycles: raise ValueError("kernel echo session count mismatch")
+            if timed: (output/"relay.json").write_text(json.dumps(completed["kernel_relay"]))
             handshake = checked(prefix + [tools, "show", "awg31", "latest-handshakes"]).split()
             transfer = checked(prefix + [tools, "show", "awg31", "transfer"]).split()
-            if len(handshake) != 2 or int(handshake[1]) <= 0 or len(transfer) != 3 or min(map(int, transfer[1:])) <= 0:
+            if len(handshake) != 2 or (int(handshake[1]) <= 0 and scenario != "timer-retry-exhaust") or len(transfer) != 3 or min(map(int, transfer[1:])) <= 0:
                 raise ValueError("kernel peer has no authenticated traffic")
             result = {"readback": readback, "latest_handshake": int(handshake[1]), "rx_bytes": int(transfer[1]), "tx_bytes": int(transfer[2]), "counter_baseline": {"rx_bytes":0,"tx_bytes":0}}
             result["wire_capture"] = finish_capture(capture,capture_log)
             capture = None
             if inner_capture is not None:
-                result["inner_capture"] = finish_capture(inner_capture,inner_log)
+                result["inner_capture"] = finish_capture(inner_capture,inner_log,scenario in ("timer-persistent","timer-retry-exhaust"))
                 inner_capture = None
                 counters = {"rx_bytes":result["rx_bytes"],"tx_bytes":result["tx_bytes"],"last_handshake_time_sec":result["latest_handshake"],"last_handshake_time_nsec":0}
-                observed = checked([args.fixture],env=dict(env,RIPDPI_AWG_KERNEL_MODE="observe",
-                    RIPDPI_AWG_WIRE_PCAP=str(output/"wire.pcap"),RIPDPI_AWG_INNER_PCAP=str(output/"inner.pcap"),
-                    RIPDPI_AWG_KERNEL_COUNTERS=json.dumps(counters)))
+                (output/"counters.json").write_text(json.dumps(counters))
+                try:
+                    observed = checked([args.fixture],env=dict(env,RIPDPI_AWG_KERNEL_MODE="observe",
+                        RIPDPI_AWG_WIRE_PCAP=str(output/"wire.pcap"),RIPDPI_AWG_INNER_PCAP=str(output/"inner.pcap"),
+                        RIPDPI_AWG_KERNEL_RELAY=str(output/"relay.json") if timed else "",
+                        RIPDPI_AWG_KERNEL_COUNTERS=json.dumps(counters)))
+                except subprocess.CalledProcessError as error:
+                    (output/"analysis-error.log").write_text((error.stderr or "")[-8192:])
+                    raise
                 observation = json.loads(observed)["wire_observation"]
-                WIRE.validate_wire_observation(observation,profile,mtu,4,"small-datagrams")
+                if scenario == "timer-reject":
+                    runtime_log.flush()
+                    probes = [json.loads(line.removeprefix("AWG_EXPIRED_PROBE ")) for line in (output/"runtime.log").read_text().splitlines() if line.startswith("AWG_EXPIRED_PROBE ")]
+                    if len(probes) != 1: raise ValueError("missing runtime expiry probe")
+                    observation["expired_probe"] = probes[0]
+                if timed: WIRE.validate_timer_observation(observation,mtu,scenario)
+                else: WIRE.validate_wire_observation(observation,profile,mtu,cycles,"small-datagrams")
                 for side in ("wire","inner"):
                     if observation["kernel_capture"][side]["packets"] != result[side+"_capture"]["packets"]:
                         raise ValueError("PCAP record count differs from capture statistics")
@@ -262,7 +283,7 @@ def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--scenario", action="append", choices=("payload","small-datagrams"))
+    parser.add_argument("--scenario", action="append", choices=("payload","small-datagrams",*WIRE.TIMER_SCENARIOS))
     parser.add_argument("--vm-owner", type=Path, required=True)
     parser.add_argument("--identity", type=Path, required=True)
     parser.add_argument("--kernel-archive", type=Path, required=True)
@@ -273,9 +294,12 @@ def main():
     args = parser.parse_args()
     owner = assert_owned_vm(args.vm_owner)
     args.output_dir.mkdir(parents=True, exist_ok=False)
+    scenarios = args.scenario or ["payload","small-datagrams",*WIRE.TIMER_SCENARIOS]
+    matrix = [(profile,scenario,mtu) for profile in PROFILES for scenario in scenarios
+              if scenario not in WIRE.TIMER_SCENARIOS or profile == "v3-cpa-trailers" for mtu in (1280,1420)]
     report = {"schema_version": 1, "vm": owner["name"], "kernel": platform.release(), "kernel_source_sha": KERNEL_SHA,
               "tools_source_sha": TOOLS_SHA, "identity": json.loads(args.identity.read_text()),
-              "test_binary_sha256": digest(args.test_binary), "fixture_sha256": digest(args.fixture), "scenarios":args.scenario or ["payload","small-datagrams"], "cases": []}
+              "test_binary_sha256": digest(args.test_binary), "fixture_sha256": digest(args.fixture), "scenarios":scenarios, "cases": []}
     loaded = False
     with tempfile.TemporaryDirectory(prefix="awg31-kernel-") as temporary:
         build = Path(temporary)
@@ -292,11 +316,12 @@ def main():
             checked(["sudo", "-n", "insmod", module])
             loaded = True
             for profile in PROFILES:
-                for scenario in args.scenario or ["payload","small-datagrams"]:
+                for scenario in scenarios:
+                    if scenario in WIRE.TIMER_SCENARIOS and profile != "v3-cpa-trailers": continue
                     for mtu in (1280, 1420):
                         case = args.output_dir / f"{profile}-{scenario}-{mtu}"
                         case.mkdir()
-                        result = {"profile": profile, "mtu": mtu, "cycles": 4, "scenario": scenario}
+                        result = {"profile": profile, "mtu": mtu, "cycles": 1 if scenario in WIRE.TIMER_SCENARIOS else 4, "scenario": scenario}
                         try:
                             result.update(run_case(args, tools / "wg", case, len(report["cases"]), profile, mtu, scenario), status="passed")
                         except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
@@ -315,7 +340,7 @@ def main():
                 raise
             finally:
                 (args.output_dir / "results.json").write_text(json.dumps(report, indent=2) + "\n")
-    if len(report["cases"]) != 14 or any(x["status"] != "passed" for x in report["cases"]):
+    if len(report["cases"]) != len(matrix) or any(x["status"] != "passed" for x in report["cases"]):
         raise SystemExit("kernel AWG matrix is incomplete or failed")
 
 

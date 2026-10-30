@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -122,8 +123,28 @@ func readUDPCapture(reader io.Reader, visit func(capturedUDP) error) (captureSum
 }
 
 func observeKernelCapture(profile wireProfile, cycles int) error {
-	if os.Getenv("RIPDPI_AWG_SCENARIO") != "small-datagrams" {
-		return errors.New("kernel semantic capture requires small-datagrams")
+	scenario := os.Getenv("RIPDPI_AWG_SCENARIO")
+	timed := strings.HasPrefix(scenario, "timer-")
+	if scenario != "small-datagrams" && !timed {
+		return errors.New("kernel semantic capture requires small datagrams or timers")
+	}
+	var relay *relayCaptureCheck
+	if timed {
+		file, err := os.Open(os.Getenv("RIPDPI_AWG_KERNEL_RELAY"))
+		if err != nil {
+			return err
+		}
+		defer file.Close()
+		var report kernelRelayReport
+		decoder := json.NewDecoder(io.LimitReader(file, 1<<20))
+		decoder.DisallowUnknownFields()
+		if err = decoder.Decode(&report); err != nil {
+			return err
+		}
+		relay, err = newRelayCaptureCheck(report)
+		if err != nil {
+			return err
+		}
 	}
 	wire, err := os.Open(os.Getenv("RIPDPI_AWG_WIRE_PCAP"))
 	if err != nil {
@@ -135,22 +156,55 @@ func observeKernelCapture(profile wireProfile, cycles int) error {
 		return err
 	}
 	defer inner.Close()
-	observer := wireObservation{profile: profile, scenario: "small-datagrams"}
+	observer := wireObservation{profile: profile, scenario: scenario}
 	wireSummary, err := readUDPCapture(wire, func(packet capturedUDP) error {
+		if relay != nil && packet.source != 51820 && packet.destination != 51820 {
+			_, err := relay.accept(packet, false)
+			return err
+		}
 		if (packet.source == 51820) == (packet.destination == 51820) {
 			return errors.New("wire capture endpoint differs")
 		}
+		dropped := false
+		if relay != nil {
+			var err error
+			dropped, err = relay.accept(packet, true)
+			if err != nil {
+				return err
+			}
+		}
 		observer.captureTime = &packet.at
+		previous := len(observer.evidence.Events)
 		observer.observe(packet.payload, packet.destination == 51820)
+		if dropped {
+			if len(observer.evidence.Events) != previous+1 || observer.evidence.Events[previous].Type != 2 || observer.evidence.Events[previous].Direction != "out" {
+				return errors.New("relay dropped a packet other than a handshake response")
+			}
+			observer.evidence.Events[previous].Dropped = true
+		}
 		return nil
 	})
 	if err != nil {
 		return err
 	}
+	if relay != nil {
+		if err = relay.finish(); err != nil {
+			return err
+		}
+		end := time.Unix(0, relay.report.EndNS)
+		if observer.captureTime == nil || end.Before(*observer.captureTime) || end.Sub(*observer.captureTime) > 10*time.Second {
+			return errors.New("relay observation window differs")
+		}
+		observer.captureTime = &end
+	}
 	incoming, outgoing := 0, 0
 	innerSummary, err := readUDPCapture(inner, func(packet capturedUDP) error {
 		client, server := [4]byte{10, 77, 0, 2}, [4]byte{10, 77, 0, 1}
-		if packet.ipLength != 45 || !bytes.Equal(packet.payload, []byte("awg-padding-check")) {
+		payload := bytes.Equal(packet.payload, []byte("awg-padding-check"))
+		if scenario == "timer-reject" {
+			payload = payload || bytes.Equal(packet.payload, []byte("awg-expired-probe")) || bytes.Equal(packet.payload, []byte("awg-recover-probe"))
+		}
+		if packet.ipLength != 45 || !payload {
 			return errors.New("inner capture payload or IP length differs")
 		}
 		if packet.sourceIP == client && packet.destinationIP == server && (packet.destination == 41002 || packet.destination == 41003) {
@@ -166,7 +220,14 @@ func observeKernelCapture(profile wireProfile, cycles int) error {
 	if err != nil {
 		return err
 	}
-	if incoming != 2*cycles || outgoing != 2*cycles {
+	want := 2 * cycles
+	if scenario == "timer-persistent" || scenario == "timer-retry-exhaust" {
+		want = 0
+	}
+	if scenario == "timer-rekey" || scenario == "timer-reject" {
+		want = 6
+	}
+	if incoming != want || outgoing != want {
 		return errors.New("inner capture does not contain each request and echo")
 	}
 	var counters map[string]uint64
@@ -180,7 +241,7 @@ func observeKernelCapture(profile wireProfile, cycles int) error {
 			return errors.New("unexpected kernel counter field")
 		}
 	}
-	if len(counters) != 4 || counters["last_handshake_time_sec"] == 0 || counters["tx_bytes"] == 0 {
+	if len(counters) != 4 || (counters["last_handshake_time_sec"] == 0 && scenario != "timer-retry-exhaust") || counters["tx_bytes"] == 0 {
 		return errors.New("kernel counters missing")
 	}
 	transports := 0
@@ -198,12 +259,15 @@ func observeKernelCapture(profile wireProfile, cycles int) error {
 			}
 		}
 	}
-	if expected != counters["rx_bytes"] || transports-incoming != cycles {
+	if expected != counters["rx_bytes"] || transports < incoming || (!timed && transports-incoming != cycles) {
 		return errors.New("kernel authenticated accounting differs from captures")
 	}
 	observer.evidence.AuthenticatedKeepalives = transports - incoming
 	observer.evidence.PeerCounters = counters
 	observer.kernelCapture = map[string]any{"wire": wireSummary, "inner": innerSummary, "accepted_datagrams": incoming, "echoed_datagrams": outgoing,
 		"keepalive_evidence": "closed-kernel-byte-and-inner-IP-accounting"}
+	if relay != nil {
+		observer.kernelCapture["relay_actions"] = relay.report
+	}
 	return observer.finish(cycles)
 }

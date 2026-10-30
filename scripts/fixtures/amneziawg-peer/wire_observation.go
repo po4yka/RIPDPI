@@ -186,7 +186,7 @@ func (o *wireObservation) observe(packet []byte, inbound bool) bool {
 		}
 		o.evidence.recordAt(wire, packet, inbound, index, o.clock())
 		dropped := false
-		if !inbound && index == 1 {
+		if !inbound && index == 1 && o.captureTime == nil {
 			o.responses++
 			dropped = (o.scenario == "timer-retry-loss" && o.responses == 1) || o.scenario == "timer-retry-exhaust" || (o.scenario == "timer-reject" && o.responses > 1 && time.Since(o.evidence.start) < 8*time.Second)
 			if dropped {

@@ -324,6 +324,9 @@ func run() error {
 		_, err = fmt.Print(config)
 		return err
 	case "echo":
+		if timed {
+			return kernelTimerPeer(profile, scenario)
+		}
 		return kernelEcho(cycles)
 	case "observe":
 		return observeKernelCapture(profile, cycles)

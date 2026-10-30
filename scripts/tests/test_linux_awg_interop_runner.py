@@ -17,6 +17,9 @@ class KernelPeerContracts(unittest.TestCase):
         self.assertEqual(RUNNER.capture_statistics(good),dict(packets=64,dropped_packets=0))
         for bad in ("",good.replace("64 packets captured","0 packets captured"),good.replace("0 packets dropped","1 packets dropped"),good+good):
             with self.assertRaises(ValueError):RUNNER.capture_statistics(bad)
+        empty=good.replace("64 packets captured","0 packets captured")
+        self.assertEqual(RUNNER.capture_statistics(empty,allow_empty=True)["packets"],0)
+        with self.assertRaises(ValueError):RUNNER.capture_statistics(empty.replace("0 packets dropped","1 packets dropped"),allow_empty=True)
 
     def test_readback_preserves_ranges_and_hides_keys(self):
         wanted = "[Interface]\nHeaderProtectionKey = fixture\nContentPaddingAddition = 16\nRandomTrailers = on\n[Peer]\nAllowedIPs = 10.77.0.2/32, fd77::2/128\nPersistentKeepalive = 25-35\n"
