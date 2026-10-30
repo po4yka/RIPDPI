@@ -136,10 +136,16 @@ class AndroidPermissionPlatformBridge
         @param:ApplicationContext private val context: Context,
         private val automationController: Optional<AutomationController>,
     ) : PermissionPlatformBridge {
-        override fun prepareVpnPermissionIntent(): Intent? =
-            automationController
-                .map { controller -> controller.prepareVpnPermissionIntent(VpnService.prepare(context)) }
-                .orElseGet { VpnService.prepare(context) }
+        override fun prepareVpnPermissionIntent(): Intent? {
+            val systemIntent = VpnService.prepare(context)
+            // Not Optional.map: a null answer from automation means consent is granted, and map would
+            // turn it into an empty Optional that falls back to the system intent.
+            return if (automationController.isPresent) {
+                automationController.get().prepareVpnPermissionIntent(systemIntent)
+            } else {
+                systemIntent
+            }
+        }
 
         override fun createAppSettingsIntent(): Intent =
             automationController
