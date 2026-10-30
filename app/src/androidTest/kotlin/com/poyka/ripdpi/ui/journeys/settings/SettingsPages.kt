@@ -143,9 +143,18 @@ internal class SettingsPage(
     val customization = RipDpiTestTags.SettingsCustomization
     val dataTransparency = RipDpiTestTags.SettingsDataTransparency
     val about = RipDpiTestTags.SettingsAbout
+    val logs = RipDpiTestTags.SettingsLogs
+    val backupPinWarning = RipDpiTestTags.SettingsBackupPinWarning
+    val backupPinClear = RipDpiTestTags.SettingsBackupPinClear
+    val backupPinClearConfirm = RipDpiTestTags.SettingsBackupPinClearConfirm
+    val bottomNavSettings = RipDpiTestTags.bottomNav(Route.Settings)
 
     fun themeOption(value: String): String = RipDpiTestTags.dropdownOption(themeDropdown, value)
 }
+
+internal class LogsEntryPage(
+    rule: JourneyRule,
+) : JourneyPage<LogsEntryPage>(rule, RipDpiTestTags.LogsScreen)
 
 internal class AppCustomizationPage(
     rule: JourneyRule,
