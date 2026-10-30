@@ -187,8 +187,21 @@ class GenerateGuideTest(unittest.TestCase):
 
         spec = guide.load_spec(spec_path)
 
-        self.assertEqual(9, len(spec.route_exclusions))
-        self.assertIn("shared_diagnostic_result", [item.route for item in spec.route_exclusions])
+        self.assertCountEqual(
+            [
+                "pcap_viewer",
+                "replay_failure",
+                "owned_stack_browser",
+                "import/profile_confirm",
+                "import/subscription_confirm",
+                "support/settings",
+                "profile/share",
+                "profile/mieru/edit",
+                "profile/ssh/edit",
+                "shared_diagnostic_result",
+            ],
+            [item.route for item in spec.route_exclusions],
+        )
         self.assertTrue(all(item.prerequisite and item.reason for item in spec.route_exclusions))
         section_ids = [page_id for section in spec.flow_sections for page_id in section.page_ids]
         self.assertCountEqual([page.id for page in spec.pages], section_ids)
