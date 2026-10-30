@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.ui.theme
 
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.SpringSpec
 import androidx.compose.animation.core.TargetBasedAnimation
 import androidx.compose.animation.core.VectorConverter
@@ -30,6 +33,7 @@ class RipDpiMotionTest {
         assertEquals(110, reducedMotion.stateTween<Float>().durationMillis)
         assertEquals(160, reducedMotion.emphasizedTween<Float>().durationMillis)
         assertEquals(130, reducedMotion.routeTween<Float>().durationMillis)
+        assertEquals(130, reducedMotion.routePopTween<Float>().durationMillis)
         assertFalse(reducedMotion.allowsInfiniteMotion)
     }
 
@@ -40,7 +44,17 @@ class RipDpiMotionTest {
         assertEquals(0, disabledMotion.quickTween<Float>().durationMillis)
         assertEquals(0, disabledMotion.stateTween<Float>().durationMillis)
         assertEquals(0, disabledMotion.routeTween<Float>().durationMillis)
+        assertSame(EnterTransition.None, disabledMotion.routePopEnterTransition())
+        assertSame(ExitTransition.None, disabledMotion.routePopExitTransition())
         assertFalse(disabledMotion.allowsInfiniteMotion)
+    }
+
+    @Test
+    fun `pop transitions share one linear route spec so the back gesture can scrub them`() {
+        val popTween = DefaultRipDpiMotion.routePopTween<Float>()
+
+        assertEquals(DefaultRipDpiMotion.routeDurationMillis, popTween.durationMillis)
+        assertSame(LinearEasing, popTween.easing)
     }
 
     @Test
