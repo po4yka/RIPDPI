@@ -287,6 +287,7 @@ mod tests {
             sessions: Arc::default(),
             local_username: "local-user".to_owned(),
             local_password: "local-pass".to_owned(),
+            extra_headers: Vec::new(),
         };
         let server = tokio::spawn(serve_listener_with_limit(listener, Arc::new(config), 1));
 

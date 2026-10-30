@@ -3,6 +3,7 @@
 mod config;
 mod connect_tunnel;
 mod errors;
+mod extra_headers;
 pub mod h2_connect;
 mod http_front;
 pub mod padding;

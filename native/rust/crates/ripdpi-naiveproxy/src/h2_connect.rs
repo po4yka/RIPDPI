@@ -57,6 +57,10 @@ pub fn build_h2_connect_request(
         builder = builder.header("x-naive-path", header_value(path, "x-naive-path")?);
     }
 
+    for (name, value) in &config.extra_headers {
+        builder = builder.header(name, value);
+    }
+
     builder
         .body(Empty::<Bytes>::new())
         .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, format!("invalid H2 CONNECT request: {error}")))

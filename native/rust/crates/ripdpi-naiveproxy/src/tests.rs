@@ -103,6 +103,7 @@ async fn socks5_tunnel_round_trip_reaches_target_via_https_proxy() {
         sessions: Arc::default(),
         local_username: "local-user".to_owned(),
         local_password: "local-pass".to_owned(),
+        extra_headers: Vec::new(),
     };
 
     let server = tokio::spawn(async move {
@@ -312,6 +313,7 @@ async fn socks5_client_round_trip_over_h2_naive_padding_fixture() {
         sessions: Arc::default(),
         local_username: "local-user".to_owned(),
         local_password: "local-pass".to_owned(),
+        extra_headers: Vec::new(),
     };
 
     let server = tokio::spawn(async move {
@@ -391,6 +393,7 @@ async fn http_front_connect_round_trip_over_h2_naive_padding_fixture() {
         sessions: Arc::default(),
         local_username: "local-user".to_owned(),
         local_password: "local-pass".to_owned(),
+        extra_headers: Vec::new(),
     };
 
     let server = tokio::spawn(async move {
@@ -443,6 +446,7 @@ async fn helper_reconnects_after_upstream_h2_stream_failure() {
         sessions: Arc::default(),
         local_username: "local-user".to_owned(),
         local_password: "local-pass".to_owned(),
+        extra_headers: Vec::new(),
     };
 
     let server = tokio::spawn(async move {
@@ -863,6 +867,7 @@ fn naive_config_with_auth() -> NaiveProxyConfig {
         sessions: Arc::default(),
         local_username: "local-user".to_owned(),
         local_password: "local-pass".to_owned(),
+        extra_headers: Vec::new(),
     }
 }
 
@@ -899,17 +904,60 @@ fn config_parses_final_cli_contract() {
 
 #[test]
 fn config_rejects_partial_auth() {
-    let username_only = parse_config_args_with_stdin(
-        &["--server", "proxy.example", "--server-port", "443", "--server-name", "proxy.example", "--credentials-stdin"],
-        b"YWxpY2U=\n\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n",
-    );
     let password_only = parse_config_args_with_stdin(
         &["--server", "proxy.example", "--server-port", "443", "--server-name", "proxy.example", "--credentials-stdin"],
         b"\nc2VjcmV0\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n",
     );
 
-    assert!(username_only.is_err());
     assert!(password_only.is_err());
+}
+
+#[test]
+fn config_treats_username_with_empty_password_as_authenticated() {
+    let args = ["--server", "proxy.example", "--server-port", "443", "--server-name", "proxy.example"];
+    let args: Vec<&str> = args.iter().copied().chain(["--credentials-stdin"]).collect();
+    let config = parse_config_args_with_stdin(&args, b"YWxpY2U=\n\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n")
+        .expect("username with empty password");
+    assert_eq!(config.username.as_deref(), Some("alice"));
+    assert_eq!(config.password.as_deref(), Some(""));
+
+    let request = build_h2_connect_request(
+        &config,
+        &SocksTarget::Domain("example.com".to_owned(), 443),
+        "~".repeat(CONNECT_PADDING_HEADER_MIN),
+    )
+    .expect("build request");
+    // base64("alice:")
+    assert_eq!(request.headers()["proxy-authorization"], "Basic YWxpY2U6");
+}
+
+#[test]
+fn config_reads_extra_headers_from_the_fifth_stdin_line() {
+    let args = ["--server", "proxy.example:443", "--server-name", "proxy.example", "--credentials-stdin"];
+    // base64("X-Token: s3cret\r\nX-Other: v")
+    let stdin = b"\n\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\nWC1Ub2tlbjogczNjcmV0DQpYLU90aGVyOiB2\n";
+    let config = parse_config_args_with_stdin(&args, stdin).expect("extra headers");
+    assert_eq!(config.extra_headers.len(), 2);
+    let debug = format!("{config:?}");
+    assert!(!debug.contains("s3cret"), "Debug leaked a header value: {debug}");
+
+    let request = build_h2_connect_request(
+        &config,
+        &SocksTarget::Domain("example.com".to_owned(), 443),
+        "~".repeat(CONNECT_PADDING_HEADER_MIN),
+    )
+    .expect("build request");
+    assert_eq!(request.headers()["x-token"], "s3cret");
+    assert_eq!(request.headers()["x-other"], "v");
+
+    let empty_fifth =
+        parse_config_args_with_stdin(&args, b"\n\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n\n").expect("empty fifth line");
+    assert!(empty_fifth.extra_headers.is_empty());
+    // base64("Host: evil")
+    let reserved = parse_config_args_with_stdin(&args, b"\n\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\nSG9zdDogZXZpbA==\n");
+    assert!(reserved.is_err());
+    let sixth = parse_config_args_with_stdin(&args, b"\n\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n\nYQ==\n");
+    assert!(sixth.is_err());
 }
 
 #[test]

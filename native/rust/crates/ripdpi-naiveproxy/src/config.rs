@@ -4,6 +4,7 @@ use std::sync::Arc;
 
 use rustls::ClientConfig as RustlsClientConfig;
 
+use crate::extra_headers::{ExtraHeaders, parse_extra_headers};
 use crate::tls::default_tls_config;
 
 /// `Debug` is implemented manually to redact the HTTP `Proxy-Authorization`
@@ -23,6 +24,8 @@ pub struct NaiveProxyConfig {
     pub(crate) local_username: String,
     pub(crate) local_password: String,
     pub(crate) path: Option<String>,
+    /// Extra CONNECT headers; values are secrets and never rendered by `Debug`.
+    pub(crate) extra_headers: ExtraHeaders,
     pub(crate) tls_config: Arc<RustlsClientConfig>,
     /// Path to the parent's `VpnService.protect()` Unix domain socket, read
     /// once from `RIPDPI_PROTECT_PATH`. `None` outside the VPN subprocess
@@ -82,13 +85,8 @@ pub(crate) fn parse_config_from_reader(
     if !use_credentials_stdin {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "NaiveProxy requires --credentials-stdin"));
     }
-    let (username, password, local_username, local_password) = read_credentials_from_stdin(&mut credentials_input)?;
-    if username.is_some() ^ password.is_some() {
-        return Err(io::Error::new(
-            io::ErrorKind::InvalidInput,
-            "NaiveProxy requires both username and password when authentication is configured",
-        ));
-    }
+    let (username, password, local_username, local_password, extra_headers) =
+        read_credentials_from_stdin(&mut credentials_input)?;
     let path = normalize_optional(optional_value(&mut args, "--path")?.as_deref());
     let remaining = args.finish();
     if !remaining.is_empty() {
@@ -105,13 +103,14 @@ pub(crate) fn parse_config_from_reader(
         local_username,
         local_password,
         path,
+        extra_headers,
         tls_config: default_tls_config(),
         protect_socket_path: ripdpi_subprocess_protect::protect_path_from_env(),
         sessions: Arc::default(),
     })
 }
 
-type StdinCredentials = (Option<String>, Option<String>, String, String);
+type StdinCredentials = (Option<String>, Option<String>, String, String, ExtraHeaders);
 
 fn read_credentials_from_stdin(input: &mut impl Read) -> io::Result<StdinCredentials> {
     const MAX_CREDENTIAL_BYTES: u64 = 16 * 1024;
@@ -123,13 +122,29 @@ fn read_credentials_from_stdin(input: &mut impl Read) -> io::Result<StdinCredent
     let mut lines = payload.lines();
     let username = decode_stdin_credential(lines.next(), "username")?;
     let password = decode_stdin_credential(lines.next(), "password")?;
+    // A username with an empty password line is an authenticated identity with
+    // an empty password; a password without a username is a malformed record.
+    let password = match (&username, password) {
+        (Some(_), None) => Some(String::new()),
+        (None, Some(_)) => {
+            return Err(io::Error::new(
+                io::ErrorKind::InvalidInput,
+                "NaiveProxy requires a username when a password is configured",
+            ));
+        }
+        (_, password) => password,
+    };
     let local_username = required_local_credential(lines.next(), "local username")?;
     let local_password = required_local_credential(lines.next(), "local password")?;
+    let extra_headers = match decode_stdin_credential(lines.next(), "extra headers")? {
+        Some(raw) => parse_extra_headers(&raw)?,
+        None => ExtraHeaders::new(),
+    };
     if local_username.contains(':') || lines.any(|line| !line.trim().is_empty()) {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, "invalid NaiveProxy credential stdin"));
     }
     // Upstream credentials are secrets: keep their decoded bytes, spaces included.
-    Ok((username, password, local_username, local_password))
+    Ok((username, password, local_username, local_password, extra_headers))
 }
 
 fn required_local_credential(line: Option<&str>, name: &str) -> io::Result<String> {
@@ -240,6 +255,7 @@ mod tests {
             password: Some("naive-pass".to_owned()),
             local_username: "local-user".to_owned(),
             local_password: "local-pass".to_owned(),
+            extra_headers: Vec::new(),
             path: Some("/proxy".to_owned()),
             tls_config: default_tls_config(),
             protect_socket_path: None,

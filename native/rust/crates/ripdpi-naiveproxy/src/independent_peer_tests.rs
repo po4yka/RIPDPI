@@ -49,6 +49,7 @@ fn peer_config(password: String, tls_config: Arc<rustls::ClientConfig>) -> Naive
         password: Some(password),
         local_username: "local-user".to_owned(),
         local_password: "local-pass".to_owned(),
+        extra_headers: Vec::new(),
         path: None,
         tls_config,
         protect_socket_path: None,
