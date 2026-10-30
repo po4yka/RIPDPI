@@ -12,6 +12,12 @@ SPEC.loader.exec_module(RUNNER)
 
 
 class KernelPeerContracts(unittest.TestCase):
+    def test_capture_requires_complete_statistics_without_drops(self):
+        good="64 packets captured\n64 packets received by filter\n0 packets dropped by kernel\n"
+        self.assertEqual(RUNNER.capture_statistics(good),dict(packets=64,dropped_packets=0))
+        for bad in ("",good.replace("64 packets captured","0 packets captured"),good.replace("0 packets dropped","1 packets dropped"),good+good):
+            with self.assertRaises(ValueError):RUNNER.capture_statistics(bad)
+
     def test_readback_preserves_ranges_and_hides_keys(self):
         wanted = "[Interface]\nHeaderProtectionKey = fixture\nContentPaddingAddition = 16\nRandomTrailers = on\n[Peer]\nAllowedIPs = 10.77.0.2/32, fd77::2/128\nPersistentKeepalive = 25-35\n"
         actual = wanted.replace("= 16", "= 16-16").replace("= on", "= true").replace("10.77.0.2/32, fd77::2/128", "fd77::2/128, 10.77.0.2/32")

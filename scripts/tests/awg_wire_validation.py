@@ -101,6 +101,18 @@ def validate_wire_observation(observation, profile, mtu, cycles, scenario="paylo
                     all(size >= framing+45 for size in outgoing[3]) and
                     any(size > framing+45 for size in outgoing[3]),
                     "outgoing transport RT not observed")
+        data_ranges = ranges[cycles:]
+        outgoing_sizes = sorted(outgoing[3].elements())
+        # The 5.x peer can flush one startup persistent keepalive after learning
+        # its endpoint. Full tx accounting still requires every captured byte.
+        extra_empty = len(outgoing_sizes)-2*cycles
+        require(extra_empty == 0 or (profile == "amneziavpn-5x" and extra_empty == 1),
+                "outgoing small-datagram padding or count differs")
+        if extra_empty: data_ranges = [(framing+cpa[0],framing+cpa[1])] + data_ranges
+        require(all(low <= size <= high for size,(low,high) in zip(outgoing_sizes,data_ranges)),
+                "outgoing small-datagram padding or count differs")
+        require(counters["tx_bytes"] == sum(size*count for values in outgoing for size,count in values.items()),
+                "outgoing capture differs from peer tx accounting")
         sizes = sorted(incoming[3].elements())
         require(len(sizes) == len(ranges) and all(low <= size <= high for size, (low, high) in zip(sizes, sorted(ranges))),
                 "data/empty padding or CPA precedence differs")

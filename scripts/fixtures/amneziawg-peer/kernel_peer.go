@@ -54,6 +54,11 @@ func kernelConfig(profile wireProfile) (string, error) {
 // kernelEcho reuses the byte-for-byte payload oracle over ordinary OS sockets.
 // It must run inside the disposable namespace that owns the kernel AWG interface.
 func kernelEcho(cycles int) error {
+	scenario := os.Getenv("RIPDPI_AWG_SCENARIO")
+	if scenario != "" && scenario != "payload" && scenario != "small-datagrams" {
+		return errors.New("unsupported kernel echo scenario")
+	}
+	small := scenario == "small-datagrams"
 	var closers []func() error
 	defer func() {
 		for _, closeSocket := range closers {
@@ -61,7 +66,13 @@ func kernelEcho(cycles int) error {
 		}
 	}()
 	var exchanges []func() error
-	for _, address := range []string{"10.77.0.1:41001", "[fd77::1]:41004"} {
+	tcpAddresses := []string{"10.77.0.1:41001", "[fd77::1]:41004"}
+	pairs := [][2]string{{"10.77.0.1:41002", "10.77.0.1:41003"}, {"[fd77::1]:41005", "[fd77::1]:41006"}}
+	if small {
+		tcpAddresses = nil
+		pairs = pairs[:1]
+	}
+	for _, address := range tcpAddresses {
 		listener, err := net.Listen("tcp", address)
 		if err != nil {
 			return err
@@ -69,7 +80,7 @@ func kernelEcho(cycles int) error {
 		closers = append(closers, listener.Close)
 		exchanges = append(exchanges, func() error { return echoTCP(listener) })
 	}
-	for _, pair := range [][2]string{{"10.77.0.1:41002", "10.77.0.1:41003"}, {"[fd77::1]:41005", "[fd77::1]:41006"}} {
+	for _, pair := range pairs {
 		first, err := net.ListenPacket("udp", pair[0])
 		if err != nil {
 			return err

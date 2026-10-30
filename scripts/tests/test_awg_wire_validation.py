@@ -16,7 +16,7 @@ def small_cpa_observation():
             "lengths": [[{"200": 4}, None, None, {"72": 4, "117": 8}],
                         [None, {"130": 4}, None, {"117": 8}]],
             "authenticated_keepalives": 4, "ip_lengths": {"45": 8},
-            "peer_counters": {"rx_bytes": 1528, "tx_bytes": 1368, "last_handshake_time_sec": 1, "last_handshake_time_nsec": 0},
+            "peer_counters": {"rx_bytes": 1528, "tx_bytes": 1456, "last_handshake_time_sec": 1, "last_handshake_time_nsec": 0},
         },
     }
 
@@ -26,6 +26,8 @@ def account_transport(observation):
     # negative must fail on semantics, not a stale checksum or byte count.
     observation["evidence"]["peer_counters"]["rx_bytes"] = 592 + sum(
         (int(length)-24)*count for length, count in observation["evidence"]["lengths"][0][3].items())
+    observation["evidence"]["peer_counters"]["tx_bytes"] = sum(
+        int(length)*count for values in observation["evidence"]["lengths"][1] if values for length,count in values.items())
 
 
 class WireSemantics(unittest.TestCase):
@@ -47,6 +49,25 @@ class WireSemantics(unittest.TestCase):
             observation["evidence"]["lengths"][0][3] = transport
             account_transport(observation)
             with self.subTest(transport=transport), self.assertRaises(ValueError): self.validate(observation)
+
+    def test_outgoing_small_payload_count_and_padding_are_required(self):
+        for sizes in ({"117":7},{"101":8}):
+            bad=small_cpa_observation()
+            bad["evidence"]["lengths"][1][3]=sizes
+            with self.assertRaisesRegex(ValueError,"outgoing small-datagram"):
+                self.validate(bad)
+
+    def test_startup_keepalive_does_not_allow_missing_outgoing_capture_bytes(self):
+        observation=small_cpa_observation()
+        observation.update(wire_profile="amneziavpn-5x",padding=[12,12,12,12])
+        evidence=observation["evidence"]
+        evidence["lengths"][0][3]={"100":4,"110":8}
+        evidence["lengths"][1][3]={"110":9}
+        evidence["peer_counters"].update(rx_bytes=1728,tx_bytes=1510)
+        validate_wire_observation(observation,"amneziavpn-5x",1280,4,"small-datagrams")
+        evidence["lengths"][1][3]={"110":8}
+        with self.assertRaisesRegex(ValueError,"peer tx accounting"):
+            validate_wire_observation(observation,"amneziavpn-5x",1280,4,"small-datagrams")
 
     def test_missing_each_handshake_trailer_and_out_of_bound_cookie_fails(self):
         for side, kind, sizes in ((0, 0, {"160": 4}), (1, 1, {"112": 4}), (0, 2, {"500": 1})):

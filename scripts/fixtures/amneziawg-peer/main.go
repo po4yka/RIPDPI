@@ -325,6 +325,8 @@ func run() error {
 		return err
 	case "echo":
 		return kernelEcho(cycles)
+	case "observe":
+		return observeKernelCapture(profile, cycles)
 	case "":
 	default:
 		return errors.New("unknown kernel fixture mode")

@@ -96,13 +96,15 @@ func (p wireProfile) matchesHeader(index int, header uint32) bool {
 
 // Measurements come from the actual received and sent datagrams, before upstream decoding.
 type wireObservation struct {
-	mu        sync.Mutex
-	profile   wireProfile
-	scenario  string
-	cookies   *cookieExercise
-	transport *transportExercise
-	responses int
-	evidence  wireEvidence
+	mu            sync.Mutex
+	profile       wireProfile
+	scenario      string
+	cookies       *cookieExercise
+	transport     *transportExercise
+	captureTime   *time.Time
+	kernelCapture map[string]any
+	responses     int
+	evidence      wireEvidence
 	// Protected profile only: raw headers inside a configured range, handshake trailers, transport sizes.
 	clearHeaders   int
 	trailers       int
@@ -142,7 +144,7 @@ func (o *wireObservation) observe(packet []byte, inbound bool) bool {
 				}
 			}
 			timestamp := int64(binary.BigEndian.Uint32(packet[34:38]))
-			if difference := time.Now().Unix() - timestamp; difference < -60 || difference > 60 {
+			if difference := o.clock().Unix() - timestamp; difference < -60 || difference > 60 {
 				o.failure = "invalid network-order timestamp"
 			}
 			o.signatures[string(packet[2:18])] = true
@@ -182,7 +184,7 @@ func (o *wireObservation) observe(packet []byte, inbound bool) bool {
 		if !wire.matchesHeader(index, header) {
 			continue
 		}
-		o.evidence.record(wire, packet, inbound, index)
+		o.evidence.recordAt(wire, packet, inbound, index, o.clock())
 		dropped := false
 		if !inbound && index == 1 {
 			o.responses++
@@ -220,6 +222,13 @@ func (o *wireObservation) observe(packet []byte, inbound bool) bool {
 	return false
 }
 
+func (o *wireObservation) clock() time.Time {
+	if o.captureTime != nil {
+		return *o.captureTime
+	}
+	return time.Now()
+}
+
 func (o *wireObservation) wire() wireProfile {
 	if o.profile.name == "" {
 		return legacyWireProfile
@@ -246,7 +255,7 @@ func (o *wireObservation) finish(cycles int) error {
 	}
 	result := map[string]any{
 		"schema_version": 2, "evidence": o.evidence, "padding": wire.padding,
-		"scenario": o.scenario, "elapsed_ns": time.Since(o.evidence.start).Nanoseconds(),
+		"scenario": o.scenario, "elapsed_ns": o.clock().Sub(o.evidence.start).Nanoseconds(),
 		"wire_profile": wire.name, "handshakes": o.handshakes,
 		"fresh_signature_packets": len(o.signatures), "h4_in_values": len(o.inbound[3]), "h4_out_values": len(o.outbound[3]),
 		"signature_order": "I1-I5,Jc,initiation", "signature_tags": []string{"b", "r", "rd", "rc", "t"},
@@ -256,6 +265,9 @@ func (o *wireObservation) finish(cycles int) error {
 		result["headers_in_clear"] = o.clearHeaders
 		result["handshake_trailers"] = o.trailers
 		result["inbound_transport_sizes"] = len(o.transportSizes)
+	}
+	if o.kernelCapture != nil {
+		result["kernel_capture"] = o.kernelCapture
 	}
 	if o.transport != nil {
 		result["negative_transport"] = o.transport.report()

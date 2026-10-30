@@ -35,8 +35,12 @@ type wireEvidence struct {
 // record is called with the observation mutex held. The journal is bounded;
 // histograms retain all packets when a bulk transfer exceeds the event limit.
 func (e *wireEvidence) record(profile wireProfile, packet []byte, inbound bool, index int) {
+	e.recordAt(profile, packet, inbound, index, time.Now())
+}
+
+func (e *wireEvidence) recordAt(profile wireProfile, packet []byte, inbound bool, index int, at time.Time) {
 	if e.start.IsZero() {
-		e.start = time.Now()
+		e.start = at
 	}
 	side, direction := 1, "out"
 	if inbound {
@@ -51,7 +55,7 @@ func (e *wireEvidence) record(profile wireProfile, packet []byte, inbound bool, 
 		e.EventsDropped++
 		return
 	}
-	event := packetEvent{ID: e.packets, AtNS: time.Since(e.start).Nanoseconds(), Direction: direction, Type: index + 1, Length: len(packet)}
+	event := packetEvent{ID: e.packets, AtNS: at.Sub(e.start).Nanoseconds(), Direction: direction, Type: index + 1, Length: len(packet)}
 	if index == 3 {
 		header := append([]byte(nil), packet[profile.padding[3]:profile.padding[3]+16]...)
 		if profile.headerKey != nil {

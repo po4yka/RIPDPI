@@ -10,10 +10,12 @@ import argparse
 import base64
 import configparser
 import hashlib
+import importlib.util
 import json
 import os
 from pathlib import Path
 import platform
+import re
 import selectors
 import subprocess
 import tarfile
@@ -27,6 +29,10 @@ ARCHIVES = {
 }
 PROFILES = ("awg-3.1-ranges-v1", "amneziavpn-5x", "v3-cpa", "v3-trailers", "v3-cpa-trailers", "v3-aligned", "v3-fixed-headers")
 SECRETS = {"privatekey", "publickey", "presharedkey", "headerprotectionkey"}
+WIRE_SPEC = importlib.util.spec_from_file_location("awg_wire_validation", Path(__file__).with_name("awg_wire_validation.py"))
+WIRE = importlib.util.module_from_spec(WIRE_SPEC)
+WIRE_SPEC.loader.exec_module(WIRE)
+
 
 
 def digest(path: Path) -> str:
@@ -129,18 +135,51 @@ def stop_owned(process: subprocess.Popen, signal_name="TERM"):
         process.wait(timeout=5)
 
 
-def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int) -> dict:
+def start_capture(prefix, interface, path, log, filters):
+    process = subprocess.Popen(prefix + ["tcpdump", "--immediate-mode", "-U", "-i", interface, "-w", str(path), *filters],
+                               stdout=log, stderr=subprocess.PIPE, text=True, start_new_session=True)
+    try:
+        with selectors.DefaultSelector() as selector:
+            selector.register(process.stderr, selectors.EVENT_READ)
+            if not selector.select(timeout=5): raise TimeoutError("packet capture readiness deadline")
+            line = process.stderr.readline(4096)
+            log.write(line)
+            if f"listening on {interface}" not in line: raise ValueError("packet capture did not become ready")
+        return process
+    except BaseException:
+        stop_owned(process, "INT")
+        raise
+
+
+def capture_statistics(text):
+    captured = re.findall(r"^(\d+) packets? captured$", text, re.MULTILINE)
+    dropped = re.findall(r"^(\d+) packets? dropped by kernel$", text, re.MULTILINE)
+    if len(captured) != 1 or len(dropped) != 1 or int(captured[0]) == 0 or int(dropped[0]) != 0:
+        raise ValueError("capture statistics missing or packets dropped")
+    return {"packets": int(captured[0]), "dropped_packets": int(dropped[0])}
+
+
+def finish_capture(process, log):
+    stop_owned(process, "INT")
+    if process.returncode != 0: raise ValueError("packet capture failed")
+    text = process.stderr.read()
+    log.write(text)
+    log.flush()
+    return capture_statistics(text)
+
+
+def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int, scenario: str) -> dict:
     namespace = f"awg31-{os.getpid()}-{index}"
     prefix = ["sudo", "-n", "ip", "netns", "exec", namespace]
     user = ["setpriv", f"--reuid={os.getuid()}", f"--regid={os.getgid()}", "--clear-groups"]
-    env = dict(os.environ, RIPDPI_AWG_PROFILE=profile, RIPDPI_AWG_INTEROP_MTU=str(mtu), RIPDPI_AWG_INTEROP_CYCLES="4")
+    env = dict(os.environ, RIPDPI_AWG_PROFILE=profile, RIPDPI_AWG_INTEROP_MTU=str(mtu), RIPDPI_AWG_INTEROP_CYCLES="4", RIPDPI_AWG_SCENARIO=scenario)
     config = checked([args.fixture], env=dict(env, RIPDPI_AWG_KERNEL_MODE="config"))
     conf = output / "fixture.conf"
     conf.write_text(config)
     conf.chmod(0o600)
     created = False
-    echo = capture = None
-    with (output / "runtime.log").open("w") as runtime_log, (output / "peer.log").open("w") as peer_log, (output / "capture.log").open("w") as capture_log:
+    echo = capture = inner_capture = None
+    with (output / "runtime.log").open("w") as runtime_log, (output / "peer.log").open("w") as peer_log, (output / "capture.log").open("w") as capture_log, (output / "inner-capture.log").open("w") as inner_log:
         try:
             checked(["sudo", "-n", "ip", "netns", "add", namespace])
             created = True
@@ -154,14 +193,11 @@ def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int
             checked(ip + ["link", "set", "awg31", "mtu", str(mtu), "up"])
             checked(ip + ["route", "add", "10.77.0.2/32", "dev", "awg31"])
             checked(ip + ["-6", "route", "add", "fd77::2/128", "dev", "awg31"])
-            capture = subprocess.Popen(prefix + ["tcpdump", "-U", "-i", "lo", "-w", str(output / "wire.pcap"), "udp", "port", "51820"],
-                                       stdout=capture_log, stderr=subprocess.PIPE, text=True, start_new_session=True)
-            with selectors.DefaultSelector() as selector:
-                selector.register(capture.stderr, selectors.EVENT_READ)
-                if not selector.select(timeout=5): raise TimeoutError("packet capture readiness deadline")
-                line = capture.stderr.readline(4096)
-                capture_log.write(line)
-                if "listening on lo" not in line: raise ValueError("packet capture did not become ready")
+            baseline = checked(prefix + [tools, "show", "awg31", "transfer"]).split()
+            if len(baseline) != 3 or list(map(int,baseline[1:])) != [0,0]: raise ValueError("kernel transfer baseline is not zero")
+            capture = start_capture(prefix,"lo",output/"wire.pcap",capture_log,["udp","port","51820"])
+            if scenario == "small-datagrams":
+                inner_capture = start_capture(prefix,"awg31",output/"inner.pcap",inner_log,["udp","and","(","port","41002","or","port","41003",")"])
             settings = [f"{key}={value}" for key, value in env.items() if key.startswith("RIPDPI_AWG_")]
             echo = subprocess.Popen(prefix + user + ["env", *settings, "RIPDPI_AWG_KERNEL_MODE=echo", str(args.fixture)],
                                     stdout=subprocess.PIPE, stderr=peer_log, text=True, start_new_session=True)
@@ -184,10 +220,26 @@ def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int
             transfer = checked(prefix + [tools, "show", "awg31", "transfer"]).split()
             if len(handshake) != 2 or int(handshake[1]) <= 0 or len(transfer) != 3 or min(map(int, transfer[1:])) <= 0:
                 raise ValueError("kernel peer has no authenticated traffic")
-            return {"readback": readback, "latest_handshake": int(handshake[1]), "rx_bytes": int(transfer[1]), "tx_bytes": int(transfer[2])}
+            result = {"readback": readback, "latest_handshake": int(handshake[1]), "rx_bytes": int(transfer[1]), "tx_bytes": int(transfer[2]), "counter_baseline": {"rx_bytes":0,"tx_bytes":0}}
+            result["wire_capture"] = finish_capture(capture,capture_log)
+            capture = None
+            if inner_capture is not None:
+                result["inner_capture"] = finish_capture(inner_capture,inner_log)
+                inner_capture = None
+                counters = {"rx_bytes":result["rx_bytes"],"tx_bytes":result["tx_bytes"],"last_handshake_time_sec":result["latest_handshake"],"last_handshake_time_nsec":0}
+                observed = checked([args.fixture],env=dict(env,RIPDPI_AWG_KERNEL_MODE="observe",
+                    RIPDPI_AWG_WIRE_PCAP=str(output/"wire.pcap"),RIPDPI_AWG_INNER_PCAP=str(output/"inner.pcap"),
+                    RIPDPI_AWG_KERNEL_COUNTERS=json.dumps(counters)))
+                observation = json.loads(observed)["wire_observation"]
+                WIRE.validate_wire_observation(observation,profile,mtu,4,"small-datagrams")
+                for side in ("wire","inner"):
+                    if observation["kernel_capture"][side]["packets"] != result[side+"_capture"]["packets"]:
+                        raise ValueError("PCAP record count differs from capture statistics")
+                result["observation"] = observation
+            return result
         finally:
             errors = []
-            for process, signal_name in ((echo, "TERM"), (capture, "INT")):
+            for process, signal_name in ((echo, "TERM"), (capture, "INT"), (inner_capture, "INT")):
                 if process is not None:
                     try:
                         stop_owned(process, signal_name)
@@ -196,6 +248,8 @@ def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int
             try:
                 if capture is not None and capture.poll() is not None:
                     capture_log.write(capture.stderr.read())
+                if inner_capture is not None and inner_capture.poll() is not None:
+                    inner_log.write(inner_capture.stderr.read())
             finally:
                 try:
                     if created: checked(["sudo", "-n", "ip", "netns", "delete", namespace])
@@ -208,6 +262,7 @@ def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--scenario", action="append", choices=("payload","small-datagrams"))
     parser.add_argument("--vm-owner", type=Path, required=True)
     parser.add_argument("--identity", type=Path, required=True)
     parser.add_argument("--kernel-archive", type=Path, required=True)
@@ -220,7 +275,7 @@ def main():
     args.output_dir.mkdir(parents=True, exist_ok=False)
     report = {"schema_version": 1, "vm": owner["name"], "kernel": platform.release(), "kernel_source_sha": KERNEL_SHA,
               "tools_source_sha": TOOLS_SHA, "identity": json.loads(args.identity.read_text()),
-              "test_binary_sha256": digest(args.test_binary), "fixture_sha256": digest(args.fixture), "cases": []}
+              "test_binary_sha256": digest(args.test_binary), "fixture_sha256": digest(args.fixture), "scenarios":args.scenario or ["payload","small-datagrams"], "cases": []}
     loaded = False
     with tempfile.TemporaryDirectory(prefix="awg31-kernel-") as temporary:
         build = Path(temporary)
@@ -237,18 +292,20 @@ def main():
             checked(["sudo", "-n", "insmod", module])
             loaded = True
             for profile in PROFILES:
-                for mtu in (1280, 1420):
-                    case = args.output_dir / f"{profile}-{mtu}"
-                    case.mkdir()
-                    result = {"profile": profile, "mtu": mtu, "cycles": 4}
-                    try:
-                        result.update(run_case(args, tools / "wg", case, len(report["cases"]), profile, mtu), status="passed")
-                    except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
-                        result.update(status="failed", error=str(error))
-                    if (case / "wire.pcap").is_file(): result["pcap_sha256"] = digest(case / "wire.pcap")
-                    report["cases"].append(result)
-                    (args.output_dir / "results.json").write_text(json.dumps(report, indent=2) + "\n")
-                    print(f"{result['status']}: {profile} MTU {mtu}", flush=True)
+                for scenario in args.scenario or ["payload","small-datagrams"]:
+                    for mtu in (1280, 1420):
+                        case = args.output_dir / f"{profile}-{scenario}-{mtu}"
+                        case.mkdir()
+                        result = {"profile": profile, "mtu": mtu, "cycles": 4, "scenario": scenario}
+                        try:
+                            result.update(run_case(args, tools / "wg", case, len(report["cases"]), profile, mtu, scenario), status="passed")
+                        except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:
+                            result.update(status="failed", error=str(error))
+                        if (case / "wire.pcap").is_file(): result["pcap_sha256"] = digest(case / "wire.pcap")
+                        if (case / "inner.pcap").is_file(): result["inner_pcap_sha256"] = digest(case / "inner.pcap")
+                        report["cases"].append(result)
+                        (args.output_dir / "results.json").write_text(json.dumps(report, indent=2) + "\n")
+                        print(f"{result['status']}: {profile} {scenario} MTU {mtu}", flush=True)
         finally:
             try:
                 if loaded: checked(["sudo", "-n", "rmmod", "amneziawg"])
