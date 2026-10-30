@@ -2577,7 +2577,7 @@ jobs:
             [diagnostics]=LogsKaspressoTest#severityAndSubsystemChipsFilterTheStream
             [home]=HomeKaspressoTest#modeCardsAppearAfterDiagnosticsDisclosureExpands
           )
-          declare -A minimums=([settings]=24 [diagnostics]=21 [home]=14)
+          declare -A minimums=([settings]=26 [diagnostics]=23 [home]=14)
           status=0
           for area in settings diagnostics home; do
             results="$RUNNER_TEMP/android-ui-journeys-results/$area"
