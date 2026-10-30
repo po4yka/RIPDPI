@@ -5,6 +5,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.adaptive.currentWindowAdaptiveInfoV2
 import androidx.compose.material3.dynamicDarkColorScheme
 import androidx.compose.material3.dynamicLightColorScheme
 import androidx.compose.runtime.Composable
@@ -15,10 +16,8 @@ import androidx.compose.ui.hapticfeedback.HapticFeedback
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalInspectionMode
-import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.text.intl.LocaleList
 
 @Composable
@@ -53,15 +52,7 @@ fun RipDpiTheme(
     val typography = remember(type) { ripDpiTypography(type) }
     val colorScheme = selectColorScheme(isDark, contrastLevel, dynamicColor)
     val extendedColors = ripDpiExtendedColors(colorScheme, isDark)
-    val density = LocalDensity.current
-    val screenWidthDp =
-        with(density) {
-            LocalWindowInfo.current.containerSize.width
-                .toDp()
-                .value
-                .toInt()
-        }
-    val layout = ripDpiLayoutForWidth(screenWidthDp = screenWidthDp)
+    val layout = ripDpiLayoutFor(currentWindowAdaptiveInfoV2().windowSizeClass.toRipDpiWidthClass())
     val baseMotion = rememberRipDpiMotion()
     val inheritedHapticFeedback = LocalHapticFeedback.current
     val motion =

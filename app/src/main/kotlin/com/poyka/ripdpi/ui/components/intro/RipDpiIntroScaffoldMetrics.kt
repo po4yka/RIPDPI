@@ -61,7 +61,10 @@ internal fun rememberRipDpiIntroScaffoldMetrics(): RipDpiIntroScaffoldMetrics {
             )
         }
 
-        RipDpiWidthClass.Expanded -> {
+        RipDpiWidthClass.Expanded,
+        RipDpiWidthClass.Large,
+        RipDpiWidthClass.ExtraLarge,
+        -> {
             RipDpiIntroScaffoldMetrics(
                 topActionRowHeight = 52.dp,
                 illustrationSize = 104.dp,
