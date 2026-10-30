@@ -1,31 +1,26 @@
-@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
-
 package com.poyka.ripdpi.ui.components.cards
 
 import androidx.compose.animation.animateContentSize
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.style.CommonStyle
-import androidx.compose.foundation.style.rememberUpdatedStyleState
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.NonRestartableComposable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.draw.shadow
-import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
-import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
+import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
+import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
-import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
 
 private const val disabledAlpha = 0.38f
 
@@ -37,29 +32,7 @@ enum class RipDpiCardVariant {
     Selected,
 }
 
-@Composable
-@NonRestartableComposable
-fun RipDpiCard(
-    modifier: Modifier = Modifier,
-    variant: RipDpiCardVariant = RipDpiCardVariant.Outlined,
-    enabled: Boolean = true,
-    onClick: (() -> Unit)? = null,
-    paddingValues: PaddingValues = PaddingValues(RipDpiThemeTokens.layout.cardPadding),
-    animateContentSize: Boolean = false,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    RipDpiCard(
-        modifier = modifier,
-        variant = variant,
-        enabled = enabled,
-        onClick = onClick,
-        paddingValues = paddingValues,
-        animateContentSize = animateContentSize,
-        content = content,
-        visualStyle = CommonStyle,
-    )
-}
-
+/** Material 3 [Card] drawn with the RDS surface role of the variant; the outlined variant is the default. */
 @Composable
 fun RipDpiCard(
     modifier: Modifier = Modifier,
@@ -67,7 +40,6 @@ fun RipDpiCard(
     enabled: Boolean = true,
     onClick: (() -> Unit)? = null,
     paddingValues: PaddingValues = PaddingValues(RipDpiThemeTokens.layout.cardPadding),
-    visualStyle: CommonStyle = CommonStyle,
     // Animate size changes inside the card. A caller's animateContentSize() clips to the
     // rectangular bounds and cuts the rounded shadow into a square band.
     animateContentSize: Boolean = false,
@@ -79,44 +51,62 @@ fun RipDpiCard(
         RipDpiThemeTokens.surfaces.resolve(
             RipDpiThemeTokens.surfaceRoles.cards.fromVariant(variant),
         )
-    val interactionSource = remember { MutableInteractionSource() }
-    val styleState = rememberUpdatedStyleState(interactionSource) { it.isEnabled = enabled }
-    val styleResolver =
-        rememberRipDpiStyleResolver(
-            RipDpiThemeTokens.styles.outlinedSurface(RipDpiThemeTokens.surfaceRoles.cards.fromVariant(variant)),
-            visualStyle,
-            styleState,
+    val colors =
+        CardDefaults.cardColors(
+            containerColor = surfaceStyle.container,
+            contentColor = surfaceStyle.content,
+            disabledContainerColor = surfaceStyle.container,
+            disabledContentColor = surfaceStyle.content,
         )
-    val cardModifier =
-        modifier
-            .fillMaxWidth()
-            .shadow(surfaceStyle.shadowElevation, shape, clip = false)
-            .ripDpiStyleSurface(styleResolver, shape, clip = true)
-            .alpha(if (enabled) 1f else disabledAlpha)
-            .then(
-                if (animateContentSize) {
-                    Modifier.animateContentSize(animationSpec = RipDpiThemeTokens.motion.stateTween())
-                } else {
-                    Modifier
-                },
-            ).then(
-                if (onClick != null) {
-                    Modifier.ripDpiClickable(
-                        enabled = enabled,
-                        role = Role.Button,
-                        interactionSource = interactionSource,
-                        onClick = onClick,
-                    )
-                } else {
-                    Modifier
-                },
-            ).padding(paddingValues)
-
-    Column(
-        modifier = cardModifier,
-        verticalArrangement = Arrangement.spacedBy(spacing.sm),
-        content = content,
-    )
+    val elevation =
+        CardDefaults.cardElevation(
+            defaultElevation = surfaceStyle.shadowElevation,
+            disabledElevation = surfaceStyle.shadowElevation,
+        )
+    val border =
+        if (surfaceStyle.border == Color.Transparent) null else BorderStroke(RipDpiStroke.Thin, surfaceStyle.border)
+    val cardModifier = modifier.fillMaxWidth().alpha(if (enabled) 1f else disabledAlpha)
+    val cardContent: @Composable ColumnScope.() -> Unit = {
+        Column(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .then(
+                        if (animateContentSize) {
+                            Modifier.animateContentSize(animationSpec = RipDpiThemeTokens.motion.stateTween())
+                        } else {
+                            Modifier
+                        },
+                    ).padding(paddingValues),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
+            content = content,
+        )
+    }
+    if (onClick != null) {
+        val performHaptic = rememberRipDpiHapticPerformer()
+        Card(
+            onClick = {
+                performHaptic(RipDpiHapticFeedback.Action)
+                onClick()
+            },
+            modifier = cardModifier,
+            enabled = enabled,
+            shape = shape,
+            colors = colors,
+            elevation = elevation,
+            border = border,
+            content = cardContent,
+        )
+    } else {
+        Card(
+            modifier = cardModifier,
+            shape = shape,
+            colors = colors,
+            elevation = elevation,
+            border = border,
+            content = cardContent,
+        )
+    }
 }
 
 @Preview(showBackground = true)
