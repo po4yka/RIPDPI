@@ -2,7 +2,7 @@
 id: RST-1792736814489197
 title: Patch ctutils constant-time vulnerabilities
 kind: chore
-status: review
+status: done
 area: rust-native
 priority: high
 owner: Dependency security maintenance
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-10-23
 updated: 2026-10-30
 spec_reason: dependency-only
+closed_at: "2026-10-30T18:48:14Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Merged in #654 (5e778024b, exact head f1ab65f16): ci-required run 39920289628, CodeQL, cargo-deny and all six fuzz-nightly shards (run 39921030244) succeeded on the exact head with independent review recorded; main f0d30a8c4 resolves patched ctutils (native 0.4.5, fuzz 0.4.4) and both workspaces pass cargo metadata --locked on Rust 1.98.1."
 ---
 
 ## Goal
