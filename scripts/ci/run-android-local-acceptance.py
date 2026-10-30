@@ -629,11 +629,17 @@ class NaiveProcessSampler:
             raise RuntimeError("a NaiveProxy credential reached a process argv")
         if not verdict["upstream"] or not verdict["helper"]:
             raise RuntimeError("the sampler did not see both the upstream client and the helper")
+        launches = 0
         for line in verdict["upstream"]:
             # The columns are NAME then ARGS, and ARGS starts with argv[0].
             argv = line.split()[1:]
+            if argv[1:] == ["--version"]:
+                continue  # The pre-launch version check carries no profile data.
             if len(argv) != 2 or not argv[1].endswith(".json"):
                 raise RuntimeError("the upstream client argv is not exactly one config path")
+            launches += 1
+        if not launches:
+            raise RuntimeError("the sampler did not see the upstream client run with a config path")
 
     def verdict(self) -> dict:
         upstream = sorted(line for line in self.lines if self.UPSTREAM in line)

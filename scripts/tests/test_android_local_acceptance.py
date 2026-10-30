@@ -686,3 +686,24 @@ class EvidenceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NaiveProcessSamplerTest(unittest.TestCase):
+    UP = "libripdpi-naive-chromium.so libripdpi-naive-chromium.so"
+    HELPER = "libripdpi-naiveproxy.so libripdpi-naiveproxy.so --listen 127.0.0.1:1 --credentials-stdin"
+
+    def sampler(self, *lines: str):
+        sampler = runner.NaiveProcessSampler(["adb"], "lab-secret")
+        sampler.lines.update(lines)
+        return sampler
+
+    def test_version_check_and_config_launch_pass(self):
+        self.sampler(f"{self.UP} --version", f"{self.UP} /data/x/naive/a.json", self.HELPER).require()
+
+    def test_extra_upstream_argument_fails(self):
+        with self.assertRaisesRegex(RuntimeError, "exactly one config path"):
+            self.sampler(f"{self.UP} /data/x/naive/a.json --log", self.HELPER).require()
+
+    def test_version_check_alone_is_not_a_launch(self):
+        with self.assertRaisesRegex(RuntimeError, "with a config path"):
+            self.sampler(f"{self.UP} --version", self.HELPER).require()
