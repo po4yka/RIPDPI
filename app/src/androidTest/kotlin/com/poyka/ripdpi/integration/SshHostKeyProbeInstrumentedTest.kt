@@ -11,6 +11,7 @@ import com.poyka.ripdpi.core.RipDpiSshHostKeyProbe
 import com.poyka.ripdpi.core.SshHostKeyProbeFailure
 import com.poyka.ripdpi.core.SshHostKeyProbeRequest
 import com.poyka.ripdpi.core.SshHostKeyProbeResult
+import com.poyka.ripdpi.services.SshHostKeyObservation
 import com.poyka.ripdpi.services.SshHostKeyObserver
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -83,7 +84,7 @@ class SshHostKeyProbeInstrumentedTest {
 
             repeat(2) {
                 assertEquals(
-                    SshHostKeyProbeResult.Observed(fingerprint, "ssh-ed25519"),
+                    SshHostKeyObservation.Observed(fingerprint, "ssh-ed25519"),
                     observer.observe("10.0.2.2", port),
                 )
             }

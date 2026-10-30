@@ -9,7 +9,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.core.SshHostKeyProbeFailure
+import com.poyka.ripdpi.services.SshHostKeyObservationFailure
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
@@ -47,25 +47,25 @@ sealed interface SshHostKeyFetchState {
 
 /** Short user-facing text for a probe failure; raw exception text never reaches the UI. */
 @StringRes
-internal fun SshHostKeyProbeFailure.messageRes(): Int =
+internal fun SshHostKeyObservationFailure.messageRes(): Int =
     when (this) {
-        SshHostKeyProbeFailure.InvalidInput -> R.string.ssh_host_key_fetch_error_invalid
+        SshHostKeyObservationFailure.InvalidInput -> R.string.ssh_host_key_fetch_error_invalid
 
-        SshHostKeyProbeFailure.Timeout -> R.string.ssh_host_key_fetch_error_timeout
+        SshHostKeyObservationFailure.Timeout -> R.string.ssh_host_key_fetch_error_timeout
 
-        SshHostKeyProbeFailure.ConnectFailed -> R.string.ssh_host_key_fetch_error_connect
+        SshHostKeyObservationFailure.ConnectFailed -> R.string.ssh_host_key_fetch_error_connect
 
-        SshHostKeyProbeFailure.HandshakeFailed -> R.string.ssh_host_key_fetch_error_handshake
+        SshHostKeyObservationFailure.HandshakeFailed -> R.string.ssh_host_key_fetch_error_handshake
 
-        SshHostKeyProbeFailure.ProtectionDenied -> R.string.ssh_host_key_fetch_error_protection
+        SshHostKeyObservationFailure.ProtectionDenied -> R.string.ssh_host_key_fetch_error_protection
 
-        SshHostKeyProbeFailure.NoUnderlay,
-        SshHostKeyProbeFailure.NetworkChanged,
+        SshHostKeyObservationFailure.NoUnderlay,
+        SshHostKeyObservationFailure.NetworkChanged,
         -> R.string.ssh_host_key_fetch_error_network
 
-        SshHostKeyProbeFailure.Busy -> R.string.ssh_host_key_fetch_error_busy
+        SshHostKeyObservationFailure.Busy -> R.string.ssh_host_key_fetch_error_busy
 
-        SshHostKeyProbeFailure.InternalFailure -> R.string.ssh_host_key_fetch_error_generic
+        SshHostKeyObservationFailure.InternalFailure -> R.string.ssh_host_key_fetch_error_generic
     }
 
 /**

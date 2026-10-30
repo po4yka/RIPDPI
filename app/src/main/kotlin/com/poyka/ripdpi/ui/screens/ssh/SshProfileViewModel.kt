@@ -7,12 +7,12 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigRelayArtifactRepository
 import com.poyka.ripdpi.activities.RelayProfileNotFoundException
-import com.poyka.ripdpi.core.SshHostKeyProbeFailure
-import com.poyka.ripdpi.core.SshHostKeyProbeResult
 import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
+import com.poyka.ripdpi.services.SshHostKeyObservation
+import com.poyka.ripdpi.services.SshHostKeyObservationFailure
 import com.poyka.ripdpi.services.SshHostKeyObserver
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
@@ -156,7 +156,7 @@ class SshProfileViewModel
                         runCatching { hostKeyObserver.observe(server, port) }
                             .getOrElse { error ->
                                 if (error is CancellationException) throw error
-                                SshHostKeyProbeResult.Failed(SshHostKeyProbeFailure.InternalFailure)
+                                SshHostKeyObservation.Failed(SshHostKeyObservationFailure.InternalFailure)
                             }
                     // A cancelled fetch (re-tap, endpoint edit, screen left) must not publish its result.
                     ensureActive()
@@ -188,9 +188,9 @@ class SshProfileViewModel
             }
         }
 
-        private fun SshHostKeyProbeResult.toFetchState(editor: SshProfileEditorState): SshHostKeyFetchState =
+        private fun SshHostKeyObservation.toFetchState(editor: SshProfileEditorState): SshHostKeyFetchState =
             when (this) {
-                is SshHostKeyProbeResult.Observed -> {
+                is SshHostKeyObservation.Observed -> {
                     SshHostKeyFetchState.PendingConfirmation(
                         fingerprint = fingerprintSha256,
                         algorithm = algorithm,
@@ -202,7 +202,7 @@ class SshProfileViewModel
                     )
                 }
 
-                is SshHostKeyProbeResult.Failed -> {
+                is SshHostKeyObservation.Failed -> {
                     SshHostKeyFetchState.Failed(reason.messageRes())
                 }
             }

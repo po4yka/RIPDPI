@@ -22,6 +22,7 @@ import java.net.InetAddress
 
 internal class FakeSshHostKeyProbeBindings : RipDpiSshHostKeyBindings {
     val fingerprint = "SHA256:" + "A".repeat(43)
+    var status = 0
     var calls = 0
     var address: String? = null
 
@@ -36,7 +37,7 @@ internal class FakeSshHostKeyProbeBindings : RipDpiSshHostKeyBindings {
         address = addressLiteral
         observationOut[0] = fingerprint
         observationOut[1] = "ssh-ed25519"
-        return 0
+        return status
     }
 }
 

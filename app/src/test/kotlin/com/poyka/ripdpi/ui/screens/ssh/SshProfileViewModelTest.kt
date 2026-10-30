@@ -3,8 +3,6 @@ package com.poyka.ripdpi.ui.screens.ssh
 import app.cash.turbine.test
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigRelayArtifactRepository
-import com.poyka.ripdpi.core.SshHostKeyProbeFailure
-import com.poyka.ripdpi.core.SshHostKeyProbeResult
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultRelayProfileId
@@ -16,6 +14,8 @@ import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
+import com.poyka.ripdpi.services.SshHostKeyObservation
+import com.poyka.ripdpi.services.SshHostKeyObservationFailure
 import com.poyka.ripdpi.services.SshHostKeyObserver
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CompletableDeferred
@@ -51,7 +51,7 @@ class SshProfileViewModelTest {
     private val mixedAlphabetFingerprintFixture = "SHA256:n4bQgYhMfWWaL-qgxVrQFaO/TxsrC4Is0V1sFbDwCgg"
     private val otherFingerprintFixture = "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 
-    private fun observed(fingerprint: String) = SshHostKeyProbeResult.Observed(fingerprint, "ssh-ed25519")
+    private fun observed(fingerprint: String) = SshHostKeyObservation.Observed(fingerprint, "ssh-ed25519")
 
     private fun viewModel(
         profileStore: RelayProfileStore,
@@ -134,7 +134,7 @@ class SshProfileViewModelTest {
         runTest {
             val viewModel =
                 hostKeyViewModel(
-                    FakeSshHostKeyObserver(SshHostKeyProbeResult.Failed(SshHostKeyProbeFailure.Timeout)),
+                    FakeSshHostKeyObserver(SshHostKeyObservation.Failed(SshHostKeyObservationFailure.Timeout)),
                 )
 
             viewModel.onFetchHostKey()
@@ -177,7 +177,7 @@ class SshProfileViewModelTest {
     @Test
     fun `editing the endpoint during a fetch drops the late result`() =
         runTest {
-            val gate = CompletableDeferred<SshHostKeyProbeResult>()
+            val gate = CompletableDeferred<SshHostKeyObservation>()
             val viewModel = hostKeyViewModel(FakeSshHostKeyObserver(gates = listOf(gate)))
 
             viewModel.onFetchHostKey()
@@ -195,8 +195,8 @@ class SshProfileViewModelTest {
     @Test
     fun `a re-tap ignores the late result of the first fetch`() =
         runTest {
-            val first = CompletableDeferred<SshHostKeyProbeResult>()
-            val second = CompletableDeferred<SshHostKeyProbeResult>()
+            val first = CompletableDeferred<SshHostKeyObservation>()
+            val second = CompletableDeferred<SshHostKeyObservation>()
             val viewModel = hostKeyViewModel(FakeSshHostKeyObserver(gates = listOf(first, second)))
 
             viewModel.onFetchHostKey()
@@ -427,15 +427,18 @@ private class FakeAppSettingsRepository : AppSettingsRepository {
  * ignores cancellation, like a native probe that finishes after its caller has gone.
  */
 private class FakeSshHostKeyObserver(
-    private val result: SshHostKeyProbeResult = SshHostKeyProbeResult.Failed(SshHostKeyProbeFailure.InternalFailure),
-    gates: List<CompletableDeferred<SshHostKeyProbeResult>> = emptyList(),
+    private val result: SshHostKeyObservation =
+        SshHostKeyObservation.Failed(
+            SshHostKeyObservationFailure.InternalFailure,
+        ),
+    gates: List<CompletableDeferred<SshHostKeyObservation>> = emptyList(),
 ) : SshHostKeyObserver {
     private val pendingGates = ArrayDeque(gates)
 
     override suspend fun observe(
         server: String,
         port: Int,
-    ): SshHostKeyProbeResult {
+    ): SshHostKeyObservation {
         val gate = pendingGates.removeFirstOrNull() ?: return result
         return withContext(NonCancellable) { gate.await() }
     }

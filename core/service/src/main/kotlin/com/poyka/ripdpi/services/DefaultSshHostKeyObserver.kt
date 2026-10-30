@@ -56,9 +56,9 @@ internal class DefaultSshHostKeyObserver
         override suspend fun observe(
             server: String,
             port: Int,
-        ): SshHostKeyProbeResult {
-            if (!validEndpoint(server, port)) return failed(SshHostKeyProbeFailure.InvalidInput)
-            return runner.run { lease -> observeOwned(server, port, lease) }
+        ): SshHostKeyObservation {
+            if (!validEndpoint(server, port)) return failed(SshHostKeyProbeFailure.InvalidInput).toObservation()
+            return runner.run { lease -> observeOwned(server, port, lease) }.toObservation()
         }
 
         private suspend fun observeOwned(
@@ -174,6 +174,29 @@ internal class DefaultSshHostKeyObserver
             const val MaxAddresses = 8
             const val MaxHostLength = 253
             const val MaxPort = 65_535
+        }
+    }
+
+private fun SshHostKeyProbeResult.toObservation(): SshHostKeyObservation =
+    when (this) {
+        is SshHostKeyProbeResult.Observed -> {
+            SshHostKeyObservation.Observed(fingerprintSha256, algorithm)
+        }
+
+        is SshHostKeyProbeResult.Failed -> {
+            SshHostKeyObservation.Failed(
+                when (reason) {
+                    SshHostKeyProbeFailure.InvalidInput -> SshHostKeyObservationFailure.InvalidInput
+                    SshHostKeyProbeFailure.Timeout -> SshHostKeyObservationFailure.Timeout
+                    SshHostKeyProbeFailure.ConnectFailed -> SshHostKeyObservationFailure.ConnectFailed
+                    SshHostKeyProbeFailure.HandshakeFailed -> SshHostKeyObservationFailure.HandshakeFailed
+                    SshHostKeyProbeFailure.ProtectionDenied -> SshHostKeyObservationFailure.ProtectionDenied
+                    SshHostKeyProbeFailure.InternalFailure -> SshHostKeyObservationFailure.InternalFailure
+                    SshHostKeyProbeFailure.Busy -> SshHostKeyObservationFailure.Busy
+                    SshHostKeyProbeFailure.NoUnderlay -> SshHostKeyObservationFailure.NoUnderlay
+                    SshHostKeyProbeFailure.NetworkChanged -> SshHostKeyObservationFailure.NetworkChanged
+                },
+            )
         }
     }
 
