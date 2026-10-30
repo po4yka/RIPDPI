@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.navigation
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.ui.components.navigation.RipDpiNavigationItem
@@ -16,17 +17,20 @@ internal fun TopLevelNavigationScaffold(
     modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
+    val labels = Route.topLevel.map { destination -> stringResource(destination.titleRes) }
     val items =
-        Route.topLevel
-            .map { destination ->
-                RipDpiNavigationItem(
-                    label = stringResource(destination.titleRes),
-                    icon = requireNotNull(destination.icon),
-                    selected = destination == selectedRoute,
-                    testTag = RipDpiTestTags.bottomNav(destination),
-                    onClick = { onNavigate(destination) },
-                )
-            }.toImmutableList()
+        remember(selectedRoute, labels, onNavigate) {
+            Route.topLevel
+                .mapIndexed { index, destination ->
+                    RipDpiNavigationItem(
+                        label = labels[index],
+                        icon = requireNotNull(destination.icon),
+                        selected = destination == selectedRoute,
+                        testTag = RipDpiTestTags.bottomNav(destination),
+                        onClick = { onNavigate(destination) },
+                    )
+                }.toImmutableList()
+        }
     RipDpiNavigationSuiteScaffold(
         items = items,
         modifier = modifier,
