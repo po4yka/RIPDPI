@@ -1,10 +1,13 @@
 package com.poyka.ripdpi.e2e
 
 import android.app.KeyguardManager
+import android.app.LocaleManager
 import android.content.Context
 import android.content.Intent
 import android.graphics.Bitmap
+import android.os.Build
 import android.os.Bundle
+import android.os.LocaleList
 import android.view.View
 import android.view.WindowManager
 import androidx.appcompat.app.AppCompatDelegate
@@ -113,16 +116,34 @@ class AwgV3EditorAcceptanceTest {
     @After
     fun restoreOwnedEditor() {
         try {
-            originalLocales?.let { original ->
-                activity?.onActivity { AppCompatDelegate.setApplicationLocales(original) }
+            if (Build.VERSION.SDK_INT >= 33) {
+                try {
+                    activity?.close()
+                } finally {
+                    originalLocales?.let { original ->
+                        instrumentation.runOnMainSync {
+                            val manager = context.getSystemService(LocaleManager::class.java)
+                            val expected = LocaleList.forLanguageTags(original.toLanguageTags())
+                            manager.applicationLocales = expected
+                            assertEquals("Restore the original OS locale", expected, manager.applicationLocales)
+                        }
+                    }
+                }
+            } else {
+                try {
+                    // AppCompat needs a live delegate to persist locales below API 33.
+                    originalLocales?.let { original ->
+                        activity?.onActivity {
+                            AppCompatDelegate.setApplicationLocales(original)
+                            assertEquals(original, AppCompatDelegate.getApplicationLocales())
+                        }
+                    }
+                } finally {
+                    activity?.close()
+                }
             }
-            if (activity != null) compose.waitForIdle()
         } finally {
-            try {
-                activity?.close()
-            } finally {
-                originalSettings?.let { value -> runBlocking { settings.replace(value) } }
-            }
+            originalSettings?.let { value -> runBlocking { settings.replace(value) } }
         }
     }
 
