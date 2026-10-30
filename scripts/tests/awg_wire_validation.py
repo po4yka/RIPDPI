@@ -79,7 +79,7 @@ def validate_wire_observation(observation, profile, mtu, cycles, scenario="paylo
             "authenticated byte accounting or key confirmation missing")
     if cpa and cpa[0] == cpa[1] and cpa[0] < 20:
         require(incoming[3][padding[3]+32+cpa[0]] >= keepalives, "empty transport CPA missing")
-    require(scenario in ("payload", "small-datagrams", *TIMER_SCENARIOS, *COOKIE_SCENARIOS), "unknown observation scenario")
+    require(scenario in ("payload", "small-datagrams", *TIMER_SCENARIOS, *COOKIE_SCENARIOS, *NEGATIVE_SCENARIOS), "unknown observation scenario")
     if scenario == "small-datagrams":
         require(ip_lengths == {45: 2*cycles} and keepalives == cycles, "small-datagram plaintext oracle differs")
         framing = padding[3]+32
@@ -260,4 +260,60 @@ def validate_cookie_observation(observation, mtu, scenario):
     recovery = phases[-1]
     require(any(e.get("direction")=="in" and e.get("type")==4 and e.get("receiver")!=first_key and
                 recovery["fence_ns"] <= e["at_ns"] <= recovery["ack_ns"] for e in events), "cookie recovery has no fresh-key payload")
+    return evidence
+
+
+NEGATIVE_SCENARIOS = ("negative-transport",)
+
+
+def validate_negative_transport(observation, mtu):
+    require(observation.get("scenario") == "negative-transport", "negative transport scenario differs")
+    evidence=validate_wire_observation(observation,"v3-cpa-trailers",mtu,1,"negative-transport")
+    events=validate_event_journal(observation,evidence,mtu)
+    phases=observation.get("negative_transport")
+    modes=["corrupt","wrong-hp","foreign-source","replay","ambiguous","malformed-ip"]
+    require(isinstance(phases,list) and [p.get("mode") for p in phases]==modes, "negative transport phases missing")
+    expected_ips=Counter({41:1}) # ARM:transport.
+    expected_ips.update(28+len("ACK:"+mode) for mode in modes)
+    expected_ips.update(28+len("CONFIRMED:"+mode) for mode in modes[:3])
+    require(histogram(evidence.get("ip_lengths"),mtu)==expected_ips,"negative transport plaintext/fence accounting differs")
+    require(not evidence["lengths"][0][2],"false candidate emitted a cookie")
+    previous=0
+    for phase in phases:
+        mode=phase["mode"]
+        original=phase.get("original_sha256")
+        wires=phase.get("wire_sha256")
+        count=2 if mode=="replay" else 1
+        require(isinstance(wires,list) and len(wires)==count and phase.get("wire_length")==356,"negative wire stimulus missing")
+        for digest in [original,phase.get("original_body_sha256"),phase.get("wire_body_sha256"),phase.get("original_cipher_sha256"),phase.get("wire_cipher_sha256"),*wires]:
+            require(isinstance(digest,str) and len(digest)==64 and all(c in "0123456789abcdef" for c in digest),"negative packet identity missing")
+        changed=mode in ("corrupt","wrong-hp","ambiguous")
+        require(all((digest!=original)==changed for digest in wires),"negative packet mutation differs")
+        require((phase["original_body_sha256"]!=phase["wire_body_sha256"])==(mode in ("corrupt","wrong-hp")),"ciphertext preservation differs")
+        require((phase["original_cipher_sha256"]!=phase["wire_cipher_sha256"])==(mode=="corrupt"), "negative mutation changed AEAD ciphertext unexpectedly")
+        times=phase.get("wire_ns")
+        fence,ack=phase.get("fence_ns"),phase.get("ack_ns")
+        require(isinstance(times,list) and len(times)==count and all(type(t) is int for t in times) and times==sorted(times),"negative wire times missing")
+        require(type(fence) is int and type(ack) is int and previous<times[0]<=times[-1]<fence<ack,"negative stimulus/fence order differs")
+        for direction,marker in (("out","FENCE:"),("in","ACK:")):
+            length=100+len(marker+mode)
+            require(sum(e["direction"]==direction and e["type"]==4 and e["length"]==length and fence<=e["at_ns"]<=ack for e in events)==1,
+                    "negative transport authenticated fence missing")
+        require(phase.get("different_source")==(mode=="foreign-source"),"foreign-source stimulus missing")
+        require(phase.get("malformed_ip")==(mode=="malformed-ip"),"authenticated malformed IP stimulus missing")
+        if mode=="ambiguous":
+            headers=phase.get("headers")
+            require(isinstance(headers,list) and len(headers)==4 and headers[:3]==[101,202,303] and 400<=headers[3]<=499,
+                    "ambiguous packet lacks four candidate headers")
+        if mode in modes[:3]:
+            restored,confirmed=phase.get("restored_ns"),phase.get("confirmed_ns")
+            require(type(restored) is int and type(confirmed) is int and ack<restored<confirmed,"original authenticated packet was not recovered")
+            require(sum(e["direction"]=="out" and e["type"]==4 and e["length"]==356 and restored<=e["at_ns"]<=confirmed for e in events)==1,
+                    "original recovery wire packet missing")
+            require(sum(e["direction"]=="in" and e["type"]==4 and e["length"]==100+len("CONFIRMED:"+mode) and restored<=e["at_ns"]<=confirmed for e in events)==1,
+                    "original packet has no authenticated confirmation")
+            previous=confirmed
+        else:
+            require(phase.get("restored_ns")==phase.get("confirmed_ns")==0,"unexpected negative recovery packet")
+            previous=ack
     return evidence

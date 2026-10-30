@@ -2,7 +2,7 @@
 import copy
 import unittest
 
-from scripts.tests.awg_wire_validation import validate_wire_observation, validate_timer_observation, validate_cookie_observation
+from scripts.tests.awg_wire_validation import validate_wire_observation, validate_timer_observation, validate_cookie_observation, validate_negative_transport
 
 
 def small_cpa_observation():
@@ -325,6 +325,70 @@ class CookieSemantics(unittest.TestCase):
         bad["evidence"]["events"].append(event)
         with self.assertRaisesRegex(ValueError,"journal differs from histograms"):
             validate_cookie_observation(bad,1280,bad["scenario"])
+
+
+def negative_transport_observation():
+    from collections import Counter
+    result=small_cpa_observation()
+    result.update(scenario="negative-transport",elapsed_ns=1_000_000_000,handshakes=1,fresh_signature_packets=1)
+    events=[]
+    def event(time,direction,kind,length):
+        item=dict(id=len(events)+1,at_ns=int(time*1e9),direction=direction,type=kind,length=length)
+        if kind==4:item.update(receiver=101 if direction=="in" else 1,counter=len(events))
+        events.append(item)
+    event(0,"in",1,200);event(.01,"out",2,130);event(.02,"in",4,72);event(.1,"in",4,113)
+    phases=[]
+    modes=["corrupt","wrong-hp","foreign-source","replay","ambiguous","malformed-ip"]
+    for index,mode in enumerate(modes):
+        start=.2+index*.1
+        changed=mode in ("corrupt","wrong-hp","ambiguous")
+        count=2 if mode=="replay" else 1
+        original=str(index+1)*64
+        phase=dict(mode=mode,original_sha256=original,original_body_sha256="b"*64,
+                   wire_sha256=["a"*64 if changed else original]*count,
+                   wire_body_sha256=("c" if mode in ("corrupt","wrong-hp") else "b")*64,
+                   original_cipher_sha256="d"*64,wire_cipher_sha256=("e" if mode=="corrupt" else "d")*64,
+                   wire_ns=[int((start+i*.0001)*1e9) for i in range(count)],wire_length=356,
+                   different_source=mode=="foreign-source",malformed_ip=mode=="malformed-ip",
+                   fence_ns=int((start+.01)*1e9),ack_ns=int((start+.02)*1e9),restored_ns=0,confirmed_ns=0)
+        if mode not in ("wrong-hp","ambiguous"):
+            for index in range(count):event(start+.001+index*.001,"out",4,356)
+        if mode=="ambiguous":phase["headers"]=[101,202,303,425]
+        event(start+.011,"out",4,100+len("FENCE:"+mode));event(start+.019,"in",4,100+len("ACK:"+mode))
+        if mode in modes[:3]:
+            phase.update(restored_ns=int((start+.03)*1e9),confirmed_ns=int((start+.04)*1e9))
+            event(start+.031,"out",4,356);event(start+.039,"in",4,100+len("CONFIRMED:"+mode))
+        phases.append(phase)
+    event(.9,"out",4,114)
+    evidence=result["evidence"]
+    evidence.update(events=events,events_dropped=0,authenticated_keepalives=1)
+    evidence["lengths"]=[[dict(Counter(str(e["length"]) for e in events if e["direction"]==side and e["type"]==kind))
+                         for kind in range(1,5)] for side in ("in","out")]
+    evidence["ip_lengths"]=dict(Counter(str(e["length"]-72) for e in events if e["direction"]=="in" and e["type"]==4 and e["length"]>72))
+    evidence["peer_counters"]["rx_bytes"]=148+sum(e["length"]-24 for e in events if e["direction"]=="in" and e["type"]==4)
+    result["negative_transport"]=phases
+    return result
+
+
+class NegativeTransportSemantics(unittest.TestCase):
+    def test_mutations_fences_and_original_packet_recovery_are_required(self):
+        good=negative_transport_observation()
+        validate_negative_transport(good,1280)
+        mutations=(
+            (0,lambda p:p.update(wire_sha256=[p["original_sha256"]])),
+            (1,lambda p:p.update(wire_body_sha256=p["original_body_sha256"])),
+            (1,lambda p:p.update(wire_cipher_sha256="e"*64)),
+            (2,lambda p:p.update(different_source=False)),
+            (3,lambda p:p.update(wire_sha256=p["wire_sha256"][:1])),
+            (4,lambda p:p.update(headers=[101,202,303,1])),
+            (4,lambda p:p.update(wire_body_sha256="c"*64)),
+            (5,lambda p:p.update(malformed_ip=False)),
+            (0,lambda p:p.update(restored_ns=0,confirmed_ns=0)),
+            (1,lambda p:p.update(fence_ns=p["ack_ns"]+1)),
+        )
+        for index,mutation in mutations:
+            bad=copy.deepcopy(good);mutation(bad["negative_transport"][index])
+            with self.subTest(phase=index), self.assertRaises(ValueError):validate_negative_transport(bad,1280)
 
 
 if __name__ == "__main__":

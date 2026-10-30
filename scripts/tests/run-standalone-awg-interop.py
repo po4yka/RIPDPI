@@ -157,7 +157,7 @@ def run() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--peer", action="append", choices=PEERS)
     parser.add_argument("--profile", action="append", choices=PROFILES)
-    parser.add_argument("--scenario", action="append", choices=("payload", "small-datagrams", *WIRE.TIMER_SCENARIOS, *WIRE.COOKIE_SCENARIOS))
+    parser.add_argument("--scenario", action="append", choices=("payload", "small-datagrams", *WIRE.TIMER_SCENARIOS, *WIRE.COOKIE_SCENARIOS, *WIRE.NEGATIVE_SCENARIOS))
     parser.add_argument("--output-dir", type=Path, default=ROOT / "build/reports/awg-standalone" / str(time.time_ns()))
     parser.add_argument("--candidate-patch", action="store_true")
     args = parser.parse_args()
@@ -192,11 +192,11 @@ def run() -> None:
     shutil.copy2(executables[0], test_binary)
     identity["test_binary_sha256"] = hashlib.sha256(test_binary.read_bytes()).hexdigest()
     versions, profiles = args.peer or list(PEERS), args.profile or list(PROFILES)
-    scenarios = args.scenario or ["payload", "small-datagrams", *((WIRE.TIMER_SCENARIOS + WIRE.COOKIE_SCENARIOS) if "v3-cpa-trailers" in profiles else ())]
-    if any(scenario in WIRE.TIMER_SCENARIOS + WIRE.COOKIE_SCENARIOS for scenario in scenarios) and "v3-cpa-trailers" not in profiles:
+    scenarios = args.scenario or ["payload", "small-datagrams", *((WIRE.TIMER_SCENARIOS + WIRE.COOKIE_SCENARIOS + WIRE.NEGATIVE_SCENARIOS) if "v3-cpa-trailers" in profiles else ())]
+    if any(scenario in WIRE.TIMER_SCENARIOS + WIRE.COOKIE_SCENARIOS + WIRE.NEGATIVE_SCENARIOS for scenario in scenarios) and "v3-cpa-trailers" not in profiles:
         parser.error("timer scenarios require --profile v3-cpa-trailers")
     report = {"schema_version": 1, "identity": identity, "requested_peers": versions,
-              "requested_profiles": profiles, "requested_scenarios": scenarios, "mtus": [1280, 1420], "cycles_by_scenario": {s: 1 if s in WIRE.TIMER_SCENARIOS + WIRE.COOKIE_SCENARIOS else 4 for s in scenarios}, "peer_builds": [], "cases": []}
+              "requested_profiles": profiles, "requested_scenarios": scenarios, "mtus": [1280, 1420], "cycles_by_scenario": {s: 1 if s in WIRE.TIMER_SCENARIOS + WIRE.COOKIE_SCENARIOS + WIRE.NEGATIVE_SCENARIOS else 4 for s in scenarios}, "peer_builds": [], "cases": []}
     failed = False
     for version in versions:
         try:
@@ -210,9 +210,9 @@ def run() -> None:
         digest = hashlib.sha256(binary.read_bytes()).hexdigest()
         for profile in profiles:
             for scenario in scenarios:
-                if scenario in WIRE.TIMER_SCENARIOS + WIRE.COOKIE_SCENARIOS and profile != "v3-cpa-trailers":
+                if scenario in WIRE.TIMER_SCENARIOS + WIRE.COOKIE_SCENARIOS + WIRE.NEGATIVE_SCENARIOS and profile != "v3-cpa-trailers":
                     continue
-                cycles = 1 if scenario in WIRE.TIMER_SCENARIOS + WIRE.COOKIE_SCENARIOS else 4
+                cycles = 1 if scenario in WIRE.TIMER_SCENARIOS + WIRE.COOKIE_SCENARIOS + WIRE.NEGATIVE_SCENARIOS else 4
                 for mtu in (1280, 1420):
                     case = output / f"{version}-{profile}-{scenario}-{mtu}"
                     case.mkdir()
@@ -222,7 +222,9 @@ def run() -> None:
                     try:
                         result["observation"] = run_case(binary, test_binary, case,
                             dict(env, RIPDPI_AWG_PROFILE=profile, RIPDPI_AWG_SCENARIO=scenario, RIPDPI_AWG_INTEROP_MTU=str(mtu), RIPDPI_AWG_INTEROP_CYCLES=str(cycles)), cycles)
-                        if scenario in WIRE.COOKIE_SCENARIOS:
+                        if scenario in WIRE.NEGATIVE_SCENARIOS:
+                            WIRE.validate_negative_transport(result["observation"], mtu)
+                        elif scenario in WIRE.COOKIE_SCENARIOS:
                             WIRE.validate_cookie_observation(result["observation"], mtu, scenario)
                         elif scenario in WIRE.TIMER_SCENARIOS:
                             WIRE.validate_timer_observation(result["observation"], mtu, scenario)

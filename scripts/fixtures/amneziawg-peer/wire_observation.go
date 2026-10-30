@@ -100,6 +100,7 @@ type wireObservation struct {
 	profile   wireProfile
 	scenario  string
 	cookies   *cookieExercise
+	transport *transportExercise
 	responses int
 	evidence  wireEvidence
 	// Protected profile only: raw headers inside a configured range, handshake trailers, transport sizes.
@@ -255,6 +256,9 @@ func (o *wireObservation) finish(cycles int) error {
 		result["headers_in_clear"] = o.clearHeaders
 		result["handshake_trailers"] = o.trailers
 		result["inbound_transport_sizes"] = len(o.transportSizes)
+	}
+	if o.transport != nil {
+		result["negative_transport"] = o.transport.report()
 	}
 	if o.cookies != nil {
 		result["cookies"] = o.cookies.report()

@@ -34,6 +34,7 @@ type loopbackBind struct {
 	socket      *net.UDPConn
 	observation wireObservation
 	cookies     *cookieExercise
+	transport   *transportExercise
 }
 
 func newPeerBind() (*loopbackBind, error) {
@@ -124,6 +125,15 @@ func (b *loopbackBind) Send(packets [][]byte, endpoint conn.Endpoint) error {
 		return net.ErrClosed
 	}
 	for _, packet := range packets {
+		if b.transport != nil {
+			handled, err := b.transport.send(packet, socket, target.AddrPort)
+			if err != nil {
+				return err
+			}
+			if handled {
+				continue
+			}
+		}
 		if b.observation.observe(packet, false) {
 			continue
 		}
@@ -291,13 +301,14 @@ func run() error {
 		}
 	}
 	scenario := os.Getenv("RIPDPI_AWG_SCENARIO")
-	if scenario != "" && scenario != "payload" && scenario != "small-datagrams" && scenario != "timer-persistent" && scenario != "timer-idle" && scenario != "timer-retry-loss" && scenario != "timer-rekey" && scenario != "timer-retry-exhaust" && scenario != "timer-reject" && scenario != "cookies-enabled" && scenario != "cookies-disabled" {
+	if scenario != "" && scenario != "payload" && scenario != "small-datagrams" && scenario != "timer-persistent" && scenario != "timer-idle" && scenario != "timer-retry-loss" && scenario != "timer-rekey" && scenario != "timer-retry-exhaust" && scenario != "timer-reject" && scenario != "cookies-enabled" && scenario != "cookies-disabled" && scenario != "negative-transport" {
 		return errors.New("unknown fixture scenario")
 	}
+	transport := scenario == "negative-transport"
 	cookie := strings.HasPrefix(scenario, "cookies-")
 	timed := strings.HasPrefix(scenario, "timer-")
-	small := scenario == "small-datagrams" || timed || cookie
-	if (timed || cookie) && (cycles != 1 || os.Getenv("RIPDPI_AWG_PROFILE") != "v3-cpa-trailers") {
+	small := scenario == "small-datagrams" || timed || cookie || transport
+	if (timed || cookie || transport) && (cycles != 1 || os.Getenv("RIPDPI_AWG_PROFILE") != "v3-cpa-trailers") {
 		return errors.New("timer scenarios require one session and v3-cpa-trailers")
 	}
 	profile, err := selectWireProfile(os.Getenv("RIPDPI_AWG_PROFILE"))
@@ -340,7 +351,7 @@ func run() error {
 		return err
 	}
 	bind.observation.profile = profile
-	if timed || cookie {
+	if timed || cookie || transport {
 		bind.observation.scenario = scenario
 	}
 	if cookie {
@@ -348,7 +359,15 @@ func run() error {
 		bind.observation.cookies = bind.cookies
 		bind.observation.evidence.start = bind.cookies.started
 	}
+	if transport {
+		bind.transport = newTransportExercise(bind, profile)
+		bind.observation.transport = bind.transport
+		bind.observation.evidence.start = bind.transport.start
+	}
 	configured := newConfiguredTUN(tun)
+	if transport {
+		configured.mutateIP = bind.transport.mutateIP
+	}
 	configured.acceptedIP = bind.observation.acceptedIP
 	peer := device.NewDevice(configured, bind, &device.Logger{Verbosef: bind.observation.verbose, Errorf: device.DiscardLogf})
 	defer peer.Close()
@@ -417,7 +436,9 @@ func run() error {
 		}
 		results <- nil
 	}
-	if cookie {
+	if transport {
+		go serve(func() error { return bind.transport.run(first) })
+	} else if cookie {
 		go serve(func() error { return bind.cookies.run(first, scenario == "cookies-disabled") })
 	} else if scenario != "timer-persistent" && scenario != "timer-retry-exhaust" {
 		go serve(func() error {

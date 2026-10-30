@@ -167,7 +167,8 @@ prove those acceptance categories or production DPI behavior.
 checks both Go revisions, seven named profiles, MTU 1280/1420, and four sessions
 per case, for both payload and small-datagram scenarios (56 cases). Six timer
 scenarios add 24 single-session cases on `v3-cpa-trailers`. Two cookie policies
-add eight more cases on that profile. `--peer`,
+add eight more cases on that profile. Negative transport adds four cases, each
+with six rejection/acceptance phases. `--peer`,
 `--profile`, and `--scenario` select a smaller diagnostic run; its receipt
 lists the selected cases. Use `--candidate-patch` only for local development; new
 files must be staged so the archived patch includes them. JSON and logs are kept
@@ -196,6 +197,13 @@ must advance before each fresh initiation. An authenticated UDP FENCE/ACK pair
 provides a receive-queue barrier within each admission window. This ordering
 claim is limited to the owned loopback flow; it is not a WAN loss/reordering
 guarantee. Cookie source-address/port binding remains backend-unit evidence.
+Negative transport isolates corrupt AEAD, wrong HP, a foreign source port,
+replay, three false header candidates before a valid H4, and authenticated
+IPv4 with an invalid declared length. FENCE/ACK preserves observable receive
+order. Corrupt/HP/source cases then resend the exact original packet and
+require application confirmation. Wrong HP changes only the 16-byte header;
+its AEAD ciphertext and tag stay unchanged. Malformed-IP evidence establishes
+application non-delivery; backend tests own its readiness/window/timer effects.
 Android evidence v2
 uses the same validator; a schema upgrade does not replace a fresh device run.
 

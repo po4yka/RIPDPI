@@ -74,6 +74,7 @@ async fn exchange(runtime: &AmneziaWgRuntime, ready: &Notify) -> Result<Option<(
     match std::env::var("RIPDPI_AWG_SCENARIO").unwrap_or_else(|_| "payload".into()).as_str() {
         "small-datagrams" | "timer-retry-loss" => exchange_small_datagrams(address).await?,
         "cookies-enabled" | "cookies-disabled" => exchange_cookies(address).await?,
+        "negative-transport" => exchange_negative_transport(address).await?,
         "timer-persistent" => tokio::time::sleep(Duration::from_millis(6200)).await,
         "timer-idle" => {
             exchange_small_datagrams(address).await?;
@@ -238,6 +239,42 @@ async fn exchange_cookies(address: SocketAddr) -> Result<()> {
     let mut bytes = [0; 512];
     let (size, source) = udp.recv_from(&mut bytes).await?;
     ensure!(source == relay && bytes[..size] == udp_frame(41002, b"DONE:cookie"), "cookie recovery completion differs");
+    Ok(())
+}
+
+/// # Cancel safety
+/// cancel-safe: owned association and socket drop on timeout; no datagram is consumed by cancellation.
+async fn exchange_negative_transport(address: SocketAddr) -> Result<()> {
+    let (_control, relay) = socks_request(address, 3, SocketAddr::from((Ipv4Addr::UNSPECIFIED, 0))).await?;
+    ensure!(relay.ip().is_loopback() && relay.port() != 0, "unsafe negative-probe relay");
+    let udp = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await?;
+    udp.send_to(&udp_frame(41002, b"ARM:transport"), relay).await?;
+    for mode in ["corrupt", "wrong-hp", "foreign-source", "replay", "ambiguous", "malformed-ip"] {
+        let mut payload = [b'x'; 256];
+        let marker = format!("DATA:{mode}:");
+        payload[..marker.len()].copy_from_slice(marker.as_bytes());
+        if mode == "replay" || mode == "ambiguous" {
+            receive_probe(&udp, relay, &payload).await?;
+        }
+        receive_probe(&udp, relay, format!("FENCE:{mode}").as_bytes()).await?;
+        udp.send_to(&udp_frame(41002, format!("ACK:{mode}").as_bytes()), relay).await?;
+        if matches!(mode, "corrupt" | "wrong-hp" | "foreign-source") {
+            receive_probe(&udp, relay, &payload).await?;
+            udp.send_to(&udp_frame(41002, format!("CONFIRMED:{mode}").as_bytes()), relay).await?;
+        }
+    }
+    receive_probe(&udp, relay, b"DONE:transport").await
+}
+
+/// # Cancel safety
+/// cancel-safe: recv_from cancellation consumes no datagram; the caller owns the socket.
+async fn receive_probe(udp: &UdpSocket, relay: SocketAddr, payload: &[u8]) -> Result<()> {
+    let mut bytes = [0; 512];
+    let (size, source) = udp.recv_from(&mut bytes).await?;
+    ensure!(
+        source == relay && bytes[..size] == udp_frame(41002, payload),
+        "negative probe delivered a rejected/duplicate packet or lost valid payload"
+    );
     Ok(())
 }
 

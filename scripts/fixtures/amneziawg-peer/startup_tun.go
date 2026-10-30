@@ -14,6 +14,7 @@ type configuredTUN struct {
 	release    sync.Once
 	firstRead  sync.Once
 	acceptedIP func([]int)
+	mutateIP   func([][]byte, []int, int, int)
 }
 
 func newConfiguredTUN(inner tun.Device) *configuredTUN {
@@ -28,7 +29,11 @@ func (t *configuredTUN) Read(bufs [][]byte, sizes []int, offset int) (int, error
 	if first {
 		return 0, nil
 	}
-	return t.Device.Read(bufs, sizes, offset)
+	count, err := t.Device.Read(bufs, sizes, offset)
+	if t.mutateIP != nil && count > 0 {
+		t.mutateIP(bufs, sizes, offset, count)
+	}
+	return count, err
 }
 
 func (t *configuredTUN) Close() error {
