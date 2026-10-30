@@ -2,7 +2,7 @@
 id: UIX-1793256778917552
 title: Adopt the Material 3 theme foundation
 kind: feature
-status: doing
+status: review
 area: ui
 priority: high
 owner: UI overhaul
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: m3-theme-foundation
 created: 2026-10-29
-updated: 2026-10-29
+updated: 2026-10-30
 ---
 
 ## Goal
