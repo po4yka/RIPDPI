@@ -1,16 +1,12 @@
 package com.poyka.ripdpi.ui.journeys.diagnostics
 
 import androidx.compose.ui.state.ToggleableState
-import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performTextReplacement
 import com.poyka.ripdpi.activities.HistorySection
 import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
 import com.poyka.ripdpi.integration.automationLaunchIntent
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -29,38 +25,40 @@ class HistoryEventsKaspressoTest :
             dataPreset = AutomationDataPreset.DiagnosticsDemo,
         ),
     ) {
-    private fun hasEvent(message: String): Boolean = composeRule.exists(hasText(message, substring = true))
+    private fun HistoryPage.hasEvent(message: String): Boolean = textShown(message)
 
-    private fun openEvents() {
-        composeRule.waitForTag(RipDpiTestTags.screen(Route.History))
-        composeRule.clickTag(RipDpiTestTags.historySection(HistorySection.Events))
-        composeRule.waitForTag(RipDpiTestTags.HistoryEventsSearch)
-        composeRule.waitUntil(timeoutMillis = 10_000) { hasEvent(StartedEvent) }
+    private fun HistoryPage.openEvents() {
+        awaitScreen()
+        click(section(HistorySection.Events))
+        waitFor(eventsSearch)
+        rule.waitUntil(timeoutMillis = 10_000) { hasEvent(StartedEvent) }
     }
 
-    private fun filterCountShown(count: Int): Boolean =
-        composeRule.exists(
-            hasTestTag(RipDpiTestTags.historyFilterDisclosure(RipDpiTestTags.HistoryEventsSearch)) and
-                hasText("· $count", substring = true),
-        )
+    private fun HistoryPage.filterCountShown(count: Int): Boolean = filterCountShown(eventsSearch, count)
 
     @Test
     fun allThreeSectionsAreOfferedAndConnectionsIsEmpty() =
         run {
             step("The sections are present") {
-                composeRule.waitForTag(RipDpiTestTags.screen(Route.History))
-                HistorySection.entries.forEach { section ->
-                    assertTrue(composeRule.tagExists(RipDpiTestTags.historySection(section)))
+                with(HistoryPage(composeRule)) {
+                    awaitScreen()
+                    HistorySection.entries.forEach { entry ->
+                        assertTrue(exists(section(entry)))
+                    }
                 }
             }
             step("Connections has no history: empty state and no search field") {
-                composeRule.clickTag(RipDpiTestTags.historySection(HistorySection.Connections))
-                composeRule.waitForTag(RipDpiTestTags.HistoryConnectionsStateEmpty)
-                assertFalse(composeRule.tagExists(RipDpiTestTags.HistoryConnectionsSearch))
+                with(HistoryPage(composeRule)) {
+                    click(section(HistorySection.Connections))
+                    waitFor(connectionsStateEmpty)
+                    assertFalse(exists(connectionsSearch))
+                }
             }
             step("Diagnostics has no reports: empty state") {
-                composeRule.clickTag(RipDpiTestTags.historySection(HistorySection.Diagnostics))
-                composeRule.waitForTag(RipDpiTestTags.HistoryDiagnosticsStateEmpty)
+                with(HistoryPage(composeRule)) {
+                    click(section(HistorySection.Diagnostics))
+                    waitFor(diagnosticsStateEmpty)
+                }
             }
         }
 
@@ -68,54 +66,58 @@ class HistoryEventsKaspressoTest :
     fun searchNarrowsTheEventList() =
         run {
             step("Both seeded events are listed") {
-                openEvents()
-                assertTrue(hasEvent(RetriedEvent))
+                with(HistoryPage(composeRule)) {
+                    openEvents()
+                    assertTrue(hasEvent(RetriedEvent))
+                }
             }
             step("A query keeps only the matching event") {
-                composeRule
-                    .onAllNodes(hasTestTag(RipDpiTestTags.HistoryEventsSearch))
-                    .onFirst()
-                    .performTextReplacement("retried")
-                composeRule.waitUntil(timeoutMillis = 5_000) { !hasEvent(StartedEvent) }
-                assertTrue(hasEvent(RetriedEvent))
-                composeRule.waitUntil(timeoutMillis = 5_000) { filterCountShown(1) }
+                with(HistoryPage(composeRule)) {
+                    node(eventsSearch).performTextReplacement("retried")
+                    rule.waitUntil(timeoutMillis = 5_000) { !hasEvent(StartedEvent) }
+                    assertTrue(hasEvent(RetriedEvent))
+                    rule.waitUntil(timeoutMillis = 5_000) { filterCountShown(1) }
+                }
             }
             step("A query without matches shows the no-results state and clearing restores both events") {
-                composeRule
-                    .onAllNodes(hasTestTag(RipDpiTestTags.HistoryEventsSearch))
-                    .onFirst()
-                    .performTextReplacement("no-such-event-7d4f07")
-                composeRule.waitForTag(RipDpiTestTags.HistoryNoResults)
-                composeRule.clickTag(RipDpiTestTags.HistoryEmptyClearFilters)
-                composeRule.waitUntil(timeoutMillis = 5_000) { hasEvent(StartedEvent) && hasEvent(RetriedEvent) }
+                with(HistoryPage(composeRule)) {
+                    node(eventsSearch).performTextReplacement("no-such-event-7d4f07")
+                    waitFor(noResults)
+                    click(emptyClearFilters)
+                    rule.waitUntil(timeoutMillis = 5_000) { hasEvent(StartedEvent) && hasEvent(RetriedEvent) }
+                }
             }
         }
 
     @Test
     fun severityChipFiltersAndClearAllRestores() =
         run {
-            val disclosure = RipDpiTestTags.historyFilterDisclosure(RipDpiTestTags.HistoryEventsSearch)
             step("The disclosure reveals the filter options and the auto-scroll switch") {
-                openEvents()
-                assertFalse(
-                    composeRule.tagExists(RipDpiTestTags.historyFilterOptions(RipDpiTestTags.HistoryEventsSearch)),
-                )
-                composeRule.clickTag(disclosure)
-                composeRule.waitForTag(RipDpiTestTags.historyFilterOptions(RipDpiTestTags.HistoryEventsSearch))
-                composeRule.requireTag(RipDpiTestTags.HistoryEventsAutoScroll)
+                with(HistoryPage(composeRule)) {
+                    val disclosure = filterDisclosure(eventsSearch)
+                    openEvents()
+                    assertFalse(exists(filterOptions(eventsSearch)))
+                    click(disclosure)
+                    waitFor(filterOptions(eventsSearch))
+                    require(eventsAutoScroll)
+                }
             }
             step("Selecting the warn severity leaves only the retried event") {
-                val warn = RipDpiTestTags.historyEventSeverityFilter("warn")
-                composeRule.clickTag(warn)
-                composeRule.waitUntil(timeoutMillis = 5_000) { !hasEvent(StartedEvent) }
-                assertTrue(hasEvent(RetriedEvent))
-                composeRule.waitUntil(timeoutMillis = 5_000) { composeRule.isSelected(warn) }
-                assertTrue(filterCountShown(1))
+                with(HistoryPage(composeRule)) {
+                    val warn = eventSeverityFilter("warn")
+                    click(warn)
+                    rule.waitUntil(timeoutMillis = 5_000) { !hasEvent(StartedEvent) }
+                    assertTrue(hasEvent(RetriedEvent))
+                    rule.waitUntil(timeoutMillis = 5_000) { isSelected(warn) }
+                    assertTrue(filterCountShown(1))
+                }
             }
             step("Clear all removes the filter and restores the list") {
-                composeRule.clickTag(RipDpiTestTags.HistoryFilterClearAll)
-                composeRule.waitUntil(timeoutMillis = 5_000) { hasEvent(StartedEvent) && hasEvent(RetriedEvent) }
-                assertTrue(filterCountShown(0))
+                with(HistoryPage(composeRule)) {
+                    click(filterClearAll)
+                    rule.waitUntil(timeoutMillis = 5_000) { hasEvent(StartedEvent) && hasEvent(RetriedEvent) }
+                    assertTrue(filterCountShown(0))
+                }
             }
         }
 
@@ -123,13 +125,13 @@ class HistoryEventsKaspressoTest :
     fun autoScrollSwitchFlips() =
         run {
             step("Auto-scroll is on by default and toggles off") {
-                openEvents()
-                composeRule.clickTag(RipDpiTestTags.historyFilterDisclosure(RipDpiTestTags.HistoryEventsSearch))
-                composeRule.waitForTag(RipDpiTestTags.HistoryEventsAutoScroll)
-                assertEquals(ToggleableState.On, composeRule.toggleState(RipDpiTestTags.HistoryEventsAutoScroll))
-                composeRule.clickTag(RipDpiTestTags.HistoryEventsAutoScroll)
-                composeRule.waitUntil(timeoutMillis = 5_000) {
-                    composeRule.toggleState(RipDpiTestTags.HistoryEventsAutoScroll) == ToggleableState.Off
+                with(HistoryPage(composeRule)) {
+                    openEvents()
+                    click(filterDisclosure(eventsSearch))
+                    waitFor(eventsAutoScroll)
+                    assertEquals(ToggleableState.On, toggleState(eventsAutoScroll))
+                    click(eventsAutoScroll)
+                    rule.waitUntil(timeoutMillis = 5_000) { toggleState(eventsAutoScroll) == ToggleableState.Off }
                 }
             }
         }

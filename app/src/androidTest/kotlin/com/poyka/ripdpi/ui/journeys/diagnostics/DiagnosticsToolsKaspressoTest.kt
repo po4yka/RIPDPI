@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.journeys.diagnostics
 
 import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.performClick
@@ -11,7 +10,6 @@ import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
 import com.poyka.ripdpi.integration.automationLaunchIntent
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -26,26 +24,23 @@ class DiagnosticsToolsKaspressoTest :
             dataPreset = AutomationDataPreset.DiagnosticsDemo,
         ),
     ) {
-    private fun openSection(section: DiagnosticsSection) {
-        composeRule.waitForTag(RipDpiTestTags.screen(Route.Diagnostics()))
-        composeRule.clickTag(RipDpiTestTags.diagnosticsSection(section))
-    }
-
-    private fun openExpertTools() {
+    private fun DiagnosticsPage.openExpertTools() {
         openSection(DiagnosticsSection.Tools)
-        composeRule.clickTag(RipDpiTestTags.DiagnosticsExpertToggle)
-        composeRule.waitUntil(timeoutMillis = 10_000) { composeRule.revealTag(RipDpiTestTags.DiagnosticsShareArchive) }
+        click(expertToggle)
+        rule.waitUntil(timeoutMillis = 10_000) { reveal(shareArchive) }
     }
 
     @Test
     fun allThreeSectionsAreReachableFromTheTabs() =
         run {
             step("Every diagnostics section tab is shown, the dashboard hero is the landing content") {
-                composeRule.waitForTag(RipDpiTestTags.screen(Route.Diagnostics()))
-                DiagnosticsSection.entries.forEach { section ->
-                    assertTrue(composeRule.tagExists(RipDpiTestTags.diagnosticsSection(section)))
+                with(DiagnosticsPage(composeRule)) {
+                    awaitScreen()
+                    DiagnosticsSection.entries.forEach { entry ->
+                        assertTrue(exists(section(entry)))
+                    }
+                    waitFor(overviewHero)
                 }
-                composeRule.waitForTag(RipDpiTestTags.DiagnosticsOverviewHero)
             }
         }
 
@@ -53,22 +48,20 @@ class DiagnosticsToolsKaspressoTest :
     fun idleScanSectionOffersBothRunActions() =
         run {
             step("Scan section is idle, not content or progress") {
-                openSection(DiagnosticsSection.Scan)
-                composeRule.waitUntil(timeoutMillis = 10_000) {
-                    composeRule.revealTag(RipDpiTestTags.DiagnosticsScanStateIdle)
+                with(DiagnosticsPage(composeRule)) {
+                    openSection(DiagnosticsSection.Scan)
+                    rule.waitUntil(timeoutMillis = 10_000) { reveal(scanStateIdle) }
+                    assertFalse(exists(scanStateContent))
+                    assertFalse(exists(scanStateProgress))
                 }
-                assertFalse(composeRule.tagExists(RipDpiTestTags.DiagnosticsScanStateContent))
-                assertFalse(composeRule.tagExists(RipDpiTestTags.DiagnosticsScanStateProgress))
             }
             step("Raw and in-path run actions are enabled for the selected profile") {
-                assertTrue(composeRule.revealTag(RipDpiTestTags.DiagnosticsScanRunRawAction))
-                composeRule
-                    .onAllNodes(
-                        hasTestTag(RipDpiTestTags.DiagnosticsScanRunRawAction),
-                    ).onFirst()
-                    .assertIsEnabled()
-                assertTrue(composeRule.revealTag(RipDpiTestTags.DiagnosticsScanRunInPathAction))
-                assertFalse(composeRule.tagExists(RipDpiTestTags.DiagnosticsScanCancelAction))
+                with(DiagnosticsPage(composeRule)) {
+                    assertTrue(reveal(scanRunRawAction))
+                    node(scanRunRawAction).assertIsEnabled()
+                    assertTrue(reveal(scanRunInPathAction))
+                    assertFalse(exists(scanCancelAction))
+                }
             }
         }
 
@@ -76,40 +69,54 @@ class DiagnosticsToolsKaspressoTest :
     fun shareAndSaveActionsAreEnabledInExpertTools() =
         run {
             step("Expert mode reveals the archive, summary and log actions") {
-                openExpertTools()
-                assertTrue(composeRule.revealTag(RipDpiTestTags.DiagnosticsSaveArchive))
-                assertTrue(composeRule.revealTag(RipDpiTestTags.DiagnosticsShareSummary))
-                assertTrue(composeRule.revealTag(RipDpiTestTags.DiagnosticsSaveLogs))
-                assertTrue(composeRule.revealTag(RipDpiTestTags.DiagnosticsOpenLogs))
+                with(DiagnosticsPage(composeRule)) {
+                    openExpertTools()
+                    assertTrue(reveal(saveArchive))
+                    assertTrue(reveal(shareSummary))
+                    assertTrue(reveal(saveLogs))
+                    assertTrue(reveal(openLogs))
+                }
             }
             step("The archive actions are enabled") {
-                composeRule.requireTag(RipDpiTestTags.DiagnosticsShareArchive)
-                composeRule.onAllNodes(hasTestTag(RipDpiTestTags.DiagnosticsShareArchive)).onFirst().assertIsEnabled()
-                composeRule.requireTag(RipDpiTestTags.DiagnosticsSaveArchive)
-                composeRule.onAllNodes(hasTestTag(RipDpiTestTags.DiagnosticsSaveArchive)).onFirst().assertIsEnabled()
+                with(DiagnosticsPage(composeRule)) {
+                    require(shareArchive)
+                    node(shareArchive).assertIsEnabled()
+                    require(saveArchive)
+                    node(saveArchive).assertIsEnabled()
+                }
             }
         }
 
     @Test
     fun approachChipsSwitchBetweenProfilesAndStrategies() =
         run {
-            val profiles = RipDpiTestTags.diagnosticsApproachMode(DiagnosticsApproachMode.Profiles)
-            val strategies = RipDpiTestTags.diagnosticsApproachMode(DiagnosticsApproachMode.Strategies)
             step("Profiles is the default mode") {
-                openExpertTools()
-                assertTrue(composeRule.revealTag(profiles))
-                assertTrue(composeRule.isSelected(profiles))
-                assertFalse(composeRule.isSelected(strategies))
+                with(DiagnosticsPage(composeRule)) {
+                    val profiles = approachMode(DiagnosticsApproachMode.Profiles)
+                    val strategies = approachMode(DiagnosticsApproachMode.Strategies)
+                    openExpertTools()
+                    assertTrue(reveal(profiles))
+                    assertTrue(isSelected(profiles))
+                    assertFalse(isSelected(strategies))
+                }
             }
             step("Selecting Strategies deselects Profiles") {
-                composeRule.clickTag(strategies)
-                composeRule.waitUntil(timeoutMillis = 5_000) { composeRule.isSelected(strategies) }
-                assertFalse(composeRule.isSelected(profiles))
+                with(DiagnosticsPage(composeRule)) {
+                    val profiles = approachMode(DiagnosticsApproachMode.Profiles)
+                    val strategies = approachMode(DiagnosticsApproachMode.Strategies)
+                    click(strategies)
+                    rule.waitUntil(timeoutMillis = 5_000) { isSelected(strategies) }
+                    assertFalse(isSelected(profiles))
+                }
             }
             step("Selecting Profiles switches back") {
-                composeRule.clickTag(profiles)
-                composeRule.waitUntil(timeoutMillis = 5_000) { composeRule.isSelected(profiles) }
-                assertFalse(composeRule.isSelected(strategies))
+                with(DiagnosticsPage(composeRule)) {
+                    val profiles = approachMode(DiagnosticsApproachMode.Profiles)
+                    val strategies = approachMode(DiagnosticsApproachMode.Strategies)
+                    click(profiles)
+                    rule.waitUntil(timeoutMillis = 5_000) { isSelected(profiles) }
+                    assertFalse(isSelected(strategies))
+                }
             }
         }
 
@@ -117,16 +124,20 @@ class DiagnosticsToolsKaspressoTest :
     fun openLogsFromToolsAndBackReturnsToDiagnostics() =
         run {
             step("The Logs action opens the logs screen") {
-                openExpertTools()
-                composeRule.requireTag(RipDpiTestTags.DiagnosticsOpenLogs)
-                // The tag sits on the whole card; the Manage button is the clickable part.
-                composeRule.onAllNodes(hasText("Manage")).onFirst().performClick()
-                composeRule.waitForTag(RipDpiTestTags.LogsScreen)
+                with(DiagnosticsPage(composeRule)) {
+                    openExpertTools()
+                    require(openLogs)
+                    // The tag sits on the whole card; the Manage button is the clickable part.
+                    rule.onAllNodes(hasText("Manage")).onFirst().performClick()
+                }
+                with(LogsPage(composeRule)) { awaitScreen() }
             }
             step("Back returns to diagnostics") {
-                composeRule.pressBack()
-                composeRule.waitForTag(RipDpiTestTags.screen(Route.Diagnostics()))
-                assertFalse(composeRule.tagExists(RipDpiTestTags.LogsScreen))
+                with(DiagnosticsPage(composeRule)) {
+                    pressBack()
+                    awaitScreen()
+                    assertFalse(LogsPage(rule).exists(LogsPage(rule).screenTag))
+                }
             }
         }
 }

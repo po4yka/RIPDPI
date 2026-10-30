@@ -3,10 +3,6 @@ package com.poyka.ripdpi.ui.journeys.diagnostics
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.hasAnyAncestor
-import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onFirst
 import com.poyka.ripdpi.activities.LogSeverity
 import com.poyka.ripdpi.activities.LogSubsystem
 import com.poyka.ripdpi.automation.AutomationDataPreset
@@ -19,7 +15,6 @@ import com.poyka.ripdpi.integration.RipDpiKaspressoTest
 import com.poyka.ripdpi.integration.automationLaunchIntent
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.ExportPreviewTestTags
-import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -41,52 +36,44 @@ class LogsKaspressoTest :
     @Inject
     lateinit var serviceStateStore: ServiceStateStore
 
-    private fun openFilters() {
-        composeRule.clickTag(RipDpiTestTags.LogsFilters)
-        composeRule.waitForTag(RipDpiTestTags.LogsFiltersSheet)
-    }
+    private fun LogsPage.failureRowShown(): Boolean = rowShown(FailureText)
 
-    private fun closeSheet() {
-        composeRule.clickTag(RipDpiTestTags.LogsSheetDone)
-        composeRule.waitForNoTag(RipDpiTestTags.LogsFiltersSheet)
-    }
-
-    // A service failure is also surfaced outside the logs screen, so only count rows inside the stream.
-    private fun failureRowShown(): Boolean =
-        composeRule.exists(
-            hasText(FailureText, substring = true) and hasAnyAncestor(hasTestTag(RipDpiTestTags.LogsStream)),
-        )
-
-    private fun publishServiceHistory() {
+    private fun LogsPage.publishServiceHistory() {
         // StateFlow conflates back-to-back writes, so let the first lifecycle row land before the next status.
         serviceStateStore.setStatus(AppStatus.Running, Mode.VPN)
-        composeRule.waitForTag(RipDpiTestTags.LogsStream)
+        waitFor(stream)
         serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
         serviceStateStore.emitFailed(Sender.Proxy, FailureReason.NativeError(FailureText))
-        composeRule.waitForTag(RipDpiTestTags.LogsStream)
-        composeRule.waitUntil(timeoutMillis = 10_000) { failureRowShown() }
+        waitFor(stream)
+        rule.waitUntil(timeoutMillis = 10_000) { failureRowShown() }
     }
 
     @Test
     fun emptyBufferOffersSaveButNoClear() =
         run {
             step("An empty buffer shows the empty state and no stream") {
-                composeRule.waitForTag(RipDpiTestTags.LogsScreen)
-                composeRule.waitForTag(RipDpiTestTags.LogsEmptyState)
-                assertFalse(composeRule.tagExists(RipDpiTestTags.LogsStream))
+                with(LogsPage(composeRule)) {
+                    awaitScreen()
+                    waitFor(emptyState)
+                    assertFalse(exists(stream))
+                }
             }
             step("Actions sheet: save is enabled, clear is disabled") {
-                composeRule.clickTag(RipDpiTestTags.LogsActions)
-                composeRule.waitForTag(RipDpiTestTags.LogsSave)
-                composeRule.onAllNodes(hasTestTag(RipDpiTestTags.LogsSave)).onFirst().assertIsEnabled()
-                composeRule.onAllNodes(hasTestTag(RipDpiTestTags.LogsClear)).onFirst().assertIsNotEnabled()
+                with(LogsPage(composeRule)) {
+                    click(actions)
+                    waitFor(save)
+                    node(save).assertIsEnabled()
+                    node(clear).assertIsNotEnabled()
+                }
             }
             step("Save opens the in-app export preview and cancel returns to the logs") {
-                composeRule.clickTag(RipDpiTestTags.LogsSave)
-                composeRule.waitForTag(ExportPreviewTestTags.Content, timeoutMillis = 30_000)
-                composeRule.clickTag(ExportPreviewTestTags.Cancel)
-                composeRule.waitForNoTag(ExportPreviewTestTags.Content)
-                assertTrue(composeRule.tagExists(RipDpiTestTags.LogsScreen))
+                with(LogsPage(composeRule)) {
+                    click(save)
+                    waitFor(ExportPreviewTestTags.Content, timeoutMillis = 30_000)
+                    click(ExportPreviewTestTags.Cancel)
+                    waitGone(ExportPreviewTestTags.Content)
+                    assertTrue(exists(screenTag))
+                }
             }
         }
 
@@ -94,44 +81,46 @@ class LogsKaspressoTest :
     fun filterControlsFlipAndSummaryTracksSelection() =
         run {
             step("Auto-scroll and active-session switches toggle") {
-                composeRule.waitForTag(RipDpiTestTags.LogsScreen)
-                openFilters()
-                val autoBefore = composeRule.toggleState(RipDpiTestTags.LogsAutoScroll)
-                assertEquals(ToggleableState.On, autoBefore)
-                composeRule.clickTag(RipDpiTestTags.LogsAutoScroll)
-                composeRule.waitUntil(timeoutMillis = 5_000) {
-                    composeRule.toggleState(RipDpiTestTags.LogsAutoScroll) == ToggleableState.Off
-                }
-                val sessionBefore = composeRule.toggleState(RipDpiTestTags.LogsActiveSessionOnly)
-                assertEquals(ToggleableState.Off, sessionBefore)
-                composeRule.clickTag(RipDpiTestTags.LogsActiveSessionOnly)
-                composeRule.waitUntil(timeoutMillis = 5_000) {
-                    composeRule.toggleState(RipDpiTestTags.LogsActiveSessionOnly) == ToggleableState.On
+                with(LogsPage(composeRule)) {
+                    awaitScreen()
+                    openFilters()
+                    val autoBefore = toggleState(autoScroll)
+                    assertEquals(ToggleableState.On, autoBefore)
+                    click(autoScroll)
+                    rule.waitUntil(timeoutMillis = 5_000) { toggleState(autoScroll) == ToggleableState.Off }
+                    val sessionBefore = toggleState(activeSessionOnly)
+                    assertEquals(ToggleableState.Off, sessionBefore)
+                    click(activeSessionOnly)
+                    rule.waitUntil(timeoutMillis = 5_000) { toggleState(activeSessionOnly) == ToggleableState.On }
                 }
             }
             step("All chips start selected; deselecting one flips only that chip") {
-                val diagnostics = RipDpiTestTags.logsSubsystemFilter(LogSubsystem.Diagnostics)
-                val proxy = RipDpiTestTags.logsSubsystemFilter(LogSubsystem.Proxy)
-                val warn = RipDpiTestTags.logsSeverityFilter(LogSeverity.Warn)
-                composeRule.requireTag(diagnostics)
-                assertTrue(composeRule.isSelected(diagnostics))
-                composeRule.clickTag(diagnostics)
-                composeRule.waitUntil(timeoutMillis = 5_000) { !composeRule.isSelected(diagnostics) }
-                assertTrue(composeRule.isSelected(proxy))
-                composeRule.requireTag(warn)
-                composeRule.clickTag(warn)
-                composeRule.waitUntil(timeoutMillis = 5_000) { !composeRule.isSelected(warn) }
+                with(LogsPage(composeRule)) {
+                    val diagnostics = subsystemFilter(LogSubsystem.Diagnostics)
+                    val proxy = subsystemFilter(LogSubsystem.Proxy)
+                    val warn = severityFilter(LogSeverity.Warn)
+                    require(diagnostics)
+                    assertTrue(isSelected(diagnostics))
+                    click(diagnostics)
+                    rule.waitUntil(timeoutMillis = 5_000) { !isSelected(diagnostics) }
+                    assertTrue(isSelected(proxy))
+                    require(warn)
+                    click(warn)
+                    rule.waitUntil(timeoutMillis = 5_000) { !isSelected(warn) }
+                }
             }
             step("The toolbar filter summary reflects the selection") {
-                closeSheet()
-                val summary = composeRule.stateDescription(RipDpiTestTags.LogsFilters)
-                val allSubsystems = LogSubsystem.entries.size
-                val allSeverities = LogSeverity.entries.size
-                assertNotEquals(
-                    "Subsystems: $allSubsystems • Severities: $allSeverities",
-                    summary,
-                )
-                assertEquals("Subsystems: ${allSubsystems - 1} • Severities: ${allSeverities - 1}", summary)
+                with(LogsPage(composeRule)) {
+                    closeSheet()
+                    val summary = stateDescription(filters)
+                    val allSubsystems = LogSubsystem.entries.size
+                    val allSeverities = LogSeverity.entries.size
+                    assertNotEquals(
+                        "Subsystems: $allSubsystems • Severities: $allSeverities",
+                        summary,
+                    )
+                    assertEquals("Subsystems: ${allSubsystems - 1} • Severities: ${allSeverities - 1}", summary)
+                }
             }
         }
 
@@ -139,35 +128,39 @@ class LogsKaspressoTest :
     fun severityAndSubsystemChipsFilterTheStream() =
         run {
             step("Service history shows lifecycle and failure rows") {
-                composeRule.waitForTag(RipDpiTestTags.LogsScreen)
-                publishServiceHistory()
-                assertFalse(composeRule.tagExists(RipDpiTestTags.LogsEmptyState))
+                with(LogsPage(composeRule)) {
+                    awaitScreen()
+                    publishServiceHistory()
+                    assertFalse(exists(emptyState))
+                }
             }
             step("Hiding Error severity drops the failure row but keeps the stream") {
-                openFilters()
-                composeRule.clickTag(RipDpiTestTags.logsSeverityFilter(LogSeverity.Error))
-                closeSheet()
-                composeRule.waitUntil(timeoutMillis = 5_000) {
-                    !failureRowShown()
+                with(LogsPage(composeRule)) {
+                    openFilters()
+                    click(severityFilter(LogSeverity.Error))
+                    closeSheet()
+                    rule.waitUntil(timeoutMillis = 5_000) { !failureRowShown() }
+                    assertTrue(exists(stream))
                 }
-                assertTrue(composeRule.tagExists(RipDpiTestTags.LogsStream))
             }
             step("Hiding the Service subsystem empties the stream") {
-                openFilters()
-                composeRule.clickTag(RipDpiTestTags.logsSubsystemFilter(LogSubsystem.Service))
-                closeSheet()
-                composeRule.waitForTag(RipDpiTestTags.LogsEmptyState)
-                assertFalse(composeRule.tagExists(RipDpiTestTags.LogsStream))
+                with(LogsPage(composeRule)) {
+                    openFilters()
+                    click(subsystemFilter(LogSubsystem.Service))
+                    closeSheet()
+                    waitFor(emptyState)
+                    assertFalse(exists(stream))
+                }
             }
             step("Restoring both chips brings every row back") {
-                openFilters()
-                composeRule.clickTag(RipDpiTestTags.logsSubsystemFilter(LogSubsystem.Service))
-                composeRule.clickTag(RipDpiTestTags.logsSeverityFilter(LogSeverity.Error))
-                closeSheet()
-                composeRule.waitForTag(RipDpiTestTags.LogsStream)
-                composeRule.waitUntil(
-                    timeoutMillis = 5_000,
-                ) { failureRowShown() }
+                with(LogsPage(composeRule)) {
+                    openFilters()
+                    click(subsystemFilter(LogSubsystem.Service))
+                    click(severityFilter(LogSeverity.Error))
+                    closeSheet()
+                    waitFor(stream)
+                    rule.waitUntil(timeoutMillis = 5_000) { failureRowShown() }
+                }
             }
         }
 
@@ -175,14 +168,16 @@ class LogsKaspressoTest :
     fun clearEmptiesTheBuffer() =
         run {
             step("Clear is enabled once the buffer has rows and removes them") {
-                composeRule.waitForTag(RipDpiTestTags.LogsScreen)
-                publishServiceHistory()
-                composeRule.clickTag(RipDpiTestTags.LogsActions)
-                composeRule.waitForTag(RipDpiTestTags.LogsClear)
-                composeRule.onAllNodes(hasTestTag(RipDpiTestTags.LogsClear)).onFirst().assertIsEnabled()
-                composeRule.clickTag(RipDpiTestTags.LogsClear)
-                composeRule.waitForTag(RipDpiTestTags.LogsEmptyState)
-                assertFalse(composeRule.tagExists(RipDpiTestTags.LogsStream))
+                with(LogsPage(composeRule)) {
+                    awaitScreen()
+                    publishServiceHistory()
+                    click(actions)
+                    waitFor(clear)
+                    node(clear).assertIsEnabled()
+                    click(clear)
+                    waitFor(emptyState)
+                    assertFalse(exists(stream))
+                }
             }
         }
 }
