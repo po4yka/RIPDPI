@@ -23,8 +23,8 @@ The upstream client:
 - Goal: keep the credential, loopback-auth, DNS-poisoning and fail-closed guarantees that the Rust helper has.
 - Goal: pinned profiles keep using the Rust helper unchanged.
 - Non-goal: building Chromium or naive from source. A source build can replace the release pin later behind the same manifest.
-- Non-goal: `quic://` (HTTP/3) profiles, proxy chains, `--insecure-concurrency` and redir mode.
-- Non-goal: changing the Rust helper's wire behavior.
+- Non-goal: proxy chains and redir mode.
+- Follow-up scope (2026-10-30): `quic://` (HTTP/3) and `insecure-concurrency` run through the upstream client and are refused on pinned profiles; the Rust helper sends Chrome's key-share, cipher, signature and ALPN lists; the editor gains a server check (`--check`); upstream credential rejections map to the `auth` class; a bump tool and a weekly check keep the pin current.
 
 ## Decisions
 

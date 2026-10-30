@@ -37,3 +37,8 @@ One writer per lane.
 - **Device:** the `android-naiveproxy` emulator scenario, run on the pool with the pin-free, pinned and failure phases.
 - **Wire:** the JA4 match and no HRR, from the stored capture summary.
 - **Remote CI:** `ci-required` on the integrated commit.
+- [x] RLY-1793386615947971 Make the Rust helper send Chrome's key-share, cipher, signature and ALPN lists so a Go server needs no HelloRetryRequest. Gate: cargo test and clippy for ripdpi-naiveproxy and ripdpi-tls-profiles, and a lab capture with no HRR #feature !high @item:RLY-1793363326590556
+- [x] RLY-1793386616416891 Map the upstream ERR_PROXY_AUTH_* close codes to the auth failure class. Gate: core:service unit tests and the emulator wrong-password phase settling to degraded #feature !high @item:RLY-1793363326590556
+- [x] RLY-1793386616908842 Add the editor Test connection action backed by ripdpi-naiveproxy --check. Gate: Rust check-mode test, NaiveProxyProfileCheckerTest, ConfigNaiveProfileCheckRunnerTest, app lint #feature !high @item:RLY-1793363326590556
+- [x] RLY-1793386617391528 Run HTTP/3 and insecure-concurrency through the upstream client and refuse them on pinned profiles. Gate: core:data, core:service, core:engine and app unit suites, and the emulator HTTP/3 phase #feature !high @item:RLY-1793363326590556
+- [x] RLY-1793386617952900 Add the upstream pin bump tool, the weekly freshness check and the per-ABI size check in ordinary CI. Gate: script tests, actionlint, and the CI size check output #feature !high @item:RLY-1793363326590556

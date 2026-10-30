@@ -124,3 +124,45 @@ The editor MUST tell the user that the NaïveProxy path value is not sent when t
 
 - **WHEN** a NaïveProxy profile has a path value and an empty pin field
 - **THEN** the path field shows a notice that the path is ignored without a pin
+
+### Requirement: REQ-RLY-1793363326590556-010 — Credential rejection is an auth failure for both clients
+
+The implementation MUST report an upstream-client tunnel that the proxy closes with an `ERR_PROXY_AUTH_*` code as failure class `auth`, as the Rust helper reports a 407.
+
+#### Scenario: Wrong password on a pin-free profile
+
+- **WHEN** the upstream client runs with a wrong password and a client opens a tunnel
+- **THEN** the relay failure class is `auth` and relay health is `degraded`
+
+### Requirement: REQ-RLY-1793363326590556-011 — The editor can check a profile without starting a relay
+
+The editor MUST offer a check that opens one CONNECT to a reserved `.invalid` name through the configured server, with the credentials on stdin, and reports `ok`, `auth`, `tls`, `dns`, `connect`, `timeout` or a failure. No failure path MAY report `ok`.
+
+#### Scenario: Wrong password
+
+- **WHEN** the check runs against a server that answers the CONNECT with 407
+- **THEN** the editor reports that the server rejected the user name or password
+
+### Requirement: REQ-RLY-1793363326590556-012 — HTTP/3 and concurrency run only through the upstream client
+
+The implementation MUST pass HTTP/3 (`quic://`) and a connection count of 1 to 4 to the upstream client. It MUST refuse either option on a pinned profile in the editor, the link import and the service, and MUST NOT drop it silently.
+
+#### Scenario: HTTP/3 profile
+
+- **WHEN** a pin-free profile with HTTP/3 starts
+- **THEN** the upstream client config has a `quic://` proxy and a routed transfer succeeds
+
+#### Scenario: Pinned profile with HTTP/3
+
+- **WHEN** a pinned profile with HTTP/3 or a count above 1 starts or is imported
+- **THEN** it is refused with class `config`, or the link is rejected
+
+### Requirement: REQ-RLY-1793363326590556-013 — The pinned profile helper needs no HelloRetryRequest
+
+The Rust helper MUST offer X25519MLKEM768 first with its X25519 component share and Chrome's cipher suite, signature algorithm and ALPN lists, so that a Go server that prefers the hybrid group answers without a HelloRetryRequest.
+
+#### Scenario: Handshake with Caddy forwardproxy
+
+- **WHEN** the pinned-profile helper connects to the lab Caddy forwardproxy
+- **THEN** the capture shows one ClientHello and a ServerHello that selects X25519MLKEM768
+
