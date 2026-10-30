@@ -3,19 +3,12 @@ package com.poyka.ripdpi.ui.journeys.settings
 import android.content.ClipData
 import android.content.ClipboardManager
 import android.content.Context
-import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.semantics.getOrNull
-import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.hasText
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performClick
 import androidx.test.platform.app.InstrumentationRegistry
 import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
 import com.poyka.ripdpi.integration.automationLaunchIntent
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.Test
 
@@ -33,11 +26,6 @@ class VpnImportProfileKaspressoTest :
             dataPreset = AutomationDataPreset.SettingsReady,
         ),
     ) {
-    private val profileRow =
-        SemanticsMatcher("tag starts with config-vpn-profile-row-") { node ->
-            node.config.getOrNull(SemanticsProperties.TestTag)?.startsWith("config-vpn-profile-row-") == true
-        }
-
     private fun seedClipboard(text: String) {
         InstrumentationRegistry.getInstrumentation().runOnMainSync {
             val clipboard =
@@ -53,33 +41,37 @@ class VpnImportProfileKaspressoTest :
     fun pastedVlessRealityLinkIsConfirmedAndAddedToTheProfileList() =
         run {
             step("The profile choices offer paste and scan entry points") {
-                composeRule.clickTag(RipDpiTestTags.ConfigProfileChange)
-                composeRule.awaitTag(RipDpiTestTags.ConfigProfileChoices)
-                composeRule.scrollToTag(RipDpiTestTags.ConfigVpnAddServerPaste)
-                composeRule.scrollToTag(RipDpiTestTags.ConfigVpnAddServerScan)
+                with(ConfigPage(composeRule)) {
+                    click(profileChange)
+                    waitFor(profileChoices)
+                    require(vpnAddServerPaste)
+                    require(vpnAddServerScan)
+                }
             }
             step("Pasting the seeded link opens the import confirmation with the profile name") {
                 seedClipboard(VlessRealityLink)
-                composeRule.clickTag(RipDpiTestTags.ConfigVpnAddServerPaste)
-                composeRule.awaitTag(RipDpiTestTags.screen(Route.ProfileImportConfirm()))
-                composeRule.waitUntil(10_000) {
-                    composeRule.onAllNodes(hasText(ImportedProfileName)).fetchSemanticsNodes().isNotEmpty()
+                with(ConfigPage(composeRule)) { click(vpnAddServerPaste) }
+                with(ProfileImportConfirmPage(composeRule)) {
+                    awaitScreen()
+                    awaitText(ImportedProfileName)
                 }
             }
             step("Adding the profile lists it in the profile choices") {
-                composeRule.onNodeWithTag(RipDpiTestTags.screen(Route.ProfileImportConfirm())).assertIsDisplayed()
-                composeRule.onNode(hasText("Add")).performClick()
-                composeRule.awaitNoTag(RipDpiTestTags.screen(Route.ProfileImportConfirm()), timeoutMillis = 15_000)
-                if (!composeRule.tagExists(RipDpiTestTags.screen(Route.Config))) {
-                    composeRule.clickTag(RipDpiTestTags.bottomNav(Route.Config))
+                with(ProfileImportConfirmPage(composeRule)) {
+                    node(screenTag).assertIsDisplayed()
+                    confirmAdd()
+                    waitGone(screenTag, 15_000)
                 }
-                composeRule.awaitTag(RipDpiTestTags.screen(Route.Config))
-                if (!composeRule.tagExists(RipDpiTestTags.ConfigProfileChoices)) {
-                    composeRule.clickTag(RipDpiTestTags.ConfigProfileChange)
-                }
-                composeRule.awaitTag(RipDpiTestTags.ConfigProfileChoices)
-                composeRule.waitUntil(15_000) {
-                    composeRule.onAllNodes(profileRow).fetchSemanticsNodes().isNotEmpty()
+                with(ConfigPage(composeRule)) {
+                    if (!exists(screenTag)) {
+                        click(bottomNavConfig)
+                    }
+                    awaitScreen()
+                    if (!exists(profileChoices)) {
+                        click(profileChange)
+                    }
+                    waitFor(profileChoices)
+                    awaitProfileRow()
                 }
             }
         }

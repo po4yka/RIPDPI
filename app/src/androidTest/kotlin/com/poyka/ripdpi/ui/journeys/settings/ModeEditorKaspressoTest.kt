@@ -1,8 +1,6 @@
 package com.poyka.ripdpi.ui.journeys.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.performTextReplacement
 import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
@@ -11,8 +9,8 @@ import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.formatStrategyChainDsl
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
 import com.poyka.ripdpi.integration.automationLaunchIntent
+import com.poyka.ripdpi.ui.journeys.waitForSettings
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
@@ -32,23 +30,12 @@ class ModeEditorKaspressoTest :
     lateinit var appSettingsRepository: AppSettingsRepository
 
     private fun openCustomEditor() {
-        composeRule.clickTag(RipDpiTestTags.ConfigProfileChange)
-        composeRule.awaitTag(RipDpiTestTags.ConfigProfileChoices)
-        composeRule.clickTag(RipDpiTestTags.configPreset("custom"))
-        composeRule.awaitTag(RipDpiTestTags.screen(Route.ModeEditor))
-    }
-
-    private fun replaceText(
-        tag: String,
-        value: String,
-    ) {
-        composeRule.scrollToTag(tag)
-        composeRule.onNodeWithTag(tag).performTextReplacement(value)
-    }
-
-    private fun expandAdvanced() {
-        composeRule.clickTag(RipDpiTestTags.ModeEditorAdvanced)
-        composeRule.awaitTag(RipDpiTestTags.ModeEditorMaxConnections)
+        with(ConfigPage(composeRule)) {
+            click(profileChange)
+            waitFor(profileChoices)
+            click(preset("custom"))
+        }
+        ModeEditorPage(composeRule).awaitScreen()
     }
 
     @Test
@@ -56,19 +43,21 @@ class ModeEditorKaspressoTest :
         run {
             step("Open the mode editor through the custom preset") { openCustomEditor() }
             step("Edit listener and engine values") {
-                replaceText(RipDpiTestTags.ModeEditorProxyIp, "127.0.0.2")
-                replaceText(RipDpiTestTags.ModeEditorProxyPort, "1082")
-                expandAdvanced()
-                replaceText(RipDpiTestTags.ModeEditorMaxConnections, "256")
-                replaceText(RipDpiTestTags.ModeEditorBufferSize, "32768")
-                replaceText(RipDpiTestTags.ModeEditorDefaultTtl, "64")
+                with(ModeEditorPage(composeRule)) {
+                    replaceText(proxyIp, "127.0.0.2")
+                    replaceText(proxyPort, "1082")
+                    expandAdvanced()
+                    replaceText(maxConnections, "256")
+                    replaceText(bufferSize, "32768")
+                    replaceText(defaultTtl, "64")
+                }
             }
             step("Save returns to the config screen") {
-                composeRule.clickTag(RipDpiTestTags.ModeEditorSave)
-                composeRule.awaitTag(RipDpiTestTags.screen(Route.Config))
+                with(ModeEditorPage(composeRule)) { click(save) }
+                ConfigPage(composeRule).awaitScreen()
             }
             step("App settings hold the edited values instead of the defaults") {
-                composeRule.awaitSettings(repository = appSettingsRepository) { it.proxyPort == 1082 }
+                composeRule.waitForSettings(appSettingsRepository) { it.proxyPort == 1082 }
                 val settings = runBlocking { appSettingsRepository.snapshot() }
                 assertEquals("127.0.0.2", settings.proxyIp)
                 assertEquals(256, settings.maxConnections)
@@ -84,12 +73,14 @@ class ModeEditorKaspressoTest :
             val defaultPort = AppSettingsSerializer.defaultValue.proxyPort
             step("Open the editor and enter an out-of-range port") {
                 openCustomEditor()
-                replaceText(RipDpiTestTags.ModeEditorProxyPort, "99999")
+                with(ModeEditorPage(composeRule)) { replaceText(proxyPort, "99999") }
             }
             step("Save shows the validation snackbar and stays in the editor") {
-                composeRule.clickTag(RipDpiTestTags.ModeEditorSave)
-                composeRule.awaitTag(RipDpiTestTags.ModeEditorValidationSnackbar)
-                composeRule.onNodeWithTag(RipDpiTestTags.screen(Route.ModeEditor)).assertIsDisplayed()
+                with(ModeEditorPage(composeRule)) {
+                    click(save)
+                    waitFor(validationSnackbar)
+                    node(screenTag).assertIsDisplayed()
+                }
             }
             step("The stored port is unchanged") {
                 assertEquals(defaultPort, runBlocking { appSettingsRepository.snapshot() }.proxyPort)
@@ -101,14 +92,16 @@ class ModeEditorKaspressoTest :
         run {
             step("Enable command line settings and enter arguments") {
                 openCustomEditor()
-                expandAdvanced()
-                composeRule.clickTag(RipDpiTestTags.ModeEditorCommandLineToggle)
-                replaceText(RipDpiTestTags.ModeEditorCommandLineArgs, "--split 2")
+                with(ModeEditorPage(composeRule)) {
+                    expandAdvanced()
+                    click(commandLineToggle)
+                    replaceText(commandLineArgs, "--split 2")
+                }
             }
             step("Save and read the persisted override") {
-                composeRule.clickTag(RipDpiTestTags.ModeEditorSave)
-                composeRule.awaitTag(RipDpiTestTags.screen(Route.Config))
-                composeRule.awaitSettings(repository = appSettingsRepository) { it.enableCmdSettings }
+                with(ModeEditorPage(composeRule)) { click(save) }
+                ConfigPage(composeRule).awaitScreen()
+                composeRule.waitForSettings(appSettingsRepository) { it.enableCmdSettings }
                 assertEquals("--split 2", runBlocking { appSettingsRepository.snapshot() }.cmdArgs)
             }
         }
@@ -119,17 +112,19 @@ class ModeEditorKaspressoTest :
             val dsl = "[tcp]\ntlsrec auto(sniext)\nsplit auto(balanced)"
             step("Enter a chain in the raw DSL editor") {
                 openCustomEditor()
-                expandAdvanced()
-                composeRule.scrollToTag(RipDpiTestTags.ModeEditorChainRawToggle)
-                if (!composeRule.tagExists(RipDpiTestTags.ModeEditorChainDsl)) {
-                    composeRule.clickTag(RipDpiTestTags.ModeEditorChainRawToggle)
+                with(ModeEditorPage(composeRule)) {
+                    expandAdvanced()
+                    require(chainRawToggle)
+                    if (!exists(chainDsl)) {
+                        click(chainRawToggle)
+                    }
+                    replaceText(chainDsl, dsl)
                 }
-                replaceText(RipDpiTestTags.ModeEditorChainDsl, dsl)
             }
             step("The chain is valid and saving persists it") {
-                composeRule.clickTag(RipDpiTestTags.ModeEditorSave)
-                composeRule.awaitTag(RipDpiTestTags.screen(Route.Config))
-                composeRule.awaitSettings(repository = appSettingsRepository) {
+                with(ModeEditorPage(composeRule)) { click(save) }
+                ConfigPage(composeRule).awaitScreen()
+                composeRule.waitForSettings(appSettingsRepository) {
                     formatStrategyChainDsl(it.effectiveTcpChainSteps(), it.effectiveUdpChainSteps()) == dsl
                 }
                 val defaults = AppSettingsSerializer.defaultValue

@@ -1,11 +1,13 @@
 package com.poyka.ripdpi.ui.journeys.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onNodeWithTag
 import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
 import com.poyka.ripdpi.integration.automationLaunchIntent
+import com.poyka.ripdpi.ui.journeys.JourneyPage
+import com.poyka.ripdpi.ui.journeys.JourneyRule
+import com.poyka.ripdpi.ui.journeys.waitForSettings
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -13,6 +15,15 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import javax.inject.Inject
+
+private class HostPackDialogPage(
+    rule: JourneyRule,
+) : JourneyPage<HostPackDialogPage>(rule, RipDpiTestTags.HostPackApplyDialog) {
+    val targetDropdown = RipDpiTestTags.HostPackTargetDropdown
+    val applyModeDropdown = RipDpiTestTags.HostPackApplyModeDropdown
+    val confirm = RipDpiTestTags.HostPackApplyConfirm
+    val dismiss = RipDpiTestTags.HostPackApplyDismiss
+}
 
 @HiltAndroidTest
 class HostPackDialogKaspressoTest :
@@ -26,10 +37,12 @@ class HostPackDialogKaspressoTest :
     lateinit var appSettingsRepository: AppSettingsRepository
 
     private fun openYoutubeDialog() {
-        composeRule.clickTag(RipDpiTestTags.hostPackPreset("youtube"))
-        composeRule.awaitTag(RipDpiTestTags.HostPackApplyDialog)
-        composeRule.onNodeWithTag(RipDpiTestTags.HostPackTargetDropdown).assertIsDisplayed()
-        composeRule.onNodeWithTag(RipDpiTestTags.HostPackApplyModeDropdown).assertIsDisplayed()
+        with(AdvancedSettingsPage(composeRule)) { click(hostPackPreset("youtube")) }
+        with(HostPackDialogPage(composeRule)) {
+            awaitScreen()
+            node(targetDropdown).assertIsDisplayed()
+            node(applyModeDropdown).assertIsDisplayed()
+        }
     }
 
     @Test
@@ -41,11 +54,13 @@ class HostPackDialogKaspressoTest :
             }
             step("Open the YouTube pack dialog and confirm") {
                 openYoutubeDialog()
-                composeRule.clickTag(RipDpiTestTags.HostPackApplyConfirm)
-                composeRule.awaitNoTag(RipDpiTestTags.HostPackApplyDialog)
+                with(HostPackDialogPage(composeRule)) {
+                    click(confirm)
+                    waitGone(screenTag)
+                }
             }
             step("The pack hosts are stored") {
-                composeRule.awaitSettings(repository = appSettingsRepository) {
+                composeRule.waitForSettings(appSettingsRepository) {
                     it.hostsBlacklist.isNotBlank() || it.hostsWhitelist.isNotBlank()
                 }
             }
@@ -56,8 +71,10 @@ class HostPackDialogKaspressoTest :
         run {
             step("Open the dialog and dismiss it") {
                 openYoutubeDialog()
-                composeRule.clickTag(RipDpiTestTags.HostPackApplyDismiss)
-                composeRule.awaitNoTag(RipDpiTestTags.HostPackApplyDialog)
+                with(HostPackDialogPage(composeRule)) {
+                    click(dismiss)
+                    waitGone(screenTag)
+                }
             }
             step("The host lists are still empty") {
                 val settings = runBlocking { appSettingsRepository.snapshot() }

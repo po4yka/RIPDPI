@@ -1,14 +1,13 @@
 package com.poyka.ripdpi.ui.journeys.settings
 
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.onNodeWithTag
 import androidx.test.espresso.Espresso
 import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
 import com.poyka.ripdpi.integration.automationLaunchIntent
+import com.poyka.ripdpi.ui.journeys.waitForSettings
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import dagger.hilt.android.testing.HiltAndroidTest
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertNotEquals
@@ -30,12 +29,14 @@ class SettingsSecondaryScreensKaspressoTest :
     fun darkThemeSelectionIsPersisted() =
         run {
             step("Open the theme dropdown and pick dark") {
-                composeRule.clickTag(RipDpiTestTags.SettingsThemeDropdown)
-                composeRule.clickTag(RipDpiTestTags.dropdownOption(RipDpiTestTags.SettingsThemeDropdown, "dark"))
+                with(SettingsPage(composeRule)) {
+                    click(themeDropdown)
+                    click(themeOption("dark"))
+                }
             }
             step("The stored theme is dark and settings stay open") {
-                composeRule.awaitSettings(repository = appSettingsRepository) { it.appTheme == "dark" }
-                composeRule.onNodeWithTag(RipDpiTestTags.screen(Route.Settings)).assertIsDisplayed()
+                composeRule.waitForSettings(appSettingsRepository) { it.appTheme == "dark" }
+                with(SettingsPage(composeRule)) { node(screenTag).assertIsDisplayed() }
             }
         }
 
@@ -45,21 +46,25 @@ class SettingsSecondaryScreensKaspressoTest :
             var before = ""
             step("Open customization") {
                 before = runBlocking { appSettingsRepository.snapshot() }.appIconStyle
-                composeRule.clickTag(RipDpiTestTags.SettingsCustomization)
-                composeRule.awaitTag(RipDpiTestTags.screen(Route.AppCustomization))
+                with(SettingsPage(composeRule)) { click(customization) }
+                AppCustomizationPage(composeRule).awaitScreen()
             }
             step("Toggling the themed icon flips the stored icon style") {
-                composeRule.clickTag(RipDpiTestTags.CustomizationThemedIcon)
-                composeRule.awaitSettings(repository = appSettingsRepository) { it.appIconStyle != before }
-                assertNotEquals(before, runBlocking { appSettingsRepository.snapshot() }.appIconStyle)
-                composeRule.clickTag(RipDpiTestTags.CustomizationThemedIcon)
-                composeRule.awaitSettings(repository = appSettingsRepository) { it.appIconStyle == before }
+                with(AppCustomizationPage(composeRule)) {
+                    click(themedIcon)
+                    composeRule.waitForSettings(appSettingsRepository) { it.appIconStyle != before }
+                    assertNotEquals(before, runBlocking { appSettingsRepository.snapshot() }.appIconStyle)
+                    click(themedIcon)
+                    composeRule.waitForSettings(appSettingsRepository) { it.appIconStyle == before }
+                }
             }
             step("The shape info row opens its sheet and confirm closes it") {
-                composeRule.clickTag(RipDpiTestTags.CustomizationShapeInfo)
-                composeRule.awaitTag(RipDpiTestTags.CustomizationShapeInfoSheet)
-                composeRule.clickTag(RipDpiTestTags.CustomizationShapeInfoSheetConfirm)
-                composeRule.awaitNoTag(RipDpiTestTags.CustomizationShapeInfoSheet)
+                with(AppCustomizationPage(composeRule)) {
+                    click(shapeInfo)
+                    waitFor(shapeInfoSheet)
+                    click(shapeInfoSheetConfirm)
+                    waitGone(shapeInfoSheet)
+                }
             }
         }
 
@@ -67,12 +72,12 @@ class SettingsSecondaryScreensKaspressoTest :
     fun dataTransparencyOpensAndBackReturnsToSettings() =
         run {
             step("Open data transparency") {
-                composeRule.clickTag(RipDpiTestTags.SettingsDataTransparency)
-                composeRule.awaitTag(RipDpiTestTags.screen(Route.DataTransparency))
+                with(SettingsPage(composeRule)) { click(dataTransparency) }
+                DataTransparencyPage(composeRule).awaitScreen()
             }
             step("Back returns to settings") {
                 Espresso.pressBack()
-                composeRule.awaitTag(RipDpiTestTags.screen(Route.Settings))
+                SettingsPage(composeRule).awaitScreen()
             }
         }
 
@@ -80,12 +85,14 @@ class SettingsSecondaryScreensKaspressoTest :
     fun aboutScreenShowsSourceAndReadmeLinks() =
         run {
             step("Open about") {
-                composeRule.clickTag(RipDpiTestTags.SettingsAbout)
-                composeRule.awaitTag(RipDpiTestTags.screen(Route.About))
+                with(SettingsPage(composeRule)) { click(about) }
+                AboutPage(composeRule).awaitScreen()
             }
             step("The source code and readme links are present") {
-                composeRule.awaitDisplayed(RipDpiTestTags.AboutSourceCode)
-                composeRule.awaitDisplayed(RipDpiTestTags.AboutReadme)
+                with(AboutPage(composeRule)) {
+                    awaitDisplayed(sourceCode)
+                    awaitDisplayed(readme)
+                }
             }
         }
 }

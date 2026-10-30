@@ -23,7 +23,7 @@ UI journeys are Kaspresso instrumented tests in `app/src/androidTest`, grouped b
    inside `composeRule.waitUntil`) or service state, with values that differ from the defaults. Do not re-test
    navigation that `MainActivityNavigationInstrumentedTest` covers.
 
-`app/src/androidTest/kotlin/com/poyka/ripdpi/ui/DnsSettingsKaspressoTest.kt` is a compact example.
+`app/src/androidTest/kotlin/com/poyka/ripdpi/ui/journeys/settings/DnsSettingsKaspressoTest.kt` is a compact example.
 
 ## Run on a device
 
