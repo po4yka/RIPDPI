@@ -242,12 +242,12 @@ pub fn configure_rustls_ech(
                 .map_err(|error| EchOutboundError::ConfigRejected(error.to_string()).into())
         }
         EchSetup::Grease => {
-            let suite = rustls::crypto::aws_lc_rs::hpke::ALL_SUPPORTED_SUITES
-                .first()
-                .ok_or_else(|| EchOutboundError::ConfigRejected("missing Rustls HPKE suite".to_string()))?;
+            // Chrome's GREASE ECH uses X25519, HKDF-SHA256 and AES-128-GCM.
+            let suite: &dyn rustls::crypto::hpke::Hpke =
+                rustls::crypto::aws_lc_rs::hpke::DH_KEM_X25519_HKDF_SHA256_AES_128;
             let (placeholder_key, _) =
                 suite.generate_key_pair().map_err(|error| EchOutboundError::ConfigRejected(error.to_string()))?;
-            let grease = rustls::client::EchGreaseConfig::new(*suite, placeholder_key);
+            let grease = rustls::client::EchGreaseConfig::new(suite, placeholder_key);
             builder
                 .with_ech(rustls::client::EchMode::Grease(grease))
                 .map_err(|error| EchOutboundError::ConfigRejected(error.to_string()).into())
