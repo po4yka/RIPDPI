@@ -1278,6 +1278,7 @@ fake_burst 3</string>
     <string name="history_connection_remembered_policy_source">Origen</string>
     <string name="history_diagnostics_empty_body">Comprueba la red para guardar aquí los resultados.</string>
     <string name="history_events_section">Eventos</string>
+    <string name="history_detail_placeholder">Selecciona una entrada para ver sus detalles aquí.</string>
     <string name="home_control_plane_health_title">El estado del plano de control necesita revisión</string>
     <string name="home_control_plane_host_packs_label">Paquetes de hosts</string>
     <string name="home_control_plane_strategy_pack_security_rejected">El último catálogo no superó las comprobaciones obligatorias de metadatos de seguridad.</string>

@@ -301,6 +301,7 @@
     <string name="history_connections_section">Подключения</string>
     <string name="history_diagnostics_section">Диагностика</string>
     <string name="history_events_section">События</string>
+    <string name="history_detail_placeholder">Выберите запись, чтобы увидеть её подробности здесь.</string>
     <string name="history_connection_search_placeholder">Поиск соединений</string>
     <string name="history_connections_empty_title">История подключений пока пуста</string>
     <string name="history_connections_empty_body">Подключитесь, чтобы сохранять здесь сеансы и результаты подключения.</string>

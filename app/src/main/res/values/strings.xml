@@ -349,6 +349,7 @@
     <string name="history_connections_section">Connections</string>
     <string name="history_diagnostics_section">Diagnostics</string>
     <string name="history_events_section">Events</string>
+    <string name="history_detail_placeholder">Select an entry to see its details here.</string>
     <string name="history_connection_search_placeholder">Search connections</string>
     <string name="history_connections_empty_title">No connection history yet</string>
     <string name="history_connections_empty_body">Connect to save sessions and connection results here.</string>

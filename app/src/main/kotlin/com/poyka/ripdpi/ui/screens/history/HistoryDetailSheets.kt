@@ -31,22 +31,7 @@ internal fun ConnectionDetailSheet(
         icon = RipDpiIcons.Logs,
         testTag = RipDpiTestTags.HistoryConnectionDetailSheet,
     ) {
-        StatusIndicator(
-            label = detail.session.connectionState,
-            tone = statusTone(detail.session.tone),
-        )
-        if (detail.highlights.isNotEmpty()) {
-            MetricList(detail.highlights)
-        }
-        detail.contextGroups.forEach { group ->
-            ContextGroupCard(group = group)
-        }
-        detail.snapshots.forEach { snapshot ->
-            SnapshotCard(snapshot = snapshot)
-        }
-        if (detail.events.isNotEmpty()) {
-            DetailEvents(events = detail.events)
-        }
+        ConnectionDetailContent(detail)
     }
 }
 
@@ -63,38 +48,7 @@ internal fun DiagnosticsDetailSheet(
         icon = RipDpiIcons.Search,
         testTag = RipDpiTestTags.HistoryDiagnosticsDetailSheet,
     ) {
-        StatusIndicator(
-            label = detail.session.completionLabel ?: detail.session.status,
-            tone = statusTone(detail.session.tone),
-        )
-        if (detail.reportMetadata.isNotEmpty()) {
-            RipDpiCard {
-                Text(
-                    text = stringResource(R.string.diagnostics_report_metadata_title),
-                    style = RipDpiThemeTokens.type.bodyEmphasis,
-                    color = RipDpiThemeTokens.colors.foreground,
-                )
-                detail.reportMetadata.forEachIndexed { index, field ->
-                    SettingsRow(
-                        title = field.label,
-                        value = field.value,
-                        showDivider = index != detail.reportMetadata.lastIndex,
-                    )
-                }
-            }
-        }
-        detail.contextGroups.forEach { group ->
-            ContextGroupCard(group = group)
-        }
-        detail.probeGroups.forEach { group ->
-            ProbeGroupCard(group = group)
-        }
-        detail.snapshots.forEach { snapshot ->
-            SnapshotCard(snapshot = snapshot)
-        }
-        if (detail.events.isNotEmpty()) {
-            DetailEvents(events = detail.events)
-        }
+        DiagnosticsDetailContent(detail)
     }
 }
 
@@ -111,15 +65,7 @@ internal fun EventDetailSheet(
         icon = RipDpiIcons.Info,
         testTag = RipDpiTestTags.HistoryEventDetailSheet,
     ) {
-        StatusIndicator(
-            label = event.severity,
-            tone = statusTone(event.tone),
-        )
-        Text(
-            text = event.message,
-            style = RipDpiThemeTokens.type.body,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
+        EventDetailContent(event)
     }
 }
 
@@ -137,4 +83,73 @@ private fun DetailEvents(events: List<DiagnosticsEventUiModel>) {
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.historyEvent(event.id)),
         )
     }
+}
+
+@Composable
+internal fun ConnectionDetailContent(detail: HistoryConnectionDetailUiModel) {
+    StatusIndicator(
+        label = detail.session.connectionState,
+        tone = statusTone(detail.session.tone),
+    )
+    if (detail.highlights.isNotEmpty()) {
+        MetricList(detail.highlights)
+    }
+    detail.contextGroups.forEach { group ->
+        ContextGroupCard(group = group)
+    }
+    detail.snapshots.forEach { snapshot ->
+        SnapshotCard(snapshot = snapshot)
+    }
+    if (detail.events.isNotEmpty()) {
+        DetailEvents(events = detail.events)
+    }
+}
+
+@Composable
+internal fun DiagnosticsDetailContent(detail: DiagnosticsSessionDetailUiModel) {
+    StatusIndicator(
+        label = detail.session.completionLabel ?: detail.session.status,
+        tone = statusTone(detail.session.tone),
+    )
+    if (detail.reportMetadata.isNotEmpty()) {
+        RipDpiCard {
+            Text(
+                text = stringResource(R.string.diagnostics_report_metadata_title),
+                style = RipDpiThemeTokens.type.bodyEmphasis,
+                color = RipDpiThemeTokens.colors.foreground,
+            )
+            detail.reportMetadata.forEachIndexed { index, field ->
+                SettingsRow(
+                    title = field.label,
+                    value = field.value,
+                    showDivider = index != detail.reportMetadata.lastIndex,
+                )
+            }
+        }
+    }
+    detail.contextGroups.forEach { group ->
+        ContextGroupCard(group = group)
+    }
+    detail.probeGroups.forEach { group ->
+        ProbeGroupCard(group = group)
+    }
+    detail.snapshots.forEach { snapshot ->
+        SnapshotCard(snapshot = snapshot)
+    }
+    if (detail.events.isNotEmpty()) {
+        DetailEvents(events = detail.events)
+    }
+}
+
+@Composable
+internal fun EventDetailContent(event: DiagnosticsEventUiModel) {
+    StatusIndicator(
+        label = event.severity,
+        tone = statusTone(event.tone),
+    )
+    Text(
+        text = event.message,
+        style = RipDpiThemeTokens.type.body,
+        color = RipDpiThemeTokens.colors.foreground,
+    )
 }

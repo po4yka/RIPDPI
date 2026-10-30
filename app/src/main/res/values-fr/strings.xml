@@ -1278,6 +1278,7 @@ fake_burst 3</string>
     <string name="history_connection_remembered_policy_source">Source</string>
     <string name="history_diagnostics_empty_body">Vérifiez le réseau pour enregistrer les résultats ici.</string>
     <string name="history_events_section">Événements</string>
+    <string name="history_detail_placeholder">Sélectionnez une entrée pour voir ses détails ici.</string>
     <string name="home_control_plane_health_title">L\'état du plan de contrôle nécessite un examen</string>
     <string name="home_control_plane_host_packs_label">Packs d\'hôtes</string>
     <string name="home_control_plane_strategy_pack_security_rejected">Le dernier catalogue a échoué aux vérifications de métadonnées de sécurité requises.</string>

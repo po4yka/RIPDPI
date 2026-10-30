@@ -34,6 +34,7 @@ import com.poyka.ripdpi.activities.HistoryUiState
 import com.poyka.ripdpi.activities.HistoryViewModel
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinnerSize
+import com.poyka.ripdpi.ui.components.navigation.RipDpiListDetailLayout
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
@@ -42,6 +43,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.RipDpiWidthClass
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 
 @Composable
@@ -126,118 +128,121 @@ internal fun HistoryScreen(
     val sectionStateHolder = rememberSaveableStateHolder()
 
     val topBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    RipDpiScreenScaffold(
-        scrollBehavior = topBarScrollBehavior,
-        modifier =
-            modifier
-                .ripDpiTestTag(RipDpiTestTags.screen(Route.History))
-                .fillMaxSize()
-                .ripDpiScreenBackground(),
-        topBar = {
-            RipDpiTopAppBar(
-                scrollBehavior = topBarScrollBehavior,
-                title = stringResource(R.string.history_title),
-                navigationIcon = RipDpiIcons.Back,
-                onNavigationClick = onBack,
-            )
-        },
-    ) { innerPadding ->
-        PullToRefreshBox(
-            isRefreshing = uiState.isRefreshing,
-            onRefresh = onRefresh,
+    val twoPane = layout.widthClass >= RipDpiWidthClass.Expanded
+    val list: @Composable () -> Unit = {
+        RipDpiScreenScaffold(
+            scrollBehavior = topBarScrollBehavior,
             modifier =
-                Modifier
+                modifier
+                    .ripDpiTestTag(RipDpiTestTags.screen(Route.History))
                     .fillMaxSize()
-                    .ripDpiScreenBackground()
-                    .padding(innerPadding),
-        ) {
-            Box(
-                modifier = Modifier.fillMaxSize(),
-                contentAlignment = Alignment.TopCenter,
+                    .ripDpiScreenBackground(),
+            topBar = {
+                RipDpiTopAppBar(
+                    scrollBehavior = topBarScrollBehavior,
+                    title = stringResource(R.string.history_title),
+                    navigationIcon = RipDpiIcons.Back,
+                    onNavigationClick = onBack,
+                )
+            },
+        ) { innerPadding ->
+            PullToRefreshBox(
+                isRefreshing = uiState.isRefreshing,
+                onRefresh = onRefresh,
+                modifier =
+                    Modifier
+                        .fillMaxSize()
+                        .ripDpiScreenBackground()
+                        .padding(innerPadding),
             ) {
-                Column(
-                    modifier =
-                        Modifier
-                            .widthIn(max = layout.contentMaxWidth)
-                            .fillMaxSize(),
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.TopCenter,
                 ) {
-                    HistorySectionChips(
-                        selectedSection = uiState.selectedSection,
-                        onSelectSection = onSelectSection,
-                    )
-                    val motion = RipDpiThemeTokens.motion
-                    AnimatedContent(
-                        targetState = uiState.selectedSection,
-                        transitionSpec = {
-                            val logicalDirection = targetState.ordinal.compareTo(initialState.ordinal)
-                            val direction =
-                                if (layoutDirection == LayoutDirection.Rtl) -logicalDirection else logicalDirection
-                            val enterSlide =
-                                slideInHorizontally(
-                                    initialOffsetX = { fullWidth -> fullWidth / 4 * if (direction >= 0) 1 else -1 },
-                                    animationSpec = motion.stateTween(easing = RipDpiMotion.EmphasizedDecelerate),
-                                ) +
-                                    fadeIn(
-                                        animationSpec = motion.stateTween(),
-                                    )
-                            val exitSlide =
-                                slideOutHorizontally(
-                                    targetOffsetX = { fullWidth -> fullWidth / 4 * if (direction >= 0) -1 else 1 },
-                                    animationSpec = motion.quickTween(easing = RipDpiMotion.EmphasizedAccelerate),
-                                ) +
-                                    fadeOut(
-                                        animationSpec = motion.quickTween(),
-                                    )
-                            (enterSlide togetherWith exitSlide).using(
-                                if (motion.animationsEnabled) SizeTransform() else null,
-                            )
-                        },
-                        label = "historySectionContent",
-                    ) { section ->
-                        sectionStateHolder.SaveableStateProvider(section.name) {
-                            if (uiState.isLoading) {
-                                Box(
-                                    modifier = Modifier.fillMaxSize().padding(top = spacing.xxl),
-                                    contentAlignment = Alignment.TopCenter,
-                                ) {
-                                    RipDpiSpinner(size = RipDpiSpinnerSize.Large)
-                                }
-                            } else {
-                                when (section) {
-                                    HistorySection.Connections -> {
-                                        ConnectionsSection(
-                                            uiState = uiState,
-                                            onModeFilter = onConnectionModeFilter,
-                                            onStatusFilter = onConnectionStatusFilter,
-                                            onSearch = onConnectionSearch,
-                                            onClearFilters = onClearConnectionFilters,
-                                            onSelectConnection = onSelectConnection,
-                                            onOpenConnection = onOpenConnection,
+                    Column(
+                        modifier =
+                            Modifier
+                                .widthIn(max = layout.contentMaxWidth)
+                                .fillMaxSize(),
+                    ) {
+                        HistorySectionChips(
+                            selectedSection = uiState.selectedSection,
+                            onSelectSection = onSelectSection,
+                        )
+                        val motion = RipDpiThemeTokens.motion
+                        AnimatedContent(
+                            targetState = uiState.selectedSection,
+                            transitionSpec = {
+                                val logicalDirection = targetState.ordinal.compareTo(initialState.ordinal)
+                                val direction =
+                                    if (layoutDirection == LayoutDirection.Rtl) -logicalDirection else logicalDirection
+                                val enterSlide =
+                                    slideInHorizontally(
+                                        initialOffsetX = { fullWidth -> fullWidth / 4 * if (direction >= 0) 1 else -1 },
+                                        animationSpec = motion.stateTween(easing = RipDpiMotion.EmphasizedDecelerate),
+                                    ) +
+                                        fadeIn(
+                                            animationSpec = motion.stateTween(),
                                         )
+                                val exitSlide =
+                                    slideOutHorizontally(
+                                        targetOffsetX = { fullWidth -> fullWidth / 4 * if (direction >= 0) -1 else 1 },
+                                        animationSpec = motion.quickTween(easing = RipDpiMotion.EmphasizedAccelerate),
+                                    ) +
+                                        fadeOut(
+                                            animationSpec = motion.quickTween(),
+                                        )
+                                (enterSlide togetherWith exitSlide).using(
+                                    if (motion.animationsEnabled) SizeTransform() else null,
+                                )
+                            },
+                            label = "historySectionContent",
+                        ) { section ->
+                            sectionStateHolder.SaveableStateProvider(section.name) {
+                                if (uiState.isLoading) {
+                                    Box(
+                                        modifier = Modifier.fillMaxSize().padding(top = spacing.xxl),
+                                        contentAlignment = Alignment.TopCenter,
+                                    ) {
+                                        RipDpiSpinner(size = RipDpiSpinnerSize.Large)
                                     }
+                                } else {
+                                    when (section) {
+                                        HistorySection.Connections -> {
+                                            ConnectionsSection(
+                                                uiState = uiState,
+                                                onModeFilter = onConnectionModeFilter,
+                                                onStatusFilter = onConnectionStatusFilter,
+                                                onSearch = onConnectionSearch,
+                                                onClearFilters = onClearConnectionFilters,
+                                                onSelectConnection = onSelectConnection,
+                                                onOpenConnection = onOpenConnection,
+                                            )
+                                        }
 
-                                    HistorySection.Diagnostics -> {
-                                        DiagnosticsSection(
-                                            uiState = uiState,
-                                            onPathFilter = onDiagnosticsPathFilter,
-                                            onStatusFilter = onDiagnosticsStatusFilter,
-                                            onSearch = onDiagnosticsSearch,
-                                            onClearFilters = onClearDiagnosticsFilters,
-                                            onSelectSession = onSelectDiagnosticsSession,
-                                            onOpenDiagnostics = onOpenDiagnostics,
-                                        )
-                                    }
+                                        HistorySection.Diagnostics -> {
+                                            DiagnosticsSection(
+                                                uiState = uiState,
+                                                onPathFilter = onDiagnosticsPathFilter,
+                                                onStatusFilter = onDiagnosticsStatusFilter,
+                                                onSearch = onDiagnosticsSearch,
+                                                onClearFilters = onClearDiagnosticsFilters,
+                                                onSelectSession = onSelectDiagnosticsSession,
+                                                onOpenDiagnostics = onOpenDiagnostics,
+                                            )
+                                        }
 
-                                    HistorySection.Events -> {
-                                        EventsSection(
-                                            uiState = uiState,
-                                            onToggleFilter = onToggleEventFilter,
-                                            onSearch = onEventSearch,
-                                            onClearFilters = onClearEventFilters,
-                                            onAutoScroll = onEventAutoScroll,
-                                            onSelectEvent = onSelectEvent,
-                                            onOpenConnection = onOpenConnection,
-                                        )
+                                        HistorySection.Events -> {
+                                            EventsSection(
+                                                uiState = uiState,
+                                                onToggleFilter = onToggleEventFilter,
+                                                onSearch = onEventSearch,
+                                                onClearFilters = onClearEventFilters,
+                                                onAutoScroll = onEventAutoScroll,
+                                                onSelectEvent = onSelectEvent,
+                                                onOpenConnection = onOpenConnection,
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -247,6 +252,11 @@ internal fun HistoryScreen(
             }
         }
     }
+    if (twoPane) {
+        RipDpiListDetailLayout(showList = true, listPane = list, detailPane = { HistoryDetailPane(uiState) })
+        return
+    }
+    list()
 
     uiState.selectedConnectionDetail?.let { detail ->
         ConnectionDetailSheet(

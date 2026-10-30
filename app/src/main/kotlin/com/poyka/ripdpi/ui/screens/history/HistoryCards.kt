@@ -13,6 +13,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.selected
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
@@ -40,11 +42,12 @@ internal fun ConnectionSessionCard(
     session: HistoryConnectionRowUiModel,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    selected: Boolean = false,
 ) {
     RipDpiCard(
-        modifier = modifier,
+        modifier = modifier.semantics { if (selected) this.selected = true },
         onClick = onClick,
-        variant = RipDpiCardVariant.Elevated,
+        variant = if (selected) RipDpiCardVariant.Selected else RipDpiCardVariant.Elevated,
     ) {
         StatusIndicator(
             label = AndroidStringResolver(LocalContext.current).connectionStateTitle(session.connectionState),
@@ -91,11 +94,12 @@ internal fun DiagnosticsSessionCard(
     session: DiagnosticsSessionRowUiModel,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
+    selected: Boolean = false,
 ) {
     RipDpiCard(
-        modifier = modifier,
+        modifier = modifier.semantics { if (selected) this.selected = true },
         onClick = onClick,
-        variant = RipDpiCardVariant.Elevated,
+        variant = if (selected) RipDpiCardVariant.Selected else RipDpiCardVariant.Elevated,
     ) {
         StatusIndicator(
             label = session.completionLabel ?: session.status,
@@ -164,15 +168,16 @@ internal fun EventRow(
     modifier: Modifier = Modifier,
     occurrenceCount: Int = 1,
     lastTimestampLabel: String? = null,
+    selected: Boolean = false,
 ) {
     val colors = RipDpiThemeTokens.colors
     val components = RipDpiThemeTokens.components
     val type = RipDpiThemeTokens.type
 
     RipDpiCard(
-        modifier = modifier,
+        modifier = modifier.semantics { if (selected) this.selected = true },
         onClick = onClick,
-        variant = RipDpiCardVariant.Outlined,
+        variant = if (selected) RipDpiCardVariant.Selected else RipDpiCardVariant.Outlined,
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

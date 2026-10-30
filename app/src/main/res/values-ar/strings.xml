@@ -338,6 +338,7 @@
     <string name="history_connections_section">الاتصالات</string>
     <string name="history_diagnostics_section">التشخيصات</string>
     <string name="history_events_section">الأحداث</string>
+    <string name="history_detail_placeholder">اختر إدخالًا لعرض تفاصيله هنا.</string>
     <string name="history_connection_search_placeholder">بحث في الاتصالات</string>
     <string name="history_connections_empty_title">لا يوجد سجل اتصالات بعد</string>
     <string name="history_connections_empty_body">اتصل لحفظ الجلسات ونتائج الاتصال هنا.</string>

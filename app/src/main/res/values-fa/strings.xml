@@ -342,6 +342,7 @@
     <string name="history_connections_section">اتصالات</string>
     <string name="history_diagnostics_section">تشخیص</string>
     <string name="history_events_section">رویدادها</string>
+    <string name="history_detail_placeholder">یک مورد را انتخاب کنید تا جزئیات آن اینجا نمایش داده شود.</string>
     <string name="history_connection_search_placeholder">جستجوی اتصالات</string>
     <string name="history_connections_empty_title">هنوز تاریخچهٔ اتصالی وجود ندارد</string>
     <string name="history_connections_empty_body">متصل شوید تا نشست‌ها و نتایج اتصال در اینجا ذخیره شوند.</string>

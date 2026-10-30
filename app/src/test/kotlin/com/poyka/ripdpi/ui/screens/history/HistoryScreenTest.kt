@@ -1,7 +1,12 @@
 package com.poyka.ripdpi.ui.screens.history
 
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
@@ -17,6 +22,7 @@ import com.poyka.ripdpi.activities.HistoryConnectionsUiModel
 import com.poyka.ripdpi.activities.HistorySection
 import com.poyka.ripdpi.activities.HistoryUiState
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
+import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
@@ -108,6 +114,105 @@ class HistoryScreenTest {
                 useUnmergedTree = true,
             ).assertIsDisplayed()
         composeRule.onAllNodesWithText("Частичные результаты").assertCountEquals(2)
+    }
+
+    @Test
+    @Config(qualifiers = "w1300dp-h900dp")
+    fun expandedWindowShowsTheSelectedSessionBesideTheList() {
+        showSelectableDiagnosticsHistory()
+
+        composeRule.onNodeWithTag(RipDpiTestTags.screen(Route.History)).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.HistoryDetailPlaceholder).assertExists()
+
+        composeRule.onNodeWithTag(RipDpiTestTags.historyDiagnosticsSession(PANE_SESSION_ID)).performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag(RipDpiTestTags.screen(Route.History)).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.HistoryDetailPane).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.historyDiagnosticsSession(PANE_SESSION_ID)).assertIsSelected()
+        composeRule.onNodeWithTag(RipDpiTestTags.HistoryDiagnosticsDetailSheet).assertDoesNotExist()
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h891dp")
+    fun compactWindowOpensTheSelectedSessionInASheet() {
+        showSelectableDiagnosticsHistory()
+
+        composeRule.onNodeWithTag(RipDpiTestTags.HistoryDetailPlaceholder).assertDoesNotExist()
+
+        composeRule.onNodeWithTag(RipDpiTestTags.historyDiagnosticsSession(PANE_SESSION_ID)).performClick()
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag(RipDpiTestTags.HistoryDiagnosticsDetailSheet).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.HistoryDetailPane).assertDoesNotExist()
+    }
+
+    private fun showSelectableDiagnosticsHistory() {
+        val session =
+            DiagnosticsSessionRowUiModel(
+                id = PANE_SESSION_ID,
+                profileId = "default",
+                title = "Manual scan",
+                subtitle = "RAW_PATH · VPN · Mar 27",
+                pathMode = "RAW_PATH",
+                serviceMode = "VPN",
+                status = "completed",
+                startedAtLabel = "Mar 27",
+                summary = "Manual scan",
+                metrics = persistentListOf(),
+                tone = DiagnosticsTone.Positive,
+            )
+        val detail =
+            DiagnosticsSessionDetailUiModel(
+                session = session,
+                probeGroups = persistentListOf(),
+                snapshots = persistentListOf(),
+                events = persistentListOf(),
+                contextGroups = persistentListOf(),
+                hasSensitiveDetails = false,
+                sensitiveDetailsVisible = false,
+            )
+        composeRule.setContent {
+            var selected by remember { mutableStateOf<DiagnosticsSessionDetailUiModel?>(null) }
+            RipDpiTheme {
+                HistoryScreen(
+                    uiState =
+                        HistoryUiState(
+                            selectedSection = HistorySection.Diagnostics,
+                            diagnostics =
+                                DiagnosticsSessionsUiModel(
+                                    filters = DiagnosticsSessionFiltersUiModel(),
+                                    sessions = persistentListOf(session),
+                                    pathModes = persistentListOf("RAW_PATH"),
+                                    statuses = persistentListOf("completed"),
+                                ),
+                            selectedDiagnosticsDetail = selected,
+                        ),
+                    onBack = {},
+                    onRefresh = {},
+                    onSelectSection = {},
+                    onConnectionModeFilter = {},
+                    onConnectionStatusFilter = {},
+                    onConnectionSearch = {},
+                    onClearConnectionFilters = {},
+                    onDiagnosticsPathFilter = {},
+                    onDiagnosticsStatusFilter = {},
+                    onDiagnosticsSearch = {},
+                    onClearDiagnosticsFilters = {},
+                    onToggleEventFilter = { _, _ -> },
+                    onEventSearch = {},
+                    onClearEventFilters = {},
+                    onEventAutoScroll = {},
+                    onSelectConnection = {},
+                    onDismissConnectionDetail = {},
+                    onSelectDiagnosticsSession = { selected = detail },
+                    onDismissDiagnosticsDetail = { selected = null },
+                    onSelectEvent = {},
+                    onDismissEventDetail = {},
+                )
+            }
+        }
+        composeRule.waitForIdle()
     }
 
     @Test
@@ -216,5 +321,9 @@ class HistoryScreenTest {
                 RipDpiTestTags.historyConnectionRememberedBadge("connection-remembered"),
                 useUnmergedTree = true,
             ).assertIsDisplayed()
+    }
+
+    private companion object {
+        const val PANE_SESSION_ID = "scan-pane"
     }
 }

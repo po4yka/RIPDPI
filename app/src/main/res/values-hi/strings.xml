@@ -341,6 +341,7 @@
     <string name="history_connections_section">कनेक्शन</string>
     <string name="history_diagnostics_section">डायग्नोस्टिक्स</string>
     <string name="history_events_section">इवेंट</string>
+    <string name="history_detail_placeholder">यहाँ इसका विवरण देखने के लिए कोई प्रविष्टि चुनें।</string>
     <string name="history_connection_search_placeholder">कनेक्शन खोजें</string>
     <string name="history_connections_empty_title">अभी तक कोई कनेक्शन इतिहास नहीं</string>
     <string name="history_connections_empty_body">सत्र और कनेक्शन के परिणाम यहाँ सहेजने के लिए कनेक्ट करें।</string>

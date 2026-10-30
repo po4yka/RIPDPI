@@ -182,6 +182,7 @@ internal fun ConnectionsSection(
                 ConnectionSessionCard(
                     session = session,
                     onClick = { onSelectConnection(session.id) },
+                    selected = session.id == uiState.selectedConnectionDetail?.session?.id,
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.historyConnection(session.id)),
                 )
             }
@@ -253,6 +254,7 @@ internal fun DiagnosticsSection(
                 DiagnosticsSessionCard(
                     session = session,
                     onClick = { onSelectSession(session.id) },
+                    selected = session.id == uiState.selectedDiagnosticsDetail?.session?.id,
                     modifier = Modifier.ripDpiTestTag(RipDpiTestTags.historyDiagnosticsSession(session.id)),
                 )
             }
@@ -443,6 +445,7 @@ private fun LazyListScope.historyEventRows(
                 occurrenceCount = grouped.count,
                 lastTimestampLabel = grouped.lastTimestampLabel,
                 onClick = { onSelectEvent(grouped.representative.id) },
+                selected = grouped.representative.id == uiState.selectedEvent?.id,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.historyEvent(grouped.representative.id)),
             )
         }

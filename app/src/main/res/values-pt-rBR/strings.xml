@@ -342,6 +342,7 @@
     <string name="history_connections_section">Conexões</string>
     <string name="history_diagnostics_section">Diagnóstico</string>
     <string name="history_events_section">Eventos</string>
+    <string name="history_detail_placeholder">Selecione uma entrada para ver os detalhes aqui.</string>
     <string name="history_connection_search_placeholder">Pesquisar conexões</string>
     <string name="history_connections_empty_title">Ainda sem histórico de conexões</string>
     <string name="history_connections_empty_body">Conecte-se para salvar sessões e resultados de conexão aqui.</string>

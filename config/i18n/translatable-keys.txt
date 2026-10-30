@@ -2947,6 +2947,7 @@ app:history_connection_title_format
 app:history_connections_empty_body
 app:history_connections_empty_title
 app:history_connections_section
+app:history_detail_placeholder
 app:history_detail_section_device
 app:history_detail_section_environment
 app:history_detail_section_field_telemetry

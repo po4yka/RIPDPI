@@ -341,6 +341,7 @@
     <string name="history_connections_section">连接</string>
     <string name="history_diagnostics_section">诊断</string>
     <string name="history_events_section">事件</string>
+    <string name="history_detail_placeholder">选择一个条目，在此处查看其详细信息。</string>
     <string name="history_connection_search_placeholder">搜索连接</string>
     <string name="history_connections_empty_title">尚无连接历史</string>
     <string name="history_connections_empty_body">连接后可在此保存会话和连接结果。</string>

@@ -456,6 +456,8 @@ internal object RipDpiTestTags {
     const val HistoryConnectionDetailSheet = "history-connection-detail-sheet"
     const val HistoryDiagnosticsDetailSheet = "history-diagnostics-detail-sheet"
     const val HistoryEventDetailSheet = "history-event-detail-sheet"
+    const val HistoryDetailPane = "history-detail-pane"
+    const val HistoryDetailPlaceholder = "history-detail-placeholder"
 
     const val CustomizationShapeInfoSheet = "customization-shape-info-sheet"
     const val CustomizationShapeInfoSheetConfirm = "customization-shape-info-sheet-confirm"

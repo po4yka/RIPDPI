@@ -1278,6 +1278,7 @@ fake_burst 3</string>
     <string name="history_connection_remembered_policy_source">Quelle</string>
     <string name="history_diagnostics_empty_body">Prüfen Sie Ihr Netzwerk, um die Ergebnisse hier zu speichern.</string>
     <string name="history_events_section">Ereignisse</string>
+    <string name="history_detail_placeholder">Wähle einen Eintrag, um hier seine Details zu sehen.</string>
     <string name="home_control_plane_health_title">Status der Steuerungsebene muss überprüft werden</string>
     <string name="home_control_plane_host_packs_label">Host-Pakete</string>
     <string name="home_control_plane_strategy_pack_security_rejected">Der neueste Katalog hat erforderliche Sicherheitsmetadaten-Prüfungen nicht bestanden.</string>
