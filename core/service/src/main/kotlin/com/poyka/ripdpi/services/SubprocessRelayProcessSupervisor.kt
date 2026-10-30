@@ -22,6 +22,7 @@ internal class SubprocessRelayProcessSupervisor(
         onOutputEvent: (SubprocessRelayOutputEvent) -> Unit,
     ): Process {
         check(process == null) { "Previous subprocess is still owned by the supervisor" }
+        outputParser.reset()
         val activeProcess = startProcess(processBuilder)
         process = activeProcess
         try {

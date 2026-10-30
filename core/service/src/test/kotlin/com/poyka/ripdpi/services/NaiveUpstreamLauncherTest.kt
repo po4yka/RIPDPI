@@ -552,8 +552,8 @@ class NaiveUpstreamLauncherTest {
         val prefix = "[1030/121224.848214:INFO:net/tools/naive/naive_proxy.cc:288] "
 
         assertEquals(
-            SubprocessRelayOutputEvent.PlainError("upstream connection closed: ERR_CONNECTION_CLOSED"),
-            parser.parse(prefix + "Connection 3 closed: ERR_CONNECTION_CLOSED", upstreamSpec),
+            SubprocessRelayOutputEvent.PlainError("upstream connection closed: ERR_HTTP2_PROTOCOL_ERROR"),
+            parser.parse(prefix + "Connection 3 closed: ERR_HTTP2_PROTOCOL_ERROR", upstreamSpec),
         )
         assertEquals(
             SubprocessRelayOutputEvent.PlainError("upstream connection closed: net::ERR_PROXY_CONNECTION_FAILED"),
@@ -577,12 +577,79 @@ class NaiveUpstreamLauncherTest {
         assertNull(
             parser.parse("[1030/121224.848214:WARNING:net/tools/naive/naive_connection.cc:9] 127.0.0.1", upstreamSpec),
         )
-        val all = messages + "upstream connection closed: ERR_CONNECTION_CLOSED"
+        val all = messages + "upstream connection closed: ERR_HTTP2_PROTOCOL_ERROR"
         all.forEach { message ->
             listOf("127.0.0.1", "9100", "naive.test", "https://", "secret").forEach { forbidden ->
                 assertFalse("$message contains $forbidden", message.contains(forbidden))
             }
         }
+    }
+
+    private val closePrefix = "[1030/121224.848214:INFO:net/tools/naive/naive_proxy.cc:288] "
+    private val ok = SubprocessRelayOutputEvent.UpstreamOk(RelayKindNaiveProxy)
+
+    @Test
+    fun `padding type None is not health evidence`() {
+        val parser = SubprocessRelayOutputParser()
+
+        assertNull(parser.parse(paddingLine.replace("Variant1", "None"), upstreamSpec))
+        assertEquals(ok, parser.parse(paddingLine, upstreamSpec))
+    }
+
+    @Test
+    fun `a close OK needs an earlier announced connection and is consumed once`() {
+        val parser = SubprocessRelayOutputParser()
+
+        // The local readiness probe connection is never announced with "Connection n to".
+        assertNull(parser.parse(closePrefix + "Connection 7 closed: OK", upstreamSpec))
+        assertNull(parser.parse(recordedUpstreamLines.last(), upstreamSpec))
+        assertEquals(ok, parser.parse(closePrefix + "Connection 0 closed: OK", upstreamSpec))
+        assertNull(parser.parse(closePrefix + "Connection 0 closed: OK", upstreamSpec))
+    }
+
+    @Test
+    fun `proxy rejection closes produce no health evidence and reset clears announcements`() {
+        val parser = SubprocessRelayOutputParser()
+        parser.parse(recordedUpstreamLines.last(), upstreamSpec)
+
+        assertEquals(
+            SubprocessRelayOutputEvent.PlainError("upstream connection closed: ERR_PROXY_AUTH_REQUESTED"),
+            parser.parse(closePrefix + "Connection 0 closed: ERR_PROXY_AUTH_REQUESTED", upstreamSpec),
+        )
+        parser.parse(recordedUpstreamLines.last().replace("Connection 0", "Connection 2"), upstreamSpec)
+        assertEquals(
+            SubprocessRelayOutputEvent.PlainError("upstream connection closed: ERR_TUNNEL_CONNECTION_FAILED"),
+            parser.parse(closePrefix + "Connection 2 closed: ERR_TUNNEL_CONNECTION_FAILED", upstreamSpec),
+        )
+        parser.parse(recordedUpstreamLines.last(), upstreamSpec)
+        parser.reset()
+        assertNull(parser.parse(closePrefix + "Connection 0 closed: OK", upstreamSpec))
+    }
+
+    @Test
+    fun `destination side close codes produce no event`() {
+        val parser = SubprocessRelayOutputParser()
+
+        listOf("ERR_CONNECTION_REFUSED", "net::ERR_NAME_NOT_RESOLVED", "ERR_CONNECTION_CLOSED").forEach { code ->
+            assertNull(code, parser.parse(closePrefix + "Connection 3 closed: $code", upstreamSpec))
+        }
+    }
+
+    @Test
+    fun `unrecognized output format is reported once without raw text`() {
+        val parser = SubprocessRelayOutputParser()
+
+        val events = (1..30).mapNotNull { parser.parse("unexpected format secret-$it", upstreamSpec) }
+
+        assertEquals(
+            listOf<SubprocessRelayOutputEvent>(
+                SubprocessRelayOutputEvent.PlainError("upstream client output format not recognized"),
+            ),
+            events,
+        )
+        val recognized = SubprocessRelayOutputParser()
+        recognized.parse(recordedUpstreamLines.first(), upstreamSpec)
+        assertEquals(0, (1..30).mapNotNull { recognized.parse("noise $it", upstreamSpec) }.size)
     }
 
     @Test

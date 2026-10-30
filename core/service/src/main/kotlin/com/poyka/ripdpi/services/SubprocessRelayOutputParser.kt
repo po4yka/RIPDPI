@@ -41,6 +41,13 @@ internal sealed interface SubprocessRelayOutputEvent {
 }
 
 internal class SubprocessRelayOutputParser {
+    private val naiveUpstreamParser = NaiveUpstreamOutputParser()
+
+    /** Drops per-process parser state; the supervisor calls it on each process start. */
+    fun reset() {
+        naiveUpstreamParser.reset()
+    }
+
     fun parse(
         line: String,
         spec: SubprocessSocksRelayLaunchSpec,
@@ -56,7 +63,7 @@ internal class SubprocessRelayOutputParser {
         return when {
             trimmed.isBlank() -> null
             managedClientListener != null -> SubprocessRelayOutputEvent.ManagedClientListener(managedClientListener)
-            spec.binaryName == NaiveUpstreamBinaryName -> parseNaiveUpstreamLine(trimmed, spec.runtimeKind)
+            spec.binaryName == NaiveUpstreamBinaryName -> naiveUpstreamParser.parse(trimmed, spec.runtimeKind)
             else -> parseStructuredEvent(trimmed) ?: parsePlainError(trimmed)
         }
     }
