@@ -12,7 +12,7 @@ import kotlinx.serialization.Serializable
  *
  * Each leaf is a `@Serializable data object`, which Navigation Compose 2.8+ consumes as
  * a type-safe route. The sealed hierarchy keeps `titleRes` + `icon` metadata attached so
- * [BottomNavBar] and [com.poyka.ripdpi.ui.testing.RipDpiTestTags] can continue to read them
+ * [TopLevelNavigationScaffold] and [com.poyka.ripdpi.ui.testing.RipDpiTestTags] can continue to read them
  * from the same source of truth.
  *
  * `route` is preserved as a stable string key for tests, telemetry, and top-level-tab

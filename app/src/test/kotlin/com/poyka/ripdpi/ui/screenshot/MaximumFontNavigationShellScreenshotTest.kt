@@ -1,15 +1,14 @@
 package com.poyka.ripdpi.ui.screenshot
 
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clipToBounds
 import com.poyka.ripdpi.ui.components.RipDpiDiagnosticsScanPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiSettingsMediumPreviewScene
-import com.poyka.ripdpi.ui.navigation.BottomNavBar
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.navigation.TopLevelNavigationScaffold
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -47,19 +46,10 @@ class MaximumFontNavigationShellScreenshotTest {
             heightDp = 891,
             fontScale = 2f,
         ) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                Box(
-                    modifier =
-                        Modifier
-                            .weight(1f)
-                            .clipToBounds(),
-                ) {
+            TopLevelNavigationScaffold(selectedRoute = selectedRoute, onNavigate = {}) {
+                Box(modifier = Modifier.fillMaxSize().clipToBounds()) {
                     scene()
                 }
-                BottomNavBar(
-                    selectedRoute = selectedRoute,
-                    onNavigate = {},
-                )
             }
         }
     }

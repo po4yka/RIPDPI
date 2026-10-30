@@ -3,8 +3,8 @@ package com.poyka.ripdpi.ui.screenshot
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
-import com.poyka.ripdpi.ui.navigation.BottomNavBar
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.navigation.TopLevelNavigationScaffold
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -24,10 +24,10 @@ class BottomNavBarScreenshotTest {
             fontScale = 2f,
             testClassFqn = javaClass.name,
         ) {
-            BottomNavBar(
+            TopLevelNavigationScaffold(
                 selectedRoute = Route.Home,
                 onNavigate = {},
-            )
+            ) {}
         }
     }
 }
@@ -84,10 +84,10 @@ private fun captureMaximumFontBottomBar(
         testClassFqn = testClassFqn,
     ) {
         CompositionLocalProvider(LocalLayoutDirection provides layoutDirection) {
-            BottomNavBar(
+            TopLevelNavigationScaffold(
                 selectedRoute = Route.Home,
                 onNavigate = {},
-            )
+            ) {}
         }
     }
 }

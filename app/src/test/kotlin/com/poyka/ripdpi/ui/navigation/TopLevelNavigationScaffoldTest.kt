@@ -1,0 +1,184 @@
+package com.poyka.ripdpi.ui.navigation
+
+import android.content.Context
+import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertIsDisplayed
+import androidx.compose.ui.test.assertIsNotSelected
+import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.hasContentDescription
+import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithTag
+import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.unit.Density
+import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.ui.components.navigation.ripDpiNavigationSuiteType
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import com.poyka.ripdpi.ui.theme.RipDpiWidthClass
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [35])
+class TopLevelNavigationScaffoldTest {
+    @get:Rule
+    val composeRule = createComposeRule()
+
+    @Test
+    fun `each width class picks its navigation form`() {
+        assertEquals(
+            NavigationSuiteType.ShortNavigationBarCompact,
+            ripDpiNavigationSuiteType(RipDpiWidthClass.Compact),
+        )
+        assertEquals(
+            NavigationSuiteType.WideNavigationRailCollapsed,
+            ripDpiNavigationSuiteType(RipDpiWidthClass.Medium),
+        )
+        assertEquals(
+            NavigationSuiteType.WideNavigationRailCollapsed,
+            ripDpiNavigationSuiteType(RipDpiWidthClass.Expanded),
+        )
+        assertEquals(
+            NavigationSuiteType.WideNavigationRailExpanded,
+            ripDpiNavigationSuiteType(RipDpiWidthClass.Large),
+        )
+        assertEquals(
+            NavigationSuiteType.WideNavigationRailExpanded,
+            ripDpiNavigationSuiteType(RipDpiWidthClass.ExtraLarge),
+        )
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h900dp")
+    fun `compact window shows one bottom row of tabs that select and navigate`() {
+        val navigated = setNavigation()
+        val bounds = tabBounds()
+
+        assertTrue("tabs share one row: $bounds", bounds.all { it.top == bounds.first().top })
+        assertTrue("tabs keep destination order: $bounds", bounds.zipWithNext().all { (a, b) -> a.left < b.left })
+        destinationLabels().forEach { composeRule.onAllNodesWithText(it).assertCountEquals(1) }
+        assertSelectionFollowsClicks(navigated)
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h900dp")
+    fun `compact window at maximum font keeps every tab named without visible labels`() {
+        setNavigation(fontScale = 2f)
+        val bounds = tabBounds()
+
+        assertTrue("tabs share one row: $bounds", bounds.all { it.top == bounds.first().top })
+        destinationLabels().forEach { label ->
+            composeRule.onAllNodesWithText(label).assertCountEquals(0)
+            composeRule.onNode(hasContentDescription(label), useUnmergedTree = true).assertExists()
+        }
+        bounds.forEach { assertTrue("48dp target: $it", it.width >= 48f && it.height >= 48f) }
+    }
+
+    @Test
+    @Config(qualifiers = "w700dp-h900dp")
+    fun `medium window shows a rail in destination order`() {
+        val navigated = setNavigation()
+        assertRail()
+        assertSelectionFollowsClicks(navigated)
+    }
+
+    @Test
+    @Config(qualifiers = "w700dp-h400dp")
+    fun `medium window at maximum font keeps every rail destination displayed and named`() {
+        setNavigation(fontScale = 2f)
+        assertRail()
+        destinationLabels().forEach { label -> composeRule.onAllNodesWithText(label).assertCountEquals(1) }
+    }
+
+    @Test
+    @Config(qualifiers = "w1300dp-h900dp")
+    fun `large window shows an expanded rail with labels beside icons`() {
+        val navigated = setNavigation()
+        val bounds = assertRail()
+
+        assertTrue("expanded rail items are wider than tall: $bounds", bounds.all { it.width > it.height })
+        assertSelectionFollowsClicks(navigated)
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h900dp")
+    fun `no top-level selection hides the navigation`() {
+        composeRule.setContent {
+            RipDpiTheme { TopLevelNavigationScaffold(selectedRoute = null, onNavigate = {}) {} }
+        }
+        Route.topLevel.forEach { composeRule.onAllNodesWithTag(RipDpiTestTags.bottomNav(it)).assertCountEquals(0) }
+    }
+
+    private fun setNavigation(fontScale: Float = 1f): MutableList<Route> {
+        val navigated = mutableListOf<Route>()
+        composeRule.setContent {
+            var selected by androidx.compose.runtime.remember { mutableStateOf<Route>(Route.Home) }
+            CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = fontScale)) {
+                RipDpiTheme {
+                    TopLevelNavigationScaffold(
+                        selectedRoute = selected,
+                        onNavigate = {
+                            selected = it
+                            navigated += it
+                        },
+                    ) {}
+                }
+            }
+        }
+        composeRule.waitForIdle()
+        return navigated
+    }
+
+    private fun assertRail(): List<Rect> {
+        val bounds = tabBounds()
+        assertTrue("rail items share one column: $bounds", bounds.all { it.left == bounds.first().left })
+        assertTrue("rail keeps destination order: $bounds", bounds.zipWithNext().all { (a, b) -> a.top < b.top })
+        Route.topLevel.forEach { composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(it)).assertIsDisplayed() }
+        return bounds
+    }
+
+    private fun tabBounds(): List<Rect> =
+        Route.topLevel.map { route ->
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.bottomNav(route))
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.Role, Role.Tab))
+                .fetchSemanticsNode()
+                .boundsInRoot
+        }
+
+    private fun assertSelectionFollowsClicks(navigated: List<Route>) {
+        composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(Route.Home)).assertIsSelected()
+        Route.topLevel.reversed().forEach { route ->
+            composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(route)).performClick().assertIsSelected()
+            Route.topLevel.filter { it != route }.forEach {
+                composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(it)).assertIsNotSelected()
+            }
+            assertEquals(route, navigated.last())
+        }
+    }
+
+    private fun destinationLabels(): List<String> {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        return Route.topLevel.map { route -> context.getString(route.titleRes) }
+    }
+}

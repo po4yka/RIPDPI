@@ -32,7 +32,7 @@ For any composable that touches a screen edge, you must pick **one** inset sourc
 |---|---|---|
 | `WindowInsets.safeDrawing` | Default for most content surfaces. Union of system bars + display cutout + IME. | What you want unless you have a specific reason otherwise. |
 | `WindowInsets.systemBars` | Only the status + navigation bars. Use when you explicitly want to draw under a display cutout. | Rare in RIPDPI; status bar is the common case. |
-| `WindowInsets.navigationBars` | Bottom nav only. Use for a custom bottom bar that should sit above the system nav gesture area. | See `BottomNavBar.kt` for the anchor. |
+| `WindowInsets.navigationBars` | Bottom nav only. Use for a custom bottom bar that should sit above the system nav gesture area. | The app shell bar comes from `NavigationSuiteScaffold` (`RipDpiNavigationSuiteScaffold.kt`), which pads and consumes this inset itself. |
 | `WindowInsets.statusBars` | Top system bar only. Rare — prefer `safeDrawing` so cutouts are handled. | Use when you want to draw behind the status bar but respect the nav bar normally. |
 | `WindowInsets.ime` | Keyboard insets. | Combine with others via `union()` for fields that must stay above the keyboard. |
 
@@ -49,7 +49,7 @@ Modifier.safeDrawingPadding()                               // safeDrawing short
 
 ## Bottom sheets, dialogs, and the nav bar
 
-`RipDpiBottomSheet.kt` and `BottomNavBar.kt` are the two bottom-edge anchor files. When authoring a new bottom sheet or modifying an existing one:
+`RipDpiBottomSheet.kt` and `RipDpiNavigationSuiteScaffold.kt` are the two bottom-edge anchor files. When authoring a new bottom sheet or modifying an existing one:
 
 1. The sheet container itself is responsible for bottom inset padding. Its parent must **not** consume the nav bar inset first, or the sheet will be paddless.
 2. Use `WindowInsets.navigationBarsIgnoringVisibility` for bottom sheets that must remain fixed even when the gesture nav pill transiently hides. This is the difference between a nav bar that briefly disappears during scroll and a sheet that jumps 24dp.

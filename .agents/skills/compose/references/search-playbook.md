@@ -12,7 +12,7 @@ Use this playbook to gather evidence quickly, then verify by reading representat
 - `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/` -- per-feature screen composables
 - `app/src/main/kotlin/com/poyka/ripdpi/ui/components/` -- design system components (buttons, cards, inputs, indicators, feedback, navigation, scaffold)
 - `app/src/main/kotlin/com/poyka/ripdpi/ui/theme/` -- RipDpiTheme, Color, Type, Spacing, Shape, Motion
-- `app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/` -- NavHost, BottomNavBar, Route
+- `app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/` -- NavHost, TopLevelNavigationScaffold, Route
 - `app/src/main/kotlin/com/poyka/ripdpi/activities/` -- ViewModels + UI models (DiagnosticsUiModels, SettingsUiModels, HistoryUiModels)
 
 **Non-Compose modules** (do NOT search for Compose UI definitions):
