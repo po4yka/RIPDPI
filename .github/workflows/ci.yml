@@ -2288,6 +2288,8 @@ jobs:
           sudo udevadm control --reload-rules
           sudo udevadm trigger --name-match=kvm
 
+      # API 37's 16 KiB Google image can kill the foreground test process at
+      # first boot with 4 GiB. Reserve 6 GiB without changing test selection.
       - name: Provision ${{ matrix.device }} emulator
         run: |
           bash scripts/ci/start-android-emulator.sh --fresh \
@@ -2295,6 +2297,7 @@ jobs:
             --api "${{ matrix.api }}" \
             --arch x86_64 \
             --target "${{ matrix.system-image }}" \
+            --ram "${{ matrix.api == 37 && '6144M' || '4096M' }}" \
             --boot-timeout 600
 
       - name: Run instrumented tests on ${{ matrix.device }}
