@@ -42,15 +42,18 @@ sealed interface NaiveExtraHeadersResult {
 
 fun parseNaiveExtraHeaders(raw: String): NaiveExtraHeadersResult {
     val lines = raw.split('\n').map { it.trimEnd('\r') }.filter { it.isNotBlank() }
+    // The helper caps the form Kotlin sends (normalized, CRLF-joined), so measure that form.
+    val normalized =
+        lines.joinToString("\r\n") { "${it.substringBefore(':').trim()}: ${it.substringAfter(':').trim()}" }
     val tooLarge =
-        raw.toByteArray(Charsets.UTF_8).size > NaiveExtraHeadersMaxBytes || lines.size > NaiveExtraHeadersMaxCount
+        normalized.toByteArray(Charsets.UTF_8).size > NaiveExtraHeadersMaxBytes ||
+            lines.size > NaiveExtraHeadersMaxCount
     val error = if (tooLarge) NaiveExtraHeadersError.TooLarge else lines.firstNotNullOfOrNull(::naiveHeaderLineError)
     return if (error != null) {
         NaiveExtraHeadersResult.Invalid(error)
     } else {
         NaiveExtraHeadersResult.Valid(
-            normalized =
-                lines.joinToString("\r\n") { "${it.substringBefore(':').trim()}: ${it.substringAfter(':').trim()}" },
+            normalized = normalized,
             values = lines.map { it.substringAfter(':').trim() }.filter { it.isNotEmpty() },
         )
     }

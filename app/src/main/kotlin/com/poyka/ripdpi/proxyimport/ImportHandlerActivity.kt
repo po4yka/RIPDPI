@@ -208,12 +208,7 @@ class ImportHandlerActivity : Activity() {
         }
     }
 
-    private fun unsupportedMessage(scheme: String): Int =
-        if (scheme == ProxyUriShareDispatcher.NaiveQuicScheme) {
-            R.string.import_error_naive_quic
-        } else {
-            R.string.import_error_unsupported
-        }
+    private fun unsupportedMessage(scheme: String): Int = unsupportedImportMessage(scheme)
 
     private fun forward(payload: ImportPayload) {
         when (payload) {

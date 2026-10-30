@@ -73,8 +73,11 @@ internal fun naiveProxyCommandArguments(config: ResolvedRipDpiRelayConfig): List
 private fun naiveExtraHeaderRedactions(headers: String): List<String> =
     when (val parsed = parseNaiveExtraHeaders(headers)) {
         is NaiveExtraHeadersResult.Valid -> parsed.values
-        is NaiveExtraHeadersResult.Invalid -> listOf(headers).filter(String::isNotBlank)
-    }
+        is NaiveExtraHeadersResult.Invalid -> listOf(headers)
+    }.filter { it.length >= MinRedactedHeaderValueLength }
+
+// A shorter value would redact unrelated characters in log lines.
+private const val MinRedactedHeaderValueLength = 4
 
 internal fun naiveProxyCredentialsStdin(config: ResolvedRipDpiRelayConfig): ByteArray {
     val localCredentials =

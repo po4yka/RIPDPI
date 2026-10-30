@@ -140,6 +140,28 @@ class ProxyUriCodecTest {
     }
 
     @Test
+    fun `naive link keeps a literal plus and rejects a malformed escape`() {
+        val uri = "naive+https://u+x:p%2Bq+r@h.example?extra-headers=X-A%3A%20a+b#n+m"
+        val profile = ProxyUriCodec.parse(uri) as ProxyProfile.Naive
+
+        assertEquals("u+x", profile.username)
+        assertEquals("p+q+r", profile.password)
+        assertEquals("X-A: a+b", profile.extraHeaders)
+        assertEquals("n+m", profile.displayName)
+        assertEquals("p+q+r", (ProxyUriCodec.parse(ProxyUriCodec.encode(profile)) as ProxyProfile.Naive).password)
+        assertNull(ProxyUriCodec.parse("naive+https://u:p%zz@h.example"))
+        // The shared pre-pass turns a stray % in query and fragment into a literal; only userinfo can be malformed.
+        assertNull(ProxyUriCodec.parse("naive+https://u%zz:p@h.example"))
+    }
+
+    @Test
+    fun `naive link rejects ports outside the valid range`() {
+        assertNull(ProxyUriCodec.parse("naive+https://u:p@h.example:65536"))
+        assertNull(ProxyUriCodec.parse("naive+https://u:p@h.example:0"))
+        assertEquals(65535, (ProxyUriCodec.parse("naive+https://u:p@h.example:65535") as ProxyProfile.Naive).serverPort)
+    }
+
+    @Test
     fun `naive link carries the server pin and rejects a malformed one`() {
         val pin = "ab".repeat(32)
         val profile =

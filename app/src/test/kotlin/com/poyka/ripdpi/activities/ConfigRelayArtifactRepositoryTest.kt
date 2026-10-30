@@ -132,7 +132,8 @@ class ConfigRelayArtifactRepositoryTest {
             )
 
         assertEquals("ab".repeat(32), draft.toRelayCredentialRecord("naive").naiveServerPinSha256)
-        assertEquals(null, draft.copy(relayNaiveServerPinSha256 = "").toRelayCredentialRecord("naive").naiveServerPinSha256)
+        val unpinned = draft.copy(relayNaiveServerPinSha256 = "").toRelayCredentialRecord("naive")
+        assertEquals(null, unpinned.naiveServerPinSha256)
     }
 
     @Test

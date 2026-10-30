@@ -8,8 +8,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigFieldRelayNaiveExtraHeaders
-import com.poyka.ripdpi.activities.ConfigFieldRelayNaiveServerPin
 import com.poyka.ripdpi.activities.ConfigFieldRelayNaivePath
+import com.poyka.ripdpi.activities.ConfigFieldRelayNaiveServerPin
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
@@ -63,7 +63,11 @@ internal fun NaiveProxyRelayFields(
                 helperText = stringResource(R.string.config_relay_naive_extra_headers_helper),
                 errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayNaiveExtraHeaders]),
             ),
-        behavior = RipDpiTextFieldBehavior(singleLine = false),
+        behavior =
+            RipDpiTextFieldBehavior(
+                singleLine = false,
+                keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Ascii),
+            ),
     )
     RipDpiTextField(
         value = draft.relayNaiveServerPinSha256,

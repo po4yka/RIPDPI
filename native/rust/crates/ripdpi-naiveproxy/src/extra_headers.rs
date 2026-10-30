@@ -1,6 +1,7 @@
 //! Operator-supplied extra CONNECT headers (`Name: value` lines, upstream
 //! `--extra-headers` format). Values may be secrets: parsing errors never
-//! echo them, and parsed values are marked sensitive so `Debug` hides them.
+//! echo them, and `NaiveProxyConfig`'s manual `Debug` omits them. Values are sent as
+//! ordinary HPACK headers (not never-indexed) to match upstream's wire shape.
 
 use std::io;
 
@@ -46,9 +47,8 @@ pub(crate) fn parse_extra_headers(raw: &str) -> io::Result<ExtraHeaders> {
         if RESERVED.contains(&name.as_str()) {
             return Err(invalid(format!("NaiveProxy extra header line {position} uses a reserved name")));
         }
-        let mut value = HeaderValue::from_str(value.trim())
+        let value = HeaderValue::from_str(value.trim())
             .map_err(|_| invalid(format!("NaiveProxy extra header line {position} has an invalid value")))?;
-        value.set_sensitive(true);
         if headers.len() == MAX_EXTRA_HEADERS {
             return Err(invalid("NaiveProxy has too many extra headers"));
         }
@@ -72,7 +72,7 @@ mod tests {
         assert_eq!(headers[0].0.as_str(), "x-one");
         assert_eq!(headers[0].1.as_bytes(), b"a b");
         assert_eq!(headers[1].1.as_bytes(), b"c");
-        assert!(headers[0].1.is_sensitive());
+        assert!(!headers[0].1.is_sensitive(), "values must use normal HPACK indexing");
     }
 
     #[test]

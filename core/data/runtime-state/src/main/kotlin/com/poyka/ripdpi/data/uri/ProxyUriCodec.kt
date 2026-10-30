@@ -443,7 +443,7 @@ object ProxyUriCodec {
         runCatching { java.net.URLDecoder.decode(value, "UTF-8") }.getOrDefault(value)
 
     /** RFC 3986 percent-decoding: '+' stays literal. Returns null for a malformed escape. */
-    private fun rfc3986PercentDecode(value: String): String? =
+    internal fun rfc3986PercentDecode(value: String): String? =
         runCatching { java.net.URLDecoder.decode(value.replace("+", "%2B"), "UTF-8") }.getOrNull()
 
     private fun normalizeMieruProtocol(value: String?): String =

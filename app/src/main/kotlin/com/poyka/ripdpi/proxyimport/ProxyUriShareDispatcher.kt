@@ -35,3 +35,11 @@ object ProxyUriShareDispatcher {
         return trimmed.substring(0, schemeEnd).lowercase()
     }
 }
+
+/** String resource for an import rejected by an unsupported [scheme]. */
+internal fun unsupportedImportMessage(scheme: String): Int =
+    if (scheme == ProxyUriShareDispatcher.NaiveQuicScheme) {
+        com.poyka.ripdpi.R.string.import_error_naive_quic
+    } else {
+        com.poyka.ripdpi.R.string.import_error_unsupported
+    }
