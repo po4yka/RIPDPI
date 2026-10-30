@@ -32,7 +32,7 @@ SECRETS = {"privatekey", "publickey", "presharedkey", "headerprotectionkey"}
 WIRE_SPEC = importlib.util.spec_from_file_location("awg_wire_validation", Path(__file__).with_name("awg_wire_validation.py"))
 WIRE = importlib.util.module_from_spec(WIRE_SPEC)
 WIRE_SPEC.loader.exec_module(WIRE)
-CONTROLLED_SCENARIOS = (*WIRE.TIMER_SCENARIOS,"negative-transport")
+CONTROLLED_SCENARIOS = (*WIRE.TIMER_SCENARIOS,"negative-transport",*WIRE.KERNEL_COOKIE_SCENARIOS)
 
 
 
@@ -270,7 +270,8 @@ def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int
                     probes = [json.loads(line.removeprefix("AWG_EXPIRED_PROBE ")) for line in (output/"runtime.log").read_text().splitlines() if line.startswith("AWG_EXPIRED_PROBE ")]
                     if len(probes) != 1: raise ValueError("missing runtime expiry probe")
                     observation["expired_probe"] = probes[0]
-                if negative: WIRE.validate_negative_transport(observation,mtu)
+                if scenario in WIRE.KERNEL_COOKIE_SCENARIOS: WIRE.validate_kernel_cookie_response(observation,mtu,scenario)
+                elif negative: WIRE.validate_negative_transport(observation,mtu)
                 elif timed: WIRE.validate_timer_observation(observation,mtu,scenario)
                 else: WIRE.validate_wire_observation(observation,profile,mtu,cycles,"small-datagrams")
                 for side in ("wire","inner"):

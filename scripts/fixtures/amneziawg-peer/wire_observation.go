@@ -104,6 +104,7 @@ type wireObservation struct {
 	captureTime    *time.Time
 	kernelCapture  map[string]any
 	kernelNegative []transportPhase
+	kernelCookies  *kernelCookieExercise
 	responses      int
 	evidence       wireEvidence
 	// Protected profile only: raw headers inside a configured range, handshake trailers, transport sizes.

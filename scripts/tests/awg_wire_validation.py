@@ -79,7 +79,7 @@ def validate_wire_observation(observation, profile, mtu, cycles, scenario="paylo
             "authenticated byte accounting or key confirmation missing")
     if cpa and cpa[0] == cpa[1] and cpa[0] < 20:
         require(incoming[3][padding[3]+32+cpa[0]] >= keepalives, "empty transport CPA missing")
-    require(scenario in ("payload", "small-datagrams", *TIMER_SCENARIOS, *COOKIE_SCENARIOS, *NEGATIVE_SCENARIOS), "unknown observation scenario")
+    require(scenario in ("payload", "small-datagrams", *TIMER_SCENARIOS, *COOKIE_SCENARIOS, *NEGATIVE_SCENARIOS,*KERNEL_COOKIE_SCENARIOS), "unknown observation scenario")
     if scenario == "small-datagrams":
         require(ip_lengths == {45: 2*cycles} and keepalives == cycles, "small-datagram plaintext oracle differs")
         framing = padding[3]+32
@@ -328,4 +328,45 @@ def validate_negative_transport(observation, mtu):
         else:
             require(phase.get("restored_ns")==phase.get("confirmed_ns")==0,"unexpected negative recovery packet")
             previous=ack
+    return evidence
+
+KERNEL_COOKIE_SCENARIOS=("cookies-response-enabled","cookies-response-disabled")
+
+
+def validate_kernel_cookie_response(observation,mtu,scenario):
+    require(scenario in KERNEL_COOKIE_SCENARIOS and observation.get('scenario')==scenario,'kernel cookie scenario differs')
+    evidence=validate_wire_observation(observation,'v3-cpa-trailers',mtu,1,scenario)
+    events=validate_event_journal(observation,evidence,mtu)
+    relay=observation.get('kernel_capture',{}).get('relay_actions',{})
+    cookie=relay.get('cookies_response',{})
+    phases=cookie.get('phases')
+    disabled=scenario.endswith('-disabled')
+    names=['invalid-mac1','admission']+([] if disabled else ['bad-mac2','valid-mac2'])+['challenge-budget','recovery']
+    require(isinstance(phases,list) and [p.get('name') for p in phases]==names,'kernel cookie phases missing')
+    original=cookie.get('original_sha256')
+    require(isinstance(original,str) and len(original)==64 and 112<=cookie.get('original_length',0)<1500,'kernel response identity missing')
+    expected_ips=Counter({38:1})
+    expected_ips.update(28+len('ACK:'+name) for name in names)
+    require(histogram(evidence.get('ip_lengths'),mtu)==expected_ips,'kernel cookie inner accounting differs')
+    previous=0
+    for phase in phases:
+        name=phase['name'];sent=phase.get('sent') or [];responses=phase.get('responses') or []
+        count={'invalid-mac1':4,'admission':11,'bad-mac2':1,'valid-mac2':1,'challenge-budget':21,'recovery':0}[name]
+        require(len(sent)==count,'kernel cookie injection count differs')
+        fence,ack=phase.get('fence_ns'),phase.get('ack_ns')
+        require(type(fence) is int and type(ack) is int and previous<fence<ack and ack-fence<750_000_000,'kernel cookie fence window differs')
+        for item in sent:
+            require(type(item.get('at_ns')) is int and previous<item['at_ns']<fence and ack-item['at_ns']<750_000_000,'kernel cookie admission window differs')
+            digest=item.get('sha256')
+            require(isinstance(digest,str) and len(digest)==64 and (digest==original)==(name in ('admission','challenge-budget')),'kernel cookie replay identity differs')
+        expected=0 if disabled else {'admission':1,'bad-mac2':1,'challenge-budget':10}.get(name,0)
+        require(len(responses)==expected,'kernel cookie challenge policy or budget differs')
+        for response in responses:
+            require(response.get('type')==3 and response.get('authenticated') is True and 80<=response.get('length',0)<500,'kernel cookie authentication or length missing')
+            require(sent[0]['at_ns']<=response.get('at_ns',-1)<=ack and len(response.get('sha256',''))==64,'kernel cookie response identity or time differs')
+        for direction,marker in (('out','FENCE:'),('in','ACK:')):
+            require(sum(e['direction']==direction and e['type']==4 and e['length']==100+len(marker+name) and fence<=e['at_ns']<=ack for e in events)==1,'kernel cookie authenticated fence missing')
+        if name in ('challenge-budget','recovery'):require(fence-previous>=1_100_000_000,'kernel cookie reset window missing')
+        previous=ack
+    if not disabled:require(any(r['length']>80 for p in phases for r in (p.get('responses') or [])),'kernel cookie RT not observed')
     return evidence

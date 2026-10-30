@@ -238,8 +238,8 @@ It records module/tools/test/fixture hashes, traffic counters, and per-case PCAP
 then removes namespaces and unloads its module. The fixed public fixture keys are
 not production credentials; readback reports exclude keys.
 
-The default Linux matrix has 42 cases: payload and small-datagram cases for all
-seven profiles at both MTUs, plus six timer scenarios and negative transport at both MTUs. Select a subset
+The default Linux matrix has 46 cases: payload and small-datagram cases for all
+seven profiles at both MTUs, plus six timer scenarios, negative transport and two cookie-response policies at both MTUs. Select a subset
 with repeated `--scenario` arguments. Timer scenarios use one session and the
 `v3-cpa-trailers` profile: `timer-persistent`, `timer-idle`, `timer-retry-loss`,
 `timer-retry-exhaust`, `timer-rekey`, and `timer-reject`. A loopback relay in the
@@ -260,6 +260,15 @@ fixes every other packet byte. The capture must contain the exact 284-byte IPv4
 packet with declared length zero and its kernel-encrypted transport. The client
 must reject application delivery and accept the next authenticated fence.
 Backend tests remain the evidence for internal rejection and state effects.
+
+`cookies-response-enabled` and `cookies-response-disabled` replay a captured
+kernel H2. They check MAC1 rejection, MAC2 challenge policy, the challenge budget,
+cookie authentication and established-session fences. The offline oracle rebuilds
+MAC2 from captured authenticated H3 and compares each complete injected H2 to its
+phase, including Noise, headers, padding and trailers. Each injection consumes one
+capture record; H3 must occur inside its phase. These cases do not prove the
+expensive-Noise budget, a fresh kernel handshake or native cookie continuation.
+Those checks remain required in the host feature gate.
 
 The Linux pin still uses a fixed 180-second age limit in `send.c` and `receive.c`.
 Its retry-exhaustion zeroization uses three times `RekeyAfterTime`; session-created

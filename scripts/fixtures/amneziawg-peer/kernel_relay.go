@@ -19,12 +19,13 @@ type relayAction struct {
 	Dropped   bool   `json:"dropped"`
 }
 type kernelRelayReport struct {
-	Port        uint16           `json:"port"`
-	ForeignPort uint16           `json:"foreign_port,omitempty"`
-	StartNS     int64            `json:"start_unix_ns,omitempty"`
-	EndNS       int64            `json:"end_unix_ns"`
-	Actions     []relayAction    `json:"actions"`
-	Negative    []transportPhase `json:"negative_transport,omitempty"`
+	Port        uint16                `json:"port"`
+	ForeignPort uint16                `json:"foreign_port,omitempty"`
+	StartNS     int64                 `json:"start_unix_ns,omitempty"`
+	EndNS       int64                 `json:"end_unix_ns"`
+	Actions     []relayAction         `json:"actions"`
+	Negative    []transportPhase      `json:"negative_transport,omitempty"`
+	Cookies     *kernelCookieEvidence `json:"cookies_response,omitempty"`
 }
 
 func wireDigest(packet []byte) string {
@@ -64,6 +65,9 @@ func relayKernel(socket *net.UDPConn, kernel netip.AddrPort, observer *wireObser
 		}
 		if len(report.Actions) == 4096 {
 			return errors.New("relay action bound exceeded")
+		}
+		if observer.kernelCookies != nil {
+			observer.kernelCookies.observe(buffer[:n], inbound, source)
 		}
 		// Mutations act on the real kernel output. The report retains its original
 		// digest; the capture verifier checks the transformed client-leg packets.
@@ -117,6 +121,15 @@ func kernelControlledPeer(profile wireProfile, scenario string) error {
 	bind := &loopbackBind{socket: socket, observation: wireObservation{profile: profile, scenario: scenario}}
 	observer := &bind.observation
 	negative := scenario == "negative-transport"
+	cookieResponse := scenario == "cookies-response-enabled" || scenario == "cookies-response-disabled"
+	if cookieResponse {
+		observer.kernelCookies, err = newKernelCookieExercise(profile, socket)
+		if err != nil {
+			return err
+		}
+		observer.evidence.start = observer.kernelCookies.start
+		report.StartNS = observer.kernelCookies.start.UnixNano()
+	}
 	if negative {
 		foreign, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
 		if err != nil {
@@ -152,6 +165,10 @@ func kernelControlledPeer(profile wireProfile, scenario string) error {
 	}
 	echoDone := make(chan error, 1)
 	go func() {
+		if cookieResponse {
+			echoDone <- observer.kernelCookies.run(first, scenario == "cookies-response-disabled")
+			return
+		}
 		if negative {
 			echoDone <- bind.transport.run(first)
 			return
@@ -208,6 +225,10 @@ func kernelControlledPeer(profile wireProfile, scenario string) error {
 	report.EndNS = time.Now().UnixNano()
 	if negative {
 		report.Negative = bind.transport.report()
+	}
+	if cookieResponse {
+		snapshot := observer.kernelCookies.report()
+		report.Cookies = &snapshot
 	}
 	return json.NewEncoder(os.Stdout).Encode(map[string]any{"completed_sessions": 1, "kernel_relay": report})
 }

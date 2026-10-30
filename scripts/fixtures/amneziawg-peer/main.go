@@ -301,7 +301,7 @@ func run() error {
 		}
 	}
 	scenario := os.Getenv("RIPDPI_AWG_SCENARIO")
-	if scenario != "" && scenario != "payload" && scenario != "small-datagrams" && scenario != "timer-persistent" && scenario != "timer-idle" && scenario != "timer-retry-loss" && scenario != "timer-rekey" && scenario != "timer-retry-exhaust" && scenario != "timer-reject" && scenario != "cookies-enabled" && scenario != "cookies-disabled" && scenario != "negative-transport" {
+	if scenario != "" && scenario != "payload" && scenario != "small-datagrams" && scenario != "timer-persistent" && scenario != "timer-idle" && scenario != "timer-retry-loss" && scenario != "timer-rekey" && scenario != "timer-retry-exhaust" && scenario != "timer-reject" && scenario != "cookies-enabled" && scenario != "cookies-disabled" && scenario != "negative-transport" && scenario != "cookies-response-enabled" && scenario != "cookies-response-disabled" {
 		return errors.New("unknown fixture scenario")
 	}
 	transport := scenario == "negative-transport"
@@ -324,16 +324,22 @@ func run() error {
 		_, err = fmt.Print(config)
 		return err
 	case "echo":
-		if timed || transport {
+		if timed || transport || strings.HasPrefix(scenario, "cookies-response-") {
 			return kernelControlledPeer(profile, scenario)
 		}
 		return kernelEcho(cycles)
 	case "observe":
+		if strings.HasPrefix(scenario, "cookies-response-") {
+			return observeKernelCookieCapture(profile, scenario)
+		}
 		if transport {
 			return observeKernelNegativeCapture(profile)
 		}
 		return observeKernelCapture(profile, cycles)
 	case "":
+		if strings.HasPrefix(scenario, "cookies-response-") {
+			return errors.New("kernel response scenario requires kernel mode")
+		}
 	default:
 		return errors.New("unknown kernel fixture mode")
 	}

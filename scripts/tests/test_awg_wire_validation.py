@@ -414,3 +414,55 @@ class NegativeTransportSemantics(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def kernel_response_observation(disabled=False):
+    from collections import Counter
+    result=small_cpa_observation()
+    scenario='cookies-response-disabled' if disabled else 'cookies-response-enabled'
+    result.update(scenario=scenario,elapsed_ns=5_000_000_000)
+    events=[]
+    def event(at,direction,kind,length):
+        item=dict(at_ns=int(at*1e9),direction=direction,type=kind,length=length)
+        if kind==4:item.update(receiver=101,counter=len(events))
+        events.append(item)
+    event(0,'in',1,200);event(.01,'out',2,130);event(.02,'in',4,72);event(.03,'in',4,110)
+    names=['invalid-mac1','admission']+([] if disabled else ['bad-mac2','valid-mac2'])+['challenge-budget','recovery']
+    phases=[]
+    for index,name in enumerate(names):
+        start={'challenge-budget':2.9,'recovery':4.1}.get(name,1.2+index*.1)
+        count={'invalid-mac1':4,'admission':11,'bad-mac2':1,'valid-mac2':1,'challenge-budget':21,'recovery':0}[name]
+        sent=[dict(sha256=('a' if name in ('admission','challenge-budget') else 'b')*64,at_ns=int((start+i*.0001)*1e9)) for i in range(count)]
+        responses=[]
+        for i in range(0 if disabled else {'admission':1,'bad-mac2':1,'challenge-budget':10}.get(name,0)):
+            at=start+.01+i*.0001
+            responses.append(dict(type=3,length=96,authenticated=True,at_ns=int(at*1e9),sha256=f'{index*100+i:064x}'))
+            event(at,'in',3,96)
+        fence,ack=start+.05,start+.06
+        event(fence+.001,'out',4,100+len('FENCE:'+name));event(ack-.001,'in',4,100+len('ACK:'+name))
+        phases.append(dict(name=name,sent=sent,responses=responses,fence_ns=int(fence*1e9),ack_ns=int(ack*1e9)))
+    result['evidence'].update(events=events,events_dropped=0)
+    recount_timer(result)
+    result['evidence']['ip_lengths']=dict(Counter(str(n) for n in [38,*[28+len('ACK:'+name) for name in names]]))
+    result['kernel_capture']=dict(relay_actions=dict(cookies_response=dict(original_sha256='a'*64,original_length=130,phases=phases)))
+    return result
+
+
+class KernelResponseCookies(unittest.TestCase):
+    def test_response_policies_and_missing_feature_controls(self):
+        from scripts.tests.awg_wire_validation import validate_kernel_cookie_response
+        for disabled in (False,True):
+            good=kernel_response_observation(disabled)
+            validate_kernel_cookie_response(good,1280,good['scenario'])
+            mutations=[lambda o:o['kernel_capture']['relay_actions']['cookies_response']['phases'].pop(),
+                       lambda o:o['kernel_capture']['relay_actions']['cookies_response']['phases'][1]['sent'].pop(),
+                       lambda o:o['kernel_capture']['relay_actions']['cookies_response']['phases'][0]['sent'][0].update(sha256='a'*64),
+                       lambda o:o['kernel_capture']['relay_actions']['cookies_response']['phases'][1].update(ack_ns=9000000000),
+                       lambda o:o['evidence'].update(authenticated_keepalives=0)]
+            if not disabled:
+                mutations += [lambda o:o['kernel_capture']['relay_actions']['cookies_response']['phases'][1]['responses'][0].update(authenticated=False),
+                              lambda o:o['kernel_capture']['relay_actions']['cookies_response']['phases'][3]['responses'].append(dict(type=3)),
+                              lambda o:o['kernel_capture']['relay_actions']['cookies_response']['phases'][-2]['responses'].pop()]
+            for mutate in mutations:
+                bad=copy.deepcopy(good);mutate(bad)
+                with self.assertRaises(ValueError):validate_kernel_cookie_response(bad,1280,bad['scenario'])
