@@ -1,8 +1,5 @@
 package com.poyka.ripdpi.ui.navigation
 
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
@@ -180,41 +177,35 @@ fun RipDpiNavHost(
         content = exportPreviewContent,
     )
 
-    val isWideScreen = rememberIsWideScreen()
-    Scaffold(
+    TopLevelNavigationScaffold(
+        selectedRoute = selectedTopLevel,
+        onNavigate = { destination -> navController.navigateTopLevel(destination) },
         modifier = modifier,
-        containerColor = RipDpiThemeTokens.colors.background,
-        snackbarHost = {
-            snackbarHostState?.let { hostState ->
-                RipDpiSnackbarHost(
-                    hostState = hostState,
-                    modifier = Modifier.padding(horizontal = layout.horizontalPadding),
-                )
-            }
-        },
-        bottomBar = {
-            if (!isWideScreen) {
-                TopLevelBottomBar(
-                    selectedTopLevel = selectedTopLevel,
-                    onNavigate = { destination -> navController.navigateTopLevel(destination) },
-                )
-            }
-        },
-    ) { innerPadding ->
-        ResponsiveNavContent(
-            isWideScreen = isWideScreen,
-            selectedTopLevel = selectedTopLevel,
-            innerPadding = innerPadding,
-            navController = navController,
-            startDestination = startDestination,
-            motion = motion,
-            actions = actions,
-            mainViewModel = mainViewModel,
-            pauseViewModel = pauseViewModel,
-            permissionSummary = permissionSummary,
-            diagnosticsInitialSection = diagnosticsInitialSection.value,
-            onDiagnosticsInitialSectionChanged = { diagnosticsInitialSection.value = it },
-        )
+    ) {
+        Scaffold(
+            containerColor = RipDpiThemeTokens.colors.background,
+            snackbarHost = {
+                snackbarHostState?.let { hostState ->
+                    RipDpiSnackbarHost(
+                        hostState = hostState,
+                        modifier = Modifier.padding(horizontal = layout.horizontalPadding),
+                    )
+                }
+            },
+        ) { innerPadding ->
+            RipDpiNavGraph(
+                startDestination = startDestination,
+                innerPadding = innerPadding,
+                navController = navController,
+                motion = motion,
+                actions = actions,
+                mainViewModel = mainViewModel,
+                pauseViewModel = pauseViewModel,
+                permissionSummary = permissionSummary,
+                diagnosticsInitialSection = diagnosticsInitialSection.value,
+                onDiagnosticsInitialSectionChanged = { diagnosticsInitialSection.value = it },
+            )
+        }
     }
 }
 
@@ -229,63 +220,6 @@ private fun NavDestination.topLevelRoute(): Route? =
             in configSubRouteStableKeys -> Route.Config
             else -> null
         }
-
-@Composable
-private fun ResponsiveNavContent(
-    isWideScreen: Boolean,
-    selectedTopLevel: Route?,
-    innerPadding: PaddingValues,
-    navController: NavHostController,
-    startDestination: Route,
-    motion: RipDpiMotion,
-    actions: RipDpiNavHostActions,
-    mainViewModel: MainViewModel,
-    pauseViewModel: HomePauseViewModel,
-    permissionSummary: PermissionSummaryUiState,
-    diagnosticsInitialSection: DiagnosticsSection?,
-    onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
-) {
-    if (isWideScreen && selectedTopLevel != null) {
-        Row(
-            modifier =
-                Modifier
-                    .padding(innerPadding)
-                    .consumeWindowInsets(innerPadding),
-        ) {
-            RipDpiNavRail(
-                selectedRoute = selectedTopLevel,
-                onNavigate = { destination -> navController.navigateTopLevel(destination) },
-            )
-            Box(modifier = Modifier.weight(1f)) {
-                RipDpiNavGraph(
-                    startDestination = startDestination,
-                    innerPadding = PaddingValues(),
-                    navController = navController,
-                    motion = motion,
-                    actions = actions,
-                    mainViewModel = mainViewModel,
-                    pauseViewModel = pauseViewModel,
-                    permissionSummary = permissionSummary,
-                    diagnosticsInitialSection = diagnosticsInitialSection,
-                    onDiagnosticsInitialSectionChanged = onDiagnosticsInitialSectionChanged,
-                )
-            }
-        }
-    } else {
-        RipDpiNavGraph(
-            startDestination = startDestination,
-            innerPadding = innerPadding,
-            navController = navController,
-            motion = motion,
-            actions = actions,
-            mainViewModel = mainViewModel,
-            pauseViewModel = pauseViewModel,
-            permissionSummary = permissionSummary,
-            diagnosticsInitialSection = diagnosticsInitialSection,
-            onDiagnosticsInitialSectionChanged = onDiagnosticsInitialSectionChanged,
-        )
-    }
-}
 
 @Composable
 private fun HandleLaunchRequests(
@@ -356,18 +290,6 @@ private fun HandleLaunchRequests(
             launchRequests.onRelockHandled()
         }
     }
-}
-
-@Composable
-private fun TopLevelBottomBar(
-    selectedTopLevel: Route?,
-    onNavigate: (Route) -> Unit,
-) {
-    val destination = selectedTopLevel ?: return
-    BottomNavBar(
-        selectedRoute = destination,
-        onNavigate = onNavigate,
-    )
 }
 
 @Composable
@@ -890,7 +812,7 @@ internal fun nestedPopExitTransition(motion: RipDpiMotion) = motion.nestedPopExi
  * Returns the stable route key (e.g. "home") for a Nav destination.
  *
  * Needed because Navigation Compose 2.8+ typed routes expose `destination.route` as a
- * fully-qualified class name, not the stable key that [BottomNavBar] and the
+ * fully-qualified class name, not the stable key that [TopLevelNavigationScaffold] and the
  * launch-request pipeline still speak. The stable key is preserved on [Route] itself
  * so external surfaces (automation, telemetry, deep links) keep their string contract.
  */

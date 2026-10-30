@@ -19,8 +19,8 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbar
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
-import com.poyka.ripdpi.ui.navigation.BottomNavBar
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.navigation.TopLevelNavigationScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 
@@ -72,7 +72,7 @@ private fun ReadabilityAuditSharedPreview() {
 private fun ReadabilityAuditNavigationPreview() {
     RipDpiTheme(themePreference = if (isSystemInDarkTheme()) "dark" else "light") {
         Column(Modifier.fillMaxWidth().padding(top = 16.dp)) {
-            BottomNavBar(Route.Settings, {})
+            TopLevelNavigationScaffold(Route.Settings, {}) {}
         }
     }
 }

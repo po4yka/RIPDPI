@@ -28,8 +28,6 @@ internal object RipDpiTestTags {
     const val StartupRecoveryPending = "startup-recovery-pending"
     const val StartupRecoveryFailure = "startup-recovery-failure"
     const val StartupRecoveryRetry = "startup-recovery-retry"
-    const val BottomNavBar = "bottom-nav-bar"
-    const val BottomNavIndicator = "bottom-nav-indicator"
 
     const val ConnectionActuatorDisconnectConfirm = "connection-actuator-disconnect-confirm"
     const val ConnectionActuatorDisconnectStay = "connection-actuator-disconnect-stay"

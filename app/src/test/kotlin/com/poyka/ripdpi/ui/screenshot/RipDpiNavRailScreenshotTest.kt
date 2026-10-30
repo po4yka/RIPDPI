@@ -1,14 +1,13 @@
 package com.poyka.ripdpi.ui.screenshot
 
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
 import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.ui.components.RipDpiHomeExpandedPreviewScene
 import com.poyka.ripdpi.ui.components.homePreviewActuatorState
-import com.poyka.ripdpi.ui.navigation.RipDpiNavRail
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.navigation.TopLevelNavigationScaffold
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -59,14 +58,12 @@ class RipDpiNavRailScreenshotTest {
             fontScale = fontScale,
         ) {
             RipDpiTheme(themePreference = "light") {
-                Row(modifier = Modifier.fillMaxSize()) {
-                    RipDpiNavRail(
-                        selectedRoute = Route.Home,
-                        onNavigate = {},
-                    )
-                    androidx.compose.foundation.layout.Box(modifier = Modifier.weight(1f)) {
-                        RipDpiHomeExpandedPreviewScene(connectionActuator = connectionActuator)
-                    }
+                TopLevelNavigationScaffold(
+                    selectedRoute = Route.Home,
+                    onNavigate = {},
+                    modifier = Modifier.fillMaxSize(),
+                ) {
+                    RipDpiHomeExpandedPreviewScene(connectionActuator = connectionActuator)
                 }
             }
         }
