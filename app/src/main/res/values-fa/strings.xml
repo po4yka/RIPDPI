@@ -669,6 +669,10 @@
     <string name="config_relay_naive_check_connect">سرور در دسترس نیست. نشانی و درگاه را بررسی کنید.</string>
     <string name="config_relay_naive_check_timeout">سرور به‌موقع پاسخ نداد.</string>
     <string name="config_relay_naive_check_failed">آزمایش اجرا نشد. فیلدهای نمایه را بررسی کنید.</string>
+    <string name="config_relay_naive_quic">استفاده از HTTP/3 (QUIC)</string>
+    <string name="config_relay_naive_quic_helper">سرور باید از HTTP/3 پشتیبانی کند و نمایه نباید پین داشته باشد. «آزمایش اتصال» فقط HTTPS را بررسی می‌کند.</string>
+    <string name="config_relay_naive_concurrency">اتصال‌های موازی</string>
+    <string name="config_relay_naive_concurrency_helper">از ۱ تا ۴. اتصال‌های بیشتر در شبکهٔ محدودشده ممکن است سریع‌تر باشند، اما آسان‌تر شناسایی می‌شوند. مقدار بیشتر از ۱ به نمایهٔ بدون پین نیاز دارد.</string>
     <string name="config_relay_naive_path_error_absolute">مسیر باید با / شروع شود.</string>
     <string name="config_relay_naive_extra_headers">سرصفحه‌های اضافی (اختیاری)</string>
     <string name="config_relay_naive_extra_headers_helper">هر سرصفحه در یک خط با قالب Name: value. با هر درخواست CONNECT ارسال می‌شود. مقادیر به‌صورت رمزگذاری‌شده ذخیره می‌شوند.</string>
@@ -2601,7 +2605,6 @@ fakeddisorder endhost</string>
 
     <!-- Proxy import: share-sheet handler, sing-box deep links, QR scanner. -->
     <string name="import_error_unsupported">پیوند درون‌ریزی پشتیبانی‌نشده.</string>
-    <string name="import_error_naive_quic">NaiveProxy روی QUIC (naive+quic) پشتیبانی نمی‌شود. از پیوند naive+https استفاده کنید.</string>
     <string name="import_error_missing_url">نشانی اشتراک در پیوند درون‌ریزی موجود نیست.</string>
     <string name="import_error_bad_encoding">پیوند درون‌ریزی نامعتبر است.</string>
     <string name="import_profile_confirm_title">درون‌ریزی نمایه</string>

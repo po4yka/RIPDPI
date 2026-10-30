@@ -236,6 +236,8 @@ private fun relayCredentials(
                 naivePassword = profile.password,
                 naiveExtraHeaders = profile.extraHeaders.ifEmpty { null },
                 naiveServerPinSha256 = profile.serverPinSha256.ifEmpty { null },
+                naiveQuic = profile.quic,
+                naiveConcurrency = profile.concurrency,
             )
         }
 

@@ -56,7 +56,7 @@ object ProxyUriCodec {
                 "vless" -> parseVless(trimmed)
                 "ss" -> parseShadowsocks(trimmed)
                 "mieru" -> parseMieru(trimmed)
-                "naive+https" -> NaiveUriCodec.parse(trimmed)
+                "naive+https", "naive+quic" -> NaiveUriCodec.parse(trimmed)
                 "trojan" -> parseTrojan(trimmed)
                 "hysteria2", "hy2" -> parseHysteria2(trimmed)
                 "anytls" -> parseAnyTls(trimmed)

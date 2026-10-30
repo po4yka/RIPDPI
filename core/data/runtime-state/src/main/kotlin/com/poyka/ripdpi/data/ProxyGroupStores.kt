@@ -348,6 +348,10 @@ sealed interface ProxyProfile {
         val extraHeaders: String = "",
         /** Optional server leaf-certificate SHA-256 pin (64 lowercase hex); empty means webpki trust. */
         val serverPinSha256: String = "",
+        /** HTTP/3 (`naive+quic`); only the upstream client runs it, so it needs an empty pin. */
+        val quic: Boolean = false,
+        /** Upstream `insecure-concurrency`: parallel server connections, 1 to [MaxNaiveConcurrency]. */
+        val concurrency: Int = 1,
     ) : ProxyProfile {
         override fun toString(): String =
             "Naive(id=$id, displayName=$displayName, groupId=$groupId, server=$server, " +

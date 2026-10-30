@@ -25,5 +25,7 @@ internal fun toNaiveShareProfile(
                 password = credentials.naivePassword.orEmpty(),
                 extraHeaders = credentials.naiveExtraHeaders.orEmpty(),
                 serverPinSha256 = credentials.naiveServerPinSha256.orEmpty(),
+                quic = credentials.naiveQuic,
+                concurrency = credentials.naiveConcurrency,
             )
         }

@@ -500,6 +500,8 @@ private class ResolvedRelayConfigBuilder(
             naiveUsername = credentials?.naiveUsername,
             naivePassword = credentials?.naivePassword,
             naiveExtraHeaders = credentials?.naiveExtraHeaders.orEmpty(),
+            naiveQuic = credentials?.naiveQuic ?: false,
+            naiveConcurrency = credentials?.naiveConcurrency ?: 1,
             naiveServerPinSha256 = credentials?.naiveServerPinSha256.orEmpty(),
             ptBridgeLine = effectiveConfig.ptBridgeLine,
             ptWebTunnelUrl = effectiveConfig.ptWebTunnelUrl,

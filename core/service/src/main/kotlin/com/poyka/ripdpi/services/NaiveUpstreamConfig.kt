@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
@@ -31,6 +32,8 @@ internal data class NaiveUpstreamConfigValues(
     val localPort: Int,
     val extraHeaders: String,
     val mappedAddress: String?,
+    val quic: Boolean = false,
+    val concurrency: Int = 1,
 )
 
 /** Percent-encodes everything except RFC 3986 unreserved characters, so `@`, `:` and `+` cannot break the URI. */
@@ -77,6 +80,11 @@ private fun userInfo(
         else -> "${percentEncodeUserInfo(username)}:${percentEncodeUserInfo(password)}@"
     }
 
+/** HTTP/3 and the connection count, which only the upstream client supports. */
+internal fun NaiveUpstreamConfigValues.withProfileOptions(
+    config: ResolvedRipDpiRelayConfig,
+): NaiveUpstreamConfigValues = copy(quic = config.naiveQuic, concurrency = config.naiveConcurrency)
+
 /** Keys mirror the upstream flags without the leading `--` (USAGE.txt of the pinned release). */
 internal fun naiveUpstreamConfigJson(values: NaiveUpstreamConfigValues): String {
     val json = JSONObject()
@@ -84,11 +92,14 @@ internal fun naiveUpstreamConfigJson(values: NaiveUpstreamConfigValues): String 
     json.put("listen", "socks://$localUserInfo${bracketIpv6Host(values.localHost)}:${values.localPort}")
     json.put(
         "proxy",
-        "https://${userInfo(values.proxyUsername, values.proxyPassword)}" +
+        "${if (values.quic) "quic" else "https"}://${userInfo(values.proxyUsername, values.proxyPassword)}" +
             "${bracketIpv6Host(values.proxyHost)}:${values.proxyPort}",
     )
     if (values.extraHeaders.isNotEmpty()) {
         json.put("extra-headers", values.extraHeaders)
+    }
+    if (values.concurrency > 1) {
+        json.put("insecure-concurrency", values.concurrency)
     }
     values.mappedAddress?.let { address ->
         json.put("host-resolver-rules", "MAP ${values.proxyHost} ${bracketIpv6Host(address)}")

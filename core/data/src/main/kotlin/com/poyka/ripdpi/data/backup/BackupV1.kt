@@ -270,6 +270,8 @@ object BackupAllowlist {
                 "password" to Classification.REDACTED,
                 "extraHeaders" to Classification.REDACTED,
                 "serverPinSha256" to Classification.PUBLIC,
+                "quic" to Classification.PUBLIC,
+                "concurrency" to Classification.PUBLIC,
             )
 
     private val sshFields: Map<String, Classification> =

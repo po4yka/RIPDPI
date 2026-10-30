@@ -963,6 +963,7 @@ class XrayProviderE2ETest {
         fun startNaive(
             pin: String,
             password: String = manifest.getString("naivePassword"),
+            quic: Boolean = false,
         ) {
             runBlocking { controller.stop() }
             awaitUntil(timeoutMs = 30_000) { state.status.value.first == AppStatus.Halted }
@@ -984,6 +985,9 @@ class XrayProviderE2ETest {
                         naiveUsername = manifest.getString("naiveUser"),
                         naivePassword = password,
                         naiveServerPinSha256 = pin,
+                        // HTTP/3 also runs two parallel connections, so one phase covers both upstream options.
+                        naiveQuic = quic,
+                        naiveConcurrency = if (quic) 2 else 1,
                     ),
                 )
                 selection.update(XrayProviderSelectionRecord())
@@ -1075,11 +1079,17 @@ class XrayProviderE2ETest {
                 Log.i("NaiveProxyHealth", "phase=naive-upstream health=${relayHealth()}")
             }
             assertEquals("healthy", relayHealth())
+            startNaive("", quic = true)
+            assertRoutedTransfer("naive-upstream-quic")
             assertFailsClosed("naive-upstream-wrong-password") {
                 startNaive("", password = "wrong-" + manifest.getString("naivePassword").reversed())
             }
             // The upstream ERR_PROXY_AUTH_* close maps to the auth class, as the Rust helper's 407 does.
-            awaitUntil(timeoutMs = 15_000) { relayHealth() == "degraded" }
+            try {
+                awaitUntil(timeoutMs = 15_000) { relayHealth() == "degraded" }
+            } finally {
+                Log.i("NaiveProxyHealth", "phase=naive-upstream-wrong-password-settled health=${relayHealth()}")
+            }
         } finally {
             runBlocking {
                 controller.stop()

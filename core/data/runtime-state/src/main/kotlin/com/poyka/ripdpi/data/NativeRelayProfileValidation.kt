@@ -86,6 +86,12 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
             require(profile.server.isNotBlank()) { "NaiveProxy requires a server hostname" }
             require(profile.serverPort in RelayPortRange) { "NaiveProxy requires a valid server port" }
             require(profile.username.isNotBlank()) { "NaiveProxy requires a username" }
+            require(
+                profile.concurrency in 1..MaxNaiveConcurrency,
+            ) { "NaiveProxy concurrency must be 1 to $MaxNaiveConcurrency" }
+            require(profile.serverPinSha256.isEmpty() || (!profile.quic && profile.concurrency == 1)) {
+                "NaiveProxy HTTP/3 and concurrency cannot use a certificate pin"
+            }
             true
         }
 

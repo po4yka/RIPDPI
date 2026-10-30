@@ -5,6 +5,7 @@ import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.localSocksCredentialsOrNull
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import com.poyka.ripdpi.data.MaxNaiveConcurrency
 import com.poyka.ripdpi.data.NaiveExtraHeadersResult
 import com.poyka.ripdpi.data.parseNaiveExtraHeaders
 import dagger.hilt.android.qualifiers.ApplicationContext
@@ -106,6 +107,9 @@ internal class NaiveUpstreamLauncher
             if (!isValidProxyHost(config.server) || !isValidProxyHost(proxyHost)) {
                 reject(config, prelaunchSpec, "NaiveProxy server host is not a valid hostname or IP", "config")
             }
+            if (config.naiveConcurrency !in 1..MaxNaiveConcurrency) {
+                reject(config, prelaunchSpec, "NaiveProxy concurrency must be 1 to $MaxNaiveConcurrency", "config")
+            }
             val local =
                 localSocksCredentialsOrNull(config.localSocksUsername, config.localSocksPassword)
                     ?: reject(config, prelaunchSpec, "NaiveProxy requires local listener credentials", "config")
@@ -199,7 +203,7 @@ internal class NaiveUpstreamLauncher
                 localPort = config.localSocksPort,
                 extraHeaders = extraHeaders,
                 mappedAddress = mappedAddress?.takeIf { !isIpLiteralHost(proxyHost(config)) },
-            )
+            ).withProfileOptions(config)
 
         private fun launchSpec(
             config: ResolvedRipDpiRelayConfig,

@@ -2109,6 +2109,10 @@ fake_burst 3</string>
     <string name="config_relay_naive_check_connect">无法连接到服务器。请检查地址和端口。</string>
     <string name="config_relay_naive_check_timeout">服务器未及时响应。</string>
     <string name="config_relay_naive_check_failed">无法运行测试。请检查配置文件字段。</string>
+    <string name="config_relay_naive_quic">使用 HTTP/3 (QUIC)</string>
+    <string name="config_relay_naive_quic_helper">服务器必须支持 HTTP/3，且配置文件不能设置证书固定。“测试连接”只检查 HTTPS。</string>
+    <string name="config_relay_naive_concurrency">并行连接数</string>
+    <string name="config_relay_naive_concurrency_helper">1 到 4。在限速网络中，更多连接可能更快，但更容易被检测。大于 1 的值要求配置文件不设置证书固定。</string>
     <string name="config_relay_naive_path_error_absolute">路径必须以 / 开头。</string>
     <string name="config_relay_naive_extra_headers">额外请求头（可选）</string>
     <string name="config_relay_naive_extra_headers_helper">每行一个请求头，格式为 Name: value。随每个 CONNECT 请求发送。值以加密方式存储。</string>
@@ -2593,7 +2597,6 @@ fake_burst 3</string>
 
     <!-- Proxy import: share-sheet handler, sing-box deep links, QR scanner. -->
     <string name="import_error_unsupported">不支持的导入链接。</string>
-    <string name="import_error_naive_quic">不支持基于 QUIC 的 NaiveProxy（naive+quic）。请使用 naive+https 链接。</string>
     <string name="import_error_missing_url">导入链接缺少订阅 URL。</string>
     <string name="import_error_bad_encoding">导入链接格式错误。</string>
     <string name="import_profile_confirm_title">导入配置文件</string>

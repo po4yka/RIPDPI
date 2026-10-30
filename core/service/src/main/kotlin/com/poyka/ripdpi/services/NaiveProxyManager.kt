@@ -150,6 +150,15 @@ open class NaiveProxyManager
                     failureClass = "config",
                 )
             }
+            if (config.naiveQuic || config.naiveConcurrency != 1) {
+                // Only the upstream client has HTTP/3 and concurrency; refuse instead of dropping them.
+                rejectPrelaunch(
+                    config = config,
+                    spec = spec,
+                    message = "NaiveProxy HTTP/3 and concurrency need a profile without a certificate pin",
+                    failureClass = "config",
+                )
+            }
             val binary = launchDelegate.resolveBinary(NaiveProxyBinaryName)
             when (val result = preflightProbe.run(binary)) {
                 is NaiveProxyPreflightResult.Probed -> {

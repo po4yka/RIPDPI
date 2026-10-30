@@ -671,6 +671,10 @@
     <string name="config_relay_naive_check_connect">Não foi possível alcançar o servidor. Verifique o endereço e a porta.</string>
     <string name="config_relay_naive_check_timeout">O servidor não respondeu a tempo.</string>
     <string name="config_relay_naive_check_failed">Não foi possível executar o teste. Verifique os campos do perfil.</string>
+    <string name="config_relay_naive_quic">Usar HTTP/3 (QUIC)</string>
+    <string name="config_relay_naive_quic_helper">O servidor precisa ter suporte a HTTP/3, e o perfil não pode ter pin. \"Testar conexão\" verifica apenas HTTPS.</string>
+    <string name="config_relay_naive_concurrency">Conexões paralelas</string>
+    <string name="config_relay_naive_concurrency_helper">De 1 a 4. Mais conexões podem ser mais rápidas em uma rede limitada, mas são mais fáceis de detectar. Um valor acima de 1 exige um perfil sem pin.</string>
     <string name="config_relay_naive_path_error_absolute">O caminho deve começar com /.</string>
     <string name="config_relay_naive_extra_headers">Cabeçalhos extras (opcional)</string>
     <string name="config_relay_naive_extra_headers_helper">Um cabeçalho por linha no formato Name: value. Enviados em cada solicitação CONNECT. Os valores são armazenados criptografados.</string>
@@ -2676,7 +2680,6 @@ Fonte: %2$s</string>
     <string name="update_error_not_available">nenhuma atualização verificada está disponível</string>
     <string name="update_error_unknown">erro inesperado</string>
     <string name="import_error_unsupported">Link de importação não suportado.</string>
-    <string name="import_error_naive_quic">NaiveProxy sobre QUIC (naive+quic) não é compatível. Use um link naive+https.</string>
     <string name="import_error_missing_url">O link de importação não contém uma URL de assinatura.</string>
     <string name="import_error_bad_encoding">O link de importação está malformado.</string>
     <string name="import_profile_confirm_title">Importar perfil</string>

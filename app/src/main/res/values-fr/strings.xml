@@ -2171,11 +2171,15 @@ Source : %2$s</string>
     <string name="config_relay_naive_check_running">Test de la connexion au serveur NaïveProxy…</string>
     <string name="config_relay_naive_check_ok">Le serveur a répondu et n\'a pas refusé les identifiants.</string>
     <string name="config_relay_naive_check_auth">Le serveur a refusé le nom d\'utilisateur ou le mot de passe.</string>
-    <string name="config_relay_naive_check_tls">La négociation TLS a échoué. Vérifiez le nom du serveur, le certificat ou l\'empreinte.</string>
+    <string name="config_relay_naive_check_tls">La négociation TLS a échoué. Vérifiez le nom du serveur, le certificat ou l\'épinglage.</string>
     <string name="config_relay_naive_check_dns">Le nom du serveur n\'a pas pu être résolu.</string>
     <string name="config_relay_naive_check_connect">Le serveur est injoignable. Vérifiez l\'adresse et le port.</string>
     <string name="config_relay_naive_check_timeout">Le serveur n\'a pas répondu à temps.</string>
     <string name="config_relay_naive_check_failed">Le test n\'a pas pu s\'exécuter. Vérifiez les champs du profil.</string>
+    <string name="config_relay_naive_quic">Utiliser HTTP/3 (QUIC)</string>
+    <string name="config_relay_naive_quic_helper">Le serveur doit prendre en charge HTTP/3 et le profil ne doit pas utiliser d\'épinglage. « Tester la connexion » ne vérifie que HTTPS.</string>
+    <string name="config_relay_naive_concurrency">Connexions parallèles</string>
+    <string name="config_relay_naive_concurrency_helper">De 1 à 4. Plus de connexions peuvent être plus rapides sur un réseau bridé, mais sont plus faciles à détecter. Une valeur supérieure à 1 nécessite un profil sans épinglage.</string>
     <string name="config_relay_naive_path_error_absolute">Le chemin doit commencer par /.</string>
     <string name="config_relay_naive_extra_headers">En-têtes supplémentaires (facultatif)</string>
     <string name="config_relay_naive_extra_headers_helper">Un en-tête par ligne au format Name: value. Envoyés avec chaque requête CONNECT. Les valeurs sont stockées chiffrées.</string>
@@ -2596,7 +2600,6 @@ Source : %2$s</string>
 
     <!-- Proxy import: share-sheet handler, sing-box deep links, QR scanner. -->
     <string name="import_error_unsupported">Lien d\'import non pris en charge.</string>
-    <string name="import_error_naive_quic">NaiveProxy sur QUIC (naive+quic) n\'est pas pris en charge. Utilisez un lien naive+https.</string>
     <string name="import_error_missing_url">Le lien d\'import ne contient pas d\'URL d\'abonnement.</string>
     <string name="import_error_bad_encoding">Le lien d\'import est mal formé.</string>
     <string name="import_profile_confirm_title">Importer un profil</string>

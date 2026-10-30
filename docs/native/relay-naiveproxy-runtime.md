@@ -22,6 +22,17 @@ The helper contract is intentionally narrow:
 - tunnel bytes after the upstream proxy is established
 - report readiness and structured failures back to Android service code
 
+## Client Selection
+
+Two clients run NaiveProxy profiles. `NaiveProxyManager` selects one by the certificate pin:
+
+- A profile with a pin runs the Rust helper `ripdpi-naiveproxy`, which alone can check a pin.
+- A profile without a pin runs the pinned upstream Chromium client `ripdpi-naive-chromium` (`NaiveUpstreamLauncher`; the pin manifest is `native/naiveproxy-upstream/sources.json`). It sends Chrome's own ClientHello and HTTP/2 behavior.
+
+Only the upstream client runs HTTP/3 (`naive+quic://`, the profile's HTTP/3 switch) and more than one parallel connection (`insecure-concurrency`, 1 to 4). The editor, the link import and the service refuse either option on a pinned profile instead of dropping it. More connections can help on a throttled network but make the client easier to detect, so the default is 1.
+
+The editor's **Test connection** runs `ripdpi-naiveproxy --check` (see the crate's `SPEC_VERSION.md`). It opens one CONNECT to a reserved `.invalid` name through the server and reports `ok`, `auth`, `tls`, `dns`, `connect` or `timeout`. It always uses the Rust helper's TLS stack, also for a profile that runs the upstream client.
+
 ## Why This Model Stays
 
 ### Android lifecycle fit

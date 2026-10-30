@@ -8,6 +8,9 @@ package com.poyka.ripdpi.data
 const val NaiveExtraHeadersMaxCount: Int = 16
 const val NaiveExtraHeadersMaxBytes: Int = 4096
 
+/** The highest upstream `insecure-concurrency`; more connections make the client easier to fingerprint. */
+const val MaxNaiveConcurrency: Int = 4
+
 private val NaiveReservedHeaderNames: Set<String> =
     setOf(
         "host",

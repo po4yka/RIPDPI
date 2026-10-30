@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.DefaultRelayProfileId
+import com.poyka.ripdpi.data.MaxNaiveConcurrency
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NaiveExtraHeadersError
 import com.poyka.ripdpi.data.NaiveExtraHeadersResult
@@ -423,6 +424,15 @@ private fun validateNaiveProxyDraft(draft: ConfigDraft): Map<String, String> =
         }
         if (draft.relayNaivePath.isNotBlank() && !draft.relayNaivePath.startsWith("/")) {
             put(ConfigFieldRelayNaivePath, "absolute_path")
+        }
+        val concurrency = draft.relayNaiveConcurrency.trim().toIntOrNull()
+        if (concurrency == null || concurrency !in 1..MaxNaiveConcurrency) {
+            put(ConfigFieldRelayNaiveConcurrency, "out_of_range")
+        }
+        // HTTP/3 and concurrency run only in the upstream client, which has no pin.
+        val upstreamOnly = draft.relayNaiveQuic || (concurrency != null && concurrency != 1)
+        if (draft.relayNaiveServerPinSha256.isNotBlank() && upstreamOnly) {
+            put(ConfigFieldRelayNaiveServerPin, "unsupported")
         }
         if (draft.relayUdpEnabled) {
             put(ConfigFieldRelayCredentials, "unsupported")

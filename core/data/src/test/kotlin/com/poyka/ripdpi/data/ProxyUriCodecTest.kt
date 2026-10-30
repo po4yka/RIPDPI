@@ -136,7 +136,23 @@ class ProxyUriCodecTest {
         assertNull("no userinfo", ProxyUriCodec.parse("naive+https://h.example:443"))
         assertNull("reserved header", ProxyUriCodec.parse("naive+https://u:p@h.example?extra-headers=Host%3A%20x"))
         assertNull("malformed header", ProxyUriCodec.parse("naive+https://u:p@h.example?extra-headers=nocolon"))
-        assertNull("QUIC is not runnable", ProxyUriCodec.parse("naive+quic://u:p@h.example:443"))
+    }
+
+    @Test
+    fun `naive quic and concurrency links round trip and a pinned quic link is rejected`() {
+        val uri = "naive+quic://u:p@h.example:8443/?insecure-concurrency=3#n"
+        val profile = ProxyUriCodec.parse(uri) as ProxyProfile.Naive
+
+        assertEquals(true to 3, profile.quic to profile.concurrency)
+        assertEquals("naive+quic://u:p@h.example:8443/?insecure-concurrency=3#n", ProxyUriCodec.encode(profile))
+        assertEquals(1, (ProxyUriCodec.parse("naive+https://u:p@h.example") as ProxyProfile.Naive).concurrency)
+        val pinnedQuic = "naive+quic://u:p@h.example?pinSHA256=" + "a".repeat(64)
+        assertNull("pin needs the Rust helper", ProxyUriCodec.parse(pinnedQuic))
+        val pinnedConcurrency = "naive+https://u:p@h.example?insecure-concurrency=2&pinSHA256=" + "a".repeat(64)
+        assertNull("pin needs the Rust helper", ProxyUriCodec.parse(pinnedConcurrency))
+        for (bad in listOf("0", "5", "x")) {
+            assertNull(bad, ProxyUriCodec.parse("naive+https://u:p@h.example?insecure-concurrency=$bad"))
+        }
     }
 
     @Test

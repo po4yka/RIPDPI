@@ -668,6 +668,10 @@
     <string name="config_relay_naive_check_connect">सर्वर तक नहीं पहुँचा जा सका। पता और पोर्ट जाँचें।</string>
     <string name="config_relay_naive_check_timeout">सर्वर ने समय पर उत्तर नहीं दिया।</string>
     <string name="config_relay_naive_check_failed">जाँच नहीं चल सकी। प्रोफ़ाइल फ़ील्ड जाँचें।</string>
+    <string name="config_relay_naive_quic">HTTP/3 (QUIC) का उपयोग करें</string>
+    <string name="config_relay_naive_quic_helper">सर्वर को HTTP/3 का समर्थन करना चाहिए, और प्रोफ़ाइल में पिन नहीं होना चाहिए। «कनेक्शन जाँचें» केवल HTTPS की जाँच करता है।</string>
+    <string name="config_relay_naive_concurrency">समानांतर कनेक्शन</string>
+    <string name="config_relay_naive_concurrency_helper">1 से 4। सीमित नेटवर्क पर अधिक कनेक्शन तेज़ हो सकते हैं, लेकिन उन्हें पहचानना आसान होता है। 1 से अधिक मान के लिए बिना पिन वाली प्रोफ़ाइल चाहिए।</string>
     <string name="config_relay_naive_path_error_absolute">पथ / से शुरू होना चाहिए।</string>
     <string name="config_relay_naive_extra_headers">अतिरिक्त हेडर (वैकल्पिक)</string>
     <string name="config_relay_naive_extra_headers_helper">प्रति पंक्ति एक हेडर, Name: value प्रारूप में। हर CONNECT अनुरोध के साथ भेजा जाता है। मान एन्क्रिप्टेड रूप में सहेजे जाते हैं।</string>

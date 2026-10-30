@@ -75,6 +75,8 @@ internal fun ConfigDraft.withRelayArtifacts(
         relayNaivePassword = credentials?.naivePassword.orEmpty(),
         relayNaiveExtraHeaders = credentials?.naiveExtraHeaders.orEmpty(),
         relayNaiveServerPinSha256 = credentials?.naiveServerPinSha256.orEmpty(),
+        relayNaiveQuic = credentials?.naiveQuic ?: false,
+        relayNaiveConcurrency = (credentials?.naiveConcurrency ?: 1).toString(),
         relayCloudflareCredentialsRef =
             profile
                 ?.cloudflareCredentialsRef
@@ -269,6 +271,9 @@ internal fun ConfigDraft.toRelayCredentialRecord(profileId: String): RelayCreden
         naivePassword = if (relayNaiveUsername.isBlank()) null else relayNaivePassword,
         naiveExtraHeaders = naiveExtraHeadersOrNull(relayNaiveExtraHeaders),
         naiveServerPinSha256 = normalizeHysteria2PinSha256(relayNaiveServerPinSha256),
+        naiveQuic = relayNaiveQuic,
+        // Validation keeps the editor from saving a value outside 1..MaxNaiveConcurrency.
+        naiveConcurrency = relayNaiveConcurrency.trim().toIntOrNull() ?: 1,
         masqueAuthMode = normalizeRelayMasqueAuthMode(relayMasqueAuthMode),
         masqueAuthToken = relayMasqueAuthToken.ifBlank { null },
         masqueClientCertificateChainPem = relayMasqueClientCertificateChainPem.ifBlank { null },

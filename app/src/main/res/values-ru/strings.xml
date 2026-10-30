@@ -2002,6 +2002,10 @@ fakeddisorder endhost</string>
     <string name="config_relay_naive_check_connect">Сервер недоступен. Проверьте адрес и порт.</string>
     <string name="config_relay_naive_check_timeout">Сервер не ответил вовремя.</string>
     <string name="config_relay_naive_check_failed">Не удалось выполнить проверку. Проверьте поля профиля.</string>
+    <string name="config_relay_naive_quic">Использовать HTTP/3 (QUIC)</string>
+    <string name="config_relay_naive_quic_helper">Сервер должен поддерживать HTTP/3, а у профиля не должно быть пина. «Проверить подключение» проверяет только HTTPS.</string>
+    <string name="config_relay_naive_concurrency">Параллельные подключения</string>
+    <string name="config_relay_naive_concurrency_helper">От 1 до 4. Больше подключений может ускорить работу в сети с ограничением скорости, но их легче обнаружить. Значение больше 1 требует профиля без пина.</string>
     <string name="config_relay_naive_path_error_absolute">Путь должен начинаться с /.</string>
     <string name="config_relay_naive_extra_headers">Дополнительные заголовки (необязательно)</string>
     <string name="config_relay_naive_extra_headers_helper">По одному заголовку в строке в формате Name: value. Отправляются с каждым запросом CONNECT. Значения хранятся в зашифрованном виде.</string>
@@ -2481,7 +2485,6 @@ fakeddisorder endhost</string>
     <string name="update_error_not_available">нет проверенного доступного обновления</string>
     <string name="update_error_unknown">непредвиденная ошибка</string>
     <string name="import_error_unsupported">Неподдерживаемая ссылка импорта.</string>
-    <string name="import_error_naive_quic">NaiveProxy поверх QUIC (naive+quic) не поддерживается. Используйте ссылку naive+https.</string>
     <string name="import_error_missing_url">В ссылке импорта отсутствует URL подписки.</string>
     <string name="import_error_bad_encoding">Ссылка импорта повреждена.</string>
     <string name="import_profile_confirm_title">Импорт профиля</string>

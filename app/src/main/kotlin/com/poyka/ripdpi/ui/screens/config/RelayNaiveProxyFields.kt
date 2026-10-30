@@ -9,12 +9,14 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
+import com.poyka.ripdpi.activities.ConfigFieldRelayNaiveConcurrency
 import com.poyka.ripdpi.activities.ConfigFieldRelayNaiveExtraHeaders
 import com.poyka.ripdpi.activities.ConfigFieldRelayNaivePath
 import com.poyka.ripdpi.activities.ConfigFieldRelayNaiveServerPin
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
@@ -93,6 +95,37 @@ internal fun NaiveProxyRelayFields(
             RipDpiTextFieldBehavior(
                 singleLine = true,
                 keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Ascii),
+            ),
+    )
+    NaiveProxyTransportFields(draft, uiState, actions)
+}
+
+/** HTTP/3 and concurrency, which only the upstream client runs, and the server check. */
+@Composable
+private fun NaiveProxyTransportFields(
+    draft: ConfigDraft,
+    uiState: ConfigUiState,
+    actions: RelayMiscKindActions,
+) {
+    RipDpiSwitch(
+        checked = draft.relayNaiveQuic,
+        onCheckedChange = actions.onRelayNaiveQuicChanged,
+        label = stringResource(R.string.config_relay_naive_quic),
+        helperText = stringResource(R.string.config_relay_naive_quic_helper),
+    )
+    RipDpiTextField(
+        value = draft.relayNaiveConcurrency,
+        onValueChange = actions.onRelayNaiveConcurrencyChanged,
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = stringResource(R.string.config_relay_naive_concurrency),
+                helperText = stringResource(R.string.config_relay_naive_concurrency_helper),
+                errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayNaiveConcurrency]),
+            ),
+        behavior =
+            RipDpiTextFieldBehavior(
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
             ),
     )
     RipDpiButton(

@@ -184,6 +184,8 @@ data class ConfigDraft(
     val relayNaivePath: String = "",
     val relayNaiveExtraHeaders: String = "",
     val relayNaiveServerPinSha256: String = "",
+    val relayNaiveQuic: Boolean = false,
+    val relayNaiveConcurrency: String = "1",
     val relayPtBridgeLine: String = "",
     val relayWebTunnelUrl: String = "",
     val relaySnowflakeBrokerUrl: String = DefaultSnowflakeBrokerUrl,
@@ -454,6 +456,7 @@ internal const val ConfigFieldRelayCredentials = "relayCredentials"
 internal const val ConfigFieldRelayNaivePath = "relayNaivePath"
 internal const val ConfigFieldRelayNaiveExtraHeaders = "relayNaiveExtraHeaders"
 internal const val ConfigFieldRelayNaiveServerPin = "relayNaiveServerPinSha256"
+internal const val ConfigFieldRelayNaiveConcurrency = "relayNaiveConcurrency"
 internal const val ConfigFieldRelayCloudflarePublishOrigin = "relayCloudflarePublishOrigin"
 internal const val ConfigFieldRelayFinalmask = "relayFinalmask"
 

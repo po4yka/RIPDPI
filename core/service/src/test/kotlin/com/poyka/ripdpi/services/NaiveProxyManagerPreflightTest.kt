@@ -85,6 +85,29 @@ class NaiveProxyManagerPreflightTest {
         }
 
     @Test
+    fun `a pinned profile with HTTP3 or concurrency is rejected before launch`() =
+        runTest {
+            for (config in listOf(naiveConfig().copy(naiveQuic = true), naiveConfig().copy(naiveConcurrency = 2))) {
+                val processPort =
+                    FakeNaiveProxyProcessPort(
+                        probeResult =
+                            NaiveProxyPreflightResult.Probed(
+                                NaiveProxyProbe(1, "0.1.0", listOf("ready-signal", "local-listener-auth")),
+                            ),
+                    )
+
+                val failure =
+                    runCatching {
+                        NaiveProxyManager(processPort, processPort, unusedUpstreamLauncher(processPort)).start(config)
+                    }.exceptionOrNull()
+
+                assertTrue(failure is NaiveProxyCompatibilityException)
+                assertEquals("config", processPort.lastFailureClass)
+                assertEquals(0, processPort.mainLaunches)
+            }
+        }
+
+    @Test
     fun `schema mismatch is rejected before relay subprocess starts`() =
         runTest {
             val processPort =

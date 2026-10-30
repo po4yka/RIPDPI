@@ -153,6 +153,8 @@ private fun ModeEditorActions.withRelayProtocolActions(viewModel: ConfigViewMode
         onRelayNaiveExtraHeadersChanged = { viewModel.updateDraft { copy(relayNaiveExtraHeaders = it) } },
         onRelayNaiveServerPinChanged = { viewModel.updateDraft { copy(relayNaiveServerPinSha256 = it) } },
         onRelayNaiveCheckClicked = { viewModel.naiveProfileCheck.start(viewModel.uiState.value.draft) },
+        onRelayNaiveQuicChanged = { viewModel.updateDraft { copy(relayNaiveQuic = it) } },
+        onRelayNaiveConcurrencyChanged = { viewModel.updateDraft { copy(relayNaiveConcurrency = it) } },
         onRelayPtBridgeLineChanged = { viewModel.updateDraft { copy(relayPtBridgeLine = it) } },
         onRelayWebTunnelUrlChanged = { viewModel.updateDraft { copy(relayWebTunnelUrl = it) } },
         onRelaySnowflakeBrokerUrlChanged = { viewModel.updateDraft { copy(relaySnowflakeBrokerUrl = it) } },

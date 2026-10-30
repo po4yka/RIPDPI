@@ -767,6 +767,8 @@ app:config_relay_naive_check_ok
 app:config_relay_naive_check_running
 app:config_relay_naive_check_timeout
 app:config_relay_naive_check_tls
+app:config_relay_naive_concurrency
+app:config_relay_naive_concurrency_helper
 app:config_relay_naive_extra_headers
 app:config_relay_naive_extra_headers_error_invalid
 app:config_relay_naive_extra_headers_error_reserved
@@ -777,6 +779,8 @@ app:config_relay_naive_path
 app:config_relay_naive_path_error_absolute
 app:config_relay_naive_path_helper
 app:config_relay_naive_path_pin_notice
+app:config_relay_naive_quic
+app:config_relay_naive_quic_helper
 app:config_relay_naive_server_pin
 app:config_relay_naive_server_pin_error_invalid
 app:config_relay_naive_server_pin_helper
@@ -3482,7 +3486,6 @@ app:import_clipboard_unknown_with_scheme
 app:import_confirm_add_action
 app:import_error_bad_encoding
 app:import_error_missing_url
-app:import_error_naive_quic
 app:import_error_unsupported
 app:import_profile_confirm_empty_body
 app:import_profile_confirm_empty_title

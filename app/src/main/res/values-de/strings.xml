@@ -2176,6 +2176,10 @@ Quelle: %2$s</string>
     <string name="config_relay_naive_check_connect">Der Server ist nicht erreichbar. Prüfen Sie Adresse und Port.</string>
     <string name="config_relay_naive_check_timeout">Der Server hat nicht rechtzeitig geantwortet.</string>
     <string name="config_relay_naive_check_failed">Der Test konnte nicht ausgeführt werden. Prüfen Sie die Profilfelder.</string>
+    <string name="config_relay_naive_quic">HTTP/3 (QUIC) verwenden</string>
+    <string name="config_relay_naive_quic_helper">Der Server muss HTTP/3 unterstützen, und das Profil darf keinen Pin haben. „Verbindung testen“ prüft nur HTTPS.</string>
+    <string name="config_relay_naive_concurrency">Parallele Verbindungen</string>
+    <string name="config_relay_naive_concurrency_helper">1 bis 4. Mehr Verbindungen können in einem gedrosselten Netz schneller sein, sind aber leichter zu erkennen. Ein Wert über 1 erfordert ein Profil ohne Pin.</string>
     <string name="config_relay_naive_path_error_absolute">Der Pfad muss mit / beginnen.</string>
     <string name="config_relay_naive_extra_headers">Zusätzliche Header (optional)</string>
     <string name="config_relay_naive_extra_headers_helper">Ein Header pro Zeile im Format Name: value. Wird mit jeder CONNECT-Anfrage gesendet. Die Werte werden verschlüsselt gespeichert.</string>
@@ -2596,7 +2600,6 @@ Quelle: %2$s</string>
 
     <!-- Proxy import: share-sheet handler, sing-box deep links, QR scanner. -->
     <string name="import_error_unsupported">Nicht unterstützter Import-Link.</string>
-    <string name="import_error_naive_quic">NaiveProxy über QUIC (naive+quic) wird nicht unterstützt. Verwende einen naive+https-Link.</string>
     <string name="import_error_missing_url">Dem Import-Link fehlt die Abonnement-URL.</string>
     <string name="import_error_bad_encoding">Der Import-Link ist fehlerhaft.</string>
     <string name="import_profile_confirm_title">Profil importieren</string>

@@ -688,6 +688,10 @@
     <string name="config_relay_naive_check_connect">The server could not be reached. Check the address and the port.</string>
     <string name="config_relay_naive_check_timeout">The server did not answer in time.</string>
     <string name="config_relay_naive_check_failed">The test could not run. Check the profile fields.</string>
+    <string name="config_relay_naive_quic">Use HTTP/3 (QUIC)</string>
+    <string name="config_relay_naive_quic_helper">The server must support HTTP/3, and the profile must not have a certificate pin. Test connection checks only HTTPS.</string>
+    <string name="config_relay_naive_concurrency">Parallel connections</string>
+    <string name="config_relay_naive_concurrency_helper">1 to 4. More connections can be faster on a throttled network, but they are easier to detect. A value above 1 needs a profile without a certificate pin.</string>
     <string name="config_relay_naive_path_error_absolute">Path must start with /.</string>
     <string name="config_relay_naive_extra_headers">Extra headers (optional)</string>
     <string name="config_relay_naive_extra_headers_helper">One header per line as Name: value. Sent with every CONNECT request. Values are stored encrypted.</string>
@@ -2748,7 +2752,6 @@ Source: %2$s</string>
 
     <!-- Proxy import: share-sheet handler, sing-box deep links, QR scanner. -->
     <string name="import_error_unsupported">Unsupported import link.</string>
-    <string name="import_error_naive_quic">NaiveProxy over QUIC (naive+quic) is not supported. Use a naive+https link.</string>
     <string name="import_error_missing_url">Import link is missing a subscription URL.</string>
     <string name="import_error_bad_encoding">Import link is malformed.</string>
     <string name="import_profile_confirm_title">Import profile</string>
