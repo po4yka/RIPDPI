@@ -54,6 +54,49 @@ class AuthorizationRestorationTest(unittest.TestCase):
             self.assertEqual(command.call_count, 1)
 
 
+class LocalNetworkAuthorizationTest(unittest.TestCase):
+    def test_grant_restores_prior_state_after_success_or_failure(self):
+        permission = "android.permission.ACCESS_LOCAL_NETWORK"
+        for previous in (True, False):
+            for failure in (True, False):
+                with self.subTest(previous=previous, failure=failure):
+                    report = permission + ": granted=" + str(previous).lower()
+                    with patch.object(RUNNER, "checked", side_effect=["37", report, "", ""]) as command:
+                        try:
+                            with RUNNER.emulator_local_network_authorization(["adb"]):
+                                if failure:
+                                    raise RuntimeError("unit failure")
+                        except RuntimeError:
+                            self.assertTrue(failure)
+                        mutations = [c.args[0][2:] for c in command.call_args_list[2:]]
+                        self.assertEqual(mutations, [] if previous else [
+                            ["pm", "grant", RUNNER.PACKAGE, permission],
+                            ["pm", "revoke", RUNNER.PACKAGE, permission]])
+
+    def test_older_api_does_not_change_permissions(self):
+        with patch.object(RUNNER, "checked", return_value="35") as command:
+            with RUNNER.emulator_local_network_authorization(["adb"]):
+                pass
+            self.assertEqual(command.call_count, 1)
+
+    def test_unknown_or_multiple_user_grants_refuse_before_mutation(self):
+        permission = "android.permission.ACCESS_LOCAL_NETWORK"
+        for report in ("missing", (permission + ": granted=true\n") * 2):
+            with patch.object(RUNNER, "checked", side_effect=["37", report]) as command:
+                with self.assertRaisesRegex(ValueError, "prior emulator local network"):
+                    with RUNNER.emulator_local_network_authorization(["adb"]):
+                        self.fail("ambiguous permission state cannot be changed")
+                self.assertEqual(command.call_count, 2)
+
+    def test_failed_grant_still_attempts_restore(self):
+        permission = "android.permission.ACCESS_LOCAL_NETWORK"
+        with patch.object(RUNNER, "checked", side_effect=["37", permission + ": granted=false", OSError("grant failure"), ""]) as command:
+            with self.assertRaises(OSError):
+                with RUNNER.emulator_local_network_authorization(["adb"]):
+                    self.fail("failed grant cannot start the native test")
+            self.assertEqual(command.call_args.args[0], ["adb", "shell", "pm", "revoke", RUNNER.PACKAGE, permission])
+
+
 class SingleUnderlayTest(unittest.TestCase):
     def test_mobile_data_is_restored_only_when_it_was_enabled(self):
         for previous, restored in (("1", True), ("0", False)):

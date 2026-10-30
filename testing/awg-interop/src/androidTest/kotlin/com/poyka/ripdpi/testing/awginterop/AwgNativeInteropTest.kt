@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.testing.awginterop
 
+import android.Manifest
 import android.content.Context
+import android.content.pm.PackageManager
 import android.net.ConnectivityManager
 import android.net.NetworkCapabilities
 import android.net.VpnService
@@ -400,6 +402,13 @@ class AwgNativeInteropTest {
     }
 
     internal fun awaitIpv4Underlay(context: Context) {
+        if (Build.VERSION.SDK_INT >= 37) {
+            assertEquals(
+                "The emulator-to-host peer requires real Android local network permission",
+                PackageManager.PERMISSION_GRANTED,
+                context.checkSelfPermission(Manifest.permission.ACCESS_LOCAL_NETWORK),
+            )
+        }
         val connectivity = context.getSystemService(ConnectivityManager::class.java)
         val endpoint = InetAddress.getByName("10.0.2.2")
         val deadline = System.nanoTime() + 15_000_000_000L

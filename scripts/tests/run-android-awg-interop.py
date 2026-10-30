@@ -116,6 +116,27 @@ def emulator_vpn_authorization(adb):
 
 
 @contextmanager
+def emulator_local_network_authorization(adb):
+    """Authorize the API 37 emulator-to-host peer path, then restore its grant."""
+    if int(checked(adb + ["shell", "getprop", "ro.build.version.sdk"])) < 37:
+        yield
+        return
+    permission = "android.permission.ACCESS_LOCAL_NETWORK"
+    report = checked(adb + ["shell", "dumpsys", "package", PACKAGE])
+    states = re.findall(re.escape(permission) + r": granted=(true|false)\b", report)
+    if len(states) != 1:
+        raise ValueError("cannot determine prior emulator local network permission")
+    granted = states[0] == "true"
+    try:
+        if not granted:
+            checked(adb + ["shell", "pm", "grant", PACKAGE, permission])
+        yield
+    finally:
+        if not granted:
+            checked(adb + ["shell", "pm", "revoke", PACKAGE, permission])
+
+
+@contextmanager
 def emulator_single_underlay(adb):
     """Keep only the emulator Wi-Fi underlay during the native runs.
 
@@ -235,7 +256,7 @@ def device(args):
         raise ValueError("selected device is not an emulator")
     output = args.output_dir
     checked(adb + ["install", "-r", str(output / "test.apk")], timeout=120)
-    with emulator_vpn_authorization(adb), emulator_single_underlay(adb):
+    with emulator_vpn_authorization(adb), emulator_local_network_authorization(adb), emulator_single_underlay(adb):
         await_idle_guest(adb)
         if args.matrix:
             cases = [(profile, scenario) for profile in PROFILES for scenario in ("payload", "small-datagrams")]
