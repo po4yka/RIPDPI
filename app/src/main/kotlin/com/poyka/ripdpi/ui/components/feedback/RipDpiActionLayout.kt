@@ -21,6 +21,8 @@ internal fun RipDpiActionLayout.resolvedActionLayout(): RipDpiActionLayout =
 
                 RipDpiWidthClass.Medium,
                 RipDpiWidthClass.Expanded,
+                RipDpiWidthClass.Large,
+                RipDpiWidthClass.ExtraLarge,
                 -> {
                     RipDpiActionLayout.Inline
                 }

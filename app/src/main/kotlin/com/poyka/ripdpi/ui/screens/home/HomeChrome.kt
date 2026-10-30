@@ -46,7 +46,10 @@ internal fun rememberHomeChromeMetrics(): HomeChromeMetrics {
             )
         }
 
-        RipDpiWidthClass.Expanded -> {
+        RipDpiWidthClass.Expanded,
+        RipDpiWidthClass.Large,
+        RipDpiWidthClass.ExtraLarge,
+        -> {
             HomeChromeMetrics(
                 topBarMinHeight = 80.dp,
                 connectionHaloSize = 216.dp,

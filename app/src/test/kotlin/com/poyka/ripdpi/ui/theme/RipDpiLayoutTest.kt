@@ -33,4 +33,35 @@ class RipDpiLayoutTest {
         assertTrue(layout.contentMaxWidth > layout.formMaxWidth)
         assertTrue(layout.groupGap > DefaultRipDpiLayout.groupGap)
     }
+
+    @Test
+    fun `large and extra-large widths keep the expanded content width`() {
+        val expanded = ripDpiLayoutForWidth(screenWidthDp = 1040)
+        val large = ripDpiLayoutForWidth(screenWidthDp = 1300)
+        val extraLarge = ripDpiLayoutForWidth(screenWidthDp = 1700)
+
+        assertEquals(RipDpiWidthClass.Large, large.widthClass)
+        assertEquals(RipDpiWidthClass.ExtraLarge, extraLarge.widthClass)
+        assertEquals(expanded.contentMaxWidth, large.contentMaxWidth)
+        assertEquals(expanded.contentMaxWidth, extraLarge.contentMaxWidth)
+    }
+
+    @Test
+    fun `width classes follow the Material breakpoints`() {
+        val expected =
+            mapOf(
+                599 to RipDpiWidthClass.Compact,
+                600 to RipDpiWidthClass.Medium,
+                839 to RipDpiWidthClass.Medium,
+                840 to RipDpiWidthClass.Expanded,
+                1199 to RipDpiWidthClass.Expanded,
+                1200 to RipDpiWidthClass.Large,
+                1599 to RipDpiWidthClass.Large,
+                1600 to RipDpiWidthClass.ExtraLarge,
+            )
+
+        expected.forEach { (widthDp, widthClass) ->
+            assertEquals("width $widthDp", widthClass, ripDpiWidthClassForWidth(widthDp))
+        }
+    }
 }

@@ -4,14 +4,16 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.window.core.layout.WindowSizeClass
+import androidx.window.core.layout.computeWindowSizeClass
 
-private const val expandedWidthBreakpointDp = 840
-private const val mediumWidthBreakpointDp = 600
-
+/** Material 3 window width classes; [toRipDpiWidthClass] is the only mapping from window metrics. */
 enum class RipDpiWidthClass {
     Compact,
     Medium,
     Expanded,
+    Large,
+    ExtraLarge,
 }
 
 enum class RipDpiContentGrouping {
@@ -173,15 +175,26 @@ val DefaultRipDpiSpacing = RipDpiSpacing()
 val DefaultRipDpiLayout = ripDpiLayoutForWidth(screenWidthDp = 360)
 val DefaultRipDpiComponents = RipDpiComponents()
 
-fun ripDpiWidthClassForWidth(screenWidthDp: Int): RipDpiWidthClass =
+fun WindowSizeClass.toRipDpiWidthClass(): RipDpiWidthClass =
     when {
-        screenWidthDp >= expandedWidthBreakpointDp -> RipDpiWidthClass.Expanded
-        screenWidthDp >= mediumWidthBreakpointDp -> RipDpiWidthClass.Medium
+        isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXTRA_LARGE_LOWER_BOUND) -> RipDpiWidthClass.ExtraLarge
+        isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_LARGE_LOWER_BOUND) -> RipDpiWidthClass.Large
+        isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_EXPANDED_LOWER_BOUND) -> RipDpiWidthClass.Expanded
+        isWidthAtLeastBreakpoint(WindowSizeClass.WIDTH_DP_MEDIUM_LOWER_BOUND) -> RipDpiWidthClass.Medium
         else -> RipDpiWidthClass.Compact
     }
 
+fun ripDpiWidthClassForWidth(screenWidthDp: Int): RipDpiWidthClass =
+    WindowSizeClass.BREAKPOINTS_V2
+        .computeWindowSizeClass(widthDp = screenWidthDp, heightDp = 0)
+        .toRipDpiWidthClass()
+
 fun ripDpiLayoutForWidth(screenWidthDp: Int): RipDpiLayout =
-    when (ripDpiWidthClassForWidth(screenWidthDp = screenWidthDp)) {
+    ripDpiLayoutFor(ripDpiWidthClassForWidth(screenWidthDp = screenWidthDp))
+
+/** Large and extra-large keep the expanded tokens so content keeps its maximum width. */
+fun ripDpiLayoutFor(widthClass: RipDpiWidthClass): RipDpiLayout =
+    when (widthClass) {
         RipDpiWidthClass.Compact -> {
             RipDpiLayout(
                 widthClass = RipDpiWidthClass.Compact,
@@ -216,9 +229,12 @@ fun ripDpiLayoutForWidth(screenWidthDp: Int): RipDpiLayout =
             )
         }
 
-        RipDpiWidthClass.Expanded -> {
+        RipDpiWidthClass.Expanded,
+        RipDpiWidthClass.Large,
+        RipDpiWidthClass.ExtraLarge,
+        -> {
             RipDpiLayout(
-                widthClass = RipDpiWidthClass.Expanded,
+                widthClass = widthClass,
                 contentGrouping = RipDpiContentGrouping.SplitColumns,
                 horizontalPadding = 32.dp,
                 contentMaxWidth = 960.dp,
