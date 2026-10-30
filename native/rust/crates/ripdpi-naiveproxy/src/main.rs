@@ -7,6 +7,7 @@ pub mod h2_connect;
 mod http_front;
 pub mod padding;
 mod relay;
+mod session;
 mod socks5;
 mod tls;
 

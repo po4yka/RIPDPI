@@ -100,6 +100,7 @@ async fn socks5_tunnel_round_trip_reaches_target_via_https_proxy() {
         path: None,
         tls_config: fixture.client_tls_config(),
         protect_socket_path: None,
+        sessions: Arc::default(),
         local_username: "local-user".to_owned(),
         local_password: "local-pass".to_owned(),
     };
@@ -128,6 +129,167 @@ async fn socks5_tunnel_round_trip_reaches_target_via_https_proxy() {
     server.abort();
 }
 
+/// Upstream NaiveProxy multiplexes tunnels on one HTTP/2 connection: so does
+/// the helper, for sequential and concurrent tunnels, and each tunnel still
+/// carries only its own bytes.
+///
+/// # Cancel safety:
+/// cancel-safe: the test runtime drops its owned sockets and tasks when the test ends.
+#[tokio::test]
+async fn tunnels_share_one_upstream_connection() {
+    let fixture = local_network_fixture::NaiveH2PaddingFixture::start("naive-user", "naive-pass")
+        .await
+        .expect("start naive h2 fixture");
+    let local_listener = TcpListener::bind("127.0.0.1:0").await.expect("bind local listener");
+    let local_addr = local_listener.local_addr().expect("local addr");
+    let config = NaiveProxyConfig {
+        server: "127.0.0.1".to_owned(),
+        server_port: fixture.port(),
+        server_name: fixture.server_name().to_owned(),
+        username: Some("naive-user".to_owned()),
+        password: Some("naive-pass".to_owned()),
+        tls_config: fixture.client_tls_config(),
+        ..naive_config_with_auth()
+    };
+    let server = tokio::spawn(serve_listener(local_listener, Arc::new(config)));
+
+    for round in 0..3 {
+        let mut client = open_socks_tunnel(local_addr).await;
+        let payload = format!("sequential-{round}");
+        client.write_all(payload.as_bytes()).await.expect("write payload");
+        let mut echoed = vec![0u8; payload.len()];
+        client.read_exact(&mut echoed).await.expect("read echo");
+        assert_eq!(echoed, payload.as_bytes());
+    }
+    let mut first = open_socks_tunnel(local_addr).await;
+    let mut second = open_socks_tunnel(local_addr).await;
+    first.write_all(b"concurrent-first").await.expect("write first");
+    second.write_all(b"concurrent-second-tunnel").await.expect("write second");
+    let mut first_echo = [0u8; 16];
+    let mut second_echo = [0u8; 24];
+    second.read_exact(&mut second_echo).await.expect("read second");
+    first.read_exact(&mut first_echo).await.expect("read first");
+    assert_eq!(&first_echo, b"concurrent-first");
+    assert_eq!(&second_echo, b"concurrent-second-tunnel");
+
+    assert_eq!(fixture.observed().tls_connections, 1, "five tunnels must share one upstream connection");
+    server.abort();
+}
+
+/// A config for opening tunnels straight to `fixture`.
+fn fixture_config(fixture: &local_network_fixture::NaiveH2PaddingFixture) -> NaiveProxyConfig {
+    NaiveProxyConfig {
+        server: "127.0.0.1".to_owned(),
+        server_port: fixture.port(),
+        server_name: fixture.server_name().to_owned(),
+        username: Some("naive-user".to_owned()),
+        password: Some("naive-pass".to_owned()),
+        tls_config: fixture.client_tls_config(),
+        ..naive_config_with_auth()
+    }
+}
+
+/// A refused CONNECT (here 407) is the server answering one stream: the
+/// shared connection stays for the next tunnel.
+///
+/// # Cancel safety:
+/// cancel-safe: the test owns every tunnel and the fixture.
+#[tokio::test]
+async fn rejected_connect_keeps_the_shared_connection() {
+    let fixture = local_network_fixture::NaiveH2PaddingFixture::start("naive-user", "naive-pass")
+        .await
+        .expect("start naive h2 fixture");
+    let config = fixture_config(&fixture);
+    let wrong = NaiveProxyConfig {
+        password: Some("wrong-pass".to_owned()),
+        sessions: Arc::clone(&config.sessions),
+        ..fixture_config(&fixture)
+    };
+    let target = SocksTarget::Ip("127.0.0.1:443".parse().expect("target"));
+
+    let Err(error) = crate::connect_tunnel::open_https_connect_tunnel(&wrong, &target).await else {
+        panic!("a wrong password must be refused");
+    };
+    assert!(error.to_string().contains("status 407"), "{error}");
+    drop(crate::connect_tunnel::open_https_connect_tunnel(&config, &target).await.expect("tunnel after 407"));
+
+    assert_eq!(fixture.observed().tls_connections, 1, "a refused CONNECT must not retire the connection");
+}
+
+/// A server that dials before it answers can leave one CONNECT pending: an
+/// abandoned open must not retire a connection that already answered.
+///
+/// # Cancel safety:
+/// cancel-safe: the test owns every tunnel and aborts the server task.
+#[tokio::test]
+async fn abandoned_slow_connect_keeps_a_verified_connection() {
+    let (server_config, client_config) = self_signed_upstream_tls();
+    let upstream = TcpListener::bind("127.0.0.1:0").await.expect("bind upstream");
+    let upstream_port = upstream.local_addr().expect("upstream addr").port();
+    let accepts = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let server_accepts = Arc::clone(&accepts);
+    let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(server_config));
+    let server = tokio::spawn(async move {
+        loop {
+            let (socket, _) = upstream.accept().await.expect("accept upstream");
+            let Ok(tls) = acceptor.accept(socket).await else { continue };
+            server_accepts.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            tokio::spawn(async move {
+                let service = hyper::service::service_fn(|request: http::Request<hyper::body::Incoming>| async move {
+                    if request.uri().host() == Some("slow.test") {
+                        std::future::pending::<()>().await;
+                    }
+                    Ok::<_, std::convert::Infallible>(http::Response::new(http_body_util::Empty::<bytes::Bytes>::new()))
+                });
+                let _ = hyper::server::conn::http2::Builder::new(hyper_util::rt::TokioExecutor::new())
+                    .serve_connection(hyper_util::rt::TokioIo::new(tls), service)
+                    .await;
+            });
+        }
+    });
+    let config = NaiveProxyConfig {
+        server: "127.0.0.1".to_owned(),
+        server_port: upstream_port,
+        server_name: "proxy.example".to_owned(),
+        tls_config: Arc::new(client_config),
+        ..naive_config_with_auth()
+    };
+    let fast = SocksTarget::Domain("fast.test".to_owned(), 443);
+    let slow = SocksTarget::Domain("slow.test".to_owned(), 443);
+
+    drop(crate::connect_tunnel::open_https_connect_tunnel(&config, &fast).await.expect("fast tunnel"));
+    let abandoned = tokio::time::timeout(
+        std::time::Duration::from_millis(300),
+        crate::connect_tunnel::open_https_connect_tunnel(&config, &slow),
+    )
+    .await;
+    assert!(abandoned.is_err(), "the slow CONNECT must still be pending");
+    drop(crate::connect_tunnel::open_https_connect_tunnel(&config, &fast).await.expect("fast tunnel after"));
+
+    assert_eq!(accepts.load(std::sync::atomic::Ordering::Relaxed), 1, "the verified connection must stay");
+    server.abort();
+}
+
+/// A target the CONNECT request cannot carry fails only its own stream.
+///
+/// # Cancel safety:
+/// cancel-safe: the test owns every tunnel and the fixture.
+#[tokio::test]
+async fn invalid_target_keeps_the_shared_connection() {
+    let fixture = local_network_fixture::NaiveH2PaddingFixture::start("naive-user", "naive-pass")
+        .await
+        .expect("start naive h2 fixture");
+    let config = fixture_config(&fixture);
+    let target = SocksTarget::Ip("127.0.0.1:443".parse().expect("target"));
+    drop(crate::connect_tunnel::open_https_connect_tunnel(&config, &target).await.expect("first tunnel"));
+
+    let invalid = SocksTarget::Domain("bad host".to_owned(), 443);
+    assert!(crate::connect_tunnel::open_https_connect_tunnel(&config, &invalid).await.is_err());
+    drop(crate::connect_tunnel::open_https_connect_tunnel(&config, &target).await.expect("tunnel after invalid"));
+
+    assert_eq!(fixture.observed().tls_connections, 1, "an invalid target must not retire the connection");
+}
+
 #[tokio::test]
 /// # Cancel safety:
 /// cancel-safe: the test runtime drops its owned sockets and tasks when the test ends.
@@ -147,6 +309,7 @@ async fn socks5_client_round_trip_over_h2_naive_padding_fixture() {
         path: None,
         tls_config: fixture.client_tls_config(),
         protect_socket_path: None,
+        sessions: Arc::default(),
         local_username: "local-user".to_owned(),
         local_password: "local-pass".to_owned(),
     };
@@ -197,6 +360,7 @@ async fn http_front_connect_round_trip_over_h2_naive_padding_fixture() {
         path: None,
         tls_config: fixture.client_tls_config(),
         protect_socket_path: None,
+        sessions: Arc::default(),
         local_username: "local-user".to_owned(),
         local_password: "local-pass".to_owned(),
     };
@@ -248,6 +412,7 @@ async fn helper_reconnects_after_upstream_h2_stream_failure() {
         path: None,
         tls_config: fixture.client_tls_config(),
         protect_socket_path: None,
+        sessions: Arc::default(),
         local_username: "local-user".to_owned(),
         local_password: "local-pass".to_owned(),
     };
@@ -667,6 +832,7 @@ fn naive_config_with_auth() -> NaiveProxyConfig {
         path: Some("/proxy".to_owned()),
         tls_config: default_tls_config(),
         protect_socket_path: None,
+        sessions: Arc::default(),
         local_username: "local-user".to_owned(),
         local_password: "local-pass".to_owned(),
     }

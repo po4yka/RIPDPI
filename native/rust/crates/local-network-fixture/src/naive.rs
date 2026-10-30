@@ -29,6 +29,8 @@ pub struct NaiveH2PaddingObserved {
     pub padding_type_request: Option<String>,
     pub request_padding_len: Option<usize>,
     pub decoded_payload_bytes: usize,
+    /// TLS connections the fixture accepted, to check upstream connection reuse.
+    pub tls_connections: usize,
 }
 
 // Drop order: shutdown sends before thread join; fixture tasks need the shutdown signal before their runtime thread is joined.
@@ -177,6 +179,7 @@ async fn serve(
                     let Ok(tls) = acceptor.accept(socket).await else {
                         return;
                     };
+                    observed.lock().expect("fixture observations").tls_connections += 1;
                     let service = service_fn(move |request| {
                         handle_request(
                             request,

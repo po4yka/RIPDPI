@@ -29,6 +29,8 @@ pub struct NaiveProxyConfig {
     /// (desktop / non-VPN), in which case the upstream connect is a plain
     /// `TcpStream::connect`. See `ripdpi_subprocess_protect`.
     pub(crate) protect_socket_path: Option<String>,
+    /// The pooled upstream HTTP/2 connection; clones of the config share it.
+    pub(crate) sessions: Arc<crate::session::SessionPool>,
 }
 
 impl std::fmt::Debug for NaiveProxyConfig {
@@ -105,6 +107,7 @@ pub(crate) fn parse_config_from_reader(
         path,
         tls_config: default_tls_config(),
         protect_socket_path: ripdpi_subprocess_protect::protect_path_from_env(),
+        sessions: Arc::default(),
     })
 }
 
@@ -240,6 +243,7 @@ mod tests {
             path: Some("/proxy".to_owned()),
             tls_config: default_tls_config(),
             protect_socket_path: None,
+            sessions: Arc::default(),
         }
     }
 

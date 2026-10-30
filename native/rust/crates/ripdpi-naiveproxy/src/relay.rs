@@ -48,7 +48,8 @@ async fn before<T>(deadline: Instant, phase: &str, future: impl Future<Output = 
 ///
 /// # Cancel safety
 ///
-/// cancel-safe: dropping it drops the partly opened upstream connection.
+/// cancel-safe: dropping it drops the stream being opened, see
+/// [`open_https_connect_tunnel`].
 async fn open_upstream(config: &NaiveProxyConfig, target: &SocksTarget) -> io::Result<Box<dyn AsyncTunnel>> {
     let opened =
         before(Instant::now() + UPSTREAM_OPEN_TIMEOUT, "upstream open", open_https_connect_tunnel(config, target))
@@ -79,10 +80,12 @@ pub(crate) async fn run(config: NaiveProxyConfig) -> io::Result<()> {
     serve_listener(listener, Arc::new(config)).await
 }
 
-/// Most client connections served at once; each holds a client socket and an
-/// upstream TCP/TLS/H2 connection. Further clients are closed at once, so they
-/// fail fast instead of waiting in the listen backlog for a tunnel to end.
-const MAX_CONCURRENT_TUNNELS: usize = 256;
+/// Most client connections served at once; each holds a client socket and one
+/// CONNECT stream on the shared upstream HTTP/2 connection, so the limit stays
+/// at the Go/Caddy server's default of 250 concurrent streams. Further clients
+/// are closed at once, so they fail fast instead of queueing behind the
+/// server's stream limit or in the listen backlog.
+const MAX_CONCURRENT_TUNNELS: usize = 250;
 /// Pause after an accept failure caused by resource exhaustion.
 const ACCEPT_RETRY_DELAY: Duration = Duration::from_secs(1);
 
@@ -273,6 +276,7 @@ mod tests {
             path: None,
             tls_config: crate::tls::default_tls_config(),
             protect_socket_path: None,
+            sessions: Arc::default(),
             local_username: "local-user".to_owned(),
             local_password: "local-pass".to_owned(),
         };

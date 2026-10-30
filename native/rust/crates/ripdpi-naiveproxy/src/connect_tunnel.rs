@@ -3,8 +3,9 @@ use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
 use std::task::{Context, Poll};
+use std::time::Duration;
 
-use hyper_util::rt::{TokioExecutor, TokioIo};
+use hyper_util::rt::{TokioExecutor, TokioIo, TokioTimer};
 use rand::RngExt;
 use rustls::pki_types::ServerName;
 use tokio::io::{AsyncRead, AsyncWrite, ReadBuf};
@@ -16,21 +17,133 @@ use crate::h2_connect::{
     negotiate_payload_padding_from_response,
 };
 use crate::padding::{PaddingDecoder, PaddingEncoder};
+use crate::session::{Sender, Session, SessionPool};
 use crate::socks5::SocksTarget;
 
 pub trait AsyncTunnel: AsyncRead + AsyncWrite + Unpin + Send {}
 impl<T> AsyncTunnel for T where T: AsyncRead + AsyncWrite + Unpin + Send {}
 
-/// Opens an H2 CONNECT tunnel to `target` through the NaiveProxy server.
+/// Opens an H2 CONNECT tunnel to `target` through the NaiveProxy server. Tunnels
+/// share one pooled HTTP/2 connection, as upstream NaiveProxy does.
+///
+/// After a connection-level failure the open runs once more on the pool's
+/// current connection. No payload is sent before the CONNECT succeeds, so
+/// nothing replays; the server can see the CONNECT twice.
 ///
 /// # Cancel safety
 ///
-/// cancel-safe: dropping it before the upgrade drops the TCP/TLS stream or,
-/// once the H2 driver runs, aborts the driver, which owns the upstream socket.
+/// cancel-safe: a cancelled open drops its stream; it discards the session only
+/// if that connection never answered a CONNECT, see [`DiscardOnDrop`].
 pub(crate) async fn open_https_connect_tunnel(
     config: &NaiveProxyConfig,
     target: &SocksTarget,
 ) -> io::Result<Box<dyn AsyncTunnel>> {
+    let request = || build_h2_connect_request(config, target, generate_connect_padding_header());
+    let first = request()?;
+    let session = config.sessions.session(|| connect_session(config)).await?;
+    match open_stream(&config.sessions, session, first).await {
+        Err(StreamFailure::Session(_)) => {
+            let session = config.sessions.session(|| connect_session(config)).await?;
+            open_stream(&config.sessions, session, request()?).await.map_err(StreamFailure::into_error)
+        }
+        other => other.map_err(StreamFailure::into_error),
+    }
+}
+
+/// Keepalive runs while any stream is open, an unanswered CONNECT included: a
+/// connection silent for the interval gets a ping, and one that misses it is
+/// closed. A silently dead connection so fails an open within about 15 s of
+/// its last read, which leaves the 20 s open budget room for the retry.
+const KEEPALIVE_INTERVAL: Duration = Duration::from_secs(10);
+const KEEPALIVE_TIMEOUT: Duration = Duration::from_secs(5);
+/// One shared connection carries many tunnels, so the connection window is well
+/// above hyper's 2 MiB stream window: a few tunnels whose clients stop reading
+/// cannot use it all and stall the others. It also bounds the buffered bytes.
+/// shortcut: sized like Chromium's session window, not measured on devices;
+/// tune after a throughput and memory comparison.
+const CONNECTION_WINDOW_BYTES: u32 = 16 * 1024 * 1024;
+
+/// Why one stream open failed: the connection itself, or only this stream.
+enum StreamFailure {
+    /// The connection is unusable; the stream may retry on another one.
+    Session(io::Error),
+    /// The server answered for this stream (status, padding); the connection is fine.
+    Stream(io::Error),
+}
+
+impl StreamFailure {
+    fn into_error(self) -> io::Error {
+        match self {
+            Self::Session(error) | Self::Stream(error) => error,
+        }
+    }
+}
+
+/// On drop, discards a session that never answered a CONNECT: an abandoned
+/// open on it is the only sign it works at all, and dropping the pool's sender
+/// lets hyper close it. A verified session stays, because a slow target (a
+/// server that dials before it answers) must not retire a working connection.
+struct DiscardOnDrop<'a> {
+    pool: &'a SessionPool,
+    session: &'a Session,
+}
+
+impl Drop for DiscardOnDrop<'_> {
+    fn drop(&mut self) {
+        if !self.session.is_verified() {
+            self.pool.discard(self.session.id);
+        }
+    }
+}
+
+/// Opens one CONNECT stream on `session`.
+///
+/// # Cancel safety
+///
+/// cancel-safe: dropping it drops the stream (hyper resets it) and discards
+/// `session` only if it is unverified, see [`DiscardOnDrop`].
+async fn open_stream(
+    pool: &SessionPool,
+    session: Session,
+    request: http::Request<http_body_util::Empty<bytes::Bytes>>,
+) -> Result<Box<dyn AsyncTunnel>, StreamFailure> {
+    let _guard = DiscardOnDrop { pool, session: &session };
+    let response = session.sender.clone().send_request(request).await.map_err(|error| {
+        let message = format!("failed to send NaiveProxy H2 CONNECT: {error}");
+        // The error can arrive before the dispatcher notices the closed connection.
+        if error.is_closed() || error.is_canceled() || error.is_timeout() || session.sender.is_closed() {
+            pool.discard(session.id);
+            StreamFailure::Session(io::Error::new(io::ErrorKind::ConnectionAborted, message))
+        } else {
+            StreamFailure::Stream(io::Error::new(io::ErrorKind::ConnectionRefused, message))
+        }
+    })?;
+    session.mark_verified();
+    if response.status() != http::StatusCode::OK {
+        return Err(StreamFailure::Stream(connect_status_error(response.status())));
+    }
+    let padding_mode =
+        negotiate_payload_padding_from_response(true, response.headers()).map_err(StreamFailure::Stream)?;
+    let upgraded = hyper::upgrade::on(response).await.map_err(|error| {
+        StreamFailure::Stream(io::Error::new(
+            io::ErrorKind::ConnectionRefused,
+            format!("failed to upgrade NaiveProxy H2 CONNECT: {error}"),
+        ))
+    })?;
+    let stream = TokioIo::new(upgraded);
+    match padding_mode {
+        PayloadPaddingMode::Plain => Ok(Box::new(stream)),
+        PayloadPaddingMode::Variant1 => Ok(Box::new(NaivePaddingStream::new(stream))),
+    }
+}
+
+/// Connects TCP, TLS and HTTP/2 to the server and starts the request dispatcher.
+///
+/// # Cancel safety
+///
+/// cancel-safe: dropping it drops the partial TCP/TLS/HTTP/2 connection;
+/// nothing awaits after the dispatcher starts.
+async fn connect_session(config: &NaiveProxyConfig) -> io::Result<Sender> {
     // The protected connector tries every resolved address; TLS keeps `server_name`.
     let addresses = resolve_upstream(config).await?;
     let tcp =
@@ -51,57 +164,24 @@ pub(crate) async fn open_https_connect_tunnel(
         return Err(io::Error::new(io::ErrorKind::InvalidData, "NaiveProxy server TLS did not negotiate h2 ALPN"));
     }
 
-    let io = TokioIo::new(tls);
-    let (mut sender, connection) =
-        hyper::client::conn::http2::handshake(TokioExecutor::new(), io).await.map_err(|error| {
+    let (sender, connection) = hyper::client::conn::http2::Builder::new(TokioExecutor::new())
+        .timer(TokioTimer::new())
+        .keep_alive_interval(KEEPALIVE_INTERVAL)
+        .keep_alive_timeout(KEEPALIVE_TIMEOUT)
+        .initial_connection_window_size(CONNECTION_WINDOW_BYTES)
+        .handshake(TokioIo::new(tls))
+        .await
+        .map_err(|error| {
             io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to negotiate NaiveProxy H2: {error}"))
         })?;
-    // The driver owns the upstream TLS socket. If the open fails or its
-    // deadline drops this future before the upgrade, the guard aborts the
-    // driver so the socket closes now, not at the peer's or kernel's timeout.
-    let driver = DriverAbortGuard(Some(tokio::spawn(async move {
+    // hyper's own connection task owns the socket; this dispatcher ends when the
+    // pool and every open stream drop their senders.
+    tokio::spawn(async move {
         if let Err(error) = connection.await {
             eprintln!("{}", crate::errors::connection_failure_line(&io::Error::other(error)));
         }
-    })));
-
-    let request = build_h2_connect_request(config, target, generate_connect_padding_header())?;
-    let response = sender.send_request(request).await.map_err(|error| {
-        io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to send NaiveProxy H2 CONNECT: {error}"))
-    })?;
-
-    if response.status() != http::StatusCode::OK {
-        return Err(connect_status_error(response.status()));
-    }
-    let padding_mode = negotiate_payload_padding_from_response(true, response.headers())?;
-    let upgraded = hyper::upgrade::on(response).await.map_err(|error| {
-        io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to upgrade NaiveProxy H2 CONNECT: {error}"))
-    })?;
-    let stream = TokioIo::new(upgraded);
-    driver.defuse();
-
-    match padding_mode {
-        PayloadPaddingMode::Plain => Ok(Box::new(stream)),
-        PayloadPaddingMode::Variant1 => Ok(Box::new(NaivePaddingStream::new(stream))),
-    }
-}
-
-/// Aborts the H2 connection driver on drop unless [`Self::defuse`] ran.
-struct DriverAbortGuard(Option<tokio::task::JoinHandle<()>>);
-
-impl DriverAbortGuard {
-    /// The tunnel is open: the driver must keep running for its lifetime.
-    fn defuse(mut self) {
-        self.0 = None;
-    }
-}
-
-impl Drop for DriverAbortGuard {
-    fn drop(&mut self) {
-        if let Some(driver) = self.0.take() {
-            driver.abort();
-        }
-    }
+    });
+    Ok(sender)
 }
 
 /// Server addresses for the upstream dial. While the VPN protects sockets, a
