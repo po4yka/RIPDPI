@@ -5,7 +5,7 @@ commit_sha: "c5a8eb7920e0808375f9fdb68e59b531bc296c5d"
 local: "passed"
 local_evidence: "G1 native tests/fmt/workspace Clippy; G2 affected-module unit tests; G3 static/locale/architecture/locked metadata; G4 pinned peers and 129 evidence tests; independent integration and follow-up reviews. See execution records and final receipts below."
 remote_ci: required
-remote_ci_evidence: "Required. Implementation push and manual hosted CI run await separate user authorization. The remote job branch still points to planning commit d5965546bc1b5a92aed4ed4bf7b9d78d864f1bfe."
+remote_ci_evidence: "Initial implementation CI run https://github.com/po4yka/RIPDPI/actions/runs/41034877092 at 9ee2013a250b224653b3d8c3441fd47d14b2830c failed two environment-sensitive verifier unit tests. The local-case tests now isolate CI only within their context; production ABI policy is unchanged. A new hosted run is required."
 device: "passed"
 device_evidence: "API 37 arm64 emulator native matrix: 23 cases and 88 positive JNI sessions at MTU 1280/1420. Editor render v2: five completed locale/font cases and 60 hash-verified PNGs with visual inspection of selected normal/error/RTL/large-font/dialog states. Physical-device and private-LAN acceptance are excluded."
 artifact: "passed"
@@ -256,3 +256,5 @@ The run used en/de/ar/fa with system font scale 1.0, then en at 1.3. The runner 
 | Editor result receipt | `cc7020837449e99971cf47f20c5d4b249896d348dbc616c4c24cfdf2fd539bee` | Five cases and 60 PNGs |
 
 G7 independent source review has no remaining actionable findings. The final task stays open for hosted CI on the published implementation commit. Planning-branch CI does not satisfy this gate. Physical/private-LAN acceptance and deployment remain excluded; the shared arm64 deployment guard is unchanged.
+
+- 2026-10-30, hosted CI first implementation run: the user authorized push and CI. Commit `9ee2013a250b224653b3d8c3441fd47d14b2830c` was pushed to the job branch and workflow CI run [41034877092](https://github.com/po4yka/RIPDPI/actions/runs/41034877092) started on that exact SHA. Task/OpenSpec, Android E2E contracts, cargo-deny, design lint and release gates passed. The architecture job passed architecture/LoC/hotspot contracts, then failed two local-ABI unit cases because they inherited `CI=true`. This blocked the preflight barrier and dependent Rust/Android jobs; skipped jobs are not passing evidence. The same two failures reproduced locally with `CI=true`. The two local-case tests now set an empty CI value only inside their patch context; the separate CI full-ABI test and production verifier are unchanged. All eight owner tests and the exact 374-test CI script/evidence suite passed locally with `CI=true`. A fresh hosted run remains required. Receipts: `build/reports/awg31/ci-abi-reproduction.log`, `ci-abi-fix-tests.log`, and `ci-script-suite-local.log`.
