@@ -12,6 +12,12 @@ pub(crate) fn structured_error_line(error: &io::Error) -> String {
     format!("{STRUCTURED_ERROR_PREFIX}{}|{}", classify_io_error(error), sanitize_structured_message(&error.to_string()))
 }
 
+/// The error line of the resolve-only mode. The class is always `dns`: every
+/// failure in that mode, including bad arguments, blocks the proxy start on name resolution.
+pub(crate) fn resolve_error_line(error: &io::Error) -> String {
+    format!("{STRUCTURED_ERROR_PREFIX}dns|{}", sanitize_structured_message(&error.to_string()))
+}
+
 /// The diagnostic line for one failed client connection. It is not a
 /// `RIPDPI-ERROR` line: the service keeps the class of those for its restart
 /// policy, while a client reset, a malformed request or the readiness probe's

@@ -18,6 +18,16 @@ This crate implements:
 - NaiveProxy Variant1 payload-padding negotiation when the upstream opts in
 - `RIPDPI-READY` / `RIPDPI-ERROR` text contract with the Android service (see `docs/native/relay-naiveproxy-runtime.md`)
 - `RIPDPI-PROBE` capability reporting on `--probe`
+- A resolve-only mode, `--resolve <HOST> --server-port <N>` (below)
+
+## Resolve-only mode
+
+`ripdpi-naiveproxy --resolve <HOST> --server-port <N>` resolves the proxy hostname and exits. The upstream Chromium client uses it, through the Android service, so that the name goes through RIPDPI's protected DoH.
+
+- Arguments: exactly `--resolve` and `--server-port`. Any other argument, including every relay-mode flag, is an error. The mode takes no credentials, reads no stdin, binds no listener and prints no `RIPDPI-READY`.
+- Protect path: `RIPDPI_PROTECT_PATH`, as in relay mode. With it, the lookup is protected DoH. Without it, the lookup uses the system resolver, the same as the relay-mode dial (`resolve_server_addrs` with no protect callback).
+- Success: one stdout line `RIPDPI-RESOLVED|<addr>[,<addr>...]` and exit 0. Each `<addr>` is an IP literal with no port, in resolver order, without duplicates. IPv6 has no brackets. An IP-literal `<HOST>` is echoed without a lookup.
+- Failure: one stderr line `RIPDPI-ERROR|naiveproxy|dns|<message>` and exit 1. This covers lookup failures, empty results and invalid arguments. The class is always `dns`.
 
 The crate is RIPDPI's repo-owned helper. It is intentionally not a Chromium-derived native naiveproxy binary.
 

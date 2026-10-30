@@ -8,6 +8,7 @@ pub mod h2_connect;
 mod http_front;
 pub mod padding;
 mod relay;
+mod resolve;
 mod session;
 mod socks5;
 mod tls;
@@ -100,6 +101,10 @@ async fn main() -> io::Result<()> {
     if std::env::args().skip(1).any(|value| value == PROBE_FLAG) {
         emit_probe_line();
         return Ok(());
+    }
+
+    if std::env::args().skip(1).any(|value| value == resolve::RESOLVE_FLAG) {
+        return resolve::run_resolve_mode().await;
     }
 
     match parse_config() {
