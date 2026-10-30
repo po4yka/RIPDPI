@@ -3,6 +3,7 @@ use std::net::{SocketAddr, TcpStream, ToSocketAddrs};
 use std::time::Duration;
 
 use boring::ssl::{SslConnector, SslStream};
+use boring::x509::verify::X509CheckFlags;
 use socket2::{Domain, Protocol, SockAddr, Socket, Type};
 use tungstenite::WebSocket;
 use tungstenite::protocol::WebSocketConfig;
@@ -100,16 +101,11 @@ fn connect_tcp_socket_with_impl(
     };
     let socket = Socket::new(domain, Type::STREAM, Some(Protocol::TCP))?;
 
-    match protect_path {
-        Some(path) => protect_socket(&socket, path)?,
-        // No UDS protect path configured: fall back to the in-process
-        // VpnService.protect callback registry when the VPN is up, so the
-        // WS-tunnel TCP socket is not captured by the TUN. No-op (and
-        // unprotected) when no callback is registered (desktop / VPN down);
-        // loopback never needs protection. (UDS-first here, unlike
-        // runtime-platform's callback-first vpn_protect — both reach
-        // VpnService.protect; keep the orderings as-is.)
-        None => protect::protect_via_callback_if_active(&socket, target)?,
+    // The runtime passes `protect_path` exactly when it runs inside the VPN, so it is the
+    // per-runtime protection policy; callback presence is process-global and must not stand in
+    // for it (JNI_CONTRACT.md §10).
+    if let Some(path) = protect_path {
+        protect_socket(&socket, path)?;
     }
     connect_socket(&socket, target, connect_timeout)
         .map_err(|e| io::Error::new(e.kind(), format!("WS tunnel TCP connect to {target}: {e}")))?;
@@ -268,12 +264,14 @@ fn open_ws_tunnel_with_timeout_and_connector(
     let connector = build_connector(fake_sni, worker_route)?;
     let mut tls_config =
         connector.configure().map_err(|e| io::Error::other(format!("boring TLS configuration: {e}")))?;
-    // A cover SNI cannot match the gateway certificate: skip only the name check; the chain stays verified.
-    // shortcut: with a fake SNI any publicly trusted certificate passes, whatever name it is for, so an
-    // on-path attacker with any valid certificate can read the obfuscated2 init. Upgrade: verify the
-    // certificate against `kws{n}.web.telegram.org` (keep SNI = cover name) once a live gateway check shows
-    // that the gateway serves that certificate for an unknown SNI.
-    tls_config.set_verify_hostname(fake_sni.is_none());
+    // A cover SNI cannot name the gateway, so verify the certificate against the gateway name instead;
+    // otherwise any publicly trusted certificate would expose the obfuscated2 init to an on-path attacker.
+    if fake_sni.is_some() {
+        tls_config.set_verify_hostname(false);
+        let param = tls_config.param_mut();
+        param.set_hostflags(X509CheckFlags::NO_PARTIAL_WILDCARDS);
+        param.set_host(&host).map_err(|e| io::Error::other(format!("boring TLS gateway name: {e}")))?;
+    }
     let tls_stream = tls_config
         .connect(tls_host, tcp)
         .map_err(|e| io::Error::new(io::ErrorKind::ConnectionRefused, format!("boring TLS: {e}")))?;
@@ -286,14 +284,6 @@ fn open_ws_tunnel_with_timeout_and_connector(
     configure_established_ws_stream(&mut ws)?;
 
     Ok(ws)
-}
-
-pub fn open_ws_tunnel(
-    dc: TelegramDc,
-    resolved_addr: Option<SocketAddr>,
-    protect_path: Option<&str>,
-) -> io::Result<WsStream> {
-    open_ws_tunnel_with_timeout(dc, resolved_addr, protect_path, None, None, None)
 }
 
 #[cfg(test)]
@@ -408,7 +398,7 @@ mod tests {
     #[test]
     fn fake_sni_still_rejects_an_untrusted_certificate_chain() {
         // Self-signed and absent from the trust store: only an on-path attacker would present it.
-        let fixture = spawn_worker_tls_ws_echo_server();
+        let fixture = spawn_tls_ws_echo_server("edge.example.workers.dev");
 
         let error = open_ws_tunnel_with_timeout(
             TelegramDc::production(2),
@@ -423,13 +413,29 @@ mod tests {
         assert!(error.to_string().contains("boring TLS"), "{error}");
     }
 
-    /// Known limit, not desired behavior: with a fake SNI no name is verified, so a trusted chain
-    /// issued for an unrelated name (the fixture certificate is for `edge.example.workers.dev`) passes.
-    /// See the `shortcut:` note in `open_ws_tunnel_with_timeout_and_connector`; when the gateway name is
-    /// pinned, this test must expect the handshake to fail.
+    /// With a cover SNI the certificate must still name the gateway: a trusted chain issued for an
+    /// unrelated name (here `edge.example.workers.dev`) is what an on-path attacker would present.
     #[test]
-    fn fake_sni_known_limit_accepts_a_trusted_chain_for_any_name() {
-        let fixture = spawn_worker_tls_ws_echo_server();
+    fn fake_sni_rejects_a_trusted_chain_for_another_name() {
+        let fixture = spawn_tls_ws_echo_server("edge.example.workers.dev");
+
+        let error = open_ws_tunnel_with_timeout_and_connector(
+            TelegramDc::production(2),
+            Some(fixture.addr),
+            None,
+            Some(Duration::from_secs(2)),
+            Some("cover.example"),
+            None,
+            |_fake_sni, worker_route| test_tls_connector(&fixture.root_der, None, worker_route),
+        )
+        .expect_err("a certificate that does not name the gateway must fail the TLS handshake");
+
+        assert!(error.to_string().contains("boring TLS"), "{error}");
+    }
+
+    #[test]
+    fn fake_sni_sends_the_cover_name_and_accepts_the_gateway_certificate() {
+        let fixture = spawn_tls_ws_echo_server("kws2.web.telegram.org");
 
         let mut ws = open_ws_tunnel_with_timeout_and_connector(
             TelegramDc::production(2),
@@ -440,7 +446,7 @@ mod tests {
             None,
             |_fake_sni, worker_route| test_tls_connector(&fixture.root_der, None, worker_route),
         )
-        .expect("known limit: a trusted chain for an unrelated name passes with a cover SNI");
+        .expect("a trusted gateway certificate passes with a cover SNI");
         ws.send(tungstenite::Message::Binary(Bytes::from_static(b"ping"))).expect("send binary");
         let echoed = ws.read().expect("read echo");
         ws.close(None).expect("close websocket");
@@ -453,7 +459,7 @@ mod tests {
 
     #[test]
     fn inbound_message_above_the_mtproto_cap_ends_the_tunnel() {
-        let fixture = spawn_worker_tls_ws_echo_server();
+        let fixture = spawn_tls_ws_echo_server("edge.example.workers.dev");
         let worker_url = format!("https://edge.example.workers.dev:{}/relay", fixture.addr.port());
         let route = CloudflareWorkerRoute::parse(worker_url, "secret-token").expect("valid worker route");
         let mut ws = open_ws_tunnel_with_timeout_and_connector(
@@ -476,7 +482,7 @@ mod tests {
 
     #[test]
     fn worker_route_opens_verified_tls_http11_websocket_and_roundtrips_binary() {
-        let fixture = spawn_worker_tls_ws_echo_server();
+        let fixture = spawn_tls_ws_echo_server("edge.example.workers.dev");
         let worker_url = format!("https://edge.example.workers.dev:{}/relay", fixture.addr.port());
         let route = CloudflareWorkerRoute::parse(worker_url, "secret-token").expect("valid worker route");
 
@@ -667,9 +673,9 @@ mod tests {
         Option<String>,
     );
 
-    fn spawn_worker_tls_ws_echo_server() -> WorkerTlsWsFixture {
-        let certificate = generate_simple_self_signed(vec!["edge.example.workers.dev".to_string()])
-            .expect("self-signed worker certificate");
+    fn spawn_tls_ws_echo_server(cert_name: &str) -> WorkerTlsWsFixture {
+        let certificate =
+            generate_simple_self_signed(vec![cert_name.to_string()]).expect("self-signed fixture certificate");
         let root_der = certificate.cert.der().as_ref().to_vec();
         let cert = X509::from_der(certificate.cert.der().as_ref()).expect("BoringSSL fixture cert");
         let key: PKey<Private> =

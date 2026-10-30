@@ -17,7 +17,7 @@ invariant; the Telegram DC IP database. See the `ws-tunnel-telegram` skill.
 
 ## Dependency direction
 
-**Upstream:** `ripdpi-tls-profiles`, `ripdpi-native-protect`, `ripdpi-ws-transport-port`
+**Upstream:** `ripdpi-tls-profiles`, `ripdpi-ws-transport-port`
 (`boring`, `tokio`). **Downstream:**
 `ripdpi-ws-bootstrap`, `ripdpi-diagnostics-telegram`.
 

@@ -271,7 +271,7 @@ impl RuntimeState {
             handshake_settings,
             delayed_connect_settings,
             network_reprobe_settings,
-            ws_tunnel_settings,
+            mut ws_tunnel_settings,
             warmup_probe_settings,
             route_retry_settings,
             route_syn_data_settings,
@@ -283,6 +283,7 @@ impl RuntimeState {
             relay_first_response,
             response_failure_evidence_settings,
         } = runtime_config_projection_with_geo(&config, geo_matcher.clone());
+        fill_ws_protect_path_from_context(&mut ws_tunnel_settings, runtime_context.as_ref());
         let RuntimeSessionProjection {
             udp_packet_parser,
             udp_payload_classifier,
@@ -421,6 +422,14 @@ impl CandidateRefusalTrials {
             connection_refused_count: self.connection_refused_count.load(Ordering::Relaxed),
             duplicate_refusal_count: self.duplicate_refusal_count.load(Ordering::Relaxed),
         }
+    }
+}
+
+/// Android VPN mode hands the proxy its protect endpoint only through the runtime context;
+/// without it the WS tunnel would dial Telegram through the TUN.
+fn fill_ws_protect_path_from_context(settings: &mut WsTunnelSettings, runtime_context: Option<&ProxyRuntimeContext>) {
+    if settings.protect_path.is_none() {
+        settings.protect_path = runtime_context.and_then(|context| context.protect_path.clone());
     }
 }
 
@@ -564,6 +573,21 @@ mod state_coverage_tests {
         let exit_ip = IpAddr::V4(Ipv4Addr::new(198, 51, 100, 7));
         let exit_guard = state.try_acquire_exit_session(exit_ip).expect("exit-IP admission remains independent");
         drop((first, second, pass_through, exit_guard));
+    }
+
+    #[test]
+    fn ws_tunnel_uses_the_runtime_context_protect_path_in_vpn_mode() {
+        let context =
+            ProxyRuntimeContext { protect_path: Some("/data/vp-test".to_string()), ..ProxyRuntimeContext::default() };
+        let control = std::sync::Arc::new(EmbeddedProxyControl::new_with_context(None, Some(context)));
+        let vpn = RuntimeState::test_with_control(RuntimeConfig::default(), control);
+        let proxy_mode = RuntimeState::test_with_control(
+            RuntimeConfig::default(),
+            std::sync::Arc::new(EmbeddedProxyControl::new_with_context(None, None)),
+        );
+
+        assert_eq!(vpn.ws_tunnel_settings.protect_path.as_deref(), Some("/data/vp-test"));
+        assert_eq!(proxy_mode.ws_tunnel_settings.protect_path, None);
     }
 
     #[test]

@@ -759,16 +759,16 @@ Resolves Telegram WebSocket hostnames through the active encrypted DNS context w
 
 The WS tunnel can present a cover domain in the TLS ClientHello SNI instead of
 `kws{dc}.web.telegram.org`, disguising the connection as traffic to a
-whitelisted service (e.g. `yandex.ru`). Because the presented certificate then
-will not match the cover name, **fake-SNI skips the TLS certificate hostname
-check** for the tunnel. The certificate chain must still verify against the
-trust store, so a self-signed certificate from an on-path attacker is refused.
-Known limit: no name is checked, so any publicly trusted certificate (for any
-domain) passes. Pinning the check to `kws{dc}.web.telegram.org` needs a live
-gateway check first.
+whitelisted service (e.g. `yandex.ru`). The presented certificate cannot match
+the cover name, so **fake-SNI verifies the certificate against
+`kws{dc}.web.telegram.org`** instead of the SNI. The chain must verify against
+the trust store and name the gateway, so neither a self-signed certificate nor a
+publicly trusted certificate for another domain from an on-path attacker is
+accepted. The mode therefore depends on the gateway serving its own certificate
+for an unknown SNI.
 
-This is gated behind an explicit operator opt-in to prevent silent
-verification bypass:
+This is gated behind an explicit operator opt-in so a cover SNI is never sent
+silently:
 
 - `RuntimeAdaptiveSettings.ws_tunnel_fake_sni` holds the cover domain; a value
   is only honoured when `RuntimeAdaptiveSettings.ws_tunnel_allow_insecure_sni`
@@ -786,11 +786,12 @@ verification bypass:
 
 `NativeRuntimeSnapshot.wsTunnelFakeSniActive` is a cumulative counter of
 successful WS-tunnel handshakes established with the fake-SNI cover active
-(TLS hostname check skipped). It increments only on the fake-SNI path
+(certificate checked against the gateway name, not the SNI). It increments only
+on the fake-SNI path
 (`RuntimeTelemetrySink::on_ws_tunnel_fake_sni_active`, fired from the
 ws-fallback success arm when the effective config has both a cover and the
 opt-in), so a non-zero value in the diagnostics export is a deploy-time signal
-that insecure-SNI connections are actually occurring. It is distinct from the
+that cover-SNI connections are actually occurring. It is distinct from the
 ws-tunnel escalation event, which fires for all ws-tunnel handshakes.
 
 Relevant sources:

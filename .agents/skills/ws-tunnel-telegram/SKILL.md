@@ -30,7 +30,7 @@ App -> TUN -> ripdpi-proxy -> handshake pipeline
   2. read 64-byte MTProto init from client  -- ripdpi-proxy-runtime/.../handshake/ws_tunnel.rs
   3. classify_mtproto_seed(init)            -- ripdpi-ws-tunnel/src/mtproto.rs: ValidatedMtproto{dc}
   4. resolve_ws_tunnel_addr(dc)             -- ripdpi-ws-bootstrap/src/resolver.rs: encrypted DNS
-  5. open_ws_tunnel(dc, resolved_addr)      -- ripdpi-ws-tunnel/src/connect.rs: TLS + WS handshake
+  5. open_ws_tunnel_with_timeout(dc, ..)    -- ripdpi-ws-tunnel/src/connect.rs: TLS + WS handshake
   6. ws_relay(client, ws, seed_request)     -- ripdpi-ws-tunnel/src/relay.rs (+ relay/ submodules)
 ```
 
@@ -80,7 +80,7 @@ through their own Cloudflare Worker (real Telegram gateway carried in
 directly. `WorkerBearer` validates an RFC 6750 bearer token and redacts itself
 in `Debug`. A worker route must never be combined with `fake_sni` -- the
 implementation is required to reject that combination so a verified Worker
-TLS connection is never silently downgraded to the insecure fake-SNI path.
+TLS connection is never silently combined with a cover SNI.
 
 ## 4. MTProto Handling (`mtproto.rs`)
 

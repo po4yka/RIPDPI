@@ -35,13 +35,13 @@ pub struct WsTunnelConfig {
     pub connect_timeout: Option<Duration>,
     /// Optional cover domain for the TLS ClientHello.
     ///
-    /// The real Telegram gateway is replaced by this name. Because the peer
-    /// certificate cannot authenticate the cover name, this mode disables
-    /// normal certificate validation and therefore requires
-    /// [`WsTunnelConfig::allow_insecure_sni`] to be `true`.
+    /// The real Telegram gateway name is replaced by this name in the SNI only.
+    /// Implementations must still verify the peer certificate against the
+    /// gateway name, and must require [`WsTunnelConfig::allow_insecure_sni`]
+    /// to be `true`.
     pub fake_sni: Option<String>,
-    /// Explicit operator acknowledgement that fake-SNI mode disables normal
-    /// TLS certificate verification. A configured `fake_sni` must be rejected
+    /// Explicit operator acknowledgement of fake-SNI mode, in which the SNI no
+    /// longer names the gateway. A configured `fake_sni` must be rejected
     /// unless this flag is `true`.
     pub allow_insecure_sni: bool,
     /// Optional operator-owned Cloudflare Worker route.

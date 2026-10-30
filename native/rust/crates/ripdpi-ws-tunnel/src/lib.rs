@@ -83,15 +83,15 @@ where
         ));
     }
 
-    // fake-SNI mode skips the TLS certificate hostname check (see connect.rs).
-    // Refuse the connection when the operator has not explicitly acknowledged
-    // the bypass via allow_insecure_sni, so a misconfigured profile cannot
-    // silently route traffic through a cover-cert path.
+    // fake-SNI mode verifies the certificate against the gateway name rather than
+    // the name it sends (see connect.rs). Refuse the connection when the operator
+    // has not explicitly acknowledged the cover via allow_insecure_sni, so a
+    // misconfigured profile cannot silently route traffic through a cover-SNI path.
     let effective_fake_sni = if config.allow_insecure_sni { config.fake_sni.as_deref() } else { None };
     if config.fake_sni.is_some() && !config.allow_insecure_sni {
         return Err(io::Error::new(
             io::ErrorKind::PermissionDenied,
-            "WS tunnel fake_sni requires allow_insecure_sni=true (the TLS hostname check would be skipped)",
+            "WS tunnel fake_sni requires allow_insecure_sni=true (the TLS SNI would not name the gateway)",
         ));
     }
     if config.worker_route.is_some() && config.fake_sni.is_some() {
@@ -110,13 +110,6 @@ where
         config.worker_route.as_ref(),
     )?;
     relay_ws(client, ws, &seed_request)
-}
-
-/// Probe the WebSocket tunnel endpoint for a given DC using an optional
-/// pre-resolved address.
-pub fn probe_ws_tunnel_with_addr(dc: TelegramDc, resolved_addr: Option<SocketAddr>) -> io::Result<()> {
-    let _ws = connect::open_ws_tunnel(dc, resolved_addr, None)?;
-    Ok(())
 }
 
 #[cfg(test)]
@@ -307,7 +300,7 @@ mod tests {
 
     #[test]
     fn relay_ws_tunnel_refuses_fake_sni_without_allow_insecure_acknowledgement() {
-        // Operator must opt into the TLS cert-bypass via allow_insecure_sni
+        // Operator must opt into the cover SNI via allow_insecure_sni
         // before fake_sni is honoured. Without the flag, the relay refuses
         // to start and surfaces a PermissionDenied error so misconfiguration
         // is loud.

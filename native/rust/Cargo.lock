@@ -6841,7 +6841,6 @@ dependencies = [
  "futures",
  "nix 0.31.3",
  "rcgen",
- "ripdpi-native-protect",
  "ripdpi-tls-profiles",
  "ripdpi-ws-transport-port",
  "socket2",

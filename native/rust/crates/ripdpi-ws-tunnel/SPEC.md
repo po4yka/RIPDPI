@@ -12,10 +12,12 @@ WebSocket tunnel for Telegram MTProto traffic, plus a generic HTTP/1.1 Upgrade t
 
 ## Tunnel flow
 
-1. Client opens a TCP socket (protected via VPN `protect` socket when under VPN mode).
+1. Client opens a TCP socket, protected through the configured protect path when
+   the runtime runs inside the VPN; without a path the socket is not protected.
 2. TLS to `kws{dc}.web.telegram.org`. A configured fake-SNI cover is rejected
-   unless `allow_insecure_sni=true` explicitly acknowledges the certificate
-   bypass; the insecure mode is never inferred from the hostname alone.
+   unless `allow_insecure_sni=true` explicitly acknowledges it; the cover mode is
+   never inferred from the hostname alone. With a cover, only the SNI changes: the
+   certificate is still verified against `kws{dc}.web.telegram.org`.
 3. WSS upgrade to `/apiws` with the `Sec-WebSocket-Protocol: binary` subprotocol.
 4. First 64 bytes of the relayed stream are validated MTProto obfuscated2 init bytes; remaining bytes are forwarded as WS frames.
 
