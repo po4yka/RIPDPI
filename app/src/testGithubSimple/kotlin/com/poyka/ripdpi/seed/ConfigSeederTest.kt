@@ -79,7 +79,7 @@ private val FAKE_BUNDLE =
           "server_port": 443,
           "uuid": "00000000-0000-0000-0000-000000000002",
           "tls": { "enabled": true, "server_name": "xhttp.example.com" },
-          "transport": { "type": "xhttp", "path": "/fixture", "host": "xhttp.example.com" }
+          "transport": { "type": "xhttp", "path": "/fixture", "host": "xhttp.example.com", "mode": "stream-up" }
         },
         {
           "type": "hysteria2",
@@ -209,7 +209,7 @@ private val MULTI_RELAY_BUNDLE =
           "type": "vless", "tag": "xhttp", "server": "192.0.2.20", "server_port": 443,
           "uuid": "00000000-0000-0000-0000-000000000001",
           "tls": { "enabled": true, "server_name": "xhttp.example.test" },
-          "transport": { "type": "xhttp", "path": "/fixture", "host": "xhttp.example.test" }
+          "transport": { "type": "xhttp", "path": "/fixture", "host": "xhttp.example.test", "mode": "stream-up" }
         },
         {
           "type": "hysteria2", "tag": "hysteria", "server": "192.0.2.30", "server_port": 443,
