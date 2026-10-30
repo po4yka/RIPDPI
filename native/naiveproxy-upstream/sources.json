@@ -1,0 +1,33 @@
+{
+  "schemaVersion": 1,
+  "repo": "klzgrad/naiveproxy",
+  "tag": "v154.0.8037.49-5",
+  "commit": "d04efe1ea4477c2db24a7d0e2f068b3bee931e45",
+  "provenance": "Prebuilt upstream release assets. The APK sha256 equals the GitHub release asset digest. The libnaive.so sha256 was computed after the APK digest check. Each libnaive.so is a PIE executable at lib/<abi>/libnaive.so inside its APK.",
+  "abis": {
+    "arm64-v8a": {
+      "asset": "naiveproxy-plugin-v154.0.8037.49-5-arm64-v8a.apk",
+      "url": "https://github.com/klzgrad/naiveproxy/releases/download/v154.0.8037.49-5/naiveproxy-plugin-v154.0.8037.49-5-arm64-v8a.apk",
+      "apkSha256": "3a532e6894d87c1fca5c527d3598892627829c76cb5b75ed831555f384841bd0",
+      "libnaiveSha256": "23f950b4a813a63456070a7780001658da21e059b352f5a441ae8e66e5c97a74"
+    },
+    "armeabi-v7a": {
+      "asset": "naiveproxy-plugin-v154.0.8037.49-5-armeabi-v7a.apk",
+      "url": "https://github.com/klzgrad/naiveproxy/releases/download/v154.0.8037.49-5/naiveproxy-plugin-v154.0.8037.49-5-armeabi-v7a.apk",
+      "apkSha256": "9acbf08afea2d35aad492d5312444b6aecd5fafa41f29d794d4821549f330da5",
+      "libnaiveSha256": "e9a0268da4b2e1ba6e89fbac3333ea232c041cc6d5ee75bd2bed2854b0cdac14"
+    },
+    "x86": {
+      "asset": "naiveproxy-plugin-v154.0.8037.49-5-x86.apk",
+      "url": "https://github.com/klzgrad/naiveproxy/releases/download/v154.0.8037.49-5/naiveproxy-plugin-v154.0.8037.49-5-x86.apk",
+      "apkSha256": "82742a51d671778d264fefccd6834d40da94755f2eefb96a494fd2dc5b75fb61",
+      "libnaiveSha256": "9ea84dd08e162a2f07b9a1d3a73652ac9e4459be5b0bee017755f88fe7e71149"
+    },
+    "x86_64": {
+      "asset": "naiveproxy-plugin-v154.0.8037.49-5-x86_64.apk",
+      "url": "https://github.com/klzgrad/naiveproxy/releases/download/v154.0.8037.49-5/naiveproxy-plugin-v154.0.8037.49-5-x86_64.apk",
+      "apkSha256": "af3e8070e882f0008b6511394ae4d3737ece508e9b34abee94cb2f59ddb5e940",
+      "libnaiveSha256": "e9119426194f256607ed34a0e92abe2c06b7929129c17e36984d6ebfdb1467b4"
+    }
+  }
+}

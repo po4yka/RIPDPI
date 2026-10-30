@@ -106,3 +106,7 @@ design-review/
 # Consumed by the simple-flavor first-launch seeder (ConfigSeeder); when the
 # file is absent the seeder no-ops, so other flavors/CI build fine without it.
 app/src/simple/assets/embedded-relay-bundle.json
+
+# Upstream NaiveProxy client binaries fetched by scripts/ci/fetch-naive-upstream.py;
+# verified against native/naiveproxy-upstream/sources.json, never committed.
+native/naiveproxy-upstream/artifacts/
