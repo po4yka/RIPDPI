@@ -102,8 +102,7 @@ data class AmneziaWgV3Parameters(
             val bounds = value.split('-').map(String::toInt)
             val low = bounds.first()
             val high = bounds.last()
-            if (low == 0 && high != 0) return null
-            return low to high.takeIf { it != low }
+            return if (low == 0 && high != 0) null else low to high.takeIf { it != low }
         }
 
         fun isHeaderProtectionKey(value: String): Boolean = decodeKey(value) != null
