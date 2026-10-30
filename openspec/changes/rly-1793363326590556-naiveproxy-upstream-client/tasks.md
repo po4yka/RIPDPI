@@ -1,0 +1,35 @@
+# RLY-1793363326590556: Ship the pinned upstream NaïveProxy client for real-certificate profiles
+
+## Objective
+
+Pin-free NaïveProxy profiles run the pinned upstream Chromium-based client, which is verified and staged from the pinned release. Credentials go through a private config file, the proxy host is resolved by protected DoH, and the existing readiness and failure contract applies. Pinned profiles keep running the Rust helper unchanged.
+
+## Ownership
+
+One writer per lane.
+
+- **Artifact lane:** `native/naiveproxy-upstream/` (new), `scripts/ci/fetch-naive-upstream.py` (new), `scripts/tests/`, `build-logic/convention/` (`HelperExecutableJniLibsTask`, `ripdpi.android.rust-native.gradle.kts`, their tests), `.gitignore`.
+- **Rust lane:** `native/rust/crates/ripdpi-naiveproxy/` (`--resolve` mode only) and its `SPEC_VERSION.md`.
+- **Service lane:** `core/service/src/main/kotlin/com/poyka/ripdpi/services/NaiveProxy*.kt`, the new `NaiveUpstream*.kt`, `SubprocessSocksRelayManager.kt` (preflight skip only), and the matching tests.
+- **CI and docs lane:** `.github/workflows/ci.yml`, `.github/workflows/release-candidate.yml`, `.github/workflows/local-acceptance.yml`, `docs/architecture/ARCHITECTURE.md`.
+- **Acceptance lane:** `scripts/ci/android_naiveproxy_fixture.py`, `scripts/ci/run-android-local-acceptance.py`, `app/src/androidTest/.../XrayProviderE2ETest.kt`, `test-lab/acceptance/`.
+- **Serialized shared files:** none. No Cargo.lock, libs.versions.toml, protobuf, locale, baseline or relay-registry change is planned. If one becomes necessary, it goes to a single writer and is validated on the combined tree.
+
+## Execution
+
+- [ ] RLY-1793363549741947 Add `native/naiveproxy-upstream/sources.json` (release v154.0.8037.49-5, commit d04efe1, per-ABI asset, APK sha256 and libnaive.so sha256) and `scripts/ci/fetch-naive-upstream.py` (download, dual digest check, safe single-member extract into a gitignored `artifacts/<abi>/`). Tests in `scripts/tests/` cover a digest mismatch, a missing asset and a zip-slip member. Gate: `python3 -m pytest scripts/tests/test_fetch_naive_upstream.py` #feature !high @item:RLY-1793363326590556
+- [ ] RLY-1793363549742084 Stage `libripdpi-naive-chromium.so` per ABI in `HelperExecutableJniLibsTask`, re-verifying the ELF sha256 from the manifest. A missing or mismatched file fails the build and names the fetch command. Extend `HelperExecutableJniLibsTaskTest`. Gate: `./gradlew -p build-logic :convention:test` #feature !high @item:RLY-1793363326590556
+- [ ] RLY-1793363549742221 Add the `ripdpi-naiveproxy --resolve HOST --server-port N` mode, which prints `RIPDPI-RESOLVED|ip[,ip]` via `resolve_server_addrs` under the protect path and fails with `RIPDPI-ERROR|naiveproxy|dns|…`. Document it in `SPEC_VERSION.md` and add unit tests for IP literals, failures and output format. Gate: `cargo test -p ripdpi-naiveproxy --locked` and `cargo clippy -p ripdpi-naiveproxy --all-targets --locked -- -D warnings` #feature !high @item:RLY-1793363326590556
+- [ ] RLY-1793363549742358 Add the service upstream launcher (selection by pin in `NaiveProxyManager`; a `NaiveUpstreamConfig` writer (0600 file in `noBackupFilesDir/naive/`, percent-encoded proxy URI, authenticated loopback SOCKS listen, extra headers, `MAP host ip` with bracketed IPv6); a resolve-client call that maps failure to class `dns`; argv `[exe, path]`, with the `--version` check pinned to `naive 154.0.8037.49` and no `--probe` preflight; config deletion after readiness, on failure and on stop, plus credential redaction). Unit tests cover selection, argv without secrets, config content and mode, deletion on every path, and DNS failure classification. Gate: `./gradlew :core:service:testDebugUnitTest :core:service:lintDebug -Pripdpi.skipNativeBuild=true -x verifyLibXrayArtifacts` #feature !high @item:RLY-1793363326590556
+- [ ] RLY-1793363549742495 Wire the fetch-and-cache step into `ci.yml` and `release-candidate.yml` before native staging, and add the artifact row to `docs/architecture/ARCHITECTURE.md`. Gate: `actionlint` on the changed workflows and `python3 scripts/ci/check_architecture_health.py --check` #feature !high @item:RLY-1793363326590556
+- [ ] RLY-1793363549742632 Extend the `android-naiveproxy` acceptance scenario: the lab mounts a CA-augmented `/system/etc/security/cacerts` tmpfs (adb root before install); a pin-free phase proves a routed TCP transfer through the upstream client, with server and destination receipts; the pinned phase keeps covering the Rust helper; a wrong-credential phase fails closed. Gates: `python3 -m pytest scripts/tests/test_android_local_acceptance.py test-lab/acceptance/tests -q`, `python3 test-lab/acceptance/generate_manifest.py --check`, and one passing emulator run on the pool #feature !high @item:RLY-1793363326590556
+- [ ] RLY-1793363549742769 Rerun the wire comparison procedure (from the 2026-10-30 measurement) for a pin-free profile through the app's upstream launch config against the pinned Caddy forwardproxy. Record that there is no HelloRetryRequest and that the JA4 equals `t13d1517h2_8daaf6152771_cb7bf5808d99`. Store the procedure as a lab tool under `test-lab/acceptance/tools/`. Gate: a stored capture summary with the JA4 match #feature !high @item:RLY-1793363326590556
+- [ ] RLY-1793363549742906 Check the per-ABI release APK size gate with the added executable, run the combined gates on the integrated tree (workspace clippy, the Gradle unit suites, lint, staticAnalysis, arch-health), and record the evidence in `verification.md`. Gate: all of these exit 0 on the exact commit #feature !high @item:RLY-1793363326590556
+
+## Verification
+
+- **Local:** the pytest, build-logic, cargo and Gradle gates named in each step.
+- **Artifact:** digest verification of all four ABIs, and staged jniLibs inspected in a built APK (`unzip -l`).
+- **Device:** the `android-naiveproxy` emulator scenario, run on the pool with the pin-free, pinned and failure phases.
+- **Wire:** the JA4 match and no HRR, from the stored capture summary.
+- **Remote CI:** `ci-required` on the integrated commit.

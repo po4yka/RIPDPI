@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-10-30
+goal: RLY-1793363326590556 Ship the pinned upstream NaiveProxy client for
+  real-certificate profiles
