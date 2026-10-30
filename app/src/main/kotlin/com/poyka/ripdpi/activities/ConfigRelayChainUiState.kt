@@ -3,15 +3,20 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
+import com.poyka.ripdpi.data.RelayKindGoogleAppsScript
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
+import com.poyka.ripdpi.data.RelayKindMieru
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindObfs4
 import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSnowflake
+import com.poyka.ripdpi.data.RelayKindSsh
+import com.poyka.ripdpi.data.RelayKindTor
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindTuicV5
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayKindWebTunnel
 import com.poyka.ripdpi.data.RelayProfileRecord
@@ -169,23 +174,29 @@ internal fun ConfigDraft.relayChainHopMoved(
     return withRelayChainHopProfileIds(reordered)
 }
 
-internal fun String.relayKindLabel(): String =
-    when (this) {
-        RelayKindVlessReality -> "VLESS + Reality"
-        RelayKindCloudflareTunnel -> "Cloudflare Tunnel"
-        RelayKindHysteria2 -> "Hysteria2"
-        RelayKindMasque -> "MASQUE"
-        RelayKindNaiveProxy -> "NaiveProxy"
-        RelayKindTuicV5 -> "TUIC v5"
-        RelayKindShadowTlsV3 -> "ShadowTLS v3"
-        RelayKindTrojan -> "Trojan"
-        RelayKindAnyTls -> "AnyTLS"
-        RelayKindShadowsocks -> "Shadowsocks"
-        RelayKindSnowflake -> "Snowflake"
-        RelayKindWebTunnel -> "WebTunnel"
-        RelayKindObfs4 -> "obfs4"
-        else -> this
-    }
+private val RelayKindLabels: Map<String, String> =
+    mapOf(
+        RelayKindVlessReality to "VLESS + Reality",
+        RelayKindCloudflareTunnel to "Cloudflare Tunnel",
+        RelayKindHysteria2 to "Hysteria2",
+        RelayKindMasque to "MASQUE",
+        RelayKindNaiveProxy to "NaiveProxy",
+        RelayKindTuicV5 to "TUIC v5",
+        RelayKindShadowTlsV3 to "ShadowTLS v3",
+        RelayKindTrojan to "Trojan",
+        RelayKindAnyTls to "AnyTLS",
+        RelayKindShadowsocks to "Shadowsocks",
+        RelayKindSnowflake to "Snowflake",
+        RelayKindWebTunnel to "WebTunnel",
+        RelayKindObfs4 to "obfs4",
+        RelayKindVless to "VLESS TLS",
+        RelayKindGoogleAppsScript to "Google Apps Script",
+        RelayKindMieru to "Mieru",
+        RelayKindSsh to "SSH",
+        RelayKindTor to "Tor",
+    )
+
+internal fun String.relayKindLabel(): String = RelayKindLabels[this] ?: this
 
 private fun RelayProfileUiState.toRelayTrustDomain(): RelayTrustDomain =
     RelayTrustDomain(
