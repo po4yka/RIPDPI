@@ -238,8 +238,8 @@ It records module/tools/test/fixture hashes, traffic counters, and per-case PCAP
 then removes namespaces and unloads its module. The fixed public fixture keys are
 not production credentials; readback reports exclude keys.
 
-The default Linux matrix has 40 cases: payload and small-datagram cases for all
-seven profiles at both MTUs, plus six timer scenarios at both MTUs. Select a subset
+The default Linux matrix has 42 cases: payload and small-datagram cases for all
+seven profiles at both MTUs, plus six timer scenarios and negative transport at both MTUs. Select a subset
 with repeated `--scenario` arguments. Timer scenarios use one session and the
 `v3-cpa-trailers` profile: `timer-persistent`, `timer-idle`, `timer-retry-loss`,
 `timer-retry-exhaust`, `timer-rekey`, and `timer-reject`. A loopback relay in the
@@ -250,6 +250,16 @@ kernel capture drops, or backward capture timestamps reject the evidence.
 The inner capture and complete kernel byte counters provide indirect authenticated
 keepalive accounting; they are not a kernel authentication callback. Timer cases
 test RIPDPI policy against a kernel responder with its own default timers.
+
+`--scenario negative-transport` uses real kernel ciphertext for corruption, wrong
+HP, foreign source, replay, ambiguous headers, and malformed authenticated IP.
+Both capture legs must prove the original, mutation and recovery bytes. For the
+last case, the owned namespace runner opens one AF_PACKET socket on `awg31`, then
+drops root IDs before accepting one bounded destination-port request. The helper
+fixes every other packet byte. The capture must contain the exact 284-byte IPv4
+packet with declared length zero and its kernel-encrypted transport. The client
+must reject application delivery and accept the next authenticated fence.
+Backend tests remain the evidence for internal rejection and state effects.
 
 The Linux pin still uses a fixed 180-second age limit in `send.c` and `receive.c`.
 Its retry-exhaustion zeroization uses three times `RekeyAfterTime`; session-created

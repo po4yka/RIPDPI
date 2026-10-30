@@ -39,12 +39,14 @@ type transportPhase struct {
 	target               netip.AddrPort
 }
 type transportExercise struct {
-	mu      sync.Mutex
-	bind    *loopbackBind
-	profile wireProfile
-	start   time.Time
-	phases  []*transportPhase
-	active  *transportPhase
+	mu            sync.Mutex
+	bind          *loopbackBind
+	profile       wireProfile
+	start         time.Time
+	phases        []*transportPhase
+	active        *transportPhase
+	foreignSocket *net.UDPConn
+	malformedSend func(net.Addr) error
 }
 
 func newTransportExercise(bind *loopbackBind, profile wireProfile) *transportExercise {
@@ -131,11 +133,15 @@ func (t *transportExercise) send(packet []byte, socket *net.UDPConn, target neti
 		if !target.Addr().IsLoopback() {
 			return true, errors.New("negative carrier requires loopback")
 		}
-		foreign, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
-		if err != nil {
-			return true, err
+		foreign := t.foreignSocket
+		if foreign == nil {
+			var err error
+			foreign, err = net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+			if err != nil {
+				return true, err
+			}
+			defer foreign.Close()
 		}
-		defer foreign.Close()
 		destinationSocket = foreign
 		t.mu.Lock()
 		phase.DifferentSource = foreign.LocalAddr().String() != socket.LocalAddr().String()
@@ -220,7 +226,15 @@ func (t *transportExercise) run(socket net.PacketConn) error {
 		t.active = phase
 		t.phases = append(t.phases, phase)
 		t.mu.Unlock()
-		if _, err = socket.WriteTo(negativePayload(mode), target); err != nil {
+		if mode == "malformed-ip" && t.malformedSend != nil {
+			err = t.malformedSend(target)
+			t.mu.Lock()
+			phase.MalformedIP = err == nil
+			t.mu.Unlock()
+		} else {
+			_, err = socket.WriteTo(negativePayload(mode), target)
+		}
+		if err != nil {
 			return err
 		}
 		// A small next datagram is queued after the mutated data on this one TUN

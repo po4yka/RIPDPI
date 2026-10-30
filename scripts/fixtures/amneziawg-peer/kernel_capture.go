@@ -16,6 +16,8 @@ type capturedUDP struct {
 	source, destination     uint16
 	sourceIP, destinationIP [4]byte
 	ipLength                int
+	declaredIPLength        int
+	ip                      []byte
 	payload                 []byte
 }
 type captureSummary struct {
@@ -27,6 +29,12 @@ type captureSummary struct {
 // readUDPCapture accepts bounded classic PCAP only. The caller supplies a UDP
 // capture filter; unsupported link formats, fragments and truncation fail.
 func readUDPCapture(reader io.Reader, visit func(capturedUDP) error) (captureSummary, error) {
+	return readUDPRecords(reader, false, visit)
+}
+
+// Only the dedicated negative-IP oracle can opt into the exact zero-length
+// IPv4 defect. Ordinary padding/timer captures keep the strict parser.
+func readUDPRecords(reader io.Reader, malformed bool, visit func(capturedUDP) error) (captureSummary, error) {
 	var summary captureSummary
 	header := make([]byte, 24)
 	if _, err := io.ReadFull(reader, header); err != nil {
@@ -90,6 +98,10 @@ func readUDPCapture(reader io.Reader, visit func(capturedUDP) error) (captureSum
 		ip := packet[offset:]
 		ihl := int(ip[0]&15) * 4
 		total := int(binary.BigEndian.Uint16(ip[2:4]))
+		declared := total
+		if malformed && ip[0] == 0x45 && total == 0 && len(ip) == 284 {
+			total = len(ip)
+		}
 		if ip[0]>>4 != 4 || ihl < 20 || ihl+8 > len(ip) || total < ihl+8 || total > len(ip) || ip[9] != 17 || binary.BigEndian.Uint16(ip[6:8])&0x3fff != 0 {
 			return summary, errors.New("invalid captured IPv4 UDP packet")
 		}
@@ -109,7 +121,7 @@ func readUDPCapture(reader io.Reader, visit func(capturedUDP) error) (captureSum
 			return summary, errors.New("capture clock moved backwards")
 		}
 		previous = at
-		value := capturedUDP{at: at, source: binary.BigEndian.Uint16(udp[:2]), destination: binary.BigEndian.Uint16(udp[2:4]), ipLength: total, payload: udp[8:]}
+		value := capturedUDP{at: at, source: binary.BigEndian.Uint16(udp[:2]), destination: binary.BigEndian.Uint16(udp[2:4]), ipLength: total, declaredIPLength: declared, ip: ip[:total], payload: udp[8:]}
 		copy(value.sourceIP[:], ip[12:16])
 		copy(value.destinationIP[:], ip[16:20])
 		summary.Packets++

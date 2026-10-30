@@ -32,6 +32,7 @@ SECRETS = {"privatekey", "publickey", "presharedkey", "headerprotectionkey"}
 WIRE_SPEC = importlib.util.spec_from_file_location("awg_wire_validation", Path(__file__).with_name("awg_wire_validation.py"))
 WIRE = importlib.util.module_from_spec(WIRE_SPEC)
 WIRE_SPEC.loader.exec_module(WIRE)
+CONTROLLED_SCENARIOS = (*WIRE.TIMER_SCENARIOS,"negative-transport")
 
 
 
@@ -170,7 +171,9 @@ def finish_capture(process, log, allow_empty=False):
 
 def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int, scenario: str) -> dict:
     timed = scenario in WIRE.TIMER_SCENARIOS
-    cycles = 1 if timed else 4
+    controlled = scenario in CONTROLLED_SCENARIOS
+    negative = scenario == "negative-transport"
+    cycles = 1 if controlled else 4
     namespace = f"awg31-{os.getpid()}-{index}"
     prefix = ["sudo", "-n", "ip", "netns", "exec", namespace]
     user = ["setpriv", f"--reuid={os.getuid()}", f"--regid={os.getgid()}", "--clear-groups"]
@@ -180,8 +183,9 @@ def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int
     conf.write_text(config)
     conf.chmod(0o600)
     created = False
-    echo = capture = inner_capture = None
-    with (output / "runtime.log").open("w") as runtime_log, (output / "peer.log").open("w") as peer_log, (output / "capture.log").open("w") as capture_log, (output / "inner-capture.log").open("w") as inner_log:
+    echo = capture = inner_capture = raw_helper = None
+    raw_socket = Path(f"/tmp/{namespace}-raw.sock")
+    with (output / "runtime.log").open("w") as runtime_log, (output / "peer.log").open("w") as peer_log, (output / "capture.log").open("w") as capture_log, (output / "inner-capture.log").open("w") as inner_log, (output / "raw-helper.log").open("w") as raw_log:
         try:
             checked(["sudo", "-n", "ip", "netns", "add", namespace])
             created = True
@@ -197,7 +201,14 @@ def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int
             checked(ip + ["-6", "route", "add", "fd77::2/128", "dev", "awg31"])
             baseline = checked(prefix + [tools, "show", "awg31", "transfer"]).split()
             if len(baseline) != 3 or list(map(int,baseline[1:])) != [0,0]: raise ValueError("kernel transfer baseline is not zero")
-            if scenario == "small-datagrams" or timed:
+            if negative:
+                raw_helper = subprocess.Popen(prefix+["python3",str(Path(__file__).resolve().parents[1]/"fixtures/amneziawg-peer/kernel_raw.py"),"--socket",str(raw_socket),"--receipt",str(output/"raw.json"),"--uid",str(os.getuid()),"--gid",str(os.getgid())],stdout=subprocess.PIPE,stderr=raw_log,text=True,start_new_session=True)
+                with selectors.DefaultSelector() as selector:
+                    selector.register(raw_helper.stdout,selectors.EVENT_READ)
+                    if not selector.select(timeout=5) or json.loads(raw_helper.stdout.readline(128)) != {"ready":True}:
+                        raise ValueError("raw helper did not become ready")
+                env["RIPDPI_AWG_KERNEL_RAW_SOCKET"] = str(raw_socket)
+            if scenario == "small-datagrams" or controlled:
                 inner_capture = start_capture(prefix,"awg31",output/"inner.pcap",inner_log,["udp","and","(","port","41002","or","port","41003",")"])
             settings = [f"{key}={value}" for key, value in env.items() if key.startswith("RIPDPI_AWG_")]
             echo = subprocess.Popen(prefix + user + ["env", *settings, "RIPDPI_AWG_KERNEL_MODE=echo", str(args.fixture)],
@@ -209,9 +220,13 @@ def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int
             endpoint = ready.get("endpoint", "") if isinstance(ready, dict) else ""
             if not re.fullmatch(r"127\.0\.0\.1:[0-9]+", endpoint) or not 0 < int(endpoint.rsplit(":",1)[1]) <= 65535:
                 raise ValueError("unexpected kernel endpoint")
-            if not timed and endpoint != "127.0.0.1:51820": raise ValueError("direct kernel endpoint differs")
+            if not controlled and endpoint != "127.0.0.1:51820": raise ValueError("direct kernel endpoint differs")
             wire_filter = ["udp","port","51820"]
-            if timed: wire_filter += ["or","udp","port",endpoint.rsplit(":",1)[1]]
+            if controlled: wire_filter += ["or","udp","port",endpoint.rsplit(":",1)[1]]
+            if negative:
+                foreign = ready.get("foreign_port")
+                if type(foreign) is not int or not 0 < foreign <= 65535 or foreign in (51820,int(endpoint.rsplit(":",1)[1])): raise ValueError("invalid foreign source port")
+                wire_filter += ["or","udp","port",str(foreign)]
             capture = start_capture(prefix,"lo",output/"wire.pcap",capture_log,wire_filter)
             # env is passed after sudo, which otherwise removes the test settings.
             settings = [f"{key}={value}" for key, value in dict(env, RIPDPI_AWG_INTEROP_ENDPOINT=ready["endpoint"]).items() if key.startswith("RIPDPI_AWG_")]
@@ -219,12 +234,15 @@ def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int
                 runtime_log.write(f"session {cycle}\n")
                 runtime_log.flush()
                 checked(prefix + user + ["env", *settings, args.test_binary, "--no-capture"], output=runtime_log, timeout=35)
-            completion, _ = echo.communicate(input="stop\n" if timed else "", timeout=5)
+            completion, _ = echo.communicate(input="stop\n" if controlled else "", timeout=5)
             if echo.returncode != 0: raise ValueError("kernel echo failed")
             if len(completion) > 1 << 20: raise ValueError("kernel report exceeds bound")
             completed = json.loads(completion)
             if not isinstance(completed, dict) or completed.get("completed_sessions") != cycles: raise ValueError("kernel echo session count mismatch")
-            if timed: (output/"relay.json").write_text(json.dumps(completed["kernel_relay"]))
+            if controlled: (output/"relay.json").write_text(json.dumps(completed["kernel_relay"]))
+            if raw_helper is not None:
+                raw_helper.wait(timeout=5)
+                if raw_helper.returncode != 0: raise ValueError("raw helper failed")
             handshake = checked(prefix + [tools, "show", "awg31", "latest-handshakes"]).split()
             transfer = checked(prefix + [tools, "show", "awg31", "transfer"]).split()
             if len(handshake) != 2 or (int(handshake[1]) <= 0 and scenario != "timer-retry-exhaust") or len(transfer) != 3 or min(map(int, transfer[1:])) <= 0:
@@ -240,7 +258,8 @@ def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int
                 try:
                     observed = checked([args.fixture],env=dict(env,RIPDPI_AWG_KERNEL_MODE="observe",
                         RIPDPI_AWG_WIRE_PCAP=str(output/"wire.pcap"),RIPDPI_AWG_INNER_PCAP=str(output/"inner.pcap"),
-                        RIPDPI_AWG_KERNEL_RELAY=str(output/"relay.json") if timed else "",
+                        RIPDPI_AWG_KERNEL_RELAY=str(output/"relay.json") if controlled else "",
+                        RIPDPI_AWG_KERNEL_RAW_RECEIPT=str(output/"raw.json") if negative else "",
                         RIPDPI_AWG_KERNEL_COUNTERS=json.dumps(counters)))
                 except subprocess.CalledProcessError as error:
                     (output/"analysis-error.log").write_text((error.stderr or "")[-8192:])
@@ -251,7 +270,8 @@ def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int
                     probes = [json.loads(line.removeprefix("AWG_EXPIRED_PROBE ")) for line in (output/"runtime.log").read_text().splitlines() if line.startswith("AWG_EXPIRED_PROBE ")]
                     if len(probes) != 1: raise ValueError("missing runtime expiry probe")
                     observation["expired_probe"] = probes[0]
-                if timed: WIRE.validate_timer_observation(observation,mtu,scenario)
+                if negative: WIRE.validate_negative_transport(observation,mtu)
+                elif timed: WIRE.validate_timer_observation(observation,mtu,scenario)
                 else: WIRE.validate_wire_observation(observation,profile,mtu,cycles,"small-datagrams")
                 for side in ("wire","inner"):
                     if observation["kernel_capture"][side]["packets"] != result[side+"_capture"]["packets"]:
@@ -260,7 +280,7 @@ def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int
             return result
         finally:
             errors = []
-            for process, signal_name in ((echo, "TERM"), (capture, "INT"), (inner_capture, "INT")):
+            for process, signal_name in ((echo, "TERM"), (capture, "INT"), (inner_capture, "INT"), (raw_helper,"TERM")):
                 if process is not None:
                     try:
                         stop_owned(process, signal_name)
@@ -278,12 +298,13 @@ def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int
                     errors.append(str(error))
                 finally:
                     conf.unlink(missing_ok=True)
+                    raw_socket.unlink(missing_ok=True)
             if errors: raise RuntimeError("owned resource cleanup failed: " + "; ".join(errors))
 
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--scenario", action="append", choices=("payload","small-datagrams",*WIRE.TIMER_SCENARIOS))
+    parser.add_argument("--scenario", action="append", choices=("payload","small-datagrams",*CONTROLLED_SCENARIOS))
     parser.add_argument("--vm-owner", type=Path, required=True)
     parser.add_argument("--identity", type=Path, required=True)
     parser.add_argument("--kernel-archive", type=Path, required=True)
@@ -294,9 +315,9 @@ def main():
     args = parser.parse_args()
     owner = assert_owned_vm(args.vm_owner)
     args.output_dir.mkdir(parents=True, exist_ok=False)
-    scenarios = args.scenario or ["payload","small-datagrams",*WIRE.TIMER_SCENARIOS]
+    scenarios = args.scenario or ["payload","small-datagrams",*CONTROLLED_SCENARIOS]
     matrix = [(profile,scenario,mtu) for profile in PROFILES for scenario in scenarios
-              if scenario not in WIRE.TIMER_SCENARIOS or profile == "v3-cpa-trailers" for mtu in (1280,1420)]
+              if scenario not in CONTROLLED_SCENARIOS or profile == "v3-cpa-trailers" for mtu in (1280,1420)]
     report = {"schema_version": 1, "vm": owner["name"], "kernel": platform.release(), "kernel_source_sha": KERNEL_SHA,
               "tools_source_sha": TOOLS_SHA, "identity": json.loads(args.identity.read_text()),
               "test_binary_sha256": digest(args.test_binary), "fixture_sha256": digest(args.fixture), "scenarios":scenarios, "cases": []}
@@ -317,11 +338,11 @@ def main():
             loaded = True
             for profile in PROFILES:
                 for scenario in scenarios:
-                    if scenario in WIRE.TIMER_SCENARIOS and profile != "v3-cpa-trailers": continue
+                    if scenario in CONTROLLED_SCENARIOS and profile != "v3-cpa-trailers": continue
                     for mtu in (1280, 1420):
                         case = args.output_dir / f"{profile}-{scenario}-{mtu}"
                         case.mkdir()
-                        result = {"profile": profile, "mtu": mtu, "cycles": 1 if scenario in WIRE.TIMER_SCENARIOS else 4, "scenario": scenario}
+                        result = {"profile": profile, "mtu": mtu, "cycles": 1 if scenario in CONTROLLED_SCENARIOS else 4, "scenario": scenario}
                         try:
                             result.update(run_case(args, tools / "wg", case, len(report["cases"]), profile, mtu, scenario), status="passed")
                         except (OSError, ValueError, RuntimeError, subprocess.SubprocessError) as error:

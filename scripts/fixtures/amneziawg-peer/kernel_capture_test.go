@@ -90,3 +90,25 @@ func TestKernelCaptureRejectsUnsupportedOrTruncatedInput(t *testing.T) {
 		}
 	}
 }
+
+func TestMalformedKernelCaptureRequiresExplicitExactLengthOptIn(t *testing.T) {
+	packet := append(smallCapture(binary.LittleEndian, 1, false), make([]byte, 239)...)
+	binary.LittleEndian.PutUint32(packet[32:], 298)
+	binary.LittleEndian.PutUint32(packet[36:], 298)
+	binary.BigEndian.PutUint16(packet[54+2:], 0)
+	binary.BigEndian.PutUint16(packet[54+24:], 264)
+	if _, err := readUDPCapture(bytes.NewReader(packet), func(capturedUDP) error { return nil }); err == nil {
+		t.Fatal("ordinary parser accepted malformed IP")
+	}
+	var got capturedUDP
+	if _, err := readUDPRecords(bytes.NewReader(packet), true, func(p capturedUDP) error { got = p; return nil }); err != nil {
+		t.Fatal(err)
+	}
+	if got.ipLength != 284 || got.declaredIPLength != 0 {
+		t.Fatal("malformed length was normalized")
+	}
+	binary.BigEndian.PutUint16(packet[54+2:], 1)
+	if _, err := readUDPRecords(bytes.NewReader(packet), true, func(capturedUDP) error { return nil }); err == nil {
+		t.Fatal("another malformed IP defect accepted")
+	}
+}

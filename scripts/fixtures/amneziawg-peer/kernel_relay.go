@@ -19,9 +19,12 @@ type relayAction struct {
 	Dropped   bool   `json:"dropped"`
 }
 type kernelRelayReport struct {
-	Port    uint16        `json:"port"`
-	EndNS   int64         `json:"end_unix_ns"`
-	Actions []relayAction `json:"actions"`
+	Port        uint16           `json:"port"`
+	ForeignPort uint16           `json:"foreign_port,omitempty"`
+	StartNS     int64            `json:"start_unix_ns,omitempty"`
+	EndNS       int64            `json:"end_unix_ns"`
+	Actions     []relayAction    `json:"actions"`
+	Negative    []transportPhase `json:"negative_transport,omitempty"`
 }
 
 func wireDigest(packet []byte) string {
@@ -62,12 +65,26 @@ func relayKernel(socket *net.UDPConn, kernel netip.AddrPort, observer *wireObser
 		if len(report.Actions) == 4096 {
 			return errors.New("relay action bound exceeded")
 		}
-		dropped := observer.observe(buffer[:n], inbound)
-		direction := "out"
-		if inbound {
-			direction = "in"
+		// Mutations act on the real kernel output. The report retains its original
+		// digest; the capture verifier checks the transformed client-leg packets.
+		if !inbound && observer.transport != nil {
+			report.Actions = append(report.Actions, relayAction{"out", wireDigest(buffer[:n]), false})
+			handled, err := observer.transport.send(buffer[:n], socket, target)
+			if err != nil {
+				return err
+			}
+			if handled {
+				continue
+			}
+		} else {
+			direction := "out"
+			if inbound {
+				direction = "in"
+			}
+			report.Actions = append(report.Actions, relayAction{direction, wireDigest(buffer[:n]), false})
 		}
-		report.Actions = append(report.Actions, relayAction{direction, wireDigest(buffer[:n]), dropped})
+		dropped := observer.observe(buffer[:n], inbound)
+		report.Actions[len(report.Actions)-1].Dropped = dropped
 		if !dropped {
 			written, err := socket.WriteToUDPAddrPort(buffer[:n], target)
 			if err != nil {
@@ -80,7 +97,7 @@ func relayKernel(socket *net.UDPConn, kernel netip.AddrPort, observer *wireObser
 	}
 }
 
-func kernelTimerPeer(profile wireProfile, scenario string) error {
+func kernelControlledPeer(profile wireProfile, scenario string) error {
 	socket, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
 	if err != nil {
 		return err
@@ -97,10 +114,26 @@ func kernelTimerPeer(profile wireProfile, scenario string) error {
 	}
 	defer second.Close()
 	report := kernelRelayReport{Port: uint16(socket.LocalAddr().(*net.UDPAddr).Port)}
-	observer := wireObservation{profile: profile, scenario: scenario}
+	bind := &loopbackBind{socket: socket, observation: wireObservation{profile: profile, scenario: scenario}}
+	observer := &bind.observation
+	negative := scenario == "negative-transport"
+	if negative {
+		foreign, err := net.ListenUDP("udp4", &net.UDPAddr{IP: net.IPv4(127, 0, 0, 1)})
+		if err != nil {
+			return err
+		}
+		defer foreign.Close()
+		bind.transport = newTransportExercise(bind, profile)
+		bind.transport.foreignSocket = foreign
+		bind.transport.malformedSend = sendKernelMalformed
+		observer.transport = bind.transport
+		observer.evidence.start = bind.transport.start
+		report.StartNS = bind.transport.start.UnixNano()
+		report.ForeignPort = uint16(foreign.LocalAddr().(*net.UDPAddr).Port)
+	}
 	relayDone := make(chan error, 1)
 	go func() {
-		relayDone <- relayKernel(socket, netip.MustParseAddrPort("127.0.0.1:51820"), &observer, &report)
+		relayDone <- relayKernel(socket, netip.MustParseAddrPort("127.0.0.1:51820"), observer, &report)
 	}()
 	// Every return joins the relay. No report is read while its owner writes it.
 	joined := false
@@ -119,6 +152,10 @@ func kernelTimerPeer(profile wireProfile, scenario string) error {
 	}
 	echoDone := make(chan error, 1)
 	go func() {
+		if negative {
+			echoDone <- bind.transport.run(first)
+			return
+		}
 		for range count {
 			if err := echoUDPPair(first, second); err != nil {
 				echoDone <- err
@@ -135,7 +172,7 @@ func kernelTimerPeer(profile wireProfile, scenario string) error {
 			<-echoDone
 		}
 	}()
-	if err = json.NewEncoder(os.Stdout).Encode(map[string]string{"endpoint": socket.LocalAddr().String()}); err != nil {
+	if err = json.NewEncoder(os.Stdout).Encode(map[string]any{"endpoint": socket.LocalAddr().String(), "foreign_port": report.ForeignPort}); err != nil {
 		return err
 	}
 	stop := make(chan struct{})
@@ -169,5 +206,8 @@ func kernelTimerPeer(profile wireProfile, scenario string) error {
 		return err
 	}
 	report.EndNS = time.Now().UnixNano()
+	if negative {
+		report.Negative = bind.transport.report()
+	}
 	return json.NewEncoder(os.Stdout).Encode(map[string]any{"completed_sessions": 1, "kernel_relay": report})
 }

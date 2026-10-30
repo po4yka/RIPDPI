@@ -4,6 +4,7 @@ import base64
 import hashlib
 from pathlib import Path
 import tempfile
+import struct
 import unittest
 
 SPEC = importlib.util.spec_from_file_location("linux_awg_runner", Path(__file__).with_name("run-linux-awg-interop.py"))
@@ -12,6 +13,21 @@ SPEC.loader.exec_module(RUNNER)
 
 
 class KernelPeerContracts(unittest.TestCase):
+    def test_raw_probe_has_only_the_intended_ipv4_length_defect(self):
+        spec=importlib.util.spec_from_file_location("kernel_raw",Path(__file__).resolve().parents[1]/"fixtures/amneziawg-peer/kernel_raw.py")
+        raw=importlib.util.module_from_spec(spec);spec.loader.exec_module(raw)
+        packet=raw.malformed_packet(43210)
+        self.assertEqual(len(packet),284)
+        self.assertEqual(packet[:4],b"\x45\x00\x00\x00")
+        self.assertEqual(packet[12:20],bytes([10,77,0,1,10,77,0,2]))
+        self.assertEqual(struct.unpack("!HHHH",packet[20:28]),(41002,43210,264,0))
+        self.assertEqual(packet[28:],b"DATA:malformed-ip:"+b"x"*(256-len(b"DATA:malformed-ip:")))
+        checksum=sum(struct.unpack("!10H",packet[:20]))
+        while checksum>>16:checksum=(checksum&65535)+(checksum>>16)
+        self.assertEqual(checksum,65535)
+        for port in (0,65536,True,"43210"):
+            with self.assertRaises(ValueError):raw.malformed_packet(port)
+
     def test_capture_requires_complete_statistics_without_drops(self):
         good="64 packets captured\n64 packets received by filter\n0 packets dropped by kernel\n"
         self.assertEqual(RUNNER.capture_statistics(good),dict(packets=64,dropped_packets=0))

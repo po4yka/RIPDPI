@@ -96,15 +96,16 @@ func (p wireProfile) matchesHeader(index int, header uint32) bool {
 
 // Measurements come from the actual received and sent datagrams, before upstream decoding.
 type wireObservation struct {
-	mu            sync.Mutex
-	profile       wireProfile
-	scenario      string
-	cookies       *cookieExercise
-	transport     *transportExercise
-	captureTime   *time.Time
-	kernelCapture map[string]any
-	responses     int
-	evidence      wireEvidence
+	mu             sync.Mutex
+	profile        wireProfile
+	scenario       string
+	cookies        *cookieExercise
+	transport      *transportExercise
+	captureTime    *time.Time
+	kernelCapture  map[string]any
+	kernelNegative []transportPhase
+	responses      int
+	evidence       wireEvidence
 	// Protected profile only: raw headers inside a configured range, handshake trailers, transport sizes.
 	clearHeaders   int
 	trailers       int
@@ -271,6 +272,9 @@ func (o *wireObservation) finish(cycles int) error {
 	}
 	if o.transport != nil {
 		result["negative_transport"] = o.transport.report()
+	}
+	if o.kernelNegative != nil {
+		result["negative_transport"] = o.kernelNegative
 	}
 	if o.cookies != nil {
 		result["cookies"] = o.cookies.report()
