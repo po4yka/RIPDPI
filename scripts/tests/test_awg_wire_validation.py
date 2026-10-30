@@ -466,3 +466,18 @@ class KernelResponseCookies(unittest.TestCase):
             for mutate in mutations:
                 bad=copy.deepcopy(good);mutate(bad)
                 with self.assertRaises(ValueError):validate_kernel_cookie_response(bad,1280,bad['scenario'])
+
+class NativeKernelCookies(unittest.TestCase):
+    def test_native_key_cookie_and_retry_missing_feature_controls(self):
+        from scripts.tests.awg_wire_validation import validate_native_kernel_cookie
+        for disabled in (False,True):
+            scenario='cookies-native-disabled' if disabled else 'cookies-native-enabled'
+            rows=[(0.1,'in',1,200,0),(.2,'out',2,130,0),(2.4,'in',1,200,0),(4.6,'in',1,200,0),(4.7,'out',2,130,0),(4.8,'in',4,114,202),(4.81,'out',4,112,3)]
+            if not disabled:rows.insert(3,(2.5,'out',3,96,0))
+            events=[dict(at_ns=int(t*1e9),direction=d,type=k,length=l,receiver=r) for t,d,k,l,r in rows]
+            n=dict(start_unix_ns=1_000_000_000,a='a'*64,b='b'*64,c='c'*64,cookie='' if disabled else 'd'*64,mac2=not disabled,actions=[dict(origin='inject',sha256=('a' if i<10 else 'b')*64,at_ns=2_410_000_000+i*1000) for i in range(11)])
+            good=dict(schema='native_kernel_cookies_v1',scenario=scenario,native=n,indices=[1,2,3],reply_senders=[101,202],events=events,markers={'ACK:baseline':1_500_000_000,'ACK:load':3_600_000_000,'FENCE:recovery':5_800_000_000,'ACK:recovery':5_810_000_000},incoming_datagrams=5,injection_capture_ns=[2_410_000_000+i*1000 for i in range(11)],counters=dict(last_handshake_time_sec=1))
+            validate_native_kernel_cookie(good,1280,scenario)
+            for mutate in (lambda o:o['indices'].__setitem__(2,1),lambda o:o['events'].pop(),lambda o:o['native']['actions'].pop(),lambda o:o['events'][-1].update(receiver=1),lambda o:o['events'][3].update(at_ns=8_000_000_000),lambda o:o['native'].update(mac2=disabled),lambda o:o['injection_capture_ns'].__setitem__(-1,3_500_000_000)):
+                bad=copy.deepcopy(good);mutate(bad)
+                with self.assertRaises(ValueError):validate_native_kernel_cookie(bad,1280,scenario)

@@ -19,6 +19,7 @@ type relayAction struct {
 	Dropped   bool   `json:"dropped"`
 }
 type kernelRelayReport struct {
+	Native      *nativeEvidence       `json:"native,omitempty"`
 	Port        uint16                `json:"port"`
 	ForeignPort uint16                `json:"foreign_port,omitempty"`
 	StartNS     int64                 `json:"start_unix_ns,omitempty"`
@@ -68,6 +69,12 @@ func relayKernel(socket *net.UDPConn, kernel netip.AddrPort, observer *wireObser
 		}
 		if observer.kernelCookies != nil {
 			observer.kernelCookies.observe(buffer[:n], inbound, source)
+		}
+		if observer.kernelNative != nil {
+			if err := observer.kernelNative.handle(buffer[:n], inbound, source); err != nil {
+				return err
+			}
+			continue
 		}
 		// Mutations act on the real kernel output. The report retains its original
 		// digest; the capture verifier checks the transformed client-leg packets.
@@ -121,6 +128,14 @@ func kernelControlledPeer(profile wireProfile, scenario string) error {
 	bind := &loopbackBind{socket: socket, observation: wireObservation{profile: profile, scenario: scenario}}
 	observer := &bind.observation
 	negative := scenario == "negative-transport"
+	native := scenario == "cookies-native-enabled" || scenario == "cookies-native-disabled"
+	if native {
+		observer.kernelNative, err = newNativeKernel(profile, socket, scenario == "cookies-native-disabled")
+		if err != nil {
+			return err
+		}
+		report.StartNS = observer.kernelNative.start.UnixNano()
+	}
 	cookieResponse := scenario == "cookies-response-enabled" || scenario == "cookies-response-disabled"
 	if cookieResponse {
 		observer.kernelCookies, err = newKernelCookieExercise(profile, socket)
@@ -165,6 +180,10 @@ func kernelControlledPeer(profile wireProfile, scenario string) error {
 	}
 	echoDone := make(chan error, 1)
 	go func() {
+		if native {
+			echoDone <- observer.kernelNative.run(first)
+			return
+		}
 		if cookieResponse {
 			echoDone <- observer.kernelCookies.run(first, scenario == "cookies-response-disabled")
 			return
@@ -223,6 +242,10 @@ func kernelControlledPeer(profile wireProfile, scenario string) error {
 		return err
 	}
 	report.EndNS = time.Now().UnixNano()
+	if native {
+		value := observer.kernelNative.report()
+		report.Native = &value
+	}
 	if negative {
 		report.Negative = bind.transport.report()
 	}

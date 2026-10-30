@@ -238,8 +238,8 @@ It records module/tools/test/fixture hashes, traffic counters, and per-case PCAP
 then removes namespaces and unloads its module. The fixed public fixture keys are
 not production credentials; readback reports exclude keys.
 
-The default Linux matrix has 46 cases: payload and small-datagram cases for all
-seven profiles at both MTUs, plus six timer scenarios, negative transport and two cookie-response policies at both MTUs. Select a subset
+The default Linux matrix has 50 cases: payload and small-datagram cases for all
+seven profiles at both MTUs, plus six timer scenarios, negative transport, two cookie-response policies and two native cookie policies at both MTUs. Select a subset
 with repeated `--scenario` arguments. Timer scenarios use one session and the
 `v3-cpa-trailers` profile: `timer-persistent`, `timer-idle`, `timer-retry-loss`,
 `timer-retry-exhaust`, `timer-rekey`, and `timer-reject`. A loopback relay in the
@@ -269,6 +269,23 @@ phase, including Noise, headers, padding and trailers. Each injection consumes o
 capture record; H3 must occur inside its phase. These cases do not prove the
 expensive-Noise budget, a fresh kernel handshake or native cookie continuation.
 Those checks remain required in the host feature gate.
+
+`cookies-native-enabled` and `cookies-native-disabled` test fresh kernel Noise
+handshakes. The relay binds the client before the runner enables kernel persistent
+keepalive. It suppresses the initial client H1 so the kernel initiates session A.
+After a baseline fence, it holds native rekey B, sends ten byte-identical copies
+of A and then fresh B in a capture-proved window below 750 ms. B must not receive
+H2 under the exhausted work budget. Enabled mode requires an authenticated H3,
+forwarded unchanged to the kernel. Native retry C must contain MAC2 derived from
+that captured H3. Both modes require a fresh C/H2 exchange and a recovery fence
+in both directions under the new indices. An old-key keepalive cannot release
+the recovery gate. An authenticated trigger ACK precedes the load burst.
+
+These cases use the separate `native_kernel_cookies_v1` observation contract.
+Packet directions in its frame journal are relative to the kernel initiator;
+the kernel counters remain actual kernel RX/TX values. Both relay legs must
+match every datagram, including held packets and duplicate injections. The
+ordinary schema-2 initiator checks retain their existing direction contract.
 
 The Linux pin still uses a fixed 180-second age limit in `send.c` and `receive.c`.
 Its retry-exhaustion zeroization uses three times `RekeyAfterTime`; session-created

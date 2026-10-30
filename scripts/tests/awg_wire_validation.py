@@ -370,3 +370,33 @@ def validate_kernel_cookie_response(observation,mtu,scenario):
         previous=ack
     if not disabled:require(any(r['length']>80 for p in phases for r in (p.get('responses') or [])),'kernel cookie RT not observed')
     return evidence
+
+NATIVE_COOKIE_SCENARIOS=('cookies-native-enabled','cookies-native-disabled')
+
+
+def validate_native_kernel_cookie(o,mtu,scenario):
+    require(scenario in NATIVE_COOKIE_SCENARIOS and o.get('schema')=='native_kernel_cookies_v1' and o.get('scenario')==scenario,'native schema/scenario differs')
+    n=o['native'];ids=o['indices'];senders=o['reply_senders'];events=o['events'];markers=o['markers']
+    require(0<len(events)<=1024 and all(type(e.get('at_ns')) is int and 0<=e['at_ns']<20_000_000_000 for e in events) and [e['at_ns'] for e in events]==sorted(e['at_ns'] for e in events),'native event window or order differs')
+    require(len(ids)==3 and len(set(ids))==3 and all(type(i) is int and i>0 for i in ids) and len(senders)==2 and len(set(senders))==2,'native indices not fresh')
+    require(n.get('mac2') is (scenario=='cookies-native-enabled') and bool(n.get('cookie'))==(scenario=='cookies-native-enabled'),'native cookie continuation missing')
+    initiations=[e for e in events if e['direction']=='in' and e['type']==1]
+    replies=[e for e in events if e['direction']=='out' and e['type']==2]
+    require(len(initiations)==3 and len(replies)==2,'native handshake count differs')
+    require(not any(e['direction']=='out' and e['type']==1 for e in events),'Rust initiated native session')
+    require(1_850_000_000<=initiations[2]['at_ns']-initiations[1]['at_ns']<=3_500_000_000,'native retry timer differs')
+    require(initiations[0]['at_ns']<replies[0]['at_ns']<initiations[1]['at_ns']<initiations[2]['at_ns']<replies[1]['at_ns'],'native response order differs')
+    require(any(e['length']>160 for e in initiations) and any(e['length']>112 for e in replies),'native handshake RT not observed')
+    require(all(160<=e['length']<500 for e in initiations) and all(112<=e['length']<500 for e in replies),'native handshake bounds differ')
+    challenges=[e for e in events if e['direction']=='out' and e['type']==3]
+    require(len(challenges)==(1 if scenario=='cookies-native-enabled' else 0),'native challenge policy differs')
+    for e in challenges:require(initiations[1]['at_ns']<e['at_ns']<initiations[2]['at_ns'] and 80<=e['length']<500,'native challenge boundary differs')
+    injections=[a for a in n['actions'] if a['origin']=='inject']
+    require(len(injections)==11 and [a['sha256'] for a in injections]==[n['a']]*10+[n['b']],'native load stimulus differs')
+    times=o.get('injection_capture_ns',[])
+    require(len(times)==11 and times==sorted(times) and 0<=times[-1]-times[0]<750_000_000,'native capture load window incomplete')
+    start=n['start_unix_ns']
+    require(markers['ACK:baseline']<start+initiations[1]['at_ns'] and markers['ACK:load']<start+initiations[2]['at_ns'],'native old-key fence missing')
+    for marker,direction,key in [('FENCE:recovery','in',senders[1]),('ACK:recovery','out',ids[2])]:
+        require(sum(e['direction']==direction and e['type']==4 and e.get('receiver')==key and e['length']==100+len(marker) and e['at_ns']>replies[1]['at_ns'] and abs(start+e['at_ns']-markers[marker])<250_000_000 for e in events)==1,'new key has no authenticated payload fence')
+    require(o['incoming_datagrams']==5 and o['counters']['last_handshake_time_sec']>0,'native payload accounting missing')

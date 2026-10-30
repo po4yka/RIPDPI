@@ -73,7 +73,12 @@ async fn exchange(runtime: &AmneziaWgRuntime, ready: &Notify) -> Result<Option<(
     );
     match std::env::var("RIPDPI_AWG_SCENARIO").unwrap_or_else(|_| "payload".into()).as_str() {
         "small-datagrams" | "timer-retry-loss" => exchange_small_datagrams(address).await?,
-        "cookies-enabled" | "cookies-disabled" | "cookies-response-enabled" | "cookies-response-disabled" => {
+        "cookies-enabled"
+        | "cookies-disabled"
+        | "cookies-response-enabled"
+        | "cookies-response-disabled"
+        | "cookies-native-enabled"
+        | "cookies-native-disabled" => {
             exchange_cookies(address).await?;
         }
         "negative-transport" => exchange_negative_transport(address).await?,
@@ -225,7 +230,9 @@ async fn exchange_cookies(address: SocketAddr) -> Result<()> {
     udp.send_to(&udp_frame(41002, b"ARM:cookie"), relay).await?;
     let scenario = std::env::var("RIPDPI_AWG_SCENARIO").unwrap_or_default();
     let disabled = scenario.ends_with("-disabled");
-    let phases: &[&str] = if scenario.starts_with("cookies-response-") && disabled {
+    let phases: &[&str] = if scenario.starts_with("cookies-native-") {
+        &["baseline", "load", "recovery"]
+    } else if scenario.starts_with("cookies-response-") && disabled {
         &["invalid-mac1", "admission", "challenge-budget", "recovery"]
     } else if scenario.starts_with("cookies-response-") {
         &["invalid-mac1", "admission", "bad-mac2", "valid-mac2", "challenge-budget", "recovery"]
@@ -235,6 +242,10 @@ async fn exchange_cookies(address: SocketAddr) -> Result<()> {
         &["invalid-mac1", "admission", "bad-mac2", "valid-mac2", "challenge-budget", "recovery"]
     };
     for phase in phases {
+        if *phase == "load" && scenario.starts_with("cookies-native-") {
+            receive_probe(&udp, relay, b"TRIGGER:native").await?;
+            udp.send_to(&udp_frame(41002, b"ACK:trigger"), relay).await?;
+        }
         let mut bytes = [0; 512];
         let (size, source) = udp.recv_from(&mut bytes).await?;
         ensure!(
@@ -311,7 +322,9 @@ async fn standalone_profile_exchanges_tcp_and_udp_with_independent_awg_peer() ->
         ..Default::default()
     };
     match std::env::var("RIPDPI_AWG_SCENARIO").unwrap_or_default().as_str() {
-        "cookies-disabled" | "cookies-response-disabled" => config.amnezia.v3.disable_cookies = true,
+        "cookies-disabled" | "cookies-response-disabled" | "cookies-native-disabled" => {
+            config.amnezia.v3.disable_cookies = true;
+        }
         "timer-persistent" => {
             config.persistent_keepalive = 1;
             config.persistent_keepalive_max = 2;

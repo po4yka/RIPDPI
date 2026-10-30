@@ -32,7 +32,7 @@ SECRETS = {"privatekey", "publickey", "presharedkey", "headerprotectionkey"}
 WIRE_SPEC = importlib.util.spec_from_file_location("awg_wire_validation", Path(__file__).with_name("awg_wire_validation.py"))
 WIRE = importlib.util.module_from_spec(WIRE_SPEC)
 WIRE_SPEC.loader.exec_module(WIRE)
-CONTROLLED_SCENARIOS = (*WIRE.TIMER_SCENARIOS,"negative-transport",*WIRE.KERNEL_COOKIE_SCENARIOS)
+CONTROLLED_SCENARIOS = (*WIRE.TIMER_SCENARIOS,"negative-transport",*WIRE.KERNEL_COOKIE_SCENARIOS,*WIRE.NATIVE_COOKIE_SCENARIOS)
 
 
 
@@ -173,6 +173,7 @@ def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int
     timed = scenario in WIRE.TIMER_SCENARIOS
     controlled = scenario in CONTROLLED_SCENARIOS
     negative = scenario == "negative-transport"
+    native = scenario in WIRE.NATIVE_COOKIE_SCENARIOS
     cycles = 1 if controlled else 4
     namespace = f"awg31-{os.getpid()}-{index}"
     prefix = ["sudo", "-n", "ip", "netns", "exec", namespace]
@@ -233,7 +234,19 @@ def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int
             for cycle in range(cycles):
                 runtime_log.write(f"session {cycle}\n")
                 runtime_log.flush()
-                checked(prefix + user + ["env", *settings, args.test_binary, "--no-capture"], output=runtime_log, timeout=35)
+                if native:
+                    runtime = subprocess.Popen(prefix+user+["env",*settings,args.test_binary,"--no-capture"],stdout=runtime_log,stderr=subprocess.STDOUT,text=True,start_new_session=True)
+                    try:
+                        with selectors.DefaultSelector() as selector:
+                            selector.register(echo.stdout,selectors.EVENT_READ)
+                            if not selector.select(timeout=10) or json.loads(echo.stdout.readline(4096))!={"client_bound":True}: raise ValueError("native client bind deadline")
+                        parser=configparser.ConfigParser();parser.read_string(config)
+                        checked(prefix+[tools,"set","awg31","peer",parser["Peer"]["PublicKey"],"endpoint",endpoint,"persistent-keepalive","1"])
+                        runtime.wait(timeout=25)
+                        if runtime.returncode: raise ValueError("native runtime failed")
+                    finally: stop_owned(runtime)
+                else:
+                    checked(prefix + user + ["env", *settings, args.test_binary, "--no-capture"], output=runtime_log, timeout=35)
             completion, _ = echo.communicate(input="stop\n" if controlled else "", timeout=5)
             if echo.returncode != 0: raise ValueError("kernel echo failed")
             if len(completion) > 1 << 20: raise ValueError("kernel report exceeds bound")
@@ -270,7 +283,8 @@ def run_case(args, tools: Path, output: Path, index: int, profile: str, mtu: int
                     probes = [json.loads(line.removeprefix("AWG_EXPIRED_PROBE ")) for line in (output/"runtime.log").read_text().splitlines() if line.startswith("AWG_EXPIRED_PROBE ")]
                     if len(probes) != 1: raise ValueError("missing runtime expiry probe")
                     observation["expired_probe"] = probes[0]
-                if scenario in WIRE.KERNEL_COOKIE_SCENARIOS: WIRE.validate_kernel_cookie_response(observation,mtu,scenario)
+                if native: WIRE.validate_native_kernel_cookie(observation,mtu,scenario)
+                elif scenario in WIRE.KERNEL_COOKIE_SCENARIOS: WIRE.validate_kernel_cookie_response(observation,mtu,scenario)
                 elif negative: WIRE.validate_negative_transport(observation,mtu)
                 elif timed: WIRE.validate_timer_observation(observation,mtu,scenario)
                 else: WIRE.validate_wire_observation(observation,profile,mtu,cycles,"small-datagrams")

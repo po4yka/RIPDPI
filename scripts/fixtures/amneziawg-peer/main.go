@@ -301,7 +301,7 @@ func run() error {
 		}
 	}
 	scenario := os.Getenv("RIPDPI_AWG_SCENARIO")
-	if scenario != "" && scenario != "payload" && scenario != "small-datagrams" && scenario != "timer-persistent" && scenario != "timer-idle" && scenario != "timer-retry-loss" && scenario != "timer-rekey" && scenario != "timer-retry-exhaust" && scenario != "timer-reject" && scenario != "cookies-enabled" && scenario != "cookies-disabled" && scenario != "negative-transport" && scenario != "cookies-response-enabled" && scenario != "cookies-response-disabled" {
+	if scenario != "" && scenario != "payload" && scenario != "small-datagrams" && scenario != "timer-persistent" && scenario != "timer-idle" && scenario != "timer-retry-loss" && scenario != "timer-rekey" && scenario != "timer-retry-exhaust" && scenario != "timer-reject" && scenario != "cookies-enabled" && scenario != "cookies-disabled" && scenario != "negative-transport" && scenario != "cookies-response-enabled" && scenario != "cookies-response-disabled" && scenario != "cookies-native-enabled" && scenario != "cookies-native-disabled" {
 		return errors.New("unknown fixture scenario")
 	}
 	transport := scenario == "negative-transport"
@@ -315,6 +315,10 @@ func run() error {
 	if err != nil {
 		return err
 	}
+	native := strings.HasPrefix(scenario, "cookies-native-")
+	if native {
+		profile.iface += "rekey_after_time=2\nrekey_timeout=2\n"
+	}
 	switch os.Getenv("RIPDPI_AWG_KERNEL_MODE") {
 	case "config":
 		config, err := kernelConfig(profile)
@@ -324,11 +328,14 @@ func run() error {
 		_, err = fmt.Print(config)
 		return err
 	case "echo":
-		if timed || transport || strings.HasPrefix(scenario, "cookies-response-") {
+		if timed || transport || native || strings.HasPrefix(scenario, "cookies-response-") {
 			return kernelControlledPeer(profile, scenario)
 		}
 		return kernelEcho(cycles)
 	case "observe":
+		if native {
+			return observeNativeKernel(profile, scenario)
+		}
 		if strings.HasPrefix(scenario, "cookies-response-") {
 			return observeKernelCookieCapture(profile, scenario)
 		}
@@ -337,7 +344,7 @@ func run() error {
 		}
 		return observeKernelCapture(profile, cycles)
 	case "":
-		if strings.HasPrefix(scenario, "cookies-response-") {
+		if native || strings.HasPrefix(scenario, "cookies-response-") {
 			return errors.New("kernel response scenario requires kernel mode")
 		}
 	default:
