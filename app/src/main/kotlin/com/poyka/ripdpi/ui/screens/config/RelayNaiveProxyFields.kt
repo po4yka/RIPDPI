@@ -78,5 +78,10 @@ internal fun NaiveProxyRelayFields(
                 helperText = stringResource(R.string.config_relay_naive_server_pin_helper),
                 errorText = validationMessage(uiState.validationErrors[ConfigFieldRelayNaiveServerPin]),
             ),
+        behavior =
+            RipDpiTextFieldBehavior(
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Ascii),
+            ),
     )
 }

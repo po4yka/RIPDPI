@@ -991,8 +991,23 @@ async fn authenticate_local(client: &mut TcpStream) {
     assert_eq!(reply, [1, 0]);
 }
 
+/// Serves one fixed certificate chain and signing key, which need not match.
+#[derive(Debug)]
+struct FixedServerCert(Arc<rustls::sign::CertifiedKey>);
+
+impl rustls::server::ResolvesServerCert for FixedServerCert {
+    fn resolve(&self, _hello: rustls::server::ClientHello<'_>) -> Option<Arc<rustls::sign::CertifiedKey>> {
+        Some(Arc::clone(&self.0))
+    }
+}
+
 /// Starts a self-signed H2 upstream and returns its port, the leaf SHA-256 pin (hex), and a counter of H2 requests.
 async fn start_self_signed_h2_upstream() -> (u16, String, Arc<std::sync::atomic::AtomicUsize>) {
+    start_h2_upstream(false).await
+}
+
+/// With `foreign_key`, the server presents the certificate but signs the handshake with an unrelated key.
+async fn start_h2_upstream(foreign_key: bool) -> (u16, String, Arc<std::sync::atomic::AtomicUsize>) {
     use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
 
     crate::tls::ensure_rustls_provider();
@@ -1000,11 +1015,13 @@ async fn start_self_signed_h2_upstream() -> (u16, String, Arc<std::sync::atomic:
     let cert_der = certified.cert.der().clone();
     let pin: String =
         crate::tls::sha256(cert_der.as_ref()).expect("sha256").iter().map(|b| format!("{b:02x}")).collect();
-    let key_der = PrivateKeyDer::from(PrivatePkcs8KeyDer::from(certified.signing_key.serialize_der()));
-    let mut server_config = rustls::ServerConfig::builder()
-        .with_no_client_auth()
-        .with_single_cert(vec![cert_der], key_der)
-        .expect("server");
+    let signer = if foreign_key { rcgen::KeyPair::generate().expect("foreign key") } else { certified.signing_key };
+    let key_der = PrivateKeyDer::from(PrivatePkcs8KeyDer::from(signer.serialize_der()));
+    let signing_key =
+        rustls::crypto::aws_lc_rs::default_provider().key_provider.load_private_key(key_der).expect("signing key");
+    let resolver = FixedServerCert(Arc::new(rustls::sign::CertifiedKey::new(vec![cert_der], signing_key)));
+    let mut server_config =
+        rustls::ServerConfig::builder().with_no_client_auth().with_cert_resolver(Arc::new(resolver));
     server_config.alpn_protocols = vec![b"h2".to_vec()];
     let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(server_config));
     let upstream = TcpListener::bind("127.0.0.1:0").await.expect("bind upstream");
@@ -1036,8 +1053,12 @@ async fn start_self_signed_h2_upstream() -> (u16, String, Arc<std::sync::atomic:
 }
 
 fn pin_test_config(port: u16, pin_args: &[&str]) -> NaiveProxyConfig {
+    pin_test_config_named(port, "proxy.example", pin_args)
+}
+
+fn pin_test_config_named(port: u16, server_name: &str, pin_args: &[&str]) -> NaiveProxyConfig {
     let port = port.to_string();
-    let mut args = vec!["--server", "127.0.0.1", "--server-port", &port, "--server-name", "proxy.example"];
+    let mut args = vec!["--server", "127.0.0.1", "--server-port", &port, "--server-name", server_name];
     args.push("--credentials-stdin");
     args.extend_from_slice(pin_args);
     parse_config_args_with_stdin(&args, b"dXNlcg==\ncGFzcw==\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n").expect("config")
@@ -1081,6 +1102,32 @@ async fn unpinned_self_signed_upstream_is_still_rejected() {
     assert!(crate::connect_tunnel::open_https_connect_tunnel(&config, &target).await.is_err());
 
     assert_eq!(requests.load(std::sync::atomic::Ordering::Relaxed), 0);
+}
+
+#[tokio::test]
+/// # Cancel safety:
+/// cancel-safe: the test runtime drops its owned sockets and tasks when the test ends.
+async fn pinned_upstream_ignores_a_server_name_the_certificate_does_not_cover() {
+    let (port, pin, requests) = start_self_signed_h2_upstream().await;
+    let config = pin_test_config_named(port, "other.example", &["--server-pin-sha256", &pin]);
+    let target = SocksTarget::Domain("fast.test".to_owned(), 443);
+
+    drop(crate::connect_tunnel::open_https_connect_tunnel(&config, &target).await.expect("pinned tunnel"));
+
+    assert_eq!(requests.load(std::sync::atomic::Ordering::Relaxed), 1);
+}
+
+#[tokio::test]
+/// # Cancel safety:
+/// cancel-safe: the test runtime drops its owned sockets and tasks when the test ends.
+async fn pinned_certificate_without_its_private_key_is_rejected() {
+    let (port, pin, requests) = start_h2_upstream(true).await;
+    let config = pin_test_config(port, &["--server-pin-sha256", &pin]);
+    let target = SocksTarget::Domain("fast.test".to_owned(), 443);
+
+    assert!(crate::connect_tunnel::open_https_connect_tunnel(&config, &target).await.is_err());
+
+    assert_eq!(requests.load(std::sync::atomic::Ordering::Relaxed), 0, "a copied certificate must not pass the pin");
 }
 
 #[test]

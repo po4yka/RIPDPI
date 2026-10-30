@@ -68,7 +68,8 @@ pub(crate) fn tls_config_with_ech_setup(
 /// not checked (the pin already names one exact certificate). The handshake
 /// signature is still verified with the leaf key, so a match proves the peer
 /// holds the pinned certificate's private key. The pin is public, but the
-/// comparison does not exit early. There is no mode that skips verification.
+/// comparison does not exit early. Validity dates are not checked either, as
+/// with the Hysteria2 pin. There is no mode that skips verification.
 #[derive(Debug)]
 struct PinnedLeafVerifier {
     pin: CertificatePinSha256,

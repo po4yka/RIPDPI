@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.NaiveExtraHeadersResult
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
+import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import com.poyka.ripdpi.data.parseNaiveExtraHeaders
 import dagger.Binds
 import dagger.Module
@@ -64,9 +65,10 @@ internal fun naiveProxyCommandArguments(config: ResolvedRipDpiRelayConfig): List
             add(it)
         }
         // The pin is public, so it travels as argv like the server name rather than on credential stdin.
+        // Restored backups skip the editor, so normalize here; the helper rejects anything still invalid.
         config.naiveServerPinSha256.takeIf(String::isNotBlank)?.let {
             add("--server-pin-sha256")
-            add(it)
+            add(normalizeHysteria2PinSha256(it) ?: it)
         }
     }
 

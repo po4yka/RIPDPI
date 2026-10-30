@@ -111,7 +111,7 @@ pub(crate) fn parse_config_from_reader(
         path,
         extra_headers,
         tls_config: tls_config_with_ech_setup(&ripdpi_tls_profiles::EchSetup::Grease, pin)
-            .expect("NaiveProxy TLS config must support ECH GREASE"),
+            .map_err(|error| io::Error::new(io::ErrorKind::InvalidInput, error.to_string()))?,
         protect_socket_path: ripdpi_subprocess_protect::protect_path_from_env(),
         sessions: Arc::default(),
     })

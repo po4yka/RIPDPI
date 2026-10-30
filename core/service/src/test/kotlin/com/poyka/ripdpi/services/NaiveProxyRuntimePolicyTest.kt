@@ -7,6 +7,7 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.Base64
 
 class NaiveProxyRuntimePolicyTest {
     @Test
@@ -112,8 +113,21 @@ class NaiveProxyRuntimePolicyTest {
         val pin = "ab".repeat(32)
 
         assertFalse("--server-pin-sha256" in naiveProxyCommandArguments(base))
-        val pinned = naiveProxyCommandArguments(base.copy(naiveServerPinSha256 = pin))
+        val pinned = naiveProxyCommandArguments(base.copy(naiveServerPinSha256 = "AB:".repeat(31) + "AB"))
         assertEquals(pin, pinned[pinned.indexOf("--server-pin-sha256") + 1])
+        val pinnedConfig =
+            base.copy(
+                localSocksUsername = "local-user",
+                localSocksPassword = "local-pass", // Fixture credential.
+                naiveServerPinSha256 = pin,
+            )
+        val stdinLines =
+            naiveProxyCredentialsStdin(pinnedConfig)
+                .toString(Charsets.UTF_8)
+                .lines()
+                .filter(String::isNotEmpty)
+                .map { Base64.getDecoder().decode(it).toString(Charsets.UTF_8) }
+        assertFalse(stdinLines.any { pin in it })
     }
 
     @Test
