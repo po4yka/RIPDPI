@@ -4,7 +4,7 @@ import java.net.InetSocketAddress
 
 private const val StructuredReadyPrefix = "RIPDPI-READY|"
 private const val StructuredErrorPrefix = "RIPDPI-ERROR|"
-private const val StructuredRecoveredPrefix = "RIPDPI-RECOVERED|"
+private const val StructuredUpstreamOkPrefix = "RIPDPI-UPSTREAM-OK|"
 private const val ReadyEventPartLimit = 3
 private const val ErrorEventPartLimit = 4
 private const val StructuredRuntimeKindIndex = 1
@@ -30,8 +30,8 @@ internal sealed interface SubprocessRelayOutputEvent {
         val message: String,
     ) : SubprocessRelayOutputEvent
 
-    /** The helper served the upstream again after a reported failure. */
-    data class Recovered(
+    /** An upstream open succeeded, first after start or after a reported failure. */
+    data class UpstreamOk(
         val runtimeKind: String,
     ) : SubprocessRelayOutputEvent
 
@@ -78,8 +78,8 @@ internal class SubprocessRelayOutputParser {
                 )
             }
 
-            line.startsWith(StructuredRecoveredPrefix) -> {
-                SubprocessRelayOutputEvent.Recovered(
+            line.startsWith(StructuredUpstreamOkPrefix) -> {
+                SubprocessRelayOutputEvent.UpstreamOk(
                     runtimeKind = line.split('|').getOrNull(StructuredRuntimeKindIndex).orEmpty(),
                 )
             }

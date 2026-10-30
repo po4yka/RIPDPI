@@ -11,7 +11,7 @@ use tokio::time::Instant;
 
 use crate::config::NaiveProxyConfig;
 use crate::connect_tunnel::{AsyncTunnel, open_https_connect_tunnel};
-use crate::errors::{RECOVERED_LINE, connection_failure_line, structured_error_line};
+use crate::errors::{UPSTREAM_OK_LINE, connection_failure_line, structured_error_line};
 use crate::http_front::{read_http_connect_request, write_http_connect_failure, write_http_connect_success};
 use crate::socks5::{SocksTarget, negotiate_socks5, read_socks5_request, write_socks_reply};
 
@@ -24,8 +24,8 @@ const CLIENT_SETUP_TIMEOUT: Duration = Duration::from_secs(10);
 /// instead of holding the client and upstream sockets until the kernel gives
 /// up on retransmits.
 const UPSTREAM_OPEN_TIMEOUT: Duration = Duration::from_secs(20);
-/// Set when an upstream open failed and no open has succeeded since.
-static UPSTREAM_DEGRADED: AtomicBool = AtomicBool::new(false);
+/// Set until an upstream open succeeds, and again after each failed open.
+static UPSTREAM_OK_PENDING: AtomicBool = AtomicBool::new(true);
 
 /// Runs `future` with a deadline and maps expiry to `TimedOut`.
 ///
@@ -43,8 +43,8 @@ async fn before<T>(deadline: Instant, phase: &str, future: impl Future<Output = 
 /// A failure is reported as a `RIPDPI-ERROR` line: DNS, TLS, auth and CONNECT
 /// failures of the server are what the service classifies. Client-side
 /// failures are not, see [`connection_failure_line`]. The first success after
-/// a failure is reported as a `RIPDPI-RECOVERED` line, so the service does not
-/// keep showing a failure of one stream after the server works again.
+/// start or after a failure is reported as a `RIPDPI-UPSTREAM-OK` line: the
+/// service then knows the upstream works and stops showing an old failure.
 ///
 /// # Cancel safety
 ///
@@ -53,21 +53,21 @@ async fn open_upstream(config: &NaiveProxyConfig, target: &SocksTarget) -> io::R
     let opened =
         before(Instant::now() + UPSTREAM_OPEN_TIMEOUT, "upstream open", open_https_connect_tunnel(config, target))
             .await;
-    report_open(&UPSTREAM_DEGRADED, opened.as_ref().map(|_| ()), &mut |line| eprintln!("{line}"));
+    report_open(&UPSTREAM_OK_PENDING, opened.as_ref().map(|_| ()), &mut |line| eprintln!("{line}"));
     opened
 }
 
-/// Writes the `RIPDPI-ERROR` or `RIPDPI-RECOVERED` line for one upstream open.
+/// Writes the `RIPDPI-ERROR` or `RIPDPI-UPSTREAM-OK` line for one upstream open.
 /// The error line goes out before the flag is set, so a racing success either
-/// sees the flag and reports recovery after it, or leaves the flag set for the
-/// next success. shortcut: concurrent opens are best-effort, not linearized.
-fn report_open(degraded: &AtomicBool, outcome: Result<(), &io::Error>, out: &mut impl FnMut(String)) {
+/// sees the flag and reports OK after it, or leaves the flag set for the next
+/// success. shortcut: concurrent opens are best-effort, not linearized.
+fn report_open(ok_pending: &AtomicBool, outcome: Result<(), &io::Error>, out: &mut impl FnMut(String)) {
     match outcome {
         Err(error) => {
             out(structured_error_line(error));
-            degraded.store(true, Ordering::Relaxed);
+            ok_pending.store(true, Ordering::Relaxed);
         }
-        Ok(()) if degraded.swap(false, Ordering::Relaxed) => out(RECOVERED_LINE.to_owned()),
+        Ok(()) if ok_pending.swap(false, Ordering::Relaxed) => out(UPSTREAM_OK_LINE.to_owned()),
         Ok(()) => {}
     }
 }
@@ -229,19 +229,20 @@ mod tests {
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     #[test]
-    fn recovery_is_reported_once_after_a_failed_open() {
-        let degraded = AtomicBool::new(false);
+    fn upstream_ok_is_reported_on_first_success_and_after_each_failure() {
+        let ok_pending = AtomicBool::new(true);
         let failure = io::Error::new(io::ErrorKind::TimedOut, "naiveproxy upstream open timed out");
         let mut lines = Vec::new();
         for outcome in [Ok(()), Err(&failure), Err(&failure), Ok(()), Ok(())] {
-            report_open(&degraded, outcome, &mut |line| lines.push(line));
+            report_open(&ok_pending, outcome, &mut |line| lines.push(line));
         }
         assert_eq!(
             lines,
             [
+                "RIPDPI-UPSTREAM-OK|naiveproxy|",
                 "RIPDPI-ERROR|naiveproxy|connect|naiveproxy upstream open timed out",
                 "RIPDPI-ERROR|naiveproxy|connect|naiveproxy upstream open timed out",
-                "RIPDPI-RECOVERED|naiveproxy|",
+                "RIPDPI-UPSTREAM-OK|naiveproxy|",
             ]
         );
     }

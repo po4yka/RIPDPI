@@ -92,6 +92,8 @@ class SubprocessSocksRelayManager
 
         @Volatile private var lastError: String? = null
 
+        @Volatile private var upstreamVerified = false
+
         @Volatile private var runtimeVersion: String? = null
 
         @Volatile private var lastFailureClass: String? = null
@@ -131,6 +133,7 @@ class SubprocessSocksRelayManager
                     this@SubprocessSocksRelayManager.launchSpec = spec
                     lastError = null
                     lastFailureClass = null
+                    upstreamVerified = false
                     processSupervisor.start(
                         processBuilder = launchPlanner.buildMainProcess(binary, spec, protectPath),
                         spec = spec,
@@ -187,6 +190,7 @@ class SubprocessSocksRelayManager
                         lastError = lastError,
                         lastFailureClass = lastFailureClass,
                         runtimeStateOverride = runtimeStateOverride,
+                        upstreamVerified = upstreamVerified,
                     ),
                 )
             }
@@ -245,7 +249,8 @@ class SubprocessSocksRelayManager
                     runtimeStateOverride = "failed"
                 }
 
-                is SubprocessRelayOutputEvent.Recovered -> {
+                is SubprocessRelayOutputEvent.UpstreamOk -> {
+                    upstreamVerified = true
                     lastFailureClass = null
                     lastError = null
                     if (runtimeStateOverride == "failed") {

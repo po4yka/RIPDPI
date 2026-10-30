@@ -1,8 +1,8 @@
 use std::io;
 
 const STRUCTURED_ERROR_PREFIX: &str = "RIPDPI-ERROR|naiveproxy|";
-/// Tells the service that an upstream open succeeded after a reported failure.
-pub(crate) const RECOVERED_LINE: &str = "RIPDPI-RECOVERED|naiveproxy|";
+/// Tells the service that an upstream open succeeded, first after start or after a reported failure.
+pub(crate) const UPSTREAM_OK_LINE: &str = "RIPDPI-UPSTREAM-OK|naiveproxy|";
 
 pub(crate) fn emit_structured_error(error: &io::Error) {
     eprintln!("{}", structured_error_line(error));

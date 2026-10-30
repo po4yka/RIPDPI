@@ -185,7 +185,7 @@ class SubprocessRelayReadinessSignalTest {
         }
 
     @Test
-    fun `naive recovery line clears the stream failure shown in telemetry`() =
+    fun `naive upstream ok line clears the stream failure shown in telemetry`() =
         runTest {
             val subprocess = subprocessManager()
             subprocess.handleProcessOutputEvent(SubprocessRelayOutputEvent.Ready("naiveproxy", "0.1.0"))
@@ -194,7 +194,7 @@ class SubprocessRelayReadinessSignalTest {
             )
             assertEquals("connect", subprocess.pollTelemetry().lastFailureClass)
 
-            subprocess.handleProcessOutputEvent(SubprocessRelayOutputEvent.Recovered("naiveproxy"))
+            subprocess.handleProcessOutputEvent(SubprocessRelayOutputEvent.UpstreamOk("naiveproxy"))
 
             val telemetry = subprocess.pollTelemetry()
             assertNull(telemetry.lastFailureClass)

@@ -13,6 +13,7 @@ internal data class SubprocessRelayTelemetryInputs(
     val lastError: String?,
     val lastFailureClass: String?,
     val runtimeStateOverride: String?,
+    val upstreamVerified: Boolean = false,
 )
 
 internal class SubprocessRelayTelemetryProjector {
@@ -25,7 +26,7 @@ internal class SubprocessRelayTelemetryProjector {
         NativeRuntimeSnapshot(
             source = "relay",
             state = if (inputs.running) "running" else "idle",
-            health = if (inputs.running) "running" else "idle",
+            health = health(inputs),
             listenerAddress =
                 inputs.config?.let {
                     URI(null, null, it.localSocksHost, it.localSocksPort, null, null, null).rawAuthority
@@ -54,6 +55,19 @@ internal class SubprocessRelayTelemetryProjector {
             ptRuntimeVersion = inputs.runtimeVersion,
             lastFailureClass = inputs.lastFailureClass,
         )
+
+    /**
+     * A live NaiveProxy listener says nothing about the upstream: health is `healthy` only after
+     * an upstream open succeeded and `degraded` while a stream failure is the latest report.
+     */
+    private fun health(inputs: SubprocessRelayTelemetryInputs): String =
+        when {
+            !inputs.running -> "idle"
+            inputs.launchSpec?.runtimeKind != RelayKindNaiveProxy -> "running"
+            inputs.lastFailureClass != null -> "degraded"
+            inputs.upstreamVerified -> "healthy"
+            else -> "unknown"
+        }
 
     private fun redactUpstreamAddress(value: String): String =
         runCatching { URI(value) }.getOrNull()?.let { uri ->

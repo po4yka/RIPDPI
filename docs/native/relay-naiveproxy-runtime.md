@@ -43,7 +43,7 @@ The current implementation includes:
 - a mandatory `--probe` preflight before every helper launch and watchdog restart
 - schema validation of the `RIPDPI-PROBE` capability line before the main process starts
 - readiness handshake through explicit `RIPDPI-READY` signaling
-- structured failure signaling through `RIPDPI-ERROR`. An error before `RIPDPI-READY` fails the start. An error after it belongs to one client stream: it shows in telemetry but does not stop a crashed helper from restarting, and the helper prints `RIPDPI-RECOVERED|naiveproxy|` when a later upstream open succeeds, which clears it
+- structured failure signaling through `RIPDPI-ERROR`. An error before `RIPDPI-READY` fails the start. An error after it belongs to one client stream: it shows in telemetry but does not stop a crashed helper from restarting, and the helper prints `RIPDPI-UPSTREAM-OK|naiveproxy|` on the first successful upstream open after start or after a failure, which clears it. Relay health is `unknown` until that line, then `healthy`, and `degraded` while a stream failure is the latest report
 - a configured outbound bind IP is refused before launch, because the helper cannot bind a source address
 - Android-side classification for DNS, TLS, HTTP `CONNECT`, and auth failures
 - credential-redacted surfaced logs and error text

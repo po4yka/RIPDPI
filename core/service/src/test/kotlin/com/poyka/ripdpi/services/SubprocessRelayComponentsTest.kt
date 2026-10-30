@@ -66,8 +66,8 @@ class SubprocessRelayComponentsTest {
             parser.parse("PROXY-ERROR bind failed", spec),
         )
         assertEquals(
-            SubprocessRelayOutputEvent.Recovered(runtimeKind = "naiveproxy"),
-            parser.parse("RIPDPI-RECOVERED|naiveproxy|", spec),
+            SubprocessRelayOutputEvent.UpstreamOk(runtimeKind = "naiveproxy"),
+            parser.parse("RIPDPI-UPSTREAM-OK|naiveproxy|", spec),
         )
         assertNull(parser.parse("[NOTICE] started", spec))
     }
@@ -294,6 +294,35 @@ class SubprocessRelayComponentsTest {
         assertEquals("127.0.0.1:1080", telemetry.listenerAddress)
         assertNull(telemetry.ptRuntimeKind)
         assertNull(telemetry.ptRuntimeState)
+    }
+
+    @Test
+    fun `naive health reports the upstream, not only the live listener`() {
+        fun health(
+            running: Boolean,
+            failureClass: String?,
+            verified: Boolean,
+            kind: String = RelayKindNaiveProxy,
+        ): String =
+            SubprocessRelayTelemetryProjector()
+                .project(
+                    SubprocessRelayTelemetryInputs(
+                        config = sampleResolvedRelayConfig(kind = kind),
+                        launchSpec = launchSpec(runtimeKind = kind),
+                        running = running,
+                        runtimeVersion = null,
+                        lastError = failureClass,
+                        lastFailureClass = failureClass,
+                        runtimeStateOverride = null,
+                        upstreamVerified = verified,
+                    ),
+                ).health
+
+        assertEquals("unknown", health(running = true, failureClass = null, verified = false))
+        assertEquals("healthy", health(running = true, failureClass = null, verified = true))
+        assertEquals("degraded", health(running = true, failureClass = "connect", verified = true))
+        assertEquals("idle", health(running = false, failureClass = null, verified = true))
+        assertEquals("running", health(true, null, false, kind = RelayKindWebTunnel))
     }
 
     @Test
