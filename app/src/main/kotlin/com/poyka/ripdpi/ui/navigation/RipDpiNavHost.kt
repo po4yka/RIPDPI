@@ -804,10 +804,6 @@ private fun NavHostController.navigateConfigSubRoute(destination: Route) {
     }
 }
 
-internal fun nestedEnterTransition(motion: RipDpiMotion) = motion.nestedEnterTransition()
-
-internal fun nestedPopExitTransition(motion: RipDpiMotion) = motion.nestedPopExitTransition()
-
 /**
  * Returns the stable route key (e.g. "home") for a Nav destination.
  *

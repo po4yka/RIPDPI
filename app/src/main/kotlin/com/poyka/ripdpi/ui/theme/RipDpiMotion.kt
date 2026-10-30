@@ -22,8 +22,6 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.scaleIn
 import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.togetherWith
 import androidx.compose.material3.MotionScheme
 import androidx.compose.runtime.Composable
@@ -147,26 +145,6 @@ data class RipDpiMotion(
         } else {
             fadeOut(animationSpec = routePopTween()) +
                 scaleOut(targetScale = targetScale, animationSpec = routePopTween())
-        }
-
-    fun nestedEnterTransition(): EnterTransition =
-        if (!animationsEnabled) {
-            EnterTransition.None
-        } else {
-            slideInHorizontally(
-                initialOffsetX = { fullWidth -> (fullWidth * 0.15f).toInt() },
-                animationSpec = routeTween(),
-            ) + fadeIn(animationSpec = routeTween())
-        }
-
-    fun nestedPopExitTransition(): ExitTransition =
-        if (!animationsEnabled) {
-            ExitTransition.None
-        } else {
-            slideOutHorizontally(
-                targetOffsetX = { fullWidth -> (fullWidth * 0.15f).toInt() },
-                animationSpec = quickTween(easing = EmphasizedAccelerate),
-            ) + fadeOut(animationSpec = quickTween(easing = EmphasizedAccelerate))
         }
 
     /**
