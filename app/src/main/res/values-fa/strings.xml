@@ -664,6 +664,9 @@
     <string name="config_relay_naive_extra_headers_helper">هر سرصفحه در یک خط با قالب Name: value. با هر درخواست CONNECT ارسال می‌شود. مقادیر به‌صورت رمزگذاری‌شده ذخیره می‌شوند.</string>
     <string name="config_relay_naive_extra_headers_error_invalid">در هر خط یک سرصفحهٔ معتبر Name: value بنویسید (حداکثر ۱۶ مورد و در مجموع ۴۰۹۶ بایت).</string>
     <string name="config_relay_naive_extra_headers_error_reserved">این نام سرصفحه را برنامه تعیین می‌کند و قابل جایگزینی نیست.</string>
+    <string name="config_relay_naive_server_pin">پین گواهی سرور (اختیاری)</string>
+    <string name="config_relay_naive_server_pin_helper">SHA-256 گواهی برگ سرور (۶۴ رقم هگزادسیمال). در صورت تنظیم، سرور فقط در صورت تطابق گواهی پذیرفته می‌شود، بدون زنجیره CA عمومی و بدون بررسی نام میزبان. برای اعتبارسنجی عادی خالی بگذارید.</string>
+    <string name="config_relay_naive_server_pin_error_invalid">یک پین SHA-256 وارد کنید: ۶۴ رقم هگزادسیمال، با دونقطه اختیاری.</string>
     <string name="config_relay_hysteria_salamander">کلید Salamander</string>
     <string name="config_relay_chain_editor_intro">یک زنجیره مرتب از نمایه‌های رله ذخیره‌شده بسازید. اولین پرش ورودی و آخرین پرش خروجی است. برای جابه‌جایی یک پرش، آن را نگه دارید و بکشید. UDP برای زنجیره‌ها غیرفعال است.</string>
     <string name="config_relay_chain_hop_entry">پرش %1$d · ورودی</string>

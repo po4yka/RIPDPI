@@ -269,6 +269,7 @@ object BackupAllowlist {
                 "username" to Classification.REDACTED,
                 "password" to Classification.REDACTED,
                 "extraHeaders" to Classification.REDACTED,
+                "serverPinSha256" to Classification.PUBLIC,
             )
 
     private val sshFields: Map<String, Classification> =

@@ -2171,6 +2171,9 @@ Quelle: %2$s</string>
     <string name="config_relay_naive_extra_headers_helper">Ein Header pro Zeile im Format Name: value. Wird mit jeder CONNECT-Anfrage gesendet. Die Werte werden verschlüsselt gespeichert.</string>
     <string name="config_relay_naive_extra_headers_error_invalid">Verwende pro Zeile einen gültigen Header Name: value (höchstens 16 und insgesamt 4096 Byte).</string>
     <string name="config_relay_naive_extra_headers_error_reserved">Die App setzt diesen Header-Namen selbst; er lässt sich nicht überschreiben.</string>
+    <string name="config_relay_naive_server_pin">Zertifikats-Pin des Servers (optional)</string>
+    <string name="config_relay_naive_server_pin_helper">SHA-256 des Server-Zertifikats (64 Hexziffern). Wenn gesetzt, wird der Server nur bei passendem Zertifikat akzeptiert, ohne öffentliche CA-Kette und ohne Hostnamenprüfung. Leer lassen für die normale Zertifikatsprüfung.</string>
+    <string name="config_relay_naive_server_pin_error_invalid">Gib einen SHA-256-Pin ein: 64 Hexziffern, optional mit Doppelpunkten.</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_client_certificate_chain_helper">Fügen Sie die PEM-Kette ein oder importieren Sie eine Zertifikatsdatei.</string>
     <string name="config_relay_masque_http2">HTTP/2-TCP-Fallback zulassen</string>

@@ -346,6 +346,8 @@ sealed interface ProxyProfile {
         val username: String,
         val password: String,
         val extraHeaders: String = "",
+        /** Optional server leaf-certificate SHA-256 pin (64 lowercase hex); empty means webpki trust. */
+        val serverPinSha256: String = "",
     ) : ProxyProfile {
         override fun toString(): String =
             "Naive(id=$id, displayName=$displayName, groupId=$groupId, server=$server, " +

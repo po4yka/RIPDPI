@@ -24,5 +24,6 @@ internal fun toNaiveShareProfile(
                 username = username,
                 password = credentials.naivePassword.orEmpty(),
                 extraHeaders = credentials.naiveExtraHeaders.orEmpty(),
+                serverPinSha256 = credentials.naiveServerPinSha256.orEmpty(),
             )
         }

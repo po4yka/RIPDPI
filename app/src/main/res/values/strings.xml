@@ -683,6 +683,9 @@
     <string name="config_relay_naive_extra_headers_helper">One header per line as Name: value. Sent with every CONNECT request. Values are stored encrypted.</string>
     <string name="config_relay_naive_extra_headers_error_invalid">Use one valid Name: value header per line (at most 16, 4096 bytes in total).</string>
     <string name="config_relay_naive_extra_headers_error_reserved">This header name is set by the app and cannot be overridden.</string>
+    <string name="config_relay_naive_server_pin">Server certificate pin (optional)</string>
+    <string name="config_relay_naive_server_pin_helper">SHA-256 of the server leaf certificate (64 hex digits). When set, the server is trusted only if its certificate matches, without a public CA chain or hostname check. Leave empty to use normal certificate validation.</string>
+    <string name="config_relay_naive_server_pin_error_invalid">Enter a SHA-256 certificate pin: 64 hex digits, optionally separated by colons.</string>
     <string name="config_relay_chain_editor_intro">Build an ordered chain of saved relay profiles. The first hop is the entry, the last is the exit. Long-press a hop to drag it into place. UDP is disabled for chains.</string>
     <string name="config_relay_chain_hop_entry">Hop %1$d · Entry</string>
     <string name="config_relay_chain_hop_exit">Hop %1$d · Exit</string>

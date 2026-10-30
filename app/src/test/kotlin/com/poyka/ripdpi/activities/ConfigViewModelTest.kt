@@ -603,6 +603,19 @@ class ConfigViewModelTest {
     }
 
     @Test
+    fun `relay validation accepts only a sha256 pin for naiveproxy`() {
+        fun errorFor(pin: String): String? =
+            validateConfigDraft(validNaiveProxyDraft(relayNaivePath = "").copy(relayNaiveServerPinSha256 = pin))[
+                ConfigFieldRelayNaiveServerPin,
+            ]
+
+        assertEquals(null, errorFor(""))
+        assertEquals(null, errorFor("AB:".repeat(31) + "AB"))
+        assertEquals("invalid_pin", errorFor("abcd"))
+        assertEquals("invalid_pin", errorFor("zz".repeat(32)))
+    }
+
+    @Test
     fun `relay validation mirrors helper rules for naiveproxy extra headers`() {
         fun errorFor(headers: String): String? =
             validateConfigDraft(validNaiveProxyDraft(relayNaivePath = "").copy(relayNaiveExtraHeaders = headers))[

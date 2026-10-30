@@ -2104,6 +2104,9 @@ fake_burst 3</string>
     <string name="config_relay_naive_extra_headers_helper">每行一个请求头，格式为 Name: value。随每个 CONNECT 请求发送。值以加密方式存储。</string>
     <string name="config_relay_naive_extra_headers_error_invalid">每行使用一个有效的 Name: value 请求头（最多 16 个，总计不超过 4096 字节）。</string>
     <string name="config_relay_naive_extra_headers_error_reserved">此请求头名称由应用设置，不能覆盖。</string>
+    <string name="config_relay_naive_server_pin">服务器证书固定（可选）</string>
+    <string name="config_relay_naive_server_pin_helper">服务器叶证书的 SHA-256（64 位十六进制）。设置后，仅当证书匹配时才信任服务器，不要求公共 CA 证书链，也不检查主机名。留空则使用常规证书验证。</string>
+    <string name="config_relay_naive_server_pin_error_invalid">请输入 SHA-256 固定值：64 位十六进制，可用冒号分隔。</string>
     <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
     <string name="config_relay_local_port_helper">主 RIPDPI 代理链接到此回环监听器。</string>
     <string name="config_relay_masque_auth_preshared">预共享</string>

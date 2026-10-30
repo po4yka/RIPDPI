@@ -107,6 +107,16 @@ class NaiveProxyRuntimePolicyTest {
     }
 
     @Test
+    fun `server pin is an argv flag only when set and never on stdin`() {
+        val base = sampleResolvedRelayConfig(kind = RelayKindNaiveProxy)
+        val pin = "ab".repeat(32)
+
+        assertFalse("--server-pin-sha256" in naiveProxyCommandArguments(base))
+        val pinned = naiveProxyCommandArguments(base.copy(naiveServerPinSha256 = pin))
+        assertEquals(pin, pinned[pinned.indexOf("--server-pin-sha256") + 1])
+    }
+
+    @Test
     fun `manager rejects absent local listener credentials`() {
         val config =
             sampleResolvedRelayConfig(kind = RelayKindNaiveProxy).copy(

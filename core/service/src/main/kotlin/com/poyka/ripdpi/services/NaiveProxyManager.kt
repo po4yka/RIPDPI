@@ -63,6 +63,11 @@ internal fun naiveProxyCommandArguments(config: ResolvedRipDpiRelayConfig): List
             add("--path")
             add(it)
         }
+        // The pin is public, so it travels as argv like the server name rather than on credential stdin.
+        config.naiveServerPinSha256.takeIf(String::isNotBlank)?.let {
+            add("--server-pin-sha256")
+            add(it)
+        }
     }
 
 private fun naiveExtraHeaderRedactions(headers: String): List<String> =

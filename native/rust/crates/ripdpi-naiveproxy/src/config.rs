@@ -5,7 +5,7 @@ use std::sync::Arc;
 use rustls::ClientConfig as RustlsClientConfig;
 
 use crate::extra_headers::{ExtraHeaders, parse_extra_headers};
-use crate::tls::default_tls_config;
+use crate::tls::{parse_certificate_pin_sha256, tls_config_with_ech_setup};
 
 /// `Debug` is implemented manually to redact the HTTP `Proxy-Authorization`
 /// credentials (`username`, `password`). A derived `Debug` would expose
@@ -88,6 +88,12 @@ pub(crate) fn parse_config_from_reader(
     let (username, password, local_username, local_password, extra_headers) =
         read_credentials_from_stdin(&mut credentials_input)?;
     let path = normalize_optional(optional_value(&mut args, "--path")?.as_deref());
+    let pin = optional_value(&mut args, "--server-pin-sha256")?
+        .map(|raw| parse_certificate_pin_sha256(&raw))
+        .transpose()
+        .map_err(|error| {
+            io::Error::new(io::ErrorKind::InvalidInput, format!("invalid --server-pin-sha256: {error}"))
+        })?;
     let remaining = args.finish();
     if !remaining.is_empty() {
         return Err(io::Error::new(io::ErrorKind::InvalidInput, format!("unexpected arguments: {remaining:?}")));
@@ -104,7 +110,8 @@ pub(crate) fn parse_config_from_reader(
         local_password,
         path,
         extra_headers,
-        tls_config: default_tls_config(),
+        tls_config: tls_config_with_ech_setup(&ripdpi_tls_profiles::EchSetup::Grease, pin)
+            .expect("NaiveProxy TLS config must support ECH GREASE"),
         protect_socket_path: ripdpi_subprocess_protect::protect_path_from_env(),
         sessions: Arc::default(),
     })
@@ -257,7 +264,7 @@ mod tests {
             local_password: "local-pass".to_owned(),
             extra_headers: Vec::new(),
             path: Some("/proxy".to_owned()),
-            tls_config: default_tls_config(),
+            tls_config: crate::tls::default_tls_config(),
             protect_socket_path: None,
             sessions: Arc::default(),
         }

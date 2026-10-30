@@ -140,6 +140,19 @@ class ProxyUriCodecTest {
     }
 
     @Test
+    fun `naive link carries the server pin and rejects a malformed one`() {
+        val pin = "ab".repeat(32)
+        val profile =
+            ProxyUriCodec.parse("naive+https://u:p@h.example?pinSHA256=${pin.uppercase()}") as ProxyProfile.Naive
+
+        assertEquals(pin, profile.serverPinSha256)
+        val reparsed = ProxyUriCodec.parse(ProxyUriCodec.encode(profile)) as ProxyProfile.Naive
+        assertEquals(pin, reparsed.serverPinSha256)
+        assertTrue(!ProxyUriCodec.encode(profile.copy(serverPinSha256 = "")).contains("pinSHA256"))
+        assertNull(ProxyUriCodec.parse("naive+https://u:p@h.example?pinSHA256=abcd"))
+    }
+
+    @Test
     fun `parses ssh password-auth uri into an ssh profile`() {
         val uri = "ssh://ssh-user:ssh-pass-fixture@vps.example.com:22?auth=password&fp=SHA256:abc&strict=1#Bastion"
 

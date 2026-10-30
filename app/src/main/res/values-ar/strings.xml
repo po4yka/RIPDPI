@@ -661,6 +661,9 @@
     <string name="config_relay_naive_extra_headers_helper">ترويسة واحدة في كل سطر بالصيغة Name: value. تُرسل مع كل طلب CONNECT. تُخزَّن القيم مشفرة.</string>
     <string name="config_relay_naive_extra_headers_error_invalid">استخدم ترويسة Name: value صالحة واحدة في كل سطر (16 كحد أقصى و4096 بايت في المجموع).</string>
     <string name="config_relay_naive_extra_headers_error_reserved">يحدد التطبيق اسم هذه الترويسة ولا يمكن استبداله.</string>
+    <string name="config_relay_naive_server_pin">تثبيت شهادة الخادم (اختياري)</string>
+    <string name="config_relay_naive_server_pin_helper">قيمة SHA-256 لشهادة الخادم (64 رقمًا سداسيًا عشريًا). عند تعيينها يُقبل الخادم فقط إذا طابقت شهادته، دون سلسلة CA عامة ودون فحص اسم المضيف. اتركها فارغة للتحقق العادي.</string>
+    <string name="config_relay_naive_server_pin_error_invalid">أدخل قيمة SHA-256: 64 رقمًا سداسيًا عشريًا، مع نقطتين رأسيتين اختياريًا.</string>
     <string name="config_relay_chain_editor_intro">أنشئ سلسلة مرتبة من ملفات الترحيل المحفوظة. النقطة الأولى هي الدخول والأخيرة هي الخروج. اضغط مطولاً على نقطة لسحبها إلى مكانها. UDP معطّل في السلاسل.</string>
     <string name="config_relay_chain_hop_entry">النقطة %1$d · الدخول</string>
     <string name="config_relay_chain_hop_exit">النقطة %1$d · الخروج</string>

@@ -1997,6 +1997,9 @@ fakeddisorder endhost</string>
     <string name="config_relay_naive_extra_headers_helper">По одному заголовку в строке в формате Name: value. Отправляются с каждым запросом CONNECT. Значения хранятся в зашифрованном виде.</string>
     <string name="config_relay_naive_extra_headers_error_invalid">Используйте по одному корректному заголовку Name: value в строке (не более 16, всего до 4096 байт).</string>
     <string name="config_relay_naive_extra_headers_error_reserved">Это имя заголовка задаёт приложение, его нельзя переопределить.</string>
+    <string name="config_relay_naive_server_pin">Пин сертификата сервера (необязательно)</string>
+    <string name="config_relay_naive_server_pin_helper">SHA-256 конечного сертификата сервера (64 шестнадцатеричные цифры). Если задан, сервер считается доверенным только при совпадении сертификата, без проверки цепочки публичных УЦ и имени хоста. Оставьте пустым для обычной проверки сертификата.</string>
+    <string name="config_relay_naive_server_pin_error_invalid">Введите пин SHA-256: 64 шестнадцатеричные цифры, допускаются двоеточия.</string>
     <string name="config_relay_hysteria_salamander">Ключ Salamander</string>
     <string name="config_relay_import">Импорт</string>
     <string name="config_relay_kind_chain">Цепное реле</string>

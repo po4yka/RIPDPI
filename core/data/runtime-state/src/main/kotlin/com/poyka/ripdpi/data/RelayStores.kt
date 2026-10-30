@@ -160,6 +160,8 @@ data class RelayCredentialRecord(
     val naivePassword: String? = null,
     /** NaiveProxy extra CONNECT headers (`Name: value` lines, CRLF-joined); values may be secrets. */
     val naiveExtraHeaders: String? = null,
+    /** NaiveProxy server leaf-certificate SHA-256 pin (64 lowercase hex). Not a secret. */
+    val naiveServerPinSha256: String? = null,
     val masqueAuthMode: String? = null,
     val masqueAuthToken: String? = null,
     val masqueClientCertificateChainPem: String? = null,

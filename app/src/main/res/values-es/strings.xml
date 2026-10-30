@@ -2171,6 +2171,9 @@ Origen: %2$s</string>
     <string name="config_relay_naive_extra_headers_helper">Una cabecera por línea con el formato Name: value. Se envían con cada solicitud CONNECT. Los valores se guardan cifrados.</string>
     <string name="config_relay_naive_extra_headers_error_invalid">Usa una cabecera Name: value válida por línea (máximo 16 y 4096 bytes en total).</string>
     <string name="config_relay_naive_extra_headers_error_reserved">La aplicación define este nombre de cabecera y no se puede sustituir.</string>
+    <string name="config_relay_naive_server_pin">Pin del certificado del servidor (opcional)</string>
+    <string name="config_relay_naive_server_pin_helper">SHA-256 del certificado hoja del servidor (64 dígitos hexadecimales). Si se define, el servidor solo es de confianza si su certificado coincide, sin cadena de CA pública ni comprobación del nombre de host. Déjalo vacío para la validación normal.</string>
+    <string name="config_relay_naive_server_pin_error_invalid">Introduce un pin SHA-256: 64 dígitos hexadecimales, con dos puntos opcionales.</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_client_certificate_chain_helper">Pega la cadena PEM o importa un archivo de certificado.</string>
     <string name="config_relay_masque_http2">Permitir respaldo HTTP/2 TCP</string>

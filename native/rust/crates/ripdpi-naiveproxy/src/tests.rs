@@ -990,3 +990,105 @@ async fn authenticate_local(client: &mut TcpStream) {
     client.read_exact(&mut reply).await.expect("read auth status");
     assert_eq!(reply, [1, 0]);
 }
+
+/// Starts a self-signed H2 upstream and returns its port, the leaf SHA-256 pin (hex), and a counter of H2 requests.
+async fn start_self_signed_h2_upstream() -> (u16, String, Arc<std::sync::atomic::AtomicUsize>) {
+    use rustls::pki_types::{PrivateKeyDer, PrivatePkcs8KeyDer};
+
+    crate::tls::ensure_rustls_provider();
+    let certified = rcgen::generate_simple_self_signed(vec!["proxy.example".to_owned()]).expect("self-signed cert");
+    let cert_der = certified.cert.der().clone();
+    let pin: String =
+        crate::tls::sha256(cert_der.as_ref()).expect("sha256").iter().map(|b| format!("{b:02x}")).collect();
+    let key_der = PrivateKeyDer::from(PrivatePkcs8KeyDer::from(certified.signing_key.serialize_der()));
+    let mut server_config = rustls::ServerConfig::builder()
+        .with_no_client_auth()
+        .with_single_cert(vec![cert_der], key_der)
+        .expect("server");
+    server_config.alpn_protocols = vec![b"h2".to_vec()];
+    let acceptor = tokio_rustls::TlsAcceptor::from(Arc::new(server_config));
+    let upstream = TcpListener::bind("127.0.0.1:0").await.expect("bind upstream");
+    let port = upstream.local_addr().expect("upstream addr").port();
+    let requests = Arc::new(std::sync::atomic::AtomicUsize::new(0));
+    let counter = Arc::clone(&requests);
+    tokio::spawn(async move {
+        loop {
+            let (socket, _) = upstream.accept().await.expect("accept upstream");
+            let acceptor = acceptor.clone();
+            let counter = Arc::clone(&counter);
+            tokio::spawn(async move {
+                let Ok(tls) = acceptor.accept(socket).await else { return };
+                let service = hyper::service::service_fn(move |_request: http::Request<hyper::body::Incoming>| {
+                    counter.fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+                    async {
+                        Ok::<_, std::convert::Infallible>(http::Response::new(
+                            http_body_util::Empty::<bytes::Bytes>::new(),
+                        ))
+                    }
+                });
+                let _ = hyper::server::conn::http2::Builder::new(hyper_util::rt::TokioExecutor::new())
+                    .serve_connection(hyper_util::rt::TokioIo::new(tls), service)
+                    .await;
+            });
+        }
+    });
+    (port, pin, requests)
+}
+
+fn pin_test_config(port: u16, pin_args: &[&str]) -> NaiveProxyConfig {
+    let port = port.to_string();
+    let mut args = vec!["--server", "127.0.0.1", "--server-port", &port, "--server-name", "proxy.example"];
+    args.push("--credentials-stdin");
+    args.extend_from_slice(pin_args);
+    parse_config_args_with_stdin(&args, b"dXNlcg==\ncGFzcw==\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n").expect("config")
+}
+
+#[tokio::test]
+/// # Cancel safety:
+/// cancel-safe: the test runtime drops its owned sockets and tasks when the test ends.
+async fn pinned_self_signed_upstream_connects_when_the_leaf_hash_matches() {
+    let (port, pin, requests) = start_self_signed_h2_upstream().await;
+    let config = pin_test_config(port, &["--server-pin-sha256", &pin]);
+    let target = SocksTarget::Domain("fast.test".to_owned(), 443);
+
+    drop(crate::connect_tunnel::open_https_connect_tunnel(&config, &target).await.expect("pinned tunnel"));
+
+    assert_eq!(requests.load(std::sync::atomic::Ordering::Relaxed), 1);
+}
+
+#[tokio::test]
+/// # Cancel safety:
+/// cancel-safe: the test runtime drops its owned sockets and tasks when the test ends.
+async fn pinned_upstream_with_a_wrong_hash_fails_before_any_connect() {
+    let (port, _pin, requests) = start_self_signed_h2_upstream().await;
+    let wrong = "ab".repeat(32);
+    let config = pin_test_config(port, &["--server-pin-sha256", &wrong]);
+    let target = SocksTarget::Domain("fast.test".to_owned(), 443);
+
+    assert!(crate::connect_tunnel::open_https_connect_tunnel(&config, &target).await.is_err());
+
+    assert_eq!(requests.load(std::sync::atomic::Ordering::Relaxed), 0, "no CONNECT may reach an unpinned server");
+}
+
+#[tokio::test]
+/// # Cancel safety:
+/// cancel-safe: the test runtime drops its owned sockets and tasks when the test ends.
+async fn unpinned_self_signed_upstream_is_still_rejected() {
+    let (port, _pin, requests) = start_self_signed_h2_upstream().await;
+    let config = pin_test_config(port, &[]);
+    let target = SocksTarget::Domain("fast.test".to_owned(), 443);
+
+    assert!(crate::connect_tunnel::open_https_connect_tunnel(&config, &target).await.is_err());
+
+    assert_eq!(requests.load(std::sync::atomic::Ordering::Relaxed), 0);
+}
+
+#[test]
+fn config_rejects_a_malformed_server_pin() {
+    let stdin = b"dXNlcg==\ncGFzcw==\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n";
+    let base = ["--server", "proxy.example", "--server-name", "proxy.example", "--credentials-stdin"];
+    for bad in ["abcd", &"AB".repeat(32)] {
+        let args: Vec<&str> = base.iter().copied().chain(["--server-pin-sha256", bad]).collect();
+        assert!(parse_config_args_with_stdin(&args, stdin).is_err(), "{bad}");
+    }
+}

@@ -122,6 +122,20 @@ class ConfigRelayArtifactRepositoryTest {
     }
 
     @Test
+    fun `naiveproxy server pin is normalized on persist and blank means none`() {
+        val draft =
+            ConfigDraft(
+                relayEnabled = true,
+                relayKind = com.poyka.ripdpi.data.RelayKindNaiveProxy,
+                relayNaiveUsername = "alice",
+                relayNaiveServerPinSha256 = "AB:".repeat(31) + "AB",
+            )
+
+        assertEquals("ab".repeat(32), draft.toRelayCredentialRecord("naive").naiveServerPinSha256)
+        assertEquals(null, draft.copy(relayNaiveServerPinSha256 = "").toRelayCredentialRecord("naive").naiveServerPinSha256)
+    }
+
+    @Test
     fun `new relay kinds reject missing required credentials`() {
         for (kind in listOf(
             RelayKindVless,

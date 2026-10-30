@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data.uri
 
 import com.poyka.ripdpi.data.NaiveExtraHeadersResult
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import com.poyka.ripdpi.data.parseNaiveExtraHeaders
 import java.net.URI
 import java.net.URLDecoder
@@ -17,7 +18,7 @@ private const val DefaultNaivePort = 443
  * empty password. The port defaults to 443 and the TLS server name is the host. `padding` is
  * accepted and ignored (the helper always negotiates it). `extra-headers` uses the upstream
  * `Name: value` CRLF format and must satisfy the helper's rules, else the link is rejected.
- * `naive+quic` is not parsed: the helper cannot run QUIC.
+ * `pinSHA256` (optional, as in Hysteria2 links) pins the server leaf certificate. `naive+quic` is not parsed: the helper cannot run QUIC.
  */
 internal object NaiveUriCodec {
     @Suppress("ReturnCount")
@@ -35,6 +36,10 @@ internal object NaiveUriCodec {
                 is NaiveExtraHeadersResult.Valid -> result.normalized
                 is NaiveExtraHeadersResult.Invalid -> return null
             }
+        val pin =
+            queryValue(parsed.rawQuery, "pinSHA256")?.takeIf { it.isNotBlank() }?.let {
+                normalizeHysteria2PinSha256(it) ?: return null
+            }.orEmpty()
         val name = parsed.rawFragment?.let(::decode)?.takeIf { it.isNotBlank() } ?: host
         return ProxyProfile.Naive(
             id = UUID.randomUUID().toString(),
@@ -45,15 +50,17 @@ internal object NaiveUriCodec {
             username = username,
             password = password,
             extraHeaders = headers,
+            serverPinSha256 = pin,
         )
     }
 
     fun encode(profile: ProxyProfile.Naive): String {
-        val query =
-            profile.extraHeaders
-                .takeIf { it.isNotEmpty() }
-                ?.let { "?extra-headers=${encode(it)}" }
-                .orEmpty()
+        val params =
+            listOfNotNull(
+                profile.extraHeaders.takeIf { it.isNotEmpty() }?.let { "extra-headers=${encode(it)}" },
+                profile.serverPinSha256.takeIf { it.isNotEmpty() }?.let { "pinSHA256=${encode(it)}" },
+            )
+        val query = if (params.isEmpty()) "" else "?" + params.joinToString("&")
         val server = profile.server
         val host = if (server.contains(':') && !server.startsWith("[")) "[$server]" else server
         return "naive+https://${encode(profile.username)}:${encode(profile.password)}" +

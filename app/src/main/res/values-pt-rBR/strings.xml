@@ -666,6 +666,9 @@
     <string name="config_relay_naive_extra_headers_helper">Um cabeçalho por linha no formato Name: value. Enviados em cada solicitação CONNECT. Os valores são armazenados criptografados.</string>
     <string name="config_relay_naive_extra_headers_error_invalid">Use um cabeçalho Name: value válido por linha (no máximo 16 e 4096 bytes no total).</string>
     <string name="config_relay_naive_extra_headers_error_reserved">O app define este nome de cabeçalho e ele não pode ser substituído.</string>
+    <string name="config_relay_naive_server_pin">Pin do certificado do servidor (opcional)</string>
+    <string name="config_relay_naive_server_pin_helper">SHA-256 do certificado folha do servidor (64 dígitos hexadecimais). Se definido, o servidor só é confiável se o certificado coincidir, sem cadeia de CA pública nem verificação do nome do host. Deixe vazio para a validação normal.</string>
+    <string name="config_relay_naive_server_pin_error_invalid">Informe um pin SHA-256: 64 dígitos hexadecimais, com dois-pontos opcionais.</string>
     <string name="config_relay_chain_editor_intro">Monte uma cadeia ordenada de perfis de retransmissão salvos. O primeiro salto é a entrada e o último é a saída. Mantenha pressionado um salto para arrastá-lo até a posição desejada. UDP fica desativado em cadeias.</string>
     <string name="config_relay_chain_hop_entry">Salto %1$d · Entrada</string>
     <string name="config_relay_chain_hop_exit">Salto %1$d · Saída</string>

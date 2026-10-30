@@ -26,6 +26,7 @@ import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
 import com.poyka.ripdpi.data.normalizeRelayCongestionControl
 import com.poyka.ripdpi.data.normalizeRelayFinalmaskType
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
+import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import com.poyka.ripdpi.data.parseNaiveExtraHeaders
 
 internal fun ConfigDraft.withRelayArtifacts(
@@ -73,6 +74,7 @@ internal fun ConfigDraft.withRelayArtifacts(
         relayNaiveUsername = credentials?.naiveUsername.orEmpty(),
         relayNaivePassword = credentials?.naivePassword.orEmpty(),
         relayNaiveExtraHeaders = credentials?.naiveExtraHeaders.orEmpty(),
+        relayNaiveServerPinSha256 = credentials?.naiveServerPinSha256.orEmpty(),
         relayCloudflareCredentialsRef =
             profile
                 ?.cloudflareCredentialsRef
@@ -266,6 +268,7 @@ internal fun ConfigDraft.toRelayCredentialRecord(profileId: String): RelayCreden
         // A username with an empty password is an authenticated identity, not "no auth".
         naivePassword = if (relayNaiveUsername.isBlank()) null else relayNaivePassword,
         naiveExtraHeaders = naiveExtraHeadersOrNull(relayNaiveExtraHeaders),
+        naiveServerPinSha256 = normalizeHysteria2PinSha256(relayNaiveServerPinSha256),
         masqueAuthMode = normalizeRelayMasqueAuthMode(relayMasqueAuthMode),
         masqueAuthToken = relayMasqueAuthToken.ifBlank { null },
         masqueClientCertificateChainPem = relayMasqueClientCertificateChainPem.ifBlank { null },
@@ -333,6 +336,7 @@ private fun ConfigDraft.discardReboundRelaySource(previous: ConfigDraft): Config
                 relayNaiveUsername = "",
                 relayNaivePassword = "",
                 relayNaiveExtraHeaders = "",
+                relayNaiveServerPinSha256 = "",
                 relayMasqueAuthToken = "",
                 relayMasqueClientCertificateChainPem = "",
                 relayMasqueClientPrivateKeyPem = "",

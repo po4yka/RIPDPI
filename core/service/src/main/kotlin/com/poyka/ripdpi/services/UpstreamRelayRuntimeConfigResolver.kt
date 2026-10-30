@@ -500,6 +500,7 @@ private class ResolvedRelayConfigBuilder(
             naiveUsername = credentials?.naiveUsername,
             naivePassword = credentials?.naivePassword,
             naiveExtraHeaders = credentials?.naiveExtraHeaders.orEmpty(),
+            naiveServerPinSha256 = credentials?.naiveServerPinSha256.orEmpty(),
             ptBridgeLine = effectiveConfig.ptBridgeLine,
             ptWebTunnelUrl = effectiveConfig.ptWebTunnelUrl,
             ptSnowflakeBrokerUrl = effectiveConfig.ptSnowflakeBrokerUrl,

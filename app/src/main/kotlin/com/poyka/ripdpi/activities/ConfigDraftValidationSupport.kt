@@ -47,6 +47,7 @@ import com.poyka.ripdpi.data.isSupportedChainExitHop
 import com.poyka.ripdpi.data.isValidVlessUuid
 import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
+import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import com.poyka.ripdpi.data.parseNaiveExtraHeaders
 import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.data.validateStrategyChainUsage
@@ -414,6 +415,11 @@ private fun validateNaiveProxyDraft(draft: ConfigDraft): Map<String, String> =
                 ConfigFieldRelayNaiveExtraHeaders,
                 if (it.error == NaiveExtraHeadersError.ReservedName) "reserved_header" else "invalid_headers",
             )
+        }
+        if (draft.relayNaiveServerPinSha256.isNotBlank() &&
+            normalizeHysteria2PinSha256(draft.relayNaiveServerPinSha256) == null
+        ) {
+            put(ConfigFieldRelayNaiveServerPin, "invalid_pin")
         }
         if (draft.relayNaivePath.isNotBlank() && !draft.relayNaivePath.startsWith("/")) {
             put(ConfigFieldRelayNaivePath, "absolute_path")
