@@ -56,7 +56,7 @@ internal class SubprocessRelayOutputParser {
         return when {
             trimmed.isBlank() -> null
             managedClientListener != null -> SubprocessRelayOutputEvent.ManagedClientListener(managedClientListener)
-            spec.binaryName == NaiveUpstreamBinaryName -> parsePlainError(trimmed)
+            spec.binaryName == NaiveUpstreamBinaryName -> parseNaiveUpstreamLine(trimmed, spec.runtimeKind)
             else -> parseStructuredEvent(trimmed) ?: parsePlainError(trimmed)
         }
     }

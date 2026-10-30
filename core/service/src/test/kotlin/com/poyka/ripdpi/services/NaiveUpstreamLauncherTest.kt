@@ -20,6 +20,7 @@ import org.robolectric.annotation.Config
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermissions
+import java.util.Base64
 
 internal fun unusedUpstreamLauncher(delegate: NaiveProxyLaunchDelegate): NaiveUpstreamLauncher =
     NaiveUpstreamLauncher(
@@ -501,14 +502,146 @@ class NaiveUpstreamLauncherTest {
         assertNull(parser.parse("RIPDPI-UPSTREAM-OK|naiveproxy|", spec))
         assertNull(parser.parse("RIPDPI-READY|naiveproxy|1", spec))
         assertNull(parser.parse("RIPDPI-ERROR|naiveproxy|auth|bad", spec))
-        assertEquals(
-            SubprocessRelayOutputEvent.PlainError("[ERROR] leaked <redacted>"),
-            parser.parse("[ERROR] leaked secret", spec),
-        )
+        assertNull(parser.parse("[ERROR] leaked secret", spec))
         assertTrue(
             parser.parse("RIPDPI-UPSTREAM-OK|naiveproxy|", spec.copy(binaryName = "ripdpi-naiveproxy")) is
                 SubprocessRelayOutputEvent.UpstreamOk,
         )
+    }
+
+    private val upstreamSpec =
+        SubprocessSocksRelayLaunchSpec(
+            binaryName = NaiveUpstreamBinaryName,
+            commandArguments = emptyList(),
+            runtimeKind = RelayKindNaiveProxy,
+            redactedValues = listOf("secret"),
+        )
+
+    private val recordedUpstreamLines =
+        listOf(
+            "[1030/121157.991006:INFO:net/tools/naive/naive_proxy_bin.cc:549] Listening on http://0.0.0.0:1080",
+            "[1030/121157.991124:INFO:net/tools/naive/naive_proxy_bin.cc:236] Proxying via HTTPS naive.test:8443",
+            "[1030/121159.512501:INFO:net/tools/naive/preamble_getter.cc:236] Preamble https://naive.test:8443/",
+            "[1030/121159.519902:INFO:net/tools/naive/naive_connection.cc:286] " +
+                "Connection 0 to 127.0.0.1:9100 via HTTPS naive.test:8443",
+        )
+
+    private val paddingLine =
+        "[1030/121159.520448:INFO:net/tools/naive/naive_proxy_delegate.cc:171] " +
+            "https://naive.test:8443 negotiated padding type: Variant1"
+
+    @Test
+    fun `upstream parser drops INFO lines and maps evidence lines to UpstreamOk`() {
+        val parser = SubprocessRelayOutputParser()
+
+        recordedUpstreamLines.forEach { assertNull(it, parser.parse(it, upstreamSpec)) }
+        val ok = SubprocessRelayOutputEvent.UpstreamOk(RelayKindNaiveProxy)
+        assertEquals(ok, parser.parse(paddingLine, upstreamSpec))
+        assertEquals(
+            ok,
+            parser.parse(
+                "[1030/121224.848214:INFO:net/tools/naive/naive_proxy.cc:288] Connection 0 closed: OK",
+                upstreamSpec,
+            ),
+        )
+    }
+
+    @Test
+    fun `upstream parser reduces errors to fixed messages without targets`() {
+        val parser = SubprocessRelayOutputParser()
+        val prefix = "[1030/121224.848214:INFO:net/tools/naive/naive_proxy.cc:288] "
+
+        assertEquals(
+            SubprocessRelayOutputEvent.PlainError("upstream connection closed: ERR_CONNECTION_CLOSED"),
+            parser.parse(prefix + "Connection 3 closed: ERR_CONNECTION_CLOSED", upstreamSpec),
+        )
+        assertEquals(
+            SubprocessRelayOutputEvent.PlainError("upstream connection closed: net::ERR_PROXY_CONNECTION_FAILED"),
+            parser.parse(prefix + "Connection 3 closed: net::ERR_PROXY_CONNECTION_FAILED", upstreamSpec),
+        )
+        assertEquals(
+            SubprocessRelayOutputEvent.PlainError("upstream connection closed with an error"),
+            parser.parse(prefix + "Connection 3 closed: to 127.0.0.1:9100 https://naive.test", upstreamSpec),
+        )
+        val errors =
+            listOf(
+                "[1030/121224.848214:ERROR:net/tools/naive/naive_connection.cc:99] " +
+                    "failed to 127.0.0.1:9100 via https://naive.test:8443 secret",
+                "[1030/121224.848214:FATAL:net/tools/naive/naive_proxy_bin.cc:12] bad naive.test",
+            )
+        val messages = errors.map { (parser.parse(it, upstreamSpec) as SubprocessRelayOutputEvent.PlainError).message }
+        assertEquals(
+            listOf("upstream client error (naive_connection.cc)", "upstream client error (naive_proxy_bin.cc)"),
+            messages,
+        )
+        assertNull(
+            parser.parse("[1030/121224.848214:WARNING:net/tools/naive/naive_connection.cc:9] 127.0.0.1", upstreamSpec),
+        )
+        val all = messages + "upstream connection closed: ERR_CONNECTION_CLOSED"
+        all.forEach { message ->
+            listOf("127.0.0.1", "9100", "naive.test", "https://", "secret").forEach { forbidden ->
+                assertFalse("$message contains $forbidden", message.contains(forbidden))
+            }
+        }
+    }
+
+    @Test
+    fun `padding evidence makes health healthy and its absence does not`() {
+        val parser = SubprocessRelayOutputParser()
+
+        fun health(lines: List<String>): String {
+            val verified =
+                lines.any { parser.parse(it, upstreamSpec) is SubprocessRelayOutputEvent.UpstreamOk }
+            return SubprocessRelayTelemetryProjector()
+                .project(
+                    SubprocessRelayTelemetryInputs(
+                        config = sampleResolvedRelayConfig(kind = RelayKindNaiveProxy),
+                        launchSpec = upstreamSpec,
+                        running = true,
+                        runtimeVersion = null,
+                        lastError = null,
+                        lastFailureClass = null,
+                        runtimeStateOverride = null,
+                        upstreamVerified = verified,
+                    ),
+                ).health
+        }
+
+        assertEquals("unknown", health(recordedUpstreamLines))
+        assertEquals("healthy", health(recordedUpstreamLines + paddingLine))
+    }
+
+    @Test
+    fun `redactions cover base64 Basic and lowercase percent-encoded credentials`() {
+        val fixtureProxyPassword = "p@ss/w:rd"
+        val values =
+            NaiveUpstreamConfigValues(
+                proxyHost = "naive.test",
+                proxyPort = 8443,
+                proxyUsername = "alice",
+                proxyPassword = fixtureProxyPassword,
+                localUsername = "lu",
+                localPassword = "lp",
+                localHost = "127.0.0.1",
+                localPort = 1080,
+                extraHeaders = "",
+                mappedAddress = null,
+            )
+        val basic = Base64.getEncoder().encodeToString("alice:p@ss/w:rd".toByteArray())
+        val redactions = naiveUpstreamRedactions(values)
+        val spec = upstreamSpec.copy(redactedValues = redactions)
+
+        assertTrue(basic in redactions)
+        assertTrue("p%40ss%2fw%3ard" in redactions)
+        assertTrue("p%40ss%2Fw%3Ard" in redactions)
+        val line = "[1030/1.2:ERROR:net/tools/naive/x.cc:1] Proxy-Authorization: Basic $basic p%40ss%2fw%3ard"
+        val event = SubprocessRelayOutputParser().parse(line, spec) as SubprocessRelayOutputEvent.PlainError
+        assertFalse(event.message.contains(basic))
+        assertEquals("upstream client error (x.cc)", event.message)
+        // A non-fixed-shape surface that still emits text must be redacted: the redaction runs before parsing.
+        val helperLine = "PROXY-ERROR $basic"
+        val helper = SubprocessRelayOutputParser().parse(helperLine, spec.copy(binaryName = "ripdpi-naiveproxy"))
+        assertEquals(SubprocessRelayOutputEvent.PlainError("PROXY-ERROR <redacted>"), helper)
     }
 
     @Test

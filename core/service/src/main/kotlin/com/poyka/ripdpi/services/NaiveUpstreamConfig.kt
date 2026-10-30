@@ -6,6 +6,7 @@ import java.io.IOException
 import java.nio.file.Files
 import java.nio.file.StandardOpenOption
 import java.nio.file.attribute.PosixFilePermissions
+import java.util.Base64
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 
@@ -33,7 +34,10 @@ internal data class NaiveUpstreamConfigValues(
 )
 
 /** Percent-encodes everything except RFC 3986 unreserved characters, so `@`, `:` and `+` cannot break the URI. */
-internal fun percentEncodeUserInfo(value: String): String =
+internal fun percentEncodeUserInfo(
+    value: String,
+    lowercaseHex: Boolean = false,
+): String =
     buildString {
         for (byte in value.toByteArray(Charsets.UTF_8)) {
             val code = byte.toInt() and ByteMask
@@ -41,7 +45,8 @@ internal fun percentEncodeUserInfo(value: String): String =
             if (isUnreservedAscii(char)) {
                 append(char)
             } else {
-                append('%').append(code.toString(HexRadix).uppercase().padStart(2, '0'))
+                val hex = code.toString(HexRadix).padStart(2, '0')
+                append('%').append(if (lowercaseHex) hex else hex.uppercase())
             }
         }
     }
@@ -100,9 +105,21 @@ internal fun naiveUpstreamRedactions(values: NaiveUpstreamConfigValues): List<St
         values.proxyPassword,
         values.localUsername,
         values.localPassword,
-    ).flatMap { listOf(it, percentEncodeUserInfo(it)) }
+    ).flatMap { listOf(it, percentEncodeUserInfo(it), percentEncodeUserInfo(it, lowercaseHex = true)) }
+        .plus(basicCredentialForms(values.proxyUsername, values.proxyPassword))
+        .plus(basicCredentialForms(values.localUsername, values.localPassword))
         .filter(String::isNotBlank)
         .distinct()
+
+/** The `user:password` pair as a Basic Proxy-Authorization header carries it: padded and unpadded base64. */
+private fun basicCredentialForms(
+    username: String,
+    password: String,
+): List<String> {
+    if (username.isEmpty() && password.isEmpty()) return emptyList()
+    val encoded = Base64.getEncoder().encodeToString("$username:$password".toByteArray(Charsets.UTF_8))
+    return listOf(encoded, encoded.trimEnd('='))
+}
 
 /**
  * Owner-only config files under `<noBackupFilesDir>/naive`. The upstream client reads the file at
