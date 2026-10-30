@@ -112,12 +112,13 @@ async fn open_stream(
     let guard = DiscardOnDrop { pool, session: &session };
     let response = session.sender.clone().send_request(request).await.map_err(|error| {
         let message = format!("failed to send NaiveProxy H2 CONNECT: {error}");
-        // The error can arrive before the dispatcher notices the closed connection.
-        if error.is_closed() || error.is_canceled() || error.is_timeout() || session.sender.is_closed() {
-            pool.discard(session.id);
-            StreamFailure::Session(io::Error::new(io::ErrorKind::ConnectionAborted, message))
-        } else {
-            StreamFailure::Stream(io::Error::new(io::ErrorKind::ConnectionRefused, message))
+        match classify_send_error(&error, session.sender.is_closed()) {
+            SendFailure::Connection => {
+                pool.discard(session.id);
+                StreamFailure::Session(io::Error::new(io::ErrorKind::ConnectionAborted, message))
+            }
+            SendFailure::Refused => StreamFailure::Session(io::Error::new(io::ErrorKind::ConnectionRefused, message)),
+            SendFailure::Stream => StreamFailure::Stream(io::Error::new(io::ErrorKind::ConnectionRefused, message)),
         }
     })?;
     session.mark_verified();
@@ -137,6 +138,44 @@ async fn open_stream(
     match padding_mode {
         PayloadPaddingMode::Plain => Ok(Box::new(stream)),
         PayloadPaddingMode::Variant1 => Ok(Box::new(NaivePaddingStream::new(stream))),
+    }
+}
+
+/// How a failed CONNECT send relates to its connection.
+#[derive(Debug, PartialEq, Eq)]
+enum SendFailure {
+    /// The connection is gone (GOAWAY, I/O, closed): discard it and retry.
+    Connection,
+    /// The server refused the stream without processing it: retry, keep the connection.
+    Refused,
+    /// The server reset only this stream.
+    Stream,
+}
+
+/// Classifies by the underlying HTTP/2 error, because hyper can report the
+/// stream's error before its dispatcher notices that the connection closed.
+fn classify_send_error(error: &hyper::Error, connection_closed: bool) -> SendFailure {
+    let h2_error = std::iter::successors(std::error::Error::source(error), |source| source.source())
+        .find_map(|source| source.downcast_ref::<h2::Error>());
+    if let Some(failure) = h2_error.and_then(classify_h2_error) {
+        return failure;
+    }
+    if error.is_closed() || error.is_canceled() || error.is_timeout() || connection_closed {
+        SendFailure::Connection
+    } else {
+        SendFailure::Stream
+    }
+}
+
+fn classify_h2_error(error: &h2::Error) -> Option<SendFailure> {
+    if error.reason() == Some(h2::Reason::REFUSED_STREAM) {
+        Some(SendFailure::Refused)
+    } else if error.is_go_away() || error.is_io() {
+        Some(SendFailure::Connection)
+    } else if error.is_reset() {
+        Some(SendFailure::Stream)
+    } else {
+        None
     }
 }
 
@@ -375,6 +414,17 @@ mod tests {
 
     use super::NaivePaddingStream;
     use crate::padding::PaddingDecoder;
+
+    #[test]
+    fn http2_errors_classify_by_their_scope() {
+        use super::{SendFailure, classify_h2_error};
+
+        let refused = h2::Error::from(h2::Reason::REFUSED_STREAM);
+        let cancelled = h2::Error::from(h2::Reason::CANCEL);
+        assert_eq!(classify_h2_error(&refused), Some(SendFailure::Refused));
+        // A bare reason is neither a reset nor a GOAWAY: hyper's own flags decide.
+        assert_eq!(classify_h2_error(&cancelled), None);
+    }
 
     /// The pool's limit follows the server's SETTINGS_MAX_CONCURRENT_STREAMS,
     /// so a server that allows fewer than the default 100 streams gets no more.

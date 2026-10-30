@@ -5920,6 +5920,7 @@ dependencies = [
  "base64 0.23.1",
  "bytes",
  "golden-test-support",
+ "h2",
  "http",
  "http-body-util",
  "hyper",
