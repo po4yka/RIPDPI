@@ -66,6 +66,7 @@ import org.json.JSONObject
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
+import org.junit.Assume.assumeTrue
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -104,6 +105,11 @@ class AwgV3EditorAcceptanceTest {
 
     @Before
     fun prepareOwnedEditor() {
+        val args = InstrumentationRegistry.getArguments()
+        assumeTrue(
+            "Editor acceptance requires an explicit owned invocation",
+            listOf("awgUiSourceSha", "awgUiNonce", "awgUiLocale").any(args::containsKey),
+        )
         check(isLikelyEmulator()) { "Editor render acceptance requires a leased emulator" }
         assertEquals(
             "Only a stopped disposable app can be owned by this UI test",
