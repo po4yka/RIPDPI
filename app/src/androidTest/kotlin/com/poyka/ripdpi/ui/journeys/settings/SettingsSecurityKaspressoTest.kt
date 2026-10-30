@@ -27,6 +27,11 @@ class SettingsBackupPinWarningKaspressoTest :
         run {
             step("Unlock with the backup PIN") {
                 composeRule.waitForTag(RipDpiTestTags.screen(Route.BiometricPrompt))
+                // The backup PIN state loads after the screen appears; until then neither control exists.
+                composeRule.waitUntil(timeoutMillis = 10_000) {
+                    composeRule.tagExists(RipDpiTestTags.BiometricPromptPinField) ||
+                        composeRule.tagExists(RipDpiTestTags.BiometricPromptSecondaryAction)
+                }
                 if (!composeRule.tagExists(RipDpiTestTags.BiometricPromptPinField)) {
                     composeRule.onNode(hasTestTag(RipDpiTestTags.BiometricPromptSecondaryAction)).performClick()
                 }

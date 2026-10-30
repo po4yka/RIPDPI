@@ -11,6 +11,7 @@ import com.poyka.ripdpi.activities.LogSubsystem
 import com.poyka.ripdpi.ui.journeys.JourneyPage
 import com.poyka.ripdpi.ui.journeys.JourneyRule
 import com.poyka.ripdpi.ui.journeys.exists
+import com.poyka.ripdpi.ui.journeys.reveal
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 
@@ -83,7 +84,8 @@ internal class HistoryPage(
 
     fun diagnosticsStatusFilter(status: String): String = RipDpiTestTags.historyDiagnosticsStatusFilter(status)
 
-    fun textShown(text: String): Boolean = rule.exists(hasText(text, substring = true))
+    /** Scrolls through the lists first: on a small screen a matching row can sit below the fold, uncomposed. */
+    fun textShown(text: String): Boolean = rule.reveal(hasText(text, substring = true))
 
     fun filterCountShown(
         search: String,

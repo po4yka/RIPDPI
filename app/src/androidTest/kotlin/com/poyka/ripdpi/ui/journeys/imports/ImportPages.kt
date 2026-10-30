@@ -13,6 +13,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.journeys.JourneyPage
 import com.poyka.ripdpi.ui.journeys.JourneyRule
 import com.poyka.ripdpi.ui.journeys.exists
+import com.poyka.ripdpi.ui.journeys.reveal
 import com.poyka.ripdpi.ui.journeys.waitWithTree
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -24,11 +25,14 @@ internal fun string(
     vararg args: Any,
 ): String = InstrumentationRegistry.getInstrumentation().targetContext.getString(id, *args)
 
-/** Waits until a node shows exactly [text]; on timeout the failure carries the semantics tree. */
+/**
+ * Waits until a node shows exactly [text], scrolling it into composition on small screens; on timeout the failure
+ * carries the semantics tree.
+ */
 internal fun JourneyRule.awaitText(
     text: String,
     timeoutMillis: Long = ImportWaitMillis,
-) = waitWithTree("text '$text' never appeared", timeoutMillis) { exists(hasText(text)) }
+) = waitWithTree("text '$text' never appeared", timeoutMillis) { reveal(hasText(text)) }
 
 internal fun JourneyRule.textShown(text: String): Boolean = exists(hasText(text))
 
