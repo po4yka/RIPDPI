@@ -26,6 +26,7 @@ import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -196,7 +197,7 @@ class AwgV3EditorAcceptanceTest {
             JSONObject()
                 .put(
                     "version",
-                    "awg31_editor_render_v1",
+                    "awg31_editor_render_v2",
                 ).put("source_sha", source)
                 .put("build_commit", BuildConfig.GIT_COMMIT)
                 .put("nonce", nonce)
@@ -205,7 +206,7 @@ class AwgV3EditorAcceptanceTest {
                 .put("font_scale", fontScale.toDouble())
                 .put("layout_direction", direction)
                 .put("scope", "emulator_production_editor")
-                .put("pixel_scope", "application_compose_roots_excluding_system_ime")
+                .put("pixel_scope", "application_compose_content_excluding_system_ime")
                 .put("keyboard_oracle", "WindowInsetsCompat.Type.ime visibility")
                 .put("application_boundary", "Shared Hilt test application; production editor and import callbacks")
                 .put("images", images)
@@ -360,7 +361,15 @@ class AwgV3EditorAcceptanceTest {
                 it.window.attributes.flags and WindowManager.LayoutParams.FLAG_SECURE != 0,
             )
         }
-        val roots = compose.onAllNodes(isRoot())
+        val dialogs = compose.onAllNodes(isDialog())
+        val dialogCount = dialogs.fetchSemanticsNodes().size
+        assertEquals(
+            "The capture must select the expected window",
+            if (state == "preset-confirmation") 1 else 0,
+            dialogCount,
+        )
+        // A dialog's semantics root is above IsDialog; captureToImage needs the dialog node to select its own Window.
+        val roots = if (dialogCount == 1) dialogs else compose.onAllNodes(isRoot())
         val count = roots.fetchSemanticsNodes().size
         check(count > 0)
         repeat(count) { index ->
@@ -377,6 +386,7 @@ class AwgV3EditorAcceptanceTest {
             images.put(
                 JSONObject()
                     .put("state", state)
+                    .put("surface", if (dialogCount == 1) "dialog" else "activity")
                     .put("ime_visible", imeVisible())
                     .put("secure_window", true)
                     .put("root", index)
