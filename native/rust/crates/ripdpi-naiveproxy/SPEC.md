@@ -2,7 +2,7 @@
 
 ## Scope
 
-A subprocess helper that exposes a local SOCKS5 listener and tunnels TCP through an upstream HTTPS proxy via `CONNECT`. Distributed alongside the klzgrad/naiveproxy binary, but the helper itself runs as a separate process under the Android service supervisor.
+A subprocess helper that exposes a local SOCKS5 and HTTP CONNECT listener and tunnels TCP through an upstream NaiveProxy server via HTTP/2 `CONNECT`. The APK ships only this Rust helper, no klzgrad/naiveproxy or Chromium binary; it runs as a separate process under the Android service supervisor.
 
 See `docs/native/relay-naiveproxy-runtime.md` for the operational model.
 

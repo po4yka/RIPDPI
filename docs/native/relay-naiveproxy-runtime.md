@@ -66,44 +66,28 @@ These constraints remain intentional:
 
 ## Remaining Work
 
-The remaining work is operational validation rather than design uncertainty:
+The remaining work is validation outside this repository's local lanes:
 
-- broader field validation across upstream proxies and auth combinations
-- watchdog tuning based on real helper failure patterns
-- continued telemetry review to keep surfaced errors useful without leaking secrets
+- Android device evidence for the routed path: protected sockets, protected-DoH bootstrap during VPN start and network handover, and no direct target egress
+- capture-based comparison with the Chromium client (preamble, RST_STREAM padding, flow-control windows) before any traffic-parity decision
+- field validation across upstream servers and auth combinations
 
 ## Compatibility Matrix
-
-The current repo-owned validation and classification matrix is:
 
 | Surface | Current handling |
 | --- | --- |
 | Helper capability schema | `--probe` is required before each launch; only schema `1` is accepted |
-| Basic auth over HTTPS `CONNECT` | supported; credentials are redacted from surfaced logs |
-| Custom `X-Naive-Path` header | supported when configured |
-| Invalid upstream server name / TLS certificate failure | classified as `tls`; watchdog does not restart |
-| Upstream `407` or `Proxy-Authorization` failure | classified as `auth`; watchdog does not restart |
-| Upstream non-auth `CONNECT` rejection | classified as `http_connect`; watchdog does not restart |
-| DNS resolution failure | classified as `dns`; watchdog retries with slower backoff |
-| TCP connect/reset/timeout failures | classified as `connect`; watchdog retries |
-| Unstructured helper crash or generic runtime error | classified as `runtime` or `helper_exit`; watchdog retries within budget |
+| Upstream server | checked against klzgrad/forwardproxy `v2.11.7-naive2` on patched Caddy `v2.11.7` by the `independent-naiveproxy-*` acceptance scenarios |
+| Basic auth over HTTP/2 `CONNECT` | supported; credentials are redacted from surfaced logs |
+| Custom `X-Naive-Path` header | sent when configured; ignored by the pinned forwardproxy server |
+| Connection use | tunnels share one pooled HTTP/2 connection; 10 min age and 5 min idle retirement |
+| Server hostname under VPN | protected DoH, never system DNS |
+| TLS certificate or ALPN failure | classified as `tls` |
+| Upstream `407` | classified as `auth` |
+| Other non-200 `CONNECT` reply | classified as `http_connect` |
+| DNS resolution failure | classified as `dns` |
+| TCP connect/reset/timeout or socket permission failure | classified as `connect` |
 
 ## Watchdog Policy
 
-NaiveProxy restarts are now reason-aware instead of unconditional.
-
-Retryable classes:
-
-- `dns`
-- `connect`
-- `runtime`
-- `helper_exit`
-
-Terminal classes:
-
-- `auth`
-- `http_connect`
-- `tls`
-- `config`
-
-This keeps the helper responsive to transient path failures without looping on deterministic credential or TLS configuration problems.
+Failure classes describe single client streams: the helper keeps serving after any of them, and they show in relay telemetry until `RIPDPI-UPSTREAM-OK` clears them. They do not decide restarts. A startup failure throws out of `start()` and ends the relay. A helper that exits after startup is restarted with the same bounded budget (3 attempts in 60 seconds), whatever its last stream failure was.
