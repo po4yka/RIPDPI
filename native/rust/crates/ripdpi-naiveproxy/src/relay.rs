@@ -81,10 +81,10 @@ pub(crate) async fn run(config: NaiveProxyConfig) -> io::Result<()> {
 }
 
 /// Most client connections served at once; each holds a client socket and one
-/// CONNECT stream on the shared upstream HTTP/2 connection, so the limit stays
-/// at the Go/Caddy server's default of 250 concurrent streams. Further clients
-/// are closed at once, so they fail fast instead of queueing behind the
-/// server's stream limit or in the listen backlog.
+/// CONNECT stream on a pooled upstream HTTP/2 connection (the pool spreads them
+/// over more connections at the server's stream limit, see `session::INITIAL_MAX_STREAMS`). Further
+/// clients are closed at once, so they fail fast instead of waiting in the
+/// listen backlog for a tunnel to end.
 const MAX_CONCURRENT_TUNNELS: usize = 250;
 /// Pause after an accept failure caused by resource exhaustion.
 const ACCEPT_RETRY_DELAY: Duration = Duration::from_secs(1);

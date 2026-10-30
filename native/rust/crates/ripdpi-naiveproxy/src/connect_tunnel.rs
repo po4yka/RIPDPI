@@ -1,7 +1,9 @@
+use std::future::Future;
 use std::io;
 use std::net::SocketAddr;
 use std::pin::Pin;
 use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::task::{Context, Poll};
 use std::time::Duration;
 
@@ -17,7 +19,7 @@ use crate::h2_connect::{
     negotiate_payload_padding_from_response,
 };
 use crate::padding::{PaddingDecoder, PaddingEncoder};
-use crate::session::{Sender, Session, SessionPool};
+use crate::session::{INITIAL_MAX_STREAMS, Sender, Session, SessionPool};
 use crate::socks5::SocksTarget;
 
 pub trait AsyncTunnel: AsyncRead + AsyncWrite + Unpin + Send {}
@@ -58,9 +60,9 @@ const KEEPALIVE_INTERVAL: Duration = Duration::from_secs(10);
 const KEEPALIVE_TIMEOUT: Duration = Duration::from_secs(5);
 /// One shared connection carries many tunnels, so the connection window is well
 /// above hyper's 2 MiB stream window: a few tunnels whose clients stop reading
-/// cannot use it all and stall the others. It also bounds the buffered bytes.
-/// shortcut: sized like Chromium's session window, not measured on devices;
-/// tune after a throughput and memory comparison.
+/// cannot use it all and stall the others (see the unread-streams test). It
+/// also bounds the buffered bytes. shortcut: sized like Chromium's session
+/// window; throughput and memory on devices are not measured yet.
 const CONNECTION_WINDOW_BYTES: u32 = 16 * 1024 * 1024;
 
 /// Why one stream open failed: the connection itself, or only this stream.
@@ -107,7 +109,7 @@ async fn open_stream(
     session: Session,
     request: http::Request<http_body_util::Empty<bytes::Bytes>>,
 ) -> Result<Box<dyn AsyncTunnel>, StreamFailure> {
-    let _guard = DiscardOnDrop { pool, session: &session };
+    let guard = DiscardOnDrop { pool, session: &session };
     let response = session.sender.clone().send_request(request).await.map_err(|error| {
         let message = format!("failed to send NaiveProxy H2 CONNECT: {error}");
         // The error can arrive before the dispatcher notices the closed connection.
@@ -130,11 +132,51 @@ async fn open_stream(
             format!("failed to upgrade NaiveProxy H2 CONNECT: {error}"),
         ))
     })?;
-    let stream = TokioIo::new(upgraded);
+    drop(guard);
+    let stream = session.into_tunnel(TokioIo::new(upgraded));
     match padding_mode {
         PayloadPaddingMode::Plain => Ok(Box::new(stream)),
         PayloadPaddingMode::Variant1 => Ok(Box::new(NaivePaddingStream::new(stream))),
     }
+}
+
+/// The HTTP/2 client settings every upstream connection uses.
+fn h2_client_builder() -> hyper::client::conn::http2::Builder<TokioExecutor> {
+    let mut builder = hyper::client::conn::http2::Builder::new(TokioExecutor::new());
+    builder
+        .timer(TokioTimer::new())
+        .keep_alive_interval(KEEPALIVE_INTERVAL)
+        .keep_alive_timeout(KEEPALIVE_TIMEOUT)
+        .initial_connection_window_size(CONNECTION_WINDOW_BYTES);
+    builder
+}
+
+/// Drives a client connection's dispatcher and publishes the server's current
+/// stream limit, which hyper exposes only on the connection future.
+fn drive_connection<T>(
+    mut connection: hyper::client::conn::http2::Connection<T, http_body_util::Empty<bytes::Bytes>, TokioExecutor>,
+) -> Arc<AtomicUsize>
+where
+    T: hyper::rt::Read + hyper::rt::Write + Unpin + Send + 'static,
+{
+    let max_streams = Arc::new(AtomicUsize::new(INITIAL_MAX_STREAMS));
+    let published = Arc::clone(&max_streams);
+    // This dispatcher ends when the pool and every open stream drop their senders.
+    tokio::spawn(async move {
+        let result = std::future::poll_fn(|cx| {
+            let poll = Pin::new(&mut connection).poll(cx);
+            // Refreshed when the dispatcher wakes (a dispatch, readiness), not on
+            // every SETTINGS frame. Relaxed: a stale limit only spills a stream
+            // early or queues it briefly.
+            published.store(connection.current_max_send_streams(), Ordering::Relaxed);
+            poll
+        })
+        .await;
+        if let Err(error) = result {
+            eprintln!("{}", crate::errors::connection_failure_line(&io::Error::other(error)));
+        }
+    });
+    max_streams
 }
 
 /// Connects TCP, TLS and HTTP/2 to the server and starts the request dispatcher.
@@ -143,7 +185,7 @@ async fn open_stream(
 ///
 /// cancel-safe: dropping it drops the partial TCP/TLS/HTTP/2 connection;
 /// nothing awaits after the dispatcher starts.
-async fn connect_session(config: &NaiveProxyConfig) -> io::Result<Sender> {
+async fn connect_session(config: &NaiveProxyConfig) -> io::Result<(Sender, Arc<AtomicUsize>)> {
     // The protected connector tries every resolved address; TLS keeps `server_name`.
     let addresses = resolve_upstream(config).await?;
     let tcp =
@@ -164,24 +206,11 @@ async fn connect_session(config: &NaiveProxyConfig) -> io::Result<Sender> {
         return Err(io::Error::new(io::ErrorKind::InvalidData, "NaiveProxy server TLS did not negotiate h2 ALPN"));
     }
 
-    let (sender, connection) = hyper::client::conn::http2::Builder::new(TokioExecutor::new())
-        .timer(TokioTimer::new())
-        .keep_alive_interval(KEEPALIVE_INTERVAL)
-        .keep_alive_timeout(KEEPALIVE_TIMEOUT)
-        .initial_connection_window_size(CONNECTION_WINDOW_BYTES)
-        .handshake(TokioIo::new(tls))
-        .await
-        .map_err(|error| {
-            io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to negotiate NaiveProxy H2: {error}"))
-        })?;
-    // hyper's own connection task owns the socket; this dispatcher ends when the
-    // pool and every open stream drop their senders.
-    tokio::spawn(async move {
-        if let Err(error) = connection.await {
-            eprintln!("{}", crate::errors::connection_failure_line(&io::Error::other(error)));
-        }
-    });
-    Ok(sender)
+    let (sender, connection) = h2_client_builder().handshake(TokioIo::new(tls)).await.map_err(|error| {
+        io::Error::new(io::ErrorKind::ConnectionRefused, format!("failed to negotiate NaiveProxy H2: {error}"))
+    })?;
+    // hyper's own connection task owns the socket; this future is only the dispatcher.
+    Ok((sender, drive_connection(connection)))
 }
 
 /// Server addresses for the upstream dial. While the VPN protects sockets, a
@@ -341,8 +370,137 @@ mod tests {
 
     use tokio::io::{AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
+    use std::sync::Arc;
+    use std::sync::atomic::{AtomicUsize, Ordering};
+
     use super::NaivePaddingStream;
     use crate::padding::PaddingDecoder;
+
+    /// The pool's limit follows the server's SETTINGS_MAX_CONCURRENT_STREAMS,
+    /// so a server that allows fewer than the default 100 streams gets no more.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the test owns both pipe ends and the connection.
+    #[tokio::test]
+    async fn server_stream_limit_reaches_the_pool() {
+        use bytes::Bytes;
+        use http_body_util::Empty;
+        use hyper_util::rt::{TokioExecutor, TokioIo};
+
+        let (client_io, server_io) = tokio::io::duplex(64 * 1024);
+        tokio::spawn(async move {
+            let service = hyper::service::service_fn(|_request: http::Request<hyper::body::Incoming>| async {
+                Ok::<_, std::convert::Infallible>(http::Response::new(Empty::<Bytes>::new()))
+            });
+            let mut server = hyper::server::conn::http2::Builder::new(TokioExecutor::new());
+            server.max_concurrent_streams(2);
+            let _ = server.serve_connection(TokioIo::new(server_io), service).await;
+        });
+        let (sender, connection) = super::h2_client_builder().handshake(TokioIo::new(client_io)).await.expect("h2");
+        let max_streams = super::drive_connection(connection);
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(5);
+        while max_streams.load(Ordering::Relaxed) != 2 {
+            assert!(tokio::time::Instant::now() < deadline, "the server's SETTINGS limit never reached the pool");
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+
+        let pool = crate::session::SessionPool::default();
+        let connect = || {
+            let result = (sender.clone(), Arc::clone(&max_streams));
+            async move { Ok(result) }
+        };
+        let first = pool.session(connect).await.expect("first");
+        let second = pool.session(connect).await.expect("second");
+        assert_eq!(first.id, second.id);
+        let third = pool.session(connect).await.expect("third");
+        assert_ne!(third.id, first.id, "a stream past the server's limit goes to another connection");
+    }
+
+    /// Three streams whose readers stop fill their 2 MiB stream windows. With
+    /// hyper's default 5 MB connection window that would stall every other
+    /// stream on the connection; the helper's window leaves a sibling moving.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: the test owns both pipe ends and every stream.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn unread_streams_do_not_stall_a_sibling_on_the_shared_connection() {
+        use bytes::Bytes;
+        use http_body_util::Empty;
+        use hyper_util::rt::{TokioExecutor, TokioIo};
+
+        let (client_io, server_io) = tokio::io::duplex(1024 * 1024);
+        let filled = Arc::new(AtomicUsize::new(0));
+        let server_filled = Arc::clone(&filled);
+        tokio::spawn(async move {
+            let service = hyper::service::service_fn(move |request: http::Request<hyper::body::Incoming>| {
+                let filled = Arc::clone(&server_filled);
+                async move {
+                    let fill = request.uri().host() == Some("fill.test");
+                    let upgrade = hyper::upgrade::on(request);
+                    tokio::spawn(async move {
+                        let Ok(upgraded) = upgrade.await else { return };
+                        let mut stream = TokioIo::new(upgraded);
+                        if fill {
+                            // More than one stream window in 64 KiB writes; the client never reads it.
+                            let chunk = vec![0_u8; 64 * 1024];
+                            while stream.write_all(&chunk).await.is_ok() {
+                                filled.fetch_add(chunk.len(), Ordering::Relaxed);
+                            }
+                            std::future::pending::<()>().await;
+                        }
+                        let mut buffer = [0_u8; 64];
+                        while let Ok(read @ 1..) = stream.read(&mut buffer).await {
+                            if stream.write_all(&buffer[..read]).await.is_err() {
+                                break;
+                            }
+                        }
+                    });
+                    Ok::<_, std::convert::Infallible>(http::Response::new(Empty::<Bytes>::new()))
+                }
+            });
+            let mut server = hyper::server::conn::http2::Builder::new(TokioExecutor::new());
+            server.enable_connect_protocol().initial_connection_window_size(64 * 1024 * 1024);
+            let _ = server.serve_connection(TokioIo::new(server_io), service).await;
+        });
+        let (mut sender, connection) = super::h2_client_builder().handshake(TokioIo::new(client_io)).await.expect("h2");
+        drop(super::drive_connection(connection));
+        let connect = |host: &str| {
+            http::Request::builder()
+                .method(http::Method::CONNECT)
+                .uri(format!("{host}:443"))
+                .body(Empty::<Bytes>::new())
+                .expect("CONNECT request")
+        };
+
+        let mut unread = Vec::new();
+        for _ in 0..3 {
+            let response = sender.send_request(connect("fill.test")).await.expect("fill CONNECT");
+            unread.push(hyper::upgrade::on(response).await.expect("fill upgrade"));
+        }
+        // Wait until the unread streams hold 5 MiB, hyper's default connection
+        // window: with that window the sibling below would get no data.
+        let full = 5 * 1024 * 1024;
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(10);
+        while filled.load(Ordering::Relaxed) < full {
+            assert!(tokio::time::Instant::now() < deadline, "the unread streams never filled their windows");
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+        let response = sender.send_request(connect("echo.test")).await.expect("echo CONNECT");
+        let mut sibling = TokioIo::new(hyper::upgrade::on(response).await.expect("echo upgrade"));
+
+        let echoed = tokio::time::timeout(std::time::Duration::from_secs(3), async {
+            sibling.write_all(b"sibling").await.expect("write sibling");
+            let mut echoed = [0_u8; 7];
+            sibling.read_exact(&mut echoed).await.expect("read sibling");
+            echoed
+        })
+        .await
+        .expect("unread streams must not stall a sibling");
+        assert_eq!(&echoed, b"sibling");
+        drop(unread);
+    }
 
     #[tokio::test]
     /// # Cancel safety

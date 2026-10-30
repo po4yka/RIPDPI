@@ -80,7 +80,7 @@ The remaining work is validation outside this repository's local lanes:
 | Upstream server | checked against klzgrad/forwardproxy `v2.11.7-naive2` on patched Caddy `v2.11.7` by the `independent-naiveproxy-*` acceptance scenarios |
 | Basic auth over HTTP/2 `CONNECT` | supported; credentials are redacted from surfaced logs |
 | Custom `X-Naive-Path` header | sent when configured; ignored by the pinned forwardproxy server |
-| Connection use | tunnels share one pooled HTTP/2 connection; 10 min age and 5 min idle retirement |
+| Connection use | tunnels share a pooled HTTP/2 connection (up to the server's stream limit each, then another connection); 10 min age and 5 min idle retirement |
 | Server hostname under VPN | protected DoH, never system DNS |
 | TLS certificate or ALPN failure | classified as `tls` |
 | Upstream `407` | classified as `auth` |
