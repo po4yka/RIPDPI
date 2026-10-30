@@ -6,7 +6,7 @@ description: "RIPDPI Kaspresso UI journeys: launch-contract presets, page object
 # Kaspresso UI tests
 
 UI journeys are Kaspresso instrumented tests in `app/src/androidTest`, grouped by area under
-`com.poyka.ripdpi.ui.journeys.<area>` (settings, diagnostics, home). They replaced the Maestro and Appium suites.
+`com.poyka.ripdpi.ui.journeys.<area>` (settings, diagnostics, home).
 
 ## Write a journey
 
