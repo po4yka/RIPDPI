@@ -2611,10 +2611,11 @@ jobs:
             [diagnostics]=LogsKaspressoTest#severityAndSubsystemChipsFilterTheStream
             [home]=HomeKaspressoTest#modeCardsAppearAfterDiagnosticsDisclosureExpands
             [imports]=SubscriptionImportKaspressoTest#typedSubscriptionLinkIsSavedAndListedWhenTheFirstRefreshFails
+            [profiles]=ProfileEditorsKaspressoTest#savedMieruProfileReopensWithTheEnteredValues
           )
-          declare -A minimums=([settings]=26 [diagnostics]=23 [home]=14 [imports]=5)
+          declare -A minimums=([settings]=34 [diagnostics]=23 [home]=14 [imports]=5 [profiles]=4)
           status=0
-          for area in settings diagnostics home imports; do
+          for area in settings diagnostics home imports profiles; do
             results="$RUNNER_TEMP/android-ui-journeys-results/$area"
             if python3 scripts/ci/prebuilt_android_instrumentation.py run \
               --bundle "$RUNNER_TEMP/instrumentation-apks" --sha "$GITHUB_SHA" \
