@@ -28,6 +28,14 @@ jobs:
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
+      - name: Check the NaiveProxy upstream client pin
+        # Exit 2 means a newer upstream release exists; the scheduled run fails
+        # so that the pin is bumped before its Chrome fingerprint goes stale.
+        if: github.event_name != 'pull_request'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 scripts/ci/bump-naive-upstream.py --check
+
       - name: Verify SPEC_VERSION.md format
         run: python3 scripts/ci/verify_spec_versions.py --format-only
 

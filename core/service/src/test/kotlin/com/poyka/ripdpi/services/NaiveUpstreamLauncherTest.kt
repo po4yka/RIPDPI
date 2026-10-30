@@ -36,7 +36,7 @@ class NaiveUpstreamLauncherTest {
     private lateinit var baseDir: File
     private lateinit var delegate: RecordingDelegate
     private lateinit var resolver: RecordingResolver
-    private var versionLine: String? = "naive 154.0.8037.49"
+    private var versionLine: String? = NaiveUpstreamVersionPrefix
     private val pin = "a".repeat(64)
 
     @Before
@@ -248,7 +248,8 @@ class NaiveUpstreamLauncherTest {
     @Test
     fun `a version other than the pinned release is rejected before launch`() =
         runTest {
-            for (line in listOf(null, "naive 153.0.1.1", "naive 154.0.8037.491", "naive 154.0.8037.49.1", "garbage")) {
+            val pinned = NaiveUpstreamVersionPrefix
+            for (line in listOf(null, "naive 153.0.1.1", "${pinned}1", "$pinned.1", "garbage")) {
                 versionLine = line
                 delegate.failureClass = null
 
@@ -257,7 +258,7 @@ class NaiveUpstreamLauncherTest {
                 assertTrue(line.toString(), error is NaiveProxyCompatibilityException)
                 assertEquals("relay_compatibility", delegate.failureClass)
             }
-            versionLine = "naive 154.0.8037.49 (extra)"
+            versionLine = "$NaiveUpstreamVersionPrefix (extra)"
             resolver.result = NaiveProxyResolveResult.Resolved(listOf("203.0.113.7"))
             manager().start(config())
             assertEquals(1, delegate.starts)
