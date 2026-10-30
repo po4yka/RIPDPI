@@ -11,6 +11,9 @@ import com.poyka.ripdpi.data.uri.ProxyUriCodec
  * show a typed "unsupported scheme" error instead of crashing.
  */
 object ProxyUriShareDispatcher {
+    /** NaiveProxy over QUIC: recognised so the UI can say so, but the helper cannot run it. */
+    const val NaiveQuicScheme: String = "naive+quic"
+
     /**
      * Parses [uri] via [ProxyUriCodec] and wraps the result. The returned
      * [ProxyImportRequest.UnsupportedScheme.scheme] is the lower-cased scheme prefix when

@@ -260,6 +260,17 @@ object BackupAllowlist {
                 "mtu" to Classification.PUBLIC,
             )
 
+    private val naiveFields: Map<String, Classification> =
+        commonFields +
+            mapOf(
+                "server" to Classification.PUBLIC,
+                "serverPort" to Classification.PUBLIC,
+                // Username, password, and header values are credentials.
+                "username" to Classification.REDACTED,
+                "password" to Classification.REDACTED,
+                "extraHeaders" to Classification.REDACTED,
+            )
+
     private val sshFields: Map<String, Classification> =
         commonFields +
             mapOf(
@@ -291,6 +302,7 @@ object BackupAllowlist {
             "hysteria2" to hysteria2Fields,
             "anytls" to anyTlsFields,
             "mieru" to mieruFields,
+            "naive" to naiveFields,
             "ssh" to sshFields,
             "raw-config" to rawConfigFields,
         )

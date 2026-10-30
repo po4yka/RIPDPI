@@ -159,6 +159,15 @@ private fun profileSummary(profile: ProxyProfile): String =
             )
         }
 
+        is ProxyProfile.Naive -> {
+            stringResource(
+                R.string.import_profile_summary_endpoint,
+                "NaiveProxy",
+                profile.server,
+                profile.serverPort,
+            )
+        }
+
         is ProxyProfile.Ssh -> {
             stringResource(R.string.import_profile_summary_endpoint, "SSH", profile.server, profile.serverPort)
         }

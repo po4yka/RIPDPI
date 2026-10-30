@@ -35,6 +35,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.permissions.BatteryOptimizationIntents
 import com.poyka.ripdpi.proxyimport.ImportPayload
+import com.poyka.ripdpi.proxyimport.ProxyUriShareDispatcher
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -195,7 +196,12 @@ internal fun QrScannerScreen(
         uiState.decodeError?.let { redactedPreview ->
             WarningBanner(
                 title = stringResource(R.string.scanner_invalid_qr_title),
-                message = stringResource(R.string.scanner_invalid_qr_body, redactedPreview),
+                message =
+                    if (redactedPreview.startsWith(ProxyUriShareDispatcher.NaiveQuicScheme, ignoreCase = true)) {
+                        stringResource(R.string.import_error_naive_quic)
+                    } else {
+                        stringResource(R.string.scanner_invalid_qr_body, redactedPreview)
+                    },
                 tone = WarningBannerTone.Warning,
                 onDismiss = onDismissError,
             )

@@ -2167,6 +2167,10 @@ Origen: %2$s</string>
     <string name="config_relay_naive_path">Ruta HTTP (opcional)</string>
     <string name="config_relay_naive_path_helper">Déjalo vacío para el endpoint CONNECT predeterminado, o usa una ruta absoluta como /proxy.</string>
     <string name="config_relay_naive_path_error_absolute">La ruta debe empezar por /.</string>
+    <string name="config_relay_naive_extra_headers">Cabeceras adicionales (opcional)</string>
+    <string name="config_relay_naive_extra_headers_helper">Una cabecera por línea con el formato Name: value. Se envían con cada solicitud CONNECT. Los valores se guardan cifrados.</string>
+    <string name="config_relay_naive_extra_headers_error_invalid">Usa una cabecera Name: value válida por línea (máximo 16 y 4096 bytes en total).</string>
+    <string name="config_relay_naive_extra_headers_error_reserved">La aplicación define este nombre de cabecera y no se puede sustituir.</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_client_certificate_chain_helper">Pega la cadena PEM o importa un archivo de certificado.</string>
     <string name="config_relay_masque_http2">Permitir respaldo HTTP/2 TCP</string>
@@ -2579,6 +2583,7 @@ Origen: %2$s</string>
 
     <!-- Proxy import: share-sheet handler, sing-box deep links, QR scanner. -->
     <string name="import_error_unsupported">Enlace de importación no compatible.</string>
+    <string name="import_error_naive_quic">NaiveProxy sobre QUIC (naive+quic) no es compatible. Usa un enlace naive+https.</string>
     <string name="import_error_missing_url">Al enlace de importación le falta la URL de suscripción.</string>
     <string name="import_error_bad_encoding">El enlace de importación está mal formado.</string>
     <string name="import_profile_confirm_title">Importar perfil</string>

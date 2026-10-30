@@ -149,6 +149,31 @@ class SelectorRelayProfileMappingTest {
     }
 
     @Test
+    fun `naive profile activates as naiveproxy with its credentials and empty password`() {
+        val naive =
+            ProxyProfile.Naive(
+                id = "naive",
+                displayName = "Naive",
+                groupId = "group-a",
+                server = "relay.example",
+                serverPort = 8443,
+                username = "alice",
+                password = "",
+                extraHeaders = "X-Token: s3cret",
+            )
+
+        val mapped = checkNotNull(mapRelayProfile(naive))
+
+        assertEquals(RelayKindNaiveProxy, mapped.profile.kind)
+        assertEquals("relay.example", mapped.profile.serverName)
+        assertEquals(8443, mapped.profile.serverPort)
+        assertEquals("alice", mapped.credentials.naiveUsername)
+        assertEquals("", mapped.credentials.naivePassword)
+        assertEquals("X-Token: s3cret", mapped.credentials.naiveExtraHeaders)
+        assertFalse(mapped.profile.udpEnabled)
+    }
+
+    @Test
     fun `hysteria hopping is public profile configuration and affects selector identity`() {
         val hopping = Hysteria2PortHopping("5000-5002", 5000, 15000)
         val scalar = ProxyProfile.Hysteria2("hy", "hy", "group", "peer.example", 443, "fixture-password")

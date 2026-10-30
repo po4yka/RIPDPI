@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.DefaultRelayLocalSocksPort
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.DefaultSnowflakeBrokerUrl
 import com.poyka.ripdpi.data.DefaultSnowflakeFrontDomain
+import com.poyka.ripdpi.data.NaiveExtraHeadersResult
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialRepository
@@ -25,6 +26,7 @@ import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
 import com.poyka.ripdpi.data.normalizeRelayCongestionControl
 import com.poyka.ripdpi.data.normalizeRelayFinalmaskType
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
+import com.poyka.ripdpi.data.parseNaiveExtraHeaders
 
 internal fun ConfigDraft.withRelayArtifacts(
     profile: RelayProfileRecord?,
@@ -70,6 +72,7 @@ internal fun ConfigDraft.withRelayArtifacts(
         relaySshStrictHostKey = profile?.sshStrictHostKey ?: relaySshStrictHostKey,
         relayNaiveUsername = credentials?.naiveUsername.orEmpty(),
         relayNaivePassword = credentials?.naivePassword.orEmpty(),
+        relayNaiveExtraHeaders = credentials?.naiveExtraHeaders.orEmpty(),
         relayCloudflareCredentialsRef =
             profile
                 ?.cloudflareCredentialsRef
@@ -260,7 +263,9 @@ internal fun ConfigDraft.toRelayCredentialRecord(profileId: String): RelayCreden
                 source?.sshPrivateKeyPassphrase,
             ),
         naiveUsername = relayNaiveUsername.ifBlank { null },
-        naivePassword = relayNaivePassword.ifBlank { null },
+        // A username with an empty password is an authenticated identity, not "no auth".
+        naivePassword = if (relayNaiveUsername.isBlank()) null else relayNaivePassword,
+        naiveExtraHeaders = naiveExtraHeadersOrNull(relayNaiveExtraHeaders),
         masqueAuthMode = normalizeRelayMasqueAuthMode(relayMasqueAuthMode),
         masqueAuthToken = relayMasqueAuthToken.ifBlank { null },
         masqueClientCertificateChainPem = relayMasqueClientCertificateChainPem.ifBlank { null },
@@ -269,6 +274,9 @@ internal fun ConfigDraft.toRelayCredentialRecord(profileId: String): RelayCreden
         cloudflareTunnelCredentialsJson = relayCloudflareTunnelCredentialsJson.ifBlank { null },
     )
 }
+
+private fun naiveExtraHeadersOrNull(raw: String): String? =
+    (parseNaiveExtraHeaders(raw) as? NaiveExtraHeadersResult.Valid)?.normalized?.ifEmpty { null }
 
 private fun ConfigDraft.kindCredential(
     profileId: String,
@@ -324,6 +332,7 @@ private fun ConfigDraft.discardReboundRelaySource(previous: ConfigDraft): Config
                 relaySshHostKeyFingerprint = "",
                 relayNaiveUsername = "",
                 relayNaivePassword = "",
+                relayNaiveExtraHeaders = "",
                 relayMasqueAuthToken = "",
                 relayMasqueClientCertificateChainPem = "",
                 relayMasqueClientPrivateKeyPem = "",

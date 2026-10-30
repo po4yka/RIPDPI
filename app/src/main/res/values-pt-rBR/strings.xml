@@ -662,6 +662,10 @@
     <string name="config_relay_naive_path">Caminho HTTP (opcional)</string>
     <string name="config_relay_naive_path_helper">Deixe em branco para usar o endpoint CONNECT padrão, ou informe um caminho absoluto como /proxy.</string>
     <string name="config_relay_naive_path_error_absolute">O caminho deve começar com /.</string>
+    <string name="config_relay_naive_extra_headers">Cabeçalhos extras (opcional)</string>
+    <string name="config_relay_naive_extra_headers_helper">Um cabeçalho por linha no formato Name: value. Enviados em cada solicitação CONNECT. Os valores são armazenados criptografados.</string>
+    <string name="config_relay_naive_extra_headers_error_invalid">Use um cabeçalho Name: value válido por linha (no máximo 16 e 4096 bytes no total).</string>
+    <string name="config_relay_naive_extra_headers_error_reserved">O app define este nome de cabeçalho e ele não pode ser substituído.</string>
     <string name="config_relay_chain_editor_intro">Monte uma cadeia ordenada de perfis de retransmissão salvos. O primeiro salto é a entrada e o último é a saída. Mantenha pressionado um salto para arrastá-lo até a posição desejada. UDP fica desativado em cadeias.</string>
     <string name="config_relay_chain_hop_entry">Salto %1$d · Entrada</string>
     <string name="config_relay_chain_hop_exit">Salto %1$d · Saída</string>
@@ -2659,6 +2663,7 @@ Fonte: %2$s</string>
     <string name="update_error_not_available">nenhuma atualização verificada está disponível</string>
     <string name="update_error_unknown">erro inesperado</string>
     <string name="import_error_unsupported">Link de importação não suportado.</string>
+    <string name="import_error_naive_quic">NaiveProxy sobre QUIC (naive+quic) não é compatível. Use um link naive+https.</string>
     <string name="import_error_missing_url">O link de importação não contém uma URL de assinatura.</string>
     <string name="import_error_bad_encoding">O link de importação está malformado.</string>
     <string name="import_profile_confirm_title">Importar perfil</string>

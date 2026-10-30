@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMieru
+import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelayKindTrojan
@@ -46,6 +47,7 @@ object RelayProfileShareMapper {
             RelayKindAnyTls -> toAnyTls(credentials)
             RelayKindShadowsocks -> toShadowsocks(credentials)
             RelayKindMieru -> toMieru(credentials)
+            RelayKindNaiveProxy -> toNaiveShareProfile(server, serverPort, shareName(), credentials)
             RelayKindSsh -> toSsh(credentials)
             else -> null
         }

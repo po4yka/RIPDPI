@@ -68,6 +68,8 @@
                 <data android:scheme="ssh" />
                 <data android:scheme="hy2" />
                 <data android:scheme="mieru" />
+                <data android:scheme="naive+https" />
+                <data android:scheme="naive+quic" />
             </intent-filter>
             <intent-filter android:priority="-100">
                 <action android:name="android.intent.action.VIEW" />

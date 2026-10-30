@@ -94,6 +94,17 @@ class BackupAllowlistCoverageTest {
                     username = "user",
                     password = "pw",
                 ),
+            "naive" to
+                ProxyProfile.Naive(
+                    id = "naive-1",
+                    displayName = "Naive",
+                    groupId = "g-1",
+                    server = "naive.example.com",
+                    serverPort = 443,
+                    username = "user",
+                    password = "pw",
+                    extraHeaders = "X-A: b",
+                ),
             "ssh" to
                 ProxyProfile.Ssh(
                     id = "ssh-1",

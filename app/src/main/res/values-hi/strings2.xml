@@ -974,6 +974,7 @@
     <string name="update_error_not_available">कोई जाँचा गया अपडेट उपलब्ध नहीं है</string>
     <string name="update_error_unknown">अप्रत्याशित त्रुटि</string>
     <string name="import_error_unsupported">असमर्थित आयात लिंक।</string>
+    <string name="import_error_naive_quic">QUIC पर NaiveProxy (naive+quic) समर्थित नहीं है। naive+https लिंक का उपयोग करें।</string>
     <string name="import_error_missing_url">आयात लिंक में सदस्यता URL मौजूद नहीं है।</string>
     <string name="import_error_bad_encoding">आयात लिंक विकृत है।</string>
     <string name="import_profile_confirm_title">प्रोफ़ाइल आयात करें</string>

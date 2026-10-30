@@ -182,6 +182,7 @@ data class ConfigDraft(
     val relayNaiveUsername: String = "",
     val relayNaivePassword: String = "",
     val relayNaivePath: String = "",
+    val relayNaiveExtraHeaders: String = "",
     val relayPtBridgeLine: String = "",
     val relayWebTunnelUrl: String = "",
     val relaySnowflakeBrokerUrl: String = DefaultSnowflakeBrokerUrl,
@@ -450,6 +451,7 @@ internal const val ConfigFieldRelayServer = "relayServer"
 internal const val ConfigFieldRelayChain = "relayChain"
 internal const val ConfigFieldRelayCredentials = "relayCredentials"
 internal const val ConfigFieldRelayNaivePath = "relayNaivePath"
+internal const val ConfigFieldRelayNaiveExtraHeaders = "relayNaiveExtraHeaders"
 internal const val ConfigFieldRelayCloudflarePublishOrigin = "relayCloudflarePublishOrigin"
 internal const val ConfigFieldRelayFinalmask = "relayFinalmask"
 

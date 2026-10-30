@@ -113,6 +113,33 @@ class ProxyUriCodecTest {
     }
 
     @Test
+    fun `parses naive https link with empty password headers and name`() {
+        val uri =
+            "naive+https://alice:@n.example.com:8443/?padding=true" +
+                "&extra-headers=X-Token%3A%20s3cret%0D%0AX-Other%3A%20v#My%20Naive"
+
+        val profile = ProxyUriCodec.parse(uri) as ProxyProfile.Naive
+
+        assertEquals("n.example.com", profile.server)
+        assertEquals(8443, profile.serverPort)
+        assertEquals("alice", profile.username)
+        assertEquals("", profile.password)
+        assertEquals("X-Token: s3cret\r\nX-Other: v", profile.extraHeaders)
+        assertEquals("My Naive", profile.displayName)
+        val reparsed = ProxyUriCodec.parse(ProxyUriCodec.encode(profile)) as ProxyProfile.Naive
+        assertEquals(profile.copy(id = ""), reparsed.copy(id = ""))
+    }
+
+    @Test
+    fun `naive link defaults the port and rejects bad input`() {
+        assertEquals(443, (ProxyUriCodec.parse("naive+https://u:p@h.example") as ProxyProfile.Naive).serverPort)
+        assertNull("no userinfo", ProxyUriCodec.parse("naive+https://h.example:443"))
+        assertNull("reserved header", ProxyUriCodec.parse("naive+https://u:p@h.example?extra-headers=Host%3A%20x"))
+        assertNull("malformed header", ProxyUriCodec.parse("naive+https://u:p@h.example?extra-headers=nocolon"))
+        assertNull("QUIC is not runnable", ProxyUriCodec.parse("naive+quic://u:p@h.example:443"))
+    }
+
+    @Test
     fun `parses ssh password-auth uri into an ssh profile`() {
         val uri = "ssh://ssh-user:ssh-pass-fixture@vps.example.com:22?auth=password&fp=SHA256:abc&strict=1#Bastion"
 

@@ -2167,6 +2167,10 @@ Source : %2$s</string>
     <string name="config_relay_naive_path">Chemin HTTP (facultatif)</string>
     <string name="config_relay_naive_path_helper">Laisser vide pour le point de terminaison CONNECT par défaut, ou utiliser un chemin absolu comme /proxy.</string>
     <string name="config_relay_naive_path_error_absolute">Le chemin doit commencer par /.</string>
+    <string name="config_relay_naive_extra_headers">En-têtes supplémentaires (facultatif)</string>
+    <string name="config_relay_naive_extra_headers_helper">Un en-tête par ligne au format Name: value. Envoyés avec chaque requête CONNECT. Les valeurs sont stockées chiffrées.</string>
+    <string name="config_relay_naive_extra_headers_error_invalid">Utilisez un en-tête Name: value valide par ligne (16 au maximum, 4096 octets au total).</string>
+    <string name="config_relay_naive_extra_headers_error_reserved">Ce nom d\'en-tête est défini par l\'application et ne peut pas être remplacé.</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_client_certificate_chain_helper">Collez la chaîne PEM ou importez un fichier de certificat.</string>
     <string name="config_relay_masque_http2">Autoriser le repli TCP HTTP/2</string>
@@ -2579,6 +2583,7 @@ Source : %2$s</string>
 
     <!-- Proxy import: share-sheet handler, sing-box deep links, QR scanner. -->
     <string name="import_error_unsupported">Lien d\'import non pris en charge.</string>
+    <string name="import_error_naive_quic">NaiveProxy sur QUIC (naive+quic) n\'est pas pris en charge. Utilisez un lien naive+https.</string>
     <string name="import_error_missing_url">Le lien d\'import ne contient pas d\'URL d\'abonnement.</string>
     <string name="import_error_bad_encoding">Le lien d\'import est mal formé.</string>
     <string name="import_profile_confirm_title">Importer un profil</string>

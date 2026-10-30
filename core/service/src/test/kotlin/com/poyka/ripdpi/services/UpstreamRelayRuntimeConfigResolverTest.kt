@@ -515,6 +515,7 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
                                     profileId = "naive",
                                     naiveUsername = "alice",
                                     naivePassword = "secret",
+                                    naiveExtraHeaders = "X-Token: s3cret",
                                 ),
                             )
                         },
@@ -545,6 +546,7 @@ class UpstreamRelayRuntimeConfigResolverExternalFamiliesTest : UpstreamRelayRunt
             assertEquals(13000, resolved.localSocksPort)
             assertEquals("alice", resolved.naiveUsername)
             assertEquals("secret", resolved.naivePassword)
+            assertEquals("X-Token: s3cret", resolved.naiveExtraHeaders)
         }
 
     @Test

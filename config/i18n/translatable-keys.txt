@@ -758,6 +758,10 @@ app:config_relay_masque_privacy_pass_invalid_provider
 app:config_relay_masque_privacy_pass_missing_provider
 app:config_relay_masque_token
 app:config_relay_masque_url
+app:config_relay_naive_extra_headers
+app:config_relay_naive_extra_headers_error_invalid
+app:config_relay_naive_extra_headers_error_reserved
+app:config_relay_naive_extra_headers_helper
 app:config_relay_naive_password
 app:config_relay_naive_password_helper
 app:config_relay_naive_path
@@ -3465,6 +3469,7 @@ app:import_clipboard_unknown_with_scheme
 app:import_confirm_add_action
 app:import_error_bad_encoding
 app:import_error_missing_url
+app:import_error_naive_quic
 app:import_error_unsupported
 app:import_profile_confirm_empty_body
 app:import_profile_confirm_empty_title

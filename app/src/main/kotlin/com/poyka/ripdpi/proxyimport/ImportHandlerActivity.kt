@@ -153,7 +153,7 @@ class ImportHandlerActivity : Activity() {
             }
 
             is ProxyImportRequest.UnsupportedScheme -> {
-                toast(R.string.import_error_unsupported)
+                toast(unsupportedMessage(request.scheme))
             }
         }
     }
@@ -182,7 +182,8 @@ class ImportHandlerActivity : Activity() {
             }
 
             else -> {
-                toast(R.string.import_error_unsupported)
+                val text = intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString().orEmpty()
+                toast(unsupportedMessage(ProxyUriShareDispatcher.schemeOf(text)))
                 false
             }
         }
@@ -206,6 +207,13 @@ class ImportHandlerActivity : Activity() {
             finish()
         }
     }
+
+    private fun unsupportedMessage(scheme: String): Int =
+        if (scheme == ProxyUriShareDispatcher.NaiveQuicScheme) {
+            R.string.import_error_naive_quic
+        } else {
+            R.string.import_error_unsupported
+        }
 
     private fun forward(payload: ImportPayload) {
         when (payload) {

@@ -2100,6 +2100,10 @@ fake_burst 3</string>
     <string name="config_relay_naive_path">HTTP 路径（可选）</string>
     <string name="config_relay_naive_path_helper">留空以使用默认 CONNECT 端点，或使用 /proxy 这样的绝对路径。</string>
     <string name="config_relay_naive_path_error_absolute">路径必须以 / 开头。</string>
+    <string name="config_relay_naive_extra_headers">额外请求头（可选）</string>
+    <string name="config_relay_naive_extra_headers_helper">每行一个请求头，格式为 Name: value。随每个 CONNECT 请求发送。值以加密方式存储。</string>
+    <string name="config_relay_naive_extra_headers_error_invalid">每行使用一个有效的 Name: value 请求头（最多 16 个，总计不超过 4096 字节）。</string>
+    <string name="config_relay_naive_extra_headers_error_reserved">此请求头名称由应用设置，不能覆盖。</string>
     <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
     <string name="config_relay_local_port_helper">主 RIPDPI 代理链接到此回环监听器。</string>
     <string name="config_relay_masque_auth_preshared">预共享</string>
@@ -2576,6 +2580,7 @@ fake_burst 3</string>
 
     <!-- Proxy import: share-sheet handler, sing-box deep links, QR scanner. -->
     <string name="import_error_unsupported">不支持的导入链接。</string>
+    <string name="import_error_naive_quic">不支持基于 QUIC 的 NaiveProxy（naive+quic）。请使用 naive+https 链接。</string>
     <string name="import_error_missing_url">导入链接缺少订阅 URL。</string>
     <string name="import_error_bad_encoding">导入链接格式错误。</string>
     <string name="import_profile_confirm_title">导入配置文件</string>

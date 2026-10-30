@@ -4,8 +4,10 @@ import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
 import com.poyka.ripdpi.core.RipDpiRelayRuntime
 import com.poyka.ripdpi.core.localSocksCredentialsOrNull
 import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.NaiveExtraHeadersResult
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
+import com.poyka.ripdpi.data.parseNaiveExtraHeaders
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -63,6 +65,12 @@ internal fun naiveProxyCommandArguments(config: ResolvedRipDpiRelayConfig): List
         }
     }
 
+private fun naiveExtraHeaderRedactions(headers: String): List<String> =
+    when (val parsed = parseNaiveExtraHeaders(headers)) {
+        is NaiveExtraHeadersResult.Valid -> parsed.values
+        is NaiveExtraHeadersResult.Invalid -> listOf(headers).filter(String::isNotBlank)
+    }
+
 internal fun naiveProxyCredentialsStdin(config: ResolvedRipDpiRelayConfig): ByteArray {
     val localCredentials =
         requireNotNull(localSocksCredentialsOrNull(config.localSocksUsername, config.localSocksPassword)) {
@@ -77,6 +85,8 @@ internal fun naiveProxyCredentialsStdin(config: ResolvedRipDpiRelayConfig): Byte
         append(encoder.encodeToString(localCredentials.username.toByteArray(Charsets.UTF_8)))
         append('\n')
         append(encoder.encodeToString(localCredentials.password.toByteArray(Charsets.UTF_8)))
+        append('\n')
+        append(encoder.encodeToString(config.naiveExtraHeaders.toByteArray(Charsets.UTF_8)))
         append('\n')
     }.toByteArray(Charsets.UTF_8)
 }
@@ -106,7 +116,7 @@ open class NaiveProxyManager
                             config.naivePassword,
                             config.localSocksUsername,
                             config.localSocksPassword,
-                        ),
+                        ) + naiveExtraHeaderRedactions(config.naiveExtraHeaders),
                     commandArguments = naiveProxyCommandArguments(config),
                     standardInput = naiveProxyCredentialsStdin(config),
                 )

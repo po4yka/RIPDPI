@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.proxyimport.ProxyUriShareDispatcher
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
 import com.poyka.ripdpi.ui.components.feedback.RipDpiContextMenu
@@ -94,6 +95,8 @@ private fun ClipboardImportErrorBanner(
             message =
                 if (unknownContentScheme.isEmpty()) {
                     stringResource(R.string.import_clipboard_unknown_no_scheme)
+                } else if (unknownContentScheme == ProxyUriShareDispatcher.NaiveQuicScheme) {
+                    stringResource(R.string.import_error_naive_quic)
                 } else {
                     stringResource(R.string.import_clipboard_unknown_with_scheme, unknownContentScheme)
                 }

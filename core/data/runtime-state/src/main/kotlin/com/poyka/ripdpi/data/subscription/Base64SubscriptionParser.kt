@@ -123,6 +123,7 @@ object Base64SubscriptionParser {
             is ProxyProfile.AnyTls -> profile.copy(groupId = groupId)
             is ProxyProfile.Mieru -> profile.copy(groupId = groupId)
             is ProxyProfile.Ssh -> profile.copy(groupId = groupId)
+            is ProxyProfile.Naive -> profile.copy(groupId = groupId)
             is ProxyProfile.RawConfig -> profile.copy(groupId = groupId)
         }
 }

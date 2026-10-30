@@ -591,6 +591,33 @@ class ConfigViewModelTest {
     }
 
     @Test
+    fun `relay validation accepts naiveproxy username with empty password`() {
+        val errors = validateConfigDraft(validNaiveProxyDraft(relayNaivePath = "").copy(relayNaivePassword = ""))
+        val passwordOnly =
+            validateConfigDraft(
+                validNaiveProxyDraft(relayNaivePath = "").copy(relayNaiveUsername = "", relayNaivePassword = "x"),
+            )
+
+        assertEquals(null, errors[ConfigFieldRelayCredentials])
+        assertEquals("required", passwordOnly[ConfigFieldRelayCredentials])
+    }
+
+    @Test
+    fun `relay validation mirrors helper rules for naiveproxy extra headers`() {
+        fun errorFor(headers: String): String? =
+            validateConfigDraft(validNaiveProxyDraft(relayNaivePath = "").copy(relayNaiveExtraHeaders = headers))[
+                ConfigFieldRelayNaiveExtraHeaders,
+            ]
+
+        assertEquals(null, errorFor(""))
+        assertEquals(null, errorFor("X-Token: a\nX-Other: b"))
+        assertEquals("invalid_headers", errorFor("no colon here"))
+        assertEquals("invalid_headers", errorFor("bad name: v"))
+        assertEquals("reserved_header", errorFor("Proxy-Authorization: Basic eA=="))
+        assertEquals("invalid_headers", errorFor((1..17).joinToString("\n") { "x-$it: v" }))
+    }
+
+    @Test
     fun `relay validation accepts naiveproxy blank or absolute path`() {
         val blankPathErrors =
             validateConfigDraft(

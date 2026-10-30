@@ -74,6 +74,7 @@ private fun relayKindFor(profile: ProxyProfile): String? =
         is ProxyProfile.Hysteria2 -> RelayKindHysteria2
         is ProxyProfile.Ssh -> RelayKindSsh
         is ProxyProfile.Mieru -> RelayKindMieru
+        is ProxyProfile.Naive -> RelayKindNaiveProxy
         else -> null
     }
 
@@ -153,6 +154,10 @@ private fun relayEndpoint(profile: ProxyProfile): RelayActivationEndpoint =
             RelayActivationEndpoint(profile.server, profile.serverPort, profile.server)
         }
 
+        is ProxyProfile.Naive -> {
+            RelayActivationEndpoint(profile.server, profile.serverPort, profile.server)
+        }
+
         else -> {
             error("unsupported relay activation profile ${profile::class.simpleName}")
         }
@@ -220,6 +225,16 @@ private fun relayCredentials(
                 profileId = profileId,
                 mieruUsername = profile.username,
                 mieruPassword = profile.password,
+            )
+        }
+
+        is ProxyProfile.Naive -> {
+            RelayCredentialRecord(
+                updatedAtEpochMillis = 0L,
+                profileId = profileId,
+                naiveUsername = profile.username,
+                naivePassword = profile.password,
+                naiveExtraHeaders = profile.extraHeaders.ifEmpty { null },
             )
         }
 

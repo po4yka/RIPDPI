@@ -79,6 +79,7 @@ private fun ProxyProfile.endpointKey(): String =
         is ProxyProfile.Hysteria2 -> "hysteria2|$server|$serverPort"
         is ProxyProfile.AnyTls -> "anytls|$server|$serverPort"
         is ProxyProfile.Mieru -> "mieru|$server|$serverPort"
+        is ProxyProfile.Naive -> "naive|$server|$serverPort"
         is ProxyProfile.Ssh -> "ssh|$server|$serverPort"
         is ProxyProfile.RawConfig -> "raw|$id"
     }
@@ -93,6 +94,7 @@ private fun ProxyProfile.withId(newId: String): ProxyProfile =
         is ProxyProfile.Hysteria2 -> copy(id = newId)
         is ProxyProfile.AnyTls -> copy(id = newId)
         is ProxyProfile.Mieru -> copy(id = newId)
+        is ProxyProfile.Naive -> copy(id = newId)
         is ProxyProfile.Ssh -> copy(id = newId)
         is ProxyProfile.RawConfig -> copy(id = newId)
     }

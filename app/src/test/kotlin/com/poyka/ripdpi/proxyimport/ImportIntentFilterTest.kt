@@ -64,6 +64,8 @@ class ImportIntentFilterTest {
                 "ssh://user@example.com:22",
                 "hy2://pass@example.com:443",
                 "mieru://user:pass@example.com:443",
+                "naive+https://user:pass@example.com:443",
+                "naive+quic://user:pass@example.com:443",
             )
         schemes.forEach { uri ->
             assertEquals(

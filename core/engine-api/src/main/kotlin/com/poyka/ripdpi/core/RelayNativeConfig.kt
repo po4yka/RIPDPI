@@ -216,6 +216,7 @@ data class ResolvedRipDpiRelayConfig(
     val sshHostKeyFingerprint: String? = null,
     val sshStrictHostKey: Boolean = false,
     // Android helper launch inputs; the native flat schema has no such fields.
+    @Transient val naiveExtraHeaders: String = "",
     @Transient val ptBridgeLine: String = "",
     @Transient val ptWebTunnelUrl: String = "",
     @Transient val ptSnowflakeBrokerUrl: String = "",
@@ -511,6 +512,7 @@ private fun ResolvedRipDpiRelayConfig.pluggableTransportSection(): RelayPluggabl
         naivePath = naivePath,
         naiveUsername = naiveUsername,
         naivePassword = naivePassword,
+        naiveExtraHeaders = naiveExtraHeaders,
         ptBridgeLine = ptBridgeLine,
         ptWebTunnelUrl = ptWebTunnelUrl,
         ptSnowflakeBrokerUrl = ptSnowflakeBrokerUrl,
@@ -728,6 +730,7 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         shadowsocksPassword = shadowsocks.shadowsocksPassword,
         naiveUsername = pluggableTransport.naiveUsername,
         naivePassword = pluggableTransport.naivePassword,
+        naiveExtraHeaders = pluggableTransport.naiveExtraHeaders,
         tlsFingerprintProfile = common.tlsFingerprintProfile,
         masqueAuthMode = masque.masqueAuthMode,
         masqueAuthToken = masque.masqueAuthToken,

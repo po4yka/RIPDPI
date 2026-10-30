@@ -659,6 +659,10 @@
     <string name="config_relay_naive_path">HTTP पथ (वैकल्पिक)</string>
     <string name="config_relay_naive_path_helper">डिफ़ॉल्ट CONNECT एंडपॉइंट के लिए खाली छोड़ें, या /proxy जैसे पूर्ण पथ का उपयोग करें।</string>
     <string name="config_relay_naive_path_error_absolute">पथ / से शुरू होना चाहिए।</string>
+    <string name="config_relay_naive_extra_headers">अतिरिक्त हेडर (वैकल्पिक)</string>
+    <string name="config_relay_naive_extra_headers_helper">प्रति पंक्ति एक हेडर, Name: value प्रारूप में। हर CONNECT अनुरोध के साथ भेजा जाता है। मान एन्क्रिप्टेड रूप में सहेजे जाते हैं।</string>
+    <string name="config_relay_naive_extra_headers_error_invalid">प्रति पंक्ति एक मान्य Name: value हेडर उपयोग करें (अधिकतम 16, कुल 4096 बाइट)।</string>
+    <string name="config_relay_naive_extra_headers_error_reserved">यह हेडर नाम ऐप तय करता है और इसे बदला नहीं जा सकता।</string>
     <string name="config_relay_chain_editor_intro">सहेजी गई रिले प्रोफ़ाइलों की एक क्रमबद्ध चेन बनाएँ। पहला हॉप एंट्री है, अंतिम एग्ज़िट है। किसी हॉप को जगह पर खींचने के लिए उसे लॉन्ग-प्रेस करें। चेन के लिए UDP अक्षम है।</string>
     <string name="config_relay_chain_hop_entry">हॉप %1$d · एंट्री</string>
     <string name="config_relay_chain_hop_exit">हॉप %1$d · एग्ज़िट</string>

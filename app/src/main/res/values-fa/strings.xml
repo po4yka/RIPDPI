@@ -660,6 +660,10 @@
     <string name="config_relay_naive_path">مسیر HTTP (اختیاری)</string>
     <string name="config_relay_naive_path_helper">برای نقطه پایانی پیش‌فرض CONNECT خالی بگذارید، یا یک مسیر مطلق مانند /proxy وارد کنید.</string>
     <string name="config_relay_naive_path_error_absolute">مسیر باید با / شروع شود.</string>
+    <string name="config_relay_naive_extra_headers">سرصفحه‌های اضافی (اختیاری)</string>
+    <string name="config_relay_naive_extra_headers_helper">هر سرصفحه در یک خط با قالب Name: value. با هر درخواست CONNECT ارسال می‌شود. مقادیر به‌صورت رمزگذاری‌شده ذخیره می‌شوند.</string>
+    <string name="config_relay_naive_extra_headers_error_invalid">در هر خط یک سرصفحهٔ معتبر Name: value بنویسید (حداکثر ۱۶ مورد و در مجموع ۴۰۹۶ بایت).</string>
+    <string name="config_relay_naive_extra_headers_error_reserved">این نام سرصفحه را برنامه تعیین می‌کند و قابل جایگزینی نیست.</string>
     <string name="config_relay_hysteria_salamander">کلید Salamander</string>
     <string name="config_relay_chain_editor_intro">یک زنجیره مرتب از نمایه‌های رله ذخیره‌شده بسازید. اولین پرش ورودی و آخرین پرش خروجی است. برای جابه‌جایی یک پرش، آن را نگه دارید و بکشید. UDP برای زنجیره‌ها غیرفعال است.</string>
     <string name="config_relay_chain_hop_entry">پرش %1$d · ورودی</string>
@@ -2584,6 +2588,7 @@ fakeddisorder endhost</string>
 
     <!-- Proxy import: share-sheet handler, sing-box deep links, QR scanner. -->
     <string name="import_error_unsupported">پیوند درون‌ریزی پشتیبانی‌نشده.</string>
+    <string name="import_error_naive_quic">NaiveProxy روی QUIC (naive+quic) پشتیبانی نمی‌شود. از پیوند naive+https استفاده کنید.</string>
     <string name="import_error_missing_url">نشانی اشتراک در پیوند درون‌ریزی موجود نیست.</string>
     <string name="import_error_bad_encoding">پیوند درون‌ریزی نامعتبر است.</string>
     <string name="import_profile_confirm_title">درون‌ریزی نمایه</string>

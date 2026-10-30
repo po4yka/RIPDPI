@@ -2167,6 +2167,10 @@ Quelle: %2$s</string>
     <string name="config_relay_naive_path">HTTP-Pfad (optional)</string>
     <string name="config_relay_naive_path_helper">Leer lassen für den Standard-CONNECT-Endpunkt oder einen absoluten Pfad wie /proxy verwenden.</string>
     <string name="config_relay_naive_path_error_absolute">Der Pfad muss mit / beginnen.</string>
+    <string name="config_relay_naive_extra_headers">Zusätzliche Header (optional)</string>
+    <string name="config_relay_naive_extra_headers_helper">Ein Header pro Zeile im Format Name: value. Wird mit jeder CONNECT-Anfrage gesendet. Die Werte werden verschlüsselt gespeichert.</string>
+    <string name="config_relay_naive_extra_headers_error_invalid">Verwende pro Zeile einen gültigen Header Name: value (höchstens 16 und insgesamt 4096 Byte).</string>
+    <string name="config_relay_naive_extra_headers_error_reserved">Die App setzt diesen Header-Namen selbst; er lässt sich nicht überschreiben.</string>
     <string name="config_relay_masque_auth_bearer">Bearer</string>
     <string name="config_relay_masque_client_certificate_chain_helper">Fügen Sie die PEM-Kette ein oder importieren Sie eine Zertifikatsdatei.</string>
     <string name="config_relay_masque_http2">HTTP/2-TCP-Fallback zulassen</string>
@@ -2579,6 +2583,7 @@ Quelle: %2$s</string>
 
     <!-- Proxy import: share-sheet handler, sing-box deep links, QR scanner. -->
     <string name="import_error_unsupported">Nicht unterstützter Import-Link.</string>
+    <string name="import_error_naive_quic">NaiveProxy über QUIC (naive+quic) wird nicht unterstützt. Verwende einen naive+https-Link.</string>
     <string name="import_error_missing_url">Dem Import-Link fehlt die Abonnement-URL.</string>
     <string name="import_error_bad_encoding">Der Import-Link ist fehlerhaft.</string>
     <string name="import_profile_confirm_title">Profil importieren</string>

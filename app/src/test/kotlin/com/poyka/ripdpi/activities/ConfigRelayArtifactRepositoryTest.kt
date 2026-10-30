@@ -100,6 +100,28 @@ class ConfigRelayArtifactRepositoryTest {
         }
 
     @Test
+    fun `naiveproxy credential record keeps empty password distinct from absent and normalizes headers`() {
+        val draft =
+            ConfigDraft(
+                relayEnabled = true,
+                relayKind = com.poyka.ripdpi.data.RelayKindNaiveProxy,
+                relayNaiveUsername = "alice",
+                relayNaivePassword = "",
+                relayNaiveExtraHeaders = "X-A: 1\n\nX-B:  2 ",
+            )
+
+        val record = draft.toRelayCredentialRecord("naive")
+        assertEquals("", record.naivePassword)
+        assertEquals("X-A: 1\r\nX-B: 2", record.naiveExtraHeaders)
+
+        val anonymousDraft = draft.copy(relayNaiveUsername = "", relayNaiveExtraHeaders = "")
+        val anonymous = anonymousDraft.toRelayCredentialRecord("naive")
+        assertEquals(null, anonymous.naiveUsername)
+        assertEquals(null, anonymous.naivePassword)
+        assertEquals(null, anonymous.naiveExtraHeaders)
+    }
+
+    @Test
     fun `new relay kinds reject missing required credentials`() {
         for (kind in listOf(
             RelayKindVless,

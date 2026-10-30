@@ -195,6 +195,7 @@ data class RelayPluggableTransportSection(
     val ptWebTunnelUrl: String,
     val ptSnowflakeBrokerUrl: String,
     val ptSnowflakeFrontDomain: String,
+    val naiveExtraHeaders: String = "",
 )
 
 /** Arti Tor state/cache directories and managed pluggable transport config. */

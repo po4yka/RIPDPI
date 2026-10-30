@@ -330,6 +330,29 @@ sealed interface ProxyProfile {
     }
 
     /**
+     * NaiveProxy outbound (HTTP/2 CONNECT over TLS). [username] is required; an empty
+     * [password] is a valid authenticated identity. [extraHeaders] is the upstream
+     * `Name: value` CRLF-joined list; its values may be secrets. The TLS server name is
+     * the [server] host.
+     */
+    @Serializable
+    @SerialName("naive")
+    data class Naive(
+        override val id: String,
+        override val displayName: String,
+        override val groupId: String,
+        val server: String,
+        val serverPort: Int,
+        val username: String,
+        val password: String,
+        val extraHeaders: String = "",
+    ) : ProxyProfile {
+        override fun toString(): String =
+            "Naive(id=$id, displayName=$displayName, groupId=$groupId, server=$server, " +
+                "serverPort=$serverPort, username=<redacted>, password=<redacted>, extraHeaders=<redacted>)"
+    }
+
+    /**
      * SSH outbound (direct-tcpip forwarding). Carries the endpoint, the
      * [username], the [authType] selector (`password` | `private_key`), and the
      * auth-type-appropriate secret. [hostKeyFingerprint] pins the expected server

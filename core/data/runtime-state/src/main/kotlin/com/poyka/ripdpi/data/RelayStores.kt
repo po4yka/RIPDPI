@@ -158,6 +158,8 @@ data class RelayCredentialRecord(
     val shadowsocksPassword: String? = null,
     val naiveUsername: String? = null,
     val naivePassword: String? = null,
+    /** NaiveProxy extra CONNECT headers (`Name: value` lines, CRLF-joined); values may be secrets. */
+    val naiveExtraHeaders: String? = null,
     val masqueAuthMode: String? = null,
     val masqueAuthToken: String? = null,
     val masqueClientCertificateChainPem: String? = null,

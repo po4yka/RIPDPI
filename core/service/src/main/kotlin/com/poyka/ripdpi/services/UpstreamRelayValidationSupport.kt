@@ -121,8 +121,7 @@ internal fun validateNaiveRelayCredentials(
     requireRelayCredentials(
         profileId = profileId,
         hasRequiredCredentials =
-            !credentials?.naiveUsername.isNullOrBlank() &&
-                !credentials.naivePassword.isNullOrBlank(),
+            !credentials?.naiveUsername.isNullOrBlank() && credentials.naivePassword != null,
     )
 }
 

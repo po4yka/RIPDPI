@@ -679,6 +679,10 @@
     <string name="config_relay_naive_path">HTTP path (optional)</string>
     <string name="config_relay_naive_path_helper">Leave blank for the default CONNECT endpoint, or use an absolute path such as /proxy.</string>
     <string name="config_relay_naive_path_error_absolute">Path must start with /.</string>
+    <string name="config_relay_naive_extra_headers">Extra headers (optional)</string>
+    <string name="config_relay_naive_extra_headers_helper">One header per line as Name: value. Sent with every CONNECT request. Values are stored encrypted.</string>
+    <string name="config_relay_naive_extra_headers_error_invalid">Use one valid Name: value header per line (at most 16, 4096 bytes in total).</string>
+    <string name="config_relay_naive_extra_headers_error_reserved">This header name is set by the app and cannot be overridden.</string>
     <string name="config_relay_chain_editor_intro">Build an ordered chain of saved relay profiles. The first hop is the entry, the last is the exit. Long-press a hop to drag it into place. UDP is disabled for chains.</string>
     <string name="config_relay_chain_hop_entry">Hop %1$d · Entry</string>
     <string name="config_relay_chain_hop_exit">Hop %1$d · Exit</string>
@@ -2731,6 +2735,7 @@ Source: %2$s</string>
 
     <!-- Proxy import: share-sheet handler, sing-box deep links, QR scanner. -->
     <string name="import_error_unsupported">Unsupported import link.</string>
+    <string name="import_error_naive_quic">NaiveProxy over QUIC (naive+quic) is not supported. Use a naive+https link.</string>
     <string name="import_error_missing_url">Import link is missing a subscription URL.</string>
     <string name="import_error_bad_encoding">Import link is malformed.</string>
     <string name="import_profile_confirm_title">Import profile</string>

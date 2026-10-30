@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -59,7 +60,48 @@ class NaiveProxyRuntimePolicyTest {
             )
 
         assertEquals(
-            "YWxpY2U=\nc2VjcmV0\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n",
+            "YWxpY2U=\nc2VjcmV0\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n\n",
+            naiveProxyCredentialsStdin(config).toString(Charsets.UTF_8),
+        )
+    }
+
+    @Test
+    fun `empty password stays an authenticated identity distinct from absent auth`() {
+        val base =
+            sampleResolvedRelayConfig(kind = RelayKindNaiveProxy).copy(
+                localSocksUsername = "local-user",
+                localSocksPassword = "local-pass", // Fixture credential.
+            )
+
+        // base64("alice"), empty password line.
+        assertEquals(
+            "YWxpY2U=\n\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\n\n",
+            naiveProxyCredentialsStdin(base.copy(naiveUsername = "alice", naivePassword = "")).toString(Charsets.UTF_8),
+        )
+        val emptyPassword = RelayCredentialRecord(profileId = "p", naiveUsername = "alice", naivePassword = "")
+        validateNaiveRelayCredentials("p", emptyPassword)
+        assertThrows(IllegalArgumentException::class.java) {
+            validateNaiveRelayCredentials("p", RelayCredentialRecord(profileId = "p", naiveUsername = "alice"))
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            validateNaiveRelayCredentials("p", RelayCredentialRecord(profileId = "p", naivePassword = "x"))
+        }
+    }
+
+    @Test
+    fun `extra headers travel as the fifth stdin line`() {
+        val config =
+            sampleResolvedRelayConfig(kind = RelayKindNaiveProxy).copy(
+                localSocksUsername = "local-user",
+                localSocksPassword = "local-pass", // Fixture credential.
+                naiveUsername = "alice",
+                naivePassword = "secret",
+                naiveExtraHeaders = "X-Token: s3cret\r\nX-Other: v",
+            )
+
+        // base64("X-Token: s3cret\r\nX-Other: v")
+        assertEquals(
+            "YWxpY2U=\nc2VjcmV0\nbG9jYWwtdXNlcg==\nbG9jYWwtcGFzcw==\nWC1Ub2tlbjogczNjcmV0DQpYLU90aGVyOiB2\n",
             naiveProxyCredentialsStdin(config).toString(Charsets.UTF_8),
         )
     }

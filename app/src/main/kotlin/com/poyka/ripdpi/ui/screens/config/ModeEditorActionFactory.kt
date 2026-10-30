@@ -150,6 +150,7 @@ private fun ModeEditorActions.withRelayProtocolActions(viewModel: ConfigViewMode
         onRelayNaiveUsernameChanged = { viewModel.updateDraft { copy(relayNaiveUsername = it) } },
         onRelayNaivePasswordChanged = { viewModel.updateDraft { copy(relayNaivePassword = it) } },
         onRelayNaivePathChanged = { viewModel.updateDraft { copy(relayNaivePath = it) } },
+        onRelayNaiveExtraHeadersChanged = { viewModel.updateDraft { copy(relayNaiveExtraHeaders = it) } },
         onRelayPtBridgeLineChanged = { viewModel.updateDraft { copy(relayPtBridgeLine = it) } },
         onRelayWebTunnelUrlChanged = { viewModel.updateDraft { copy(relayWebTunnelUrl = it) } },
         onRelaySnowflakeBrokerUrlChanged = { viewModel.updateDraft { copy(relaySnowflakeBrokerUrl = it) } },

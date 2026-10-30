@@ -18,6 +18,8 @@ internal fun validationMessage(errorKey: String?): String? =
         "taken" -> stringResource(R.string.config_relay_profile_id_taken)
         "unsupported" -> stringResource(R.string.config_error_unsupported)
         "same_hop" -> stringResource(R.string.config_relay_chain_error_same_hop)
+        "invalid_headers" -> stringResource(R.string.config_relay_naive_extra_headers_error_invalid)
+        "reserved_header" -> stringResource(R.string.config_relay_naive_extra_headers_error_reserved)
         "absolute_path" -> stringResource(R.string.config_relay_naive_path_error_absolute)
         else -> null
     }

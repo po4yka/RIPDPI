@@ -77,6 +77,7 @@ internal fun seedRelayProfileStableName(profile: ProxyProfile): String =
         is ProxyProfile.Hysteria2 -> "Hysteria2"
         is ProxyProfile.AnyTls -> "AnyTls"
         is ProxyProfile.Mieru -> "Mieru"
+        is ProxyProfile.Naive -> "Naive"
         is ProxyProfile.Ssh -> "Ssh"
         is ProxyProfile.RawConfig -> "RawConfig"
     }

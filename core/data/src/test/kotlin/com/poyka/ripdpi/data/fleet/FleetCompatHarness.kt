@@ -290,6 +290,8 @@ object FleetCompatHarness {
 
             is ProxyProfile.Mieru -> "mieru|$server|$serverPort"
 
+            is ProxyProfile.Naive -> "naive|$server|$serverPort"
+
             is ProxyProfile.Ssh -> "ssh|$server|$serverPort"
 
             is ProxyProfile.RawConfig -> null
@@ -334,6 +336,10 @@ object FleetCompatHarness {
 
             is ProxyProfile.Mieru -> {
                 mapOf("type" to "mieru", "name" to displayName, "server" to server, "port" to serverPort.toString())
+            }
+
+            is ProxyProfile.Naive -> {
+                mapOf("type" to "naive", "name" to displayName, "server" to server, "port" to serverPort.toString())
             }
 
             is ProxyProfile.Ssh -> {

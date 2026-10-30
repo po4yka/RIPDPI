@@ -82,6 +82,13 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
             true
         }
 
+        is ProxyProfile.Naive -> {
+            require(profile.server.isNotBlank()) { "NaiveProxy requires a server hostname" }
+            require(profile.serverPort in RelayPortRange) { "NaiveProxy requires a valid server port" }
+            require(profile.username.isNotBlank()) { "NaiveProxy requires a username" }
+            true
+        }
+
         is ProxyProfile.AnyTls,
         is ProxyProfile.Mieru,
         is ProxyProfile.Shadowsocks,

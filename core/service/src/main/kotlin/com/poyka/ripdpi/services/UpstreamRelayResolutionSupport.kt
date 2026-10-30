@@ -524,7 +524,7 @@ private fun validateChainHopCredentials(hop: ResolvedChainRelayHopConfig) {
         }
 
         RelayKindNaiveProxy -> {
-            require(!hop.naiveUsername.isNullOrBlank() && !hop.naivePassword.isNullOrBlank()) {
+            require(!hop.naiveUsername.isNullOrBlank() && hop.naivePassword != null) {
                 "Relay credentials missing for profile ${hop.profileId}"
             }
         }

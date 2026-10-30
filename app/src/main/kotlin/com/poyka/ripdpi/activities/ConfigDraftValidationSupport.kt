@@ -2,6 +2,8 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NaiveExtraHeadersError
+import com.poyka.ripdpi.data.NaiveExtraHeadersResult
 import com.poyka.ripdpi.data.NativeVlessCapabilities
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
@@ -45,6 +47,7 @@ import com.poyka.ripdpi.data.isSupportedChainExitHop
 import com.poyka.ripdpi.data.isValidVlessUuid
 import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
+import com.poyka.ripdpi.data.parseNaiveExtraHeaders
 import com.poyka.ripdpi.data.parseStrategyChainDsl
 import com.poyka.ripdpi.data.validateStrategyChainUsage
 import com.poyka.ripdpi.data.validateVlessRealityProfileFields
@@ -403,11 +406,15 @@ private fun validateNaiveProxyDraft(draft: ConfigDraft): Map<String, String> =
             validateEndpointRelayDraft(
                 draft = draft,
                 credentialsMissing =
-                    draft.relayServerName.isBlank() ||
-                        draft.relayNaiveUsername.isBlank() ||
-                        draft.relayNaivePassword.isBlank(),
+                    draft.relayServerName.isBlank() || draft.relayNaiveUsername.isBlank(),
             ),
         )
+        (parseNaiveExtraHeaders(draft.relayNaiveExtraHeaders) as? NaiveExtraHeadersResult.Invalid)?.let {
+            put(
+                ConfigFieldRelayNaiveExtraHeaders,
+                if (it.error == NaiveExtraHeadersError.ReservedName) "reserved_header" else "invalid_headers",
+            )
+        }
         if (draft.relayNaivePath.isNotBlank() && !draft.relayNaivePath.startsWith("/")) {
             put(ConfigFieldRelayNaivePath, "absolute_path")
         }
