@@ -532,7 +532,6 @@ private suspend fun DiagnosticsMutationRunner.handleStartedScan(
             queuedManualScanRequest = null,
         )
     }
-    emit(DiagnosticsEffect.ScanStarted(scanTypeLabel = request.profileName))
 }
 
 private suspend fun DiagnosticsMutationRunner.handleScanStartFailure(

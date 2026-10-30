@@ -1737,6 +1737,7 @@ class DiagnosticsViewModelTest {
     @Test
     fun `cancel and run resolves hidden probe conflict immediately`() =
         runTest {
+            var resolvedWith: HiddenProbeConflictAction? = null
             val manager =
                 FakeDiagnosticsManager().apply {
                     scanController.hiddenAutomaticProbeActive.value = true
@@ -1751,7 +1752,7 @@ class DiagnosticsViewModelTest {
                     }
                     scanController.onResolveHiddenProbeConflict = { requestId, action ->
                         assertEquals("hidden-request", requestId)
-                        assertEquals(HiddenProbeConflictAction.CANCEL_AND_RUN, action)
+                        resolvedWith = action
                         DiagnosticsManualScanResolution.Started("manual-session")
                     }
                 }
@@ -1762,7 +1763,6 @@ class DiagnosticsViewModelTest {
                     FakeAppSettingsRepository(),
                 )
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
-            val effectDeferred = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
             advanceUntilIdle()
 
             viewModel.startRawScan()
@@ -1770,8 +1770,7 @@ class DiagnosticsViewModelTest {
             viewModel.cancelHiddenProbeAndRun()
             advanceUntilIdle()
 
-            val effect = effectDeferred.await() as DiagnosticsEffect.ScanStarted
-            assertEquals("Automatic probing", effect.scanTypeLabel)
+            assertEquals(HiddenProbeConflictAction.CANCEL_AND_RUN, resolvedWith)
             assertNull(viewModel.uiState.value.scan.hiddenProbeConflictDialog)
             assertNull(viewModel.uiState.value.scan.queuedManualScanRequest)
             collector.cancel()

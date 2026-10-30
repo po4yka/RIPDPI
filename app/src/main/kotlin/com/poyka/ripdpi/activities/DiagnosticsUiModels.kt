@@ -964,10 +964,6 @@ sealed interface DiagnosticsEffect {
         val preparation: com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation,
     ) : DiagnosticsEffect
 
-    data class ScanStarted(
-        val scanTypeLabel: String,
-    ) : DiagnosticsEffect
-
     data class ScanQueued(
         val message: String,
     ) : DiagnosticsEffect

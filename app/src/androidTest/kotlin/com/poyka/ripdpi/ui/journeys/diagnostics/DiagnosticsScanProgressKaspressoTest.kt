@@ -135,8 +135,8 @@ class DiagnosticsScanProgressKaspressoTest :
             step("Cancelling the running scan leaves the progress state") {
                 with(DiagnosticsPage(composeRule)) {
                     startRawScan()
-                    // An injected touch on this just-inserted list item did not reach its handler on the emulator.
-                    activate(scanCancelAction)
+                    // A real tap right after the start: a "scan started" snackbar used to cover Cancel here.
+                    click(scanCancelAction)
                     // Cancellation waits up to two 4 s native grace periods before it settles.
                     waitGone(scanStateProgress, timeoutMillis = 30_000)
                 }

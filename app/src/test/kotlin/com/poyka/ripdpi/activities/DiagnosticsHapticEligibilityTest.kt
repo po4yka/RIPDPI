@@ -160,12 +160,13 @@ class DiagnosticsHapticEligibilityTest {
             composeRule.runOnIdle { disabled.value = false }
             composeRule.runOnIdle { owner.moveTo(Lifecycle.State.RESUMED) }
             composeRule.waitForIdle()
-            composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStatusSnackbar).assertIsDisplayed()
+            // The running scan card is the start feedback; a start snackbar used to cover Cancel.
+            composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStatusSnackbar).assertDoesNotExist()
             composeRule.runOnIdle { assertTrue(feedback.isEmpty()) }
         }
 
     @Test
-    fun `accepted start in System shows information without a result haptic`() =
+    fun `accepted start in System posts no snackbar and no result haptic`() =
         runTest {
             val settings = FakeDiagnosticsHapticSettings()
             var startCalls = 0
@@ -190,7 +191,8 @@ class DiagnosticsHapticEligibilityTest {
             assertEquals(readsBeforeStart, settings.snapshotReads)
             composeRule.runOnIdle { owner.moveTo(Lifecycle.State.RESUMED) }
             composeRule.waitForIdle()
-            composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStatusSnackbar).assertIsDisplayed()
+            // The running scan card is the start feedback; a start snackbar used to cover Cancel.
+            composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStatusSnackbar).assertDoesNotExist()
             composeRule.runOnIdle { assertTrue(feedback.isEmpty()) }
         }
 

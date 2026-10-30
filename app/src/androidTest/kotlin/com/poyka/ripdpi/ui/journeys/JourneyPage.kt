@@ -65,8 +65,8 @@ internal abstract class JourneyPage<T : JourneyPage<T>>(
     fun click(tag: String) = rule.clickTag(tag)
 
     /**
-     * Runs the node's click action without an injected touch. Use it only where a window outside
-     * Compose idling (the soft keyboard, a just-inserted lazy item) can swallow a tap at that moment.
+     * Runs the node's click action without an injected touch. Use it only where something outside
+     * Compose idling (the soft keyboard opening and moving the layout) makes a tap's target unstable.
      */
     fun activate(tag: String) {
         rule.requireTag(tag)

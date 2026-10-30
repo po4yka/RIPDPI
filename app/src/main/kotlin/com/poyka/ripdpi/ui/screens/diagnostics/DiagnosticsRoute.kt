@@ -249,12 +249,6 @@ private fun handleDiagnosticsEffect(
             callbacks.onShareText(effect.title, effect.body)
         }
 
-        is DiagnosticsEffect.ScanStarted -> {
-            snackbarScope.launch {
-                showDiagnosticsSnackbar(snackbarHostState, effect.scanTypeLabel, RipDpiSnackbarTone.Info)
-            }
-        }
-
         is DiagnosticsEffect.ScanQueued -> {
             snackbarScope.launch {
                 showDiagnosticsSnackbar(snackbarHostState, effect.message, RipDpiSnackbarTone.Info)
