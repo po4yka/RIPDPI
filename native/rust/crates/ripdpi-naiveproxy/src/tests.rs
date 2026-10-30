@@ -341,6 +341,34 @@ async fn socks5_client_round_trip_over_h2_naive_padding_fixture() {
     server.abort();
 }
 
+/// A plain absolute-form request through the HTTP front reaches the target
+/// in origin form, without the local credentials. The fixture echoes, so the
+/// client reads back exactly what the origin received.
+///
+/// # Cancel safety:
+/// cancel-safe: the test owns its sockets and aborts the listener.
+#[tokio::test]
+async fn http_front_forwards_plain_requests_in_origin_form() {
+    let fixture = local_network_fixture::NaiveH2PaddingFixture::start("naive-user", "naive-pass")
+        .await
+        .expect("start naive h2 fixture");
+    let local_listener = TcpListener::bind("127.0.0.1:0").await.expect("bind local listener");
+    let local_addr = local_listener.local_addr().expect("local addr");
+    let server = tokio::spawn(serve_listener(local_listener, Arc::new(fixture_config(&fixture))));
+
+    let mut client = TcpStream::connect(local_addr).await.expect("connect local http front");
+    client
+        .write_all(b"GET http://example.com/index.html HTTP/1.1\r\nHost: example.com\r\nProxy-Authorization: Basic bG9jYWwtdXNlcjpsb2NhbC1wYXNz\r\n\r\n")
+        .await
+        .expect("write plain request");
+    let expected = b"GET /index.html HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\n\r\n";
+    let mut received = vec![0_u8; expected.len()];
+    client.read_exact(&mut received).await.expect("read what the origin received");
+
+    assert_eq!(String::from_utf8_lossy(&received), String::from_utf8_lossy(expected));
+    server.abort();
+}
+
 #[tokio::test]
 /// # Cancel safety:
 /// cancel-safe: the test runtime drops its owned sockets and tasks when the test ends.
