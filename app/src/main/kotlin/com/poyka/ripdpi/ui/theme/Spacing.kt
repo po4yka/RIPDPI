@@ -86,11 +86,6 @@ data class RipDpiInputMetrics(
     val chipFocusedVerticalPaddingOffset: Dp = 2.dp,
     val chipIconSize: Dp = 18.dp,
     val chipHeight: Dp = 64.dp,
-    val switchWidth: Dp = 52.dp,
-    val switchHeight: Dp = 48.dp,
-    val switchTrackHeight: Dp = 32.dp,
-    val switchThumbSize: Dp = 24.dp,
-    val switchThumbPadding: Dp = 4.dp,
 )
 
 @Immutable

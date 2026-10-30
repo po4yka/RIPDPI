@@ -3,19 +3,9 @@ package com.poyka.ripdpi.ui.theme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.lerp
-import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.unit.dp
 
 private const val DisabledAlpha = 0.38f
-private const val SwitchLuminanceMidpoint = 0.5f
-private const val SwitchTrackDarkBlend = 0.25f
-private const val SwitchTrackLightBlend = 0.16f
-private const val SwitchThumbDarkBlend = 0.72f
-private const val SwitchDisabledCheckedDarkTrackBlend = 0.5f
-private const val SwitchPressedCheckedTrackBlend = 0.18f
-private const val SwitchPressedDarkTrackBlend = 0.32f
-private const val SwitchPressedLightTrackBlend = 0.22f
 
 @Immutable
 data class RipDpiTextFieldStateTokens(
@@ -105,55 +95,6 @@ data class RipDpiChipStateTokens(
 }
 
 @Immutable
-data class RipDpiSwitchStateTokens(
-    private val colors: RipDpiExtendedColors,
-    private val colorScheme: ColorScheme,
-) {
-    fun resolve(
-        checked: Boolean,
-        enabled: Boolean,
-        isPressed: Boolean,
-    ): RipDpiSwitchStateStyle {
-        val isDark = colorScheme.background.luminance() < SwitchLuminanceMidpoint
-        if (isDark && checked && !enabled) {
-            // Dark disabled-on stays an opaque, dimmed on-switch; a faded one reads as off.
-            return RipDpiSwitchStateStyle(
-                track = lerp(colors.background, colors.foreground, SwitchDisabledCheckedDarkTrackBlend),
-                thumb = colors.background,
-                alpha = 1f,
-            )
-        }
-        val alpha = if (enabled) 1f else DisabledAlpha
-        return RipDpiSwitchStateStyle(
-            track =
-                switchTrackColor(
-                    backgroundColor = colors.background,
-                    foregroundColor = colors.foreground,
-                    onSurfaceVariant = colorScheme.onSurfaceVariant,
-                    checked = checked,
-                    isPressed = isPressed,
-                    isDark = isDark,
-                ),
-            thumb =
-                switchThumbColor(
-                    backgroundColor = colors.background,
-                    foregroundColor = colors.foreground,
-                    checked = checked,
-                    isDark = isDark,
-                ),
-            alpha = alpha,
-            // M3 dark: the off track gets an outline in the thumb tone so it stands off the card.
-            trackBorder =
-                if (isDark && !checked) {
-                    lerp(colors.background, colors.foreground, SwitchThumbDarkBlend).copy(alpha = alpha)
-                } else {
-                    Color.Transparent
-                },
-        )
-    }
-}
-
-@Immutable
 data class RipDpiSettingsRowStateTokens(
     private val colors: RipDpiExtendedColors,
 ) {
@@ -196,52 +137,3 @@ data class RipDpiSettingsRowStateTokens(
             }
         }
 }
-
-private fun switchTrackColor(
-    backgroundColor: Color,
-    foregroundColor: Color,
-    onSurfaceVariant: Color,
-    checked: Boolean,
-    isPressed: Boolean,
-    isDark: Boolean,
-): Color {
-    val uncheckedTrack =
-        if (isDark) {
-            lerp(backgroundColor, foregroundColor, SwitchTrackDarkBlend)
-        } else {
-            lerp(backgroundColor, foregroundColor, SwitchTrackLightBlend)
-        }
-
-    val base =
-        if (checked) {
-            foregroundColor
-        } else {
-            uncheckedTrack
-        }
-
-    if (!isPressed) {
-        return base
-    }
-
-    return if (checked) {
-        lerp(base, onSurfaceVariant, SwitchPressedCheckedTrackBlend)
-    } else if (isDark) {
-        lerp(base, foregroundColor, SwitchPressedDarkTrackBlend)
-    } else {
-        lerp(base, foregroundColor, SwitchPressedLightTrackBlend)
-    }
-}
-
-private fun switchThumbColor(
-    backgroundColor: Color,
-    foregroundColor: Color,
-    checked: Boolean,
-    isDark: Boolean,
-): Color =
-    if (checked) {
-        backgroundColor
-    } else if (isDark) {
-        lerp(backgroundColor, foregroundColor, SwitchThumbDarkBlend)
-    } else {
-        foregroundColor
-    }

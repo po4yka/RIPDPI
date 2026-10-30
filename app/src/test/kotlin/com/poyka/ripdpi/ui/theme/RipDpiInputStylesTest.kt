@@ -83,7 +83,6 @@ class RipDpiInputStylesTest {
                     enabled = enabled,
                     accessibilityLabel = "Capture traffic",
                     testTag = Control,
-                    visualStyle = CommonStyle { rdsBackground(Color.Blue) },
                 )
             }
         }
