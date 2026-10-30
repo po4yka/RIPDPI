@@ -7,10 +7,7 @@ import androidx.compose.foundation.style.StyleStateKey
 /** Component state that has no predefined Foundation style key. */
 object RipDpiStyleStateKeys {
     val Loading = StyleStateKey(false)
-    val HasError = StyleStateKey(false)
-    val IsEmpty = StyleStateKey(false)
     val Compact = StyleStateKey(false)
     val Expanded = StyleStateKey(false)
-    val ReadOnly = StyleStateKey(false)
     val Active = StyleStateKey(false)
 }

@@ -41,57 +41,6 @@ object RipDpiComponentStyles {
             // The existing chip alpha applies only after its shell and remains explicit.
         }
 
-    val textField =
-        CommonStyle {
-            val resolved =
-                LocalRipDpiStateTokens.currentValue.textField.resolve(
-                    enabled = state.isEnabled,
-                    hasError = state[RipDpiStyleStateKeys.HasError],
-                    isFocused = state.isFocused,
-                    isEmpty = state[RipDpiStyleStateKeys.IsEmpty],
-                )
-            val inputs = LocalRipDpiComponents.currentValue.inputs
-            rdsBackground(resolved.container)
-            rdsBorder(resolved.border, resolved.borderWidth)
-            rdsContentAlpha(resolved.alpha)
-            val basePadding =
-                if (resolved.borderWidth > RipDpiStroke.Thin) {
-                    inputs.fieldFocusedHorizontalPadding
-                } else {
-                    inputs.fieldHorizontalPadding
-                }
-            val padding = basePadding - if (state[RipDpiStyleStateKeys.Compact]) 4.dp else 0.dp
-            rdsContentPadding(start = padding, end = padding)
-        }
-
-    val dropdown =
-        CommonStyle {
-            val focused =
-                state.isEnabled && !state[RipDpiStyleStateKeys.ReadOnly] &&
-                    (state[RipDpiStyleStateKeys.Expanded] || state.isFocused)
-            val resolved =
-                LocalRipDpiStateTokens.currentValue.textField.resolve(
-                    enabled = state.isEnabled,
-                    hasError = state[RipDpiStyleStateKeys.HasError],
-                    isFocused = focused,
-                    isEmpty = state[RipDpiStyleStateKeys.IsEmpty],
-                )
-            val inputs = LocalRipDpiComponents.currentValue.inputs
-            val motion = LocalRipDpiMotion.currentValue
-            rdsBackground(resolved.container)
-            animate(motion.stateTween<Float>()) { RipDpiStyleProperties.borderColor.provide(resolved.border) }
-            animate(motion.quickTween<Float>()) { RipDpiStyleProperties.borderWidth.provide(resolved.borderWidth) }
-            rdsContentAlpha(resolved.alpha)
-            val basePadding =
-                if (resolved.borderWidth > RipDpiStroke.Thin) {
-                    inputs.fieldFocusedHorizontalPadding
-                } else {
-                    inputs.fieldHorizontalPadding
-                }
-            val padding = basePadding - if (state[RipDpiStyleStateKeys.Compact]) 4.dp else 0.dp
-            rdsContentPadding(start = padding, end = padding)
-        }
-
     val screenBackground =
         CommonStyle {
             rdsBackground(LocalRipDpiExtendedColors.currentValue.background)

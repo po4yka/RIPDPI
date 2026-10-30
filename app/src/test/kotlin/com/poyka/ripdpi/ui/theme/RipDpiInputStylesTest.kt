@@ -141,7 +141,6 @@ class RipDpiInputStylesTest {
                     onValueChange = { value = it },
                     modifier = Modifier.width(280.dp),
                     decoration = RipDpiTextFieldDecoration(errorText = "Invalid port", testTag = Control),
-                    visualStyle = SmallFieldStyle,
                 )
             }
         }
@@ -166,7 +165,6 @@ class RipDpiInputStylesTest {
                     onValueChange = { if (it.all(Char::isDigit)) value = it },
                     modifier = Modifier.width(280.dp),
                     decoration = RipDpiTextFieldDecoration(testTag = Control),
-                    visualStyle = SmallFieldStyle,
                 )
             }
         }
@@ -194,7 +192,6 @@ class RipDpiInputStylesTest {
                     modifier = Modifier.width(280.dp),
                     decoration = RipDpiTextFieldDecoration(testTag = Control),
                     behavior = RipDpiTextFieldBehavior(readOnly = true),
-                    visualStyle = SmallFieldStyle,
                 )
             }
         }
@@ -218,7 +215,6 @@ class RipDpiInputStylesTest {
                     modifier = Modifier.width(280.dp),
                     decoration = RipDpiTextFieldDecoration(testTag = Control),
                     behavior = RipDpiTextFieldBehavior(enabled = false),
-                    visualStyle = SmallFieldStyle,
                 )
             }
         }
@@ -242,7 +238,6 @@ class RipDpiInputStylesTest {
                     modifier = Modifier.width(280.dp),
                     decoration = RipDpiTextFieldDecoration(testTag = Control),
                     multiline = true,
-                    visualStyle = SmallFieldStyle,
                 )
             }
         }
@@ -268,10 +263,5 @@ class RipDpiInputStylesTest {
 
     private companion object {
         const val Control = "styled-input"
-        val SmallFieldStyle =
-            CommonStyle {
-                rdsMinHeight(1.dp)
-                rdsContentPadding()
-            }
     }
 }
