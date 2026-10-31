@@ -69,8 +69,6 @@ fun RipDpiTheme(
         ripDpiStateTokens(
             colors = extendedColors,
             colorScheme = colorScheme,
-            components = DefaultRipDpiComponents,
-            motion = motion,
         )
 
     CompositionLocalProvider(

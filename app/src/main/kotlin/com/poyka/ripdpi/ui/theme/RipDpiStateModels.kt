@@ -45,16 +45,6 @@ enum class RipDpiRouteAvailabilityStateRole {
 }
 
 @Immutable
-data class RipDpiChipStateStyle(
-    val container: Color,
-    val border: Color,
-    val content: Color,
-    val cornerRadius: Dp,
-    val scale: Float,
-    val alpha: Float,
-)
-
-@Immutable
 data class RipDpiSettingsRowStateStyle(
     val container: Color,
     val border: Color,

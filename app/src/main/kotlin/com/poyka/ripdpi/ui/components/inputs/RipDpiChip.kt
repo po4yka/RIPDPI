@@ -1,80 +1,47 @@
-@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
-
 package com.poyka.ripdpi.ui.components.inputs
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.style.CommonStyle
-import androidx.compose.foundation.style.rememberUpdatedStyleState
-import androidx.compose.foundation.style.styleResolver
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.NonRestartableComposable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
-import com.poyka.ripdpi.ui.components.ripDpiSelectable
-import com.poyka.ripdpi.ui.components.ripDpiToggleable
+import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
-import com.poyka.ripdpi.ui.theme.RipDpiStyleStateKeys
+import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.ui.theme.rememberRipDpiSpringStyle
-import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
-import com.poyka.ripdpi.ui.theme.ripDpiStyleAppearance
-import com.poyka.ripdpi.ui.theme.ripDpiStyleDrawing
-import com.poyka.ripdpi.ui.theme.ripDpiStylePadding
 
 private const val chipContentSpacingDp = 6
+private const val DisabledAlpha = 0.38f
 
-@Composable
-@NonRestartableComposable
-fun RipDpiChip(
-    text: String,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-    selected: Boolean = false,
-    enabled: Boolean = true,
-    density: RipDpiControlDensity = RipDpiControlDensity.Default,
-    leadingIcon: ImageVector? = if (selected) RipDpiIcons.Check else null,
-    role: Role = Role.Checkbox,
-    hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Selection,
-    wrapLabel: Boolean = false,
-) {
-    RipDpiChip(
-        text = text,
-        onClick = onClick,
-        modifier = modifier,
-        selected = selected,
-        enabled = enabled,
-        density = density,
-        leadingIcon = leadingIcon,
-        role = role,
-        hapticFeedback = hapticFeedback,
-        wrapLabel = wrapLabel,
-        visualStyle = CommonStyle,
-    )
-}
-
-@Suppress("LongMethod", "CyclomaticComplexMethod")
+/**
+ * Chip on the Material 3 selectable [Surface]: Material owns the state layer, ripple and selection semantics, and
+ * the RDS layout (padding, icon, wrapping) stays because the filter chip insets are fixed. Selected chips use the
+ * RDS ink fill. The default [Role.Checkbox] chip is toggleable; any other [role] reports selection only.
+ */
 @Composable
 fun RipDpiChip(
     text: String,
@@ -87,72 +54,85 @@ fun RipDpiChip(
     role: Role = Role.Checkbox,
     hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Selection,
     wrapLabel: Boolean = false,
-    visualStyle: CommonStyle = CommonStyle,
 ) {
     val components = RipDpiThemeTokens.components
+    val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
-    val interactionSource = remember { MutableInteractionSource() }
-    val styleState =
-        rememberUpdatedStyleState(interactionSource) {
-            it.isEnabled = enabled
-            it.isSelected = selected
-            it.isChecked = selected
-            it[RipDpiStyleStateKeys.Compact] = density == RipDpiControlDensity.Compact
+    val performHaptic = rememberRipDpiHapticPerformer()
+    val compact = density == RipDpiControlDensity.Compact
+    val inputs = components.inputs
+    val horizontal = inputs.chipHorizontalPadding - if (compact) inputs.chipFocusedHorizontalPaddingOffset else 0.dp
+    val vertical = inputs.chipVerticalPadding - if (compact) inputs.chipFocusedVerticalPaddingOffset else 0.dp
+    val container = if (selected) colors.foreground else Color.Transparent
+    val content =
+        when {
+            selected -> colors.background
+            enabled -> colors.foreground
+            else -> colors.mutedForeground
         }
-    val state =
-        RipDpiThemeTokens.state.chip.resolve(
-            selected = selected,
+    val borderColor =
+        when {
+            selected -> colors.foreground
+            enabled -> colors.outlineVariant
+            else -> colors.border
+        }
+    val animatedContainer by animateColorAsState(container, motion.stateTween(), label = "chipContainer")
+    val animatedContent by animateColorAsState(content, motion.stateTween(), label = "chipContent")
+    val surfaceModifier =
+        modifier
+            .alpha(if (enabled) 1f else DisabledAlpha)
+            .semantics {
+                contentDescription = text
+                this.role = role
+            }
+    val shape = RoundedCornerShape(components.shapes.largeCornerRadius)
+    val border = BorderStroke(RipDpiStroke.Thin, borderColor)
+    val chipContent: @Composable () -> Unit = {
+        RipDpiChipContent(text, leadingIcon, Modifier.padding(horizontal = horizontal, vertical = vertical), wrapLabel)
+    }
+    if (role == Role.Checkbox) {
+        Surface(
+            checked = selected,
+            onCheckedChange = {
+                performHaptic(hapticFeedback)
+                onClick()
+            },
+            modifier = surfaceModifier,
             enabled = enabled,
-            isPressed = styleState.isPressed,
+            shape = shape,
+            color = animatedContainer,
+            contentColor = animatedContent,
+            border = border,
+            content = chipContent,
         )
-    val defaults =
-        rememberRipDpiSpringStyle(
-            defaults = RipDpiThemeTokens.styles.chip,
-            scale = state.scale,
-            cornerRadius = state.cornerRadius,
-            expressiveScale = selected,
+    } else {
+        Surface(
+            selected = selected,
+            onClick = {
+                performHaptic(hapticFeedback)
+                onClick()
+            },
+            modifier = surfaceModifier,
+            enabled = enabled,
+            shape = shape,
+            color = animatedContainer,
+            contentColor = animatedContent,
+            border = border,
+            content = chipContent,
         )
-    val styleResolver = rememberRipDpiStyleResolver(defaults, visualStyle, styleState)
-    val animatedContentColor by animateColorAsState(
-        targetValue = state.content,
-        animationSpec = motion.stateTween(),
-        label = "chipContent",
-    )
-    val alpha by animateFloatAsState(
-        targetValue = state.alpha,
-        animationSpec = motion.quickTween(),
-        label = "chipAlpha",
-    )
+    }
+}
 
+@Composable
+private fun RipDpiChipContent(
+    text: String,
+    leadingIcon: ImageVector?,
+    modifier: Modifier,
+    wrapLabel: Boolean,
+) {
+    val motion = RipDpiThemeTokens.motion
     Row(
-        modifier =
-            modifier
-                .styleResolver(styleResolver)
-                .ripDpiStyleDrawing(styleResolver)
-                .ripDpiStyleAppearance(styleResolver)
-                .semantics { contentDescription = text }
-                .then(
-                    if (role == Role.Checkbox) {
-                        Modifier.ripDpiToggleable(
-                            value = selected,
-                            enabled = enabled,
-                            role = role,
-                            interactionSource = interactionSource,
-                            hapticFeedback = hapticFeedback,
-                            onValueChange = { onClick() },
-                        )
-                    } else {
-                        Modifier.ripDpiSelectable(
-                            selected = selected,
-                            enabled = enabled,
-                            role = role,
-                            interactionSource = interactionSource,
-                            hapticFeedback = hapticFeedback,
-                            onClick = onClick,
-                        )
-                    },
-                ).ripDpiStylePadding(styleResolver)
-                .alpha(alpha),
+        modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(chipContentSpacingDp.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
@@ -165,8 +145,7 @@ fun RipDpiChip(
                 Icon(
                     imageVector = it,
                     contentDescription = null,
-                    tint = animatedContentColor,
-                    modifier = Modifier.size(components.inputs.chipIconSize),
+                    modifier = Modifier.size(RipDpiThemeTokens.components.inputs.chipIconSize),
                 )
             }
         }
@@ -174,7 +153,6 @@ fun RipDpiChip(
             text = text,
             modifier = (if (wrapLabel) Modifier.weight(1f, fill = false) else Modifier).width(IntrinsicSize.Max),
             style = RipDpiThemeTokens.type.bodyEmphasis,
-            color = animatedContentColor,
         )
     }
 }

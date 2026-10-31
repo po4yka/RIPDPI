@@ -10,23 +10,7 @@ class RipDpiStateTokensTest {
         ripDpiStateTokens(
             colors = LightRipDpiExtendedColors,
             colorScheme = ripDpiLightColorScheme(),
-            components = DefaultRipDpiComponents,
-            motion = DefaultRipDpiMotion,
         )
-
-    @Test
-    fun `selected chip resolves selected scale and inverted colors`() {
-        val style =
-            tokens.chip.resolve(
-                selected = true,
-                enabled = true,
-                isPressed = false,
-            )
-
-        assertEquals(LightRipDpiExtendedColors.foreground, style.container)
-        assertEquals(LightRipDpiExtendedColors.background, style.content)
-        assertEquals(DefaultRipDpiMotion.selectionScale, style.scale)
-    }
 
     @Test
     fun `selected settings row promotes badge and value tokens`() {

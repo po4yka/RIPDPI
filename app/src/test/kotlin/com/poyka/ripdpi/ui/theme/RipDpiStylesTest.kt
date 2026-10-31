@@ -27,7 +27,6 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertHeightIsEqualTo
@@ -42,7 +41,6 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -235,36 +233,6 @@ class RipDpiStylesTest {
         val child = composeRule.onNodeWithTag("style-content").fetchSemanticsNode().boundsInRoot
         assertEquals(20f, child.left - outer.left, 0.1f)
         assertEquals(4f, child.top - outer.top, 0.1f)
-    }
-
-    @Test
-    fun `chip scale retains its minimum vertical touch target`() {
-        var clicks = 0
-        val caller =
-            CommonStyle {
-                rdsBackground(Color.Blue)
-                rdsContentScale(0.5f)
-            }
-        composeRule.setContent {
-            CompositionLocalProvider(LocalInspectionMode provides true, LocalDensity provides Density(1f)) {
-                RipDpiTheme(themePreference = "light") {
-                    Box(Modifier.size(width = 96.dp, height = 48.dp).background(Color.White).testTag(Surface)) {
-                        RipDpiChip(
-                            text = "Filter",
-                            onClick = { clicks++ },
-                            modifier = Modifier.fillMaxSize(),
-                            visualStyle = caller,
-                        )
-                    }
-                }
-            }
-        }
-        val parent = composeRule.onNodeWithTag(Surface)
-        parent.assertWidthIsEqualTo(96.dp).assertHeightIsEqualTo(48.dp)
-        assertPixel(Surface, Color.White, x = 0.5f, y = 0.02f)
-        assertPixel(Surface, Color.Blue, x = 0.7f)
-        parent.performTouchInput { click(Offset(48f, 2f)) }
-        composeRule.runOnIdle { assertEquals(1, clicks) }
     }
 
     @Test

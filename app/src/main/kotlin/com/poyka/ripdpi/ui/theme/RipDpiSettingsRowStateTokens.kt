@@ -1,59 +1,7 @@
 package com.poyka.ripdpi.ui.theme
 
-import androidx.compose.material3.ColorScheme
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
-
-private const val DisabledAlpha = 0.38f
-
-@Immutable
-data class RipDpiChipStateTokens(
-    private val colors: RipDpiExtendedColors,
-    private val colorScheme: ColorScheme,
-    private val shapes: RipDpiShapeMetrics,
-    private val motion: RipDpiMotion,
-) {
-    fun resolve(
-        selected: Boolean,
-        enabled: Boolean,
-        isPressed: Boolean,
-    ): RipDpiChipStateStyle {
-        val interactive = enabled
-        return RipDpiChipStateStyle(
-            container =
-                when {
-                    selected -> colors.foreground
-                    isPressed -> colorScheme.surfaceVariant
-                    else -> Color.Transparent
-                },
-            border =
-                when {
-                    selected -> colors.foreground
-                    enabled -> colors.outlineVariant
-                    else -> colors.border
-                },
-            content =
-                when {
-                    selected -> colors.background
-                    enabled -> colors.foreground
-                    else -> colors.mutedForeground
-                },
-            cornerRadius =
-                if (isPressed && interactive) {
-                    shapes.controlCornerRadius
-                } else {
-                    shapes.largeCornerRadius
-                },
-            scale =
-                when {
-                    isPressed && interactive -> motion.pressScale
-                    selected -> motion.selectionScale
-                    else -> 1f
-                },
-            alpha = if (enabled) 1f else DisabledAlpha,
-        )
-    }
-}
 
 @Immutable
 data class RipDpiSettingsRowStateTokens(
