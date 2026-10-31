@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
-import com.poyka.ripdpi.ui.components.cards.SettingsRowDecoration
 import com.poyka.ripdpi.ui.components.routes.RipDpiRouteAvailabilityState
 import com.poyka.ripdpi.ui.components.routes.RipDpiRouteOpportunityPanel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -77,7 +76,7 @@ class RipDpiSurfaceStylesTest {
     }
 
     @Test
-    fun `settings override keeps toggle state and minimum touch target`() {
+    fun `settings row keeps toggle state and minimum touch target`() {
         var checked by mutableStateOf(false)
         var enabled by mutableStateOf(true)
         composeRule.setContent {
@@ -87,8 +86,7 @@ class RipDpiSurfaceStylesTest {
                     checked = checked,
                     enabled = enabled,
                     onCheckedChange = { checked = it },
-                    decoration = SettingsRowDecoration(testTag = Target),
-                    visualStyle = visualOverride,
+                    testTag = Target,
                 )
             }
         }
