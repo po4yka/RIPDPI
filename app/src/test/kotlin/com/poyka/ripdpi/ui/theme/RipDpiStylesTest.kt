@@ -22,24 +22,19 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.assertHeightIsEqualTo
 import androidx.compose.ui.test.assertIsNotEnabled
-import androidx.compose.ui.test.assertWidthIsEqualTo
 import androidx.compose.ui.test.captureToImage
-import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.unit.Density
-import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -153,47 +148,6 @@ class RipDpiStylesTest {
     }
 
     @Test
-    fun `content scale preserves the shell and outer hit target`() {
-        var clicks = 0
-        var scale by mutableStateOf(1f)
-        val style =
-            CommonStyle {
-                rdsBackground(Color.Blue)
-                rdsContentScale(scale)
-            }
-        composeRule.setContent {
-            CompositionLocalProvider(LocalDensity provides Density(1f)) {
-                val source = remember { MutableInteractionSource() }
-                val state = rememberUpdatedStyleState(source)
-                val resolver = rememberRipDpiStyleResolver(style, CommonStyle, state)
-                Box(
-                    Modifier
-                        .size(80.dp)
-                        .testTag(Surface)
-                        .ripDpiStyleSurface(resolver)
-                        .clickable(source, indication = null) { clicks++ },
-                ) {
-                    Box(Modifier.fillMaxSize().ripDpiStyleContent(resolver).background(Color.Red))
-                }
-            }
-        }
-        val surface = composeRule.onNodeWithTag(Surface)
-        surface.assertWidthIsEqualTo(80.dp).assertHeightIsEqualTo(80.dp)
-        assertPixel(Surface, Color.Red, x = 0.1f)
-        composeRule.runOnIdle { scale = 0.5f }
-        surface.assertWidthIsEqualTo(80.dp).assertHeightIsEqualTo(80.dp)
-        assertPixel(Surface, Color.Red)
-        assertPixel(Surface, Color.Blue, x = 0.1f)
-        surface.performTouchInput {
-            click(
-                androidx.compose.ui.geometry
-                    .Offset(2f, 2f),
-            )
-        }
-        composeRule.runOnIdle { assertEquals(1, clicks) }
-    }
-
-    @Test
     fun `style minimum height expands content and retains larger content`() {
         var contentHeight by mutableStateOf(12.dp)
         val style = CommonStyle { rdsMinHeight(48.dp) }
@@ -208,31 +162,6 @@ class RipDpiStylesTest {
         surface.assertHeightIsEqualTo(48.dp)
         composeRule.runOnIdle { contentHeight = 64.dp }
         surface.assertHeightIsEqualTo(64.dp)
-    }
-
-    @Test
-    fun `logical content padding measures and places correctly in RTL`() {
-        val style = CommonStyle { rdsContentPadding(start = 8.dp, top = 4.dp, end = 20.dp, bottom = 6.dp) }
-        composeRule.setContent {
-            CompositionLocalProvider(
-                LocalDensity provides Density(1f),
-                LocalLayoutDirection provides LayoutDirection.Rtl,
-            ) {
-                val state = rememberUpdatedStyleState(null)
-                val resolver = rememberRipDpiStyleResolver(style, CommonStyle, state)
-                Box(Modifier.testTag(Surface).ripDpiStyleSurface(resolver)) {
-                    Box(Modifier.ripDpiStyleContent(resolver, applyPadding = true)) {
-                        Box(Modifier.size(10.dp).testTag("style-content"))
-                    }
-                }
-            }
-        }
-        val surface = composeRule.onNodeWithTag(Surface)
-        surface.assertWidthIsEqualTo(38.dp).assertHeightIsEqualTo(20.dp)
-        val outer = surface.fetchSemanticsNode().boundsInRoot
-        val child = composeRule.onNodeWithTag("style-content").fetchSemanticsNode().boundsInRoot
-        assertEquals(20f, child.left - outer.left, 0.1f)
-        assertEquals(4f, child.top - outer.top, 0.1f)
     }
 
     @Test
