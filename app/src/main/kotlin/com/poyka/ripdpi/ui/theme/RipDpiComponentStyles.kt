@@ -3,7 +3,6 @@
 package com.poyka.ripdpi.ui.theme
 
 import androidx.compose.foundation.style.CommonStyle
-import androidx.compose.foundation.style.animate
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 
@@ -16,30 +15,6 @@ object RipDpiComponentStyles {
     fun surface(role: RipDpiSurfaceRole): CommonStyle = surfaces.getValue(role)
 
     fun outlinedSurface(role: RipDpiSurfaceRole): CommonStyle = outlinedSurfaces.getValue(role)
-
-    val chip =
-        CommonStyle {
-            val tokens = LocalRipDpiStateTokens.currentValue
-            val components = LocalRipDpiComponents.currentValue
-            val motion = LocalRipDpiMotion.currentValue
-            val resolved = tokens.chip.resolve(state.isSelected, state.isEnabled, state.isPressed)
-            animate(motion.stateTween<Float>()) {
-                rdsBackground(resolved.container)
-                RipDpiStyleProperties.borderColor.provide(resolved.border)
-            }
-            RipDpiStyleProperties.borderWidth.provide(RipDpiStroke.Thin)
-            rdsCornerRadius(resolved.cornerRadius)
-            rdsContentScale(resolved.scale)
-            val compact = state[RipDpiStyleStateKeys.Compact]
-            val horizontal =
-                components.inputs.chipHorizontalPadding -
-                    if (compact) components.inputs.chipFocusedHorizontalPaddingOffset else 0.dp
-            val vertical =
-                components.inputs.chipVerticalPadding -
-                    if (compact) components.inputs.chipFocusedVerticalPaddingOffset else 0.dp
-            rdsContentPadding(horizontal, vertical, horizontal, vertical)
-            // The existing chip alpha applies only after its shell and remains explicit.
-        }
 
     val screenBackground =
         CommonStyle {
