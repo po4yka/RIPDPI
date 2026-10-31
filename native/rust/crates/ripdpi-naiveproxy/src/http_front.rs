@@ -8,22 +8,14 @@ use crate::config::NaiveProxyConfig;
 use crate::socks5::SocksTarget;
 use base64::Engine;
 
-/// One authenticated local HTTP proxy request.
-#[derive(Debug, PartialEq, Eq)]
-pub(crate) enum HttpFrontRequest {
-    /// `CONNECT host:port`: answer 200, then relay bytes.
-    Connect(SocksTarget),
-    /// A plain absolute-form request (`GET http://host/path`): send `head`, the
-    /// request rewritten to origin form, to `target`, then relay bytes.
-    Forward { target: SocksTarget, head: Vec<u8> },
-}
-
+/// Reads one authenticated local `CONNECT host:port` request and returns its target.
+///
 /// # Cancel safety:
 /// NOT cancel-safe: partial headers consume bytes. The caller closes the socket on timeout.
 pub(crate) async fn read_http_front_request(
     client: &mut TcpStream,
     config: &NaiveProxyConfig,
-) -> io::Result<HttpFrontRequest> {
+) -> io::Result<SocksTarget> {
     let headers = read_headers(client).await?;
     if !has_local_authorization(&headers, config) {
         client.write_all(b"HTTP/1.1 407 Proxy Authentication Required\r\nProxy-Authenticate: Basic realm=\"local\"\r\nConnection: close\r\n\r\n").await?;
@@ -39,45 +31,12 @@ pub(crate) async fn read_http_front_request(
     if !version.starts_with("HTTP/1.") {
         return Err(io::Error::new(io::ErrorKind::Unsupported, format!("unsupported HTTP proxy version {version}")));
     }
-    if method.eq_ignore_ascii_case("CONNECT") {
-        return parse_authority(authority).map(HttpFrontRequest::Connect);
+    // Every in-app client speaks SOCKS5; plain absolute-form forwarding had no production caller.
+    if !method.eq_ignore_ascii_case("CONNECT") {
+        client.write_all(b"HTTP/1.1 405 Method Not Allowed\r\nAllow: CONNECT\r\nConnection: close\r\n\r\n").await?;
+        return Err(io::Error::new(io::ErrorKind::Unsupported, format!("unsupported HTTP proxy method {method}")));
     }
-    forward_request(method, authority, version, &headers)
-}
-
-/// Rewrites an absolute-form request for the origin: origin-form target, no
-/// proxy or hop-by-hop headers, and `Connection: close`.
-/// shortcut: one request per client connection; keep-alive across requests,
-/// possibly to other hosts, would need per-request parsing of the stream.
-fn forward_request(method: &str, uri: &str, version: &str, headers: &str) -> io::Result<HttpFrontRequest> {
-    let unsupported =
-        || io::Error::new(io::ErrorKind::Unsupported, format!("unsupported HTTP proxy request target for {method}"));
-    let rest = uri.strip_prefix("http://").ok_or_else(unsupported)?;
-    let (authority, path) = rest.find(['/', '?']).map_or((rest, "/"), |index| rest.split_at(index));
-    if authority.is_empty() || authority.contains('@') {
-        return Err(unsupported());
-    }
-    let path = if path.starts_with('?') { format!("/{path}") } else { path.to_owned() };
-    let has_port = authority.rsplit_once(':').is_some_and(|(host, port)| {
-        !port.is_empty()
-            && port.bytes().all(|byte| byte.is_ascii_digit())
-            && (host.ends_with(']') || !host.contains(':'))
-    });
-    let target = if has_port { parse_authority(authority)? } else { parse_authority(&format!("{authority}:80"))? };
-
-    let mut head = format!("{method} {path} {version}\r\n");
-    for line in headers.lines().skip(1).filter(|line| !line.is_empty()) {
-        let name = line.split_once(':').map_or(line, |(name, _)| name).trim();
-        let hop_by_hop = ["Proxy-Authorization", "Proxy-Connection", "Connection", "Keep-Alive"]
-            .iter()
-            .any(|hop| name.eq_ignore_ascii_case(hop));
-        if !hop_by_hop {
-            head.push_str(line);
-            head.push_str("\r\n");
-        }
-    }
-    head.push_str("Connection: close\r\n\r\n");
-    Ok(HttpFrontRequest::Forward { target, head: head.into_bytes() })
+    parse_authority(authority)
 }
 
 fn has_local_authorization(headers: &str, config: &NaiveProxyConfig) -> bool {
@@ -156,33 +115,6 @@ mod bare_ipv6_rejection_tests {
     fn parse_authority_rejects_bare_ipv6_authority() {
         assert!(parse_authority("2001:db8::1").is_err(), "bare IPv6 without port must be rejected");
         assert!(parse_authority("2001:db8::1:443").is_err(), "unbracketed IPv6 with port must be rejected");
-    }
-
-    #[test]
-    fn plain_requests_are_rewritten_to_origin_form_without_proxy_headers() {
-        let headers = "GET http://example.com/a/b?c=1 HTTP/1.1\r\nHost: example.com\r\n\
-            Proxy-Authorization: Basic c2VjcmV0\r\nProxy-Connection: keep-alive\r\nAccept: */*\r\n\r\n";
-        let request = forward_request("GET", "http://example.com/a/b?c=1", "HTTP/1.1", headers).expect("forward");
-        assert_eq!(
-            request,
-            HttpFrontRequest::Forward {
-                target: SocksTarget::Domain("example.com".to_owned(), 80),
-                head: b"GET /a/b?c=1 HTTP/1.1\r\nHost: example.com\r\nAccept: */*\r\nConnection: close\r\n\r\n"
-                    .to_vec(),
-            }
-        );
-
-        let Ok(HttpFrontRequest::Forward { target, head }) =
-            forward_request("POST", "http://[2001:db8::1]:8080?q", "HTTP/1.0", "POST x HTTP/1.0\r\n\r\n")
-        else {
-            panic!("bracketed IPv6 with port and a bare query must forward");
-        };
-        assert_eq!(target, SocksTarget::Ip("[2001:db8::1]:8080".parse().expect("socket addr")));
-        assert!(head.starts_with(b"POST /?q HTTP/1.0\r\n"));
-
-        for rejected in ["https://example.com/", "/relative", "http://user@example.com/", "http:///"] {
-            assert!(forward_request("GET", rejected, "HTTP/1.1", "").is_err(), "{rejected}");
-        }
     }
 
     #[test]

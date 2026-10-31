@@ -4,7 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
-use tokio::io::{AsyncWriteExt, copy_bidirectional};
+use tokio::io::copy_bidirectional;
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::Semaphore;
 use tokio::time::Instant;
@@ -12,9 +12,7 @@ use tokio::time::Instant;
 use crate::config::NaiveProxyConfig;
 use crate::connect_tunnel::{AsyncTunnel, open_https_connect_tunnel};
 use crate::errors::{UPSTREAM_OK_LINE, connection_failure_line, structured_error_line};
-use crate::http_front::{
-    HttpFrontRequest, read_http_front_request, write_http_connect_failure, write_http_connect_success,
-};
+use crate::http_front::{read_http_front_request, write_http_connect_failure, write_http_connect_success};
 use crate::socks5::{SocksTarget, negotiate_socks5, read_socks5_request, write_socks_reply};
 
 const STRUCTURED_READY_PREFIX: &str = "RIPDPI-READY|naiveproxy|";
@@ -211,11 +209,7 @@ async fn handle_http_front_client(
     config: Arc<NaiveProxyConfig>,
     setup_deadline: Instant,
 ) -> io::Result<()> {
-    let request = before(setup_deadline, "HTTP proxy request", read_http_front_request(&mut client, &config)).await?;
-    let (target, forward_head) = match request {
-        HttpFrontRequest::Connect(target) => (target, None),
-        HttpFrontRequest::Forward { target, head } => (target, Some(head)),
-    };
+    let target = before(setup_deadline, "HTTP proxy request", read_http_front_request(&mut client, &config)).await?;
 
     let mut upstream = match open_upstream(&config, &target).await {
         Ok(stream) => stream,
@@ -225,11 +219,7 @@ async fn handle_http_front_client(
         }
     };
 
-    match forward_head {
-        // A plain request: the origin answers, so the client gets no 200 from us.
-        Some(head) => upstream.write_all(&head).await?,
-        None => write_http_connect_success(&mut client).await?,
-    }
+    write_http_connect_success(&mut client).await?;
     let _ = copy_bidirectional(&mut client, &mut upstream).await?;
     Ok(())
 }
