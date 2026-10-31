@@ -1,21 +1,21 @@
-@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
-
 package com.poyka.ripdpi.ui.components.feedback
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.style.CommonStyle
-import androidx.compose.foundation.style.rememberUpdatedStyleState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,7 +24,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
-import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
@@ -34,18 +33,15 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
-import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
+import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
-import com.poyka.ripdpi.ui.theme.RipDpiBannerStateRole
 import com.poyka.ripdpi.ui.theme.RipDpiBannerStateStyle
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
-import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
-import com.poyka.ripdpi.ui.theme.warningIcon
 
 enum class WarningBannerTone {
     Warning,
@@ -70,8 +66,7 @@ fun WarningBanner(
     onDismiss: (() -> Unit)? = null,
 ) {
     val surfaceStyle = RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.feedback.banner)
-    val stateRole = RipDpiThemeTokens.stateRoles.banner.fromTone(tone)
-    val state = RipDpiThemeTokens.state.banner.resolve(stateRole)
+    val state = RipDpiThemeTokens.state.banner.resolve(RipDpiThemeTokens.stateRoles.banner.fromTone(tone))
     val resolvedIcon = icon ?: defaultWarningBannerIcon(tone)
     val baseModifier =
         modifier
@@ -84,27 +79,41 @@ fun WarningBanner(
             baseModifier
         }
 
-    Surface(
-        modifier =
-            onClick?.let {
-                surfaceModifier.ripDpiClickable(
-                    role = Role.Button,
-                    onClick = it,
-                )
-            } ?: surfaceModifier,
-        shape = RipDpiThemeTokens.shapes.xl,
-        color = state.container,
-        border = BorderStroke(RipDpiStroke.Thin, state.border),
-        contentColor = state.title,
-        shadowElevation = surfaceStyle.shadowElevation,
-    ) {
+    val content: @Composable ColumnScope.() -> Unit = {
         WarningBannerContent(
             title = title,
             message = message,
             icon = resolvedIcon,
             state = state,
-            stateRole = stateRole,
             onDismiss = onDismiss,
+        )
+    }
+    val shape = RipDpiThemeTokens.shapes.xl
+    val colors = CardDefaults.cardColors(containerColor = state.container, contentColor = state.title)
+    val elevation = CardDefaults.cardElevation(defaultElevation = surfaceStyle.shadowElevation)
+    val border = BorderStroke(RipDpiStroke.Thin, state.border)
+    if (onClick != null) {
+        val performHaptic = rememberRipDpiHapticPerformer()
+        Card(
+            onClick = {
+                performHaptic(RipDpiHapticFeedback.Action)
+                onClick()
+            },
+            modifier = surfaceModifier,
+            shape = shape,
+            colors = colors,
+            elevation = elevation,
+            border = border,
+            content = content,
+        )
+    } else {
+        Card(
+            modifier = surfaceModifier,
+            shape = shape,
+            colors = colors,
+            elevation = elevation,
+            border = border,
+            content = content,
         )
     }
 }
@@ -115,7 +124,6 @@ private fun WarningBannerContent(
     message: String,
     icon: ImageVector,
     state: RipDpiBannerStateStyle,
-    stateRole: RipDpiBannerStateRole,
     onDismiss: (() -> Unit)? = null,
 ) {
     val components = RipDpiThemeTokens.components
@@ -148,7 +156,7 @@ private fun WarningBannerContent(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    WarningBannerLeadingIcon(icon, state, stateRole)
+                    WarningBannerLeadingIcon(icon, state)
                     WarningBannerDismissButton(onDismiss, state)
                 }
                 WarningBannerText(title, message, state)
@@ -159,7 +167,7 @@ private fun WarningBannerContent(
                 horizontalArrangement = Arrangement.spacedBy(spacing.md),
                 verticalAlignment = Alignment.Top,
             ) {
-                WarningBannerLeadingIcon(icon, state, stateRole)
+                WarningBannerLeadingIcon(icon, state)
                 WarningBannerText(title, message, state, Modifier.weight(1f))
                 WarningBannerDismissButton(onDismiss, state)
             }
@@ -171,15 +179,12 @@ private fun WarningBannerContent(
 private fun WarningBannerLeadingIcon(
     icon: ImageVector,
     state: RipDpiBannerStateStyle,
-    stateRole: RipDpiBannerStateRole,
 ) {
-    val styleState = rememberUpdatedStyleState(null)
-    val resolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.warningIcon(stateRole), CommonStyle, styleState)
     Box(
         modifier =
             Modifier
                 .size(RipDpiThemeTokens.components.feedback.decorativeBadgeSize)
-                .ripDpiStyleSurface(resolver, shape = RipDpiThemeTokens.shapes.full),
+                .background(state.iconContainer, CircleShape),
         contentAlignment = Alignment.Center,
     ) {
         Icon(icon, contentDescription = null, tint = state.icon, modifier = Modifier.size(RipDpiIconSizes.Large))
