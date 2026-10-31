@@ -257,10 +257,19 @@ private fun RipDpiNavPanes(
     )
 }
 
-/** No tab is selected, so no bottom bar or rail shows, while onboarding is on the back stack. */
+/**
+ * No tab is selected, so no bottom bar or rail shows, while onboarding is on the back stack. A Settings detail
+ * shown beside its list keeps the Settings tab selected, so the rail stays beside both panes.
+ */
 @Composable
-private fun NavHostController.selectedTopLevelRoute(entry: NavBackStackEntry?): Route? =
-    if (hasOnboardingEntry(entry)) null else entry?.destination?.topLevelRoute()
+private fun NavHostController.selectedTopLevelRoute(entry: NavBackStackEntry?): Route? {
+    val settingsListDetail = settingsListDetailFor(entry)
+    return when {
+        hasOnboardingEntry(entry) -> null
+        settingsListDetail != null -> Route.Settings
+        else -> entry?.destination?.topLevelRoute()
+    }
+}
 
 private fun NavDestination.topLevelRoute(): Route? =
     Route.topLevel.firstOrNull { matchesRoute(it) }
