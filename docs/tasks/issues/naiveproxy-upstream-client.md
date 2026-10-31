@@ -2,7 +2,7 @@
 id: RLY-1793363326590556
 title: Ship the pinned upstream NaiveProxy client for real-certificate profiles
 kind: feature
-status: doing
+status: review
 area: relay
 priority: high
 owner: unassigned
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: rly-1793363326590556-naiveproxy-upstream-client
 created: 2026-10-30
-updated: 2026-10-30
+updated: 2026-10-31
 ---
 
 ## Goal
