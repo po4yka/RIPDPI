@@ -559,7 +559,7 @@ Layout is adaptive and width-aware:
 - `Medium`: `600dp` to `839dp`
 - `Expanded`: `840dp` and above
 
-Compact layouts should feel efficient, not cramped. Expanded layouts should split primary and secondary panels instead of stretching one long column edge to edge. Form and settings flows should stay narrower than dashboard-style content.
+Compact layouts should feel efficient, not cramped. Expanded layouts should split primary and secondary panels instead of stretching one long column edge to edge. Settings, History, and Logs use list-detail from the `Expanded` class, and Diagnostics hosts its details in a detail pane. Home and the mode editor use a supporting pane from the same class. Content width is capped per size class. Form and settings flows should stay narrower than dashboard-style content.
 
 ## Elevation & Depth
 
@@ -832,7 +832,7 @@ Status:
 - keep the default order: calm status header, collapsible `Setup health` row when applicable, the three mode cards, optional diagnostic PCAP toggle, then the Home diagnostic bottom-sheet host
 - keep diagnostic detail in Home bottom sheets or the Diagnose screen rather than recreating an inline diagnostics card stack
 - do not reintroduce the legacy `HomeStatusCard`, `HomeDiagnosticsCard`, `HomeStatsGrid`, `HomeApproachCard`, or `HomeHistoryCard` layout; their old test tags are reserved for negative regression assertions
-- preserve the same mode-card order at expanded width rather than reviving the old two-column status/diagnostics split
+- preserve the same mode-card order at expanded width; Home uses a supporting pane there for the connection-health entry and the mode cards, and does not revive the old two-column status/diagnostics split
 
 Diagnose:
 
@@ -842,6 +842,7 @@ Diagnose:
 - surface remembered per-network evidence, such as "worked last time on this network," without implying certainty beyond the stored verdict
 - keep dashboard, scan, and tools responsibilities separated instead of mixing them into one card stack
 - group evidence and recommendations with cards, banners, chips, rows, and dialogs rather than free-form text
+- keep scan actions in the scan card; do not move them to a floating action button
 - keep dashboard, scan, tools, sessions, and events as the Advanced information buckets
 - keep probe matrix, replay, PCAP, archive export, sessions, and events reachable from Advanced disclosure
 - reserve monospace treatment for operator-facing artifacts such as ids, domains, protocols, and candidate labels
@@ -849,7 +850,8 @@ Diagnose:
 Logs:
 
 - give Logs a real navigation entry: it must be reachable from Diagnose Advanced tools and from Settings, not only through previews or internal routes
-- keep the order `LogsToolbar` (filters and actions entry points), then `LogsStreamSection`; `LogsFiltersSection` opens in a bottom sheet from the toolbar, not inline
+- keep the order `LogsToolbar` (filters entry point), a search text field, then `LogsStreamSection`; `LogsFiltersSection` opens in a bottom sheet from the toolbar, not inline; search is a text field, not a Material `SearchBar`
+- put Save in the top app bar, and support-bundle sharing and Clear in its overflow menu; Clear asks for confirmation before it removes the logs
 - use `SettingsRow` for filters and facts only, and `LogRow` for actual log entries
 - keep the stream inside `LogsStreamCard` with `LogRow` and quiet separators
 - render empty states as cards, not loose body text
@@ -875,4 +877,4 @@ Connection:
 - Guided Connection exposes on/off, "Path strategy: Auto", re-test strategies, Add server, paste/QR/scan import, and inferred protocol handling without a protocol grid
 - Advanced Connection exposes the full protocol grid, Profile ID binding, chain relay, TTL, engine parameters, Finalmask, manual path strategy, CLI overrides, and exact text fields
 - use Profile cards for profile choice and `SettingsRow` for summary values
-- keep exact editing as a bounded form with network, relay, engine, and override sections, plus a persistent cancel/save bottom bar and explicit validation feedback
+- keep exact editing as a bounded form with network, relay, engine, and override sections, plus a Save in the top app bar, a persistent Cancel bottom bar, and explicit validation feedback; on relay profile editors the primary action (Save, or Connect on the AmneziaWG editor) also sits in the top app bar, with a caption that explains a disabled Save

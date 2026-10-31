@@ -25,8 +25,8 @@ When any of these disagree, the Compose theme code and screenshot baselines win.
 | Shapes | `ui/theme/Shape.kt` | Rounded-corner token scale and the full Material 3 corner scale, including increased tokens |
 | Motion | `ui/theme/RipDpiMotion.kt` | Durations, scales, easing, spring behavior, reduced-motion handling, and `RipDpiMotionScheme` for Material components |
 | Surface tokens | `ui/theme/RipDpiSurface.kt` | First-class panel, modal, feedback, menu, and navigation-chrome surfaces |
-| State tokens | `ui/theme/RipDpiState.kt` | First-class pressed, focused, disabled, loading, selected, and semantic tone resolution for shared components |
-| Component styles | `ui/theme/RipDpiComponentStyles.kt` and family extensions | Typed `CommonStyle` recipes that apply existing RDS values during layout and drawing |
+| State tokens | `ui/theme/RipDpiState.kt` | State resolution for the banner, actuator, and route families. Material 3 components resolve their own interaction states |
+| Component styles | `ui/theme/RipDpiComponentStyles.kt` and family extensions | Typed `CommonStyle` recipes that apply existing RDS values to owned shells such as surfaces, badges, indicators, and route pieces |
 
 Feature geometry does not belong in the shared theme. Flow-specific measurements stay close to the screen family that owns them, for example `HomeChromeMetrics` and `RipDpiIntroScaffoldMetrics`.
 
@@ -43,39 +43,36 @@ Feature geometry does not belong in the shared theme. Flow-specific measurements
 
 ## Interaction State Layer
 
-Shared components should resolve interaction and semantic states from `RipDpiStateTokens`, not by rebuilding pressed, focused, disabled, selected, loading, or error colors inline.
+The `RipDpi*` facade components are built on Material 3 components: `Button` and its variants, `IconButton` and its variants, `Switch`, `OutlinedTextField` and `OutlinedSecureTextField`, `DropdownMenu`, `Card`, `Surface`, `ModalBottomSheet`, `Snackbar`, and `SecondaryTabRow`. Material 3 resolves pressed, focused, disabled, and selected states for these components. The facade maps RDS roles into Material color objects (for example `ripDpiButtonColors` and `ripDpiSwitchColors`) and does not rebuild those states inline.
+
+Components with a state that Material 3 does not model resolve it from `RipDpiStateTokens`, not by rebuilding semantic colors inline.
 
 Current first-class state families:
 
-- `button`
-- `iconButton`
-- `textField`
-- `chip`
-- `switch`
-- `settingsRow`
 - `banner`
 - `actuator`
-- `actuatorStage`
 - `route`
+
+The actuator stage roles (`actuatorStage`) are exposed through `RipDpiThemeTokens.stateRoles`, not through `RipDpiStateTokens`.
 
 ## Compose Component Styles
 
 The RDS style layer uses the experimental Compose Foundation 1.13.0-beta01 `CommonStyle` and `StyleResolver` APIs. The published Compose BOM beta 2026.10.00 pins this API generation; build with Android SDK 37.1. `RipDpiThemeTokens.styles` exposes the component catalog. Colors, surfaces, state resolvers, and motion tokens remain the source of values. Styles do not introduce a separate theme or change the design.
 
-Use `visualStyle: CommonStyle = CommonStyle` to customize an eligible RDS component. `RipDpiIconButton.style` still selects its existing variant. Styles apply to the owned shell of a component. They do not change callbacks, enabled/loading rules, minimum touch targets, semantics, haptics, or automation IDs.
+Use `visualStyle: CommonStyle = CommonStyle` to customize an eligible RDS component. Only components that own their shell take this parameter: `PresetCard`, `RipDpiAccordion`, `RipDpiSegmentedButton`, `RipDpiPageIndicators`, `RipDpiStaleDataBadge`, `AnalysisProgressIndicator`, and the Secure Route components. About 20 files still use `CommonStyle` and `ExperimentalFoundationStyleApi`, which include the feature cards, `LogRow`, `RipDpiDegradationStrip`, `RipDpiBottomSheet` (handle), and `RipDpiConnectionActuator` (fault row). `RipDpiButton`, `RipDpiIconButton`, `RipDpiTextField`, `RipDpiDropdown`, `RipDpiSwitch`, `RipDpiChip`, `RipDpiCard`, and `SettingsRow` have no `visualStyle` parameter: they are built on Material 3 components and take their colors from RDS roles. Styles apply to the owned shell of a component. They do not change callbacks, enabled/loading rules, minimum touch targets, semantics, haptics, or automation IDs.
 
 ```kotlin
 @file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
 
 // A caller can change an RDS visual property without replacing behavior.
-RipDpiButton(
-    text = label,
-    onClick = onClick,
+PresetCard(
+    title = title,
+    description = description,
     visualStyle = CommonStyle { rdsCornerRadius(12.dp) },
 )
 ```
 
-Existing calls keep their original signatures through small `@NonRestartableComposable` overloads. The styled `SettingsRow` overload groups chevron, divider, monospace-value, and test-tag options in `SettingsRowDecoration`. It requires an explicit `visualStyle` to keep legacy overload resolution unambiguous; omitting the style still uses the unchanged legacy API and its empty default. These overloads pass the empty style to the styled implementation. A caller needs the file-local experimental opt-in only when it uses the `CommonStyle` overload. Keep trailing content and action callbacks last in both signatures.
+Components with a style catalog entry keep their original signatures through small `@NonRestartableComposable` overloads. These overloads pass the empty style to the styled implementation. A caller needs the file-local experimental opt-in only when it uses the `CommonStyle` overload. Keep trailing content and action callbacks last in both signatures.
 
 ### Resolution and state
 
@@ -85,7 +82,7 @@ One `InteractionSource` supplies both the behavior modifier and the style state.
 
 Cached recipes read current RDS composition locals through the attached resolver. Create and bind a resolver within the same static composition-local provider scope. The adapter publishes current recipes and the composition-local context from `SideEffect`, after node updates are applied. It keeps the resolver and its active animations when a recipe changes. Cached recipes also update when static providers change. A theme, contrast, or motion change must update the attached node. Do not capture a theme value in a long-lived style without updating that style when the value changes.
 
-Bind each resolver exactly once with `styleResolver` or `ripDpiStyleSurface`. Child content can read that resolver in layout/draw callbacks through `ripDpiStyleContent` or `ripDpiStylePadding`; it must not bind the resolver again. Do not resolve properties from Composition before the node is attached. Material `Text` and `Icon` retain explicit typography and colors.
+Bind each resolver exactly once with `styleResolver` or `ripDpiStyleSurface`. `ripDpiStyleAppearance` applies an already bound resolver and must not bind it again. Do not resolve properties from Composition before the node is attached. Material `Text` and `Icon` retain explicit typography and colors.
 
 ### Typed properties
 
@@ -95,20 +92,15 @@ Bind each resolver exactly once with `styleResolver` or `ripDpiStyleSurface`. Ch
 | `rdsBackgroundAlpha(Float)` | Replacement alpha for a solid fill; does not fade children or shadows |
 | `rdsBorder(Color, Dp)` | Border color and width; zero means no border |
 | `rdsCornerRadius(Dp)` | Numeric radius with the component shape as fallback |
-| `rdsContentScale(Float)` | Content transform, or whole-shell transform for Chip |
-| `rdsContentAlpha(Float)` | Content alpha where the component attaches its content modifier |
 | `rdsMinHeight(Dp)` | Optional layout minimum; required component targets still apply |
-| `rdsContentPadding(start, top, end, bottom)` | Logical padding for components with a style padding modifier |
 
-Only properties used by a component's modifier pipeline affect that component. Cards retain their `paddingValues`; screen geometry is not a style property. Switch `visualStyle` applies to its track, while the thumb has a separate default recipe. Connection actuator `visualStyle` forwards to its primary action. The legacy Dropdown overload keeps its original positional signature and delegates to the primary overload.
-
-Preserve modifier order. Button and IconButton scale only content; Chip scales its painted shell through `ripDpiStyleDrawing`. Its input and semantics coordinates keep the required touch target. Disabled content alpha, Text-only loading alpha, and shadows retain their original positions. Animate numeric corner radii with RDS motion specifications and construct the shape from the resolved number. Do not assume that a whole `Shape` can interpolate. Reduced or disabled motion must use the existing motion token behavior.
+Only properties used by a component's modifier pipeline affect that component. Screen geometry is not a style property. Preserve modifier order: disabled content alpha and shadows keep their original positions. Animate numeric corner radii with RDS motion specifications and construct the shape from the resolved number. Do not assume that a whole `Shape` can interpolate. Reduced or disabled motion must use the existing motion token behavior.
 
 ### Boundaries and exceptions
 
-- Foundation 1.13 beta interpolates spring properties through normalized progress. On an interrupted reverse transition, it carries that progress velocity without scaling it for the new property delta. Button, IconButton, and Chip keep typed `animateFloatAsState` / `animateDpAsState` for their original spring scale and radius. Their remembered style reads the animation State during attached resolution at layer zero; caller styles remain at layer one. Color tweens stay in CommonStyle. Disabling motion drops active spring animators and provides the target immediately.
+- Foundation 1.13 beta interpolates spring properties through normalized progress. On an interrupted reverse transition, it carries that progress velocity without scaling it for the new property delta. A component that needs a spring scale or radius keeps a typed `animateFloatAsState` / `animateDpAsState` and lets its style read the animation State during attached resolution at layer zero; caller styles remain at layer one. Color tweens stay in CommonStyle. Disabling motion drops active spring animators and provides the target immediately.
 
-- Material hosts keep their explicit APIs: `Surface`, `Scaffold`, modal sheets, menus, tooltips, dividers, text, and icons. This includes the Material shells of banners, dialogs, sheets, snackbars, context menus, degradation strips, export consent, and metric pills. Their owned badges, handles, and stripes can use styles.
+- Material hosts keep their explicit APIs: `Button`, `IconButton`, `Switch`, `OutlinedTextField`, `Card`, `Surface`, `Scaffold`, modal sheets, menus, tooltips, dividers, text, and icons. This includes the Material shells of banners, dialogs, sheets, snackbars, context menus, degradation strips, export consent, and metric pills. Their owned badges, handles, and stripes can use styles.
 - Canvas renderers, telemetry plots, progress drawing, and navigation transitions retain their drawing or animation algorithms. Styles do not own their feature geometry.
 - App-shell navigation uses `RipDpiNavigationSuiteScaffold` over Material 3 `NavigationSuiteScaffold`: a bar on compact windows, a collapsed rail on medium and expanded windows (expanded rail at 1.2x font scale and above), and an expanded rail on large and extra-large windows. Tabs perform selection haptics through `rememberRipDpiHapticPerformer`. Container and indicator colors come from the `bottomBar` and `bottomBarIndicator` surface roles; item colors come from the theme foreground and muted foreground.
 - Components that only arrange or delegate to styled RDS controls do not need an extra resolver. Do not add a style node that has no visible effect.
@@ -125,33 +117,33 @@ Current first-class surface roles:
 - Panels: `Card`, `TonalCard`, `ElevatedCard`, `StatusCard`, `SelectedCard`
 - Modals: `Dialog`, `BottomSheet`
 - Feedback: `Banner`, `Snackbar`
-- Chrome: `DropdownMenu`, `BottomBar`, `BottomBarIndicator`, `SwitchThumb`
+- Chrome: `DropdownMenu`, `BottomBar`, `BottomBarIndicator`
 - Icon badges: `BottomSheetIconBadge`, `DialogIconBadge`, `DialogDestructiveIconBadge`
-- Actuator: `ActuatorRail`, `ActuatorCarriage`, `ActuatorTerminalSlot`, `ActuatorPipelineSegment`
-- Secure Routes: `RouteProfile`, `RouteCapability`, `RouteStack`, `RouteProvider`, `RouteOpportunity`
+- Actuator: `ActuatorRail`, `ActuatorTerminalSlot`, `ActuatorPipelineSegment`
+- Secure Routes: `RouteProfile`, `RouteStack`, `RouteProvider`, `RouteOpportunity`
 
 Usage rules:
 
 - `StatusCard` is neutral emphasis for important status blocks, not a semantic warning/error container.
 - `SelectedCard` is for explicit picked-state surfaces such as presets.
 - `Dialog` and `BottomSheet` are separate roles even when they currently share the same visual recipe.
-- `SwitchThumb` stays in the surface taxonomy because its elevation and containment are structural, not textual.
 - Route roles describe secure-route opportunity and selection surfaces only. They must not imply a new runtime protocol, provider integration, or persistence contract until the corresponding product layer exists.
 
 ## Component Mapping
 
 | Design concept | Compose entry point | Primary token sources | Visual verification |
 |----------------|---------------------|-----------------------|--------------------|
-| Primary and secondary actions | `ui/components/buttons/RipDpiButton.kt` | `state.button`, `type.button`, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
-| Icon-only actions | `ui/components/buttons/RipDpiIconButton.kt` | `state.iconButton`, icon sizes, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
+| Primary and secondary actions | `ui/components/buttons/RipDpiButton.kt` | Material 3 `Button` variants with `colors`, `type.button`, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
+| Icon-only actions | `ui/components/buttons/RipDpiIconButton.kt` | Material 3 `IconButton` variants with `colors`, icon sizes, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
 | Secure connection actuator | `ui/components/inputs/RipDpiConnectionActuator.kt` | `state.actuator`, `state.actuatorStage`, `RipDpiIcons`, `motion` | `RipDpiDesignSystemScreenshotCatalog`, home screenshots |
 | Secure route profiles and capabilities | `ui/components/routes/RipDpiRouteComponents.kt` | `state.route`, route surface roles, `type.monoSmall`, `RipDpiIcons` | `RipDpiDesignSystemScreenshotCatalog` |
-| Filter and selection chips | `ui/components/inputs/RipDpiChip.kt` | `state.chip`, `type.smallLabel`, `shapes`, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
-| Text and config fields | `ui/components/inputs/RipDpiTextField.kt` | `state.textField`, `type.monoValue`, `type.monoConfig`, component metrics | `RipDpiDesignSystemScreenshotCatalog` |
-| Dropdowns and switches | `ui/components/inputs/RipDpiDropdown.kt`, `ui/components/inputs/RipDpiSwitch.kt` | `state.textField`, `state.switch`, `type`, component metrics | `RipDpiDesignSystemScreenshotCatalog` |
-| Cards and selectable presets | `ui/components/cards/RipDpiCard.kt`, `ui/components/cards/PresetCard.kt` | `surfaces`, `layout.cardPadding`, `shapes`, `state` | `RipDpiDesignSystemScreenshotCatalog`, screen catalogs |
-| Settings rows | `ui/components/cards/SettingsRow.kt` | `surfaces`, `state.settingsRow`, `type`, component metrics | `RipDpiDesignSystemScreenshotCatalog`, settings screen screenshots |
-| Feedback surfaces | `ui/components/feedback/WarningBanner.kt`, `RipDpiDialog.kt`, `RipDpiBottomSheet.kt`, `RipDpiSnackbar.kt` | `surfaces`, `state.banner`, semantic status colors, `type`, layout widths, `motion` | `RipDpiDesignSystemScreenshotCatalog` for banners/snackbars; modal previews and screen catalogs for dialogs/sheets |
+| Filter and selection chips | `ui/components/inputs/RipDpiChip.kt` | Material 3 `Surface` with `colors`, `type.smallLabel`, `shapes`, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
+| Text and config fields | `ui/components/inputs/RipDpiTextField.kt` | Material 3 `OutlinedTextField` and `OutlinedSecureTextField` with `colors`, `type.monoValue`, `type.monoConfig`, component metrics | `RipDpiDesignSystemScreenshotCatalog` |
+| Dropdowns and switches | `ui/components/inputs/RipDpiDropdown.kt`, `ui/components/inputs/RipDpiSwitch.kt` | Material 3 `DropdownMenu`, `OutlinedTextField`, and `Switch` with `colors`, `type`, component metrics | `RipDpiDesignSystemScreenshotCatalog` |
+| Cards and selectable presets | `ui/components/cards/RipDpiCard.kt`, `ui/components/cards/PresetCard.kt` | Material 3 `Card` with `surfaces`, `layout.cardPadding`, `shapes` | `RipDpiDesignSystemScreenshotCatalog`, screen catalogs |
+| Settings rows | `ui/components/cards/SettingsRow.kt` | Material 3 `Surface` with `surfaces`, `type`, component metrics | `RipDpiDesignSystemScreenshotCatalog`, settings screen screenshots |
+| Feedback surfaces | `ui/components/feedback/WarningBanner.kt`, `RipDpiDialog.kt`, `RipDpiBottomSheet.kt`, `RipDpiSnackbar.kt` | Material 3 `Card`, `Surface`, `ModalBottomSheet`, and `Snackbar` with `surfaces`, `state.banner`, semantic status colors, `type`, layout widths, `motion` | `RipDpiDesignSystemScreenshotCatalog` for banners/snackbars; modal previews and screen catalogs for dialogs/sheets |
+| Fixed tab row | `ui/components/inputs/RipDpiTabs.kt` | Material 3 `SecondaryTabRow` with `colors`, `type`. Diagnostics and History use Material scrollable tab rows directly | config screen screenshots |
 | Navigation chrome | `ui/components/navigation/RipDpiTopAppBar.kt`, bottom navigation | `surfaces`, `layout`, `type.appBarTitle`, icon rules, component metrics | home/settings/config screenshots |
 | Status and telemetry indicators | `ui/components/indicators/StatusIndicator.kt`, `LogRow.kt`, progress indicators | semantic colors, monospace roles, component metrics, `motion` | home, diagnostics, logs screenshots |
 | Screen scaffolds | `ui/components/scaffold/RipDpiScaffolds.kt` | `layout`, `spacing`, background color | all screen screenshot catalogs |
@@ -179,6 +171,10 @@ Screen rules:
 
 - Forms and settings screens use `RipDpiSettingsScaffold` or `RipDpiContentScreenScaffold` with form-width constraints.
 - Dashboard and home screens use `RipDpiDashboardScaffold`; expanded layouts split primary and secondary sections instead of stretching one long column.
+- List-detail applies from the Expanded width class. Settings, History, and Logs show the list pane at the start and the selected item in the detail pane. Diagnostics shows its details in a detail pane. `RipDpiListDetailLayout` draws both panes with a fixed list pane width, and `RipDpiTopAppBar` drops its back arrow while the content shows beside its list. Below Expanded, the list and the detail are separate destinations.
+- Home and the mode editor use a supporting pane from the Expanded width class (`RipDpiContentGrouping.SplitColumns`). Below it the same content stacks in the same order.
+- Screens that lay out their own scrolling body wrap it in `RipDpiContentWidth` to cap it at the content width of the current size class.
+- Editor primary actions sit in the top app bar through `RipDpiTopBarAction`: Save in the mode editor, relay profile editors, and rule editor, and Connect in the AmneziaWG editor. A disabled Save gets a `RelayEditorHint` caption in the body that explains why.
 - Intro and auth flows use `RipDpiIntroScaffold`; large font scale must remain unclipped.
 - Home mode summary facets use aligned label/value rows at the default font scale and stack each label above its value at `1.3x` and above. Home mode action pairs likewise stack vertically at accessibility font scales instead of weakening the shared one-line button contract.
 - Connection-actuator endpoint labels are measured before layout. When compact accessibility layouts cannot keep both labels clear of the carriage, the redundant endpoint text is hidden while the route label, status text, lock icon, and switch semantics preserve the connection meaning.
@@ -307,16 +303,17 @@ Onboarding and permission flows:
 - The default order is banners, degradation strip when present, the three `HomeModeCard` entries, optional diagnostic PCAP toggle, then Home diagnostic bottom-sheet host.
 - Do not render `HomeStatusCard`, `HomeDiagnosticsCard`, `HomeStatsGrid`, `HomeApproachCard`, or `HomeHistoryCard` in the current Home dashboard. Their old test tags are reserved for negative regression assertions.
 - Use `WarningBanner`, `HomeModeCard`, `RipDpiButton`, `RipDpiSwitch`, `StatusIndicator`, `StageProgressIndicator`, and `RipDpiBottomSheet` as the default Home primitive set.
-- Expanded width should preserve the same mode order and avoid reviving the old two-column status/diagnostics split unless the screenshot contract is intentionally changed first.
+- From the Expanded width class, Home uses a supporting pane: the connection control, pause controls, advisories, and measurements stay in the primary pane, and the connection-health entry and the `Modes & diagnostics` disclosure move to the supporting pane. The mode order stays the same. Do not revive the old two-column status/diagnostics split.
 - Use `WarningBanner` only for service errors, permission recovery, or background-guidance issues. Do not restyle those concerns as neutral cards.
 - Do not introduce decorative hero art, floating metric tiles, alternate action bars above the mode-card list, or inline raw diagnostics tables that belong in Diagnostics or a bottom sheet.
 
 ### Diagnostics
 
 - Build with `RipDpiScreenScaffold` and `RipDpiTopAppBar`, then anchor the body with `DiagnosticsSectionSwitcher` followed by section content inside the pager.
+- From the Expanded width class, Diagnostics hosts details in a detail pane beside the section content. Below it the same details open in a sheet.
 - Dashboard, Scan, Tools, Sessions, and Events remain top-level sections. New diagnostics content should attach to one of those sections before introducing another root tab.
 - Dashboard should own health summary, active profile context, remembered-network state, and grouped warnings.
-- Scan should own profile selection, workflow controls, live progress, latest session, strategy reports, and latest evidence.
+- Scan should own profile selection, workflow controls, live progress, latest session, strategy reports, and latest evidence. The scan actions stay in the scan card. Do not move them to a floating action button.
 - Tools should own approach selection, preview or export actions, and optional debug or performance cards.
 - Evidence and recommendations must be grouped in `RipDpiCard`, `WarningBanner`, `SettingsRow`, `StatusIndicator`, `RipDpiChip`, and `RipDpiBottomSheet` compositions rather than raw text blocks.
 - Operator-facing artifacts such as candidate ids, domains, resolver names, or transport evidence should use monospace roles and stable row layouts.
@@ -327,10 +324,10 @@ Onboarding and permission flows:
 ### Logs
 
 - Build with `RipDpiScreenScaffold` and keep the screen visually quiet so the log stream remains dominant.
-- Keep a compact status row with Filters and Log actions controls. The stream
-  fills the remaining height in the screen's only vertical event list.
-- Keep filter controls in a scrollable sheet with an explicit Done action. Save,
-  clear and support sharing belong in a separate action sheet.
+- Keep a compact status row with a Filters control and a search `RipDpiTextField` above the stream. Search is a text field, not a Material `SearchBar`. The stream fills the remaining height in the screen's only vertical event list.
+- Keep filter controls in a scrollable sheet with an explicit Done action.
+- Save is a top app bar action. Support-bundle sharing and Clear are items of `RipDpiOverflowMenu` in the top app bar. Clear asks for confirmation in a `RipDpiDialog` before it removes the logs.
+- From the Expanded width class, Logs shows the list and a detail pane for the selected entry.
 - Filter controls belong in `SettingsRow`, `RipDpiChip`, and `SettingsCategoryHeader`; `SettingsRow` is for binary filters and compact facts only, not for actual log entries.
 - The stream itself should stay inside `LogsStreamCard` and render entries with `LogRow`; preserve monospace rhythm, compact spacing, and divider discipline.
 - Empty or filtered-empty states should use a dedicated card such as `LogsEmptyStateCard`, never a raw placeholder string in the list viewport.
@@ -357,7 +354,8 @@ Onboarding and permission flows:
 - Preset selection belongs in `PresetCard`; selection state must remain explicit and semantic, never implied only by position or accent color.
 - Summary values should use `SettingsRow`, with monospace values for addresses, ports, TTLs, and chain-like strings.
 - `ModeEditorScreen` should keep an intro card followed by network, relay, engine, and override sections as needed, all within the same bounded form column.
-- `ModeEditorScreen` must use `RipDpiScreenScaffold` with a stable top app bar, a bounded form column, and a persistent two-action bottom bar for cancel and save.
+- `ModeEditorScreen` must use `RipDpiScreenScaffold` with a stable top app bar that holds Save, a bounded form column, and a persistent bottom bar for Cancel. From the Expanded width class, the intro, recovery, and validation notices move to a supporting pane.
+- A secret field in a profile editor is a `RipDpiTextField` that stays masked until the user taps the trailing Reveal `RipDpiIconButton` (eye icon, content description "Reveal").
 - Use `RipDpiConfigTextField` for multi-line or raw config payloads, `RipDpiTextField` for discrete scalar fields, and `RipDpiSwitch` for boolean options.
 - Validation should be field-local first and banner-level second. Validation, import, and destructive confirmation must surface through `WarningBanner`, snackbar, or `RipDpiDialog`; never hide validation only in placeholder text or button disablement.
 - Do not merge preset browsing and raw editing into one scrolling surface, and do not reuse `PresetCard` outside preset selection.
