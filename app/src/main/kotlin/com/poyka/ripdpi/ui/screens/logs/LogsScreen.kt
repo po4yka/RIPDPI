@@ -3,7 +3,6 @@ package com.poyka.ripdpi.ui.screens.logs
 import android.content.ClipData
 import android.content.ClipboardManager
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -20,8 +19,6 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.SnackbarHostState
@@ -76,8 +73,11 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.RipDpiListDetailLayout
+import com.poyka.ripdpi.ui.components.navigation.RipDpiOverflowMenu
+import com.poyka.ripdpi.ui.components.navigation.RipDpiOverflowMenuItem
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
+import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -457,39 +457,29 @@ private fun LogsTopBarActions(
     onShareSupportBundle: () -> Unit,
     onRequestClear: () -> Unit,
 ) {
-    var menuExpanded by remember { mutableStateOf(false) }
     RipDpiIconButton(
         icon = RipDpiIcons.Archive,
         contentDescription = stringResource(R.string.save_logs),
         onClick = onSaveLogs,
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.LogsSave),
     )
-    Box {
-        RipDpiIconButton(
-            icon = RipDpiIcons.Overflow,
-            contentDescription = stringResource(R.string.logs_actions_title),
-            onClick = { menuExpanded = true },
-            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.LogsActions),
-        )
-        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.settings_support_debug_bundle_title)) },
-                onClick = {
-                    menuExpanded = false
-                    onShareSupportBundle()
-                },
-            )
-            DropdownMenuItem(
-                text = { Text(stringResource(R.string.logs_clear)) },
-                enabled = uiState.logs.isNotEmpty(),
-                onClick = {
-                    menuExpanded = false
-                    onRequestClear()
-                },
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.LogsClear),
-            )
-        }
-    }
+    RipDpiOverflowMenu(
+        contentDescription = stringResource(R.string.logs_actions_title),
+        testTag = RipDpiTestTags.LogsActions,
+        items =
+            listOf(
+                RipDpiOverflowMenuItem(
+                    label = stringResource(R.string.settings_support_debug_bundle_title),
+                    onClick = onShareSupportBundle,
+                ),
+                RipDpiOverflowMenuItem(
+                    label = stringResource(R.string.logs_clear),
+                    onClick = onRequestClear,
+                    enabled = uiState.logs.isNotEmpty(),
+                    testTag = RipDpiTestTags.LogsClear,
+                ),
+            ),
+    )
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -658,7 +648,7 @@ private fun LogsStreamEntry(
                     } else {
                         Modifier
                             .background(if (selected) colors.accent else Color.Transparent)
-                            .clickable(onClick = onSelect)
+                            .ripDpiClickable(onClick = onSelect)
                             .semantics { if (selected) this.selected = true }
                     },
                 ),
