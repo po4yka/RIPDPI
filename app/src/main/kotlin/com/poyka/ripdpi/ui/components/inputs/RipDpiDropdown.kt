@@ -1,8 +1,7 @@
 package com.poyka.ripdpi.ui.components.inputs
 
 import androidx.compose.animation.core.animateFloatAsState
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,6 +13,7 @@ import androidx.compose.foundation.text.input.TextFieldState
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MenuDefaults
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
@@ -24,6 +24,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -36,6 +37,7 @@ import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -241,7 +243,7 @@ private fun DropdownField(
     }
 }
 
-/** Material owns the popup surface and item behavior; field visualStyle does not style this host. */
+/** Material owns the popup surface and item behavior; the RDS dropdown roles map into its colors and shape. */
 @Composable
 private fun <T> DropdownOptionsMenu(
     options: ImmutableList<RipDpiDropdownOption<T>>,
@@ -252,29 +254,21 @@ private fun <T> DropdownOptionsMenu(
     optionTagForValue: ((T) -> String)?,
 ) {
     val surfaceStyle = RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.inputs.dropdownMenu)
+    val menuBorder =
+        surfaceStyle.border.takeUnless { it == Color.Transparent }?.let { BorderStroke(RipDpiStroke.Thin, it) }
     DropdownMenu(
         expanded = expanded,
         onDismissRequest = onDismiss,
-        modifier =
-            Modifier
-                .fillMaxWidth(dropdownWidthFraction)
-                .background(surfaceStyle.container, RipDpiThemeTokens.shapes.xl)
-                .border(
-                    width = if (surfaceStyle.border == androidx.compose.ui.graphics.Color.Transparent) 0.dp else 1.dp,
-                    color = surfaceStyle.border,
-                    shape = RipDpiThemeTokens.shapes.xl,
-                ),
+        modifier = Modifier.fillMaxWidth(dropdownWidthFraction),
+        shape = RipDpiThemeTokens.shapes.xl,
+        containerColor = surfaceStyle.container,
+        border = menuBorder,
     ) {
         options.forEach { option ->
             DropdownMenuItem(
                 modifier = Modifier.ripDpiTestTag(optionTagForValue?.invoke(option.value)),
-                text = {
-                    Text(
-                        text = option.label,
-                        style = RipDpiThemeTokens.type.body,
-                        color = surfaceStyle.content,
-                    )
-                },
+                text = { Text(text = option.label, style = RipDpiThemeTokens.type.body) },
+                colors = MenuDefaults.itemColors(textColor = surfaceStyle.content),
                 onClick = {
                     if (isInteractive) {
                         onValueSelected(option.value)
