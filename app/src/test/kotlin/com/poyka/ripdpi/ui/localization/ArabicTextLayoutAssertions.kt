@@ -66,7 +66,13 @@ internal fun ComposeContentTestRule.assertNoClippedText(screen: String) {
         node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(layouts)
         layouts.forEach { layout ->
             val text = layout.layoutInput.text.text
-            assertFalse("$screen: '$text' overflows its height", layout.didOverflowHeight)
+            // The semantics layout can come from another width pass, so compare heights only when it matches the node.
+            if (layout.size.width == node.size.width) {
+                assertTrue(
+                    "$screen: '$text' is clipped (box ${node.size}, text ${layout.multiParagraph.height})",
+                    node.size.height + 1f >= layout.multiParagraph.height,
+                )
+            }
             assertFalse("$screen: '$text' exceeds its line cap", layout.multiParagraph.didExceedMaxLines)
             // Same guard as assertArabicTextLayout: a semantics paragraph can be wider than the drawn node in RTL.
             if (layout.multiParagraph.width <= layout.size.width + 1f) {
