@@ -52,7 +52,7 @@ change does not alter the native dependency or production server pins.
 
 ## Known divergences from upstream
 
-- `contract-fixtures/hysteria2/v2/salamander/` contains a fixture-walker harness and one synthetic `hello-zero-salt.bin` regression vector. Broader upstream-captured Salamander vectors are still tracked in `docs/tasks/issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md`.
+- `contract-fixtures/hysteria2/v2.13.0/salamander/` holds nine vectors written and read back by upstream `extras/obfs` at `app/v2.13.0`. `salamander::tests::upstream_salamander_vectors_match_encode_and_decode` asserts byte equality on decode and on encode with the vector's salt.
 - Hysteria v1 is intentionally unsupported.
 
 ## Non-goals
