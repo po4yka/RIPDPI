@@ -131,6 +131,10 @@ impl SalamanderCodec {
     pub(crate) fn encode(&self, payload: &[u8]) -> Vec<u8> {
         let mut salt = [0u8; 8];
         rand::rng().fill_bytes(&mut salt);
+        self.encode_with_salt(salt, payload)
+    }
+
+    fn encode_with_salt(&self, salt: [u8; SALT_LEN], payload: &[u8]) -> Vec<u8> {
         let keystream = self.keystream(&salt);
 
         let mut out = Vec::with_capacity(8 + payload.len());
@@ -309,82 +313,45 @@ mod tests {
         assert!(rendered.contains("<redacted>"));
     }
 
+    /// Upstream conformance vectors under
+    /// `contract-fixtures/hysteria2/<tag>/salamander/`. Each `<name>.bin`
+    /// datagram (`salt(8) + ciphertext`) was written by the pinned
+    /// upstream obfuscator from `<name>.plain` with the PSK in
+    /// `<name>.psk`; see `contract-fixtures/hysteria2/README.md`.
     #[test]
-    fn salamander_keystream_pinned_for_known_key_and_salt() {
-        // Regression-boundary fixture. The keystream derivation is
-        // `Blake2b256(key || salt) -> 32 bytes`. Pinning the keystream
-        // output for a known (key, salt) catches accidental algorithm
-        // bumps (e.g. swapping blake2b256 for blake2b512) before they
-        // ship.
-        //
-        // This is NOT an upstream-conformance check. Broader upstream-captured
-        // vectors are tracked under
-        // `docs/tasks/issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md`.
-        let codec = SalamanderCodec::new(b"top-secret".to_vec());
-        let salt = [0u8; 8];
-        let keystream = codec.keystream(&salt);
-
-        assert_eq!(keystream.len(), 32, "blake2b256 produces a 32-byte output");
-
-        // Decode a synthetic ciphertext: salt + (plaintext XOR keystream).
-        let plaintext = b"hello";
-        let mut ciphertext = Vec::with_capacity(8 + plaintext.len());
-        ciphertext.extend_from_slice(&salt);
-        for (i, &b) in plaintext.iter().enumerate() {
-            ciphertext.push(b ^ keystream[i % keystream.len()]);
-        }
-
-        let decoded = codec.decode(&ciphertext).expect("decode synthetic ciphertext");
-        assert_eq!(decoded, plaintext, "decode must invert XOR-with-keystream construction");
-    }
-
-    /// Fixture harness for pinned Salamander vectors.
-    /// Walks every `.bin` file under the pinned upstream tag:
-    /// `contract-fixtures/hysteria2/<tag>/salamander/<key-hex>/`
-    /// where the parent directory name encodes the obfuscation key
-    /// as hex, and each `.bin` file's contents are `salt(8) +
-    /// ciphertext`. The harness decodes each file, asserts the
-    /// payload length is `file_len - 8`, and asserts decode never
-    /// panics.
-    ///
-    /// Tracks the fixture-walker side of
-    /// `docs/tasks/issues/add-hysteria2-salamander-obfuscation-conformance-fixtures.md`.
-    #[test]
-    fn upstream_salamander_fixtures_decode_cleanly() {
+    fn upstream_salamander_vectors_match_encode_and_decode() {
         let repo_root = golden_test_support::repo_root();
         let upstream_tag = pinned_upstream_tag(&repo_root.join("native/rust/crates/ripdpi-hysteria2/SPEC_VERSION.md"));
-        let salamander_dir = repo_root.join("contract-fixtures/hysteria2").join(upstream_tag).join("salamander");
+        let salamander_dir = repo_root.join("contract-fixtures/hysteria2").join(&upstream_tag).join("salamander");
         assert!(salamander_dir.is_dir(), "missing pinned Salamander fixture dir: {salamander_dir:?}");
 
         let mut count = 0usize;
-        for key_entry in std::fs::read_dir(&salamander_dir).expect("read salamander dir") {
-            let key_entry = key_entry.expect("dir entry");
-            if !key_entry.file_type().expect("file type").is_dir() {
+        for entry in std::fs::read_dir(&salamander_dir).expect("read salamander dir") {
+            let wire_path = entry.expect("dir entry").path();
+            if wire_path.extension().and_then(|s| s.to_str()) != Some("bin") {
                 continue;
             }
-            let key_hex = key_entry.file_name().to_string_lossy().into_owned();
-            let Some(key) = hex_decode_simple(&key_hex) else {
-                continue;
+            let read = |ext: &str| {
+                let path = wire_path.with_extension(ext);
+                std::fs::read(&path).unwrap_or_else(|err| panic!("read {path:?}: {err}"))
             };
-            let codec = SalamanderCodec::new(key);
-            for entry in std::fs::read_dir(key_entry.path()).expect("read key dir") {
-                let path = entry.expect("dir entry").path();
-                if path.extension().and_then(|s| s.to_str()) != Some("bin") {
-                    continue;
-                }
-                let wire = std::fs::read(&path).expect("read fixture");
-                assert!(wire.len() >= 8, "fixture {path:?} shorter than 8-byte salt prefix");
-                let decoded = codec.decode(&wire).unwrap_or_else(|err| panic!("decode {path:?}: {err}"));
-                assert_eq!(
-                    decoded.len(),
-                    wire.len() - 8,
-                    "salamander decode length must equal ciphertext - salt prefix for fixture {path:?}",
-                );
-                count += 1;
-            }
+            let (wire, plain, psk) = (read("bin"), read("plain"), read("psk"));
+            let codec = SalamanderCodec::new(psk);
+            let salt: [u8; SALT_LEN] = wire[..SALT_LEN].try_into().expect("salt prefix");
+
+            assert_eq!(
+                codec.decode(&wire).expect("decode"),
+                plain,
+                "decode diverges from upstream {upstream_tag} for {wire_path:?}"
+            );
+            assert_eq!(
+                codec.encode_with_salt(salt, &plain),
+                wire,
+                "encode diverges from upstream {upstream_tag} for {wire_path:?}"
+            );
+            count += 1;
         }
-        assert!(count > 0, "no pinned Salamander fixtures found under {salamander_dir:?}");
-        eprintln!("upstream_salamander_fixtures_decode_cleanly: exercised {count} fixtures");
+        assert!(count >= 8, "expected at least 8 upstream Salamander vectors under {salamander_dir:?}, found {count}");
     }
 
     fn pinned_upstream_tag(spec_version: &std::path::Path) -> String {
@@ -394,18 +361,5 @@ mod tests {
             .and_then(|value| value.split_whitespace().next())
             .expect("upstream tag in SPEC_VERSION.md")
             .to_string()
-    }
-
-    fn hex_decode_simple(s: &str) -> Option<Vec<u8>> {
-        if !s.len().is_multiple_of(2) {
-            return None;
-        }
-        let mut out = Vec::with_capacity(s.len() / 2);
-        for chunk in s.as_bytes().chunks(2) {
-            let hi = (chunk[0] as char).to_digit(16)?;
-            let lo = (chunk[1] as char).to_digit(16)?;
-            out.push(((hi << 4) | lo) as u8);
-        }
-        Some(out)
     }
 }

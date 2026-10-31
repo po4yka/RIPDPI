@@ -2,10 +2,10 @@
 
 This crate's wire format (Hysteria 2 over QUIC, Salamander obfuscation, remote port hopping, and the H3 authentication exchange) is pinned against the following upstream reference.
 
-- **Upstream repo:** https://github.com/apernet/hysteria
-- **Upstream tag:** v2 (latest tagged release line)
-- **Upstream commit:** unverified-as-of-2026-05-15
-- **Last reviewed:** 2026-05-15
+- **Upstream repo:** https://github.com/HyNetworks/hysteria (formerly apernet/hysteria; Go module path unchanged)
+- **Upstream tag:** v2.13.0 (git tag `app/v2.13.0`)
+- **Upstream commit:** ca8fbd874fd6ca82413948de6dc5924405e103e1 (Salamander verified against `extras/obfs` by the conformance vectors)
+- **Last reviewed:** 2026-10-31
 - **Owner:** unassigned
 
 ## Scope
