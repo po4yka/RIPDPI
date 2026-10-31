@@ -15,4 +15,5 @@
     <string name="ssh_host_key_trust_key_type">कुंजी का प्रकार: %1$s</string>
     <string name="ssh_host_key_trust_confirm">कुंजी पर भरोसा करें</string>
     <string name="ssh_host_key_trust_dismiss">रद्द करें</string>
+    <string name="ssh_host_key_save_untrusted">सहेजा नहीं गया। SSH तभी कनेक्ट होता है जब आप सर्वर की होस्ट कुंजी पर भरोसा करते हैं। कुंजी प्राप्त करके उस पर भरोसा करें, या उसका फ़िंगरप्रिंट दर्ज करें।</string>
 </resources>

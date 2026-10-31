@@ -29,15 +29,23 @@ private const val Sha256Prefix = "SHA256:"
  * until the user confirms it, and only then fills the pinned fingerprint field.
  */
 sealed interface SshHostKeyFetchState {
+    /** `true` while a fetch runs or its key waits for the user, so a save cannot start alongside it. */
+    val awaitsTrustDecision: Boolean
+        get() = this is InProgress || this is PendingConfirmation
+
     data object Idle : SshHostKeyFetchState
 
     data object InProgress : SshHostKeyFetchState
 
-    /** [differsFromPinned] is `true` when a different fingerprint is already pinned in the editor. */
+    /**
+     * [differsFromPinned] is `true` when a different fingerprint is already pinned in the editor.
+     * [resumeSave] is `true` when Save started the fetch, so trusting the key also saves the profile.
+     */
     data class PendingConfirmation(
         val fingerprint: String,
         val algorithm: String,
         val differsFromPinned: Boolean,
+        val resumeSave: Boolean = false,
     ) : SshHostKeyFetchState
 
     data class Failed(

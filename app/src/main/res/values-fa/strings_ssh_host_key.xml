@@ -15,4 +15,5 @@
     <string name="ssh_host_key_trust_key_type">نوع کلید: %1$s</string>
     <string name="ssh_host_key_trust_confirm">اعتماد به کلید</string>
     <string name="ssh_host_key_trust_dismiss">لغو</string>
+    <string name="ssh_host_key_save_untrusted">ذخیره نشد. SSH فقط پس از اعتماد شما به کلید میزبان سرور وصل می‌شود. کلید را دریافت کنید و به آن اعتماد کنید، یا اثرانگشت آن را وارد کنید.</string>
 </resources>

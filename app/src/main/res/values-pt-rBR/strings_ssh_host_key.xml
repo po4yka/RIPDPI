@@ -15,4 +15,5 @@
     <string name="ssh_host_key_trust_key_type">Tipo de chave: %1$s</string>
     <string name="ssh_host_key_trust_confirm">Confiar na chave</string>
     <string name="ssh_host_key_trust_dismiss">Cancelar</string>
+    <string name="ssh_host_key_save_untrusted">Não salvo. O SSH só se conecta depois que você confia na chave de host do servidor. Obtenha a chave e confie nela ou insira a impressão digital dela.</string>
 </resources>

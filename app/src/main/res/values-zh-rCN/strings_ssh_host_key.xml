@@ -15,4 +15,5 @@
     <string name="ssh_host_key_trust_key_type">密钥类型：%1$s</string>
     <string name="ssh_host_key_trust_confirm">信任密钥</string>
     <string name="ssh_host_key_trust_dismiss">取消</string>
+    <string name="ssh_host_key_save_untrusted">未保存。只有在你信任服务器的主机密钥后，SSH 才会连接。请获取并信任该密钥，或输入其指纹。</string>
 </resources>

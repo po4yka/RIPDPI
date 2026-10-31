@@ -15,4 +15,5 @@
     <string name="ssh_host_key_trust_key_type">Type de clé : %1$s</string>
     <string name="ssh_host_key_trust_confirm">Faire confiance</string>
     <string name="ssh_host_key_trust_dismiss">Annuler</string>
+    <string name="ssh_host_key_save_untrusted">Non enregistré. SSH ne se connecte qu\'après que vous avez fait confiance à la clé de l\'hôte du serveur. Récupérez la clé et faites-lui confiance, ou saisissez son empreinte.</string>
 </resources>
