@@ -2,7 +2,7 @@
 id: UIX-1793256952721314
 title: Apply Material 3 canonical layouts to screens
 kind: feature
-status: doing
+status: review
 area: ui
 priority: medium
 owner: UI overhaul
