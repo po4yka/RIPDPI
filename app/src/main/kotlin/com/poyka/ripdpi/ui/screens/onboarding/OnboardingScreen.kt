@@ -254,9 +254,9 @@ internal fun OnboardingScreen(
         Column(
             modifier =
                 Modifier
+                    .widthIn(max = layout.formMaxWidth)
                     .fillMaxSize()
                     .align(Alignment.TopCenter)
-                    .widthIn(max = layout.formMaxWidth)
                     .displayCutoutPadding()
                     .padding(horizontal = layout.horizontalPadding),
         ) {

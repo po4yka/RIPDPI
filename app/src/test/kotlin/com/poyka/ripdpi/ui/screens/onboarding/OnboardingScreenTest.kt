@@ -97,6 +97,20 @@ class OnboardingScreenTest {
     }
 
     @Test
+    @Config(qualifiers = "w1300dp-h900dp")
+    fun `expanded window keeps the continue action inside the form column`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                OnboardingScreen(uiState = OnboardingUiState(currentPage = 1), actions = OnboardingScreenActions())
+            }
+        }
+
+        val bounds = composeRule.onNodeWithTag(RipDpiTestTags.OnboardingContinue).fetchSemanticsNode().boundsInRoot
+        val width = bounds.width
+        assertTrue("Continue must not stretch across the window", width <= 700f * composeRule.density.density)
+    }
+
+    @Test
     fun `second step exposes back to the intro`() {
         var selectedPage = -1
         composeRule.setContent {
