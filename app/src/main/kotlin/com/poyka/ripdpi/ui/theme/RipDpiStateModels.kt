@@ -4,12 +4,6 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.Dp
 
-enum class RipDpiSettingsRowStateRole {
-    Default,
-    Tonal,
-    Selected,
-}
-
 enum class RipDpiBannerStateRole {
     Warning,
     Error,
@@ -43,17 +37,6 @@ enum class RipDpiRouteAvailabilityStateRole {
     Degraded,
     Failed,
 }
-
-@Immutable
-data class RipDpiSettingsRowStateStyle(
-    val container: Color,
-    val border: Color,
-    val title: Color,
-    val subtitle: Color,
-    val value: Color,
-    val leadingBadgeContainer: Color,
-    val leadingBadgeIcon: Color,
-)
 
 @Immutable
 data class RipDpiBannerStateStyle(

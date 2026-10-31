@@ -3,15 +3,8 @@
 package com.poyka.ripdpi.ui.theme
 
 import androidx.compose.foundation.style.CommonStyle
-import androidx.compose.ui.unit.dp
 
 /** Surface recipes extend the same catalog as controls. All defaults use layer zero. */
-internal fun RipDpiComponentStyles.settingsRow(role: RipDpiSettingsRowStateRole): CommonStyle =
-    SettingsRowStyles.getValue(role)
-
-internal fun RipDpiComponentStyles.settingsRowBadge(role: RipDpiSettingsRowStateRole): CommonStyle =
-    SettingsRowBadgeStyles.getValue(role)
-
 internal fun RipDpiComponentStyles.presetBadge(role: RipDpiSurfaceRole): CommonStyle = PresetBadgeStyles.getValue(role)
 
 internal val RipDpiComponentStyles.accordion: CommonStyle
@@ -37,26 +30,6 @@ internal fun RipDpiComponentStyles.routeConnector(role: RipDpiRouteAvailabilityS
 
 internal fun RipDpiComponentStyles.actuatorFault(role: RipDpiActuatorStateRole): CommonStyle =
     ActuatorFaultStyles.getValue(role)
-
-private val SettingsRowStyles =
-    RipDpiSettingsRowStateRole.entries.associateWith { role ->
-        CommonStyle {
-            val resolved = LocalRipDpiStateTokens.currentValue.settingsRow.resolve(role)
-            rdsBackground(resolved.container)
-            rdsBorder(resolved.border, if (role == RipDpiSettingsRowStateRole.Default) 0.dp else RipDpiStroke.Thin)
-        }
-    }
-
-private val SettingsRowBadgeStyles =
-    RipDpiSettingsRowStateRole.entries.associateWith { role ->
-        CommonStyle {
-            rdsBackground(
-                LocalRipDpiStateTokens.currentValue.settingsRow
-                    .resolve(role)
-                    .leadingBadgeContainer,
-            )
-        }
-    }
 
 private val PresetBadgeStyles =
     RipDpiSurfaceRole.entries.associateWith { role ->

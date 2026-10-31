@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.theme
 
-import com.poyka.ripdpi.ui.components.cards.SettingsRowVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import org.junit.Assert.assertEquals
 import org.junit.Test
@@ -11,15 +10,6 @@ class RipDpiStateTokensTest {
             colors = LightRipDpiExtendedColors,
             colorScheme = ripDpiLightColorScheme(),
         )
-
-    @Test
-    fun `selected settings row promotes badge and value tokens`() {
-        val style = tokens.settingsRow.resolve(RipDpiSettingsRowStateRole.Selected)
-
-        assertEquals(LightRipDpiExtendedColors.accent, style.container)
-        assertEquals(LightRipDpiExtendedColors.foreground, style.value)
-        assertEquals(LightRipDpiExtendedColors.background, style.leadingBadgeIcon)
-    }
 
     @Test
     fun `warning banner resolves semantic warning surface`() {
@@ -45,10 +35,6 @@ class RipDpiStateTokensTest {
 
     @Test
     fun `state role mappings centralize component variant translation`() {
-        assertEquals(
-            RipDpiSettingsRowStateRole.Selected,
-            DefaultRipDpiStateRoleMappings.settingsRow.fromVariant(SettingsRowVariant.Selected),
-        )
         assertEquals(
             RipDpiBannerStateRole.Restricted,
             DefaultRipDpiStateRoleMappings.banner.fromTone(WarningBannerTone.Restricted),

@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.theme
 
 import androidx.compose.runtime.Immutable
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
-import com.poyka.ripdpi.ui.components.cards.SettingsRowVariant
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 
@@ -94,20 +93,6 @@ data class RipDpiSurfaceRoleMappings(
 )
 
 @Immutable
-data class RipDpiSettingsRowStateRoles(
-    val default: RipDpiSettingsRowStateRole = RipDpiSettingsRowStateRole.Default,
-    val tonal: RipDpiSettingsRowStateRole = RipDpiSettingsRowStateRole.Tonal,
-    val selected: RipDpiSettingsRowStateRole = RipDpiSettingsRowStateRole.Selected,
-) {
-    fun fromVariant(variant: SettingsRowVariant): RipDpiSettingsRowStateRole =
-        when (variant) {
-            SettingsRowVariant.Default -> default
-            SettingsRowVariant.Tonal -> tonal
-            SettingsRowVariant.Selected -> selected
-        }
-}
-
-@Immutable
 data class RipDpiBannerStateRoles(
     val warning: RipDpiBannerStateRole = RipDpiBannerStateRole.Warning,
     val error: RipDpiBannerStateRole = RipDpiBannerStateRole.Error,
@@ -154,7 +139,6 @@ data class RipDpiRouteAvailabilityStateRoles(
 
 @Immutable
 data class RipDpiStateRoleMappings(
-    val settingsRow: RipDpiSettingsRowStateRoles = RipDpiSettingsRowStateRoles(),
     val banner: RipDpiBannerStateRoles = RipDpiBannerStateRoles(),
     val actuator: RipDpiActuatorStateRoles = RipDpiActuatorStateRoles(),
     val actuatorStage: RipDpiActuatorStageRoles = RipDpiActuatorStageRoles(),
