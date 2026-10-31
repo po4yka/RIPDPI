@@ -1,0 +1,11 @@
+{
+  "change": "out-1786264762917513-add-mieru-outbound-client-crate-and-profile-editor",
+  "evidence_summary": "Main 32a9b2c8a CI run 41170842447 passed the three pinned-upstream mieru 155ebbd60 interop tests (TCP, multiplexed, Off-mode SOCKS); branch runs passed ripdpi-mieru 52, ripdpi-network-time 15 and the Mieru Kotlin editor, import, codec and redaction suites; UDP carrier moved to OUT-1793433244049580 by approved scope decision.",
+  "execution_sha256": "099af1dc5e3654ed3a5ef32d3836c12ed36baf9222731180cc97c7af7523f64d",
+  "issue_sha256": "d96a7711a8f98aed7f1af32ffb160ab0767da108c11dc667fe0ae8b4bb41e139",
+  "outcome": "done",
+  "prepared_at": "2026-10-31T08:50:40Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "OUT-1786264762917513"
+}

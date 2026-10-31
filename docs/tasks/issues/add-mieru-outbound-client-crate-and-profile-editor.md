@@ -2,7 +2,7 @@
 id: OUT-1786264762917513
 title: Add Mieru outbound client crate and profile editor
 kind: feature
-status: review
+status: done
 area: outbound
 priority: medium
 owner: unassigned
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: out-1786264762917513-add-mieru-outbound-client-crate-and-profile-editor
 created: 2026-04-24
 updated: 2026-10-31
+closed_at: "2026-10-31T08:50:40Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Main 32a9b2c8a CI run 41170842447 passed the three pinned-upstream mieru 155ebbd60 interop tests (TCP, multiplexed, Off-mode SOCKS); branch runs passed ripdpi-mieru 52, ripdpi-network-time 15 and the Mieru Kotlin editor, import, codec and redaction suites; UDP carrier moved to OUT-1793433244049580 by approved scope decision.
 ---
 
 ## Summary
