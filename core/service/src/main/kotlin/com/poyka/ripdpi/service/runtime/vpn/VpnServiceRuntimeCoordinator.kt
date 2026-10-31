@@ -105,7 +105,7 @@ internal class VpnServiceRuntimeCoordinator(
         DirectPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     clock: ServiceClock = SystemServiceClock,
-    private val transportFailoverRuntimeTimeoutMillis: Long = 45_000L,
+    private val transportFailoverRuntimeTimeoutMillis: Long = 60_000L,
     private val rootHelperManager: RootHelperManager = RootHelperManager(),
     /**
      * Optional embedded-Xray provider seam. Null when the provider is not wired;
