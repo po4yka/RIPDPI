@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.components.feedback
 
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -12,18 +11,21 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material3.Icon
+import androidx.compose.material3.Snackbar
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.SnackbarVisuals
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.liveRegion
@@ -31,7 +33,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.tooling.preview.Preview
-import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
@@ -53,6 +54,7 @@ enum class RipDpiSnackbarTone {
     Restricted,
 }
 
+/** Material 3 [Snackbar] with the RDS tone palette; the action moves to its own line at large font scales. */
 @Composable
 fun RipDpiSnackbar(
     message: String,
@@ -68,74 +70,71 @@ fun RipDpiSnackbar(
     val type = RipDpiThemeTokens.type
     val palette = ripDpiSnackbarPalette(tone)
     val icon = defaultSnackbarIcon(tone)
-
-    Surface(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .ripDpiTestTag(testTag)
-                .semantics { liveRegion = LiveRegionMode.Assertive },
-        shape = RipDpiThemeTokens.shapes.xl,
-        color = palette.container,
-        contentColor = palette.content,
-        border = palette.border?.let { BorderStroke(RipDpiStroke.Thin, it) },
-        shadowElevation = palette.shadowElevation,
-    ) {
-        BoxWithConstraints(
-            modifier = Modifier.fillMaxWidth().padding(horizontal = spacing.lg, vertical = spacing.md),
-        ) {
-            val density = LocalDensity.current
-            val actionWidth =
-                rememberTextMeasurer()
-                    .measure(
-                        AnnotatedString(actionLabel.orEmpty()),
-                        style = type.button,
-                        softWrap = false,
-                    ).size.width
-            val actionOnNewLine =
-                density.fontScale >= SnackbarLargeFontScale ||
-                    with(density) { actionWidth.toDp() } + spacing.md * 2 > maxWidth / SnackbarMaximumActionWidthDivisor
-            val action: @Composable () -> Unit = {
-                if (actionLabel != null && onAction != null) {
-                    RipDpiTextAction(
-                        text = actionLabel,
-                        onClick = onAction,
-                        color = palette.action,
-                        textStyle = type.button,
-                        minHeight = components.buttons.minHeight,
-                        hapticFeedback = snackbarActionHapticFeedback(tone),
-                        modifier =
-                            Modifier
-                                .ripDpiTestTag(actionTestTag)
-                                .padding(horizontal = spacing.md, vertical = spacing.sm),
-                    )
-                }
+    val shape = RipDpiThemeTokens.shapes.xl
+    val density = LocalDensity.current
+    val actionWidth =
+        rememberTextMeasurer()
+            .measure(AnnotatedString(actionLabel.orEmpty()), style = type.button, softWrap = false)
+            .size
+            .width
+    val action: (@Composable () -> Unit)? =
+        if (actionLabel != null && onAction != null) {
+            {
+                RipDpiTextAction(
+                    text = actionLabel,
+                    onClick = onAction,
+                    color = palette.action,
+                    textStyle = type.button,
+                    minHeight = components.buttons.minHeight,
+                    hapticFeedback = snackbarActionHapticFeedback(tone),
+                    modifier = Modifier.ripDpiTestTag(actionTestTag),
+                )
             }
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().defaultMinSize(minHeight = components.inputs.controlHeight),
-                    horizontalArrangement = Arrangement.spacedBy(spacing.md),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    icon?.let {
-                        Icon(
-                            imageVector = it,
-                            contentDescription = null,
-                            tint = palette.icon,
-                            modifier = Modifier.size(RipDpiIconSizes.Default),
-                        )
-                    }
-                    Text(
-                        text = message,
-                        modifier = Modifier.weight(1f),
-                        style = type.body,
-                        color = palette.content,
+        } else {
+            null
+        }
+    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+        val actionOnNewLine =
+            density.fontScale >= SnackbarLargeFontScale ||
+                with(density) { actionWidth.toDp() } + spacing.md * 2 > maxWidth / SnackbarMaximumActionWidthDivisor
+        Snackbar(
+            modifier =
+                modifier
+                    .fillMaxWidth()
+                    .ripDpiTestTag(testTag)
+                    .semantics { liveRegion = LiveRegionMode.Assertive }
+                    .drawWithContent {
+                        drawContent()
+                        palette.border?.let {
+                            val stroke = RipDpiStroke.Thin.toPx()
+                            drawOutline(
+                                outline = shape.createOutline(size, layoutDirection, this),
+                                color = it,
+                                style = Stroke(stroke),
+                            )
+                        }
+                    },
+            action = action,
+            actionOnNewLine = actionOnNewLine,
+            shape = shape,
+            containerColor = palette.container,
+            contentColor = palette.content,
+            actionContentColor = palette.action,
+        ) {
+            Row(
+                modifier = Modifier.defaultMinSize(minHeight = components.inputs.controlHeight),
+                horizontalArrangement = Arrangement.spacedBy(spacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                icon?.let {
+                    Icon(
+                        imageVector = it,
+                        contentDescription = null,
+                        tint = palette.icon,
+                        modifier = Modifier.size(RipDpiIconSizes.Default),
                     )
-                    if (!actionOnNewLine) action()
                 }
-                if (actionOnNewLine) {
-                    Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.CenterEnd) { action() }
-                }
+                Text(text = message, modifier = Modifier.weight(1f), style = type.body, color = palette.content)
             }
         }
     }
@@ -232,7 +231,6 @@ private data class RipDpiSnackbarPalette(
     val icon: Color,
     val action: Color,
     val border: Color? = null,
-    val shadowElevation: Dp = 16.dp,
 )
 
 @Composable
@@ -248,7 +246,6 @@ private fun ripDpiSnackbarPalette(tone: RipDpiSnackbarTone): RipDpiSnackbarPalet
                 icon = surfaceStyle.content,
                 action = surfaceStyle.content,
                 border = if (surfaceStyle.border == Color.Transparent) null else surfaceStyle.border,
-                shadowElevation = surfaceStyle.shadowElevation,
             )
         }
 
@@ -259,7 +256,6 @@ private fun ripDpiSnackbarPalette(tone: RipDpiSnackbarTone): RipDpiSnackbarPalet
                 icon = colors.warning,
                 action = colors.warningContainerForeground,
                 border = colors.warning.copy(alpha = 0.52f),
-                shadowElevation = surfaceStyle.shadowElevation,
             )
         }
 
@@ -270,7 +266,6 @@ private fun ripDpiSnackbarPalette(tone: RipDpiSnackbarTone): RipDpiSnackbarPalet
                 icon = colors.destructive,
                 action = colors.destructiveContainerForeground,
                 border = colors.destructive.copy(alpha = 0.52f),
-                shadowElevation = surfaceStyle.shadowElevation,
             )
         }
 
@@ -281,7 +276,6 @@ private fun ripDpiSnackbarPalette(tone: RipDpiSnackbarTone): RipDpiSnackbarPalet
                 icon = colors.info,
                 action = colors.infoContainerForeground,
                 border = colors.info.copy(alpha = 0.48f),
-                shadowElevation = surfaceStyle.shadowElevation,
             )
         }
 
@@ -292,7 +286,6 @@ private fun ripDpiSnackbarPalette(tone: RipDpiSnackbarTone): RipDpiSnackbarPalet
                 icon = colors.restricted,
                 action = colors.restrictedContainerForeground,
                 border = colors.restricted.copy(alpha = 0.52f),
-                shadowElevation = surfaceStyle.shadowElevation,
             )
         }
     }
