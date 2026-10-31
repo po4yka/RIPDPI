@@ -24,7 +24,7 @@ Config editors and Home MUST use a supporting pane on expanded and wider windows
 
 ### Requirement: REQ-UIX-M3L-ACTIONS — Material action placement
 
-Each screen's primary action MUST use a FAB, extended FAB, top app bar action, or floating toolbar. Destructive actions MUST keep confirmation.
+Each screen's primary action MUST use a FAB, extended FAB, top app bar action, or floating toolbar. Destructive actions MUST keep confirmation. A screen whose main task is a choice between alternative actions in one workflow card (Diagnostics scan) MAY keep them as in-content buttons in that card.
 
 #### Scenario: Material action placement
 
