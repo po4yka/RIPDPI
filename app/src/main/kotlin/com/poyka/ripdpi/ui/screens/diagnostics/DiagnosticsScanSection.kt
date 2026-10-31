@@ -5,14 +5,18 @@ import androidx.compose.animation.EnterTransition
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.slideInVertically
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.ExtendedFloatingActionButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,8 +25,12 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.disabled
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsDiagnosisUiModel
 import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
@@ -41,6 +49,7 @@ import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val MaxVisibleEvidence = 3
@@ -141,200 +150,219 @@ internal fun ScanSection(
             onDismiss = { showProfilePicker = false },
         )
     }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize(),
-        contentPadding =
-            androidx.compose.foundation.layout.PaddingValues(
-                horizontal = layout.horizontalPadding,
-                vertical = spacing.sm,
-            ),
-        verticalArrangement = Arrangement.spacedBy(spacing.md),
-    ) {
-        header?.let { item(key = "header", contentType = "header") { it() } }
-        if (scan.diagnoses.isNotEmpty()) {
-            item {
-                DiagnosisSummaryCard(
-                    title = stringResource(R.string.diagnostics_diagnosis_summary_title),
-                    diagnoses = scan.diagnoses,
-                )
-            }
-        }
-        item {
-            CompactProfileRow(
-                profile = scan.selectedProfile,
-                onChangeProfile = { if (!effectiveBusy) showProfilePicker = true },
-                enabled = !effectiveBusy,
-            )
-        }
-        selectedProfile?.takeIf { it.regionTag?.equals("ru", ignoreCase = true) == true }?.let {
-            item {
-                WarningBanner(
-                    title = stringResource(R.string.diagnostics_region_suite_title),
-                    message = stringResource(R.string.diagnostics_region_suite_message),
-                    tone = WarningBannerTone.Restricted,
-                )
-            }
-        }
-        scan.policyNoticeMessage?.let { message ->
-            item {
-                WarningBanner(
-                    title = stringResource(R.string.diagnostics_region_suite_title),
-                    message = message,
-                    tone = WarningBannerTone.Restricted,
-                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsScanPolicyNotice),
-                )
-            }
-        }
-        selectedProfile?.let { profile ->
-            item {
-                DiagnosticsScanWorkflowCard(
-                    profile = profile,
-                    scan = workflowScan,
-                    strategyProbeSelected = strategyProbeSelected,
-                    isFullAudit = profile.strategyProbeSuiteId == StrategyProbeSuiteFullMatrixV1,
-                    onRunRawScan = onRunRawScan,
-                    onRunInPathScan = onRunInPathScan,
-                    onCancelScan = onCancelScan,
-                    onOpenAdvancedSettings = onOpenAdvancedSettings,
-                    onOpenDnsSettings = onOpenDnsSettings,
-                    onRequestVpnPermission = onRequestVpnPermission,
-                    onOpenHistory = onOpenHistory,
-                    onOpenModeEditor = onOpenModeEditor,
-                    onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
-                    modifier = Modifier.ripDpiTestTag(scanStateTag),
-                )
-            }
-        }
-        if (selectedProfile == null && cancellationAvailable) {
-            item {
-                RipDpiButton(
-                    text = stringResource(R.string.diagnostics_action_cancel),
-                    onClick = onCancelScan,
-                    variant = RipDpiButtonVariant.Destructive,
-                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.DiagnosticsScanCancelAction),
-                )
-            }
-        }
-        if (selectedProfile?.id == com.poyka.ripdpi.activities.SelectiveMatrixProfileId) {
-            item {
-                SelectiveMatrixInputCard(
-                    input = scan.selectiveMatrixHostsInput,
-                    targets = scan.selectiveMatrixTargets,
-                    valid = scan.selectiveMatrixInputValid,
-                    enabled = !effectiveBusy,
-                    onInputChanged = onSelectiveMatrixHostsChanged,
-                )
-            }
-        }
-        scan.activeProgress?.let { progress ->
-            item {
-                ScanProgressCard(
-                    progress = progress,
-                    strategyProbeSelected = strategyProbeSelected,
-                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsScanProgressCard),
-                )
-            }
-            progress.transferProgress?.let { transfer ->
-                item { DiagnosticsTransferCard(transfer = transfer) }
-            }
-            if (progress.completedProbes.isNotEmpty()) {
+    Box(modifier = Modifier.fillMaxSize()) {
+        LazyColumn(
+            modifier = Modifier.fillMaxSize(),
+            contentPadding =
+                androidx.compose.foundation.layout.PaddingValues(
+                    start = layout.horizontalPadding,
+                    top = spacing.sm,
+                    end = layout.horizontalPadding,
+                    // Leaves room for the extended FAB so it never covers the last result.
+                    bottom = if (selectedProfile != null) ScanFabClearance else spacing.sm,
+                ),
+            verticalArrangement = Arrangement.spacedBy(spacing.md),
+        ) {
+            header?.let { item(key = "header", contentType = "header") { it() } }
+            if (scan.diagnoses.isNotEmpty()) {
                 item {
-                    SettingsCategoryHeader(title = stringResource(R.string.diagnostics_live_results_title))
-                }
-                itemsIndexed(
-                    items = livePreviewProbes,
-                    key = { index, _ -> liveProbeItemKey(progress.completedProbes.size, index) },
-                    contentType = { _, _ -> "live_probe" },
-                ) { _, probe ->
-                    AnimatedVisibility(
-                        visible = true,
-                        enter =
-                            if (motion.animationsEnabled) {
-                                fadeIn(animationSpec = motion.stateTween()) +
-                                    slideInVertically(
-                                        animationSpec = motion.stateTween(),
-                                    ) { it / 2 }
-                            } else {
-                                EnterTransition.None
-                            },
-                    ) {
-                        LiveProbeResultRow(
-                            probe = probe,
-                            modifier =
-                                Modifier.ripDpiTestTag(
-                                    RipDpiTestTags.diagnosticsLiveProbe("${probe.target}-${probe.outcome}"),
-                                ),
-                        )
-                    }
-                }
-            }
-        }
-        scan.latestSession?.let { session ->
-            item {
-                SettingsCategoryHeader(
-                    title =
-                        if (strategyProbeSelected) {
-                            stringResource(R.string.diagnostics_probe_latest_section)
-                        } else {
-                            stringResource(R.string.diagnostics_latest_scan_section)
-                        },
-                )
-                SessionRow(
-                    session = session,
-                    onClick = { onSelectSession(session.id) },
-                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsSession(session.id)),
-                )
-            }
-        }
-        scan.strategyProbeReport?.let { report ->
-            item {
-                StrategyProbeReportCard(
-                    report = report,
-                    onSelectCandidate = onSelectStrategyProbeCandidate,
-                )
-            }
-        }
-        if (scan.latestResults.any { it.probeType.startsWith("selective_availability") }) {
-            item { SelectiveMatrixResultsCard(scan.latestResults) }
-        }
-        scan.latestResults.mapNotNull { it.transferEvidence }.forEach { transfer ->
-            item { DiagnosticsTransferCard(transfer = transfer) }
-        }
-        if (visibleResults.isNotEmpty()) {
-            item {
-                val sectionTitle =
-                    if (strategyProbeSelected) {
-                        stringResource(R.string.diagnostics_probe_evidence_section)
-                    } else {
-                        stringResource(R.string.diagnostics_results_section)
-                    }
-                RipDpiCard {
-                    SettingsCategoryHeader(
-                        title =
-                            stringResource(
-                                R.string.diagnostics_results_section_count,
-                                sectionTitle,
-                                visibleResults.size,
-                            ),
+                    DiagnosisSummaryCard(
+                        title = stringResource(R.string.diagnostics_diagnosis_summary_title),
+                        diagnoses = scan.diagnoses,
                     )
-                    visibleResults.forEach { probe ->
-                        if (probe.probeType == "telegram_availability") {
-                            TelegramResultCard(
+                }
+            }
+            item {
+                CompactProfileRow(
+                    profile = scan.selectedProfile,
+                    onChangeProfile = { if (!effectiveBusy) showProfilePicker = true },
+                    enabled = !effectiveBusy,
+                )
+            }
+            selectedProfile?.takeIf { it.regionTag?.equals("ru", ignoreCase = true) == true }?.let {
+                item {
+                    WarningBanner(
+                        title = stringResource(R.string.diagnostics_region_suite_title),
+                        message = stringResource(R.string.diagnostics_region_suite_message),
+                        tone = WarningBannerTone.Restricted,
+                    )
+                }
+            }
+            scan.policyNoticeMessage?.let { message ->
+                item {
+                    WarningBanner(
+                        title = stringResource(R.string.diagnostics_region_suite_title),
+                        message = message,
+                        tone = WarningBannerTone.Restricted,
+                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsScanPolicyNotice),
+                    )
+                }
+            }
+            selectedProfile?.let { profile ->
+                item {
+                    DiagnosticsScanWorkflowCard(
+                        profile = profile,
+                        scan = workflowScan,
+                        strategyProbeSelected = strategyProbeSelected,
+                        isFullAudit = profile.strategyProbeSuiteId == StrategyProbeSuiteFullMatrixV1,
+                        onRunInPathScan = onRunInPathScan,
+                        onCancelScan = onCancelScan,
+                        onOpenAdvancedSettings = onOpenAdvancedSettings,
+                        onOpenDnsSettings = onOpenDnsSettings,
+                        onRequestVpnPermission = onRequestVpnPermission,
+                        onOpenHistory = onOpenHistory,
+                        onOpenModeEditor = onOpenModeEditor,
+                        onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
+                        modifier = Modifier.ripDpiTestTag(scanStateTag),
+                    )
+                }
+            }
+            if (selectedProfile == null && cancellationAvailable) {
+                item {
+                    RipDpiButton(
+                        text = stringResource(R.string.diagnostics_action_cancel),
+                        onClick = onCancelScan,
+                        variant = RipDpiButtonVariant.Destructive,
+                        modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.DiagnosticsScanCancelAction),
+                    )
+                }
+            }
+            if (selectedProfile?.id == com.poyka.ripdpi.activities.SelectiveMatrixProfileId) {
+                item {
+                    SelectiveMatrixInputCard(
+                        input = scan.selectiveMatrixHostsInput,
+                        targets = scan.selectiveMatrixTargets,
+                        valid = scan.selectiveMatrixInputValid,
+                        enabled = !effectiveBusy,
+                        onInputChanged = onSelectiveMatrixHostsChanged,
+                    )
+                }
+            }
+            scan.activeProgress?.let { progress ->
+                item {
+                    ScanProgressCard(
+                        progress = progress,
+                        strategyProbeSelected = strategyProbeSelected,
+                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsScanProgressCard),
+                    )
+                }
+                progress.transferProgress?.let { transfer ->
+                    item { DiagnosticsTransferCard(transfer = transfer) }
+                }
+                if (progress.completedProbes.isNotEmpty()) {
+                    item {
+                        SettingsCategoryHeader(title = stringResource(R.string.diagnostics_live_results_title))
+                    }
+                    itemsIndexed(
+                        items = livePreviewProbes,
+                        key = { index, _ -> liveProbeItemKey(progress.completedProbes.size, index) },
+                        contentType = { _, _ -> "live_probe" },
+                    ) { _, probe ->
+                        AnimatedVisibility(
+                            visible = true,
+                            enter =
+                                if (motion.animationsEnabled) {
+                                    fadeIn(animationSpec = motion.stateTween()) +
+                                        slideInVertically(
+                                            animationSpec = motion.stateTween(),
+                                        ) { it / 2 }
+                                } else {
+                                    EnterTransition.None
+                                },
+                        ) {
+                            LiveProbeResultRow(
                                 probe = probe,
-                                onClick = { onSelectProbe(probe) },
-                                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsProbe(probe.id)),
-                            )
-                        } else {
-                            CompactProbeRow(
-                                probe = probe,
-                                expertMode = expertMode,
-                                onClick = { onSelectProbe(probe) },
-                                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsProbe(probe.id)),
+                                modifier =
+                                    Modifier.ripDpiTestTag(
+                                        RipDpiTestTags.diagnosticsLiveProbe("${probe.target}-${probe.outcome}"),
+                                    ),
                             )
                         }
                     }
                 }
             }
+            scan.latestSession?.let { session ->
+                item {
+                    SettingsCategoryHeader(
+                        title =
+                            if (strategyProbeSelected) {
+                                stringResource(R.string.diagnostics_probe_latest_section)
+                            } else {
+                                stringResource(R.string.diagnostics_latest_scan_section)
+                            },
+                    )
+                    SessionRow(
+                        session = session,
+                        onClick = { onSelectSession(session.id) },
+                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsSession(session.id)),
+                    )
+                }
+            }
+            scan.strategyProbeReport?.let { report ->
+                item {
+                    StrategyProbeReportCard(
+                        report = report,
+                        onSelectCandidate = onSelectStrategyProbeCandidate,
+                    )
+                }
+            }
+            if (scan.latestResults.any { it.probeType.startsWith("selective_availability") }) {
+                item { SelectiveMatrixResultsCard(scan.latestResults) }
+            }
+            scan.latestResults.mapNotNull { it.transferEvidence }.forEach { transfer ->
+                item { DiagnosticsTransferCard(transfer = transfer) }
+            }
+            if (visibleResults.isNotEmpty()) {
+                item {
+                    val sectionTitle =
+                        if (strategyProbeSelected) {
+                            stringResource(R.string.diagnostics_probe_evidence_section)
+                        } else {
+                            stringResource(R.string.diagnostics_results_section)
+                        }
+                    RipDpiCard {
+                        SettingsCategoryHeader(
+                            title =
+                                stringResource(
+                                    R.string.diagnostics_results_section_count,
+                                    sectionTitle,
+                                    visibleResults.size,
+                                ),
+                        )
+                        visibleResults.forEach { probe ->
+                            if (probe.probeType == "telegram_availability") {
+                                TelegramResultCard(
+                                    probe = probe,
+                                    onClick = { onSelectProbe(probe) },
+                                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsProbe(probe.id)),
+                                )
+                            } else {
+                                CompactProbeRow(
+                                    probe = probe,
+                                    expertMode = expertMode,
+                                    onClick = { onSelectProbe(probe) },
+                                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsProbe(probe.id)),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        selectedProfile?.let { profile ->
+            val runLabel =
+                scanRunActionLabel(
+                    profile = profile,
+                    scan = workflowScan,
+                    strategyProbeSelected = strategyProbeSelected,
+                    isFullAudit = profile.strategyProbeSuiteId == StrategyProbeSuiteFullMatrixV1,
+                )
+            ScanRunFab(
+                label = runLabel,
+                enabled = workflowScan.runRawEnabled,
+                onClick = onRunRawScan,
+                modifier = Modifier.align(Alignment.BottomEnd).padding(layout.horizontalPadding),
+            )
         }
     }
 }
@@ -388,4 +416,27 @@ private fun DiagnosisSummaryCard(
             }
         }
     }
+}
+
+private val ScanFabClearance = 88.dp
+
+@Composable
+private fun ScanRunFab(
+    label: String,
+    enabled: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    val colors = RipDpiThemeTokens.colors
+    ExtendedFloatingActionButton(
+        onClick = { if (enabled) onClick() },
+        modifier =
+            modifier
+                .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunRawAction)
+                .semantics { if (!enabled) disabled() },
+        containerColor = if (enabled) colors.foreground else colors.muted,
+        contentColor = if (enabled) colors.background else colors.mutedForeground,
+        text = { Text(label) },
+        icon = { Icon(imageVector = RipDpiIcons.Refresh, contentDescription = null) },
+    )
 }

@@ -88,7 +88,6 @@ class DiagnosticsScopeScreenshotTest {
                 scan = scan,
                 strategyProbeSelected = false,
                 isFullAudit = false,
-                onRunRawScan = {},
                 onRunInPathScan = {},
                 onCancelScan = {},
                 onOpenAdvancedSettings = {},
