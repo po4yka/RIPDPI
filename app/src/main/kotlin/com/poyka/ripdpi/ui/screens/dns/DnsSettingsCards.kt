@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.dns
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.IntrinsicSize
@@ -18,6 +19,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
@@ -201,62 +203,91 @@ internal fun DnsOptionCard(
                 }.ripDpiTestTag(testTag),
         animateContentSize = true,
     ) {
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.md),
-            verticalArrangement = Arrangement.spacedBy(spacing.md),
-        ) {
-            Box(Modifier.align(Alignment.CenterVertically)) { RadioIndicator(selected = selected) }
-            Box(
-                modifier =
-                    Modifier
-                        .align(Alignment.CenterVertically)
-                        .size(RipDpiThemeTokens.components.feedback.decorativeBadgeSize)
-                        .ripDpiFeatureSurface(
-                            if (selected) colors.infoContainer else colors.inputBackground,
-                            RipDpiThemeTokens.shapes.full,
-                        ),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = if (selected) colors.infoContainerForeground else colors.mutedForeground,
-                    modifier = Modifier.size(RipDpiIconSizes.Large),
-                )
-            }
-            Column(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(spacing.xs),
-            ) {
-                Text(
-                    text = title,
-                    modifier = Modifier.width(IntrinsicSize.Max),
-                    style = type.bodyEmphasis,
-                    color = colors.foreground,
-                )
-                Text(
-                    text = body,
+        // At large font the text needs the full card width, so the radio and icon stack above it. An outer FlowRow
+        // around the text column cut off its last lines, because the weighted child was measured too short.
+        val stacked = LocalDensity.current.fontScale >= StackedOptionFontScale
+        val leading: @Composable () -> Unit = { DnsOptionLeading(icon = icon, selected = selected) }
+        val text: @Composable ColumnScope.() -> Unit = {
+            Text(
+                text = title,
+                modifier = Modifier.fillMaxWidth(),
+                style = type.bodyEmphasis,
+                color = colors.foreground,
+            )
+            Text(
+                text = body,
+                modifier = Modifier.fillMaxWidth(),
+                style = type.body,
+                color = colors.mutedForeground,
+            )
+            // Badges belong to the text column so they never wrap under the radio and icon.
+            if (badges.isNotEmpty()) {
+                FlowRow(
                     modifier = Modifier.fillMaxWidth(),
-                    style = type.body,
-                    color = colors.mutedForeground,
-                )
-                // Badges belong to the text column so they never wrap under the radio and icon.
-                if (badges.isNotEmpty()) {
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-                        verticalArrangement = Arrangement.spacedBy(spacing.sm),
-                    ) {
-                        badges.forEach { badge ->
-                            DnsBadge(text = badge)
-                        }
+                    horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                    verticalArrangement = Arrangement.spacedBy(spacing.sm),
+                ) {
+                    badges.forEach { badge ->
+                        DnsBadge(text = badge)
                     }
                 }
             }
         }
+        if (stacked) {
+            Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+                leading()
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.xs), content = text)
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(spacing.md),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                leading()
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(spacing.xs),
+                    content = text,
+                )
+            }
+        }
     }
 }
+
+@Composable
+private fun DnsOptionLeading(
+    icon: ImageVector,
+    selected: Boolean,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(spacing.md),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        RadioIndicator(selected = selected)
+        Box(
+            modifier =
+                Modifier
+                    .size(RipDpiThemeTokens.components.feedback.decorativeBadgeSize)
+                    .ripDpiFeatureSurface(
+                        if (selected) colors.infoContainer else colors.inputBackground,
+                        RipDpiThemeTokens.shapes.full,
+                    ),
+            contentAlignment = Alignment.Center,
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = if (selected) colors.infoContainerForeground else colors.mutedForeground,
+                modifier = Modifier.size(RipDpiIconSizes.Large),
+            )
+        }
+    }
+}
+
+private const val StackedOptionFontScale = 1.5f
 
 @Composable
 internal fun DnsBadge(
