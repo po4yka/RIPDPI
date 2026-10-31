@@ -1,0 +1,11 @@
+{
+  "change": "xudp-source-authority",
+  "evidence_summary": "Landed in b3bdf4263 (physical candidate 47a5ee708 passed all four owned USB scenarios); full push CI run 40122030612 on b3bdf4263 passed ci-required with 48 jobs; main 32a9b2c8a passed run 41170842447.",
+  "execution_sha256": "b1d614a3090871bf0f0dc9dac0de706338e787dd3c7f99aa2f35539f4eb4b4ca",
+  "issue_sha256": "3ada607c4326a5e5e15deb618e5d66bbf7eff172c589c0867d9eb87725a66329",
+  "outcome": "done",
+  "prepared_at": "2026-10-31T06:31:52Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "TRN-1792853642811403"
+}
