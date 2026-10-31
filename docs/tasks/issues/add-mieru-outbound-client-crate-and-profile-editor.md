@@ -2,7 +2,7 @@
 id: OUT-1786264762917513
 title: Add Mieru outbound client crate and profile editor
 kind: feature
-status: doing
+status: review
 area: outbound
 priority: medium
 owner: unassigned
