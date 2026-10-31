@@ -217,7 +217,10 @@ private fun DropdownField(
             shape = RipDpiThemeTokens.shapes.xl,
             colors = fieldColors,
             contentPadding =
-                OutlinedTextFieldDefaults.contentPadding(start = horizontalPadding, end = horizontalPadding),
+                OutlinedTextFieldDefaults.contentPaddingWithoutLabel(
+                    start = horizontalPadding,
+                    end = horizontalPadding,
+                ),
         )
         // A sibling on top of the inert field: the field would otherwise swallow the touch.
         Box(

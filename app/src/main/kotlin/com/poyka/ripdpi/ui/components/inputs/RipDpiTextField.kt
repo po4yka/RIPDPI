@@ -183,7 +183,7 @@ private fun RipDpiTextFieldInput(
     val verticalPadding =
         if (behavior.singleLine) 0.dp else RipDpiThemeTokens.components.inputs.multilineFieldVerticalPadding
     val contentPadding =
-        OutlinedTextFieldDefaults.contentPadding(
+        OutlinedTextFieldDefaults.contentPaddingWithoutLabel(
             start = horizontalPadding,
             end = horizontalPadding,
             top = verticalPadding,
