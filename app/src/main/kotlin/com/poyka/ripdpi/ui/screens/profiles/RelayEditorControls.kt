@@ -86,6 +86,18 @@ internal fun RelayPasswordField(
     )
 }
 
+/** The caption that explains why the editor's primary action in the top app bar is disabled. */
+@Composable
+internal fun RelayEditorHint(hint: String?) {
+    hint?.let {
+        Text(
+            text = it,
+            style = RipDpiThemeTokens.type.caption,
+            color = RipDpiThemeTokens.colors.mutedForeground,
+        )
+    }
+}
+
 /** The closing action row of every profile editor; [hint] says why the action is not available yet. */
 @Composable
 internal fun RelayEditorActionRow(

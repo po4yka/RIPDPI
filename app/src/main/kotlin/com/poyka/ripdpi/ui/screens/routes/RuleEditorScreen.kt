@@ -2,8 +2,6 @@ package com.poyka.ripdpi.ui.screens.routes
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -28,6 +26,7 @@ import com.poyka.ripdpi.data.rules.RuleNetwork
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.buttons.RipDpiTopBarAction
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
@@ -103,6 +102,10 @@ internal fun RuleEditorScreen(
     var showAppPicker by remember { mutableStateOf(false) }
     // The empty-rule warning waits for a save attempt, so a new rule does not open with an error.
     var saveAttempted by rememberSaveable { mutableStateOf(false) }
+    val onSave = {
+        saveAttempted = true
+        if (!state.isEmpty) persistenceActions.save()
+    }
 
     RipDpiSettingsScaffold(
         modifier =
@@ -112,6 +115,14 @@ internal fun RuleEditorScreen(
         title = stringResource(if (state.ruleId == 0L) R.string.title_rule_editor_new else R.string.title_rule_editor),
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
+        actions = {
+            RipDpiTopBarAction(
+                text = stringResource(R.string.rule_editor_save),
+                onClick = onSave,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.RuleEditorSave),
+                enabled = state.loaded && !state.saving,
+            )
+        },
     ) {
         state.failure?.let { failure ->
             item(key = "rule_editor_failure") {
@@ -137,7 +148,7 @@ internal fun RuleEditorScreen(
             )
             outboundSection(state = state, onOutboundChange = onOutboundChange)
             if (saveAttempted && state.isEmpty) {
-                // Next to Save, where the user looks after the attempt.
+                // After the form, where the user looks after the attempt.
                 item(key = "rule_editor_empty_warning") {
                     WarningBanner(
                         title = stringResource(R.string.rule_editor_empty_error_title),
@@ -146,14 +157,7 @@ internal fun RuleEditorScreen(
                     )
                 }
             }
-            actionsSection(
-                state = state,
-                onBack = onBack,
-                onSave = {
-                    saveAttempted = true
-                    if (!state.isEmpty) persistenceActions.save()
-                },
-            )
+            cancelSection(onBack = onBack)
         }
     }
 
@@ -339,31 +343,14 @@ private fun androidx.compose.foundation.lazy.LazyListScope.outboundSection(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
-private fun androidx.compose.foundation.lazy.LazyListScope.actionsSection(
-    state: RuleEditorUiState,
-    onBack: () -> Unit,
-    onSave: () -> Unit,
-) {
+private fun androidx.compose.foundation.lazy.LazyListScope.cancelSection(onBack: () -> Unit) {
     item(key = "rule_editor_actions") {
-        FlowRow(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-        ) {
-            RipDpiButton(
-                text = stringResource(R.string.rule_editor_cancel),
-                onClick = onBack,
-                variant = RipDpiButtonVariant.Outline,
-                leadingIcon = RipDpiIcons.Close,
-            )
-            RipDpiButton(
-                text = stringResource(R.string.rule_editor_save),
-                onClick = onSave,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.RuleEditorSave),
-                enabled = state.loaded && !state.saving,
-            )
-        }
+        RipDpiButton(
+            text = stringResource(R.string.rule_editor_cancel),
+            onClick = onBack,
+            variant = RipDpiButtonVariant.Outline,
+            leadingIcon = RipDpiIcons.Close,
+        )
     }
 }
 

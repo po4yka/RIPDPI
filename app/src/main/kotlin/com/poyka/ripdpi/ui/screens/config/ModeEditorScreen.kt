@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigUiState
+import com.poyka.ripdpi.ui.components.buttons.RipDpiTopBarAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
@@ -46,6 +47,19 @@ internal fun ModeEditorScreen(
                 navigationIcon = RipDpiIcons.Back,
                 onNavigationClick = actions.onBack,
                 navigationEnabled = !uiState.isEditorSaving,
+                actions =
+                    if (uiState.isEditorLoading) {
+                        null
+                    } else {
+                        {
+                            RipDpiTopBarAction(
+                                text = stringResource(R.string.config_save),
+                                onClick = actions.onSave,
+                                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ModeEditorSave),
+                                enabled = !uiState.isEditorSaving && !uiState.isEditorImporting,
+                            )
+                        }
+                    },
             )
         },
         snackbarHost = {

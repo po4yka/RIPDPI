@@ -12,6 +12,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
+import com.poyka.ripdpi.ui.components.buttons.RipDpiTopBarAction
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
@@ -19,7 +20,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.screens.profiles.RelayEditorActionRow
+import com.poyka.ripdpi.ui.screens.profiles.RelayEditorHint
 import com.poyka.ripdpi.ui.screens.profiles.RelayPasswordField
 import com.poyka.ripdpi.ui.screens.profiles.relayPortRangeHelper
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
@@ -66,6 +67,14 @@ internal fun AnyTlsProfileScreen(
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
         navigationContentDescription = stringResource(R.string.navigation_back),
+        actions = {
+            RipDpiTopBarAction(
+                text = stringResource(R.string.anytls_save_action),
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.relayEditorSave(RelayKindAnyTls)),
+                onClick = onSave,
+                enabled = uiState.editor.isComplete && !uiState.saving,
+            )
+        },
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.AnyTlsProfile)),
     ) {
         uiState.errorMessage?.let { errorRes ->
@@ -76,12 +85,8 @@ internal fun AnyTlsProfileScreen(
         EndpointSection(uiState.editor, onFieldChanged)
         CredentialsSection(uiState.editor, onFieldChanged)
         TlsSection(uiState.editor, onFieldChanged)
-        RelayEditorActionRow(
-            text = stringResource(R.string.anytls_save_action),
-            onClick = onSave,
-            enabled = uiState.editor.isComplete && !uiState.saving,
-            hint = stringResource(R.string.relay_editor_save_incomplete_hint).takeUnless { uiState.editor.isComplete },
-            testTag = RipDpiTestTags.relayEditorSave(RelayKindAnyTls),
+        RelayEditorHint(
+            stringResource(R.string.relay_editor_save_incomplete_hint).takeUnless { uiState.editor.isComplete },
         )
     }
 }

@@ -22,6 +22,7 @@ import com.poyka.ripdpi.data.RelayMieruMultiplexingOff
 import com.poyka.ripdpi.data.RelayMieruProtocolTcp
 import com.poyka.ripdpi.data.RelayMieruProtocolUdp
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
+import com.poyka.ripdpi.ui.components.buttons.RipDpiTopBarAction
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
@@ -33,7 +34,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.screens.profiles.RelayEditorActionRow
+import com.poyka.ripdpi.ui.screens.profiles.RelayEditorHint
 import com.poyka.ripdpi.ui.screens.profiles.RelayPasswordField
 import com.poyka.ripdpi.ui.screens.profiles.RelayProfileNotFoundCard
 import com.poyka.ripdpi.ui.screens.profiles.relayPortRangeHelper
@@ -119,6 +120,14 @@ internal fun MieruProfileScreen(
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
         navigationContentDescription = stringResource(R.string.navigation_back),
+        actions = {
+            RipDpiTopBarAction(
+                text = stringResource(R.string.mieru_save_action),
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.relayEditorSave(RelayKindMieru)),
+                onClick = onSave,
+                enabled = uiState.editor.isComplete && !uiState.saving && !uiState.loading,
+            )
+        },
         modifier =
             modifier.ripDpiTestTag(
                 RipDpiTestTags.screen(
@@ -144,12 +153,8 @@ internal fun MieruProfileScreen(
         EndpointSection(uiState.editor, onFieldChanged, uiState.editing)
         CredentialsSection(uiState.editor, onFieldChanged)
         TransportSection(uiState.editor, onFieldChanged, onProtocolSelected, onMultiplexingSelected)
-        RelayEditorActionRow(
-            text = stringResource(R.string.mieru_save_action),
-            onClick = onSave,
-            enabled = uiState.editor.isComplete && !uiState.saving && !uiState.loading,
-            hint = stringResource(R.string.relay_editor_save_incomplete_hint).takeUnless { uiState.editor.isComplete },
-            testTag = RipDpiTestTags.relayEditorSave(RelayKindMieru),
+        RelayEditorHint(
+            stringResource(R.string.relay_editor_save_incomplete_hint).takeUnless { uiState.editor.isComplete },
         )
     }
 }
