@@ -160,7 +160,8 @@ def validate_timer_observation(observation, mtu, scenario):
     require(all(not e.get("dropped") for e in events if e not in responses), "unexpected dropped traffic")
     if scenario == "timer-persistent":
         require(len(initiations) == len(responses) == 1 and not data and not evidence["ip_lengths"], "persistent timer sent data or rekey")
-        require(4 <= len(keepalives) <= 7 and elapsed-keepalives[0]["at_ns"] >= 6_000_000_000, "persistent idle window incomplete")
+        # A 1-2 s range plus the 250 ms timer tick allows 2.25 s gaps, so a 6.2 s window can hold only 3.
+        require(3 <= len(keepalives) <= 7 and elapsed-keepalives[0]["at_ns"] >= 6_000_000_000, "persistent idle window incomplete")
         for first, second in zip(keepalives, keepalives[1:]):
             require(850_000_000 <= second["at_ns"]-first["at_ns"] <= 2_400_000_000, "persistent interval outside range")
         require(elapsed-keepalives[-1]["at_ns"] <= 2_400_000_000, "persistent timer stopped early")

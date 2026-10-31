@@ -247,6 +247,15 @@ class TimerSemantics(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "retry interval"):
             validate_timer_observation(bad, 1280, "timer-retry-loss")
 
+    def test_persistent_range_accepts_three_keepalives_at_the_longest_interval(self):
+        # CI run 41106461819: a 1-2 s range plus the 250 ms timer tick gave gaps of 2.0 s and 2.25 s.
+        observation = timer_observation("timer-persistent")
+        events = observation["evidence"]["events"]
+        events[:] = events[:3] + [dict(events[2], at_ns=int(t*1e9)) for t in (2.02, 4.27)]
+        observation["elapsed_ns"] = 6_440_000_000
+        recount_timer(observation)
+        validate_timer_observation(observation, 1280, "timer-persistent")
+
     def test_timer_windows_order_authentication_and_prelude_are_required(self):
         for mutation in (
             lambda o: o.update(elapsed_ns=1_000_000_000),
