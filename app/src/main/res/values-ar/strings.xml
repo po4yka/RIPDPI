@@ -1469,6 +1469,8 @@ fakeddisorder endhost</string>
     <string name="title_app_customization">أيقونة التطبيق</string>
     <string name="save_logs">حفظ السجلات</string>
     <string name="logs_clear">مسح</string>
+    <string name="logs_clear_confirm_title">هل تريد مسح السجلات؟</string>
+    <string name="logs_clear_confirm_body">ستتم إزالة جميع الإدخالات من مخزن السجلات على الجهاز. لا يمكن التراجع عن هذا الإجراء.</string>
     <string name="logs_status_live">مخزن مؤقت مباشر</string>
     <string name="logs_status_empty">في انتظار النشاط</string>
     <string name="logs_buffer_title">المخزن المؤقت</string>

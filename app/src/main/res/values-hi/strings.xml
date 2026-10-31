@@ -1471,6 +1471,8 @@ fakeddisorder endhost</string>
     <string name="title_app_customization">ऐप आइकन</string>
     <string name="save_logs">लॉग सहेजें</string>
     <string name="logs_clear">साफ़ करें</string>
+    <string name="logs_clear_confirm_title">लॉग साफ़ करें?</string>
+    <string name="logs_clear_confirm_body">इससे डिवाइस पर लॉग बफ़र की सभी प्रविष्टियाँ हट जाएँगी। इसे पूर्ववत नहीं किया जा सकता।</string>
     <string name="logs_status_live">लाइव बफ़र</string>
     <string name="logs_status_empty">गतिविधि की प्रतीक्षा में</string>
     <string name="logs_buffer_title">बफ़र</string>

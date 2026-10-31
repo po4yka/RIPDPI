@@ -3525,6 +3525,8 @@ app:logs_auto_scroll_body
 app:logs_auto_scroll_title
 app:logs_buffer_title
 app:logs_clear
+app:logs_clear_confirm_body
+app:logs_clear_confirm_title
 app:logs_copy_entry
 app:logs_empty_body
 app:logs_empty_title

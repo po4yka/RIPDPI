@@ -304,6 +304,8 @@
     <string name="language_name_pt_br">Português (Brasil)</string>
     <string name="logs_active_session_title">Nur aktive Sitzung</string>
     <string name="logs_clear">Löschen</string>
+    <string name="logs_clear_confirm_title">Protokolle löschen?</string>
+    <string name="logs_clear_confirm_body">Dadurch werden alle Einträge aus dem Protokollpuffer auf dem Gerät entfernt. Das lässt sich nicht rückgängig machen.</string>
     <string name="logs_filtered_empty_body">Öffnen Sie die Filter, um andere Ereignisse im lokalen Puffer anzuzeigen.</string>
     <string name="logs_severity_info">INFO</string>
     <string name="logs_subsystem_tunnel">TUNNEL</string>

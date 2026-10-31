@@ -423,6 +423,8 @@ internal object RipDpiTestTags {
     const val LogsAutoScroll = "logs-auto-scroll"
     const val LogsSave = "logs-save"
     const val LogsClear = "logs-clear"
+    const val LogsClearDialog = "logs-clear-dialog"
+    const val LogsClearConfirm = "logs-clear-confirm"
     const val LogsStream = "logs-stream"
     const val LogsEmptyState = "logs-empty-state"
     const val LogsDetailPane = "logs-detail-pane"

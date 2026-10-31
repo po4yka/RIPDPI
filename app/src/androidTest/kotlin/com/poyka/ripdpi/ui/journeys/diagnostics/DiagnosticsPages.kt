@@ -24,6 +24,7 @@ internal class LogsPage(
     val actions = RipDpiTestTags.LogsActions
     val save = RipDpiTestTags.LogsSave
     val clear = RipDpiTestTags.LogsClear
+    val clearConfirm = RipDpiTestTags.LogsClearConfirm
     val stream = RipDpiTestTags.LogsStream
     val emptyState = RipDpiTestTags.LogsEmptyState
     val autoScroll = RipDpiTestTags.LogsAutoScroll

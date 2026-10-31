@@ -20,6 +20,8 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.SnackbarHostState
@@ -54,13 +56,13 @@ import com.poyka.ripdpi.activities.LogsUiState
 import com.poyka.ripdpi.activities.LogsViewModel
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
+import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSheetAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarTone
@@ -133,7 +135,7 @@ internal fun LogsScreen(
     val onShowCopiedSnackbar = rememberCopiedToClipboardSnackbar(snackbarHostState)
 
     var showFilters by rememberSaveable { mutableStateOf(false) }
-    var showActions by rememberSaveable { mutableStateOf(false) }
+    var showClearConfirm by rememberSaveable { mutableStateOf(false) }
 
     val twoPane = RipDpiThemeTokens.layout.widthClass >= RipDpiWidthClass.Expanded
     var selectedEntryId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -153,6 +155,14 @@ internal fun LogsScreen(
                     title = stringResource(R.string.logs),
                     navigationIcon = RipDpiIcons.Back,
                     onNavigationClick = onBack,
+                    actions = {
+                        LogsTopBarActions(
+                            uiState = uiState,
+                            onSaveLogs = onSaveLogs,
+                            onShareSupportBundle = onShareSupportBundle,
+                            onRequestClear = { showClearConfirm = true },
+                        )
+                    },
                 )
             },
         ) { innerPadding ->
@@ -160,7 +170,6 @@ internal fun LogsScreen(
                 uiState = uiState,
                 innerPadding = innerPadding,
                 onShowFilters = { showFilters = true },
-                onShowActions = { showActions = true },
                 onShowCopiedSnackbar = onShowCopiedSnackbar,
                 selectedEntryId = selectedEntryId.takeIf { twoPane },
                 onSelectEntry = if (twoPane) ({ selectedEntryId = it }) else null,
@@ -179,75 +188,15 @@ internal fun LogsScreen(
     LogsSheets(
         uiState = uiState,
         showFilters = showFilters,
-        showActions = showActions,
+        showClearConfirm = showClearConfirm,
         onDismissFilters = { showFilters = false },
-        onDismissActions = { showActions = false },
+        onDismissClearConfirm = { showClearConfirm = false },
         onToggleSubsystemFilter = onToggleSubsystemFilter,
         onToggleSeverityFilter = onToggleSeverityFilter,
         onAutoScrollChanged = onAutoScrollChanged,
         onActiveSessionOnlyChanged = onActiveSessionOnlyChanged,
-        onSaveLogs = onSaveLogs,
-        onShareSupportBundle = onShareSupportBundle,
         onClearLogs = onClearLogs,
     )
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun LogsSheets(
-    uiState: LogsUiState,
-    showFilters: Boolean,
-    showActions: Boolean,
-    onDismissFilters: () -> Unit,
-    onDismissActions: () -> Unit,
-    onToggleSubsystemFilter: (LogSubsystem) -> Unit,
-    onToggleSeverityFilter: (LogSeverity) -> Unit,
-    onAutoScrollChanged: (Boolean) -> Unit,
-    onActiveSessionOnlyChanged: (Boolean) -> Unit,
-    onSaveLogs: () -> Unit,
-    onShareSupportBundle: () -> Unit,
-    onClearLogs: () -> Unit,
-) {
-    if (showFilters) {
-        RipDpiBottomSheet(
-            onDismissRequest = { onDismissFilters() },
-            title = stringResource(R.string.logs_filters_section),
-            testTag = RipDpiTestTags.LogsFiltersSheet,
-            primaryAction =
-                RipDpiSheetAction(
-                    label = stringResource(R.string.app_picker_done),
-                    onClick = { onDismissFilters() },
-                    testTag = RipDpiTestTags.LogsSheetDone,
-                    wrapLabel = true,
-                ),
-        ) {
-            LogsFiltersSection(
-                uiState = uiState,
-                onToggleSubsystemFilter = onToggleSubsystemFilter,
-                onToggleSeverityFilter = onToggleSeverityFilter,
-                onAutoScrollChanged = onAutoScrollChanged,
-                onActiveSessionOnlyChanged = onActiveSessionOnlyChanged,
-            )
-        }
-    }
-    if (showActions) {
-        LogsActionsSheet(
-            uiState = uiState,
-            onDismiss = onDismissActions,
-            onSaveLogs = {
-                onDismissActions()
-                onSaveLogs()
-            },
-            onShareSupportBundle = {
-                onDismissActions()
-                onShareSupportBundle()
-            },
-            onClearLogs = {
-                onDismissActions()
-                onClearLogs()
-            },
-        )
-    }
 }
 
 @Composable
@@ -255,7 +204,6 @@ private fun LogsContent(
     uiState: LogsUiState,
     innerPadding: PaddingValues,
     onShowFilters: () -> Unit,
-    onShowActions: () -> Unit,
     onShowCopiedSnackbar: () -> Unit,
     selectedEntryId: String?,
     onSelectEntry: ((String) -> Unit)?,
@@ -286,7 +234,6 @@ private fun LogsContent(
             LogsToolbar(
                 uiState = uiState,
                 onShowFilters = onShowFilters,
-                onShowActions = onShowActions,
             )
             RipDpiTextField(
                 value = query,
@@ -314,7 +261,6 @@ private fun LogsContent(
 private fun LogsToolbar(
     uiState: LogsUiState,
     onShowFilters: () -> Unit,
-    onShowActions: () -> Unit,
 ) {
     val filterSummary =
         stringResource(
@@ -335,12 +281,6 @@ private fun LogsToolbar(
                 Modifier.ripDpiTestTag(RipDpiTestTags.LogsFilters).semantics {
                     stateDescription = filterSummary
                 },
-        )
-        RipDpiIconButton(
-            icon = RipDpiIcons.Overflow,
-            contentDescription = stringResource(R.string.logs_actions_title),
-            onClick = onShowActions,
-            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.LogsActions),
         )
     }
 }
@@ -509,65 +449,123 @@ private fun LogsStreamStatus(streaming: Boolean) {
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
+// Save is the most used action, so it stays visible; support bundle and clear live in the overflow menu.
 @Composable
-private fun LogsActionsSheet(
+private fun LogsTopBarActions(
     uiState: LogsUiState,
-    onDismiss: () -> Unit,
     onSaveLogs: () -> Unit,
     onShareSupportBundle: () -> Unit,
+    onRequestClear: () -> Unit,
+) {
+    var menuExpanded by remember { mutableStateOf(false) }
+    RipDpiIconButton(
+        icon = RipDpiIcons.Archive,
+        contentDescription = stringResource(R.string.save_logs),
+        onClick = onSaveLogs,
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.LogsSave),
+    )
+    Box {
+        RipDpiIconButton(
+            icon = RipDpiIcons.Overflow,
+            contentDescription = stringResource(R.string.logs_actions_title),
+            onClick = { menuExpanded = true },
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.LogsActions),
+        )
+        DropdownMenu(expanded = menuExpanded, onDismissRequest = { menuExpanded = false }) {
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.settings_support_debug_bundle_title)) },
+                onClick = {
+                    menuExpanded = false
+                    onShareSupportBundle()
+                },
+            )
+            DropdownMenuItem(
+                text = { Text(stringResource(R.string.logs_clear)) },
+                enabled = uiState.logs.isNotEmpty(),
+                onClick = {
+                    menuExpanded = false
+                    onRequestClear()
+                },
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.LogsClear),
+            )
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun LogsSheets(
+    uiState: LogsUiState,
+    showFilters: Boolean,
+    showClearConfirm: Boolean,
+    onDismissFilters: () -> Unit,
+    onDismissClearConfirm: () -> Unit,
+    onToggleSubsystemFilter: (LogSubsystem) -> Unit,
+    onToggleSeverityFilter: (LogSeverity) -> Unit,
+    onAutoScrollChanged: (Boolean) -> Unit,
+    onActiveSessionOnlyChanged: (Boolean) -> Unit,
     onClearLogs: () -> Unit,
 ) {
-    RipDpiBottomSheet(
-        onDismissRequest = onDismiss,
-        title = stringResource(R.string.logs_actions_title),
-        primaryAction =
-            RipDpiSheetAction(
-                label = stringResource(R.string.app_picker_done),
-                onClick = onDismiss,
-                testTag = RipDpiTestTags.LogsSheetDone,
-                wrapLabel = true,
-            ),
-    ) {
-        RipDpiButton(
-            text = stringResource(R.string.settings_support_debug_bundle_title),
-            onClick = onShareSupportBundle,
-            modifier = Modifier.fillMaxWidth(),
-            variant = RipDpiButtonVariant.Primary,
-            wrapLabel = true,
-        )
-        RipDpiButton(
-            text = stringResource(R.string.save_logs),
-            onClick = onSaveLogs,
-            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.LogsSave),
-            variant = RipDpiButtonVariant.Outline,
-            wrapLabel = true,
-        )
-        RipDpiButton(
-            text = stringResource(R.string.logs_clear),
-            onClick = onClearLogs,
-            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.LogsClear),
-            variant = RipDpiButtonVariant.Destructive,
-            enabled = uiState.logs.isNotEmpty(),
-            wrapLabel = true,
-        )
-        SettingsRow(
-            title = stringResource(R.string.logs_buffer_title),
-            subtitle =
-                stringResource(
-                    R.string.logs_filters_summary_compact,
-                    uiState.activeSubsystems.size,
-                    uiState.activeSeverities.size,
+    if (showFilters) {
+        RipDpiBottomSheet(
+            onDismissRequest = onDismissFilters,
+            title = stringResource(R.string.logs_filters_section),
+            testTag = RipDpiTestTags.LogsFiltersSheet,
+            primaryAction =
+                RipDpiSheetAction(
+                    label = stringResource(R.string.app_picker_done),
+                    onClick = onDismissFilters,
+                    testTag = RipDpiTestTags.LogsSheetDone,
+                    wrapLabel = true,
                 ),
-            value =
-                pluralStringResource(
-                    R.plurals.logs_buffer_value,
-                    uiState.bufferCapacity,
-                    uiState.filteredLogs.size,
-                    uiState.bufferCapacity,
+        ) {
+            LogsFiltersSection(
+                uiState = uiState,
+                onToggleSubsystemFilter = onToggleSubsystemFilter,
+                onToggleSeverityFilter = onToggleSeverityFilter,
+                onAutoScrollChanged = onAutoScrollChanged,
+                onActiveSessionOnlyChanged = onActiveSessionOnlyChanged,
+            )
+            SettingsRow(
+                title = stringResource(R.string.logs_buffer_title),
+                value =
+                    pluralStringResource(
+                        R.plurals.logs_buffer_value,
+                        uiState.bufferCapacity,
+                        uiState.filteredLogs.size,
+                        uiState.bufferCapacity,
+                    ),
+                monospaceValue = true,
+            )
+        }
+    }
+    if (showClearConfirm) {
+        RipDpiDialog(
+            onDismissRequest = onDismissClearConfirm,
+            title = stringResource(R.string.logs_clear_confirm_title),
+            dialogTestTag = RipDpiTestTags.LogsClearDialog,
+            dismissAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.config_cancel),
+                    onClick = onDismissClearConfirm,
                 ),
-            monospaceValue = true,
-        )
+            confirmAction =
+                RipDpiDialogAction(
+                    label = stringResource(R.string.logs_clear),
+                    onClick = {
+                        onDismissClearConfirm()
+                        onClearLogs()
+                    },
+                    testTag = RipDpiTestTags.LogsClearConfirm,
+                    destructive = true,
+                ),
+        ) {
+            Text(
+                text = stringResource(R.string.logs_clear_confirm_body),
+                style = RipDpiThemeTokens.type.body,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+        }
     }
 }
 

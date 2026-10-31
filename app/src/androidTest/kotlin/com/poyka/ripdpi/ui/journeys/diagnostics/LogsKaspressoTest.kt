@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.journeys.diagnostics
 
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
 import com.poyka.ripdpi.activities.LogSeverity
 import com.poyka.ripdpi.activities.LogSubsystem
 import com.poyka.ripdpi.automation.AutomationDataPreset
@@ -58,12 +57,10 @@ class LogsKaspressoTest :
                     assertFalse(exists(stream))
                 }
             }
-            step("Actions sheet: save is enabled, clear is disabled") {
+            step("Top bar: save is enabled") {
                 with(LogsPage(composeRule)) {
-                    click(actions)
                     waitFor(save)
                     node(save).assertIsEnabled()
-                    node(clear).assertIsNotEnabled()
                 }
             }
             step("Save opens the in-app export preview and cancel returns to the logs") {
@@ -175,6 +172,8 @@ class LogsKaspressoTest :
                     waitFor(clear)
                     node(clear).assertIsEnabled()
                     click(clear)
+                    waitFor(clearConfirm)
+                    click(clearConfirm)
                     waitFor(emptyState)
                     assertFalse(exists(stream))
                 }

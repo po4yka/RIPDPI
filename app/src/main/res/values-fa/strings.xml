@@ -2372,6 +2372,8 @@ fakeddisorder endhost</string>
     <string name="logs_active_session_body">ابتدا جلسه اتصال یا تشخیص فعلی را نمایش دهید و تاریخچه ماندگار قدیمی‌تر را پنهان کنید.</string>
     <string name="logs_auto_scroll_title">پیمایش خودکار به جدیدترین</string>
     <string name="logs_clear">پاک‌سازی</string>
+    <string name="logs_clear_confirm_title">پاک کردن گزارش‌ها؟</string>
+    <string name="logs_clear_confirm_body">همه ورودی‌های بافر گزارش روی دستگاه حذف می‌شوند. این کار قابل بازگشت نیست.</string>
     <string name="logs_entries_count">ورودی‌ها: %1$d</string>
     <string name="logs_copy_entry">کپی گزارش %1$s در %2$s</string>
     <string name="logs_filtered_empty_title">هیچ ورودی با فیلترهای فعلی مطابقت ندارد</string>

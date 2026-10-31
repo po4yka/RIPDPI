@@ -231,7 +231,7 @@ class LogsViewportTest {
     }
 
     @Test
-    fun `actions expose save support and clear without displacing the stream`() {
+    fun `top bar exposes save support and a confirmed clear without displacing the stream`() {
         var saveCount = 0
         var supportCount = 0
         var clearCount = 0
@@ -245,13 +245,13 @@ class LogsViewportTest {
                 )
             }
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.LogsSave).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.LogsSave).performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.LogsActions).performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.LogsSave).performScrollTo().performClick()
+        composeRule.onNodeWithText("Share support bundle").performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.LogsActions).performClick()
-        composeRule.onNodeWithText("Share support bundle").performScrollTo().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.LogsActions).performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.LogsClear).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.LogsClear).performClick()
+        composeRule.runOnIdle { assertEquals(0, clearCount) }
+        composeRule.onNodeWithTag(RipDpiTestTags.LogsClearConfirm).performClick()
 
         composeRule.runOnIdle {
             assertEquals(1, saveCount)

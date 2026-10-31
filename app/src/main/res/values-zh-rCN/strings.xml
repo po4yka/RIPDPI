@@ -2338,6 +2338,8 @@ fake_burst 3</string>
     <string name="http_fake_profile_scope_ready">当 TCP 链为 HTTP 流量加入完整 fake 步骤时即可就绪。</string>
     <string name="logs_auto_scroll_body">在新诊断到达时,保持最新匹配条目可见。</string>
     <string name="logs_clear">清空</string>
+    <string name="logs_clear_confirm_title">清除日志？</string>
+    <string name="logs_clear_confirm_body">这将删除设备上日志缓冲区中的所有条目，且无法撤销。</string>
     <string name="logs_filters_section">过滤器</string>
     <string name="logs_severity_info">INFO</string>
     <string name="logs_status_live">实时缓冲</string>

@@ -304,6 +304,8 @@
     <string name="language_name_pt_br">Português (Brasil)</string>
     <string name="logs_active_session_title">Solo sesión activa</string>
     <string name="logs_clear">Borrar</string>
+    <string name="logs_clear_confirm_title">¿Borrar los registros?</string>
+    <string name="logs_clear_confirm_body">Se eliminarán todas las entradas del búfer de registros del dispositivo. No se puede deshacer.</string>
     <string name="logs_filtered_empty_body">Abre Filtros para ver otros eventos del búfer local.</string>
     <string name="logs_severity_info">INFO</string>
     <string name="logs_subsystem_tunnel">TUNNEL</string>

@@ -1073,6 +1073,8 @@ fakeddisorder endhost</string>
     <string name="title_app_customization">Значок приложения</string>
     <string name="save_logs">Сохранить логи</string>
     <string name="logs_clear">Очистить</string>
+    <string name="logs_clear_confirm_title">Очистить журнал?</string>
+    <string name="logs_clear_confirm_body">Все записи будут удалены из буфера журнала на устройстве. Это действие нельзя отменить.</string>
     <string name="logs_status_live">Активный буфер</string>
     <string name="logs_status_empty">Ожидание активности</string>
     <string name="logs_buffer_title">Буфер</string>

@@ -1475,6 +1475,8 @@ fakeddisorder endhost</string>
     <string name="title_app_customization">Ícone do app</string>
     <string name="save_logs">Salvar logs</string>
     <string name="logs_clear">Limpar</string>
+    <string name="logs_clear_confirm_title">Limpar os registros?</string>
+    <string name="logs_clear_confirm_body">Isso remove todas as entradas do buffer de registros no dispositivo. Não é possível desfazer.</string>
     <string name="logs_status_live">Buffer em tempo real</string>
     <string name="logs_status_empty">Aguardando atividade</string>
     <string name="logs_buffer_title">Buffer</string>

@@ -1500,6 +1500,8 @@ fakeddisorder endhost</string>
     <string name="title_app_customization">App icon</string>
     <string name="save_logs">Save logs</string>
     <string name="logs_clear">Clear</string>
+    <string name="logs_clear_confirm_title">Clear logs?</string>
+    <string name="logs_clear_confirm_body">This removes every entry from the on-device log buffer. It cannot be undone.</string>
     <string name="logs_status_live">Live buffer</string>
     <string name="logs_status_empty">Waiting for activity</string>
     <string name="logs_buffer_title">Buffer</string>
