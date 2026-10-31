@@ -69,13 +69,11 @@ data class RipDpiNavigationSurfaceRoles(
 @Immutable
 data class RipDpiActuatorSurfaceRoles(
     val rail: RipDpiSurfaceRole = RipDpiSurfaceRole.ActuatorRail,
-    val carriage: RipDpiSurfaceRole = RipDpiSurfaceRole.ActuatorCarriage,
 )
 
 @Immutable
 data class RipDpiRouteSurfaceRoles(
     val profile: RipDpiSurfaceRole = RipDpiSurfaceRole.RouteProfile,
-    val capability: RipDpiSurfaceRole = RipDpiSurfaceRole.RouteCapability,
     val stack: RipDpiSurfaceRole = RipDpiSurfaceRole.RouteStack,
     val provider: RipDpiSurfaceRole = RipDpiSurfaceRole.RouteProvider,
     val opportunity: RipDpiSurfaceRole = RipDpiSurfaceRole.RouteOpportunity,
