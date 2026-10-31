@@ -15,7 +15,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.v2.createComposeRule
-import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -153,7 +153,7 @@ class AmneziaWgProfileScreenTest {
         }
 
         composeRule
-            .onAllNodesWithText(context.getString(R.string.ssh_reveal_secret_action))[0]
+            .onAllNodesWithContentDescription(context.getString(R.string.ssh_reveal_secret_action))[0]
             .performScrollTo()
             .performClick()
 
@@ -175,7 +175,7 @@ class AmneziaWgProfileScreenTest {
         }
 
         composeRule
-            .onAllNodesWithText(context.getString(R.string.ssh_reveal_secret_action))[0]
+            .onAllNodesWithContentDescription(context.getString(R.string.ssh_reveal_secret_action))[0]
             .performScrollTo()
             .performClick()
 

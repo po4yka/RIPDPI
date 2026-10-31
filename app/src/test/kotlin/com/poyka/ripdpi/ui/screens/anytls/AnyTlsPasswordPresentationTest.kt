@@ -8,6 +8,7 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -149,7 +150,11 @@ class AnyTlsPasswordPresentationTest {
             }
         }
         composeRule.onNodeWithText(string(R.string.relay_editor_save_incomplete_hint)).performScrollTo()
-        composeRule.onNodeWithText(string(R.string.ssh_reveal_secret_action)).performScrollTo().performClick()
+        composeRule
+            .onNodeWithContentDescription(
+                string(R.string.ssh_reveal_secret_action),
+            ).performScrollTo()
+            .performClick()
 
         val layouts = mutableListOf<TextLayoutResult>()
         composeRule

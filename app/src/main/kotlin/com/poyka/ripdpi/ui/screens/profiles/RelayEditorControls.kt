@@ -15,7 +15,7 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
@@ -54,13 +54,12 @@ internal fun RelaySecretField(
                 enabled = enabled,
             ),
         trailingContent = {
-            RipDpiButton(
-                text = stringResource(R.string.ssh_reveal_secret_action),
+            RipDpiIconButton(
+                icon = RipDpiIcons.Visibility,
+                contentDescription = stringResource(R.string.ssh_reveal_secret_action),
                 onClick = onReveal,
                 modifier = Modifier.ripDpiTestTag(testTag?.let(RipDpiTestTags.secretReveal)),
                 enabled = enabled,
-                variant = RipDpiButtonVariant.Secondary,
-                leadingIcon = RipDpiIcons.Visibility,
             )
         },
     )

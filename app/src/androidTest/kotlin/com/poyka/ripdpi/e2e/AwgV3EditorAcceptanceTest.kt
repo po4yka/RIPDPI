@@ -24,8 +24,8 @@ import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.hasTestTag
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDialog
 import androidx.compose.ui.test.isRoot
 import androidx.compose.ui.test.junit4.v2.createEmptyComposeRule
@@ -244,7 +244,7 @@ class AwgV3EditorAcceptanceTest {
         if (canReveal) {
             compose
                 .onNode(
-                    hasText(text(R.string.ssh_reveal_secret_action)) and
+                    hasContentDescription(text(R.string.ssh_reveal_secret_action)) and
                         hasAnyAncestor(hasTestTag(tag(AwgEditorField.HEADER_PROTECTION_KEY))),
                     useUnmergedTree = true,
                 ).performClick()
