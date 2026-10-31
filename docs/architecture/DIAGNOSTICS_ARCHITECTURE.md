@@ -427,6 +427,18 @@ flags and numeric timing data. Protocol meanings follow
 [RFC 2308](https://www.rfc-editor.org/rfc/rfc2308.html) and
 [RFC 8914](https://www.rfc-editor.org/rfc/rfc8914.html).
 
+### JSON DoH resolver survey
+
+The `doh_json_survey` stage queries each distinct scan DNS target domain once per
+resolver in the shared Google, Cloudflare and AdGuard JSON panel. Requests run
+sequentially through the scan's direct or proxied transport with verified TLS and a
+JSON `Accept` header; the domain is sent only as an encoded query value. Each
+resolver keeps its own status, round-trip time and answer address. The result is
+healthy only when at least one resolver returned an address. An interrupted or
+cancelled survey stops starting requests and stays inconclusive. The Kotlin planner
+adds one `DOH_JSON_SURVEY` task per domain, and local-network admission drops it with
+its denied DNS target. A scan without DNS targets sends no JSON DoH requests.
+
 ## Local device and default-data SIM context
 
 `DiagnosticContextModel.localNetwork` contains optional, identifier-free local

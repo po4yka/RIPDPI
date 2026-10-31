@@ -2,7 +2,7 @@
 id: DGN-1790425188376122
 title: Execute DoH JSON survey in monitor engine
 kind: feature
-status: doing
+status: done
 area: diagnostics
 priority: high
 owner: Diagnostics Rust
@@ -11,7 +11,10 @@ blocked_by: []
 spec_mode: required
 openspec_change: dgn-1790425188376122-execute-doh-json-survey
 created: 2026-09-26
-updated: 2026-09-26
+updated: 2026-10-31
+closed_at: "2026-10-31T06:47:29Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Survey landed in ae3099b94; main 32a9b2c8a passed full push CI run 41170842447; on the branch 8 doh_json engine tests (incl. the new no-target guard) and the Kotlin planner/admission tests (13 and 9) passed.
 ---
 
 ## Goal

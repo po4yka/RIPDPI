@@ -2,7 +2,7 @@
 id: PRX-1792849175606125
 title: Forward request continuation during first-response observation
 kind: bug
-status: review
+status: done
 area: proxy
 priority: high
 owner: protocol-runtime
@@ -11,8 +11,11 @@ blocked_by: []
 spec_mode: required
 openspec_change: first-response-duplex-continuation
 created: 2026-10-24
-updated: 2026-10-24
+updated: 2026-10-31
 status_detail: Implementation, independent review and physical upload passed; the final execution step and hosted evidence remain open until CI passes on the published candidate.
+closed_at: "2026-10-31T06:31:52Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Landed in b3bdf4263 (physical candidate 47a5ee708 passed all four owned USB scenarios); full push CI run 40122030612 on b3bdf4263 passed ci-required with 48 jobs; main 32a9b2c8a passed run 41170842447.
 ---
 
 ## Goal

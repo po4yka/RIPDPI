@@ -2,7 +2,7 @@
 id: RLY-1793363326590556
 title: Ship the pinned upstream NaiveProxy client for real-certificate profiles
 kind: feature
-status: doing
+status: done
 area: relay
 priority: high
 owner: unassigned
@@ -11,7 +11,10 @@ blocked_by: []
 spec_mode: required
 openspec_change: rly-1793363326590556-naiveproxy-upstream-client
 created: 2026-10-30
-updated: 2026-10-30
+updated: 2026-10-31
+closed_at: "2026-10-31T06:31:52Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Main 32a9b2c8a passed full push CI run 41170842447 (ci-required, workspace clippy, Kotlin unit suites, staticAnalysis, arch-health); github-full per-ABI APK sizes 71.8/76.7/78.8/80.0 MiB under the 170 MiB budget; API 37 emulator acceptance recorded at 83246fb52.
 ---
 
 ## Goal

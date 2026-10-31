@@ -2,7 +2,7 @@
 id: SVC-1792856195708453
 title: Use physical network authority for VPN handover and MTU
 kind: bug
-status: review
+status: done
 area: service
 priority: high
 owner: Runtime integration
@@ -11,8 +11,11 @@ blocked_by: []
 spec_mode: required
 openspec_change: physical-network-handover-authority
 created: 2026-10-24
-updated: 2026-10-24
+updated: 2026-10-31
 status_detail: Implementation, independent review, 6288 JVM tests and all four physical USB scenarios passed; final hosted acceptance remains open.
+closed_at: "2026-10-31T06:31:52Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Landed in b3bdf4263 (physical candidate 47a5ee708 passed all four owned USB scenarios); full push CI run 40122030612 on b3bdf4263 passed ci-required with 48 jobs; main 32a9b2c8a passed run 41170842447.
 ---
 
 ## Goal
