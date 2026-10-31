@@ -1,7 +1,5 @@
 package com.poyka.ripdpi.ui.screens.profiles
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.material3.Text
@@ -11,7 +9,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -88,46 +85,15 @@ internal fun RelayPasswordField(
 
 /** The caption that explains why the editor's primary action in the top app bar is disabled. */
 @Composable
-internal fun RelayEditorHint(hint: String?) {
+internal fun RelayEditorHint(
+    hint: String?,
+    isError: Boolean = false,
+) {
     hint?.let {
         Text(
             text = it,
             style = RipDpiThemeTokens.type.caption,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
-    }
-}
-
-/** The closing action row of every profile editor; [hint] says why the action is not available yet. */
-@Composable
-internal fun RelayEditorActionRow(
-    text: String,
-    onClick: () -> Unit,
-    enabled: Boolean,
-    hint: String?,
-    modifier: Modifier = Modifier,
-    hintIsError: Boolean = false,
-    leadingIcon: ImageVector? = null,
-    testTag: String? = null,
-) {
-    val colors = RipDpiThemeTokens.colors
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-    ) {
-        hint?.let {
-            Text(
-                text = it,
-                style = RipDpiThemeTokens.type.caption,
-                color = if (hintIsError) colors.destructive else colors.mutedForeground,
-            )
-        }
-        RipDpiButton(
-            text = text,
-            onClick = onClick,
-            modifier = Modifier.fillMaxWidth().ripDpiTestTag(testTag),
-            enabled = enabled,
-            leadingIcon = leadingIcon,
+            color = if (isError) RipDpiThemeTokens.colors.destructive else RipDpiThemeTokens.colors.mutedForeground,
         )
     }
 }

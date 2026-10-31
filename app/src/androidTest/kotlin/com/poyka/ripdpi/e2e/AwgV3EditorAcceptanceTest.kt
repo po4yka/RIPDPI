@@ -288,19 +288,19 @@ class AwgV3EditorAcceptanceTest {
             AwgEditorField.KEEPALIVE_TIMEOUT to "5-15",
             AwgEditorField.MAX_HANDSHAKE_ATTEMPTS to "15-20",
         ).forEach { (editorField, value) -> field(editorField).assertTextContains(value) }
-        compose.onNodeWithTag(RipDpiTestTags.AwgConnectAction).performScrollTo().assertIsEnabled()
+        compose.onNodeWithTag(RipDpiTestTags.AwgConnectAction).assertIsEnabled()
     }
 
     private fun verifyInvalidDraftAndPreset() {
         field(AwgEditorField.HEADER_PROTECTION_KEY).performScrollTo().performClick().performTextReplacement("not-a-key")
         compose.onNodeWithText(text(R.string.awg_field_invalid)).assertExists()
-        compose.onNodeWithTag(RipDpiTestTags.AwgConnectAction).performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithTag(RipDpiTestTags.AwgConnectAction).assertIsNotEnabled()
         field(AwgEditorField.HEADER_PROTECTION_KEY).performScrollTo()
         capture("hp-key-error")
         field(AwgEditorField.HEADER_PROTECTION_KEY).performTextReplacement(key(3))
         field(AwgEditorField.S4).performScrollTo().performClick().performTextReplacement("11")
         compose.onNodeWithText(text(R.string.awg_hp_prefix_min, "S4", 12)).assertExists()
-        compose.onNodeWithTag(RipDpiTestTags.AwgConnectAction).performScrollTo().assertIsNotEnabled()
+        compose.onNodeWithTag(RipDpiTestTags.AwgConnectAction).assertIsNotEnabled()
         field(AwgEditorField.S4).performScrollTo()
         capture("hp-prefix-error")
         field(AwgEditorField.S4).performTextReplacement("24")

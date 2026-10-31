@@ -250,7 +250,7 @@ class AmneziaWgProfileScreenTest {
         }
         composeRule.runOnIdle { assertNull(registry.launchedIntent) }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.AwgConnectAction).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.AwgConnectAction).performClick()
 
         composeRule.runOnIdle {
             assertEquals("test.awg.vpn.consent", registry.launchedIntent?.action)
@@ -435,7 +435,6 @@ class AmneziaWgProfileScreenTest {
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.AwgConnectAction)
-            .performScrollTo()
             .assertIsNotEnabled()
 
         composeRule.runOnUiThread {
@@ -448,7 +447,6 @@ class AmneziaWgProfileScreenTest {
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.AwgConnectAction)
-            .performScrollTo()
             .assertIsEnabled()
     }
 
