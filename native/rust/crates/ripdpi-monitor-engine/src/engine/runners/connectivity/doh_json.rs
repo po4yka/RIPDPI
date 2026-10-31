@@ -137,7 +137,28 @@ mod tests {
     use crate::http::HttpResponse;
     use crate::util::{DEFAULT_DOH_JSON_RESOLVERS, encode_doh_json_query_name, with_scan_io_deadline};
 
-    use super::{survey, unique_targets};
+    use super::{DohJsonSurveyRunner, survey, unique_targets};
+
+    #[test]
+    fn default_plan_without_dns_targets_runs_no_survey_probe() {
+        use crate::engine::runtime::{CollectedStageOutcome, ExecutionStageId, ExecutionStageRunner};
+
+        let request = serde_json::from_str(
+            r#"{"profileId":"p","displayName":"p","pathMode":"RAW_PATH","domainTargets":[],"dnsTargets":[],"tcpTargets":[],"whitelistSni":[]}"#,
+        )
+        .unwrap();
+        let plan = crate::engine::plan::build_execution_plan(
+            "s".to_string(),
+            request,
+            0,
+            crate::transport::direct_transport(),
+        )
+        .unwrap();
+        assert!(plan.stage_order.contains(&ExecutionStageId::DohJsonSurvey));
+
+        let outcome = DohJsonSurveyRunner.run_collecting(&plan, &AtomicBool::new(false), None);
+        assert!(matches!(outcome, CollectedStageOutcome::Completed(ref steps) if steps.is_empty()));
+    }
 
     #[test]
     fn expanded_resolver_candidates_are_surveyed_once_per_domain() {
