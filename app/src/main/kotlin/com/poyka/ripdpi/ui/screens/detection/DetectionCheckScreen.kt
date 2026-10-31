@@ -62,6 +62,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentWidth
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -220,16 +221,18 @@ internal fun DetectionCheckScreen(
                     .fillMaxSize()
                     .padding(innerPadding),
         ) {
-            DetectionCheckScreenContent(
-                uiState = uiState,
-                onStart = onStart,
-                onStop = onStop,
-                onOpenRecommendation = onOpenRecommendation,
-                onUnlockProtanopiaVariant = onUnlockProtanopiaVariant,
-                onReloadCommunityStats = onReloadCommunityStats,
-                onRequestPermissions = onRequestPermissions,
-                performHaptic = performHaptic,
-            )
+            RipDpiContentWidth {
+                DetectionCheckScreenContent(
+                    uiState = uiState,
+                    onStart = onStart,
+                    onStop = onStop,
+                    onOpenRecommendation = onOpenRecommendation,
+                    onUnlockProtanopiaVariant = onUnlockProtanopiaVariant,
+                    onReloadCommunityStats = onReloadCommunityStats,
+                    onRequestPermissions = onRequestPermissions,
+                    performHaptic = performHaptic,
+                )
+            }
         }
     }
 }

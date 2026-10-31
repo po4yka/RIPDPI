@@ -322,6 +322,20 @@ fun RipDpiAdaptiveColumns(
     }
 }
 
+/**
+ * Keeps a screen body inside [RipDpiThemeTokens.layout]'s content width, centred, for screens that
+ * lay out their own scrolling body under [RipDpiScreenScaffold].
+ */
+@Composable
+fun RipDpiContentWidth(
+    modifier: Modifier = Modifier,
+    content: @Composable () -> Unit,
+) {
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        Box(Modifier.widthIn(max = RipDpiThemeTokens.layout.contentMaxWidth).fillMaxSize()) { content() }
+    }
+}
+
 @Preview(showBackground = true)
 @Composable
 private fun RipDpiScreenScaffoldPreview() {

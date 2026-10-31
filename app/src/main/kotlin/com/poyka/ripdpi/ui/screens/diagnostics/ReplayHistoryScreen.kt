@@ -24,6 +24,7 @@ import com.poyka.ripdpi.diagnostics.replay.ReplayVerdict
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentWidth
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -61,11 +62,9 @@ fun ReplayHistoryScreen(
             )
         },
     ) { innerPadding ->
-        ReplayHistoryContent(
-            replays = replays,
-            onRunScan = onRunScan,
-            modifier = Modifier.padding(innerPadding),
-        )
+        RipDpiContentWidth(Modifier.padding(innerPadding)) {
+            ReplayHistoryContent(replays = replays, onRunScan = onRunScan)
+        }
     }
 }
 

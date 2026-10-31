@@ -25,6 +25,7 @@ import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentWidth
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -65,15 +66,16 @@ fun PcapCaptureListScreen(
             )
         },
     ) { innerPadding ->
-        PcapCaptureListContent(
-            captures = captures,
-            onCaptureSelected = onCaptureSelected,
-            onOpenAdvancedSettings = onOpenAdvancedSettings,
-            loading = loading,
-            failed = failed,
-            onRetry = onRetry,
-            modifier = Modifier.padding(innerPadding),
-        )
+        RipDpiContentWidth(Modifier.padding(innerPadding)) {
+            PcapCaptureListContent(
+                captures = captures,
+                onCaptureSelected = onCaptureSelected,
+                onOpenAdvancedSettings = onOpenAdvancedSettings,
+                loading = loading,
+                failed = failed,
+                onRetry = onRetry,
+            )
+        }
     }
 }
 

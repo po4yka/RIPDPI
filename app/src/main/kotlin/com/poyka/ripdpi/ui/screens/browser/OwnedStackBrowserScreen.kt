@@ -40,6 +40,7 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentWidth
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -112,12 +113,13 @@ internal fun OwnedStackBrowserScreen(
             )
         },
     ) { innerPadding ->
-        OwnedStackBrowserContent(
-            uiState = uiState,
-            onUrlChanged = onUrlChanged,
-            onOpen = onOpen,
-            modifier = Modifier.padding(innerPadding),
-        )
+        RipDpiContentWidth(Modifier.padding(innerPadding)) {
+            OwnedStackBrowserContent(
+                uiState = uiState,
+                onUrlChanged = onUrlChanged,
+                onOpen = onOpen,
+            )
+        }
     }
 }
 
