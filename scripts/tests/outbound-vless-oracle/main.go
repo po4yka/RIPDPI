@@ -188,7 +188,7 @@ func run() error {
 			listener.Close()
 		}
 	}()
-	for _, name := range []string{"endpoint", "vision", "minimum", "maximum"} {
+	for _, name := range []string{"endpoint", "vision", "minimum", "maximum", "xhttp"} {
 		reservation, err := net.Listen("tcp", "127.0.0.1:0")
 		if err != nil {
 			return err
@@ -207,7 +207,13 @@ func run() error {
 		if name == "maximum" {
 			minimum, maximum = "", "26.10.28"
 		}
-		inbounds = append(inbounds, map[string]any{"listen": "127.0.0.1", "port": port, "protocol": "vless", "settings": map[string]any{"clients": []any{map[string]any{"id": subscriber, "flow": flow}}, "decryption": "none"}, "streamSettings": map[string]any{"network": "raw", "security": "reality", "realitySettings": map[string]any{"target": decoy.Addr().String(), "serverNames": []string{"outbound.invalid"}, "privateKey": base64.RawURLEncoding.EncodeToString(key.Bytes()), "shortIds": []string{shortID}, "minClientVer": minimum, "maxClientVer": maximum}}})
+		stream := map[string]any{"network": "raw", "security": "reality", "realitySettings": map[string]any{"target": decoy.Addr().String(), "serverNames": []string{"outbound.invalid"}, "privateKey": base64.RawURLEncoding.EncodeToString(key.Bytes()), "shortIds": []string{shortID}, "minClientVer": minimum, "maxClientVer": maximum}}
+		if name == "xhttp" {
+			// Upstream xHTTP server in auto mode accepts both stream-up and stream-one.
+			stream["network"] = "xhttp"
+			stream["xhttpSettings"] = map[string]any{"path": "/xudp", "mode": "auto"}
+		}
+		inbounds = append(inbounds, map[string]any{"listen": "127.0.0.1", "port": port, "protocol": "vless", "settings": map[string]any{"clients": []any{map[string]any{"id": subscriber, "flow": flow}}, "decryption": "none"}, "streamSettings": stream})
 	}
 	var rules []any
 	var finalRules []any
