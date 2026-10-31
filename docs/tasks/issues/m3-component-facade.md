@@ -2,16 +2,16 @@
 id: UIX-1793256927624290
 title: Rebuild shared RipDpi components on Material 3
 kind: feature
-status: backlog
+status: doing
 area: ui
 priority: high
 owner: UI overhaul
 parent: EPC-1793256695505524
-blocked_by: [UIX-1793256870879296]
+blocked_by: []
 spec_mode: required
 openspec_change: m3-component-facade
 created: 2026-10-29
-updated: 2026-10-29
+updated: 2026-10-31
 ---
 
 ## Goal
