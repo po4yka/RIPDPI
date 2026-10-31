@@ -48,6 +48,7 @@ import com.poyka.ripdpi.services.TransportFailoverTarget
 import com.poyka.ripdpi.services.TransportKindAmneziaWg
 import com.poyka.ripdpi.services.opaqueRelayProfileToken
 import com.poyka.ripdpi.services.relayTransportCapabilities
+import com.poyka.ripdpi.services.transportApplyWaitMillis
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -1131,7 +1132,7 @@ class FailoverCoordinator
                 val outcome =
                     transportFailoverApplyTracker.awaitOutcome(
                         requestId = requestId,
-                        timeoutMillis = TRANSPORT_APPLY_TIMEOUT_MILLIS,
+                        timeoutMillis = transportApplyWaitMillis(nextCandidate.transportFailoverTarget().transportKind),
                     )
                 applied = outcome == TransportFailoverApplyOutcome.Applied
                 rollbackSafe = outcome == TransportFailoverApplyOutcome.RollbackSafeFailure
@@ -1161,7 +1162,10 @@ class FailoverCoordinator
                         withContext(NonCancellable) {
                             transportFailoverApplyTracker.settleCancellation(
                                 requestId = requestId,
-                                timeoutMillis = TRANSPORT_APPLY_TIMEOUT_MILLIS,
+                                timeoutMillis =
+                                    transportApplyWaitMillis(
+                                        nextCandidate.transportFailoverTarget().transportKind,
+                                    ),
                             )
                         }
                     applied = outcome == TransportFailoverApplyOutcome.Applied
@@ -1443,7 +1447,6 @@ class FailoverCoordinator
             const val XUDP_FAILURE_STREAK_THRESHOLD = 3L
             const val SEEDED_VLESS_REALITY_PROFILE_ID = "${SEED_RELAY_PROFILE_ID_PREFIX}VlessReality"
             const val STARTUP_HALT_WAIT_TIMEOUT_MILLIS = 5_000L
-            const val TRANSPORT_APPLY_TIMEOUT_MILLIS = 60_000L
             val relayKindPriority =
                 mapOf(
                     RelayKindVlessReality to 0,

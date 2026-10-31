@@ -62,6 +62,7 @@ import com.poyka.ripdpi.services.WarpRuntimeSupervisor
 import com.poyka.ripdpi.services.XrayProviderSessionController
 import com.poyka.ripdpi.services.completion
 import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
+import com.poyka.ripdpi.services.startWindowMillis
 import com.poyka.ripdpi.services.starting
 import com.poyka.ripdpi.services.transportFailoverTargetOrNull
 import kotlinx.coroutines.CancellationException
@@ -472,7 +473,7 @@ internal class VpnServiceRuntimeCoordinator(
             var runtimeApplied = false
             try {
                 withContext(NonCancellable) {
-                    withTimeout(transportFailoverRuntimeTimeoutMillis) {
+                    withTimeout(expectedTarget.startWindowMillis(transportFailoverRuntimeTimeoutMillis)) {
                         val preparation = prepareTransportFailover(requestId, expectedTarget) ?: return@withTimeout
                         runtimeClaimed = true
                         handoverRestarting = true
@@ -528,7 +529,7 @@ internal class VpnServiceRuntimeCoordinator(
         var applied = false
         try {
             withContext(NonCancellable) {
-                withTimeout(transportFailoverRuntimeTimeoutMillis) {
+                withTimeout(expectedTarget.startWindowMillis(transportFailoverRuntimeTimeoutMillis)) {
                     startTransaction(
                         RuntimeStartTransaction(
                             beforeStart = { resolution ->

@@ -129,7 +129,7 @@ internal class DefaultStandaloneAmneziaWgActivator
                         pauseAuthority.bindProfileActivation(receipt, Mode.VPN)
                             ?: error("AmneziaWG activation was superseded")
                     selectionLock.withLock { publishActivation(request, requestId, bound) }
-                    when (applyTracker.awaitOutcome(requestId, ApplyTimeoutMillis)) {
+                    when (applyTracker.awaitOutcome(requestId, transportApplyWaitMillis(TransportKindAmneziaWg))) {
                         TransportFailoverApplyOutcome.Applied -> {
                             Unit
                         }
@@ -145,7 +145,11 @@ internal class DefaultStandaloneAmneziaWgActivator
                 } catch (failure: Exception) {
                     try {
                         withContext(NonCancellable) {
-                            val outcome = applyTracker.settleCancellation(requestId, ApplyTimeoutMillis)
+                            val outcome =
+                                applyTracker.settleCancellation(
+                                    requestId,
+                                    transportApplyWaitMillis(TransportKindAmneziaWg),
+                                )
                             if (outcome == TransportFailoverApplyOutcome.RollbackSafeFailure) {
                                 activationReceipt?.let { rollbackSelection(request.profileId, it) }
                             }
@@ -254,10 +258,6 @@ internal class DefaultStandaloneAmneziaWgActivator
                     ?.also { selectedRequest = it }
                     ?: error("Selected standalone AWG profile is unavailable")
             }
-
-        private companion object {
-            const val ApplyTimeoutMillis = 30_000L
-        }
     }
 
 private fun interface AwgProfileLoader {
