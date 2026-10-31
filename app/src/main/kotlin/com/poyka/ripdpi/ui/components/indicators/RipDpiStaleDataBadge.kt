@@ -10,7 +10,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.style.CommonStyle
 import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.material3.Text
@@ -173,7 +172,7 @@ fun RipDpiStaleDataBadge(
     Row(
         modifier =
             modifier
-                .ripDpiStyleSurface(resolver, shape = RoundedCornerShape(percent = 50))
+                .ripDpiStyleSurface(resolver, shape = RipDpiThemeTokens.shapes.full)
                 .padding(
                     horizontal = RipDpiThemeTokens.spacing.sm,
                     vertical = indicators.staleBadgeVerticalPadding,

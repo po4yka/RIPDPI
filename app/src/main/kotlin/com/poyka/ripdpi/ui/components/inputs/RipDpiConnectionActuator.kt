@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.style.CommonStyle
 import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.foundation.style.styleResolver
@@ -264,7 +263,7 @@ private fun ActuatorFaultDetail(
     modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
-    val shape = RoundedCornerShape(RipDpiThemeTokens.components.shapes.extraSmallCornerRadius)
+    val shape = RipDpiThemeTokens.shapes.xs
     val copyLabel = stringResource(R.string.home_connection_actuator_fault_copy)
     val interactionSource = remember { MutableInteractionSource() }
     val resolver =
