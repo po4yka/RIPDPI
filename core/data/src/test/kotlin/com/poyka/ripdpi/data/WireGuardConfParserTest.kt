@@ -410,7 +410,7 @@ class WireGuardConfParserTest {
             val peer = WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = $raw")).peers.single()
             assertEquals(raw, expected, peer.persistentKeepalive to peer.persistentKeepaliveMax)
         }
-        javaClass.getResourceAsStream("/contract/awg-keepalive-invalid.txt")!!.bufferedReader().useLines { lines ->
+        javaClass.getResourceAsStream("/awg-keepalive-invalid.txt")!!.bufferedReader().useLines { lines ->
             lines.forEach { raw ->
                 assertThrows(raw, IllegalArgumentException::class.java) {
                     WireGuardConfParser.parse(interfaceConf("", "PersistentKeepalive = $raw"))

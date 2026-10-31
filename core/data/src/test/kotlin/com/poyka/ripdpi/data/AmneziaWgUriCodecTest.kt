@@ -27,7 +27,7 @@ class AmneziaWgUriCodecTest {
     @Test
     fun `keepalive grammar rejects invalid input and preserves fixed and ranged values`() {
         val uri = AmneziaWgUriCodec.encode(fullProfile().copy(persistentKeepalive = 25))
-        javaClass.getResourceAsStream("/contract/awg-keepalive-invalid.txt")!!.bufferedReader().useLines { lines ->
+        javaClass.getResourceAsStream("/awg-keepalive-invalid.txt")!!.bufferedReader().useLines { lines ->
             lines.forEach { raw ->
                 val encoded = java.net.URLEncoder.encode(raw, "UTF-8")
                 assertNull(
