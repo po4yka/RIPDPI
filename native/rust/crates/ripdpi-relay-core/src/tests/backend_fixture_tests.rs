@@ -662,3 +662,50 @@ async fn vless_reality_mux_keeps_its_carrier_when_the_server_drops_a_refused_sub
 
     assert_eq!(fixture.accepted_carrier_count(), 1, "one refused target re-dialled the shared carrier");
 }
+
+/// Production VLESS Reality xHTTP backend against unmodified pinned Xray: one
+/// XUDP association per stream mode reaches two UDP targets.
+///
+/// # Cancel safety
+/// cancel-safe: the deadline drops the owned backend and XUDP association.
+#[tokio::test]
+#[ignore = "requires pinned upstream peer; run scripts/tests/run-outbound-interop.py"]
+async fn vless_reality_xhttp_xudp_with_upstream() {
+    let env = |name: &str| std::env::var(name).expect("run through the pinned upstream oracle runner");
+    let loopback = |name: &str| {
+        let address: SocketAddr = env(name).parse().expect("oracle endpoint");
+        assert!(address.ip().is_loopback() && address.port() != 0);
+        address
+    };
+    let endpoint = loopback("RIPDPI_OUTBOUND_XHTTP");
+    tokio::time::timeout(Duration::from_secs(15), async {
+        for mode in ["stream-up", "stream-one"] {
+            let mut config = sample_config("vless_reality");
+            config.common.udp_enabled = true;
+            config.common.server = endpoint.ip().to_string();
+            config.common.server_port = i32::from(endpoint.port());
+            config.common.server_name = "outbound.invalid".to_string();
+            config.common.tls_fingerprint_profile = "chrome".to_string();
+            let vless = vless_config_mut(&mut config);
+            vless.vless_transport = "xhttp".to_string();
+            vless.vless_flow = String::new();
+            vless.xhttp_path = "/xudp".to_string();
+            vless.xhttp_mode = mode.to_string();
+            vless.uuid = Some(env("RIPDPI_OUTBOUND_UUID"));
+            vless.reality_public_key = env("RIPDPI_OUTBOUND_PUBLIC_KEY");
+            vless.reality_short_id = env("RIPDPI_OUTBOUND_SHORT_ID");
+            let backend = build_backend(&config).await.expect("VLESS Reality xHTTP backend");
+            let mut udp = backend.open_udp_session().await.expect("XUDP over xHTTP");
+            for (name, payload) in
+                [("RIPDPI_OUTBOUND_UDP", b"xhttp-first".as_slice()), ("RIPDPI_OUTBOUND_UDP2", b"xhttp-second")]
+            {
+                let target = RelayTargetAddr::Ip(loopback(name));
+                udp.send_to(&target, payload).await.expect("send XUDP datagram");
+                let (source, echoed) = udp.recv_from().await.expect("receive XUDP datagram");
+                assert_eq!((source, echoed.as_slice()), (target, payload), "{mode}");
+            }
+        }
+    })
+    .await
+    .expect("XUDP over xHTTP deadline");
+}

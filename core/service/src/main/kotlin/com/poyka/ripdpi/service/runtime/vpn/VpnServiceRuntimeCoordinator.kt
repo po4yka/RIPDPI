@@ -62,6 +62,7 @@ import com.poyka.ripdpi.services.WarpRuntimeSupervisor
 import com.poyka.ripdpi.services.XrayProviderSessionController
 import com.poyka.ripdpi.services.completion
 import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
+import com.poyka.ripdpi.services.startWindowMillis
 import com.poyka.ripdpi.services.starting
 import com.poyka.ripdpi.services.transportFailoverTargetOrNull
 import kotlinx.coroutines.CancellationException
@@ -105,7 +106,7 @@ internal class VpnServiceRuntimeCoordinator(
         DirectPathPolicyTelemetryConsumer = NoOpDirectPathPolicyTelemetryConsumer,
     ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
     clock: ServiceClock = SystemServiceClock,
-    private val transportFailoverRuntimeTimeoutMillis: Long = 45_000L,
+    private val transportFailoverRuntimeTimeoutMillis: Long = 60_000L,
     private val rootHelperManager: RootHelperManager = RootHelperManager(),
     /**
      * Optional embedded-Xray provider seam. Null when the provider is not wired;
@@ -472,7 +473,7 @@ internal class VpnServiceRuntimeCoordinator(
             var runtimeApplied = false
             try {
                 withContext(NonCancellable) {
-                    withTimeout(transportFailoverRuntimeTimeoutMillis) {
+                    withTimeout(expectedTarget.startWindowMillis(transportFailoverRuntimeTimeoutMillis)) {
                         val preparation = prepareTransportFailover(requestId, expectedTarget) ?: return@withTimeout
                         runtimeClaimed = true
                         handoverRestarting = true
@@ -528,7 +529,7 @@ internal class VpnServiceRuntimeCoordinator(
         var applied = false
         try {
             withContext(NonCancellable) {
-                withTimeout(transportFailoverRuntimeTimeoutMillis) {
+                withTimeout(expectedTarget.startWindowMillis(transportFailoverRuntimeTimeoutMillis)) {
                     startTransaction(
                         RuntimeStartTransaction(
                             beforeStart = { resolution ->

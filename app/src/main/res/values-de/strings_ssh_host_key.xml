@@ -15,4 +15,5 @@
     <string name="ssh_host_key_trust_key_type">Schlüsseltyp: %1$s</string>
     <string name="ssh_host_key_trust_confirm">Schlüssel vertrauen</string>
     <string name="ssh_host_key_trust_dismiss">Abbrechen</string>
+    <string name="ssh_host_key_save_untrusted">Nicht gespeichert. SSH verbindet sich erst, wenn Sie dem Hostschlüssel des Servers vertrauen. Rufen Sie den Schlüssel ab und vertrauen Sie ihm, oder geben Sie seinen Fingerabdruck ein.</string>
 </resources>

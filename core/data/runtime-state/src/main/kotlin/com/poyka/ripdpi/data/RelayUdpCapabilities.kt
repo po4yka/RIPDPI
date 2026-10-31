@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data
 /** Kind-level UDP support shared by profile mapping, normalization and service admission. */
 fun relayKindSupportsUdpAssociation(kindId: String): Boolean =
     when (kindId) {
+        RelayKindVless,
         RelayKindVlessReality,
         RelayKindHysteria2,
         RelayKindMasque,
@@ -23,12 +24,19 @@ fun relayProfileSupportsUdpAssociation(
     vlessFlow: String,
 ): Boolean =
     udpEnabled && relayKindSupportsUdpAssociation(kindId) &&
-        (
-            kindId != RelayKindVlessReality ||
-                (
-                    NativeVlessCapabilities.supportsUdp(vlessTransport, vlessFlow)
-                )
-        )
+        when (kindId) {
+            RelayKindVless -> {
+                NativeVlessCapabilities.supportsUdp(RelaySecurityLayerTls, vlessTransport, vlessFlow)
+            }
+
+            RelayKindVlessReality -> {
+                NativeVlessCapabilities.supportsUdp(RelaySecurityLayerReality, vlessTransport, vlessFlow)
+            }
+
+            else -> {
+                true
+            }
+        }
 
 /** Check the cipher as well when importing or resolving a profile with credentials. */
 fun relayProfileSupportsUdpAssociation(

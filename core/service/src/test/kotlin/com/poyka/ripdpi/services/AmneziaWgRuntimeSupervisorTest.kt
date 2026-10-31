@@ -143,6 +143,66 @@ class AmneziaWgRuntimeSupervisorTest {
             assertEquals(RuntimeTelemetryOutcome.NoData, supervisor.pollTelemetry())
         }
 
+    @Test
+    fun failedStartsAreRetriedWithFreshRuntimesWithinTheCohortBudget() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            var created = 0
+            val factory =
+                TestRipDpiAmneziaWgFactory {
+                    TestAmneziaWgRuntime().apply {
+                        if (++created < 4) startFailure = IOException("handshake dropped $created")
+                    }
+                }
+            val exits = mutableListOf<SupervisorExitCause>()
+            val supervisor =
+                AmneziaWgRuntimeSupervisor(
+                    scope = backgroundScope,
+                    dispatcher = dispatcher,
+                    amneziaWgFactory = factory,
+                    runtimeConfigResolver = RecordingAmneziaWgRuntimeConfigResolver(),
+                    activeRegistry = ActiveAwgRuntimeRegistry(),
+                    handshakeAttempts = { 4 },
+                )
+
+            supervisor.start(sampleRequest()) { exits += it }
+            advanceUntilIdle()
+
+            assertEquals(4, factory.runtimes.size)
+            assertTrue(supervisor.runtime === factory.lastRuntime)
+            assertEquals(emptyList<SupervisorExitCause>(), exits)
+            supervisor.stop()
+        }
+
+    @Test
+    fun exhaustedBudgetReportsOnlyTheLastStartupFailure() =
+        runTest {
+            val dispatcher = StandardTestDispatcher(testScheduler)
+            for (budget in listOf(1, 4)) {
+                var created = 0
+                val factory =
+                    TestRipDpiAmneziaWgFactory {
+                        TestAmneziaWgRuntime().apply { startFailure = IOException("handshake dropped ${++created}") }
+                    }
+                val supervisor =
+                    AmneziaWgRuntimeSupervisor(
+                        scope = backgroundScope,
+                        dispatcher = dispatcher,
+                        amneziaWgFactory = factory,
+                        runtimeConfigResolver = RecordingAmneziaWgRuntimeConfigResolver(),
+                        activeRegistry = ActiveAwgRuntimeRegistry(),
+                        handshakeAttempts = { budget },
+                    )
+
+                val error = runCatching { supervisor.start(sampleRequest()) {} }.exceptionOrNull()
+
+                assertEquals(budget, factory.runtimes.size)
+                assertTrue(error is SupervisorStartupFailureException)
+                assertEquals("handshake dropped $budget", error?.message)
+                assertEquals(null, supervisor.runtime)
+            }
+        }
+
     private fun sampleRequest(): AwgActivationRequest =
         AwgActivationRequest(
             profileId = "awg-test",

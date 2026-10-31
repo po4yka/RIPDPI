@@ -1081,6 +1081,110 @@ mod tests {
         assert_eq!(runtime.telemetry().state, "idle");
     }
 
+    /// The shipped Android `rtk_south` cohort preset, read from the asset the app bundles.
+    fn rtk_south_obfuscation() -> AmneziaWgObfuscation {
+        let catalog: serde_json::Value = serde_json::from_str(include_str!(
+            "../../../../../core/data/runtime-state/src/main/assets/awg-cohorts.json"
+        ))
+        .expect("cohort asset is JSON");
+        let preset = catalog["presets"]
+            .as_array()
+            .and_then(|presets| presets.iter().find(|preset| preset["id"] == "rtk_south"))
+            .expect("rtk_south preset ships");
+        let int = |key: &str| i32::try_from(preset[key].as_i64().expect("integer knob")).expect("i32 knob");
+        let text = |key: &str| preset[key].as_str().expect("header text").to_string();
+        AmneziaWgObfuscation {
+            jc: int("jc"),
+            jmin: int("jmin"),
+            jmax: int("jmax"),
+            s1: int("s1"),
+            s2: int("s2"),
+            h1: text("h1"),
+            h2: text("h2"),
+            h3: text("h3"),
+            h4: text("h4"),
+            ..Default::default()
+        }
+    }
+
+    /// # Cancel safety
+    /// NOT cancel-safe: the test owns the runtime task and the endpoint task and stops, aborts, and joins both.
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn rtk_south_cohort_handshakes_with_a_synthetic_awg_endpoint() {
+        use boringtun::noise::{Tunn, TunnResult};
+
+        let amnezia = rtk_south_obfuscation();
+        assert_eq!((amnezia.jc, amnezia.jmin, amnezia.jmax, amnezia.s1, amnezia.s2), (4, 10, 50, 0, 0));
+        let (junk_count, junk_sizes) = (amnezia.jc as usize, amnezia.jmin as usize..=amnezia.jmax as usize);
+        let client_private = StaticSecret::from([0x31; 32]);
+        let endpoint_private = StaticSecret::from([0x47; 32]);
+        let endpoint_socket = tokio::net::UdpSocket::bind("127.0.0.1:0").await.expect("synthetic endpoint socket");
+        let config = AmneziaWgProfileConfig {
+            enabled: true,
+            profile_id: "rtk-south-synthetic-endpoint".to_string(),
+            private_key: BASE64_STANDARD.encode(client_private.to_bytes()),
+            peer_public_key: BASE64_STANDARD.encode(PublicKey::from(&endpoint_private).to_bytes()),
+            endpoint_host: "127.0.0.1".to_string(),
+            endpoint_ipv4: "127.0.0.1".to_string(),
+            endpoint_port: i32::from(endpoint_socket.local_addr().expect("endpoint address").port()),
+            interface_address_v4: "10.8.0.2/32".to_string(),
+            mtu: 1420,
+            local_socks_host: "127.0.0.1".to_string(),
+            local_socks_port: 0,
+            amnezia,
+            ..Default::default()
+        };
+        let mut endpoint = Tunn::new(endpoint_private, PublicKey::from(&client_private), None, None, 1, None);
+
+        // The endpoint applies the cohort's receive rules: Jc junk datagrams sized in [Jmin, Jmax],
+        // then an unpadded (S1=0) initiation with the standard H1=1 header, then authenticated transport.
+        let endpoint_task = tokio::spawn(async move {
+            let mut datagram = [0u8; 2048];
+            let mut out = [0u8; 2048];
+            let mut junk = Vec::new();
+            let client = loop {
+                let (size, client) = endpoint_socket.recv_from(&mut datagram).await.expect("endpoint recv");
+                if size == 148 && datagram[..4] == [1, 0, 0, 0] {
+                    break client;
+                }
+                junk.push(size);
+            };
+            let TunnResult::WriteToNetwork(response) =
+                endpoint.decapsulate(Some(client.ip()), &datagram[..148], &mut out)
+            else {
+                panic!("the endpoint must authenticate the RTK South initiation");
+            };
+            assert_eq!(response.len(), 92, "S2=0 leaves the standard response size");
+            endpoint_socket.send_to(response, client).await.expect("endpoint send");
+            let (size, _) = endpoint_socket.recv_from(&mut datagram).await.expect("client confirmation");
+            let confirmed =
+                matches!(endpoint.decapsulate(Some(client.ip()), &datagram[..size], &mut out), TunnResult::Done);
+            (junk, confirmed)
+        });
+
+        let runtime = AmneziaWgRuntime::new(config);
+        let ready = Arc::new(tokio::sync::Notify::new());
+        let signal = Arc::clone(&ready);
+        runtime.set_readiness_observer(Arc::new(move || signal.notify_one()));
+        let run_task = tokio::spawn(Arc::clone(&runtime).run());
+        let readiness = timeout(Duration::from_secs(5), ready.notified()).await;
+        let telemetry = runtime.telemetry();
+        runtime.stop();
+        let stopped = timeout(Duration::from_secs(2), run_task).await;
+        let endpoint_result = timeout(Duration::from_secs(1), endpoint_task).await;
+
+        readiness.expect("the runtime publishes readiness after the RTK South handshake");
+        assert_eq!(telemetry.state, "running");
+        let listener: std::net::SocketAddr =
+            telemetry.listener_address.expect("bound SOCKS listener").parse().expect("listener address");
+        assert!(listener.ip().is_loopback() && listener.port() != 0);
+        stopped.expect("stopped runtime unwinds").expect("runtime joins").expect("clean shutdown");
+        let (junk, confirmed) = endpoint_result.expect("endpoint finished").expect("endpoint joins");
+        assert_eq!(junk.len(), junk_count, "Jc junk datagrams precede the initiation");
+        assert!(junk.iter().all(|size| junk_sizes.contains(size)), "junk sizes {junk:?} outside [Jmin, Jmax]");
+        assert!(confirmed, "the endpoint authenticates the client's first transport message");
+    }
+
     #[tokio::test]
     async fn black_holed_ws_carrier_connect_times_out() {
         // Accepts TCP but never answers the TLS handshake, like a DPI black hole.

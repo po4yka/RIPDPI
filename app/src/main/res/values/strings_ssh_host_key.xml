@@ -15,4 +15,5 @@
     <string name="ssh_host_key_trust_key_type">Key type: %1$s</string>
     <string name="ssh_host_key_trust_confirm">Trust key</string>
     <string name="ssh_host_key_trust_dismiss">Cancel</string>
+    <string name="ssh_host_key_save_untrusted">Not saved. SSH connects only after you trust the server host key. Fetch the key and trust it, or enter its fingerprint.</string>
 </resources>

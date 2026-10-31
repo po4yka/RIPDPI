@@ -1387,6 +1387,8 @@ async fn h3_connect_udp_reopens_the_flow_after_the_proxy_closes_the_stream() {
     drop(udp);
 }
 
+mod h3_capsules;
+
 fn h3_connect_udp_proxy_config(proxy_address: SocketAddr, certificate_pem: String) -> MasqueConfig {
     MasqueConfig {
         socket_protection: ripdpi_native_protect::SocketProtectionPolicy::Inactive,

@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -14,6 +15,18 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class TransportFailoverApplyTrackerTest {
+    @Test
+    fun `AWG failover windows cover every attempt of the largest cohort budget`() {
+        // 4 attempts x (15 s readiness + 5 s stop cleanup) + 10 s margin.
+        assertEquals(90_000L, transportStartWindowMillis(TransportKindAmneziaWg))
+        assertEquals(60_000L, transportStartWindowMillis(RelayKindVlessReality))
+        assertEquals(50L, transportStartWindowMillis(RelayKindVlessReality, defaultMillis = 50L))
+        assertTrue(
+            transportApplyWaitMillis(TransportKindAmneziaWg) > transportStartWindowMillis(TransportKindAmneziaWg),
+        )
+        assertTrue(transportApplyWaitMillis(RelayKindVlessReality) > transportStartWindowMillis(RelayKindVlessReality))
+    }
+
     @Test
     fun `AWG policy resolves to its exact transport target`() {
         val resolution =

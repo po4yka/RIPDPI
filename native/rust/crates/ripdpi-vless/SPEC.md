@@ -2,7 +2,7 @@
 
 ## Scope
 
-Client implementation of the VLESS application protocol, the REALITY TLS handshake, the XTLS-Vision flow addon, and XUDP datagrams over a VLESS Mux carrier. TCP is used standalone (TCP → REALITY → VLESS) and chained (over an existing transport via `connect_over`); each SOCKS5 UDP association owns one dedicated Reality/TCP XUDP carrier.
+Client implementation of the VLESS application protocol, the REALITY TLS handshake, the XTLS-Vision flow addon, and XUDP datagrams over a VLESS Mux carrier. TCP is used standalone (TCP → REALITY → VLESS) and chained (over an existing transport via `connect_over`); each SOCKS5 UDP association owns one dedicated XUDP carrier (Reality/TCP, or an xHTTP stream).
 
 ## Upstream
 
@@ -62,10 +62,12 @@ XUDP addresses use port-before-address ordering for IPv4, domain, and IPv6. Meta
 
 `xtls-rprx-vision` rejects UDP port 443 locally. `xtls-rprx-vision-udp443` permits it at the client boundary, but deployment policy may still block QUIC independently. As in Xray, the `-udp443` suffix is not sent: both flows put `xtls-rprx-vision` in the request addons.
 
+XUDP needs only a byte stream, so `ripdpi-xhttp` carries the same Mux request and frames on one xHTTP stream (TLS or Reality, empty flow, UDP/443 allowed because Xray limits it only for Vision).
+
 ## Known divergences from upstream
 
 - VLESS mux supports only the SagerNet sing-mux version-0 carrier with the yamux inner protocol. `smux` and `h2mux` are rejected explicitly; they are distinct protocols and must never be coerced to yamux.
-- Direct VLESS UDP (`Command = 0x02`) is not implemented; UDP ASSOCIATE uses XUDP over Mux.
+- Direct VLESS UDP (`Command = 0x02`) is not implemented; UDP ASSOCIATE uses XUDP over Mux. With the empty flow, Xray's client sends UDP/53 and UDP/443 as command `0x02`; this client sends them as XUDP, which Xray servers accept on every port.
 - `VlessRealityConfig::flow` supports empty flow, `xtls-rprx-vision`, and `xtls-rprx-vision-udp443`; Android profile UX may expose only a subset.
 
 ## Non-goals

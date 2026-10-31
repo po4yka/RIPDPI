@@ -82,7 +82,6 @@ class RelayUdpCapabilitiesTest {
     fun `TCP only and unknown kinds cannot acquire UDP from a Reality flow`() {
         listOf(
             RelayKindOff,
-            RelayKindVless,
             RelayKindChainRelay,
             RelayKindCloudflareTunnel,
             RelayKindShadowTlsV3,
@@ -103,6 +102,23 @@ class RelayUdpCapabilitiesTest {
                 relayProfileSupportsUdpAssociation(kind, true, RelayVlessTransportRealityTcp, RelayVlessFlowVision),
             )
         }
+    }
+
+    @Test
+    fun `TLS VLESS UDP requires xHTTP with the empty flow`() {
+        assertTrue(relayKindSupportsUdpAssociation(RelayKindVless))
+        listOf("", " ", "none", "off").forEach { flow ->
+            assertTrue(flow, relayProfileSupportsUdpAssociation(RelayKindVless, true, RelayVlessTransportXhttp, flow))
+            assertFalse(flow, relayProfileSupportsUdpAssociation(RelayKindVless, false, RelayVlessTransportXhttp, flow))
+        }
+        listOf(RelayVlessFlowVision, RelayVlessFlowVisionUdp443, "unsupported-flow").forEach { flow ->
+            assertFalse(flow, relayProfileSupportsUdpAssociation(RelayKindVless, true, RelayVlessTransportXhttp, flow))
+            assertFalse(
+                flow,
+                relayProfileSupportsUdpAssociation(RelayKindVless, true, RelayVlessTransportRealityTcp, flow),
+            )
+        }
+        assertFalse(relayProfileSupportsUdpAssociation(RelayKindVless, true, RelayVlessTransportRealityTcp, ""))
     }
 
     @Test
@@ -128,5 +144,6 @@ class RelayUdpCapabilitiesTest {
                 relayProfileSupportsUdpAssociation(RelayKindVlessReality, true, RelayVlessTransportRealityTcp, flow),
             )
         }
+        assertTrue(relayProfileSupportsUdpAssociation(RelayKindVlessReality, true, RelayVlessTransportXhttp, ""))
     }
 }

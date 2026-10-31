@@ -250,6 +250,7 @@ class SshProfileViewModelTest {
             viewModel.onFieldChanged(SshEditorField.SERVER_PORT, "22")
             viewModel.onFieldChanged(SshEditorField.USERNAME, "alice")
             viewModel.onFieldChanged(SshEditorField.PASSWORD, passwordFixture)
+            viewModel.onFieldChanged(SshEditorField.HOST_KEY_FINGERPRINT, observedFingerprintFixture)
             viewModel.savedEvents.test {
                 viewModel.onSave()
                 advanceUntilIdle()
@@ -272,6 +273,82 @@ class SshProfileViewModelTest {
             val credentials = credentialStore.load(DefaultRelayProfileId)
             assertEquals("alice", credentials?.sshUsername)
             assertEquals(passwordFixture, credentials?.sshPassword)
+        }
+
+    private fun unpinnedSaveViewModel(
+        observer: SshHostKeyObserver,
+        profileStore: RelayProfileStore = FakeRelayProfileStore(),
+        settings: AppSettingsRepository = FakeAppSettingsRepository(),
+    ): SshProfileViewModel =
+        viewModel(profileStore, FakeRelayCredentialStore(), settings, observer).apply {
+            onFieldChanged(SshEditorField.SERVER, "ssh.example")
+            onFieldChanged(SshEditorField.SERVER_PORT, "22")
+            onFieldChanged(SshEditorField.USERNAME, "alice")
+            onFieldChanged(SshEditorField.PASSWORD, passwordFixture)
+        }
+
+    @Test
+    fun `saving without a pinned key asks for trust and accepting pins it and saves`() =
+        runTest {
+            val profileStore = FakeRelayProfileStore()
+            val settings = FakeAppSettingsRepository()
+            val observer = FakeSshHostKeyObserver(observed(observedFingerprintFixture))
+            val viewModel = unpinnedSaveViewModel(observer, profileStore, settings)
+
+            viewModel.savedEvents.test {
+                viewModel.onSave()
+                advanceUntilIdle()
+                expectNoEvents()
+                assertFalse("nothing connects before the key is trusted", settings.snapshot().relayEnabled)
+                val pending = viewModel.uiState.value.hostKeyFetch as SshHostKeyFetchState.PendingConfirmation
+                assertEquals(observedFingerprintFixture, pending.fingerprint)
+
+                viewModel.onHostKeyTrustConfirmed()
+                advanceUntilIdle()
+                awaitItem()
+            }
+            assertTrue(settings.snapshot().relayEnabled)
+            assertEquals(observedFingerprintFixture, profileStore.load(DefaultRelayProfileId)?.sshHostKeyFingerprint)
+        }
+
+    @Test
+    fun `rejecting the key on save keeps the profile unpinned and unsaved`() =
+        runTest {
+            val profileStore = FakeRelayProfileStore()
+            val settings = FakeAppSettingsRepository()
+            val observer = FakeSshHostKeyObserver(observed(observedFingerprintFixture))
+            val viewModel = unpinnedSaveViewModel(observer, profileStore, settings)
+
+            viewModel.onSave()
+            advanceUntilIdle()
+            viewModel.onHostKeyTrustDismissed()
+            advanceUntilIdle()
+
+            assertEquals("", viewModel.pinnedFingerprint())
+            assertEquals(R.string.ssh_host_key_save_untrusted, viewModel.uiState.value.errorMessage)
+            assertFalse(settings.snapshot().relayEnabled)
+            assertEquals(null, profileStore.load(DefaultRelayProfileId))
+        }
+
+    @Test
+    fun `a failed key check on save saves nothing and explains why`() =
+        runTest {
+            val settings = FakeAppSettingsRepository()
+            val viewModel =
+                unpinnedSaveViewModel(
+                    FakeSshHostKeyObserver(SshHostKeyObservation.Failed(SshHostKeyObservationFailure.Timeout)),
+                    settings = settings,
+                )
+
+            viewModel.onSave()
+            advanceUntilIdle()
+
+            assertEquals(
+                SshHostKeyFetchState.Failed(R.string.ssh_host_key_fetch_error_timeout),
+                viewModel.uiState.value.hostKeyFetch,
+            )
+            assertEquals(R.string.ssh_host_key_save_untrusted, viewModel.uiState.value.errorMessage)
+            assertFalse(settings.snapshot().relayEnabled)
         }
 
     @Test

@@ -156,7 +156,7 @@ internal fun validateSharedRelayTransportFeatures(
                 shadowsocksMethod = shadowsocksMethod,
             ),
     ) {
-        "Relay UDP requires a capable profile; VLESS Reality needs direct TCP with XTLS Vision; " +
+        "Relay UDP requires a capable profile; VLESS needs xHTTP or REALITY TCP with XTLS Vision; " +
             "Shadowsocks needs SS2022"
     }
 }

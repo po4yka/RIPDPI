@@ -343,14 +343,13 @@ async fn socks5_client_round_trip_over_h2_naive_padding_fixture() {
     server.abort();
 }
 
-/// A plain absolute-form request through the HTTP front reaches the target
-/// in origin form, without the local credentials. The fixture echoes, so the
-/// client reads back exactly what the origin received.
+/// The HTTP front only serves `CONNECT`: an authenticated plain absolute-form
+/// request gets 405 and never opens an upstream connection.
 ///
 /// # Cancel safety:
 /// cancel-safe: the test owns its sockets and aborts the listener.
 #[tokio::test]
-async fn http_front_forwards_plain_requests_in_origin_form() {
+async fn http_front_refuses_plain_requests_without_opening_upstream() {
     let fixture = local_network_fixture::NaiveH2PaddingFixture::start("naive-user", "naive-pass")
         .await
         .expect("start naive h2 fixture");
@@ -363,11 +362,11 @@ async fn http_front_forwards_plain_requests_in_origin_form() {
         .write_all(b"GET http://example.com/index.html HTTP/1.1\r\nHost: example.com\r\nProxy-Authorization: Basic bG9jYWwtdXNlcjpsb2NhbC1wYXNz\r\n\r\n")
         .await
         .expect("write plain request");
-    let expected = b"GET /index.html HTTP/1.1\r\nHost: example.com\r\nConnection: close\r\n\r\n";
-    let mut received = vec![0_u8; expected.len()];
-    client.read_exact(&mut received).await.expect("read what the origin received");
+    let mut response = Vec::new();
+    client.read_to_end(&mut response).await.expect("read refusal");
 
-    assert_eq!(String::from_utf8_lossy(&received), String::from_utf8_lossy(expected));
+    assert!(String::from_utf8_lossy(&response).starts_with("HTTP/1.1 405 Method Not Allowed\r\n"), "{response:?}");
+    assert_eq!(fixture.observed().tls_connections, 0, "a refused request must not reach the upstream");
     server.abort();
 }
 

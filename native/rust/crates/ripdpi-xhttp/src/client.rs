@@ -4,6 +4,7 @@ use std::sync::Arc;
 use std::sync::atomic::AtomicUsize;
 use std::time::Duration;
 
+use ripdpi_vless::VlessXudpSession;
 use tokio::sync::{Mutex, Notify};
 use tokio::time::timeout;
 
@@ -52,11 +53,31 @@ impl XhttpClient {
     /// cancel-safe: cancellation or the internal deadline releases pool
     /// reservations and permits, drops partial carriers, and aborts stream-open pumps.
     pub async fn connect(&self, target: &str) -> io::Result<XhttpStream> {
-        establish_with_deadline(STREAM_ESTABLISHMENT_TIMEOUT, async {
+        self.open_stream(&self.inner.mode.tcp_request(target)?).await
+    }
+
+    /// Open one XUDP association on its own xHTTP stream, as Xray does for
+    /// UDP over a non-Vision VLESS transport: a destination-less VLESS `Mux`
+    /// request followed by XUDP frames. Xray limits UDP/443 only for Vision,
+    /// which cannot run over xHTTP, so UDP/443 is allowed.
+    ///
+    /// cancel-safe: same establishment guards as [`XhttpClient::connect`]; the
+    /// XUDP tasks start only after the stream is returned.
+    pub async fn connect_xudp(&self) -> io::Result<VlessXudpSession> {
+        let request = self.inner.mode.xudp_request()?;
+        VlessXudpSession::new(self.open_stream(&request).await?, true)
+    }
+
+    /// cancel-safe: cancellation or the internal deadline releases pool
+    /// reservations and permits, drops partial carriers, and aborts stream-open pumps.
+    ///
+    /// A plain fn returning the future keeps async nesting shallow enough for
+    /// clippy's layout query on the public connect helpers.
+    fn open_stream<'a>(&'a self, request: &'a [u8]) -> impl Future<Output = io::Result<XhttpStream>> + 'a {
+        establish_with_deadline(STREAM_ESTABLISHMENT_TIMEOUT, async move {
             let (connection, permit) = pool::acquire_connection(&self.inner).await?;
-            connection.open_stream_from_mode(&self.inner.mode, target, permit).await
+            connection.open_stream_from_mode(&self.inner.mode, request, permit).await
         })
-        .await
     }
 
     fn new(mode: XhttpMode, xmux: XmuxConfig) -> Self {

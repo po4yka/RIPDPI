@@ -15,4 +15,5 @@
     <string name="ssh_host_key_trust_key_type">نوع المفتاح: %1$s</string>
     <string name="ssh_host_key_trust_confirm">الثقة بالمفتاح</string>
     <string name="ssh_host_key_trust_dismiss">إلغاء</string>
+    <string name="ssh_host_key_save_untrusted">لم يتم الحفظ. لا يتصل SSH إلا بعد أن تثق بمفتاح مضيف الخادم. اجلب المفتاح وثق به، أو أدخل بصمته.</string>
 </resources>

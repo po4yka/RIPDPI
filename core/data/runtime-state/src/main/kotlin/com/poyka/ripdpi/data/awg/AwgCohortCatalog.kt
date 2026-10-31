@@ -16,6 +16,9 @@ import javax.inject.Singleton
 
 private const val AwgCohortAssetPath = "awg-cohorts.json"
 
+/** Upper bound of a cohort's [AwgCohortPreset.handshakeAttempts] budget. */
+const val MaxAwgHandshakeAttempts = 4
+
 /**
  * The set of object keys a well-formed cohort preset is allowed to carry.
  *
@@ -47,6 +50,7 @@ private val ALLOWED_PRESET_KEYS =
         "i4",
         "i5",
         "randomizeHeaders",
+        "handshakeAttempts",
     )
 
 /** The set of preset keys that must be present and non-null. */
@@ -97,6 +101,12 @@ private val awgCohortStrictJson =
  * cohorts (e.g. `rtk_south`) pin literal header values, `true` cohorts ship a
  * representative set that a future provisioning step is expected to
  * re-randomise per peer.
+ *
+ * [handshakeAttempts] is a client-side budget, in `1..`[MaxAwgHandshakeAttempts]:
+ * how many times the service starts the tunnel for a profile with this cohort's
+ * params before it reports the startup failure. Each start uses a new UDP socket,
+ * ephemeral keys and junk sizes, so a threshold-based middlebox that drops one
+ * handshake can pass the next. It defaults to `1` (no retry).
  */
 @Serializable
 data class AwgCohortPreset(
@@ -121,6 +131,7 @@ data class AwgCohortPreset(
     val i4: String? = null,
     val i5: String? = null,
     val randomizeHeaders: Boolean,
+    val handshakeAttempts: Int = 1,
 )
 
 /** On-disk shape of the `awg-cohorts.json` asset. */
@@ -189,6 +200,37 @@ fun applyCohortPreset(
                 .AmneziaWgV3Parameters(),
         cohortId = preset.id,
     )
+
+/**
+ * The [AwgCohortPreset.handshakeAttempts] budget of the first preset whose params
+ * match [obfuscation] (same rule as [matchCohortForConf]), or `1` for a custom profile.
+ */
+fun AwgCohortCatalogData.handshakeAttemptsFor(obfuscation: AwgActivationObfuscation): Int {
+    val params =
+        with(obfuscation) {
+            com.poyka.ripdpi.data.wireguard.AmneziaWgParameters(
+                wireProfile = wireProfile,
+                jc = jc,
+                jmin = jmin,
+                jmax = jmax,
+                s1 = s1,
+                s2 = s2,
+                s3 = s3,
+                s4 = s4,
+                h1 = h1,
+                h2 = h2,
+                h3 = h3,
+                h4 = h4,
+                i1 = i1,
+                i2 = i2,
+                i3 = i3,
+                i4 = i4,
+                i5 = i5,
+                v3 = v3,
+            )
+        }
+    return presets.firstOrNull { it.matches(params) }?.handshakeAttempts ?: 1
+}
 
 /**
  * Tags an imported AmneziaWG `.conf` with a cohort id when its obfuscation
@@ -353,11 +395,15 @@ class AwgCohortCatalog
             ) {
                 // Numeric fields must actually be numbers. s3/s4 are optional
                 // (v1.5 extension) but, when present, must still be integers.
-                listOf("jc", "jmin", "jmax", "s1", "s2", "s3", "s4").forEach { key ->
+                listOf("jc", "jmin", "jmax", "s1", "s2", "s3", "s4", "handshakeAttempts").forEach { key ->
                     val primitive = obj[key] as? JsonPrimitive
                     if (key in obj && !primitive.isInteger()) {
                         errors += "preset '$label' field '$key' is not an integer"
                     }
+                }
+                val attempts = (obj["handshakeAttempts"] as? JsonPrimitive)?.intOrNull
+                if (attempts != null && attempts !in 1..MaxAwgHandshakeAttempts) {
+                    errors += "preset '$label' field 'handshakeAttempts' must be in 1..$MaxAwgHandshakeAttempts"
                 }
             }
 

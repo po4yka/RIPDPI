@@ -15,4 +15,5 @@
     <string name="ssh_host_key_trust_key_type">Тип ключа: %1$s</string>
     <string name="ssh_host_key_trust_confirm">Доверять ключу</string>
     <string name="ssh_host_key_trust_dismiss">Отмена</string>
+    <string name="ssh_host_key_save_untrusted">Не сохранено. SSH подключается только после того, как вы доверитесь ключу хоста сервера. Получите ключ и доверьтесь ему или введите его отпечаток.</string>
 </resources>

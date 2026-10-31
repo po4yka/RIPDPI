@@ -280,7 +280,7 @@ class RemoteDeviceAcceptanceBaselineProbeTest {
                     TestServiceStateStore(AppStatus.Halted to Mode.VPN) to runningRealitySnapshot(),
                     TestServiceStateStore(AppStatus.Running to Mode.Proxy) to runningRealitySnapshot(),
                     TestServiceStateStore(AppStatus.Running to Mode.VPN) to
-                        runningRealitySnapshot(protocolKind = "vless"),
+                        runningRealitySnapshot(protocolKind = "ssh"),
                     TestServiceStateStore(AppStatus.Running to Mode.VPN) to
                         runningRealitySnapshot(listenerAddress = null),
                 )

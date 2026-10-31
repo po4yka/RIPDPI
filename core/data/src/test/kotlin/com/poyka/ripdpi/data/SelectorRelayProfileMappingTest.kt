@@ -91,12 +91,11 @@ class SelectorRelayProfileMappingTest {
     }
 
     @Test
-    fun `Reality modes without native XUDP remain disabled after storage`() {
+    fun `flowless Reality TCP stays TCP only while flowless xHTTP maps XUDP after storage`() {
         val reality = importedReality(RelayVlessFlowVision)
-        val unsupported =
+        val unsupported = listOf(reality.copy(flow = ""), reality.copy(flow = " "))
+        val xhttp =
             listOf(
-                reality.copy(flow = ""),
-                reality.copy(flow = " "),
                 reality.copy(xhttpPath = "/stream", flow = ""),
                 reality.copy(xhttpHost = "front.example", flow = ""),
                 reality.copy(xhttpPath = "", flow = ""),
@@ -107,24 +106,33 @@ class SelectorRelayProfileMappingTest {
         unsupported.forEach { profile ->
             assertFalse(checkNotNull(mapRelayProfile(storedProfile(profile))).profile.udpEnabled)
         }
+        xhttp.forEach { profile ->
+            assertTrue(checkNotNull(mapRelayProfile(storedProfile(profile))).profile.udpEnabled)
+        }
     }
 
     @Test
-    fun `TLS VLESS SSH and Mieru mappings remain TCP only`() {
+    fun `TLS VLESS xHTTP maps XUDP`() {
+        val tls =
+            ProxyProfile.Vless(
+                id = "tls",
+                displayName = "TLS",
+                groupId = "group-a",
+                server = "relay.example",
+                serverPort = 443,
+                uuid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
+                serverName = "relay.example",
+                xhttpPath = "/stream",
+                flow = "",
+                xhttpMode = "stream-one",
+            )
+        assertTrue(checkNotNull(mapRelayProfile(storedProfile(tls))).profile.udpEnabled)
+    }
+
+    @Test
+    fun `SSH and Mieru mappings remain TCP only`() {
         val profiles =
             listOf(
-                ProxyProfile.Vless(
-                    id = "tls",
-                    displayName = "TLS",
-                    groupId = "group-a",
-                    server = "relay.example",
-                    serverPort = 443,
-                    uuid = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa",
-                    serverName = "relay.example",
-                    xhttpPath = "/stream",
-                    flow = "",
-                    xhttpMode = "stream-one",
-                ),
                 ProxyProfile.Ssh(
                     id = "ssh",
                     displayName = "SSH",

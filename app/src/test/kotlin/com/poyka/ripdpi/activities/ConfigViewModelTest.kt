@@ -213,7 +213,7 @@ class ConfigViewModelTest {
         assertEquals(source.vlessFlow, selected.withRelayArtifacts(source, null).selectedVlessFlow())
         assertEquals(com.poyka.ripdpi.data.RelayVlessFlowVision, source.vlessFlow)
         assertEquals(
-            "unsupported",
+            null,
             validateConfigDraft(selected.copy(relayUdpEnabled = true))[ConfigFieldRelayCredentials],
         )
         assertTrue(selected.copy(relayUdpEnabled = true).toRelayProfileRecord(source.id).udpEnabled)
@@ -330,7 +330,7 @@ class ConfigViewModelTest {
     }
 
     @Test
-    fun `relay validation rejects VLESS xHTTP with UDP enabled`() {
+    fun `relay validation accepts VLESS xHTTP XUDP`() {
         val errors =
             validateConfigDraft(
                 defaultDraft.copy(
@@ -348,7 +348,7 @@ class ConfigViewModelTest {
                 ),
             )
 
-        assertEquals("unsupported", errors[ConfigFieldRelayCredentials])
+        assertEquals(null, errors[ConfigFieldRelayCredentials])
     }
 
     @Test

@@ -143,13 +143,16 @@ class SshProfileViewModel
          * Observes the server's host key without credentials. A re-tap restarts the fetch. The
          * observed key only waits for confirmation: [onHostKeyTrustConfirmed] pins it.
          */
-        fun onFetchHostKey() {
+        fun onFetchHostKey() = startHostKeyFetch(resumeSave = false)
+
+        /** [resumeSave] marks the trust-on-first-use check that [onSave] runs for an unpinned profile. */
+        private fun startHostKeyFetch(resumeSave: Boolean) {
             val state = _uiState.value
             if (!state.canFetchHostKey) return
             val server = state.editor.rawText(SshEditorField.SERVER).trim()
             val port = SshEditorField.SERVER_PORT.validate(state.editor.rawText(SshEditorField.SERVER_PORT)) as Int
             hostKeyJob?.cancel()
-            _uiState.update { it.copy(hostKeyFetch = SshHostKeyFetchState.InProgress) }
+            _uiState.update { it.copy(hostKeyFetch = SshHostKeyFetchState.InProgress, errorMessage = null) }
             hostKeyJob =
                 viewModelScope.launch {
                     val result =
@@ -161,34 +164,44 @@ class SshProfileViewModel
                     // A cancelled fetch (re-tap, endpoint edit, screen left) must not publish its result.
                     ensureActive()
                     _uiState.update { current ->
-                        current.copy(hostKeyFetch = result.toFetchState(current.editor))
+                        val fetch = result.toFetchState(current.editor, resumeSave)
+                        val saveBlocked = resumeSave && fetch is SshHostKeyFetchState.Failed
+                        current.copy(
+                            hostKeyFetch = fetch,
+                            errorMessage =
+                                if (saveBlocked) R.string.ssh_host_key_save_untrusted else current.errorMessage,
+                        )
                     }
                 }
         }
 
-        /** Pins the observed key after the user explicitly trusts it. */
+        /** Pins the observed key after the user explicitly trusts it, then resumes a save that asked for it. */
         fun onHostKeyTrustConfirmed() {
+            val pending = _uiState.value.hostKeyFetch as? SshHostKeyFetchState.PendingConfirmation ?: return
             _uiState.update { current ->
-                val pending = current.hostKeyFetch as? SshHostKeyFetchState.PendingConfirmation ?: return@update current
                 current.copy(
                     editor = current.editor.updateField(SshEditorField.HOST_KEY_FINGERPRINT, pending.fingerprint),
                     hostKeyFetch = SshHostKeyFetchState.Idle,
                 )
             }
+            if (pending.resumeSave) onSave()
         }
 
-        /** Discards the observed key; the pinned fingerprint stays unchanged. */
+        /** Discards the observed key; the pinned fingerprint stays unchanged and a pending save is dropped. */
         fun onHostKeyTrustDismissed() {
-            _uiState.update { current ->
-                if (current.hostKeyFetch is SshHostKeyFetchState.PendingConfirmation) {
-                    current.copy(hostKeyFetch = SshHostKeyFetchState.Idle)
-                } else {
-                    current
-                }
+            val pending = _uiState.value.hostKeyFetch as? SshHostKeyFetchState.PendingConfirmation ?: return
+            _uiState.update {
+                it.copy(
+                    hostKeyFetch = SshHostKeyFetchState.Idle,
+                    errorMessage = if (pending.resumeSave) R.string.ssh_host_key_save_untrusted else it.errorMessage,
+                )
             }
         }
 
-        private fun SshHostKeyObservation.toFetchState(editor: SshProfileEditorState): SshHostKeyFetchState =
+        private fun SshHostKeyObservation.toFetchState(
+            editor: SshProfileEditorState,
+            resumeSave: Boolean,
+        ): SshHostKeyFetchState =
             when (this) {
                 is SshHostKeyObservation.Observed -> {
                     SshHostKeyFetchState.PendingConfirmation(
@@ -199,6 +212,7 @@ class SshProfileViewModel
                                 editor.rawText(SshEditorField.HOST_KEY_FINGERPRINT),
                                 fingerprintSha256,
                             ),
+                        resumeSave = resumeSave,
                     )
                 }
 
@@ -236,13 +250,21 @@ class SshProfileViewModel
          * Assembles a complete editor into a [com.poyka.ripdpi.data.ProxyProfile.Ssh]
          * and saves it as a new or existing relay profile. A no-op when the required fields do
          * not validate or a save is already in flight.
+         *
+         * Without a pinned host key the native relay refuses every connection, so a save first
+         * observes the key and waits for an explicit trust decision before anything is persisted.
          */
         fun onSave() {
-            val editor = _uiState.value.editor
-            val profile = editor.toProfile() ?: return
+            val state = _uiState.value
+            val editor = state.editor
+            val profile = editor.toProfile()
             val editTargetReady = requestedEditProfileId == null || editingDraft != null
-            val busy = _uiState.value.saving || _uiState.value.loading
-            if (busy || completed || !editTargetReady) return
+            val busy = state.saving || state.loading || state.hostKeyFetch.awaitsTrustDecision || completed
+            if (profile == null || busy || !editTargetReady) return
+            if (profile.hostKeyFingerprint == null) {
+                startHostKeyFetch(resumeSave = true)
+                return
+            }
             _uiState.update { it.copy(saving = true) }
             viewModelScope.launch {
                 val activated =

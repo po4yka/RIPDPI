@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.awgConfigOrNull
 import com.poyka.ripdpi.core.relayConfigOrNull
+import com.poyka.ripdpi.data.awg.MaxAwgHandshakeAttempts
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withTimeoutOrNull
@@ -54,6 +55,39 @@ internal fun ConnectionPolicyResolution.transportFailoverTargetOrNull(): Transpo
     }
 
 const val TransportKindAmneziaWg = "amneziawg"
+
+/** Runtime startup window for a transport failover of a non-AmneziaWG transport. */
+const val TransportFailoverRuntimeTimeoutMillis = 60_000L
+
+// One AmneziaWG start attempt: the 15 s readiness wait plus the 5 s stop cleanup of a failed attempt.
+private const val AwgStartAttemptMillis = 20_000L
+private const val AwgStartWindowMarginMillis = 10_000L
+private const val TransportApplySlackMillis = 15_000L
+
+/**
+ * Runtime startup window for a transport failover. An AmneziaWG target may retry up to the
+ * largest cohort budget ([MaxAwgHandshakeAttempts]), so its window covers every attempt.
+ */
+fun transportStartWindowMillis(
+    transportKind: String,
+    defaultMillis: Long = TransportFailoverRuntimeTimeoutMillis,
+): Long =
+    if (transportKind == TransportKindAmneziaWg) {
+        maxOf(defaultMillis, MaxAwgHandshakeAttempts * AwgStartAttemptMillis + AwgStartWindowMarginMillis)
+    } else {
+        defaultMillis
+    }
+
+/** [transportStartWindowMillis] for this target's transport. */
+fun TransportFailoverTarget.startWindowMillis(defaultMillis: Long): Long =
+    transportStartWindowMillis(transportKind, defaultMillis)
+
+/**
+ * How long a caller waits for the applied outcome: longer than the runtime window, so it sees
+ * the runtime's verdict instead of racing it.
+ */
+fun transportApplyWaitMillis(transportKind: String): Long =
+    transportStartWindowMillis(transportKind) + TransportApplySlackMillis
 
 /**
  * Process-local acknowledgement channel for an in-session VPN transport replacement.

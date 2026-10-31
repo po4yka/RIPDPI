@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class NativeVlessCapabilitiesTest {
@@ -55,10 +56,15 @@ class NativeVlessCapabilitiesTest {
     }
 
     @Test
-    fun `UDP requires REALITY TCP Vision and reasons do not include values`() {
+    fun `UDP requires REALITY TCP Vision or xHTTP and reasons do not include values`() {
         assertNull(NativeVlessCapabilities.rejection("reality", "reality_tcp", RelayVlessFlowVision, udpEnabled = true))
         assertNotNull(NativeVlessCapabilities.rejection("reality", "reality_tcp", "", udpEnabled = true))
-        assertNotNull(NativeVlessCapabilities.rejection("tls", "xhttp", "", "stream-one", udpEnabled = true))
+        assertNull(NativeVlessCapabilities.rejection("tls", "xhttp", "", "stream-one", udpEnabled = true))
+        assertNull(NativeVlessCapabilities.rejection("tls", "xhttp", "none", "stream-up", udpEnabled = true))
+        assertNull(NativeVlessCapabilities.rejection("reality", "xhttp", "", "auto", udpEnabled = true))
+        assertTrue(NativeVlessCapabilities.supportsUdp("tls", "xhttp", ""))
+        assertFalse(NativeVlessCapabilities.supportsUdp("tls", "reality_tcp", RelayVlessFlowVision))
+        assertFalse(NativeVlessCapabilities.supportsUdp("reality", "xhttp", RelayVlessFlowVision))
         val input = "sensitive-unrecognized-option"
         assertFalse(NativeVlessCapabilities.rejection("reality", input, "").orEmpty().contains(input))
         assertFalse(NativeVlessCapabilities.rejection("reality", "reality_tcp", input).orEmpty().contains(input))

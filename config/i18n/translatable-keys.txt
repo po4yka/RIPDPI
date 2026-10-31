@@ -4674,6 +4674,7 @@ app:ssh_host_key_fetch_error_invalid
 app:ssh_host_key_fetch_error_network
 app:ssh_host_key_fetch_error_protection
 app:ssh_host_key_fetch_error_timeout
+app:ssh_host_key_save_untrusted
 app:ssh_host_key_trust_body
 app:ssh_host_key_trust_confirm
 app:ssh_host_key_trust_dismiss

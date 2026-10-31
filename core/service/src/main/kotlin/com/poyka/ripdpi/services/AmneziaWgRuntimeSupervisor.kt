@@ -5,6 +5,9 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.RipDpiAmneziaWgFactory
 import com.poyka.ripdpi.core.RipDpiAmneziaWgRuntime
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
+import com.poyka.ripdpi.data.awg.AwgCohortCatalog
+import com.poyka.ripdpi.data.awg.AwgCohortCatalogData
+import com.poyka.ripdpi.data.awg.handshakeAttemptsFor
 import com.poyka.ripdpi.service.awg.AmneziaWgRuntimeConfigResolver
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
@@ -18,6 +21,7 @@ import kotlinx.coroutines.withContext
 import java.util.concurrent.atomic.AtomicBoolean
 import java.util.concurrent.atomic.AtomicReference
 import javax.inject.Inject
+import javax.inject.Provider
 
 /**
  * Lifecycle supervisor for a standalone AmneziaWG tunnel. A one-to-one mirror of
@@ -27,6 +31,10 @@ import javax.inject.Inject
  * the input type -- the app-reachable [AwgActivationRequest] -- which the injected
  * [AmneziaWgRuntimeConfigResolver] maps into the engine-api `ResolvedRipDpiAmneziaWgConfig`
  * the runtime consumes.
+ *
+ * A failed startup is retried up to [handshakeAttempts] times in total for the request
+ * (the cohort budget, see [AwgCohortCatalogData.handshakeAttemptsFor]); only the last
+ * failure is reported.
  */
 internal class AmneziaWgRuntimeSupervisor(
     private val scope: CoroutineScope,
@@ -35,6 +43,7 @@ internal class AmneziaWgRuntimeSupervisor(
     private val runtimeConfigResolver: AmneziaWgRuntimeConfigResolver,
     private val stopTimeoutMillis: Long = 5_000L,
     private val activeRegistry: ActiveAwgRuntimeRegistry,
+    private val handshakeAttempts: (AwgActivationRequest) -> Int = { 1 },
 ) {
     private var amneziaWgRuntime: RipDpiAmneziaWgRuntime? = null
     private var amneziaWgJob: Job? = null
@@ -52,6 +61,20 @@ internal class AmneziaWgRuntimeSupervisor(
     fun requireConsumedConfiguration(): ConsumedUpstreamConfiguration = checkNotNull(consumed)
 
     suspend fun start(
+        request: AwgActivationRequest,
+        onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
+    ) {
+        repeat(handshakeAttempts(request) - 1) {
+            try {
+                return startAttempt(request, onUnexpectedExit)
+            } catch (_: SupervisorStartupFailureException) {
+                // A threshold-based middlebox may pass the next start: new socket, keys and junk sizes.
+            }
+        }
+        startAttempt(request, onUnexpectedExit)
+    }
+
+    private suspend fun startAttempt(
         request: AwgActivationRequest,
         onUnexpectedExit: suspend (SupervisorExitCause) -> Unit,
     ) {
@@ -164,6 +187,7 @@ internal open class AmneziaWgRuntimeSupervisorFactory
         private val amneziaWgFactory: RipDpiAmneziaWgFactory,
         private val runtimeConfigResolver: AmneziaWgRuntimeConfigResolver,
         private val activeRegistry: ActiveAwgRuntimeRegistry,
+        private val cohortCatalog: Provider<AwgCohortCatalog>,
     ) {
         open fun create(
             scope: CoroutineScope,
@@ -175,5 +199,8 @@ internal open class AmneziaWgRuntimeSupervisorFactory
                 amneziaWgFactory = amneziaWgFactory,
                 runtimeConfigResolver = runtimeConfigResolver,
                 activeRegistry = activeRegistry,
+                handshakeAttempts = { request ->
+                    AwgCohortCatalogData(cohortCatalog.get().all()).handshakeAttemptsFor(request.obfuscation)
+                },
             )
     }
