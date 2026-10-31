@@ -26,4 +26,4 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 | REQ-OUT-1786264762917513-004 | OUT-1786264762917419 | Pending | required |
 | REQ-OUT-1786264762917513-005 | OUT-1786264762917565 | Pending | required |
 | REQ-OUT-1786264762917513-006 | OUT-1786266573979348 | Pending | required |
-| REQ-OUT-1786264762917513-007 | OUT-1786266573979902 | Pending | required |
+| REQ-OUT-1786264762917513-007 | OUT-1786266573979902 | Approved scope decision (2026-10-31): the UDP carrier stays open in follow-up task OUT-1793433244049580; UDP profiles are still rejected before DNS or dial | Passed |
