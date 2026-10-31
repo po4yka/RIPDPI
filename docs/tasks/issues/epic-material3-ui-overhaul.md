@@ -2,7 +2,7 @@
 id: EPC-1793256695505524
 title: Epic - Material 3 UI and UX overhaul
 kind: epic
-status: backlog
+status: review
 area: epic
 priority: high
 owner: UI overhaul
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: material3-ui-overhaul
 created: 2026-10-29
-updated: 2026-10-29
+updated: 2026-10-31
 ---
 
 ## Goal
