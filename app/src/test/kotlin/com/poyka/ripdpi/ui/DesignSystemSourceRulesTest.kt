@@ -92,6 +92,16 @@ class DesignSystemSourceRulesTest {
     }
 
     @Test
+    fun `ui sources do not opt in to Material 3 Expressive APIs`() {
+        assertNoOffendingFiles(
+            files = uiSourceFiles(),
+            message = "Experimental Material 3 Expressive opt-ins are not allowed in the UI layer",
+        ) { source ->
+            source.text.contains("ExperimentalMaterial3ExpressiveApi")
+        }
+    }
+
+    @Test
     fun `only the app theme selects platform dynamic color palettes`() {
         val dynamicPaletteUsage =
             Regex("\\b(dynamicLightColorScheme|dynamicDarkColorScheme|DynamicColors)\\b")
