@@ -47,6 +47,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -89,6 +90,15 @@ class ModeEditorScreenTest {
             .onNodeWithText(
                 "RIPDPI is retrying local draft storage. Keep this screen open until the warning clears.",
             ).assertExists()
+    }
+
+    @Test
+    @Config(qualifiers = "w1300dp-h900dp")
+    fun expandedWindowMovesNoticesToASupportingPane() {
+        setScreen(hasEditorRecoveryPersistenceError = true)
+
+        val notice = composeRule.onNodeWithText("Draft not saved").fetchSemanticsNode().boundsInRoot
+        assertTrue("Notices must sit in the 360dp supporting pane", notice.width <= 360f * composeRule.density.density)
     }
 
     @Test

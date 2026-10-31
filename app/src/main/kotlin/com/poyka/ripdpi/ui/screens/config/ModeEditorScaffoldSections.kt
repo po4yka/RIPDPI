@@ -3,14 +3,17 @@ package com.poyka.ripdpi.ui.screens.config
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.ime
 import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.rememberScrollState
@@ -22,6 +25,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.ConfigFieldBufferSize
@@ -48,6 +52,7 @@ import com.poyka.ripdpi.ui.screens.dns.dnsSettingsRowSubtitle
 import com.poyka.ripdpi.ui.screens.dns.localizedDnsSummary
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiContentGrouping
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
@@ -112,6 +117,9 @@ internal fun ModeEditorBody(
     val layout = RipDpiThemeTokens.layout
     val draft = uiState.editingPreset?.draft ?: uiState.draft
 
+    val twoPane = layout.contentGrouping == RipDpiContentGrouping.SplitColumns
+    val verticalPadding = PaddingValues(top = spacing.sm, bottom = spacing.sm)
+
     Box(
         modifier =
             modifier
@@ -119,30 +127,62 @@ internal fun ModeEditorBody(
                 .ripDpiScreenBackground(),
         contentAlignment = Alignment.TopCenter,
     ) {
-        Column(
+        Row(
             modifier =
                 Modifier
-                    .widthIn(max = layout.formMaxWidth)
-                    .fillMaxSize()
-                    .verticalScroll(rememberScrollState())
-                    .padding(
-                        start = layout.horizontalPadding,
-                        top = spacing.sm,
-                        end = layout.horizontalPadding,
-                        bottom = spacing.sm,
-                    ),
-            verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
+                    .widthIn(
+                        max =
+                            if (twoPane) {
+                                layout.formMaxWidth + ModeEditorSupportingPaneWidth + layout.groupGap
+                            } else {
+                                layout.formMaxWidth
+                            },
+                    ).fillMaxSize()
+                    .padding(horizontal = layout.horizontalPadding),
+            horizontalArrangement = Arrangement.spacedBy(layout.groupGap),
         ) {
-            ModeEditorIntroCard(uiState = uiState)
-            ModeEditorRecoveryPersistenceBanner(uiState = uiState)
-            ModeEditorValidationBanner(uiState = uiState)
-            ModeEditorModeSection(draft = draft, actions = actions)
-            ModeEditorNetworkSection(draft = draft, uiState = uiState, actions = actions)
-            ModeEditorRelaySection(draft = draft, uiState = uiState, actions = actions)
-            ModeEditorAdvancedSection(draft = draft, uiState = uiState, actions = actions)
+            Column(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .verticalScroll(rememberScrollState())
+                        .padding(verticalPadding),
+                verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
+            ) {
+                if (!twoPane) ModeEditorNotices(uiState)
+                ModeEditorModeSection(draft = draft, actions = actions)
+                ModeEditorNetworkSection(draft = draft, uiState = uiState, actions = actions)
+                ModeEditorRelaySection(draft = draft, uiState = uiState, actions = actions)
+                ModeEditorAdvancedSection(draft = draft, uiState = uiState, actions = actions)
+            }
+            if (twoPane) {
+                Column(
+                    modifier =
+                        Modifier
+                            .width(ModeEditorSupportingPaneWidth)
+                            .fillMaxHeight()
+                            .verticalScroll(rememberScrollState())
+                            .padding(verticalPadding),
+                    verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
+                ) {
+                    ModeEditorNotices(uiState)
+                }
+            }
         }
     }
 }
+
+// The explanation and the save and validation notices: the supporting pane when wide, the top of the form otherwise.
+@Composable
+private fun ModeEditorNotices(uiState: ConfigUiState) {
+    ModeEditorIntroCard(uiState = uiState)
+    ModeEditorRecoveryPersistenceBanner(uiState = uiState)
+    ModeEditorValidationBanner(uiState = uiState)
+}
+
+// Material 3 supporting pane preferred width.
+private val ModeEditorSupportingPaneWidth = 360.dp
 
 @Composable
 private fun ModeEditorRecoveryPersistenceBanner(uiState: ConfigUiState) {
