@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.awg.AwgCohortPreset
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.applyCohortPreset
 import com.poyka.ripdpi.data.awg.decodeAwgCohortCatalog
+import com.poyka.ripdpi.data.awg.handshakeAttemptsFor
+import com.poyka.ripdpi.data.awg.toActivationRequest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
@@ -273,5 +275,44 @@ class AwgCohortCatalogLoadTest {
         // Identity material is preserved.
         assertEquals("host.example.com", applied.server)
         assertEquals("ext", applied.cohortId)
+    }
+
+    @Test
+    fun `rtk_south profiles get four handshake attempts and other profiles one`() {
+        val catalog = decodeAwgCohortCatalog(shippedCatalogJson())
+        val identity =
+            AwgProfileForm(
+                server = "awg.example.net",
+                serverPort = 51820,
+                interfacePrivateKey = "k",
+                peerPublicKey = "p",
+            )
+
+        fun attempts(form: AwgProfileForm) =
+            catalog.handshakeAttemptsFor(form.toActivationRequest("p", "10.8.0.2/32").obfuscation)
+
+        val rtkSouth = applyCohortPreset(identity, catalog.find("rtk_south")!!)
+        assertEquals(4, attempts(rtkSouth))
+        assertEquals(4, attempts(rtkSouth.copy(i1 = "<b 0xf0>")))
+        assertEquals(1, attempts(rtkSouth.copy(jc = 5)))
+        assertEquals(1, attempts(applyCohortPreset(identity, catalog.find("default")!!)))
+        assertEquals(1, attempts(identity))
+    }
+
+    @Test
+    fun `strict validation keeps the handshake budget within four attempts`() {
+        fun catalog(attempts: String) =
+            """
+            { "presets": [
+              { "id": "retry", "displayNameKey": "awg_cohort_retry_name", "descriptionKey": "awg_cohort_retry_desc",
+                "jc": 4, "jmin": 10, "jmax": 50, "s1": 0, "s2": 0, "handshakeAttempts": $attempts,
+                "wireProfile": "awg-3.1-ranges-v1", "h1": "1", "h2": "2", "h3": "3", "h4": "4", "randomizeHeaders": false } ] }
+            """.trimIndent()
+
+        assertEquals(emptyList<String>(), AwgCohortCatalog.strictValidate(catalog("4")))
+        listOf("0", "5", "\"4\"").forEach { attempts ->
+            assertTrue(attempts, AwgCohortCatalog.strictValidate(catalog(attempts)).any { "handshakeAttempts" in it })
+            assertTrue(attempts, decodeAwgCohortCatalog(catalog(attempts)).presets.isEmpty())
+        }
     }
 }

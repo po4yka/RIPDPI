@@ -528,6 +528,7 @@ private class NoOpAmneziaWgRuntimeSupervisorFactory :
         NoOpRipDpiAmneziaWgFactory(),
         TestAmneziaWgRuntimeConfigResolver(),
         ActiveAwgRuntimeRegistry(),
+        { error("proxy mode never reads the AWG cohort catalog") },
     )
 
 /** No-op [FlowAppAttributionStore] for constructing a [FlowAttributionBridge] in module wiring tests. */

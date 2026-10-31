@@ -30,7 +30,8 @@
       "h2": "2",
       "h3": "3",
       "h4": "4",
-      "randomizeHeaders": false
+      "randomizeHeaders": false,
+      "handshakeAttempts": 4
     },
     {
       "wireProfile": "awg-3.1-ranges-v1",
