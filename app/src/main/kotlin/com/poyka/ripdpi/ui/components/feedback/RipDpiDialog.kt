@@ -1,5 +1,3 @@
-@file:OptIn(androidx.compose.foundation.style.ExperimentalFoundationStyleApi::class)
-
 package com.poyka.ripdpi.ui.components.feedback
 
 import androidx.compose.foundation.BorderStroke
@@ -14,8 +12,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.style.CommonStyle
-import androidx.compose.foundation.style.rememberUpdatedStyleState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
@@ -23,6 +20,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.tooling.preview.Preview
@@ -38,8 +36,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
-import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
 
 private const val DialogStackedActionsFontScale = 1.3f
 
@@ -199,23 +195,23 @@ private fun RipDpiModalIconBadge(
             RipDpiThemeTokens.surfaceRoles.feedback.dialogIconBadge(tone),
         )
 
-    val styleState = rememberUpdatedStyleState(null)
-    val badgeRole = RipDpiThemeTokens.surfaceRoles.feedback.dialogIconBadge(tone)
-    val resolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.surface(badgeRole), CommonStyle, styleState)
-
-    Box(
-        modifier =
-            modifier
-                .size(components.feedback.dialogIconSize)
-                .ripDpiStyleSurface(resolver, shape = RipDpiThemeTokens.shapes.full),
-        contentAlignment = Alignment.Center,
+    val badgeBorder =
+        surfaceStyle.border.takeUnless { it == Color.Transparent }?.let { BorderStroke(RipDpiStroke.Thin, it) }
+    Surface(
+        modifier = modifier.size(components.feedback.dialogIconSize),
+        shape = CircleShape,
+        color = surfaceStyle.container,
+        contentColor = surfaceStyle.content,
+        border = badgeBorder,
     ) {
-        Icon(
-            imageVector = icon,
-            contentDescription = null,
-            tint = surfaceStyle.content,
-            modifier = Modifier.size(RipDpiIconSizes.Default),
-        )
+        Box(contentAlignment = Alignment.Center) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = surfaceStyle.content,
+                modifier = Modifier.size(RipDpiIconSizes.Default),
+            )
+        }
     }
 }
 
