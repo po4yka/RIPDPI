@@ -1447,7 +1447,7 @@ async fn relay_runtime_accepts_xudp_enabled_vless_reality_vision() {
 }
 
 #[tokio::test]
-async fn relay_runtime_rejects_xudp_for_flowless_reality_and_xhttp() {
+async fn relay_runtime_rejects_xudp_for_flowless_reality_tcp_but_accepts_xhttp() {
     let mut flowless = sample_config("vless_reality");
     flowless.common.udp_enabled = true;
     let flowless_config = vless_config_mut(&mut flowless);
@@ -1464,8 +1464,8 @@ async fn relay_runtime_rejects_xudp_for_flowless_reality_and_xhttp() {
     xhttp_config.vless_transport = "xhttp".to_string();
     xhttp_config.vless_flow.clear();
     let xhttp_backend = build_backend(&xhttp).await.expect("xHTTP backend");
-    let xhttp_error = validate_runtime_config(&xhttp, &xhttp_backend).expect_err("xHTTP UDP must fail");
-    assert_eq!(xhttp_error.kind(), io::ErrorKind::Unsupported);
+    validate_runtime_config(&xhttp, &xhttp_backend).expect("flowless xHTTP carries XUDP");
+    assert!(xhttp_backend.udp_capable());
 }
 
 #[tokio::test]

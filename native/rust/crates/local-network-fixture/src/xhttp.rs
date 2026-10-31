@@ -16,7 +16,8 @@
 //!    request body is the upload channel, correlated by the shared URL path;
 //! 4. the VLESS handshake carried inside the upload body (request header) and
 //!    download body (response header), after which bytes proxy to the request's
-//!    target (the fixture's embedded echo).
+//!    target (the fixture's embedded echo); a VLESS `Mux` request instead
+//!    carries XUDP datagrams, echoed through a loopback UDP socket.
 //!
 //! Only stream-up is implemented; test profiles must select that mode explicitly.
 //! This is a dev/test fixture, never a production
@@ -40,7 +41,7 @@ use hyper::service::service_fn;
 use hyper::{Method, Request, Response, StatusCode};
 use hyper_util::rt::{TokioExecutor, TokioIo};
 use rcgen::generate_simple_self_signed;
-use ripdpi_vless::wire::{ParseRequestError, encode_response, parse_request_header};
+use ripdpi_vless::wire::{ParseRequestError, VlessCommand, encode_response, parse_request_header};
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, TcpStream};
 use tokio::sync::{mpsc, oneshot};
@@ -291,6 +292,12 @@ async fn proxy(mut upload: Incoming, down_tx: mpsc::Sender<Result<Bytes, io::Err
         ));
     }
 
+    // XUDP: the VLESS Mux command without a destination, then XUDP frames on
+    // the same H2 bodies (Xray accepts it on any stream transport).
+    if header.command == VlessCommand::Mux {
+        return serve_xudp(upload, buf.split_off(header.consumed_len), down_tx).await;
+    }
+
     // 2. Connect to the proxy target. xray-core buffers the VLESS response
     // header until the first downstream payload is available, so the fixture
     // must not send an eager ACK that lets clients hide a handshake deadlock.
@@ -341,6 +348,51 @@ async fn proxy(mut upload: Incoming, down_tx: mpsc::Sender<Result<Bytes, io::Err
     }
     upload_pump.abort();
     Ok(())
+}
+
+/// Bridge the H2 upload/download bodies to a byte stream for the shared XUDP
+/// echo loop. The VLESS response header leads the first downlink chunk, as in
+/// xray-core.
+///
+/// # Cancel safety:
+/// NOT cancel-safe: dropping it mid-frame abandons the fixture's carrier; the
+/// pump tasks end when their H2 body or bridge closes.
+async fn serve_xudp(
+    mut upload: Incoming,
+    leftover: Vec<u8>,
+    down_tx: mpsc::Sender<Result<Bytes, io::Error>>,
+) -> io::Result<()> {
+    let (bridge, carrier) = tokio::io::duplex(DOWNLOAD_CHUNK);
+    let (mut bridge_read, mut bridge_write) = tokio::io::split(bridge);
+    let upload_pump = tokio::spawn(async move {
+        if bridge_write.write_all(&leftover).await.is_err() {
+            return;
+        }
+        while let Some(Ok(frame)) = upload.frame().await {
+            if let Ok(data) = frame.into_data()
+                && bridge_write.write_all(&data).await.is_err()
+            {
+                return;
+            }
+        }
+    });
+    let download_pump = tokio::spawn(async move {
+        let mut pending = encode_response(&[]).unwrap_or_default();
+        let mut chunk = vec![0_u8; DOWNLOAD_CHUNK];
+        while let Ok(read) = bridge_read.read(&mut chunk).await {
+            if read == 0 {
+                break;
+            }
+            pending.extend_from_slice(&chunk[..read]);
+            if down_tx.send(Ok(Bytes::from(std::mem::take(&mut pending)))).await.is_err() {
+                break;
+            }
+        }
+    });
+    let result = crate::vless::serve_xudp_carrier(carrier).await;
+    upload_pump.abort();
+    download_pump.abort();
+    result
 }
 
 fn ok_streaming_response(down_rx: mpsc::Receiver<Result<Bytes, io::Error>>) -> Response<SrvBody> {

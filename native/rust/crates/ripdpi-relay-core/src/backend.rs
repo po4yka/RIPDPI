@@ -189,12 +189,8 @@ impl RelayBackend {
             Self::AnyTls(backend) => backend.open_udp_session(RelayUdpSession::AnyTls).await,
             Self::Shadowsocks(backend) => backend.open_udp_session(RelayUdpSession::Shadowsocks).await,
             Self::VlessReality(backend) => backend.open_udp_session(RelayUdpSession::VlessReality).await,
-            Self::Mieru(_)
-            | Self::Ssh(_)
-            | Self::Xhttp(_)
-            | Self::ChainRelay { .. }
-            | Self::ShadowTls(_)
-            | Self::Tor(_) => {
+            Self::Xhttp(backend) => backend.open_udp_session(RelayUdpSession::VlessXhttp).await,
+            Self::Mieru(_) | Self::Ssh(_) | Self::ChainRelay { .. } | Self::ShadowTls(_) | Self::Tor(_) => {
                 Err(io::Error::new(io::ErrorKind::Unsupported, "relay backend does not support UDP ASSOCIATE"))
             }
             Self::Unsupported { kind, .. } => Err(Self::unsupported_error(kind)),

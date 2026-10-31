@@ -174,7 +174,7 @@ class RelayKindDescriptorDriftTest {
 
     @Test
     fun `udp gate rejects udp for tcp-only kinds through the descriptor`() {
-        listOf(RelayKindVless, RelayKindSnowflake, RelayKindTor, RelayKindOff).forEach { kind ->
+        listOf(RelayKindSnowflake, RelayKindTor, RelayKindOff).forEach { kind ->
             assertThrows(IllegalArgumentException::class.java) {
                 validateSharedRelayTransportFeatures(RipDpiRelayConfig(kind = kind, udpEnabled = true))
             }
@@ -182,14 +182,14 @@ class RelayKindDescriptorDriftTest {
     }
 
     @Test
-    fun `vless reality udp gate rejects xhttp and flowless profiles`() {
+    fun `vless reality udp gate rejects xhttp Vision and flowless TCP profiles`() {
         assertThrows(IllegalArgumentException::class.java) {
             validateSharedRelayTransportFeatures(
                 RipDpiRelayConfig(
                     kind = RelayKindVlessReality,
                     udpEnabled = true,
                     vlessTransport = RelayVlessTransportXhttp,
-                    vlessFlow = "",
+                    vlessFlow = RelayVlessFlowVision,
                 ),
             )
         }
@@ -209,7 +209,11 @@ class RelayKindDescriptorDriftTest {
                 for (enabled in listOf(true, false)) {
                     assertEquals(
                         "transport=$transport flow=$flow enabled=$enabled",
-                        enabled && transport == RelayVlessTransportRealityTcp && index < 2,
+                        enabled &&
+                            (
+                                (transport == RelayVlessTransportRealityTcp && index < 2) ||
+                                    (transport == RelayVlessTransportXhttp && index in 2..3)
+                            ),
                         relayProfileSupportsUdpAssociation(RelayKindVlessReality, enabled, transport, flow),
                     )
                 }
@@ -223,6 +227,19 @@ class RelayKindDescriptorDriftTest {
                 " $RelayVlessFlowVision ",
             ),
         )
+    }
+
+    @Test
+    fun `TLS VLESS udp gate accepts xHTTP XUDP profiles`() {
+        validateSharedRelayTransportFeatures(
+            RipDpiRelayConfig(
+                kind = RelayKindVless,
+                udpEnabled = true,
+                vlessTransport = RelayVlessTransportXhttp,
+                vlessFlow = "",
+            ),
+        )
+        assertTrue(relayTransportCapabilities(RelayKindVless)?.udpAssociate == true)
     }
 
     @Test

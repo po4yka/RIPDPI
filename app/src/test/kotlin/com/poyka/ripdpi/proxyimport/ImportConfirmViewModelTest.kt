@@ -466,14 +466,14 @@ class ImportConfirmViewModelTest {
             assertEquals("cdn.example.com", settings.relayXhttpHost)
             assertEquals(ValidRealityPublicKey, settings.relayRealityPublicKey)
             assertEquals("cafe0001", settings.relayRealityShortId)
-            assertFalse(settings.relayUdpEnabled)
+            assertTrue(settings.relayUdpEnabled)
             assertEquals(RelayKindVlessReality, relayProfile?.kind)
             assertEquals("", relayProfile?.vlessFlow)
             assertEquals(RelayVlessTransportXhttp, relayProfile?.vlessTransport)
             assertEquals("/tunnel", relayProfile?.xhttpPath)
             assertEquals("cdn.example.com", relayProfile?.xhttpHost)
             assertEquals("stream-one", relayProfile?.xhttpMode)
-            assertFalse(relayProfile?.udpEnabled ?: true)
+            assertTrue(relayProfile?.udpEnabled == true)
             assertEquals("dddddddd-dddd-dddd-dddd-dddddddddddd", relayCredentials?.vlessUuid)
         }
 
@@ -530,7 +530,7 @@ class ImportConfirmViewModelTest {
             assertEquals(RelayVlessTransportXhttp, relayProfile?.vlessTransport)
             assertEquals("", relayProfile?.xhttpPath)
             assertEquals("carrier.example.com", relayProfile?.xhttpHost)
-            assertFalse(relayProfile?.udpEnabled ?: true)
+            assertTrue(relayProfile?.udpEnabled == true)
             assertEquals(
                 "eeeeeeee-eeee-eeee-eeee-eeeeeeeeeeee",
                 relayCredentialStore.load(DefaultRelayProfileId)?.vlessUuid,

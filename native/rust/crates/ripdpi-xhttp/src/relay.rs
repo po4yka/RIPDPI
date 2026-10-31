@@ -13,7 +13,7 @@ use tokio::sync::{OwnedSemaphorePermit, mpsc};
 use tokio::task::JoinHandle;
 
 use ripdpi_vless::addons::VlessFlow;
-use ripdpi_vless::wire::ResponseHeaderStream;
+use ripdpi_vless::wire::{ResponseHeaderStream, VlessCommand};
 
 use crate::config::{XhttpMode, XhttpProtocolMode, normalize_path};
 use crate::h2_body::{ChannelBody, build_get_request, build_post_request};
@@ -120,18 +120,34 @@ impl StreamMetadata for XhttpMode {
     }
 }
 
+impl XhttpMode {
+    /// The VLESS request that opens a TCP stream to `target`.
+    pub(crate) fn tcp_request(&self, target: &str) -> io::Result<Vec<u8>> {
+        Ok(ripdpi_vless::wire::encode_request(self.uuid(), self.flow().as_addons_bytes(), target)?)
+    }
+
+    /// Xray's XUDP request: the VLESS `Mux` command without a destination.
+    /// Vision cannot run over xHTTP, so only the empty flow is accepted.
+    pub(crate) fn xudp_request(&self) -> io::Result<Vec<u8>> {
+        if self.flow() != VlessFlow::None {
+            return Err(io::Error::new(io::ErrorKind::Unsupported, "VLESS xHTTP does not support XTLS Vision flow"));
+        }
+        Ok(ripdpi_vless::wire::encode_command_request(self.uuid(), &[], VlessCommand::Mux, None)?)
+    }
+}
+
 impl PooledConnection {
     /// cancel-safe: the permit is owned by this future and stream-open pump
     /// tasks are aborted by [`OpenStreamTaskGuard`] until a stream is returned.
     pub(crate) async fn open_stream_from_mode(
         &self,
         mode: &XhttpMode,
-        target: &str,
+        request: &[u8],
         permit: OwnedSemaphorePermit,
     ) -> io::Result<XhttpStream> {
         match mode.protocol_mode() {
-            XhttpProtocolMode::StreamUp => self.open_stream_up(mode, target, permit).await,
-            XhttpProtocolMode::StreamOne => self.open_stream_one(mode, target, permit).await,
+            XhttpProtocolMode::StreamUp => self.open_stream_up(mode, request, permit).await,
+            XhttpProtocolMode::StreamOne => self.open_stream_one(mode, request, permit).await,
         }
     }
 
@@ -144,7 +160,7 @@ impl PooledConnection {
     async fn open_stream_up(
         &self,
         mode: &XhttpMode,
-        target: &str,
+        request: &[u8],
         permit: OwnedSemaphorePermit,
     ) -> io::Result<XhttpStream> {
         let stream_path = mode.request_path();
@@ -172,8 +188,7 @@ impl PooledConnection {
         let (mut user_upload, transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
         let mut open_tasks = OpenStreamTaskGuard::new();
         open_tasks.push(spawn_upload_pump(transport_upload, outgoing_tx));
-        let request = ripdpi_vless::wire::encode_request(mode.uuid(), mode.flow().as_addons_bytes(), target)?;
-        user_upload.write_all(&request).await?;
+        user_upload.write_all(request).await?;
 
         let post_response = self.send_request(post_request).await.map_err(|error| {
             io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP POST request failed: {error}"))
@@ -220,7 +235,7 @@ impl PooledConnection {
     async fn open_stream_one(
         &self,
         mode: &XhttpMode,
-        target: &str,
+        request: &[u8],
         permit: OwnedSemaphorePermit,
     ) -> io::Result<XhttpStream> {
         let stream_path = mode.request_path();
@@ -232,8 +247,7 @@ impl PooledConnection {
         let (mut user_upload, transport_upload) = tokio::io::duplex(STREAM_BUFFER_SIZE);
         let mut open_tasks = OpenStreamTaskGuard::new();
         open_tasks.push(spawn_upload_pump(transport_upload, outgoing_tx));
-        let request = ripdpi_vless::wire::encode_request(mode.uuid(), mode.flow().as_addons_bytes(), target)?;
-        user_upload.write_all(&request).await?;
+        user_upload.write_all(request).await?;
 
         let post_response = self.send_request(post_request).await.map_err(|error| {
             io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP stream-one request failed: {error}"))
@@ -429,6 +443,10 @@ mod tests {
     use crate::config::{XhttpMode, XhttpProtocolMode, XhttpTlsConfig};
     use crate::pool::PooledConnection;
 
+    fn tcp_request(mode: &XhttpMode) -> Vec<u8> {
+        mode.tcp_request("example.com:443").expect("VLESS request")
+    }
+
     struct DropSignal(Option<oneshot::Sender<()>>);
 
     impl Drop for DropSignal {
@@ -521,7 +539,7 @@ mod tests {
         );
         let pooled = PooledConnection::new(sender, 2);
         let permit = Arc::new(Semaphore::new(1)).acquire_owned().await.expect("permit");
-        let _stream = pooled.open_stream_from_mode(&mode, "example.com:443", permit).await.expect("open stream");
+        let _stream = pooled.open_stream_from_mode(&mode, &tcp_request(&mode), permit).await.expect("open stream");
         let expected = match protocol_mode {
             XhttpProtocolMode::StreamUp => 2,
             XhttpProtocolMode::StreamOne => 1,
@@ -656,11 +674,109 @@ mod tests {
             let permit = Arc::new(Semaphore::new(1)).acquire_owned().await.expect("permit");
             let result = tokio::time::timeout(
                 Duration::from_millis(500),
-                pooled.open_stream_from_mode(&mode, "example.com:443", permit),
+                pooled.open_stream_from_mode(&mode, &tcp_request(&mode), permit),
             )
             .await;
             assert!(result.is_ok(), "{protocol_mode:?} waited for a POST response before sending its body");
             result.expect("deadline").expect("open stream");
+            driver.abort();
+            server.abort();
+        }
+    }
+
+    /// XUDP over xHTTP, derived from Xray v26.10.29 (`proxy/vless/encoding`
+    /// `EncodeRequestHeader`, `common/xudp` `PacketWriter`): the upload body
+    /// carries a destination-less VLESS `Mux` request, then the first XUDP
+    /// frame; the download body carries the VLESS response header and XUDP
+    /// replies. Holds for both stream modes.
+    ///
+    /// # Cancel safety
+    ///
+    /// cancel-safe: test-owned H2 tasks and duplex streams close on runtime drop.
+    #[tokio::test]
+    async fn xudp_rides_xhttp_bodies_in_both_modes() {
+        for protocol_mode in [XhttpProtocolMode::StreamUp, XhttpProtocolMode::StreamOne] {
+            let (client_io, server_io) = tokio::io::duplex(64 * 1024);
+            let (sender, connection) =
+                hyper::client::conn::http2::handshake(TokioExecutor::new(), TokioIo::new(client_io))
+                    .await
+                    .expect("client H2 handshake");
+            let driver = tokio::spawn(async move { connection.await.expect("client H2 connection") });
+            let (down_tx, down_rx) = tokio::sync::mpsc::channel::<std::io::Result<Bytes>>(8);
+            let download = Arc::new(std::sync::Mutex::new(Some(down_rx)));
+            let (upload_tx, mut upload_rx) = tokio::sync::mpsc::unbounded_channel::<Bytes>();
+            let server = tokio::spawn(async move {
+                let service = service_fn(move |request: hyper::Request<hyper::body::Incoming>| {
+                    let download = Arc::clone(&download);
+                    let upload_tx = upload_tx.clone();
+                    async move {
+                        let carries_download =
+                            request.method() == hyper::Method::GET || protocol_mode == XhttpProtocolMode::StreamOne;
+                        if request.method() == hyper::Method::POST {
+                            let mut body = request.into_body();
+                            tokio::spawn(async move {
+                                while let Some(Ok(frame)) = body.frame().await {
+                                    if let Ok(data) = frame.into_data() {
+                                        let _ = upload_tx.send(data);
+                                    }
+                                }
+                            });
+                        }
+                        let receiver = if carries_download {
+                            download.lock().expect("download slot").take().expect("one download response")
+                        } else {
+                            tokio::sync::mpsc::channel(1).1
+                        };
+                        Ok::<_, Infallible>(hyper::Response::new(crate::h2_body::ChannelBody::new(receiver)))
+                    }
+                });
+                let _ = hyper::server::conn::http2::Builder::new(TokioExecutor::new())
+                    .serve_connection(TokioIo::new(server_io), service)
+                    .await;
+            });
+            let mode = XhttpMode::Tls(
+                XhttpTlsConfig::from_strings(
+                    "192.0.2.1",
+                    443,
+                    "example.com",
+                    "550e8400-e29b-41d4-a716-446655440000",
+                    "/xhttp",
+                    "",
+                    "chrome_stable",
+                )
+                .expect("mode")
+                .with_protocol_mode(protocol_mode),
+            );
+            let pooled = PooledConnection::new(sender, 1);
+            let permit = Arc::new(Semaphore::new(1)).acquire_owned().await.expect("permit");
+            let request = mode.xudp_request().expect("XUDP request");
+            let stream = pooled.open_stream_from_mode(&mode, &request, permit).await.expect("open XUDP stream");
+            let mut session = ripdpi_vless::VlessXudpSession::new(stream, true).expect("XUDP session");
+            session.send_to("192.0.2.7:443", b"ping").await.expect("send XUDP datagram");
+
+            let uuid = [0x55, 0x0e, 0x84, 0x00, 0xe2, 0x9b, 0x41, 0xd4, 0xa7, 0x16, 0x44, 0x66, 0x55, 0x44, 0x00, 0x00];
+            let mut expected = vec![0x00];
+            expected.extend_from_slice(&uuid);
+            // No addons, command Mux, no destination.
+            expected.extend_from_slice(&[0x00, 0x03]);
+            // Metadata length 20, session 0, New, Data, UDP, port 443, IPv4 192.0.2.7.
+            expected.extend_from_slice(&[0x00, 20, 0x00, 0x00, 0x01, 0x01, 0x02, 0x01, 0xbb, 0x01, 192, 0, 2, 7]);
+            let global_id_at = expected.len();
+            let mut upload = Vec::new();
+            while upload.len() < global_id_at + 8 + 2 + 4 {
+                upload.extend_from_slice(&upload_rx.recv().await.expect("upload bytes"));
+            }
+            assert_eq!(&upload[..global_id_at], expected.as_slice(), "{protocol_mode:?} upload prefix");
+            assert_eq!(&upload[global_id_at + 8..], &[0x00, 0x04, b'p', b'i', b'n', b'g'], "{protocol_mode:?} payload");
+
+            // VLESS response header, then a Keep frame naming the source.
+            let mut reply = vec![0x00, 0x00];
+            reply.extend_from_slice(&[0x00, 12, 0x00, 0x00, 0x02, 0x01, 0x02, 0x01, 0xbb, 0x01, 192, 0, 2, 7]);
+            reply.extend_from_slice(&[0x00, 0x04, b'p', b'o', b'n', b'g']);
+            down_tx.send(Ok(Bytes::from(reply))).await.expect("send downlink");
+            let (source, payload) = session.recv_from().await.expect("receive XUDP datagram");
+            assert_eq!(("192.0.2.7:443", b"pong".as_slice()), (source.as_str(), payload.as_slice()));
+            drop(session);
             driver.abort();
             server.abort();
         }

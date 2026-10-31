@@ -120,7 +120,8 @@ pub(crate) static RELAY_TRANSPORT_REGISTRATIONS: &[RelayTransportRegistration] =
             kind_id: "vless",
             label: "VLESS",
             tcp: true,
-            udp: false,
+            // XUDP over xHTTP; profile gates live in `planned_backend_capabilities`.
+            udp: true,
             reusable: true,
             supports_outbound_bind_ip: true,
         },

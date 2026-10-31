@@ -52,6 +52,7 @@ fn build_xhttp(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> i
                 protocol_mode: ripdpi_xhttp::XhttpProtocolMode::parse(&vless.xhttp_mode, true)
                     .map_err(invalid_input)?,
             }),
+            udp_enabled: config.common.udp_enabled,
         },
         context.pool_config,
         None,

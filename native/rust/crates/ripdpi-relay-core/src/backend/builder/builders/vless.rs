@@ -45,7 +45,7 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     tls.finalmask = finalmask_config(&config.common.finalmask);
 
     Ok(RelayBackend::Xhttp(PooledRelayBackend::new(
-        XhttpSessionFactory { mode: XhttpSessionMode::Tls(tls) },
+        XhttpSessionFactory { mode: XhttpSessionMode::Tls(tls), udp_enabled: config.common.udp_enabled },
         context.pool_config,
         None,
     )))

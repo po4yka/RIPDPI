@@ -44,12 +44,18 @@ object NativeVlessCapabilities {
             else -> emptyList()
         }
 
+    /** Native XUDP: REALITY TCP with Vision, or any xHTTP stream with the empty flow (as in Xray). */
     fun supportsUdp(
+        security: String,
         transport: String,
         flow: String,
     ): Boolean =
-        transport == RelayVlessTransportRealityTcp &&
-            flow.trim() in listOf(RelayVlessFlowVision, RelayVlessFlowVisionUdp443)
+        transport in transports(security) &&
+            when (transport) {
+                RelayVlessTransportRealityTcp -> flow.trim() in listOf(RelayVlessFlowVision, RelayVlessFlowVisionUdp443)
+                RelayVlessTransportXhttp -> flow.trim() in listOf("", "none", "off")
+                else -> false
+            }
 
     /** Return a static reason without copying imported values into diagnostics. */
     fun rejection(
@@ -78,8 +84,8 @@ object NativeVlessCapabilities {
                 "VLESS XHTTP mode is unsupported with this security"
             }
 
-            udpEnabled && (security != RelaySecurityLayerReality || !supportsUdp(transport, selectedFlow)) -> {
-                "VLESS UDP requires REALITY TCP with Vision"
+            udpEnabled && !supportsUdp(security, transport, selectedFlow) -> {
+                "VLESS UDP requires xHTTP or REALITY TCP with Vision"
             }
 
             else -> {

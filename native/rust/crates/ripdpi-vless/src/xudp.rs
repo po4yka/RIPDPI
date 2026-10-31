@@ -1,8 +1,8 @@
 //! Xray-compatible XUDP datagrams over a VLESS Mux carrier.
 //!
-//! The outer transport is still one protected Reality/TCP connection. XUDP
-//! frames preserve UDP datagram boundaries inside that reliable carrier; this
-//! module never opens a direct UDP socket.
+//! The outer transport is one protected reliable carrier: Reality/TCP, or an
+//! xHTTP stream from `ripdpi-xhttp`. XUDP frames preserve UDP datagram
+//! boundaries inside it; this module never opens a direct UDP socket.
 
 #[cfg(test)]
 mod source_authority_tests;
@@ -116,7 +116,11 @@ const DEFAULT_LIVENESS: XudpLivenessConfig = XudpLivenessConfig {
 };
 
 impl VlessXudpSession {
-    pub(crate) fn new<S>(stream: S, allow_udp_443: bool) -> io::Result<Self>
+    /// Start XUDP over `stream`, a carrier on which a VLESS `Mux` request
+    /// (no destination) was already written and whose VLESS response header is
+    /// stripped on read. Any stream transport works, matching Xray: raw
+    /// Reality/TLS or an xHTTP request pair.
+    pub fn new<S>(stream: S, allow_udp_443: bool) -> io::Result<Self>
     where
         S: AsyncRead + AsyncWrite + Unpin + Send + 'static,
     {

@@ -26,7 +26,7 @@ fn relay_transport_descriptor_for(config: &ResolvedRelayRuntimeConfig) -> Option
 ///
 /// The generic TCP / UDP / connection-reuse capabilities are read from the
 /// [`RelayTransportDescriptor`] table — the single source of truth for these
-/// `relay_kind`-keyed facts. VLESS Reality then applies its profile-local
+/// `relay_kind`-keyed facts. Both VLESS kinds then apply their profile-local
 /// `udp_enabled`, transport, and flow gates to that kind capability. Shadowsocks
 /// UDP additionally requires an SS2022 method. The `Unsupported` catch-all has no descriptor row and reports the empty
 /// [`RelayCapabilities::default`] profile.
@@ -34,14 +34,14 @@ pub(crate) fn planned_backend_capabilities(config: &ResolvedRelayRuntimeConfig) 
     let Some(descriptor) = relay_transport_descriptor_for(config) else {
         return RelayCapabilities::default();
     };
-    let udp = if matches!(RelayKind::from_config(config), RelayKind::VlessReality { .. }) {
-        let RelayBackendConfig::VlessReality(vless) = &config.backend else {
-            return RelayCapabilities::default();
-        };
+    let udp = if let RelayBackendConfig::VlessReality(vless) = &config.backend {
+        descriptor.udp && config.common.udp_enabled && vless_udp_supported(&vless.vless_transport, &vless.vless_flow)
+    } else if let RelayBackendConfig::Vless(vless) = &config.backend {
+        // Plain VLESS (TLS) has a native backend only for xHTTP.
         descriptor.udp
             && config.common.udp_enabled
-            && vless.vless_transport == "reality_tcp"
-            && matches!(vless.vless_flow.trim(), "xtls-rprx-vision" | "xtls-rprx-vision-udp443")
+            && vless.vless_transport == "xhttp"
+            && vless_udp_supported(&vless.vless_transport, &vless.vless_flow)
     } else if let RelayBackendConfig::Shadowsocks(shadowsocks) = &config.backend {
         descriptor.udp && ripdpi_relay_tls_transports::ShadowsocksSessionFactory::supports_udp(&shadowsocks.method)
     } else {
@@ -57,6 +57,21 @@ pub(crate) fn planned_backend_capabilities(config: &ResolvedRelayRuntimeConfig) 
         descriptor.reusable
     };
     RelayCapabilities { tcp: descriptor.tcp, udp, reusable }
+}
+
+/// VLESS transports with a native XUDP path, mirroring Kotlin
+/// `NativeVlessCapabilities.supportsUdp`: Reality TCP keeps its Vision-only
+/// XUDP carrier; xHTTP carries XUDP with the empty flow, as Xray does for UDP
+/// over a non-Vision stream transport.
+fn vless_udp_supported(transport: &str, flow: &str) -> bool {
+    let flow = ripdpi_vless::addons::VlessFlow::parse(flow);
+    match transport {
+        "reality_tcp" => {
+            matches!(flow, Ok(ripdpi_vless::addons::VlessFlow::Vision | ripdpi_vless::addons::VlessFlow::VisionUdp443))
+        }
+        "xhttp" => flow == Ok(ripdpi_vless::addons::VlessFlow::None),
+        _ => false,
+    }
 }
 
 /// The relay backend's out-of-process fallback mode, or `None` for an

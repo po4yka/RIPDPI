@@ -351,7 +351,11 @@ impl XtlsDirectWrite for FixtureRealityTlsStream {
     }
 }
 
-async fn serve_xudp_carrier(mut stream: VisionStream<FixtureRealityTlsStream>) -> io::Result<()> {
+/// Echo XUDP datagrams through one loopback UDP socket; shared with the xHTTP fixture.
+pub(crate) async fn serve_xudp_carrier<S>(mut stream: S) -> io::Result<()>
+where
+    S: AsyncRead + AsyncWrite + Unpin,
+{
     let socket = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await?;
     let mut response = vec![0_u8; MAX_XUDP_PAYLOAD];
     loop {

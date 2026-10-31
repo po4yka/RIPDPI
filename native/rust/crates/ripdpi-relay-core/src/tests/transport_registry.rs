@@ -141,6 +141,10 @@ fn relay_transport_registry_is_consistent() {
             // The descriptor says the kind can carry UDP; the effective
             // profile capability additionally requires the existing opt-in.
             capability_config.common.udp_enabled = true;
+        } else if descriptor.kind_id == "vless" {
+            // Plain VLESS carries XUDP over xHTTP with the empty flow only.
+            capability_config.common.udp_enabled = true;
+            plain_vless_config_mut(&mut capability_config).vless_flow = String::new();
         } else if descriptor.kind_id == "shadowsocks" {
             shadowsocks_config_mut(&mut capability_config).method = "2022-blake3-aes-128-gcm".to_owned();
         }

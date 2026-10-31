@@ -28,12 +28,14 @@ pub(crate) enum RelayUdpSession {
     AnyTls(MuxLease<AnyTlsUdpSession, AnyTlsSession>),
     Shadowsocks(MuxLease<ShadowsocksUdpSession, ShadowsocksSession>),
     VlessReality(MuxLease<ripdpi_vless::VlessXudpSession, crate::protocols::VlessRealitySession>),
+    VlessXhttp(MuxLease<ripdpi_vless::VlessXudpSession, crate::protocols::XhttpSession>),
 }
 
 impl UdpCarrier for RelayUdpSession {
     fn queue_high_water_mark(&self) -> usize {
         match self {
             Self::VlessReality(session) => session.get_ref().queue_high_water_mark(),
+            Self::VlessXhttp(session) => session.get_ref().queue_high_water_mark(),
             _ => 0,
         }
     }
@@ -70,6 +72,7 @@ impl UdpCarrier for RelayUdpSession {
             Self::AnyTls(session) => session.get_mut().send_to(&target.to_connect_target(), payload).await,
             Self::Shadowsocks(session) => session.get_mut().send_to(&target.to_connect_target(), payload).await,
             Self::VlessReality(session) => session.get_mut().send_to(&target.to_connect_target(), payload).await,
+            Self::VlessXhttp(session) => session.get_mut().send_to(&target.to_connect_target(), payload).await,
         }
     }
 
@@ -103,6 +106,10 @@ impl UdpCarrier for RelayUdpSession {
                 Ok((RelayTargetAddr::from_authority(&address)?, payload))
             }
             Self::VlessReality(session) => {
+                let (address, payload) = session.get_mut().recv_from().await?;
+                Ok((RelayTargetAddr::from_authority(&address)?, payload))
+            }
+            Self::VlessXhttp(session) => {
                 let (address, payload) = session.get_mut().recv_from().await?;
                 Ok((RelayTargetAddr::from_authority(&address)?, payload))
             }
