@@ -176,7 +176,7 @@ private fun DropdownField(
     val motion = RipDpiThemeTokens.motion
     val colors = RipDpiThemeTokens.colors
     val animatedChevronRotation by animateFloatAsState(
-        targetValue = if (expanded) 270f else 90f,
+        targetValue = if (expanded) 180f else 0f,
         animationSpec = motion.quickTween(),
         label = "dropdownChevronRotation",
     )
@@ -211,7 +211,7 @@ private fun DropdownField(
             lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 2),
             trailingIcon = {
                 Icon(
-                    imageVector = RipDpiIcons.ChevronRight,
+                    imageVector = RipDpiIcons.KeyboardArrowDown,
                     contentDescription = null,
                     modifier = Modifier.graphicsLayer { rotationZ = animatedChevronRotation },
                 )
