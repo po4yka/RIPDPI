@@ -95,82 +95,81 @@ fun HomeScreen(
                 .ripDpiScreenBackground(),
         topBar = { HomeTopBar(title = stringResource(R.string.app_name)) },
     ) {
-        // The failure message rides with the control that reports the fault. A
-        // banner underneath repeated the rail's own styling and the pipeline's
-        // failed stage, so one error occupied three surfaces while only the
-        // message and its copy action belonged to the banner exclusively.
-        val faultDetail = uiState.connectionActuator.faultDetail
-        val errorClipboardLabel = stringResource(R.string.clipboard_label_error)
-        // Pause qualifies the connection action, so it shares the control's group
-        // instead of taking a section, and its section gaps, of its own.
-        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
-            RipDpiConnectionActuator(
-                state = uiState.connectionActuator,
-                onActivate = onToggleConnection,
-                onDeactivate = onToggleConnection,
-                modifier = Modifier.fillMaxWidth(),
-                onCopyFaultDetail =
-                    faultDetail.takeIf { it.isNotEmpty() }?.let { message ->
-                        {
-                            clipboardManager?.setPrimaryClip(
-                                ClipData.newPlainText(errorClipboardLabel, message.withoutBidiIsolates()),
-                            )
-                        }
-                    },
-                testTag = RipDpiTestTags.ConnectionActuatorButton,
-            )
-            if (pause.available || pause.phase != null || pause.requestFailed) {
-                HomePauseControls(pause, onPause, onResumePause, onStopPause)
-            }
-        }
-
-        // One slot, ordered by severity. Setup health, the Xray provider stage,
-        // the network condition and subscription expiry each used to render
-        // themselves, so a bad enough moment put four full-width surfaces
-        // between the primary control and the screen's content, in declaration
-        // order rather than by how much any of them mattered.
-        HomeAdvisorySlot(
-            advisories =
-                buildHomeAdvisories(
-                    uiState = uiState,
-                    subscriptionExpiry = subscriptionExpiry,
-                    onRepairPermission = onRepairPermission,
-                    onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
-                    onDismissBatteryBanner = onDismissBatteryBanner,
-                    onDismissBackgroundGuidance = onDismissBackgroundGuidance,
-                    onOpenSubscriptionStatus = onOpenSubscriptionStatus,
-                    onCaptivePortalSignIn = onCaptivePortalSignIn,
-                ),
-        )
-
-        // Not an advisory: these are measurements the user asked for, and the
-        // traffic counter lives here. Folding it into the slot above would have
-        // put a number worth watching behind a warning header.
-        HomeConnectionMeasurements(
-            quality = uiState.connectionQuality,
-            source = uiState.connectionQualitySource,
-            connected = uiState.isConnected,
-            dataTransferred = uiState.dataTransferred,
-            onReprobe = onRunFullDiagnosticRun,
-        )
-
-        HomeAppliedConfigurationPanel(
-            state = uiState.appliedConfiguration,
-            onReconnect = onReconnectConfiguration,
-            onCancelReconnect = onCancelConfigurationReconnect,
-        )
-
         // Seeded from the caller so a persisted choice survives navigating away
         // and back; the local state still owns it within one composition. Hoisted
         // above the two-column split so widening the window past the Expanded
         // breakpoint re-parents the accordion without resetting it.
         var modesExpanded by rememberSaveable { mutableStateOf(initialModesExpanded) }
 
-        HomeContentColumns(
+        HomeSupportingPaneLayout(
             primary = {
-                HomeConnectionHealthEntry(onOpenConnectionHealth = onOpenConnectionHealth)
+                // The failure message rides with the control that reports the fault. A
+                // banner underneath repeated the rail's own styling and the pipeline's
+                // failed stage, so one error occupied three surfaces while only the
+                // message and its copy action belonged to the banner exclusively.
+                val faultDetail = uiState.connectionActuator.faultDetail
+                val errorClipboardLabel = stringResource(R.string.clipboard_label_error)
+                // Pause qualifies the connection action, so it shares the control's group
+                // instead of taking a section, and its section gaps, of its own.
+                Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
+                    RipDpiConnectionActuator(
+                        state = uiState.connectionActuator,
+                        onActivate = onToggleConnection,
+                        onDeactivate = onToggleConnection,
+                        modifier = Modifier.fillMaxWidth(),
+                        onCopyFaultDetail =
+                            faultDetail.takeIf { it.isNotEmpty() }?.let { message ->
+                                {
+                                    clipboardManager?.setPrimaryClip(
+                                        ClipData.newPlainText(errorClipboardLabel, message.withoutBidiIsolates()),
+                                    )
+                                }
+                            },
+                        testTag = RipDpiTestTags.ConnectionActuatorButton,
+                    )
+                    if (pause.available || pause.phase != null || pause.requestFailed) {
+                        HomePauseControls(pause, onPause, onResumePause, onStopPause)
+                    }
+                }
+
+                // One slot, ordered by severity. Setup health, the Xray provider stage,
+                // the network condition and subscription expiry each used to render
+                // themselves, so a bad enough moment put four full-width surfaces
+                // between the primary control and the screen's content, in declaration
+                // order rather than by how much any of them mattered.
+                HomeAdvisorySlot(
+                    advisories =
+                        buildHomeAdvisories(
+                            uiState = uiState,
+                            subscriptionExpiry = subscriptionExpiry,
+                            onRepairPermission = onRepairPermission,
+                            onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
+                            onDismissBatteryBanner = onDismissBatteryBanner,
+                            onDismissBackgroundGuidance = onDismissBackgroundGuidance,
+                            onOpenSubscriptionStatus = onOpenSubscriptionStatus,
+                            onCaptivePortalSignIn = onCaptivePortalSignIn,
+                        ),
+                )
+
+                // Not an advisory: these are measurements the user asked for, and the
+                // traffic counter lives here. Folding it into the slot above would have
+                // put a number worth watching behind a warning header.
+                HomeConnectionMeasurements(
+                    quality = uiState.connectionQuality,
+                    source = uiState.connectionQualitySource,
+                    connected = uiState.isConnected,
+                    dataTransferred = uiState.dataTransferred,
+                    onReprobe = onRunFullDiagnosticRun,
+                )
+
+                HomeAppliedConfigurationPanel(
+                    state = uiState.appliedConfiguration,
+                    onReconnect = onReconnectConfiguration,
+                    onCancelReconnect = onCancelConfigurationReconnect,
+                )
             },
-            secondary = {
+            supporting = {
+                HomeConnectionHealthEntry(onOpenConnectionHealth = onOpenConnectionHealth)
                 RipDpiAccordion(
                     title = stringResource(R.string.home_modes_diagnostics_title),
                     expanded = modesExpanded || homeDiagnostics.analysisAction.busy,

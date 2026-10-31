@@ -133,6 +133,31 @@ class HomeScreenTest {
     }
 
     @Test
+    @Config(qualifiers = "w1300dp-h900dp")
+    fun `expanded window puts the secondary cards in a supporting pane beside the actuator`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                HomeScreen(
+                    uiState = MainUiState(modeCards = modeCards()),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        val actuator =
+            composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).fetchSemanticsNode().boundsInRoot
+        val health =
+            composeRule.onNodeWithTag(RipDpiTestTags.HomeConnectionHealthAction).fetchSemanticsNode().boundsInRoot
+        assertTrue("Supporting pane must sit beside the actuator", health.left >= actuator.right)
+        val density = composeRule.density.density
+        assertTrue("Supporting pane stays near 360dp", health.width <= 360f * density)
+    }
+
+    @Test
     fun `home keeps mode cards collapsed until disclosure expands`() {
         var primaryConnectionToggles = 0
         composeRule.setContent {

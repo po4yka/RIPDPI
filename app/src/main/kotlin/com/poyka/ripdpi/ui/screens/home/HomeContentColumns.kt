@@ -1,24 +1,52 @@
 package com.poyka.ripdpi.ui.screens.home
 
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.Composable
-import com.poyka.ripdpi.ui.components.scaffold.RipDpiAdaptiveColumns
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.ui.theme.RipDpiContentGrouping
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+
+// Material 3 supporting pane preferred width.
+private val SupportingPaneWidth = 360.dp
 
 /**
- * Home's two-column split for Expanded windows.
+ * Home's primary and supporting panes. The connection control, advisories and measurements stay in the
+ * primary pane; the supporting pane takes the secondary cards. Below Expanded both stack in order inside
+ * the caller's column, so narrower layouts render identically.
  *
- * The Expanded tier has declared `SplitColumns` since the layout tiers were
- * written and no screen ever branched into it, so a 1040dp window rendered one
- * tall column with an empty lower half. Below Expanded this stacks primary then
- * secondary in order, so narrower layouts render identically.
- *
- * Kept in its own file so [HomeScreen] does not also carry layout-strategy
- * concerns on top of the feature areas it already coordinates.
+ * shortcut: a stable Row instead of SupportingPaneScaffold, which is still experimental in
+ * adaptive-layout 1.3.0; switch once it is stable.
  */
 @Composable
-internal fun HomeContentColumns(
+internal fun ColumnScope.HomeSupportingPaneLayout(
     primary: @Composable ColumnScope.() -> Unit,
-    secondary: @Composable ColumnScope.() -> Unit,
+    supporting: @Composable ColumnScope.() -> Unit,
 ) {
-    RipDpiAdaptiveColumns(primary = primary, secondary = secondary)
+    val layout = RipDpiThemeTokens.layout
+    if (layout.contentGrouping == RipDpiContentGrouping.SplitColumns) {
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(layout.groupGap),
+        ) {
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
+                content = primary,
+            )
+            Column(
+                modifier = Modifier.width(SupportingPaneWidth),
+                verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
+                content = supporting,
+            )
+        }
+    } else {
+        primary()
+        supporting()
+    }
 }
