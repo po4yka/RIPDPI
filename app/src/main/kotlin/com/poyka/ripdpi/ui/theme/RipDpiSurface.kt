@@ -24,11 +24,9 @@ enum class RipDpiSurfaceRole {
     BottomBar,
     BottomBarIndicator,
     ActuatorRail,
-    ActuatorCarriage,
     ActuatorTerminalSlot,
     ActuatorPipelineSegment,
     RouteProfile,
-    RouteCapability,
     RouteStack,
     RouteProvider,
     RouteOpportunity,
@@ -67,13 +65,11 @@ data class RipDpiSurfaceTokens(
             -> resolveGeneralSurface(role)
 
             RipDpiSurfaceRole.ActuatorRail,
-            RipDpiSurfaceRole.ActuatorCarriage,
             RipDpiSurfaceRole.ActuatorTerminalSlot,
             RipDpiSurfaceRole.ActuatorPipelineSegment,
             -> resolveActuatorSurface(role)
 
             RipDpiSurfaceRole.RouteProfile,
-            RipDpiSurfaceRole.RouteCapability,
             RipDpiSurfaceRole.RouteStack,
             RipDpiSurfaceRole.RouteProvider,
             RipDpiSurfaceRole.RouteOpportunity,
@@ -232,15 +228,6 @@ data class RipDpiSurfaceTokens(
                 )
             }
 
-            RipDpiSurfaceRole.ActuatorCarriage -> {
-                RipDpiSurfaceStyle(
-                    container = colorScheme.surface,
-                    border = colors.outlineVariant,
-                    content = colors.foreground,
-                    shadowElevation = 8.dp,
-                )
-            }
-
             RipDpiSurfaceRole.ActuatorTerminalSlot -> {
                 RipDpiSurfaceStyle(
                     container = colors.accent,
@@ -268,14 +255,6 @@ data class RipDpiSurfaceTokens(
                 RipDpiSurfaceStyle(
                     container = colorScheme.surface,
                     border = colors.cardBorder,
-                    content = colors.foreground,
-                )
-            }
-
-            RipDpiSurfaceRole.RouteCapability -> {
-                RipDpiSurfaceStyle(
-                    container = colors.inputBackground,
-                    border = colors.border,
                     content = colors.foreground,
                 )
             }
