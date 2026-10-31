@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
@@ -41,6 +42,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -68,6 +70,9 @@ import com.poyka.ripdpi.ui.components.indicators.LogRowTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.RipDpiListDetailLayout
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
@@ -257,6 +262,15 @@ private fun LogsContent(
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
+    var query by rememberSaveable { mutableStateOf("") }
+    val searchedLogs =
+        remember(uiState.filteredLogs, query) {
+            if (query.isBlank()) {
+                uiState.filteredLogs
+            } else {
+                uiState.filteredLogs.filter { it.message.contains(query.trim(), ignoreCase = true) }.toPersistentList()
+            }
+        }
     Box(
         modifier = Modifier.fillMaxSize().padding(innerPadding),
         contentAlignment = Alignment.TopCenter,
@@ -274,8 +288,19 @@ private fun LogsContent(
                 onShowFilters = onShowFilters,
                 onShowActions = onShowActions,
             )
+            RipDpiTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        label = stringResource(R.string.diagnostics_search_label),
+                        testTag = RipDpiTestTags.LogsSearch,
+                    ),
+                behavior = RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)),
+            )
             LogsStreamSection(
-                uiState = uiState,
+                uiState = uiState.copy(filteredLogs = searchedLogs),
                 onShowCopiedSnackbar = onShowCopiedSnackbar,
                 selectedEntryId = selectedEntryId,
                 onSelectEntry = onSelectEntry,

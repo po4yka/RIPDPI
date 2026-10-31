@@ -424,6 +424,7 @@ internal object RipDpiTestTags {
     const val LogsStream = "logs-stream"
     const val LogsEmptyState = "logs-empty-state"
     const val LogsDetailPane = "logs-detail-pane"
+    const val LogsSearch = "logs-search"
     const val LogsDetailPlaceholder = "logs-detail-placeholder"
 
     const val AdvancedClearRememberedNetworks = "advanced-clear-remembered-networks"

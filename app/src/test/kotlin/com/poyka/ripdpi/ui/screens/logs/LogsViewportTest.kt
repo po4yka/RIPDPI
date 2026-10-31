@@ -15,6 +15,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.hasScrollToIndexAction
+import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -22,6 +23,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToIndex
 import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.test.performTextInput
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
@@ -50,6 +52,9 @@ import org.robolectric.annotation.GraphicsMode
 class LogsViewportTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    // The search field scrolls horizontally; the stream and empty state own the vertical scroll.
+    private val contentScroll = hasScrollAction() and !hasSetTextAction()
 
     @Test
     fun `first event is visible on narrow screen at maximum font scale`() {
@@ -107,7 +112,7 @@ class LogsViewportTest {
         assertTrue((0 until layout.lineCount).none(layout::isLineEllipsized))
 
         composeRule.runOnIdle { height.value = 300.dp }
-        val scroll = composeRule.onNode(hasScrollAction())
+        val scroll = composeRule.onNode(contentScroll)
         val range = scroll.fetchSemanticsNode().config[SemanticsProperties.VerticalScrollAxisRange]
         assertTrue("Guidance must scroll when the viewport is too short", range.maxValue() > 0f)
         scroll.performSemanticsAction(SemanticsActions.ScrollBy) { it(0f, 10_000f) }
@@ -139,7 +144,7 @@ class LogsViewportTest {
                 .boundsInRoot.height
 
         assertEquals(200f, tallHeight - shortHeight, 1f)
-        assertEquals(1, composeRule.onAllNodes(hasScrollAction()).fetchSemanticsNodes().size)
+        assertEquals(1, composeRule.onAllNodes(contentScroll).fetchSemanticsNodes().size)
     }
 
     @Test
@@ -167,7 +172,7 @@ class LogsViewportTest {
         composeRule.setContent { RipDpiTheme { TestLogsScreen(state.value) } }
         val lastEntryTag = RipDpiTestTags.logsEntry("event-29")
         composeRule.onNodeWithTag(lastEntryTag).assertIsDisplayed()
-        composeRule.onNode(hasScrollAction()).performSemanticsAction(SemanticsActions.ScrollBy) { scrollBy ->
+        composeRule.onNode(contentScroll).performSemanticsAction(SemanticsActions.ScrollBy) { scrollBy ->
             scrollBy(0f, -8f)
         }
         val before = composeRule.onNodeWithTag(lastEntryTag).fetchSemanticsNode().boundsInRoot
@@ -281,6 +286,33 @@ class LogsViewportTest {
 
         composeRule.onNodeWithTag(RipDpiTestTags.LogsDetailPane).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.logsEntry(entry.id)).assertIsSelected()
+    }
+
+    @Test
+    fun `search field narrows the stream to matching messages`() {
+        val entries =
+            persistentListOf("Service started", "Proxy listener ready").mapIndexed { index, message ->
+                LogEntry(
+                    id = "e$index",
+                    createdAtMs = index.toLong(),
+                    timestamp = "12:00:0$index",
+                    subsystem = LogSubsystem.Service,
+                    severity = LogSeverity.Info,
+                    message = message,
+                    source = "service",
+                )
+            }
+        composeRule.setContent {
+            RipDpiTheme {
+                TestLogsScreen(LogsUiState(logs = persistentListOf(*entries.toTypedArray())))
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.LogsSearch).performTextInput("proxy")
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithTag(RipDpiTestTags.logsEntry("e1")).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.logsEntry("e0")).assertDoesNotExist()
     }
 
     @Composable
