@@ -13,6 +13,7 @@ import androidx.compose.ui.Modifier
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import kotlinx.collections.immutable.ImmutableList
 
 data class RipDpiOverflowMenuItem(
     val label: String,
@@ -25,7 +26,7 @@ data class RipDpiOverflowMenuItem(
 @Composable
 fun RipDpiOverflowMenu(
     contentDescription: String,
-    items: List<RipDpiOverflowMenuItem>,
+    items: ImmutableList<RipDpiOverflowMenuItem>,
     modifier: Modifier = Modifier,
     testTag: String? = null,
 ) {

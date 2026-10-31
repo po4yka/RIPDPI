@@ -467,7 +467,7 @@ private fun LogsTopBarActions(
         contentDescription = stringResource(R.string.logs_actions_title),
         testTag = RipDpiTestTags.LogsActions,
         items =
-            listOf(
+            persistentListOf(
                 RipDpiOverflowMenuItem(
                     label = stringResource(R.string.settings_support_debug_bundle_title),
                     onClick = onShareSupportBundle,
