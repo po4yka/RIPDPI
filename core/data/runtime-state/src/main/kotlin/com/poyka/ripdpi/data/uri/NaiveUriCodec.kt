@@ -36,6 +36,32 @@ internal object NaiveUriCodec {
         if (username.isBlank()) return null
         val host = parsed.host?.takeIf { it.isNotBlank() }?.removeSurrounding("[", "]") ?: return null
         val port = if (parsed.port == -1) DefaultNaivePort else parsed.port.takeIf { it in 1..MaxPort } ?: return null
+        val options = parseOptions(parsed) ?: return null
+        val name = parsed.rawFragment?.let { decode(it) ?: return null }?.takeIf { it.isNotBlank() } ?: host
+        return ProxyProfile.Naive(
+            id = UUID.randomUUID().toString(),
+            displayName = name,
+            groupId = "",
+            server = host,
+            serverPort = port,
+            username = username,
+            password = password,
+            extraHeaders = options.headers,
+            serverPinSha256 = options.pin,
+            quic = options.quic,
+            concurrency = options.concurrency,
+        )
+    }
+
+    private class Options(
+        val headers: String,
+        val pin: String,
+        val quic: Boolean,
+        val concurrency: Int,
+    )
+
+    @Suppress("ReturnCount")
+    private fun parseOptions(parsed: URI): Options? {
         val rawHeaders = queryValue(parsed.rawQuery, "extra-headers", malformed = { return null }).orEmpty()
         val headers =
             when (val result = parseNaiveExtraHeaders(rawHeaders)) {
@@ -54,20 +80,7 @@ internal object NaiveUriCodec {
                 ?.let { it.toIntOrNull()?.takeIf { value -> value in 1..MaxNaiveConcurrency } ?: return null }
                 ?: 1
         if (pin.isNotEmpty() && (quic || concurrency != 1)) return null
-        val name = parsed.rawFragment?.let { decode(it) ?: return null }?.takeIf { it.isNotBlank() } ?: host
-        return ProxyProfile.Naive(
-            id = UUID.randomUUID().toString(),
-            displayName = name,
-            groupId = "",
-            server = host,
-            serverPort = port,
-            username = username,
-            password = password,
-            extraHeaders = headers,
-            serverPinSha256 = pin,
-            quic = quic,
-            concurrency = concurrency,
-        )
+        return Options(headers, pin, quic, concurrency)
     }
 
     fun encode(profile: ProxyProfile.Naive): String {
