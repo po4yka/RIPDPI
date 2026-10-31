@@ -2,7 +2,7 @@
 id: UIX-1793256952721314
 title: Apply Material 3 canonical layouts to screens
 kind: feature
-status: review
+status: done
 area: ui
 priority: medium
 owner: UI overhaul
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: m3-screen-layouts
 created: 2026-10-29
 updated: 2026-10-31
+closed_at: "2026-10-31T14:31:48Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: CI run 41206808364 passed 50 jobs at c4984440d including the Kaspresso smoke on five API levels; emulator check passed list-detail, top-bar actions and Logs search; owner-approved layout goldens re-verified.
 ---
 
 ## Goal
