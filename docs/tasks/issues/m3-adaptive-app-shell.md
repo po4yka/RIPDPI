@@ -2,7 +2,7 @@
 id: UIX-1793256870879296
 title: Move the app shell to adaptive Material 3 navigation
 kind: feature
-status: review
+status: done
 area: ui
 priority: high
 owner: UI overhaul
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: m3-adaptive-app-shell
 created: 2026-10-29
 updated: 2026-10-31
+closed_at: "2026-10-31T12:54:54Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: CI run 41188616435 passed 50 jobs at 71d272bb8; emulator check passed top bar, predictive back, unsaved-changes guard and expanded rail; owner-approved shell goldens re-verified in both variants.
 ---
 
 ## Goal

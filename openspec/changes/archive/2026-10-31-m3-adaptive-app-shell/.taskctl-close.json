@@ -1,0 +1,11 @@
+{
+  "change": "m3-adaptive-app-shell",
+  "evidence_summary": "CI run 41188616435 passed 50 jobs at 71d272bb8; emulator check passed top bar, predictive back, unsaved-changes guard and expanded rail; owner-approved shell goldens re-verified in both variants.",
+  "execution_sha256": "d7063e7319073a533909ef7069bacd9154c54f111736750f7f5c61bed6c57673",
+  "issue_sha256": "64bf9414a65dd0ab4b2d577bb19127c2ceadef3732078dd028637272c5927247",
+  "outcome": "done",
+  "prepared_at": "2026-10-31T12:54:54Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "UIX-1793256870879296"
+}
