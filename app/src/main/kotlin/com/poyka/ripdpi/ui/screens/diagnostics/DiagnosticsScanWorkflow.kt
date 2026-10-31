@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
@@ -39,6 +40,7 @@ internal fun DiagnosticsScanWorkflowCard(
     scan: com.poyka.ripdpi.activities.DiagnosticsScanUiModel,
     strategyProbeSelected: Boolean,
     isFullAudit: Boolean,
+    onRunRawScan: () -> Unit,
     onRunInPathScan: () -> Unit,
     onCancelScan: () -> Unit,
     onOpenAdvancedSettings: () -> Unit,
@@ -92,7 +94,9 @@ internal fun DiagnosticsScanWorkflowCard(
         WorkflowActionRow(
             strategyProbeSelected = strategyProbeSelected,
             scan = scan,
+            spacing = spacing.sm,
             presentation = presentation,
+            onRunRawScan = onRunRawScan,
             onRunInPathScan = onRunInPathScan,
         )
         if (scan.isBusy) {
@@ -526,33 +530,49 @@ private fun workflowBadges(
         }
     }
 
-/** The label of the scan screen's primary action, which the Scan section shows as an extended FAB. */
-@Composable
-internal fun scanRunActionLabel(
-    profile: com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel,
-    scan: com.poyka.ripdpi.activities.DiagnosticsScanUiModel,
-    strategyProbeSelected: Boolean,
-    isFullAudit: Boolean,
-): String =
-    (scan.workflowPresentation ?: workflowPresentationFallback(scan, profile, strategyProbeSelected, isFullAudit))
-        .rawActionLabel
-
 @Composable
 private fun WorkflowActionRow(
     strategyProbeSelected: Boolean,
     scan: com.poyka.ripdpi.activities.DiagnosticsScanUiModel,
+    spacing: androidx.compose.ui.unit.Dp,
     presentation: DiagnosticsScanWorkflowPresentationUiModel,
+    onRunRawScan: () -> Unit,
     onRunInPathScan: () -> Unit,
 ) {
-    if (strategyProbeSelected) return
-    RipDpiButton(
-        text = presentation.inPathActionLabel,
-        onClick = onRunInPathScan,
-        modifier =
-            Modifier
-                .fillMaxWidth()
-                .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunInPathAction),
-        variant = RipDpiButtonVariant.Outline,
-        enabled = scan.runInPathEnabled,
-    )
+    if (strategyProbeSelected) {
+        RipDpiButton(
+            text = presentation.rawActionLabel,
+            onClick = onRunRawScan,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunRawAction),
+            enabled = scan.runRawEnabled,
+        )
+        return
+    }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(spacing),
+    ) {
+        RipDpiButton(
+            text = presentation.rawActionLabel,
+            onClick = onRunRawScan,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunRawAction),
+            enabled = scan.runRawEnabled,
+        )
+        RipDpiButton(
+            text = presentation.inPathActionLabel,
+            onClick = onRunInPathScan,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .ripDpiTestTag(RipDpiTestTags.DiagnosticsScanRunInPathAction),
+            variant = RipDpiButtonVariant.Outline,
+            enabled = scan.runInPathEnabled,
+        )
+    }
 }

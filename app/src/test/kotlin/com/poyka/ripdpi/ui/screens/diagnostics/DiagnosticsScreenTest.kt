@@ -7,7 +7,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -20,7 +19,6 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import com.poyka.ripdpi.activities.CompletedProbeUiModel
@@ -326,10 +324,7 @@ class DiagnosticsScreenTest {
 
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsRemediationLadderCard).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsResolverRecommendationCard).assertDoesNotExist()
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.DiagnosticsRemediationLadderAction)
-            .performScrollTo()
-            .performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsRemediationLadderAction).performScrollTo().performClick()
         composeRule.runOnIdle { assertEquals(1, openDnsSettingsCalls) }
     }
 
@@ -400,10 +395,7 @@ class DiagnosticsScreenTest {
             }
         }
 
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.DiagnosticsRemediationLadderAction)
-            .performScrollTo()
-            .performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsRemediationLadderAction).performScrollTo().performClick()
         composeRule.runOnIdle { assertEquals(1, openModeEditorCalls) }
     }
 
@@ -1461,10 +1453,7 @@ class DiagnosticsScreenTest {
                 RipDpiTestTags.DiagnosticsRemediationLadderCard,
             ).performScrollTo()
             .fetchSemanticsNode()
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.DiagnosticsRemediationLadderAction)
-            .performScrollTo()
-            .performSemanticsAction(SemanticsActions.OnClick)
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsRemediationLadderAction).performScrollTo().performClick()
         composeRule.runOnIdle { assertEquals(1, openAdvancedSettingsCalls) }
     }
 
@@ -1583,7 +1572,7 @@ class DiagnosticsScreenTest {
         )
         composeRule.onNodeWithText(directDescription).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText(activeDescription).performScrollTo().assertIsDisplayed()
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsScanRunRawAction).assertIsEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsScanRunRawAction).performScrollTo().assertIsEnabled()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsScanRunInPathAction).assertIsEnabled()
     }
 

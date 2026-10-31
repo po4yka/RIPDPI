@@ -155,7 +155,7 @@ class DiagnosticsGuidedActionsTest {
                 )
         }
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticProfileSearchOpen).performScrollTo().assertIsNotEnabled()
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsScanRunRawAction).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsScanRunRawAction).performScrollTo().assertIsNotEnabled()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsScanRunInPathAction).performScrollTo().assertIsNotEnabled()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsScanCancelAction).assertDoesNotExist()
     }

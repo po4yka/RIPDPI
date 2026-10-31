@@ -58,7 +58,7 @@ class DiagnosticsCompositeRunComposeTest {
             }
         }
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticProfileSearchOpen).performScrollTo().assertIsNotEnabled()
-        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsScanRunRawAction).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsScanRunRawAction).performScrollTo().assertIsNotEnabled()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsScanRunInPathAction).performScrollTo().assertIsNotEnabled()
         composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsScanCancelAction).performScrollTo().performClick()
         composeRule.runOnIdle {
@@ -69,7 +69,8 @@ class DiagnosticsCompositeRunComposeTest {
         composeRule
             .onNodeWithTag(
                 RipDpiTestTags.DiagnosticsScanRunRawAction,
-            ).assertIsEnabled()
+            ).performScrollTo()
+            .assertIsEnabled()
             .performClick()
         composeRule.runOnIdle { assertEquals(1, runs) }
     }
