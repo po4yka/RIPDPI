@@ -200,8 +200,7 @@ internal fun ripDpiIconButtonColors(
             }
 
             RipDpiIconButtonStyle.Tonal -> {
-                (if (selected) colors.muted else colors.accent) to
-                    colors.foreground
+                if (selected) colors.muted to colors.foreground else colors.accent to colors.accentForeground
             }
 
             RipDpiIconButtonStyle.Filled -> {

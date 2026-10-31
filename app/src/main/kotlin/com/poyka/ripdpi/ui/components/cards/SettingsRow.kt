@@ -197,7 +197,7 @@ private fun settingsRowColors(variant: SettingsRowVariant): SettingsRowColors {
                 subtitle = colors.mutedForeground,
                 value = colors.mutedForeground,
                 badgeContainer = colors.accent,
-                badgeIcon = colors.foreground,
+                badgeIcon = colors.accentForeground,
             )
         }
 
@@ -209,7 +209,7 @@ private fun settingsRowColors(variant: SettingsRowVariant): SettingsRowColors {
                 subtitle = colors.mutedForeground,
                 value = colors.mutedForeground,
                 badgeContainer = colors.accent,
-                badgeIcon = colors.foreground,
+                badgeIcon = colors.accentForeground,
             )
         }
 
@@ -217,9 +217,9 @@ private fun settingsRowColors(variant: SettingsRowVariant): SettingsRowColors {
             SettingsRowColors(
                 container = colors.accent,
                 border = colors.foreground,
-                title = colors.foreground,
-                subtitle = colors.foreground,
-                value = colors.foreground,
+                title = colors.accentForeground,
+                subtitle = colors.accentForeground,
+                value = colors.accentForeground,
                 badgeContainer = colors.foreground,
                 badgeIcon = colors.background,
             )

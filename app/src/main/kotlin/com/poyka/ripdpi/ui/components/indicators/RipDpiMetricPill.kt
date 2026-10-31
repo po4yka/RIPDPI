@@ -83,7 +83,7 @@ fun ripDpiMetricToneStyle(tone: RipDpiMetricTone): RipDpiMetricToneStyle {
         RipDpiMetricTone.Accent -> {
             RipDpiMetricToneStyle(
                 container = colors.accent,
-                content = colors.foreground,
+                content = colors.accentForeground,
             )
         }
     }
