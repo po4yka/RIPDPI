@@ -9,17 +9,6 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationTone
 import com.poyka.ripdpi.ui.components.indicators.LogRowTone
 import com.poyka.ripdpi.ui.components.indicators.RipDpiStaleTier
 
-private val WarningIconStyles =
-    RipDpiBannerStateRole.entries.associateWith { role ->
-        CommonStyle {
-            rdsBackground(
-                LocalRipDpiStateTokens.currentValue.banner
-                    .resolve(role)
-                    .iconContainer,
-            )
-        }
-    }
-
 private val DegradationAccentStyles =
     RipDpiDegradationTone.entries.associateWith { tone ->
         CommonStyle {
@@ -89,8 +78,6 @@ private val PageIndicatorStyle =
             motion.stateTween<Float>(),
         ) { rdsBackground(if (state.isSelected) colors.foreground else colors.mutedForeground) }
     }
-
-fun RipDpiComponentStyles.warningIcon(role: RipDpiBannerStateRole): CommonStyle = WarningIconStyles.getValue(role)
 
 fun RipDpiComponentStyles.degradationAccent(tone: RipDpiDegradationTone): CommonStyle =
     DegradationAccentStyles.getValue(tone)
