@@ -650,11 +650,12 @@ private fun NavGraphBuilder.addSettingsRoutes(
         composable<Route.Settings>(
             deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://settings" }),
         ) {
+            // Look the graph up on first composition: leaving Settings from the placeholder ends the list-detail
+            // pair, and the exiting entry then renders the list after the graph has left the back stack.
+            val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
             if (LocalShownBesideList.current) {
                 SettingsDetailPlaceholder()
             } else {
-                val settingsGraphEntry =
-                    remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
                 SettingsHomeRoute(navController, settingsGraphEntry, actions, mainViewModel, permissionSummary)
             }
         }
