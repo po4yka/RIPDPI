@@ -33,7 +33,7 @@ Each screen's primary action MUST use a FAB, extended FAB, top app bar action, o
 
 ### Requirement: REQ-UIX-M3L-SEARCH — Search in long lists
 
-Logs and History MUST offer a Material 3 search bar that filters the visible list.
+Logs and History MUST offer a search field that filters the visible list. Material 3 SearchBar replaces it once it is available without an experimental opt-in.
 
 #### Scenario: Search in long lists
 
