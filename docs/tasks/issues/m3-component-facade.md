@@ -2,7 +2,7 @@
 id: UIX-1793256927624290
 title: Rebuild shared RipDpi components on Material 3
 kind: feature
-status: doing
+status: review
 area: ui
 priority: high
 owner: UI overhaul
