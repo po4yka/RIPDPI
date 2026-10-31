@@ -2,7 +2,7 @@
 id: UIX-1793256927624290
 title: Rebuild shared RipDpi components on Material 3
 kind: feature
-status: review
+status: done
 area: ui
 priority: high
 owner: UI overhaul
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: m3-component-facade
 created: 2026-10-29
 updated: 2026-10-31
+closed_at: "2026-10-31T13:43:42Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: CI run 41202577345 passed 50 jobs at 24f4be7b4; emulator smoke check passed after the reveal-control fix; owner-approved facade and reveal goldens re-verified in both variants.
 ---
 
 ## Goal

@@ -1,0 +1,11 @@
+{
+  "change": "m3-component-facade",
+  "evidence_summary": "CI run 41202577345 passed 50 jobs at 24f4be7b4; emulator smoke check passed after the reveal-control fix; owner-approved facade and reveal goldens re-verified in both variants.",
+  "execution_sha256": "cbc092ecc97498893d066ba8dda5457d0f4b86b224132bd0c89fe5abc3029584",
+  "issue_sha256": "5808b25d12bda8f1674959ce5e5df32f2c06bdead6870ad7bf08f9b65832e5c0",
+  "outcome": "done",
+  "prepared_at": "2026-10-31T13:43:42Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "UIX-1793256927624290"
+}
