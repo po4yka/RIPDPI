@@ -2,7 +2,7 @@
 id: EPC-1793256695505524
 title: Epic - Material 3 UI and UX overhaul
 kind: epic
-status: review
+status: done
 area: epic
 priority: high
 owner: UI overhaul
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: material3-ui-overhaul
 created: 2026-10-29
 updated: 2026-10-31
+closed_at: "2026-10-31T17:57:07Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: All four child changes archived; CI run 41221899635 passed 50 jobs at 095620b81; phone and tablet emulator runs at 200% font in Arabic RTL passed light, dark, medium and high contrast and dynamic color after four fixes; no material-icons dependency; design contract aligned.
 ---
 
 ## Goal

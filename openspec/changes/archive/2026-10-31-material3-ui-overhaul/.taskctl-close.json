@@ -1,0 +1,11 @@
+{
+  "change": "material3-ui-overhaul",
+  "evidence_summary": "All four child changes archived; CI run 41221899635 passed 50 jobs at 095620b81; phone and tablet emulator runs at 200% font in Arabic RTL passed light, dark, medium and high contrast and dynamic color after four fixes; no material-icons dependency; design contract aligned.",
+  "execution_sha256": "0ab17707e47a4b90869484c41bf421b6eeb449d46476466a26d236bba2053631",
+  "issue_sha256": "2260ca3091f544ba33e4d0d386c5395bafe11ee0dd40de4a5841f5ca68b5187a",
+  "outcome": "done",
+  "prepared_at": "2026-10-31T17:57:07Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "EPC-1793256695505524"
+}
