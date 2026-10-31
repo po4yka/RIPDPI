@@ -51,7 +51,7 @@ impl RuntimeState {
             handshake_settings,
             delayed_connect_settings,
             network_reprobe_settings,
-            ws_tunnel_settings,
+            mut ws_tunnel_settings,
             warmup_probe_settings,
             route_retry_settings,
             route_syn_data_settings,
@@ -63,6 +63,7 @@ impl RuntimeState {
             relay_first_response,
             response_failure_evidence_settings,
         } = runtime_config_projection_with_geo(&config, geo_matcher.clone());
+        fill_ws_protect_path_from_context(&mut ws_tunnel_settings, runtime_context.as_ref());
         let RuntimeSessionProjection {
             udp_packet_parser,
             udp_payload_classifier,

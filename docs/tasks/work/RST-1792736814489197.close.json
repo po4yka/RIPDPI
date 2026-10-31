@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "Merged in #654 (5e778024b, exact head f1ab65f16): ci-required run 39920289628, CodeQL, cargo-deny and all six fuzz-nightly shards (run 39921030244) succeeded on the exact head with independent review recorded; main f0d30a8c4 resolves patched ctutils (native 0.4.5, fuzz 0.4.4) and both workspaces pass cargo metadata --locked on Rust 1.98.1.",
+  "execution_sha256": "e5e92277a45c5549c058eb004d764cafb6e8c1fd55e2987eb732ed3946bef60c",
+  "issue_sha256": "1dc0b9900be053a72a6982b5af3b79f4d56a66df4a954fdc0810684a1e809e1c",
+  "outcome": "done",
+  "prepared_at": "2026-10-30T18:48:14Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1792736814489197"
+}

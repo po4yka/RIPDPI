@@ -60,7 +60,7 @@ pub fn ws_tunnel_config_with(
         fake_sni: settings.fake_sni.clone(),
         // Operator opt-in plumbed from RuntimeConfig.adaptive. When false (the
         // default), ripdpi_ws_bootstrap refuses any fake_sni value with
-        // PermissionDenied rather than silently bypassing TLS verification.
+        // PermissionDenied rather than silently sending a cover SNI.
         allow_insecure_sni: settings.allow_insecure_sni,
         worker_route: settings.worker_route.clone(),
     }

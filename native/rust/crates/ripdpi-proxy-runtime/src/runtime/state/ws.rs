@@ -44,8 +44,8 @@ impl RuntimeState {
         }
     }
     /// True when the configured ws-tunnel uses the fake-SNI cover with the
-    /// operator opt-in set, i.e. this connection's TLS cert verification is
-    /// disabled. Drives the `fake_sni_active` telemetry counter.
+    /// operator opt-in set, i.e. this connection's SNI does not name the
+    /// gateway. Drives the `fake_sni_active` telemetry counter.
     pub(in crate::runtime) fn ws_tunnel_fake_sni_active(&self) -> bool {
         self.ws_tunnel_settings.allow_insecure_sni && self.ws_tunnel_settings.fake_sni.is_some()
     }

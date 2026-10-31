@@ -2114,7 +2114,6 @@ dependencies = [
  "ctr",
  "futures",
  "nix",
- "ripdpi-native-protect",
  "ripdpi-tls-profiles",
  "ripdpi-ws-transport-port",
  "socket2",

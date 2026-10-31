@@ -71,8 +71,8 @@ pub struct RuntimeAdaptiveSettings {
     pub ws_tunnel_mode: WsTunnelMode,
     pub ws_tunnel_fake_sni: Option<String>,
     /// Explicit operator acknowledgement that the ws-tunnel fake-SNI cover
-    /// domain ([`Self::ws_tunnel_fake_sni`]) disables standard TLS
-    /// certificate verification. The ws-tunnel runtime refuses a `fake_sni`
+    /// domain ([`Self::ws_tunnel_fake_sni`]) replaces the gateway name in the
+    /// TLS SNI. The ws-tunnel runtime refuses a `fake_sni`
     /// value at connect time unless this is `true`. Defaults to `false` for
     /// safe-by-default behaviour. See
     /// completed task `gate-fake-sni-cert-bypass-behind-allow-insecure-flag-with-telemetry` (see git history).
