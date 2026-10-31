@@ -2,7 +2,7 @@
 id: DAT-1793428393229398
 title: Re-vendor the deployer bundle fixtures with the 30-minute probe cadence
 kind: chore
-status: doing
+status: review
 area: data
 priority: medium
 owner: Client contract maintainer
@@ -13,6 +13,7 @@ openspec_change: null
 created: 2026-10-31
 updated: 2026-10-31
 spec_reason: test-only
+status_detail: Both fixtures re-vendored byte-identically; CI kotlin-coverage (every core module unit test, including RipdpiBundleContractTest, PayloadFailoverImportTest and PayloadSelectorTopologyTest) passed on 8d68ceb; the deployer contract-sync dispatch after both merges remains.
 ---
 
 ## Goal
