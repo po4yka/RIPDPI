@@ -1,0 +1,11 @@
+{
+  "change": "rly-1793363326590556-naiveproxy-upstream-client",
+  "evidence_summary": "Main 32a9b2c8a passed full push CI run 41170842447 (ci-required, workspace clippy, Kotlin unit suites, staticAnalysis, arch-health); github-full per-ABI APK sizes 71.8/76.7/78.8/80.0 MiB under the 170 MiB budget; API 37 emulator acceptance recorded at 83246fb52.",
+  "execution_sha256": "2b00e1c6abeb81fce3957592010b05711080c0f961e9169c45065c4f80a6ba09",
+  "issue_sha256": "020d3a31097a05e426f22ec2243d967721bb3c70db41118c21f3c888ab16c833",
+  "outcome": "done",
+  "prepared_at": "2026-10-31T06:31:52Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RLY-1793363326590556"
+}

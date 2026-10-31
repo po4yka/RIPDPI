@@ -16,7 +16,7 @@ Complete uploads during first-response observation without replaying unretained 
 
 - [x] PRX-1792849486028429 Implement bounded duplex continuation and preserve first response observation on both copy paths #bug !high @item:PRX-1792849175606125
 - [x] PRX-1792849486474789 Verify no replay after continuation and cover early response half close and cancellation regressions #bug !high @item:PRX-1792849175606125
-- [ ] PRX-1792849486914254 Integrate reviewed source and verify rebuilt physical Hysteria upload with hosted native gates #bug !high @item:PRX-1792849175606125
+- [x] PRX-1792849486914254 Integrate reviewed source and verify rebuilt physical Hysteria upload with hosted native gates #bug !high @item:PRX-1792849175606125
 
 ## Verification
 

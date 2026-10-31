@@ -1,11 +1,11 @@
 ---
 task_id: SVC-1792856195708453
 change: physical-network-handover-authority
-commit_sha: 47a5ee708a497086eb29739ca17f35e164119846
+commit_sha: b3bdf4263f934c6f8f899e3ca6967010c872f516
 local: passed
 local_evidence: Four complete JVM suites passed 6288 tests without failures, errors or skips. AndroidTest Kotlin and Java compilation passed. One detekt ReturnCount finding was corrected; the final 26-case selection suite and service detekt, ktlint and lint passed. Independent review approved all source changes. Integrated behavior paths match reviewed commit ff134c2a5261cbb04850cd571dc989b706989966.
-remote_ci: required
-remote_ci_evidence: Final published candidate hosted gates remain required. Earlier source 38e64afcf9f097a60c8dd9146ed431c108fe35ef passed 56 checks with 19 planned skips; its Linux io_uring job 120911596401 passed 254 tests with no skips, positive WRITE_FIXED completions and zero fallback.
+remote_ci: passed
+remote_ci_evidence: Landing commit b3bdf4263f934c6f8f899e3ca6967010c872f516, whose message records published source gates at 90ae34b62 and physical candidate 47a5ee708 passing all four owned USB scenarios, passed full push CI run 40122030612: ci-required succeeded with 48 jobs passed and 16 route skips, including rust-workspace-tests, rust-lint, gradle-static-analysis, architecture-health, native packaging for three Android ABIs, six release-verification variants and instrumented tests on API 27, 33, 35, 36 and 37. Current main 32a9b2c8aa0a52945cb9f6c5e38c43f8194a30c3 also passed full push CI run 41170842447 (47 jobs passed, ci-required succeeded).
 device: passed
 device_evidence: All four local USB scenarios passed on source 47a5ee708a497086eb29739ca17f35e164119846 with the same genuine APK pair and complete owned cleanup. P0/P1 passed in 164.863 seconds, Hysteria in 161.927 seconds, AWG in 81.898 seconds and migration in 15.205 seconds. External paths, direct device UDP, bypass prevention and Wi-Fi/cellular handover remain unverified. Stable physical sleep/wake passed with real payloads and automatic reserve/recovery. Earlier source 38e64afc failures retain unproven physical-network versus VPN-overlay attribution.
 artifact: passed
@@ -24,7 +24,7 @@ deployment_evidence: No provider, credential, host or deployment action is inclu
 | REQ-PHYSICAL-CHANGES | SVC-1792856270934423 | Overlay, true transport, DNS, private-DNS, route, MTU and unrelated callback regressions | Passed |
 | REQ-PHYSICAL-UNAVAILABLE | SVC-1792856270934423 | Incomplete, blocked, lost, restored and legacy ambiguity tests | Passed |
 | REQ-PHYSICAL-PRIVACY | SVC-1792856270934423 | Unchanged scope hashes and serialization with exact binder-issued DNS authority | Passed |
-| REQ-PHYSICAL-ACCEPTANCE | SVC-1792856271355520 | Complete affected suites, reviewed source, genuine artifact, four USB scenarios and hosted gates | Required |
+| REQ-PHYSICAL-ACCEPTANCE | SVC-1792856271355520 | Complete affected suites, reviewed source, genuine artifact, four USB scenarios and hosted gates | Passed |
 
 ## Source regression evidence
 
@@ -63,3 +63,7 @@ failures retain their original scope and unproven physical-network attribution.
 All four local USB scenarios passed on source 47a5ee708a497086eb29739ca17f35e164119846 with the same genuine APK pair and complete owned cleanup. P0/P1 passed in 164.863 seconds, Hysteria in 161.927 seconds, AWG in 81.898 seconds and migration in 15.205 seconds. External paths, direct device UDP, bypass prevention and Wi-Fi/cellular handover remain unverified. Stable physical sleep/wake passed with real payloads and automatic reserve/recovery. Earlier source 38e64afc failures retain unproven physical-network versus VPN-overlay attribution.
 
 Genuine arm64-v8a preparation passed at clean source 47a5ee708a497086eb29739ca17f35e164119846 in 2 minutes 3 seconds, with native compilation enabled and libXray verified. Independently verified preserved app SHA-256 f41bd47c48edb357f10d7f396399be6a997bc7151e9e69af8a31930079a77eef and test SHA-256 43a7587e955638efc870fcd9cb612fac9affe0cabffd0ad4d5a4616dcf15af2b.
+
+## Hosted acceptance of the landing commit
+
+Landing commit b3bdf4263f934c6f8f899e3ca6967010c872f516, whose message records published source gates at 90ae34b62 and physical candidate 47a5ee708 passing all four owned USB scenarios, passed full push CI run 40122030612: ci-required succeeded with 48 jobs passed and 16 route skips, including rust-workspace-tests, rust-lint, gradle-static-analysis, architecture-health, native packaging for three Android ABIs, six release-verification variants and instrumented tests on API 27, 33, 35, 36 and 37. Current main 32a9b2c8aa0a52945cb9f6c5e38c43f8194a30c3 also passed full push CI run 41170842447 (47 jobs passed, ci-required succeeded).

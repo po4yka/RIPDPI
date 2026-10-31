@@ -1,11 +1,11 @@
 ---
 task_id: RLY-1793363326590556
 change: rly-1793363326590556-naiveproxy-upstream-client
-commit_sha: 84b73e779c45b8e1117347d01641335f0ade463a
+commit_sha: 32a9b2c8aa0a52945cb9f6c5e38c43f8194a30c3
 local: passed
 local_evidence: At 8f5e7fd49 and 42ddc8aa5 - cargo fmt, workspace clippy -D warnings, cargo test -p ripdpi-naiveproxy -p ripdpi-vless, fuzz lock --locked; Gradle service/app unit suites, service lint, staticAnalysis (BUILD SUCCESSFUL); earlier full suites at 52e8da4b3; 76 acceptance pytest cases; manifest check; androidTest compile; arch-health --check; taskctl validate.
-remote_ci: required
-remote_ci_evidence: Dispatched CI run 41078666387 on dd7f4eaf8 passed. Run 41098434082 on 05b84cee3: every job passed except rust-workspace-tests, whose AWG interop matrix failed one MTU 1280 case (a different case than in run 41090083442; no AWG code changed). A green ci-required on the final commit is still open.
+remote_ci: passed
+remote_ci_evidence: Final main 32a9b2c8aa0a52945cb9f6c5e38c43f8194a30c3, which contains the NaiveProxy upstream client (84b73e779) and the NaiveUriCodec detekt fix (7aa9318bf), passed full push CI run 41170842447: ci-required succeeded with 47 jobs passed and 18 route skips, including rust-lint (workspace clippy), rust-workspace-tests, kotlin-coverage (Kotlin unit suites), gradle-static-analysis (staticAnalysis including lint and detekt), architecture-health and six release-verification variants. Its github-full per-ABI release APK size gate passed: armeabi-v7a 71.8, arm64-v8a 76.7, x86 78.8 and x86_64 80.0 MiB against the 170 MiB budget. Earlier: dispatched run 41078666387 on dd7f4eaf8 passed.
 device: passed
 device_evidence: android-naiveproxy passed on leased RIPDPI_Pool API 37 arm64 emulator at 83246fb52 (content of 84b73e779 before rebase; /private/tmp/claude-2042741446/-Users-npochaev-GitHub-RIPDPI/26bd3aec-6b8e-499c-80c2-4dfdd76ff68b/scratchpad/run-improve): pinned, pin-free and HTTP/3 transfers matched receipts with an HTTP/3 CONNECT at the server; health healthy after the pin-free transfer, degraded after the wrong pin and after the wrong password settled; leak scan 0 password and 0 destination hits. Earlier pass at 42ddc8aa5 (run-gaps-final).
 artifact: passed
@@ -33,3 +33,7 @@ deployment_evidence: No deployment is owned by this change.
 | REQ-RLY-1793363326590556-011 | RLY-1793386616908842 | check-mode Rust test (407 auth, 502 ok, closed port connect); lab Caddy run ok/auth/connect; NaiveProxyProfileCheckerTest; ConfigNaiveProfileCheckRunnerTest | passed |
 | REQ-RLY-1793363326590556-012 | RLY-1793386617391528 | ProxyUriCodecTest quic/concurrency/pin cases; NaiveUpstreamConfigTest; pinned refusal preflight test; emulator HTTP/3 phase transfer with an HTTP/3 CONNECT at the server | passed |
 | REQ-RLY-1793363326590556-013 | RLY-1793386615947971 | tls.rs ClientHello tests; lab capture rustpq: one ClientHello, ServerHello selects X25519MLKEM768, JA4 t13d0911h2_f91f431d341e_6d05706c5ed3 | passed |
+
+## Final hosted gates
+
+Final main 32a9b2c8aa0a52945cb9f6c5e38c43f8194a30c3, which contains the NaiveProxy upstream client (84b73e779) and the NaiveUriCodec detekt fix (7aa9318bf), passed full push CI run 41170842447: ci-required succeeded with 47 jobs passed and 18 route skips, including rust-lint (workspace clippy), rust-workspace-tests, kotlin-coverage (Kotlin unit suites), gradle-static-analysis (staticAnalysis including lint and detekt), architecture-health and six release-verification variants. Its github-full per-ABI release APK size gate passed: armeabi-v7a 71.8, arm64-v8a 76.7, x86 78.8 and x86_64 80.0 MiB against the 170 MiB budget. Earlier: dispatched run 41078666387 on dd7f4eaf8 passed.

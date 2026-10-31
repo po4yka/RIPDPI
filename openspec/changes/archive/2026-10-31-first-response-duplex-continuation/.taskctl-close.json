@@ -1,0 +1,11 @@
+{
+  "change": "first-response-duplex-continuation",
+  "evidence_summary": "Landed in b3bdf4263 (physical candidate 47a5ee708 passed all four owned USB scenarios); full push CI run 40122030612 on b3bdf4263 passed ci-required with 48 jobs; main 32a9b2c8a passed run 41170842447.",
+  "execution_sha256": "d2231643d3053b4871365497d70109861d28f74aa19cdb1d7a0ef1861997803b",
+  "issue_sha256": "7db9c1a4f1588a28f9974abc75cc9ae7a4c3a5580d35ac06fcc1b2cd5a2b1eb6",
+  "outcome": "done",
+  "prepared_at": "2026-10-31T06:31:52Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "PRX-1792849175606125"
+}

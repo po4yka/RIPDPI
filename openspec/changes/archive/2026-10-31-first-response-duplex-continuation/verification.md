@@ -1,11 +1,11 @@
 ---
 task_id: PRX-1792849175606125
 change: first-response-duplex-continuation
-commit_sha: 47a5ee708a497086eb29739ca17f35e164119846
+commit_sha: b3bdf4263f934c6f8f899e3ca6967010c872f516
 local: passed
 local_evidence: Complete proxy-runtime tests passed with 316 tests and 13 existing opt-in ignored tests. Workspace all-target Clippy with warnings denied passed. Android compilation with tests and io-uring enabled passed. The integrated native tree is byte-identical to reviewed commit 35458266a232b4e4d4ae4a31fa3f0459d2539639.
-remote_ci: required
-remote_ci_evidence: Final published candidate hosted gates remain required. Earlier source 38e64afcf9f097a60c8dd9146ed431c108fe35ef passed 56 checks with 19 planned skips; its Linux io_uring job 120911596401 passed 254 tests with no skips, positive WRITE_FIXED completions and zero fallback.
+remote_ci: passed
+remote_ci_evidence: Landing commit b3bdf4263f934c6f8f899e3ca6967010c872f516, whose message records published source gates at 90ae34b62 and physical candidate 47a5ee708 passing all four owned USB scenarios, passed full push CI run 40122030612: ci-required succeeded with 48 jobs passed and 16 route skips, including rust-workspace-tests, rust-lint, gradle-static-analysis, architecture-health, native packaging for three Android ABIs, six release-verification variants and instrumented tests on API 27, 33, 35, 36 and 37. Current main 32a9b2c8aa0a52945cb9f6c5e38c43f8194a30c3 also passed full push CI run 41170842447 (47 jobs passed, ci-required succeeded).
 device: passed
 device_evidence: All four local USB scenarios passed on source 47a5ee708a497086eb29739ca17f35e164119846 with the same genuine APK pair and complete owned cleanup. P0/P1 passed in 164.863 seconds, Hysteria in 161.927 seconds, AWG in 81.898 seconds and migration in 15.205 seconds. External paths, direct device UDP, bypass prevention and Wi-Fi/cellular handover remain unverified. Hysteria completed the previously failing 1 MiB upload in 604 ms, a 3997696-byte 60.002-second sleep/wake stream, automatic TCP reserve and explicit UDP recovery.
 artifact: passed
@@ -20,14 +20,14 @@ deployment_evidence: No provider, host, credential or deployment action is inclu
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-PROXY-DUPLEX | PRX-1792849486028429 | Real proxy split-header POST delivers the exact 1 MiB body and digest; an early response reaches a backpressured uploader | Local and Linux passed; device completion pending |
+| REQ-PROXY-DUPLEX | PRX-1792849486028429 | Real proxy split-header POST delivers the exact 1 MiB body and digest; an early response reaches a backpressured uploader; local, hosted Linux and the physical Hysteria 1 MiB upload passed | Passed |
 | REQ-PROXY-NO-CONTINUATION-REPLAY | PRX-1792849486474789 | A classified 451 response records one failure, no alternate connection, no route advance and no success promotion | Passed |
-| REQ-PROXY-RESPONSE-OBSERVATION | PRX-1792849486028429 | Partial TLS bytes and the original deadline survive handoff; a real next request observes rotation after response publication | Portable and real Linux fixed-buffer path passed |
+| REQ-PROXY-RESPONSE-OBSERVATION | PRX-1792849486028429 | Partial TLS bytes and the original deadline survive handoff; a real next request observes rotation after response publication; portable and real Linux fixed-buffer paths passed | Passed |
 | REQ-PROXY-DUPLEX-CLEANUP | PRX-1792849486474789 | Real sockets preserve client half-close and finish owner cancellation before client or origin fixture cleanup | Passed |
 
 Physical acceptance, hosted Linux acceptance and rebuilt artifact evidence map
 to `PRX-1792849486914254`. The artifact and Linux runtime gate passed; complete device acceptance and
-final candidate hosted checks remain required.
+final candidate hosted checks passed (see the hosted acceptance section).
 
 ## Local checks
 
@@ -81,3 +81,7 @@ own hosted and physical acceptance.
 All four local USB scenarios passed on source 47a5ee708a497086eb29739ca17f35e164119846 with the same genuine APK pair and complete owned cleanup. P0/P1 passed in 164.863 seconds, Hysteria in 161.927 seconds, AWG in 81.898 seconds and migration in 15.205 seconds. External paths, direct device UDP, bypass prevention and Wi-Fi/cellular handover remain unverified. Hysteria completed the previously failing 1 MiB upload in 604 ms, a 3997696-byte 60.002-second sleep/wake stream, automatic TCP reserve and explicit UDP recovery.
 
 Genuine arm64-v8a preparation passed at clean source 47a5ee708a497086eb29739ca17f35e164119846 in 2 minutes 3 seconds, with native compilation enabled and libXray verified. Independently verified preserved app SHA-256 f41bd47c48edb357f10d7f396399be6a997bc7151e9e69af8a31930079a77eef and test SHA-256 43a7587e955638efc870fcd9cb612fac9affe0cabffd0ad4d5a4616dcf15af2b.
+
+## Hosted acceptance of the landing commit
+
+Landing commit b3bdf4263f934c6f8f899e3ca6967010c872f516, whose message records published source gates at 90ae34b62 and physical candidate 47a5ee708 passing all four owned USB scenarios, passed full push CI run 40122030612: ci-required succeeded with 48 jobs passed and 16 route skips, including rust-workspace-tests, rust-lint, gradle-static-analysis, architecture-health, native packaging for three Android ABIs, six release-verification variants and instrumented tests on API 27, 33, 35, 36 and 37. Current main 32a9b2c8aa0a52945cb9f6c5e38c43f8194a30c3 also passed full push CI run 41170842447 (47 jobs passed, ci-required succeeded).

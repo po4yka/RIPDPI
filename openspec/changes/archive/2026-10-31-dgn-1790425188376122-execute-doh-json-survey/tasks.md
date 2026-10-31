@@ -11,8 +11,8 @@ This worktree owns the Kotlin diagnostics planner and local-network admission, R
 ## Execution
 
 - [x] DGN-1790425344723583 Share JSON resolver panel and send TLS-verified JSON HTTP requests #feature !high @item:DGN-1790425188376122
-- [ ] DGN-1790425345534382 Select and run the survey with deduplication and focused tests #feature !high @item:DGN-1790425188376122
-- [ ] DGN-1790425346262481 Verify contracts, architecture, and documentation on integrated code #feature !high @item:DGN-1790425188376122
+- [x] DGN-1790425345534382 Select and run the survey with deduplication and focused tests #feature !high @item:DGN-1790425188376122
+- [x] DGN-1790425346262481 Verify contracts, architecture, and documentation on integrated code #feature !high @item:DGN-1790425188376122
 
 ## Verification
 

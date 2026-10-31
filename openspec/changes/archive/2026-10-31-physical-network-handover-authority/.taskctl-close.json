@@ -1,0 +1,11 @@
+{
+  "change": "physical-network-handover-authority",
+  "evidence_summary": "Landed in b3bdf4263 (physical candidate 47a5ee708 passed all four owned USB scenarios); full push CI run 40122030612 on b3bdf4263 passed ci-required with 48 jobs; main 32a9b2c8a passed run 41170842447.",
+  "execution_sha256": "0d6005ef1e86e44ae857eca536b4d2b56b4798cb14f63c46574249d214a825eb",
+  "issue_sha256": "2f336f86a7266d19e02fa095fc182aa9f9c7f5d0b40b74cd86f0f2e19cc4f5f9",
+  "outcome": "done",
+  "prepared_at": "2026-10-31T06:31:52Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "SVC-1792856195708453"
+}

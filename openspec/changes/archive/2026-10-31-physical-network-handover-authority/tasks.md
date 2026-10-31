@@ -44,4 +44,4 @@ run all four owned USB scenarios with exact digests and cleanup. Hosted source
 gates remain required.
 - [x] SVC-1792856270513687 Use atomic selected physical snapshots for fingerprint handover and tunnel MTU without VPN fallback #bug !high @item:SVC-1792856195708453
 - [x] SVC-1792856270934423 Verify overlay isolation real path changes unavailable evidence scope hashing and DNS lease boundaries #bug !high @item:SVC-1792856195708453
-- [ ] SVC-1792856271355520 Integrate reviewed source and pass genuine artifact four USB scenarios and hosted gates #bug !high @item:SVC-1792856195708453
+- [x] SVC-1792856271355520 Integrate reviewed source and pass genuine artifact four USB scenarios and hosted gates #bug !high @item:SVC-1792856195708453
