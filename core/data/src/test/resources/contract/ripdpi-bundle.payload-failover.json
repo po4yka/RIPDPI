@@ -81,7 +81,7 @@
         "p2-hysteria2-hetzner-fixture"
       ],
       "url": "https://www.gstatic.com/generate_204",
-      "interval": "5m",
+      "interval": "30m",
       "tolerance": 50
     },
     {
