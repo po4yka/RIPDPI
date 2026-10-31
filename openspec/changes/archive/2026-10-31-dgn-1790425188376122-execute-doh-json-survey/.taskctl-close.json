@@ -1,0 +1,11 @@
+{
+  "change": "dgn-1790425188376122-execute-doh-json-survey",
+  "evidence_summary": "Survey landed in ae3099b94; main 32a9b2c8a passed full push CI run 41170842447; on the branch 8 doh_json engine tests (incl. the new no-target guard) and the Kotlin planner/admission tests (13 and 9) passed.",
+  "execution_sha256": "e7f5233527d9a33a75227330ecaec512fcbcc41b14c6c255a46364e2540975d1",
+  "issue_sha256": "1192dd2e3ead86b84e8b9191bfdf87df6f7431311fc8edf58612adc1e1e8ccf4",
+  "outcome": "done",
+  "prepared_at": "2026-10-31T06:47:29Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1790425188376122"
+}
