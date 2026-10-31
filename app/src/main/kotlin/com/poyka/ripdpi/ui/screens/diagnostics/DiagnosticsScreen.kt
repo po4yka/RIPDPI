@@ -49,6 +49,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
+import com.poyka.ripdpi.ui.components.navigation.RipDpiListDetailLayout
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
@@ -59,6 +60,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.RipDpiWidthClass
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 
 data class DiagnosticsScreenActions(
@@ -164,34 +166,48 @@ fun DiagnosticsScreen(
     var showDebugInfo by rememberSaveable { mutableStateOf(false) }
     var expertMode by rememberSaveable(uiState.uiPersona) { mutableStateOf(uiState.uiPersona == "advanced") }
 
-    DiagnosticsScreenFrame(
-        uiState = uiState,
-        pagerState = pagerState,
-        snackbarHostState = snackbarHostState,
-        actions = actions,
-        showDebugInfo = showDebugInfo,
-        expertMode = expertMode,
-        onExpertModeChange = { expertMode = it },
-        homeDiagnostics = homeDiagnostics,
-        onToggleDebugInfo = { if (BuildConfig.DEBUG) showDebugInfo = !showDebugInfo },
-        tools =
-            DiagnosticsToolsUiModel(
-                dpiTools = dpiTools,
-                cidrWhitelistTool = cidrWhitelistTool,
-                ipv4WhitelistTool = ipv4WhitelistTool,
-                pluggableTransportTool = pluggableTransportTool,
-                xrayProvider = xrayProvider,
-                onRunXrayProviderProbe = actions.onRunXrayProviderProbe,
-                remoteDeviceAcceptance = remoteDeviceAcceptance,
-                onRunRemoteDeviceAcceptance = actions.onRunRemoteDeviceAcceptance,
-                onShareRemoteDeviceAcceptance = actions.onShareRemoteDeviceAcceptance,
-            ),
-        rootModeEnabled = rootModeEnabled,
-        pcapRecording = pcapRecording,
-        topBarExtraActions = topBarExtraActions,
-        modifier = modifier,
-    )
-    DiagnosticsScreenDialogs(uiState = uiState, actions = actions, expertMode = expertMode)
+    val twoPane = RipDpiThemeTokens.layout.widthClass >= RipDpiWidthClass.Expanded
+    val frame: @Composable () -> Unit = {
+        DiagnosticsScreenFrame(
+            uiState = uiState,
+            pagerState = pagerState,
+            snackbarHostState = snackbarHostState,
+            actions = actions,
+            showDebugInfo = showDebugInfo,
+            expertMode = expertMode,
+            onExpertModeChange = { expertMode = it },
+            homeDiagnostics = homeDiagnostics,
+            onToggleDebugInfo = { if (BuildConfig.DEBUG) showDebugInfo = !showDebugInfo },
+            tools =
+                DiagnosticsToolsUiModel(
+                    dpiTools = dpiTools,
+                    cidrWhitelistTool = cidrWhitelistTool,
+                    ipv4WhitelistTool = ipv4WhitelistTool,
+                    pluggableTransportTool = pluggableTransportTool,
+                    xrayProvider = xrayProvider,
+                    onRunXrayProviderProbe = actions.onRunXrayProviderProbe,
+                    remoteDeviceAcceptance = remoteDeviceAcceptance,
+                    onRunRemoteDeviceAcceptance = actions.onRunRemoteDeviceAcceptance,
+                    onShareRemoteDeviceAcceptance = actions.onShareRemoteDeviceAcceptance,
+                ),
+            rootModeEnabled = rootModeEnabled,
+            pcapRecording = pcapRecording,
+            topBarExtraActions = topBarExtraActions,
+            modifier = modifier,
+        )
+    }
+    if (twoPane) {
+        RipDpiListDetailLayout(
+            showList = true,
+            listPane = frame,
+            detailPane = {
+                DiagnosticsDetailPane(diagnosticsDetails(uiState, actions, expertMode).lastOrNull())
+            },
+        )
+    } else {
+        frame()
+    }
+    DiagnosticsScreenDialogs(uiState = uiState, actions = actions, expertMode = expertMode, twoPane = twoPane)
     DiagnosticsVerificationResult(homeDiagnostics.verificationSheet, actions.onDismissVerification)
 }
 
@@ -488,28 +504,11 @@ private fun DiagnosticsScreenDialogs(
     uiState: DiagnosticsScreenUiState,
     actions: DiagnosticsScreenActions,
     expertMode: Boolean,
+    twoPane: Boolean,
 ) {
-    DiagnosticsBottomSheetHost(
-        selectedSessionDetail = uiState.selectedSessionDetail,
-        selectedApproachDetail = uiState.selectedApproachDetail,
-        selectedEvent = uiState.selectedEvent,
-        probePresentation =
-            DiagnosticsProbeSheetPresentation(
-                selectedProbe = uiState.selectedProbe,
-                expertMode = expertMode,
-                onReplayProbe = actions.onReplayProbe,
-            ),
-        selectedStrategyProbeCandidate = uiState.selectedStrategyProbeCandidate,
-        onDismissSessionDetail = actions.onDismissSessionDetail,
-        onToggleSensitiveSessionDetails = actions.onToggleSensitiveSessionDetails,
-        onSelectStrategyProbeCandidate = actions.onSelectStrategyProbeCandidate,
-        onDismissStrategyProbeCandidate = actions.onDismissStrategyProbeCandidate,
-        onSelectEvent = actions.onSelectEvent,
-        onDismissEventDetail = actions.onDismissEventDetail,
-        onSelectProbe = actions.onSelectProbe,
-        onDismissProbeDetail = actions.onDismissProbeDetail,
-        onDismissApproachDetail = actions.onDismissApproachDetail,
-    )
+    if (!twoPane) {
+        DiagnosticsDetailSheets(diagnosticsDetails(uiState, actions, expertMode))
+    }
     uiState.scan.hiddenProbeConflictDialog?.let { dialogState ->
         HiddenProbeConflictDialog(dialogState.profileName, actions)
     }

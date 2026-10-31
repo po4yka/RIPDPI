@@ -366,6 +366,8 @@ internal object RipDpiTestTags {
     const val DiagnosticsArchiveStateIndicator = "diagnostics-archive-state-indicator"
     const val DiagnosticsDeviceAcceptanceCard = "diagnostics-device-acceptance-card"
     const val DiagnosticsSessionDetailSheet = "diagnostics-session-detail-sheet"
+    const val DiagnosticsDetailPlaceholder = "diagnostics-detail-placeholder"
+    const val DiagnosticsDetailClose = "diagnostics-detail-close"
     const val DiagnosticsEventDetailSheet = "diagnostics-event-detail-sheet"
     const val DiagnosticsApproachDetailSheet = "diagnostics-approach-detail-sheet"
     const val DiagnosticsProbeDetailSheet = "diagnostics-probe-detail-sheet"

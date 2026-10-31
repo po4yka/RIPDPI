@@ -2,15 +2,18 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 
 import android.content.ClipData
 import android.content.ClipboardManager
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
@@ -46,7 +49,16 @@ internal data class DiagnosticsProbeSheetPresentation(
     val onReplayProbe: ((Route.ReplayFailure) -> Unit)? = null,
 )
 
-@Suppress("LongMethod", "CyclomaticComplexMethod")
+/** One open Diagnostics detail: a bottom sheet on compact windows, the detail pane on wide ones. */
+internal class DiagnosticsDetail(
+    val title: String,
+    val message: String?,
+    val icon: ImageVector,
+    val testTag: String,
+    val onDismiss: () -> Unit,
+    val content: @Composable ColumnScope.() -> Unit,
+)
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun DiagnosticsBottomSheetHost(
@@ -65,299 +77,415 @@ internal fun DiagnosticsBottomSheetHost(
     onDismissProbeDetail: () -> Unit,
     onDismissApproachDetail: () -> Unit,
 ) {
-    val expertMode = probePresentation.expertMode
-    val onReplayProbe = probePresentation.onReplayProbe
-    val colors = RipDpiThemeTokens.colors
+    diagnosticsDetails(
+        selectedSessionDetail = selectedSessionDetail,
+        selectedApproachDetail = selectedApproachDetail,
+        selectedEvent = selectedEvent,
+        probePresentation = probePresentation,
+        selectedStrategyProbeCandidate = selectedStrategyProbeCandidate,
+        onDismissSessionDetail = onDismissSessionDetail,
+        onToggleSensitiveSessionDetails = onToggleSensitiveSessionDetails,
+        onSelectStrategyProbeCandidate = onSelectStrategyProbeCandidate,
+        onDismissStrategyProbeCandidate = onDismissStrategyProbeCandidate,
+        onSelectEvent = onSelectEvent,
+        onDismissEventDetail = onDismissEventDetail,
+        onSelectProbe = onSelectProbe,
+        onDismissProbeDetail = onDismissProbeDetail,
+        onDismissApproachDetail = onDismissApproachDetail,
+    ).let { DiagnosticsDetailSheets(it) }
+}
 
-    if (selectedStrategyProbeCandidate == null) {
-        selectedSessionDetail?.let { detail ->
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+internal fun DiagnosticsDetailSheets(details: List<DiagnosticsDetail>) {
+    details.forEach { detail ->
+        key(detail.testTag) {
             RipDpiBottomSheet(
-                onDismissRequest = onDismissSessionDetail,
-                title = detail.session.title,
-                message = detail.session.subtitle,
-                icon = RipDpiIcons.Info,
-                testTag = RipDpiTestTags.DiagnosticsSessionDetailSheet,
-            ) {
-                StatusIndicator(
-                    label = detail.session.completionLabel ?: detail.session.status,
-                    tone = statusTone(detail.session.tone),
-                )
-                if (detail.hasSensitiveDetails) {
-                    RipDpiButton(
-                        text =
-                            if (detail.sensitiveDetailsVisible) {
-                                stringResource(R.string.diagnostics_sensitive_hide)
-                            } else {
-                                stringResource(R.string.diagnostics_sensitive_show)
-                            },
-                        onClick = onToggleSensitiveSessionDetails,
-                        variant = RipDpiButtonVariant.Outline,
-                        modifier =
-                            Modifier
-                                .fillMaxWidth()
-                                .ripDpiTestTag(RipDpiTestTags.DiagnosticsSessionSensitiveToggle),
-                    )
-                }
-                if (detail.diagnoses.isNotEmpty() || detail.reportMetadata.isNotEmpty()) {
-                    DiagnosisSummaryCard(
-                        diagnoses = detail.diagnoses,
-                        reportMetadata = detail.reportMetadata,
-                    )
-                }
-                if (detail.capabilityEvidence.isNotEmpty()) {
-                    CapabilityEvidenceCard(evidence = detail.capabilityEvidence)
-                }
-                val matrixResults = detail.probeGroups.flatMap { it.items }
-                if (matrixResults.any { it.probeType.startsWith("selective_availability") }) {
-                    SelectiveMatrixResultsCard(matrixResults)
-                }
-                detail.strategyProbeReport?.let { report ->
-                    StrategyProbeReportCard(
-                        report = report,
-                        onSelectCandidate = onSelectStrategyProbeCandidate,
-                    )
-                }
-                detail.contextGroups.forEach { group ->
-                    ContextGroupCard(group = group)
-                }
-                detail.probeGroups.forEach { group ->
-                    Text(
-                        text = group.title,
-                        style = RipDpiThemeTokens.type.bodyEmphasis,
-                        color = colors.foreground,
-                    )
-                    group.items.forEach { probe ->
-                        ProbeResultRow(
-                            probe = probe,
-                            onClick = { onSelectProbe(probe) },
-                            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsProbe(probe.id)),
-                        )
-                    }
-                }
-                detail.snapshots.forEach { snapshot ->
-                    SnapshotCard(snapshot = snapshot)
-                }
-                if (detail.events.isNotEmpty()) {
-                    Text(
-                        text = stringResource(R.string.diagnostics_events_title),
-                        style = RipDpiThemeTokens.type.bodyEmphasis,
-                        color = colors.foreground,
-                    )
-                    detail.events.take(SessionDetailMaxEvents).forEach { event ->
-                        EventRow(
-                            event = event,
-                            onClick = { onSelectEvent(event.id) },
-                            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsEvent(event.id)),
-                        )
-                    }
-                }
-            }
-        }
-    }
-    selectedEvent?.let { event ->
-        RipDpiBottomSheet(
-            onDismissRequest = onDismissEventDetail,
-            title = event.source,
-            message = event.createdAtLabel,
-            icon = RipDpiIcons.Info,
-            testTag = RipDpiTestTags.DiagnosticsEventDetailSheet,
-        ) {
-            StatusIndicator(label = event.severity, tone = statusTone(event.tone))
-            Text(
-                text = event.message,
-                style = RipDpiThemeTokens.type.body,
-                color = colors.foreground,
+                onDismissRequest = detail.onDismiss,
+                title = detail.title,
+                message = detail.message,
+                icon = detail.icon,
+                testTag = detail.testTag,
+                content = detail.content,
             )
         }
     }
+}
 
-    selectedApproachDetail?.let { detail ->
-        RipDpiBottomSheet(
-            onDismissRequest = onDismissApproachDetail,
-            title = detail.approach.title,
-            message = detail.approach.subtitle,
-            icon = RipDpiIcons.Search,
-            testTag = RipDpiTestTags.DiagnosticsApproachDetailSheet,
-        ) {
-            StatusIndicator(label = detail.approach.verificationState, tone = statusTone(detail.approach.tone))
-            if (detail.signature.isNotEmpty()) {
-                Text(
-                    text = stringResource(R.string.diagnostics_approaches_signature_title),
-                    style = RipDpiThemeTokens.type.bodyEmphasis,
-                    color = colors.foreground,
+@Composable
+internal fun diagnosticsDetails(
+    selectedSessionDetail: DiagnosticsSessionDetailUiModel?,
+    selectedApproachDetail: DiagnosticsApproachDetailUiModel?,
+    selectedEvent: DiagnosticsEventUiModel?,
+    probePresentation: DiagnosticsProbeSheetPresentation,
+    selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel?,
+    onDismissSessionDetail: () -> Unit,
+    onToggleSensitiveSessionDetails: () -> Unit,
+    onSelectStrategyProbeCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -> Unit,
+    onDismissStrategyProbeCandidate: () -> Unit,
+    onSelectEvent: (String) -> Unit,
+    onDismissEventDetail: () -> Unit,
+    onSelectProbe: (DiagnosticsProbeResultUiModel) -> Unit,
+    onDismissProbeDetail: () -> Unit,
+    onDismissApproachDetail: () -> Unit,
+): List<DiagnosticsDetail> {
+    val details = mutableListOf<DiagnosticsDetail>()
+    // A selected strategy-probe candidate covers the session it came from.
+    if (selectedStrategyProbeCandidate == null) {
+        selectedSessionDetail?.let {
+            details +=
+                sessionDetail(
+                    it,
+                    onDismissSessionDetail,
+                    onToggleSensitiveSessionDetails,
+                    onSelectStrategyProbeCandidate,
+                    onSelectEvent,
+                    onSelectProbe,
                 )
-                detail.signature.forEach { item ->
-                    SettingsRow(title = item.label, value = item.value)
-                }
-            }
-            if (detail.breakdown.isNotEmpty()) {
-                MetricsRow(metrics = detail.breakdown)
-            }
-            if (detail.runtimeSummary.isNotEmpty()) {
-                MetricsRow(metrics = detail.runtimeSummary)
-            }
-            detail.recentSessions.forEach { session ->
-                SessionRow(
-                    session = session,
-                    onClick = null,
-                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsSession(session.id)),
-                )
-            }
-            detail.recentUsageNotes.forEach { note ->
-                Text(
-                    text = note,
-                    style = RipDpiThemeTokens.type.secondaryBody,
-                    color = colors.mutedForeground,
-                )
-            }
-            detail.failureNotes.forEach { note ->
-                Text(
-                    text = note,
-                    style = RipDpiThemeTokens.type.secondaryBody,
-                    color = colors.foreground,
-                )
-            }
         }
     }
+    selectedEvent?.let { details += eventDetail(it, onDismissEventDetail) }
+    selectedApproachDetail?.let { details += approachDetail(it, onDismissApproachDetail) }
+    probePresentation.selectedProbe?.let {
+        details += probeDetail(it, probePresentation.expertMode, onDismissProbeDetail)
+    }
+    selectedStrategyProbeCandidate?.let {
+        details += strategyCandidateDetail(it, probePresentation.onReplayProbe, onDismissStrategyProbeCandidate)
+    }
+    return details
+}
 
-    probePresentation.selectedProbe?.let { probe ->
-        val context = LocalContext.current
-        val clipboardManager = remember(context) { context.getSystemService(ClipboardManager::class.java) }
-        val performHaptic = rememberRipDpiHapticPerformer()
-        RipDpiBottomSheet(
-            onDismissRequest = onDismissProbeDetail,
-            title = probe.pmtu?.title ?: probe.http3?.title ?: probe.ipFamily?.title ?: probe.target,
-            message = diagnosticProbeTitle(probe, expertMode),
-            icon = RipDpiIcons.Search,
-            testTag = RipDpiTestTags.DiagnosticsProbeDetailSheet,
-        ) {
-            probe.connectionStages?.let { DiagnosticsConnectionStageCard(it, initiallyExpanded = true) }
-            probe.transferEvidence?.let { DiagnosticsTransferCard(transfer = it) }
-            probe.ipFamily?.let { ContextGroupCard(it) }
-            probe.http3?.let { ContextGroupCard(it) }
-            probe.pmtu?.let { ContextGroupCard(it) }
-            DiagnosticsDnsResponseCards(probe.dnsResponses, initiallyExpanded = true)
-            StatusIndicator(
-                label = diagnosticProbeOutcome(probe, expertMode),
-                tone = statusTone(probe.tone),
-            )
-            probe.probeRetryCount?.takeIf { it > 0 }?.let { retryCount ->
-                SettingsRow(
-                    title = stringResource(R.string.diagnostics_probe_retry_count_label),
-                    value = retryCount.toString(),
-                    monospaceValue = true,
-                )
-            }
-            ProbeTechnicalDetails(probe, expertMode)
-            val probeCopyLabel = stringResource(R.string.clipboard_label_probe_details)
-            RipDpiButton(
-                text = stringResource(R.string.diagnostics_probe_copy_action),
-                onClick = {
-                    val text = formatDiagnosticsProbeEvidence(probe)
-                    clipboardManager?.setPrimaryClip(
-                        ClipData.newPlainText(probeCopyLabel, text.trimEnd().withoutBidiIsolates()),
-                    )
-                    performHaptic(RipDpiHapticFeedback.Acknowledge)
+@Composable
+private fun ColumnScope.SessionDetailContent(
+    detail: DiagnosticsSessionDetailUiModel,
+    onToggleSensitiveDetails: () -> Unit,
+    onSelectStrategyProbeCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -> Unit,
+    onSelectEvent: (String) -> Unit,
+    onSelectProbe: (DiagnosticsProbeResultUiModel) -> Unit,
+) {
+    val colors = RipDpiThemeTokens.colors
+    StatusIndicator(
+        label = detail.session.completionLabel ?: detail.session.status,
+        tone = statusTone(detail.session.tone),
+    )
+    if (detail.hasSensitiveDetails) {
+        RipDpiButton(
+            text =
+                if (detail.sensitiveDetailsVisible) {
+                    stringResource(R.string.diagnostics_sensitive_hide)
+                } else {
+                    stringResource(R.string.diagnostics_sensitive_show)
                 },
-                variant = RipDpiButtonVariant.Outline,
-                modifier = Modifier.fillMaxWidth(),
+            onClick = onToggleSensitiveDetails,
+            variant = RipDpiButtonVariant.Outline,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .ripDpiTestTag(RipDpiTestTags.DiagnosticsSessionSensitiveToggle),
+        )
+    }
+    if (detail.diagnoses.isNotEmpty() || detail.reportMetadata.isNotEmpty()) {
+        DiagnosisSummaryCard(
+            diagnoses = detail.diagnoses,
+            reportMetadata = detail.reportMetadata,
+        )
+    }
+    if (detail.capabilityEvidence.isNotEmpty()) {
+        CapabilityEvidenceCard(evidence = detail.capabilityEvidence)
+    }
+    val matrixResults = detail.probeGroups.flatMap { it.items }
+    if (matrixResults.any { it.probeType.startsWith("selective_availability") }) {
+        SelectiveMatrixResultsCard(matrixResults)
+    }
+    detail.strategyProbeReport?.let { report ->
+        StrategyProbeReportCard(
+            report = report,
+            onSelectCandidate = onSelectStrategyProbeCandidate,
+        )
+    }
+    detail.contextGroups.forEach { group ->
+        ContextGroupCard(group = group)
+    }
+    detail.probeGroups.forEach { group ->
+        Text(
+            text = group.title,
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        group.items.forEach { probe ->
+            ProbeResultRow(
+                probe = probe,
+                onClick = { onSelectProbe(probe) },
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsProbe(probe.id)),
             )
         }
     }
-
-    selectedStrategyProbeCandidate?.let { candidate ->
-        RipDpiBottomSheet(
-            onDismissRequest = onDismissStrategyProbeCandidate,
-            title = candidate.label,
-            message =
-                stringResource(
-                    R.string.diagnostics_candidate_subtitle_format,
-                    candidate.familyLabel,
-                    candidate.suiteLabel,
-                ),
-            icon = RipDpiIcons.Search,
-            testTag = RipDpiTestTags.DiagnosticsStrategyCandidateDetailSheet,
-        ) {
-            StatusIndicator(
-                label =
-                    if (candidate.recommended) {
-                        stringResource(R.string.diagnostics_probe_status_recommended)
-                    } else {
-                        candidate.outcome
-                    },
-                tone =
-                    if (candidate.recommended) {
-                        StatusIndicatorTone.Active
-                    } else {
-                        statusTone(candidate.tone)
-                    },
+    detail.snapshots.forEach { snapshot ->
+        SnapshotCard(snapshot = snapshot)
+    }
+    if (detail.events.isNotEmpty()) {
+        Text(
+            text = stringResource(R.string.diagnostics_events_title),
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        detail.events.take(SessionDetailMaxEvents).forEach { event ->
+            EventRow(
+                event = event,
+                onClick = { onSelectEvent(event.id) },
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsEvent(event.id)),
             )
+        }
+    }
+}
+
+@Composable
+private fun sessionDetail(
+    detail: DiagnosticsSessionDetailUiModel,
+    onDismiss: () -> Unit,
+    onToggleSensitiveDetails: () -> Unit,
+    onSelectStrategyProbeCandidate: (DiagnosticsStrategyProbeCandidateDetailUiModel) -> Unit,
+    onSelectEvent: (String) -> Unit,
+    onSelectProbe: (DiagnosticsProbeResultUiModel) -> Unit,
+): DiagnosticsDetail =
+    DiagnosticsDetail(
+        onDismiss = onDismiss,
+        title = detail.session.title,
+        message = detail.session.subtitle,
+        icon = RipDpiIcons.Info,
+        testTag = RipDpiTestTags.DiagnosticsSessionDetailSheet,
+    ) {
+        SessionDetailContent(
+            detail,
+            onToggleSensitiveDetails,
+            onSelectStrategyProbeCandidate,
+            onSelectEvent,
+            onSelectProbe,
+        )
+    }
+
+@Composable
+private fun eventDetail(
+    event: DiagnosticsEventUiModel,
+    onDismiss: () -> Unit,
+): DiagnosticsDetail {
+    val colors = RipDpiThemeTokens.colors
+    return DiagnosticsDetail(
+        onDismiss = onDismiss,
+        title = event.source,
+        message = event.createdAtLabel,
+        icon = RipDpiIcons.Info,
+        testTag = RipDpiTestTags.DiagnosticsEventDetailSheet,
+    ) {
+        StatusIndicator(label = event.severity, tone = statusTone(event.tone))
+        Text(
+            text = event.message,
+            style = RipDpiThemeTokens.type.body,
+            color = colors.foreground,
+        )
+    }
+}
+
+@Composable
+private fun approachDetail(
+    detail: DiagnosticsApproachDetailUiModel,
+    onDismiss: () -> Unit,
+): DiagnosticsDetail {
+    val colors = RipDpiThemeTokens.colors
+    return DiagnosticsDetail(
+        onDismiss = onDismiss,
+        title = detail.approach.title,
+        message = detail.approach.subtitle,
+        icon = RipDpiIcons.Search,
+        testTag = RipDpiTestTags.DiagnosticsApproachDetailSheet,
+    ) {
+        StatusIndicator(label = detail.approach.verificationState, tone = statusTone(detail.approach.tone))
+        if (detail.signature.isNotEmpty()) {
             Text(
-                text = candidate.rationale,
-                style = RipDpiThemeTokens.type.body,
+                text = stringResource(R.string.diagnostics_approaches_signature_title),
+                style = RipDpiThemeTokens.type.bodyEmphasis,
                 color = colors.foreground,
             )
-            MetricsRow(metrics = candidate.metrics)
-            if (candidate.notes.isNotEmpty()) {
-                Text(
-                    text = stringResource(R.string.diagnostics_audit_candidate_notes_title),
-                    modifier =
-                        Modifier.ripDpiTestTag(
-                            RipDpiTestTags.DiagnosticsStrategyCandidateNotesSection,
-                        ),
-                    style = RipDpiThemeTokens.type.bodyEmphasis,
-                    color = colors.foreground,
-                )
-                candidate.notes.forEach { note ->
-                    Text(
-                        text = note,
-                        style = RipDpiThemeTokens.type.secondaryBody,
-                        color = colors.mutedForeground,
-                    )
-                }
+            detail.signature.forEach { item ->
+                SettingsRow(title = item.label, value = item.value)
             }
-            if (candidate.signature.isNotEmpty()) {
-                Text(
-                    text = stringResource(R.string.diagnostics_audit_candidate_signature_title),
-                    modifier =
-                        Modifier.ripDpiTestTag(
-                            RipDpiTestTags.DiagnosticsStrategyCandidateSignatureSection,
-                        ),
-                    style = RipDpiThemeTokens.type.bodyEmphasis,
-                    color = colors.foreground,
+        }
+        if (detail.breakdown.isNotEmpty()) {
+            MetricsRow(metrics = detail.breakdown)
+        }
+        if (detail.runtimeSummary.isNotEmpty()) {
+            MetricsRow(metrics = detail.runtimeSummary)
+        }
+        detail.recentSessions.forEach { session ->
+            SessionRow(
+                session = session,
+                onClick = null,
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.diagnosticsSession(session.id)),
+            )
+        }
+        detail.recentUsageNotes.forEach { note ->
+            Text(
+                text = note,
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+        }
+        detail.failureNotes.forEach { note ->
+            Text(
+                text = note,
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.foreground,
+            )
+        }
+    }
+}
+
+@Composable
+private fun probeDetail(
+    probe: DiagnosticsProbeResultUiModel,
+    expertMode: Boolean,
+    onDismiss: () -> Unit,
+): DiagnosticsDetail {
+    val context = LocalContext.current
+    val clipboardManager = remember(context) { context.getSystemService(ClipboardManager::class.java) }
+    val performHaptic = rememberRipDpiHapticPerformer()
+    return DiagnosticsDetail(
+        onDismiss = onDismiss,
+        title = probe.pmtu?.title ?: probe.http3?.title ?: probe.ipFamily?.title ?: probe.target,
+        message = diagnosticProbeTitle(probe, expertMode),
+        icon = RipDpiIcons.Search,
+        testTag = RipDpiTestTags.DiagnosticsProbeDetailSheet,
+    ) {
+        probe.connectionStages?.let { DiagnosticsConnectionStageCard(it, initiallyExpanded = true) }
+        probe.transferEvidence?.let { DiagnosticsTransferCard(transfer = it) }
+        probe.ipFamily?.let { ContextGroupCard(it) }
+        probe.http3?.let { ContextGroupCard(it) }
+        probe.pmtu?.let { ContextGroupCard(it) }
+        DiagnosticsDnsResponseCards(probe.dnsResponses, initiallyExpanded = true)
+        StatusIndicator(
+            label = diagnosticProbeOutcome(probe, expertMode),
+            tone = statusTone(probe.tone),
+        )
+        probe.probeRetryCount?.takeIf { it > 0 }?.let { retryCount ->
+            SettingsRow(
+                title = stringResource(R.string.diagnostics_probe_retry_count_label),
+                value = retryCount.toString(),
+                monospaceValue = true,
+            )
+        }
+        ProbeTechnicalDetails(probe, expertMode)
+        val probeCopyLabel = stringResource(R.string.clipboard_label_probe_details)
+        RipDpiButton(
+            text = stringResource(R.string.diagnostics_probe_copy_action),
+            onClick = {
+                val text = formatDiagnosticsProbeEvidence(probe)
+                clipboardManager?.setPrimaryClip(
+                    ClipData.newPlainText(probeCopyLabel, text.trimEnd().withoutBidiIsolates()),
                 )
-                candidate.signature.forEach { field ->
-                    SettingsRow(
-                        title = field.label,
-                        value = field.value,
-                    )
-                }
-            }
-            if (candidate.resultGroups.isNotEmpty()) {
-                Text(
-                    text = stringResource(R.string.diagnostics_audit_candidate_results_title),
-                    modifier =
-                        Modifier.ripDpiTestTag(
-                            RipDpiTestTags.DiagnosticsStrategyCandidateResultsSection,
-                        ),
-                    style = RipDpiThemeTokens.type.bodyEmphasis,
-                    color = colors.foreground,
-                )
-                candidate.resultGroups.forEach { group ->
-                    Text(
-                        text = group.title,
-                        style = RipDpiThemeTokens.type.secondaryBody,
-                        color = colors.mutedForeground,
-                    )
-                    group.items.forEach { probe ->
-                        ProbeResultRow(probe = probe, onClick = null)
-                        ProbeReplayAction(candidate.id, candidate.replaySessionId, probe, onReplayProbe)
-                    }
-                }
+                performHaptic(RipDpiHapticFeedback.Acknowledge)
+            },
+            variant = RipDpiButtonVariant.Outline,
+            modifier = Modifier.fillMaxWidth(),
+        )
+    }
+}
+
+@Composable
+private fun ColumnScope.StrategyCandidateDetailContent(
+    candidate: DiagnosticsStrategyProbeCandidateDetailUiModel,
+    onReplayProbe: ((Route.ReplayFailure) -> Unit)?,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val recommendedLabel = stringResource(R.string.diagnostics_probe_status_recommended)
+    StatusIndicator(
+        label = if (candidate.recommended) recommendedLabel else candidate.outcome,
+        tone = if (candidate.recommended) StatusIndicatorTone.Active else statusTone(candidate.tone),
+    )
+    Text(
+        text = candidate.rationale,
+        style = RipDpiThemeTokens.type.body,
+        color = colors.foreground,
+    )
+    MetricsRow(metrics = candidate.metrics)
+    if (candidate.notes.isNotEmpty()) {
+        Text(
+            text = stringResource(R.string.diagnostics_audit_candidate_notes_title),
+            modifier =
+                Modifier.ripDpiTestTag(
+                    RipDpiTestTags.DiagnosticsStrategyCandidateNotesSection,
+                ),
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        candidate.notes.forEach { note ->
+            Text(
+                text = note,
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+        }
+    }
+    if (candidate.signature.isNotEmpty()) {
+        Text(
+            text = stringResource(R.string.diagnostics_audit_candidate_signature_title),
+            modifier =
+                Modifier.ripDpiTestTag(
+                    RipDpiTestTags.DiagnosticsStrategyCandidateSignatureSection,
+                ),
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        candidate.signature.forEach { field ->
+            SettingsRow(
+                title = field.label,
+                value = field.value,
+            )
+        }
+    }
+    if (candidate.resultGroups.isNotEmpty()) {
+        Text(
+            text = stringResource(R.string.diagnostics_audit_candidate_results_title),
+            modifier =
+                Modifier.ripDpiTestTag(
+                    RipDpiTestTags.DiagnosticsStrategyCandidateResultsSection,
+                ),
+            style = RipDpiThemeTokens.type.bodyEmphasis,
+            color = colors.foreground,
+        )
+        candidate.resultGroups.forEach { group ->
+            Text(
+                text = group.title,
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = colors.mutedForeground,
+            )
+            group.items.forEach { probe ->
+                ProbeResultRow(probe = probe, onClick = null)
+                ProbeReplayAction(candidate.id, candidate.replaySessionId, probe, onReplayProbe)
             }
         }
     }
 }
+
+@Composable
+private fun strategyCandidateDetail(
+    candidate: DiagnosticsStrategyProbeCandidateDetailUiModel,
+    onReplayProbe: ((Route.ReplayFailure) -> Unit)?,
+    onDismiss: () -> Unit,
+): DiagnosticsDetail =
+    DiagnosticsDetail(
+        onDismiss = onDismiss,
+        title = candidate.label,
+        message =
+            stringResource(
+                R.string.diagnostics_candidate_subtitle_format,
+                candidate.familyLabel,
+                candidate.suiteLabel,
+            ),
+        icon = RipDpiIcons.Search,
+        testTag = RipDpiTestTags.DiagnosticsStrategyCandidateDetailSheet,
+    ) {
+        StrategyCandidateDetailContent(candidate, onReplayProbe)
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable

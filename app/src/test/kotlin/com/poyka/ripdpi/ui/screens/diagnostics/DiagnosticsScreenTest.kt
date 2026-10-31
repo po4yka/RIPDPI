@@ -2316,6 +2316,82 @@ class DiagnosticsScreenTest {
     }
 
     @Test
+    @Config(qualifiers = "w1300dp-h900dp")
+    fun expandedWindowShowsTheSessionDetailBesideTheDashboard() {
+        composeRule.setContent {
+            val pagerState =
+                rememberPagerState(
+                    initialPage = DiagnosticsSection.Dashboard.ordinal,
+                    pageCount = { DiagnosticsSection.entries.size },
+                )
+            RipDpiTheme {
+                DiagnosticsScreen(
+                    uiState =
+                        DiagnosticsUiState(
+                            selectedSection = DiagnosticsSection.Dashboard,
+                            selectedSessionDetail =
+                                DiagnosticsSessionDetailUiModel(
+                                    session =
+                                        DiagnosticsSessionRowUiModel(
+                                            id = "s1",
+                                            profileId = "default",
+                                            title = "Test Session",
+                                            subtitle = "Raw path scan",
+                                            pathMode = "RAW_PATH",
+                                            serviceMode = "VPN",
+                                            status = "completed",
+                                            startedAtLabel = "now",
+                                            summary = "All probes passed",
+                                            metrics = persistentListOf(),
+                                            tone = DiagnosticsTone.Neutral,
+                                        ),
+                                    probeGroups = persistentListOf(),
+                                    snapshots = persistentListOf(),
+                                    events = persistentListOf(),
+                                    contextGroups = persistentListOf(),
+                                    hasSensitiveDetails = false,
+                                    sensitiveDetailsVisible = false,
+                                ),
+                        ),
+                    pagerState = pagerState,
+                    onSelectSection = {},
+                    onSelectProfile = {},
+                    onRunRawScan = {},
+                    onRunInPathScan = {},
+                    onCancelScan = {},
+                    onKeepResolverRecommendation = {},
+                    onSaveResolverRecommendation = {},
+                    onSelectSession = {},
+                    onDismissSessionDetail = {},
+                    onSelectStrategyProbeCandidate = {},
+                    onDismissStrategyProbeCandidate = {},
+                    onSelectApproachMode = {},
+                    onSelectApproach = {},
+                    onDismissApproachDetail = {},
+                    onSelectEvent = {},
+                    onDismissEventDetail = {},
+                    onSelectProbe = {},
+                    onDismissProbeDetail = {},
+                    onToggleSensitiveSessionDetails = {},
+                    onSessionSearch = {},
+                    onToggleEventFilter = { _, _ -> },
+                    onEventSearch = {},
+                    onEventAutoScroll = {},
+                    onShareSummary = {},
+                    onShareArchive = {},
+                    onSaveArchive = {},
+                    onSaveLogs = {},
+                    onOpenHistory = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsSessionDetailSheet).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsDetailClose).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsDetailPlaceholder).assertDoesNotExist()
+    }
+
+    @Test
     fun probeDetailBottomSheetVisibleWhenSelected() {
         composeRule.setContent {
             val pagerState =
