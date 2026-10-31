@@ -41,8 +41,6 @@ data class RipDpiMotion(
     val stateDurationMillis: Int = 220,
     val emphasizedDurationMillis: Int = 320,
     val routeDurationMillis: Int = 260,
-    val pressScale: Float = 0.98f,
-    val selectionScale: Float = 1.02f,
 ) {
     fun duration(baseDurationMillis: Int): Int =
         when {
