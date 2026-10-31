@@ -2,16 +2,16 @@
 id: UIX-1793256952721314
 title: Apply Material 3 canonical layouts to screens
 kind: feature
-status: backlog
+status: doing
 area: ui
 priority: medium
 owner: UI overhaul
 parent: EPC-1793256695505524
-blocked_by: [UIX-1793256927624290]
+blocked_by: []
 spec_mode: required
 openspec_change: m3-screen-layouts
 created: 2026-10-29
-updated: 2026-10-29
+updated: 2026-10-31
 ---
 
 ## Goal
