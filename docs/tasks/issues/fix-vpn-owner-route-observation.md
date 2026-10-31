@@ -11,7 +11,8 @@ blocked_by: []
 spec_mode: required
 openspec_change: fix-vpn-route-observation-and-evidence
 created: 2026-08-16
-updated: 2026-08-16
+updated: 2026-10-31
+status_detail: "Code for DGN-1786867116840503 is complete on main 32a9b2c8a (schema-10 bump in 2dcfb0d96, now 12): provider-fed vpnRouteEvidence reaches network-snapshots.json and passiveVpnRouteEvidence, legacy pathSnapshots decode unchanged, and the allowlist sanitizer runs at persistence and export; :core:diagnostics 1626 tests (one sandbox-DNS STUN failure), :core:diagnostics-data 75 and :core:service 2038 passed. Only physical API 36 acceptance remains."
 ---
 
 ## Goal

@@ -2,7 +2,7 @@
 id: DGN-1790425188376122
 title: Execute DoH JSON survey in monitor engine
 kind: feature
-status: doing
+status: review
 area: diagnostics
 priority: high
 owner: Diagnostics Rust
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: dgn-1790425188376122-execute-doh-json-survey
 created: 2026-09-26
-updated: 2026-09-26
+updated: 2026-10-31
 ---
 
 ## Goal
