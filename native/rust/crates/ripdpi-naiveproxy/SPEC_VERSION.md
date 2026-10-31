@@ -4,7 +4,9 @@ This crate is a thin SOCKS5 ↔ HTTPS-CONNECT helper. The wire formats involved 
 
 The APK ships only this repository-owned Rust helper (`ripdpi-naiveproxy`, packaged as a jniLib). It ships no klzgrad/naiveproxy or Chromium binary. The pins below are the sources this helper's wire behavior was checked against, not distributed artifacts.
 
-- **Protocol reference:** https://github.com/klzgrad/naiveproxy, tag `v154.0.8037.49-5`, commit `d04efe1ea4477c2db24a7d0e2f068b3bee931e45` (padding framer, padding socket, proxy delegate, HTTP proxy server socket)
+- **Upstream repo:** https://github.com/klzgrad/naiveproxy (protocol reference: padding framer, padding socket, proxy delegate, HTTP proxy server socket)
+- **Upstream tag:** v154.0.8037.49-5
+- **Upstream commit:** d04efe1ea4477c2db24a7d0e2f068b3bee931e45
 - **Server interop reference:** https://github.com/klzgrad/forwardproxy, tag `v2.11.7-naive2`, commit `e747854e78743dba85c039b38ed185fb11d93667`, built on Caddy `v2.11.7` (`72dd0fb067f6d7826c7f79907670ba4a713bfe37`) with the fork's `caddy-sing-quic-bbrv1.patch` and `caddy-read-idle-timeout.patch`. The `independent-naiveproxy-*` acceptance scenarios build and run exactly this server (`test-lab/acceptance/peers/naiveproxy.py`).
 - **Last reviewed:** 2026-10-30
 - **Owner:** RIPDPI native transport maintainers
