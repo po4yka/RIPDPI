@@ -10,7 +10,6 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.launch
@@ -30,8 +29,8 @@ internal fun <T> LifecycleEventEffect(
     }
 }
 
-/** Captures a producer-facing shared flow immediately and queues events while its UI collector is stopped. */
-internal fun <T> MutableSharedFlow<T>.bufferForUiLifecycle(scope: CoroutineScope): Flow<T> {
+/** Captures a producer-facing flow immediately and queues events while its UI collector is stopped. */
+internal fun <T> Flow<T>.bufferForUiLifecycle(scope: CoroutineScope): Flow<T> {
     val pendingEvents = Channel<T>(capacity = Channel.BUFFERED)
     scope.launch(start = CoroutineStart.UNDISPATCHED) {
         collect { event -> pendingEvents.send(event) }

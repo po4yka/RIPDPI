@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.components
 
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -23,6 +24,21 @@ class LifecycleEventEffectTest {
             runCurrent()
 
             assertEquals("pending", events.first())
+        }
+
+    @Test
+    fun `filtered views of one flow each receive only their own events`() =
+        runTest {
+            val producer = MutableSharedFlow<String>(extraBufferCapacity = 2)
+            val notices = producer.filter { it != "battery" }.bufferForUiLifecycle(backgroundScope)
+            val battery = producer.filter { it == "battery" }.bufferForUiLifecycle(backgroundScope)
+
+            assertTrue(producer.tryEmit("battery"))
+            assertTrue(producer.tryEmit("notice"))
+            runCurrent()
+
+            assertEquals("notice", notices.first())
+            assertEquals("battery", battery.first())
         }
 
     @Test

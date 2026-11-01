@@ -15,6 +15,8 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -47,7 +49,16 @@ class SettingsViewModel
                 _effects,
             )
 
-        val effects = _effects.bufferForUiLifecycle(viewModelScope)
+        // Split so each effect has one consumer: the Settings list pane and the detail beside it are both
+        // resumed on wide windows, and a single-delivery flow would hand an event to the wrong one.
+        val effects =
+            _effects
+                .filter { it !is SettingsEffect.RequestDisableBatteryOptimization }
+                .bufferForUiLifecycle(viewModelScope)
+        val batteryOptimizationRequests =
+            _effects
+                .filterIsInstance<SettingsEffect.RequestDisableBatteryOptimization>()
+                .bufferForUiLifecycle(viewModelScope)
         val hostPackCatalog: StateFlow<HostPackCatalogUiState> =
             settingsActionDependencies.hostPackCatalogUiStateStore.state
         val strategyPackCatalog: StateFlow<StrategyPackCatalogUiState> = strategyPackCatalogState
