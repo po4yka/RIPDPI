@@ -39,6 +39,47 @@ class HomeStatusCardsScreenshotTest {
 
     @Test fun connectedMaximumFont() = capture("connected_max_font", fontScale = 2f)
 
+    @Test fun lockdownUnknownLight() = captureLockdownUnknown("lockdown_unknown_light")
+
+    @Test fun lockdownUnknownDark() = captureLockdownUnknown("lockdown_unknown_dark", dark = true)
+
+    /** The one-line row an unknown system lockdown collapses to, alone under the idle connection control. */
+    private fun captureLockdownUnknown(
+        name: String,
+        dark: Boolean = false,
+    ) = withUtcScreenshotTime {
+        captureSingle(
+            "${name}_${BuildConfig.APP_EXPERIENCE}",
+            widthDp = 411,
+            heightDp = 800,
+            darkMode = dark,
+            testClassFqn = javaClass.name,
+        ) {
+            HomeScreen(
+                uiState =
+                    MainUiState(
+                        connectionActuator = homePreviewActuatorState(HomeConnectionActuatorStatus.Open),
+                        hardKillSwitch =
+                            HardKillSwitchUiState(
+                                status = AndroidHardKillSwitchStatus.UNKNOWN,
+                                label = "System lockdown unknown",
+                                summary =
+                                    "RIPDPI has not observed Android Always-on and lockdown state yet. " +
+                                        "Open VPN settings to confirm the hard kill switch.",
+                                actionLabel = "Open VPN settings",
+                                visible = true,
+                            ),
+                    ),
+                pause = HomePauseUiState(),
+                onToggleConnection = {},
+                onOpenDiagnostics = {},
+                onOpenHistory = {},
+                onRepairPermission = {},
+                onOpenVpnPermissionDialog = {},
+            )
+        }
+    }
+
     private fun capture(
         name: String,
         dark: Boolean = false,
