@@ -549,7 +549,8 @@ private fun RouteStackNode(
         Text(
             text = node.label,
             style = RipDpiThemeTokens.type.monoSmall,
-            color = style.pageLabel,
+            // The label sits on the page under the glyph, not on the role's container, so it uses the page ink.
+            color = RipDpiThemeTokens.colors.foreground,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

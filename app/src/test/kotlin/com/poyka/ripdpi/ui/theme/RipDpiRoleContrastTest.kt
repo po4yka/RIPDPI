@@ -84,7 +84,6 @@ class RipDpiRoleContrastTest {
                 assertAtLeast("$id content", Text, s.content, s.container)
                 assertAtLeast("$id muted content", Text, s.mutedContent, s.container)
                 assertAtLeast("$id badge", Text, s.badgeContent, s.badgeContainer.compositeOver(s.container))
-                assertAtLeast("$id page label", Text, s.pageLabel, p.colors.background)
             }
         }
     }

@@ -82,8 +82,6 @@ data class RipDpiRouteAvailabilityStateStyle(
     val badgeContainer: Color,
     val badgeBorder: Color,
     val badgeContent: Color,
-    // A label drawn on the page under the route's glyph, not on [container].
-    val pageLabel: Color,
     val borderWidth: Dp,
     val alpha: Float,
 )

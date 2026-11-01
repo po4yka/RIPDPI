@@ -1,5 +1,8 @@
 package com.poyka.ripdpi.ui.components.routes
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
@@ -8,10 +11,16 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.text.TextLayoutResult
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.theme.ContrastAssertions
+import com.poyka.ripdpi.ui.theme.RipDpiContrastLevel
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Rule
@@ -172,4 +181,54 @@ class RipDpiRouteComponentsTest {
             isSelected = selected,
             isActive = selected,
         )
+
+    @Test
+    fun `route stack node labels are drawn readable on the page in every theme and contrast level`() {
+        val schemes = listOf("light", "dark").flatMap { theme -> RipDpiContrastLevel.entries.map { theme to it } }
+        val pages = mutableMapOf<Int, Color>()
+        composeRule.setContent {
+            Column {
+                schemes.forEachIndexed { index, (theme, level) ->
+                    RipDpiTheme(themePreference = theme, contrastLevel = level) {
+                        pages[index] = RipDpiThemeTokens.colors.background
+                        RipDpiRouteStackDiagram(
+                            state =
+                                RipDpiRouteStackUiState(
+                                    nodes =
+                                        persistentListOf(
+                                            RipDpiRouteStackNodeUiState(
+                                                "device",
+                                                "Device",
+                                                RipDpiRouteTransportKind.LocalVpn,
+                                            ),
+                                            RipDpiRouteStackNodeUiState(
+                                                "relay",
+                                                "Relay",
+                                                RipDpiRouteTransportKind.Relay,
+                                            ),
+                                        ),
+                                    activeNodeId = "relay",
+                                ),
+                        )
+                    }
+                }
+            }
+        }
+        listOf("Device", "Relay").forEach { label ->
+            schemes.forEachIndexed { index, (theme, level) ->
+                val layouts = mutableListOf<TextLayoutResult>()
+                composeRule
+                    .onAllNodesWithText(label)[index]
+                    .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+                ContrastAssertions.assertAtLeast(
+                    "$theme $level route node label $label",
+                    ContrastAssertions.Text,
+                    layouts
+                        .single()
+                        .layoutInput.style.color,
+                    requireNotNull(pages[index]),
+                )
+            }
+        }
+    }
 }
