@@ -118,6 +118,14 @@ data class RipDpiMotion(
             easing = EmphasizedDecelerate,
         )
 
+    /** The slide of a pushed screen starts with its fade, so the travel is seen and not spent while it is invisible. */
+    fun <T> incomingSlideTween(): TweenSpec<T> =
+        tween(
+            durationMillis = duration(routeDurationMillis),
+            delayMillis = duration(quickDurationMillis),
+            easing = EmphasizedDecelerate,
+        )
+
     fun outgoingFadeTransition(): ExitTransition =
         if (!animationsEnabled) {
             ExitTransition.None

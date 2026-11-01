@@ -56,6 +56,9 @@ class RipDpiMotionTest {
 
         assertEquals(motion.quickDurationMillis, incoming.delay)
         assertEquals(motion.stateDurationMillis, incoming.durationMillis)
+        // The slide waits for the same delay as the fade, so its travel is visible.
+        assertEquals(motion.quickDurationMillis, motion.incomingSlideTween<Float>().delay)
+        assertEquals(motion.routeDurationMillis, motion.incomingSlideTween<Float>().durationMillis)
 
         val disabled = motion.copy(animationsEnabled = false)
         assertSame(EnterTransition.None, disabled.fadeThroughEnterTransition())

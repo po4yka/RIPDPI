@@ -15,16 +15,20 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
+import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
+import androidx.navigation.NavGraph
 import androidx.navigation.NavGraphBuilder
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -142,7 +146,8 @@ fun RipDpiNavHost(
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val currentDestination = currentBackStackEntry?.destination
     val currentStableRoute = currentDestination?.stableRouteKey()
-    val selectedTopLevel = navController.selectedTopLevelRoute(currentBackStackEntry)
+    val selectedTopLevel =
+        rememberHeldTopLevel(navController.selectedTopLevelRoute(currentBackStackEntry), navController)
     val layout = RipDpiThemeTokens.layout
     val motion = RipDpiThemeTokens.motion
     val permissionSummary by mainViewModel.permissionSummary.collectAsStateWithLifecycle(
@@ -266,6 +271,23 @@ private fun RipDpiNavPanes(
             },
         )
     }
+}
+
+/**
+ * The bar hides with the outgoing screen, not before it: while two screens are on stage in a NavHost transition the tab
+ * that was selected stays selected, and the bar goes when the transition has settled. Arriving at a tab applies at
+ * once.
+ */
+@Composable
+private fun rememberHeldTopLevel(
+    selected: Route?,
+    navController: NavHostController,
+): Route? {
+    val visibleEntries by navController.visibleEntries.collectAsState()
+    val transitioning = visibleEntries.count { it.destination !is NavGraph } > 1
+    var lastTab by remember { mutableStateOf(selected) }
+    if (selected != null) SideEffect { lastTab = selected }
+    return selected ?: lastTab.takeIf { transitioning }
 }
 
 /**
@@ -958,7 +980,7 @@ internal fun AnimatedContentTransitionScope<NavBackStackEntry>.routeEnter(motion
         else -> {
             slideIntoContainer(
                 towards = SlideDirection.Start,
-                animationSpec = motion.routeTween(),
+                animationSpec = motion.incomingSlideTween(),
                 initialOffset = { it / SharedAxisTravelDivisor },
             ) + fadeIn(animationSpec = motion.incomingFadeTween())
         }
@@ -973,7 +995,7 @@ internal fun AnimatedContentTransitionScope<NavBackStackEntry>.routeExit(motion:
         else -> {
             slideOutOfContainer(
                 towards = SlideDirection.Start,
-                animationSpec = motion.routeTween(),
+                animationSpec = motion.quickTween(),
                 targetOffset = { it / SharedAxisTravelDivisor },
             ) + motion.outgoingFadeTransition()
         }
