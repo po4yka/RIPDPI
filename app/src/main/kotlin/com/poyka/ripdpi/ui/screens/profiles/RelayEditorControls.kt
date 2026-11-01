@@ -101,9 +101,11 @@ internal fun ScrollToTopOnFailedSave(
     var wasSaving by remember { mutableStateOf(saving) }
     var hadError by remember { mutableStateOf(hasError) }
     LaunchedEffect(saving, hasError) {
-        if (hasError && ((wasSaving && !saving) || !hadError)) scrollState.animateScrollTo(0)
+        val failed = hasError && ((wasSaving && !saving) || !hadError)
+        // Recorded before the scroll: a cancelled animation must not leave the old values behind.
         wasSaving = saving
         hadError = hasError
+        if (failed) scrollState.animateScrollTo(0)
     }
 }
 
