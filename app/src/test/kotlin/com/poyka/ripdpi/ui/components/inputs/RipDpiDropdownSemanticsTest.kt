@@ -5,10 +5,12 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Rule
@@ -65,5 +67,21 @@ class RipDpiDropdownSemanticsTest {
             .onNodeWithTag("dropdown")
             .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Choose"))
             .assertIsNotEnabled()
+    }
+
+    @Test
+    fun `closed dropdown is as tall as a Material outlined field`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                RipDpiDropdown(
+                    options = options,
+                    selectedValue = "a",
+                    onValueSelected = {},
+                    labels = RipDpiDropdownLabels(label = "Mode"),
+                    testTag = "dropdown",
+                )
+            }
+        }
+        composeRule.onNodeWithTag("dropdown").assertHeightIsAtLeast(56.dp)
     }
 }

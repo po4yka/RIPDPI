@@ -213,7 +213,9 @@ private fun DropdownField(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(min = components.inputs.controlHeight)
+                    // Material's outlined field is 56dp tall whatever the token says; match it so a dropdown lines up
+                    // with the text fields around it.
+                    .heightIn(min = maxOf(components.inputs.controlHeight, OutlinedTextFieldDefaults.MinHeight))
                     .ripDpiTestTag(testTag)
                     .clip(shape)
                     .background(colors.inputBackground, shape)
