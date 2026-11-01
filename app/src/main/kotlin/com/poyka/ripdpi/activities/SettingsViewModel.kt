@@ -147,6 +147,11 @@ class SettingsViewModel
             viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
                 settingsEffects.filterIsInstance<SettingsEffect.Notice>().collect(advancedNoticeState::post)
             }
+            viewModelScope.launch {
+                settingsNoticeState.clearWhenPinSet(
+                    settingsUiDependencies.appSettingsRepository.settings.map { it.backupPin.isNotBlank() },
+                )
+            }
             settingsViewModelBootstrapper.initialize(
                 scope = viewModelScope,
                 onPinKeyLost = settingsNoticeState::post,
