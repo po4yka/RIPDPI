@@ -37,6 +37,7 @@ import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiExtendedColors
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -73,7 +74,7 @@ fun SettingsRow(
             stringResource(if (it) R.string.semantic_state_on else R.string.semantic_state_off)
         }
     val accessibilityDescription = settingsRowAccessibilityDescription(title, subtitle, value)
-    val state = settingsRowColors(variant)
+    val state = settingsRowColors(variant, enabled)
     val minHeight =
         if (subtitle == null) components.rows.settingsRowMinHeight else components.rows.settingsRowMinHeightWithSubtitle
     val pillPadding = if (variant == SettingsRowVariant.Default) 0.dp else components.rows.compactPillHorizontalPadding
@@ -186,9 +187,34 @@ private class SettingsRowColors(
 )
 
 @Composable
-private fun settingsRowColors(variant: SettingsRowVariant): SettingsRowColors {
+private fun settingsRowColors(
+    variant: SettingsRowVariant,
+    enabled: Boolean,
+): SettingsRowColors {
     val colors = RipDpiThemeTokens.colors
-    return when (variant) {
+    val base = settingsRowVariantColors(variant, colors)
+    if (enabled) return base
+
+    // The Material disabled content alpha, so a disabled row does not read as an enabled one.
+    fun Color.dim() = copy(alpha = alpha * DisabledContentAlpha)
+    return SettingsRowColors(
+        container = base.container,
+        border = base.border,
+        title = base.title.dim(),
+        subtitle = base.subtitle.dim(),
+        value = base.value.dim(),
+        badgeContainer = base.badgeContainer.dim(),
+        badgeIcon = base.badgeIcon.dim(),
+    )
+}
+
+private const val DisabledContentAlpha = 0.38f
+
+private fun settingsRowVariantColors(
+    variant: SettingsRowVariant,
+    colors: RipDpiExtendedColors,
+): SettingsRowColors =
+    when (variant) {
         SettingsRowVariant.Default -> {
             SettingsRowColors(
                 container = Color.Transparent,
@@ -225,7 +251,6 @@ private fun settingsRowColors(variant: SettingsRowVariant): SettingsRowColors {
             )
         }
     }
-}
 
 @Composable
 private fun SettingsRowContent(

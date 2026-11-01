@@ -1,12 +1,14 @@
 package com.poyka.ripdpi.ui.components.cards
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.requiredWidth
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.semantics.Role
@@ -292,6 +294,32 @@ class SettingsRowTest {
                 ),
             ).performClick()
         composeRule.runOnIdle { assertEquals(0, changes) }
+    }
+
+    @Test
+    fun disabledRowDimsTitleSubtitleAndValue() {
+        composeRule.setContent {
+            RipDpiTheme {
+                Column {
+                    SettingsRow(title = "On", subtitle = "On sub", value = "On value", onClick = {})
+                    SettingsRow(title = "Off", subtitle = "Off sub", value = "Off value", onClick = {}, enabled = false)
+                }
+            }
+        }
+
+        fun colorOf(text: String): Color {
+            val layouts = mutableListOf<TextLayoutResult>()
+            composeRule
+                .onNodeWithText(text, useUnmergedTree = true)
+                .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { action -> action(layouts) }
+            return layouts
+                .single()
+                .layoutInput.style.color
+        }
+        listOf("On" to "Off", "On sub" to "Off sub", "On value" to "Off value").forEach { (on, off) ->
+            assertEquals("$on stays opaque", 1f, colorOf(on).alpha, 0f)
+            assertEquals("$off is dimmed", 0.38f, colorOf(off).alpha, 0.01f)
+        }
     }
 
     private fun assertLargeFontValueRow(
