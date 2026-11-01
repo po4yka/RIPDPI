@@ -581,6 +581,9 @@ private fun OnboardingInfoPageScene(
                 .fillMaxSize()
                 .verticalScroll(rememberScrollState())
                 .padding(horizontal = introLayout.bodyHorizontalPadding)
+                // A scroll child measures with unbounded height; the minimum lets the content center in the free
+                // space, and it still scrolls from the top once it outgrows the page (200% font).
+                .heightIn(min = maxHeight)
         if (maxWidth > maxHeight) {
             // Landscape leaves too little height to stack the header over the lists, so the
             // lists fell below the fold. Two panes keep both in view.
@@ -596,7 +599,7 @@ private fun OnboardingInfoPageScene(
             Column(
                 modifier = scrollModifier,
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(introLayout.bodyToContentGap),
+                verticalArrangement = Arrangement.spacedBy(introLayout.bodyToContentGap, Alignment.CenterVertically),
             ) {
                 header(Modifier)
                 grid(Modifier)
