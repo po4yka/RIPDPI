@@ -30,7 +30,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
-import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.indicators.RipDpiStaticCircularProgressIndicator
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
@@ -76,9 +75,6 @@ fun RipDpiIconButton(
     selected: Boolean = false,
     // Content color for a Ghost icon on a tinted surface; Unspecified keeps the foreground.
     tint: Color = Color.Unspecified,
-    // Both densities keep the 48dp target and default icon size; the parameter stays for callers.
-    @Suppress("UNUSED_PARAMETER", "UnusedParameter")
-    density: RipDpiControlDensity = RipDpiControlDensity.Default,
     interactionSource: MutableInteractionSource? = null,
     hapticFeedback: RipDpiHapticFeedback = RipDpiHapticFeedback.Action,
 ) {

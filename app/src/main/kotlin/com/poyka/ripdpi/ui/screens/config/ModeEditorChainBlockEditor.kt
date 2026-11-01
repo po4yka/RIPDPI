@@ -408,7 +408,6 @@ private fun ModeEditorChainBlock(
                         .stringResource(R.string.config_chain_move_up),
                 onClick = { onMove(index - 1) },
                 enabled = enabled && index > 0,
-                density = RipDpiControlDensity.Compact,
                 style = RipDpiIconButtonStyle.Outline,
                 modifier = Modifier.ripDpiTestTag(modeEditorChainMoveUpTag(section, index)),
             )
@@ -419,7 +418,6 @@ private fun ModeEditorChainBlock(
                         .stringResource(R.string.config_chain_move_down),
                 onClick = { onMove(index + 1) },
                 enabled = enabled && index < count - 1,
-                density = RipDpiControlDensity.Compact,
                 style = RipDpiIconButtonStyle.Outline,
                 modifier = Modifier.ripDpiTestTag(modeEditorChainMoveDownTag(section, index)),
             )
@@ -430,7 +428,6 @@ private fun ModeEditorChainBlock(
                         .stringResource(R.string.config_chain_remove_block),
                 onClick = onRemove,
                 enabled = enabled,
-                density = RipDpiControlDensity.Compact,
                 style = RipDpiIconButtonStyle.Ghost,
                 modifier = Modifier.ripDpiTestTag(modeEditorChainRemoveTag(section, index)),
             )

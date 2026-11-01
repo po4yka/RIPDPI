@@ -14,13 +14,12 @@ class RipDpiSnackbarTest {
                 tone = RipDpiSnackbarTone.Warning,
                 actionLabel = "Open",
                 duration = SnackbarDuration.Long,
-                withDismissAction = true,
             )
 
         assertEquals(RipDpiSnackbarTone.Warning, visuals.ripDpiToneOrDefault())
         assertEquals("Open", visuals.actionLabel)
         assertEquals(SnackbarDuration.Long, visuals.duration)
-        assertEquals(true, visuals.withDismissAction)
+        assertEquals(false, visuals.withDismissAction)
     }
 
     @Test

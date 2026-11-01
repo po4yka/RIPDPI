@@ -182,7 +182,6 @@ suspend fun SnackbarHostState.showRipDpiSnackbar(
     testTag: String? = null,
     actionTestTag: String? = null,
     duration: SnackbarDuration = SnackbarDuration.Short,
-    withDismissAction: Boolean = false,
 ): SnackbarResult =
     showSnackbar(
         RipDpiSnackbarVisuals(
@@ -192,7 +191,6 @@ suspend fun SnackbarHostState.showRipDpiSnackbar(
             testTag = testTag,
             actionTestTag = actionTestTag,
             duration = duration,
-            withDismissAction = withDismissAction,
         ),
     )
 
@@ -203,9 +201,11 @@ internal data class RipDpiSnackbarVisuals(
     override val actionLabel: String? = null,
     val testTag: String? = null,
     val actionTestTag: String? = null,
-    override val withDismissAction: Boolean = false,
     override val duration: SnackbarDuration = SnackbarDuration.Short,
-) : SnackbarVisuals
+) : SnackbarVisuals {
+    // The RDS snackbar renders no dismiss button, so a dismiss action is never offered.
+    override val withDismissAction: Boolean get() = false
+}
 
 internal fun SnackbarVisuals.ripDpiToneOrDefault(): RipDpiSnackbarTone =
     (this as? RipDpiSnackbarVisuals)?.tone ?: RipDpiSnackbarTone.Default

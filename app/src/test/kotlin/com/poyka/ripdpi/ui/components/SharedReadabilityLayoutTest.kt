@@ -102,7 +102,7 @@ class SharedReadabilityLayoutTest {
                 RipDpiButton("Disabled action", { disabledClicks++ }, enabled = false)
                 RipDpiIconButton(RipDpiIcons.Close, "Close details", {
                     disabledClicks++
-                }, enabled = false, density = RipDpiControlDensity.Compact)
+                }, enabled = false)
             }
         }
         configurations {

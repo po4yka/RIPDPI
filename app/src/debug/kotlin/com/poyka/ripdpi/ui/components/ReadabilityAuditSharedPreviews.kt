@@ -39,7 +39,7 @@ private fun ReadabilityAuditSharedPreview() {
             RipDpiButton("Подключиться с сохранёнными настройками", {
             }, leadingIcon = RipDpiIcons.Connected, density = RipDpiControlDensity.Compact)
             RipDpiTextAction("Завершить проверку с текущими настройками", {})
-            RipDpiIconButton(RipDpiIcons.Close, "Закрыть", {}, density = RipDpiControlDensity.Compact)
+            RipDpiIconButton(RipDpiIcons.Close, "Закрыть", {})
             FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
