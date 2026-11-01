@@ -97,6 +97,7 @@ internal class DiagnosticsSelectionActions(
     }
 
     fun selectApproachMode(mode: DiagnosticsApproachMode) {
+        detailRequest++
         selection.update { it.copy(selectedApproachMode = mode, selectedApproachDetail = null) }
     }
 
@@ -175,12 +176,15 @@ internal class DiagnosticsSelectionActions(
             sessionDetail.value.selectedSessionDetail
                 ?.session
                 ?.id ?: return
+        // Not a new pick, so the counter stays; a dismiss or another pick during the reload makes it stale.
+        val request = detailRequest
         mutations.launch {
             loadSessionDetail(
                 sessionId = sessionId,
                 showSensitiveDetails = nextValue,
                 selection = selection,
                 sessionDetail = sessionDetail,
+                isStale = { request != detailRequest },
             )
         }
     }

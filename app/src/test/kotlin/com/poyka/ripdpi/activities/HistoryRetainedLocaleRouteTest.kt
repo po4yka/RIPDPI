@@ -95,6 +95,11 @@ class HistoryRetainedLocaleRouteTest {
                 expected,
                 requireNotNull(viewModel.uiState.value.selectedConnectionDetail).contextGroups.first().title,
             )
+            val state = viewModel.uiState.value
+            assertEquals(connectionDetail.session.id, state.connections.focusedSessionId)
+            assertEquals("VPN", state.connections.filters.mode)
+            assertEquals("Running", state.connections.filters.status)
+            assertEquals("wifi", state.connections.filters.query)
             assertSame(frozenConnections, source.connectionSessions.value)
             assertSame(connectionDetail, source.connectionDetails[connectionDetail.session.id])
             assertEquals(1, source.connectionDetailLoads)

@@ -14,6 +14,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.util.MainDispatcherRule
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -88,6 +89,10 @@ class DiagnosticsRetainedLocaleRouteTest {
         val approachId = selectApproach(viewModel)
         refreshLocales(configuration) { tag, _ ->
             assertApproachPresentation(viewModel.uiState.value, tag, approachId)
+            assertNull(viewModel.uiState.value.selectedSessionDetail)
+            assertSame(frozenSessions, manager.sessionsState.value)
+            assertSame(detail, manager.detail)
+            assertEquals(2, sessionLoads)
             assertEquals(1, approachLoads)
         }
     }
