@@ -26,9 +26,13 @@ internal class DiagnosticsSelectionActions(
         }
     }
 
+    // A detail still loading when another is picked, closed, or the section changes is stale: drop its result.
+    private var detailRequest = 0
+
     fun selectSection(section: DiagnosticsSection) {
         // Open details belong to the tab they came from; keeping them would pile up beside the new tab's list.
         if (section != selection.value.selectedSectionRequest) {
+            detailRequest++
             sessionDetail.update { SessionDetailState() }
             selection.update {
                 it.copy(
@@ -77,13 +81,16 @@ internal class DiagnosticsSelectionActions(
     }
 
     fun selectSession(sessionId: String) {
+        val request = ++detailRequest
         mutations.launch {
             loadSessionDetail(
                 sessionId = sessionId,
                 showSensitiveDetails = false,
                 selection = selection,
                 sessionDetail = sessionDetail,
+                isStale = { request != detailRequest },
             )
+            if (request != detailRequest) return@launch
             // A session picked from a list replaces any other open detail, so the wide-window pane shows it.
             selection.update { it.copy(selectedApproachDetail = null, selectedEventId = null, selectedProbe = null) }
         }
@@ -94,6 +101,7 @@ internal class DiagnosticsSelectionActions(
     }
 
     fun selectApproach(approachId: String) {
+        val request = ++detailRequest
         mutations.launch {
             val detail =
                 diagnosticsDetailLoader.loadApproachDetail(
@@ -104,6 +112,7 @@ internal class DiagnosticsSelectionActions(
                         },
                     id = approachId,
                 )
+            if (request != detailRequest) return@launch
             sessionDetail.update { SessionDetailState() }
             selection.update {
                 it.copy(
@@ -117,17 +126,26 @@ internal class DiagnosticsSelectionActions(
     }
 
     fun dismissSessionDetail() {
+        detailRequest++
         sessionDetail.update { SessionDetailState() }
         selection.update { it.copy(selectedProbe = null, selectedStrategyProbeCandidate = null) }
     }
 
     fun dismissApproachDetail() {
+        detailRequest++
         selection.update { it.copy(selectedApproachDetail = null) }
     }
 
     fun selectEvent(eventId: String) {
         // Keeps the session an event row was opened from, so closing the event returns to it.
-        selection.update { it.copy(selectedEventId = eventId, selectedApproachDetail = null) }
+        selection.update {
+            it.copy(
+                selectedEventId = eventId,
+                selectedApproachDetail = null,
+                selectedProbe = null,
+                selectedStrategyProbeCandidate = null,
+            )
+        }
     }
 
     fun dismissEventDetail() {
@@ -135,7 +153,7 @@ internal class DiagnosticsSelectionActions(
     }
 
     fun selectProbe(probe: DiagnosticsProbeResultUiModel) {
-        selection.update { it.copy(selectedProbe = probe) }
+        selection.update { it.copy(selectedProbe = probe, selectedStrategyProbeCandidate = null) }
     }
 
     fun dismissProbeDetail() {
@@ -143,7 +161,7 @@ internal class DiagnosticsSelectionActions(
     }
 
     fun selectStrategyProbeCandidate(detail: DiagnosticsStrategyProbeCandidateDetailUiModel) {
-        selection.update { it.copy(selectedStrategyProbeCandidate = detail) }
+        selection.update { it.copy(selectedStrategyProbeCandidate = detail, selectedProbe = null) }
     }
 
     fun dismissStrategyProbeCandidate() {
@@ -178,8 +196,10 @@ internal suspend fun DiagnosticsMutationRunner.loadSessionDetail(
     showSensitiveDetails: Boolean,
     selection: MutableStateFlow<SelectionState>,
     sessionDetail: MutableStateFlow<SessionDetailState>,
+    isStale: () -> Boolean = { false },
 ) {
     val detail = diagnosticsDetailLoader.loadSessionDetail(sessionId)
+    if (isStale()) return
     selection.update { it.copy(selectedStrategyProbeCandidate = null) }
     sessionDetail.value =
         SessionDetailState(

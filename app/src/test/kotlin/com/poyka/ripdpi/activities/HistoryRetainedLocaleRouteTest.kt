@@ -18,6 +18,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.util.MainDispatcherRule
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Rule
 import org.junit.Test
@@ -74,12 +75,46 @@ class HistoryRetainedLocaleRouteTest {
             )
         val configuration = mutableStateOf(Configuration(context.resources.configuration))
         showHistoryRoute(context, configuration, viewModel)
-        selectDetailsAndFilters(viewModel, connectionDetail.session.id, sessionDetail.session.id)
+        selectConnectionAndFilters(viewModel, connectionDetail.session.id)
         assertEquals(
             "Service",
             requireNotNull(viewModel.uiState.value.selectedConnectionDetail).contextGroups.first().title,
         )
 
+        // Switching section closes the open detail, so each section's detail is checked on its own.
+        refreshLocales(context, configuration, locales) { expected ->
+            assertEquals(
+                expected,
+                connectionFactory
+                    .toConnectionDetail(connectionDetail)
+                    .contextGroups
+                    .first()
+                    .title,
+            )
+            assertEquals(
+                expected,
+                requireNotNull(viewModel.uiState.value.selectedConnectionDetail).contextGroups.first().title,
+            )
+            assertSame(frozenConnections, source.connectionSessions.value)
+            assertSame(connectionDetail, source.connectionDetails[connectionDetail.session.id])
+            assertEquals(1, source.connectionDetailLoads)
+        }
+
+        selectDiagnosticsSession(viewModel, sessionDetail.session.id)
+        refreshLocales(context, configuration, locales) { expected ->
+            assertRetainedState(viewModel.uiState.value, expected, sessionDetail.session.id)
+            assertSame(frozenSessions, source.diagnosticsSessions.value)
+            assertSame(sessionDetail, rawSessionLoader.nextDetail)
+            assertEquals(1, rawSessionLoader.sessionDetailLoads)
+        }
+    }
+
+    private fun refreshLocales(
+        context: Context,
+        configuration: androidx.compose.runtime.MutableState<Configuration>,
+        locales: RetainedLocaleTestSupport,
+        assertLocale: (expected: String) -> Unit,
+    ) {
         listOf("pt-BR" to "Serviço", "en" to "Service").forEach { (tag, expected) ->
             composeRule.runOnUiThread {
                 locales.select(tag)
@@ -89,22 +124,7 @@ class HistoryRetainedLocaleRouteTest {
                     }
             }
             composeRule.waitForIdle()
-            val state = viewModel.uiState.value
-            assertEquals(
-                expected,
-                connectionFactory
-                    .toConnectionDetail(connectionDetail)
-                    .contextGroups
-                    .first()
-                    .title,
-            )
-            assertRetainedState(state, expected, connectionDetail.session.id, sessionDetail.session.id)
-            assertSame(frozenConnections, source.connectionSessions.value)
-            assertSame(frozenSessions, source.diagnosticsSessions.value)
-            assertSame(connectionDetail, source.connectionDetails[connectionDetail.session.id])
-            assertSame(sessionDetail, rawSessionLoader.nextDetail)
-            assertEquals(1, source.connectionDetailLoads)
-            assertEquals(1, rawSessionLoader.sessionDetailLoads)
+            assertLocale(expected)
         }
     }
 
@@ -130,37 +150,41 @@ class HistoryRetainedLocaleRouteTest {
         }
     }
 
-    private fun selectDetailsAndFilters(
+    private fun selectConnectionAndFilters(
         viewModel: HistoryViewModel,
         connectionId: String,
-        sessionId: String,
     ) {
         composeRule.runOnUiThread {
             viewModel.selectConnection(connectionId)
-            viewModel.selectDiagnosticsSession(sessionId)
             viewModel.setConnectionModeFilter("VPN")
             viewModel.setConnectionStatusFilter("Running")
             viewModel.setConnectionSearch("wifi")
             viewModel.setDiagnosticsPathModeFilter("RAW_PATH")
             viewModel.setDiagnosticsStatusFilter("completed")
             viewModel.setDiagnosticsSearch("Scan")
+        }
+        composeRule.waitUntil(5_000) { viewModel.uiState.value.selectedConnectionDetail != null }
+    }
+
+    private fun selectDiagnosticsSession(
+        viewModel: HistoryViewModel,
+        sessionId: String,
+    ) {
+        composeRule.runOnUiThread {
             viewModel.selectSection(HistorySection.Diagnostics)
+            viewModel.selectDiagnosticsSession(sessionId)
         }
-        composeRule.waitUntil(5_000) {
-            viewModel.uiState.value.selectedConnectionDetail != null &&
-                viewModel.uiState.value.selectedDiagnosticsDetail != null
-        }
+        composeRule.waitUntil(5_000) { viewModel.uiState.value.selectedDiagnosticsDetail != null }
     }
 
     private fun assertRetainedState(
         state: HistoryUiState,
         expected: String,
-        connectionId: String,
         sessionId: String,
     ) {
-        assertEquals(expected, requireNotNull(state.selectedConnectionDetail).contextGroups.first().title)
+        assertNull(state.selectedConnectionDetail)
         assertEquals(expected, requireNotNull(state.selectedDiagnosticsDetail).contextGroups.first().title)
-        assertEquals(connectionId, state.connections.focusedSessionId)
+        assertNull(state.connections.focusedSessionId)
         assertEquals(sessionId, state.diagnostics.focusedSessionId)
         assertEquals(HistorySection.Diagnostics, state.selectedSection)
         assertEquals("VPN", state.connections.filters.mode)

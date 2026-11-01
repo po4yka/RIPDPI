@@ -75,8 +75,27 @@ class DiagnosticsRetainedLocaleRouteTest {
                 RipDpiTheme { DiagnosticsRoute(viewModel = viewModel) }
             }
         }
-        val selectedIds = selectDetails(viewModel, detail.session.id)
+        val probeId = selectSessionAndProbe(viewModel, detail.session.id)
 
+        // Opening an approach replaces the session detail, so each is checked on its own.
+        refreshLocales(configuration) { tag, expected ->
+            assertSessionPresentation(viewModel.uiState.value, tag, expected, probeId)
+            assertSame(frozenSessions, manager.sessionsState.value)
+            assertSame(detail, manager.detail)
+            assertEquals(2, sessionLoads)
+            assertEquals(0, approachLoads)
+        }
+        val approachId = selectApproach(viewModel)
+        refreshLocales(configuration) { tag, _ ->
+            assertApproachPresentation(viewModel.uiState.value, tag, approachId)
+            assertEquals(1, approachLoads)
+        }
+    }
+
+    private fun refreshLocales(
+        configuration: androidx.compose.runtime.MutableState<Configuration>,
+        assertLocale: (tag: String, expected: String) -> Unit,
+    ) {
         listOf("pt-BR" to "Serviço", "en" to "Service").forEach { (tag, expected) ->
             composeRule.runOnUiThread {
                 locales.select(tag)
@@ -86,19 +105,14 @@ class DiagnosticsRetainedLocaleRouteTest {
                     }
             }
             composeRule.waitForIdle()
-            val state = viewModel.uiState.value
-            assertPresentation(state, tag, expected, selectedIds)
-            assertSame(frozenSessions, manager.sessionsState.value)
-            assertSame(detail, manager.detail)
-            assertEquals(2, sessionLoads)
-            assertEquals(1, approachLoads)
+            assertLocale(tag, expected)
         }
     }
 
-    private fun selectDetails(
+    private fun selectSessionAndProbe(
         viewModel: DiagnosticsViewModel,
         sessionId: String,
-    ): SelectedIds {
+    ): String {
         composeRule.runOnUiThread { viewModel.selectSession(sessionId) }
         composeRule.waitUntil(5_000) { viewModel.uiState.value.selectedSessionDetail != null }
         composeRule.runOnUiThread { viewModel.toggleSensitiveSessionDetails() }
@@ -114,29 +128,31 @@ class DiagnosticsRetainedLocaleRouteTest {
                     .items
                     .first(),
             )
-            viewModel.selectApproach("custom-profile")
             viewModel.setSessionSearch("Scan")
         }
-        composeRule.waitUntil(5_000) { viewModel.uiState.value.selectedApproachDetail != null }
+        composeRule.waitUntil(5_000) { viewModel.uiState.value.selectedProbe != null }
         assertEquals(
             "Service",
             requireNotNull(viewModel.uiState.value.selectedSessionDetail).contextGroups.first().title,
         )
-        return SelectedIds(
-            probeId = requireNotNull(viewModel.uiState.value.selectedProbe).id,
-            approachId = requireNotNull(viewModel.uiState.value.selectedApproachDetail).approach.id,
-        )
+        return requireNotNull(viewModel.uiState.value.selectedProbe).id
     }
 
-    private fun assertPresentation(
+    private fun selectApproach(viewModel: DiagnosticsViewModel): String {
+        composeRule.runOnUiThread { viewModel.selectApproach("custom-profile") }
+        composeRule.waitUntil(5_000) { viewModel.uiState.value.selectedApproachDetail != null }
+        return requireNotNull(viewModel.uiState.value.selectedApproachDetail).approach.id
+    }
+
+    private fun assertSessionPresentation(
         state: DiagnosticsUiState,
         tag: String,
         expected: String,
-        selectedIds: SelectedIds,
+        probeId: String,
     ) {
         assertEquals(expected, requireNotNull(state.selectedSessionDetail).contextGroups.first().title)
         assertTrue(requireNotNull(state.selectedSessionDetail).sensitiveDetailsVisible)
-        assertEquals(selectedIds.probeId, requireNotNull(state.selectedProbe).id)
+        assertEquals(probeId, requireNotNull(state.selectedProbe).id)
         assertEquals(
             if (tag ==
                 "pt-BR"
@@ -152,7 +168,16 @@ class DiagnosticsRetainedLocaleRouteTest {
                 .first()
                 .label,
         )
-        assertEquals(selectedIds.approachId, requireNotNull(state.selectedApproachDetail).approach.id)
+        assertEquals("example.org", requireNotNull(state.selectedProbe).target)
+        assertEquals("Scan", state.sessions.filters.query)
+    }
+
+    private fun assertApproachPresentation(
+        state: DiagnosticsUiState,
+        tag: String,
+        approachId: String,
+    ) {
+        assertEquals(approachId, requireNotNull(state.selectedApproachDetail).approach.id)
         assertEquals(
             if (tag ==
                 "pt-BR"
@@ -166,12 +191,5 @@ class DiagnosticsRetainedLocaleRouteTest {
                 .first()
                 .label,
         )
-        assertEquals("example.org", requireNotNull(state.selectedProbe).target)
-        assertEquals("Scan", state.sessions.filters.query)
     }
-
-    private data class SelectedIds(
-        val probeId: String,
-        val approachId: String,
-    )
 }

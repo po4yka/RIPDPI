@@ -2265,6 +2265,33 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
+    fun `selecting an event closes an open probe detail`() =
+        runTest {
+            val manager = FakeDiagnosticsManager()
+            val viewModel =
+                createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            viewModel.selectProbe(
+                DiagnosticsProbeResultUiModel(
+                    id = "probe-1",
+                    probeType = "dns",
+                    target = "example.org",
+                    outcome = "blocked",
+                    tone = DiagnosticsTone.Warning,
+                    details = persistentListOf(),
+                ),
+            )
+            advanceUntilIdle()
+            assertNotNull(viewModel.uiState.value.selectedProbe)
+
+            viewModel.selectEvent("event-1")
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.selectedProbe)
+            collector.cancel()
+        }
+
+    @Test
     fun `approaches detail humanizes fake tls signature`() =
         runTest {
             val manager =

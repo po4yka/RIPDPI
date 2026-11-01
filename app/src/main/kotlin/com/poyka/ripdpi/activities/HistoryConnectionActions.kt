@@ -29,14 +29,20 @@ internal class HistoryConnectionActions(
         connectionFilters.update { it.copy(modeFilter = null, statusFilter = null, search = "") }
     }
 
+    // A detail still loading when the section changes or the detail is closed is stale: drop its result.
+    private var detailRequest = 0
+
     fun selectConnection(sessionId: String) {
+        val request = ++detailRequest
         scope.launch {
             val detail = loadConnectionDetail(sessionId)
+            if (request != detailRequest) return@launch
             detailState.update { it.copy(selectedConnectionDetail = detail) }
         }
     }
 
     fun dismissDetail() {
+        detailRequest++
         detailState.update { it.copy(selectedConnectionDetail = null) }
     }
 }
@@ -63,13 +69,19 @@ internal class HistoryDiagnosticsActions(
         diagnosticsFilters.update { it.copy(pathModeFilter = null, statusFilter = null, search = "") }
     }
 
+    private var detailRequest = 0
+
     fun selectSession(sessionId: String) {
+        val request = ++detailRequest
         scope.launch {
-            detailState.update { it.copy(selectedDiagnosticsDetail = loadSessionDetail(sessionId)) }
+            val detail = loadSessionDetail(sessionId)
+            if (request != detailRequest) return@launch
+            detailState.update { it.copy(selectedDiagnosticsDetail = detail) }
         }
     }
 
     fun dismissDetail() {
+        detailRequest++
         detailState.update { it.copy(selectedDiagnosticsDetail = null) }
     }
 }
