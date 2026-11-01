@@ -63,11 +63,14 @@ internal fun DiagnosticsScanWorkflowCard(
         variant = RipDpiCardVariant.Tonal,
     ) {
         StatusIndicator(label = presentation.title, tone = statusTone(presentation.tone))
-        Text(
-            text = profile.name,
-            style = RipDpiThemeTokens.type.screenTitle,
-            color = colors.foreground,
-        )
+        // The status label is the profile name when the profile has no result to report yet.
+        if (profile.name != presentation.title) {
+            Text(
+                text = profile.name,
+                style = RipDpiThemeTokens.type.screenTitle,
+                color = colors.foreground,
+            )
+        }
         Text(
             text = presentation.body,
             style = RipDpiThemeTokens.type.body,
@@ -90,7 +93,7 @@ internal fun DiagnosticsScanWorkflowCard(
             onOpenModeEditor = onOpenModeEditor,
             onOpenOwnedStackBrowser = onOpenOwnedStackBrowser,
         )
-        WorkflowScopeGuidance(scan, strategyProbeSelected, isFullAudit)
+        WorkflowScopeGuidance(scan)
         WorkflowActionRow(
             strategyProbeSelected = strategyProbeSelected,
             scan = scan,
@@ -114,21 +117,10 @@ internal fun DiagnosticsScanWorkflowCard(
 }
 
 @Composable
-private fun WorkflowScopeGuidance(
-    scan: DiagnosticsScanUiModel,
-    strategyProbeSelected: Boolean,
-    isFullAudit: Boolean,
-) {
+private fun WorkflowScopeGuidance(scan: DiagnosticsScanUiModel) {
     scan.runRawHint?.let { hint ->
         WorkflowScopeHint(
-            title =
-                if (isFullAudit) {
-                    stringResource(R.string.diagnostics_audit_profile_title)
-                } else if (strategyProbeSelected) {
-                    stringResource(R.string.diagnostics_probe_profile_title)
-                } else {
-                    stringResource(R.string.diagnostics_scope_direct_label)
-                },
+            title = stringResource(R.string.diagnostics_scope_direct_label),
             hint = hint,
             available = scan.runRawEnabled,
         )
@@ -458,57 +450,57 @@ private fun workflowBadges(
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     stringResource(R.string.diagnostics_profile_badge_http_https_quic),
-                    DiagnosticsTone.Info,
+                    DiagnosticsTone.Neutral,
                 ),
             )
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     stringResource(R.string.diagnostics_profile_badge_all_builtin),
-                    DiagnosticsTone.Warning,
+                    DiagnosticsTone.Neutral,
                 ),
             )
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     stringResource(R.string.diagnostics_profile_badge_raw_only),
-                    DiagnosticsTone.Warning,
+                    DiagnosticsTone.Neutral,
                 ),
             )
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     stringResource(R.string.diagnostics_profile_badge_manual_apply),
-                    DiagnosticsTone.Positive,
+                    DiagnosticsTone.Neutral,
                 ),
             )
         } else if (strategyProbeSelected) {
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     stringResource(R.string.diagnostics_profile_badge_http_https_quic),
-                    DiagnosticsTone.Info,
+                    DiagnosticsTone.Neutral,
                 ),
             )
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     stringResource(R.string.diagnostics_profile_badge_raw_only),
-                    DiagnosticsTone.Warning,
+                    DiagnosticsTone.Neutral,
                 ),
             )
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     stringResource(R.string.diagnostics_profile_badge_manual_apply),
-                    DiagnosticsTone.Positive,
+                    DiagnosticsTone.Neutral,
                 ),
             )
         } else {
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     stringResource(R.string.diagnostics_profile_badge_dns_http_https_tcp),
-                    DiagnosticsTone.Info,
+                    DiagnosticsTone.Neutral,
                 ),
             )
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     stringResource(R.string.diagnostics_profile_badge_raw_and_in_path),
-                    DiagnosticsTone.Positive,
+                    DiagnosticsTone.Neutral,
                 ),
             )
         }
@@ -516,7 +508,7 @@ private fun workflowBadges(
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     stringResource(R.string.diagnostics_profile_badge_manual_only),
-                    DiagnosticsTone.Warning,
+                    DiagnosticsTone.Neutral,
                 ),
             )
         }
@@ -524,7 +516,7 @@ private fun workflowBadges(
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     stringResource(R.string.diagnostics_profile_badge_region_net),
-                    DiagnosticsTone.Warning,
+                    DiagnosticsTone.Neutral,
                 ),
             )
         }

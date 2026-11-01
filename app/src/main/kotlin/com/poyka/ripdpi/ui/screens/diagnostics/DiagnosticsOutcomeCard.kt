@@ -127,7 +127,7 @@ private fun DiagnosticsOutcomeSummary(
     val active = outcome.source == DiagnosticsOutcomeSource.Active
     Column(modifier, verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
         Text(stringResource(outcome.source.label()), style = type.sectionTitle, color = colors.mutedForeground)
-        Text(
+        val headline =
             outcome.headline?.takeIf(String::isNotBlank)
                 ?: stringResource(
                     if (active) {
@@ -135,15 +135,12 @@ private fun DiagnosticsOutcomeSummary(
                     } else {
                         R.string.diagnostics_headline_no_data
                     },
-                ),
-            style = type.cardTitle,
-            color = colors.foreground,
-        )
-        Text(
-            outcome.summary?.takeIf(String::isNotBlank) ?: stringResource(R.string.diagnostics_simple_funnel_body),
-            style = type.body,
-            color = colors.mutedForeground,
-        )
+                )
+        Text(headline, style = type.cardTitle, color = colors.foreground)
+        val summary =
+            outcome.summary?.takeIf(String::isNotBlank) ?: stringResource(R.string.diagnostics_simple_funnel_body)
+        // A report whose summary repeats its headline would show the same sentence twice.
+        if (summary != headline) Text(summary, style = type.body, color = colors.mutedForeground)
     }
 }
 

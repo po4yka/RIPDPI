@@ -33,6 +33,7 @@ import com.poyka.ripdpi.data.protocolDisplayName
 import com.poyka.ripdpi.ui.components.cards.RadioIndicator
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.chrome.overlineText
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -84,7 +85,7 @@ internal fun DnsActiveConfigurationCard(
         animateContentSize = true,
     ) {
         Text(
-            text = stringResource(R.string.dns_active_section_title),
+            text = overlineText(stringResource(R.string.dns_active_section_title)),
             style = type.sectionTitle,
             color = colors.mutedForeground,
         )

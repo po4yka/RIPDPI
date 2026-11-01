@@ -34,6 +34,10 @@ data class RipDpiTelemetryEntry(
     val monospaceValue: Boolean = false,
 )
 
+/** The one casing for section-title labels, so section headers and card overlines read alike. */
+@Composable
+fun overlineText(text: String): String = text.uppercase(LocalConfiguration.current.locales[0])
+
 @Composable
 fun RipDpiScreenSectionHeader(
     title: String,
@@ -44,7 +48,6 @@ fun RipDpiScreenSectionHeader(
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    val locale = LocalConfiguration.current.locales[0]
 
     Column(
         modifier = modifier.fillMaxWidth(),
@@ -55,14 +58,10 @@ fun RipDpiScreenSectionHeader(
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
             Text(
-                text = title.uppercase(locale),
+                text = overlineText(title),
                 style = RipDpiThemeTokens.type.sectionTitle,
                 color = colors.mutedForeground,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .padding(start = spacing.xs)
-                        .semantics { heading() },
+                modifier = Modifier.weight(1f).semantics { heading() },
             )
             trailingContent?.invoke(this)
         }
@@ -71,7 +70,6 @@ fun RipDpiScreenSectionHeader(
                 text = it,
                 style = RipDpiThemeTokens.type.secondaryBody,
                 color = colors.mutedForeground,
-                modifier = Modifier.padding(start = spacing.xs),
             )
         }
         if (showDivider) {
@@ -151,7 +149,7 @@ fun RipDpiEmptyStateCard(
                     Modifier
                         .fillMaxWidth()
                         .then(actionTestTag?.let { Modifier.ripDpiTestTag(it) } ?: Modifier),
-                variant = RipDpiButtonVariant.Outline,
+                variant = RipDpiButtonVariant.Secondary,
                 wrapLabel = true,
             )
         }

@@ -12,57 +12,57 @@ internal fun DiagnosticsUiFactorySupport.buildWorkflowBadges(
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     context.getString(R.string.diagnostics_profile_badge_http_https_quic),
-                    DiagnosticsTone.Info,
+                    DiagnosticsTone.Neutral,
                 ),
             )
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     context.getString(R.string.diagnostics_profile_badge_all_builtin),
-                    DiagnosticsTone.Warning,
+                    DiagnosticsTone.Neutral,
                 ),
             )
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     context.getString(R.string.diagnostics_profile_badge_raw_only),
-                    DiagnosticsTone.Warning,
+                    DiagnosticsTone.Neutral,
                 ),
             )
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     context.getString(R.string.diagnostics_profile_badge_manual_apply),
-                    DiagnosticsTone.Positive,
+                    DiagnosticsTone.Neutral,
                 ),
             )
         } else if (strategyProbeSelected) {
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     context.getString(R.string.diagnostics_profile_badge_http_https_quic),
-                    DiagnosticsTone.Info,
+                    DiagnosticsTone.Neutral,
                 ),
             )
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     context.getString(R.string.diagnostics_profile_badge_raw_only),
-                    DiagnosticsTone.Warning,
+                    DiagnosticsTone.Neutral,
                 ),
             )
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     context.getString(R.string.diagnostics_profile_badge_manual_apply),
-                    DiagnosticsTone.Positive,
+                    DiagnosticsTone.Neutral,
                 ),
             )
         } else {
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     context.getString(R.string.diagnostics_profile_badge_dns_http_https_tcp),
-                    DiagnosticsTone.Info,
+                    DiagnosticsTone.Neutral,
                 ),
             )
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     context.getString(R.string.diagnostics_profile_badge_raw_and_in_path),
-                    DiagnosticsTone.Positive,
+                    DiagnosticsTone.Neutral,
                 ),
             )
         }
@@ -70,7 +70,7 @@ internal fun DiagnosticsUiFactorySupport.buildWorkflowBadges(
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     context.getString(R.string.diagnostics_profile_badge_manual_only),
-                    DiagnosticsTone.Warning,
+                    DiagnosticsTone.Neutral,
                 ),
             )
         }
@@ -78,7 +78,7 @@ internal fun DiagnosticsUiFactorySupport.buildWorkflowBadges(
             add(
                 DiagnosticsScanWorkflowBadgeUiModel(
                     context.getString(R.string.diagnostics_profile_badge_region_net),
-                    DiagnosticsTone.Warning,
+                    DiagnosticsTone.Neutral,
                 ),
             )
         }
