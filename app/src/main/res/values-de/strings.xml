@@ -310,7 +310,7 @@
     <string name="logs_search_placeholder">Logmeldungen durchsuchen</string>
     <string name="logs_search_clear">Suche löschen</string>
     <string name="logs_search_empty_title">Keine Einträge entsprechen der Suche</string>
-    <string name="logs_search_empty_body">Versuche einen anderen Suchbegriff oder lösche die Suche.</string>
+    <string name="logs_search_empty_body">Versuchen Sie einen anderen Suchbegriff oder löschen Sie die Suche.</string>
     <string name="logs_severity_info">INFO</string>
     <string name="logs_subsystem_tunnel">TUNNEL</string>
     <string name="notice_activation_window_reset_message">RIPDPI wird die aktive Bypass-Strategie-Gruppe beim nächsten Start nicht mehr nach Runde, Nutzlastgröße oder Stream-Byte-Position filtern.</string>

@@ -19,6 +19,7 @@ import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
@@ -180,7 +181,8 @@ private fun SessionMetrics(metrics: ImmutableList<DiagnosticsMetricUiModel>) {
                     text = metric.label.uppercase(locale),
                     style = RipDpiThemeTokens.type.caption,
                     color = RipDpiThemeTokens.colors.mutedForeground,
-                    softWrap = false,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
                 )
             }
         }

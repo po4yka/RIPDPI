@@ -233,31 +233,30 @@ private fun LogsContent(
                 uiState = uiState,
                 onShowFilters = onShowFilters,
             )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                RipDpiTextField(
-                    value = query,
-                    onValueChange = { query = it },
-                    modifier = Modifier.weight(1f),
-                    decoration =
-                        RipDpiTextFieldDecoration(
-                            label = stringResource(R.string.diagnostics_search_label),
-                            placeholder = stringResource(R.string.logs_search_placeholder),
-                            testTag = RipDpiTestTags.LogsSearch,
-                        ),
-                    behavior =
-                        RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)),
-                )
-                if (query.isNotEmpty()) {
-                    RipDpiIconButton(
-                        icon = RipDpiIcons.Close,
-                        contentDescription = stringResource(R.string.logs_search_clear),
-                        onClick = { query = "" },
-                    )
-                }
-            }
+            RipDpiTextField(
+                value = query,
+                onValueChange = { query = it },
+                modifier = Modifier.fillMaxWidth(),
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        label = stringResource(R.string.diagnostics_search_label),
+                        placeholder = stringResource(R.string.logs_search_placeholder),
+                        testTag = RipDpiTestTags.LogsSearch,
+                    ),
+                behavior = RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)),
+                trailingContent =
+                    if (query.isNotEmpty()) {
+                        {
+                            RipDpiIconButton(
+                                icon = RipDpiIcons.Close,
+                                contentDescription = stringResource(R.string.logs_search_clear),
+                                onClick = { query = "" },
+                            )
+                        }
+                    } else {
+                        null
+                    },
+            )
             LogsStreamSection(
                 uiState = uiState.copy(filteredLogs = searchedLogs),
                 // The search, not the filters, hid the entries only when the filtered stream itself has some.
