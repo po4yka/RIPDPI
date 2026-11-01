@@ -299,14 +299,14 @@ private fun ActuatorFaultDetail(
             imageVector = RipDpiIcons.Error,
             contentDescription = null,
             modifier = Modifier.size(RipDpiIconSizes.Small),
-            tint = stateStyle.label,
+            tint = stateStyle.railContent,
         )
         Spacer(modifier = Modifier.width(spacing.xs))
         Text(
             modifier = Modifier.weight(1f),
             text = detail,
             style = RipDpiThemeTokens.type.caption,
-            color = stateStyle.label,
+            color = stateStyle.railContent,
         )
     }
 }

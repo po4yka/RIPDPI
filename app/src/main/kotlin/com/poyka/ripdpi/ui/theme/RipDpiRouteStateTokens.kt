@@ -153,6 +153,7 @@ data class RipDpiRouteStateTokens(
         badgeContainer: Color,
         badgeBorder: Color,
         badgeContent: Color = colors.foreground,
+        pageLabel: Color = colors.foreground,
         borderWidth: Dp = 1.dp,
         alpha: Float = 1f,
     ): RipDpiRouteAvailabilityStateStyle =
@@ -165,6 +166,7 @@ data class RipDpiRouteStateTokens(
             badgeContainer = badgeContainer,
             badgeBorder = badgeBorder,
             badgeContent = badgeContent,
+            pageLabel = pageLabel,
             borderWidth = borderWidth,
             alpha = alpha,
         )

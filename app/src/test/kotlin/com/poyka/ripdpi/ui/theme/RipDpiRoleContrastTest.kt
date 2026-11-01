@@ -66,6 +66,7 @@ class RipDpiRoleContrastTest {
                 assertAtLeast("$id slot", Text, s.slotContent, s.terminal)
                 assertAtLeast("$id label", Text, s.label, p.colors.background)
                 assertAtLeast("$id route label", Text, s.routeLabel, p.colors.background)
+                assertAtLeast("$id rail content", Text, s.railContent, s.rail)
             }
             RipDpiActuatorStageRole.entries.forEach { role ->
                 val s = p.states.actuator.resolveStage(role)
@@ -83,6 +84,18 @@ class RipDpiRoleContrastTest {
                 assertAtLeast("$id content", Text, s.content, s.container)
                 assertAtLeast("$id muted content", Text, s.mutedContent, s.container)
                 assertAtLeast("$id badge", Text, s.badgeContent, s.badgeContainer.compositeOver(s.container))
+                assertAtLeast("$id page label", Text, s.pageLabel, p.colors.background)
+            }
+        }
+    }
+
+    @Test
+    fun `preset card badge label is readable on its fill in every scheme`() {
+        palettes.forEach { p ->
+            listOf(false, true).forEach { selected ->
+                val role = DefaultRipDpiSurfaceRoleMappings.presetCard.badge(selected)
+                val badge = presetBadgeColors(p.surfaces.resolve(role), selected, p.colors.mutedForeground)
+                assertAtLeast("${p.label} preset badge selected=$selected", Text, badge.content, badge.container)
             }
         }
     }

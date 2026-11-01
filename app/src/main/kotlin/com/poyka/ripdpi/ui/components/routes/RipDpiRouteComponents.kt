@@ -549,7 +549,7 @@ private fun RouteStackNode(
         Text(
             text = node.label,
             style = RipDpiThemeTokens.type.monoSmall,
-            color = style.content,
+            color = style.pageLabel,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )

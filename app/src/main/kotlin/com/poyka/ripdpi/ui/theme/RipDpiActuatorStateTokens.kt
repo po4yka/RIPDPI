@@ -44,6 +44,7 @@ data class RipDpiActuatorStateTokens(
                     terminal = colors.foreground,
                     terminalBorder = colors.foreground,
                     slotContent = colors.background,
+                    railContent = colors.accentForeground,
                 )
             }
 
@@ -57,6 +58,7 @@ data class RipDpiActuatorStateTokens(
                     terminalBorder = colors.warning,
                     slotContent = colors.background,
                     routeLabel = colors.warning,
+                    railContent = colors.warningContainerForeground,
                 )
             }
 
@@ -69,6 +71,7 @@ data class RipDpiActuatorStateTokens(
                     terminal = colors.inputBackground,
                     terminalBorder = colors.destructive,
                     routeLabel = colors.destructive,
+                    railContent = colors.destructiveContainerForeground,
                 )
             }
         }
@@ -147,6 +150,7 @@ data class RipDpiActuatorStateTokens(
         label: Color = colors.mutedForeground,
         routeLabel: Color = colors.foreground,
         slotContent: Color = colors.foreground,
+        railContent: Color = colors.foreground,
     ): RipDpiActuatorStateStyle =
         RipDpiActuatorStateStyle(
             rail = rail,
@@ -158,5 +162,6 @@ data class RipDpiActuatorStateTokens(
             label = label,
             routeLabel = routeLabel,
             slotContent = slotContent,
+            railContent = railContent,
         )
 }

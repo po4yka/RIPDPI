@@ -59,6 +59,8 @@ data class RipDpiActuatorStateStyle(
     val label: Color,
     val routeLabel: Color,
     val slotContent: Color,
+    // Text and icons drawn on the rail, such as the fault detail row.
+    val railContent: Color,
 )
 
 @Immutable
@@ -80,6 +82,8 @@ data class RipDpiRouteAvailabilityStateStyle(
     val badgeContainer: Color,
     val badgeBorder: Color,
     val badgeContent: Color,
+    // A label drawn on the page under the route's glyph, not on [container].
+    val pageLabel: Color,
     val borderWidth: Dp,
     val alpha: Float,
 )
