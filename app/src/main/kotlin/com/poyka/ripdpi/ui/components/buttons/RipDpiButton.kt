@@ -49,6 +49,9 @@ import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+// Material outlines a disabled button with onSurface at 12%.
+private const val DisabledBorderAlpha = 0.12f
+
 enum class RipDpiButtonVariant {
     Primary,
     Secondary,
@@ -211,7 +214,11 @@ fun RipDpiButton(
                 enabled = isInteractive,
                 shape = shape,
                 colors = buttonColors,
-                border = BorderStroke(RipDpiStroke.Thin, colors.border),
+                border =
+                    BorderStroke(
+                        RipDpiStroke.Thin,
+                        if (isInteractive) colors.outline else colors.foreground.copy(alpha = DisabledBorderAlpha),
+                    ),
                 contentPadding = contentPadding,
                 interactionSource = focusSource,
                 content = content,
