@@ -2221,6 +2221,50 @@ class DiagnosticsViewModelTest {
         }
 
     @Test
+    fun `selecting a session or approach replaces the other open detail`() =
+        runTest {
+            val manager =
+                FakeDiagnosticsManager(
+                    detail =
+                        DiagnosticSessionDetail(
+                            session =
+                                session(
+                                    id = "session-1",
+                                    profileId = "default",
+                                    pathMode = "RAW_PATH",
+                                    summary = "S",
+                                ),
+                            results = emptyList(),
+                            snapshots = emptyList(),
+                            context = null,
+                            events = emptyList(),
+                        ),
+                ).apply {
+                    approachStatsState.value =
+                        listOf(sampleApproachSummary(kind = BypassApproachKind.Strategy, id = "strategy-1"))
+                }
+            val viewModel =
+                createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+
+            viewModel.selectSession("session-1")
+            advanceUntilIdle()
+            viewModel.selectApproach("strategy-1")
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.selectedSessionDetail)
+            assertNotNull(viewModel.uiState.value.selectedApproachDetail)
+
+            viewModel.selectSession("session-1")
+            advanceUntilIdle()
+
+            assertNotNull(viewModel.uiState.value.selectedSessionDetail)
+            assertNull(viewModel.uiState.value.selectedApproachDetail)
+            collector.cancel()
+        }
+
+    @Test
     fun `approaches detail humanizes fake tls signature`() =
         runTest {
             val manager =

@@ -27,7 +27,19 @@ internal class DiagnosticsSelectionActions(
     }
 
     fun selectSection(section: DiagnosticsSection) {
-        selection.update { it.copy(selectedSectionRequest = section) }
+        // Open details belong to the tab they came from; keeping them would pile up beside the new tab's list.
+        if (section != selection.value.selectedSectionRequest) {
+            sessionDetail.update { SessionDetailState() }
+            selection.update {
+                it.copy(
+                    selectedSectionRequest = section,
+                    selectedApproachDetail = null,
+                    selectedProbe = null,
+                    selectedEventId = null,
+                    selectedStrategyProbeCandidate = null,
+                )
+            }
+        }
     }
 
     fun updateSelectiveMatrixHosts(input: String) {
@@ -72,6 +84,8 @@ internal class DiagnosticsSelectionActions(
                 selection = selection,
                 sessionDetail = sessionDetail,
             )
+            // A session picked from a list replaces any other open detail, so the wide-window pane shows it.
+            selection.update { it.copy(selectedApproachDetail = null, selectedEventId = null, selectedProbe = null) }
         }
     }
 
@@ -90,7 +104,15 @@ internal class DiagnosticsSelectionActions(
                         },
                     id = approachId,
                 )
-            selection.update { it.copy(selectedApproachDetail = detail) }
+            sessionDetail.update { SessionDetailState() }
+            selection.update {
+                it.copy(
+                    selectedApproachDetail = detail,
+                    selectedEventId = null,
+                    selectedProbe = null,
+                    selectedStrategyProbeCandidate = null,
+                )
+            }
         }
     }
 
@@ -104,7 +126,8 @@ internal class DiagnosticsSelectionActions(
     }
 
     fun selectEvent(eventId: String) {
-        selection.update { it.copy(selectedEventId = eventId) }
+        // Keeps the session an event row was opened from, so closing the event returns to it.
+        selection.update { it.copy(selectedEventId = eventId, selectedApproachDetail = null) }
     }
 
     fun dismissEventDetail() {
