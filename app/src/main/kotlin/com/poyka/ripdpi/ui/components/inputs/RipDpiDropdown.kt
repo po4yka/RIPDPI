@@ -2,19 +2,21 @@ package com.poyka.ripdpi.ui.components.inputs
 
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.interaction.collectIsFocusedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.text.input.TextFieldLineLimits
-import androidx.compose.foundation.text.input.TextFieldState
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MenuDefaults
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -22,14 +24,20 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.collapse
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
+import androidx.compose.ui.semantics.expand
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
@@ -44,6 +52,7 @@ import kotlinx.collections.immutable.persistentListOf
 
 private const val DisabledAlpha = 0.38f
 private const val dropdownWidthFraction = 0.9f
+private val DropdownVerticalPadding = 8.dp
 
 data class RipDpiDropdownOption<T>(
     val value: T,
@@ -154,8 +163,8 @@ fun <T> RipDpiDropdown(
 }
 
 /**
- * A Material outlined field shows the selection. It is inert (`enabled = false`) and drawn with the
- * interactive colors, so an overlay owns the click, focus, Enter key and button semantics.
+ * One merged node owns the click, focus, Enter key and semantics. TalkBack reads the label, the selected
+ * value as its state, the error and the expanded state; the drawn field and its chevron stay inert.
  */
 @Composable
 private fun DropdownField(
@@ -180,65 +189,80 @@ private fun DropdownField(
         animationSpec = motion.quickTween(),
         label = "dropdownChevronRotation",
     )
-    val shownText = selectedLabel.ifEmpty { placeholder.orEmpty() }
-    val textState = remember(shownText) { TextFieldState(shownText) }
+    val source = interactionSource ?: remember { MutableInteractionSource() }
+    val focused by source.collectIsFocusedAsState()
+    val emphasized = isInteractive && (expanded || focused)
     val borderColor =
         when {
             !enabled -> colors.border
             errorText != null -> colors.destructive
-            isInteractive && expanded -> colors.foreground
-            else -> colors.outlineVariant
+            emphasized -> colors.foreground
+            else -> colors.outline
         }
-    val textColor = if (selectedLabel.isEmpty()) colors.mutedForeground else colors.foreground
-    val fieldColors =
-        ripDpiOutlinedTextFieldColors(
-            disabledText = if (enabled) textColor else textColor.copy(alpha = DisabledAlpha),
-            disabledBorder = borderColor,
-            disabledTrailingIcon = colors.mutedForeground.copy(alpha = if (enabled) 1f else DisabledAlpha),
-        )
+    val borderWidth =
+        if (emphasized) {
+            OutlinedTextFieldDefaults.FocusedBorderThickness
+        } else {
+            OutlinedTextFieldDefaults.UnfocusedBorderThickness
+        }
+    val shape = RipDpiThemeTokens.shapes.xl
     val horizontalPadding = if (density == RipDpiControlDensity.Compact) 12.dp else 16.dp
+    val contentAlpha = if (enabled) 1f else DisabledAlpha
     Box {
-        OutlinedTextField(
-            state = textState,
-            // Options are labels such as "Light" or "TCP", not technical values.
-            textStyle = RipDpiThemeTokens.type.secondaryBody,
+        Row(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .heightIn(min = components.inputs.controlHeight),
-            enabled = false,
-            readOnly = true,
-            lineLimits = TextFieldLineLimits.MultiLine(maxHeightInLines = 2),
-            trailingIcon = {
-                Icon(
-                    imageVector = RipDpiIcons.KeyboardArrowDown,
-                    contentDescription = null,
-                    modifier = Modifier.graphicsLayer { rotationZ = animatedChevronRotation },
-                )
-            },
-            shape = RipDpiThemeTokens.shapes.xl,
-            colors = fieldColors,
-            contentPadding =
-                OutlinedTextFieldDefaults.contentPaddingWithoutLabel(
-                    start = horizontalPadding,
-                    end = horizontalPadding,
-                ),
-        )
-        // A sibling on top of the inert field: the field would otherwise swallow the touch.
-        Box(
-            modifier =
-                Modifier
-                    .matchParentSize()
+                    .heightIn(min = components.inputs.controlHeight)
                     .ripDpiTestTag(testTag)
-                    .semantics {
-                        label?.let { contentDescription = it }
+                    .clip(shape)
+                    .background(colors.inputBackground, shape)
+                    .border(borderWidth, borderColor, shape)
+                    .semantics(mergeDescendants = true) {
+                        label?.let {
+                            contentDescription = it
+                            // The label replaces the merged text for a screen reader, so the value is its state.
+                            stateDescription = selectedLabel.ifEmpty { placeholder.orEmpty() }
+                        }
                         errorText?.let { error(it) }
+                        if (isInteractive) {
+                            if (expanded) {
+                                collapse {
+                                    setExpanded(false)
+                                    true
+                                }
+                            } else {
+                                expand {
+                                    setExpanded(true)
+                                    true
+                                }
+                            }
+                        }
                     }.ripDpiClickable(
                         enabled = isInteractive,
-                        role = Role.Button,
-                        interactionSource = interactionSource,
-                    ) { setExpanded(true) },
-        )
+                        role = Role.DropdownList,
+                        interactionSource = source,
+                    ) { setExpanded(true) }
+                    .padding(horizontal = horizontalPadding, vertical = DropdownVerticalPadding),
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            // Options are labels such as "Light" or "TCP", not technical values.
+            Text(
+                text = selectedLabel.ifEmpty { placeholder.orEmpty() },
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = if (selectedLabel.isEmpty()) colors.mutedForeground else colors.foreground,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.weight(1f).alpha(contentAlpha),
+            )
+            Icon(
+                imageVector = RipDpiIcons.KeyboardArrowDown,
+                contentDescription = null,
+                tint = if (errorText != null) colors.destructive else colors.mutedForeground,
+                modifier = Modifier.alpha(contentAlpha).graphicsLayer { rotationZ = animatedChevronRotation },
+            )
+        }
         dropdownContent()
     }
 }
