@@ -1,18 +1,24 @@
 package com.poyka.ripdpi.ui.components.inputs
 
+import androidx.compose.foundation.layout.Column
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertCountEquals
-import androidx.compose.ui.test.assertHeightIsAtLeast
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.Density
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -70,18 +76,39 @@ class RipDpiDropdownSemanticsTest {
     }
 
     @Test
-    fun `closed dropdown is as tall as a Material outlined field`() {
+    fun `dropdown and text field with the same text are equally tall at default and double font scale`() {
+        var fontScale by mutableFloatStateOf(1f)
         composeRule.setContent {
             RipDpiTheme {
-                RipDpiDropdown(
-                    options = options,
-                    selectedValue = "a",
-                    onValueSelected = {},
-                    labels = RipDpiDropdownLabels(label = "Mode"),
-                    testTag = "dropdown",
-                )
+                val density = LocalDensity.current
+                CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = fontScale)) {
+                    Column {
+                        RipDpiDropdown(
+                            options = options,
+                            selectedValue = "a",
+                            onValueSelected = {},
+                            labels = RipDpiDropdownLabels(label = "Mode"),
+                            testTag = "dropdown",
+                        )
+                        RipDpiTextField(
+                            value = "Alpha",
+                            onValueChange = {},
+                            decoration = RipDpiTextFieldDecoration(label = "Mode", testTag = "field"),
+                        )
+                    }
+                }
             }
         }
-        composeRule.onNodeWithTag("dropdown").assertHeightIsAtLeast(56.dp)
+        val dropdown =
+            composeRule
+                .onNodeWithTag("dropdown")
+                .fetchSemanticsNode()
+                .size.height
+        val field =
+            composeRule
+                .onNodeWithTag("field")
+                .fetchSemanticsNode()
+                .size.height
+        assertEquals(field, dropdown)
     }
 }

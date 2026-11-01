@@ -52,7 +52,9 @@ import kotlinx.collections.immutable.persistentListOf
 
 private const val DisabledAlpha = 0.38f
 private const val dropdownWidthFraction = 0.9f
-private val DropdownVerticalPadding = 8.dp
+
+// A single-line RipDpiTextField adds no vertical content padding; the dropdown matches it at every font scale.
+private val DropdownVerticalPadding = 0.dp
 
 data class RipDpiDropdownOption<T>(
     val value: T,
@@ -213,9 +215,8 @@ private fun DropdownField(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    // Material's outlined field is 56dp tall whatever the token says; match it so a dropdown lines up
-                    // with the text fields around it.
-                    .heightIn(min = maxOf(components.inputs.controlHeight, OutlinedTextFieldDefaults.MinHeight))
+                    // The same minimum as RipDpiTextField, so a dropdown lines up with the text fields around it.
+                    .heightIn(min = components.inputs.controlHeight)
                     .ripDpiTestTag(testTag)
                     .clip(shape)
                     .background(colors.inputBackground, shape)
