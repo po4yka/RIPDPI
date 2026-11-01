@@ -7,6 +7,7 @@ import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.permissions.PermissionIssueUiState
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionRecovery
+import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
 import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -203,7 +204,13 @@ private fun lockdownAdvisory(
         title = lockdown.label,
         message = lockdown.summary,
         severity = if (lockdown.warning) HomeAdvisorySeverity.Warning else HomeAdvisorySeverity.Info,
-        presentation = HomeAdvisoryPresentation.Row,
+        // Unknown is a hint to go and check; its summary only repeats the action, so it stays one line.
+        presentation =
+            if (lockdown.status == AndroidHardKillSwitchStatus.UNKNOWN) {
+                HomeAdvisoryPresentation.CompactRow
+            } else {
+                HomeAdvisoryPresentation.Row
+            },
         tone = WarningBannerTone.Warning,
         actionLabel = lockdown.actionLabel,
         onClick =

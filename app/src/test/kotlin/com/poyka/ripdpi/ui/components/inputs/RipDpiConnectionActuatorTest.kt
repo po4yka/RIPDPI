@@ -15,6 +15,7 @@ import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertContentDescriptionEquals
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
@@ -43,6 +44,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
+import java.util.Locale
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.seconds
 
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
@@ -77,6 +81,28 @@ class RipDpiConnectionActuatorTest {
                 .assertIsDisplayed()
             composeRule.onNodeWithText("State $status").assertIsDisplayed()
         }
+    }
+
+    @Test
+    fun `session duration shows only while the connection is live and is spoken in words`() {
+        var state by mutableStateOf(
+            actuatorState(HomeConnectionActuatorStatus.Open).copy(sessionDuration = 3723.seconds),
+        )
+        composeRule.setContent { RipDpiTheme { RipDpiConnectionActuator(state, onActivate = {}, onDeactivate = {}) } }
+        composeRule.onAllNodesWithTag(RipDpiTestTags.ConnectionActuatorDurationLabel).assertCountEquals(0)
+        composeRule.runOnIdle { state = state.copy(status = HomeConnectionActuatorStatus.Locked) }
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorDurationLabel)
+            .assertIsDisplayed()
+            .assertTextEquals("01:02:03")
+            .assertContentDescriptionEquals("1 hour, 2 minutes, 3 seconds")
+    }
+
+    @Test
+    fun `spoken duration skips empty units and never says nothing`() {
+        assertEquals("2 minutes", spokenDuration(120.seconds, Locale.US))
+        assertEquals("1 hour, 5 seconds", spokenDuration(3605.seconds, Locale.US))
+        assertEquals("0 seconds", spokenDuration(Duration.ZERO, Locale.US))
     }
 
     @Test

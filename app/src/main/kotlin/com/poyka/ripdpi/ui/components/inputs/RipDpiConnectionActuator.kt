@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.style.CommonStyle
 import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.foundation.style.styleResolver
@@ -37,16 +38,20 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
 import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
+import com.poyka.ripdpi.activities.formatHomeModeConnectionDuration
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -65,6 +70,9 @@ import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
 import com.poyka.ripdpi.ui.theme.ripDpiStyleAppearance
 
 private const val StackedRouteFontScale = 1.5f
+
+// Keeps the primary action a button, not a bar, in a wide pane.
+private val ActionMaxWidth = 360.dp
 private val ConnectionCommitKeys = setOf(Key.Enter, Key.NumPadEnter, Key.Spacebar, Key.DirectionCenter)
 
 /** Status and route information remain outside the connection action target. */
@@ -105,7 +113,7 @@ fun RipDpiConnectionActuator(
     }
     if (confirmingDisconnect && state.isDeactivationAvailable) {
         RipDpiConfirmDisconnectDialog(
-            sessionDuration = resolved.sessionDuration,
+            sessionDuration = formatHomeModeConnectionDuration(resolved.sessionDuration),
             onDismiss = { confirmingDisconnect = false },
             onConfirm = {
                 confirmingDisconnect = false
@@ -128,6 +136,7 @@ fun RipDpiConnectionActuator(
             text = resolved.actionLabel,
             modifier =
                 Modifier
+                    .widthIn(max = ActionMaxWidth)
                     .fillMaxWidth()
                     .ripDpiTestTag(testTag)
                     .then(rememberConnectionInputModifier(state, onAction)),
@@ -238,18 +247,38 @@ private fun ActuatorRouteLabels(
         style = type.secondaryBody,
         color = stateStyle.routeLabel,
     )
-    if (!stacked) {
-        Text(
-            modifier = Modifier.clearAndSetSemantics {},
-            text = "·",
-            style = type.secondaryBody,
-            color = stateStyle.routeLabel,
-        )
-    }
+    if (!stacked) ActuatorRouteSeparator(stateStyle)
     Text(
         modifier = labelModifier.ripDpiTestTag(RipDpiTestTags.ConnectionActuatorTerminalLabel),
         text = state.trailingLabel,
         style = type.secondaryBody,
+        color = stateStyle.routeLabel,
+    )
+    // The idle duration is a meaningless 00:00:00, so only a live session shows it.
+    if (state.status == HomeConnectionActuatorStatus.Locked || state.status == HomeConnectionActuatorStatus.Degraded) {
+        if (!stacked) ActuatorRouteSeparator(stateStyle)
+        val locale = LocalConfiguration.current.locales[0]
+        // The ticking digits are read out as a spoken duration; the text is not a live region, so no tick is announced.
+        val spoken = remember(state.sessionDuration, locale) { spokenDuration(state.sessionDuration, locale) }
+        Text(
+            modifier =
+                labelModifier
+                    .semantics {
+                        contentDescription = spoken
+                    }.ripDpiTestTag(RipDpiTestTags.ConnectionActuatorDurationLabel),
+            text = formatHomeModeConnectionDuration(state.sessionDuration),
+            style = type.secondaryBody,
+            color = stateStyle.routeLabel,
+        )
+    }
+}
+
+@Composable
+private fun ActuatorRouteSeparator(stateStyle: RipDpiActuatorStateStyle) {
+    Text(
+        modifier = Modifier.clearAndSetSemantics {},
+        text = "·",
+        style = RipDpiThemeTokens.type.secondaryBody,
         color = stateStyle.routeLabel,
     )
 }

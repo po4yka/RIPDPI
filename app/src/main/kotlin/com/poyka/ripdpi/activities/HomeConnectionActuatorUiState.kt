@@ -6,6 +6,7 @@ import com.poyka.ripdpi.R
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
+import kotlin.time.Duration
 
 /**
  * Seed stages carry no label: the composable resolves a blank one from
@@ -93,7 +94,7 @@ data class HomeConnectionActuatorUiState(
     val strategyLabel: String = "",
     val strategyFacets: ImmutableList<HomeModeSummaryFacet> = persistentListOf(),
     /** Elapsed time of the running session, shown when the user confirms a disconnect. */
-    val sessionDuration: String = "",
+    val sessionDuration: Duration = Duration.ZERO,
     val stages: ImmutableList<HomeConnectionActuatorStageUiState> = DefaultHomeConnectionActuatorStages,
     val activationEnabled: Boolean? = null,
     val deactivationEnabled: Boolean? = null,
