@@ -47,11 +47,11 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
 import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
-import com.poyka.ripdpi.activities.formatHomeModeConnectionDuration
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -113,7 +113,7 @@ fun RipDpiConnectionActuator(
     }
     if (confirmingDisconnect && state.isDeactivationAvailable) {
         RipDpiConfirmDisconnectDialog(
-            sessionDuration = formatHomeModeConnectionDuration(resolved.sessionDuration),
+            sessionDuration = localizedClockDuration(resolved.sessionDuration, LocalConfiguration.current.locales[0]),
             onDismiss = { confirmingDisconnect = false },
             onConfirm = {
                 confirmingDisconnect = false
@@ -266,8 +266,9 @@ private fun ActuatorRouteLabels(
                     .semantics {
                         contentDescription = spoken
                     }.ripDpiTestTag(RipDpiTestTags.ConnectionActuatorDurationLabel),
-            text = formatHomeModeConnectionDuration(state.sessionDuration),
-            style = type.secondaryBody,
+            text = localizedClockDuration(state.sessionDuration, locale),
+            // A clock reads left to right in every locale; without this a right to left paragraph can reorder it.
+            style = type.secondaryBody.copy(textDirection = TextDirection.Ltr),
             color = stateStyle.routeLabel,
         )
     }

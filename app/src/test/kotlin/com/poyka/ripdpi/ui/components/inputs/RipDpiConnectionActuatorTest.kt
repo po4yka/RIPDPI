@@ -99,6 +99,14 @@ class RipDpiConnectionActuatorTest {
     }
 
     @Test
+    fun `clock duration uses the digits of the locale`() {
+        assertEquals("01:02:03", localizedClockDuration(3723.seconds, Locale.US))
+        assertEquals("۰۱:۰۲:۰۳", localizedClockDuration(3723.seconds, Locale.forLanguageTag("fa")))
+        assertEquals("٠١:٠٢:٠٣", localizedClockDuration(3723.seconds, Locale.forLanguageTag("ar-u-nu-arab")))
+        assertEquals("100:00:00", localizedClockDuration(360_000.seconds, Locale.US))
+    }
+
+    @Test
     fun `spoken duration skips empty units and never says nothing`() {
         assertEquals("2 minutes", spokenDuration(120.seconds, Locale.US))
         assertEquals("1 hour, 5 seconds", spokenDuration(3605.seconds, Locale.US))
