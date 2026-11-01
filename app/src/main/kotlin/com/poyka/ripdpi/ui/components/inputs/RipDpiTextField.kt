@@ -58,7 +58,8 @@ data class RipDpiTextFieldBehavior(
     val textStyle: TextStyle? = null,
     val keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     val onKeyboardAction: KeyboardActionHandler? = null,
-    // Any non-null mode renders a secure field (no copy/cut, no keyboard learning); Visible shows the text in full.
+    // Hidden or RevealLastTyped renders a secure field (masked, no copy/cut, no keyboard learning); Visible renders a
+    // plain readable, copyable field.
     // Keep the field non-null while a reveal toggle switches between Visible and Hidden.
     val textObfuscationMode: TextObfuscationMode? = null,
     val minHeight: Dp? = null,
@@ -189,9 +190,11 @@ private fun RipDpiTextFieldInput(
             top = verticalPadding,
             bottom = verticalPadding,
         )
-    // Any obfuscation mode, Visible included, renders a secure field: it never offers copy or cut and tells the
-    // keyboard not to learn the text. OutlinedSecureTextField has no readOnly, so a read-only secret rejects edits.
-    if (obfuscationMode == null) {
+    // Hidden and RevealLastTyped render a secure field: no copy or cut, no keyboard learning. Visible stays a plain
+    // field so a revealed secret is readable text to a screen reader and can be copied; a password keyboard type
+    // would put bullets in its semantics. OutlinedSecureTextField has no readOnly, so a read-only secret rejects
+    // edits.
+    if (obfuscationMode == null || obfuscationMode == TextObfuscationMode.Visible) {
         OutlinedTextField(
             state = textFieldState,
             modifier = modifier,

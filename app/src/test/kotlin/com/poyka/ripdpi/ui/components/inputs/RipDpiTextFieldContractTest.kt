@@ -5,9 +5,13 @@ import androidx.compose.material3.TextFieldColors
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.text.AnnotatedString
 import com.poyka.ripdpi.ui.components.contrastRatio
 import com.poyka.ripdpi.ui.theme.RipDpiExtendedColors
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -50,6 +54,22 @@ class RipDpiTextFieldContractTest {
     }
 
     @Test
+    fun `visible secret is readable text`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                RipDpiTextField(
+                    value = "secret",
+                    onValueChange = {},
+                    behavior = RipDpiTextFieldBehavior(textObfuscationMode = TextObfuscationMode.Visible),
+                )
+            }
+        }
+        composeRule
+            .onNode(hasSetTextAction())
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.EditableText, AnnotatedString("secret")))
+    }
+
+    @Test
     fun `read only secure field rejects edits and an editable one forwards them`() {
         var readOnly by mutableStateOf(true)
         val changes = mutableListOf<String>()
@@ -61,7 +81,7 @@ class RipDpiTextFieldContractTest {
                     behavior =
                         RipDpiTextFieldBehavior(
                             readOnly = readOnly,
-                            textObfuscationMode = TextObfuscationMode.Visible,
+                            textObfuscationMode = TextObfuscationMode.Hidden,
                         ),
                 )
             }
