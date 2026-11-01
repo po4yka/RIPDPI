@@ -109,19 +109,29 @@ data class RipDpiMotion(
         fadeIn(animationSpec = quickTween()) togetherWith
             fadeOut(animationSpec = quickTween())
 
-    fun routeEnterTransition(initialScale: Float = 0.985f): EnterTransition =
-        if (!animationsEnabled) {
-            EnterTransition.None
-        } else {
-            fadeIn(animationSpec = routeTween()) +
-                scaleIn(initialScale = initialScale, animationSpec = routeTween())
-        }
+    // Material 3 fade through and shared axis: the outgoing screen fades out first, then the incoming one fades in
+    // for the rest of the route time. Without animations both sides are cut.
+    fun <T> incomingFadeTween(): TweenSpec<T> =
+        tween(
+            durationMillis = duration(stateDurationMillis),
+            delayMillis = duration(quickDurationMillis),
+            easing = EmphasizedDecelerate,
+        )
 
-    fun routeExitTransition(): ExitTransition =
+    fun outgoingFadeTransition(): ExitTransition =
         if (!animationsEnabled) {
             ExitTransition.None
         } else {
             fadeOut(animationSpec = quickTween(easing = EmphasizedAccelerate))
+        }
+
+    /** Between top-level destinations: the incoming screen fades in and grows from 92%. */
+    fun fadeThroughEnterTransition(initialScale: Float = 0.92f): EnterTransition =
+        if (!animationsEnabled) {
+            EnterTransition.None
+        } else {
+            fadeIn(animationSpec = incomingFadeTween()) +
+                scaleIn(initialScale = initialScale, animationSpec = incomingFadeTween())
         }
 
     // The back gesture seeks pop transitions by its progress, so both sides share one linear spec:

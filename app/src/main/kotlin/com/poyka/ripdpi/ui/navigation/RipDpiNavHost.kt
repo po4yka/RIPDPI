@@ -1,5 +1,10 @@
 package com.poyka.ripdpi.ui.navigation
 
+import androidx.compose.animation.AnimatedContentTransitionScope
+import androidx.compose.animation.AnimatedContentTransitionScope.SlideDirection
+import androidx.compose.animation.EnterTransition
+import androidx.compose.animation.ExitTransition
+import androidx.compose.animation.fadeIn
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
@@ -375,10 +380,10 @@ private fun RipDpiNavGraph(
             Modifier
                 .padding(innerPadding)
                 .consumeWindowInsets(innerPadding),
-        enterTransition = { motion.routeEnterTransition() },
-        exitTransition = { motion.routeExitTransition() },
-        popEnterTransition = { motion.routePopEnterTransition() },
-        popExitTransition = { motion.routePopExitTransition() },
+        enterTransition = { routeEnter(motion) },
+        exitTransition = { routeExit(motion) },
+        popEnterTransition = { routePopEnter(motion) },
+        popExitTransition = { routePopExit(motion) },
     ) {
         addPrimaryRoutes(
             navController = navController,
@@ -931,3 +936,52 @@ private fun shouldDeferLaunchRequest(
     currentRoute: String?,
     relockRequested: Boolean,
 ): Boolean = relockRequested || currentRoute == null || isNavigationGateRoute(currentRoute)
+
+// A shared-axis screen travels a tenth of its width while it fades.
+private const val SharedAxisTravelDivisor = 10
+
+private fun AnimatedContentTransitionScope<NavBackStackEntry>.betweenTopLevel(): Boolean =
+    Route.topLevel.any { initialState.destination.matchesRoute(it) } &&
+        Route.topLevel.any { targetState.destination.matchesRoute(it) }
+
+/** Tab switches fade through; pushing a screen slides it in along the horizontal shared axis. */
+internal fun AnimatedContentTransitionScope<NavBackStackEntry>.routeEnter(motion: RipDpiMotion): EnterTransition =
+    when {
+        betweenTopLevel() -> {
+            motion.fadeThroughEnterTransition()
+        }
+
+        !motion.animationsEnabled -> {
+            EnterTransition.None
+        }
+
+        else -> {
+            slideIntoContainer(
+                towards = SlideDirection.Start,
+                animationSpec = motion.routeTween(),
+                initialOffset = { it / SharedAxisTravelDivisor },
+            ) + fadeIn(animationSpec = motion.incomingFadeTween())
+        }
+    }
+
+internal fun AnimatedContentTransitionScope<NavBackStackEntry>.routeExit(motion: RipDpiMotion): ExitTransition =
+    when {
+        betweenTopLevel() || !motion.animationsEnabled -> {
+            motion.outgoingFadeTransition()
+        }
+
+        else -> {
+            slideOutOfContainer(
+                towards = SlideDirection.Start,
+                animationSpec = motion.routeTween(),
+                targetOffset = { it / SharedAxisTravelDivisor },
+            ) + motion.outgoingFadeTransition()
+        }
+    }
+
+/** Returning to a tab fades through as well; any other pop keeps the seekable predictive-back transitions. */
+internal fun AnimatedContentTransitionScope<NavBackStackEntry>.routePopEnter(motion: RipDpiMotion): EnterTransition =
+    if (betweenTopLevel()) motion.fadeThroughEnterTransition() else motion.routePopEnterTransition()
+
+internal fun AnimatedContentTransitionScope<NavBackStackEntry>.routePopExit(motion: RipDpiMotion): ExitTransition =
+    if (betweenTopLevel()) motion.outgoingFadeTransition() else motion.routePopExitTransition()

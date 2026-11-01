@@ -50,6 +50,20 @@ class RipDpiMotionTest {
     }
 
     @Test
+    fun `fade through fades the old screen out before the new one in, and is cut without animations`() {
+        val motion = DefaultRipDpiMotion
+        val incoming = motion.incomingFadeTween<Float>()
+
+        assertEquals(motion.quickDurationMillis, incoming.delay)
+        assertEquals(motion.stateDurationMillis, incoming.durationMillis)
+
+        val disabled = motion.copy(animationsEnabled = false)
+        assertSame(EnterTransition.None, disabled.fadeThroughEnterTransition())
+        assertSame(ExitTransition.None, disabled.outgoingFadeTransition())
+        assertEquals(0, disabled.incomingFadeTween<Float>().delay)
+    }
+
+    @Test
     fun `pop transitions share one linear route spec so the back gesture can scrub them`() {
         val popTween = DefaultRipDpiMotion.routePopTween<Float>()
 

@@ -121,8 +121,8 @@ class PredictiveBackNavigationTest {
             NavHost(
                 navController = navController,
                 startDestination = Route.Home,
-                enterTransition = { motion.routeEnterTransition() },
-                exitTransition = { motion.routeExitTransition() },
+                enterTransition = { motion.fadeThroughEnterTransition() },
+                exitTransition = { motion.outgoingFadeTransition() },
                 popEnterTransition = { motion.routePopEnterTransition() },
                 popExitTransition = { motion.routePopExitTransition() },
             ) {
