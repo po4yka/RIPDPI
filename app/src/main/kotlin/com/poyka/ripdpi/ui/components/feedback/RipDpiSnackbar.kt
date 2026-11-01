@@ -93,13 +93,15 @@ fun RipDpiSnackbar(
         } else {
             null
         }
-    BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+    // The caller's width cap belongs on the measuring box: capped here, maxWidth is the snackbar's real width for
+    // actionOnNewLine, and the host's alignment centers the snackbar instead of start-aligning it in a full-width box.
+    BoxWithConstraints(modifier = modifier.fillMaxWidth()) {
         val actionOnNewLine =
             density.fontScale >= SnackbarLargeFontScale ||
                 with(density) { actionWidth.toDp() } + spacing.md * 2 > maxWidth / SnackbarMaximumActionWidthDivisor
         Snackbar(
             modifier =
-                modifier
+                Modifier
                     .fillMaxWidth()
                     .ripDpiTestTag(testTag)
                     .semantics { liveRegion = LiveRegionMode.Assertive }
