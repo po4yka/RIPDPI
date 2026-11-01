@@ -16,6 +16,7 @@ import androidx.compose.material3.IconButtonDefaults
 import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.OutlinedIconButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -32,6 +33,7 @@ import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.indicators.RipDpiStaticCircularProgressIndicator
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
+import com.poyka.ripdpi.ui.components.ripDpiFocusRing
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -79,15 +81,17 @@ fun RipDpiIconButton(
     val inspectionMode = LocalInspectionMode.current
     val performHaptic = rememberRipDpiHapticPerformer()
     val loadingLabel = stringResource(R.string.cd_loading)
+    val isInteractive = enabled && !loading
+    val colors = ripDpiIconButtonColors(style, enabled = enabled, selected = selected)
+    val focusSource = interactionSource ?: remember { MutableInteractionSource() }
     val buttonModifier =
         modifier
             .size(RipDpiThemeTokens.components.buttons.iconButtonSize)
+            .ripDpiFocusRing(focusSource, shape, colors.containerColor)
             .semantics {
                 this.contentDescription = contentDescription
                 if (loading) stateDescription = loadingLabel
             }
-    val isInteractive = enabled && !loading
-    val colors = ripDpiIconButtonColors(style, enabled = enabled, selected = selected)
     val handleClick = {
         performHaptic(hapticFeedback)
         onClick()
@@ -135,7 +139,7 @@ fun RipDpiIconButton(
                 modifier = buttonModifier,
                 enabled = isInteractive,
                 colors = colors,
-                interactionSource = interactionSource,
+                interactionSource = focusSource,
                 shape = shape,
                 content = content,
             )
@@ -148,7 +152,7 @@ fun RipDpiIconButton(
                 enabled = isInteractive,
                 shape = shape,
                 colors = colors,
-                interactionSource = interactionSource,
+                interactionSource = focusSource,
                 content = content,
             )
         }
@@ -160,7 +164,7 @@ fun RipDpiIconButton(
                 enabled = isInteractive,
                 shape = shape,
                 colors = colors,
-                interactionSource = interactionSource,
+                interactionSource = focusSource,
                 content = content,
             )
         }
@@ -173,7 +177,7 @@ fun RipDpiIconButton(
                 shape = shape,
                 colors = colors,
                 border = BorderStroke(RipDpiStroke.Thin, RipDpiThemeTokens.colors.border),
-                interactionSource = interactionSource,
+                interactionSource = focusSource,
                 content = content,
             )
         }

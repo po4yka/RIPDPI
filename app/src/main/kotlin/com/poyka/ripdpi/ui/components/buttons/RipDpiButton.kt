@@ -24,6 +24,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -43,6 +44,7 @@ import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.indicators.RipDpiStaticCircularProgressIndicator
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
+import com.poyka.ripdpi.ui.components.ripDpiFocusRing
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -88,9 +90,12 @@ fun RipDpiButton(
             if (density == RipDpiControlDensity.Compact) components.buttons.focusedHorizontalPaddingOffset else 0.dp
     val contentPadding = PaddingValues(horizontal = horizontalPadding, vertical = components.buttons.verticalPadding)
     val shape = RoundedCornerShape(components.shapes.controlCornerRadius)
+    val focusSource = interactionSource ?: remember { MutableInteractionSource() }
+    val buttonColors = ripDpiButtonColors(variant)
     val buttonModifier =
         modifier
             .defaultMinSize(minHeight = components.buttons.minHeight)
+            .ripDpiFocusRing(focusSource, shape, buttonColors.containerColor)
             .semantics {
                 // Without this a screen reader hears the button go from enabled to disabled and
                 // cannot tell "busy" from "unavailable".
@@ -179,9 +184,9 @@ fun RipDpiButton(
                 modifier = buttonModifier,
                 enabled = isInteractive,
                 shape = shape,
-                colors = ripDpiButtonColors(variant),
+                colors = buttonColors,
                 contentPadding = contentPadding,
-                interactionSource = interactionSource,
+                interactionSource = focusSource,
                 content = content,
             )
         }
@@ -192,9 +197,9 @@ fun RipDpiButton(
                 modifier = buttonModifier,
                 enabled = isInteractive,
                 shape = shape,
-                colors = ripDpiButtonColors(variant),
+                colors = buttonColors,
                 contentPadding = contentPadding,
-                interactionSource = interactionSource,
+                interactionSource = focusSource,
                 content = content,
             )
         }
@@ -205,10 +210,10 @@ fun RipDpiButton(
                 modifier = buttonModifier,
                 enabled = isInteractive,
                 shape = shape,
-                colors = ripDpiButtonColors(variant),
+                colors = buttonColors,
                 border = BorderStroke(RipDpiStroke.Thin, colors.border),
                 contentPadding = contentPadding,
-                interactionSource = interactionSource,
+                interactionSource = focusSource,
                 content = content,
             )
         }
@@ -219,9 +224,9 @@ fun RipDpiButton(
                 modifier = buttonModifier,
                 enabled = isInteractive,
                 shape = shape,
-                colors = ripDpiButtonColors(variant),
+                colors = buttonColors,
                 contentPadding = contentPadding,
-                interactionSource = interactionSource,
+                interactionSource = focusSource,
                 content = content,
             )
         }
