@@ -4,6 +4,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assertHasNoClickAction
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasContentDescription
@@ -204,6 +205,32 @@ class SetupInteractionQualityTest {
         composeRule.onNodeWithText(text(R.string.ui_rule_load_failed_title)).assertExists()
         composeRule.onNodeWithText(text(R.string.startup_recovery_retry)).performClick()
         assertEquals(1, retries)
+    }
+
+    @Test
+    fun `saving an empty rule shows the warning at the top`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                RuleEditorScreen(
+                    state = RuleEditorUiState(loaded = true),
+                    onBack = {},
+                    onNameChange = {},
+                    onEnabledChange = {},
+                    onDomainsChange = {},
+                    onIpCidrsChange = {},
+                    onPortsChange = {},
+                    onSourcePortsChange = {},
+                    onNetworkChange = {},
+                    onProcessNameChange = {},
+                    onPackagesChange = {},
+                    onOutboundChange = {},
+                    persistenceActions = RuleEditorPersistenceActions(save = {}),
+                )
+            }
+        }
+        composeRule.onNodeWithTag(RipDpiTestTags.RuleEditorSave).performClick()
+        composeRule.waitForIdle()
+        composeRule.onNodeWithText(text(R.string.rule_editor_empty_error_title)).assertIsDisplayed()
     }
 
     @Test

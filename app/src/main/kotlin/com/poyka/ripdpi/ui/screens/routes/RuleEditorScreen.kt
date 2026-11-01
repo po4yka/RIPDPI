@@ -9,10 +9,11 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -49,7 +50,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
-import kotlinx.coroutines.launch
 
 @Composable
 fun RuleEditorRoute(
@@ -104,16 +104,16 @@ internal fun RuleEditorScreen(
 ) {
     var showAppPicker by remember { mutableStateOf(false) }
     // The empty-rule warning waits for a save attempt, so a new rule does not open with an error.
-    var saveAttempted by rememberSaveable { mutableStateOf(false) }
+    var saveAttempts by rememberSaveable { mutableIntStateOf(0) }
+    val saveAttempted = saveAttempts > 0
     val listState = rememberLazyListState()
-    val scope = rememberCoroutineScope()
+    // Runs after the banner item is composed: scrolling in the click handler would run before it exists.
+    LaunchedEffect(saveAttempts) {
+        if (saveAttempts > 0 && state.isEmpty) listState.animateScrollToItem(0)
+    }
     val onSave: () -> Unit = {
-        saveAttempted = true
-        if (state.isEmpty) {
-            scope.launch { listState.animateScrollToItem(0) }
-        } else {
-            persistenceActions.save()
-        }
+        saveAttempts++
+        if (!state.isEmpty) persistenceActions.save()
     }
 
     RipDpiSettingsScaffold(

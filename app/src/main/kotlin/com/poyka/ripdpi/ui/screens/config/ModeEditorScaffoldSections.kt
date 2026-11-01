@@ -109,6 +109,7 @@ internal fun ModeEditorBody(
     actions: ModeEditorActions,
     modifier: Modifier = Modifier,
     scrollState: ScrollState = rememberScrollState(),
+    noticesScrollState: ScrollState = rememberScrollState(),
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
@@ -153,7 +154,7 @@ internal fun ModeEditorBody(
                         Modifier
                             .width(ModeEditorSupportingPaneWidth)
                             .fillMaxHeight()
-                            .verticalScroll(rememberScrollState())
+                            .verticalScroll(noticesScrollState)
                             .padding(verticalPadding),
                     verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
                 ) {

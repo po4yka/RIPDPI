@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.anytls
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -22,6 +23,7 @@ import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.profiles.RelayEditorHint
 import com.poyka.ripdpi.ui.screens.profiles.RelayPasswordField
+import com.poyka.ripdpi.ui.screens.profiles.ScrollToTopOnChange
 import com.poyka.ripdpi.ui.screens.profiles.relayPortRangeHelper
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -62,7 +64,10 @@ internal fun AnyTlsProfileScreen(
     modifier: Modifier = Modifier,
 ) {
     SecureWindowEffect()
+    val scrollState = rememberScrollState()
+    ScrollToTopOnChange(scrollState, uiState.errorMessage)
     RipDpiContentScreenScaffold(
+        scrollState = scrollState,
         title = stringResource(R.string.anytls_editor_title),
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,

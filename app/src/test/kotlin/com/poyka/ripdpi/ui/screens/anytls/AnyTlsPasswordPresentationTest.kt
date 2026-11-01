@@ -5,6 +5,7 @@ import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -149,7 +150,9 @@ class AnyTlsPasswordPresentationTest {
                 )
             }
         }
-        composeRule.onNodeWithText(string(R.string.relay_editor_save_incomplete_hint)).performScrollTo()
+        // The hint sits above the form, so a blocked Save is explained without scrolling.
+        composeRule.onNodeWithText(string(R.string.relay_editor_save_incomplete_hint)).assertIsDisplayed()
+        composeRule.onNode(hasSetTextAction() and hasText("secret")).performScrollTo()
         composeRule
             .onNodeWithContentDescription(
                 string(R.string.ssh_reveal_secret_action),

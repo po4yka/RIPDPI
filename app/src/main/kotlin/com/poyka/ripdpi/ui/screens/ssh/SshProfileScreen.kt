@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.ssh
 
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -34,6 +35,7 @@ import com.poyka.ripdpi.ui.screens.profiles.RelayEditorHint
 import com.poyka.ripdpi.ui.screens.profiles.RelayPasswordField
 import com.poyka.ripdpi.ui.screens.profiles.RelayProfileNotFoundCard
 import com.poyka.ripdpi.ui.screens.profiles.RelaySecretField
+import com.poyka.ripdpi.ui.screens.profiles.ScrollToTopOnChange
 import com.poyka.ripdpi.ui.screens.profiles.relayPortRangeHelper
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -119,7 +121,10 @@ internal fun SshProfileScreen(
     onHostKeyTrustDismissed: () -> Unit = {},
 ) {
     SecureWindowEffect()
+    val scrollState = rememberScrollState()
+    ScrollToTopOnChange(scrollState, uiState.errorMessage)
     RipDpiContentScreenScaffold(
+        scrollState = scrollState,
         title = stringResource(R.string.ssh_editor_title),
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,

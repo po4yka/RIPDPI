@@ -38,10 +38,13 @@ internal fun ModeEditorScreen(
 
     val topBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val bodyScrollState = rememberScrollState()
+    val noticesScrollState = rememberScrollState()
     val scope = rememberCoroutineScope()
     // The validation banner is the first item of the form; show it whether or not a field is in view.
     val onSave: () -> Unit = {
+        // The banner is in the form column, or in the supporting pane when the window is wide.
         scope.launch { bodyScrollState.animateScrollTo(0) }
+        scope.launch { noticesScrollState.animateScrollTo(0) }
         actions.onSave()
     }
     RipDpiScreenScaffold(
@@ -109,6 +112,7 @@ internal fun ModeEditorScreen(
                 uiState = uiState,
                 actions = actions,
                 scrollState = bodyScrollState,
+                noticesScrollState = noticesScrollState,
                 modifier = Modifier.padding(innerPadding),
             )
         }

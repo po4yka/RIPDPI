@@ -1,9 +1,11 @@
 package com.poyka.ripdpi.ui.screens.profiles
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -80,6 +82,15 @@ internal fun RelayPasswordField(
         errorText = errorText,
         testTag = testTag,
     )
+}
+
+/** Scrolls an editor form to the top when [trigger] becomes non-null, where its error and hint are shown. */
+@Composable
+internal fun ScrollToTopOnChange(
+    scrollState: ScrollState,
+    trigger: Any?,
+) {
+    LaunchedEffect(trigger) { if (trigger != null) scrollState.animateScrollTo(0) }
 }
 
 /** The caption that explains why the editor's primary action in the top app bar is disabled. */
