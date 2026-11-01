@@ -3,8 +3,8 @@ package com.poyka.ripdpi.ui.screens.settings
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.activities.SettingsEffect
@@ -20,18 +20,21 @@ internal fun SettingsNoticeTone.toBannerTone(): WarningBannerTone =
     }
 
 /**
- * Runs [scrollToBanner] when a new notice arrives, not when one is restored (a rotation): the banner is the first
- * item of its screen, so it must be brought into view.
+ * Runs [scrollToBanner] when a notice arrives that this screen has not shown yet, not when one is restored (a
+ * rotation): the banner is the first item of its screen, so it must be brought into view.
  */
 @Composable
 internal fun ScrollToNewNotice(
     notice: SettingsEffect.Notice?,
     scrollToBanner: suspend () -> Unit,
 ) {
-    var shown by remember { mutableStateOf(notice) }
+    // Saved, so only a true restore finds the notice it already scrolled to; a notice posted while this screen was
+    // away differs from it and scrolls. 0 stands for no notice.
+    var shownKey by rememberSaveable { mutableIntStateOf(0) }
     LaunchedEffect(notice) {
-        if (notice != null && notice != shown) scrollToBanner()
-        shown = notice
+        val key = notice?.hashCode() ?: 0
+        if (notice != null && key != shownKey) scrollToBanner()
+        shownKey = key
     }
 }
 
