@@ -20,6 +20,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
@@ -66,6 +67,15 @@ fun RipDpiCard(
         if (surfaceStyle.border == Color.Transparent) null else BorderStroke(RipDpiStroke.Thin, surfaceStyle.border)
     // Card elevation would add a tonal tint to a surface-colored container and drop the shadow while pressed or
     // focused, so the role's shadow is drawn directly and stays the same in every state.
+    val elevation =
+        CardDefaults.cardElevation(
+            defaultElevation = 0.dp,
+            pressedElevation = 0.dp,
+            focusedElevation = 0.dp,
+            hoveredElevation = 0.dp,
+            draggedElevation = 0.dp,
+            disabledElevation = 0.dp,
+        )
     val cardModifier =
         modifier
             .fillMaxWidth()
@@ -98,6 +108,7 @@ fun RipDpiCard(
             enabled = enabled,
             shape = shape,
             colors = colors,
+            elevation = elevation,
             border = border,
             content = cardContent,
         )
@@ -106,6 +117,7 @@ fun RipDpiCard(
             modifier = cardModifier,
             shape = shape,
             colors = colors,
+            elevation = elevation,
             border = border,
             content = cardContent,
         )

@@ -92,7 +92,16 @@ fun WarningBanner(
     }
     val shape = RipDpiThemeTokens.shapes.xl
     val colors = CardDefaults.cardColors(containerColor = state.container, contentColor = state.title)
-    val elevation = CardDefaults.cardElevation(defaultElevation = surfaceStyle.shadowElevation)
+    // The banner role is flat; zero every state so hover and drag add no tonal tint.
+    val elevation =
+        CardDefaults.cardElevation(
+            defaultElevation = 0.dp,
+            pressedElevation = 0.dp,
+            focusedElevation = 0.dp,
+            hoveredElevation = 0.dp,
+            draggedElevation = 0.dp,
+            disabledElevation = 0.dp,
+        )
     val border = BorderStroke(RipDpiStroke.Thin, state.border)
     if (onClick != null) {
         val performHaptic = rememberRipDpiHapticPerformer()
