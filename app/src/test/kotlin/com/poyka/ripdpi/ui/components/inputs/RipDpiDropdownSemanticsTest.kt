@@ -85,6 +85,32 @@ class RipDpiDropdownSemanticsTest {
     }
 
     @Test
+    fun `dropdown states its selected value and offers click and expand, then collapse once open`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                RipDpiDropdown(
+                    options = options,
+                    selectedValue = "a",
+                    onValueSelected = {},
+                    labels = RipDpiDropdownLabels(label = "Theme"),
+                    testTag = "dropdown",
+                )
+            }
+        }
+        composeRule
+            .onNodeWithTag("dropdown")
+            .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Alpha"))
+            .assert(SemanticsMatcher.keyIsDefined(SemanticsActions.OnClick))
+            .assert(SemanticsMatcher.keyIsDefined(SemanticsActions.Expand))
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsActions.Collapse))
+            .performSemanticsAction(SemanticsActions.Expand)
+        composeRule
+            .onNodeWithTag("dropdown")
+            .assert(SemanticsMatcher.keyIsDefined(SemanticsActions.Collapse))
+            .assert(SemanticsMatcher.keyNotDefined(SemanticsActions.Expand))
+    }
+
+    @Test
     fun `dropdown and text field with the same text are equally tall at default and double font scale`() {
         var fontScale by mutableFloatStateOf(1f)
         composeRule.setContent {
