@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsIgnoringVisibility
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -35,9 +34,13 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -65,9 +68,6 @@ data class RipDpiSheetAction(
     val enabled: Boolean = true,
     val wrapLabel: Boolean = false,
 )
-
-// The height Material reserves for its drag handle slot.
-private val SheetHandleSlotHeight = 32.dp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -102,13 +102,8 @@ fun RipDpiBottomSheet(
         containerColor = RipDpiThemeTokens.colors.card,
         contentColor = RipDpiThemeTokens.colors.foreground,
         scrimColor = RipDpiThemeTokens.colors.scrim,
-        // The slot wraps its content in a clickable tooltip target with no label, and the sheet drags from
-        // anywhere on its surface, so the handle is drawn as plain content instead.
-        dragHandle = null,
+        dragHandle = { RipDpiBottomSheetHandle() },
     ) {
-        Box(Modifier.fillMaxWidth().heightIn(min = SheetHandleSlotHeight), contentAlignment = Alignment.TopCenter) {
-            RipDpiBottomSheetHandle()
-        }
         RipDpiBottomSheetCard(
             title = title,
             modifier =
@@ -211,11 +206,14 @@ private fun RipDpiBottomSheetHandle() {
     val styleState = rememberUpdatedStyleState(null)
     val resolver = rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.sheetHandle, CommonStyle, styleState)
 
+    // The sheet wraps this slot in a clickable node that merges descendants, so the description names that node.
+    val description = stringResource(R.string.sheet_drag_handle_description)
     Box(
         modifier =
             Modifier
                 .padding(top = components.sheets.handleTopPadding)
                 .size(width = components.sheets.handleWidth, height = components.sheets.handleHeight)
+                .semantics { contentDescription = description }
                 .ripDpiStyleSurface(resolver, shape = RipDpiThemeTokens.shapes.full),
     )
 }

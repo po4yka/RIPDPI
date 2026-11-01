@@ -4631,6 +4631,7 @@ app:shared_diagnostic_invalid_link_message
 app:shared_diagnostic_open_error_title
 app:shared_diagnostic_result_snapshot_title
 app:shared_diagnostic_screen_title
+app:sheet_drag_handle_description
 app:shortcut_diagnostics
 app:shortcut_diagnostics_disabled
 app:shortcut_diagnostics_short
