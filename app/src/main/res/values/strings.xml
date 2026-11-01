@@ -1530,6 +1530,10 @@ fakeddisorder endhost</string>
     <string name="logs_empty_body">Start RIPDPI or trigger a diagnostic event to populate the on-device stream.</string>
     <string name="logs_filtered_empty_title">No entries match the current filters</string>
     <string name="logs_filtered_empty_body">Open Filters to inspect other events in the local buffer.</string>
+    <string name="logs_search_placeholder">Search log messages</string>
+    <string name="logs_search_clear">Clear search</string>
+    <string name="logs_search_empty_title">No entries match your search</string>
+    <string name="logs_search_empty_body">Try a different search term or clear the search.</string>
     <string name="splash_subtitle">Local connectivity tool</string>
     <string name="onboarding_continue">Continue</string>
     <string name="onboarding_setup_finish">Finish</string>

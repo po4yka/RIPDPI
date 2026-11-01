@@ -3540,6 +3540,10 @@ app:logs_filters_section
 app:logs_filters_summary_compact
 app:logs_mode_proxy
 app:logs_mode_vpn
+app:logs_search_clear
+app:logs_search_empty_body
+app:logs_search_empty_title
+app:logs_search_placeholder
 app:logs_service_failure_format
 app:logs_service_started_format
 app:logs_service_stopped_format

@@ -76,6 +76,7 @@ import com.poyka.ripdpi.ui.components.navigation.RipDpiListDetailLayout
 import com.poyka.ripdpi.ui.components.navigation.RipDpiOverflowMenu
 import com.poyka.ripdpi.ui.components.navigation.RipDpiOverflowMenuItem
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
+import com.poyka.ripdpi.ui.components.navigation.rememberListDetailTwoPane
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
@@ -85,7 +86,6 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.ui.theme.RipDpiWidthClass
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -137,7 +137,7 @@ internal fun LogsScreen(
     var showFilters by rememberSaveable { mutableStateOf(false) }
     var showClearConfirm by rememberSaveable { mutableStateOf(false) }
 
-    val twoPane = RipDpiThemeTokens.layout.widthClass >= RipDpiWidthClass.Expanded
+    val twoPane = rememberListDetailTwoPane()
     var selectedEntryId by rememberSaveable { mutableStateOf<String?>(null) }
     val topBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
     val list: @Composable () -> Unit = {
@@ -176,15 +176,13 @@ internal fun LogsScreen(
             )
         }
     }
-    if (twoPane) {
-        RipDpiListDetailLayout(
-            showList = true,
-            listPane = list,
-            detailPane = { LogsDetailPane(uiState.filteredLogs.firstOrNull { it.id == selectedEntryId }) },
-        )
-    } else {
-        list()
-    }
+    // Always laid out through the list-detail layout so the list keeps its state when the window crosses Expanded.
+    RipDpiListDetailLayout(
+        showList = true,
+        showDetail = twoPane,
+        listPane = list,
+        detailPane = { LogsDetailPane(uiState.filteredLogs.firstOrNull { it.id == selectedEntryId }) },
+    )
     LogsSheets(
         uiState = uiState,
         showFilters = showFilters,
@@ -235,19 +233,35 @@ private fun LogsContent(
                 uiState = uiState,
                 onShowFilters = onShowFilters,
             )
-            RipDpiTextField(
-                value = query,
-                onValueChange = { query = it },
-                modifier = Modifier.fillMaxWidth(),
-                decoration =
-                    RipDpiTextFieldDecoration(
-                        label = stringResource(R.string.diagnostics_search_label),
-                        testTag = RipDpiTestTags.LogsSearch,
-                    ),
-                behavior = RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)),
-            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                RipDpiTextField(
+                    value = query,
+                    onValueChange = { query = it },
+                    modifier = Modifier.weight(1f),
+                    decoration =
+                        RipDpiTextFieldDecoration(
+                            label = stringResource(R.string.diagnostics_search_label),
+                            placeholder = stringResource(R.string.logs_search_placeholder),
+                            testTag = RipDpiTestTags.LogsSearch,
+                        ),
+                    behavior =
+                        RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search)),
+                )
+                if (query.isNotEmpty()) {
+                    RipDpiIconButton(
+                        icon = RipDpiIcons.Close,
+                        contentDescription = stringResource(R.string.logs_search_clear),
+                        onClick = { query = "" },
+                    )
+                }
+            }
             LogsStreamSection(
                 uiState = uiState.copy(filteredLogs = searchedLogs),
+                // The search, not the filters, hid the entries only when the filtered stream itself has some.
+                searchActive = query.isNotBlank() && uiState.filteredLogs.isNotEmpty(),
                 onShowCopiedSnackbar = onShowCopiedSnackbar,
                 selectedEntryId = selectedEntryId,
                 onSelectEntry = onSelectEntry,
@@ -288,6 +302,7 @@ private fun LogsToolbar(
 @Composable
 private fun LogsStreamSection(
     uiState: LogsUiState,
+    searchActive: Boolean,
     onShowCopiedSnackbar: () -> Unit,
     selectedEntryId: String?,
     onSelectEntry: ((String) -> Unit)?,
@@ -325,6 +340,7 @@ private fun LogsStreamSection(
         if (filteredLogs.isEmpty()) {
             LogsEmptyStateCard(
                 hasBufferedLogs = uiState.logs.isNotEmpty(),
+                searchActive = searchActive,
                 modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.LogsEmptyState),
             )
         } else {
@@ -709,23 +725,24 @@ private fun rememberCopiedToClipboardSnackbar(snackbarHostState: SnackbarHostSta
 @Composable
 private fun LogsEmptyStateCard(
     hasBufferedLogs: Boolean,
+    searchActive: Boolean,
     modifier: Modifier = Modifier,
 ) {
     RipDpiEmptyStateCard(
         title =
             stringResource(
-                if (hasBufferedLogs) {
-                    R.string.logs_filtered_empty_title
-                } else {
-                    R.string.logs_empty_title
+                when {
+                    searchActive -> R.string.logs_search_empty_title
+                    hasBufferedLogs -> R.string.logs_filtered_empty_title
+                    else -> R.string.logs_empty_title
                 },
             ),
         body =
             stringResource(
-                if (hasBufferedLogs) {
-                    R.string.logs_filtered_empty_body
-                } else {
-                    R.string.logs_empty_body
+                when {
+                    searchActive -> R.string.logs_search_empty_body
+                    hasBufferedLogs -> R.string.logs_filtered_empty_body
+                    else -> R.string.logs_empty_body
                 },
             ),
         modifier = modifier,

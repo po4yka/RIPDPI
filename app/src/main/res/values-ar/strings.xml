@@ -1499,6 +1499,10 @@ fakeddisorder endhost</string>
     <string name="logs_empty_body">شغِّل RIPDPI أو أطلق حدثاً تشخيصياً لملء تدفق البيانات على الجهاز.</string>
     <string name="logs_filtered_empty_title">لا توجد إدخالات تطابق المرشِّحات الحالية</string>
     <string name="logs_filtered_empty_body">افتح عوامل التصفية لعرض أحداث أخرى في المخزن المؤقت المحلي.</string>
+    <string name="logs_search_placeholder">ابحث في رسائل السجل</string>
+    <string name="logs_search_clear">مسح البحث</string>
+    <string name="logs_search_empty_title">لا توجد إدخالات تطابق البحث</string>
+    <string name="logs_search_empty_body">جرّب عبارة بحث أخرى أو امسح البحث.</string>
     <string name="splash_subtitle">أداة الاتصال المحلية</string>
     <string name="onboarding_continue">متابعة</string>
     <string name="onboarding_setup_finish">إنهاء</string>

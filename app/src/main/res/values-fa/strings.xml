@@ -1968,6 +1968,10 @@ fakeddisorder endhost</string>
     <string name="logs_auto_scroll_body">آخرین ورودی منطبق را در حالی که داده‌های تشخیصی جدید می‌رسند، در دید نگه دارید.</string>
     <string name="logs_empty_title">هنوز لاگی وجود ندارد</string>
     <string name="logs_filtered_empty_body">برای بررسی رویدادهای دیگر در بافر محلی، فیلترها را باز کنید.</string>
+    <string name="logs_search_placeholder">جستجو در پیام‌های گزارش</string>
+    <string name="logs_search_clear">پاک کردن جستجو</string>
+    <string name="logs_search_empty_title">هیچ ورودی با جستجو مطابقت ندارد</string>
+    <string name="logs_search_empty_body">عبارت دیگری را امتحان کنید یا جستجو را پاک کنید.</string>
     <string name="logs_filters_section">فیلترها</string>
     <string name="logs_service_failure_format">سرویس %1$s در راه‌اندازی ناموفق بود: %2$s</string>
     <string name="logs_severity_info">INFO</string>

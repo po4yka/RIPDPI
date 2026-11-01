@@ -307,6 +307,10 @@
     <string name="logs_clear_confirm_title">Protokolle löschen?</string>
     <string name="logs_clear_confirm_body">Dadurch werden alle Einträge aus dem Protokollpuffer auf dem Gerät entfernt. Das lässt sich nicht rückgängig machen.</string>
     <string name="logs_filtered_empty_body">Öffnen Sie die Filter, um andere Ereignisse im lokalen Puffer anzuzeigen.</string>
+    <string name="logs_search_placeholder">Logmeldungen durchsuchen</string>
+    <string name="logs_search_clear">Suche löschen</string>
+    <string name="logs_search_empty_title">Keine Einträge entsprechen der Suche</string>
+    <string name="logs_search_empty_body">Versuche einen anderen Suchbegriff oder lösche die Suche.</string>
     <string name="logs_severity_info">INFO</string>
     <string name="logs_subsystem_tunnel">TUNNEL</string>
     <string name="notice_activation_window_reset_message">RIPDPI wird die aktive Bypass-Strategie-Gruppe beim nächsten Start nicht mehr nach Runde, Nutzlastgröße oder Stream-Byte-Position filtern.</string>
@@ -1281,11 +1285,11 @@ fake_burst 3</string>
     <string name="history_diagnostics_empty_body">Prüfen Sie Ihr Netzwerk, um die Ergebnisse hier zu speichern.</string>
     <string name="history_events_section">Ereignisse</string>
     <string name="history_detail_placeholder">Wähle einen Eintrag, um hier seine Details zu sehen.</string>
+    <string name="detail_pane_empty_title">Nichts ausgewählt</string>
     <string name="home_control_plane_health_title">Status der Steuerungsebene muss überprüft werden</string>
     <string name="home_control_plane_host_packs_label">Host-Pakete</string>
     <string name="home_control_plane_strategy_pack_security_rejected">Der neueste Katalog hat erforderliche Sicherheitsmetadaten-Prüfungen nicht bestanden.</string>
     <string name="home_diagnostics_analysis_body">Führt das vollständige integrierte Diagnose-Audit aus. Es kann verifizierte Bypass-Lanes, DNS-Pfadänderungen und unterstützte WARP-Routing-Optionen aus dem funktionierenden Pfad anwenden.</string>
-    <string name="detail_pane_empty_title">Nichts ausgewählt</string>
     <string name="home_diagnostics_bufferbloat_section">Bufferbloat</string>
     <string name="home_diagnostics_command_line_blocked">Deaktivieren Sie die Befehlszeileneinstellungen, bevor Sie das vollständige Audit ausführen.</string>
     <string name="home_diagnostics_detection_not_detected">Keine Erkennungssignale beobachtet</string>

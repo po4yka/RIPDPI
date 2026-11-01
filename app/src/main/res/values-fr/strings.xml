@@ -307,6 +307,10 @@
     <string name="logs_clear_confirm_title">Effacer les journaux ?</string>
     <string name="logs_clear_confirm_body">Toutes les entrées du tampon de journaux de l\'appareil seront supprimées. Cette action est irréversible.</string>
     <string name="logs_filtered_empty_body">Ouvrez les filtres pour consulter d’autres événements du tampon local.</string>
+    <string name="logs_search_placeholder">Rechercher dans les messages du journal</string>
+    <string name="logs_search_clear">Effacer la recherche</string>
+    <string name="logs_search_empty_title">Aucune entrée ne correspond à la recherche</string>
+    <string name="logs_search_empty_body">Essayez un autre terme ou effacez la recherche.</string>
     <string name="logs_severity_info">INFO</string>
     <string name="logs_subsystem_tunnel">TUNNEL</string>
     <string name="notice_activation_window_reset_message">RIPDPI cessera de filtrer le groupe stratégie de contournement actif par cycle, taille de charge utile ou position d\'octet de flux au prochain démarrage.</string>
@@ -1281,11 +1285,11 @@ fake_burst 3</string>
     <string name="history_diagnostics_empty_body">Vérifiez le réseau pour enregistrer les résultats ici.</string>
     <string name="history_events_section">Événements</string>
     <string name="history_detail_placeholder">Sélectionnez une entrée pour voir ses détails ici.</string>
+    <string name="detail_pane_empty_title">Aucune sélection</string>
     <string name="home_control_plane_health_title">L\'état du plan de contrôle nécessite un examen</string>
     <string name="home_control_plane_host_packs_label">Packs d\'hôtes</string>
     <string name="home_control_plane_strategy_pack_security_rejected">Le dernier catalogue a échoué aux vérifications de métadonnées de sécurité requises.</string>
     <string name="home_diagnostics_analysis_body">Lancer l\'audit complet de diagnostics intégré. Il peut appliquer des voies de contournement vérifiées, des changements de chemin DNS et les options de routage WARP prises en charge à partir du chemin opérationnel.</string>
-    <string name="detail_pane_empty_title">Aucune sélection</string>
     <string name="home_diagnostics_bufferbloat_section">Bufferbloat</string>
     <string name="home_diagnostics_command_line_blocked">Désactivez les paramètres en ligne de commande avant de lancer l\'audit complet.</string>
     <string name="home_diagnostics_detection_not_detected">Aucun signal de détection observé</string>

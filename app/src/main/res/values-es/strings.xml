@@ -307,6 +307,10 @@
     <string name="logs_clear_confirm_title">¿Borrar los registros?</string>
     <string name="logs_clear_confirm_body">Se eliminarán todas las entradas del búfer de registros del dispositivo. No se puede deshacer.</string>
     <string name="logs_filtered_empty_body">Abre Filtros para ver otros eventos del búfer local.</string>
+    <string name="logs_search_placeholder">Buscar en los mensajes del registro</string>
+    <string name="logs_search_clear">Borrar búsqueda</string>
+    <string name="logs_search_empty_title">Ninguna entrada coincide con la búsqueda</string>
+    <string name="logs_search_empty_body">Prueba con otro término o borra la búsqueda.</string>
     <string name="logs_severity_info">INFO</string>
     <string name="logs_subsystem_tunnel">TUNNEL</string>
     <string name="notice_activation_window_reset_message">RIPDPI dejará de restringir el grupo de estrategia de bypass activo por ronda, tamaño de carga útil o posición de bytes en el flujo a partir del próximo inicio.</string>
@@ -1281,11 +1285,11 @@ fake_burst 3</string>
     <string name="history_diagnostics_empty_body">Comprueba la red para guardar aquí los resultados.</string>
     <string name="history_events_section">Eventos</string>
     <string name="history_detail_placeholder">Selecciona una entrada para ver sus detalles aquí.</string>
+    <string name="detail_pane_empty_title">Nada seleccionado</string>
     <string name="home_control_plane_health_title">El estado del plano de control necesita revisión</string>
     <string name="home_control_plane_host_packs_label">Paquetes de hosts</string>
     <string name="home_control_plane_strategy_pack_security_rejected">El último catálogo no superó las comprobaciones obligatorias de metadatos de seguridad.</string>
     <string name="home_diagnostics_analysis_body">Ejecuta la auditoría completa de diagnóstico integrada. Puede aplicar carriles de bypass verificados, cambios en la ruta DNS y opciones admitidas de enrutamiento WARP desde la ruta que funciona.</string>
-    <string name="detail_pane_empty_title">Nada seleccionado</string>
     <string name="home_diagnostics_bufferbloat_section">Bufferbloat</string>
     <string name="home_diagnostics_command_line_blocked">Desactiva los ajustes de línea de comandos antes de ejecutar la auditoría completa.</string>
     <string name="home_diagnostics_detection_not_detected">No se observan señales de detección</string>
