@@ -1,10 +1,13 @@
 package com.poyka.ripdpi.ui.components.inputs
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.width
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -15,10 +18,13 @@ import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -99,16 +105,61 @@ class RipDpiDropdownSemanticsTest {
                 }
             }
         }
-        val dropdown =
-            composeRule
-                .onNodeWithTag("dropdown")
-                .fetchSemanticsNode()
-                .size.height
-        val field =
-            composeRule
-                .onNodeWithTag("field")
-                .fetchSemanticsNode()
-                .size.height
-        assertEquals(field, dropdown)
+        listOf(1f, 2f).forEach { scale ->
+            composeRule.runOnIdle { fontScale = scale }
+            composeRule.waitForIdle()
+            val dropdown =
+                composeRule
+                    .onNodeWithTag("dropdown")
+                    .fetchSemanticsNode()
+                    .size.height
+            val field =
+                composeRule
+                    .onNodeWithTag("field")
+                    .fetchSemanticsNode()
+                    .size.height
+            assertEquals("font scale $scale", field, dropdown)
+        }
+    }
+
+    @Test
+    fun `a wrapped dropdown value keeps clear of the border at default and double font scale`() {
+        var fontScale by mutableFloatStateOf(1f)
+        val wrappedOptions =
+            persistentListOf(
+                RipDpiDropdownOption("long", "A rather long option label that cannot fit on a single line here"),
+            )
+        composeRule.setContent {
+            RipDpiTheme {
+                val density = LocalDensity.current
+                CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale = fontScale)) {
+                    Box(Modifier.width(220.dp)) {
+                        RipDpiDropdown(
+                            options = wrappedOptions,
+                            selectedValue = "long",
+                            onValueSelected = {},
+                            labels = RipDpiDropdownLabels(label = "Mode"),
+                            testTag = "dropdown",
+                        )
+                    }
+                }
+            }
+        }
+        listOf(1f, 2f).forEach { scale ->
+            composeRule.runOnIdle { fontScale = scale }
+            composeRule.waitForIdle()
+            val dropdown = composeRule.onNodeWithTag("dropdown").fetchSemanticsNode().boundsInRoot
+            val text =
+                composeRule
+                    .onNodeWithText(wrappedOptions.single().label, useUnmergedTree = true)
+                    .fetchSemanticsNode()
+                    .boundsInRoot
+            val minGap = 4f * composeRule.density.density
+            assertTrue("font scale $scale: top gap ${text.top - dropdown.top}", text.top - dropdown.top >= minGap)
+            assertTrue(
+                "font scale $scale: bottom gap ${dropdown.bottom - text.bottom}",
+                dropdown.bottom - text.bottom >= minGap,
+            )
+        }
     }
 }

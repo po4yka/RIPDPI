@@ -24,6 +24,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
@@ -53,8 +54,9 @@ import kotlinx.collections.immutable.persistentListOf
 private const val DisabledAlpha = 0.38f
 private const val dropdownWidthFraction = 0.9f
 
-// A single-line RipDpiTextField adds no vertical content padding; the dropdown matches it at every font scale.
-private val DropdownVerticalPadding = 0.dp
+// A single-line value adds no vertical padding, so the dropdown matches a single-line RipDpiTextField at every font
+// scale. A value that wraps gets this much so its lines never touch the border.
+private val DropdownWrappedVerticalPadding = 8.dp
 
 data class RipDpiDropdownOption<T>(
     val value: T,
@@ -210,6 +212,8 @@ private fun DropdownField(
     val shape = RipDpiThemeTokens.shapes.xl
     val horizontalPadding = if (density == RipDpiControlDensity.Compact) 12.dp else 16.dp
     val contentAlpha = if (enabled) 1f else DisabledAlpha
+    val shownText = selectedLabel.ifEmpty { placeholder.orEmpty() }
+    var wrapped by remember(shownText) { mutableStateOf(false) }
     Box {
         Row(
             modifier =
@@ -246,14 +250,18 @@ private fun DropdownField(
                         role = Role.DropdownList,
                         interactionSource = source,
                     ) { setExpanded(true) }
-                    .padding(horizontal = horizontalPadding, vertical = DropdownVerticalPadding),
+                    .padding(
+                        horizontal = horizontalPadding,
+                        vertical = if (wrapped) DropdownWrappedVerticalPadding else 0.dp,
+                    ),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Options are labels such as "Light" or "TCP", not technical values.
             Text(
-                text = selectedLabel.ifEmpty { placeholder.orEmpty() },
+                text = shownText,
                 style = RipDpiThemeTokens.type.secondaryBody,
+                onTextLayout = { wrapped = it.lineCount > 1 },
                 color = if (selectedLabel.isEmpty()) colors.mutedForeground else colors.foreground,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
