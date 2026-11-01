@@ -6,18 +6,16 @@ import com.poyka.ripdpi.data.InMemoryStrategyPackStateStore
 import com.poyka.ripdpi.data.StrategyPackRuntimeState
 import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.util.MainDispatcherRule
-import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.async
-import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -39,11 +37,9 @@ class SettingsViewModelBootstrapperTest {
                         .build(),
                 )
             val strategyPackStateStore = InMemoryStrategyPackStateStore()
-            val effects = MutableSharedFlow<SettingsEffect>(extraBufferCapacity = 1)
-            val noticeDeferred =
-                async(start = CoroutineStart.UNDISPATCHED) {
-                    effects.first() as SettingsEffect.Notice
-                }
+            // The PIN notice goes to the Settings list's own slot; the Advanced slot only takes pack-refresh notices.
+            val listNotice = SettingsNoticeState()
+            val advancedNotice = SettingsNoticeState()
             val runtimeStates = mutableListOf<StrategyPackRuntimeState>()
             var hostPackCatalogLoads = 0
             var strategyPackCatalogLoads = 0
@@ -64,7 +60,7 @@ class SettingsViewModelBootstrapperTest {
                     },
             ).initialize(
                 scope = backgroundScope,
-                effects = effects,
+                onPinKeyLost = listNotice::post,
                 loadInitialHostPackCatalog = { hostPackCatalogLoads += 1 },
                 loadInitialStrategyPackCatalog = { strategyPackCatalogLoads += 1 },
                 updateStrategyPackCatalogRuntimeState = { runtimeState ->
@@ -74,7 +70,8 @@ class SettingsViewModelBootstrapperTest {
 
             advanceUntilIdle()
 
-            val notice = noticeDeferred.await()
+            val notice = listNotice.latest.filterNotNull().first()
+            assertNull(advancedNotice.latest.value)
             val settings = settingsRepository.snapshot()
 
             assertEquals(1, hostPackCatalogLoads)
@@ -118,7 +115,7 @@ class SettingsViewModelBootstrapperTest {
                     },
             ).initialize(
                 scope = backgroundScope,
-                effects = MutableSharedFlow(extraBufferCapacity = 1),
+                onPinKeyLost = {},
                 loadInitialHostPackCatalog = {},
                 loadInitialStrategyPackCatalog = {},
                 updateStrategyPackCatalogRuntimeState = {},
@@ -135,7 +132,6 @@ class SettingsViewModelBootstrapperTest {
         runTest {
             val settingsRepository = FakeAppSettingsRepository()
             val strategyPackStateStore = InMemoryStrategyPackStateStore()
-            val effects = MutableSharedFlow<SettingsEffect>(extraBufferCapacity = 1)
             val runtimeStates = mutableListOf<StrategyPackRuntimeState>()
 
             SettingsViewModelBootstrapper(
@@ -154,7 +150,7 @@ class SettingsViewModelBootstrapperTest {
                     },
             ).initialize(
                 scope = backgroundScope,
-                effects = effects,
+                onPinKeyLost = {},
                 loadInitialHostPackCatalog = {},
                 loadInitialStrategyPackCatalog = {},
                 updateStrategyPackCatalogRuntimeState = { runtimeState ->
@@ -187,9 +183,7 @@ class SettingsViewModelBootstrapperTest {
                     .build()
             val settingsRepository = FakeAppSettingsRepository(initialSettings)
             val strategyPackStateStore = InMemoryStrategyPackStateStore()
-            val effects = MutableSharedFlow<SettingsEffect>(extraBufferCapacity = 1)
-            val emittedEffects = mutableListOf<SettingsEffect>()
-            val collector = backgroundScope.launch { effects.collect { emittedEffects += it } }
+            val postedNotices = mutableListOf<SettingsEffect.Notice>()
 
             SettingsViewModelBootstrapper(
                 appSettingsRepository = settingsRepository,
@@ -207,18 +201,17 @@ class SettingsViewModelBootstrapperTest {
                     },
             ).initialize(
                 scope = backgroundScope,
-                effects = effects,
+                onPinKeyLost = { postedNotices += it },
                 loadInitialHostPackCatalog = {},
                 loadInitialStrategyPackCatalog = {},
                 updateStrategyPackCatalogRuntimeState = {},
             )
 
             advanceUntilIdle()
-            collector.cancel()
 
             val settings = settingsRepository.snapshot()
             assertEquals("1234", settings.backupPin)
             assertTrue(settings.biometricEnabled)
-            assertTrue(emittedEffects.isEmpty())
+            assertTrue(postedNotices.isEmpty())
         }
 }

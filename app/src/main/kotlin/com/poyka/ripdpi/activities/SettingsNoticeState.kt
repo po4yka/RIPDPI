@@ -16,6 +16,10 @@ internal class SettingsNoticeState {
         mutableLatest.value = notice
     }
 
+    fun clear() {
+        mutableLatest.value = null
+    }
+
     /** Clears [notice] only while it is still the latest, so a newer notice posted meanwhile survives. */
     fun acknowledge(notice: SettingsEffect.Notice) {
         mutableLatest.compareAndSet(notice, null)

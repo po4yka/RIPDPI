@@ -2,8 +2,6 @@ package com.poyka.ripdpi.ui.screens.settings
 
 import com.poyka.ripdpi.activities.SettingsEffect
 import com.poyka.ripdpi.activities.SettingsMutation
-import com.poyka.ripdpi.activities.SettingsNoticeTone
-import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.state.SettingsUiState
 
 internal fun mapNoticeEffect(effect: SettingsEffect.Notice): AdvancedNotice =
@@ -11,12 +9,7 @@ internal fun mapNoticeEffect(effect: SettingsEffect.Notice): AdvancedNotice =
         title = effect.title,
         message = effect.message,
         messageOverride = effect.messageOverride,
-        tone =
-            when (effect.tone) {
-                SettingsNoticeTone.Info -> WarningBannerTone.Info
-                SettingsNoticeTone.Warning -> WarningBannerTone.Warning
-                SettingsNoticeTone.Error -> WarningBannerTone.Error
-            },
+        tone = effect.tone.toBannerTone(),
     )
 
 internal class AdvancedSettingsBinder(

@@ -49,13 +49,19 @@ class SettingsViewModel
                 settingsEffects,
             )
 
-        // The Advanced screen owns pack-refresh and PIN notices; a notice raised while it is away waits here.
+        // The Settings list owns the PIN-key-lost notice: the app-lock controls it explains are on that screen.
+        private val settingsNoticeState = SettingsNoticeState()
+        val settingsNotice: StateFlow<SettingsEffect.Notice?> = settingsNoticeState.latest
+
+        // The Advanced screen owns pack-refresh notices; a notice raised while it is away waits here.
         private val advancedNoticeState = SettingsNoticeState()
         val advancedNotice: StateFlow<SettingsEffect.Notice?> = advancedNoticeState.latest
 
         // The DNS screen owns its reconnect failure; kept apart so it never shows up in Advanced.
         private val dnsNoticeState = SettingsNoticeState()
         val dnsNotice: StateFlow<SettingsEffect.Notice?> = dnsNoticeState.latest
+
+        fun acknowledgeSettingsNotice(notice: SettingsEffect.Notice) = settingsNoticeState.acknowledge(notice)
 
         fun acknowledgeAdvancedNotice(notice: SettingsEffect.Notice) = advancedNoticeState.acknowledge(notice)
 
@@ -106,6 +112,7 @@ class SettingsViewModel
                         ),
                     )
                 },
+                onReconnectSuccess = dnsNoticeState::clear,
                 serviceIntentArbiter = serviceIntentArbiter,
             )
         private val customizationActions by lazy {
@@ -142,7 +149,7 @@ class SettingsViewModel
             }
             settingsViewModelBootstrapper.initialize(
                 scope = viewModelScope,
-                effects = settingsEffects,
+                onPinKeyLost = settingsNoticeState::post,
                 loadInitialHostPackCatalog = maintenanceActions::loadInitialHostPackCatalog,
                 loadInitialStrategyPackCatalog = maintenanceActions::loadInitialStrategyPackCatalog,
                 updateStrategyPackCatalogRuntimeState = { runtimeState ->

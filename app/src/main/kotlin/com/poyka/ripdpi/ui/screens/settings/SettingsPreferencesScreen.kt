@@ -22,6 +22,7 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DnsUiState
+import com.poyka.ripdpi.activities.SettingsEffect
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.permissions.PermissionKind
@@ -65,6 +66,7 @@ fun SettingsRoute(
 ) {
     val uiState = viewModel.uiState.collectAsStateWithLifecycle()
     val xrayProviderSnapshot = viewModel.xrayProviderSnapshot.collectAsStateWithLifecycle()
+    val notice = viewModel.settingsNotice.collectAsStateWithLifecycle()
     val context = LocalContext.current
     val startOnBootController =
         remember(context) { StartOnBootController(context.applicationContext) }
@@ -126,6 +128,8 @@ fun SettingsRoute(
                 onClearCommunityCache = remember(viewModel) { viewModel::clearCommunityCache },
             ),
         permissionSummary = permissionSummary,
+        notice = notice.value,
+        onDismissNotice = { notice.value?.let(viewModel::acknowledgeSettingsNotice) },
         modifier = modifier,
     )
 }
@@ -138,8 +142,12 @@ internal fun SettingsScreen(
     modifier: Modifier = Modifier,
     xrayProviderSnapshot: XrayProviderSnapshot? = null,
     batteryOptimizationIgnored: Boolean = true,
+    notice: SettingsEffect.Notice? = null,
+    onDismissNotice: () -> Unit = {},
 ) {
     val localState = rememberSettingsScreenLocalState(uiState)
+    val listState = LocalSettingsListState.current ?: rememberLazyListState()
+    ScrollToNewNotice(notice) { listState.animateScrollToItem(0) }
 
     SettingsPreferenceDialogs(localState = localState, actions = actions)
     RipDpiSettingsScaffold(
@@ -149,8 +157,9 @@ internal fun SettingsScreen(
                 .fillMaxSize()
                 .ripDpiScreenBackground(),
         title = stringResource(R.string.settings),
-        listState = LocalSettingsListState.current ?: rememberLazyListState(),
+        listState = listState,
     ) {
+        notice?.let { item(key = "settings_notice") { SettingsNoticeBanner(it, onDismissNotice) } }
         // Embedded-Xray provider status — provider-distinct, rendered only while
         // an Xray session is active (snapshot non-null).
         if (xrayProviderSnapshot != null) {

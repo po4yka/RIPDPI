@@ -23,6 +23,7 @@ internal class SettingsDnsActions(
     private val reconnectCoordinator: com.poyka.ripdpi.services.RunningServiceReconnect,
     private val onReconnectFailure: (com.poyka.ripdpi.services.RunningReconnectResult.Failed) -> Unit,
     private val serviceIntentArbiter: ServiceIntentArbiter,
+    private val onReconnectSuccess: () -> Unit = {},
 ) {
     fun selectBuiltInDnsProvider(providerId: String) {
         val resolver = dnsProviderById(providerId) ?: return
@@ -255,6 +256,10 @@ internal class SettingsDnsActions(
                 com.poyka.ripdpi.services.RunningReconnectRequest
                     .CurrentSaved(mode),
             )
-        if (result is com.poyka.ripdpi.services.RunningReconnectResult.Failed) onReconnectFailure(result)
+        if (result is com.poyka.ripdpi.services.RunningReconnectResult.Failed) {
+            onReconnectFailure(result)
+        } else {
+            onReconnectSuccess()
+        }
     }
 }

@@ -6,7 +6,6 @@ import com.poyka.ripdpi.data.StrategyPackRuntimeState
 import com.poyka.ripdpi.data.StrategyPackStateStore
 import com.poyka.ripdpi.security.PinVerifier
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -20,7 +19,7 @@ class SettingsViewModelBootstrapper
     ) {
         fun initialize(
             scope: CoroutineScope,
-            effects: MutableSharedFlow<SettingsEffect>,
+            onPinKeyLost: (SettingsEffect.Notice) -> Unit,
             loadInitialHostPackCatalog: () -> Unit,
             loadInitialStrategyPackCatalog: () -> Unit,
             updateStrategyPackCatalogRuntimeState: (StrategyPackRuntimeState) -> Unit,
@@ -33,11 +32,11 @@ class SettingsViewModelBootstrapper
                 }
             }
             scope.launch {
-                ensurePinKeyIntegrity(effects)
+                ensurePinKeyIntegrity(onPinKeyLost)
             }
         }
 
-        private suspend fun ensurePinKeyIntegrity(effects: MutableSharedFlow<SettingsEffect>) {
+        private suspend fun ensurePinKeyIntegrity(onPinKeyLost: (SettingsEffect.Notice) -> Unit) {
             val settings = appSettingsRepository.snapshot()
             // Wipe only on a definite "no key": an unreadable keystore must not disable the app lock.
             if (settings.backupPin.isNotBlank() && pinVerifier.isKeyAvailable() == false) {
@@ -45,7 +44,7 @@ class SettingsViewModelBootstrapper
                     setBackupPin("")
                     setBiometricEnabled(false)
                 }
-                effects.emit(
+                onPinKeyLost(
                     SettingsEffect.Notice(
                         title = R.string.notice_pin_key_lost_title,
                         message = R.string.notice_pin_key_lost_message,

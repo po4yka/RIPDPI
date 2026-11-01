@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.dns
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -24,6 +25,8 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScaffoldWidth
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.settings.ScrollToNewNotice
+import com.poyka.ripdpi.ui.screens.settings.SettingsNoticeBanner
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -64,7 +67,10 @@ internal fun DnsSettingsScreen(
         )
     val selectedResolver = selectedResolverOption(uiState.dns)
 
+    val scrollState = rememberScrollState()
+    ScrollToNewNotice(notice) { scrollState.animateScrollTo(0) }
     RipDpiContentScreenScaffold(
+        scrollState = scrollState,
         modifier =
             modifier
                 .ripDpiTestTag(RipDpiTestTags.screen(Route.DnsSettings))
@@ -75,14 +81,7 @@ internal fun DnsSettingsScreen(
         onNavigationClick = onBack,
         contentWidth = RipDpiScaffoldWidth.Form,
     ) {
-        notice?.let {
-            WarningBanner(
-                title = stringResource(it.title),
-                message = it.messageOverride ?: stringResource(it.message),
-                tone = WarningBannerTone.Error,
-                onDismiss = onDismissNotice,
-            )
-        }
+        notice?.let { SettingsNoticeBanner(it, onDismissNotice) }
         DnsProxyModeWarning(uiState)
         DnsActiveConfigurationCard(uiState = uiState, selectedResolver = selectedResolver)
         DnsModeSection(uiState = uiState, onModeSelected = onModeSelected)
