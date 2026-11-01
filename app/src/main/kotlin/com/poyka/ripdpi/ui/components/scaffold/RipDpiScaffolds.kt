@@ -4,6 +4,7 @@ import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -28,11 +29,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.TopAppBarScrollBehavior
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.zIndex
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
@@ -111,7 +115,7 @@ fun RipDpiContentScreenScaffold(
             )
         },
     ) { innerPadding ->
-        Box(
+        BoxWithConstraints(
             modifier =
                 Modifier
                     .fillMaxSize()
@@ -119,24 +123,30 @@ fun RipDpiContentScreenScaffold(
                     .ripDpiScreenBackground(),
             contentAlignment = Alignment.TopCenter,
         ) {
-            Column(
-                modifier =
-                    Modifier
-                        .widthIn(max = ripDpiScaffoldMaxWidth(contentWidth))
-                        .fillMaxWidth()
-                        .verticalScroll(scrollState)
-                        .padding(
-                            start = layout.horizontalPadding,
-                            top = spacing.sm,
-                            end = layout.horizontalPadding,
-                            bottom = spacing.xxl,
-                        ),
-                verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
-                content = content,
-            )
+            val verticalPadding = spacing.sm + spacing.xxl
+            CompositionLocalProvider(LocalRipDpiContentViewportHeight provides maxHeight - verticalPadding) {
+                Column(
+                    modifier =
+                        Modifier
+                            .widthIn(max = ripDpiScaffoldMaxWidth(contentWidth))
+                            .fillMaxWidth()
+                            .verticalScroll(scrollState)
+                            .padding(
+                                start = layout.horizontalPadding,
+                                top = spacing.sm,
+                                end = layout.horizontalPadding,
+                                bottom = spacing.xxl,
+                            ),
+                    verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
+                    content = content,
+                )
+            }
         }
     }
 }
+
+/** The free height of a scrolling content scaffold, for content that centers itself when it is alone on the screen. */
+val LocalRipDpiContentViewportHeight = compositionLocalOf { Dp.Unspecified }
 
 @Composable
 fun RipDpiSettingsScaffold(

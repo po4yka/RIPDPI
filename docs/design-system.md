@@ -335,7 +335,7 @@ Onboarding and permission flows:
 - From the Expanded width class, Logs shows the list and a detail pane for the selected entry.
 - Filter controls belong in `SettingsRow`, `RipDpiChip`, and `SettingsCategoryHeader`; `SettingsRow` is for binary filters and compact facts only, not for actual log entries.
 - The stream itself should stay inside `LogsStreamCard` and render entries with `LogRow`; preserve monospace rhythm, compact spacing, and divider discipline.
-- Empty or filtered-empty states should use a dedicated card such as `LogsEmptyStateCard`, never a raw placeholder string in the list viewport.
+- Empty or filtered-empty states should use a dedicated empty state such as `RipDpiEmptyState` (via `LogsEmptyState`), never a raw placeholder string in the list viewport.
 - Copy, save, clear and support-bundle feedback belongs in snackbar or explicit
   action rows. Continuous log flows do not need a simulated refresh delay.
 - Do not add strong background fills, heavy chrome, oversized badges, or banners between individual log rows.

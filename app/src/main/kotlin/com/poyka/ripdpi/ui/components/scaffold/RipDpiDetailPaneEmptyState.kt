@@ -9,8 +9,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyState
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 /** Empty state card for a detail pane while no list entry is selected. */
@@ -28,7 +29,8 @@ fun RipDpiDetailPaneEmptyState(
                 .padding(RipDpiThemeTokens.layout.horizontalPadding),
         contentAlignment = Alignment.Center,
     ) {
-        RipDpiEmptyStateCard(
+        RipDpiEmptyState(
+            icon = RipDpiIcons.Info,
             title = stringResource(R.string.detail_pane_empty_title),
             body = body,
             modifier = Modifier.widthIn(max = RipDpiThemeTokens.layout.formMaxWidth),

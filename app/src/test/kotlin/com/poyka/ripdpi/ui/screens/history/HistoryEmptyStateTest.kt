@@ -136,7 +136,7 @@ class HistoryEmptyStateTest {
             CompositionLocalProvider(LocalDensity provides Density(1f, 2f)) {
                 RipDpiTheme {
                     Box(Modifier.requiredWidth(320.dp)) {
-                        HistoryEmptyStateCard(
+                        HistoryEmptyState(
                             title = "История пуста",
                             body = "Проверьте сеть, чтобы сохранить результаты.",
                             actionLabel = label,

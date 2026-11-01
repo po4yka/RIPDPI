@@ -32,7 +32,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.proxyimport.ImportPayload
 import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
-import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyState
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTab
@@ -44,6 +44,7 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
@@ -268,7 +269,8 @@ private fun ConfigPresetList(
                 verticalArrangement = Arrangement.spacedBy(spacing.md),
             ) {
                 RipDpiSpinner()
-                RipDpiEmptyStateCard(
+                RipDpiEmptyState(
+                    icon = RipDpiIcons.Config,
                     modifier = Modifier.fillMaxWidth(),
                     title = stringResource(R.string.config_presets_loading_title),
                     body = stringResource(R.string.config_presets_loading_body),

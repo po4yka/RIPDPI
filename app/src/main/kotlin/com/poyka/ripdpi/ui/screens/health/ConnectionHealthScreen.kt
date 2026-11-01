@@ -20,7 +20,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.services.ConnectionHealthDestinationClass
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
-import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyState
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.indicators.RipDpiCompactMetrics
 import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
@@ -66,7 +66,9 @@ fun ConnectionHealthScreen(
     ) {
         if (!uiState.hasData) {
             // Nothing is measured yet: one empty state stands in for every section.
-            RipDpiEmptyStateCard(
+            RipDpiEmptyState(
+                icon = RipDpiIcons.NetworkCheck,
+                fillViewport = true,
                 title = stringResource(R.string.connection_health_empty_title),
                 body = stringResource(R.string.connection_health_empty_body),
             )

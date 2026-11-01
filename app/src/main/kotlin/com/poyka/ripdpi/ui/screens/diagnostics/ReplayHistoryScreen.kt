@@ -22,7 +22,7 @@ import com.poyka.ripdpi.diagnostics.replay.ReplayProbeResult
 import com.poyka.ripdpi.diagnostics.replay.ReplayStepEvent
 import com.poyka.ripdpi.diagnostics.replay.ReplayVerdict
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
-import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyState
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentWidth
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
@@ -100,7 +100,8 @@ private fun ReplayHistoryEmptyState(
     onRunScan: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    RipDpiEmptyStateCard(
+    RipDpiEmptyState(
+        icon = RipDpiIcons.History,
         title = stringResource(R.string.vpn_replay_history_empty),
         body = stringResource(R.string.history_diagnostics_empty_body),
         modifier = modifier,

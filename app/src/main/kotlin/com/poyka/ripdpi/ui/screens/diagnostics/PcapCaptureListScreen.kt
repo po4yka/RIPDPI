@@ -21,7 +21,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.pcap.PcapCaptureMetadata
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
-import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyState
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
@@ -185,7 +185,8 @@ private fun PcapCaptureListStatus(
         }
 
         else -> {
-            RipDpiEmptyStateCard(
+            RipDpiEmptyState(
+                icon = RipDpiIcons.Archive,
                 title = stringResource(R.string.vpn_pcap_capture_list_empty_title),
                 body = stringResource(R.string.vpn_pcap_capture_list_empty),
                 actionLabel = stringResource(R.string.vpn_pcap_open_advanced_settings),

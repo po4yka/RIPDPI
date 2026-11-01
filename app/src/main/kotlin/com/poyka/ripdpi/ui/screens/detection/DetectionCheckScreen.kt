@@ -55,7 +55,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
-import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyState
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
@@ -842,7 +842,8 @@ private fun DetectionCommunityStatsSection(
 
         else -> {
             // No reports yet (or nothing loaded): say so instead of leaving the section blank.
-            RipDpiEmptyStateCard(
+            RipDpiEmptyState(
+                icon = RipDpiIcons.Public,
                 title = stringResource(R.string.detection_community_title),
                 body = stringResource(R.string.detection_community_empty_body),
             )

@@ -71,7 +71,7 @@ Row totals are a recount of the audited bullets in this file: 30 components + 36
 - **Status Indicator** (`components-status-indicator.html`) — Custom status badges in home/history
 - **Settings Row** (`components-settings-row.html`) — Standardized settings list items
 - **Dropdown** (`components-dropdown.html`) — Exposed and menu-style dropdowns
-- **Empty State** (`components-empty-state.html`) — `RipDpiEmptyStateCard` in history and diagnostics
+- **Empty State** (`components-empty-state.html`) — `RipDpiEmptyState` in history and diagnostics
 
 ### ✅ Full Implementation Continued
 

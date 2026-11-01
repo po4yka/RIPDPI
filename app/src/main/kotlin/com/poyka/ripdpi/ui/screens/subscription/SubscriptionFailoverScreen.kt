@@ -18,7 +18,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
-import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyState
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
@@ -84,7 +84,10 @@ fun SubscriptionFailoverScreen(
             }
             SubscriptionFailoverTimeline(uiState.events)
         } else {
-            RipDpiEmptyStateCard(
+            RipDpiEmptyState(
+                icon = RipDpiIcons.Vpn,
+                // A lifecycle banner above shares the screen, so the block cannot claim the whole viewport.
+                fillViewport = uiState.subscriptionAlert == null,
                 title = stringResource(R.string.subscription_failover_empty_title),
                 body = stringResource(R.string.subscription_failover_empty_body),
                 actionLabel = stringResource(R.string.import_subscription_confirm_title),

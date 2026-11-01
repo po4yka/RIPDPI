@@ -19,7 +19,7 @@ import com.poyka.ripdpi.subscription.SubscriptionExpiryItemUiState
 import com.poyka.ripdpi.subscription.SubscriptionExpiryStatus
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
-import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyState
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
@@ -96,7 +96,9 @@ internal fun SubscriptionStatusScreen(
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.SubscriptionStatus)),
     ) {
         if (uiState.summary.items.isEmpty()) {
-            RipDpiEmptyStateCard(
+            RipDpiEmptyState(
+                icon = RipDpiIcons.Vpn,
+                fillViewport = true,
                 title = stringResource(R.string.subscription_status_empty_title),
                 body = stringResource(R.string.subscription_status_empty_body),
                 actionLabel = stringResource(R.string.import_subscription_confirm_title),

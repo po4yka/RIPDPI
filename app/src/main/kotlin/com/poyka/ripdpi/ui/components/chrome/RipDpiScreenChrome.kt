@@ -1,20 +1,31 @@
 package com.poyka.ripdpi.ui.components.chrome
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.HorizontalDivider
+import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.isSpecified
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -23,7 +34,9 @@ import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.distinctFrom
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.components.scaffold.LocalRipDpiContentViewportHeight
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 
@@ -115,12 +128,17 @@ fun RipDpiPanelHeader(
     }
 }
 
+/**
+ * Material 3 empty state: an icon, the title and body, then the next step, centered as one block. With
+ * [fillViewport] set on a screen with no other content it centers in the free height of its scaffold.
+ */
 @Composable
-fun RipDpiEmptyStateCard(
+fun RipDpiEmptyState(
+    icon: ImageVector,
     title: String,
     body: String,
     modifier: Modifier = Modifier,
-    variant: RipDpiCardVariant = RipDpiCardVariant.Outlined,
+    fillViewport: Boolean = false,
     bodyMaxLines: Int = Int.MAX_VALUE,
     bodyOverflow: TextOverflow = TextOverflow.Clip,
     actionLabel: String? = null,
@@ -128,31 +146,57 @@ fun RipDpiEmptyStateCard(
     actionTestTag: String? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+    val viewportHeight = LocalRipDpiContentViewportHeight.current
+    val fillsViewport = fillViewport && viewportHeight.isSpecified
+    val minHeight = if (fillsViewport) Modifier.heightIn(min = viewportHeight) else Modifier
 
-    RipDpiCard(
-        modifier = modifier,
-        variant = variant,
-    ) {
-        RipDpiPanelHeader(title = title)
-        Text(
-            text = body,
-            style = RipDpiThemeTokens.type.body,
-            color = colors.mutedForeground,
-            maxLines = bodyMaxLines,
-            overflow = bodyOverflow,
-        )
-        if (actionLabel != null && onAction != null) {
-            // The next step for the empty state, shared by every screen that uses this card.
-            RipDpiButton(
-                text = actionLabel,
-                onClick = onAction,
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .then(actionTestTag?.let { Modifier.ripDpiTestTag(it) } ?: Modifier),
-                variant = RipDpiButtonVariant.Secondary,
-                wrapLabel = true,
+    Box(modifier = modifier.fillMaxWidth().then(minHeight), contentAlignment = Alignment.Center) {
+        Column(
+            // The filled height already centers the block; padding on top of it would push it off center.
+            modifier = if (fillsViewport) Modifier else Modifier.padding(vertical = spacing.xxl),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.spacedBy(spacing.md),
+        ) {
+            val badgeSize = RipDpiThemeTokens.components.feedback.decorativeBadgeSize
+            Box(
+                modifier = Modifier.size(badgeSize).clip(CircleShape).background(colors.muted),
+                contentAlignment = Alignment.Center,
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = colors.mutedForeground,
+                    modifier = Modifier.size(RipDpiIconSizes.Default),
+                )
+            }
+            Text(
+                text = title,
+                modifier = Modifier.semantics { heading() },
+                style = RipDpiThemeTokens.type.cardTitle,
+                color = colors.foreground,
+                textAlign = TextAlign.Center,
             )
+            body.distinctFrom(title)?.let {
+                Text(
+                    text = it,
+                    style = RipDpiThemeTokens.type.body,
+                    color = colors.mutedForeground,
+                    textAlign = TextAlign.Center,
+                    maxLines = bodyMaxLines,
+                    overflow = bodyOverflow,
+                )
+            }
+            if (actionLabel != null && onAction != null) {
+                // The next step for the empty state, shared by every screen that uses it.
+                RipDpiButton(
+                    text = actionLabel,
+                    onClick = onAction,
+                    modifier = Modifier.then(actionTestTag?.let { Modifier.ripDpiTestTag(it) } ?: Modifier),
+                    variant = RipDpiButtonVariant.Secondary,
+                    wrapLabel = true,
+                )
+            }
         }
     }
 }

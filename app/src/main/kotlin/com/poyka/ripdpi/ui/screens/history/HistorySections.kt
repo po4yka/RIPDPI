@@ -166,7 +166,7 @@ internal fun ConnectionsSection(
 
         if (!uiState.hasConnectionHistory) {
             item {
-                HistoryEmptyStateCard(
+                HistoryEmptyState(
                     title = stringResource(R.string.history_connections_empty_title),
                     body = stringResource(R.string.history_connections_empty_body),
                     actionLabel = stringResource(R.string.vpn_connect),
@@ -238,7 +238,7 @@ internal fun DiagnosticsSection(
 
         if (!uiState.hasDiagnosticsHistory) {
             item {
-                HistoryEmptyStateCard(
+                HistoryEmptyState(
                     title = stringResource(R.string.history_diagnostics_empty_title),
                     body = stringResource(R.string.history_diagnostics_empty_body),
                     actionLabel = stringResource(R.string.diagnostics_simple_funnel_check_action),
@@ -423,7 +423,7 @@ private fun LazyListScope.historyEventRows(
 ) {
     if (!uiState.hasEventHistory) {
         item {
-            HistoryEmptyStateCard(
+            HistoryEmptyState(
                 title = stringResource(R.string.history_events_empty_title),
                 body = stringResource(R.string.history_events_empty_body),
                 actionLabel = stringResource(R.string.vpn_connect),

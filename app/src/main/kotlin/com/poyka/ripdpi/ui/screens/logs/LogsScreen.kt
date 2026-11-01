@@ -56,7 +56,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
-import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
+import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyState
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
@@ -337,7 +337,7 @@ private fun LogsStreamSection(
             },
     ) {
         if (filteredLogs.isEmpty()) {
-            LogsEmptyStateCard(
+            LogsEmptyState(
                 hasBufferedLogs = uiState.logs.isNotEmpty(),
                 searchActive = searchActive,
                 modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.LogsEmptyState),
@@ -722,12 +722,13 @@ private fun rememberCopiedToClipboardSnackbar(snackbarHostState: SnackbarHostSta
 }
 
 @Composable
-private fun LogsEmptyStateCard(
+private fun LogsEmptyState(
     hasBufferedLogs: Boolean,
     searchActive: Boolean,
     modifier: Modifier = Modifier,
 ) {
-    RipDpiEmptyStateCard(
+    RipDpiEmptyState(
+        icon = RipDpiIcons.Logs,
         title =
             stringResource(
                 when {
