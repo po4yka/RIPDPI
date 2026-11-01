@@ -33,6 +33,8 @@ colors:
   restrictedContainer: "#F3F4F6"
   restrictedContainerForeground: "#374151"
   tonalCardBorder: "#00000000"
+  primaryAction: "#1B1B1D"
+  primaryActionForeground: "#FBF9FA"
   divider: "#C8C6C7"
   hairline: "#777778"
   outline: "#777778"
@@ -287,8 +289,8 @@ components:
     typography: "{typography.brandStatus}"
     padding: "{spacing.xs}"
   buttonPrimary:
-    backgroundColor: "{colors.primary}"
-    textColor: "{colors.background}"
+    backgroundColor: "{colors.primaryAction}"
+    textColor: "{colors.primaryActionForeground}"
     typography: "{typography.button}"
     rounded: "{rounded.xl}"
     height: 48px
@@ -506,7 +508,7 @@ Core UI uses the Material 3 color roles of a scheme generated with Google materi
 
 - `background`, `card`, and `muted` define the page, card, and secondary-surface hierarchy.
 - `foreground`, `cardForeground`, and `mutedForeground` define the text hierarchy.
-- `primary` is the Material `primary` role, a calm slate. Filled primary actions use it with `onPrimary`.
+- `primary` is the Material `primary` role, a calm slate. Filled Primary buttons do not use it: the Primary button is neutral ink, the `primaryAction` container with the `primaryActionForeground` label, so it is the strongest control on the page. In dark theme the container is full white so it stays clearly stronger than tonal fills and the selected chip. A disabled or loading Primary uses `border` with `mutedForeground`, which stays visibly different in both themes.
 - `background` is `surface`, `card` is `surface` (an outlined card bordered by `cardBorder`), `muted` is `surfaceContainerHigh`, `inputBackground` is `surfaceContainerHighest`, and `border`, `cardBorder`, and `divider` are `outlineVariant`.
 - `accent` and `accentForeground` are for selected status cards or emphasized neutral surfaces, not for playful branding. `accent` is `secondaryContainer` and `accentForeground` is `onSecondaryContainer`: content on an accent container always uses `accentForeground`, never `foreground`, which falls to 1.8:1 at high contrast.
 - `border`, `cardBorder`, `divider`, `hairline`, `outline`, and `outlineVariant` encode structure and focus.

@@ -102,6 +102,9 @@ data class RipDpiExtendedColors(
     val restrictedForeground: Color,
     val restrictedContainer: Color,
     val restrictedContainerForeground: Color,
+    /** Container of the Primary button and its label; full white in dark theme so it stays the strongest control. */
+    val primaryAction: Color,
+    val primaryActionForeground: Color,
     /** Edge of a tonal card: none at standard contrast, where the fill separates it, an outline at medium and high. */
     val tonalCardBorder: Color,
     val divider: Color,
@@ -153,6 +156,8 @@ fun ripDpiExtendedColors(
         restrictedContainerForeground =
             if (isDark) DarkRestrictedContainerForeground else LightRestrictedContainerForeground,
         tonalCardBorder = if (contrast == RipDpiContrastLevel.Standard) Color.Transparent else scheme.outlineVariant,
+        primaryAction = if (isDark) Color.White else scheme.onSurface,
+        primaryActionForeground = scheme.surface,
         divider = scheme.outlineVariant,
         hairline = scheme.outline,
         outline = scheme.outline,

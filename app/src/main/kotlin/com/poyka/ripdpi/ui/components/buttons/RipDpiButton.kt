@@ -52,6 +52,8 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 // Material outlines a disabled button with onSurface at 12%.
 private const val DisabledBorderAlpha = 0.12f
 
+private const val DarkBackgroundLuminance = 0.5f
+
 enum class RipDpiButtonVariant {
     Primary,
     Secondary,
@@ -229,8 +231,8 @@ internal fun ripDpiButtonColors(variant: RipDpiButtonVariant): ButtonColors {
     return when (variant) {
         RipDpiButtonVariant.Primary -> {
             ButtonDefaults.buttonColors(
-                containerColor = colors.foreground,
-                contentColor = colors.background,
+                containerColor = colors.primaryAction,
+                contentColor = colors.primaryActionForeground,
                 disabledContainerColor = colors.border,
                 disabledContentColor = colors.mutedForeground,
             )

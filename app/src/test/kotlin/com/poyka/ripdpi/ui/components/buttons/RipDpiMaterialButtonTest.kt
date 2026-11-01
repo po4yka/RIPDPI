@@ -14,9 +14,16 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.ui.theme.ContrastAssertions.Enhanced
+import com.poyka.ripdpi.ui.theme.ContrastAssertions.Text
+import com.poyka.ripdpi.ui.theme.ContrastAssertions.assertAtLeast
+import com.poyka.ripdpi.ui.theme.ContrastAssertions.ratio
 import com.poyka.ripdpi.ui.theme.LightRipDpiExtendedColors
+import com.poyka.ripdpi.ui.theme.RipDpiExtendedColors
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -50,6 +57,27 @@ class RipDpiMaterialButtonTest {
             assertEquals(light.mutedForeground, primary.disabledContentColor)
             assertEquals(light.destructive, destructive.containerColor)
             assertEquals(light.destructiveForeground, destructive.contentColor)
+        }
+    }
+
+    @Test
+    fun `dark primary stands out from the page and the disabled fill`() {
+        lateinit var primary: ButtonColors
+        lateinit var colors: RipDpiExtendedColors
+        composeRule.setContent {
+            RipDpiTheme(themePreference = "dark") {
+                primary = ripDpiButtonColors(RipDpiButtonVariant.Primary)
+                colors = RipDpiThemeTokens.colors
+            }
+        }
+        composeRule.runOnIdle {
+            assertAtLeast("primary on the page", Enhanced, primary.containerColor, colors.background)
+            assertAtLeast("primary on the disabled fill", Text, primary.containerColor, primary.disabledContainerColor)
+            assertAtLeast("label on primary", Text, primary.contentColor, primary.containerColor)
+            // The chip and tonal fills are onSurface; the primary action must read stronger than them.
+            assertTrue(
+                ratio(primary.containerColor, colors.background) > ratio(colors.foreground, colors.background),
+            )
         }
     }
 

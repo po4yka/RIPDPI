@@ -138,7 +138,7 @@ Usage rules:
 
 | Design concept | Compose entry point | Primary token sources | Visual verification |
 |----------------|---------------------|-----------------------|--------------------|
-| Primary and secondary actions | `ui/components/buttons/RipDpiButton.kt` | Material 3 `Button` variants with `colors`, `type.button`, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
+| Primary and secondary actions (Primary is neutral ink: `primaryAction` container with `primaryActionForeground` label, full white in dark theme; disabled uses `border` and `mutedForeground`) | `ui/components/buttons/RipDpiButton.kt` | Material 3 `Button` variants with `colors`, `type.button`, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
 | Icon-only actions | `ui/components/buttons/RipDpiIconButton.kt` | Material 3 `IconButton` variants with `colors`, icon sizes, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
 | Secure connection actuator | `ui/components/inputs/RipDpiConnectionActuator.kt` | `state.actuator`, `state.actuatorStage`, `RipDpiIcons`, `motion` | `RipDpiDesignSystemScreenshotCatalog`, home screenshots |
 | Secure route profiles and capabilities | `ui/components/routes/RipDpiRouteComponents.kt` | `state.route`, route surface roles, `type.monoSmall`, `RipDpiIcons` | `RipDpiDesignSystemScreenshotCatalog` |
