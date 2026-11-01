@@ -1,10 +1,12 @@
 package com.poyka.ripdpi.ui.screens.config
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
@@ -25,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigDraft
@@ -66,6 +69,7 @@ internal fun ModeEditorBottomBar(
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
+    val twoPane = layout.contentGrouping == RipDpiContentGrouping.SplitColumns
 
     Box(
         modifier =
@@ -75,13 +79,14 @@ internal fun ModeEditorBottomBar(
                 .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars)),
         contentAlignment = Alignment.Center,
     ) {
+        // Same width and padding as the body, with Cancel over the form column only.
         Row(
             modifier =
                 Modifier
-                    .widthIn(max = layout.formMaxWidth)
+                    .widthIn(max = modeEditorContentMaxWidth(twoPane))
                     .fillMaxWidth()
                     .padding(horizontal = layout.horizontalPadding, vertical = spacing.lg),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            horizontalArrangement = Arrangement.spacedBy(layout.groupGap),
         ) {
             RipDpiButton(
                 text = stringResource(R.string.config_cancel),
@@ -93,6 +98,7 @@ internal fun ModeEditorBottomBar(
                 variant = RipDpiButtonVariant.Outline,
                 enabled = !uiState.isEditorSaving,
             )
+            if (twoPane) Spacer(Modifier.width(ModeEditorSupportingPaneWidth))
         }
     }
 }
@@ -102,6 +108,7 @@ internal fun ModeEditorBody(
     uiState: ConfigUiState,
     actions: ModeEditorActions,
     modifier: Modifier = Modifier,
+    scrollState: ScrollState = rememberScrollState(),
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val layout = RipDpiThemeTokens.layout
@@ -120,14 +127,8 @@ internal fun ModeEditorBody(
         Row(
             modifier =
                 Modifier
-                    .widthIn(
-                        max =
-                            if (twoPane) {
-                                layout.formMaxWidth + ModeEditorSupportingPaneWidth + layout.groupGap
-                            } else {
-                                layout.formMaxWidth
-                            },
-                    ).fillMaxSize()
+                    .widthIn(max = modeEditorContentMaxWidth(twoPane))
+                    .fillMaxSize()
                     .padding(horizontal = layout.horizontalPadding),
             horizontalArrangement = Arrangement.spacedBy(layout.groupGap),
         ) {
@@ -136,7 +137,7 @@ internal fun ModeEditorBody(
                     Modifier
                         .weight(1f)
                         .fillMaxHeight()
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(scrollState)
                         .padding(verticalPadding),
                 verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
             ) {
@@ -173,6 +174,12 @@ private fun ModeEditorNotices(uiState: ConfigUiState) {
 
 // Material 3 supporting pane preferred width.
 private val ModeEditorSupportingPaneWidth = 360.dp
+
+@Composable
+private fun modeEditorContentMaxWidth(twoPane: Boolean): Dp {
+    val layout = RipDpiThemeTokens.layout
+    return if (twoPane) layout.formMaxWidth + ModeEditorSupportingPaneWidth + layout.groupGap else layout.formMaxWidth
+}
 
 @Composable
 private fun ModeEditorRecoveryPersistenceBanner(uiState: ConfigUiState) {

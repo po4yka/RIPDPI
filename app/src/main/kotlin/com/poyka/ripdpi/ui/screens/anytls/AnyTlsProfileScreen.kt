@@ -82,12 +82,13 @@ internal fun AnyTlsProfileScreen(
                 RipDpiPanelHeader(title = stringResource(errorRes))
             }
         }
-        EndpointSection(uiState.editor, onFieldChanged)
-        CredentialsSection(uiState.editor, onFieldChanged)
-        TlsSection(uiState.editor, onFieldChanged)
+        // Above the form: Save is disabled until the form is complete, and the reason must show without scrolling.
         RelayEditorHint(
             stringResource(R.string.relay_editor_save_incomplete_hint).takeUnless { uiState.editor.isComplete },
         )
+        EndpointSection(uiState.editor, onFieldChanged)
+        CredentialsSection(uiState.editor, onFieldChanged)
+        TlsSection(uiState.editor, onFieldChanged)
     }
 }
 

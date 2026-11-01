@@ -5,9 +5,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -23,6 +25,7 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlinx.coroutines.launch
 
 @Composable
 internal fun ModeEditorScreen(
@@ -33,7 +36,14 @@ internal fun ModeEditorScreen(
 ) {
     val layout = RipDpiThemeTokens.layout
 
-    val topBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val topBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
+    val bodyScrollState = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    // The validation banner is the first item of the form; show it whether or not a field is in view.
+    val onSave: () -> Unit = {
+        scope.launch { bodyScrollState.animateScrollTo(0) }
+        actions.onSave()
+    }
     RipDpiScreenScaffold(
         scrollBehavior = topBarScrollBehavior,
         modifier =
@@ -54,7 +64,7 @@ internal fun ModeEditorScreen(
                         {
                             RipDpiTopBarAction(
                                 text = stringResource(R.string.config_save),
-                                onClick = actions.onSave,
+                                onClick = onSave,
                                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ModeEditorSave),
                                 enabled = !uiState.isEditorSaving && !uiState.isEditorImporting,
                             )
@@ -98,6 +108,7 @@ internal fun ModeEditorScreen(
             ModeEditorBody(
                 uiState = uiState,
                 actions = actions,
+                scrollState = bodyScrollState,
                 modifier = Modifier.padding(innerPadding),
             )
         }

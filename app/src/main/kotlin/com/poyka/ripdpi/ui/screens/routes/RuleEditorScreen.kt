@@ -5,12 +5,14 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -47,6 +49,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.collections.immutable.toImmutableSet
+import kotlinx.coroutines.launch
 
 @Composable
 fun RuleEditorRoute(
@@ -102,9 +105,15 @@ internal fun RuleEditorScreen(
     var showAppPicker by remember { mutableStateOf(false) }
     // The empty-rule warning waits for a save attempt, so a new rule does not open with an error.
     var saveAttempted by rememberSaveable { mutableStateOf(false) }
-    val onSave = {
+    val listState = rememberLazyListState()
+    val scope = rememberCoroutineScope()
+    val onSave: () -> Unit = {
         saveAttempted = true
-        if (!state.isEmpty) persistenceActions.save()
+        if (state.isEmpty) {
+            scope.launch { listState.animateScrollToItem(0) }
+        } else {
+            persistenceActions.save()
+        }
     }
 
     RipDpiSettingsScaffold(
@@ -115,6 +124,7 @@ internal fun RuleEditorScreen(
         title = stringResource(if (state.ruleId == 0L) R.string.title_rule_editor_new else R.string.title_rule_editor),
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
+        listState = listState,
         actions = {
             RipDpiTopBarAction(
                 text = stringResource(R.string.rule_editor_save),
@@ -132,6 +142,16 @@ internal fun RuleEditorScreen(
         if (!state.loaded && state.failure == null) {
             item(key = "rule_editor_loading") { RipDpiSpinner() }
         } else if (state.loaded) {
+            if (saveAttempted && state.isEmpty) {
+                // First in the list, beside the Save action in the top bar.
+                item(key = "rule_editor_empty_warning") {
+                    WarningBanner(
+                        title = stringResource(R.string.rule_editor_empty_error_title),
+                        message = stringResource(R.string.rule_editor_empty_error_body),
+                        tone = WarningBannerTone.Warning,
+                    )
+                }
+            }
             identitySection(state = state, onNameChange = onNameChange, onEnabledChange = onEnabledChange)
             matchersSection(
                 state = state,
@@ -147,16 +167,6 @@ internal fun RuleEditorScreen(
                 onOpenAppPicker = { showAppPicker = true },
             )
             outboundSection(state = state, onOutboundChange = onOutboundChange)
-            if (saveAttempted && state.isEmpty) {
-                // After the form, where the user looks after the attempt.
-                item(key = "rule_editor_empty_warning") {
-                    WarningBanner(
-                        title = stringResource(R.string.rule_editor_empty_error_title),
-                        message = stringResource(R.string.rule_editor_empty_error_body),
-                        tone = WarningBannerTone.Warning,
-                    )
-                }
-            }
             cancelSection(onBack = onBack)
         }
     }

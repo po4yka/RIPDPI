@@ -7,6 +7,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -138,7 +139,12 @@ internal fun AmneziaWgProfileScreen(
     if (uiState.pendingCohortId != null) {
         AwgCohortReplacementDialog(onConfirmCohortReplacement, onCancelCohortReplacement)
     }
+    val scrollState = rememberScrollState()
+    // The connect hint sits at the top; bring it into view when a connect attempt fails.
+    val connectFailed = uiState.activationStatus == AwgActivationStatus.Failed
+    LaunchedEffect(connectFailed) { if (connectFailed) scrollState.animateScrollTo(0) }
     RipDpiContentScreenScaffold(
+        scrollState = scrollState,
         title = stringResource(R.string.awg_editor_title),
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
@@ -153,6 +159,10 @@ internal fun AmneziaWgProfileScreen(
             )
         },
     ) {
+        ConnectHint(
+            canActivate = uiState.canActivate,
+            activationStatus = uiState.activationStatus,
+        )
         // Import comes first: a pasted .conf fills most of the fields below.
         RipDpiButton(
             text = stringResource(R.string.awg_paste_conf_action),
@@ -192,10 +202,6 @@ internal fun AmneziaWgProfileScreen(
         PeerSection(uiState, onFieldChanged, onRevealPresharedKey)
         CarrierSection(uiState, onFieldChanged, onCarrierSelected)
         ObfuscationSection(uiState, onFieldChanged, onCohortSelected, onRevealHeaderProtectionKey)
-        ConnectHint(
-            canActivate = uiState.canActivate,
-            activationStatus = uiState.activationStatus,
-        )
     }
 }
 
