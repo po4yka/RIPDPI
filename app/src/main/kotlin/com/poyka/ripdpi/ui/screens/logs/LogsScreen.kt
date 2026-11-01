@@ -90,6 +90,7 @@ import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toPersistentList
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 @Composable
@@ -285,7 +286,9 @@ private fun LogsToolbar(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        Box(Modifier.weight(1f)) { LogsStreamStatus(streaming = uiState.logs.isNotEmpty()) }
+        Box(Modifier.weight(1f)) {
+            LogsStreamStatus(streaming = uiState.logs.isNotEmpty(), latestEntryId = uiState.logs.lastOrNull()?.id)
+        }
         RipDpiIconButton(
             icon = RipDpiIcons.Config,
             contentDescription = stringResource(R.string.logs_filters_section),
@@ -454,13 +457,24 @@ private fun <T> FilterChipRow(
     }
 }
 
-@Suppress("LongMethod")
+// The live dot pulses while entries arrive and rests once the stream has been quiet, so an idle screen draws no frames.
+private const val LiveActivityWindowMillis = 4_000L
+
 @Composable
-private fun LogsStreamStatus(streaming: Boolean) {
+private fun LogsStreamStatus(
+    streaming: Boolean,
+    latestEntryId: Any?,
+) {
+    var recentlyActive by remember { mutableStateOf(true) }
+    LaunchedEffect(latestEntryId) {
+        recentlyActive = true
+        delay(LiveActivityWindowMillis)
+        recentlyActive = false
+    }
     StatusIndicator(
         label = stringResource(if (streaming) R.string.logs_status_live else R.string.logs_status_empty),
         tone = if (streaming) StatusIndicatorTone.Active else StatusIndicatorTone.Idle,
-        pulsing = streaming,
+        pulsing = streaming && recentlyActive,
     )
 }
 
