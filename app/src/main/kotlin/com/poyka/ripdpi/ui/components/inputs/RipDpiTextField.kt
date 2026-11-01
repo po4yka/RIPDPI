@@ -132,7 +132,8 @@ fun RipDpiTextField(
 }
 
 /**
- * RDS roles mapped into the Material outlined field colors: foreground text, destructive error text, an ink focus
+ * RDS roles mapped into the Material outlined field colors: foreground text in every state (the error shows in the
+ * border, trailing icon and supporting text), an ink focus
  * ring, and an `outline` boundary that holds the 3:1 non-text contrast so an empty field does not read as disabled.
  */
 @Composable
@@ -143,7 +144,7 @@ internal fun ripDpiOutlinedTextFieldColors(): TextFieldColors {
         focusedTextColor = colors.foreground,
         unfocusedTextColor = colors.foreground,
         disabledTextColor = disabledContent,
-        errorTextColor = colors.destructive,
+        errorTextColor = colors.foreground,
         focusedContainerColor = colors.inputBackground,
         unfocusedContainerColor = colors.inputBackground,
         disabledContainerColor = colors.inputBackground,
