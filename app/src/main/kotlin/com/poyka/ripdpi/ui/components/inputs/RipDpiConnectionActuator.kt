@@ -53,6 +53,7 @@ import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.buttons.primaryActionWidth
 import com.poyka.ripdpi.ui.components.feedback.RipDpiConfirmDisconnectDialog
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.ripDpiClickable
@@ -132,7 +133,7 @@ fun RipDpiConnectionActuator(
             text = resolved.actionLabel,
             modifier =
                 Modifier
-                    .fillMaxWidth()
+                    .primaryActionWidth()
                     .ripDpiTestTag(testTag)
                     .then(rememberConnectionInputModifier(state, onAction)),
             enabled = enabled,

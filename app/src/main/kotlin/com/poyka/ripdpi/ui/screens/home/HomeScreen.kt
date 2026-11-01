@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -16,7 +15,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
@@ -40,10 +38,6 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
-
-// The connection control and the pause controls under it are one group, so their buttons share a width and
-// a start edge.
-private val PrimaryActionGroupMaxWidth = 360.dp
 
 @Suppress("LongMethod", "CyclomaticComplexMethod", "LongParameterList")
 @Composable
@@ -118,7 +112,7 @@ fun HomeScreen(
                 // Pause qualifies the connection action, so it shares the control's group
                 // instead of taking a section, and its section gaps, of its own.
                 Column(
-                    modifier = Modifier.widthIn(max = PrimaryActionGroupMaxWidth).fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth(),
                     verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
                 ) {
                     RipDpiConnectionActuator(

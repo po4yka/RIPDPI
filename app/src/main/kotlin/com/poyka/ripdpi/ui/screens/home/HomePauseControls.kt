@@ -21,6 +21,7 @@ import com.poyka.ripdpi.data.PauseFailure
 import com.poyka.ripdpi.data.PausePhase
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.buttons.primaryActionWidth
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSheetAction
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -57,7 +58,7 @@ internal fun HomePauseControls(
                 variant = RipDpiButtonVariant.Ghost,
                 leadingIcon = RipDpiIcons.Timer,
                 wrapLabel = true,
-                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.HomePauseOpen),
+                modifier = Modifier.primaryActionWidth().ripDpiTestTag(RipDpiTestTags.HomePauseOpen),
             )
         }
         if (state.phase != null) HomePauseStatus(state, onResume, onStop)
@@ -182,14 +183,14 @@ private fun HomePauseActions(
             text = stringResource(R.string.pause_resume_now),
             onClick = onResume,
             wrapLabel = true,
-            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.HomePauseResume),
+            modifier = Modifier.primaryActionWidth().ripDpiTestTag(RipDpiTestTags.HomePauseResume),
         )
     }
     RipDpiButton(
         text = stringResource(R.string.pause_stop),
         onClick = onStop,
         variant = RipDpiButtonVariant.Outline,
-        modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.HomePauseStop),
+        modifier = Modifier.primaryActionWidth().ripDpiTestTag(RipDpiTestTags.HomePauseStop),
         wrapLabel = true,
     )
 }

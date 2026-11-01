@@ -44,6 +44,8 @@ data class RipDpiLayout(
     val formMaxWidth: Dp = 520.dp,
     val dialogMaxWidth: Dp = 560.dp,
     val snackbarMaxWidth: Dp = 560.dp,
+    /** Widest a primary action button grows in a wide pane; it keeps the start edge of its column. */
+    val primaryActionMaxWidth: Dp = 360.dp,
     val cardPadding: Dp = 16.dp,
     val sectionGap: Dp = 20.dp,
     val groupGap: Dp = 16.dp,
