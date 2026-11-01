@@ -36,6 +36,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
+import com.poyka.ripdpi.ui.components.distinctFrom
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
@@ -293,7 +294,8 @@ private fun DiagnosticsSimpleFunnelCard(
                 color = RipDpiThemeTokens.colors.mutedForeground,
             )
         }
-        report?.recommendation?.let { recommendation ->
+        val sessionTitle = scan.latestSession?.title.orEmpty()
+        report?.recommendation?.takeIf { it.headline.distinctFrom(sessionTitle) != null }?.let { recommendation ->
             Text(
                 text = recommendation.headline,
                 style = RipDpiThemeTokens.type.body,

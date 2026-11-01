@@ -36,6 +36,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
+import com.poyka.ripdpi.ui.components.distinctFrom
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -83,7 +84,7 @@ fun WarningBanner(
     val content: @Composable ColumnScope.() -> Unit = {
         WarningBannerContent(
             title = title,
-            message = message,
+            message = message.distinctFrom(title),
             icon = resolvedIcon,
             state = state,
             onDismiss = onDismiss,
@@ -131,7 +132,7 @@ fun WarningBanner(
 @Composable
 private fun WarningBannerContent(
     title: String,
-    message: String,
+    message: String?,
     icon: ImageVector,
     state: RipDpiBannerStateStyle,
     onDismiss: (() -> Unit)? = null,
@@ -147,9 +148,11 @@ private fun WarningBannerContent(
             measurer
                 .measure(AnnotatedString(title), style = type.bodyEmphasis.copy(hyphens = Hyphens.None))
                 .multiParagraph.minIntrinsicWidth,
-            measurer
-                .measure(AnnotatedString(message), style = type.secondaryBody.copy(hyphens = Hyphens.None))
-                .multiParagraph.minIntrinsicWidth,
+            message?.let {
+                measurer
+                    .measure(AnnotatedString(it), style = type.secondaryBody.copy(hyphens = Hyphens.None))
+                    .multiParagraph.minIntrinsicWidth
+            } ?: 0f,
         )
     val reservedWidth =
         components.feedback.decorativeBadgeSize + spacing.md +
@@ -204,13 +207,15 @@ private fun WarningBannerLeadingIcon(
 @Composable
 private fun WarningBannerText(
     title: String,
-    message: String,
+    message: String?,
     state: RipDpiBannerStateStyle,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
         Text(title, Modifier.fillMaxWidth(), style = RipDpiThemeTokens.type.bodyEmphasis, color = state.title)
-        Text(message, Modifier.fillMaxWidth(), style = RipDpiThemeTokens.type.secondaryBody, color = state.message)
+        message?.let {
+            Text(it, Modifier.fillMaxWidth(), style = RipDpiThemeTokens.type.secondaryBody, color = state.message)
+        }
     }
 }
 

@@ -34,6 +34,7 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
+import com.poyka.ripdpi.ui.components.distinctFrom
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -73,10 +74,14 @@ fun SettingsRow(
         checked?.let {
             stringResource(if (it) R.string.semantic_state_on else R.string.semantic_state_off)
         }
-    val accessibilityDescription = settingsRowAccessibilityDescription(title, subtitle, value)
+    // A subtitle that repeats the title adds nothing.
+    val rowSubtitle = subtitle.distinctFrom(title)
+    val accessibilityDescription = settingsRowAccessibilityDescription(title, rowSubtitle, value)
     val state = settingsRowColors(variant, enabled)
     val minHeight =
-        if (subtitle == null) components.rows.settingsRowMinHeight else components.rows.settingsRowMinHeightWithSubtitle
+        components.rows.let { rows ->
+            if (rowSubtitle == null) rows.settingsRowMinHeight else rows.settingsRowMinHeightWithSubtitle
+        }
     val pillPadding = if (variant == SettingsRowVariant.Default) 0.dp else components.rows.compactPillHorizontalPadding
     val surfaceModifier =
         Modifier
@@ -90,7 +95,7 @@ fun SettingsRow(
     val rowContent: @Composable () -> Unit = {
         SettingsRowContent(
             title = title,
-            subtitle = subtitle,
+            subtitle = rowSubtitle,
             value = value,
             checked = checked,
             onCheckedChange = onCheckedChange,

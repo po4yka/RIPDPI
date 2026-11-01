@@ -27,6 +27,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.distinctFrom
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -139,8 +140,7 @@ private fun DiagnosticsOutcomeSummary(
         Text(headline, style = type.cardTitle, color = colors.foreground)
         val summary =
             outcome.summary?.takeIf(String::isNotBlank) ?: stringResource(R.string.diagnostics_simple_funnel_body)
-        // A report whose summary repeats its headline would show the same sentence twice.
-        if (summary != headline) Text(summary, style = type.body, color = colors.mutedForeground)
+        summary.distinctFrom(headline)?.let { Text(it, style = type.body, color = colors.mutedForeground) }
     }
 }
 

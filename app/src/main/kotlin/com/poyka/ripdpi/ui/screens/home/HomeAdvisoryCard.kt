@@ -30,6 +30,7 @@ import androidx.compose.ui.semantics.stateDescription
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.distinctFrom
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -144,9 +145,11 @@ private fun AdvisoryRow(
         )
         Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
             Text(text = advisory.title, style = type.bodyEmphasis, color = colors.foreground)
-            if (advisory.presentation != HomeAdvisoryPresentation.CompactRow) {
-                Text(text = advisory.message, style = type.secondaryBody, color = colors.mutedForeground)
-            }
+            advisory.message
+                .distinctFrom(advisory.title)
+                ?.takeIf {
+                    advisory.presentation != HomeAdvisoryPresentation.CompactRow
+                }?.let { Text(text = it, style = type.secondaryBody, color = colors.mutedForeground) }
             if (onClick == null) {
                 // A label without an action is a status, such as lockdown managed by Android.
                 advisory.actionLabel?.let { status ->

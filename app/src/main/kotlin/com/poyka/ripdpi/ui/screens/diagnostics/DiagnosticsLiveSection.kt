@@ -27,6 +27,7 @@ import com.poyka.ripdpi.activities.DiagnosticsLiveUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.service.telemetry.RuntimeTelemetrySamplingPolicy
+import com.poyka.ripdpi.ui.components.distinctFrom
 import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricSurface
 import com.poyka.ripdpi.ui.components.indicators.RipDpiStaleDataBadge
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
@@ -172,11 +173,13 @@ internal fun LiveHeroCard(live: DiagnosticsLiveUiModel) {
                 style = RipDpiThemeTokens.type.screenTitle,
                 color = colors.foreground,
             )
-            Text(
-                text = live.body,
-                style = RipDpiThemeTokens.type.body,
-                color = colors.foreground.copy(alpha = 0.92f),
-            )
+            live.body.distinctFrom(live.headline)?.let {
+                Text(
+                    text = it,
+                    style = RipDpiThemeTokens.type.body,
+                    color = colors.foreground.copy(alpha = 0.92f),
+                )
+            }
             if (live.highlights.isNotEmpty()) {
                 LiveHighlightsGrid(highlights = live.highlights.take(liveHighlightsMaxCount).toImmutableList())
             }

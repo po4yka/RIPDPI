@@ -20,6 +20,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.distinctFrom
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -65,7 +66,7 @@ fun RipDpiScreenSectionHeader(
             )
             trailingContent?.invoke(this)
         }
-        supporting?.let {
+        supporting.distinctFrom(title)?.let {
             Text(
                 text = it,
                 style = RipDpiThemeTokens.type.secondaryBody,
@@ -104,7 +105,7 @@ fun RipDpiPanelHeader(
             )
             trailingContent?.invoke(this)
         }
-        supporting?.let {
+        supporting.distinctFrom(title)?.let {
             Text(
                 text = it,
                 style = RipDpiThemeTokens.type.secondaryBody,
@@ -213,11 +214,13 @@ fun RipDpiRemediationCard(
             tone = tone,
             pulsing = pulsing,
         )
-        Text(
-            text = summary,
-            style = RipDpiThemeTokens.type.body,
-            color = colors.foreground,
-        )
+        summary.distinctFrom(title)?.let {
+            Text(
+                text = it,
+                style = RipDpiThemeTokens.type.body,
+                color = colors.foreground,
+            )
+        }
         if (steps.isNotEmpty()) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(spacing.xs),
