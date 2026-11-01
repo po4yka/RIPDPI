@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.FakeOrderDefault
 import com.poyka.ripdpi.data.FakeSeqModeDuplicate
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -34,7 +35,7 @@ internal fun FakeOrderingProfileCard(
     val hostfakeOrderEditable = step.kind != TcpChainStepKind.HostFake || step.midhostMarker.isNotBlank()
     val hasOverrides = step.fakeOrder != FakeOrderDefault || step.fakeSeqMode != FakeSeqModeDuplicate
 
-    RipDpiCard(modifier = modifier) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal, modifier = modifier) {
         Text(
             text = stringResource(R.string.fake_order_card_title),
             style = type.bodyEmphasis,

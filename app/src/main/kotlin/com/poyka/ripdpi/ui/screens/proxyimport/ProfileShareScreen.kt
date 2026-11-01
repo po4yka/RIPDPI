@@ -21,6 +21,7 @@ import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
@@ -141,7 +142,10 @@ private fun ProfileShareQrCard(
     qrBitmap: Bitmap?,
     qrLoading: Boolean,
 ) {
-    RipDpiCard(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ProfileShareQrCard)) {
+    RipDpiCard(
+        variant = RipDpiCardVariant.Tonal,
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ProfileShareQrCard),
+    ) {
         RipDpiPanelHeader(
             title = uiState.profile?.displayName ?: stringResource(R.string.profile_share_title),
             supporting = stringResource(R.string.profile_share_qr_body),
@@ -189,7 +193,10 @@ private fun ProfileShareLinkCard(
 ) {
     val spacing = RipDpiThemeTokens.spacing
 
-    RipDpiCard(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ProfileShareLinkCard)) {
+    RipDpiCard(
+        variant = RipDpiCardVariant.Tonal,
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ProfileShareLinkCard),
+    ) {
         RipDpiPanelHeader(
             title = stringResource(R.string.profile_share_link_title),
             supporting = stringResource(R.string.profile_share_link_body),
@@ -236,7 +243,10 @@ private fun ProfileShareSetupSheetCard(
 ) {
     val spacing = RipDpiThemeTokens.spacing
 
-    RipDpiCard(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ProfileShareSheetCard)) {
+    RipDpiCard(
+        variant = RipDpiCardVariant.Tonal,
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ProfileShareSheetCard),
+    ) {
         RipDpiPanelHeader(
             title = stringResource(R.string.profile_share_sheet_title),
             supporting = stringResource(R.string.profile_share_sheet_body),

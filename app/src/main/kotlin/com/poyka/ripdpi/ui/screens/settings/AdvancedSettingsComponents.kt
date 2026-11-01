@@ -292,7 +292,7 @@ internal fun ActivationRangeEditorCard(
 
     RipDpiCard(
         modifier = modifier,
-        variant = RipDpiCardVariant.Outlined,
+        variant = RipDpiCardVariant.Tonal,
     ) {
         StatusIndicator(
             label = statusLabel,

@@ -54,6 +54,7 @@ import com.poyka.ripdpi.activities.LogsViewModel
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyStateCard
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
@@ -586,6 +587,7 @@ internal fun LogsStreamCard(
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard(
+        variant = RipDpiCardVariant.Tonal,
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.LogsStream),
         paddingValues =
             PaddingValues(

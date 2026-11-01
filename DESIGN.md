@@ -365,18 +365,13 @@ components:
     rounded: "{rounded.xl}"
     padding: "{spacing.lg}"
   cardTonal:
-    backgroundColor: "{colors.inputBackground}"
+    backgroundColor: "#F0EDEE"
     textColor: "{colors.foreground}"
     rounded: "{rounded.xl}"
     padding: "{spacing.lg}"
   cardElevated:
     backgroundColor: "{colors.card}"
     textColor: "{colors.cardForeground}"
-    rounded: "{rounded.xl}"
-    padding: "{spacing.lg}"
-  cardStatus:
-    backgroundColor: "{colors.accent}"
-    textColor: "{colors.accentForeground}"
     rounded: "{rounded.xl}"
     padding: "{spacing.lg}"
   routeProfileCard:
@@ -569,7 +564,7 @@ RIPDPI uses depth conservatively:
 - One card rule: `surfaceContainer` tonal steps group content, an outline marks only interactive or selected cards, and a shadow marks only hero or selected cards.
 - Grouping uses the tonal card (`surfaceContainer`, no shadow, and no outline at standard contrast; at medium and high contrast it gets an `outlineVariant` edge through `tonalCardBorder`, because the fill alone is about 1.05:1 against the page). A tonal card nested in a tonal card steps one container up (`surfaceContainerHigh`).
 - Interactive cards use the outlined card. Selected or focused cards use the selected card.
-- The elevated card and the status card are the hero roles, for the top summary of a screen and for dialogs and sheets. Ordinary content never uses them.
+- The elevated card is the hero role, for the top summary of a screen. Ordinary content never uses it.
 - Decorative floating chrome is out of scope.
 - Card roles draw their shadow directly, not through Material card elevation, so the shadow stays the same while a card is pressed or focused and a surface-colored card gets no tonal tint.
 - Scrims should feel functional and calm, never cinematic.
@@ -578,7 +573,7 @@ RIPDPI uses depth conservatively:
 
 Shared containers use named surface roles instead of one-off container and border recipes:
 
-- Panel roles: standard card, tonal card, elevated card, status card, selected card.
+- Panel roles: standard card, tonal card, elevated card, selected card.
 - Modal roles: dialog and bottom sheet.
 - Feedback roles: banner and snackbar.
 - Chrome roles: dropdown menu, bottom bar, bottom-bar indicator, and switch thumb.
@@ -586,8 +581,7 @@ Shared containers use named surface roles instead of one-off container and borde
 
 Role rules:
 
-- `TonalCard` groups ordinary content. `Card` (outlined) is for interactive cards. `ElevatedCard` and `StatusCard` are for hero use only.
-- `StatusCard` is neutral emphasis, not a warning or error container.
+- `TonalCard` groups ordinary content. `Card` (outlined) is for interactive cards. `ElevatedCard` is for hero use only.
 - `SelectedCard` is for explicit picked-state surfaces such as preset selection.
 - Dialog and bottom-sheet surfaces may currently look aligned, but they are distinct roles and should stay named separately.
 - Shared containers should resolve these roles from the theme surface-token layer instead of rebuilding container, border, content, or elevation inline.

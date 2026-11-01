@@ -347,7 +347,7 @@ private fun QuicFakePresetCard(
 
     RipDpiCard(
         modifier = modifier,
-        variant = if (selected) RipDpiCardVariant.Tonal else RipDpiCardVariant.Outlined,
+        variant = if (selected) RipDpiCardVariant.Selected else RipDpiCardVariant.Outlined,
         enabled = enabled,
         onClick = onClick,
     ) {
@@ -405,7 +405,7 @@ private fun QuicFakeHostOverrideCard(
 
     RipDpiCard(
         modifier = modifier,
-        variant = RipDpiCardVariant.Outlined,
+        variant = RipDpiCardVariant.Tonal,
     ) {
         StatusIndicator(
             label = statusLabel,

@@ -810,7 +810,7 @@ private fun DetectionHistorySection(
     if (history.isNotEmpty()) {
         HistoryCard(history)
     } else if (!hasResult && !isRunning) {
-        RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+        RipDpiCard(variant = RipDpiCardVariant.Tonal) {
             Text(
                 text = stringResource(R.string.detection_empty_history),
                 style = type.secondaryBody,

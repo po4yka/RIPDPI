@@ -401,6 +401,7 @@ private fun SettingsRowDarkPreview() {
 internal fun SettingsRowReadabilityPreviewScene(themePreference: String = "light") {
     RipDpiComponentPreview(themePreference = themePreference) {
         RipDpiCard(
+            variant = RipDpiCardVariant.Tonal,
             paddingValues =
                 PaddingValues(horizontal = RipDpiThemeTokens.layout.cardPadding, vertical = 0.dp),
         ) {

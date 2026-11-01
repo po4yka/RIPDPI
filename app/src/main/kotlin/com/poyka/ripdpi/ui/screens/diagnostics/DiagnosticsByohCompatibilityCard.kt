@@ -42,7 +42,7 @@ internal fun ByohCompatibilityCard(
         remember(context) {
             context.getSystemService(ClipboardManager::class.java)
         }
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         StatusIndicator(
             label = stringResource(diagnosticToolStateLabelRes(tool.state)),
             tone = statusTone(tool.state.tone()),

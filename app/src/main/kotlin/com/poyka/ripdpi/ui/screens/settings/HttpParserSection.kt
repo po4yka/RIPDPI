@@ -567,7 +567,7 @@ private fun HttpParserToggleGroupCard(
 
     RipDpiCard(
         modifier = modifier,
-        variant = RipDpiCardVariant.Outlined,
+        variant = RipDpiCardVariant.Tonal,
     ) {
         StatusIndicator(
             label = statusLabel,

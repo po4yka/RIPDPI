@@ -386,7 +386,7 @@ private fun AutomaticProbeHistoryCard(
     onOpenHistory: () -> Unit,
 ) {
     RipDpiCard(
-        variant = RipDpiCardVariant.Outlined,
+        variant = RipDpiCardVariant.Tonal,
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsOverviewAutomaticProbeCard),
     ) {
         androidx.compose.material3.Text(

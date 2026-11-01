@@ -72,7 +72,7 @@ internal fun XrayProviderStatusCard(
     val stage = XrayConnectionStage.fromSnapshot(snapshot)
     val stageTone = stage.tone()
     RipDpiCard(
-        variant = RipDpiCardVariant.Outlined,
+        variant = RipDpiCardVariant.Tonal,
         modifier = modifier.ripDpiTestTag(RipDpiTestTags.XrayProviderStatusCard),
     ) {
         StatusIndicator(

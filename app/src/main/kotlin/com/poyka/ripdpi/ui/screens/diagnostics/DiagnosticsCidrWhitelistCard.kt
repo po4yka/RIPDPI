@@ -29,7 +29,7 @@ internal fun CidrWhitelistDetectionCard(
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
     var tracesExpanded by remember(tool.rows) { mutableStateOf(false) }
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         StatusIndicator(
             label = stringResource(diagnosticToolStateLabelRes(tool.state)),
             tone = statusTone(tool.state.tone()),

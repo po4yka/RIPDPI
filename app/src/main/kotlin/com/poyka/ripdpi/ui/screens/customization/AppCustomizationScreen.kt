@@ -28,6 +28,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.LauncherIconManager
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSheetAction
@@ -182,6 +183,7 @@ internal fun AppCustomizationScreen(
                     title = stringResource(R.string.customization_options_section),
                 )
                 RipDpiCard(
+                    variant = RipDpiCardVariant.Tonal,
                     paddingValues =
                         androidx.compose.foundation.layout.PaddingValues(
                             horizontal = RipDpiThemeTokens.layout.cardPadding,

@@ -62,7 +62,7 @@ fun ReplayFailureScreen(
         navigationIcon = RipDpiIcons.Back,
         onNavigationClick = onBack,
     ) {
-        RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+        RipDpiCard(variant = RipDpiCardVariant.Tonal) {
             RipDpiPanelHeader(
                 title = stringResource(R.string.vpn_replay_failure_header_format, timestampLabel),
             )

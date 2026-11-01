@@ -34,7 +34,7 @@ internal fun Ipv4WhitelistSubnetDiscoveryCard(
     val isRunning = tool.state == DiagnosticsIpv4WhitelistState.Running
     var resultsExpanded by remember(tool.rows) { mutableStateOf(false) }
 
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         StatusIndicator(
             label = stringResource(diagnosticToolStateLabelRes(tool.state)),
             tone = statusTone(tool.state.tone()),

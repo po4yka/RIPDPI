@@ -42,7 +42,7 @@ internal fun Tcp16FatHeaderProbeCard(
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         StatusIndicator(
             label = stringResource(diagnosticToolStateLabelRes(tool.state)),
             tone = statusTone(tool.state.tone()),
@@ -116,7 +116,7 @@ internal fun AllowlistSniFinderCard(
         remember(context) {
             context.getSystemService(ClipboardManager::class.java)
         }
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         StatusIndicator(
             label = stringResource(diagnosticToolStateLabelRes(tool.state)),
             tone = statusTone(tool.state.tone()),
@@ -222,7 +222,7 @@ internal fun DnsAvailabilitySurveyCard(
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         StatusIndicator(
             label = stringResource(diagnosticToolStateLabelRes(tool.state)),
             tone = statusTone(tool.state.tone()),
@@ -281,7 +281,7 @@ internal fun HttpCompressionProbeCard(
 ) {
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         StatusIndicator(
             label = stringResource(diagnosticToolStateLabelRes(tool.state)),
             tone = statusTone(tool.state.tone()),

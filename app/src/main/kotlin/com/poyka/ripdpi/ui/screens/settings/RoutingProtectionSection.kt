@@ -17,6 +17,7 @@ import com.poyka.ripdpi.data.DhtMitigationModeDropWarn
 import com.poyka.ripdpi.data.DhtMitigationModeOff
 import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
@@ -153,7 +154,7 @@ private fun RoutingProtectionSummaryCard(
     val spacing = RipDpiThemeTokens.spacing
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
-    RipDpiCard(modifier = modifier.padding(bottom = spacing.sm)) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal, modifier = modifier.padding(bottom = spacing.sm)) {
         Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
             RipDpiPanelHeader(title = stringResource(R.string.routing_protection_summary_title))
             Text(

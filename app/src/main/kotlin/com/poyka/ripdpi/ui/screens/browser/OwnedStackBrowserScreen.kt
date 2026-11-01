@@ -198,7 +198,7 @@ private fun OwnedStackBrowserUrlCard(
 ) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         Text(
             text = stringResource(R.string.owned_stack_browser_url_label),
             style = type.bodyEmphasis,
@@ -273,7 +273,7 @@ private fun OwnedStackPageResult(page: OwnedStackBrowserPageUiModel) {
             )
         }
     }
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         SelectionContainer {
             Text(
                 text = page.bodyText.ifBlank { stringResource(R.string.owned_stack_browser_empty_body) },

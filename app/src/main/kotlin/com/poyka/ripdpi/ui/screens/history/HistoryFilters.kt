@@ -33,6 +33,7 @@ import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
@@ -79,7 +80,7 @@ internal fun FilterCard(
     val disclosureState =
         stringResource(if (expanded) R.string.semantic_state_expanded else R.string.semantic_state_collapsed)
 
-    RipDpiCard(modifier = modifier) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal, modifier = modifier) {
         RipDpiPanelHeader(title = title)
         RipDpiTextField(
             value = searchValue,

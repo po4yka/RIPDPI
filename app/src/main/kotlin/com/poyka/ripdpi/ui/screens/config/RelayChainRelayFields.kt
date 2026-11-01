@@ -35,6 +35,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
@@ -132,6 +133,7 @@ private fun RelayChainEditorHopRow(
     var dragOffsetY by remember { mutableStateOf(0f) }
 
     RipDpiCard(
+        variant = RipDpiCardVariant.Tonal,
         modifier =
             Modifier
                 .offset { IntOffset(0, dragOffsetY.roundToInt()) }

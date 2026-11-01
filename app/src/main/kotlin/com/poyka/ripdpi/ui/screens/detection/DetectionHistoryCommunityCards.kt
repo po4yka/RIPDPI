@@ -49,7 +49,7 @@ internal fun HistoryCard(entries: List<DetectionHistoryEntry>) {
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
     val limited = entries.take(historyEntryLimit)
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         RipDpiPanelHeader(title = stringResource(R.string.detection_history_title))
         for (entry in limited) {
             Row(
@@ -115,7 +115,7 @@ internal fun CommunityStatsCard(stats: CommunityStats) {
         } else {
             stringResource(R.string.detection_community_title)
         }
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         RipDpiPanelHeader(title = title)
         Text(
             text =
@@ -151,7 +151,7 @@ internal fun CommunityStatsLoadingCard() {
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(spacing.md),
             verticalAlignment = Alignment.CenterVertically,
@@ -173,7 +173,7 @@ internal fun CommunityStatsErrorCard(
 ) {
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         Text(
             text = stringResource(R.string.detection_community_error),
             style = type.bodyEmphasis,

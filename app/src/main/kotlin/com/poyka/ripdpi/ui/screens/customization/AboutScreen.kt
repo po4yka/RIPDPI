@@ -28,6 +28,7 @@ import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
@@ -141,7 +142,10 @@ private fun AboutBuildSection() {
     val spacing = RipDpiThemeTokens.spacing
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         SettingsCategoryHeader(title = stringResource(R.string.about_build_section))
-        RipDpiCard(paddingValues = PaddingValues(horizontal = layout.cardPadding, vertical = 0.dp)) {
+        RipDpiCard(
+            variant = RipDpiCardVariant.Tonal,
+            paddingValues = PaddingValues(horizontal = layout.cardPadding, vertical = 0.dp),
+        ) {
             SettingsRow(
                 title = stringResource(R.string.version),
                 value = BuildConfig.VERSION_NAME,
@@ -261,6 +265,7 @@ private fun AboutUpdatesSection(
         SettingsCategoryHeader(title = stringResource(R.string.updates_section_title))
         // The first row brings its own top padding; the closing button needs the card's bottom padding.
         RipDpiCard(
+            variant = RipDpiCardVariant.Tonal,
             paddingValues =
                 PaddingValues(start = layout.cardPadding, end = layout.cardPadding, bottom = layout.cardPadding),
         ) {

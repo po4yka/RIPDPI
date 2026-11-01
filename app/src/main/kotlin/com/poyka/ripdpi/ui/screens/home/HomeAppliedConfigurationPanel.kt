@@ -18,6 +18,7 @@ import com.poyka.ripdpi.services.RunningReconnectRequest
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -36,7 +37,7 @@ internal fun HomeAppliedConfigurationPanel(
         if (!eligible || confirming?.matches(state) != true) confirming = null
     }
     if (!state.visible) return
-    RipDpiCard(modifier = Modifier.ripDpiTestTag("home_runtime_configuration")) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal, modifier = Modifier.ripDpiTestTag("home_runtime_configuration")) {
         HomeAppliedConfigurationSummary(state)
         if (state.reconnecting) {
             RipDpiButton(

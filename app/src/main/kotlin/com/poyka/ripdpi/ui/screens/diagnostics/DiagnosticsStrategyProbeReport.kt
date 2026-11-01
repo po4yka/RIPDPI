@@ -72,6 +72,7 @@ internal fun StrategyProbeReportCard(
         report.winningPath?.quicWinner?.id,
     ) { mutableStateOf(presentation.showFullMatrixInitially) }
     RipDpiCard(
+        variant = RipDpiCardVariant.Tonal,
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsStrategyProbeReport),
     ) {
         StrategyReportHeader(report = report, presentation = presentation)

@@ -552,7 +552,7 @@ private fun SettingsSection(
     val spacing = RipDpiThemeTokens.spacing
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         SettingsCategoryHeader(title = title)
-        RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+        RipDpiCard(variant = RipDpiCardVariant.Tonal) {
             Column(
                 verticalArrangement = Arrangement.spacedBy(spacing.sm),
                 content = { content() },

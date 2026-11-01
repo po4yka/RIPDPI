@@ -40,7 +40,7 @@ internal fun DpiProbeSuiteCard(
     val colors = RipDpiThemeTokens.colors
     val running = tool.state == DiagnosticsDpiSuiteState.Running
 
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         StatusIndicator(
             label = stringResource(diagnosticToolStateLabelRes(tool.state)),
             tone = statusTone(tool.state.tone()),

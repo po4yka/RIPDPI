@@ -35,6 +35,7 @@ import com.poyka.ripdpi.ui.components.RipDpiControlDensity
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
@@ -182,7 +183,10 @@ private fun RememberedNetworksConfirmDialog(
 
 @Composable
 private fun RememberedNetworksEmptyState() {
-    RipDpiCard(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.RememberedNetworksEmpty)) {
+    RipDpiCard(
+        variant = RipDpiCardVariant.Tonal,
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.RememberedNetworksEmpty),
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
             Text(
                 text = stringResource(R.string.remembered_networks_empty_title),
@@ -240,7 +244,10 @@ internal fun RememberedNetworkCard(
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
 
-    RipDpiCard(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.rememberedNetworkCard(entry.id))) {
+    RipDpiCard(
+        variant = RipDpiCardVariant.Tonal,
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.rememberedNetworkCard(entry.id)),
+    ) {
         Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
             RememberedNetworkCardHeader(entry)
             RememberedNetworkMetaFlow(entry)

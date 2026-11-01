@@ -65,7 +65,7 @@ internal fun ScanProgressCard(
     TrackRecomposition("ScanProgressCard")
     val spacing = RipDpiThemeTokens.spacing
     val timing = progress.scanStartedAtMs.takeIf { it > 0L }?.let { rememberScanTimingLabels(progress) }
-    RipDpiCard(modifier = modifier) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal, modifier = modifier) {
         FlowRow(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,

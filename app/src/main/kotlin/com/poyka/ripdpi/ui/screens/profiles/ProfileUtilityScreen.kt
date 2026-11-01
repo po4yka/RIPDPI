@@ -222,7 +222,7 @@ private fun ProfileUtilityRow(
             Modifier
                 .semantics { selected = profile.applied }
                 .ripDpiTestTag(ProfileUtilityTestTags.action(profile.reference, "row")),
-        variant = if (profile.applied) RipDpiCardVariant.Tonal else RipDpiCardVariant.Outlined,
+        variant = if (profile.applied) RipDpiCardVariant.Selected else RipDpiCardVariant.Tonal,
     ) {
         ProfileUtilityHeader(profile, state, actions)
         ProfileUtilityMeasurement(profile, locale)

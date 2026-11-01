@@ -326,7 +326,7 @@ internal fun VerdictNarrativeCard(
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     val spacing = RipDpiThemeTokens.spacing
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         RipDpiPanelHeader(title = stringResource(R.string.detection_verdict_narrative_title)) {
             StatusIndicator(
                 label = narrative.exposureStatus.displayLabel(),
@@ -424,7 +424,7 @@ internal fun DetectionRecommendations(
 ) {
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         RipDpiPanelHeader(title = stringResource(R.string.detection_check_recommendations))
         for (rawRecommendation in recommendations) {
             val rec = rawRecommendation.localized(AndroidStringResolver(LocalContext.current))

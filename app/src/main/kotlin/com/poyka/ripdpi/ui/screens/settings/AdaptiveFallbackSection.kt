@@ -55,7 +55,7 @@ internal fun LazyListScope.adaptiveFallbackSection(
                 uiState = uiState,
                 modifier = Modifier.padding(bottom = spacing.sm),
             )
-            RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+            RipDpiCard(variant = RipDpiCardVariant.Tonal) {
                 SettingsRow(
                     title = stringResource(R.string.adaptive_fallback_enabled_title),
                     subtitle = stringResource(R.string.adaptive_fallback_enabled_body),

@@ -24,6 +24,7 @@ import com.poyka.ripdpi.activities.DiagnosticsTransferUiModel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -33,7 +34,10 @@ internal fun DiagnosticsTransferCard(
     transfer: DiagnosticsTransferUiModel,
     modifier: Modifier = Modifier,
 ) {
-    RipDpiCard(modifier = modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.DiagnosticsTransferCard)) {
+    RipDpiCard(
+        variant = RipDpiCardVariant.Tonal,
+        modifier = modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.DiagnosticsTransferCard),
+    ) {
         Text(
             text = stringResource(R.string.diagnostics_transfer_title),
             modifier = Modifier.fillMaxWidth(),

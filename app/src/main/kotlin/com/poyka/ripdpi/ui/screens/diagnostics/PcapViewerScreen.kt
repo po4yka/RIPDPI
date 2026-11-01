@@ -159,7 +159,7 @@ private fun PcapFileHeader(
 ) {
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         Text(text = fileName, style = type.bodyEmphasis, color = colors.foreground)
         packetCount?.let {
             Text(

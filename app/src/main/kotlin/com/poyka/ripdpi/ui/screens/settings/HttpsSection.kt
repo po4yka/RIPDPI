@@ -508,7 +508,7 @@ private fun TlsPreludePresetCard(
 
     RipDpiCard(
         modifier = modifier,
-        variant = if (selected) RipDpiCardVariant.Tonal else RipDpiCardVariant.Outlined,
+        variant = if (selected) RipDpiCardVariant.Selected else RipDpiCardVariant.Outlined,
         enabled = enabled,
         onClick = onClick,
     ) {

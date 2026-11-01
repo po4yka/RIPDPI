@@ -573,20 +573,6 @@ private fun RipDpiDesignSystemCatalog(
                                 )
                             }
                         },
-                        "Status" to {
-                            RipDpiCard(variant = RipDpiCardVariant.Status) {
-                                Text(
-                                    text = "Status card",
-                                    style = RipDpiThemeTokens.type.bodyEmphasis,
-                                    color = RipDpiThemeTokens.colors.foreground,
-                                )
-                                Text(
-                                    text = "Neutral emphasis without warning color.",
-                                    style = RipDpiThemeTokens.type.secondaryBody,
-                                    color = RipDpiThemeTokens.colors.mutedForeground,
-                                )
-                            }
-                        },
                     ),
             )
 

@@ -75,7 +75,10 @@ internal fun SelectiveMatrixInputCard(
 ) {
     val hostsText = remember { LaggingInputText(input) }
     SideEffect { hostsText.sync(input) }
-    RipDpiCard(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSelectiveMatrixInput)) {
+    RipDpiCard(
+        variant = RipDpiCardVariant.Tonal,
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSelectiveMatrixInput),
+    ) {
         MatrixHeading(stringResource(R.string.diagnostics_matrix_title))
         MatrixText(stringResource(R.string.diagnostics_matrix_manual))
         RipDpiTextField(
@@ -129,7 +132,10 @@ internal fun SelectiveMatrixResultsCard(results: List<DiagnosticsProbeResultUiMo
     val summary = results.lastOrNull { it.probeType == "selective_availability_summary" }
     val coverage = summary?.details?.associate { it.label to it.value }.orEmpty()
     val groups = remember(attempts) { attempts.groupBy { it.cohort } }
-    RipDpiCard(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSelectiveMatrixResults)) {
+    RipDpiCard(
+        variant = RipDpiCardVariant.Tonal,
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSelectiveMatrixResults),
+    ) {
         MatrixHeading(stringResource(R.string.diagnostics_matrix_title))
         MatrixHeading(stringResource(matrixConclusionResource(summary?.outcome)))
         MatrixText(stringResource(R.string.diagnostics_matrix_caution))

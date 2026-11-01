@@ -38,7 +38,6 @@ enum class RipDpiCardVariant {
     Outlined,
     Tonal,
     Elevated,
-    Status,
     Selected,
 }
 

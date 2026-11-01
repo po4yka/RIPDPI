@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.SupportedTcpFlagNames
 import com.poyka.ripdpi.data.supportsFakeTcpFlags
 import com.poyka.ripdpi.data.supportsOriginalTcpFlags
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -30,7 +31,7 @@ internal fun TcpFlagProfileCard(
     val supportsVisualEditing = uiState.desync.tcpFlagVisualEditorSupported
     val enabled = visualEditorEnabled && supportsVisualEditing
 
-    RipDpiCard(modifier = modifier) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal, modifier = modifier) {
         Text(
             text = stringResource(R.string.tcp_flag_card_title),
             style = type.bodyEmphasis,

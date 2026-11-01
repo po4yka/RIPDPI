@@ -10,7 +10,6 @@ data class RipDpiCardSurfaceRoles(
     val outlined: RipDpiSurfaceRole = RipDpiSurfaceRole.Card,
     val tonal: RipDpiSurfaceRole = RipDpiSurfaceRole.TonalCard,
     val elevated: RipDpiSurfaceRole = RipDpiSurfaceRole.ElevatedCard,
-    val status: RipDpiSurfaceRole = RipDpiSurfaceRole.StatusCard,
     val selected: RipDpiSurfaceRole = RipDpiSurfaceRole.SelectedCard,
 ) {
     fun fromVariant(variant: RipDpiCardVariant): RipDpiSurfaceRole =
@@ -18,7 +17,6 @@ data class RipDpiCardSurfaceRoles(
             RipDpiCardVariant.Outlined -> outlined
             RipDpiCardVariant.Tonal -> tonal
             RipDpiCardVariant.Elevated -> elevated
-            RipDpiCardVariant.Status -> status
             RipDpiCardVariant.Selected -> selected
         }
 }

@@ -34,6 +34,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.EndpointSettingsRow
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
@@ -124,7 +125,7 @@ private fun VpnSimpleCard(
 ) {
     val vpnEnabled = uiState.runningMode == Mode.VPN
 
-    RipDpiCard(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigVpnSimple)) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal, modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigVpnSimple)) {
         RipDpiPanelHeader(title = stringResource(R.string.config_vpn_simple_title))
         Text(
             text = stringResource(R.string.config_vpn_simple_body),

@@ -37,7 +37,7 @@ internal fun XrayProviderSettingsStatusRow(
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
     ) {
         SettingsCategoryHeader(title = stringResource(R.string.xray_provider_settings_section_title))
-        RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+        RipDpiCard(variant = RipDpiCardVariant.Tonal) {
             StatusIndicator(
                 label = stage.title(),
                 tone = stage.tone().statusTone(),

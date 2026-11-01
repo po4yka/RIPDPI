@@ -116,7 +116,7 @@ Shared containers should resolve their structural surface from `RipDpiSurfaceTok
 
 Current first-class surface roles:
 
-- Panels: `Card`, `TonalCard`, `ElevatedCard`, `StatusCard`, `SelectedCard`
+- Panels: `Card`, `TonalCard`, `ElevatedCard`, `SelectedCard`
 - Modals: `Dialog`, `BottomSheet`
 - Feedback: `Banner`, `Snackbar`
 - Chrome: `DropdownMenu`, `BottomBar`, `BottomBarIndicator`
@@ -129,8 +129,7 @@ Usage rules:
 - One card rule: `surfaceContainer` tonal steps group content, an outline marks only interactive or selected cards, and a shadow marks only hero or selected cards.
 - `TonalCard` groups ordinary content (`surfaceContainer`, no shadow; no outline at standard contrast, an `outlineVariant` edge via `tonalCardBorder` at medium and high contrast). A `TonalCard` nested in a `TonalCard` steps up to `surfaceContainerHigh`.
 - `Card` (outlined) is for interactive cards. `SelectedCard` marks a picked or focused card.
-- `ElevatedCard` and `StatusCard` are hero roles for the top summary of a screen. Ordinary content never uses them.
-- `StatusCard` is neutral emphasis for important status blocks, not a semantic warning/error container.
+- `ElevatedCard` is the hero role for the top summary of a screen. Ordinary content never uses it.
 - `SelectedCard` is for explicit picked-state surfaces such as presets.
 - `Dialog` and `BottomSheet` are separate roles even when they currently share the same visual recipe.
 - Route roles describe secure-route opportunity and selection surfaces only. They must not imply a new runtime protocol, provider integration, or persistence contract until the corresponding product layer exists.

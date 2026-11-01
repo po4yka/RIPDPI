@@ -140,7 +140,7 @@ private fun DetectionResistanceControlsCard(
     onOptionSelected: (AdvancedOptionSetting, String) -> Unit,
     onTextConfirmed: (AdvancedTextSetting, String) -> Unit,
 ) {
-    RipDpiCard(variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         DetectionResistanceProfileControls(
             uiState = uiState,
             visualEditorEnabled = visualEditorEnabled,
@@ -433,7 +433,7 @@ private fun DetectionResistanceProxyModeNotice(modifier: Modifier = Modifier) {
     val type = RipDpiThemeTokens.type
     val spacing = RipDpiThemeTokens.spacing
 
-    RipDpiCard(modifier = modifier, variant = RipDpiCardVariant.Outlined) {
+    RipDpiCard(modifier = modifier, variant = RipDpiCardVariant.Tonal) {
         StatusIndicator(
             label = stringResource(R.string.detection_resistance_proxy_notice_title),
             tone = StatusIndicatorTone.Warning,

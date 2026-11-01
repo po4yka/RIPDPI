@@ -614,6 +614,7 @@ internal fun ShareActionCard(
     enabled: Boolean = true,
 ) {
     RipDpiCard(
+        variant = RipDpiCardVariant.Tonal,
         modifier =
             modifier.semantics {
                 if (!enabled) {

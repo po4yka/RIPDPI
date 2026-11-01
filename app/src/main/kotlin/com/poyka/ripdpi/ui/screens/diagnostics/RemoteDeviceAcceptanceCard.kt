@@ -28,7 +28,7 @@ internal fun RemoteDeviceAcceptanceCard(
     val running = report.status == RemoteDeviceAcceptanceStatus.Running
     RipDpiCard(
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsDeviceAcceptanceCard),
-        variant = RipDpiCardVariant.Outlined,
+        variant = RipDpiCardVariant.Tonal,
     ) {
         StatusIndicator(
             label = report.status.displayLabel(),

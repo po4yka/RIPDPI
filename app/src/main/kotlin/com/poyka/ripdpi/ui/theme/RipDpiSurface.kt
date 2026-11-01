@@ -11,7 +11,6 @@ enum class RipDpiSurfaceRole {
     Card,
     TonalCard,
     ElevatedCard,
-    StatusCard,
     SelectedCard,
     Dialog,
     BottomSheet,
@@ -50,7 +49,6 @@ data class RipDpiSurfaceTokens(
             RipDpiSurfaceRole.Card,
             RipDpiSurfaceRole.TonalCard,
             RipDpiSurfaceRole.ElevatedCard,
-            RipDpiSurfaceRole.StatusCard,
             RipDpiSurfaceRole.SelectedCard,
             RipDpiSurfaceRole.Dialog,
             RipDpiSurfaceRole.BottomSheet,
@@ -104,15 +102,6 @@ data class RipDpiSurfaceTokens(
                     border = colors.cardBorder.copy(alpha = 0.72f),
                     content = colors.foreground,
                     shadowElevation = 18.dp,
-                )
-            }
-
-            RipDpiSurfaceRole.StatusCard -> {
-                RipDpiSurfaceStyle(
-                    container = colors.accent,
-                    border = colors.cardBorder,
-                    content = colors.accentForeground,
-                    shadowElevation = 8.dp,
                 )
             }
 

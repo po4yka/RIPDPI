@@ -29,6 +29,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -81,7 +82,10 @@ private fun AdvisoryCard(
     var expanded by rememberSaveable { mutableStateOf(false) }
     val recoveryIndex = advisories.indexOfFirst { it.onClick != null }
     val remaining = advisories.filterIndexed { index, _ -> index != 0 && index != recoveryIndex }
-    RipDpiCard(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeSetupHealthRow)) {
+    RipDpiCard(
+        variant = RipDpiCardVariant.Tonal,
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeSetupHealthRow),
+    ) {
         AdvisoryRow(
             advisory = top,
             testTag = if (recoveryIndex == 0) RipDpiTestTags.HomeAdvisoryPrimaryAction else top.testTag,

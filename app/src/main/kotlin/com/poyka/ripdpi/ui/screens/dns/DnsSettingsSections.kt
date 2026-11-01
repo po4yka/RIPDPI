@@ -26,6 +26,7 @@ import com.poyka.ripdpi.data.protocolDisplayName
 import com.poyka.ripdpi.diagnostics.SystemPrivateDnsStatus
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
@@ -191,7 +192,7 @@ internal fun DnsCustomResolverSettingsSection(
             style = type.body,
             color = colors.mutedForeground,
         )
-        RipDpiCard(animateContentSize = true) {
+        RipDpiCard(variant = RipDpiCardVariant.Tonal, animateContentSize = true) {
             when (uiState.dns.dnsMode) {
                 DnsModePlainUdp -> {
                     PlainDnsEditor(
