@@ -26,6 +26,8 @@ import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+private const val DisabledCheckedTrackAlpha = 0.38f
+
 /** Material 3 [Switch] with the RDS ink track. Read-only and disabled switches have no toggle action. */
 @Composable
 fun RipDpiSwitch(
@@ -180,7 +182,10 @@ private fun SwitchToggleControl(
     )
 }
 
-/** Maps RDS roles into Material switch colors: the checked track is ink with a background thumb. */
+/**
+ * Maps RDS roles into Material switch colors: the checked track is ink with a background thumb. A disabled checked
+ * track stays ink at the disabled alpha; the Material default (onSurface at 12%) makes it read as off.
+ */
 @Composable
 internal fun ripDpiSwitchColors(): SwitchColors {
     val colors = RipDpiThemeTokens.colors
@@ -189,6 +194,9 @@ internal fun ripDpiSwitchColors(): SwitchColors {
         checkedTrackColor = colors.foreground,
         checkedBorderColor = colors.foreground,
         checkedIconColor = colors.foreground,
+        disabledCheckedThumbColor = colors.background,
+        disabledCheckedTrackColor = colors.foreground.copy(alpha = DisabledCheckedTrackAlpha),
+        disabledCheckedBorderColor = colors.foreground.copy(alpha = DisabledCheckedTrackAlpha),
     )
 }
 
