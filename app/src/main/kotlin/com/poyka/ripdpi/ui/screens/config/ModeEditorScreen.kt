@@ -34,8 +34,6 @@ internal fun ModeEditorScreen(
     actions: ModeEditorActions,
     modifier: Modifier = Modifier,
 ) {
-    val layout = RipDpiThemeTokens.layout
-
     val topBarScrollBehavior = TopAppBarDefaults.pinnedScrollBehavior()
     val bodyScrollState = rememberScrollState()
     val noticesScrollState = rememberScrollState()
@@ -75,21 +73,7 @@ internal fun ModeEditorScreen(
                     },
             )
         },
-        snackbarHost = {
-            Box(
-                modifier = Modifier.fillMaxWidth(),
-                contentAlignment = Alignment.TopCenter,
-            ) {
-                RipDpiSnackbarHost(
-                    hostState = snackbarHostState,
-                    modifier =
-                        Modifier
-                            .widthIn(max = layout.formMaxWidth)
-                            .fillMaxWidth()
-                            .padding(horizontal = layout.horizontalPadding),
-                )
-            }
-        },
+        snackbarHost = { ModeEditorSnackbarHost(snackbarHostState) },
         bottomBar = {
             if (!uiState.isEditorLoading) {
                 ModeEditorBottomBar(uiState = uiState, actions = actions)
@@ -116,5 +100,23 @@ internal fun ModeEditorScreen(
                 modifier = Modifier.padding(innerPadding),
             )
         }
+    }
+}
+
+@Composable
+private fun ModeEditorSnackbarHost(snackbarHostState: SnackbarHostState) {
+    val layout = RipDpiThemeTokens.layout
+    Box(
+        modifier = Modifier.fillMaxWidth(),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        RipDpiSnackbarHost(
+            hostState = snackbarHostState,
+            modifier =
+                Modifier
+                    .widthIn(max = layout.formMaxWidth)
+                    .fillMaxWidth()
+                    .padding(horizontal = layout.horizontalPadding),
+        )
     }
 }

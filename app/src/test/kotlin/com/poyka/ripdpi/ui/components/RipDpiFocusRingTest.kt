@@ -71,7 +71,8 @@ class RipDpiFocusRingTest {
                 }
             }
         }
-        // (focused node, captured node): text actions draw the ring outside their bounds, so their padded host is captured.
+        // (focused node, captured node): text actions draw the ring outside their bounds, so their padded host
+        // is captured.
         listOf("primary", "ghost", "icon", "text", "topbar").forEach { tag ->
             val node = composeRule.onNodeWithTag(tag)
             val before = node.captureToImage().toPixelMap()

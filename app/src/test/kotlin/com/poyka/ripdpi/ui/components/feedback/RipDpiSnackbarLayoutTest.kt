@@ -27,7 +27,8 @@ class RipDpiSnackbarLayoutTest {
     fun `capped snackbar stays centered in a wide host`() {
         composeRule.setContent {
             RipDpiTheme {
-                // The same shape RipDpiSnackbarHost builds: a full-width bottom-center box with a width cap below the window.
+                // The same shape RipDpiSnackbarHost builds: a full-width bottom-center box with a width cap below
+                // the window.
                 Box(Modifier.fillMaxWidth().ripDpiTestTag("host"), contentAlignment = Alignment.BottomCenter) {
                     RipDpiSnackbar(
                         message = "Saved",

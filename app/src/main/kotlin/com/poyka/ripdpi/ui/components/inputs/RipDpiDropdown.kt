@@ -220,27 +220,8 @@ private fun DropdownField(
                     .clip(shape)
                     .background(colors.inputBackground, shape)
                     .border(borderWidth, borderColor, shape)
-                    .semantics(mergeDescendants = true) {
-                        label?.let {
-                            contentDescription = it
-                            // The label replaces the merged text for a screen reader, so the value is its state.
-                            stateDescription = selectedLabel.ifEmpty { placeholder.orEmpty() }
-                        }
-                        errorText?.let { error(it) }
-                        if (isInteractive) {
-                            if (expanded) {
-                                collapse {
-                                    setExpanded(false)
-                                    true
-                                }
-                            } else {
-                                expand {
-                                    setExpanded(true)
-                                    true
-                                }
-                            }
-                        }
-                    }.ripDpiClickable(
+                    .dropdownSemantics(label, shownText, errorText, isInteractive, expanded, setExpanded)
+                    .ripDpiClickable(
                         enabled = isInteractive,
                         role = Role.DropdownList,
                         interactionSource = source,
@@ -269,6 +250,36 @@ private fun DropdownField(
         dropdownContent()
     }
 }
+
+private fun Modifier.dropdownSemantics(
+    label: String?,
+    shownText: String,
+    errorText: String?,
+    isInteractive: Boolean,
+    expanded: Boolean,
+    setExpanded: (Boolean) -> Unit,
+): Modifier =
+    semantics(mergeDescendants = true) {
+        label?.let {
+            contentDescription = it
+            // The label replaces the merged text for a screen reader, so the value is its state.
+            stateDescription = shownText
+        }
+        errorText?.let { error(it) }
+        if (isInteractive) {
+            if (expanded) {
+                collapse {
+                    setExpanded(false)
+                    true
+                }
+            } else {
+                expand {
+                    setExpanded(true)
+                    true
+                }
+            }
+        }
+    }
 
 /** Material owns the popup surface and item behavior; the RDS dropdown roles map into its colors and shape. */
 @Composable

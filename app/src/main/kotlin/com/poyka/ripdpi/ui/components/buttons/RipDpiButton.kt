@@ -82,7 +82,6 @@ fun RipDpiButton(
     wrapLabel: Boolean = true,
 ) {
     val components = RipDpiThemeTokens.components
-    val colors = RipDpiThemeTokens.colors
     val motion = RipDpiThemeTokens.motion
     val inspectionMode = LocalInspectionMode.current
     val loadingStateDescription = stringResource(R.string.cd_loading)
@@ -125,20 +124,7 @@ fun RipDpiButton(
                         label = "buttonLeadingContent",
                     ) { isLoading ->
                         if (isLoading) {
-                            if (shouldUseStaticButtonLoadingIndicator(inspectionMode, motion.allowsInfiniteMotion)) {
-                                RipDpiStaticCircularProgressIndicator(
-                                    modifier = Modifier.size(RipDpiIconSizes.Small),
-                                    color = contentColor,
-                                    trackColor = colors.muted,
-                                    strokeWidth = RipDpiStroke.Thick,
-                                )
-                            } else {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(RipDpiIconSizes.Small),
-                                    color = contentColor,
-                                    strokeWidth = RipDpiStroke.Thick,
-                                )
-                            }
+                            ButtonLoadingIndicator(contentColor, inspectionMode)
                         } else {
                             leadingIcon?.let {
                                 RipDpiButtonIcon(
@@ -214,11 +200,7 @@ fun RipDpiButton(
                 enabled = isInteractive,
                 shape = shape,
                 colors = buttonColors,
-                border =
-                    BorderStroke(
-                        RipDpiStroke.Thin,
-                        if (isInteractive) colors.outline else colors.foreground.copy(alpha = DisabledBorderAlpha),
-                    ),
+                border = outlineButtonBorder(isInteractive),
                 contentPadding = contentPadding,
                 interactionSource = focusSource,
                 content = content,
@@ -287,6 +269,36 @@ internal fun shouldUseStaticButtonLoadingIndicator(
     isInspectionMode: Boolean,
     allowsInfiniteMotion: Boolean,
 ): Boolean = isInspectionMode || !allowsInfiniteMotion
+
+@Composable
+private fun outlineButtonBorder(enabled: Boolean): BorderStroke {
+    val colors = RipDpiThemeTokens.colors
+    return BorderStroke(
+        RipDpiStroke.Thin,
+        if (enabled) colors.outline else colors.foreground.copy(alpha = DisabledBorderAlpha),
+    )
+}
+
+@Composable
+private fun ButtonLoadingIndicator(
+    color: Color,
+    inspectionMode: Boolean,
+) {
+    if (shouldUseStaticButtonLoadingIndicator(inspectionMode, RipDpiThemeTokens.motion.allowsInfiniteMotion)) {
+        RipDpiStaticCircularProgressIndicator(
+            modifier = Modifier.size(RipDpiIconSizes.Small),
+            color = color,
+            trackColor = RipDpiThemeTokens.colors.muted,
+            strokeWidth = RipDpiStroke.Thick,
+        )
+    } else {
+        CircularProgressIndicator(
+            modifier = Modifier.size(RipDpiIconSizes.Small),
+            color = color,
+            strokeWidth = RipDpiStroke.Thick,
+        )
+    }
+}
 
 @Composable
 private fun RipDpiButtonIcon(

@@ -123,7 +123,8 @@ fun Modifier.ripDpiClickable(
 
 /**
  * Draws a 2dp keyboard focus ring just inside [shape]. The ring takes whichever of ink or paper holds at least 3:1
- * against [container] ([ink] defaults to the foreground); a transparent container sits on the page, so it is measured as the page background.
+ * against [container] ([ink] defaults to the foreground); a transparent container sits on the page, so it is
+ * measured as the page background.
  */
 fun Modifier.ripDpiFocusRing(
     interactionSource: InteractionSource,
@@ -155,8 +156,11 @@ internal fun contrastRatio(
 ): Float {
     val a = first.luminance()
     val b = second.luminance()
-    return (maxOf(a, b) + 0.05f) / (minOf(a, b) + 0.05f)
+    return (maxOf(a, b) + ContrastFlare) / (minOf(a, b) + ContrastFlare)
 }
+
+// WCAG 2 contrast-ratio flare term.
+private const val ContrastFlare = 0.05f
 
 private const val FocusRingMinimumContrast = 3f
 

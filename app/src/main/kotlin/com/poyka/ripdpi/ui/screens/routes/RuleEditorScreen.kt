@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.Text
@@ -85,6 +86,25 @@ internal class RuleEditorPersistenceActions(
     val retryLoad: () -> Unit = {},
 )
 
+/**
+ * Runs after the banner item is composed: scrolling in the click handler would run before it exists. The handled
+ * count is saved with the attempts, so restoring after a rotation does not scroll again.
+ */
+@Composable
+private fun ScrollToWarningOnEmptySave(
+    saveAttempts: Int,
+    isEmpty: Boolean,
+    listState: LazyListState,
+) {
+    var handledAttempts by rememberSaveable { mutableIntStateOf(saveAttempts) }
+    LaunchedEffect(saveAttempts) {
+        if (saveAttempts != handledAttempts) {
+            handledAttempts = saveAttempts
+            if (isEmpty) listState.animateScrollToItem(0)
+        }
+    }
+}
+
 @Composable
 internal fun RuleEditorScreen(
     state: RuleEditorUiState,
@@ -107,15 +127,7 @@ internal fun RuleEditorScreen(
     var saveAttempts by rememberSaveable { mutableIntStateOf(0) }
     val saveAttempted = saveAttempts > 0
     val listState = rememberLazyListState()
-    // Runs after the banner item is composed: scrolling in the click handler would run before it exists. The handled
-    // count is saved with the attempts, so restoring after a rotation does not scroll again.
-    var handledAttempts by rememberSaveable { mutableIntStateOf(saveAttempts) }
-    LaunchedEffect(saveAttempts) {
-        if (saveAttempts != handledAttempts) {
-            handledAttempts = saveAttempts
-            if (state.isEmpty) listState.animateScrollToItem(0)
-        }
-    }
+    ScrollToWarningOnEmptySave(saveAttempts, state.isEmpty, listState)
     val onSave: () -> Unit = {
         saveAttempts++
         if (!state.isEmpty) persistenceActions.save()

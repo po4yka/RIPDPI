@@ -82,7 +82,7 @@ class HistoryRetainedLocaleRouteTest {
         )
 
         // Switching section closes the open detail, so each section's detail is checked on its own.
-        refreshLocales(context, configuration, locales) { expected ->
+        refreshLocales(configuration, locales) { expected ->
             assertEquals(
                 expected,
                 connectionFactory
@@ -106,7 +106,7 @@ class HistoryRetainedLocaleRouteTest {
         }
 
         selectDiagnosticsSession(viewModel, sessionDetail.session.id)
-        refreshLocales(context, configuration, locales) { expected ->
+        refreshLocales(configuration, locales) { expected ->
             assertRetainedState(viewModel.uiState.value, expected, sessionDetail.session.id)
             assertSame(frozenSessions, source.diagnosticsSessions.value)
             assertSame(sessionDetail, rawSessionLoader.nextDetail)
@@ -115,7 +115,6 @@ class HistoryRetainedLocaleRouteTest {
     }
 
     private fun refreshLocales(
-        context: Context,
         configuration: androidx.compose.runtime.MutableState<Configuration>,
         locales: RetainedLocaleTestSupport,
         assertLocale: (expected: String) -> Unit,
