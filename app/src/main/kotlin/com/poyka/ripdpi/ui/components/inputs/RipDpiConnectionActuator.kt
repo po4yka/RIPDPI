@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.style.CommonStyle
 import androidx.compose.foundation.style.rememberUpdatedStyleState
 import androidx.compose.foundation.style.styleResolver
@@ -48,7 +47,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDirection
-import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
 import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
@@ -71,8 +69,6 @@ import com.poyka.ripdpi.ui.theme.ripDpiStyleAppearance
 
 private const val StackedRouteFontScale = 1.5f
 
-// Keeps the primary action a button, not a bar, in a wide pane.
-private val ActionMaxWidth = 360.dp
 private val ConnectionCommitKeys = setOf(Key.Enter, Key.NumPadEnter, Key.Spacebar, Key.DirectionCenter)
 
 /** Status and route information remain outside the connection action target. */
@@ -136,7 +132,6 @@ fun RipDpiConnectionActuator(
             text = resolved.actionLabel,
             modifier =
                 Modifier
-                    .widthIn(max = ActionMaxWidth)
                     .fillMaxWidth()
                     .ripDpiTestTag(testTag)
                     .then(rememberConnectionInputModifier(state, onAction)),
