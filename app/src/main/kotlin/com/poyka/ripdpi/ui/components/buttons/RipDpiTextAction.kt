@@ -17,6 +17,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.ripDpiClickable
@@ -53,7 +54,8 @@ fun RipDpiTextAction(
     val sized =
         modifier
             .heightIn(min = maxOf(minHeight ?: actionMinHeight, actionMinHeight))
-            .ripDpiFocusRing(source, RipDpiThemeTokens.shapes.lg, Color.Transparent, ink = resolvedColor)
+            // Outset: the label sits flush against the box edge, so an inside ring would touch the glyphs.
+            .ripDpiFocusRing(source, RipDpiThemeTokens.shapes.lg, Color.Transparent, ink = resolvedColor, outset = 4.dp)
     Box(
         modifier =
             sized.ripDpiClickable(

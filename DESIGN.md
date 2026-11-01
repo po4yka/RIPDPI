@@ -652,7 +652,7 @@ Accessibility is a design requirement, not an afterthought:
 
 - Interactive elements must expose a semantic hit area of at least `48dp`.
 - Buttons, icon buttons, inputs, switches, chips, and selectable cards must keep visible disabled, focused, pressed, loading, and error states where applicable.
-- Buttons and icon buttons draw a 2dp keyboard focus ring in ink or paper, whichever holds 3:1 against the container (`ripDpiFocusRing`). Ripple state layers alone do not meet 3:1.
+- Buttons, icon buttons and text actions draw a 2dp keyboard focus ring in ink or paper, whichever holds 3:1 against the container (`ripDpiFocusRing`); a text action draws it 4dp outside its bounds so it clears the label. Ripple state layers alone do not meet 3:1.
 - Icon-only buttons require a content description.
 - `RipDpiDropdown`, `RipDpiTextField`, and `RipDpiSwitch` must surface labels and errors semantically. The dropdown is one merged node: the label as its description, the selected value as its state, the error, the dropdown role, and expand or collapse actions.
 - Secondary text roles must remain readable in both light and dark themes.

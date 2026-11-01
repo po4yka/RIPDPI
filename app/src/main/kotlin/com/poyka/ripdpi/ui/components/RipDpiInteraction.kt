@@ -17,12 +17,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.composed
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.drawOutline
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.graphics.drawscope.translate
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
@@ -122,7 +129,8 @@ fun Modifier.ripDpiClickable(
     }
 
 /**
- * Draws a 2dp keyboard focus ring just inside [shape]. The ring takes whichever of ink or paper holds at least 3:1
+ * Draws a 2dp keyboard focus ring just inside [shape], or [outset] beyond the bounds when that is set so the ring
+ * clears content that sits flush against them (a text action's glyphs). The ring takes whichever of ink or paper holds at least 3:1
  * against [container] ([ink] defaults to the foreground); a transparent container sits on the page, so it is measured as the page background.
  */
 fun Modifier.ripDpiFocusRing(
@@ -130,6 +138,7 @@ fun Modifier.ripDpiFocusRing(
     shape: Shape,
     container: Color,
     ink: Color = Color.Unspecified,
+    outset: Dp = 0.dp,
 ): Modifier =
     composed {
         val colors = RipDpiThemeTokens.colors
@@ -138,11 +147,24 @@ fun Modifier.ripDpiFocusRing(
             Modifier
         } else {
             val surface = if (container == Color.Transparent) colors.background else container
-            Modifier.border(
-                RipDpiStroke.Thick,
-                ripDpiFocusRingColor(surface, ink.takeOrElse { colors.foreground }, colors.background),
-                shape,
-            )
+            val ringColor = ripDpiFocusRingColor(surface, ink.takeOrElse { colors.foreground }, colors.background)
+            if (outset > 0.dp) {
+                Modifier.drawWithContent {
+                    drawContent()
+                    val growth = outset.toPx()
+                    val outline =
+                        shape.createOutline(
+                            Size(size.width + 2 * growth, size.height + 2 * growth),
+                            layoutDirection,
+                            this,
+                        )
+                    translate(-growth, -growth) {
+                        drawOutline(outline, ringColor, style = Stroke(RipDpiStroke.Thick.toPx()))
+                    }
+                }
+            } else {
+                Modifier.border(RipDpiStroke.Thick, ringColor, shape)
+            }
         }
     }
 

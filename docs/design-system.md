@@ -45,7 +45,7 @@ Feature geometry does not belong in the shared theme. Flow-specific measurements
 
 The `RipDpi*` facade components are built on Material 3 components: `Button` and its variants, `IconButton` and its variants, `Switch`, `OutlinedTextField` and `OutlinedSecureTextField`, `DropdownMenu`, `Card`, `Surface`, `ModalBottomSheet`, `Snackbar`, and `SecondaryTabRow`. Material 3 resolves pressed, focused, disabled, and selected states for these components. The facade maps RDS roles into Material color objects (for example `ripDpiButtonColors` and `ripDpiSwitchColors`) and does not rebuild those states inline.
 
-Material 3 ripple state layers are too faint for keyboard focus, so `RipDpiButton` and `RipDpiIconButton` add `Modifier.ripDpiFocusRing`: a 2dp ring in ink or paper, whichever holds 3:1 against the container, covered by `RipDpiFocusRingTest`. Content on an accent container uses `accentForeground`; `RipDpiRoleContrastTest` asserts 4.5:1 for every surface and state role at all contrast levels.
+Material 3 ripple state layers are too faint for keyboard focus, so `RipDpiButton`, `RipDpiIconButton` and `RipDpiTextAction` (and so `RipDpiTopBarAction`) add `Modifier.ripDpiFocusRing`: a 2dp ring in ink or paper, whichever holds 3:1 against the container, covered by `RipDpiFocusRingTest`. A text action draws the ring 4dp outside its bounds, because its label sits flush against them. Content on an accent container uses `accentForeground`; `RipDpiRoleContrastTest` asserts 4.5:1 for every surface and state role at all contrast levels.
 
 Components with a state that Material 3 does not model resolve it from `RipDpiStateTokens`, not by rebuilding semantic colors inline.
 

@@ -1,12 +1,15 @@
 package com.poyka.ripdpi.ui.components
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.requestFocus
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
@@ -58,8 +61,13 @@ class RipDpiFocusRingTest {
                 Column {
                     RipDpiButton("Primary", {}, Modifier.ripDpiTestTag("primary"))
                     RipDpiButton("Ghost", {}, Modifier.ripDpiTestTag("ghost"), variant = RipDpiButtonVariant.Ghost)
-                    RipDpiTextAction("Text", {}, Modifier.ripDpiTestTag("text"))
-                    RipDpiTopBarAction("Save", {}, Modifier.ripDpiTestTag("topbar"))
+                    // Text actions draw the ring outside their bounds, so each sits in a padded host that is captured.
+                    Box(Modifier.ripDpiTestTag("text-host").padding(TextHostPadding)) {
+                        RipDpiTextAction("Text", {}, Modifier.ripDpiTestTag("text"))
+                    }
+                    Box(Modifier.ripDpiTestTag("topbar-host").padding(TextHostPadding)) {
+                        RipDpiTopBarAction("Save", {}, Modifier.ripDpiTestTag("topbar"))
+                    }
                     RipDpiIconButton(
                         RipDpiIcons.Copy,
                         "Copy",
@@ -70,16 +78,27 @@ class RipDpiFocusRingTest {
                 }
             }
         }
-        listOf("primary", "ghost", "icon", "text", "topbar").forEach { tag ->
-            val node = composeRule.onNodeWithTag(tag)
+        // (focused node, captured node): text actions draw the ring outside their bounds, so their padded host is captured.
+        listOf(
+            "primary" to "primary",
+            "ghost" to "ghost",
+            "icon" to "icon",
+            "text" to "text-host",
+            "topbar" to "topbar-host",
+        ).forEach { (tag, captured) ->
+            val node = composeRule.onNodeWithTag(captured)
             val before = node.captureToImage().toPixelMap()
-            node.requestFocus()
+            composeRule.onNodeWithTag(tag).requestFocus()
             composeRule.waitForIdle()
             val after = node.captureToImage().toPixelMap()
-            // Mid-width of the top edge, inside the 2dp ring and clear of the corner radius.
+            // Mid-width column, clear of the corner radius: some row of it is the ring.
             val x = before.width / 2
-            val ratio = contrastRatio(after[x, 1], before[x, 1])
-            assertTrue("$tag focus ring changed the edge by only $ratio:1", ratio >= 3f)
+            val ratio = (0 until before.height).maxOf { y -> contrastRatio(after[x, y], before[x, y]) }
+            assertTrue("$tag focus ring changed the column by only $ratio:1", ratio >= 3f)
         }
+    }
+
+    private companion object {
+        val TextHostPadding = 8.dp
     }
 }
