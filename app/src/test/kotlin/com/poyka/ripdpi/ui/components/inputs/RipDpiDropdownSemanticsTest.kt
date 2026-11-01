@@ -10,6 +10,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
@@ -19,6 +20,8 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performSemanticsAction
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -97,7 +100,7 @@ class RipDpiDropdownSemanticsTest {
                             testTag = "dropdown",
                         )
                         RipDpiTextField(
-                            value = "Alpha",
+                            value = "Gamma",
                             onValueChange = {},
                             decoration = RipDpiTextFieldDecoration(label = "Mode", testTag = "field"),
                         )
@@ -119,11 +122,28 @@ class RipDpiDropdownSemanticsTest {
                     .fetchSemanticsNode()
                     .size.height
             assertEquals("font scale $scale", field, dropdown)
+            if (scale == 2f) {
+                val minGap = 8f * composeRule.density.density
+                val dropdownBounds = composeRule.onNodeWithTag("dropdown").fetchSemanticsNode().boundsInRoot
+                val dropdownText =
+                    composeRule.onNodeWithText("Alpha", useUnmergedTree = true).fetchSemanticsNode().boundsInRoot
+                assertTrue(
+                    "dropdown text ${dropdownText.top - dropdownBounds.top}px from the border",
+                    dropdownText.top - dropdownBounds.top >= minGap &&
+                        dropdownBounds.bottom - dropdownText.bottom >= minGap,
+                )
+                val layouts = mutableListOf<TextLayoutResult>()
+                composeRule
+                    .onNodeWithTag("field")
+                    .performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(layouts) }
+                val fieldGap = (field - layouts.single().size.height) / 2f
+                assertTrue("field text ${fieldGap}px from the border", fieldGap >= minGap)
+            }
         }
     }
 
     @Test
-    fun `a wrapped dropdown value keeps clear of the border at default and double font scale`() {
+    fun `a wrapped dropdown value keeps 8dp from the border at default and double font scale`() {
         var fontScale by mutableFloatStateOf(1f)
         val wrappedOptions =
             persistentListOf(
@@ -154,7 +174,7 @@ class RipDpiDropdownSemanticsTest {
                     .onNodeWithText(wrappedOptions.single().label, useUnmergedTree = true)
                     .fetchSemanticsNode()
                     .boundsInRoot
-            val minGap = 4f * composeRule.density.density
+            val minGap = 8f * composeRule.density.density
             assertTrue("font scale $scale: top gap ${text.top - dropdown.top}", text.top - dropdown.top >= minGap)
             assertTrue(
                 "font scale $scale: bottom gap ${dropdown.bottom - text.bottom}",

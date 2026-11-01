@@ -54,10 +54,6 @@ import kotlinx.collections.immutable.persistentListOf
 private const val DisabledAlpha = 0.38f
 private const val dropdownWidthFraction = 0.9f
 
-// A single-line value adds no vertical padding, so the dropdown matches a single-line RipDpiTextField at every font
-// scale. A value that wraps gets this much so its lines never touch the border.
-private val DropdownWrappedVerticalPadding = 8.dp
-
 data class RipDpiDropdownOption<T>(
     val value: T,
     val label: String,
@@ -213,7 +209,6 @@ private fun DropdownField(
     val horizontalPadding = if (density == RipDpiControlDensity.Compact) 12.dp else 16.dp
     val contentAlpha = if (enabled) 1f else DisabledAlpha
     val shownText = selectedLabel.ifEmpty { placeholder.orEmpty() }
-    var wrapped by remember(shownText) { mutableStateOf(false) }
     Box {
         Row(
             modifier =
@@ -250,10 +245,8 @@ private fun DropdownField(
                         role = Role.DropdownList,
                         interactionSource = source,
                     ) { setExpanded(true) }
-                    .padding(
-                        horizontal = horizontalPadding,
-                        vertical = if (wrapped) DropdownWrappedVerticalPadding else 0.dp,
-                    ),
+                    // The same vertical padding as RipDpiTextField, so the two match at every font scale.
+                    .padding(horizontal = horizontalPadding, vertical = components.inputs.fieldVerticalPadding),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -261,7 +254,6 @@ private fun DropdownField(
             Text(
                 text = shownText,
                 style = RipDpiThemeTokens.type.secondaryBody,
-                onTextLayout = { wrapped = it.lineCount > 1 },
                 color = if (selectedLabel.isEmpty()) colors.mutedForeground else colors.foreground,
                 maxLines = 2,
                 overflow = TextOverflow.Ellipsis,

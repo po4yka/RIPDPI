@@ -182,8 +182,7 @@ private fun RipDpiTextFieldInput(
     val obfuscationMode = behavior.textObfuscationMode
     val colors = ripDpiOutlinedTextFieldColors()
     val shape = RipDpiThemeTokens.shapes.xl
-    val verticalPadding =
-        if (behavior.singleLine) 0.dp else RipDpiThemeTokens.components.inputs.multilineFieldVerticalPadding
+    val verticalPadding = RipDpiThemeTokens.components.inputs.fieldVerticalPadding
     val contentPadding =
         OutlinedTextFieldDefaults.contentPaddingWithoutLabel(
             start = horizontalPadding,
