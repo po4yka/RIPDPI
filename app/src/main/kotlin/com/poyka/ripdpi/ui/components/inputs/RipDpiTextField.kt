@@ -21,7 +21,6 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.semantics
@@ -41,6 +40,8 @@ private const val DisabledAlpha = 0.38f
 // Mirrors the internal KeyboardOptions.SecureTextField that BasicSecureTextField uses by default.
 private val secureKeyboardDefaults = KeyboardOptions(keyboardType = KeyboardType.Password, autoCorrectEnabled = false)
 
+private val rejectEdits = InputTransformation { revertAllChanges() }
+
 data class RipDpiTextFieldDecoration(
     val label: String? = null,
     val placeholder: String? = null,
@@ -57,7 +58,7 @@ data class RipDpiTextFieldBehavior(
     val textStyle: TextStyle? = null,
     val keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
     val onKeyboardAction: KeyboardActionHandler? = null,
-    // Hidden or RevealLastTyped renders a secure field (masked, no copy/cut); Visible renders a plain field.
+    // Any non-null mode renders a secure field (no copy/cut, no keyboard learning); Visible shows the text in full.
     // Keep the field non-null while a reveal toggle switches between Visible and Hidden.
     val textObfuscationMode: TextObfuscationMode? = null,
     val minHeight: Dp? = null,
@@ -129,20 +130,19 @@ fun RipDpiTextField(
     }
 }
 
-/** RDS roles mapped into the Material outlined field colors: ink focus ring, destructive error, muted idle. */
+/**
+ * RDS roles mapped into the Material outlined field colors: foreground text, destructive error text, an ink focus
+ * ring, and an `outline` boundary that holds the 3:1 non-text contrast so an empty field does not read as disabled.
+ */
 @Composable
-internal fun ripDpiOutlinedTextFieldColors(
-    disabledText: Color? = null,
-    disabledBorder: Color? = null,
-    disabledTrailingIcon: Color? = null,
-): TextFieldColors {
+internal fun ripDpiOutlinedTextFieldColors(): TextFieldColors {
     val colors = RipDpiThemeTokens.colors
     val disabledContent = colors.mutedForeground.copy(alpha = DisabledAlpha)
     return OutlinedTextFieldDefaults.colors(
         focusedTextColor = colors.foreground,
-        unfocusedTextColor = colors.mutedForeground,
-        disabledTextColor = disabledText ?: disabledContent,
-        errorTextColor = colors.foreground,
+        unfocusedTextColor = colors.foreground,
+        disabledTextColor = disabledContent,
+        errorTextColor = colors.destructive,
         focusedContainerColor = colors.inputBackground,
         unfocusedContainerColor = colors.inputBackground,
         disabledContainerColor = colors.inputBackground,
@@ -150,12 +150,12 @@ internal fun ripDpiOutlinedTextFieldColors(
         cursorColor = colors.foreground,
         errorCursorColor = colors.destructive,
         focusedBorderColor = colors.foreground,
-        unfocusedBorderColor = colors.outlineVariant,
-        disabledBorderColor = disabledBorder ?: colors.border,
+        unfocusedBorderColor = colors.outline,
+        disabledBorderColor = colors.border,
         errorBorderColor = colors.destructive,
         focusedTrailingIconColor = colors.mutedForeground,
         unfocusedTrailingIconColor = colors.mutedForeground,
-        disabledTrailingIconColor = disabledTrailingIcon ?: disabledContent,
+        disabledTrailingIconColor = disabledContent,
         errorTrailingIconColor = colors.destructive,
         focusedPlaceholderColor = colors.mutedForeground,
         unfocusedPlaceholderColor = colors.mutedForeground,
@@ -189,8 +189,9 @@ private fun RipDpiTextFieldInput(
             top = verticalPadding,
             bottom = verticalPadding,
         )
-    // A revealed secret stays a plain field so it can be copied, as with VisualTransformation.None.
-    if (obfuscationMode == null || obfuscationMode == TextObfuscationMode.Visible) {
+    // Any obfuscation mode, Visible included, renders a secure field: it never offers copy or cut and tells the
+    // keyboard not to learn the text. OutlinedSecureTextField has no readOnly, so a read-only secret rejects edits.
+    if (obfuscationMode == null) {
         OutlinedTextField(
             state = textFieldState,
             modifier = modifier,
@@ -215,7 +216,7 @@ private fun RipDpiTextFieldInput(
             state = textFieldState,
             modifier = modifier,
             enabled = behavior.enabled,
-            inputTransformation = forwardEdits,
+            inputTransformation = if (behavior.readOnly) rejectEdits else forwardEdits,
             textStyle = textStyle,
             placeholder = placeholder,
             trailingIcon = trailingContent,
