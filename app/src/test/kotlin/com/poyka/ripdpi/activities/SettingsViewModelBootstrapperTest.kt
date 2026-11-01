@@ -1,21 +1,17 @@
 package com.poyka.ripdpi.activities
 
-import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.InMemoryStrategyPackStateStore
 import com.poyka.ripdpi.data.StrategyPackRuntimeState
 import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.filterNotNull
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.yield
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -37,9 +33,6 @@ class SettingsViewModelBootstrapperTest {
                         .build(),
                 )
             val strategyPackStateStore = InMemoryStrategyPackStateStore()
-            // The PIN notice goes to the Settings list's own slot; the Advanced slot only takes pack-refresh notices.
-            val listNotice = SettingsNoticeState()
-            val advancedNotice = SettingsNoticeState()
             val runtimeStates = mutableListOf<StrategyPackRuntimeState>()
             var hostPackCatalogLoads = 0
             var strategyPackCatalogLoads = 0
@@ -60,7 +53,6 @@ class SettingsViewModelBootstrapperTest {
                     },
             ).initialize(
                 scope = backgroundScope,
-                onPinKeyLost = listNotice::post,
                 loadInitialHostPackCatalog = { hostPackCatalogLoads += 1 },
                 loadInitialStrategyPackCatalog = { strategyPackCatalogLoads += 1 },
                 updateStrategyPackCatalogRuntimeState = { runtimeState ->
@@ -69,19 +61,17 @@ class SettingsViewModelBootstrapperTest {
             )
 
             advanceUntilIdle()
+            yield()
+            runCurrent()
 
-            val notice = listNotice.latest.filterNotNull().first()
-            assertNull(advancedNotice.latest.value)
             val settings = settingsRepository.snapshot()
 
             assertEquals(1, hostPackCatalogLoads)
             assertEquals(1, strategyPackCatalogLoads)
             assertTrue(runtimeStates.isNotEmpty())
-            assertEquals(R.string.notice_pin_key_lost_title, notice.title)
-            assertEquals(R.string.notice_pin_key_lost_message, notice.message)
-            assertEquals(SettingsNoticeTone.Warning, notice.tone)
             assertEquals("", settings.backupPin)
             assertFalse(settings.biometricEnabled)
+            assertTrue(settings.appLockResetNoticePending)
 
             assertEquals(strategyPackStateStore.state.value, runtimeStates.last())
         }
@@ -115,7 +105,6 @@ class SettingsViewModelBootstrapperTest {
                     },
             ).initialize(
                 scope = backgroundScope,
-                onPinKeyLost = {},
                 loadInitialHostPackCatalog = {},
                 loadInitialStrategyPackCatalog = {},
                 updateStrategyPackCatalogRuntimeState = {},
@@ -150,7 +139,6 @@ class SettingsViewModelBootstrapperTest {
                     },
             ).initialize(
                 scope = backgroundScope,
-                onPinKeyLost = {},
                 loadInitialHostPackCatalog = {},
                 loadInitialStrategyPackCatalog = {},
                 updateStrategyPackCatalogRuntimeState = { runtimeState ->
@@ -183,7 +171,6 @@ class SettingsViewModelBootstrapperTest {
                     .build()
             val settingsRepository = FakeAppSettingsRepository(initialSettings)
             val strategyPackStateStore = InMemoryStrategyPackStateStore()
-            val postedNotices = mutableListOf<SettingsEffect.Notice>()
 
             SettingsViewModelBootstrapper(
                 appSettingsRepository = settingsRepository,
@@ -201,7 +188,6 @@ class SettingsViewModelBootstrapperTest {
                     },
             ).initialize(
                 scope = backgroundScope,
-                onPinKeyLost = { postedNotices += it },
                 loadInitialHostPackCatalog = {},
                 loadInitialStrategyPackCatalog = {},
                 updateStrategyPackCatalogRuntimeState = {},
@@ -212,6 +198,6 @@ class SettingsViewModelBootstrapperTest {
             val settings = settingsRepository.snapshot()
             assertEquals("1234", settings.backupPin)
             assertTrue(settings.biometricEnabled)
-            assertTrue(postedNotices.isEmpty())
+            assertFalse(settings.appLockResetNoticePending)
         }
 }

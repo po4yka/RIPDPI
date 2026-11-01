@@ -486,4 +486,8 @@ message AppSettings {
 
   // Opt-in Material You wallpaper colors; honored only on Android 12+.
   bool dynamic_color_enabled = 424;
+
+  // Set in the update that wipes a PIN whose keystore key was lost; cleared on acknowledgement or a new PIN.
+  // Local to this device: never exported in backups.
+  bool app_lock_reset_notice_pending = 425;
 }

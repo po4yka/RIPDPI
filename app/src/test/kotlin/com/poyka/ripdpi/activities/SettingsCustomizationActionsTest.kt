@@ -47,6 +47,33 @@ class SettingsCustomizationActionsTest {
             assertFalse(harness.repository.snapshot().dynamicColorEnabled)
         }
 
+    @Test
+    fun `acknowledging the reset notice clears the flag`() =
+        runTest {
+            val harness = buildHarness(batteryIgnored = false)
+            harness.repository.update { setAppLockResetNoticePending(true) }
+
+            harness.actions.acknowledgeAppLockResetNotice()
+            advanceUntilIdle()
+
+            assertFalse(harness.repository.snapshot().appLockResetNoticePending)
+        }
+
+    @Test
+    fun `setting a new pin clears the reset notice but removing the pin keeps it`() =
+        runTest {
+            val harness = buildHarness(batteryIgnored = false)
+            harness.repository.update { setAppLockResetNoticePending(true) }
+
+            harness.actions.setBackupPin("")
+            advanceUntilIdle()
+            assertTrue(harness.repository.snapshot().appLockResetNoticePending)
+
+            harness.actions.setBackupPin("1234")
+            advanceUntilIdle()
+            assertFalse(harness.repository.snapshot().appLockResetNoticePending)
+        }
+
     private class RecordingStartOnBootController(
         var batteryIgnored: Boolean,
     ) : StartOnBootController(ApplicationProvider.getApplicationContext()) {

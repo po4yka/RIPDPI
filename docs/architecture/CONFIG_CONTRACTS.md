@@ -101,6 +101,7 @@ The settings store is Jetpack DataStore — a wire-format change is a
   fields 258–260: tag 214 is the current `strategy_chain_yaml` field, and
   persisted bytes are decoded strictly according to the current protobuf.
   Standard protobuf unknown-field preservation remains enabled.
+- `app_lock_reset_notice_pending = 425` is set in the same DataStore update that wipes `backup_pin` and turns biometrics off after the PIN keystore key is lost. The Settings list shows the reset notice while it is set. It clears when the user acknowledges the notice or saves a new PIN. It is a local device fact and is **never exported**: the backup snapshot has no entry for it, and a restore replaces the settings with the flag off.
 
 Use the `protobuf-schema-evolution` and `protobuf-datastore` skills.
 

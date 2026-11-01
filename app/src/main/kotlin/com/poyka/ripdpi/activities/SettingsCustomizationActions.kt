@@ -215,7 +215,12 @@ internal class SettingsCustomizationActions(
             value = hashed,
         ) {
             setBackupPin(hashed)
+            if (hashed.isNotEmpty()) setAppLockResetNoticePending(false)
         }
+    }
+
+    fun acknowledgeAppLockResetNotice() {
+        mutations.update { setAppLockResetNoticePending(false) }
     }
 
     fun verifyBackupPin(pin: String): PinVerifyResult =

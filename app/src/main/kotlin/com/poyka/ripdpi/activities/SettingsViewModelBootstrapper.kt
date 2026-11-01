@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.activities
 
-import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.StrategyPackRuntimeState
 import com.poyka.ripdpi.data.StrategyPackStateStore
@@ -19,7 +18,6 @@ class SettingsViewModelBootstrapper
     ) {
         fun initialize(
             scope: CoroutineScope,
-            onPinKeyLost: (SettingsEffect.Notice) -> Unit,
             loadInitialHostPackCatalog: () -> Unit,
             loadInitialStrategyPackCatalog: () -> Unit,
             updateStrategyPackCatalogRuntimeState: (StrategyPackRuntimeState) -> Unit,
@@ -32,25 +30,19 @@ class SettingsViewModelBootstrapper
                 }
             }
             scope.launch {
-                ensurePinKeyIntegrity(onPinKeyLost)
+                ensurePinKeyIntegrity()
             }
         }
 
-        private suspend fun ensurePinKeyIntegrity(onPinKeyLost: (SettingsEffect.Notice) -> Unit) {
+        private suspend fun ensurePinKeyIntegrity() {
             val settings = appSettingsRepository.snapshot()
             // Wipe only on a definite "no key": an unreadable keystore must not disable the app lock.
             if (settings.backupPin.isNotBlank() && pinVerifier.isKeyAvailable() == false) {
                 appSettingsRepository.update {
                     setBackupPin("")
                     setBiometricEnabled(false)
+                    setAppLockResetNoticePending(true)
                 }
-                onPinKeyLost(
-                    SettingsEffect.Notice(
-                        title = R.string.notice_pin_key_lost_title,
-                        message = R.string.notice_pin_key_lost_message,
-                        tone = SettingsNoticeTone.Warning,
-                    ),
-                )
             }
         }
     }

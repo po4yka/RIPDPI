@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
@@ -21,6 +22,13 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+
+private val PinKeyLostNotice =
+    SettingsEffect.Notice(
+        title = R.string.notice_pin_key_lost_title,
+        message = R.string.notice_pin_key_lost_message,
+        tone = SettingsNoticeTone.Warning,
+    )
 
 @Suppress("TooManyFunctions")
 @HiltViewModel
@@ -50,8 +58,11 @@ class SettingsViewModel
             )
 
         // The Settings list owns the PIN-key-lost notice: the app-lock controls it explains are on that screen.
-        private val settingsNoticeState = SettingsNoticeState()
-        val settingsNotice: StateFlow<SettingsEffect.Notice?> = settingsNoticeState.latest
+        // It follows the persisted flag, so it outlives the process until the user acknowledges it or sets a new PIN.
+        val settingsNotice: StateFlow<SettingsEffect.Notice?> =
+            settingsUiDependencies.appSettingsRepository.settings
+                .map { if (it.appLockResetNoticePending) PinKeyLostNotice else null }
+                .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
         // The Advanced screen owns pack-refresh notices; a notice raised while it is away waits here.
         private val advancedNoticeState = SettingsNoticeState()
@@ -61,7 +72,7 @@ class SettingsViewModel
         private val dnsNoticeState = SettingsNoticeState()
         val dnsNotice: StateFlow<SettingsEffect.Notice?> = dnsNoticeState.latest
 
-        fun acknowledgeSettingsNotice(notice: SettingsEffect.Notice) = settingsNoticeState.acknowledge(notice)
+        fun acknowledgeSettingsNotice() = customizationActions.acknowledgeAppLockResetNotice()
 
         fun acknowledgeAdvancedNotice(notice: SettingsEffect.Notice) = advancedNoticeState.acknowledge(notice)
 
@@ -147,14 +158,8 @@ class SettingsViewModel
             viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
                 settingsEffects.filterIsInstance<SettingsEffect.Notice>().collect(advancedNoticeState::post)
             }
-            viewModelScope.launch {
-                settingsNoticeState.clearWhenPinSet(
-                    settingsUiDependencies.appSettingsRepository.settings.map { it.backupPin.isNotBlank() },
-                )
-            }
             settingsViewModelBootstrapper.initialize(
                 scope = viewModelScope,
-                onPinKeyLost = settingsNoticeState::post,
                 loadInitialHostPackCatalog = maintenanceActions::loadInitialHostPackCatalog,
                 loadInitialStrategyPackCatalog = maintenanceActions::loadInitialStrategyPackCatalog,
                 updateStrategyPackCatalogRuntimeState = { runtimeState ->

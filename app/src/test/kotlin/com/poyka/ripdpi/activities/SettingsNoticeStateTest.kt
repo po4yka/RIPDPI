@@ -31,21 +31,4 @@ class SettingsNoticeStateTest {
 
         assertEquals(newer, state.latest.value)
     }
-
-    @Test
-    fun `setting a pin after it was absent clears the notice but the first value does not`() =
-        kotlinx.coroutines.test.runTest {
-            val state = SettingsNoticeState()
-            val lost = notice(1)
-
-            state.post(lost)
-            state.clearWhenPinSet(kotlinx.coroutines.flow.flowOf(true))
-            assertEquals(lost, state.latest.value)
-
-            state.clearWhenPinSet(kotlinx.coroutines.flow.flowOf(false))
-            assertEquals(lost, state.latest.value)
-
-            state.clearWhenPinSet(kotlinx.coroutines.flow.flowOf(false, true))
-            assertNull(state.latest.value)
-        }
 }

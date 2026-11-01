@@ -129,7 +129,7 @@ fun SettingsRoute(
             ),
         permissionSummary = permissionSummary,
         notice = notice.value,
-        onDismissNotice = { notice.value?.let(viewModel::acknowledgeSettingsNotice) },
+        onDismissNotice = viewModel::acknowledgeSettingsNotice,
         modifier = modifier,
     )
 }
