@@ -25,11 +25,12 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assume.assumeTrue
 import kotlin.math.roundToInt
 
-private val CROSS_PLATFORM_OPTIONS =
+// 0.1% of the frame: Linux CI and macOS renders differ by under 0.05%, while a moved button is about 0.4%.
+internal val CROSS_PLATFORM_OPTIONS =
     RoborazziOptions(
         compareOptions =
             RoborazziOptions.CompareOptions(
-                changeThreshold = 0.01F,
+                changeThreshold = 0.001F,
             ),
     )
 

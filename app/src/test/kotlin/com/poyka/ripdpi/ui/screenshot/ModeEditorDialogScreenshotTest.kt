@@ -56,7 +56,7 @@ class ModeEditorDialogScreenshotTest {
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.UnsavedChangesDialog)
-            .captureRoboImage()
+            .captureRoboImage(roborazziOptions = CROSS_PLATFORM_OPTIONS)
     }
 
     private fun captureHydrationFailureDialog(themePreference: String) {
@@ -70,6 +70,6 @@ class ModeEditorDialogScreenshotTest {
         }
         composeRule.waitForIdle()
 
-        composeRule.onRoot().captureRoboImage()
+        composeRule.onRoot().captureRoboImage(roborazziOptions = CROSS_PLATFORM_OPTIONS)
     }
 }

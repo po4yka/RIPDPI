@@ -73,7 +73,7 @@ class ConnectionStrategyPanelScreenshotTest {
         }
         if (expanded) composeRule.onNodeWithText(StrategyLabel).performClick()
         composeRule.waitForIdle()
-        composeRule.onRoot().captureRoboImage()
+        composeRule.onRoot().captureRoboImage(roborazziOptions = CROSS_PLATFORM_OPTIONS)
     }
 
     private companion object {

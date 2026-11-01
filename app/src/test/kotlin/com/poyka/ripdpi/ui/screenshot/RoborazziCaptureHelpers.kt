@@ -13,7 +13,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.github.takahirom.roborazzi.ExperimentalRoborazziApi
 import com.github.takahirom.roborazzi.RoborazziComposeOptions
-import com.github.takahirom.roborazzi.RoborazziOptions
 import com.github.takahirom.roborazzi.fontScale
 import com.github.takahirom.roborazzi.inspectionMode
 import com.github.takahirom.roborazzi.size
@@ -38,11 +37,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 internal const val DefaultTestClassFqn =
     "com.poyka.ripdpi.ui.screenshot.RdsComponentsScreenshotTest"
-
-private val CROSS_PLATFORM_OPTIONS =
-    RoborazziOptions(
-        compareOptions = RoborazziOptions.CompareOptions(changeThreshold = 0.01F),
-    )
 
 /**
  * Render one PNG. When [layoutDirection] is `null` the composition's default
