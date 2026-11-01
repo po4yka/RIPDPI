@@ -67,7 +67,6 @@ fun WarningBanner(
     onClick: (() -> Unit)? = null,
     onDismiss: (() -> Unit)? = null,
 ) {
-    val surfaceStyle = RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.feedback.banner)
     val state = RipDpiThemeTokens.state.banner.resolve(RipDpiThemeTokens.stateRoles.banner.fromTone(tone))
     val resolvedIcon = icon ?: defaultWarningBannerIcon(tone)
     val baseModifier =
