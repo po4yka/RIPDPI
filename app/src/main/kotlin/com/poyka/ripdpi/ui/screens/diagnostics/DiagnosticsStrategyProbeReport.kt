@@ -3,11 +3,10 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -208,23 +207,19 @@ private fun StrategyReportConfidenceWarnings(assessment: StrategyProbeAuditAsses
     }
 }
 
+// Both chips describe the scan (its suite and that applying is manual), not an outcome, so they stay neutral and wrap.
 @Composable
 private fun StrategyReportBadges(
     suiteLabel: String,
     manualApplyBadge: String,
 ) {
     val spacing = RipDpiThemeTokens.spacing
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(spacing.xs)) {
-        items(
-            listOf(
-                suiteLabel to DiagnosticsTone.Info,
-                manualApplyBadge to DiagnosticsTone.Positive,
-            ),
-            key = { it.first },
-            contentType = { "strategy_report_badge" },
-        ) { badge ->
-            EventBadge(text = badge.first, tone = badge.second)
-        }
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(spacing.xs),
+        verticalArrangement = Arrangement.spacedBy(spacing.xs),
+    ) {
+        EventBadge(text = suiteLabel, tone = DiagnosticsTone.Neutral)
+        EventBadge(text = manualApplyBadge, tone = DiagnosticsTone.Neutral)
     }
 }
 
