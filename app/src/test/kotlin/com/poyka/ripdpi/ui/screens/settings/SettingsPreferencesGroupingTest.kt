@@ -119,7 +119,7 @@ class SettingsPreferencesGroupingTest {
         val tag = RipDpiTestTags.SettingsHapticFeedback
         composeRule.onNodeWithTag(tag).performScrollTo().performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.dropdownOption(tag, "off")).performClick()
-        composeRule.onNodeWithText(resource(R.string.haptic_feedback_off)).assertIsDisplayed()
+        composeRule.onNodeWithText(resource(R.string.haptic_feedback_off), useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithTag(tag).assertContentDescriptionEquals(
             RuntimeEnvironment.getApplication().getString(
                 R.string.haptic_feedback_accessibility,

@@ -32,12 +32,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.collapse
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.disabled
 import androidx.compose.ui.semantics.error
 import androidx.compose.ui.semantics.expand
-import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.onClick
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.semantics.testTag
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -216,16 +220,11 @@ private fun DropdownField(
                     .fillMaxWidth()
                     // The same minimum as RipDpiTextField, so a dropdown lines up with the text fields around it.
                     .heightIn(min = components.inputs.controlHeight)
-                    .ripDpiTestTag(testTag)
                     .clip(shape)
                     .background(colors.inputBackground, shape)
                     .border(borderWidth, borderColor, shape)
-                    .dropdownSemantics(label, shownText, errorText, isInteractive, expanded, setExpanded)
-                    .ripDpiClickable(
-                        enabled = isInteractive,
-                        role = Role.DropdownList,
-                        interactionSource = source,
-                    ) { setExpanded(true) }
+                    .ripDpiClickable(enabled = isInteractive, interactionSource = source) { setExpanded(true) }
+                    .dropdownSemantics(testTag, label, shownText, errorText, isInteractive, expanded, setExpanded)
                     // The same vertical padding as RipDpiTextField, so the two match at every font scale.
                     .padding(horizontal = horizontalPadding, vertical = components.inputs.fieldVerticalPadding),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -251,7 +250,13 @@ private fun DropdownField(
     }
 }
 
+/**
+ * The only semantics source of the field. Compose turns two sources on one layout node (a clickable plus a merged
+ * semantics block) into two accessibility nodes, one nameless and one inert, so the tag, name, state, role and actions
+ * are all declared here and the clickable above contributes only the pointer and key input.
+ */
 private fun Modifier.dropdownSemantics(
+    testTag: String?,
     label: String?,
     shownText: String,
     errorText: String?,
@@ -259,14 +264,18 @@ private fun Modifier.dropdownSemantics(
     expanded: Boolean,
     setExpanded: (Boolean) -> Unit,
 ): Modifier =
-    semantics(mergeDescendants = true) {
-        label?.let {
-            contentDescription = it
-            // The label replaces the merged text for a screen reader, so the value is its state.
-            stateDescription = shownText
-        }
+    clearAndSetSemantics {
+        testTag?.let { this.testTag = it }
+        role = Role.DropdownList
+        // Without a label the value is the name; with one, the label is the name and the value is its state.
+        contentDescription = label ?: shownText
+        label?.let { stateDescription = shownText }
         errorText?.let { error(it) }
         if (isInteractive) {
+            onClick {
+                setExpanded(true)
+                true
+            }
             if (expanded) {
                 collapse {
                     setExpanded(false)
@@ -278,6 +287,8 @@ private fun Modifier.dropdownSemantics(
                     true
                 }
             }
+        } else {
+            disabled()
         }
     }
 

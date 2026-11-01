@@ -267,7 +267,7 @@ class RelayFieldsTest {
 
         composeRule.onNodeWithText("Hop 1 · Entry").assertExists()
         composeRule.onNodeWithText("Hop 2 · Exit").assertExists()
-        composeRule.onNodeWithText("entry · VLESS + Reality").assertExists()
+        composeRule.onNodeWithText("entry · VLESS + Reality", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText("Exit Transit · ru").assertExists()
         composeRule.onNodeWithText("Connected · 24 ms").assertExists()
         composeRule.onNodeWithText("Connecting · 61 ms").assertExists()

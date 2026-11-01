@@ -240,7 +240,8 @@ class SharedControlInputTest {
             }
         }
         composeRule.onNodeWithText("Network mode").assertIsDisplayed()
-        composeRule.onNodeWithText("Choose mode").assertIsDisplayed()
+        // The dropdown is one merged node, so its drawn value text is only in the unmerged tree.
+        composeRule.onNodeWithText("Choose mode", useUnmergedTree = true).assertIsDisplayed()
         composeRule.onNodeWithText("Choose automatically").assertIsDisplayed()
         composeRule
             .onNodeWithTag("legacy")
