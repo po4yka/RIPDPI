@@ -345,6 +345,19 @@ class RipDpiNavHostLogicTest {
             assertEquals(null, Route.fromStableRoute(stableRoute))
         }
     }
+
+    @Test
+    fun `bar keeps the previous tab while a transition runs and drops it once settled`() {
+        assertEquals(Route.Settings, heldTopLevel(selected = null, previousTab = Route.Settings, transitioning = true))
+        assertEquals(null, heldTopLevel(selected = null, previousTab = Route.Settings, transitioning = false))
+    }
+
+    @Test
+    fun `arriving at a tab selects it at once`() {
+        val held = heldTopLevel(selected = Route.Home, previousTab = Route.Settings, transitioning = true)
+        assertEquals(Route.Home, held)
+        assertEquals(Route.Home, heldTopLevel(selected = Route.Home, previousTab = null, transitioning = false))
+    }
 }
 
 private enum class ReachabilityMechanism {

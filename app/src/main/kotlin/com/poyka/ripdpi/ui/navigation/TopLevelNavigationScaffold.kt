@@ -38,3 +38,10 @@ internal fun TopLevelNavigationScaffold(
         content = content,
     )
 }
+
+/** The tab to show selected: the current one, or the previous one while a transition between two screens runs. */
+internal fun heldTopLevel(
+    selected: Route?,
+    previousTab: Route?,
+    transitioning: Boolean,
+): Route? = selected ?: previousTab.takeIf { transitioning }

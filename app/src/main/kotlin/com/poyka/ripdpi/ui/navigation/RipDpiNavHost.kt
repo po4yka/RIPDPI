@@ -287,7 +287,7 @@ private fun rememberHeldTopLevel(
     val transitioning = visibleEntries.count { it.destination !is NavGraph } > 1
     var lastTab by remember { mutableStateOf(selected) }
     if (selected != null) SideEffect { lastTab = selected }
-    return selected ?: lastTab.takeIf { transitioning }
+    return heldTopLevel(selected, lastTab, transitioning)
 }
 
 /**
