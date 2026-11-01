@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -34,10 +35,16 @@ fun AdvancedSettingsRoute(
     val strategyPackCatalog by viewModel.strategyPackCatalog.collectAsStateWithLifecycle()
     val binder = remember(viewModel) { AdvancedSettingsBinder(viewModel::updateSetting) }
     var notice by rememberAdvancedNoticeState()
-    ObserveSettingsEffects(
-        effects = viewModel.effects,
-        onNotice = { notice = it },
-    )
+    val pendingNotice by viewModel.advancedNotice.collectAsStateWithLifecycle()
+    val performHaptic = rememberRipDpiHapticPerformer()
+    // Notices raised while Advanced was away wait in the ViewModel; show one, then acknowledge it.
+    LaunchedEffect(pendingNotice) {
+        pendingNotice?.let {
+            performHaptic(settingsNoticeHaptic(it))
+            notice = mapNoticeEffect(it)
+            viewModel.acknowledgeAdvancedNotice(it)
+        }
+    }
     ObserveSettingsEffects(
         effects = workerViewModel.effects,
         onNotice = { notice = it },

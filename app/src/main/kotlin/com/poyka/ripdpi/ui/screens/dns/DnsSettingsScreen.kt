@@ -12,6 +12,7 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.activities.OdohResolverFields
+import com.poyka.ripdpi.activities.SettingsEffect
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCloudflare
@@ -45,6 +46,8 @@ internal fun DnsSettingsScreen(
     onSavePlainDns: (String) -> Unit,
     onIpv6Changed: (Boolean) -> Unit,
     modifier: Modifier = Modifier,
+    notice: SettingsEffect.Notice? = null,
+    onDismissNotice: () -> Unit = {},
 ) {
     var draftProtocol by rememberSaveable(uiState.dns.encryptedDnsProtocol) { mutableStateOf<String?>(null) }
     val editorUiState =
@@ -72,6 +75,14 @@ internal fun DnsSettingsScreen(
         onNavigationClick = onBack,
         contentWidth = RipDpiScaffoldWidth.Form,
     ) {
+        notice?.let {
+            WarningBanner(
+                title = stringResource(it.title),
+                message = it.messageOverride ?: stringResource(it.message),
+                tone = WarningBannerTone.Error,
+                onDismiss = onDismissNotice,
+            )
+        }
         DnsProxyModeWarning(uiState)
         DnsActiveConfigurationCard(uiState = uiState, selectedResolver = selectedResolver)
         DnsModeSection(uiState = uiState, onModeSelected = onModeSelected)

@@ -16,10 +16,13 @@ fun DnsSettingsRoute(
     viewModel: SettingsViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
+    val notice by viewModel.dnsNotice.collectAsStateWithLifecycle()
 
     DnsSettingsScreen(
         uiState = uiState,
         onBack = onBack,
+        notice = notice,
+        onDismissNotice = { notice?.let(viewModel::acknowledgeDnsNotice) },
         onModeSelected = { mode ->
             if (mode == DnsModeEncrypted) {
                 if (uiState.dns.dnsMode != DnsModeEncrypted) {

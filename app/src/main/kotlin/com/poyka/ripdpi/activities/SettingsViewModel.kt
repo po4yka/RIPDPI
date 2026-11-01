@@ -10,13 +10,12 @@ import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
+import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.channels.BufferOverflow
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterIsInstance
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -36,7 +35,7 @@ class SettingsViewModel
         reconnectCoordinator: com.poyka.ripdpi.services.RunningServiceReconnect,
         serviceIntentArbiter: ServiceIntentArbiter,
     ) : ViewModel() {
-        private val _effects =
+        private val settingsEffects =
             MutableSharedFlow<SettingsEffect>(
                 extraBufferCapacity = 1,
                 onBufferOverflow = BufferOverflow.DROP_OLDEST,
@@ -47,17 +46,25 @@ class SettingsViewModel
             SettingsMutationRunner(
                 viewModelScope,
                 settingsUiDependencies.appSettingsRepository,
-                _effects,
+                settingsEffects,
             )
 
-        // Split so each effect has one consumer: the Settings list pane and the detail beside it are both
-        // resumed on wide windows, and a single-delivery flow would hand an event to the wrong one.
-        // Notices and setting changes are not queued: with no resumed collector they are dropped, so they never
-        // replay later on another screen or pile up unconsumed.
-        val effects: Flow<SettingsEffect> =
-            _effects.filter { it !is SettingsEffect.RequestDisableBatteryOptimization }
+        // The Advanced screen owns pack-refresh and PIN notices; a notice raised while it is away waits here.
+        private val advancedNoticeState = SettingsNoticeState()
+        val advancedNotice: StateFlow<SettingsEffect.Notice?> = advancedNoticeState.latest
+
+        // The DNS screen owns its reconnect failure; kept apart so it never shows up in Advanced.
+        private val dnsNoticeState = SettingsNoticeState()
+        val dnsNotice: StateFlow<SettingsEffect.Notice?> = dnsNoticeState.latest
+
+        fun acknowledgeAdvancedNotice(notice: SettingsEffect.Notice) = advancedNoticeState.acknowledge(notice)
+
+        fun acknowledgeDnsNotice(notice: SettingsEffect.Notice) = dnsNoticeState.acknowledge(notice)
+
+        // The battery request has its own flow: the Settings list pane and a detail beside it are both resumed on
+        // wide windows, and a single-delivery flow would hand the event to the wrong one.
         val batteryOptimizationRequests =
-            _effects
+            settingsEffects
                 .filterIsInstance<SettingsEffect.RequestDisableBatteryOptimization>()
                 .bufferForUiLifecycle(viewModelScope)
         val hostPackCatalog: StateFlow<HostPackCatalogUiState> =
@@ -91,7 +98,7 @@ class SettingsViewModel
                 serviceStateStore = settingsActionDependencies.serviceStateStore,
                 reconnectCoordinator = reconnectCoordinator,
                 onReconnectFailure = { result ->
-                    _effects.tryEmit(
+                    dnsNoticeState.post(
                         SettingsEffect.Notice(
                             com.poyka.ripdpi.R.string.runtime_config_failed,
                             result.reason.messageResource(),
@@ -129,9 +136,13 @@ class SettingsViewModel
         }
 
         init {
+            // Subscribed before anything can emit, so no notice is missed.
+            viewModelScope.launch(start = CoroutineStart.UNDISPATCHED) {
+                settingsEffects.filterIsInstance<SettingsEffect.Notice>().collect(advancedNoticeState::post)
+            }
             settingsViewModelBootstrapper.initialize(
                 scope = viewModelScope,
-                effects = _effects,
+                effects = settingsEffects,
                 loadInitialHostPackCatalog = maintenanceActions::loadInitialHostPackCatalog,
                 loadInitialStrategyPackCatalog = maintenanceActions::loadInitialStrategyPackCatalog,
                 updateStrategyPackCatalogRuntimeState = { runtimeState ->
