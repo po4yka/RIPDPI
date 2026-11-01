@@ -11,6 +11,8 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButtonStyle
+import com.poyka.ripdpi.ui.components.buttons.RipDpiTextAction
+import com.poyka.ripdpi.ui.components.buttons.RipDpiTopBarAction
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiContrastLevel
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -56,6 +58,8 @@ class RipDpiFocusRingTest {
                 Column {
                     RipDpiButton("Primary", {}, Modifier.ripDpiTestTag("primary"))
                     RipDpiButton("Ghost", {}, Modifier.ripDpiTestTag("ghost"), variant = RipDpiButtonVariant.Ghost)
+                    RipDpiTextAction("Text", {}, Modifier.ripDpiTestTag("text"))
+                    RipDpiTopBarAction("Save", {}, Modifier.ripDpiTestTag("topbar"))
                     RipDpiIconButton(
                         RipDpiIcons.Copy,
                         "Copy",
@@ -66,7 +70,7 @@ class RipDpiFocusRingTest {
                 }
             }
         }
-        listOf("primary", "ghost", "icon").forEach { tag ->
+        listOf("primary", "ghost", "icon", "text", "topbar").forEach { tag ->
             val node = composeRule.onNodeWithTag(tag)
             val before = node.captureToImage().toPixelMap()
             node.requestFocus()

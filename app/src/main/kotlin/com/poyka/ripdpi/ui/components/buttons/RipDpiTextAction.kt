@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.components.buttons
 
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -8,6 +9,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -18,6 +20,7 @@ import androidx.compose.ui.unit.Dp
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.components.ripDpiFocusRing
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 /**
@@ -46,12 +49,17 @@ fun RipDpiTextAction(
     val type = RipDpiThemeTokens.type
     val resolvedColor = if (color == Color.Unspecified) colors.mutedForeground else color
     val actionMinHeight = RipDpiThemeTokens.components.buttons.minHeight
-    val sized = modifier.heightIn(min = maxOf(minHeight ?: actionMinHeight, actionMinHeight))
+    val source = remember { MutableInteractionSource() }
+    val sized =
+        modifier
+            .heightIn(min = maxOf(minHeight ?: actionMinHeight, actionMinHeight))
+            .ripDpiFocusRing(source, RipDpiThemeTokens.shapes.lg, Color.Transparent, ink = resolvedColor)
     Box(
         modifier =
             sized.ripDpiClickable(
                 enabled = enabled,
                 role = Role.Button,
+                interactionSource = source,
                 hapticFeedback = hapticFeedback,
                 onClick = onClick,
             ),
