@@ -20,7 +20,7 @@ deployment_evidence: No deployment is owned by this change.
 
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
-| REQ-UIX-M3C-FACADE | UIX-1793256949141341 | RipDpiMaterialButtonTest, RipDpiSwitchColorsTest, FocusRingContrastTest, relay editor tests, facade goldens and emulator smoke captures; public RipDpi signatures, test tags and automation IDs kept, with call sites updated in the same commits | Passed |
+| REQ-UIX-M3C-FACADE | UIX-1793256949141341 | RipDpiMaterialButtonTest, RipDpiSwitchColorsTest, relay editor tests, facade goldens and emulator smoke captures; public RipDpi signatures, test tags and automation IDs kept, with call sites updated in the same commits | Passed |
 | REQ-UIX-M3C-DELETE | UIX-1793256949885861 | RipDpiButtonStateTokens, RipDpiControlStateTokens and RipDpiStyleSprings were deleted with their tests; the app source diff removes 2261 lines and adds 948 | Passed |
 | REQ-UIX-M3C-CUSTOM | UIX-1793256950622795 | DesignSystemSourceRulesTest (no direct colorScheme reads outside the theme), RipDpiMotionTest, and light and dark goldens of the custom components (log rows, the logs stream, and the Home and screen catalog captures) | Passed |
 | REQ-UIX-M3C-STABLE | UIX-1793256951282038 | A source search finds no ExperimentalMaterial3ExpressiveApi opt-in, DesignSystemSourceRulesTest enforces that, and the app compiles in CI | Passed |
@@ -28,4 +28,5 @@ deployment_evidence: No deployment is owned by this change.
 ## Deviations
 
 - Chips and settings rows stay on the RDS layout over Material 3 `Surface` with Material 3 colors instead of `FilterChip` and `ListItem`. This is the owner's decision of 2026-10-30, which keeps their density and test tags.
-- Bottom sheets, the exposed dropdown and the search sheet use `ModalBottomSheet`, `SheetState` and `ExposedDropdownMenuBox` under `ExperimentalMaterial3Api`. The requirement forbids only Expressive opt-ins, and these are the only Material 3 APIs for those components.
+- Bottom sheets and the search sheet use `ModalBottomSheet` and `SheetState` under `ExperimentalMaterial3Api`. The requirement forbids only Expressive opt-ins, and these are the only Material 3 APIs for those components.
+- Correction of 2026-11-01: this record first said that RipDpiDropdown uses `ExposedDropdownMenuBox` and cited a `FocusRingContrastTest`. Neither was true. RipDpiDropdown is a custom anchor drawn with the Material 3 outlined-field border metrics, opening a Material 3 `DropdownMenu`, and exposed to accessibility as one merged node with its label, value and error (RipDpiDropdownSemanticsTest). RipDpiDialog is a `Dialog` with a Material 3 `Surface`, not `AlertDialog`. The button focus ring was lost in the rewrite; it was restored with RipDpiFocusRingTest in the audit fixes of 2026-11-01.
