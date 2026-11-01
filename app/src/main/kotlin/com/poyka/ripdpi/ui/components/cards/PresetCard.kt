@@ -30,6 +30,7 @@ import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.presetBadge
+import com.poyka.ripdpi.ui.theme.presetBadgeColors
 import com.poyka.ripdpi.ui.theme.presetRadio
 import com.poyka.ripdpi.ui.theme.presetRadioDot
 import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
@@ -87,7 +88,12 @@ fun PresetCard(
         RipDpiThemeTokens.surfaces.resolve(
             RipDpiThemeTokens.surfaceRoles.presetCard.card(selected),
         )
-    val badgeContent = if (selected) colors.background else colors.mutedForeground
+    val badgeContent =
+        presetBadgeColors(
+            RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.presetCard.badge(selected)),
+            selected,
+            colors.mutedForeground,
+        ).content
     val resolvedInteractionSource = interactionSource ?: remember { MutableInteractionSource() }
     val styleState =
         rememberUpdatedStyleState(resolvedInteractionSource) {

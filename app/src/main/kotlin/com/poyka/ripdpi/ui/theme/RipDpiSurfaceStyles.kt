@@ -3,6 +3,7 @@
 package com.poyka.ripdpi.ui.theme
 
 import androidx.compose.foundation.style.CommonStyle
+import androidx.compose.ui.graphics.Color
 
 /** Surface recipes extend the same catalog as controls. All defaults use layer zero. */
 internal fun RipDpiComponentStyles.presetBadge(role: RipDpiSurfaceRole): CommonStyle = PresetBadgeStyles.getValue(role)
@@ -31,11 +32,33 @@ internal fun RipDpiComponentStyles.routeConnector(role: RipDpiRouteAvailabilityS
 internal fun RipDpiComponentStyles.actuatorFault(role: RipDpiActuatorStateRole): CommonStyle =
     ActuatorFaultStyles.getValue(role)
 
+/** A preset card's badge: [container] is its fill and [content] the label drawn on it. */
+internal data class PresetBadgeColors(
+    val container: Color,
+    val content: Color,
+)
+
+/**
+ * A selected badge is inverted against its card, so its label takes the card's container color, the one that
+ * [RipDpiSurfaceStyle.content] is guaranteed to contrast with. An unselected badge keeps the muted label.
+ */
+internal fun presetBadgeColors(
+    surface: RipDpiSurfaceStyle,
+    selected: Boolean,
+    mutedForeground: Color,
+): PresetBadgeColors =
+    if (selected) {
+        PresetBadgeColors(container = surface.content, content = surface.container)
+    } else {
+        PresetBadgeColors(container = surface.container, content = mutedForeground)
+    }
+
 private val PresetBadgeStyles =
     RipDpiSurfaceRole.entries.associateWith { role ->
         CommonStyle {
             val surface = LocalRipDpiSurfaceTokens.currentValue.resolve(role)
-            rdsBackground(if (state.isSelected) surface.content else surface.container)
+            val colors = LocalRipDpiExtendedColors.currentValue
+            rdsBackground(presetBadgeColors(surface, state.isSelected, colors.mutedForeground).container)
         }
     }
 
