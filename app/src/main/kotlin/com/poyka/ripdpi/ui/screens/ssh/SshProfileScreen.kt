@@ -35,7 +35,7 @@ import com.poyka.ripdpi.ui.screens.profiles.RelayEditorHint
 import com.poyka.ripdpi.ui.screens.profiles.RelayPasswordField
 import com.poyka.ripdpi.ui.screens.profiles.RelayProfileNotFoundCard
 import com.poyka.ripdpi.ui.screens.profiles.RelaySecretField
-import com.poyka.ripdpi.ui.screens.profiles.ScrollToTopOnChange
+import com.poyka.ripdpi.ui.screens.profiles.ScrollToTopOnFailedSave
 import com.poyka.ripdpi.ui.screens.profiles.relayPortRangeHelper
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -122,7 +122,7 @@ internal fun SshProfileScreen(
 ) {
     SecureWindowEffect()
     val scrollState = rememberScrollState()
-    ScrollToTopOnChange(scrollState, uiState.errorMessage)
+    ScrollToTopOnFailedSave(scrollState, uiState.saving, uiState.errorMessage != null)
     RipDpiContentScreenScaffold(
         scrollState = scrollState,
         title = stringResource(R.string.ssh_editor_title),

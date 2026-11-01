@@ -23,7 +23,7 @@ import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.profiles.RelayEditorHint
 import com.poyka.ripdpi.ui.screens.profiles.RelayPasswordField
-import com.poyka.ripdpi.ui.screens.profiles.ScrollToTopOnChange
+import com.poyka.ripdpi.ui.screens.profiles.ScrollToTopOnFailedSave
 import com.poyka.ripdpi.ui.screens.profiles.relayPortRangeHelper
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -65,7 +65,7 @@ internal fun AnyTlsProfileScreen(
 ) {
     SecureWindowEffect()
     val scrollState = rememberScrollState()
-    ScrollToTopOnChange(scrollState, uiState.errorMessage)
+    ScrollToTopOnFailedSave(scrollState, uiState.saving, uiState.errorMessage != null)
     RipDpiContentScreenScaffold(
         scrollState = scrollState,
         title = stringResource(R.string.anytls_editor_title),

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.profiles
 
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.text.input.TextObfuscationMode
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -49,6 +50,8 @@ internal fun RelaySecretField(
         behavior =
             RipDpiTextFieldBehavior(
                 textObfuscationMode = if (revealed) TextObfuscationMode.Visible else TextObfuscationMode.Hidden,
+                // A revealed secret is a plain field; keep autocorrect from learning or changing it.
+                keyboardOptions = KeyboardOptions(autoCorrectEnabled = false),
                 enabled = enabled,
             ),
         trailingContent = {
@@ -84,13 +87,24 @@ internal fun RelayPasswordField(
     )
 }
 
-/** Scrolls an editor form to the top when [trigger] becomes non-null, where its error and hint are shown. */
+/**
+ * Scrolls an editor form to the top, where its error card sits, when a save ends with an error or an error first
+ * appears. Keyed on the save finishing rather than the error value, so the same error twice still scrolls; the
+ * previous values are plain remembered state, so a rotation with the error showing does not scroll again.
+ */
 @Composable
-internal fun ScrollToTopOnChange(
+internal fun ScrollToTopOnFailedSave(
     scrollState: ScrollState,
-    trigger: Any?,
+    saving: Boolean,
+    hasError: Boolean,
 ) {
-    LaunchedEffect(trigger) { if (trigger != null) scrollState.animateScrollTo(0) }
+    var wasSaving by remember { mutableStateOf(saving) }
+    var hadError by remember { mutableStateOf(hasError) }
+    LaunchedEffect(saving, hasError) {
+        if (hasError && ((wasSaving && !saving) || !hadError)) scrollState.animateScrollTo(0)
+        wasSaving = saving
+        hadError = hasError
+    }
 }
 
 /** The caption that explains why the editor's primary action in the top app bar is disabled. */

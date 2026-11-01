@@ -107,9 +107,14 @@ internal fun RuleEditorScreen(
     var saveAttempts by rememberSaveable { mutableIntStateOf(0) }
     val saveAttempted = saveAttempts > 0
     val listState = rememberLazyListState()
-    // Runs after the banner item is composed: scrolling in the click handler would run before it exists.
+    // Runs after the banner item is composed: scrolling in the click handler would run before it exists. The handled
+    // count is saved with the attempts, so restoring after a rotation does not scroll again.
+    var handledAttempts by rememberSaveable { mutableIntStateOf(saveAttempts) }
     LaunchedEffect(saveAttempts) {
-        if (saveAttempts > 0 && state.isEmpty) listState.animateScrollToItem(0)
+        if (saveAttempts != handledAttempts) {
+            handledAttempts = saveAttempts
+            if (state.isEmpty) listState.animateScrollToItem(0)
+        }
     }
     val onSave: () -> Unit = {
         saveAttempts++
