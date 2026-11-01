@@ -104,13 +104,13 @@ class SettingsPreferencesScreenTest {
     }
 
     @Test
-    fun communityApiUrlDialogHasOneFilledAction() {
+    fun communityApiUrlDialogUsesTextButtonActions() {
         val app = RuntimeEnvironment.getApplication()
         val rowTitle = app.getString(R.string.settings_community_source_title)
         var filledColor = Color.Unspecified
         composeRule.setContent {
             RipDpiTheme {
-                // A filled (primary) button paints its container in the foreground color.
+                // A filled button paints its container in the foreground color; dialog actions are text buttons.
                 filledColor = RipDpiThemeTokens.colors.foreground
                 SettingsScreen(
                     uiState = SettingsUiState(),
@@ -137,9 +137,19 @@ class SettingsPreferencesScreenTest {
             return filled.toFloat() / (pixels.width * pixels.height)
         }
 
-        assertTrue(filledShare(R.string.settings_community_api_url_save) > 0.5f)
+        assertTrue(filledShare(R.string.settings_community_api_url_save) < 0.3f)
         assertTrue(filledShare(R.string.config_cancel) < 0.3f)
         assertTrue(filledShare(R.string.settings_community_api_url_reset) < 0.3f)
+
+        // With no filled action the two choices differ by place: dismiss first, confirm last.
+        fun bounds(labelRes: Int) =
+            composeRule
+                .onNode(hasText(app.getString(labelRes)) and hasClickAction())
+                .fetchSemanticsNode()
+                .boundsInRoot
+        val cancel = bounds(R.string.config_cancel)
+        val save = bounds(R.string.settings_community_api_url_save)
+        assertTrue("Cancel must come before Save: $cancel $save", cancel.right <= save.left)
     }
 
     @Test

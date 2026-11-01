@@ -52,14 +52,15 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 // Material outlines a disabled button with onSurface at 12%.
 private const val DisabledBorderAlpha = 0.12f
 
-private const val DarkBackgroundLuminance = 0.5f
-
 enum class RipDpiButtonVariant {
     Primary,
     Secondary,
     Outline,
     Ghost,
     Destructive,
+
+    /** Destructive-colored text on no container, for the confirm action of an end-aligned dialog row. */
+    DestructiveGhost,
 }
 
 /**
@@ -209,7 +210,9 @@ fun RipDpiButton(
             )
         }
 
-        RipDpiButtonVariant.Ghost -> {
+        RipDpiButtonVariant.Ghost,
+        RipDpiButtonVariant.DestructiveGhost,
+        -> {
             TextButton(
                 onClick = handleClick,
                 modifier = buttonModifier,
@@ -250,6 +253,15 @@ internal fun ripDpiButtonColors(variant: RipDpiButtonVariant): ButtonColors {
         RipDpiButtonVariant.Secondary -> {
             ButtonDefaults.filledTonalButtonColors(
                 disabledContainerColor = colors.border,
+                disabledContentColor = colors.mutedForeground,
+            )
+        }
+
+        RipDpiButtonVariant.DestructiveGhost -> {
+            ButtonDefaults.textButtonColors(
+                containerColor = Color.Transparent,
+                contentColor = colors.destructive,
+                disabledContainerColor = Color.Transparent,
                 disabledContentColor = colors.mutedForeground,
             )
         }

@@ -82,6 +82,30 @@ class RipDpiMaterialButtonTest {
     }
 
     @Test
+    fun `destructive ghost is readable red text in light theme`() = assertDestructiveGhost("light")
+
+    @Test
+    fun `destructive ghost is readable red text in dark theme`() = assertDestructiveGhost("dark")
+
+    private fun assertDestructiveGhost(theme: String) {
+        lateinit var ghost: ButtonColors
+        lateinit var colors: RipDpiExtendedColors
+        var dialog = Color.Unspecified
+        composeRule.setContent {
+            RipDpiTheme(themePreference = theme) {
+                ghost = ripDpiButtonColors(RipDpiButtonVariant.DestructiveGhost)
+                colors = RipDpiThemeTokens.colors
+                dialog = RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.feedback.dialog).container
+            }
+        }
+        composeRule.runOnIdle {
+            assertEquals(Color.Transparent, ghost.containerColor)
+            assertEquals(colors.destructive, ghost.contentColor)
+            assertAtLeast("$theme destructive text on the dialog", Text, ghost.contentColor, dialog)
+        }
+    }
+
+    @Test
     fun `destructive and warning icon buttons keep a transparent container and a semantic tint`() {
         lateinit var destructive: IconButtonColors
         lateinit var warning: IconButtonColors

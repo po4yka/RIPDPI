@@ -35,3 +35,10 @@ internal fun RipDpiActionLayout.resolvedActionLayout(): RipDpiActionLayout =
             this
         }
     }
+
+/**
+ * Dialogs follow Material 3: an end-aligned row on every width. A dialog falls back to stacked only when its labels
+ * do not fit, which [RipDpiDialogCard] decides by measuring them.
+ */
+internal fun RipDpiActionLayout.resolvedDialogActionLayout(): RipDpiActionLayout =
+    if (this == RipDpiActionLayout.Adaptive) RipDpiActionLayout.Inline else this

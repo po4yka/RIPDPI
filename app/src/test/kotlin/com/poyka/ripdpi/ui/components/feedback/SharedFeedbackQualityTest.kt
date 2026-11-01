@@ -13,6 +13,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -22,6 +23,7 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -87,7 +89,7 @@ class SharedFeedbackQualityTest {
 
     @Test
     @Config(qualifiers = "w800dp-h640dp-mdpi")
-    fun `large-font adaptive dialog stacks actions in a medium window`() {
+    fun `adaptive dialog stacks with the confirm action on top when its labels do not fit`() {
         composeRule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f, 2f)) {
                 RipDpiTheme {
@@ -108,6 +110,77 @@ class SharedFeedbackQualityTest {
         val dismiss = composeRule.onNodeWithTag("medium-dismiss").getUnclippedBoundsInRoot()
         assertTrue("Actions overlap: $confirm and $dismiss", confirm.bottom <= dismiss.top)
         assertTrue("Confirm target is too narrow: $confirm", confirm.right - confirm.left >= 48.dp)
+    }
+
+    @Test
+    fun `compact dialog keeps adaptive actions inline with dismiss before confirm at default font`() =
+        assertActionPolicy(RipDpiActionLayout.Adaptive, 1f, stacked = false)
+
+    @Test
+    fun `actions share a row exactly up to the available width`() {
+        // Two 100px labels with 10px padding on each edge are 120px buttons, plus an 8px gap.
+        fun fits(availablePx: Int) = dialogActionsFitInRow(listOf(100, 100), 10f, 58f, 8f, availablePx)
+        assertTrue(fits(248))
+        assertTrue(!fits(247))
+    }
+
+    @Test
+    fun `a button never measures narrower than the Material minimum`() {
+        assertTrue(dialogActionsFitInRow(listOf(5, 5), 10f, 58f, 8f, 124))
+        assertTrue(!dialogActionsFitInRow(listOf(5, 5), 10f, 58f, 8f, 123))
+    }
+
+    @Test
+    fun `long Russian actions stay usable at default font`() = assertActionsUsable(RU_DISMISS, RU_CONFIRM, 1f, false)
+
+    @Test
+    fun `long Russian actions stay usable at large font`() = assertActionsUsable(RU_DISMISS, RU_CONFIRM, 1.3f, false)
+
+    @Test
+    fun `long German actions stay usable at default font`() = assertActionsUsable(DE_DISMISS, DE_CONFIRM, 1f, false)
+
+    @Test
+    fun `long German actions stay usable at large font`() = assertActionsUsable(DE_DISMISS, DE_CONFIRM, 1.3f, false)
+
+    @Test
+    fun `long actions stay usable in a right to left layout`() = assertActionsUsable(RU_DISMISS, RU_CONFIRM, 1.3f, true)
+
+    private fun assertActionsUsable(
+        dismissLabel: String,
+        confirmLabel: String,
+        fontScale: Float,
+        rtl: Boolean,
+    ) {
+        composeRule.setContent {
+            CompositionLocalProvider(
+                LocalDensity provides Density(1f, fontScale),
+                LocalLayoutDirection provides if (rtl) LayoutDirection.Rtl else LayoutDirection.Ltr,
+            ) {
+                RipDpiTheme {
+                    Box(Modifier.requiredWidth(280.dp)) {
+                        RipDpiDialogCard(
+                            title = "Export",
+                            dismissAction = RipDpiDialogAction(dismissLabel, {}, "usable-dismiss"),
+                            confirmAction = RipDpiDialogAction(confirmLabel, {}, "usable-confirm"),
+                            visuals = RipDpiDialogVisuals(icon = null),
+                        )
+                    }
+                }
+            }
+        }
+        val confirm = composeRule.onNodeWithTag("usable-confirm").assertIsDisplayed().getUnclippedBoundsInRoot()
+        val dismiss = composeRule.onNodeWithTag("usable-dismiss").assertIsDisplayed().getUnclippedBoundsInRoot()
+        listOf(confirm, dismiss).forEach {
+            assertTrue("Action outside the dialog: $it", it.left >= 0.dp && it.right <= 280.dp)
+            assertTrue("Action target too small: $it", it.right - it.left >= 48.dp && it.bottom - it.top >= 48.dp)
+        }
+        if (confirm.top == dismiss.top) {
+            // Dismiss comes first in reading order, so it sits at the start edge of the pair.
+            val ordered = if (rtl) confirm.right <= dismiss.left else dismiss.right <= confirm.left
+            assertTrue("Row order wrong (rtl=$rtl): $dismiss $confirm", ordered)
+        } else {
+            assertTrue("Stacked confirm must be on top: $confirm $dismiss", confirm.bottom <= dismiss.top)
+        }
     }
 
     @Test
@@ -263,5 +336,12 @@ class SharedFeedbackQualityTest {
         }
         composeRule.onNodeWithContentDescription("Error", useUnmergedTree = true).assertDoesNotExist()
         composeRule.onNodeWithText("Ошибка подключения").assertIsDisplayed()
+    }
+
+    private companion object {
+        const val RU_DISMISS = "Отмена"
+        const val RU_CONFIRM = "Экспортировать сетевой трафик"
+        const val DE_DISMISS = "Abbrechen"
+        const val DE_CONFIRM = "Netzwerkverkehr exportieren"
     }
 }
