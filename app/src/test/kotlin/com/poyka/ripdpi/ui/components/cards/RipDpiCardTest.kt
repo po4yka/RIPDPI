@@ -112,4 +112,24 @@ class RipDpiCardTest {
         assertEquals(scheme.surfaceContainerHigh.toArgb(), inner.toArgb())
         assertEquals(scheme.surfaceContainer.toArgb(), outerEdge.toArgb())
     }
+
+    @Test
+    fun `a card without a variant is tonal and an interactive one is outlined`() {
+        composeRule.setContent {
+            RipDpiTheme(themePreference = "light") {
+                Column {
+                    RipDpiCard(Modifier.ripDpiTestTag("plain")) { Spacer(Modifier.size(80.dp)) }
+                    RipDpiCard(Modifier.ripDpiTestTag("clickable"), onClick = {}) { Spacer(Modifier.size(80.dp)) }
+                }
+            }
+        }
+        val scheme = ripDpiLightColorScheme()
+
+        fun center(tag: String): Int {
+            val image = composeRule.onNodeWithTag(tag).captureToImage().toPixelMap()
+            return image[image.width / 2, image.height / 2].toArgb()
+        }
+        assertEquals(scheme.surfaceContainer.toArgb(), center("plain"))
+        assertEquals(scheme.surface.toArgb(), center("clickable"))
+    }
 }

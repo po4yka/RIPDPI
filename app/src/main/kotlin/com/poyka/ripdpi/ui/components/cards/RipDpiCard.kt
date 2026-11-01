@@ -41,11 +41,27 @@ enum class RipDpiCardVariant {
     Selected,
 }
 
-/** Material 3 [Card] drawn with the RDS surface role of the variant; the outlined variant is the default. */
+// Card elevation would add a tonal tint to a surface-colored container and drop the shadow while pressed or
+// focused, so the role's shadow is drawn directly and stays the same in every state.
+@Composable
+private fun flatCardElevation() =
+    CardDefaults.cardElevation(
+        defaultElevation = 0.dp,
+        pressedElevation = 0.dp,
+        focusedElevation = 0.dp,
+        hoveredElevation = 0.dp,
+        draggedElevation = 0.dp,
+        disabledElevation = 0.dp,
+    )
+
+/**
+ * Material 3 [Card] drawn with the RDS surface role of the variant. Without a [variant] a card with its own [onClick]
+ * is outlined, because an outline marks an interactive card, and any other card is tonal.
+ */
 @Composable
 fun RipDpiCard(
     modifier: Modifier = Modifier,
-    variant: RipDpiCardVariant = RipDpiCardVariant.Outlined,
+    variant: RipDpiCardVariant? = null,
     enabled: Boolean = true,
     onClick: (() -> Unit)? = null,
     paddingValues: PaddingValues = PaddingValues(RipDpiThemeTokens.layout.cardPadding),
@@ -56,11 +72,12 @@ fun RipDpiCard(
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val shape = RipDpiThemeTokens.shapes.xl
+    val resolvedVariant = variant ?: if (onClick != null) RipDpiCardVariant.Outlined else RipDpiCardVariant.Tonal
     val surfaceStyle =
         RipDpiThemeTokens.surfaces.resolve(
-            RipDpiThemeTokens.surfaceRoles.cards.fromVariant(variant),
+            RipDpiThemeTokens.surfaceRoles.cards.fromVariant(resolvedVariant),
         )
-    val nestedTonal = variant == RipDpiCardVariant.Tonal && LocalInsideTonalCard.current
+    val nestedTonal = resolvedVariant == RipDpiCardVariant.Tonal && LocalInsideTonalCard.current
     val container = if (nestedTonal) RipDpiThemeTokens.colors.muted else surfaceStyle.container
     val colors =
         CardDefaults.cardColors(
@@ -71,17 +88,7 @@ fun RipDpiCard(
         )
     val border =
         if (surfaceStyle.border == Color.Transparent) null else BorderStroke(RipDpiStroke.Thin, surfaceStyle.border)
-    // Card elevation would add a tonal tint to a surface-colored container and drop the shadow while pressed or
-    // focused, so the role's shadow is drawn directly and stays the same in every state.
-    val elevation =
-        CardDefaults.cardElevation(
-            defaultElevation = 0.dp,
-            pressedElevation = 0.dp,
-            focusedElevation = 0.dp,
-            hoveredElevation = 0.dp,
-            draggedElevation = 0.dp,
-            disabledElevation = 0.dp,
-        )
+    val elevation = flatCardElevation()
     val cardModifier =
         modifier
             .fillMaxWidth()
@@ -101,7 +108,7 @@ fun RipDpiCard(
                     ).padding(paddingValues),
             verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
-            if (variant == RipDpiCardVariant.Tonal) {
+            if (resolvedVariant == RipDpiCardVariant.Tonal) {
                 CompositionLocalProvider(LocalInsideTonalCard provides true) { content() }
             } else {
                 content()
@@ -139,7 +146,7 @@ fun RipDpiCard(
 @Composable
 private fun RipDpiCardPreview() {
     RipDpiComponentPreview {
-        RipDpiCard {
+        RipDpiCard(variant = RipDpiCardVariant.Outlined) {
             Text(
                 text = "Outlined card",
                 style = RipDpiThemeTokens.type.bodyEmphasis,
