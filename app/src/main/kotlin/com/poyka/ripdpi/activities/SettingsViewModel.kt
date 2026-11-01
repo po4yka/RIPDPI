@@ -11,6 +11,7 @@ import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -51,10 +52,10 @@ class SettingsViewModel
 
         // Split so each effect has one consumer: the Settings list pane and the detail beside it are both
         // resumed on wide windows, and a single-delivery flow would hand an event to the wrong one.
-        val effects =
-            _effects
-                .filter { it !is SettingsEffect.RequestDisableBatteryOptimization }
-                .bufferForUiLifecycle(viewModelScope)
+        // Notices and setting changes are not queued: with no resumed collector they are dropped, so they never
+        // replay later on another screen or pile up unconsumed.
+        val effects: Flow<SettingsEffect> =
+            _effects.filter { it !is SettingsEffect.RequestDisableBatteryOptimization }
         val batteryOptimizationRequests =
             _effects
                 .filterIsInstance<SettingsEffect.RequestDisableBatteryOptimization>()
