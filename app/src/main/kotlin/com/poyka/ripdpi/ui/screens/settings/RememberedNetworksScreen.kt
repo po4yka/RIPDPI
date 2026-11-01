@@ -36,6 +36,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyState
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
@@ -183,23 +184,12 @@ private fun RememberedNetworksConfirmDialog(
 
 @Composable
 private fun RememberedNetworksEmptyState() {
-    RipDpiCard(
-        variant = RipDpiCardVariant.Tonal,
+    RipDpiEmptyState(
+        icon = RipDpiIcons.Public,
+        title = stringResource(R.string.remembered_networks_empty_title),
+        body = stringResource(R.string.remembered_networks_empty_body),
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.RememberedNetworksEmpty),
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
-            Text(
-                text = stringResource(R.string.remembered_networks_empty_title),
-                style = RipDpiThemeTokens.type.bodyEmphasis,
-                color = RipDpiThemeTokens.colors.foreground,
-            )
-            Text(
-                text = stringResource(R.string.remembered_networks_empty_body),
-                style = RipDpiThemeTokens.type.caption,
-                color = RipDpiThemeTokens.colors.mutedForeground,
-            )
-        }
-    }
+    )
 }
 
 @Composable
