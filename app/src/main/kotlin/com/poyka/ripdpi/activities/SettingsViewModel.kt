@@ -6,6 +6,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.security.PinVerifyResult
 import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
@@ -29,6 +30,9 @@ private val PinKeyLostNotice =
         message = R.string.notice_pin_key_lost_message,
         tone = SettingsNoticeTone.Warning,
     )
+
+internal fun AppSettings.settingsNotice(): SettingsEffect.Notice? =
+    if (appLockResetNoticePending) PinKeyLostNotice else null
 
 @Suppress("TooManyFunctions")
 @HiltViewModel
@@ -61,7 +65,7 @@ class SettingsViewModel
         // It follows the persisted flag, so it outlives the process until the user acknowledges it or sets a new PIN.
         val settingsNotice: StateFlow<SettingsEffect.Notice?> =
             settingsUiDependencies.appSettingsRepository.settings
-                .map { if (it.appLockResetNoticePending) PinKeyLostNotice else null }
+                .map { it.settingsNotice() }
                 .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), null)
 
         // The Advanced screen owns pack-refresh notices; a notice raised while it is away waits here.

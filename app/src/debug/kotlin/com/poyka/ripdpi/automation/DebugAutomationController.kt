@@ -329,6 +329,7 @@ class DebugAutomationController
                             setBiometricEnabled(true)
                             // Store the PIN as the app does; a plaintext PIN is wiped at startup.
                             setBackupPin(pinVerifier.hashPin("0000"))
+                            setAppLockResetNoticePending(false)
                         }
                     }
                 }.build()

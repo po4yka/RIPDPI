@@ -138,6 +138,25 @@ class BackupRestoreUseCaseTest {
     }
 
     @Test
+    fun `restore clears a pending app lock reset notice`() =
+        runTest {
+            val live =
+                FakeAppSettingsRepository(
+                    AppSettings
+                        .getDefaultInstance()
+                        .toBuilder()
+                        .setAppLockResetNoticePending(true)
+                        .build(),
+                )
+
+            val result = restoreSettings(live, targetPort = 9999)
+
+            assertTrue(result is RestoreResult.Success)
+            assertEquals(9999, live.snapshot().proxyPort)
+            assertFalse(live.snapshot().appLockResetNoticePending)
+        }
+
+    @Test
     fun `absent settings snapshot leaves live settings unchanged`() =
         runTest {
             val document =

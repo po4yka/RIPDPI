@@ -37,19 +37,6 @@ class HapticFeedbackBackupTest {
     }
 
     @Test
-    fun `FULL backup does not carry the app lock reset notice`() {
-        val settings =
-            AppSettingsSerializer.defaultValue
-                .toBuilder()
-                .setAppLockResetNoticePending(true)
-                .build()
-
-        val backup = BackupSettingsConverter.toMap(settings, BackupVariant.FULL)
-
-        assertFalse(requireNotNull(BackupSettingsConverter.fromMap(backup)).appLockResetNoticePending)
-    }
-
-    @Test
     fun `legacy FULL backup retains system haptic feedback`() {
         val backup = mapOf(BackupSettingsConverter.SnapshotKey to """{"appTheme":"dark"}""")
 

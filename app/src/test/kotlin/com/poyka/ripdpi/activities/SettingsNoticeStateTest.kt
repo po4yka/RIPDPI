@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.AppSettingsSerializer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -30,5 +32,26 @@ class SettingsNoticeStateTest {
         state.acknowledge(old)
 
         assertEquals(newer, state.latest.value)
+    }
+
+    @Test
+    fun `the settings notice follows the persisted reset flag`() {
+        val pending =
+            AppSettingsSerializer.defaultValue
+                .toBuilder()
+                .setAppLockResetNoticePending(true)
+                .build()
+
+        val notice = requireNotNull(pending.settingsNotice())
+        assertEquals(R.string.notice_pin_key_lost_title, notice.title)
+        assertEquals(R.string.notice_pin_key_lost_message, notice.message)
+        assertEquals(SettingsNoticeTone.Warning, notice.tone)
+        assertNull(
+            pending
+                .toBuilder()
+                .setAppLockResetNoticePending(false)
+                .build()
+                .settingsNotice(),
+        )
     }
 }

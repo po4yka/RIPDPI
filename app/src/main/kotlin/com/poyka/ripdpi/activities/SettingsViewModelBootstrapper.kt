@@ -38,10 +38,14 @@ class SettingsViewModelBootstrapper
             val settings = appSettingsRepository.snapshot()
             // Wipe only on a definite "no key": an unreadable keystore must not disable the app lock.
             if (settings.backupPin.isNotBlank() && pinVerifier.isKeyAvailable() == false) {
+                val lostHash = settings.backupPin
                 appSettingsRepository.update {
-                    setBackupPin("")
-                    setBiometricEnabled(false)
-                    setAppLockResetNoticePending(true)
+                    // A PIN saved or restored since the snapshot is not the one whose key was lost.
+                    if (backupPin == lostHash) {
+                        setBackupPin("")
+                        setBiometricEnabled(false)
+                        setAppLockResetNoticePending(true)
+                    }
                 }
             }
         }

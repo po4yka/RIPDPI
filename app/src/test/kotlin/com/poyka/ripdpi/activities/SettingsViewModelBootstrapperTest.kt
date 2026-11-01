@@ -1,8 +1,10 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.InMemoryStrategyPackStateStore
 import com.poyka.ripdpi.data.StrategyPackRuntimeState
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -74,6 +76,51 @@ class SettingsViewModelBootstrapperTest {
             assertTrue(settings.appLockResetNoticePending)
 
             assertEquals(strategyPackStateStore.state.value, runtimeStates.last())
+        }
+
+    @Test
+    fun `initialize leaves a pin saved after the snapshot untouched`() =
+        runTest {
+            val live =
+                FakeAppSettingsRepository(
+                    AppSettingsSerializer.defaultValue
+                        .toBuilder()
+                        .setBackupPin("old")
+                        .build(),
+                )
+            // Models a setBackupPin landing between the bootstrapper's snapshot and its update.
+            val racing =
+                object : AppSettingsRepository by live {
+                    override suspend fun snapshot(): AppSettings =
+                        live.snapshot().also { live.update { setBackupPin("new") } }
+                }
+
+            SettingsViewModelBootstrapper(
+                appSettingsRepository = racing,
+                strategyPackStateStore = InMemoryStrategyPackStateStore(),
+                pinVerifier =
+                    object : PinVerifier {
+                        override fun hashPin(pin: String): String = pin
+
+                        override fun verify(
+                            candidatePin: String,
+                            storedHash: String,
+                        ): Boolean = candidatePin == storedHash
+
+                        override fun isKeyAvailable(): Boolean = false
+                    },
+            ).initialize(
+                scope = backgroundScope,
+                loadInitialHostPackCatalog = {},
+                loadInitialStrategyPackCatalog = {},
+                updateStrategyPackCatalogRuntimeState = {},
+            )
+            advanceUntilIdle()
+            yield()
+            runCurrent()
+
+            assertEquals("new", live.snapshot().backupPin)
+            assertFalse(live.snapshot().appLockResetNoticePending)
         }
 
     @Test

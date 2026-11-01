@@ -15,7 +15,7 @@
 - The proto3 default (false) is inert, so `AppSettingsSerializer` needs no special default, but it records the explicit default for the field as the skill requires.
 - The bootstrapper writes the flag in the same DataStore update that clears the PIN and the app lock setting. One update keeps the state consistent after a crash.
 - The Settings list reads the flag. `SettingsNoticeState` stays for transient notices and does not own this one.
-- Acknowledging the notice and setting a new PIN both clear the flag. The existing `clearWhenPinSet` logic moves to clear the persisted flag.
+- Acknowledging the notice and setting a new PIN both clear the flag. The clear points are `setBackupPin` with a non-blank PIN and `acknowledgeAppLockResetNotice`; the in-memory `clearWhenPinSet` logic is removed.
 - Backup and restore: the flag is excluded from backups. A restored backup carries its own PIN state, and a reset says "this device lost its key", which is a local fact. Confirm this against the backup path before implementation. If the backup path copies every field by default, add the field to its exclusion list the way `proxy_lan_auth_token` is excluded.
 - `CONFIG_CONTRACTS.md` records the field name, number, meaning, and the backup decision.
 
