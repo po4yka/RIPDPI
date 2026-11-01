@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -54,8 +55,7 @@ fun RipDpiTextAction(
     val sized =
         modifier
             .heightIn(min = maxOf(minHeight ?: actionMinHeight, actionMinHeight))
-            // Outset: the label sits flush against the box edge, so an inside ring would touch the glyphs.
-            .ripDpiFocusRing(source, RipDpiThemeTokens.shapes.lg, Color.Transparent, ink = resolvedColor, outset = 4.dp)
+            .ripDpiFocusRing(source, RipDpiThemeTokens.shapes.lg, Color.Transparent, ink = resolvedColor)
     Box(
         modifier =
             sized.ripDpiClickable(
@@ -67,14 +67,20 @@ fun RipDpiTextAction(
             ),
         contentAlignment = contentAlignment,
     ) {
-        Text(
-            text = text,
-            modifier = Modifier.width(IntrinsicSize.Max),
-            style = textStyle ?: type.button,
-            color = if (enabled) resolvedColor else colors.mutedForeground,
-        )
+        // The inner inset keeps the 2dp focus ring, which sits inside the bounds, clear of the glyphs.
+        Box(modifier = Modifier.padding(horizontal = RipDpiTextActionRingInset)) {
+            Text(
+                text = text,
+                modifier = Modifier.width(IntrinsicSize.Max),
+                style = textStyle ?: type.button,
+                color = if (enabled) resolvedColor else colors.mutedForeground,
+            )
+        }
     }
 }
+
+/** Space between a text action's bounds and its label: the 2dp focus ring plus a gap. */
+internal val RipDpiTextActionRingInset = 6.dp
 
 @Preview(showBackground = true, name = "RipDpiTextAction (light)")
 @Composable

@@ -24,9 +24,10 @@ fun RipDpiTopBarAction(
     RipDpiTextAction(
         text = text,
         onClick = onClick,
-        // Padding sits outside the touch target. The target is at least 48dp wide with the text at its end, because the
-        // trailing edge is what lines up with the content inset; a short label is not centered away from it.
-        modifier = modifier.padding(horizontal = glyphInset).widthIn(min = targetSize),
+        // Padding sits outside the touch target. The text's own inset is part of the target, so the outer padding
+        // is the glyph inset less that inset, and the label's trailing edge still lands on the glyph inset. The target
+        // is at least 48dp wide with the text at its end; a short label is not centered away from the edge.
+        modifier = modifier.padding(horizontal = glyphInset - RipDpiTextActionRingInset).widthIn(min = targetSize),
         contentAlignment = Alignment.CenterEnd,
         textStyle = RipDpiThemeTokens.type.bodyEmphasis,
         color = RipDpiThemeTokens.colors.foreground,

@@ -44,7 +44,12 @@ class RipDpiTopBarActionTest {
         val rowRight = 200f * density
         val action = composeRule.onNode(hasClickAction() and hasText("Save")).fetchSemanticsNode().boundsInRoot
         assertEquals("Text trailing edge to the bar edge", glyphInset * density, rowRight - text.right, 0.5f)
-        assertEquals("Target and text share the trailing edge", action.right, text.right, 0.5f)
+        assertEquals(
+            "Target extends past the text by its ring inset",
+            RipDpiTextActionRingInset.value * density,
+            action.right - text.right,
+            0.5f,
+        )
         assertTrue("Target ${action.height}px is under 48dp", action.height >= 48f * density - 0.5f)
         assertTrue("Target ${action.width}px is under 48dp", action.width >= 48f * density - 0.5f)
     }
