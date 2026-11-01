@@ -25,6 +25,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.chrome.overlineText
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
@@ -286,7 +287,7 @@ private fun HostAutolearnStatusCard(
         summary.lastUpdate?.let {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
                 Text(
-                    text = stringResource(R.string.host_autolearn_last_update_label),
+                    text = overlineText(stringResource(R.string.host_autolearn_last_update_label)),
                     style = type.sectionTitle,
                     color = colors.mutedForeground,
                 )

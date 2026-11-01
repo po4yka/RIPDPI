@@ -27,6 +27,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.chrome.overlineText
 import com.poyka.ripdpi.ui.components.distinctFrom
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -127,7 +128,11 @@ private fun DiagnosticsOutcomeSummary(
     val type = RipDpiThemeTokens.type
     val active = outcome.source == DiagnosticsOutcomeSource.Active
     Column(modifier, verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm)) {
-        Text(stringResource(outcome.source.label()), style = type.sectionTitle, color = colors.mutedForeground)
+        Text(
+            overlineText(stringResource(outcome.source.label())),
+            style = type.sectionTitle,
+            color = colors.mutedForeground,
+        )
         val headline =
             outcome.headline?.takeIf(String::isNotBlank)
                 ?: stringResource(

@@ -65,6 +65,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsSparklineUiModel
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.chrome.overlineText
 import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricSurface
 import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricToneStyle
 import com.poyka.ripdpi.ui.components.indicators.ripDpiMetricToneStyle
@@ -242,7 +243,7 @@ internal fun TelemetryMetricCard(metric: DiagnosticsMetricUiModel) {
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
-                text = metric.label.uppercase(),
+                text = overlineText(metric.label),
                 style = RipDpiThemeTokens.type.sectionTitle,
                 color = contentColor.copy(alpha = 0.75f),
             )
@@ -306,7 +307,7 @@ private fun OverviewStatTile(
                 modifier = Modifier.fillMaxWidth(),
             )
             Text(
-                text = metric.label.uppercase(),
+                text = overlineText(metric.label),
                 style = type.secondaryBody,
                 color = contentColor.copy(alpha = OverviewStatLabelAlpha),
                 modifier = Modifier.fillMaxWidth(),

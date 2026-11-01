@@ -27,6 +27,7 @@ import com.poyka.ripdpi.activities.DiagnosticsLiveUiModel
 import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.service.telemetry.RuntimeTelemetrySamplingPolicy
+import com.poyka.ripdpi.ui.components.chrome.overlineText
 import com.poyka.ripdpi.ui.components.distinctFrom
 import com.poyka.ripdpi.ui.components.indicators.RipDpiMetricSurface
 import com.poyka.ripdpi.ui.components.indicators.RipDpiStaleDataBadge
@@ -292,7 +293,7 @@ internal fun LiveHighlightCard(
             verticalArrangement = Arrangement.spacedBy(HighlightCardContentSpacingDp.dp),
         ) {
             Text(
-                text = metric.label.uppercase(),
+                text = overlineText(metric.label),
                 style = RipDpiThemeTokens.type.sectionTitle,
                 color = contentColor.copy(alpha = HighlightCardLabelAlpha),
             )

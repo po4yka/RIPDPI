@@ -36,6 +36,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
+import com.poyka.ripdpi.ui.components.chrome.overlineText
 import com.poyka.ripdpi.ui.components.distinctFrom
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
@@ -192,7 +193,7 @@ internal fun OverviewSection(
             item(key = "active_profile", contentType = "active_profile") {
                 RipDpiCard {
                     androidx.compose.material3.Text(
-                        text = stringResource(R.string.diagnostics_profiles_title).uppercase(),
+                        text = overlineText(stringResource(R.string.diagnostics_profiles_title)),
                         style = RipDpiThemeTokens.type.sectionTitle,
                         color = RipDpiThemeTokens.colors.mutedForeground,
                     )
