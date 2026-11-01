@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -9,14 +8,13 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DiagnosticsScreenUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiDetailPaneEmptyState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -61,21 +59,10 @@ internal fun DiagnosticsDetailPane(
     val padding = RipDpiThemeTokens.layout.horizontalPadding
     Column(modifier = modifier.fillMaxSize().ripDpiScreenBackground()) {
         if (detail == null) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .ripDpiTestTag(RipDpiTestTags.DiagnosticsDetailPlaceholder)
-                        .padding(padding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = stringResource(R.string.history_detail_placeholder),
-                    style = RipDpiThemeTokens.type.body,
-                    color = RipDpiThemeTokens.colors.mutedForeground,
-                    textAlign = TextAlign.Center,
-                )
-            }
+            RipDpiDetailPaneEmptyState(
+                body = stringResource(R.string.history_detail_placeholder),
+                testTag = RipDpiTestTags.DiagnosticsDetailPlaceholder,
+            )
             return@Column
         }
         RipDpiTopAppBar(

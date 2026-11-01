@@ -11,10 +11,9 @@ import androidx.navigation.NavHostController
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
+import com.poyka.ripdpi.ui.components.navigation.rememberListDetailTwoPane
 import com.poyka.ripdpi.ui.screens.settings.LocalSelectedSettingsDetail
 import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
-import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.ui.theme.RipDpiWidthClass
 
 /** Settings destinations that open in the detail pane beside the Settings list on wide windows. */
 internal val settingsDetailRoutes: List<Route> =
@@ -60,12 +59,15 @@ internal fun settingsListDetail(
 @Composable
 internal fun NavHostController.settingsListDetailFor(entry: NavBackStackEntry?): SettingsListDetail? {
     val previous = remember(entry) { previousBackStackEntry?.destination }
+    val twoPane = rememberListDetailTwoPane()
     return settingsListDetail(entry?.destination, previous)
-        ?.takeIf { RipDpiThemeTokens.layout.widthClass >= RipDpiWidthClass.Expanded }
+        ?.takeIf { twoPane }
 }
 
 /** Opens a Settings detail; selecting another item beside the list replaces the detail instead of stacking it. */
 internal fun <T : Route> NavHostController.navigateSettingsDetail(route: T) {
+    // The row of the open detail is a no-op; replacing it would recreate the detail and drop un-applied input.
+    if (currentDestination?.hasRoute(route::class) == true) return
     navigate(route) {
         popUpTo<Route.Settings>()
         launchSingleTop = true

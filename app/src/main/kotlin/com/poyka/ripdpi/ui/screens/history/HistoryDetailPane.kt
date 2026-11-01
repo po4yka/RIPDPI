@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.history
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -14,13 +13,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.style.TextAlign
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HistorySection
 import com.poyka.ripdpi.activities.HistoryUiState
+import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
+import com.poyka.ripdpi.ui.components.scaffold.RipDpiDetailPaneEmptyState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 
@@ -28,6 +29,9 @@ import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 @Composable
 internal fun HistoryDetailPane(
     uiState: HistoryUiState,
+    onDismissConnectionDetail: () -> Unit,
+    onDismissDiagnosticsDetail: () -> Unit,
+    onDismissEventDetail: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val connection = uiState.selectedConnectionDetail.takeIf { uiState.selectedSection == HistorySection.Connections }
@@ -37,24 +41,28 @@ internal fun HistoryDetailPane(
     val subtitle = connection?.session?.subtitle ?: diagnostics?.session?.subtitle ?: event?.createdAtLabel
     Column(modifier = modifier.fillMaxSize().ripDpiScreenBackground()) {
         if (title == null) {
-            Box(
-                modifier =
-                    Modifier
-                        .fillMaxSize()
-                        .ripDpiTestTag(RipDpiTestTags.HistoryDetailPlaceholder)
-                        .padding(RipDpiThemeTokens.layout.horizontalPadding),
-                contentAlignment = Alignment.Center,
-            ) {
-                Text(
-                    text = stringResource(R.string.history_detail_placeholder),
-                    style = RipDpiThemeTokens.type.body,
-                    color = RipDpiThemeTokens.colors.mutedForeground,
-                    textAlign = TextAlign.Center,
-                )
-            }
+            RipDpiDetailPaneEmptyState(
+                body = stringResource(R.string.history_detail_placeholder),
+                testTag = RipDpiTestTags.HistoryDetailPlaceholder,
+            )
             return@Column
         }
-        RipDpiTopAppBar(title = title)
+        RipDpiTopAppBar(
+            title = title,
+            actions = {
+                RipDpiIconButton(
+                    icon = RipDpiIcons.Close,
+                    contentDescription = stringResource(R.string.action_dismiss),
+                    onClick =
+                        when {
+                            connection != null -> onDismissConnectionDetail
+                            diagnostics != null -> onDismissDiagnosticsDetail
+                            else -> onDismissEventDetail
+                        },
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HistoryDetailClose),
+                )
+            },
+        )
         Column(
             modifier =
                 Modifier

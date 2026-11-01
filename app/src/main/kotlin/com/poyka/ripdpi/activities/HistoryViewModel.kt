@@ -118,6 +118,12 @@ class HistoryViewModel
         }
 
         fun selectSection(section: HistorySection) {
+            // Open details belong to their section; leaving them open stacks sheets once the window narrows.
+            if (section != selectedSectionRequest.value) {
+                connectionActions.dismissDetail()
+                diagnosticsActions.dismissDetail()
+                eventActions.dismissDetail()
+            }
             selectedSectionRequest.value = section
         }
 

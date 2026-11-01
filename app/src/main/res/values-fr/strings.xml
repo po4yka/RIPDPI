@@ -1285,6 +1285,7 @@ fake_burst 3</string>
     <string name="home_control_plane_host_packs_label">Packs d\'hôtes</string>
     <string name="home_control_plane_strategy_pack_security_rejected">Le dernier catalogue a échoué aux vérifications de métadonnées de sécurité requises.</string>
     <string name="home_diagnostics_analysis_body">Lancer l\'audit complet de diagnostics intégré. Il peut appliquer des voies de contournement vérifiées, des changements de chemin DNS et les options de routage WARP prises en charge à partir du chemin opérationnel.</string>
+    <string name="detail_pane_empty_title">Aucune sélection</string>
     <string name="home_diagnostics_bufferbloat_section">Bufferbloat</string>
     <string name="home_diagnostics_command_line_blocked">Désactivez les paramètres en ligne de commande avant de lancer l\'audit complet.</string>
     <string name="home_diagnostics_detection_not_detected">Aucun signal de détection observé</string>

@@ -51,6 +51,7 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSnackbarHost
 import com.poyka.ripdpi.ui.components.navigation.RipDpiListDetailLayout
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
+import com.poyka.ripdpi.ui.components.navigation.rememberListDetailTwoPane
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.navigation.Route
@@ -60,7 +61,6 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.ui.theme.RipDpiWidthClass
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 
 data class DiagnosticsScreenActions(
@@ -166,7 +166,7 @@ fun DiagnosticsScreen(
     var showDebugInfo by rememberSaveable { mutableStateOf(false) }
     var expertMode by rememberSaveable(uiState.uiPersona) { mutableStateOf(uiState.uiPersona == "advanced") }
 
-    val twoPane = RipDpiThemeTokens.layout.widthClass >= RipDpiWidthClass.Expanded
+    val twoPane = rememberListDetailTwoPane()
     val frame: @Composable () -> Unit = {
         DiagnosticsScreenFrame(
             uiState = uiState,
@@ -196,17 +196,15 @@ fun DiagnosticsScreen(
             modifier = modifier,
         )
     }
-    if (twoPane) {
-        RipDpiListDetailLayout(
-            showList = true,
-            listPane = frame,
-            detailPane = {
-                DiagnosticsDetailPane(diagnosticsDetails(uiState, actions, expertMode).lastOrNull())
-            },
-        )
-    } else {
-        frame()
-    }
+    // Always laid out through the list-detail layout so the list keeps its state when the window crosses Expanded.
+    RipDpiListDetailLayout(
+        showList = true,
+        showDetail = twoPane,
+        listPane = frame,
+        detailPane = {
+            DiagnosticsDetailPane(diagnosticsDetails(uiState, actions, expertMode).lastOrNull())
+        },
+    )
     DiagnosticsScreenDialogs(uiState = uiState, actions = actions, expertMode = expertMode, twoPane = twoPane)
     DiagnosticsVerificationResult(homeDiagnostics.verificationSheet, actions.onDismissVerification)
 }

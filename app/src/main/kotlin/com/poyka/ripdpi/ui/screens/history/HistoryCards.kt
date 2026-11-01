@@ -4,6 +4,9 @@ package com.poyka.ripdpi.ui.screens.history
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -12,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLocale
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
@@ -27,7 +31,6 @@ import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
-import com.poyka.ripdpi.ui.components.indicators.RipDpiCompactMetrics
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -35,7 +38,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenSurface
 import com.poyka.ripdpi.ui.theme.screens
 import kotlinx.collections.immutable.ImmutableList
-import kotlinx.collections.immutable.toImmutableList
 
 @Composable
 internal fun ConnectionSessionCard(
@@ -155,10 +157,34 @@ internal fun DiagnosticsSessionCard(
     }
 }
 
-// Session cards are list rows; one compact line of stats keeps each card short.
+// Session cards are list rows. Each stat keeps its own width and the row wraps between stats, so the narrow
+// list pane moves a whole stat to the next line instead of breaking words inside equal-width columns.
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SessionMetrics(metrics: ImmutableList<DiagnosticsMetricUiModel>) {
-    RipDpiCompactMetrics(metrics = metrics.map { it.label to it.value }.toImmutableList())
+    val spacing = RipDpiThemeTokens.spacing
+    val locale = LocalLocale.current.platformLocale
+    FlowRow(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(spacing.lg),
+        verticalArrangement = Arrangement.spacedBy(spacing.sm),
+    ) {
+        metrics.forEach { metric ->
+            Column(modifier = Modifier.padding(top = spacing.xs)) {
+                Text(
+                    text = metric.value,
+                    style = RipDpiThemeTokens.type.bodyEmphasis,
+                    color = RipDpiThemeTokens.colors.foreground,
+                )
+                Text(
+                    text = metric.label.uppercase(locale),
+                    style = RipDpiThemeTokens.type.caption,
+                    color = RipDpiThemeTokens.colors.mutedForeground,
+                    softWrap = false,
+                )
+            }
+        }
+    }
 }
 
 @Composable

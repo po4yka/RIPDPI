@@ -71,7 +71,8 @@ internal fun HomeTopBar(
     val layout = RipDpiThemeTokens.layout
     val type = RipDpiThemeTokens.type
     val homeChrome = rememberHomeChromeMetrics()
-    val containerMaxWidth = layout.contentMaxWidth + layout.horizontalPadding + layout.horizontalPadding
+    // The dashboard column is contentMaxWidth wide including its own padding, so the title lines up with it.
+    val containerMaxWidth = layout.contentMaxWidth - layout.horizontalPadding - layout.horizontalPadding
 
     Box(
         modifier =

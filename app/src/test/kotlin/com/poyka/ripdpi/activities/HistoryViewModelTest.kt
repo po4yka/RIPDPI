@@ -9,6 +9,8 @@ import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -146,6 +148,42 @@ class HistoryViewModelTest {
                     ?.session
                     ?.id,
             )
+            collector.cancel()
+        }
+
+    @Test
+    fun `switching section closes the open details`() =
+        runTest {
+            val timeline =
+                FakeDiagnosticsHistorySource().apply {
+                    connectionSessions.value = listOf(historyConnectionSession(id = "connection-1"))
+                    diagnosticsSessions.value = listOf(historyScanSession(id = "scan-1"))
+                }
+            val detailLoader =
+                FakeHistoryDetailLoader().apply {
+                    connectionDetails["connection-1"] = historyConnectionDetail("connection-1")
+                    diagnosticsDetails["scan-1"] = historyDiagnosticsDetail("scan-1")
+                }
+            val viewModel =
+                HistoryViewModel(
+                    diagnosticsHistorySource = timeline,
+                    historyDetailLoader = detailLoader,
+                    diagnosticsBootstrapper = FakeHistoryDiagnosticsBootstrapper(),
+                    historyUiStateFactory = uiStateFactory,
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            viewModel.initialize()
+            advanceUntilIdle()
+            viewModel.selectConnection("connection-1")
+            advanceUntilIdle()
+            assertNotNull(viewModel.uiState.value.selectedConnectionDetail)
+
+            viewModel.selectSection(HistorySection.Diagnostics)
+            viewModel.selectDiagnosticsSession("scan-1")
+            advanceUntilIdle()
+
+            assertNull(viewModel.uiState.value.selectedConnectionDetail)
+            assertNotNull(viewModel.uiState.value.selectedDiagnosticsDetail)
             collector.cancel()
         }
 }

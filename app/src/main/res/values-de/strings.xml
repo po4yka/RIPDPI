@@ -1285,6 +1285,7 @@ fake_burst 3</string>
     <string name="home_control_plane_host_packs_label">Host-Pakete</string>
     <string name="home_control_plane_strategy_pack_security_rejected">Der neueste Katalog hat erforderliche Sicherheitsmetadaten-Prüfungen nicht bestanden.</string>
     <string name="home_diagnostics_analysis_body">Führt das vollständige integrierte Diagnose-Audit aus. Es kann verifizierte Bypass-Lanes, DNS-Pfadänderungen und unterstützte WARP-Routing-Optionen aus dem funktionierenden Pfad anwenden.</string>
+    <string name="detail_pane_empty_title">Nichts ausgewählt</string>
     <string name="home_diagnostics_bufferbloat_section">Bufferbloat</string>
     <string name="home_diagnostics_command_line_blocked">Deaktivieren Sie die Befehlszeileneinstellungen, bevor Sie das vollständige Audit ausführen.</string>
     <string name="home_diagnostics_detection_not_detected">Keine Erkennungssignale beobachtet</string>

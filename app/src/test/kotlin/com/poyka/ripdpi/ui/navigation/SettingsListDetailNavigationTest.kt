@@ -35,6 +35,7 @@ import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
@@ -81,6 +82,22 @@ class SettingsListDetailNavigationTest {
         composeRule.runOnIdle { assertTrue(currentIs<Route.Settings>()) }
         composeRule.onNodeWithTag(settingsScreen).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsDetailPlaceholder).assertExists()
+    }
+
+    @Test
+    @Config(qualifiers = "w1300dp-h900dp")
+    fun selectingTheOpenDetailAgainKeepsTheSameEntry() {
+        showSettingsGraph()
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsDnsSettings).performClick()
+        composeRule.waitForIdle()
+        val openEntryId = composeRule.runOnIdle { requireNotNull(navController.currentBackStackEntry).id }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsDnsSettings).performClick()
+        composeRule.waitForIdle()
+
+        composeRule.runOnIdle {
+            assertEquals(openEntryId, requireNotNull(navController.currentBackStackEntry).id)
+        }
     }
 
     @Test

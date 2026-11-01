@@ -980,6 +980,7 @@ app:data_transparency_what_we_do_not_collect_section
 app:desync_http
 app:desync_https
 app:desync_udp
+app:detail_pane_empty_title
 app:detection_advice_app_description
 app:detection_advice_app_title
 app:detection_advice_clean_description

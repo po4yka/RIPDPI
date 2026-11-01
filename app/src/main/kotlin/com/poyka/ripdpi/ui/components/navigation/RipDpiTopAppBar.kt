@@ -24,8 +24,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.coerceAtLeast
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.isSpecified
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
@@ -60,6 +62,8 @@ fun RipDpiTopAppBar(
     navigationEnabled: Boolean = true,
     actions: (@Composable RowScope.() -> Unit)? = null,
     scrollBehavior: TopAppBarScrollBehavior? = null,
+    // Width of the content column below the bar, so the bar's controls line up with it on wide windows.
+    contentMaxWidth: Dp = Dp.Unspecified,
 ) {
     // Beside its list the detail pane needs no back arrow: the list is the way back.
     val hasNavigation = navigationIcon != null && onNavigationClick != null && !LocalShownBesideList.current
@@ -82,7 +86,7 @@ fun RipDpiTopAppBar(
     val layout = RipDpiThemeTokens.layout
     val barModifier =
         Modifier
-            .widthIn(max = layout.contentMaxWidth)
+            .widthIn(max = if (contentMaxWidth.isSpecified) contentMaxWidth else layout.contentMaxWidth)
             .fillMaxWidth()
             .padding(horizontal = (layout.horizontalPadding - MaterialGlyphInset).coerceAtLeast(0.dp))
 

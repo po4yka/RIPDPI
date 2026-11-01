@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.components.scaffold
 
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -17,6 +18,8 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListScope
+import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
@@ -46,6 +49,14 @@ enum class RipDpiScaffoldWidth {
     Dashboard,
     Intro,
 }
+
+/**
+ * A top bar that carries actions such as Save stays pinned so the action never scrolls away with the
+ * content; a bar without actions hides on scroll.
+ */
+@Composable
+fun rememberTopBarScrollBehavior(hasActions: Boolean): TopAppBarScrollBehavior =
+    if (hasActions) TopAppBarDefaults.pinnedScrollBehavior() else TopAppBarDefaults.enterAlwaysScrollBehavior()
 
 @Composable
 fun RipDpiScreenScaffold(
@@ -78,11 +89,12 @@ fun RipDpiContentScreenScaffold(
     navigationContentDescription: String? = null,
     contentWidth: RipDpiScaffoldWidth = RipDpiScaffoldWidth.Content,
     actions: (@Composable RowScope.() -> Unit)? = null,
+    scrollState: ScrollState = rememberScrollState(),
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
-    val topBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val topBarScrollBehavior = rememberTopBarScrollBehavior(hasActions = actions != null)
 
     RipDpiScreenScaffold(
         modifier = modifier,
@@ -95,6 +107,7 @@ fun RipDpiContentScreenScaffold(
                 onNavigationClick = onNavigationClick,
                 navigationContentDescription = navigationContentDescription,
                 actions = actions,
+                contentMaxWidth = ripDpiScaffoldMaxWidth(contentWidth),
             )
         },
     ) { innerPadding ->
@@ -111,7 +124,7 @@ fun RipDpiContentScreenScaffold(
                     Modifier
                         .widthIn(max = ripDpiScaffoldMaxWidth(contentWidth))
                         .fillMaxWidth()
-                        .verticalScroll(rememberScrollState())
+                        .verticalScroll(scrollState)
                         .padding(
                             start = layout.horizontalPadding,
                             top = spacing.sm,
@@ -134,11 +147,12 @@ fun RipDpiSettingsScaffold(
     navigationContentDescription: String? = null,
     navigationEnabled: Boolean = true,
     actions: (@Composable RowScope.() -> Unit)? = null,
+    listState: LazyListState = rememberLazyListState(),
     content: LazyListScope.() -> Unit,
 ) {
     val layout = RipDpiThemeTokens.layout
     val spacing = RipDpiThemeTokens.spacing
-    val topBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
+    val topBarScrollBehavior = rememberTopBarScrollBehavior(hasActions = actions != null)
 
     RipDpiScreenScaffold(
         modifier = modifier.imePadding(),
@@ -152,6 +166,7 @@ fun RipDpiSettingsScaffold(
                 navigationContentDescription = navigationContentDescription,
                 navigationEnabled = navigationEnabled,
                 actions = actions,
+                contentMaxWidth = ripDpiScaffoldMaxWidth(RipDpiScaffoldWidth.Form),
             )
         },
     ) { innerPadding ->
@@ -164,6 +179,7 @@ fun RipDpiSettingsScaffold(
             contentAlignment = Alignment.TopCenter,
         ) {
             LazyColumn(
+                state = listState,
                 modifier =
                     Modifier
                         .widthIn(max = ripDpiScaffoldMaxWidth(RipDpiScaffoldWidth.Form))

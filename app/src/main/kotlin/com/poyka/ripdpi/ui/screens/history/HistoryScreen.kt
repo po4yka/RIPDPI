@@ -36,6 +36,7 @@ import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinnerSize
 import com.poyka.ripdpi.ui.components.navigation.RipDpiListDetailLayout
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
+import com.poyka.ripdpi.ui.components.navigation.rememberListDetailTwoPane
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -43,7 +44,6 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.ui.theme.RipDpiWidthClass
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 
 @Composable
@@ -128,7 +128,7 @@ internal fun HistoryScreen(
     val sectionStateHolder = rememberSaveableStateHolder()
 
     val topBarScrollBehavior = TopAppBarDefaults.enterAlwaysScrollBehavior()
-    val twoPane = layout.widthClass >= RipDpiWidthClass.Expanded
+    val twoPane = rememberListDetailTwoPane()
     val list: @Composable () -> Unit = {
         RipDpiScreenScaffold(
             scrollBehavior = topBarScrollBehavior,
@@ -252,11 +252,21 @@ internal fun HistoryScreen(
             }
         }
     }
-    if (twoPane) {
-        RipDpiListDetailLayout(showList = true, listPane = list, detailPane = { HistoryDetailPane(uiState) })
-        return
-    }
-    list()
+    // Always laid out through the list-detail layout so the list keeps its state when the window crosses Expanded.
+    RipDpiListDetailLayout(
+        showList = true,
+        showDetail = twoPane,
+        listPane = list,
+        detailPane = {
+            HistoryDetailPane(
+                uiState = uiState,
+                onDismissConnectionDetail = onDismissConnectionDetail,
+                onDismissDiagnosticsDetail = onDismissDiagnosticsDetail,
+                onDismissEventDetail = onDismissEventDetail,
+            )
+        },
+    )
+    if (twoPane) return
 
     uiState.selectedConnectionDetail?.let { detail ->
         ConnectionDetailSheet(

@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.settings
 
 import android.content.Context
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.getValue
@@ -148,6 +149,7 @@ internal fun SettingsScreen(
                 .fillMaxSize()
                 .ripDpiScreenBackground(),
         title = stringResource(R.string.settings),
+        listState = LocalSettingsListState.current ?: rememberLazyListState(),
     ) {
         // Embedded-Xray provider status — provider-distinct, rendered only while
         // an Xray session is active (snapshot non-null).

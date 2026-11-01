@@ -3,9 +3,11 @@ package com.poyka.ripdpi.ui.navigation
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.consumeWindowInsets
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.getValue
@@ -68,6 +70,7 @@ import com.poyka.ripdpi.ui.screens.settings.AssetProviderRoute
 import com.poyka.ripdpi.ui.screens.settings.BackupRestoreRoute
 import com.poyka.ripdpi.ui.screens.settings.DataTransparencyRoute
 import com.poyka.ripdpi.ui.screens.settings.DomainBypassListRoute
+import com.poyka.ripdpi.ui.screens.settings.LocalSettingsListState
 import com.poyka.ripdpi.ui.screens.settings.RememberedNetworksRoute
 import com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsDetailPlaceholder
@@ -227,34 +230,37 @@ private fun RipDpiNavPanes(
 ) {
     val currentBackStackEntry by navController.currentBackStackEntryAsState()
     val settingsListDetail = navController.settingsListDetailFor(currentBackStackEntry)
+    val settingsListState = rememberLazyListState()
     // Always laid out through the list-detail layout so the NavHost keeps its place in composition.
-    RipDpiListDetailLayout(
-        showList = settingsListDetail != null,
-        modifier = modifier,
-        listPane = {
-            SettingsListPane(
-                navController = navController,
-                selected = settingsListDetail?.selected,
-                actions = actions,
-                mainViewModel = mainViewModel,
-                permissionSummary = permissionSummary,
-            )
-        },
-        detailPane = {
-            RipDpiNavGraph(
-                startDestination = startDestination,
-                innerPadding = PaddingValues(),
-                navController = navController,
-                motion = motion,
-                actions = actions,
-                mainViewModel = mainViewModel,
-                pauseViewModel = pauseViewModel,
-                permissionSummary = permissionSummary,
-                diagnosticsInitialSection = diagnosticsInitialSection.value,
-                onDiagnosticsInitialSectionChanged = { diagnosticsInitialSection.value = it },
-            )
-        },
-    )
+    CompositionLocalProvider(LocalSettingsListState provides settingsListState) {
+        RipDpiListDetailLayout(
+            showList = settingsListDetail != null,
+            modifier = modifier,
+            listPane = {
+                SettingsListPane(
+                    navController = navController,
+                    selected = settingsListDetail?.selected,
+                    actions = actions,
+                    mainViewModel = mainViewModel,
+                    permissionSummary = permissionSummary,
+                )
+            },
+            detailPane = {
+                RipDpiNavGraph(
+                    startDestination = startDestination,
+                    innerPadding = PaddingValues(),
+                    navController = navController,
+                    motion = motion,
+                    actions = actions,
+                    mainViewModel = mainViewModel,
+                    pauseViewModel = pauseViewModel,
+                    permissionSummary = permissionSummary,
+                    diagnosticsInitialSection = diagnosticsInitialSection.value,
+                    onDiagnosticsInitialSectionChanged = { diagnosticsInitialSection.value = it },
+                )
+            },
+        )
+    }
 }
 
 /**
