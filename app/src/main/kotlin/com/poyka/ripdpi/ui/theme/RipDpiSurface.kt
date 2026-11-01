@@ -92,8 +92,8 @@ data class RipDpiSurfaceTokens(
 
             RipDpiSurfaceRole.TonalCard -> {
                 RipDpiSurfaceStyle(
-                    container = colors.inputBackground,
-                    border = colors.border,
+                    container = colorScheme.surfaceContainer,
+                    border = colors.tonalCardBorder,
                     content = colors.foreground,
                 )
             }

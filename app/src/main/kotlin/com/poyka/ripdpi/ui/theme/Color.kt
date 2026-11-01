@@ -102,6 +102,8 @@ data class RipDpiExtendedColors(
     val restrictedForeground: Color,
     val restrictedContainer: Color,
     val restrictedContainerForeground: Color,
+    /** Edge of a tonal card: none at standard contrast, where the fill separates it, an outline at medium and high. */
+    val tonalCardBorder: Color,
     val divider: Color,
     val hairline: Color,
     val outline: Color,
@@ -150,6 +152,7 @@ fun ripDpiExtendedColors(
         restrictedContainer = if (isDark) DarkRestrictedContainer else LightRestrictedContainer,
         restrictedContainerForeground =
             if (isDark) DarkRestrictedContainerForeground else LightRestrictedContainerForeground,
+        tonalCardBorder = if (contrast == RipDpiContrastLevel.Standard) Color.Transparent else scheme.outlineVariant,
         divider = scheme.outlineVariant,
         hairline = scheme.outline,
         outline = scheme.outline,

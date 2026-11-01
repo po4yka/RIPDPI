@@ -94,7 +94,7 @@ private fun HttpParserEvasionsProfileCard(
 
     RipDpiCard(
         modifier = modifier,
-        variant = RipDpiCardVariant.Elevated,
+        variant = RipDpiCardVariant.Tonal,
     ) {
         StatusIndicator(
             label = status.label,

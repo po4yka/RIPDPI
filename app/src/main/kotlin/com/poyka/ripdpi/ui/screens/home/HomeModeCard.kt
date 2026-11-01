@@ -62,7 +62,7 @@ fun HomeModeCard(
             ),
         variant =
             when {
-                uiState.isLoading -> RipDpiCardVariant.Elevated
+                uiState.isLoading -> RipDpiCardVariant.Tonal
 
                 // Active card uses the Selected surface (accent fill + bold
                 // foreground border + elevation) so it is unmistakably the live

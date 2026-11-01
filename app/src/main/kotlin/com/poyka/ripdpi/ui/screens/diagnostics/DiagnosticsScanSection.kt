@@ -352,7 +352,7 @@ private fun DiagnosisSummaryCard(
     TrackRecomposition("DiagnosisSummaryCard")
     val colors = RipDpiThemeTokens.colors
     val spacing = RipDpiThemeTokens.spacing
-    RipDpiCard(variant = RipDpiCardVariant.Elevated) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         RipDpiPanelHeader(title = title)
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
             diagnoses.forEach { diagnosis ->

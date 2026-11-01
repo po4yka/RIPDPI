@@ -548,7 +548,7 @@ internal fun DiagnosticsPreviewCard(
 
     RipDpiCard(
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsSharePreviewCard),
-        variant = RipDpiCardVariant.Elevated,
+        variant = RipDpiCardVariant.Tonal,
     ) {
         Text(
             text = title,

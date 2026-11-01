@@ -4,6 +4,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.size
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.toPixelMap
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -82,5 +83,33 @@ class RipDpiCardTest {
                 kotlin.math.abs(center.green - surface.green) < 0.005f &&
                 kotlin.math.abs(center.blue - surface.blue) < 0.005f,
         )
+    }
+
+    @Test
+    fun `a tonal card nested in a tonal card steps one container up`() {
+        composeRule.setContent {
+            RipDpiTheme(themePreference = "light") {
+                RipDpiCard(Modifier.ripDpiTestTag("outer"), variant = RipDpiCardVariant.Tonal) {
+                    RipDpiCard(Modifier.ripDpiTestTag("inner"), variant = RipDpiCardVariant.Tonal) {
+                        Spacer(Modifier.size(80.dp))
+                    }
+                }
+            }
+        }
+        val scheme = ripDpiLightColorScheme()
+
+        fun center(tag: String): androidx.compose.ui.graphics.Color {
+            val image = composeRule.onNodeWithTag(tag).captureToImage().toPixelMap()
+            return image[image.width / 2, image.height / 2]
+        }
+        val inner = center("inner")
+        val outerEdge =
+            composeRule
+                .onNodeWithTag("outer")
+                .captureToImage()
+                .toPixelMap()
+                .let { it[2, it.height / 2] }
+        assertEquals(scheme.surfaceContainerHigh.toArgb(), inner.toArgb())
+        assertEquals(scheme.surfaceContainer.toArgb(), outerEdge.toArgb())
     }
 }

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.theme
 
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.compositeOver
 import com.poyka.ripdpi.ui.theme.ContrastAssertions.Enhanced
 import com.poyka.ripdpi.ui.theme.ContrastAssertions.NonText
@@ -39,6 +40,18 @@ class RipDpiRoleContrastTest {
             RipDpiSurfaceRole.entries.forEach { role ->
                 val style = p.surfaces.resolve(role)
                 assertAtLeast("${p.label} $role", Text, style.content, style.container)
+            }
+        }
+    }
+
+    @Test
+    fun `a tonal card has an edge at medium and high contrast only`() {
+        palettes.forEach { p ->
+            val border = p.surfaces.resolve(RipDpiSurfaceRole.TonalCard).border
+            if (p.level == RipDpiContrastLevel.Standard) {
+                assertTrue("${p.label} tonal card should be borderless", border == Color.Transparent)
+            } else {
+                assertAtLeast("${p.label} tonal card edge", NonText, border, p.colors.background)
             }
         }
     }

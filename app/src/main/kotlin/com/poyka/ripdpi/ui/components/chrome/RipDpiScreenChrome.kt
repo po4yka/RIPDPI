@@ -189,7 +189,7 @@ fun RipDpiRemediationCard(
     modifier: Modifier = Modifier,
     /** Forwarded to [StatusIndicator]: true only while the remediation subject is still changing. */
     pulsing: Boolean = false,
-    cardVariant: RipDpiCardVariant = RipDpiCardVariant.Elevated,
+    cardVariant: RipDpiCardVariant = RipDpiCardVariant.Tonal,
     cardTestTag: String? = null,
     actionLabel: String? = null,
     onAction: (() -> Unit)? = null,

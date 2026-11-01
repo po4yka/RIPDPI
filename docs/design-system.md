@@ -126,6 +126,10 @@ Current first-class surface roles:
 
 Usage rules:
 
+- One card rule: `surfaceContainer` tonal steps group content, an outline marks only interactive or selected cards, and a shadow marks only hero or selected cards.
+- `TonalCard` groups ordinary content (`surfaceContainer`, no shadow; no outline at standard contrast, an `outlineVariant` edge via `tonalCardBorder` at medium and high contrast). A `TonalCard` nested in a `TonalCard` steps up to `surfaceContainerHigh`.
+- `Card` (outlined) is for interactive cards. `SelectedCard` marks a picked or focused card.
+- `ElevatedCard` and `StatusCard` are hero roles for the top summary of a screen. Ordinary content never uses them.
 - `StatusCard` is neutral emphasis for important status blocks, not a semantic warning/error container.
 - `SelectedCard` is for explicit picked-state surfaces such as presets.
 - `Dialog` and `BottomSheet` are separate roles even when they currently share the same visual recipe.

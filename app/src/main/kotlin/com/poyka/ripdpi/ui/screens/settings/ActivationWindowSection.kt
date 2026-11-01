@@ -116,7 +116,7 @@ private fun ActivationWindowProfileCard(
 
     RipDpiCard(
         modifier = modifier,
-        variant = RipDpiCardVariant.Elevated,
+        variant = RipDpiCardVariant.Tonal,
     ) {
         StatusIndicator(
             label = status.label,

@@ -83,7 +83,7 @@ internal fun StageProgressCard(progress: DetectionProgress) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     val spacing = RipDpiThemeTokens.spacing
-    RipDpiCard(variant = RipDpiCardVariant.Elevated) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(spacing.md),
             verticalAlignment = Alignment.CenterVertically,

@@ -410,7 +410,7 @@ internal fun ResolverRecommendationCard(
     val spacing = RipDpiThemeTokens.spacing
     RipDpiCard(
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.DiagnosticsResolverRecommendationCard),
-        variant = RipDpiCardVariant.Elevated,
+        variant = RipDpiCardVariant.Tonal,
     ) {
         StatusIndicator(
             label =

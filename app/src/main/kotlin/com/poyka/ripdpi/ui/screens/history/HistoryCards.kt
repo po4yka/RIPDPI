@@ -50,7 +50,7 @@ internal fun ConnectionSessionCard(
     RipDpiCard(
         modifier = modifier.semantics { if (selected) this.selected = true },
         onClick = onClick,
-        variant = if (selected) RipDpiCardVariant.Selected else RipDpiCardVariant.Elevated,
+        variant = if (selected) RipDpiCardVariant.Selected else RipDpiCardVariant.Outlined,
     ) {
         StatusIndicator(
             label = AndroidStringResolver(LocalContext.current).connectionStateTitle(session.connectionState),
@@ -102,7 +102,7 @@ internal fun DiagnosticsSessionCard(
     RipDpiCard(
         modifier = modifier.semantics { if (selected) this.selected = true },
         onClick = onClick,
-        variant = if (selected) RipDpiCardVariant.Selected else RipDpiCardVariant.Elevated,
+        variant = if (selected) RipDpiCardVariant.Selected else RipDpiCardVariant.Outlined,
     ) {
         StatusIndicator(
             label = session.completionLabel ?: session.status,

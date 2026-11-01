@@ -32,6 +32,7 @@ colors:
   restrictedForeground: "#FFFFFF"
   restrictedContainer: "#F3F4F6"
   restrictedContainerForeground: "#374151"
+  tonalCardBorder: "#00000000"
   divider: "#C8C6C7"
   hairline: "#777778"
   outline: "#777778"
@@ -565,9 +566,11 @@ Compact layouts should feel efficient, not cramped. Expanded layouts should spli
 
 RIPDPI uses depth conservatively:
 
-- Default cards stay flat and rely on borders and tonal separation first.
-- Elevated cards and sheets are reserved for dialogs, bottom sheets, and higher-priority content.
-- Status cards can carry modest lift, but decorative floating chrome is out of scope.
+- One card rule: `surfaceContainer` tonal steps group content, an outline marks only interactive or selected cards, and a shadow marks only hero or selected cards.
+- Grouping uses the tonal card (`surfaceContainer`, no shadow, and no outline at standard contrast; at medium and high contrast it gets an `outlineVariant` edge through `tonalCardBorder`, because the fill alone is about 1.05:1 against the page). A tonal card nested in a tonal card steps one container up (`surfaceContainerHigh`).
+- Interactive cards use the outlined card. Selected or focused cards use the selected card.
+- The elevated card and the status card are the hero roles, for the top summary of a screen and for dialogs and sheets. Ordinary content never uses them.
+- Decorative floating chrome is out of scope.
 - Card roles draw their shadow directly, not through Material card elevation, so the shadow stays the same while a card is pressed or focused and a surface-colored card gets no tonal tint.
 - Scrims should feel functional and calm, never cinematic.
 
@@ -583,6 +586,7 @@ Shared containers use named surface roles instead of one-off container and borde
 
 Role rules:
 
+- `TonalCard` groups ordinary content. `Card` (outlined) is for interactive cards. `ElevatedCard` and `StatusCard` are for hero use only.
 - `StatusCard` is neutral emphasis, not a warning or error container.
 - `SelectedCard` is for explicit picked-state surfaces such as preset selection.
 - Dialog and bottom-sheet surfaces may currently look aligned, but they are distinct roles and should stay named separately.

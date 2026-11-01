@@ -96,7 +96,7 @@ private fun DetectionResistanceSummaryCard(
     val badges = detectionResistanceBadges(uiState)
     val summary = detectionResistanceSummaryLines(uiState)
 
-    RipDpiCard(modifier = modifier, variant = RipDpiCardVariant.Elevated) {
+    RipDpiCard(modifier = modifier, variant = RipDpiCardVariant.Tonal) {
         StatusIndicator(label = label, tone = tone)
         Text(
             text = stringResource(R.string.detection_resistance_section_body),

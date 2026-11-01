@@ -12,6 +12,8 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.runtime.compositionLocalOf
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.shadow
@@ -28,6 +30,9 @@ import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 private const val disabledAlpha = 0.38f
+
+/** A tonal card nested in a tonal card steps one container up so the inner group stays visible. */
+private val LocalInsideTonalCard = compositionLocalOf { false }
 
 enum class RipDpiCardVariant {
     Outlined,
@@ -56,11 +61,13 @@ fun RipDpiCard(
         RipDpiThemeTokens.surfaces.resolve(
             RipDpiThemeTokens.surfaceRoles.cards.fromVariant(variant),
         )
+    val nestedTonal = variant == RipDpiCardVariant.Tonal && LocalInsideTonalCard.current
+    val container = if (nestedTonal) RipDpiThemeTokens.colors.muted else surfaceStyle.container
     val colors =
         CardDefaults.cardColors(
-            containerColor = surfaceStyle.container,
+            containerColor = container,
             contentColor = surfaceStyle.content,
-            disabledContainerColor = surfaceStyle.container,
+            disabledContainerColor = container,
             disabledContentColor = surfaceStyle.content,
         )
     val border =
@@ -94,8 +101,13 @@ fun RipDpiCard(
                         },
                     ).padding(paddingValues),
             verticalArrangement = Arrangement.spacedBy(spacing.sm),
-            content = content,
-        )
+        ) {
+            if (variant == RipDpiCardVariant.Tonal) {
+                CompositionLocalProvider(LocalInsideTonalCard provides true) { content() }
+            } else {
+                content()
+            }
+        }
     }
     if (onClick != null) {
         val performHaptic = rememberRipDpiHapticPerformer()

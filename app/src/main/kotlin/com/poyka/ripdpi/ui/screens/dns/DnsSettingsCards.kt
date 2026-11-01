@@ -80,7 +80,7 @@ internal fun DnsActiveConfigurationCard(
         }
 
     RipDpiCard(
-        variant = if (uiState.dns.dnsMode == DnsModeEncrypted) RipDpiCardVariant.Elevated else RipDpiCardVariant.Tonal,
+        variant = RipDpiCardVariant.Tonal,
         animateContentSize = true,
     ) {
         Text(

@@ -456,7 +456,7 @@ private fun ApproachModeCard(
     onSelectApproachMode: (DiagnosticsApproachMode) -> Unit,
 ) {
     val spacing = RipDpiThemeTokens.spacing
-    RipDpiCard(variant = RipDpiCardVariant.Elevated) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         RipDpiPanelHeader(title = stringResource(R.string.diagnostics_approaches_title))
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
@@ -502,7 +502,7 @@ private fun ApproachRowCard(
     val colors = RipDpiThemeTokens.colors
     RipDpiCard(
         onClick = { onSelectApproach(row.id) },
-        variant = if (focused) RipDpiCardVariant.Elevated else RipDpiCardVariant.Outlined,
+        variant = if (focused) RipDpiCardVariant.Selected else RipDpiCardVariant.Outlined,
     ) {
         StatusIndicator(label = row.verificationState, tone = statusTone(row.tone))
         androidx.compose.material3.Text(

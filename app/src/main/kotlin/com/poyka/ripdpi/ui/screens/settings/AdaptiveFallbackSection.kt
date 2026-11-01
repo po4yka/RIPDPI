@@ -130,7 +130,7 @@ private fun AdaptiveFallbackSummaryCard(
 
     RipDpiCard(
         modifier = modifier,
-        variant = RipDpiCardVariant.Elevated,
+        variant = RipDpiCardVariant.Tonal,
     ) {
         StatusIndicator(label = status.label, tone = status.tone)
         Text(

@@ -444,7 +444,7 @@ private fun DetectionErrorCard(
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     error?.let {
-        RipDpiCard(variant = RipDpiCardVariant.Status) {
+        RipDpiCard(variant = RipDpiCardVariant.Tonal) {
             Text(text = it, style = type.body, color = colors.destructive)
             RipDpiButton(
                 text = stringResource(R.string.detection_error_retry),

@@ -234,7 +234,7 @@ private fun OwnedStackBrowserUrlCard(
 private fun OwnedStackPageResult(page: OwnedStackBrowserPageUiModel) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
-    RipDpiCard(variant = RipDpiCardVariant.Elevated) {
+    RipDpiCard(variant = RipDpiCardVariant.Tonal) {
         StatusIndicator(
             label =
                 when (page.backend) {
