@@ -24,7 +24,7 @@ data class RipDpiBannerStateTokens(
                     container = colors.destructiveContainer,
                     border = colors.destructive.copy(alpha = 0.52f),
                     iconContainer = colors.destructive.copy(alpha = 0.12f),
-                    icon = colors.destructive,
+                    icon = colors.destructiveContainerForeground,
                     title = colors.destructiveContainerForeground,
                     message = colors.destructiveContainerForeground,
                 )

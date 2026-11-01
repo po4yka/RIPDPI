@@ -35,6 +35,34 @@ private val DarkRestrictedForeground = Color(0xFF111827)
 private val DarkRestrictedContainer = Color(0xFF1F2937)
 private val DarkRestrictedContainerForeground = Color(0xFFE5E7EB)
 
+// Tone colors sit on page surfaces as text, icons and markers. Medium and High darken them in light and lighten them
+// in dark so they hold at least 6.8:1 and 8:1 (light) or 8:1 and 9.5:1 (dark) against the page. Dark success and
+// warning already exceed 9.6:1, and every container foreground exceeds 9:1, so those stay fixed.
+private data class ToneColors(
+    val success: Color,
+    val warning: Color,
+    val info: Color,
+    val restricted: Color,
+)
+
+private val LightToneColors =
+    mapOf(
+        RipDpiContrastLevel.Standard to ToneColors(LightSuccess, LightWarning, LightInfo, LightRestricted),
+        RipDpiContrastLevel.Medium to
+            ToneColors(Color(0xFF036448), Color(0xFF8E4207), Color(0xFF1C4ACD), Color(0xFF525863)),
+        RipDpiContrastLevel.High to
+            ToneColors(Color(0xFF035840), Color(0xFF7E3A06), Color(0xFF1842B5), Color(0xFF484C56)),
+    )
+
+private val DarkToneColors =
+    mapOf(
+        RipDpiContrastLevel.Standard to ToneColors(DarkSuccess, DarkWarning, DarkInfo, DarkRestricted),
+        RipDpiContrastLevel.Medium to
+            ToneColors(DarkSuccess, DarkWarning, Color(0xFF70AEFA), Color(0xFFA5ABB6)),
+        RipDpiContrastLevel.High to
+            ToneColors(DarkSuccess, DarkWarning, Color(0xFF8BBDFB), Color(0xFFB5BAC3)),
+    )
+
 private val LightScrim = Color(0x99000000)
 private val DarkScrim = Color(0xCC000000)
 
@@ -84,13 +112,15 @@ data class RipDpiExtendedColors(
 /**
  * Derives the RDS neutral and destructive roles from the Material scheme so contrast and dynamic color reach RDS
  * components. Cards follow the Material outlined card: page surface plus an outlineVariant border.
- * Success, warning, info, restricted, and scrim stay RDS-owned.
+ * Success, warning, info, restricted, and scrim stay RDS-owned; the four tone colors follow the contrast level.
  */
 fun ripDpiExtendedColors(
     scheme: ColorScheme,
     isDark: Boolean,
-): RipDpiExtendedColors =
-    RipDpiExtendedColors(
+    contrast: RipDpiContrastLevel = RipDpiContrastLevel.Standard,
+): RipDpiExtendedColors {
+    val tones = checkNotNull((if (isDark) DarkToneColors else LightToneColors)[contrast])
+    return RipDpiExtendedColors(
         background = scheme.surface,
         foreground = scheme.onSurface,
         card = scheme.surface,
@@ -102,8 +132,8 @@ fun ripDpiExtendedColors(
         border = scheme.outlineVariant,
         cardBorder = scheme.outlineVariant,
         inputBackground = scheme.surfaceContainerHighest,
-        success = if (isDark) DarkSuccess else LightSuccess,
-        warning = if (isDark) DarkWarning else LightWarning,
+        success = tones.success,
+        warning = tones.warning,
         warningForeground = if (isDark) DarkWarningForeground else LightWarningForeground,
         warningContainer = if (isDark) DarkWarningContainer else LightWarningContainer,
         warningContainerForeground = if (isDark) DarkWarningContainerForeground else LightWarningContainerForeground,
@@ -111,11 +141,11 @@ fun ripDpiExtendedColors(
         destructiveForeground = scheme.onError,
         destructiveContainer = scheme.errorContainer,
         destructiveContainerForeground = scheme.onErrorContainer,
-        info = if (isDark) DarkInfo else LightInfo,
+        info = tones.info,
         infoForeground = if (isDark) DarkInfoForeground else LightInfoForeground,
         infoContainer = if (isDark) DarkInfoContainer else LightInfoContainer,
         infoContainerForeground = if (isDark) DarkInfoContainerForeground else LightInfoContainerForeground,
-        restricted = if (isDark) DarkRestricted else LightRestricted,
+        restricted = tones.restricted,
         restrictedForeground = if (isDark) DarkRestrictedForeground else LightRestrictedForeground,
         restrictedContainer = if (isDark) DarkRestrictedContainer else LightRestrictedContainer,
         restrictedContainerForeground =
@@ -126,6 +156,7 @@ fun ripDpiExtendedColors(
         outlineVariant = scheme.outlineVariant,
         scrim = if (isDark) DarkScrim else LightScrim,
     )
+}
 
 val LightRipDpiExtendedColors = ripDpiExtendedColors(ripDpiLightColorScheme(), isDark = false)
 

@@ -68,7 +68,7 @@ class RipDpiSurfaceTokensTest {
         val style = tokens.resolve(RipDpiSurfaceRole.DialogDestructiveIconBadge)
 
         assertEquals(LightRipDpiExtendedColors.destructiveContainer, style.container)
-        assertEquals(LightRipDpiExtendedColors.destructive, style.content)
+        assertEquals(LightRipDpiExtendedColors.destructiveContainerForeground, style.content)
         assertEquals(Color.Transparent, style.border)
     }
 

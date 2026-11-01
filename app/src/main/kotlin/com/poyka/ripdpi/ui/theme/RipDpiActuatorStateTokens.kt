@@ -31,6 +31,7 @@ data class RipDpiActuatorStateTokens(
                     carriageContent = colors.background,
                     terminal = colors.accent,
                     terminalBorder = colors.mutedForeground,
+                    slotContent = colors.accentForeground,
                 )
             }
 
@@ -98,7 +99,7 @@ data class RipDpiActuatorStateTokens(
                 RipDpiActuatorStageStyle(
                     container = colors.accent,
                     border = colors.foreground,
-                    content = colors.foreground,
+                    content = colors.accentForeground,
                     striped = false,
                     pulsing = false,
                 )

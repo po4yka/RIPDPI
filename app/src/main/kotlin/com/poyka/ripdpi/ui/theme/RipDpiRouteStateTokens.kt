@@ -45,8 +45,9 @@ data class RipDpiRouteStateTokens(
                 routeStyle(
                     container = colors.accent,
                     border = colors.foreground,
-                    mutedContent = colors.foreground,
-                    marker = colors.foreground,
+                    content = colors.accentForeground,
+                    mutedContent = colors.accentForeground,
+                    marker = colors.accentForeground,
                     badgeContainer = colors.foreground,
                     badgeBorder = colors.foreground,
                     badgeContent = colors.background,
@@ -60,6 +61,7 @@ data class RipDpiRouteStateTokens(
                     border = colors.outlineVariant,
                     badgeContainer = colors.accent,
                     badgeBorder = colors.outlineVariant,
+                    badgeContent = colors.accentForeground,
                 )
             }
 

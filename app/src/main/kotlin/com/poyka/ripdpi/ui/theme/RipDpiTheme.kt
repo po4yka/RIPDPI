@@ -51,7 +51,7 @@ fun RipDpiTheme(
     val type = remember(languageTags) { RipDpiTypeScale.withLocaleList(LocaleList(languageTags)) }
     val typography = remember(type) { ripDpiTypography(type) }
     val colorScheme = selectColorScheme(isDark, contrastLevel, dynamicColor)
-    val extendedColors = ripDpiExtendedColors(colorScheme, isDark)
+    val extendedColors = ripDpiExtendedColors(colorScheme, isDark, contrastLevel)
     val layout = ripDpiLayoutFor(currentWindowAdaptiveInfoV2().windowSizeClass.toRipDpiWidthClass())
     val baseMotion = rememberRipDpiMotion()
     val inheritedHapticFeedback = LocalHapticFeedback.current

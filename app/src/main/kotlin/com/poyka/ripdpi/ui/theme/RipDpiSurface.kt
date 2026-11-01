@@ -111,7 +111,7 @@ data class RipDpiSurfaceTokens(
                 RipDpiSurfaceStyle(
                     container = colors.accent,
                     border = colors.cardBorder,
-                    content = colors.foreground,
+                    content = colors.accentForeground,
                     shadowElevation = 8.dp,
                 )
             }
@@ -120,7 +120,7 @@ data class RipDpiSurfaceTokens(
                 RipDpiSurfaceStyle(
                     container = colors.accent,
                     border = colors.foreground,
-                    content = colors.foreground,
+                    content = colors.accentForeground,
                     shadowElevation = 4.dp,
                 )
             }
@@ -181,7 +181,7 @@ data class RipDpiSurfaceTokens(
                 RipDpiSurfaceStyle(
                     container = colors.destructiveContainer,
                     border = Color.Transparent,
-                    content = colors.destructive,
+                    content = colors.destructiveContainerForeground,
                 )
             }
 
@@ -232,7 +232,7 @@ data class RipDpiSurfaceTokens(
                 RipDpiSurfaceStyle(
                     container = colors.accent,
                     border = colors.outlineVariant,
-                    content = colors.foreground,
+                    content = colors.accentForeground,
                 )
             }
 
@@ -271,7 +271,7 @@ data class RipDpiSurfaceTokens(
                 RipDpiSurfaceStyle(
                     container = colors.accent,
                     border = colors.outlineVariant,
-                    content = colors.foreground,
+                    content = colors.accentForeground,
                 )
             }
 
