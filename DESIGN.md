@@ -364,7 +364,7 @@ components:
     rounded: "{rounded.xl}"
     padding: "{spacing.lg}"
   cardTonal:
-    backgroundColor: "{colors.muted}"
+    backgroundColor: "{colors.inputBackground}"
     textColor: "{colors.foreground}"
     rounded: "{rounded.xl}"
     padding: "{spacing.lg}"
@@ -512,7 +512,7 @@ Core UI uses the Material 3 color roles of a scheme generated with Google materi
 - `foreground`, `cardForeground`, and `mutedForeground` define the text hierarchy.
 - `primary` is the Material `primary` role, a calm slate. Filled primary actions use it with `onPrimary`.
 - `background` is `surface`, `card` is `surface` (an outlined card bordered by `cardBorder`), `muted` is `surfaceContainerHigh`, `inputBackground` is `surfaceContainerHighest`, and `border`, `cardBorder`, and `divider` are `outlineVariant`.
-- `accent` and `accentForeground` are for selected status cards or emphasized neutral surfaces, not for playful branding.
+- `accent` and `accentForeground` are for selected status cards or emphasized neutral surfaces, not for playful branding. `accent` is `secondaryContainer` and `accentForeground` is `onSecondaryContainer`: content on an accent container always uses `accentForeground`, never `foreground`, which falls to 1.8:1 at high contrast.
 - `border`, `cardBorder`, `divider`, `hairline`, `outline`, and `outlineVariant` encode structure and focus.
 
 Status color is intentionally scarce and semantic:
@@ -523,7 +523,7 @@ Status color is intentionally scarce and semantic:
 - `info` and `infoContainer` mean explanatory state or guidance.
 - `restricted` and `restrictedContainer` mean limited capability or unavailable mode.
 
-Dark mode preserves the same role mapping instead of inventing a separate visual identity. Contrast levels select the matching generated scheme, which strengthens text, outline, and container relationships without making the app visually loud. `destructive` roles come from the Material `error` roles; `success`, `warning`, `info`, and `restricted` are fixed semantic roles outside the Material scheme.
+Dark mode preserves the same role mapping instead of inventing a separate visual identity. Contrast levels select the matching generated scheme, which strengthens text, outline, and container relationships without making the app visually loud. `destructive` roles come from the Material `error` roles; `success`, `warning`, `info`, and `restricted` are fixed semantic hues outside the Material scheme, but their tone colors follow the contrast level: Medium and High darken them in light and lighten them in dark, so a tone holds at least 4.5:1 against the page at every level and at least 7:1 at High. `RipDpiRoleContrastTest` checks every surface, banner, actuator, and route role in light, dark, medium, and high.
 
 Dynamic color is an opt-in Settings switch on Android 12 and later, off by default. When it is on, Material roles come from the system wallpaper scheme and the RDS roles derive from it; the fixed semantic status roles do not change.
 
@@ -568,6 +568,7 @@ RIPDPI uses depth conservatively:
 - Default cards stay flat and rely on borders and tonal separation first.
 - Elevated cards and sheets are reserved for dialogs, bottom sheets, and higher-priority content.
 - Status cards can carry modest lift, but decorative floating chrome is out of scope.
+- Card roles draw their shadow directly, not through Material card elevation, so the shadow stays the same while a card is pressed or focused and a surface-colored card gets no tonal tint.
 - Scrims should feel functional and calm, never cinematic.
 
 ## Surface Roles
@@ -615,14 +616,14 @@ Component behavior rules:
 - Primary buttons use `foreground` on `background` and keep a `48dp` minimum height.
 - Secondary buttons use tonal neutral treatment instead of accent color.
 - Ghost and outline actions stay visually light, but their disabled state must still be legible.
-- Text fields and dropdowns use filled muted surfaces, not raw outlined-only treatment.
+- Text fields and dropdowns use filled muted surfaces, not raw outlined-only treatment. Their idle boundary and the outline button boundary use the `outline` role, which holds 3:1; field text uses `foreground`, error text `destructive`, and a disabled outline button uses `onSurface` at 12%. Any text obfuscation mode, `Visible` included, renders a secure field that offers no copy or cut and no keyboard learning; a read-only secure field rejects edits.
 - Settings rows use `body` for the title and `secondaryBody` for the description. Text values appear below the description in the main text column and can wrap. Switches and chevrons use only their required width. Rows grow with content and clearly communicate selected, navigable, and toggle states.
 - Diagnostics sections use a horizontal, scrollable Material 3 tab row at all font scales. Tabs retain selection semantics, localized labels, and section callbacks. Large font does not create a fixed vertical selector above the results.
 - `RipDpiConnectionActuator` is the Home primary connection primitive: a horizontal slider-lock with fixed Network, DNS, Handshake, Tunnel, and Route stages, localized fault/warning treatment, a visible route label, and a locked terminal slot for connected or degraded-but-active sessions.
 - Secure Route components describe any user-engageable protected path. Transport labels identify local VPN, local proxy, relay, WARP, or future provider VPN paths; capability pills identify VPN privacy, DNS protection, anti-DPI, relay, split/full tunnel, and traffic modification without making low-level techniques the product identity.
 - Warning and remediation surfaces use semantic containers, not full-saturation fills by default.
 - Monospace treatments belong in diagnostic or configuration contexts, not in general navigation chrome.
-- Shared components should resolve pressed, focused, disabled, loading, selected, and error visuals from a first-class state-token layer instead of rebuilding those palettes inline.
+- Facade components built on Material 3 take pressed, focused, disabled, and selected visuals from Material and map RDS roles into its color objects (for example `ripDpiButtonColors`). States Material does not model (banner tone, actuator, route availability) resolve from the first-class state-token layer instead of rebuilding those palettes inline.
 - Shared panels, modals, menus, and navigation chrome should resolve their structure from first-class surface roles.
 
 ## Do's and Don'ts
@@ -651,8 +652,9 @@ Accessibility is a design requirement, not an afterthought:
 
 - Interactive elements must expose a semantic hit area of at least `48dp`.
 - Buttons, icon buttons, inputs, switches, chips, and selectable cards must keep visible disabled, focused, pressed, loading, and error states where applicable.
+- Buttons and icon buttons draw a 2dp keyboard focus ring in ink or paper, whichever holds 3:1 against the container (`ripDpiFocusRing`). Ripple state layers alone do not meet 3:1.
 - Icon-only buttons require a content description.
-- `RipDpiDropdown`, `RipDpiTextField`, and `RipDpiSwitch` must surface labels and errors semantically.
+- `RipDpiDropdown`, `RipDpiTextField`, and `RipDpiSwitch` must surface labels and errors semantically. The dropdown is one merged node: the label as its description, the selected value as its state, the error, the dropdown role, and expand or collapse actions.
 - Secondary text roles must remain readable in both light and dark themes.
 - Selectable surfaces such as `PresetCard` must expose selection state semantically, not only visually.
 - Large font scale must not clip primary actions, titles, or onboarding content.

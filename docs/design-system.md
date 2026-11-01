@@ -45,6 +45,8 @@ Feature geometry does not belong in the shared theme. Flow-specific measurements
 
 The `RipDpi*` facade components are built on Material 3 components: `Button` and its variants, `IconButton` and its variants, `Switch`, `OutlinedTextField` and `OutlinedSecureTextField`, `DropdownMenu`, `Card`, `Surface`, `ModalBottomSheet`, `Snackbar`, and `SecondaryTabRow`. Material 3 resolves pressed, focused, disabled, and selected states for these components. The facade maps RDS roles into Material color objects (for example `ripDpiButtonColors` and `ripDpiSwitchColors`) and does not rebuild those states inline.
 
+Material 3 ripple state layers are too faint for keyboard focus, so `RipDpiButton` and `RipDpiIconButton` add `Modifier.ripDpiFocusRing`: a 2dp ring in ink or paper, whichever holds 3:1 against the container, covered by `RipDpiFocusRingTest`. Content on an accent container uses `accentForeground`; `RipDpiRoleContrastTest` asserts 4.5:1 for every surface and state role at all contrast levels.
+
 Components with a state that Material 3 does not model resolve it from `RipDpiStateTokens`, not by rebuilding semantic colors inline.
 
 Current first-class state families:
@@ -139,7 +141,7 @@ Usage rules:
 | Secure route profiles and capabilities | `ui/components/routes/RipDpiRouteComponents.kt` | `state.route`, route surface roles, `type.monoSmall`, `RipDpiIcons` | `RipDpiDesignSystemScreenshotCatalog` |
 | Filter and selection chips | `ui/components/inputs/RipDpiChip.kt` | Material 3 `Surface` with `colors`, `type.smallLabel`, `shapes`, component metrics, `motion` | `RipDpiDesignSystemScreenshotCatalog` |
 | Text and config fields | `ui/components/inputs/RipDpiTextField.kt` | Material 3 `OutlinedTextField` and `OutlinedSecureTextField` with `colors`, `type.monoValue`, `type.monoConfig`, component metrics | `RipDpiDesignSystemScreenshotCatalog` |
-| Dropdowns and switches | `ui/components/inputs/RipDpiDropdown.kt`, `ui/components/inputs/RipDpiSwitch.kt` | Material 3 `DropdownMenu`, `OutlinedTextField`, and `Switch` with `colors`, `type`, component metrics | `RipDpiDesignSystemScreenshotCatalog` |
+| Dropdowns and switches | `ui/components/inputs/RipDpiDropdown.kt`, `ui/components/inputs/RipDpiSwitch.kt` | Material 3 `DropdownMenu` and `Switch`, plus a merged-node dropdown field, with `colors`, `type`, component metrics | `RipDpiDesignSystemScreenshotCatalog` |
 | Cards and selectable presets | `ui/components/cards/RipDpiCard.kt`, `ui/components/cards/PresetCard.kt` | Material 3 `Card` with `surfaces`, `layout.cardPadding`, `shapes` | `RipDpiDesignSystemScreenshotCatalog`, screen catalogs |
 | Settings rows | `ui/components/cards/SettingsRow.kt` | Material 3 `Surface` with `surfaces`, `type`, component metrics | `RipDpiDesignSystemScreenshotCatalog`, settings screen screenshots |
 | Feedback surfaces | `ui/components/feedback/WarningBanner.kt`, `RipDpiDialog.kt`, `RipDpiBottomSheet.kt`, `RipDpiSnackbar.kt` | Material 3 `Card`, `Surface`, `ModalBottomSheet`, and `Snackbar` with `surfaces`, `state.banner`, semantic status colors, `type`, layout widths, `motion` | `RipDpiDesignSystemScreenshotCatalog` for banners/snackbars; modal previews and screen catalogs for dialogs/sheets |
