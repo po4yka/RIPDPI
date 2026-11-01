@@ -14,7 +14,11 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
@@ -58,14 +62,15 @@ fun RipDpiCard(
             disabledContainerColor = surfaceStyle.container,
             disabledContentColor = surfaceStyle.content,
         )
-    val elevation =
-        CardDefaults.cardElevation(
-            defaultElevation = surfaceStyle.shadowElevation,
-            disabledElevation = surfaceStyle.shadowElevation,
-        )
     val border =
         if (surfaceStyle.border == Color.Transparent) null else BorderStroke(RipDpiStroke.Thin, surfaceStyle.border)
-    val cardModifier = modifier.fillMaxWidth().alpha(if (enabled) 1f else disabledAlpha)
+    // Card elevation would add a tonal tint to a surface-colored container and drop the shadow while pressed or
+    // focused, so the role's shadow is drawn directly and stays the same in every state.
+    val cardModifier =
+        modifier
+            .fillMaxWidth()
+            .alpha(if (enabled) 1f else disabledAlpha)
+            .shadow(surfaceStyle.shadowElevation, shape, clip = false)
     val cardContent: @Composable ColumnScope.() -> Unit = {
         Column(
             modifier =
@@ -89,11 +94,10 @@ fun RipDpiCard(
                 performHaptic(RipDpiHapticFeedback.Action)
                 onClick()
             },
-            modifier = cardModifier,
+            modifier = cardModifier.semantics { role = Role.Button },
             enabled = enabled,
             shape = shape,
             colors = colors,
-            elevation = elevation,
             border = border,
             content = cardContent,
         )
@@ -102,7 +106,6 @@ fun RipDpiCard(
             modifier = cardModifier,
             shape = shape,
             colors = colors,
-            elevation = elevation,
             border = border,
             content = cardContent,
         )

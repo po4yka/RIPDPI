@@ -15,7 +15,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -24,7 +23,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.liveRegion
+import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.rememberTextMeasurer
@@ -34,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
+import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -99,7 +101,7 @@ fun WarningBanner(
                 performHaptic(RipDpiHapticFeedback.Action)
                 onClick()
             },
-            modifier = surfaceModifier,
+            modifier = surfaceModifier.semantics { role = Role.Button },
             shape = shape,
             colors = colors,
             elevation = elevation,
@@ -210,20 +212,13 @@ private fun WarningBannerDismissButton(
     state: RipDpiBannerStateStyle,
 ) {
     if (onDismiss == null) return
-    IconButton(
+    RipDpiIconButton(
+        icon = RipDpiIcons.Close,
+        contentDescription = stringResource(R.string.action_dismiss),
         onClick = onDismiss,
-        modifier =
-            Modifier
-                .size(RipDpiThemeTokens.components.buttons.iconButtonSize)
-                .ripDpiTestTag(RipDpiTestTags.WarningBannerDismiss),
-    ) {
-        Icon(
-            imageVector = RipDpiIcons.Close,
-            contentDescription = stringResource(R.string.action_dismiss),
-            tint = state.title,
-            modifier = Modifier.size(RipDpiIconSizes.Default),
-        )
-    }
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.WarningBannerDismiss),
+        tint = state.title,
+    )
 }
 
 private fun defaultWarningBannerIcon(tone: WarningBannerTone): ImageVector =

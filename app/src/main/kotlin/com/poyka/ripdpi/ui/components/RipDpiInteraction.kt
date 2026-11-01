@@ -20,6 +20,7 @@ import androidx.compose.ui.composed
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.luminance
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.Role
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -122,12 +123,13 @@ fun Modifier.ripDpiClickable(
 
 /**
  * Draws a 2dp keyboard focus ring just inside [shape]. The ring takes whichever of ink or paper holds at least 3:1
- * against [container]; a transparent container sits on the page, so it is measured as the page background.
+ * against [container] ([ink] defaults to the foreground); a transparent container sits on the page, so it is measured as the page background.
  */
 fun Modifier.ripDpiFocusRing(
     interactionSource: InteractionSource,
     shape: Shape,
     container: Color,
+    ink: Color = Color.Unspecified,
 ): Modifier =
     composed {
         val colors = RipDpiThemeTokens.colors
@@ -138,7 +140,7 @@ fun Modifier.ripDpiFocusRing(
             val surface = if (container == Color.Transparent) colors.background else container
             Modifier.border(
                 RipDpiStroke.Thick,
-                ripDpiFocusRingColor(surface, colors.foreground, colors.background),
+                ripDpiFocusRingColor(surface, ink.takeOrElse { colors.foreground }, colors.background),
                 shape,
             )
         }

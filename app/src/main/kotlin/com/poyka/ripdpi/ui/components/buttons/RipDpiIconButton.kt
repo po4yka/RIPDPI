@@ -19,6 +19,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.takeOrElse
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
@@ -70,6 +71,8 @@ fun RipDpiIconButton(
     enabled: Boolean = true,
     loading: Boolean = false,
     selected: Boolean = false,
+    // Content color for a Ghost icon on a tinted surface; Unspecified keeps the foreground.
+    tint: Color = Color.Unspecified,
     // Both densities keep the 48dp target and default icon size; the parameter stays for callers.
     @Suppress("UNUSED_PARAMETER", "UnusedParameter")
     density: RipDpiControlDensity = RipDpiControlDensity.Default,
@@ -82,12 +85,12 @@ fun RipDpiIconButton(
     val performHaptic = rememberRipDpiHapticPerformer()
     val loadingLabel = stringResource(R.string.cd_loading)
     val isInteractive = enabled && !loading
-    val colors = ripDpiIconButtonColors(style, enabled = enabled, selected = selected)
+    val colors = ripDpiIconButtonColors(style, enabled = enabled, selected = selected, tint = tint)
     val focusSource = interactionSource ?: remember { MutableInteractionSource() }
     val buttonModifier =
         modifier
             .size(RipDpiThemeTokens.components.buttons.iconButtonSize)
-            .ripDpiFocusRing(focusSource, shape, colors.containerColor)
+            .ripDpiFocusRing(focusSource, shape, colors.containerColor, ink = tint)
             .semantics {
                 this.contentDescription = contentDescription
                 if (loading) stateDescription = loadingLabel
@@ -193,6 +196,7 @@ internal fun ripDpiIconButtonColors(
     style: RipDpiIconButtonStyle,
     enabled: Boolean,
     selected: Boolean,
+    tint: Color = Color.Unspecified,
 ): IconButtonColors {
     val colors = RipDpiThemeTokens.colors
     val disabledContent =
@@ -200,7 +204,7 @@ internal fun ripDpiIconButtonColors(
     val (container, content) =
         when (style) {
             RipDpiIconButtonStyle.Ghost, RipDpiIconButtonStyle.Outline -> {
-                Color.Transparent to colors.foreground
+                Color.Transparent to tint.takeOrElse { colors.foreground }
             }
 
             RipDpiIconButtonStyle.Tonal -> {
