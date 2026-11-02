@@ -99,7 +99,8 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
         self.assertIn(":app:assembleGithubFullReleaseAndroidTest", release_test)
         self.assertIn("-Pripdpi.testBuildType=release", release_test)
         self.assertIn("test \"${#test_apks[@]}\" -eq 1", release_test)
-        self.assertNotIn("secrets.", release_test)
+        for secret in ("KEYSTORE_", "RIPDPI_SIGNING_", "RIPDPI_EMBEDDED_RELAY_BUNDLE"):
+            self.assertNotIn(secret, release_test)
         self.assertNotIn(":app:assembleGithubFullReleaseAndroidTest", release_verification_job(source))
         self.assertIn("      - release-instrumentation-apk\n", source)
 

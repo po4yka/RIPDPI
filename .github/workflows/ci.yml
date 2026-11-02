@@ -1203,11 +1203,12 @@ jobs:
           # One worker was needed while one job compiled every release variant
           # in a shared Kotlin daemon. A shard now builds one variant, so two
           # workers overlap KSP and library tasks with the :app compile.
-          # gradle-static-analysis runs full lint and release-candidate keeps
-          # lintVital, so release verification skips the lintVital tasks.
+          # Only github-full, the last job to finish, skips lintVital:
+          # gradle-static-analysis lints its GitHub and Full sources. The
+          # Simple, Play, and F-Droid shards keep lintVital for theirs.
           common_args=(
             --max-workers=2
-            -Pripdpi.lintReleaseBuilds=false
+            -Pripdpi.lintReleaseBuilds=${{ matrix.shard.id != 'github-full' }}
             -Pripdpi.enableAbiSplits=false
             -Pripdpi.nativeAbiParallelism=1
             -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-release/jniLibs"
@@ -1326,8 +1327,11 @@ jobs:
           setup-rust: "false"
           # :testing:socket-bind-probe builds its test library with CMake.
           setup-android-ndk: "true"
-          gradle-cache-key-prefix: gradle-release-github-build-cache
-          gradle-cache-read-only: "true"
+          # The github-full release entry has no androidTest outputs, so this
+          # job owns its namespace.
+          gradle-cache-key-prefix: gradle-release-androidtest-build-cache
+          gradle-cache-read-only: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
+          gradle-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
 
       - name: Download native release shards
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -1662,7 +1666,8 @@ jobs:
           path: ${{ runner.temp }}/nextest-workspace.tar.zst
           if-no-files-found: error
           compression-level: 0
-          retention-days: 1
+          # Re-running a failed shard downloads it again.
+          retention-days: 3
 
       - uses: ./.github/actions/upload-build-observability
         if: always()
@@ -1682,6 +1687,11 @@ jobs:
         partition: ["1/2", "2/2"]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Keep in sync with native/rust/rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: "1.98.1"
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
@@ -1729,8 +1739,9 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          shared-key: rust-host-test
-          save-if: false
+          # Its per-package builds unify features differently from the archive.
+          shared-key: rust-network-e2e
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-nextest
         uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31

@@ -837,9 +837,12 @@ The live `nfqueue` mode is documented with the emulator harness. Phase-16 now di
 PR CI includes:
 
 - `build-android-debug` / `build-android-tests` -- Android compilation and unit-test artifacts
-- `gradle-static-analysis` -- detekt + ktlint + Android lint
+- `gradle-static-analysis` -- detekt + ktlint + Android lint. Pull requests lint only the GitHub Full app variant and skip test sources (`-Pripdpi.lintFullScope=false`); pushes to main lint the Simple variant and test sources too
+- `release-verification` / `release-instrumentation-apk` -- one R8 release variant per shard (GitHub Full and Simple on pull requests, all six on main) and the GitHub Full release instrumentation APK in its own job. Only the github-full shard skips lintVital (`-Pripdpi.lintReleaseBuilds=false`)
 - `rust-lint` -- Rust fmt/clippy, policy scanners, and the `ripdpi-diagnostics-probes` compat-facade feature checks
-- `rust-workspace-tests` -- workspace nextest suite, then host-side proxy E2E against local fixture and deterministic turmoil fault-injection tests
+- `rust-workspace-tests` / `rust-workspace-test-shards` -- one job builds the workspace test binaries into a nextest archive; two shards run them with `--partition slice:K/2` (`scripts/ci/run-rust-workspace-tests.sh archive` / `shard`)
+- `rust-network-e2e` -- native architecture checks, socket-filter tests, host-side proxy E2E against local fixture, and deterministic turmoil fault-injection tests
+- Host-only Rust lanes (workspace tests, network E2E, miri, loom, fuzz smoke, relay interoperability, CLI packet smoke, and the TUN/soak/load lanes) run on free `ubuntu-24.04-arm` runners; `rust-lint`, `runtime-api-snapshot`, coverage, and criterion stay on x64
 - `android-network-e2e` -- opt-in instrumentation E2E when its dispatch/label condition is satisfied
 - managed-device instrumentation -- flavor-qualified `:app` suites on API 27 / 35 / 37 for pull requests and the full API 27 / 33 / 35 / 36 / 37 registry on main, with forced 16 KiB pages on API 37
 - `kotlin-coverage` -- JaCoCo coverage, routed for Android, release/build-logic, and unknown changes

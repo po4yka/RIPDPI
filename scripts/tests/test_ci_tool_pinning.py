@@ -290,6 +290,7 @@ class CiToolPinningTest(unittest.TestCase):
                 ("ci.yml", "kotlin-coverage"): "${{ github.ref != 'refs/heads/main' }}",
                 ("ci.yml", "pluggable-transport-assets"): main_push,
                 ("ci.yml", "gradle-static-analysis"): main_push,
+                ("ci.yml", "release-instrumentation-apk"): main_push,
                 ("ci.yml", "build-android-debug"): (
                     "${{ matrix.shard.id != 'github' || "
                     "github.event_name != 'push' || github.ref != 'refs/heads/main' }}"
