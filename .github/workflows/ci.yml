@@ -1200,8 +1200,11 @@ jobs:
 
       - name: Verify ${{ matrix.shard.id }} release shard with prebuilt natives
         run: |
+          # One worker was needed while one job compiled every release variant
+          # in a shared Kotlin daemon. A shard now builds one variant, so two
+          # workers overlap lintVital and library tasks with the :app compile.
           common_args=(
-            --max-workers=1
+            --max-workers=2
             -Pripdpi.enableAbiSplits=false
             -Pripdpi.nativeAbiParallelism=1
             -Pripdpi.prebuiltJniLibsDir="$RUNNER_TEMP/prebuilt-release/jniLibs"
