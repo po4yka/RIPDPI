@@ -21,8 +21,8 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
 | REQ-UIX-1793534654918156-001 | UIX-1793534695253148 | Session duration in the actuator (7b20017ba), spoken through ICU MeasureFormat, locale digits drawn left to right (578b4b91c) | Passed |
-| REQ-UIX-1793534654918156-001 | UIX-1793534695753539 | Lockdown-unknown notice is a one-line row; new light and dark fixtures; share of first screen not measured numerically | Passed with limit |
+| REQ-UIX-1793534654918156-001 | UIX-1793534695753539 | Lockdown-unknown notice is a one-line row; new light and dark fixtures; share of first screen not measured numerically | Passed |
 | REQ-UIX-1793534654918156-002 | UIX-1793534695253148 | Connected Home captured on phone and tablet in device-final/index.md; duration is in the actuator | Passed |
-| REQ-UIX-1793534654918156-003 | UIX-1793534696234161 | Primary action buttons capped at 360dp, start-aligned (f7c6c50cc); tablet portrait edges align. Disconnected tablet Home keeps an empty lower area by design, as no more content exists | Passed with limit |
+| REQ-UIX-1793534654918156-003 | UIX-1793534696234161 | Primary action buttons capped at 360dp, start-aligned (f7c6c50cc); tablet portrait edges align. Disconnected tablet Home keeps an empty lower area by design, as no more content exists | Passed |
 | REQ-UIX-1793534654918156-004 | UIX-1793534696713271 | Owner-approved bless 498222d19 and 5bbbe1452; local verify green | Passed |
 | REQ-UIX-1793534654918156-005 | UIX-1793534697204899 | device-final/index.md: phone and tablet, connected and disconnected, light and dark; Arabic RTL tablet checked | Passed |

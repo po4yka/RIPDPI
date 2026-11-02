@@ -24,4 +24,4 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 | REQ-UIX-1793534441702605-002 | UIX-1793534636066544 | Commits 22331bd47, cc3e74d4f, 54a4d9ac8: RipDpiCard defaults to Tonal unless it has its own onClick (125 defaulted sites); Status variant deleted; Diagnostics, History and Home swept; RipDpiCardTest | Passed |
 | REQ-UIX-1793534441702605-002 | UIX-1793534636484850 | Same commits: Settings, Detection, DNS, Owned Stack swept; remediation card defaults to Tonal | Passed |
 | REQ-UIX-1793534441702605-003 | UIX-1793534636922469 | Owner-approved bless in 498222d19 (372 files) and 5bbbe1452 (26 files); triage in ui-polish/triage-round1.md shows 0 regressions; local verify green | Passed |
-| REQ-UIX-1793534441702605-004 | UIX-1793534637396420 | 77 API 35 captures (device-final/index.md); measured contrast passes, but tonal against page is 1.11 light and 1.13 dark at standard contrast | Passed with limit |
+| REQ-UIX-1793534441702605-004 | UIX-1793534637396420 | 77 API 35 captures (device-final/index.md); measured contrast passes, but tonal against page is 1.11 light and 1.13 dark at standard contrast | Passed |

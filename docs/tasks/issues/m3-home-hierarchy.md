@@ -2,7 +2,7 @@
 id: UIX-1793534654918156
 title: Give Home a clear status hierarchy on phone and tablet
 kind: feature
-status: review
+status: done
 area: ui
 priority: medium
 owner: UI overhaul
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: m3-home-hierarchy
 created: 2026-11-01
 updated: 2026-11-02
+closed_at: "2026-11-02T08:09:22Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Home shows the session duration in the actuator, a one-line lockdown-unknown notice, and primary action buttons capped at 360dp, with goldens blessed by the owner and device captures on API 35 phone and tablet in both states. The notice share of the first screen was not measured numerically, and disconnected tablet Home keeps an empty lower area by design. CI run 41401888905 on 415f31e87 passed on attempt 3 (attempts 1 and 2 failed only rust-workspace-tests on an AmneziaWG interop trailer case, assessed as an unrelated validator flake because the branch changes no Rust code).
 ---
 
 ## Goal

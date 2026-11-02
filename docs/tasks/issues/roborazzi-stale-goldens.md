@@ -2,7 +2,7 @@
 id: TST-1793464904072920
 title: Refresh sub-threshold stale Roborazzi goldens and tighten the comparison
 kind: bug
-status: review
+status: done
 area: testing
 priority: medium
 owner: UI overhaul
@@ -13,6 +13,9 @@ openspec_change: null
 created: 2026-10-31
 updated: 2026-11-02
 spec_reason: test-only
+closed_at: "2026-11-02T08:09:22Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Goldens were re-derived at threshold 0 and blessed by the owner (498222d19, 5bbbe1452), and the comparison is now one shared 0.1% constant (1db7edc01). Before the refresh the old tree passed verify at 1% (verify3.log) but 95 goldens differed at threshold 0 (verify4-zero.log); by an ImageMagick AE 2% fuzz estimate, not Roborazzi's exact metric, 47 differed by 0.1% or more, including real changes the old rule hid (Connect cap, session duration, outline border drift from e9efccff2). No synthetic seeded-change test was added. Both verifyRoborazzi variants are green locally at 0.1%. CI run 41401888905 on 415f31e87 passed on attempt 3 (attempts 1 and 2 failed only rust-workspace-tests on an AmneziaWG interop trailer case, assessed as an unrelated validator flake because the branch changes no Rust code). verify-roborazzi passed.
 ---
 
 ## Goal

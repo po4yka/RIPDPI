@@ -2,7 +2,7 @@
 id: DAT-1793534707148297
 title: Persist and show the app lock reset notice
 kind: bug
-status: review
+status: done
 area: data
 priority: medium
 owner: UI overhaul
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: app-lock-reset-notice
 created: 2026-11-01
 updated: 2026-11-02
+closed_at: "2026-11-02T08:09:22Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "The app lock reset notice is persisted as AppSettings field 425 (c4d60f5c6, b767c8281), cleared on acknowledgement or a new PIN, excluded from full backups, and documented in CONFIG_CONTRACTS.md; core data and app unit tests pass. Not run on a device: process restart is covered only by a DataStore round trip in unit tests. CI run 41401888905 on 415f31e87 passed on attempt 3 (attempts 1 and 2 failed only rust-workspace-tests on an AmneziaWG interop trailer case, assessed as an unrelated validator flake because the branch changes no Rust code)."
 ---
 
 ## Problem

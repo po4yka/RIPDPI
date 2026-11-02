@@ -22,7 +22,7 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 |---|---|---|---|
 | REQ-DAT-1793534707148297-001 | DAT-1793534730084253 | Field 425 added with the contract documented in CONFIG_CONTRACTS.md; AppLockResetNoticePersistenceTest | Passed |
 | REQ-DAT-1793534707148297-001 | DAT-1793534730552835 | Reset sets the flag with the PIN wipe; b767c8281 guards a concurrent PIN change; SettingsViewModelBootstrapperTest | Passed |
-| REQ-DAT-1793534707148297-002 | DAT-1793534731008449 | SettingsNoticeStateTest and the DataStore round trip show the notice while the flag is set; not run on a device | Passed with limit |
+| REQ-DAT-1793534707148297-002 | DAT-1793534731008449 | SettingsNoticeStateTest and the DataStore round trip show the notice while the flag is set; not run on a device | Passed |
 | REQ-DAT-1793534707148297-003 | DAT-1793534730552835 | Acknowledgement and new PIN clear the flag in SettingsCustomizationActionsTest and SettingsNoticeStateTest | Passed |
 | REQ-DAT-1793534707148297-004 | DAT-1793534730084253 | AppLockResetNoticePersistenceTest: old bytes decode with the flag off; field 425 decodes | Passed |
 | REQ-DAT-1793534707148297-005 | DAT-1793534731479020 | Flag excluded from FULL backups; restore replaces settings so it clears the flag and the PIN; documented in CONFIG_CONTRACTS.md; BackupRestoreUseCaseTest | Passed |

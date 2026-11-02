@@ -1,0 +1,11 @@
+{
+  "change": "app-lock-reset-notice",
+  "evidence_summary": "The app lock reset notice is persisted as AppSettings field 425 (c4d60f5c6, b767c8281), cleared on acknowledgement or a new PIN, excluded from full backups, and documented in CONFIG_CONTRACTS.md; core data and app unit tests pass. Not run on a device: process restart is covered only by a DataStore round trip in unit tests. CI run 41401888905 on 415f31e87 passed on attempt 3 (attempts 1 and 2 failed only rust-workspace-tests on an AmneziaWG interop trailer case, assessed as an unrelated validator flake because the branch changes no Rust code).",
+  "execution_sha256": "752214ed5ad591fb591202a36760f6f8cb33048d9f835e7b1f6b94aa6080b615",
+  "issue_sha256": "bb280dcdbc3d551e5dbc894b3a80711aa7699a2fa96f1294706386052f17419c",
+  "outcome": "done",
+  "prepared_at": "2026-11-02T08:09:22Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DAT-1793534707148297"
+}

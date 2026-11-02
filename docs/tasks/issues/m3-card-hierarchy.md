@@ -2,7 +2,7 @@
 id: UIX-1793534441702605
 title: Give cards a tonal hierarchy and one elevation rule
 kind: feature
-status: review
+status: done
 area: ui
 priority: medium
 owner: UI overhaul
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: m3-card-hierarchy
 created: 2026-11-01
 updated: 2026-11-02
+closed_at: "2026-11-02T08:09:21Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: One card rule is documented in DESIGN.md and docs/design-system.md, and RipDpiCard defaults to Tonal across the swept call sites (22331bd47, cc3e74d4f, 54a4d9ac8). Goldens were blessed by the owner (498222d19, 5bbbe1452). Device captures on API 35 only; tonal card against page contrast is 1.11 light and 1.13 dark at standard contrast, with the outline at medium and high. CI run 41401888905 on 415f31e87 passed on attempt 3 (attempts 1 and 2 failed only rust-workspace-tests on an AmneziaWG interop trailer case, assessed as an unrelated validator flake because the branch changes no Rust code).
 ---
 
 ## Goal

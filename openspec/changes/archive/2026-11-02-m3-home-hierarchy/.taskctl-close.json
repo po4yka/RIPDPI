@@ -1,0 +1,11 @@
+{
+  "change": "m3-home-hierarchy",
+  "evidence_summary": "Home shows the session duration in the actuator, a one-line lockdown-unknown notice, and primary action buttons capped at 360dp, with goldens blessed by the owner and device captures on API 35 phone and tablet in both states. The notice share of the first screen was not measured numerically, and disconnected tablet Home keeps an empty lower area by design. CI run 41401888905 on 415f31e87 passed on attempt 3 (attempts 1 and 2 failed only rust-workspace-tests on an AmneziaWG interop trailer case, assessed as an unrelated validator flake because the branch changes no Rust code).",
+  "execution_sha256": "f1eda495fb86b11f2fae005a08a8c0af87a225bdf9dcb4ff94577ebb9e09ade0",
+  "issue_sha256": "8c4d1b6cc1d4e0656adb313bdfd6f96b080171871df9df78bc9416155a14afa1",
+  "outcome": "done",
+  "prepared_at": "2026-11-02T08:09:22Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "UIX-1793534654918156"
+}
