@@ -62,8 +62,12 @@ def validate_wire_observation(observation, profile, mtu, cycles, scenario="paylo
             "initiation or response missing")
     require((incoming[3] and (outgoing[3] or scenario == "timer-persistent")) or scenario == "timer-retry-exhaust", "bidirectional transport missing")
     if trailers:
-        require(any(size > padding[0] + 148 for size in incoming[0]), "initiation trailers not observed")
-        require(any(size > padding[1] + 92 for size in outgoing[1]), "response trailers not observed")
+        # A trailer is uniform in [0, window - pad - len), so one sample is empty
+        # about 1 time in 340. Only several packets can prove trailers are in use.
+        if sum(incoming[0].values()) > 1:
+            require(any(size > padding[0] + 148 for size in incoming[0]), "initiation trailers not observed")
+        if sum(outgoing[1].values()) > 1:
+            require(any(size > padding[1] + 92 for size in outgoing[1]), "response trailers not observed")
     ip_lengths = histogram(evidence.get("ip_lengths"), mtu)
     require((ip_lengths and min(ip_lengths) >= 20) or (not ip_lengths and scenario in ("timer-persistent", "timer-retry-exhaust")), "accepted IP payload missing")
     keepalives = evidence.get("authenticated_keepalives")

@@ -75,6 +75,24 @@ class WireSemantics(unittest.TestCase):
             observation["evidence"]["lengths"][side][kind] = sizes
             with self.subTest(kind=kind), self.assertRaises(ValueError): self.validate(observation)
 
+    def test_trailer_presence_needs_more_than_one_sample(self):
+        # A single initiation or response may draw an empty trailer; several without one may not.
+        for side, name in ((0, "initiation"), (1, "response")):
+            for count in (1, 2):
+                observation = small_cpa_observation()
+                lengths = observation["evidence"]["lengths"]
+                lengths[0][0] = {"160": count if side == 0 else 1}
+                lengths[1][1] = {"112": count if side == 1 else 1}
+                lengths[0][3], lengths[1][3] = {"72": 1, "117": 2}, {"117": 2}
+                observation["evidence"].update(authenticated_keepalives=1, ip_lengths={"45": 2})
+                observation["evidence"]["peer_counters"]["rx_bytes"] = 148 * lengths[0][0]["160"] + 48 + 2 * 93
+                with self.subTest(sample=name, count=count):
+                    if count == 1:
+                        validate_wire_observation(observation, "v3-cpa-trailers", 1280, 1, "payload")
+                    else:
+                        with self.assertRaisesRegex(ValueError, f"{name} trailers not observed"):
+                            validate_wire_observation(observation, "v3-cpa-trailers", 1280, 1, "payload")
+
     def test_missing_authentication_plaintext_or_fresh_prelude_fails(self):
         for mutation in (
             lambda o: o["evidence"].update(authenticated_keepalives=0),
