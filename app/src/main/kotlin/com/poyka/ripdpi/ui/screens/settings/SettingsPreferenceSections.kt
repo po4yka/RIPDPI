@@ -479,6 +479,7 @@ internal fun SettingsSupportSection(
             variant = settingsDetailVariant(Route.DetectionCheck),
             showChevron = true,
             showDivider = true,
+            testTag = RipDpiTestTags.SettingsDetectionCheck,
         )
         CommunityStatsSettingsRows(
             communityApiUrl = communityApiUrl,

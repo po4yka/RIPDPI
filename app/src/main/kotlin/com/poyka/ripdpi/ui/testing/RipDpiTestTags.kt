@@ -194,6 +194,7 @@ internal object RipDpiTestTags {
     const val UnsavedChangesDiscard = "unsaved-changes-discard"
 
     const val SettingsDnsSettings = "settings-dns-settings"
+    const val SettingsDetectionCheck = "settings-detection-check"
     const val SettingsAdvancedConnectivity = "settings-advanced-connectivity"
     const val SettingsAdvancedSettings = "settings-advanced-settings"
     const val SettingsWebRtcProtection = "settings-webrtc-protection"
