@@ -5,24 +5,25 @@ use std::sync::Arc;
 use std::time::Duration;
 
 use hyper::client::conn::http2;
-use hyper_util::rt::{TokioExecutor, TokioIo, TokioTimer};
+use hyper_util::rt::{TokioIo, TokioTimer};
 use tokio::net::{TcpSocket, TcpStream};
+use tokio::sync::{Notify, oneshot};
 
 use crate::config::{AsyncIo, XhttpMode, XhttpSocketProtector};
 use crate::finalmask;
+use crate::h2_executor::CarrierTaskOwner;
 use crate::pool::PooledConnection;
 
 const H2_KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(15);
 const H2_KEEP_ALIVE_TIMEOUT: Duration = Duration::from_secs(10);
 
-/// NOT cancel-safe: dropping this future mid-flight may abandon a partially
-/// established TCP/TLS/H2 connection without returning it to the pool; the caller
-/// must treat a cancelled connect as "no connection" and retry from scratch.
-/// (PQ-KEM telemetry only fires after a fully-completed handshake, so a cancelled
-/// connect never miscounts.)
+/// # Cancel safety:
+/// cancel-safe: partial TCP/TLS/H2 state and internal Hyper tasks remain owned
+/// until publication, and drop closes them on cancellation.
 pub(crate) async fn create_connection(
     mode: &XhttpMode,
     max_concurrent_streams: usize,
+    pool_changed: Arc<Notify>,
 ) -> io::Result<Arc<PooledConnection>> {
     let io: Box<dyn AsyncIo> = match mode {
         XhttpMode::Reality(config) => {
@@ -81,7 +82,7 @@ pub(crate) async fn create_connection(
             Box::new(tls)
         }
     };
-    handshake_pooled(io, max_concurrent_streams).await
+    handshake_pooled(io, max_concurrent_streams, pool_changed).await
 }
 
 /// Start the H2 session over an established carrier and attach its driver.
@@ -89,15 +90,20 @@ pub(crate) async fn create_connection(
 /// network change without RST): the driver then ends and marks the pooled
 /// connection closed, so new streams stop landing on it.
 ///
-/// # Cancel safety
+/// # Cancel safety:
 ///
 /// cancel-safe: the carrier and partial H2 session are dropped on
 /// cancellation; nothing is published before the handshake completes.
-pub(crate) async fn handshake_pooled<T>(io: T, max_concurrent_streams: usize) -> io::Result<Arc<PooledConnection>>
+pub(crate) async fn handshake_pooled<T>(
+    io: T,
+    max_concurrent_streams: usize,
+    pool_changed: Arc<Notify>,
+) -> io::Result<Arc<PooledConnection>>
 where
     T: tokio::io::AsyncRead + tokio::io::AsyncWrite + Unpin + Send + 'static,
 {
-    let (sender, connection) = http2::Builder::new(TokioExecutor::new())
+    let owned_tasks = CarrierTaskOwner::new();
+    let (sender, connection) = http2::Builder::new(owned_tasks.executor())
         .timer(TokioTimer::new())
         .keep_alive_interval(H2_KEEP_ALIVE_INTERVAL)
         .keep_alive_timeout(H2_KEEP_ALIVE_TIMEOUT)
@@ -106,17 +112,28 @@ where
         .await
         .map_err(|error| io::Error::new(io::ErrorKind::ConnectionRefused, format!("xHTTP H2 handshake: {error}")))?;
 
-    let pooled = Arc::new(PooledConnection::new(sender, max_concurrent_streams));
+    let pooled = Arc::new(PooledConnection::new(sender, max_concurrent_streams, pool_changed));
     let pooled_for_task = Arc::downgrade(&pooled);
+    let (stop_tx, stop_rx) = oneshot::channel();
     let driver = tokio::spawn(async move {
-        if let Err(error) = connection.await {
-            tracing::debug!(error = %error, "xHTTP H2 connection closed");
+        // Drop the H2 future and its socket before the pool can reuse this capacity.
+        {
+            tokio::pin!(connection);
+            tokio::select! {
+                result = &mut connection => {
+                    if let Err(error) = result {
+                        tracing::debug!(error = %error, "xHTTP H2 connection closed");
+                    }
+                }
+                _ = stop_rx => {}
+            }
         }
+        owned_tasks.close().await;
         if let Some(pooled) = pooled_for_task.upgrade() {
             pooled.mark_closed();
         }
     });
-    pooled.attach_driver(driver);
+    pooled.attach_driver(driver, Some(stop_tx));
     Ok(pooled)
 }
 
@@ -164,6 +181,7 @@ mod tests {
     use std::sync::atomic::{AtomicBool, AtomicI32, Ordering};
     use std::time::Duration;
 
+    use hyper_util::rt::TokioExecutor;
     use tokio::net::TcpListener;
 
     use super::*;
@@ -229,7 +247,7 @@ mod tests {
                 .serve_connection(TokioIo::new(server_io), service)
                 .await;
         });
-        let pooled = handshake_pooled(client_io, 1).await.expect("client H2 handshake");
+        let pooled = handshake_pooled(client_io, 1, Arc::new(Notify::new())).await.expect("client H2 handshake");
         silent.store(true, Ordering::SeqCst);
 
         let closed = tokio::time::timeout(Duration::from_secs(120), async {
@@ -352,7 +370,7 @@ mod tests {
             protocol_mode: XhttpProtocolMode::default(),
         });
 
-        let Err(err) = create_connection(&mode, 1).await else {
+        let Err(err) = create_connection(&mode, 1, Arc::new(Notify::new())).await else {
             panic!("xHTTP Reality hostname resolution must fail through protected DNS bootstrap");
         };
 

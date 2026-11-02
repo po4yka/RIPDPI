@@ -74,3 +74,14 @@ pub(crate) fn to_io_error<E: std::error::Error + 'static>(error: E) -> io::Error
     }
     io::Error::other(error.to_string())
 }
+
+pub(super) fn xhttp_pool_config(mode: &str, limit: Option<usize>) -> io::Result<ripdpi_xhttp::XmuxConfig> {
+    let mut pool = ripdpi_xhttp::XmuxConfig::default();
+    if let Some(limit) = limit {
+        if mode != "stream-up" || !(1..=4).contains(&limit) {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "unsupported xHTTP pool settings"));
+        }
+        pool.max_connections = limit;
+    }
+    Ok(pool)
+}

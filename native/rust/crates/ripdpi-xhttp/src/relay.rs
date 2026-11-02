@@ -537,7 +537,7 @@ mod tests {
             .expect("mode")
             .with_protocol_mode(protocol_mode),
         );
-        let pooled = PooledConnection::new(sender, 2);
+        let pooled = PooledConnection::new(sender, 2, Arc::new(tokio::sync::Notify::new()));
         let permit = Arc::new(Semaphore::new(1)).acquire_owned().await.expect("permit");
         let _stream = pooled.open_stream_from_mode(&mode, &tcp_request(&mode), permit).await.expect("open stream");
         let expected = match protocol_mode {
@@ -670,7 +670,7 @@ mod tests {
                 .expect("mode")
                 .with_protocol_mode(protocol_mode),
             );
-            let pooled = PooledConnection::new(sender, 1);
+            let pooled = PooledConnection::new(sender, 1, Arc::new(tokio::sync::Notify::new()));
             let permit = Arc::new(Semaphore::new(1)).acquire_owned().await.expect("permit");
             let result = tokio::time::timeout(
                 Duration::from_millis(500),
@@ -747,7 +747,7 @@ mod tests {
                 .expect("mode")
                 .with_protocol_mode(protocol_mode),
             );
-            let pooled = PooledConnection::new(sender, 1);
+            let pooled = PooledConnection::new(sender, 1, Arc::new(tokio::sync::Notify::new()));
             let permit = Arc::new(Semaphore::new(1)).acquire_owned().await.expect("permit");
             let request = mode.xudp_request().expect("XUDP request");
             let stream = pooled.open_stream_from_mode(&mode, &request, permit).await.expect("open XUDP stream");

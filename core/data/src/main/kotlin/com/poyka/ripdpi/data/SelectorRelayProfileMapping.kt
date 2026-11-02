@@ -51,6 +51,12 @@ fun mapRelayProfile(
             xhttpPath = profile.vlessXhttpPath(),
             xhttpHost = profile.vlessXhttpHost(),
             xhttpMode = profile.vlessXhttpMode(),
+            xhttpMaxConnections =
+                when (profile) {
+                    is ProxyProfile.Vless -> profile.xhttpMaxConnections
+                    is ProxyProfile.VlessReality -> profile.xhttpMaxConnections
+                    else -> null
+                },
             mieruProtocol = if (profile is ProxyProfile.Mieru) profile.protocol else "tcp",
             mieruMultiplexing = if (profile is ProxyProfile.Mieru) profile.multiplexing else "middle",
             mieruMtu = if (profile is ProxyProfile.Mieru) profile.mtu else 1400,

@@ -8,6 +8,7 @@ mod connect;
 mod finalmask;
 mod grpc;
 mod h2_body;
+mod h2_executor;
 mod pool;
 mod relay;
 

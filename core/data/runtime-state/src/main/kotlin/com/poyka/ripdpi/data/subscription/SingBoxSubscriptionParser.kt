@@ -460,6 +460,7 @@ private fun mapVless(
                 xhttpPath = if (xhttp != null) xhttp.rawString("path").orEmpty() else null,
                 xhttpHost = xhttp?.rawString("host"),
                 xhttpMode = xhttp?.rawString("mode") ?: com.poyka.ripdpi.data.RelayXhttpModeAuto,
+                xhttpMaxConnections = xhttp?.xhttpMaxConnections(),
             )
         }
     }
@@ -510,6 +511,7 @@ private fun mapVlessReality(
         xhttpPath = xhttpPath,
         xhttpHost = xhttpHost,
         xhttpMode = xhttpMode,
+        xhttpMaxConnections = if (isXhttp) transportObj?.xhttpMaxConnections() else null,
     )
 }
 

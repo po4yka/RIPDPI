@@ -3,7 +3,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex as StdMutex};
 
 use hyper::client::conn::http2;
-use tokio::sync::{Mutex, Notify, OwnedSemaphorePermit, Semaphore};
+use tokio::sync::{Mutex, Notify, OwnedSemaphorePermit, Semaphore, oneshot};
 use tokio::task::JoinHandle;
 
 use crate::client::XhttpClientInner;
@@ -14,14 +14,19 @@ pub(crate) struct PooledConnection {
     pub(crate) sender: Mutex<http2::SendRequest<XhttpBody>>,
     permits: Arc<Semaphore>,
     closed: AtomicBool,
+    closing: AtomicBool,
+    pool_changed: Arc<Notify>,
     driver: StdMutex<Option<AbortOnDrop>>,
 }
 
-struct AbortOnDrop(JoinHandle<()>);
+struct AbortOnDrop {
+    task: JoinHandle<()>,
+    stop: Option<oneshot::Sender<()>>,
+}
 
 impl Drop for AbortOnDrop {
     fn drop(&mut self) {
-        self.0.abort();
+        self.task.abort();
     }
 }
 
@@ -53,24 +58,45 @@ impl Drop for CreationSlot {
 }
 
 impl PooledConnection {
-    pub(crate) fn new(sender: http2::SendRequest<XhttpBody>, max_concurrent_streams: usize) -> Self {
+    pub(crate) fn new(
+        sender: http2::SendRequest<XhttpBody>,
+        max_concurrent_streams: usize,
+        pool_changed: Arc<Notify>,
+    ) -> Self {
         Self {
             sender: Mutex::new(sender),
             permits: Arc::new(Semaphore::new(max_concurrent_streams)),
             closed: AtomicBool::new(false),
+            closing: AtomicBool::new(false),
+            pool_changed,
             driver: StdMutex::new(None),
         }
     }
 
-    pub(crate) fn attach_driver(&self, driver: JoinHandle<()>) {
+    pub(crate) fn attach_driver(&self, driver: JoinHandle<()>, stop: Option<oneshot::Sender<()>>) {
         let mut guard = self.driver.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
         debug_assert!(guard.is_none(), "xHTTP connection driver attached twice");
-        *guard = Some(AbortOnDrop(driver));
+        *guard = Some(AbortOnDrop { task: driver, stop });
     }
 
     pub(crate) fn mark_closed(&self) {
         self.closed.store(true, Ordering::SeqCst);
         self.permits.close();
+        self.pool_changed.notify_waiters();
+    }
+
+    pub(crate) fn request_close(&self) {
+        // This flag carries only admission state; the lock and oneshot order driver cleanup.
+        self.closing.store(true, Ordering::Relaxed);
+        self.permits.close();
+        let mut driver = self.driver.lock().unwrap_or_else(std::sync::PoisonError::into_inner);
+        if let Some(stop) = driver.as_mut().and_then(|driver| driver.stop.take()) {
+            let _ = stop.send(());
+        }
+    }
+
+    pub(crate) fn is_usable(&self) -> bool {
+        !self.is_closed() && !self.closing.load(Ordering::Relaxed)
     }
 
     pub(crate) fn is_closed(&self) -> bool {
@@ -115,7 +141,9 @@ pub(crate) async fn acquire_connection(
         };
 
         if let Some(creation_slot) = should_create {
-            match connect::create_connection(&inner.mode, inner.max_concurrent_streams).await {
+            match connect::create_connection(&inner.mode, inner.max_concurrent_streams, inner.pool_changed.clone())
+                .await
+            {
                 Ok(connection) => {
                     let permit = connection
                         .permits
@@ -137,25 +165,28 @@ pub(crate) async fn acquire_connection(
             }
         }
 
-        let waiter = {
+        let (waiter, draining) = {
             let state = inner.state.lock().await;
-            state
-                .connections
-                .iter()
-                .find(|connection| !connection.is_closed())
-                .map(|connection| (connection.clone(), connection.permits.clone()))
+            (
+                state
+                    .connections
+                    .iter()
+                    .find(|connection| connection.is_usable())
+                    .map(|connection| (connection.clone(), connection.permits.clone())),
+                state.connections.iter().any(|connection| !connection.is_usable()),
+            )
         };
         let Some((connection, permits)) = waiter else {
             // Only an in-flight creation can change the pool from here; with
             // none left, the next pass prunes closed carriers and creates one.
-            if inner.creating_connections.load(Ordering::Acquire) > 0 {
+            if draining || inner.creating_connections.load(Ordering::Acquire) > 0 {
                 pool_changed.await;
             }
             continue;
         };
         let permit =
             permits.acquire_owned().await.map_err(|_| io::Error::other("xHTTP stream permit channel closed"))?;
-        if connection.is_closed() {
+        if !connection.is_usable() {
             drop(permit);
             continue;
         }
@@ -168,7 +199,7 @@ pub(crate) async fn acquire_connection(
 async fn try_acquire_existing(inner: &XhttpClientInner) -> Option<(Arc<PooledConnection>, OwnedSemaphorePermit)> {
     let state = inner.state.lock().await;
     state.connections.iter().find_map(|connection| {
-        if connection.is_closed() {
+        if !connection.is_usable() {
             return None;
         }
         connection.permits.clone().try_acquire_owned().ok().map(|permit| (connection.clone(), permit))
@@ -228,14 +259,17 @@ mod tests {
             hyper::client::conn::http2::handshake(TokioExecutor::new(), TokioIo::new(client_io))
                 .await
                 .expect("client h2 handshake");
-        let pooled = Arc::new(PooledConnection::new(sender, 1));
+        let pooled = Arc::new(PooledConnection::new(sender, 1, Arc::new(Notify::new())));
         let (started_tx, started_rx) = oneshot::channel();
         let (dropped_tx, dropped_rx) = oneshot::channel();
-        pooled.attach_driver(tokio::spawn(async move {
-            let _notice = DropNotice(Some(dropped_tx));
-            let _ = started_tx.send(());
-            std::future::pending::<()>().await;
-        }));
+        pooled.attach_driver(
+            tokio::spawn(async move {
+                let _notice = DropNotice(Some(dropped_tx));
+                let _ = started_tx.send(());
+                std::future::pending::<()>().await;
+            }),
+            None,
+        );
         started_rx.await.expect("driver started");
 
         drop(pooled);
@@ -278,7 +312,7 @@ mod tests {
                 .expect("server h2 connection");
         });
 
-        let pooled = Arc::new(PooledConnection::new(sender, 2));
+        let pooled = Arc::new(PooledConnection::new(sender, 2, Arc::new(Notify::new())));
         let first = tokio::spawn({
             let pooled = Arc::clone(&pooled);
             async move { pooled.send_request(empty_request()).await }

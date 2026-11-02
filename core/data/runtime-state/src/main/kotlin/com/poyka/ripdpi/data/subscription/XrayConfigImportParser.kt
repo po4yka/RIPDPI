@@ -548,6 +548,7 @@ private fun buildVlessReality(
         xhttpPath = if (isXhttp) xhttp?.rawString("path").orEmpty() else null,
         xhttpHost = if (isXhttp) xhttp?.rawString("host") else null,
         xhttpMode = xhttp?.rawString("mode") ?: com.poyka.ripdpi.data.RelayXhttpModeAuto,
+        xhttpMaxConnections = xhttp?.xhttpMaxConnections(),
     )
 }
 
@@ -575,6 +576,7 @@ private fun buildPlainVless(
         xhttpPath = xhttp?.rawString("path").orEmpty(),
         xhttpHost = xhttp?.rawString("host"),
         xhttpMode = xhttp?.rawString("mode") ?: com.poyka.ripdpi.data.RelayXhttpModeAuto,
+        xhttpMaxConnections = xhttp?.xhttpMaxConnections(),
     )
 }
 

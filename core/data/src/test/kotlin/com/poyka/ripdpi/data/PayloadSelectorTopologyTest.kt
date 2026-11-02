@@ -13,6 +13,22 @@ import org.junit.Test
 
 class PayloadSelectorTopologyTest {
     @Test
+    fun `deployer mixed bundle retains verified failover and bounded TCP alternatives`() {
+        val payload = requireNotNull(javaClass.getResource("/deployment-generated/tcp-reserve-bundle.json")).readText()
+        val result = SelectorUrltestGroupImport.import(payload, "mixed") as SelectorUrltestImportResult.Success
+        val group = requireNotNull(result.group)
+        assertEquals(2, requireNotNull(group.failover?.payloadPolicy).schemaVersion)
+        assertEquals(2, requireNotNull(group.failover?.payloadPolicy).probes.size)
+        assertEquals(1, group.members.filterIsInstance<ProxyProfile.Hysteria2>().size)
+        val tcp = group.members.filterIsInstance<ProxyProfile.Vless>()
+        assertEquals(2, tcp.size)
+        tcp.forEach { profile ->
+            assertEquals("stream-up", profile.xhttpMode)
+            assertEquals(2, checkNotNull(mapRelayProfile(profile)).profile.xhttpMaxConnections)
+        }
+    }
+
+    @Test
     fun `nested selector keeps payload policy for the selected root`() {
         val result = SelectorUrltestGroupImport.import(bundle(), "nested")
         assertTrue("$result", result is SelectorUrltestImportResult.Success)

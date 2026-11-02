@@ -37,6 +37,7 @@ data class RelayVlessSection(
     val xhttpPath: String,
     val xhttpHost: String,
     val xhttpMode: String,
+    val xhttpMaxConnections: Int? = null,
     val vlessMuxProtocol: String,
     val vlessMuxMaxConcurrentStreams: Int,
     val vlessMuxPerConnectionKbps: Int,

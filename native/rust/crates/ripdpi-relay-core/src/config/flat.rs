@@ -143,6 +143,8 @@ pub(crate) struct FlatResolvedRelayRuntimeConfig {
     pub xhttp_host: String,
     #[serde(default = "default_xhttp_mode")]
     pub xhttp_mode: String,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub xhttp_max_connections: Option<usize>,
     #[serde(default)]
     pub vless_mux_protocol: String,
     #[serde(default)]
