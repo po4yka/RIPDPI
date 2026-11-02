@@ -42,7 +42,15 @@ class NativeDependencyGraphTest(unittest.TestCase):
         scripts = ROOT / "scripts/ci"
         workspace = (scripts / "run-rust-workspace-tests.sh").read_text()
         self.assertEqual(2, workspace.count("cargo nextest run --locked"))
-        self.assertEqual(2, workspace.count("--workspace"))
+        self.assertEqual(3, workspace.count("--workspace \\\n"))
+        self.assertEqual(1, workspace.count("cargo nextest archive --locked"))
+        # CI shards run the same filters from one archive instead of rebuilding.
+        self.assertEqual(2, workspace.count('cargo nextest run --archive-file "$archive_file"'))
+        self.assertEqual(2, workspace.count('-E "$WORKSPACE_FILTER"'))
+        self.assertIn('--partition "slice:$partition"', workspace)
+        ci = (ROOT / ".github/workflows/ci.yml").read_text()
+        self.assertIn('run-rust-workspace-tests.sh archive "$RUNNER_TEMP/nextest-workspace.tar.zst"', ci)
+        self.assertIn('partition: ["1/2", "2/2"]', ci)
         self.assertIn("--run-ignored ignored-only", workspace)
         self.assertIn("test(startup_latency_smoke)", workspace)
         self.assertIn(

@@ -53,6 +53,15 @@ def files_to_scan() -> list[Path]:
     return sorted({path for path in paths if path.resolve() != SELF})
 
 
+def requires_lock(command: str) -> bool:
+    """Return whether a matched cargo command resolves workspace dependencies.
+
+    A nextest run from --archive-file executes prebuilt binaries, and nextest
+    rejects --locked together with --archive-file.
+    """
+    return "--locked" not in command and "--archive-file" not in command
+
+
 def unlocked_commands(path: Path) -> list[str]:
     findings: list[str] = []
     for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
@@ -60,7 +69,7 @@ def unlocked_commands(path: Path) -> list[str]:
         for index, match in enumerate(matches):
             next_start = matches[index + 1].start() if index + 1 < len(matches) else len(line)
             command = line[match.start():next_start]
-            if "--locked" not in command:
+            if requires_lock(command):
                 findings.append(
                     f"{path.relative_to(REPO_ROOT)}:{line_number}: {command.strip()}"
                 )

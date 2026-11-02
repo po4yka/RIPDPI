@@ -1218,7 +1218,12 @@ jobs:
             -Pripdpi.prebuiltPluggableTransportAssetsManifestSha256="${{ needs.pluggable-transport-assets.outputs.manifest_sha256 }}"
           )
           task="${{ matrix.shard.task }}"
+          variant="${task#:app:assemble}"
           started_at="$(date +%s)"
+          # Compile every Kotlin source first, then stop the idle Kotlin daemon
+          # so R8 in the Gradle daemon gets its memory.
+          ./gradlew ":app:compile${variant}JavaWithJavac" "${common_args[@]}" --profile
+          pkill -f KotlinCompileDaemon || true
           ./gradlew "$task" "${common_args[@]}" --profile
           elapsed_seconds="$(( $(date +%s) - started_at ))"
           printf '### %s release build\n\nDuration: %ss\n' "$task" "$elapsed_seconds" >> "$GITHUB_STEP_SUMMARY"
@@ -1468,7 +1473,8 @@ jobs:
       needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
-    runs-on: ubuntu-24.04
+    # Host-only Rust lane on a free arm64 runner (see rust-workspace-tests).
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -1482,8 +1488,7 @@ jobs:
           workspaces: native/rust -> target
           cache-on-failure: true
           shared-key: rust-miri
-          # Not saved: the 10 GB Actions cache is kept for critical-path Rust caches.
-          save-if: false
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Run targeted Miri smoke
         run: bash scripts/ci/run-rust-miri.sh
@@ -1594,8 +1599,7 @@ jobs:
         with:
           rust-components: ""
           rust-cache-shared-key: rust-cross-check
-          # Not saved: the 10 GB Actions cache is kept for critical-path Rust caches.
-          rust-cache-save: "false"
+          rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
           rust-targets: ${{ env.RIPDPI_CROSS_CHECK_TARGETS }}
           setup-java: "false"
           setup-gradle: "false"
@@ -1608,6 +1612,14 @@ jobs:
         with:
           artifact-name: build-observability-rust-cross-check
 
+  # Host-only Rust lanes run on the free arm64 runners that public
+  # repositories get. Every job that shares the rust-host-test cache moves
+  # together, because the Rust cache key includes the runner architecture.
+  # rust-lint, runtime-api-snapshot, coverage, and criterion stay on x64:
+  # their output depends on target_arch or on x64 benchmark hardware.
+  #
+  # This job builds the workspace test binaries once into a nextest archive;
+  # rust-workspace-test-shards runs them in slices. It owns the cache write.
   rust-workspace-tests:
     needs: [change-routing, ci-preflight]
     if: >-
@@ -1615,7 +1627,7 @@ jobs:
       needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 35
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1637,12 +1649,98 @@ jobs:
         with:
           tool: cargo-nextest
 
-      - name: Run Rust workspace tests and architecture checks
-        run: bash scripts/ci/run-rust-workspace-tests.sh
+      - name: Build Rust workspace test archive
+        run: |
+          bash scripts/ci/run-rust-workspace-tests.sh archive "$RUNNER_TEMP/nextest-workspace.tar.zst"
+          printf '### Rust workspace test archive\n\nSize: %s\n' \
+            "$(du -h "$RUNNER_TEMP/nextest-workspace.tar.zst" | cut -f1)" >> "$GITHUB_STEP_SUMMARY"
 
-      # The network E2E and turmoil binaries reuse this job's compiled
-      # workspace instead of rebuilding it in separate jobs. They still run
-      # after an earlier suite fails, so each one reports its own result.
+      - name: Upload Rust workspace test archive
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rust-nextest-workspace
+          path: ${{ runner.temp }}/nextest-workspace.tar.zst
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-rust-workspace-tests
+
+  rust-workspace-test-shards:
+    needs: [change-routing, rust-workspace-tests]
+    if: >-
+      !cancelled() &&
+      needs.rust-workspace-tests.result == 'success'
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        partition: ["1/2", "2/2"]
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
+        with:
+          tool: cargo-nextest
+
+      - name: Download Rust workspace test archive
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: rust-nextest-workspace
+          path: ${{ runner.temp }}/nextest
+
+      - name: Run Rust workspace tests (slice ${{ matrix.partition }})
+        run: bash scripts/ci/run-rust-workspace-tests.sh shard "$RUNNER_TEMP/nextest/nextest-workspace.tar.zst" "${{ matrix.partition }}"
+
+      - name: Upload Rust golden diffs
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: rust-workspace-golden-diffs-${{ strategy.job-index }}
+          path: native/rust/target/golden-diffs/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  # Architecture checks, socket-filter tests, network E2E, and turmoil compile
+  # their own packages, so they run beside the archive build instead of after it.
+  rust-network-e2e:
+    needs: [change-routing, ci-preflight]
+    if: >-
+      !cancelled() &&
+      needs.ci-preflight.result == 'success' &&
+      github.event_name != 'schedule' &&
+      (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
+    runs-on: ubuntu-24.04-arm
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Keep in sync with native/rust/rust-toolchain.toml
+      - uses: dtolnay/rust-toolchain@683b588c487a69d01f6c6ddf40f036ff682cc2c8 # v1
+        with:
+          toolchain: "1.98.1"
+
+      - uses: Swatinem/rust-cache@c8037a86dde8214a8310e9f54a8fc61ab362aa31 # v2
+        with:
+          workspaces: native/rust -> target
+          cache-on-failure: true
+          shared-key: rust-host-test
+          save-if: false
+
+      - name: Install cargo-nextest
+        uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
+        with:
+          tool: cargo-nextest
+
+      - name: Run Rust architecture checks and socket-filter tests
+        run: bash scripts/ci/run-rust-workspace-tests.sh checks
+
+      # Each suite still runs after an earlier one fails, so each reports its own result.
       - name: Run repo-owned Rust network E2E
         if: ${{ !cancelled() }}
         run: bash scripts/ci/run-rust-network-e2e.sh
@@ -1650,11 +1748,6 @@ jobs:
       - name: Run turmoil-backed deterministic network tests
         if: ${{ !cancelled() }}
         run: bash scripts/ci/run-rust-turmoil-tests.sh
-
-      - uses: ./.github/actions/upload-build-observability
-        if: always()
-        with:
-          artifact-name: build-observability-rust-workspace-tests
 
       - name: Upload Rust analysis reports
         if: always()
@@ -1674,7 +1767,8 @@ jobs:
       needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
-    runs-on: ubuntu-24.04
+    # Host-only Rust lane on a free arm64 runner (see rust-workspace-tests).
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1691,8 +1785,7 @@ jobs:
             native/rust/fuzz -> target
           cache-on-failure: true
           shared-key: rust-fuzz-smoke
-          # Not saved: the 10 GB Actions cache is kept for critical-path Rust caches.
-          save-if: false
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Install cargo-fuzz
         uses: taiki-e/install-action@68a389c788b2cd04016ce8c80ee23b80d2ab3d68 # v2.88.1
@@ -1785,8 +1878,12 @@ jobs:
       - name: Run app identity release gate
         run: python3 scripts/ci/check_app_identity_review.py
 
+      # Pull requests lint the GitHub Full app variant without test sources;
+      # pushes to main also lint the Simple variant and test sources.
       - name: Run static analysis
-        run: ./gradlew staticAnalysis --profile -Pripdpi.skipNativeBuild=true
+        run: >-
+          ./gradlew staticAnalysis --profile -Pripdpi.skipNativeBuild=true
+          ${{ github.event_name == 'pull_request' && '-Pripdpi.lintFullScope=false' || '' }}
 
       - uses: ./.github/actions/upload-build-observability
         if: always()
@@ -1812,7 +1909,8 @@ jobs:
       needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
-    runs-on: ubuntu-24.04
+    # Host-only Rust lane on a free arm64 runner (see rust-workspace-tests).
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -1863,7 +1961,8 @@ jobs:
       needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
-    runs-on: ubuntu-24.04
+    # Host-only Rust lane on a free arm64 runner (see rust-workspace-tests).
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -2044,8 +2143,7 @@ jobs:
           workspaces: native/rust -> target
           cache-on-failure: true
           shared-key: rust-criterion
-          # Not saved: the 10 GB Actions cache is kept for critical-path Rust caches.
-          save-if: false
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Restore criterion baseline from main
         if: github.event_name == 'pull_request'
@@ -2798,7 +2896,8 @@ jobs:
       needs.ci-preflight.result == 'success' &&
       github.event_name != 'schedule' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true')
-    runs-on: ubuntu-24.04
+    # Host-only Rust lane on a free arm64 runner (see rust-workspace-tests).
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -2813,8 +2912,7 @@ jobs:
           workspaces: native/rust -> target
           cache-on-failure: true
           shared-key: rust-loom
-          # Not saved: the 10 GB Actions cache is kept for critical-path Rust caches.
-          save-if: false
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Run loom concurrency tests
         env:
@@ -2827,7 +2925,8 @@ jobs:
       !cancelled() &&
       needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '19 4 * * 2') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_native_soak == 'true'))
-    runs-on: ubuntu-24.04
+    # Host-only Rust lane on a free arm64 runner (see rust-workspace-tests).
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -2876,7 +2975,8 @@ jobs:
       !cancelled() &&
       needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '19 4 * * 2') || (github.event_name == 'workflow_dispatch' && github.event.inputs.run_native_load == 'true'))
-    runs-on: ubuntu-24.04
+    # Host-only Rust lane on a free arm64 runner (see rust-workspace-tests).
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -3321,7 +3421,8 @@ jobs:
       !cancelled() &&
       needs.ci-preflight.result == 'success' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true') && ((github.event_name == 'schedule' && github.event.schedule == '27 4 * * 5') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-tun-e2e')))
-    runs-on: ubuntu-24.04
+    # Host-only Rust lane on a free arm64 runner (see rust-workspace-tests).
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -3363,7 +3464,8 @@ jobs:
       !cancelled() &&
       needs.ci-preflight.result == 'success' &&
       (needs.change-routing.outputs.run_full_ci == 'true' || needs.change-routing.outputs.run_rust_native_ci == 'true') && ((github.event_name == 'schedule' && github.event.schedule == '27 4 * * 5') || github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'run-tun-e2e')))
-    runs-on: ubuntu-24.04
+    # Host-only Rust lane on a free arm64 runner (see rust-workspace-tests).
+    runs-on: ubuntu-24.04-arm
     timeout-minutes: 30
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -3451,7 +3553,8 @@ jobs:
       !cancelled() &&
       needs.ci-preflight.result == 'success' &&
       needs.change-routing.outputs.run_full_ci == 'true' && ((github.event_name == 'schedule' && github.event.schedule == '19 4 * * 2') || github.event_name == 'workflow_dispatch')
-    runs-on: ubuntu-24.04
+    # Host-only Rust lane on a free arm64 runner (see rust-workspace-tests).
+    runs-on: ubuntu-24.04-arm
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -3546,6 +3649,8 @@ jobs:
       - rust-lint
       - rust-cross-check
       - rust-workspace-tests
+      - rust-workspace-test-shards
+      - rust-network-e2e
       - rust-fuzz-smoke
       - runtime-api-snapshot
       - gradle-static-analysis
@@ -3648,6 +3753,8 @@ jobs:
                           "rust-lint",
                           "rust-cross-check",
                           "rust-workspace-tests",
+                          "rust-workspace-test-shards",
+                          "rust-network-e2e",
                           "rust-fuzz-smoke",
                           "relay-interoperability",
                           "cli-packet-smoke",

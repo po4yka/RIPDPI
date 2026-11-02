@@ -24,6 +24,11 @@ class HarnessCargoLockedTest(unittest.TestCase):
 
         self.assertFalse(checker.is_excluded(project_file))
 
+    def test_archive_runs_need_no_lock_but_builds_do(self) -> None:
+        self.assertFalse(checker.requires_lock('cargo nextest run --archive-file "$archive" -E all()'))
+        self.assertTrue(checker.requires_lock("cargo nextest run --workspace -E all()"))
+        self.assertFalse(checker.requires_lock("cargo nextest run --locked --workspace"))
+
 
 if __name__ == "__main__":
     unittest.main()
