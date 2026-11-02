@@ -826,10 +826,12 @@ jobs:
         with:
           setup-rust: "false"
           setup-android-ndk: "false"
-          # Each Full debug shard owns one namespace and never receives the
-          # embedded relay bundle secret, so main can publish its outputs.
-          gradle-cache-key-prefix: gradle-debug-${{ matrix.shard.id }}-build-cache
-          gradle-cache-read-only: ${{ github.event_name != 'push' || github.ref != 'refs/heads/main' }}
+          # Full debug shards never receive the embedded relay bundle secret.
+          # Only the GitHub shard publishes, because one ~500 MB entry per
+          # flavor pushed the repository past its 10 GB Actions cache limit
+          # and evicted most Rust caches. Other flavors reuse its module outputs.
+          gradle-cache-key-prefix: gradle-debug-github-build-cache
+          gradle-cache-read-only: ${{ matrix.shard.id != 'github' || github.event_name != 'push' || github.ref != 'refs/heads/main' }}
 
       - name: Download native shards
         uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
@@ -1115,10 +1117,11 @@ jobs:
         with:
           setup-rust: "false"
           setup-android-ndk: ${{ matrix.shard.id == 'github-full' }}
-          # Full shards never receive the embedded relay bundle secret, so they
-          # alone publish the store namespace that the Simple shard restores.
-          gradle-cache-key-prefix: gradle-release-${{ matrix.shard.store }}-build-cache
-          gradle-cache-read-only: ${{ matrix.shard.experience != 'full' || github.event_name != 'push' || github.ref != 'refs/heads/main' }}
+          # Full shards never receive the embedded relay bundle secret. Only
+          # github-full publishes, to keep one release entry inside the 10 GB
+          # Actions cache limit; every other store and Simple shard restores it.
+          gradle-cache-key-prefix: gradle-release-github-build-cache
+          gradle-cache-read-only: ${{ matrix.shard.id != 'github-full' || github.event_name != 'push' || github.ref != 'refs/heads/main' }}
           embedded-relay-bundle-base64: ${{ matrix.shard.experience == 'simple' && secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 || '' }}
 
       - name: Download native release shards
@@ -1372,7 +1375,8 @@ jobs:
           workspaces: native/rust -> target
           cache-on-failure: true
           shared-key: rust-miri
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          # Not saved: the 10 GB Actions cache is kept for critical-path Rust caches.
+          save-if: false
 
       - name: Run targeted Miri smoke
         run: bash scripts/ci/run-rust-miri.sh
@@ -1483,7 +1487,8 @@ jobs:
         with:
           rust-components: ""
           rust-cache-shared-key: rust-cross-check
-          rust-cache-save: ${{ github.ref == 'refs/heads/main' }}
+          # Not saved: the 10 GB Actions cache is kept for critical-path Rust caches.
+          rust-cache-save: "false"
           rust-targets: ${{ env.RIPDPI_CROSS_CHECK_TARGETS }}
           setup-java: "false"
           setup-gradle: "false"
@@ -1579,7 +1584,8 @@ jobs:
             native/rust/fuzz -> target
           cache-on-failure: true
           shared-key: rust-fuzz-smoke
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          # Not saved: the 10 GB Actions cache is kept for critical-path Rust caches.
+          save-if: false
 
       - name: Install cargo-fuzz
         uses: taiki-e/install-action@1e29709c0ec63babbe8f266397a465f29a825f91 # v2.87.31
@@ -1929,7 +1935,8 @@ jobs:
           workspaces: native/rust -> target
           cache-on-failure: true
           shared-key: rust-criterion
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          # Not saved: the 10 GB Actions cache is kept for critical-path Rust caches.
+          save-if: false
 
       - name: Restore criterion baseline from main
         if: github.event_name == 'pull_request'
@@ -2697,7 +2704,8 @@ jobs:
           workspaces: native/rust -> target
           cache-on-failure: true
           shared-key: rust-loom
-          save-if: ${{ github.ref == 'refs/heads/main' }}
+          # Not saved: the 10 GB Actions cache is kept for critical-path Rust caches.
+          save-if: false
 
       - name: Run loom concurrency tests
         env:
