@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 import re
 import shutil
@@ -424,6 +425,34 @@ class NativeDependencyGraphTest(unittest.TestCase):
         )
         self.assertIn('setup-rust: "false"', source)
         self.assertNotIn("./gradlew \\\n+            :app:assembleGithubFullDebug", source)
+
+    def test_pull_requests_skip_store_flavor_apk_shards(self) -> None:
+        # A drifted exclude entry matches no shard and silently restores the
+        # full matrix, so each entry must equal a declared shard exactly.
+        for job, kept in (
+            ("build-android-debug", {"github"}),
+            ("release-verification", {"github-full", "github-simple"}),
+        ):
+            with self.subTest(job=job):
+                source = job_source(job)
+                shards = [
+                    {key: value.strip("'") for key, value in re.findall(r"(\w+): ('[^']*'|[\w-]+)", entry)}
+                    for entry in re.findall(r"(?m)^\s+- \{ (id: .+) \}$", source)
+                ]
+                exclude = re.search(
+                    r"(?m)^        exclude: \$\{\{ github\.event_name == 'pull_request' && "
+                    r"fromJSON\('(\[.+\])'\) \|\| fromJSON\('\[\]'\) \}\}$",
+                    source,
+                )
+                self.assertIsNotNone(exclude)
+                excluded = [entry["shard"] for entry in json.loads(exclude[1])]
+                for shard in excluded:
+                    self.assertIn(shard, shards)
+                self.assertEqual(kept, {shard["id"] for shard in shards if shard not in excluded})
+
+        compile_step = job_source("build-android-tests")
+        self.assertIn(":app:compilePlayFullDebugKotlin", compile_step)
+        self.assertIn(":app:compileFdroidFullDebugKotlin", compile_step)
 
     def test_packaging_matrix_excludes_x86_64(self) -> None:
         packaging = job_source("rust-native-packaging")

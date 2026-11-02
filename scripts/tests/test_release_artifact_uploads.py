@@ -50,6 +50,9 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
                     f":app:assemble{store.capitalize()}{experience.capitalize()}Release",
                     task,
                 )
+        # The pull-request exclude list repeats shard objects verbatim; the
+        # native dependency graph test checks that it matches these shards.
+        steps = re.sub(r"(?m)^        exclude: .+\n", "", job)
         for task in (
             ":app:assembleFdroidFullRelease",
             ":app:assembleFdroidSimpleRelease",
@@ -58,7 +61,7 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
             ":app:assemblePlayFullRelease",
             ":app:assemblePlaySimpleRelease",
         ):
-            self.assertEqual(1, len(re.findall(rf"{re.escape(task)}(?![A-Za-z])", job)))
+            self.assertEqual(1, len(re.findall(rf"{re.escape(task)}(?![A-Za-z])", steps)))
         self.assertIn('task="${{ matrix.shard.task }}"', job)
         self.assertIn("printf '### %s release build", job)
         self.assertIn(

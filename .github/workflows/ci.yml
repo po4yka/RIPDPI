@@ -819,6 +819,9 @@ jobs:
           - { id: github, task: ':app:assembleGithubFullDebug' }
           - { id: fdroid, task: ':app:assembleFdroidFullDebug' }
           - { id: play, task: ':app:assemblePlayFullDebug' }
+        # Pull requests package only the GitHub APK; build-android-tests
+        # compiles the other store flavors. Push and dispatch keep all shards.
+        exclude: ${{ github.event_name == 'pull_request' && fromJSON('[{"shard":{"id":"fdroid","task":":app:assembleFdroidFullDebug"}},{"shard":{"id":"play","task":":app:assemblePlayFullDebug"}}]') || fromJSON('[]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
@@ -952,11 +955,15 @@ jobs:
           embedded-relay-bundle-base64: ${{ secrets.RIPDPI_EMBEDDED_RELAY_BUNDLE_BASE64 }}
 
       # kotlin-coverage runs every :core:* and :app GithubFull unit test under
-      # JaCoCo; this lane adds only the Simple experience variant.
-      - name: Run Simple app unit tests
+      # JaCoCo; this lane adds only the Simple experience variant. It also
+      # compiles the Play and F-Droid sources, because pull requests build
+      # APKs only for the GitHub distribution.
+      - name: Run Simple app unit tests and compile store flavors
         run: >-
           ./gradlew
           :app:testGithubSimpleDebugUnitTest
+          :app:compilePlayFullDebugKotlin
+          :app:compileFdroidFullDebugKotlin
           --profile
           -Pripdpi.skipNativeBuild=true
 
@@ -1110,6 +1117,10 @@ jobs:
           - { id: github-simple, store: github, experience: simple, task: ':app:assembleGithubSimpleRelease' }
           - { id: play-full, store: play, experience: full, task: ':app:assemblePlayFullRelease' }
           - { id: play-simple, store: play, experience: simple, task: ':app:assemblePlaySimpleRelease' }
+        # Pull requests run R8 only for the GitHub Full and Simple variants.
+        # Store flavors differ by their update manager alone, so push to main,
+        # dispatch, and release candidates verify the four store variants.
+        exclude: ${{ github.event_name == 'pull_request' && fromJSON('[{"shard":{"id":"fdroid-full","store":"fdroid","experience":"full","task":":app:assembleFdroidFullRelease"}},{"shard":{"id":"fdroid-simple","store":"fdroid","experience":"simple","task":":app:assembleFdroidSimpleRelease"}},{"shard":{"id":"play-full","store":"play","experience":"full","task":":app:assemblePlayFullRelease"}},{"shard":{"id":"play-simple","store":"play","experience":"simple","task":":app:assemblePlaySimpleRelease"}}]') || fromJSON('[]') }}
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
