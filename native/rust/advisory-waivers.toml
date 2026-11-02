@@ -11,13 +11,6 @@ tracking = "docs/tasks/issues/replace-unmaintained-paste-proc-macro.md"
 [[waivers]]
 id = "RUSTSEC-2023-0071"
 owner = "Native security maintainer"
-reason = "current Arti and russh paths have no safe upgrade and do not expose attacker-chosen RSA private-key operations"
-expires = "2026-11-02"
+reason = "Arti 0.47.0 and russh 0.65.0 still have no safe rsa upgrade (re-checked with cargo-deny on 2026-11-02) and do not expose attacker-chosen RSA private-key operations"
+expires = "2027-01-31"
 tracking = "docs/tasks/issues/unpin-russh-after-rsa-advisory-fix.md"
-
-[[waivers]]
-id = "RUSTSEC-2025-0141"
-owner = "Native security maintainer"
-reason = "bincode is transitive through Arti and has no maintained compatible replacement"
-expires = "2026-11-02"
-tracking = "docs/tasks/issues/replace-unmaintained-bincode-transitive-dependency.md"
