@@ -19,6 +19,7 @@ pub(crate) struct PooledConnection {
     driver: StdMutex<Option<AbortOnDrop>>,
 }
 
+// Drop order: abort task before dropping stop so the owned H2 driver cannot detach.
 struct AbortOnDrop {
     task: JoinHandle<()>,
     stop: Option<oneshot::Sender<()>>,
