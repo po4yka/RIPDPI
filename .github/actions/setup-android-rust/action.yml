@@ -30,6 +30,10 @@ inputs:
     description: Gradle build-cache namespace; each namespace must have one writer
     required: false
     default: "gradle-build-cache"
+  gradle-encryption-key:
+    description: Base64 AES key; setup-gradle saves and restores configuration-cache data only when it is set
+    required: false
+    default: ""
   java-version:
     description: Java version to install
     required: false
@@ -245,3 +249,4 @@ runs:
       if: inputs.setup-gradle == 'true'
       with:
         cache-read-only: ${{ inputs.gradle-cache-read-only }}
+        cache-encryption-key: ${{ inputs.gradle-encryption-key }}

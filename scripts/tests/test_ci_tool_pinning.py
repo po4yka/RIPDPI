@@ -319,6 +319,23 @@ class CiToolPinningTest(unittest.TestCase):
                 else:
                     self.assertEqual([], bundle)
 
+    def test_gradle_cache_writers_persist_configuration_cache(self) -> None:
+        # setup-gradle saves configuration-cache data only with an encryption
+        # key. A writer restores its own Gradle home entry, so only writers
+        # get the key; readers restore entries from other jobs and tasks.
+        action = (ROOT / ".github/actions/setup-android-rust/action.yml").read_text(
+            encoding="utf-8"
+        )
+        ci = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        self.assertIn(
+            "        cache-encryption-key: ${{ inputs.gradle-encryption-key }}\n", action
+        )
+        key = "          gradle-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}\n"
+        for name, job in ci_jobs(ci).items():
+            writer = re.search(r"(?m)^          gradle-cache-read-only: (?!\"true\")", job)
+            with self.subTest(job=name):
+                self.assertEqual(writer is not None, key in job)
+
 
 if __name__ == "__main__":
     unittest.main()
