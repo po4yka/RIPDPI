@@ -12,6 +12,7 @@ The native XHTTP pool already enforces a carrier limit. Imported profiles do not
 - Accept only xmux maxConnections 1–4 plus zero hMaxRequestTimes, hMaxReusableSecs and cMaxReuseTimes in stream-up. Use one optional connection-limit field internally and the existing native pool.
 - Prioritize TCP only when an active UDP profile fails health verification. Keep quality challenger order when the active member is healthy.
 - Share one XHTTP client across outer sessions. A cancelled stream establishment stops the chosen carrier; per-carrier Hyper task ownership closes its socket before pool capacity is reused. Completed request tasks are pruned during carrier reuse.
+- A permit is acquired before dialing and stays on raw TCP through masking and TLS. Mask bridge pumps are owned by the returned stream, so unpublished cancellation cannot release capacity before physical I/O drops.
 - Keep payload-failover schema version 2. No new policy flags are needed.
 
 ## Contracts and ownership

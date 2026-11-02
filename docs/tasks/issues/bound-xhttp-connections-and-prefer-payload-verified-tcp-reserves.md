@@ -2,7 +2,7 @@
 id: TRN-1793634968382224
 title: Bound XHTTP connections and prefer payload-verified TCP reserves
 kind: feature
-status: doing
+status: review
 area: transport
 priority: high
 owner: transport-resilience
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: trn-1793634968382224-bound-xhttp-connections-and-prefer-payload-verified-tcp-reserves
 created: 2026-11-02
 updated: 2026-11-02
+status_detail: Local implementation, 284 native tests, 123 Kotlin tests, static analysis and independent review passed; hosted CI remains required.
 ---
 
 ## Goal
