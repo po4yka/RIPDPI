@@ -42,15 +42,6 @@ class NativeDependencyGraphTest(unittest.TestCase):
         scripts = ROOT / "scripts/ci"
         workspace = (scripts / "run-rust-workspace-tests.sh").read_text()
         self.assertEqual(2, workspace.count("cargo nextest run --locked"))
-        self.assertEqual(3, workspace.count("--workspace \\\n"))
-        self.assertEqual(1, workspace.count("cargo nextest archive --locked"))
-        # CI shards run the same filters from one archive instead of rebuilding.
-        self.assertEqual(2, workspace.count('cargo nextest run --archive-file "$archive_file"'))
-        self.assertEqual(2, workspace.count('-E "$WORKSPACE_FILTER"'))
-        self.assertIn('--partition "slice:$partition"', workspace)
-        ci = (ROOT / ".github/workflows/ci.yml").read_text()
-        self.assertIn('run-rust-workspace-tests.sh archive "$RUNNER_TEMP/nextest-workspace.tar.zst"', ci)
-        self.assertIn('partition: ["1/2", "2/2"]', ci)
         self.assertIn("--run-ignored ignored-only", workspace)
         self.assertIn("test(startup_latency_smoke)", workspace)
         self.assertIn(
@@ -78,6 +69,47 @@ class NativeDependencyGraphTest(unittest.TestCase):
         self.assertIn('bash "$repo_root/scripts/ci/run-rust-workspace-tests.sh"', combined)
         self.assertIn('bash "$repo_root/scripts/ci/run-rust-turmoil-tests.sh"', combined)
         self.assertNotIn("-p local-network-fixture", combined)
+
+    def test_workspace_shards_split_one_archive_without_rebuilding(self) -> None:
+        script = ROOT / "scripts/ci/run-rust-workspace-tests.sh"
+        with tempfile.TemporaryDirectory() as tmp:
+            log = Path(tmp) / "cargo.log"
+            fake_cargo = Path(tmp) / "cargo"
+            fake_cargo.write_text('#!/bin/sh\nprintf "%s\\037" "$@" >> "$CARGO_LOG"\necho >> "$CARGO_LOG"\n')
+            fake_cargo.chmod(0o755)
+            env = {
+                **os.environ,
+                "PATH": f"{tmp}{os.pathsep}{os.environ['PATH']}",
+                "CARGO_LOG": str(log),
+                "BUILD_GATE_DISABLED": "1",
+                "CI": "true",
+            }
+
+            def calls(*args: str) -> list[list[str]]:
+                log.write_text("")
+                subprocess.run(["bash", str(script), *args], env=env, check=True, capture_output=True)
+                return [line.rstrip("\x1f").split("\x1f") for line in log.read_text().splitlines()]
+
+            archive = calls("archive", "a.tar.zst")
+            self.assertEqual([["nextest", "archive", "--locked"]], [call[:3] for call in archive])
+            self.assertIn("--workspace", archive[0])
+
+            first, second = calls("shard", "a.tar.zst", "1/2"), calls("shard", "a.tar.zst", "2/2")
+        extract_to = str(ROOT / "native/rust")
+        slices = [first[0], second[0]]
+        for partition, call in zip(("slice:1/2", "slice:2/2"), slices):
+            with self.subTest(partition=partition):
+                self.assertEqual(["nextest", "run", "--archive-file", "a.tar.zst"], call[:4])
+                self.assertEqual(extract_to, call[call.index("--extract-to") + 1])
+                self.assertEqual(partition, call[call.index("--partition") + 1])
+                self.assertIn("not binary(network_e2e)", call[call.index("-E") + 1])
+                self.assertNotIn("--locked", call)
+        self.assertEqual(slices[0][slices[0].index("-E") + 1], slices[1][slices[1].index("-E") + 1])
+        # The ignored startup smoke test runs once, in the first slice only.
+        self.assertEqual(2, len(first))
+        self.assertEqual(1, len(second))
+        self.assertIn("--run-ignored", first[1])
+        self.assertNotIn("--partition", first[1])
 
     def test_jni_symbol_guard_builds_only_the_consumed_abi(self) -> None:
         source = (ROOT / ".github/workflows/jni-symbol-diff.yml").read_text()

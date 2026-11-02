@@ -28,6 +28,10 @@ class HarnessCargoLockedTest(unittest.TestCase):
         self.assertFalse(checker.requires_lock('cargo nextest run --archive-file "$archive" -E all()'))
         self.assertTrue(checker.requires_lock("cargo nextest run --workspace -E all()"))
         self.assertFalse(checker.requires_lock("cargo nextest run --locked --workspace"))
+        self.assertTrue(checker.requires_lock('cargo nextest archive --workspace --archive-file "$archive"'))
+        self.assertTrue(checker.requires_lock('cargo test --archive-file "$archive"'))
+        line = 'cargo nextest archive --workspace --archive-file "$archive"'
+        self.assertEqual(1, len(checker.CARGO_COMMAND.findall(line)))
 
 
 if __name__ == "__main__":

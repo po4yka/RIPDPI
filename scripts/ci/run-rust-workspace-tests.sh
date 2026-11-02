@@ -94,11 +94,11 @@ case "${1:-all}" in
     # overwrites the local native/rust/target.
     extract_args=(--workspace-remap "$repo_root/native/rust" --extract-to "$repo_root/native/rust" --extract-overwrite)
     echo "==> tests (workspace, slice $partition)"
-    cargo nextest run --archive-file "$archive_file" "${extract_args[@]}" \
+    bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --archive-file "$archive_file" "${extract_args[@]}" \
       --partition "slice:$partition" -E "$WORKSPACE_FILTER" "${NEXTEST_ARGS[@]}"
     if [[ "${partition%%/*}" == 1 ]]; then
       echo "==> tests (ignored / smoke)"
-      cargo nextest run --archive-file "$archive_file" "${extract_args[@]}" \
+      bash "$repo_root/scripts/ci/cargo-guarded.sh" cargo nextest run --archive-file "$archive_file" "${extract_args[@]}" \
         -E "$SMOKE_FILTER" --run-ignored ignored-only --no-capture "${NEXTEST_ARGS[@]}"
     fi
     ;;

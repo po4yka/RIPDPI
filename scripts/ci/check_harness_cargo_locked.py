@@ -28,7 +28,7 @@ TEXT_SUFFIXES = {".json", ".md", ".py", ".sh", ".toml", ".yaml", ".yml"}
 SELF = Path(__file__).resolve()
 CARGO_COMMAND = re.compile(
     r"cargo\s+\+\S+\s+miri\s+test\b"
-    r"|cargo\s+nextest\s+run\b"
+    r"|cargo\s+nextest\s+(?:run|archive)\b"
     r"|cargo\s+(?:deny|bloat|llvm-lines|flamegraph|llvm-cov)\b"
     r"|cargo(?:\s+\+\S+)?\s+(?:build|bench|check|clippy|doc|fetch|metadata|run|test|tree)\b"
 )
@@ -57,9 +57,11 @@ def requires_lock(command: str) -> bool:
     """Return whether a matched cargo command resolves workspace dependencies.
 
     A nextest run from --archive-file executes prebuilt binaries, and nextest
-    rejects --locked together with --archive-file.
+    rejects --locked together with --archive-file. Building that archive
+    resolves dependencies, so it still needs --locked.
     """
-    return "--locked" not in command and "--archive-file" not in command
+    archive_run = re.match(r"cargo\s+nextest\s+run\b", command) and "--archive-file" in command
+    return "--locked" not in command and not archive_run
 
 
 def unlocked_commands(path: Path) -> list[str]:

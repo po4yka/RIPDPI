@@ -212,13 +212,14 @@ val qualityModulePaths =
         .map { it.path }
         .filter { modulePath -> modulePath == ":app" || modulePath.startsWith(":core:") }
         .sorted()
-// Pull requests pass false: they lint only the GitHub Full app variant, and
-// pushes to main keep the Simple variant (see ripdpi.android.lint for test sources).
-val lintFullScope = providers.gradleProperty("ripdpi.lintFullScope").map(String::toBoolean).getOrElse(true)
+// Pull requests pass false and lint only the GitHub Full app variant. Pushes to
+// main also lint the Simple variant. ripdpi.android.lint skips test sources.
+val lintSimpleAndTestSources: Boolean =
+    providers.gradleProperty("ripdpi.lintSimpleAndTestSources").map(String::toBoolean).getOrElse(true)
 val lintTaskPaths =
     qualityModulePaths.flatMap { modulePath ->
         if (modulePath == ":app") {
-            listOfNotNull(":app:lintGithubFullDebug", ":app:lintGithubSimpleDebug".takeIf { lintFullScope })
+            listOfNotNull(":app:lintGithubFullDebug", ":app:lintGithubSimpleDebug".takeIf { lintSimpleAndTestSources })
         } else {
             listOf("$modulePath:lintDebug")
         }

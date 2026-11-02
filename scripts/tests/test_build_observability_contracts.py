@@ -54,6 +54,7 @@ class BuildObservabilityContractsTest(unittest.TestCase):
             "rust-lint": "build-observability-rust-lint",
             "rust-cross-check": "build-observability-rust-cross-check",
             "rust-workspace-tests": "build-observability-rust-workspace-tests",
+            "rust-network-e2e": "build-observability-rust-network-e2e",
             "gradle-static-analysis": "build-observability-gradle-static-analysis",
             "android-macrobenchmark": "build-observability-android-macrobenchmark",
             "android-instrumented-tests": "build-observability-android-instrumented-${{ matrix.device }}",

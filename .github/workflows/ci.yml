@@ -830,10 +830,11 @@ jobs:
         with:
           setup-rust: "false"
           setup-android-ndk: "false"
-          # Full debug shards never receive the embedded relay bundle secret.
-          # Only the GitHub shard publishes, because one ~500 MB entry per
-          # flavor pushed the repository past its 10 GB Actions cache limit
-          # and evicted most Rust caches. Other flavors reuse its module outputs.
+          # Full debug shards never get the embedded relay bundle secret.
+          # Only the GitHub shard writes the cache. The other shards run only
+          # on main and are not on the critical path. A cache entry for each
+          # flavor costs about 500 MB on each push. The other flavors use the
+          # module outputs from the GitHub entry.
           gradle-cache-key-prefix: gradle-debug-github-build-cache
           gradle-cache-read-only: ${{ matrix.shard.id != 'github' || github.event_name != 'push' || github.ref != 'refs/heads/main' }}
           gradle-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
@@ -1130,9 +1131,10 @@ jobs:
         with:
           setup-rust: "false"
           setup-android-ndk: ${{ matrix.shard.id == 'github-full' }}
-          # Full shards never receive the embedded relay bundle secret. Only
-          # github-full publishes, to keep one release entry inside the 10 GB
-          # Actions cache limit; every other store and Simple shard restores it.
+          # Full shards never get the embedded relay bundle secret. Only
+          # github-full writes the cache: it is on the critical path, and the
+          # other store shards run only on main. Each other shard restores
+          # the github-full entry.
           gradle-cache-key-prefix: gradle-release-github-build-cache
           gradle-cache-read-only: ${{ matrix.shard.id != 'github-full' || github.event_name != 'push' || github.ref != 'refs/heads/main' }}
           gradle-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
@@ -1675,7 +1677,7 @@ jobs:
           artifact-name: build-observability-rust-workspace-tests
 
   rust-workspace-test-shards:
-    needs: [change-routing, rust-workspace-tests]
+    needs: [rust-workspace-tests]
     if: >-
       !cancelled() &&
       needs.rust-workspace-tests.result == 'success'
@@ -1759,6 +1761,11 @@ jobs:
       - name: Run turmoil-backed deterministic network tests
         if: ${{ !cancelled() }}
         run: bash scripts/ci/run-rust-turmoil-tests.sh
+
+      - uses: ./.github/actions/upload-build-observability
+        if: always()
+        with:
+          artifact-name: build-observability-rust-network-e2e
 
       - name: Upload Rust analysis reports
         if: always()
@@ -1894,7 +1901,7 @@ jobs:
       - name: Run static analysis
         run: >-
           ./gradlew staticAnalysis --profile -Pripdpi.skipNativeBuild=true
-          ${{ github.event_name == 'pull_request' && '-Pripdpi.lintFullScope=false' || '' }}
+          ${{ github.event_name == 'pull_request' && '-Pripdpi.lintSimpleAndTestSources=false' || '' }}
 
       - uses: ./.github/actions/upload-build-observability
         if: always()
@@ -1935,7 +1942,8 @@ jobs:
         with:
           workspaces: native/rust -> target
           cache-on-failure: true
-          shared-key: rust-host-test
+          # Builds the same per-package network_e2e binary as rust-network-e2e.
+          shared-key: rust-network-e2e
           save-if: false
 
       - name: Install cargo-nextest
