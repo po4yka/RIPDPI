@@ -2,6 +2,7 @@ package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.data.backup.BackupExporter
 import com.poyka.ripdpi.data.backup.BackupVariant
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -37,6 +38,10 @@ class BackupFullVariantTest {
                 server = "vless.example.com",
                 serverPort = 443,
                 uuid = "secret-uuid",
+                xhttpPath = "/carrier/path",
+                xhttpHost = "front.example.com",
+                xhttpMode = "stream-up",
+                xhttpMaxConnections = 2,
             )
         val doc = fullExport(listOf(profile))
         val obj = doc.profiles.single()
@@ -46,6 +51,7 @@ class BackupFullVariantTest {
         assertTrue("uuid missing in FULL", "uuid" in obj)
         assertTrue("id missing in FULL", "id" in obj)
         assertEquals("secret-uuid", obj.getValue("uuid").toString().trim('"'))
+        assertEquals(JsonPrimitive(2), obj["xhttpMaxConnections"])
     }
 
     @Test

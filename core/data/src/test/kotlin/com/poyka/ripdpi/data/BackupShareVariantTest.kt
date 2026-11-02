@@ -2,6 +2,8 @@ package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.data.backup.BackupExporter
 import com.poyka.ripdpi.data.backup.BackupVariant
+import kotlinx.serialization.json.JsonPrimitive
+import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -32,12 +34,19 @@ class BackupShareVariantTest {
                 server = "vless.example.com",
                 serverPort = 443,
                 uuid = "secret-uuid",
+                xhttpPath = "/carrier/path",
+                xhttpHost = "front.example.com",
+                xhttpMode = "stream-up",
+                xhttpMaxConnections = 2,
             )
         val doc = shareExport(listOf(profile))
         val obj = doc.profiles.single()
 
         assertTrue("displayName missing", "displayName" in obj)
+        assertEquals(JsonPrimitive(2), obj["xhttpMaxConnections"])
 
+        assertFalse("xhttpPath must be stripped in SHARE", "xhttpPath" in obj)
+        assertFalse("xhttpHost must be stripped in SHARE", "xhttpHost" in obj)
         assertFalse("uuid must be stripped in SHARE", "uuid" in obj)
         assertFalse("server must be stripped in SHARE", "server" in obj)
         assertFalse("serverPort must be stripped in SHARE", "serverPort" in obj)
@@ -61,12 +70,14 @@ class BackupShareVariantTest {
                 fingerprint = "chrome",
                 xhttpPath = "/carrier/path",
                 xhttpHost = "cdn.example.com",
-                xhttpMode = "stream-one",
+                xhttpMode = "stream-up",
+                xhttpMaxConnections = 2,
             )
         val doc = shareExport(listOf(profile))
         val obj = doc.profiles.single()
 
         assertTrue("displayName missing", "displayName" in obj)
+        assertEquals(JsonPrimitive(2), obj["xhttpMaxConnections"])
         assertTrue("flow missing", "flow" in obj)
         assertTrue("fingerprint missing", "fingerprint" in obj)
         assertTrue("xhttpMode missing", "xhttpMode" in obj)
