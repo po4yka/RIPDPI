@@ -92,6 +92,21 @@ fn seal_masks_headers_appends_handshake_trailers_and_opens_back() {
 }
 
 #[test]
+fn initiation_trailer_length_is_spread_over_the_whole_window() {
+    let v3 = params(AwgV3Config { random_trailers: true, ..Default::default() }, 12);
+    let window = UdpWindow::default();
+    // Trailer range is [0, 500 - 12 - 148) = [0, 340). Each draw is empty with p = 1/340, so
+    // over 5000 draws the empty count has mean 14.7; failing "at most 500 empty" needs a
+    // Binomial(5000, 1/340) tail beyond 34x its mean (< 1e-300). The maximum stays under 255
+    // (3/4 of the range) with p = (255/340)^5000 = e^-1438.
+    let lengths: Vec<usize> =
+        (0..5000).map(|_| v3.seal(vec![0x5a; 148], 0, 12, &window).unwrap().len() - 12 - 148).collect();
+    assert!(lengths.iter().all(|&len| len < 340), "trailer must fit the 500-byte window");
+    assert!(lengths.iter().filter(|&&len| len > 0).count() >= 4500, "trailers must not be stuck at zero");
+    assert!(lengths.iter().any(|&len| len >= 255), "trailer lengths must reach the upper range");
+}
+
+#[test]
 fn trailers_are_refused_when_random_trailers_is_off() {
     let v3 = params(AwgV3Config { random_trailers: false, ..protected() }, 12);
     let mut init = hex(GO_INIT);
