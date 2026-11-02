@@ -26,3 +26,7 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 | REQ-UIX-1793534654918156-003 | UIX-1793534696234161 | Primary action buttons capped at 360dp, start-aligned (f7c6c50cc); tablet portrait edges align. Disconnected tablet Home keeps an empty lower area by design, as no more content exists | Passed |
 | REQ-UIX-1793534654918156-004 | UIX-1793534696713271 | Owner-approved bless 498222d19 and 5bbbe1452; local verify green | Passed |
 | REQ-UIX-1793534654918156-005 | UIX-1793534697204899 | device-final/index.md: phone and tablet, connected and disconnected, light and dark; Arabic RTL tablet checked | Passed |
+
+## Correction of 2026-11-02: rebase before merge
+
+Before the merge, main had moved to d12cce750, so the branch was rebased onto it. That changed every commit hash cited above. cb76fc483 was dropped, because main's 11670a47f had already made the same advisory-waiver change. On main, 415f31e87 is 790923d88, 498222d19 is afd4d6dcd, 5bbbe1452 is f4aad8d7f, 7b20017ba is eb769c512, 578b4b91c is 0bcab590f, f7c6c50cc is 100a36ec2, 052d02b92 is 48ab6c78b. CI run 41467262393 on the rebased tip 7b1fccf4c passed all 54 executed jobs on attempt 1, with no AmneziaWG interop failure; it supersedes run 41401888905 as the remote CI evidence. The generated .taskctl receipts keep the pre-rebase SHA, because taskctl writes them at close time.

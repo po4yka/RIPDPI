@@ -25,3 +25,7 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 | REQ-UIX-1793534441702605-002 | UIX-1793534636484850 | Same commits: Settings, Detection, DNS, Owned Stack swept; remediation card defaults to Tonal | Passed |
 | REQ-UIX-1793534441702605-003 | UIX-1793534636922469 | Owner-approved bless in 498222d19 (372 files) and 5bbbe1452 (26 files); triage in ui-polish/triage-round1.md shows 0 regressions; local verify green | Passed |
 | REQ-UIX-1793534441702605-004 | UIX-1793534637396420 | 77 API 35 captures (device-final/index.md); measured contrast passes, but tonal against page is 1.11 light and 1.13 dark at standard contrast | Passed |
+
+## Correction of 2026-11-02: rebase before merge
+
+Before the merge, main had moved to d12cce750, so the branch was rebased onto it. That changed every commit hash cited above. cb76fc483 was dropped, because main's 11670a47f had already made the same advisory-waiver change. On main, 415f31e87 is 790923d88, 22331bd47 is 03925f3b1, cc3e74d4f is 3f3fe83d4, 54a4d9ac8 is b48784430, 498222d19 is afd4d6dcd, 5bbbe1452 is f4aad8d7f, 052d02b92 is 48ab6c78b. CI run 41467262393 on the rebased tip 7b1fccf4c passed all 54 executed jobs on attempt 1, with no AmneziaWG interop failure; it supersedes run 41401888905 as the remote CI evidence. The generated .taskctl receipts keep the pre-rebase SHA, because taskctl writes them at close time.

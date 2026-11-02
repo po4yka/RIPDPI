@@ -27,3 +27,7 @@ deployment_evidence: RIPDPI changes are not deployed by the task workflow.
 | REQ-DAT-1793534707148297-004 | DAT-1793534730084253 | AppLockResetNoticePersistenceTest: old bytes decode with the flag off; field 425 decodes | Passed |
 | REQ-DAT-1793534707148297-005 | DAT-1793534731479020 | Flag excluded from FULL backups; restore replaces settings so it clears the flag and the PIN; documented in CONFIG_CONTRACTS.md; BackupRestoreUseCaseTest | Passed |
 | REQ-DAT-1793534707148297-004 | DAT-1793534731937574 | Same test plus the reset and clear tests; core data unit tests unfiltered green | Passed |
+
+## Correction of 2026-11-02: rebase before merge
+
+Before the merge, main had moved to d12cce750, so the branch was rebased onto it. That changed every commit hash cited above. cb76fc483 was dropped, because main's 11670a47f had already made the same advisory-waiver change. On main, 415f31e87 is 790923d88, c4d60f5c6 is 536d214f2, b767c8281 is e05040298, 052d02b92 is 48ab6c78b. CI run 41467262393 on the rebased tip 7b1fccf4c passed all 54 executed jobs on attempt 1, with no AmneziaWG interop failure; it supersedes run 41401888905 as the remote CI evidence. The generated .taskctl receipts keep the pre-rebase SHA, because taskctl writes them at close time.
