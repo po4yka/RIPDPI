@@ -2,7 +2,7 @@
 id: TST-1793464904072920
 title: Refresh sub-threshold stale Roborazzi goldens and tighten the comparison
 kind: bug
-status: backlog
+status: review
 area: testing
 priority: medium
 owner: UI overhaul
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-10-31
-updated: 2026-10-31
+updated: 2026-11-02
 spec_reason: test-only
 ---
 

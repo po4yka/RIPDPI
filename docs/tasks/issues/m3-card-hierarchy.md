@@ -2,7 +2,7 @@
 id: UIX-1793534441702605
 title: Give cards a tonal hierarchy and one elevation rule
 kind: feature
-status: backlog
+status: review
 area: ui
 priority: medium
 owner: UI overhaul
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: m3-card-hierarchy
 created: 2026-11-01
-updated: 2026-11-01
+updated: 2026-11-02
 ---
 
 ## Goal

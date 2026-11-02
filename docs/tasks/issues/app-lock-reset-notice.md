@@ -2,7 +2,7 @@
 id: DAT-1793534707148297
 title: Persist and show the app lock reset notice
 kind: bug
-status: backlog
+status: review
 area: data
 priority: medium
 owner: UI overhaul
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: required
 openspec_change: app-lock-reset-notice
 created: 2026-11-01
-updated: 2026-11-01
+updated: 2026-11-02
 ---
 
 ## Problem

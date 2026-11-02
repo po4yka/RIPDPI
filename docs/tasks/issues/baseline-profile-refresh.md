@@ -2,7 +2,7 @@
 id: AND-1793534742072614
 title: Regenerate the baseline profile after the Material 3 overhaul
 kind: chore
-status: backlog
+status: review
 area: android
 priority: low
 owner: UI overhaul
@@ -11,7 +11,7 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-11-01
-updated: 2026-11-01
+updated: 2026-11-02
 spec_reason: tooling-only
 ---
 
