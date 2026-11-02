@@ -19,6 +19,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.semantics.SemanticsProperties
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsFocused
 import androidx.compose.ui.test.assertIsNotEnabled
@@ -27,7 +30,6 @@ import androidx.compose.ui.test.assertTextContains
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
-import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performImeAction
 import androidx.compose.ui.test.performTextInput
@@ -154,7 +156,8 @@ class ComposeStylesInstrumentedTest {
         trigger.performClick()
         composeRule.onNodeWithTag("style-option-b").assertIsDisplayed().performClick()
         composeRule.onNodeWithTag("style-option-b").assertDoesNotExist()
-        composeRule.onNodeWithText("Beta").assertIsDisplayed()
+        // The dropdown is one accessibility node; its selected value is the state TalkBack reads.
+        trigger.assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, "Beta"))
         composeRule.runOnIdle {
             assertEquals("b", selected)
             assertEquals(1, selections)
