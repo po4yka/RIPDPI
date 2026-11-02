@@ -92,21 +92,16 @@ class ReleaseArtifactUploadsTest(unittest.TestCase):
 
     def test_ci_builds_release_instrumentation_without_signing_secrets(self) -> None:
         source = (ROOT / ".github/workflows/ci.yml").read_text(encoding="utf-8")
-        job = release_verification_job(source)
-        build_step = re.search(
-            r"(?ms)^      - name: Verify \$\{\{ matrix\.shard\.id \}\} release shard with prebuilt natives\n.*?(?=^      - name:|^      - uses:|\Z)",
-            job,
-        )
-        self.assertIsNotNone(build_step)
-        assert build_step is not None
-        release_test = build_step.group(0)
-        self.assertIn('if [[ "${{ matrix.shard.id }}" == github-full ]]', release_test)
+        job = re.search(r"(?ms)^  release-instrumentation-apk:\n.*?(?=^  [\w-]+:\n|\Z)", source)
+        self.assertIsNotNone(job)
+        assert job is not None
+        release_test = job.group(0)
         self.assertIn(":app:assembleGithubFullReleaseAndroidTest", release_test)
         self.assertIn("-Pripdpi.testBuildType=release", release_test)
-        self.assertEqual(2, release_test.count('"${common_args[@]}"'))
         self.assertIn("test \"${#test_apks[@]}\" -eq 1", release_test)
-        self.assertNotIn("RIPDPI_SIGNING_", release_test)
-        self.assertNotIn("KEYSTORE_", release_test)
+        self.assertNotIn("secrets.", release_test)
+        self.assertNotIn(":app:assembleGithubFullReleaseAndroidTest", release_verification_job(source))
+        self.assertIn("      - release-instrumentation-apk\n", source)
 
     def test_retrace_uploads_are_variant_aware_and_fail_closed(self) -> None:
         for workflow in WORKFLOWS:
