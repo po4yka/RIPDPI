@@ -141,8 +141,19 @@ pub(crate) async fn acquire_connection(
         };
 
         if let Some(creation_slot) = should_create {
-            match connect::create_connection(&inner.mode, inner.max_concurrent_streams, inner.pool_changed.clone())
+            let capacity = inner
+                .carrier_capacity
+                .clone()
+                .acquire_owned()
                 .await
+                .map_err(|_| io::Error::other("xHTTP carrier capacity is closed"))?;
+            match connect::create_connection(
+                &inner.mode,
+                inner.max_concurrent_streams,
+                inner.pool_changed.clone(),
+                capacity,
+            )
+            .await
             {
                 Ok(connection) => {
                     let permit = connection

@@ -7,11 +7,12 @@ use std::time::Duration;
 use hyper::client::conn::http2;
 use hyper_util::rt::{TokioIo, TokioTimer};
 use tokio::net::{TcpSocket, TcpStream};
-use tokio::sync::{Notify, oneshot};
+use tokio::sync::{Notify, OwnedSemaphorePermit, oneshot};
 
 use crate::config::{AsyncIo, XhttpMode, XhttpSocketProtector};
 use crate::finalmask;
 use crate::h2_executor::CarrierTaskOwner;
+use crate::owned_io::OwnedIo;
 use crate::pool::PooledConnection;
 
 const H2_KEEP_ALIVE_INTERVAL: Duration = Duration::from_secs(15);
@@ -24,17 +25,21 @@ pub(crate) async fn create_connection(
     mode: &XhttpMode,
     max_concurrent_streams: usize,
     pool_changed: Arc<Notify>,
+    capacity: OwnedSemaphorePermit,
 ) -> io::Result<Arc<PooledConnection>> {
     let io: Box<dyn AsyncIo> = match mode {
         XhttpMode::Reality(config) => {
             let transport = finalmask::wrap_tcp_stream(
-                connect_tcp_stream(
-                    &config.vless.server,
-                    config.vless.port,
-                    config.bind_ip,
-                    config.socket_protector.as_ref(),
-                )
-                .await?,
+                OwnedIo::new(
+                    connect_tcp_stream(
+                        &config.vless.server,
+                        config.vless.port,
+                        config.bind_ip,
+                        config.socket_protector.as_ref(),
+                    )
+                    .await?,
+                    capacity,
+                ),
                 &config.finalmask,
             )?;
             let tls = ripdpi_vless::reality::connect_reality_tls_over(transport, &config.vless).await?;
@@ -42,8 +47,11 @@ pub(crate) async fn create_connection(
         }
         XhttpMode::Tls(config) => {
             let transport = finalmask::wrap_tcp_stream(
-                connect_tcp_stream(&config.server, config.port, config.bind_ip, config.socket_protector.as_ref())
-                    .await?,
+                OwnedIo::new(
+                    connect_tcp_stream(&config.server, config.port, config.bind_ip, config.socket_protector.as_ref())
+                        .await?,
+                    capacity,
+                ),
                 &config.finalmask,
             )?;
             // Resolve the fingerprint profile per connection: the `rotating`
@@ -234,6 +242,43 @@ mod tests {
         }
     }
 
+    /// # Cancel safety:
+    /// NOT cancel-safe: the test owns and discards its loopback carrier.
+    #[tokio::test]
+    async fn unpublished_carrier_retains_capacity_until_socket_owning_tasks_drop() {
+        use tokio::io::AsyncReadExt;
+        for mask in [
+            FinalmaskConfig::default(),
+            FinalmaskConfig {
+                r#type: "header_custom".to_owned(),
+                header_hex: "ab".to_owned(),
+                ..FinalmaskConfig::default()
+            },
+        ] {
+            let limit = Arc::new(tokio::sync::Semaphore::new(1));
+            let listener = TcpListener::bind("127.0.0.1:0").await.expect("listener");
+            let stream = TcpStream::connect(listener.local_addr().expect("address")).await.expect("carrier");
+            let (mut peer, _) = listener.accept().await.expect("peer");
+            let io = OwnedIo::new(stream, limit.clone().acquire_owned().await.expect("capacity"));
+            let io = finalmask::wrap_tcp_stream(io, &mask).expect("mask bridge");
+            let unpublished = handshake_pooled(io, 1, Arc::new(Notify::new())).await.expect("handshake");
+            drop(unpublished);
+            assert_eq!(0, limit.available_permits(), "queued cancellation must not release physical capacity");
+            let _next = tokio::time::timeout(Duration::from_secs(2), limit.acquire_owned())
+                .await
+                .expect("carrier tasks drained")
+                .expect("replacement capacity");
+            let mut bytes = Vec::new();
+            let closed = tokio::time::timeout(Duration::from_secs(2), peer.read_to_end(&mut bytes))
+                .await
+                .expect("socket closed before capacity reuse");
+            match closed {
+                Ok(_) => {}
+                Err(error) => assert_eq!(io::ErrorKind::ConnectionReset, error.kind()),
+            }
+        }
+    }
+
     #[tokio::test(start_paused = true)]
     async fn silently_dead_carrier_is_marked_closed_by_keep_alive() {
         let (client_io, server_io) = tokio::io::duplex(64 * 1024);
@@ -370,7 +415,14 @@ mod tests {
             protocol_mode: XhttpProtocolMode::default(),
         });
 
-        let Err(err) = create_connection(&mode, 1, Arc::new(Notify::new())).await else {
+        let Err(err) = create_connection(
+            &mode,
+            1,
+            Arc::new(Notify::new()),
+            Arc::new(tokio::sync::Semaphore::new(1)).acquire_owned().await.expect("capacity"),
+        )
+        .await
+        else {
             panic!("xHTTP Reality hostname resolution must fail through protected DNS bootstrap");
         };
 

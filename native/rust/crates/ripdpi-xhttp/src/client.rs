@@ -5,7 +5,7 @@ use std::sync::atomic::AtomicUsize;
 use std::time::Duration;
 
 use ripdpi_vless::VlessXudpSession;
-use tokio::sync::{Mutex, Notify};
+use tokio::sync::{Mutex, Notify, Semaphore};
 use tokio::time::timeout;
 
 use crate::config::{AsyncIo, XhttpMode, XhttpRealityConfig, XhttpTlsConfig, XmuxConfig};
@@ -23,6 +23,7 @@ pub struct XhttpClient {
 pub(crate) struct XhttpClientInner {
     pub(crate) mode: XhttpMode,
     pub(crate) max_connections: usize,
+    pub(crate) carrier_capacity: Arc<Semaphore>,
     pub(crate) max_concurrent_streams: usize,
     pub(crate) creating_connections: Arc<AtomicUsize>,
     pub(crate) pool_changed: Arc<Notify>,
@@ -100,6 +101,7 @@ impl XhttpClient {
             inner: Arc::new(XhttpClientInner {
                 mode,
                 max_connections: xmux.max_connections.max(1),
+                carrier_capacity: Arc::new(Semaphore::new(xmux.max_connections.max(1))),
                 max_concurrent_streams: xmux.max_concurrent_streams.max(1),
                 creating_connections: Arc::new(AtomicUsize::new(0)),
                 pool_changed: Arc::new(Notify::new()),

@@ -3,6 +3,8 @@ use std::io;
 use tokio::io::{AsyncRead, AsyncReadExt, AsyncWrite, AsyncWriteExt};
 
 use crate::config::{AsyncIo, FinalmaskConfig};
+use crate::owned_io::OwnedIo;
+use tokio::task::JoinHandle;
 
 use super::masks::{TcpInboundMask, TcpOutboundMask};
 use super::spec::FinalmaskSpec;
@@ -11,6 +13,16 @@ const TCP_BRIDGE_BUFFER_SIZE: usize = 64 * 1024;
 const TCP_COPY_BUFFER_SIZE: usize = 16 * 1024;
 
 type BoxedIo = Box<dyn AsyncIo>;
+
+struct BridgeTasks(Vec<JoinHandle<()>>);
+
+impl Drop for BridgeTasks {
+    fn drop(&mut self) {
+        for task in &self.0 {
+            task.abort();
+        }
+    }
+}
 
 pub fn wrap_tcp_stream<S>(stream: S, config: &FinalmaskConfig) -> io::Result<BoxedIo>
 where
@@ -26,7 +38,7 @@ where
     let mut outbound = TcpOutboundMask::new(spec.clone());
     let mut inbound = TcpInboundMask::new(spec);
 
-    tokio::spawn(async move {
+    let uplink = tokio::spawn(async move {
         let result = async {
             let mut buffer = vec![0u8; TCP_COPY_BUFFER_SIZE];
             loop {
@@ -46,7 +58,7 @@ where
         }
     });
 
-    tokio::spawn(async move {
+    let downlink = tokio::spawn(async move {
         let result = async {
             let mut buffer = vec![0u8; TCP_COPY_BUFFER_SIZE];
             loop {
@@ -67,5 +79,5 @@ where
         }
     });
 
-    Ok(Box::new(app_side))
+    Ok(Box::new(OwnedIo::new(app_side, BridgeTasks(vec![uplink, downlink]))))
 }
