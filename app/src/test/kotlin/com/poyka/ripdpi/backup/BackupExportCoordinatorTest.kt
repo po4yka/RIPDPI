@@ -1,11 +1,11 @@
 package com.poyka.ripdpi.backup
 
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
-import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.backup.BackupExportUseCase
 import com.poyka.ripdpi.data.backup.BackupVariant
+import com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleDao
 import com.poyka.ripdpi.data.rules.RuleEntity
@@ -14,7 +14,6 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -239,7 +238,7 @@ class BackupExportCoordinatorTest {
             BackupExportUseCase(
                 groupRepository = FakeGroupRepository(),
                 ruleDao = FakeRuleDao(),
-                settingsRepository = FakeAppSettingsRepository(),
+                settingsRepository = FakeAppSettingsRepository(AppSettings.getDefaultInstance()),
                 privateDataStore =
                     com.poyka.ripdpi.data
                         .testEmptyBackupPrivateDataStore(),
@@ -322,26 +321,6 @@ class BackupExportCoordinatorTest {
         ) = Unit
 
         override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
-    }
-
-    private class FakeAppSettingsRepository : AppSettingsRepository {
-        private val state = MutableStateFlow(AppSettings.getDefaultInstance())
-
-        override val settings: Flow<AppSettings> = state.asStateFlow()
-
-        override suspend fun snapshot(): AppSettings = state.first()
-
-        override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-            state.value =
-                state.value
-                    .toBuilder()
-                    .apply(transform)
-                    .build()
-        }
-
-        override suspend fun replace(settings: AppSettings) {
-            state.value = settings
-        }
     }
 
     private class FakeRuleDao : RuleDao() {

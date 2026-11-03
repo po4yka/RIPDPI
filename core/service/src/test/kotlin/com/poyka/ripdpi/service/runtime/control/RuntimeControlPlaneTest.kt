@@ -1,21 +1,11 @@
 package com.poyka.ripdpi.service.runtime.control
 
 import com.poyka.ripdpi.data.AppStatus
-import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.Sender
-import com.poyka.ripdpi.data.ServiceEvent
-import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.fakes.FakeServiceStateStore
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
-import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -211,34 +201,6 @@ private class FakeServiceController(
     override fun recordStop() {
         stopCount += 1
         stateStore.setStatus(AppStatus.Halted, stateStore.status.value.second)
-    }
-}
-
-private class FakeServiceStateStore(
-    initial: Pair<AppStatus, Mode>,
-) : ServiceStateStore {
-    private val statusState = MutableStateFlow(initial)
-    private val eventState = MutableSharedFlow<ServiceEvent>(extraBufferCapacity = 1)
-    private val telemetryState = MutableStateFlow(ServiceTelemetrySnapshot())
-
-    override val status: StateFlow<Pair<AppStatus, Mode>> = statusState.asStateFlow()
-    override val events: SharedFlow<ServiceEvent> = eventState.asSharedFlow()
-    override val telemetry: StateFlow<ServiceTelemetrySnapshot> = telemetryState.asStateFlow()
-
-    override fun setStatus(
-        status: AppStatus,
-        mode: Mode,
-    ) {
-        statusState.value = status to mode
-    }
-
-    override fun emitFailed(
-        sender: Sender,
-        reason: FailureReason,
-    ) = Unit
-
-    override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
-        telemetryState.value = snapshot
     }
 }
 

@@ -3,13 +3,10 @@ package com.poyka.ripdpi.seed
 import android.app.Application
 import android.content.Context
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
-import com.poyka.ripdpi.data.RelayCredentialRecord
-import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
@@ -22,10 +19,11 @@ import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.data.awg.requireRuntimeReady
+import com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
+import com.poyka.ripdpi.data.fakes.FakeRelayCredentialStore
 import com.poyka.ripdpi.data.routing.PackageRoutingAction
 import com.poyka.ripdpi.failover.EmbeddedSimpleFailoverRelayCatalog
 import com.poyka.ripdpi.failover.SimpleRelayBundleSource
-import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -889,40 +887,6 @@ private class FakeRelayProfileStore : RelayProfileStore {
 
     override suspend fun clear(profileId: String) {
         profiles.remove(profileId)
-    }
-}
-
-private class FakeRelayCredentialStore : RelayCredentialStore {
-    private val credentials = mutableMapOf<String, RelayCredentialRecord>()
-
-    override suspend fun load(profileId: String): RelayCredentialRecord? = credentials[profileId]
-
-    override suspend fun save(credentials: RelayCredentialRecord) {
-        this.credentials[credentials.profileId] = credentials
-    }
-
-    override suspend fun clear(profileId: String) {
-        credentials.remove(profileId)
-    }
-}
-
-private class FakeAppSettingsRepository : AppSettingsRepository {
-    private val state = MutableStateFlow(AppSettingsSerializer.defaultValue)
-
-    override val settings: Flow<AppSettings> = state.asStateFlow()
-
-    override suspend fun snapshot(): AppSettings = settings.first()
-
-    override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-        state.value =
-            state.value
-                .toBuilder()
-                .apply(transform)
-                .build()
-    }
-
-    override suspend fun replace(settings: AppSettings) {
-        state.value = settings
     }
 }
 

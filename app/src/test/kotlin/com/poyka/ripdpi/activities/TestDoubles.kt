@@ -1,16 +1,9 @@
 package com.poyka.ripdpi.activities
 
 import android.content.Intent
-import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.AppStatus
-import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.LatestDirectModeOutcomeSnapshot
 import com.poyka.ripdpi.data.LatestDirectModeOutcomeStore
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.Sender
-import com.poyka.ripdpi.data.ServiceEvent
-import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticContextSnapshot
@@ -50,18 +43,14 @@ import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.platform.PermissionPlatformBridge
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.platform.TrafficStatsReader
-import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.services.AndroidHardKillSwitchSnapshot
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStateStore
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
 import com.poyka.ripdpi.services.ServiceStartResult
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.io.IOException
 
@@ -78,95 +67,9 @@ class FakeNetworkPathValidationSource(
     }
 }
 
-class FakeAppSettingsRepository(
-    initialSettings: AppSettings = com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue,
-) : AppSettingsRepository {
-    private val state = MutableStateFlow(initialSettings)
+typealias FakeAppSettingsRepository = com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
 
-    override val settings: Flow<AppSettings> = state
-
-    override suspend fun snapshot(): AppSettings = state.value
-
-    override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-        state.value =
-            state.value
-                .toBuilder()
-                .apply(transform)
-                .build()
-    }
-
-    override suspend fun replace(settings: AppSettings) {
-        state.value = settings
-    }
-}
-
-class FakeServiceStateStore(
-    initialStatus: Pair<AppStatus, Mode> = AppStatus.Halted to Mode.VPN,
-) : ServiceStateStore {
-    private val statusState = MutableStateFlow(initialStatus)
-    private val eventFlow = MutableSharedFlow<ServiceEvent>(extraBufferCapacity = 1)
-    private val telemetryState = MutableStateFlow(ServiceTelemetrySnapshot())
-
-    override val status: StateFlow<Pair<AppStatus, Mode>> = statusState.asStateFlow()
-    override val events: SharedFlow<ServiceEvent> = eventFlow.asSharedFlow()
-    override val telemetry: StateFlow<ServiceTelemetrySnapshot> = telemetryState.asStateFlow()
-
-    override fun setStatus(
-        status: AppStatus,
-        mode: Mode,
-    ) {
-        statusState.value = status to mode
-        val now = System.currentTimeMillis()
-        val currentTelemetry = telemetryState.value
-        telemetryState.value =
-            currentTelemetry.copy(
-                mode = mode,
-                status = status,
-                serviceStartedAt =
-                    when {
-                        status == AppStatus.Running && currentTelemetry.status != AppStatus.Running -> now
-                        status == AppStatus.Running -> currentTelemetry.serviceStartedAt
-                        else -> null
-                    },
-                restartCount =
-                    when {
-                        status == AppStatus.Running && currentTelemetry.status != AppStatus.Running -> {
-                            currentTelemetry.restartCount + 1
-                        }
-
-                        else -> {
-                            currentTelemetry.restartCount
-                        }
-                    },
-                updatedAt = now,
-            )
-    }
-
-    override fun emitFailed(
-        sender: Sender,
-        reason: FailureReason,
-    ) {
-        val now = System.currentTimeMillis()
-        telemetryState.value =
-            telemetryState.value.copy(
-                lastFailureSender = sender,
-                lastFailureAt = now,
-                updatedAt = now,
-            )
-        eventFlow.tryEmit(ServiceEvent.Failed(sender, reason))
-    }
-
-    override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
-        val currentTelemetry = telemetryState.value
-        telemetryState.value =
-            snapshot.copy(
-                serviceStartedAt = snapshot.serviceStartedAt ?: currentTelemetry.serviceStartedAt,
-                restartCount = maxOf(snapshot.restartCount, currentTelemetry.restartCount),
-                lastFailureSender = snapshot.lastFailureSender ?: currentTelemetry.lastFailureSender,
-                lastFailureAt = snapshot.lastFailureAt ?: currentTelemetry.lastFailureAt,
-            )
-    }
-}
+typealias FakeServiceStateStore = com.poyka.ripdpi.data.fakes.FakeServiceStateStore
 
 class FakeServiceController : com.poyka.ripdpi.services.TestSynchronousServiceController() {
     val startedModes = mutableListOf<Mode>()

@@ -40,6 +40,7 @@ dependencies {
     implementation(libs.bundles.room)
     implementation(libs.kotlinx.serialization.json)
     ksp(libs.androidx.room.compiler)
+    testImplementation(testFixtures(project(":core:data:settings")))
 
     testImplementation(libs.bundles.unit.test)
     testImplementation(libs.androidx.datastore)

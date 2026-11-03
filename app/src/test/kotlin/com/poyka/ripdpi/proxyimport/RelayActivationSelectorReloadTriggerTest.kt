@@ -2,8 +2,6 @@ package com.poyka.ripdpi.proxyimport
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DurableCommandReceipt
 import com.poyka.ripdpi.data.Mode
@@ -21,16 +19,15 @@ import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
-import com.poyka.ripdpi.data.RelayCredentialRecord
-import com.poyka.ripdpi.data.RelayCredentialStore
-import com.poyka.ripdpi.data.RelayProfileRecord
-import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RuntimeActivationPhase
 import com.poyka.ripdpi.data.RuntimeAppliedIntent
 import com.poyka.ripdpi.data.RuntimeAppliedUseIdentity
 import com.poyka.ripdpi.data.RuntimeAppliedUseReceipt
 import com.poyka.ripdpi.data.RuntimeIntentLinearizer
 import com.poyka.ripdpi.data.SelectorRelayProfileMapping
+import com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
+import com.poyka.ripdpi.data.fakes.FakeRelayCredentialStore
+import com.poyka.ripdpi.data.fakes.FakeRelayProfileStore
 import com.poyka.ripdpi.data.mapRelayProfile
 import com.poyka.ripdpi.data.selector.SelectorActiveGroupStore
 import com.poyka.ripdpi.data.selector.SharedPreferencesSelectorSelectionStore
@@ -695,57 +692,5 @@ class RelayActivationSelectorReloadTriggerTest {
         override suspend fun list(): List<ProxyGroup> = state.value
 
         override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
-    }
-
-    private class FakeRelayProfileStore : RelayProfileStore {
-        private val profiles = mutableMapOf<String, RelayProfileRecord>()
-
-        override suspend fun load(profileId: String): RelayProfileRecord? = profiles[profileId]
-
-        override suspend fun list(): List<RelayProfileRecord> = profiles.values.toList()
-
-        override suspend fun save(profile: RelayProfileRecord) {
-            profiles[profile.id] = profile
-        }
-
-        override suspend fun clear(profileId: String) {
-            profiles.remove(profileId)
-        }
-    }
-
-    private class FakeRelayCredentialStore : RelayCredentialStore {
-        private val credentials = mutableMapOf<String, RelayCredentialRecord>()
-
-        fun snapshot(): Map<String, RelayCredentialRecord> = credentials.toMap()
-
-        override suspend fun load(profileId: String): RelayCredentialRecord? = credentials[profileId]
-
-        override suspend fun save(credentials: RelayCredentialRecord) {
-            this.credentials[credentials.profileId] = credentials
-        }
-
-        override suspend fun clear(profileId: String) {
-            credentials.remove(profileId)
-        }
-    }
-
-    private class FakeAppSettingsRepository : AppSettingsRepository {
-        private val state = MutableStateFlow(AppSettingsSerializer.defaultValue)
-
-        override val settings: Flow<AppSettings> = state.asStateFlow()
-
-        override suspend fun snapshot(): AppSettings = settings.first()
-
-        override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-            state.value =
-                state.value
-                    .toBuilder()
-                    .apply(transform)
-                    .build()
-        }
-
-        override suspend fun replace(settings: AppSettings) {
-            state.value = settings
-        }
     }
 }

@@ -1,7 +1,5 @@
 package com.poyka.ripdpi.ui.screens.xray
 
-import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
@@ -10,18 +8,19 @@ import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRecord
-import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMieru
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
-import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelaySecurityLayerTls
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.data.XrayProviderMutationCoordinator
+import com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
+import com.poyka.ripdpi.data.fakes.FakeRelayCredentialStore
+import com.poyka.ripdpi.data.fakes.FakeRelayProfileStore
 import com.poyka.ripdpi.data.subscription.XrayConfigImportParser
 import com.poyka.ripdpi.data.subscription.XrayConfigImportResult
 import com.poyka.ripdpi.data.xray.DefaultXrayProfileId
@@ -970,56 +969,6 @@ private class FakeProxyGroupRepository : ProxyGroupRepository {
     override suspend fun list(): List<ProxyGroup> = state.value
 
     override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
-}
-
-private class FakeRelayProfileStore : RelayProfileStore {
-    private val profiles = mutableMapOf<String, RelayProfileRecord>()
-
-    override suspend fun load(profileId: String): RelayProfileRecord? = profiles[profileId]
-
-    override suspend fun list(): List<RelayProfileRecord> = profiles.values.toList()
-
-    override suspend fun save(profile: RelayProfileRecord) {
-        profiles[profile.id] = profile
-    }
-
-    override suspend fun clear(profileId: String) {
-        profiles.remove(profileId)
-    }
-}
-
-private class FakeRelayCredentialStore : RelayCredentialStore {
-    private val credentials = mutableMapOf<String, RelayCredentialRecord>()
-
-    override suspend fun load(profileId: String): RelayCredentialRecord? = credentials[profileId]
-
-    override suspend fun save(credentials: RelayCredentialRecord) {
-        this.credentials[credentials.profileId] = credentials
-    }
-
-    override suspend fun clear(profileId: String) {
-        credentials.remove(profileId)
-    }
-}
-
-private class FakeAppSettingsRepository : AppSettingsRepository {
-    private val state = MutableStateFlow(AppSettingsSerializer.defaultValue)
-
-    override val settings: Flow<AppSettings> = state.asStateFlow()
-
-    override suspend fun snapshot(): AppSettings = settings.first()
-
-    override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-        state.value =
-            state.value
-                .toBuilder()
-                .apply(transform)
-                .build()
-    }
-
-    override suspend fun replace(settings: AppSettings) {
-        state.value = settings
-    }
 }
 
 /**

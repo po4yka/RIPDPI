@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.backup.BackupPrivateDataStore
 import com.poyka.ripdpi.data.backup.BackupPrivateDataV1
 import com.poyka.ripdpi.data.backup.BackupSettingsConverter
 import com.poyka.ripdpi.data.backup.BackupVariant
+import com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RipDpiDatabase
 import com.poyka.ripdpi.data.rules.RuleDao
@@ -23,7 +24,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.After
@@ -365,27 +365,5 @@ class BackupExportUseCaseTest {
         override suspend fun list(): List<ProxyGroup> = groups
 
         override fun groups(): Flow<List<ProxyGroup>> = MutableStateFlow(groups).asStateFlow()
-    }
-
-    private class FakeAppSettingsRepository(
-        private val current: AppSettings,
-    ) : AppSettingsRepository {
-        private val state = MutableStateFlow(current)
-
-        override val settings: Flow<AppSettings> = state.asStateFlow()
-
-        override suspend fun snapshot(): AppSettings = state.first()
-
-        override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-            state.value =
-                state.value
-                    .toBuilder()
-                    .apply(transform)
-                    .build()
-        }
-
-        override suspend fun replace(settings: AppSettings) {
-            state.value = settings
-        }
     }
 }

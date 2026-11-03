@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.strategy
 
-import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.ControlPlaneCacheDegradation
 import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
@@ -17,12 +16,10 @@ import com.poyka.ripdpi.data.StrategyPackRefreshPolicyManual
 import com.poyka.ripdpi.data.StrategyPackSnapshot
 import com.poyka.ripdpi.data.StrategyPackTlsProfileSet
 import com.poyka.ripdpi.data.StrategyPackTransportModule
-import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.awaitCancellation
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.TestScope
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
@@ -756,28 +753,6 @@ private class FakeStrategyPackRepository(
                 snapshot
             }
         }
-    }
-}
-
-private class FakeAppSettingsRepository(
-    initialSettings: AppSettings = AppSettingsSerializer.defaultValue,
-) : AppSettingsRepository {
-    private val state = MutableStateFlow(initialSettings)
-
-    override val settings: Flow<AppSettings> = state
-
-    override suspend fun snapshot(): AppSettings = state.value
-
-    override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-        state.value =
-            state.value
-                .toBuilder()
-                .apply(transform)
-                .build()
-    }
-
-    override suspend fun replace(settings: AppSettings) {
-        state.value = settings
     }
 }
 

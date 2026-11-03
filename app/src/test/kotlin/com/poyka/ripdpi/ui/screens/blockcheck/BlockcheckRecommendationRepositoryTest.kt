@@ -2,7 +2,9 @@ package com.poyka.ripdpi.ui.screens.blockcheck
 
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
+import com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidate
+import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -14,7 +16,7 @@ class BlockcheckRecommendationRepositoryTest {
     @Test
     fun `applyStrategy writes winner config and reloads`() =
         runTest {
-            val settings = FakeAppSettingsRepository()
+            val settings = FakeAppSettingsRepository(AppSettings.getDefaultInstance())
             val reloader = FakeBlockcheckStrategyReloader()
             val repository = DefaultBlockcheckRecommendationRepository(settings, reloader)
 
@@ -37,7 +39,7 @@ class BlockcheckRecommendationRepositoryTest {
     @Test
     fun `applyStrategy sets chain steps from configDsl when present`() =
         runTest {
-            val settings = FakeAppSettingsRepository()
+            val settings = FakeAppSettingsRepository(AppSettings.getDefaultInstance())
             val reloader = FakeBlockcheckStrategyReloader()
             val repository = DefaultBlockcheckRecommendationRepository(settings, reloader)
 
@@ -54,7 +56,7 @@ class BlockcheckRecommendationRepositoryTest {
     @Test
     fun `applyStrategy returns Unregistered without touching settings or reloader`() =
         runTest {
-            val settings = FakeAppSettingsRepository()
+            val settings = FakeAppSettingsRepository(AppSettings.getDefaultInstance())
             val reloader = FakeBlockcheckStrategyReloader()
             val repository = DefaultBlockcheckRecommendationRepository(settings, reloader)
             val before = settings.snapshot()
@@ -73,7 +75,7 @@ class BlockcheckRecommendationRepositoryTest {
     @Test
     fun `applyStrategy returns ReloadFailed when reload reports an error`() =
         runTest {
-            val settings = FakeAppSettingsRepository()
+            val settings = FakeAppSettingsRepository(AppSettings.getDefaultInstance())
             val reloader = FakeBlockcheckStrategyReloader(reloadError = "native reload failed")
             val repository = DefaultBlockcheckRecommendationRepository(settings, reloader)
 
@@ -90,7 +92,7 @@ class BlockcheckRecommendationRepositoryTest {
     @Test
     fun `applyStrategy writes class-matched recommended candidate`() =
         runTest {
-            val settings = FakeAppSettingsRepository()
+            val settings = FakeAppSettingsRepository(AppSettings.getDefaultInstance())
             val reloader = FakeBlockcheckStrategyReloader()
             val repository = DefaultBlockcheckRecommendationRepository(settings, reloader)
 

@@ -4,7 +4,6 @@ import app.cash.turbine.test
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigRelayArtifactRepository
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.RelayCredentialRecord
 import com.poyka.ripdpi.data.RelayCredentialStore
@@ -12,7 +11,9 @@ import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
-import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
+import com.poyka.ripdpi.data.fakes.FakeRelayCredentialStore
+import com.poyka.ripdpi.data.fakes.FakeRelayProfileStore
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import com.poyka.ripdpi.services.SshHostKeyObservation
 import com.poyka.ripdpi.services.SshHostKeyObservationFailure
@@ -21,9 +22,6 @@ import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
@@ -447,56 +445,6 @@ class SshProfileViewModelTest {
             assertFalse(viewModel.uiState.value.notFound)
             assertEquals(R.string.relay_editor_activation_failed, viewModel.uiState.value.errorMessage)
         }
-}
-
-private class FakeRelayProfileStore : RelayProfileStore {
-    private val profiles = mutableMapOf<String, RelayProfileRecord>()
-
-    override suspend fun load(profileId: String): RelayProfileRecord? = profiles[profileId]
-
-    override suspend fun list(): List<RelayProfileRecord> = profiles.values.toList()
-
-    override suspend fun save(profile: RelayProfileRecord) {
-        profiles[profile.id] = profile
-    }
-
-    override suspend fun clear(profileId: String) {
-        profiles.remove(profileId)
-    }
-}
-
-private class FakeRelayCredentialStore : RelayCredentialStore {
-    private val credentials = mutableMapOf<String, RelayCredentialRecord>()
-
-    override suspend fun load(profileId: String): RelayCredentialRecord? = credentials[profileId]
-
-    override suspend fun save(credentials: RelayCredentialRecord) {
-        this.credentials[credentials.profileId] = credentials
-    }
-
-    override suspend fun clear(profileId: String) {
-        credentials.remove(profileId)
-    }
-}
-
-private class FakeAppSettingsRepository : AppSettingsRepository {
-    private val state = MutableStateFlow(AppSettingsSerializer.defaultValue)
-
-    override val settings: Flow<AppSettings> = state.asStateFlow()
-
-    override suspend fun snapshot(): AppSettings = settings.first()
-
-    override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-        state.value =
-            state.value
-                .toBuilder()
-                .apply(transform)
-                .build()
-    }
-
-    override suspend fun replace(settings: AppSettings) {
-        state.value = settings
-    }
 }
 
 /**

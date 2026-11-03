@@ -3,21 +3,15 @@ package com.poyka.ripdpi.service.runtime
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
-import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.RuntimeTelemetryStatus
-import com.poyka.ripdpi.data.Sender
-import com.poyka.ripdpi.data.ServiceEvent
-import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.fakes.FakeServiceStateStore
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.SharedFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
@@ -148,34 +142,6 @@ class RuntimeModeProjectionStoreTest {
             assertEquals(RootHelperState.EnabledUnavailable, emissions[3].rootHelper)
             assertEquals(RuntimeLayerState.Active, emissions[3].diagnosticsScan)
         }
-}
-
-private class FakeServiceStateStore(
-    initial: Pair<AppStatus, Mode>,
-) : ServiceStateStore {
-    private val statusState = MutableStateFlow(initial)
-    private val eventState = MutableSharedFlow<ServiceEvent>(extraBufferCapacity = 1)
-    private val telemetryState = MutableStateFlow(ServiceTelemetrySnapshot())
-
-    override val status: StateFlow<Pair<AppStatus, Mode>> = statusState
-    override val events: SharedFlow<ServiceEvent> = eventState
-    override val telemetry: StateFlow<ServiceTelemetrySnapshot> = telemetryState
-
-    override fun setStatus(
-        status: AppStatus,
-        mode: Mode,
-    ) {
-        statusState.value = status to mode
-    }
-
-    override fun emitFailed(
-        sender: Sender,
-        reason: FailureReason,
-    ) = Unit
-
-    override fun updateTelemetry(snapshot: ServiceTelemetrySnapshot) {
-        telemetryState.value = snapshot
-    }
 }
 
 private class FakeAppSettingsRepository : AppSettingsRepository {

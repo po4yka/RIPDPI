@@ -4,16 +4,13 @@ import com.poyka.ripdpi.core.detection.BlockLayer
 import com.poyka.ripdpi.core.detection.BlockLayerDiagnosis
 import com.poyka.ripdpi.core.detection.BypassStrategyClass
 import com.poyka.ripdpi.core.detection.EvidenceConfidence
-import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidate
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateProvider
 import com.poyka.ripdpi.diagnostics.StrategyProbeConfig
 import com.poyka.ripdpi.diagnostics.StrategyProbeResult
 import com.poyka.ripdpi.diagnostics.StrategyProbeService
-import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flow
 
 internal class FakeBlockcheckDiagnosisRunner(
@@ -43,27 +40,6 @@ internal class FakeStrategyProbeCandidateProvider(
     private val candidates: List<StrategyProbeCandidate> = defaultBlockcheckCandidates(),
 ) : StrategyProbeCandidateProvider {
     override suspend fun listCandidates(): List<StrategyProbeCandidate> = candidates
-}
-
-internal class FakeAppSettingsRepository : AppSettingsRepository {
-    private val state = MutableStateFlow(AppSettings.getDefaultInstance())
-
-    override val settings: Flow<AppSettings> = state
-
-    override suspend fun snapshot(): AppSettings = state.value
-
-    override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-        state.value =
-            state
-                .value
-                .toBuilder()
-                .apply(transform)
-                .build()
-    }
-
-    override suspend fun replace(settings: AppSettings) {
-        state.value = settings
-    }
 }
 
 internal class FakeBlockcheckStrategyReloader(

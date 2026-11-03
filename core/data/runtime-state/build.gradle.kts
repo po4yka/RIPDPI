@@ -10,6 +10,10 @@ plugins {
 
 extensions.configure<LibraryExtension> {
     namespace = "com.poyka.ripdpi.core.data.runtime.state"
+
+    testFixtures {
+        enable = true
+    }
 }
 
 dependencies {
@@ -22,6 +26,8 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kaml)
     implementation(libs.okhttp)
+
+    testFixturesApi(libs.kotlinx.coroutines.core)
 
     testImplementation(libs.bundles.unit.test)
     testImplementation(libs.androidx.test.core.ktx)

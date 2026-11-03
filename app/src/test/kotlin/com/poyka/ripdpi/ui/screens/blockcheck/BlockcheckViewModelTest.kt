@@ -5,11 +5,13 @@ import com.poyka.ripdpi.core.detection.BlockLayer
 import com.poyka.ripdpi.core.detection.BypassStrategyClass
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
+import com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidate
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateProvider
 import com.poyka.ripdpi.diagnostics.StrategyProbeResult
 import com.poyka.ripdpi.diagnostics.StrategyProbeService
 import com.poyka.ripdpi.diagnostics.summarizeStrategyProbeResults
+import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -163,7 +165,7 @@ class BlockcheckViewModelTest {
     @Test
     fun `applyBestStrategy writes winner config and reloads native config`() =
         runTest {
-            val repository = FakeAppSettingsRepository()
+            val repository = FakeAppSettingsRepository(AppSettings.getDefaultInstance())
             val reloader = FakeBlockcheckStrategyReloader()
             val viewModel =
                 testViewModel(
@@ -229,7 +231,7 @@ class BlockcheckViewModelTest {
     @Test
     fun `applyRecommendedStrategy writes matching class strategy`() =
         runTest {
-            val repository = FakeAppSettingsRepository()
+            val repository = FakeAppSettingsRepository(AppSettings.getDefaultInstance())
             val reloader = FakeBlockcheckStrategyReloader()
             val viewModel =
                 testViewModel(
@@ -299,7 +301,7 @@ class BlockcheckViewModelTest {
     }
 
     private fun testViewModel(
-        repository: FakeAppSettingsRepository = FakeAppSettingsRepository(),
+        repository: FakeAppSettingsRepository = FakeAppSettingsRepository(AppSettings.getDefaultInstance()),
         reloader: FakeBlockcheckStrategyReloader = FakeBlockcheckStrategyReloader(),
         probeService: StrategyProbeService? = null,
         candidateProvider: StrategyProbeCandidateProvider = FakeStrategyProbeCandidateProvider(),

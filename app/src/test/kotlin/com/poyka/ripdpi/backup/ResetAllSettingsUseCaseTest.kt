@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryResetStore
+import com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleDao
 import com.poyka.ripdpi.data.rules.RuleEntity
@@ -16,7 +17,6 @@ import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
@@ -117,7 +117,7 @@ class ResetAllSettingsUseCaseTest {
                 recorder = recorder,
                 groups = groups,
                 rules = FakeRuleDao(initialRowCount = 1),
-                settings = FakeAppSettingsRepository(),
+                settings = FakeAppSettingsRepository(AppSettings.getDefaultInstance()),
                 profileData = FakeUserProfileResetStore(),
                 diagnostics = FakeDiagnosticsHistoryResetStore(),
                 caches = FakeCacheDirectoryCleaner(),
@@ -136,7 +136,7 @@ class ResetAllSettingsUseCaseTest {
                 recorder = recorder,
                 groups = FakeGroupRepository(mutableListOf(sampleGroup)),
                 rules = FakeRuleDao(initialRowCount = 1),
-                settings = FakeAppSettingsRepository(),
+                settings = FakeAppSettingsRepository(AppSettings.getDefaultInstance()),
                 profileData = FakeUserProfileResetStore(),
                 diagnostics = FakeDiagnosticsHistoryResetStore(),
                 caches = FakeCacheDirectoryCleaner(),
@@ -168,7 +168,7 @@ class ResetAllSettingsUseCaseTest {
                                 deleteStarted.complete(Unit)
                                 continueDelete.await()
                             },
-                        settings = FakeAppSettingsRepository(),
+                        settings = FakeAppSettingsRepository(AppSettings.getDefaultInstance()),
                         profileData = profileData,
                         diagnostics = diagnostics,
                         caches = caches,
@@ -261,28 +261,6 @@ class ResetAllSettingsUseCaseTest {
         }
 
         override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
-    }
-
-    private class FakeAppSettingsRepository(
-        current: AppSettings = AppSettings.getDefaultInstance(),
-    ) : AppSettingsRepository {
-        private val state = MutableStateFlow(current)
-
-        override val settings: Flow<AppSettings> = state.asStateFlow()
-
-        override suspend fun snapshot(): AppSettings = state.first()
-
-        override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-            state.value =
-                state.value
-                    .toBuilder()
-                    .apply(transform)
-                    .build()
-        }
-
-        override suspend fun replace(settings: AppSettings) {
-            state.value = settings
-        }
     }
 
     private class FakeDiagnosticsHistoryResetStore : DiagnosticsHistoryResetStore {
