@@ -190,7 +190,6 @@ internal object RipDpiTestTags {
     const val UnsavedChangesKeepEditing = "unsaved-changes-keep-editing"
     const val UnsavedChangesDiscard = "unsaved-changes-discard"
 
-    const val SettingsDnsSettings = "settings-dns-settings"
     const val SettingsDetectionCheck = "settings-detection-check"
     const val SettingsAdvancedConnectivity = "settings-advanced-connectivity"
     const val SettingsAdvancedSettings = "settings-advanced-settings"
@@ -223,9 +222,7 @@ internal object RipDpiTestTags {
     const val SettingsLogs = "settings-logs"
     const val SettingsProfileUtility = "settings-profile-utility"
 
-    const val SettingsSubscriptionFailover = "settings-subscription-failover"
     const val SubscriptionLifecycleBanner = "subscription-lifecycle-banner"
-    const val SettingsSubscriptionStatus = "settings-subscription-status"
     const val StatusSubscriptionExpiryBanner = "home-subscription-expiry-banner"
     const val SettingsDataTransparency = "settings-data-transparency"
     const val SettingsAbout = "settings-about"

@@ -20,7 +20,7 @@ All stable IDs live in [`RipDpiTestTags.kt`](../../app/src/main/kotlin/com/poyka
 - Screen roots are generated from every entry in `Route.all` via `RipDpiTestTags.screen(route)`; each result is the stable route plus the `-screen` suffix. Do not duplicate the route inventory in this document.
 - Bottom navigation: `bottom-nav-home`, `bottom-nav-config`, `bottom-nav-diagnostics`, `bottom-nav-settings`
 - Permission and repair actions: `settings-permission-<kind>`, `home-permission-issue-banner`, `home-permission-recommendation-banner`
-- Settings navigation: `settings-dns-settings`, `settings-advanced-settings`, `settings-support-bundle`, `settings-data-transparency`, `settings-about`
+- Settings navigation: `settings-advanced-settings`, `settings-support-bundle`, `settings-data-transparency`, `settings-about`
 - Config actions: `config-profile-change` opens saved profile choices;
   `config-runtime-action` starts the saved mode or stops the running mode;
   `config-connection-details` discloses long configuration guidance.

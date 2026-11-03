@@ -145,7 +145,7 @@ fun RipDpiConnectionActuator(
             onClick = onAction,
         )
         AnimatedVisibility(
-            visible = resolved.faultDetail.isNotEmpty(),
+            visible = state.status == StatusConnectionActuatorStatus.Fault,
             enter = motion.sectionEnterTransition(),
             exit = motion.sectionExitTransition(),
         ) {
@@ -307,42 +307,44 @@ private fun ActuatorFaultDetail(
             rememberUpdatedStyleState(interactionSource),
         )
     Column(modifier = modifier.fillMaxWidth()) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorFaultDetail)
-                    .styleResolver(resolver)
-                    .clip(shape)
-                    .then(
-                        if (onCopy != null) {
-                            Modifier.ripDpiClickable(
-                                role = Role.Button,
-                                onClickLabel = copyLabel,
-                                hapticFeedback = RipDpiHapticFeedback.Acknowledge,
-                                interactionSource = interactionSource,
-                                onClick = onCopy,
-                            )
-                        } else {
-                            Modifier
-                        },
-                    ).ripDpiStyleAppearance(resolver, shape)
-                    .padding(horizontal = spacing.sm, vertical = spacing.sm),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Icon(
-                imageVector = RipDpiIcons.Error,
-                contentDescription = null,
-                modifier = Modifier.size(RipDpiIconSizes.Small),
-                tint = stateStyle.railContent,
-            )
-            Spacer(modifier = Modifier.width(spacing.xs))
-            Text(
-                modifier = Modifier.weight(1f),
-                text = detail,
-                style = RipDpiThemeTokens.type.caption,
-                color = stateStyle.railContent,
-            )
+        if (detail.isNotEmpty()) {
+            Row(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorFaultDetail)
+                        .styleResolver(resolver)
+                        .clip(shape)
+                        .then(
+                            if (onCopy != null) {
+                                Modifier.ripDpiClickable(
+                                    role = Role.Button,
+                                    onClickLabel = copyLabel,
+                                    hapticFeedback = RipDpiHapticFeedback.Acknowledge,
+                                    interactionSource = interactionSource,
+                                    onClick = onCopy,
+                                )
+                            } else {
+                                Modifier
+                            },
+                        ).ripDpiStyleAppearance(resolver, shape)
+                        .padding(horizontal = spacing.sm, vertical = spacing.sm),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(
+                    imageVector = RipDpiIcons.Error,
+                    contentDescription = null,
+                    modifier = Modifier.size(RipDpiIconSizes.Small),
+                    tint = stateStyle.railContent,
+                )
+                Spacer(modifier = Modifier.width(spacing.xs))
+                Text(
+                    modifier = Modifier.weight(1f),
+                    text = detail,
+                    style = RipDpiThemeTokens.type.caption,
+                    color = stateStyle.railContent,
+                )
+            }
         }
         if (onDiagnose != null || onViewLog != null) {
             Row(

@@ -116,6 +116,32 @@ class StatusScreenTest {
     }
 
     @Test
+    fun `actuator fault without a message still offers next steps`() {
+        composeRule.setContent {
+            RipDpiTheme {
+                StatusScreen(
+                    uiState =
+                        MainUiState(
+                            connectionState = ConnectionState.Error,
+                            connectionActuator =
+                                StatusConnectionActuatorUiState(status = StatusConnectionActuatorStatus.Fault),
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = {},
+                    onOpenHistory = {},
+                    onOpenLogs = {},
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorFaultDetail).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorFaultDiagnose).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorFaultViewLog).assertExists()
+    }
+
+    @Test
     fun `actuator fault detail copies the message on click`() {
         val error = "Failed to start VPN"
         composeRule.setContent {

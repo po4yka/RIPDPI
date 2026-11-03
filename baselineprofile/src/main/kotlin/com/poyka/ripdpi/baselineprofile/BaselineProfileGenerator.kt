@@ -34,8 +34,6 @@ class BaselineProfileGenerator {
             reach("settings-screen")
 
             // Push screens from Settings and come back: the NavHost transitions, tonal cards and empty states.
-            openSettingsRow("settings-dns-settings", "dns_settings-screen")
-            openSettingsRow("settings-subscription-status", "subscription_status-screen")
             openSettingsRow("settings-detection-check", "detection_check-screen")
 
             tap("bottom-nav-home")
