@@ -14,10 +14,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.github.takahirom.roborazzi.captureRoboImage
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
-import com.poyka.ripdpi.activities.HomeModeSummaryFacet
 import com.poyka.ripdpi.ui.components.homePreviewActuatorState
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusModeSummaryFacet
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentListOf
@@ -60,7 +60,7 @@ class ConnectionStrategyPanelScreenshotTest {
                     ) {
                         RipDpiConnectionActuator(
                             state =
-                                homePreviewActuatorState(HomeConnectionActuatorStatus.Locked).copy(
+                                homePreviewActuatorState(StatusConnectionActuatorStatus.Locked).copy(
                                     strategyLabel = StrategyLabel,
                                     strategyFacets = Facets,
                                 ),
@@ -80,10 +80,10 @@ class ConnectionStrategyPanelScreenshotTest {
         const val StrategyLabel = "tcp: split(host+1)"
         val Facets =
             persistentListOf(
-                HomeModeSummaryFacet("Protocols", "HTTP, HTTPS, UDP"),
-                HomeModeSummaryFacet("Host learning", "On"),
-                HomeModeSummaryFacet("QUIC", "Disabled"),
-                HomeModeSummaryFacet("DNS", "AdGuard DNS DoH"),
+                StatusModeSummaryFacet("Protocols", "HTTP, HTTPS, UDP"),
+                StatusModeSummaryFacet("Host learning", "On"),
+                StatusModeSummaryFacet("QUIC", "Disabled"),
+                StatusModeSummaryFacet("DNS", "AdGuard DNS DoH"),
             )
     }
 }

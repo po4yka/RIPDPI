@@ -27,6 +27,8 @@ import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsServices
+import com.poyka.ripdpi.ui.screens.status.StatusPauseViewModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CompletableDeferred
@@ -72,7 +74,7 @@ class MainActivityContentTest {
     val mainDispatcherRule = MainDispatcherRule()
 
     @Composable
-    private fun rememberPauseViewModelForTest(): HomePauseViewModel {
+    private fun rememberPauseViewModelForTest(): StatusPauseViewModel {
         val store = remember { ViewModelStore() }
         val pauseViewModel =
             remember {
@@ -95,7 +97,7 @@ class MainActivityContentTest {
                         com.poyka.ripdpi.services
                             .ServiceIntentArbiter(authority),
                     )
-                HomePauseViewModel(controller, authority, state).also { store.put("pause", it) }
+                StatusPauseViewModel(controller, authority, state).also { store.put("pause", it) }
             }
         DisposableEffect(store) { onDispose { store.clear() } }
         return pauseViewModel
@@ -597,7 +599,7 @@ class MainActivityContentTest {
                     diagnosticsTimelineSource = StubDiagnosticsTimelineSource(),
                     diagnosticsScanController = StubDiagnosticsScanController(),
                     homeDiagnosticsServices =
-                        HomeDiagnosticsServices(
+                        StatusDiagnosticsServices(
                             workflowService = StubDiagnosticsHomeWorkflowService(),
                             compositeRunService = StubDiagnosticsHomeCompositeRunService(),
                         ),

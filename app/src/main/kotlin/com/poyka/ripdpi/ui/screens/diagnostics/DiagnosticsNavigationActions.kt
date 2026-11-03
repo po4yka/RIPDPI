@@ -1,22 +1,22 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
-import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSection
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsViewModel
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsRunUiStatus
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 
-internal val HomeDiagnosticsUiState.compositeRunBusy: Boolean
+internal val StatusDiagnosticsUiState.compositeRunBusy: Boolean
     get() =
-        analysisRunStatus == HomeDiagnosticsRunUiStatus.STARTING ||
-            analysisRunStatus == HomeDiagnosticsRunUiStatus.RUNNING
+        analysisRunStatus == StatusDiagnosticsRunUiStatus.STARTING ||
+            analysisRunStatus == StatusDiagnosticsRunUiStatus.RUNNING
 
-internal val HomeDiagnosticsUiState.diagnosticsAdmissionBusy: Boolean
+internal val StatusDiagnosticsUiState.diagnosticsAdmissionBusy: Boolean
     get() = analysisAction.busy || verifiedVpnAction.busy || compositeRunBusy
 
 internal fun DiagnosticsScreenActions.withNavigationCallbacks(
     viewModel: DiagnosticsViewModel,
     callbacks: DiagnosticsRouteCallbacks,
-    homeDiagnostics: HomeDiagnosticsUiState,
+    homeDiagnostics: StatusDiagnosticsUiState,
 ): DiagnosticsScreenActions =
     copy(
         onSaveLogs = callbacks.onSaveLogs,

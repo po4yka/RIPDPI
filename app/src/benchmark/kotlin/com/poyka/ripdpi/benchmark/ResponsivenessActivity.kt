@@ -21,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.BuildConfig
-import com.poyka.ripdpi.activities.HomePauseViewModel
 import com.poyka.ripdpi.activities.LogsViewModel
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -34,6 +33,7 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.logs.LogsRoute
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityActions
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityScreen
+import com.poyka.ripdpi.ui.screens.status.StatusPauseViewModel
 import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -134,7 +134,7 @@ class ResponsivenessActivity : ComponentActivity() {
                 var pendingRoute by remember { mutableStateOf<String?>(Route.Settings.stableRoute) }
                 RipDpiNavHost(
                     mainViewModel = ViewModelProvider(this)[MainViewModel::class.java],
-                    pauseViewModel = ViewModelProvider(this)[HomePauseViewModel::class.java],
+                    pauseViewModel = ViewModelProvider(this)[StatusPauseViewModel::class.java],
                     modifier = modifier,
                     launchRequests =
                         RipDpiNavHostLaunchRequests(

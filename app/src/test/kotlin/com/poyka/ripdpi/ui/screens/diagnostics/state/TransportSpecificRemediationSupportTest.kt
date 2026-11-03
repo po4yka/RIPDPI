@@ -1,11 +1,11 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import com.poyka.ripdpi.activities.FakeStringResolver
-import com.poyka.ripdpi.activities.HomeDiagnosticsLatestAuditUiState
 import com.poyka.ripdpi.data.DirectModeReasonCode
 import com.poyka.ripdpi.data.DirectModeVerdictResult
 import com.poyka.ripdpi.data.DirectTransportClass
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsLatestAuditUiState
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -134,7 +134,7 @@ class TransportSpecificRemediationSupportTest {
                 commandLineBlocked = false,
                 fingerprintMismatch = false,
                 latestOutcome =
-                    HomeDiagnosticsLatestAuditUiState(
+                    StatusDiagnosticsLatestAuditUiState(
                         headline = "No direct solution",
                         summary = "Direct mode unavailable",
                         actionable = true,
@@ -208,7 +208,7 @@ class TransportSpecificRemediationSupportTest {
                 commandLineBlocked = false,
                 fingerprintMismatch = false,
                 latestOutcome =
-                    HomeDiagnosticsLatestAuditUiState(
+                    StatusDiagnosticsLatestAuditUiState(
                         headline = "Owned stack required",
                         summary = "Direct mode requires owned stack",
                         actionable = true,

@@ -9,9 +9,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.DnsUiState
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
-import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
-import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.OnboardingUiState
 import com.poyka.ripdpi.data.AppStatus
@@ -30,12 +27,15 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsShareUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiState
 import com.poyka.ripdpi.ui.screens.diagnostics.state.toScreenUiState
-import com.poyka.ripdpi.ui.screens.home.HomeScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions
 import com.poyka.ripdpi.ui.screens.settings.SettingsScreen
 import com.poyka.ripdpi.ui.screens.settings.SettingsScreenActions
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState
+import com.poyka.ripdpi.ui.screens.status.StatusMode
+import com.poyka.ripdpi.ui.screens.status.StatusScreen
 import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerTopBarAction
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -50,11 +50,11 @@ private fun HomeExpandedPreview() {
 
 @Composable
 internal fun RipDpiHomeExpandedPreviewScene(
-    connectionActuator: HomeConnectionActuatorUiState =
-        homePreviewActuatorState(HomeConnectionActuatorStatus.Locked),
+    connectionActuator: StatusConnectionActuatorUiState =
+        homePreviewActuatorState(StatusConnectionActuatorStatus.Locked),
 ) {
     RipDpiTheme(themePreference = "light") {
-        HomeScreen(
+        StatusScreen(
             uiState =
                 MainUiState(
                     appStatus = AppStatus.Running,
@@ -63,7 +63,7 @@ internal fun RipDpiHomeExpandedPreviewScene(
                     connectionState = ConnectionState.Connected,
                     connectionActuator = connectionActuator,
                     dataTransferred = 54_321_987L,
-                    modeCards = homePreviewModeCards(activeMode = HomeMode.RemoteVpn),
+                    modeCards = homePreviewModeCards(activeMode = StatusMode.RemoteVpn),
                 ),
             onToggleConnection = {},
             onOpenDiagnostics = {},
@@ -77,16 +77,16 @@ internal fun RipDpiHomeExpandedPreviewScene(
 @Composable
 internal fun RipDpiHomeCompactPreviewScene() {
     RipDpiTheme(themePreference = "light") {
-        HomeScreen(
+        StatusScreen(
             uiState =
                 MainUiState(
                     appStatus = AppStatus.Running,
                     activeMode = Mode.VPN,
                     configuredMode = Mode.VPN,
                     connectionState = ConnectionState.Connected,
-                    connectionActuator = homePreviewActuatorState(HomeConnectionActuatorStatus.Locked),
+                    connectionActuator = homePreviewActuatorState(StatusConnectionActuatorStatus.Locked),
                     dataTransferred = 54_321_987L,
-                    modeCards = homePreviewModeCards(activeMode = HomeMode.RemoteVpn),
+                    modeCards = homePreviewModeCards(activeMode = StatusMode.RemoteVpn),
                 ),
             onToggleConnection = {},
             onOpenDiagnostics = {},
@@ -100,16 +100,16 @@ internal fun RipDpiHomeCompactPreviewScene() {
 @Composable
 internal fun RipDpiHomeDarkPreviewScene() {
     RipDpiTheme(themePreference = "dark") {
-        HomeScreen(
+        StatusScreen(
             uiState =
                 MainUiState(
                     appStatus = AppStatus.Running,
                     activeMode = Mode.VPN,
                     configuredMode = Mode.VPN,
                     connectionState = ConnectionState.Connected,
-                    connectionActuator = homePreviewActuatorState(HomeConnectionActuatorStatus.Locked),
+                    connectionActuator = homePreviewActuatorState(StatusConnectionActuatorStatus.Locked),
                     dataTransferred = 54_321_987L,
-                    modeCards = homePreviewModeCards(activeMode = HomeMode.RemoteVpn),
+                    modeCards = homePreviewModeCards(activeMode = StatusMode.RemoteVpn),
                 ),
             onToggleConnection = {},
             onOpenDiagnostics = {},
@@ -123,15 +123,15 @@ internal fun RipDpiHomeDarkPreviewScene() {
 @Composable
 internal fun RipDpiHomeConnectingPreviewScene() {
     RipDpiTheme(themePreference = "light") {
-        HomeScreen(
+        StatusScreen(
             uiState =
                 MainUiState(
                     appStatus = AppStatus.Running,
                     activeMode = Mode.VPN,
                     configuredMode = Mode.VPN,
                     connectionState = ConnectionState.Connecting,
-                    connectionActuator = homePreviewActuatorState(HomeConnectionActuatorStatus.Engaging),
-                    modeCards = homePreviewModeCards(loadingMode = HomeMode.RemoteVpn),
+                    connectionActuator = homePreviewActuatorState(StatusConnectionActuatorStatus.Engaging),
+                    modeCards = homePreviewModeCards(loadingMode = StatusMode.RemoteVpn),
                 ),
             onToggleConnection = {},
             onOpenDiagnostics = {},

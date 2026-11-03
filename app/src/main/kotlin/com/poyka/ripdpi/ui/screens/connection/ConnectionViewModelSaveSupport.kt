@@ -1,11 +1,11 @@
 package com.poyka.ripdpi.ui.screens.connection
 
 import co.touchlab.kermit.Logger
-import com.poyka.ripdpi.activities.hasUnsupportedVpnDoq
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.ui.screens.status.hasUnsupportedVpnDoq
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.coroutineScope

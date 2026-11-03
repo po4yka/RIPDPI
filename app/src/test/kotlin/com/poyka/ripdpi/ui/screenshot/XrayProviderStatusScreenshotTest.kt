@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.ui.Modifier
 import com.poyka.ripdpi.data.xray.XrayProviderDiagnosticsFixtures
-import com.poyka.ripdpi.ui.screens.home.HomeXrayProviderBanner
+import com.poyka.ripdpi.ui.screens.status.StatusXrayProviderBanner
 import com.poyka.ripdpi.ui.screens.xray.XrayProviderSettingsStatusRow
 import com.poyka.ripdpi.ui.screens.xray.XrayProviderStatusCard
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -58,7 +58,7 @@ class XrayProviderStatusScreenshotTest {
                         .padding(RipDpiThemeTokens.layout.horizontalPadding),
                 verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
             ) {
-                HomeXrayProviderBanner(snapshot = report.snapshot)
+                StatusXrayProviderBanner(snapshot = report.snapshot)
                 XrayProviderStatusCard(
                     report = report,
                     onRunProbe = {},

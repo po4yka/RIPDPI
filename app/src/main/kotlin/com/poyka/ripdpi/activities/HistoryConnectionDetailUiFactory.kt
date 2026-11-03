@@ -37,6 +37,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.shortFingerprintHash
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import com.poyka.ripdpi.ui.screens.diagnostics.state.toEventUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.toLocalNetworkGroups
+import com.poyka.ripdpi.ui.screens.status.labelRes
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList

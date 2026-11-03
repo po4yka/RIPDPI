@@ -22,8 +22,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HomeModeSummaryFacet
 import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.screens.status.StatusModeSummaryFacet
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -43,7 +43,7 @@ private const val FacetValueWeight = 0.6f
 @Composable
 internal fun RipDpiConnectionStrategyPanel(
     strategyLabel: String,
-    facets: ImmutableList<HomeModeSummaryFacet>,
+    facets: ImmutableList<StatusModeSummaryFacet>,
     modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
@@ -122,7 +122,7 @@ internal fun RipDpiConnectionStrategyPanel(
 }
 
 @Composable
-private fun StrategyFacetRow(facet: HomeModeSummaryFacet) {
+private fun StrategyFacetRow(facet: StatusModeSummaryFacet) {
     val type = RipDpiThemeTokens.type
     val colors = RipDpiThemeTokens.colors
     val label = @Composable { modifier: Modifier ->

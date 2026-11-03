@@ -38,15 +38,15 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.HistorySection
 import com.poyka.ripdpi.activities.HistoryUiState
 import com.poyka.ripdpi.activities.HomeAppliedConfigurationUiState
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
-import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.activities.HomeReconnectComparisonUiState
 import com.poyka.ripdpi.activities.ReconnectSettingsIdentity
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.services.RunningReconnectRequest
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
 import com.poyka.ripdpi.ui.screens.history.HistoryScreen
-import com.poyka.ripdpi.ui.screens.home.HomeAppliedConfigurationPanel
+import com.poyka.ripdpi.ui.screens.status.StatusAppliedConfigurationPanel
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.LocalRipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
@@ -72,7 +72,7 @@ class UiTransitionClarityInstrumentedTest {
 
     @Test
     fun terminalIndicatorFadesWhileCurrentActionAndCancellationStayAvailable() {
-        var state by mutableStateOf(transitionActuator(HomeConnectionActuatorStatus.Engaging))
+        var state by mutableStateOf(transitionActuator(StatusConnectionActuatorStatus.Engaging))
         var cancellations = 0
         compose.setContent {
             TransitionTheme {
@@ -87,8 +87,8 @@ class UiTransitionClarityInstrumentedTest {
         compose.mainClock.autoAdvance = false
         compose.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).performClick()
         compose.runOnIdle { assertEquals(1, cancellations) }
-        listOf(HomeConnectionActuatorStatus.Locked, HomeConnectionActuatorStatus.Fault).forEach { terminal ->
-            compose.runOnUiThread { state = transitionActuator(HomeConnectionActuatorStatus.Engaging) }
+        listOf(StatusConnectionActuatorStatus.Locked, StatusConnectionActuatorStatus.Fault).forEach { terminal ->
+            compose.runOnUiThread { state = transitionActuator(StatusConnectionActuatorStatus.Engaging) }
             advance(160)
             compose.runOnUiThread { state = transitionActuator(terminal) }
             advance(32)
@@ -118,7 +118,7 @@ class UiTransitionClarityInstrumentedTest {
     fun reviewClosesWithoutDispatchAfterRuntimeOrSavedIdentityChanges() {
         var state by mutableStateOf(transitionReconnectState())
         var reconnects = 0
-        compose.setContent { TransitionTheme { HomeAppliedConfigurationPanel(state, { reconnects++ }, {}) } }
+        compose.setContent { TransitionTheme { StatusAppliedConfigurationPanel(state, { reconnects++ }, {}) } }
         listOf<(HomeAppliedConfigurationUiState) -> HomeAppliedConfigurationUiState>(
             { it.copy(confirmation = RunningReconnectRequest.ConfirmedRuntime(Mode.VPN, "replacement-runtime", 2)) },
             { it.copy(reconnectSettingsIdentity = ReconnectSettingsIdentity()) },
@@ -162,7 +162,7 @@ class UiTransitionClarityInstrumentedTest {
     }
 
     private fun assertIndicatorExit(motion: RipDpiMotion) {
-        var state by mutableStateOf(transitionActuator(HomeConnectionActuatorStatus.Engaging))
+        var state by mutableStateOf(transitionActuator(StatusConnectionActuatorStatus.Engaging))
         compose.setContent {
             TransitionTheme(motion = motion, largeRtl = true) {
                 RipDpiConnectionActuator(state, {}, {}, testTag = RipDpiTestTags.ConnectionActuatorButton)
@@ -170,9 +170,9 @@ class UiTransitionClarityInstrumentedTest {
         }
         compose.mainClock.autoAdvance = false
         progress().assertExists()
-        compose.runOnUiThread { state = transitionActuator(HomeConnectionActuatorStatus.Locked) }
+        compose.runOnUiThread { state = transitionActuator(StatusConnectionActuatorStatus.Locked) }
         advance(32)
-        assertCurrentActuator(HomeConnectionActuatorStatus.Locked)
+        assertCurrentActuator(StatusConnectionActuatorStatus.Locked)
         if (motion.animationsEnabled) {
             progress().assertExists()
             capture("actuator-reduced-fading")
@@ -188,7 +188,7 @@ class UiTransitionClarityInstrumentedTest {
         compose.setContent {
             TransitionTheme(largeRtl = largeRtl) {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    HomeAppliedConfigurationPanel(state, { requests.add(it) }, {})
+                    StatusAppliedConfigurationPanel(state, { requests.add(it) }, {})
                 }
             }
         }
@@ -246,7 +246,7 @@ class UiTransitionClarityInstrumentedTest {
         compose.onNodeWithTag(RipDpiTestTags.HomeRuntimeReconnectDialog).assertDoesNotExist()
     }
 
-    private fun assertCurrentActuator(status: HomeConnectionActuatorStatus) {
+    private fun assertCurrentActuator(status: StatusConnectionActuatorStatus) {
         compose.onNodeWithText("State ${status.name}").assertIsDisplayed()
         compose.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).assertTextEquals("Action ${status.name}")
     }
@@ -285,8 +285,8 @@ private fun historyListTag(section: HistorySection): String =
         RipDpiTestTags.HistoryDiagnosticsList
     }
 
-private fun transitionActuator(status: HomeConnectionActuatorStatus) =
-    HomeConnectionActuatorUiState(
+private fun transitionActuator(status: StatusConnectionActuatorStatus) =
+    StatusConnectionActuatorUiState(
         status = status,
         statusDescription = "State ${status.name}",
         actionLabel = "Action ${status.name}",

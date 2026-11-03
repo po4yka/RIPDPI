@@ -28,7 +28,6 @@ import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DesyncCoreUiState
 import com.poyka.ripdpi.activities.DnsUiState
-import com.poyka.ripdpi.activities.HomePauseUiState
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
 import com.poyka.ripdpi.data.HostPackCatalog
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
@@ -47,10 +46,11 @@ import com.poyka.ripdpi.ui.screens.dns.DnsModeSection
 import com.poyka.ripdpi.ui.screens.health.ConnectionHealthScreen
 import com.poyka.ripdpi.ui.screens.health.ConnectionHealthUiState
 import com.poyka.ripdpi.ui.screens.health.DnsCountersUiState
-import com.poyka.ripdpi.ui.screens.home.HomePauseControls
 import com.poyka.ripdpi.ui.screens.settings.FakeOrderingProfileCard
 import com.poyka.ripdpi.ui.screens.settings.hostsSection
 import com.poyka.ripdpi.ui.screens.settings.rememberAdvancedSettingsContentState
+import com.poyka.ripdpi.ui.screens.status.StatusPauseControls
+import com.poyka.ripdpi.ui.screens.status.StatusPauseUiState
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -174,8 +174,8 @@ class PortugueseLocalizationScreenTest {
         var resumed = false
         content(width, scale) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                HomePauseControls(
-                    state = HomePauseUiState(phase = PausePhase.Deferred, failure = PauseFailure.ClockChanged),
+                StatusPauseControls(
+                    state = StatusPauseUiState(phase = PausePhase.Deferred, failure = PauseFailure.ClockChanged),
                     onPause = {},
                     onResume = { resumed = true },
                     onStop = {},

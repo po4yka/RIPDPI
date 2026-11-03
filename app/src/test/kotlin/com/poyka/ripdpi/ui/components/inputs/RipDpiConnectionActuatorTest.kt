@@ -31,8 +31,8 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStage
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStage
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
@@ -57,7 +57,7 @@ class RipDpiConnectionActuatorTest {
 
     @Test
     fun `every state exposes one readable button with separate status`() {
-        var state by mutableStateOf(actuatorState(HomeConnectionActuatorStatus.Open))
+        var state by mutableStateOf(actuatorState(StatusConnectionActuatorStatus.Open))
         composeRule.setContent {
             RipDpiTheme {
                 RipDpiConnectionActuator(
@@ -68,7 +68,7 @@ class RipDpiConnectionActuatorTest {
                 )
             }
         }
-        HomeConnectionActuatorStatus.entries.forEach { status ->
+        StatusConnectionActuatorStatus.entries.forEach { status ->
             composeRule.runOnIdle { state = actuatorState(status) }
             composeRule.onAllNodesWithTag(RipDpiTestTags.ConnectionActuatorButton).assertCountEquals(1)
             composeRule
@@ -86,11 +86,11 @@ class RipDpiConnectionActuatorTest {
     @Test
     fun `session duration shows only while the connection is live and is spoken in words`() {
         var state by mutableStateOf(
-            actuatorState(HomeConnectionActuatorStatus.Open).copy(sessionDuration = 3723.seconds),
+            actuatorState(StatusConnectionActuatorStatus.Open).copy(sessionDuration = 3723.seconds),
         )
         composeRule.setContent { RipDpiTheme { RipDpiConnectionActuator(state, onActivate = {}, onDeactivate = {}) } }
         composeRule.onAllNodesWithTag(RipDpiTestTags.ConnectionActuatorDurationLabel).assertCountEquals(0)
-        composeRule.runOnIdle { state = state.copy(status = HomeConnectionActuatorStatus.Locked) }
+        composeRule.runOnIdle { state = state.copy(status = StatusConnectionActuatorStatus.Locked) }
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConnectionActuatorDurationLabel)
             .assertIsDisplayed()
@@ -117,7 +117,7 @@ class RipDpiConnectionActuatorTest {
     fun `route information cannot activate or disconnect the connection`() {
         var actions = 0
         composeRule.setActuator(
-            state = actuatorState(HomeConnectionActuatorStatus.Locked),
+            state = actuatorState(StatusConnectionActuatorStatus.Locked),
             onActivate = { actions++ },
             onDeactivate = { actions++ },
         )
@@ -135,8 +135,8 @@ class RipDpiConnectionActuatorTest {
 
     @Test
     fun `waiting connection does not display completed stage indicators`() {
-        composeRule.setActuator(state = actuatorState(HomeConnectionActuatorStatus.Engaging))
-        HomeConnectionActuatorStage.entries.forEach { stage ->
+        composeRule.setActuator(state = actuatorState(StatusConnectionActuatorStatus.Engaging))
+        StatusConnectionActuatorStage.entries.forEach { stage ->
             composeRule.onAllNodesWithTag(RipDpiTestTags.homeConnectionStage(stage.stableKey)).assertCountEquals(0)
         }
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).assertIsDisplayed().assertHasClickAction()
@@ -155,7 +155,7 @@ class RipDpiConnectionActuatorTest {
                     Box(modifier = Modifier.requiredWidth(320.dp)) {
                         RipDpiConnectionActuator(
                             state =
-                                actuatorState(HomeConnectionActuatorStatus.Locked).copy(
+                                actuatorState(StatusConnectionActuatorStatus.Locked).copy(
                                     routeLabel = route,
                                     trailingLabel = "Напрямую",
                                     actionLabel = action,

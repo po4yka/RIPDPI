@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.RuntimeConfigurationPendingStatus
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.RunningReconnectFailure
 import com.poyka.ripdpi.services.RunningReconnectState
+import com.poyka.ripdpi.ui.screens.status.confirmedRuntimeSummary
 
 internal fun RunningReconnectFailure.message(strings: StringResolver): String = strings.getString(messageResource())
 

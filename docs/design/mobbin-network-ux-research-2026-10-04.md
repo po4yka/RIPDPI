@@ -119,8 +119,8 @@ Mobbin links resolve to individual captured screens or flows. Repository links a
 [M15]: https://mobbin.com/screens/b5d40787-b9a6-4dca-8bf7-b392e987b38e
 [M16]: https://mobbin.com/flows/24cb0fc2-b7eb-4f5e-bb69-b399ade7f65c
 [M17]: https://mobbin.com/screens/ad20d5ff-6235-4203-9bdb-2c4bd2758cf3
-[R1]: ../../app/src/main/kotlin/com/poyka/ripdpi/ui/screens/home/HomeScreen.kt
-[R2]: ../../app/src/main/kotlin/com/poyka/ripdpi/ui/screens/home/HomeModeCard.kt
+[R1]: ../../app/src/main/kotlin/com/poyka/ripdpi/ui/screens/status/StatusScreen.kt
+[R2]: ../../app/src/main/kotlin/com/poyka/ripdpi/ui/screens/status/StatusModeCard.kt
 [R3]: ../../app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsScanSection.kt
 [R4]: ../../app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsBottomSheets.kt
 [R5]: ../../app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/DiagnosticsLiveSection.kt

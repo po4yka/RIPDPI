@@ -18,6 +18,7 @@ import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStateStore
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.subscription.SubscriptionExpiryClock
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsServices
 import javax.inject.Inject
 
 class MainServiceDependencies
@@ -44,7 +45,7 @@ class MainDiagnosticsDependencies
     constructor(
         val diagnosticsTimelineSource: DiagnosticsTimelineSource,
         val diagnosticsScanController: DiagnosticsScanController,
-        val homeDiagnosticsServices: HomeDiagnosticsServices,
+        val homeDiagnosticsServices: StatusDiagnosticsServices,
         val latestDirectModeOutcomeStore: LatestDirectModeOutcomeStore,
         val networkPathValidationSource: NetworkPathValidationSource,
     )

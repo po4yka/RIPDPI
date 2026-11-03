@@ -5,6 +5,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.simple.SimpleHomeScreen
+import com.poyka.ripdpi.ui.screens.status.StatusPauseViewModel
 
 /**
  * "simple" experience: a two-action surface (connect with the compiled-in config,
@@ -15,7 +16,7 @@ import com.poyka.ripdpi.ui.screens.simple.SimpleHomeScreen
 internal fun AppExperienceContent(
     @Suppress("UNUSED_PARAMETER") startDestination: Route,
     viewModel: MainViewModel,
-    pauseViewModel: HomePauseViewModel,
+    pauseViewModel: StatusPauseViewModel,
     @Suppress("UNUSED_PARAMETER") controller: MainActivityShellController,
     @Suppress("UNUSED_PARAMETER") shellState: MainActivityShellState,
     snackbarHostState: SnackbarHostState,

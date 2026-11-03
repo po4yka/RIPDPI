@@ -10,6 +10,9 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsHomeCompositeOutcome
 import com.poyka.ripdpi.diagnostics.DirectModeVerdict
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRemediationActionKindUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
+import com.poyka.ripdpi.ui.screens.status.StatusConfidenceLevel
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsAuditSource
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsRunUiStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Test
@@ -40,9 +43,9 @@ class MainHomeDiagnosticsUiStateTest {
                     ),
                 stringResolver = FakeStringResolver(),
             )
-        assertEquals(HomeDiagnosticsAuditSource.Composite, state.latestAudit?.source)
+        assertEquals(StatusDiagnosticsAuditSource.Composite, state.latestAudit?.source)
         assertEquals("audit-123", state.latestAudit?.evidenceId)
-        assertEquals(HomeConfidenceLevel.LOW, state.latestAudit?.confidenceLevel)
+        assertEquals(StatusConfidenceLevel.LOW, state.latestAudit?.confidenceLevel)
         assertEquals("Partial coverage", state.latestAudit?.coverageSummary)
         assertEquals(null, state.latestAudit?.networkMatches)
     }
@@ -157,7 +160,7 @@ class MainHomeDiagnosticsUiStateTest {
                 stringResolver = FakeStringResolver(),
             )
 
-        assertEquals(HomeDiagnosticsRunUiStatus.CANCELLED, uiState.analysisRunStatus)
+        assertEquals(StatusDiagnosticsRunUiStatus.CANCELLED, uiState.analysisRunStatus)
     }
 
     @Test

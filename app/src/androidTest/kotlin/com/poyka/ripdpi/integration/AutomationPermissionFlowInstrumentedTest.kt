@@ -4,10 +4,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.automation.AutomationPermissionPreset
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.status.StatusMode
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import dagger.hilt.android.testing.HiltAndroidRule
 import dagger.hilt.android.testing.HiltAndroidTest
@@ -46,9 +46,9 @@ class AutomationPermissionFlowInstrumentedTest {
             .assertIsDisplayed()
             .performClick()
         composeRule.waitForAutomationTag(RipDpiTestTags.HomeModesDiagnosticsExpanded)
-        composeRule.waitForAutomationTag(RipDpiTestTags.homeModeCard(HomeMode.LocalDpiBypass.name))
+        composeRule.waitForAutomationTag(RipDpiTestTags.homeModeCard(StatusMode.LocalDpiBypass.name))
         composeRule
-            .onNodeWithTag(RipDpiTestTags.homeModeCard(HomeMode.LocalDpiBypass.name))
+            .onNodeWithTag(RipDpiTestTags.homeModeCard(StatusMode.LocalDpiBypass.name))
             .performScrollTo()
             .assertIsDisplayed()
     }

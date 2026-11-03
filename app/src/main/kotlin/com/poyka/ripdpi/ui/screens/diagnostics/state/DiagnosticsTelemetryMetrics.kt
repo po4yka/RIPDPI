@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.labelRes
 import com.poyka.ripdpi.activities.message
 import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
@@ -10,6 +9,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.retryCount
 import com.poyka.ripdpi.diagnostics.rttBand
 import com.poyka.ripdpi.diagnostics.winningStrategyFamily
+import com.poyka.ripdpi.ui.screens.status.labelRes
 
 internal fun DiagnosticsUiFactorySupport.buildOverviewMetrics(
     health: DiagnosticsHealth,

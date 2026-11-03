@@ -11,10 +11,6 @@ import com.poyka.ripdpi.activities.HistoryConnectionFiltersUiModel
 import com.poyka.ripdpi.activities.HistoryConnectionRowUiModel
 import com.poyka.ripdpi.activities.HistoryConnectionsUiModel
 import com.poyka.ripdpi.activities.HistoryUiState
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
-import com.poyka.ripdpi.activities.HomeMode
-import com.poyka.ripdpi.activities.HomeModeCardUiState
-import com.poyka.ripdpi.activities.HomeModeSummaryFacet
 import com.poyka.ripdpi.activities.HostAutolearnUiState
 import com.poyka.ripdpi.activities.HostPackCatalogUiState
 import com.poyka.ripdpi.activities.HttpParserUiState
@@ -43,7 +39,6 @@ import com.poyka.ripdpi.ui.screens.customization.AppCustomizationScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.screens.dns.DnsSettingsScreen
 import com.poyka.ripdpi.ui.screens.history.HistoryScreen
-import com.poyka.ripdpi.ui.screens.home.HomeScreen
 import com.poyka.ripdpi.ui.screens.logs.LogsScreen
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptScreen
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptStage
@@ -55,6 +50,11 @@ import com.poyka.ripdpi.ui.screens.settings.StrategyConfigScreen
 import com.poyka.ripdpi.ui.screens.settings.StrategyConfigScreenState
 import com.poyka.ripdpi.ui.screens.settings.StrategyConfigSource
 import com.poyka.ripdpi.ui.screens.settings.TlsPreludeModeDisabled
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusMode
+import com.poyka.ripdpi.ui.screens.status.StatusModeCardUiState
+import com.poyka.ripdpi.ui.screens.status.StatusModeSummaryFacet
+import com.poyka.ripdpi.ui.screens.status.StatusScreen
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -66,7 +66,7 @@ import kotlinx.collections.immutable.toImmutableList
 @Composable
 internal fun RipDpiHomeDisconnectedPreviewScene(themePreference: String = "light") {
     RipDpiTheme(themePreference = themePreference) {
-        HomeScreen(
+        StatusScreen(
             uiState = MainUiState(modeCards = homePreviewModeCards()),
             onToggleConnection = {},
             onOpenDiagnostics = {},
@@ -80,11 +80,11 @@ internal fun RipDpiHomeDisconnectedPreviewScene(themePreference: String = "light
 @Composable
 internal fun RipDpiHomeErrorPreviewScene() {
     RipDpiTheme(themePreference = "light") {
-        HomeScreen(
+        StatusScreen(
             uiState =
                 MainUiState(
                     connectionState = ConnectionState.Error,
-                    connectionActuator = homePreviewActuatorState(HomeConnectionActuatorStatus.Fault),
+                    connectionActuator = homePreviewActuatorState(StatusConnectionActuatorStatus.Fault),
                     errorMessage = "Failed to start VPN",
                     configuredMode = Mode.Proxy,
                     proxyIp = "127.0.0.1",
@@ -591,13 +591,13 @@ internal fun RipDpiHomeHighContrastPreviewScene() {
         themePreference = "light",
         contrastLevel = com.poyka.ripdpi.ui.theme.RipDpiContrastLevel.High,
     ) {
-        HomeScreen(
+        StatusScreen(
             uiState =
                 MainUiState(
                     appStatus = AppStatus.Running,
                     connectionState = ConnectionState.Connected,
-                    connectionActuator = homePreviewActuatorState(HomeConnectionActuatorStatus.Locked),
-                    modeCards = homePreviewModeCards(activeMode = HomeMode.RemoteVpn),
+                    connectionActuator = homePreviewActuatorState(StatusConnectionActuatorStatus.Locked),
+                    modeCards = homePreviewModeCards(activeMode = StatusMode.RemoteVpn),
                 ),
             onToggleConnection = {},
             onOpenDiagnostics = {},
@@ -609,52 +609,52 @@ internal fun RipDpiHomeHighContrastPreviewScene() {
 }
 
 internal fun homePreviewModeCards(
-    activeMode: HomeMode? = null,
-    loadingMode: HomeMode? = null,
+    activeMode: StatusMode? = null,
+    loadingMode: StatusMode? = null,
 ) = persistentListOf(
     homePreviewModeCard(
-        mode = HomeMode.LocalDpiBypass,
+        mode = StatusMode.LocalDpiBypass,
         activeMode = activeMode,
         loadingMode = loadingMode,
     ),
     homePreviewModeCard(
-        mode = HomeMode.RemoteVpn,
+        mode = StatusMode.RemoteVpn,
         activeMode = activeMode,
         loadingMode = loadingMode,
     ),
     homePreviewModeCard(
-        mode = HomeMode.Diagnostic,
+        mode = StatusMode.Diagnostic,
         activeMode = activeMode,
         loadingMode = loadingMode,
     ),
 )
 
 private fun homePreviewModeCard(
-    mode: HomeMode,
-    activeMode: HomeMode?,
-    loadingMode: HomeMode?,
-): HomeModeCardUiState {
+    mode: StatusMode,
+    activeMode: StatusMode?,
+    loadingMode: StatusMode?,
+): StatusModeCardUiState {
     val active = mode == activeMode
     val loading = mode == loadingMode
-    return HomeModeCardUiState(
+    return StatusModeCardUiState(
         mode = mode,
         title =
             when (mode) {
-                HomeMode.LocalDpiBypass -> "Local DPI Bypass"
-                HomeMode.RemoteVpn -> "VPN with Remote Server"
-                HomeMode.Diagnostic -> "Network Diagnostic"
+                StatusMode.LocalDpiBypass -> "Local DPI Bypass"
+                StatusMode.RemoteVpn -> "VPN with Remote Server"
+                StatusMode.Diagnostic -> "Network Diagnostic"
             },
         primaryLabel =
             when (mode) {
-                HomeMode.LocalDpiBypass -> "tlsrec_split_host - AdGuard DoH"
-                HomeMode.RemoteVpn -> "relay.example"
-                HomeMode.Diagnostic -> if (loading) "Stage 2 of 4 - Testing TCP" else "No analysis yet"
+                StatusMode.LocalDpiBypass -> "tlsrec_split_host - AdGuard DoH"
+                StatusMode.RemoteVpn -> "relay.example"
+                StatusMode.Diagnostic -> if (loading) "Stage 2 of 4 - Testing TCP" else "No analysis yet"
             },
         summaryFacets =
-            if (mode == HomeMode.LocalDpiBypass) {
+            if (mode == StatusMode.LocalDpiBypass) {
                 persistentListOf(
-                    HomeModeSummaryFacet(label = "Strategy", value = "tcp: split(host+1)"),
-                    HomeModeSummaryFacet(label = "DNS", value = "Encrypted DNS · AdGuard DNS (DoH)"),
+                    StatusModeSummaryFacet(label = "Strategy", value = "tcp: split(host+1)"),
+                    StatusModeSummaryFacet(label = "DNS", value = "Encrypted DNS · AdGuard DNS (DoH)"),
                 )
             } else {
                 persistentListOf()
@@ -668,7 +668,7 @@ private fun homePreviewModeCard(
             },
         primaryActionLabel =
             when {
-                mode == HomeMode.Diagnostic -> "Run Scan"
+                mode == StatusMode.Diagnostic -> "Run Scan"
                 active -> "Disable"
                 else -> "Enable"
             },

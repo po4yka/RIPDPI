@@ -35,13 +35,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.AnalysisProgressUiState
 import com.poyka.ripdpi.activities.ConnectionState
-import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
-import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
-import com.poyka.ripdpi.activities.HomePauseUiState
-import com.poyka.ripdpi.activities.HomePauseViewModel
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindVless
@@ -55,11 +49,17 @@ import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiAdaptiveColumns
 import com.poyka.ripdpi.ui.screens.customization.AboutRoute
-import com.poyka.ripdpi.ui.screens.home.HomePauseControls
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityRoute
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityViewModel
 import com.poyka.ripdpi.ui.screens.settings.BackupRestoreRoute
 import com.poyka.ripdpi.ui.screens.settings.SimpleInterfaceSettingsRoute
+import com.poyka.ripdpi.ui.screens.status.AnalysisProgressUiState
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsRunUiStatus
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
+import com.poyka.ripdpi.ui.screens.status.StatusPauseControls
+import com.poyka.ripdpi.ui.screens.status.StatusPauseUiState
+import com.poyka.ripdpi.ui.screens.status.StatusPauseViewModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiContentGrouping
@@ -72,7 +72,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 @Composable
 fun SimpleHomeScreen(
     viewModel: MainViewModel,
-    pauseViewModel: HomePauseViewModel,
+    pauseViewModel: StatusPauseViewModel,
     snackbarHostState: SnackbarHostState,
     modifier: Modifier = Modifier,
 ) {
@@ -155,15 +155,15 @@ fun SimpleHomeScreen(
 
 @Composable
 internal fun SimpleHomeContent(
-    pauseState: HomePauseUiState,
+    pauseState: StatusPauseUiState,
     onPause: (Long) -> Unit,
     onResumePause: () -> Unit,
     onStopPause: () -> Unit,
     connectionState: ConnectionState,
-    connectionActuator: HomeConnectionActuatorUiState = HomeConnectionActuatorUiState(),
+    connectionActuator: StatusConnectionActuatorUiState = StatusConnectionActuatorUiState(),
     blocksDisconnect: Boolean = false,
     disconnectBlockedReason: String = "",
-    diagnostics: HomeDiagnosticsUiState,
+    diagnostics: StatusDiagnosticsUiState,
     activeTransport: ActiveTransportDescriptor?,
     snackbarHostState: SnackbarHostState,
     onToggleConnection: (active: Boolean) -> Unit,
@@ -187,8 +187,8 @@ internal fun SimpleHomeContent(
     val reportBusy = diagnostics.analysisAction.busy
     val disconnectBlocked = active && blocksDisconnect
     val reportCancellable =
-        diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.STARTING ||
-            diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.RUNNING
+        diagnostics.analysisRunStatus == StatusDiagnosticsRunUiStatus.STARTING ||
+            diagnostics.analysisRunStatus == StatusDiagnosticsRunUiStatus.RUNNING
     val protocolLabel = activeTransport?.toProtocolLabel()
 
     // The actuator is this screen's status display, so it has to speak the flavor's
@@ -241,7 +241,7 @@ internal fun SimpleHomeContent(
                     primary = {
                         Column(horizontalAlignment = Alignment.CenterHorizontally) {
                             if (pauseState.available || pauseState.phase != null || pauseState.requestFailed) {
-                                HomePauseControls(pauseState, onPause, onResumePause, onStopPause)
+                                StatusPauseControls(pauseState, onPause, onResumePause, onStopPause)
                             }
                             SimpleHomeIdentity(
                                 connectionActuator = actuatorState,
@@ -312,7 +312,7 @@ internal fun SimpleHomeContent(
 
 @Composable
 private fun ColumnScope.SimpleHomeIdentity(
-    connectionActuator: HomeConnectionActuatorUiState,
+    connectionActuator: StatusConnectionActuatorUiState,
     protocolLabel: String?,
     disconnectBlocked: Boolean,
     disconnectBlockedReason: String,
@@ -389,7 +389,7 @@ private fun ColumnScope.SimpleHomeIdentity(
 
 @Composable
 private fun ColumnScope.SimpleHomeReport(
-    diagnostics: HomeDiagnosticsUiState,
+    diagnostics: StatusDiagnosticsUiState,
     reportBusy: Boolean,
     reportCancellable: Boolean,
     onRunReport: () -> Unit,
@@ -433,34 +433,34 @@ private fun ColumnScope.SimpleHomeReport(
 
 @Composable
 internal fun SimpleDiagnosticsStatus(
-    diagnostics: HomeDiagnosticsUiState,
+    diagnostics: StatusDiagnosticsUiState,
     onShareReport: () -> Unit = {},
     onSaveReport: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val statusLabel =
         when (diagnostics.analysisRunStatus) {
-            HomeDiagnosticsRunUiStatus.IDLE -> {
+            StatusDiagnosticsRunUiStatus.IDLE -> {
                 diagnostics.analysisAction.supportingText.takeIf { it.isNotBlank() }
             }
 
-            HomeDiagnosticsRunUiStatus.STARTING -> {
+            StatusDiagnosticsRunUiStatus.STARTING -> {
                 diagnostics.analysisAction.supportingText
             }
 
-            HomeDiagnosticsRunUiStatus.RUNNING -> {
+            StatusDiagnosticsRunUiStatus.RUNNING -> {
                 diagnostics.analysisAction.supportingText
             }
 
-            HomeDiagnosticsRunUiStatus.COMPLETED -> {
+            StatusDiagnosticsRunUiStatus.COMPLETED -> {
                 diagnostics.analysisSheet?.headline ?: stringResource(R.string.diagnostics_snackbar_scan_complete)
             }
 
-            HomeDiagnosticsRunUiStatus.CANCELLED -> {
+            StatusDiagnosticsRunUiStatus.CANCELLED -> {
                 stringResource(R.string.simple_report_cancelled)
             }
 
-            HomeDiagnosticsRunUiStatus.FAILED -> {
+            StatusDiagnosticsRunUiStatus.FAILED -> {
                 // A failed run still produces an outcome with a headline naming what went
                 // wrong. Showing only "try again" threw that away and left the user with
                 // nothing to act on; the completed branch has always used it.
@@ -474,14 +474,14 @@ internal fun SimpleDiagnosticsStatus(
     // A failed run is exactly when its archive is worth reading and sending on, so the
     // result block belongs to both terminal outcomes rather than only the happy one.
     val resultReady =
-        diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.COMPLETED ||
-            diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.FAILED
+        diagnostics.analysisRunStatus == StatusDiagnosticsRunUiStatus.COMPLETED ||
+            diagnostics.analysisRunStatus == StatusDiagnosticsRunUiStatus.FAILED
     val completedResultVisible = resultReady && diagnostics.analysisSheet != null
     Column(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        if (diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.RUNNING) {
+        if (diagnostics.analysisRunStatus == StatusDiagnosticsRunUiStatus.RUNNING) {
             RipDpiProgressBar(
                 progress = diagnostics.analysisProgress.overallProgress(),
                 modifier = Modifier.fillMaxWidth(),
@@ -493,7 +493,7 @@ internal fun SimpleDiagnosticsStatus(
         // what was being tested.
         val announcement = diagnostics.analysisAction.stageAnnouncement.ifBlank { statusLabel }
         val statusModifier =
-            if (diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.RUNNING) {
+            if (diagnostics.analysisRunStatus == StatusDiagnosticsRunUiStatus.RUNNING) {
                 // The visible text carries a detail that ticks continuously, so the node is
                 // renamed to the coarse announcement rather than left to read it out. Naming
                 // it -- rather than hanging a stateDescription on an unnamed node -- keeps it

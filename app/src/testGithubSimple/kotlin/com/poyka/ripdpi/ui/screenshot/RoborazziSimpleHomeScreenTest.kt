@@ -5,15 +5,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
-import com.poyka.ripdpi.activities.AnalysisProgressUiState
-import com.poyka.ripdpi.activities.AnalysisStageStatus
-import com.poyka.ripdpi.activities.AnalysisStageUiState
 import com.poyka.ripdpi.activities.ConnectionState
-import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
-import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
-import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.ui.screens.simple.SimpleHomeContent
+import com.poyka.ripdpi.ui.screens.status.AnalysisProgressUiState
+import com.poyka.ripdpi.ui.screens.status.AnalysisStageStatus
+import com.poyka.ripdpi.ui.screens.status.AnalysisStageUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsActionUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsAnalysisSheetUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsRunUiStatus
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Test
@@ -125,18 +125,18 @@ private fun SimpleCompletedReport(
     SimpleHomeContent(
         onOpenProfiles = {},
         pauseState =
-            com.poyka.ripdpi.activities
-                .HomePauseUiState(),
+            com.poyka.ripdpi.ui.screens.status
+                .StatusPauseUiState(),
         onPause = { error("Unexpected pause in inactive fixture") },
         onResumePause = { error("Unexpected resume in inactive fixture") },
         onStopPause = { error("Unexpected stop in inactive fixture") },
         connectionState = ConnectionState.Disconnected,
         diagnostics =
-            HomeDiagnosticsUiState(
-                analysisAction = HomeDiagnosticsActionUiState(enabled = true),
-                analysisRunStatus = HomeDiagnosticsRunUiStatus.COMPLETED,
+            StatusDiagnosticsUiState(
+                analysisAction = StatusDiagnosticsActionUiState(enabled = true),
+                analysisRunStatus = StatusDiagnosticsRunUiStatus.COMPLETED,
                 analysisSheet =
-                    HomeDiagnosticsAnalysisSheetUiState(
+                    StatusDiagnosticsAnalysisSheetUiState(
                         runId = "run-1",
                         headline = headline,
                         summary = summary,
@@ -156,16 +156,16 @@ private fun SimpleRunningReport() {
     SimpleHomeContent(
         onOpenProfiles = {},
         pauseState =
-            com.poyka.ripdpi.activities
-                .HomePauseUiState(),
+            com.poyka.ripdpi.ui.screens.status
+                .StatusPauseUiState(),
         onPause = { error("Unexpected pause in inactive fixture") },
         onResumePause = { error("Unexpected resume in inactive fixture") },
         onStopPause = { error("Unexpected stop in inactive fixture") },
         connectionState = ConnectionState.Disconnected,
         diagnostics =
-            HomeDiagnosticsUiState(
+            StatusDiagnosticsUiState(
                 analysisAction =
-                    HomeDiagnosticsActionUiState(
+                    StatusDiagnosticsActionUiState(
                         supportingText = "Stage 2 of 4 · Testing TLS handshake",
                         busy = true,
                     ),
@@ -180,7 +180,7 @@ private fun SimpleRunningReport() {
                             ),
                         activeStageIndex = 1,
                     ),
-                analysisRunStatus = HomeDiagnosticsRunUiStatus.RUNNING,
+                analysisRunStatus = StatusDiagnosticsRunUiStatus.RUNNING,
             ),
         activeTransport = null,
         snackbarHostState = SnackbarHostState(),
@@ -195,16 +195,16 @@ private fun SimpleExpandedHome(supportingText: String = "Ready to analyze this n
     SimpleHomeContent(
         onOpenProfiles = {},
         pauseState =
-            com.poyka.ripdpi.activities
-                .HomePauseUiState(),
+            com.poyka.ripdpi.ui.screens.status
+                .StatusPauseUiState(),
         onPause = { error("Unexpected pause in inactive fixture") },
         onResumePause = { error("Unexpected resume in inactive fixture") },
         onStopPause = { error("Unexpected stop in inactive fixture") },
         connectionState = ConnectionState.Disconnected,
         diagnostics =
-            HomeDiagnosticsUiState(
+            StatusDiagnosticsUiState(
                 analysisAction =
-                    HomeDiagnosticsActionUiState(
+                    StatusDiagnosticsActionUiState(
                         supportingText = supportingText,
                         enabled = true,
                     ),

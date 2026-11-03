@@ -24,11 +24,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStage
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStageState
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStageUiState
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
-import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
@@ -64,6 +59,11 @@ import com.poyka.ripdpi.ui.components.routes.RipDpiRouteStackDiagram
 import com.poyka.ripdpi.ui.components.routes.RipDpiRouteStackNodeUiState
 import com.poyka.ripdpi.ui.components.routes.RipDpiRouteStackUiState
 import com.poyka.ripdpi.ui.components.routes.RipDpiRouteTransportKind
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStage
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStageState
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStageUiState
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState
 import com.poyka.ripdpi.ui.theme.RipDpiContrastLevel
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
@@ -1000,13 +1000,13 @@ private fun ActuatorPreviewColumn(includeInteractiveStates: Boolean) {
     val spacing = RipDpiThemeTokens.spacing
     val states =
         buildList {
-            add(homePreviewActuatorState(HomeConnectionActuatorStatus.Open))
+            add(homePreviewActuatorState(StatusConnectionActuatorStatus.Open))
             if (includeInteractiveStates) {
-                add(homePreviewActuatorState(HomeConnectionActuatorStatus.Engaging))
+                add(homePreviewActuatorState(StatusConnectionActuatorStatus.Engaging))
             }
-            add(homePreviewActuatorState(HomeConnectionActuatorStatus.Locked))
-            add(homePreviewActuatorState(HomeConnectionActuatorStatus.Fault))
-            add(homePreviewActuatorState(HomeConnectionActuatorStatus.Degraded))
+            add(homePreviewActuatorState(StatusConnectionActuatorStatus.Locked))
+            add(homePreviewActuatorState(StatusConnectionActuatorStatus.Fault))
+            add(homePreviewActuatorState(StatusConnectionActuatorStatus.Degraded))
         }
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         states.forEach { state ->
@@ -1020,97 +1020,97 @@ private fun ActuatorPreviewColumn(includeInteractiveStates: Boolean) {
     }
 }
 
-internal fun homePreviewActuatorState(status: HomeConnectionActuatorStatus): HomeConnectionActuatorUiState {
+internal fun homePreviewActuatorState(status: StatusConnectionActuatorStatus): StatusConnectionActuatorUiState {
     val stages =
         when (status) {
-            HomeConnectionActuatorStatus.Open -> {
+            StatusConnectionActuatorStatus.Open -> {
                 previewStages()
             }
 
-            HomeConnectionActuatorStatus.Engaging -> {
-                previewStages(active = HomeConnectionActuatorStage.Handshake)
+            StatusConnectionActuatorStatus.Engaging -> {
+                previewStages(active = StatusConnectionActuatorStage.Handshake)
             }
 
-            HomeConnectionActuatorStatus.Locked -> {
+            StatusConnectionActuatorStatus.Locked -> {
                 previewStages(complete = true)
             }
 
-            HomeConnectionActuatorStatus.Fault -> {
-                previewStages(failed = HomeConnectionActuatorStage.Tunnel)
+            StatusConnectionActuatorStatus.Fault -> {
+                previewStages(failed = StatusConnectionActuatorStage.Tunnel)
             }
 
-            HomeConnectionActuatorStatus.Degraded -> {
-                previewStages(complete = true, warning = HomeConnectionActuatorStage.Dns)
+            StatusConnectionActuatorStatus.Degraded -> {
+                previewStages(complete = true, warning = StatusConnectionActuatorStage.Dns)
             }
         }
-    return HomeConnectionActuatorUiState(
+    return StatusConnectionActuatorUiState(
         status = status,
         trailingLabel = "Direct",
         routeLabel = "quick_v1 · Local VPN",
         statusDescription =
             when (status) {
-                HomeConnectionActuatorStatus.Open -> "Disconnected"
-                HomeConnectionActuatorStatus.Engaging -> "Connecting…"
-                HomeConnectionActuatorStatus.Locked -> "Connected"
-                HomeConnectionActuatorStatus.Degraded -> "Connected · warning: DNS"
-                HomeConnectionActuatorStatus.Fault -> "Connection failed: Tunnel"
+                StatusConnectionActuatorStatus.Open -> "Disconnected"
+                StatusConnectionActuatorStatus.Engaging -> "Connecting…"
+                StatusConnectionActuatorStatus.Locked -> "Connected"
+                StatusConnectionActuatorStatus.Degraded -> "Connected · warning: DNS"
+                StatusConnectionActuatorStatus.Fault -> "Connection failed: Tunnel"
             },
         actionLabel =
             when (status) {
-                HomeConnectionActuatorStatus.Open -> "Connect"
-                HomeConnectionActuatorStatus.Engaging -> "Cancel connection"
-                HomeConnectionActuatorStatus.Locked, HomeConnectionActuatorStatus.Degraded -> "Disconnect"
-                HomeConnectionActuatorStatus.Fault -> "Try again"
+                StatusConnectionActuatorStatus.Open -> "Connect"
+                StatusConnectionActuatorStatus.Engaging -> "Cancel connection"
+                StatusConnectionActuatorStatus.Locked, StatusConnectionActuatorStatus.Degraded -> "Disconnect"
+                StatusConnectionActuatorStatus.Fault -> "Try again"
             },
         // The fault carries its own message now, as it does in the app: the
         // resolver fills this field and the screen no longer has a banner to
         // put it in. Without it the error screens document a failure that says
         // nothing about what failed.
         faultDetail =
-            if (status == HomeConnectionActuatorStatus.Fault) "Failed to start VPN" else "",
+            if (status == StatusConnectionActuatorStatus.Fault) "Failed to start VPN" else "",
         stages = stages,
     )
 }
 
 private fun previewStages(
     complete: Boolean = false,
-    active: HomeConnectionActuatorStage? = null,
-    warning: HomeConnectionActuatorStage? = null,
-    failed: HomeConnectionActuatorStage? = null,
+    active: StatusConnectionActuatorStage? = null,
+    warning: StatusConnectionActuatorStage? = null,
+    failed: StatusConnectionActuatorStage? = null,
 ) = persistentListOf(
-    previewStage(HomeConnectionActuatorStage.Network, complete, active, warning, failed),
-    previewStage(HomeConnectionActuatorStage.Dns, complete, active, warning, failed),
-    previewStage(HomeConnectionActuatorStage.Handshake, complete, active, warning, failed),
-    previewStage(HomeConnectionActuatorStage.Tunnel, complete, active, warning, failed),
-    previewStage(HomeConnectionActuatorStage.Route, complete, active, warning, failed),
+    previewStage(StatusConnectionActuatorStage.Network, complete, active, warning, failed),
+    previewStage(StatusConnectionActuatorStage.Dns, complete, active, warning, failed),
+    previewStage(StatusConnectionActuatorStage.Handshake, complete, active, warning, failed),
+    previewStage(StatusConnectionActuatorStage.Tunnel, complete, active, warning, failed),
+    previewStage(StatusConnectionActuatorStage.Route, complete, active, warning, failed),
 )
 
 private fun previewStage(
-    stage: HomeConnectionActuatorStage,
+    stage: StatusConnectionActuatorStage,
     complete: Boolean,
-    active: HomeConnectionActuatorStage?,
-    warning: HomeConnectionActuatorStage?,
-    failed: HomeConnectionActuatorStage?,
-): HomeConnectionActuatorStageUiState {
+    active: StatusConnectionActuatorStage?,
+    warning: StatusConnectionActuatorStage?,
+    failed: StatusConnectionActuatorStage?,
+): StatusConnectionActuatorStageUiState {
     val state =
         when {
-            stage == failed -> HomeConnectionActuatorStageState.Failed
-            failed != null && stage.ordinal < failed.ordinal -> HomeConnectionActuatorStageState.Complete
-            stage == warning -> HomeConnectionActuatorStageState.Warning
-            complete -> HomeConnectionActuatorStageState.Complete
-            stage == active -> HomeConnectionActuatorStageState.Active
-            active != null && stage.ordinal < active.ordinal -> HomeConnectionActuatorStageState.Complete
-            else -> HomeConnectionActuatorStageState.Pending
+            stage == failed -> StatusConnectionActuatorStageState.Failed
+            failed != null && stage.ordinal < failed.ordinal -> StatusConnectionActuatorStageState.Complete
+            stage == warning -> StatusConnectionActuatorStageState.Warning
+            complete -> StatusConnectionActuatorStageState.Complete
+            stage == active -> StatusConnectionActuatorStageState.Active
+            active != null && stage.ordinal < active.ordinal -> StatusConnectionActuatorStageState.Complete
+            else -> StatusConnectionActuatorStageState.Pending
         }
-    return HomeConnectionActuatorStageUiState(
+    return StatusConnectionActuatorStageUiState(
         stage = stage,
         label =
             when (stage) {
-                HomeConnectionActuatorStage.Network -> "Network"
-                HomeConnectionActuatorStage.Dns -> "DNS"
-                HomeConnectionActuatorStage.Handshake -> "Handshake"
-                HomeConnectionActuatorStage.Tunnel -> "Tunnel"
-                HomeConnectionActuatorStage.Route -> "Route"
+                StatusConnectionActuatorStage.Network -> "Network"
+                StatusConnectionActuatorStage.Dns -> "DNS"
+                StatusConnectionActuatorStage.Handshake -> "Handshake"
+                StatusConnectionActuatorStage.Tunnel -> "Tunnel"
+                StatusConnectionActuatorStage.Route -> "Route"
             },
         state = state,
     )

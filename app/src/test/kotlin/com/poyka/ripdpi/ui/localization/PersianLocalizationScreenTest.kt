@@ -25,7 +25,6 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HomePauseUiState
 import com.poyka.ripdpi.data.PauseFailure
 import com.poyka.ripdpi.data.PausePhase
 import com.poyka.ripdpi.data.support.RestartPolicyRequired
@@ -33,8 +32,9 @@ import com.poyka.ripdpi.data.support.SupportSettingsFieldChange
 import com.poyka.ripdpi.data.support.SupportSettingsPreview
 import com.poyka.ripdpi.data.support.SupportSettingsSensitivity
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiDashboardScaffold
-import com.poyka.ripdpi.ui.screens.home.HomePauseControls
-import com.poyka.ripdpi.ui.screens.home.HomeTopBar
+import com.poyka.ripdpi.ui.screens.status.StatusPauseControls
+import com.poyka.ripdpi.ui.screens.status.StatusPauseUiState
+import com.poyka.ripdpi.ui.screens.status.StatusTopBar
 import com.poyka.ripdpi.ui.screens.support.SupportSettingsScreen
 import com.poyka.ripdpi.ui.screens.support.SupportSettingsUiState
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -117,10 +117,10 @@ class PersianLocalizationScreenTest {
         content(width, scale) {
             RipDpiDashboardScaffold(
                 modifier = Modifier.fillMaxSize(),
-                topBar = { HomeTopBar(title = stringResource(R.string.app_name)) },
+                topBar = { StatusTopBar(title = stringResource(R.string.app_name)) },
             ) {
-                HomePauseControls(
-                    state = HomePauseUiState(phase = PausePhase.Deferred, failure = PauseFailure.ClockChanged),
+                StatusPauseControls(
+                    state = StatusPauseUiState(phase = PausePhase.Deferred, failure = PauseFailure.ClockChanged),
                     onPause = {},
                     onResume = { resumed = true },
                     onStop = { stopped = true },

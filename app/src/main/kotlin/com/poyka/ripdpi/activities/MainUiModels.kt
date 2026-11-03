@@ -17,6 +17,13 @@ import com.poyka.ripdpi.services.AndroidHardKillSwitchSnapshot
 import com.poyka.ripdpi.services.RunningReconnectRequest
 import com.poyka.ripdpi.services.RunningReconnectState
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.status.DefaultHomeModeCards
+import com.poyka.ripdpi.ui.screens.status.HardKillSwitchUiState
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
+import com.poyka.ripdpi.ui.screens.status.StatusMode
+import com.poyka.ripdpi.ui.screens.status.StatusModeCardUiState
+import com.poyka.ripdpi.ui.screens.status.StatusModeSummaryFacet
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlin.time.Duration
@@ -76,16 +83,16 @@ data class MainUiState(
     val proxyPort: String = "1080",
     val theme: String = "system",
     val connectionState: ConnectionState = ConnectionState.Disconnected,
-    val connectionActuator: HomeConnectionActuatorUiState = HomeConnectionActuatorUiState(),
+    val connectionActuator: StatusConnectionActuatorUiState = StatusConnectionActuatorUiState(),
     val connectionDuration: Duration = ZERO,
     val dataTransferred: Long = 0L,
     val errorMessage: String? = null,
     val permissionSummary: PermissionSummaryUiState = PermissionSummaryUiState(),
     val hardKillSwitch: HardKillSwitchUiState = HardKillSwitchUiState(),
     val approachSummary: HomeApproachSummaryUiState? = null,
-    val homeDiagnostics: HomeDiagnosticsUiState = HomeDiagnosticsUiState(),
+    val homeDiagnostics: StatusDiagnosticsUiState = StatusDiagnosticsUiState(),
     val appliedConfiguration: HomeAppliedConfigurationUiState = HomeAppliedConfigurationUiState(),
-    val modeCards: ImmutableList<HomeModeCardUiState> = DefaultHomeModeCards,
+    val modeCards: ImmutableList<StatusModeCardUiState> = DefaultHomeModeCards,
     val controlPlaneHealthSummary: ControlPlaneHealthSummaryUiModel? = null,
     val connectionQuality: ConnectionQualitySnapshot? = null,
     val connectionQualitySource: com.poyka.ripdpi.service.telemetry.RuntimeMeasurementSource? = null,
@@ -93,27 +100,27 @@ data class MainUiState(
         com.poyka.ripdpi.services.network.NetworkCondition.Normal,
     /**
      * Live embedded-Xray provider engine snapshot, surfaced DISTINCTLY from the
-     * tunnel data plane on Home (see [com.poyka.ripdpi.ui.screens.home.HomeXrayProviderBanner]).
+     * tunnel data plane on Home (see [com.poyka.ripdpi.ui.screens.status.StatusXrayProviderBanner]).
      * Null on the native provider path or when no Xray session is active.
      */
     val xrayProviderSnapshot: com.poyka.ripdpi.data.xray.XrayProviderSnapshot? = null,
 ) {
-    val localBypassCard: HomeModeCardUiState
+    val localBypassCard: StatusModeCardUiState
         get() =
-            modeCards.firstOrNull { it.mode == HomeMode.LocalDpiBypass } ?: HomeModeCardUiState(
-                mode = HomeMode.LocalDpiBypass,
+            modeCards.firstOrNull { it.mode == StatusMode.LocalDpiBypass } ?: StatusModeCardUiState(
+                mode = StatusMode.LocalDpiBypass,
             )
 
-    val vpnCard: HomeModeCardUiState
+    val vpnCard: StatusModeCardUiState
         get() =
-            modeCards.firstOrNull { it.mode == HomeMode.RemoteVpn } ?: HomeModeCardUiState(
-                mode = HomeMode.RemoteVpn,
+            modeCards.firstOrNull { it.mode == StatusMode.RemoteVpn } ?: StatusModeCardUiState(
+                mode = StatusMode.RemoteVpn,
             )
 
-    val diagnosticCard: HomeModeCardUiState
+    val diagnosticCard: StatusModeCardUiState
         get() =
-            modeCards.firstOrNull { it.mode == HomeMode.Diagnostic } ?: HomeModeCardUiState(
-                mode = HomeMode.Diagnostic,
+            modeCards.firstOrNull { it.mode == StatusMode.Diagnostic } ?: StatusModeCardUiState(
+                mode = StatusMode.Diagnostic,
             )
 
     val isConnected: Boolean
@@ -126,7 +133,7 @@ data class HomeApproachSummaryUiState(
     val verification: String,
     val successRate: String,
     val supportingText: String,
-    val facets: ImmutableList<HomeModeSummaryFacet> = persistentListOf(),
+    val facets: ImmutableList<StatusModeSummaryFacet> = persistentListOf(),
 )
 
 internal data class ConnectionRuntimeState(

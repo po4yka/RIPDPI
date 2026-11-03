@@ -8,7 +8,6 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.navDeepLink
 import androidx.navigation.toRoute
-import com.poyka.ripdpi.activities.HomePauseViewModel
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRoute
@@ -18,10 +17,11 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsViewModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.PcapCaptureViewModel
 import com.poyka.ripdpi.ui.screens.health.ConnectionHealthRoute
 import com.poyka.ripdpi.ui.screens.history.HistoryRoute
-import com.poyka.ripdpi.ui.screens.home.HomeRoute
 import com.poyka.ripdpi.ui.screens.logs.LogsRoute
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingRoute
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptRoute
+import com.poyka.ripdpi.ui.screens.status.StatusPauseViewModel
+import com.poyka.ripdpi.ui.screens.status.StatusRoute
 import com.poyka.ripdpi.ui.screens.subscription.SubscriptionFailoverRoute
 import com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusRoute
 import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerRoute
@@ -31,7 +31,7 @@ internal fun NavGraphBuilder.addPrimaryRoutes(
     navController: NavHostController,
     actions: RipDpiNavHostActions,
     mainViewModel: MainViewModel,
-    pauseViewModel: HomePauseViewModel,
+    pauseViewModel: StatusPauseViewModel,
     diagnosticsInitialSection: DiagnosticsSection?,
     onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
 ) {
@@ -116,13 +116,13 @@ internal fun NavGraphBuilder.addPrimaryRoutes(
 private fun NavGraphBuilder.addHomeRoute(
     navController: NavHostController,
     mainViewModel: MainViewModel,
-    pauseViewModel: HomePauseViewModel,
+    pauseViewModel: StatusPauseViewModel,
     onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
 ) {
     composable<Route.Home>(
         deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://connect" }),
     ) {
-        HomeRoute(
+        StatusRoute(
             onOpenDiagnostics = {
                 onDiagnosticsInitialSectionChanged(DiagnosticsSection.Scan)
                 navController.navigate(Route.Diagnostics()) {

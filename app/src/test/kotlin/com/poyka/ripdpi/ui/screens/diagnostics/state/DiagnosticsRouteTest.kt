@@ -7,9 +7,6 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
-import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
-import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.activities.StubDiagnosticsBootstrapper
 import com.poyka.ripdpi.activities.StubDiagnosticsTimelineSource
 import com.poyka.ripdpi.data.AppSettingsSerializer
@@ -20,6 +17,9 @@ import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRouteCallbacks
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsScreenActions
 import com.poyka.ripdpi.ui.screens.diagnostics.withNavigationCallbacks
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsActionUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsRunUiStatus
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -60,13 +60,13 @@ class DiagnosticsRouteTest {
                     appSettingsRepository = FakeAppSettingsRepository(),
                     initialize = false,
                 )
-            listOf(HomeDiagnosticsRunUiStatus.IDLE, HomeDiagnosticsRunUiStatus.COMPLETED).forEach { status ->
+            listOf(StatusDiagnosticsRunUiStatus.IDLE, StatusDiagnosticsRunUiStatus.COMPLETED).forEach { status ->
                 val actions =
                     DiagnosticsScreenActions().withNavigationCallbacks(
                         viewModel,
                         DiagnosticsRouteCallbacks(onCancelHomeAnalysis = { homeCancellations++ }),
-                        HomeDiagnosticsUiState(
-                            analysisAction = HomeDiagnosticsActionUiState(busy = true),
+                        StatusDiagnosticsUiState(
+                            analysisAction = StatusDiagnosticsActionUiState(busy = true),
                             analysisRunStatus = status,
                         ),
                     )
@@ -91,12 +91,12 @@ class DiagnosticsRouteTest {
                     appSettingsRepository = FakeAppSettingsRepository(),
                     initialize = false,
                 )
-            listOf(HomeDiagnosticsRunUiStatus.STARTING, HomeDiagnosticsRunUiStatus.RUNNING).forEach { status ->
+            listOf(StatusDiagnosticsRunUiStatus.STARTING, StatusDiagnosticsRunUiStatus.RUNNING).forEach { status ->
                 val actions =
                     DiagnosticsScreenActions().withNavigationCallbacks(
                         viewModel,
                         DiagnosticsRouteCallbacks(onCancelHomeAnalysis = { homeCancellations++ }),
-                        HomeDiagnosticsUiState(analysisRunStatus = status),
+                        StatusDiagnosticsUiState(analysisRunStatus = status),
                     )
                 actions.onCancelScan()
                 runCurrent()

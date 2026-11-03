@@ -25,6 +25,9 @@ import com.poyka.ripdpi.ui.diagnostics.uiEvidenceNote
 import com.poyka.ripdpi.ui.diagnostics.verificationLabelRes
 import com.poyka.ripdpi.ui.screens.diagnostics.state.localizedDisplayName
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
+import com.poyka.ripdpi.ui.screens.status.ConnectionResultFeedback
+import com.poyka.ripdpi.ui.screens.status.hasUnsupportedVpnDoq
+import com.poyka.ripdpi.ui.screens.status.localizedHomeStrategyFacets
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job

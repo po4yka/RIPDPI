@@ -1,10 +1,5 @@
 package com.poyka.ripdpi.ui.screenshot
 
-import com.poyka.ripdpi.activities.HardKillSwitchUiState
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
-import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
-import com.poyka.ripdpi.activities.HomeMode
-import com.poyka.ripdpi.activities.HomeModeCardUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.data.DnsProviderAdGuard
 import com.poyka.ripdpi.data.Mode
@@ -21,7 +16,12 @@ import com.poyka.ripdpi.ui.screens.connection.ConnectionUiState
 import com.poyka.ripdpi.ui.screens.connection.RelayProfileUiState
 import com.poyka.ripdpi.ui.screens.connection.VpnConfigScreen
 import com.poyka.ripdpi.ui.screens.connection.buildConfigPresets
-import com.poyka.ripdpi.ui.screens.home.HomeScreen
+import com.poyka.ripdpi.ui.screens.status.HardKillSwitchUiState
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState
+import com.poyka.ripdpi.ui.screens.status.StatusMode
+import com.poyka.ripdpi.ui.screens.status.StatusModeCardUiState
+import com.poyka.ripdpi.ui.screens.status.StatusScreen
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 import org.junit.Test
@@ -61,7 +61,7 @@ class ConfigSetupHealthScreenshotTest {
             testClassFqn = FQN,
             isolateByExperience = true,
         ) {
-            HomeScreen(
+            StatusScreen(
                 uiState = setupHealthPermissionState(),
                 onToggleConnection = {},
                 onOpenDiagnostics = {},
@@ -81,7 +81,7 @@ class ConfigSetupHealthScreenshotTest {
             testClassFqn = FQN,
             isolateByExperience = true,
         ) {
-            HomeScreen(
+            StatusScreen(
                 uiState = setupHealthBatteryRecommendationState(),
                 onToggleConnection = {},
                 onOpenDiagnostics = {},
@@ -102,7 +102,7 @@ class ConfigSetupHealthScreenshotTest {
             fontScale = 1.5f,
             isolateByExperience = true,
         ) {
-            HomeScreen(
+            StatusScreen(
                 uiState = setupHealthPermissionState(),
                 onToggleConnection = {},
                 onOpenDiagnostics = {},
@@ -123,7 +123,7 @@ class ConfigSetupHealthScreenshotTest {
             fontScale = 2f,
             isolateByExperience = true,
         ) {
-            HomeScreen(
+            StatusScreen(
                 uiState = setupHealthPermissionState().copy(connectionActuator = engagingActuatorState()),
                 onToggleConnection = {},
                 onOpenDiagnostics = {},
@@ -213,7 +213,7 @@ class ConfigSetupHealthScreenshotTest {
                     actionLabel = "Open VPN settings",
                     visible = true,
                 ),
-            modeCards = populatedHomeModeCards(activeMode = HomeMode.RemoteVpn),
+            modeCards = populatedHomeModeCards(activeMode = StatusMode.RemoteVpn),
         )
 
     private fun setupHealthBatteryRecommendationState(): MainUiState =
@@ -230,43 +230,43 @@ class ConfigSetupHealthScreenshotTest {
                             blocking = false,
                         ),
                 ),
-            modeCards = populatedHomeModeCards(activeMode = HomeMode.RemoteVpn),
+            modeCards = populatedHomeModeCards(activeMode = StatusMode.RemoteVpn),
         )
 
-    private fun populatedHomeModeCards(activeMode: HomeMode) =
+    private fun populatedHomeModeCards(activeMode: StatusMode) =
         listOf(
-            HomeModeCardUiState(
-                mode = HomeMode.LocalDpiBypass,
+            StatusModeCardUiState(
+                mode = StatusMode.LocalDpiBypass,
                 title = "Local DPI bypass",
                 primaryLabel = "tlsrec_split_host · AdGuard DoH",
                 statusLine = "Ready",
                 primaryActionLabel = "Turn on",
                 configureLabel = "Configure",
-                isActive = activeMode == HomeMode.LocalDpiBypass,
+                isActive = activeMode == StatusMode.LocalDpiBypass,
             ),
-            HomeModeCardUiState(
-                mode = HomeMode.RemoteVpn,
+            StatusModeCardUiState(
+                mode = StatusMode.RemoteVpn,
                 title = "VPN",
                 primaryLabel = "tokyo-reality · VLESS + Reality",
                 statusLine = "Connected",
                 primaryActionLabel = "Turn off",
                 configureLabel = "Servers",
-                isActive = activeMode == HomeMode.RemoteVpn,
+                isActive = activeMode == StatusMode.RemoteVpn,
             ),
-            HomeModeCardUiState(
-                mode = HomeMode.Diagnostic,
+            StatusModeCardUiState(
+                mode = StatusMode.Diagnostic,
                 title = "Diagnostics",
                 primaryLabel = "Last recommendation is still valid",
                 statusLine = "Ready",
                 primaryActionLabel = "Run",
                 configureLabel = "History",
-                isActive = activeMode == HomeMode.Diagnostic,
+                isActive = activeMode == StatusMode.Diagnostic,
             ),
         ).toImmutableList()
 
     private fun engagingActuatorState() =
-        HomeConnectionActuatorUiState(
-            status = HomeConnectionActuatorStatus.Engaging,
+        StatusConnectionActuatorUiState(
+            status = StatusConnectionActuatorStatus.Engaging,
             trailingLabel = "Relay",
             routeLabel = "VLESS Reality via local VPN",
             statusDescription = "Connecting…",

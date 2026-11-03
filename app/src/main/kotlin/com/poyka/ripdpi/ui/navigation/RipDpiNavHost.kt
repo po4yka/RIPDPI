@@ -35,7 +35,6 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.navigation
 import androidx.navigation.compose.rememberNavController
-import com.poyka.ripdpi.activities.HomePauseViewModel
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
@@ -44,6 +43,7 @@ import com.poyka.ripdpi.ui.components.navigation.RipDpiListDetailLayout
 import com.poyka.ripdpi.ui.screens.customization.AboutRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSection
 import com.poyka.ripdpi.ui.screens.settings.LocalSettingsListState
+import com.poyka.ripdpi.ui.screens.status.StatusPauseViewModel
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.serialization.Serializable
@@ -86,7 +86,7 @@ data class RipDpiNavHostLaunchRequests(
 @Composable
 fun RipDpiNavHost(
     mainViewModel: MainViewModel,
-    pauseViewModel: HomePauseViewModel,
+    pauseViewModel: StatusPauseViewModel,
     modifier: Modifier = Modifier,
     startDestination: Route = Route.Home,
     actions: RipDpiNavHostActions = RipDpiNavHostActions(),
@@ -187,7 +187,7 @@ private fun RipDpiNavPanes(
     motion: RipDpiMotion,
     actions: RipDpiNavHostActions,
     mainViewModel: MainViewModel,
-    pauseViewModel: HomePauseViewModel,
+    pauseViewModel: StatusPauseViewModel,
     permissionSummary: PermissionSummaryUiState,
     diagnosticsInitialSection: MutableState<DiagnosticsSection?>,
     modifier: Modifier = Modifier,
@@ -344,7 +344,7 @@ private fun RipDpiNavGraph(
     motion: RipDpiMotion,
     actions: RipDpiNavHostActions,
     mainViewModel: MainViewModel,
-    pauseViewModel: HomePauseViewModel,
+    pauseViewModel: StatusPauseViewModel,
     permissionSummary: PermissionSummaryUiState,
     diagnosticsInitialSection: DiagnosticsSection?,
     onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,

@@ -45,12 +45,12 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.screens.history.EventsSection
 import com.poyka.ripdpi.ui.screens.history.FilterCard
 import com.poyka.ripdpi.ui.screens.history.HistoryFilterChipsConfig
-import com.poyka.ripdpi.ui.screens.home.HomeAdvisory
-import com.poyka.ripdpi.ui.screens.home.HomeAdvisoryPresentation
-import com.poyka.ripdpi.ui.screens.home.HomeAdvisorySeverity
-import com.poyka.ripdpi.ui.screens.home.HomeAdvisorySlot
 import com.poyka.ripdpi.ui.screens.settings.SettingsAppearanceSection
 import com.poyka.ripdpi.ui.screens.settings.SettingsScreenActions
+import com.poyka.ripdpi.ui.screens.status.StatusAdvisory
+import com.poyka.ripdpi.ui.screens.status.StatusAdvisoryPresentation
+import com.poyka.ripdpi.ui.screens.status.StatusAdvisorySeverity
+import com.poyka.ripdpi.ui.screens.status.StatusAdvisorySlot
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.LocalRipDpiMotion
@@ -75,23 +75,23 @@ class UiActionClarityInstrumentedTest {
         var repairs = 0
         compose.setContent {
             ClarityFrame {
-                HomeAdvisorySlot(
+                StatusAdvisorySlot(
                     listOf(
-                        HomeAdvisory(
+                        StatusAdvisory(
                             title = "VPN permission needed",
                             message = "Allow a local VPN before connecting.",
-                            severity = HomeAdvisorySeverity.Error,
-                            presentation = HomeAdvisoryPresentation.Row,
+                            severity = StatusAdvisorySeverity.Error,
+                            presentation = StatusAdvisoryPresentation.Row,
                             tone = WarningBannerTone.Error,
                             actionLabel = "Allow VPN",
                             onClick = { repairs++ },
                             testTag = "permission-advisory",
                         ),
-                        HomeAdvisory(
+                        StatusAdvisory(
                             title = "Battery optimization",
                             message = "Review background settings.",
-                            severity = HomeAdvisorySeverity.Info,
-                            presentation = HomeAdvisoryPresentation.CompactRow,
+                            severity = StatusAdvisorySeverity.Info,
+                            presentation = StatusAdvisoryPresentation.CompactRow,
                             tone = WarningBannerTone.Info,
                             actionLabel = "Review",
                             onClick = {},

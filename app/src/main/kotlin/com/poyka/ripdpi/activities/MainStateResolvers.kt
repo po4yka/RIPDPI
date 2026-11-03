@@ -10,6 +10,23 @@ import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.service.telemetry.measurementSource
+import com.poyka.ripdpi.ui.screens.status.HardKillSwitchUiState
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStage
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStageState
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStageUiState
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
+import com.poyka.ripdpi.ui.screens.status.StatusMode
+import com.poyka.ripdpi.ui.screens.status.StatusModeCardUiState
+import com.poyka.ripdpi.ui.screens.status.StatusModeCardsInput
+import com.poyka.ripdpi.ui.screens.status.StatusModeSummaryFacet
+import com.poyka.ripdpi.ui.screens.status.actuatorTrailingLabel
+import com.poyka.ripdpi.ui.screens.status.buildHardKillSwitchUiState
+import com.poyka.ripdpi.ui.screens.status.buildHomeModeCards
+import com.poyka.ripdpi.ui.screens.status.isForeignExitLive
+import com.poyka.ripdpi.ui.screens.status.isForeignExitLost
+import com.poyka.ripdpi.ui.screens.status.labelRes
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -104,7 +121,7 @@ internal fun buildMainUiState(
             appStatus = status,
             stringResolver = stringResolver,
         )
-    val homeDiagnosticsUiState = HomeDiagnosticsUiState()
+    val homeDiagnosticsUiState = StatusDiagnosticsUiState()
     val vpnDataPlaneStatus = inputs.resolveDataPlaneStatus()
     val connectionActuator =
         buildMainConnectionActuator(
@@ -160,11 +177,11 @@ private fun buildMainModeCards(
     inputs: MainUiInputs,
     configuredMode: Mode,
     connectionState: ConnectionState,
-    homeDiagnostics: HomeDiagnosticsUiState,
+    homeDiagnostics: StatusDiagnosticsUiState,
     stringResolver: StringResolver,
-): ImmutableList<HomeModeCardUiState> =
+): ImmutableList<StatusModeCardUiState> =
     buildHomeModeCards(
-        HomeModeCardsInput(
+        StatusModeCardsInput(
             settings = inputs.settings,
             activeMode = inputs.statusAndMode.second,
             configuredMode = configuredMode,
@@ -175,7 +192,7 @@ private fun buildMainModeCards(
             stringResolver = stringResolver,
         ),
     ).map { card ->
-        if (!card.isActive || card.mode == HomeMode.Diagnostic) {
+        if (!card.isActive || card.mode == StatusMode.Diagnostic) {
             card
         } else {
             val applied = buildAppliedConfigurationUiState(inputs, stringResolver)
@@ -184,7 +201,7 @@ private fun buildMainModeCards(
                 summaryFacets =
                     listOfNotNull(
                         applied.confirmedSummary?.let {
-                            HomeModeSummaryFacet(
+                            StatusModeSummaryFacet(
                                 label =
                                     stringResolver.getString(
                                         if (applied.previous) {
@@ -212,7 +229,7 @@ private fun buildMainConnectionActuator(
     approachSummary: HomeApproachSummaryUiState?,
     hardKillSwitch: HardKillSwitchUiState,
     stringResolver: StringResolver,
-): HomeConnectionActuatorUiState =
+): StatusConnectionActuatorUiState =
     buildConnectionActuatorUiState(
         settings = inputs.settings,
         activeMode = inputs.statusAndMode.second,
@@ -262,12 +279,12 @@ private fun buildHomePermissionSummary(
  * beside it. Empty outside a fault, so the control has nothing to render.
  */
 private fun actuatorFaultDetail(
-    status: HomeConnectionActuatorStatus,
+    status: StatusConnectionActuatorStatus,
     runtime: ConnectionRuntimeState,
 ): String =
     runtime.errorMessage
         .orEmpty()
-        .takeIf { status == HomeConnectionActuatorStatus.Fault }
+        .takeIf { status == StatusConnectionActuatorStatus.Fault }
         .orEmpty()
 
 @Suppress("LongParameterList")
@@ -285,50 +302,50 @@ internal fun buildConnectionActuatorUiState(
     appStatus: AppStatus? = null,
     hardKillSwitch: HardKillSwitchUiState = HardKillSwitchUiState(),
     stringResolver: StringResolver,
-): HomeConnectionActuatorUiState {
+): StatusConnectionActuatorUiState {
     val mode = if (connectionState == ConnectionState.Connected) activeMode else configuredMode
     val egressBacked = isForeignExitLive(settings, telemetry)
     val vpnWarning = vpnDataPlaneWarning(connectionState, vpnDataPlaneStatus)
     val warningStage =
         (
-            HomeConnectionActuatorStage.Route.takeIf { vpnWarning != null }
-                ?: HomeConnectionActuatorStage.Network.takeIf { vpnValidationWarning }
-                ?: HomeConnectionActuatorStage.Tunnel.takeIf { vpnForwardingWarning }
+            StatusConnectionActuatorStage.Route.takeIf { vpnWarning != null }
+                ?: StatusConnectionActuatorStage.Network.takeIf { vpnValidationWarning }
+                ?: StatusConnectionActuatorStage.Tunnel.takeIf { vpnForwardingWarning }
                 ?: telemetryWarningStage(telemetry)
         ).takeIf { connectionState == ConnectionState.Connected }
     val failedStage =
         telemetryFailureStage(telemetry)
             .takeIf { connectionState == ConnectionState.Error }
-            ?: HomeConnectionActuatorStage.Tunnel.takeIf { connectionState == ConnectionState.Error }
+            ?: StatusConnectionActuatorStage.Tunnel.takeIf { connectionState == ConnectionState.Error }
     val status =
         when {
             connectionState == ConnectionState.Connected && warningStage != null -> {
-                HomeConnectionActuatorStatus.Degraded
+                StatusConnectionActuatorStatus.Degraded
             }
 
             connectionState == ConnectionState.Connected -> {
-                HomeConnectionActuatorStatus.Locked
+                StatusConnectionActuatorStatus.Locked
             }
 
             connectionState == ConnectionState.Connecting -> {
-                HomeConnectionActuatorStatus.Engaging
+                StatusConnectionActuatorStatus.Engaging
             }
 
             connectionState == ConnectionState.Error -> {
-                HomeConnectionActuatorStatus.Fault
+                StatusConnectionActuatorStatus.Fault
             }
 
             else -> {
-                HomeConnectionActuatorStatus.Open
+                StatusConnectionActuatorStatus.Open
             }
         }
 
     val isActivation =
         appStatus?.let {
             resolvePrimaryConnectionAction(connectionState, it) == MainPrimaryConnectionAction.START_CONFIGURED_MODE
-        } ?: (status == HomeConnectionActuatorStatus.Open || status == HomeConnectionActuatorStatus.Fault)
+        } ?: (status == StatusConnectionActuatorStatus.Open || status == StatusConnectionActuatorStatus.Fault)
 
-    return HomeConnectionActuatorUiState(
+    return StatusConnectionActuatorUiState(
         status = status,
         trailingLabel = actuatorTrailingLabel(egressBacked, stringResolver),
         routeLabel = routeLabelForMode(mode, settings, stringResolver),
@@ -355,14 +372,14 @@ internal fun buildConnectionActuatorUiState(
 }
 
 private fun buildActuatorStages(
-    status: HomeConnectionActuatorStatus,
-    warningStage: HomeConnectionActuatorStage?,
-    failedStage: HomeConnectionActuatorStage?,
+    status: StatusConnectionActuatorStatus,
+    warningStage: StatusConnectionActuatorStage?,
+    failedStage: StatusConnectionActuatorStage?,
     stringResolver: StringResolver,
-): ImmutableList<HomeConnectionActuatorStageUiState> =
-    HomeConnectionActuatorStage.entries
+): ImmutableList<StatusConnectionActuatorStageUiState> =
+    StatusConnectionActuatorStage.entries
         .map { stage ->
-            HomeConnectionActuatorStageUiState(
+            StatusConnectionActuatorStageUiState(
                 stage = stage,
                 label = stage.label(stringResolver),
                 state = stageState(stage, status, warningStage, failedStage),
@@ -387,51 +404,51 @@ private fun routeLabelForMode(
     }
 
 private fun stageState(
-    stage: HomeConnectionActuatorStage,
-    status: HomeConnectionActuatorStatus,
-    warningStage: HomeConnectionActuatorStage?,
-    failedStage: HomeConnectionActuatorStage?,
-): HomeConnectionActuatorStageState =
+    stage: StatusConnectionActuatorStage,
+    status: StatusConnectionActuatorStatus,
+    warningStage: StatusConnectionActuatorStage?,
+    failedStage: StatusConnectionActuatorStage?,
+): StatusConnectionActuatorStageState =
     when {
-        status == HomeConnectionActuatorStatus.Open -> {
-            HomeConnectionActuatorStageState.Pending
+        status == StatusConnectionActuatorStatus.Open -> {
+            StatusConnectionActuatorStageState.Pending
         }
 
-        status == HomeConnectionActuatorStatus.Fault && stage == failedStage -> {
-            HomeConnectionActuatorStageState.Failed
+        status == StatusConnectionActuatorStatus.Fault && stage == failedStage -> {
+            StatusConnectionActuatorStageState.Failed
         }
 
-        status == HomeConnectionActuatorStatus.Degraded && stage == warningStage -> {
-            HomeConnectionActuatorStageState.Warning
+        status == StatusConnectionActuatorStatus.Degraded && stage == warningStage -> {
+            StatusConnectionActuatorStageState.Warning
         }
 
-        status == HomeConnectionActuatorStatus.Locked || status == HomeConnectionActuatorStatus.Degraded -> {
-            HomeConnectionActuatorStageState.Complete
+        status == StatusConnectionActuatorStatus.Locked || status == StatusConnectionActuatorStatus.Degraded -> {
+            StatusConnectionActuatorStageState.Complete
         }
 
         else -> {
-            HomeConnectionActuatorStageState.Pending
+            StatusConnectionActuatorStageState.Pending
         }
     }
 
 private fun actuatorStatusDescription(
-    status: HomeConnectionActuatorStatus,
+    status: StatusConnectionActuatorStatus,
     egressBacked: Boolean,
     vpnDataPlaneStatus: VpnDataPlaneStatus?,
-    warningStage: HomeConnectionActuatorStage?,
-    failedStage: HomeConnectionActuatorStage?,
+    warningStage: StatusConnectionActuatorStage?,
+    failedStage: StatusConnectionActuatorStage?,
     stringResolver: StringResolver,
 ): String =
     when (status) {
-        HomeConnectionActuatorStatus.Open -> {
+        StatusConnectionActuatorStatus.Open -> {
             stringResolver.getString(R.string.home_connection_actuator_state_open)
         }
 
-        HomeConnectionActuatorStatus.Engaging -> {
+        StatusConnectionActuatorStatus.Engaging -> {
             stringResolver.getString(R.string.home_connection_actuator_state_engaging)
         }
 
-        HomeConnectionActuatorStatus.Locked -> {
+        StatusConnectionActuatorStatus.Locked -> {
             stringResolver.getString(
                 if (egressBacked) {
                     R.string.home_connection_actuator_state_locked
@@ -441,7 +458,7 @@ private fun actuatorStatusDescription(
             )
         }
 
-        HomeConnectionActuatorStatus.Degraded -> {
+        StatusConnectionActuatorStatus.Degraded -> {
             vpnDataPlaneActuatorDescription(vpnDataPlaneStatus, stringResolver)
                 ?: stringResolver.getString(
                     if (egressBacked) {
@@ -453,7 +470,7 @@ private fun actuatorStatusDescription(
                 )
         }
 
-        HomeConnectionActuatorStatus.Fault -> {
+        StatusConnectionActuatorStatus.Fault -> {
             stringResolver.getString(
                 R.string.home_connection_actuator_state_fault,
                 failedStage?.label(stringResolver).orEmpty(),
@@ -462,21 +479,21 @@ private fun actuatorStatusDescription(
     }
 
 private fun actuatorActionLabel(
-    status: HomeConnectionActuatorStatus,
+    status: StatusConnectionActuatorStatus,
     isActivation: Boolean,
     stringResolver: StringResolver,
 ): String =
     stringResolver.getString(
         when {
-            !isActivation && status != HomeConnectionActuatorStatus.Engaging -> {
+            !isActivation && status != StatusConnectionActuatorStatus.Engaging -> {
                 R.string.home_connection_actuator_action_deactivate
             }
 
-            status == HomeConnectionActuatorStatus.Engaging -> {
+            status == StatusConnectionActuatorStatus.Engaging -> {
                 R.string.home_connection_actuator_action_cancel
             }
 
-            status == HomeConnectionActuatorStatus.Fault -> {
+            status == StatusConnectionActuatorStatus.Fault -> {
                 R.string.home_connection_actuator_action_retry
             }
 
@@ -486,45 +503,45 @@ private fun actuatorActionLabel(
         },
     )
 
-private fun HomeConnectionActuatorStage.label(stringResolver: StringResolver): String =
+private fun StatusConnectionActuatorStage.label(stringResolver: StringResolver): String =
     stringResolver.getString(labelRes())
 
-private fun telemetryWarningStage(telemetry: ServiceTelemetrySnapshot): HomeConnectionActuatorStage? =
+private fun telemetryWarningStage(telemetry: ServiceTelemetrySnapshot): StatusConnectionActuatorStage? =
     when {
         // Foreign exit lost after connecting (audit P1-1): the base stays up but traffic now
         // egresses direct, so surface a Route-stage warning that flips Locked -> Degraded.
         // The egress-aware predicate lives in isForeignExitLost (ActuatorEgressHonesty) so
         // this aggregator stays free of that feature family.
         isForeignExitLost(telemetry) -> {
-            HomeConnectionActuatorStage.Route
+            StatusConnectionActuatorStage.Route
         }
 
         telemetry.runtimeFieldTelemetry.failureClass == FailureClass.NetworkHandover ||
             telemetry.networkHandoverState != null -> {
-            HomeConnectionActuatorStage.Network
+            StatusConnectionActuatorStage.Network
         }
 
         telemetry.runtimeFieldTelemetry.failureClass == FailureClass.DnsInterference ||
             telemetry.tunnelTelemetry.resolverFallbackActive ||
             telemetry.tunnelTelemetry.dnsFailuresTotal > 0 -> {
-            HomeConnectionActuatorStage.Dns
+            StatusConnectionActuatorStage.Dns
         }
 
         telemetry.runtimeFieldTelemetry.failureClass == FailureClass.TlsInterference ||
             !telemetry.proxyTelemetry.lastHandshakeError.isNullOrBlank() -> {
-            HomeConnectionActuatorStage.Handshake
+            StatusConnectionActuatorStage.Handshake
         }
 
         telemetry.runtimeFieldTelemetry.failureClass == FailureClass.TunnelEstablish ||
             telemetry.tunnelTelemetryStatus.state == RuntimeTelemetryState.EngineError ||
             telemetry.runtimeFieldTelemetry.tunnelRecoveryRetryCount > 0 -> {
-            HomeConnectionActuatorStage.Tunnel
+            StatusConnectionActuatorStage.Tunnel
         }
 
         telemetry.proxyTelemetry.routeChanges > 0 ||
             telemetry.runtimeFieldTelemetry.proxyRouteRetryCount > 0 ||
             !telemetry.proxyTelemetry.lastFallbackAction.isNullOrBlank() -> {
-            HomeConnectionActuatorStage.Route
+            StatusConnectionActuatorStage.Route
         }
 
         else -> {
@@ -532,27 +549,27 @@ private fun telemetryWarningStage(telemetry: ServiceTelemetrySnapshot): HomeConn
         }
     }
 
-private fun telemetryFailureStage(telemetry: ServiceTelemetrySnapshot): HomeConnectionActuatorStage? =
+private fun telemetryFailureStage(telemetry: ServiceTelemetrySnapshot): StatusConnectionActuatorStage? =
     when (telemetry.runtimeFieldTelemetry.failureClass) {
         FailureClass.NetworkHandover -> {
-            HomeConnectionActuatorStage.Network
+            StatusConnectionActuatorStage.Network
         }
 
         FailureClass.DnsInterference -> {
-            HomeConnectionActuatorStage.Dns
+            StatusConnectionActuatorStage.Dns
         }
 
         FailureClass.TlsInterference,
         FailureClass.FingerprintPolicy,
         -> {
-            HomeConnectionActuatorStage.Handshake
+            StatusConnectionActuatorStage.Handshake
         }
 
         FailureClass.TunnelEstablish,
         FailureClass.WarpProvisioning,
         FailureClass.WarpEndpoint,
         -> {
-            HomeConnectionActuatorStage.Tunnel
+            StatusConnectionActuatorStage.Tunnel
         }
 
         FailureClass.Timeout,

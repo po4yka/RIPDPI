@@ -37,6 +37,7 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.crash.CrashReportDialog
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import com.poyka.ripdpi.ui.screens.permissions.VpnPermissionDialog
+import com.poyka.ripdpi.ui.screens.status.StatusPauseViewModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -48,7 +49,7 @@ internal fun MainActivityContent(
     viewModel: MainViewModel,
     controller: MainActivityShellController,
     exportPreview: ExportPreviewViewModel,
-    pauseViewModelFactory: @Composable () -> HomePauseViewModel = { hiltViewModel() },
+    pauseViewModelFactory: @Composable () -> StatusPauseViewModel = { hiltViewModel() },
 ) {
     val startupState by viewModel.startupState.collectAsStateWithLifecycle()
 
@@ -128,7 +129,7 @@ private fun ReadyMainActivityContent(
     controller: MainActivityShellController,
     startupState: MainStartupState,
     exportPreview: ExportPreviewViewModel,
-    pauseViewModelFactory: @Composable () -> HomePauseViewModel,
+    pauseViewModelFactory: @Composable () -> StatusPauseViewModel,
 ) {
     val pauseViewModel = pauseViewModelFactory()
     val runtimeState by viewModel.activityRuntimeState.collectAsStateWithLifecycle(

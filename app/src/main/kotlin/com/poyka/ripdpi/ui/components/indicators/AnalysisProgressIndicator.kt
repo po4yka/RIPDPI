@@ -47,9 +47,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.AnalysisStageStatus
-import com.poyka.ripdpi.activities.AnalysisStageUiState
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
+import com.poyka.ripdpi.ui.screens.status.AnalysisStageStatus
+import com.poyka.ripdpi.ui.screens.status.AnalysisStageUiState
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.analysisContainer
 import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver

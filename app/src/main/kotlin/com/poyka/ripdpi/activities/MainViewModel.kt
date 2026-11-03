@@ -19,6 +19,9 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
 import com.poyka.ripdpi.subscription.subscriptionExpiryUiState
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsStateOwner
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
+import com.poyka.ripdpi.ui.screens.status.StatusModeCardUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.Flow
@@ -164,8 +167,8 @@ class MainViewModel
             )
         }
 
-        private val homeDiagnostics: HomeDiagnosticsStateOwner by lazy {
-            HomeDiagnosticsStateOwner(
+        private val homeDiagnostics: StatusDiagnosticsStateOwner by lazy {
+            StatusDiagnosticsStateOwner(
                 scope = viewModelScope,
                 settingsState = settingsState,
                 serviceStateStore = mainServiceDependencies.serviceStateStore,
@@ -182,8 +185,8 @@ class MainViewModel
         }
 
         val startupState: StateFlow<MainStartupState> = lifecycleOwner.startupState
-        val homeDiagnosticsUiState: StateFlow<HomeDiagnosticsUiState> = homeDiagnostics.uiState
-        val homeDiagnosticCard: StateFlow<HomeModeCardUiState> = homeDiagnostics.diagnosticCard
+        val homeDiagnosticsUiState: StateFlow<StatusDiagnosticsUiState> = homeDiagnostics.uiState
+        val homeDiagnosticCard: StateFlow<StatusModeCardUiState> = homeDiagnostics.diagnosticCard
         val subscriptionExpiryUiState: StateFlow<SubscriptionExpirySummaryUiState> =
             combine(
                 mainControlPlaneDependencies.proxyGroupRepository.groups(),

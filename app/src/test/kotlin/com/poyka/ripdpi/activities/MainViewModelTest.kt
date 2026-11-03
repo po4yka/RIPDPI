@@ -53,6 +53,13 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRemediationActionKindUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.label
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStage
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStageState
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsServices
+import com.poyka.ripdpi.ui.screens.status.assertArabic
+import com.poyka.ripdpi.ui.screens.status.buildHardKillSwitchUiState
+import com.poyka.ripdpi.ui.screens.status.homeOutcome
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
@@ -306,8 +313,8 @@ class MainViewModelTest {
                 stringResolver = FakeStringResolver(),
             )
 
-        assertEquals(HomeConnectionActuatorStatus.Open, state.status)
-        assertTrue(state.stages.all { it.state == HomeConnectionActuatorStageState.Pending })
+        assertEquals(StatusConnectionActuatorStatus.Open, state.status)
+        assertTrue(state.stages.all { it.state == StatusConnectionActuatorStageState.Pending })
     }
 
     @Test
@@ -330,8 +337,8 @@ class MainViewModelTest {
                 )
             }
         states.forEach { state ->
-            assertEquals(HomeConnectionActuatorStatus.Engaging, state.status)
-            assertTrue(state.stages.all { it.state == HomeConnectionActuatorStageState.Pending })
+            assertEquals(StatusConnectionActuatorStatus.Engaging, state.status)
+            assertTrue(state.stages.all { it.state == StatusConnectionActuatorStageState.Pending })
         }
         states.drop(1).forEach { state -> assertEquals(states.first().stages, state.stages) }
     }
@@ -372,8 +379,8 @@ class MainViewModelTest {
                 stringResolver = FakeStringResolver(),
             )
 
-        assertEquals(HomeConnectionActuatorStatus.Locked, state.status)
-        assertTrue(state.stages.all { it.state == HomeConnectionActuatorStageState.Complete })
+        assertEquals(StatusConnectionActuatorStatus.Locked, state.status)
+        assertTrue(state.stages.all { it.state == StatusConnectionActuatorStageState.Complete })
     }
 
     @Test
@@ -392,14 +399,14 @@ class MainViewModelTest {
                 stringResolver = FakeStringResolver(),
             )
 
-        assertEquals(HomeConnectionActuatorStatus.Degraded, state.status)
+        assertEquals(StatusConnectionActuatorStatus.Degraded, state.status)
         assertEquals(
-            HomeConnectionActuatorStageState.Warning,
-            state.stages.single { it.stage == HomeConnectionActuatorStage.Network }.state,
+            StatusConnectionActuatorStageState.Warning,
+            state.stages.single { it.stage == StatusConnectionActuatorStage.Network }.state,
         )
         assertEquals(
-            HomeConnectionActuatorStageState.Complete,
-            state.stages.single { it.stage == HomeConnectionActuatorStage.Route }.state,
+            StatusConnectionActuatorStageState.Complete,
+            state.stages.single { it.stage == StatusConnectionActuatorStage.Route }.state,
         )
     }
 
@@ -419,14 +426,14 @@ class MainViewModelTest {
                 stringResolver = FakeStringResolver(),
             )
 
-        assertEquals(HomeConnectionActuatorStatus.Degraded, state.status)
+        assertEquals(StatusConnectionActuatorStatus.Degraded, state.status)
         assertEquals(
-            HomeConnectionActuatorStageState.Warning,
-            state.stages.single { it.stage == HomeConnectionActuatorStage.Tunnel }.state,
+            StatusConnectionActuatorStageState.Warning,
+            state.stages.single { it.stage == StatusConnectionActuatorStage.Tunnel }.state,
         )
         assertEquals(
-            HomeConnectionActuatorStageState.Complete,
-            state.stages.single { it.stage == HomeConnectionActuatorStage.Route }.state,
+            StatusConnectionActuatorStageState.Complete,
+            state.stages.single { it.stage == StatusConnectionActuatorStage.Route }.state,
         )
     }
 
@@ -721,10 +728,10 @@ class MainViewModelTest {
                 stringResolver = FakeStringResolver(),
             )
 
-        assertEquals(HomeConnectionActuatorStatus.Fault, state.status)
+        assertEquals(StatusConnectionActuatorStatus.Fault, state.status)
         assertEquals(
-            HomeConnectionActuatorStageState.Failed,
-            state.stages.single { it.stage == HomeConnectionActuatorStage.Tunnel }.state,
+            StatusConnectionActuatorStageState.Failed,
+            state.stages.single { it.stage == StatusConnectionActuatorStage.Tunnel }.state,
         )
     }
 
@@ -748,10 +755,10 @@ class MainViewModelTest {
                 stringResolver = FakeStringResolver(),
             )
 
-        assertEquals(HomeConnectionActuatorStatus.Degraded, state.status)
+        assertEquals(StatusConnectionActuatorStatus.Degraded, state.status)
         assertEquals(
-            HomeConnectionActuatorStageState.Warning,
-            state.stages.single { it.stage == HomeConnectionActuatorStage.Dns }.state,
+            StatusConnectionActuatorStageState.Warning,
+            state.stages.single { it.stage == StatusConnectionActuatorStage.Dns }.state,
         )
     }
 
@@ -778,11 +785,11 @@ class MainViewModelTest {
                 stringResolver = stringResolver,
             )
 
-        assertEquals(HomeConnectionActuatorStatus.Degraded, state.status)
+        assertEquals(StatusConnectionActuatorStatus.Degraded, state.status)
         assertEquals("Direct", state.trailingLabel)
         assertEquals(
-            HomeConnectionActuatorStageState.Warning,
-            state.stages.single { it.stage == HomeConnectionActuatorStage.Route }.state,
+            StatusConnectionActuatorStageState.Warning,
+            state.stages.single { it.stage == StatusConnectionActuatorStage.Route }.state,
         )
         assertTrue(
             "Expected an honest direct-degraded description, was: ${state.statusDescription}",
@@ -819,7 +826,7 @@ class MainViewModelTest {
                 stringResolver = FakeStringResolver(),
             )
 
-        assertEquals(HomeConnectionActuatorStatus.Locked, state.status)
+        assertEquals(StatusConnectionActuatorStatus.Locked, state.status)
     }
 
     @Test
@@ -843,8 +850,8 @@ class MainViewModelTest {
             )
 
         assertEquals(
-            HomeConnectionActuatorStageState.Failed,
-            state.stages.single { it.stage == HomeConnectionActuatorStage.Dns }.state,
+            StatusConnectionActuatorStageState.Failed,
+            state.stages.single { it.stage == StatusConnectionActuatorStage.Dns }.state,
         )
     }
 
@@ -1363,7 +1370,7 @@ class MainViewModelTest {
             val workflow = StubDiagnosticsHomeWorkflowService().apply { currentFingerprint = "network" }
             val viewModel =
                 createViewModel(
-                    homeDiagnosticsServices = HomeDiagnosticsServices(workflow, service),
+                    homeDiagnosticsServices = StatusDiagnosticsServices(workflow, service),
                     permissionStatusProvider = grantedPermissionStatusProvider(),
                     presentationDependencies = TestPresentationDependencies(stringResolver = ResourceStringResolver()),
                 )
@@ -1913,7 +1920,7 @@ class MainViewModelTest {
             val viewModel =
                 createViewModel(
                     homeDiagnosticsServices =
-                        HomeDiagnosticsServices(
+                        StatusDiagnosticsServices(
                             workflowService = StubDiagnosticsHomeWorkflowService(),
                             compositeRunService = compositeRunService,
                         ),
@@ -1941,7 +1948,7 @@ class MainViewModelTest {
             val viewModel =
                 createViewModel(
                     homeDiagnosticsServices =
-                        HomeDiagnosticsServices(
+                        StatusDiagnosticsServices(
                             workflowService = homeWorkflowService,
                             compositeRunService = compositeRunService,
                         ),
@@ -2001,7 +2008,7 @@ class MainViewModelTest {
             val viewModel =
                 createViewModel(
                     homeDiagnosticsServices =
-                        HomeDiagnosticsServices(
+                        StatusDiagnosticsServices(
                             workflowService = homeWorkflowService,
                             compositeRunService = compositeRunService,
                         ),
@@ -2082,7 +2089,7 @@ class MainViewModelTest {
             val viewModel =
                 createViewModel(
                     homeDiagnosticsServices =
-                        HomeDiagnosticsServices(
+                        StatusDiagnosticsServices(
                             workflowService = homeWorkflowService,
                             compositeRunService = compositeRunService,
                         ),
@@ -2132,7 +2139,7 @@ class MainViewModelTest {
             val viewModel =
                 createViewModel(
                     homeDiagnosticsServices =
-                        HomeDiagnosticsServices(
+                        StatusDiagnosticsServices(
                             workflowService = homeWorkflowService,
                             compositeRunService = compositeRunService,
                         ),
@@ -2207,7 +2214,7 @@ class MainViewModelTest {
             val viewModel =
                 createViewModel(
                     homeDiagnosticsServices =
-                        HomeDiagnosticsServices(
+                        StatusDiagnosticsServices(
                             workflowService = homeWorkflowService,
                             compositeRunService = compositeRunService,
                         ),
@@ -2325,7 +2332,7 @@ class MainViewModelTest {
         networkPathValidationSource: FakeNetworkPathValidationSource = FakeNetworkPathValidationSource(),
         hostPackCatalogUiStateStore: HostPackCatalogUiStateStore = HostPackCatalogUiStateStore(),
         strategyPackStateStore: InMemoryStrategyPackStateStore = InMemoryStrategyPackStateStore(),
-        homeDiagnosticsServices: HomeDiagnosticsServices = stubHomeDiagnosticsServices(),
+        homeDiagnosticsServices: StatusDiagnosticsServices = stubHomeDiagnosticsServices(),
         presentationDependencies: TestPresentationDependencies = TestPresentationDependencies(),
         initialize: Boolean = true,
     ): MainViewModel {
@@ -2576,8 +2583,8 @@ private fun onboardedVpnSettingsRepository(): FakeAppSettingsRepository =
 private const val CrashDirName = "ripdpi-test-crash-reports"
 
 /** Stubbed home diagnostics wiring shared by every [MainViewModelTest] case. */
-private fun stubHomeDiagnosticsServices(): HomeDiagnosticsServices =
-    HomeDiagnosticsServices(
+private fun stubHomeDiagnosticsServices(): StatusDiagnosticsServices =
+    StatusDiagnosticsServices(
         workflowService = StubDiagnosticsHomeWorkflowService(),
         compositeRunService = StubDiagnosticsHomeCompositeRunService(),
     )

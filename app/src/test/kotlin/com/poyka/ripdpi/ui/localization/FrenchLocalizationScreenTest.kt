@@ -28,7 +28,6 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HomePauseUiState
 import com.poyka.ripdpi.data.PauseFailure
 import com.poyka.ripdpi.data.PausePhase
 import com.poyka.ripdpi.data.support.RestartPolicyAsk
@@ -40,8 +39,9 @@ import com.poyka.ripdpi.ui.screens.connection.ConnectionUiState
 import com.poyka.ripdpi.ui.screens.connection.ModeEditorChainBlockEditor
 import com.poyka.ripdpi.ui.screens.connection.NoOpModeEditorActions
 import com.poyka.ripdpi.ui.screens.customization.AboutScreen
-import com.poyka.ripdpi.ui.screens.home.HomePauseControls
 import com.poyka.ripdpi.ui.screens.settings.DataTransparencyScreen
+import com.poyka.ripdpi.ui.screens.status.StatusPauseControls
+import com.poyka.ripdpi.ui.screens.status.StatusPauseUiState
 import com.poyka.ripdpi.ui.screens.support.SupportSettingsScreen
 import com.poyka.ripdpi.ui.screens.support.SupportSettingsUiState
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -114,8 +114,8 @@ class FrenchLocalizationScreenTest {
         var resumed = false
         content(width, scale) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                HomePauseControls(
-                    state = HomePauseUiState(phase = PausePhase.Deferred, failure = PauseFailure.ClockChanged),
+                StatusPauseControls(
+                    state = StatusPauseUiState(phase = PausePhase.Deferred, failure = PauseFailure.ClockChanged),
                     onPause = {},
                     onResume = { resumed = true },
                     onStop = {},

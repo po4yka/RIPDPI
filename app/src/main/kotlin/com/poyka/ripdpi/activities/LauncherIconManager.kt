@@ -7,6 +7,7 @@ import androidx.annotation.ColorRes
 import androidx.annotation.DrawableRes
 import androidx.annotation.StringRes
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.ui.screens.status.labelRes
 
 data class LauncherIconOption(
     val key: String,

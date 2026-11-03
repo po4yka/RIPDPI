@@ -3,7 +3,6 @@ package com.poyka.ripdpi.ui.screenshot
 import androidx.compose.ui.unit.LayoutDirection
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.activities.ConnectionState
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.resolveConnectionQuality
 import com.poyka.ripdpi.data.AppStatus
@@ -14,8 +13,9 @@ import com.poyka.ripdpi.data.RuntimeTelemetryStatus
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.service.telemetry.measurementSource
 import com.poyka.ripdpi.ui.components.homePreviewActuatorState
-import com.poyka.ripdpi.ui.screens.home.HomeConnectionMeasurements
-import com.poyka.ripdpi.ui.screens.home.HomeScreen
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionMeasurements
+import com.poyka.ripdpi.ui.screens.status.StatusScreen
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -101,13 +101,13 @@ class HomeMeasurementsScreenshotTest {
             layoutDirection = direction,
             testClassFqn = javaClass.name,
         ) {
-            HomeScreen(
+            StatusScreen(
                 uiState =
                     MainUiState(
                         appStatus = AppStatus.Running,
                         connectionState = ConnectionState.Connected,
                         connectionActuator =
-                            homePreviewActuatorState(HomeConnectionActuatorStatus.Locked),
+                            homePreviewActuatorState(StatusConnectionActuatorStatus.Locked),
                         connectionQuality = selected?.connectionQuality,
                         dataTransferred = 204_000L,
                     ),
@@ -157,7 +157,7 @@ class HomeMeasurementsScreenshotTest {
             layoutDirection = direction,
             testClassFqn = javaClass.name,
         ) {
-            HomeConnectionMeasurements(
+            StatusConnectionMeasurements(
                 selected.connectionQuality,
                 selected.measurementSource(
                     telemetry,

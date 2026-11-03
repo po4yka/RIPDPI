@@ -15,11 +15,11 @@ import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import com.poyka.ripdpi.activities.ConnectionState
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
-import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
-import com.poyka.ripdpi.activities.HomePauseUiState
 import com.poyka.ripdpi.ui.components.EnableKeyboardInput
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
+import com.poyka.ripdpi.ui.screens.status.StatusPauseUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
@@ -48,17 +48,17 @@ class SimpleHomeActuatorKeyboardTest {
             ) {
                 RipDpiTheme {
                     SimpleHomeContent(
-                        pauseState = HomePauseUiState(),
+                        pauseState = StatusPauseUiState(),
                         onPause = {},
                         onResumePause = {},
                         onStopPause = {},
                         connectionState = ConnectionState.Disconnected,
                         connectionActuator =
-                            HomeConnectionActuatorUiState(
-                                status = HomeConnectionActuatorStatus.Open,
+                            StatusConnectionActuatorUiState(
+                                status = StatusConnectionActuatorStatus.Open,
                                 actionLabel = "اتصال",
                             ),
-                        diagnostics = HomeDiagnosticsUiState(),
+                        diagnostics = StatusDiagnosticsUiState(),
                         activeTransport = null,
                         snackbarHostState = SnackbarHostState(),
                         onToggleConnection = { toggles += it },

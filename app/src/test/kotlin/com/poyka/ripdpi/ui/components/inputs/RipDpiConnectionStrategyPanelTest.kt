@@ -7,8 +7,8 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
-import com.poyka.ripdpi.activities.HomeModeSummaryFacet
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusModeSummaryFacet
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertTrue
@@ -33,9 +33,9 @@ class RipDpiConnectionStrategyPanelTest {
     @Test
     fun `strategy steps stay visible and the labeled settings open on demand above the action`() {
         composeRule.setActuator(
-            actuatorState(HomeConnectionActuatorStatus.Locked).copy(
+            actuatorState(StatusConnectionActuatorStatus.Locked).copy(
                 strategyLabel = "tcp: split(host+1)",
-                strategyFacets = persistentListOf(HomeModeSummaryFacet("DNS", "AdGuard DNS DoH")),
+                strategyFacets = persistentListOf(StatusModeSummaryFacet("DNS", "AdGuard DNS DoH")),
             ),
         )
         composeRule.onNodeWithText("tcp: split(host+1)").assertIsDisplayed()
@@ -58,14 +58,14 @@ class RipDpiConnectionStrategyPanelTest {
     @Test
     fun `a profile without settings is named but not expandable`() {
         composeRule.setActuator(
-            actuatorState(HomeConnectionActuatorStatus.Locked).copy(strategyLabel = "Home Wi-Fi profile"),
+            actuatorState(StatusConnectionActuatorStatus.Locked).copy(strategyLabel = "Home Wi-Fi profile"),
         )
         composeRule.onNodeWithText("Home Wi-Fi profile").assertIsDisplayed().assertHasNoClickAction()
     }
 
     @Test
     fun `no strategy hides the panel`() {
-        composeRule.setActuator(actuatorState(HomeConnectionActuatorStatus.Locked))
+        composeRule.setActuator(actuatorState(StatusConnectionActuatorStatus.Locked))
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorStrategyPanel).assertDoesNotExist()
     }
 }

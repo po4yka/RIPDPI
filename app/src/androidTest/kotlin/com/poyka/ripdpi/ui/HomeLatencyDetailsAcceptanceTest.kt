@@ -50,7 +50,7 @@ import com.poyka.ripdpi.data.ConnectionQualitySnapshot
 import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.RuntimeTelemetryStatus
 import com.poyka.ripdpi.service.telemetry.RuntimeMeasurementSource
-import com.poyka.ripdpi.ui.screens.home.HomeConnectionMeasurements
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionMeasurements
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiAutomationTreeRoot
 import com.poyka.ripdpi.ui.theme.LocalRipDpiMotion
@@ -424,7 +424,7 @@ private fun LatencyHome(
     connected: Boolean = true,
     now: Long? = null,
 ) {
-    HomeConnectionMeasurements(quality, source, connected, dataTransferred = 0L, onReprobe = {}, now = now)
+    StatusConnectionMeasurements(quality, source, connected, dataTransferred = 0L, onReprobe = {}, now = now)
 }
 
 private fun latencyQuality() =

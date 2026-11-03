@@ -9,14 +9,14 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import com.poyka.ripdpi.activities.HomeDiagnosticsLatestAuditUiState
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsLiveUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsOverviewUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProfileOptionUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScreenUiState
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSection
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsLatestAuditUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
@@ -49,9 +49,9 @@ class DiagnosticsOutcomeTest {
                     onSelectSession = {},
                     onOpenHistory = {},
                     homeDiagnostics =
-                        HomeDiagnosticsUiState(
+                        StatusDiagnosticsUiState(
                             latestAudit =
-                                HomeDiagnosticsLatestAuditUiState(
+                                StatusDiagnosticsLatestAuditUiState(
                                     headline = "Measured audit",
                                     summary = "Audit result",
                                 ),

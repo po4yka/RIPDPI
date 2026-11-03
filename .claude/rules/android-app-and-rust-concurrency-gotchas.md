@@ -23,7 +23,7 @@ pick.
 
 ### Kotlin/Compose: cache system-service lookups
 
-`LocalContext.current.getSystemService(...)` re-resolves the service through the `Context` binder call on every recomposition if called directly in a composable body. The established pattern in this codebase — see `HomeScreen.kt`, `DomainBypassListScreen.kt`, and `DiagnosticsBottomSheets.kt`, all of which wrap the call as `remember(context) { context.getSystemService(...) }` — keeps the lookup to once per `Context` instance. Keep following it for any new composable that needs a system service; a direct unwrapped call is a regression, not the current state.
+`LocalContext.current.getSystemService(...)` re-resolves the service through the `Context` binder call on every recomposition if called directly in a composable body. The established pattern in this codebase — see `StatusScreen.kt`, `DomainBypassListScreen.kt`, and `DiagnosticsBottomSheets.kt`, all of which wrap the call as `remember(context) { context.getSystemService(...) }` — keeps the lookup to once per `Context` instance. Keep following it for any new composable that needs a system service; a direct unwrapped call is a regression, not the current state.
 
 ### Kotlin: audit every catch/when site when reshaping an exception hierarchy
 

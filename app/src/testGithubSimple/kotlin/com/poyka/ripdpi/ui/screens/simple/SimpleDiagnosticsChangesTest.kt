@@ -8,10 +8,10 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performScrollTo
-import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
-import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsAnalysisSheetUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsRunUiStatus
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Rule
@@ -34,10 +34,10 @@ class SimpleDiagnosticsChangesTest {
             RipDpiTheme {
                 SimpleDiagnosticsStatus(
                     diagnostics =
-                        HomeDiagnosticsUiState(
-                            analysisRunStatus = HomeDiagnosticsRunUiStatus.COMPLETED,
+                        StatusDiagnosticsUiState(
+                            analysisRunStatus = StatusDiagnosticsRunUiStatus.COMPLETED,
                             analysisSheet =
-                                HomeDiagnosticsAnalysisSheetUiState(
+                                StatusDiagnosticsAnalysisSheetUiState(
                                     runId = "completed-run",
                                     headline = "Check complete",
                                     summary = "Saved settings are available",
@@ -59,52 +59,52 @@ class SimpleDiagnosticsChangesTest {
 
     @Test
     fun `failed analysis still shows settings already saved`() {
-        renderStatus(HomeDiagnosticsRunUiStatus.FAILED, sheet())
+        renderStatus(StatusDiagnosticsRunUiStatus.FAILED, sheet())
         composeRule.onNodeWithText("Resolver").assertIsDisplayed()
         composeRule.onNodeWithText("Encrypted DNS").assertIsDisplayed()
     }
 
     @Test
     fun `cancelled analysis with retained sheet never implies changes were undone`() {
-        renderStatus(HomeDiagnosticsRunUiStatus.CANCELLED, sheet())
+        renderStatus(StatusDiagnosticsRunUiStatus.CANCELLED, sheet())
         composeRule.onNodeWithText(savedChangesNotice).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("Share Logs & Results").assertDoesNotExist()
     }
 
     @Test
     fun `cancelled analysis without sheet warns that settings may have changed`() {
-        renderStatus(HomeDiagnosticsRunUiStatus.CANCELLED)
+        renderStatus(StatusDiagnosticsRunUiStatus.CANCELLED)
         composeRule.onNodeWithText(savedChangesNotice).assertIsDisplayed()
     }
 
     @Test
     fun `completed analysis without sheet warns that settings may have changed`() {
-        renderStatus(HomeDiagnosticsRunUiStatus.COMPLETED)
+        renderStatus(StatusDiagnosticsRunUiStatus.COMPLETED)
         composeRule.onNodeWithText(savedChangesNotice).assertIsDisplayed()
     }
 
     @Test
     fun `failed analysis without sheet warns that settings may have changed`() {
-        renderStatus(HomeDiagnosticsRunUiStatus.FAILED)
+        renderStatus(StatusDiagnosticsRunUiStatus.FAILED)
         composeRule.onNodeWithText(savedChangesNotice).assertIsDisplayed()
     }
 
     @Test
     fun `running analysis does not present a retained sheet as newly applied settings`() {
-        renderStatus(HomeDiagnosticsRunUiStatus.RUNNING, sheet())
+        renderStatus(StatusDiagnosticsRunUiStatus.RUNNING, sheet())
         composeRule.onNodeWithText("Resolver").assertDoesNotExist()
         composeRule.onNodeWithText(savedChangesNotice).assertDoesNotExist()
     }
 
     private fun renderStatus(
-        status: HomeDiagnosticsRunUiStatus,
-        sheet: HomeDiagnosticsAnalysisSheetUiState? = null,
+        status: StatusDiagnosticsRunUiStatus,
+        sheet: StatusDiagnosticsAnalysisSheetUiState? = null,
     ) {
         composeRule.setContent {
             RipDpiTheme {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     SimpleDiagnosticsStatus(
-                        diagnostics = HomeDiagnosticsUiState(analysisRunStatus = status, analysisSheet = sheet),
+                        diagnostics = StatusDiagnosticsUiState(analysisRunStatus = status, analysisSheet = sheet),
                     )
                 }
             }
@@ -112,7 +112,7 @@ class SimpleDiagnosticsChangesTest {
     }
 
     private fun sheet() =
-        HomeDiagnosticsAnalysisSheetUiState(
+        StatusDiagnosticsAnalysisSheetUiState(
             runId = "run-with-saved-settings",
             headline = "Check outcome",
             summary = "A setting was saved before the run stopped",

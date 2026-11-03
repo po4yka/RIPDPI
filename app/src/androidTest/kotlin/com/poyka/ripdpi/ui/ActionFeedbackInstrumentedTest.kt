@@ -33,9 +33,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import com.poyka.ripdpi.activities.GroupedEventUiModel
 import com.poyka.ripdpi.activities.HistoryUiState
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
-import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsOutcomeCard
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventFiltersUiModel
@@ -45,6 +42,9 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsOutcomeSource
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsOutcomeUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.screens.history.EventsSection
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.LocalRipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
@@ -69,7 +69,7 @@ class ActionFeedbackInstrumentedTest {
         compose.setContent {
             FeedbackTheme(RipDpiMotion(animationsEnabled = false)) {
                 RipDpiConnectionActuator(
-                    state = HomeConnectionActuatorUiState(status = HomeConnectionActuatorStatus.Locked),
+                    state = StatusConnectionActuatorUiState(status = StatusConnectionActuatorStatus.Locked),
                     onActivate = {},
                     onDeactivate = { disconnects++ },
                     testTag = RipDpiTestTags.ConnectionActuatorButton,
@@ -99,7 +99,7 @@ class ActionFeedbackInstrumentedTest {
                 DiagnosticsOutcomeCard(
                     outcome = outcome,
                     runNetworkCheck = false,
-                    homeDiagnostics = HomeDiagnosticsUiState(),
+                    homeDiagnostics = StatusDiagnosticsUiState(),
                     onRunScan = { scans++ },
                     onOpenScan = {},
                     onStartVerifiedVpn = {},
@@ -194,7 +194,7 @@ class ActionFeedbackInstrumentedTest {
             ) {
                 FeedbackTheme(RipDpiMotion(reducedMotion = true), dark = true) {
                     RipDpiConnectionActuator(
-                        state = HomeConnectionActuatorUiState(status = HomeConnectionActuatorStatus.Locked),
+                        state = StatusConnectionActuatorUiState(status = StatusConnectionActuatorStatus.Locked),
                         onActivate = {},
                         onDeactivate = { disconnects++ },
                         testTag = RipDpiTestTags.ConnectionActuatorButton,

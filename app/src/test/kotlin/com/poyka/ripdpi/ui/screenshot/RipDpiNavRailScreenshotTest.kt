@@ -2,12 +2,12 @@ package com.poyka.ripdpi.ui.screenshot
 
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.ui.Modifier
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
-import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.ui.components.RipDpiHomeExpandedPreviewScene
 import com.poyka.ripdpi.ui.components.homePreviewActuatorState
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.navigation.TopLevelNavigationScaffold
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -36,7 +36,7 @@ class RipDpiNavRailScreenshotTest {
             widthDp = 700,
             fontScale = 2f,
             connectionActuator =
-                homePreviewActuatorState(HomeConnectionActuatorStatus.Locked).copy(
+                homePreviewActuatorState(StatusConnectionActuatorStatus.Locked).copy(
                     trailingLabel = "Direct",
                     routeLabel = "Local bypass",
                 ),
@@ -47,8 +47,8 @@ class RipDpiNavRailScreenshotTest {
         name: String,
         widthDp: Int,
         fontScale: Float,
-        connectionActuator: HomeConnectionActuatorUiState =
-            homePreviewActuatorState(HomeConnectionActuatorStatus.Locked),
+        connectionActuator: StatusConnectionActuatorUiState =
+            homePreviewActuatorState(StatusConnectionActuatorStatus.Locked),
     ) {
         captureExperienceRipDpiScreenshot(
             name = name,

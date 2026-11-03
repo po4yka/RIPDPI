@@ -27,6 +27,7 @@ import com.poyka.ripdpi.permissions.PermissionIssueUiState
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
+import com.poyka.ripdpi.ui.screens.status.StatusPcapCaptureLeaseCoordinator
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException
@@ -79,7 +80,7 @@ internal class MainHomeDiagnosticsActions(
     private val vpnStartBlockedByDns: () -> Boolean = { false },
     private val pcapCaptureRuntimeController: PcapCaptureRuntimeController? = null,
 ) {
-    private val homePcapCaptureLeaseCoordinator = pcapCaptureRuntimeController?.let(::HomePcapCaptureLeaseCoordinator)
+    private val homePcapCaptureLeaseCoordinator = pcapCaptureRuntimeController?.let(::StatusPcapCaptureLeaseCoordinator)
     private var activeRunObservation: Job? = null
     private var analysisStartJob: Job? = null
 

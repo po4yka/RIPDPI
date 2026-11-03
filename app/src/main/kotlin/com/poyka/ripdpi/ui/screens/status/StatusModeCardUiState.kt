@@ -1,0 +1,327 @@
+package com.poyka.ripdpi.ui.screens.status
+
+import androidx.compose.runtime.Immutable
+import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.ConnectionState
+import com.poyka.ripdpi.activities.VpnDataPlaneStatus
+import com.poyka.ripdpi.activities.dnsSummaryLabel
+import com.poyka.ripdpi.data.DnsModeEncrypted
+import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
+import com.poyka.ripdpi.ui.screens.connection.toConfigDraft
+import com.poyka.ripdpi.ui.screens.diagnostics.state.label
+import kotlinx.collections.immutable.ImmutableList
+import kotlinx.collections.immutable.persistentListOf
+import kotlinx.collections.immutable.toImmutableList
+import kotlin.time.Duration
+
+enum class StatusMode {
+    LocalDpiBypass,
+    RemoteVpn,
+    Diagnostic,
+}
+
+/**
+ * A labeled facet of a mode card's configuration summary (e.g. "Strategy" -> "tcp: split(host+1)").
+ * When a card carries [StatusModeCardUiState.summaryFacets], the card renders them as a structured
+ * key/value panel instead of the dense single-line [StatusModeCardUiState.primaryLabel].
+ */
+@Immutable
+data class StatusModeSummaryFacet(
+    val label: String,
+    val value: String,
+)
+
+@Immutable
+data class StatusModeCardUiState(
+    val mode: StatusMode = StatusMode.LocalDpiBypass,
+    val title: String = "",
+    val primaryLabel: String = "",
+    val secondaryLabel: String? = null,
+    val isActive: Boolean = false,
+    val isLoading: Boolean = false,
+    val statusLine: String = secondaryLabel ?: "",
+    val primaryActionLabel: String = "",
+    val configureLabel: String = "",
+    val primaryActionEnabled: Boolean = !isLoading,
+    val summaryFacets: ImmutableList<StatusModeSummaryFacet> = persistentListOf(),
+    /** Live per-stage progress while a diagnostic run is in flight; null when nothing is running. */
+    val analysisProgress: AnalysisProgressUiState? = null,
+)
+
+internal val DefaultHomeModeCards: ImmutableList<StatusModeCardUiState> =
+    StatusMode.entries
+        .map { mode -> StatusModeCardUiState(mode = mode) }
+        .toImmutableList()
+
+internal data class StatusModeCardsInput(
+    val settings: AppSettings,
+    val activeMode: Mode,
+    val configuredMode: Mode,
+    val connectionState: ConnectionState,
+    val vpnDataPlaneStatus: VpnDataPlaneStatus = VpnDataPlaneStatus.NotApplicable,
+    val connectionDuration: Duration,
+    val homeDiagnostics: StatusDiagnosticsUiState,
+    val stringResolver: StringResolver,
+)
+
+internal fun buildHomeModeCards(input: StatusModeCardsInput): ImmutableList<StatusModeCardUiState> {
+    val draft = input.settings.toConfigDraft()
+    return buildHomeModeCards(input, draft)
+}
+
+internal fun hasUnsupportedVpnDoq(settings: AppSettings): Boolean =
+    settings.dnsMode == DnsModeEncrypted && settings.encryptedDnsProtocol == EncryptedDnsProtocolDoq
+
+private fun buildHomeModeCards(
+    input: StatusModeCardsInput,
+    draft: ConnectionDraft,
+): ImmutableList<StatusModeCardUiState> =
+    persistentListOf(
+        buildLocalBypassCard(
+            draft = draft,
+            activeMode = input.activeMode,
+            configuredMode = input.configuredMode,
+            connectionState = input.connectionState,
+            connectionDuration = input.connectionDuration,
+            stringResolver = input.stringResolver,
+        ),
+        buildRemoteVpnCard(
+            draft = draft,
+            settings = input.settings,
+            activeMode = input.activeMode,
+            configuredMode = input.configuredMode,
+            connectionState = input.connectionState,
+            vpnDataPlaneStatus = input.vpnDataPlaneStatus,
+            connectionDuration = input.connectionDuration,
+            stringResolver = input.stringResolver,
+        ),
+        buildDiagnosticCard(
+            homeDiagnostics = input.homeDiagnostics,
+            stringResolver = input.stringResolver,
+        ),
+    )
+
+private fun buildLocalBypassCard(
+    draft: ConnectionDraft,
+    activeMode: Mode,
+    configuredMode: Mode,
+    connectionState: ConnectionState,
+    connectionDuration: Duration,
+    stringResolver: StringResolver,
+): StatusModeCardUiState =
+    StatusModeCardUiState(
+        mode = StatusMode.LocalDpiBypass,
+        title = stringResolver.getString(R.string.home_mode_local_dpi_bypass),
+        primaryLabel = "${draft.chainSummary} - ${stringResolver.dnsSummaryLabel(draft)}",
+        summaryFacets =
+            persistentListOf(
+                pathFacet(draft, stringResolver),
+                StatusModeSummaryFacet(
+                    label = stringResolver.getString(R.string.diagnostics_metric_strategy),
+                    value = draft.chainSummary,
+                ),
+                StatusModeSummaryFacet(
+                    label = stringResolver.getString(R.string.home_connection_stage_dns),
+                    value = stringResolver.dnsSummaryLabel(draft),
+                ),
+            ),
+        secondaryLabel =
+            modeStatusLabel(
+                connectionState = connectionState,
+                isActiveMode = isLocalBypassMode(activeMode),
+                isConfiguredMode = isLocalBypassMode(configuredMode),
+                connectionDuration = connectionDuration,
+                stringResolver = stringResolver,
+            ),
+        statusLine =
+            modeStatusLine(
+                connectionState = connectionState,
+                isActiveMode = isLocalBypassMode(activeMode),
+                isConfiguredMode = isLocalBypassMode(configuredMode),
+                connectionDuration = connectionDuration,
+                stringResolver = stringResolver,
+            ),
+        configureLabel = stringResolver.getString(R.string.home_mode_card_configure),
+        isActive =
+            connectionState == ConnectionState.Connected &&
+                isLocalBypassMode(activeMode),
+        isLoading =
+            connectionState == ConnectionState.Connecting &&
+                isLocalBypassMode(configuredMode),
+    )
+
+private fun buildRemoteVpnCard(
+    draft: ConnectionDraft,
+    settings: AppSettings,
+    activeMode: Mode,
+    configuredMode: Mode,
+    connectionState: ConnectionState,
+    vpnDataPlaneStatus: VpnDataPlaneStatus,
+    connectionDuration: Duration,
+    stringResolver: StringResolver,
+): StatusModeCardUiState {
+    val isActive = connectionState == ConnectionState.Connected && isRemoteVpnMode(activeMode)
+    val doqUnavailable = hasUnsupportedVpnDoq(settings) && !isActive
+    return StatusModeCardUiState(
+        mode = StatusMode.RemoteVpn,
+        title = stringResolver.getString(R.string.home_mode_remote_vpn),
+        primaryLabel = remoteVpnPrimaryLabel(draft, stringResolver),
+        summaryFacets = persistentListOf(pathFacet(draft, stringResolver)),
+        secondaryLabel =
+            vpnModeStatusLabel(
+                connectionState = connectionState,
+                isActiveMode = isRemoteVpnMode(activeMode),
+                isConfiguredMode = isRemoteVpnMode(configuredMode),
+                vpnDataPlaneStatus = vpnDataPlaneStatus,
+                connectionDuration = connectionDuration,
+                stringResolver = stringResolver,
+            ),
+        statusLine =
+            vpnModeStatusLabel(
+                connectionState = connectionState,
+                isActiveMode = isRemoteVpnMode(activeMode),
+                isConfiguredMode = isRemoteVpnMode(configuredMode),
+                vpnDataPlaneStatus = vpnDataPlaneStatus,
+                connectionDuration = connectionDuration,
+                stringResolver = stringResolver,
+            ) ?: stringResolver.getString(
+                if (doqUnavailable) R.string.dns_custom_doq_unavailable else R.string.home_mode_card_status_inactive,
+            ),
+        configureLabel = stringResolver.getString(R.string.home_mode_card_configure),
+        isActive = isActive,
+        isLoading =
+            connectionState == ConnectionState.Connecting &&
+                isRemoteVpnMode(configuredMode),
+    )
+}
+
+private fun remoteVpnPrimaryLabel(
+    draft: ConnectionDraft,
+    stringResolver: StringResolver,
+): String {
+    val serverLabel = draft.relayServer.ifBlank { draft.relayServerName }.ifBlank { null }
+    return when {
+        !draft.relayEnabled -> stringResolver.getString(R.string.home_connection_path_direct)
+        serverLabel != null -> relayPathLabel(serverLabel, stringResolver)
+        else -> stringResolver.getString(R.string.home_mode_card_remote_server_unknown)
+    }
+}
+
+private fun pathFacet(
+    draft: ConnectionDraft,
+    stringResolver: StringResolver,
+): StatusModeSummaryFacet =
+    StatusModeSummaryFacet(
+        label = stringResolver.getString(R.string.home_mode_card_path_label),
+        value = remoteVpnPrimaryLabel(draft, stringResolver),
+    )
+
+private fun relayPathLabel(
+    serverLabel: String,
+    stringResolver: StringResolver,
+): String = "${stringResolver.getString(R.string.home_connection_actuator_relay)} · $serverLabel"
+
+private fun isLocalBypassMode(mode: Mode): Boolean = mode == Mode.Proxy
+
+private fun isRemoteVpnMode(mode: Mode): Boolean = mode == Mode.VPN
+
+private fun modeStatusLabel(
+    connectionState: ConnectionState,
+    isActiveMode: Boolean,
+    isConfiguredMode: Boolean,
+    connectionDuration: Duration,
+    stringResolver: StringResolver,
+): String? =
+    when {
+        connectionState == ConnectionState.Connected && isActiveMode -> {
+            stringResolver.getString(
+                R.string.home_mode_card_connected_format,
+                formatHomeModeConnectionDuration(connectionDuration),
+            )
+        }
+
+        connectionState == ConnectionState.Connecting && isConfiguredMode -> {
+            stringResolver.getString(R.string.home_mode_card_connecting)
+        }
+
+        else -> {
+            null
+        }
+    }
+
+private fun vpnModeStatusLabel(
+    connectionState: ConnectionState,
+    isActiveMode: Boolean,
+    isConfiguredMode: Boolean,
+    vpnDataPlaneStatus: VpnDataPlaneStatus,
+    connectionDuration: Duration,
+    stringResolver: StringResolver,
+): String? =
+    when {
+        connectionState == ConnectionState.Connected && isActiveMode -> {
+            when (vpnDataPlaneStatus) {
+                VpnDataPlaneStatus.Working -> {
+                    stringResolver.getString(
+                        R.string.home_mode_card_connected_format,
+                        formatHomeModeConnectionDuration(connectionDuration),
+                    )
+                }
+
+                VpnDataPlaneStatus.Checking -> {
+                    stringResolver.getString(R.string.home_connection_actuator_state_vpn_checking)
+                }
+
+                VpnDataPlaneStatus.Unverified -> {
+                    stringResolver.getString(R.string.home_connection_actuator_state_vpn_unverified)
+                }
+
+                VpnDataPlaneStatus.Unavailable,
+                VpnDataPlaneStatus.Degraded,
+                -> {
+                    stringResolver.getString(R.string.home_connection_actuator_state_vpn_unavailable)
+                }
+
+                VpnDataPlaneStatus.NotApplicable -> {
+                    null
+                }
+            }
+        }
+
+        connectionState == ConnectionState.Connecting && isConfiguredMode -> {
+            stringResolver.getString(R.string.home_mode_card_connecting)
+        }
+
+        else -> {
+            null
+        }
+    }
+
+private fun modeStatusLine(
+    connectionState: ConnectionState,
+    isActiveMode: Boolean,
+    isConfiguredMode: Boolean,
+    connectionDuration: Duration,
+    stringResolver: StringResolver,
+): String =
+    modeStatusLabel(
+        connectionState = connectionState,
+        isActiveMode = isActiveMode,
+        isConfiguredMode = isConfiguredMode,
+        connectionDuration = connectionDuration,
+        stringResolver = stringResolver,
+    ) ?: stringResolver.getString(R.string.home_mode_card_status_inactive)
+
+internal fun formatHomeModeConnectionDuration(duration: Duration): String {
+    val totalSeconds = duration.inWholeSeconds.coerceAtLeast(0L)
+    val hours = totalSeconds / SecondsPerHour
+    val minutes = (totalSeconds % SecondsPerHour) / SecondsPerMinute
+    val seconds = totalSeconds % SecondsPerMinute
+    return "%02d:%02d:%02d".format(hours, minutes, seconds)
+}
+
+private const val SecondsPerMinute = 60L
+private const val SecondsPerHour = 60L * SecondsPerMinute

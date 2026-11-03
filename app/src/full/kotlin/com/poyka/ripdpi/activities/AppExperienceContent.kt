@@ -6,6 +6,7 @@ import com.poyka.ripdpi.ui.navigation.RipDpiNavHost
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHostActions
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHostLaunchRequests
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.status.StatusPauseViewModel
 
 /**
  * "full" experience: the complete tabbed navigation surface. This is the seam that
@@ -16,7 +17,7 @@ import com.poyka.ripdpi.ui.navigation.Route
 internal fun AppExperienceContent(
     startDestination: Route,
     viewModel: MainViewModel,
-    pauseViewModel: HomePauseViewModel,
+    pauseViewModel: StatusPauseViewModel,
     controller: MainActivityShellController,
     shellState: MainActivityShellState,
     snackbarHostState: SnackbarHostState,

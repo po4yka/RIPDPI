@@ -9,6 +9,9 @@ import com.poyka.ripdpi.diagnostics.HomeRoutingSanityFinding
 import com.poyka.ripdpi.diagnostics.HomeRoutingSanitySummary
 import com.poyka.ripdpi.ui.screens.diagnostics.state.label
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
+import com.poyka.ripdpi.ui.screens.status.assertArabic
+import com.poyka.ripdpi.ui.screens.status.homeOutcome
+import com.poyka.ripdpi.ui.screens.status.projectHome
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

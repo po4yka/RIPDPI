@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import androidx.compose.runtime.Immutable
-import com.poyka.ripdpi.activities.HomeDiagnosticsAuditSource
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsAuditSource
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 
 internal enum class DiagnosticsOutcomeSource { Active, CompositeAudit, Session, Empty }
 
@@ -26,10 +26,10 @@ internal data class DiagnosticsOutcomeUiModel(
 internal fun diagnosticsOutcome(
     overview: DiagnosticsOverviewUiModel,
     scan: DiagnosticsScanUiModel,
-    home: HomeDiagnosticsUiState,
+    home: StatusDiagnosticsUiState,
     active: Boolean,
 ): DiagnosticsOutcomeUiModel {
-    val audit = home.latestAudit?.takeIf { it.source == HomeDiagnosticsAuditSource.Composite }
+    val audit = home.latestAudit?.takeIf { it.source == StatusDiagnosticsAuditSource.Composite }
     val session = overview.latestSession
     return when {
         active -> {

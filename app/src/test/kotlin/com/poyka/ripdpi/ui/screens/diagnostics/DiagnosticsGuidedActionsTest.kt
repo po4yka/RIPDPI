@@ -28,16 +28,16 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
-import com.poyka.ripdpi.activities.HomeDiagnosticsLatestAuditUiState
-import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProfileOptionUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProgressUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScreenUiState
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSection
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsActionUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsLatestAuditUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsRunUiStatus
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -104,9 +104,9 @@ class DiagnosticsGuidedActionsTest {
                             selectedSection = DiagnosticsSection.Scan,
                             uiPersona = "simple",
                             homeDiagnostics =
-                                HomeDiagnosticsUiState(
-                                    analysisRunStatus = HomeDiagnosticsRunUiStatus.RUNNING,
-                                    analysisAction = HomeDiagnosticsActionUiState(busy = true),
+                                StatusDiagnosticsUiState(
+                                    analysisRunStatus = StatusDiagnosticsRunUiStatus.RUNNING,
+                                    analysisAction = StatusDiagnosticsActionUiState(busy = true),
                                 ),
                         ),
                     pagerState = pager,
@@ -137,9 +137,9 @@ class DiagnosticsGuidedActionsTest {
                             scan = scan.value,
                             uiPersona = "simple",
                             homeDiagnostics =
-                                HomeDiagnosticsUiState(
-                                    analysisRunStatus = HomeDiagnosticsRunUiStatus.IDLE,
-                                    analysisAction = HomeDiagnosticsActionUiState(busy = true),
+                                StatusDiagnosticsUiState(
+                                    analysisRunStatus = StatusDiagnosticsRunUiStatus.IDLE,
+                                    analysisAction = StatusDiagnosticsActionUiState(busy = true),
                                 ),
                         ),
                     pagerState = pager,
@@ -189,9 +189,9 @@ class DiagnosticsGuidedActionsTest {
                                         ),
                                 ),
                             homeDiagnostics =
-                                HomeDiagnosticsUiState(
-                                    analysisRunStatus = HomeDiagnosticsRunUiStatus.IDLE,
-                                    analysisAction = HomeDiagnosticsActionUiState(busy = true),
+                                StatusDiagnosticsUiState(
+                                    analysisRunStatus = StatusDiagnosticsRunUiStatus.IDLE,
+                                    analysisAction = StatusDiagnosticsActionUiState(busy = true),
                                 ),
                         ),
                     pagerState = pager,
@@ -210,7 +210,7 @@ class DiagnosticsGuidedActionsTest {
 
     @Test
     fun recheckIsDisabledWhileCompositeOwnsRun() {
-        val busy = auditState().copy(analysisAction = HomeDiagnosticsActionUiState(enabled = true, busy = true))
+        val busy = auditState().copy(analysisAction = StatusDiagnosticsActionUiState(enabled = true, busy = true))
         composeRule.setContent { Viewport { DiagnosticsGuidedActions(busy, {}, {}) } }
         composeRule.onNodeWithText("Check this network again").performScrollTo().assertIsNotEnabled()
     }
@@ -258,11 +258,11 @@ class DiagnosticsGuidedActionsTest {
     }
 
     private fun auditState() =
-        HomeDiagnosticsUiState(
-            analysisAction = HomeDiagnosticsActionUiState(enabled = true),
-            verifiedVpnAction = HomeDiagnosticsActionUiState(label = "Start Verified VPN", enabled = true),
+        StatusDiagnosticsUiState(
+            analysisAction = StatusDiagnosticsActionUiState(enabled = true),
+            verifiedVpnAction = StatusDiagnosticsActionUiState(label = "Start Verified VPN", enabled = true),
             latestAudit =
-                HomeDiagnosticsLatestAuditUiState(
+                StatusDiagnosticsLatestAuditUiState(
                     headline = "Current network: connection checks completed",
                     summary = "DNS and connection tests completed on this network.",
                     comparisonSummary = "0 newly failed, 1 newly recovered, 3 unchanged.",

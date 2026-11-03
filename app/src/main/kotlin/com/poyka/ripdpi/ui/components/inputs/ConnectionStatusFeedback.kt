@@ -10,9 +10,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.clearAndSetSemantics
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinnerSize
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -20,7 +20,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 /** Finite visual feedback; the adjacent current status owns spoken announcements. */
 @Composable
 internal fun ConnectionStatusFeedback(
-    status: HomeConnectionActuatorStatus,
+    status: StatusConnectionActuatorStatus,
     tint: Color,
 ) {
     val motion = RipDpiThemeTokens.motion
@@ -47,10 +47,10 @@ internal fun ConnectionStatusFeedback(
 
 @Composable
 private fun ConnectionStatusSymbol(
-    status: HomeConnectionActuatorStatus,
+    status: StatusConnectionActuatorStatus,
     tint: Color,
 ) {
-    if (status == HomeConnectionActuatorStatus.Engaging) {
+    if (status == StatusConnectionActuatorStatus.Engaging) {
         // The service has no measured progress. Keep cancellation on the separate button.
         RipDpiSpinner(size = RipDpiSpinnerSize.Small)
     } else {
@@ -63,11 +63,11 @@ private fun ConnectionStatusSymbol(
     }
 }
 
-private fun HomeConnectionActuatorStatus.icon() =
+private fun StatusConnectionActuatorStatus.icon() =
     when (this) {
-        HomeConnectionActuatorStatus.Open -> RipDpiIcons.Offline
-        HomeConnectionActuatorStatus.Engaging -> RipDpiIcons.Vpn
-        HomeConnectionActuatorStatus.Locked -> RipDpiIcons.Check
-        HomeConnectionActuatorStatus.Degraded -> RipDpiIcons.Warning
-        HomeConnectionActuatorStatus.Fault -> RipDpiIcons.Error
+        StatusConnectionActuatorStatus.Open -> RipDpiIcons.Offline
+        StatusConnectionActuatorStatus.Engaging -> RipDpiIcons.Vpn
+        StatusConnectionActuatorStatus.Locked -> RipDpiIcons.Check
+        StatusConnectionActuatorStatus.Degraded -> RipDpiIcons.Warning
+        StatusConnectionActuatorStatus.Fault -> RipDpiIcons.Error
     }

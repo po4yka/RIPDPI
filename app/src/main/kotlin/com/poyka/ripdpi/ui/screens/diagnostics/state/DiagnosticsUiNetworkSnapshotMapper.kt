@@ -1,11 +1,11 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.labelRes
 import com.poyka.ripdpi.diagnostics.CellularNetworkDetails
 import com.poyka.ripdpi.diagnostics.DiagnosticNetworkSnapshot
 import com.poyka.ripdpi.diagnostics.NetworkSnapshotModel
 import com.poyka.ripdpi.diagnostics.WifiNetworkDetails
+import com.poyka.ripdpi.ui.screens.status.labelRes
 import kotlinx.collections.immutable.toImmutableList
 
 internal fun DiagnosticsUiFactorySupport.toNetworkSnapshotUiModel(

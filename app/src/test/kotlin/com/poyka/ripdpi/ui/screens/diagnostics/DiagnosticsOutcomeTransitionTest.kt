@@ -10,9 +10,9 @@ import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsOutcomeSource
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsOutcomeUiModel
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.LocalRipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
@@ -103,7 +103,7 @@ class DiagnosticsOutcomeTransitionTest {
         composeRule.setContent {
             RipDpiTheme {
                 CompositionLocalProvider(LocalRipDpiMotion provides motion.value) {
-                    DiagnosticsOutcomeCard(outcome.value, false, HomeDiagnosticsUiState(), {}, {}, {})
+                    DiagnosticsOutcomeCard(outcome.value, false, StatusDiagnosticsUiState(), {}, {}, {})
                 }
             }
         }
@@ -185,7 +185,7 @@ class DiagnosticsOutcomeTransitionTest {
         composeRule.setContent {
             RipDpiTheme {
                 CompositionLocalProvider(LocalRipDpiMotion provides motion) {
-                    DiagnosticsOutcomeCard(outcome.value, false, HomeDiagnosticsUiState(), {}, {}, {})
+                    DiagnosticsOutcomeCard(outcome.value, false, StatusDiagnosticsUiState(), {}, {}, {})
                 }
             }
         }

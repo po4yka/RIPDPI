@@ -7,11 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
-import com.poyka.ripdpi.activities.AnalysisProgressUiState
-import com.poyka.ripdpi.activities.AnalysisStageStatus
-import com.poyka.ripdpi.activities.AnalysisStageUiState
-import com.poyka.ripdpi.activities.HomeMode
-import com.poyka.ripdpi.activities.HomeModeCardUiState
 import com.poyka.ripdpi.activities.LogEntry
 import com.poyka.ripdpi.activities.LogSeverity
 import com.poyka.ripdpi.activities.LogSubsystem
@@ -39,8 +34,13 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbePro
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.screens.diagnostics.state.PhaseState
 import com.poyka.ripdpi.ui.screens.diagnostics.state.PhaseStepUiModel
-import com.poyka.ripdpi.ui.screens.home.HomeModeCard
 import com.poyka.ripdpi.ui.screens.logs.LogsScreen
+import com.poyka.ripdpi.ui.screens.status.AnalysisProgressUiState
+import com.poyka.ripdpi.ui.screens.status.AnalysisStageStatus
+import com.poyka.ripdpi.ui.screens.status.AnalysisStageUiState
+import com.poyka.ripdpi.ui.screens.status.StatusMode
+import com.poyka.ripdpi.ui.screens.status.StatusModeCard
+import com.poyka.ripdpi.ui.screens.status.StatusModeCardUiState
 import com.poyka.ripdpi.ui.screens.xray.XrayProviderStatusCard
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentListOf
@@ -75,10 +75,10 @@ class BusyStateScreenshotTest {
     @Test
     fun homeAnalysisRunning() {
         capture("homeAnalysisRunning", heightDp = 420) {
-            HomeModeCard(
+            StatusModeCard(
                 uiState =
-                    HomeModeCardUiState(
-                        mode = HomeMode.Diagnostic,
+                    StatusModeCardUiState(
+                        mode = StatusMode.Diagnostic,
                         title = "Diagnostics",
                         primaryLabel = "Stage 4 of 8 - testing TLS handshakes",
                         secondaryLabel = "Analysing this network",

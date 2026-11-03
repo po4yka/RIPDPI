@@ -10,16 +10,16 @@ import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextAlign
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsRunUiStatus
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
-internal fun SimpleAnalysisChanges(diagnostics: HomeDiagnosticsUiState) {
+internal fun SimpleAnalysisChanges(diagnostics: StatusDiagnosticsUiState) {
     val terminal =
-        diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.COMPLETED ||
-            diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.FAILED
+        diagnostics.analysisRunStatus == StatusDiagnosticsRunUiStatus.COMPLETED ||
+            diagnostics.analysisRunStatus == StatusDiagnosticsRunUiStatus.FAILED
     val sheet = diagnostics.analysisSheet
     if (terminal && sheet != null && sheet.appliedSettings.isNotEmpty()) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -34,7 +34,7 @@ internal fun SimpleAnalysisChanges(diagnostics: HomeDiagnosticsUiState) {
             }
         }
     }
-    if (diagnostics.analysisRunStatus == HomeDiagnosticsRunUiStatus.CANCELLED || (terminal && sheet == null)) {
+    if (diagnostics.analysisRunStatus == StatusDiagnosticsRunUiStatus.CANCELLED || (terminal && sheet == null)) {
         Text(
             modifier = Modifier.fillMaxWidth(),
             text = stringResource(R.string.simple_analysis_saved_changes_body),

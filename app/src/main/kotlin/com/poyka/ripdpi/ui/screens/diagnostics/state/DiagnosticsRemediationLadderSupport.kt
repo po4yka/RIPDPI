@@ -1,9 +1,9 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HomeDiagnosticsLatestAuditUiState
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsLatestAuditUiState
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
@@ -128,7 +128,7 @@ private fun DiagnosticsUiFactorySupport.scanTransportRemediationLadder(
     }
 
 private fun StringResolver.homeTransportRemediationLadder(
-    latestOutcome: HomeDiagnosticsLatestAuditUiState,
+    latestOutcome: StatusDiagnosticsLatestAuditUiState,
 ): DiagnosticsRemediationLadderUiModel? =
     when (
         recommendTransportRemediation(
@@ -337,7 +337,7 @@ private fun DiagnosticsUiFactorySupport.scanReviewLadder(
 internal fun StringResolver.buildHomeRemediationLadder(
     commandLineBlocked: Boolean,
     fingerprintMismatch: Boolean,
-    latestOutcome: HomeDiagnosticsLatestAuditUiState?,
+    latestOutcome: StatusDiagnosticsLatestAuditUiState?,
 ): DiagnosticsRemediationLadderUiModel? =
     homeCommandLineLadder(commandLineBlocked)
         ?: latestOutcome?.let { homeOutcomeLadder(fingerprintMismatch, it) }
@@ -358,7 +358,7 @@ private fun StringResolver.homeCommandLineLadder(commandLineBlocked: Boolean): D
 
 private fun StringResolver.homeOutcomeLadder(
     fingerprintMismatch: Boolean,
-    outcome: HomeDiagnosticsLatestAuditUiState,
+    outcome: StatusDiagnosticsLatestAuditUiState,
 ): DiagnosticsRemediationLadderUiModel? =
     homeStaleOrMismatchLadder(fingerprintMismatch, outcome)
         ?: homeTransportRemediationLadder(outcome)
@@ -366,7 +366,7 @@ private fun StringResolver.homeOutcomeLadder(
 
 private fun StringResolver.homeStaleOrMismatchLadder(
     fingerprintMismatch: Boolean,
-    outcome: HomeDiagnosticsLatestAuditUiState,
+    outcome: StatusDiagnosticsLatestAuditUiState,
 ): DiagnosticsRemediationLadderUiModel? {
     if (!fingerprintMismatch && !outcome.stale) return null
     return remediationLadder(
@@ -382,7 +382,7 @@ private fun StringResolver.homeStaleOrMismatchLadder(
 }
 
 private fun StringResolver.homeNotActionableLadder(
-    outcome: HomeDiagnosticsLatestAuditUiState,
+    outcome: StatusDiagnosticsLatestAuditUiState,
 ): DiagnosticsRemediationLadderUiModel? {
     if (outcome.actionable) return null
     val needsHistoryReview = outcome.failedStageCount > 0 || outcome.completedStageCount < outcome.totalStageCount

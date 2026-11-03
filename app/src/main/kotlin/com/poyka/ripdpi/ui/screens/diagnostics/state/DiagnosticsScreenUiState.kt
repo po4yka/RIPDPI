@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import androidx.compose.runtime.Immutable
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 
 /** Only the sections and dialogs rendered by Diagnostics; history stays with its owning state. */
 @Immutable
@@ -19,7 +19,7 @@ data class DiagnosticsScreenUiState(
     val selectedStrategyProbeCandidate: DiagnosticsStrategyProbeCandidateDetailUiModel? = null,
     val performance: DiagnosticsPerformanceUiModel? = null,
     val uiPersona: String = "advanced",
-    val homeDiagnostics: HomeDiagnosticsUiState = HomeDiagnosticsUiState(),
+    val homeDiagnostics: StatusDiagnosticsUiState = StatusDiagnosticsUiState(),
 )
 
 fun DiagnosticsUiState.toScreenUiState(): DiagnosticsScreenUiState =

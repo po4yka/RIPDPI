@@ -29,7 +29,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.services.RemoteDeviceAcceptanceReport
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -55,6 +54,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeResultUiMod
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScreenUiState
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSection
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeCandidateDetailUiModel
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 import com.poyka.ripdpi.ui.screens.xray.XrayProviderToolUiModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -219,7 +219,7 @@ private fun DiagnosticsScreenFrame(
     showDebugInfo: Boolean,
     expertMode: Boolean,
     onExpertModeChange: (Boolean) -> Unit,
-    homeDiagnostics: HomeDiagnosticsUiState,
+    homeDiagnostics: StatusDiagnosticsUiState,
     onToggleDebugInfo: () -> Unit,
     tools: DiagnosticsToolsUiModel,
     rootModeEnabled: Boolean,
@@ -347,7 +347,7 @@ private fun DiagnosticsScreenPager(
     actions: DiagnosticsScreenActions,
     expertMode: Boolean,
     onExpertModeChange: (Boolean) -> Unit,
-    homeDiagnostics: HomeDiagnosticsUiState,
+    homeDiagnostics: StatusDiagnosticsUiState,
     tools: DiagnosticsToolsUiModel,
     rootModeEnabled: Boolean,
     pcapRecording: Boolean,

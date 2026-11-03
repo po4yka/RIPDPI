@@ -1,12 +1,12 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.labelRes
 import com.poyka.ripdpi.diagnostics.DeviceContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.EnvironmentContextModel
 import com.poyka.ripdpi.diagnostics.PermissionContextModel
 import com.poyka.ripdpi.diagnostics.ServiceContextModel
+import com.poyka.ripdpi.ui.screens.status.labelRes
 import kotlinx.collections.immutable.toImmutableList
 
 internal fun DiagnosticsUiFactorySupport.toOverviewContextGroup(

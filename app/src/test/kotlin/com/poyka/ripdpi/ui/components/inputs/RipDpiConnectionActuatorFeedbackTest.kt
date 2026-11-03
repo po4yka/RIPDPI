@@ -16,8 +16,8 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
-import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.DefaultRipDpiMotion
 import com.poyka.ripdpi.ui.theme.LocalRipDpiMotion
@@ -40,7 +40,7 @@ class RipDpiConnectionActuatorFeedbackTest {
 
     @Test
     fun `connection result fades out progress while status and action update immediately`() {
-        var state by mutableStateOf(actuatorState(HomeConnectionActuatorStatus.Engaging))
+        var state by mutableStateOf(actuatorState(StatusConnectionActuatorStatus.Engaging))
         composeRule.setContent {
             RipDpiTheme {
                 CompositionLocalProvider(LocalRipDpiMotion provides DefaultRipDpiMotion) {
@@ -61,7 +61,7 @@ class RipDpiConnectionActuatorFeedbackTest {
         composeRule.onNode(progress, useUnmergedTree = true).assertExists()
         composeRule.mainClock.autoAdvance = false
 
-        composeRule.runOnUiThread { state = actuatorState(HomeConnectionActuatorStatus.Locked) }
+        composeRule.runOnUiThread { state = actuatorState(StatusConnectionActuatorStatus.Locked) }
         composeRule.waitForIdle()
         composeRule.mainClock.advanceTimeBy(32)
         composeRule.waitForIdle()
@@ -80,7 +80,7 @@ class RipDpiConnectionActuatorFeedbackTest {
     fun `disabled motion replaces progress without an outgoing symbol`() {
         val state = showFeedback(motion = mutableStateOf(DefaultRipDpiMotion.copy(animationsEnabled = false)))
 
-        updateState(state, state.value.copy(status = HomeConnectionActuatorStatus.Locked))
+        updateState(state, state.value.copy(status = StatusConnectionActuatorStatus.Locked))
 
         composeRule.onNode(progress, useUnmergedTree = true).assertDoesNotExist()
     }
@@ -94,7 +94,7 @@ class RipDpiConnectionActuatorFeedbackTest {
         val buttonBounds =
             composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).fetchSemanticsNode().boundsInRoot
 
-        updateState(state, actuatorState(HomeConnectionActuatorStatus.Locked))
+        updateState(state, actuatorState(StatusConnectionActuatorStatus.Locked))
 
         assertEquals(
             progressBounds,
@@ -119,7 +119,7 @@ class RipDpiConnectionActuatorFeedbackTest {
     @Test
     fun `telemetry updates do not extend the result transition`() {
         val state = showFeedback()
-        updateState(state, actuatorState(HomeConnectionActuatorStatus.Locked))
+        updateState(state, actuatorState(StatusConnectionActuatorStatus.Locked))
         composeRule.onNode(progress, useUnmergedTree = true).assertExists()
         composeRule.mainClock.advanceTimeBy(48)
         composeRule.waitForIdle()
@@ -136,7 +136,7 @@ class RipDpiConnectionActuatorFeedbackTest {
     fun `disabling motion during feedback removes outgoing progress immediately`() {
         val motion = mutableStateOf(DefaultRipDpiMotion)
         val state = showFeedback(motion = motion)
-        updateState(state, actuatorState(HomeConnectionActuatorStatus.Locked))
+        updateState(state, actuatorState(StatusConnectionActuatorStatus.Locked))
         composeRule.onNode(progress, useUnmergedTree = true).assertExists()
 
         composeRule.runOnUiThread { motion.value = DefaultRipDpiMotion.copy(animationsEnabled = false) }
@@ -152,10 +152,10 @@ class RipDpiConnectionActuatorFeedbackTest {
         var cancellations = 0
         val state =
             showFeedback(
-                initialStatus = HomeConnectionActuatorStatus.Open,
+                initialStatus = StatusConnectionActuatorStatus.Open,
                 onDeactivate = { cancellations++ },
             )
-        updateState(state, actuatorState(HomeConnectionActuatorStatus.Engaging))
+        updateState(state, actuatorState(StatusConnectionActuatorStatus.Engaging))
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).assertIsEnabled().performClick()
 
@@ -168,7 +168,7 @@ class RipDpiConnectionActuatorFeedbackTest {
         var retries = 0
         var cancellations = 0
         val state = showFeedback(onActivate = { retries++ }, onDeactivate = { cancellations++ })
-        updateState(state, actuatorState(HomeConnectionActuatorStatus.Fault))
+        updateState(state, actuatorState(StatusConnectionActuatorStatus.Fault))
         composeRule.onNode(progress, useUnmergedTree = true).assertExists()
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).assertIsEnabled().performClick()
@@ -182,11 +182,11 @@ class RipDpiConnectionActuatorFeedbackTest {
     }
 
     private fun showFeedback(
-        initialStatus: HomeConnectionActuatorStatus = HomeConnectionActuatorStatus.Engaging,
+        initialStatus: StatusConnectionActuatorStatus = StatusConnectionActuatorStatus.Engaging,
         motion: MutableState<RipDpiMotion> = mutableStateOf(DefaultRipDpiMotion),
         onActivate: () -> Unit = {},
         onDeactivate: () -> Unit = {},
-    ): MutableState<HomeConnectionActuatorUiState> {
+    ): MutableState<StatusConnectionActuatorUiState> {
         val state = mutableStateOf(actuatorState(initialStatus))
         composeRule.setContent {
             RipDpiTheme {
@@ -205,8 +205,8 @@ class RipDpiConnectionActuatorFeedbackTest {
     }
 
     private fun updateState(
-        state: MutableState<HomeConnectionActuatorUiState>,
-        value: HomeConnectionActuatorUiState,
+        state: MutableState<StatusConnectionActuatorUiState>,
+        value: StatusConnectionActuatorUiState,
     ) {
         composeRule.runOnUiThread { state.value = value }
         composeRule.waitForIdle()

@@ -2,9 +2,6 @@ package com.poyka.ripdpi.ui.screenshot
 
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.activities.ConnectionState
-import com.poyka.ripdpi.activities.HardKillSwitchUiState
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
-import com.poyka.ripdpi.activities.HomePauseUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.resolveConnectionQuality
 import com.poyka.ripdpi.data.AppStatus
@@ -21,7 +18,10 @@ import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.service.telemetry.measurementSource
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
 import com.poyka.ripdpi.ui.components.homePreviewActuatorState
-import com.poyka.ripdpi.ui.screens.home.HomeScreen
+import com.poyka.ripdpi.ui.screens.status.HardKillSwitchUiState
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusPauseUiState
+import com.poyka.ripdpi.ui.screens.status.StatusScreen
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -55,10 +55,10 @@ class HomeStatusCardsScreenshotTest {
             darkMode = dark,
             testClassFqn = javaClass.name,
         ) {
-            HomeScreen(
+            StatusScreen(
                 uiState =
                     MainUiState(
-                        connectionActuator = homePreviewActuatorState(HomeConnectionActuatorStatus.Open),
+                        connectionActuator = homePreviewActuatorState(StatusConnectionActuatorStatus.Open),
                         hardKillSwitch =
                             HardKillSwitchUiState(
                                 status = AndroidHardKillSwitchStatus.UNKNOWN,
@@ -70,7 +70,7 @@ class HomeStatusCardsScreenshotTest {
                                 visible = true,
                             ),
                     ),
-                pause = HomePauseUiState(),
+                pause = StatusPauseUiState(),
                 onToggleConnection = {},
                 onOpenDiagnostics = {},
                 onOpenHistory = {},
@@ -112,12 +112,12 @@ class HomeStatusCardsScreenshotTest {
             fontScale = fontScale,
             testClassFqn = javaClass.name,
         ) {
-            HomeScreen(
+            StatusScreen(
                 uiState =
                     MainUiState(
                         appStatus = AppStatus.Running,
                         connectionState = ConnectionState.Connected,
-                        connectionActuator = homePreviewActuatorState(HomeConnectionActuatorStatus.Locked),
+                        connectionActuator = homePreviewActuatorState(StatusConnectionActuatorStatus.Locked),
                         connectionQuality = selected.connectionQuality,
                         connectionQualitySource = selected.measurementSource(telemetry),
                         dataTransferred = 192_000L,
@@ -149,7 +149,7 @@ class HomeStatusCardsScreenshotTest {
                                     ),
                             ),
                     ),
-                pause = HomePauseUiState(available = true),
+                pause = StatusPauseUiState(available = true),
                 onToggleConnection = {},
                 onOpenDiagnostics = {},
                 onOpenHistory = {},

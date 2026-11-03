@@ -48,8 +48,6 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextDirection
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
-import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -57,6 +55,8 @@ import com.poyka.ripdpi.ui.components.buttons.primaryActionWidth
 import com.poyka.ripdpi.ui.components.feedback.RipDpiConfirmDisconnectDialog
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.components.ripDpiClickable
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiActuatorStateRole
@@ -75,7 +75,7 @@ private val ConnectionCommitKeys = setOf(Key.Enter, Key.NumPadEnter, Key.Spaceba
 /** Status and route information remain outside the connection action target. */
 @Composable
 fun RipDpiConnectionActuator(
-    state: HomeConnectionActuatorUiState,
+    state: StatusConnectionActuatorUiState,
     onActivate: () -> Unit,
     onDeactivate: () -> Unit,
     modifier: Modifier = Modifier,
@@ -99,7 +99,7 @@ fun RipDpiConnectionActuator(
                 onActivate()
             }
 
-            state.isDeactivationAvailable && state.status == HomeConnectionActuatorStatus.Engaging -> {
+            state.isDeactivationAvailable && state.status == StatusConnectionActuatorStatus.Engaging -> {
                 onDeactivate()
             }
 
@@ -160,7 +160,7 @@ fun RipDpiConnectionActuator(
 
 @Composable
 private fun rememberConnectionInputModifier(
-    state: HomeConnectionActuatorUiState,
+    state: StatusConnectionActuatorUiState,
     onAction: () -> Unit,
 ): Modifier {
     val enabled = state.isActivationAvailable || state.isDeactivationAvailable
@@ -193,7 +193,7 @@ private fun rememberConnectionInputModifier(
 
 @Composable
 private fun ActuatorHeadline(
-    state: HomeConnectionActuatorUiState,
+    state: StatusConnectionActuatorUiState,
     stateStyle: RipDpiActuatorStateStyle,
 ) {
     val spacing = RipDpiThemeTokens.spacing
@@ -231,7 +231,7 @@ private fun ActuatorHeadline(
 
 @Composable
 private fun ActuatorRouteLabels(
-    state: HomeConnectionActuatorUiState,
+    state: StatusConnectionActuatorUiState,
     stateStyle: RipDpiActuatorStateStyle,
 ) {
     val type = RipDpiThemeTokens.type
@@ -251,7 +251,9 @@ private fun ActuatorRouteLabels(
         color = stateStyle.routeLabel,
     )
     // The idle duration is a meaningless 00:00:00, so only a live session shows it.
-    if (state.status == HomeConnectionActuatorStatus.Locked || state.status == HomeConnectionActuatorStatus.Degraded) {
+    if (state.status == StatusConnectionActuatorStatus.Locked ||
+        state.status == StatusConnectionActuatorStatus.Degraded
+    ) {
         if (!stacked) ActuatorRouteSeparator(stateStyle)
         val locale = LocalConfiguration.current.locales[0]
         // The ticking digits are read out as a spoken duration; the text is not a live region, so no tick is announced.
@@ -338,21 +340,21 @@ private fun ActuatorFaultDetail(
 }
 
 @Composable
-private fun HomeConnectionActuatorUiState.withResolvedLabels(): HomeConnectionActuatorUiState =
+private fun StatusConnectionActuatorUiState.withResolvedLabels(): StatusConnectionActuatorUiState =
     copy(
         actionLabel =
             actionLabel.ifEmpty {
                 stringResource(
                     when {
-                        !isActivationAvailable && status != HomeConnectionActuatorStatus.Engaging -> {
+                        !isActivationAvailable && status != StatusConnectionActuatorStatus.Engaging -> {
                             R.string.home_connection_actuator_action_deactivate
                         }
 
-                        status == HomeConnectionActuatorStatus.Engaging -> {
+                        status == StatusConnectionActuatorStatus.Engaging -> {
                             R.string.home_connection_actuator_action_cancel
                         }
 
-                        status == HomeConnectionActuatorStatus.Fault -> {
+                        status == StatusConnectionActuatorStatus.Fault -> {
                             R.string.home_connection_actuator_action_retry
                         }
 
@@ -366,14 +368,14 @@ private fun HomeConnectionActuatorUiState.withResolvedLabels(): HomeConnectionAc
             statusDescription.ifEmpty {
                 stringResource(
                     when (status) {
-                        HomeConnectionActuatorStatus.Open -> R.string.home_connection_actuator_state_open
+                        StatusConnectionActuatorStatus.Open -> R.string.home_connection_actuator_state_open
 
-                        HomeConnectionActuatorStatus.Engaging -> R.string.home_connection_actuator_state_engaging
+                        StatusConnectionActuatorStatus.Engaging -> R.string.home_connection_actuator_state_engaging
 
-                        HomeConnectionActuatorStatus.Locked -> R.string.home_connection_actuator_state_locked
+                        StatusConnectionActuatorStatus.Locked -> R.string.home_connection_actuator_state_locked
 
-                        HomeConnectionActuatorStatus.Degraded,
-                        HomeConnectionActuatorStatus.Fault,
+                        StatusConnectionActuatorStatus.Degraded,
+                        StatusConnectionActuatorStatus.Fault,
                         -> R.string.home_status_attention
                     },
                 )
@@ -382,11 +384,11 @@ private fun HomeConnectionActuatorUiState.withResolvedLabels(): HomeConnectionAc
         trailingLabel = trailingLabel.ifEmpty { stringResource(R.string.home_connection_path_direct) },
     )
 
-private fun HomeConnectionActuatorStatus.toThemeRole(): RipDpiActuatorStateRole =
+private fun StatusConnectionActuatorStatus.toThemeRole(): RipDpiActuatorStateRole =
     when (this) {
-        HomeConnectionActuatorStatus.Open -> RipDpiThemeTokens.stateRoles.actuator.open
-        HomeConnectionActuatorStatus.Engaging -> RipDpiThemeTokens.stateRoles.actuator.engaging
-        HomeConnectionActuatorStatus.Locked -> RipDpiThemeTokens.stateRoles.actuator.locked
-        HomeConnectionActuatorStatus.Degraded -> RipDpiThemeTokens.stateRoles.actuator.degraded
-        HomeConnectionActuatorStatus.Fault -> RipDpiThemeTokens.stateRoles.actuator.fault
+        StatusConnectionActuatorStatus.Open -> RipDpiThemeTokens.stateRoles.actuator.open
+        StatusConnectionActuatorStatus.Engaging -> RipDpiThemeTokens.stateRoles.actuator.engaging
+        StatusConnectionActuatorStatus.Locked -> RipDpiThemeTokens.stateRoles.actuator.locked
+        StatusConnectionActuatorStatus.Degraded -> RipDpiThemeTokens.stateRoles.actuator.degraded
+        StatusConnectionActuatorStatus.Fault -> RipDpiThemeTokens.stateRoles.actuator.fault
     }

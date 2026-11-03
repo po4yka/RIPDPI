@@ -9,6 +9,8 @@ import com.poyka.ripdpi.data.RuntimeConfigurationStrategy
 import com.poyka.ripdpi.data.deriveStrategyLaneFamilies
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.ui.screens.status.confirmedSelectionLabels
+import com.poyka.ripdpi.ui.screens.status.confirmedStrategyLabel
 
 /** A reference token for one saved-settings emission. It contains no settings or digest. */
 @Immutable

@@ -6,13 +6,13 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.LayoutDirection
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
-import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
-import com.poyka.ripdpi.activities.HomeMode
-import com.poyka.ripdpi.activities.HomeModeCardUiState
-import com.poyka.ripdpi.activities.HomeModeSummaryFacet
 import com.poyka.ripdpi.activities.MainUiState
-import com.poyka.ripdpi.ui.screens.home.HomeScreen
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState
+import com.poyka.ripdpi.ui.screens.status.StatusMode
+import com.poyka.ripdpi.ui.screens.status.StatusModeCardUiState
+import com.poyka.ripdpi.ui.screens.status.StatusModeSummaryFacet
+import com.poyka.ripdpi.ui.screens.status.StatusScreen
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Test
@@ -130,17 +130,17 @@ private fun HomeDisclosureScene() {
     val configure = stringResource(R.string.home_mode_card_configure)
     val cards =
         persistentListOf(
-            HomeModeCardUiState(
-                mode = HomeMode.LocalDpiBypass,
+            StatusModeCardUiState(
+                mode = StatusMode.LocalDpiBypass,
                 title = stringResource(R.string.home_mode_local_dpi_bypass),
                 primaryLabel = "",
                 summaryFacets =
                     persistentListOf(
-                        HomeModeSummaryFacet(
+                        StatusModeSummaryFacet(
                             label = stringResource(R.string.config_local_bypass_strategy_title),
                             value = stringResource(R.string.config_local_bypass_strategy_auto),
                         ),
-                        HomeModeSummaryFacet(
+                        StatusModeSummaryFacet(
                             label = stringResource(R.string.title_dns_settings),
                             value = "${stringResource(R.string.dns_mode_doh)} · AdGuard DNS (DoH)",
                         ),
@@ -148,15 +148,15 @@ private fun HomeDisclosureScene() {
                 statusLine = inactive,
                 configureLabel = configure,
             ),
-            HomeModeCardUiState(
-                mode = HomeMode.RemoteVpn,
+            StatusModeCardUiState(
+                mode = StatusMode.RemoteVpn,
                 title = stringResource(R.string.home_mode_remote_vpn),
                 primaryLabel = "VLESS Reality · relay.example",
                 statusLine = inactive,
                 configureLabel = configure,
             ),
-            HomeModeCardUiState(
-                mode = HomeMode.Diagnostic,
+            StatusModeCardUiState(
+                mode = StatusMode.Diagnostic,
                 title = stringResource(R.string.home_mode_diagnostic_scan),
                 primaryLabel = stringResource(R.string.home_mode_card_diagnostic_empty),
                 statusLine = inactive,
@@ -164,12 +164,12 @@ private fun HomeDisclosureScene() {
                 configureLabel = configure,
             ),
         )
-    HomeScreen(
+    StatusScreen(
         uiState =
             MainUiState(
                 connectionActuator =
-                    HomeConnectionActuatorUiState(
-                        status = HomeConnectionActuatorStatus.Locked,
+                    StatusConnectionActuatorUiState(
+                        status = StatusConnectionActuatorStatus.Locked,
                         trailingLabel = stringResource(R.string.home_connection_actuator_relay),
                         routeLabel = stringResource(R.string.home_mode_local_dpi_bypass),
                         statusDescription = stringResource(R.string.home_connection_actuator_state_locked),

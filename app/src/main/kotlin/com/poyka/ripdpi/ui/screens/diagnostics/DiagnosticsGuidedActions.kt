@@ -17,8 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
-import com.poyka.ripdpi.activities.HomeDiagnosticsVerificationSheetUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -30,6 +28,8 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSection
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeCandidateDetailUiModel
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsVerificationSheetUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -105,7 +105,7 @@ internal fun DiagnosticsGuidedTools(
 
 @Composable
 internal fun DiagnosticsGuidedActions(
-    state: HomeDiagnosticsUiState,
+    state: StatusDiagnosticsUiState,
     onRecheck: () -> Unit,
     onStartVerifiedVpn: () -> Unit,
     showSummary: Boolean = true,
@@ -176,7 +176,7 @@ internal fun DiagnosticsGuidedActions(
 
 @Composable
 internal fun DiagnosticsVerificationResult(
-    result: HomeDiagnosticsVerificationSheetUiState?,
+    result: StatusDiagnosticsVerificationSheetUiState?,
     onDismiss: () -> Unit,
 ) {
     result ?: return

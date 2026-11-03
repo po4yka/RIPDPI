@@ -6,12 +6,12 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.junit4.ComposeContentTestRule
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStage
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStageState
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStageUiState
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
-import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.ui.components.EnableKeyboardInput
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStage
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStageState
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStageUiState
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
@@ -20,7 +20,7 @@ import kotlinx.collections.immutable.persistentListOf
 // split along the same seam as the component itself.
 
 internal fun ComposeContentTestRule.setActuator(
-    state: HomeConnectionActuatorUiState,
+    state: StatusConnectionActuatorUiState,
     onActivate: () -> Unit = {},
     onDeactivate: () -> Unit = {},
     keyboardInput: Boolean = false,
@@ -38,59 +38,59 @@ internal fun ComposeContentTestRule.setActuator(
     }
 }
 
-internal fun actuatorState(status: HomeConnectionActuatorStatus): HomeConnectionActuatorUiState =
-    HomeConnectionActuatorUiState(
+internal fun actuatorState(status: StatusConnectionActuatorStatus): StatusConnectionActuatorUiState =
+    StatusConnectionActuatorUiState(
         status = status,
         trailingLabel = "Direct",
         routeLabel = "Local VPN",
         statusDescription = "State $status",
         actionLabel = "Action $status",
         stages =
-            if (status == HomeConnectionActuatorStatus.Engaging) {
+            if (status == StatusConnectionActuatorStatus.Engaging) {
                 persistentListOf(
-                    *HomeConnectionActuatorStage.entries
+                    *StatusConnectionActuatorStage.entries
                         .map {
-                            stage(it, HomeConnectionActuatorStageState.Pending)
+                            stage(it, StatusConnectionActuatorStageState.Pending)
                         }.toTypedArray(),
                 )
             } else {
                 persistentListOf(
-                    stage(HomeConnectionActuatorStage.Network, HomeConnectionActuatorStageState.Complete),
-                    stage(HomeConnectionActuatorStage.Dns, stageStateForDns(status)),
-                    stage(HomeConnectionActuatorStage.Handshake, HomeConnectionActuatorStageState.Complete),
-                    stage(HomeConnectionActuatorStage.Tunnel, stageStateForTunnel(status)),
-                    stage(HomeConnectionActuatorStage.Route, HomeConnectionActuatorStageState.Complete),
+                    stage(StatusConnectionActuatorStage.Network, StatusConnectionActuatorStageState.Complete),
+                    stage(StatusConnectionActuatorStage.Dns, stageStateForDns(status)),
+                    stage(StatusConnectionActuatorStage.Handshake, StatusConnectionActuatorStageState.Complete),
+                    stage(StatusConnectionActuatorStage.Tunnel, stageStateForTunnel(status)),
+                    stage(StatusConnectionActuatorStage.Route, StatusConnectionActuatorStageState.Complete),
                 )
             },
     )
 
-private fun stageStateForDns(status: HomeConnectionActuatorStatus): HomeConnectionActuatorStageState =
-    if (status == HomeConnectionActuatorStatus.Degraded) {
-        HomeConnectionActuatorStageState.Warning
+private fun stageStateForDns(status: StatusConnectionActuatorStatus): StatusConnectionActuatorStageState =
+    if (status == StatusConnectionActuatorStatus.Degraded) {
+        StatusConnectionActuatorStageState.Warning
     } else {
-        HomeConnectionActuatorStageState.Complete
+        StatusConnectionActuatorStageState.Complete
     }
 
-private fun stageStateForTunnel(status: HomeConnectionActuatorStatus): HomeConnectionActuatorStageState =
-    if (status == HomeConnectionActuatorStatus.Fault) {
-        HomeConnectionActuatorStageState.Failed
+private fun stageStateForTunnel(status: StatusConnectionActuatorStatus): StatusConnectionActuatorStageState =
+    if (status == StatusConnectionActuatorStatus.Fault) {
+        StatusConnectionActuatorStageState.Failed
     } else {
-        HomeConnectionActuatorStageState.Complete
+        StatusConnectionActuatorStageState.Complete
     }
 
 private fun stage(
-    stage: HomeConnectionActuatorStage,
-    state: HomeConnectionActuatorStageState,
-): HomeConnectionActuatorStageUiState =
-    HomeConnectionActuatorStageUiState(
+    stage: StatusConnectionActuatorStage,
+    state: StatusConnectionActuatorStageState,
+): StatusConnectionActuatorStageUiState =
+    StatusConnectionActuatorStageUiState(
         stage = stage,
         label =
             when (stage) {
-                HomeConnectionActuatorStage.Network -> "Network"
-                HomeConnectionActuatorStage.Dns -> "DNS"
-                HomeConnectionActuatorStage.Handshake -> "Handshake"
-                HomeConnectionActuatorStage.Tunnel -> "Tunnel"
-                HomeConnectionActuatorStage.Route -> "Route"
+                StatusConnectionActuatorStage.Network -> "Network"
+                StatusConnectionActuatorStage.Dns -> "DNS"
+                StatusConnectionActuatorStage.Handshake -> "Handshake"
+                StatusConnectionActuatorStage.Tunnel -> "Tunnel"
+                StatusConnectionActuatorStage.Route -> "Route"
             },
         state = state,
     )

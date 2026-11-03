@@ -26,16 +26,16 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.dp
-import com.poyka.ripdpi.activities.AnalysisProgressUiState
-import com.poyka.ripdpi.activities.AnalysisStageStatus
-import com.poyka.ripdpi.activities.AnalysisStageUiState
 import com.poyka.ripdpi.activities.ConnectionState
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
-import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
-import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
-import com.poyka.ripdpi.activities.HomeDiagnosticsAnalysisSheetUiState
-import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
+import com.poyka.ripdpi.ui.screens.status.AnalysisProgressUiState
+import com.poyka.ripdpi.ui.screens.status.AnalysisStageStatus
+import com.poyka.ripdpi.ui.screens.status.AnalysisStageUiState
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsActionUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsAnalysisSheetUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsRunUiStatus
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.homePauseDuration
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -73,14 +73,14 @@ class SimpleHomeScreenTest {
     }
 
     private fun openActuator() =
-        HomeConnectionActuatorUiState(
-            status = HomeConnectionActuatorStatus.Open,
+        StatusConnectionActuatorUiState(
+            status = StatusConnectionActuatorStatus.Open,
             actionLabel = "Connect",
         )
 
     private fun lockedActuator(deactivationEnabled: Boolean? = null) =
-        HomeConnectionActuatorUiState(
-            status = HomeConnectionActuatorStatus.Locked,
+        StatusConnectionActuatorUiState(
+            status = StatusConnectionActuatorStatus.Locked,
             actionLabel = "Disconnect",
             deactivationEnabled = deactivationEnabled,
         )
@@ -92,13 +92,13 @@ class SimpleHomeScreenTest {
             RipDpiTheme {
                 SimpleHomeContent(
                     pauseState =
-                        com.poyka.ripdpi.activities
-                            .HomePauseUiState(),
+                        com.poyka.ripdpi.ui.screens.status
+                            .StatusPauseUiState(),
                     onPause = { error("Profiles must not pause the connection") },
                     onResumePause = { error("Profiles must not resume the connection") },
                     onStopPause = { error("Profiles must not stop the connection") },
                     connectionState = ConnectionState.Disconnected,
-                    diagnostics = HomeDiagnosticsUiState(),
+                    diagnostics = StatusDiagnosticsUiState(),
                     activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
                     onToggleConnection = { error("Profiles must not change the connection") },
@@ -126,13 +126,13 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities
-                            .HomePauseUiState(available = true),
+                        com.poyka.ripdpi.ui.screens.status
+                            .StatusPauseUiState(available = true),
                     onPause = { requestedDuration = it },
                     onResumePause = { error("No pending pause") },
                     onStopPause = { error("No pending pause") },
                     connectionState = ConnectionState.Connected,
-                    diagnostics = HomeDiagnosticsUiState(),
+                    diagnostics = StatusDiagnosticsUiState(),
                     activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
                     onToggleConnection = {},
@@ -155,7 +155,7 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities.HomePauseUiState(
+                        com.poyka.ripdpi.ui.screens.status.StatusPauseUiState(
                             phase = com.poyka.ripdpi.data.PausePhase.Paused,
                             mode = com.poyka.ripdpi.data.Mode.VPN,
                             deadlineWallMillis = 1_791_224_100_000L,
@@ -165,7 +165,7 @@ class SimpleHomeScreenTest {
                     onResumePause = { resumes += 1 },
                     onStopPause = { stops += 1 },
                     connectionState = ConnectionState.Disconnected,
-                    diagnostics = HomeDiagnosticsUiState(),
+                    diagnostics = StatusDiagnosticsUiState(),
                     activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
                     onToggleConnection = {},
@@ -190,7 +190,7 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities.HomePauseUiState(
+                        com.poyka.ripdpi.ui.screens.status.StatusPauseUiState(
                             phase = com.poyka.ripdpi.data.PausePhase.CleanupPending,
                         ),
                     onPause = { error("Cleanup pending") },
@@ -200,7 +200,7 @@ class SimpleHomeScreenTest {
                             1
                     },
                     connectionState = ConnectionState.Disconnected,
-                    diagnostics = HomeDiagnosticsUiState(),
+                    diagnostics = StatusDiagnosticsUiState(),
                     activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
                     onToggleConnection = {},
@@ -223,15 +223,15 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities
-                            .HomePauseUiState(),
+                        com.poyka.ripdpi.ui.screens.status
+                            .StatusPauseUiState(),
                     onPause = { error("Unexpected pause in inactive fixture") },
                     onResumePause = { error("Unexpected resume in inactive fixture") },
                     onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Connected,
                     connectionActuator = lockedActuator(),
                     blocksDisconnect = false,
-                    diagnostics = HomeDiagnosticsUiState(),
+                    diagnostics = StatusDiagnosticsUiState(),
                     activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
                     onToggleConnection = { toggleClicks += 1 },
@@ -253,20 +253,20 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities
-                            .HomePauseUiState(),
+                        com.poyka.ripdpi.ui.screens.status
+                            .StatusPauseUiState(),
                     onPause = { error("Unexpected pause in inactive fixture") },
                     onResumePause = { error("Unexpected resume in inactive fixture") },
                     onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Connected,
                     // What the shared resolver would hand this screen.
                     connectionActuator =
-                        HomeConnectionActuatorUiState(
-                            status = HomeConnectionActuatorStatus.Locked,
+                        StatusConnectionActuatorUiState(
+                            status = StatusConnectionActuatorStatus.Locked,
                             actionLabel = "Release secure line",
                             statusDescription = "Secure line engaged",
                         ),
-                    diagnostics = HomeDiagnosticsUiState(),
+                    diagnostics = StatusDiagnosticsUiState(),
                     activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
                     onToggleConnection = {},
@@ -292,8 +292,8 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities
-                            .HomePauseUiState(),
+                        com.poyka.ripdpi.ui.screens.status
+                            .StatusPauseUiState(),
                     onPause = { error("Unexpected pause in inactive fixture") },
                     onResumePause = { error("Unexpected resume in inactive fixture") },
                     onStopPause = { error("Unexpected stop in inactive fixture") },
@@ -301,7 +301,7 @@ class SimpleHomeScreenTest {
                     connectionActuator = lockedActuator(deactivationEnabled = false),
                     blocksDisconnect = true,
                     disconnectBlockedReason = "Always-on VPN owns this connection",
-                    diagnostics = HomeDiagnosticsUiState(),
+                    diagnostics = StatusDiagnosticsUiState(),
                     activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
                     onToggleConnection = { toggleClicks += 1 },
@@ -323,8 +323,8 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities
-                            .HomePauseUiState(),
+                        com.poyka.ripdpi.ui.screens.status
+                            .StatusPauseUiState(),
                     onPause = { error("Unexpected pause in inactive fixture") },
                     onResumePause = { error("Unexpected resume in inactive fixture") },
                     onStopPause = { error("Unexpected stop in inactive fixture") },
@@ -332,7 +332,7 @@ class SimpleHomeScreenTest {
                     connectionActuator = lockedActuator(),
                     blocksDisconnect = false,
                     disconnectBlockedReason = "Always-on VPN owns this connection",
-                    diagnostics = HomeDiagnosticsUiState(),
+                    diagnostics = StatusDiagnosticsUiState(),
                     activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
                     onToggleConnection = {},
@@ -355,19 +355,19 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities
-                            .HomePauseUiState(),
+                        com.poyka.ripdpi.ui.screens.status
+                            .StatusPauseUiState(),
                     onPause = { error("Unexpected pause in inactive fixture") },
                     onResumePause = { error("Unexpected resume in inactive fixture") },
                     onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Connecting,
                     connectionActuator =
-                        HomeConnectionActuatorUiState(
-                            status = HomeConnectionActuatorStatus.Engaging,
+                        StatusConnectionActuatorUiState(
+                            status = StatusConnectionActuatorStatus.Engaging,
                             actionLabel = "Disconnect",
                         ),
                     blocksDisconnect = false,
-                    diagnostics = HomeDiagnosticsUiState(),
+                    diagnostics = StatusDiagnosticsUiState(),
                     activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
                     onToggleConnection = { toggleClicks += 1 },
@@ -391,15 +391,15 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities
-                            .HomePauseUiState(),
+                        com.poyka.ripdpi.ui.screens.status
+                            .StatusPauseUiState(),
                     onPause = { error("Unexpected pause in inactive fixture") },
                     onResumePause = { error("Unexpected resume in inactive fixture") },
                     onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Disconnected,
                     connectionActuator = openActuator(),
                     blocksDisconnect = true,
-                    diagnostics = HomeDiagnosticsUiState(),
+                    diagnostics = StatusDiagnosticsUiState(),
                     activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
                     onToggleConnection = { toggleClicks += 1 },
@@ -418,9 +418,9 @@ class SimpleHomeScreenTest {
         var cancelClicks = 0
         var toggleClicks = 0
         val diagnostics =
-            HomeDiagnosticsUiState(
+            StatusDiagnosticsUiState(
                 analysisAction =
-                    HomeDiagnosticsActionUiState(
+                    StatusDiagnosticsActionUiState(
                         supportingText = "Stage 2 of 4 · Testing TLS",
                         stageAnnouncement = "Stage 2 of 4 · Testing TLS",
                         busy = true,
@@ -436,7 +436,7 @@ class SimpleHomeScreenTest {
                             ),
                         activeStageIndex = 1,
                     ),
-                analysisRunStatus = HomeDiagnosticsRunUiStatus.RUNNING,
+                analysisRunStatus = StatusDiagnosticsRunUiStatus.RUNNING,
             )
 
         composeRule.setContent {
@@ -444,8 +444,8 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities
-                            .HomePauseUiState(),
+                        com.poyka.ripdpi.ui.screens.status
+                            .StatusPauseUiState(),
                     onPause = { error("Unexpected pause in inactive fixture") },
                     onResumePause = { error("Unexpected resume in inactive fixture") },
                     onStopPause = { error("Unexpected stop in inactive fixture") },
@@ -488,9 +488,9 @@ class SimpleHomeScreenTest {
         var cancelClicks = 0
         var toggleClicks = 0
         val diagnostics =
-            HomeDiagnosticsUiState(
-                analysisAction = HomeDiagnosticsActionUiState(supportingText = "Starting diagnostics", busy = true),
-                analysisRunStatus = HomeDiagnosticsRunUiStatus.STARTING,
+            StatusDiagnosticsUiState(
+                analysisAction = StatusDiagnosticsActionUiState(supportingText = "Starting diagnostics", busy = true),
+                analysisRunStatus = StatusDiagnosticsRunUiStatus.STARTING,
             )
 
         composeRule.setContent {
@@ -498,8 +498,8 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities
-                            .HomePauseUiState(),
+                        com.poyka.ripdpi.ui.screens.status
+                            .StatusPauseUiState(),
                     onPause = { error("Unexpected pause in inactive fixture") },
                     onResumePause = { error("Unexpected resume in inactive fixture") },
                     onStopPause = { error("Unexpected stop in inactive fixture") },
@@ -527,9 +527,9 @@ class SimpleHomeScreenTest {
     @Test
     fun `scan progress renders below the report action rather than the connection status`() {
         val diagnostics =
-            HomeDiagnosticsUiState(
+            StatusDiagnosticsUiState(
                 analysisAction =
-                    HomeDiagnosticsActionUiState(
+                    StatusDiagnosticsActionUiState(
                         supportingText = "Stage 2 of 4 · Testing TLS",
                         stageAnnouncement = "Stage 2 of 4 · Testing TLS",
                         busy = true,
@@ -539,7 +539,7 @@ class SimpleHomeScreenTest {
                         stages = persistentListOf(AnalysisStageUiState(AnalysisStageStatus.RUNNING, progress = 0.5f)),
                         activeStageIndex = 0,
                     ),
-                analysisRunStatus = HomeDiagnosticsRunUiStatus.RUNNING,
+                analysisRunStatus = StatusDiagnosticsRunUiStatus.RUNNING,
             )
 
         composeRule.setContent {
@@ -547,8 +547,8 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities
-                            .HomePauseUiState(),
+                        com.poyka.ripdpi.ui.screens.status
+                            .StatusPauseUiState(),
                     onPause = { error("Unexpected pause in inactive fixture") },
                     onResumePause = { error("Unexpected resume in inactive fixture") },
                     onStopPause = { error("Unexpected stop in inactive fixture") },
@@ -583,9 +583,9 @@ class SimpleHomeScreenTest {
     @Test
     fun `idle report action follows authoritative availability and explains why it is disabled`() {
         val diagnostics =
-            HomeDiagnosticsUiState(
+            StatusDiagnosticsUiState(
                 analysisAction =
-                    HomeDiagnosticsActionUiState(
+                    StatusDiagnosticsActionUiState(
                         supportingText = "Disable command line settings to run diagnostics",
                         enabled = false,
                     ),
@@ -596,8 +596,8 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities
-                            .HomePauseUiState(),
+                        com.poyka.ripdpi.ui.screens.status
+                            .StatusPauseUiState(),
                     onPause = { error("Unexpected pause in inactive fixture") },
                     onResumePause = { error("Unexpected resume in inactive fixture") },
                     onStopPause = { error("Unexpected stop in inactive fixture") },
@@ -623,15 +623,15 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities
-                            .HomePauseUiState(),
+                        com.poyka.ripdpi.ui.screens.status
+                            .StatusPauseUiState(),
                     onPause = { error("Unexpected pause in inactive fixture") },
                     onResumePause = { error("Unexpected resume in inactive fixture") },
                     onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Disconnected,
                     diagnostics =
-                        HomeDiagnosticsUiState(
-                            analysisAction = HomeDiagnosticsActionUiState(enabled = true),
+                        StatusDiagnosticsUiState(
+                            analysisAction = StatusDiagnosticsActionUiState(enabled = true),
                         ),
                     activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
@@ -649,11 +649,11 @@ class SimpleHomeScreenTest {
     fun `completed report shows result and a working share action`() {
         var shareClicks = 0
         val diagnostics =
-            HomeDiagnosticsUiState(
-                analysisAction = HomeDiagnosticsActionUiState(enabled = true),
-                analysisRunStatus = HomeDiagnosticsRunUiStatus.COMPLETED,
+            StatusDiagnosticsUiState(
+                analysisAction = StatusDiagnosticsActionUiState(enabled = true),
+                analysisRunStatus = StatusDiagnosticsRunUiStatus.COMPLETED,
                 analysisSheet =
-                    HomeDiagnosticsAnalysisSheetUiState(
+                    StatusDiagnosticsAnalysisSheetUiState(
                         runId = "run-1",
                         headline = "Network analysis complete",
                         summary = "Two recommended settings are ready to review.",
@@ -665,8 +665,8 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities
-                            .HomePauseUiState(),
+                        com.poyka.ripdpi.ui.screens.status
+                            .StatusPauseUiState(),
                     onPause = { error("Unexpected pause in inactive fixture") },
                     onResumePause = { error("Unexpected resume in inactive fixture") },
                     onStopPause = { error("Unexpected stop in inactive fixture") },
@@ -692,11 +692,11 @@ class SimpleHomeScreenTest {
     fun `about is reachable and the archive discloses what it contains`() {
         var aboutClicks = 0
         val diagnostics =
-            HomeDiagnosticsUiState(
-                analysisAction = HomeDiagnosticsActionUiState(enabled = true),
-                analysisRunStatus = HomeDiagnosticsRunUiStatus.COMPLETED,
+            StatusDiagnosticsUiState(
+                analysisAction = StatusDiagnosticsActionUiState(enabled = true),
+                analysisRunStatus = StatusDiagnosticsRunUiStatus.COMPLETED,
                 analysisSheet =
-                    HomeDiagnosticsAnalysisSheetUiState(
+                    StatusDiagnosticsAnalysisSheetUiState(
                         runId = "run-1",
                         headline = "Network analysis complete",
                         summary = "Two recommended settings are ready to review.",
@@ -708,8 +708,8 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities
-                            .HomePauseUiState(),
+                        com.poyka.ripdpi.ui.screens.status
+                            .StatusPauseUiState(),
                     onPause = { error("Unexpected pause in inactive fixture") },
                     onResumePause = { error("Unexpected resume in inactive fixture") },
                     onStopPause = { error("Unexpected stop in inactive fixture") },
@@ -737,11 +737,11 @@ class SimpleHomeScreenTest {
     @Test
     fun `a failed run keeps its outcome and its archive`() {
         val diagnostics =
-            HomeDiagnosticsUiState(
-                analysisAction = HomeDiagnosticsActionUiState(enabled = true),
-                analysisRunStatus = HomeDiagnosticsRunUiStatus.FAILED,
+            StatusDiagnosticsUiState(
+                analysisAction = StatusDiagnosticsActionUiState(enabled = true),
+                analysisRunStatus = StatusDiagnosticsRunUiStatus.FAILED,
                 analysisSheet =
-                    HomeDiagnosticsAnalysisSheetUiState(
+                    StatusDiagnosticsAnalysisSheetUiState(
                         runId = "run-1",
                         headline = "TLS handshake stage failed",
                         summary = "The handshake probe timed out on this network.",
@@ -753,8 +753,8 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities
-                            .HomePauseUiState(),
+                        com.poyka.ripdpi.ui.screens.status
+                            .StatusPauseUiState(),
                     onPause = { error("Unexpected pause in inactive fixture") },
                     onResumePause = { error("Unexpected resume in inactive fixture") },
                     onStopPause = { error("Unexpected stop in inactive fixture") },
@@ -781,11 +781,11 @@ class SimpleHomeScreenTest {
     fun `saving stays available while a share is in flight`() {
         var saveClicks = 0
         val diagnostics =
-            HomeDiagnosticsUiState(
-                analysisAction = HomeDiagnosticsActionUiState(enabled = true),
-                analysisRunStatus = HomeDiagnosticsRunUiStatus.COMPLETED,
+            StatusDiagnosticsUiState(
+                analysisAction = StatusDiagnosticsActionUiState(enabled = true),
+                analysisRunStatus = StatusDiagnosticsRunUiStatus.COMPLETED,
                 analysisSheet =
-                    HomeDiagnosticsAnalysisSheetUiState(
+                    StatusDiagnosticsAnalysisSheetUiState(
                         runId = "run-1",
                         headline = "Network analysis complete",
                         summary = "Two recommended settings are ready to review.",
@@ -798,8 +798,8 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities
-                            .HomePauseUiState(),
+                        com.poyka.ripdpi.ui.screens.status
+                            .StatusPauseUiState(),
                     onPause = { error("Unexpected pause in inactive fixture") },
                     onResumePause = { error("Unexpected resume in inactive fixture") },
                     onStopPause = { error("Unexpected stop in inactive fixture") },
@@ -829,16 +829,16 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities
-                            .HomePauseUiState(),
+                        com.poyka.ripdpi.ui.screens.status
+                            .StatusPauseUiState(),
                     onPause = { error("Unexpected pause in inactive fixture") },
                     onResumePause = { error("Unexpected resume in inactive fixture") },
                     onStopPause = { error("Unexpected stop in inactive fixture") },
                     connectionState = ConnectionState.Disconnected,
                     connectionActuator = openActuator(),
                     diagnostics =
-                        HomeDiagnosticsUiState(
-                            analysisAction = HomeDiagnosticsActionUiState(enabled = true),
+                        StatusDiagnosticsUiState(
+                            analysisAction = StatusDiagnosticsActionUiState(enabled = true),
                         ),
                     activeTransport = null,
                     snackbarHostState = SnackbarHostState(),
@@ -863,9 +863,9 @@ class SimpleHomeScreenTest {
     @Test
     fun `compact height can scroll to the report action`() {
         val diagnostics =
-            HomeDiagnosticsUiState(
-                analysisAction = HomeDiagnosticsActionUiState(supportingText = "Stage 1 of 8", busy = true),
-                analysisRunStatus = HomeDiagnosticsRunUiStatus.RUNNING,
+            StatusDiagnosticsUiState(
+                analysisAction = StatusDiagnosticsActionUiState(supportingText = "Stage 1 of 8", busy = true),
+                analysisRunStatus = StatusDiagnosticsRunUiStatus.RUNNING,
             )
 
         composeRule.setContent {
@@ -873,8 +873,8 @@ class SimpleHomeScreenTest {
                 SimpleHomeContent(
                     onOpenProfiles = {},
                     pauseState =
-                        com.poyka.ripdpi.activities
-                            .HomePauseUiState(),
+                        com.poyka.ripdpi.ui.screens.status
+                            .StatusPauseUiState(),
                     onPause = { error("Unexpected pause in inactive fixture") },
                     onResumePause = { error("Unexpected resume in inactive fixture") },
                     onStopPause = { error("Unexpected stop in inactive fixture") },
@@ -898,9 +898,9 @@ class SimpleHomeScreenTest {
     fun `terminal report states remain visible`() {
         val expectedLabels =
             listOf(
-                HomeDiagnosticsRunUiStatus.COMPLETED to "Scan complete",
-                HomeDiagnosticsRunUiStatus.CANCELLED to "Diagnostic report cancelled",
-                HomeDiagnosticsRunUiStatus.FAILED to "Diagnostic report failed. Try again.",
+                StatusDiagnosticsRunUiStatus.COMPLETED to "Scan complete",
+                StatusDiagnosticsRunUiStatus.CANCELLED to "Diagnostic report cancelled",
+                StatusDiagnosticsRunUiStatus.FAILED to "Diagnostic report failed. Try again.",
             )
 
         composeRule.setContent {
@@ -908,7 +908,7 @@ class SimpleHomeScreenTest {
                 Column {
                     expectedLabels.forEach { (status, _) ->
                         SimpleDiagnosticsStatus(
-                            diagnostics = HomeDiagnosticsUiState(analysisRunStatus = status),
+                            diagnostics = StatusDiagnosticsUiState(analysisRunStatus = status),
                         )
                     }
                 }

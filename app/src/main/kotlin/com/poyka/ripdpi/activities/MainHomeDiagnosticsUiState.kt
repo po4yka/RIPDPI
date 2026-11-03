@@ -18,6 +18,34 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRemediationLadde
 import com.poyka.ripdpi.ui.screens.diagnostics.state.buildHomeRemediationLadder
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import com.poyka.ripdpi.ui.screens.diagnostics.state.toTransportRemediationEvidence
+import com.poyka.ripdpi.ui.screens.status.AnalysisProgressUiState
+import com.poyka.ripdpi.ui.screens.status.AnalysisStageStatus
+import com.poyka.ripdpi.ui.screens.status.AnalysisStageUiState
+import com.poyka.ripdpi.ui.screens.status.StatusActionableSummaryPresentation
+import com.poyka.ripdpi.ui.screens.status.StatusAnalysisLabeledRow
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsActionUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsAnalysisSheetUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsAuditSource
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsLatestAuditUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsRunUiStatus
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsStageUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsVerificationSheetUiState
+import com.poyka.ripdpi.ui.screens.status.homeAppliedSetting
+import com.poyka.ripdpi.ui.screens.status.homeConfidence
+import com.poyka.ripdpi.ui.screens.status.homeConfidenceLevel
+import com.poyka.ripdpi.ui.screens.status.homeDescription
+import com.poyka.ripdpi.ui.screens.status.homeGeneratedText
+import com.poyka.ripdpi.ui.screens.status.homeHeadline
+import com.poyka.ripdpi.ui.screens.status.homeNetworkNote
+import com.poyka.ripdpi.ui.screens.status.homeNote
+import com.poyka.ripdpi.ui.screens.status.homeOperator
+import com.poyka.ripdpi.ui.screens.status.homeProgressText
+import com.poyka.ripdpi.ui.screens.status.homeRecommendationText
+import com.poyka.ripdpi.ui.screens.status.homeStageLabel
+import com.poyka.ripdpi.ui.screens.status.homeStageSummary
+import com.poyka.ripdpi.ui.screens.status.homeSummary
+import com.poyka.ripdpi.ui.screens.status.homeUiModel
 import kotlinx.collections.immutable.toImmutableList
 
 internal fun buildHomeDiagnosticsUiState(
@@ -26,13 +54,13 @@ internal fun buildHomeDiagnosticsUiState(
     connectionState: ConnectionState,
     runtime: HomeDiagnosticsRuntimeState,
     stringResolver: StringResolver,
-): HomeDiagnosticsUiState {
+): StatusDiagnosticsUiState {
     val availability = resolveHomeDiagnosticsAvailability(settings, appStatus, connectionState, runtime, stringResolver)
-    return HomeDiagnosticsUiState(
+    return StatusDiagnosticsUiState(
         pcapRecordingRequested = runtime.pcapRecordingRequested,
         pcapToggleVisible = settings.rootModeEnabled,
         analysisAction =
-            HomeDiagnosticsActionUiState(
+            StatusDiagnosticsActionUiState(
                 label = stringResolver.getString(R.string.home_diagnostics_run_analysis),
                 supportingText = availability.analysisSupportingText,
                 stageAnnouncement = availability.analysisStageAnnouncement,
@@ -41,7 +69,7 @@ internal fun buildHomeDiagnosticsUiState(
             ),
         quickScanBusy = availability.analysisBusy && runtime.quickScanActive,
         verifiedVpnAction =
-            HomeDiagnosticsActionUiState(
+            StatusDiagnosticsActionUiState(
                 label = stringResolver.getString(R.string.home_diagnostics_start_verified_vpn),
                 supportingText = availability.verificationSupportingText,
                 enabled = availability.verificationEnabled,
@@ -57,7 +85,7 @@ internal fun buildHomeDiagnosticsUiState(
                 ?.toAnalysisSheetUiState(runtime, availability.remediationLadder, stringResolver),
         verificationSheet =
             runtime.verificationSheet?.let { outcome ->
-                HomeDiagnosticsVerificationSheetUiState(
+                StatusDiagnosticsVerificationSheetUiState(
                     sessionId = outcome.sessionId,
                     success = outcome.success,
                     headline = outcome.headline,
@@ -68,16 +96,39 @@ internal fun buildHomeDiagnosticsUiState(
     )
 }
 
-private fun HomeDiagnosticsRuntimeState.analysisRunUiStatus(): HomeDiagnosticsRunUiStatus =
+private fun HomeDiagnosticsRuntimeState.analysisRunUiStatus(): StatusDiagnosticsRunUiStatus =
     when {
-        analysisStartFailed -> HomeDiagnosticsRunUiStatus.FAILED
-        analysisStarting -> HomeDiagnosticsRunUiStatus.STARTING
-        activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.RUNNING -> HomeDiagnosticsRunUiStatus.RUNNING
-        activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.COMPLETED -> HomeDiagnosticsRunUiStatus.COMPLETED
-        activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.CANCELLED -> HomeDiagnosticsRunUiStatus.CANCELLED
-        activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.FAILED -> HomeDiagnosticsRunUiStatus.FAILED
-        analysisStartCancelled -> HomeDiagnosticsRunUiStatus.CANCELLED
-        else -> HomeDiagnosticsRunUiStatus.IDLE
+        analysisStartFailed -> {
+            StatusDiagnosticsRunUiStatus.FAILED
+        }
+
+        analysisStarting -> {
+            StatusDiagnosticsRunUiStatus.STARTING
+        }
+
+        activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.RUNNING -> {
+            StatusDiagnosticsRunUiStatus.RUNNING
+        }
+
+        activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.COMPLETED -> {
+            StatusDiagnosticsRunUiStatus.COMPLETED
+        }
+
+        activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.CANCELLED -> {
+            StatusDiagnosticsRunUiStatus.CANCELLED
+        }
+
+        activeRunProgress?.status == DiagnosticsHomeCompositeRunStatus.FAILED -> {
+            StatusDiagnosticsRunUiStatus.FAILED
+        }
+
+        analysisStartCancelled -> {
+            StatusDiagnosticsRunUiStatus.CANCELLED
+        }
+
+        else -> {
+            StatusDiagnosticsRunUiStatus.IDLE
+        }
     }
 
 private data class HomeDiagnosticsAvailability(
@@ -89,7 +140,7 @@ private data class HomeDiagnosticsAvailability(
     val analysisStageAnnouncement: String,
     val verificationEnabled: Boolean,
     val verificationSupportingText: String,
-    val latestAudit: HomeDiagnosticsLatestAuditUiState?,
+    val latestAudit: StatusDiagnosticsLatestAuditUiState?,
     val remediationLadder: DiagnosticsRemediationLadderUiModel?,
 )
 
@@ -349,8 +400,8 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
     runtime: HomeDiagnosticsRuntimeState,
     remediationLadder: DiagnosticsRemediationLadderUiModel?,
     stringResolver: StringResolver,
-): HomeDiagnosticsAnalysisSheetUiState =
-    HomeDiagnosticsAnalysisSheetUiState(
+): StatusDiagnosticsAnalysisSheetUiState =
+    StatusDiagnosticsAnalysisSheetUiState(
         runId = runId,
         headline = homeHeadline(stringResolver),
         summary = homeSummary(stringResolver),
@@ -372,8 +423,8 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
         installedVpnDetectorTopApps = installedVpnDetectorTopApps.toImmutableList(),
         pcapRecordingRequested = runtime.pcapRecordingRequested,
         remediationLadder = remediationLadder,
-        actionableHeadline = HomeActionableSummaryPresentation(this, stringResolver).headline(),
-        actionableNextSteps = HomeActionableSummaryPresentation(this, stringResolver).nextSteps().toImmutableList(),
+        actionableHeadline = StatusActionableSummaryPresentation(this, stringResolver).headline(),
+        actionableNextSteps = StatusActionableSummaryPresentation(this, stringResolver).nextSteps().toImmutableList(),
         networkCharacterRows = buildNetworkCharacterRows(networkCharacter, stringResolver).toImmutableList(),
         networkCharacterNotes =
             networkCharacter
@@ -395,7 +446,7 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
             routingSanity
                 ?.findings
                 ?.map {
-                    HomeAnalysisLabeledRow(it.packageName, it.homeDescription(stringResolver))
+                    StatusAnalysisLabeledRow(it.packageName, it.homeDescription(stringResolver))
                 }.orEmpty()
                 .toImmutableList(),
         regressionDeltaSummary =
@@ -425,7 +476,7 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
     )
 
 private fun DiagnosticsHomeCompositeStageSummary.toUiState(stringResolver: StringResolver) =
-    HomeDiagnosticsStageUiState(
+    StatusDiagnosticsStageUiState(
         label = stringResolver.homeStageLabel(stageKey, stageLabel),
         headline = headline,
         summary = stringResolver.homeStageSummary(stageKey, stageLabel, summary),
@@ -437,7 +488,7 @@ private fun DiagnosticsHomeCompositeStageSummary.toUiState(stringResolver: Strin
     )
 
 private fun HomeStrategyEffectivenessEntry.toUiState(stringResolver: StringResolver) =
-    HomeAnalysisLabeledRow(
+    StatusAnalysisLabeledRow(
         label = label,
         value =
             stringResolver.getString(
@@ -471,10 +522,10 @@ private fun HomeDnsResolverClass.label(stringResolver: StringResolver): String =
 private fun DiagnosticsHomeCompositeOutcome.toLatestAuditUiState(
     currentFingerprintHash: String?,
     stringResolver: StringResolver,
-): HomeDiagnosticsLatestAuditUiState {
+): StatusDiagnosticsLatestAuditUiState {
     val networkMatches = fingerprintHash?.let { measured -> currentFingerprintHash?.let { it == measured } }
     val fingerprintMismatch = networkMatches == false
-    return HomeDiagnosticsLatestAuditUiState(
+    return StatusDiagnosticsLatestAuditUiState(
         evidenceId = runId,
         confidenceSummary = stringResolver.homeConfidence(confidenceSummary),
         confidenceLevel = confidenceSummary.homeConfidenceLevel(),
@@ -506,8 +557,8 @@ private fun DiagnosticsHomeCompositeOutcome.toLatestAuditUiState(
 }
 
 private fun DiagnosticScanSession.toLatestManualScanUiState() =
-    HomeDiagnosticsLatestAuditUiState(
-        source = HomeDiagnosticsAuditSource.Manual,
+    StatusDiagnosticsLatestAuditUiState(
+        source = StatusDiagnosticsAuditSource.Manual,
         evidenceId = id,
         headline = summary.ifBlank { profileId },
         summary =
@@ -520,24 +571,24 @@ private fun DiagnosticScanSession.toLatestManualScanUiState() =
 private fun buildNetworkCharacterRows(
     summary: HomeNetworkCharacterSummary?,
     stringResolver: StringResolver,
-): List<HomeAnalysisLabeledRow> {
+): List<StatusAnalysisLabeledRow> {
     summary ?: return emptyList()
-    val rows = mutableListOf<HomeAnalysisLabeledRow>()
+    val rows = mutableListOf<StatusAnalysisLabeledRow>()
     summary.transport?.takeIf { it.isNotBlank() }?.let {
-        rows += HomeAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_transport), it)
+        rows += StatusAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_transport), it)
     }
     summary.homeOperator(stringResolver)?.takeIf { it.isNotBlank() }?.let {
-        rows += HomeAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_operator), it)
+        rows += StatusAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_operator), it)
     }
     summary.asn?.takeIf { it.isNotBlank() }?.let {
-        rows += HomeAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_asn), it)
+        rows += StatusAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_asn), it)
     }
     summary.publicIp?.takeIf { it.isNotBlank() }?.let {
-        rows += HomeAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_public_ip), it)
+        rows += StatusAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_public_ip), it)
     }
     summary.captivePortalDetected?.let {
         rows +=
-            HomeAnalysisLabeledRow(
+            StatusAnalysisLabeledRow(
                 stringResolver.getString(R.string.home_diagnostics_network_captive_portal),
                 stringResolver.getString(
                     if (it) R.string.home_diagnostics_network_yes else R.string.home_diagnostics_network_no,
@@ -546,7 +597,7 @@ private fun buildNetworkCharacterRows(
     }
     summary.ipv6Reachable?.let {
         rows +=
-            HomeAnalysisLabeledRow(
+            StatusAnalysisLabeledRow(
                 stringResolver.getString(R.string.home_diagnostics_network_ipv6),
                 stringResolver.getString(
                     if (it) {
@@ -558,11 +609,11 @@ private fun buildNetworkCharacterRows(
             )
     }
     summary.mtu?.let {
-        rows += HomeAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_mtu), "$it")
+        rows += StatusAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_mtu), "$it")
     }
     summary.transparentProxyDetected?.let {
         rows +=
-            HomeAnalysisLabeledRow(
+            StatusAnalysisLabeledRow(
                 stringResolver.getString(R.string.home_diagnostics_network_transparent_proxy),
                 if (it) "detected" else "none",
             )

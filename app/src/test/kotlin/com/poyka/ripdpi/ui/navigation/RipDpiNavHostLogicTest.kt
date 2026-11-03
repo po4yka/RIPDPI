@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.ui.navigation
 
-import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.screens.connection.ConnectionModeSection
+import com.poyka.ripdpi.ui.screens.status.StatusMode
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -278,7 +278,7 @@ class RipDpiNavHostLogicTest {
                 }.toSet()
         val generatedTestTags =
             Route.topLevel.map(RipDpiTestTags.bottomNav).toSet() +
-                HomeMode.entries.flatMap { mode ->
+                StatusMode.entries.flatMap { mode ->
                     listOf(
                         RipDpiTestTags.homeModeCard(mode.name),
                         RipDpiTestTags.homeModePrimaryAction(mode.name),

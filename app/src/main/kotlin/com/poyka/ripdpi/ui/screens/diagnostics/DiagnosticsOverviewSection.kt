@@ -21,7 +21,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -42,6 +41,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSection
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.screens.diagnostics.state.diagnosticsOutcome
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -129,7 +129,7 @@ internal fun OverviewSection(
     onSelectSession: (String) -> Unit,
     onOpenHistory: () -> Unit,
     expertMode: Boolean = true,
-    homeDiagnostics: HomeDiagnosticsUiState = HomeDiagnosticsUiState(),
+    homeDiagnostics: StatusDiagnosticsUiState = StatusDiagnosticsUiState(),
     onStartVerifiedVpn: () -> Unit = {},
     runNetworkCheck: Boolean = false,
     header: (@Composable () -> Unit)? = null,

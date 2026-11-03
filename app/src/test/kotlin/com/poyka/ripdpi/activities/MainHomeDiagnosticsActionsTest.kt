@@ -28,6 +28,9 @@ import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.ui.screens.diagnostics.state.isFullAudit
 import com.poyka.ripdpi.ui.screens.diagnostics.state.label
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
+import com.poyka.ripdpi.ui.screens.status.AnalysisStageStatus
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsRunUiStatus
+import com.poyka.ripdpi.ui.screens.status.hasUnsupportedVpnDoq
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
@@ -527,7 +530,7 @@ class MainHomeDiagnosticsActionsTest {
 
         assertTrue(uiState.analysisAction.busy)
         assertFalse(uiState.analysisAction.enabled)
-        assertEquals(HomeDiagnosticsRunUiStatus.STARTING, uiState.analysisRunStatus)
+        assertEquals(StatusDiagnosticsRunUiStatus.STARTING, uiState.analysisRunStatus)
         assertEquals(
             R.string.home_diagnostics_analysis_starting.toString(),
             uiState.analysisAction.supportingText,
@@ -1010,7 +1013,7 @@ class MainHomeVerifiedVpnAdmissionTest {
         var requests = 0
     }
 
-    // Wires the same predicate as HomeDiagnosticsStateOwner over saved encrypted-DNS settings.
+    // Wires the same predicate as StatusDiagnosticsStateOwner over saved encrypted-DNS settings.
     private fun TestScope.startVerifiedVpnWithDns(protocol: String): VerifiedVpnStartRun {
         val settings =
             AppSettingsSerializer.defaultValue

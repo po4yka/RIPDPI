@@ -1,10 +1,10 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
-import com.poyka.ripdpi.activities.HomeConfidenceLevel
-import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
-import com.poyka.ripdpi.activities.HomeDiagnosticsAuditSource
-import com.poyka.ripdpi.activities.HomeDiagnosticsLatestAuditUiState
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
+import com.poyka.ripdpi.ui.screens.status.StatusConfidenceLevel
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsActionUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsAuditSource
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsLatestAuditUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -20,8 +20,8 @@ class DiagnosticsOutcomeProjectionTest {
                 overview = DiagnosticsOverviewUiModel(latestSession = session("history", "Yesterday")),
                 scan = DiagnosticsScanUiModel(),
                 home =
-                    HomeDiagnosticsUiState(
-                        analysisAction = HomeDiagnosticsActionUiState(busy = true, supportingText = "Checking DNS"),
+                    StatusDiagnosticsUiState(
+                        analysisAction = StatusDiagnosticsActionUiState(busy = true, supportingText = "Checking DNS"),
                         latestAudit = audit(),
                     ),
                 active = true,
@@ -39,7 +39,7 @@ class DiagnosticsOutcomeProjectionTest {
             diagnosticsOutcome(
                 overview = DiagnosticsOverviewUiModel(latestSession = session("unrelated", "Today")),
                 scan = DiagnosticsScanUiModel(latestSession = session("selected-profile", "Yesterday")),
-                home = HomeDiagnosticsUiState(latestAudit = audit()),
+                home = StatusDiagnosticsUiState(latestAudit = audit()),
                 active = false,
             )
         assertEquals(DiagnosticsOutcomeSource.CompositeAudit, outcome.source)
@@ -64,7 +64,7 @@ class DiagnosticsOutcomeProjectionTest {
                         latestSession = session("history", "10:00"),
                     ),
                 scan = DiagnosticsScanUiModel(latestSession = session("different-profile", "11:00")),
-                home = HomeDiagnosticsUiState(),
+                home = StatusDiagnosticsUiState(),
                 active = false,
             )
         assertEquals(DiagnosticsOutcomeSource.Session, outcome.source)
@@ -82,7 +82,10 @@ class DiagnosticsOutcomeProjectionTest {
             diagnosticsOutcome(
                 overview = DiagnosticsOverviewUiModel(latestSession = session("latest", "12:00")),
                 scan = DiagnosticsScanUiModel(),
-                home = HomeDiagnosticsUiState(latestAudit = audit().copy(source = HomeDiagnosticsAuditSource.Manual)),
+                home =
+                    StatusDiagnosticsUiState(
+                        latestAudit = audit().copy(source = StatusDiagnosticsAuditSource.Manual),
+                    ),
                 active = false,
             )
         assertEquals(DiagnosticsOutcomeSource.Session, outcome.source)
@@ -95,7 +98,7 @@ class DiagnosticsOutcomeProjectionTest {
             diagnosticsOutcome(
                 DiagnosticsOverviewUiModel(health = DiagnosticsHealth.Healthy, headline = "Running"),
                 DiagnosticsScanUiModel(),
-                HomeDiagnosticsUiState(),
+                StatusDiagnosticsUiState(),
                 false,
             )
         assertEquals(DiagnosticsOutcomeSource.Empty, outcome.source)
@@ -104,13 +107,13 @@ class DiagnosticsOutcomeProjectionTest {
     }
 
     private fun audit() =
-        HomeDiagnosticsLatestAuditUiState(
+        StatusDiagnosticsLatestAuditUiState(
             evidenceId = "audit-run",
             headline = "Partial audit",
             summary = "Some stages failed",
             confidenceSummary = "Low confidence",
             coverageSummary = "Partial coverage",
-            confidenceLevel = HomeConfidenceLevel.LOW,
+            confidenceLevel = StatusConfidenceLevel.LOW,
             completedStageCount = 2,
             failedStageCount = 1,
             totalStageCount = 4,

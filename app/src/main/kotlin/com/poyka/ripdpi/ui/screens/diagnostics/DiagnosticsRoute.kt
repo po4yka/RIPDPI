@@ -15,7 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.services.RemoteDeviceAcceptanceReport
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
@@ -41,6 +40,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTcp16FatHeaderTo
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsViewModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.PcapCaptureViewModel
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 import com.poyka.ripdpi.ui.screens.xray.XrayProviderToolUiModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import kotlinx.coroutines.CoroutineScope
@@ -57,7 +57,7 @@ fun DiagnosticsRoute(
     viewModel: DiagnosticsViewModel = hiltViewModel(),
     pcapCaptureViewModel: PcapCaptureViewModel? = null,
     topBarExtraActions: @Composable () -> Unit = {},
-    homeDiagnostics: HomeDiagnosticsUiState = HomeDiagnosticsUiState(),
+    homeDiagnostics: StatusDiagnosticsUiState = StatusDiagnosticsUiState(),
 ) {
     val localeTags = LocalConfiguration.current.locales.toLanguageTags()
     LaunchedEffect(viewModel, localeTags) {
@@ -328,7 +328,7 @@ private fun rememberDiagnosticsScreenActions(
     viewModel: DiagnosticsViewModel,
     callbacks: DiagnosticsRouteCallbacks,
     pcapCaptureViewModel: PcapCaptureViewModel?,
-    homeDiagnostics: HomeDiagnosticsUiState,
+    homeDiagnostics: StatusDiagnosticsUiState,
 ): DiagnosticsScreenActions =
     DiagnosticsScreenActions(
         onSelectSection = remember(viewModel) { viewModel::selectSection },

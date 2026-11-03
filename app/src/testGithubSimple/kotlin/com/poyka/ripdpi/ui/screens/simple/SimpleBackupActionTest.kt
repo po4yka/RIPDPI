@@ -15,10 +15,10 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import com.poyka.ripdpi.activities.ConnectionState
-import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
-import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
-import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
-import com.poyka.ripdpi.activities.HomePauseUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsActionUiState
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsRunUiStatus
+import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
+import com.poyka.ripdpi.ui.screens.status.StatusPauseUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
@@ -58,9 +58,9 @@ class SimpleBackupActionTest {
         composeRule.setContent {
             SimpleBackupFixture(
                 diagnostics =
-                    HomeDiagnosticsUiState(
-                        analysisRunStatus = HomeDiagnosticsRunUiStatus.RUNNING,
-                        analysisAction = HomeDiagnosticsActionUiState(busy = true),
+                    StatusDiagnosticsUiState(
+                        analysisRunStatus = StatusDiagnosticsRunUiStatus.RUNNING,
+                        analysisAction = StatusDiagnosticsActionUiState(busy = true),
                     ),
             )
         }
@@ -78,7 +78,7 @@ class SimpleBackupActionTest {
     fun `backup stays unavailable during startup before busy projection arrives`() {
         composeRule.setContent {
             SimpleBackupFixture(
-                diagnostics = HomeDiagnosticsUiState(analysisRunStatus = HomeDiagnosticsRunUiStatus.STARTING),
+                diagnostics = StatusDiagnosticsUiState(analysisRunStatus = StatusDiagnosticsRunUiStatus.STARTING),
             )
         }
         composeRule
@@ -107,12 +107,12 @@ class SimpleBackupActionTest {
 
 @Composable
 private fun SimpleBackupFixture(
-    diagnostics: HomeDiagnosticsUiState = HomeDiagnosticsUiState(),
+    diagnostics: StatusDiagnosticsUiState = StatusDiagnosticsUiState(),
     onOpenBackup: () -> Unit = { error("Backup must stay disabled") },
 ) {
     RipDpiTheme {
         SimpleHomeContent(
-            pauseState = HomePauseUiState(),
+            pauseState = StatusPauseUiState(),
             onPause = { error("Backup must not pause a connection") },
             onResumePause = { error("Backup must not resume a connection") },
             onStopPause = { error("Backup must not stop a connection") },

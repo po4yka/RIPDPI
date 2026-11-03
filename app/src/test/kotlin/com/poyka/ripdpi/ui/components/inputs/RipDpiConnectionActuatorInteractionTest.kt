@@ -19,8 +19,8 @@ import androidx.compose.ui.test.pressKey
 import androidx.compose.ui.test.requestFocus
 import androidx.compose.ui.test.swipeLeft
 import androidx.compose.ui.test.swipeRight
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
 import com.poyka.ripdpi.ui.components.EnableKeyboardInput
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
@@ -44,7 +44,7 @@ class RipDpiConnectionActuatorInteractionTest {
     @Test
     fun `tap connects and retries without confirmation`() {
         var activations = 0
-        var state by mutableStateOf(actuatorState(HomeConnectionActuatorStatus.Open))
+        var state by mutableStateOf(actuatorState(StatusConnectionActuatorStatus.Open))
         composeRule.setContent {
             RipDpiTheme {
                 RipDpiConnectionActuator(
@@ -58,7 +58,7 @@ class RipDpiConnectionActuatorInteractionTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).performTouchInput { click() }
         composeRule.runOnIdle {
             assertEquals(1, activations)
-            state = actuatorState(HomeConnectionActuatorStatus.Fault)
+            state = actuatorState(StatusConnectionActuatorStatus.Fault)
         }
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).performTouchInput { click() }
         composeRule.runOnIdle { assertEquals(2, activations) }
@@ -69,7 +69,7 @@ class RipDpiConnectionActuatorInteractionTest {
         var activations = 0
         var deactivations = 0
         composeRule.setActuator(
-            state = actuatorState(HomeConnectionActuatorStatus.Engaging),
+            state = actuatorState(StatusConnectionActuatorStatus.Engaging),
             onActivate = { activations++ },
             onDeactivate = { deactivations++ },
         )
@@ -84,7 +84,7 @@ class RipDpiConnectionActuatorInteractionTest {
     fun `live connection asks for confirmation and staying connected keeps it`() {
         var deactivations = 0
         composeRule.setActuator(
-            state = actuatorState(HomeConnectionActuatorStatus.Degraded),
+            state = actuatorState(StatusConnectionActuatorStatus.Degraded),
             onDeactivate = { deactivations++ },
         )
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).performTouchInput { click() }
@@ -102,7 +102,7 @@ class RipDpiConnectionActuatorInteractionTest {
     fun `accessibility action confirms before disconnection`() {
         var deactivations = 0
         composeRule.setActuator(
-            state = actuatorState(HomeConnectionActuatorStatus.Locked),
+            state = actuatorState(StatusConnectionActuatorStatus.Locked),
             onDeactivate = { deactivations++ },
         )
         composeRule
@@ -121,7 +121,7 @@ class RipDpiConnectionActuatorInteractionTest {
         var deactivations = 0
         composeRule.setActuator(
             keyboardInput = true,
-            state = actuatorState(HomeConnectionActuatorStatus.Locked),
+            state = actuatorState(StatusConnectionActuatorStatus.Locked),
             onDeactivate = { deactivations++ },
         )
         composeRule
@@ -137,7 +137,7 @@ class RipDpiConnectionActuatorInteractionTest {
     fun `key release after a state change cannot arm the new action`() {
         var deactivations = 0
         lateinit var view: View
-        var state by mutableStateOf(actuatorState(HomeConnectionActuatorStatus.Locked))
+        var state by mutableStateOf(actuatorState(StatusConnectionActuatorStatus.Locked))
         composeRule.setContent {
             EnableKeyboardInput()
             view = LocalView.current
@@ -154,7 +154,7 @@ class RipDpiConnectionActuatorInteractionTest {
         composeRule.runOnIdle {
             view.dispatchKeyEvent(AndroidKeyEvent(AndroidKeyEvent.ACTION_DOWN, AndroidKeyEvent.KEYCODE_ENTER))
         }
-        composeRule.runOnIdle { state = actuatorState(HomeConnectionActuatorStatus.Degraded) }
+        composeRule.runOnIdle { state = actuatorState(StatusConnectionActuatorStatus.Degraded) }
         composeRule.runOnIdle {
             view.dispatchKeyEvent(
                 AndroidKeyEvent(0L, 1_000L, AndroidKeyEvent.ACTION_DOWN, AndroidKeyEvent.KEYCODE_ENTER, 1),
@@ -174,7 +174,7 @@ class RipDpiConnectionActuatorInteractionTest {
             view = LocalView.current
             RipDpiTheme {
                 RipDpiConnectionActuator(
-                    state = actuatorState(HomeConnectionActuatorStatus.Open),
+                    state = actuatorState(StatusConnectionActuatorStatus.Open),
                     onActivate = { activations++ },
                     onDeactivate = {},
                     testTag = RipDpiTestTags.ConnectionActuatorButton,
@@ -205,7 +205,7 @@ class RipDpiConnectionActuatorInteractionTest {
             view = LocalView.current
             RipDpiTheme {
                 RipDpiConnectionActuator(
-                    state = actuatorState(HomeConnectionActuatorStatus.Open),
+                    state = actuatorState(StatusConnectionActuatorStatus.Open),
                     onActivate = { activations++ },
                     onDeactivate = {},
                     testTag = RipDpiTestTags.ConnectionActuatorButton,
@@ -231,7 +231,7 @@ class RipDpiConnectionActuatorInteractionTest {
     fun `disconnect confirmation has no time limit`() {
         var deactivations = 0
         composeRule.setActuator(
-            state = actuatorState(HomeConnectionActuatorStatus.Locked),
+            state = actuatorState(StatusConnectionActuatorStatus.Locked),
             onDeactivate = { deactivations++ },
         )
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).performTouchInput { click() }
@@ -244,7 +244,7 @@ class RipDpiConnectionActuatorInteractionTest {
     @Test
     fun `a session that ends clears a pending disconnect confirmation`() {
         var deactivations = 0
-        var state by mutableStateOf(actuatorState(HomeConnectionActuatorStatus.Locked))
+        var state by mutableStateOf(actuatorState(StatusConnectionActuatorStatus.Locked))
         composeRule.setContent {
             RipDpiTheme {
                 RipDpiConnectionActuator(
@@ -256,9 +256,9 @@ class RipDpiConnectionActuatorInteractionTest {
             }
         }
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).performTouchInput { click() }
-        composeRule.runOnIdle { state = actuatorState(HomeConnectionActuatorStatus.Open) }
+        composeRule.runOnIdle { state = actuatorState(StatusConnectionActuatorStatus.Open) }
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorDisconnectConfirm).assertDoesNotExist()
-        composeRule.runOnIdle { state = actuatorState(HomeConnectionActuatorStatus.Locked) }
+        composeRule.runOnIdle { state = actuatorState(StatusConnectionActuatorStatus.Locked) }
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorDisconnectConfirm).assertDoesNotExist()
         composeRule.runOnIdle { assertEquals(0, deactivations) }
     }
@@ -267,7 +267,7 @@ class RipDpiConnectionActuatorInteractionTest {
     fun `Android managed action is disabled even for direct semantics activation`() {
         var deactivations = 0
         composeRule.setActuator(
-            state = actuatorState(HomeConnectionActuatorStatus.Locked).copy(deactivationEnabled = false),
+            state = actuatorState(StatusConnectionActuatorStatus.Locked).copy(deactivationEnabled = false),
             onDeactivate = { deactivations++ },
         )
         composeRule
@@ -282,7 +282,7 @@ class RipDpiConnectionActuatorInteractionTest {
     fun `swipe cannot bypass connection actions or the disconnect guard`() {
         var actions = 0
         composeRule.setActuator(
-            state = actuatorState(HomeConnectionActuatorStatus.Locked),
+            state = actuatorState(StatusConnectionActuatorStatus.Locked),
             onActivate = { actions++ },
             onDeactivate = { actions++ },
         )

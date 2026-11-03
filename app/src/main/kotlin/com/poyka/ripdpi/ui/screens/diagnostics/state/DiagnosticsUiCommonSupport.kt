@@ -3,7 +3,6 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.homeProgressText
 import com.poyka.ripdpi.activities.message
 import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
@@ -21,6 +20,7 @@ import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchTrigger
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanTriggerType
 import com.poyka.ripdpi.diagnostics.resolveLegalSafetyPolicy
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.ui.screens.status.homeProgressText
 import kotlinx.collections.immutable.toImmutableList
 import java.util.Locale
 import com.poyka.ripdpi.data.displayLabel as displayNetworkLabel

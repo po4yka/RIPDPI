@@ -41,8 +41,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.By
 import androidx.test.uiautomator.UiDevice
 import androidx.test.uiautomator.Until
-import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
-import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownLabels
@@ -50,6 +48,8 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
+import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.DefaultRipDpiMotion
 import com.poyka.ripdpi.ui.theme.LocalRipDpiMotion
@@ -177,7 +177,7 @@ class ComposeStylesInstrumentedTest {
                     LocalRipDpiMotion provides DefaultRipDpiMotion.copy(animationsEnabled = false),
                 ) {
                     RipDpiConnectionActuator(
-                        state = HomeConnectionActuatorUiState(status = HomeConnectionActuatorStatus.Locked),
+                        state = StatusConnectionActuatorUiState(status = StatusConnectionActuatorStatus.Locked),
                         onActivate = { error("An active connection must not start again") },
                         onDeactivate = { deactivations++ },
                         testTag = Action,
