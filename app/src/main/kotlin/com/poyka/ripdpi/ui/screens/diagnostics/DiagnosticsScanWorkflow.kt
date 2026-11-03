@@ -71,11 +71,13 @@ internal fun DiagnosticsScanWorkflowCard(
                 color = colors.foreground,
             )
         }
-        Text(
-            text = presentation.body,
-            style = RipDpiThemeTokens.type.body,
-            color = colors.foreground,
-        )
+        if (presentation.body.isNotBlank()) {
+            Text(
+                text = presentation.body,
+                style = RipDpiThemeTokens.type.body,
+                color = colors.foreground,
+            )
+        }
         WorkflowBadgeRow(presentation.badges)
         scan.selectedProfileScopeLabel?.let { label ->
             Text(
@@ -279,7 +281,7 @@ private fun workflowStatus(
         else -> {
             WorkflowStatusUiModel(
                 title = stringResource(R.string.diagnostics_scan_status_ready),
-                body = stringResource(R.string.diagnostics_profile_connectivity_body),
+                body = "",
                 tone = DiagnosticsTone.Neutral,
             )
         }

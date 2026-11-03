@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="config_saved_profile_title">Сохранённый профиль</string>
     <string name="config_profile_change">Изменить профиль</string>
     <string name="config_connection_scope_vpn">Охват: всё устройство</string>
     <string name="config_connection_scope_proxy">Охват: только прокси</string>

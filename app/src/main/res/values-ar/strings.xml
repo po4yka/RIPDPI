@@ -21,7 +21,6 @@
     <string name="settings_persona_title">نمط الواجهة</string>
     <string name="settings_persona_body">اختر ما إذا كانت الشاشات تفتح بعناصر يومية أو بعناصر تحكم متقدمة.</string>
     <string name="onboarding_persona_title">اختر الواجهة</string>
-    <string name="onboarding_persona_body">يمكنك التبديل بين الموجّه والمتقدم لاحقاً من الإعدادات.</string>
     <string name="onboarding_persona_simple_body">تبقى عناصر التحكم اليومية ظاهرة وتبقى التفاصيل الخبيرة مطوية.</string>
     <string name="onboarding_persona_advanced_body">عرض كل أدوات التشخيص والملفات الشخصية والإعدادات منخفضة المستوى.</string>
     <string name="settings_logs_body">افتح بث السجلات الحي للتطبيق والخدمة والتشخيص.</string>

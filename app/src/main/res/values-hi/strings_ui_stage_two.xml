@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="config_saved_profile_title">सहेजी गई प्रोफ़ाइल</string>
     <string name="config_profile_change">प्रोफ़ाइल बदलें</string>
     <string name="config_connection_scope_vpn">दायरा: पूरा डिवाइस</string>
     <string name="config_connection_scope_proxy">दायरा: केवल प्रॉक्सी</string>

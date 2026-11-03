@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="config_saved_profile_title">Perfil guardado</string>
     <string name="config_profile_change">Cambiar perfil</string>
     <string name="config_connection_scope_vpn">Alcance: todo el dispositivo</string>
     <string name="config_connection_scope_proxy">Alcance: solo proxy</string>

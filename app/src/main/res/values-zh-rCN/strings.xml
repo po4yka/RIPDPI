@@ -19,7 +19,6 @@
     <string name="settings_persona_title">界面模式</string>
     <string name="settings_persona_body">选择屏幕默认显示日常控制，还是展开高级操作控制。</string>
     <string name="onboarding_persona_title">选择界面</string>
-    <string name="onboarding_persona_body">稍后可在设置中切换引导和高级模式。</string>
     <string name="onboarding_persona_simple_body">日常控制保持可见，专家细节保持折叠。</string>
     <string name="onboarding_persona_advanced_body">显示所有诊断、配置文件和底层设置。</string>
     <string name="settings_logs_body">打开应用、服务和诊断的实时日志流。</string>

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="config_saved_profile_title">Profil enregistré</string>
     <string name="config_profile_change">Changer de profil</string>
     <string name="config_connection_scope_vpn">Portée : tout l\'appareil</string>
     <string name="config_connection_scope_proxy">Portée : proxy uniquement</string>

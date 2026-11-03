@@ -1795,7 +1795,6 @@ Origen: %2$s</string>
     <string name="settings_persona_title">Modo de interfaz</string>
     <string name="settings_persona_body">Elige si las pantallas se abren con controles cotidianos o con controles avanzados.</string>
     <string name="onboarding_persona_title">Elige tu interfaz</string>
-    <string name="onboarding_persona_body">Más tarde puedes cambiar entre Guiado y Avanzado en Ajustes.</string>
     <string name="onboarding_persona_simple_body">Los controles cotidianos quedan visibles y los detalles expertos colapsados.</string>
     <string name="onboarding_persona_advanced_body">Muestra todos los diagnósticos, perfiles y ajustes de bajo nivel.</string>
     <string name="settings_logs_body">Abre el flujo en vivo de registros de la app, el servicio y los diagnósticos.</string>

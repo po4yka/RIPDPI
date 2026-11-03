@@ -883,7 +883,7 @@ private fun onboardingSetupSubtitleRes(
 ): Int? =
     when (kind) {
         SetupPageKind.PersonaSelection -> {
-            R.string.onboarding_persona_body
+            null
         }
 
         SetupPageKind.ModeSelection -> {

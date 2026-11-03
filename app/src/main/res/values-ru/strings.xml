@@ -20,7 +20,6 @@
     <string name="settings_persona_title">Режим интерфейса</string>
     <string name="settings_persona_body">Выберите, открывать экраны с обычными элементами или с расширенными операторскими настройками.</string>
     <string name="onboarding_persona_title">Выберите интерфейс</string>
-    <string name="onboarding_persona_body">Позже в настройках можно выбрать режим с подсказками или расширенный.</string>
     <string name="onboarding_persona_simple_body">Обычные элементы остаются видимыми, а экспертные детали свернуты.</string>
     <string name="onboarding_persona_advanced_body">Показывать все диагностики, профили и низкоуровневые настройки.</string>
     <string name="settings_logs_body">Открыть живой поток журналов приложения, сервиса и диагностики.</string>

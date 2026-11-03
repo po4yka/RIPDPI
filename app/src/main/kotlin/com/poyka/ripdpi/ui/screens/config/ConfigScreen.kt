@@ -6,7 +6,6 @@ import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -17,6 +16,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -378,18 +379,13 @@ internal fun ConfigModeChips(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        label?.let {
-            Text(
-                text = it,
-                style = RipDpiThemeTokens.type.secondaryBody,
-                color = RipDpiThemeTokens.colors.mutedForeground,
-            )
-        }
+        // The label names the group for accessibility only; the chips are self-explanatory.
         FlowRow(
             modifier =
                 Modifier
                     .fillMaxWidth()
                     .selectableGroup()
+                    .semantics { label?.let { contentDescription = it } }
                     .ripDpiTestTag(groupTestTag),
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
             verticalArrangement = Arrangement.spacedBy(spacing.sm),

@@ -1795,7 +1795,6 @@ Quelle: %2$s</string>
     <string name="settings_persona_title">Oberflächenmodus</string>
     <string name="settings_persona_body">Wählt, ob Bildschirme mit Alltagssteuerung oder erweiterten Bedienfunktionen geöffnet werden.</string>
     <string name="onboarding_persona_title">Oberfläche wählen</string>
-    <string name="onboarding_persona_body">Später können Sie in den Einstellungen zwischen Geführt und Erweitert wechseln.</string>
     <string name="onboarding_persona_simple_body">Alltagssteuerung bleibt sichtbar, Expertendetails bleiben eingeklappt.</string>
     <string name="onboarding_persona_advanced_body">Zeigt alle Diagnosen, Profile und Low-Level-Einstellungen an.</string>
     <string name="settings_logs_body">Öffnet den Live-Protokollstrom für App, Dienst und Diagnose.</string>

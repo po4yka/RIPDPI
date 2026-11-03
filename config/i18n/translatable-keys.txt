@@ -812,7 +812,6 @@ app:config_relay_xhttp_host
 app:config_relay_xhttp_mode
 app:config_relay_xhttp_path
 app:config_save
-app:config_saved_profile_title
 app:config_scope_device
 app:config_scope_proxy
 app:config_section_bypass_settings
@@ -3670,7 +3669,6 @@ app:onboarding_guarantee_header_privacy
 app:onboarding_local_first_body
 app:onboarding_local_first_title
 app:onboarding_persona_advanced_body
-app:onboarding_persona_body
 app:onboarding_persona_simple_body
 app:onboarding_persona_title
 app:onboarding_setup_dns_adguard_body

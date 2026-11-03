@@ -1795,7 +1795,6 @@ Source : %2$s</string>
     <string name="settings_persona_title">Mode d’interface</string>
     <string name="settings_persona_body">Choisissez si les écrans s’ouvrent avec les contrôles courants ou les contrôles avancés.</string>
     <string name="onboarding_persona_title">Choisir l’interface</string>
-    <string name="onboarding_persona_body">Vous pourrez basculer entre Guidé et Avancé plus tard dans Paramètres.</string>
     <string name="onboarding_persona_simple_body">Les contrôles courants restent visibles et les détails experts restent repliés.</string>
     <string name="onboarding_persona_advanced_body">Affiche tous les diagnostics, profils et réglages de bas niveau.</string>
     <string name="settings_logs_body">Ouvre le flux en direct des journaux de l’application, du service et des diagnostics.</string>

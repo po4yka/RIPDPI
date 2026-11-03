@@ -21,7 +21,6 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
-import com.poyka.ripdpi.ui.components.chrome.overlineText
 import com.poyka.ripdpi.ui.components.feedback.RipDpiAccordion
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
@@ -56,11 +55,6 @@ internal fun ConfigSavedConnectionCard(
         variant = RipDpiCardVariant.Tonal,
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigConnectionSummary),
     ) {
-        Text(
-            text = overlineText(stringResource(R.string.config_saved_profile_title)),
-            style = RipDpiThemeTokens.type.sectionTitle,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
         Text(
             text = profileName,
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigSavedProfile),

@@ -1,6 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="config_saved_profile_title">الملف الشخصي المحفوظ</string>
     <string name="config_profile_change">تغيير الملف الشخصي</string>
     <string name="config_connection_scope_vpn">النطاق: الجهاز بالكامل</string>
     <string name="config_connection_scope_proxy">النطاق: وكيل فقط</string>
