@@ -298,7 +298,7 @@ Structured telemetry, diagnostics-event payloads, and strategy-probe progress/re
 - Rust goldens live under each crate `tests/golden/` directory.
 - JVM goldens live under each module `src/test/resources/golden/` directory.
 - The default test mode is read-only and fails on unexpected payload changes.
-- Set `RIPDPI_BLESS_GOLDENS=1` to rewrite fixtures intentionally.
+- Set `RIPDPI_BLESS_GOLDENS=1` to rewrite fixtures intentionally, only after explicit user authorization (`.agents/skills/golden-test-management/SKILL.md`).
 - Use `scripts/tests/bless-telemetry-goldens.sh` to refresh the Rust and JVM telemetry/logging goldens together and then sync the Android instrumentation assets.
 - Volatile fields are scrubbed before comparison: timestamps, generated ids, dynamic archive file names, and ephemeral loopback ports. Semantic fields such as `state`, `health`, counters, retry pacing/diversification metadata, handover classification, event order, levels, and messages remain strict.
 

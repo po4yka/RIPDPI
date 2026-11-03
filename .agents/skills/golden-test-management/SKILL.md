@@ -26,6 +26,19 @@ Full documentation: `docs/testing.md` (Golden contracts section).
 
 ## Blessing Workflow
 
+This section is the only bless procedure in the repository; other skills, agents, and docs link here.
+
+**Authorization.** Run a bless or record command only after the user explicitly authorizes blessing in the current conversation and names the fixture family or path (`.claude/rules/golden-bless-discipline.md`). A failing golden is not authorization. Use the `golden-blesser` agent in an isolated worktree, run only the narrow owning command, and inspect the full diff before committing.
+
+| Fixture family | Location | Narrow bless command |
+|------|-----------------|---------------|
+| Roborazzi screenshots | `app/src/test/screenshots/` | `./gradlew :app:recordRoborazziGithubFullDebug -Pripdpi.skipNativeBuild=true -Pripdpi.includeRoborazziUnitTests=true --tests '<FQN>'`. Pixels match CI only when recorded on `ubuntu-latest`; commit only the PNGs of tests that fail verify. |
+| Rust telemetry/logging | `native/rust/crates/{crate}/tests/golden/` | `RIPDPI_BLESS_GOLDENS=1 cargo test --locked -p {crate} --manifest-path native/rust/Cargo.toml` |
+| JVM telemetry/logging | `core/{module}/src/test/resources/golden/` | `RIPDPI_BLESS_GOLDENS=1 ./gradlew :{module}:testDebugUnitTest --tests "*.{TestClass}"` |
+| Rust contract_fixtures | `native/rust/crates/{crate}/tests/contract_fixtures/` | `RIPDPI_BLESS_GOLDENS=1 cargo test --locked --manifest-path native/rust/Cargo.toml -p {crate}` |
+| Wire contract (shared) | Read through `GoldenContractSupport.readSharedFixture()` | `RIPDPI_BLESS_GOLDENS=1 ./gradlew :core:engine:testDebugUnitTest --tests "*.{TestClass}"` |
+| Android instrumentation | `app/src/androidTest/assets/golden/` | Copied from JVM fixtures by `scripts/tests/bless-telemetry-goldens.sh` |
+
 ### Bless All Telemetry/Logging Goldens
 
 ```bash

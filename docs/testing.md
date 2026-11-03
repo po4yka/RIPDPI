@@ -626,7 +626,7 @@ To intentionally refresh all telemetry/logging fixtures:
 bash scripts/tests/bless-telemetry-goldens.sh
 ```
 
-Equivalent manual mode:
+Equivalent manual mode (only after explicit user authorization; the procedure is in `.agents/skills/golden-test-management/SKILL.md`):
 
 ```bash
 RIPDPI_BLESS_GOLDENS=1 ./gradlew ...

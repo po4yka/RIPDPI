@@ -321,7 +321,7 @@ These checks cover:
 
 Roborazzi screenshot baselines live under `app/src/test/screenshots`.
 
-- Record baselines with `./gradlew :app:recordRoborazziGithubFullDebug`
+- Record baselines only after explicit user authorization, through the `golden-test-management` skill (`.agents/skills/golden-test-management/SKILL.md`)
 - Verify baselines with `./gradlew :app:verifyRoborazziGithubFullDebug`
 - Root shortcuts are available as `./gradlew recordScreenshots` and `./gradlew verifyScreenshots`
 

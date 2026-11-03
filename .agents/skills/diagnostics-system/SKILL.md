@@ -395,8 +395,8 @@ End-to-end walkthrough for adding a hypothetical "ping" probe:
 4. If you need a new target pack, add it to `build-logic/convention/src/main/kotlin/DefaultDiagnosticsCatalogPackSource.kt:DefaultDiagnosticsCatalogPackSource`.
 5. Rebuild. The catalog assembler validates uniqueness, pack references, and
    schema constraints.
-6. Update `diagnostics-contract-fixtures/profile_catalog_current.json` by
-   running contract tests with `RIPDPI_BLESS_GOLDENS=1`.
+6. Update `diagnostics-contract-fixtures/profile_catalog_current.json`:
+   follow the `golden-test-management` skill, which requires explicit user authorization for the fixture family.
 
 ## 12. Testing
 
@@ -419,7 +419,7 @@ The contract test framework ensures Rust and Kotlin stay in sync:
 ### Golden file support
 
 `GoldenContractSupport.kt` provides `assertJsonGolden()` and
-`assertTextGolden()`. Set `RIPDPI_BLESS_GOLDENS=1` to regenerate. Diff
+`assertTextGolden()`. To regenerate, follow the `golden-test-management` skill, which requires explicit user authorization for the fixture family. Diff
 artifacts are written to `core/diagnostics/build/golden-diffs/`.
 
 ### Key test classes
@@ -441,8 +441,7 @@ After any wire type change:
    outcome token coverage gaps.
 2. Run `:core:diagnostics:testDebugUnitTest` -- catches field manifest and
    schema version mismatches.
-3. If fields were added: bless goldens with `RIPDPI_BLESS_GOLDENS=1` and
-   commit updated fixtures.
+3. If fields were added: follow the `golden-test-management` skill, which requires explicit user authorization for the fixture family, then commit the updated fixtures.
 
 ## 13. PCAP Storage and Export
 

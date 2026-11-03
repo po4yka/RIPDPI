@@ -193,7 +193,7 @@ Copies exist in `core/engine`, `core/diagnostics`, `core/service`, and `app/src/
 
 **How it works**: serialize to JSON, sort keys, pretty-print, compare against committed
 `.json` file in `src/test/resources/golden/`. On mismatch: writes `.expected`, `.actual`,
-`.diff` to `build/golden-diffs/`. Update with `RIPDPI_BLESS_GOLDENS=1 ./gradlew test`.
+`.diff` to `build/golden-diffs/`. To update a fixture, follow the `golden-test-management` skill, which requires explicit user authorization for the fixture family.
 
 ```kotlin
 GoldenContractSupport.assertJsonGolden(
@@ -266,8 +266,8 @@ Helpers: `diagnosticsTestJson()`, `repoFixture(path)`, `TestDiagnosticsHistoryCl
 6. **Wrong Robolectric config**: Compose tests require `@GraphicsMode(NATIVE)` +
    `@Config(sdk = [35])`.
 
-7. **Golden failures after schema changes**: run
-   `RIPDPI_BLESS_GOLDENS=1 ./gradlew :core:engine:test`. Never manually edit golden JSON.
+7. **Golden failures after schema changes**: investigate first; to bless,
+   follow the `golden-test-management` skill, which requires explicit user authorization for the fixture family. Never manually edit golden JSON.
 
 8. **Hilt isolation**: call `IntegrationTestOverrides.reset()` in `@Before` and
    re-assign `@BindValue` fields.

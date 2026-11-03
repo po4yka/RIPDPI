@@ -21,7 +21,7 @@ these breaks something downstream:
 - **`--locked` on every `cargo` invocation.** No silent dependency drift.
   See [`.claude/rules/rust-toolchain-pin.md`](../../.claude/rules/rust-toolchain-pin.md).
 - **Never bless goldens to "fix" a failing test.** Investigate first.
-  `RIPDPI_BLESS_GOLDENS=1` is human-only. See
+  `RIPDPI_BLESS_GOLDENS=1` needs explicit user authorization for the fixture family. See
   [`.claude/rules/golden-bless-discipline.md`](../../.claude/rules/golden-bless-discipline.md).
 - **Never extend a baseline** (detekt, lint, LoC). Fix the violation. The
   PreToolUse hook blocks edits to `*baseline*` files.
