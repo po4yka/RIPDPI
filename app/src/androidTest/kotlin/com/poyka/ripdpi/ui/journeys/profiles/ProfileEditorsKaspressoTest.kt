@@ -35,6 +35,7 @@ private const val SshName = "Journey SSH"
 private const val SshHost = "203.0.113.13"
 private const val SshPort = "2222"
 private const val SshUser = "ssh-journey-user"
+private const val SshHostKeyPin = "SHA256:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
 private const val SshPasswordFixture = "ssh-journey-pass"
 
 private const val AwgHost = "203.0.113.14"
@@ -124,6 +125,8 @@ class ProfileEditorsKaspressoTest :
                     type(field(SshEditorField.SERVER_PORT.name), SshPort)
                     type(field(SshEditorField.USERNAME.name), SshUser)
                     type(field(SshEditorField.PASSWORD.name), SshPasswordFixture)
+                    // An unpinned profile makes Save fetch the host key from the server; pin one up front.
+                    type(field(SshEditorField.HOST_KEY_FINGERPRINT.name), SshHostKeyPin)
                     tapSave()
                     waitGone(screenTag, 15_000)
                 }
@@ -141,6 +144,7 @@ class ProfileEditorsKaspressoTest :
                     assertEquals(SshUser, text(field(SshEditorField.USERNAME.name)))
                     revealSecret(field(SshEditorField.PASSWORD.name))
                     awaitText(field(SshEditorField.PASSWORD.name), SshPasswordFixture)
+                    assertEquals(SshHostKeyPin, text(field(SshEditorField.HOST_KEY_FINGERPRINT.name)))
                 }
             }
         }
