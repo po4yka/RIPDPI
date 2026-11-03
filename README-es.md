@@ -132,7 +132,7 @@ Las cadenas de relevo de varios saltos llevan una lista ordenada de 2 a 4 saltos
 
 ## Requisitos de compilación
 
-Requisitos: JDK 17, Android SDK (plataforma `37.1`, CMake `3.31.6`), Android NDK `29.0.14206865`, toolchain de Rust `1.98.1`, targets de Android para Rust de las ABI necesarias, [`just`](https://just.systems) (ejecutor de tareas; las recetas de `justfile` reflejan CI) y [`lefthook`](https://github.com/evilmartians/lefthook) (ejecute `lefthook install` una vez para activar las comprobaciones pre-commit).
+Requisitos: JDK 21, Android SDK (plataforma `37.1`, CMake `3.31.6`), Android NDK `29.0.14206865`, toolchain de Rust `1.98.1`, targets de Android para Rust de las ABI necesarias, [`just`](https://just.systems) (ejecutor de tareas; las recetas de `justfile` reflejan CI) y [`lefthook`](https://github.com/evilmartians/lefthook) (ejecute `lefthook install` una vez para activar las comprobaciones pre-commit).
 
 Un checkout nuevo también necesita el AAR real de libXray con los parches del proyecto antes de empaquetar el APK. Prepare Go amd64, las versiones fijadas de `gomobile` y `gobind`, y `ANDROID_NDK_HOME` según [la guía de libXray](docs/native/libxray-packaging.md#build). El productor necesita un directorio `native/xray/artifacts/` nuevo o vacío y acceso a las fuentes fijadas. Para reutilizar un directorio verificado compatible con las versiones actuales, pase `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts` a Gradle; la comprobación de empaquetado sigue verificándolo.
 

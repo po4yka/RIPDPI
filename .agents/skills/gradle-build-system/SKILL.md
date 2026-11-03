@@ -13,8 +13,8 @@ RIPDPI uses the Gradle version pinned by `gradle/wrapper/gradle-wrapper.properti
 
 | Plugin | Purpose |
 |--------|---------|
-| `ripdpi.android.application` | App module: compileSdk, minSdk, targetSdk, JDK 17 |
-| `ripdpi.android.library` | Library modules: compileSdk, minSdk, JDK 17 |
+| `ripdpi.android.application` | App module: compileSdk, minSdk, targetSdk, Java 17 bytecode |
+| `ripdpi.android.library` | Library modules: compileSdk, minSdk, Java 17 bytecode |
 | `ripdpi.android.compose` | Compose compiler configuration |
 | `ripdpi.android.native` | NDK version, ABI filters, legacy packaging |
 | `ripdpi.android.quality` | Shared detekt + ktlint + Android lint verification wiring |

@@ -26,7 +26,7 @@ Three people open every screen and every module: the user (UX), the developer wh
 
 ## Setup
 
-Requirements: JDK 17, the Android SDK level declared by `ripdpi.compileSdk` in `gradle.properties`, Android NDK `29.0.14206865`, the pinned Rust toolchain with Android targets, `just`, `lefthook`, and Android CLI 1.0+ (`android`). Install Android packages with slash notation such as `ndk/29.0.14206865` and `platforms/android-<compileSdk>`.
+Requirements: JDK 21 (the Gradle daemon toolchain in `gradle/gradle-daemon-jvm.properties`; the code still targets Java 17 bytecode), the Android SDK level declared by `ripdpi.compileSdk` in `gradle.properties`, Android NDK `29.0.14206865`, the pinned Rust toolchain with Android targets, `just`, `lefthook`, and Android CLI 1.0+ (`android`). Install Android packages with slash notation such as `ndk/29.0.14206865` and `platforms/android-<compileSdk>`.
 
 The Android build invokes the `ripdpi.android.rust-native` convention plugin from `:core:engine`, which builds the native workspace under `native/rust/`. Local non-release builds default to the host ABI; CI and releases build the full ABI set. For Gradle, KSP, sccache, worktree, and parallel-build tuning, see `docs/contributor/build-performance.md`.
 
