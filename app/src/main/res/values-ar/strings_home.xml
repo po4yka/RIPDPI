@@ -334,6 +334,8 @@
     <string name="home_connection_actuator_action_activate">اتصال</string>
     <string name="home_connection_actuator_action_deactivate">قطع الاتصال</string>
     <string name="home_connection_actuator_fault_copy">نسخ الخطأ</string>
+    <string name="home_connection_actuator_fault_diagnose">تشخيص</string>
+    <string name="home_connection_actuator_fault_view_log">عرض السجل</string>
     <string name="home_connection_stage_network">الشبكة</string>
     <string name="home_connection_stage_handshake">المصافحة</string>
     <string name="home_connection_stage_tunnel">النفق</string>

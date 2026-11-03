@@ -315,6 +315,8 @@
     <string name="home_connection_actuator_action_activate">اتصال</string>
     <string name="home_connection_actuator_action_deactivate">قطع اتصال</string>
     <string name="home_connection_actuator_fault_copy">کپی کردن خطا</string>
+    <string name="home_connection_actuator_fault_diagnose">عیب‌یابی</string>
+    <string name="home_connection_actuator_fault_view_log">مشاهده گزارش</string>
     <string name="home_connection_stage_network">شبکه</string>
     <string name="home_connection_stage_handshake">دست‌دهی</string>
     <string name="home_connection_stage_tunnel">تونل</string>

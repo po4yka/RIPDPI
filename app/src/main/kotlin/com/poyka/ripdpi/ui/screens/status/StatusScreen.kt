@@ -58,6 +58,7 @@ fun StatusScreen(
     onDiagnosticCardClick: () -> Unit = {},
     onOpenDiagnostics: () -> Unit,
     onOpenHistory: () -> Unit,
+    onOpenLogs: () -> Unit = {},
     onOpenConnectionHealth: () -> Unit = {},
     onOpenSubscriptionStatus: () -> Unit = {},
     onOpenAdvancedSettings: () -> Unit = {},
@@ -123,6 +124,8 @@ fun StatusScreen(
                                     )
                                 }
                             },
+                        onDiagnoseFault = onOpenDiagnostics,
+                        onViewFaultLog = onOpenLogs,
                         testTag = RipDpiTestTags.ConnectionActuatorButton,
                     )
                     if (pause.available || pause.phase != null || pause.requestFailed) {

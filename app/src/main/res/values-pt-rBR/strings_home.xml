@@ -315,6 +315,8 @@
     <string name="home_connection_actuator_action_activate">Conectar</string>
     <string name="home_connection_actuator_action_deactivate">Desconectar</string>
     <string name="home_connection_actuator_fault_copy">Copiar o erro</string>
+    <string name="home_connection_actuator_fault_diagnose">Diagnosticar</string>
+    <string name="home_connection_actuator_fault_view_log">Ver registro</string>
     <string name="home_connection_stage_network">Rede</string>
     <string name="home_connection_stage_handshake">Handshake</string>
     <string name="home_connection_stage_tunnel">Túnel</string>

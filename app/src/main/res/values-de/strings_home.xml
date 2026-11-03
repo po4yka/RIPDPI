@@ -305,6 +305,8 @@
     </plurals>
     <string name="home_connection_actuator_action_deactivate">Trennen</string>
     <string name="home_connection_actuator_fault_copy">Fehler kopieren</string>
+    <string name="home_connection_actuator_fault_diagnose">Diagnostizieren</string>
+    <string name="home_connection_actuator_fault_view_log">Protokoll ansehen</string>
     <string name="home_connection_actuator_state_engaging">Verbindung wird hergestellt…</string>
     <string name="home_connection_actuator_state_fault">Verbindung fehlgeschlagen: %1$s</string>
     <string name="home_connection_stage_handshake">Handshake</string>

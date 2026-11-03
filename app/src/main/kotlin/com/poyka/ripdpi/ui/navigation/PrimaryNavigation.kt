@@ -131,6 +131,7 @@ private fun NavGraphBuilder.addHomeRoute(
                 }
             },
             onOpenHistory = { navController.navigate(Route.History) { launchSingleTop = true } },
+            onOpenLogs = { navController.navigate(Route.Logs) { launchSingleTop = true } },
             onOpenConnectionHealth = { navController.navigate(Route.ConnectionHealth) { launchSingleTop = true } },
             onOpenSubscriptionStatus = { navController.navigate(Route.SubscriptionStatus) { launchSingleTop = true } },
             onOpenAdvancedSettings = { navController.navigate(Route.AdvancedSettings) },

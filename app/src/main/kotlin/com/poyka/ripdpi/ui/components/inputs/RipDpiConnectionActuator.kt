@@ -80,6 +80,8 @@ fun RipDpiConnectionActuator(
     onDeactivate: () -> Unit,
     modifier: Modifier = Modifier,
     onCopyFaultDetail: (() -> Unit)? = null,
+    onDiagnoseFault: (() -> Unit)? = null,
+    onViewFaultLog: (() -> Unit)? = null,
     testTag: String? = null,
 ) {
     val resolved = state.withResolvedLabels()
@@ -153,6 +155,8 @@ fun RipDpiConnectionActuator(
                 stateStyle = style,
                 stateRole = state.status.toThemeRole(),
                 onCopy = onCopyFaultDetail,
+                onDiagnose = onDiagnoseFault,
+                onViewLog = onViewFaultLog,
             )
         }
     }
@@ -289,6 +293,8 @@ private fun ActuatorFaultDetail(
     stateRole: RipDpiActuatorStateRole,
     onCopy: (() -> Unit)?,
     modifier: Modifier = Modifier,
+    onDiagnose: (() -> Unit)? = null,
+    onViewLog: (() -> Unit)? = null,
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val shape = RipDpiThemeTokens.shapes.xs
@@ -300,42 +306,69 @@ private fun ActuatorFaultDetail(
             CommonStyle,
             rememberUpdatedStyleState(interactionSource),
         )
-    Row(
-        modifier =
-            modifier
-                .fillMaxWidth()
-                .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorFaultDetail)
-                .styleResolver(resolver)
-                .clip(shape)
-                .then(
-                    if (onCopy != null) {
-                        Modifier.ripDpiClickable(
-                            role = Role.Button,
-                            onClickLabel = copyLabel,
-                            hapticFeedback = RipDpiHapticFeedback.Acknowledge,
-                            interactionSource = interactionSource,
-                            onClick = onCopy,
-                        )
-                    } else {
-                        Modifier
-                    },
-                ).ripDpiStyleAppearance(resolver, shape)
-                .padding(horizontal = spacing.sm, vertical = spacing.sm),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Icon(
-            imageVector = RipDpiIcons.Error,
-            contentDescription = null,
-            modifier = Modifier.size(RipDpiIconSizes.Small),
-            tint = stateStyle.railContent,
-        )
-        Spacer(modifier = Modifier.width(spacing.xs))
-        Text(
-            modifier = Modifier.weight(1f),
-            text = detail,
-            style = RipDpiThemeTokens.type.caption,
-            color = stateStyle.railContent,
-        )
+    Column(modifier = modifier.fillMaxWidth()) {
+        Row(
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorFaultDetail)
+                    .styleResolver(resolver)
+                    .clip(shape)
+                    .then(
+                        if (onCopy != null) {
+                            Modifier.ripDpiClickable(
+                                role = Role.Button,
+                                onClickLabel = copyLabel,
+                                hapticFeedback = RipDpiHapticFeedback.Acknowledge,
+                                interactionSource = interactionSource,
+                                onClick = onCopy,
+                            )
+                        } else {
+                            Modifier
+                        },
+                    ).ripDpiStyleAppearance(resolver, shape)
+                    .padding(horizontal = spacing.sm, vertical = spacing.sm),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Icon(
+                imageVector = RipDpiIcons.Error,
+                contentDescription = null,
+                modifier = Modifier.size(RipDpiIconSizes.Small),
+                tint = stateStyle.railContent,
+            )
+            Spacer(modifier = Modifier.width(spacing.xs))
+            Text(
+                modifier = Modifier.weight(1f),
+                text = detail,
+                style = RipDpiThemeTokens.type.caption,
+                color = stateStyle.railContent,
+            )
+        }
+        if (onDiagnose != null || onViewLog != null) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(top = spacing.sm),
+                horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+            ) {
+                onDiagnose?.let {
+                    RipDpiButton(
+                        text = stringResource(R.string.home_connection_actuator_fault_diagnose),
+                        modifier = Modifier.weight(1f).ripDpiTestTag(RipDpiTestTags.ConnectionActuatorFaultDiagnose),
+                        variant = RipDpiButtonVariant.Outline,
+                        wrapLabel = true,
+                        onClick = it,
+                    )
+                }
+                onViewLog?.let {
+                    RipDpiButton(
+                        text = stringResource(R.string.home_connection_actuator_fault_view_log),
+                        modifier = Modifier.weight(1f).ripDpiTestTag(RipDpiTestTags.ConnectionActuatorFaultViewLog),
+                        variant = RipDpiButtonVariant.Outline,
+                        wrapLabel = true,
+                        onClick = it,
+                    )
+                }
+            }
+        }
     }
 }
 

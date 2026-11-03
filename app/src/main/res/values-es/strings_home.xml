@@ -306,6 +306,8 @@
     </plurals>
     <string name="home_connection_actuator_action_deactivate">Desconectar</string>
     <string name="home_connection_actuator_fault_copy">Copiar el error</string>
+    <string name="home_connection_actuator_fault_diagnose">Diagnosticar</string>
+    <string name="home_connection_actuator_fault_view_log">Ver registro</string>
     <string name="home_connection_actuator_state_engaging">Conectando…</string>
     <string name="home_connection_actuator_state_fault">Error de conexión: %1$s</string>
     <string name="home_connection_stage_handshake">Handshake</string>

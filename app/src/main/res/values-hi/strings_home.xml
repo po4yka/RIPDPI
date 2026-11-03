@@ -316,6 +316,8 @@
     <string name="home_connection_actuator_action_activate">कनेक्ट करें</string>
     <string name="home_connection_actuator_action_deactivate">डिस्कनेक्ट करें</string>
     <string name="home_connection_actuator_fault_copy">त्रुटि कॉपी करें</string>
+    <string name="home_connection_actuator_fault_diagnose">निदान करें</string>
+    <string name="home_connection_actuator_fault_view_log">लॉग देखें</string>
     <string name="home_connection_stage_network">नेटवर्क</string>
     <string name="home_connection_stage_handshake">हैंडशेक</string>
     <string name="home_connection_stage_tunnel">टनल</string>

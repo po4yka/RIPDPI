@@ -312,6 +312,8 @@
     <string name="home_connection_actuator_action_activate">Подключить</string>
     <string name="home_connection_actuator_action_deactivate">Отключить</string>
     <string name="home_connection_actuator_fault_copy">Скопировать ошибку</string>
+    <string name="home_connection_actuator_fault_diagnose">Диагностика</string>
+    <string name="home_connection_actuator_fault_view_log">Открыть журнал</string>
     <string name="home_connection_actuator_direct">Напрямую</string>
     <string name="home_connection_actuator_relay">Через сервер</string>
     <string name="home_connection_actuator_state_degraded">Подключено · предупреждение: %1$s</string>
