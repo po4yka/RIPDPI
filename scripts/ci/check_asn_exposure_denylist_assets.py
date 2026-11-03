@@ -14,8 +14,8 @@ import sys
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
-
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT as ROOT
 ALLOWED_ASN_ASSET_PATHS = {
     Path("core/data/settings/src/main/assets/integrations/asn-routing-map.json"),
     Path("core/diagnostics/src/main/assets/dpich/ipv4_whitelist_asns.json"),

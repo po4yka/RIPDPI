@@ -25,7 +25,8 @@ CRATES = [
     "ripdpi-naiveproxy",
     "ripdpi-ws-tunnel",
 ]
-REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT
 CRATES_ROOT = REPO_ROOT / "native" / "rust" / "crates"
 REQUIRED_FIELDS = [
     "Upstream repo:",

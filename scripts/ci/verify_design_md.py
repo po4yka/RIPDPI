@@ -8,7 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT
 DESIGN_MD_PATH = Path("DESIGN.md")
 DESIGN_SYSTEM_DOC_PATH = Path("docs/design-system.md")
 COLOR_FILE_PATH = Path("app/src/main/kotlin/com/poyka/ripdpi/ui/theme/Color.kt")

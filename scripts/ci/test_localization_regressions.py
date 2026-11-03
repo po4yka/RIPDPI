@@ -3,10 +3,12 @@
 import re
 import unittest
 import xml.etree.ElementTree as ET
+import sys
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT as ROOT
 LOCALES = ("values", "values-ru", "values-es", "values-de", "values-fr", "values-fa",
            "values-ar", "values-zh-rCN", "values-hi", "values-pt-rBR")
 FORMAT = re.compile(r"%(?:\d+\$)?[a-zA-Z]")

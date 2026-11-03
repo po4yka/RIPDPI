@@ -31,7 +31,8 @@ MAX_VALIDITY = timedelta(hours=6)
 MAX_RUN_DURATION = timedelta(hours=1)
 FUTURE_SKEW = timedelta(minutes=5)
 CASE_TIMEOUT_SECONDS = 300
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT as ROOT
 RUNNER_RELATIVE = Path("scripts/ci/run-pmtud-local-evidence.sh")
 VALIDATOR_RELATIVE = Path("scripts/ci/pmtud_local_evidence.py")
 LOCK_RELATIVE = Path("native/rust/Cargo.lock")

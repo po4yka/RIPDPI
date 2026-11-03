@@ -11,11 +11,13 @@ import re
 import struct
 import tarfile
 from datetime import UTC, datetime, timedelta
+import sys
 from pathlib import Path, PurePosixPath
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT as ROOT
 DEFAULT_POLICY = ROOT / "quality/evidence-retention.json"
 PCAP_SUFFIXES = {".pcap", ".pcapng"}
 PCAP_MAGICS = {

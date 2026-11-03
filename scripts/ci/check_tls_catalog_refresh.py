@@ -4,10 +4,12 @@ from __future__ import annotations
 import importlib.util
 import json
 from datetime import date, datetime
+import sys
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT as ROOT
 CATALOG_PATH = ROOT / "core/service/src/main/assets/strategy-packs/catalog.json"
 REFRESH_LOG_PATH = ROOT / "docs/strategy-pack-tls-refresh-log.json"
 ACCEPTANCE_CORPUS_PATH = ROOT / "contract-fixtures/phase11_tls_template_acceptance.json"

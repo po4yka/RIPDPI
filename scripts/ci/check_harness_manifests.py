@@ -15,7 +15,8 @@ from pathlib import Path
 import yaml
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT
 CANONICAL_SKILLS = REPO_ROOT / ".agents" / "skills"
 CENTRAL_RUST_SKILLS = REPO_ROOT / ".agents" / "vendor" / "rust-skills" / "skills"
 # Codex reads .agents/skills directly; Claude Code reads .claude/skills; GitHub Copilot reads .github/skills.

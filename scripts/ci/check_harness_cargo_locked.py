@@ -8,7 +8,8 @@ import sys
 from pathlib import Path
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT
 SCAN_ROOTS = (
     REPO_ROOT / "AGENTS.md",
     REPO_ROOT / "lefthook.yml",

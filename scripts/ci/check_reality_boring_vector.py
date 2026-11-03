@@ -5,10 +5,12 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT as ROOT
 CARGO_TOML = ROOT / "native/rust/Cargo.toml"
 VECTOR_PATH = ROOT / "native/rust/crates/ripdpi-vless/tests/reality_hook_vector.json"
 PINNED_DEPS = ("boring", "tokio-boring")

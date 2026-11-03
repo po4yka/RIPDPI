@@ -15,7 +15,8 @@ import sys
 from pathlib import Path
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT
 WORKSPACE_MANIFEST = REPO_ROOT / "native" / "rust" / "Cargo.toml"
 
 

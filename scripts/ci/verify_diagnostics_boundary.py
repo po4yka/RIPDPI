@@ -8,7 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT
 DIAGNOSTICS_BUILD_FILE = Path("core/diagnostics/build.gradle.kts")
 DIAGNOSTICS_MAIN_ROOT = Path("core/diagnostics/src/main")
 DIAGNOSTICS_PACKAGE_ROOT = (

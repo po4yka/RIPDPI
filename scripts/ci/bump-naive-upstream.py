@@ -23,7 +23,8 @@ import urllib.request
 from pathlib import Path
 from typing import Callable
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT
 DEFAULT_MANIFEST = REPO_ROOT / "native/naiveproxy-upstream/sources.json"
 DEFAULT_KOTLIN = REPO_ROOT / "core/service/src/main/kotlin/com/poyka/ripdpi/services/NaiveUpstreamLauncher.kt"
 API = "https://api.github.com"

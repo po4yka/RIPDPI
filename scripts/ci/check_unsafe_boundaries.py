@@ -43,7 +43,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Iterable
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT, strip_comments
 CRATES_ROOT = REPO_ROOT / "native" / "rust" / "crates"
 ALLOWLIST_FILE = REPO_ROOT / "ci" / "unsafe-boundary-allowlist.toml"
 
@@ -653,8 +654,6 @@ EXCLUDE_FILE_RE = [
 ]
 # Strip block comments and line comments before pattern matching so that
 # documentation, SAFETY notes, and TODOs don't trigger findings.
-BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
-LINE_COMMENT_RE = re.compile(r"//[^\n]*")
 
 # Proximity detector for `debug_assert!` near `unsafe`. The single-line
 # regex set above cannot express "within N lines of X", so we run a small
@@ -1023,11 +1022,6 @@ def is_excluded(path: Path) -> bool:
         return True
     rel = str(path.relative_to(REPO_ROOT))
     return any(pat.search(rel) for pat in EXCLUDE_FILE_RE)
-
-
-def strip_comments(text: str) -> str:
-    text = BLOCK_COMMENT_RE.sub("", text)
-    return LINE_COMMENT_RE.sub("", text)
 
 
 def scan_file(path: Path) -> list[Finding]:

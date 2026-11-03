@@ -65,7 +65,8 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT, strip_comments
 CRATES_ROOT = REPO_ROOT / "native" / "rust" / "crates"
 ALLOWLIST_FILE = REPO_ROOT / "ci" / "pin-allowlist.toml"
 
@@ -79,8 +80,6 @@ EXCLUDE_FILE_RE = [
 # `Pin safety:` doc-comment markers; the pattern matches run against
 # the stripped text so a commented-out `get_unchecked_mut` does not
 # falsely trigger.
-BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
-LINE_COMMENT_RE = re.compile(r"//[^\n]*")
 
 # `macro_rules!` bodies expand to user code at the call site; the
 # pattern inside the body is not itself a Pin violation in the
@@ -117,11 +116,6 @@ def is_excluded(path: Path) -> bool:
         return True
     rel = str(path.relative_to(REPO_ROOT))
     return any(pat.search(rel) for pat in EXCLUDE_FILE_RE)
-
-
-def strip_comments(text: str) -> str:
-    text = BLOCK_COMMENT_RE.sub("", text)
-    return LINE_COMMENT_RE.sub("", text)
 
 
 def strip_macro_rules_bodies(text: str) -> str:

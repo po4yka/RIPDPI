@@ -16,7 +16,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent))
 from check_file_loc_limits import count_code_lines, strip_comments  # noqa: E402
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT
 BASELINE_PATH = REPO_ROOT / "config" / "static" / "file-loc-baseline.json"
 OUTPUT_PATH = REPO_ROOT / "docs" / "architecture" / "hotspots.md"
 

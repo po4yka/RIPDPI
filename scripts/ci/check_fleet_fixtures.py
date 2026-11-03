@@ -36,7 +36,8 @@ import sys
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT as ROOT
 FIXTURES_ROOT = ROOT / "core/data/src/test/resources/fleet-fixtures"
 PIN_FILE = ROOT / "scripts/fleet-fixtures/deployer-git-sha.txt"
 

@@ -11,7 +11,8 @@ from pathlib import Path
 from typing import Any
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT
 WORKSPACE_MANIFEST = REPO_ROOT / "native/rust/Cargo.toml"
 
 RUNTIME_API_FORBIDDEN_PROD_DEPS = {

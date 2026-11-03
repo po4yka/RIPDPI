@@ -11,7 +11,8 @@ from pathlib import Path
 from check_native_hotspot_budgets import production_source
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT
 CRATES_ROOT = Path("native/rust/crates")
 ADAPTER_FILES = (
     Path("native/rust/crates/ripdpi-android-proxy-adapter/src/lib.rs"),

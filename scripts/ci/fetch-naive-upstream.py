@@ -20,7 +20,8 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT
 DEFAULT_MANIFEST = REPO_ROOT / "native/naiveproxy-upstream/sources.json"
 DEFAULT_OUTPUT_ROOT = REPO_ROOT / "native/naiveproxy-upstream/artifacts"
 MAX_ELF_BYTES = 256 * 1024 * 1024

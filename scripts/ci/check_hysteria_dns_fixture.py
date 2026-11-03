@@ -20,11 +20,13 @@ import subprocess
 import tempfile
 import time
 import urllib.request
+import sys
 from pathlib import Path
 
 from android_hysteria_fixture import HysteriaFixture, verify_binary
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT as ROOT
 TEST = "android_fixture_routes_synthetic_dns_and_rejects_wrong_pin_and_destination"
 
 

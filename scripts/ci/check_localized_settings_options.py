@@ -5,7 +5,8 @@ import xml.etree.ElementTree as ET
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT as ROOT
 EXACT_LABELS = {
     "http_fake_profiles": {"iana_get": "IANA GET", "cloudflare_get": "Cloudflare GET"},
     "ip_id_modes": {"seqgroup": "Seqgroup"},

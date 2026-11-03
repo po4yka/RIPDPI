@@ -51,7 +51,8 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT
 CRATES_ROOT = REPO_ROOT / "native" / "rust" / "crates"
 ALLOWLIST_FILE = REPO_ROOT / "ci" / "packed-allowlist.toml"
 

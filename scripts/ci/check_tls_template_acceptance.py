@@ -2,10 +2,12 @@
 from __future__ import annotations
 
 import json
+import sys
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT as ROOT
 CATALOG_PATH = ROOT / "core/service/src/main/assets/strategy-packs/catalog.json"
 CORPUS_PATH = ROOT / "contract-fixtures/phase11_tls_template_acceptance.json"
 REPORT_PATH = ROOT / "docs/tls-template-acceptance-report.json"

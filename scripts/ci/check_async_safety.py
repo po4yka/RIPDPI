@@ -73,7 +73,8 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT, strip_comments
 CRATES_ROOT = REPO_ROOT / "native" / "rust" / "crates"
 ALLOWLIST_FILE = REPO_ROOT / "ci" / "async-safety-allowlist.toml"
 
@@ -83,8 +84,6 @@ EXCLUDE_FILE_RE = [
     re.compile(r"(^|/)test_[^/]+\.rs$"),
 ]
 
-BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
-LINE_COMMENT_RE = re.compile(r"//[^\n]*")
 MACRO_RULES_RE = re.compile(r"\bmacro_rules!\s+[A-Za-z_][A-Za-z0-9_]*\s*\{")
 
 # `#[cfg(test)] mod ... { ... }` -- test-gated modules live in `src/`
@@ -143,11 +142,6 @@ def is_excluded(path: Path) -> bool:
         return True
     rel = str(path.relative_to(REPO_ROOT))
     return any(pat.search(rel) for pat in EXCLUDE_FILE_RE)
-
-
-def strip_comments(text: str) -> str:
-    text = BLOCK_COMMENT_RE.sub("", text)
-    return LINE_COMMENT_RE.sub("", text)
 
 
 def _blank_brace_body(text: str, open_brace_pos: int) -> tuple[int, list[int]]:

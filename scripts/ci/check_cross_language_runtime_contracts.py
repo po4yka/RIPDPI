@@ -4,10 +4,12 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT as ROOT
 POLICY_PATH = ROOT / "quality/release-gates/cross-language-runtime-contracts.json"
 EXPECTED_VERSION = "cross_language_runtime_contracts_v1"
 

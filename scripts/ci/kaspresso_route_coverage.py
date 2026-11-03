@@ -9,9 +9,11 @@ from __future__ import annotations
 
 import argparse
 import re
+import sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT as ROOT
 ROUTE_FILE = ROOT / "app/src/main/kotlin/com/poyka/ripdpi/ui/navigation/Route.kt"
 JOURNEYS_DIR = ROOT / "app/src/androidTest/kotlin/com/poyka/ripdpi/ui/journeys"
 LEAF_ROUTE = re.compile(r"^\s*data (?:object|class) (\w+)\b.*:\s*Route\(\)", re.MULTILINE | re.DOTALL)

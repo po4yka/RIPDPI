@@ -17,7 +17,8 @@ from datetime import date
 from pathlib import Path
 
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT as ROOT
 REVIEW_PATH = ROOT / "quality/release-gates/app-identity-review.json"
 RESOLVED_PATH = ROOT / "app/build/reports/app-identity/release-identity.json"
 RELEASE_WORKFLOW_PATH = ROOT / ".github/workflows/release-candidate.yml"

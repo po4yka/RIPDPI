@@ -34,7 +34,8 @@ from android_hysteria_fixture import HysteriaFixture, verify_binary
 from android_naiveproxy_fixture import LabTrust, NaiveProxyFixture, lab_ca, verify_binary as verify_naive_binary
 from android_peer_diagnostics import OwnedPeerDiagnostics
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT as ROOT
 PREFIX = "com.poyka.ripdpi.e2e."
 SCENARIOS = {
     "android-awg": [

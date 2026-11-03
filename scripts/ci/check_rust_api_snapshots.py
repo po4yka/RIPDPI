@@ -13,7 +13,8 @@ from pathlib import Path
 from typing import Any
 
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT
 RUST_ROOT = REPO_ROOT / "native" / "rust"
 CRATES_ROOT = RUST_ROOT / "crates"
 WORKSPACE_MANIFEST = RUST_ROOT / "Cargo.toml"

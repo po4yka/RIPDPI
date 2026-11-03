@@ -58,7 +58,8 @@ import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 
-REPO_ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT, strip_comments
 CRATES_ROOT = REPO_ROOT / "native" / "rust" / "crates"
 ALLOWLIST_FILE = REPO_ROOT / "ci" / "drop-order-allowlist.toml"
 
@@ -70,8 +71,6 @@ EXCLUDE_FILE_RE = [
 
 # Strip comments before SCAN STRUCTURE; the marker-comment check
 # runs against the ORIGINAL text (since the marker IS a comment).
-BLOCK_COMMENT_RE = re.compile(r"/\*.*?\*/", re.DOTALL)
-LINE_COMMENT_RE = re.compile(r"//[^\n]*")
 
 # `macro_rules! NAME { ... }` -- macro bodies can contain `struct`
 # and `impl Drop` templates that must NOT be scanned as real defs.
@@ -154,11 +153,6 @@ def is_excluded(path: Path) -> bool:
         return True
     rel = str(path.relative_to(REPO_ROOT))
     return any(pat.search(rel) for pat in EXCLUDE_FILE_RE)
-
-
-def strip_comments(text: str) -> str:
-    text = BLOCK_COMMENT_RE.sub("", text)
-    return LINE_COMMENT_RE.sub("", text)
 
 
 def strip_macro_rules_bodies(text: str) -> str:

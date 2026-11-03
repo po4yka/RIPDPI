@@ -10,13 +10,15 @@ import re
 import urllib.error
 import urllib.parse
 import urllib.request
+import sys
 from pathlib import Path
 from typing import Any
 
 
 REPOSITORY = re.compile(r"^[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+$")
 SHA = re.compile(r"^[0-9a-f]{40}$")
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT as ROOT
 DEFAULT_CONTRACT = ROOT / "quality/release-gates/release-contract.json"
 
 

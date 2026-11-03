@@ -8,7 +8,8 @@ import sys
 import tempfile
 
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT as ROOT
 RUNNER = ROOT / "scripts/tests/run-outbound-interop.py"
 REPOSITORIES = {
     "vless": "https://github.com/XTLS/Xray-core.git",

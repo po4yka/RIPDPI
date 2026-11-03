@@ -20,7 +20,8 @@ except ModuleNotFoundError:  # Direct execution sets sys.path to scripts/ci.
     from check_release_window import evaluate_release_window
 
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT as ROOT
 DEFAULT_CONTRACT = ROOT / "quality/release-gates/release-contract.json"
 CommandRunner = Callable[[list[str], Path], None]
 RemoteTagChecker = Callable[[Path, str], None]

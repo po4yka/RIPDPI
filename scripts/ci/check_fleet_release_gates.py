@@ -36,7 +36,8 @@ if str(CI_DIR) not in sys.path:
 from release_gate_results import VALID_RESULT_STATES, na_out_of_scope_violation, normalize_gate_result
 
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT as ROOT
 POLICY_PATH = ROOT / "quality/release-gates/fleet-release-cadence-policy.json"
 
 EXPECTED_VERSION = "fleet_release_cadence_policy_v2"

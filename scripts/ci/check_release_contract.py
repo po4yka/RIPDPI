@@ -6,11 +6,13 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import sys
 from pathlib import Path
 from typing import Any
 
 
-ROOT = Path(__file__).resolve().parents[2]
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from _common import REPO_ROOT as ROOT
 DEFAULT_CONTRACT = ROOT / "quality/release-gates/release-contract.json"
 SOURCE_REFERENCE = re.compile(
     r"(?<![A-Za-z0-9_-])"
