@@ -19,7 +19,7 @@
 
 RIPDPI — это набор инструментов Android для диагностики и оптимизации сетевого пути. Он измеряет, почему цель не работает или деградирует, применяет настраиваемые packet-стратегии на устройстве и может подключаться через relay-серверы, которые вы контролируете. Каждая возможность работает независимо или в сочетании с другими.
 
-## Видеть путь, а не просто переключатель
+## Скриншоты
 
 <p align="center">
   <a href="docs/screenshots/ru/01-hero.png"><img src="docs/screenshots/ru/01-hero.png" width="380" alt="Управление подключением — настоящий главный экран"/></a>
@@ -35,8 +35,6 @@ RIPDPI — это набор инструментов Android для диагн�
   <a href="docs/screenshots/ru/05-strategies.png"><img src="docs/screenshots/ru/05-strategies.png" width="380" alt="Стратегия пакетов — реальные элементы управления"/></a>
   <a href="docs/screenshots/ru/06-local-tools.png"><img src="docs/screenshots/ru/06-local-tools.png" width="380" alt="Резервные копии и восстановление — реальные настройки"/></a>
 </p>
-
-Материалы для Google Play с настоящими экранами приложения. Нажмите изображение, чтобы открыть его в полном размере. [Захват и экспорт](play-store-screenshots/README.md).
 
 Вместо единой глобальной политики RIPDPI классифицирует каждую цель и каждую сеть отдельно, запоминает проверенные результаты и делает свои вердикты о сбоях видимыми. Начните локально; подключайте relay, только когда прямой путь восстановить нельзя.
 
@@ -56,7 +54,7 @@ bash scripts/native/verify-libxray-artifacts.sh
 
 Прежде чем готовить устройство или release-сборку, прочитайте [требования к сборке и пути результатов](#build-requirements).
 
-## Три возможности, один цикл принятия решений
+## Как это работает
 
 ### Packet-стратегии на устройстве
 
@@ -80,36 +78,7 @@ bash scripts/native/verify-libxray-artifacts.sh
 
 ### Опциональный VPN-relay
 
-Цепляет трафик локального прокси или VPN через зашифрованные relay-протоколы к серверу, который вы настраиваете:
-
-| Kind / protocol | Integration tier | Scope | Traffic |
-| --- | --- | --- | --- |
-| `vless_reality` / VLESS Reality TCP | Native relay-core backend (`ripdpi-vless`) | Client relay | TCP + UDP (XUDP) |
-| `vless_reality` / xHTTP transport | Native relay-core backend (`ripdpi-xhttp`) | Client relay | TCP |
-| `cloudflare_tunnel` | Native xHTTP relay path plus optional Cloudflare publish runtime | Client relay / local-origin publish | TCP |
-| `hysteria2` | Native relay-core backend (`ripdpi-hysteria2`) | Client relay | TCP + UDP |
-| `tuic_v5` | Native relay-core backend (`ripdpi-tuic`) | Client relay | TCP + UDP |
-| `masque` | Native relay-core backend (`ripdpi-masque`): HTTP/2 classic CONNECT for TCP, HTTP/3 CONNECT-UDP for UDP | Client relay | TCP + UDP |
-| `shadowtls_v3` | Native relay-core backend (`ripdpi-shadowtls`) with a profile-backed inner relay | Client relay | TCP |
-| `trojan` | Native relay-core backend (`ripdpi-trojan`) | Client relay | TCP + UDP |
-| `anytls` | Native relay-core backend (`ripdpi-anytls`) | Client relay | TCP + UDP |
-| `shadowsocks` | Native relay-core backend (`ripdpi-shadowsocks`) | Client relay | TCP + UDP |
-| `tor` | Native Arti-backed relay-core backend (`ripdpi-tor`) with bridge/PT bootstrap | Opt-in client anonymity relay | TCP |
-| `naiveproxy` | External helper process (`ripdpi-naiveproxy`) supervised by Android service code | Client relay | TCP |
-| `google_apps_script` | In-repository Rust Apps Script relay runtime (`ripdpi-apps-script-core`) selected by `libripdpi-relay.so` | Client relay path | TCP |
-| `snowflake` | External Go pluggable-transport binary (`ripdpi-snowflake`) | Client PT relay | TCP |
-| `webtunnel` | In-repository Rust pluggable-transport helper binary (`ripdpi-webtunnel`) | Client PT relay | TCP |
-| `obfs4` | External pluggable-transport binary (`ripdpi-obfs4`) | Client PT relay | TCP |
-| `chain_relay` | Native relay-core composition over referenced relay profiles | Ordered 2-4 hop client relay | TCP |
-| `mieru` | Native relay-core backend (`ripdpi-mieru`); UDP relay gated off pending the custom UDP/TCP wire engine | Client relay | TCP |
-| `ssh` | Native relay-core backend (`ripdpi-ssh`) | Client relay | TCP |
-| `vless` / xHTTP transport | Native relay-core backend (`ripdpi-xhttp`), xHTTP/TLS | Client relay | TCP |
-
-Для обычного `vless` есть нативный backend xHTTP/TLS; остальные транспорты обычного VLESS этот backend не поддерживает. UDP в VLESS Reality использует XUDP только при включённом UDP, транспорте `reality_tcp` и flow `xtls-rprx-vision` или `xtls-rprx-vision-udp443`. xHTTP поддерживает только TCP.
-
-Snowflake намеренно остаётся внешним Go-бинарником; см. [решение об отказе от нативного Rust-варианта Snowflake](docs/architecture/snowflake-native-rust-decision.md). VLESS Reality не использует настоящий ECH; политику только с GREASE см. в [ADR 0001](docs/adr/0001-reality-ech.md).
-
-WARP и AmneziaWG — отдельные поверхности VPN/tunnel-профилей, а не значения `relay_kind` в реестре relay-core.
+Relay-режим направляет трафик локального прокси или VPN на настроенный вами сервер. Поддерживаемые протоколы: VLESS (Reality, xHTTP), Hysteria2, TUIC v5, MASQUE, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, Mieru, SSH, NaiveProxy, Tor (Snowflake, WebTunnel, obfs4), Google Apps Script, Cloudflare Tunnel, а также цепочки из 2–4 узлов. [Таблица relay-протоколов](docs/native/README.md#relay-protocols) показывает backend и поддержку TCP/UDP для каждого протокола.
 
 И режим локального прокси, и режим перенаправления Android VPN работают с настроенным relay или без него.
 
@@ -173,14 +142,6 @@ RIPDPI записывает операционные метаданные для
 android sdk install platforms/android-37.1 ndk/29.0.14206865 cmake/3.31.6
 ```
 
-```bash
-git clone https://github.com/po4yka/RIPDPI.git
-cd RIPDPI
-bash scripts/native/build-libxray.sh
-bash scripts/native/verify-libxray-artifacts.sh
-./gradlew assembleDebug
-```
-
 Локальные сборки по умолчанию используют `host` (`ripdpi.localNativeAbisDefault`) — ABI определяется по архитектуре хоста (например, `arm64-v8a` на Apple Silicon). Для эмулятора: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
 
 APK создаются в каталогах вариантов, например `app/build/outputs/apk/githubFull/debug/`; задачи и пути release-сборок описаны в [distribution.md](docs/distribution.md).
@@ -232,6 +193,7 @@ RIPDPI стремится к простоте Linear или Apple Notes: про�
 - [Локальная сетевая тестовая лаборатория](test-lab/README.md)
 - [Внешняя автоматизация UI](docs/automation/README.md)
 - [Архитектурные заметки](docs/architecture/README.md)
+- [Захват и экспорт](play-store-screenshots/README.md)
 - [Roadmap](ROADMAP.md)
 
 ## Перевод RIPDPI

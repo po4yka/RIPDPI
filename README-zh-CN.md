@@ -19,7 +19,7 @@
 
 RIPDPI 是一套 Android 网络路径诊断与优化工具。它测量某个目标为何失败或性能下降，在设备上应用可配置的数据包策略，并可通过您自己控制的中继服务器连接。每种能力既可单独使用，也可组合使用。
 
-## 看见路径，而不只是一个开关
+## 截图
 
 <p align="center">
   <a href="docs/screenshots/zh-CN/01-hero.png"><img src="docs/screenshots/zh-CN/01-hero.png" width="380" alt="连接控制 — 真实主屏幕"/></a>
@@ -35,8 +35,6 @@ RIPDPI 是一套 Android 网络路径诊断与优化工具。它测量某个目�
   <a href="docs/screenshots/zh-CN/05-strategies.png"><img src="docs/screenshots/zh-CN/05-strategies.png" width="380" alt="数据包策略 — 真实控制界面"/></a>
   <a href="docs/screenshots/zh-CN/06-local-tools.png"><img src="docs/screenshots/zh-CN/06-local-tools.png" width="380" alt="备份与恢复 — 真实设置"/></a>
 </p>
-
-Google Play 宣传素材使用真实应用界面。点击图片可查看完整尺寸。[截图与导出](play-store-screenshots/README.md)。
 
 RIPDPI 不采用单一的全局策略，而是分别对每个目标和每个网络进行分类，记住已验证的结果，并让失败判定可见。先从本地开始；只有在直连路径无法恢复时，才引入中继。
 
@@ -56,7 +54,7 @@ bash scripts/native/verify-libxray-artifacts.sh
 
 在准备设备或 release 构建之前，请参阅[构建要求和输出路径](#build-requirements)。
 
-## 三种能力，一个决策闭环
+## 工作原理
 
 ### 设备端数据包策略
 
@@ -80,36 +78,7 @@ bash scripts/native/verify-libxray-artifacts.sh
 
 ### 可选的 VPN 中继
 
-将本地代理或 VPN 流量通过加密的中继协议串接到您配置的服务器：
-
-| Kind / protocol | Integration tier | Scope | Traffic |
-| --- | --- | --- | --- |
-| `vless_reality` / VLESS Reality TCP | Native relay-core backend (`ripdpi-vless`) | Client relay | TCP + UDP (XUDP) |
-| `vless_reality` / xHTTP transport | Native relay-core backend (`ripdpi-xhttp`) | Client relay | TCP |
-| `cloudflare_tunnel` | Native xHTTP relay path plus optional Cloudflare publish runtime | Client relay / local-origin publish | TCP |
-| `hysteria2` | Native relay-core backend (`ripdpi-hysteria2`) | Client relay | TCP + UDP |
-| `tuic_v5` | Native relay-core backend (`ripdpi-tuic`) | Client relay | TCP + UDP |
-| `masque` | Native relay-core backend (`ripdpi-masque`): HTTP/2 classic CONNECT for TCP, HTTP/3 CONNECT-UDP for UDP | Client relay | TCP + UDP |
-| `shadowtls_v3` | Native relay-core backend (`ripdpi-shadowtls`) with a profile-backed inner relay | Client relay | TCP |
-| `trojan` | Native relay-core backend (`ripdpi-trojan`) | Client relay | TCP + UDP |
-| `anytls` | Native relay-core backend (`ripdpi-anytls`) | Client relay | TCP + UDP |
-| `shadowsocks` | Native relay-core backend (`ripdpi-shadowsocks`) | Client relay | TCP + UDP |
-| `tor` | Native Arti-backed relay-core backend (`ripdpi-tor`) with bridge/PT bootstrap | Opt-in client anonymity relay | TCP |
-| `naiveproxy` | External helper process (`ripdpi-naiveproxy`) supervised by Android service code | Client relay | TCP |
-| `google_apps_script` | In-repository Rust Apps Script relay runtime (`ripdpi-apps-script-core`) selected by `libripdpi-relay.so` | Client relay path | TCP |
-| `snowflake` | External Go pluggable-transport binary (`ripdpi-snowflake`) | Client PT relay | TCP |
-| `webtunnel` | In-repository Rust pluggable-transport helper binary (`ripdpi-webtunnel`) | Client PT relay | TCP |
-| `obfs4` | External pluggable-transport binary (`ripdpi-obfs4`) | Client PT relay | TCP |
-| `chain_relay` | Native relay-core composition over referenced relay profiles | Ordered 2-4 hop client relay | TCP |
-| `mieru` | Native relay-core backend (`ripdpi-mieru`); UDP relay gated off pending the custom UDP/TCP wire engine | Client relay | TCP |
-| `ssh` | Native relay-core backend (`ripdpi-ssh`) | Client relay | TCP |
-| `vless` / xHTTP transport | Native relay-core backend (`ripdpi-xhttp`), xHTTP/TLS | Client relay | TCP |
-
-普通 `vless` 具有原生 xHTTP/TLS 后端；该后端不支持其他普通 VLESS 传输。VLESS Reality 仅在启用 UDP、传输为 `reality_tcp` 且 flow 为 `xtls-rprx-vision` 或 `xtls-rprx-vision-udp443` 时通过 XUDP 支持 UDP。xHTTP 仅支持 TCP。
-
-Snowflake 有意保持为外部 Go 二进制文件；参见 [Snowflake 不迁移到原生 Rust 的决定](docs/architecture/snowflake-native-rust-decision.md)。VLESS Reality 不使用真实的 ECH；仅 GREASE 的策略参见 [ADR 0001](docs/adr/0001-reality-ech.md)。
-
-WARP 和 AmneziaWG 是独立的 VPN/隧道配置界面，不是 relay-core 注册表中的 `relay_kind` 取值。
+中继模式将本地代理或 VPN 流量发送到你配置的服务器。支持的协议：VLESS (Reality, xHTTP), Hysteria2, TUIC v5, MASQUE, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, Mieru, SSH, NaiveProxy, Tor (Snowflake, WebTunnel, obfs4), Google Apps Script, Cloudflare Tunnel，以及 2–4 跳的链式中继。[中继协议表](docs/native/README.md#relay-protocols)列出了每个协议的后端和 TCP/UDP 支持情况。
 
 本地代理模式和 Android VPN 重定向模式在配置或未配置中继时均可工作。
 
@@ -173,14 +142,6 @@ RIPDPI 会记录用于诊断和故障排查的运行元数据：网络快照、�
 android sdk install platforms/android-37.1 ndk/29.0.14206865 cmake/3.31.6
 ```
 
-```bash
-git clone https://github.com/po4yka/RIPDPI.git
-cd RIPDPI
-bash scripts/native/build-libxray.sh
-bash scripts/native/verify-libxray-artifacts.sh
-./gradlew assembleDebug
-```
-
 本地构建默认为 `host`（`ripdpi.localNativeAbisDefault`），ABI 由主机架构推导（例如 Apple Silicon 上为 `arm64-v8a`）。模拟器：`./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`。
 
 APK 输出位于对应变体目录中，例如 `app/build/outputs/apk/githubFull/debug/`；release 任务和路径请参阅 [distribution.md](docs/distribution.md)。
@@ -232,6 +193,7 @@ RIPDPI 追求 Linear 或 Apple Notes 那样的简洁：简单的目标、简单�
 - [本地网络测试实验室](test-lab/README.md)
 - [外部 UI 自动化](docs/automation/README.md)
 - [架构说明](docs/architecture/README.md)
+- [截图与导出](play-store-screenshots/README.md)
 - [路线图](ROADMAP.md)
 
 ## 翻译 RIPDPI

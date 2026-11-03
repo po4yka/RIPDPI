@@ -19,7 +19,7 @@
 
 RIPDPI is an Android network-path diagnostics and optimization toolkit. It measures why a target is failing or degrading, applies configurable packet strategies on-device, and can connect through relay servers you control. Each capability works independently or in combination.
 
-## See the path, not just a switch
+## Screenshots
 
 <p align="center">
   <a href="docs/screenshots/en/01-hero.png"><img src="docs/screenshots/en/01-hero.png" width="380" alt="Connection controls — real Home screen"/></a>
@@ -35,8 +35,6 @@ RIPDPI is an Android network-path diagnostics and optimization toolkit. It measu
   <a href="docs/screenshots/en/05-strategies.png"><img src="docs/screenshots/en/05-strategies.png" width="380" alt="Packet strategy — real controls"/></a>
   <a href="docs/screenshots/en/06-local-tools.png"><img src="docs/screenshots/en/06-local-tools.png" width="380" alt="Backup and restore — real settings"/></a>
 </p>
-
-Google Play artwork with real app screens. Open an image at full size. [Capture sources and export](play-store-screenshots/README.md).
 
 Instead of a single global policy, RIPDPI classifies each target and network separately, remembers validated outcomes, and makes its failure verdicts visible. Start locally; introduce a relay only when the direct path cannot be recovered.
 
@@ -56,7 +54,7 @@ bash scripts/native/verify-libxray-artifacts.sh
 
 See [build requirements and output paths](#build-requirements) before preparing a device or release build.
 
-## Three capabilities, one decision loop
+## How it works
 
 ### On-device packet strategies
 
@@ -80,36 +78,7 @@ Verdicts are stored per network fingerprint and replayed automatically when the 
 
 ### Optional VPN relay
 
-Chains local proxy or VPN traffic through encrypted relay protocols to a server you configure:
-
-| Kind / protocol | Integration tier | Scope | Traffic |
-| --- | --- | --- | --- |
-| `vless_reality` / VLESS Reality TCP | Native relay-core backend (`ripdpi-vless`) | Client relay | TCP + UDP (XUDP) |
-| `vless_reality` / xHTTP transport | Native relay-core backend (`ripdpi-xhttp`) | Client relay | TCP |
-| `cloudflare_tunnel` | Native xHTTP relay path plus optional Cloudflare publish runtime | Client relay / local-origin publish | TCP |
-| `hysteria2` | Native relay-core backend (`ripdpi-hysteria2`) | Client relay | TCP + UDP |
-| `tuic_v5` | Native relay-core backend (`ripdpi-tuic`) | Client relay | TCP + UDP |
-| `masque` | Native relay-core backend (`ripdpi-masque`): HTTP/2 classic CONNECT for TCP, HTTP/3 CONNECT-UDP for UDP | Client relay | TCP + UDP |
-| `shadowtls_v3` | Native relay-core backend (`ripdpi-shadowtls`) with a profile-backed inner relay | Client relay | TCP |
-| `trojan` | Native relay-core backend (`ripdpi-trojan`) | Client relay | TCP + UDP |
-| `anytls` | Native relay-core backend (`ripdpi-anytls`) | Client relay | TCP + UDP |
-| `shadowsocks` | Native relay-core backend (`ripdpi-shadowsocks`) | Client relay | TCP + UDP |
-| `tor` | Native Arti-backed relay-core backend (`ripdpi-tor`) with bridge/PT bootstrap | Opt-in client anonymity relay | TCP |
-| `naiveproxy` | External helper process (`ripdpi-naiveproxy`) supervised by Android service code | Client relay | TCP |
-| `google_apps_script` | In-repository Rust Apps Script relay runtime (`ripdpi-apps-script-core`) selected by `libripdpi-relay.so` | Client relay path | TCP |
-| `snowflake` | External Go pluggable-transport binary (`ripdpi-snowflake`) | Client PT relay | TCP |
-| `webtunnel` | In-repository Rust pluggable-transport helper binary (`ripdpi-webtunnel`) | Client PT relay | TCP |
-| `obfs4` | External pluggable-transport binary (`ripdpi-obfs4`) | Client PT relay | TCP |
-| `chain_relay` | Native relay-core composition over referenced relay profiles | Ordered 2-4 hop client relay | TCP |
-| `mieru` | Native relay-core backend (`ripdpi-mieru`); UDP relay gated off pending the custom UDP/TCP wire engine | Client relay | TCP |
-| `ssh` | Native relay-core backend (`ripdpi-ssh`) | Client relay | TCP |
-| `vless` / xHTTP transport | Native relay-core backend (`ripdpi-xhttp`), xHTTP/TLS | Client relay | TCP |
-
-Plain `vless` has a native xHTTP/TLS backend; other plain VLESS transports are not supported by that backend. VLESS Reality UDP uses XUDP only when UDP is enabled, the transport is `reality_tcp`, and the flow is `xtls-rprx-vision` or `xtls-rprx-vision-udp443`. xHTTP remains TCP-only.
-
-Snowflake intentionally remains an external Go binary; see the [Snowflake native Rust no-go decision](docs/architecture/snowflake-native-rust-decision.md). VLESS Reality does not use real ECH; see [ADR 0001](docs/adr/0001-reality-ech.md) for the GREASE-only policy.
-
-WARP and AmneziaWG are separate VPN/tunnel profile surfaces, not `relay_kind` values in the relay-core registry.
+Relay mode sends local proxy or VPN traffic to a server you configure. Supported protocols: VLESS (Reality, xHTTP), Hysteria2, TUIC v5, MASQUE, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, Mieru, SSH, NaiveProxy, Tor (Snowflake, WebTunnel, obfs4), Google Apps Script, Cloudflare Tunnel, and chains of 2–4 hops. The [relay protocol table](docs/native/README.md#relay-protocols) lists the backend and TCP/UDP support of each protocol.
 
 Both local proxy mode and Android VPN redirection mode work with or without a relay configured.
 
@@ -173,14 +142,6 @@ Install the required SDK packages with Android CLI 1.0+:
 android sdk install platforms/android-37.1 ndk/29.0.14206865 cmake/3.31.6
 ```
 
-```bash
-git clone https://github.com/po4yka/RIPDPI.git
-cd RIPDPI
-bash scripts/native/build-libxray.sh
-bash scripts/native/verify-libxray-artifacts.sh
-./gradlew assembleDebug
-```
-
 Local builds default to `host` (`ripdpi.localNativeAbisDefault`), which resolves to the host architecture (e.g. `arm64-v8a` on Apple Silicon). For emulator: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
 
 APK output is flavor-specific, for example `app/build/outputs/apk/githubFull/debug/`; see [distribution.md](docs/distribution.md) for release tasks and paths.
@@ -232,6 +193,7 @@ RIPDPI aims for the simplicity of Linear or Apple Notes: a simple purpose, a sim
 - [Local network test lab](test-lab/README.md)
 - [External UI automation](docs/automation/README.md)
 - [Architecture notes](docs/architecture/README.md)
+- [Capture sources and export](play-store-screenshots/README.md)
 - [Roadmap](ROADMAP.md)
 
 ## Translate RIPDPI

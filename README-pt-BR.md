@@ -19,7 +19,7 @@
 
 RIPDPI é um kit de ferramentas Android de diagnóstico e otimização do caminho de rede. Ele mede por que um destino está falhando ou sofrendo degradação, aplica estratégias configuráveis de pacotes no próprio dispositivo e pode se conectar por meio de servidores relay sob o seu controle. Cada recurso funciona de forma independente ou em combinação.
 
-## Veja o caminho, não apenas um interruptor
+## Capturas de tela
 
 **Idioma do banner e dos cartões: English fallback.** Ainda não há materiais Google Play em português brasileiro.
 
@@ -37,8 +37,6 @@ RIPDPI é um kit de ferramentas Android de diagnóstico e otimização do caminh
   <a href="docs/screenshots/en/05-strategies.png"><img src="docs/screenshots/en/05-strategies.png" width="380" alt="Estratégia de pacotes — controles reais"/></a>
   <a href="docs/screenshots/en/06-local-tools.png"><img src="docs/screenshots/en/06-local-tools.png" width="380" alt="Backup e restauração — configurações reais"/></a>
 </p>
-
-Material para Google Play com telas reais do aplicativo. Abra uma imagem em tamanho completo. [Captura e exportação](play-store-screenshots/README.md).
 
 Em vez de uma única política global, o RIPDPI classifica cada destino e cada rede separadamente, lembra os resultados validados e torna seus vereditos de falha visíveis. Comece localmente; introduza um relay somente quando o caminho direto não puder ser recuperado.
 
@@ -58,7 +56,7 @@ bash scripts/native/verify-libxray-artifacts.sh
 
 Consulte [requisitos de build e caminhos de saída](#requisitos-de-build) antes de preparar um dispositivo ou uma build de release.
 
-## Três capacidades, um ciclo de decisão
+## Como funciona
 
 ### Estratégias de pacotes no dispositivo
 
@@ -82,36 +80,7 @@ Os vereditos são armazenados por fingerprint de rede e reproduzidos automaticam
 
 ### Relay VPN opcional
 
-Encadeia o tráfego do proxy local ou da VPN por protocolos de relay criptografados até um servidor que você configura:
-
-| Tipo / protocolo | Camada de integração | Escopo | Tráfego |
-| --- | --- | --- | --- |
-| `vless_reality` / VLESS Reality TCP | Backend nativo do relay-core (`ripdpi-vless`) | Relay do cliente | TCP + UDP (XUDP) |
-| `vless_reality` / transporte xHTTP | Backend nativo do relay-core (`ripdpi-xhttp`) | Relay do cliente | TCP |
-| `cloudflare_tunnel` | Caminho de relay xHTTP nativo mais runtime opcional de publicação do Cloudflare | Relay do cliente / publicação de origem local | TCP |
-| `hysteria2` | Backend nativo do relay-core (`ripdpi-hysteria2`) | Relay do cliente | TCP + UDP |
-| `tuic_v5` | Backend nativo do relay-core (`ripdpi-tuic`) | Relay do cliente | TCP + UDP |
-| `masque` | Backend nativo do relay-core (`ripdpi-masque`): CONNECT clássico HTTP/2 para TCP, CONNECT-UDP HTTP/3 para UDP | Relay do cliente | TCP + UDP |
-| `shadowtls_v3` | Backend nativo do relay-core (`ripdpi-shadowtls`) com um relay interno baseado em perfil | Relay do cliente | TCP |
-| `trojan` | Backend nativo do relay-core (`ripdpi-trojan`) | Relay do cliente | TCP + UDP |
-| `anytls` | Backend nativo do relay-core (`ripdpi-anytls`) | Relay do cliente | TCP + UDP |
-| `shadowsocks` | Backend nativo do relay-core (`ripdpi-shadowsocks`) | Relay do cliente | TCP + UDP |
-| `tor` | Backend nativo do relay-core baseado no Arti (`ripdpi-tor`) com bootstrap de bridge/PT | Relay de anonimato do cliente por opt-in | TCP |
-| `naiveproxy` | Processo auxiliar externo (`ripdpi-naiveproxy`) supervisionado pelo código de serviço do Android | Relay do cliente | TCP |
-| `google_apps_script` | Runtime de relay Apps Script em Rust dentro do repositório (`ripdpi-apps-script-core`) selecionado pelo `libripdpi-relay.so` | Caminho de relay do cliente | TCP |
-| `snowflake` | Binário externo de pluggable transport em Go (`ripdpi-snowflake`) | Relay PT do cliente | TCP |
-| `webtunnel` | Binário auxiliar de pluggable transport em Rust dentro do repositório (`ripdpi-webtunnel`) | Relay PT do cliente | TCP |
-| `obfs4` | Binário externo de pluggable transport (`ripdpi-obfs4`) | Relay PT do cliente | TCP |
-| `chain_relay` | Composição nativa do relay-core sobre perfis de relay referenciados | Relay do cliente ordenado de 2-4 saltos | TCP |
-| `mieru` | Backend nativo do relay-core (`ripdpi-mieru`); relay UDP mantido desativado até que o engine UDP/TCP personalizado fique pronto | Relay do cliente | TCP |
-| `ssh` | Backend nativo do relay-core (`ripdpi-ssh`) | Relay do cliente | TCP |
-| `vless` / xHTTP transport | Backend nativo do relay-core (`ripdpi-xhttp`), xHTTP/TLS | Relay do cliente | TCP |
-
-O `vless` simples tem um backend nativo xHTTP/TLS; esse backend não aceita outros transportes VLESS simples. O UDP do VLESS Reality usa XUDP apenas quando UDP está ativado, o transporte é `reality_tcp` e o flow é `xtls-rprx-vision` ou `xtls-rprx-vision-udp443`. xHTTP aceita apenas TCP.
-
-O Snowflake permanece intencionalmente como um binário externo em Go; veja a [decisão de não portar o Snowflake para Rust nativo](docs/architecture/snowflake-native-rust-decision.md). O VLESS Reality não usa ECH real; veja o [ADR 0001](docs/adr/0001-reality-ech.md) para conhecer a política somente GREASE.
-
-WARP e AmneziaWG são superfícies separadas de perfis de VPN/túnel, não valores de `relay_kind` no registro do relay-core.
+O modo relay envia o tráfego do proxy local ou da VPN para um servidor que você configura. Protocolos compatíveis: VLESS (Reality, xHTTP), Hysteria2, TUIC v5, MASQUE, ShadowTLS v3, Trojan, AnyTLS, Shadowsocks, Mieru, SSH, NaiveProxy, Tor (Snowflake, WebTunnel, obfs4), Google Apps Script, Cloudflare Tunnel e cadeias de 2 a 4 saltos. A [tabela de protocolos relay](docs/native/README.md#relay-protocols) mostra o backend e o suporte a TCP/UDP de cada protocolo.
 
 Tanto o modo proxy local quanto o modo de redirecionamento VPN do Android funcionam com ou sem um relay configurado.
 
@@ -174,14 +143,6 @@ Instale os pacotes SDK necessários com Android CLI 1.0+:
 android sdk install platforms/android-37.1 ndk/29.0.14206865 cmake/3.31.6
 ```
 
-```bash
-git clone https://github.com/po4yka/RIPDPI.git
-cd RIPDPI
-bash scripts/native/build-libxray.sh
-bash scripts/native/verify-libxray-artifacts.sh
-./gradlew assembleDebug
-```
-
 Builds locais usam `host` como padrão (`ripdpi.localNativeAbisDefault`), que corresponde à arquitetura da máquina hospedeira (por exemplo, `arm64-v8a` no Apple Silicon). Para emulador: `./gradlew assembleDebug -Pripdpi.localNativeAbis=x86_64`.
 
 A saída do APK é específica por flavor, por exemplo `app/build/outputs/apk/githubFull/debug/`; consulte [distribution.md](docs/distribution.md) para conhecer as tarefas e os caminhos de release.
@@ -233,6 +194,7 @@ O RIPDPI busca a simplicidade do Linear ou do Apple Notes: um propósito simples
 - [Laboratório de teste de rede local](test-lab/README.md)
 - [Automação de UI externa](docs/automation/README.md)
 - [Notas de arquitetura](docs/architecture/README.md)
+- [Captura e exportação](play-store-screenshots/README.md)
 - [Roadmap](ROADMAP.md)
 
 ## Traduza o RIPDPI
