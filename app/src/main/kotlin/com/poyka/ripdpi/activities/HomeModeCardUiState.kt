@@ -158,7 +158,6 @@ private fun buildRemoteVpnCard(
     connectionDuration: Duration,
     stringResolver: StringResolver,
 ): HomeModeCardUiState {
-    val relaySummary = draft.relaySummary
     val isActive = connectionState == ConnectionState.Connected && isRemoteVpnMode(activeMode)
     val doqUnavailable = hasUnsupportedVpnDoq(settings) && !isActive
     return HomeModeCardUiState(
@@ -174,7 +173,7 @@ private fun buildRemoteVpnCard(
                 vpnDataPlaneStatus = vpnDataPlaneStatus,
                 connectionDuration = connectionDuration,
                 stringResolver = stringResolver,
-            ) ?: relaySummary.takeIf { draft.relayEnabled },
+            ),
         statusLine =
             vpnModeStatusLabel(
                 connectionState = connectionState,
