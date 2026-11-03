@@ -63,20 +63,20 @@ class SettingsListDetailNavigationTest {
         composeRule.onNodeWithTag(settingsScreen).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsDetailPlaceholder).assertExists()
 
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsDnsSettings).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).performClick()
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag(settingsScreen).assertExists()
         composeRule.onNodeWithTag(DNS_TAG).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsDnsSettings).assertIsSelected()
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsSubscriptionStatus).assert(!isSelected())
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).assertIsSelected()
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsAbout).assert(!isSelected())
         composeRule.onNode(hasContentDescription(BACK_LABEL)).assertDoesNotExist()
 
         // Another item replaces the detail; back then leaves the detail, not the previous item.
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsSubscriptionStatus).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsAbout).performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag(STATUS_TAG).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsSubscriptionStatus).assertIsSelected()
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsAbout).assertIsSelected()
 
         composeRule.runOnIdle { backDispatcher.onBackPressed() }
         composeRule.runOnIdle { assertTrue(currentIs<Route.Settings>()) }
@@ -88,11 +88,11 @@ class SettingsListDetailNavigationTest {
     @Config(qualifiers = "w1300dp-h900dp")
     fun selectingTheOpenDetailAgainKeepsTheSameEntry() {
         showSettingsGraph()
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsDnsSettings).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).performClick()
         composeRule.waitForIdle()
         val openEntryId = composeRule.runOnIdle { requireNotNull(navController.currentBackStackEntry).id }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsDnsSettings).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).performClick()
         composeRule.waitForIdle()
 
         composeRule.runOnIdle {
@@ -108,7 +108,7 @@ class SettingsListDetailNavigationTest {
         composeRule.onNodeWithTag(settingsScreen).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsDetailPlaceholder).assertDoesNotExist()
 
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsDnsSettings).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).performClick()
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag(DNS_TAG).assertExists()
@@ -128,7 +128,7 @@ class SettingsListDetailNavigationTest {
 
         // A launch route or deep link has no Settings entry below the detail.
         composeRule.runOnIdle {
-            navController.navigate(Route.DnsSettings) { popUpTo<Route.Settings> { inclusive = true } }
+            navController.navigate(Route.AppCustomization) { popUpTo<Route.Settings> { inclusive = true } }
         }
         composeRule.waitForIdle()
 
@@ -165,8 +165,8 @@ class SettingsListDetailNavigationTest {
                                         SettingsList(navController)
                                     }
                                 }
-                                composable<Route.DnsSettings> { DetailScreen(DNS_TAG, navController) }
-                                composable<Route.SubscriptionStatus> { DetailScreen(STATUS_TAG, navController) }
+                                composable<Route.AppCustomization> { DetailScreen(DNS_TAG, navController) }
+                                composable<Route.About> { DetailScreen(STATUS_TAG, navController) }
                             }
                         }
                     },
@@ -202,12 +202,9 @@ class SettingsListDetailNavigationTest {
 
     private fun listActions(navController: NavHostController): SettingsScreenActions =
         SettingsScreenActions(
-            onOpenProfileUtility = {},
-            onOpenDnsSettings = { navController.navigateSettingsDetail(Route.DnsSettings) },
-            onOpenSubscriptionStatus = { navController.navigateSettingsDetail(Route.SubscriptionStatus) },
             onOpenAdvancedSettings = {},
-            onOpenCustomization = {},
-            onOpenAbout = {},
+            onOpenCustomization = { navController.navigateSettingsDetail(Route.AppCustomization) },
+            onOpenAbout = { navController.navigateSettingsDetail(Route.About) },
             onOpenDataTransparency = {},
             onShareDebugBundle = {},
             onRepairPermission = {},

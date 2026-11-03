@@ -85,8 +85,6 @@ class RootModeStrategiesControlsTest {
 
     private fun testActions() =
         SettingsScreenActions(
-            onOpenProfileUtility = { error("Unexpected profile utility action") },
-            onOpenDnsSettings = {},
             onOpenAdvancedSettings = {},
             onOpenCustomization = {},
             onOpenAbout = {},

@@ -436,7 +436,6 @@ private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>
         Route.VpnConfig.stableRoute to { hasRoute<Route.VpnConfig>() },
         Route.Diagnostics().stableRoute to { hasRoute<Route.Diagnostics>() },
         Route.Settings.stableRoute to { hasRoute<Route.Settings>() },
-        Route.ProfileUtility.stableRoute to { hasRoute<Route.ProfileUtility>() },
         Route.Onboarding.stableRoute to { hasRoute<Route.Onboarding>() },
         Route.History.stableRoute to { hasRoute<Route.History>() },
         Route.Logs.stableRoute to { hasRoute<Route.Logs>() },

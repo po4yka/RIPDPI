@@ -854,6 +854,7 @@ Each screen has one scaffold, one layout recipe, and one contract. Look up the s
 ### Settings
 
 - Use `RipDpiContentScreenScaffold` only for narrower detail flows that do not behave like the main list.
+- Settings does not repeat Connection: DNS, subscription status and failover, and profiles open from Connection, never from a Settings row.
 - Keep four top-level groups: Connection (permission repairs, start on boot), Interface (language, theme, persona, icon), Privacy (data transparency), and Support (backup, maintenance, and the Logs row).
 - Show actual values, such as the native language name, theme, persona, and icon. A navigation-only row keeps its chevron, without a repeated Manage value or an invented count.
 - Use `WarningBanner` for tunneled-outbound cautions, permission guidance, and stateful advisories. Never encode state only through row description color.
@@ -865,6 +866,7 @@ Each screen has one scaffold, one layout recipe, and one contract. Look up the s
 - Connection replaces the former Config and Mode editor screens. Starter profiles are built-in starting points; saved user bundles are Profiles.
 - Keep this order: the saved connection card with its Change profile control, runtime feedback (permission recovery and errors, shown only when present), the profile choices (starter profiles and relay profiles, shown only after Change profile), one card with the traffic-mode chips and the section switcher, the selected section, then connection guidance.
 - The scope chips read Whole device and Proxy only; the sections read Direct and Relay. Connection has no connect or disconnect control: connecting belongs to the Status actuator.
+- The Relay section lists the relay, protocol, credentials, DNS, Subscription status, and Subscription failover rows; they are the only entries for the DNS and subscription screens besides Diagnostics and Status advisories.
 - Guided Connection has no on/off control. It exposes "Path strategy: Auto", re-test strategies, Add server, and paste, QR, and scan import, without a protocol grid. Advanced Connection exposes the protocol grid, Profile ID binding, chain relay, TTL, engine parameters, Finalmask, manual path strategy, CLI overrides, and exact text fields.
 - Keep profile browsing and raw editing on separate surfaces. `PresetCard` is for starter-profile selection only; its selection state is semantic, never implied by position or accent color. Summary values use `SettingsRow`, with monospace values for addresses, ports, TTLs, and chains.
 - `ModeEditorScreen` is a bounded form with network, relay, engine, and override sections, Save in the top app bar, and a persistent Cancel bottom bar. From the Expanded width class, its intro, recovery, and validation notices move to a supporting pane.

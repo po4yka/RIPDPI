@@ -48,6 +48,8 @@ import kotlinx.collections.immutable.toImmutableList
 enum class ConnectionEditorTarget {
     Bypass,
     Resolver,
+    SubscriptionStatus,
+    SubscriptionFailover,
 }
 
 @androidx.compose.runtime.Stable
@@ -67,6 +69,8 @@ fun ConnectionRoute(
     onRetestStrategies: () -> Unit,
     onScanServer: () -> Unit,
     onOpenProfileEditor: (Route) -> Unit,
+    onOpenSubscriptionStatus: () -> Unit = {},
+    onOpenSubscriptionFailover: () -> Unit = {},
     modifier: Modifier = Modifier,
     route: Route = Route.Config,
     initialModeSection: ConnectionModeSection = ConnectionModeSection.LocalBypass,
@@ -126,6 +130,8 @@ fun ConnectionRoute(
             when (path) {
                 ConnectionEditorTarget.Bypass -> onOpenLocalBypassEditor()
                 ConnectionEditorTarget.Resolver -> onOpenDnsSettings()
+                ConnectionEditorTarget.SubscriptionStatus -> onOpenSubscriptionStatus()
+                ConnectionEditorTarget.SubscriptionFailover -> onOpenSubscriptionFailover()
             }
         },
         onRetestStrategies = onRetestStrategies,
@@ -345,6 +351,8 @@ private fun ConnectionSelectedModeSection(
                 onDismissRuntimeError = onDismissRuntimeError,
                 onOpenRelaySettings = onEditCurrent,
                 onOpenDnsSettings = { onOpenConfigEditor(ConnectionEditorTarget.Resolver) },
+                onOpenSubscriptionStatus = { onOpenConfigEditor(ConnectionEditorTarget.SubscriptionStatus) },
+                onOpenSubscriptionFailover = { onOpenConfigEditor(ConnectionEditorTarget.SubscriptionFailover) },
                 onPasteServerLink = onPasteServerLink,
                 onScanServer = onScanServer,
                 onProfileShare = profileActions.share,

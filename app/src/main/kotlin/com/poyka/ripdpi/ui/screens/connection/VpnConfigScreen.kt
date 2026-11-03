@@ -64,6 +64,8 @@ internal fun VpnConfigScreen(
     modifier: Modifier = Modifier,
     onDismissRuntimeError: () -> Unit = {},
     settingsOnly: Boolean = false,
+    onOpenSubscriptionStatus: (() -> Unit)? = null,
+    onOpenSubscriptionFailover: (() -> Unit)? = null,
 ) {
     TrackRecomposition("VpnConfigScreen")
 
@@ -80,7 +82,14 @@ internal fun VpnConfigScreen(
                 ),
         )
         if (settingsOnly) {
-            VpnAdvancedRows(uiState, onOpenRelaySettings, onOpenDnsSettings, showGuidance = false)
+            VpnAdvancedRows(
+                uiState,
+                onOpenRelaySettings,
+                onOpenDnsSettings,
+                showGuidance = false,
+                onOpenSubscriptionStatus = onOpenSubscriptionStatus,
+                onOpenSubscriptionFailover = onOpenSubscriptionFailover,
+            )
             return@Column
         }
         VpnSimpleCard(
@@ -381,6 +390,8 @@ private fun VpnAdvancedRows(
     onOpenRelaySettings: () -> Unit,
     onOpenDnsSettings: () -> Unit,
     showGuidance: Boolean = true,
+    onOpenSubscriptionStatus: (() -> Unit)? = null,
+    onOpenSubscriptionFailover: (() -> Unit)? = null,
 ) {
     RipDpiCard {
         if (showGuidance) {
@@ -399,6 +410,36 @@ private fun VpnAdvancedRows(
             VpnRelayOffRow(onOpenRelaySettings = onOpenRelaySettings)
         }
         VpnDnsRow(uiState = uiState, onOpenDnsSettings = onOpenDnsSettings)
+        onOpenSubscriptionStatus?.let {
+            VpnSubscriptionRow(
+                testTag = RipDpiTestTags.ConfigSubscriptionStatus,
+                title = stringResource(R.string.subscription_status_title),
+                onClick = it,
+            )
+        }
+        onOpenSubscriptionFailover?.let {
+            VpnSubscriptionRow(
+                testTag = RipDpiTestTags.ConfigSubscriptionFailover,
+                title = stringResource(R.string.title_subscription_failover),
+                onClick = it,
+            )
+        }
+    }
+}
+
+@Composable
+private fun VpnSubscriptionRow(
+    testTag: String,
+    title: String,
+    onClick: () -> Unit,
+) {
+    VpnActionRow(
+        testTag = testTag,
+        accessibilityLabel = title,
+        accessibilityValue = "",
+        onClick = onClick,
+    ) {
+        SettingsRow(title = title, showChevron = true)
     }
 }
 

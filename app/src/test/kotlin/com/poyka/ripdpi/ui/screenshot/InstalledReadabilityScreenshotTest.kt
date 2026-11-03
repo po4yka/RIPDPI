@@ -268,8 +268,6 @@ private fun strategyWinner(candidate: DiagnosticsStrategyProbeCandidateUiModel) 
 
 private val screenshotSettingsActions =
     SettingsScreenActions(
-        onOpenProfileUtility = {},
-        onOpenDnsSettings = {},
         onOpenAdvancedSettings = {},
         onOpenCustomization = {},
         onOpenAbout = {},

@@ -39,13 +39,11 @@ import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
 @Suppress("LongParameterList")
 @Composable
 fun SettingsRoute(
-    onOpenDnsSettings: () -> Unit,
     onOpenAdvancedSettings: () -> Unit,
     onOpenCustomization: () -> Unit,
     onOpenAbout: () -> Unit,
     onOpenDataTransparency: () -> Unit,
     onOpenDetectionCheck: () -> Unit,
-    onOpenProfileUtility: () -> Unit,
     onShareDebugBundle: () -> Unit,
     permissionSummary: PermissionSummaryUiState,
     onRepairPermission: (PermissionKind) -> Unit,
@@ -55,8 +53,6 @@ fun SettingsRoute(
     onOpenRoutingRules: () -> Unit = {},
     onOpenSplitTunnel: () -> Unit = {},
     onOpenRootModeStrategies: () -> Unit = {},
-    onOpenSubscriptionFailover: () -> Unit = {},
-    onOpenSubscriptionStatus: () -> Unit = {},
     onOpenBackupRestore: () -> Unit = {},
     onOpenLogs: () -> Unit = {},
     onDismissBackgroundGuidance: () -> Unit = {},
@@ -93,15 +89,11 @@ fun SettingsRoute(
         batteryOptimizationIgnored = batteryOptimizationIgnored,
         actions =
             SettingsScreenActions(
-                onOpenDnsSettings = onOpenDnsSettings,
                 onOpenAdvancedSettings = onOpenAdvancedSettings,
                 onOpenCustomization = onOpenCustomization,
                 onOpenAbout = onOpenAbout,
                 onOpenDataTransparency = onOpenDataTransparency,
                 onOpenDetectionCheck = onOpenDetectionCheck,
-                onOpenSubscriptionFailover = onOpenSubscriptionFailover,
-                onOpenProfileUtility = onOpenProfileUtility,
-                onOpenSubscriptionStatus = onOpenSubscriptionStatus,
                 onOpenDomainBypass = onOpenDomainBypass,
                 onOpenRoutingRules = onOpenRoutingRules,
                 onOpenSplitTunnel = onOpenSplitTunnel,
@@ -194,15 +186,11 @@ internal fun SettingsScreen(
 }
 
 internal data class SettingsScreenActions(
-    val onOpenProfileUtility: () -> Unit,
-    val onOpenDnsSettings: () -> Unit,
     val onOpenAdvancedSettings: () -> Unit,
     val onOpenCustomization: () -> Unit,
     val onOpenAbout: () -> Unit,
     val onOpenDataTransparency: () -> Unit,
     val onOpenDetectionCheck: () -> Unit = {},
-    val onOpenSubscriptionFailover: () -> Unit = {},
-    val onOpenSubscriptionStatus: () -> Unit = {},
     val onOpenDomainBypass: () -> Unit = {},
     val onOpenRoutingRules: () -> Unit = {},
     val onOpenSplitTunnel: () -> Unit = {},
@@ -245,15 +233,11 @@ private fun launchBatteryOptimizationExemption(
 
 private fun previewActions(): SettingsScreenActions =
     SettingsScreenActions(
-        onOpenProfileUtility = { error("Preview profile utility action") },
-        onOpenDnsSettings = {},
         onOpenAdvancedSettings = {},
         onOpenCustomization = {},
         onOpenAbout = {},
         onOpenDataTransparency = {},
         onOpenDetectionCheck = {},
-        onOpenSubscriptionFailover = {},
-        onOpenSubscriptionStatus = {},
         onShareDebugBundle = {},
         onRepairPermission = {},
         onOpenVpnPermissionDialog = {},

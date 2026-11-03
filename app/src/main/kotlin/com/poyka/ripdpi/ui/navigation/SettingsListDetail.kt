@@ -20,7 +20,6 @@ internal val settingsDetailRoutes: List<Route> =
     listOf(
         Route.DnsSettings,
         Route.SubscriptionStatus,
-        Route.ProfileUtility,
         Route.SubscriptionFailover,
         Route.AdvancedSettings,
         Route.DomainBypassList,
@@ -100,15 +99,11 @@ internal fun SettingsHomeRoute(
 ) {
     val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)
     SettingsRoute(
-        onOpenDnsSettings = { navController.navigateSettingsDetail(Route.DnsSettings) },
         onOpenAdvancedSettings = { navController.navigateSettingsDetail(Route.AdvancedSettings) },
         onOpenCustomization = { navController.navigateSettingsDetail(Route.AppCustomization) },
         onOpenAbout = { navController.navigateSettingsDetail(Route.About) },
         onOpenDataTransparency = { navController.navigateSettingsDetail(Route.DataTransparency) },
         onOpenDetectionCheck = { navController.navigateSettingsDetail(Route.DetectionCheck) },
-        onOpenSubscriptionFailover = { navController.navigateSettingsDetail(Route.SubscriptionFailover) },
-        onOpenSubscriptionStatus = { navController.navigateSettingsDetail(Route.SubscriptionStatus) },
-        onOpenProfileUtility = { navController.navigateSettingsDetail(Route.ProfileUtility) },
         onOpenDomainBypass = { navController.navigateSettingsDetail(Route.DomainBypassList) },
         onOpenRoutingRules = { navController.navigateSettingsDetail(Route.Routes) },
         onOpenSplitTunnel = { navController.navigateSettingsDetail(Route.SplitTunnel) },

@@ -57,10 +57,9 @@ class SubscriptionImportKaspressoTest :
     }
 
     private fun openSubscriptionStatus() {
-        with(SettingsEntryPage(composeRule)) {
-            click(bottomNavSettings)
+        with(ConfigPage(composeRule)) {
             awaitScreen()
-            click(subscriptionStatus)
+            click(RipDpiTestTags.ConfigSubscriptionStatus)
         }
         SubscriptionStatusPage(composeRule).awaitScreen()
     }

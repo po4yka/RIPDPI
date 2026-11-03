@@ -86,7 +86,6 @@ internal class SettingsEntryPage(
     rule: JourneyRule,
 ) : JourneyPage<SettingsEntryPage>(rule, RipDpiTestTags.screen(Route.Settings)) {
     val bottomNavSettings = RipDpiTestTags.bottomNav(Route.Settings)
-    val subscriptionStatus = RipDpiTestTags.SettingsSubscriptionStatus
 }
 
 internal class XrayImportPage(

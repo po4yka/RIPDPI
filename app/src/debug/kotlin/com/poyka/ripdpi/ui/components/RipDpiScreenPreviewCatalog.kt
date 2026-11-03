@@ -224,8 +224,6 @@ internal fun RipDpiSettingsDarkPreviewScene() {
 
 private fun settingsPreviewActions(): SettingsScreenActions =
     SettingsScreenActions(
-        onOpenProfileUtility = { error("Unexpected profile utility action") },
-        onOpenDnsSettings = {},
         onOpenAdvancedSettings = {},
         onOpenCustomization = {},
         onOpenAbout = {},

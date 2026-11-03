@@ -594,7 +594,12 @@ class ConnectionScreenTest {
                     onOpenConfigEditor = { path ->
                         when (path) {
                             ConnectionEditorTarget.Bypass -> onOpenLocalBypassEditor()
+
                             ConnectionEditorTarget.Resolver -> onOpenDnsSettings()
+
+                            ConnectionEditorTarget.SubscriptionStatus,
+                            ConnectionEditorTarget.SubscriptionFailover,
+                            -> Unit
                         }
                     },
                     onRetestStrategies = onRetestStrategies,

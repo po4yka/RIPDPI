@@ -44,7 +44,6 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.screens.dns.localizedSummary
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -61,38 +60,6 @@ internal fun SettingsConnectivitySection(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
         SettingsSection(title = stringResource(R.string.settings_connectivity_section)) {
-            SettingsRow(
-                title = stringResource(R.string.title_dns_settings),
-                value = uiState.dns.localizedSummary(),
-                onClick = actions.onOpenDnsSettings,
-                variant = settingsDetailVariant(Route.DnsSettings),
-                showDivider = true,
-                testTag = RipDpiTestTags.SettingsDnsSettings,
-            )
-            SettingsRow(
-                title = stringResource(R.string.subscription_status_title),
-                showChevron = true,
-                onClick = actions.onOpenSubscriptionStatus,
-                variant = settingsDetailVariant(Route.SubscriptionStatus),
-                showDivider = true,
-                testTag = RipDpiTestTags.SettingsSubscriptionStatus,
-            )
-            SettingsRow(
-                title = stringResource(R.string.profile_utility_title),
-                showChevron = true,
-                onClick = actions.onOpenProfileUtility,
-                variant = settingsDetailVariant(Route.ProfileUtility),
-                showDivider = true,
-                testTag = RipDpiTestTags.SettingsProfileUtility,
-            )
-            SettingsRow(
-                title = stringResource(R.string.title_subscription_failover),
-                showChevron = true,
-                onClick = actions.onOpenSubscriptionFailover,
-                variant = settingsDetailVariant(Route.SubscriptionFailover),
-                showDivider = true,
-                testTag = RipDpiTestTags.SettingsSubscriptionFailover,
-            )
             SettingsRow(
                 title = stringResource(R.string.settings_start_on_boot_title),
                 checked = uiState.startOnBootEnabled,

@@ -66,14 +66,6 @@ private fun NavGraphBuilder.addAdvancedSettingsRoutes(
     navController: NavHostController,
     mainViewModel: MainViewModel,
 ) {
-    composable<Route.ProfileUtility> {
-        com.poyka.ripdpi.ui.screens.profiles
-            .ProfileUtilityRoute(
-                onBack = { navController.popBackStack() },
-                // VPN config holds the paste-link, scan-QR and add-profile entries.
-                onImportProfile = { navController.navigateConfigSubRoute(Route.VpnConfig) },
-            )
-    }
     composable<Route.DnsSettings> {
         val settingsGraphEntry = remember(navController, it) { navController.getBackStackEntry<SettingsGraph>() }
         val settingsViewModel: SettingsViewModel = hiltViewModel(settingsGraphEntry)

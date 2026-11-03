@@ -90,15 +90,11 @@ private fun SettingsWorkload() {
     val actions =
         remember {
             SettingsScreenActions(
-                onOpenProfileUtility = ::unexpectedSettingsAction,
-                onOpenDnsSettings = ::unexpectedSettingsAction,
                 onOpenAdvancedSettings = ::unexpectedSettingsAction,
                 onOpenCustomization = ::unexpectedSettingsAction,
                 onOpenAbout = ::unexpectedSettingsAction,
                 onOpenDataTransparency = ::unexpectedSettingsAction,
                 onOpenDetectionCheck = ::unexpectedSettingsAction,
-                onOpenSubscriptionFailover = ::unexpectedSettingsAction,
-                onOpenSubscriptionStatus = ::unexpectedSettingsAction,
                 onOpenDomainBypass = ::unexpectedSettingsAction,
                 onOpenRoutingRules = ::unexpectedSettingsAction,
                 onOpenSplitTunnel = ::unexpectedSettingsAction,

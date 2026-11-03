@@ -332,8 +332,6 @@ private fun ClarityFrame(
 
 private fun personaActions(onPersonaSelected: (String) -> Unit) =
     SettingsScreenActions(
-        onOpenProfileUtility = {},
-        onOpenDnsSettings = {},
         onOpenAdvancedSettings = {},
         onOpenCustomization = {},
         onOpenAbout = {},

@@ -95,7 +95,6 @@ flow_sections:
       - app_customization
       - data_transparency
       - backup_restore
-      - profile_utility
       - about
       - biometric_prompt
   - title: "Profiles and Imports"
@@ -481,16 +480,6 @@ pages:
     state: "privacy"
     description: |
       Data transparency state with local-data handling and export information.
-
-  - id: profile_utility
-    title: "Saved Profiles"
-    route: "profile_utility"
-    flow_from: "settings"
-    flow_label: "saved profiles"
-    expected_root: "profile_utility-screen"
-    state: "saved profiles"
-    description: |
-      Grouped saved profiles with favorites, recent acknowledged uses, and explicit check or check-and-select actions.
 
   - id: backup_restore
     title: "Backup And Restore"

@@ -148,6 +148,8 @@ internal object RipDpiTestTags {
     const val ProfileShareCopySheet = "profile-share-copy-sheet"
     const val ProfileShareShareSheet = "profile-share-share-sheet"
     const val ConfigVpnRelay = "config-vpn-relay"
+    const val ConfigSubscriptionStatus = "config-subscription-status"
+    const val ConfigSubscriptionFailover = "config-subscription-failover"
     const val ConfigVpnProtocol = "config-vpn-protocol"
     const val ConfigVpnCredentials = "config-vpn-credentials"
     const val ConfigOverflowMenuButton = "config-overflow-menu-button"

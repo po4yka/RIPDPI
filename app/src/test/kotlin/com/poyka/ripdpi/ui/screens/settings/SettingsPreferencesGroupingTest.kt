@@ -290,8 +290,6 @@ class SettingsPreferencesGroupingTest {
 
     private fun noOpActions(): SettingsScreenActions =
         SettingsScreenActions(
-            onOpenProfileUtility = {},
-            onOpenDnsSettings = {},
             onOpenAdvancedSettings = {},
             onOpenCustomization = {},
             onOpenAbout = {},

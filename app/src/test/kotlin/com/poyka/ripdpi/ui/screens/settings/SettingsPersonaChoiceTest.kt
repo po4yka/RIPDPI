@@ -171,8 +171,6 @@ class SettingsPersonaChoiceTest {
 
     private fun actions(onPersonaSelected: (String) -> Unit) =
         SettingsScreenActions(
-            onOpenProfileUtility = {},
-            onOpenDnsSettings = {},
             onOpenAdvancedSettings = {},
             onOpenCustomization = {},
             onOpenAbout = {},

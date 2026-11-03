@@ -424,8 +424,8 @@ class MainActivityNavigationInstrumentedTest {
         composeRule.tapBottomNav(Route.Settings)
         composeRule.assertScreenVisible(Route.Settings)
 
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsDnsSettings).performClick()
-        composeRule.assertScreenVisible(Route.DnsSettings)
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).performClick()
+        composeRule.assertScreenVisible(Route.AppCustomization)
 
         val originalIntent = composeRule.sendLaunchHomeIntent()
         try {
