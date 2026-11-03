@@ -35,8 +35,9 @@ internal data class RelayEditorStatus(
 )
 
 /**
- * The shell of a relay profile editor: secure window, top bar with the primary action (Save, or Connect for AWG; [actionTag] and [saveLabel]), error card, the reason Save is
- * disabled, and the not-found card. [banner] sits above the error card; [content] holds the per-protocol sections.
+ * The shell of a relay profile editor: secure window, top bar with the primary action ([saveLabel], tagged
+ * [actionTag]; Connect for AWG), error card, the reason it is disabled, and the not-found card.
+ * [banner] sits above the error card; [content] holds the per-protocol sections.
  */
 @Composable
 internal fun RelayEditorScaffold(
