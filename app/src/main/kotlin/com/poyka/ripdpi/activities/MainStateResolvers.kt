@@ -376,7 +376,7 @@ private fun routeLabelForMode(
 ): String =
     when (mode) {
         Mode.VPN -> {
-            actuatorLabelForRemoteVpn(settings, stringResolver)
+            stringResolver.getString(R.string.home_mode_vpn)
         }
 
         Mode.Proxy -> {

@@ -110,7 +110,6 @@ fun ConfigRoute(
             )
         },
         onModeSelected = remember(viewModel) { viewModel::selectMode },
-        onRuntimeModeToggle = remember(viewModel) { viewModel::toggleRuntimeMode },
         onPresetSelected = { preset ->
             when (preset.kind) {
                 ConfigPresetKind.Custom -> {
@@ -168,7 +167,6 @@ fun ConfigRoute(
 fun ConfigScreen(
     uiState: ConfigUiState,
     onModeSelected: (Mode) -> Unit,
-    onRuntimeModeToggle: (Mode, Boolean) -> Unit = { _, _ -> },
     onPresetSelected: (ConfigPreset) -> Unit,
     onEditCurrent: () -> Unit,
     onOpenConfigEditor: (ConfigEditorTarget) -> Unit,
@@ -201,11 +199,7 @@ fun ConfigScreen(
             profilesExpanded = showProfileChoices,
             onChangeProfile = { showProfileChoices = !showProfileChoices },
         )
-        ConfigPrimaryRuntimeAction(
-            uiState = uiState,
-            onRuntimeModeToggle = onRuntimeModeToggle,
-            callbacks = runtimeCallbacks,
-        )
+        ConfigRuntimeFeedback(uiState, runtimeCallbacks.requestVpnPermission, runtimeCallbacks.dismissError)
         if (showProfileChoices) {
             Column(
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigProfileChoices),
@@ -238,7 +232,6 @@ fun ConfigScreen(
             section = selectedModeSection,
             uiState = uiState,
             desyncSummary = desyncSummary,
-            onRuntimeModeToggle = onRuntimeModeToggle,
             onEditCurrent = onEditCurrent,
             onOpenConfigEditor = onOpenConfigEditor,
             onRetestStrategies = onRetestStrategies,
@@ -331,7 +324,6 @@ private fun ConfigSelectedModeSection(
     section: ConfigModeSection,
     uiState: ConfigUiState,
     desyncSummary: String,
-    onRuntimeModeToggle: (Mode, Boolean) -> Unit,
     onEditCurrent: () -> Unit,
     onOpenConfigEditor: (ConfigEditorTarget) -> Unit,
     onRetestStrategies: () -> Unit,
@@ -347,8 +339,7 @@ private fun ConfigSelectedModeSection(
                 onRequestVpnPermission = onRequestVpnPermission,
                 onDismissRuntimeError = onDismissRuntimeError,
                 desyncSummary = desyncSummary,
-                onRuntimeModeToggle = onRuntimeModeToggle,
-                onOpenDesyncSettings = { onOpenConfigEditor(ConfigEditorTarget.Bypass) },
+                    onOpenDesyncSettings = { onOpenConfigEditor(ConfigEditorTarget.Bypass) },
                 onOpenDnsSettings = { onOpenConfigEditor(ConfigEditorTarget.Resolver) },
                 onRetestStrategies = onRetestStrategies,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigLocalBypassSummary),
@@ -361,8 +352,7 @@ private fun ConfigSelectedModeSection(
                 settingsOnly = true,
                 onRequestVpnPermission = onRequestVpnPermission,
                 onDismissRuntimeError = onDismissRuntimeError,
-                onRuntimeModeToggle = onRuntimeModeToggle,
-                onOpenRelaySettings = onEditCurrent,
+                    onOpenRelaySettings = onEditCurrent,
                 onOpenDnsSettings = { onOpenConfigEditor(ConfigEditorTarget.Resolver) },
                 onPasteServerLink = onPasteServerLink,
                 onScanServer = onScanServer,

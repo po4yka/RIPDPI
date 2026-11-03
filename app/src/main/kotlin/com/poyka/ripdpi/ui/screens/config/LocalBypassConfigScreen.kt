@@ -45,7 +45,6 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 internal fun LocalBypassConfigScreen(
     uiState: ConfigUiState,
     desyncSummary: String,
-    onRuntimeModeToggle: (Mode, Boolean) -> Unit,
     onOpenDesyncSettings: () -> Unit,
     onOpenDnsSettings: () -> Unit,
     onRetestStrategies: () -> Unit,
@@ -62,7 +61,7 @@ internal fun LocalBypassConfigScreen(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
-        SettingsCategoryHeader(title = stringResource(R.string.home_mode_local_dpi_bypass))
+        SettingsCategoryHeader(title = stringResource(R.string.config_section_bypass_settings))
         if (settingsOnly) {
             LocalBypassAdvancedRows(
                 uiState,
@@ -84,7 +83,6 @@ internal fun LocalBypassConfigScreen(
             uiState = uiState,
             onRequestVpnPermission = onRequestVpnPermission,
             onDismissRuntimeError = onDismissRuntimeError,
-            onRuntimeModeToggle = onRuntimeModeToggle,
             onRetestStrategies = onRetestStrategies,
         )
         AdvancedSection(initiallyExpanded = uiState.uiPersona == "advanced") {
@@ -103,7 +101,6 @@ private fun LocalBypassSimpleCard(
     uiState: ConfigUiState,
     onRequestVpnPermission: () -> Unit,
     onDismissRuntimeError: () -> Unit,
-    onRuntimeModeToggle: (Mode, Boolean) -> Unit,
     onRetestStrategies: () -> Unit,
 ) {
     val localBypassEnabled = uiState.runningMode == Mode.Proxy
@@ -125,8 +122,6 @@ private fun LocalBypassSimpleCard(
             uiState = uiState,
             onRequestVpnPermission = onRequestVpnPermission,
             onDismissRuntimeError = onDismissRuntimeError,
-            localBypassEnabled = localBypassEnabled,
-            onRuntimeModeToggle = onRuntimeModeToggle,
             onRetestStrategies = onRetestStrategies,
             modifier = Modifier.fillMaxWidth(),
         )
@@ -188,8 +183,6 @@ private fun LocalBypassActionButtons(
     uiState: ConfigUiState,
     onRequestVpnPermission: () -> Unit,
     onDismissRuntimeError: () -> Unit,
-    localBypassEnabled: Boolean,
-    onRuntimeModeToggle: (Mode, Boolean) -> Unit,
     onRetestStrategies: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -199,31 +192,6 @@ private fun LocalBypassActionButtons(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        RipDpiButton(
-            text =
-                stringResource(
-                    uiState.runtimeOperation?.labelRes()
-                        ?: if (localBypassEnabled) {
-                            R.string.config_local_bypass_turn_off
-                        } else {
-                            R.string.config_local_bypass_turn_on
-                        },
-                ),
-            onClick = {
-                when (localBypassToggleAction(localBypassEnabled)) {
-                    LocalBypassToggleAction.TurnOn -> onRuntimeModeToggle(Mode.Proxy, true)
-                    LocalBypassToggleAction.TurnOff -> onRuntimeModeToggle(Mode.Proxy, false)
-                }
-            },
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .ripDpiTestTag(RipDpiTestTags.ConfigLocalBypassToggle),
-            variant = RipDpiButtonVariant.Primary,
-            leadingIcon = RipDpiIcons.NetworkCheck,
-            enabled = uiState.runtimeOperation == null,
-            loading = uiState.runtimeOperation != null,
-        )
         ConfigRuntimeFeedback(uiState, onRequestVpnPermission, onDismissRuntimeError)
         RipDpiButton(
             text = stringResource(R.string.config_local_bypass_retest_strategies),
@@ -237,18 +205,6 @@ private fun LocalBypassActionButtons(
         )
     }
 }
-
-internal enum class LocalBypassToggleAction {
-    TurnOn,
-    TurnOff,
-}
-
-internal fun localBypassToggleAction(localBypassEnabled: Boolean): LocalBypassToggleAction =
-    if (localBypassEnabled) {
-        LocalBypassToggleAction.TurnOff
-    } else {
-        LocalBypassToggleAction.TurnOn
-    }
 
 @Composable
 private fun LocalBypassAdvancedRows(
@@ -402,7 +358,6 @@ private fun LocalBypassConfigScreenPreview() {
                     draft = draft,
                 ),
             desyncSummary = draft.chainSummary,
-            onRuntimeModeToggle = { _, _ -> },
             onOpenDesyncSettings = {},
             onOpenDnsSettings = {},
             onRetestStrategies = {},

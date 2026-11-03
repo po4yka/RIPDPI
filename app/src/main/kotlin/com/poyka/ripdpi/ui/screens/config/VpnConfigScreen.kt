@@ -59,7 +59,6 @@ private const val VpnProfilePreviewLimit = 3
 @Composable
 internal fun VpnConfigScreen(
     uiState: ConfigUiState,
-    onRuntimeModeToggle: (Mode, Boolean) -> Unit,
     onOpenRelaySettings: () -> Unit,
     onOpenDnsSettings: () -> Unit,
     onPasteServerLink: () -> Unit,
@@ -82,7 +81,7 @@ internal fun VpnConfigScreen(
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         SettingsCategoryHeader(
-            title = stringResource(if (settingsOnly) R.string.config_relay_server else R.string.home_mode_remote_vpn),
+            title = stringResource(if (settingsOnly) R.string.config_relay_server else R.string.config_section_server_settings),
         )
         if (settingsOnly) {
             VpnAdvancedRows(uiState, onOpenRelaySettings, onOpenDnsSettings, showGuidance = false)
@@ -92,7 +91,6 @@ internal fun VpnConfigScreen(
             uiState = uiState,
             onRequestVpnPermission = onRequestVpnPermission,
             onDismissRuntimeError = onDismissRuntimeError,
-            onRuntimeModeToggle = onRuntimeModeToggle,
             onPasteServerLink = onPasteServerLink,
             onScanServer = onScanServer,
             onProfileShare = onProfileShare,
@@ -115,7 +113,6 @@ private fun VpnSimpleCard(
     uiState: ConfigUiState,
     onRequestVpnPermission: () -> Unit,
     onDismissRuntimeError: () -> Unit,
-    onRuntimeModeToggle: (Mode, Boolean) -> Unit,
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
     onProfileShare: (String) -> Unit,
@@ -151,8 +148,6 @@ private fun VpnSimpleCard(
             uiState = uiState,
             onRequestVpnPermission = onRequestVpnPermission,
             onDismissRuntimeError = onDismissRuntimeError,
-            vpnEnabled = vpnEnabled,
-            onRuntimeModeToggle = onRuntimeModeToggle,
             onPasteServerLink = onPasteServerLink,
             onScanServer = onScanServer,
             onCreateProfile = onCreateProfile,
@@ -310,8 +305,6 @@ private fun VpnSimpleActions(
     uiState: ConfigUiState,
     onRequestVpnPermission: () -> Unit,
     onDismissRuntimeError: () -> Unit,
-    vpnEnabled: Boolean,
-    onRuntimeModeToggle: (Mode, Boolean) -> Unit,
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
     onCreateProfile: (Route) -> Unit,
@@ -319,22 +312,6 @@ private fun VpnSimpleActions(
     val spacing = RipDpiThemeTokens.spacing
 
     Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        RipDpiButton(
-            text =
-                stringResource(
-                    uiState.runtimeOperation?.labelRes()
-                        ?: if (vpnEnabled) R.string.config_vpn_turn_off else R.string.config_vpn_turn_on,
-                ),
-            onClick = { onRuntimeModeToggle(Mode.VPN, !vpnEnabled) },
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .ripDpiTestTag(RipDpiTestTags.ConfigVpnToggle),
-            variant = RipDpiButtonVariant.Primary,
-            leadingIcon = RipDpiIcons.Vpn,
-            enabled = uiState.runtimeOperation == null,
-            loading = uiState.runtimeOperation != null,
-        )
         ConfigRuntimeFeedback(uiState, onRequestVpnPermission, onDismissRuntimeError)
         VpnAddProfileAction(onCreateProfile)
         Row(
@@ -662,7 +639,6 @@ private fun VpnConfigScreenPreview() {
                     draft = draft,
                 ),
             onOpenRelaySettings = {},
-            onRuntimeModeToggle = { _, _ -> },
             onOpenDnsSettings = {},
             onPasteServerLink = {},
             onScanServer = {},

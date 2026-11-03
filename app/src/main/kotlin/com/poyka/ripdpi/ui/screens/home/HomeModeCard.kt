@@ -42,17 +42,16 @@ import kotlinx.collections.immutable.persistentListOf
 @Composable
 fun HomeModeCard(
     uiState: HomeModeCardUiState,
-    onPrimaryAction: () -> Unit,
     onConfigure: () -> Unit,
     modifier: Modifier = Modifier,
+    onPrimaryAction: (() -> Unit)? = null,
     onCardClick: (() -> Unit)? = null,
-    onDisabledHintClick: (() -> Unit)? = null,
     primaryActionVariant: RipDpiButtonVariant = RipDpiButtonVariant.Primary,
     configureActionVariant: RipDpiButtonVariant = RipDpiButtonVariant.Outline,
 ) {
     val primaryEnabled = uiState.primaryActionEnabled && (!uiState.isLoading || uiState.mode == HomeMode.Diagnostic)
     val statusLabel = homeModeStatusLabel(uiState)
-    val primaryActionLabel = uiState.primaryActionLabel.ifBlank { defaultPrimaryActionLabel(uiState) }
+    val primaryActionLabel = uiState.primaryActionLabel.ifBlank { stringResource(R.string.home_mode_card_run_scan) }
     val configureLabel = uiState.configureLabel.ifBlank { stringResource(R.string.home_mode_card_configure) }
 
     RipDpiCard(
@@ -84,7 +83,6 @@ fun HomeModeCard(
             primaryEnabled = primaryEnabled,
             onPrimaryAction = onPrimaryAction,
             onConfigure = onConfigure,
-            onDisabledHintClick = onDisabledHintClick,
             primaryActionVariant = primaryActionVariant,
             configureActionVariant = configureActionVariant,
         )
@@ -307,95 +305,55 @@ private fun HomeModeCardActions(
     primaryActionLabel: String,
     configureLabel: String,
     primaryEnabled: Boolean,
-    onPrimaryAction: () -> Unit,
+    onPrimaryAction: (() -> Unit)?,
     onConfigure: () -> Unit,
-    onDisabledHintClick: (() -> Unit)?,
     primaryActionVariant: RipDpiButtonVariant,
     configureActionVariant: RipDpiButtonVariant,
 ) {
     BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
         val stackActions =
-            maxWidth < HomeModeSideBySideActionsMinWidth * LocalDensity.current.fontScale
-        Column(
-            modifier = Modifier.fillMaxWidth(),
-            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
-        ) {
-            if (stackActions) {
+            onPrimaryAction == null ||
+                maxWidth < HomeModeSideBySideActionsMinWidth * LocalDensity.current.fontScale
+        val primaryButton: @Composable (Modifier) -> Unit = { buttonModifier ->
+            if (onPrimaryAction != null) {
                 RipDpiButton(
                     wrapLabel = true,
                     text = primaryActionLabel,
                     onClick = onPrimaryAction,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .ripDpiTestTag(RipDpiTestTags.homeModePrimaryAction(uiState.mode.name)),
+                    modifier = buttonModifier.ripDpiTestTag(RipDpiTestTags.homeModePrimaryAction(uiState.mode.name)),
                     variant = primaryActionVariant,
                     enabled = primaryEnabled,
                     loading = uiState.isLoading && uiState.mode != HomeMode.Diagnostic,
                 )
-                RipDpiButton(
-                    wrapLabel = true,
-                    text = configureLabel,
-                    onClick = onConfigure,
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .ripDpiTestTag(RipDpiTestTags.homeModeConfigureAction(uiState.mode.name)),
-                    variant = configureActionVariant,
-                )
-            } else {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-                ) {
-                    RipDpiButton(
-                        wrapLabel = true,
-                        text = primaryActionLabel,
-                        onClick = onPrimaryAction,
-                        modifier =
-                            Modifier
-                                .weight(1f)
-                                .ripDpiTestTag(RipDpiTestTags.homeModePrimaryAction(uiState.mode.name)),
-                        variant = primaryActionVariant,
-                        enabled = primaryEnabled,
-                        loading = uiState.isLoading && uiState.mode != HomeMode.Diagnostic,
-                    )
-                    RipDpiButton(
-                        wrapLabel = true,
-                        text = configureLabel,
-                        onClick = onConfigure,
-                        modifier =
-                            Modifier
-                                .weight(1f)
-                                .ripDpiTestTag(RipDpiTestTags.homeModeConfigureAction(uiState.mode.name)),
-                        variant = configureActionVariant,
-                    )
-                }
             }
-            HomeModeDisabledHint(
-                hint = uiState.primaryActionDisabledHint.takeIf { !primaryEnabled },
-                onClick = onDisabledHintClick ?: onConfigure,
+        }
+        val configureButton: @Composable (Modifier) -> Unit = { buttonModifier ->
+            RipDpiButton(
+                wrapLabel = true,
+                text = configureLabel,
+                onClick = onConfigure,
+                modifier = buttonModifier.ripDpiTestTag(RipDpiTestTags.homeModeConfigureAction(uiState.mode.name)),
+                variant = configureActionVariant,
             )
         }
+        if (stackActions) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
+            ) {
+                primaryButton(Modifier.fillMaxWidth())
+                configureButton(Modifier.fillMaxWidth())
+            }
+        } else {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+            ) {
+                primaryButton(Modifier.weight(1f))
+                configureButton(Modifier.weight(1f))
+            }
+        }
     }
-}
-
-@Composable
-private fun HomeModeDisabledHint(
-    hint: String?,
-    onClick: () -> Unit,
-) {
-    if (hint.isNullOrBlank()) return
-
-    Text(
-        text = hint,
-        style = RipDpiThemeTokens.type.caption,
-        color = RipDpiThemeTokens.colors.mutedForeground,
-        modifier =
-            Modifier
-                .ripDpiTestTag(RipDpiTestTags.HomeModeDisabledHint)
-                .ripDpiClickable(role = Role.Button, onClick = onClick),
-    )
 }
 
 @Composable
@@ -405,16 +363,6 @@ private fun homeModeStatusLabel(uiState: HomeModeCardUiState): String =
             uiState.isLoading -> R.string.home_mode_card_status_busy
             uiState.isActive -> R.string.home_mode_card_status_active
             else -> R.string.home_mode_card_status_inactive
-        },
-    )
-
-@Composable
-private fun defaultPrimaryActionLabel(uiState: HomeModeCardUiState): String =
-    stringResource(
-        when {
-            uiState.mode == HomeMode.Diagnostic -> R.string.home_mode_card_run_scan
-            uiState.isActive -> R.string.home_mode_card_disable
-            else -> R.string.home_mode_card_enable
         },
     )
 
@@ -466,7 +414,7 @@ private fun HomeModeCardPreviewContent(card: HomeModeCardUiState) {
     RipDpiComponentPreview {
         HomeModeCard(
             uiState = card,
-            onPrimaryAction = {},
+            onPrimaryAction = if (card.mode == HomeMode.Diagnostic) ({}) else null,
             onConfigure = {},
             onCardClick = {},
         )

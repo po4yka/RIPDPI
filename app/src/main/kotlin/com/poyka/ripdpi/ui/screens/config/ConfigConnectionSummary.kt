@@ -99,35 +99,6 @@ internal fun ConfigSavedConnectionCard(
 }
 
 @Composable
-internal fun ConfigPrimaryRuntimeAction(
-    uiState: ConfigUiState,
-    onRuntimeModeToggle: (Mode, Boolean) -> Unit,
-    callbacks: ConfigRuntimeCallbacks,
-) {
-    val runningMode = uiState.runningMode
-    val connected = runningMode != null
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
-    ) {
-        RipDpiButton(
-            text =
-                stringResource(
-                    uiState.runtimeOperation?.labelRes()
-                        ?: if (connected) R.string.config_connection_stop else R.string.config_connection_start,
-                ),
-            onClick = { onRuntimeModeToggle(runningMode ?: uiState.activeMode, !connected) },
-            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigRuntimeAction),
-            // Same treatment as the Home actuator: filled to connect, outlined to disconnect.
-            variant = if (connected) RipDpiButtonVariant.Outline else RipDpiButtonVariant.Primary,
-            enabled = uiState.runtimeOperation == null,
-            loading = uiState.runtimeOperation != null,
-        )
-        ConfigRuntimeFeedback(uiState, callbacks.requestVpnPermission, callbacks.dismissError)
-    }
-}
-
-@Composable
 internal fun ConfigConnectionGuidance(
     uiState: ConfigUiState,
     section: ConfigModeSection,

@@ -41,7 +41,6 @@ data class HomeModeCardUiState(
     val primaryActionLabel: String = "",
     val configureLabel: String = "",
     val primaryActionEnabled: Boolean = !isLoading,
-    val primaryActionDisabledHint: String = "",
     val summaryFacets: ImmutableList<HomeModeSummaryFacet> = persistentListOf(),
     /** Live per-stage progress while a diagnostic run is in flight; null when nothing is running. */
     val analysisProgress: AnalysisProgressUiState? = null,
@@ -114,6 +113,7 @@ private fun buildLocalBypassCard(
         primaryLabel = "${draft.chainSummary} - ${stringResolver.dnsSummaryLabel(draft)}",
         summaryFacets =
             persistentListOf(
+                pathFacet(draft, stringResolver),
                 HomeModeSummaryFacet(
                     label = stringResolver.getString(R.string.diagnostics_metric_strategy),
                     value = draft.chainSummary,
@@ -137,13 +137,6 @@ private fun buildLocalBypassCard(
                 isActiveMode = isLocalBypassMode(activeMode),
                 isConfiguredMode = isLocalBypassMode(configuredMode),
                 connectionDuration = connectionDuration,
-                stringResolver = stringResolver,
-            ),
-        primaryActionLabel =
-            connectionActionLabel(
-                isActive =
-                    connectionState == ConnectionState.Connected &&
-                        isLocalBypassMode(activeMode),
                 stringResolver = stringResolver,
             ),
         configureLabel = stringResolver.getString(R.string.home_mode_card_configure),
@@ -172,6 +165,7 @@ private fun buildRemoteVpnCard(
         mode = HomeMode.RemoteVpn,
         title = stringResolver.getString(R.string.home_mode_remote_vpn),
         primaryLabel = remoteVpnPrimaryLabel(draft, stringResolver),
+        summaryFacets = persistentListOf(pathFacet(draft, stringResolver)),
         secondaryLabel =
             vpnModeStatusLabel(
                 connectionState = connectionState,
@@ -189,20 +183,14 @@ private fun buildRemoteVpnCard(
                 vpnDataPlaneStatus = vpnDataPlaneStatus,
                 connectionDuration = connectionDuration,
                 stringResolver = stringResolver,
-            ) ?: stringResolver.getString(R.string.home_mode_card_status_inactive),
-        primaryActionLabel =
-            connectionActionLabel(
-                isActive = isActive,
-                stringResolver = stringResolver,
+            ) ?: stringResolver.getString(
+                if (doqUnavailable) R.string.dns_custom_doq_unavailable else R.string.home_mode_card_status_inactive,
             ),
         configureLabel = stringResolver.getString(R.string.home_mode_card_configure),
         isActive = isActive,
         isLoading =
             connectionState == ConnectionState.Connecting &&
                 isRemoteVpnMode(configuredMode),
-        primaryActionEnabled = !doqUnavailable,
-        primaryActionDisabledHint =
-            if (doqUnavailable) stringResolver.getString(R.string.dns_custom_doq_unavailable) else "",
     )
 }
 
@@ -212,21 +200,25 @@ private fun remoteVpnPrimaryLabel(
 ): String {
     val serverLabel = draft.relayServer.ifBlank { draft.relayServerName }.ifBlank { null }
     return when {
-        !draft.relayEnabled -> stringResolver.getString(R.string.home_mode_vpn)
-        serverLabel != null -> serverLabel
+        !draft.relayEnabled -> stringResolver.getString(R.string.home_connection_path_direct)
+        serverLabel != null -> relayPathLabel(serverLabel, stringResolver)
         else -> stringResolver.getString(R.string.home_mode_card_remote_server_unknown)
     }
 }
 
-internal fun actuatorLabelForRemoteVpn(
-    settings: AppSettings,
+private fun pathFacet(
+    draft: ConfigDraft,
     stringResolver: StringResolver,
-): String =
-    if (settings.toConfigDraft().relayEnabled) {
-        stringResolver.getString(R.string.home_mode_remote_vpn)
-    } else {
-        stringResolver.getString(R.string.home_mode_vpn)
-    }
+): HomeModeSummaryFacet =
+    HomeModeSummaryFacet(
+        label = stringResolver.getString(R.string.home_mode_card_path_label),
+        value = remoteVpnPrimaryLabel(draft, stringResolver),
+    )
+
+private fun relayPathLabel(
+    serverLabel: String,
+    stringResolver: StringResolver,
+): String = "${stringResolver.getString(R.string.home_connection_actuator_relay)} · $serverLabel"
 
 private fun isLocalBypassMode(mode: Mode): Boolean = mode == Mode.Proxy
 
@@ -317,18 +309,6 @@ private fun modeStatusLine(
         connectionDuration = connectionDuration,
         stringResolver = stringResolver,
     ) ?: stringResolver.getString(R.string.home_mode_card_status_inactive)
-
-private fun connectionActionLabel(
-    isActive: Boolean,
-    stringResolver: StringResolver,
-): String =
-    stringResolver.getString(
-        if (isActive) {
-            R.string.home_mode_card_disable
-        } else {
-            R.string.home_mode_card_enable
-        },
-    )
 
 internal fun formatHomeModeConnectionDuration(duration: Duration): String {
     val totalSeconds = duration.inWholeSeconds.coerceAtLeast(0L)

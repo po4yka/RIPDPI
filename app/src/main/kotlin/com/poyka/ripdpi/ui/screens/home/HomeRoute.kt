@@ -44,8 +44,6 @@ fun HomeRoute(
         subscriptionExpiry = subscriptionExpiry,
         modifier = modifier,
         onToggleConnection = remember(viewModel) { { viewModel.onPrimaryConnectionAction() } },
-        onBypassToggle = remember(viewModel) { { enabled -> viewModel.onToggleLocalBypass(enabled) } },
-        onVpnToggle = remember(viewModel) { { enabled -> viewModel.onToggleVpn(enabled) } },
         onDiagnosticRun = remember(viewModel) { viewModel::onRunHomeQuickAnalysis },
         onRunFullDiagnosticRun = remember(viewModel) { viewModel::onRunHomeFullAnalysis },
         onCancelDiagnosticRun = remember(viewModel) { viewModel::onCancelHomeAnalysis },

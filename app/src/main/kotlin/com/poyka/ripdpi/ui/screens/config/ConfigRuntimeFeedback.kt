@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.config
 
-import androidx.annotation.StringRes
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -36,14 +35,6 @@ data class ConfigRuntimeIntegration(
     val error: String? = null,
     val callbacks: ConfigRuntimeCallbacks = ConfigRuntimeCallbacks(),
 )
-
-@StringRes
-internal fun ConfigRuntimeOperation.labelRes(): Int =
-    when (this) {
-        ConfigRuntimeOperation.Starting -> R.string.home_connection_button_connecting
-        ConfigRuntimeOperation.Stopping -> R.string.diagnostics_local_value_disconnecting
-        ConfigRuntimeOperation.Reconnecting -> R.string.widget_status_reconnecting
-    }
 
 @Composable
 internal fun ConfigRuntimeFeedback(

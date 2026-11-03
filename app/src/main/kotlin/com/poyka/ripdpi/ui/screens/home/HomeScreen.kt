@@ -53,8 +53,6 @@ fun HomeScreen(
     diagnosticCard: HomeModeCardUiState = uiState.diagnosticCard,
     subscriptionExpiry: SubscriptionExpirySummaryUiState = SubscriptionExpirySummaryUiState(),
     onToggleConnection: () -> Unit,
-    onBypassToggle: (Boolean) -> Unit = { onToggleConnection() },
-    onVpnToggle: (Boolean) -> Unit = { onToggleConnection() },
     onDiagnosticRun: () -> Unit = {},
     onRunFullDiagnosticRun: () -> Unit = onDiagnosticRun,
     onCancelDiagnosticRun: () -> Unit = {},
@@ -192,15 +190,12 @@ fun HomeScreen(
                         uiState = uiState,
                         homeDiagnostics = homeDiagnostics,
                         diagnosticCard = diagnosticCard,
-                        onBypassToggle = onBypassToggle,
-                        onVpnToggle = onVpnToggle,
                         onDiagnosticRun = onDiagnosticRun,
                         onRunFullDiagnosticRun = onRunFullDiagnosticRun,
                         onCancelDiagnosticRun = onCancelDiagnosticRun,
                         onBypassCardClick = onBypassCardClick,
                         onVpnCardClick = onVpnCardClick,
                         onDiagnosticCardClick = onDiagnosticCardClick,
-                        onOpenModeEditor = onOpenModeEditor,
                         onTogglePcapRecording = onTogglePcapRecording,
                     )
                 }
@@ -240,15 +235,12 @@ private fun HomeModeCardList(
     uiState: MainUiState,
     homeDiagnostics: HomeDiagnosticsUiState,
     diagnosticCard: HomeModeCardUiState,
-    onBypassToggle: (Boolean) -> Unit,
-    onVpnToggle: (Boolean) -> Unit,
     onDiagnosticRun: () -> Unit,
     onRunFullDiagnosticRun: () -> Unit,
     onCancelDiagnosticRun: () -> Unit,
     onBypassCardClick: () -> Unit,
     onVpnCardClick: () -> Unit,
     onDiagnosticCardClick: () -> Unit,
-    onOpenModeEditor: () -> Unit,
     onTogglePcapRecording: () -> Unit,
 ) {
     Column(
@@ -257,19 +249,14 @@ private fun HomeModeCardList(
     ) {
         HomeModeCard(
             uiState = uiState.localBypassCard,
-            onPrimaryAction = { onBypassToggle(!uiState.localBypassCard.isActive) },
             onConfigure = onBypassCardClick,
             onCardClick = onBypassCardClick,
-            primaryActionVariant = RipDpiButtonVariant.Ghost,
             configureActionVariant = RipDpiButtonVariant.Ghost,
         )
         HomeModeCard(
             uiState = uiState.vpnCard,
-            onPrimaryAction = { onVpnToggle(!uiState.vpnCard.isActive) },
             onConfigure = onVpnCardClick,
             onCardClick = onVpnCardClick,
-            onDisabledHintClick = onOpenModeEditor,
-            primaryActionVariant = RipDpiButtonVariant.Ghost,
             configureActionVariant = RipDpiButtonVariant.Ghost,
         )
         HomeModeCard(
