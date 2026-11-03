@@ -8,7 +8,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConnectionState
-import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.OnboardingUiState
 import com.poyka.ripdpi.data.AppStatus
@@ -27,6 +26,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsShareUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiState
 import com.poyka.ripdpi.ui.screens.diagnostics.state.toScreenUiState
+import com.poyka.ripdpi.ui.screens.dns.DnsUiState
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions

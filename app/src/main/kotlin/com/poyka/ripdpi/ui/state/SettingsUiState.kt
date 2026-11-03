@@ -2,12 +2,12 @@ package com.poyka.ripdpi.ui.state
 
 import androidx.biometric.BiometricManager
 import androidx.compose.runtime.Stable
-import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.activities.LauncherIconManager
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.ui.screens.dns.DnsUiState
 import com.poyka.ripdpi.ui.screens.settings.AdaptiveFallbackUiState
 import com.poyka.ripdpi.ui.screens.settings.DesyncCoreUiState
 import com.poyka.ripdpi.ui.screens.settings.DetectionResistanceUiState

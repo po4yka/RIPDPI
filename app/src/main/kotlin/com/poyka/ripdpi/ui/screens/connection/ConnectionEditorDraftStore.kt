@@ -5,8 +5,8 @@ import android.content.SharedPreferences
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
-import com.poyka.ripdpi.activities.isValid
 import com.poyka.ripdpi.serialization.RipDpiJson
+import com.poyka.ripdpi.ui.screens.dns.isValid
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

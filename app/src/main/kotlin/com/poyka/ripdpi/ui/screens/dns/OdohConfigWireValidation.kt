@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.dns
 
 private const val HexRadix = 16
 private const val HexByteChars = 2

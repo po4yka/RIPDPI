@@ -3,7 +3,6 @@ package com.poyka.ripdpi.ui.screens.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.OdohResolverFields
 import com.poyka.ripdpi.activities.message
 import com.poyka.ripdpi.activities.messageResource
 import com.poyka.ripdpi.data.HostPackPreset
@@ -13,6 +12,7 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.security.PinVerifyResult
 import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
+import com.poyka.ripdpi.ui.screens.dns.OdohResolverFields
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineStart

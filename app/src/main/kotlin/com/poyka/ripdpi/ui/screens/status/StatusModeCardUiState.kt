@@ -4,7 +4,6 @@ import androidx.compose.runtime.Immutable
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.VpnDataPlaneStatus
-import com.poyka.ripdpi.activities.dnsSummaryLabel
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.Mode
@@ -13,6 +12,7 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
 import com.poyka.ripdpi.ui.screens.connection.toConfigDraft
 import com.poyka.ripdpi.ui.screens.diagnostics.state.label
+import com.poyka.ripdpi.ui.screens.dns.dnsSummaryLabel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList

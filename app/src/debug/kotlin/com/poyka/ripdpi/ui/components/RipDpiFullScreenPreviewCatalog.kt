@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import com.poyka.ripdpi.activities.ConnectionState
-import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.activities.HistoryConnectionFiltersUiModel
 import com.poyka.ripdpi.activities.HistoryConnectionRowUiModel
 import com.poyka.ripdpi.activities.HistoryConnectionsUiModel
@@ -31,6 +30,7 @@ import com.poyka.ripdpi.ui.screens.customization.AboutScreen
 import com.poyka.ripdpi.ui.screens.customization.AppCustomizationScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.screens.dns.DnsSettingsScreen
+import com.poyka.ripdpi.ui.screens.dns.DnsUiState
 import com.poyka.ripdpi.ui.screens.history.HistoryScreen
 import com.poyka.ripdpi.ui.screens.logs.LogsScreen
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptScreen

@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
@@ -8,6 +7,7 @@ import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.canonicalDefaultEncryptedDnsSettings
 import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
 import com.poyka.ripdpi.settings.state.toUiState
+import com.poyka.ripdpi.ui.screens.dns.DnsUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

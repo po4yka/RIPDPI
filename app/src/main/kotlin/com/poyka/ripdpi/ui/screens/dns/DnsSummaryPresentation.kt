@@ -2,8 +2,6 @@ package com.poyka.ripdpi.ui.screens.dns
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.platform.LocalContext
-import com.poyka.ripdpi.activities.DnsUiState
-import com.poyka.ripdpi.activities.dnsSummaryLabel
 import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
 

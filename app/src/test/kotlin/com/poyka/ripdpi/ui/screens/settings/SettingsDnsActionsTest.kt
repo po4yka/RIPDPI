@@ -5,7 +5,6 @@ import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.FakeRunningServiceReconnect
 import com.poyka.ripdpi.activities.FakeServiceController
 import com.poyka.ripdpi.activities.FakeServiceStateStore
-import com.poyka.ripdpi.activities.OdohResolverFields
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
@@ -20,6 +19,7 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
+import com.poyka.ripdpi.ui.screens.dns.OdohResolverFields
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers

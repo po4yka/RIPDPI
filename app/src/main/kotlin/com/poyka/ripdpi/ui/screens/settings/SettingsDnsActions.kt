@@ -1,7 +1,5 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import com.poyka.ripdpi.activities.OdohResolverFields
-import com.poyka.ripdpi.activities.isValid
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
@@ -16,6 +14,8 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.dnsProviderById
 import com.poyka.ripdpi.data.normalizeDnsBootstrapIps
 import com.poyka.ripdpi.services.ServiceIntentArbiter
+import com.poyka.ripdpi.ui.screens.dns.OdohResolverFields
+import com.poyka.ripdpi.ui.screens.dns.isValid
 
 private const val defaultDnsPort = 443
 

@@ -21,7 +21,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
@@ -29,6 +28,7 @@ import com.poyka.ripdpi.platform.StartOnBootController
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.dns.DnsUiState
 import com.poyka.ripdpi.ui.screens.xray.XrayProviderSettingsStatusRow
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags

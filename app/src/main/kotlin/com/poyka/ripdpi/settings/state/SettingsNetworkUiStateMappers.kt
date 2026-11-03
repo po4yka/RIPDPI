@@ -1,10 +1,10 @@
 package com.poyka.ripdpi.settings.state
 
-import com.poyka.ripdpi.activities.DnsUiState
-import com.poyka.ripdpi.activities.OdohResolverFields
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.diagnostics.SystemPrivateDnsStatus
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.ui.screens.dns.DnsUiState
+import com.poyka.ripdpi.ui.screens.dns.OdohResolverFields
 import com.poyka.ripdpi.ui.screens.settings.ProxyNetworkUiState
 import kotlinx.collections.immutable.toImmutableList
 

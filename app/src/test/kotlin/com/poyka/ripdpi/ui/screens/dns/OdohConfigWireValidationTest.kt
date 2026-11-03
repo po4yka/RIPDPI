@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.dns
 
 import com.poyka.ripdpi.data.EncryptedDnsOdohConfigSourceCustomBytes
 import com.poyka.ripdpi.ui.screens.settings.ValidOdohConfigsHex

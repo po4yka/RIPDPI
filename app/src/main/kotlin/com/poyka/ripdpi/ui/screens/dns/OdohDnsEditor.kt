@@ -14,11 +14,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.LegacyOdohConfigSourceCustom
-import com.poyka.ripdpi.activities.OdohResolverFields
-import com.poyka.ripdpi.activities.hasFreshConfig
-import com.poyka.ripdpi.activities.hasSupportedConfigWire
-import com.poyka.ripdpi.activities.isValid
 import com.poyka.ripdpi.data.EncryptedDnsOdohConfigSourceBundled
 import com.poyka.ripdpi.data.EncryptedDnsOdohConfigSourceCustomBytes
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton

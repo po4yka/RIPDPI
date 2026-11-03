@@ -26,7 +26,6 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.data.HostPackCatalog
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
 import com.poyka.ripdpi.data.HostPackPreset
@@ -41,6 +40,7 @@ import com.poyka.ripdpi.ui.screens.connection.ConnectionUiState
 import com.poyka.ripdpi.ui.screens.connection.RelayFinalmaskActions
 import com.poyka.ripdpi.ui.screens.connection.RelayFinalmaskFields
 import com.poyka.ripdpi.ui.screens.dns.DnsModeSection
+import com.poyka.ripdpi.ui.screens.dns.DnsUiState
 import com.poyka.ripdpi.ui.screens.health.ConnectionHealthScreen
 import com.poyka.ripdpi.ui.screens.health.ConnectionHealthUiState
 import com.poyka.ripdpi.ui.screens.health.DnsCountersUiState
