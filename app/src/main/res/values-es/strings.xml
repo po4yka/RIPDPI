@@ -2625,14 +2625,11 @@ Origen: %2$s</string>
     <string name="profile_share_warning_body">El código QR y el enlace incluyen tus credenciales. Compártelos solo con alguien de confianza y por un canal de confianza.</string>
     <string name="profile_share_loading_title">Cargando perfil</string>
     <string name="profile_share_loading_body">Preparando el perfil guardado para exportarlo.</string>
-    <string name="profile_share_qr_body">Escanea este código QR en Hiddify u otro cliente compatible.</string>
     <string name="profile_share_link_title">Enlace de suscripción</string>
-    <string name="profile_share_link_body">Pega este enlace en la importación de Hiddify, AmneziaVPN o RIPDPI.</string>
     <string name="profile_share_subscription_label">Enlace de suscripción o perfil</string>
     <string name="profile_share_copy_uri_action">Copiar enlace</string>
     <string name="profile_share_share_link_action">Compartir enlace</string>
     <string name="profile_share_sheet_title">Hoja de configuración</string>
-    <string name="profile_share_sheet_body">Instrucciones de una página para imprimir o enviar con el código QR o enlace.</string>
     <string name="profile_share_copy_sheet_action">Copiar hoja de configuración</string>
     <string name="profile_share_share_sheet_action">Compartir hoja de configuración</string>
     <string name="profile_share_unshareable_title">El perfil no se puede compartir</string>
@@ -2644,13 +2641,11 @@ Origen: %2$s</string>
     <string name="awg_section_interface">Interfaz</string>
     <string name="awg_section_peer">Par</string>
     <string name="awg_section_carrier">Transporte</string>
-    <string name="awg_section_carrier_body">Cómo salen los datagramas de WireGuard del dispositivo. WebSocket los envuelve para redes que bloquean el UDP normal.</string>
     <string name="awg_carrier_picker_label">Portador</string>
     <string name="awg_carrier_udp">UDP (predeterminado)</string>
     <string name="awg_carrier_ws">WebSocket</string>
     <string name="awg_field_carrier_ws_url">URL de WebSocket</string>
     <string name="awg_section_obfuscation">Ofuscación</string>
-    <string name="awg_section_obfuscation_body">Valores coordinados con el servidor. Pégalos literalmente de tu proveedor o elige un preajuste de cohorte.</string>
     <string name="awg_field_server">Servidor</string>
     <string name="awg_field_server_port">Puerto del servidor</string>
     <string name="awg_field_private_key">Clave privada</string>
@@ -2706,7 +2701,6 @@ Origen: %2$s</string>
     <string name="anytls_editor_title">Perfil AnyTLS</string>
     <string name="anytls_section_endpoint">Punto de conexión</string>
     <string name="anytls_section_tls">TLS</string>
-    <string name="anytls_section_tls_body">La sustitución de SNI es opcional; déjala en blanco para usar el host del servidor.</string>
     <string name="anytls_field_display_name">Nombre</string>
     <string name="anytls_field_server">Servidor</string>
     <string name="anytls_field_server_port">Puerto del servidor</string>
@@ -2719,7 +2713,6 @@ Origen: %2$s</string>
     <string name="mieru_section_endpoint">Punto de conexión</string>
     <string name="mieru_section_credentials">Credenciales</string>
     <string name="mieru_section_transport">Transporte</string>
-    <string name="mieru_section_transport_body">Elige el protocolo de transporte, el nivel de multiplexación y la MTU.</string>
     <string name="mieru_field_display_name">Nombre</string>
     <string name="mieru_field_server">Servidor</string>
     <string name="mieru_field_server_port">Puerto del servidor</string>
@@ -2742,9 +2735,7 @@ Origen: %2$s</string>
     <string name="ssh_editor_title">Perfil SSH</string>
     <string name="ssh_section_endpoint">Punto de conexión</string>
     <string name="ssh_section_auth">Autenticación</string>
-    <string name="ssh_section_auth_body">Elige cómo autenticarte e introduce la credencial correspondiente.</string>
     <string name="ssh_section_host_key">Clave del host</string>
-    <string name="ssh_section_host_key_body">Fija la huella SHA256 de la clave del host del servidor para detectar suplantaciones. Con la comprobación estricta activada, una discrepancia aborta la conexión.</string>
     <string name="ssh_field_display_name">Nombre</string>
     <string name="ssh_field_server">Servidor</string>
     <string name="ssh_field_server_port">Puerto del servidor</string>
@@ -3076,16 +3067,13 @@ Origen: %2$s</string>
     <string name="xray_capability_realtime_media_desc">Lleva llamadas, juegos y transmisiones por el túnel.</string>
     <string name="xray_import_title">Conexión VPN</string>
     <string name="xray_service_mode_section_title">Modo de conexión</string>
-    <string name="xray_service_mode_section_body">Elige cómo se conecta este dispositivo.</string>
     <string name="xray_import_profile_section_title">Importar perfil</string>
-    <string name="xray_import_profile_section_body">Pega un enlace de perfil o configuración para activar la VPN avanzada.</string>
     <string name="xray_import_input_label">Enlace de perfil o configuración</string>
     <string name="xray_import_input_placeholder">Pega aquí</string>
     <string name="xray_import_validate_action">Comprobar perfil</string>
     <string name="xray_import_error_title">Perfil no aceptado</string>
     <string name="xray_import_empty_input_error">Pega primero un enlace o una configuración de perfil.</string>
     <string name="xray_import_capabilities_title">Qué hace este perfil</string>
-    <string name="xray_import_capabilities_body">Esta conexión ofrece:</string>
     <string name="xray_import_finish_action">Usar este modo</string>
     <string name="xray_import_done_action">Listo</string>
 

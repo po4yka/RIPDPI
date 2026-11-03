@@ -148,7 +148,6 @@ private fun ProfileShareQrCard(
     ) {
         RipDpiPanelHeader(
             title = uiState.profile?.displayName ?: stringResource(R.string.profile_share_title),
-            supporting = stringResource(R.string.profile_share_qr_body),
         )
         Box(
             modifier =
@@ -199,7 +198,6 @@ private fun ProfileShareLinkCard(
     ) {
         RipDpiPanelHeader(
             title = stringResource(R.string.profile_share_link_title),
-            supporting = stringResource(R.string.profile_share_link_body),
         )
         RipDpiTextField(
             value = shareUri,
@@ -249,7 +247,6 @@ private fun ProfileShareSetupSheetCard(
     ) {
         RipDpiPanelHeader(
             title = stringResource(R.string.profile_share_sheet_title),
-            supporting = stringResource(R.string.profile_share_sheet_body),
         )
         Text(
             text = setupSheet,

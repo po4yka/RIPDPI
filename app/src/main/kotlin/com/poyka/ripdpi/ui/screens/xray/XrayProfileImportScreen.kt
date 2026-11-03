@@ -187,7 +187,6 @@ private fun XrayServiceModeCard(
     RipDpiCard {
         RipDpiPanelHeader(
             title = stringResource(R.string.xray_service_mode_section_title),
-            supporting = stringResource(R.string.xray_service_mode_section_body),
         )
         Column(modifier = Modifier.selectableGroup()) {
             XrayServiceModeOption.all.forEach { option ->
@@ -252,7 +251,6 @@ private fun XrayProfileInputCard(
     RipDpiCard {
         RipDpiPanelHeader(
             title = stringResource(R.string.xray_import_profile_section_title),
-            supporting = stringResource(R.string.xray_import_profile_section_body),
         )
         RipDpiTextField(
             value = rawInput,
@@ -302,7 +300,6 @@ private fun XrayCapabilitiesCard(
     RipDpiCard {
         RipDpiPanelHeader(
             title = stringResource(R.string.xray_import_capabilities_title),
-            supporting = stringResource(R.string.xray_import_capabilities_body),
         )
         FlowRow(
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),

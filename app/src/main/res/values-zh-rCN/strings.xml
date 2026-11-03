@@ -2622,14 +2622,11 @@ fake_burst 3</string>
     <string name="profile_share_warning_body">二维码和链接中嵌入了你的凭据。仅通过可信渠道分享给你信任的人。</string>
     <string name="profile_share_loading_title">正在加载配置文件</string>
     <string name="profile_share_loading_body">正在准备导出已保存的配置文件。</string>
-    <string name="profile_share_qr_body">使用 Hiddify 或其他兼容客户端扫描此二维码。</string>
     <string name="profile_share_link_title">订阅链接</string>
-    <string name="profile_share_link_body">将此链接粘贴到 Hiddify、AmneziaVPN 或 RIPDPI 的导入界面。</string>
     <string name="profile_share_subscription_label">订阅/配置文件链接</string>
     <string name="profile_share_copy_uri_action">复制链接</string>
     <string name="profile_share_share_link_action">分享链接</string>
     <string name="profile_share_sheet_title">设置说明</string>
-    <string name="profile_share_sheet_body">单页设置说明，可打印或随二维码、链接一同发送。</string>
     <string name="profile_share_copy_sheet_action">复制设置说明</string>
     <string name="profile_share_share_sheet_action">分享设置说明</string>
     <string name="profile_share_unshareable_title">此配置文件无法分享</string>
@@ -2641,13 +2638,11 @@ fake_burst 3</string>
     <string name="awg_section_interface">接口</string>
     <string name="awg_section_peer">对端</string>
     <string name="awg_section_carrier">传输方式</string>
-    <string name="awg_section_carrier_body">WireGuard 数据报离开设备的方式。WebSocket 会将其封装，以应对屏蔽普通 UDP 的网络。</string>
     <string name="awg_carrier_picker_label">承载方式</string>
     <string name="awg_carrier_udp">UDP（默认）</string>
     <string name="awg_carrier_ws">WebSocket</string>
     <string name="awg_field_carrier_ws_url">WebSocket 地址</string>
     <string name="awg_section_obfuscation">混淆</string>
-    <string name="awg_section_obfuscation_body">由服务器协调的值。请从提供商处原样粘贴，或选择一个群组预设。</string>
     <string name="awg_field_server">服务器</string>
     <string name="awg_field_server_port">服务器端口</string>
     <string name="awg_field_private_key">私钥</string>
@@ -2703,7 +2698,6 @@ fake_burst 3</string>
     <string name="anytls_editor_title">AnyTLS 配置文件</string>
     <string name="anytls_section_endpoint">端点</string>
     <string name="anytls_section_tls">TLS</string>
-    <string name="anytls_section_tls_body">SNI 覆盖为可选项；留空则使用服务器主机。</string>
     <string name="anytls_field_display_name">名称</string>
     <string name="anytls_field_server">服务器</string>
     <string name="anytls_field_server_port">服务器端口</string>
@@ -2716,7 +2710,6 @@ fake_burst 3</string>
     <string name="mieru_section_endpoint">服务器地址</string>
     <string name="mieru_section_credentials">凭据</string>
     <string name="mieru_section_transport">传输</string>
-    <string name="mieru_section_transport_body">选择传输协议、多路复用级别和 MTU。</string>
     <string name="mieru_field_display_name">名称</string>
     <string name="mieru_field_server">服务器</string>
     <string name="mieru_field_server_port">服务器端口</string>
@@ -2739,9 +2732,7 @@ fake_burst 3</string>
     <string name="ssh_editor_title">SSH 配置文件</string>
     <string name="ssh_section_endpoint">端点</string>
     <string name="ssh_section_auth">身份验证</string>
-    <string name="ssh_section_auth_body">选择身份验证方式，然后输入对应的凭据。</string>
     <string name="ssh_section_host_key">主机密钥</string>
-    <string name="ssh_section_host_key_body">固定服务器主机密钥的 SHA256 指纹以检测冒充。开启严格校验后，指纹不匹配将中止连接。</string>
     <string name="ssh_field_display_name">名称</string>
     <string name="ssh_field_server">服务器</string>
     <string name="ssh_field_server_port">服务器端口</string>
@@ -3068,16 +3059,13 @@ fake_burst 3</string>
     <string name="xray_capability_realtime_media_desc">通过隧道传输通话、游戏和流媒体。</string>
     <string name="xray_import_title">VPN 连接</string>
     <string name="xray_service_mode_section_title">连接模式</string>
-    <string name="xray_service_mode_section_body">选择此设备的连接方式。</string>
     <string name="xray_import_profile_section_title">导入配置文件</string>
-    <string name="xray_import_profile_section_body">粘贴配置文件链接或配置内容以设置高级 VPN。</string>
     <string name="xray_import_input_label">配置文件链接或配置内容</string>
     <string name="xray_import_input_placeholder">在此粘贴</string>
     <string name="xray_import_validate_action">检查配置文件</string>
     <string name="xray_import_error_title">配置文件未被接受</string>
     <string name="xray_import_empty_input_error">请先粘贴配置文件链接或配置内容。</string>
     <string name="xray_import_capabilities_title">此配置文件的功能</string>
-    <string name="xray_import_capabilities_body">此连接提供：</string>
     <string name="xray_import_finish_action">使用此模式</string>
     <string name="xray_import_done_action">完成</string>
 

@@ -1010,14 +1010,11 @@
     <string name="profile_share_warning_body">QR कोड और लिंक में आपके क्रेडेंशियल अंतर्निहित हैं। इन्हें केवल किसी विश्वसनीय व्यक्ति के साथ, किसी विश्वसनीय चैनल पर ही शेयर करें।</string>
     <string name="profile_share_loading_title">प्रोफ़ाइल लोड हो रही है</string>
     <string name="profile_share_loading_body">सहेजी गई प्रोफ़ाइल को एक्सपोर्ट के लिए तैयार किया जा रहा है।</string>
-    <string name="profile_share_qr_body">इस QR कोड को Hiddify या किसी अन्य संगत क्लाइंट में स्कैन करें।</string>
     <string name="profile_share_link_title">सदस्यता लिंक</string>
-    <string name="profile_share_link_body">इस लिंक को Hiddify, AmneziaVPN, या RIPDPI आयात में पेस्ट करें।</string>
     <string name="profile_share_subscription_label">सदस्यता/प्रोफ़ाइल लिंक</string>
     <string name="profile_share_copy_uri_action">लिंक कॉपी करें</string>
     <string name="profile_share_share_link_action">लिंक शेयर करें</string>
     <string name="profile_share_sheet_title">सेटअप शीट</string>
-    <string name="profile_share_sheet_body">QR/लिंक के साथ प्रिंट करने या भेजने के लिए एक-पृष्ठ के निर्देश।</string>
     <string name="profile_share_copy_sheet_action">सेटअप शीट कॉपी करें</string>
     <string name="profile_share_share_sheet_action">सेटअप शीट शेयर करें</string>
     <string name="profile_share_unshareable_title">प्रोफ़ाइल शेयर नहीं की जा सकती</string>
@@ -1029,13 +1026,11 @@
     <string name="awg_section_interface">इंटरफ़ेस</string>
     <string name="awg_section_peer">पीयर</string>
     <string name="awg_section_carrier">ट्रांसपोर्ट</string>
-    <string name="awg_section_carrier_body">WireGuard डेटाग्राम डिवाइस से कैसे निकलते हैं। WebSocket उन्हें उन नेटवर्कों के लिए लपेटता है जो सामान्य UDP को रोकते हैं।</string>
     <string name="awg_carrier_picker_label">कैरियर</string>
     <string name="awg_carrier_udp">UDP (डिफ़ॉल्ट)</string>
     <string name="awg_carrier_ws">WebSocket</string>
     <string name="awg_field_carrier_ws_url">WebSocket URL</string>
     <string name="awg_section_obfuscation">ऑब्सक्यूरेशन</string>
-    <string name="awg_section_obfuscation_body">सर्वर-समन्वित मान। इन्हें अपने प्रदाता से हूबहू पेस्ट करें, या कोई कोहोर्ट प्रीसेट चुनें।</string>
     <string name="awg_field_server">सर्वर</string>
     <string name="awg_field_server_port">सर्वर पोर्ट</string>
     <string name="awg_field_private_key">निजी कुंजी</string>
@@ -1089,7 +1084,6 @@
     <string name="anytls_editor_title">AnyTLS प्रोफ़ाइल</string>
     <string name="anytls_section_endpoint">एंडपॉइंट</string>
     <string name="anytls_section_tls">TLS</string>
-    <string name="anytls_section_tls_body">SNI override वैकल्पिक है; सर्वर होस्ट का उपयोग करने के लिए इसे खाली छोड़ दें।</string>
     <string name="anytls_field_display_name">नाम</string>
     <string name="anytls_field_server">सर्वर</string>
     <string name="anytls_field_server_port">सर्वर पोर्ट</string>
@@ -1102,7 +1096,6 @@
     <string name="mieru_section_endpoint">एंडपॉइंट</string>
     <string name="mieru_section_credentials">क्रेडेंशियल</string>
     <string name="mieru_section_transport">ट्रांसपोर्ट</string>
-    <string name="mieru_section_transport_body">transport प्रोटोकॉल, multiplexing स्तर, और MTU चुनें।</string>
     <string name="mieru_field_display_name">नाम</string>
     <string name="mieru_field_server">सर्वर</string>
     <string name="mieru_field_server_port">सर्वर पोर्ट</string>
@@ -1125,9 +1118,7 @@
     <string name="ssh_editor_title">SSH प्रोफ़ाइल</string>
     <string name="ssh_section_endpoint">एंडपॉइंट</string>
     <string name="ssh_section_auth">प्रमाणीकरण</string>
-    <string name="ssh_section_auth_body">चुनें कि कैसे प्रमाणित करना है, फिर मिलान करने वाला क्रेडेंशियल दर्ज करें।</string>
     <string name="ssh_section_host_key">होस्ट कुंजी</string>
-    <string name="ssh_section_host_key_body">प्रतिरूपण का पता लगाने के लिए सर्वर का SHA256 होस्ट-कुंजी फ़िंगरप्रिंट पिन करें। सख्त जाँच चालू होने पर, मिलान न होने पर कनेक्शन रद्द हो जाता है।</string>
     <string name="ssh_field_display_name">नाम</string>
     <string name="ssh_field_server">सर्वर</string>
     <string name="ssh_field_server_port">सर्वर पोर्ट</string>
@@ -1444,16 +1435,13 @@
     <string name="xray_capability_realtime_media_desc">कॉल, गेम और स्ट्रीमिंग को टनल के माध्यम से ले जाता है।</string>
     <string name="xray_import_title">VPN कनेक्शन</string>
     <string name="xray_service_mode_section_title">कनेक्शन मोड</string>
-    <string name="xray_service_mode_section_body">चुनें कि यह डिवाइस कैसे कनेक्ट होगा।</string>
     <string name="xray_import_profile_section_title">प्रोफ़ाइल आयात करें</string>
-    <string name="xray_import_profile_section_body">उन्नत VPN सेट अप करने के लिए प्रोफ़ाइल लिंक या कॉन्फ़िगरेशन पेस्ट करें।</string>
     <string name="xray_import_input_label">प्रोफ़ाइल लिंक या कॉन्फ़िगरेशन</string>
     <string name="xray_import_input_placeholder">यहाँ पेस्ट करें</string>
     <string name="xray_import_validate_action">प्रोफ़ाइल जाँचें</string>
     <string name="xray_import_error_title">प्रोफ़ाइल स्वीकार नहीं हुई</string>
     <string name="xray_import_empty_input_error">पहले प्रोफ़ाइल लिंक या कॉन्फ़िगरेशन पेस्ट करें।</string>
     <string name="xray_import_capabilities_title">यह प्रोफ़ाइल क्या करती है</string>
-    <string name="xray_import_capabilities_body">यह कनेक्शन प्रदान करता है:</string>
     <string name="xray_import_finish_action">इस मोड का उपयोग करें</string>
     <string name="xray_import_done_action">हो गया</string>
 

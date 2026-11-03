@@ -2630,14 +2630,11 @@ fakeddisorder endhost</string>
     <string name="profile_share_warning_body">کد QR و پیوند، اعتبارنامه‌های شما را در بر دارند. آن‌ها را فقط با فردی که به او اعتماد دارید و از طریق مسیری مطمئن هم‌رسانی کنید.</string>
     <string name="profile_share_loading_title">در حال بارگذاری نمایه</string>
     <string name="profile_share_loading_body">در حال آماده‌سازی نمایهٔ ذخیره‌شده برای برون‌بری.</string>
-    <string name="profile_share_qr_body">این کد QR را در Hiddify یا کارخواه سازگار دیگری اسکن کنید.</string>
     <string name="profile_share_link_title">پیوند اشتراک</string>
-    <string name="profile_share_link_body">این پیوند را در بخش درون‌ریزی Hiddify، AmneziaVPN یا RIPDPI جای‌گذاری کنید.</string>
     <string name="profile_share_subscription_label">پیوند اشتراک/نمایه</string>
     <string name="profile_share_copy_uri_action">رونوشت پیوند</string>
     <string name="profile_share_share_link_action">هم‌رسانی پیوند</string>
     <string name="profile_share_sheet_title">برگهٔ راه‌اندازی</string>
-    <string name="profile_share_sheet_body">راهنمای یک‌صفحه‌ای برای چاپ یا ارسال همراه با QR/پیوند.</string>
     <string name="profile_share_copy_sheet_action">رونوشت برگهٔ راه‌اندازی</string>
     <string name="profile_share_share_sheet_action">هم‌رسانی برگهٔ راه‌اندازی</string>
     <string name="profile_share_unshareable_title">نمایه قابل هم‌رسانی نیست</string>
@@ -2649,13 +2646,11 @@ fakeddisorder endhost</string>
     <string name="awg_section_interface">رابط</string>
     <string name="awg_section_peer">همتا</string>
     <string name="awg_section_carrier">حامل انتقال</string>
-    <string name="awg_section_carrier_body">چگونگی خروج بسته‌های WireGuard از دستگاه. WebSocket آن‌ها را برای شبکه‌هایی که UDP ساده را مسدود می‌کنند بسته‌بندی می‌کند.</string>
     <string name="awg_carrier_picker_label">حامل</string>
     <string name="awg_carrier_udp">UDP (پیش‌فرض)</string>
     <string name="awg_carrier_ws">WebSocket</string>
     <string name="awg_field_carrier_ws_url">نشانی WebSocket</string>
     <string name="awg_section_obfuscation">مبهم‌سازی</string>
-    <string name="awg_section_obfuscation_body">مقادیر هماهنگ‌شده با کارساز. آن‌ها را عیناً از ارائه‌دهندهٔ خود بچسبانید یا یک پیش‌تنظیم گروه را برگزینید.</string>
     <string name="awg_field_server">کارساز</string>
     <string name="awg_field_server_port">درگاه کارساز</string>
     <string name="awg_field_private_key">کلید خصوصی</string>
@@ -2711,7 +2706,6 @@ fakeddisorder endhost</string>
     <string name="anytls_editor_title">نمایه AnyTLS</string>
     <string name="anytls_section_endpoint">نقطه اتصال</string>
     <string name="anytls_section_tls">TLS</string>
-    <string name="anytls_section_tls_body">جایگزینی SNI اختیاری است؛ برای استفاده از میزبان سرور آن را خالی بگذارید.</string>
     <string name="anytls_field_display_name">نام</string>
     <string name="anytls_field_server">سرور</string>
     <string name="anytls_field_server_port">پورت سرور</string>
@@ -2724,7 +2718,6 @@ fakeddisorder endhost</string>
     <string name="mieru_section_endpoint">نقطه اتصال</string>
     <string name="mieru_section_credentials">اطلاعات ورود</string>
     <string name="mieru_section_transport">انتقال</string>
-    <string name="mieru_section_transport_body">پروتکل انتقال، سطح چندگانه‌سازی و MTU را انتخاب کنید.</string>
     <string name="mieru_field_display_name">نام</string>
     <string name="mieru_field_server">سرور</string>
     <string name="mieru_field_server_port">درگاه سرور</string>
@@ -2747,9 +2740,7 @@ fakeddisorder endhost</string>
     <string name="ssh_editor_title">نمایه SSH</string>
     <string name="ssh_section_endpoint">نقطه اتصال</string>
     <string name="ssh_section_auth">احراز هویت</string>
-    <string name="ssh_section_auth_body">روش احراز هویت را انتخاب کنید و سپس اعتبارنامهٔ متناظر را وارد کنید.</string>
     <string name="ssh_section_host_key">کلید میزبان</string>
-    <string name="ssh_section_host_key_body">اثرانگشت SHA256 کلید میزبان سرور را پین کنید تا جعل هویت شناسایی شود. با فعال بودن بررسی سختگیرانه، عدم تطابق اتصال را لغو می‌کند.</string>
     <string name="ssh_field_display_name">نام</string>
     <string name="ssh_field_server">سرور</string>
     <string name="ssh_field_server_port">درگاه سرور</string>
@@ -3081,16 +3072,13 @@ fakeddisorder endhost</string>
     <string name="xray_capability_realtime_media_desc">تماس‌ها، بازی‌ها و پخش را از طریق تونل منتقل می‌کند.</string>
     <string name="xray_import_title">اتصال وی‌پی‌ان</string>
     <string name="xray_service_mode_section_title">حالت اتصال</string>
-    <string name="xray_service_mode_section_body">نحوه اتصال این دستگاه را انتخاب کنید.</string>
     <string name="xray_import_profile_section_title">وارد کردن نمایه</string>
-    <string name="xray_import_profile_section_body">برای راه‌اندازی وی‌پی‌ان پیشرفته، پیوند نمایه یا پیکربندی را بچسبانید.</string>
     <string name="xray_import_input_label">پیوند نمایه یا پیکربندی</string>
     <string name="xray_import_input_placeholder">اینجا بچسبانید</string>
     <string name="xray_import_validate_action">بررسی نمایه</string>
     <string name="xray_import_error_title">نمایه پذیرفته نشد</string>
     <string name="xray_import_empty_input_error">ابتدا یک پیوند یا پیکربندی نمایه را بچسبانید.</string>
     <string name="xray_import_capabilities_title">این نمایه چه می‌کند</string>
-    <string name="xray_import_capabilities_body">این اتصال فراهم می‌کند:</string>
     <string name="xray_import_finish_action">استفاده از این حالت</string>
     <string name="xray_import_done_action">انجام شد</string>
 

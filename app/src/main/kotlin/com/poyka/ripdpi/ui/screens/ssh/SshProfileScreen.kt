@@ -202,7 +202,6 @@ private fun AuthSection(
     RipDpiCard {
         RipDpiPanelHeader(
             title = stringResource(R.string.ssh_section_auth),
-            supporting = stringResource(R.string.ssh_section_auth_body),
         )
         PlainField(SshEditorField.USERNAME, R.string.ssh_field_username, editor, onFieldChanged)
         RipDpiDropdown(
@@ -252,7 +251,6 @@ private fun HostKeySection(
     RipDpiCard {
         RipDpiPanelHeader(
             title = stringResource(R.string.ssh_section_host_key),
-            supporting = stringResource(R.string.ssh_section_host_key_body),
         )
         PlainField(
             SshEditorField.HOST_KEY_FINGERPRINT,

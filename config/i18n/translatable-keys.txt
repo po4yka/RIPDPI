@@ -231,7 +231,6 @@ app:anytls_field_sni
 app:anytls_save_action
 app:anytls_section_endpoint
 app:anytls_section_tls
-app:anytls_section_tls_body
 app:app_picker_done
 app:app_picker_search
 app:app_picker_title
@@ -341,10 +340,8 @@ app:awg_obfuscation_hide_values
 app:awg_obfuscation_show_values
 app:awg_paste_conf_action
 app:awg_section_carrier
-app:awg_section_carrier_body
 app:awg_section_interface
 app:awg_section_obfuscation
-app:awg_section_obfuscation_body
 app:awg_section_peer
 app:awg_v3_help
 app:awg_v3_title
@@ -3585,7 +3582,6 @@ app:mieru_save_action
 app:mieru_section_credentials
 app:mieru_section_endpoint
 app:mieru_section_transport
-app:mieru_section_transport_body
 app:mieru_transport_tcp
 app:mieru_transport_udp
 app:migration_awg_help
@@ -3814,16 +3810,13 @@ app:profile_search_reset
 app:profile_share_action
 app:profile_share_copy_sheet_action
 app:profile_share_copy_uri_action
-app:profile_share_link_body
 app:profile_share_link_title
 app:profile_share_loading_body
 app:profile_share_loading_title
-app:profile_share_qr_body
 app:profile_share_qr_content_description
 app:profile_share_setup_sheet_template
 app:profile_share_share_link_action
 app:profile_share_share_sheet_action
-app:profile_share_sheet_body
 app:profile_share_sheet_title
 app:profile_share_subscription_label
 app:profile_share_title
@@ -4665,10 +4658,8 @@ app:ssh_host_key_trust_title
 app:ssh_reveal_secret_action
 app:ssh_save_action
 app:ssh_section_auth
-app:ssh_section_auth_body
 app:ssh_section_endpoint
 app:ssh_section_host_key
-app:ssh_section_host_key_body
 app:stale_tier_aging
 app:stale_tier_expired
 app:stale_tier_fresh
@@ -5123,7 +5114,6 @@ app:xray_capability_relay_desc
 app:xray_capability_relay_title
 app:xray_capability_vpn_privacy_desc
 app:xray_capability_vpn_privacy_title
-app:xray_import_capabilities_body
 app:xray_import_capabilities_title
 app:xray_import_done_action
 app:xray_import_empty_input_error
@@ -5138,7 +5128,6 @@ app:xray_import_error_unparseable
 app:xray_import_finish_action
 app:xray_import_input_label
 app:xray_import_input_placeholder
-app:xray_import_profile_section_body
 app:xray_import_profile_section_title
 app:xray_import_restore_failed_title
 app:xray_import_restore_loading_body
@@ -5181,7 +5170,6 @@ app:xray_provider_stage_listener_ready
 app:xray_provider_stage_probing
 app:xray_provider_stage_starting
 app:xray_provider_stage_validating
-app:xray_service_mode_section_body
 app:xray_service_mode_section_title
 app:xray_skip_malformed
 app:xray_skip_non_proxy_safe

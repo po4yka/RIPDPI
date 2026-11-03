@@ -223,7 +223,6 @@ private fun TransportSection(
     RipDpiCard {
         RipDpiPanelHeader(
             title = stringResource(R.string.mieru_section_transport),
-            supporting = stringResource(R.string.mieru_section_transport_body),
         )
         RipDpiDropdown(
             options = rememberMieruProtocolDropdownOptions(),

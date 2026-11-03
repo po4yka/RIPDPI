@@ -2777,14 +2777,11 @@ Source: %2$s</string>
     <string name="profile_share_warning_body">The QR code and link embed your credentials. Only share them with someone you trust, over a channel you trust.</string>
     <string name="profile_share_loading_title">Loading profile</string>
     <string name="profile_share_loading_body">Preparing the saved profile for export.</string>
-    <string name="profile_share_qr_body">Scan this QR code in Hiddify or another compatible client.</string>
     <string name="profile_share_link_title">Subscription link</string>
-    <string name="profile_share_link_body">Paste this link into Hiddify, AmneziaVPN, or RIPDPI import.</string>
     <string name="profile_share_subscription_label">Subscription/profile link</string>
     <string name="profile_share_copy_uri_action">Copy link</string>
     <string name="profile_share_share_link_action">Share link</string>
     <string name="profile_share_sheet_title">Setup sheet</string>
-    <string name="profile_share_sheet_body">One-page instructions for printing or sending with the QR/link.</string>
     <string name="profile_share_copy_sheet_action">Copy setup sheet</string>
     <string name="profile_share_share_sheet_action">Share setup sheet</string>
     <string name="profile_share_unshareable_title">Profile cannot be shared</string>
@@ -2796,13 +2793,11 @@ Source: %2$s</string>
     <string name="awg_section_interface">Interface</string>
     <string name="awg_section_peer">Peer</string>
     <string name="awg_section_carrier">Transport</string>
-    <string name="awg_section_carrier_body">How the WireGuard datagrams leave the device. WebSocket wraps them for networks that block plain UDP.</string>
     <string name="awg_carrier_picker_label">Carrier</string>
     <string name="awg_carrier_udp">UDP (default)</string>
     <string name="awg_carrier_ws">WebSocket</string>
     <string name="awg_field_carrier_ws_url">WebSocket URL</string>
     <string name="awg_section_obfuscation">Obfuscation</string>
-    <string name="awg_section_obfuscation_body">Server-coordinated values. Paste them verbatim from your provider, or pick a cohort preset.</string>
     <string name="awg_field_server">Server</string>
     <string name="awg_field_server_port">Server port</string>
     <string name="awg_field_private_key">Private key</string>
@@ -2860,7 +2855,6 @@ Source: %2$s</string>
     <string name="anytls_editor_title">AnyTLS profile</string>
     <string name="anytls_section_endpoint">Endpoint</string>
     <string name="anytls_section_tls">TLS</string>
-    <string name="anytls_section_tls_body">The SNI override is optional; leave it blank to use the server host.</string>
     <string name="anytls_field_display_name">Name</string>
     <string name="anytls_field_server">Server</string>
     <string name="anytls_field_server_port">Server port</string>
@@ -2873,7 +2867,6 @@ Source: %2$s</string>
     <string name="mieru_section_endpoint">Endpoint</string>
     <string name="mieru_section_credentials">Credentials</string>
     <string name="mieru_section_transport">Transport</string>
-    <string name="mieru_section_transport_body">Choose the transport protocol, multiplexing level, and MTU.</string>
     <string name="mieru_field_display_name">Name</string>
     <string name="mieru_field_server">Server</string>
     <string name="mieru_field_server_port">Server port</string>
@@ -2896,9 +2889,7 @@ Source: %2$s</string>
     <string name="ssh_editor_title">SSH profile</string>
     <string name="ssh_section_endpoint">Endpoint</string>
     <string name="ssh_section_auth">Authentication</string>
-    <string name="ssh_section_auth_body">Choose how to authenticate, then enter the matching credential.</string>
     <string name="ssh_section_host_key">Host key</string>
-    <string name="ssh_section_host_key_body">Pin the server\'s SHA256 host-key fingerprint to detect impersonation. With strict checking on, a mismatch aborts the connection.</string>
     <string name="ssh_field_display_name">Name</string>
     <string name="ssh_field_server">Server</string>
     <string name="ssh_field_server_port">Server port</string>
@@ -3237,16 +3228,13 @@ Source: %2$s</string>
     <string name="xray_capability_realtime_media_desc">Carries calls, games, and streaming over the tunnel.</string>
     <string name="xray_import_title">VPN connection</string>
     <string name="xray_service_mode_section_title">Connection mode</string>
-    <string name="xray_service_mode_section_body">Choose how this device connects.</string>
     <string name="xray_import_profile_section_title">Import profile</string>
-    <string name="xray_import_profile_section_body">Paste a profile link or configuration to set up the advanced VPN.</string>
     <string name="xray_import_input_label">Profile link or configuration</string>
     <string name="xray_import_input_placeholder">Paste here</string>
     <string name="xray_import_validate_action">Check profile</string>
     <string name="xray_import_error_title">Profile not accepted</string>
     <string name="xray_import_empty_input_error">Paste a profile link or configuration first.</string>
     <string name="xray_import_capabilities_title">What this profile does</string>
-    <string name="xray_import_capabilities_body">This connection provides:</string>
     <string name="xray_import_finish_action">Use this mode</string>
     <string name="xray_import_done_action">Done</string>
 

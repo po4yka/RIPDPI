@@ -145,7 +145,6 @@ private fun TlsSection(
     RipDpiCard {
         RipDpiPanelHeader(
             title = stringResource(R.string.anytls_section_tls),
-            supporting = stringResource(R.string.anytls_section_tls_body),
         )
         PlainField(AnyTlsEditorField.SNI, R.string.anytls_field_sni, editor, onFieldChanged)
     }

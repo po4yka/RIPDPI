@@ -224,7 +224,6 @@ private fun CarrierSection(
     RipDpiCard {
         RipDpiPanelHeader(
             title = stringResource(R.string.awg_section_carrier),
-            supporting = stringResource(R.string.awg_section_carrier_body),
         )
         RipDpiDropdown(
             options =
@@ -370,14 +369,7 @@ private fun ObfuscationSection(
     RipDpiCard {
         RipDpiPanelHeader(
             title = stringResource(R.string.awg_section_obfuscation),
-            supporting =
-                stringResource(
-                    if (editor.obfuscationLocked) {
-                        R.string.awg_cohort_locked_hint
-                    } else {
-                        R.string.awg_section_obfuscation_body
-                    },
-                ),
+            supporting = if (editor.obfuscationLocked) stringResource(R.string.awg_cohort_locked_hint) else null,
         )
         RipDpiDropdown(
             options =

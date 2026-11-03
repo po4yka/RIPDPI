@@ -22,7 +22,6 @@ internal fun AnyTlsRelayFields(
         decoration =
             RipDpiTextFieldDecoration(
                 label = stringResource(R.string.anytls_field_password),
-                helperText = stringResource(R.string.anytls_section_tls_body),
             ),
         behavior =
             RipDpiTextFieldBehavior(
