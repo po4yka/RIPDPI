@@ -2,7 +2,7 @@
 id: CIC-1791950438525162
 title: Fix confirmed CI preflight errors
 kind: bug
-status: review
+status: done
 area: ci
 priority: high
 owner: CI maintainers
@@ -11,9 +11,12 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-10-14
-updated: 2026-10-14
+updated: 2026-11-04
 spec_reason: tooling-only
 status_detail: Full hosted CI at bb360ffe completed successfully on attempt 2. Both original preflight jobs, Rust lint, all five emulator jobs, release verification and ci-required passed. A complete JVM job retry resolved a transient Maven TLS reset.
+closed_at: "2026-11-03T20:00:30Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Observed at 9b2a2f478: native/rust/Cargo.lock has yaml_serde 0.10.7 and no unsafe-libyaml; task record cites full hosted CI success run 38513004219 at bb360ffe"
 ---
 
 ## Goal

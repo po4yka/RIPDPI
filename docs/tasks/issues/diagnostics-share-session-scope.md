@@ -2,7 +2,7 @@
 id: DGN-1790430603321063
 title: Keep diagnostics share summary scoped to selected session
 kind: bug
-status: review
+status: done
 area: diagnostics
 priority: medium
 owner: Diagnostics export agent
@@ -11,8 +11,11 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-09-26
-updated: 2026-09-26
+updated: 2026-11-04
 spec_reason: regression-tested-single-module
+closed_at: "2026-11-03T20:00:22Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Observed at 9b2a2f478: ./gradlew :core:diagnostics:testDebugUnitTest --tests DiagnosticsDetailAndShareServicesTest passed (exit 0)"
 ---
 
 ## Goal

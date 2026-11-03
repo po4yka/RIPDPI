@@ -2,7 +2,7 @@
 id: RTE-1790430175961042
 title: Prevent premature and duplicate rule saves
 kind: bug
-status: review
+status: done
 area: routing
 priority: high
 owner: UI audit agent
@@ -11,8 +11,11 @@ blocked_by: []
 spec_mode: not-required
 openspec_change: null
 created: 2026-09-26
-updated: 2026-09-26
+updated: 2026-11-04
 spec_reason: regression-tested-single-module
+closed_at: "2026-11-03T20:00:30Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: "Observed at 9b2a2f478: RuleEditorViewModelTest (incl. 'save before hydration leaves an existing rule unchanged'; state has loaded/saving flags) passed via :app:testGithubFullDebugUnitTest (exit 0)"
 ---
 
 ## Goal

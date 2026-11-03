@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "Observed at 9b2a2f478: ./gradlew :core:diagnostics:testDebugUnitTest --tests DiagnosticsDetailAndShareServicesTest passed (exit 0)",
+  "execution_sha256": "985cca5fbf5bf84b531e4580b97b1a48a3d384c545a3edc8a416ce086dade710",
+  "issue_sha256": "343415f0ad815e7081e0ce35604dfca696d2eb2246469c23a6e9ea58a50cbe03",
+  "outcome": "done",
+  "prepared_at": "2026-11-03T20:00:22Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1790430603321063"
+}

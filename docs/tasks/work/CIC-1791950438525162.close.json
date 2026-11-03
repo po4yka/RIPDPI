@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "Observed at 9b2a2f478: native/rust/Cargo.lock has yaml_serde 0.10.7 and no unsafe-libyaml; task record cites full hosted CI success run 38513004219 at bb360ffe",
+  "execution_sha256": "68827f181eaaa71162b694d6bf5aefe077bc6f6baf683483e5eca284af352c6d",
+  "issue_sha256": "1f0b1de9e7ac219cc628daa67c62b770b0bccc29ece3a4f3200556703f0bc6a1",
+  "outcome": "done",
+  "prepared_at": "2026-11-03T20:00:30Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "CIC-1791950438525162"
+}
