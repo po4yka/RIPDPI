@@ -7,13 +7,15 @@ import io.gitlab.arturbosch.detekt.api.Entity
 import io.gitlab.arturbosch.detekt.api.Issue
 import io.gitlab.arturbosch.detekt.api.Rule
 import io.gitlab.arturbosch.detekt.api.Severity
-import org.jetbrains.kotlin.psi.KtAnnotationEntry
-import org.jetbrains.kotlin.psi.KtFileAnnotationList
 import org.jetbrains.kotlin.com.intellij.psi.PsiComment
 import org.jetbrains.kotlin.com.intellij.psi.PsiElement
 import org.jetbrains.kotlin.com.intellij.psi.PsiWhiteSpace
+import org.jetbrains.kotlin.psi.KtAnnotationEntry
+import org.jetbrains.kotlin.psi.KtFileAnnotationList
 
-class DisallowNewSuppression(config: Config) : Rule(config) {
+class DisallowNewSuppression(
+    config: Config,
+) : Rule(config) {
     override val issue: Issue =
         Issue(
             id = "DisallowNewSuppression",
@@ -75,8 +77,14 @@ class DisallowNewSuppression(config: Config) : Rule(config) {
                     // Keep going backwards — multiple comments may precede the annotation.
                     sibling = sibling.prevSibling
                 }
-                is PsiWhiteSpace -> sibling = sibling.prevSibling
-                else -> break
+
+                is PsiWhiteSpace -> {
+                    sibling = sibling.prevSibling
+                }
+
+                else -> {
+                    break
+                }
             }
         }
         return false
@@ -94,12 +102,16 @@ class DisallowNewSuppression(config: Config) : Rule(config) {
                     if (ROADMAP_PATTERN.containsMatchIn(sibling.text)) return true
                     sibling = sibling.nextSibling
                 }
+
                 is PsiWhiteSpace -> {
                     // Stop if whitespace contains a newline — comment is on a different line
                     if (sibling.text.contains('\n')) return false
                     sibling = sibling.nextSibling
                 }
-                else -> break
+
+                else -> {
+                    break
+                }
             }
         }
         return false

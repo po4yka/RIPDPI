@@ -8,12 +8,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
-import com.poyka.ripdpi.activities.DiagnosticsRknBlockDiagnosisState
-import com.poyka.ripdpi.activities.DiagnosticsRknBlockDiagnosisToolUiModel
-import com.poyka.ripdpi.activities.DiagnosticsRknBlockTypeUiModel
-import com.poyka.ripdpi.activities.DiagnosticsRknTargetUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -22,6 +16,12 @@ import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.screens.diagnostics.MetricMeasurementContext
 import com.poyka.ripdpi.ui.screens.diagnostics.diagnosticToolStateLabelRes
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsMetricUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRknBlockDiagnosisState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRknBlockDiagnosisToolUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRknBlockTypeUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRknTargetUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.screens.diagnostics.statusTone
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 

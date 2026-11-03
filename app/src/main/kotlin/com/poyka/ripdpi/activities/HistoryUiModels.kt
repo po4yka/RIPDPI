@@ -1,6 +1,14 @@
 package com.poyka.ripdpi.activities
 
 import androidx.compose.runtime.Immutable
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsContextGroupUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventsUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsMetricUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsNetworkSnapshotUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionDetailUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionsUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 

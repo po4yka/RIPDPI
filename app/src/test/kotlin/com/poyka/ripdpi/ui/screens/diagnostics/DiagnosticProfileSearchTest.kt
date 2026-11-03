@@ -13,9 +13,9 @@ import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel
-import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProfileOptionUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanUiModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.toImmutableList

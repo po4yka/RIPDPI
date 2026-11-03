@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.RuntimeConfigurationDns
 import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import com.poyka.ripdpi.data.RuntimeConfigurationStrategy
 import com.poyka.ripdpi.platform.AndroidStringResolver
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test

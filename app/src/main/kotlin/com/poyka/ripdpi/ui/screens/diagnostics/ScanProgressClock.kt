@@ -9,8 +9,8 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsProgressUiModel
-import com.poyka.ripdpi.activities.formatScanDurationMs
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProgressUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.formatScanDurationMs
 import kotlinx.coroutines.delay
 
 /** Tick interval for the scan clock; the coarsest label is whole seconds, so one second is enough. */

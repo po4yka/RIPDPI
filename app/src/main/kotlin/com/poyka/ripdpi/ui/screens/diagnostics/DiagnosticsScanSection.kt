@@ -24,11 +24,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsDiagnosisUiModel
-import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
-import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
-import com.poyka.ripdpi.activities.StrategyProbeSuiteFullMatrixV1
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -39,6 +34,11 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDiagnosisUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeResultUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeCandidateDetailUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.StrategyProbeSuiteFullMatrixV1
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -215,7 +215,7 @@ internal fun ScanSection(
                 )
             }
         }
-        if (selectedProfile?.id == com.poyka.ripdpi.activities.SelectiveMatrixProfileId) {
+        if (selectedProfile?.id == com.poyka.ripdpi.ui.screens.diagnostics.state.SelectiveMatrixProfileId) {
             item {
                 SelectiveMatrixInputCard(
                     input = scan.selectiveMatrixHostsInput,

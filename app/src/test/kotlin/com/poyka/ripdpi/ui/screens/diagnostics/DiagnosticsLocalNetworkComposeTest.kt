@@ -25,14 +25,14 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsUiFactorySupport
-import com.poyka.ripdpi.activities.toLocalNetworkGroups
 import com.poyka.ripdpi.diagnostics.LocalDeviceConstraints
 import com.poyka.ripdpi.diagnostics.LocalNetworkContextModel
 import com.poyka.ripdpi.diagnostics.LocalObservationState
 import com.poyka.ripdpi.diagnostics.LocalSimConstraints
 import com.poyka.ripdpi.diagnostics.LocalSimScope
 import com.poyka.ripdpi.diagnostics.LocalTransport
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiFactorySupport
+import com.poyka.ripdpi.ui.screens.diagnostics.state.toLocalNetworkGroups
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens

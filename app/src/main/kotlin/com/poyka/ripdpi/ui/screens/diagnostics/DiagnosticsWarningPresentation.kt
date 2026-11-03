@@ -3,10 +3,10 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
-import com.poyka.ripdpi.activities.foldIdentical
 import com.poyka.ripdpi.diagnostics.exit.ProcessExitCorrelationKind
 import com.poyka.ripdpi.diagnostics.exit.processExitCorrelationKind
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.foldIdentical
 
 /**
  * The watch list as the current mode shows it. Guided mode shows several raw events with the same text (for

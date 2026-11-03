@@ -13,10 +13,10 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel
-import com.poyka.ripdpi.activities.DiagnosticsProgressUiModel
 import com.poyka.ripdpi.diagnostics.RankedStrategyProbeResult
 import com.poyka.ripdpi.diagnostics.ScanKind
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProfileOptionUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProgressUiModel
 import com.poyka.ripdpi.ui.screens.tuner.StrategyTunerRankedRow
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens

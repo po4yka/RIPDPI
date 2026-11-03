@@ -4,6 +4,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.strategyLaneFamilyLabel
 import com.poyka.ripdpi.diagnostics.BypassStrategySignature
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.ui.screens.diagnostics.state.label
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 

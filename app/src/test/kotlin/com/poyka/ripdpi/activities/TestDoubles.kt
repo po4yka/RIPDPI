@@ -48,6 +48,8 @@ import com.poyka.ripdpi.services.AndroidHardKillSwitchSnapshot
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStateStore
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
 import com.poyka.ripdpi.services.ServiceStartResult
+import com.poyka.ripdpi.ui.screens.diagnostics.state.label
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

@@ -5,8 +5,8 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
-import com.poyka.ripdpi.activities.DiagnosticsSparklineUiModel
 import com.poyka.ripdpi.ui.debug.RecompositionCounter
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSparklineUiModel
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals

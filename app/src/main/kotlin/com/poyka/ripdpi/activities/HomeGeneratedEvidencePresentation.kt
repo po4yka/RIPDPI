@@ -8,6 +8,7 @@ import com.poyka.ripdpi.diagnostics.HomeDnsCharacterization
 import com.poyka.ripdpi.diagnostics.HomeNetworkCharacterSummary
 import com.poyka.ripdpi.diagnostics.HomeRoutingSanityFinding
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 
 private const val ScopeUnavailableHeadline = "Network scope unavailable"
 private const val ScopeUnavailableSummary =

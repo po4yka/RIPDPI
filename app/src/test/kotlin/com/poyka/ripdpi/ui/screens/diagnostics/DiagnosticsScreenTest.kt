@@ -21,46 +21,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
-import com.poyka.ripdpi.activities.CompletedProbeUiModel
-import com.poyka.ripdpi.activities.DiagnosticsApproachMode
-import com.poyka.ripdpi.activities.DiagnosticsApproachesUiModel
-import com.poyka.ripdpi.activities.DiagnosticsAutomaticProbeCalloutUiModel
-import com.poyka.ripdpi.activities.DiagnosticsFieldUiModel
-import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
-import com.poyka.ripdpi.activities.DiagnosticsPerformanceUiModel
-import com.poyka.ripdpi.activities.DiagnosticsProbeGroupUiModel
-import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
-import com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel
-import com.poyka.ripdpi.activities.DiagnosticsProgressUiModel
-import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
-import com.poyka.ripdpi.activities.DiagnosticsRemediationActionUiModel
-import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
-import com.poyka.ripdpi.activities.DiagnosticsRemediationStepUiModel
-import com.poyka.ripdpi.activities.DiagnosticsRememberedNetworkUiModel
-import com.poyka.ripdpi.activities.DiagnosticsResolverRecommendationUiModel
-import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
-import com.poyka.ripdpi.activities.DiagnosticsSection
-import com.poyka.ripdpi.activities.DiagnosticsSessionDetailUiModel
-import com.poyka.ripdpi.activities.DiagnosticsSessionRowUiModel
-import com.poyka.ripdpi.activities.DiagnosticsShareUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeFamilyUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeLiveProgressUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeProgressLaneUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeRecommendationUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeWinningCandidateUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeWinningPathUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTone
-import com.poyka.ripdpi.activities.DiagnosticsUiState
-import com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionActionKindUiModel
-import com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionReasonUiModel
-import com.poyka.ripdpi.activities.DiagnosticsWorkflowRestrictionUiModel
-import com.poyka.ripdpi.activities.HiddenProbeConflictDialogState
-import com.poyka.ripdpi.activities.PhaseState
-import com.poyka.ripdpi.activities.PhaseStepUiModel
-import com.poyka.ripdpi.activities.toScreenUiState
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidence
@@ -71,6 +31,46 @@ import com.poyka.ripdpi.services.RemoteDeviceAcceptanceDevice
 import com.poyka.ripdpi.services.RemoteDeviceAcceptanceReport
 import com.poyka.ripdpi.services.RemoteDeviceAcceptanceStatus
 import com.poyka.ripdpi.services.RemoteDeviceAcceptanceStep
+import com.poyka.ripdpi.ui.screens.diagnostics.state.CompletedProbeUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsApproachMode
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsApproachesUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsAutomaticProbeCalloutUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsFieldUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsMetricUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsPerformanceUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeGroupUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeResultUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProfileOptionUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProgressUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRemediationActionKindUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRemediationActionUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRemediationLadderUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRemediationStepUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRememberedNetworkUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsResolverRecommendationUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSection
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionDetailUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionRowUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsShareUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeCandidateDetailUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeCandidateUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeFamilyUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeLiveProgressUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeProgressLaneUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeRecommendationUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeReportUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeWinningCandidateUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeWinningPathUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsWorkflowRestrictionActionKindUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsWorkflowRestrictionReasonUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsWorkflowRestrictionUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.HiddenProbeConflictDialogState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.PhaseState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.PhaseStepUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.toScreenUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
@@ -599,7 +599,7 @@ class DiagnosticsScreenTest {
                         DiagnosticsUiState(
                             selectedSection = DiagnosticsSection.Dashboard,
                             overview =
-                                com.poyka.ripdpi.activities.DiagnosticsOverviewUiModel(
+                                com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsOverviewUiModel(
                                     recentAutomaticProbe =
                                         DiagnosticsAutomaticProbeCalloutUiModel(
                                             title = "Hidden automatic probing finished",
@@ -700,7 +700,7 @@ class DiagnosticsScreenTest {
                         DiagnosticsUiState(
                             selectedSection = DiagnosticsSection.Dashboard,
                             overview =
-                                com.poyka.ripdpi.activities.DiagnosticsOverviewUiModel(
+                                com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsOverviewUiModel(
                                     rememberedNetworks =
                                         persistentListOf(
                                             DiagnosticsRememberedNetworkUiModel(

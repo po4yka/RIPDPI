@@ -3,8 +3,6 @@ package com.poyka.ripdpi.ui.journeys.diagnostics
 import androidx.compose.ui.test.hasAnyAncestor
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
-import com.poyka.ripdpi.activities.DiagnosticsApproachMode
-import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.HistorySection
 import com.poyka.ripdpi.activities.LogSeverity
 import com.poyka.ripdpi.activities.LogSubsystem
@@ -13,6 +11,8 @@ import com.poyka.ripdpi.ui.journeys.JourneyRule
 import com.poyka.ripdpi.ui.journeys.exists
 import com.poyka.ripdpi.ui.journeys.reveal
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsApproachMode
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSection
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 
 internal class LogsPage(

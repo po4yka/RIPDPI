@@ -3,6 +3,8 @@ package com.poyka.ripdpi.activities
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
 import com.poyka.ripdpi.data.StrategyPackRuntimeState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.label
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue

@@ -26,6 +26,7 @@ import com.poyka.ripdpi.pcap.PcapCaptureRuntimeState
 import com.poyka.ripdpi.permissions.PermissionIssueUiState
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.TimeoutCancellationException

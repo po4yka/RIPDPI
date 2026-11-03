@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.ui.screens.history
 
-import com.poyka.ripdpi.activities.DiagnosticsEventFiltersUiModel
 import com.poyka.ripdpi.activities.HistoryEventIdentityUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventFiltersUiModel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

@@ -9,7 +9,7 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.LocaleManagerCompat
 import androidx.core.os.LocaleListCompat
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsUiFormatter
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiFormatter
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue

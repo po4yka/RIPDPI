@@ -8,8 +8,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsRknSelfInfoUiModel
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRknSelfInfoUiModel
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable

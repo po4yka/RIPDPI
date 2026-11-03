@@ -11,14 +11,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsCidrWhitelistState
-import com.poyka.ripdpi.activities.DiagnosticsCidrWhitelistToolUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsCidrWhitelistState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsCidrWhitelistToolUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable

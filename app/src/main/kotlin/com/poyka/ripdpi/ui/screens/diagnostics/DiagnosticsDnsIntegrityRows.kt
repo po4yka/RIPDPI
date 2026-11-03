@@ -7,10 +7,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsDnsIntegrityDomainUiModel
-import com.poyka.ripdpi.activities.DiagnosticsDnsIntegrityDoqUiModel
-import com.poyka.ripdpi.activities.DiagnosticsDohBootstrapUiModel
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDnsIntegrityDomainUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDnsIntegrityDoqUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDohBootstrapUiModel
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable

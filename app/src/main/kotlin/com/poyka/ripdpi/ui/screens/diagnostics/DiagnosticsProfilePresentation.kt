@@ -5,8 +5,8 @@ import androidx.compose.runtime.ReadOnlyComposable
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel
-import com.poyka.ripdpi.activities.StrategyProbeSuiteFullMatrixV1
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProfileOptionUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.StrategyProbeSuiteFullMatrixV1
 
 @Composable
 @ReadOnlyComposable

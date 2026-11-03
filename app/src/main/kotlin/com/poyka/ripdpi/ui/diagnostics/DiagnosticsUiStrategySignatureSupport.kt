@@ -1,10 +1,10 @@
 package com.poyka.ripdpi.ui.diagnostics
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsFieldUiModel
-import com.poyka.ripdpi.activities.DiagnosticsUiFactorySupport
 import com.poyka.ripdpi.diagnostics.BypassStrategySignature
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsFieldUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiFactorySupport
 import java.util.Locale
 
 internal class StrategySignaturePresenter(

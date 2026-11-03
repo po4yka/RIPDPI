@@ -2,8 +2,8 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import com.poyka.ripdpi.activities.DiagnosticsDnsIntegrityState
-import com.poyka.ripdpi.activities.DiagnosticsDomainReachabilityState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDnsIntegrityState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDomainReachabilityState
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith

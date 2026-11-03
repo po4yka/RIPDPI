@@ -11,10 +11,10 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
-import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
-import com.poyka.ripdpi.activities.DiagnosticsSessionRowUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTone
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeResultUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionRowUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals

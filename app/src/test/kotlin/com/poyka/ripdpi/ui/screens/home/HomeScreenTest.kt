@@ -21,10 +21,6 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.unit.Density
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConnectionState
-import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
-import com.poyka.ripdpi.activities.DiagnosticsRemediationActionUiModel
-import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
 import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsActionUiState
@@ -43,6 +39,10 @@ import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.subscription.subscriptionExpiryUiState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRemediationActionKindUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRemediationActionUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRemediationLadderUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf

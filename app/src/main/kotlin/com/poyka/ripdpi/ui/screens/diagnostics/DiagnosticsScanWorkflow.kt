@@ -12,11 +12,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsRemediationActionKindUiModel
-import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
-import com.poyka.ripdpi.activities.DiagnosticsScanWorkflowBadgeUiModel
-import com.poyka.ripdpi.activities.DiagnosticsScanWorkflowPresentationUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -28,6 +23,11 @@ import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRemediationActionKindUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanWorkflowBadgeUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanWorkflowPresentationUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -36,8 +36,8 @@ import kotlinx.collections.immutable.toImmutableList
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun DiagnosticsScanWorkflowCard(
-    profile: com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel,
-    scan: com.poyka.ripdpi.activities.DiagnosticsScanUiModel,
+    profile: com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProfileOptionUiModel,
+    scan: com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanUiModel,
     strategyProbeSelected: Boolean,
     isFullAudit: Boolean,
     onRunRawScan: () -> Unit,
@@ -228,8 +228,8 @@ private data class WorkflowStatusUiModel(
 
 @Composable
 private fun workflowPresentationFallback(
-    scan: com.poyka.ripdpi.activities.DiagnosticsScanUiModel,
-    profile: com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel,
+    scan: com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanUiModel,
+    profile: com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProfileOptionUiModel,
     strategyProbeSelected: Boolean,
     isFullAudit: Boolean,
 ): DiagnosticsScanWorkflowPresentationUiModel {
@@ -443,7 +443,7 @@ private fun partialWorkflowStatus(
 
 @Composable
 private fun workflowBadges(
-    profile: com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel,
+    profile: com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProfileOptionUiModel,
     strategyProbeSelected: Boolean,
     isFullAudit: Boolean,
 ): List<DiagnosticsScanWorkflowBadgeUiModel> =
@@ -527,7 +527,7 @@ private fun workflowBadges(
 @Composable
 private fun WorkflowActionRow(
     strategyProbeSelected: Boolean,
-    scan: com.poyka.ripdpi.activities.DiagnosticsScanUiModel,
+    scan: com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanUiModel,
     spacing: androidx.compose.ui.unit.Dp,
     presentation: DiagnosticsScanWorkflowPresentationUiModel,
     onRunRawScan: () -> Unit,

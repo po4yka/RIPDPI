@@ -2,6 +2,8 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.diagnostics.DiagnosticsAppliedSetting
 import com.poyka.ripdpi.diagnostics.DiagnosticsCapabilityEvidence
+import com.poyka.ripdpi.ui.screens.diagnostics.state.label
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

@@ -93,7 +93,7 @@ fun ExampleScreen(uiState: UiState, onAction: () -> Unit) { /* ... */ }
 | `MainViewModel` | `activities/MainViewModel.kt` | Connection state, VPN/proxy toggle, metrics |
 | `ConfigViewModel` | `activities/ConfigViewModel.kt` | Proxy config presets, draft editing, validation |
 | `SettingsViewModel` | `activities/SettingsViewModel.kt` | App settings, theme, DataStore persistence |
-| `DiagnosticsViewModel` | `activities/DiagnosticsViewModel.kt` | Diagnostics scan orchestration, history, export/share state, and strategy-probe presentation |
+| `DiagnosticsViewModel` | `ui/screens/diagnostics/state/DiagnosticsViewModel.kt` | Diagnostics scan orchestration, history, export/share state, and strategy-probe presentation |
 
 ## Diagnostics UI Conventions
 

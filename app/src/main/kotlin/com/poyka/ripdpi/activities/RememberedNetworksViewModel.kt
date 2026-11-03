@@ -8,6 +8,9 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicyStatusValidated
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.platform.formatLocalizedTimestamp
+import com.poyka.ripdpi.ui.screens.diagnostics.state.formatTimestamp
+import com.poyka.ripdpi.ui.screens.diagnostics.state.statusTone
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf

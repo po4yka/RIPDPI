@@ -8,14 +8,14 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.navDeepLink
 import androidx.navigation.toRoute
-import com.poyka.ripdpi.activities.DiagnosticsSection
-import com.poyka.ripdpi.activities.DiagnosticsViewModel
 import com.poyka.ripdpi.activities.HomePauseViewModel
 import com.poyka.ripdpi.activities.MainViewModel
-import com.poyka.ripdpi.activities.PcapCaptureViewModel
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRoute
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRouteCallbacks
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSection
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsViewModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.PcapCaptureViewModel
 import com.poyka.ripdpi.ui.screens.health.ConnectionHealthRoute
 import com.poyka.ripdpi.ui.screens.history.HistoryRoute
 import com.poyka.ripdpi.ui.screens.home.HomeRoute

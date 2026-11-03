@@ -1,0 +1,97 @@
+package com.poyka.ripdpi.ui.screens.diagnostics.state
+
+import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.message
+import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
+import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
+import com.poyka.ripdpi.diagnostics.DiagnosticEvent
+import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
+import kotlinx.collections.immutable.toImmutableList
+
+private const val MaxPassiveEvents = 8
+
+internal fun DiagnosticsUiFactorySupport.buildLiveUiModel(
+    activeConnectionSession: DiagnosticConnectionSession?,
+    telemetry: List<DiagnosticTelemetrySample>,
+    currentTelemetry: DiagnosticTelemetrySample?,
+    nativeEvents: List<DiagnosticEvent>,
+    latestSnapshot: DiagnosticsNetworkSnapshotUiModel?,
+    latestContext: DiagnosticContextModel?,
+): DiagnosticsLiveUiModel {
+    // The labels agree with the health headline; passiveEvents below stays the raw feed.
+    val attentionEvents = nativeEvents.filterNot { isExpectedProcessExit(it.message) }
+    val health = deriveLiveHealth(activeConnectionSession, currentTelemetry, nativeEvents)
+    return DiagnosticsLiveUiModel(
+        health = health,
+        statusLabel =
+            (currentTelemetry?.connectionState ?: activeConnectionSession?.connectionState)
+                ?.let { context.connectionStateTitle(it) }
+                ?: context.getString(R.string.diagnostics_metric_idle),
+        statusTone =
+            liveStatusTone(
+                currentTelemetry?.connectionState ?: activeConnectionSession?.connectionState,
+            ),
+        freshnessLabel =
+            currentTelemetry?.createdAt?.let {
+                context.getString(
+                    R.string.diagnostics_live_updated_format,
+                    formatTimestamp(it),
+                )
+            }
+                ?: context.getString(R.string.diagnostics_live_no_telemetry),
+        // takeIf { > 0 }: buildCurrentServiceTelemetry can emit createdAt == 0L when a
+        // sample exists but none of its timestamp inputs were set (e.g. status Running
+        // with no updatedAt yet). A 0L epoch would make the stale badge compute a
+        // ~decades-long age and render Expired on a fresh session — coerce it to null
+        // so FreshnessIndicator falls back to the plain label instead.
+        currentTelemetryTimestampMs = currentTelemetry?.createdAt?.takeIf { it > 0L },
+        freshnessUnavailableLabel = liveUnavailableLabel(currentTelemetry),
+        headline = buildLiveHeadline(health, currentTelemetry, attentionEvents),
+        body = buildLiveBody(currentTelemetry, attentionEvents),
+        networkLabel =
+            (currentTelemetry?.networkType ?: activeConnectionSession?.networkType)
+                ?.let { context.networkTypeLabel(it) },
+        modeLabel = currentTelemetry?.activeMode ?: activeConnectionSession?.serviceMode,
+        signalLabel = buildLiveSignalLabel(currentTelemetry),
+        eventSummaryLabel = buildLiveEventSummaryLabel(attentionEvents),
+        highlights = buildLiveHighlights(currentTelemetry, attentionEvents).toImmutableList(),
+        metrics = buildLiveMetrics(currentTelemetry).toImmutableList(),
+        trends = buildLiveTrends(telemetry).toImmutableList(),
+        snapshot = latestSnapshot,
+        contextGroups = latestContext?.let(::toLiveContextGroups).orEmpty().toImmutableList(),
+        passiveEvents = nativeEvents.take(MaxPassiveEvents).map(::toEventUiModel).toImmutableList(),
+    )
+}
+
+internal fun DiagnosticsUiFactorySupport.liveUnavailableLabel(sample: DiagnosticTelemetrySample?): String? {
+    val resource =
+        when {
+            sample?.telemetryErrorSummary() != null -> {
+                R.string.measurement_error
+            }
+
+            sample?.connectionState in setOf("Halted", "Stopped", "Failed") -> {
+                R.string.measurement_stopped
+            }
+
+            sample == null || sample.createdAt <= 0L || sample.connectionState != "Running" -> {
+                R.string.measurement_unknown
+            }
+
+            listOf(
+                sample.proxyTelemetryState,
+                sample.tunnelTelemetryState,
+                sample.relayTelemetryState,
+                sample.warpTelemetryState,
+            ).none {
+                it == com.poyka.ripdpi.data.RuntimeTelemetryState.Snapshot.wireValue
+            } -> {
+                R.string.measurement_unknown
+            }
+
+            else -> {
+                return null
+            }
+        }
+    return context.getString(resource)
+}

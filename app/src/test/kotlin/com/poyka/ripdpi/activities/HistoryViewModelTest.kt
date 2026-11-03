@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.platform.AndroidStringResolver
+import com.poyka.ripdpi.ui.screens.diagnostics.state.testDiagnosticsUiCoreSupport
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch

@@ -11,8 +11,8 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
-import com.poyka.ripdpi.activities.DiagnosticsPerformanceUiModel
-import com.poyka.ripdpi.activities.DiagnosticsSection
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsPerformanceUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSection
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Rule
 import org.junit.Test

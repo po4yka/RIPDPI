@@ -25,6 +25,9 @@ import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
+import com.poyka.ripdpi.ui.screens.diagnostics.state.isFullAudit
+import com.poyka.ripdpi.ui.screens.diagnostics.state.label
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope

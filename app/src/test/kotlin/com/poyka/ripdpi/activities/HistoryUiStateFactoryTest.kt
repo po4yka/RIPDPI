@@ -5,6 +5,11 @@ import com.poyka.ripdpi.diagnostics.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.ScanTerminationReason
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.platform.AndroidStringResolver
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiCoreSupport
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiFormatter
+import com.poyka.ripdpi.ui.screens.diagnostics.state.completionLabel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
+import com.poyka.ripdpi.ui.screens.diagnostics.state.testDiagnosticsUiCoreSupport
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

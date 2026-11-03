@@ -23,6 +23,8 @@ import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.ui.diagnostics.uiEvidenceNote
 import com.poyka.ripdpi.ui.diagnostics.verificationLabelRes
+import com.poyka.ripdpi.ui.screens.diagnostics.state.localizedDisplayName
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job

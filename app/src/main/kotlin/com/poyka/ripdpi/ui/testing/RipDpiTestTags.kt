@@ -4,13 +4,13 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
-import com.poyka.ripdpi.activities.DiagnosticsApproachMode
-import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.activities.HistorySection
 import com.poyka.ripdpi.activities.LogSeverity
 import com.poyka.ripdpi.activities.LogSubsystem
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsApproachMode
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSection
 import com.poyka.ripdpi.ui.screens.settings.ActivationWindowDimension
 import com.poyka.ripdpi.ui.screens.settings.AdvancedOptionSetting
 import com.poyka.ripdpi.ui.screens.settings.AdvancedTextSetting

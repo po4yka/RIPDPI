@@ -21,10 +21,10 @@ import androidx.compose.ui.text.intl.LocaleList
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
-import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
-import com.poyka.ripdpi.activities.DiagnosticsSessionRowUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTone
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeResultUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionRowUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals

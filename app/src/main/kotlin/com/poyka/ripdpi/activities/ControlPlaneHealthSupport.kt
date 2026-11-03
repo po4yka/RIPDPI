@@ -4,6 +4,8 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
 import com.poyka.ripdpi.data.StrategyPackRuntimeState
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.ui.screens.diagnostics.state.label
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import kotlinx.collections.immutable.toImmutableList
 
 internal fun StringResolver.buildControlPlaneHealthSummary(

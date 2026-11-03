@@ -23,18 +23,6 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.CompletedProbeUiModel
-import com.poyka.ripdpi.activities.DiagnosticsProgressUiModel
-import com.poyka.ripdpi.activities.DiagnosticsResolverRecommendationUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeLiveProgressUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeProgressLaneUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTone
-import com.poyka.ripdpi.activities.DnsBaselineStatus
-import com.poyka.ripdpi.activities.DpiFailureClass
-import com.poyka.ripdpi.activities.PhaseState
-import com.poyka.ripdpi.activities.ScanNetworkContextUiModel
-import com.poyka.ripdpi.activities.StrategyCandidateTimelineEntryUiModel
-import com.poyka.ripdpi.activities.displayLabelRes
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.PresetCard
@@ -48,6 +36,18 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.indicators.ripDpiMetricToneStyle
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
+import com.poyka.ripdpi.ui.screens.diagnostics.state.CompletedProbeUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProgressUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsResolverRecommendationUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeLiveProgressUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeProgressLaneUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DnsBaselineStatus
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DpiFailureClass
+import com.poyka.ripdpi.ui.screens.diagnostics.state.PhaseState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.ScanNetworkContextUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.StrategyCandidateTimelineEntryUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.displayLabelRes
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -376,7 +376,7 @@ internal fun LiveProbeResultRow(
 
 @Composable
 internal fun DiagnosticsProfileCard(
-    profile: com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel,
+    profile: com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProfileOptionUiModel,
     selected: Boolean,
     onClick: () -> Unit,
 ) {

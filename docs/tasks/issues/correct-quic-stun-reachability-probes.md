@@ -28,6 +28,6 @@ Make the Android DPI suite report QUIC reachability from valid network probes, a
 
 ## Ownership
 
-- Diagnostics network probe writer owns `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/dpi/`, `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/dpich/PluggableTransportReachabilityProbe.kt`, their focused tests, and `app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsDpiSuiteExecutionSupport.kt`.
+- Diagnostics network probe writer owns `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/dpi/`, `core/diagnostics/src/main/kotlin/com/poyka/ripdpi/diagnostics/dpich/PluggableTransportReachabilityProbe.kt`, their focused tests, and `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/state/DiagnosticsDpiSuiteExecutionSupport.kt`.
 - Other writers own diagnostics finalization, export, and RKN paths. This change does not edit those paths.
 - This writer owns this task, its OpenSpec change, and generated task board updates until completion.

@@ -11,6 +11,8 @@ import com.poyka.ripdpi.diagnostics.HomeDnsCharacterization
 import com.poyka.ripdpi.diagnostics.HomeDnsResolverClass
 import com.poyka.ripdpi.diagnostics.HomeRegressionDelta
 import com.poyka.ripdpi.diagnostics.HomeStrategyEffectivenessEntry
+import com.poyka.ripdpi.ui.screens.diagnostics.state.label
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

@@ -17,9 +17,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
-import com.poyka.ripdpi.activities.DiagnosticsSection
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsVerificationSheetUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -30,6 +27,9 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSection
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeCandidateDetailUiModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens

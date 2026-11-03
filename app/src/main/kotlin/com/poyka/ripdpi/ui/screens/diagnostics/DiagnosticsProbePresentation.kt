@@ -4,8 +4,8 @@ import androidx.annotation.StringRes
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTone
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeResultUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 
 @StringRes
 internal fun diagnosticProbeTitleResource(type: String): Int =

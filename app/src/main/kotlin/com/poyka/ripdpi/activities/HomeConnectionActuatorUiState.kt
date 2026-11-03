@@ -3,6 +3,7 @@ package com.poyka.ripdpi.activities
 import androidx.annotation.StringRes
 import androidx.compose.runtime.Immutable
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.ui.screens.diagnostics.state.label
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList

@@ -4,6 +4,9 @@ import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsDetailLoader
 import com.poyka.ripdpi.diagnostics.DiagnosticsHistorySource
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionDetailUiFactory
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionDetailUiMapper
+import com.poyka.ripdpi.ui.screens.diagnostics.state.loadSessionDetail
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

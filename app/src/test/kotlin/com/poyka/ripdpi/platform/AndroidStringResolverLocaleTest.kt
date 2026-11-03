@@ -14,8 +14,8 @@ import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.LocaleManagerCompat
 import androidx.core.os.LocaleListCompat
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsUiFormatter
-import com.poyka.ripdpi.activities.formatTelegramThroughput
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiFormatter
+import com.poyka.ripdpi.ui.screens.diagnostics.state.formatTelegramThroughput
 import com.poyka.ripdpi.utility.createConnectionNotification
 import com.poyka.ripdpi.utility.createDynamicConnectionNotification
 import org.junit.After

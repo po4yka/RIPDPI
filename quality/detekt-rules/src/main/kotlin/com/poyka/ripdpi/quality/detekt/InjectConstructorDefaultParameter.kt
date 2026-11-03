@@ -8,11 +8,13 @@ import io.gitlab.arturbosch.detekt.api.Issue
 import io.gitlab.arturbosch.detekt.api.Rule
 import io.gitlab.arturbosch.detekt.api.Severity
 import org.jetbrains.kotlin.psi.KtConstructor
+import org.jetbrains.kotlin.psi.KtParameter
 import org.jetbrains.kotlin.psi.KtPrimaryConstructor
 import org.jetbrains.kotlin.psi.KtSecondaryConstructor
-import org.jetbrains.kotlin.psi.KtParameter
 
-class InjectConstructorDefaultParameter(config: Config) : Rule(config) {
+class InjectConstructorDefaultParameter(
+    config: Config,
+) : Rule(config) {
     override val issue: Issue =
         Issue(
             id = "InjectConstructorDefaultParameter",

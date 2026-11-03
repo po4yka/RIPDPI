@@ -2,11 +2,11 @@
   "version": 1,
   "entries": [
     {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsuicommonsupport.kt:suppression",
+      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-diagnostics-state-diagnosticsuicommonsupport.kt:suppression",
       "rule": "complexity-suppression",
       "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiCommonSupport.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiCommonSupport.kt carries 1 complexity suppressions",
+      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/state/DiagnosticsUiCommonSupport.kt",
+      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/state/DiagnosticsUiCommonSupport.kt carries 1 complexity suppressions",
       "metricName": "suppressionCount",
       "baselineValue": 1,
       "limit": 0,
@@ -134,22 +134,22 @@
       "suggestion": "Move feature composition behind narrower ports or adapter crates."
     },
     {
-      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticstelemetrymetrics.kt:adaptive-diagnostics-dns-relay-telemetry-tunnel-warp",
+      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-diagnostics-state-diagnosticstelemetrymetrics.kt:adaptive-diagnostics-dns-relay-telemetry-tunnel-warp",
       "rule": "kotlin-feature-spread",
       "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsTelemetryMetrics.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsTelemetryMetrics.kt references 7 feature families",
+      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/state/DiagnosticsTelemetryMetrics.kt",
+      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/state/DiagnosticsTelemetryMetrics.kt references 7 feature families",
       "metricName": "featureFamilyCount",
       "baselineValue": 7,
       "limit": 5,
       "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
     },
     {
-      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-diagnosticsuistateassembler.kt:adaptive-desync-diagnostics-dns-relay-routing-telemetry-tunnel-warp",
+      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-diagnostics-state-diagnosticsuistateassembler.kt:adaptive-desync-diagnostics-dns-relay-routing-telemetry-tunnel-warp",
       "rule": "kotlin-feature-spread",
       "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiStateAssembler.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/DiagnosticsUiStateAssembler.kt references 9 feature families",
+      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/state/DiagnosticsUiStateAssembler.kt",
+      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/state/DiagnosticsUiStateAssembler.kt references 9 feature families",
       "metricName": "featureFamilyCount",
       "baselineValue": 9,
       "limit": 5,

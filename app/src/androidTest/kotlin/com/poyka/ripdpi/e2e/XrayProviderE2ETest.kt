@@ -13,7 +13,6 @@ import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.rule.GrantPermissionRule
 import androidx.test.uiautomator.UiDevice
-import com.poyka.ripdpi.activities.DiagnosticsXrayProviderController
 import com.poyka.ripdpi.core.XrayBridgeModule
 import com.poyka.ripdpi.core.XrayDatDir
 import com.poyka.ripdpi.core.XrayNativeBridge
@@ -70,6 +69,7 @@ import com.poyka.ripdpi.services.SplitTunnelMode
 import com.poyka.ripdpi.services.TimedPauseController
 import com.poyka.ripdpi.services.VpnTunnelSessionProvider
 import com.poyka.ripdpi.services.VpnTunnelSessionProviderModule
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsXrayProviderController
 import com.poyka.ripdpi.ui.screens.profiles.ProfileMeasurementUiState
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityMeasurementCoordinator
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityViewModel

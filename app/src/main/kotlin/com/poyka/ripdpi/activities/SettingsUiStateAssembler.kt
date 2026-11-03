@@ -9,6 +9,7 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.security.BiometricCapabilityChecker
 import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
 import com.poyka.ripdpi.settings.state.toUiState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.label
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.SharingStarted

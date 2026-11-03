@@ -4,11 +4,11 @@ import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
 import com.poyka.ripdpi.BuildConfig
-import com.poyka.ripdpi.activities.DiagnosticsExportSupportCodes
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.export.DetectionExportMetadata
 import com.poyka.ripdpi.core.detection.export.DetectionJsonExportFormatter
 import com.poyka.ripdpi.core.detection.export.DetectionMarkdownExportFormatter
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsExportSupportCodes
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId

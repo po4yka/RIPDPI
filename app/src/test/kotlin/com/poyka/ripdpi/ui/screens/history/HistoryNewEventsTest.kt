@@ -33,10 +33,10 @@ import com.poyka.ripdpi.activities.HistorySection
 import com.poyka.ripdpi.activities.HistoryUiState
 import com.poyka.ripdpi.activities.HistoryUiStateFactory
 import com.poyka.ripdpi.activities.historyEvent
-import com.poyka.ripdpi.activities.testDiagnosticsUiCoreSupport
 import com.poyka.ripdpi.activities.testHistorySessionDetailUiMapper
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.platform.AndroidStringResolver
+import com.poyka.ripdpi.ui.screens.diagnostics.state.testDiagnosticsUiCoreSupport
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals

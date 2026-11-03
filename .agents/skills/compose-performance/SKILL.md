@@ -22,7 +22,7 @@ MutableState (SettingsUiModels: DesyncCoreUiState, ProxyNetworkUiState, etc.).
 
 ### Project conventions
 
-- `activities/DiagnosticsUiModels.kt` -- 60+ annotations, @Immutable for data,
+- `ui/screens/diagnostics/state/DiagnosticsUiModels.kt` -- 60+ annotations, @Immutable for data,
   @Stable for models with callbacks.
 - `activities/SettingsUiModels.kt` -- @Stable on all section state holders.
 - `activities/HistoryUiModels.kt` -- @Immutable on all models (pure data).

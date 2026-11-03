@@ -20,8 +20,6 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.hideFromAccessibility
 import androidx.compose.ui.semantics.semantics
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsOutcomeSource
-import com.poyka.ripdpi.activities.DiagnosticsOutcomeUiModel
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -29,6 +27,8 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.chrome.overlineText
 import com.poyka.ripdpi.ui.components.distinctFrom
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsOutcomeSource
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsOutcomeUiModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens

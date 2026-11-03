@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
-import com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel
 import com.poyka.ripdpi.ui.components.profiles.matchesProfileQuery
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProfileOptionUiModel
 
 internal data class DiagnosticProfileSearchEntry(
     val profile: DiagnosticsProfileOptionUiModel,

@@ -1,12 +1,12 @@
 package com.poyka.ripdpi.ui.diagnostics
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeFamilyUiModel
-import com.poyka.ripdpi.activities.StrategyProbeSuiteFullMatrixV1
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeCandidateUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeFamilyUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.StrategyProbeSuiteFullMatrixV1
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 

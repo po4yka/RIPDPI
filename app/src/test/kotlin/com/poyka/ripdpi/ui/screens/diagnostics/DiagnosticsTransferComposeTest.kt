@@ -29,9 +29,9 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsTransferRunUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTransferSampleUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTransferUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTransferRunUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTransferSampleUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTransferUiModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme

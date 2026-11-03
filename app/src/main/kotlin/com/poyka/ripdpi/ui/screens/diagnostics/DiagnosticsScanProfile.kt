@@ -19,7 +19,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
 internal fun CompactProfileRow(
-    profile: com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel?,
+    profile: com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProfileOptionUiModel?,
     onChangeProfile: () -> Unit,
     enabled: Boolean = true,
 ) {
@@ -68,7 +68,7 @@ internal fun CompactProfileRow(
 
 @Composable
 internal fun ProfilePickerContent(
-    profiles: List<com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel>,
+    profiles: List<com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProfileOptionUiModel>,
     selectedProfileId: String?,
     search: com.poyka.ripdpi.ui.components.profiles.ProfileSearchState,
     onSelectProfile: (String) -> Unit,

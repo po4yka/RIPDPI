@@ -16,12 +16,12 @@ import androidx.compose.ui.test.performScrollToKey
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.unit.dp
-import com.poyka.ripdpi.activities.DiagnosticsEventFiltersUiModel
-import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
-import com.poyka.ripdpi.activities.DiagnosticsEventsUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.GroupedEventUiModel
 import com.poyka.ripdpi.activities.HistoryUiState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventFiltersUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventsUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.LocalRipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiMotion

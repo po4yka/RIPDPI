@@ -6,6 +6,9 @@ import com.poyka.ripdpi.data.RememberedNetworkPolicySource
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicy
 import com.poyka.ripdpi.diagnostics.DiagnosticsRememberedPolicySource
 import com.poyka.ripdpi.platform.formatLocalizedTimestamp
+import com.poyka.ripdpi.ui.screens.diagnostics.state.statusTone
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
+import com.poyka.ripdpi.ui.screens.diagnostics.state.toRememberedNetworkUiModel
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow

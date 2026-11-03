@@ -29,9 +29,9 @@ import androidx.compose.ui.semantics.text
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.PhaseState
-import com.poyka.ripdpi.activities.PhaseStepUiModel
 import com.poyka.ripdpi.ui.components.indicators.ripDpiMetricToneStyle
+import com.poyka.ripdpi.ui.screens.diagnostics.state.PhaseState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.PhaseStepUiModel
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.ImmutableList
 

@@ -29,6 +29,16 @@ import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchTrigger
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.platform.AndroidStringResolver
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsMetricUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionDetailUiFactory
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionDetailUiMapper
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionDetailUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionRowUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiCoreSupport
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiFactorySupport
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
+import com.poyka.ripdpi.ui.screens.diagnostics.state.testDiagnosticsUiCoreSupport
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow

@@ -25,11 +25,11 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.pmtuGroup
 import com.poyka.ripdpi.diagnostics.PmtuAddressFamily
 import com.poyka.ripdpi.diagnostics.PmtuProbeEvidence
 import com.poyka.ripdpi.diagnostics.PmtuProbeStatus
 import com.poyka.ripdpi.platform.AndroidStringResolver
+import com.poyka.ripdpi.ui.screens.diagnostics.state.pmtuGroup
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens

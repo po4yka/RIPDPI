@@ -2,11 +2,11 @@ package com.poyka.ripdpi.config.relay
 
 import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.activities.RelayPresetSuggestionUiState
-import com.poyka.ripdpi.activities.TransportRemediationKind
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.RelayPresetSuggestion
 import com.poyka.ripdpi.data.ServerCapabilityRecord
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.ui.screens.diagnostics.state.TransportRemediationKind
 import com.poyka.ripdpi.data.FailureClass as RuntimeFailureClass
 
 internal fun RelayPresetSuggestion?.toUiState(draft: ConfigDraft): RelayPresetSuggestionUiState? =

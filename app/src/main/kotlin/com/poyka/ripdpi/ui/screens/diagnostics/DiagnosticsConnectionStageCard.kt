@@ -14,14 +14,14 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsConnectionLaneUiModel
-import com.poyka.ripdpi.activities.DiagnosticsConnectionMeasurementUiModel
-import com.poyka.ripdpi.activities.DiagnosticsConnectionStageUiModel
 import com.poyka.ripdpi.diagnostics.ConnectionLaneKind
 import com.poyka.ripdpi.diagnostics.ConnectionStage
 import com.poyka.ripdpi.diagnostics.ConnectionStageState
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsConnectionLaneUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsConnectionMeasurementUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsConnectionStageUiModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens

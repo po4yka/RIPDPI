@@ -1,11 +1,11 @@
 package com.poyka.ripdpi.ui.diagnostics
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsMetricUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.diagnostics.StrategyEmitterTier
 import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsMetricUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 
 internal fun buildStrategyProbeCandidateMetrics(
     summary: StrategyProbeCandidateSummary,

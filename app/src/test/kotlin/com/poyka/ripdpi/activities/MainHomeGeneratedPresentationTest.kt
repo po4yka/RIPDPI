@@ -7,6 +7,8 @@ import com.poyka.ripdpi.diagnostics.HomeDnsResolverClass
 import com.poyka.ripdpi.diagnostics.HomeNetworkCharacterSummary
 import com.poyka.ripdpi.diagnostics.HomeRoutingSanityFinding
 import com.poyka.ripdpi.diagnostics.HomeRoutingSanitySummary
+import com.poyka.ripdpi.ui.screens.diagnostics.state.label
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

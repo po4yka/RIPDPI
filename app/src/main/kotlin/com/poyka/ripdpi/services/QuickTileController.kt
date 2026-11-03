@@ -10,7 +10,6 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
-import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartRejectionReason.DnsSettingsUpdatePending
 import com.poyka.ripdpi.services.ServiceStartRejectionReason.ForegroundServiceBlocked
 import com.poyka.ripdpi.services.ServiceStartRejectionReason.NotificationsPermissionMissing

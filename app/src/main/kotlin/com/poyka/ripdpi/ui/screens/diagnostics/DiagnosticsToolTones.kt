@@ -1,12 +1,12 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
-import com.poyka.ripdpi.activities.DiagnosticsAllowlistSniState
-import com.poyka.ripdpi.activities.DiagnosticsCompressionProbeState
-import com.poyka.ripdpi.activities.DiagnosticsDnsAvailabilityState
-import com.poyka.ripdpi.activities.DiagnosticsDnsIntegrityState
-import com.poyka.ripdpi.activities.DiagnosticsDomainReachabilityState
-import com.poyka.ripdpi.activities.DiagnosticsTcp16FatHeaderState
-import com.poyka.ripdpi.activities.DiagnosticsTone
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsAllowlistSniState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsCompressionProbeState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDnsAvailabilityState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDnsIntegrityState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDomainReachabilityState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTcp16FatHeaderState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 
 internal fun DiagnosticsDnsIntegrityState.tone(): DiagnosticsTone =
     when (this) {

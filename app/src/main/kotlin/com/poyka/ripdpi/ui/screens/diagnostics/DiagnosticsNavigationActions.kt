@@ -1,9 +1,9 @@
 package com.poyka.ripdpi.ui.screens.diagnostics
 
-import com.poyka.ripdpi.activities.DiagnosticsSection
-import com.poyka.ripdpi.activities.DiagnosticsViewModel
 import com.poyka.ripdpi.activities.HomeDiagnosticsRunUiStatus
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSection
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsViewModel
 
 internal val HomeDiagnosticsUiState.compositeRunBusy: Boolean
     get() =

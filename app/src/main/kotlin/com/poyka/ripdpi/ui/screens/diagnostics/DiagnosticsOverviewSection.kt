@@ -21,15 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsAutomaticProbeCalloutUiModel
-import com.poyka.ripdpi.activities.DiagnosticsHealth
-import com.poyka.ripdpi.activities.DiagnosticsOverviewUiModel
-import com.poyka.ripdpi.activities.DiagnosticsRememberedNetworkUiModel
-import com.poyka.ripdpi.activities.DiagnosticsScanUiModel
-import com.poyka.ripdpi.activities.DiagnosticsSection
-import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
-import com.poyka.ripdpi.activities.diagnosticsOutcome
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -42,6 +34,14 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsAutomaticProbeCalloutUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsHealth
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsOverviewUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRememberedNetworkUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsScanUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSection
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
+import com.poyka.ripdpi.ui.screens.diagnostics.state.diagnosticsOutcome
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -121,7 +121,7 @@ internal fun DiagnosticsSectionSwitcher(
 internal fun OverviewSection(
     overview: DiagnosticsOverviewUiModel,
     scan: DiagnosticsScanUiModel,
-    live: com.poyka.ripdpi.activities.DiagnosticsLiveUiModel,
+    live: com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsLiveUiModel,
     isActiveScan: Boolean,
     onSelectSection: (DiagnosticsSection) -> Unit,
     onRunScan: () -> Unit,

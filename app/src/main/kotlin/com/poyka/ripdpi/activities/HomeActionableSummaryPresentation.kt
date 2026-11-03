@@ -8,6 +8,7 @@ import com.poyka.ripdpi.diagnostics.DiagnosticsHomeDetectionVerdict
 import com.poyka.ripdpi.diagnostics.HomeBufferbloatGrade
 import com.poyka.ripdpi.diagnostics.HomeDnsResolverClass
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.ui.screens.diagnostics.state.label
 
 /** Match complete producer templates against their raw inputs; never replace text inside payloads. */
 internal class HomeActionableSummaryPresentation(

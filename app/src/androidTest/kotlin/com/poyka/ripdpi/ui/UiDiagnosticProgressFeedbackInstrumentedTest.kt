@@ -46,13 +46,13 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsProgressUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTone
-import com.poyka.ripdpi.activities.PhaseState
-import com.poyka.ripdpi.activities.PhaseStepUiModel
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.screens.diagnostics.ScanProgressCard
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProgressUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
+import com.poyka.ripdpi.ui.screens.diagnostics.state.PhaseState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.PhaseStepUiModel
 import com.poyka.ripdpi.ui.theme.LocalRipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiTheme

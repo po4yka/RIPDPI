@@ -19,6 +19,13 @@ import com.poyka.ripdpi.diagnostics.export.DiagnosticsArchiveRequest
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose
 import com.poyka.ripdpi.diagnostics.export.PreparedDiagnosticsExportService
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDocumentExportException
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDocumentExportStage
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsExportSupportCodes
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsShareIntents
+import com.poyka.ripdpi.ui.screens.diagnostics.state.diagnosticsArchiveSaveFeedback
+import com.poyka.ripdpi.ui.screens.diagnostics.state.launchDiagnosticsExport
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

@@ -3,11 +3,11 @@ package com.poyka.ripdpi.ui.components.feedback
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
-import com.poyka.ripdpi.activities.DiagnosticsRemediationActionUiModel
-import com.poyka.ripdpi.activities.DiagnosticsRemediationLadderUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.ui.components.chrome.RipDpiRemediationCard
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRemediationActionUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRemediationLadderUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import kotlinx.collections.immutable.toImmutableList
 
 @Composable

@@ -59,6 +59,8 @@ import com.poyka.ripdpi.security.MasqueClientCredentialImporter
 import com.poyka.ripdpi.services.MasquePrivacyPassAvailability
 import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
 import com.poyka.ripdpi.services.NaiveProxyCheckOutcome
+import com.poyka.ripdpi.ui.screens.diagnostics.state.TransportRemediationKind
+import com.poyka.ripdpi.ui.screens.diagnostics.state.recommendTransportRemediation
 import com.poyka.ripdpi.ui.screens.xray.XrayNativeProviderSelection
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CancellationException

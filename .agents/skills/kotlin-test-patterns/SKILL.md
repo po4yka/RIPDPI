@@ -159,7 +159,7 @@ doubles, `Stub*` for minimal no-ops, `Recording*` for call-counting wrappers.
 - **App layer**: `app/src/test/.../activities/TestDoubles.kt` --
   `FakeAppSettingsRepository`, `FakeServiceStateStore`, `FakePermissionStatusProvider`,
   `FakeServiceController`
-- **Diagnostics ports**: `app/src/test/.../activities/DiagnosticsTestPorts.kt` --
+- **Diagnostics ports**: `app/src/test/.../ui/screens/diagnostics/state/DiagnosticsTestPorts.kt` --
   `FakeDiagnosticsManager` (aggregates fake bootstrapper, timeline, scan controller,
   detail loader, share service with `MutableStateFlow` properties)
 - **Diagnostics stores**: `core/diagnostics/src/test/.../DiagnosticsServiceTestSupport.kt` --

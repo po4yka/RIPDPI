@@ -20,14 +20,14 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import com.poyka.ripdpi.activities.DiagnosticsUiFactorySupport
-import com.poyka.ripdpi.activities.buildCurrentServiceTelemetry
-import com.poyka.ripdpi.activities.buildLiveUiModel
 import com.poyka.ripdpi.activities.historyTelemetry
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.ui.screens.diagnostics.LiveHeroCard
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiFactorySupport
+import com.poyka.ripdpi.ui.screens.diagnostics.state.buildCurrentServiceTelemetry
+import com.poyka.ripdpi.ui.screens.diagnostics.state.buildLiveUiModel
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals

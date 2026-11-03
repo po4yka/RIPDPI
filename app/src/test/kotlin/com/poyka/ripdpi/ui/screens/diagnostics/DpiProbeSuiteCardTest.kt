@@ -3,11 +3,11 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import com.poyka.ripdpi.activities.DiagnosticsDpiSuiteProbeDetailUiModel
-import com.poyka.ripdpi.activities.DiagnosticsDpiSuiteProbeRowUiModel
-import com.poyka.ripdpi.activities.DiagnosticsDpiSuiteToolUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDpiSuiteProbeDetailUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDpiSuiteProbeRowUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDpiSuiteToolUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Rule

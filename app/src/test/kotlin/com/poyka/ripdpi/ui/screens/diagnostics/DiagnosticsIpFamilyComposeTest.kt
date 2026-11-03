@@ -25,13 +25,13 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.ipFamilyGroup
 import com.poyka.ripdpi.diagnostics.IpFamilyProbeEvidence
 import com.poyka.ripdpi.diagnostics.IpProbeFamily
 import com.poyka.ripdpi.diagnostics.IpProbeStage
 import com.poyka.ripdpi.diagnostics.IpProbeStatus
 import com.poyka.ripdpi.diagnostics.Nat64DiscoveryStatus
 import com.poyka.ripdpi.platform.AndroidStringResolver
+import com.poyka.ripdpi.ui.screens.diagnostics.state.ipFamilyGroup
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens

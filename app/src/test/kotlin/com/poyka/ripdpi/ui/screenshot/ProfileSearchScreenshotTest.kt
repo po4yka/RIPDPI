@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screenshot
 
 import androidx.compose.ui.unit.LayoutDirection
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel
 import com.poyka.ripdpi.activities.RelayProfileUiState
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -13,6 +12,7 @@ import com.poyka.ripdpi.ui.components.profiles.ProfileSearchState
 import com.poyka.ripdpi.ui.screens.config.ConfigProfileActions
 import com.poyka.ripdpi.ui.screens.config.VpnProfilePickerContent
 import com.poyka.ripdpi.ui.screens.diagnostics.ProfilePickerContent
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProfileOptionUiModel
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner

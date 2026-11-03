@@ -1,10 +1,10 @@
 package com.poyka.ripdpi.ui.screens.detection
 
-import com.poyka.ripdpi.activities.DiagnosticsExportSupportCodes
 import com.poyka.ripdpi.core.detection.BypassResult
 import com.poyka.ripdpi.core.detection.CategoryResult
 import com.poyka.ripdpi.core.detection.DetectionCheckResult
 import com.poyka.ripdpi.core.detection.Verdict
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsExportSupportCodes
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith

@@ -11,13 +11,13 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithText
-import com.poyka.ripdpi.activities.DiagnosticsUiFactorySupport
-import com.poyka.ripdpi.activities.buildCurrentServiceTelemetry
-import com.poyka.ripdpi.activities.buildLiveUiModel
 import com.poyka.ripdpi.activities.historyTelemetry
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiFactorySupport
+import com.poyka.ripdpi.ui.screens.diagnostics.state.buildCurrentServiceTelemetry
+import com.poyka.ripdpi.ui.screens.diagnostics.state.buildLiveUiModel
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule

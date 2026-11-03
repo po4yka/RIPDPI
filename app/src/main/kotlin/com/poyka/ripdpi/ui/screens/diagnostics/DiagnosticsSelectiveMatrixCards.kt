@@ -15,12 +15,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsFieldUiModel
-import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTone
-import com.poyka.ripdpi.activities.SelectiveMatrixAttemptUiModel
-import com.poyka.ripdpi.activities.SelectiveMatrixTargetUiModel
-import com.poyka.ripdpi.activities.toSelectiveMatrixAttempt
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -29,6 +23,12 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsFieldUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeResultUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
+import com.poyka.ripdpi.ui.screens.diagnostics.state.SelectiveMatrixAttemptUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.SelectiveMatrixTargetUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.toSelectiveMatrixAttempt
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens

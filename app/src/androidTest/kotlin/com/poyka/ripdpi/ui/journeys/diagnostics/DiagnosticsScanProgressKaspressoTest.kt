@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.journeys.diagnostics
 
-import com.poyka.ripdpi.activities.DiagnosticsSection
 import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridge
 import com.poyka.ripdpi.core.NetworkDiagnosticsBridgeFactory
@@ -11,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.contract.engine.EngineScanRequestWire
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
 import com.poyka.ripdpi.integration.automationLaunchIntent
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSection
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn

@@ -34,11 +34,11 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsFieldUiModel
-import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTone
-import com.poyka.ripdpi.activities.SelectiveMatrixTargetUiModel
-import com.poyka.ripdpi.activities.parseSelectiveMatrixHosts
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsFieldUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeResultUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
+import com.poyka.ripdpi.ui.screens.diagnostics.state.SelectiveMatrixTargetUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.parseSelectiveMatrixHosts
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme

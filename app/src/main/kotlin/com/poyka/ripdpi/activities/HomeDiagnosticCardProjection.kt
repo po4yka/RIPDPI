@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 
 internal fun buildDiagnosticCard(
     homeDiagnostics: HomeDiagnosticsUiState,

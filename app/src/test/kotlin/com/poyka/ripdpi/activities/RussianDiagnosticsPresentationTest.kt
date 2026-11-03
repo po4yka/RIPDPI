@@ -10,6 +10,16 @@ import com.poyka.ripdpi.diagnostics.dpi.EchProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.SuiteVerdict
 import com.poyka.ripdpi.ui.diagnostics.StrategySignaturePresenter
 import com.poyka.ripdpi.ui.diagnostics.StrategySignatureValueLabels
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDpiSuiteState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDpiSuiteToolUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
+import com.poyka.ripdpi.ui.screens.diagnostics.state.displayLabel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.label
+import com.poyka.ripdpi.ui.screens.diagnostics.state.progressRow
+import com.poyka.ripdpi.ui.screens.diagnostics.state.startedRow
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
+import com.poyka.ripdpi.ui.screens.diagnostics.state.toDpiSuiteProbeRowUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.withFailure
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CancellationException
 import org.junit.Assert.assertEquals

@@ -13,6 +13,10 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
 import com.poyka.ripdpi.platform.AndroidStringResolver
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionDetailUiFactory
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiCoreSupport
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiFactorySupport
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiFormatter
 import com.poyka.ripdpi.ui.screens.history.HistoryRoute
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.util.MainDispatcherRule

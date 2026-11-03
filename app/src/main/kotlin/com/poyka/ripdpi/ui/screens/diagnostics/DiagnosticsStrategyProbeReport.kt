@@ -26,14 +26,6 @@ import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.text.style.Hyphens
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportPresentationUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeReportUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeWinningCandidateUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeWinningPathUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTone
-import com.poyka.ripdpi.activities.StrategyProbeSuiteFullMatrixV1
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditAssessment
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
@@ -49,6 +41,14 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeCandidateDetailUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeCandidateUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeReportPresentationUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeReportUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeWinningCandidateUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeWinningPathUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
+import com.poyka.ripdpi.ui.screens.diagnostics.state.StrategyProbeSuiteFullMatrixV1
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -546,9 +546,9 @@ private fun auditConfidenceTone(level: StrategyProbeAuditConfidenceLevel): Diagn
 @Composable
 private fun auditAssessmentMetrics(
     assessment: StrategyProbeAuditAssessment,
-): kotlinx.collections.immutable.ImmutableList<com.poyka.ripdpi.activities.DiagnosticsMetricUiModel> =
+): kotlinx.collections.immutable.ImmutableList<com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsMetricUiModel> =
     kotlinx.collections.immutable.persistentListOf(
-        com.poyka.ripdpi.activities.DiagnosticsMetricUiModel(
+        com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsMetricUiModel(
             label = stringResource(R.string.home_diagnostics_confidence_label),
             value =
                 stringResource(
@@ -558,7 +558,7 @@ private fun auditAssessmentMetrics(
                 ),
             tone = auditConfidenceTone(assessment.confidence.level),
         ),
-        com.poyka.ripdpi.activities.DiagnosticsMetricUiModel(
+        com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsMetricUiModel(
             label = stringResource(R.string.diagnostics_audit_matrix_coverage_label),
             value = stringResource(R.string.percent_value, assessment.coverage.matrixCoveragePercent),
             tone =
@@ -568,7 +568,7 @@ private fun auditAssessmentMetrics(
                     DiagnosticsTone.Warning
                 },
         ),
-        com.poyka.ripdpi.activities.DiagnosticsMetricUiModel(
+        com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsMetricUiModel(
             label = stringResource(R.string.diagnostics_audit_winner_coverage_label),
             value = stringResource(R.string.percent_value, assessment.coverage.winnerCoveragePercent),
             tone =

@@ -17,13 +17,6 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsApproachDetailUiModel
-import com.poyka.ripdpi.activities.DiagnosticsDiagnosisUiModel
-import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
-import com.poyka.ripdpi.activities.DiagnosticsProbeResultUiModel
-import com.poyka.ripdpi.activities.DiagnosticsProfileOptionUiModel
-import com.poyka.ripdpi.activities.DiagnosticsSessionDetailUiModel
-import com.poyka.ripdpi.activities.DiagnosticsStrategyProbeCandidateDetailUiModel
 import com.poyka.ripdpi.platform.withoutBidiIsolates
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -35,6 +28,13 @@ import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicatorTone
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsApproachDetailUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDiagnosisUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeResultUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProfileOptionUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionDetailUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbeCandidateDetailUiModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -529,7 +529,7 @@ internal fun ProfileSelectionBottomSheet(
 @Composable
 private fun DiagnosisSummaryCard(
     diagnoses: List<DiagnosticsDiagnosisUiModel>,
-    reportMetadata: List<com.poyka.ripdpi.activities.DiagnosticsFieldUiModel>,
+    reportMetadata: List<com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsFieldUiModel>,
 ) {
     val colors = RipDpiThemeTokens.colors
     RipDpiCard {
@@ -553,7 +553,9 @@ private fun DiagnosisSummaryCard(
 }
 
 @Composable
-private fun CapabilityEvidenceCard(evidence: List<com.poyka.ripdpi.activities.DiagnosticsCapabilityEvidenceUiModel>) {
+private fun CapabilityEvidenceCard(
+    evidence: List<com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsCapabilityEvidenceUiModel>,
+) {
     val colors = RipDpiThemeTokens.colors
     RipDpiCard {
         Text(

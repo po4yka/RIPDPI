@@ -2,9 +2,6 @@ package com.poyka.ripdpi.ui.screenshot
 
 import androidx.compose.ui.unit.LayoutDirection
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.BuildScanUiModelParams
-import com.poyka.ripdpi.activities.DiagnosticsUiFactorySupport
-import com.poyka.ripdpi.activities.buildScanUiModel
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
@@ -12,6 +9,9 @@ import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsScanWorkflowCard
+import com.poyka.ripdpi.ui.screens.diagnostics.state.BuildScanUiModelParams
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiFactorySupport
+import com.poyka.ripdpi.ui.screens.diagnostics.state.buildScanUiModel
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner

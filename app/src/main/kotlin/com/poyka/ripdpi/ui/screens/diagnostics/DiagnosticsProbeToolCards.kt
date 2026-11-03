@@ -17,15 +17,6 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.DiagnosticsAllowlistSniState
-import com.poyka.ripdpi.activities.DiagnosticsAllowlistSniToolUiModel
-import com.poyka.ripdpi.activities.DiagnosticsCompatibleSniUiModel
-import com.poyka.ripdpi.activities.DiagnosticsCompressionProbeState
-import com.poyka.ripdpi.activities.DiagnosticsCompressionProbeToolUiModel
-import com.poyka.ripdpi.activities.DiagnosticsDnsAvailabilityState
-import com.poyka.ripdpi.activities.DiagnosticsDnsAvailabilityToolUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTcp16FatHeaderState
-import com.poyka.ripdpi.activities.DiagnosticsTcp16FatHeaderToolUiModel
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
@@ -33,6 +24,15 @@ import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.indicators.StatusIndicator
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsAllowlistSniState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsAllowlistSniToolUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsCompatibleSniUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsCompressionProbeState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsCompressionProbeToolUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDnsAvailabilityState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDnsAvailabilityToolUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTcp16FatHeaderState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTcp16FatHeaderToolUiModel
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable

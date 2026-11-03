@@ -3,9 +3,9 @@ package com.poyka.ripdpi.ui.screens.diagnostics
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
-import com.poyka.ripdpi.activities.DiagnosticsApproachMode
-import com.poyka.ripdpi.activities.DiagnosticsApproachesUiModel
-import com.poyka.ripdpi.activities.DiagnosticsShareUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsApproachMode
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsApproachesUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsShareUiModel
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Rule
 import org.junit.Test

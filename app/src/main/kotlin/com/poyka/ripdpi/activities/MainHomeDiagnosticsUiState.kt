@@ -14,6 +14,10 @@ import com.poyka.ripdpi.diagnostics.HomeStrategyEffectivenessEntry
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ownedStackBrowserLaunchUrl
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRemediationLadderUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.buildHomeRemediationLadder
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
+import com.poyka.ripdpi.ui.screens.diagnostics.state.toTransportRemediationEvidence
 import kotlinx.collections.immutable.toImmutableList
 
 internal fun buildHomeDiagnosticsUiState(

@@ -7,6 +7,8 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.AndroidHardKillSwitchSnapshot
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
+import com.poyka.ripdpi.ui.screens.diagnostics.state.label
+import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 
 @Immutable
 data class HardKillSwitchUiState(

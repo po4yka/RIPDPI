@@ -1,5 +1,16 @@
 package com.poyka.ripdpi.activities
 
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventFiltersUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventsUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionDetailUiMapper
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionFiltersUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionRowUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionsUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiCoreSupport
+import com.poyka.ripdpi.ui.screens.diagnostics.state.matchesQuery
+import com.poyka.ripdpi.ui.screens.diagnostics.state.toEventUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.toSessionRowUiModel
 import kotlinx.collections.immutable.toImmutableList
 import javax.inject.Inject
 

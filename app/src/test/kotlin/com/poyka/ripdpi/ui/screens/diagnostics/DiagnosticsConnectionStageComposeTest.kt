@@ -28,13 +28,13 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.toConnectionStageUiModel
 import com.poyka.ripdpi.diagnostics.ConnectionLaneKind
 import com.poyka.ripdpi.diagnostics.ConnectionStage
 import com.poyka.ripdpi.diagnostics.ConnectionStageLane
 import com.poyka.ripdpi.diagnostics.ConnectionStageMeasurement
 import com.poyka.ripdpi.diagnostics.ConnectionStageScale
 import com.poyka.ripdpi.diagnostics.ConnectionStageState
+import com.poyka.ripdpi.ui.screens.diagnostics.state.toConnectionStageUiModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme

@@ -5,7 +5,6 @@ import androidx.test.platform.app.InstrumentationRegistry
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.activities.MainActivityHostCommand
 import com.poyka.ripdpi.activities.MainViewModel
-import com.poyka.ripdpi.activities.StrategyProbeSuiteFullMatrixV1
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
@@ -40,6 +39,7 @@ import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.security.PinVerifier
 import com.poyka.ripdpi.services.ServiceAutomationController
+import com.poyka.ripdpi.ui.screens.diagnostics.state.StrategyProbeSuiteFullMatrixV1
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn

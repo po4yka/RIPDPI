@@ -31,12 +31,6 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
-import com.poyka.ripdpi.activities.DiagnosticsEventFiltersUiModel
-import com.poyka.ripdpi.activities.DiagnosticsEventUiModel
-import com.poyka.ripdpi.activities.DiagnosticsEventsUiModel
-import com.poyka.ripdpi.activities.DiagnosticsOutcomeSource
-import com.poyka.ripdpi.activities.DiagnosticsOutcomeUiModel
-import com.poyka.ripdpi.activities.DiagnosticsTone
 import com.poyka.ripdpi.activities.GroupedEventUiModel
 import com.poyka.ripdpi.activities.HistoryUiState
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
@@ -44,6 +38,12 @@ import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.activities.HomeDiagnosticsUiState
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsOutcomeCard
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventFiltersUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventsUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsOutcomeSource
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsOutcomeUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.screens.history.EventsSection
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.LocalRipDpiMotion

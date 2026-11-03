@@ -15,8 +15,8 @@ import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.unit.dp
-import com.poyka.ripdpi.activities.DiagnosticsProgressUiModel
 import com.poyka.ripdpi.diagnostics.ScanKind
+import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProgressUiModel
 import com.poyka.ripdpi.ui.theme.DefaultRipDpiMotion
 import com.poyka.ripdpi.ui.theme.LocalRipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiMotion
