@@ -53,7 +53,7 @@ class DiagnosticsRunIdentityTest {
             assertEquals(com.poyka.ripdpi.diagnostics.ScanPathMode.IN_PATH, scan.activePathMode)
             assertEquals(1_234L, scan.activeProgress?.scanStartedAtMs)
 
-            viewModel.selectProfile("connectivity")
+            viewModel.selectionActions.selectProfile("connectivity")
             manager.progressState.value = requireNotNull(manager.progressState.value).copy(completedSteps = 3)
             advanceUntilIdle()
             assertEquals("strategy", viewModel.uiState.value.scan.selectedProfileId)
@@ -196,7 +196,7 @@ class DiagnosticsRunIdentityTest {
             advanceUntilIdle()
             val failure = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
 
-            viewModel.cancelScan()
+            viewModel.scanActions.cancelScan()
             advanceUntilIdle()
 
             assertNotNull(viewModel.uiState.value.scan.activeProgress)
@@ -211,7 +211,7 @@ class DiagnosticsRunIdentityTest {
                 start = CoroutineStart.UNDISPATCHED,
             ) { viewModel.effects.collect { laterEffects += it } }
             manager.scanController.onCancel = { manager.progressState.value = null }
-            viewModel.cancelScan()
+            viewModel.scanActions.cancelScan()
             advanceUntilIdle()
             runCurrent()
             assertNull(viewModel.uiState.value.scan.activeProgress)
@@ -244,7 +244,7 @@ class DiagnosticsRunIdentityTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
             runCurrent()
-            viewModel.cancelScan()
+            viewModel.scanActions.cancelScan()
             advanceUntilIdle()
             runCurrent()
             assertNull(viewModel.uiState.value.scan.activeProgress)
@@ -351,18 +351,18 @@ class DiagnosticsRunIdentityTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectProfile("strategy")
-            viewModel.startRawScan()
+            viewModel.selectionActions.selectProfile("strategy")
+            viewModel.scanActions.startRawScan()
             advanceUntilIdle()
             assertEquals(0, scanStarts)
             assertNull(manager.lastActiveProfileId)
             assertEquals("connectivity", viewModel.uiState.value.scan.selectedProfileId)
 
             manager.scanController.homeRunActive = false
-            viewModel.selectProfile("strategy")
+            viewModel.selectionActions.selectProfile("strategy")
             advanceUntilIdle()
             assertEquals("strategy", manager.lastActiveProfileId)
-            viewModel.startRawScan()
+            viewModel.scanActions.startRawScan()
             advanceUntilIdle()
             assertEquals(1, scanStarts)
             collector.cancel()
@@ -382,7 +382,7 @@ class DiagnosticsRunIdentityTest {
                 )
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
-            viewModel.selectProfile("strategy")
+            viewModel.selectionActions.selectProfile("strategy")
             advanceUntilIdle()
             assertEquals("connectivity", viewModel.uiState.value.scan.selectedProfileId)
             collector.cancel()

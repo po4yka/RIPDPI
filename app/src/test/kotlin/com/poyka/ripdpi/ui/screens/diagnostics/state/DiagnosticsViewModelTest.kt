@@ -648,8 +648,8 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
             assertEquals(DiagnosticsSection.Scan, viewModel.uiState.value.selectedSection)
-            viewModel.selectSection(DiagnosticsSection.Tools)
-            viewModel.selectProfile("custom")
+            viewModel.selectionActions.selectSection(DiagnosticsSection.Tools)
+            viewModel.selectionActions.selectProfile("custom")
             advanceUntilIdle()
 
             val state = viewModel.uiState.value
@@ -661,7 +661,7 @@ class DiagnosticsViewModelTest {
 
             manager.progressState.value = null
             advanceUntilIdle()
-            viewModel.selectProfile("custom")
+            viewModel.selectionActions.selectProfile("custom")
             advanceUntilIdle()
             assertEquals("custom", manager.lastActiveProfileId)
             assertEquals("custom", viewModel.uiState.value.scan.selectedProfileId)
@@ -1111,7 +1111,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectProfile("default")
+            viewModel.selectionActions.selectProfile("default")
             advanceUntilIdle()
 
             val scan = viewModel.uiState.value.scan
@@ -1559,7 +1559,7 @@ class DiagnosticsViewModelTest {
             )
             assertEquals(38, requireNotNull(report.auditAssessment).coverage.matrixCoveragePercent)
 
-            viewModel.selectStrategyProbeCandidate(report.candidateDetails.getValue("tlsrec_hostfake"))
+            viewModel.selectionActions.selectStrategyProbeCandidate(report.candidateDetails.getValue("tlsrec_hostfake"))
             advanceUntilIdle()
 
             val selected = requireNotNull(viewModel.uiState.value.selectedStrategyProbeCandidate)
@@ -1577,7 +1577,7 @@ class DiagnosticsViewModelTest {
                     .target,
             )
 
-            viewModel.dismissStrategyProbeCandidate()
+            viewModel.selectionActions.dismissStrategyProbeCandidate()
             advanceUntilIdle()
 
             assertNull(viewModel.uiState.value.selectedStrategyProbeCandidate)
@@ -1639,7 +1639,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.startRawScan()
+            viewModel.scanActions.startRawScan()
             advanceUntilIdle()
             assertNull(viewModel.uiState.value.selectedSessionDetail)
 
@@ -1676,7 +1676,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.startRawScan()
+            viewModel.scanActions.startRawScan()
             advanceUntilIdle()
 
             val dialog = requireNotNull(viewModel.uiState.value.scan.hiddenProbeConflictDialog)
@@ -1721,9 +1721,9 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.startRawScan()
+            viewModel.scanActions.startRawScan()
             advanceUntilIdle()
-            viewModel.waitForHiddenProbeAndRun()
+            viewModel.scanActions.waitForHiddenProbeAndRun()
             advanceUntilIdle()
 
             assertNull(viewModel.uiState.value.scan.hiddenProbeConflictDialog)
@@ -1769,9 +1769,9 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.startRawScan()
+            viewModel.scanActions.startRawScan()
             advanceUntilIdle()
-            viewModel.cancelHiddenProbeAndRun()
+            viewModel.scanActions.cancelHiddenProbeAndRun()
             advanceUntilIdle()
 
             assertEquals(HiddenProbeConflictAction.CANCEL_AND_RUN, resolvedWith)
@@ -1818,7 +1818,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.startRawScan()
+            viewModel.scanActions.startRawScan()
             advanceUntilIdle()
 
             assertEquals(0, startCalls)
@@ -1828,7 +1828,7 @@ class DiagnosticsViewModelTest {
                     ?.profileName,
             )
 
-            viewModel.confirmSensitiveProfileRun()
+            viewModel.scanActions.confirmSensitiveProfileRun()
             advanceUntilIdle()
 
             assertEquals(1, startCalls)
@@ -1937,7 +1937,7 @@ class DiagnosticsViewModelTest {
                 val collector = backgroundScope.launch { viewModel.uiState.collect {} }
                 advanceUntilIdle()
                 val effectDeferred = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
-                viewModel.startInPathScan()
+                viewModel.scanActions.startInPathScan()
                 advanceUntilIdle()
                 val effect = effectDeferred.await() as DiagnosticsEffect.ScanStartFailed
                 assertEquals(appContext.getString(resource), effect.message)
@@ -1968,7 +1968,7 @@ class DiagnosticsViewModelTest {
             advanceUntilIdle()
 
             val effectDeferred = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
-            viewModel.startInPathScan()
+            viewModel.scanActions.startInPathScan()
             advanceUntilIdle()
 
             val effect = effectDeferred.await() as DiagnosticsEffect.ScanStartFailed
@@ -2090,7 +2090,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.startRawScan()
+            viewModel.scanActions.startRawScan()
             advanceUntilIdle()
 
             val selected = requireNotNull(viewModel.uiState.value.selectedSessionDetail)
@@ -2142,7 +2142,7 @@ class DiagnosticsViewModelTest {
                 createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
 
-            viewModel.selectSession("session-1")
+            viewModel.selectionActions.selectSession("session-1")
             advanceUntilIdle()
 
             val selected = viewModel.uiState.value.selectedSessionDetail
@@ -2200,8 +2200,8 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Tools)
-            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            viewModel.selectionActions.selectSection(DiagnosticsSection.Tools)
+            viewModel.selectionActions.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
             val beforeDetail = viewModel.uiState.value
@@ -2214,7 +2214,7 @@ class DiagnosticsViewModelTest {
                     .title,
             )
 
-            viewModel.selectApproach("strategy-1")
+            viewModel.selectionActions.selectApproach("strategy-1")
             advanceUntilIdle()
 
             val detail = viewModel.uiState.value.selectedApproachDetail
@@ -2250,17 +2250,17 @@ class DiagnosticsViewModelTest {
             val viewModel =
                 createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
-            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            viewModel.selectionActions.selectApproachMode(DiagnosticsApproachMode.Strategies)
 
-            viewModel.selectSession("session-1")
+            viewModel.selectionActions.selectSession("session-1")
             advanceUntilIdle()
-            viewModel.selectApproach("strategy-1")
+            viewModel.selectionActions.selectApproach("strategy-1")
             advanceUntilIdle()
 
             assertNull(viewModel.uiState.value.selectedSessionDetail)
             assertNotNull(viewModel.uiState.value.selectedApproachDetail)
 
-            viewModel.selectSession("session-1")
+            viewModel.selectionActions.selectSession("session-1")
             advanceUntilIdle()
 
             assertNotNull(viewModel.uiState.value.selectedSessionDetail)
@@ -2275,7 +2275,7 @@ class DiagnosticsViewModelTest {
             val viewModel =
                 createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
-            viewModel.selectProbe(
+            viewModel.selectionActions.selectProbe(
                 DiagnosticsProbeResultUiModel(
                     id = "probe-1",
                     probeType = "dns",
@@ -2288,7 +2288,7 @@ class DiagnosticsViewModelTest {
             advanceUntilIdle()
             assertNotNull(viewModel.uiState.value.selectedProbe)
 
-            viewModel.selectEvent("event-1")
+            viewModel.selectionActions.selectEvent("event-1")
             advanceUntilIdle()
 
             assertNull(viewModel.uiState.value.selectedProbe)
@@ -2305,7 +2305,7 @@ class DiagnosticsViewModelTest {
                     FakeAppSettingsRepository(),
                 )
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
-            viewModel.selectStrategyProbeCandidate(
+            viewModel.selectionActions.selectStrategyProbeCandidate(
                 DiagnosticsStrategyProbeCandidateDetailUiModel(
                     id = "candidate-1",
                     label = "Candidate",
@@ -2324,7 +2324,7 @@ class DiagnosticsViewModelTest {
             advanceUntilIdle()
             assertNotNull(viewModel.uiState.value.selectedStrategyProbeCandidate)
 
-            viewModel.selectProbe(
+            viewModel.selectionActions.selectProbe(
                 DiagnosticsProbeResultUiModel(
                     id = "probe-1",
                     probeType = "dns",
@@ -2378,11 +2378,11 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Tools)
-            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            viewModel.selectionActions.selectSection(DiagnosticsSection.Tools)
+            viewModel.selectionActions.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
-            viewModel.selectApproach("strategy-fake-tls")
+            viewModel.selectionActions.selectApproach("strategy-fake-tls")
             advanceUntilIdle()
 
             val signature =
@@ -2440,11 +2440,11 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Tools)
-            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            viewModel.selectionActions.selectSection(DiagnosticsSection.Tools)
+            viewModel.selectionActions.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
-            viewModel.selectApproach("strategy-hostfake")
+            viewModel.selectionActions.selectApproach("strategy-hostfake")
             advanceUntilIdle()
 
             val signature =
@@ -2496,11 +2496,11 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Tools)
-            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            viewModel.selectionActions.selectSection(DiagnosticsSection.Tools)
+            viewModel.selectionActions.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
-            viewModel.selectApproach("strategy-fakedsplit")
+            viewModel.selectionActions.selectApproach("strategy-fakedsplit")
             advanceUntilIdle()
 
             val signature =
@@ -2544,11 +2544,11 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Tools)
-            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            viewModel.selectionActions.selectSection(DiagnosticsSection.Tools)
+            viewModel.selectionActions.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
-            viewModel.selectApproach("strategy-activation-window")
+            viewModel.selectionActions.selectApproach("strategy-activation-window")
             advanceUntilIdle()
 
             val signature =
@@ -2592,11 +2592,11 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Tools)
-            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            viewModel.selectionActions.selectSection(DiagnosticsSection.Tools)
+            viewModel.selectionActions.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
-            viewModel.selectApproach("strategy-adaptive")
+            viewModel.selectionActions.selectApproach("strategy-adaptive")
             advanceUntilIdle()
 
             val signature =
@@ -2640,11 +2640,11 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Tools)
-            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            viewModel.selectionActions.selectSection(DiagnosticsSection.Tools)
+            viewModel.selectionActions.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
-            viewModel.selectApproach("strategy-quic-fake")
+            viewModel.selectionActions.selectApproach("strategy-quic-fake")
             advanceUntilIdle()
 
             val signature =
@@ -2686,11 +2686,11 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Tools)
-            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            viewModel.selectionActions.selectSection(DiagnosticsSection.Tools)
+            viewModel.selectionActions.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
-            viewModel.selectApproach("strategy-quic-compat")
+            viewModel.selectionActions.selectApproach("strategy-quic-compat")
             advanceUntilIdle()
 
             val signature =
@@ -2734,11 +2734,11 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Tools)
-            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            viewModel.selectionActions.selectSection(DiagnosticsSection.Tools)
+            viewModel.selectionActions.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
-            viewModel.selectApproach("strategy-fake-payload-library")
+            viewModel.selectionActions.selectApproach("strategy-fake-payload-library")
             advanceUntilIdle()
 
             val signature =
@@ -2789,11 +2789,11 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Tools)
-            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            viewModel.selectionActions.selectSection(DiagnosticsSection.Tools)
+            viewModel.selectionActions.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
-            viewModel.selectApproach("strategy-http-parser-evasions")
+            viewModel.selectionActions.selectApproach("strategy-http-parser-evasions")
             advanceUntilIdle()
 
             val signature =
@@ -2840,11 +2840,11 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Tools)
-            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            viewModel.selectionActions.selectSection(DiagnosticsSection.Tools)
+            viewModel.selectionActions.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
-            viewModel.selectApproach("strategy-http-parser-evasions-cli")
+            viewModel.selectionActions.selectApproach("strategy-http-parser-evasions-cli")
             advanceUntilIdle()
 
             val signature =
@@ -2885,11 +2885,11 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Tools)
-            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            viewModel.selectionActions.selectSection(DiagnosticsSection.Tools)
+            viewModel.selectionActions.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
-            viewModel.selectApproach("strategy-http-parser-aggressive")
+            viewModel.selectionActions.selectApproach("strategy-http-parser-aggressive")
             advanceUntilIdle()
 
             val signature =
@@ -2938,11 +2938,11 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Tools)
-            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            viewModel.selectionActions.selectSection(DiagnosticsSection.Tools)
+            viewModel.selectionActions.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
-            viewModel.selectApproach("strategy-adaptive-fake-ttl")
+            viewModel.selectionActions.selectApproach("strategy-adaptive-fake-ttl")
             advanceUntilIdle()
 
             val signature =
@@ -2990,11 +2990,11 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Tools)
-            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            viewModel.selectionActions.selectSection(DiagnosticsSection.Tools)
+            viewModel.selectionActions.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
-            viewModel.selectApproach("strategy-adaptive-fake-ttl-cli")
+            viewModel.selectionActions.selectApproach("strategy-adaptive-fake-ttl-cli")
             advanceUntilIdle()
 
             val signature =
@@ -3038,11 +3038,11 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.selectSection(DiagnosticsSection.Tools)
-            viewModel.selectApproachMode(DiagnosticsApproachMode.Strategies)
+            viewModel.selectionActions.selectSection(DiagnosticsSection.Tools)
+            viewModel.selectionActions.selectApproachMode(DiagnosticsApproachMode.Strategies)
             advanceUntilIdle()
 
-            viewModel.selectApproach("strategy-custom-raw-fake")
+            viewModel.selectionActions.selectApproach("strategy-custom-raw-fake")
             advanceUntilIdle()
 
             val signature =
@@ -3085,7 +3085,7 @@ class DiagnosticsViewModelTest {
                 createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
 
-            viewModel.selectSession("session-wifi")
+            viewModel.selectionActions.selectSession("session-wifi")
             advanceUntilIdle()
 
             val wifiFields =
@@ -3134,7 +3134,7 @@ class DiagnosticsViewModelTest {
                             ),
                         ),
                 )
-            viewModel.selectSession("session-cell")
+            viewModel.selectionActions.selectSession("session-cell")
             advanceUntilIdle()
 
             val cellFields =
@@ -3145,7 +3145,7 @@ class DiagnosticsViewModelTest {
                     .orEmpty()
             assertTrue(cellFields.any { it.label == "Carrier" && it.value == "Hidden" })
             assertTrue(cellFields.any { it.label == "Data network" && it.value == "NR" })
-            viewModel.toggleSensitiveSessionDetails()
+            viewModel.selectionActions.toggleSensitiveSessionDetails()
             advanceUntilIdle()
             val visibleCellFields =
                 viewModel.uiState.value.selectedSessionDetail
@@ -3178,7 +3178,7 @@ class DiagnosticsViewModelTest {
             advanceUntilIdle()
 
             val shareEffect = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
-            viewModel.shareSummary("session-1")
+            viewModel.shareActions.shareSummary("session-1")
             advanceUntilIdle()
 
             val effect = shareEffect.await() as DiagnosticsEffect.PrepareExportRequested
@@ -3187,7 +3187,7 @@ class DiagnosticsViewModelTest {
             assertEquals(com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose.ShareSummary, summary.purpose)
 
             val shareArchiveEffect = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
-            viewModel.shareArchive("session-1")
+            viewModel.shareActions.shareArchive("session-1")
             advanceUntilIdle()
             val shareArchive =
                 (shareArchiveEffect.await() as DiagnosticsEffect.PrepareExportRequested)
@@ -3203,7 +3203,7 @@ class DiagnosticsViewModelTest {
             )
 
             val saveArchiveEffect = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
-            viewModel.saveArchive("session-1")
+            viewModel.shareActions.saveArchive("session-1")
             advanceUntilIdle()
             val saveArchive =
                 (saveArchiveEffect.await() as DiagnosticsEffect.PrepareExportRequested)
@@ -3248,7 +3248,7 @@ class DiagnosticsViewModelTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.toggleEventFilter(source = "Proxy")
+            viewModel.filterActions.toggleEventFilter(source = "Proxy")
             advanceUntilIdle()
 
             assertEquals(1, viewModel.uiState.value.events.events.size)
@@ -3282,7 +3282,7 @@ class DiagnosticsViewModelTest {
             advanceUntilIdle()
 
             val requested = async(start = CoroutineStart.UNDISPATCHED) { viewModel.effects.first() }
-            viewModel.shareArchive("session-1")
+            viewModel.shareActions.shareArchive("session-1")
             advanceUntilIdle()
 
             val shareState = viewModel.uiState.value.share

@@ -8,11 +8,11 @@ import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPurpose
 internal class DiagnosticsShareActions(
     private val mutations: DiagnosticsMutationRunner,
 ) {
-    fun shareSummary(sessionId: String?) = request(sessionId, DiagnosticsExportPurpose.ShareSummary)
+    fun shareSummary(sessionId: String? = null) = request(sessionId, DiagnosticsExportPurpose.ShareSummary)
 
-    fun shareArchive(sessionId: String?) = request(sessionId, DiagnosticsExportPurpose.ShareArchive)
+    fun shareArchive(sessionId: String? = null) = request(sessionId, DiagnosticsExportPurpose.ShareArchive)
 
-    fun saveArchive(sessionId: String?) = request(sessionId, DiagnosticsExportPurpose.SaveArchive)
+    fun saveArchive(sessionId: String? = null) = request(sessionId, DiagnosticsExportPurpose.SaveArchive)
 
     private fun request(
         sessionId: String?,

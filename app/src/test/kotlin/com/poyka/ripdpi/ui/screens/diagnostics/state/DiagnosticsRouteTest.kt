@@ -275,7 +275,7 @@ class DiagnosticsRouteTest {
         }
 
         composeRule.runOnUiThread {
-            viewModel.startRawScan()
+            viewModel.scanActions.startRawScan()
         }
         composeRule.waitUntil(timeoutMillis = 5_000) {
             runCatching {
@@ -310,7 +310,7 @@ class DiagnosticsRouteTest {
             }
         }
         composeRule.runOnUiThread {
-            viewModel.startRawScan()
+            viewModel.scanActions.startRawScan()
         }
         composeRule.waitUntil(timeoutMillis = 5_000) {
             runCatching {
@@ -359,7 +359,7 @@ class DiagnosticsRouteTest {
         }
 
         composeRule.runOnUiThread {
-            viewModel.startRawScan()
+            viewModel.scanActions.startRawScan()
         }
         composeRule.waitUntil(timeoutMillis = 5_000) {
             runCatching {
@@ -404,7 +404,7 @@ class DiagnosticsRouteTest {
         }
 
         composeRule.runOnUiThread {
-            viewModel.startRawScan()
+            viewModel.scanActions.startRawScan()
         }
         composeRule.waitUntil(timeoutMillis = 5_000) {
             runCatching {

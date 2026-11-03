@@ -114,7 +114,7 @@ class DiagnosticsHapticEligibilityTest {
             setRouteContent(viewModel, owner, disabled, feedback)
             runCurrent()
 
-            viewModel.startRawScan()
+            viewModel.scanActions.startRawScan()
             runCurrent()
             assertEquals(1, startCalls)
             assertTrue(feedback.isEmpty())
@@ -128,7 +128,7 @@ class DiagnosticsHapticEligibilityTest {
             composeRule.runOnIdle { owner.moveTo(Lifecycle.State.CREATED) }
             composeRule.runOnIdle { owner.moveTo(Lifecycle.State.RESUMED) }
             composeRule.runOnIdle { assertTrue(feedback.isEmpty()) }
-            viewModel.startRawScan()
+            viewModel.scanActions.startRawScan()
             runCurrent()
             assertEquals(2, startCalls)
             composeRule.waitForIdle()
@@ -154,7 +154,7 @@ class DiagnosticsHapticEligibilityTest {
             setRouteContent(viewModel, owner, disabled, feedback)
             runCurrent()
 
-            viewModel.startRawScan()
+            viewModel.scanActions.startRawScan()
             runCurrent()
             assertEquals(1, startCalls)
             assertTrue(feedback.isEmpty())
@@ -187,7 +187,7 @@ class DiagnosticsHapticEligibilityTest {
             runCurrent()
 
             val readsBeforeStart = settings.snapshotReads
-            viewModel.startRawScan()
+            viewModel.scanActions.startRawScan()
             runCurrent()
             assertEquals(1, startCalls)
             assertEquals(readsBeforeStart, settings.snapshotReads)

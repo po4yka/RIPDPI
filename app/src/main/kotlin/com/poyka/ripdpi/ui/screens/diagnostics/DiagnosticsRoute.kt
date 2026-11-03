@@ -114,7 +114,7 @@ private fun DiagnosticsRoutePagerSync(
     LaunchedEffect(pagerState.settledPage) {
         val section = DiagnosticsSection.entries[pagerState.settledPage]
         if (selectedSection != section) {
-            viewModel.selectSection(section)
+            viewModel.selectionActions.selectSection(section)
         }
     }
 }
@@ -136,7 +136,7 @@ private fun DiagnosticsRouteEffects(
 
     LaunchedEffect(initialSection) {
         initialSection?.let {
-            viewModel.selectSection(it)
+            viewModel.selectionActions.selectSection(it)
             currentCallbacks.onInitialSectionHandled()
         }
     }
@@ -331,64 +331,82 @@ private fun rememberDiagnosticsScreenActions(
     homeDiagnostics: StatusDiagnosticsUiState,
 ): DiagnosticsScreenActions =
     DiagnosticsScreenActions(
-        onSelectSection = remember(viewModel) { viewModel::selectSection },
-        onSelectProfile = remember(viewModel) { viewModel::selectProfile },
-        onSelectiveMatrixHostsChanged = remember(viewModel) { viewModel::updateSelectiveMatrixHosts },
+        onSelectSection = remember(viewModel) { viewModel.selectionActions::selectSection },
+        onSelectProfile = remember(viewModel) { viewModel.selectionActions::selectProfile },
+        onSelectiveMatrixHostsChanged = remember(viewModel) { viewModel.selectionActions::updateSelectiveMatrixHosts },
         onRunScan = remember(viewModel) { viewModel::runScan },
-        onRunRawScan = remember(viewModel) { viewModel::startRawScan },
-        onRunInPathScan = remember(viewModel) { viewModel::startInPathScan },
-        onWaitForHiddenProbeAndRun = remember(viewModel) { viewModel::waitForHiddenProbeAndRun },
-        onCancelHiddenProbeAndRun = remember(viewModel) { viewModel::cancelHiddenProbeAndRun },
-        onDismissHiddenProbeConflictDialog = remember(viewModel) { viewModel::dismissHiddenProbeConflictDialog },
-        onConfirmSensitiveProfileRun = remember(viewModel) { viewModel::confirmSensitiveProfileRun },
+        onRunRawScan = remember(viewModel) { viewModel.scanActions::startRawScan },
+        onRunInPathScan = remember(viewModel) { viewModel.scanActions::startInPathScan },
+        onWaitForHiddenProbeAndRun = remember(viewModel) { viewModel.scanActions::waitForHiddenProbeAndRun },
+        onCancelHiddenProbeAndRun = remember(viewModel) { viewModel.scanActions::cancelHiddenProbeAndRun },
+        onDismissHiddenProbeConflictDialog =
+            remember(
+                viewModel,
+            ) { viewModel.scanActions::dismissHiddenProbeConflictDialog },
+        onConfirmSensitiveProfileRun = remember(viewModel) { viewModel.scanActions::confirmSensitiveProfileRun },
         onDismissSensitiveProfileConsentDialog =
-            remember(viewModel) { viewModel::dismissSensitiveProfileConsentDialog },
+            remember(viewModel) { viewModel.scanActions::dismissSensitiveProfileConsentDialog },
         onKeepResolverRecommendation = remember(viewModel) { viewModel::keepResolverRecommendationForSession },
         onSaveResolverRecommendation = remember(viewModel) { viewModel::saveResolverRecommendation },
-        onSelectSession = remember(viewModel) { viewModel::selectSession },
-        onDismissSessionDetail = remember(viewModel) { viewModel::dismissSessionDetail },
-        onSelectStrategyProbeCandidate = remember(viewModel) { viewModel::selectStrategyProbeCandidate },
-        onDismissStrategyProbeCandidate = remember(viewModel) { viewModel::dismissStrategyProbeCandidate },
-        onSelectApproachMode = remember(viewModel) { viewModel::selectApproachMode },
-        onSelectApproach = remember(viewModel) { viewModel::selectApproach },
-        onDismissApproachDetail = remember(viewModel) { viewModel::dismissApproachDetail },
-        onSelectEvent = remember(viewModel) { viewModel::selectEvent },
-        onDismissEventDetail = remember(viewModel) { viewModel::dismissEventDetail },
-        onSelectProbe = remember(viewModel) { viewModel::selectProbe },
-        onDismissProbeDetail = remember(viewModel) { viewModel::dismissProbeDetail },
-        onToggleSensitiveSessionDetails = remember(viewModel) { viewModel::toggleSensitiveSessionDetails },
-        onSessionSearch = remember(viewModel) { viewModel::setSessionSearch },
-        onToggleEventFilter = remember(viewModel) { viewModel::toggleEventFilter },
-        onEventSearch = remember(viewModel) { viewModel::setEventSearch },
-        onEventAutoScroll = remember(viewModel) { viewModel::setEventAutoScroll },
-        onShareSummary = remember(viewModel) { viewModel::shareSummary },
-        onShareArchive = remember(viewModel) { viewModel::shareArchive },
-        onSaveArchive = remember(viewModel) { viewModel::saveArchive },
+        onSelectSession = remember(viewModel) { viewModel.selectionActions::selectSession },
+        onDismissSessionDetail = remember(viewModel) { viewModel.selectionActions::dismissSessionDetail },
+        onSelectStrategyProbeCandidate =
+            remember(
+                viewModel,
+            ) { viewModel.selectionActions::selectStrategyProbeCandidate },
+        onDismissStrategyProbeCandidate =
+            remember(
+                viewModel,
+            ) { viewModel.selectionActions::dismissStrategyProbeCandidate },
+        onSelectApproachMode = remember(viewModel) { viewModel.selectionActions::selectApproachMode },
+        onSelectApproach = remember(viewModel) { viewModel.selectionActions::selectApproach },
+        onDismissApproachDetail = remember(viewModel) { viewModel.selectionActions::dismissApproachDetail },
+        onSelectEvent = remember(viewModel) { viewModel.selectionActions::selectEvent },
+        onDismissEventDetail = remember(viewModel) { viewModel.selectionActions::dismissEventDetail },
+        onSelectProbe = remember(viewModel) { viewModel.selectionActions::selectProbe },
+        onDismissProbeDetail = remember(viewModel) { viewModel.selectionActions::dismissProbeDetail },
+        onToggleSensitiveSessionDetails =
+            remember(
+                viewModel,
+            ) { viewModel.selectionActions::toggleSensitiveSessionDetails },
+        onSessionSearch = remember(viewModel) { viewModel.filterActions::setSessionSearch },
+        onToggleEventFilter = remember(viewModel) { viewModel.filterActions::toggleEventFilter },
+        onEventSearch = remember(viewModel) { viewModel.filterActions::setEventSearch },
+        onEventAutoScroll = remember(viewModel) { viewModel.filterActions::setEventAutoScroll },
+        onShareSummary = remember(viewModel) { viewModel.shareActions::shareSummary },
+        onShareArchive = remember(viewModel) { viewModel.shareActions::shareArchive },
+        onSaveArchive = remember(viewModel) { viewModel.shareActions::saveArchive },
         onTogglePcapRecording = rememberPcapToggleAction(viewModel, pcapCaptureViewModel),
-        onRunDnsIntegrityCheck = remember(viewModel) { viewModel::runDnsIntegrityCheck },
-        onRunDnsAvailabilitySurvey = remember(viewModel) { viewModel::runDnsAvailabilitySurvey },
-        onRunDomainReachabilityScan = remember(viewModel) { viewModel::runDomainReachabilityScan },
-        onRunCompressionProbe = remember(viewModel) { viewModel::runCompressionProbe },
-        onRunCidrWhitelistDetection = remember(viewModel) { viewModel::runCidrWhitelistDetection },
-        onCacheIpv4WhitelistSubnets = remember(viewModel) { viewModel::cacheIpv4WhitelistSubnets },
-        onCheckIpv4WhitelistSubnets = remember(viewModel) { viewModel::checkIpv4WhitelistSubnets },
-        onSaveIpv4WhitelistCsv = remember(viewModel) { viewModel::saveIpv4WhitelistCsv },
-        onRunTcp16FatHeaderProbe = remember(viewModel) { viewModel::runTcp16FatHeaderProbe },
-        onRunAllowlistSniFinder = remember(viewModel) { viewModel::runAllowlistSniFinder },
-        onRunPluggableTransportProbe = remember(viewModel) { viewModel::runPluggableTransportProbe },
-        onRunByohCompatibilityCheck = remember(viewModel) { viewModel::runByohCompatibilityCheck },
-        onRunRknBlockDiagnosis = remember(viewModel) { viewModel::runRknBlockDiagnosis },
-        onRknSelfInfoEnabledChange = remember(viewModel) { viewModel::setRknSelfInfoEnabled },
-        onCompressionProbeZstdEnabledChange = remember(viewModel) { viewModel::setCompressionProbeZstdEnabled },
-        onByohDstIpChange = remember(viewModel) { viewModel::setByohDstIp },
-        onByohUrlPathChange = remember(viewModel) { viewModel::setByohUrlPath },
-        onByohSyntheticFixtureEnabledChange = remember(viewModel) { viewModel::setByohSyntheticFixtureEnabled },
-        onDpiSuiteProbeEnabledChange = remember(viewModel) { viewModel::setDpiSuiteProbeEnabled },
-        onDpiSuiteCustomDomainsChange = remember(viewModel) { viewModel::setDpiSuiteCustomDomains },
-        onDpiSuiteConcurrencyDelta = remember(viewModel) { viewModel::adjustDpiSuiteConcurrency },
-        onRunDpiProbeSuite = remember(viewModel) { viewModel::runDpiProbeSuite },
-        onCancelDpiProbeSuite = remember(viewModel) { viewModel::cancelDpiProbeSuite },
-        onRunXrayProviderProbe = remember(viewModel) { viewModel::runXrayProviderProbe },
+        onRunDnsIntegrityCheck = remember(viewModel) { viewModel.dpiToolsController::runDnsIntegrityCheck },
+        onRunDnsAvailabilitySurvey = remember(viewModel) { viewModel.dpiToolsController::runDnsAvailabilitySurvey },
+        onRunDomainReachabilityScan = remember(viewModel) { viewModel.dpiToolsController::runDomainReachabilityScan },
+        onRunCompressionProbe = remember(viewModel) { viewModel.dpiToolsController::runCompressionProbe },
+        onRunCidrWhitelistDetection = remember(viewModel) { viewModel.cidrWhitelistController::run },
+        onCacheIpv4WhitelistSubnets = remember(viewModel) { viewModel.ipv4WhitelistController::cacheSubnets },
+        onCheckIpv4WhitelistSubnets = remember(viewModel) { viewModel.ipv4WhitelistController::checkSubnets },
+        onSaveIpv4WhitelistCsv = remember(viewModel) { viewModel.ipv4WhitelistController::saveCsv },
+        onRunTcp16FatHeaderProbe = remember(viewModel) { viewModel.dpiToolsController::runTcp16FatHeaderProbe },
+        onRunAllowlistSniFinder = remember(viewModel) { viewModel.dpiToolsController::runAllowlistSniFinder },
+        onRunPluggableTransportProbe = remember(viewModel) { viewModel.pluggableTransportController::run },
+        onRunByohCompatibilityCheck = remember(viewModel) { viewModel.dpiToolsController::runByohCompatibilityCheck },
+        onRunRknBlockDiagnosis = remember(viewModel) { viewModel.dpiToolsController::runRknBlockDiagnosis },
+        onRknSelfInfoEnabledChange = remember(viewModel) { viewModel.dpiToolsController::setRknSelfInfoEnabled },
+        onCompressionProbeZstdEnabledChange =
+            remember(viewModel) {
+                viewModel.dpiToolsController::setCompressionProbeZstdEnabled
+            },
+        onByohDstIpChange = remember(viewModel) { viewModel.dpiToolsController::setByohDstIp },
+        onByohUrlPathChange = remember(viewModel) { viewModel.dpiToolsController::setByohUrlPath },
+        onByohSyntheticFixtureEnabledChange =
+            remember(viewModel) {
+                viewModel.dpiToolsController::setByohSyntheticFixtureEnabled
+            },
+        onDpiSuiteProbeEnabledChange = remember(viewModel) { viewModel.dpiSuiteController::setProbeEnabled },
+        onDpiSuiteCustomDomainsChange = remember(viewModel) { viewModel.dpiSuiteController::setCustomDomains },
+        onDpiSuiteConcurrencyDelta = remember(viewModel) { viewModel.dpiSuiteController::adjustConcurrency },
+        onRunDpiProbeSuite = remember(viewModel) { viewModel.dpiSuiteController::run },
+        onCancelDpiProbeSuite = remember(viewModel) { viewModel.dpiSuiteController::cancel },
+        onRunXrayProviderProbe = remember(viewModel) { viewModel.xrayProviderController::runProbe },
         onRunRemoteDeviceAcceptance = remember(viewModel) { viewModel::runRemoteDeviceAcceptance },
         onShareRemoteDeviceAcceptance = remember(viewModel) { viewModel::shareRemoteDeviceAcceptance },
     ).withNavigationCallbacks(viewModel, callbacks, homeDiagnostics)

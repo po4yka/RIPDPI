@@ -122,22 +122,22 @@ class DiagnosticsRetainedLocaleRouteTest {
         viewModel: DiagnosticsViewModel,
         sessionId: String,
     ): String {
-        composeRule.runOnUiThread { viewModel.selectSession(sessionId) }
+        composeRule.runOnUiThread { viewModel.selectionActions.selectSession(sessionId) }
         composeRule.waitUntil(5_000) { viewModel.uiState.value.selectedSessionDetail != null }
-        composeRule.runOnUiThread { viewModel.toggleSensitiveSessionDetails() }
+        composeRule.runOnUiThread { viewModel.selectionActions.toggleSensitiveSessionDetails() }
         composeRule.waitUntil(5_000) {
             viewModel.uiState.value.selectedSessionDetail
                 ?.sensitiveDetailsVisible == true
         }
         composeRule.runOnUiThread {
-            viewModel.selectProbe(
+            viewModel.selectionActions.selectProbe(
                 requireNotNull(viewModel.uiState.value.selectedSessionDetail)
                     .probeGroups
                     .first()
                     .items
                     .first(),
             )
-            viewModel.setSessionSearch("Scan")
+            viewModel.filterActions.setSessionSearch("Scan")
         }
         composeRule.waitUntil(5_000) { viewModel.uiState.value.selectedProbe != null }
         assertEquals(
@@ -148,7 +148,7 @@ class DiagnosticsRetainedLocaleRouteTest {
     }
 
     private fun selectApproach(viewModel: DiagnosticsViewModel): String {
-        composeRule.runOnUiThread { viewModel.selectApproach("custom-profile") }
+        composeRule.runOnUiThread { viewModel.selectionActions.selectApproach("custom-profile") }
         composeRule.waitUntil(5_000) { viewModel.uiState.value.selectedApproachDetail != null }
         return requireNotNull(viewModel.uiState.value.selectedApproachDetail).approach.id
     }

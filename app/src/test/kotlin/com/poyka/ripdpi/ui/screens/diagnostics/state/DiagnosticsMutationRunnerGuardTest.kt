@@ -28,7 +28,7 @@ class DiagnosticsMutationRunnerGuardTest {
                 createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
 
-            viewModel.selectSession("deleted-session")
+            viewModel.selectionActions.selectSession("deleted-session")
             advanceUntilIdle()
 
             assertNull(viewModel.uiState.value.selectedSessionDetail)

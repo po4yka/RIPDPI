@@ -40,9 +40,9 @@ class DiagnosticsScanDoubleTapTest {
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 
-            viewModel.startRawScan()
+            viewModel.scanActions.startRawScan()
             runCurrent()
-            viewModel.startRawScan()
+            viewModel.scanActions.startRawScan()
             runCurrent()
             firstStartGate.complete(Unit)
             advanceUntilIdle()

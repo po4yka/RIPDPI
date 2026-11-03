@@ -33,9 +33,9 @@ internal fun DiagnosticsScreenActions.withNavigationCallbacks(
                 viewModel.screenUiState.value.scan
                     .recommendedCandidate()
             if (candidate != null) {
-                viewModel.selectStrategyProbeCandidate(candidate)
+                viewModel.selectionActions.selectStrategyProbeCandidate(candidate)
             } else {
-                viewModel.selectSection(DiagnosticsSection.Scan)
+                viewModel.selectionActions.selectSection(DiagnosticsSection.Scan)
             }
         },
         onCheckNetwork = callbacks.onCheckNetwork,
@@ -46,6 +46,11 @@ internal fun DiagnosticsScreenActions.withNavigationCallbacks(
         onOpenPastReplays = callbacks.onOpenPastReplays,
         onReplayProbe = callbacks.onReplayProbe,
         onCancelScan = {
-            if (homeDiagnostics.compositeRunBusy) callbacks.onCancelHomeAnalysis() else viewModel.cancelScan()
+            if (homeDiagnostics.compositeRunBusy) {
+                callbacks.onCancelHomeAnalysis()
+            } else {
+                viewModel.scanActions
+                    .cancelScan()
+            }
         },
     )

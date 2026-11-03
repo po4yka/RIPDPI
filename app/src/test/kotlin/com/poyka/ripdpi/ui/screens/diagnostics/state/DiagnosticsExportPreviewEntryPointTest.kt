@@ -23,7 +23,7 @@ class DiagnosticsExportPreviewEntryPointTest {
             val viewModel =
                 createDiagnosticsViewModel(RuntimeEnvironment.getApplication(), manager, FakeAppSettingsRepository())
             viewModel.effects.test {
-                viewModel.shareSummary()
+                viewModel.shareActions.shareSummary()
                 assertTrue(
                     "Summary escaped before the user saw and confirmed prepared content",
                     awaitItem() is DiagnosticsEffect.PrepareExportRequested,

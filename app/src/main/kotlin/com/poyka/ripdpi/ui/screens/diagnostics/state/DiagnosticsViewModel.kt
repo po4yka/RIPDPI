@@ -10,7 +10,6 @@ import com.poyka.ripdpi.data.xray.XrayProviderProbeCoordinator
 import com.poyka.ripdpi.data.xray.XrayProviderProbeReport
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
-import com.poyka.ripdpi.diagnostics.dpi.DpiProbeKind
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -58,7 +57,7 @@ class DiagnosticsViewModel
             )
 
         val effects = _effects.bufferForUiLifecycle(viewModelScope)
-        private val dpiToolsController =
+        internal val dpiToolsController =
             DiagnosticsDpiToolsController(
                 scope = viewModelScope,
                 appSettingsRepository = appSettingsRepository,
@@ -72,13 +71,13 @@ class DiagnosticsViewModel
                 assetLoader = probeDependencies.assetLoader,
                 stringResolver = stringResolver,
             )
-        private val cidrWhitelistController =
+        internal val cidrWhitelistController =
             DiagnosticsCidrWhitelistController(
                 scope = viewModelScope,
                 detector = probeDependencies.cidrWhitelistDetector,
                 stringResolver = stringResolver,
             )
-        private val ipv4WhitelistController =
+        internal val ipv4WhitelistController =
             DiagnosticsIpv4WhitelistController(
                 scope = viewModelScope,
                 discoverer = probeDependencies.ipv4WhitelistedSubnetDiscoverer,
@@ -92,7 +91,7 @@ class DiagnosticsViewModel
                 },
                 stringResolver = stringResolver,
             )
-        private val dpiSuiteController =
+        internal val dpiSuiteController =
             DiagnosticsDpiSuiteController(
                 scope = viewModelScope,
                 appSettingsRepository = appSettingsRepository,
@@ -106,14 +105,14 @@ class DiagnosticsViewModel
                 echTlsHandshake = probeDependencies.echTlsHandshake,
                 stringResolver = stringResolver,
             )
-        private val pluggableTransportController =
+        internal val pluggableTransportController =
             DiagnosticsPluggableTransportController(
                 scope = viewModelScope,
                 appSettingsRepository = appSettingsRepository,
                 assetLoader = probeDependencies.assetLoader,
                 stringResolver = stringResolver,
             )
-        private val xrayProviderController =
+        internal val xrayProviderController =
             DiagnosticsXrayProviderController(
                 scope = viewModelScope,
                 serviceStateStore = serviceStateStore,
@@ -187,12 +186,12 @@ class DiagnosticsViewModel
                 currentUiState = { uiState.value },
             )
 
-        private val selectionActions =
+        internal val selectionActions =
             DiagnosticsSelectionActions(mutations, selectionState, sessionDetailState)
 
-        private val filterActions = DiagnosticsFilterActions(filterState)
+        internal val filterActions = DiagnosticsFilterActions(filterState)
 
-        private val scanActions =
+        internal val scanActions =
             DiagnosticsScanActions(
                 mutations = mutations,
                 scanLifecycle = scanLifecycleState,
@@ -207,7 +206,7 @@ class DiagnosticsViewModel
                 },
             )
 
-        private val shareActions = DiagnosticsShareActions(mutations)
+        internal val shareActions = DiagnosticsShareActions(mutations)
 
         fun onLocaleChanged(localeTags: String) {
             localeState.value = localeTags
@@ -226,65 +225,7 @@ class DiagnosticsViewModel
             }
         }
 
-        fun selectSection(section: DiagnosticsSection) = selectionActions.selectSection(section)
-
-        fun updateSelectiveMatrixHosts(input: String) = selectionActions.updateSelectiveMatrixHosts(input)
-
-        fun selectProfile(profileId: String) = selectionActions.selectProfile(profileId)
-
-        fun selectSession(sessionId: String) = selectionActions.selectSession(sessionId)
-
-        fun selectApproachMode(mode: DiagnosticsApproachMode) = selectionActions.selectApproachMode(mode)
-
-        fun selectApproach(approachId: String) = selectionActions.selectApproach(approachId)
-
-        fun dismissSessionDetail() = selectionActions.dismissSessionDetail()
-
-        fun dismissApproachDetail() = selectionActions.dismissApproachDetail()
-
-        fun selectEvent(eventId: String) = selectionActions.selectEvent(eventId)
-
-        fun dismissEventDetail() = selectionActions.dismissEventDetail()
-
-        fun selectProbe(probe: DiagnosticsProbeResultUiModel) = selectionActions.selectProbe(probe)
-
-        fun dismissProbeDetail() = selectionActions.dismissProbeDetail()
-
-        fun selectStrategyProbeCandidate(detail: DiagnosticsStrategyProbeCandidateDetailUiModel) =
-            selectionActions.selectStrategyProbeCandidate(detail)
-
-        fun dismissStrategyProbeCandidate() = selectionActions.dismissStrategyProbeCandidate()
-
-        fun toggleSensitiveSessionDetails() = selectionActions.toggleSensitiveSessionDetails()
-
-        fun setSessionSearch(query: String) = filterActions.setSessionSearch(query)
-
-        fun toggleEventFilter(
-            source: String? = null,
-            severity: String? = null,
-        ) = filterActions.toggleEventFilter(source, severity)
-
-        fun setEventSearch(query: String) = filterActions.setEventSearch(query)
-
-        fun setEventAutoScroll(enabled: Boolean) = filterActions.setEventAutoScroll(enabled)
-
-        fun startRawScan() = scanActions.startRawScan()
-
-        fun startInPathScan() = scanActions.startInPathScan()
-
-        fun runScan() = startRawScan()
-
-        fun waitForHiddenProbeAndRun() = scanActions.waitForHiddenProbeAndRun()
-
-        fun cancelHiddenProbeAndRun() = scanActions.cancelHiddenProbeAndRun()
-
-        fun dismissHiddenProbeConflictDialog() = scanActions.dismissHiddenProbeConflictDialog()
-
-        fun confirmSensitiveProfileRun() = scanActions.confirmSensitiveProfileRun()
-
-        fun dismissSensitiveProfileConsentDialog() = scanActions.dismissSensitiveProfileConsentDialog()
-
-        fun cancelScan() = scanActions.cancelScan()
+        fun runScan() = scanActions.startRawScan()
 
         fun keepResolverRecommendationForSession(
             sessionId: String? =
@@ -298,68 +239,9 @@ class DiagnosticsViewModel
                     ?.id,
         ) = scanActions.saveResolverRecommendation(sessionId)
 
-        fun shareSummary(sessionId: String? = null) = shareActions.shareSummary(sessionId)
-
-        fun shareArchive(sessionId: String? = null) = shareActions.shareArchive(sessionId)
-
-        fun saveArchive(sessionId: String? = null) = shareActions.saveArchive(sessionId)
-
         fun togglePcapRecording() {
             _pcapRecording.value = !_pcapRecording.value
         }
-
-        fun runDnsIntegrityCheck() = dpiToolsController.runDnsIntegrityCheck()
-
-        fun runDnsAvailabilitySurvey() = dpiToolsController.runDnsAvailabilitySurvey()
-
-        fun runDomainReachabilityScan() = dpiToolsController.runDomainReachabilityScan()
-
-        fun runCompressionProbe() = dpiToolsController.runCompressionProbe()
-
-        fun runCidrWhitelistDetection() = cidrWhitelistController.run()
-
-        fun cacheIpv4WhitelistSubnets() = ipv4WhitelistController.cacheSubnets()
-
-        fun checkIpv4WhitelistSubnets() = ipv4WhitelistController.checkSubnets()
-
-        fun saveIpv4WhitelistCsv() = ipv4WhitelistController.saveCsv()
-
-        fun runTcp16FatHeaderProbe() = dpiToolsController.runTcp16FatHeaderProbe()
-
-        fun runAllowlistSniFinder() = dpiToolsController.runAllowlistSniFinder()
-
-        fun runPluggableTransportProbe() = pluggableTransportController.run()
-
-        fun runRknBlockDiagnosis() = dpiToolsController.runRknBlockDiagnosis()
-
-        fun setRknSelfInfoEnabled(enabled: Boolean) = dpiToolsController.setRknSelfInfoEnabled(enabled)
-
-        fun setCompressionProbeZstdEnabled(enabled: Boolean) =
-            dpiToolsController.setCompressionProbeZstdEnabled(enabled)
-
-        fun setByohDstIp(value: String) = dpiToolsController.setByohDstIp(value)
-
-        fun setByohUrlPath(value: String) = dpiToolsController.setByohUrlPath(value)
-
-        fun setByohSyntheticFixtureEnabled(enabled: Boolean) =
-            dpiToolsController.setByohSyntheticFixtureEnabled(enabled)
-
-        fun runByohCompatibilityCheck() = dpiToolsController.runByohCompatibilityCheck()
-
-        fun setDpiSuiteProbeEnabled(
-            kind: DpiProbeKind,
-            enabled: Boolean,
-        ) = dpiSuiteController.setProbeEnabled(kind, enabled)
-
-        fun setDpiSuiteCustomDomains(value: String) = dpiSuiteController.setCustomDomains(value)
-
-        fun adjustDpiSuiteConcurrency(delta: Int) = dpiSuiteController.adjustConcurrency(delta)
-
-        fun runDpiProbeSuite() = dpiSuiteController.run()
-
-        fun cancelDpiProbeSuite() = dpiSuiteController.cancel()
-
-        fun runXrayProviderProbe() = xrayProviderController.runProbe()
 
         fun runRemoteDeviceAcceptance() = remoteDeviceAcceptance.start(viewModelScope)
 
