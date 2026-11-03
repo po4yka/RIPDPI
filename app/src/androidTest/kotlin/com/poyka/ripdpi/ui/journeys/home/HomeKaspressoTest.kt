@@ -42,6 +42,25 @@ class HomeIdleKaspressoTest :
         }
 
     @Test
+    fun actuatorStartsAndStopsConfiguredModeService() =
+        run {
+            with(HomePage(composeRule)) {
+                step("Service starts halted") {
+                    assertEquals(AppStatus.Halted, serviceStateStore.status.value.first)
+                    awaitDisplayed(actuatorButton)
+                }
+                step("Pressing the actuator dispatches the configured Whole device mode") {
+                    click(actuatorButton)
+                    waitForServiceState(serviceStateStore, AppStatus.Running, Mode.VPN)
+                }
+                step("Pressing the actuator again returns the service to halted") {
+                    click(actuatorButton)
+                    waitForHalted(serviceStateStore)
+                }
+            }
+        }
+
+    @Test
     fun modeCardsOfferNoConnectAction() =
         run {
             with(HomePage(composeRule)) {

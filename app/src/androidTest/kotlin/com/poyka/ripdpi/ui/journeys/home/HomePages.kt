@@ -26,6 +26,7 @@ internal class HomePage(
     val advisoryPrimary = RipDpiTestTags.HomeAdvisoryPrimaryAction
     val advisoryMore = RipDpiTestTags.HomeAdvisoryMore
     val setupHealthDetails = RipDpiTestTags.HomeSetupHealthDetails
+    val actuatorButton = RipDpiTestTags.ConnectionActuatorButton
     val actuatorRouteLabel = RipDpiTestTags.ConnectionActuatorRouteLabel
     val actuatorTerminalLabel = RipDpiTestTags.ConnectionActuatorTerminalLabel
     val errorSnackbar = RipDpiTestTags.MainErrorSnackbar

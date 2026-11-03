@@ -1144,6 +1144,57 @@ class MainViewModelTest {
         }
 
     @Test
+    fun `new explicit proxy start supersedes deferred VPN LAN recovery`() =
+        runTest {
+            val serviceController = FakeServiceController()
+            val serviceStateStore = FakeServiceStateStore()
+            val settingsRepository = onboardedVpnSettingsRepository()
+            val provider =
+                grantedPermissionStatusProvider().apply {
+                    snapshot = snapshot.copy(localNetwork = PermissionStatus.Denied)
+                }
+            val viewModel =
+                createViewModel(
+                    appSettingsRepository = settingsRepository,
+                    serviceStateStore = serviceStateStore,
+                    serviceController = serviceController,
+                    permissionStatusProvider = provider,
+                )
+            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
+            runCurrent()
+
+            serviceStateStore.emitFailed(Sender.VPN, FailureReason.PermissionLost(LocalNetworkPermission))
+            runCurrent()
+            assertEquals(
+                PermissionKind.LocalNetwork,
+                viewModel.uiState.value.permissionSummary.issue
+                    ?.kind,
+            )
+
+            settingsRepository.update { setRipdpiMode("proxy") }
+            runCurrent()
+            assertEquals(Mode.Proxy, viewModel.uiState.value.configuredMode)
+            viewModel.onPrimaryConnectionAction()
+            runCurrent()
+            assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
+
+            serviceStateStore.setStatus(AppStatus.Running, Mode.Proxy)
+            runCurrent()
+            val connectedState = viewModel.uiState.value
+            assertEquals(ConnectionState.Connected, connectedState.connectionState)
+            assertEquals(Mode.Proxy, connectedState.activeMode)
+
+            provider.snapshot = provider.snapshot.copy(localNetwork = PermissionStatus.Granted)
+            viewModel.onForeground()
+            runCurrent()
+
+            assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.Proxy)
+            runCurrent()
+            collector.cancel()
+        }
+
+    @Test
     fun `missing notifications do not block start`() =
         runTest {
             val serviceController = FakeServiceController()
