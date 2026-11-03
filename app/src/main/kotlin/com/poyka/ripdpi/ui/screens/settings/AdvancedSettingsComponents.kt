@@ -557,3 +557,10 @@ internal fun SummaryCapsule(
         color = content,
     )
 }
+
+/** Shown only after invalid input, so the allowed range stays out of the resting layout. */
+@Composable
+internal fun rangeErrorMessage(
+    min: Int,
+    max: Int,
+): String = stringResource(R.string.relay_editor_range_helper, min, max)

@@ -426,11 +426,6 @@ private fun ModeEditorOverrideFields(
                 tone = WarningBannerTone.Restricted,
             )
         }
-        Text(
-            text = stringResource(R.string.use_command_line_settings),
-            style = RipDpiThemeTokens.type.body,
-            color = colors.foreground,
-        )
         Box(
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -440,9 +435,9 @@ private fun ModeEditorOverrideFields(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    text = stringResource(R.string.config_command_line_caption),
-                    style = RipDpiThemeTokens.type.caption,
-                    color = colors.mutedForeground,
+                    text = stringResource(R.string.use_command_line_settings),
+                    style = RipDpiThemeTokens.type.body,
+                    color = colors.foreground,
                     modifier = Modifier.weight(1f),
                 )
                 RipDpiSwitch(
@@ -460,7 +455,6 @@ private fun ModeEditorOverrideFields(
                 RipDpiTextFieldDecoration(
                     label = stringResource(R.string.command_line_arguments),
                     placeholder = stringResource(R.string.config_placeholder_command_line),
-                    helperText = stringResource(R.string.config_command_line_helper),
                     testTag = RipDpiTestTags.ModeEditorCommandLineArgs,
                 ),
         )

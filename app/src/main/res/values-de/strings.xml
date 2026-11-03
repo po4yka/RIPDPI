@@ -58,10 +58,8 @@
     <string name="block_signal_tls_alert">TLS-Alert</string>
     <string name="blockcheck_domains_label">Test-Domains</string>
     <string name="blockcheck_export_title">Strategie-Probe-Bericht exportieren</string>
-    <string name="blockcheck_section_title">Strategie-Probe</string>
     <string name="config_badge_active">Aktiv</string>
     <string name="config_chain_editor_helper_full">Der HTTPS-Abschnitt unten kann einzelne tlsrec- und randomisierte tlsrandrec-Schritte visuell erstellen, während die Karten Hostfake und Fake-Approximation hostnamenspezifische Fake-Chunks und Approximationen im Stil von Neuübertragungen erläutern. Linux-/Android-spezifische Approximationen sind als fakedsplit host+1 und fakeddisorder endhost für HTTP- oder TLS-SNI-nahe Nutzlasten verfügbar.</string>
-    <string name="config_command_line_caption">Rohe RIPDPI-Flags gegenüber dem visuellen Editor bevorzugen.</string>
     <string name="config_dns_disabled_helper">DNS-Override wird nur im lokalen VPN-Modus angewendet.</string>
     <string name="config_editor_body">%1$s wird bearbeitet. Änderungen werden auf diesem Gerät gespeichert, wenn Sie auf Speichern tippen.</string>
     <string name="config_error_invalid_marker">Gültigen Markerausdruck eingeben.</string>
@@ -518,7 +516,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="blockcheck_no_strategies">Keine Strategien registriert</string>
     <string name="config_buffer_helper">Socket-Puffergröße in Bytes.</string>
     <string name="config_chain_editor_label">Bypass-Strategie</string>
-    <string name="config_command_line_helper">Wird angewendet, wenn Kommandozeileneinstellungen aktiviert sind.</string>
     <string name="config_dns_helper">Wird für die lokale VPN-Route verwendet.</string>
     <string name="config_editor_title">Profil bearbeiten</string>
     <string name="config_error_invalid_port">Geben Sie einen gültigen TCP-Port ein.</string>
@@ -1069,7 +1066,6 @@ fakeddisorder endhost</string>
     <string name="biometric_prompt_use_pin">Backup-PIN verwenden</string>
     <string name="block_signal_silent_drop">Stiller Drop</string>
     <string name="blockcheck_best_badge">Beste</string>
-    <string name="blockcheck_entry_body">Strategie-Probe starten, eingestufte Ergebnisse prüfen und die stärkste Strategie für dieses Netzwerk anwenden.</string>
     <string name="bye_dpi_proxy_ip_setting">Listen-Adresse</string>
     <string name="config_cancel">Abbrechen</string>
     <string name="unsaved_changes_title">Ungespeicherte Änderungen verwerfen?</string>
@@ -1440,7 +1436,6 @@ Quelle: %2$s</string>
     <string name="settings_biometric_confirm_enable">Aktivieren</string>
     <string name="settings_biometric_pin_required_ok">OK</string>
     <string name="settings_community_api_url_helper">Leer lassen, um nur mit den eigenen Prüfungen zu vergleichen.</string>
-    <string name="settings_diagnostics_export_history_body">Gespeicherte Verlaufstabellen hinzufügen, wenn Sie ausdrücklich ein Diagnosearchiv zum Teilen oder für den lokalen Export erstellen.</string>
     <string name="settings_diagnostics_retention_body">Wie lange gespeicherte Verbindungssitzungen, Messwerte, Diagnoseberichte und Exportdatensätze im App-Speicher bleiben, bevor die Bereinigung sie löscht. Archive oder Protokolldateien, die Sie an anderer Stelle speichern, bleiben dort, bis Sie sie löschen.</string>
     <string name="settings_exclude_russian_apps_title">Russische Apps ausschließen</string>
     <string name="settings_permission_action_review">Prüfen</string>
@@ -1461,7 +1456,6 @@ Quelle: %2$s</string>
         <item quantity="one">%d fehlgeschlagen</item>
         <item quantity="other">%d fehlgeschlagen</item>
     </plurals>
-    <string name="strategy_config_entry_body">Prüfen Sie die aktive Bypass-Strategie, importieren Sie eine lokale Konfiguration, exportieren Sie den Text oder laden Sie ein Lua-Strategie-Skript.</string>
     <string name="strategy_config_import_failed_title">Import fehlgeschlagen</string>
     <string name="strategy_config_invalid_title">Konfiguration nicht validiert</string>
     <string name="strategy_config_lua_function_required_body">Geben Sie die Lua-Funktion ein, die in der Tunnel-Strategie-Konfiguration ausgeführt werden soll.</string>
@@ -2506,8 +2500,6 @@ Quelle: %2$s</string>
     <string name="settings_biometric_title">Authentifizierung erforderlich</string>
     <string name="settings_community_api_url_reset">Auf Standard zurücksetzen</string>
     <string name="settings_customization_body">App-Icon, adaptive Form und Optionen für Themen-Icons.</string>
-    <string name="settings_diagnostics_monitor_body">Erfassen Sie weiterhin Verbindungstelemetrie, Netzwerkstatus und Kontext, während RIPDPI läuft.</string>
-    <string name="settings_diagnostics_sample_body">Wie oft RIPDPI Netzwerk-, Telemetrie- und Kontext-Samples für eine aktive Verbindung speichert. Zulässiger Bereich: 5 bis 300 Sekunden.</string>
     <string name="settings_manage_action">Verwalten</string>
     <string name="settings_permission_status_not_needed">Nicht erforderlich</string>
     <string name="settings_permissions_battery_ready">Android erlaubt RIPDPI bereits, die Doze-Akkuoptimierung zu ignorieren.</string>
@@ -2530,7 +2522,6 @@ Quelle: %2$s</string>
     <string name="strategy_config_lua_function_label">Funktionsname</string>
     <string name="strategy_config_lua_path_required_title">Skriptpfad erforderlich</string>
     <string name="strategy_config_reloaded_title">Strategie-Konfiguration neu geladen</string>
-    <string name="strategy_config_section_title">Strategie-Konfiguration</string>
     <string name="strategy_pack_badge_bundled">Mitgeliefert</string>
     <string name="strategy_pack_badge_selected_pack_id_only">%1$s</string>
     <string name="strategy_pack_degraded_status_body_incompatible">RIPDPI hat den zwischengespeicherten Strategie-Pack-Snapshot abgelehnt, da dieser Build ihn nicht verwenden kann, und ist auf den mit der App gelieferten Snapshot zurückgefallen.</string>
@@ -2969,9 +2960,7 @@ Quelle: %2$s</string>
     <string name="split_tunnel_system_managed_body">Ab Android 17 werden App-Ausnahmen für das VPN in den Systemeinstellungen verwaltet und bleiben über Neuverbindungen hinweg erhalten.</string>
     <string name="split_tunnel_open_system_settings">Systemeinstellungen öffnen</string>
     <string name="title_asset_provider">Datenanbieter</string>
-    <string name="asset_provider_section_title">Geo-Daten</string>
     <string name="asset_provider_entry_title">Geo-Datenanbieter</string>
-    <string name="asset_provider_entry_body">Wählen Sie die Quelle für geoip.db und geosite.db und suchen Sie nach Updates.</string>
     <string name="asset_provider_intro_title">Quelle für geoip.db und geosite.db</string>
     <string name="asset_provider_intro_body">Updates werden beim nächsten Start des Dienstes angewendet. Ein Neuladen ohne Neustart folgt später.</string>
     <string name="asset_provider_label">Anbieter</string>

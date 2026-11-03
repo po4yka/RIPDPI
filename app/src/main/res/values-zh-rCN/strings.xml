@@ -491,9 +491,7 @@
     <string name="block_signal_http_redirect">阻断重定向</string>
     <string name="block_signal_tcp_retransmissions">TCP 重传</string>
     <string name="blockcheck_cancel">取消</string>
-    <string name="blockcheck_entry_body">运行策略探测,查看排序结果,并为当前网络应用最强策略。</string>
     <string name="blockcheck_no_strategies">未注册任何策略</string>
-    <string name="blockcheck_section_title">策略探测</string>
     <string name="config_badge_active">活动</string>
     <string name="config_chain_editor_helper_full">下方的 HTTPS 区块可以可视化地编写单个 tlsrec 和随机化的 tlsrandrec 步骤,而 Hostfake 和 fake 近似卡片则说明针对主机名的 fake 数据块以及重传式近似。仅在 Linux/Android 上提供的近似有 fakedsplit host+1 和 fakeddisorder endhost,用于 HTTP 或 TLS SNI 相邻负载。</string>
     <string name="config_cli_banner_body">以下参数优先于本页面的可视化控件。</string>
@@ -897,7 +895,6 @@ fakeddisorder endhost</string>
     <string name="settings_biometric_unavailable">本设备不具备生物识别硬件。</string>
     <string name="settings_community_api_url_reset">重置为默认</string>
     <string name="settings_connectivity_section">连接</string>
-    <string name="settings_diagnostics_export_history_body">只有在你明确创建诊断归档用于分享或本地导出时，才会附加已存储的历史记录表。</string>
     <string name="settings_diagnostics_monitor_title">记录运行时诊断历史</string>
     <string name="settings_diagnostics_sample_title">采样间隔(秒)</string>
     <string name="settings_permission_action_allow">允许</string>
@@ -1433,7 +1430,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <plurals name="analysis_progress_failed">
         <item quantity="other">%d 项失败</item>
     </plurals>
-    <string name="strategy_config_entry_body">查看活动绕过策略、导入本地配置、导出文本或加载 Lua 策略脚本。</string>
     <string name="strategy_config_import_empty">所选文件为空。</string>
     <string name="strategy_config_imported_body">已导入的文本可供查看。</string>
     <string name="strategy_config_lua_function_label">函数名</string>
@@ -1550,7 +1546,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="unsaved_changes_discard">放弃</string>
     <string name="unsaved_changes_keep_editing">继续编辑</string>
     <string name="config_chain_editor_label">绕过策略</string>
-    <string name="config_command_line_caption">优先使用原始 RIPDPI 标志,而非可视化编辑器。</string>
     <string name="config_engine_section">引擎</string>
     <string name="config_error_invalid_port">请输入有效的 TCP 端口。</string>
     <string name="config_error_unsupported">当前构建不支持此选项。</string>
@@ -1934,7 +1929,6 @@ fake_burst 3</string>
     <string name="settings_biometric_confirm_title">启用身份验证?</string>
     <string name="settings_biometric_pin_required_title">需要备用 PIN</string>
     <string name="settings_community_api_url_helper">留空则仅与您自己的检查结果比较。</string>
-    <string name="settings_diagnostics_monitor_body">在 RIPDPI 运行期间持续采样连接遥测、网络状态和上下文。</string>
     <string name="settings_diagnostics_retention_title">历史保留(天)</string>
     <string name="settings_exclude_russian_apps_title">排除俄罗斯应用</string>
     <string name="settings_full_tunnel_title">全隧道模式</string>
@@ -1962,7 +1956,6 @@ fake_burst 3</string>
     <string name="strategy_config_native_unavailable">原生策略绑定在此进程中不可用。</string>
     <string name="strategy_config_reload_action">重新加载</string>
     <string name="strategy_config_saved_body">已保存的链将在下一个 UI 管理的会话中生效。</string>
-    <string name="strategy_config_section_title">策略配置</string>
     <string name="strategy_config_validate_action">验证</string>
     <string name="strategy_pack_badge_policy_manual">手动刷新</string>
     <string name="strategy_pack_bundled_status_title">使用内置策略快照</string>
@@ -2069,7 +2062,6 @@ fake_burst 3</string>
     <string name="config_chain_editor_helper_brief">使用 [tcp] 和 [udp] 段,配合数值或语义偏移标记。</string>
     <string name="config_chain_summary_label">绕过策略：%1$s</string>
     <string name="config_chain_cli_override_note">CLI 设置优先于绕过策略</string>
-    <string name="config_command_line_helper">启用命令行设置时生效。</string>
     <string name="config_dns_disabled_helper">DNS 覆盖仅在本地 VPN 模式下应用。</string>
     <string name="config_chain_block_valid">链已通过策略注册模型校验。</string>
     <string name="config_chain_block_invalid">链无效：%1$s</string>
@@ -2464,7 +2456,6 @@ fake_burst 3</string>
     <string name="settings_community_api_url_label">社区 API URL</string>
     <string name="settings_data_transparency_body">此设备上存储了哪些内容、保留多久，以及何时会离开设备。</string>
     <string name="settings_diagnostics_monitor_disabled">启用运行时诊断历史以编辑采样频率。</string>
-    <string name="settings_diagnostics_sample_body">RIPDPI 为活动连接存储网络、遥测和上下文样本的频率。允许范围:5 至 300 秒。</string>
     <string name="settings_full_tunnel_body">将所有流量通过 VPN 路由,不设应用排除。可防止间谍模块直接发送流量,但俄罗斯应用可能会检测到 VPN。</string>
     <string name="settings_manage_action">管理</string>
     <string name="settings_permission_status_granted">已授予</string>
@@ -2961,9 +2952,7 @@ fake_burst 3</string>
     <string name="split_tunnel_system_managed_body">在 Android 17 及更高版本中，VPN 的逐应用例外由系统设置管理，并在重新连接后保留。</string>
     <string name="split_tunnel_open_system_settings">打开系统设置</string>
     <string name="title_asset_provider">资源提供方</string>
-    <string name="asset_provider_section_title">地理数据</string>
     <string name="asset_provider_entry_title">地理数据提供方</string>
-    <string name="asset_provider_entry_body">选择 geoip.db 和 geosite.db 的来源并检查更新。</string>
     <string name="asset_provider_intro_title">geoip.db 和 geosite.db 来源</string>
     <string name="asset_provider_intro_body">更新将在下次启动服务时生效。无需重启的热重载将在后续版本提供。</string>
     <string name="asset_provider_label">提供方</string>

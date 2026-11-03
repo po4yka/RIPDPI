@@ -58,10 +58,8 @@
     <string name="block_signal_tls_alert">Alerte TLS</string>
     <string name="blockcheck_domains_label">Domaines de test</string>
     <string name="blockcheck_export_title">Exporter le rapport de sonde de stratégie</string>
-    <string name="blockcheck_section_title">Sonde de stratégie</string>
     <string name="config_badge_active">Actif</string>
     <string name="config_chain_editor_helper_full">La section HTTPS ci-dessous peut composer visuellement des étapes tlsrec simples et tlsrandrec randomisées, tandis que les cartes Hostfake et fake approximation expliquent les faux segments ciblés sur le nom d\'hôte et les approximations de type retransmission. Des approximations exclusives à Linux/Android sont disponibles sous la forme fakedsplit host+1 et fakeddisorder endhost pour les charges utiles HTTP ou adjacentes au SNI TLS.</string>
-    <string name="config_command_line_caption">Préférer les drapeaux RIPDPI bruts à l\'éditeur visuel.</string>
     <string name="config_dns_disabled_helper">Le remplacement DNS n\'est appliqué qu\'en mode VPN local.</string>
     <string name="config_editor_body">Modification de %1$s. Les changements sont enregistrés sur cet appareil lorsque vous appuyez sur Enregistrer.</string>
     <string name="config_error_invalid_marker">Saisissez une expression de marqueur valide.</string>
@@ -518,7 +516,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="blockcheck_no_strategies">Aucune stratégie enregistrée</string>
     <string name="config_buffer_helper">Taille du tampon de socket en octets.</string>
     <string name="config_chain_editor_label">Stratégie de contournement</string>
-    <string name="config_command_line_helper">Appliqué quand les paramètres de ligne de commande sont activés.</string>
     <string name="config_dns_helper">Utilisé pour la route VPN locale.</string>
     <string name="config_editor_title">Modifier le profil</string>
     <string name="config_error_invalid_port">Saisissez un port TCP valide.</string>
@@ -1069,7 +1066,6 @@ fakeddisorder endhost</string>
     <string name="biometric_prompt_use_pin">Utiliser le PIN de secours</string>
     <string name="block_signal_silent_drop">Rejet silencieux</string>
     <string name="blockcheck_best_badge">Meilleur</string>
-    <string name="blockcheck_entry_body">Lancez la sonde de stratégie, examinez les résultats classés et appliquez la stratégie la plus efficace pour ce réseau.</string>
     <string name="bye_dpi_proxy_ip_setting">Adresse d\'écoute</string>
     <string name="config_cancel">Annuler</string>
     <string name="unsaved_changes_title">Abandonner les modifications non enregistrées ?</string>
@@ -1440,7 +1436,6 @@ Source : %2$s</string>
     <string name="settings_biometric_confirm_enable">Activer</string>
     <string name="settings_biometric_pin_required_ok">OK</string>
     <string name="settings_community_api_url_helper">Laisser vide pour comparer uniquement avec vos propres vérifications.</string>
-    <string name="settings_diagnostics_export_history_body">Inclure les tables d’historique enregistrées lorsque vous créez explicitement une archive de diagnostic pour la partager ou l’exporter localement.</string>
     <string name="settings_diagnostics_retention_body">Durée de conservation des sessions de connexion, échantillons, rapports de diagnostic et enregistrements d’export dans le stockage de l’application avant leur suppression. Les archives et journaux enregistrés ailleurs y restent jusqu’à leur suppression par vos soins.</string>
     <string name="settings_exclude_russian_apps_title">Exclure les applications russes</string>
     <string name="settings_permission_action_review">Examiner</string>
@@ -1461,7 +1456,6 @@ Source : %2$s</string>
         <item quantity="one">%d échec</item>
         <item quantity="other">%d échecs</item>
     </plurals>
-    <string name="strategy_config_entry_body">Examinez la stratégie de contournement active, importez une configuration locale, exportez le texte ou chargez un script de stratégie Lua.</string>
     <string name="strategy_config_import_failed_title">Échec de l\'import</string>
     <string name="strategy_config_invalid_title">La configuration n\'a pas été validée</string>
     <string name="strategy_config_lua_function_required_body">Saisissez la fonction Lua qui doit s\'exécuter dans la configuration de stratégie du tunnel.</string>
@@ -2506,8 +2500,6 @@ Source : %2$s</string>
     <string name="settings_biometric_title">Exiger une authentification</string>
     <string name="settings_community_api_url_reset">Réinitialiser par défaut</string>
     <string name="settings_customization_body">Options d\'icône de l\'application, de forme adaptative et d\'icône thématique.</string>
-    <string name="settings_diagnostics_monitor_body">Continuer à échantillonner la télémétrie de connexion, l\'état du réseau et le contexte pendant que RIPDPI fonctionne.</string>
-    <string name="settings_diagnostics_sample_body">Fréquence à laquelle RIPDPI stocke les échantillons de réseau, de télémétrie et de contexte pour une connexion active. Plage autorisée : 5 à 300 secondes.</string>
     <string name="settings_manage_action">Gérer</string>
     <string name="settings_permission_status_not_needed">Non nécessaire</string>
     <string name="settings_permissions_battery_ready">Android permet déjà à RIPDPI d\'ignorer l\'optimisation de batterie Doze.</string>
@@ -2530,7 +2522,6 @@ Source : %2$s</string>
     <string name="strategy_config_lua_function_label">Nom de la fonction</string>
     <string name="strategy_config_lua_path_required_title">Chemin de script requis</string>
     <string name="strategy_config_reloaded_title">Configuration de stratégie rechargée</string>
-    <string name="strategy_config_section_title">Configuration de stratégie</string>
     <string name="strategy_pack_badge_bundled">Inclus</string>
     <string name="strategy_pack_badge_selected_pack_id_only">%1$s</string>
     <string name="strategy_pack_degraded_status_body_incompatible">RIPDPI a rejeté l\'instantané du paquet de stratégie en cache car cette version ne peut pas l\'utiliser, il est donc revenu à l\'instantané fourni avec l\'application.</string>
@@ -2969,9 +2960,7 @@ Source : %2$s</string>
     <string name="split_tunnel_system_managed_body">Sur Android 17 et versions ultérieures, les exclusions d\'applis du VPN sont gérées dans les réglages système et conservées entre les reconnexions.</string>
     <string name="split_tunnel_open_system_settings">Ouvrir les réglages système</string>
     <string name="title_asset_provider">Fournisseur de données</string>
-    <string name="asset_provider_section_title">Données géo</string>
     <string name="asset_provider_entry_title">Fournisseur de données géo</string>
-    <string name="asset_provider_entry_body">Choisissez la source de geoip.db et geosite.db et recherchez des mises à jour.</string>
     <string name="asset_provider_intro_title">Source de geoip.db et geosite.db</string>
     <string name="asset_provider_intro_body">Les mises à jour s\'appliquent au prochain démarrage du service. Le rechargement sans redémarrage arrivera plus tard.</string>
     <string name="asset_provider_label">Fournisseur</string>

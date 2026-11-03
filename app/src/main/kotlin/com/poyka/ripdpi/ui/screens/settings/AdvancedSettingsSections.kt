@@ -74,56 +74,35 @@ internal fun LazyListScope.diagnosticsHistorySection(
     }
 }
 
-internal fun LazyListScope.strategyConfigSection(onOpenStrategyConfig: () -> Unit) {
-    item(key = "advanced_strategy_config") {
+internal fun LazyListScope.advancedToolsSection(
+    onOpenStrategyConfig: () -> Unit,
+    onOpenAssetProvider: () -> Unit,
+    onOpenBlockcheck: () -> Unit,
+) {
+    item(key = "advanced_tools") {
         AdvancedSettingsSection(
-            title = stringResource(R.string.strategy_config_section_title),
-            testTag = RipDpiTestTags.advancedSection("strategy_config"),
+            title = stringResource(R.string.diagnostics_tools_section),
+            testTag = RipDpiTestTags.advancedSection("tools"),
         ) {
             RipDpiCard {
                 SettingsRow(
                     title = stringResource(R.string.strategy_config_entry_title),
-                    subtitle = stringResource(R.string.strategy_config_entry_body),
                     onClick = onOpenStrategyConfig,
                     leadingIcon = RipDpiIcons.Advanced,
                     showChevron = true,
+                    showDivider = true,
                     testTag = RipDpiTestTags.SettingsStrategyConfig,
                 )
-            }
-        }
-    }
-}
-
-internal fun LazyListScope.assetProviderSection(onOpenAssetProvider: () -> Unit) {
-    item(key = "advanced_asset_provider") {
-        AdvancedSettingsSection(
-            title = stringResource(R.string.asset_provider_section_title),
-            testTag = RipDpiTestTags.advancedSection("asset_provider"),
-        ) {
-            RipDpiCard {
                 SettingsRow(
                     title = stringResource(R.string.asset_provider_entry_title),
-                    subtitle = stringResource(R.string.asset_provider_entry_body),
                     onClick = onOpenAssetProvider,
                     leadingIcon = RipDpiIcons.Public,
                     showChevron = true,
+                    showDivider = true,
                     testTag = RipDpiTestTags.SettingsAssetProvider,
                 )
-            }
-        }
-    }
-}
-
-internal fun LazyListScope.blockcheckSection(onOpenBlockcheck: () -> Unit) {
-    item(key = "advanced_blockcheck") {
-        AdvancedSettingsSection(
-            title = stringResource(R.string.blockcheck_section_title),
-            testTag = RipDpiTestTags.advancedSection("blockcheck"),
-        ) {
-            RipDpiCard {
                 SettingsRow(
                     title = stringResource(R.string.blockcheck_entry_title),
-                    subtitle = stringResource(R.string.blockcheck_entry_body),
                     onClick = onOpenBlockcheck,
                     leadingIcon = RipDpiIcons.Logs,
                     showChevron = true,
@@ -169,7 +148,6 @@ private fun DiagnosticsMonitorToggle(
 ) {
     SettingsRow(
         title = stringResource(R.string.settings_diagnostics_monitor_title),
-        subtitle = stringResource(R.string.settings_diagnostics_monitor_body),
         checked = enabled,
         onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DiagnosticsMonitorEnabled, it) },
         showDivider = true,
@@ -189,11 +167,10 @@ private fun DiagnosticsRetentionFields(
         )
     AdvancedTextSetting(
         title = stringResource(R.string.settings_diagnostics_sample_title),
-        description = stringResource(R.string.settings_diagnostics_sample_body),
         value = uiState.diagnosticsSampleIntervalSeconds.toString(),
         enabled = uiState.diagnosticsMonitorEnabled,
         validator = { validateIntRange(it, diagnosticsSampleIntervalMin, diagnosticsSampleIntervalMax) },
-        invalidMessage = stringResource(R.string.config_error_out_of_range),
+        invalidMessage = rangeErrorMessage(diagnosticsSampleIntervalMin, diagnosticsSampleIntervalMax),
         disabledMessage = stringResource(R.string.settings_diagnostics_monitor_disabled),
         keyboardOptions = numericKeyboardOptions,
         setting = AdvancedTextSetting.DiagnosticsSampleIntervalSeconds,
@@ -205,7 +182,7 @@ private fun DiagnosticsRetentionFields(
         description = stringResource(R.string.settings_diagnostics_retention_body),
         value = uiState.diagnosticsHistoryRetentionDays.toString(),
         validator = { validateIntRange(it, 1, diagnosticsRetentionMaxDays) },
-        invalidMessage = stringResource(R.string.config_error_out_of_range),
+        invalidMessage = rangeErrorMessage(1, diagnosticsRetentionMaxDays),
         keyboardOptions = numericKeyboardOptions,
         setting = AdvancedTextSetting.DiagnosticsHistoryRetentionDays,
         onConfirm = onTextConfirmed,
@@ -220,7 +197,6 @@ private fun DiagnosticsExportHistoryToggle(
 ) {
     SettingsRow(
         title = stringResource(R.string.settings_diagnostics_export_history_title),
-        subtitle = stringResource(R.string.settings_diagnostics_export_history_body),
         checked = enabled,
         onCheckedChange = { onToggleChanged(AdvancedToggleSetting.DiagnosticsExportIncludeHistory, it) },
         showDivider = true,
@@ -306,7 +282,6 @@ internal fun LazyListScope.commandLineOverridesSection(
             RipDpiCard {
                 SettingsRow(
                     title = stringResource(R.string.use_command_line_settings),
-                    subtitle = stringResource(R.string.config_command_line_caption),
                     checked = uiState.enableCmdSettings,
                     onCheckedChange = { onToggleChanged(AdvancedToggleSetting.UseCommandLine, it) },
                     showDivider = true,
@@ -314,7 +289,6 @@ internal fun LazyListScope.commandLineOverridesSection(
                 )
                 AdvancedTextSetting(
                     title = stringResource(R.string.command_line_arguments),
-                    description = stringResource(R.string.config_command_line_helper),
                     value = uiState.cmdArgs,
                     placeholder = stringResource(R.string.config_placeholder_command_line),
                     enabled = uiState.enableCmdSettings,

@@ -876,17 +876,12 @@
     <string name="udp_fake_profile_scope_ready">Готов, когда UDP-цепочка добавит fake_burst для общего UDP-трафика.</string>
     <string name="udp_fake_profile_interaction">Нагрузки QUIC Initial остаются в отдельном разделе профиля fake QUIC ниже.</string>
     <string name="udp_fake_profile_interaction_quic_override">Трафик QUIC Initial использует профиль fake QUIC ниже, а этот профиль охватывает оставшийся общий UDP fake_burst трафик.</string>
-    <string name="config_command_line_caption">Предпочтение сырых флагов RIPDPI над визуальным редактором.</string>
-    <string name="config_command_line_helper">Применяется при включённых настройках командной строки.</string>
     <string name="settings_diagnostics_monitor_title">Записывать историю диагностики среды выполнения</string>
-    <string name="settings_diagnostics_monitor_body">Продолжать выборку телеметрии подключения, состояния сети и контекста во время работы RIPDPI.</string>
     <string name="settings_diagnostics_monitor_disabled">Включите историю диагностики среды выполнения для редактирования периодичности выборки.</string>
     <string name="settings_diagnostics_sample_title">Интервал выборки (секунды)</string>
-    <string name="settings_diagnostics_sample_body">Как часто RIPDPI сохраняет выборки сети, телеметрии и контекста для активного подключения. Допустимый диапазон: от 5 до 300 секунд.</string>
     <string name="settings_diagnostics_retention_title">Хранение истории (дни)</string>
     <string name="settings_diagnostics_retention_body">Сколько дней сохранённые сеансы подключений, образцы, отчёты диагностики и записи экспорта остаются в хранилище приложения до удаления очисткой. Архивы или файлы логов, сохранённые в другом месте, остаются там, пока вы их не удалите.</string>
     <string name="settings_diagnostics_export_history_title">Включать историю в архивы диагностики</string>
-    <string name="settings_diagnostics_export_history_body">Прикреплять сохранённые таблицы истории, когда вы явно создаёте архив диагностики для отправки или локального экспорта.</string>
     <string name="settings_telemetry_salt_reset_body">Сбросить индивидуальную соль, используемую для хеширования сетевых отпечатков. Ранее записанные хеши больше не смогут быть сопоставлены с будущими сеансами.</string>
     <string name="settings_telemetry_salt_reset_action">Сбросить соль телеметрии</string>
     <string name="config_cli_banner_title">Аргументы командной строки активны</string>
@@ -1946,14 +1941,12 @@ fakeddisorder endhost</string>
     <string name="blockcheck_confidence_high">высокая</string>
     <string name="blockcheck_domains_label">Тестовые домены</string>
     <string name="blockcheck_empty_results">Пока нет рейтинга стратегий</string>
-    <string name="blockcheck_entry_body">Запустите зондирование стратегий, просмотрите ранжированные результаты и примените самую сильную стратегию для этой сети.</string>
     <string name="blockcheck_entry_title">Зондирование стратегий</string>
     <string name="blockcheck_export_title">Экспорт отчёта зондирования стратегий</string>
     <string name="blockcheck_export">Экспорт</string>
     <string name="blockcheck_no_strategies">Стратегии не зарегистрированы</string>
     <string name="blockcheck_results_title">Ранжированные результаты</string>
     <string name="blockcheck_run">Запустить</string>
-    <string name="blockcheck_section_title">Зондирование стратегий</string>
     <string name="config_error_required">Это поле обязательно.</string>
     <string name="config_error_unsupported">Эта опция не поддерживается в текущей сборке.</string>
     <string name="config_local_bypass_section_body">Настройте локальный путь прокси, DNS и параметры стратегии обхода.</string>
@@ -2317,7 +2310,6 @@ fakeddisorder endhost</string>
     </plurals>
     <string name="strategy_config_active_path_label">Активный источник</string>
     <string name="strategy_config_editor_label">Стратегия обхода</string>
-    <string name="strategy_config_entry_body">Просмотрите активную стратегию обхода, импортируйте локальную конфигурацию, экспортируйте текст или загрузите Lua-скрипт стратегии.</string>
     <string name="strategy_config_entry_title">Конфигурация стратегии</string>
     <string name="strategy_config_export_action">Экспорт</string>
     <string name="strategy_config_export_title">Экспорт конфигурации стратегии</string>
@@ -2349,7 +2341,6 @@ fakeddisorder endhost</string>
     <string name="strategy_config_saved_restart_pending_body">Перезапуск сервиса уже применяет сохранённую конфигурацию стратегии.</string>
     <string name="strategy_config_saved_restarting_body">Текущий сервис перезапускается, чтобы сохранённая конфигурация стратегии была загружена в активный путь туннеля.</string>
     <string name="strategy_config_saved_title">Конфигурация стратегии сохранена</string>
-    <string name="strategy_config_section_title">Конфигурация стратегии</string>
     <string name="strategy_config_source_builtin">Встроенная</string>
     <string name="strategy_config_source_lua">Lua-скрипт</string>
     <string name="strategy_config_source_yaml">Пользовательский YAML</string>

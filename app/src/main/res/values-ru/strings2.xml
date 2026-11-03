@@ -2,9 +2,7 @@
 <resources>
     <string name="config_traffic_mode_title">Выберите режим трафика</string>
     <string name="title_asset_provider">Поставщик данных</string>
-    <string name="asset_provider_section_title">Гео-данные</string>
     <string name="asset_provider_entry_title">Поставщик гео-данных</string>
-    <string name="asset_provider_entry_body">Выберите источник geoip.db и geosite.db и проверьте обновления.</string>
     <string name="asset_provider_intro_title">Источник geoip.db и geosite.db</string>
     <string name="asset_provider_intro_body">Обновления применяются при следующем запуске службы. Горячая перезагрузка без перезапуска появится позже.</string>
     <string name="asset_provider_label">Поставщик</string>

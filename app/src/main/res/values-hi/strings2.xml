@@ -1340,9 +1340,7 @@
     <string name="split_tunnel_system_managed_body">Android 17 और उसके बाद, प्रति-ऐप VPN अपवाद सिस्टम सेटिंग्स में प्रबंधित होते हैं और पुनः कनेक्ट होने पर बने रहते हैं।</string>
     <string name="split_tunnel_open_system_settings">सिस्टम सेटिंग्स खोलें</string>
     <string name="title_asset_provider">एसेट प्रदाता</string>
-    <string name="asset_provider_section_title">जियो एसेट्स</string>
     <string name="asset_provider_entry_title">जियो एसेट प्रदाता</string>
-    <string name="asset_provider_entry_body">चुनें कि geoip.db और geosite.db कहाँ से आते हैं और अपडेट की जाँच करें।</string>
     <string name="asset_provider_intro_title">geoip.db और geosite.db स्रोत</string>
     <string name="asset_provider_intro_body">अपडेट अगली बार सेवा शुरू होने पर लागू होते हैं। बिना पुनरारंभ के लाइव रीलोड किसी बाद के अपडेट में आएगा।</string>
     <string name="asset_provider_label">प्रदाता</string>
