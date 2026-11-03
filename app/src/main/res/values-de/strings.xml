@@ -1093,7 +1093,7 @@ split midsld
 fake_burst 3</string>
     <string name="config_placeholder_fake_tls_size">0</string>
     <string name="config_placeholder_tls_record_marker">sniext+4</string>
-    <string name="config_preset_proxy_title">Direktprofil</string>
+    <string name="config_preset_proxy_title">Nur-Proxy-Profil</string>
     <string name="config_relay_body">Leitet Proxy-Verkehr über einen Remote-Relay-Server. Geheimnisse bleiben im Keystore-basierten Anmeldeinformationsspeicher auf diesem Gerät.</string>
     <string name="config_relay_credentials_title">Relay-Anmeldedaten fehlen</string>
     <string name="config_relay_kind_chain">Chain-Relay</string>
@@ -1112,8 +1112,6 @@ fake_burst 3</string>
     <string name="config_vpn_section_body">VPN-Pfadeinstellungen, Relay-Transport und DNS-Verhalten anpassen.</string>
     <string name="config_vpn_simple_title">Relay</string>
     <string name="config_vpn_simple_body">Fügen Sie einen Profil-Link hinzu; RIPDPI erkennt das Protokoll aus der URI.</string>
-    <string name="config_vpn_toggle_title">VPN-Pfad</string>
-    <string name="config_vpn_toggle_body">Zeigt, ob „Ganzes Gerät“ läuft.</string>
     <string name="config_vpn_add_profile_title">Profil hinzufügen</string>
     <string name="config_vpn_add_server_paste">Link einfügen</string>
     <string name="config_vpn_add_server_scan">QR scannen</string>
@@ -2023,7 +2021,7 @@ Quelle: %2$s</string>
     <string name="tcp_flag_card_step_label">Primärer Schritt</string>
     <string name="tcp_flag_orig_set_title">Originalpaket: Flags setzen</string>
     <string name="title_biometric_prompt">Authentifizierung</string>
-    <string name="title_local_bypass_config">Direkt-Einstellungen</string>
+    <string name="title_local_bypass_config">Einstellungen für den direkten Pfad</string>
     <string name="title_strategy_config">Strategie-Konfiguration</string>
     <string name="title_remembered_networks">Gespeicherte Netzwerke</string>
     <string name="title_root_mode_strategies">Root-Modus-Strategien</string>
@@ -2134,8 +2132,6 @@ Quelle: %2$s</string>
     <string name="config_local_bypass_section_body">Passen Sie den geräteinternen Proxy-Pfad, DNS und die Bypass-Strategie-Steuerungen an.</string>
     <string name="config_local_bypass_simple_title">Direkt</string>
     <string name="config_local_bypass_simple_body">Nutzen Sie den lokalen Bypass-Pfad mit der empfohlenen automatischen Bypass-Strategie.</string>
-    <string name="config_local_bypass_toggle_title">Direkt</string>
-    <string name="config_local_bypass_toggle_body">Zeigt, ob „Nur Proxy“ läuft.</string>
     <string name="config_local_bypass_enabled">Ein</string>
     <string name="config_local_bypass_disabled">Aus</string>
     <string name="config_local_bypass_strategy_title">Bypass-Strategie</string>

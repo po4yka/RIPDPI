@@ -5,7 +5,7 @@
     <string name="config_connection_scope_vpn">النطاق: الجهاز بالكامل</string>
     <string name="config_connection_scope_proxy">النطاق: وكيل فقط</string>
     <string name="config_connection_path_direct">المسار: مباشر</string>
-    <string name="config_connection_path_relay">المسار: الترحيل · %1$s</string>
+    <string name="config_connection_path_relay">المسار: المُرحِّل · %1$s</string>
     <string name="config_connection_details">تفاصيل الإعدادات</string>
     <string name="diagnostics_technical_details">التفاصيل التقنية</string>
     <string name="diagnostics_outcome_source_audit">تحليل الشبكة</string>
@@ -22,5 +22,5 @@
     <string name="config_scope_device">الجهاز بالكامل</string>
     <string name="config_scope_proxy">وكيل فقط</string>
     <string name="config_section_bypass_settings">مباشر</string>
-    <string name="config_section_server_settings">الترحيل</string>
+    <string name="config_section_server_settings">المُرحِّل</string>
 </resources>

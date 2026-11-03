@@ -120,29 +120,12 @@ private fun VpnSimpleCard(
     onProfileEdit: (String) -> Unit,
     onCreateProfile: (Route) -> Unit,
 ) {
-    val vpnEnabled = uiState.runningMode == Mode.VPN
-
     RipDpiCard(variant = RipDpiCardVariant.Tonal, modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigVpnSimple)) {
         RipDpiPanelHeader(title = stringResource(R.string.config_vpn_simple_title))
         Text(
             text = stringResource(R.string.config_vpn_simple_body),
             style = RipDpiThemeTokens.type.body,
             color = RipDpiThemeTokens.colors.mutedForeground,
-        )
-        SettingsRow(
-            title = stringResource(R.string.config_vpn_toggle_title),
-            subtitle = stringResource(R.string.config_vpn_toggle_body),
-            value =
-                stringResource(
-                    if (vpnEnabled) {
-                        R.string.config_local_bypass_enabled
-                    } else {
-                        R.string.config_local_bypass_disabled
-                    },
-                ),
-            leadingIcon = RipDpiIcons.Vpn,
-            showDivider = true,
-            testTag = RipDpiTestTags.ConfigVpnToggleState,
         )
         VpnSimpleActions(
             uiState = uiState,

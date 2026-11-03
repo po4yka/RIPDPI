@@ -1072,7 +1072,7 @@ fakeddisorder endhost</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_proxy_port">1080</string>
     <string name="config_port_helper">请使用 %1$d 到 %2$d 之间的端口。</string>
-    <string name="config_preset_proxy_title">直连配置文件</string>
+    <string name="config_preset_proxy_title">仅代理配置文件</string>
     <string name="config_proxy_helper">本地代理监听器绑定的位置。</string>
     <string name="config_relay_credentials_title">缺少中继凭据</string>
     <string name="config_relay_import">导入</string>
@@ -1559,8 +1559,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="config_local_bypass_section_body">调整设备本地代理路径、DNS 和绕过策略控制。</string>
     <string name="config_local_bypass_simple_title">直连</string>
     <string name="config_local_bypass_simple_body">使用设备上的绕过路径和推荐的自动绕过策略。</string>
-    <string name="config_local_bypass_toggle_title">直连</string>
-    <string name="config_local_bypass_toggle_body">显示“仅代理”是否正在运行。</string>
     <string name="config_local_bypass_enabled">开启</string>
     <string name="config_local_bypass_disabled">关闭</string>
     <string name="config_local_bypass_strategy_title">绕过策略</string>
@@ -1613,8 +1611,6 @@ fake_burst 3</string>
     <string name="config_vpn_section_body">调整 VPN 路径设置、中继传输和 DNS 行为。</string>
     <string name="config_vpn_simple_title">中继</string>
     <string name="config_vpn_simple_body">添加配置文件链接，RIPDPI 会从 URI 推断协议。</string>
-    <string name="config_vpn_toggle_title">VPN 路径</string>
-    <string name="config_vpn_toggle_body">显示“整台设备”是否正在运行。</string>
     <string name="config_vpn_add_profile_title">添加配置文件</string>
     <string name="config_vpn_add_server_paste">粘贴链接</string>
     <string name="config_vpn_add_server_scan">扫描 QR</string>
@@ -1985,7 +1981,7 @@ fake_burst 3</string>
     <string name="tcp_flag_fake_set_title">Fake 数据包:设置标志位</string>
     <string name="title_advanced_settings">高级设置</string>
     <string name="title_blockcheck">策略探测</string>
-    <string name="title_local_bypass_config">直连设置</string>
+    <string name="title_local_bypass_config">直连路径设置</string>
     <string name="title_shared_diagnostic_result">共享诊断</string>
     <string name="tls_fake_profile_interaction">Fake TLS SNI、随机化、Session ID 复制、填充和大小调整将叠加在此基础配置文件之上。</string>
     <string name="tls_fake_profile_scope_ready">当 TCP 链添加完整 fake HTTPS 步骤时即可使用。</string>

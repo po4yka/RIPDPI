@@ -549,13 +549,11 @@
     <string name="home_mode_card_diagnostic_status_review">Revise a auditoria mais recente</string>
     <string name="home_mode_card_run_scan">Verificar rede</string>
     <string name="home_mode_card_configure">Configurar</string>
-    <string name="title_local_bypass_config">Configurações diretas</string>
+    <string name="title_local_bypass_config">Configurações do caminho direto</string>
     <string name="title_vpn_config">Configuração de VPN</string>
     <string name="config_local_bypass_section_body">Ajuste o caminho de proxy no aparelho, o DNS e os controles da estratégia de desvio.</string>
     <string name="config_local_bypass_simple_title">Direto</string>
     <string name="config_local_bypass_simple_body">Use o caminho de desvio no aparelho com a estratégia de desvio automática recomendada.</string>
-    <string name="config_local_bypass_toggle_title">Direto</string>
-    <string name="config_local_bypass_toggle_body">Mostra se Somente proxy está em execução.</string>
     <string name="config_local_bypass_enabled">Ligado</string>
     <string name="config_local_bypass_disabled">Desligado</string>
     <string name="config_local_bypass_strategy_title">Estratégia de desvio</string>
@@ -569,8 +567,6 @@
     <string name="config_vpn_section_body">Ajuste as configurações do caminho VPN, o transporte do relay e o comportamento do DNS.</string>
     <string name="config_vpn_simple_title">Relay</string>
     <string name="config_vpn_simple_body">Adicione um link de perfil e deixe o RIPDPI inferir o protocolo pela URI.</string>
-    <string name="config_vpn_toggle_title">Caminho VPN</string>
-    <string name="config_vpn_toggle_body">Mostra se Dispositivo inteiro está em execução.</string>
     <string name="config_vpn_add_profile_title">Adicionar perfil</string>
     <string name="config_vpn_add_server_paste">Colar link</string>
     <string name="config_vpn_add_server_scan">Escanear QR</string>
@@ -592,7 +588,7 @@
     <string name="unsaved_changes_keep_editing">Continuar editando</string>
     <string name="config_preset_recommended_title">Perfil recomendado</string>
     <string name="config_preset_recommended_body">Perfil recomendado para a maioria das redes. Cobre o dispositivo inteiro com ajuste seguro do RIPDPI.</string>
-    <string name="config_preset_proxy_title">Perfil direto</string>
+    <string name="config_preset_proxy_title">Perfil somente proxy</string>
     <string name="config_preset_proxy_body">Perfil para Somente proxy com o mesmo ajuste base.</string>
     <string name="config_preset_custom_title">Perfil manual</string>
     <string name="config_preset_custom_body">Perfil para DNS manual, endpoint de proxy, valores do mecanismo e sobreposições opcionais de linha de comando.</string>

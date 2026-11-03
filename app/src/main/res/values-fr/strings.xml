@@ -1093,7 +1093,7 @@ split midsld
 fake_burst 3</string>
     <string name="config_placeholder_fake_tls_size">0</string>
     <string name="config_placeholder_tls_record_marker">sniext+4</string>
-    <string name="config_preset_proxy_title">Profil direct</string>
+    <string name="config_preset_proxy_title">Profil proxy uniquement</string>
     <string name="config_relay_body">Faire passer le trafic proxifié par un serveur relais distant. Les secrets restent dans le magasin d\'identifiants adossé au keystore de cet appareil.</string>
     <string name="config_relay_credentials_title">Identifiants de relais manquants</string>
     <string name="config_relay_kind_chain">Relais en chaîne</string>
@@ -1112,8 +1112,6 @@ fake_burst 3</string>
     <string name="config_vpn_section_body">Réglez les paramètres du chemin VPN, le transport de relais et le comportement DNS.</string>
     <string name="config_vpn_simple_title">Relais</string>
     <string name="config_vpn_simple_body">Ajoutez un lien de profil et RIPDPI déduira le protocole depuis l’URI.</string>
-    <string name="config_vpn_toggle_title">Chemin VPN</string>
-    <string name="config_vpn_toggle_body">Indique si « Tout l\'appareil » est en cours.</string>
     <string name="config_vpn_add_profile_title">Ajouter un profil</string>
     <string name="config_vpn_add_server_paste">Coller le lien</string>
     <string name="config_vpn_add_server_scan">Scanner QR</string>
@@ -2023,7 +2021,7 @@ Source : %2$s</string>
     <string name="tcp_flag_card_step_label">Étape principale</string>
     <string name="tcp_flag_orig_set_title">Paquet original : définir les flags</string>
     <string name="title_biometric_prompt">Authentification</string>
-    <string name="title_local_bypass_config">Paramètres directs</string>
+    <string name="title_local_bypass_config">Paramètres du chemin direct</string>
     <string name="title_strategy_config">Config de stratégie</string>
     <string name="title_remembered_networks">Réseaux mémorisés</string>
     <string name="title_root_mode_strategies">Stratégies en mode root</string>
@@ -2134,8 +2132,6 @@ Source : %2$s</string>
     <string name="config_local_bypass_section_body">Ajustez le chemin du proxy sur l\'appareil, le DNS et les commandes de stratégie de contournement.</string>
     <string name="config_local_bypass_simple_title">Direct</string>
     <string name="config_local_bypass_simple_body">Utilisez le chemin de contournement local avec la stratégie de contournement automatique recommandée.</string>
-    <string name="config_local_bypass_toggle_title">Direct</string>
-    <string name="config_local_bypass_toggle_body">Indique si « Proxy uniquement » est en cours.</string>
     <string name="config_local_bypass_enabled">Activé</string>
     <string name="config_local_bypass_disabled">Désactivé</string>
     <string name="config_local_bypass_strategy_title">Stratégie de contournement</string>

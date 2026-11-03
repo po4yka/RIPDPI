@@ -200,7 +200,7 @@ class FrenchLocalizationRegressionsTest(unittest.TestCase):
     def test_local_mode_and_credentials_use_french_labels(self):
         for key in ("config_preset_proxy_title", "config_preset_proxy_body"):
             with self.subTest(key=key):
-                self.assertIn("contournement local", text(self.fr[key]))
+                self.assertIn("roxy uniquement", text(self.fr[key]))
                 self.assertNotIn("Local bypass", text(self.fr[key]))
         for key in ("config_relay_credentials_body", "config_vpn_credentials_required", "warp_profile_id_body"):
             with self.subTest(key=key):

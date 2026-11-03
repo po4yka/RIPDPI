@@ -100,8 +100,6 @@ private fun LocalBypassSimpleCard(
     onDismissRuntimeError: () -> Unit,
     onRetestStrategies: () -> Unit,
 ) {
-    val localBypassEnabled = uiState.runningMode == Mode.Proxy
-
     RipDpiCard(
         variant = RipDpiCardVariant.Tonal,
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigLocalBypassSimple),
@@ -112,7 +110,6 @@ private fun LocalBypassSimpleCard(
             style = RipDpiThemeTokens.type.body,
             color = RipDpiThemeTokens.colors.mutedForeground,
         )
-        LocalBypassToggleStateRow(localBypassEnabled = localBypassEnabled)
         LocalBypassStrategyRow()
         LocalBypassPrecedenceRow(commandLineOverridesEnabled = uiState.draft.useCommandLineSettings)
         LocalBypassActionButtons(
@@ -122,25 +119,6 @@ private fun LocalBypassSimpleCard(
             modifier = Modifier.fillMaxWidth(),
         )
     }
-}
-
-@Composable
-private fun LocalBypassToggleStateRow(localBypassEnabled: Boolean) {
-    SettingsRow(
-        title = stringResource(R.string.config_local_bypass_toggle_title),
-        subtitle = stringResource(R.string.config_local_bypass_toggle_body),
-        value =
-            stringResource(
-                if (localBypassEnabled) {
-                    R.string.config_local_bypass_enabled
-                } else {
-                    R.string.config_local_bypass_disabled
-                },
-            ),
-        leadingIcon = RipDpiIcons.NetworkCheck,
-        showDivider = true,
-        testTag = RipDpiTestTags.ConfigLocalBypassToggleState,
-    )
 }
 
 @Composable

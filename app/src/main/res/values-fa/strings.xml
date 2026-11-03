@@ -549,13 +549,11 @@
     <string name="home_mode_card_diagnostic_status_review">بررسی آخرین حسابرسی</string>
     <string name="home_mode_card_run_scan">بررسی شبکه</string>
     <string name="home_mode_card_configure">پیکربندی</string>
-    <string name="title_local_bypass_config">تنظیمات مستقیم</string>
+    <string name="title_local_bypass_config">تنظیمات مسیر مستقیم</string>
     <string name="title_vpn_config">پیکربندی VPN</string>
     <string name="config_local_bypass_section_body">مسیر پراکسی روی دستگاه، DNS و کنترل‌های راهبرد عبور را تنظیم کنید.</string>
     <string name="config_local_bypass_simple_title">مستقیم</string>
     <string name="config_local_bypass_simple_body">از مسیر عبور روی دستگاه با راهبرد عبور خودکار پیشنهادی استفاده کنید.</string>
-    <string name="config_local_bypass_toggle_title">مستقیم</string>
-    <string name="config_local_bypass_toggle_body">نشان می‌دهد آیا «فقط پروکسی» در حال اجرا است.</string>
     <string name="config_local_bypass_enabled">روشن</string>
     <string name="config_local_bypass_disabled">خاموش</string>
     <string name="config_local_bypass_strategy_title">راهبرد عبور</string>
@@ -569,8 +567,6 @@
     <string name="config_vpn_section_body">تنظیمات مسیر VPN، حمل‌و‌نقل رله و رفتار DNS را تنظیم کنید.</string>
     <string name="config_vpn_simple_title">رله</string>
     <string name="config_vpn_simple_body">پیوند نمایه را اضافه کنید تا RIPDPI پروتکل را از URI تشخیص دهد.</string>
-    <string name="config_vpn_toggle_title">مسیر VPN</string>
-    <string name="config_vpn_toggle_body">نشان می‌دهد آیا «کل دستگاه» در حال اجرا است.</string>
     <string name="config_vpn_add_profile_title">افزودن نمایه</string>
     <string name="config_vpn_add_server_paste">چسباندن پیوند</string>
     <string name="config_vpn_add_server_scan">اسکن QR</string>
@@ -592,7 +588,7 @@
     <string name="unsaved_changes_keep_editing">ادامه ویرایش</string>
     <string name="config_preset_recommended_title">نمایه پیشنهادی</string>
     <string name="config_preset_recommended_body">نمایهٔ پیشنهادی برای بیشتر شبکه‌ها. کل دستگاه را پوشش می‌دهد و تنظیم ایمن RIPDPI را حفظ می‌کند.</string>
-    <string name="config_preset_proxy_title">نمایهٔ مستقیم</string>
+    <string name="config_preset_proxy_title">نمایهٔ فقط پروکسی</string>
     <string name="config_preset_proxy_body">نمایه برای «فقط پروکسی» با همان تنظیم پایه.</string>
     <string name="config_preset_custom_title">نمایه دستی</string>
     <string name="config_preset_custom_body">نمایه‌ای برای DNS دستی، نقطه پایانی پروکسی، مقدارهای موتور و بازنویسی‌های اختیاری خط فرمان.</string>

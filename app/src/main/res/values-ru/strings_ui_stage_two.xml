@@ -5,7 +5,7 @@
     <string name="config_connection_scope_vpn">Охват: всё устройство</string>
     <string name="config_connection_scope_proxy">Охват: только прокси</string>
     <string name="config_connection_path_direct">Путь: напрямую</string>
-    <string name="config_connection_path_relay">Путь: реле · %1$s</string>
+    <string name="config_connection_path_relay">Путь: через сервер · %1$s</string>
     <string name="config_connection_details">Подробности конфигурации</string>
     <string name="diagnostics_technical_details">Технические сведения</string>
     <string name="diagnostics_outcome_source_audit">Анализ сети</string>
@@ -22,5 +22,5 @@
     <string name="config_scope_device">Всё устройство</string>
     <string name="config_scope_proxy">Только прокси</string>
     <string name="config_section_bypass_settings">Напрямую</string>
-    <string name="config_section_server_settings">Реле</string>
+    <string name="config_section_server_settings">Через сервер</string>
 </resources>

@@ -464,7 +464,7 @@
     <string name="config_cancel">Отмена</string>
     <string name="config_preset_recommended_title">Рекомендуемый профиль</string>
     <string name="config_preset_recommended_body">Рекомендуемый профиль для большинства сетей. Работает на всём устройстве, с безопасной настройкой RIPDPI.</string>
-    <string name="config_preset_proxy_title">Прямой профиль</string>
+    <string name="config_preset_proxy_title">Профиль «Только прокси»</string>
     <string name="config_preset_proxy_body">Профиль для режима «Только прокси» с той же базовой настройкой.</string>
     <string name="config_preset_custom_title">Ручной профиль</string>
     <string name="config_preset_custom_body">Профиль для ручной настройки DNS, конечной точки прокси, параметров движка и необязательных переопределений командной строки.</string>
@@ -1963,8 +1963,6 @@ fakeddisorder endhost</string>
     <string name="config_local_bypass_section_body">Настройте локальный путь прокси, DNS и параметры стратегии обхода.</string>
     <string name="config_local_bypass_simple_title">Напрямую</string>
     <string name="config_local_bypass_simple_body">Используйте локальный путь обхода с рекомендованной автоматической стратегией обхода.</string>
-    <string name="config_local_bypass_toggle_title">Напрямую</string>
-    <string name="config_local_bypass_toggle_body">Показывает, запущен ли режим «Только прокси».</string>
     <string name="config_local_bypass_enabled">Вкл.</string>
     <string name="config_local_bypass_disabled">Выкл.</string>
     <string name="config_local_bypass_strategy_title">Стратегия обхода</string>
@@ -2089,10 +2087,8 @@ fakeddisorder endhost</string>
     <string name="config_vpn_protocol_title">Протокол реле</string>
     <string name="config_vpn_relay_server_summary">Адрес удалённого сервера, через который идёт ваш трафик</string>
     <string name="config_vpn_section_body">Настройте параметры пути VPN, транспорт реле и поведение DNS.</string>
-    <string name="config_vpn_simple_title">Реле</string>
+    <string name="config_vpn_simple_title">Через сервер</string>
     <string name="config_vpn_simple_body">Добавьте ссылку профиля, а RIPDPI определит протокол по URI.</string>
-    <string name="config_vpn_toggle_title">Путь VPN</string>
-    <string name="config_vpn_toggle_body">Показывает, запущен ли режим «Всё устройство».</string>
     <string name="config_vpn_add_profile_title">Добавить профиль</string>
     <string name="config_vpn_add_server_paste">Вставить ссылку</string>
     <string name="config_vpn_add_server_scan">Сканировать QR</string>
@@ -2374,7 +2370,7 @@ fakeddisorder endhost</string>
     <string name="tcp_flag_orig_clear_title">Оригинальный пакет: очистить флаги</string>
     <string name="tcp_flag_orig_set_title">Оригинальный пакет: установить флаги</string>
     <string name="title_blockcheck">Зондирование стратегий</string>
-    <string name="title_local_bypass_config">Прямые настройки</string>
+    <string name="title_local_bypass_config">Настройки прямого пути</string>
     <string name="title_shared_diagnostic_result">Общая диагностика</string>
     <string name="title_strategy_config">Конфигурация стратегии</string>
     <string name="title_remembered_networks">Запомненные сети</string>

@@ -647,8 +647,6 @@ app:config_local_bypass_simple_title
 app:config_local_bypass_strategy_auto
 app:config_local_bypass_strategy_body
 app:config_local_bypass_strategy_title
-app:config_local_bypass_toggle_body
-app:config_local_bypass_toggle_title
 app:config_max_connections_helper
 app:config_mode_section
 app:config_network_section
@@ -849,8 +847,6 @@ app:config_vpn_relay_server_summary
 app:config_vpn_section_body
 app:config_vpn_simple_body
 app:config_vpn_simple_title
-app:config_vpn_toggle_body
-app:config_vpn_toggle_title
 app:config_xray_import_body
 app:config_xray_import_title
 app:confirm_clear_remembered_networks_body

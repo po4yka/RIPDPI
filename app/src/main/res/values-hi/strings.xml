@@ -547,13 +547,11 @@
     <string name="home_mode_card_diagnostic_status_review">नवीनतम ऑडिट देखें</string>
     <string name="home_mode_card_run_scan">नेटवर्क जाँचें</string>
     <string name="home_mode_card_configure">कॉन्फ़िगर करें</string>
-    <string name="title_local_bypass_config">सीधी सेटिंग्स</string>
+    <string name="title_local_bypass_config">सीधे पथ की सेटिंग</string>
     <string name="title_vpn_config">VPN कॉन्फ़िग</string>
     <string name="config_local_bypass_section_body">डिवाइस पर मौजूद प्रॉक्सी पथ, DNS, और बायपास रणनीति नियंत्रण समायोजित करें.</string>
     <string name="config_local_bypass_simple_title">सीधा</string>
     <string name="config_local_bypass_simple_body">अनुशंसित स्वचालित बायपास रणनीति के साथ डिवाइस पर मौजूद बायपास पथ का उपयोग करें.</string>
-    <string name="config_local_bypass_toggle_title">सीधा</string>
-    <string name="config_local_bypass_toggle_body">दिखाता है कि «केवल प्रॉक्सी» चल रहा है या नहीं।</string>
     <string name="config_local_bypass_enabled">चालू</string>
     <string name="config_local_bypass_disabled">बंद</string>
     <string name="config_local_bypass_strategy_title">बायपास रणनीति</string>
@@ -567,8 +565,6 @@
     <string name="config_vpn_section_body">VPN पथ सेटिंग्स, रिले ट्रांसपोर्ट और DNS व्यवहार को समायोजित करें।</string>
     <string name="config_vpn_simple_title">रिले</string>
     <string name="config_vpn_simple_body">एक प्रोफ़ाइल लिंक जोड़ें और RIPDPI को URI से प्रोटोकॉल का अनुमान लगाने दें।</string>
-    <string name="config_vpn_toggle_title">VPN पथ</string>
-    <string name="config_vpn_toggle_body">दिखाता है कि «पूरा डिवाइस» चल रहा है या नहीं।</string>
     <string name="config_vpn_add_profile_title">प्रोफ़ाइल जोड़ें</string>
     <string name="config_vpn_add_server_paste">लिंक चिपकाएँ</string>
     <string name="config_vpn_add_server_scan">QR स्कैन करें</string>
@@ -590,7 +586,7 @@
     <string name="unsaved_changes_keep_editing">संपादन जारी रखें</string>
     <string name="config_preset_recommended_title">अनुशंसित प्रोफ़ाइल</string>
     <string name="config_preset_recommended_body">अधिकांश नेटवर्क के लिए अनुशंसित प्रोफ़ाइल। पूरे डिवाइस को कवर करती है और सुरक्षित RIPDPI ट्यूनिंग रखती है।</string>
-    <string name="config_preset_proxy_title">सीधी प्रोफ़ाइल</string>
+    <string name="config_preset_proxy_title">केवल प्रॉक्सी प्रोफ़ाइल</string>
     <string name="config_preset_proxy_body">«केवल प्रॉक्सी» के लिए प्रोफ़ाइल, समान बेस ट्यूनिंग के साथ।</string>
     <string name="config_preset_custom_title">मैनुअल प्रोफ़ाइल</string>
     <string name="config_preset_custom_body">मैनुअल DNS, प्रॉक्सी एंडपॉइंट, इंजन मानों और वैकल्पिक कमांड लाइन ओवरराइड के लिए प्रोफ़ाइल।</string>
