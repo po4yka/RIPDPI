@@ -1,7 +1,7 @@
 use std::io;
 
 use crate::backend::builder::BuildContext;
-use crate::backend::builder::builders::common::{finalmask_config, invalid_input};
+use crate::backend::builder::builders::common::{finalmask_config, invalid_input, xhttp_pool_config};
 use crate::backend::{PooledRelayBackend, RelayBackend};
 use crate::config::{RelayBackendConfig, ResolvedRelayRuntimeConfig};
 use crate::protocols::{XhttpSessionFactory, XhttpSessionMode};
@@ -40,12 +40,13 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     .map_err(invalid_input)?;
     tls = tls.with_flow_str(&vless.vless_flow).map_err(invalid_input)?;
     tls = tls.with_protocol_mode_str(&vless.xhttp_mode).map_err(invalid_input)?;
+    tls.xmux = xhttp_pool_config(&vless.xhttp_mode, vless.xhttp_max_connections)?;
     tls.bind_ip = context.outbound_bind_ip;
     tls.socket_protector = context.socket_protector.clone();
     tls.finalmask = finalmask_config(&config.common.finalmask);
 
     Ok(RelayBackend::Xhttp(PooledRelayBackend::new(
-        XhttpSessionFactory { mode: XhttpSessionMode::Tls(tls), udp_enabled: config.common.udp_enabled },
+        XhttpSessionFactory::new(XhttpSessionMode::Tls(tls), config.common.udp_enabled),
         context.pool_config,
         None,
     )))

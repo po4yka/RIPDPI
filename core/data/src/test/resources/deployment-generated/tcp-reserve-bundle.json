@@ -1,0 +1,183 @@
+{
+  "log": {
+    "level": "warn",
+    "timestamp": true
+  },
+  "dns": {
+    "servers": [
+      {
+        "type": "https",
+        "tag": "remote",
+        "server": "1.1.1.1",
+        "detour": "select"
+      }
+    ]
+  },
+  "inbounds": [
+    {
+      "type": "tun",
+      "tag": "tun-in",
+      "interface_name": "tun0",
+      "address": ["172.19.0.1/30", "fdfe:dcba:9876::1/126"],
+      "auto_route": true,
+      "strict_route": true,
+      "stack": "system"
+    }
+  ],
+  "outbounds": [
+    {
+      "type": "vless",
+      "tag": "p1-xhttp-upcloud-fixture",
+      "server": "192.0.2.10",
+      "server_port": 8443,
+      "uuid": "abcdef12-3456-4789-8abc-def012345678",
+      "tls": {
+        "enabled": true,
+        "server_name": "vpn.example.com",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
+      },
+      "transport": {
+        "type": "xhttp",
+        "host": "vpn.example.com",
+        "path": "/5f3a9c0e1b7d4a26b8e9c3f1d0a47e62",
+        "mode": "stream-up",
+        "xmux": {
+          "maxConnections": 2,
+          "hMaxRequestTimes": 0,
+          "hMaxReusableSecs": 0,
+          "cMaxReuseTimes": 0
+        }
+      }
+    },
+    {
+      "type": "vless",
+      "tag": "p1-xhttp-upcloud-fixture:alternate",
+      "server": "192.0.2.10",
+      "server_port": 2083,
+      "uuid": "abcdef12-3456-4789-8abc-def012345678",
+      "tls": {
+        "enabled": true,
+        "server_name": "alternate.example.test",
+        "utls": {
+          "enabled": true,
+          "fingerprint": "chrome"
+        }
+      },
+      "transport": {
+        "type": "xhttp",
+        "host": "alternate.example.test",
+        "path": "/5f3a9c0e1b7d4a26b8e9c3f1d0a47e62",
+        "mode": "stream-up",
+        "xmux": {
+          "maxConnections": 2,
+          "hMaxRequestTimes": 0,
+          "hMaxReusableSecs": 0,
+          "cMaxReuseTimes": 0
+        }
+      }
+    },
+    {
+      "type": "hysteria2",
+      "tag": "p2-hysteria2-upcloud-fixture",
+      "server": "192.0.2.10",
+      "server_port": 443,
+      "password": "laptop:synthetic-hysteria-laptop",
+      "tls": {
+        "enabled": true,
+        "server_name": "vpn.example.com"
+      },
+      "up_mbps": 200,
+      "down_mbps": 100
+    },
+    {
+      "type": "selector",
+      "tag": "select",
+      "outbounds": [
+        "p1-xhttp-upcloud-fixture",
+        "p1-xhttp-upcloud-fixture:alternate",
+        "p2-hysteria2-upcloud-fixture",
+        "auto"
+      ],
+      "default": "auto",
+      "interrupt_exist_connections": false
+    },
+    {
+      "type": "urltest",
+      "tag": "auto",
+      "outbounds": [
+        "p1-xhttp-upcloud-fixture",
+        "p1-xhttp-upcloud-fixture:alternate",
+        "p2-hysteria2-upcloud-fixture"
+      ],
+      "url": "https://www.gstatic.com/generate_204",
+      "interval": "30m",
+      "tolerance": 50
+    },
+    {
+      "type": "direct",
+      "tag": "direct"
+    },
+    {
+      "type": "block",
+      "tag": "block"
+    }
+  ],
+  "route": {
+    "rules": [
+      {
+        "action": "sniff"
+      },
+      {
+        "protocol": "dns",
+        "action": "hijack-dns"
+      }
+    ],
+    "final": "select",
+    "auto_detect_interface": true
+  },
+  "ripdpi": {
+    "schema_version": 2,
+    "amneziawg": [],
+    "hysteria_extras": {
+      "p2-hysteria2-upcloud-fixture": {
+        "insecure": false
+      }
+    },
+    "topology": {
+      "split_hop_egress": false,
+      "hysteria_realm": null
+    },
+    "payload_failover": {
+      "schema_version": 2,
+      "selector_tag": "select",
+      "probes": [
+        {
+          "url": "https://control-a.example.test/__throttle_probe?bytes=262144",
+          "expected_bytes": 262144,
+          "sha256": "b1882646e3ee80170bd9207304f77c71d388b0a786d53e5e7f4e16fb22e8b6dc"
+        },
+        {
+          "url": "https://control-b.example.test/__throttle_probe?bytes=262144",
+          "expected_bytes": 262144,
+          "sha256": "b1882646e3ee80170bd9207304f77c71d388b0a786d53e5e7f4e16fb22e8b6dc"
+        }
+      ],
+      "interval_seconds": 60,
+      "timeout_seconds": 10,
+      "failure_threshold": 2,
+      "recovery_threshold": 2,
+      "cooldown_seconds": 120,
+      "max_backoff_seconds": 900,
+      "quality": {
+        "max_pass_bytes": 2097152,
+        "max_window_bytes": 16777216,
+        "window_seconds": 3600,
+        "minimum_gain_percent": 20,
+        "maximum_loaded_latency_increase_ms": 50
+      }
+    }
+  }
+}

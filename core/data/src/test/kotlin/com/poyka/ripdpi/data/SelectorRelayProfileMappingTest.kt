@@ -12,6 +12,24 @@ import org.junit.Test
 
 class SelectorRelayProfileMappingTest {
     @Test
+    fun `imported bounded XHTTP survives profile and relay storage`() {
+        val payload = """{"outbounds":[{"type":"vless","tag":"p1","server":"relay.example",
+            "server_port":443,"uuid":"55555555-5555-5555-5555-555555555555",
+            "tls":{"enabled":true,"server_name":"relay.example"},
+            "transport":{"type":"xhttp","path":"/stream","mode":"stream-up",
+            "xmux":{"maxConnections":2,"hMaxRequestTimes":0,"hMaxReusableSecs":0,"cMaxReuseTimes":0}}}]}"""
+        val parsed = SingBoxSubscriptionParser.parse(payload, "group") as SingBoxParseResult.Success
+        val imported = parsed.profiles.single() as ProxyProfile.Vless
+        val stored = storedProfile(imported)
+        val relay = checkNotNull(mapRelayProfile(stored)).profile
+        val restored = RipDpiJson.decodeFromString<RelayProfileRecord>(RipDpiEncodeDefaultsJson.encodeToString(relay))
+
+        assertEquals(2, imported.xhttpMaxConnections)
+        assertEquals(imported, stored)
+        assertEquals(2, restored.xhttpMaxConnections)
+    }
+
+    @Test
     fun `Shadowsocks imports enable UDP only for SS2022 and preserve TCP credentials`() {
         listOf(
             "aes-128-gcm" to "legacy-test-key",

@@ -162,6 +162,8 @@ data class ResolvedRipDpiRelayConfig(
     val xhttpPath: String = "",
     val xhttpHost: String = "",
     val xhttpMode: String = com.poyka.ripdpi.data.RelayXhttpModeAuto,
+    @EncodeDefault(EncodeDefault.Mode.NEVER)
+    val xhttpMaxConnections: Int? = null,
     val vlessMuxProtocol: String = "",
     val vlessMuxMaxConcurrentStreams: Int = 0,
     val vlessMuxPerConnectionKbps: Int = 0,
@@ -392,6 +394,7 @@ private fun ResolvedRipDpiRelayConfig.vlessSection(): RelayVlessSection =
         xhttpPath = xhttpPath,
         xhttpHost = xhttpHost,
         xhttpMode = xhttpMode,
+        xhttpMaxConnections = xhttpMaxConnections,
         vlessMuxProtocol = vlessMuxProtocol,
         vlessMuxMaxConcurrentStreams = vlessMuxMaxConcurrentStreams,
         vlessMuxPerConnectionKbps = vlessMuxPerConnectionKbps,
@@ -654,9 +657,6 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         realityShortId = vless.realityShortId,
         vlessFlow = vless.vlessFlow,
         vlessTransport = vless.vlessTransport,
-        xhttpPath = vless.xhttpPath,
-        xhttpHost = vless.xhttpHost,
-        xhttpMode = vless.xhttpMode,
         vlessMuxProtocol = vless.vlessMuxProtocol,
         vlessMuxMaxConcurrentStreams = vless.vlessMuxMaxConcurrentStreams,
         vlessMuxPerConnectionKbps = vless.vlessMuxPerConnectionKbps,
@@ -759,7 +759,7 @@ fun RelayConfigSections.toResolvedConfig(): ResolvedRipDpiRelayConfig =
         appsScriptDirectHosts = appsScript.appsScriptDirectHosts,
         appsScriptAuthKey = appsScript.appsScriptAuthKey,
         finalmask = finalmask,
-    ).withHysteria2(hysteria2)
+    ).withHysteria2(hysteria2).withXhttp(vless)
 
 /** Copy the Hysteria section as one unit, including optional hopping policy. */
 private fun ResolvedRipDpiRelayConfig.withHysteria2(section: RelayHysteria2Section): ResolvedRipDpiRelayConfig =
@@ -771,4 +771,13 @@ private fun ResolvedRipDpiRelayConfig.withHysteria2(section: RelayHysteria2Secti
         hysteriaPortHopPorts = section.hysteriaPortHopPorts,
         hysteriaPortHopIntervalMillis = section.hysteriaPortHopIntervalMillis,
         hysteriaPortHopIntervalMaxMillis = section.hysteriaPortHopIntervalMaxMillis,
+    )
+
+/** Copy the XHTTP options as one unit, including the optional connection bound. */
+private fun ResolvedRipDpiRelayConfig.withXhttp(section: RelayVlessSection): ResolvedRipDpiRelayConfig =
+    copy(
+        xhttpPath = section.xhttpPath,
+        xhttpHost = section.xhttpHost,
+        xhttpMode = section.xhttpMode,
+        xhttpMaxConnections = section.xhttpMaxConnections,
     )

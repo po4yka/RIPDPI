@@ -2,6 +2,8 @@ package com.poyka.ripdpi.data
 
 import java.util.Base64
 
+internal const val MaxBoundedXhttpConnections = 4
+
 /** Capability-only check used before import previews and durable writes. */
 fun nativeVlessProfileRejection(profile: ProxyProfile): String? =
     when (profile) {
@@ -62,6 +64,14 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
                 realityPublicKey = profile.realityPublicKey,
                 realityShortId = profile.realityShortId,
             )
+            require(
+                profile.xhttpMaxConnections == null ||
+                    (
+                        profile.xhttpMaxConnections in 1..MaxBoundedXhttpConnections &&
+                            profile.xhttpMode == RelayXhttpModeStreamUp &&
+                            (profile.xhttpPath != null || profile.xhttpHost != null)
+                    ),
+            ) { "Unsupported XHTTP pool settings" }
             require(nativeVlessProfileRejection(profile) == null) { nativeVlessProfileRejection(profile).orEmpty() }
             true
         }
@@ -71,6 +81,14 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
             require(profile.serverPort in RelayPortRange) { "VLESS requires a valid server port" }
             require(!profile.serverName.isNullOrBlank()) { "VLESS requires a TLS server name" }
             require(isValidVlessUuid(profile.uuid)) { "VLESS requires a valid UUID" }
+            require(
+                profile.xhttpMaxConnections == null ||
+                    (
+                        profile.xhttpMaxConnections in 1..MaxBoundedXhttpConnections &&
+                            profile.xhttpMode == RelayXhttpModeStreamUp &&
+                            (profile.xhttpPath != null || profile.xhttpHost != null)
+                    ),
+            ) { "Unsupported XHTTP pool settings" }
             require(nativeVlessProfileRejection(profile) == null) { nativeVlessProfileRejection(profile).orEmpty() }
             true
         }

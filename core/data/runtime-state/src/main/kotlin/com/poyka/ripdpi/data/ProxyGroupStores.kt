@@ -174,6 +174,7 @@ sealed interface ProxyProfile {
         val xhttpPath: String? = null,
         val xhttpHost: String? = null,
         val xhttpMode: String = RelayXhttpModeAuto,
+        val xhttpMaxConnections: Int? = null,
     ) : ProxyProfile
 
     /**
@@ -205,6 +206,7 @@ sealed interface ProxyProfile {
         val xhttpHost: String? = null,
         /** xhttp mode (`auto`, `stream-up`, or `stream-one`); used only when xhttp transport is active. */
         val xhttpMode: String = RelayXhttpModeAuto,
+        val xhttpMaxConnections: Int? = null,
     ) : ProxyProfile
 
     @Serializable

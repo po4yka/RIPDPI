@@ -82,11 +82,11 @@ object ProxyUriCodec {
     fun encodeOrNull(profile: ProxyProfile): String? =
         when (profile) {
             is ProxyProfile.Vless -> {
-                encodeVless(profile)
+                if (profile.xhttpMaxConnections == null) encodeVless(profile) else null
             }
 
             is ProxyProfile.VlessReality -> {
-                encodeVlessReality(profile)
+                if (profile.xhttpMaxConnections == null) encodeVlessReality(profile) else null
             }
 
             is ProxyProfile.Trojan -> {

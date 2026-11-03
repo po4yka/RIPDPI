@@ -3,6 +3,8 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.OwnedRelayQuicMigrationConfig
 import com.poyka.ripdpi.core.ResolvedTorPluggableTransportConfig
 import com.poyka.ripdpi.core.RipDpiRelayConfig
+import com.poyka.ripdpi.core.toResolvedConfig
+import com.poyka.ripdpi.core.toSections
 import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
 import com.poyka.ripdpi.data.RelayCredentialRecord
@@ -924,53 +926,6 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
         }
 
     @Test
-    fun `resolve default family routes plain vless xhttp through native config`() =
-        runTest {
-            val resolver =
-                resolver(
-                    relayCredentialStore =
-                        TestRelayCredentialStore().apply {
-                            save(
-                                RelayCredentialRecord(
-                                    profileId = "plain-vless",
-                                    vlessUuid = "55555555-5555-5555-5555-555555555555",
-                                ),
-                            )
-                        },
-                )
-
-            val resolved =
-                resolver.resolve(
-                    config =
-                        RipDpiRelayConfig(
-                            enabled = true,
-                            kind = RelayKindVless,
-                            profileId = "plain-vless",
-                            server = "relay.example",
-                            serverPort = 443,
-                            serverName = "relay.example",
-                            vlessTransport = RelayVlessTransportXhttp,
-                            xhttpPath = "/xhttp",
-                            xhttpMode = "stream-one",
-                            vlessFlow = "",
-                            xhttpHost = "origin.example",
-                        ),
-                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
-                    expectedSelection =
-                        com.poyka.ripdpi.data
-                            .RuntimeConfigurationSelection("native"),
-                )
-
-            assertEquals(RelayKindVless, resolved.kind)
-            assertEquals(RelayVlessTransportXhttp, resolved.vlessTransport)
-            assertEquals("/xhttp", resolved.xhttpPath)
-            assertEquals("origin.example", resolved.xhttpHost)
-            assertEquals("55555555-5555-5555-5555-555555555555", resolved.vlessUuid)
-            assertEquals("", resolved.realityPublicKey)
-            assertEquals("", resolved.realityShortId)
-        }
-
-    @Test
     fun `resolve default family rejects unsupported plain vless xhttp mode`() =
         runTest {
             val resolver =
@@ -1271,5 +1226,57 @@ class UpstreamRelayRuntimeConfigResolverNativeFamiliesTest : UpstreamRelayRuntim
             assertTrue(resolved.udpEnabled)
             assertEquals("front.example", resolved.serverName)
             assertEquals(credentialFixture("anytls"), resolved.anyTlsPassword)
+        }
+}
+
+class UpstreamRelayXhttpPoolTest : UpstreamRelayRuntimeConfigResolverTestFixture() {
+    @Test
+    fun `resolve default family routes plain vless xhttp through native config`() =
+        runTest {
+            val resolver =
+                resolver(
+                    relayCredentialStore =
+                        TestRelayCredentialStore().apply {
+                            save(
+                                RelayCredentialRecord(
+                                    profileId = "plain-vless",
+                                    vlessUuid = "55555555-5555-5555-5555-555555555555",
+                                ),
+                            )
+                        },
+                )
+
+            val resolved =
+                resolver.resolve(
+                    config =
+                        RipDpiRelayConfig(
+                            enabled = true,
+                            kind = RelayKindVless,
+                            profileId = "plain-vless",
+                            server = "relay.example",
+                            serverPort = 443,
+                            serverName = "relay.example",
+                            vlessTransport = RelayVlessTransportXhttp,
+                            xhttpPath = "/xhttp",
+                            xhttpMode = "stream-up",
+                            xhttpMaxConnections = 2,
+                            vlessFlow = "",
+                            xhttpHost = "origin.example",
+                        ),
+                    inputs = testRelayResolutionInputs(quic = OwnedRelayQuicMigrationConfig()),
+                    expectedSelection =
+                        com.poyka.ripdpi.data
+                            .RuntimeConfigurationSelection("native"),
+                )
+
+            assertEquals(RelayKindVless, resolved.kind)
+            assertEquals(RelayVlessTransportXhttp, resolved.vlessTransport)
+            assertEquals("/xhttp", resolved.xhttpPath)
+            assertEquals(2, resolved.xhttpMaxConnections)
+            assertEquals(2, resolved.toSections().toResolvedConfig().xhttpMaxConnections)
+            assertEquals("origin.example", resolved.xhttpHost)
+            assertEquals("55555555-5555-5555-5555-555555555555", resolved.vlessUuid)
+            assertEquals("", resolved.realityPublicKey)
+            assertEquals("", resolved.realityShortId)
         }
 }

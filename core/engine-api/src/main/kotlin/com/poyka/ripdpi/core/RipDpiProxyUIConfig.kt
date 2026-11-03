@@ -251,6 +251,7 @@ data class RipDpiRelayConfig(
     val xhttpPath: String = "",
     val xhttpHost: String = "",
     val xhttpMode: String = com.poyka.ripdpi.data.RelayXhttpModeAuto,
+    val xhttpMaxConnections: Int? = null,
     val vlessMuxProtocol: String = "",
     val vlessMuxMaxConcurrentStreams: Int = 0,
     val vlessMuxPerConnectionKbps: Int = 0,

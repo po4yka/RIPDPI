@@ -2,11 +2,15 @@ package com.poyka.ripdpi.proxyimport
 
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.RelaySecurityLayerReality
+import com.poyka.ripdpi.data.RelaySecurityLayerTls
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -40,6 +44,39 @@ class RelayProfileShareMapperVlessRealityTest {
         assertTrue(shareable.shareUri.startsWith("vless://"))
         assertTrue(shareable.shareUri.contains("type=xhttp"))
         assertTrue(shareable.shareUri.contains("mode=stream-one"))
+    }
+
+    @Test
+    fun `bounded saved VLESS profiles refuse URI sharing without losing their limit`() {
+        listOf(RelayKindVless, RelayKindVlessReality).forEach { kind ->
+            val record =
+                RelayProfileRecord(
+                    kind = kind,
+                    securityLayer =
+                        if (kind ==
+                            RelayKindVlessReality
+                        ) {
+                            RelaySecurityLayerReality
+                        } else {
+                            RelaySecurityLayerTls
+                        },
+                    server = "edge.example.com",
+                    serverName = "edge.example.com",
+                    realityPublicKey = if (kind == RelayKindVlessReality) validRealityPublicKey else "",
+                    vlessFlow = "",
+                    vlessTransport = RelayVlessTransportXhttp,
+                    xhttpPath = "/stream",
+                    xhttpMode = "stream-up",
+                    xhttpMaxConnections = 2,
+                )
+            val credentials = RelayCredentialRecord(profileId = record.id, vlessUuid = validVlessUuid)
+
+            assertNotNull(
+                kind,
+                RelayProfileShareMapper.toShareable(record.copy(xhttpMaxConnections = null), credentials),
+            )
+            assertNull(kind, RelayProfileShareMapper.toShareable(record, credentials))
+        }
     }
 
     @Test

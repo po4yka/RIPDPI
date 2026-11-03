@@ -5,11 +5,11 @@ use std::sync::atomic::AtomicUsize;
 use std::time::Duration;
 
 use ripdpi_vless::VlessXudpSession;
-use tokio::sync::{Mutex, Notify};
+use tokio::sync::{Mutex, Notify, Semaphore};
 use tokio::time::timeout;
 
 use crate::config::{AsyncIo, XhttpMode, XhttpRealityConfig, XhttpTlsConfig, XmuxConfig};
-use crate::pool::{self, PoolState};
+use crate::pool::{self, PoolState, PooledConnection};
 use crate::relay::XhttpStream;
 
 const STREAM_ESTABLISHMENT_TIMEOUT: Duration = Duration::from_secs(30);
@@ -23,10 +23,21 @@ pub struct XhttpClient {
 pub(crate) struct XhttpClientInner {
     pub(crate) mode: XhttpMode,
     pub(crate) max_connections: usize,
+    pub(crate) carrier_capacity: Arc<Semaphore>,
     pub(crate) max_concurrent_streams: usize,
     pub(crate) creating_connections: Arc<AtomicUsize>,
     pub(crate) pool_changed: Arc<Notify>,
     pub(crate) state: Mutex<PoolState>,
+}
+
+struct PendingStreamCarrier(Option<Arc<PooledConnection>>);
+
+impl Drop for PendingStreamCarrier {
+    fn drop(&mut self) {
+        if let Some(connection) = self.0.take() {
+            connection.request_close();
+        }
+    }
 }
 
 /// cancel-safe: cancelling drops the not-yet-returned stream and releases all
@@ -76,7 +87,12 @@ impl XhttpClient {
     fn open_stream<'a>(&'a self, request: &'a [u8]) -> impl Future<Output = io::Result<XhttpStream>> + 'a {
         establish_with_deadline(STREAM_ESTABLISHMENT_TIMEOUT, async move {
             let (connection, permit) = pool::acquire_connection(&self.inner).await?;
-            connection.open_stream_from_mode(&self.inner.mode, request, permit).await
+            let mut pending = PendingStreamCarrier(Some(connection.clone()));
+            let result = connection.open_stream_from_mode(&self.inner.mode, request, permit).await;
+            // A completed HTTP refusal is stream-local. Only interrupted establishment
+            // retires a carrier that may have become a silent blackhole.
+            pending.0 = None;
+            result
         })
     }
 
@@ -85,6 +101,7 @@ impl XhttpClient {
             inner: Arc::new(XhttpClientInner {
                 mode,
                 max_connections: xmux.max_connections.max(1),
+                carrier_capacity: Arc::new(Semaphore::new(xmux.max_connections.max(1))),
                 max_concurrent_streams: xmux.max_concurrent_streams.max(1),
                 creating_connections: Arc::new(AtomicUsize::new(0)),
                 pool_changed: Arc::new(Notify::new()),

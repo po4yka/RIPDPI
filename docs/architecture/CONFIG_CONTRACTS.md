@@ -64,6 +64,19 @@ refresh rejects unavailable combinations before replacing stored members.
 Unknown transport and mode values remain available for explicit rejection.
 The typed libXray provider has its own capabilities and validation.
 
+Extended bundle import admits a bounded XHTTP pool only in `stream-up` mode:
+`maxConnections` is 1–4 and `hMaxRequestTimes`, `hMaxReusableSecs` and
+`cMaxReuseTimes` must all be zero. Unknown or invalid tuning refuses import.
+The limit survives profile storage and native activation; outer session
+replacement shares the same carrier pool. Cancellation of an unfinished stream
+retires its carrier; other streams on that carrier close, and replacement waits
+for the owned socket tasks to stop. Tuned profiles require JSON bundle
+sharing because URI export cannot retain the pool contract and refuses them.
+After a selected Hysteria2 path fails payload verification, TCP reserves are
+measured first, with the existing recovery thresholds, cooldown and all-failure
+retention. A protocol difference does not establish an independent network path.
+
+
 ## 1. Protobuf field compatibility rules
 
 Owner: `core/data/model/src/main/proto/app_settings.proto` (proto3,

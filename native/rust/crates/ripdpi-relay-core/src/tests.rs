@@ -76,6 +76,7 @@ pub(crate) fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             xhttp_path: "/xhttp".to_string(),
             xhttp_host: "relay.example".to_string(),
             xhttp_mode: "auto".to_string(),
+            xhttp_max_connections: None,
             uuid: Some("00000000-0000-0000-0000-000000000000".to_string()),
         }),
         "vless_reality" => RelayBackendConfig::VlessReality(VlessRealityRelayConfig {
@@ -86,6 +87,7 @@ pub(crate) fn sample_config(kind: &str) -> ResolvedRelayRuntimeConfig {
             xhttp_path: String::new(),
             xhttp_host: String::new(),
             xhttp_mode: "auto".to_string(),
+            xhttp_max_connections: None,
             vless_mux_protocol: String::new(),
             vless_mux_max_concurrent_streams: 0,
             vless_mux_per_connection_kbps: 0,
@@ -1705,3 +1707,5 @@ async fn only_the_tor_bootstrap_dial_gets_the_long_tor_deadline() {
     );
     assert_eq!(connect_deadline, trojan.dial_deadline(connect_deadline));
 }
+
+mod bounded_xhttp;

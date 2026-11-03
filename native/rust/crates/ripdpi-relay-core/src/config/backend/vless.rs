@@ -5,6 +5,7 @@ pub struct VlessRelayConfig {
     pub xhttp_path: String,
     pub xhttp_host: String,
     pub xhttp_mode: String,
+    pub xhttp_max_connections: Option<usize>,
     pub uuid: Option<String>,
 }
 
@@ -19,6 +20,7 @@ pub struct VlessRealityRelayConfig {
     pub xhttp_path: String,
     pub xhttp_host: String,
     pub xhttp_mode: String,
+    pub xhttp_max_connections: Option<usize>,
     pub vless_mux_protocol: String,
     pub vless_mux_max_concurrent_streams: u32,
     pub vless_mux_per_connection_kbps: u32,

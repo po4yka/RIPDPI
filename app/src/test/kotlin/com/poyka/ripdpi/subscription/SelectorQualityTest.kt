@@ -51,6 +51,59 @@ class SelectorQualityTest {
         )
 
     @Test
+    fun `UDP failure replaces a recovering UDP quality reserve with TCP`() =
+        runTest {
+            val udp =
+                com.poyka.ripdpi.data.ProxyProfile
+                    .Hysteria2("udp", "udp", "g", "relay.example", 443, "fixture")
+            val tcp = selectorTestMember("tcp")
+            val mixed =
+                selectorTestGroup(listOf(udp, udp.copy(id = "udp-reserve"), tcp))
+                    .copy(failover = SelectorFailover("unused", 60, 0, policy))
+            val store = ProbeTestSelectionStore().apply { set("g", "udp") }
+            var healthy = true
+            var clock = 0L
+            val observed = mutableListOf<String>()
+            val runner =
+                SelectorUrltestProber(
+                    store,
+                    MemberLatencyProbe { member, _ ->
+                        observed += member.id
+                        if (member.id == "udp" &&
+                            !healthy
+                        ) {
+                            null
+                        } else {
+                            MemberProbeResult(10, measurement(1_000_000_000, 100))
+                        }
+                    },
+                    SelectorProbeScopeProvider { selectorTestScope(mixed) },
+                    { clock },
+                    reserveBudget = { id, value ->
+                        ProfileQualityBudget(
+                            id,
+                            value.reservedQualityPassBytes(),
+                            131_076,
+                            qualityPolicy.maxWindowBytes,
+                            null,
+                            ProfileQualityReason.Verified,
+                        )
+                    },
+                )
+            runner.runProbePass(mixed, "unused", 0)
+            assertEquals(listOf("udp", "udp-reserve"), observed)
+            healthy = false
+            clock = 60_000
+            observed.clear()
+            runner.runProbePass(mixed, "unused", 0)
+            assertEquals(listOf("udp", "tcp"), observed)
+            assertEquals("udp", store.snapshot("g").profileId)
+            clock = 120_000
+            runner.runProbePass(mixed, "unused", 0)
+            assertEquals("tcp", store.snapshot("g").profileId)
+        }
+
+    @Test
     fun `healthy active measures reserve and sustained actual goodput replaces it`() =
         runTest {
             pass()

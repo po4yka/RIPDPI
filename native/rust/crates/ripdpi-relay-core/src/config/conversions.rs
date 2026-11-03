@@ -45,6 +45,7 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 xhttp_path: flat.xhttp_path,
                 xhttp_host: flat.xhttp_host,
                 xhttp_mode: flat.xhttp_mode,
+                xhttp_max_connections: flat.xhttp_max_connections,
                 uuid: flat.vless_uuid,
             }),
             "vless_reality" => RelayBackendConfig::VlessReality(VlessRealityRelayConfig {
@@ -55,6 +56,7 @@ impl From<FlatResolvedRelayRuntimeConfig> for ResolvedRelayRuntimeConfig {
                 xhttp_path: flat.xhttp_path,
                 xhttp_host: flat.xhttp_host,
                 xhttp_mode: flat.xhttp_mode,
+                xhttp_max_connections: flat.xhttp_max_connections,
                 vless_mux_protocol: flat.vless_mux_protocol,
                 vless_mux_max_concurrent_streams: flat.vless_mux_max_concurrent_streams,
                 vless_mux_per_connection_kbps: flat.vless_mux_per_connection_kbps,
@@ -188,6 +190,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
             xhttp_path: String::new(),
             xhttp_host: String::new(),
             xhttp_mode: "auto".to_string(),
+            xhttp_max_connections: None,
             vless_mux_protocol: String::new(),
             vless_mux_max_concurrent_streams: 0,
             vless_mux_per_connection_kbps: 0,
@@ -303,6 +306,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
                 flat.xhttp_path = config.xhttp_path.clone();
                 flat.xhttp_host = config.xhttp_host.clone();
                 flat.xhttp_mode = config.xhttp_mode.clone();
+                flat.xhttp_max_connections = config.xhttp_max_connections;
                 flat.vless_uuid = config.uuid.clone();
             }
             RelayBackendConfig::VlessReality(config) => {
@@ -313,6 +317,7 @@ impl From<&ResolvedRelayRuntimeConfig> for FlatResolvedRelayRuntimeConfig {
                 flat.xhttp_path = config.xhttp_path.clone();
                 flat.xhttp_host = config.xhttp_host.clone();
                 flat.xhttp_mode = config.xhttp_mode.clone();
+                flat.xhttp_max_connections = config.xhttp_max_connections;
                 flat.vless_mux_protocol = config.vless_mux_protocol.clone();
                 flat.vless_mux_max_concurrent_streams = config.vless_mux_max_concurrent_streams;
                 flat.vless_mux_per_connection_kbps = config.vless_mux_per_connection_kbps;

@@ -1,7 +1,9 @@
 use std::io;
 
 use crate::backend::builder::BuildContext;
-use crate::backend::builder::builders::common::{finalmask_config, invalid_input, vless_reality_config};
+use crate::backend::builder::builders::common::{
+    finalmask_config, invalid_input, vless_reality_config, xhttp_pool_config,
+};
 use crate::backend::{PooledRelayBackend, RelayBackend};
 use crate::config::{RelayBackendConfig, RelayKind, ResolvedRelayRuntimeConfig};
 use crate::protocols::{VlessRealitySessionFactory, XhttpSessionFactory, XhttpSessionMode};
@@ -17,6 +19,11 @@ pub(crate) fn build(config: &ResolvedRelayRuntimeConfig, context: &BuildContext)
     if matches!(RelayKind::from_config(config), RelayKind::VlessReality { xhttp: true }) {
         build_xhttp(config, context)
     } else {
+        if let RelayBackendConfig::VlessReality(vless) = &config.backend
+            && vless.xhttp_max_connections.is_some()
+        {
+            return Err(io::Error::new(io::ErrorKind::InvalidInput, "xHTTP pool requires xHTTP transport"));
+        }
         build_reality(config, context)
     }
 }
@@ -40,20 +47,20 @@ fn build_xhttp(config: &ResolvedRelayRuntimeConfig, context: &BuildContext) -> i
         return Err(io::Error::new(io::ErrorKind::Unsupported, "VLESS mux is only supported over Reality TCP"));
     }
     Ok(RelayBackend::Xhttp(PooledRelayBackend::new(
-        XhttpSessionFactory {
-            mode: XhttpSessionMode::Reality(ripdpi_xhttp::XhttpRealityConfig {
+        XhttpSessionFactory::new(
+            XhttpSessionMode::Reality(ripdpi_xhttp::XhttpRealityConfig {
                 vless: vless_config,
                 path: vless.xhttp_path.clone(),
                 host: if vless.xhttp_host.trim().is_empty() { None } else { Some(vless.xhttp_host.trim().to_owned()) },
                 bind_ip: context.outbound_bind_ip,
                 socket_protector: context.socket_protector.clone(),
-                xmux: ripdpi_xhttp::XmuxConfig::default(),
+                xmux: xhttp_pool_config(&vless.xhttp_mode, vless.xhttp_max_connections)?,
                 finalmask: finalmask_config(&config.common.finalmask),
                 protocol_mode: ripdpi_xhttp::XhttpProtocolMode::parse(&vless.xhttp_mode, true)
                     .map_err(invalid_input)?,
             }),
-            udp_enabled: config.common.udp_enabled,
-        },
+            config.common.udp_enabled,
+        ),
         context.pool_config,
         None,
     )))

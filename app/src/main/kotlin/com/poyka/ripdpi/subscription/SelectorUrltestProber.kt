@@ -69,6 +69,7 @@ class SelectorUrltestProber internal constructor(
         val quality: PayloadQualityEvidence = PayloadQualityEvidence(),
         var qualityGeneration: Long = 0,
         var reserveIndex: Int = 0,
+        var tcpPriority: Boolean = false,
         var recoveringReserve: String? = null,
         val failedReserves: MutableSet<String> = mutableSetOf(),
     )
@@ -366,13 +367,27 @@ class SelectorUrltestProber internal constructor(
         val active = eligible.firstOrNull { it.id == scoped.selection.profileId }
         val target = MemberProbeTarget.Payload(policy)
         val activeResult = active?.let { measureMember(it, target) }
+        val tcpPriority = active is ProxyProfile.Hysteria2 && activeResult?.latencyMillis == null
+        if (scoped.tcpPriority != tcpPriority) {
+            scoped.tcpPriority = tcpPriority
+            scoped.reserveIndex = 0
+            scoped.recoveringReserve = null
+            scoped.failedReserves.clear()
+        }
         if (activeResult?.latencyMillis != null && policy.quality == null) {
             scoped.recoveringReserve = null
             scoped.failedReserves.clear()
             return listOf(activeResult)
         }
         val results = listOfNotNull(activeResult)
-        val reserves = eligible.filterNot { it.id == active?.id }
+        val reserves =
+            eligible.filterNot { it.id == active?.id }.let { members ->
+                if (tcpPriority) {
+                    members.preferTcpReserves()
+                } else {
+                    members
+                }
+            }
         val reserve =
             reserves.takeIf { it.isNotEmpty() }?.let { candidates ->
                 candidates.firstOrNull { it.id == scoped.recoveringReserve }

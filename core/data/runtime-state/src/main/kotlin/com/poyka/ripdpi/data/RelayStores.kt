@@ -36,6 +36,7 @@ data class RelayProfileRecord(
     val xhttpPath: String = "",
     val xhttpHost: String = "",
     val xhttpMode: String = RelayXhttpModeAuto,
+    val xhttpMaxConnections: Int? = null,
     val mieruProtocol: String = "tcp",
     val mieruMultiplexing: String = "middle",
     val mieruMtu: Int = 1400,

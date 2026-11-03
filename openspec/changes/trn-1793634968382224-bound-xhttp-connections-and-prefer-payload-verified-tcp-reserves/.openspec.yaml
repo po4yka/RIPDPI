@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-11-02
+goal: TRN-1793634968382224 Bound XHTTP connections and prefer payload-verified
+  TCP reserves

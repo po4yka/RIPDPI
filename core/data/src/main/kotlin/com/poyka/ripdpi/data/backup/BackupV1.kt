@@ -179,6 +179,7 @@ object BackupAllowlist {
                 "xhttpPath" to Classification.REDACTED,
                 "xhttpHost" to Classification.REDACTED,
                 "xhttpMode" to Classification.PUBLIC,
+                "xhttpMaxConnections" to Classification.PUBLIC,
             )
 
     private val shadowsocksFields: Map<String, Classification> =
@@ -235,6 +236,7 @@ object BackupAllowlist {
                 "xhttpPath" to Classification.REDACTED,
                 "xhttpHost" to Classification.REDACTED,
                 "xhttpMode" to Classification.PUBLIC,
+                "xhttpMaxConnections" to Classification.PUBLIC,
             )
 
     private val anyTlsFields: Map<String, Classification> =
