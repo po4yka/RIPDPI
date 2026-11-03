@@ -24,8 +24,14 @@ class TcpPayloadReservesTest {
                     xhttpMode = "stream-up",
                 )
             val group =
-                selectorTestGroup(listOf(active, active.copy(id = "udp-reserve"), tcp))
-                    .copy(failover = SelectorFailover("unused", 60, 0, policy()))
+                selectorTestGroup(
+                    listOf(
+                        active,
+                        active.copy(id = "udp-reserve"),
+                        ProxyProfile.Naive("quic", "quic", "g", "relay.example", 443, "user", "fixture", quic = true),
+                        tcp,
+                    ),
+                ).copy(failover = SelectorFailover("unused", 60, 0, policy()))
             val store = ProbeTestSelectionStore().apply { select("g", "udp") }
             var now = 0L
             val measured = mutableListOf<String>()
@@ -48,4 +54,11 @@ class TcpPayloadReservesTest {
             prober.runProbePass(group, "unused", 0)
             assertEquals("tcp", store.selectedProfileId("g").value)
         }
+
+    @Test
+    fun `TCP Naive keeps its priority while QUIC Naive follows TCP reserves`() {
+        val naive = ProxyProfile.Naive("tcp", "tcp", "g", "relay.example", 443, "user", "fixture")
+        val quic = naive.copy(id = "quic", quic = true)
+        assertEquals(listOf(naive, quic), listOf(quic, naive).preferTcpReserves())
+    }
 }

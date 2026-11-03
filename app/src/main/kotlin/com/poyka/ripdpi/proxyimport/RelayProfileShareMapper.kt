@@ -75,6 +75,7 @@ object RelayProfileShareMapper {
                         xhttpPath = xhttpPath.takeIf { vlessTransport == RelayVlessTransportXhttp },
                         xhttpHost = xhttpHost.takeIf { vlessTransport == RelayVlessTransportXhttp },
                         xhttpMode = xhttpMode,
+                        xhttpMaxConnections = xhttpMaxConnections,
                     ).takeIf { server.isNotBlank() && serverPort > 0 && realityPublicKey.isNotBlank() }
             }
         }
@@ -110,6 +111,7 @@ object RelayProfileShareMapper {
                             xhttpPath = xhttpPath.takeIf { vlessTransport == RelayVlessTransportXhttp },
                             xhttpHost = xhttpHost.takeIf { vlessTransport == RelayVlessTransportXhttp },
                             xhttpMode = xhttpMode,
+                            xhttpMaxConnections = xhttpMaxConnections,
                         )
                     }
                 }

@@ -100,8 +100,12 @@ private fun unsupportedStreamOptions(
             "TLS options"
         }
 
-        !xhttp.hasOnly("path", "host", "mode") || !xhttp.hasStringFields("path", "host", "mode") -> {
+        !xhttp.hasOnly("path", "host", "mode", "xmux") || !xhttp.hasStringFields("path", "host", "mode") -> {
             "XHTTP options"
+        }
+
+        xhttp != null && runCatching { xhttp.xhttpMaxConnections() }.isFailure -> {
+            "XHTTP pool settings"
         }
 
         xhttp != null && transport != "xhttp" -> {

@@ -22,6 +22,8 @@ import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelaySecurityLayerTls
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
+import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.RelayXhttpModeStreamUp
 import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
 import com.poyka.ripdpi.data.normalizeRelayCongestionControl
@@ -156,6 +158,10 @@ internal fun ConfigDraft.toRelayProfileRecord(profileId: String): RelayProfileRe
         xhttpPath = relayXhttpPath,
         xhttpHost = relayXhttpHost,
         xhttpMode = relayXhttpMode,
+        xhttpMaxConnections =
+            source?.xhttpMaxConnections?.takeIf {
+                relayVlessTransport == RelayVlessTransportXhttp && relayXhttpMode == RelayXhttpModeStreamUp
+            },
         cloudflareTunnelMode = normalizeRelayCloudflareTunnelMode(relayCloudflareTunnelMode),
         cloudflarePublishLocalOriginUrl = relayCloudflarePublishLocalOriginUrl,
         cloudflareCredentialsRef =
