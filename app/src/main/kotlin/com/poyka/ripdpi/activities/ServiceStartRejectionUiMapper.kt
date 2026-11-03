@@ -4,6 +4,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingValidationRecoveryKind
 
 internal fun ServiceStartRejectionReason.validationRecoveryKind(): OnboardingValidationRecoveryKind =
     when (this) {

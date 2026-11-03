@@ -24,10 +24,6 @@ import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.OnboardingUiState
-import com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind
-import com.poyka.ripdpi.activities.OnboardingValidationState
-import com.poyka.ripdpi.activities.OnboardingValidationStep
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.dnsProviderById
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton

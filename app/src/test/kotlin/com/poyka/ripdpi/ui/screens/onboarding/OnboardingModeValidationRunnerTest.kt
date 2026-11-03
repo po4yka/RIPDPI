@@ -82,7 +82,7 @@ class OnboardingModeValidationRunnerTest {
             assertEquals(1, serviceController.startedModes.size)
             val failure = result as OnboardingValidationResult.Failed
             assertEquals(
-                com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION,
+                com.poyka.ripdpi.ui.screens.onboarding.OnboardingValidationRecoveryKind.REQUEST_VPN_PERMISSION,
                 failure.recoveryKind,
             )
             assertEquals(Mode.Proxy, failure.suggestedMode)
@@ -104,7 +104,7 @@ class OnboardingModeValidationRunnerTest {
 
             val failure = result as OnboardingValidationResult.Failed
             assertEquals(
-                com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind.REQUEST_NOTIFICATIONS,
+                com.poyka.ripdpi.ui.screens.onboarding.OnboardingValidationRecoveryKind.REQUEST_NOTIFICATIONS,
                 failure.recoveryKind,
             )
             assertEquals(null, failure.suggestedMode)
@@ -123,7 +123,7 @@ class OnboardingModeValidationRunnerTest {
 
             val failure = result as OnboardingValidationResult.Failed
             assertEquals(
-                com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind.RETRY,
+                com.poyka.ripdpi.ui.screens.onboarding.OnboardingValidationRecoveryKind.RETRY,
                 failure.recoveryKind,
             )
             assertEquals(Mode.Proxy, failure.suggestedMode)

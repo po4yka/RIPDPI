@@ -2,9 +2,6 @@ package com.poyka.ripdpi.ui.screens.onboarding
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind
-import com.poyka.ripdpi.activities.OnboardingValidationState
-import com.poyka.ripdpi.activities.OnboardingValidationStep
 import com.poyka.ripdpi.activities.displayMessage
 import com.poyka.ripdpi.activities.suggestedModeFor
 import com.poyka.ripdpi.activities.validationRecoveryKind

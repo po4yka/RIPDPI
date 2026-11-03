@@ -1,7 +1,11 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.onboarding
 
 import android.content.Intent
 import app.cash.turbine.test
+import com.poyka.ripdpi.activities.FakeAppSettingsRepository
+import com.poyka.ripdpi.activities.FakePermissionPlatformBridge
+import com.poyka.ripdpi.activities.FakePermissionStatusProvider
+import com.poyka.ripdpi.activities.FakeStringResolver
 import com.poyka.ripdpi.data.DnsProviderAdGuard
 import com.poyka.ripdpi.data.DnsProviderGoogle
 import com.poyka.ripdpi.data.Mode
@@ -9,10 +13,6 @@ import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.ui.screens.connection.RecordingXrayNativeProviderSelection
-import com.poyka.ripdpi.ui.screens.onboarding.OnboardingDnsSystemId
-import com.poyka.ripdpi.ui.screens.onboarding.OnboardingModeValidationRunner
-import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
-import com.poyka.ripdpi.ui.screens.onboarding.OnboardingValidationResult
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle

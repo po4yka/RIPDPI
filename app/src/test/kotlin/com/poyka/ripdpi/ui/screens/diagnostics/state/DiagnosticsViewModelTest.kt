@@ -3,7 +3,6 @@ package com.poyka.ripdpi.ui.screens.diagnostics.state
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.FakeServiceStateStore
-import com.poyka.ripdpi.activities.isBusy
 import com.poyka.ripdpi.activities.message
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.HttpFakeProfileCloudflareGet
@@ -55,6 +54,7 @@ import com.poyka.ripdpi.diagnostics.contract.profile.ProfileExecutionPolicyWire
 import com.poyka.ripdpi.diagnostics.contract.profile.ProfileSpecWire
 import com.poyka.ripdpi.diagnostics.export.DiagnosticsExportPreparation
 import com.poyka.ripdpi.platform.AndroidStringResolver
+import com.poyka.ripdpi.ui.screens.onboarding.isBusy
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CoroutineStart

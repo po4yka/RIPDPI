@@ -9,7 +9,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.MainUiState
-import com.poyka.ripdpi.activities.OnboardingUiState
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
@@ -30,6 +29,7 @@ import com.poyka.ripdpi.ui.screens.dns.DnsUiState
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingUiState
 import com.poyka.ripdpi.ui.screens.settings.SettingsScreen
 import com.poyka.ripdpi.ui.screens.settings.SettingsScreenActions
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus

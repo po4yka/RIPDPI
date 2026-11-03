@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.isBusy
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
@@ -11,6 +10,7 @@ import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import com.poyka.ripdpi.ui.diagnostics.toScopeLabel
+import com.poyka.ripdpi.ui.screens.onboarding.isBusy
 import kotlinx.collections.immutable.toImmutableList
 
 internal data class BuildScanUiModelParams(

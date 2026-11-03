@@ -53,12 +53,6 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.OnboardingEffect
-import com.poyka.ripdpi.activities.OnboardingUiState
-import com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind
-import com.poyka.ripdpi.activities.OnboardingValidationState
-import com.poyka.ripdpi.activities.OnboardingViewModel
-import com.poyka.ripdpi.activities.isBusy
 import com.poyka.ripdpi.activities.mapNotificationPermissionResult
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionResult

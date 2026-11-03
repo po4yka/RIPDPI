@@ -1,8 +1,6 @@
 package com.poyka.ripdpi.ui.screenshot
 
 import androidx.compose.runtime.Composable
-import com.poyka.ripdpi.activities.OnboardingUiState
-import com.poyka.ripdpi.activities.OnboardingValidationState
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.components.RipDpiAboutPreviewScene
 import com.poyka.ripdpi.ui.components.RipDpiAdvancedSettingsPreviewScene
@@ -40,6 +38,8 @@ import com.poyka.ripdpi.ui.screens.onboarding.OnboardingInfoPageCount
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingUiState
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingValidationState
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileShareScreen
 import com.poyka.ripdpi.ui.screens.proxyimport.previewProfileShareUiState
 import com.poyka.ripdpi.ui.screens.proxyimport.renderShareQrBitmap

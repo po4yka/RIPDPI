@@ -17,7 +17,6 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.OnboardingUiState
 import com.poyka.ripdpi.backup.BackupRestoreUiState
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayMieruMultiplexingHigh
@@ -53,6 +52,7 @@ import com.poyka.ripdpi.ui.screens.mieru.MieruProfileUiState
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingUiState
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptScreen
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptStage
 import com.poyka.ripdpi.ui.screens.proxyimport.ProfileImportConfirmScreen

@@ -32,10 +32,6 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import com.poyka.ripdpi.activities.OnboardingUiState
-import com.poyka.ripdpi.activities.OnboardingValidationRecoveryKind
-import com.poyka.ripdpi.activities.OnboardingValidationState
-import com.poyka.ripdpi.activities.OnboardingValidationStep
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.DnsProviderCloudflareIp
 import com.poyka.ripdpi.data.DnsProviderDnsSb

@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.onboarding
 
 import android.content.Intent
 import com.poyka.ripdpi.R

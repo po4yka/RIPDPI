@@ -1,8 +1,6 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.onboarding
 
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.ui.screens.onboarding.OnboardingModeValidationRunner
-import com.poyka.ripdpi.ui.screens.onboarding.OnboardingValidationResult
 import javax.inject.Inject
 
 class OnboardingValidationCoordinator

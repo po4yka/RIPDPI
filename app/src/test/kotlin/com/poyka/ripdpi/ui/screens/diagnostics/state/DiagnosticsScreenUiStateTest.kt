@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
-import com.poyka.ripdpi.activities.isBusy
 import com.poyka.ripdpi.activities.message
+import com.poyka.ripdpi.ui.screens.onboarding.isBusy
 import kotlinx.collections.immutable.toImmutableList
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotSame

@@ -1,11 +1,10 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.onboarding
 
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.canonicalDefaultDnsProviderDefinition
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.ui.screens.onboarding.OnboardingDnsSystemId
 import com.poyka.ripdpi.ui.screens.xray.XrayNativeProviderSelection
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
