@@ -119,8 +119,15 @@ class RipDpiNavHostLogicTest {
     fun `route registry and stable matchers cover every NavHost destination`() {
         val navHostSource = File("src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt").readText()
         val importNavigationSource =
-            File("src/main/kotlin/com/poyka/ripdpi/ui/navigation/ImportNavigation.kt").readText() +
-                File("src/main/kotlin/com/poyka/ripdpi/ui/navigation/ReplayNavigation.kt").readText()
+            listOf(
+                "ImportNavigation",
+                "ReplayNavigation",
+                "PrimaryNavigation",
+                "ConfigNavigation",
+                "SettingsNavigation",
+            ).joinToString("") { name ->
+                File("src/main/kotlin/com/poyka/ripdpi/ui/navigation/$name.kt").readText()
+            }
         val registeredDestinationTypes =
             Regex("""composable<Route\.([A-Za-z0-9_]+)>""")
                 .findAll(navHostSource + importNavigationSource)
@@ -187,7 +194,7 @@ class RipDpiNavHostLogicTest {
 
     @Test
     fun `diagnostic history app bars use Up without changing system Back`() {
-        val navHostSource = File("src/main/kotlin/com/poyka/ripdpi/ui/navigation/RipDpiNavHost.kt").readText()
+        val navHostSource = File("src/main/kotlin/com/poyka/ripdpi/ui/navigation/SettingsNavigation.kt").readText()
         val pcapRoute =
             navHostSource
                 .substringAfter("composable<Route.PcapCaptureList>")
