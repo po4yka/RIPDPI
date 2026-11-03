@@ -47,7 +47,6 @@ class VpnProfileSearchTest {
     private val selected = mutableListOf<String>()
     private val shared = mutableListOf<String>()
     private val edited = mutableListOf<String>()
-    private var runtimeActions = 0
     private val profiles =
         listOf(
             RelayProfileUiState("alpha", "vless", "VLESS", "Germany", "Local operator"),
@@ -129,7 +128,6 @@ class VpnProfileSearchTest {
         composeRule.waitForIdle()
         assertEquals(listOf("alpha-other"), selected)
         assertEquals(emptyList<String>(), edited)
-        assertEquals(0, runtimeActions)
     }
 
     @Test fun `unknown kind has no invented edit but share uses exact id once`() {
@@ -154,7 +152,6 @@ class VpnProfileSearchTest {
         sheetRow("import-499").performScrollTo().performClick()
         composeRule.runOnIdle { assertEquals(listOf("import-499"), edited) }
         assertEquals(emptyList<String>(), selected)
-        assertEquals(0, runtimeActions)
     }
 
     @Test fun `relay Back dismisses without selecting or changing runtime`() {
@@ -187,7 +184,6 @@ class VpnProfileSearchTest {
                             activeRelayProfileId = activeId,
                             activeRelayEnabled = true,
                         ),
-                    onRuntimeModeToggle = { _, _ -> runtimeActions++ },
                     onOpenRelaySettings = {},
                     onOpenDnsSettings = {},
                     onPasteServerLink = {},
@@ -220,7 +216,6 @@ class VpnProfileSearchTest {
         assertEquals(emptyList<String>(), selected)
         assertEquals(emptyList<String>(), shared)
         assertEquals(emptyList<String>(), edited)
-        assertEquals(0, runtimeActions)
     }
 
     private val scope = RipDpiTestTags.RelayProfileSearch

@@ -2,12 +2,10 @@
 <resources>
     <string name="config_saved_profile_title">Gespeichertes Profil</string>
     <string name="config_profile_change">Profil ändern</string>
-    <string name="config_connection_scope_vpn">Datenverkehr: für das lokale VPN ausgewählte Apps</string>
-    <string name="config_connection_scope_proxy">Datenverkehr: Apps, die diesen Proxy verwenden</string>
-    <string name="config_connection_path_direct">Pfad: direkte Verbindung</string>
-    <string name="config_connection_path_relay">Pfad: Serverprofil %1$s</string>
-    <string name="config_connection_start">Verbinden</string>
-    <string name="config_connection_stop">Trennen</string>
+    <string name="config_connection_scope_vpn">Umfang: ganzes Gerät</string>
+    <string name="config_connection_scope_proxy">Umfang: nur Proxy</string>
+    <string name="config_connection_path_direct">Pfad: direkt</string>
+    <string name="config_connection_path_relay">Pfad: Relay · %1$s</string>
     <string name="config_connection_details">Konfigurationsdetails</string>
     <string name="diagnostics_technical_details">Technische Details</string>
     <string name="diagnostics_outcome_source_audit">Netzwerkanalyse</string>
@@ -21,8 +19,8 @@
     <string name="diagnostics_outcome_stale">Gespeichertes Ergebnis aus einem anderen Netzwerk</string>
     <string name="diagnostics_outcome_historical">Gespeicherte Daten; Übereinstimmung mit aktuellem Netzwerk unbekannt</string>
     <string name="logs_actions_title">Protokollaktionen</string>
-    <string name="config_scope_device">Lokales VPN</string>
-    <string name="config_scope_proxy">Lokaler Proxy</string>
-    <string name="config_section_bypass_settings">Bypass</string>
-    <string name="config_section_server_settings">Servereinstellungen</string>
+    <string name="config_scope_device">Ganzes Gerät</string>
+    <string name="config_scope_proxy">Nur Proxy</string>
+    <string name="config_section_bypass_settings">Direkt</string>
+    <string name="config_section_server_settings">Relay</string>
 </resources>

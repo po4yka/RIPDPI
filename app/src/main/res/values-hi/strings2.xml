@@ -209,7 +209,7 @@
     <string name="advanced_settings_visual_controls_disabled">कमांड लाइन ओवरराइड सक्रिय रहने पर विज़ुअल नियंत्रण उपलब्ध नहीं हैं।</string>
     <string name="advanced_settings_command_line_disabled">यहाँ raw RIPDPI फ़्लैग संपादित करने के लिए कमांड लाइन सेटिंग्स सक्षम करें।</string>
     <string name="advanced_settings_error_oob_data">OOB डेटा खाली होना चाहिए या एकल वर्ण होना चाहिए।</string>
-    <string name="permissions_vpn_title">स्थानीय VPN अनुमति</string>
+    <string name="permissions_vpn_title">VPN अनुमति</string>
     <string name="permissions_vpn_body">Android एक स्थानीय VPN बनाने के लिए पूछेगा। यह ट्रैफ़िक को आपके डिवाइस पर ऐप के माध्यम से रूट करता है — कुछ भी बाहरी रूप से नहीं भेजा जाता।</string>
     <string name="permissions_vpn_continue">जारी रखें</string>
     <string name="permissions_vpn_not_now">अभी नहीं</string>

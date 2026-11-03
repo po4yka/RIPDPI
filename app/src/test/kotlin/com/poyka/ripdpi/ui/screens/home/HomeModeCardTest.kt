@@ -114,43 +114,6 @@ class HomeModeCardTest {
     }
 
     @Test
-    fun `disabled vpn action renders relay hint and routes hint click`() {
-        var hintCalls = 0
-        var configureCalls = 0
-        composeRule.setContent {
-            RipDpiTheme {
-                HomeModeCard(
-                    uiState =
-                        card(
-                            mode = HomeMode.RemoteVpn,
-                            primaryLabel = "Relay disabled",
-                            primaryActionEnabled = false,
-                            primaryActionDisabledHint = "Enable a relay in Configure to turn this on",
-                        ),
-                    onPrimaryAction = {},
-                    onConfigure = { configureCalls++ },
-                    onDisabledHintClick = { hintCalls++ },
-                )
-            }
-        }
-
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.RemoteVpn.name))
-            .assertIsNotEnabled()
-        composeRule
-            .onNodeWithText("Enable a relay in Configure to turn this on")
-            .assertIsDisplayed()
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeModeDisabledHint)
-            .performClick()
-
-        composeRule.runOnIdle {
-            assertEquals(1, hintCalls)
-            assertEquals(0, configureCalls)
-        }
-    }
-
-    @Test
     fun `tapping card body calls card action without calling configure action`() {
         var cardCalls = 0
         var configureCalls = 0
@@ -309,7 +272,6 @@ class HomeModeCardTest {
         loading: Boolean = false,
         primaryLabel: String? = null,
         primaryActionEnabled: Boolean = true,
-        primaryActionDisabledHint: String = "",
         summaryFacets: ImmutableList<HomeModeSummaryFacet> = persistentListOf(),
     ): HomeModeCardUiState =
         HomeModeCardUiState(
@@ -341,7 +303,6 @@ class HomeModeCardTest {
                 },
             configureLabel = "Configure",
             primaryActionEnabled = primaryActionEnabled,
-            primaryActionDisabledHint = primaryActionDisabledHint,
             summaryFacets = summaryFacets,
             isActive = active,
             isLoading = loading,

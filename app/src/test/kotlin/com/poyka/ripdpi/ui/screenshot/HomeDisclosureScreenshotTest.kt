@@ -146,7 +146,6 @@ private fun HomeDisclosureScene() {
                         ),
                     ),
                 statusLine = inactive,
-                primaryActionLabel = stringResource(R.string.home_mode_card_enable),
                 configureLabel = configure,
             ),
             HomeModeCardUiState(
@@ -154,7 +153,6 @@ private fun HomeDisclosureScene() {
                 title = stringResource(R.string.home_mode_remote_vpn),
                 primaryLabel = "VLESS Reality · relay.example",
                 statusLine = inactive,
-                primaryActionLabel = stringResource(R.string.home_mode_card_enable),
                 configureLabel = configure,
             ),
             HomeModeCardUiState(

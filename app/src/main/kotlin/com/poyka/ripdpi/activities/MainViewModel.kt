@@ -291,15 +291,6 @@ class MainViewModel
             }
         }
 
-        fun onToggleLocalBypass(enabled: Boolean) {
-            val state = uiState.value
-            if (enabled) {
-                permissionActions.resolvePermissionAction(PermissionAction.StartProxyMode)
-            } else if (shouldStopLocalBypassToggle(state)) {
-                connectionActions.stop()
-            }
-        }
-
         fun onToggleVpn(enabled: Boolean) {
             if (enabled) {
                 permissionActions.resolvePermissionAction(PermissionAction.StartVpnMode)

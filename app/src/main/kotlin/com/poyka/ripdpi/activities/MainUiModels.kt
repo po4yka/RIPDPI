@@ -120,10 +120,6 @@ data class MainUiState(
         get() = connectionState == ConnectionState.Connected
 }
 
-internal fun shouldStopLocalBypassToggle(state: MainUiState): Boolean =
-    state.appStatus == AppStatus.Running &&
-        (state.activeMode == Mode.Proxy || state.localBypassCard.isActive)
-
 @Immutable
 data class HomeApproachSummaryUiState(
     val title: String,

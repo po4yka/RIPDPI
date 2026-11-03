@@ -585,7 +585,6 @@ class ConfigScreenTest {
     private fun setConfigScreen(
         initialModeSection: ConfigModeSection,
         onModeSelected: (Mode) -> Unit = {},
-        onRuntimeModeToggle: (Mode, Boolean) -> Unit = { _, _ -> },
         onEditCurrent: () -> Unit = {},
         onOpenLocalBypassEditor: () -> Unit = {},
         onOpenDnsSettings: () -> Unit = {},
@@ -609,7 +608,6 @@ class ConfigScreenTest {
                             runningMode = runningMode,
                         ),
                     onModeSelected = onModeSelected,
-                    onRuntimeModeToggle = onRuntimeModeToggle,
                     onPresetSelected = {},
                     onEditCurrent = onEditCurrent,
                     onOpenConfigEditor = { path ->

@@ -267,9 +267,8 @@
     <string name="home_diagnostics_share_failed">Analyseprotokolle und Ergebnisse konnten nicht geteilt werden.</string>
     <string name="home_diagnostics_copy_support_code">Für den Support kopieren</string>
     <string name="home_mode_card_diagnostic_status_actionable">Empfehlung bereit</string>
-    <string name="home_mode_card_disable">Deaktivieren</string>
     <string name="home_mode_card_status_active">Aktiv</string>
-    <string name="home_mode_proxy">Lokaler Proxy</string>
+    <string name="home_mode_proxy">Nur Proxy</string>
     <string name="home_permission_issue_with_settings">%1$s Öffnen Sie die Einstellungen oder verwenden Sie die Schaltfläche unten, um den Zugriff zu reparieren.</string>
     <string name="home_modes_diagnostics_title">Modi und Diagnose</string>
     <string name="home_remediation_browser_relay_step_choose_preset">Wählen Sie eine Browser-Tarnungs-Voreinstellung wie NaiveProxy oder ShadowTLS und führen Sie die Analyse erneut aus.</string>
@@ -333,7 +332,7 @@
     <string name="permissions_background_activity_body_huawei">Huawei-Geräte können RIPDPI im Hintergrund stoppen. Gehen Sie zu Einstellungen &gt; Akku &gt; App-Start, suchen Sie RIPDPI, deaktivieren Sie die automatische Verwaltung und aktivieren Sie Automatischer Start, Sekundärer Start und Im Hintergrund ausführen.</string>
     <string name="permissions_battery_body">Erlauben Sie RIPDPI, die Android-Akkuoptimierung zu ignorieren, damit Doze das lokale VPN oder den Proxy im Hintergrund seltener unterbricht.</string>
     <string name="permissions_vpn_body">Android wird nach der Erstellung eines lokalen VPN fragen. Dadurch wird der Verkehr durch die App auf Ihrem Gerät geleitet — nichts wird nach außen gesendet.</string>
-    <string name="permissions_vpn_title">Lokale VPN-Berechtigung</string>
+    <string name="permissions_vpn_title">VPN-Berechtigung</string>
     <string name="qs_tile_label_connected">RIPDPI: Verbunden</string>
     <string name="quic_fake_host_builtin_body">Die realistische Voreinstellung verwendet weiterhin den in RIPDPI integrierten Fake-Host, bis Sie einen benutzerdefinierten Override speichern.</string>
     <string name="quic_fake_host_error">Verwenden Sie eine einfache Domain wie video.example.org. IP-Literale und ungültige Hostnamen werden ignoriert.</string>
@@ -528,7 +527,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="config_mode_section">Modus</string>
     <string name="config_placeholder_fake_offset_marker">0</string>
     <string name="config_placeholder_split_marker">host</string>
-    <string name="config_preset_proxy_body">Profil für den Local-bypass-Modus mit derselben Basisabstimmung.</string>
+    <string name="config_preset_proxy_body">Profil für „Nur Proxy“ mit derselben Grundabstimmung.</string>
     <string name="config_proxy_helper">Wo der lokale Proxy-Listener gebunden wird.</string>
     <string name="config_relay_credentials_body">Dieses Profil benötigt sicheres Anmeldematerial, bevor es gestartet werden kann.</string>
     <string name="config_relay_import">Importieren</string>
@@ -804,9 +803,10 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="home_diagnostics_verification_failed">Die kurze Verifizierungssondierung konnte nicht gestartet werden.</string>
     <string name="home_diagnostics_vpn_detectors_title">Apps, die VPNs erkennen</string>
     <string name="home_mode_card_configure">Konfigurieren</string>
-    <string name="home_mode_card_enable">Aktivieren</string>
     <string name="home_mode_card_status_busy">Beschäftigt</string>
-    <string name="home_mode_remote_vpn">VPN</string>
+    <string name="home_mode_card_disable">Deaktivieren</string>
+    <string name="home_mode_card_path_label">Pfad</string>
+    <string name="home_mode_remote_vpn">Ganzes Gerät</string>
     <string name="home_remediation_browser_relay_step_enable_relay">Aktivieren Sie den vorgelagerten Relay-Pfad für Ihren aktuellen Modus.</string>
     <string name="home_remediation_command_line_step_open_settings">Erweiterte Einstellungen öffnen.</string>
     <string name="home_remediation_no_actionable_step_review">Überprüfen Sie die neuesten Audit-Details und Belege.</string>
@@ -1093,7 +1093,7 @@ split midsld
 fake_burst 3</string>
     <string name="config_placeholder_fake_tls_size">0</string>
     <string name="config_placeholder_tls_record_marker">sniext+4</string>
-    <string name="config_preset_proxy_title">Profil für Local bypass</string>
+    <string name="config_preset_proxy_title">Direktprofil</string>
     <string name="config_relay_body">Leitet Proxy-Verkehr über einen Remote-Relay-Server. Geheimnisse bleiben im Keystore-basierten Anmeldeinformationsspeicher auf diesem Gerät.</string>
     <string name="config_relay_credentials_title">Relay-Anmeldedaten fehlen</string>
     <string name="config_relay_kind_chain">Chain-Relay</string>
@@ -1110,12 +1110,10 @@ fake_burst 3</string>
     <string name="config_udp_chain_hint">UDP-Fake-Bursts befinden sich jetzt im Bypass-Strategie-Editor als fake_burst-Anzahl.</string>
     <string name="config_vpn_credentials_summary">Schlüssel oder Passwörter für den Relay-Server, sicher auf diesem Gerät gespeichert</string>
     <string name="config_vpn_section_body">VPN-Pfadeinstellungen, Relay-Transport und DNS-Verhalten anpassen.</string>
-    <string name="config_vpn_simple_title">VPN</string>
+    <string name="config_vpn_simple_title">Relay</string>
     <string name="config_vpn_simple_body">Fügen Sie einen Profil-Link hinzu; RIPDPI erkennt das Protokoll aus der URI.</string>
     <string name="config_vpn_toggle_title">VPN-Pfad</string>
-    <string name="config_vpn_toggle_body">Wechseln Sie den aktiven Datenpfad zwischen lokalem Bypass und VPN.</string>
-    <string name="config_vpn_turn_on">VPN einschalten</string>
-    <string name="config_vpn_turn_off">VPN ausschalten</string>
+    <string name="config_vpn_toggle_body">Zeigt, ob „Ganzes Gerät“ läuft.</string>
     <string name="config_vpn_add_profile_title">Profil hinzufügen</string>
     <string name="config_vpn_add_server_paste">Link einfügen</string>
     <string name="config_vpn_add_server_scan">QR scannen</string>
@@ -1308,7 +1306,7 @@ fake_burst 3</string>
     <string name="home_connection_actuator_state_vpn_unavailable">Lokale Prozesse laufen; VPN-Verbindung ist nicht verfügbar</string>
     <string name="home_mode_card_diagnostic_status_review">Letztes Audit prüfen</string>
     <string name="home_mode_card_status_inactive">Inaktiv</string>
-    <string name="home_mode_vpn">Lokales VPN</string>
+    <string name="home_mode_vpn">Ganzes Gerät</string>
     <string name="home_quality_excellent">Ausgezeichnet</string>
     <string name="home_remediation_browser_relay_step_open_mode_editor">Profil-Editor öffnen.</string>
     <string name="home_remediation_command_line_step_retry">Zur Startseite zurückkehren und die vollständige Analyse erneut ausführen.</string>
@@ -1576,7 +1574,7 @@ Quelle: %2$s</string>
     <string name="config_placeholder_command_line">--fake --split 2</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>
     <string name="config_port_helper">Verwenden Sie einen Port von %1$d bis %2$d.</string>
-    <string name="config_preset_recommended_body">Empfohlenes Profil für die meisten Netze. Behält den lokalen VPN-Pfad und sichere RIPDPI-Abstimmung bei.</string>
+    <string name="config_preset_recommended_body">Empfohlenes Profil für die meisten Netzwerke. Gilt für das ganze Gerät und nutzt sichere RIPDPI-Einstellungen.</string>
     <string name="config_relay_enable">Upstream-Relay aktivieren</string>
     <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
     <string name="config_relay_local_port_helper">Der Haupt-RIPDPI-Proxy verkettet sich mit diesem Loopback-Listener.</string>
@@ -2025,7 +2023,7 @@ Quelle: %2$s</string>
     <string name="tcp_flag_card_step_label">Primärer Schritt</string>
     <string name="tcp_flag_orig_set_title">Originalpaket: Flags setzen</string>
     <string name="title_biometric_prompt">Authentifizierung</string>
-    <string name="title_local_bypass_config">Lokale Bypass-Konfiguration</string>
+    <string name="title_local_bypass_config">Direkt-Einstellungen</string>
     <string name="title_strategy_config">Strategie-Konfiguration</string>
     <string name="title_remembered_networks">Gespeicherte Netzwerke</string>
     <string name="title_root_mode_strategies">Root-Modus-Strategien</string>
@@ -2134,10 +2132,10 @@ Quelle: %2$s</string>
     <string name="config_error_ipv6_dns_requires_ipv6">Aktivieren Sie IPv6, um eine IPv6-DNS-Adresse zu verwenden.</string>
     <string name="config_error_required">Dieses Feld ist erforderlich.</string>
     <string name="config_local_bypass_section_body">Passen Sie den geräteinternen Proxy-Pfad, DNS und die Bypass-Strategie-Steuerungen an.</string>
-    <string name="config_local_bypass_simple_title">Lokaler Bypass</string>
+    <string name="config_local_bypass_simple_title">Direkt</string>
     <string name="config_local_bypass_simple_body">Nutzen Sie den lokalen Bypass-Pfad mit der empfohlenen automatischen Bypass-Strategie.</string>
-    <string name="config_local_bypass_toggle_title">Lokaler Bypass</string>
-    <string name="config_local_bypass_toggle_body">Wechseln Sie den aktiven Datenpfad zwischen VPN und lokalem Bypass.</string>
+    <string name="config_local_bypass_toggle_title">Direkt</string>
+    <string name="config_local_bypass_toggle_body">Zeigt, ob „Nur Proxy“ läuft.</string>
     <string name="config_local_bypass_enabled">Ein</string>
     <string name="config_local_bypass_disabled">Aus</string>
     <string name="config_local_bypass_strategy_title">Bypass-Strategie</string>
@@ -2147,8 +2145,6 @@ Quelle: %2$s</string>
     <string name="config_local_bypass_precedence_body">Zuerst gelten visuelle Profileinstellungen; Rohtextfelder überschreiben visuelle Gruppen; der Befehlszeilenmodus überschreibt beides.</string>
     <string name="config_local_bypass_precedence_visual_value">Visuelles Profil aktiv</string>
     <string name="config_local_bypass_precedence_cli_value">Befehlszeilen-Overrides</string>
-    <string name="config_local_bypass_turn_on">Einschalten</string>
-    <string name="config_local_bypass_turn_off">Ausschalten</string>
     <string name="config_local_bypass_retest_strategies">Diagnose zum erneuten Testen öffnen</string>
     <string name="config_network_section">Netzwerk</string>
     <string name="config_placeholder_default_ttl">8</string>
@@ -2390,7 +2386,7 @@ Quelle: %2$s</string>
     <string name="home_mode_card_diagnostic_empty">Noch keine Analyse</string>
     <string name="home_mode_card_diagnostic_status_stale">Netzwerk geändert - Scan erneut ausführen</string>
     <string name="home_mode_card_run_scan">Netz prüfen</string>
-    <string name="home_mode_local_dpi_bypass">Lokaler Bypass</string>
+    <string name="home_mode_local_dpi_bypass">Nur Proxy</string>
     <string name="home_remediation_browser_relay_title">Browser-Camouflage-Relay bevorzugen</string>
     <string name="home_remediation_no_actionable_step_open_diagnostics">Diagnose öffnen.</string>
     <string name="home_remediation_no_hint_step_retry">Führen Sie eine weitere vollständige Analyse im selben Netzwerk aus, um einen stärkeren Hinweis zu sammeln.</string>
@@ -3122,8 +3118,8 @@ Quelle: %2$s</string>
     <string name="onboarding_chip_no_cloud_sync">Keine Cloud-Synchronisierung</string>
     <string name="onboarding_guarantee_header_privacy">Datenschutz</string>
     <string name="onboarding_guarantee_header_local">Auf Ihrem Gerät</string>
-    <string name="onboarding_chip_local_vpn">Lokales VPN</string>
-    <string name="onboarding_chip_local_proxy">Lokaler Proxy</string>
+    <string name="onboarding_chip_local_vpn">Ganzes Gerät</string>
+    <string name="onboarding_chip_local_proxy">Nur Proxy</string>
     <string name="onboarding_chip_local_config">Lokale Konfiguration</string>
     <!-- per-screen skip -->
     <string name="onboarding_skip_setup">Einrichtung überspringen</string>
@@ -3134,7 +3130,7 @@ Quelle: %2$s</string>
     <string name="onboarding_setup_dns_mullvad_body">Datenschutzorientierter DNS-Resolver.</string>
     <string name="onboarding_dns_advanced">Erweiterte DNS-Einstellungen</string>
     <string name="onboarding_setup_mode_subtitle">Wählen Sie, wie RIPDPI den Datenverkehr auf diesem Gerät leiten soll.</string>
-    <string name="onboarding_test_permission_card_title">Berechtigung für lokales VPN</string>
+    <string name="onboarding_test_permission_card_title">VPN-Berechtigung</string>
     <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">Starten Sie den gewählten Modus und prüfen Sie, ob RIPDPI den Datenverkehr korrekt weiterleiten kann.</string>
     <string name="onboarding_test_step_tunnel_vpn">Lokalen VPN-Tunnel starten</string>

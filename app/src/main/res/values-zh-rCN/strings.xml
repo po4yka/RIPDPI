@@ -510,7 +510,7 @@
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>
     <string name="config_placeholder_tls_record_marker">sniext+4</string>
-    <string name="config_preset_proxy_body">用于本地绕过模式的配置文件，采用相同的基础调校。</string>
+    <string name="config_preset_proxy_body">用于“仅代理”的配置文件，采用相同的基础调优。</string>
     <string name="config_presets_section">配置文件</string>
     <string name="config_relay_credentials_body">此配置文件在启动前需要安全凭据材料。</string>
     <string name="config_relay_hysteria_salamander">Salamander 密钥</string>
@@ -684,9 +684,8 @@
     <string name="home_diagnostics_routing_sanity_section">应用路由健全性</string>
     <string name="home_diagnostics_verified_sheet_title">已验证 VPN 结果</string>
     <string name="home_mode_card_connecting">正在启动…</string>
-    <string name="home_mode_card_enable">启用</string>
     <string name="home_mode_card_status_active">活动</string>
-    <string name="home_mode_local_dpi_bypass">本地绕过</string>
+    <string name="home_mode_local_dpi_bypass">仅代理</string>
     <string name="home_remediation_browser_relay_step_choose_preset">选择浏览器伪装预设,如 NaiveProxy 或 ShadowTLS,然后重新运行分析。</string>
     <string name="home_remediation_browser_relay_title">优先使用浏览器伪装中继</string>
     <string name="home_remediation_command_line_title">完整分析被阻止</string>
@@ -1073,7 +1072,7 @@ fakeddisorder endhost</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_proxy_port">1080</string>
     <string name="config_port_helper">请使用 %1$d 到 %2$d 之间的端口。</string>
-    <string name="config_preset_proxy_title">本地绕过配置文件</string>
+    <string name="config_preset_proxy_title">直连配置文件</string>
     <string name="config_proxy_helper">本地代理监听器绑定的位置。</string>
     <string name="config_relay_credentials_title">缺少中继凭据</string>
     <string name="config_relay_import">导入</string>
@@ -1238,7 +1237,9 @@ fakeddisorder endhost</string>
     <string name="home_mode_card_diagnostic_empty">暂无分析</string>
     <string name="home_mode_card_diagnostic_status_review">查看最新审计</string>
     <string name="home_mode_card_status_busy">繁忙</string>
-    <string name="home_mode_proxy">本地代理</string>
+    <string name="home_mode_card_disable">禁用</string>
+    <string name="home_mode_card_path_label">路径</string>
+    <string name="home_mode_proxy">仅代理</string>
     <string name="home_quality_excellent">极佳</string>
     <string name="home_remediation_browser_relay_step_enable_relay">为您当前的模式启用上游中继路径。</string>
     <string name="home_remediation_command_line_step_disable_setting">禁用「使用命令行设置」。</string>
@@ -1306,7 +1307,7 @@ fakeddisorder endhost</string>
     <string name="permissions_background_activity_body">某些设备在 Android 电池优化之外添加了额外的后台限制。如果 RIPDPI 在后台停止,请查看应用的电池或后台使用设置。</string>
     <string name="permissions_notifications_denied">允许通知,以便在本地 VPN 或代理运行时显示 RIPDPI 状态和服务提醒。</string>
     <string name="permissions_vpn_continue">继续</string>
-    <string name="permissions_vpn_title">本地 VPN 权限</string>
+    <string name="permissions_vpn_title">VPN 权限</string>
     <string name="quic_fake_host_builtin_body">现实预设将继续使用 RIPDPI 内置的伪造主机,直到您保存自定义覆盖。</string>
     <string name="quic_fake_host_effective_label">生效的伪造主机</string>
     <string name="quic_fake_preset_compat_title">兼容性数据块</string>
@@ -1556,10 +1557,10 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="config_error_invalid_port">请输入有效的 TCP 端口。</string>
     <string name="config_error_unsupported">当前构建不支持此选项。</string>
     <string name="config_local_bypass_section_body">调整设备本地代理路径、DNS 和绕过策略控制。</string>
-    <string name="config_local_bypass_simple_title">本地绕过</string>
+    <string name="config_local_bypass_simple_title">直连</string>
     <string name="config_local_bypass_simple_body">使用设备上的绕过路径和推荐的自动绕过策略。</string>
-    <string name="config_local_bypass_toggle_title">本地绕过</string>
-    <string name="config_local_bypass_toggle_body">在 VPN 和本地绕过之间切换当前流量路径。</string>
+    <string name="config_local_bypass_toggle_title">直连</string>
+    <string name="config_local_bypass_toggle_body">显示“仅代理”是否正在运行。</string>
     <string name="config_local_bypass_enabled">开启</string>
     <string name="config_local_bypass_disabled">关闭</string>
     <string name="config_local_bypass_strategy_title">绕过策略</string>
@@ -1569,8 +1570,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="config_local_bypass_precedence_body">优先使用可视化配置文件设置；原始文本字段会覆盖可视化组；命令行模式会覆盖两者。</string>
     <string name="config_local_bypass_precedence_visual_value">可视化配置文件生效</string>
     <string name="config_local_bypass_precedence_cli_value">命令行覆盖</string>
-    <string name="config_local_bypass_turn_on">开启</string>
-    <string name="config_local_bypass_turn_off">关闭</string>
     <string name="config_local_bypass_retest_strategies">打开诊断并重新测试</string>
     <string name="config_placeholder_chain_dsl">[tcp]
 tlsrec extlen
@@ -1582,7 +1581,7 @@ fake_burst 3</string>
     <string name="config_placeholder_fake_offset_marker">0</string>
     <string name="config_placeholder_quic_fake_host">video.example.test</string>
     <string name="config_preset_custom_body">用于手动 DNS、代理端点、引擎数值和可选命令行覆盖的配置文件。</string>
-    <string name="config_preset_recommended_body">适用于大多数网络的推荐配置文件。保留本地 VPN 路径和安全的 RIPDPI 调校。</string>
+    <string name="config_preset_recommended_body">适用于大多数网络的推荐配置文件。覆盖整台设备，并使用安全的 RIPDPI 调优。</string>
     <string name="config_relay_body">将代理流量通过远程中继服务器发送。密钥保留在本设备上由 keystore 支持的凭据存储中。</string>
     <string name="config_relay_chain_editor_intro">用已保存的中继配置文件构建一条有序链。第一跳为入口，最后一跳为出口。长按某一跳即可拖动排序。链不支持 UDP。</string>
     <string name="config_relay_chain_hop_entry">第 %1$d 跳 · 入口</string>
@@ -1612,12 +1611,10 @@ fake_burst 3</string>
     <string name="config_validation_banner_title">部分值仍需处理</string>
     <string name="config_vpn_credentials_title">中继凭据</string>
     <string name="config_vpn_section_body">调整 VPN 路径设置、中继传输和 DNS 行为。</string>
-    <string name="config_vpn_simple_title">VPN</string>
+    <string name="config_vpn_simple_title">中继</string>
     <string name="config_vpn_simple_body">添加配置文件链接，RIPDPI 会从 URI 推断协议。</string>
     <string name="config_vpn_toggle_title">VPN 路径</string>
-    <string name="config_vpn_toggle_body">在本地绕过和 VPN 之间切换当前流量路径。</string>
-    <string name="config_vpn_turn_on">开启 VPN</string>
-    <string name="config_vpn_turn_off">关闭 VPN</string>
+    <string name="config_vpn_toggle_body">显示“整台设备”是否正在运行。</string>
     <string name="config_vpn_add_profile_title">添加配置文件</string>
     <string name="config_vpn_add_server_paste">粘贴链接</string>
     <string name="config_vpn_add_server_scan">扫描 QR</string>
@@ -1771,7 +1768,7 @@ fake_burst 3</string>
     <string name="home_mode_card_diagnostic_status_stale">网络已更改 - 请重新扫描</string>
     <string name="home_mode_card_remote_server_unknown">服务器未配置</string>
     <string name="home_mode_card_status_inactive">未激活</string>
-    <string name="home_mode_remote_vpn">VPN</string>
+    <string name="home_mode_remote_vpn">整台设备</string>
     <string name="home_quality_good">良好</string>
     <string name="home_remediation_browser_relay_step_open_mode_editor">打开配置文件编辑器。</string>
     <string name="home_remediation_command_line_step_open_settings">打开高级设置。</string>
@@ -1988,7 +1985,7 @@ fake_burst 3</string>
     <string name="tcp_flag_fake_set_title">Fake 数据包:设置标志位</string>
     <string name="title_advanced_settings">高级设置</string>
     <string name="title_blockcheck">策略探测</string>
-    <string name="title_local_bypass_config">本地绕过配置</string>
+    <string name="title_local_bypass_config">直连设置</string>
     <string name="title_shared_diagnostic_result">共享诊断</string>
     <string name="tls_fake_profile_interaction">Fake TLS SNI、随机化、Session ID 复制、填充和大小调整将叠加在此基础配置文件之上。</string>
     <string name="tls_fake_profile_scope_ready">当 TCP 链添加完整 fake HTTPS 步骤时即可使用。</string>
@@ -2305,10 +2302,9 @@ fake_burst 3</string>
     <string name="home_connection_actuator_state_vpn_checking">本地进程正在运行；正在检查 VPN 连接</string>
     <string name="home_connection_actuator_state_vpn_unverified">本地进程正在运行；VPN 连接尚未验证</string>
     <string name="home_connection_actuator_state_vpn_unavailable">本地进程正在运行；VPN 连接不可用</string>
-    <string name="home_mode_card_disable">禁用</string>
     <string name="home_mode_card_run_scan">检查网络</string>
     <string name="home_mode_diagnostic_scan">诊断扫描</string>
-    <string name="home_mode_vpn">本地 VPN</string>
+    <string name="home_mode_vpn">整台设备</string>
     <string name="home_remediation_browser_relay_summary">主页分析发现直连模式存在 TLS/IP 类故障。请打开“配置文件编辑器”，并切换到浏览器伪装中继预设。</string>
     <string name="home_remediation_command_line_step_retry">返回主页并再次运行完整分析。</string>
     <string name="home_remediation_no_actionable_step_review">查看最新审计详情和证据。</string>
@@ -3114,8 +3110,8 @@ fake_burst 3</string>
     <string name="onboarding_chip_no_cloud_sync">无云同步</string>
     <string name="onboarding_guarantee_header_privacy">隐私</string>
     <string name="onboarding_guarantee_header_local">在你的设备上</string>
-    <string name="onboarding_chip_local_vpn">本地 VPN</string>
-    <string name="onboarding_chip_local_proxy">本地代理</string>
+    <string name="onboarding_chip_local_vpn">整台设备</string>
+    <string name="onboarding_chip_local_proxy">仅代理</string>
     <string name="onboarding_chip_local_config">本地配置</string>
     <!-- per-screen skip -->
     <string name="onboarding_skip_setup">跳过设置</string>
@@ -3126,7 +3122,7 @@ fake_burst 3</string>
     <string name="onboarding_setup_dns_mullvad_body">侧重隐私的 DNS 解析器。</string>
     <string name="onboarding_dns_advanced">高级 DNS 设置</string>
     <string name="onboarding_setup_mode_subtitle">选择 RIPDPI 在此设备上路由流量的方式。</string>
-    <string name="onboarding_test_permission_card_title">本地 VPN 权限</string>
+    <string name="onboarding_test_permission_card_title">VPN 权限</string>
     <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">启动所选模式,确认 RIPDPI 能够正确路由流量。</string>
     <string name="onboarding_test_step_tunnel_vpn">启动本地 VPN 隧道</string>

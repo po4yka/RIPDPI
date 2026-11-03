@@ -8,7 +8,6 @@ import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import com.poyka.ripdpi.activities.ConfigRuntimeOperation
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -40,20 +39,14 @@ class ConfigRuntimeErrorVisibilityTest {
                     onOpenConfigEditor = {},
                     onRetestStrategies = {},
                     onPasteServerLink = {},
-                    onRuntimeModeToggle = { _, _ ->
-                        state.value = state.value.copy(runtimeOperation = ConfigRuntimeOperation.Starting)
-                    },
                     initialModeSection = ConfigModeSection.Vpn,
                 )
             }
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigRuntimeAction).performScrollTo().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigRuntimeAction).assertIsNotEnabled()
 
         composeRule.runOnIdle {
             state.value =
                 state.value.copy(
-                    runtimeOperation = null,
                     runtimeError = reason,
                     requiresVpnPermission = true,
                 )
@@ -77,17 +70,12 @@ class ConfigRuntimeErrorVisibilityTest {
                     onOpenConfigEditor = {},
                     onRetestStrategies = {},
                     onPasteServerLink = {},
-                    onRuntimeModeToggle = { _, _ ->
-                        state.value = state.value.copy(runtimeOperation = ConfigRuntimeOperation.Starting)
-                    },
                 )
             }
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigRuntimeAction).performScrollTo().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigRuntimeAction).assertIsNotEnabled()
 
         composeRule.runOnIdle {
-            state.value = state.value.copy(runtimeOperation = null, runtimeError = reason)
+            state.value = state.value.copy(runtimeError = reason)
         }
 
         composeRule.onNodeWithText(reason).assertIsDisplayed()

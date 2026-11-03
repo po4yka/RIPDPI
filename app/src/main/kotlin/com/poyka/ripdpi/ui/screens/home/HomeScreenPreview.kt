@@ -126,8 +126,8 @@ private fun previewHomeModeCard(
         mode = mode,
         title =
             when (mode) {
-                HomeMode.LocalDpiBypass -> "Local bypass"
-                HomeMode.RemoteVpn -> "VPN"
+                HomeMode.LocalDpiBypass -> "Proxy only"
+                HomeMode.RemoteVpn -> "Whole device"
                 HomeMode.Diagnostic -> "Network Diagnostic"
             },
         primaryLabel =

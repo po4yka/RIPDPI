@@ -2,12 +2,10 @@
 <resources>
     <string name="config_saved_profile_title">الملف الشخصي المحفوظ</string>
     <string name="config_profile_change">تغيير الملف الشخصي</string>
-    <string name="config_connection_scope_vpn">حركة البيانات: التطبيقات المحددة لشبكة VPN المحلية</string>
-    <string name="config_connection_scope_proxy">حركة البيانات: التطبيقات المضبوطة لاستخدام هذا الوكيل</string>
-    <string name="config_connection_path_direct">المسار: اتصال مباشر</string>
-    <string name="config_connection_path_relay">المسار: ملف الخادم %1$s</string>
-    <string name="config_connection_start">اتصال</string>
-    <string name="config_connection_stop">قطع الاتصال</string>
+    <string name="config_connection_scope_vpn">النطاق: الجهاز بالكامل</string>
+    <string name="config_connection_scope_proxy">النطاق: وكيل فقط</string>
+    <string name="config_connection_path_direct">المسار: مباشر</string>
+    <string name="config_connection_path_relay">المسار: الترحيل · %1$s</string>
     <string name="config_connection_details">تفاصيل الإعدادات</string>
     <string name="diagnostics_technical_details">التفاصيل التقنية</string>
     <string name="diagnostics_outcome_source_audit">تحليل الشبكة</string>
@@ -21,8 +19,8 @@
     <string name="diagnostics_outcome_stale">نتيجة محفوظة من شبكة أخرى</string>
     <string name="diagnostics_outcome_historical">أدلة محفوظة؛ تطابقها مع الشبكة الحالية غير معروف</string>
     <string name="logs_actions_title">إجراءات السجل</string>
-    <string name="config_scope_device">VPN محلي</string>
-    <string name="config_scope_proxy">وكيل محلي</string>
-    <string name="config_section_bypass_settings">إعدادات التجاوز</string>
-    <string name="config_section_server_settings">إعدادات الخادم</string>
+    <string name="config_scope_device">الجهاز بالكامل</string>
+    <string name="config_scope_proxy">وكيل فقط</string>
+    <string name="config_section_bypass_settings">مباشر</string>
+    <string name="config_section_server_settings">الترحيل</string>
 </resources>

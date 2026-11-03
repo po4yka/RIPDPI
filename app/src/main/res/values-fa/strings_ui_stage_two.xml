@@ -2,12 +2,10 @@
 <resources>
     <string name="config_saved_profile_title">نمایهٔ ذخیره‌شده</string>
     <string name="config_profile_change">تغییر نمایه</string>
-    <string name="config_connection_scope_vpn">ترافیک: برنامه‌های انتخاب‌شده برای VPN محلی</string>
-    <string name="config_connection_scope_proxy">ترافیک: برنامه‌های تنظیم‌شده برای استفاده از این پراکسی</string>
-    <string name="config_connection_path_direct">مسیر: اتصال مستقیم</string>
-    <string name="config_connection_path_relay">مسیر: نمایهٔ سرور %1$s</string>
-    <string name="config_connection_start">اتصال</string>
-    <string name="config_connection_stop">قطع اتصال</string>
+    <string name="config_connection_scope_vpn">دامنه: کل دستگاه</string>
+    <string name="config_connection_scope_proxy">دامنه: فقط پروکسی</string>
+    <string name="config_connection_path_direct">مسیر: مستقیم</string>
+    <string name="config_connection_path_relay">مسیر: رله · %1$s</string>
     <string name="config_connection_details">جزئیات پیکربندی</string>
     <string name="diagnostics_technical_details">جزئیات فنی</string>
     <string name="diagnostics_outcome_source_audit">تحلیل شبکه</string>
@@ -21,8 +19,8 @@
     <string name="diagnostics_outcome_stale">نتیجه ذخیره‌شده مربوط به شبکه دیگری است</string>
     <string name="diagnostics_outcome_historical">شواهد ذخیره‌شده؛ تطابق با شبکه فعلی نامشخص است</string>
     <string name="logs_actions_title">عملیات گزارش</string>
-    <string name="config_scope_device">VPN محلی</string>
-    <string name="config_scope_proxy">پراکسی محلی</string>
-    <string name="config_section_bypass_settings">تنظیمات عبور</string>
-    <string name="config_section_server_settings">تنظیمات سرور</string>
+    <string name="config_scope_device">کل دستگاه</string>
+    <string name="config_scope_proxy">فقط پروکسی</string>
+    <string name="config_section_bypass_settings">مستقیم</string>
+    <string name="config_section_server_settings">رله</string>
 </resources>

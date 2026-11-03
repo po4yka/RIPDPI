@@ -1167,7 +1167,7 @@ class MainViewModelTest {
             val issue = viewModel.uiState.value.permissionSummary.issue
             assertEquals(PermissionKind.LocalNetwork, issue?.kind)
 
-            viewModel.onToggleLocalBypass(enabled = true)
+            viewModel.onPrimaryConnectionAction()
             runCurrent()
             assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
 
@@ -1676,80 +1676,6 @@ class MainViewModelTest {
             assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
             collector.cancel()
         }
-
-    @Test
-    fun `local bypass toggle starts proxy mode independent of configured vpn mode`() =
-        runTest {
-            val serviceController = FakeServiceController()
-            val viewModel =
-                createViewModel(
-                    serviceController = serviceController,
-                    permissionStatusProvider =
-                        FakePermissionStatusProvider(
-                            snapshot =
-                                PermissionSnapshot(
-                                    vpnConsent = PermissionStatus.RequiresSystemPrompt,
-                                    notifications = PermissionStatus.Granted,
-                                    batteryOptimization = PermissionStatus.Granted,
-                                ),
-                        ),
-                )
-            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
-            advanceUntilIdle()
-
-            viewModel.onToggleLocalBypass(enabled = true)
-            advanceUntilIdle()
-
-            assertEquals(Mode.VPN, viewModel.uiState.value.configuredMode)
-            assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
-            collector.cancel()
-        }
-
-    @Test
-    fun `local bypass toggle stops active proxy session when disabled`() =
-        runTest {
-            val serviceController = FakeServiceController()
-            val serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy)
-            val viewModel =
-                createViewModel(
-                    serviceStateStore = serviceStateStore,
-                    serviceController = serviceController,
-                    permissionStatusProvider = grantedPermissionStatusProvider(),
-                    initialize = false,
-                )
-            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
-            advanceUntilIdle()
-
-            viewModel.onToggleLocalBypass(enabled = false)
-            advanceUntilIdle()
-
-            assertEquals(1, serviceController.stopCount)
-            assertTrue(serviceController.startedModes.isEmpty())
-            collector.cancel()
-        }
-
-    @Test
-    fun `local bypass toggle stop policy follows visible active local card`() {
-        val proxyState =
-            MainUiState(
-                appStatus = AppStatus.Running,
-                activeMode = Mode.Proxy,
-            )
-        val vpnLocalState =
-            MainUiState(
-                appStatus = AppStatus.Running,
-                activeMode = Mode.VPN,
-                modeCards =
-                    persistentListOf(
-                        HomeModeCardUiState(mode = HomeMode.LocalDpiBypass, isActive = true),
-                        HomeModeCardUiState(mode = HomeMode.RemoteVpn, isActive = false),
-                        HomeModeCardUiState(mode = HomeMode.Diagnostic),
-                    ),
-            )
-
-        assertTrue(shouldStopLocalBypassToggle(proxyState))
-        assertTrue(shouldStopLocalBypassToggle(vpnLocalState))
-    }
 
     @Test
     fun `vpn toggle starts vpn mode independent of configured proxy mode`() =
