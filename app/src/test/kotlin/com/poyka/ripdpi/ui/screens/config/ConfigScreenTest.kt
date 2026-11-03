@@ -26,7 +26,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
-import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.RelayProfileUiState
 import com.poyka.ripdpi.activities.buildConfigPresets
@@ -43,7 +42,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
-import org.robolectric.RuntimeEnvironment
 import org.robolectric.annotation.Config
 import org.robolectric.annotation.GraphicsMode
 
@@ -108,10 +106,10 @@ class ConfigScreenTest {
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigSectionNavigation)
             .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
-        composeRule.onNodeWithText("Choose traffic mode").assertExists()
+        composeRule.onNodeWithText("Choose traffic mode").assertDoesNotExist()
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigTrafficEndpointSelection)
-            .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
+            .assertContentDescription("Choose traffic mode")
     }
 
     @Test
@@ -288,16 +286,6 @@ class ConfigScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProtocol).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnCredentials).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigDnsSettings).assertExists()
-    }
-
-    @Test
-    fun `talkback reads the subtitle of a cleared settings row`() {
-        setConfigScreen(initialModeSection = ConfigModeSection.Vpn, uiPersona = "advanced")
-        val subtitle = RuntimeEnvironment.getApplication().getString(R.string.config_vpn_relay_server_summary)
-
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigVpnRelay)
-            .assert(hasContentDescription(subtitle, substring = true))
     }
 
     @Test

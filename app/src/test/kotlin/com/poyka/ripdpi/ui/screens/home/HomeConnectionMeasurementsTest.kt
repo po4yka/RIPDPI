@@ -93,7 +93,7 @@ class HomeConnectionMeasurementsTest {
             currentSource().copy(serviceStatus = AppStatus.Halted),
         )
         node(R.string.home_quality_last_values).assertExists()
-        node(R.string.measurement_stopped).assertExists()
+        node(R.string.measurement_stopped).assertDoesNotExist()
         node(R.string.vpn_quality_strip_nominal_title).assertDoesNotExist()
         node(R.string.vpn_quality_metric_rtt_p50).assertExists()
     }

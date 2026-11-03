@@ -103,7 +103,7 @@ class AdvancedSettingsScreenCharacterizationTest {
         var opened = false
         setScreen(onOpenStrategyConfig = { opened = true })
 
-        scrollToKey("advanced_strategy_config")
+        scrollToKey("advanced_tools")
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsStrategyConfig).assertExists().performClick()
 
         assertTrue(opened)
