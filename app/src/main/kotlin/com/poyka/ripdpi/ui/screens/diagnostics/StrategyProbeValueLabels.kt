@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.ui.diagnostics
+package com.poyka.ripdpi.ui.screens.diagnostics
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.platform.StringResolver

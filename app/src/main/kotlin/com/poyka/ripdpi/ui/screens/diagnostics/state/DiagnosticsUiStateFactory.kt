@@ -3,7 +3,7 @@ package com.poyka.ripdpi.ui.screens.diagnostics.state
 import com.poyka.ripdpi.diagnostics.BypassApproachDetail
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
-import com.poyka.ripdpi.ui.diagnostics.toApproachDetailUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.toApproachDetailUiModel
 import javax.inject.Inject
 
 internal class DiagnosticsUiStateFactory

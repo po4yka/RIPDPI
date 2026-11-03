@@ -2,7 +2,7 @@ package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
-import com.poyka.ripdpi.ui.diagnostics.toApproachRowUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.toApproachRowUiModel
 import kotlinx.collections.immutable.toImmutableList
 
 internal fun DiagnosticsUiFactorySupport.buildApproachesUiModel(

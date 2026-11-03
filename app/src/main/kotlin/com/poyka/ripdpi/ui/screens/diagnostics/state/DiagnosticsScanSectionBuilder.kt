@@ -9,7 +9,7 @@ import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
-import com.poyka.ripdpi.ui.diagnostics.toScopeLabel
+import com.poyka.ripdpi.ui.screens.diagnostics.toScopeLabel
 import com.poyka.ripdpi.ui.screens.onboarding.isBusy
 import kotlinx.collections.immutable.toImmutableList
 

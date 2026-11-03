@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.ui.diagnostics
+package com.poyka.ripdpi.ui.screens.diagnostics
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.BypassStrategySignature
@@ -20,12 +20,7 @@ internal class StrategySignaturePresenter(
             addFakeTtlSignatureFields(signature)
             addFakeTlsSignatureFields(signature)
             addFakePayloadSignatureFields(signature)
-            add(
-                DiagnosticsFieldUiModel(
-                    stringResolver.getString(R.string.diagnostics_field_route_group),
-                    signature.routeGroup ?: stringResolver.getString(R.string.diagnostics_local_unknown),
-                ),
-            )
+            add(stringResolver.signatureRouteGroupField(signature))
         }
 
     private fun MutableList<DiagnosticsFieldUiModel>.addCoreSignatureFields(signature: BypassStrategySignature) {
@@ -218,7 +213,7 @@ internal class StrategySignaturePresenter(
             add(
                 DiagnosticsFieldUiModel(
                     stringResolver.getString(R.string.diagnostics_signature_http_fake_profile),
-                    formatHttpFakeProfile(it),
+                    stringResolver.signatureHttpFakeProfileLabel(it),
                 ),
             )
         }
@@ -321,14 +316,6 @@ internal class StrategySignaturePresenter(
             value > 0 -> stringResolver.getString(R.string.ripdpi_fake_tls_summary_size_exact, value)
             value < 0 -> stringResolver.getString(R.string.ripdpi_fake_tls_summary_size_minus, -value)
             else -> stringResolver.getString(R.string.diagnostics_signature_match_input_size)
-        }
-
-    private fun formatHttpFakeProfile(value: String): String =
-        when (value.lowercase(Locale.US)) {
-            "compat_default" -> stringResolver.getString(R.string.diagnostics_signature_compatibility_default)
-            "iana_get" -> "IANA GET"
-            "cloudflare_get" -> "Cloudflare GET"
-            else -> value
         }
 
     private fun formatHttpParserEvasions(values: List<String>): String =

@@ -3,7 +3,7 @@ package com.poyka.ripdpi.ui.screens.diagnostics.state
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.diagnostics.DiagnosticSessionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticsCapabilityEvidence
-import com.poyka.ripdpi.ui.diagnostics.toStrategyProbeReportUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.toStrategyProbeReportUiModel
 import kotlinx.collections.immutable.toImmutableList
 import javax.inject.Inject
 

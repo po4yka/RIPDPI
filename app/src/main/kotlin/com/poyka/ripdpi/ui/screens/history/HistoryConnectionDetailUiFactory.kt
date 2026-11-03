@@ -11,7 +11,7 @@ import com.poyka.ripdpi.diagnostics.retryCount
 import com.poyka.ripdpi.diagnostics.rttBand
 import com.poyka.ripdpi.diagnostics.winningStrategyFamily
 import com.poyka.ripdpi.platform.StringResolver
-import com.poyka.ripdpi.ui.diagnostics.StrategySignatureValueLabels
+import com.poyka.ripdpi.ui.screens.diagnostics.StrategySignatureValueLabels
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsContextGroupUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsFieldGroupUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsFieldUiModel

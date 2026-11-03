@@ -8,8 +8,8 @@ import com.poyka.ripdpi.diagnostics.dpi.DpiSuiteProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeResult
 import com.poyka.ripdpi.diagnostics.dpi.EchProbeVerdict
 import com.poyka.ripdpi.diagnostics.dpi.SuiteVerdict
-import com.poyka.ripdpi.ui.diagnostics.StrategySignaturePresenter
-import com.poyka.ripdpi.ui.diagnostics.StrategySignatureValueLabels
+import com.poyka.ripdpi.ui.screens.diagnostics.StrategySignaturePresenter
+import com.poyka.ripdpi.ui.screens.diagnostics.StrategySignatureValueLabels
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDpiSuiteState
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsDpiSuiteToolUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone

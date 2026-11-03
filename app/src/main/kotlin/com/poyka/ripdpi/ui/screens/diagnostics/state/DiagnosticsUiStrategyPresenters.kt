@@ -5,9 +5,9 @@ import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ResolverRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
 import com.poyka.ripdpi.platform.StringResolver
-import com.poyka.ripdpi.ui.diagnostics.buildStrategyProbeCandidateDetails
-import com.poyka.ripdpi.ui.diagnostics.buildStrategyProbeReportPresentation
-import com.poyka.ripdpi.ui.diagnostics.toStrategyProbeFamilies
+import com.poyka.ripdpi.ui.screens.diagnostics.buildStrategyProbeCandidateDetails
+import com.poyka.ripdpi.ui.screens.diagnostics.buildStrategyProbeReportPresentation
+import com.poyka.ripdpi.ui.screens.diagnostics.toStrategyProbeFamilies
 import kotlinx.collections.immutable.toImmutableList
 
 internal class StrategyReportSummaryMapper(

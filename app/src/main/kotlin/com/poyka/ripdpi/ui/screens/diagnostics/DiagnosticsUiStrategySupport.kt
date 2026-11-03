@@ -1,11 +1,9 @@
-package com.poyka.ripdpi.ui.diagnostics
+package com.poyka.ripdpi.ui.screens.diagnostics
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.diagnostics.BypassApproachDetail
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
-import com.poyka.ripdpi.diagnostics.BypassStrategySignature
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.ScanKind
 import com.poyka.ripdpi.diagnostics.ScanPathMode
@@ -13,7 +11,6 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeCandidateSummary
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeRecommendation
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
-import com.poyka.ripdpi.diagnostics.deriveBypassStrategySignature
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.ui.screens.diagnostics.state.AuditAssessmentPresenter
@@ -108,12 +105,7 @@ internal fun DiagnosticsUiFactorySupport.toApproachDetailUiModel(
                         .toString(),
                     DiagnosticsTone.Warning,
                 ),
-                DiagnosticsMetricUiModel(
-                    context.getString(R.string.diagnostics_metric_route_changes),
-                    detail.summary.recentRuntimeHealth.routeChanges
-                        .toString(),
-                    DiagnosticsTone.Info,
-                ),
+                pathShiftMetric(detail),
             ),
         recentSessions = detail.recentValidatedSessions.map(::toSessionRowUiModel).toImmutableList(),
         recentUsageNotes =
@@ -444,27 +436,6 @@ private fun strategyProbeCandidateTone(
 private fun DiagnosticsUiFactorySupport.strategyProbeFamilyLabel(family: String): String =
     StrategyProbeValueLabels(context).family(family)
 
-private fun parseServiceModeOrDefault(serviceMode: String?): Mode =
-    when (serviceMode?.uppercase(Locale.US)) {
-        "PROXY" -> Mode.Proxy
-        "VPN" -> Mode.VPN
-        else -> Mode.VPN
-    }
-
-private fun DiagnosticsUiFactorySupport.deriveSignature(
-    summary: StrategyProbeCandidateSummary,
-    serviceMode: String?,
-): BypassStrategySignature? =
-    summary.proxyConfigJson
-        ?.takeIf { it.isNotBlank() }
-        ?.let { configJson ->
-            deriveBypassStrategySignature(
-                configJson = configJson,
-                routeGroup = null,
-                modeOverride = parseServiceModeOrDefault(serviceMode),
-            )
-        }
-
 private fun ProbeResult.detailValue(key: String): String? = details.firstOrNull { it.key == key }?.value
 
 private fun List<ProbeResult>.groupByStrategyProbeCandidateId(): Map<String, List<ProbeResult>> {
@@ -543,7 +514,11 @@ private fun DiagnosticsUiFactorySupport.toCandidateDetailUiModel(
         recommended = recommended,
         notes = (candidate.notes + strategyEmitterNotes(candidate, context)).distinct().toImmutableList(),
         metrics = buildStrategyProbeCandidateMetrics(candidate, recommended, context).toImmutableList(),
-        signature = deriveSignature(candidate, serviceMode)?.let(::strategySignatureFields).orEmpty().toImmutableList(),
+        signature =
+            deriveCandidateSignature(
+                candidate,
+                serviceMode,
+            )?.let(::strategySignatureFields).orEmpty().toImmutableList(),
         resultGroups =
             buildStrategyProbeResultGroups(
                 candidateResults = candidateResults,

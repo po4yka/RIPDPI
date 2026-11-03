@@ -40,8 +40,8 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogTone
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiSettingsScaffold
-import com.poyka.ripdpi.ui.diagnostics.StrategySignatureValueLabels
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.diagnostics.StrategySignatureValueLabels
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons

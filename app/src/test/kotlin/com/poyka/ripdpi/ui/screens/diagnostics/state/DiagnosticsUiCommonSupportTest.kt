@@ -12,8 +12,8 @@ import com.poyka.ripdpi.diagnostics.CurrentStrategyCandidateVerdict
 import com.poyka.ripdpi.diagnostics.CurrentStrategyEvidenceReason
 import com.poyka.ripdpi.diagnostics.StrategyProbeObservationRole
 import com.poyka.ripdpi.platform.AndroidStringResolver
-import com.poyka.ripdpi.ui.diagnostics.uiEvidenceNote
-import com.poyka.ripdpi.ui.diagnostics.uiVerificationLabel
+import com.poyka.ripdpi.ui.screens.diagnostics.uiEvidenceNote
+import com.poyka.ripdpi.ui.screens.diagnostics.uiVerificationLabel
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith

@@ -2,7 +2,7 @@ package com.poyka.ripdpi.ui.screens.status
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.platform.StringResolver
-import com.poyka.ripdpi.ui.diagnostics.StrategyProbeValueLabels
+import com.poyka.ripdpi.ui.screens.diagnostics.StrategyProbeValueLabels
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import java.util.Locale
 

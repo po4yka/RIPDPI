@@ -8,7 +8,7 @@ import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.diagnostics.resolveLegalSafetyPolicy
-import com.poyka.ripdpi.ui.diagnostics.toStrategyProbeReportUiModel
+import com.poyka.ripdpi.ui.screens.diagnostics.toStrategyProbeReportUiModel
 import com.poyka.ripdpi.ui.screens.settings.toRememberedNetworkUiModel
 import javax.inject.Inject
 

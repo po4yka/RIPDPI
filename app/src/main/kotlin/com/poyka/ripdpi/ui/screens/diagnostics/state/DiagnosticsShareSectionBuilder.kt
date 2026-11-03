@@ -10,8 +10,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticExportRecord
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
-import com.poyka.ripdpi.ui.diagnostics.uiEvidenceNote
-import com.poyka.ripdpi.ui.diagnostics.uiVerificationLabel
+import com.poyka.ripdpi.ui.screens.diagnostics.uiEvidenceNote
+import com.poyka.ripdpi.ui.screens.diagnostics.uiVerificationLabel
 import com.poyka.ripdpi.ui.screens.onboarding.isBusy
 import kotlinx.collections.immutable.toImmutableList
 

@@ -9,11 +9,11 @@ import com.poyka.ripdpi.diagnostics.StrategyProbeAuditConfidenceLevel
 import com.poyka.ripdpi.diagnostics.StrategyProbeAuditCoverage
 import com.poyka.ripdpi.diagnostics.StrategyProbeCompletionKind
 import com.poyka.ripdpi.diagnostics.StrategyProbeReport
-import com.poyka.ripdpi.ui.diagnostics.buildStrategyProbeReportPresentation
 import com.poyka.ripdpi.ui.screens.diagnostics.EventRow
 import com.poyka.ripdpi.ui.screens.diagnostics.ProbeResultRow
 import com.poyka.ripdpi.ui.screens.diagnostics.SessionRow
 import com.poyka.ripdpi.ui.screens.diagnostics.StrategyProbeReportCard
+import com.poyka.ripdpi.ui.screens.diagnostics.buildStrategyProbeReportPresentation
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProbeResultUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionRowUiModel
