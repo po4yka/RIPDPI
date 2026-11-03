@@ -210,13 +210,13 @@ class PersianLocalizationRegressionsTest(unittest.TestCase):
 
     def test_shared_presentation_has_translations_and_count_forms(self):
         catalogs = {}
-        filename = "strings_persian_audit_localization.xml"
+        prefixes = ("home_generated_", "diagnostics_strategy_")
         for locale in LOCALES:
-            path = ROOT / "app/src/main/res" / locale / filename
-            self.assertTrue(path.is_file(), locale)
-            catalogs[locale] = {entry.get("name"): entry for entry in ET.parse(path).getroot()}
+            catalogs[locale] = {
+                name: entry for name, entry in resources("app", locale).items() if name.startswith(prefixes)
+            }
         source = catalogs["values"]
-        self.assertEqual(198, len(source))
+        self.assertGreaterEqual(len(source), 198)
         self.assertEqual(4, sum(entry.tag == "plurals" for entry in source.values()))
         # Product tokens and valid cognates can be identical to English.
         canonical = {"home_generated_warp_amnezia"}

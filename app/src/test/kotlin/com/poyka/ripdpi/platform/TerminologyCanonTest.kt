@@ -38,7 +38,7 @@ class TerminologyCanonTest {
             )
 
         expectedGuidedLabels.forEach { (directory, expected) ->
-            val values = stringValues(File(resourcesDir, "$directory/strings.xml"))
+            val values = featureStringValues(File(resourcesDir, directory))
             assertEquals("$directory persona label", expected, values.getValue("persona_simple"))
         }
         expectedDistributionTitles.forEach { (directory, expected) ->
@@ -56,14 +56,14 @@ class TerminologyCanonTest {
             ),
         )
 
-        val englishValues = stringValues(File(resourcesDir, "values/strings.xml"))
+        val englishValues = featureStringValues(File(resourcesDir, "values"))
         assertEquals("Interface mode", englishValues.getValue("settings_persona_title"))
     }
 
     @Test
     fun `home proxy-only label stays localized and matches the scope chip in every translated resource set`() {
         val resourcesDir = File("src/main/res")
-        val englishStrings = stringValues(File(resourcesDir, "values/strings.xml"))
+        val englishStrings = featureStringValues(File(resourcesDir, "values"))
         val englishHomeLabel = englishStrings.getValue("home_mode_local_dpi_bypass")
         val translatedDirectories =
             listOf(
@@ -80,7 +80,7 @@ class TerminologyCanonTest {
 
         val offenders =
             translatedDirectories.mapNotNull { directory ->
-                val values = stringValues(File(resourcesDir, "$directory/strings.xml"))
+                val values = featureStringValues(File(resourcesDir, directory))
                 val homeLabel = values.getValue("home_mode_local_dpi_bypass")
                 val configLabel = values.getValue("home_mode_proxy")
                 if (homeLabel == configLabel && homeLabel != englishHomeLabel) {
@@ -167,6 +167,13 @@ class TerminologyCanonTest {
                 """<string\s+name="([^"]+)"(?:\s+[^>]*)?>(.*?)</string>""",
                 RegexOption.DOT_MATCHES_ALL,
             )
+
+        fun featureStringValues(directory: File): Map<String, String> =
+            directory
+                .listFiles { file -> file.name.startsWith("strings") && file.extension == "xml" }
+                .orEmpty()
+                .sortedBy { it.name }
+                .fold(emptyMap()) { acc, file -> acc + stringValues(file) }
 
         fun stringValues(file: File): Map<String, String> =
             stringValueRegex

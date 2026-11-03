@@ -83,7 +83,7 @@ Plan before editing only where the approach is genuinely uncertain: cross-module
 
 ## Locales
 
-The app ships 10 locales: en, ru, es, de, fr, fa, ar, zh-CN, hi, and pt-BR. Any key added to or removed from app or service resources changes every locale in the same commit. A locale may split strings across multiple XML files, so validate parity with Android lint rather than a single-file grep:
+The app ships 10 locales: en, ru, es, de, fr, fa, ar, zh-CN, hi, and pt-BR. Any key added to or removed from app or service resources changes every locale in the same commit. A locale may split strings across multiple XML files, so String files are grouped by feature prefix (`strings_<feature>.xml`); put a new key in its feature's file. Validate parity with Android lint rather than a single-file grep:
 
 ```bash
 ./gradlew :app:lintGithubFullDebug :core:service:lintDebug

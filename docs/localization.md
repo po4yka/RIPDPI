@@ -1,6 +1,6 @@
 # Localization
 
-RIPDPI ships **10 locales** today: `en` (source), `ru`, `es`, `de`, `fr`, `fa`, `ar`, `zh-CN`, `hi`, and `pt-BR`. Source strings live across `app/src/main/res/values/*.xml` and `core/service/src/main/res/values/strings.xml`. Each locale has matching `values-<qualifier>/` resources, and the enabled set is mirrored in `app/src/main/res/xml/locales_config.xml`. A locale may split resources across multiple XML files in its directory; Hindi currently uses both `strings.xml` and `strings2.xml`.
+RIPDPI ships **10 locales** today: `en` (source), `ru`, `es`, `de`, `fr`, `fa`, `ar`, `zh-CN`, `hi`, and `pt-BR`. Source strings live across `app/src/main/res/values/*.xml` and `core/service/src/main/res/values/strings.xml`. Each locale has matching `values-<qualifier>/` resources, and the enabled set is mirrored in `app/src/main/res/xml/locales_config.xml`. A locale may split resources across multiple XML files in its directory; String files are grouped by feature prefix (`strings_<feature>.xml`: common, config, diagnostics, dns, history, home, logs, onboarding, relay, routing, settings); put a new key in its feature's file, and keep each file under the 512 KiB `no-large-files` limit (split as `strings_<feature>_2.xml` in every locale).
 
 This document records how translations are managed, why, and exactly how a new contributor adds one.
 

@@ -255,7 +255,7 @@ CI=true build-gate -- ./gradlew :app:assembleDebug --dry-run --info --max-worker
 # Static analysis clean.
 build-gate -- ./gradlew staticAnalysis --max-workers=4 -Pripdpi.nativeCpuBudget=2
 
-# Locale parity across all resource XML files (including Hindi strings2.xml).
+# Locale parity across all resource XML files (including every strings_<feature>.xml file).
 build-gate -- ./gradlew :app:lintGithubFullDebug :core:service:lintDebug \
   --max-workers=4 -Pripdpi.nativeCpuBudget=2
 ```
