@@ -132,7 +132,7 @@ RIPDPI 会记录用于诊断和故障排查的运行元数据：网络快照、�
 
 要求：JDK 21、Android SDK（平台 `37.1`，CMake `3.31.6`）、Android NDK `29.0.14206865`、Rust 工具链 `1.98.1`、所需 ABI 的 Android Rust 目标、[`just`](https://just.systems)（任务运行器；`justfile` 中的配方与 CI 一致）以及 [`lefthook`](https://github.com/evilmartians/lefthook)（运行一次 `lefthook install` 以接入 pre-commit 检查）。
 
-新的 checkout 在打包 APK 前还需要带有项目补丁的真实 libXray AAR。按 [libXray 打包说明](docs/native/libxray-packaging.md#build)准备 amd64 Go、固定版本的 `gomobile` 和 `gobind` 以及 `ANDROID_NDK_HOME`。生成脚本需要新的或空的 `native/xray/artifacts/` 目录，并能访问固定版本的源码。要复用已经验证且符合当前版本的产物目录，可向 Gradle 传入 `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts`；打包检查仍会验证该目录。
+发布构建和 CI 需要打过补丁的真实 libXray AAR；本地 debug 构建缺少它时使用 stub（Xray 功能不可用）。按 [libXray 打包说明](docs/native/libxray-packaging.md#build)准备 amd64 Go、固定版本的 `gomobile` 和 `gobind` 以及 `ANDROID_NDK_HOME`。生成脚本需要新的或空的 `native/xray/artifacts/` 目录，并能访问固定版本的源码。要复用已经验证且符合当前版本的产物目录，可向 Gradle 传入 `-Pripdpi.prebuiltXrayAarDir=/absolute/path/to/artifacts`；打包检查仍会验证该目录。
 
 使用 Android CLI 1.0+ 安装所需的 SDK 包：
 
