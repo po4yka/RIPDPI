@@ -54,7 +54,7 @@ class SettingsGuidanceBannerKaspressoTest :
             step("Home keeps only the lockdown notice, the guidance notice is gone") {
                 composeRule.onNode(hasTestTag(RipDpiTestTags.bottomNav(Route.Home))).performClick()
                 composeRule.waitForTag(RipDpiTestTags.screen(Route.Home))
-                composeRule.waitForTag(RipDpiTestTags.HomeSetupHealthRow)
+                composeRule.waitForTag(RipDpiTestTags.HomeSetupHealthAction)
                 composeRule.waitForNoTag(RipDpiTestTags.HomeAdvisoryMore, timeoutMillis = 5_000)
             }
         }
