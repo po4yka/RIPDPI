@@ -89,6 +89,8 @@ The app ships 10 locales: en, ru, es, de, fr, fa, ar, zh-CN, hi, and pt-BR. Any 
 ./gradlew :app:lintGithubFullDebug :core:service:lintDebug
 ```
 
+Put a new key in the feature's existing string file, then regenerate `config/i18n/translatable-keys.txt` with `scripts/ci/export-strings-for-translation.sh`; the CI export gate fails without it.
+
 `language_name_*` values are native display names and remain identical across locales. Register new locales in `app/src/main/res/xml/locales_config.xml` and `LocalesConfigTest.kt`. README selector changes must keep `scripts/check-readme-selectors.sh` green.
 
 ## Worktree and commit workflow

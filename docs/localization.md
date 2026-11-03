@@ -88,9 +88,9 @@ Canonical terminology and do-not-translate terms (product name, protocol names, 
 
 ## CI export gate
 
-A CI gate prevents new source strings from silently shipping untracked for translation. The script `scripts/ci/check-translation-export.sh`, wired into the workflow `.github/workflows/i18n-export.yml`, fails the build when a new source string is added to `app/src/main/res/values/strings.xml` (or the service module) **without** being recorded in `config/i18n/translatable-keys.txt`. The keys file is the authoritative manifest of strings that are in scope for translation; updating it is the signal that a new key has been acknowledged and is ready to be picked up by translators.
+A CI gate prevents new source strings from silently shipping untracked for translation. The script `scripts/ci/check-translation-export.sh`, wired into the workflow `.github/workflows/i18n-export.yml`, fails the build when a source string is added to or removed from any XML file under `app/src/main/res/values/` (or the service module) **without** being recorded in `config/i18n/translatable-keys.txt`. The keys file is the authoritative manifest of strings that are in scope for translation; updating it is the signal that a new key has been acknowledged and is ready to be picked up by translators.
 
-> These three paths — `scripts/ci/check-translation-export.sh`, `.github/workflows/i18n-export.yml`, and `config/i18n/translatable-keys.txt` — are created by a sibling task and are forward-referenced here by path. If they are not yet present in the tree, that task owns adding them.
+After you add or remove a key, regenerate the manifest with `scripts/ci/export-strings-for-translation.sh` and commit it with the key.
 
 ## Font & glyph coverage
 
