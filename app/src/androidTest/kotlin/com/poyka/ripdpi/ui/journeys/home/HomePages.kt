@@ -30,6 +30,7 @@ internal class HomePage(
     val actuatorRouteLabel = RipDpiTestTags.ConnectionActuatorRouteLabel
     val actuatorTerminalLabel = RipDpiTestTags.ConnectionActuatorTerminalLabel
     val errorSnackbar = RipDpiTestTags.MainErrorSnackbar
+    val disconnectConfirm = RipDpiTestTags.ConnectionActuatorDisconnectConfirm
 
     /** Opens the modes accordion unless the screen already shows it expanded. */
     fun expandModes() {

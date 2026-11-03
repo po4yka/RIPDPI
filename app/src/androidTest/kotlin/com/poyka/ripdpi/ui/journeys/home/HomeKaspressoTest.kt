@@ -53,8 +53,9 @@ class HomeIdleKaspressoTest :
                     click(actuatorButton)
                     waitForServiceState(serviceStateStore, AppStatus.Running, Mode.VPN)
                 }
-                step("Pressing the actuator again returns the service to halted") {
+                step("Pressing the actuator again and confirming the dialog returns the service to halted") {
                     click(actuatorButton)
+                    click(disconnectConfirm)
                     waitForHalted(serviceStateStore)
                 }
             }
