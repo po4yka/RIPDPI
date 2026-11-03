@@ -157,7 +157,7 @@ APK 输出位于对应变体目录中，例如 `app/build/outputs/apk/githubFull
 ## 测试
 
 ```bash
-./gradlew testDebugUnitTest
+./gradlew testDebugUnitTest :app:testGithubFullDebugUnitTest
 bash scripts/ci/run-rust-native-checks.sh
 bash scripts/ci/run-rust-network-e2e.sh
 ./test-lab/scripts/start-lab.sh --profile emulator

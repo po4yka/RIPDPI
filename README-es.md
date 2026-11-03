@@ -157,7 +157,7 @@ Las compilaciones debug locales usan lanzadores stub para Snowflake, obfs4, WebT
 ## Pruebas
 
 ```bash
-./gradlew testDebugUnitTest
+./gradlew testDebugUnitTest :app:testGithubFullDebugUnitTest
 bash scripts/ci/run-rust-native-checks.sh
 bash scripts/ci/run-rust-network-e2e.sh
 ./test-lab/scripts/start-lab.sh --profile emulator

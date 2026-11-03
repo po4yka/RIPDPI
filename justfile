@@ -61,20 +61,20 @@ build-cli:
 
 # ─── Test ─────────────────────────────────────────────────────────
 
-# Run all Kotlin unit tests
+# Run all Kotlin unit tests (library modules and the flavored :app module)
 [group('test')]
 test:
-    ./gradlew testDebugUnitTest -Pripdpi.skipNativeBuild=true
+    ./gradlew testDebugUnitTest :app:testGithubFullDebugUnitTest -Pripdpi.skipNativeBuild=true
 
 # Run unit tests for a single module (e.g., just test-module core:engine)
 [group('test')]
 test-module mod:
-    ./gradlew :{{mod}}:testDebugUnitTest -Pripdpi.skipNativeBuild=true
+    ./gradlew :{{mod}}:{{ if mod == "app" { "testGithubFullDebugUnitTest" } else { "testDebugUnitTest" } }} -Pripdpi.skipNativeBuild=true
 
 # Run a single test class (e.g., just test-class core:engine RipDpiProxyPreferencesTest)
 [group('test')]
 test-class mod class:
-    ./gradlew :{{mod}}:testDebugUnitTest --tests "{{class}}" -Pripdpi.skipNativeBuild=true
+    ./gradlew :{{mod}}:{{ if mod == "app" { "testGithubFullDebugUnitTest" } else { "testDebugUnitTest" } }} --tests "{{class}}" -Pripdpi.skipNativeBuild=true
 
 # Run all Rust workspace tests
 [group('test')]

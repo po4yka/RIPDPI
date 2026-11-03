@@ -32,10 +32,13 @@ The Android build invokes the `ripdpi.android.rust-native` convention plugin fro
 
 ## Build, test, and verification
 
+`testDebugUnitTest` covers the library modules only; `:app` is flavored, so its unit tests run through `:app:testGithubFullDebugUnitTest`.
+
 ```bash
 ./gradlew assembleDebug
 ./gradlew assembleRelease
 ./gradlew testDebugUnitTest
+./gradlew :app:testGithubFullDebugUnitTest
 ./gradlew :core:data:testDebugUnitTest
 ./gradlew staticAnalysis
 ./gradlew createModuleGraph

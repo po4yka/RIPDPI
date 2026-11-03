@@ -88,10 +88,10 @@ this registration.
 - `core:diagnostics` - diagnostics manager orchestration - automatic probing profile wiring, hidden handover-triggered `quick_v1` probes, `full_matrix_v1` audit cohort rotation/provenance, recommendation persistence, and recommendation invariant validation - authority-scoped DNS classification, honest direct-mode verdict persistence, and transport-specific remediation projection - resolver recommendation ranking, diversified encrypted-DNS path planning, and temporary encrypted-DNS override flow - candidate-aware strategy-probe progress, audit confidence/coverage assessment, and summary/export metadata projection - runtime-history persistence of resolver telemetry and remembered-network proof/suppression state - export/archive contents - persisted passive-monitor and native-event golden contracts
 - `app` - settings and diagnostics ViewModel coverage for chain DSL, fake payload/fake TLS controls, adaptive split placement, activation windows, adaptive fake TTL, remembered-network presentation, support settings deep-link routing/preview reachability, automatic probing/audit presentation, exact remediation states, transport-specific remediation, owned-stack browser flow, and winners-first audit reports
 
-Main command:
+Main command (`testDebugUnitTest` skips the flavored `:app` module, so name its task too):
 
 ```bash
-./gradlew testDebugUnitTest
+./gradlew testDebugUnitTest :app:testGithubFullDebugUnitTest
 ```
 
 Focused command set:

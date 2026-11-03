@@ -159,7 +159,7 @@ android sdk install platforms/android-37.1 ndk/29.0.14206865 cmake/3.31.6
 ## آزمایش
 
 ```bash
-./gradlew testDebugUnitTest
+./gradlew testDebugUnitTest :app:testGithubFullDebugUnitTest
 bash scripts/ci/run-rust-native-checks.sh
 bash scripts/ci/run-rust-network-e2e.sh
 ./test-lab/scripts/start-lab.sh --profile emulator

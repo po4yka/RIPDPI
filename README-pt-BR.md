@@ -158,7 +158,7 @@ Builds debug locais usam launchers stub para Snowflake, obfs4, WebTunnel e o aux
 ## Testes
 
 ```bash
-./gradlew testDebugUnitTest
+./gradlew testDebugUnitTest :app:testGithubFullDebugUnitTest
 bash scripts/ci/run-rust-native-checks.sh
 bash scripts/ci/run-rust-network-e2e.sh
 ./test-lab/scripts/start-lab.sh --profile emulator
