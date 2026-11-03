@@ -42,20 +42,17 @@ class HomeIdleKaspressoTest :
         }
 
     @Test
-    fun localBypassToggleStartsAndStopsProxyService() =
+    fun modeCardsOfferNoConnectAction() =
         run {
             with(HomePage(composeRule)) {
-                step("Service starts halted") {
+                step("Service starts halted and the modes are expanded") {
                     assertEquals(AppStatus.Halted, serviceStateStore.status.value.first)
                     expandModes()
                 }
-                step("Enabling local bypass dispatches a running proxy service") {
-                    click(localBypassPrimary)
-                    waitForServiceState(serviceStateStore, AppStatus.Running, Mode.Proxy)
-                }
-                step("Disabling local bypass returns the service to halted") {
-                    click(localBypassPrimary)
-                    waitForHalted(serviceStateStore)
+                step("Mode cards expose configure only; the actuator is the single connect control") {
+                    awaitDisplayed(localBypassCard)
+                    assertEquals(0, count(localBypassPrimary))
+                    assertEquals(0, count(remoteVpnPrimary))
                 }
             }
         }
@@ -74,7 +71,7 @@ class HomeConnectedProxyKaspressoTest :
     lateinit var serviceStateStore: ServiceStateStore
 
     @Test
-    fun connectedProxyPresetShowsLocalBypassActiveAndToggleReturnsToIdle() =
+    fun connectedProxyPresetShowsProxyOnlyCardActive() =
         run {
             with(HomePage(composeRule)) {
                 step("Preset reports a running proxy and Home shows the route labels") {
@@ -82,15 +79,12 @@ class HomeConnectedProxyKaspressoTest :
                     awaitDisplayed(actuatorRouteLabel)
                     node(actuatorTerminalLabel).assertIsDisplayed()
                 }
-                step("Local bypass card is shown") {
+                step("Proxy only card is shown") {
                     expandModes()
                     awaitDisplayed(localBypassCard)
                 }
-                step("Stopping returns to idle, enabling again runs the proxy") {
-                    click(localBypassPrimary)
-                    waitForHalted(serviceStateStore)
-                    click(localBypassPrimary)
-                    waitForServiceState(serviceStateStore, AppStatus.Running, Mode.Proxy)
+                step("The card carries no connect action") {
+                    assertEquals(0, count(localBypassPrimary))
                 }
             }
         }
@@ -116,9 +110,9 @@ class HomeConnectedVpnKaspressoTest :
                     assertEquals(AppStatus.Running to Mode.VPN, serviceStateStore.status.value)
                     expandModes()
                 }
-                step("Remote VPN card and its primary action are shown") {
+                step("Whole device card is shown without a connect action") {
                     awaitDisplayed(remoteVpnCard)
-                    awaitDisplayed(remoteVpnPrimary)
+                    assertEquals(0, count(remoteVpnPrimary))
                 }
                 step("Connection actuator shows route and terminal labels") {
                     awaitDisplayed(actuatorRouteLabel)

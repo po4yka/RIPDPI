@@ -112,7 +112,6 @@ class VpnRelayProfileReachabilityTest {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
                     VpnConfigScreen(
                         uiState = ConfigUiState(vpnProfiles = profiles.toImmutableList()),
-                        onRuntimeModeToggle = { _, _ -> },
                         onOpenRelaySettings = {},
                         onOpenDnsSettings = {},
                         onPasteServerLink = {},

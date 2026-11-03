@@ -32,8 +32,8 @@ class HomeModeCardUiStateTest {
             listOf(HomeMode.LocalDpiBypass, HomeMode.RemoteVpn, HomeMode.Diagnostic),
             cards.map { it.mode },
         )
-        assertEquals("Local bypass", cards[0].title)
-        assertEquals("VPN", cards[1].title)
+        assertEquals("Proxy only", cards[0].title)
+        assertEquals("Whole device", cards[1].title)
         assertEquals("Diagnostic scan", cards[2].title)
     }
 
@@ -82,11 +82,11 @@ class HomeModeCardUiStateTest {
         assertFalse(localBypass.isActive)
         assertTrue(remoteVpn.isActive)
         assertEquals("Connected 00:00:03", remoteVpn.secondaryLabel)
-        assertEquals("Local VPN", remoteVpn.primaryLabel)
+        assertEquals("Direct", remoteVpn.primaryLabel)
     }
 
     @Test
-    fun `vpn card primary action is enabled when relay is disabled`() {
+    fun `vpn card shows the direct path when relay is disabled`() {
         val cards =
             buildCards(
                 settings =
@@ -101,13 +101,11 @@ class HomeModeCardUiStateTest {
             )
 
         val remoteVpn = cards.single { it.mode == HomeMode.RemoteVpn }
-        assertEquals("Local VPN", remoteVpn.primaryLabel)
-        assertTrue(remoteVpn.primaryActionEnabled)
-        assertEquals("", remoteVpn.primaryActionDisabledHint)
+        assertEquals("Direct", remoteVpn.primaryLabel)
     }
 
     @Test
-    fun `vpn card explains why saved doq cannot start vpn but keeps stop available`() {
+    fun `vpn card explains why saved doq cannot start vpn`() {
         val settings =
             AppSettingsSerializer.defaultValue
                 .toBuilder()
@@ -115,13 +113,12 @@ class HomeModeCardUiStateTest {
                 .setEncryptedDnsProtocol(EncryptedDnsProtocolDoq)
                 .build()
         val disconnected = buildCards(settings = settings).single { it.mode == HomeMode.RemoteVpn }
-        assertFalse(disconnected.primaryActionEnabled)
-        assertTrue(disconnected.primaryActionDisabledHint.contains("Proxy mode"))
+        assertTrue(disconnected.statusLine.contains("Proxy mode"))
 
         val connected =
             buildCards(settings = settings, activeMode = Mode.VPN, connectionState = ConnectionState.Connected)
                 .single { it.mode == HomeMode.RemoteVpn }
-        assertTrue(connected.primaryActionEnabled)
+        assertFalse(connected.statusLine.contains("Proxy mode"))
     }
 
     @Test
@@ -148,7 +145,7 @@ class HomeModeCardUiStateTest {
         val remoteVpn = cards.single { it.mode == HomeMode.RemoteVpn }
         assertFalse(localBypass.isActive)
         assertTrue(remoteVpn.isActive)
-        assertEquals("relay.example", remoteVpn.primaryLabel)
+        assertEquals("Relay · relay.example", remoteVpn.primaryLabel)
         assertEquals("Connected 00:00:05", remoteVpn.secondaryLabel)
     }
 

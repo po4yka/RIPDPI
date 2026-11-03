@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.journeys.settings
 
-import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextReplacement
@@ -39,21 +38,11 @@ internal class ConfigPage(
     val profileChange = RipDpiTestTags.ConfigProfileChange
     val profileChoices = RipDpiTestTags.ConfigProfileChoices
     val connectionDetails = RipDpiTestTags.ConfigConnectionDetails
-    val runtimeAction = RipDpiTestTags.ConfigRuntimeAction
     val bottomNavConfig = RipDpiTestTags.bottomNav(Route.Config)
 
     fun modeSection(id: String): String = RipDpiTestTags.configModeSection(id)
 
     fun preset(id: String): String = RipDpiTestTags.configPreset(id)
-
-    fun awaitRuntimeAction(
-        label: String,
-        timeoutMillis: Long = 10_000,
-    ) {
-        rule.waitUntil(timeoutMillis) {
-            rule.onAllNodes(hasTestTag(runtimeAction) and hasText(label)).fetchSemanticsNodes().isNotEmpty()
-        }
-    }
 
     fun awaitProfileRow(timeoutMillis: Long = 15_000) {
         rule.waitUntil(timeoutMillis) { rule.exists(tagStartingWith(ProfileRowPrefix)) }

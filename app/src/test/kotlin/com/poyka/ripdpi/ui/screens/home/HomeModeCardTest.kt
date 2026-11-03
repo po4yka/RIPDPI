@@ -251,7 +251,11 @@ class HomeModeCardTest {
             CompositionLocalProvider(LocalDensity provides Density(1f, 2f), LocalLayoutDirection provides direction) {
                 RipDpiTheme {
                     Box(Modifier.requiredWidth(320.dp)) {
-                        HomeModeCard(card(mode = HomeMode.Diagnostic).copy(primaryActionLabel = label), {}, {})
+                        HomeModeCard(
+                            card(mode = HomeMode.Diagnostic).copy(primaryActionLabel = label),
+                            {},
+                            onPrimaryAction = {},
+                        )
                     }
                 }
             }

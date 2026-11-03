@@ -610,8 +610,6 @@ app:config_connection_path_direct
 app:config_connection_path_relay
 app:config_connection_scope_proxy
 app:config_connection_scope_vpn
-app:config_connection_start
-app:config_connection_stop
 app:config_default_ttl_helper
 app:config_default_ttl_summary
 app:config_dns_disabled_helper
@@ -651,8 +649,6 @@ app:config_local_bypass_strategy_body
 app:config_local_bypass_strategy_title
 app:config_local_bypass_toggle_body
 app:config_local_bypass_toggle_title
-app:config_local_bypass_turn_off
-app:config_local_bypass_turn_on
 app:config_max_connections_helper
 app:config_mode_section
 app:config_network_section
@@ -855,8 +851,6 @@ app:config_vpn_simple_body
 app:config_vpn_simple_title
 app:config_vpn_toggle_body
 app:config_vpn_toggle_title
-app:config_vpn_turn_off
-app:config_vpn_turn_on
 app:config_xray_import_body
 app:config_xray_import_title
 app:confirm_clear_remembered_networks_body
@@ -3314,7 +3308,7 @@ app:home_mode_card_diagnostic_status_actionable
 app:home_mode_card_diagnostic_status_review
 app:home_mode_card_diagnostic_status_stale
 app:home_mode_card_disable
-app:home_mode_card_enable
+app:home_mode_card_path_label
 app:home_mode_card_remote_server_unknown
 app:home_mode_card_run_scan
 app:home_mode_card_status_active

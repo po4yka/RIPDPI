@@ -103,31 +103,6 @@ class ConfigScreenKaspressoTest :
         }
 
     @Test
-    fun runtimeActionStartsAndStopsTheSavedProxyMode() =
-        run {
-            step("Select proxy mode; the runtime action offers Connect") {
-                with(ConfigPage(composeRule)) {
-                    click(proxyChip)
-                    composeRule.waitForSettings(appSettingsRepository) { it.ripdpiMode == Mode.Proxy.preferenceValue }
-                    require(runtimeAction)
-                    awaitRuntimeAction("Connect")
-                }
-            }
-            step("Connecting flips the action to Disconnect") {
-                with(ConfigPage(composeRule)) {
-                    click(runtimeAction)
-                    awaitRuntimeAction("Disconnect", 30_000)
-                }
-            }
-            step("Disconnecting returns the action to Connect") {
-                with(ConfigPage(composeRule)) {
-                    click(runtimeAction)
-                    awaitRuntimeAction("Connect", 30_000)
-                }
-            }
-        }
-
-    @Test
     fun localBypassShowsAutoStrategyAndRetestOpensDiagnostics() =
         run {
             step("Select proxy mode and open the connection details") {

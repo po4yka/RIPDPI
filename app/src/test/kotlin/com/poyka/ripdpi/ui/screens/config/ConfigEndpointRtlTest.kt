@@ -54,7 +54,6 @@ class ConfigEndpointRtlTest {
                     LocalBypassConfigScreen(
                         uiState = state.value,
                         desyncSummary = "",
-                        onRuntimeModeToggle = { _, _ -> },
                         onOpenDesyncSettings = {},
                         onOpenDnsSettings = {},
                         onRetestStrategies = {},
@@ -87,7 +86,6 @@ class ConfigEndpointRtlTest {
                 RipDpiTheme(themePreference = "light") {
                     VpnConfigScreen(
                         uiState = state.value,
-                        onRuntimeModeToggle = { _, _ -> },
                         onOpenRelaySettings = {},
                         onOpenDnsSettings = {},
                         onPasteServerLink = {},

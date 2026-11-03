@@ -182,7 +182,7 @@ class ConfigScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassSummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigConnectionSummary).assertExists()
         // The mode chips are the one place that shows the mode.
-        composeRule.onAllNodesWithText("Local proxy").assertCountEquals(1)
+        composeRule.onAllNodesWithText("Proxy only").assertCountEquals(1)
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassListenAddress).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigDnsSettings).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassDesync).assertExists()
@@ -488,7 +488,7 @@ class ConfigScreenTest {
             )
         composeRule.setContent {
             RipDpiTheme {
-                VpnConfigScreen(state, { _, _ -> }, {}, {}, {}, {})
+                VpnConfigScreen(state, {}, {}, {}, {})
             }
         }
 

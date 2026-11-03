@@ -211,9 +211,7 @@ class HomeScreenTest {
     }
 
     @Test
-    fun `mode cards route low emphasis actions through screen callbacks`() {
-        var bypassEnabled: Boolean? = null
-        var vpnEnabled: Boolean? = null
+    fun `mode cards open their settings and carry no connect action`() {
         var bypassOpened = false
         var vpnOpened = false
         composeRule.setContent {
@@ -221,8 +219,6 @@ class HomeScreenTest {
                 HomeScreen(
                     uiState = MainUiState(modeCards = modeCards(activeMode = HomeMode.LocalDpiBypass)),
                     onToggleConnection = {},
-                    onBypassToggle = { bypassEnabled = it },
-                    onVpnToggle = { vpnEnabled = it },
                     onBypassCardClick = { bypassOpened = true },
                     onVpnCardClick = { vpnOpened = true },
                     onOpenDiagnostics = {},
@@ -234,13 +230,15 @@ class HomeScreenTest {
         }
 
         expandModesAndDiagnostics()
-        clickHomeNode(RipDpiTestTags.homeModePrimaryAction(HomeMode.LocalDpiBypass.name))
-        clickHomeNode(RipDpiTestTags.homeModePrimaryAction(HomeMode.RemoteVpn.name))
+        composeRule
+            .onAllNodesWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.LocalDpiBypass.name))
+            .assertCountEquals(0)
+        composeRule
+            .onAllNodesWithTag(RipDpiTestTags.homeModePrimaryAction(HomeMode.RemoteVpn.name))
+            .assertCountEquals(0)
         clickHomeNode(RipDpiTestTags.homeModeConfigureAction(HomeMode.LocalDpiBypass.name))
         clickHomeNode(RipDpiTestTags.homeModeCardBody(HomeMode.RemoteVpn.name))
 
-        assertEquals(false, bypassEnabled)
-        assertEquals(true, vpnEnabled)
         assertTrue(bypassOpened)
         assertTrue(vpnOpened)
     }

@@ -81,7 +81,10 @@ internal fun VpnConfigScreen(
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         SettingsCategoryHeader(
-            title = stringResource(if (settingsOnly) R.string.config_relay_server else R.string.config_section_server_settings),
+            title =
+                stringResource(
+                    if (settingsOnly) R.string.config_relay_server else R.string.config_section_server_settings,
+                ),
         )
         if (settingsOnly) {
             VpnAdvancedRows(uiState, onOpenRelaySettings, onOpenDnsSettings, showGuidance = false)

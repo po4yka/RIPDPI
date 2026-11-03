@@ -51,7 +51,6 @@ import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
 import com.poyka.ripdpi.services.network.NetworkCondition
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.util.MainDispatcherRule
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
@@ -463,8 +462,8 @@ class MainViewModelTest {
                 stringResolver = stringResolver,
             )
 
-        assertEquals("Local VPN", directVpn.routeLabel)
-        assertEquals("VPN", relayBackedVpn.routeLabel)
+        assertEquals("Whole device", directVpn.routeLabel)
+        assertEquals("Whole device", relayBackedVpn.routeLabel)
     }
 
     @Test
@@ -486,7 +485,7 @@ class MainViewModelTest {
                 stringResolver = stringResolver,
             )
 
-        assertEquals("Direct connection", state.trailingLabel)
+        assertEquals("Direct", state.trailingLabel)
         assertEquals("Connected", state.statusDescription)
     }
 
@@ -526,7 +525,7 @@ class MainViewModelTest {
     @Test
     fun `connection actuator treats relay fallback to direct as Direct`() {
         // relayEnabled=true in settings but relayTelemetry is idle (0 sessions) →
-        // isRelayBackedEgress returns false, so the label must read "Direct connection".
+        // isRelayBackedEgress returns false, so the label must read "Direct".
         val stringResolver = ResourceStringResolver()
         val state =
             buildConnectionActuatorUiState(
@@ -545,7 +544,7 @@ class MainViewModelTest {
                 stringResolver = stringResolver,
             )
 
-        assertEquals("Direct connection", state.trailingLabel)
+        assertEquals("Direct", state.trailingLabel)
         assertEquals("Connected", state.statusDescription)
     }
 
@@ -777,7 +776,7 @@ class MainViewModelTest {
             )
 
         assertEquals(HomeConnectionActuatorStatus.Degraded, state.status)
-        assertEquals("Direct connection", state.trailingLabel)
+        assertEquals("Direct", state.trailingLabel)
         assertEquals(
             HomeConnectionActuatorStageState.Warning,
             state.stages.single { it.stage == HomeConnectionActuatorStage.Route }.state,
@@ -1141,49 +1140,6 @@ class MainViewModelTest {
             runCurrent()
 
             assertEquals(emptyList<Mode>(), serviceController.startedModes)
-            collector.cancel()
-        }
-
-    @Test
-    fun `new explicit proxy start supersedes deferred VPN LAN recovery`() =
-        runTest {
-            val serviceController = FakeServiceController()
-            val serviceStateStore = FakeServiceStateStore()
-            val provider =
-                grantedPermissionStatusProvider().apply {
-                    snapshot = snapshot.copy(localNetwork = PermissionStatus.Denied)
-                }
-            val viewModel =
-                createViewModel(
-                    serviceStateStore = serviceStateStore,
-                    serviceController = serviceController,
-                    permissionStatusProvider = provider,
-                )
-            val collector = backgroundScope.launch { viewModel.uiState.collect {} }
-            runCurrent()
-
-            serviceStateStore.emitFailed(Sender.VPN, FailureReason.PermissionLost(LocalNetworkPermission))
-            runCurrent()
-            val issue = viewModel.uiState.value.permissionSummary.issue
-            assertEquals(PermissionKind.LocalNetwork, issue?.kind)
-
-            viewModel.onPrimaryConnectionAction()
-            runCurrent()
-            assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
-
-            serviceStateStore.setStatus(AppStatus.Running, Mode.Proxy)
-            runCurrent()
-            val connectedState = viewModel.uiState.value
-            assertEquals(ConnectionState.Connected, connectedState.connectionState)
-            assertEquals(Mode.Proxy, connectedState.activeMode)
-
-            provider.snapshot = provider.snapshot.copy(localNetwork = PermissionStatus.Granted)
-            viewModel.onForeground()
-            runCurrent()
-
-            assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
-            serviceStateStore.setStatus(AppStatus.Halted, Mode.Proxy)
-            runCurrent()
             collector.cancel()
         }
 

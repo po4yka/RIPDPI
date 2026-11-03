@@ -79,10 +79,9 @@ attached to the right surface.
 
 | English | Guidance |
 | --- | --- |
-| Local VPN (`home_mode_vpn`) | Translate. The on-device VPN mode that routes this device's traffic through the local data plane. "Local" = on this device, not a remote server. |
-| Local proxy (`home_mode_proxy`) | Translate, but keep **proxy** rendered with the locale's standard proxy term (zh-CN 代理, ru прокси). The local SOCKS/HTTP listener mode. |
-| Local DPI Bypass (`home_mode_local_dpi_bypass`) | Translate "Local … Bypass"; keep **DPI** verbatim (see Do-not-translate table). The on-device anti-DPI mode with no relay server. |
-| VPN with Remote Server (`home_mode_remote_vpn`) | Translate. VPN mode where traffic egresses through a configured remote relay server. |
+| Whole device (`home_mode_vpn`, `home_mode_remote_vpn`) | Translate. **Scope** axis: the Android VPN tunnel carries this whole device's traffic. Pair with Proxy only; independent of the **path** (Direct or Relay). Keep "VPN" verbatim only where Android's tunnel or permission is named. |
+| Proxy only (`home_mode_proxy`, `home_mode_local_dpi_bypass`) | Translate, rendering **proxy** with the locale's standard proxy term (zh-CN 代理, ru прокси). **Scope** axis: the local SOCKS proxy; only apps set to use it are affected. |
+| Direct / Relay (`home_connection_path_direct`, `home_connection_actuator_relay`) | Translate. **Path** axis: Direct = on-device strategies, no server; Relay = through the user's own server. Never mix with the scope terms above. |
 | Diagnostic Scan (`home_mode_diagnostic_scan`) | Translate. The analysis/audit mode (not a traffic-carrying mode). Keep consistent with the "Diagnostic verdict names" section below. |
 | Direct VPN (`service_mode_native_direct_title`) | Translate. Built-in VPN connecting directly (no relay). "Direct" must read as "no intermediary server," consistent with the Direct-mode verdicts below. |
 | Relayed VPN (`service_mode_native_proxy_title`) | Translate. Built-in VPN routed through the user's relay. Contrast with "Direct VPN." |

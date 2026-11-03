@@ -65,7 +65,7 @@ class TerminologyCanonTest {
     }
 
     @Test
-    fun `home local bypass label stays localized in every translated resource set`() {
+    fun `home proxy-only label stays localized and matches the scope chip in every translated resource set`() {
         val resourcesDir = File("src/main/res")
         val englishStrings = stringValues(File(resourcesDir, "values/strings.xml"))
         val englishHomeLabel = englishStrings.getValue("home_mode_local_dpi_bypass")
@@ -86,7 +86,7 @@ class TerminologyCanonTest {
             translatedDirectories.mapNotNull { directory ->
                 val values = stringValues(File(resourcesDir, "$directory/strings.xml"))
                 val homeLabel = values.getValue("home_mode_local_dpi_bypass")
-                val configLabel = values.getValue("config_local_bypass_simple_title")
+                val configLabel = values.getValue("home_mode_proxy")
                 if (homeLabel == configLabel && homeLabel != englishHomeLabel) {
                     null
                 } else {
@@ -94,7 +94,7 @@ class TerminologyCanonTest {
                 }
             }
 
-        assertEquals("Local bypass labels leaked English or drifted: $offenders", emptyList<String>(), offenders)
+        assertEquals("Proxy only labels leaked English or drifted: $offenders", emptyList<String>(), offenders)
     }
 
     @Test

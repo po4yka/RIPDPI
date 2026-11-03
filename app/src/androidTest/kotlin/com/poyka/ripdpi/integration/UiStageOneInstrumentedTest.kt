@@ -11,7 +11,6 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertHasClickAction
 import androidx.compose.ui.test.assertIsDisplayed
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.junit4.v2.createAndroidComposeRule
 import androidx.compose.ui.test.onNodeWithTag
@@ -21,7 +20,6 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
-import com.poyka.ripdpi.activities.ConfigRuntimeOperation
 import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.OnboardingUiState
 import com.poyka.ripdpi.activities.buildConfigPresets
@@ -52,34 +50,17 @@ class UiStageOneInstrumentedTest {
     val composeRule = createAndroidComposeRule<ComponentActivity>()
 
     @Test
-    fun pendingConnectionCannotDispatchAnotherStart() {
-        var toggles = 0
-        renderConfig(configState().copy(runtimeOperation = ConfigRuntimeOperation.Starting)) { toggles++ }
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigRuntimeAction)
-            .performScrollTo()
-            .assertIsDisplayed()
-            .assertIsNotEnabled()
-        composeRule.runOnIdle { assertEquals(0, toggles) }
-        saveScreenshot("starting")
-    }
-
-    @Test
     fun rejectedStartExposesPermissionRecovery() {
         var repairs = 0
-        val state = mutableStateOf(configState())
+        val state =
+            mutableStateOf(
+                configState().copy(runtimeError = "VPN permission required", requiresVpnPermission = true),
+            )
         composeRule.setContent {
             RipDpiTheme {
                 ConfigScreen(
                     uiState = state.value,
                     onModeSelected = {},
-                    onRuntimeModeToggle = { _, _ ->
-                        state.value =
-                            state.value.copy(
-                                runtimeError = "VPN permission required",
-                                requiresVpnPermission = true,
-                            )
-                    },
                     onPresetSelected = {},
                     onEditCurrent = {},
                     onOpenConfigEditor = {},
@@ -90,7 +71,6 @@ class UiStageOneInstrumentedTest {
                 )
             }
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigRuntimeAction).performScrollTo().performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigRuntimeError).assertIsDisplayed()
         composeRule.onNodeWithText("VPN permission required").assertIsDisplayed()
         saveScreenshot("rejected-start")
@@ -186,16 +166,12 @@ class UiStageOneInstrumentedTest {
         return ConfigUiState(draft = draft, presets = buildConfigPresets(draft))
     }
 
-    private fun renderConfig(
-        state: ConfigUiState,
-        onToggle: () -> Unit = {},
-    ) {
+    private fun renderConfig(state: ConfigUiState) {
         composeRule.setContent {
             RipDpiTheme {
                 ConfigScreen(
                     uiState = state,
                     onModeSelected = {},
-                    onRuntimeModeToggle = { _, _ -> onToggle() },
                     onPresetSelected = {},
                     onEditCurrent = {},
                     onOpenConfigEditor = {},

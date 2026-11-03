@@ -14,7 +14,6 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
-import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -31,7 +30,11 @@ class ConfigConnectionSummaryTest {
 
     @Test
     fun `direct section offers no connect or disconnect control while running`() {
-        setConfigScreen(initialModeSection = ConfigModeSection.LocalBypass, activeMode = Mode.Proxy, runningMode = Mode.Proxy)
+        setConfigScreen(
+            initialModeSection = ConfigModeSection.LocalBypass,
+            activeMode = Mode.Proxy,
+            runningMode = Mode.Proxy,
+        )
 
         assertNoRuntimeControl()
     }
@@ -108,7 +111,6 @@ class ConfigConnectionSummaryTest {
                 ConfigScreen(
                     uiState = configUiState(activeMode, runningMode),
                     onModeSelected = onModeSelected,
-                    onRuntimeModeToggle = onRuntimeModeToggle,
                     onPresetSelected = {},
                     onEditCurrent = {},
                     onOpenConfigEditor = {},

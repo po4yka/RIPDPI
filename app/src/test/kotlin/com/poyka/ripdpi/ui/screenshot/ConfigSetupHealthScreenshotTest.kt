@@ -44,7 +44,6 @@ class ConfigSetupHealthScreenshotTest {
         ) {
             VpnConfigScreen(
                 uiState = populatedVpnConfigState(),
-                onRuntimeModeToggle = { _, _ -> },
                 onOpenRelaySettings = {},
                 onOpenDnsSettings = {},
                 onPasteServerLink = {},
