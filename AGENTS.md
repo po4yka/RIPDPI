@@ -13,6 +13,7 @@ Three people open every screen and every module: the user (UX), the developer wh
 - UX: cut taglines, helper text, and secondary labels. Remove any label that only explains the layout. If a screen needs a caption to make sense, the screen is broken: fix the layout, then delete the caption. Text that carries content, state, errors, consequences, or required disclosures stays; [DESIGN.md](DESIGN.md#product-principle) defines the boundary.
 - DX: one name and one owner for each concept, no layer that only forwards calls, and code that a new reader can follow without a guide.
 - AX: one source of truth for each fact, so an agent finds it with one search and does not edit a copy that disagrees.
+- Removing UI text is a full change: delete the string from every locale in the same commit, keep the element's accessible name, and expect Roborazzi baseline changes, which need approval under `golden-bless-discipline.md`.
 
 ## Source of truth
 
@@ -43,7 +44,7 @@ The Android build invokes the `ripdpi.android.rust-native` convention plugin fro
 
 Use `just` recipes where they mirror CI. For Rust commands, pass `--locked` whenever Cargo resolves the workspace (for example `cargo test -p <crate> --locked` from `native/rust/`).
 
-Local builds, unit tests, lint, formatting, and Cargo checks use disposable outputs and no production access. Run them, fix failures caused by your change, and rerun the affected checks without asking for approval at each step.
+Local builds, unit tests, lint, formatting, and Cargo checks use disposable outputs and no production access; fix the failures your change causes.
 
 For local emulator tests, UI inspection, screenshots, or acceptance, use the command-scoped pool lease in [Local Android emulator pool](docs/contributor/android-emulator-pool.md). Reuse a compatible idle slot; hold its lock through all device operations. Temporary AVDs need a test-specific reason and owner cleanup. Use the documented cleanup command for authorized removal of idle devices. Preserve active, foreign, and Gradle managed devices. The detached `scripts/ci/start-android-emulator.sh --fresh` launcher is restricted to isolated CI runners.
 
@@ -51,7 +52,7 @@ For explicitly authorized physical transport acceptance, use the direct adapter'
 
 Match verification to risk. For a local change, run the narrowest gate that exercises it (the module's unit tests, `cargo test -p <crate> --locked`). Widen to `staticAnalysis`, workspace-wide Rust checks, or device tests when the change crosses modules, touches a JNI/protobuf/wire/storage contract, service lifecycle, or build logic, or when the user asks for a specific gate. Run the exact gate the user requests and report its actual result; a blocked or skipped gate is reported as such, never replaced by a weaker claim. Batch related edits, then validate once. A passing check stays valid until its inputs change: rerun it only after a relevant edit, a rebase that brings new commits, or a new failure. Clean or force-rerun Gradle or Cargo outputs only after you observe a stale-output failure. The pre-commit hooks lint only the staged crates, and CI runs the workspace-wide gates.
 
-Work is done when the requested change is implemented, its relevant gate passes (or its failure is reported with output), and any finished atomic unit is committed on the job branch. Then stop: do not rerun passing checks, widen the gate, or add tests, reviews, or cleanup that this file does not require. Report what you did not check and any remaining risk.
+Work is done when the requested change is implemented, its relevant gate passes (or its failure is reported with output), and any finished atomic unit is committed on the job branch. Then stop: do not widen the gate or add tests, reviews, or cleanup that this file does not require. Report what you did not check and any remaining risk.
 
 ## Non-negotiable project rules
 
@@ -67,7 +68,7 @@ Work is done when the requested change is implemented, its relevant gate passes 
 
 Load the `ponytail` skill at the start of every task that writes, fixes, or refactors code, and follow it at the `full` level unless the user picks another. It decides how little to build; this file decides what must be verified, so required tests, gates, contracts, and safety rules stay in scope. Use `ponytail-review` for a lean-code review of a diff and `ponytail-audit` for a whole-repository audit; neither replaces a required `pr-reviewer` pass (see Skills and subagents). Where Ponytail and this file differ, this file wins: an existing test that covers the behavior, or the gate above, meets Ponytail's "one small test or self-check", and a new test follows the test rule. The skills are vendored from upstream; see `.agents/vendor/ponytail/README.md` for source, license, and updates.
 
-Investigate in proportion to the task's uncertainty and impact. Locate code with a targeted `git grep -n` or a known path, then read only the range you need from a large file instead of printing whole files. Bound command output (`| head`, `--stat`, `-l`, or a log file plus `tail`). Reuse findings while their inputs are unchanged: do not reread an unedited file, repeat a search, or rerun `checkout-doctor` before you switch checkouts. Wait for a background command's completion notice instead of polling its log. Delegate only independent, substantial work, such as a broad audit or a long test run; give the delegate the findings you already have, and do not repeat its search afterward.
+Investigate in proportion to the task's uncertainty and impact. Locate code with a targeted `git grep -n` or a known path, then read only the range you need from a large file instead of printing whole files. Bound command output (`| head`, `--stat`, `-l`, or a log file plus `tail`). Reuse findings while their inputs are unchanged: do not reread an unedited file or repeat a search. Wait for a background command's completion notice instead of polling its log. Delegate only independent, substantial work, such as a broad audit or a long test run; give the delegate the findings you already have, and do not repeat its search afterward.
 
 ## Decision boundaries
 
@@ -79,7 +80,7 @@ Plan before editing only where the approach is genuinely uncertain: cross-module
 
 ## Locales
 
-The app ships 10 locales: en, ru, es, de, fr, fa, ar, zh-CN, hi, and pt-BR. Any new key in app or service resources must land in every locale in the same commit. A locale may split strings across multiple XML files, so validate parity with Android lint rather than a single-file grep:
+The app ships 10 locales: en, ru, es, de, fr, fa, ar, zh-CN, hi, and pt-BR. Any key added to or removed from app or service resources changes every locale in the same commit. A locale may split strings across multiple XML files, so validate parity with Android lint rather than a single-file grep:
 
 ```bash
 ./gradlew :app:lintGithubFullDebug :core:service:lintDebug
@@ -93,13 +94,13 @@ Every job or feature that changes files runs in a dedicated git worktree, never 
 
 Each atomic unit is a self-contained Conventional Commit with an imperative subject under 72 characters. Preserve unrelated dirty state and stage only the task slice.
 
-Integration to `main`, worktree removal, branch deletion, and push require explicit user authorization. Once authorized, use this sequence:
+Once integration is authorized (see [Decision boundaries](#decision-boundaries)), use this sequence:
 
 1. In the job worktree, run `git fetch origin` and `git rebase origin/main`.
 2. If the rebase brought in new commits, re-run the affected gates on the rebased job branch.
 3. In the main checkout, run `git merge --ff-only <job-branch>`.
 4. Push only when separately authorized.
-5. Remove the worktree and branch only after successful integration and when authorized.
+5. Remove the worktree and branch only after successful integration and when authorized. `git worktree remove` refuses a worktree with an initialized submodule; confirm `git status` is clean, then use `--force`.
 
 Do not run `git rebase <upstream> <job-branch>` from another checkout while the job branch is checked out in its worktree.
 

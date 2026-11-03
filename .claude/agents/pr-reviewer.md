@@ -72,6 +72,13 @@ If `android` is absent, ABORT with "Android CLI unavailable". Do not fall back t
 - No new `multiple-versions` warnings from cargo-deny
 - Only permissive licenses (MIT, Apache-2.0, BSD, ISC, Zlib, 0BSD)
 
+### Product Principle (UI diffs)
+- Apply the product principle in `DESIGN.md#product-principle` to every new or changed visible string and Compose layout.
+- WARNING: a new tagline, helper line, secondary label, subtitle that repeats its title, description that repeats its control label, or caption that explains the layout. Suggest the layout fix that removes the need for it.
+- Do not flag text that carries content, live state, a disabled reason, an error, a destructive consequence, or a required VPN, privacy, permission, or legal disclosure.
+- CRITICAL: removed visible text that also removes the element's accessible name.
+- A removed string must leave every locale in the same commit.
+
 ### Security
 - No hardcoded secrets, tokens, or API keys
 - Timing-safe comparisons for auth/PIN checks (constant_time_eq or similar)
