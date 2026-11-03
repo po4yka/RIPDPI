@@ -31,6 +31,7 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorScaffold
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorStatus
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayFieldBinding
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
@@ -115,7 +116,7 @@ internal fun MieruProfileScreen(
             )
         }
     RelayEditorScaffold(
-        kind = RelayKindMieru,
+        actionTag = RipDpiTestTags.relayEditorSave(RelayKindMieru),
         route = if (uiState.editing || uiState.notFound) Route.MieruProfileEdit() else Route.MieruProfile,
         title = stringResource(R.string.mieru_editor_title),
         saveLabel = stringResource(R.string.mieru_save_action),

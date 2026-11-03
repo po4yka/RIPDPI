@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.ui.screens.profiles
+package com.poyka.ripdpi.ui.screens.relayeditor
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource

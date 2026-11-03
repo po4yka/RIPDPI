@@ -16,6 +16,7 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorScaffold
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorStatus
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayFieldBinding
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 
 /**
  * AnyTLS profile editor destination.
@@ -62,7 +63,7 @@ internal fun AnyTlsProfileScreen(
             )
         }
     RelayEditorScaffold(
-        kind = RelayKindAnyTls,
+        actionTag = RipDpiTestTags.relayEditorSave(RelayKindAnyTls),
         route = Route.AnyTlsProfile,
         title = stringResource(R.string.anytls_editor_title),
         saveLabel = stringResource(R.string.anytls_save_action),

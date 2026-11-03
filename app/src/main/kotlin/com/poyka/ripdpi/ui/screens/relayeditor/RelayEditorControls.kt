@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.ui.screens.profiles
+package com.poyka.ripdpi.ui.screens.relayeditor
 
 import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.layout.fillMaxWidth

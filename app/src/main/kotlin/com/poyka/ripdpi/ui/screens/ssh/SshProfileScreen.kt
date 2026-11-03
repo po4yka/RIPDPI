@@ -24,10 +24,11 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.screens.profiles.RelaySecretField
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorScaffold
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorStatus
 import com.poyka.ripdpi.ui.screens.relayeditor.RelayFieldBinding
+import com.poyka.ripdpi.ui.screens.relayeditor.RelaySecretField
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
@@ -119,7 +120,7 @@ internal fun SshProfileScreen(
             )
         }
     RelayEditorScaffold(
-        kind = RelayKindSsh,
+        actionTag = RipDpiTestTags.relayEditorSave(RelayKindSsh),
         route = if (uiState.editing || uiState.notFound) Route.SshProfileEdit() else Route.SshProfile,
         title = stringResource(R.string.ssh_editor_title),
         saveLabel = stringResource(R.string.ssh_save_action),

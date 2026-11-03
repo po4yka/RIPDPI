@@ -7,7 +7,6 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -31,7 +30,6 @@ import com.poyka.ripdpi.security.rememberSecretRevealGate
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
-import com.poyka.ripdpi.ui.components.buttons.RipDpiTopBarAction
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
@@ -41,14 +39,12 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.screens.profiles.RelayEditorHint
-import com.poyka.ripdpi.ui.screens.profiles.RelaySecretField
-import com.poyka.ripdpi.ui.screens.profiles.relayPortRangeHelper
-import com.poyka.ripdpi.ui.security.SecureWindowEffect
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorScaffold
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorStatus
+import com.poyka.ripdpi.ui.screens.relayeditor.RelaySecretField
+import com.poyka.ripdpi.ui.screens.relayeditor.relayPortRangeHelper
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
-import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentListOf
@@ -135,34 +131,33 @@ internal fun AmneziaWgProfileScreen(
     onCancelCohortReplacement: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    SecureWindowEffect()
     if (uiState.pendingCohortId != null) {
         AwgCohortReplacementDialog(onConfirmCohortReplacement, onCancelCohortReplacement)
     }
-    val scrollState = rememberScrollState()
-    // The connect hint sits at the top; bring it into view when a connect attempt fails.
     val connectFailed = uiState.activationStatus == AwgActivationStatus.Failed
-    LaunchedEffect(connectFailed) { if (connectFailed) scrollState.animateScrollTo(0) }
-    RipDpiContentScreenScaffold(
-        scrollState = scrollState,
+    RelayEditorScaffold(
+        actionTag = RipDpiTestTags.AwgConnectAction,
+        route = Route.AmneziaWgProfile(),
         title = stringResource(R.string.awg_editor_title),
-        navigationIcon = RipDpiIcons.Back,
-        onNavigationClick = onBack,
-        navigationContentDescription = stringResource(R.string.navigation_back),
-        modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.AmneziaWgProfile())),
-        actions = {
-            RipDpiTopBarAction(
-                text = stringResource(R.string.awg_connect_action),
-                onClick = onConnect,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.AwgConnectAction),
-                enabled = uiState.canActivate && uiState.activationStatus != AwgActivationStatus.Connecting,
-            )
-        },
+        saveLabel = stringResource(R.string.awg_connect_action),
+        status =
+            RelayEditorStatus(
+                complete = uiState.canActivate,
+                saving = uiState.activationStatus == AwgActivationStatus.Connecting,
+                failed = connectFailed,
+            ),
+        onBack = onBack,
+        onSave = onConnect,
+        modifier = modifier,
+        // The connect hint sits at the top; it also reports a failed attempt.
+        hintRes =
+            when {
+                connectFailed -> R.string.awg_connect_error
+                uiState.canActivate -> R.string.awg_connect_ready_hint
+                else -> R.string.awg_connect_incomplete_hint
+            },
+        hintIsError = connectFailed,
     ) {
-        ConnectHint(
-            canActivate = uiState.canActivate,
-            activationStatus = uiState.activationStatus,
-        )
         // Import comes first: a pasted .conf fills most of the fields below.
         RipDpiButton(
             text = stringResource(R.string.awg_paste_conf_action),
@@ -245,25 +240,6 @@ private fun CarrierSection(
             )
         }
     }
-}
-
-@Composable
-private fun ConnectHint(
-    canActivate: Boolean,
-    activationStatus: AwgActivationStatus,
-) {
-    val failed = activationStatus == AwgActivationStatus.Failed
-    RelayEditorHint(
-        hint =
-            stringResource(
-                when {
-                    failed -> R.string.awg_connect_error
-                    canActivate -> R.string.awg_connect_ready_hint
-                    else -> R.string.awg_connect_incomplete_hint
-                },
-            ),
-        isError = failed,
-    )
 }
 
 @Composable

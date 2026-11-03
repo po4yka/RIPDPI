@@ -18,11 +18,6 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.screens.profiles.RelayEditorHint
-import com.poyka.ripdpi.ui.screens.profiles.RelayPasswordField
-import com.poyka.ripdpi.ui.screens.profiles.RelayProfileNotFoundCard
-import com.poyka.ripdpi.ui.screens.profiles.ScrollToTopOnFailedSave
-import com.poyka.ripdpi.ui.screens.profiles.relayPortRangeHelper
 import com.poyka.ripdpi.ui.security.SecureWindowEffect
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -35,15 +30,17 @@ internal data class RelayEditorStatus(
     val loading: Boolean = false,
     val notFound: Boolean = false,
     @StringRes val errorMessage: Int? = null,
+    /** Scrolls the form to the top when a save ends in failure; defaults to showing an error card. */
+    val failed: Boolean = errorMessage != null,
 )
 
 /**
- * The shell of a relay profile editor: secure window, top bar with the Save action, error card, the reason Save is
+ * The shell of a relay profile editor: secure window, top bar with the primary action (Save, or Connect for AWG; [actionTag] and [saveLabel]), error card, the reason Save is
  * disabled, and the not-found card. [banner] sits above the error card; [content] holds the per-protocol sections.
  */
 @Composable
 internal fun RelayEditorScaffold(
-    kind: String,
+    actionTag: String,
     route: Route,
     title: String,
     saveLabel: String,
@@ -51,12 +48,14 @@ internal fun RelayEditorScaffold(
     onBack: () -> Unit,
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
+    @StringRes hintRes: Int? = R.string.relay_editor_save_incomplete_hint.takeUnless { status.complete },
+    hintIsError: Boolean = false,
     banner: @Composable () -> Unit = {},
     content: @Composable ColumnScope.() -> Unit,
 ) {
     SecureWindowEffect()
     val scrollState = rememberScrollState()
-    ScrollToTopOnFailedSave(scrollState, status.saving, status.errorMessage != null)
+    ScrollToTopOnFailedSave(scrollState, status.saving, status.failed)
     RipDpiContentScreenScaffold(
         scrollState = scrollState,
         title = title,
@@ -66,7 +65,7 @@ internal fun RelayEditorScaffold(
         actions = {
             RipDpiTopBarAction(
                 text = saveLabel,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.relayEditorSave(kind)),
+                modifier = Modifier.ripDpiTestTag(actionTag),
                 onClick = onSave,
                 enabled = status.complete && !status.saving && !status.loading,
             )
@@ -82,7 +81,7 @@ internal fun RelayEditorScaffold(
             RipDpiCard { RipDpiPanelHeader(title = stringResource(errorRes)) }
         }
         // Above the form: Save is disabled until the form is complete, and the reason must show without scrolling.
-        RelayEditorHint(stringResource(R.string.relay_editor_save_incomplete_hint).takeUnless { status.complete })
+        RelayEditorHint(hintRes?.let { stringResource(it) }, hintIsError)
         content()
     }
 }
