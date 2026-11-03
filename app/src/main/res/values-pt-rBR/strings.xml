@@ -1314,6 +1314,7 @@ fakeddisorder endhost</string>
     <string name="root_mode_strategies_configure_action">Abrir editor de estratégias</string>
     <string name="title_blockcheck">Sonda de estratégia</string>
     <string name="strategy_config_entry_title">Configuração de estratégia</string>
+    <string name="blockcheck_section_title">Sonda de estratégia</string>
     <string name="blockcheck_entry_title">Sonda de estratégia</string>
     <string name="blockcheck_domains_label">Domínios de teste</string>
     <string name="blockcheck_run">Executar</string>

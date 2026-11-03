@@ -474,6 +474,7 @@ app:blockcheck_no_strategies
 app:blockcheck_purpose
 app:blockcheck_results_title
 app:blockcheck_run
+app:blockcheck_section_title
 app:blockcheck_try_recommended_strategy
 app:blockcheck_try_recommended_strategy_format
 app:blockcheck_vs_tuner

@@ -1945,6 +1945,7 @@ fakeddisorder endhost</string>
     <string name="blockcheck_no_strategies">Стратегии не зарегистрированы</string>
     <string name="blockcheck_results_title">Ранжированные результаты</string>
     <string name="blockcheck_run">Запустить</string>
+    <string name="blockcheck_section_title">Зондирование стратегий</string>
     <string name="config_error_required">Это поле обязательно.</string>
     <string name="config_error_unsupported">Эта опция не поддерживается в текущей сборке.</string>
     <string name="config_local_bypass_section_body">Настройте локальный путь прокси, DNS и параметры стратегии обхода.</string>

@@ -1310,6 +1310,7 @@ fakeddisorder endhost</string>
     <string name="root_mode_strategies_configure_action">रणनीति संपादक खोलें</string>
     <string name="title_blockcheck">रणनीति जाँच</string>
     <string name="strategy_config_entry_title">रणनीति कॉन्फ़िग</string>
+    <string name="blockcheck_section_title">रणनीति जाँच</string>
     <string name="blockcheck_entry_title">रणनीति जाँच</string>
     <string name="blockcheck_domains_label">परीक्षण डोमेन</string>
     <string name="blockcheck_run">चलाएँ</string>

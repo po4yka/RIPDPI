@@ -58,6 +58,7 @@
     <string name="block_signal_tls_alert">Alerta TLS</string>
     <string name="blockcheck_domains_label">Dominios de prueba</string>
     <string name="blockcheck_export_title">Exportar informe de sondeo de estrategia</string>
+    <string name="blockcheck_section_title">Sondeo de estrategia</string>
     <string name="config_badge_active">Activo</string>
     <string name="config_chain_editor_helper_full">La sección HTTPS de abajo puede crear visualmente pasos únicos tlsrec y pasos tlsrandrec aleatorizados, mientras que las tarjetas de Hostfake y de aproximaciones fake explican fragmentos fake dirigidos al nombre de host y aproximaciones tipo retransmisión. Las aproximaciones exclusivas de Linux/Android están disponibles como fakedsplit host+1 y fakeddisorder endhost para cargas útiles HTTP o adyacentes al SNI TLS.</string>
     <string name="config_dns_disabled_helper">La anulación de DNS solo se aplica en modo VPN local.</string>

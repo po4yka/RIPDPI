@@ -155,7 +155,7 @@ class FrenchLocalizationRegressionsTest(unittest.TestCase):
 
     def test_audited_prose_has_no_english_fallback(self):
         self.assertEqual((84, 47, 1), (len(ENGLISH_PROSE), len(SEMANTIC_KEYS), len(LATENT_KEYS)))
-        self.assertEqual(135, len(set(ENGLISH_PROSE + SEMANTIC_KEYS)))
+        self.assertEqual(131, len(set(ENGLISH_PROSE + SEMANTIC_KEYS)))
         self.assertTrue(set(LATENT_KEYS) <= set(ENGLISH_PROSE + SEMANTIC_KEYS))
         for key in ENGLISH_PROSE:
             with self.subTest(key=key, production_reachability=key not in LATENT_KEYS):

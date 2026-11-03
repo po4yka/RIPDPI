@@ -141,7 +141,7 @@ class GermanLocalizationRegressionsTest(unittest.TestCase):
     def test_audited_prose_has_no_english_fallback(self):
         self.assertEqual((83, 20, 1), (len(ENGLISH_PROSE), len(SEMANTIC_KEYS), len(LATENT_KEYS)))
         audited = ENGLISH_PROSE + SEMANTIC_KEYS + LATENT_KEYS
-        self.assertEqual(108, len(set(audited)))
+        self.assertEqual(104, len(set(audited)))
         self.assertTrue(set(audited) <= self.de.keys())
         keys = ENGLISH_PROSE + LATENT_KEYS[:3]
         for key in keys:
