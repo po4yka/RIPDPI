@@ -12,10 +12,6 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import com.poyka.ripdpi.activities.HistoryConnectionRowUiModel
-import com.poyka.ripdpi.activities.HistoryConnectionsUiModel
-import com.poyka.ripdpi.activities.HistorySection
-import com.poyka.ripdpi.activities.HistoryUiState
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionDetailUiModel

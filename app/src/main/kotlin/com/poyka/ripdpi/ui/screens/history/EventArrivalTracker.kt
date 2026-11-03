@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.history
 
 import androidx.compose.runtime.saveable.mapSaver
-import com.poyka.ripdpi.activities.HistoryEventIdentityUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventFiltersUiModel
 
 internal const val eventArrivalWatermarkIdLimit = 256

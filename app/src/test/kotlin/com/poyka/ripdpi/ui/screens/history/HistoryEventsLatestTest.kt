@@ -16,8 +16,6 @@ import androidx.compose.ui.test.performScrollToKey
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.unit.dp
-import com.poyka.ripdpi.activities.GroupedEventUiModel
-import com.poyka.ripdpi.activities.HistoryUiState
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventFiltersUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventsUiModel

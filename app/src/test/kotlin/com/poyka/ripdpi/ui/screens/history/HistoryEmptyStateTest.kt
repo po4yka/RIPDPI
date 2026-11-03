@@ -22,10 +22,6 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HistoryConnectionFiltersUiModel
-import com.poyka.ripdpi.activities.HistoryConnectionsUiModel
-import com.poyka.ripdpi.activities.HistorySection
-import com.poyka.ripdpi.activities.HistoryUiState
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventFiltersUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventsUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsSessionFiltersUiModel

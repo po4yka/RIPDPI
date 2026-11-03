@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.history
 
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.diagnostics.ScanCompletionKind

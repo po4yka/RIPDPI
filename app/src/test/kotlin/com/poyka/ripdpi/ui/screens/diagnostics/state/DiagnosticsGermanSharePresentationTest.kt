@@ -4,8 +4,6 @@ import android.app.Application
 import android.content.Context
 import android.content.res.Configuration
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.historyContext
-import com.poyka.ripdpi.activities.historyScanSession
 import com.poyka.ripdpi.activities.message
 import com.poyka.ripdpi.diagnostics.Diagnosis
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
@@ -13,6 +11,8 @@ import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.ProbeDetail
 import com.poyka.ripdpi.diagnostics.ProbeResult
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
+import com.poyka.ripdpi.ui.screens.history.historyContext
+import com.poyka.ripdpi.ui.screens.history.historyScanSession
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

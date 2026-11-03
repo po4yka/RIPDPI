@@ -9,9 +9,6 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.LayoutDirection
-import com.poyka.ripdpi.activities.HistoryConnectionsUiModel
-import com.poyka.ripdpi.activities.HistorySection
-import com.poyka.ripdpi.activities.HistoryUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.LocalRipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiMotion

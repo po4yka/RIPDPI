@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
-import com.poyka.ripdpi.activities.matchesQuery
+import com.poyka.ripdpi.ui.screens.history.matchesQuery
 import kotlinx.collections.immutable.toImmutableList
 
 internal fun DiagnosticsUiFactorySupport.buildEventsUiModel(

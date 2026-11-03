@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import androidx.test.core.app.ApplicationProvider
-import com.poyka.ripdpi.activities.historyScanSession
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
@@ -10,6 +9,7 @@ import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchTrigger
 import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanTriggerType
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsProfileProjection
+import com.poyka.ripdpi.ui.screens.history.historyScanSession
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull

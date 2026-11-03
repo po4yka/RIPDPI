@@ -1,12 +1,12 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.historyDiagnosticsDetail
-import com.poyka.ripdpi.activities.historyProbeResult
 import com.poyka.ripdpi.diagnostics.Diagnosis
 import com.poyka.ripdpi.diagnostics.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.ScanTerminationReason
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
+import com.poyka.ripdpi.ui.screens.history.historyDiagnosticsDetail
+import com.poyka.ripdpi.ui.screens.history.historyProbeResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

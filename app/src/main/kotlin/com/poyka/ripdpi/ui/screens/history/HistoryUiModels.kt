@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.history
 
 import androidx.compose.runtime.Immutable
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsContextGroupUiModel

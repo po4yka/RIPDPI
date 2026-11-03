@@ -2,8 +2,6 @@ package com.poyka.ripdpi.ui.screens.history
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
-import com.poyka.ripdpi.activities.HistorySection
-import com.poyka.ripdpi.activities.HistoryUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 
 @Preview(showBackground = true)

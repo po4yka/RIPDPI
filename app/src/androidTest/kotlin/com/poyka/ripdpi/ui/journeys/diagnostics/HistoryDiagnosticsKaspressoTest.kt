@@ -1,12 +1,12 @@
 package com.poyka.ripdpi.ui.journeys.diagnostics
 
 import androidx.compose.ui.test.performTextReplacement
-import com.poyka.ripdpi.activities.HistorySection
 import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.diagnostics.ScanPathMode
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
 import com.poyka.ripdpi.integration.automationLaunchIntent
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.history.HistorySection
 import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

@@ -35,8 +35,6 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HistorySection
-import com.poyka.ripdpi.activities.HistoryUiState
 import com.poyka.ripdpi.activities.HomeAppliedConfigurationUiState
 import com.poyka.ripdpi.activities.HomeReconnectComparisonUiState
 import com.poyka.ripdpi.activities.ReconnectSettingsIdentity
@@ -44,6 +42,8 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.services.RunningReconnectRequest
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
 import com.poyka.ripdpi.ui.screens.history.HistoryScreen
+import com.poyka.ripdpi.ui.screens.history.HistorySection
+import com.poyka.ripdpi.ui.screens.history.HistoryUiState
 import com.poyka.ripdpi.ui.screens.status.StatusAppliedConfigurationPanel
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState

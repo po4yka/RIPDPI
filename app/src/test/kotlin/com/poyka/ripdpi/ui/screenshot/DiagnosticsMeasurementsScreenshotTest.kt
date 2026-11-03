@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.ui.unit.LayoutDirection
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.historyTelemetry
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.screens.diagnostics.LiveHighlightsGrid
 import com.poyka.ripdpi.ui.screens.diagnostics.OverviewStatGrid
@@ -15,6 +14,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.buildTelemetryLiveMetrics
 import com.poyka.ripdpi.ui.screens.health.ConnectionHealthScreen
 import com.poyka.ripdpi.ui.screens.health.previewConnectionHealthUiState
 import com.poyka.ripdpi.ui.screens.history.MetricList
+import com.poyka.ripdpi.ui.screens.history.historyTelemetry
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList

@@ -1,5 +1,6 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.history
 
+import com.poyka.ripdpi.activities.message
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventFiltersUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventsUiModel

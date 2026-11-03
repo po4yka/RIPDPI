@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.history
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull

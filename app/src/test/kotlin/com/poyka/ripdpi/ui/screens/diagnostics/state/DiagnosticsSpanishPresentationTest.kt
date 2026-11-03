@@ -3,9 +3,6 @@ package com.poyka.ripdpi.ui.screens.diagnostics.state
 import android.app.Application
 import android.content.Context
 import android.content.res.Configuration
-import com.poyka.ripdpi.activities.HistoryConnectionDetailUiFactory
-import com.poyka.ripdpi.activities.historyConnectionSession
-import com.poyka.ripdpi.activities.historySnapshot
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
 import com.poyka.ripdpi.diagnostics.dpi.AllowlistSniResult
 import com.poyka.ripdpi.diagnostics.dpi.CompatibleSni
@@ -17,6 +14,9 @@ import com.poyka.ripdpi.diagnostics.dpich.ByohIncompatibleReason
 import com.poyka.ripdpi.diagnostics.dpich.ByohProbeResult
 import com.poyka.ripdpi.diagnostics.dpich.DohBootstrapResult
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.ui.screens.history.HistoryConnectionDetailUiFactory
+import com.poyka.ripdpi.ui.screens.history.historyConnectionSession
+import com.poyka.ripdpi.ui.screens.history.historySnapshot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test

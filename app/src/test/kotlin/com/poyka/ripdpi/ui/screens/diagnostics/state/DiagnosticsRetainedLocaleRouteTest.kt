@@ -11,9 +11,9 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.RetainedLocaleTestSupport
-import com.poyka.ripdpi.activities.historyDiagnosticsDetail
-import com.poyka.ripdpi.activities.historyProbeResult
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRoute
+import com.poyka.ripdpi.ui.screens.history.historyDiagnosticsDetail
+import com.poyka.ripdpi.ui.screens.history.historyProbeResult
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.util.MainDispatcherRule
 import org.junit.After

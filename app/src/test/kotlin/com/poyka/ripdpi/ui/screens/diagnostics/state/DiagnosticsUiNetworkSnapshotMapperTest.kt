@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.historySnapshot
 import com.poyka.ripdpi.diagnostics.CellularNetworkDetails
+import com.poyka.ripdpi.ui.screens.history.historySnapshot
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue

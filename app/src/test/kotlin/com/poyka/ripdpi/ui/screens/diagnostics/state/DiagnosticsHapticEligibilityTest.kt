@@ -13,13 +13,13 @@ import androidx.lifecycle.LifecycleOwner
 import androidx.lifecycle.LifecycleRegistry
 import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
-import com.poyka.ripdpi.activities.historyScanSession
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.diagnostics.DiagnosticsManualScanStartResult
 import com.poyka.ripdpi.diagnostics.ScanProgress
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsRoute
+import com.poyka.ripdpi.ui.screens.history.historyScanSession
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.util.MainDispatcherRule

@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.historyTelemetry
 import com.poyka.ripdpi.data.RuntimeTelemetryState
+import com.poyka.ripdpi.ui.screens.history.historyTelemetry
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue

@@ -4,9 +4,6 @@ import android.app.Application
 import android.content.Context
 import android.content.res.Configuration
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HistoryConnectionDetailUiFactory
-import com.poyka.ripdpi.activities.historyConnectionSession
-import com.poyka.ripdpi.activities.historyTelemetry
 import com.poyka.ripdpi.activities.message
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
@@ -15,6 +12,9 @@ import com.poyka.ripdpi.diagnostics.DiagnosticConnectionDetail
 import com.poyka.ripdpi.diagnostics.DiagnosticConnectionSession
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticTelemetrySample
+import com.poyka.ripdpi.ui.screens.history.HistoryConnectionDetailUiFactory
+import com.poyka.ripdpi.ui.screens.history.historyConnectionSession
+import com.poyka.ripdpi.ui.screens.history.historyTelemetry
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith

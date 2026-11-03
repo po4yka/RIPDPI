@@ -31,8 +31,6 @@ import androidx.compose.ui.unit.dp
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
-import com.poyka.ripdpi.activities.GroupedEventUiModel
-import com.poyka.ripdpi.activities.HistoryUiState
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticsOutcomeCard
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsEventFiltersUiModel
@@ -42,6 +40,8 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsOutcomeSource
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsOutcomeUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.screens.history.EventsSection
+import com.poyka.ripdpi.ui.screens.history.GroupedEventUiModel
+import com.poyka.ripdpi.ui.screens.history.HistoryUiState
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState
 import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState

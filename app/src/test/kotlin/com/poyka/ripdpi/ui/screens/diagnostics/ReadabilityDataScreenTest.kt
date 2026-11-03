@@ -30,7 +30,6 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HistorySection
 import com.poyka.ripdpi.diagnostics.RankedStrategyProbeResult
 import com.poyka.ripdpi.diagnostics.StrategyProbeResult
 import com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckScreen
@@ -39,6 +38,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsIpv4WhitelistToo
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsMetricUiModel
 import com.poyka.ripdpi.ui.screens.history.FilterCard
 import com.poyka.ripdpi.ui.screens.history.HistoryFilterChipsConfig
+import com.poyka.ripdpi.ui.screens.history.HistorySection
 import com.poyka.ripdpi.ui.screens.history.HistorySectionChips
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme

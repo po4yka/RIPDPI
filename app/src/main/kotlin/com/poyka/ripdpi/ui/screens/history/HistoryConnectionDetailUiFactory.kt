@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.history
 
 import androidx.annotation.StringRes
 import com.poyka.ripdpi.R

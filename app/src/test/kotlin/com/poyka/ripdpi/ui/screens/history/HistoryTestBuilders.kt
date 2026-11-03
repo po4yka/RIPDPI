@@ -1,7 +1,8 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.history
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.activities.message
 import com.poyka.ripdpi.diagnostics.BypassApproachDetail
 import com.poyka.ripdpi.diagnostics.BypassApproachKind
 import com.poyka.ripdpi.diagnostics.DeviceContextModel

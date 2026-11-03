@@ -156,11 +156,11 @@
       "suggestion": "Move feature-specific models, binders, or lifecycle work behind feature modules."
     },
     {
-      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-activities-historyconnectiondetailuifactory.kt:adaptive-desync-diagnostics-dns-routing-telemetry-tunnel",
+      "id": "kotlin-feature-spread:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-history-historyconnectiondetailuifactory.kt:adaptive-desync-diagnostics-dns-routing-telemetry-tunnel",
       "rule": "kotlin-feature-spread",
       "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/activities/HistoryConnectionDetailUiFactory.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/activities/HistoryConnectionDetailUiFactory.kt references 7 feature families",
+      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/history/HistoryConnectionDetailUiFactory.kt",
+      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/history/HistoryConnectionDetailUiFactory.kt references 7 feature families",
       "metricName": "featureFamilyCount",
       "baselineValue": 7,
       "limit": 5,

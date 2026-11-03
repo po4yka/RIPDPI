@@ -1,9 +1,9 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
-import com.poyka.ripdpi.activities.historyScanSession
 import com.poyka.ripdpi.diagnostics.ScanCompletionKind
 import com.poyka.ripdpi.diagnostics.ScanTerminationReason
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
+import com.poyka.ripdpi.ui.screens.history.historyScanSession
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test

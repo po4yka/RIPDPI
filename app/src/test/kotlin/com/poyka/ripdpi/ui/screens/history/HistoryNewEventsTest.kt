@@ -23,17 +23,6 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HistoryConnectionDetailUiFactory
-import com.poyka.ripdpi.activities.HistoryConnectionFilterState
-import com.poyka.ripdpi.activities.HistoryDetailState
-import com.poyka.ripdpi.activities.HistoryDiagnosticsFilterState
-import com.poyka.ripdpi.activities.HistoryEventFilterState
-import com.poyka.ripdpi.activities.HistoryRepositorySnapshot
-import com.poyka.ripdpi.activities.HistorySection
-import com.poyka.ripdpi.activities.HistoryUiState
-import com.poyka.ripdpi.activities.HistoryUiStateFactory
-import com.poyka.ripdpi.activities.historyEvent
-import com.poyka.ripdpi.activities.testHistorySessionDetailUiMapper
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.ui.screens.diagnostics.state.testDiagnosticsUiCoreSupport
