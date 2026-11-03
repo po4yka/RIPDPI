@@ -7,10 +7,10 @@ import java.io.File
 /**
  * Build-time parity gate: every `recommendationKey` referenced by the
  * JSON catalog at `assets/diagnostics/replay_recommendations.json`
- * MUST resolve to an `R.string.<key>` in the app's `values/strings.xml`.
+ * MUST resolve to an `R.string.<key>` in the app's `values/strings*.xml` files.
  * Per-locale parity is already enforced at compile time by
  * `lint.xml` `MissingTranslation severity="error"`, so this test only
- * needs to verify the canonical `values/strings.xml`.
+ * needs to verify the canonical `values/strings*.xml` files.
  *
  * Locating the strings file: this test walks up from the JVM working
  * directory until it finds the workspace root (the directory containing
@@ -37,8 +37,12 @@ class ReplayCatalogParityTest {
                 "core/diagnostics/src/main/assets/diagnostics/replay_recommendations.json",
             ).readText()
         val catalog = ReplayRecommendationCatalogParser.parse(catalogJson)
+        // String resources are grouped by feature across several strings_*.xml files.
         val stringsXml =
-            File(rootDir, "app/src/main/res/values/strings.xml").readText()
+            File(rootDir, "app/src/main/res/values")
+                .listFiles { file -> file.name.startsWith("strings") && file.extension == "xml" }
+                .orEmpty()
+                .joinToString("\n") { it.readText() }
         val declaredKeys =
             Regex("""name="(vpn_replay_rec_[^"]+)"""")
                 .findAll(stringsXml)
@@ -51,7 +55,7 @@ class ReplayCatalogParityTest {
             ).toSet()
         val missing = catalogKeys - declaredKeys
         assertTrue(
-            "catalog keys missing from app strings.xml: $missing\n(declared keys: $declaredKeys)",
+            "catalog keys missing from app string resources: $missing\n(declared keys: $declaredKeys)",
             missing.isEmpty(),
         )
     }
