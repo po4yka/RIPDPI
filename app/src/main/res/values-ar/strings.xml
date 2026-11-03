@@ -65,7 +65,6 @@
     <string name="connection_health_dns_cache_misses">عدم العثور في ذاكرة التخزين المؤقت</string>
     <string name="connection_health_dns_failures">إخفاقات</string>
     <string name="connection_health_home_title">صحة الاتصال</string>
-    <string name="connection_health_home_subtitle">عرض النجاح حسب الاستراتيجية وفئة الوجهة.</string>
     <string name="title_strategy_tuner">ضبط الاستراتيجية</string>
     <string name="strategy_tuner_open_action">فتح ضبط الاستراتيجية</string>
     <string name="strategy_tuner_domains_label">نطاقات الاختبار</string>

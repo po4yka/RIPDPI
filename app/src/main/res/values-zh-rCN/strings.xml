@@ -63,7 +63,6 @@
     <string name="connection_health_dns_cache_misses">缓存未命中</string>
     <string name="connection_health_dns_failures">失败</string>
     <string name="connection_health_home_title">连接健康</string>
-    <string name="connection_health_home_subtitle">查看按策略和目标类别的成功率。</string>
     <string name="title_strategy_tuner">策略调优</string>
     <string name="strategy_tuner_open_action">打开策略调优</string>
     <string name="strategy_tuner_domains_label">测试域名</string>

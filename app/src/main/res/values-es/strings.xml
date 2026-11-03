@@ -732,7 +732,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="connection_health_dns_cache_misses">Fallos de caché</string>
     <string name="connection_health_dns_failures">Errores</string>
     <string name="connection_health_home_title">Salud de la conexión</string>
-    <string name="connection_health_home_subtitle">Ver el éxito por estrategia y clase de destino.</string>
     <string name="title_strategy_tuner">Ajuste de estrategia</string>
     <string name="strategy_tuner_open_action">Abrir ajuste de estrategia</string>
     <string name="strategy_tuner_domains_label">Dominios de prueba</string>

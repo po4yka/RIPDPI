@@ -67,7 +67,6 @@ private fun Material3ReadabilityConnectionHealthPreview() {
         RipDpiCard {
             SettingsRow(
                 title = stringResource(R.string.connection_health_home_title),
-                subtitle = stringResource(R.string.connection_health_home_subtitle),
                 onClick = {},
                 leadingIcon = RipDpiIcons.NetworkCheck,
                 showChevron = true,

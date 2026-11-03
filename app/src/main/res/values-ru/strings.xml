@@ -64,7 +64,6 @@
     <string name="connection_health_dns_cache_misses">Промахи кэша</string>
     <string name="connection_health_dns_failures">Сбои</string>
     <string name="connection_health_home_title">Здоровье соединения</string>
-    <string name="connection_health_home_subtitle">Открыть успех стратегий по классам назначений.</string>
     <string name="title_strategy_tuner">Подбор стратегии</string>
     <string name="strategy_tuner_open_action">Открыть подбор стратегии</string>
     <string name="strategy_tuner_domains_label">Тестовые домены</string>

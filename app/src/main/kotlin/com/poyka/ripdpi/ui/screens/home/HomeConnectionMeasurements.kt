@@ -19,6 +19,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalWindowInfo
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ConnectionQualitySnapshot
 import com.poyka.ripdpi.service.telemetry.RuntimeMeasurementFreshness
@@ -56,6 +58,7 @@ internal fun HomeConnectionMeasurements(
     var selectedSnapshot by remember { mutableStateOf<LatencyDetailSnapshot?>(null) }
     var returnFocusRequested by remember { mutableStateOf(false) }
     val latencyFocus = remember { FocusRequester() }
+    val qualityMeaning = stringResource(R.string.measurement_quality_meaning)
     val windowInfo = LocalWindowInfo.current
     val observed = quality?.takeIf { it.hasObservedMeasurements() }
     val hasLatencyOrigin = observed != null && observed.sampleCount > 0L
@@ -84,6 +87,7 @@ internal fun HomeConnectionMeasurements(
                         dataTransferred,
                         latencyModifier =
                             Modifier
+                                .semantics { stateDescription = qualityMeaning }
                                 .focusProperties { canFocus = true }
                                 .focusRequester(
                                     latencyFocus,
@@ -109,7 +113,6 @@ internal fun HomeConnectionMeasurements(
                 modifier = Modifier.fillMaxWidth(),
             )
             observed?.let {
-                MeasurementCaption(stringResource(R.string.measurement_quality_meaning))
                 MeasurementCaption(
                     if (it.windowStartAtMs > 0L) {
                         stringResource(R.string.measurement_quality_window, measurementTimestamp(it.windowStartAtMs))
@@ -117,7 +120,8 @@ internal fun HomeConnectionMeasurements(
                         stringResource(R.string.measurement_window_unknown)
                     },
                 )
-                MeasurementSource(source, currentTime)
+                // The summary body above already says when values are old; a second badge would repeat it.
+                MeasurementSource(source, currentTime, showFreshness = false)
             }
         }
     }

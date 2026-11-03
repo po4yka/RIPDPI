@@ -221,7 +221,6 @@ private fun HomeConnectionHealthEntry(onOpenConnectionHealth: () -> Unit) {
     RipDpiCard {
         SettingsRow(
             title = stringResource(R.string.connection_health_home_title),
-            subtitle = stringResource(R.string.connection_health_home_subtitle),
             onClick = onOpenConnectionHealth,
             leadingIcon = RipDpiIcons.NetworkCheck,
             showChevron = true,

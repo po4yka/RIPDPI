@@ -49,6 +49,7 @@ internal fun measurementNow(source: RuntimeMeasurementSource?): Long {
 internal fun MeasurementSource(
     source: RuntimeMeasurementSource?,
     now: Long = measurementNow(source),
+    showFreshness: Boolean = true,
 ) {
     source?.let {
         val name =
@@ -62,6 +63,7 @@ internal fun MeasurementSource(
             MeasurementCaption(stringResource(R.string.measurement_snapshot, measurementTimestamp(it.capturedAt)))
         }
     }
+    if (!showFreshness) return
     val freshness = source?.freshness(now) ?: RuntimeMeasurementFreshness.Unknown
     val label = stringResource(freshness.labelResource())
     val tier =

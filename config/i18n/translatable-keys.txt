@@ -892,7 +892,6 @@ app:connection_health_dns_section_title
 app:connection_health_empty_body
 app:connection_health_empty_title
 app:connection_health_failures
-app:connection_health_home_subtitle
 app:connection_health_home_title
 app:connection_health_latency_caption
 app:connection_health_latency_dns

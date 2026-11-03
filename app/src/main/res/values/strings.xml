@@ -65,7 +65,6 @@
     <string name="connection_health_dns_cache_misses">Cache misses</string>
     <string name="connection_health_dns_failures">Failures</string>
     <string name="connection_health_home_title">Connection health</string>
-    <string name="connection_health_home_subtitle">See per-strategy success by destination class.</string>
     <string name="title_strategy_tuner">Strategy tuner</string>
     <string name="strategy_tuner_open_action">Open strategy tuner</string>
     <string name="strategy_tuner_domains_label">Test domains</string>

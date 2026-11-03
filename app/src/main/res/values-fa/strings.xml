@@ -63,7 +63,6 @@
     <string name="connection_health_dns_cache_misses">عدم اصابت‌های حافظه پنهان</string>
     <string name="connection_health_dns_failures">خطاها</string>
     <string name="connection_health_home_title">سلامت اتصال</string>
-    <string name="connection_health_home_subtitle">مشاهده موفقیت بر اساس راهبرد و کلاس مقصد.</string>
     <string name="title_strategy_tuner">تنظیم راهبرد</string>
     <string name="strategy_tuner_open_action">باز کردن تنظیم راهبرد</string>
     <string name="strategy_tuner_domains_label">دامنه‌های آزمایش</string>

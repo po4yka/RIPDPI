@@ -65,7 +65,6 @@
     <string name="connection_health_dns_cache_misses">Ausências no cache</string>
     <string name="connection_health_dns_failures">Falhas</string>
     <string name="connection_health_home_title">Saúde da conexão</string>
-    <string name="connection_health_home_subtitle">Veja o sucesso por estratégia e classe de destino.</string>
     <string name="title_strategy_tuner">Ajuste de estratégias</string>
     <string name="strategy_tuner_open_action">Abrir ajuste de estratégias</string>
     <string name="strategy_tuner_domains_label">Domínios de teste</string>
