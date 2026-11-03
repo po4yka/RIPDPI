@@ -111,23 +111,40 @@ fun SettingsRoute(
                 onRepairPermission = onRepairPermission,
                 onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
                 onDismissBackgroundGuidance = onDismissBackgroundGuidance,
-                onThemeSelected = remember(viewModel) { viewModel::setAppTheme },
-                onHapticFeedbackDisabledChanged = remember(viewModel) { viewModel::setHapticFeedbackDisabled },
-                onDynamicColorChanged = remember(viewModel) { viewModel::setDynamicColorEnabled },
-                onPersonaSelected = remember(viewModel) { viewModel::setUiPersona },
-                onWebRtcProtectionChanged = remember(viewModel) { viewModel::setWebRtcProtectionEnabled },
-                onExcludeRussianAppsChanged = remember(viewModel) { viewModel::setExcludeRussianAppsEnabled },
-                onFullTunnelModeChanged = remember(viewModel) { viewModel::setFullTunnelMode },
-                onStartOnBootChanged = remember(viewModel) { viewModel::setStartOnBootEnabled },
-                onBiometricChanged = remember(viewModel) { viewModel::setBiometricEnabled },
-                onSaveBackupPin = remember(viewModel) { viewModel::setBackupPin },
-                onResetSettings = remember(viewModel) { viewModel::resetSettings },
-                onCommunityApiUrlChanged = remember(viewModel) { viewModel::setCommunityApiUrl },
+                onThemeSelected = remember(viewModel) { viewModel.customizationActions::setAppTheme },
+                onHapticFeedbackDisabledChanged =
+                    remember(
+                        viewModel,
+                    ) { viewModel.customizationActions::setHapticFeedbackDisabled },
+                onDynamicColorChanged =
+                    remember(
+                        viewModel,
+                    ) { viewModel.customizationActions::setDynamicColorEnabled },
+                onPersonaSelected = remember(viewModel) { viewModel.customizationActions::setUiPersona },
+                onWebRtcProtectionChanged =
+                    remember(
+                        viewModel,
+                    ) { viewModel.customizationActions::setWebRtcProtectionEnabled },
+                onExcludeRussianAppsChanged =
+                    remember(
+                        viewModel,
+                    ) { viewModel.customizationActions::setExcludeRussianAppsEnabled },
+                onFullTunnelModeChanged =
+                    remember(
+                        viewModel,
+                    ) { viewModel.customizationActions::setFullTunnelMode },
+                onStartOnBootChanged = remember(
+                    viewModel,
+                ) { viewModel.customizationActions::setStartOnBootEnabled },
+                onBiometricChanged = remember(viewModel) { viewModel.customizationActions::setBiometricEnabled },
+                onSaveBackupPin = remember(viewModel) { viewModel.customizationActions::setBackupPin },
+                onResetSettings = remember(viewModel) { viewModel.maintenanceActions::resetSettings },
+                onCommunityApiUrlChanged = remember(viewModel) { viewModel.customizationActions::setCommunityApiUrl },
                 onClearCommunityCache = remember(viewModel) { viewModel::clearCommunityCache },
             ),
         permissionSummary = permissionSummary,
         notice = notice.value,
-        onDismissNotice = viewModel::acknowledgeSettingsNotice,
+        onDismissNotice = viewModel.customizationActions::acknowledgeAppLockResetNotice,
         modifier = modifier,
     )
 }

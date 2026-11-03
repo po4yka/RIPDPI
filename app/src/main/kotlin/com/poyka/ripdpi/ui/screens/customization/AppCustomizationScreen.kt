@@ -55,8 +55,8 @@ fun AppCustomizationRoute(
     AppCustomizationScreen(
         uiState = uiState,
         onBack = onBack,
-        onIconSelected = viewModel::setAppIcon,
-        onThemedIconChanged = viewModel::setThemedAppIconEnabled,
+        onIconSelected = viewModel.customizationActions::setAppIcon,
+        onThemedIconChanged = viewModel.customizationActions::setThemedAppIconEnabled,
         modifier = modifier,
     )
 }

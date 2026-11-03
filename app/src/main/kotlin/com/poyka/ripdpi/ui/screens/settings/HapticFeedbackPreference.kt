@@ -59,7 +59,7 @@ internal fun SimpleInterfaceSettingsRoute(
         item(key = "haptic-feedback") {
             HapticFeedbackPreference(
                 disabled = state.hapticFeedbackDisabled,
-                onDisabledChange = remember(viewModel) { viewModel::setHapticFeedbackDisabled },
+                onDisabledChange = remember(viewModel) { viewModel.customizationActions::setHapticFeedbackDisabled },
             )
         }
     }

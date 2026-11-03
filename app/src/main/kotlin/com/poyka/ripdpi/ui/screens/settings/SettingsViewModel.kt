@@ -5,14 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.message
 import com.poyka.ripdpi.activities.messageResource
-import com.poyka.ripdpi.data.HostPackPreset
-import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.security.PinVerifyResult
 import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
-import com.poyka.ripdpi.ui.screens.dns.OdohResolverFields
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CoroutineStart
@@ -79,8 +76,6 @@ class SettingsViewModel
         private val dnsNoticeState = SettingsNoticeState()
         val dnsNotice: StateFlow<SettingsEffect.Notice?> = dnsNoticeState.latest
 
-        fun acknowledgeSettingsNotice() = customizationActions.acknowledgeAppLockResetNotice()
-
         fun acknowledgeAdvancedNotice(notice: SettingsEffect.Notice) = advancedNoticeState.acknowledge(notice)
 
         fun acknowledgeDnsNotice(notice: SettingsEffect.Notice) = dnsNoticeState.acknowledge(notice)
@@ -116,7 +111,7 @@ class SettingsViewModel
                         settingsActionDependencies.serviceStateStore.telemetry.value.xrayProviderSnapshot,
                 )
 
-        private val dnsActions =
+        internal val dnsActions =
             SettingsDnsActions(
                 mutations = mutations,
                 serviceStateStore = settingsActionDependencies.serviceStateStore,
@@ -133,7 +128,7 @@ class SettingsViewModel
                 onReconnectSuccess = dnsNoticeState::clear,
                 serviceIntentArbiter = serviceIntentArbiter,
             )
-        private val customizationActions by lazy {
+        internal val customizationActions by lazy {
             SettingsCustomizationActions(
                 mutations = mutations,
                 launcherIconController = settingsActionDependencies.launcherIconController,
@@ -143,7 +138,7 @@ class SettingsViewModel
                 pinLockoutManager = settingsActionDependencies.pinLockoutManager,
             )
         }
-        private val maintenanceActions by lazy {
+        internal val maintenanceActions by lazy {
             SettingsMaintenanceActions(
                 learnedHostsEraser = settingsActionDependencies.learnedHostsEraser,
                 rememberedPolicySource = settingsActionDependencies.rememberedPolicySource,
@@ -199,123 +194,15 @@ class SettingsViewModel
             mutations.updateSettingAndAwait(key = key, value = value, transform = transform)
         }
 
-        fun selectBuiltInDnsProvider(providerId: String) = dnsActions.selectBuiltInDnsProvider(providerId)
-
-        fun setPlainDnsServer(dnsIp: String) = dnsActions.setPlainDnsServer(dnsIp)
-
-        fun setCustomDohResolver(
-            dohUrl: String,
-            bootstrapIps: List<String>,
-        ) = dnsActions.setCustomDohResolver(dohUrl = dohUrl, bootstrapIps = bootstrapIps)
-
-        fun setCustomDotResolver(
-            protocol: String,
-            selectedMode: Mode,
-            host: String,
-            port: Int,
-            tlsServerName: String,
-            bootstrapIps: List<String>,
-        ) = dnsActions.setCustomDotResolver(
-            protocol = protocol,
-            selectedMode = selectedMode,
-            host = host,
-            port = port,
-            tlsServerName = tlsServerName,
-            bootstrapIps = bootstrapIps,
-        )
-
-        fun setCustomDnsCryptResolver(
-            host: String,
-            port: Int,
-            providerName: String,
-            publicKey: String,
-            bootstrapIps: List<String>,
-        ) = dnsActions.setCustomDnsCryptResolver(
-            host = host,
-            port = port,
-            providerName = providerName,
-            publicKey = publicKey,
-            bootstrapIps = bootstrapIps,
-        )
-
-        fun setCustomOdohResolver(
-            fields: OdohResolverFields,
-            bootstrapIps: List<String>,
-        ) = dnsActions.setCustomOdohResolver(fields, bootstrapIps)
-
-        fun setDnsIpv6Enabled(enabled: Boolean) = dnsActions.setIpv6Enabled(enabled)
-
-        fun setWebRtcProtectionEnabled(enabled: Boolean) = customizationActions.setWebRtcProtectionEnabled(enabled)
-
-        fun setExcludeRussianAppsEnabled(enabled: Boolean) = customizationActions.setExcludeRussianAppsEnabled(enabled)
-
-        fun setFullTunnelMode(enabled: Boolean) = customizationActions.setFullTunnelMode(enabled)
-
-        fun setMixedInboundEnabled(enabled: Boolean) = customizationActions.setMixedInboundEnabled(enabled)
-
-        fun setProxyAllowLan(enabled: Boolean) = customizationActions.setProxyAllowLan(enabled)
-
-        fun setStartOnBootEnabled(enabled: Boolean) = customizationActions.setStartOnBootEnabled(enabled)
-
-        fun setCommunityApiUrl(url: String) = customizationActions.setCommunityApiUrl(url)
-
         fun clearCommunityCache() {
             viewModelScope.launch {
                 settingsActionDependencies.communityComparisonStore.clear()
             }
         }
 
-        fun setHapticFeedbackDisabled(disabled: Boolean) = customizationActions.setHapticFeedbackDisabled(disabled)
-
-        fun setDynamicColorEnabled(enabled: Boolean) = customizationActions.setDynamicColorEnabled(enabled)
-
-        fun setAppTheme(theme: String) = customizationActions.setAppTheme(theme)
-
-        fun setUiPersona(persona: String) = customizationActions.setUiPersona(persona)
-
-        fun setAppIcon(iconKey: String) = customizationActions.setAppIcon(iconKey)
-
-        fun setThemedAppIconEnabled(enabled: Boolean) = customizationActions.setThemedAppIconEnabled(enabled)
-
-        fun setBiometricEnabled(enabled: Boolean) = customizationActions.setBiometricEnabled(enabled)
-
-        fun setBackupPin(pin: String) = customizationActions.setBackupPin(pin)
-
         fun verifyBackupPin(pin: String): PinVerifyResult = customizationActions.verifyBackupPin(pin)
 
         fun isPinLockedOut(): Boolean = settingsActionDependencies.pinLockoutManager.isLockedOut()
 
         fun pinLockoutRemainingMs(): Long = settingsActionDependencies.pinLockoutManager.remainingLockoutMs()
-
-        fun resetSettings() = maintenanceActions.resetSettings()
-
-        fun applyHostPackPreset(
-            preset: HostPackPreset,
-            targetMode: String,
-            applyMode: String,
-        ) = maintenanceActions.applyHostPackPreset(
-            preset = preset,
-            targetMode = targetMode,
-            applyMode = applyMode,
-        )
-
-        fun refreshHostPackCatalog() = maintenanceActions.refreshHostPackCatalog()
-
-        fun forgetLearnedHosts() = maintenanceActions.forgetLearnedHosts()
-
-        fun clearRememberedNetworks() = maintenanceActions.clearRememberedNetworks()
-
-        fun refreshStrategyPackCatalog() = maintenanceActions.refreshStrategyPackCatalog()
-
-        fun resetFakeTlsProfile() = maintenanceActions.resetFakeTlsProfile()
-
-        fun resetAdaptiveFakeTtlProfile() = maintenanceActions.resetAdaptiveFakeTtlProfile()
-
-        fun resetFakePayloadLibrary() = maintenanceActions.resetFakePayloadLibrary()
-
-        fun resetHttpParserEvasions() = maintenanceActions.resetHttpParserEvasions()
-
-        fun resetActivationWindow() = maintenanceActions.resetActivationWindow()
-
-        fun rotateTelemetrySalt() = maintenanceActions.rotateTelemetrySalt()
     }

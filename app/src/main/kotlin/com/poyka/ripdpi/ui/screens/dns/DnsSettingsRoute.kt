@@ -29,38 +29,45 @@ fun DnsSettingsRoute(
                     val providerId =
                         resolverOptions.firstOrNull { it.providerId == uiState.dns.dnsProviderId }?.providerId
                             ?: DnsProviderCloudflare
-                    viewModel.selectBuiltInDnsProvider(providerId)
+                    viewModel.dnsActions.selectBuiltInDnsProvider(providerId)
                 }
             } else {
-                viewModel.setPlainDnsServer(uiState.dns.dnsIp)
+                viewModel.dnsActions.setPlainDnsServer(uiState.dns.dnsIp)
             }
         },
         onProtocolSelected = { _ ->
             val providerId =
                 resolverOptions.firstOrNull { it.providerId == uiState.dns.dnsProviderId }?.providerId
                     ?: DnsProviderCloudflare
-            viewModel.selectBuiltInDnsProvider(providerId)
+            viewModel.dnsActions.selectBuiltInDnsProvider(providerId)
         },
         onResolverSelected = { resolver ->
-            viewModel.selectBuiltInDnsProvider(resolver.providerId)
+            viewModel.dnsActions.selectBuiltInDnsProvider(resolver.providerId)
         },
         onSaveCustomDoh = { dohUrl, bootstrapIps ->
-            viewModel.setCustomDohResolver(dohUrl, bootstrapIps)
+            viewModel.dnsActions.setCustomDohResolver(dohUrl, bootstrapIps)
         },
         onSaveCustomDot = { protocol, host, port, tlsServerName, bootstrapIps ->
-            viewModel.setCustomDotResolver(protocol, uiState.selectedMode, host, port, tlsServerName, bootstrapIps)
+            viewModel.dnsActions.setCustomDotResolver(
+                protocol,
+                uiState.selectedMode,
+                host,
+                port,
+                tlsServerName,
+                bootstrapIps,
+            )
         },
         onSaveCustomDnsCrypt = { host, port, providerName, publicKey, bootstrapIps ->
-            viewModel.setCustomDnsCryptResolver(host, port, providerName, publicKey, bootstrapIps)
+            viewModel.dnsActions.setCustomDnsCryptResolver(host, port, providerName, publicKey, bootstrapIps)
         },
         onSaveCustomOdoh = { fields, bootstrapIps ->
-            viewModel.setCustomOdohResolver(fields, bootstrapIps)
+            viewModel.dnsActions.setCustomOdohResolver(fields, bootstrapIps)
         },
         onSavePlainDns = { dnsAddress ->
-            viewModel.setPlainDnsServer(dnsAddress)
+            viewModel.dnsActions.setPlainDnsServer(dnsAddress)
         },
         onIpv6Changed = { enabled ->
-            viewModel.setDnsIpv6Enabled(enabled)
+            viewModel.dnsActions.setIpv6Enabled(enabled)
         },
         modifier = modifier,
     )
