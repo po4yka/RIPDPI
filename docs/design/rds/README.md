@@ -20,7 +20,7 @@ configuration, and high-stakes connection controls.
 | Glance home-screen widget | Parallel theme tree `RipDpiGlanceTheme` / `RipDpiGlanceColors` | Token names kept in sync with Compose theme |
 | _Future_ — Wear OS, KMP docs, Figma library, marketing site | Same semantic tokens, thin platform bridge | Token shape is deliberately platform-agnostic |
 
-Localized into 7 languages: `en`, `ru`, `es`, `de`, `fr`, `fa`, `zh-CN`.
+Localized into the locales listed in `app/src/main/res/xml/locales_config.xml` (currently 10: `en`, `ru`, `es`, `de`, `fr`, `fa`, `ar`, `zh-CN`, `hi`, `pt-BR`).
 `lint.xml` sets `MissingTranslation severity="error"` — every new string
 ships into all locales in the same commit.
 
@@ -29,7 +29,7 @@ ships into all locales in the same commit.
 | Source | Where | Notes |
 | --- | --- | --- |
 | **Codebase (Compose UI tree)** | `ui/` mount via the project file system, paths `ui/components/…`, `ui/screens/…`, `ui/theme/…` | Primary source of truth — read these directly |
-| **GitHub repo** | <https://github.com/po4yka/RIPDPI> | Browse `app/`, `core/`, `docs/`, `DESIGN.md`, `README.md`, locale README-{ru,es,de,fr,zh-CN}.md |
+| **GitHub repo** | <https://github.com/po4yka/RIPDPI> | Browse `app/`, `core/`, `docs/`, `DESIGN.md`, `README.md`, the locale READMEs |
 | **Brand & icon assets** | Uploaded TTF + Android vector drawables, copied into `fonts/` and `assets/` of this project | Includes 6 launcher-foreground variants of the brand mark |
 
 To extend the system or rebuild fidelity, explore the GitHub repo above
