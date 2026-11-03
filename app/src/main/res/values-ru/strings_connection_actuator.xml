@@ -4,7 +4,7 @@
     <string name="home_connection_actuator_action_deactivate">Отключить</string>
     <string name="home_connection_actuator_fault_copy">Скопировать ошибку</string>
     <string name="home_connection_actuator_direct">Напрямую</string>
-    <string name="home_connection_actuator_relay">Реле</string>
+    <string name="home_connection_actuator_relay">Через сервер</string>
     <string name="home_connection_actuator_state_degraded">Подключено · предупреждение: %1$s</string>
     <string name="home_connection_actuator_state_direct_degraded">Подключено · предупреждение: %1$s</string>
     <string name="home_connection_actuator_state_engaging">Подключение…</string>
