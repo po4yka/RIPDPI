@@ -83,7 +83,7 @@ class StatusScreenTest {
     }
 
     @Test
-    fun `actuator fault offers diagnose and view log next steps`() {
+    fun `actuator fault without a message offers diagnose and view log`() {
         var diagnosed = false
         var openedLogs = false
         composeRule.setContent {
@@ -95,7 +95,6 @@ class StatusScreenTest {
                             connectionActuator =
                                 StatusConnectionActuatorUiState(
                                     status = StatusConnectionActuatorStatus.Fault,
-                                    faultDetail = "Failed to start VPN",
                                 ),
                         ),
                     onToggleConnection = {},
@@ -108,37 +107,12 @@ class StatusScreenTest {
             }
         }
 
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorFaultDetail).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorFaultDiagnose).performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorFaultViewLog).performClick()
 
         assertTrue(diagnosed)
         assertTrue(openedLogs)
-    }
-
-    @Test
-    fun `actuator fault without a message still offers next steps`() {
-        composeRule.setContent {
-            RipDpiTheme {
-                StatusScreen(
-                    uiState =
-                        MainUiState(
-                            connectionState = ConnectionState.Error,
-                            connectionActuator =
-                                StatusConnectionActuatorUiState(status = StatusConnectionActuatorStatus.Fault),
-                        ),
-                    onToggleConnection = {},
-                    onOpenDiagnostics = {},
-                    onOpenHistory = {},
-                    onOpenLogs = {},
-                    onRepairPermission = {},
-                    onOpenVpnPermissionDialog = {},
-                )
-            }
-        }
-
-        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorFaultDetail).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorFaultDiagnose).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorFaultViewLog).assertExists()
     }
 
     @Test

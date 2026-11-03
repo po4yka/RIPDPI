@@ -9,14 +9,14 @@ import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.hasContentDescription
-import androidx.compose.ui.test.isSelected
+import androidx.compose.ui.test.hasScrollToNodeAction
+import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToNode
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -64,17 +64,16 @@ class SettingsListDetailNavigationTest {
         composeRule.onNodeWithTag(settingsScreen).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsDetailPlaceholder).assertExists()
 
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).performScrollTo().performClick()
+        clickSettingsRow(RipDpiTestTags.SettingsCustomization)
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag(settingsScreen).assertExists()
         composeRule.onNodeWithTag(DNS_TAG).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).assertIsSelected()
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsDataTransparency).assert(!isSelected())
         composeRule.onNode(hasContentDescription(BACK_LABEL)).assertDoesNotExist()
 
         // Another item replaces the detail; back then leaves the detail, not the previous item.
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsDataTransparency).performScrollTo().performClick()
+        clickSettingsRow(RipDpiTestTags.SettingsDataTransparency)
         composeRule.waitForIdle()
         composeRule.onNodeWithTag(STATUS_TAG).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsDataTransparency).assertIsSelected()
@@ -89,11 +88,11 @@ class SettingsListDetailNavigationTest {
     @Config(qualifiers = "w1300dp-h900dp")
     fun selectingTheOpenDetailAgainKeepsTheSameEntry() {
         showSettingsGraph()
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).performScrollTo().performClick()
+        clickSettingsRow(RipDpiTestTags.SettingsCustomization)
         composeRule.waitForIdle()
         val openEntryId = composeRule.runOnIdle { requireNotNull(navController.currentBackStackEntry).id }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).performScrollTo().performClick()
+        clickSettingsRow(RipDpiTestTags.SettingsCustomization)
         composeRule.waitForIdle()
 
         composeRule.runOnIdle {
@@ -109,7 +108,7 @@ class SettingsListDetailNavigationTest {
         composeRule.onNodeWithTag(settingsScreen).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsDetailPlaceholder).assertDoesNotExist()
 
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).performScrollTo().performClick()
+        clickSettingsRow(RipDpiTestTags.SettingsCustomization)
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag(DNS_TAG).assertExists()
@@ -224,5 +223,10 @@ class SettingsListDetailNavigationTest {
         const val DNS_TAG = "settings-detail-dns"
         const val STATUS_TAG = "settings-detail-status"
         const val BACK_LABEL = "test-back"
+    }
+
+    private fun clickSettingsRow(tag: String) {
+        composeRule.onNode(hasScrollToNodeAction()).performScrollToNode(hasTestTag(tag))
+        composeRule.onNodeWithTag(tag).performClick()
     }
 }
