@@ -42,15 +42,13 @@ RIPDPI به‌جای یک سیاست سراسری واحد، هر مقصد و ه
 
 ## شروع سریع
 
-پیش از اجرای این دستورها، [پیش‌نیازهای ساخت](#build-requirements) را آماده کنید، از جمله زنجیرهٔ ابزار AAR واقعی libXray.
+قابلیت‌های ارائه‌دهندهٔ Xray به AAR وصله‌شدهٔ libXray نیاز دارند؛ بدون آن، ساخت debug از stub استفاده می‌کند. به [راهنمای libXray](../native/libxray-packaging.md#build) نگاه کنید.
 
 APK اشکال‌زدایی (debug) اندروید را از سورس بسازید:
 
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git
 cd RIPDPI
-bash scripts/native/build-libxray.sh
-bash scripts/native/verify-libxray-artifacts.sh
 ./gradlew assembleDebug
 ```
 

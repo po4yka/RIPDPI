@@ -40,15 +40,13 @@ En lugar de una única política global, RIPDPI clasifica cada destino y cada re
 
 ## Inicio rápido
 
-Prepare los [requisitos de compilación](#build-requirements), incluida la cadena de herramientas del AAR real de libXray, antes de ejecutar estos comandos.
+Las funciones del proveedor Xray requieren el AAR de libXray con parches; sin él, las compilaciones debug usan un stub. Vea [la guía de libXray](docs/native/libxray-packaging.md#build).
 
 Compile el APK de depuración de Android desde el código fuente:
 
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git
 cd RIPDPI
-bash scripts/native/build-libxray.sh
-bash scripts/native/verify-libxray-artifacts.sh
 ./gradlew assembleDebug
 ```
 

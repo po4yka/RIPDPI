@@ -40,15 +40,13 @@ Au lieu d'une politique globale unique, RIPDPI classe chaque cible et chaque ré
 
 ## Démarrage rapide
 
-Préparez les [prérequis de compilation](#build-requirements), y compris la chaîne d'outils de l'AAR libXray réel, avant d'exécuter ces commandes.
+Les fonctions du fournisseur Xray nécessitent l'AAR libXray corrigé ; sans lui, les builds debug utilisent un stub. Voir [la procédure libXray](docs/native/libxray-packaging.md#build).
 
 Compilez l'APK de débogage Android depuis les sources :
 
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git
 cd RIPDPI
-bash scripts/native/build-libxray.sh
-bash scripts/native/verify-libxray-artifacts.sh
 ./gradlew assembleDebug
 ```
 

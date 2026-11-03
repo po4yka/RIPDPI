@@ -42,15 +42,13 @@ RIPDPI नेटवर्क पथ के निदान और अनुक�
 
 ## त्वरित शुरुआत
 
-ये कमांड चलाने से पहले [build आवश्यकताएँ](#build-requirements) तैयार करें, जिनमें वास्तविक libXray AAR टूलचेन शामिल है।
+Xray-provider सुविधाओं के लिए patched libXray AAR चाहिए; इसके बिना debug build stub उपयोग करता है। देखें [libXray packaging](docs/native/libxray-packaging.md#build)।
 
 स्रोत से Android debug APK बनाएँ:
 
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git
 cd RIPDPI
-bash scripts/native/build-libxray.sh
-bash scripts/native/verify-libxray-artifacts.sh
 ./gradlew assembleDebug
 ```
 

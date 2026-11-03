@@ -37,9 +37,19 @@ val linkXrayOptIn =
         .orNull
         ?.toBooleanStrictOrNull()
         ?: false
-// Only explicitly native-less validation may compile the stub. Shipping builds require the AAR.
+// The stub is allowed when the AAR is absent and libXray is not required. Required defaults to
+// true on CI and can be forced with -Pripdpi.requireLibXray=true. Release verification is always strict.
 val nativeLessValidation = providers.gradleProperty("ripdpi.skipNativeBuild").orNull == "true"
-val linkXray = hasXrayAar || linkXrayOptIn || !nativeLessValidation
+val requireLibXray =
+    providers.gradleProperty("ripdpi.requireLibXray").orNull?.toBooleanStrictOrNull()
+        ?: !providers.environmentVariable("CI").orNull.isNullOrBlank()
+val linkXray = hasXrayAar || linkXrayOptIn || !(nativeLessValidation || !requireLibXray)
+if (!linkXray && !requireLibXray) {
+    logger.warn(
+        "WARNING: libXray AAR not found at ${xrayAarFile.path}; building with the Xray stub. " +
+            "Xray-provider features are unavailable. Run scripts/native/build-libxray.sh to enable them.",
+    )
+}
 
 // Config-cache-correct AAR presence check. A raw File.isFile() at configuration
 // time is NOT tracked by the configuration cache, so a cached linking decision
@@ -112,6 +122,10 @@ fun registerXrayVerifier(
     inputs.property("linkXray", linkXray)
     inputs.property("selectedAbis", packagedXrayAbis)
     inputs.property("release", release)
+    // Debug packaging may use the stub only when libXray is not required; release never may.
+    val strict = release || requireLibXray
+    val linked = linkXray
+    onlyIf { linked || strict }
     doFirst {
         check(inputs.properties["linkXray"] == true) { "APK/AAB packaging requires the real libXray runtime" }
     }

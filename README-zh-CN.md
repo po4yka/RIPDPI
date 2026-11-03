@@ -40,15 +40,13 @@ RIPDPI 不采用单一的全局策略，而是分别对每个目标和每个网�
 
 ## 快速开始
 
-运行这些命令之前，请先准备好[构建要求](#build-requirements)，包括真实的 libXray AAR 工具链。
+Xray 提供方功能需要带补丁的 libXray AAR；没有它时，debug 构建使用占位 stub。参见 [libXray 打包说明](docs/native/libxray-packaging.md#build)。
 
 从源码构建 Android debug APK：
 
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git
 cd RIPDPI
-bash scripts/native/build-libxray.sh
-bash scripts/native/verify-libxray-artifacts.sh
 ./gradlew assembleDebug
 ```
 

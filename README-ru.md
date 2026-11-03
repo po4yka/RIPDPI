@@ -40,15 +40,13 @@ RIPDPI — это набор инструментов Android для диагн�
 
 ## Быстрый старт
 
-Перед выполнением этих команд подготовьте [требования к сборке](#build-requirements), включая toolchain настоящего libXray AAR.
+Функции провайдера Xray требуют AAR libXray с патчами; без него debug-сборка использует stub. См. [инструкцию libXray](docs/native/libxray-packaging.md#build).
 
 Соберите debug APK для Android из исходного кода:
 
 ```bash
 git clone https://github.com/po4yka/RIPDPI.git
 cd RIPDPI
-bash scripts/native/build-libxray.sh
-bash scripts/native/verify-libxray-artifacts.sh
 ./gradlew assembleDebug
 ```
 

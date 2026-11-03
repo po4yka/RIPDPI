@@ -171,10 +171,12 @@ packaged ABIs; release verification requires all four. CI produces the real
 runtime through `.github/actions/build-xray/action.yml` and verifies it with
 `--release` before consumers use it.
 
-Only explicitly native-less validation with `ripdpi.skipNativeBuild=true`
-can compile the stub when no AAR is present. A stub build does not prove Xray
-runtime or APK/AAB acceptance; do not use that setting to bypass the packaging
-gate.
+When no AAR is present, the stub source set is selected and one warning is
+printed if libXray is not required. libXray is required (stub rejected,
+`verifyLibXrayArtifacts` fails) when `CI` is set or `-Pripdpi.requireLibXray=true`
+is passed; `-Pripdpi.requireLibXray=false` forces the stub. Release tasks
+(`verifyLibXrayReleaseArtifacts`, bundles) always require the real AAR. A stub
+build does not prove Xray runtime or APK/AAB acceptance.
 
 ## License / NOTICE obligations
 
