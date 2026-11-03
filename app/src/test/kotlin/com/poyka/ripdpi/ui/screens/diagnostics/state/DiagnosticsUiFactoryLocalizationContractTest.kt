@@ -27,6 +27,8 @@ class DiagnosticsUiFactoryLocalizationContractTest {
 
     private fun activitySource(name: String): File =
         sequenceOf(
+            File("src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/state/$name"),
+            File("app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/state/$name"),
             File("src/main/kotlin/com/poyka/ripdpi/activities/$name"),
             File("app/src/main/kotlin/com/poyka/ripdpi/activities/$name"),
         ).first(File::isFile)
