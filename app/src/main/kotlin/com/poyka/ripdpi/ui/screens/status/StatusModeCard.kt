@@ -107,7 +107,7 @@ private fun StatusModeCardContent(
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
         StatusModeCardHeader(uiState = uiState, statusLabel = statusLabel)
-        StatusModeCardBody(uiState = uiState)
+        StatusModeCardBody(uiState = uiState, statusLabel = statusLabel)
     }
 }
 
@@ -164,14 +164,18 @@ private fun StatusModeCardStatus(
 }
 
 @Composable
-private fun StatusModeCardBody(uiState: StatusModeCardUiState) {
+private fun StatusModeCardBody(
+    uiState: StatusModeCardUiState,
+    statusLabel: String,
+) {
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     // Falling back to the header badge's own label spent a whole line repeating
     // a word the user had just read one line above, and pushed the facets that
     // actually differ per mode further down. With nothing distinct to add, add
     // nothing.
-    if (uiState.statusLine.isNotBlank()) {
+    // The header badge already names the state; a body line that only repeats it says nothing new.
+    if (uiState.statusLine.isNotBlank() && !uiState.statusLine.equals(statusLabel, ignoreCase = true)) {
         Text(
             text = uiState.statusLine,
             style = type.secondaryBody,
