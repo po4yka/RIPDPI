@@ -502,6 +502,29 @@ RIPDPI is an operator-facing Android utility, not a lifestyle product. The inter
 
 The YAML tokens above describe the default light-theme baseline at standard contrast that agents can reuse across tools. The Compose implementation selects one of six generated Material 3 schemes (light and dark at standard, medium, and high contrast) and derives these roles from it; those rules are part of the design contract and are described in the prose below.
 
+### Product principle
+
+The standard is Linear's website or Apple Notes: a simple purpose, a simple architecture, a simple design, and a simple implementation. This principle comes before every other rule in this file.
+
+Three people open every screen: the user (UX), the developer who reads its code (DX), and the agent that edits it next (AX). Serve all three. A screen that looks clean but hides its logic in a one-off layout robs the developer and the agent; a tidy component tree that confuses the user robs the user.
+
+The layout carries the meaning, not the words around it:
+
+- Cut taglines, helper text, and secondary labels.
+- Remove any label that only exists to explain the layout. If a screen needs a caption to make sense, the screen is broken: fix its hierarchy, grouping, order, or control choice, then delete the caption.
+- Do not add a subtitle that repeats its title, a description that repeats its control label, or a section header above a single item.
+
+Text that stays because no layout can carry it:
+
+- the content itself: titles, control labels, values, and data
+- live state: status, progress, and the reason a control is disabled
+- errors and validation feedback
+- the consequence of a destructive or irreversible action
+- required disclosures: VPN, privacy, permission, and legal text
+- accessibility names: content descriptions and semantic labels; removing visible text never removes the accessible name
+
+For DX and AX, a simple screen uses the shared scaffolds and components in [Components](#components), keeps one owner for each piece of state, and reads top to bottom in the same order the user sees it.
+
 ## Colors
 
 Core UI uses the Material 3 color roles of a scheme generated with Google material-color-utilities (`SchemeNeutral`, seed `#36414F`, 2021 spec). `app/src/main/kotlin/com/poyka/ripdpi/ui/theme/RipDpiColorSchemes.kt` holds the generated values; regenerate them with the same tool instead of editing single colors. The RDS role names map onto Material roles:
@@ -533,7 +556,7 @@ Typography uses bundled Geist families only:
 - `Geist Mono` for telemetry, configuration, values, logs, and protocol-oriented strings.
 - `Geist Pixel Circle` for the home brand mark only.
 
-Primary content uses a readable mobile scale: `body` and its emphasis variants are `16sp/24sp`; supporting text uses `secondaryBody` at `14sp/20sp`. `cardTitle` is `18sp/24sp` for mode and profile names. Reserve `caption` at `12sp/16sp` for metadata. Use these semantic roles instead of shrinking text to fit a control. The portable YAML expresses text sizes in px; Android implements them in sp and respects system font scale.
+Primary content uses a readable mobile scale: `body` and its emphasis variants are `16sp/24sp`; supporting text uses `secondaryBody` at `14sp/20sp`. `cardTitle` is `18sp/24sp` for mode and profile names. Reserve `caption` at `12sp/16sp` for metadata, never for text that explains the layout. Use these semantic roles instead of shrinking text to fit a control. The portable YAML expresses text sizes in px; Android implements them in sp and respects system font scale.
 
 Material `Typography` defines all fifteen baseline styles and all fifteen emphasized styles in Geist Sans. Display and headline styles use the Material 3 sizes; the other baseline styles map to the RDS roles above. Emphasized styles step up one weight (Normal to Medium, Medium to Bold), because the bundled Geist family ships Normal, Medium, and Bold.
 
@@ -636,8 +659,11 @@ Do:
 - preserve stable hierarchy in light, dark, and high-contrast modes
 - favor dense, calm information presentation over decorative flourish
 - keep state changes visible even when color is reduced
+- fix the layout when a screen seems to need explanation
 
 Don't:
+
+- add taglines, helper text, secondary labels, or captions that explain the layout
 
 - turn the app into a gradient-heavy consumer dashboard
 - use bright accent color for routine actions
@@ -879,4 +905,4 @@ Connection:
 - Guided Connection exposes on/off, "Path strategy: Auto", re-test strategies, Add server, paste/QR/scan import, and inferred protocol handling without a protocol grid
 - Advanced Connection exposes the full protocol grid, Profile ID binding, chain relay, TTL, engine parameters, Finalmask, manual path strategy, CLI overrides, and exact text fields
 - use Profile cards for profile choice and `SettingsRow` for summary values
-- keep exact editing as a bounded form with network, relay, engine, and override sections, plus a Save in the top app bar, a persistent Cancel bottom bar, and explicit validation feedback; on relay profile editors the primary action (Save, or Connect on the AmneziaWG editor) also sits in the top app bar, with a caption that explains a disabled Save
+- keep exact editing as a bounded form with network, relay, engine, and override sections, plus a Save in the top app bar, a persistent Cancel bottom bar, and explicit validation feedback; on relay profile editors the primary action (Save, or Connect on the AmneziaWG editor) also sits in the top app bar, and the body states the reason for a disabled Save

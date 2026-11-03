@@ -4,6 +4,16 @@
 
 RIPDPI is an offline-first Android network-path diagnostics and performance toolkit. Jetpack Compose provides the UI, Android services own VPN/proxy lifecycles, and repository-owned Rust modules implement the native data plane, diagnostics, relays, tunnels, and JNI adapters.
 
+## Product principle
+
+The standard is Linear's website or Apple Notes: a simple purpose, a simple architecture, a simple design, and a simple implementation.
+
+Three people open every screen and every module: the user (UX), the developer who reads the code (DX), and the agent that edits it next (AX). A change must serve all three. A change that helps one by taking from another is not finished. "Simple" never means "broken": existing behavior, contracts, and gates stay intact.
+
+- UX: cut taglines, helper text, and secondary labels. Remove any label that only explains the layout. If a screen needs a caption to make sense, the screen is broken: fix the layout, then delete the caption. Text that carries content, state, errors, consequences, or required disclosures stays; [DESIGN.md](DESIGN.md#product-principle) defines the boundary.
+- DX: one name and one owner for each concept, no layer that only forwards calls, and code that a new reader can follow without a guide.
+- AX: one source of truth for each fact, so an agent finds it with one search and does not edit a copy that disagrees.
+
 ## Source of truth
 
 - At task start and when you switch checkouts, run `just checkout-doctor` to discover the actual checkout root, branch, Git directories, worktree problems, and Rust-skill submodule state. Use its current paths instead of remembered checkout names. It is read-only; exit 1 means inspect the reported issue before proceeding. For a Git directory without a justfile, invoke `scripts/checkout_doctor.py` from an available checkout with the directory as its argument (`--json` lists every worktree).
@@ -166,6 +176,6 @@ File-area rules live in `.claude/rules/`. Claude Code loads them automatically w
 
 ## Design sources
 
-For UI work use, in order, `DESIGN.md`, `docs/design-system.md`, the Compose theme implementation, and Roborazzi baselines. Implementation and verified baselines win when descriptive prose disagrees.
+For UI work apply the [product principle](#product-principle) first, then use, in order, `DESIGN.md`, `docs/design-system.md`, the Compose theme implementation, and Roborazzi baselines. Implementation and verified baselines win when descriptive prose disagrees.
 
 The local USB transport scenarios are a separate acceptance scope. They use the real VPN and native engines with a test-only datagram bridge. Do not claim direct device-to-LAN UDP or underlying-network bypass acceptance from this scope.

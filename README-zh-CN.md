@@ -208,6 +208,10 @@ python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 
 详情：[docs/testing.md](docs/testing.md)
 
+## 设计原则
+
+RIPDPI 追求 Linear 或 Apple Notes 那样的简洁：简单的目标、简单的架构、简单的设计和简单的实现。每项改动都必须同时服务用户、阅读代码的开发者和下一个编辑代码的智能体，且不能破坏现有行为。界面不使用标语，也不使用解释布局的说明文字；如果某个界面需要这样的说明，就修正布局。详见 [DESIGN.md](DESIGN.md#product-principle)。
+
 ## 文档
 
 **初次接触 RIPDPI？** 推荐阅读顺序：

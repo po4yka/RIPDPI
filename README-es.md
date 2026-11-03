@@ -208,6 +208,10 @@ python3 -m unittest scripts.tests.test_offline_analytics_pipeline
 
 Detalles: [docs/testing.md](docs/testing.md)
 
+## Principio de diseño
+
+RIPDPI busca la sencillez de Linear o Apple Notes: un propósito simple, una arquitectura simple, un diseño simple y una implementación simple. Cada cambio debe servir al usuario, al desarrollador que lee el código y al agente que lo edita después, sin romper el comportamiento existente. Las pantallas no llevan eslóganes ni leyendas que expliquen el diseño; si una pantalla necesita una, se corrige el diseño. Más información en [DESIGN.md](DESIGN.md#product-principle).
+
 ## Documentación
 
 **¿Nuevo en RIPDPI?** Ruta de lectura recomendada:
