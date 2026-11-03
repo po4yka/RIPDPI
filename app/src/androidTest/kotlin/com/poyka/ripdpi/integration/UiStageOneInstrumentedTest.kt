@@ -28,7 +28,6 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
 import com.poyka.ripdpi.ui.screens.config.ConfigModeSection
-import com.poyka.ripdpi.ui.screens.config.ConfigRuntimeCallbacks
 import com.poyka.ripdpi.ui.screens.config.ConfigScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions
@@ -50,12 +49,8 @@ class UiStageOneInstrumentedTest {
     val composeRule = createAndroidComposeRule<ComponentActivity>()
 
     @Test
-    fun rejectedStartExposesPermissionRecovery() {
-        var repairs = 0
-        val state =
-            mutableStateOf(
-                configState().copy(runtimeError = "VPN permission required", requiresVpnPermission = true),
-            )
+    fun rejectedStartExposesItsReason() {
+        val state = mutableStateOf(configState().copy(runtimeError = "VPN permission required"))
         composeRule.setContent {
             RipDpiTheme {
                 ConfigScreen(
@@ -67,19 +62,12 @@ class UiStageOneInstrumentedTest {
                     onRetestStrategies = {},
                     onPasteServerLink = {},
                     initialModeSection = ConfigModeSection.Vpn,
-                    runtimeCallbacks = ConfigRuntimeCallbacks(requestVpnPermission = { repairs++ }),
                 )
             }
         }
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigRuntimeError).assertIsDisplayed()
         composeRule.onNodeWithText("VPN permission required").assertIsDisplayed()
         saveScreenshot("rejected-start")
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigVpnPermissionRecovery)
-            .assertIsDisplayed()
-            .assertHasClickAction()
-            .performClick()
-        composeRule.runOnIdle { assertEquals(1, repairs) }
     }
 
     @Test

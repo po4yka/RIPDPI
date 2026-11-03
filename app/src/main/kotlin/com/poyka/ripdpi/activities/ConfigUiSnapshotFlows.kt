@@ -86,7 +86,6 @@ internal fun configUiStateFlow(
     serviceTelemetry: Flow<ServiceTelemetrySnapshot>,
     runtimeSnapshots: Flow<ConfigRuntimeSnapshot>,
     factory: ConfigUiStateFactory,
-    runtimeFeedback: Flow<ConfigRuntimeFeedback> = flowOf(ConfigRuntimeFeedback()),
     reconnectState: Flow<RunningReconnectState> = flowOf(RunningReconnectState.Idle),
 ): StateFlow<ConfigUiState> =
     combine(
@@ -105,12 +104,6 @@ internal fun configUiStateFlow(
             relayProfileRecords = persistedSnapshot.relayProfileRecords,
             networkSnapshot = runtimeSnapshot.networkSnapshot,
             capabilityRecords = runtimeSnapshot.capabilityRecords,
-        )
-    }.combine(runtimeFeedback) { state, feedback ->
-        state.copy(
-            runtimeOperation = feedback.operation ?: state.runtimeOperation,
-            runtimeError = feedback.error,
-            requiresVpnPermission = feedback.requiresVpnPermission,
         )
     }.combine(reconnectState) { state, reconnect ->
         if (reconnect.isConfigPending()) state.copy(runtimeOperation = ConfigRuntimeOperation.Reconnecting) else state

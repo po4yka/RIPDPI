@@ -17,16 +17,12 @@ import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.ConfigRuntimeOperation
 import com.poyka.ripdpi.activities.ConfigUiState
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
-import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 data class ConfigRuntimeCallbacks(
-    val requestVpnPermission: () -> Unit = {},
     val dismissError: () -> Unit = {},
 )
 
@@ -39,7 +35,6 @@ data class ConfigRuntimeIntegration(
 @Composable
 internal fun ConfigRuntimeFeedback(
     uiState: ConfigUiState,
-    onRequestVpnPermission: () -> Unit,
     onDismissRuntimeError: () -> Unit,
 ) {
     uiState.runtimeError?.let { message ->
@@ -63,15 +58,6 @@ internal fun ConfigRuntimeFeedback(
                 testTag = RipDpiTestTags.ConfigRuntimeError,
                 onDismiss = onDismissRuntimeError,
             )
-            if (uiState.requiresVpnPermission) {
-                RipDpiButton(
-                    text = stringResource(R.string.onboarding_test_grant_permission),
-                    onClick = onRequestVpnPermission,
-                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigVpnPermissionRecovery),
-                    variant = RipDpiButtonVariant.Outline,
-                    enabled = uiState.runtimeOperation == null,
-                )
-            }
         }
     }
 }

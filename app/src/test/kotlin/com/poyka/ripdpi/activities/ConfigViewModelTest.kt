@@ -1750,77 +1750,14 @@ class ConfigViewModelEditorSessionConcurrencyTest {
         }
 
     @Test
-    fun `runtime connection emits a result only after service readiness`() =
-        runTest {
-            val service = FakeServiceStateStore()
-            val viewModel = createConfigViewModel(serviceStateStore = service)
-            val effects = mutableListOf<ConfigEffect>()
-            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
-            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-                viewModel.effects.collect { effects += it }
-            }
-
-            viewModel.toggleRuntimeMode(Mode.Proxy, enabled = true)
-            runCurrent()
-            assertTrue(effects.isEmpty())
-            service.setStatus(AppStatus.Running, Mode.Proxy)
-            runCurrent()
-
-            assertEquals(listOf(ConfigEffect.RuntimeConnected()), effects)
-        }
-
-    @Test
-    fun `disabled runtime result retains text eligibility without replay`() =
-        runTest {
-            val service = FakeServiceStateStore()
-            val settings = FakeAppSettingsRepository()
-            val viewModel = createConfigViewModel(serviceStateStore = service, appSettingsRepository = settings)
-            val effects = mutableListOf<ConfigEffect>()
-            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
-            val collector =
-                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-                    viewModel.effects.collect { effects += it }
-                }
-            viewModel.toggleRuntimeMode(Mode.Proxy, enabled = true)
-            runCurrent()
-            settings.update { setHapticFeedbackDisabled(true) }
-            service.setStatus(AppStatus.Running, Mode.Proxy)
-            runCurrent()
-            assertEquals(listOf(ConfigEffect.RuntimeConnected(hapticFeedbackEnabled = false)), effects)
-            collector.cancel()
-            settings.update { setHapticFeedbackDisabled(false) }
-            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-                viewModel.effects.collect { effects += it }
-            }
-            runCurrent()
-            assertEquals(1, effects.size)
-        }
-
-    @Test
-    fun `runtime start ignores repeated taps until readiness`() =
-        runTest {
-            val serviceController = FakeServiceController()
-            val viewModel = createConfigViewModel(serviceController = serviceController)
-            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
-
-            viewModel.toggleRuntimeMode(Mode.VPN, enabled = true)
-            viewModel.toggleRuntimeMode(Mode.VPN, enabled = true)
-            runCurrent()
-
-            assertEquals(listOf(Mode.VPN), serviceController.startedModes)
-        }
-
-    @Test
-    fun `config mode actions wait for the editor save and remain authoritative`() =
+    fun `config mode selection waits for the editor save and remains authoritative`() =
         runTest {
             val saveGate = CompletableDeferred<Unit>()
             val profileStore = ControllableRelayProfileStore(saveGate = saveGate)
             val appSettingsRepository = FakeAppSettingsRepository()
-            val serviceController = FakeServiceController()
             val viewModel =
                 createConfigViewModel(
                     appSettingsRepository = appSettingsRepository,
-                    serviceController = serviceController,
                     relayProfileStore = profileStore,
                 )
             backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
@@ -1830,16 +1767,13 @@ class ConfigViewModelEditorSessionConcurrencyTest {
             runCurrent()
             assertFalse(viewModel.cancelEditing())
             viewModel.selectMode(Mode.Proxy)
-            viewModel.toggleRuntimeMode(Mode.Proxy, enabled = true)
 
             assertTrue(viewModel.uiState.value.isEditorSaving)
-            assertTrue(serviceController.startedModes.isEmpty())
 
             saveGate.complete(Unit)
             advanceUntilIdle()
 
             assertEquals(Mode.Proxy, appSettingsRepository.snapshot().toConfigDraft().mode)
-            assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
             assertFalse(viewModel.uiState.value.isEditorSaving)
         }
 

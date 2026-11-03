@@ -254,36 +254,7 @@ class MainConnectionResultFeedbackTest {
         }
 
     @Test
-    fun `config retries report equal actual failures once per new start`() =
-        runTest {
-            val controller = FakeServiceController()
-            val fixture = ConnectionFeedbackFixture(backgroundScope, controller = controller)
-            val config =
-                ConfigRuntimeActions(
-                    scope = backgroundScope,
-                    controller = controller,
-                    service = fixture.store,
-                    strings = FakeStringResolver(),
-                )
-            runCurrent()
-            repeat(2) { attempt ->
-                config.toggle(Mode.Proxy, true)
-                runCurrent()
-                repeat(2) {
-                    fixture.store.emitFailed(Sender.Proxy, FailureReason.NativeError("Failed"))
-                    runCurrent()
-                    fixture.store.setStatus(AppStatus.Halted, Mode.Proxy)
-                    runCurrent()
-                }
-                assertEquals(null, config.feedback.value.operation)
-                assertEquals(attempt + 1, fixture.effects.replayCache.size)
-                assertTrue(fixture.effects.replayCache.all { it is MainEffect.ShowError })
-            }
-            assertEquals(listOf(Mode.Proxy, Mode.Proxy), controller.startedModes)
-        }
-
-    @Test
-    fun `terminated config starts retain distinct equal failure results`() =
+    fun `terminated starts retain distinct equal failure results`() =
         runTest {
             val controller =
                 object : TestSynchronousServiceController() {
@@ -300,10 +271,9 @@ class MainConnectionResultFeedbackTest {
                     override fun recordStop() = Unit
                 }
             val fixture = ConnectionFeedbackFixture(backgroundScope, controller = controller)
-            val config = ConfigRuntimeActions(backgroundScope, controller, fixture.store, FakeStringResolver())
             runCurrent()
             repeat(2) { attempt ->
-                config.toggle(Mode.Proxy, true)
+                fixture.actions.startMode(Mode.Proxy)
                 runCurrent()
                 repeat(2) {
                     fixture.store.emitFailed(Sender.Proxy, FailureReason.NativeError("Failed"))

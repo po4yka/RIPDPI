@@ -199,7 +199,7 @@ fun ConfigScreen(
             profilesExpanded = showProfileChoices,
             onChangeProfile = { showProfileChoices = !showProfileChoices },
         )
-        ConfigRuntimeFeedback(uiState, runtimeCallbacks.requestVpnPermission, runtimeCallbacks.dismissError)
+        ConfigRuntimeFeedback(uiState, runtimeCallbacks.dismissError)
         if (showProfileChoices) {
             Column(
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigProfileChoices),
@@ -227,7 +227,6 @@ fun ConfigScreen(
         }
 
         ConfigSelectedModeSection(
-            onRequestVpnPermission = runtimeCallbacks.requestVpnPermission,
             onDismissRuntimeError = runtimeCallbacks.dismissError,
             section = selectedModeSection,
             uiState = uiState,
@@ -319,7 +318,6 @@ internal fun ConfigModeSectionSwitcher(
 
 @Composable
 private fun ConfigSelectedModeSection(
-    onRequestVpnPermission: () -> Unit,
     onDismissRuntimeError: () -> Unit,
     section: ConfigModeSection,
     uiState: ConfigUiState,
@@ -336,7 +334,6 @@ private fun ConfigSelectedModeSection(
             LocalBypassConfigScreen(
                 uiState = uiState,
                 settingsOnly = true,
-                onRequestVpnPermission = onRequestVpnPermission,
                 onDismissRuntimeError = onDismissRuntimeError,
                 desyncSummary = desyncSummary,
                 onOpenDesyncSettings = { onOpenConfigEditor(ConfigEditorTarget.Bypass) },
@@ -350,7 +347,6 @@ private fun ConfigSelectedModeSection(
             VpnConfigScreen(
                 uiState = uiState,
                 settingsOnly = true,
-                onRequestVpnPermission = onRequestVpnPermission,
                 onDismissRuntimeError = onDismissRuntimeError,
                 onOpenRelaySettings = onEditCurrent,
                 onOpenDnsSettings = { onOpenConfigEditor(ConfigEditorTarget.Resolver) },

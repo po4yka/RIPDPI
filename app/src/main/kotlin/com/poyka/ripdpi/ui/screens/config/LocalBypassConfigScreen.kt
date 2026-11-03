@@ -49,7 +49,6 @@ internal fun LocalBypassConfigScreen(
     onOpenDnsSettings: () -> Unit,
     onRetestStrategies: () -> Unit,
     modifier: Modifier = Modifier,
-    onRequestVpnPermission: () -> Unit = {},
     onDismissRuntimeError: () -> Unit = {},
     settingsOnly: Boolean = false,
 ) {
@@ -81,7 +80,6 @@ internal fun LocalBypassConfigScreen(
         }
         LocalBypassSimpleCard(
             uiState = uiState,
-            onRequestVpnPermission = onRequestVpnPermission,
             onDismissRuntimeError = onDismissRuntimeError,
             onRetestStrategies = onRetestStrategies,
         )
@@ -99,7 +97,6 @@ internal fun LocalBypassConfigScreen(
 @Composable
 private fun LocalBypassSimpleCard(
     uiState: ConfigUiState,
-    onRequestVpnPermission: () -> Unit,
     onDismissRuntimeError: () -> Unit,
     onRetestStrategies: () -> Unit,
 ) {
@@ -120,7 +117,6 @@ private fun LocalBypassSimpleCard(
         LocalBypassPrecedenceRow(commandLineOverridesEnabled = uiState.draft.useCommandLineSettings)
         LocalBypassActionButtons(
             uiState = uiState,
-            onRequestVpnPermission = onRequestVpnPermission,
             onDismissRuntimeError = onDismissRuntimeError,
             onRetestStrategies = onRetestStrategies,
             modifier = Modifier.fillMaxWidth(),
@@ -181,7 +177,6 @@ internal fun LocalBypassPrecedenceRow(commandLineOverridesEnabled: Boolean) {
 @Composable
 private fun LocalBypassActionButtons(
     uiState: ConfigUiState,
-    onRequestVpnPermission: () -> Unit,
     onDismissRuntimeError: () -> Unit,
     onRetestStrategies: () -> Unit,
     modifier: Modifier = Modifier,
@@ -192,7 +187,7 @@ private fun LocalBypassActionButtons(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(spacing.sm),
     ) {
-        ConfigRuntimeFeedback(uiState, onRequestVpnPermission, onDismissRuntimeError)
+        ConfigRuntimeFeedback(uiState, onDismissRuntimeError)
         RipDpiButton(
             text = stringResource(R.string.config_local_bypass_retest_strategies),
             onClick = onRetestStrategies,

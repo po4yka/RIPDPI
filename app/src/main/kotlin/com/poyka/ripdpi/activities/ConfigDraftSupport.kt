@@ -307,7 +307,6 @@ data class ConfigUiState(
     val runningMode: Mode? = null,
     val runtimeOperation: ConfigRuntimeOperation? = null,
     val runtimeError: String? = null,
-    val requiresVpnPermission: Boolean = false,
     val uiPersona: String = "simple",
     val presets: ImmutableList<ConfigPreset> = buildConfigPresets(AppSettingsSerializer.defaultValue.toConfigDraft()),
     val editingPreset: ConfigPreset? = null,
@@ -342,15 +341,6 @@ data class RelayPresetSuggestionUiState(
 )
 
 sealed interface ConfigEffect {
-    data class RuntimeConnected(
-        val hapticFeedbackEnabled: Boolean = true,
-    ) : ConfigEffect
-
-    data class RuntimeFailed(
-        val message: String,
-        val hapticFeedbackEnabled: Boolean = true,
-    ) : ConfigEffect
-
     data object SaveSuccess : ConfigEffect
 
     data object ValidationFailed : ConfigEffect

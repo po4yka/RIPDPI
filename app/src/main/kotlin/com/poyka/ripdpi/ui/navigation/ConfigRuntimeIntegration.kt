@@ -26,7 +26,6 @@ internal fun configRuntimeIntegration(viewModel: MainViewModel): ConfigRuntimeIn
             error = snapshot.second.takeIf { snapshot.first == ConnectionState.Error },
             callbacks =
                 ConfigRuntimeCallbacks(
-                    requestVpnPermission = { viewModel.onToggleVpn(true) },
                     dismissError = viewModel::dismissError,
                 ),
         )

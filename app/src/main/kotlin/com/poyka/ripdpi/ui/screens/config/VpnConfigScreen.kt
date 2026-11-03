@@ -68,7 +68,6 @@ internal fun VpnConfigScreen(
     onProfileEdit: (String) -> Unit = {},
     onCreateProfile: (Route) -> Unit = {},
     modifier: Modifier = Modifier,
-    onRequestVpnPermission: () -> Unit = {},
     onDismissRuntimeError: () -> Unit = {},
     settingsOnly: Boolean = false,
 ) {
@@ -92,7 +91,6 @@ internal fun VpnConfigScreen(
         }
         VpnSimpleCard(
             uiState = uiState,
-            onRequestVpnPermission = onRequestVpnPermission,
             onDismissRuntimeError = onDismissRuntimeError,
             onPasteServerLink = onPasteServerLink,
             onScanServer = onScanServer,
@@ -114,7 +112,6 @@ internal fun VpnConfigScreen(
 @Composable
 private fun VpnSimpleCard(
     uiState: ConfigUiState,
-    onRequestVpnPermission: () -> Unit,
     onDismissRuntimeError: () -> Unit,
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
@@ -149,7 +146,6 @@ private fun VpnSimpleCard(
         )
         VpnSimpleActions(
             uiState = uiState,
-            onRequestVpnPermission = onRequestVpnPermission,
             onDismissRuntimeError = onDismissRuntimeError,
             onPasteServerLink = onPasteServerLink,
             onScanServer = onScanServer,
@@ -306,7 +302,6 @@ internal fun VpnProfileItem(
 @Composable
 private fun VpnSimpleActions(
     uiState: ConfigUiState,
-    onRequestVpnPermission: () -> Unit,
     onDismissRuntimeError: () -> Unit,
     onPasteServerLink: () -> Unit,
     onScanServer: () -> Unit,
@@ -315,7 +310,7 @@ private fun VpnSimpleActions(
     val spacing = RipDpiThemeTokens.spacing
 
     Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        ConfigRuntimeFeedback(uiState, onRequestVpnPermission, onDismissRuntimeError)
+        ConfigRuntimeFeedback(uiState, onDismissRuntimeError)
         VpnAddProfileAction(onCreateProfile)
         Row(
             modifier = Modifier.fillMaxWidth(),

@@ -8,11 +8,5 @@ enum class ConfigRuntimeOperation {
     Reconnecting,
 }
 
-internal data class ConfigRuntimeFeedback(
-    val operation: ConfigRuntimeOperation? = null,
-    val error: String? = null,
-    val requiresVpnPermission: Boolean = false,
-)
-
 internal fun RunningReconnectState.isConfigPending(): Boolean =
     this is RunningReconnectState.Starting || this is RunningReconnectState.Stopping
