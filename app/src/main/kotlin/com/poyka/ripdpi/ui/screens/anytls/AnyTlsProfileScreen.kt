@@ -1,34 +1,21 @@
 package com.poyka.ripdpi.ui.screens.anytls
 
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
-import com.poyka.ripdpi.ui.components.buttons.RipDpiTopBarAction
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.screens.profiles.RelayEditorHint
-import com.poyka.ripdpi.ui.screens.profiles.RelayPasswordField
-import com.poyka.ripdpi.ui.screens.profiles.ScrollToTopOnFailedSave
-import com.poyka.ripdpi.ui.screens.profiles.relayPortRangeHelper
-import com.poyka.ripdpi.ui.security.SecureWindowEffect
-import com.poyka.ripdpi.ui.testing.RipDpiTestTags
-import com.poyka.ripdpi.ui.testing.ripDpiTestTag
-import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorScaffold
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorStatus
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayFieldBinding
 
 /**
  * AnyTLS profile editor destination.
@@ -63,116 +50,48 @@ internal fun AnyTlsProfileScreen(
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    SecureWindowEffect()
-    val scrollState = rememberScrollState()
-    ScrollToTopOnFailedSave(scrollState, uiState.saving, uiState.errorMessage != null)
-    RipDpiContentScreenScaffold(
-        scrollState = scrollState,
-        title = stringResource(R.string.anytls_editor_title),
-        navigationIcon = RipDpiIcons.Back,
-        onNavigationClick = onBack,
-        navigationContentDescription = stringResource(R.string.navigation_back),
-        actions = {
-            RipDpiTopBarAction(
-                text = stringResource(R.string.anytls_save_action),
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.relayEditorSave(RelayKindAnyTls)),
-                onClick = onSave,
-                enabled = uiState.editor.isComplete && !uiState.saving,
+    val editor = uiState.editor
+    val fields =
+        remember(editor, onFieldChanged) {
+            RelayFieldBinding(
+                kind = RelayKindAnyTls,
+                invalidRes = R.string.anytls_field_invalid,
+                rawText = editor::rawText,
+                hasError = editor::hasFieldError,
+                onChanged = onFieldChanged,
             )
-        },
-        modifier = modifier.ripDpiTestTag(RipDpiTestTags.screen(Route.AnyTlsProfile)),
-    ) {
-        uiState.errorMessage?.let { errorRes ->
-            RipDpiCard {
-                RipDpiPanelHeader(title = stringResource(errorRes))
-            }
         }
-        // Above the form: Save is disabled until the form is complete, and the reason must show without scrolling.
-        RelayEditorHint(
-            stringResource(R.string.relay_editor_save_incomplete_hint).takeUnless { uiState.editor.isComplete },
-        )
-        EndpointSection(uiState.editor, onFieldChanged)
-        CredentialsSection(uiState.editor, onFieldChanged)
-        TlsSection(uiState.editor, onFieldChanged)
-    }
-}
-
-@Composable
-private fun EndpointSection(
-    editor: AnyTlsProfileEditorState,
-    onFieldChanged: (AnyTlsEditorField, String) -> Unit,
-) {
-    RipDpiCard {
-        RipDpiPanelHeader(title = stringResource(R.string.anytls_section_endpoint))
-        PlainField(AnyTlsEditorField.DISPLAY_NAME, R.string.anytls_field_display_name, editor, onFieldChanged)
-        PlainField(AnyTlsEditorField.SERVER, R.string.anytls_field_server, editor, onFieldChanged)
-        PlainField(
-            AnyTlsEditorField.SERVER_PORT,
-            R.string.anytls_field_server_port,
-            editor,
-            onFieldChanged,
-            keyboardType = KeyboardType.Number,
-            helperText = relayPortRangeHelper(),
-        )
-    }
-}
-
-@Composable
-private fun CredentialsSection(
-    editor: AnyTlsProfileEditorState,
-    onFieldChanged: (AnyTlsEditorField, String) -> Unit,
-) {
-    RipDpiCard {
-        RipDpiPanelHeader(title = stringResource(R.string.relay_editor_section_credentials))
-        RelayPasswordField(
-            label = stringResource(R.string.anytls_field_password),
-            value = editor.rawText(AnyTlsEditorField.PASSWORD),
-            onValueChange = { onFieldChanged(AnyTlsEditorField.PASSWORD, it) },
-            testTag = RipDpiTestTags.relayEditorField(RelayKindAnyTls, AnyTlsEditorField.PASSWORD.name),
-            errorText =
-                stringResource(R.string.anytls_field_invalid).takeIf {
-                    editor.hasFieldError(AnyTlsEditorField.PASSWORD)
-                },
-        )
-    }
-}
-
-@Composable
-private fun TlsSection(
-    editor: AnyTlsProfileEditorState,
-    onFieldChanged: (AnyTlsEditorField, String) -> Unit,
-) {
-    RipDpiCard {
-        RipDpiPanelHeader(
-            title = stringResource(R.string.anytls_section_tls),
-        )
-        PlainField(AnyTlsEditorField.SNI, R.string.anytls_field_sni, editor, onFieldChanged)
-    }
-}
-
-@Composable
-private fun PlainField(
-    field: AnyTlsEditorField,
-    labelRes: Int,
-    editor: AnyTlsProfileEditorState,
-    onFieldChanged: (AnyTlsEditorField, String) -> Unit,
-    keyboardType: KeyboardType = KeyboardType.Text,
-    placeholder: String? = null,
-    helperText: String? = null,
-) {
-    val hasError = editor.hasFieldError(field)
-    RipDpiTextField(
-        value = editor.rawText(field),
-        onValueChange = { onFieldChanged(field, it) },
-        modifier = Modifier.fillMaxWidth(),
-        decoration =
-            RipDpiTextFieldDecoration(
-                label = stringResource(labelRes),
-                placeholder = placeholder,
-                helperText = helperText,
-                testTag = RipDpiTestTags.relayEditorField(RelayKindAnyTls, field.name),
-                errorText = if (hasError) stringResource(R.string.anytls_field_invalid) else null,
+    RelayEditorScaffold(
+        kind = RelayKindAnyTls,
+        route = Route.AnyTlsProfile,
+        title = stringResource(R.string.anytls_editor_title),
+        saveLabel = stringResource(R.string.anytls_save_action),
+        status =
+            RelayEditorStatus(
+                complete = editor.isComplete,
+                saving = uiState.saving,
+                errorMessage = uiState.errorMessage,
             ),
-        behavior = RipDpiTextFieldBehavior(keyboardOptions = KeyboardOptions(keyboardType = keyboardType)),
-    )
+        onBack = onBack,
+        onSave = onSave,
+        modifier = modifier,
+    ) {
+        fields.EndpointCard(
+            AnyTlsEditorField.DISPLAY_NAME,
+            AnyTlsEditorField.SERVER,
+            AnyTlsEditorField.SERVER_PORT,
+            R.string.anytls_section_endpoint,
+            R.string.anytls_field_display_name,
+            R.string.anytls_field_server,
+            R.string.anytls_field_server_port,
+        )
+        RipDpiCard {
+            RipDpiPanelHeader(title = stringResource(R.string.relay_editor_section_credentials))
+            fields.Password(AnyTlsEditorField.PASSWORD, R.string.anytls_field_password)
+        }
+        RipDpiCard {
+            RipDpiPanelHeader(title = stringResource(R.string.anytls_section_tls))
+            fields.Text(AnyTlsEditorField.SNI, R.string.anytls_field_sni)
+        }
+    }
 }

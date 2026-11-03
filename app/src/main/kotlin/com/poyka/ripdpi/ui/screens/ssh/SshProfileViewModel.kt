@@ -13,17 +13,17 @@ import com.poyka.ripdpi.services.SshHostKeyObservationFailure
 import com.poyka.ripdpi.services.SshHostKeyObserver
 import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
 import com.poyka.ripdpi.ui.screens.connection.ConnectionRelayArtifactRepository
-import com.poyka.ripdpi.ui.screens.connection.RelayProfileNotFoundException
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorSaveFlow
+import com.poyka.ripdpi.ui.screens.relayeditor.activateExplicitly
+import com.poyka.ripdpi.ui.screens.relayeditor.loadRelayDraft
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -74,9 +74,8 @@ class SshProfileViewModel
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(SshProfileUiState(editor = SshProfileEditorState.initial()))
         val uiState: StateFlow<SshProfileUiState> = _uiState.asStateFlow()
-        private val savedEventChannel = Channel<Unit>(capacity = Channel.BUFFERED)
-        val savedEvents: Flow<Unit> = savedEventChannel.receiveAsFlow()
-        private var completed = false
+        private val saveFlow = RelayEditorSaveFlow(viewModelScope)
+        val savedEvents: Flow<Unit> = saveFlow.savedEvents
         private var editingDraft: ConnectionDraft? = null
         private var requestedEditProfileId: String? = null
         private var hostKeyJob: Job? = null
@@ -92,31 +91,12 @@ class SshProfileViewModel
             _uiState.update { it.copy(loading = true, errorMessage = null) }
             viewModelScope.launch {
                 val draft =
-                    runCatching { relayArtifacts.hydrateProfile(profileId) }
-                        .getOrElse { error ->
-                            if (error is CancellationException) throw error
-                            // Only a missing profile is "not found"; a corrupt record keeps the load error.
-                            val missing = error is RelayProfileNotFoundException
-                            _uiState.update {
-                                it.copy(
-                                    loading = false,
-                                    notFound = missing,
-                                    errorMessage = R.string.relay_editor_activation_failed.takeUnless { missing },
-                                )
-                            }
-                            return@launch
-                        }
-                if (draft.relayKind != RelayKindSsh) {
-                    _uiState.update { it.copy(loading = false, notFound = true) }
-                    return@launch
-                }
+                    relayArtifacts.loadRelayDraft(profileId, RelayKindSsh) { notFound, error ->
+                        _uiState.update { it.copy(loading = false, notFound = notFound, errorMessage = error) }
+                    } ?: return@launch
                 editingDraft = draft
                 _uiState.update {
-                    it.copy(
-                        editor = SshProfileEditorState.fromDraft(draft),
-                        loading = false,
-                        editing = true,
-                    )
+                    it.copy(editor = SshProfileEditorState.fromDraft(draft), loading = false, editing = true)
                 }
             }
         }
@@ -259,76 +239,54 @@ class SshProfileViewModel
             val editor = state.editor
             val profile = editor.toProfile()
             val editTargetReady = requestedEditProfileId == null || editingDraft != null
-            val busy = state.saving || state.loading || state.hostKeyFetch.awaitsTrustDecision || completed
+            val busy = state.saving || state.loading || state.hostKeyFetch.awaitsTrustDecision || saveFlow.completed
             if (profile == null || busy || !editTargetReady) return
             if (profile.hostKeyFingerprint == null) {
                 startHostKeyFetch(resumeSave = true)
                 return
             }
             _uiState.update { it.copy(saving = true) }
-            viewModelScope.launch {
-                val activated =
-                    runCatching {
-                        val original = editingDraft
-                        if (original == null) {
-                            relayActivator.activate(
-                                relayActivator.captureMutation(
-                                    com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation,
-                                ),
-                                profile,
-                            )
-                        } else {
-                            val authChanged = profile.authType != original.relaySshAuthType
-                            relayArtifacts.persist(
-                                original.copy(
-                                    relayServer = profile.server,
-                                    relayServerPort = profile.serverPort.toString(),
-                                    relaySshUsername = profile.username,
-                                    relaySshAuthType = profile.authType,
-                                    relaySshPassword =
-                                        if (authChanged &&
-                                            profile.authType == RelaySshAuthTypePrivateKey
-                                        ) {
-                                            ""
-                                        } else {
-                                            editor.rawText(SshEditorField.PASSWORD)
-                                        },
-                                    relaySshPrivateKey =
-                                        if (authChanged &&
-                                            profile.authType == RelaySshAuthTypePassword
-                                        ) {
-                                            ""
-                                        } else {
-                                            editor.rawText(SshEditorField.PRIVATE_KEY)
-                                        },
-                                    relaySshPrivateKeyPassphrase =
-                                        if (authChanged &&
-                                            profile.authType == RelaySshAuthTypePassword
-                                        ) {
-                                            ""
-                                        } else {
-                                            editor.rawText(SshEditorField.PRIVATE_KEY_PASSPHRASE)
-                                        },
-                                    relaySshHostKeyFingerprint = profile.hostKeyFingerprint.orEmpty(),
-                                    relaySshStrictHostKey = profile.strictHostKey,
-                                ),
-                            )
-                            true
-                        }
-                    }.getOrElse { error ->
-                        if (error is CancellationException) throw error
-                        false
+            saveFlow.save(
+                block = {
+                    val original = editingDraft
+                    if (original == null) {
+                        relayActivator.activateExplicitly(profile)
+                    } else {
+                        val authChanged = profile.authType != original.relaySshAuthType
+                        relayArtifacts.persist(
+                            original.copy(
+                                relayServer = profile.server,
+                                relayServerPort = profile.serverPort.toString(),
+                                relaySshUsername = profile.username,
+                                relaySshAuthType = profile.authType,
+                                relaySshPassword =
+                                    if (authChanged && profile.authType == RelaySshAuthTypePrivateKey) {
+                                        ""
+                                    } else {
+                                        editor.rawText(SshEditorField.PASSWORD)
+                                    },
+                                relaySshPrivateKey =
+                                    if (authChanged && profile.authType == RelaySshAuthTypePassword) {
+                                        ""
+                                    } else {
+                                        editor.rawText(SshEditorField.PRIVATE_KEY)
+                                    },
+                                relaySshPrivateKeyPassphrase =
+                                    if (authChanged && profile.authType == RelaySshAuthTypePassword) {
+                                        ""
+                                    } else {
+                                        editor.rawText(SshEditorField.PRIVATE_KEY_PASSPHRASE)
+                                    },
+                                relaySshHostKeyFingerprint = profile.hostKeyFingerprint.orEmpty(),
+                                relaySshStrictHostKey = profile.strictHostKey,
+                            ),
+                        )
+                        true
                     }
-                _uiState.update {
-                    it.copy(
-                        saving = false,
-                        errorMessage = if (activated) null else R.string.relay_editor_activation_failed,
-                    )
-                }
-                if (activated) {
-                    completed = true
-                    savedEventChannel.send(Unit)
-                }
+                },
+            ) { activated ->
+                val error = R.string.relay_editor_activation_failed.takeUnless { activated }
+                _uiState.update { it.copy(saving = false, errorMessage = error) }
             }
         }
     }

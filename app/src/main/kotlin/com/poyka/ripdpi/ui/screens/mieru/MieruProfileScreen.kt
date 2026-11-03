@@ -1,11 +1,9 @@
 package com.poyka.ripdpi.ui.screens.mieru
 
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
@@ -23,27 +21,16 @@ import com.poyka.ripdpi.data.RelayMieruMultiplexingOff
 import com.poyka.ripdpi.data.RelayMieruProtocolTcp
 import com.poyka.ripdpi.data.RelayMieruProtocolUdp
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
-import com.poyka.ripdpi.ui.components.buttons.RipDpiTopBarAction
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.screens.profiles.RelayEditorHint
-import com.poyka.ripdpi.ui.screens.profiles.RelayPasswordField
-import com.poyka.ripdpi.ui.screens.profiles.RelayProfileNotFoundCard
-import com.poyka.ripdpi.ui.screens.profiles.ScrollToTopOnFailedSave
-import com.poyka.ripdpi.ui.screens.profiles.relayPortRangeHelper
-import com.poyka.ripdpi.ui.security.SecureWindowEffect
-import com.poyka.ripdpi.ui.testing.RipDpiTestTags
-import com.poyka.ripdpi.ui.testing.ripDpiTestTag
-import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorScaffold
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorStatus
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayFieldBinding
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
@@ -116,107 +103,65 @@ internal fun MieruProfileScreen(
     onSave: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    SecureWindowEffect()
-    val scrollState = rememberScrollState()
-    ScrollToTopOnFailedSave(scrollState, uiState.saving, uiState.errorMessage != null)
-    RipDpiContentScreenScaffold(
-        scrollState = scrollState,
+    val editor = uiState.editor
+    val fields =
+        remember(editor, onFieldChanged) {
+            RelayFieldBinding(
+                kind = RelayKindMieru,
+                invalidRes = R.string.mieru_field_invalid,
+                rawText = editor::rawText,
+                hasError = editor::hasFieldError,
+                onChanged = onFieldChanged,
+            )
+        }
+    RelayEditorScaffold(
+        kind = RelayKindMieru,
+        route = if (uiState.editing || uiState.notFound) Route.MieruProfileEdit() else Route.MieruProfile,
         title = stringResource(R.string.mieru_editor_title),
-        navigationIcon = RipDpiIcons.Back,
-        onNavigationClick = onBack,
-        navigationContentDescription = stringResource(R.string.navigation_back),
-        actions = {
-            RipDpiTopBarAction(
-                text = stringResource(R.string.mieru_save_action),
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.relayEditorSave(RelayKindMieru)),
-                onClick = onSave,
-                enabled = uiState.editor.isComplete && !uiState.saving && !uiState.loading,
+        saveLabel = stringResource(R.string.mieru_save_action),
+        status =
+            RelayEditorStatus(
+                complete = editor.isComplete,
+                saving = uiState.saving,
+                loading = uiState.loading,
+                notFound = uiState.notFound,
+                errorMessage = uiState.errorMessage,
+            ),
+        onBack = onBack,
+        onSave = onSave,
+        modifier = modifier,
+        banner = {
+            WarningBanner(
+                title = stringResource(R.string.mieru_experimental_title),
+                message = stringResource(R.string.mieru_experimental_body),
+                tone = WarningBannerTone.Warning,
+                announce = false,
             )
         },
-        modifier =
-            modifier.ripDpiTestTag(
-                RipDpiTestTags.screen(
-                    if (uiState.editing || uiState.notFound) Route.MieruProfileEdit() else Route.MieruProfile,
-                ),
-            ),
     ) {
-        if (uiState.notFound) {
-            RelayProfileNotFoundCard()
-            return@RipDpiContentScreenScaffold
-        }
-        WarningBanner(
-            title = stringResource(R.string.mieru_experimental_title),
-            message = stringResource(R.string.mieru_experimental_body),
-            tone = WarningBannerTone.Warning,
-            announce = false,
-        )
-        uiState.errorMessage?.let { errorRes ->
-            RipDpiCard {
-                RipDpiPanelHeader(title = stringResource(errorRes))
-            }
-        }
-        // Above the form: Save is disabled until the form is complete, and the reason must show without scrolling.
-        RelayEditorHint(
-            stringResource(R.string.relay_editor_save_incomplete_hint).takeUnless { uiState.editor.isComplete },
-        )
-        EndpointSection(uiState.editor, onFieldChanged, uiState.editing)
-        CredentialsSection(uiState.editor, onFieldChanged)
-        TransportSection(uiState.editor, onFieldChanged, onProtocolSelected, onMultiplexingSelected)
-    }
-}
-
-@Composable
-private fun EndpointSection(
-    editor: MieruProfileEditorState,
-    onFieldChanged: (MieruEditorField, String) -> Unit,
-    editing: Boolean,
-) {
-    RipDpiCard {
-        RipDpiPanelHeader(title = stringResource(R.string.mieru_section_endpoint))
-        PlainField(
+        fields.EndpointCard(
             MieruEditorField.DISPLAY_NAME,
-            R.string.mieru_field_display_name,
-            editor,
-            onFieldChanged,
-            readOnly = editing,
-        )
-        PlainField(MieruEditorField.SERVER, R.string.mieru_field_server, editor, onFieldChanged)
-        PlainField(
+            MieruEditorField.SERVER,
             MieruEditorField.SERVER_PORT,
+            R.string.mieru_section_endpoint,
+            R.string.mieru_field_display_name,
+            R.string.mieru_field_server,
             R.string.mieru_field_server_port,
-            editor,
-            onFieldChanged,
-            keyboardType = KeyboardType.Number,
-            helperText = relayPortRangeHelper(),
+            uiState.editing,
         )
-    }
-}
-
-@Composable
-private fun CredentialsSection(
-    editor: MieruProfileEditorState,
-    onFieldChanged: (MieruEditorField, String) -> Unit,
-) {
-    RipDpiCard {
-        RipDpiPanelHeader(title = stringResource(R.string.mieru_section_credentials))
-        PlainField(MieruEditorField.USERNAME, R.string.mieru_field_username, editor, onFieldChanged)
-        RelayPasswordField(
-            label = stringResource(R.string.mieru_field_password),
-            value = editor.rawText(MieruEditorField.PASSWORD),
-            onValueChange = { onFieldChanged(MieruEditorField.PASSWORD, it) },
-            testTag = RipDpiTestTags.relayEditorField(RelayKindMieru, MieruEditorField.PASSWORD.name),
-            errorText =
-                stringResource(R.string.mieru_field_invalid).takeIf {
-                    editor.hasFieldError(MieruEditorField.PASSWORD)
-                },
-        )
+        RipDpiCard {
+            RipDpiPanelHeader(title = stringResource(R.string.mieru_section_credentials))
+            fields.Text(MieruEditorField.USERNAME, R.string.mieru_field_username)
+            fields.Password(MieruEditorField.PASSWORD, R.string.mieru_field_password)
+        }
+        TransportSection(editor, fields, onProtocolSelected, onMultiplexingSelected)
     }
 }
 
 @Composable
 private fun TransportSection(
     editor: MieruProfileEditorState,
-    onFieldChanged: (MieruEditorField, String) -> Unit,
+    fields: RelayFieldBinding<MieruEditorField>,
     onProtocolSelected: (String) -> Unit,
     onMultiplexingSelected: (String) -> Unit,
 ) {
@@ -236,46 +181,12 @@ private fun TransportSection(
             onValueSelected = onMultiplexingSelected,
             label = stringResource(R.string.mieru_field_multiplexing),
         )
-        PlainField(
+        fields.Text(
             MieruEditorField.MTU,
             R.string.mieru_field_mtu,
-            editor,
-            onFieldChanged,
             keyboardType = KeyboardType.Number,
             placeholder = RelayMieruMtuDefault.toString(),
             helperText = stringResource(R.string.relay_editor_range_helper, RelayMieruMtuMin, RelayMieruMtuMax),
         )
     }
-}
-
-@Composable
-private fun PlainField(
-    field: MieruEditorField,
-    labelRes: Int,
-    editor: MieruProfileEditorState,
-    onFieldChanged: (MieruEditorField, String) -> Unit,
-    keyboardType: KeyboardType = KeyboardType.Text,
-    placeholder: String? = null,
-    helperText: String? = null,
-    readOnly: Boolean = false,
-) {
-    val hasError = editor.hasFieldError(field)
-    RipDpiTextField(
-        value = editor.rawText(field),
-        onValueChange = { onFieldChanged(field, it) },
-        modifier = Modifier.fillMaxWidth(),
-        decoration =
-            RipDpiTextFieldDecoration(
-                label = stringResource(labelRes),
-                placeholder = placeholder,
-                helperText = helperText,
-                testTag = RipDpiTestTags.relayEditorField(RelayKindMieru, field.name),
-                errorText = if (hasError) stringResource(R.string.mieru_field_invalid) else null,
-            ),
-        behavior =
-            RipDpiTextFieldBehavior(
-                keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-                readOnly = readOnly,
-            ),
-    )
 }

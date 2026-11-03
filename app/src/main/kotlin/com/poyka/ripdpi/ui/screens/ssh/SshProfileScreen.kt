@@ -1,14 +1,12 @@
 package com.poyka.ripdpi.ui.screens.ssh
 
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.input.KeyboardType
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.LifecycleStartEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -20,27 +18,16 @@ import com.poyka.ripdpi.security.AppPinCheck
 import com.poyka.ripdpi.security.SecretRevealPinViewModel
 import com.poyka.ripdpi.security.rememberSecretRevealGate
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
-import com.poyka.ripdpi.ui.components.buttons.RipDpiTopBarAction
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdown
 import com.poyka.ripdpi.ui.components.inputs.RipDpiDropdownOption
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
-import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.screens.profiles.RelayEditorHint
-import com.poyka.ripdpi.ui.screens.profiles.RelayPasswordField
-import com.poyka.ripdpi.ui.screens.profiles.RelayProfileNotFoundCard
 import com.poyka.ripdpi.ui.screens.profiles.RelaySecretField
-import com.poyka.ripdpi.ui.screens.profiles.ScrollToTopOnFailedSave
-import com.poyka.ripdpi.ui.screens.profiles.relayPortRangeHelper
-import com.poyka.ripdpi.ui.security.SecureWindowEffect
-import com.poyka.ripdpi.ui.testing.RipDpiTestTags
-import com.poyka.ripdpi.ui.testing.ripDpiTestTag
-import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorScaffold
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayEditorStatus
+import com.poyka.ripdpi.ui.screens.relayeditor.RelayFieldBinding
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 
@@ -120,44 +107,46 @@ internal fun SshProfileScreen(
     onHostKeyTrustConfirmed: () -> Unit = {},
     onHostKeyTrustDismissed: () -> Unit = {},
 ) {
-    SecureWindowEffect()
-    val scrollState = rememberScrollState()
-    ScrollToTopOnFailedSave(scrollState, uiState.saving, uiState.errorMessage != null)
-    RipDpiContentScreenScaffold(
-        scrollState = scrollState,
-        title = stringResource(R.string.ssh_editor_title),
-        navigationIcon = RipDpiIcons.Back,
-        onNavigationClick = onBack,
-        navigationContentDescription = stringResource(R.string.navigation_back),
-        actions = {
-            RipDpiTopBarAction(
-                text = stringResource(R.string.ssh_save_action),
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.relayEditorSave(RelayKindSsh)),
-                onClick = onSave,
-                enabled = uiState.editor.isComplete && !uiState.saving && !uiState.loading,
+    val editor = uiState.editor
+    val fields =
+        remember(editor, onFieldChanged) {
+            RelayFieldBinding(
+                kind = RelayKindSsh,
+                invalidRes = R.string.ssh_field_invalid,
+                rawText = editor::rawText,
+                hasError = editor::hasFieldError,
+                onChanged = onFieldChanged,
             )
-        },
-        modifier =
-            modifier.ripDpiTestTag(
-                RipDpiTestTags.screen(
-                    if (uiState.editing || uiState.notFound) Route.SshProfileEdit() else Route.SshProfile,
-                ),
+        }
+    RelayEditorScaffold(
+        kind = RelayKindSsh,
+        route = if (uiState.editing || uiState.notFound) Route.SshProfileEdit() else Route.SshProfile,
+        title = stringResource(R.string.ssh_editor_title),
+        saveLabel = stringResource(R.string.ssh_save_action),
+        status =
+            RelayEditorStatus(
+                complete = editor.isComplete,
+                saving = uiState.saving,
+                loading = uiState.loading,
+                notFound = uiState.notFound,
+                errorMessage = uiState.errorMessage,
             ),
+        onBack = onBack,
+        onSave = onSave,
+        modifier = modifier,
     ) {
-        if (uiState.notFound) {
-            RelayProfileNotFoundCard()
-            return@RipDpiContentScreenScaffold
-        }
-        uiState.errorMessage?.let { errorRes ->
-            RipDpiCard { RipDpiPanelHeader(title = stringResource(errorRes)) }
-        }
-        // Above the form: Save is disabled until the form is complete, and the reason must show without scrolling.
-        RelayEditorHint(
-            stringResource(R.string.relay_editor_save_incomplete_hint).takeUnless { uiState.editor.isComplete },
+        fields.EndpointCard(
+            SshEditorField.DISPLAY_NAME,
+            SshEditorField.SERVER,
+            SshEditorField.SERVER_PORT,
+            R.string.ssh_section_endpoint,
+            R.string.ssh_field_display_name,
+            R.string.ssh_field_server,
+            R.string.ssh_field_server_port,
+            uiState.editing,
         )
-        EndpointSection(uiState.editor, onFieldChanged, uiState.editing)
-        AuthSection(uiState.editor, onFieldChanged, onAuthTypeSelected, onRevealPrivateKey, onRevealPassphrase)
-        HostKeySection(uiState, onFieldChanged, onStrictHostKeyChanged, onFetchHostKey)
+        AuthSection(editor, fields, onFieldChanged, onAuthTypeSelected, onRevealPrivateKey, onRevealPassphrase)
+        HostKeySection(uiState, fields, onStrictHostKeyChanged, onFetchHostKey)
         (uiState.hostKeyFetch as? SshHostKeyFetchState.PendingConfirmation)?.let { pending ->
             SshHostKeyTrustDialog(pending, onConfirm = onHostKeyTrustConfirmed, onDismiss = onHostKeyTrustDismissed)
         }
@@ -165,35 +154,9 @@ internal fun SshProfileScreen(
 }
 
 @Composable
-private fun EndpointSection(
-    editor: SshProfileEditorState,
-    onFieldChanged: (SshEditorField, String) -> Unit,
-    editing: Boolean,
-) {
-    RipDpiCard {
-        RipDpiPanelHeader(title = stringResource(R.string.ssh_section_endpoint))
-        PlainField(
-            SshEditorField.DISPLAY_NAME,
-            R.string.ssh_field_display_name,
-            editor,
-            onFieldChanged,
-            readOnly = editing,
-        )
-        PlainField(SshEditorField.SERVER, R.string.ssh_field_server, editor, onFieldChanged)
-        PlainField(
-            SshEditorField.SERVER_PORT,
-            R.string.ssh_field_server_port,
-            editor,
-            onFieldChanged,
-            keyboardType = KeyboardType.Number,
-            helperText = relayPortRangeHelper(),
-        )
-    }
-}
-
-@Composable
 private fun AuthSection(
     editor: SshProfileEditorState,
+    fields: RelayFieldBinding<SshEditorField>,
     onFieldChanged: (SshEditorField, String) -> Unit,
     onAuthTypeSelected: (String) -> Unit,
     onRevealPrivateKey: () -> Unit,
@@ -203,7 +166,7 @@ private fun AuthSection(
         RipDpiPanelHeader(
             title = stringResource(R.string.ssh_section_auth),
         )
-        PlainField(SshEditorField.USERNAME, R.string.ssh_field_username, editor, onFieldChanged)
+        fields.Text(SshEditorField.USERNAME, R.string.ssh_field_username)
         RipDpiDropdown(
             options = rememberSshAuthTypeDropdownOptions(),
             selectedValue = editor.authType,
@@ -226,16 +189,7 @@ private fun AuthSection(
                 onReveal = onRevealPassphrase,
             )
         } else {
-            RelayPasswordField(
-                label = stringResource(R.string.ssh_field_password),
-                value = editor.rawText(SshEditorField.PASSWORD),
-                onValueChange = { onFieldChanged(SshEditorField.PASSWORD, it) },
-                testTag = RipDpiTestTags.relayEditorField(RelayKindSsh, SshEditorField.PASSWORD.name),
-                errorText =
-                    stringResource(R.string.ssh_field_invalid).takeIf {
-                        editor.hasFieldError(SshEditorField.PASSWORD)
-                    },
-            )
+            fields.Password(SshEditorField.PASSWORD, R.string.ssh_field_password)
         }
     }
 }
@@ -243,7 +197,7 @@ private fun AuthSection(
 @Composable
 private fun HostKeySection(
     uiState: SshProfileUiState,
-    onFieldChanged: (SshEditorField, String) -> Unit,
+    fields: RelayFieldBinding<SshEditorField>,
     onStrictHostKeyChanged: (Boolean) -> Unit,
     onFetchHostKey: () -> Unit,
 ) {
@@ -252,12 +206,7 @@ private fun HostKeySection(
         RipDpiPanelHeader(
             title = stringResource(R.string.ssh_section_host_key),
         )
-        PlainField(
-            SshEditorField.HOST_KEY_FINGERPRINT,
-            R.string.ssh_field_host_key_fingerprint,
-            editor,
-            onFieldChanged,
-        )
+        fields.Text(SshEditorField.HOST_KEY_FINGERPRINT, R.string.ssh_field_host_key_fingerprint)
         SshHostKeyFetchControls(
             state = uiState.hostKeyFetch,
             enabled = uiState.canFetchHostKey && !uiState.loading,
@@ -271,36 +220,4 @@ private fun HostKeySection(
             modifier = Modifier.fillMaxWidth(),
         )
     }
-}
-
-@Composable
-private fun PlainField(
-    field: SshEditorField,
-    labelRes: Int,
-    editor: SshProfileEditorState,
-    onFieldChanged: (SshEditorField, String) -> Unit,
-    keyboardType: KeyboardType = KeyboardType.Text,
-    placeholder: String? = null,
-    helperText: String? = null,
-    readOnly: Boolean = false,
-) {
-    val hasError = editor.hasFieldError(field)
-    RipDpiTextField(
-        value = editor.rawText(field),
-        onValueChange = { onFieldChanged(field, it) },
-        modifier = Modifier.fillMaxWidth(),
-        decoration =
-            RipDpiTextFieldDecoration(
-                label = stringResource(labelRes),
-                placeholder = placeholder,
-                helperText = helperText,
-                testTag = RipDpiTestTags.relayEditorField(RelayKindSsh, field.name),
-                errorText = if (hasError) stringResource(R.string.ssh_field_invalid) else null,
-            ),
-        behavior =
-            RipDpiTextFieldBehavior(
-                keyboardOptions = KeyboardOptions(keyboardType = keyboardType),
-                readOnly = readOnly,
-            ),
-    )
 }
