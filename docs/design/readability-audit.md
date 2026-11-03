@@ -1,5 +1,7 @@
 # App-wide readability audit
 
+> Point-in-time audit record. Current rules live in `DESIGN.md`.
+
 Task: `UIX-1791793531264679`. Change: `material3-readability`.
 
 The first stage raised shared typography and settings icons. This pass addresses the remaining causes of small symbols and compressed text. The baseline for this audit is `15b634db6`.
