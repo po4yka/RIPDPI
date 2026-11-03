@@ -60,7 +60,7 @@ internal fun ContextGroupCard(group: DiagnosticsContextGroupUiModel) {
 }
 
 @Composable
-internal fun SnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
+internal fun HistorySnapshotCard(snapshot: DiagnosticsNetworkSnapshotUiModel) {
     RipDpiCard {
         Text(
             text = snapshot.title,

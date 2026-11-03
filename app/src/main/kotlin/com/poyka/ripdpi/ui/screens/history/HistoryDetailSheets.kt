@@ -98,7 +98,7 @@ internal fun ConnectionDetailContent(detail: HistoryConnectionDetailUiModel) {
         ContextGroupCard(group = group)
     }
     detail.snapshots.forEach { snapshot ->
-        SnapshotCard(snapshot = snapshot)
+        HistorySnapshotCard(snapshot = snapshot)
     }
     if (detail.events.isNotEmpty()) {
         DetailEvents(events = detail.events)
@@ -134,7 +134,7 @@ internal fun DiagnosticsDetailContent(detail: DiagnosticsSessionDetailUiModel) {
         ProbeGroupCard(group = group)
     }
     detail.snapshots.forEach { snapshot ->
-        SnapshotCard(snapshot = snapshot)
+        HistorySnapshotCard(snapshot = snapshot)
     }
     if (detail.events.isNotEmpty()) {
         DetailEvents(events = detail.events)
