@@ -640,7 +640,7 @@ Component behavior rules:
 - Secondary buttons use tonal neutral treatment instead of accent color.
 - Ghost and outline actions stay visually light, but their disabled state must still be legible.
 - Text fields and dropdowns use filled muted surfaces, not raw outlined-only treatment. Their idle boundary and the outline button boundary use the `outline` role, which holds 3:1; field text uses `foreground` in every state, including error, which shows in the border, trailing icon and supporting text only, and a disabled outline button uses `onSurface` at 12%. `Hidden` and `RevealLastTyped` render a secure field that offers no copy or cut and no keyboard learning, and a read-only secure field rejects edits. `Visible` renders a plain, readable, copyable field, so a revealed secret stays readable to a screen reader; Compose has no incognito keyboard flag, so a field that must stay out of suggestions asks for a URI keyboard without autocorrect.
-- Settings rows use `body` for the title and `secondaryBody` for the description. Text values appear below the description in the main text column and can wrap. Switches and chevrons use only their required width. Rows grow with content and clearly communicate selected, navigable, and toggle states.
+- Settings rows use `body` for the title. A row has a `secondaryBody` description only when it shows a value or state; a description that repeats the title or explains the control is cut. Text values appear in the main text column and can wrap. Switches and chevrons use only their required width. Rows grow with content and clearly communicate selected, navigable, and toggle states.
 - Diagnostics sections use a horizontal, scrollable Material 3 tab row at all font scales. Tabs retain selection semantics, localized labels, and section callbacks. Large font does not create a fixed vertical selector above the results.
 - `RipDpiConnectionActuator` is the Home primary connection primitive: a horizontal slider-lock with fixed Network, DNS, Handshake, Tunnel, and Route stages, localized fault/warning treatment, a visible route label, and a locked terminal slot for connected or degraded-but-active sessions.
 - Secure Route components describe any user-engageable protected path. Transport labels identify local VPN, local proxy, relay, WARP, or future provider VPN paths; capability pills identify VPN privacy, DNS protection, anti-DPI, relay, split/full tunnel, and traffic modification without making low-level techniques the product identity.
@@ -759,150 +759,121 @@ RIPDPI uses one global persona, `Guided` or `Advanced`, set during onboarding an
 
 ## Screen Recipes
 
-Status:
+Each screen has one scaffold, one layout recipe, and one contract. Look up the screen here, then read its recipe and contract below.
 
-- use `RipDpiDashboardScaffold`
-- present a calm status header, three mode cards, and a single collapsible `Setup health` row instead of permanent warning banners
-- keep the three `HomeModeCard` entries as the primary surface for Diagnose, Local bypass, and VPN; each card carries state, one primary action, configuration affordance, and inline disabled reason when gated
-- show lockdown guidance whenever the configured path is the VPN, including idle, connecting, and a tunnel that just failed, because those are the states where the user can still act on it; show it as an item in the shared advisory card, never as a standalone permanent banner, and not at all for a proxy-only path
-- reserve accent and status color for live connection, setup health, diagnostics verdicts, and recommendation state
-
-Settings and advanced settings:
-
-- use `RipDpiSettingsScaffold` or `RipDpiContentScreenScaffold` with form-width constraints
-- compose with `SettingsRow`, `RipDpiCard`, and section labels
-- keep controls dense, aligned, and monotone by default
-- include the global Guided/Advanced persona toggle and navigation entries for advanced destinations such as Logs
-
-Diagnose:
-
-- structure Guided Diagnose as a diagnostics-first funnel: run a check, show a per-network verdict, then offer one-tap apply for the recommended traffic path when confidence allows it
-- keep Advanced Diagnose available through in-place disclosure for the probe matrix, replay, PCAP, archive export, sessions, and events
-- prefer card and banner groupings over unstructured long text
-- use monospace styles for probes, labels, and low-level evidence where the data is operator-facing
-- use semantic status color to distinguish health, caution, errors, and restricted actions
-
-Logs and history:
-
-- emphasize monospace rhythm and compact vertical spacing
-- use `LogRow` and quiet separators
-- keep chrome minimal so the data remains dominant
-
-Connection and profiles:
-
-- use filled text fields and monospace values for exact strings and protocol-oriented inputs
-- fold preset and mode editing into one user-facing Profile concept; "Starter profile" names built-in recommended starting points, while saved user bundles are Profiles
-- present Guided Connection as the configuration surface for the two traffic paths, with on/off, automatic strategy, Add server, and re-test entry points
-- expose Advanced Connection controls for profile binding, protocol grids, chain relay, TTL, engine parameters, Finalmask, manual strategy, and CLI overrides through dense forms
-- show validation and destructive affordances explicitly, never implicitly
-
-Onboarding, auth, and permission flows:
-
-- use `RipDpiIntroScaffold`
-- center the core narrative, keep the footer action stable, and preserve large-font integrity
-- use larger spacing and stronger title treatment without abandoning the calm low-chroma personality
-- include persona selection before permissions, defer permissions until they are needed, and offer an optional first diagnostics check
+| Screen | Scaffold | Layout recipe | Contract |
+| --- | --- | --- | --- |
+| Status (Home) | `RipDpiDashboardScaffold` | Two-column dashboard split | [Status](#status) |
+| Diagnostics | `RipDpiScreenScaffold` | Diagnostics evidence panel | [Diagnostics](#diagnostics) |
+| Logs and History | `RipDpiScreenScaffold` | Monospace log stream | [Logs](#logs) |
+| Settings | `RipDpiSettingsScaffold` | Dense settings list | [Settings](#settings) |
+| Connection and editors | `RipDpiScreenScaffold` | Dense settings list | [Connection](#connection) |
+| Onboarding, auth, and permissions | `RipDpiIntroScaffold` | Intro hero and footer flow | [Onboarding](#onboarding) |
 
 ## Layout Recipes
 
-Two-column dashboard split:
+### Two-column dashboard split
 
-- use `RipDpiDashboardScaffold` and prefer a primary and secondary column split on expanded widths
-- keep the three mode cards and their primary actions in the primary reading order
-- keep setup health, recent verdict memory, and supporting context secondary and collapsible unless active state requires attention
-- collapse by stacking primary content before secondary content without changing section meaning
+- From the Expanded width class, split a primary and a supporting column. Below it, stack primary before supporting content in the same order and with the same meaning.
+- The primary column holds current state, primary actions, and live remediation. The supporting column holds overview, history, and lower-priority context; it stays collapsible unless active state needs attention.
+- Separate concerns with section gaps and card boundaries, not nested background panels. Do not stretch cards edge to edge or add a third action rail.
 
-Dense settings list:
+### Dense settings list
 
-- use `RipDpiSettingsScaffold` for list-heavy settings and `RipDpiContentScreenScaffold` for bounded detail flows
-- structure each category as a header plus one primary grouped card or container
-- keep density in rows and fields, not in reduced hit targets or full-width sprawl
-- let banners annotate an affected category only when state demands it; routine setup health belongs in rows, not persistent banners
+- Use `RipDpiSettingsScaffold` for list-heavy settings and `RipDpiContentScreenScaffold` for bounded detail flows, both at form width.
+- Each category is a `SettingsCategoryHeader` plus one primary `RipDpiCard` that holds `SettingsRow`, fields, or toggles.
+- Density comes from compact rows and a stable divider rhythm, not from smaller hit targets.
+- A banner sits immediately above the affected category card, only when state needs it. Routine setup health belongs in rows.
+- Do not mix free-floating controls, bespoke cards, and row groups in one category.
 
-Diagnostics evidence panel:
+### Diagnostics evidence panel
 
-- use cards, headers, rows, and monospace values to group evidence into scannable blocks
-- separate the Guided funnel, progress, verdict, recommendation, and latest evidence into clear section boundaries
-- keep Advanced evidence controls in expanders, sheets, or dialogs when Guided persona is active
-- move deep detail into sheets or dialogs instead of endlessly expanding the main stack
-- use semantic tone only when it changes operator judgment
+- Frame evidence in `RipDpiCard` and group it with `SettingsCategoryHeader`, `SettingsRow`, `StatusIndicator`, and monospace value roles.
+- Give workflow controls, progress, verdict, recommendation, and latest evidence separate card or section boundaries.
+- Put labels at the start and stable values at the end or below. Use semantic tone only where it changes the operator's decision.
+- Open session, event, and probe detail in `RipDpiBottomSheet` or a dialog instead of expanding the main stack.
+- Do not use ungrouped long text or feature-local tinted containers.
 
-Monospace log stream:
+### Monospace log stream
 
-- keep one dominant stream card under overview and filter controls
-- render entries with `LogRow` and reserve `SettingsRow` for controls and facts
-- keep timestamps, subsystem labels, and payload text in a compact monospace rhythm
-- avoid per-entry cards, interleaved banners, or loud routine coloring
+- Put one dominant `LogsStreamCard` under a compact control row. Open filters and secondary actions in sheets.
+- Render every entry with `LogRow`. Use `SettingsRow` only for controls, binary filters, and facts.
+- Keep timestamps, subsystem labels, and payload text in a compact monospace rhythm with quiet separators.
+- Show empty and filtered-empty states as a card in the stream slot, so the layout does not jump.
+- Do not wrap entries in cards, put banners between entries, or color routine rows.
 
-Intro hero plus footer flow:
+### Intro hero and footer flow
 
-- use `RipDpiIntroScaffold` with centered hero content and a stable bottom footer
-- keep the top action row light and reserve primary decisions for the footer action cluster
-- preserve bounded width and generous vertical gaps for large-font resilience
-- do not move primary actions into the hero stack or let the footer drift with content height
+- Use `RipDpiIntroScaffold` with `rememberRipDpiIntroScaffoldMetrics()`: a light top action row, a centered hero, and a pinned footer.
+- The hero holds an illustration or badge, a title, a body, and optional inline content.
+- The top row holds only skip, dismiss, or light navigation. Primary decisions belong in the footer action cluster.
+- Keep bounded width and generous vertical gaps for large fonts. Do not shrink controls, and do not let the footer move with content height.
 
-Persona disclosure:
+### Persona disclosure
 
-- use an in-place Advanced expander for every Guided screen that owns expert controls
-- keep collapsed summaries factual enough that Guided users can see what state exists before expanding
-- preserve route reachability for Advanced-only destinations through the owning Guided surface or Settings
-- do not create parallel Guided and Advanced screen trees for the same task
+- Every Guided screen that owns expert controls uses an in-place Advanced expander.
+- A collapsed summary states which state exists, so a Guided user sees it before expanding.
+- Advanced-only destinations stay reachable through the owning Guided surface or Settings.
+- Do not create parallel Guided and Advanced screen trees for the same task.
 
 ## Screen Contracts
 
-Status:
+### Status
 
-- build the dashboard from three `HomeModeCard` entries — Diagnose, Local bypass, and VPN — as the primary contract; each card owns its own title, summary, status, one primary action, configuration affordance, and inline "why disabled" text when gated
-- keep the existing three-card `HomeModeCard` implementation contract intact while the tab is user-facing Status
-- replace permanent warning, permission, and degradation banners with a single collapsible `Setup health` row that summarizes setup issues and expands to recovery actions
-- show lockdown guidance while the configured path is the VPN, including idle, as an advisory-card item rather than a standalone permanent banner
-- keep the connection actuator or equivalent enable control inside the relevant mode card; do not reintroduce a large circular VPN power button
-- keep the default order: calm status header, collapsible `Setup health` row when applicable, the three mode cards, optional diagnostic PCAP toggle, then the Home diagnostic bottom-sheet host
-- keep diagnostic detail in Home bottom sheets or the Diagnose screen rather than recreating an inline diagnostics card stack
-- do not reintroduce the legacy `HomeStatusCard`, `HomeDiagnosticsCard`, `HomeStatsGrid`, `HomeApproachCard`, or `HomeHistoryCard` layout; their old test tags are reserved for negative regression assertions
-- preserve the same mode-card order at expanded width; Home uses a supporting pane there for the connection-health entry and the mode cards, and does not revive the old two-column status/diagnostics split
+- The primary pane holds, in order: `RipDpiConnectionActuator` with its pause controls, the advisory slot, connection measurements, and the applied configuration panel.
+- The supporting pane (below the primary pane on compact widths) holds the connection-health entry, then the `Modes & diagnostics` disclosure, collapsed by default. Its stable automation ID belongs to the clickable header; the collapsed and expanded IDs are state markers only.
+- The disclosure holds three `HomeModeCard` entries in this order: Local bypass, VPN, and Diagnose. Each card owns its title, summary, status, one primary action, a configure affordance, and an inline reason when it is disabled. The Diagnose primary action runs the Home analysis in place; its body and configure affordance open Diagnostics.
+- After the cards come the optional diagnostic PCAP toggle and the Home diagnostic bottom-sheet host. Diagnostic detail lives in those sheets or in Diagnostics.
+- A connection fault message stays with the actuator. Do not repeat it in a banner.
+- Setup health, permission recovery, and lockdown guidance are items in the shared advisory slot, never permanent standalone banners. Show lockdown guidance whenever the configured path is the VPN, including idle, connecting, and a tunnel that just failed; do not show it for a proxy-only path.
+- Reserve accent and status color for the live connection, setup health, diagnostics verdicts, and recommendation state.
+- Do not reintroduce `HomeStatusCard`, `HomeDiagnosticsCard`, `HomeStatsGrid`, `HomeApproachCard`, or `HomeHistoryCard`; their old test tags are reserved for negative regression assertions. Do not add a large circular power button, decorative hero art, floating metric tiles, inline raw diagnostics tables, or the old two-column status and diagnostics split.
 
-Diagnose:
+### Diagnostics
 
-- anchor the screen with `RipDpiScreenScaffold`, `RipDpiTopAppBar`, and `DiagnosticsSectionSwitcher`
-- make the Guided entry a diagnostics-first funnel: one check button, plain-language per-network verdict, and one-tap apply for the recommended traffic path
-- auto-apply recommendations only at HIGH confidence; at MEDIUM or LOW confidence, present choices and explain uncertainty
-- surface remembered per-network evidence, such as "worked last time on this network," without implying certainty beyond the stored verdict
-- keep dashboard, scan, and tools responsibilities separated instead of mixing them into one card stack
-- group evidence and recommendations with cards, banners, chips, rows, and dialogs rather than free-form text
-- keep scan actions in the scan card; do not move them to a floating action button
-- keep dashboard, scan, tools, sessions, and events as the Advanced information buckets
-- keep probe matrix, replay, PCAP, archive export, sessions, and events reachable from Advanced disclosure
-- reserve monospace treatment for operator-facing artifacts such as ids, domains, protocols, and candidate labels
+- Anchor the screen with `RipDpiTopAppBar` and `DiagnosticsSectionSwitcher`, followed by section content in the pager. From the Expanded width class, details open in a detail pane; below it, in a sheet.
+- The Guided entry is a diagnostics-first funnel: one check button, a plain-language verdict for the network, and one-tap apply of the recommended traffic path.
+- Apply a recommendation automatically only at HIGH confidence. At MEDIUM or LOW confidence, present the choices and state the uncertainty.
+- Show remembered evidence for the network, such as "worked last time on this network", without claiming more certainty than the stored verdict.
+- Dashboard, Scan, Tools, Sessions, and Events stay the top-level sections. Attach new content to one of them before adding a root tab. Advanced disclosure keeps the probe matrix, replay, PCAP, archive export, sessions, and events reachable.
+- Dashboard owns the health summary, active profile, remembered-network state, and grouped warnings. Scan owns profile selection, workflow controls, live progress, the latest session, strategy reports, and the latest evidence; its actions stay in the scan card, never in a floating action button. Tools owns approach selection, preview and export actions, and optional debug or performance cards.
+- Show one primary outcome with metadata from the same evidence source. Put historical and technical evidence below it, and name missing metadata explicitly.
+- Group evidence with `RipDpiCard`, `WarningBanner`, `SettingsRow`, `StatusIndicator`, `RipDpiChip`, and `RipDpiBottomSheet`. Use monospace roles for IDs, domains, resolver names, protocols, and candidate labels.
+- Destructive or high-risk actions sit behind explicit buttons or `RipDpiDialog`, never behind a row tap. Feedback goes through `RipDpiSnackbarHost` or semantic banners.
 
-Logs:
+### Logs
 
-- give Logs a real navigation entry: it must be reachable from Diagnose Advanced tools and from Settings, not only through previews or internal routes
-- keep the order `LogsToolbar` (filters entry point), a search text field, then `LogsStreamSection`; `LogsFiltersSection` opens in a bottom sheet from the toolbar, not inline; search is a text field, not a Material `SearchBar`
-- put Save in the top app bar, and support-bundle sharing and Clear in its overflow menu; Clear asks for confirmation before it removes the logs
-- use `SettingsRow` for filters and facts only, and `LogRow` for actual log entries
-- keep the stream inside `LogsStreamCard` with `LogRow` and quiet separators
-- render empty states as cards, not loose body text
-- keep chrome minimal so the log data stays dominant
+- Logs is reachable from Diagnostics Advanced tools and from Settings, not only through previews or internal routes.
+- Keep this order: `LogsToolbar` (status and the Filters entry), a search `RipDpiTextField` (not a Material `SearchBar`), then `LogsStreamSection`, which fills the remaining height as the screen's only vertical list.
+- `LogsFiltersSection` opens in a scrollable bottom sheet with a Done action. Filters use `SettingsRow`, `RipDpiChip`, and `SettingsCategoryHeader`.
+- Save is a top app bar action. Support-bundle sharing and Clear are items of `RipDpiOverflowMenu`. Clear asks for confirmation in a `RipDpiDialog` before it removes the logs.
+- From the Expanded width class, Logs shows the list and a detail pane for the selected entry.
+- Empty states use `RipDpiEmptyState` through `LogsEmptyState`, never a raw placeholder string.
+- Copy, save, clear, and support-bundle feedback goes to a snackbar. The stream needs no simulated refresh delay.
 
-Settings:
+### Settings
 
-- build the main settings surface with `RipDpiSettingsScaffold`
-- compose sections from `SettingsCategoryHeader`, `RipDpiCard`, and `SettingsRow`
-- group top-level settings as Connection, Interface, Privacy, and Support; keep permission repairs visible in Connection and maintenance actions under Support
-- show actual language, theme, persona, and icon values; navigation-only rows keep a chevron without repeating Manage
-- let banners precede the affected card, not replace the card structure
-- use banners for cautions and permission guidance, and dialogs or form controls for edits and confirmations
-- expose the global Guided/Advanced persona control and keep persona state persistent across process death
-- include a Logs navigation row and any Advanced-only utility destinations that do not have a better owning surface
-- keep advanced settings in the same dense list language instead of switching to a different visual system
+- Use `RipDpiContentScreenScaffold` only for narrower detail flows that do not behave like the main list.
+- Keep four top-level groups: Connection (permission repairs, start on boot), Interface (language, theme, persona, icon), Privacy (data transparency), and Support (backup, maintenance, and the Logs row).
+- Show actual values, such as the native language name, theme, persona, and icon. A navigation-only row keeps its chevron, without a repeated Manage value or an invented count.
+- Use `WarningBanner` for tunneled-outbound cautions, permission guidance, and stateful advisories. Never encode state only through row description color.
+- Edit through `RipDpiDropdown`, `RipDpiTextField`, `RipDpiConfigTextField`, and dialogs, not inline in row descriptions.
+- The global Guided/Advanced persona control persists across process death. Advanced settings keep the same primitives and list language.
 
-Connection:
+### Connection
 
-- treat Connection as the replacement for the former Config and Mode editor user-facing IA
-- collapse preset and mode into one Profile concept; Starter profiles are built-in starting points, and saved user bundles are Profiles
-- configure the two traffic paths here: Local bypass and VPN
-- Guided Connection exposes on/off, "Path strategy: Auto", re-test strategies, Add server, paste/QR/scan import, and inferred protocol handling without a protocol grid
-- Advanced Connection exposes the full protocol grid, Profile ID binding, chain relay, TTL, engine parameters, Finalmask, manual path strategy, CLI overrides, and exact text fields
-- use Profile cards for profile choice and `SettingsRow` for summary values
-- keep exact editing as a bounded form with network, relay, engine, and override sections, plus a Save in the top app bar, a persistent Cancel bottom bar, and explicit validation feedback; on relay profile editors the primary action (Save, or Connect on the AmneziaWG editor) also sits in the top app bar, and the body states the reason for a disabled Save
+- Connection replaces the former Config and Mode editor screens. Starter profiles are built-in starting points; saved user bundles are Profiles.
+- Keep this order: the saved connection card with its Change profile control, the primary runtime action, the profile choices (starter profiles and relay profiles, shown only after Change profile), one card with the traffic-mode chips and the section switcher, the selected section, then connection guidance.
+- Guided Connection exposes on/off, "Path strategy: Auto", re-test strategies, Add server, and paste, QR, and scan import, without a protocol grid. Advanced Connection exposes the protocol grid, Profile ID binding, chain relay, TTL, engine parameters, Finalmask, manual path strategy, CLI overrides, and exact text fields.
+- Keep profile browsing and raw editing on separate surfaces. `PresetCard` is for starter-profile selection only; its selection state is semantic, never implied by position or accent color. Summary values use `SettingsRow`, with monospace values for addresses, ports, TTLs, and chains.
+- `ModeEditorScreen` is a bounded form with network, relay, engine, and override sections, Save in the top app bar, and a persistent Cancel bottom bar. From the Expanded width class, its intro, recovery, and validation notices move to a supporting pane.
+- Relay profile editors put their primary action in the top app bar through `RipDpiTopBarAction` (Save, or Connect in the AmneziaWG editor), and the body states the reason for a disabled Save.
+- A secret field stays masked until the user taps the trailing Reveal `RipDpiIconButton`.
+- Use `RipDpiConfigTextField` for multi-line or raw config, `RipDpiTextField` for discrete values, and `RipDpiSwitch` for boolean options.
+- Validate at the field first and in a banner second. Validation, import, and destructive confirmation surface through `WarningBanner`, a snackbar, or `RipDpiDialog`, never only through placeholder text or a disabled button.
+
+### Onboarding
+
+- Use the intro hero and footer flow for onboarding, biometric, and permission screens.
+- Offer persona selection before permissions, ask for each permission only when it is needed, and offer an optional first diagnostics check.
+- Use larger spacing and a stronger title treatment while keeping the calm low-chroma personality.
