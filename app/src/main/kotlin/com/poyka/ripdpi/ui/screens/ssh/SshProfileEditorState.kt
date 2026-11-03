@@ -1,9 +1,9 @@
 package com.poyka.ripdpi.ui.screens.ssh
 
-import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
+import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
 import java.util.UUID
 
 /** Lower bound (inclusive) of a valid TCP port. */
@@ -156,7 +156,7 @@ data class SshProfileEditorState(
         /** A fresh editor: empty fields, password auth, and a lenient (non-strict) host-key policy. */
         fun initial(): SshProfileEditorState = SshProfileEditorState()
 
-        fun fromDraft(draft: ConfigDraft): SshProfileEditorState =
+        fun fromDraft(draft: ConnectionDraft): SshProfileEditorState =
             SshProfileEditorState(
                 rawTextByField =
                     mapOf(

@@ -44,8 +44,6 @@ import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.ConfigDraft
-import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.RelayKindCloudflareTunnel
 import com.poyka.ripdpi.data.RelayKindMasque
@@ -57,17 +55,19 @@ import com.poyka.ripdpi.data.RelayMasqueAuthModePreshared
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
-import com.poyka.ripdpi.ui.screens.config.CloudflareTunnelRelayFields
-import com.poyka.ripdpi.ui.screens.config.MasqueAuthModeRow
-import com.poyka.ripdpi.ui.screens.config.MasqueCloudflareMtlsFields
-import com.poyka.ripdpi.ui.screens.config.ModeEditorRelaySection
-import com.poyka.ripdpi.ui.screens.config.NoOpModeEditorActions
-import com.poyka.ripdpi.ui.screens.config.RelayMasqueActions
-import com.poyka.ripdpi.ui.screens.config.RelayTuicActions
-import com.poyka.ripdpi.ui.screens.config.RelayVlessActions
-import com.poyka.ripdpi.ui.screens.config.TuicRelayFields
-import com.poyka.ripdpi.ui.screens.config.VlessFlowFields
-import com.poyka.ripdpi.ui.screens.config.VlessTransportFields
+import com.poyka.ripdpi.ui.screens.connection.CloudflareTunnelRelayFields
+import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
+import com.poyka.ripdpi.ui.screens.connection.ConnectionUiState
+import com.poyka.ripdpi.ui.screens.connection.MasqueAuthModeRow
+import com.poyka.ripdpi.ui.screens.connection.MasqueCloudflareMtlsFields
+import com.poyka.ripdpi.ui.screens.connection.ModeEditorRelaySection
+import com.poyka.ripdpi.ui.screens.connection.NoOpModeEditorActions
+import com.poyka.ripdpi.ui.screens.connection.RelayMasqueActions
+import com.poyka.ripdpi.ui.screens.connection.RelayTuicActions
+import com.poyka.ripdpi.ui.screens.connection.RelayVlessActions
+import com.poyka.ripdpi.ui.screens.connection.TuicRelayFields
+import com.poyka.ripdpi.ui.screens.connection.VlessFlowFields
+import com.poyka.ripdpi.ui.screens.connection.VlessTransportFields
 import com.poyka.ripdpi.ui.screens.customization.AboutPackageRow
 import com.poyka.ripdpi.ui.screens.dns.DnsOptionCard
 import com.poyka.ripdpi.ui.screens.dns.DnsResolverCard
@@ -115,8 +115,8 @@ class ReadabilityFormsLayoutTest {
                 ),
         ) {
             MasqueAuthModeRow(
-                ConfigDraft(relayMasqueAuthMode = RelayMasqueAuthModeCloudflareMtls),
-                ConfigUiState(supportsMasquePrivacyPass = true),
+                ConnectionDraft(relayMasqueAuthMode = RelayMasqueAuthModeCloudflareMtls),
+                ConnectionUiState(supportsMasquePrivacyPass = true),
                 RelayMasqueActions(onRelayMasqueAuthModeChanged = { changes++ }),
             )
         }
@@ -150,8 +150,8 @@ class ReadabilityFormsLayoutTest {
                         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 20.dp)) {
                             RipDpiCard {
                                 MasqueAuthModeRow(
-                                    ConfigDraft(relayMasqueAuthMode = mode),
-                                    ConfigUiState(supportsMasquePrivacyPass = true),
+                                    ConnectionDraft(relayMasqueAuthMode = mode),
+                                    ConnectionUiState(supportsMasquePrivacyPass = true),
                                     RelayMasqueActions(onRelayMasqueAuthModeChanged = {
                                         mode = it
                                         changes++
@@ -268,7 +268,7 @@ class ReadabilityFormsLayoutTest {
             )
         assertMatrix(labels = labels) {
             MasqueCloudflareMtlsFields(
-                ConfigDraft(),
+                ConnectionDraft(),
                 RelayMasqueActions(
                     onRelayMasqueImportCertificateChainClicked = { certificateClicks++ },
                     onRelayMasqueImportPrivateKeyClicked = { keyClicks++ },
@@ -296,7 +296,7 @@ class ReadabilityFormsLayoutTest {
                     R.string.config_relay_xhttp_mode_stream_one,
                 ),
         ) {
-            VlessTransportFields(ConfigDraft(relayVlessTransport = RelayVlessTransportXhttp), RelayVlessActions())
+            VlessTransportFields(ConnectionDraft(relayVlessTransport = RelayVlessTransportXhttp), RelayVlessActions())
         }
     }
 
@@ -311,7 +311,7 @@ class ReadabilityFormsLayoutTest {
                     "Vision + UDP/443",
                 ),
         ) {
-            VlessFlowFields(ConfigDraft(relayKind = RelayKindVlessReality), RelayVlessActions())
+            VlessFlowFields(ConnectionDraft(relayKind = RelayKindVlessReality), RelayVlessActions())
         }
     }
 
@@ -326,7 +326,7 @@ class ReadabilityFormsLayoutTest {
                 ),
         ) {
             VlessTransportFields(
-                ConfigDraft(relayKind = RelayKindVless, relayVlessTransport = RelayVlessTransportXhttp),
+                ConnectionDraft(relayKind = RelayKindVless, relayVlessTransport = RelayVlessTransportXhttp),
                 RelayVlessActions(),
             )
         }
@@ -352,8 +352,8 @@ class ReadabilityFormsLayoutTest {
                 ),
         ) {
             CloudflareTunnelRelayFields(
-                ConfigDraft(relayKind = RelayKindCloudflareTunnel),
-                ConfigUiState(),
+                ConnectionDraft(relayKind = RelayKindCloudflareTunnel),
+                ConnectionUiState(),
                 RelayVlessActions(),
             )
         }
@@ -365,7 +365,7 @@ class ReadabilityFormsLayoutTest {
             labels = listOf(R.string.config_relay_tuic_congestion_bbr, R.string.config_relay_tuic_congestion_cubic),
             direction = LayoutDirection.Rtl,
         ) {
-            TuicRelayFields(ConfigDraft(), RelayTuicActions())
+            TuicRelayFields(ConnectionDraft(), RelayTuicActions())
         }
     }
 
@@ -373,8 +373,8 @@ class ReadabilityFormsLayoutTest {
     fun relayProtocolOptionsKeepFullLabelsAndEditingLock() {
         assertMatrix(labels = listOf(R.string.config_relay_kind_masque)) {
             ModeEditorRelaySection(
-                ConfigDraft(relayEnabled = true, relayKind = RelayKindMasque, editingRelayProfileId = "saved"),
-                ConfigUiState(),
+                ConnectionDraft(relayEnabled = true, relayKind = RelayKindMasque, editingRelayProfileId = "saved"),
+                ConnectionUiState(),
                 NoOpModeEditorActions,
             )
         }

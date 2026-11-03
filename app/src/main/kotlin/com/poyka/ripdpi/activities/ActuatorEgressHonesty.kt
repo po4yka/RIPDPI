@@ -4,6 +4,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.ui.screens.connection.toConfigDraft
 
 /**
  * Honest egress disclosure for the connection actuator (audit P0-2): the "Secure"

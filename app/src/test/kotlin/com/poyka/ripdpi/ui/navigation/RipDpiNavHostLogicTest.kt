@@ -2,7 +2,7 @@ package com.poyka.ripdpi.ui.navigation
 
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.ui.screens.config.ConfigModeSection
+import com.poyka.ripdpi.ui.screens.connection.ConnectionModeSection
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -285,7 +285,7 @@ class RipDpiNavHostLogicTest {
                     )
                 } +
                 Mode.entries.map { mode -> RipDpiTestTags.configMode(mode.name) } +
-                ConfigModeSection.entries.map { section ->
+                ConnectionModeSection.entries.map { section ->
                     RipDpiTestTags.configModeSection(section.stableKey)
                 } +
                 advancedSectionTags

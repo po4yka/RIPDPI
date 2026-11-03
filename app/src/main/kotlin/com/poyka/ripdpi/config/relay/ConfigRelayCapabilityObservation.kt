@@ -1,7 +1,5 @@
 package com.poyka.ripdpi.config.relay
 
-import com.poyka.ripdpi.activities.ConfigDraft
-import com.poyka.ripdpi.activities.defaultRelayPort
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RelayKindHysteria2
 import com.poyka.ripdpi.data.RelayKindMasque
@@ -10,11 +8,13 @@ import com.poyka.ripdpi.data.RelayKindShadowTlsV3
 import com.poyka.ripdpi.data.RelayKindTuicV5
 import com.poyka.ripdpi.data.ServerCapabilityObservation
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
+import com.poyka.ripdpi.ui.screens.connection.defaultRelayPort
 import java.util.Locale
 
 @Suppress("CyclomaticComplexMethod")
 internal fun buildRelayCapabilityObservation(
-    draft: ConfigDraft,
+    draft: ConnectionDraft,
     telemetry: ServiceTelemetrySnapshot,
 ): Pair<String, ServerCapabilityObservation>? {
     val relayTelemetry = telemetry.relayTelemetry
@@ -72,7 +72,7 @@ internal fun buildRelayCapabilityObservation(
 }
 
 private fun relayAuthorityCandidate(
-    draft: ConfigDraft,
+    draft: ConnectionDraft,
     relayTelemetry: NativeRuntimeSnapshot,
 ): String? =
     relayTelemetry.upstreamAddress?.trim()?.takeIf { it.isNotEmpty() }

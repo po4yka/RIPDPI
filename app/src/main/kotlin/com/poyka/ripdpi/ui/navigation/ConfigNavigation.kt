@@ -7,11 +7,11 @@ import androidx.navigation.NavHostController
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.navigation
 import androidx.navigation.navDeepLink
-import com.poyka.ripdpi.activities.ConfigViewModel
 import com.poyka.ripdpi.activities.MainViewModel
-import com.poyka.ripdpi.ui.screens.config.ConfigModeSection
-import com.poyka.ripdpi.ui.screens.config.ConfigRoute
-import com.poyka.ripdpi.ui.screens.config.ModeEditorRoute
+import com.poyka.ripdpi.ui.screens.connection.ConnectionModeSection
+import com.poyka.ripdpi.ui.screens.connection.ConnectionRoute
+import com.poyka.ripdpi.ui.screens.connection.ConnectionViewModel
+import com.poyka.ripdpi.ui.screens.connection.ModeEditorRoute
 
 internal fun NavGraphBuilder.addConfigRoutes(
     navController: NavHostController,
@@ -24,8 +24,8 @@ internal fun NavGraphBuilder.addConfigRoutes(
             deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://config" }),
         ) {
             val configGraphEntry = remember(navController, it) { navController.getBackStackEntry<ConfigGraph>() }
-            val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
-            ConfigRoute(
+            val configViewModel: ConnectionViewModel = hiltViewModel(configGraphEntry)
+            ConnectionRoute(
                 runtimeIntegration = configRuntimeIntegration(mainViewModel),
                 onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
                 onOpenLocalBypassEditor = { navController.navigate(Route.StrategyConfig) },
@@ -34,7 +34,7 @@ internal fun NavGraphBuilder.addConfigRoutes(
                 onScanServer = { navController.navigate(Route.QrScanner) },
                 onOpenProfileEditor = { destination -> navController.navigate(destination) },
                 route = Route.Config,
-                initialModeSection = ConfigModeSection.LocalBypass,
+                initialModeSection = ConnectionModeSection.LocalBypass,
                 viewModel = configViewModel,
                 onImport = navController::navigateImport,
                 onProfileShare = { profileId -> navController.navigate(Route.ProfileShare(profileId = profileId)) },
@@ -42,8 +42,8 @@ internal fun NavGraphBuilder.addConfigRoutes(
         }
         composable<Route.LocalBypassConfig> {
             val configGraphEntry = remember(navController, it) { navController.getBackStackEntry<ConfigGraph>() }
-            val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
-            ConfigRoute(
+            val configViewModel: ConnectionViewModel = hiltViewModel(configGraphEntry)
+            ConnectionRoute(
                 runtimeIntegration = configRuntimeIntegration(mainViewModel),
                 onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
                 onOpenLocalBypassEditor = { navController.navigate(Route.StrategyConfig) },
@@ -52,7 +52,7 @@ internal fun NavGraphBuilder.addConfigRoutes(
                 onScanServer = { navController.navigate(Route.QrScanner) },
                 onOpenProfileEditor = { destination -> navController.navigate(destination) },
                 route = Route.LocalBypassConfig,
-                initialModeSection = ConfigModeSection.LocalBypass,
+                initialModeSection = ConnectionModeSection.LocalBypass,
                 viewModel = configViewModel,
                 onImport = navController::navigateImport,
                 onProfileShare = { profileId -> navController.navigate(Route.ProfileShare(profileId = profileId)) },
@@ -60,8 +60,8 @@ internal fun NavGraphBuilder.addConfigRoutes(
         }
         composable<Route.VpnConfig> {
             val configGraphEntry = remember(navController, it) { navController.getBackStackEntry<ConfigGraph>() }
-            val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
-            ConfigRoute(
+            val configViewModel: ConnectionViewModel = hiltViewModel(configGraphEntry)
+            ConnectionRoute(
                 runtimeIntegration = configRuntimeIntegration(mainViewModel),
                 onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
                 onOpenLocalBypassEditor = { navController.navigate(Route.StrategyConfig) },
@@ -70,7 +70,7 @@ internal fun NavGraphBuilder.addConfigRoutes(
                 onScanServer = { navController.navigate(Route.QrScanner) },
                 onOpenProfileEditor = { destination -> navController.navigate(destination) },
                 route = Route.VpnConfig,
-                initialModeSection = ConfigModeSection.Vpn,
+                initialModeSection = ConnectionModeSection.Vpn,
                 viewModel = configViewModel,
                 onImport = navController::navigateImport,
                 onProfileShare = { profileId -> navController.navigate(Route.ProfileShare(profileId = profileId)) },
@@ -78,7 +78,7 @@ internal fun NavGraphBuilder.addConfigRoutes(
         }
         composable<Route.ModeEditor> {
             val configGraphEntry = remember(navController, it) { navController.getBackStackEntry<ConfigGraph>() }
-            val configViewModel: ConfigViewModel = hiltViewModel(configGraphEntry)
+            val configViewModel: ConnectionViewModel = hiltViewModel(configGraphEntry)
             ModeEditorRoute(
                 onBack = { navController.popBackStack() },
                 onOpenXrayImport = { navController.navigate(Route.XrayImport) { launchSingleTop = true } },

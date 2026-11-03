@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.subscription
 
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
-import com.poyka.ripdpi.activities.InMemoryRelayProfileStore
 import com.poyka.ripdpi.data.PendingProfileMutation
 import com.poyka.ripdpi.data.ProfileMutationGenerationPublisher
 import com.poyka.ripdpi.data.ProfileMutationJournal
@@ -15,6 +14,7 @@ import com.poyka.ripdpi.data.selector.SelectorChoicePersistence
 import com.poyka.ripdpi.data.testPauseAuthority
 import com.poyka.ripdpi.data.xray.XrayProfileMetadataRecord
 import com.poyka.ripdpi.data.xray.XrayProfileMetadataStore
+import com.poyka.ripdpi.ui.screens.connection.InMemoryRelayProfileStore
 import java.lang.reflect.Proxy
 
 /** Real recovery, journal replay and publication; only persistence ports are kept in memory. */

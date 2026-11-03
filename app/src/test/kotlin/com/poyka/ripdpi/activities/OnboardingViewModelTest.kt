@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
+import com.poyka.ripdpi.ui.screens.connection.RecordingXrayNativeProviderSelection
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingDnsSystemId
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingModeValidationRunner
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPages

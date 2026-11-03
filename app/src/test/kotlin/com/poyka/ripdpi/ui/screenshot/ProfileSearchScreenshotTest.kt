@@ -2,15 +2,15 @@ package com.poyka.ripdpi.ui.screenshot
 
 import androidx.compose.ui.unit.LayoutDirection
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.RelayProfileUiState
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheetCard
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSheetAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSheetScrollPolicy
 import com.poyka.ripdpi.ui.components.profiles.ProfileSearchState
-import com.poyka.ripdpi.ui.screens.config.ConfigProfileActions
-import com.poyka.ripdpi.ui.screens.config.VpnProfilePickerContent
+import com.poyka.ripdpi.ui.screens.connection.ConnectionProfileActions
+import com.poyka.ripdpi.ui.screens.connection.RelayProfileUiState
+import com.poyka.ripdpi.ui.screens.connection.VpnProfilePickerContent
 import com.poyka.ripdpi.ui.screens.diagnostics.ProfilePickerContent
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProfileOptionUiModel
 import org.junit.Test
@@ -103,7 +103,7 @@ class ProfileSearchScreenshotTest {
                             ),
                         selectedProfileId = "personal-vless",
                         search = search,
-                        actions = ConfigProfileActions(),
+                        actions = ConnectionProfileActions(),
                     )
                 }
             }

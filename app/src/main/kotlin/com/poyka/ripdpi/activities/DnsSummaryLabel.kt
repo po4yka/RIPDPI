@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.dnsProviderById
 import com.poyka.ripdpi.data.protocolDisplayName
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
 
 /**
  * The one user-visible resolver summary ("Encrypted DNS · Cloudflare (DoH)"). Every screen uses it;
@@ -23,5 +24,5 @@ internal fun StringResolver.dnsSummaryLabel(
         "${getString(R.string.dns_mode_plain)} · $dnsIp"
     }
 
-internal fun StringResolver.dnsSummaryLabel(draft: ConfigDraft): String =
+internal fun StringResolver.dnsSummaryLabel(draft: ConnectionDraft): String =
     dnsSummaryLabel(draft.dnsMode, draft.dnsProviderId, draft.encryptedDnsProtocol, draft.dnsIp)

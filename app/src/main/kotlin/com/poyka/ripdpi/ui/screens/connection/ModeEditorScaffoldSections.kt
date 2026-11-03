@@ -1,0 +1,455 @@
+package com.poyka.ripdpi.ui.screens.connection
+
+import androidx.compose.foundation.ScrollState
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.dp
+import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.cards.RipDpiCard
+import com.poyka.ripdpi.ui.components.cards.SettingsRow
+import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
+import com.poyka.ripdpi.ui.components.feedback.WarningBanner
+import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
+import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
+import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
+import com.poyka.ripdpi.ui.screens.dns.localizedDnsSummary
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.theme.RipDpiContentGrouping
+import com.poyka.ripdpi.ui.theme.RipDpiIcons
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
+import com.poyka.ripdpi.utility.MaxPortNumber
+import com.poyka.ripdpi.utility.MinPortNumber
+
+@Composable
+internal fun ModeEditorBottomBar(
+    uiState: ConnectionUiState,
+    actions: ModeEditorActions,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val layout = RipDpiThemeTokens.layout
+    val twoPane = layout.contentGrouping == RipDpiContentGrouping.SplitColumns
+
+    Box(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .ripDpiScreenBackground()
+                .windowInsetsPadding(WindowInsets.ime.union(WindowInsets.navigationBars)),
+        contentAlignment = Alignment.Center,
+    ) {
+        // Same width and padding as the body, with Cancel over the form column only.
+        Row(
+            modifier =
+                Modifier
+                    .widthIn(max = modeEditorContentMaxWidth(twoPane))
+                    .fillMaxWidth()
+                    .padding(horizontal = layout.horizontalPadding, vertical = spacing.lg),
+            horizontalArrangement = Arrangement.spacedBy(layout.groupGap),
+        ) {
+            RipDpiButton(
+                text = stringResource(R.string.config_cancel),
+                onClick = actions.onCancel,
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .ripDpiTestTag(RipDpiTestTags.ModeEditorCancel),
+                variant = RipDpiButtonVariant.Outline,
+                enabled = !uiState.isEditorSaving,
+            )
+            if (twoPane) Spacer(Modifier.width(ModeEditorSupportingPaneWidth))
+        }
+    }
+}
+
+@Composable
+internal fun ModeEditorBody(
+    uiState: ConnectionUiState,
+    actions: ModeEditorActions,
+    modifier: Modifier = Modifier,
+    scrollState: ScrollState = rememberScrollState(),
+    noticesScrollState: ScrollState = rememberScrollState(),
+) {
+    val spacing = RipDpiThemeTokens.spacing
+    val layout = RipDpiThemeTokens.layout
+    val draft = uiState.editingPreset?.draft ?: uiState.draft
+
+    val twoPane = layout.contentGrouping == RipDpiContentGrouping.SplitColumns
+    val verticalPadding = PaddingValues(top = spacing.sm, bottom = spacing.sm)
+
+    Box(
+        modifier =
+            modifier
+                .fillMaxSize()
+                .ripDpiScreenBackground(),
+        contentAlignment = Alignment.TopCenter,
+    ) {
+        Row(
+            modifier =
+                Modifier
+                    .widthIn(max = modeEditorContentMaxWidth(twoPane))
+                    .fillMaxSize()
+                    .padding(horizontal = layout.horizontalPadding),
+            horizontalArrangement = Arrangement.spacedBy(layout.groupGap),
+        ) {
+            Column(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .verticalScroll(scrollState)
+                        .padding(verticalPadding),
+                verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
+            ) {
+                if (!twoPane) ModeEditorNotices(uiState)
+                ModeEditorModeSection(draft = draft, actions = actions)
+                ModeEditorNetworkSection(draft = draft, uiState = uiState, actions = actions)
+                ModeEditorRelaySection(draft = draft, uiState = uiState, actions = actions)
+                ModeEditorAdvancedSection(draft = draft, uiState = uiState, actions = actions)
+            }
+            if (twoPane) {
+                Column(
+                    modifier =
+                        Modifier
+                            .width(ModeEditorSupportingPaneWidth)
+                            .fillMaxHeight()
+                            .verticalScroll(noticesScrollState)
+                            .padding(verticalPadding),
+                    verticalArrangement = Arrangement.spacedBy(layout.sectionGap),
+                ) {
+                    ModeEditorNotices(uiState)
+                }
+            }
+        }
+    }
+}
+
+// The explanation and the save and validation notices: the supporting pane when wide, the top of the form otherwise.
+@Composable
+private fun ModeEditorNotices(uiState: ConnectionUiState) {
+    ModeEditorIntroCard(uiState = uiState)
+    ModeEditorRecoveryPersistenceBanner(uiState = uiState)
+    ModeEditorValidationBanner(uiState = uiState)
+}
+
+// Material 3 supporting pane preferred width.
+private val ModeEditorSupportingPaneWidth = 360.dp
+
+@Composable
+private fun modeEditorContentMaxWidth(twoPane: Boolean): Dp {
+    val layout = RipDpiThemeTokens.layout
+    return if (twoPane) layout.formMaxWidth + ModeEditorSupportingPaneWidth + layout.groupGap else layout.formMaxWidth
+}
+
+@Composable
+private fun ModeEditorRecoveryPersistenceBanner(uiState: ConnectionUiState) {
+    if (uiState.hasEditorRecoveryPersistenceError) {
+        WarningBanner(
+            title = stringResource(R.string.strategy_config_draft_save_failed_title),
+            message = stringResource(R.string.strategy_config_draft_save_failed_body),
+            tone = WarningBannerTone.Warning,
+        )
+    }
+}
+
+@Composable
+private fun ModeEditorIntroCard(uiState: ConnectionUiState) {
+    val colors = RipDpiThemeTokens.colors
+
+    // The top app bar already names the screen, so the card carries only the explanation.
+    RipDpiCard {
+        Text(
+            text =
+                stringResource(
+                    R.string.config_editor_body,
+                    stringResource(titleResForPreset(editorPresetKind(uiState))),
+                ),
+            style = RipDpiThemeTokens.type.body,
+            color = colors.mutedForeground,
+        )
+    }
+}
+
+@Composable
+private fun ModeEditorValidationBanner(uiState: ConnectionUiState) {
+    if (uiState.validationErrors.isNotEmpty()) {
+        WarningBanner(
+            title = stringResource(R.string.config_validation_banner_title),
+            message = stringResource(R.string.config_validation_banner_body),
+            tone = WarningBannerTone.Warning,
+        )
+    }
+}
+
+@Composable
+private fun ModeEditorModeSection(
+    draft: ConnectionDraft,
+    actions: ModeEditorActions,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+        SettingsCategoryHeader(title = stringResource(R.string.config_mode_section))
+        RipDpiCard {
+            ConnectionModeChips(
+                selectedMode = draft.mode,
+                onModeSelected = actions.onModeSelected,
+                vpnLabel = stringResource(modeLabelRes(Mode.VPN)),
+                proxyLabel = stringResource(modeLabelRes(Mode.Proxy)),
+            )
+            SettingsRow(
+                title = stringResource(R.string.config_xray_import_title),
+                subtitle = stringResource(R.string.config_xray_import_body),
+                onClick = actions.onOpenXrayImport,
+                showChevron = true,
+                testTag = RipDpiTestTags.ModeEditorXrayImport,
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModeEditorNetworkSection(
+    draft: ConnectionDraft,
+    uiState: ConnectionUiState,
+    actions: ModeEditorActions,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+        SettingsCategoryHeader(title = stringResource(R.string.config_network_section))
+        RipDpiCard {
+            SettingsRow(
+                title = stringResource(R.string.title_dns_settings),
+                value = draft.localizedDnsSummary(),
+                leadingIcon = RipDpiIcons.Dns,
+            )
+        }
+        SettingsCategoryHeader(title = stringResource(R.string.config_listener_section))
+        RipDpiCard {
+            RipDpiTextField(
+                value = draft.proxyIp,
+                onValueChange = actions.onProxyIpChanged,
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        label = stringResource(R.string.bye_dpi_proxy_ip_setting),
+                        placeholder = stringResource(R.string.config_placeholder_proxy_ip),
+                        helperText = stringResource(R.string.config_proxy_helper),
+                        errorText = validationMessage(uiState.validationErrors[ConnectionFieldProxyIp]),
+                        testTag = RipDpiTestTags.ModeEditorProxyIp,
+                    ),
+            )
+            RipDpiTextField(
+                value = draft.proxyPort,
+                onValueChange = actions.onProxyPortChanged,
+                decoration =
+                    RipDpiTextFieldDecoration(
+                        label = stringResource(R.string.ripdpi_proxy_port_setting),
+                        placeholder = stringResource(R.string.config_placeholder_proxy_port),
+                        helperText = stringResource(R.string.config_port_helper, MinPortNumber, MaxPortNumber),
+                        errorText = validationMessage(uiState.validationErrors[ConnectionFieldProxyPort]),
+                        testTag = RipDpiTestTags.ModeEditorProxyPort,
+                    ),
+                behavior =
+                    RipDpiTextFieldBehavior(
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                    ),
+            )
+        }
+    }
+}
+
+@Composable
+private fun ModeEditorAdvancedSection(
+    draft: ConnectionDraft,
+    uiState: ConnectionUiState,
+    actions: ModeEditorActions,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+
+    AdvancedSection(testTag = RipDpiTestTags.ModeEditorAdvanced) {
+        Column(verticalArrangement = Arrangement.spacedBy(spacing.lg)) {
+            ModeEditorEngineSection(draft = draft, uiState = uiState, actions = actions)
+            ModeEditorOverridesSection(draft = draft, actions = actions)
+        }
+    }
+}
+
+@Composable
+private fun ModeEditorEngineSection(
+    draft: ConnectionDraft,
+    uiState: ConnectionUiState,
+    actions: ModeEditorActions,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+        SettingsCategoryHeader(title = stringResource(R.string.config_engine_section))
+        ModeEditorEngineFields(draft = draft, uiState = uiState, actions = actions)
+    }
+}
+
+@Composable
+private fun ModeEditorEngineFields(
+    draft: ConnectionDraft,
+    uiState: ConnectionUiState,
+    actions: ModeEditorActions,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+        RipDpiTextField(
+            value = draft.maxConnections,
+            onValueChange = actions.onMaxConnectionsChanged,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.ripdpi_max_connections_setting),
+                    helperText = stringResource(R.string.config_max_connections_helper),
+                    errorText = validationMessage(uiState.validationErrors[ConnectionFieldMaxConnections]),
+                    testTag = RipDpiTestTags.ModeEditorMaxConnections,
+                ),
+            behavior =
+                RipDpiTextFieldBehavior(
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                ),
+        )
+        RipDpiTextField(
+            value = draft.bufferSize,
+            onValueChange = actions.onBufferSizeChanged,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.ripdpi_buffer_size_setting),
+                    helperText = stringResource(R.string.config_buffer_helper),
+                    errorText = validationMessage(uiState.validationErrors[ConnectionFieldBufferSize]),
+                    testTag = RipDpiTestTags.ModeEditorBufferSize,
+                ),
+            behavior =
+                RipDpiTextFieldBehavior(
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                ),
+        )
+        ModeEditorChainFields(draft = draft, uiState = uiState, actions = actions)
+        RipDpiTextField(
+            value = draft.defaultTtl,
+            onValueChange = actions.onDefaultTtlChanged,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.ripdpi_default_ttl_setting),
+                    placeholder = stringResource(R.string.config_placeholder_default_ttl),
+                    helperText = stringResource(R.string.config_default_ttl_helper),
+                    errorText = validationMessage(uiState.validationErrors[ConnectionFieldDefaultTtl]),
+                    testTag = RipDpiTestTags.ModeEditorDefaultTtl,
+                ),
+            behavior =
+                RipDpiTextFieldBehavior(
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                ),
+        )
+    }
+}
+
+@Composable
+private fun ModeEditorChainFields(
+    draft: ConnectionDraft,
+    uiState: ConnectionUiState,
+    actions: ModeEditorActions,
+) {
+    ModeEditorChainBlockEditor(draft = draft, uiState = uiState, actions = actions)
+}
+
+@Composable
+private fun ModeEditorOverridesSection(
+    draft: ConnectionDraft,
+    actions: ModeEditorActions,
+) {
+    val spacing = RipDpiThemeTokens.spacing
+
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+        SettingsCategoryHeader(title = stringResource(R.string.config_overrides_section))
+        ModeEditorOverrideFields(draft = draft, actions = actions)
+    }
+}
+
+@Composable
+private fun ModeEditorOverrideFields(
+    draft: ConnectionDraft,
+    actions: ModeEditorActions,
+) {
+    val colors = RipDpiThemeTokens.colors
+    val spacing = RipDpiThemeTokens.spacing
+
+    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
+        if (draft.useCommandLineSettings) {
+            WarningBanner(
+                title = stringResource(R.string.config_cli_banner_title),
+                message = stringResource(R.string.config_cli_banner_body),
+                tone = WarningBannerTone.Restricted,
+            )
+        }
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = stringResource(R.string.use_command_line_settings),
+                    style = RipDpiThemeTokens.type.body,
+                    color = colors.foreground,
+                    modifier = Modifier.weight(1f),
+                )
+                RipDpiSwitch(
+                    checked = draft.useCommandLineSettings,
+                    onCheckedChange = actions.onCommandLineEnabledChanged,
+                    accessibilityLabel = stringResource(R.string.use_command_line_settings),
+                    testTag = RipDpiTestTags.ModeEditorCommandLineToggle,
+                )
+            }
+        }
+        RipDpiConfigTextField(
+            value = draft.commandLineArgs,
+            onValueChange = actions.onCommandLineArgsChanged,
+            decoration =
+                RipDpiTextFieldDecoration(
+                    label = stringResource(R.string.command_line_arguments),
+                    placeholder = stringResource(R.string.config_placeholder_command_line),
+                    testTag = RipDpiTestTags.ModeEditorCommandLineArgs,
+                ),
+        )
+    }
+}

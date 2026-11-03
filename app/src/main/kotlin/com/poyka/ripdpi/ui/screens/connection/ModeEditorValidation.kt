@@ -1,0 +1,27 @@
+package com.poyka.ripdpi.ui.screens.connection
+
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.poyka.ripdpi.R
+
+@Composable
+internal fun validationMessage(errorKey: String?): String? =
+    when (errorKey) {
+        "invalid_dns_ip" -> stringResource(R.string.config_error_invalid_dns)
+        "invalid_proxy_ip" -> stringResource(R.string.config_error_invalid_proxy_ip)
+        "invalid_port" -> stringResource(R.string.config_error_invalid_port)
+        "out_of_range" -> stringResource(R.string.config_error_out_of_range)
+        "invalid_chain" -> stringResource(R.string.config_error_invalid_chain)
+        "required" -> stringResource(R.string.config_error_required)
+        "taken" -> stringResource(R.string.config_relay_profile_id_taken)
+        "unsupported" -> stringResource(R.string.config_error_unsupported)
+        "same_hop" -> stringResource(R.string.config_relay_chain_error_same_hop)
+        "invalid_headers" -> stringResource(R.string.config_relay_naive_extra_headers_error_invalid)
+        "reserved_header" -> stringResource(R.string.config_relay_naive_extra_headers_error_reserved)
+        "invalid_pin" -> stringResource(R.string.config_relay_naive_server_pin_error_invalid)
+        "absolute_path" -> stringResource(R.string.config_relay_naive_path_error_absolute)
+        else -> null
+    }
+
+internal fun editorPresetKind(uiState: ConnectionUiState): ConnectionPresetKind =
+    uiState.editingPreset?.kind ?: ConnectionPresetKind.Custom

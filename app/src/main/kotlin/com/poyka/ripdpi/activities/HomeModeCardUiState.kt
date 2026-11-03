@@ -7,6 +7,8 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
+import com.poyka.ripdpi.ui.screens.connection.toConfigDraft
 import com.poyka.ripdpi.ui.screens.diagnostics.state.label
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
@@ -73,7 +75,7 @@ internal fun hasUnsupportedVpnDoq(settings: AppSettings): Boolean =
 
 private fun buildHomeModeCards(
     input: HomeModeCardsInput,
-    draft: ConfigDraft,
+    draft: ConnectionDraft,
 ): ImmutableList<HomeModeCardUiState> =
     persistentListOf(
         buildLocalBypassCard(
@@ -101,7 +103,7 @@ private fun buildHomeModeCards(
     )
 
 private fun buildLocalBypassCard(
-    draft: ConfigDraft,
+    draft: ConnectionDraft,
     activeMode: Mode,
     configuredMode: Mode,
     connectionState: ConnectionState,
@@ -150,7 +152,7 @@ private fun buildLocalBypassCard(
     )
 
 private fun buildRemoteVpnCard(
-    draft: ConfigDraft,
+    draft: ConnectionDraft,
     settings: AppSettings,
     activeMode: Mode,
     configuredMode: Mode,
@@ -195,7 +197,7 @@ private fun buildRemoteVpnCard(
 }
 
 private fun remoteVpnPrimaryLabel(
-    draft: ConfigDraft,
+    draft: ConnectionDraft,
     stringResolver: StringResolver,
 ): String {
     val serverLabel = draft.relayServer.ifBlank { draft.relayServerName }.ifBlank { null }
@@ -207,7 +209,7 @@ private fun remoteVpnPrimaryLabel(
 }
 
 private fun pathFacet(
-    draft: ConfigDraft,
+    draft: ConnectionDraft,
     stringResolver: StringResolver,
 ): HomeModeSummaryFacet =
     HomeModeSummaryFacet(

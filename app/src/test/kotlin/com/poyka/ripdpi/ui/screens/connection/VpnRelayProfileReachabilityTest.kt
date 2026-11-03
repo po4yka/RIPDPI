@@ -1,0 +1,123 @@
+package com.poyka.ripdpi.ui.screens.connection
+
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.hasAnyAncestor
+import androidx.compose.ui.test.hasTestTag
+import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performScrollToKey
+import androidx.compose.ui.test.performSemanticsAction
+import com.poyka.ripdpi.ui.testing.RipDpiTestTags
+import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import kotlinx.collections.immutable.toImmutableList
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Rule
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
+import org.robolectric.annotation.GraphicsMode
+
+@RunWith(RobolectricTestRunner::class)
+@GraphicsMode(GraphicsMode.Mode.NATIVE)
+@Config(sdk = [35])
+class VpnRelayProfileReachabilityTest {
+    @get:Rule val composeRule = createComposeRule()
+
+    @Test
+    fun `every saved vpn relay profile has an edit action`() {
+        val edited = mutableListOf<String>()
+        val kinds = listOf("vless", "trojan", "shadowsocks", "google_apps_script", "mieru", "ssh")
+        setProfiles(kinds, edited)
+        expandProfiles()
+        assertTrue(kinds.take(4).all(::isModeEditorRelayKindSupported))
+        for ((index, kind) in kinds.withIndex()) {
+            if (index > 0) expandProfiles()
+            composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList).performScrollToKey("profile:relay-$kind")
+            composeRule
+                .onNode(
+                    hasTestTag(RipDpiTestTags.configVpnProfileRow("relay-$kind")) and
+                        hasAnyAncestor(hasTestTag(RipDpiTestTags.RelayProfileSearchSheet)),
+                ).performScrollTo()
+                .assertHasClickAction()
+                .performSemanticsAction(SemanticsActions.OnClick)
+            composeRule.runOnIdle { assertEquals(kinds.take(index + 1).map { "relay-$it" }, edited) }
+        }
+    }
+
+    @Test
+    fun `VLESS Trojan and Shadowsocks preview rows open by tap`() {
+        assertPreviewProfilesOpenByTap(listOf("vless", "trojan", "shadowsocks"))
+    }
+
+    @Test
+    fun `Apps Script Mieru and SSH preview rows open by tap`() {
+        assertPreviewProfilesOpenByTap(listOf("google_apps_script", "mieru", "ssh"))
+    }
+
+    @Test
+    fun `profile beyond preview opens by tap`() {
+        val edited = mutableListOf<String>()
+        setProfiles(listOf("vless", "trojan", "shadowsocks", "google_apps_script"), edited)
+        expandProfiles()
+        composeRule
+            .onNodeWithTag(
+                RipDpiTestTags.ConfigVpnProfileList,
+            ).performScrollToKey("profile:relay-google_apps_script")
+        composeRule
+            .onNode(
+                hasTestTag(RipDpiTestTags.configVpnProfileRow("relay-google_apps_script")) and
+                    hasAnyAncestor(hasTestTag(RipDpiTestTags.RelayProfileSearchSheet)),
+            ).performScrollTo()
+            .performClick()
+        composeRule.runOnIdle { assertEquals(listOf("relay-google_apps_script"), edited) }
+    }
+
+    private fun assertPreviewProfilesOpenByTap(kinds: List<String>) {
+        val edited = mutableListOf<String>()
+        setProfiles(kinds, edited)
+        for ((index, kind) in kinds.withIndex()) {
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.configVpnProfileRow("relay-$kind"))
+                .performScrollTo()
+                .performClick()
+            composeRule.runOnIdle { assertEquals(kinds.take(index + 1).map { "relay-$it" }, edited) }
+        }
+    }
+
+    private fun expandProfiles() {
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConfigVpnProfilesMore)
+            .performScrollTo()
+            .performClick()
+    }
+
+    private fun setProfiles(
+        kinds: List<String>,
+        edited: MutableList<String>,
+    ) {
+        val profiles = kinds.map { kind -> RelayProfileUiState("relay-$kind", kind, kind, "", "") }
+        composeRule.setContent {
+            RipDpiTheme {
+                Column(Modifier.verticalScroll(rememberScrollState())) {
+                    VpnConfigScreen(
+                        uiState = ConnectionUiState(vpnProfiles = profiles.toImmutableList()),
+                        onOpenRelaySettings = {},
+                        onOpenDnsSettings = {},
+                        onPasteServerLink = {},
+                        onScanServer = {},
+                        onProfileEdit = { edited += it },
+                    )
+                }
+            }
+        }
+    }
+}

@@ -5,6 +5,8 @@ import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
+import com.poyka.ripdpi.ui.screens.connection.applySavedConfigDraftToRunningService
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent
@@ -33,7 +35,7 @@ class DnsVpnRestartGuardTest {
             var rejected = 0
 
             applySavedConfigDraftToRunningService(
-                draft = ConfigDraft(mode = Mode.VPN),
+                draft = ConnectionDraft(mode = Mode.VPN),
                 appSettingsRepository = FakeAppSettingsRepository(doqSettings),
                 serviceStateStore = FakeServiceStateStore(AppStatus.Running to Mode.Proxy),
                 reconnectCoordinator = reconnect,

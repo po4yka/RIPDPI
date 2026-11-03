@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.mieru
 
-import com.poyka.ripdpi.activities.ConfigDraft
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelayMieruMtuDefault
 import com.poyka.ripdpi.data.RelayMieruMtuMax
@@ -11,6 +10,7 @@ import com.poyka.ripdpi.data.RelayMieruMultiplexingMiddle
 import com.poyka.ripdpi.data.RelayMieruMultiplexingOff
 import com.poyka.ripdpi.data.RelayMieruProtocolTcp
 import com.poyka.ripdpi.data.RelayMieruProtocolUdp
+import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
 import java.util.UUID
 
 /** Lower bound (inclusive) of a valid TCP/UDP port. */
@@ -145,7 +145,7 @@ data class MieruProfileEditorState(
         /** A fresh editor: empty fields, TCP transport, and the Mieru-default `middle` multiplexing. */
         fun initial(): MieruProfileEditorState = MieruProfileEditorState()
 
-        fun fromDraft(draft: ConfigDraft): MieruProfileEditorState =
+        fun fromDraft(draft: ConnectionDraft): MieruProfileEditorState =
             MieruProfileEditorState(
                 rawTextByField =
                     mapOf(

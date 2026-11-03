@@ -1,8 +1,8 @@
 package com.poyka.ripdpi.ui.components.profiles
 
-import com.poyka.ripdpi.activities.RelayProfileUiState
 import com.poyka.ripdpi.diagnostics.DiagnosticProfileFamily
-import com.poyka.ripdpi.ui.screens.config.filterRelayProfiles
+import com.poyka.ripdpi.ui.screens.connection.RelayProfileUiState
+import com.poyka.ripdpi.ui.screens.connection.filterRelayProfiles
 import com.poyka.ripdpi.ui.screens.diagnostics.DiagnosticProfileSearchEntry
 import com.poyka.ripdpi.ui.screens.diagnostics.filterDiagnosticProfiles
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsProfileOptionUiModel

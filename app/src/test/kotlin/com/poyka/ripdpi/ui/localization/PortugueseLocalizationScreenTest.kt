@@ -26,8 +26,6 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.ConfigDraft
-import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.DesyncCoreUiState
 import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.activities.HomePauseUiState
@@ -41,8 +39,10 @@ import com.poyka.ripdpi.data.RelayFinalmaskTypeNoise
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.diagnostics.SystemPrivateDnsStatus
-import com.poyka.ripdpi.ui.screens.config.RelayFinalmaskActions
-import com.poyka.ripdpi.ui.screens.config.RelayFinalmaskFields
+import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
+import com.poyka.ripdpi.ui.screens.connection.ConnectionUiState
+import com.poyka.ripdpi.ui.screens.connection.RelayFinalmaskActions
+import com.poyka.ripdpi.ui.screens.connection.RelayFinalmaskFields
 import com.poyka.ripdpi.ui.screens.dns.DnsModeSection
 import com.poyka.ripdpi.ui.screens.health.ConnectionHealthScreen
 import com.poyka.ripdpi.ui.screens.health.ConnectionHealthUiState
@@ -231,10 +231,10 @@ class PortugueseLocalizationScreenTest {
         scale: Float,
         name: String,
     ) {
-        val draft = ConfigDraft(relayFinalmaskType = RelayFinalmaskTypeNoise, relayFinalmaskRandRange = "4-4")
+        val draft = ConnectionDraft(relayFinalmaskType = RelayFinalmaskTypeNoise, relayFinalmaskRandRange = "4-4")
         content(width, scale) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                RelayFinalmaskFields(draft, ConfigUiState(draft = draft), RelayFinalmaskActions())
+                RelayFinalmaskFields(draft, ConnectionUiState(draft = draft), RelayFinalmaskActions())
             }
         }
         readable(R.string.config_relay_finalmask_noise_help)

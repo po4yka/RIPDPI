@@ -1,0 +1,131 @@
+package com.poyka.ripdpi.ui.screens.connection
+
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.text.input.TextObfuscationMode
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.KeyboardType
+import com.poyka.ripdpi.R
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
+import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
+import com.poyka.ripdpi.ui.components.inputs.RipDpiSwitch
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+
+@Composable
+internal fun NaiveProxyRelayFields(
+    draft: ConnectionDraft,
+    uiState: ConnectionUiState,
+    actions: RelayMiscKindActions,
+) {
+    RipDpiTextField(
+        value = draft.relayNaiveUsername,
+        onValueChange = actions.onRelayNaiveUsernameChanged,
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = stringResource(R.string.config_relay_naive_username),
+                helperText = stringResource(R.string.config_relay_naive_username_helper),
+            ),
+    )
+    RipDpiTextField(
+        value = draft.relayNaivePassword,
+        onValueChange = actions.onRelayNaivePasswordChanged,
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = stringResource(R.string.config_relay_naive_password),
+                helperText = stringResource(R.string.config_relay_naive_password_helper),
+            ),
+        behavior =
+            RipDpiTextFieldBehavior(
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                textObfuscationMode = TextObfuscationMode.Hidden,
+            ),
+    )
+    RipDpiTextField(
+        value = draft.relayNaivePath,
+        onValueChange = actions.onRelayNaivePathChanged,
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = stringResource(R.string.config_relay_naive_path),
+                helperText =
+                    stringResource(
+                        if (draft.relayNaivePath.isNotBlank() && draft.relayNaiveServerPinSha256.isBlank()) {
+                            R.string.config_relay_naive_path_pin_notice
+                        } else {
+                            R.string.config_relay_naive_path_helper
+                        },
+                    ),
+                errorText = validationMessage(uiState.validationErrors[ConnectionFieldRelayNaivePath]),
+            ),
+    )
+    RipDpiTextField(
+        value = draft.relayNaiveExtraHeaders,
+        onValueChange = actions.onRelayNaiveExtraHeadersChanged,
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = stringResource(R.string.config_relay_naive_extra_headers),
+                helperText = stringResource(R.string.config_relay_naive_extra_headers_helper),
+                errorText = validationMessage(uiState.validationErrors[ConnectionFieldRelayNaiveExtraHeaders]),
+            ),
+        behavior =
+            RipDpiTextFieldBehavior(
+                singleLine = false,
+                keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Ascii),
+            ),
+    )
+    RipDpiTextField(
+        value = draft.relayNaiveServerPinSha256,
+        onValueChange = actions.onRelayNaiveServerPinChanged,
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = stringResource(R.string.config_relay_naive_server_pin),
+                helperText = stringResource(R.string.config_relay_naive_server_pin_helper),
+                errorText = validationMessage(uiState.validationErrors[ConnectionFieldRelayNaiveServerPin]),
+            ),
+        behavior =
+            RipDpiTextFieldBehavior(
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, keyboardType = KeyboardType.Ascii),
+            ),
+    )
+    NaiveProxyTransportFields(draft, uiState, actions)
+}
+
+/** HTTP/3 and concurrency, which only the upstream client runs, and the server check. */
+@Composable
+private fun NaiveProxyTransportFields(
+    draft: ConnectionDraft,
+    uiState: ConnectionUiState,
+    actions: RelayMiscKindActions,
+) {
+    RipDpiSwitch(
+        checked = draft.relayNaiveQuic,
+        onCheckedChange = actions.onRelayNaiveQuicChanged,
+        label = stringResource(R.string.config_relay_naive_quic),
+        helperText = stringResource(R.string.config_relay_naive_quic_helper),
+    )
+    RipDpiTextField(
+        value = draft.relayNaiveConcurrency,
+        onValueChange = actions.onRelayNaiveConcurrencyChanged,
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = stringResource(R.string.config_relay_naive_concurrency),
+                helperText = stringResource(R.string.config_relay_naive_concurrency_helper),
+                errorText = validationMessage(uiState.validationErrors[ConnectionFieldRelayNaiveConcurrency]),
+            ),
+        behavior =
+            RipDpiTextFieldBehavior(
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+            ),
+    )
+    RipDpiButton(
+        text = stringResource(R.string.config_relay_naive_check),
+        onClick = actions.onRelayNaiveCheckClicked,
+        modifier = Modifier.fillMaxWidth(),
+        variant = RipDpiButtonVariant.Outline,
+    )
+}

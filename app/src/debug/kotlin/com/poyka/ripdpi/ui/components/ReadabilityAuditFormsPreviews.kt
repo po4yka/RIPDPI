@@ -6,17 +6,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.ConfigDraft
-import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
-import com.poyka.ripdpi.ui.screens.config.MasqueAuthModeRow
-import com.poyka.ripdpi.ui.screens.config.MasqueCloudflareMtlsFields
-import com.poyka.ripdpi.ui.screens.config.RelayMasqueActions
-import com.poyka.ripdpi.ui.screens.config.RelayVlessActions
-import com.poyka.ripdpi.ui.screens.config.VlessTransportFields
+import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
+import com.poyka.ripdpi.ui.screens.connection.ConnectionUiState
+import com.poyka.ripdpi.ui.screens.connection.MasqueAuthModeRow
+import com.poyka.ripdpi.ui.screens.connection.MasqueCloudflareMtlsFields
+import com.poyka.ripdpi.ui.screens.connection.RelayMasqueActions
+import com.poyka.ripdpi.ui.screens.connection.RelayVlessActions
+import com.poyka.ripdpi.ui.screens.connection.VlessTransportFields
 import com.poyka.ripdpi.ui.screens.dns.DnsOptionCard
 import com.poyka.ripdpi.ui.screens.dns.DnsResolverCard
 import com.poyka.ripdpi.ui.screens.dns.resolverOptions
@@ -60,12 +60,12 @@ private fun ReadabilityAuditRelayOptionsPreview() {
         RipDpiCard {
             SettingsCategoryHeader(title = stringResource(R.string.config_relay_kind_masque))
             MasqueAuthModeRow(
-                draft = ConfigDraft(relayMasqueAuthMode = RelayMasqueAuthModeCloudflareMtls),
-                uiState = ConfigUiState(supportsMasquePrivacyPass = true),
+                draft = ConnectionDraft(relayMasqueAuthMode = RelayMasqueAuthModeCloudflareMtls),
+                uiState = ConnectionUiState(supportsMasquePrivacyPass = true),
                 actions = RelayMasqueActions(),
             )
             VlessTransportFields(
-                draft = ConfigDraft(relayVlessTransport = RelayVlessTransportXhttp),
+                draft = ConnectionDraft(relayVlessTransport = RelayVlessTransportXhttp),
                 actions = RelayVlessActions(),
             )
         }
@@ -85,7 +85,7 @@ private fun ReadabilityAuditRelayOptionsPreview() {
 private fun ReadabilityAuditMasqueImportPreview() {
     RipDpiComponentPreview(themePreference = formsReadabilityTheme()) {
         RipDpiCard {
-            MasqueCloudflareMtlsFields(draft = ConfigDraft(), actions = RelayMasqueActions())
+            MasqueCloudflareMtlsFields(draft = ConnectionDraft(), actions = RelayMasqueActions())
         }
     }
 }

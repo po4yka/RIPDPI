@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.mieru
 
 import app.cash.turbine.test
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.ConfigRelayArtifactRepository
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.RelayCredentialRecord
@@ -16,6 +15,7 @@ import com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
 import com.poyka.ripdpi.data.fakes.FakeRelayCredentialStore
 import com.poyka.ripdpi.data.fakes.FakeRelayProfileStore
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
+import com.poyka.ripdpi.ui.screens.connection.ConnectionRelayArtifactRepository
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -57,7 +57,7 @@ class MieruProfileViewModelTest {
                     settings,
                 ),
             ),
-            ConfigRelayArtifactRepository(
+            ConnectionRelayArtifactRepository(
                 settings,
                 profileStore,
                 credentialStore,

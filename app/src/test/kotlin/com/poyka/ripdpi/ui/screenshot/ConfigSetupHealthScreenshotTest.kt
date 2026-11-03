@@ -1,15 +1,11 @@
 package com.poyka.ripdpi.ui.screenshot
 
-import com.poyka.ripdpi.activities.ConfigDraft
-import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.HardKillSwitchUiState
 import com.poyka.ripdpi.activities.HomeConnectionActuatorStatus
 import com.poyka.ripdpi.activities.HomeConnectionActuatorUiState
 import com.poyka.ripdpi.activities.HomeMode
 import com.poyka.ripdpi.activities.HomeModeCardUiState
 import com.poyka.ripdpi.activities.MainUiState
-import com.poyka.ripdpi.activities.RelayProfileUiState
-import com.poyka.ripdpi.activities.buildConfigPresets
 import com.poyka.ripdpi.data.DnsProviderAdGuard
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.RelayKindHysteria2
@@ -20,7 +16,11 @@ import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
-import com.poyka.ripdpi.ui.screens.config.VpnConfigScreen
+import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
+import com.poyka.ripdpi.ui.screens.connection.ConnectionUiState
+import com.poyka.ripdpi.ui.screens.connection.RelayProfileUiState
+import com.poyka.ripdpi.ui.screens.connection.VpnConfigScreen
+import com.poyka.ripdpi.ui.screens.connection.buildConfigPresets
 import com.poyka.ripdpi.ui.screens.home.HomeScreen
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -134,9 +134,9 @@ class ConfigSetupHealthScreenshotTest {
         }
     }
 
-    private fun populatedVpnConfigState(): ConfigUiState {
+    private fun populatedVpnConfigState(): ConnectionUiState {
         val draft =
-            ConfigDraft(
+            ConnectionDraft(
                 mode = Mode.VPN,
                 dnsProviderId = DnsProviderAdGuard,
                 relayEnabled = true,
@@ -180,7 +180,7 @@ class ConfigSetupHealthScreenshotTest {
                     operatorName = "Spare Path",
                 ),
             )
-        return ConfigUiState(
+        return ConnectionUiState(
             activeMode = Mode.VPN,
             runningMode = Mode.VPN,
             uiPersona = "advanced",

@@ -1,0 +1,99 @@
+package com.poyka.ripdpi.ui.screens.connection
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.ui.res.stringResource
+import com.poyka.ripdpi.R
+import com.poyka.ripdpi.data.RelayCloudflareTunnelModeConsumeExisting
+import com.poyka.ripdpi.data.RelayCloudflareTunnelModePublishLocalOrigin
+import com.poyka.ripdpi.ui.components.inputs.RipDpiConfigTextField
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
+import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
+import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+internal fun CloudflareTunnelRelayFields(
+    draft: ConnectionDraft,
+    uiState: ConnectionUiState,
+    actions: RelayVlessActions,
+) {
+    Text(
+        text = stringResource(R.string.relay_cloudflare_tunnel_caption),
+        style = RipDpiThemeTokens.type.caption,
+        color = RipDpiThemeTokens.colors.mutedForeground,
+    )
+    Text(
+        text = stringResource(R.string.relay_cloudflare_tunnel_mode_label),
+        style = RipDpiThemeTokens.type.caption,
+        color = RipDpiThemeTokens.colors.mutedForeground,
+    )
+    FlowRow(
+        horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
+    ) {
+        RelayKindChip(
+            selectedKind = draft.relayCloudflareTunnelMode,
+            kind = RelayCloudflareTunnelModeConsumeExisting,
+            label = stringResource(R.string.relay_cloudflare_mode_consume_existing),
+            onRelayKindChanged = actions.onRelayCloudflareTunnelModeChanged,
+        )
+        RelayKindChip(
+            selectedKind = draft.relayCloudflareTunnelMode,
+            kind = RelayCloudflareTunnelModePublishLocalOrigin,
+            label = stringResource(R.string.relay_cloudflare_mode_publish_local),
+            onRelayKindChanged = actions.onRelayCloudflareTunnelModeChanged,
+        )
+    }
+    if (draft.relayCloudflareTunnelMode == RelayCloudflareTunnelModePublishLocalOrigin) {
+        CloudflareLocalOriginFields(draft = draft, uiState = uiState, actions = actions)
+    }
+    VlessTransportFields(draft = draft, actions = actions)
+    VlessUuidField(draft = draft, actions = actions)
+}
+
+@Composable
+private fun CloudflareLocalOriginFields(
+    draft: ConnectionDraft,
+    uiState: ConnectionUiState,
+    actions: RelayVlessActions,
+) {
+    RipDpiTextField(
+        value = draft.relayCloudflarePublishLocalOriginUrl,
+        onValueChange = actions.onRelayCloudflarePublishLocalOriginUrlChanged,
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = stringResource(R.string.relay_cloudflare_local_origin_url_label),
+                errorText = validationMessage(uiState.validationErrors[ConnectionFieldRelayCloudflarePublishOrigin]),
+            ),
+    )
+    RipDpiTextField(
+        value = draft.relayCloudflareCredentialsRef,
+        onValueChange = actions.onRelayCloudflareCredentialsRefChanged,
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = stringResource(R.string.relay_cloudflare_credentials_reference_label),
+            ),
+    )
+    RipDpiConfigTextField(
+        value = draft.relayCloudflareTunnelToken,
+        onValueChange = actions.onRelayCloudflareTunnelTokenChanged,
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = stringResource(R.string.relay_cloudflare_tunnel_token_label),
+                helperText = stringResource(R.string.relay_cloudflare_tunnel_token_helper),
+            ),
+    )
+    RipDpiConfigTextField(
+        value = draft.relayCloudflareTunnelCredentialsJson,
+        onValueChange = actions.onRelayCloudflareTunnelCredentialsJsonChanged,
+        decoration =
+            RipDpiTextFieldDecoration(
+                label = stringResource(R.string.relay_cloudflare_named_tunnel_credentials_label),
+            ),
+        multiline = true,
+    )
+}

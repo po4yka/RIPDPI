@@ -3,13 +3,13 @@ package com.poyka.ripdpi.integration
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import com.poyka.ripdpi.activities.AndroidKeystoreConfigEditorDraftCipher
-import com.poyka.ripdpi.activities.ConfigDraft
-import com.poyka.ripdpi.activities.ConfigEditorDraftRecordKey
-import com.poyka.ripdpi.activities.ConfigEditorDraftRestoreResult
-import com.poyka.ripdpi.activities.ConfigEditorSession
-import com.poyka.ripdpi.activities.EncryptedConfigEditorDraftStore
-import com.poyka.ripdpi.activities.newConfigEditorRecoverySessionId
+import com.poyka.ripdpi.ui.screens.connection.AndroidKeystoreConfigEditorDraftCipher
+import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
+import com.poyka.ripdpi.ui.screens.connection.ConnectionEditorDraftRecordKey
+import com.poyka.ripdpi.ui.screens.connection.ConnectionEditorDraftRestoreResult
+import com.poyka.ripdpi.ui.screens.connection.ConnectionEditorSession
+import com.poyka.ripdpi.ui.screens.connection.EncryptedConfigEditorDraftStore
+import com.poyka.ripdpi.ui.screens.connection.newConfigEditorRecoverySessionId
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -30,10 +30,10 @@ class ConfigEditorDraftKeystoreInstrumentedTest {
                     Context.MODE_PRIVATE,
                 )
             val recoverySessionId = newConfigEditorRecoverySessionId()
-            val baseline = ConfigDraft()
+            val baseline = ConnectionDraft()
             val marker = "instrumented-recovery-marker"
             val session =
-                ConfigEditorSession(
+                ConnectionEditorSession(
                     presetId = "custom",
                     baselineDraft = baseline,
                     draft = baseline.copy(relayMasqueAuthToken = marker),
@@ -48,7 +48,7 @@ class ConfigEditorDraftKeystoreInstrumentedTest {
 
             firstStore.persist(recoverySessionId, session)
 
-            val encrypted = requireNotNull(preferences.getString(ConfigEditorDraftRecordKey, null))
+            val encrypted = requireNotNull(preferences.getString(ConnectionEditorDraftRecordKey, null))
             assertFalse(encrypted.contains(marker))
             assertFalse(encrypted.contains("recoverySessionId"))
             val recreatedStore =
@@ -58,10 +58,10 @@ class ConfigEditorDraftKeystoreInstrumentedTest {
                     currentTimeMillis = System::currentTimeMillis,
                 )
             val restored = recreatedStore.restore(recoverySessionId)
-            assertTrue(restored is ConfigEditorDraftRestoreResult.Restored)
+            assertTrue(restored is ConnectionEditorDraftRestoreResult.Restored)
             assertEquals(
                 marker,
-                (restored as ConfigEditorDraftRestoreResult.Restored).session.draft?.relayMasqueAuthToken,
+                (restored as ConnectionEditorDraftRestoreResult.Restored).session.draft?.relayMasqueAuthToken,
             )
 
             val tampered =
@@ -76,13 +76,13 @@ class ConfigEditorDraftKeystoreInstrumentedTest {
                         "A"
                     },
                 )
-            preferences.edit().putString(ConfigEditorDraftRecordKey, tampered).commit()
+            preferences.edit().putString(ConnectionEditorDraftRecordKey, tampered).commit()
 
             assertEquals(
-                ConfigEditorDraftRestoreResult.MissingOrInvalid,
+                ConnectionEditorDraftRestoreResult.MissingOrInvalid,
                 recreatedStore.restore(recoverySessionId),
             )
-            assertFalse(preferences.contains(ConfigEditorDraftRecordKey))
+            assertFalse(preferences.contains(ConnectionEditorDraftRecordKey))
             preferences.edit().clear().commit()
         }
     }

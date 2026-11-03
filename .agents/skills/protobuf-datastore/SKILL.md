@@ -18,7 +18,7 @@ RIPDPI persists all app settings as a single Protobuf message (`AppSettings`) st
 | `core/data/settings/src/main/kotlin/com/poyka/ripdpi/data/AppDataStore.kt` | DataStore extension property |
 | `core/engine/.../core/RipDpiProxyPreferences.kt` | Proto -> native preferences conversion |
 | `app/.../activities/SettingsViewModel.kt` | Proto -> UI state conversion |
-| `app/.../activities/ConfigViewModel.kt` | Config draft validation and persistence |
+| `app/.../ui/screens/connection/ConnectionViewModel.kt` | Config draft validation and persistence |
 
 ## Adding a New Setting
 
@@ -36,7 +36,7 @@ RIPDPI persists all app settings as a single Protobuf message (`AppSettings`) st
        .build()
    ```
 
-3. **Expose in UI state** (`SettingsUiState` or `ConfigDraft`):
+3. **Expose in UI state** (`SettingsUiState` or `ConnectionDraft`):
    ```kotlin
    data class SettingsUiState(
        // ... existing fields ...

@@ -73,8 +73,8 @@ timing/semantic note is called out explicitly.
 | `core/pcap-export/src/main/kotlin/com/poyka/ripdpi/pcap/PcapReader.kt:77` | `buildList` | `mutableListOf` loop → `buildList { … }.toPersistentList()` (inline, `?: break` legal) | trivial | none | low |
 | `app/src/main/kotlin/com/poyka/ripdpi/platform/LocalesConfig.kt:14` | `buildList` | `mutableListOf` + `add` loop → `buildList { … }` (try/finally moves inside) | trivial | low | low |
 | `app/src/main/kotlin/com/poyka/ripdpi/ui/components/RipDpiInteraction.kt:53` | `when` guard conditions | nested SDK `if` → `… if Build.VERSION.SDK_INT >= R ->` guard arm | small | low | low |
-| `app/src/test/kotlin/com/poyka/ripdpi/activities/ConfigViewModelTest.kt:631` | `Enum.entries` | `TransportRemediationKind.values()` → `.entries` (iteration) | trivial | none | low |
-| `app/src/test/kotlin/com/poyka/ripdpi/activities/ConfigViewModelTest.kt:634` | `Enum.entries` | `.values().size` → `.entries.size` (land with line 631) | trivial | none | low |
+| `app/src/test/kotlin/com/poyka/ripdpi/ui/screens/connection/ConnectionViewModelTest.kt:631` | `Enum.entries` | `TransportRemediationKind.values()` → `.entries` (iteration) | trivial | none | low |
+| `app/src/test/kotlin/com/poyka/ripdpi/ui/screens/connection/ConnectionViewModelTest.kt:634` | `Enum.entries` | `.values().size` → `.entries.size` (land with line 631) | trivial | none | low |
 | `build-logic/convention/src/main/kotlin/ripdpi.android.rust-native.gradle.kts:715` | smart-cast via local val | `buildError!!` → local-val capture before branch | trivial | none | low |
 | `app/src/main/kotlin/com/poyka/ripdpi/platform/AppPlatformDependencies.kt:79` | nullable types over `Optional` | `Optional<AutomationController>` + `.map/.orElseGet` → `AutomationController?` + `?./?:` (DI binding-shape change, ~4 consumers) | medium | med | low |
 

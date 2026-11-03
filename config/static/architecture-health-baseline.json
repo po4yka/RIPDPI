@@ -24,11 +24,11 @@
       "suggestion": "Use suppressions as a refactor marker and split the suppressed surface."
     },
     {
-      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-config-configscreen.kt:suppression",
+      "id": "complexity-suppression:app-src-main-kotlin-com-poyka-ripdpi-ui-screens-connection-connectionscreen.kt:suppression",
       "rule": "complexity-suppression",
       "priority": 3,
-      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/config/ConfigScreen.kt",
-      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/config/ConfigScreen.kt carries 1 complexity suppressions",
+      "path": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/connection/ConnectionScreen.kt",
+      "message": "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/connection/ConnectionScreen.kt carries 1 complexity suppressions",
       "metricName": "suppressionCount",
       "baselineValue": 1,
       "limit": 0,

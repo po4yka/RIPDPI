@@ -20,15 +20,15 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
-import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.OnboardingUiState
-import com.poyka.ripdpi.activities.buildConfigPresets
-import com.poyka.ripdpi.activities.toConfigDraft
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
-import com.poyka.ripdpi.ui.screens.config.ConfigModeSection
-import com.poyka.ripdpi.ui.screens.config.ConfigScreen
+import com.poyka.ripdpi.ui.screens.connection.ConnectionModeSection
+import com.poyka.ripdpi.ui.screens.connection.ConnectionScreen
+import com.poyka.ripdpi.ui.screens.connection.ConnectionUiState
+import com.poyka.ripdpi.ui.screens.connection.buildConfigPresets
+import com.poyka.ripdpi.ui.screens.connection.toConfigDraft
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreen
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingScreenActions
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -53,7 +53,7 @@ class UiStageOneInstrumentedTest {
         val state = mutableStateOf(configState().copy(runtimeError = "VPN permission required"))
         composeRule.setContent {
             RipDpiTheme {
-                ConfigScreen(
+                ConnectionScreen(
                     uiState = state.value,
                     onModeSelected = {},
                     onPresetSelected = {},
@@ -61,7 +61,7 @@ class UiStageOneInstrumentedTest {
                     onOpenConfigEditor = {},
                     onRetestStrategies = {},
                     onPasteServerLink = {},
-                    initialModeSection = ConfigModeSection.Vpn,
+                    initialModeSection = ConnectionModeSection.Vpn,
                 )
             }
         }
@@ -149,15 +149,15 @@ class UiStageOneInstrumentedTest {
         saveScreenshot("static-progress")
     }
 
-    private fun configState(): ConfigUiState {
+    private fun configState(): ConnectionUiState {
         val draft = AppSettingsSerializer.defaultValue.toConfigDraft()
-        return ConfigUiState(draft = draft, presets = buildConfigPresets(draft))
+        return ConnectionUiState(draft = draft, presets = buildConfigPresets(draft))
     }
 
-    private fun renderConfig(state: ConfigUiState) {
+    private fun renderConfig(state: ConnectionUiState) {
         composeRule.setContent {
             RipDpiTheme {
-                ConfigScreen(
+                ConnectionScreen(
                     uiState = state,
                     onModeSelected = {},
                     onPresetSelected = {},
@@ -165,7 +165,7 @@ class UiStageOneInstrumentedTest {
                     onOpenConfigEditor = {},
                     onRetestStrategies = {},
                     onPasteServerLink = {},
-                    initialModeSection = ConfigModeSection.Vpn,
+                    initialModeSection = ConnectionModeSection.Vpn,
                 )
             }
         }

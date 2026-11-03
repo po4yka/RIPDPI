@@ -4,8 +4,8 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onRoot
 import com.github.takahirom.roborazzi.captureRoboImage
-import com.poyka.ripdpi.ui.screens.config.ModeEditorHydrationFailureDialog
-import com.poyka.ripdpi.ui.screens.config.ModeEditorUnsavedChangesDialog
+import com.poyka.ripdpi.ui.screens.connection.ModeEditorHydrationFailureDialog
+import com.poyka.ripdpi.ui.screens.connection.ModeEditorUnsavedChangesDialog
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Rule

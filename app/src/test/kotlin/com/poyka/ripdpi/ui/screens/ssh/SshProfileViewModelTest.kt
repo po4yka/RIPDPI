@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.ssh
 
 import app.cash.turbine.test
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.ConfigRelayArtifactRepository
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.RelayCredentialRecord
@@ -18,6 +17,7 @@ import com.poyka.ripdpi.proxyimport.RelayProfileActivator
 import com.poyka.ripdpi.services.SshHostKeyObservation
 import com.poyka.ripdpi.services.SshHostKeyObservationFailure
 import com.poyka.ripdpi.services.SshHostKeyObserver
+import com.poyka.ripdpi.ui.screens.connection.ConnectionRelayArtifactRepository
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -65,7 +65,7 @@ class SshProfileViewModelTest {
                     settings,
                 ),
             ),
-            ConfigRelayArtifactRepository(
+            ConnectionRelayArtifactRepository(
                 settings,
                 profileStore,
                 credentialStore,

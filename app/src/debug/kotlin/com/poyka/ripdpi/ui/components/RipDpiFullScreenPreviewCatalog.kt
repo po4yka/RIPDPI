@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
-import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.DesyncCoreUiState
 import com.poyka.ripdpi.activities.DnsUiState
@@ -28,16 +27,17 @@ import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.activities.ProxyNetworkUiState
 import com.poyka.ripdpi.activities.StrategyPackCatalogUiState
 import com.poyka.ripdpi.activities.TlsPreludeUiState
-import com.poyka.ripdpi.activities.buildConfigPresets
-import com.poyka.ripdpi.activities.toConfigDraft
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.ui.screens.config.ConfigScreen
-import com.poyka.ripdpi.ui.screens.config.ModeEditorChainBlockEditor
-import com.poyka.ripdpi.ui.screens.config.NoOpModeEditorActions
+import com.poyka.ripdpi.ui.screens.connection.ConnectionScreen
+import com.poyka.ripdpi.ui.screens.connection.ConnectionUiState
+import com.poyka.ripdpi.ui.screens.connection.ModeEditorChainBlockEditor
+import com.poyka.ripdpi.ui.screens.connection.NoOpModeEditorActions
+import com.poyka.ripdpi.ui.screens.connection.buildConfigPresets
+import com.poyka.ripdpi.ui.screens.connection.toConfigDraft
 import com.poyka.ripdpi.ui.screens.customization.AboutScreen
 import com.poyka.ripdpi.ui.screens.customization.AppCustomizationScreen
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
@@ -105,9 +105,9 @@ internal fun RipDpiHomeErrorPreviewScene() {
 @Composable
 internal fun RipDpiConfigPreviewScene() {
     RipDpiTheme(themePreference = "light") {
-        ConfigScreen(
+        ConnectionScreen(
             uiState =
-                ConfigUiState(
+                ConnectionUiState(
                     activeMode = Mode.VPN,
                     presets = buildConfigPresets(AppSettingsSerializer.defaultValue.toConfigDraft()),
                     draft = AppSettingsSerializer.defaultValue.toConfigDraft(),
@@ -554,9 +554,9 @@ internal fun RipDpiDetectionCheckDarkPreviewScene() {
 @Composable
 internal fun RipDpiModeEditorPreviewScene() {
     val draft = AppSettingsSerializer.defaultValue.toConfigDraft()
-    com.poyka.ripdpi.ui.screens.config.ModeEditorScreenWithNoOpCallbacks(
+    com.poyka.ripdpi.ui.screens.connection.ModeEditorScreenWithNoOpCallbacks(
         uiState =
-            ConfigUiState(
+            ConnectionUiState(
                 activeMode = Mode.VPN,
                 presets = buildConfigPresets(draft),
                 draft = draft,
@@ -576,7 +576,7 @@ internal fun RipDpiModeEditorInvalidChainPreviewScene() {
         ) {
             ModeEditorChainBlockEditor(
                 draft = draft,
-                uiState = ConfigUiState(activeMode = Mode.VPN, presets = buildConfigPresets(draft), draft = draft),
+                uiState = ConnectionUiState(activeMode = Mode.VPN, presets = buildConfigPresets(draft), draft = draft),
                 actions = NoOpModeEditorActions,
             )
         }

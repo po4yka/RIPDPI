@@ -4,11 +4,11 @@ import androidx.annotation.StringRes
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.ConfigDraft
-import com.poyka.ripdpi.activities.ConfigRelayArtifactRepository
-import com.poyka.ripdpi.activities.RelayProfileNotFoundException
 import com.poyka.ripdpi.data.RelayKindMieru
 import com.poyka.ripdpi.proxyimport.RelayProfileActivator
+import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
+import com.poyka.ripdpi.ui.screens.connection.ConnectionRelayArtifactRepository
+import com.poyka.ripdpi.ui.screens.connection.RelayProfileNotFoundException
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.channels.Channel
@@ -57,14 +57,14 @@ class MieruProfileViewModel
     @Inject
     constructor(
         private val relayActivator: RelayProfileActivator,
-        private val relayArtifacts: ConfigRelayArtifactRepository,
+        private val relayArtifacts: ConnectionRelayArtifactRepository,
     ) : ViewModel() {
         private val _uiState = MutableStateFlow(MieruProfileUiState(editor = MieruProfileEditorState.initial()))
         val uiState: StateFlow<MieruProfileUiState> = _uiState.asStateFlow()
         private val savedEventChannel = Channel<Unit>(capacity = Channel.BUFFERED)
         val savedEvents: Flow<Unit> = savedEventChannel.receiveAsFlow()
         private var completed = false
-        private var editingDraft: ConfigDraft? = null
+        private var editingDraft: ConnectionDraft? = null
         private var requestedEditProfileId: String? = null
 
         fun loadProfile(profileId: String) {

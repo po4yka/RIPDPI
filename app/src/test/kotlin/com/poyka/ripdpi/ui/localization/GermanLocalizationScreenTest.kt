@@ -28,14 +28,14 @@ import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.ConfigDraft
-import com.poyka.ripdpi.activities.ConfigUiState
 import com.poyka.ripdpi.data.support.RestartPolicyAsk
 import com.poyka.ripdpi.data.support.SupportSettingsFieldChange
 import com.poyka.ripdpi.data.support.SupportSettingsPreview
 import com.poyka.ripdpi.data.support.SupportSettingsSensitivity
-import com.poyka.ripdpi.ui.screens.config.ModeEditorChainBlockEditor
-import com.poyka.ripdpi.ui.screens.config.NoOpModeEditorActions
+import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
+import com.poyka.ripdpi.ui.screens.connection.ConnectionUiState
+import com.poyka.ripdpi.ui.screens.connection.ModeEditorChainBlockEditor
+import com.poyka.ripdpi.ui.screens.connection.NoOpModeEditorActions
 import com.poyka.ripdpi.ui.screens.customization.AboutScreen
 import com.poyka.ripdpi.ui.screens.settings.DataTransparencyScreen
 import com.poyka.ripdpi.ui.screens.support.SupportSettingsScreen
@@ -171,10 +171,10 @@ class GermanLocalizationScreenTest {
         scale: Float,
         name: String,
     ) {
-        val draft = ConfigDraft(chainDsl = "not-a-chain(")
+        val draft = ConnectionDraft(chainDsl = "not-a-chain(")
         content(width, scale) {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                ModeEditorChainBlockEditor(draft, ConfigUiState(draft = draft), NoOpModeEditorActions)
+                ModeEditorChainBlockEditor(draft, ConnectionUiState(draft = draft), NoOpModeEditorActions)
             }
         }
         readable(R.string.config_chain_block_invalid_body)

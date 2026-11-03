@@ -1,14 +1,14 @@
 package com.poyka.ripdpi.ui.screenshot
 
 import androidx.compose.material3.SnackbarHostState
-import com.poyka.ripdpi.activities.ConfigPreset
-import com.poyka.ripdpi.activities.ConfigPresetKind
-import com.poyka.ripdpi.activities.ConfigUiState
-import com.poyka.ripdpi.activities.buildConfigPresets
-import com.poyka.ripdpi.activities.toConfigDraft
 import com.poyka.ripdpi.data.AppSettingsSerializer
-import com.poyka.ripdpi.ui.screens.config.ModeEditorScreen
-import com.poyka.ripdpi.ui.screens.config.NoOpModeEditorActions
+import com.poyka.ripdpi.ui.screens.connection.ConnectionPreset
+import com.poyka.ripdpi.ui.screens.connection.ConnectionPresetKind
+import com.poyka.ripdpi.ui.screens.connection.ConnectionUiState
+import com.poyka.ripdpi.ui.screens.connection.ModeEditorScreen
+import com.poyka.ripdpi.ui.screens.connection.NoOpModeEditorActions
+import com.poyka.ripdpi.ui.screens.connection.buildConfigPresets
+import com.poyka.ripdpi.ui.screens.connection.toConfigDraft
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -51,15 +51,15 @@ class ModeEditorScreenshotTest {
         }
     }
 
-    private fun modeEditorState(): ConfigUiState {
+    private fun modeEditorState(): ConnectionUiState {
         val draft = AppSettingsSerializer.defaultValue.toConfigDraft()
-        return ConfigUiState(
+        return ConnectionUiState(
             activeMode = draft.mode,
             presets = buildConfigPresets(draft),
             editingPreset =
-                ConfigPreset(
+                ConnectionPreset(
                     id = "custom",
-                    kind = ConfigPresetKind.Custom,
+                    kind = ConnectionPresetKind.Custom,
                     draft = draft,
                 ),
             draft = draft,
