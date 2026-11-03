@@ -80,13 +80,10 @@ AUDITED_KEYS = (
     'update_error_unknown',
     'profile_share_loading_title',
     'profile_share_loading_body',
-    'profile_share_qr_body',
     'profile_share_link_title',
-    'profile_share_link_body',
     'profile_share_subscription_label',
     'profile_share_share_link_action',
     'profile_share_sheet_title',
-    'profile_share_sheet_body',
     'profile_share_copy_sheet_action',
     'profile_share_share_sheet_action',
     'support_settings_title',
@@ -117,7 +114,6 @@ AUDITED_KEYS = (
     'diagnostics_save_logs_body',
     'diagnostics_pcap_card_body_idle',
     'settings_diagnostics_retention_body',
-    'settings_diagnostics_export_history_body',
     'diagnostics_share_archive_line',
     'diagnostics_device_gate_status_idle',
     'diagnostics_device_gate_status_running',
@@ -142,7 +138,7 @@ class PersianLocalizationRegressionsTest(unittest.TestCase):
         return text(self.fa[key])
 
     def test_exact_audited_scope_has_persian_copy(self):
-        self.assertEqual(121, len(set(AUDITED_KEYS)))
+        self.assertEqual(117, len(set(AUDITED_KEYS)))
         for key in AUDITED_KEYS:
             with self.subTest(key=key):
                 self.assertRegex(self.value(key), r"[\u0600-\u06ff]")

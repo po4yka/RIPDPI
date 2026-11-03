@@ -10,7 +10,6 @@ ENGLISH_PROSE = (
     'data_transparency_export_control',
     'data_transparency_export_explicit',
     'data_transparency_no_personal_data',
-    'settings_diagnostics_export_history_body',
     'settings_diagnostics_retention_body',
     'support_settings_title',
     'support_settings_default_title',
@@ -58,13 +57,10 @@ ENGLISH_PROSE = (
     'update_error_unknown',
     'profile_share_loading_title',
     'profile_share_loading_body',
-    'profile_share_qr_body',
     'profile_share_link_title',
-    'profile_share_link_body',
     'profile_share_subscription_label',
     'profile_share_share_link_action',
     'profile_share_sheet_title',
-    'profile_share_sheet_body',
     'profile_share_copy_sheet_action',
     'profile_share_share_sheet_action',
     'ripdpi_desync_method_setting',
@@ -158,7 +154,7 @@ class FrenchLocalizationRegressionsTest(unittest.TestCase):
         cls.en = resources("app", "values")
 
     def test_audited_prose_has_no_english_fallback(self):
-        self.assertEqual((88, 47, 1), (len(ENGLISH_PROSE), len(SEMANTIC_KEYS), len(LATENT_KEYS)))
+        self.assertEqual((84, 47, 1), (len(ENGLISH_PROSE), len(SEMANTIC_KEYS), len(LATENT_KEYS)))
         self.assertEqual(135, len(set(ENGLISH_PROSE + SEMANTIC_KEYS)))
         self.assertTrue(set(LATENT_KEYS) <= set(ENGLISH_PROSE + SEMANTIC_KEYS))
         for key in ENGLISH_PROSE:

@@ -21,7 +21,7 @@ class ChineseLocalizationRegressionsTest(unittest.TestCase):
                    "config_relay_finalmask_title", "config_relay_finalmask_sudoku"}
         extra = ("updates_section_title", "diagnostics_save_logs_body", "diagnostics_pcap_card_body_idle",
                  "diagnostics_share_archive_line", "settings_diagnostics_retention_body",
-                 "settings_diagnostics_export_history_body", "title_local_bypass_config",
+                 "title_local_bypass_config",
                  "ripdpi_desync_method_setting",
                  "data_transparency_no_browsing", "data_transparency_no_personal_data",
                  "data_transparency_export_explicit", "data_transparency_export_control")

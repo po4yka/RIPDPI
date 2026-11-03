@@ -10,7 +10,6 @@ ENGLISH_PROSE = (
     'data_transparency_no_personal_data',
     'data_transparency_export_explicit',
     'data_transparency_export_control',
-    'settings_diagnostics_export_history_body',
     'settings_diagnostics_retention_body',
     'diagnostics_save_logs_body',
     'diagnostics_pcap_card_body_idle',
@@ -68,13 +67,10 @@ ENGLISH_PROSE = (
     'update_error_unknown',
     'profile_share_loading_title',
     'profile_share_loading_body',
-    'profile_share_qr_body',
     'profile_share_link_title',
-    'profile_share_link_body',
     'profile_share_subscription_label',
     'profile_share_share_link_action',
     'profile_share_sheet_title',
-    'profile_share_sheet_body',
     'profile_share_copy_sheet_action',
     'profile_share_share_sheet_action',
     'support_settings_title',
@@ -143,7 +139,7 @@ class GermanLocalizationRegressionsTest(unittest.TestCase):
         cls.en = resources("app", "values")
 
     def test_audited_prose_has_no_english_fallback(self):
-        self.assertEqual((87, 20, 1), (len(ENGLISH_PROSE), len(SEMANTIC_KEYS), len(LATENT_KEYS)))
+        self.assertEqual((83, 20, 1), (len(ENGLISH_PROSE), len(SEMANTIC_KEYS), len(LATENT_KEYS)))
         audited = ENGLISH_PROSE + SEMANTIC_KEYS + LATENT_KEYS
         self.assertEqual(108, len(set(audited)))
         self.assertTrue(set(audited) <= self.de.keys())

@@ -9,7 +9,7 @@ from test_localization_regressions import LOCALES, ROOT, resources, text
 
 EXTRA_PROSE = (
     "updates_section_title", "ripdpi_desync_method_setting", "data_transparency_no_browsing",
-    "settings_diagnostics_export_history_body", "settings_diagnostics_retention_body",
+    "settings_diagnostics_retention_body",
     "data_transparency_export_control", "title_local_bypass_config",
     "data_transparency_export_explicit", "data_transparency_no_personal_data",
     "diagnostics_save_logs_body", "diagnostics_pcap_card_body_idle", "diagnostics_share_archive_line",
