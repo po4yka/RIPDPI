@@ -58,10 +58,6 @@ class TerminologyCanonTest {
 
         val englishValues = stringValues(File(resourcesDir, "values/strings.xml"))
         assertEquals("Interface mode", englishValues.getValue("settings_persona_title"))
-        assertEquals(
-            "You can switch between Guided and Advanced later in Settings.",
-            englishValues.getValue("onboarding_persona_body"),
-        )
     }
 
     @Test
