@@ -58,7 +58,11 @@ class SubscriptionImportKaspressoTest :
 
     private fun openSubscriptionStatus() {
         with(ConfigPage(composeRule)) {
+            // After a deep link the app sits on Status; subscription rows live in the Vpn section.
+            if (!exists(screenTag)) click(bottomNavConfig)
             awaitScreen()
+            click(vpnChip)
+            awaitSelected(vpnChip)
             click(RipDpiTestTags.ConfigSubscriptionStatus)
         }
         SubscriptionStatusPage(composeRule).awaitScreen()
