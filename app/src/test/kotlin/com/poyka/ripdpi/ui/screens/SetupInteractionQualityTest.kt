@@ -20,7 +20,6 @@ import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performScrollToKey
 import androidx.compose.ui.test.performTextReplacement
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.RememberedNetworksUiState
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.xray.XrayCapability
 import com.poyka.ripdpi.data.xray.XrayServiceModeOption
@@ -40,6 +39,7 @@ import com.poyka.ripdpi.ui.screens.routes.RuleEditorScreen
 import com.poyka.ripdpi.ui.screens.routes.RuleEditorUiState
 import com.poyka.ripdpi.ui.screens.routes.RuleRow
 import com.poyka.ripdpi.ui.screens.settings.RememberedNetworksScreen
+import com.poyka.ripdpi.ui.screens.settings.RememberedNetworksUiState
 import com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusScreen
 import com.poyka.ripdpi.ui.screens.subscription.SubscriptionStatusUiState
 import com.poyka.ripdpi.ui.screens.xray.XrayImportRestoreStatus

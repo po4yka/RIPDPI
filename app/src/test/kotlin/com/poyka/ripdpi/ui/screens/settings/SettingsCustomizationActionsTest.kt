@@ -1,6 +1,9 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.test.core.app.ApplicationProvider
+import com.poyka.ripdpi.activities.FakeAppSettingsRepository
+import com.poyka.ripdpi.activities.FakeLauncherIconController
+import com.poyka.ripdpi.activities.FakePinVerifier
 import com.poyka.ripdpi.platform.StartOnBootController
 import com.poyka.ripdpi.security.PinLockoutManager
 import com.poyka.ripdpi.ui.state.SettingsUiState

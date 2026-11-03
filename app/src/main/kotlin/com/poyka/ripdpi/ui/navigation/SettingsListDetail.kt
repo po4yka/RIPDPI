@@ -9,11 +9,11 @@ import androidx.navigation.NavDestination
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import com.poyka.ripdpi.activities.MainViewModel
-import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.components.navigation.rememberListDetailTwoPane
 import com.poyka.ripdpi.ui.screens.settings.LocalSelectedSettingsDetail
 import com.poyka.ripdpi.ui.screens.settings.SettingsRoute
+import com.poyka.ripdpi.ui.screens.settings.SettingsViewModel
 
 /** Settings destinations that open in the detail pane beside the Settings list on wide windows. */
 internal val settingsDetailRoutes: List<Route> =

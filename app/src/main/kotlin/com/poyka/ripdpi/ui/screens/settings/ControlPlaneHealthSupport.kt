@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.settings
 
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode

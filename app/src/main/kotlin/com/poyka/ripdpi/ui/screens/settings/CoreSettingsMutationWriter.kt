@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import com.poyka.ripdpi.activities.SettingsMutation
 import com.poyka.ripdpi.data.DefaultAppRoutingRussianPresetId
 import com.poyka.ripdpi.data.normalizeAppRoutingPolicyMode
 import com.poyka.ripdpi.data.normalizeDhtMitigationMode

@@ -1,5 +1,6 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.settings
 
+import com.poyka.ripdpi.activities.LauncherIconManager
 import com.poyka.ripdpi.data.DefaultAppRoutingRussianPresetId
 import com.poyka.ripdpi.platform.LauncherIconController
 import com.poyka.ripdpi.platform.StartOnBootController

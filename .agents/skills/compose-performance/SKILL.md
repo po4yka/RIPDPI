@@ -24,7 +24,7 @@ MutableState (SettingsUiModels: DesyncCoreUiState, ProxyNetworkUiState, etc.).
 
 - `ui/screens/diagnostics/state/DiagnosticsUiModels.kt` -- 60+ annotations, @Immutable for data,
   @Stable for models with callbacks.
-- `activities/SettingsUiModels.kt` -- @Stable on all section state holders.
+- `ui/screens/settings/SettingsUiModels.kt` -- @Stable on all section state holders.
 - `activities/HistoryUiModels.kt` -- @Immutable on all models (pure data).
 - `activities/MainViewModel.kt` -- @Immutable on sealed states.
 - `ui/theme/` -- @Immutable on all token classes.

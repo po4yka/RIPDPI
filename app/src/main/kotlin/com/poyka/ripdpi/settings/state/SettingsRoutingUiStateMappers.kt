@@ -1,11 +1,5 @@
 package com.poyka.ripdpi.settings.state
 
-import com.poyka.ripdpi.activities.HostAutolearnUiState
-import com.poyka.ripdpi.activities.RoutingProtectionDetectedAppUiState
-import com.poyka.ripdpi.activities.RoutingProtectionPresetUiState
-import com.poyka.ripdpi.activities.RoutingProtectionSuggestionUiState
-import com.poyka.ripdpi.activities.RoutingProtectionUiState
-import com.poyka.ripdpi.activities.WarpUiState
 import com.poyka.ripdpi.data.DhtMitigationModeOff
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
@@ -17,6 +11,12 @@ import com.poyka.ripdpi.data.normalizeHostAutolearnPenaltyTtlHours
 import com.poyka.ripdpi.data.toWarpSettingsModel
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RoutingProtectionCatalogSnapshot
+import com.poyka.ripdpi.ui.screens.settings.HostAutolearnUiState
+import com.poyka.ripdpi.ui.screens.settings.RoutingProtectionDetectedAppUiState
+import com.poyka.ripdpi.ui.screens.settings.RoutingProtectionPresetUiState
+import com.poyka.ripdpi.ui.screens.settings.RoutingProtectionSuggestionUiState
+import com.poyka.ripdpi.ui.screens.settings.RoutingProtectionUiState
+import com.poyka.ripdpi.ui.screens.settings.WarpUiState
 import kotlinx.collections.immutable.toImmutableList
 
 internal fun AppSettings.buildAutolearnUiState(

@@ -1,6 +1,11 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.datastore.core.DataStoreFactory
+import com.poyka.ripdpi.activities.FakeAppSettingsRepository
+import com.poyka.ripdpi.activities.FakeRunningServiceReconnect
+import com.poyka.ripdpi.activities.FakeServiceController
+import com.poyka.ripdpi.activities.FakeServiceStateStore
+import com.poyka.ripdpi.activities.OdohResolverFields
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus

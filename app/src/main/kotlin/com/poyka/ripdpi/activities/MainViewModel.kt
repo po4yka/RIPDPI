@@ -19,6 +19,7 @@ import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
 import com.poyka.ripdpi.subscription.subscriptionExpiryUiState
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
+import com.poyka.ripdpi.ui.screens.settings.StrategyConfigApplyResult
 import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsStateOwner
 import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 import com.poyka.ripdpi.ui.screens.status.StatusModeCardUiState

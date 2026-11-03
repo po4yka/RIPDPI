@@ -23,8 +23,6 @@ import androidx.core.graphics.Insets
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HostPackCatalogUiState
-import com.poyka.ripdpi.activities.StrategyPackCatalogUiState
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals

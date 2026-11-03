@@ -11,7 +11,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.StrategyPackCatalogUiState
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceDownloaded
 import com.poyka.ripdpi.platform.deviceIs24HourFormat
 import com.poyka.ripdpi.platform.formatLocalizedTimestamp

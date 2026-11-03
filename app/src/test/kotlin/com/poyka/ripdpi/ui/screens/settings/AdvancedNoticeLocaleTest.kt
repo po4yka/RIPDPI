@@ -12,8 +12,6 @@ import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.SettingsEffect
-import com.poyka.ripdpi.activities.SettingsNoticeTone
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
 import org.junit.Rule

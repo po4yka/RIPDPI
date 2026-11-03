@@ -14,9 +14,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.AdaptiveFakeTtlModeAdaptive
-import com.poyka.ripdpi.activities.AdaptiveFakeTtlModeCustom
-import com.poyka.ripdpi.activities.AdaptiveFakeTtlModeFixed
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard

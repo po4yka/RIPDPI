@@ -1,8 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.StrategyPackCatalogUiState
-import com.poyka.ripdpi.activities.StrategyPackHealthFailureCodeUiModel
 import com.poyka.ripdpi.data.StrategyPackCatalog
 import com.poyka.ripdpi.data.StrategyPackCatalogSourceDownloaded
 import com.poyka.ripdpi.data.StrategyPackRuntimeState

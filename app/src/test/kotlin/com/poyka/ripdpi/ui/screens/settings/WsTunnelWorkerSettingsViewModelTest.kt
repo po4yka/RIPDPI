@@ -2,7 +2,6 @@ package com.poyka.ripdpi.ui.screens.settings
 
 import app.cash.turbine.test
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.SettingsEffect
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.WsTunnelWorkerCredentialStore

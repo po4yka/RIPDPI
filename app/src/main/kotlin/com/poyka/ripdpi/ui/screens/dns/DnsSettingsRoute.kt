@@ -5,9 +5,9 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsProviderCloudflare
+import com.poyka.ripdpi.ui.screens.settings.SettingsViewModel
 
 @Composable
 fun DnsSettingsRoute(

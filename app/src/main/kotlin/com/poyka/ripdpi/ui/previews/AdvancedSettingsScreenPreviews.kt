@@ -2,19 +2,19 @@ package com.poyka.ripdpi.ui.previews
 
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.tooling.preview.Preview
-import com.poyka.ripdpi.activities.DesyncCoreUiState
-import com.poyka.ripdpi.activities.FakeTransportUiState
-import com.poyka.ripdpi.activities.HostAutolearnUiState
-import com.poyka.ripdpi.activities.HttpParserUiState
-import com.poyka.ripdpi.activities.ProxyNetworkUiState
-import com.poyka.ripdpi.activities.StrategyPackCatalogUiState
-import com.poyka.ripdpi.activities.TlsPreludeUiState
-import com.poyka.ripdpi.activities.WarpUiState
 import com.poyka.ripdpi.data.HostPackCatalogSourceDownloaded
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsActions
 import com.poyka.ripdpi.ui.screens.settings.AdvancedSettingsScreen
+import com.poyka.ripdpi.ui.screens.settings.DesyncCoreUiState
+import com.poyka.ripdpi.ui.screens.settings.FakeTransportUiState
+import com.poyka.ripdpi.ui.screens.settings.HostAutolearnUiState
+import com.poyka.ripdpi.ui.screens.settings.HttpParserUiState
+import com.poyka.ripdpi.ui.screens.settings.ProxyNetworkUiState
+import com.poyka.ripdpi.ui.screens.settings.StrategyPackCatalogUiState
 import com.poyka.ripdpi.ui.screens.settings.TlsPreludeModeDisabled
+import com.poyka.ripdpi.ui.screens.settings.TlsPreludeUiState
+import com.poyka.ripdpi.ui.screens.settings.WarpUiState
 import com.poyka.ripdpi.ui.screens.settings.previewHostPackCatalog
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme

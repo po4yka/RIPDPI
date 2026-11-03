@@ -1,6 +1,7 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.settings
 
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.message
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull

@@ -1,7 +1,5 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import com.poyka.ripdpi.activities.SettingsEffect
-import com.poyka.ripdpi.activities.SettingsMutation
 import com.poyka.ripdpi.ui.state.SettingsUiState
 
 internal fun mapNoticeEffect(effect: SettingsEffect.Notice): AdvancedNotice =

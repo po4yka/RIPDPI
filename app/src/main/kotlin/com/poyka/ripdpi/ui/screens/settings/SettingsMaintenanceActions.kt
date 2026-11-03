@@ -1,7 +1,8 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.settings
 
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.message
 import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus

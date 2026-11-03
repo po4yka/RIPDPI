@@ -1,8 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.RoutingProtectionPresetUiState
-import com.poyka.ripdpi.activities.RoutingProtectionSuggestionUiState
 import com.poyka.ripdpi.data.FailureClass
 import com.poyka.ripdpi.platform.StringResolver
 

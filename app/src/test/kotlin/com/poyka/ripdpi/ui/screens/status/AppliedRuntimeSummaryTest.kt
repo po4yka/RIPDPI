@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.status
 
 import com.poyka.ripdpi.activities.ConnectionRuntimeState
-import com.poyka.ripdpi.activities.HostPackCatalogUiState
 import com.poyka.ripdpi.activities.MainUiInputs
 import com.poyka.ripdpi.activities.PermissionRuntimeState
 import com.poyka.ripdpi.activities.buildAppliedConfigurationUiState
@@ -15,6 +14,7 @@ import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import com.poyka.ripdpi.data.RuntimeConfigurationStrategy
 import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
+import com.poyka.ripdpi.ui.screens.settings.HostPackCatalogUiState
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test

@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.ui.screenshot
 
-import com.poyka.ripdpi.activities.RememberedNetworksUiState
 import com.poyka.ripdpi.ui.screens.settings.RememberedNetworksScreen
+import com.poyka.ripdpi.ui.screens.settings.RememberedNetworksUiState
 import com.poyka.ripdpi.ui.screens.settings.rememberedNetworksPreviewEntries
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf

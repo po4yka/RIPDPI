@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import com.poyka.ripdpi.activities.SettingsMutation
 import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.normalizeActivationFilter
 import com.poyka.ripdpi.data.normalizePayloadSizeRange

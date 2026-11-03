@@ -22,8 +22,6 @@ import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DnsUiState
-import com.poyka.ripdpi.activities.SettingsEffect
-import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot
 import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState

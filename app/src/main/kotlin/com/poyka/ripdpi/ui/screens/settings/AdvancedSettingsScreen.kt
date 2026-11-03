@@ -6,8 +6,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
-import com.poyka.ripdpi.activities.HostPackCatalogUiState
-import com.poyka.ripdpi.activities.StrategyPackCatalogUiState
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.state.SettingsUiState
 

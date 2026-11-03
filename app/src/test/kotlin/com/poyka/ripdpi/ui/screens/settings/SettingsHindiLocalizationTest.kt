@@ -196,7 +196,7 @@ class SettingsHindiLocalizationTest {
 }
 
 private fun previewStrategyPackCatalogForLocaleTest() =
-    com.poyka.ripdpi.activities.StrategyPackCatalogUiState(
+    com.poyka.ripdpi.ui.screens.settings.StrategyPackCatalogUiState(
         runtimeState =
             com.poyka.ripdpi.data.StrategyPackRuntimeState(
                 snapshot =

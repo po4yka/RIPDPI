@@ -1,8 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HostPackCatalogUiState
-import com.poyka.ripdpi.activities.HostPackRefreshFailureCodeUiModel
 import com.poyka.ripdpi.data.ControlPlaneCacheDegradationCode
 import com.poyka.ripdpi.data.HostPackCatalog
 import com.poyka.ripdpi.data.HostPackCatalogSnapshot

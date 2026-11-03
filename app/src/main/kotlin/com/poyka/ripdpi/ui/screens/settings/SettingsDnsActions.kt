@@ -1,5 +1,7 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.settings
 
+import com.poyka.ripdpi.activities.OdohResolverFields
+import com.poyka.ripdpi.activities.isValid
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp

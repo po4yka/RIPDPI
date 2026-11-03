@@ -1,11 +1,5 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import com.poyka.ripdpi.activities.AdaptiveFakeTtlModeAdaptive
-import com.poyka.ripdpi.activities.AdaptiveFakeTtlModeCustom
-import com.poyka.ripdpi.activities.AdaptiveFakeTtlModeFixed
-import com.poyka.ripdpi.activities.AdaptiveSplitPresetCustom
-import com.poyka.ripdpi.activities.AdaptiveSplitPresetManual
-import com.poyka.ripdpi.activities.SettingsMutation
 import com.poyka.ripdpi.data.CanonicalDefaultSplitMarker
 import com.poyka.ripdpi.data.DefaultAdaptiveFakeTtlFallback
 import com.poyka.ripdpi.data.TcpChainStepKind

@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.compose.runtime.Immutable
 import kotlinx.collections.immutable.ImmutableList

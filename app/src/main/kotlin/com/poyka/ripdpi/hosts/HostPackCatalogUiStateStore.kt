@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.hosts
 
-import com.poyka.ripdpi.activities.HostPackCatalogUiState
-import com.poyka.ripdpi.activities.HostPackRefreshFailureCodeUiModel
+import com.poyka.ripdpi.ui.screens.settings.HostPackCatalogUiState
+import com.poyka.ripdpi.ui.screens.settings.HostPackRefreshFailureCodeUiModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow

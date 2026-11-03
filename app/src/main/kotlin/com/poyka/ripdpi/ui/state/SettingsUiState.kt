@@ -2,23 +2,23 @@ package com.poyka.ripdpi.ui.state
 
 import androidx.biometric.BiometricManager
 import androidx.compose.runtime.Stable
-import com.poyka.ripdpi.activities.AdaptiveFallbackUiState
-import com.poyka.ripdpi.activities.DesyncCoreUiState
-import com.poyka.ripdpi.activities.DetectionResistanceUiState
 import com.poyka.ripdpi.activities.DnsUiState
-import com.poyka.ripdpi.activities.FakeTransportUiState
-import com.poyka.ripdpi.activities.HostAutolearnUiState
-import com.poyka.ripdpi.activities.HttpParserUiState
 import com.poyka.ripdpi.activities.LauncherIconManager
-import com.poyka.ripdpi.activities.ProxyNetworkUiState
-import com.poyka.ripdpi.activities.QuicUiState
-import com.poyka.ripdpi.activities.RoutingProtectionUiState
-import com.poyka.ripdpi.activities.TlsPreludeUiState
-import com.poyka.ripdpi.activities.WarpUiState
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.ui.screens.settings.AdaptiveFallbackUiState
+import com.poyka.ripdpi.ui.screens.settings.DesyncCoreUiState
+import com.poyka.ripdpi.ui.screens.settings.DetectionResistanceUiState
+import com.poyka.ripdpi.ui.screens.settings.FakeTransportUiState
+import com.poyka.ripdpi.ui.screens.settings.HostAutolearnUiState
+import com.poyka.ripdpi.ui.screens.settings.HttpParserUiState
+import com.poyka.ripdpi.ui.screens.settings.ProxyNetworkUiState
+import com.poyka.ripdpi.ui.screens.settings.QuicUiState
+import com.poyka.ripdpi.ui.screens.settings.RoutingProtectionUiState
+import com.poyka.ripdpi.ui.screens.settings.TlsPreludeUiState
+import com.poyka.ripdpi.ui.screens.settings.WarpUiState
 
 @Stable
 data class SettingsUiState(

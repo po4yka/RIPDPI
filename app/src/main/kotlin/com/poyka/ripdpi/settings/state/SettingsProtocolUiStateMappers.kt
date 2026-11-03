@@ -1,9 +1,5 @@
 package com.poyka.ripdpi.settings.state
 
-import com.poyka.ripdpi.activities.AdaptiveFallbackUiState
-import com.poyka.ripdpi.activities.DetectionResistanceUiState
-import com.poyka.ripdpi.activities.HttpParserUiState
-import com.poyka.ripdpi.activities.QuicUiState
 import com.poyka.ripdpi.data.DefaultEntropyPaddingMax
 import com.poyka.ripdpi.data.DefaultEntropyPaddingTargetPermil
 import com.poyka.ripdpi.data.DefaultEvolutionCooldownAfterFailures
@@ -22,6 +18,10 @@ import com.poyka.ripdpi.data.entropyModeFromProto
 import com.poyka.ripdpi.data.normalizeTlsFingerprintProfile
 import com.poyka.ripdpi.data.toAdaptiveFallbackSettingsModel
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.ui.screens.settings.AdaptiveFallbackUiState
+import com.poyka.ripdpi.ui.screens.settings.DetectionResistanceUiState
+import com.poyka.ripdpi.ui.screens.settings.HttpParserUiState
+import com.poyka.ripdpi.ui.screens.settings.QuicUiState
 
 internal fun AppSettings.buildQuicUiState(): QuicUiState =
     QuicUiState(

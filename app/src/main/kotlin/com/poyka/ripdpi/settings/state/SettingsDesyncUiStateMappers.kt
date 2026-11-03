@@ -1,8 +1,5 @@
 package com.poyka.ripdpi.settings.state
 
-import com.poyka.ripdpi.activities.DesyncCoreUiState
-import com.poyka.ripdpi.activities.FakeTransportUiState
-import com.poyka.ripdpi.activities.TlsPreludeUiState
 import com.poyka.ripdpi.data.DefaultFakeSni
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.DefaultTlsRandRecMaxFragmentSize
@@ -33,6 +30,9 @@ import com.poyka.ripdpi.data.primaryTcpChainStep
 import com.poyka.ripdpi.data.tlsPreludeTcpChainStep
 import com.poyka.ripdpi.data.usesSeqOverlapFakeProfile
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.ui.screens.settings.DesyncCoreUiState
+import com.poyka.ripdpi.ui.screens.settings.FakeTransportUiState
+import com.poyka.ripdpi.ui.screens.settings.TlsPreludeUiState
 import kotlinx.collections.immutable.toImmutableList
 
 internal data class ChainAnalysisResult(

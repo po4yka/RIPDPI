@@ -14,7 +14,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HostPackCatalogUiState
 import com.poyka.ripdpi.data.HostPackApplyModeMerge
 import com.poyka.ripdpi.data.HostPackApplyModeReplace
 import com.poyka.ripdpi.data.HostPackCatalogSourceDownloaded

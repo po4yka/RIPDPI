@@ -3,8 +3,6 @@ package com.poyka.ripdpi.ui.screens.settings
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.SettingsEffect
-import com.poyka.ripdpi.activities.SettingsNoticeTone
 import com.poyka.ripdpi.data.SecretString
 import com.poyka.ripdpi.data.WsTunnelWorkerTransportProvisioner
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle

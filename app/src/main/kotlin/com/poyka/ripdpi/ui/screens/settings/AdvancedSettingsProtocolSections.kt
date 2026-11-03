@@ -1,8 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.compose.foundation.lazy.LazyListScope
-import com.poyka.ripdpi.activities.HostPackCatalogUiState
-import com.poyka.ripdpi.activities.StrategyPackCatalogUiState
 import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.ui.state.SettingsUiState
 

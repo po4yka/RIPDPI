@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.diagnostics.state
 
-import com.poyka.ripdpi.activities.toRememberedNetworkUiModel
 import com.poyka.ripdpi.diagnostics.DiagnosticContextModel
 import com.poyka.ripdpi.diagnostics.DiagnosticProfile
 import com.poyka.ripdpi.diagnostics.DiagnosticScanSession
@@ -10,6 +9,7 @@ import com.poyka.ripdpi.diagnostics.application.DiagnosticsScanLaunchOrigin
 import com.poyka.ripdpi.diagnostics.presentation.DiagnosticsSessionProjection
 import com.poyka.ripdpi.diagnostics.resolveLegalSafetyPolicy
 import com.poyka.ripdpi.ui.diagnostics.toStrategyProbeReportUiModel
+import com.poyka.ripdpi.ui.screens.settings.toRememberedNetworkUiModel
 import javax.inject.Inject
 
 private const val MaxOverviewWarnings = 3

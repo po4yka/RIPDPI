@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RunningReconnectResult
 import com.poyka.ripdpi.services.RunningServiceReconnect
+import com.poyka.ripdpi.ui.screens.settings.StrategyConfigApplyResult
 import com.poyka.ripdpi.ui.screens.status.hasUnsupportedVpnDoq
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job

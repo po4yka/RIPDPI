@@ -1,8 +1,11 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.settings
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.activities.OdohResolverFields
+import com.poyka.ripdpi.activities.message
+import com.poyka.ripdpi.activities.messageResource
 import com.poyka.ripdpi.data.HostPackPreset
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.xray.XrayProviderSnapshot

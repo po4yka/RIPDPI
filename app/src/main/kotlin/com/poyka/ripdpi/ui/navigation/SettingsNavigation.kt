@@ -9,7 +9,6 @@ import androidx.navigation.compose.navigation
 import androidx.navigation.navDeepLink
 import androidx.navigation.toRoute
 import com.poyka.ripdpi.activities.MainViewModel
-import com.poyka.ripdpi.activities.SettingsViewModel
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.ui.components.navigation.LocalShownBesideList
 import com.poyka.ripdpi.ui.screens.blockcheck.BlockcheckRoute
@@ -32,6 +31,7 @@ import com.poyka.ripdpi.ui.screens.settings.DomainBypassListRoute
 import com.poyka.ripdpi.ui.screens.settings.RememberedNetworksRoute
 import com.poyka.ripdpi.ui.screens.settings.RootModeStrategiesRoute
 import com.poyka.ripdpi.ui.screens.settings.SettingsDetailPlaceholder
+import com.poyka.ripdpi.ui.screens.settings.SettingsViewModel
 import com.poyka.ripdpi.ui.screens.settings.SplitTunnelRoute
 import com.poyka.ripdpi.ui.screens.settings.StrategyConfigRoute
 import java.io.File

@@ -25,10 +25,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.RememberedNetworkStatusTone
-import com.poyka.ripdpi.activities.RememberedNetworkUiModel
-import com.poyka.ripdpi.activities.RememberedNetworksUiState
-import com.poyka.ripdpi.activities.RememberedNetworksViewModel
 import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.platform.deviceIs24HourFormat
 import com.poyka.ripdpi.ui.components.RipDpiControlDensity

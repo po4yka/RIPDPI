@@ -53,6 +53,7 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRemediationActionKindUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.label
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
+import com.poyka.ripdpi.ui.screens.settings.StrategyConfigApplyResult
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStage
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStageState
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus

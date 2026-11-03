@@ -13,7 +13,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.DnsUiState
 import com.poyka.ripdpi.activities.OdohResolverFields
-import com.poyka.ripdpi.activities.SettingsEffect
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCloudflare
@@ -26,6 +25,7 @@ import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScaffoldWidth
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.settings.ScrollToNewNotice
+import com.poyka.ripdpi.ui.screens.settings.SettingsEffect
 import com.poyka.ripdpi.ui.screens.settings.SettingsNoticeBanner
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags

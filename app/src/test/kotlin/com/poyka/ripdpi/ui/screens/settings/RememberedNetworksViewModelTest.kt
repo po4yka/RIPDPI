@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.settings
 
 import app.cash.turbine.test
 import com.poyka.ripdpi.data.NetworkFingerprintSummary

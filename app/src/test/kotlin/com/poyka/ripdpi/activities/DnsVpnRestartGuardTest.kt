@@ -7,6 +7,7 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
 import com.poyka.ripdpi.ui.screens.connection.applySavedConfigDraftToRunningService
+import com.poyka.ripdpi.ui.screens.settings.StrategyConfigApplyResult
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.runCurrent

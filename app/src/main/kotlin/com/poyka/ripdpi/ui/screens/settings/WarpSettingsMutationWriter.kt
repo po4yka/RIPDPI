@@ -1,6 +1,5 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import com.poyka.ripdpi.activities.SettingsMutation
 import com.poyka.ripdpi.data.WarpAmneziaPresetCustom
 import com.poyka.ripdpi.data.WarpAmneziaPresetOff
 import com.poyka.ripdpi.data.WarpAmneziaSettings

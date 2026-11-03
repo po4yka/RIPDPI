@@ -18,8 +18,6 @@ import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.AdaptiveSplitPresetCustom
-import com.poyka.ripdpi.activities.AdaptiveSplitPresetManual
 import com.poyka.ripdpi.data.AdaptiveMarkerBalanced
 import com.poyka.ripdpi.data.AdaptiveMarkerEndHost
 import com.poyka.ripdpi.data.AdaptiveMarkerHost

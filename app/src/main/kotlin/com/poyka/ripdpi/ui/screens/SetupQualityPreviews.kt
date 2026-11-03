@@ -8,7 +8,6 @@ import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.LayoutDirection
-import com.poyka.ripdpi.activities.RememberedNetworksUiState
 import com.poyka.ripdpi.ui.screens.anytls.AnyTlsEditorField
 import com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileEditorState
 import com.poyka.ripdpi.ui.screens.anytls.AnyTlsProfileScreen
@@ -18,6 +17,7 @@ import com.poyka.ripdpi.ui.screens.routes.RuleEditorPersistenceActions
 import com.poyka.ripdpi.ui.screens.routes.RuleEditorScreen
 import com.poyka.ripdpi.ui.screens.routes.RuleEditorUiState
 import com.poyka.ripdpi.ui.screens.settings.RememberedNetworksScreen
+import com.poyka.ripdpi.ui.screens.settings.RememberedNetworksUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 
 @Preview(name = "Light compact", widthDp = 320, heightDp = 640, showBackground = true)

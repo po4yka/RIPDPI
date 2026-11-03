@@ -1,12 +1,6 @@
 package com.poyka.ripdpi.ui.screens.settings
 
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.AdaptiveFakeTtlModeAdaptive
-import com.poyka.ripdpi.activities.DesyncCoreUiState
-import com.poyka.ripdpi.activities.FakeTransportUiState
-import com.poyka.ripdpi.activities.SettingsEffect
-import com.poyka.ripdpi.activities.SettingsMutation
-import com.poyka.ripdpi.activities.SettingsNoticeTone
 import com.poyka.ripdpi.data.AdaptiveMarkerBalanced
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.CanonicalDefaultSplitMarker

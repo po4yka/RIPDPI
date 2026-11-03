@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.EncryptedDnsOdohConfigSourceCustomBytes
+import com.poyka.ripdpi.ui.screens.settings.ValidOdohConfigsHex
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test

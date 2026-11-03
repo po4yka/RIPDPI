@@ -1,5 +1,6 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.settings
 
+import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.InMemoryStrategyPackStateStore
