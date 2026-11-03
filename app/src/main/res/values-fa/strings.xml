@@ -24,7 +24,6 @@
     <string name="onboarding_persona_advanced_body">همه ابزارهای تشخیص، نمایه‌ها و تنظیمات سطح پایین را نمایش می‌دهد.</string>
     <string name="settings_logs_body">جریان زنده گزارش‌های برنامه، سرویس و تشخیص را باز کنید.</string>
     <string name="settings_detail_placeholder">یک تنظیم را انتخاب کنید تا اینجا باز شود.</string>
-    <string name="settings_subscription_failover_body">سرور اشتراک فعال و جابه‌جایی‌های خودکار اخیر را ببینید.</string>
     <string name="diagnostics_open_logs_body">جریان زنده گزارش‌ها را با فیلترهای سرویس، پروکسی، تونل و تشخیص باز کنید.</string>
     <string name="diagnostics_title">تشخیص</string>
     <string name="title_connection_health">سلامت اتصال</string>
@@ -1662,7 +1661,6 @@ fakeddisorder endhost</string>
     <string name="settings_biometric_pin_required_ok">باشد</string>
     <string name="settings_biometric_unavailable">سخت‌افزار بیومتریک روی این دستگاه در دسترس نیست.</string>
     <string name="settings_community_api_url_label">URL API جامعه</string>
-    <string name="settings_connectivity_dns_body_proxy">DNS رمزگذاری‌شده می‌تواند نام‌های مقصد پروکسی محلی را حل کند. DNS دستگاه تغییر نمی‌کند.</string>
     <string name="settings_customization_body">آیکن برنامه، شکل تطبیقی و گزینه‌های آیکن تم‌دار.</string>
     <string name="settings_exclude_russian_apps_body">برنامه‌های بانکی، تحویل و دولتی برای جلوگیری از مشکلات شناسایی، VPN را دور می‌زنند.</string>
     <string name="settings_manage_action">مدیریت</string>
@@ -1684,7 +1682,6 @@ fakeddisorder endhost</string>
     <string name="settings_vpn_flag_warning_title">پرچم VPN قابل‌مشاهده است</string>
     <string name="settings_webrtc_body">نشت‌های کشف peer که می‌توانند تونل محلی را دور بزنند کاهش دهید.</string>
     <string name="settings_start_on_boot_title">اجرا هنگام روشن شدن</string>
-    <string name="settings_start_on_boot_body">پس از راه‌اندازی مجدد دستگاه، آخرین حالت فعال را به‌طور خودکار دوباره وصل می‌کند.</string>
     <string name="settings_start_on_boot_battery_warning">بهینه‌سازی باتری هنوز فعال است. تا زمانی که RIPDPI را از بهینه‌سازی باتری مستثنا نکنید، ممکن است اندروید اجازه ندهد هنگام روشن شدن اجرا شود.</string>
     <string name="shortcut_diagnostics_short">تشخیص</string>
     <string name="shortcut_quick_connect_short">اتصال</string>
@@ -2077,7 +2074,6 @@ fakeddisorder endhost</string>
     <string name="settings_biometric_pin_required_title">PIN پشتیبان لازم است</string>
     <string name="settings_clear_community_cache">پاک کردن کش اجتماع</string>
     <string name="settings_community_api_url_reset">بازنشانی به پیش‌فرض</string>
-    <string name="settings_connectivity_dns_body">حالت حل‌کننده، پروتکل، IPv6 و رفتار DNS تونل محلی.</string>
     <string name="settings_exclude_russian_apps_title">مستثنا کردن برنامه‌های روسی</string>
     <string name="settings_full_tunnel_helper">وقتی فعال است، تمام ترافیک از تونل عبور می‌کند. استثناهای برنامه‌ها در این حالت غیرفعال هستند.</string>
     <string name="settings_permission_action_allow">اجازه دادن</string>
@@ -2558,7 +2554,6 @@ fakeddisorder endhost</string>
 
     <!-- Language picker -->
     <string name="settings_language_title">زبان</string>
-    <string name="settings_language_body">زبان مورد استفادهٔ برنامهٔ RIPDPI را انتخاب کنید</string>
     <string name="language_picker_sheet_title">انتخاب زبان</string>
     <string name="language_picker_system_language">زبان سیستم</string>
     <string name="language_picker_native_format">%1$s</string>
@@ -3779,7 +3774,6 @@ fakeddisorder endhost</string>
         <item quantity="other">%d اشتراک نیاز به بررسی دارند. رله‌های ذخیره‌شده ممکن است قدیمی باشند.</item>
     </plurals>
 +    <string name="subscription_status_title">وضعیت اشتراک‌ها</string>
-    <string name="settings_subscription_status_body">انقضا، به‌روزرسانی و نمایه‌های واردشده را بررسی کنید.</string>
     <string name="subscription_status_empty_title">اشتراکی وجود ندارد</string>
     <string name="subscription_status_empty_body">جزئیات اشتراک‌های واردشده اینجا نمایش داده می‌شود.</string>
     <string name="subscription_status_reveal_secrets">نمایش اطلاعات محرمانه اشتراک</string>

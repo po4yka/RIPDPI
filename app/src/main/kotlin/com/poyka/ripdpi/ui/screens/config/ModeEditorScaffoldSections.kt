@@ -51,7 +51,6 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextField
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
-import com.poyka.ripdpi.ui.screens.dns.dnsSettingsRowSubtitle
 import com.poyka.ripdpi.ui.screens.dns.localizedDnsSummary
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
@@ -262,7 +261,6 @@ private fun ModeEditorNetworkSection(
         RipDpiCard {
             SettingsRow(
                 title = stringResource(R.string.title_dns_settings),
-                subtitle = dnsSettingsRowSubtitle(vpn = draft.mode == Mode.VPN),
                 value = draft.localizedDnsSummary(),
                 leadingIcon = RipDpiIcons.Dns,
             )

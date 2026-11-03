@@ -425,7 +425,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="settings_telemetry_salt_reset_action">Telemetrie-Salt zurücksetzen</string>
     <string name="settings_webrtc_body">Reduziert Peer-Discovery-Leaks, die den lokalen Tunnel umgehen können.</string>
     <string name="settings_start_on_boot_title">Beim Hochfahren starten</string>
-    <string name="settings_start_on_boot_body">Stellt den zuletzt aktiven Modus nach einem Neustart des Geräts automatisch wieder her.</string>
     <string name="settings_start_on_boot_battery_warning">Die Akkuoptimierung ist weiterhin aktiv. Android kann verhindern, dass RIPDPI beim Hochfahren startet, bis Sie es von der Akkuoptimierung ausnehmen.</string>
     <string name="shortcut_quick_connect">Schnellverbindung</string>
     <string name="splash_subtitle">Lokales Konnektivitätstool</string>
@@ -957,7 +956,6 @@ fakeddisorder endhost</string>
     <string name="settings_biometric_confirm_cancel">Abbrechen</string>
     <string name="settings_biometric_pin_required_message">Legen Sie eine Backup-PIN fest, bevor Sie die biometrische Entsperrung aktivieren. Die PIN bietet Fallback-Zugriff, falls die biometrische Authentifizierung nicht mehr verfügbar ist.</string>
     <string name="settings_clear_community_cache">Community-Cache leeren</string>
-    <string name="settings_connectivity_dns_body">Resolver-Modus, Protokoll, IPv6 und lokales Tunnel-DNS-Verhalten.</string>
     <string name="settings_data_transparency_body">Was auf diesem Gerät gespeichert wird, wie lange und wann es das Gerät verlässt.</string>
     <string name="settings_diagnostics_monitor_title">Laufzeit-Diagnoseverlauf aufzeichnen</string>
     <string name="settings_exclude_russian_apps_body">Banking-, Liefer- und Behörden-Apps umgehen das VPN, um Erkennungsprobleme zu vermeiden.</string>
@@ -1442,11 +1440,9 @@ Quelle: %2$s</string>
     <string name="settings_biometric_confirm_enable">Aktivieren</string>
     <string name="settings_biometric_pin_required_ok">OK</string>
     <string name="settings_community_api_url_helper">Leer lassen, um nur mit den eigenen Prüfungen zu vergleichen.</string>
-    <string name="settings_connectivity_dns_body_proxy">Verschlüsseltes DNS kann Zielnamen des lokalen Proxys auflösen. Geräte-DNS bleibt unverändert.</string>
     <string name="settings_diagnostics_export_history_body">Gespeicherte Verlaufstabellen hinzufügen, wenn Sie ausdrücklich ein Diagnosearchiv zum Teilen oder für den lokalen Export erstellen.</string>
     <string name="settings_diagnostics_retention_body">Wie lange gespeicherte Verbindungssitzungen, Messwerte, Diagnoseberichte und Exportdatensätze im App-Speicher bleiben, bevor die Bereinigung sie löscht. Archive oder Protokolldateien, die Sie an anderer Stelle speichern, bleiben dort, bis Sie sie löschen.</string>
     <string name="settings_exclude_russian_apps_title">Russische Apps ausschließen</string>
-    <string name="settings_language_body">Wählen Sie die von der RIPDPI-App verwendete Sprache</string>
     <string name="settings_permission_action_review">Prüfen</string>
     <string name="settings_permission_status_required">Erforderlich</string>
     <string name="settings_permissions_section">Berechtigungen</string>
@@ -1811,7 +1807,6 @@ Quelle: %2$s</string>
     <string name="onboarding_persona_advanced_body">Zeigt alle Diagnosen, Profile und Low-Level-Einstellungen an.</string>
     <string name="settings_logs_body">Öffnet den Live-Protokollstrom für App, Dienst und Diagnose.</string>
     <string name="settings_detail_placeholder">Wähle eine Einstellung, um sie hier zu öffnen.</string>
-    <string name="settings_subscription_failover_body">Zeigt den aktiven Abonnementserver und die letzten automatischen Serverwechsel an.</string>
     <string name="diagnostics_open_logs_body">Öffnet den Live-Protokollstrom mit Filtern für Dienst, Proxy, Tunnel und Diagnose.</string>
     <string name="logs_buffer_title">Puffer</string>
     <string name="logs_entries_count">Einträge: %1$d</string>
@@ -3774,7 +3769,6 @@ Quelle: %2$s</string>
         <item quantity="other">%d Abonnements erfordern Aufmerksamkeit. Gespeicherte Relays könnten veraltet sein.</item>
     </plurals>
 +    <string name="subscription_status_title">Abonnementstatus</string>
-    <string name="settings_subscription_status_body">Ablauf, Aktualisierung und importierte Profile prüfen.</string>
     <string name="subscription_status_empty_title">Keine Abonnements</string>
     <string name="subscription_status_empty_body">Importierte Abonnementdetails werden hier angezeigt.</string>
     <string name="subscription_status_reveal_secrets">Abonnementgeheimnisse anzeigen</string>

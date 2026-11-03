@@ -254,10 +254,7 @@ class ConfigScreenTest {
             .assertContentDescription("Bypass strategy")
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
-            .assertContentDescription(
-                "DNS settings, " +
-                    RuntimeEnvironment.getApplication().getString(R.string.settings_connectivity_dns_body),
-            )
+            .assertContentDescription("DNS settings")
     }
 
     @Test
@@ -296,10 +293,10 @@ class ConfigScreenTest {
     @Test
     fun `talkback reads the subtitle of a cleared settings row`() {
         setConfigScreen(initialModeSection = ConfigModeSection.Vpn, uiPersona = "advanced")
-        val subtitle = RuntimeEnvironment.getApplication().getString(R.string.settings_connectivity_dns_body)
+        val subtitle = RuntimeEnvironment.getApplication().getString(R.string.config_vpn_relay_server_summary)
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
+            .onNodeWithTag(RipDpiTestTags.ConfigVpnRelay)
             .assert(hasContentDescription(subtitle, substring = true))
     }
 

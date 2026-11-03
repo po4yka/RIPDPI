@@ -25,7 +25,6 @@
     <string name="onboarding_persona_advanced_body">सभी जाँच, प्रोफ़ाइल और निम्न-स्तरीय सेटिंग्स दिखाएँ।</string>
     <string name="settings_logs_body">लाइव ऐप, सेवा और जाँच लॉग स्ट्रीम खोलें।</string>
     <string name="settings_detail_placeholder">यहाँ खोलने के लिए कोई सेटिंग चुनें।</string>
-    <string name="settings_subscription_failover_body">देखें कि कौन-सा सदस्यता सर्वर सक्रिय है और हाल के स्वचालित स्विचओवर।</string>
     <string name="diagnostics_open_logs_body">सेवा, प्रॉक्सी, टनल और जाँच प्रविष्टियों के फ़िल्टर के साथ लाइव लॉग स्ट्रीम खोलें।</string>
     <string name="diagnostics_title">जाँच</string>
     <string name="title_connection_health">कनेक्शन स्वास्थ्य</string>
@@ -1726,7 +1725,6 @@ fakeddisorder endhost</string>
     </plurals>
 +    <!-- Subscription expiry -->
     <string name="subscription_status_title">सदस्यता की स्थिति</string>
-    <string name="settings_subscription_status_body">सदस्यता की समाप्ति, रीफ़्रेश स्थिति और आयातित प्रोफ़ाइल देखें।</string>
     <string name="subscription_status_empty_title">कोई सदस्यता नहीं</string>
     <string name="subscription_status_empty_body">आयातित सदस्यता का विवरण यहाँ दिखाई देगा।</string>
     <string name="subscription_status_reveal_secrets">सदस्यता के गुप्त मान दिखाएँ</string>

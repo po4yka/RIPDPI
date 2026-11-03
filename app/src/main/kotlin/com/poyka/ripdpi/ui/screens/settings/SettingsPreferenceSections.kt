@@ -44,7 +44,6 @@ import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldBehavior
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTextFieldDecoration
 import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.navigation.Route
-import com.poyka.ripdpi.ui.screens.dns.dnsSettingsRowSubtitle
 import com.poyka.ripdpi.ui.screens.dns.localizedSummary
 import com.poyka.ripdpi.ui.state.SettingsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -64,7 +63,6 @@ internal fun SettingsConnectivitySection(
         SettingsSection(title = stringResource(R.string.settings_connectivity_section)) {
             SettingsRow(
                 title = stringResource(R.string.title_dns_settings),
-                subtitle = dnsSettingsRowSubtitle(vpn = uiState.isVpn),
                 value = uiState.dns.localizedSummary(),
                 onClick = actions.onOpenDnsSettings,
                 variant = settingsDetailVariant(Route.DnsSettings),
@@ -73,7 +71,6 @@ internal fun SettingsConnectivitySection(
             )
             SettingsRow(
                 title = stringResource(R.string.subscription_status_title),
-                subtitle = stringResource(R.string.settings_subscription_status_body),
                 showChevron = true,
                 onClick = actions.onOpenSubscriptionStatus,
                 variant = settingsDetailVariant(Route.SubscriptionStatus),
@@ -82,7 +79,6 @@ internal fun SettingsConnectivitySection(
             )
             SettingsRow(
                 title = stringResource(R.string.profile_utility_title),
-                subtitle = stringResource(R.string.settings_profiles_body),
                 showChevron = true,
                 onClick = actions.onOpenProfileUtility,
                 variant = settingsDetailVariant(Route.ProfileUtility),
@@ -91,7 +87,6 @@ internal fun SettingsConnectivitySection(
             )
             SettingsRow(
                 title = stringResource(R.string.title_subscription_failover),
-                subtitle = stringResource(R.string.settings_subscription_failover_body),
                 showChevron = true,
                 onClick = actions.onOpenSubscriptionFailover,
                 variant = settingsDetailVariant(Route.SubscriptionFailover),
@@ -100,7 +95,6 @@ internal fun SettingsConnectivitySection(
             )
             SettingsRow(
                 title = stringResource(R.string.settings_start_on_boot_title),
-                subtitle = stringResource(R.string.settings_start_on_boot_body),
                 checked = uiState.startOnBootEnabled,
                 onCheckedChange = actions.onStartOnBootChanged,
                 testTag = RipDpiTestTags.SettingsStartOnBoot,

@@ -26,7 +26,6 @@
     <string name="onboarding_persona_advanced_body">عرض كل أدوات التشخيص والملفات الشخصية والإعدادات منخفضة المستوى.</string>
     <string name="settings_logs_body">افتح بث السجلات الحي للتطبيق والخدمة والتشخيص.</string>
     <string name="settings_detail_placeholder">اختر إعدادًا لفتحه هنا.</string>
-    <string name="settings_subscription_failover_body">اعرف خادم الاشتراك النشط وعمليات التبديل التلقائي الأخيرة.</string>
     <string name="diagnostics_open_logs_body">افتح بث السجلات الحي مع فلاتر للخدمة والوكيل والنفق والتشخيص.</string>
     <string name="diagnostics_title">التشخيصات</string>
     <string name="title_connection_health">صحة الاتصال</string>
@@ -1896,14 +1895,11 @@ fakeddisorder endhost</string>
     <string name="settings_permissions_always_on_ready">تم ضبط Android لإبقاء RIPDPI محدداً كـ VPN دائم التشغيل.</string>
     <string name="settings_permissions_always_on_needed">فعّل VPN دائم التشغيل لـ RIPDPI في إعدادات VPN بنظام Android عند الحاجة إلى منع التسريب بشكل صارم.</string>
     <string name="settings_permissions_always_on_unknown">لم يُبلّغ Android عن حالة VPN دائم التشغيل بعد. افتح إعدادات VPN للتحقق.</string>
-    <string name="settings_connectivity_dns_body">وضع المحلل، البروتوكول، IPv6، وسلوك DNS النفق المحلي.</string>
-    <string name="settings_connectivity_dns_body_proxy">يمكن أن يحل DNS المشفّر أسماء أهداف الوكيل المحلي. يظل DNS الجهاز دون تغيير.</string>
     <string name="settings_advanced_body">أعلام RIPDPI المتقدمة، مستمعو الوكيل، وتجاوزات البروتوكول</string>
     <string name="settings_security_section">الخصوصية</string>
     <string name="settings_webrtc_title">حماية WebRTC</string>
     <string name="settings_webrtc_body">تقليل تسريبات اكتشاف النظير التي قد تتجاوز النفق المحلي.</string>
     <string name="settings_start_on_boot_title">التشغيل عند الإقلاع</string>
-    <string name="settings_start_on_boot_body">إعادة الاتصال بآخر وضع نشط تلقائياً بعد إعادة تشغيل الجهاز.</string>
     <string name="settings_start_on_boot_battery_warning">تحسين البطارية لا يزال نشطاً. قد يمنع Android بدء تشغيل RIPDPI عند الإقلاع حتى تُعفيه من تحسين البطارية.</string>
     <string name="settings_exclude_russian_apps_title">استثناء التطبيقات الروسية</string>
     <string name="settings_exclude_russian_apps_body">تتجاوز تطبيقات البنوك والتوصيل والحكومة الـ VPN لتجنب مشاكل الكشف.</string>
@@ -2511,7 +2507,6 @@ fakeddisorder endhost</string>
     <string name="semantic_action_expand">توسيع</string>
     <string name="semantic_action_collapse">طي</string>
     <string name="settings_language_title">اللغة</string>
-    <string name="settings_language_body">اختر اللغة المستخدمة في تطبيق RIPDPI</string>
     <string name="language_picker_sheet_title">اختر لغة</string>
     <string name="language_picker_system_language">لغة النظام</string>
     <string name="language_picker_native_format">%1$s</string>
@@ -3802,7 +3797,6 @@ fakeddisorder endhost</string>
         <item quantity="other">%d اشتراك يحتاج إلى انتباه. قد تكون المرحّلات المحفوظة قديمة.</item>
     </plurals>
 +    <string name="subscription_status_title">حالة الاشتراكات</string>
-    <string name="settings_subscription_status_body">راجع انتهاء الصلاحية والتحديث والملفات المستوردة.</string>
     <string name="subscription_status_empty_title">لا توجد اشتراكات</string>
     <string name="subscription_status_empty_body">ستظهر تفاصيل الاشتراكات المستوردة هنا.</string>
     <string name="subscription_status_reveal_secrets">إظهار أسرار الاشتراك</string>

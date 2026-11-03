@@ -26,7 +26,6 @@
     <string name="onboarding_persona_advanced_body">Show all diagnostics, profiles, and low-level settings.</string>
     <string name="settings_logs_body">Open the live app, service, and diagnostics log stream.</string>
     <string name="settings_detail_placeholder">Select a setting to open it here.</string>
-    <string name="settings_subscription_failover_body">See which subscription server is active and recent automatic switchovers.</string>
     <string name="diagnostics_open_logs_body">Open the live log stream with filters for service, proxy, tunnel, and diagnostics entries.</string>
     <string name="diagnostics_title">Diagnostics</string>
     <string name="title_connection_health">Connection health</string>
@@ -1990,14 +1989,11 @@ Source: %2$s</string>
     <string name="settings_permissions_always_on_ready">Android is configured to keep RIPDPI selected as the always-on VPN.</string>
     <string name="settings_permissions_always_on_needed">Enable Always-on VPN for RIPDPI in Android VPN settings when you need hard leak prevention.</string>
     <string name="settings_permissions_always_on_unknown">Android has not reported the Always-on VPN state yet. Open VPN settings to verify it.</string>
-    <string name="settings_connectivity_dns_body">Resolver mode, protocol, IPv6, and local tunnel DNS behavior.</string>
-    <string name="settings_connectivity_dns_body_proxy">Encrypted DNS can resolve local proxy target names. Device DNS is unchanged.</string>
     <string name="settings_advanced_body">Low-level RIPDPI flags, proxy listeners, and protocol overrides</string>
     <string name="settings_security_section">Privacy</string>
     <string name="settings_webrtc_title">WebRTC protection</string>
     <string name="settings_webrtc_body">Reduce peer-discovery leaks that can bypass the local tunnel.</string>
     <string name="settings_start_on_boot_title">Start on boot</string>
-    <string name="settings_start_on_boot_body">Reconnect the last active mode automatically after the device restarts.</string>
     <string name="settings_start_on_boot_battery_warning">Battery optimization is still active. Android may stop RIPDPI from starting on boot until you exempt it from battery optimization.</string>
     <string name="settings_exclude_russian_apps_title">Exclude Russian apps</string>
     <string name="settings_exclude_russian_apps_body">Banking, delivery, and government apps bypass the VPN to avoid detection issues.</string>
@@ -2705,7 +2701,6 @@ Source: %2$s</string>
          Note: Android resource keys forbid hyphens, so BCP-47 zh-CN maps
          to language_name_zh_cn. -->
     <string name="settings_language_title">Language</string>
-    <string name="settings_language_body">Choose the language used by the RIPDPI app</string>
     <string name="language_picker_sheet_title">Choose language</string>
     <string name="language_picker_system_language">System language</string>
     <string name="language_picker_native_format">%1$s</string>
@@ -3904,7 +3899,6 @@ Source: %2$s</string>
     </plurals>
 +    <!-- Subscription expiry -->
     <string name="subscription_status_title">Subscription status</string>
-    <string name="settings_subscription_status_body">Review subscription expiry, refresh state, and imported profiles.</string>
     <string name="subscription_status_empty_title">No subscriptions</string>
     <string name="subscription_status_empty_body">Imported subscription details will appear here.</string>
     <string name="subscription_status_reveal_secrets">Reveal subscription secrets</string>

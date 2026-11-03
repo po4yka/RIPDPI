@@ -4487,8 +4487,6 @@ app:settings_community_api_url_save
 app:settings_community_source_body
 app:settings_community_source_default
 app:settings_community_source_title
-app:settings_connectivity_dns_body
-app:settings_connectivity_dns_body_proxy
 app:settings_connectivity_section
 app:settings_customization_body
 app:settings_data_transparency_body
@@ -4511,7 +4509,6 @@ app:settings_exclude_russian_apps_title
 app:settings_full_tunnel_body
 app:settings_full_tunnel_helper
 app:settings_full_tunnel_title
-app:settings_language_body
 app:settings_language_title
 app:settings_logs_body
 app:settings_manage_action
@@ -4567,7 +4564,6 @@ app:settings_permissions_vpn_needed
 app:settings_permissions_vpn_optional
 app:settings_persona_body
 app:settings_persona_title
-app:settings_profiles_body
 app:settings_proxy_allow_lan_body
 app:settings_proxy_allow_lan_title
 app:settings_proxy_allow_lan_warn_confirm
@@ -4587,12 +4583,9 @@ app:settings_security_section
 app:settings_seqovl_unsupported_reason
 app:settings_split_tunnel_body
 app:settings_start_on_boot_battery_warning
-app:settings_start_on_boot_body
 app:settings_start_on_boot_title
 app:settings_strategy_pack_allow_rollback_override_body
 app:settings_strategy_pack_allow_rollback_override_title
-app:settings_subscription_failover_body
-app:settings_subscription_status_body
 app:settings_support_debug_bundle_body
 app:settings_support_debug_bundle_title
 app:settings_support_section

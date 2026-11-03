@@ -26,7 +26,6 @@
     <string name="onboarding_persona_advanced_body">Mostra todos os diagnósticos, perfis e configurações de baixo nível.</string>
     <string name="settings_logs_body">Abra o fluxo de logs em tempo real do app, dos serviços e do diagnóstico.</string>
     <string name="settings_detail_placeholder">Selecione uma configuração para abri-la aqui.</string>
-    <string name="settings_subscription_failover_body">Veja qual servidor de assinatura está ativo e as trocas automáticas recentes.</string>
     <string name="diagnostics_open_logs_body">Abra o fluxo de logs em tempo real com filtros para entradas de serviço, proxy, túnel e diagnóstico.</string>
     <string name="diagnostics_title">Diagnóstico</string>
     <string name="title_connection_health">Saúde da conexão</string>
@@ -1954,14 +1953,11 @@ Fonte: %2$s</string>
     <string name="settings_permissions_always_on_ready">O Android está configurado para manter o RIPDPI como a VPN sempre ativa.</string>
     <string name="settings_permissions_always_on_needed">Ative a VPN sempre ativa para o RIPDPI nas configurações de VPN do Android quando precisar de prevenção rigorosa contra vazamentos.</string>
     <string name="settings_permissions_always_on_unknown">O Android ainda não informou o estado da VPN sempre ativa. Abra as configurações de VPN para verificar.</string>
-    <string name="settings_connectivity_dns_body">Modo do resolvedor, protocolo, IPv6 e comportamento de DNS do túnel local.</string>
-    <string name="settings_connectivity_dns_body_proxy">O DNS criptografado pode resolver destinos do proxy local. O DNS do dispositivo não muda.</string>
     <string name="settings_advanced_body">Flags de baixo nível do RIPDPI, listeners de proxy e substituições de protocolo</string>
     <string name="settings_security_section">Privacidade</string>
     <string name="settings_webrtc_title">Proteção WebRTC</string>
     <string name="settings_webrtc_body">Reduz vazamentos de descoberta de pares que podem contornar o túnel local.</string>
     <string name="settings_start_on_boot_title">Iniciar com o sistema</string>
-    <string name="settings_start_on_boot_body">Reconecta automaticamente o último modo ativo após a reinicialização do dispositivo.</string>
     <string name="settings_start_on_boot_battery_warning">A otimização de bateria segue ativa. O Android pode impedir o RIPDPI de iniciar com o sistema até você isentá-lo da otimização de bateria.</string>
     <string name="settings_exclude_russian_apps_title">Excluir apps russos</string>
     <string name="settings_exclude_russian_apps_body">Apps de bancos, entregas e governo contornam a VPN para evitar problemas de detecção.</string>
@@ -2635,7 +2631,6 @@ Fonte: %2$s</string>
     <string name="semantic_action_expand">Expandir</string>
     <string name="semantic_action_collapse">Recolher</string>
     <string name="settings_language_title">Idioma</string>
-    <string name="settings_language_body">Escolha o idioma usado pelo app RIPDPI</string>
     <string name="language_picker_sheet_title">Escolher idioma</string>
     <string name="language_picker_system_language">Idioma do sistema</string>
     <string name="language_picker_native_format">%1$s</string>
@@ -3769,7 +3764,6 @@ Fonte: %2$s</string>
         <item quantity="other">%d assinaturas precisam de atenção. As entradas de retransmissão em cache podem estar desatualizadas.</item>
     </plurals>
     <string name="subscription_status_title">Status da assinatura</string>
-    <string name="settings_subscription_status_body">Revise a expiração da assinatura, o estado de atualização e os perfis importados.</string>
     <string name="subscription_status_empty_title">Nenhuma assinatura</string>
     <string name="subscription_status_empty_body">Os detalhes das assinaturas importadas aparecerão aqui.</string>
     <string name="subscription_status_reveal_secrets">Revelar segredos da assinatura</string>

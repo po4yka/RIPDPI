@@ -246,14 +246,11 @@
     <string name="settings_permissions_always_on_ready">Android को RIPDPI को हमेशा चालू VPN के रूप में चयनित रखने हेतु कॉन्फ़िगर किया गया है।</string>
     <string name="settings_permissions_always_on_needed">जब आपको पुख्ता लीक रोकथाम की आवश्यकता हो, तो Android VPN सेटिंग्स में RIPDPI के लिए हमेशा चालू VPN सक्षम करें।</string>
     <string name="settings_permissions_always_on_unknown">Android ने अभी तक हमेशा चालू VPN स्थिति की रिपोर्ट नहीं की है। इसकी पुष्टि के लिए VPN सेटिंग्स खोलें।</string>
-    <string name="settings_connectivity_dns_body">रिज़ॉल्वर मोड, प्रोटोकॉल, IPv6, और स्थानीय टनल DNS व्यवहार।</string>
-    <string name="settings_connectivity_dns_body_proxy">एन्क्रिप्टेड DNS स्थानीय प्रॉक्सी के लक्ष्य नाम हल कर सकता है। डिवाइस DNS नहीं बदलता।</string>
     <string name="settings_advanced_body">निम्न-स्तरीय RIPDPI फ़्लैग, प्रॉक्सी लिसनर, और प्रोटोकॉल ओवरराइड</string>
     <string name="settings_security_section">गोपनीयता</string>
     <string name="settings_webrtc_title">WebRTC सुरक्षा</string>
     <string name="settings_webrtc_body">पीयर-डिस्कवरी लीक कम करें जो स्थानीय टनल को बायपास कर सकते हैं।</string>
     <string name="settings_start_on_boot_title">बूट पर शुरू करें</string>
-    <string name="settings_start_on_boot_body">डिवाइस पुनः चालू होने के बाद अंतिम सक्रिय मोड को स्वचालित रूप से पुनः कनेक्ट करें।</string>
     <string name="settings_start_on_boot_battery_warning">बैटरी ऑप्टिमाइज़ेशन अभी भी सक्रिय है। जब तक आप RIPDPI को बैटरी ऑप्टिमाइज़ेशन से छूट नहीं देते, तब तक Android इसे बूट पर शुरू होने से रोक सकता है।</string>
     <string name="settings_exclude_russian_apps_title">रूसी ऐप्स को बाहर रखें</string>
     <string name="settings_exclude_russian_apps_body">पता लगने की समस्याओं से बचने के लिए बैंकिंग, डिलीवरी और सरकारी ऐप्स VPN को बायपास करते हैं।</string>
@@ -928,7 +925,6 @@
     <string name="semantic_action_expand">विस्तृत करें</string>
     <string name="semantic_action_collapse">संक्षिप्त करें</string>
     <string name="settings_language_title">भाषा</string>
-    <string name="settings_language_body">RIPDPI ऐप द्वारा उपयोग की जाने वाली भाषा चुनें</string>
     <string name="language_picker_sheet_title">भाषा चुनें</string>
     <string name="language_picker_system_language">सिस्टम की भाषा</string>
     <string name="language_picker_native_format">%1$s</string>

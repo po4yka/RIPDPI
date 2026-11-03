@@ -425,7 +425,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="settings_telemetry_salt_reset_action">Restablecer salt de telemetría</string>
     <string name="settings_webrtc_body">Reduce las filtraciones de descubrimiento de pares que pueden eludir el túnel local.</string>
     <string name="settings_start_on_boot_title">Iniciar al arrancar</string>
-    <string name="settings_start_on_boot_body">Reconecta automáticamente el último modo activo tras reiniciar el dispositivo.</string>
     <string name="settings_start_on_boot_battery_warning">La optimización de batería sigue activa. Android podría impedir que RIPDPI se inicie al arrancar hasta que lo excluyas de la optimización de batería.</string>
     <string name="shortcut_quick_connect">Conexión rápida</string>
     <string name="splash_subtitle">Herramienta de conectividad local</string>
@@ -957,7 +956,6 @@ fakeddisorder endhost</string>
     <string name="settings_biometric_confirm_cancel">Cancelar</string>
     <string name="settings_biometric_pin_required_message">Establece un PIN de respaldo antes de habilitar el desbloqueo biométrico. El PIN proporciona acceso de respaldo si la autenticación biométrica deja de estar disponible.</string>
     <string name="settings_clear_community_cache">Borrar caché de comunidad</string>
-    <string name="settings_connectivity_dns_body">Modo de resolutor, protocolo, IPv6 y comportamiento del DNS del túnel local.</string>
     <string name="settings_data_transparency_body">Qué se guarda en este dispositivo, durante cuánto tiempo y cuándo sale de él.</string>
     <string name="settings_diagnostics_monitor_title">Registrar el historial de diagnóstico del runtime</string>
     <string name="settings_exclude_russian_apps_body">Las apps bancarias, de entrega y gubernamentales evitan la VPN para evitar problemas de detección.</string>
@@ -1442,11 +1440,9 @@ Origen: %2$s</string>
     <string name="settings_biometric_confirm_enable">Activar</string>
     <string name="settings_biometric_pin_required_ok">Aceptar</string>
     <string name="settings_community_api_url_helper">Deja vacío para comparar solo con tus propias comprobaciones.</string>
-    <string name="settings_connectivity_dns_body_proxy">El DNS cifrado puede resolver los nombres del proxy local. El DNS del dispositivo no cambia.</string>
     <string name="settings_diagnostics_export_history_body">Adjunta las tablas de historial guardadas cuando crees explícitamente un archivo de diagnóstico para compartirlo o exportarlo localmente.</string>
     <string name="settings_diagnostics_retention_body">Tiempo durante el que las sesiones de conexión, muestras, informes de diagnóstico y registros de exportación guardados permanecen en el almacenamiento de la aplicación antes de que la limpieza los elimine. Los archivos o registros que guardes en otros lugares permanecen allí hasta que los elimines.</string>
     <string name="settings_exclude_russian_apps_title">Excluir apps rusas</string>
-    <string name="settings_language_body">Elige el idioma que usa la app RIPDPI</string>
     <string name="settings_permission_action_review">Revisar</string>
     <string name="settings_permission_status_required">Obligatorio</string>
     <string name="settings_permissions_section">Permisos</string>
@@ -1811,7 +1807,6 @@ Origen: %2$s</string>
     <string name="onboarding_persona_advanced_body">Muestra todos los diagnósticos, perfiles y ajustes de bajo nivel.</string>
     <string name="settings_logs_body">Abre el flujo en vivo de registros de la app, el servicio y los diagnósticos.</string>
     <string name="settings_detail_placeholder">Selecciona un ajuste para abrirlo aquí.</string>
-    <string name="settings_subscription_failover_body">Consulta el servidor de suscripción activo y las conmutaciones automáticas recientes.</string>
     <string name="diagnostics_open_logs_body">Abre el flujo en vivo de registros con filtros para servicio, proxy, túnel y diagnósticos.</string>
     <string name="logs_buffer_title">Búfer</string>
     <string name="logs_entries_count">Entradas: %1$d</string>
@@ -3774,7 +3769,6 @@ Origen: %2$s</string>
         <item quantity="other">%d suscripciones requieren atención. Los relés guardados pueden estar desactualizados.</item>
     </plurals>
 +    <string name="subscription_status_title">Estado de suscripciones</string>
-    <string name="settings_subscription_status_body">Revisa la caducidad, las actualizaciones y los perfiles importados.</string>
     <string name="subscription_status_empty_title">No hay suscripciones</string>
     <string name="subscription_status_empty_body">Aquí aparecerán los detalles de las suscripciones importadas.</string>
     <string name="subscription_status_reveal_secrets">Mostrar secretos de la suscripción</string>

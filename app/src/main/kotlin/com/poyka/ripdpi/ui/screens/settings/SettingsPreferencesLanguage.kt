@@ -17,7 +17,6 @@ internal fun SettingsLanguagePreference() {
     var showLanguagePicker by remember { mutableStateOf(false) }
     SettingsRow(
         title = stringResource(R.string.settings_language_title),
-        subtitle = stringResource(R.string.settings_language_body),
         value = selectedLanguageValue(),
         onClick = { showLanguagePicker = true },
         showChevron = true,
