@@ -25,15 +25,15 @@ Routes are defined as a sealed class in `app/.../ui/navigation/Route.kt`.
 
 ### Adding a New Screen
 
-1. Add route to `Route` sealed class with `route` string, `@StringRes titleRes`, optional `icon`
-2. If top-level: add to `Route.topLevel` list
-3. Add to `Route.all` list
-4. Add `composable(Route.YourRoute.route) { ... }` in `RipDpiNavHost.kt`
-5. Navigate: `navController.navigate(Route.YourRoute.route) { launchSingleTop = true; restoreState = true }`
+1. Add a `@Serializable data object` (or data class) to the `Route` sealed class with `stableRoute`, `@StringRes titleRes`, and an optional `icon`. Routes are type-safe; there are no route strings.
+2. If top-level: add it to `Route.topLevel`. Add it to `Route.all` and to `stableRouteMatchers` in `RipDpiNavHost.kt`.
+3. Register `composable<Route.YourRoute> { ... }`. `RipDpiNavHost.kt` is at the 1,000-line arch-health limit: put the route in a feature graph file such as `ImportNavigation.kt` or `HistoryNavigation.kt` in `ui/navigation/`.
+4. Navigate with the object: `navController.navigate(Route.YourRoute) { launchSingleTop = true }`.
+5. Update the two expectation maps in `RipDpiNavHostLogicTest` and the route list in `scripts/guide/specs/ui-ux-audit.yaml`; both have coverage tests.
 
 ### Navigation Conventions
 
-- Use `launchSingleTop = true` and `restoreState = true` for all navigations
+- Use `launchSingleTop = true` for every navigation; add `restoreState = true` (with `saveState` on `popUpTo`) only for top-level tab switches
 - Bottom bar shows only for `isTopLevelDestination()` routes
 - Pass ViewModels to route composables, not raw state
 
