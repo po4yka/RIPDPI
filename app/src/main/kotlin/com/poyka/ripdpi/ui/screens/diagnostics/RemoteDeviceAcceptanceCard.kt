@@ -117,7 +117,7 @@ private fun RemoteDeviceAcceptanceReport.deviceSummary(): String =
  * User-facing name for an acceptance status.
  *
  * `wireValue` is the serialization contract and stays English on purpose; splicing it into the card
- * showed raw protocol tokens to all nine locales.
+ * showed raw protocol tokens in every locale.
  */
 @Composable
 private fun RemoteDeviceAcceptanceStatus.displayLabel(): String =

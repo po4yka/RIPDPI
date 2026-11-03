@@ -88,7 +88,7 @@ fun ReplayFailureRoute(
  * Resolves recommendation keys emitted by
  * [com.poyka.ripdpi.diagnostics.replay.ReplayRecommendationEngine]
  * to localized strings backed by `R.string.vpn_replay_rec_*` across
- * all 7 supported locales. Unknown keys fall back to the generic
+ * every supported locale. Unknown keys fall back to the generic
  * "probe failed" message.
  */
 @Composable

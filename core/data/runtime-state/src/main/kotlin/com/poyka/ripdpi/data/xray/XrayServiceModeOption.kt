@@ -14,7 +14,7 @@ package com.poyka.ripdpi.data.xray
  *
  * Keeping this as a pure enum (no Android types) lets the picker logic and its
  * tests run offline; the UI resolves [titleKey]/[descriptionKey] against
- * `:app`'s `strings.xml` across all 7 locales.
+ * `:app`'s `strings.xml` across all locales.
  */
 enum class XrayServiceModeOption(
     val providerKind: VpnProviderKind,

@@ -118,7 +118,7 @@ Assign these to a single writer and validate them on the combined tree:
 - All locale resource sets.
 - Baseline and architecture-health files.
 - Golden fixtures.
-- `RelayKindDescriptors` and relay-core kind/backend registries.
+- `RelayKindDescriptors` (`core/service/src/main/kotlin/com/poyka/ripdpi/services/RelayKindDescriptor.kt`) and relay-core kind/backend registries.
 
 When multiple branches are in flight, prefer a PR merge queue. Before integration run `python3 scripts/ci/check_architecture_health.py`, `cargo metadata --manifest-path native/rust/Cargo.toml --locked`, and the area-specific locale, golden, or wire-contract gates.
 
@@ -182,6 +182,6 @@ File-area rules live in `.claude/rules/`. Claude Code loads them automatically w
 
 ## Design sources
 
-For UI work apply the [product principle](#product-principle) first, then use, in order, `DESIGN.md`, `docs/design-system.md`, the Compose theme implementation, and Roborazzi baselines. Implementation and verified baselines win when descriptive prose disagrees.
+For UI work apply the [product principle](#product-principle) first, then use, in order, `DESIGN.md`, `docs/design-system.md`, the Compose theme implementation, and Roborazzi baselines. The `docs/design/rds/` preview deck is a visual reference for matching a screen (`rds-spec.md`). Implementation and verified baselines win when prose or the deck disagrees.
 
 The local USB transport scenarios are a separate acceptance scope. They use the real VPN and native engines with a test-only datagram bridge. Do not claim direct device-to-LAN UDP or underlying-network bypass acceptance from this scope.
