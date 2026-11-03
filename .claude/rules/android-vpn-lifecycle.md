@@ -1,6 +1,9 @@
 ---
 paths:
-  - "app/**/*.kt"
+  - "app/src/main/kotlin/com/poyka/ripdpi/activities/Main*.kt"
+  - "app/src/main/kotlin/com/poyka/ripdpi/services/**/*.kt"
+  - "app/src/main/kotlin/com/poyka/ripdpi/permissions/**/*.kt"
+  - "app/src/main/kotlin/com/poyka/ripdpi/ui/screens/permissions/**/*.kt"
   - "core/service/**/*.kt"
   - "core/engine/**/*.kt"
   - "native/rust/crates/ripdpi-*-android/**/*.rs"

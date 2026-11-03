@@ -1,6 +1,6 @@
 ---
 paths:
-  - "app/**/*.kt"
+  - "app/**/*Preview*.kt"
   - "build-logic/**/*.kt"
   - "**/build.gradle.kts"
 ---
