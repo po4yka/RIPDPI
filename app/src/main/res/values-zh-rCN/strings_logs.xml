@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="logs">日志</string>
+    <string name="logs_auto_scroll_title">自动滚动到最新</string>
+    <string name="logs_empty_body">启动 RIPDPI 或触发诊断事件,以填充设备端事件流。</string>
+    <string name="logs_filtered_empty_body">打开筛选器，查看本地缓冲区中的其他事件。</string>
+    <string name="logs_search_placeholder">搜索日志消息</string>
+    <string name="logs_search_clear">清除搜索</string>
+    <string name="logs_search_empty_title">没有与搜索匹配的条目</string>
+    <string name="logs_search_empty_body">请尝试其他搜索词，或清除搜索。</string>
+    <string name="logs_filters_summary_compact">子系统：%1$d • 严重级别：%2$d</string>
+    <string name="logs_service_failure_format">%1$s 服务启动失败:%2$s</string>
+    <string name="logs_severity_title">严重级别</string>
+    <string name="logs_subsystem_service">SERVICE</string>
+    <string name="logs_active_session_body">优先显示当前的连接或诊断会话,隐藏较旧的持久化历史。</string>
+    <string name="logs_buffer_title">缓冲区</string>
+    <string name="logs_empty_title">暂无日志</string>
+    <string name="logs_filtered_empty_title">没有条目匹配当前过滤器</string>
+    <string name="logs_severity_debug">DEBUG</string>
+    <string name="logs_severity_warn">WARN</string>
+    <string name="logs_stream_title">最近条目</string>
+    <string name="logs_subsystem_tunnel">TUNNEL</string>
+    <string name="logs_active_session_title">仅当前会话</string>
+    <string name="logs_entries_count">日志条数：%1$d</string>
+    <string name="logs_copy_entry">复制 %2$s 的%1$s日志</string>
+    <string name="logs_filters_helper">按子系统或严重程度筛选,以聚焦您正在调试的运行时。</string>
+    <string name="logs_severity_error">ERROR</string>
+    <string name="logs_status_empty">等待活动</string>
+    <string name="logs_subsystem_diagnostics">DIAGNOSTICS</string>
+    <string name="logs_subsystems_title">子系统</string>
+    <string name="logs_auto_scroll_body">在新诊断到达时,保持最新匹配条目可见。</string>
+    <string name="logs_clear">清空</string>
+    <string name="logs_clear_confirm_title">清除日志？</string>
+    <string name="logs_clear_confirm_body">这将删除设备上日志缓冲区中的所有条目，且无法撤销。</string>
+    <string name="logs_filters_section">过滤器</string>
+    <string name="logs_severity_info">INFO</string>
+    <string name="logs_status_live">实时缓冲</string>
+    <string name="logs_subsystem_proxy">PROXY</string>
+    <string name="logs_mode_proxy">代理</string>
+    <string name="logs_mode_vpn">VPN</string>
+    <string name="logs_service_started_format">%1$s 服务已启动</string>
+    <string name="logs_service_stopped_format">%1$s 服务已停止</string>
+    <string name="logs_entry_details">详情</string>
+    <plurals name="logs_buffer_value">
+        <item quantity="other">%1$d / %2$d 条</item>
+    </plurals>
+    <string name="logs_actions_title">日志操作</string>
+</resources>

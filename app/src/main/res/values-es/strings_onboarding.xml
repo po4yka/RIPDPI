@@ -1,0 +1,135 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="biometric_dialog_cancel">Cancelar</string>
+    <string name="biometric_prompt_no_pin_body">Solo la autenticación biométrica está configurada en este dispositivo en este momento.</string>
+    <string name="biometric_prompt_pin_label">PIN de respaldo</string>
+    <string name="biometric_prompt_title">Desbloquear RIPDPI</string>
+    <string name="onboarding_local_first_body">Todo se ejecuta en tu dispositivo.</string>
+    <string name="onboarding_setup_finish">Finalizar</string>
+    <string name="onboarding_setup_mode_vpn_title">Modo VPN</string>
+    <string name="onboarding_validation_finish_disconnected">Finalizar desconectado</string>
+    <string name="permissions_background_activity_body_huawei">Los dispositivos Huawei pueden detener RIPDPI en segundo plano. Ve a Ajustes &gt; Batería &gt; Inicio de apps, busca RIPDPI, desactiva la gestión automática y activa Inicio automático, Inicio secundario y Ejecutar en segundo plano.</string>
+    <string name="permissions_battery_body">Permite que RIPDPI ignore la optimización de batería de Android para que Doze interrumpa con menos probabilidad la VPN local o el proxy en segundo plano.</string>
+    <string name="permissions_vpn_body">Android pedirá crear una VPN local. Esto enruta el tráfico a través de la app en tu dispositivo: nada se envía al exterior.</string>
+    <string name="permissions_vpn_title">Permiso de VPN</string>
+    <string name="biometric_dialog_subtitle">Confirma tu identidad</string>
+    <string name="biometric_prompt_no_pin_title">PIN de respaldo no disponible</string>
+    <string name="biometric_prompt_use_biometric">Volver a biometría</string>
+    <string name="onboarding_continue">Continuar</string>
+    <string name="onboarding_local_first_title">Privado por diseño</string>
+    <string name="onboarding_setup_dns_quad9_body">Resolutor DNS centrado en la seguridad.</string>
+    <string name="onboarding_setup_mode_proxy_body">Ejecuta un proxy local para apps o clientes que admiten la configuración manual de proxy.</string>
+    <string name="onboarding_validation_finish_keep_running">Finalizar y mantener en ejecución</string>
+    <string name="permissions_background_activity_body_oneplus">Los dispositivos OnePlus pueden detener agresivamente las apps en segundo plano. Ve a Ajustes &gt; Batería &gt; Optimización de batería, busca RIPDPI y selecciona No optimizar. También deshabilita Optimización profunda y Optimización de espera en suspensión si están disponibles.</string>
+    <string name="permissions_battery_title">Optimización de batería</string>
+    <string name="permissions_vpn_continue">Continuar</string>
+    <string name="biometric_dialog_title">Desbloquear RIPDPI</string>
+    <string name="biometric_prompt_pin_body">Usa el PIN de respaldo guardado en este dispositivo si la autenticación biométrica no está disponible.</string>
+    <string name="biometric_prompt_pin_lockout_title">Demasiados intentos</string>
+    <string name="biometric_prompt_use_pin">Usar PIN de respaldo</string>
+    <string name="onboarding_setup_dns_system">Predeterminado del sistema</string>
+    <string name="onboarding_setup_mode_proxy_title">Modo proxy</string>
+    <string name="onboarding_validation_failed">Validación fallida: %1$s</string>
+    <string name="permissions_notifications_denied">Permite las notificaciones para mostrar el estado de RIPDPI y las alertas del servicio mientras la VPN local o el proxy estén en ejecución.</string>
+    <string name="permissions_vpn_error_body">Concede el permiso de VPN de Android para mantener RIPDPI ejecutándose localmente en este dispositivo.</string>
+    <string name="biometric_prompt_action">Desbloquear</string>
+    <string name="biometric_prompt_pin_error">El PIN de respaldo no coincide.</string>
+    <string name="biometric_prompt_pin_placeholder">0000</string>
+    <string name="onboarding_persona_title">Elige tu interfaz</string>
+    <string name="onboarding_persona_simple_body">Los controles cotidianos quedan visibles y los detalles expertos colapsados.</string>
+    <string name="onboarding_persona_advanced_body">Muestra todos los diagnósticos, perfiles y ajustes de bajo nivel.</string>
+    <string name="onboarding_setup_dns_adguard_body">Resolutor DNS con filtrado de anuncios y rastreadores.</string>
+    <string name="onboarding_setup_dns_system_body">Usa los servidores DNS de tu red tal cual.</string>
+    <string name="onboarding_setup_mode_title">Elige el modo de tráfico</string>
+    <string name="onboarding_setup_validate_title">Probar conexión</string>
+    <string name="onboarding_step_progress">Paso %1$d de %2$d</string>
+    <string name="onboarding_validation_failed_generic">No se pudo validar el modo seleccionado.</string>
+    <string name="onboarding_validation_notifications_required">Permite las notificaciones para que RIPDPI pueda mostrar el estado del servicio de validación.</string>
+    <string name="onboarding_validation_vpn_permission_denied">Se denegó el permiso VPN, por lo que RIPDPI no pudo validar el modo VPN.</string>
+    <string name="permissions_background_activity_body_xiaomi">Los dispositivos Xiaomi/MIUI pueden impedir que RIPDPI se ejecute en segundo plano. Ve a Ajustes &gt; Aplicaciones &gt; Administrar aplicaciones &gt; RIPDPI, establece Ahorro de batería en Sin restricciones y activa Inicio automático.</string>
+    <string name="permissions_notifications_open_settings">El permiso de notificaciones sigue bloqueado. Abre los ajustes de la aplicación y permite las notificaciones para RIPDPI.</string>
+    <string name="permissions_vpn_error_title">Aún se requiere permiso</string>
+    <string name="biometric_auth_error_title">Autenticación fallida</string>
+    <string name="biometric_prompt_body">Usa la autenticación biométrica antes de abrir el panel principal en este dispositivo.</string>
+    <string name="biometric_prompt_pin_helper">Solo dígitos. El PIN se verifica localmente y nunca sale de este dispositivo.</string>
+    <string name="biometric_prompt_pin_title">Introduce el PIN de respaldo</string>
+    <string name="onboarding_setup_dns_cloudflare_body">Resolutor DNS rápido de uso general.</string>
+    <string name="onboarding_setup_mode_vpn_body">Enruta todo el tráfico de las apps a través de una VPN local en el dispositivo. Cobertura completa, sin configuración manual.</string>
+    <string name="permissions_background_activity_body">Algunos dispositivos añaden límites adicionales en segundo plano más allá de la optimización de batería de Android. Si RIPDPI se detiene en segundo plano, revisa la configuración de batería o de uso en segundo plano de la aplicación.</string>
+    <string name="permissions_background_activity_title">Actividad en segundo plano</string>
+    <string name="permissions_notifications_title">Permitir notificaciones de estado</string>
+    <string name="permissions_vpn_not_now">Ahora no</string>
+    <!-- onboarding refactor additions -->
+    <!-- intro chips -->
+    <string name="onboarding_chip_no_account">Sin cuenta</string>
+    <string name="onboarding_chip_no_telemetry">Sin telemetría</string>
+    <string name="onboarding_chip_no_cloud_sync">Sin sincronización en la nube</string>
+    <string name="onboarding_guarantee_header_privacy">Privacidad</string>
+    <string name="onboarding_guarantee_header_local">En tu dispositivo</string>
+    <string name="onboarding_chip_local_vpn">Todo el dispositivo</string>
+    <string name="onboarding_chip_local_proxy">Solo proxy</string>
+    <string name="onboarding_chip_local_config">Configuración local</string>
+    <!-- per-screen skip -->
+    <string name="onboarding_skip_setup">Omitir configuración</string>
+    <string name="onboarding_skip_test">Omitir prueba</string>
+    <!-- mode badges -->
+    <string name="onboarding_badge_recommended">Recomendado</string>
+    <!-- DNS -->
+    <string name="onboarding_setup_dns_mullvad_body">Resolutor DNS centrado en la privacidad.</string>
+    <string name="onboarding_dns_advanced">Configuración avanzada de DNS</string>
+    <string name="onboarding_setup_mode_subtitle">Elige cómo debe enrutar RIPDPI el tráfico en este dispositivo.</string>
+    <string name="onboarding_test_permission_card_title">Permiso de VPN</string>
+    <!-- validation / test connection -->
+    <string name="onboarding_test_idle_body">Inicia el modo seleccionado y verifica que RIPDPI puede enrutar el tráfico correctamente.</string>
+    <string name="onboarding_test_step_tunnel_vpn">Iniciar túnel VPN local</string>
+    <string name="onboarding_test_step_tunnel_proxy">Iniciar proxy local</string>
+    <string name="onboarding_test_step_dns">Comprobar resolución DNS</string>
+    <string name="onboarding_test_step_connectivity">Verificar conectividad a Internet</string>
+    <string name="onboarding_test_start">Iniciar prueba</string>
+    <string name="onboarding_test_running_cta">Probando…</string>
+    <string name="onboarding_test_retry">Reintentar</string>
+    <string name="onboarding_test_grant_permission">Conceder permiso de VPN</string>
+    <string name="onboarding_test_use_proxy">Usar el modo proxy en su lugar</string>
+    <string name="onboarding_test_use_vpn">Usar el modo VPN en su lugar</string>
+    <string name="onboarding_test_permission_note">Android puede solicitar permiso antes de que RIPDPI pueda crear un túnel VPN local. No se usa ningún servidor VPN remoto.</string>
+    <string name="onboarding_test_failed_permission">Android requiere permiso antes de que RIPDPI pueda crear un túnel VPN local en este dispositivo. No se usa ningún servidor VPN remoto.</string>
+    <string name="onboarding_test_change_dns">Cambiar DNS</string>
+    <string name="onboarding_test_finish_without">Finalizar sin probar</string>
+    <string name="onboarding_test_state_permission">Android pedirá permiso para crear una conexión VPN local.</string>
+    <string name="onboarding_test_success_title">Configuración completada</string>
+    <string name="onboarding_test_success_body">RIPDPI está listo para usarse.</string>
+    <string name="onboarding_test_failed_title">La prueba de conexión falló</string>
+    <!-- accessibility state descriptions for checklist rows -->
+    <string name="onboarding_test_row_state_pending">Pendiente</string>
+    <string name="onboarding_test_row_state_active">En curso</string>
+    <string name="onboarding_test_row_state_done">Hecho</string>
+    <string name="onboarding_test_row_state_failed">Falló</string>
+    <!-- Clipboard labels -->
+    <string name="clipboard_label_ripdpi_domains">Dominios RIPDPI</string>
+    <string name="clipboard_label_error">Error</string>
+    <string name="clipboard_label_lan_auth_token">Token de autenticación LAN</string>
+    <string name="clipboard_label_probe_details">Detalles del sondeo</string>
+    <string name="clipboard_label_byoh_compatibility_csv">CSV de compatibilidad BYOH</string>
+    <string name="clipboard_label_compatible_sni">SNI compatible</string>
+    <string name="clipboard_label_detection_diagnostics">Diagnóstico de detección</string>
+    <string name="clipboard_label_detection_report">Informe de detección</string>
+    <string name="clipboard_label_detection_markdown_export">Exportación Markdown de detección</string>
+    <string name="clipboard_label_profile_link">Enlace de perfil RIPDPI</string>
+    <string name="clipboard_label_setup_sheet">Hoja de configuración RIPDPI</string>
+    <string name="clipboard_label_log_entry">Entrada de registro</string>
+    <string name="onboarding_badge_manual_setup">Para configuración manual</string>
+    <string name="biometric_prompt_device_credential_title">Usa el bloqueo de pantalla</string>
+    <string name="biometric_prompt_device_credential_body">Este dispositivo no tiene huella digital ni rostro configurados. Desbloquea con el PIN, el patrón o la contraseña del dispositivo.</string>
+    <string name="biometric_prompt_no_lock_title">El bloqueo de la aplicación no está activo</string>
+    <string name="biometric_prompt_no_lock_body">Este dispositivo no tiene huella digital, rostro ni bloqueo de pantalla, así que RIPDPI no puede verificar tu identidad. Configura un bloqueo de pantalla en los ajustes del sistema para proteger la aplicación.</string>
+    <string name="permissions_local_network_title">Acceso a la red local</string>
+    <string name="permissions_local_network_needed">Esta acción necesita acceso a la red local. Las conexiones a Internet siguen disponibles sin este permiso.</string>
+    <string name="permissions_local_network_settings">Permite los dispositivos cercanos en los ajustes de la aplicación y vuelve a intentarlo.</string>
+    <plurals name="biometric_prompt_pin_lockout_body">
+        <item quantity="one">Vuelve a intentarlo en %1$d segundo.</item>
+        <item quantity="many">Vuelve a intentarlo en %1$d segundos.</item>
+        <item quantity="other">Vuelve a intentarlo en %1$d segundos.</item>
+    </plurals>
+    <string name="onboarding_setup_mode_xray_title">Configurar VPN avanzada</string>
+    <string name="onboarding_setup_mode_xray_body">Usa un perfil Xray importado en lugar de la VPN integrada.</string>
+</resources>

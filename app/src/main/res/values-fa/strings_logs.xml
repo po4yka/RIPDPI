@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="logs">گزارش‌ها</string>
+    <string name="logs_active_session_title">فقط نشست فعال</string>
+    <string name="logs_buffer_title">بافر</string>
+    <string name="logs_empty_body">RIPDPI را شروع کنید یا یک رویداد تشخیصی را راه‌اندازی کنید تا جریان روی دستگاه پر شود.</string>
+    <string name="logs_filters_helper">برای تمرکز بر زمان اجرایی که در حال اشکال‌زدایی آن هستید، بر اساس زیرسیستم یا شدت فیلتر کنید.</string>
+    <string name="logs_severity_error">ERROR</string>
+    <string name="logs_severity_warn">WARN</string>
+    <string name="logs_subsystem_proxy">PROXY</string>
+    <string name="logs_subsystems_title">زیرسیستم‌ها</string>
+    <string name="logs_auto_scroll_body">آخرین ورودی منطبق را در حالی که داده‌های تشخیصی جدید می‌رسند، در دید نگه دارید.</string>
+    <string name="logs_empty_title">هنوز لاگی وجود ندارد</string>
+    <string name="logs_filtered_empty_body">برای بررسی رویدادهای دیگر در بافر محلی، فیلترها را باز کنید.</string>
+    <string name="logs_search_placeholder">جستجو در پیام‌های گزارش</string>
+    <string name="logs_search_clear">پاک کردن جستجو</string>
+    <string name="logs_search_empty_title">هیچ ورودی با جستجو مطابقت ندارد</string>
+    <string name="logs_search_empty_body">عبارت دیگری را امتحان کنید یا جستجو را پاک کنید.</string>
+    <string name="logs_filters_section">فیلترها</string>
+    <string name="logs_service_failure_format">سرویس %1$s در راه‌اندازی ناموفق بود: %2$s</string>
+    <string name="logs_severity_info">INFO</string>
+    <string name="logs_status_empty">در انتظار فعالیت</string>
+    <string name="logs_stream_title">ورودی‌های اخیر</string>
+    <string name="logs_subsystem_service">SERVICE</string>
+    <string name="logs_active_session_body">ابتدا جلسه اتصال یا تشخیص فعلی را نمایش دهید و تاریخچه ماندگار قدیمی‌تر را پنهان کنید.</string>
+    <string name="logs_auto_scroll_title">پیمایش خودکار به جدیدترین</string>
+    <string name="logs_clear">پاک‌سازی</string>
+    <string name="logs_clear_confirm_title">پاک کردن گزارش‌ها؟</string>
+    <string name="logs_clear_confirm_body">همه ورودی‌های بافر گزارش روی دستگاه حذف می‌شوند. این کار قابل بازگشت نیست.</string>
+    <string name="logs_entries_count">ورودی‌ها: %1$d</string>
+    <string name="logs_copy_entry">کپی گزارش %1$s در %2$s</string>
+    <string name="logs_filtered_empty_title">هیچ ورودی با فیلترهای فعلی مطابقت ندارد</string>
+    <string name="logs_filters_summary_compact">زیرسیستم‌ها: %1$d • شدت‌ها: %2$d</string>
+    <string name="logs_severity_debug">DEBUG</string>
+    <string name="logs_severity_title">شدت</string>
+    <string name="logs_status_live">بافر زنده</string>
+    <string name="logs_subsystem_diagnostics">DIAGNOSTICS</string>
+    <string name="logs_subsystem_tunnel">TUNNEL</string>
+    <string name="logs_mode_proxy">پروکسی</string>
+    <string name="logs_mode_vpn">VPN</string>
+    <string name="logs_service_started_format">سرویس %1$s راه‌اندازی شد</string>
+    <string name="logs_service_stopped_format">سرویس %1$s متوقف شد</string>
+    <string name="logs_entry_details">جزئیات</string>
+    <plurals name="logs_buffer_value">
+        <item quantity="one">%1$d / %2$d ورودی</item>
+        <item quantity="other">%1$d / %2$d ورودی</item>
+    </plurals>
+    <string name="logs_actions_title">عملیات گزارش</string>
+</resources>

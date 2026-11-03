@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="logs">लॉग</string>
+    <string name="logs_clear">साफ़ करें</string>
+    <string name="logs_clear_confirm_title">लॉग साफ़ करें?</string>
+    <string name="logs_clear_confirm_body">इससे डिवाइस पर लॉग बफ़र की सभी प्रविष्टियाँ हट जाएँगी। इसे पूर्ववत नहीं किया जा सकता।</string>
+    <string name="logs_status_live">लाइव बफ़र</string>
+    <string name="logs_status_empty">गतिविधि की प्रतीक्षा में</string>
+    <string name="logs_buffer_title">बफ़र</string>
+    <string name="logs_filters_section">फ़िल्टर</string>
+    <string name="logs_filters_helper">जिस रनटाइम को आप डिबग कर रहे हैं उस पर ध्यान केंद्रित करने के लिए सबसिस्टम या गंभीरता के अनुसार फ़िल्टर करें।</string>
+    <string name="logs_filters_summary_compact">सबसिस्टम: %1$d • गंभीरताएँ: %2$d</string>
+    <string name="logs_subsystems_title">सबसिस्टम</string>
+    <string name="logs_subsystem_service">SERVICE</string>
+    <string name="logs_subsystem_proxy">PROXY</string>
+    <string name="logs_subsystem_tunnel">TUNNEL</string>
+    <string name="logs_subsystem_diagnostics">DIAGNOSTICS</string>
+    <string name="logs_severity_title">गंभीरता</string>
+    <string name="logs_severity_debug">DEBUG</string>
+    <string name="logs_severity_info">INFO</string>
+    <string name="logs_severity_warn">WARN</string>
+    <string name="logs_severity_error">ERROR</string>
+    <string name="logs_auto_scroll_title">नवीनतम तक ऑटो-स्क्रॉल</string>
+    <string name="logs_auto_scroll_body">नई डायग्नोस्टिक्स आने पर नवीनतम मिलान वाली प्रविष्टि को दृश्य में रखें।</string>
+    <string name="logs_active_session_title">केवल सक्रिय सत्र</string>
+    <string name="logs_active_session_body">पहले वर्तमान कनेक्शन या डायग्नोस्टिक्स सत्र दिखाएँ और पुराने सहेजे गए इतिहास को छिपाएँ।</string>
+    <string name="logs_stream_title">हाल की प्रविष्टियाँ</string>
+    <string name="logs_entries_count">प्रविष्टियाँ: %1$d</string>
+    <string name="logs_copy_entry">%2$s पर %1$s लॉग कॉपी करें</string>
+    <string name="logs_empty_title">अभी तक कोई लॉग नहीं</string>
+    <string name="logs_empty_body">डिवाइस पर स्ट्रीम भरने के लिए RIPDPI शुरू करें या कोई डायग्नोस्टिक इवेंट ट्रिगर करें।</string>
+    <string name="logs_filtered_empty_title">वर्तमान फ़िल्टर से कोई प्रविष्टि मेल नहीं खाती</string>
+    <string name="logs_filtered_empty_body">स्थानीय बफ़र में अन्य घटनाएँ देखने के लिए फ़िल्टर खोलें।</string>
+    <string name="logs_search_placeholder">लॉग संदेश खोजें</string>
+    <string name="logs_search_clear">खोज साफ़ करें</string>
+    <string name="logs_search_empty_title">खोज से मेल खाने वाली कोई प्रविष्टि नहीं है</string>
+    <string name="logs_search_empty_body">कोई दूसरा खोज शब्द आज़माएँ या खोज साफ़ करें।</string>
+    <!-- Logs -->
+    <string name="logs_service_failure_format">%1$s सेवा शुरू होने में विफल: %2$s</string>
+    <string name="logs_mode_proxy">प्रॉक्सी</string>
+    <string name="logs_mode_vpn">VPN</string>
+    <string name="logs_service_started_format">%1$s सेवा शुरू हुई</string>
+    <string name="logs_service_stopped_format">%1$s सेवा बंद हुई</string>
+    <string name="logs_entry_details">विवरण</string>
+    <plurals name="logs_buffer_value">
+        <item quantity="one">%1$d / %2$d प्रविष्टि</item>
+        <item quantity="other">%1$d / %2$d प्रविष्टियाँ</item>
+    </plurals>
+    <string name="logs_actions_title">लॉग की कार्रवाइयाँ</string>
+</resources>

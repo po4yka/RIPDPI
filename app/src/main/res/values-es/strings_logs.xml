@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="logs_active_session_title">Solo sesión activa</string>
+    <string name="logs_clear">Borrar</string>
+    <string name="logs_clear_confirm_title">¿Borrar los registros?</string>
+    <string name="logs_clear_confirm_body">Se eliminarán todas las entradas del búfer de registros del dispositivo. No se puede deshacer.</string>
+    <string name="logs_filtered_empty_body">Abre Filtros para ver otros eventos del búfer local.</string>
+    <string name="logs_search_placeholder">Buscar en los mensajes del registro</string>
+    <string name="logs_search_clear">Borrar búsqueda</string>
+    <string name="logs_search_empty_title">Ninguna entrada coincide con la búsqueda</string>
+    <string name="logs_search_empty_body">Prueba con otro término o borra la búsqueda.</string>
+    <string name="logs_severity_info">INFO</string>
+    <string name="logs_subsystem_tunnel">TUNNEL</string>
+    <string name="logs_auto_scroll_body">Mantén a la vista la entrada coincidente más reciente a medida que llegan nuevos diagnósticos.</string>
+    <string name="logs_empty_body">Inicia RIPDPI o activa un evento de diagnóstico para poblar el flujo en el dispositivo.</string>
+    <string name="logs_filtered_empty_title">Ninguna entrada coincide con los filtros actuales</string>
+    <string name="logs_severity_title">Severidad</string>
+    <string name="logs_stream_title">Entradas recientes</string>
+    <string name="logs_subsystems_title">Subsistemas</string>
+    <string name="logs_auto_scroll_title">Auto-desplazar a lo más reciente</string>
+    <string name="logs_empty_title">Aún no hay registros</string>
+    <string name="logs_filters_helper">Filtra por subsistema o gravedad para centrarte en el runtime que estás depurando.</string>
+    <string name="logs_service_failure_format">%1$s: el servicio no pudo iniciarse: %2$s</string>
+    <string name="logs_severity_warn">WARN</string>
+    <string name="logs_subsystem_diagnostics">DIAGNOSTICS</string>
+    <string name="logs">Registros</string>
+    <string name="logs_buffer_title">Búfer</string>
+    <string name="logs_entries_count">Entradas: %1$d</string>
+    <string name="logs_copy_entry">Copiar registro de %1$s de las %2$s</string>
+    <string name="logs_filters_section">Filtros</string>
+    <string name="logs_severity_debug">DEBUG</string>
+    <string name="logs_status_empty">Esperando actividad</string>
+    <string name="logs_subsystem_proxy">PROXY</string>
+    <string name="logs_active_session_body">Muestra primero la conexión actual o la sesión de diagnóstico y oculta el historial persistido más antiguo.</string>
+    <string name="logs_filters_summary_compact">Subsistemas: %1$d • Severidades: %2$d</string>
+    <string name="logs_severity_error">ERROR</string>
+    <string name="logs_status_live">Búfer en vivo</string>
+    <string name="logs_subsystem_service">SERVICIO</string>
+    <string name="logs_mode_proxy">Proxy</string>
+    <string name="logs_mode_vpn">VPN</string>
+    <string name="logs_service_started_format">Servicio %1$s iniciado</string>
+    <string name="logs_service_stopped_format">Servicio %1$s detenido</string>
+    <string name="logs_entry_details">Detalles</string>
+    <plurals name="logs_buffer_value">
+        <item quantity="one">%1$d / %2$d entrada</item>
+        <item quantity="other">%1$d / %2$d entradas</item>
+    </plurals>
+    <string name="logs_actions_title">Acciones del registro</string>
+</resources>

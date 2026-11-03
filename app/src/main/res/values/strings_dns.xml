@@ -1,0 +1,105 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="dns_active_section_title">Active resolver</string>
+    <string name="dns_mode_section">Mode</string>
+    <string name="dns_mode_doh">Encrypted DNS</string>
+    <string name="dns_mode_plain">Plain DNS</string>
+    <string name="dns_mode_encrypted_body">Intercept DNS inside the VPN and resolve it through the selected encrypted protocol.</string>
+    <string name="dns_mode_plain_body">Send DNS directly to the resolver IP without encrypted interception or bootstrap setup.</string>
+    <string name="dns_protocol_section">Encrypted protocol</string>
+    <string name="dns_protocol_doh" translatable="false">DoH</string>
+    <string name="dns_protocol_dot" translatable="false">DoT</string>
+    <string name="dns_protocol_dnscrypt">DNSCrypt</string>
+    <string name="dns_protocol_helper">Choose which encrypted DNS transport RIPDPI should use for VPN DNS interception and diagnostics.</string>
+    <string name="dns_protocol_doh_body">Best default workflow. Built-in Cloudflare, Google, Quad9, and AdGuard profiles are ready to use.</string>
+    <string name="dns_protocol_dot_body">DNS-over-TLS on port 853. Good when you control the hostname and TLS server name.</string>
+    <string name="dns_protocol_dnscrypt_body">DNSCrypt with provider-name and public-key validation. Use this for custom resolvers only.</string>
+    <string name="dns_protocol_builtin_and_custom">Built-in + custom</string>
+    <string name="dns_protocol_custom_only">Custom only</string>
+    <string name="dns_resolvers_section">Resolvers</string>
+    <string name="dns_custom_section">Custom server</string>
+    <string name="dns_custom_section_body">Use custom fields when you need your own endpoint, hostname, TLS name, or DNSCrypt credentials.</string>
+    <string name="dns_custom_title">Custom DNS</string>
+    <string name="dns_custom_body">Set a specific resolver address for the local VPN path and keep it stored on this device.</string>
+    <string name="dns_custom_doh_title">Custom DoH</string>
+    <string name="dns_custom_doh_body">Use a custom DNS-over-HTTPS endpoint with explicit bootstrap IPs so tunnel resolution does not depend on plain DNS.</string>
+    <string name="dns_custom_doh_url_label">DoH URL</string>
+    <string name="dns_custom_doh_url_helper">Use an HTTPS endpoint that accepts RFC 8484 DNS messages.</string>
+    <string name="dns_custom_doh_url_error">Enter a valid HTTPS DoH endpoint.</string>
+    <string name="dns_custom_dot_title">Custom DoT</string>
+    <string name="dns_custom_dot_body">Use a DNS-over-TLS endpoint with an explicit host, port, TLS name, and bootstrap IPs.</string>
+    <string name="dns_custom_dot_host_helper">Hostname or IP for the DNS-over-TLS endpoint.</string>
+    <string name="dns_custom_dot_tls_helper">Server name used during TLS certificate verification.</string>
+    <string name="dns_custom_dnscrypt_title">Custom DNSCrypt</string>
+    <string name="dns_custom_dnscrypt_body">Use a DNSCrypt resolver by specifying the endpoint, provider name, public key, and bootstrap IPs.</string>
+    <string name="dns_custom_dnscrypt_host_helper">Hostname or IP for the DNSCrypt server.</string>
+    <string name="dns_custom_dnscrypt_provider_label">Provider name</string>
+    <string name="dns_custom_dnscrypt_provider_helper">Certificate provider name advertised by the DNSCrypt resolver.</string>
+    <string name="dns_custom_dnscrypt_public_key_label">Public key</string>
+    <string name="dns_custom_dnscrypt_public_key_helper">Resolver signing key as 64 hexadecimal characters.</string>
+    <string name="dns_custom_dnscrypt_public_key_error">Enter a valid 64-character hexadecimal public key.</string>
+    <string name="dns_custom_host_label">Host</string>
+    <string name="dns_custom_port_label">Port</string>
+    <string name="dns_custom_port_helper">Use the resolver port for the selected encrypted protocol.</string>
+    <string name="dns_custom_tls_server_name_label">TLS server name</string>
+    <string name="dns_custom_bootstrap_label">Bootstrap IPs</string>
+    <string name="dns_custom_bootstrap_helper">Enter one or more resolver IPs separated by commas or spaces.</string>
+    <string name="dns_custom_bootstrap_error">Enter one or more bootstrap IP addresses. Do not use loopback or unspecified addresses.</string>
+    <string name="dns_custom_save_requirements_hint">Fill in all required fields to save</string>
+    <string name="dns_custom_switch_hint">Save this form to replace the current built-in profile with a custom endpoint.</string>
+    <string name="dns_active_detail_endpoint">Endpoint</string>
+    <string name="dns_active_detail_bootstrap">Bootstrap</string>
+    <string name="dns_active_detail_route">Tunnel route</string>
+    <string name="dns_active_bootstrap_not_required">Not required in plain DNS mode</string>
+    <string name="dns_active_route_encrypted_vpn">DNS is intercepted while the VPN runs.</string>
+    <string name="dns_active_route_plain_vpn">While the VPN runs, queries go directly to this resolver IP.</string>
+    <string name="dns_active_route_saved">Resolves names handled by the local proxy. Device DNS is unchanged.</string>
+    <string name="dns_proxy_banner_title">Proxy mode is active</string>
+    <string name="dns_save_in_progress">DNS settings are being saved. Try again.</string>
+    <string name="dns_proxy_banner_body">Proxy mode leaves device DNS unchanged. Encrypted DNS resolves names handled by the local proxy; VPN mode can intercept device DNS with a supported resolver.</string>
+    <string name="dns_private_dns_info_title">RIPDPI handles DNS itself</string>
+    <string name="dns_private_dns_info_body">RIPDPI resolves DNS through its own in-VPN interceptor. Android\'s system Private DNS setting does not change how names are resolved while the VPN is active.</string>
+    <string name="dns_private_dns_warning_title">System Private DNS is on</string>
+    <string name="dns_private_dns_warning_body">Android Private DNS is configured for this network. RIPDPI still uses its own resolver, so the system setting shown elsewhere may not match what the VPN actually does. No action is needed.</string>
+    <string name="dns_ipv6_helper">Allow the local VPN builder to include IPv6 DNS routing when the selected network supports it.</string>
+    <string name="dns_resolver_cloudflare_title">Cloudflare</string>
+    <string name="dns_resolver_cloudflare_body">Fast public resolver with a minimal setup footprint.</string>
+    <string name="dns_resolver_google_title">Google Public DNS</string>
+    <string name="dns_resolver_google_body">Widely reachable public resolver with familiar defaults.</string>
+    <string name="dns_resolver_quad9_title">Quad9</string>
+    <string name="dns_resolver_quad9_body">Security-focused public resolver with threat blocking.</string>
+    <string name="dns_resolver_adguard_title">AdGuard DNS</string>
+    <string name="dns_resolver_adguard_body">Public resolver that emphasizes ad and tracker blocking.</string>
+    <string name="dns_unknown_provider">Unknown provider</string>
+    <!-- DNS settings placeholders -->
+    <string name="dns_placeholder_resolver_example">resolver.example</string>
+    <string name="dns_placeholder_dnscrypt_cert">2.dnscrypt-cert.resolver.example</string>
+    <string name="dns_placeholder_public_key">0123abcd\u2026</string>
+    <string name="dns_placeholder_doh_url" translatable="false">https://resolver.example/dns-query</string>
+    <string name="dns_placeholder_bootstrap_ips">1.1.1.1, 1.0.0.1</string>
+    <string name="dns_placeholder_port">443</string>
+    <string name="dns_protocol_doq" translatable="false">DoQ</string>
+    <string name="dns_protocol_doq_body">DNS over QUIC. Use a custom host, TLS name, port, and bootstrap IPs.</string>
+    <string name="dns_protocol_odoh" translatable="false">ODoH</string>
+    <string name="dns_protocol_odoh_body">Oblivious DNS over HTTPS. Configure a proxy, target, and target key.</string>
+    <string name="dns_custom_doq_title">Custom DoQ</string>
+    <string name="dns_custom_doq_body">Use a DNS over QUIC endpoint with a host, port, TLS name, and bootstrap IPs.</string>
+    <string name="dns_custom_odoh_title">Custom ODoH</string>
+    <string name="dns_custom_odoh_body">Set separate proxy and target operators, target configuration bytes, and bootstrap IPs.</string>
+    <string name="dns_custom_odoh_proxy_url_label">Proxy HTTPS URL</string>
+    <string name="dns_custom_odoh_proxy_operator_label">Proxy operator ID</string>
+    <string name="dns_custom_odoh_target_host_label">Target host</string>
+    <string name="dns_custom_odoh_target_path_label">Target path</string>
+    <string name="dns_custom_odoh_target_operator_label">Target operator ID</string>
+    <string name="dns_custom_odoh_source_label">Target configuration source</string>
+    <string name="dns_custom_odoh_source_custom">Custom bytes</string>
+    <string name="dns_custom_odoh_source_custom_body">Paste target configuration bytes obtained from the target operator.</string>
+    <string name="dns_custom_odoh_source_bundled">Bundled bytes</string>
+    <string name="dns_custom_odoh_source_bundled_body">Use configuration bytes distributed with the resolver profile.</string>
+    <string name="dns_custom_odoh_configs_hex_label">Target configuration hex</string>
+    <string name="dns_custom_odoh_retrieved_at_label">Retrieved at (Unix seconds)</string>
+    <string name="dns_custom_odoh_ttl_label">Lifetime (seconds)</string>
+    <string name="dns_custom_doq_unavailable">DoQ works only in Proxy mode. VPN DNS uses SOCKS5 and cannot use DoQ. Stop an active VPN before switching.</string>
+    <string name="dns_custom_odoh_config_invalid">Enter valid ODoH target configuration bytes with a supported key.</string>
+    <string name="dns_custom_odoh_config_expired">The ODoH target configuration has expired. Enter fresh bytes and retrieval time.</string>
+</resources>

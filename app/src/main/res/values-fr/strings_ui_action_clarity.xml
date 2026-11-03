@@ -1,6 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<resources>
-    <string name="history_filter_disclosure">Filtres · %1$d</string>
-    <string name="history_filter_remove">Retirer le filtre : %1$s</string>
-    <string name="history_events_jump_to_latest_count">Nouveaux : %1$d · Aller aux derniers</string>
-</resources>

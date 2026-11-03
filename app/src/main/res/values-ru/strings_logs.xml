@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="logs">Журналы</string>
+    <string name="logs_clear">Очистить</string>
+    <string name="logs_clear_confirm_title">Очистить журнал?</string>
+    <string name="logs_clear_confirm_body">Все записи будут удалены из буфера журнала на устройстве. Это действие нельзя отменить.</string>
+    <string name="logs_status_live">Активный буфер</string>
+    <string name="logs_status_empty">Ожидание активности</string>
+    <string name="logs_buffer_title">Буфер</string>
+    <string name="logs_filters_section">Фильтры</string>
+    <string name="logs_filters_helper">Выберите один или несколько типов событий для фильтрации потока.</string>
+    <string name="logs_auto_scroll_title">Автопрокрутка к новым записям</string>
+    <string name="logs_auto_scroll_body">Держать последнюю подходящую запись в поле зрения по мере поступления новых данных диагностики.</string>
+    <string name="logs_stream_title">Последние записи</string>
+    <string name="logs_entries_count">Записи: %1$d</string>
+    <string name="logs_copy_entry">Скопировать запись %1$s за %2$s</string>
+    <string name="logs_empty_title">Логов пока нет</string>
+    <string name="logs_empty_body">Запустите RIPDPI или вызовите диагностическое событие, чтобы заполнить локальный поток.</string>
+    <string name="logs_filtered_empty_title">Нет записей, соответствующих текущим фильтрам</string>
+    <string name="logs_filtered_empty_body">Откройте «Фильтры», чтобы посмотреть другие события в локальном буфере.</string>
+    <string name="logs_search_placeholder">Поиск по сообщениям журнала</string>
+    <string name="logs_search_clear">Очистить поиск</string>
+    <string name="logs_search_empty_title">Нет записей, соответствующих запросу</string>
+    <string name="logs_search_empty_body">Попробуйте другой запрос или очистите поиск.</string>
+    <string name="logs_service_failure_format">Сервис %1$s не удалось запустить: %2$s</string>
+    <string name="logs_active_session_body">Показать текущую сессию подключения или диагностики и скрыть старые сохранённые записи.</string>
+    <string name="logs_active_session_title">Только активная сессия</string>
+    <string name="logs_filters_summary_compact">Подсистемы: %1$d • Уровни: %2$d</string>
+    <string name="logs_severity_debug">ОТЛАДКА</string>
+    <string name="logs_severity_error">ОШИБКА</string>
+    <string name="logs_severity_info">ИНФО</string>
+    <string name="logs_severity_title">Серьёзность</string>
+    <string name="logs_severity_warn">ПРЕДУПР</string>
+    <string name="logs_subsystem_diagnostics">ДИАГНОСТИКА</string>
+    <string name="logs_subsystem_proxy">ПРОКСИ</string>
+    <string name="logs_subsystem_service">СЕРВИС</string>
+    <string name="logs_subsystem_tunnel">ТУННЕЛЬ</string>
+    <string name="logs_subsystems_title">Подсистемы</string>
+    <string name="logs_mode_proxy">Прокси</string>
+    <string name="logs_mode_vpn">VPN</string>
+    <string name="logs_service_started_format">Сервис %1$s запущен</string>
+    <string name="logs_service_stopped_format">Сервис %1$s остановлен</string>
+    <string name="logs_entry_details">Подробнее</string>
+    <plurals name="logs_buffer_value">
+        <item quantity="one">%1$d / %2$d записи</item>
+        <item quantity="few">%1$d / %2$d записей</item>
+        <item quantity="many">%1$d / %2$d записей</item>
+        <item quantity="other">%1$d / %2$d записей</item>
+    </plurals>
+    <string name="logs_actions_title">Действия с журналом</string>
+</resources>

@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="logs_active_session_title">Session active uniquement</string>
+    <string name="logs_clear">Effacer</string>
+    <string name="logs_clear_confirm_title">Effacer les journaux ?</string>
+    <string name="logs_clear_confirm_body">Toutes les entrées du tampon de journaux de l\'appareil seront supprimées. Cette action est irréversible.</string>
+    <string name="logs_filtered_empty_body">Ouvrez les filtres pour consulter d’autres événements du tampon local.</string>
+    <string name="logs_search_placeholder">Rechercher dans les messages du journal</string>
+    <string name="logs_search_clear">Effacer la recherche</string>
+    <string name="logs_search_empty_title">Aucune entrée ne correspond à la recherche</string>
+    <string name="logs_search_empty_body">Essayez un autre terme ou effacez la recherche.</string>
+    <string name="logs_severity_info">INFO</string>
+    <string name="logs_subsystem_tunnel">TUNNEL</string>
+    <string name="logs_auto_scroll_body">Garder la dernière entrée correspondante en vue pendant que de nouveaux diagnostics arrivent.</string>
+    <string name="logs_empty_body">Démarrez RIPDPI ou déclenchez un événement de diagnostic pour alimenter le flux sur l\'appareil.</string>
+    <string name="logs_filtered_empty_title">Aucune entrée ne correspond aux filtres actuels</string>
+    <string name="logs_severity_title">Gravité</string>
+    <string name="logs_stream_title">Entrées récentes</string>
+    <string name="logs_subsystems_title">Sous-systèmes</string>
+    <string name="logs_auto_scroll_title">Défilement automatique vers les plus récents</string>
+    <string name="logs_empty_title">Aucun journal pour l\'instant</string>
+    <string name="logs_filters_helper">Filtrez par sous-système ou gravité pour vous concentrer sur le runtime que vous déboguez.</string>
+    <string name="logs_service_failure_format">Le service %1$s n\'a pas démarré : %2$s</string>
+    <string name="logs_severity_warn">AVERT</string>
+    <string name="logs_subsystem_diagnostics">DIAGNOSTICS</string>
+    <string name="logs">Journaux</string>
+    <string name="logs_buffer_title">Tampon</string>
+    <string name="logs_entries_count">Entrées : %1$d</string>
+    <string name="logs_copy_entry">Copier le journal %1$s de %2$s</string>
+    <string name="logs_filters_section">Filtres</string>
+    <string name="logs_severity_debug">DEBUG</string>
+    <string name="logs_status_empty">En attente d\'activité</string>
+    <string name="logs_subsystem_proxy">PROXY</string>
+    <string name="logs_active_session_body">Affichez d\'abord la session de connexion ou de diagnostics actuelle et masquez l\'historique persisté plus ancien.</string>
+    <string name="logs_filters_summary_compact">Sous-systèmes : %1$d • Sévérités : %2$d</string>
+    <string name="logs_severity_error">ERREUR</string>
+    <string name="logs_status_live">Tampon en direct</string>
+    <string name="logs_subsystem_service">SERVICE</string>
+    <string name="logs_mode_proxy">Proxy</string>
+    <string name="logs_mode_vpn">VPN</string>
+    <string name="logs_service_started_format">Service %1$s démarré</string>
+    <string name="logs_service_stopped_format">Service %1$s arrêté</string>
+    <string name="logs_entry_details">Détails</string>
+    <plurals name="logs_buffer_value">
+        <item quantity="one">%1$d / %2$d entrée</item>
+        <item quantity="other">%1$d / %2$d entrées</item>
+    </plurals>
+    <string name="logs_actions_title">Actions du journal</string>
+</resources>

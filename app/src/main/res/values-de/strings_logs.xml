@@ -1,0 +1,49 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="logs_active_session_title">Nur aktive Sitzung</string>
+    <string name="logs_clear">Löschen</string>
+    <string name="logs_clear_confirm_title">Protokolle löschen?</string>
+    <string name="logs_clear_confirm_body">Dadurch werden alle Einträge aus dem Protokollpuffer auf dem Gerät entfernt. Das lässt sich nicht rückgängig machen.</string>
+    <string name="logs_filtered_empty_body">Öffnen Sie die Filter, um andere Ereignisse im lokalen Puffer anzuzeigen.</string>
+    <string name="logs_search_placeholder">Logmeldungen durchsuchen</string>
+    <string name="logs_search_clear">Suche löschen</string>
+    <string name="logs_search_empty_title">Keine Einträge entsprechen der Suche</string>
+    <string name="logs_search_empty_body">Versuchen Sie einen anderen Suchbegriff oder löschen Sie die Suche.</string>
+    <string name="logs_severity_info">INFO</string>
+    <string name="logs_subsystem_tunnel">TUNNEL</string>
+    <string name="logs_auto_scroll_body">Hält den neuesten passenden Eintrag im Blick, während neue Diagnosen eintreffen.</string>
+    <string name="logs_empty_body">Starten Sie RIPDPI oder lösen Sie ein Diagnoseereignis aus, um den geräteinternen Stream zu füllen.</string>
+    <string name="logs_filtered_empty_title">Keine Einträge entsprechen den aktuellen Filtern</string>
+    <string name="logs_severity_title">Schweregrad</string>
+    <string name="logs_stream_title">Letzte Einträge</string>
+    <string name="logs_subsystems_title">Subsysteme</string>
+    <string name="logs_auto_scroll_title">Automatisch zum Neuesten scrollen</string>
+    <string name="logs_empty_title">Noch keine Logs</string>
+    <string name="logs_filters_helper">Nach Subsystem oder Schweregrad filtern, um sich auf die Laufzeit zu konzentrieren, die Sie debuggen.</string>
+    <string name="logs_service_failure_format">%1$s-Dienst konnte nicht gestartet werden: %2$s</string>
+    <string name="logs_severity_warn">WARN</string>
+    <string name="logs_subsystem_diagnostics">DIAGNOSTICS</string>
+    <string name="logs">Logs</string>
+    <string name="logs_buffer_title">Puffer</string>
+    <string name="logs_entries_count">Einträge: %1$d</string>
+    <string name="logs_copy_entry">%1$s-Protokoll um %2$s kopieren</string>
+    <string name="logs_filters_section">Filter</string>
+    <string name="logs_severity_debug">DEBUG</string>
+    <string name="logs_status_empty">Warten auf Aktivität</string>
+    <string name="logs_subsystem_proxy">PROXY</string>
+    <string name="logs_active_session_body">Zeigen Sie die aktuelle Verbindungs- oder Diagnosesitzung zuerst an und blenden Sie älteren persistierten Verlauf aus.</string>
+    <string name="logs_filters_summary_compact">Subsysteme: %1$d • Schweregrade: %2$d</string>
+    <string name="logs_severity_error">FEHLER</string>
+    <string name="logs_status_live">Live-Puffer</string>
+    <string name="logs_subsystem_service">SERVICE</string>
+    <string name="logs_mode_proxy">Proxy</string>
+    <string name="logs_mode_vpn">VPN</string>
+    <string name="logs_service_started_format">%1$s-Dienst gestartet</string>
+    <string name="logs_service_stopped_format">%1$s-Dienst gestoppt</string>
+    <string name="logs_entry_details">Details</string>
+    <plurals name="logs_buffer_value">
+        <item quantity="one">%1$d / %2$d Eintrag</item>
+        <item quantity="other">%1$d / %2$d Einträge</item>
+    </plurals>
+    <string name="logs_actions_title">Protokollaktionen</string>
+</resources>

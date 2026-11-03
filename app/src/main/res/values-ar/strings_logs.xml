@@ -1,0 +1,53 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="logs">السجلات</string>
+    <string name="logs_clear">مسح</string>
+    <string name="logs_clear_confirm_title">هل تريد مسح السجلات؟</string>
+    <string name="logs_clear_confirm_body">ستتم إزالة جميع الإدخالات من مخزن السجلات على الجهاز. لا يمكن التراجع عن هذا الإجراء.</string>
+    <string name="logs_status_live">مخزن مؤقت مباشر</string>
+    <string name="logs_status_empty">في انتظار النشاط</string>
+    <string name="logs_buffer_title">المخزن المؤقت</string>
+    <string name="logs_filters_section">المرشِّحات</string>
+    <string name="logs_filters_helper">صفِّح حسب النظام الفرعي أو مستوى الخطورة للتركيز على وقت التشغيل الذي تُشخِّصه.</string>
+    <string name="logs_filters_summary_compact">الأنظمة الفرعية: %1$d • مستويات الخطورة: %2$d</string>
+    <string name="logs_subsystems_title">الأنظمة الفرعية</string>
+    <string name="logs_subsystem_service">SERVICE</string>
+    <string name="logs_subsystem_proxy">PROXY</string>
+    <string name="logs_subsystem_tunnel">TUNNEL</string>
+    <string name="logs_subsystem_diagnostics">DIAGNOSTICS</string>
+    <string name="logs_severity_title">مستوى الخطورة</string>
+    <string name="logs_severity_debug">DEBUG</string>
+    <string name="logs_severity_info">INFO</string>
+    <string name="logs_severity_warn">WARN</string>
+    <string name="logs_severity_error">ERROR</string>
+    <string name="logs_auto_scroll_title">التمرير التلقائي إلى الأحدث</string>
+    <string name="logs_auto_scroll_body">إبقاء آخر إدخال مطابق مرئياً مع وصول تشخيصات جديدة.</string>
+    <string name="logs_active_session_title">الجلسة النشطة فقط</string>
+    <string name="logs_active_session_body">عرض الاتصال الحالي أو جلسة التشخيص أولاً وإخفاء السجلات القديمة المحفوظة.</string>
+    <string name="logs_stream_title">الإدخالات الأخيرة</string>
+    <string name="logs_entries_count">الإدخالات: %1$d</string>
+    <string name="logs_copy_entry">نسخ سجل %1$s عند %2$s</string>
+    <string name="logs_empty_title">لا توجد سجلات بعد</string>
+    <string name="logs_empty_body">شغِّل RIPDPI أو أطلق حدثاً تشخيصياً لملء تدفق البيانات على الجهاز.</string>
+    <string name="logs_filtered_empty_title">لا توجد إدخالات تطابق المرشِّحات الحالية</string>
+    <string name="logs_filtered_empty_body">افتح عوامل التصفية لعرض أحداث أخرى في المخزن المؤقت المحلي.</string>
+    <string name="logs_search_placeholder">ابحث في رسائل السجل</string>
+    <string name="logs_search_clear">مسح البحث</string>
+    <string name="logs_search_empty_title">لا توجد إدخالات تطابق البحث</string>
+    <string name="logs_search_empty_body">جرّب عبارة بحث أخرى أو امسح البحث.</string>
+    <string name="logs_service_failure_format">فشل تشغيل خدمة %1$s: %2$s</string>
+    <string name="logs_mode_proxy">وكيل</string>
+    <string name="logs_mode_vpn">VPN</string>
+    <string name="logs_service_started_format">بدأت خدمة %1$s</string>
+    <string name="logs_service_stopped_format">توقفت خدمة %1$s</string>
+    <string name="logs_entry_details">التفاصيل</string>
+    <plurals name="logs_buffer_value">
+        <item quantity="zero">%1$d / %2$d إدخال</item>
+        <item quantity="one">%1$d / %2$d إدخال</item>
+        <item quantity="two">%1$d / %2$d إدخالين</item>
+        <item quantity="few">%1$d / %2$d إدخالات</item>
+        <item quantity="many">%1$d / %2$d إدخال</item>
+        <item quantity="other">%1$d / %2$d إدخال</item>
+    </plurals>
+    <string name="logs_actions_title">إجراءات السجل</string>
+</resources>

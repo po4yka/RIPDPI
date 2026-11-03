@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="logs">Logs</string>
+    <string name="logs_clear">Clear</string>
+    <string name="logs_clear_confirm_title">Clear logs?</string>
+    <string name="logs_clear_confirm_body">This removes every entry from the on-device log buffer. It cannot be undone.</string>
+    <string name="logs_status_live">Live buffer</string>
+    <string name="logs_status_empty">Waiting for activity</string>
+    <string name="logs_buffer_title">Buffer</string>
+    <string name="logs_filters_section">Filters</string>
+    <string name="logs_filters_helper">Filter by subsystem or severity to focus on the runtime you are debugging.</string>
+    <string name="logs_filters_summary_compact">Subsystems: %1$d • Severities: %2$d</string>
+    <string name="logs_subsystems_title">Subsystems</string>
+    <string name="logs_subsystem_service">SERVICE</string>
+    <string name="logs_subsystem_proxy">PROXY</string>
+    <string name="logs_subsystem_tunnel">TUNNEL</string>
+    <string name="logs_subsystem_diagnostics">DIAGNOSTICS</string>
+    <string name="logs_severity_title">Severity</string>
+    <string name="logs_severity_debug">DEBUG</string>
+    <string name="logs_severity_info">INFO</string>
+    <string name="logs_severity_warn">WARN</string>
+    <string name="logs_severity_error">ERROR</string>
+    <string name="logs_auto_scroll_title">Auto-scroll to newest</string>
+    <string name="logs_auto_scroll_body">Keep the latest matching entry in view while new diagnostics arrive.</string>
+    <string name="logs_active_session_title">Only active session</string>
+    <string name="logs_active_session_body">Show the current connection or diagnostics session first and hide older persisted history.</string>
+    <string name="logs_stream_title">Recent entries</string>
+    <string name="logs_entries_count">Entries: %1$d</string>
+    <string name="logs_copy_entry">Copy %1$s log at %2$s</string>
+    <string name="logs_empty_title">No logs yet</string>
+    <string name="logs_empty_body">Start RIPDPI or trigger a diagnostic event to populate the on-device stream.</string>
+    <string name="logs_filtered_empty_title">No entries match the current filters</string>
+    <string name="logs_filtered_empty_body">Open Filters to inspect other events in the local buffer.</string>
+    <string name="logs_search_placeholder">Search log messages</string>
+    <string name="logs_search_clear">Clear search</string>
+    <string name="logs_search_empty_title">No entries match your search</string>
+    <string name="logs_search_empty_body">Try a different search term or clear the search.</string>
+    <!-- Logs -->
+    <string name="logs_service_failure_format">%1$s service failed to start: %2$s</string>
+    <string name="logs_mode_proxy">Proxy</string>
+    <string name="logs_mode_vpn">VPN</string>
+    <string name="logs_service_started_format">%1$s service started</string>
+    <string name="logs_service_stopped_format">%1$s service stopped</string>
+    <string name="logs_entry_details">Details</string>
+    <plurals name="logs_buffer_value">
+        <item quantity="one">%1$d / %2$d entry</item>
+        <item quantity="other">%1$d / %2$d entries</item>
+    </plurals>
+    <string name="logs_actions_title">Log actions</string>
+</resources>
