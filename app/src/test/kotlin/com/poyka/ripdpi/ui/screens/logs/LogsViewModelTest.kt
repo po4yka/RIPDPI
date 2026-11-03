@@ -1,5 +1,6 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.logs
 
+import com.poyka.ripdpi.activities.message
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableSet
 import org.junit.Assert.assertEquals

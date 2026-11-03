@@ -46,11 +46,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import androidx.hilt.lifecycle.viewmodel.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.LogEntry
-import com.poyka.ripdpi.activities.LogSeverity
-import com.poyka.ripdpi.activities.LogSubsystem
-import com.poyka.ripdpi.activities.LogsUiState
-import com.poyka.ripdpi.activities.LogsViewModel
 import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.buttons.RipDpiIconButton
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard

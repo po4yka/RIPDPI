@@ -1,5 +1,7 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.logs
 
+import com.poyka.ripdpi.activities.FakeStringResolver
+import com.poyka.ripdpi.activities.message
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import com.poyka.ripdpi.platform.LocalizedTimestampFormatter
 import com.poyka.ripdpi.ui.logs.LogEntryMapper

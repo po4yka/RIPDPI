@@ -6,10 +6,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import com.poyka.ripdpi.activities.ConnectionState
 import com.poyka.ripdpi.activities.LauncherIconManager
-import com.poyka.ripdpi.activities.LogEntry
-import com.poyka.ripdpi.activities.LogSeverity
-import com.poyka.ripdpi.activities.LogSubsystem
-import com.poyka.ripdpi.activities.LogsUiState
 import com.poyka.ripdpi.activities.MainUiState
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
@@ -32,7 +28,11 @@ import com.poyka.ripdpi.ui.screens.history.HistoryConnectionRowUiModel
 import com.poyka.ripdpi.ui.screens.history.HistoryConnectionsUiModel
 import com.poyka.ripdpi.ui.screens.history.HistoryScreen
 import com.poyka.ripdpi.ui.screens.history.HistoryUiState
+import com.poyka.ripdpi.ui.screens.logs.LogEntry
+import com.poyka.ripdpi.ui.screens.logs.LogSeverity
+import com.poyka.ripdpi.ui.screens.logs.LogSubsystem
 import com.poyka.ripdpi.ui.screens.logs.LogsScreen
+import com.poyka.ripdpi.ui.screens.logs.LogsUiState
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptScreen
 import com.poyka.ripdpi.ui.screens.permissions.BiometricPromptStage
 import com.poyka.ripdpi.ui.screens.permissions.VpnPermissionDialog

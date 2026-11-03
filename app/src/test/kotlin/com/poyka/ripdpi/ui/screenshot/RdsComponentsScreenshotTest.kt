@@ -4,9 +4,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.ui.Modifier
-import com.poyka.ripdpi.activities.LogEntry
-import com.poyka.ripdpi.activities.LogSeverity
-import com.poyka.ripdpi.activities.LogSubsystem
 import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.feedback.RipDpiAccordion
 import com.poyka.ripdpi.ui.components.indicators.AnalysisProgressIndicator
@@ -24,6 +21,9 @@ import com.poyka.ripdpi.ui.components.indicators.StageProgressIndicator
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSegmentedButton
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTab
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTabs
+import com.poyka.ripdpi.ui.screens.logs.LogEntry
+import com.poyka.ripdpi.ui.screens.logs.LogSeverity
+import com.poyka.ripdpi.ui.screens.logs.LogSubsystem
 import com.poyka.ripdpi.ui.screens.logs.LogsStreamCard
 import com.poyka.ripdpi.ui.screens.status.AnalysisStageStatus
 import com.poyka.ripdpi.ui.screens.status.AnalysisStageUiState

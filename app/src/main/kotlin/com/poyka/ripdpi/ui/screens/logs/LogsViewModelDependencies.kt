@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.logs
 
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppStatus

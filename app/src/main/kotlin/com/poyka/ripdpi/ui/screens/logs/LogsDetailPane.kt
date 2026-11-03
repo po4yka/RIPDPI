@@ -9,7 +9,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.LogEntry
 import com.poyka.ripdpi.ui.components.indicators.LogRow
 import com.poyka.ripdpi.ui.components.navigation.RipDpiTopAppBar
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiDetailPaneEmptyState

@@ -21,7 +21,6 @@ import androidx.compose.ui.Modifier
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.lifecycleScope
 import com.poyka.ripdpi.BuildConfig
-import com.poyka.ripdpi.activities.LogsViewModel
 import com.poyka.ripdpi.activities.MainViewModel
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStateStore
@@ -31,6 +30,7 @@ import com.poyka.ripdpi.ui.navigation.RipDpiNavHost
 import com.poyka.ripdpi.ui.navigation.RipDpiNavHostLaunchRequests
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.logs.LogsRoute
+import com.poyka.ripdpi.ui.screens.logs.LogsViewModel
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityActions
 import com.poyka.ripdpi.ui.screens.profiles.ProfileUtilityScreen
 import com.poyka.ripdpi.ui.screens.status.StatusPauseViewModel

@@ -1,6 +1,11 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.logs
 
 import app.cash.turbine.test
+import com.poyka.ripdpi.activities.FakeServiceStateStore
+import com.poyka.ripdpi.activities.FakeStringResolver
+import com.poyka.ripdpi.activities.RecordingLogInputList
+import com.poyka.ripdpi.activities.StubDiagnosticsTimelineSource
+import com.poyka.ripdpi.activities.message
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot

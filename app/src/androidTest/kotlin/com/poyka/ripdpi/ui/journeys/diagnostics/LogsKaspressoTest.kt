@@ -2,8 +2,6 @@ package com.poyka.ripdpi.ui.journeys.diagnostics
 
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.assertIsEnabled
-import com.poyka.ripdpi.activities.LogSeverity
-import com.poyka.ripdpi.activities.LogSubsystem
 import com.poyka.ripdpi.automation.AutomationDataPreset
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.FailureReason
@@ -13,6 +11,8 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
 import com.poyka.ripdpi.integration.automationLaunchIntent
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.logs.LogSeverity
+import com.poyka.ripdpi.ui.screens.logs.LogSubsystem
 import com.poyka.ripdpi.ui.testing.ExportPreviewTestTags
 import dagger.hilt.android.testing.HiltAndroidTest
 import org.junit.Assert.assertEquals

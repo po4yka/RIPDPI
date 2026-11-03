@@ -29,10 +29,6 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.LogEntry
-import com.poyka.ripdpi.activities.LogSeverity
-import com.poyka.ripdpi.activities.LogSubsystem
-import com.poyka.ripdpi.activities.LogsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf

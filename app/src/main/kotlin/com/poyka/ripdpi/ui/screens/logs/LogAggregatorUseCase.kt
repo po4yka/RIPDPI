@@ -1,4 +1,4 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.logs
 
 import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot

@@ -7,10 +7,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Modifier
-import com.poyka.ripdpi.activities.LogEntry
-import com.poyka.ripdpi.activities.LogSeverity
-import com.poyka.ripdpi.activities.LogSubsystem
-import com.poyka.ripdpi.activities.LogsUiState
 import com.poyka.ripdpi.data.xray.XrayOutboundHealth
 import com.poyka.ripdpi.data.xray.XrayProviderDiagnosticsFixtures
 import com.poyka.ripdpi.data.xray.XrayProviderReadiness
@@ -34,7 +30,11 @@ import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsStrategyProbePro
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsTone
 import com.poyka.ripdpi.ui.screens.diagnostics.state.PhaseState
 import com.poyka.ripdpi.ui.screens.diagnostics.state.PhaseStepUiModel
+import com.poyka.ripdpi.ui.screens.logs.LogEntry
+import com.poyka.ripdpi.ui.screens.logs.LogSeverity
+import com.poyka.ripdpi.ui.screens.logs.LogSubsystem
 import com.poyka.ripdpi.ui.screens.logs.LogsScreen
+import com.poyka.ripdpi.ui.screens.logs.LogsUiState
 import com.poyka.ripdpi.ui.screens.status.AnalysisProgressUiState
 import com.poyka.ripdpi.ui.screens.status.AnalysisStageStatus
 import com.poyka.ripdpi.ui.screens.status.AnalysisStageUiState

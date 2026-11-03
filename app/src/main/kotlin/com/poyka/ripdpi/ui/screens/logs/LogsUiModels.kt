@@ -1,6 +1,7 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.logs
 
 import androidx.compose.runtime.Immutable
+import com.poyka.ripdpi.activities.message
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableSet
 import kotlinx.collections.immutable.persistentListOf

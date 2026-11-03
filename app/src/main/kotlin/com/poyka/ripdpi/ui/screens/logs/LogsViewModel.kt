@@ -1,7 +1,8 @@
-package com.poyka.ripdpi.activities
+package com.poyka.ripdpi.ui.screens.logs
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.poyka.ripdpi.activities.message
 import com.poyka.ripdpi.data.NativeRuntimeEvent
 import com.poyka.ripdpi.diagnostics.DiagnosticEvent
 import dagger.hilt.android.lifecycle.HiltViewModel

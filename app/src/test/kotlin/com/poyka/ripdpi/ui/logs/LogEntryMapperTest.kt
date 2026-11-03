@@ -1,9 +1,9 @@
 package com.poyka.ripdpi.ui.logs
 
-import com.poyka.ripdpi.activities.LogSeverity
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.platform.AndroidStringResolver
 import com.poyka.ripdpi.platform.LocalizedTimestampFormatter
+import com.poyka.ripdpi.ui.screens.logs.LogSeverity
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import org.junit.runner.RunWith
