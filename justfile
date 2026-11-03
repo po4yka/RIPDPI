@@ -296,7 +296,24 @@ release-preflight tag window_start started_at:
 
 # Run full local CI mirror (lint + test for both Kotlin and Rust)
 [group('ci')]
-ci: task-check lint lint-rust test test-rust
+ci: task-check lint lint-rust test test-rust ci-gates
+
+# Run the offline source gates that CI runs but lefthook does not (about 3 minutes;
+# the Rust API snapshot check takes most of it). verify_jni_readiness_mapping.py
+# stays CI-only because it needs a release R8 mapping.
+[group('ci')]
+ci-gates:
+    python3 scripts/ci/check_architecture_health.py --check
+    python3 scripts/ci/check_file_loc_limits.py
+    python3 scripts/ci/check_native_hotspot_budgets.py
+    python3 scripts/ci/check_cross_language_runtime_contracts.py
+    python3 scripts/ci/check_protocol_fixture_versions.py
+    python3 scripts/ci/verify_diagnostics_boundary.py
+    python3 scripts/ci/kaspresso_route_coverage.py
+    python3 scripts/ci/check_localized_settings_options.py
+    bash scripts/ci/check-locale-parity.sh
+    bash scripts/ci/check-translation-export.sh
+    python3 scripts/ci/check_rust_api_snapshots.py
 
 # Run GitHub Actions locally via act
 [group('ci')]
