@@ -329,46 +329,36 @@ private fun rememberDiagnosticsScreenActions(
     callbacks: DiagnosticsRouteCallbacks,
     pcapCaptureViewModel: PcapCaptureViewModel?,
     homeDiagnostics: StatusDiagnosticsUiState,
-): DiagnosticsScreenActions =
-    DiagnosticsScreenActions(
-        onSelectSection = remember(viewModel) { viewModel.selectionActions::selectSection },
-        onSelectProfile = remember(viewModel) { viewModel.selectionActions::selectProfile },
-        onSelectiveMatrixHostsChanged = remember(viewModel) { viewModel.selectionActions::updateSelectiveMatrixHosts },
+): DiagnosticsScreenActions {
+    val selection = viewModel.selectionActions
+    val tools = viewModel.dpiToolsController
+    val scan = viewModel.scanActions
+    return DiagnosticsScreenActions(
+        onSelectSection = remember(selection) { selection::selectSection },
+        onSelectProfile = remember(selection) { selection::selectProfile },
+        onSelectiveMatrixHostsChanged = remember(selection) { selection::updateSelectiveMatrixHosts },
         onRunScan = remember(viewModel) { viewModel::runScan },
-        onRunRawScan = remember(viewModel) { viewModel.scanActions::startRawScan },
-        onRunInPathScan = remember(viewModel) { viewModel.scanActions::startInPathScan },
-        onWaitForHiddenProbeAndRun = remember(viewModel) { viewModel.scanActions::waitForHiddenProbeAndRun },
-        onCancelHiddenProbeAndRun = remember(viewModel) { viewModel.scanActions::cancelHiddenProbeAndRun },
-        onDismissHiddenProbeConflictDialog =
-            remember(
-                viewModel,
-            ) { viewModel.scanActions::dismissHiddenProbeConflictDialog },
-        onConfirmSensitiveProfileRun = remember(viewModel) { viewModel.scanActions::confirmSensitiveProfileRun },
-        onDismissSensitiveProfileConsentDialog =
-            remember(viewModel) { viewModel.scanActions::dismissSensitiveProfileConsentDialog },
+        onRunRawScan = remember(scan) { scan::startRawScan },
+        onRunInPathScan = remember(scan) { scan::startInPathScan },
+        onWaitForHiddenProbeAndRun = remember(scan) { scan::waitForHiddenProbeAndRun },
+        onCancelHiddenProbeAndRun = remember(scan) { scan::cancelHiddenProbeAndRun },
+        onDismissHiddenProbeConflictDialog = remember(scan) { scan::dismissHiddenProbeConflictDialog },
+        onConfirmSensitiveProfileRun = remember(scan) { scan::confirmSensitiveProfileRun },
+        onDismissSensitiveProfileConsentDialog = remember(scan) { scan::dismissSensitiveProfileConsentDialog },
         onKeepResolverRecommendation = remember(viewModel) { viewModel::keepResolverRecommendationForSession },
         onSaveResolverRecommendation = remember(viewModel) { viewModel::saveResolverRecommendation },
-        onSelectSession = remember(viewModel) { viewModel.selectionActions::selectSession },
-        onDismissSessionDetail = remember(viewModel) { viewModel.selectionActions::dismissSessionDetail },
-        onSelectStrategyProbeCandidate =
-            remember(
-                viewModel,
-            ) { viewModel.selectionActions::selectStrategyProbeCandidate },
-        onDismissStrategyProbeCandidate =
-            remember(
-                viewModel,
-            ) { viewModel.selectionActions::dismissStrategyProbeCandidate },
-        onSelectApproachMode = remember(viewModel) { viewModel.selectionActions::selectApproachMode },
-        onSelectApproach = remember(viewModel) { viewModel.selectionActions::selectApproach },
-        onDismissApproachDetail = remember(viewModel) { viewModel.selectionActions::dismissApproachDetail },
-        onSelectEvent = remember(viewModel) { viewModel.selectionActions::selectEvent },
-        onDismissEventDetail = remember(viewModel) { viewModel.selectionActions::dismissEventDetail },
-        onSelectProbe = remember(viewModel) { viewModel.selectionActions::selectProbe },
-        onDismissProbeDetail = remember(viewModel) { viewModel.selectionActions::dismissProbeDetail },
-        onToggleSensitiveSessionDetails =
-            remember(
-                viewModel,
-            ) { viewModel.selectionActions::toggleSensitiveSessionDetails },
+        onSelectSession = remember(selection) { selection::selectSession },
+        onDismissSessionDetail = remember(selection) { selection::dismissSessionDetail },
+        onSelectStrategyProbeCandidate = remember(selection) { selection::selectStrategyProbeCandidate },
+        onDismissStrategyProbeCandidate = remember(selection) { selection::dismissStrategyProbeCandidate },
+        onSelectApproachMode = remember(selection) { selection::selectApproachMode },
+        onSelectApproach = remember(selection) { selection::selectApproach },
+        onDismissApproachDetail = remember(selection) { selection::dismissApproachDetail },
+        onSelectEvent = remember(selection) { selection::selectEvent },
+        onDismissEventDetail = remember(selection) { selection::dismissEventDetail },
+        onSelectProbe = remember(selection) { selection::selectProbe },
+        onDismissProbeDetail = remember(selection) { selection::dismissProbeDetail },
+        onToggleSensitiveSessionDetails = remember(selection) { selection::toggleSensitiveSessionDetails },
         onSessionSearch = remember(viewModel) { viewModel.filterActions::setSessionSearch },
         onToggleEventFilter = remember(viewModel) { viewModel.filterActions::toggleEventFilter },
         onEventSearch = remember(viewModel) { viewModel.filterActions::setEventSearch },
@@ -377,30 +367,24 @@ private fun rememberDiagnosticsScreenActions(
         onShareArchive = remember(viewModel) { viewModel.shareActions::shareArchive },
         onSaveArchive = remember(viewModel) { viewModel.shareActions::saveArchive },
         onTogglePcapRecording = rememberPcapToggleAction(viewModel, pcapCaptureViewModel),
-        onRunDnsIntegrityCheck = remember(viewModel) { viewModel.dpiToolsController::runDnsIntegrityCheck },
-        onRunDnsAvailabilitySurvey = remember(viewModel) { viewModel.dpiToolsController::runDnsAvailabilitySurvey },
-        onRunDomainReachabilityScan = remember(viewModel) { viewModel.dpiToolsController::runDomainReachabilityScan },
-        onRunCompressionProbe = remember(viewModel) { viewModel.dpiToolsController::runCompressionProbe },
+        onRunDnsIntegrityCheck = remember(tools) { tools::runDnsIntegrityCheck },
+        onRunDnsAvailabilitySurvey = remember(tools) { tools::runDnsAvailabilitySurvey },
+        onRunDomainReachabilityScan = remember(tools) { tools::runDomainReachabilityScan },
+        onRunCompressionProbe = remember(tools) { tools::runCompressionProbe },
         onRunCidrWhitelistDetection = remember(viewModel) { viewModel.cidrWhitelistController::run },
         onCacheIpv4WhitelistSubnets = remember(viewModel) { viewModel.ipv4WhitelistController::cacheSubnets },
         onCheckIpv4WhitelistSubnets = remember(viewModel) { viewModel.ipv4WhitelistController::checkSubnets },
         onSaveIpv4WhitelistCsv = remember(viewModel) { viewModel.ipv4WhitelistController::saveCsv },
-        onRunTcp16FatHeaderProbe = remember(viewModel) { viewModel.dpiToolsController::runTcp16FatHeaderProbe },
-        onRunAllowlistSniFinder = remember(viewModel) { viewModel.dpiToolsController::runAllowlistSniFinder },
+        onRunTcp16FatHeaderProbe = remember(tools) { tools::runTcp16FatHeaderProbe },
+        onRunAllowlistSniFinder = remember(tools) { tools::runAllowlistSniFinder },
         onRunPluggableTransportProbe = remember(viewModel) { viewModel.pluggableTransportController::run },
-        onRunByohCompatibilityCheck = remember(viewModel) { viewModel.dpiToolsController::runByohCompatibilityCheck },
-        onRunRknBlockDiagnosis = remember(viewModel) { viewModel.dpiToolsController::runRknBlockDiagnosis },
-        onRknSelfInfoEnabledChange = remember(viewModel) { viewModel.dpiToolsController::setRknSelfInfoEnabled },
-        onCompressionProbeZstdEnabledChange =
-            remember(viewModel) {
-                viewModel.dpiToolsController::setCompressionProbeZstdEnabled
-            },
-        onByohDstIpChange = remember(viewModel) { viewModel.dpiToolsController::setByohDstIp },
-        onByohUrlPathChange = remember(viewModel) { viewModel.dpiToolsController::setByohUrlPath },
-        onByohSyntheticFixtureEnabledChange =
-            remember(viewModel) {
-                viewModel.dpiToolsController::setByohSyntheticFixtureEnabled
-            },
+        onRunByohCompatibilityCheck = remember(tools) { tools::runByohCompatibilityCheck },
+        onRunRknBlockDiagnosis = remember(tools) { tools::runRknBlockDiagnosis },
+        onRknSelfInfoEnabledChange = remember(tools) { tools::setRknSelfInfoEnabled },
+        onCompressionProbeZstdEnabledChange = remember(tools) { tools::setCompressionProbeZstdEnabled },
+        onByohDstIpChange = remember(tools) { tools::setByohDstIp },
+        onByohUrlPathChange = remember(tools) { tools::setByohUrlPath },
+        onByohSyntheticFixtureEnabledChange = remember(tools) { tools::setByohSyntheticFixtureEnabled },
         onDpiSuiteProbeEnabledChange = remember(viewModel) { viewModel.dpiSuiteController::setProbeEnabled },
         onDpiSuiteCustomDomainsChange = remember(viewModel) { viewModel.dpiSuiteController::setCustomDomains },
         onDpiSuiteConcurrencyDelta = remember(viewModel) { viewModel.dpiSuiteController::adjustConcurrency },
@@ -410,6 +394,7 @@ private fun rememberDiagnosticsScreenActions(
         onRunRemoteDeviceAcceptance = remember(viewModel) { viewModel::runRemoteDeviceAcceptance },
         onShareRemoteDeviceAcceptance = remember(viewModel) { viewModel::shareRemoteDeviceAcceptance },
     ).withNavigationCallbacks(viewModel, callbacks, homeDiagnostics)
+}
 
 @Composable
 private fun rememberPcapToggleAction(

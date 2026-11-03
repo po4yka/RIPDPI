@@ -86,6 +86,7 @@ fun SettingsRoute(
         launchBatteryOptimizationExemption(context, startOnBootController)
         batteryOptimizationIgnored = startOnBootController.isBatteryOptimizationIgnored()
     }
+    val customization = viewModel.customizationActions
     SettingsScreen(
         uiState = uiState.value,
         xrayProviderSnapshot = xrayProviderSnapshot.value,
@@ -111,40 +112,23 @@ fun SettingsRoute(
                 onRepairPermission = onRepairPermission,
                 onOpenVpnPermissionDialog = onOpenVpnPermissionDialog,
                 onDismissBackgroundGuidance = onDismissBackgroundGuidance,
-                onThemeSelected = remember(viewModel) { viewModel.customizationActions::setAppTheme },
-                onHapticFeedbackDisabledChanged =
-                    remember(
-                        viewModel,
-                    ) { viewModel.customizationActions::setHapticFeedbackDisabled },
-                onDynamicColorChanged =
-                    remember(
-                        viewModel,
-                    ) { viewModel.customizationActions::setDynamicColorEnabled },
-                onPersonaSelected = remember(viewModel) { viewModel.customizationActions::setUiPersona },
-                onWebRtcProtectionChanged =
-                    remember(
-                        viewModel,
-                    ) { viewModel.customizationActions::setWebRtcProtectionEnabled },
-                onExcludeRussianAppsChanged =
-                    remember(
-                        viewModel,
-                    ) { viewModel.customizationActions::setExcludeRussianAppsEnabled },
-                onFullTunnelModeChanged =
-                    remember(
-                        viewModel,
-                    ) { viewModel.customizationActions::setFullTunnelMode },
-                onStartOnBootChanged = remember(
-                    viewModel,
-                ) { viewModel.customizationActions::setStartOnBootEnabled },
-                onBiometricChanged = remember(viewModel) { viewModel.customizationActions::setBiometricEnabled },
-                onSaveBackupPin = remember(viewModel) { viewModel.customizationActions::setBackupPin },
+                onThemeSelected = remember(customization) { customization::setAppTheme },
+                onHapticFeedbackDisabledChanged = remember(customization) { customization::setHapticFeedbackDisabled },
+                onDynamicColorChanged = remember(customization) { customization::setDynamicColorEnabled },
+                onPersonaSelected = remember(customization) { customization::setUiPersona },
+                onWebRtcProtectionChanged = remember(customization) { customization::setWebRtcProtectionEnabled },
+                onExcludeRussianAppsChanged = remember(customization) { customization::setExcludeRussianAppsEnabled },
+                onFullTunnelModeChanged = remember(customization) { customization::setFullTunnelMode },
+                onStartOnBootChanged = remember(customization) { customization::setStartOnBootEnabled },
+                onBiometricChanged = remember(customization) { customization::setBiometricEnabled },
+                onSaveBackupPin = remember(customization) { customization::setBackupPin },
                 onResetSettings = remember(viewModel) { viewModel.maintenanceActions::resetSettings },
-                onCommunityApiUrlChanged = remember(viewModel) { viewModel.customizationActions::setCommunityApiUrl },
+                onCommunityApiUrlChanged = remember(customization) { customization::setCommunityApiUrl },
                 onClearCommunityCache = remember(viewModel) { viewModel::clearCommunityCache },
             ),
         permissionSummary = permissionSummary,
         notice = notice.value,
-        onDismissNotice = viewModel.customizationActions::acknowledgeAppLockResetNotice,
+        onDismissNotice = customization::acknowledgeAppLockResetNotice,
         modifier = modifier,
     )
 }
