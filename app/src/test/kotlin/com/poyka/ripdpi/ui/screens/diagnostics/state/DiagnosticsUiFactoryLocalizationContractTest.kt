@@ -29,7 +29,7 @@ class DiagnosticsUiFactoryLocalizationContractTest {
         sequenceOf(
             File("src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/state/$name"),
             File("app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/state/$name"),
-            File("src/main/kotlin/com/poyka/ripdpi/activities/$name"),
-            File("app/src/main/kotlin/com/poyka/ripdpi/activities/$name"),
+            File("src/main/kotlin/com/poyka/ripdpi/ui/screens/history/$name"),
+            File("app/src/main/kotlin/com/poyka/ripdpi/ui/screens/history/$name"),
         ).first(File::isFile)
 }

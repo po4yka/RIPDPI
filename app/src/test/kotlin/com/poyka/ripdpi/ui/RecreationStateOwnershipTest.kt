@@ -10,8 +10,8 @@ class RecreationStateOwnershipTest {
     fun `activity result operations and large drafts use retained owners`() {
         val backupRoute = source("ui/screens/settings/BackupRestoreScreen.kt")
         val backupViewModel = source("backup/BackupRestoreViewModel.kt")
-        val modeEditor = source("ui/screens/config/ModeEditorRoute.kt")
-        val configViewModel = source("activities/ConfigViewModel.kt")
+        val modeEditor = source("ui/screens/connection/ModeEditorRoute.kt")
+        val configViewModel = source("ui/screens/connection/ConnectionViewModel.kt")
         val strategyRoute = source("ui/screens/settings/StrategyConfigRoute.kt")
         val domainRoute = source("ui/screens/settings/DomainBypassListScreen.kt")
 

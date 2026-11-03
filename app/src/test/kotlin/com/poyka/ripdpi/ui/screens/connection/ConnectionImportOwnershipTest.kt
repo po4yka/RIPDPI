@@ -9,8 +9,8 @@ import java.io.File
 class ConnectionImportOwnershipTest {
     @Test
     fun `config route is the sole clipboard navigation owner`() {
-        val routeSource = source("ConfigScreen.kt").readText()
-        val menuSource = source("ConfigImportMenu.kt").readText()
+        val routeSource = source("ConnectionScreen.kt").readText()
+        val menuSource = source("ConnectionImportMenu.kt").readText()
 
         assertEquals(
             "Clipboard navigation must be consumed exactly once",
@@ -24,7 +24,7 @@ class ConnectionImportOwnershipTest {
 
     private fun source(name: String): File =
         sequenceOf(
-            File("src/main/kotlin/com/poyka/ripdpi/ui/screens/config/$name"),
-            File("app/src/main/kotlin/com/poyka/ripdpi/ui/screens/config/$name"),
+            File("src/main/kotlin/com/poyka/ripdpi/ui/screens/connection/$name"),
+            File("app/src/main/kotlin/com/poyka/ripdpi/ui/screens/connection/$name"),
         ).first(File::isFile)
 }
