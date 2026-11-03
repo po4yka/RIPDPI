@@ -16,6 +16,7 @@ import androidx.compose.ui.test.isSelected
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performScrollTo
 import androidx.navigation.NavDestination.Companion.hasRoute
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
@@ -63,20 +64,20 @@ class SettingsListDetailNavigationTest {
         composeRule.onNodeWithTag(settingsScreen).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsDetailPlaceholder).assertExists()
 
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).performScrollTo().performClick()
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag(settingsScreen).assertExists()
         composeRule.onNodeWithTag(DNS_TAG).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).assertIsSelected()
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsAbout).assert(!isSelected())
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsDataTransparency).assert(!isSelected())
         composeRule.onNode(hasContentDescription(BACK_LABEL)).assertDoesNotExist()
 
         // Another item replaces the detail; back then leaves the detail, not the previous item.
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsAbout).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsDataTransparency).performScrollTo().performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithTag(STATUS_TAG).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsAbout).assertIsSelected()
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsDataTransparency).assertIsSelected()
 
         composeRule.runOnIdle { backDispatcher.onBackPressed() }
         composeRule.runOnIdle { assertTrue(currentIs<Route.Settings>()) }
@@ -88,11 +89,11 @@ class SettingsListDetailNavigationTest {
     @Config(qualifiers = "w1300dp-h900dp")
     fun selectingTheOpenDetailAgainKeepsTheSameEntry() {
         showSettingsGraph()
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).performScrollTo().performClick()
         composeRule.waitForIdle()
         val openEntryId = composeRule.runOnIdle { requireNotNull(navController.currentBackStackEntry).id }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).performScrollTo().performClick()
         composeRule.waitForIdle()
 
         composeRule.runOnIdle {
@@ -108,7 +109,7 @@ class SettingsListDetailNavigationTest {
         composeRule.onNodeWithTag(settingsScreen).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsDetailPlaceholder).assertDoesNotExist()
 
-        composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.SettingsCustomization).performScrollTo().performClick()
         composeRule.waitForIdle()
 
         composeRule.onNodeWithTag(DNS_TAG).assertExists()
@@ -166,7 +167,7 @@ class SettingsListDetailNavigationTest {
                                     }
                                 }
                                 composable<Route.AppCustomization> { DetailScreen(DNS_TAG, navController) }
-                                composable<Route.About> { DetailScreen(STATUS_TAG, navController) }
+                                composable<Route.DataTransparency> { DetailScreen(STATUS_TAG, navController) }
                             }
                         }
                     },
@@ -204,8 +205,8 @@ class SettingsListDetailNavigationTest {
         SettingsScreenActions(
             onOpenAdvancedSettings = {},
             onOpenCustomization = { navController.navigateSettingsDetail(Route.AppCustomization) },
-            onOpenAbout = { navController.navigateSettingsDetail(Route.About) },
-            onOpenDataTransparency = {},
+            onOpenAbout = {},
+            onOpenDataTransparency = { navController.navigateSettingsDetail(Route.DataTransparency) },
             onShareDebugBundle = {},
             onRepairPermission = {},
             onOpenVpnPermissionDialog = {},

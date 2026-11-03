@@ -436,7 +436,7 @@ pages:
     flow_from: "home_idle"
     flow_label: "Settings tab"
     expected_root: "settings-screen"
-    required_elements: ["settings-dns-settings", "settings-advanced-settings", "settings-data-transparency", "settings-about"]
+    required_elements: ["settings-advanced-settings", "settings-data-transparency", "settings-about"]
     state: "main"
     description: |
       Settings hub with secondary settings surfaces and navigation entries.

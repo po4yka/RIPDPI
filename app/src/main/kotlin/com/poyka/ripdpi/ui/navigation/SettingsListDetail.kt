@@ -18,9 +18,6 @@ import com.poyka.ripdpi.ui.screens.settings.SettingsViewModel
 /** Settings destinations that open in the detail pane beside the Settings list on wide windows. */
 internal val settingsDetailRoutes: List<Route> =
     listOf(
-        Route.DnsSettings,
-        Route.SubscriptionStatus,
-        Route.SubscriptionFailover,
         Route.AdvancedSettings,
         Route.DomainBypassList,
         Route.Routes,

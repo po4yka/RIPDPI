@@ -68,9 +68,7 @@ fun ConnectionRoute(
     onOpenDnsSettings: () -> Unit,
     onRetestStrategies: () -> Unit,
     onScanServer: () -> Unit,
-    onOpenProfileEditor: (Route) -> Unit,
-    onOpenSubscriptionStatus: () -> Unit = {},
-    onOpenSubscriptionFailover: () -> Unit = {},
+    onOpenRoute: (Route) -> Unit,
     modifier: Modifier = Modifier,
     route: Route = Route.Config,
     initialModeSection: ConnectionModeSection = ConnectionModeSection.LocalBypass,
@@ -130,8 +128,8 @@ fun ConnectionRoute(
             when (path) {
                 ConnectionEditorTarget.Bypass -> onOpenLocalBypassEditor()
                 ConnectionEditorTarget.Resolver -> onOpenDnsSettings()
-                ConnectionEditorTarget.SubscriptionStatus -> onOpenSubscriptionStatus()
-                ConnectionEditorTarget.SubscriptionFailover -> onOpenSubscriptionFailover()
+                ConnectionEditorTarget.SubscriptionStatus -> onOpenRoute(Route.SubscriptionStatus)
+                ConnectionEditorTarget.SubscriptionFailover -> onOpenRoute(Route.SubscriptionFailover)
             }
         },
         onRetestStrategies = onRetestStrategies,
@@ -141,15 +139,15 @@ fun ConnectionRoute(
                 scanServer = onScanServer,
                 share = onProfileShare,
                 select = remember(viewModel) { viewModel::selectRelayProfile },
-                create = onOpenProfileEditor,
+                create = onOpenRoute,
                 edit = { profileId ->
                     when (uiState.vpnProfiles.firstOrNull { it.id == profileId }?.kind) {
                         com.poyka.ripdpi.data.RelayKindMieru -> {
-                            onOpenProfileEditor(Route.MieruProfileEdit(profileId))
+                            onOpenRoute(Route.MieruProfileEdit(profileId))
                         }
 
                         com.poyka.ripdpi.data.RelayKindSsh -> {
-                            onOpenProfileEditor(Route.SshProfileEdit(profileId))
+                            onOpenRoute(Route.SshProfileEdit(profileId))
                         }
 
                         else -> {
