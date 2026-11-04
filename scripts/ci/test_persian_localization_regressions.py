@@ -210,7 +210,7 @@ class PersianLocalizationRegressionsTest(unittest.TestCase):
 
     def test_shared_presentation_has_translations_and_count_forms(self):
         catalogs = {}
-        prefixes = ("home_generated_", "diagnostics_strategy_")
+        prefixes = ("status_generated_", "diagnostics_strategy_")
         for locale in LOCALES:
             catalogs[locale] = {
                 name: entry for name, entry in resources("app", locale).items() if name.startswith(prefixes)
@@ -238,7 +238,7 @@ class PersianLocalizationRegressionsTest(unittest.TestCase):
                         self.assertRegex(text(entry), r"[\u0600-\u06ff]")
         counts = ("stages_failed", "coverage_gap", "host_count", "detection_count")
         for name in counts:
-            key = "home_generated_" + name
+            key = "status_generated_" + name
             self.assertEqual("plurals", source[key].tag)
             self.assertEqual({"zero", "one", "two", "few", "many", "other"},
                              {item.get("quantity") for item in catalogs["values-ar"][key]})
