@@ -879,4 +879,5 @@ Each screen has one scaffold, one layout recipe, and one contract. Look up the s
 
 - Use the intro hero and footer flow for onboarding, biometric, and permission screens.
 - Offer persona selection before permissions, ask for each permission only when it is needed, and offer an optional first diagnostics check.
+- The mode step offers only Whole device and Proxy only, as radio cards. Keep Xray import in the mode editor, not in onboarding.
 - Use larger spacing and a stronger title treatment while keeping the calm low-chroma personality.
