@@ -36,6 +36,7 @@ internal class ForegroundNotificationController(
             }
 
             phase !is ConnectionNotificationPhase.Connected -> {
+                cancelConnectionFailureAlert(service)
                 phase =
                     if (action == null || isServiceRecoveryStartAction(action)) {
                         ConnectionNotificationPhase.Reconnecting

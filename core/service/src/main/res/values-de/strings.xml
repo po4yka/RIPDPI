@@ -6,4 +6,7 @@
     <string name="notification_status_connected">Verbunden · %1$s</string>
     <string name="notification_status_warning">Verbunden · %1$s · Warnung</string>
     <string name="notification_status_stopping">Wird gestoppt…</string>
+    <string name="notification_alert_channel_name">Verbindungswarnungen</string>
+    <string name="notification_alert_title">Verbindung verloren</string>
+    <string name="notification_alert_text">Öffne RIPDPI, um die Verbindung wiederherzustellen.</string>
 </resources>

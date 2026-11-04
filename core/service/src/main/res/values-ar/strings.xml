@@ -8,4 +8,7 @@
     <string name="notification_status_connected">متصل · %1$s</string>
     <string name="notification_status_warning">متصل · %1$s · تحذير</string>
     <string name="notification_status_stopping">جارٍ الإيقاف…</string>
+    <string name="notification_alert_channel_name">تنبيهات الاتصال</string>
+    <string name="notification_alert_title">انقطع الاتصال</string>
+    <string name="notification_alert_text">افتح RIPDPI لإعادة الاتصال.</string>
 </resources>

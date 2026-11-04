@@ -171,6 +171,7 @@ class ServiceStatusReporterTest {
     @Test
     fun failedStatusEmitsFailureEvent() {
         val store = TestServiceStateStore()
+        var alerts = 0
         val reporter =
             ServiceStatusReporter(
                 mode = Mode.VPN,
@@ -183,20 +184,24 @@ class ServiceStatusReporterTest {
                         override fun current(): RuntimeExperimentSelection = RuntimeExperimentSelection()
                     },
                 clock = TestServiceClock(now = 99L),
+                onFailed = { alerts += 1 },
             )
         val reason = FailureReason.NativeError("boom")
 
-        reporter.reportStatus(
-            ServiceStatusPublication.Apply,
-            newStatus = ServiceStatus.Failed,
-            activePolicy = null,
-            consumePendingNetworkHandoverClass = { null },
-            currentNetworkHandoverState = { com.poyka.ripdpi.data.NetworkHandoverStates.Failed },
-            tunnelRecoveryRetryCount = 0L,
-            failureReason = reason,
-        )
+        repeat(2) {
+            reporter.reportStatus(
+                ServiceStatusPublication.Apply,
+                newStatus = ServiceStatus.Failed,
+                activePolicy = null,
+                consumePendingNetworkHandoverClass = { null },
+                currentNetworkHandoverState = { com.poyka.ripdpi.data.NetworkHandoverStates.Failed },
+                tunnelRecoveryRetryCount = 0L,
+                failureReason = reason,
+            )
+        }
 
-        assertTrue(store.eventHistory.single() is com.poyka.ripdpi.data.ServiceEvent.Failed)
+        assertEquals(1, alerts)
+        assertTrue(store.eventHistory.first() is com.poyka.ripdpi.data.ServiceEvent.Failed)
         assertEquals(Sender.VPN, store.telemetry.value.lastFailureSender)
     }
 

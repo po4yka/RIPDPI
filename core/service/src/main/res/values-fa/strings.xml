@@ -6,4 +6,7 @@
     <string name="notification_status_connected">متصل · %1$s</string>
     <string name="notification_status_warning">متصل · %1$s · هشدار</string>
     <string name="notification_status_stopping">در حال توقف…</string>
+    <string name="notification_alert_channel_name">هشدارهای اتصال</string>
+    <string name="notification_alert_title">اتصال قطع شد</string>
+    <string name="notification_alert_text">برای اتصال دوباره RIPDPI را باز کنید.</string>
 </resources>

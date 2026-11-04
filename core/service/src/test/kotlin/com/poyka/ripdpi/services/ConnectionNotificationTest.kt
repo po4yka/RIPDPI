@@ -1,10 +1,13 @@
 package com.poyka.ripdpi.services
 
+import android.app.Notification
+import android.app.NotificationManager
 import android.app.Service
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -75,6 +78,24 @@ class ConnectionNotificationTest {
         assertEquals("Connecting…", connecting.title)
         assertNull(connecting.text)
         assertNull(connecting.startedAt)
+    }
+
+    @Test
+    fun `failure alert survives its service and clears on the next connection`() {
+        val context = RuntimeEnvironment.getApplication()
+        val manager = shadowOf(context.getSystemService(NotificationManager::class.java))
+
+        showConnectionFailureAlert(context, appVisible = true)
+        assertTrue(manager.allNotifications.isEmpty())
+
+        showConnectionFailureAlert(context, appVisible = false)
+
+        val alert = manager.allNotifications.single()
+        assertEquals("Connection lost", alert.extras.getString(Notification.EXTRA_TITLE))
+        assertTrue(alert.flags and Notification.FLAG_AUTO_CANCEL != 0)
+
+        cancelConnectionFailureAlert(context)
+        assertTrue(manager.allNotifications.isEmpty())
     }
 
     private fun notification(

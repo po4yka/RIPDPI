@@ -6,4 +6,7 @@
     <string name="notification_status_connected">कनेक्टेड · %1$s</string>
     <string name="notification_status_warning">कनेक्टेड · %1$s · चेतावनी</string>
     <string name="notification_status_stopping">रोका जा रहा है…</string>
+    <string name="notification_alert_channel_name">कनेक्शन अलर्ट</string>
+    <string name="notification_alert_title">कनेक्शन टूट गया</string>
+    <string name="notification_alert_text">फिर से कनेक्ट करने के लिए RIPDPI खोलें।</string>
 </resources>

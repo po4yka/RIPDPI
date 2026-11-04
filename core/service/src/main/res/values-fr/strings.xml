@@ -6,4 +6,7 @@
     <string name="notification_status_connected">Connecté · %1$s</string>
     <string name="notification_status_warning">Connecté · %1$s · avertissement</string>
     <string name="notification_status_stopping">Arrêt…</string>
+    <string name="notification_alert_channel_name">Alertes de connexion</string>
+    <string name="notification_alert_title">Connexion perdue</string>
+    <string name="notification_alert_text">Ouvrez RIPDPI pour vous reconnecter.</string>
 </resources>

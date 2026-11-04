@@ -162,14 +162,15 @@ internal fun connectionNotificationBuilder(
         .setSilent(true)
         .setOnlyAlertOnce(true)
         .setOngoing(true)
-        .setContentIntent(
-            PendingIntent.getActivity(
-                context,
-                0,
-                context.packageManager.getLaunchIntentForPackage(context.packageName),
-                PendingIntent.FLAG_IMMUTABLE,
-            ),
-        )
+        .setContentIntent(openAppPendingIntent(context))
+
+internal fun openAppPendingIntent(context: Context): PendingIntent =
+    PendingIntent.getActivity(
+        context,
+        0,
+        context.packageManager.getLaunchIntentForPackage(context.packageName),
+        PendingIntent.FLAG_IMMUTABLE,
+    )
 
 fun createConnectionNotification(
     context: Context,

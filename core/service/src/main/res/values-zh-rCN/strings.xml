@@ -6,4 +6,7 @@
     <string name="notification_status_connected">已连接 · %1$s</string>
     <string name="notification_status_warning">已连接 · %1$s · 警告</string>
     <string name="notification_status_stopping">正在停止…</string>
+    <string name="notification_alert_channel_name">连接提醒</string>
+    <string name="notification_alert_title">连接已断开</string>
+    <string name="notification_alert_text">打开 RIPDPI 以重新连接。</string>
 </resources>

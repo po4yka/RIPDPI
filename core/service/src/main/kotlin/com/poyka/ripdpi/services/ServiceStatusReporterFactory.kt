@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import android.content.Context
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.Sender
@@ -8,6 +9,7 @@ import com.poyka.ripdpi.data.StartupJournal
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
+import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -27,6 +29,7 @@ internal interface ServiceStatusReporterFactory {
 internal class DefaultServiceStatusReporterFactory
     @Inject
     constructor(
+        @param:ApplicationContext private val context: Context,
         private val runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider,
         private val startupJournal: StartupJournal,
     ) : ServiceStatusReporterFactory {
@@ -47,6 +50,7 @@ internal class DefaultServiceStatusReporterFactory
                 runtimeExperimentSelectionProvider = runtimeExperimentSelectionProvider,
                 startupJournal = startupJournal,
                 clock = clock,
+                onFailed = { showConnectionFailureAlert(context) },
             )
     }
 
