@@ -2,7 +2,7 @@ package com.poyka.ripdpi.ui.theme
 
 import com.poyka.ripdpi.data.ConnectionQualitySnapshot
 import com.poyka.ripdpi.data.TransportKind
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationTone
+import com.poyka.ripdpi.ui.components.feedback.RipDpiMeasurementTone
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -29,51 +29,51 @@ class RipDpiNetworkToneResolverTest {
     @Test
     fun belowSampleCount_returnsNull() {
         // Even egregious values are suppressed until we have minSampleCountForVerdict (=12) samples.
-        assertNull(resolveDegradationTone(snap(50f, 1000, 200, count = 5)))
+        assertNull(resolveMeasurementTone(snap(50f, 1000, 200, count = 5)))
     }
 
     @Test
     fun allBelowWarn_returnsNull() {
-        assertNull(resolveDegradationTone(snap(0.5f, 100, 5)))
+        assertNull(resolveMeasurementTone(snap(0.5f, 100, 5)))
     }
 
     @Test
     fun lossOverWarn_returnsWarning() {
         assertEquals(
-            RipDpiDegradationTone.Warning,
-            resolveDegradationTone(snap(3f, 100, 5)),
+            RipDpiMeasurementTone.Warning,
+            resolveMeasurementTone(snap(3f, 100, 5)),
         )
     }
 
     @Test
     fun rttOverCritical_returnsCritical() {
         assertEquals(
-            RipDpiDegradationTone.Critical,
-            resolveDegradationTone(snap(0f, 900, 5)),
+            RipDpiMeasurementTone.Critical,
+            resolveMeasurementTone(snap(0f, 900, 5)),
         )
     }
 
     @Test
     fun jitterOverWarn_returnsWarning() {
         assertEquals(
-            RipDpiDegradationTone.Warning,
-            resolveDegradationTone(snap(0f, 100, 50)),
+            RipDpiMeasurementTone.Warning,
+            resolveMeasurementTone(snap(0f, 100, 50)),
         )
     }
 
     @Test
     fun lossOverCritical_returnsCritical() {
         assertEquals(
-            RipDpiDegradationTone.Critical,
-            resolveDegradationTone(snap(10f, 100, 5)),
+            RipDpiMeasurementTone.Critical,
+            resolveMeasurementTone(snap(10f, 100, 5)),
         )
     }
 
     @Test
     fun jitterOverCritical_returnsCritical() {
         assertEquals(
-            RipDpiDegradationTone.Critical,
-            resolveDegradationTone(snap(0f, 100, 120)),
+            RipDpiMeasurementTone.Critical,
+            resolveMeasurementTone(snap(0f, 100, 120)),
         )
     }
 
@@ -81,8 +81,8 @@ class RipDpiNetworkToneResolverTest {
     fun sampleCountAtThreshold_isEligible() {
         // Boundary: sampleCount == minSampleCountForVerdict must NOT suppress.
         assertEquals(
-            RipDpiDegradationTone.Warning,
-            resolveDegradationTone(
+            RipDpiMeasurementTone.Warning,
+            resolveMeasurementTone(
                 snap(3f, 100, 5, count = thresholds.minSampleCountForVerdict),
             ),
         )

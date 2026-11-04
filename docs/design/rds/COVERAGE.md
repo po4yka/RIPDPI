@@ -132,7 +132,7 @@ All 6 previously-deferred VPN specs now have Kotlin implementations. `PcapViewer
 - **Replay Failure** (`vpn-replay-failure.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/diagnostics/ReplayFailureScreen.kt` plus `ReplayFailureRoute`; 4-step vertical timeline with success/failure/pending dot markers, REPLAY button, recommendation banner via `WarningBanner` (Info tone). The route currently uses default replay target arguments until typed route args land.
 - **First-Run Test** (`vpn-first-run-test.html`) — implemented inside `app/src/main/kotlin/com/poyka/ripdpi/ui/screens/onboarding/OnboardingSetupPages.kt` as `OnboardingModeValidationContent`; validation states cover idle, permission requests, mode startup, traffic check, success, failure, suggested-mode recovery, and finish actions.
 - **Confirm Disconnect** (`vpn-confirm-disconnect.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiConfirmDisconnectDialog.kt`; `RipDpiDialog` (tone=Destructive) with session-duration line, body paragraph, Stay/Disconnect actions; it has no time limit
-- **Degradation Strip** (`vpn-degradation-strip.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiDegradationStrip.kt`; tone-coded (Warning|Critical) inline `Surface` with title + body + 3 metric chips (Loss/RTT/Jitter with deltas) + 2-button action column. Sparkline intentionally omitted — measurable engineering cost vs marginal information value
+- **Degradation Strip** (`vpn-degradation-strip.html`) — `app/src/main/kotlin/com/poyka/ripdpi/ui/components/feedback/RipDpiMeasurementStrip.kt`; tone-coded (Warning|Critical) inline `Surface` with title + body + 3 metric chips (Loss/RTT/Jitter with deltas) + 2-button action column. Sparkline intentionally omitted — measurable engineering cost vs marginal information value
 
 ---
 
@@ -291,7 +291,7 @@ Three Rust+JNI+Kotlin subsystems back the VPN-flow screens that were previously 
 
 ### Connection-quality telemetry
 
-✅ **Current:** `ripdpi-quality` provides `QualityWindow` and `ConnectionQualitySnapshot`; `ripdpi-tunnel-core` emits loss via `Stats::emit_loss_pct`; `ripdpi-tunnel-android` records RTT, success/failure, and retransmit-derived loss; `ripdpi-relay-android`, `ripdpi-warp-android`, and `ripdpi-android-proxy-adapter` have quality-window plumbing; Kotlin exposes `ConnectionQualitySnapshot`, `MainQualityResolver`, and `HomeDegradationStrip`.
+✅ **Current:** `ripdpi-quality` provides `QualityWindow` and `ConnectionQualitySnapshot`; `ripdpi-tunnel-core` emits loss via `Stats::emit_loss_pct`; `ripdpi-tunnel-android` records RTT, success/failure, and retransmit-derived loss; `ripdpi-relay-android`, `ripdpi-warp-android`, and `ripdpi-android-proxy-adapter` have quality-window plumbing; Kotlin exposes `ConnectionQualitySnapshot`, `MainQualityResolver`, and `HomeMeasurementStrip`.
 
 ⚠️ **Known limits:** relay/warp/proxy quality samples may still report `loss_pct = 0.0` until those producers emit richer loss signals.
 

@@ -36,7 +36,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
-import com.poyka.ripdpi.ui.theme.degradationAccent
+import com.poyka.ripdpi.ui.theme.measurementAccent
 import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
 import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
 import kotlinx.collections.immutable.ImmutableList
@@ -48,24 +48,24 @@ import kotlinx.collections.immutable.persistentListOf
  * would give the resting state more weight than an actual problem. It also has
  * no stripe or icon, so only a real problem draws the eye.
  */
-enum class RipDpiDegradationTone { Nominal, Warning, Critical }
+enum class RipDpiMeasurementTone { Nominal, Warning, Critical }
 
-internal fun degradationToneIcon(tone: RipDpiDegradationTone): ImageVector? =
+internal fun measurementToneIcon(tone: RipDpiMeasurementTone): ImageVector? =
     when (tone) {
-        RipDpiDegradationTone.Nominal -> null
-        RipDpiDegradationTone.Warning, RipDpiDegradationTone.Critical -> RipDpiIcons.Warning
+        RipDpiMeasurementTone.Nominal -> null
+        RipDpiMeasurementTone.Warning, RipDpiMeasurementTone.Critical -> RipDpiIcons.Warning
     }
 
-data class RipDpiDegradationMetric(
+data class RipDpiMeasurementMetric(
     val label: String,
     val value: String,
     val delta: String,
     val deltaIsBad: Boolean,
-    val action: RipDpiDegradationAction? = null,
+    val action: RipDpiMeasurementAction? = null,
     val modifier: Modifier = Modifier,
 )
 
-data class RipDpiDegradationAction(
+data class RipDpiMeasurementAction(
     val label: String,
     val onClick: () -> Unit,
 )
@@ -73,15 +73,15 @@ data class RipDpiDegradationAction(
 @OptIn(ExperimentalLayoutApi::class)
 @Suppress("LongMethod")
 @Composable
-fun RipDpiDegradationStrip(
+fun RipDpiMeasurementStrip(
     title: String,
     body: String,
-    metrics: ImmutableList<RipDpiDegradationMetric>,
+    metrics: ImmutableList<RipDpiMeasurementMetric>,
     footnote: String?,
-    primaryAction: RipDpiDegradationAction,
-    secondaryAction: RipDpiDegradationAction?,
+    primaryAction: RipDpiMeasurementAction,
+    secondaryAction: RipDpiMeasurementAction?,
     modifier: Modifier = Modifier,
-    tone: RipDpiDegradationTone = RipDpiDegradationTone.Warning,
+    tone: RipDpiMeasurementTone = RipDpiMeasurementTone.Warning,
 ) {
     val colors = RipDpiThemeTokens.colors
     val shapes = RipDpiThemeTokens.shapes
@@ -90,27 +90,27 @@ fun RipDpiDegradationStrip(
     val tonalCard = RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.cards.tonal)
     val containerColor =
         when (tone) {
-            RipDpiDegradationTone.Nominal -> tonalCard.container
-            RipDpiDegradationTone.Warning -> colors.warningContainer
-            RipDpiDegradationTone.Critical -> colors.destructiveContainer
+            RipDpiMeasurementTone.Nominal -> tonalCard.container
+            RipDpiMeasurementTone.Warning -> colors.warningContainer
+            RipDpiMeasurementTone.Critical -> colors.destructiveContainer
         }
     val contentColor =
         when (tone) {
-            RipDpiDegradationTone.Nominal -> colors.cardForeground
-            RipDpiDegradationTone.Warning -> colors.warningContainerForeground
-            RipDpiDegradationTone.Critical -> colors.destructiveContainerForeground
+            RipDpiMeasurementTone.Nominal -> colors.cardForeground
+            RipDpiMeasurementTone.Warning -> colors.warningContainerForeground
+            RipDpiMeasurementTone.Critical -> colors.destructiveContainerForeground
         }
     val accentForeground =
         when (tone) {
-            RipDpiDegradationTone.Nominal -> colors.mutedForeground
-            RipDpiDegradationTone.Warning -> colors.warningForeground
-            RipDpiDegradationTone.Critical -> colors.destructiveForeground
+            RipDpiMeasurementTone.Nominal -> colors.mutedForeground
+            RipDpiMeasurementTone.Warning -> colors.warningForeground
+            RipDpiMeasurementTone.Critical -> colors.destructiveForeground
         }
 
     val accentState = rememberUpdatedStyleState(null)
-    val accentStyle = RipDpiThemeTokens.styles.degradationAccent(tone)
+    val accentStyle = RipDpiThemeTokens.styles.measurementAccent(tone)
     val stripeResolver = rememberRipDpiStyleResolver(accentStyle, CommonStyle, accentState)
-    val icon = degradationToneIcon(tone)
+    val icon = measurementToneIcon(tone)
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -172,7 +172,7 @@ fun RipDpiDegradationStrip(
                     itemVerticalAlignment = Alignment.CenterVertically,
                 ) {
                     metrics.forEach { metric ->
-                        RipDpiDegradationMetricChip(metric = metric)
+                        RipDpiMeasurementMetricChip(metric = metric)
                     }
                 }
                 FlowRow(
@@ -189,7 +189,7 @@ fun RipDpiDegradationStrip(
                             color = colors.mutedForeground,
                         )
                     }
-                    RipDpiDegradationActions(primaryAction, secondaryAction)
+                    RipDpiMeasurementActions(primaryAction, secondaryAction)
                 }
             }
         }
@@ -198,9 +198,9 @@ fun RipDpiDegradationStrip(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun RipDpiDegradationActions(
-    primaryAction: RipDpiDegradationAction,
-    secondaryAction: RipDpiDegradationAction?,
+private fun RipDpiMeasurementActions(
+    primaryAction: RipDpiMeasurementAction,
+    secondaryAction: RipDpiMeasurementAction?,
 ) {
     FlowRow(
         horizontalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm, Alignment.End),
@@ -228,7 +228,7 @@ private fun RipDpiDegradationActions(
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun RipDpiDegradationMetricChip(metric: RipDpiDegradationMetric) {
+private fun RipDpiMeasurementMetricChip(metric: RipDpiMeasurementMetric) {
     val colors = RipDpiThemeTokens.colors
     val shapes = RipDpiThemeTokens.shapes
     val spacing = RipDpiThemeTokens.spacing
@@ -283,19 +283,19 @@ private fun RipDpiDegradationMetricChip(metric: RipDpiDegradationMetric) {
 
 private val sampleMetrics =
     persistentListOf(
-        RipDpiDegradationMetric(
+        RipDpiMeasurementMetric(
             label = "Loss",
             value = "4.1%",
             delta = "+3.2 pp",
             deltaIsBad = true,
         ),
-        RipDpiDegradationMetric(
+        RipDpiMeasurementMetric(
             label = "RTT p50",
             value = "240 ms",
             delta = "+120",
             deltaIsBad = true,
         ),
-        RipDpiDegradationMetric(
+        RipDpiMeasurementMetric(
             label = "Jitter",
             value = "18 ms",
             delta = "+7",
@@ -305,32 +305,32 @@ private val sampleMetrics =
 
 @Preview(showBackground = true)
 @Composable
-private fun RipDpiDegradationStripWarningPreview() {
+private fun RipDpiMeasurementStripWarningPreview() {
     RipDpiComponentPreview {
-        RipDpiDegradationStrip(
+        RipDpiMeasurementStrip(
             title = "Connected · quality degraded",
             body = "Latency and loss are above baseline since 12:14.",
             metrics = sampleMetrics,
             footnote = "Since 12:14",
-            primaryAction = RipDpiDegradationAction(label = "Reprobe", onClick = {}),
-            secondaryAction = RipDpiDegradationAction(label = "Dismiss", onClick = {}),
-            tone = RipDpiDegradationTone.Warning,
+            primaryAction = RipDpiMeasurementAction(label = "Reprobe", onClick = {}),
+            secondaryAction = RipDpiMeasurementAction(label = "Dismiss", onClick = {}),
+            tone = RipDpiMeasurementTone.Warning,
         )
     }
 }
 
 @Preview(showBackground = true)
 @Composable
-private fun RipDpiDegradationStripCriticalPreview() {
+private fun RipDpiMeasurementStripCriticalPreview() {
     RipDpiComponentPreview(themePreference = "dark") {
-        RipDpiDegradationStrip(
+        RipDpiMeasurementStrip(
             title = "Connected · severe degradation",
             body = "Sustained loss and elevated RTT suggest active throttling.",
             metrics = sampleMetrics,
             footnote = "Since 12:14",
-            primaryAction = RipDpiDegradationAction(label = "Reprobe", onClick = {}),
+            primaryAction = RipDpiMeasurementAction(label = "Reprobe", onClick = {}),
             secondaryAction = null,
-            tone = RipDpiDegradationTone.Critical,
+            tone = RipDpiMeasurementTone.Critical,
         )
     }
 }

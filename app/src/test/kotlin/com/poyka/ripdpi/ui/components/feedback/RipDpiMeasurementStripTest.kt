@@ -35,14 +35,14 @@ import org.robolectric.annotation.GraphicsMode
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "w420dp-h1800dp")
-class RipDpiDegradationStripTest {
+class RipDpiMeasurementStripTest {
     @get:Rule val composeRule = createComposeRule()
 
     @Test
     fun `neutral measurements have no icon while actual problems retain warning`() {
-        assertEquals(null, degradationToneIcon(RipDpiDegradationTone.Nominal))
-        assertEquals(RipDpiIcons.Warning, degradationToneIcon(RipDpiDegradationTone.Warning))
-        assertEquals(RipDpiIcons.Warning, degradationToneIcon(RipDpiDegradationTone.Critical))
+        assertEquals(null, measurementToneIcon(RipDpiMeasurementTone.Nominal))
+        assertEquals(RipDpiIcons.Warning, measurementToneIcon(RipDpiMeasurementTone.Warning))
+        assertEquals(RipDpiIcons.Warning, measurementToneIcon(RipDpiMeasurementTone.Critical))
     }
 
     @Test
@@ -77,15 +77,15 @@ class RipDpiDegradationStripTest {
                 LocalLayoutDirection provides direction,
             ) {
                 RipDpiTheme {
-                    RipDpiDegradationStrip(
+                    RipDpiMeasurementStrip(
                         title,
                         body,
-                        persistentListOf(RipDpiDegradationMetric(label, value, "", false)),
+                        persistentListOf(RipDpiMeasurementMetric(label, value, "", false)),
                         footnote = context.getString(R.string.measurement_byte_total),
-                        primaryAction = RipDpiDegradationAction(primary) { primaryClicks++ },
-                        secondaryAction = RipDpiDegradationAction("Close") { secondaryClicks++ },
+                        primaryAction = RipDpiMeasurementAction(primary) { primaryClicks++ },
+                        secondaryAction = RipDpiMeasurementAction("Close") { secondaryClicks++ },
                         modifier = Modifier.requiredWidth(390.dp).ripDpiTestTag("measurement-strip"),
-                        tone = RipDpiDegradationTone.Nominal,
+                        tone = RipDpiMeasurementTone.Nominal,
                     )
                 }
             }

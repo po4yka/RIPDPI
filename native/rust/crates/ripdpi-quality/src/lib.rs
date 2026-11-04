@@ -2,7 +2,7 @@
 //!
 //! `QualityWindow` aggregates per-session connect-RTT samples (success +
 //! failure) into two `hdrhistogram::Histogram<u64>` instances — a 60-second
-//! "instant" window for the DegradationStrip's current values and a 15-minute
+//! "instant" window for the MeasurementStrip's current values and a 15-minute
 //! "series" window for the throughput / latency graphs. It is the producer
 //! side of the connection-quality telemetry contract.
 //!

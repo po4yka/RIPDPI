@@ -1,19 +1,19 @@
 package com.poyka.ripdpi.ui.theme
 
 import com.poyka.ripdpi.data.ConnectionQualitySnapshot
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationTone
+import com.poyka.ripdpi.ui.components.feedback.RipDpiMeasurementTone
 
 /**
- * Resolves the DegradationStrip tone for a quality snapshot.
+ * Resolves the MeasurementStrip tone for a quality snapshot.
  *
  * Returns `null` when sample count is below
  * [RipDpiNetworkQualityThresholds.minSampleCountForVerdict] —
  * UI should suppress the strip entirely.
  *
- * Returns [RipDpiDegradationTone.Critical] when ANY of loss/rtt/jitter
+ * Returns [RipDpiMeasurementTone.Critical] when ANY of loss/rtt/jitter
  * meets its critical threshold.
  *
- * Returns [RipDpiDegradationTone.Warning] when ANY meets warning
+ * Returns [RipDpiMeasurementTone.Warning] when ANY meets warning
  * threshold (and none critical).
  *
  * Returns `null` when all values are below warning.
@@ -21,10 +21,10 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationTone
  * Caller is responsible for hysteresis (state needed to track whether
  * the strip was previously shown) — this helper is stateless.
  */
-fun resolveDegradationTone(
+fun resolveMeasurementTone(
     snapshot: ConnectionQualitySnapshot,
     thresholds: RipDpiNetworkQualityThresholds = DefaultRipDpiNetworkQualityThresholds,
-): RipDpiDegradationTone? {
+): RipDpiMeasurementTone? {
     if (snapshot.sampleCount < thresholds.minSampleCountForVerdict) {
         return null
     }
@@ -37,8 +37,8 @@ fun resolveDegradationTone(
             snapshot.rttP50Ms >= thresholds.rttWarnMs ||
             snapshot.jitterMs >= thresholds.jitterWarnMs
     return when {
-        anyCritical -> RipDpiDegradationTone.Critical
-        anyWarn -> RipDpiDegradationTone.Warning
+        anyCritical -> RipDpiMeasurementTone.Critical
+        anyWarn -> RipDpiMeasurementTone.Warning
         else -> null
     }
 }

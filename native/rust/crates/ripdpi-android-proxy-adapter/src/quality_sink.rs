@@ -39,7 +39,7 @@ use ripdpi_runtime_decision_ports::snapshots::RuntimeDecisionSnapshot;
 /// Process-wide TCP-proxy connection-quality window.
 ///
 /// One window per process is intentional: the rolling histograms aggregate
-/// across every proxy session for the DegradationStrip's "instant 60s" /
+/// across every proxy session for the MeasurementStrip's "instant 60s" /
 /// "series 15min" views. Per-session windows would not survive the session
 /// boundary and would defeat the rolling aggregation.
 static QUALITY_WINDOW: LazyLock<Arc<QualityWindow>> =

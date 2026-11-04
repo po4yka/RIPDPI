@@ -25,10 +25,10 @@ import com.poyka.ripdpi.service.telemetry.RuntimeMeasurementFreshness
 import com.poyka.ripdpi.service.telemetry.RuntimeMeasurementSource
 import com.poyka.ripdpi.service.telemetry.freshness
 import com.poyka.ripdpi.services.hasObservedMeasurements
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationAction
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationMetric
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationStrip
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationTone
+import com.poyka.ripdpi.ui.components.feedback.RipDpiMeasurementAction
+import com.poyka.ripdpi.ui.components.feedback.RipDpiMeasurementMetric
+import com.poyka.ripdpi.ui.components.feedback.RipDpiMeasurementStrip
+import com.poyka.ripdpi.ui.components.feedback.RipDpiMeasurementTone
 import com.poyka.ripdpi.ui.screens.health.LatencyDetailDialog
 import com.poyka.ripdpi.ui.screens.health.LatencyDetailSnapshot
 import com.poyka.ripdpi.ui.screens.health.measurementNow
@@ -36,7 +36,7 @@ import com.poyka.ripdpi.ui.screens.health.selectedLatencyDetailSnapshot
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.DefaultRipDpiNetworkQualityThresholds
-import com.poyka.ripdpi.ui.theme.resolveDegradationTone
+import com.poyka.ripdpi.ui.theme.resolveMeasurementTone
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.first
 
@@ -71,7 +71,7 @@ internal fun StatusConnectionMeasurements(
     val currentTime = now ?: source?.let { measurementNow(it) } ?: 0L
     val summary = resolveHomeMeasurementSummary(observed, source?.freshness(currentTime).takeIf { connected })
     if (hasMeasurements) {
-        RipDpiDegradationStrip(
+        RipDpiMeasurementStrip(
             title = stringResource(summary.title),
             body = stringResource(summary.body),
             metrics =
@@ -119,7 +119,7 @@ internal fun StatusConnectionMeasurements(
 private fun measureAction(
     measured: Boolean,
     onMeasure: () -> Unit,
-) = RipDpiDegradationAction(
+) = RipDpiMeasurementAction(
     stringResource(if (measured) R.string.vpn_quality_strip_reprobe else R.string.home_quality_measure),
     onMeasure,
 )
@@ -127,7 +127,7 @@ private fun measureAction(
 internal data class StatusMeasurementSummary(
     val title: Int = R.string.connection_health_summary_title,
     val body: Int,
-    val tone: RipDpiDegradationTone = RipDpiDegradationTone.Nominal,
+    val tone: RipDpiMeasurementTone = RipDpiMeasurementTone.Nominal,
 )
 
 internal fun resolveHomeMeasurementSummary(
@@ -153,20 +153,20 @@ internal fun resolveHomeMeasurementSummary(
     }
 
 private fun assessedHomeMeasurementSummary(quality: ConnectionQualitySnapshot): StatusMeasurementSummary =
-    when (resolveDegradationTone(quality)) {
-        RipDpiDegradationTone.Warning -> {
+    when (resolveMeasurementTone(quality)) {
+        RipDpiMeasurementTone.Warning -> {
             StatusMeasurementSummary(
                 R.string.vpn_quality_strip_warning_title,
                 R.string.vpn_quality_strip_body_warning,
-                RipDpiDegradationTone.Warning,
+                RipDpiMeasurementTone.Warning,
             )
         }
 
-        RipDpiDegradationTone.Critical -> {
+        RipDpiMeasurementTone.Critical -> {
             StatusMeasurementSummary(
                 R.string.vpn_quality_strip_critical_title,
                 R.string.vpn_quality_strip_body_critical,
-                RipDpiDegradationTone.Critical,
+                RipDpiMeasurementTone.Critical,
             )
         }
 
@@ -197,7 +197,7 @@ private fun homeMeasurementMetrics(
                 homeMetric(
                     R.string.vpn_quality_metric_rtt_p50,
                     stringResource(R.string.home_quality_metric_ms_format, it.rttP50Ms),
-                    action = RipDpiDegradationAction(stringResource(R.string.latency_detail_open), onOpenLatency),
+                    action = RipDpiMeasurementAction(stringResource(R.string.latency_detail_open), onOpenLatency),
                     modifier = latencyModifier,
                 ),
             )
@@ -221,9 +221,9 @@ private fun homeMeasurementMetrics(
 private fun homeMetric(
     label: Int,
     value: String,
-    action: RipDpiDegradationAction? = null,
+    action: RipDpiMeasurementAction? = null,
     modifier: Modifier = Modifier,
-) = RipDpiDegradationMetric(
+) = RipDpiMeasurementMetric(
     stringResource(label),
     value,
     delta = "",

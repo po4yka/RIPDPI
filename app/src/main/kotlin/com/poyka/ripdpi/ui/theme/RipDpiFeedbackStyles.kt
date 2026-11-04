@@ -5,22 +5,22 @@ package com.poyka.ripdpi.ui.theme
 import androidx.compose.foundation.style.CommonStyle
 import androidx.compose.foundation.style.animate
 import androidx.compose.ui.graphics.Color
-import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationTone
+import com.poyka.ripdpi.ui.components.feedback.RipDpiMeasurementTone
 import com.poyka.ripdpi.ui.components.indicators.LogRowTone
 import com.poyka.ripdpi.ui.components.indicators.RipDpiStaleTier
 
 private val DegradationAccentStyles =
-    RipDpiDegradationTone.entries.associateWith { tone ->
+    RipDpiMeasurementTone.entries.associateWith { tone ->
         CommonStyle {
             val colors = LocalRipDpiExtendedColors.currentValue
             val container =
                 when (tone) {
                     // The resting state keeps a quiet accent so it does not outweigh real problems.
-                    RipDpiDegradationTone.Nominal -> colors.border
+                    RipDpiMeasurementTone.Nominal -> colors.border
 
-                    RipDpiDegradationTone.Warning -> colors.warning
+                    RipDpiMeasurementTone.Warning -> colors.warning
 
-                    RipDpiDegradationTone.Critical -> colors.destructive
+                    RipDpiMeasurementTone.Critical -> colors.destructive
                 }
             rdsBackground(container)
         }
@@ -79,7 +79,7 @@ private val PageIndicatorStyle =
         ) { rdsBackground(if (state.isSelected) colors.foreground else colors.mutedForeground) }
     }
 
-fun RipDpiComponentStyles.degradationAccent(tone: RipDpiDegradationTone): CommonStyle =
+fun RipDpiComponentStyles.measurementAccent(tone: RipDpiMeasurementTone): CommonStyle =
     DegradationAccentStyles.getValue(tone)
 
 fun RipDpiComponentStyles.logBadge(tone: LogRowTone): CommonStyle = LogBadgeStyles.getValue(tone)
