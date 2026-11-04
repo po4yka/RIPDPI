@@ -80,7 +80,6 @@
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>
     <string name="config_placeholder_tls_record_marker">sniext+4</string>
-    <string name="config_preset_proxy_body">用于“仅代理”的配置文件，采用相同的基础调优。</string>
     <string name="config_presets_section">配置文件</string>
     <string name="config_relay_credentials_body">此配置文件在启动前需要安全凭据材料。</string>
     <string name="config_relay_hysteria_salamander">Salamander 密钥</string>
@@ -311,7 +310,6 @@ fakeddisorder endhost</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_proxy_port">1080</string>
     <string name="config_port_helper">请使用 %1$d 到 %2$d 之间的端口。</string>
-    <string name="config_preset_proxy_title">仅代理配置文件</string>
     <string name="config_proxy_helper">本地代理监听器绑定的位置。</string>
     <string name="config_relay_credentials_title">缺少中继凭据</string>
     <string name="config_relay_import">导入</string>
@@ -556,7 +554,10 @@ fake_burst 3</string>
     <string name="config_placeholder_fake_offset_marker">0</string>
     <string name="config_placeholder_quic_fake_host">video.example.test</string>
     <string name="config_preset_custom_body">用于手动 DNS、代理端点、引擎数值和可选命令行覆盖的配置文件。</string>
-    <string name="config_preset_recommended_body">适用于大多数网络的推荐配置文件。覆盖整台设备，并使用安全的 RIPDPI 调优。</string>
+    <string name="config_preset_reset_title">使用推荐设置？</string>
+    <string name="config_preset_reset_body">这将替换当前的 DNS、绕过和中继设置。</string>
+    <string name="config_preset_reset_confirm">使用</string>
+    <string name="config_preset_recommended_body">适用于大多数网络，使用安全的 RIPDPI 调校。</string>
     <string name="config_relay_body">将代理流量通过远程中继服务器发送。密钥保留在本设备上由 keystore 支持的凭据存储中。</string>
     <string name="config_relay_chain_editor_intro">用已保存的中继配置文件构建一条有序链。第一跳为入口，最后一跳为出口。长按某一跳即可拖动排序。链不支持 UDP。</string>
     <string name="config_relay_chain_hop_entry">第 %1$d 跳 · 入口</string>

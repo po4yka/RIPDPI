@@ -182,7 +182,6 @@ class ConnectionViewModelTest {
         val presets = buildConfigPresets(defaultDraft)
 
         assertTrue(presets.first { it.id == "recommended" }.isSelected)
-        assertFalse(presets.first { it.id == "proxy" }.isSelected)
         assertFalse(presets.first { it.id == "custom" }.isSelected)
     }
 
@@ -228,12 +227,27 @@ class ConnectionViewModelTest {
     }
 
     @Test
-    fun `proxy draft marks proxy preset as selected`() {
+    fun `recommended preset ignores scope and keeps it when applied`() {
         val presets = buildConfigPresets(defaultDraft.copy(mode = Mode.Proxy))
 
-        assertFalse(presets.first { it.id == "recommended" }.isSelected)
-        assertTrue(presets.first { it.id == "proxy" }.isSelected)
+        val recommended = presets.first { it.id == "recommended" }
+        assertTrue(recommended.isSelected)
+        assertEquals(Mode.Proxy, recommended.draft.mode)
         assertFalse(presets.first { it.id == "custom" }.isSelected)
+    }
+
+    @Test
+    fun `recommended preset ignores fields kept by a deactivated relay`() {
+        val deactivated =
+            defaultDraft.copy(
+                relayEnabled = false,
+                relayProfileId = "saved",
+                relayServer = "relay.example",
+            )
+
+        assertTrue(buildConfigPresets(deactivated).first { it.id == "recommended" }.isSelected)
+        assertTrue(buildConfigPresets(deactivated.copy(relayEnabled = true)).first { it.id == "custom" }.isSelected)
+        assertTrue(buildConfigPresets(defaultDraft.copy(proxyPort = "1081")).first { it.id == "custom" }.isSelected)
     }
 
     @Test

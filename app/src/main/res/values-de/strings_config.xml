@@ -231,7 +231,6 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="config_mode_section">Modus</string>
     <string name="config_placeholder_fake_offset_marker">0</string>
     <string name="config_placeholder_split_marker">host</string>
-    <string name="config_preset_proxy_body">Profil für „Nur Proxy“ mit derselben Grundabstimmung.</string>
     <string name="config_proxy_helper">Wo der lokale Proxy-Listener gebunden wird.</string>
     <string name="config_relay_credentials_body">Dieses Profil benötigt sicheres Anmeldematerial, bevor es gestartet werden kann.</string>
     <string name="config_relay_import">Importieren</string>
@@ -445,7 +444,6 @@ split midsld
 fake_burst 3</string>
     <string name="config_placeholder_fake_tls_size">0</string>
     <string name="config_placeholder_tls_record_marker">sniext+4</string>
-    <string name="config_preset_proxy_title">Nur-Proxy-Profil</string>
     <string name="config_relay_body">Leitet Proxy-Verkehr über einen Remote-Relay-Server. Geheimnisse bleiben im Keystore-basierten Anmeldeinformationsspeicher auf diesem Gerät.</string>
     <string name="config_relay_credentials_title">Relay-Anmeldedaten fehlen</string>
     <string name="config_relay_kind_chain">Chain-Relay</string>
@@ -650,7 +648,7 @@ Quelle: %2$s</string>
     <string name="config_placeholder_command_line">--fake --split 2</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>
     <string name="config_port_helper">Verwenden Sie einen Port von %1$d bis %2$d.</string>
-    <string name="config_preset_recommended_body">Empfohlenes Profil für die meisten Netzwerke. Gilt für das ganze Gerät und nutzt sichere RIPDPI-Einstellungen.</string>
+    <string name="config_preset_recommended_body">Empfohlen für die meisten Netzwerke, mit sicheren RIPDPI-Einstellungen.</string>
     <string name="config_relay_enable">Upstream-Relay aktivieren</string>
     <string name="config_relay_kind_cloudflare_tunnel">Cloudflare Tunnel</string>
     <string name="config_relay_local_port_helper">Der Haupt-RIPDPI-Proxy verkettet sich mit diesem Loopback-Listener.</string>
@@ -856,6 +854,9 @@ Quelle: %2$s</string>
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_proxy_port">1080</string>
     <string name="config_preset_custom_body">Profil für manuelles DNS, Proxy-Endpunkt, Engine-Werte und optionale Kommandozeilenüberschreibungen.</string>
+    <string name="config_preset_reset_title">Empfohlene Einstellungen verwenden?</string>
+    <string name="config_preset_reset_body">Dies ersetzt deine aktuellen DNS-, Umgehungs- und Relay-Einstellungen.</string>
+    <string name="config_preset_reset_confirm">Verwenden</string>
     <string name="config_preset_recommended_title">Empfohlenes Profil</string>
     <string name="config_relay_chain_editor_intro">Erstellen Sie eine geordnete Kette aus gespeicherten Relay-Profilen. Der erste Hop ist der Eingang, der letzte der Ausgang. Halten Sie einen Hop gedrückt, um ihn an die richtige Stelle zu ziehen. UDP ist für Ketten deaktiviert.</string>
     <string name="config_relay_chain_hop_entry">Hop %1$d · Eingang</string>

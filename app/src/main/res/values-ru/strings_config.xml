@@ -22,11 +22,12 @@
     <string name="config_save">Сохранить</string>
     <string name="config_cancel">Отмена</string>
     <string name="config_preset_recommended_title">Рекомендуемый профиль</string>
-    <string name="config_preset_recommended_body">Рекомендуемый профиль для большинства сетей. Работает на всём устройстве, с безопасной настройкой RIPDPI.</string>
-    <string name="config_preset_proxy_title">Профиль «Только прокси»</string>
-    <string name="config_preset_proxy_body">Профиль для режима «Только прокси» с той же базовой настройкой.</string>
+    <string name="config_preset_recommended_body">Рекомендуется для большинства сетей: безопасные настройки RIPDPI.</string>
     <string name="config_preset_custom_title">Ручной профиль</string>
     <string name="config_preset_custom_body">Профиль для ручной настройки DNS, конечной точки прокси, параметров движка и необязательных переопределений командной строки.</string>
+    <string name="config_preset_reset_title">Использовать рекомендуемые настройки?</string>
+    <string name="config_preset_reset_body">Это заменит текущие настройки DNS, обхода и relay.</string>
+    <string name="config_preset_reset_confirm">Использовать</string>
     <string name="config_placeholder_dns">1.1.1.1</string>
     <string name="config_placeholder_proxy_ip">127.0.0.1</string>
     <string name="config_placeholder_proxy_port">1080</string>

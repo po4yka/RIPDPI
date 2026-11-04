@@ -94,6 +94,8 @@ internal object RipDpiTestTags {
     const val StatusNetworkConditionBanner = "home-network-condition-banner"
 
     const val ConfigEditCurrentButton = "config-edit-current"
+    const val ConfigPresetResetDialog = "config-preset-reset-dialog"
+    const val ConfigPresetResetConfirm = "config-preset-reset-confirm"
     const val ConfigSectionNavigation = "config-section-navigation"
     const val ConfigSavedProfile = "config-saved-profile"
     const val ConfigProfileChange = "config-profile-change"

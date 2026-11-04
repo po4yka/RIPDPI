@@ -11,6 +11,7 @@ import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -63,6 +64,31 @@ class ConnectionSummaryTest {
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddProfile).assertHasClickAction()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChoices).assertDoesNotExist()
+    }
+
+    @Test
+    fun `recommended preset asks before replacing manual settings`() {
+        var applied = 0
+        val draft = AppSettingsSerializer.defaultValue.toConfigDraft().copy(proxyPort = "1081")
+        composeRule.setContent {
+            RipDpiTheme {
+                ConnectionScreen(
+                    uiState = ConnectionUiState(presets = buildConfigPresets(draft), draft = draft),
+                    onModeSelected = {},
+                    onPresetSelected = { applied += 1 },
+                    onEditCurrent = {},
+                    onOpenConfigEditor = {},
+                    onRetestStrategies = {},
+                    onPasteServerLink = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.configPreset("recommended")).performClick()
+        composeRule.runOnIdle { assertEquals(0, applied) }
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigPresetResetConfirm).performClick()
+        composeRule.runOnIdle { assertEquals(1, applied) }
     }
 
     @Test

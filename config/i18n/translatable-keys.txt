@@ -658,10 +658,11 @@ app:config_placeholder_tls_record_marker
 app:config_port_helper
 app:config_preset_custom_body
 app:config_preset_custom_title
-app:config_preset_proxy_body
-app:config_preset_proxy_title
 app:config_preset_recommended_body
 app:config_preset_recommended_title
+app:config_preset_reset_body
+app:config_preset_reset_confirm
+app:config_preset_reset_title
 app:config_presets_loading_body
 app:config_presets_loading_title
 app:config_presets_section

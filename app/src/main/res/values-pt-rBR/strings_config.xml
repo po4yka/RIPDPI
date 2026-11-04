@@ -45,11 +45,12 @@
     <string name="config_save">Salvar</string>
     <string name="config_cancel">Cancelar</string>
     <string name="config_preset_recommended_title">Perfil recomendado</string>
-    <string name="config_preset_recommended_body">Perfil recomendado para a maioria das redes. Cobre o dispositivo inteiro com ajuste seguro do RIPDPI.</string>
-    <string name="config_preset_proxy_title">Perfil somente proxy</string>
-    <string name="config_preset_proxy_body">Perfil para Somente proxy com o mesmo ajuste base.</string>
+    <string name="config_preset_recommended_body">Recomendado para a maioria das redes, com ajustes seguros do RIPDPI.</string>
     <string name="config_preset_custom_title">Perfil manual</string>
     <string name="config_preset_custom_body">Perfil para DNS manual, endpoint de proxy, valores do mecanismo e sobreposições opcionais de linha de comando.</string>
+    <string name="config_preset_reset_title">Usar as configurações recomendadas?</string>
+    <string name="config_preset_reset_body">Isso substitui suas configurações atuais de DNS, desvio e relay.</string>
+    <string name="config_preset_reset_confirm">Usar</string>
     <string name="config_listen_address_summary">Endereço onde o listener do proxy local fica vinculado</string>
     <string name="config_default_ttl_summary">Substituição de time-to-live para pacotes enviados</string>
     <string name="config_vpn_relay_server_summary">Endereço do servidor remoto que transporta seu tráfego</string>

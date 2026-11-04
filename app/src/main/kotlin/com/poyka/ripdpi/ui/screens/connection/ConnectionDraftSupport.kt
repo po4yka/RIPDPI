@@ -289,7 +289,6 @@ internal object StringImmutableListSerializer : KSerializer<ImmutableList<String
 
 enum class ConnectionPresetKind {
     Recommended,
-    Proxy,
     Custom,
 }
 
@@ -487,36 +486,45 @@ internal fun AppSettings.toConfigDraft(): ConnectionDraft {
 }
 
 internal fun buildConfigPresets(currentDraft: ConnectionDraft): ImmutableList<ConnectionPreset> {
-    val recommendedDraft = AppSettingsSerializer.defaultValue.toConfigDraft()
-    val proxyDraft = recommendedDraft.copy(mode = Mode.Proxy)
-    val selectedId =
-        when (currentDraft) {
-            recommendedDraft -> "recommended"
-            proxyDraft -> "proxy"
-            else -> "custom"
-        }
+    // Scope stays the user's choice, so applying the recommended settings never changes it.
+    val recommendedDraft = AppSettingsSerializer.defaultValue.toConfigDraft().copy(mode = currentDraft.mode)
+    val isRecommended = !currentDraft.relayEnabled && currentDraft.directSettings() == recommendedDraft.directSettings()
 
     return persistentListOf(
         ConnectionPreset(
             id = "recommended",
             kind = ConnectionPresetKind.Recommended,
             draft = recommendedDraft,
-            isSelected = selectedId == "recommended",
-        ),
-        ConnectionPreset(
-            id = "proxy",
-            kind = ConnectionPresetKind.Proxy,
-            draft = proxyDraft,
-            isSelected = selectedId == "proxy",
+            isSelected = isRecommended,
         ),
         ConnectionPreset(
             id = "custom",
             kind = ConnectionPresetKind.Custom,
             draft = currentDraft,
-            isSelected = selectedId == "custom",
+            isSelected = !isRecommended,
         ),
     )
 }
+
+// A deactivated relay keeps its profile fields for reactivation, so they do not define a starter profile.
+private fun ConnectionDraft.directSettings(): List<Any> =
+    listOf(
+        dnsIp,
+        dnsMode,
+        dnsProviderId,
+        encryptedDnsProtocol,
+        proxyIp,
+        proxyPort,
+        maxConnections,
+        bufferSize,
+        useCommandLineSettings,
+        commandLineArgs,
+        tcpChainSteps,
+        udpChainSteps,
+        chainDsl,
+        desyncMethod,
+        defaultTtl,
+    )
 
 internal fun sanitizeMasqueAuthModeForCurrentBuild(
     draft: ConnectionDraft,

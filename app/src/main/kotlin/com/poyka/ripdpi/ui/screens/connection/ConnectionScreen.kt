@@ -12,7 +12,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
@@ -25,21 +24,16 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.proxyimport.ImportPayload
-import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
-import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyState
-import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTab
 import com.poyka.ripdpi.ui.components.inputs.RipDpiTabs
-import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScaffoldWidth
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.proxyimport.ClipboardImportViewModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
-import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
@@ -269,53 +263,6 @@ fun ConnectionScreen(
 }
 
 @Composable
-private fun ConnectionPresetList(
-    uiState: ConnectionUiState,
-    onPresetSelected: (ConnectionPreset) -> Unit,
-) {
-    val spacing = RipDpiThemeTokens.spacing
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-        SettingsCategoryHeader(title = stringResource(R.string.config_presets_section))
-        if (uiState.isLoading) {
-            Column(
-                modifier =
-                    Modifier
-                        .fillMaxWidth()
-                        .ripDpiTestTag(RipDpiTestTags.ConfigPresetsLoading),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(spacing.md),
-            ) {
-                RipDpiSpinner()
-                RipDpiEmptyState(
-                    icon = RipDpiIcons.Config,
-                    modifier = Modifier.fillMaxWidth(),
-                    title = stringResource(R.string.config_presets_loading_title),
-                    body = stringResource(R.string.config_presets_loading_body),
-                )
-            }
-        } else {
-            Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-                uiState.presets.forEach { preset ->
-                    PresetCard(
-                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configPreset(preset.id)),
-                        title = stringResource(titleResForPreset(preset.kind)),
-                        description = stringResource(descriptionResForPreset(preset.kind)),
-                        badgeText =
-                            if (preset.isSelected) {
-                                stringResource(R.string.config_badge_active)
-                            } else {
-                                null
-                            },
-                        selected = preset.isSelected,
-                        onClick = { onPresetSelected(preset) },
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
 internal fun ConnectionModeSectionSwitcher(
     selectedSection: ConnectionModeSection,
     onSectionSelected: (ConnectionModeSection) -> Unit,
@@ -435,20 +382,6 @@ internal fun ConnectionModeChips(
         }
     }
 }
-
-internal fun titleResForPreset(kind: ConnectionPresetKind): Int =
-    when (kind) {
-        ConnectionPresetKind.Recommended -> R.string.config_preset_recommended_title
-        ConnectionPresetKind.Proxy -> R.string.config_preset_proxy_title
-        ConnectionPresetKind.Custom -> R.string.config_preset_custom_title
-    }
-
-private fun descriptionResForPreset(kind: ConnectionPresetKind): Int =
-    when (kind) {
-        ConnectionPresetKind.Recommended -> R.string.config_preset_recommended_body
-        ConnectionPresetKind.Proxy -> R.string.config_preset_proxy_body
-        ConnectionPresetKind.Custom -> R.string.config_preset_custom_body
-    }
 
 internal fun modeLabelRes(mode: Mode): Int =
     when (mode) {

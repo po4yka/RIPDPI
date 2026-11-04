@@ -45,11 +45,12 @@
     <string name="config_save">सहेजें</string>
     <string name="config_cancel">रद्द करें</string>
     <string name="config_preset_recommended_title">अनुशंसित प्रोफ़ाइल</string>
-    <string name="config_preset_recommended_body">अधिकांश नेटवर्क के लिए अनुशंसित प्रोफ़ाइल। पूरे डिवाइस को कवर करती है और सुरक्षित RIPDPI ट्यूनिंग रखती है।</string>
-    <string name="config_preset_proxy_title">केवल प्रॉक्सी प्रोफ़ाइल</string>
-    <string name="config_preset_proxy_body">«केवल प्रॉक्सी» के लिए प्रोफ़ाइल, समान बेस ट्यूनिंग के साथ।</string>
+    <string name="config_preset_recommended_body">अधिकांश नेटवर्क के लिए अनुशंसित, सुरक्षित RIPDPI ट्यूनिंग के साथ।</string>
     <string name="config_preset_custom_title">मैनुअल प्रोफ़ाइल</string>
     <string name="config_preset_custom_body">मैनुअल DNS, प्रॉक्सी एंडपॉइंट, इंजन मानों और वैकल्पिक कमांड लाइन ओवरराइड के लिए प्रोफ़ाइल।</string>
+    <string name="config_preset_reset_title">अनुशंसित सेटिंग का उपयोग करें?</string>
+    <string name="config_preset_reset_body">इससे आपकी मौजूदा DNS, बायपास और रिले सेटिंग बदल जाएंगी।</string>
+    <string name="config_preset_reset_confirm">उपयोग करें</string>
     <string name="config_listen_address_summary">जहाँ स्थानीय प्रॉक्सी श्रोता बाइंड होता है</string>
     <string name="config_default_ttl_summary">आउटगोइंग पैकेटों के लिए TTL ओवरराइड</string>
     <string name="config_vpn_relay_server_summary">उस रिमोट सर्वर का पता जो आपका ट्रैफ़िक ले जाता है</string>

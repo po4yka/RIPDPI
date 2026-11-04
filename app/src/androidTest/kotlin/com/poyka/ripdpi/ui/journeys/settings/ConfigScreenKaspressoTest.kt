@@ -76,19 +76,19 @@ class ConfigScreenKaspressoTest :
         }
 
     @Test
-    fun presetSelectionAppliesProxyPresetAndCustomOpensTheModeEditor() =
+    fun scopeChipKeepsTheRecommendedProfileAndCustomOpensTheModeEditor() =
         run {
-            step("Open the profile choices and select the proxy preset") {
+            step("Select proxy scope") {
+                with(ConfigPage(composeRule)) {
+                    click(proxyChip)
+                    composeRule.waitForSettings(appSettingsRepository) { it.ripdpiMode == Mode.Proxy.preferenceValue }
+                }
+            }
+            step("The recommended profile stays selected in the profile choices") {
                 with(ConfigPage(composeRule)) {
                     click(profileChange)
                     waitFor(profileChoices)
-                    click(preset("proxy"))
-                }
-            }
-            step("The proxy preset persists proxy mode and stays visible") {
-                with(ConfigPage(composeRule)) {
-                    composeRule.waitForSettings(appSettingsRepository) { it.ripdpiMode == Mode.Proxy.preferenceValue }
-                    node(preset("proxy")).assertIsDisplayed()
+                    node(preset("recommended")).assertIsDisplayed()
                 }
             }
             step("The custom preset opens the mode editor with its fields") {
