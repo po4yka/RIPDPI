@@ -10,4 +10,6 @@
     <string name="notification_alert_title">कनेक्शन टूट गया</string>
     <string name="notification_alert_text">फिर से कनेक्ट करने के लिए RIPDPI खोलें।</string>
     <string name="notification_traffic">%1$s प्राप्त · %2$s भेजा गया</string>
+    <string name="notification_channel_description">कनेक्शन की स्थिति दिखाता है</string>
+    <string name="notification_alert_channel_description">कनेक्शन अचानक बंद होने पर सूचित करता है</string>
 </resources>

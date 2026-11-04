@@ -146,8 +146,9 @@ internal fun registerConnectionChannel(
         NotificationChannel(
             id,
             ContextCompat.getString(context, name),
-            NotificationManager.IMPORTANCE_DEFAULT,
+            NotificationManager.IMPORTANCE_LOW,
         )
+    channel.description = ContextCompat.getString(context, R.string.notification_channel_description)
     channel.enableLights(false)
     channel.enableVibration(false)
     channel.setShowBadge(false)
@@ -171,6 +172,8 @@ internal fun connectionNotificationBuilder(
         .setSilent(true)
         .setOnlyAlertOnce(true)
         .setOngoing(true)
+        .setCategory(Notification.CATEGORY_SERVICE)
+        .setForegroundServiceBehavior(NotificationCompat.FOREGROUND_SERVICE_IMMEDIATE)
         .setContentIntent(openAppPendingIntent(context))
 
 internal fun openAppPendingIntent(context: Context): PendingIntent =

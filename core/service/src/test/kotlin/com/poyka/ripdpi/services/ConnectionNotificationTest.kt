@@ -34,6 +34,20 @@ class ConnectionNotificationTest {
     }
 
     @Test
+    fun `status channel stays quiet and describes itself`() {
+        val context = RuntimeEnvironment.getApplication()
+        val target = ConnectionNotificationTarget.Vpn
+
+        registerConnectionChannel(context, target.channelId, target.channelName)
+
+        val channel = context.getSystemService(NotificationManager::class.java).getNotificationChannel(target.channelId)
+        assertEquals(NotificationManager.IMPORTANCE_LOW, channel.importance)
+        assertEquals("Shows connection status", channel.description)
+        val notification = notification(startedAt = null, showStopAction = false)
+        assertEquals(Notification.CATEGORY_SERVICE, notification.category)
+    }
+
+    @Test
     fun `telemetry maps to the state a user needs`() {
         val traffic = TunnelStats(txBytes = 1L, rxBytes = 2L)
         val running = ServiceTelemetrySnapshot(serviceStartedAt = 7L)

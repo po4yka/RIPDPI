@@ -10,4 +10,6 @@
     <string name="notification_alert_title">Подключение потеряно</string>
     <string name="notification_alert_text">Откройте RIPDPI, чтобы подключиться снова.</string>
     <string name="notification_traffic">Получено %1$s · отправлено %2$s</string>
+    <string name="notification_channel_description">Показывает состояние подключения</string>
+    <string name="notification_alert_channel_description">Сообщает о неожиданном обрыве подключения</string>
 </resources>

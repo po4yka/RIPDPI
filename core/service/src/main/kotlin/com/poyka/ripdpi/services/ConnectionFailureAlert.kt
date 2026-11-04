@@ -28,7 +28,7 @@ internal fun showConnectionFailureAlert(
             AlertChannelId,
             localized.getString(R.string.notification_alert_channel_name),
             NotificationManager.IMPORTANCE_DEFAULT,
-        ),
+        ).apply { description = localized.getString(R.string.notification_alert_channel_description) },
     )
     manager.notify(
         AlertNotificationId,

@@ -12,4 +12,6 @@
     <string name="notification_alert_title">انقطع الاتصال</string>
     <string name="notification_alert_text">افتح RIPDPI لإعادة الاتصال.</string>
     <string name="notification_traffic">تم استلام %1$s · تم إرسال %2$s</string>
+    <string name="notification_channel_description">يعرض حالة الاتصال</string>
+    <string name="notification_alert_channel_description">ينبهك عند انقطاع الاتصال بشكل غير متوقع</string>
 </resources>

@@ -10,4 +10,6 @@
     <string name="notification_alert_title">Conexão perdida</string>
     <string name="notification_alert_text">Abra o RIPDPI para reconectar.</string>
     <string name="notification_traffic">%1$s recebidos · %2$s enviados</string>
+    <string name="notification_channel_description">Mostra o status da conexão</string>
+    <string name="notification_alert_channel_description">Avisa quando a conexão é interrompida inesperadamente</string>
 </resources>
