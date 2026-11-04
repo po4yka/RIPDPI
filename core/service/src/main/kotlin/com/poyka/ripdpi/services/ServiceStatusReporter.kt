@@ -26,7 +26,7 @@ internal class ServiceStatusReporter(
     private val runtimeExperimentSelectionProvider: RuntimeExperimentSelectionProvider,
     private val startupJournal: StartupJournal = NoopStartupJournal,
     private val clock: ServiceClock = SystemServiceClock,
-    private val onFailed: () -> Unit = {},
+    private val onFailed: (FailureReason?) -> Unit = {},
 ) {
     // Sticky "foreign relay failed after connecting" signal. Set by the relay exit
     // handlers (via markForeignRelayFailed), cleared on the next relay start and on
@@ -82,6 +82,7 @@ internal class ServiceStatusReporter(
             ServiceStatusPublication.ConnectedAlreadyPublished -> check(newStatus == ServiceStatus.Connected)
         }
         val priorJournalStatus = journalStatus.getAndSet(newStatus)
+        val failedNow = newStatus == ServiceStatus.Failed && priorJournalStatus != newStatus
         if (priorJournalStatus != newStatus) {
             when (newStatus) {
                 ServiceStatus.Connected -> {
@@ -94,7 +95,6 @@ internal class ServiceStatusReporter(
                         failureKind = failureReason.startupJournalKind(),
                         occurredAtMillis = clock.nowMillis(),
                     )
-                    onFailed()
                 }
 
                 ServiceStatus.Disconnected -> {}
@@ -118,6 +118,7 @@ internal class ServiceStatusReporter(
                     xrayProviderSnapshot = xrayProviderSnapshot,
                 ).copy(relayFailed = foreignRelayFailed.get()),
         )
+        if (failedNow) onFailed(failureReason)
     }
 
     fun reportTelemetry(

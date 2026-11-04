@@ -767,11 +767,12 @@ The status notification answers one question: is the connection up, and in which
 | Connected | `Connected · VPN` or `Connected · Proxy` | Received and sent bytes; the system timer shows the duration | Stop, unless the Android kill switch blocks it |
 | Connected with a warning | `Connected · VPN · warning` | Same | Same |
 | Paused | `Paused` | Deadline or pause phase | Resume now, Stop |
+| Failed, service still alive | `Connection lost` | `Open RIPDPI to reconnect.` | Stop |
 
 - The warning title reports an active impairment only: a lost foreign exit or an engine error. Home also keeps the warnings accumulated during the session and names the cause.
 - `Reconnecting…` shows only while a network handover is in progress. A finished handover returns to `Connected`.
 - Session counts, RTT and other telemetry stay in Diagnostics.
-- A failed connection posts a separate `Connection lost` alert on its own channel unless the app is visible, because the status notification leaves with its service.
+- A failed connection posts a separate `Connection lost` alert on its own channel, because the status notification usually leaves with its service. It stays silent when the app is visible, after unfinished stop cleanup, and after VPN consent loss.
 - The status channel uses `IMPORTANCE_LOW`. Only the alert channel may make sound.
 
 ## Screen Recipes

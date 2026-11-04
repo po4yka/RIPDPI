@@ -50,7 +50,9 @@ internal class DefaultServiceStatusReporterFactory
                 runtimeExperimentSelectionProvider = runtimeExperimentSelectionProvider,
                 startupJournal = startupJournal,
                 clock = clock,
-                onFailed = { showConnectionFailureAlert(context) },
+                onFailed = { reason ->
+                    if (reason.warrantsConnectionAlert()) showConnectionFailureAlert(context)
+                },
             )
     }
 

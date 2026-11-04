@@ -15,6 +15,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeoutOrNull
 
+internal val RuntimeCleanupIncompleteFailure = FailureReason.NativeError("Runtime cleanup is incomplete")
+
 internal class ServiceRuntimeStartStopOrchestrator<TSession>(
     private val dependencies: ServiceRuntimeStartStopDependencies<TSession>,
     private val callbacks: ServiceRuntimeStartStopCallbacks<TSession>,
@@ -180,7 +182,7 @@ internal class ServiceRuntimeStartStopOrchestrator<TSession>(
                 // Native cleanup is unconfirmed. Keep ownership so stop can be retried.
                 callbacks.statusHooks.updateStatus(
                     ServiceStatus.Failed,
-                    FailureReason.NativeError("Runtime cleanup is incomplete"),
+                    RuntimeCleanupIncompleteFailure,
                 )
                 RuntimeStopOutcome.CleanupPending
             }

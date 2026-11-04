@@ -3,10 +3,13 @@ package com.poyka.ripdpi.services
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.Service
+import com.poyka.ripdpi.data.FailureReason
+import com.poyka.ripdpi.data.LocalNetworkPermission
 import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -121,6 +124,14 @@ class ConnectionNotificationTest {
 
         cancelConnectionFailureAlert(context)
         assertTrue(manager.allNotifications.isEmpty())
+    }
+
+    @Test
+    fun `alert skips failures that follow a user action`() {
+        assertFalse(RuntimeCleanupIncompleteFailure.warrantsConnectionAlert())
+        assertFalse(FailureReason.PermissionLost("VPN").warrantsConnectionAlert())
+        assertTrue(FailureReason.TunnelEstablishmentFailed.warrantsConnectionAlert())
+        assertTrue(FailureReason.PermissionLost(LocalNetworkPermission).warrantsConnectionAlert())
     }
 
     @Test
