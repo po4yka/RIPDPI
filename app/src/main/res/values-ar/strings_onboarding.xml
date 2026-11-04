@@ -133,6 +133,4 @@
         <item quantity="many">حاول مرة أخرى بعد %1$d ثانية.</item>
         <item quantity="other">حاول مرة أخرى بعد %1$d ثانية.</item>
     </plurals>
-    <string name="onboarding_setup_mode_xray_title">إعداد VPN متقدم</string>
-    <string name="onboarding_setup_mode_xray_body">استخدم ملف Xray مستورداً بدلاً من VPN المدمج.</string>
 </resources>

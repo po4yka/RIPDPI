@@ -43,7 +43,6 @@ internal fun NavGraphBuilder.addPrimaryRoutes(
                 }
             },
             onOpenAdvancedDns = { navController.navigate(Route.DnsSettings) },
-            onOpenXrayImport = { navController.navigate(Route.XrayImport) { launchSingleTop = true } },
         )
     }
     addHomeRoute(navController, mainViewModel, pauseViewModel, onDiagnosticsInitialSectionChanged)

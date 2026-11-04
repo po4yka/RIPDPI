@@ -129,6 +129,4 @@
         <item quantity="one">پس از %1$d ثانیه دوباره تلاش کنید.</item>
         <item quantity="other">پس از %1$d ثانیه دوباره تلاش کنید.</item>
     </plurals>
-    <string name="onboarding_setup_mode_xray_title">راه‌اندازی VPN پیشرفته</string>
-    <string name="onboarding_setup_mode_xray_body">به‌جای VPN داخلی، از یک نمایه Xray واردشده استفاده کنید.</string>
 </resources>

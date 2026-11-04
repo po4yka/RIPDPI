@@ -259,26 +259,6 @@ class OnboardingScreenTest {
     }
 
     @Test
-    fun `xray import affordance opens provider import flow`() {
-        var opened = false
-        composeRule.setContent {
-            RipDpiTheme {
-                Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                    OnboardingModeSelectionContent(
-                        selectedMode = Mode.VPN,
-                        onModeSelected = {},
-                        onOpenXrayImport = { opened = true },
-                    )
-                }
-            }
-        }
-
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingXrayImport).performScrollTo().performClick()
-
-        assertTrue(opened)
-    }
-
-    @Test
     fun `idle connection test exposes start cta and pending checklist`() {
         renderOnboarding(OnboardingUiState(currentPage = OnboardingPages.lastIndex))
 

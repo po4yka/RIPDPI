@@ -123,6 +123,4 @@
         <item quantity="many">Повторите через %1$d секунд.</item>
         <item quantity="other">Повторите через %1$d секунды.</item>
     </plurals>
-    <string name="onboarding_setup_mode_xray_title">Настроить расширенный VPN</string>
-    <string name="onboarding_setup_mode_xray_body">Используйте импортированный профиль Xray вместо встроенного VPN.</string>
 </resources>

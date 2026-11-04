@@ -130,6 +130,4 @@
         <item quantity="many">Réessayez dans %1$d secondes.</item>
         <item quantity="other">Réessayez dans %1$d secondes.</item>
     </plurals>
-    <string name="onboarding_setup_mode_xray_title">Configurer le VPN avancé</string>
-    <string name="onboarding_setup_mode_xray_body">Utilisez un profil Xray importé à la place du VPN intégré.</string>
 </resources>

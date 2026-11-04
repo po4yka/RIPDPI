@@ -128,6 +128,4 @@
     <plurals name="biometric_prompt_pin_lockout_body">
         <item quantity="other">请在 %1$d 秒后重试。</item>
     </plurals>
-    <string name="onboarding_setup_mode_xray_title">设置高级 VPN</string>
-    <string name="onboarding_setup_mode_xray_body">使用已导入的 Xray 配置文件，而不是内置 VPN。</string>
 </resources>

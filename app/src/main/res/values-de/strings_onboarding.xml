@@ -129,6 +129,4 @@
         <item quantity="one">Erneut versuchen in %1$d Sekunde.</item>
         <item quantity="other">Erneut versuchen in %1$d Sekunden.</item>
     </plurals>
-    <string name="onboarding_setup_mode_xray_title">Erweitertes VPN einrichten</string>
-    <string name="onboarding_setup_mode_xray_body">Verwenden Sie ein importiertes Xray-Profil statt des integrierten VPN.</string>
 </resources>

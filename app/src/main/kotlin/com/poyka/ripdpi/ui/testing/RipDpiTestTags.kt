@@ -313,7 +313,6 @@ internal object RipDpiTestTags {
     const val OnboardingPersonaAdvanced = "onboarding-persona-advanced"
     const val OnboardingModeVpn = "onboarding-mode-vpn"
     const val OnboardingModeProxy = "onboarding-mode-proxy"
-    const val OnboardingXrayImport = "onboarding-xray-import"
     const val OnboardingValidateAction = "onboarding-validate-action"
     const val OnboardingValidationStatus = "onboarding-validation-status"
     const val OnboardingFinishKeepRunning = "onboarding-finish-keep-running"

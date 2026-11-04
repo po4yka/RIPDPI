@@ -128,6 +128,4 @@
         <item quantity="one">Try again in %1$d second.</item>
         <item quantity="other">Try again in %1$d seconds.</item>
     </plurals>
-    <string name="onboarding_setup_mode_xray_title">Set up advanced VPN</string>
-    <string name="onboarding_setup_mode_xray_body">Use an imported Xray profile instead of the built-in VPN.</string>
 </resources>

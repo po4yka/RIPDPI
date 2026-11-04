@@ -122,6 +122,4 @@
         <item quantity="one">%1$d सेकंड में पुनः प्रयास करें।</item>
         <item quantity="other">%1$d सेकंड में पुनः प्रयास करें।</item>
     </plurals>
-    <string name="onboarding_setup_mode_xray_title">उन्नत VPN सेट अप करें</string>
-    <string name="onboarding_setup_mode_xray_body">अंतर्निहित VPN के बजाय आयात की गई Xray प्रोफ़ाइल का उपयोग करें।</string>
 </resources>
