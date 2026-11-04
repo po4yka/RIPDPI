@@ -1,15 +1,19 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.LocalSocks5Client
+import com.poyka.ripdpi.core.LocalSocksConnectRejectedException
 import com.poyka.ripdpi.core.LocalSocksCredentialRegistry
 import com.poyka.ripdpi.core.LocalSocksCredentials
 import okhttp3.OkHttpClient
 import java.net.InetAddress
 import java.net.InetSocketAddress
+import java.net.ProtocolException
 import java.net.Proxy
 import java.net.Socket
 import java.net.SocketAddress
 import javax.net.SocketFactory
+
+private const val SocksReplyHostUnreachable = 4
 
 /** An app-owned loopback SOCKS5 listener and the session credentials it requires, if any. */
 data class LocalSocksRoute(
@@ -19,6 +23,27 @@ data class LocalSocksRoute(
     /** The listener cannot resolve names (the noDomain setting), so the client must send addresses. */
     val resolveNamesLocally: Boolean = false,
 )
+
+fun LocalSocksRoute.withLogin(
+    username: String,
+    password: String,
+): LocalSocksRoute = copy(credentials = LocalSocksCredentials(username, password))
+
+/**
+ * Authenticates on the connected [socket] and opens a CONNECT tunnel to [target].
+ *
+ * @throws ProtocolException when the listener refuses the handshake or the CONNECT.
+ */
+fun LocalSocksRoute.openTunnel(
+    socket: Socket,
+    target: InetSocketAddress,
+) {
+    LocalSocks5Client.connect(socket, target, credentials)
+}
+
+/** The listener answered a CONNECT with the RFC 1928 "host unreachable" reply. */
+fun ProtocolException.isLocalSocksHostUnreachable(): Boolean =
+    (this as? LocalSocksConnectRejectedException)?.reply == SocksReplyHostUnreachable
 
 /** Routes OkHttp through the listener at [endpoint], presenting the session credentials its owner registered. */
 internal fun OkHttpClient.Builder.localSocksProxy(endpoint: RelayProbeEndpoint): OkHttpClient.Builder =

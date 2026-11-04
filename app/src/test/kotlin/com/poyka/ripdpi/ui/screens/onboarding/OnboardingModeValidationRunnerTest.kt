@@ -4,7 +4,6 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.FakeServiceStateStore
 import com.poyka.ripdpi.activities.FakeStringResolver
-import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
@@ -19,6 +18,7 @@ import com.poyka.ripdpi.services.ServiceRuntimeHandle
 import com.poyka.ripdpi.services.ServiceRuntimeRegistry
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
+import com.poyka.ripdpi.services.withLogin
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.UnconfinedTestDispatcher
@@ -39,7 +39,8 @@ import java.net.ServerSocket
 import java.util.concurrent.Executors
 import kotlin.concurrent.thread
 
-private val TunnelCredentials = LocalSocksCredentials("tunnel-user", "tunnel-pass")
+private const val FixtureTunnelUsername = "tunnel-user"
+private const val FixtureTunnelPassword = "tunnel-pass"
 private const val AddressTypeDomain: Byte = 3
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
@@ -61,7 +62,7 @@ class OnboardingModeValidationRunnerTest {
                     appSettingsRepository = FakeAppSettingsRepository(),
                     serviceController = serviceController,
                     serviceStateStore = serviceStateStore,
-                    serviceRuntimeRegistry = registryWithTunnelRoute(socks.route(TunnelCredentials)),
+                    serviceRuntimeRegistry = registryWithTunnelRoute(socks.route()),
                     tlsClientFactory = tlsClientFactory,
                     stringResolver = FakeStringResolver(),
                     dispatchers =
@@ -94,11 +95,11 @@ class OnboardingModeValidationRunnerTest {
                     validationRunner(
                         serviceStateStore = store,
                         serviceController = RunningServiceController(store),
-                        registry = registryWithTunnelRoute(socks.route(TunnelCredentials)),
+                        registry = registryWithTunnelRoute(socks.route()),
                     ).validate(Mode.VPN) { }
 
                 assertTrue(result is OnboardingValidationResult.Success)
-                assertEquals(TunnelCredentials.username, socks.username)
+                assertEquals(FixtureTunnelUsername, socks.username)
                 assertEquals("connectivitycheck.gstatic.com", socks.targetHost)
             }
         }
@@ -125,7 +126,7 @@ class OnboardingModeValidationRunnerTest {
                     validationRunner(
                         serviceStateStore = store,
                         serviceController = RunningServiceController(store),
-                        registry = registryWithTunnelRoute(socks.route(TunnelCredentials)),
+                        registry = registryWithTunnelRoute(socks.route()),
                     ).validate(Mode.VPN) { } as OnboardingValidationResult.Failed
 
                 assertEquals(OnboardingValidationStep.Dns, result.failedStep)
@@ -142,7 +143,7 @@ class OnboardingModeValidationRunnerTest {
                     validationRunner(
                         serviceStateStore = store,
                         serviceController = RunningServiceController(store),
-                        registry = registryWithTunnelRoute(socks.route(TunnelCredentials)),
+                        registry = registryWithTunnelRoute(socks.route()),
                     ).validate(Mode.VPN) { } as OnboardingValidationResult.Failed
 
                 assertEquals(OnboardingValidationStep.Connectivity, result.failedStep)
@@ -179,7 +180,7 @@ class OnboardingModeValidationRunnerTest {
                 validationRunner(
                     serviceStateStore = store,
                     serviceController = RunningServiceController(store),
-                    registry = registryWithTunnelRoute(socks.route(TunnelCredentials)),
+                    registry = registryWithTunnelRoute(socks.route()),
                     settings =
                         FakeAppSettingsRepository().apply {
                             update { setNoDomain(true) }
@@ -201,7 +202,7 @@ class OnboardingModeValidationRunnerTest {
                     validationRunner(
                         serviceStateStore = store,
                         serviceController = controller,
-                        registry = registryWithTunnelRoute(socks.route(TunnelCredentials)),
+                        registry = registryWithTunnelRoute(socks.route()),
                     )
 
                 assertTrue(runner.validate(Mode.VPN) { } is OnboardingValidationResult.Success)
@@ -224,7 +225,7 @@ class OnboardingModeValidationRunnerTest {
                     validationRunner(
                         serviceStateStore = store,
                         serviceController = RunningServiceController(store),
-                        registry = registryWithTunnelRoute(socks.route(TunnelCredentials)),
+                        registry = registryWithTunnelRoute(socks.route()),
                         tlsClientFactory = RecordingOwnedTlsClientFactory(responseCode = 302),
                     ).validate(Mode.VPN) { } as OnboardingValidationResult.Failed
 
@@ -319,7 +320,7 @@ class OnboardingModeValidationRunnerTest {
         )
 
     private suspend fun FakeAppSettingsRepository.useLanListener(socks: FakeSocksListener) {
-        val route = socks.route(TunnelCredentials)
+        val route = socks.route()
         update {
             setProxyIp(route.host)
             setProxyPort(route.port)
@@ -388,8 +389,9 @@ class OnboardingModeValidationRunnerTest {
             }
         }
 
-        fun route(credentials: LocalSocksCredentials) =
-            LocalSocksRoute(server.inetAddress.hostAddress.orEmpty(), server.localPort, credentials)
+        fun route() =
+            LocalSocksRoute(server.inetAddress.hostAddress.orEmpty(), server.localPort)
+                .withLogin(FixtureTunnelUsername, FixtureTunnelPassword)
 
         override fun close() = server.close()
     }

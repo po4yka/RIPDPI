@@ -5,9 +5,6 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.displayMessage
 import com.poyka.ripdpi.activities.suggestedModeFor
 import com.poyka.ripdpi.activities.validationRecoveryKind
-import com.poyka.ripdpi.core.LocalSocks5Client
-import com.poyka.ripdpi.core.LocalSocksConnectRejectedException
-import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
@@ -24,7 +21,10 @@ import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceRuntimeRegistry
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
+import com.poyka.ripdpi.services.isLocalSocksHostUnreachable
 import com.poyka.ripdpi.services.localSocksProxy
+import com.poyka.ripdpi.services.openTunnel
+import com.poyka.ripdpi.services.withLogin
 import com.poyka.ripdpi.ui.screens.dns.dnsSummaryLabel
 import dagger.Binds
 import dagger.Module
@@ -60,7 +60,6 @@ private const val DefaultProxyPort = 1080
 private const val DefaultProxyHost = "127.0.0.1"
 private const val HttpNoContent = 204
 private const val HttpsPort = 443
-private const val SocksReplyHostUnreachable = 4
 private const val ProxyProbeUsername = "onboarding"
 
 sealed interface OnboardingValidationResult {
@@ -279,16 +278,17 @@ class DefaultOnboardingModeValidationRunner
 
                 Mode.Proxy -> {
                     val settings = appSettingsRepository.snapshot()
-                    LocalSocksRoute(
-                        host = settings.proxyIp.ifBlank { DefaultProxyHost },
-                        port = settings.proxyPort.takeIf { it > 0 } ?: DefaultProxyPort,
-                        // With allow-LAN on, the listener requires the token from loopback clients too.
-                        credentials =
-                            settings.proxyLanAuthToken
-                                .takeIf { settings.proxyAllowLan && it.isNotEmpty() }
-                                ?.let { token -> LocalSocksCredentials(ProxyProbeUsername, token) },
-                        resolveNamesLocally = settings.noDomain,
-                    )
+                    val route =
+                        LocalSocksRoute(
+                            host = settings.proxyIp.ifBlank { DefaultProxyHost },
+                            port = settings.proxyPort.takeIf { it > 0 } ?: DefaultProxyPort,
+                            resolveNamesLocally = settings.noDomain,
+                        )
+                    // With allow-LAN on, the listener requires the token from loopback clients too.
+                    settings.proxyLanAuthToken
+                        .takeIf { settings.proxyAllowLan && it.isNotEmpty() }
+                        ?.let { token -> route.withLogin(ProxyProbeUsername, token) }
+                        ?: route
                 }
             }
 
@@ -318,10 +318,10 @@ class DefaultOnboardingModeValidationRunner
                     Socket().use { socket ->
                         socket.connect(InetSocketAddress(route.host, route.port), ValidationTrafficTimeoutMs.toInt())
                         socket.soTimeout = ValidationTrafficTimeoutMs.toInt()
-                        LocalSocks5Client.connect(socket, dnsProbeTarget(host, route), route.credentials)
+                        route.openTunnel(socket, dnsProbeTarget(host, route))
                     }
                 } catch (e: ProtocolException) {
-                    if ((e as? LocalSocksConnectRejectedException)?.reply == SocksReplyHostUnreachable) {
+                    if (e.isLocalSocksHostUnreachable()) {
                         throw dnsProbeFailure(cause = e)
                     }
                     throw OnboardingProbeException(
