@@ -39,6 +39,8 @@ object RipDpiComponentStyles {
         CommonStyle {
             val colors = LocalRipDpiExtendedColors.currentValue
             rdsBackground(if (state.isSelected) colors.card else colors.muted)
+            // Card and muted are too close in dark theme, so the outline carries the selection.
+            if (state.isSelected) rdsBorder(colors.mutedForeground, RipDpiStroke.Thin)
         }
 }
 
