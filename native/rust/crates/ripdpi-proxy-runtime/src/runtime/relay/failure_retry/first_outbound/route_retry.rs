@@ -105,6 +105,7 @@ pub(super) fn handle_first_response_failure(
     if let Some(bytes) = context.response_bytes {
         session_state.observe_retry_response_payload(&bytes);
         client.write_all(&bytes)?;
+        context.state.note_application_traffic(0, bytes.len() as u64);
         return Ok(None);
     }
     if context.failure.class == RuntimeFailureClass::SilentDrop {

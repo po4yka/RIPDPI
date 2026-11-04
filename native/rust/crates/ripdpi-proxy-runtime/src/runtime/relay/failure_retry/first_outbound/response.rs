@@ -60,6 +60,7 @@ pub(super) fn handle_first_response(
             }
             let has_inbound_payload = session_state.observe_first_response_payload(&bytes);
             client.write_all(&bytes)?;
+            context.state.note_application_traffic(0, bytes.len() as u64);
             if !has_inbound_payload {
                 return Ok(FirstResponseDecision::Complete { recorded_success: false });
             }

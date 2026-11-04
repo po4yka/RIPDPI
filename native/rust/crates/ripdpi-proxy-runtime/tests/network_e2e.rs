@@ -142,6 +142,27 @@ fn http_connect_server_first_greeting_reaches_client_without_client_payload() {
 }
 
 #[test]
+fn first_response_exchange_counts_each_direction_once() {
+    let _guard = test_guard();
+    let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");
+    let telemetry = Arc::new(RecordingTelemetry::default());
+    let mut config = ephemeral_proxy_config(&["--ip", "127.0.0.1"]);
+    config.groups[0].matches.detect = ripdpi_proxy_runtime_adapter::model::config::DETECT_TCP_RESET;
+    let proxy = start_proxy(config, Some(telemetry.clone() as Arc<dyn RuntimeTelemetrySink>));
+
+    let mut stream = socks_connect(proxy.port, fixture.manifest().tcp_echo_port);
+    stream.write_all(b"first exchange").expect("write");
+    let mut response = [0u8; b"first exchange".len()];
+    stream.read_exact(&mut response).expect("read");
+    assert_eq!(&response, b"first exchange");
+    drop(stream);
+    drop(proxy);
+
+    assert_eq!(telemetry.application_sent.load(Ordering::Relaxed), b"first exchange".len());
+    assert_eq!(telemetry.application_received.load(Ordering::Relaxed), b"first exchange".len());
+}
+
+#[test]
 fn socks5_udp_round_trip_reaches_fixture() {
     let _guard = test_guard();
     let fixture = FixtureStack::start(ephemeral_fixture_config()).expect("start fixture");

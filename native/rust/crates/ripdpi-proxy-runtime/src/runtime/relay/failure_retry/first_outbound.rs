@@ -105,6 +105,7 @@ impl<'a> FirstOutboundCoordinator<'a> {
         let mut session_state;
         let mut success_recorded = false;
         let mut success_strategy_family;
+        let mut first_payload_counted = false;
         let inspect_first_response = needs_first_exchange(self.state)?;
 
         loop {
@@ -121,7 +122,14 @@ impl<'a> FirstOutboundCoordinator<'a> {
                 &mut session_state,
                 self.attempt_token.as_ref(),
             ) {
-                Ok(strategy_family) => success_strategy_family = strategy_family,
+                Ok(strategy_family) => {
+                    success_strategy_family = strategy_family;
+                    // A retry resends this payload; the client sent it once.
+                    if !first_payload_counted {
+                        first_payload_counted = true;
+                        self.state.note_application_traffic(first_payload.original_request.len() as u64, 0);
+                    }
+                }
                 Err(err) => {
                     let retry = handle_first_write_failure(
                         self.state,

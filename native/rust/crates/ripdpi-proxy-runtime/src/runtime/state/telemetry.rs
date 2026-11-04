@@ -113,7 +113,6 @@ impl RuntimeState {
     pub(in crate::runtime) fn note_upstream_application_bytes_forwarded(&self, bytes: u64, epoch_ms: u64) {
         if let Some(telemetry) = &self.telemetry {
             telemetry.on_upstream_application_bytes_forwarded(bytes, epoch_ms);
-            telemetry.on_application_traffic(bytes, 0);
         }
     }
     // shortcut: WS-tunnel (Telegram) traffic bypasses these relays and is not counted; add it if totals must include it.
