@@ -7,6 +7,7 @@
   "chainEntryState": null,
   "chainExitState": null,
   "directPathLearningSignals": [],
+  "dnsFailureEvents": 0,
   "fallbackMode": null,
   "health": "degraded",
   "lastAutolearnAction": "host_promoted",
@@ -47,6 +48,7 @@
   "source": "proxy",
   "state": "running",
   "tcpCapable": null,
+  "tlsFailureEvents": 0,
   "totalErrors": 1,
   "totalSessions": 1,
   "tunnelStats": {

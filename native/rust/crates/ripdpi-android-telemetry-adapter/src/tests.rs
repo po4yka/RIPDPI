@@ -307,6 +307,29 @@ fn proxy_ws_tunnel_fake_sni_counter_increments_and_surfaces_in_snapshot() {
 }
 
 #[test]
+fn failure_classification_counts_dns_and_tls_failures_separately() {
+    let state = Arc::new(ProxyTelemetryState::new(None));
+    let observer = ProxyTelemetryObserver { state: state.clone() };
+    let target = SocketAddr::from(([203, 0, 113, 10], 443));
+    for class in [
+        FailureClass::DnsTampering,
+        FailureClass::DnsResolutionFailure,
+        FailureClass::TlsAlert,
+        FailureClass::TlsHandshakeFailure,
+        FailureClass::ShadowTlsVersionMismatch,
+        FailureClass::TcpReset,
+    ] {
+        let failure =
+            ClassifiedFailure::new(class, FailureStage::FirstWrite, FailureAction::RetryWithMatchingGroup, "evidence");
+        observer.on_failure_classified(target, &failure, None);
+    }
+
+    let snapshot = state.snapshot();
+    assert_eq!(snapshot.dns_failure_events, 2);
+    assert_eq!(snapshot.tls_failure_events, 3);
+}
+
+#[test]
 fn failure_classification_telemetry_records_strategy_execution_context() {
     with_proxy_event_capture(|buffers| {
         let state = Arc::new(ProxyTelemetryState::new(None));
@@ -325,6 +348,7 @@ fn failure_classification_telemetry_records_strategy_execution_context() {
 
         let snapshot = snapshot_with_captured_events(&state, &buffers);
         assert_eq!(snapshot.last_failure_class.as_deref(), Some("strategy_execution_failure"));
+        assert_eq!((snapshot.dns_failure_events, snapshot.tls_failure_events), (0, 0));
         assert_eq!(snapshot.last_fallback_action.as_deref(), Some("retry_with_matching_group"));
         assert_eq!(snapshot.last_error.as_deref(), Some("desync action=set_ttl: Invalid argument (os error 22)"));
         assert_eq!(snapshot.network_errors, 1);
@@ -499,6 +523,8 @@ fn proxy_snapshot_field_manifest_matches_contract_fixture() {
         total_errors: 2,
         network_errors: 1,
         route_changes: 3,
+        dns_failure_events: 1,
+        tls_failure_events: 2,
         retry_paced_count: 1,
         last_retry_backoff_ms: Some(500),
         last_retry_reason: Some("backoff".to_string()),

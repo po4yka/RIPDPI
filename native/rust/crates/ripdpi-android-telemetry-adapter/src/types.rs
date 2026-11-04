@@ -122,6 +122,8 @@ pub struct NativeRuntimeSnapshot {
     pub(crate) total_errors: u64,
     pub(crate) network_errors: u64,
     pub(crate) route_changes: u64,
+    pub(crate) dns_failure_events: u64,
+    pub(crate) tls_failure_events: u64,
     pub(crate) retry_paced_count: u64,
     pub(crate) last_retry_backoff_ms: Option<u64>,
     pub(crate) last_retry_reason: Option<String>,

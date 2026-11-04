@@ -1,6 +1,6 @@
 use std::sync::atomic::Ordering;
 
-use ripdpi_failure_classifier::ClassifiedFailure;
+use ripdpi_failure_classifier::{ClassifiedFailure, FailureClass};
 
 use super::state::ProxyTelemetryState;
 
@@ -50,6 +50,17 @@ impl ProxyTelemetryState {
     }
 
     pub fn on_failure_classified(&self, target: String, failure: &ClassifiedFailure, host: Option<String>) {
+        match failure.class {
+            FailureClass::DnsTampering | FailureClass::DnsResolutionFailure => {
+                // Ordering: Relaxed -- counter read for display only, no happens-before needed.
+                self.dns_failure_events.fetch_add(1, Ordering::Relaxed);
+            }
+            FailureClass::TlsAlert | FailureClass::TlsHandshakeFailure | FailureClass::ShadowTlsVersionMismatch => {
+                // Ordering: Relaxed -- counter read for display only, no happens-before needed.
+                self.tls_failure_events.fetch_add(1, Ordering::Relaxed);
+            }
+            _ => {}
+        }
         let level = if failure.action.as_str() == "retry_with_matching_group" { "warn" } else { "info" };
         let message = format!(
             "failure classified target={} class={} stage={} action={} host={} evidence={}",
