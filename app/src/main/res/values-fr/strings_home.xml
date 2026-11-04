@@ -306,10 +306,15 @@
     </plurals>
     <string name="home_connection_actuator_action_deactivate">Déconnecter</string>
     <string name="home_connection_actuator_fault_copy">Copier l\'erreur</string>
-    <string name="home_connection_actuator_fault_diagnose">Diagnostiquer</string>
-    <string name="home_connection_actuator_fault_view_log">Voir le journal</string>
+    <string name="home_connection_actuator_issue_diagnose">Diagnostiquer</string>
+    <string name="home_connection_actuator_issue_view_log">Voir le journal</string>
     <string name="home_connection_actuator_state_engaging">Connexion…</string>
     <string name="home_connection_actuator_state_fault">Échec de la connexion : %1$s</string>
+    <string name="home_connection_actuator_degraded_dns">Des requêtes DNS ont échoué ou utilisent un résolveur de secours. Certains sites peuvent ne pas s’ouvrir.</string>
+    <string name="home_connection_actuator_degraded_network">Le réseau a changé ou a perdu l’accès validé à Internet. La connexion peut être instable.</string>
+    <string name="home_connection_actuator_degraded_handshake">Des négociations TLS ont échoué. Certains sites peuvent ne pas s’ouvrir.</string>
+    <string name="home_connection_actuator_degraded_tunnel">Le tunnel a signalé des erreurs et se rétablit. La connexion peut être instable.</string>
+    <string name="home_connection_actuator_degraded_route">Le relais n’est pas disponible. Le trafic passe désormais en direct.</string>
     <string name="home_connection_stage_handshake">Handshake</string>
     <string name="home_connection_actuator_state_locked">Connecté</string>
     <string name="home_connection_actuator_state_direct">Connecté</string>
@@ -319,8 +324,8 @@
     <string name="home_connection_actuator_state_open">Déconnecté</string>
     <string name="home_connection_stage_route">Route</string>
     <string name="home_connection_actuator_action_activate">Connecter</string>
-    <string name="home_connection_actuator_state_degraded">Connecté · avertissement : %1$s</string>
-    <string name="home_connection_actuator_state_direct_degraded">Connecté · avertissement : %1$s</string>
+    <string name="home_connection_actuator_state_degraded">Connecté · problème : %1$s</string>
+    <string name="home_connection_actuator_state_direct_degraded">Connecté · problème : %1$s</string>
     <string name="home_connection_stage_tunnel">Tunnel</string>
     <string name="home_connection_actuator_action_android_managed">Géré par le verrouillage Android</string>
     <string name="home_connection_stage_state_failed">en échec</string>

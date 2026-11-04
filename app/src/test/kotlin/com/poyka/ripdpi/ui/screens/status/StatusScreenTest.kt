@@ -9,6 +9,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -107,9 +108,9 @@ class StatusScreenTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorFaultDetail).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorFaultDiagnose).performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorFaultViewLog).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorIssueDetail).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorIssueDiagnose).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorIssueViewLog).performClick()
 
         assertTrue(diagnosed)
         assertTrue(openedLogs)
@@ -128,7 +129,7 @@ class StatusScreenTest {
                             connectionActuator =
                                 StatusConnectionActuatorUiState(
                                     status = StatusConnectionActuatorStatus.Fault,
-                                    faultDetail = error,
+                                    issueDetail = error,
                                 ),
                         ),
                     onToggleConnection = {},
@@ -141,7 +142,7 @@ class StatusScreenTest {
         }
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorFaultDetail)
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorIssueDetail)
             .performClick()
 
         val clipboard =
@@ -155,6 +156,38 @@ class StatusScreenTest {
                 ?.text
                 ?.toString(),
         )
+    }
+
+    @Test
+    fun `a warning explains itself and offers diagnosis without a copy action`() {
+        var diagnosed = false
+        composeRule.setContent {
+            RipDpiTheme {
+                StatusScreen(
+                    uiState =
+                        MainUiState(
+                            connectionActuator =
+                                StatusConnectionActuatorUiState(
+                                    status = StatusConnectionActuatorStatus.Degraded,
+                                    statusDescription = "Connected · DNS issue",
+                                    issueDetail = "DNS lookups failed",
+                                ),
+                        ),
+                    onToggleConnection = {},
+                    onOpenDiagnostics = { diagnosed = true },
+                    onOpenHistory = {},
+                    onRepairPermission = {},
+                    onOpenVpnPermissionDialog = {},
+                )
+            }
+        }
+
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorIssueDetail)
+            .assertIsDisplayed()
+            .assertHasNoClickAction()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorIssueDiagnose).performClick()
+        assertTrue(diagnosed)
     }
 
     @Test
@@ -331,7 +364,7 @@ class StatusScreenTest {
                                     status = StatusConnectionActuatorStatus.Fault,
                                     statusDescription = "Secure line fault at Tunnel",
                                     actionLabel = "Retry secure line",
-                                    faultDetail = "Tunnel failed",
+                                    issueDetail = "Tunnel failed",
                                 ),
                             modeCards = modeCards(),
                         ),
@@ -345,7 +378,7 @@ class StatusScreenTest {
         }
 
         val rail = composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).fetchSemanticsNode()
-        val detail = composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorFaultDetail).fetchSemanticsNode()
+        val detail = composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorIssueDetail).fetchSemanticsNode()
         composeRule.onNodeWithText("Tunnel failed").assertIsDisplayed()
         assertTrue(rail.boundsInRoot.bottom <= detail.boundsInRoot.top)
     }

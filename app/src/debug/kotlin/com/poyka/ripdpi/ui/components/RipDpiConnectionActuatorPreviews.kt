@@ -110,7 +110,7 @@ private fun ConnectionActuatorScene(
                     actionLabel = action,
                     routeLabel = route,
                     trailingLabel = exit,
-                    faultDetail = detail,
+                    issueDetail = detail,
                     deactivationEnabled = false.takeIf { lockdown },
                 ),
             onActivate = {},

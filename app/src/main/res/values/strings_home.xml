@@ -313,14 +313,19 @@
     <string name="home_connection_actuator_state_engaging">Connecting…</string>
     <string name="home_connection_actuator_state_locked">Connected</string>
     <string name="home_connection_actuator_state_direct">Connected</string>
-    <string name="home_connection_actuator_state_degraded">Connected · warning: %1$s</string>
-    <string name="home_connection_actuator_state_direct_degraded">Connected · warning: %1$s</string>
+    <string name="home_connection_actuator_state_degraded">Connected · %1$s issue</string>
+    <string name="home_connection_actuator_state_direct_degraded">Connected · %1$s issue</string>
     <string name="home_connection_actuator_state_fault">Connection failed: %1$s</string>
+    <string name="home_connection_actuator_degraded_dns">DNS lookups failed or switched to a fallback resolver. Some sites may not open.</string>
+    <string name="home_connection_actuator_degraded_network">The network changed or lost validated internet access. The connection may be unstable.</string>
+    <string name="home_connection_actuator_degraded_handshake">TLS handshakes failed. Some sites may not open.</string>
+    <string name="home_connection_actuator_degraded_tunnel">The tunnel reported errors and is recovering. The connection may be unstable.</string>
+    <string name="home_connection_actuator_degraded_route">The relay is unavailable. Traffic now goes directly.</string>
     <string name="home_connection_actuator_action_activate">Connect</string>
     <string name="home_connection_actuator_action_deactivate">Disconnect</string>
     <string name="home_connection_actuator_fault_copy">Copy the error</string>
-    <string name="home_connection_actuator_fault_diagnose">Diagnose</string>
-    <string name="home_connection_actuator_fault_view_log">View log</string>
+    <string name="home_connection_actuator_issue_diagnose">Diagnose</string>
+    <string name="home_connection_actuator_issue_view_log">View log</string>
     <string name="home_connection_stage_network">Network</string>
     <string name="home_connection_stage_dns" translatable="false">DNS</string>
     <string name="home_connection_stage_handshake">Handshake</string>

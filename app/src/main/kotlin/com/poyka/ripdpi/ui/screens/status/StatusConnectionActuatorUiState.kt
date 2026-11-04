@@ -87,10 +87,10 @@ data class StatusConnectionActuatorUiState(
     val statusDescription: String = "",
     val actionLabel: String = "",
     /**
-     * What actually went wrong, carried by the control that reports the fault
-     * rather than by a banner beside it. Empty in every state but a fault.
+     * What actually went wrong, carried by the control that reports the problem
+     * rather than by a banner beside it. Empty while there is no fault or warning.
      */
-    val faultDetail: String = "",
+    val issueDetail: String = "",
     /** The step chain of the active bypass strategy; blank hides the strategy panel. */
     val strategyLabel: String = "",
     val strategyFacets: ImmutableList<StatusModeSummaryFacet> = persistentListOf(),

@@ -32,6 +32,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.key
@@ -79,9 +80,9 @@ fun RipDpiConnectionActuator(
     onActivate: () -> Unit,
     onDeactivate: () -> Unit,
     modifier: Modifier = Modifier,
-    onCopyFaultDetail: (() -> Unit)? = null,
-    onDiagnoseFault: (() -> Unit)? = null,
-    onViewFaultLog: (() -> Unit)? = null,
+    onCopyIssueDetail: (() -> Unit)? = null,
+    onDiagnoseIssue: (() -> Unit)? = null,
+    onViewIssueLog: (() -> Unit)? = null,
     testTag: String? = null,
 ) {
     val resolved = state.withResolvedLabels()
@@ -144,19 +145,21 @@ fun RipDpiConnectionActuator(
             wrapLabel = true,
             onClick = onAction,
         )
+        val fault = state.status == StatusConnectionActuatorStatus.Fault
         AnimatedVisibility(
-            visible = state.status == StatusConnectionActuatorStatus.Fault,
+            visible = fault || state.status == StatusConnectionActuatorStatus.Degraded,
             enter = motion.sectionEnterTransition(),
             exit = motion.sectionExitTransition(),
         ) {
-            ActuatorFaultDetail(
+            ActuatorIssueDetail(
                 modifier = Modifier.padding(top = spacing.sm),
-                detail = resolved.faultDetail,
+                detail = resolved.issueDetail,
                 stateStyle = style,
                 stateRole = state.status.toThemeRole(),
-                onCopy = onCopyFaultDetail,
-                onDiagnose = onDiagnoseFault,
-                onViewLog = onViewFaultLog,
+                icon = if (fault) RipDpiIcons.Error else RipDpiIcons.Warning,
+                onCopy = onCopyIssueDetail.takeIf { fault },
+                onDiagnose = onDiagnoseIssue,
+                onViewLog = onViewIssueLog,
             )
         }
     }
@@ -208,7 +211,7 @@ private fun ActuatorHeadline(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // The state is the header's main status text: foreground ink, with semantic color only for
-            // degraded and fault (the route color), and a per-state symbol so color never carries it alone.
+            // degraded and fault, and a per-state symbol so color never carries it alone. Metadata stays neutral.
             ConnectionStatusFeedback(status = state.status, tint = stateStyle.routeLabel)
             Text(
                 modifier = Modifier.weight(1f).semantics { liveRegion = LiveRegionMode.Polite },
@@ -219,7 +222,7 @@ private fun ActuatorHeadline(
         }
         if (LocalDensity.current.fontScale >= StackedRouteFontScale) {
             Column(verticalArrangement = Arrangement.spacedBy(spacing.xs)) {
-                ActuatorRouteLabels(state, stateStyle)
+                ActuatorRouteLabels(state)
             }
         } else {
             FlowRow(
@@ -227,17 +230,14 @@ private fun ActuatorHeadline(
                 horizontalArrangement = Arrangement.spacedBy(spacing.sm),
                 verticalArrangement = Arrangement.spacedBy(spacing.xs),
             ) {
-                ActuatorRouteLabels(state, stateStyle)
+                ActuatorRouteLabels(state)
             }
         }
     }
 }
 
 @Composable
-private fun ActuatorRouteLabels(
-    state: StatusConnectionActuatorUiState,
-    stateStyle: RipDpiActuatorStateStyle,
-) {
+private fun ActuatorRouteLabels(state: StatusConnectionActuatorUiState) {
     val type = RipDpiThemeTokens.type
     val stacked = LocalDensity.current.fontScale >= StackedRouteFontScale
     val labelModifier = if (stacked) Modifier.fillMaxWidth() else Modifier
@@ -245,20 +245,20 @@ private fun ActuatorRouteLabels(
         modifier = labelModifier.ripDpiTestTag(RipDpiTestTags.ConnectionActuatorRouteLabel),
         text = state.routeLabel,
         style = type.secondaryBody,
-        color = stateStyle.routeLabel,
+        color = RipDpiThemeTokens.colors.mutedForeground,
     )
-    if (!stacked) ActuatorRouteSeparator(stateStyle)
+    if (!stacked) ActuatorRouteSeparator()
     Text(
         modifier = labelModifier.ripDpiTestTag(RipDpiTestTags.ConnectionActuatorTerminalLabel),
         text = state.trailingLabel,
         style = type.secondaryBody,
-        color = stateStyle.routeLabel,
+        color = RipDpiThemeTokens.colors.mutedForeground,
     )
     // The idle duration is a meaningless 00:00:00, so only a live session shows it.
     if (state.status == StatusConnectionActuatorStatus.Locked ||
         state.status == StatusConnectionActuatorStatus.Degraded
     ) {
-        if (!stacked) ActuatorRouteSeparator(stateStyle)
+        if (!stacked) ActuatorRouteSeparator()
         val locale = LocalConfiguration.current.locales[0]
         // The ticking digits are read out as a spoken duration; the text is not a live region, so no tick is announced.
         val spoken = remember(state.sessionDuration, locale) { spokenDuration(state.sessionDuration, locale) }
@@ -271,26 +271,27 @@ private fun ActuatorRouteLabels(
             text = localizedClockDuration(state.sessionDuration, locale),
             // A clock reads left to right in every locale; without this a right to left paragraph can reorder it.
             style = type.secondaryBody.copy(textDirection = TextDirection.Ltr),
-            color = stateStyle.routeLabel,
+            color = RipDpiThemeTokens.colors.mutedForeground,
         )
     }
 }
 
 @Composable
-private fun ActuatorRouteSeparator(stateStyle: RipDpiActuatorStateStyle) {
+private fun ActuatorRouteSeparator() {
     Text(
         modifier = Modifier.clearAndSetSemantics {},
         text = "·",
         style = RipDpiThemeTokens.type.secondaryBody,
-        color = stateStyle.routeLabel,
+        color = RipDpiThemeTokens.colors.mutedForeground,
     )
 }
 
 @Composable
-private fun ActuatorFaultDetail(
+private fun ActuatorIssueDetail(
     detail: String,
     stateStyle: RipDpiActuatorStateStyle,
     stateRole: RipDpiActuatorStateRole,
+    icon: ImageVector,
     onCopy: (() -> Unit)?,
     modifier: Modifier = Modifier,
     onDiagnose: (() -> Unit)? = null,
@@ -312,7 +313,7 @@ private fun ActuatorFaultDetail(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorFaultDetail)
+                        .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorIssueDetail)
                         .styleResolver(resolver)
                         .clip(shape)
                         .then(
@@ -332,7 +333,7 @@ private fun ActuatorFaultDetail(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Icon(
-                    imageVector = RipDpiIcons.Error,
+                    imageVector = icon,
                     contentDescription = null,
                     modifier = Modifier.size(RipDpiIconSizes.Small),
                     tint = stateStyle.railContent,
@@ -353,8 +354,8 @@ private fun ActuatorFaultDetail(
             ) {
                 onDiagnose?.let {
                     RipDpiButton(
-                        text = stringResource(R.string.home_connection_actuator_fault_diagnose),
-                        modifier = Modifier.weight(1f).ripDpiTestTag(RipDpiTestTags.ConnectionActuatorFaultDiagnose),
+                        text = stringResource(R.string.home_connection_actuator_issue_diagnose),
+                        modifier = Modifier.weight(1f).ripDpiTestTag(RipDpiTestTags.ConnectionActuatorIssueDiagnose),
                         variant = RipDpiButtonVariant.Outline,
                         wrapLabel = true,
                         onClick = it,
@@ -362,8 +363,8 @@ private fun ActuatorFaultDetail(
                 }
                 onViewLog?.let {
                     RipDpiButton(
-                        text = stringResource(R.string.home_connection_actuator_fault_view_log),
-                        modifier = Modifier.weight(1f).ripDpiTestTag(RipDpiTestTags.ConnectionActuatorFaultViewLog),
+                        text = stringResource(R.string.home_connection_actuator_issue_view_log),
+                        modifier = Modifier.weight(1f).ripDpiTestTag(RipDpiTestTags.ConnectionActuatorIssueViewLog),
                         variant = RipDpiButtonVariant.Outline,
                         wrapLabel = true,
                         onClick = it,

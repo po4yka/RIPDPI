@@ -279,14 +279,36 @@ private fun buildHomePermissionSummary(
  * The failure's own words, carried by the actuator rather than by a banner
  * beside it. Empty outside a fault, so the control has nothing to render.
  */
-private fun actuatorFaultDetail(
+private fun actuatorIssueDetail(
     status: StatusConnectionActuatorStatus,
     runtime: ConnectionRuntimeState,
+    vpnWarning: VpnDataPlaneStatus?,
+    warningStage: StatusConnectionActuatorStage?,
+    stringResolver: StringResolver,
 ): String =
-    runtime.errorMessage
-        .orEmpty()
-        .takeIf { status == StatusConnectionActuatorStatus.Fault }
-        .orEmpty()
+    when {
+        status == StatusConnectionActuatorStatus.Fault -> {
+            runtime.errorMessage.orEmpty()
+        }
+
+        // A data-plane warning already states the problem in the headline.
+        status == StatusConnectionActuatorStatus.Degraded && vpnWarning == null -> {
+            warningStage?.let { stringResolver.getString(it.degradedDetailRes()) }.orEmpty()
+        }
+
+        else -> {
+            ""
+        }
+    }
+
+private fun StatusConnectionActuatorStage.degradedDetailRes(): Int =
+    when (this) {
+        StatusConnectionActuatorStage.Network -> R.string.home_connection_actuator_degraded_network
+        StatusConnectionActuatorStage.Dns -> R.string.home_connection_actuator_degraded_dns
+        StatusConnectionActuatorStage.Handshake -> R.string.home_connection_actuator_degraded_handshake
+        StatusConnectionActuatorStage.Tunnel -> R.string.home_connection_actuator_degraded_tunnel
+        StatusConnectionActuatorStage.Route -> R.string.home_connection_actuator_degraded_route
+    }
 
 @Suppress("LongParameterList")
 internal fun buildConnectionActuatorUiState(
@@ -364,7 +386,7 @@ internal fun buildConnectionActuatorUiState(
         actionLabel =
             hardKillSwitch.actionLabel.takeIf { hardKillSwitch.blocksDisconnect }
                 ?: actuatorActionLabel(status, isActivation, stringResolver),
-        faultDetail = actuatorFaultDetail(status, runtime),
+        issueDetail = actuatorIssueDetail(status, runtime, vpnWarning, warningStage, stringResolver),
         sessionDuration = runtime.connectionDuration,
         stages = buildActuatorStages(status, warningStage, failedStage, stringResolver),
         activationEnabled = isActivation,

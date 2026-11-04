@@ -412,6 +412,29 @@ class MainViewModelTest {
     }
 
     @Test
+    fun `a stage warning names the problem and explains what it means`() {
+        val state =
+            buildConnectionActuatorUiState(
+                settings = AppSettings.newBuilder().build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Connected,
+                vpnDataPlaneStatus = VpnDataPlaneStatus.Working,
+                vpnForwardingWarning = true,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
+                telemetry = ServiceTelemetrySnapshot(),
+                approachSummary = null,
+                stringResolver = ResourceStringResolver(),
+            )
+
+        assertEquals("Connected · Tunnel issue", state.statusDescription)
+        assertEquals(
+            "The tunnel reported errors and is recovering. The connection may be unstable.",
+            state.issueDetail,
+        )
+    }
+
+    @Test
     fun `vpn forwarding-only warning is rendered on tunnel stage`() {
         val state =
             buildConnectionActuatorUiState(
@@ -794,7 +817,7 @@ class MainViewModelTest {
         )
         assertTrue(
             "Expected an honest direct-degraded description, was: ${state.statusDescription}",
-            state.statusDescription.startsWith("Connected · warning:"),
+            state.statusDescription.endsWith("issue"),
         )
     }
 

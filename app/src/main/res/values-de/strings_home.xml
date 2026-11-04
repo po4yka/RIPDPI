@@ -305,10 +305,15 @@
     </plurals>
     <string name="home_connection_actuator_action_deactivate">Trennen</string>
     <string name="home_connection_actuator_fault_copy">Fehler kopieren</string>
-    <string name="home_connection_actuator_fault_diagnose">Diagnostizieren</string>
-    <string name="home_connection_actuator_fault_view_log">Protokoll ansehen</string>
+    <string name="home_connection_actuator_issue_diagnose">Diagnostizieren</string>
+    <string name="home_connection_actuator_issue_view_log">Protokoll ansehen</string>
     <string name="home_connection_actuator_state_engaging">Verbindung wird hergestellt…</string>
     <string name="home_connection_actuator_state_fault">Verbindung fehlgeschlagen: %1$s</string>
+    <string name="home_connection_actuator_degraded_dns">DNS-Anfragen sind fehlgeschlagen oder nutzen einen Ersatz-Resolver. Manche Websites öffnen sich eventuell nicht.</string>
+    <string name="home_connection_actuator_degraded_network">Das Netzwerk hat gewechselt oder den bestätigten Internetzugang verloren. Die Verbindung kann instabil sein.</string>
+    <string name="home_connection_actuator_degraded_handshake">TLS-Handshakes sind fehlgeschlagen. Manche Websites öffnen sich eventuell nicht.</string>
+    <string name="home_connection_actuator_degraded_tunnel">Der Tunnel meldet Fehler und stellt sich wieder her. Die Verbindung kann instabil sein.</string>
+    <string name="home_connection_actuator_degraded_route">Das Relay ist nicht verfügbar. Der Datenverkehr läuft jetzt direkt.</string>
     <string name="home_connection_stage_handshake">Handshake</string>
     <string name="home_connection_actuator_state_locked">Verbunden</string>
     <string name="home_connection_actuator_state_direct">Verbunden</string>
@@ -318,8 +323,8 @@
     <string name="home_connection_actuator_state_open">Nicht verbunden</string>
     <string name="home_connection_stage_route">Route</string>
     <string name="home_connection_actuator_action_activate">Verbinden</string>
-    <string name="home_connection_actuator_state_degraded">Verbunden · Warnung: %1$s</string>
-    <string name="home_connection_actuator_state_direct_degraded">Verbunden · Warnung: %1$s</string>
+    <string name="home_connection_actuator_state_degraded">Verbunden · Problem: %1$s</string>
+    <string name="home_connection_actuator_state_direct_degraded">Verbunden · Problem: %1$s</string>
     <string name="home_connection_stage_tunnel">Tunnel</string>
     <string name="home_connection_actuator_action_android_managed">Von Android-Sperre verwaltet</string>
     <string name="home_connection_stage_state_failed">fehlgeschlagen</string>

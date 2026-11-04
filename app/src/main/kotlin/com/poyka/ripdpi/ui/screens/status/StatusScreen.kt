@@ -103,7 +103,7 @@ fun StatusScreen(
                 // banner underneath repeated the rail's own styling and the pipeline's
                 // failed stage, so one error occupied three surfaces while only the
                 // message and its copy action belonged to the banner exclusively.
-                val faultDetail = uiState.connectionActuator.faultDetail
+                val issueDetail = uiState.connectionActuator.issueDetail
                 val errorClipboardLabel = stringResource(R.string.clipboard_label_error)
                 // Pause qualifies the connection action, so it shares the control's group
                 // instead of taking a section, and its section gaps, of its own.
@@ -116,16 +116,16 @@ fun StatusScreen(
                         onActivate = onToggleConnection,
                         onDeactivate = onToggleConnection,
                         modifier = Modifier.fillMaxWidth(),
-                        onCopyFaultDetail =
-                            faultDetail.takeIf { it.isNotEmpty() }?.let { message ->
+                        onCopyIssueDetail =
+                            issueDetail.takeIf { it.isNotEmpty() }?.let { message ->
                                 {
                                     clipboardManager?.setPrimaryClip(
                                         ClipData.newPlainText(errorClipboardLabel, message.withoutBidiIsolates()),
                                     )
                                 }
                             },
-                        onDiagnoseFault = onOpenDiagnostics,
-                        onViewFaultLog = onOpenLogs,
+                        onDiagnoseIssue = onOpenDiagnostics,
+                        onViewIssueLog = onOpenLogs,
                         testTag = RipDpiTestTags.ConnectionActuatorButton,
                     )
                     if (pause.available || pause.phase != null || pause.requestFailed) {

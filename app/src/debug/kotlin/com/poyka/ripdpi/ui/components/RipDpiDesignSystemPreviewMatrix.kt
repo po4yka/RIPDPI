@@ -1066,7 +1066,7 @@ internal fun homePreviewActuatorState(status: StatusConnectionActuatorStatus): S
         // resolver fills this field and the screen no longer has a banner to
         // put it in. Without it the error screens document a failure that says
         // nothing about what failed.
-        faultDetail =
+        issueDetail =
             if (status == StatusConnectionActuatorStatus.Fault) "Failed to start VPN" else "",
         stages = stages,
     )
