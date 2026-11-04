@@ -5,4 +5,5 @@
     <string name="notification_status_reconnecting">Verbindung wird wiederhergestellt…</string>
     <string name="notification_status_connected">Verbunden · %1$s</string>
     <string name="notification_status_warning">Verbunden · %1$s · Warnung</string>
+    <string name="notification_status_stopping">Wird gestoppt…</string>
 </resources>

@@ -90,6 +90,7 @@ class RipDpiProxyService :
             service = this,
             target = ConnectionNotificationTarget.Proxy,
             telemetry = { sessionStateStore?.telemetry?.value },
+            pauseIntent = { pauseAuthority.snapshot() },
         )
 
     override fun onCreate() {
@@ -211,12 +212,7 @@ class RipDpiProxyService :
             },
             showPaused = { intent ->
                 lastPausedStartId = latestStartId
-                startPausedForeground(
-                    this,
-                    intent,
-                    ConnectionNotificationTarget.Proxy.channelId,
-                    ConnectionNotificationTarget.Proxy.notificationId,
-                )
+                notificationController.showPaused(intent)
             },
             stopShell = { lease ->
                 entryMutex.withLock {

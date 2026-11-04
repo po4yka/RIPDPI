@@ -145,6 +145,7 @@ class RipDpiVpnService :
                 service = this,
                 target = ConnectionNotificationTarget.Vpn,
                 telemetry = { serviceStateStore.telemetry.value },
+                pauseIntent = { pauseAuthority.snapshot() },
                 showStopAction = {
                     AndroidHardKillSwitchStateReader.read(this).allowsServiceStop(notificationStopAction)
                 },
@@ -241,12 +242,7 @@ class RipDpiVpnService :
             },
             showPaused = { intent ->
                 lastPausedStartId = latestStartId
-                startPausedForeground(
-                    this,
-                    intent,
-                    ConnectionNotificationTarget.Vpn.channelId,
-                    ConnectionNotificationTarget.Vpn.notificationId,
-                )
+                notificationController.showPaused(intent)
             },
             stopShell = { lease ->
                 entryMutex.withLock {

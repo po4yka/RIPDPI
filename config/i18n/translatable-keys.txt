@@ -5172,6 +5172,7 @@ detection:detection_alert_title_needs_review
 service:notification_status_connected
 service:notification_status_connecting
 service:notification_status_reconnecting
+service:notification_status_stopping
 service:notification_status_warning
 service:notification_stop
 service:pause_notification_cleanup

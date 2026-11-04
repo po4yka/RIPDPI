@@ -5,4 +5,5 @@
     <string name="notification_status_reconnecting">Переподключение…</string>
     <string name="notification_status_connected">Подключено · %1$s</string>
     <string name="notification_status_warning">Подключено · %1$s · предупреждение</string>
+    <string name="notification_status_stopping">Остановка…</string>
 </resources>

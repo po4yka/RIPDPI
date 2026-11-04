@@ -5,4 +5,5 @@
     <string name="notification_status_reconnecting">Reconnexion…</string>
     <string name="notification_status_connected">Connecté · %1$s</string>
     <string name="notification_status_warning">Connecté · %1$s · avertissement</string>
+    <string name="notification_status_stopping">Arrêt…</string>
 </resources>

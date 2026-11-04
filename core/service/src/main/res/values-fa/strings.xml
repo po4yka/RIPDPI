@@ -5,4 +5,5 @@
     <string name="notification_status_reconnecting">اتصال مجدد…</string>
     <string name="notification_status_connected">متصل · %1$s</string>
     <string name="notification_status_warning">متصل · %1$s · هشدار</string>
+    <string name="notification_status_stopping">در حال توقف…</string>
 </resources>

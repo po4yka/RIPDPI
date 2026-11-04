@@ -35,6 +35,8 @@ internal sealed interface ConnectionNotificationPhase {
 
     data object Reconnecting : ConnectionNotificationPhase
 
+    data object Stopping : ConnectionNotificationPhase
+
     data class Connected(
         val warning: Boolean,
         val traffic: TunnelStats,
@@ -80,6 +82,10 @@ internal fun connectionNotificationContent(
 
         ConnectionNotificationPhase.Reconnecting -> {
             ConnectionNotificationContent(localized.getString(R.string.notification_status_reconnecting))
+        }
+
+        ConnectionNotificationPhase.Stopping -> {
+            ConnectionNotificationContent(localized.getString(R.string.notification_status_stopping))
         }
 
         is ConnectionNotificationPhase.Connected -> {

@@ -7,4 +7,5 @@
     <string name="notification_status_reconnecting">جارٍ إعادة الاتصال…</string>
     <string name="notification_status_connected">متصل · %1$s</string>
     <string name="notification_status_warning">متصل · %1$s · تحذير</string>
+    <string name="notification_status_stopping">جارٍ الإيقاف…</string>
 </resources>

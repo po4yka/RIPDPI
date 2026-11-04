@@ -5,4 +5,5 @@
     <string name="notification_status_reconnecting">正在重新连接…</string>
     <string name="notification_status_connected">已连接 · %1$s</string>
     <string name="notification_status_warning">已连接 · %1$s · 警告</string>
+    <string name="notification_status_stopping">正在停止…</string>
 </resources>
