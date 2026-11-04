@@ -522,7 +522,6 @@ class OnboardingScreenTest {
         listOf(
             "Routes all apps through an on-device VPN. Android asks for permission first.",
             "Runs a local proxy for apps or clients that support manual proxy configuration.",
-            "Use an imported Xray profile instead of the built-in VPN.",
         ).forEach(::assertCompleteScrollableText)
     }
 

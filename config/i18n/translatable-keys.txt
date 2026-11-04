@@ -810,8 +810,6 @@ app:config_relay_xhttp_host
 app:config_relay_xhttp_mode
 app:config_relay_xhttp_path
 app:config_save
-app:config_scope_device
-app:config_scope_proxy
 app:config_section_bypass_settings
 app:config_section_server_settings
 app:config_split_marker_helper
@@ -3677,10 +3675,7 @@ app:onboarding_setup_dns_system
 app:onboarding_setup_dns_system_body
 app:onboarding_setup_finish
 app:onboarding_setup_mode_proxy_body
-app:onboarding_setup_mode_proxy_title
-app:onboarding_setup_mode_title
 app:onboarding_setup_mode_vpn_body
-app:onboarding_setup_mode_vpn_title
 app:onboarding_setup_validate_title
 app:onboarding_skip_setup
 app:onboarding_skip_test

@@ -1386,8 +1386,6 @@ fake_burst 3</string>
     <string name="config_connection_path_direct">路径：直连</string>
     <string name="config_connection_path_relay">路径：中继 · %1$s</string>
     <string name="config_connection_details">配置详情</string>
-    <string name="config_scope_device">整台设备</string>
-    <string name="config_scope_proxy">仅代理</string>
     <string name="config_section_bypass_settings">直连</string>
     <string name="config_section_server_settings">中继</string>
     <string name="ws_tunnel_worker_transport_label">Cloudflare Worker 传输</string>

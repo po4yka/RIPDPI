@@ -52,11 +52,6 @@ class ConnectionModeChipsLayoutTest {
         assertLabelsFit(R.string.home_mode_vpn, R.string.home_mode_proxy)
     }
 
-    @Test
-    fun trafficScopesRetainWholeLabelsSelectionTagsAndCallbacks() {
-        assertLabelsFit(R.string.config_scope_device, R.string.config_scope_proxy)
-    }
-
     private fun assertLabelsFit(
         vpnLabelRes: Int,
         proxyLabelRes: Int,

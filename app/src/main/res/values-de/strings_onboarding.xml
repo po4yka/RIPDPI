@@ -6,7 +6,6 @@
     <string name="biometric_prompt_title">RIPDPI entsperren</string>
     <string name="onboarding_local_first_body">Alles läuft auf Ihrem Gerät.</string>
     <string name="onboarding_setup_finish">Fertigstellen</string>
-    <string name="onboarding_setup_mode_vpn_title">VPN-Modus</string>
     <string name="onboarding_validation_finish_disconnected">Getrennt fertigstellen</string>
     <string name="permissions_background_activity_body_huawei">Huawei-Geräte können RIPDPI im Hintergrund stoppen. Gehen Sie zu Einstellungen &gt; Akku &gt; App-Start, suchen Sie RIPDPI, deaktivieren Sie die automatische Verwaltung und aktivieren Sie Automatischer Start, Sekundärer Start und Im Hintergrund ausführen.</string>
     <string name="permissions_battery_body">Erlauben Sie RIPDPI, die Android-Akkuoptimierung zu ignorieren, damit Doze das lokale VPN oder den Proxy im Hintergrund seltener unterbricht.</string>
@@ -28,7 +27,6 @@
     <string name="biometric_prompt_pin_lockout_title">Zu viele Versuche</string>
     <string name="biometric_prompt_use_pin">Backup-PIN verwenden</string>
     <string name="onboarding_setup_dns_system">Systemstandard</string>
-    <string name="onboarding_setup_mode_proxy_title">Proxy-Modus</string>
     <string name="onboarding_validation_failed">Validierung fehlgeschlagen: %1$s</string>
     <string name="permissions_notifications_denied">Erlauben Sie Benachrichtigungen, um RIPDPI-Status und Dienstwarnungen anzuzeigen, während das lokale VPN oder der Proxy läuft.</string>
     <string name="permissions_vpn_error_body">Erteilen Sie die Android-VPN-Berechtigung, damit RIPDPI lokal auf diesem Gerät weiterläuft.</string>
@@ -40,7 +38,6 @@
     <string name="onboarding_persona_advanced_body">Zeigt alle Diagnosen, Profile und Low-Level-Einstellungen an.</string>
     <string name="onboarding_setup_dns_adguard_body">DNS-Resolver mit Werbe- und Tracker-Filterung.</string>
     <string name="onboarding_setup_dns_system_body">Verwenden Sie die DNS-Server Ihres Netzwerks unverändert.</string>
-    <string name="onboarding_setup_mode_title">Datenverkehrsmodus wählen</string>
     <string name="onboarding_setup_validate_title">Verbindung testen</string>
     <string name="onboarding_step_progress">Schritt %1$d von %2$d</string>
     <string name="onboarding_validation_failed_generic">Der gewählte Modus konnte nicht validiert werden.</string>

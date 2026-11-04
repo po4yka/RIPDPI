@@ -1415,8 +1415,6 @@ Source : %2$s</string>
     <string name="config_connection_path_direct">Chemin : direct</string>
     <string name="config_connection_path_relay">Chemin : relais · %1$s</string>
     <string name="config_connection_details">Détails de la configuration</string>
-    <string name="config_scope_device">Tout l\'appareil</string>
-    <string name="config_scope_proxy">Proxy uniquement</string>
     <string name="config_section_bypass_settings">Direct</string>
     <string name="config_section_server_settings">Relais</string>
     <string name="ws_tunnel_worker_transport_label">Transport Cloudflare Worker</string>

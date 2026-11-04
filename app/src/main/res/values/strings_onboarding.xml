@@ -7,10 +7,7 @@
     <string name="onboarding_setup_finish">Finish</string>
     <string name="onboarding_local_first_title">Private by design</string>
     <string name="onboarding_local_first_body">Everything runs on your device.</string>
-    <string name="onboarding_setup_mode_title">Choose traffic mode</string>
-    <string name="onboarding_setup_mode_vpn_title">VPN mode</string>
     <string name="onboarding_setup_mode_vpn_body">Routes all apps through an on-device VPN. Android asks for permission first.</string>
-    <string name="onboarding_setup_mode_proxy_title">Proxy mode</string>
     <string name="onboarding_setup_mode_proxy_body">Runs a local proxy for apps or clients that support manual proxy configuration.</string>
     <string name="onboarding_setup_dns_system">System default</string>
     <string name="onboarding_setup_dns_system_body">Use your network\'s DNS servers as-is.</string>

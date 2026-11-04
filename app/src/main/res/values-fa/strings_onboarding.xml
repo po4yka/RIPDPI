@@ -12,8 +12,6 @@
     <string name="onboarding_continue">ادامه</string>
     <string name="onboarding_setup_dns_adguard_body">حل‌کننده DNS با فیلتر تبلیغات و ردیاب.</string>
     <string name="onboarding_setup_dns_quad9_body">حل‌کننده DNS متمرکز بر امنیت.</string>
-    <string name="onboarding_setup_mode_proxy_title">حالت پروکسی</string>
-    <string name="onboarding_setup_mode_vpn_title">حالت VPN</string>
     <string name="onboarding_validation_failed_generic">حالت انتخاب‌شده قابل اعتبارسنجی نبود.</string>
     <string name="onboarding_validation_finish_disconnected">پایان بدون اتصال</string>
     <string name="onboarding_validation_notifications_required">اجازه اعلان‌ها را بدهید تا RIPDPI بتواند وضعیت سرویس اعتبارسنجی را نشان دهد.</string>
@@ -31,7 +29,6 @@
     <string name="onboarding_setup_dns_cloudflare_body">حل‌کننده DNS سریع و همه‌منظوره.</string>
     <string name="onboarding_setup_dns_system_body">از سرورهای DNS شبکه‌تان همان‌طور که هستند استفاده کنید.</string>
     <string name="onboarding_setup_finish">پایان</string>
-    <string name="onboarding_setup_mode_title">حالت ترافیک را انتخاب کنید</string>
     <string name="onboarding_validation_failed">اعتبارسنجی ناموفق بود: %1$s</string>
     <string name="onboarding_validation_finish_keep_running">پایان و ادامه اجرا</string>
     <string name="onboarding_validation_vpn_permission_denied">اجازه VPN رد شد، بنابراین RIPDPI نتوانست حالت VPN را اعتبارسنجی کند.</string>

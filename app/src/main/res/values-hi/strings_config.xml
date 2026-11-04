@@ -1408,8 +1408,6 @@ fakeddisorder endhost</string>
     <string name="config_connection_path_direct">पथ: सीधा</string>
     <string name="config_connection_path_relay">पथ: रिले · %1$s</string>
     <string name="config_connection_details">कॉन्फ़िगरेशन विवरण</string>
-    <string name="config_scope_device">पूरा डिवाइस</string>
-    <string name="config_scope_proxy">केवल प्रॉक्सी</string>
     <string name="config_section_bypass_settings">सीधा</string>
     <string name="config_section_server_settings">रिले</string>
     <string name="ws_tunnel_worker_transport_label">Cloudflare Worker ट्रांसपोर्ट</string>

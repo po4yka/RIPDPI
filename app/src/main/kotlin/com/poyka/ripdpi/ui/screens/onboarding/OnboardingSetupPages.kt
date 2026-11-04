@@ -55,7 +55,7 @@ internal fun OnboardingModeSelectionContent(
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         OnboardingOptionCard(
-            title = stringResource(R.string.onboarding_setup_mode_vpn_title),
+            title = stringResource(R.string.home_mode_vpn),
             description = stringResource(R.string.onboarding_setup_mode_vpn_body),
             badgeText = stringResource(R.string.onboarding_badge_recommended),
             selected = selectedMode == Mode.VPN,
@@ -63,7 +63,7 @@ internal fun OnboardingModeSelectionContent(
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingModeVpn),
         )
         OnboardingOptionCard(
-            title = stringResource(R.string.onboarding_setup_mode_proxy_title),
+            title = stringResource(R.string.home_mode_proxy),
             description = stringResource(R.string.onboarding_setup_mode_proxy_body),
             selected = selectedMode == Mode.Proxy,
             onClick = { onModeSelected(Mode.Proxy) },
@@ -647,10 +647,4 @@ private fun connectivityRowStatus(state: OnboardingValidationState): OnboardingR
                 OnboardingRowStatus.Pending
             }
         }
-    }
-
-internal fun modeLabelRes(mode: Mode): Int =
-    when (mode) {
-        Mode.VPN -> R.string.onboarding_setup_mode_vpn_title
-        Mode.Proxy -> R.string.onboarding_setup_mode_proxy_title
     }

@@ -7,10 +7,7 @@
     <string name="onboarding_setup_finish">إنهاء</string>
     <string name="onboarding_local_first_title">خاص بحكم التصميم</string>
     <string name="onboarding_local_first_body">كل شيء يعمل على جهازك.</string>
-    <string name="onboarding_setup_mode_title">اختر وضع الحركة</string>
-    <string name="onboarding_setup_mode_vpn_title">وضع VPN</string>
     <string name="onboarding_setup_mode_vpn_body">يوجِّه جميع التطبيقات عبر VPN على الجهاز. يطلب Android الإذن أولًا.</string>
-    <string name="onboarding_setup_mode_proxy_title">وضع الوكيل</string>
     <string name="onboarding_setup_mode_proxy_body">يشغِّل وكيلاً محلياً للتطبيقات أو العملاء الذين يدعمون تهيئة الوكيل يدوياً.</string>
     <string name="onboarding_setup_dns_system">الافتراضي للنظام</string>
     <string name="onboarding_setup_dns_system_body">استخدام خوادم DNS الخاصة بشبكتك كما هي.</string>

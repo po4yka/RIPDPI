@@ -1408,8 +1408,6 @@ Quelle: %2$s</string>
     <string name="config_connection_path_direct">Pfad: direkt</string>
     <string name="config_connection_path_relay">Pfad: Relay · %1$s</string>
     <string name="config_connection_details">Konfigurationsdetails</string>
-    <string name="config_scope_device">Ganzes Gerät</string>
-    <string name="config_scope_proxy">Nur Proxy</string>
     <string name="config_section_bypass_settings">Direkt</string>
     <string name="config_section_server_settings">Relay</string>
     <string name="ws_tunnel_worker_transport_label">Cloudflare-Worker-Transport</string>

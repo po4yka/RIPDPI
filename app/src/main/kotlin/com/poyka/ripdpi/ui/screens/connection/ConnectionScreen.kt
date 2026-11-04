@@ -214,8 +214,8 @@ fun ConnectionScreen(
             ConnectionModeChips(
                 selectedMode = uiState.activeMode,
                 onModeSelected = onModeSelected,
-                vpnLabel = stringResource(R.string.config_scope_device),
-                proxyLabel = stringResource(R.string.config_scope_proxy),
+                vpnLabel = stringResource(modeLabelRes(Mode.VPN)),
+                proxyLabel = stringResource(modeLabelRes(Mode.Proxy)),
                 label = stringResource(R.string.config_traffic_mode_title),
                 groupTestTag = RipDpiTestTags.ConfigTrafficEndpointSelection,
             )

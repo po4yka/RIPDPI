@@ -1415,8 +1415,6 @@ Origen: %2$s</string>
     <string name="config_connection_path_direct">Ruta: directo</string>
     <string name="config_connection_path_relay">Ruta: relay · %1$s</string>
     <string name="config_connection_details">Detalles de configuración</string>
-    <string name="config_scope_device">Todo el dispositivo</string>
-    <string name="config_scope_proxy">Solo proxy</string>
     <string name="config_section_bypass_settings">Directo</string>
     <string name="config_section_server_settings">Relay</string>
     <string name="ws_tunnel_worker_transport_label">Transporte Cloudflare Worker</string>

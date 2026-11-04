@@ -1408,8 +1408,6 @@ fakeddisorder endhost</string>
     <string name="config_connection_path_direct">مسیر: مستقیم</string>
     <string name="config_connection_path_relay">مسیر: رله · %1$s</string>
     <string name="config_connection_details">جزئیات پیکربندی</string>
-    <string name="config_scope_device">کل دستگاه</string>
-    <string name="config_scope_proxy">فقط پروکسی</string>
     <string name="config_section_bypass_settings">مستقیم</string>
     <string name="config_section_server_settings">رله</string>
     <string name="ws_tunnel_worker_transport_label">انتقال Cloudflare Worker</string>

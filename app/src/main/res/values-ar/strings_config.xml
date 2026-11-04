@@ -1492,8 +1492,6 @@ fakeddisorder endhost</string>
     <string name="config_connection_path_direct">المسار: مباشر</string>
     <string name="config_connection_path_relay">المسار: المُرحِّل · %1$s</string>
     <string name="config_connection_details">تفاصيل الإعدادات</string>
-    <string name="config_scope_device">الجهاز بالكامل</string>
-    <string name="config_scope_proxy">وكيل فقط</string>
     <string name="config_section_bypass_settings">مباشر</string>
     <string name="config_section_server_settings">المُرحِّل</string>
     <string name="ws_tunnel_worker_transport_label">نقل Cloudflare Worker</string>

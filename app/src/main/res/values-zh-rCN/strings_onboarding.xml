@@ -13,7 +13,6 @@
     <string name="onboarding_setup_dns_adguard_body">带广告和追踪器过滤的 DNS 解析器。</string>
     <string name="onboarding_setup_dns_system_body">原样使用你网络的 DNS 服务器。</string>
     <string name="onboarding_setup_mode_proxy_body">为支持手动代理配置的应用或客户端运行本地代理。</string>
-    <string name="onboarding_setup_mode_vpn_title">VPN 模式</string>
     <string name="onboarding_setup_validate_title">测试连接</string>
     <string name="onboarding_step_progress">第 %1$d 步,共 %2$d 步</string>
     <string name="onboarding_validation_failed_generic">所选模式无法通过验证。</string>
@@ -31,7 +30,6 @@
     <string name="onboarding_local_first_title">隐私优先设计</string>
     <string name="onboarding_setup_dns_cloudflare_body">快速的通用 DNS 解析器。</string>
     <string name="onboarding_setup_dns_system">系统默认</string>
-    <string name="onboarding_setup_mode_proxy_title">代理模式</string>
     <string name="onboarding_validation_failed">验证失败:%1$s</string>
     <string name="permissions_background_activity_body_huawei">华为设备可能会在后台停止 RIPDPI。前往 设置 &gt; 电池 &gt; 启动管理,找到 RIPDPI,关闭自动管理,然后启用允许自启动、允许关联启动和允许后台活动。</string>
     <string name="permissions_background_activity_body">某些设备在 Android 电池优化之外添加了额外的后台限制。如果 RIPDPI 在后台停止,请查看应用的电池或后台使用设置。</string>
@@ -42,7 +40,6 @@
     <string name="biometric_prompt_no_pin_title">备用 PIN 不可用</string>
     <string name="biometric_prompt_pin_label">备用 PIN</string>
     <string name="biometric_prompt_pin_title">输入备用 PIN</string>
-    <string name="onboarding_setup_mode_title">选择流量模式</string>
     <string name="onboarding_validation_notifications_required">请允许通知,以便 RIPDPI 显示验证服务状态。</string>
     <string name="permissions_background_activity_body_oneplus">一加设备可能会强力停止后台应用。进入「设置 &gt; 电池 &gt; 电池优化」,找到 RIPDPI 并选择「不优化」。如有「深度优化」和「睡眠待机优化」也请一并关闭。</string>
     <string name="permissions_background_activity_title">后台活动</string>
