@@ -8,6 +8,10 @@ import com.poyka.ripdpi.data.SubscriptionLifecycleState
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
+import okhttp3.OkHttpClient
+import okhttp3.Protocol
+import okhttp3.Response
+import okhttp3.ResponseBody.Companion.toResponseBody
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotEquals
 import org.junit.Test
@@ -177,7 +181,22 @@ class SubscriptionAwgRefreshTest : SubscriptionRefreshTestSupport() {
     @Test
     fun `INI peer identity survives endpoint change`() =
         runTest {
-            val fixture = fixture(1_800_000_000_000L)
+            // No socket: this test is about peer identity, and a slow loopback call would fail the refresh.
+            val responses = ArrayDeque<String>()
+            val client =
+                OkHttpClient
+                    .Builder()
+                    .addInterceptor { chain ->
+                        Response
+                            .Builder()
+                            .request(chain.request())
+                            .protocol(Protocol.HTTP_1_1)
+                            .code(200)
+                            .message("OK")
+                            .body(responses.removeFirst().toResponseBody())
+                            .build()
+                    }.build()
+            val fixture = fixture(1_800_000_000_000L, httpClient = client)
 
             fun ini(endpoint: String) =
                 """
@@ -190,15 +209,15 @@ class SubscriptionAwgRefreshTest : SubscriptionRefreshTestSupport() {
                 Endpoint = $endpoint
                 AllowedIPs = 0.0.0.0/0
                 """.trimIndent()
-            server.enqueue(response(200, ini("192.0.2.10:51820")))
-            fixture.coordinator.refresh("subscription-group")
+            responses += ini("192.0.2.10:51820")
+            assertEquals(SubscriptionRefreshResult.Updated(0), fixture.coordinator.refresh("subscription-group"))
             val original =
                 fixture.awgRepository
                     .observeProfiles()
                     .first()
                     .single()
-            server.enqueue(response(200, ini("192.0.2.20:443")))
-            fixture.coordinator.refresh("subscription-group")
+            responses += ini("192.0.2.20:443")
+            assertEquals(SubscriptionRefreshResult.Updated(0), fixture.coordinator.refresh("subscription-group"))
             val updated =
                 fixture.awgRepository
                     .observeProfiles()
