@@ -10,6 +10,12 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * Onboarding-only sentinel id for "use the system DNS". It is not a BuiltInDnsProviders id: it means
+ * that no built-in resolver is pinned.
+ */
+internal const val OnboardingDnsSystemId: String = "system"
+
 private val DefaultOnboardingDnsProviderId = canonicalDefaultDnsProviderDefinition().providerId
 private val DefaultOnboardingDnsSettings = AppSettingsSerializer.defaultValue
 

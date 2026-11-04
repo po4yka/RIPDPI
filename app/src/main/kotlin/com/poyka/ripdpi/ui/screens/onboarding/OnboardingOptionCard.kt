@@ -28,7 +28,7 @@ private val SelectedBorderWidth = 2.dp
 private val UnselectedBorderWidth = 1.dp
 
 /**
- * Onboarding-scoped selectable option card used for both the traffic-mode and DNS choices.
+ * Onboarding-scoped selectable option card used for the persona and traffic-mode choices.
  *
  * Intentionally lighter than the shared [com.poyka.ripdpi.ui.components.cards.PresetCard]: no drop
  * shadow, a subtle neutral fill on selection, and a 2 dp foreground border (1 dp when unselected) so the
@@ -43,7 +43,6 @@ internal fun OnboardingOptionCard(
     selected: Boolean,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
-    metadata: String? = null,
     badgeText: String? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
@@ -111,15 +110,6 @@ internal fun OnboardingOptionCard(
             maxLines = if (showCompleteText) Int.MAX_VALUE else 3,
             overflow = if (showCompleteText) TextOverflow.Clip else TextOverflow.Ellipsis,
         )
-        metadata?.let { meta ->
-            Text(
-                text = meta,
-                style = type.caption,
-                color = colors.mutedForeground,
-                maxLines = if (showCompleteText) Int.MAX_VALUE else 2,
-                overflow = if (showCompleteText) TextOverflow.Clip else TextOverflow.Ellipsis,
-            )
-        }
     }
 }
 

@@ -73,7 +73,6 @@
     <string name="dns_resolver_cloudflare_title">Cloudflare</string>
     <string name="dns_resolver_google_title">Google Public DNS</string>
     <string name="dns_resolvers_section">تحلیل‌گرها</string>
-    <string name="dns_unknown_provider">ارائه‌دهنده ناشناس</string>
     <string name="dns_protocol_doq" translatable="false">DoQ</string>
     <string name="dns_protocol_doq_body">DNS از طریق QUIC. میزبان، نام TLS، درگاه و IPهای راه‌اندازی را وارد کنید.</string>
     <string name="dns_protocol_odoh" translatable="false">ODoH</string>

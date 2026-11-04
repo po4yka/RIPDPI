@@ -9,11 +9,6 @@
     <string name="onboarding_local_first_body">Tudo é executado no seu dispositivo.</string>
     <string name="onboarding_setup_mode_vpn_body">Encaminha todos os apps por uma VPN no dispositivo. O Android pede permissão primeiro.</string>
     <string name="onboarding_setup_mode_proxy_body">Executa um proxy local para apps ou clientes compatíveis com configuração manual de proxy.</string>
-    <string name="onboarding_setup_dns_system">Padrão do sistema</string>
-    <string name="onboarding_setup_dns_system_body">Use os servidores DNS da sua rede como estão.</string>
-    <string name="onboarding_setup_dns_cloudflare_body">Resolvedor DNS rápido e de uso geral.</string>
-    <string name="onboarding_setup_dns_quad9_body">Resolvedor DNS focado em segurança.</string>
-    <string name="onboarding_setup_dns_adguard_body">Resolvedor DNS com filtragem de anúncios e rastreadores.</string>
     <string name="onboarding_setup_validate_title">Testar conexão</string>
     <string name="onboarding_step_progress">Etapa %1$d de %2$d</string>
     <string name="onboarding_validation_finish_keep_running">Concluir e manter em execução</string>
@@ -33,8 +28,6 @@
     <string name="onboarding_skip_setup">Pular configuração</string>
     <string name="onboarding_skip_test">Pular teste</string>
     <string name="onboarding_badge_recommended">Recomendado</string>
-    <string name="onboarding_setup_dns_mullvad_body">Resolvedor DNS focado em privacidade.</string>
-    <string name="onboarding_dns_advanced">Configurações avançadas de DNS</string>
     <string name="onboarding_test_permission_card_title">Permissão de VPN</string>
     <string name="onboarding_test_idle_body">Inicie o modo selecionado e verifique se o RIPDPI consegue rotear o tráfego corretamente.</string>
     <string name="onboarding_test_step_tunnel_vpn">Iniciar túnel VPN local</string>

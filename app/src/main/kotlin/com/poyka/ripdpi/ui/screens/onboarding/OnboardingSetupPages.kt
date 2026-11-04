@@ -26,10 +26,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.dnsProviderById
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
-import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
@@ -101,68 +99,6 @@ internal fun OnboardingPersonaSelectionContent(
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingPersonaAdvanced),
         )
     }
-}
-
-/**
- * Curated DNS cards + a clearly interactive "Advanced DNS settings" row. The list scrolls and is
- * top-aligned by the enclosing setup scaffold (DNS is the one long setup step); cards show only a
- * precise protocol label, never a resolver host.
- */
-@Composable
-internal fun OnboardingDnsSelectionContent(
-    selectedProviderId: String,
-    onDnsSelected: (String) -> Unit,
-    onOpenAdvancedDns: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val spacing = RipDpiThemeTokens.spacing
-    Column(
-        modifier = modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(spacing.md),
-    ) {
-        OnboardingDnsOptions.forEach { option ->
-            val isSystem = option.providerId == OnboardingDnsSystemId
-            val title =
-                if (isSystem) {
-                    stringResource(R.string.onboarding_setup_dns_system)
-                } else {
-                    dnsProviderById(option.providerId)?.displayName
-                        ?: stringResource(R.string.dns_unknown_provider)
-                }
-            val selected =
-                if (isSystem) {
-                    // "System" is selected when no built-in resolver is pinned.
-                    dnsProviderById(selectedProviderId) == null
-                } else {
-                    selectedProviderId == option.providerId
-                }
-            OnboardingOptionCard(
-                title = title,
-                description = stringResource(option.descriptionRes),
-                metadata = onboardingDnsProtocolLabel(option.providerId),
-                badgeText = option.badgeRes?.let { stringResource(it) },
-                selected = selected,
-                onClick = { onDnsSelected(option.providerId) },
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.onboardingDnsProvider(option.providerId)),
-            )
-        }
-        OnboardingAdvancedDnsRow(onOpenAdvancedDns = onOpenAdvancedDns)
-    }
-}
-
-/** Full-width, ripple-backed settings-style row that opens the full DNS catalog. */
-@Composable
-private fun OnboardingAdvancedDnsRow(
-    onOpenAdvancedDns: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    SettingsRow(
-        title = stringResource(R.string.onboarding_dns_advanced),
-        modifier = modifier.fillMaxWidth(),
-        onClick = onOpenAdvancedDns,
-        showChevron = true,
-        testTag = RipDpiTestTags.OnboardingAdvancedDns,
-    )
 }
 
 @Composable

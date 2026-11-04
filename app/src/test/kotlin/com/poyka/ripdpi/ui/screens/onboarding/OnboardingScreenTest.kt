@@ -4,11 +4,7 @@ import androidx.activity.OnBackPressedDispatcher
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalOnBackPressedDispatcherOwner
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.requiredSize
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -32,11 +28,6 @@ import androidx.compose.ui.test.performSemanticsAction
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
-import com.poyka.ripdpi.data.DnsProviderCloudflare
-import com.poyka.ripdpi.data.DnsProviderCloudflareIp
-import com.poyka.ripdpi.data.DnsProviderDnsSb
-import com.poyka.ripdpi.data.DnsProviderGoogle
-import com.poyka.ripdpi.data.DnsProviderGoogleIp
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -186,76 +177,6 @@ class OnboardingScreenTest {
             assertFalse(navigatedBack)
             assertFalse(exitedOnboarding)
         }
-    }
-
-    @Test
-    fun `advanced dns recovery presents the curated subset and settings affordance`() {
-        composeRule.setContent {
-            RipDpiTheme {
-                Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                    OnboardingDnsSelectionContent(
-                        selectedProviderId = OnboardingDnsSystemId,
-                        onDnsSelected = {},
-                        onOpenAdvancedDns = {},
-                    )
-                }
-            }
-        }
-
-        // Exactly the curated five ids are shown, in order.
-        listOf(
-            OnboardingDnsSystemId,
-            com.poyka.ripdpi.data.DnsProviderAdGuard,
-            DnsProviderCloudflare,
-            com.poyka.ripdpi.data.DnsProviderQuad9,
-            com.poyka.ripdpi.data.DnsProviderMullvad,
-        ).forEach { id ->
-            composeRule.onNodeWithTag(RipDpiTestTags.onboardingDnsProvider(id)).assertExists()
-        }
-
-        // Removed catalog duplicates/extras must NOT leak into onboarding.
-        listOf(
-            DnsProviderGoogle,
-            DnsProviderGoogleIp,
-            DnsProviderCloudflareIp,
-            DnsProviderDnsSb,
-        ).forEach { id ->
-            composeRule.onAllNodesWithTag(RipDpiTestTags.onboardingDnsProvider(id)).assertCountEquals(0)
-        }
-
-        // Curated display names render; Cloudflare uses the DoH-host variant, not the bare-IP one.
-        composeRule.onNodeWithText("System default").assertExists()
-        composeRule.onNodeWithText("AdGuard DNS").assertExists()
-        composeRule.onNodeWithText("Cloudflare").assertExists()
-        composeRule.onNodeWithText("Quad9").assertExists()
-        composeRule.onNodeWithText("Mullvad DNS").assertExists()
-        composeRule.onAllNodesWithText("Cloudflare (IP)").assertCountEquals(0)
-        composeRule.onAllNodesWithText("Recommended").assertCountEquals(0)
-
-        // Advanced DNS settings affordance is present.
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingAdvancedDns).assertExists()
-        composeRule.onNodeWithText("Advanced DNS settings").assertExists()
-    }
-
-    @Test
-    fun `advanced dns recovery affordance opens advanced settings`() {
-        var opened = false
-        composeRule.setContent {
-            RipDpiTheme {
-                Column(modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
-                    OnboardingDnsSelectionContent(
-                        selectedProviderId = OnboardingDnsSystemId,
-                        onDnsSelected = {},
-                        onOpenAdvancedDns = { opened = true },
-                    )
-                }
-            }
-        }
-
-        // The affordance sits below the curated cards inside a vertical scroll container.
-        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingAdvancedDns).performScrollTo().performClick()
-
-        assertTrue(opened)
     }
 
     @Test

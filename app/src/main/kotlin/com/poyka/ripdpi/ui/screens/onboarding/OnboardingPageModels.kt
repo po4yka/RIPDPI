@@ -28,7 +28,6 @@ internal sealed interface OnboardingPage {
 internal enum class SetupPageKind {
     PersonaSelection,
     ModeSelection,
-    DnsSelection,
     ConnectionTest,
 }
 

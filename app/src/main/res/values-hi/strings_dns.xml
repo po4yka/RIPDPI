@@ -68,7 +68,6 @@
     <string name="dns_resolver_quad9_body">खतरा अवरोधन के साथ सुरक्षा-केंद्रित सार्वजनिक रिज़ॉल्वर।</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
     <string name="dns_resolver_adguard_body">विज्ञापन और ट्रैकर अवरोधन पर ज़ोर देने वाला सार्वजनिक रिज़ॉल्वर।</string>
-    <string name="dns_unknown_provider">अज्ञात प्रदाता</string>
     <string name="dns_protocol_doq" translatable="false">DoQ</string>
     <string name="dns_protocol_doq_body">QUIC पर DNS। होस्ट, TLS नाम, पोर्ट और बूटस्ट्रैप IP दर्ज करें।</string>
     <string name="dns_protocol_odoh" translatable="false">ODoH</string>

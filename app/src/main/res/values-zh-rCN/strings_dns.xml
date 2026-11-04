@@ -39,7 +39,6 @@
     <string name="dns_private_dns_warning_body">此网络已配置 Android 私人 DNS。RIPDPI 仍使用自己的解析器，因此别处显示的系统设置可能与 VPN 实际的行为不一致。无需任何操作。</string>
     <string name="dns_resolver_cloudflare_body">设置占用极小的快速公共解析器。</string>
     <string name="dns_resolver_google_title">Google Public DNS</string>
-    <string name="dns_unknown_provider">未知提供商</string>
     <string name="dns_active_detail_bootstrap">引导</string>
     <string name="dns_active_route_plain_vpn">VPN 运行期间，查询直接发送到此解析器 IP。</string>
     <string name="dns_custom_bootstrap_error">请输入一个或多个引导 IP 地址。请勿使用回环地址或未指定地址。</string>

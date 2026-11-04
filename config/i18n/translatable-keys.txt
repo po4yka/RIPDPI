@@ -2801,7 +2801,6 @@ app:dns_resolver_quad9_body
 app:dns_resolver_quad9_title
 app:dns_resolvers_section
 app:dns_save_in_progress
-app:dns_unknown_provider
 app:domain_bypass_cleared
 app:domain_bypass_clipboard_empty
 app:domain_bypass_copied
@@ -3659,7 +3658,6 @@ app:onboarding_chip_no_account
 app:onboarding_chip_no_cloud_sync
 app:onboarding_chip_no_telemetry
 app:onboarding_continue
-app:onboarding_dns_advanced
 app:onboarding_guarantee_header_local
 app:onboarding_guarantee_header_privacy
 app:onboarding_local_first_body
@@ -3667,12 +3665,6 @@ app:onboarding_local_first_title
 app:onboarding_persona_advanced_body
 app:onboarding_persona_simple_body
 app:onboarding_persona_title
-app:onboarding_setup_dns_adguard_body
-app:onboarding_setup_dns_cloudflare_body
-app:onboarding_setup_dns_mullvad_body
-app:onboarding_setup_dns_quad9_body
-app:onboarding_setup_dns_system
-app:onboarding_setup_dns_system_body
 app:onboarding_setup_finish
 app:onboarding_setup_mode_proxy_body
 app:onboarding_setup_mode_vpn_body

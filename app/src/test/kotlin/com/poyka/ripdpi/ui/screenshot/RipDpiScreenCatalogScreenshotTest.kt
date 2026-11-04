@@ -141,18 +141,6 @@ class RipDpiScreenCatalogScreenshotTest {
     }
 
     @Test
-    fun onboardingDnsSetupScreen() {
-        captureOnboardingScreen(
-            uiState =
-                OnboardingUiState(
-                    currentPage = OnboardingInfoPageCount + 1,
-                    selectedMode = Mode.Proxy,
-                ),
-            heightDp = 1100,
-        )
-    }
-
-    @Test
     fun onboardingValidationIdleScreen() {
         captureOnboardingValidationScreen(OnboardingValidationState.Idle)
     }

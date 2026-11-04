@@ -139,8 +139,6 @@ fun OnboardingRoute(
                 onContinue = remember(viewModel) { viewModel::nextPage },
                 onModeSelected = remember(viewModel) { viewModel::selectMode },
                 onPersonaSelected = remember(viewModel) { viewModel::selectPersona },
-                onDnsSelected = remember(viewModel) { viewModel::selectDnsProvider },
-                onOpenAdvancedDns = onOpenAdvancedDns,
                 onRunValidation = remember(viewModel) { viewModel::runValidation },
                 onFinishDisconnected = remember(viewModel) { viewModel::finishDisconnected },
                 onFinishKeepRunning = remember(viewModel) { viewModel::finishKeepingRunning },
@@ -182,8 +180,6 @@ internal data class OnboardingScreenActions(
     val onContinue: () -> Unit = {},
     val onModeSelected: (Mode) -> Unit = {},
     val onPersonaSelected: (String) -> Unit = {},
-    val onDnsSelected: (String) -> Unit = {},
-    val onOpenAdvancedDns: () -> Unit = {},
     val onRunValidation: () -> Unit = {},
     val onFinishDisconnected: () -> Unit = {},
     val onFinishKeepRunning: () -> Unit = {},
@@ -317,8 +313,6 @@ private fun OnboardingPagerContent(
                         uiState = uiState,
                         onModeSelected = actions.onModeSelected,
                         onPersonaSelected = actions.onPersonaSelected,
-                        onDnsSelected = actions.onDnsSelected,
-                        onOpenAdvancedDns = actions.onOpenAdvancedDns,
                         onAcceptSuggestedMode = actions.onAcceptSuggestedMode,
                         onChangeDns = actions.onChangeDns,
                         onFinishAnyway = actions.onFinishAnyway,
@@ -721,8 +715,6 @@ private fun OnboardingSetupPageScene(
     uiState: OnboardingUiState,
     onModeSelected: (Mode) -> Unit,
     onPersonaSelected: (String) -> Unit,
-    onDnsSelected: (String) -> Unit,
-    onOpenAdvancedDns: () -> Unit,
     onAcceptSuggestedMode: () -> Unit,
     onChangeDns: () -> Unit,
     onFinishAnyway: () -> Unit,
@@ -777,15 +769,6 @@ private fun OnboardingSetupPageScene(
                     OnboardingModeSelectionContent(
                         selectedMode = uiState.selectedMode,
                         onModeSelected = onModeSelected,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                }
-
-                SetupPageKind.DnsSelection -> {
-                    OnboardingDnsSelectionContent(
-                        selectedProviderId = uiState.selectedDnsProviderId,
-                        onDnsSelected = onDnsSelected,
-                        onOpenAdvancedDns = onOpenAdvancedDns,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }

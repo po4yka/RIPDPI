@@ -96,24 +96,6 @@ class OnboardingViewModel
             }
         }
 
-        fun selectDnsProvider(providerId: String) {
-            val current = _uiState.value
-            if (current.selectedDnsProviderId == providerId) {
-                return
-            }
-            invalidateValidation()
-            _uiState.update {
-                it.copy(selectedDnsProviderId = providerId).withValidationState(OnboardingValidationState.Idle)
-            }
-            viewModelScope.launch {
-                settingsCoordinator.saveSelection(
-                    mode = current.selectedMode,
-                    dnsProviderId = providerId,
-                    persona = current.selectedPersona,
-                )
-            }
-        }
-
         fun runValidation() {
             if (_uiState.value.validationState.isBusy) {
                 return

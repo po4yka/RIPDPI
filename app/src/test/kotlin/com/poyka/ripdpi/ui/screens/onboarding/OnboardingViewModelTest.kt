@@ -194,29 +194,6 @@ class OnboardingViewModelTest {
         }
 
     @Test
-    fun `selectDnsProvider updates provider persists draft and resets validation`() =
-        runTest {
-            val repository = FakeAppSettingsRepository()
-            val runner =
-                FakeOnboardingModeValidationRunner().apply {
-                    result = OnboardingValidationResult.Success(latencyMs = 35)
-                }
-            val vm = createViewModel(repository = repository, validationRunner = runner)
-
-            vm.runValidation()
-            advanceUntilIdle()
-            assertTrue(vm.uiState.value.validationState is OnboardingValidationState.Success)
-
-            vm.selectDnsProvider(DnsProviderGoogle)
-            advanceUntilIdle()
-
-            assertEquals(DnsProviderGoogle, vm.uiState.value.selectedDnsProviderId)
-            assertTrue(vm.uiState.value.validationState is OnboardingValidationState.Idle)
-            assertEquals(DnsProviderGoogle, repository.snapshot().dnsProviderId)
-            assertEquals(1, runner.stopCount)
-        }
-
-    @Test
     fun `proxy validation success uses selected proxy mode`() =
         runTest {
             val runner =

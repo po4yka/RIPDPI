@@ -47,7 +47,6 @@
     <string name="dns_private_dns_warning_body">Für dieses Netzwerk ist Androids privates DNS konfiguriert. RIPDPI verwendet weiterhin seinen eigenen Resolver, daher stimmt die System-Einstellung möglicherweise nicht mit dem überein, was das VPN tatsächlich tut. Es ist nichts zu tun.</string>
     <string name="dns_resolver_cloudflare_title">Cloudflare</string>
     <string name="dns_resolver_quad9_title">Quad9</string>
-    <string name="dns_unknown_provider">Unbekannter Anbieter</string>
     <string name="dns_active_detail_bootstrap">Bootstrap</string>
     <string name="dns_active_route_saved">Löst Namen auf, die der lokale Proxy verarbeitet. Geräte-DNS bleibt unverändert.</string>
     <string name="dns_custom_bootstrap_label">Bootstrap-IPs</string>

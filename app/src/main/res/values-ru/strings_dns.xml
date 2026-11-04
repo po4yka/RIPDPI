@@ -68,7 +68,6 @@
     <string name="dns_resolver_quad9_body">Публичный резолвер с акцентом на безопасность и блокировкой угроз.</string>
     <string name="dns_resolver_adguard_title">AdGuard DNS</string>
     <string name="dns_resolver_adguard_body">Публичный резолвер с упором на блокировку рекламы и трекеров.</string>
-    <string name="dns_unknown_provider">Неизвестный провайдер</string>
     <string name="dns_placeholder_resolver_example">resolver.example</string>
     <string name="dns_placeholder_dnscrypt_cert">2.dnscrypt-cert.resolver.example</string>
     <string name="dns_placeholder_public_key">0123abcd\u2026</string>
