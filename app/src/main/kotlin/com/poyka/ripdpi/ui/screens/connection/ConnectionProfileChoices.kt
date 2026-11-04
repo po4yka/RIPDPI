@@ -45,7 +45,7 @@ internal fun ConnectionProfileChoicesSheet(
         title = stringResource(R.string.config_presets_section),
     ) {
         Column(
-            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigProfileChoices),
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConnectionProfileChoices),
             verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
         ) {
             ConnectionPresetList(uiState, closing(onPresetSelected))
@@ -82,7 +82,7 @@ private fun ConnectionPresetList(
         RipDpiDialog(
             onDismissRequest = { pendingReset = null },
             title = stringResource(R.string.config_preset_reset_title),
-            dialogTestTag = RipDpiTestTags.ConfigPresetResetDialog,
+            dialogTestTag = RipDpiTestTags.ConnectionPresetResetDialog,
             dismissAction =
                 RipDpiDialogAction(stringResource(R.string.strategy_tuner_cancel), { pendingReset = null }),
             confirmAction =
@@ -92,7 +92,7 @@ private fun ConnectionPresetList(
                         pendingReset = null
                         onPresetSelected(preset)
                     },
-                    testTag = RipDpiTestTags.ConfigPresetResetConfirm,
+                    testTag = RipDpiTestTags.ConnectionPresetResetConfirm,
                     destructive = true,
                 ),
             visuals = RipDpiDialogVisuals(message = stringResource(R.string.config_preset_reset_body)),
@@ -104,7 +104,7 @@ private fun ConnectionPresetList(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .ripDpiTestTag(RipDpiTestTags.ConfigPresetsLoading),
+                        .ripDpiTestTag(RipDpiTestTags.ConnectionPresetsLoading),
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(spacing.md),
             ) {
@@ -120,7 +120,7 @@ private fun ConnectionPresetList(
             Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
                 uiState.presets.forEach { preset ->
                     PresetCard(
-                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configPreset(preset.id)),
+                        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.connectionPreset(preset.id)),
                         title = stringResource(titleResForPreset(preset.kind)),
                         description = stringResource(descriptionResForPreset(preset.kind)),
                         badgeText =

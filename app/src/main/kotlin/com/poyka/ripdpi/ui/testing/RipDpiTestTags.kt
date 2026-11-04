@@ -93,28 +93,30 @@ internal object RipDpiTestTags {
     const val StatusModesDiagnosticsExpanded = "home-modes-diagnostics-expanded"
     const val StatusNetworkConditionBanner = "home-network-condition-banner"
 
-    const val ConfigEditCurrentButton = "config-edit-current"
-    const val ConfigPresetResetDialog = "config-preset-reset-dialog"
-    const val ConfigPresetResetConfirm = "config-preset-reset-confirm"
-    const val ConfigSectionNavigation = "config-section-navigation"
-    const val ConfigProfileChange = "config-profile-change"
-    const val ConfigProfileChoices = "config-profile-choices"
-    const val ConnectionSummary = "config-connection-summary"
-    const val ConfigCliOverrideBanner = "config-cli-override-banner"
-    const val ConfigScopeSelection = "config-scope-selection"
-    const val ConfigPresetsLoading = "config-presets-loading"
-    const val ConfigDnsSettings = "config-dns-settings"
-    const val ConfigLocalBypassSummary = "config-local-bypass-summary"
-    const val ConfigLocalBypassRetest = "config-local-bypass-retest"
-    const val ConfigLocalBypassListenAddress = "config-local-bypass-listen-address"
-    const val ConfigLocalBypassDesync = "config-local-bypass-desync"
-    const val ConfigVpnSummary = "config-vpn-summary"
-    const val ConfigRuntimeError = "config-runtime-error"
-    const val ConfigVpnAddServerPaste = "config-vpn-add-server-paste"
-    const val ConfigVpnAddServerScan = "config-vpn-add-server-scan"
-    const val ConfigVpnAddProfile = "config-vpn-add-profile"
-    val configVpnCreateProfile: (Route) -> String = { route -> "config-vpn-create-${sanitize(route.stableRoute)}" }
-    const val ConfigVpnProfileList = "config-vpn-profile-list"
+    const val ConnectionEditCurrentButton = "connection-edit-current"
+    const val ConnectionPresetResetDialog = "connection-preset-reset-dialog"
+    const val ConnectionPresetResetConfirm = "connection-preset-reset-confirm"
+    const val ConnectionSectionNavigation = "connection-section-navigation"
+    const val ConnectionProfileChange = "connection-profile-change"
+    const val ConnectionProfileChoices = "connection-profile-choices"
+    const val ConnectionSummary = "connection-summary"
+    const val ConnectionCliOverrideBanner = "connection-cli-override-banner"
+    const val ConnectionScopeSelection = "connection-scope-selection"
+    const val ConnectionPresetsLoading = "connection-presets-loading"
+    const val ConnectionDnsSettings = "connection-dns-settings"
+    const val ConnectionDirectSummary = "connection-direct-summary"
+    const val ConnectionDirectRetest = "connection-direct-retest"
+    const val ConnectionDirectListenAddress = "connection-direct-listen-address"
+    const val ConnectionDirectDesync = "connection-direct-desync"
+    const val ConnectionRelaySummary = "connection-relay-summary"
+    const val ConnectionRuntimeError = "connection-runtime-error"
+    const val ConnectionRelayAddServerPaste = "connection-relay-add-server-paste"
+    const val ConnectionRelayAddServerScan = "connection-relay-add-server-scan"
+    const val ConnectionRelayAddProfile = "connection-relay-add-profile"
+    val connectionRelayCreateProfile: (
+        Route,
+    ) -> String = { route -> "connection-relay-create-${sanitize(route.stableRoute)}" }
+    const val ConnectionRelayProfileList = "connection-relay-profile-list"
     const val DiagnosticProfileSearchOpen = "diagnostic-profile-search-open"
     const val DiagnosticProfileSearch = "diagnostic-profile-search"
     const val RelayProfileSearch = "relay-profile-search"
@@ -132,11 +134,15 @@ internal object RipDpiTestTags {
     val profileSearchReset: (String) -> String = { scope -> "$scope-reset" }
     val profileSearchCancel: (String) -> String = { scope -> "$scope-cancel" }
 
-    const val ConfigVpnProfilesMore = "config-vpn-profiles-more"
+    const val ConnectionRelayProfilesMore = "connection-relay-profiles-more"
     const val ModeEditorRelayEnabled = "mode-editor-relay-enabled"
     const val ModeEditorRelayProfileId = "mode-editor-relay-profile-id"
-    val configVpnProfileRow: (String) -> String = { profileId -> "config-vpn-profile-row-${sanitize(profileId)}" }
-    val configVpnProfileSelect: (String) -> String = { profileId -> "config-vpn-profile-select-${sanitize(profileId)}" }
+    val connectionRelayProfileRow: (
+        String,
+    ) -> String = { profileId -> "connection-relay-profile-row-${sanitize(profileId)}" }
+    val connectionRelayProfileSelect: (
+        String,
+    ) -> String = { profileId -> "connection-relay-profile-select-${sanitize(profileId)}" }
     const val ProfileShareQrCard = "profile-share-qr-card"
     const val ProfileShareQrImage = "profile-share-qr-image"
     const val ProfileShareLinkCard = "profile-share-link-card"
@@ -147,17 +153,17 @@ internal object RipDpiTestTags {
     const val ProfileShareSheetText = "profile-share-sheet-text"
     const val ProfileShareCopySheet = "profile-share-copy-sheet"
     const val ProfileShareShareSheet = "profile-share-share-sheet"
-    const val ConfigVpnRelay = "config-vpn-relay"
-    const val ConfigSubscriptionStatus = "config-subscription-status"
-    const val ConfigSubscriptionFailover = "config-subscription-failover"
-    const val ConfigVpnProtocol = "config-vpn-protocol"
-    const val ConfigVpnCredentials = "config-vpn-credentials"
-    const val ConfigOverflowMenuButton = "config-overflow-menu-button"
-    const val ConfigImportClipboardMenuItem = "config-import-clipboard-menu-item"
+    const val ConnectionRelayRelay = "connection-relay-relay"
+    const val ConnectionSubscriptionStatus = "connection-subscription-status"
+    const val ConnectionSubscriptionFailover = "connection-subscription-failover"
+    const val ConnectionRelayProtocol = "connection-relay-protocol"
+    const val ConnectionRelayCredentials = "connection-relay-credentials"
+    const val ConnectionOverflowMenuButton = "connection-overflow-menu-button"
+    const val ConnectionImportClipboardMenuItem = "connection-import-clipboard-menu-item"
     const val AwgCohortPicker = "awg-cohort-picker"
     const val AwgCarrierPicker = "awg-carrier-picker"
     const val AwgConnectAction = "awg-connect-action"
-    const val ConfigVpnImportAwgConf = "config-vpn-import-awg-conf"
+    const val ConnectionRelayImportAwgConf = "connection-relay-import-awg-conf"
     const val AwgConfImportFailed = "awg-conf-import-failed"
     const val SubscriptionAddUrl = "subscription-add-url"
     const val SubscriptionAddContinue = "subscription-add-continue"
@@ -479,13 +485,15 @@ internal object RipDpiTestTags {
 
     val bottomNav: (Route) -> String = { route -> "bottom-nav-${route.stableRoute}" }
 
-    val configPreset: (String) -> String = { presetId -> "config-preset-${sanitize(presetId)}" }
+    val connectionPreset: (String) -> String = { presetId -> "connection-preset-${sanitize(presetId)}" }
 
-    val configMode: (String) -> String = { modeKey -> "config-mode-${sanitize(modeKey)}" }
+    val connectionScope: (String) -> String = { modeKey -> "connection-scope-${sanitize(modeKey)}" }
 
-    val configPath: (String) -> String = { pathKey -> "config-path-${sanitize(pathKey)}" }
-    val configVpnProfile: (String) -> String = { profileId -> "config-vpn-profile-${sanitize(profileId)}" }
-    val configVpnProfileShare: (String) -> String = { profileId -> "config-vpn-profile-share-${sanitize(profileId)}" }
+    val connectionPath: (String) -> String = { pathKey -> "connection-path-${sanitize(pathKey)}" }
+    val connectionRelayProfile: (String) -> String = { profileId -> "connection-relay-profile-${sanitize(profileId)}" }
+    val connectionRelayProfileShare: (
+        String,
+    ) -> String = { profileId -> "connection-relay-profile-share-${sanitize(profileId)}" }
 
     val settingsPermission: (PermissionKind) -> String = { kind -> "settings-permission-${sanitize(kind.name)}" }
 

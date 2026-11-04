@@ -175,12 +175,12 @@ pages:
       - "bottom-nav-home"
       - "bottom-nav-diagnostics"
       - "bottom-nav-settings"
-      - "config-section-navigation"
-      - "config-scope-selection"
-      - "config-path-direct"
-      - "config-path-relay"
-      - "config-mode-vpn"
-      - "config-mode-proxy"
+      - "connection-section-navigation"
+      - "connection-scope-selection"
+      - "connection-path-direct"
+      - "connection-path-relay"
+      - "connection-scope-vpn"
+      - "connection-scope-proxy"
     state: "saved connection"
     description: |
       Saved connection profile, traffic scope, path, and settings navigation.

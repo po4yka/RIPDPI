@@ -27,7 +27,7 @@ Two kinds of UI instrumentation live side by side:
    `app/src/androidTest/kotlin/com/poyka/ripdpi/ui/journeys/JourneyPage.kt`, in the area's `<Area>Pages.kt`.
    Its properties are tags from `app/src/main/kotlin/com/poyka/ripdpi/ui/testing/RipDpiTestTags.kt`. Add a tag
    there only when no existing tag works.
-4. Act through the page: `with(ConfigPage(composeRule)) { click(vpnChip); awaitSelected(vpnChip) }`. The page actions
+4. Act through the page: `with(ConnectionPage(composeRule)) { click(vpnChip); awaitSelected(vpnChip) }`. The page actions
    first scroll lazy lists until the item is composed and in view, because Compose drops a click outside the
    viewport. Use `node(tag)` for Kakao assertions and `performTextReplacement`.
 5. Assert observable results: persisted values through an injected repository (`AppSettingsRepository.snapshot()`

@@ -41,10 +41,13 @@ class VpnRelayProfileReachabilityTest {
         assertTrue(kinds.take(4).all(::isModeEditorRelayKindSupported))
         for ((index, kind) in kinds.withIndex()) {
             if (index > 0) expandProfiles()
-            composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList).performScrollToKey("profile:relay-$kind")
+            composeRule
+                .onNodeWithTag(
+                    RipDpiTestTags.ConnectionRelayProfileList,
+                ).performScrollToKey("profile:relay-$kind")
             composeRule
                 .onNode(
-                    hasTestTag(RipDpiTestTags.configVpnProfileRow("relay-$kind")) and
+                    hasTestTag(RipDpiTestTags.connectionRelayProfileRow("relay-$kind")) and
                         hasAnyAncestor(hasTestTag(RipDpiTestTags.RelayProfileSearchSheet)),
                 ).performScrollTo()
                 .assertHasClickAction()
@@ -70,11 +73,11 @@ class VpnRelayProfileReachabilityTest {
         expandProfiles()
         composeRule
             .onNodeWithTag(
-                RipDpiTestTags.ConfigVpnProfileList,
+                RipDpiTestTags.ConnectionRelayProfileList,
             ).performScrollToKey("profile:relay-google_apps_script")
         composeRule
             .onNode(
-                hasTestTag(RipDpiTestTags.configVpnProfileRow("relay-google_apps_script")) and
+                hasTestTag(RipDpiTestTags.connectionRelayProfileRow("relay-google_apps_script")) and
                     hasAnyAncestor(hasTestTag(RipDpiTestTags.RelayProfileSearchSheet)),
             ).performScrollTo()
             .performClick()
@@ -86,7 +89,7 @@ class VpnRelayProfileReachabilityTest {
         setProfiles(kinds, edited)
         for ((index, kind) in kinds.withIndex()) {
             composeRule
-                .onNodeWithTag(RipDpiTestTags.configVpnProfileRow("relay-$kind"))
+                .onNodeWithTag(RipDpiTestTags.connectionRelayProfileRow("relay-$kind"))
                 .performScrollTo()
                 .performClick()
             composeRule.runOnIdle { assertEquals(kinds.take(index + 1).map { "relay-$it" }, edited) }
@@ -95,7 +98,7 @@ class VpnRelayProfileReachabilityTest {
 
     private fun expandProfiles() {
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigVpnProfilesMore)
+            .onNodeWithTag(RipDpiTestTags.ConnectionRelayProfilesMore)
             .performScrollTo()
             .performClick()
     }

@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 
 @Composable
-internal fun configRuntimeIntegration(viewModel: MainViewModel): ConnectionRuntimeIntegration {
+internal fun connectionRuntimeIntegration(viewModel: MainViewModel): ConnectionRuntimeIntegration {
     val feedback =
         remember(viewModel) {
             viewModel.uiState.map { it.connectionState to it.errorMessage }.distinctUntilChanged()

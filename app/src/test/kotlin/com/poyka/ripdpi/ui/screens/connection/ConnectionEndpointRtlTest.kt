@@ -70,7 +70,7 @@ class ConnectionEndpointRtlTest {
             if (address ==
                 addresses.first()
             ) {
-                captureEndpoint(RipDpiTestTags.ConfigLocalBypassListenAddress, "local-bypass-ipv6")
+                captureEndpoint(RipDpiTestTags.ConnectionDirectListenAddress, "local-bypass-ipv6")
             }
         }
         assertDirection(resource(R.string.bye_dpi_proxy_ip_setting), ResolvedTextDirection.Rtl)
@@ -106,7 +106,7 @@ class ConnectionEndpointRtlTest {
                     )
             }
             assertEndpoint(address)
-            if (address == addresses.first()) captureEndpoint(RipDpiTestTags.ConfigVpnRelay, "vpn-relay-ipv6")
+            if (address == addresses.first()) captureEndpoint(RipDpiTestTags.ConnectionRelayRelay, "vpn-relay-ipv6")
         }
         assertDirection(resource(R.string.config_relay_server), ResolvedTextDirection.Rtl)
         assertDirection(resource(R.string.config_vpn_relay_server_summary), ResolvedTextDirection.Rtl)
@@ -152,7 +152,7 @@ class ConnectionEndpointRtlTest {
         val results = mutableListOf<TextLayoutResult>()
         composeRule
             .onNode(
-                hasText(text) and hasAnyAncestor(hasTestTag(RipDpiTestTags.ConfigVpnRelay)),
+                hasText(text) and hasAnyAncestor(hasTestTag(RipDpiTestTags.ConnectionRelayRelay)),
                 useUnmergedTree = true,
             ).performSemanticsAction(SemanticsActions.GetTextLayoutResult) { it(results) }
         assertEquals(

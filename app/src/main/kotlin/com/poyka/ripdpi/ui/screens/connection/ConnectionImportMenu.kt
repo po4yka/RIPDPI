@@ -49,7 +49,7 @@ fun ConnectionImportMenu(
             contentDescription = stringResource(R.string.config_overflow_more_options),
             onClick = { expanded = true },
             style = RipDpiIconButtonStyle.Ghost,
-            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigOverflowMenuButton),
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConnectionOverflowMenuButton),
         )
         RipDpiContextMenu(
             visible = expanded,
@@ -58,7 +58,7 @@ fun ConnectionImportMenu(
                     RipDpiContextMenuAction(
                         label = stringResource(R.string.import_clipboard_action),
                         icon = RipDpiIcons.Paste,
-                        testTag = RipDpiTestTags.ConfigImportClipboardMenuItem,
+                        testTag = RipDpiTestTags.ConnectionImportClipboardMenuItem,
                         // The clipboard read happens here — and only here — on the user's tap.
                         onClick = onImportFromClipboard,
                     ),

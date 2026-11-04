@@ -48,18 +48,18 @@ class ConnectionSummaryTest {
         composeRule.onNodeWithText("Disconnect").assertDoesNotExist()
         composeRule.onNodeWithText("Turn on").assertDoesNotExist()
         composeRule.onNodeWithText("Turn off").assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).assertExists()
     }
 
     @Test
     fun `profile choices stay hidden until change`() {
         setConfigScreen(initialPath = ConnectionPath.Direct)
 
-        composeRule.onNodeWithTag(RipDpiTestTags.configPreset("recommended")).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddProfile).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.configPreset("recommended")).assertHasClickAction()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddProfile).assertHasClickAction()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionPreset("recommended")).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayAddProfile).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionPreset("recommended")).assertHasClickAction()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayAddProfile).assertHasClickAction()
     }
 
     @Test
@@ -80,10 +80,10 @@ class ConnectionSummaryTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.configPreset("recommended")).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionPreset("recommended")).performClick()
         composeRule.runOnIdle { assertEquals(0, applied) }
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigPresetResetConfirm).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionPresetResetConfirm).performClick()
         composeRule.runOnIdle { assertEquals(1, applied) }
     }
 

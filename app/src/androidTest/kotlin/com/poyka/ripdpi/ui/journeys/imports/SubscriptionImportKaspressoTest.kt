@@ -7,7 +7,7 @@ import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
 import com.poyka.ripdpi.integration.automationLaunchIntent
-import com.poyka.ripdpi.ui.journeys.settings.ConfigPage
+import com.poyka.ripdpi.ui.journeys.settings.ConnectionPage
 import com.poyka.ripdpi.ui.journeys.waitWithTree
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -35,7 +35,7 @@ private const val SharedSubscriptionLink =
 class SubscriptionImportKaspressoTest :
     RipDpiKaspressoTest(
         automationLaunchIntent(
-            startRoute = Route.Config.stableRoute,
+            startRoute = Route.Connection.stableRoute,
             dataPreset = AutomationDataPreset.SettingsReady,
         ),
     ) {
@@ -46,23 +46,23 @@ class SubscriptionImportKaspressoTest :
         runBlocking { proxyGroupRepository.list() }.filter { it.type == ProxyGroupType.SUBSCRIPTION }
 
     private fun openSubscriptionAdd() {
-        with(ConfigPage(composeRule)) {
+        with(ConnectionPage(composeRule)) {
             awaitScreen()
             click(profileChange)
             waitFor(profileChoices)
-            click(RipDpiTestTags.ConfigVpnAddProfile)
-            click(RipDpiTestTags.configVpnCreateProfile(Route.SubscriptionAdd))
+            click(RipDpiTestTags.ConnectionRelayAddProfile)
+            click(RipDpiTestTags.connectionRelayCreateProfile(Route.SubscriptionAdd))
         }
         SubscriptionAddPage(composeRule).awaitScreen()
     }
 
     private fun openSubscriptionStatus() {
-        with(ConfigPage(composeRule)) {
+        with(ConnectionPage(composeRule)) {
             // After a deep link the app sits on Status; subscription rows live in the Relay section.
             if (!exists(screenTag)) click(bottomNavConfig)
             awaitScreen()
             click(pathOption("relay"))
-            click(RipDpiTestTags.ConfigSubscriptionStatus)
+            click(RipDpiTestTags.ConnectionSubscriptionStatus)
         }
         SubscriptionStatusPage(composeRule).awaitScreen()
     }
@@ -111,7 +111,7 @@ class SubscriptionImportKaspressoTest :
     fun sharedSubscriptionDeepLinkKeepsItsNameThroughConfirmation() =
         run {
             step("Another app opens a sing-box subscription link") {
-                ConfigPage(composeRule).awaitScreen()
+                ConnectionPage(composeRule).awaitScreen()
                 sendToApp(viewLinkIntent(SharedSubscriptionLink))
             }
             step("The confirmation shows the link's name and URL; Add reports the failed refresh") {

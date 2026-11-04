@@ -51,7 +51,7 @@ internal fun ConnectionSavedConnectionCard(
             subtitle = "$scope · $path",
             onClick = onChangeProfile,
             showChevron = true,
-            testTag = RipDpiTestTags.ConfigProfileChange,
+            testTag = RipDpiTestTags.ConnectionProfileChange,
         )
     }
 }
@@ -68,7 +68,7 @@ internal fun ConnectionCliOverrideBanner(uiState: ConnectionUiState) {
             title = stringResource(R.string.config_cli_banner_title),
             message = stringResource(R.string.config_cli_active_body),
             tone = WarningBannerTone.Restricted,
-            testTag = RipDpiTestTags.ConfigCliOverrideBanner,
+            testTag = RipDpiTestTags.ConnectionCliOverrideBanner,
         )
     }
 }

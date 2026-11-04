@@ -22,7 +22,7 @@ import javax.inject.Inject
 class ModeEditorKaspressoTest :
     RipDpiKaspressoTest(
         automationLaunchIntent(
-            startRoute = Route.Config.stableRoute,
+            startRoute = Route.Connection.stableRoute,
             dataPreset = AutomationDataPreset.SettingsReady,
         ),
     ) {
@@ -30,7 +30,7 @@ class ModeEditorKaspressoTest :
     lateinit var appSettingsRepository: AppSettingsRepository
 
     private fun openCustomEditor() {
-        with(ConfigPage(composeRule)) {
+        with(ConnectionPage(composeRule)) {
             click(profileChange)
             waitFor(profileChoices)
             click(preset("custom"))
@@ -54,7 +54,7 @@ class ModeEditorKaspressoTest :
             }
             step("Save returns to the config screen") {
                 with(ModeEditorPage(composeRule)) { click(save) }
-                ConfigPage(composeRule).awaitScreen()
+                ConnectionPage(composeRule).awaitScreen()
             }
             step("App settings hold the edited values instead of the defaults") {
                 composeRule.waitForSettings(appSettingsRepository) { it.proxyPort == 1082 }
@@ -100,7 +100,7 @@ class ModeEditorKaspressoTest :
             }
             step("Save and read the persisted override") {
                 with(ModeEditorPage(composeRule)) { click(save) }
-                ConfigPage(composeRule).awaitScreen()
+                ConnectionPage(composeRule).awaitScreen()
                 composeRule.waitForSettings(appSettingsRepository) { it.enableCmdSettings }
                 assertEquals("--split 2", runBlocking { appSettingsRepository.snapshot() }.cmdArgs)
             }
@@ -123,7 +123,7 @@ class ModeEditorKaspressoTest :
             }
             step("The chain is valid and saving persists it") {
                 with(ModeEditorPage(composeRule)) { click(save) }
-                ConfigPage(composeRule).awaitScreen()
+                ConnectionPage(composeRule).awaitScreen()
                 composeRule.waitForSettings(appSettingsRepository) {
                     formatStrategyChainDsl(it.effectiveTcpChainSteps(), it.effectiveUdpChainSteps()) == dsl
                 }

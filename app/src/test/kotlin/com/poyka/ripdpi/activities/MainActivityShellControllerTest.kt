@@ -307,7 +307,7 @@ class MainActivityShellControllerTest {
         assertEquals(Route.Settings.stableRoute, controller.state.value.launchRouteRequested)
         controller.consumeLaunchRouteRequest()
         controller.onNewIntent(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://config")))
-        assertEquals(Route.Config.stableRoute, controller.state.value.launchRouteRequested)
+        assertEquals(Route.Connection.stableRoute, controller.state.value.launchRouteRequested)
     }
 
     @Test

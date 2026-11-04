@@ -229,7 +229,7 @@ class TopLevelNavigationScaffoldTest {
             }
             composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(Route.Status)).performClick()
             composeRule.runOnIdle { assertEquals(emptyList<Int>(), haptics) }
-            composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(Route.Config)).performClick()
+            composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(Route.Connection)).performClick()
             composeRule.runOnIdle { assertEquals(1, haptics.size) }
         } finally {
             previousStaticMotion?.let { System.setProperty("ripdpi.staticMotion", it) }

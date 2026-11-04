@@ -50,7 +50,7 @@ class GenerateGuideTest(unittest.TestCase):
             title="Config",
             route="config",
             expected_root="config-screen",
-            required_elements=["config-section-navigation"],
+            required_elements=["connection-section-navigation"],
         )
         xml = """<hierarchy><node resource-id="config-screen" /></hierarchy>"""
 
@@ -58,7 +58,7 @@ class GenerateGuideTest(unittest.TestCase):
             result = guide.analyze_ui_tree(page, xml, Path(temp_dir) / "config.xml")
 
         self.assertFalse(result.reachable)
-        self.assertEqual(["config-section-navigation"], result.missing_elements)
+        self.assertEqual(["connection-section-navigation"], result.missing_elements)
 
     def test_theme_results_fail_closed_when_one_theme_is_unreachable(self) -> None:
         guide = load_generate_guide_module()
@@ -80,7 +80,7 @@ class GenerateGuideTest(unittest.TestCase):
             route="config",
             expected_root="config-screen",
             reachable=False,
-            missing_elements=["config-section-navigation"],
+            missing_elements=["connection-section-navigation"],
             node_count=8,
             clickable_count=2,
             enabled_count=8,
@@ -91,7 +91,7 @@ class GenerateGuideTest(unittest.TestCase):
         result = guide.aggregate_theme_results(page, [("dark", dark), ("light", light)])
 
         self.assertFalse(result.reachable)
-        self.assertEqual(["light: config-section-navigation"], result.missing_elements)
+        self.assertEqual(["light: connection-section-navigation"], result.missing_elements)
 
     def test_theme_results_fail_closed_when_one_theme_is_absent(self) -> None:
         guide = load_generate_guide_module()
@@ -333,7 +333,7 @@ class GenerateGuideTest(unittest.TestCase):
             id="config",
             title="Config",
             route="config",
-            required_elements=["config-section-navigation"],
+            required_elements=["connection-section-navigation"],
         )
         spec = guide.GuideSpec(title="Audit", pages=[page])
         per_theme = {
@@ -366,8 +366,8 @@ class GenerateGuideTest(unittest.TestCase):
                         title="Config",
                         route="config",
                         required_elements=[
-                            "config-section-navigation",
-                            "config-scope-selection",
+                            "connection-section-navigation",
+                            "connection-scope-selection",
                         ],
                     ),
                 ],

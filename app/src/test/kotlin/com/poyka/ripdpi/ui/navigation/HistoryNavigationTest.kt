@@ -63,13 +63,13 @@ class HistoryNavigationTest {
     fun connectionActionDoesNotRestoreANestedProfileEditor() {
         showNavigationGraph()
         composeRule.runOnIdle {
-            navController.navigate(Route.Config)
+            navController.navigate(Route.Connection)
             navController.navigate(Route.ModeEditor)
             saveTopLevelStackAndOpenHistory()
             navController.navigateToConnectionFromHistory()
         }
         composeRule.runOnIdle {
-            assertTrue(requireNotNull(navController.currentDestination).hasRoute<Route.Config>())
+            assertTrue(requireNotNull(navController.currentDestination).hasRoute<Route.Connection>())
             assertBackReturnsToHistory()
         }
     }
@@ -87,7 +87,7 @@ class HistoryNavigationTest {
             ) {
                 composable<Route.Status> {}
                 composable<Route.History> {}
-                composable<Route.Config> {}
+                composable<Route.Connection> {}
                 composable<Route.ModeEditor> {}
                 composable<Route.Diagnostics> {}
                 composable<Route.Logs> {}

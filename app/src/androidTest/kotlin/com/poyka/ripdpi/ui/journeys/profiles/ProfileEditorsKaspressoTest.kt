@@ -55,7 +55,7 @@ private val AwgPeerPublic = "D".repeat(42) + "A="
 class ProfileEditorsKaspressoTest :
     RipDpiKaspressoTest(
         automationLaunchIntent(
-            startRoute = Route.Config.stableRoute,
+            startRoute = Route.Connection.stableRoute,
             dataPreset = AutomationDataPreset.SettingsReady,
         ),
     ) {

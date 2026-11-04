@@ -239,7 +239,7 @@ internal fun navigationRouteFrom(intent: Intent?): Route? =
         ?.let { uri ->
             when (uri.authority) {
                 "connect" -> Route.Status
-                "config" -> Route.Config
+                "config" -> Route.Connection
                 "diagnostics" -> Route.Diagnostics()
                 "settings" -> Route.Settings
                 "subscription-failover" -> Route.SubscriptionFailover

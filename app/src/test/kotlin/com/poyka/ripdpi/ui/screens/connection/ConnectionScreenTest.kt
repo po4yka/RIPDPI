@@ -54,21 +54,21 @@ class ConnectionScreenTest {
         )
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Direct.stableKey))
+            .onNodeWithTag(RipDpiTestTags.connectionPath(ConnectionPath.Direct.stableKey))
             .assertIsSelected()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassSummary).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSummary).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionDirectSummary).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelaySummary).assertDoesNotExist()
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Relay.stableKey))
+            .onNodeWithTag(RipDpiTestTags.connectionPath(ConnectionPath.Relay.stableKey))
             .performScrollTo()
             .performClick()
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Relay.stableKey))
+            .onNodeWithTag(RipDpiTestTags.connectionPath(ConnectionPath.Relay.stableKey))
             .assertIsSelected()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSummary).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassSummary).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelaySummary).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionDirectSummary).assertDoesNotExist()
         composeRule.runOnIdle {
             assertEquals(emptyList<Mode>(), selectedModes)
         }
@@ -79,11 +79,11 @@ class ConnectionScreenTest {
         setConfigScreen(initialPath = ConnectionPath.Direct)
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Direct.stableKey))
+            .onNodeWithTag(RipDpiTestTags.connectionPath(ConnectionPath.Direct.stableKey))
             .assertHasRole(Role.Tab)
             .assertIsSelected()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Relay.stableKey))
+            .onNodeWithTag(RipDpiTestTags.connectionPath(ConnectionPath.Relay.stableKey))
             .assertHasRole(Role.Tab)
             .assertIsNotSelected()
     }
@@ -96,11 +96,11 @@ class ConnectionScreenTest {
         composeRule.onNodeWithText("Connection settings").assertDoesNotExist()
         composeRule.onNodeWithText("Configure").assertDoesNotExist()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigSectionNavigation)
+            .onNodeWithTag(RipDpiTestTags.ConnectionSectionNavigation)
             .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
         composeRule.onNodeWithText("Choose traffic mode").assertDoesNotExist()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigScopeSelection)
+            .onNodeWithTag(RipDpiTestTags.ConnectionScopeSelection)
             .assertContentDescription("Choose traffic mode")
     }
 
@@ -109,11 +109,11 @@ class ConnectionScreenTest {
         setConfigScreen(initialPath = ConnectionPath.Direct)
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configMode(Mode.VPN.name))
+            .onNodeWithTag(RipDpiTestTags.connectionScope(Mode.VPN.name))
             .assertHasRole(Role.RadioButton)
             .assertIsSelected()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configMode(Mode.Proxy.name))
+            .onNodeWithTag(RipDpiTestTags.connectionScope(Mode.Proxy.name))
             .assertHasRole(Role.RadioButton)
             .assertIsNotSelected()
     }
@@ -127,12 +127,12 @@ class ConnectionScreenTest {
         )
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configMode(Mode.Proxy.name))
+            .onNodeWithTag(RipDpiTestTags.connectionScope(Mode.Proxy.name))
             .performScrollTo()
             .performClick()
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Direct.stableKey))
+            .onNodeWithTag(RipDpiTestTags.connectionPath(ConnectionPath.Direct.stableKey))
             .assertIsSelected()
         composeRule.runOnIdle {
             assertEquals(listOf(Mode.Proxy), selectedModes)
@@ -149,12 +149,12 @@ class ConnectionScreenTest {
         )
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configMode(Mode.VPN.name))
+            .onNodeWithTag(RipDpiTestTags.connectionScope(Mode.VPN.name))
             .performScrollTo()
             .performClick()
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Direct.stableKey))
+            .onNodeWithTag(RipDpiTestTags.connectionPath(ConnectionPath.Direct.stableKey))
             .assertIsSelected()
         composeRule.runOnIdle {
             assertEquals(listOf(Mode.VPN), selectedModes)
@@ -169,21 +169,21 @@ class ConnectionScreenTest {
             activeMode = Mode.Proxy,
         )
 
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassSummary).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionDirectSummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionSummary).assertExists()
         // The mode chips are the one place that shows the mode.
         composeRule.onAllNodesWithText("Proxy only").assertCountEquals(1)
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassListenAddress).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigDnsSettings).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassDesync).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionDirectListenAddress).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionDnsSettings).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionDirectDesync).assertExists()
     }
 
     @Test
     fun `vpn mode hides the internal proxy listen address`() {
         setConfigScreen(initialPath = ConnectionPath.Direct, activeMode = Mode.VPN)
 
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigDnsSettings).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassListenAddress).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionDnsSettings).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionDirectListenAddress).assertDoesNotExist()
     }
 
     @Test
@@ -191,8 +191,8 @@ class ConnectionScreenTest {
         setConfigScreen(initialPath = ConnectionPath.Direct)
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionSummary).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigEditCurrentButton).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassRetest).assertHasClickAction()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionEditCurrentButton).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionDirectRetest).assertHasClickAction()
     }
 
     @Test
@@ -209,12 +209,12 @@ class ConnectionScreenTest {
         )
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigLocalBypassDesync)
+            .onNodeWithTag(RipDpiTestTags.ConnectionDirectDesync)
             .assertHasClickAction()
             .performScrollTo()
             .performClick()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
+            .onNodeWithTag(RipDpiTestTags.ConnectionDnsSettings)
             .assertHasClickAction()
             .performScrollTo()
             .performClick()
@@ -234,10 +234,10 @@ class ConnectionScreenTest {
         )
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigLocalBypassDesync)
+            .onNodeWithTag(RipDpiTestTags.ConnectionDirectDesync)
             .assertContentDescription("Bypass strategy")
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
+            .onNodeWithTag(RipDpiTestTags.ConnectionDnsSettings)
             .assertContentDescription("DNS settings")
     }
 
@@ -246,7 +246,7 @@ class ConnectionScreenTest {
         setConfigScreen(initialPath = ConnectionPath.Relay, uiPersona = "advanced")
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
+            .onNodeWithTag(RipDpiTestTags.ConnectionDnsSettings)
             .assert(
                 SemanticsMatcher.expectValue(
                     SemanticsProperties.StateDescription,
@@ -259,18 +259,18 @@ class ConnectionScreenTest {
     fun `vpn section with the relay off shows one relay setup row and dns`() {
         setConfigScreen(initialPath = ConnectionPath.Relay, uiPersona = "advanced")
 
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSummary).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelaySummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionSummary).assertExists()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigVpnRelay)
+            .onNodeWithTag(RipDpiTestTags.ConnectionRelayRelay)
             .assert(hasContentDescription("Relay off", substring = true))
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProtocol).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnCredentials).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigDnsSettings).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerPaste).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerScan).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayProtocol).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayCredentials).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionDnsSettings).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayAddServerPaste).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayAddServerScan).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayProfileList).assertExists()
     }
 
     @Test
@@ -290,9 +290,9 @@ class ConnectionScreenTest {
                 Route.SubscriptionAdd,
             )
         editors.forEach { route ->
-            composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
-            composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddProfile).performScrollTo().performClick()
-            composeRule.onNodeWithTag(RipDpiTestTags.configVpnCreateProfile(route)).performClick()
+            composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
+            composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayAddProfile).performScrollTo().performClick()
+            composeRule.onNodeWithTag(RipDpiTestTags.connectionRelayCreateProfile(route)).performClick()
         }
 
         composeRule.runOnIdle { assertEquals(editors, opened) }
@@ -308,16 +308,16 @@ class ConnectionScreenTest {
         )
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
+            .onNodeWithTag(RipDpiTestTags.ConnectionDnsSettings)
             .assertHasClickAction()
             .performScrollTo()
             .performClick()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigVpnRelay)
+            .onNodeWithTag(RipDpiTestTags.ConnectionRelayRelay)
             .assertHasClickAction()
             .performScrollTo()
             .performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChoices).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChoices).assertExists()
 
         composeRule.runOnIdle {
             assertEquals(1, dnsClicks)
@@ -343,15 +343,15 @@ class ConnectionScreenTest {
         }
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Relay.stableKey))
+            .onNodeWithTag(RipDpiTestTags.connectionPath(ConnectionPath.Relay.stableKey))
             .performScrollTo()
             .performClick()
         restorationTester.emulateSavedInstanceStateRestore()
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Relay.stableKey))
+            .onNodeWithTag(RipDpiTestTags.connectionPath(ConnectionPath.Relay.stableKey))
             .assertIsSelected()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSummary).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelaySummary).assertExists()
     }
 
     @Test
@@ -359,10 +359,10 @@ class ConnectionScreenTest {
         setConfigScreen(initialPath = ConnectionPath.Relay)
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Relay.stableKey))
+            .onNodeWithTag(RipDpiTestTags.connectionPath(ConnectionPath.Relay.stableKey))
             .assertIsSelected()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSummary).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassSummary).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelaySummary).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionDirectSummary).assertDoesNotExist()
     }
 
     @Test
@@ -388,26 +388,26 @@ class ConnectionScreenTest {
         )
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionSummary).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
         composeRule.onNodeWithText("Add profile").assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.configVpnProfile("default")).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionRelayProfile("default")).assertExists()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configVpnProfileRow("default"))
+            .onNodeWithTag(RipDpiTestTags.connectionRelayProfileRow("default"))
             .assertHasClickAction()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerPaste)
-            .assertHasClickAction()
-            .performScrollTo()
-            .performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerScan)
+            .onNodeWithTag(RipDpiTestTags.ConnectionRelayAddServerPaste)
             .assertHasClickAction()
             .performScrollTo()
             .performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configVpnProfileShare("default"))
+            .onNodeWithTag(RipDpiTestTags.ConnectionRelayAddServerScan)
+            .assertHasClickAction()
+            .performScrollTo()
+            .performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
+        composeRule
+            .onNodeWithTag(RipDpiTestTags.connectionRelayProfileShare("default"))
             .assertHasClickAction()
             .performScrollTo()
             .performClick()
@@ -427,12 +427,12 @@ class ConnectionScreenTest {
             profileActions = ConnectionProfileActions(select = { selected += it }),
         )
 
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configVpnProfileRow("unknown-imported"))
+            .onNodeWithTag(RipDpiTestTags.connectionRelayProfileRow("unknown-imported"))
             .assertHasNoClickAction()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configVpnProfileSelect("unknown-imported"))
+            .onNodeWithTag(RipDpiTestTags.connectionRelayProfileSelect("unknown-imported"))
             .performScrollTo()
             .performClick()
         composeRule.runOnIdle { assertEquals(listOf("unknown-imported"), selected) }
@@ -463,10 +463,10 @@ class ConnectionScreenTest {
         }
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configVpnProfileSelect("active"))
+            .onNodeWithTag(RipDpiTestTags.connectionRelayProfileSelect("active"))
             .assertIsNotEnabled()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configVpnProfileSelect("draft"))
+            .onNodeWithTag(RipDpiTestTags.connectionRelayProfileSelect("draft"))
             .assertIsEnabled()
     }
 

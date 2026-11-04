@@ -2642,7 +2642,7 @@ jobs:
         if: matrix.api == 37
         run: |
           smoke=(
-            settings.ConfigScreenKaspressoTest#sectionsAndModeChipsSwitchTheVisibleConfiguration
+            settings.ConnectionScreenKaspressoTest#sectionsAndModeChipsSwitchTheVisibleConfiguration
             settings.DnsSettingsKaspressoTest#plainUdpResolverIsPersistedOnSave
             home.HomeIdleKaspressoTest#modeCardsAppearAfterDiagnosticsDisclosureExpands
             home.OnboardingKaspressoTest#skippingFromTheIntroCompletesOnboarding
@@ -2660,7 +2660,7 @@ jobs:
             --test-class "${selector%,}"
           python3 scripts/ci/validate_android_junit_results.py \
             app/build/outputs/androidTest-results/connected/debug/flavors/githubFull \
-            --require-test com.poyka.ripdpi.ui.journeys.settings.ConfigScreenKaspressoTest#sectionsAndModeChipsSwitchTheVisibleConfiguration \
+            --require-test com.poyka.ripdpi.ui.journeys.settings.ConnectionScreenKaspressoTest#sectionsAndModeChipsSwitchTheVisibleConfiguration \
             --expected-count 1 \
             --expected-total-count "${#smoke[@]}" \
             --forbid-skips
@@ -2868,7 +2868,7 @@ jobs:
       - name: Run Kaspresso UI journeys
         run: |
           declare -A anchors=(
-            [settings]=ConfigScreenKaspressoTest#sectionsAndModeChipsSwitchTheVisibleConfiguration
+            [settings]=ConnectionScreenKaspressoTest#sectionsAndModeChipsSwitchTheVisibleConfiguration
             [diagnostics]=LogsKaspressoTest#severityAndSubsystemChipsFilterTheStream
             [home]=HomeIdleKaspressoTest#modeCardsAppearAfterDiagnosticsDisclosureExpands
             [imports]=SubscriptionImportKaspressoTest#typedSubscriptionLinkIsSavedAndListedWhenTheFirstRefreshFails

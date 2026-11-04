@@ -56,7 +56,7 @@ internal const val DeepLinkScheme = "ripdpi"
  * because graphs are wrappers, not destinations that ever appear in the back stack as leaves.
  */
 @Serializable
-internal data object ConfigGraph
+internal data object ConnectionGraph
 
 @Serializable
 internal data object SettingsGraph
@@ -261,7 +261,7 @@ private fun NavHostController.selectedTopLevelRoute(entry: NavBackStackEntry?): 
 private fun NavDestination.topLevelRoute(): Route? =
     Route.topLevel.firstOrNull { matchesRoute(it) }
         ?: when (stableRouteKey()) {
-            in configSubRouteStableKeys -> Route.Config
+            in connectionSubRouteStableKeys -> Route.Connection
             else -> null
         }
 
@@ -369,7 +369,7 @@ private fun RipDpiNavGraph(
             diagnosticsInitialSection = diagnosticsInitialSection,
             onDiagnosticsInitialSectionChanged = onDiagnosticsInitialSectionChanged,
         )
-        addConfigRoutes(navController = navController, mainViewModel = mainViewModel)
+        addConnectionRoutes(navController = navController, mainViewModel = mainViewModel)
         addSettingsRoutes(
             navController = navController,
             actions = actions,
@@ -399,7 +399,7 @@ private fun NavHostController.navigateTopLevel(destination: Route) {
     }
 }
 
-internal fun NavHostController.navigateConfigSubRoute(destination: Route) {
+internal fun NavHostController.navigateConnectionSubRoute(destination: Route) {
     navigate(destination) {
         launchSingleTop = true
         restoreState = true
@@ -422,18 +422,18 @@ internal fun NavDestination.matchesRoute(route: Route): Boolean = stableRouteKey
 
 // Only variants of the Connection tab itself (the same screen with a preselected section).
 // Sub-screens such as editors and Logs show a back arrow and no bottom bar.
-private val configSubRouteStableKeys =
+private val connectionSubRouteStableKeys =
     setOf(
-        Route.LocalBypassConfig.stableRoute,
-        Route.VpnConfig.stableRoute,
+        Route.ConnectionDirect.stableRoute,
+        Route.ConnectionRelay.stableRoute,
     )
 
 private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>> =
     listOf(
         Route.Status.stableRoute to { hasRoute<Route.Status>() },
-        Route.Config.stableRoute to { hasRoute<Route.Config>() },
-        Route.LocalBypassConfig.stableRoute to { hasRoute<Route.LocalBypassConfig>() },
-        Route.VpnConfig.stableRoute to { hasRoute<Route.VpnConfig>() },
+        Route.Connection.stableRoute to { hasRoute<Route.Connection>() },
+        Route.ConnectionDirect.stableRoute to { hasRoute<Route.ConnectionDirect>() },
+        Route.ConnectionRelay.stableRoute to { hasRoute<Route.ConnectionRelay>() },
         Route.Diagnostics().stableRoute to { hasRoute<Route.Diagnostics>() },
         Route.Settings.stableRoute to { hasRoute<Route.Settings>() },
         Route.Onboarding.stableRoute to { hasRoute<Route.Onboarding>() },

@@ -105,7 +105,7 @@ class MainActivityPermissionTest {
     @Test
     fun `public navigation links map only known hosts`() {
         assertEquals(Route.Status, navigationRouteFrom(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://connect"))))
-        assertEquals(Route.Config, navigationRouteFrom(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://config"))))
+        assertEquals(Route.Connection, navigationRouteFrom(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://config"))))
         assertEquals(
             Route.Diagnostics(),
             navigationRouteFrom(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://diagnostics"))),

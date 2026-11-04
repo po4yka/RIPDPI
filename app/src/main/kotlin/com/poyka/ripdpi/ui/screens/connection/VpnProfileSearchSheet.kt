@@ -88,7 +88,13 @@ internal fun ColumnScope.VpnProfilePickerContent(
     val tag = RipDpiTestTags.RelayProfileSearch
     val visible = filterRelayProfiles(profiles, search.query, search.filter)
     LazyColumn(
-        modifier = Modifier.fillMaxWidth().weight(1f, fill = false).ripDpiTestTag(RipDpiTestTags.ConfigVpnProfileList),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .weight(
+                    1f,
+                    fill = false,
+                ).ripDpiTestTag(RipDpiTestTags.ConnectionRelayProfileList),
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
     ) {
         item(key = "search-controls") {

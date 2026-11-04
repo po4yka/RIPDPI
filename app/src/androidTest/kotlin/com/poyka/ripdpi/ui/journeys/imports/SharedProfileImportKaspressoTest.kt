@@ -5,7 +5,7 @@ import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
 import com.poyka.ripdpi.integration.automationLaunchIntent
-import com.poyka.ripdpi.ui.journeys.settings.ConfigPage
+import com.poyka.ripdpi.ui.journeys.settings.ConnectionPage
 import com.poyka.ripdpi.ui.journeys.settings.ProfileImportConfirmPage
 import com.poyka.ripdpi.ui.journeys.waitForSettings
 import com.poyka.ripdpi.ui.journeys.waitWithTree
@@ -28,7 +28,7 @@ private const val SharedProfileLink =
 class SharedProfileImportKaspressoTest :
     RipDpiKaspressoTest(
         automationLaunchIntent(
-            startRoute = Route.Config.stableRoute,
+            startRoute = Route.Connection.stableRoute,
             dataPreset = AutomationDataPreset.SettingsReady,
         ),
     ) {
@@ -42,7 +42,7 @@ class SharedProfileImportKaspressoTest :
     fun sharedServerLinkIsConfirmedAndBecomesTheActiveRelay() =
         run {
             step("Another app shares a vless link as text") {
-                ConfigPage(composeRule).awaitScreen()
+                ConnectionPage(composeRule).awaitScreen()
                 sendToApp(shareTextIntent(SharedProfileLink))
             }
             step("The confirmation shows the profile name and server") {
@@ -62,7 +62,7 @@ class SharedProfileImportKaspressoTest :
                 }
             }
             step("Config lists the profile and shows its server on the relay row") {
-                with(ConfigPage(composeRule)) {
+                with(ConnectionPage(composeRule)) {
                     if (!exists(screenTag)) click(bottomNavConfig)
                     awaitScreen()
                     click(pathOption("relay"))

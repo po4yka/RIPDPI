@@ -6,7 +6,7 @@ import com.poyka.ripdpi.data.xray.XrayProfileMetadataStore
 import com.poyka.ripdpi.data.xray.XrayServiceModeOption
 import com.poyka.ripdpi.integration.RipDpiKaspressoTest
 import com.poyka.ripdpi.integration.automationLaunchIntent
-import com.poyka.ripdpi.ui.journeys.settings.ConfigPage
+import com.poyka.ripdpi.ui.journeys.settings.ConnectionPage
 import com.poyka.ripdpi.ui.journeys.settings.ModeEditorPage
 import com.poyka.ripdpi.ui.journeys.waitWithTree
 import com.poyka.ripdpi.ui.navigation.Route
@@ -27,7 +27,7 @@ private const val XrayProfileLink =
 class XrayImportKaspressoTest :
     RipDpiKaspressoTest(
         automationLaunchIntent(
-            startRoute = Route.Config.stableRoute,
+            startRoute = Route.Connection.stableRoute,
             dataPreset = AutomationDataPreset.SettingsReady,
         ),
     ) {
@@ -37,7 +37,7 @@ class XrayImportKaspressoTest :
     private fun storedProfile() = runBlocking { xrayProfileMetadataStore.load(DefaultXrayProfileId) }
 
     private fun openModeEditor() {
-        with(ConfigPage(composeRule)) {
+        with(ConnectionPage(composeRule)) {
             awaitScreen()
             click(profileChange)
             waitFor(profileChoices)

@@ -41,21 +41,22 @@ sealed class Route {
     }
 
     @Serializable
-    data object Config : Route() {
+    data object Connection : Route() {
+        // Deep links and shortcuts use this value, so it stays when the name changes.
         override val stableRoute = "config"
         override val titleRes = R.string.connection_title
         override val icon: ImageVector = RipDpiIcons.Config
     }
 
     @Serializable
-    data object LocalBypassConfig : Route() {
+    data object ConnectionDirect : Route() {
         override val stableRoute = "config/local_bypass"
         override val titleRes = R.string.title_local_bypass_config
         override val icon: ImageVector? = null
     }
 
     @Serializable
-    data object VpnConfig : Route() {
+    data object ConnectionRelay : Route() {
         override val stableRoute = "config/vpn"
         override val titleRes = R.string.title_vpn_config
         override val icon: ImageVector? = null
@@ -480,16 +481,16 @@ sealed class Route {
 
     companion object {
         val topLevel: List<Route>
-            get() = listOf(Status, Config, Diagnostics(), Settings)
+            get() = listOf(Status, Connection, Diagnostics(), Settings)
 
         val all: List<Route>
             get() =
                 listOf(
                     Onboarding,
                     Status,
-                    Config,
-                    LocalBypassConfig,
-                    VpnConfig,
+                    Connection,
+                    ConnectionDirect,
+                    ConnectionRelay,
                     Diagnostics(),
                     History,
                     Logs,

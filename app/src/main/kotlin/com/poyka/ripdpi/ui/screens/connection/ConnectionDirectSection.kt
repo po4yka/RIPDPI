@@ -74,7 +74,7 @@ private fun DirectSectionRows(
 private fun LocalBypassStrategyTestRow(onRetestStrategies: () -> Unit) {
     val title = stringResource(R.string.config_run_strategy_test)
     LocalBypassActionRow(
-        testTag = RipDpiTestTags.ConfigLocalBypassRetest,
+        testTag = RipDpiTestTags.ConnectionDirectRetest,
         accessibilityLabel = title,
         accessibilityValue = "",
         onClick = onRetestStrategies,
@@ -96,7 +96,7 @@ private fun LocalBypassListenAddressRow(uiState: ConnectionUiState) {
             ),
         monospaceValue = true,
         leadingIcon = null,
-        testTag = RipDpiTestTags.ConfigLocalBypassListenAddress,
+        testTag = RipDpiTestTags.ConnectionDirectListenAddress,
     )
 }
 
@@ -107,7 +107,7 @@ private fun LocalBypassDnsRow(
 ) {
     val dnsSummary = uiState.draft.localizedDnsSummary()
     LocalBypassActionRow(
-        testTag = RipDpiTestTags.ConfigDnsSettings,
+        testTag = RipDpiTestTags.ConnectionDnsSettings,
         accessibilityLabel = stringResource(R.string.title_dns_settings),
         accessibilityValue = dnsSummary,
         onClick = onOpenDnsSettings,
@@ -134,7 +134,7 @@ private fun LocalBypassDesyncRow(
             desyncSummary == AppSettingsSerializer.defaultValue.toConfigDraft().chainSummary
     val strategyValue = if (isAuto) stringResource(R.string.config_local_bypass_strategy_auto) else desyncSummary
     LocalBypassActionRow(
-        testTag = RipDpiTestTags.ConfigLocalBypassDesync,
+        testTag = RipDpiTestTags.ConnectionDirectDesync,
         accessibilityLabel = stringResource(R.string.ripdpi_desync_method_setting),
         accessibilityValue = strategyValue,
         onClick = onOpenDesyncSettings,

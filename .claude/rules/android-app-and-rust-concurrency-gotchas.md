@@ -39,7 +39,7 @@ The `kotlin-test-patterns` skill's "Common Mistakes" section owns the Robolectri
 
 ### Navigation: only Connection-tab variants select a tab from a sub-route
 
-`RipDpiNavHost.kt`'s `selectedTopLevel` picks the highlighted bottom tab via an exact stable-route match plus the explicit `configSubRouteStableKeys` fallback set; it does not walk `NavDestination.hierarchy`. Locate both symbols by name instead of relying on line-number snapshots. The fallback set holds only variants of the Connection tab itself (the same screen with a preselected section). A screen with no selected tab shows a back arrow and no bottom bar, so do not add editors, Logs, or other sub-screens to the set; add a route only when it renders the Connection tab itself.
+`RipDpiNavHost.kt`'s `selectedTopLevel` picks the highlighted bottom tab via an exact stable-route match plus the explicit `connectionSubRouteStableKeys` fallback set; it does not walk `NavDestination.hierarchy`. Locate both symbols by name instead of relying on line-number snapshots. The fallback set holds only variants of the Connection tab itself (the same screen with a preselected section). A screen with no selected tab shows a back arrow and no bottom bar, so do not add editors, Logs, or other sub-screens to the set; add a route only when it renders the Connection tab itself.
 
 ### Cross-references
 

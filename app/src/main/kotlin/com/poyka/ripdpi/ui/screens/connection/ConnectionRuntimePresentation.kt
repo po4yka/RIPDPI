@@ -14,7 +14,7 @@ internal data class ConnectionRuntimePresentation(
 )
 
 @Composable
-internal fun configRuntimePresentation(
+internal fun connectionRuntimePresentation(
     viewModel: ConnectionViewModel,
     uiState: ConnectionUiState,
     integration: ConnectionRuntimeIntegration,

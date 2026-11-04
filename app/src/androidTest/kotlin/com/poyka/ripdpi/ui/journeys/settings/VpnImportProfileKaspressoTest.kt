@@ -22,7 +22,7 @@ private const val VlessRealityLink =
 class VpnImportProfileKaspressoTest :
     RipDpiKaspressoTest(
         automationLaunchIntent(
-            startRoute = Route.Config.stableRoute,
+            startRoute = Route.Connection.stableRoute,
             dataPreset = AutomationDataPreset.SettingsReady,
         ),
     ) {
@@ -41,7 +41,7 @@ class VpnImportProfileKaspressoTest :
     fun pastedVlessRealityLinkIsConfirmedAndAddedToTheProfileList() =
         run {
             step("The profile choices offer paste and scan entry points") {
-                with(ConfigPage(composeRule)) {
+                with(ConnectionPage(composeRule)) {
                     click(profileChange)
                     waitFor(profileChoices)
                     require(vpnAddServerPaste)
@@ -50,7 +50,7 @@ class VpnImportProfileKaspressoTest :
             }
             step("Pasting the seeded link opens the import confirmation with the profile name") {
                 seedClipboard(VlessRealityLink)
-                with(ConfigPage(composeRule)) { click(vpnAddServerPaste) }
+                with(ConnectionPage(composeRule)) { click(vpnAddServerPaste) }
                 with(ProfileImportConfirmPage(composeRule)) {
                     awaitScreen()
                     awaitText(ImportedProfileName)
@@ -62,7 +62,7 @@ class VpnImportProfileKaspressoTest :
                     confirmAdd()
                     waitGone(screenTag, 15_000)
                 }
-                with(ConfigPage(composeRule)) {
+                with(ConnectionPage(composeRule)) {
                     if (!exists(screenTag)) {
                         click(bottomNavConfig)
                     }

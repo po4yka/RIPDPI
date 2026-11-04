@@ -15,10 +15,10 @@ import org.junit.Test
 import javax.inject.Inject
 
 @HiltAndroidTest
-class ConfigScreenKaspressoTest :
+class ConnectionScreenKaspressoTest :
     RipDpiKaspressoTest(
         automationLaunchIntent(
-            startRoute = Route.Config.stableRoute,
+            startRoute = Route.Connection.stableRoute,
             dataPreset = AutomationDataPreset.SettingsReady,
         ),
     ) {
@@ -29,7 +29,7 @@ class ConfigScreenKaspressoTest :
     fun sectionsAndModeChipsSwitchTheVisibleConfiguration() =
         run {
             step("Config opens on the local bypass section with both mode chips") {
-                with(ConfigPage(composeRule)) {
+                with(ConnectionPage(composeRule)) {
                     awaitScreen()
                     node(vpnChip).assertIsDisplayed()
                     node(proxyChip).assertIsDisplayed()
@@ -37,14 +37,14 @@ class ConfigScreenKaspressoTest :
                 }
             }
             step("The server section shows the VPN summary and relay row") {
-                with(ConfigPage(composeRule)) {
+                with(ConnectionPage(composeRule)) {
                     click(pathOption("relay"))
                     waitFor(vpnSummary)
                     awaitDisplayed(vpnRelay)
                 }
             }
             step("Selecting the proxy chip selects it, deselects VPN and persists proxy mode") {
-                with(ConfigPage(composeRule)) {
+                with(ConnectionPage(composeRule)) {
                     click(pathOption("direct"))
                     click(proxyChip)
                     awaitSelected(proxyChip)
@@ -54,7 +54,7 @@ class ConfigScreenKaspressoTest :
                 }
             }
             step("Selecting the VPN chip switches back") {
-                with(ConfigPage(composeRule)) {
+                with(ConnectionPage(composeRule)) {
                     click(vpnChip)
                     awaitSelected(vpnChip)
                     composeRule.waitForSettings(appSettingsRepository) { it.ripdpiMode == Mode.VPN.preferenceValue }
@@ -66,12 +66,12 @@ class ConfigScreenKaspressoTest :
     fun dnsRowOpensDnsSettingsAndBackReturnsToConfig() =
         run {
             step("Open DNS settings from the local bypass section") {
-                with(ConfigPage(composeRule)) { click(dnsSettings) }
+                with(ConnectionPage(composeRule)) { click(dnsSettings) }
                 DnsSettingsPage(composeRule).awaitScreen()
             }
             step("Back returns to the config screen") {
                 device.exploit.pressBack()
-                ConfigPage(composeRule).awaitScreen()
+                ConnectionPage(composeRule).awaitScreen()
             }
         }
 
@@ -79,20 +79,20 @@ class ConfigScreenKaspressoTest :
     fun scopeChipKeepsTheRecommendedProfileAndCustomOpensTheModeEditor() =
         run {
             step("Select proxy scope") {
-                with(ConfigPage(composeRule)) {
+                with(ConnectionPage(composeRule)) {
                     click(proxyChip)
                     composeRule.waitForSettings(appSettingsRepository) { it.ripdpiMode == Mode.Proxy.preferenceValue }
                 }
             }
             step("The recommended profile stays selected in the profile choices") {
-                with(ConfigPage(composeRule)) {
+                with(ConnectionPage(composeRule)) {
                     click(profileChange)
                     waitFor(profileChoices)
                     node(preset("recommended")).assertIsDisplayed()
                 }
             }
             step("The custom preset opens the mode editor with its fields") {
-                with(ConfigPage(composeRule)) { click(preset("custom")) }
+                with(ConnectionPage(composeRule)) { click(preset("custom")) }
                 with(ModeEditorPage(composeRule)) {
                     awaitScreen()
                     node(proxyIp).assertIsDisplayed()
@@ -106,16 +106,16 @@ class ConfigScreenKaspressoTest :
     fun localBypassShowsStrategyAndRetestOpensDiagnostics() =
         run {
             step("Select proxy mode") {
-                with(ConfigPage(composeRule)) {
+                with(ConnectionPage(composeRule)) {
                     click(proxyChip)
                     awaitSelected(proxyChip)
                 }
             }
             step("The direct section shows the bypass strategy") {
-                with(ConfigPage(composeRule)) { awaitDisplayed(localBypassDesync) }
+                with(ConnectionPage(composeRule)) { awaitDisplayed(localBypassDesync) }
             }
             step("Retest strategies opens diagnostics") {
-                with(ConfigPage(composeRule)) { click(localBypassRetest) }
+                with(ConnectionPage(composeRule)) { click(localBypassRetest) }
                 composeRule.waitForTag(RipDpiTestTags.screen(Route.Diagnostics()))
             }
         }

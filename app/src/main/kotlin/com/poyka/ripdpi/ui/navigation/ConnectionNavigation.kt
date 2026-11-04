@@ -23,10 +23,10 @@ private fun ConnectionDestination(
     route: Route,
     initialPath: ConnectionPath,
 ) {
-    val configGraphEntry = remember(navController, entry) { navController.getBackStackEntry<ConfigGraph>() }
+    val configGraphEntry = remember(navController, entry) { navController.getBackStackEntry<ConnectionGraph>() }
     val configViewModel: ConnectionViewModel = hiltViewModel(configGraphEntry)
     ConnectionRoute(
-        runtimeIntegration = configRuntimeIntegration(mainViewModel),
+        runtimeIntegration = connectionRuntimeIntegration(mainViewModel),
         onOpenModeEditor = { navController.navigate(Route.ModeEditor) },
         onOpenLocalBypassEditor = { navController.navigate(Route.StrategyConfig) },
         onOpenDnsSettings = { navController.navigate(Route.DnsSettings) },
@@ -41,24 +41,24 @@ private fun ConnectionDestination(
     )
 }
 
-internal fun NavGraphBuilder.addConfigRoutes(
+internal fun NavGraphBuilder.addConnectionRoutes(
     navController: NavHostController,
     mainViewModel: MainViewModel,
 ) {
-    navigation<ConfigGraph>(
-        startDestination = Route.Config,
+    navigation<ConnectionGraph>(
+        startDestination = Route.Connection,
     ) {
-        composable<Route.Config>(
+        composable<Route.Connection>(
             deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://config" }),
-        ) { ConnectionDestination(it, navController, mainViewModel, Route.Config, ConnectionPath.Direct) }
-        composable<Route.LocalBypassConfig> {
-            ConnectionDestination(it, navController, mainViewModel, Route.LocalBypassConfig, ConnectionPath.Direct)
+        ) { ConnectionDestination(it, navController, mainViewModel, Route.Connection, ConnectionPath.Direct) }
+        composable<Route.ConnectionDirect> {
+            ConnectionDestination(it, navController, mainViewModel, Route.ConnectionDirect, ConnectionPath.Direct)
         }
-        composable<Route.VpnConfig> {
-            ConnectionDestination(it, navController, mainViewModel, Route.VpnConfig, ConnectionPath.Relay)
+        composable<Route.ConnectionRelay> {
+            ConnectionDestination(it, navController, mainViewModel, Route.ConnectionRelay, ConnectionPath.Relay)
         }
         composable<Route.ModeEditor> {
-            val configGraphEntry = remember(navController, it) { navController.getBackStackEntry<ConfigGraph>() }
+            val configGraphEntry = remember(navController, it) { navController.getBackStackEntry<ConnectionGraph>() }
             val configViewModel: ConnectionViewModel = hiltViewModel(configGraphEntry)
             ModeEditorRoute(
                 onBack = { navController.popBackStack() },

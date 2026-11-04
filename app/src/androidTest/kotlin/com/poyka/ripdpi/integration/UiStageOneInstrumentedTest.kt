@@ -65,7 +65,7 @@ class UiStageOneInstrumentedTest {
                 )
             }
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigRuntimeError).assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRuntimeError).assertIsDisplayed()
         composeRule.onNodeWithText("VPN permission required").assertIsDisplayed()
         saveScreenshot("rejected-start")
     }
@@ -75,7 +75,7 @@ class UiStageOneInstrumentedTest {
         val state = configState().copy(uiPersona = "advanced")
         renderConfig(state)
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
+            .onNodeWithTag(RipDpiTestTags.ConnectionDnsSettings)
             .performScrollTo()
             .assertIsDisplayed()
             .assertHasClickAction()

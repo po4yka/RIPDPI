@@ -70,8 +70,8 @@ class ConnectionPathSelectionTest {
                 )
             }
         }
-        val directTag = RipDpiTestTags.configPath(ConnectionPath.Direct.stableKey)
-        val relayTag = RipDpiTestTags.configPath(ConnectionPath.Relay.stableKey)
+        val directTag = RipDpiTestTags.connectionPath(ConnectionPath.Direct.stableKey)
+        val relayTag = RipDpiTestTags.connectionPath(ConnectionPath.Relay.stableKey)
 
         composeRule.onNodeWithTag(relayTag).assertIsSelected()
         composeRule.onNodeWithTag(directTag).performScrollTo().performClick()
@@ -110,8 +110,8 @@ class ConnectionPathSelectionTest {
         }
 
         assertEquals(2, composeRule.onAllNodesWithText("AmneziaWG", useUnmergedTree = true).fetchSemanticsNodes().size)
-        composeRule.onNodeWithTag(RipDpiTestTags.configPath("relay")).assertIsSelected()
-        composeRule.onNodeWithTag(RipDpiTestTags.configPath("direct")).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionPath("relay")).assertIsSelected()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionPath("direct")).performScrollTo().performClick()
         composeRule.runOnIdle { assertEquals(1, directSelections) }
     }
 
@@ -132,14 +132,14 @@ class ConnectionPathSelectionTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.configPath("relay")).performScrollTo().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.configPath("relay")).assertIsSelected()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionPath("relay")).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionPath("relay")).assertIsSelected()
 
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.configPreset("recommended")).performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigPresetResetConfirm).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionProfileChange).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionPreset("recommended")).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionPresetResetConfirm).performClick()
 
-        composeRule.onNodeWithTag(RipDpiTestTags.configPath("direct")).assertIsSelected()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionPath("direct")).assertIsSelected()
     }
 
     @Test
@@ -168,7 +168,7 @@ class ConnectionPathSelectionTest {
 
         fun assertStrategy(value: String) =
             composeRule
-                .onNodeWithTag(RipDpiTestTags.ConfigLocalBypassDesync)
+                .onNodeWithTag(RipDpiTestTags.ConnectionDirectDesync)
                 .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, value))
 
         assertStrategy("Auto (recommended)")
@@ -200,6 +200,6 @@ class ConnectionPathSelectionTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigCliOverrideBanner).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionCliOverrideBanner).assertExists()
     }
 }

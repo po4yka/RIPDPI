@@ -3,7 +3,7 @@ package com.poyka.ripdpi.ui.navigation
 import androidx.navigation.NavHostController
 
 internal fun NavHostController.navigateToConnectionFromHistory() {
-    navigate(Route.Config) {
+    navigate(Route.Connection) {
         launchSingleTop = true
     }
 }

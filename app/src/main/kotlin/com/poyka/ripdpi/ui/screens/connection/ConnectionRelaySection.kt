@@ -85,14 +85,14 @@ internal fun ConnectionRelayProfileChoices(
         RipDpiButton(
             text = stringResource(R.string.config_vpn_add_server_paste),
             onClick = onPasteServerLink,
-            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigVpnAddServerPaste),
+            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConnectionRelayAddServerPaste),
             variant = RipDpiButtonVariant.Outline,
             leadingIcon = RipDpiIcons.Paste,
         )
         RipDpiButton(
             text = stringResource(R.string.config_vpn_add_server_scan),
             onClick = actions.scanServer,
-            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigVpnAddServerScan),
+            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConnectionRelayAddServerScan),
             variant = RipDpiButtonVariant.Outline,
             leadingIcon = RipDpiIcons.QrCodeScanner,
         )
@@ -118,7 +118,7 @@ private fun VpnProfileList(
             value = stringResource(R.string.config_vpn_profiles_empty_value),
             leadingIcon = RipDpiIcons.Public,
             showDivider = true,
-            testTag = RipDpiTestTags.ConfigVpnProfileList,
+            testTag = RipDpiTestTags.ConnectionRelayProfileList,
         )
         return
     }
@@ -143,7 +143,7 @@ private fun VpnProfileList(
     RipDpiButton(
         text = stringResource(R.string.profile_search_open),
         onClick = { showSearch = true },
-        modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigVpnProfilesMore),
+        modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConnectionRelayProfilesMore),
         variant = RipDpiButtonVariant.Outline,
         leadingIcon = RipDpiIcons.Search,
         wrapLabel = true,
@@ -159,7 +159,7 @@ internal fun VpnProfileItem(
     onProfileEdit: (String) -> Unit,
 ) {
     Column(
-        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configVpnProfile(profile.id)),
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.connectionRelayProfile(profile.id)),
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
     ) {
         SettingsRow(
@@ -177,7 +177,7 @@ internal fun VpnProfileItem(
                     null
                 },
             showDivider = false,
-            testTag = RipDpiTestTags.configVpnProfileRow(profile.id),
+            testTag = RipDpiTestTags.connectionRelayProfileRow(profile.id),
         )
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -192,7 +192,7 @@ internal fun VpnProfileItem(
                 modifier =
                     Modifier
                         .weight(1f)
-                        .ripDpiTestTag(RipDpiTestTags.configVpnProfileSelect(profile.id)),
+                        .ripDpiTestTag(RipDpiTestTags.connectionRelayProfileSelect(profile.id)),
                 variant = RipDpiButtonVariant.Outline,
                 wrapLabel = true,
                 enabled = !selected,
@@ -203,7 +203,7 @@ internal fun VpnProfileItem(
                 modifier =
                     Modifier
                         .weight(1f)
-                        .ripDpiTestTag(RipDpiTestTags.configVpnProfileShare(profile.id)),
+                        .ripDpiTestTag(RipDpiTestTags.connectionRelayProfileShare(profile.id)),
                 variant = RipDpiButtonVariant.Outline,
                 wrapLabel = true,
                 leadingIcon = RipDpiIcons.Share,
@@ -220,7 +220,7 @@ private fun VpnAddProfileAction(onCreateProfile: (Route) -> Unit) {
         RipDpiButton(
             text = stringResource(R.string.config_vpn_add_profile_title),
             onClick = { showProfileMenu = true },
-            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigVpnAddProfile),
+            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConnectionRelayAddProfile),
             variant = RipDpiButtonVariant.Outline,
             leadingIcon = RipDpiIcons.Add,
         )
@@ -231,37 +231,37 @@ private fun VpnAddProfileAction(onCreateProfile: (Route) -> Unit) {
                     RipDpiContextMenuAction(
                         label = stringResource(R.string.anytls_editor_title),
                         icon = RipDpiIcons.Public,
-                        testTag = RipDpiTestTags.configVpnCreateProfile(Route.AnyTlsProfile),
+                        testTag = RipDpiTestTags.connectionRelayCreateProfile(Route.AnyTlsProfile),
                         onClick = { onCreateProfile(Route.AnyTlsProfile) },
                     ),
                     RipDpiContextMenuAction(
                         label = stringResource(R.string.mieru_editor_title),
                         icon = RipDpiIcons.Public,
-                        testTag = RipDpiTestTags.configVpnCreateProfile(Route.MieruProfile),
+                        testTag = RipDpiTestTags.connectionRelayCreateProfile(Route.MieruProfile),
                         onClick = { onCreateProfile(Route.MieruProfile) },
                     ),
                     RipDpiContextMenuAction(
                         label = stringResource(R.string.ssh_editor_title),
                         icon = RipDpiIcons.Public,
-                        testTag = RipDpiTestTags.configVpnCreateProfile(Route.SshProfile),
+                        testTag = RipDpiTestTags.connectionRelayCreateProfile(Route.SshProfile),
                         onClick = { onCreateProfile(Route.SshProfile) },
                     ),
                     RipDpiContextMenuAction(
                         label = stringResource(R.string.awg_editor_title),
                         icon = RipDpiIcons.Vpn,
-                        testTag = RipDpiTestTags.configVpnCreateProfile(Route.AmneziaWgProfile()),
+                        testTag = RipDpiTestTags.connectionRelayCreateProfile(Route.AmneziaWgProfile()),
                         onClick = { onCreateProfile(Route.AmneziaWgProfile()) },
                     ),
                     RipDpiContextMenuAction(
                         label = stringResource(R.string.config_vpn_import_awg_conf),
                         icon = RipDpiIcons.Vpn,
-                        testTag = RipDpiTestTags.ConfigVpnImportAwgConf,
+                        testTag = RipDpiTestTags.ConnectionRelayImportAwgConf,
                         onClick = importAwgConfFile,
                     ),
                     RipDpiContextMenuAction(
                         label = stringResource(R.string.config_vpn_add_subscription),
                         icon = RipDpiIcons.Add,
-                        testTag = RipDpiTestTags.configVpnCreateProfile(Route.SubscriptionAdd),
+                        testTag = RipDpiTestTags.connectionRelayCreateProfile(Route.SubscriptionAdd),
                         onClick = { onCreateProfile(Route.SubscriptionAdd) },
                     ),
                 ),
@@ -287,7 +287,7 @@ private fun RelaySectionRows(
                 onClick = onChooseRelay,
                 showChevron = true,
                 showDivider = true,
-                testTag = RipDpiTestTags.ConfigVpnRelay,
+                testTag = RipDpiTestTags.ConnectionRelayRelay,
             )
         } else if (uiState.draft.relayEnabled && uiState.draft.relayKind != RelayKindOff) {
             VpnRelayRow(uiState = uiState, onOpenRelaySettings = onOpenRelaySettings)
@@ -300,14 +300,14 @@ private fun RelaySectionRows(
         VpnDnsRow(uiState = uiState, onOpenDnsSettings = onOpenDnsSettings)
         onOpenSubscriptionStatus?.let {
             VpnSubscriptionRow(
-                testTag = RipDpiTestTags.ConfigSubscriptionStatus,
+                testTag = RipDpiTestTags.ConnectionSubscriptionStatus,
                 title = stringResource(R.string.subscription_status_title),
                 onClick = it,
             )
         }
         onOpenSubscriptionFailover?.let {
             VpnSubscriptionRow(
-                testTag = RipDpiTestTags.ConfigSubscriptionFailover,
+                testTag = RipDpiTestTags.ConnectionSubscriptionFailover,
                 title = stringResource(R.string.title_subscription_failover),
                 onClick = it,
             )
@@ -336,7 +336,7 @@ private fun VpnRelayOffRow(onChooseRelay: () -> Unit) {
     val title = stringResource(R.string.config_relay_off_title)
     val body = stringResource(R.string.config_relay_off_body)
     VpnActionRow(
-        testTag = RipDpiTestTags.ConfigVpnRelay,
+        testTag = RipDpiTestTags.ConnectionRelayRelay,
         accessibilityLabel = title,
         accessibilityValue = "",
         onClick = onChooseRelay,
@@ -358,7 +358,7 @@ private fun VpnRelayRow(
     onOpenRelaySettings: () -> Unit,
 ) {
     VpnActionRow(
-        testTag = RipDpiTestTags.ConfigVpnRelay,
+        testTag = RipDpiTestTags.ConnectionRelayRelay,
         accessibilityLabel = stringResource(R.string.config_relay_server),
         accessibilityValue = relayEndpointLabel(uiState),
         onClick = onOpenRelaySettings,
@@ -379,7 +379,7 @@ private fun VpnProtocolRow(
     onOpenRelaySettings: () -> Unit,
 ) {
     VpnActionRow(
-        testTag = RipDpiTestTags.ConfigVpnProtocol,
+        testTag = RipDpiTestTags.ConnectionRelayProtocol,
         accessibilityLabel = stringResource(R.string.config_vpn_protocol_title),
         accessibilityValue = uiState.draft.relaySummary,
         onClick = onOpenRelaySettings,
@@ -402,7 +402,7 @@ private fun VpnCredentialsRow(
     onOpenRelaySettings: () -> Unit,
 ) {
     VpnActionRow(
-        testTag = RipDpiTestTags.ConfigVpnCredentials,
+        testTag = RipDpiTestTags.ConnectionRelayCredentials,
         accessibilityLabel = stringResource(R.string.config_vpn_credentials_title),
         accessibilityValue = credentialsValue(uiState),
         onClick = onOpenRelaySettings,
@@ -426,7 +426,7 @@ private fun VpnDnsRow(
 ) {
     val dnsSummary = uiState.draft.localizedDnsSummary()
     VpnActionRow(
-        testTag = RipDpiTestTags.ConfigDnsSettings,
+        testTag = RipDpiTestTags.ConnectionDnsSettings,
         accessibilityLabel = stringResource(R.string.title_dns_settings),
         accessibilityValue = dnsSummary,
         onClick = onOpenDnsSettings,

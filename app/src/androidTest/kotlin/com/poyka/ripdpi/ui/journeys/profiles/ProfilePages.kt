@@ -22,16 +22,16 @@ import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.awg.AwgEditorField
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 
-private const val ProfileRowPrefix = "config-vpn-profile-row-"
+private const val ProfileRowPrefix = "connection-relay-profile-row-"
 
 /** Config screen entry points to the profile editors and the saved-profile list. */
 internal class ProfileListPage(
     rule: JourneyRule,
-) : JourneyPage<ProfileListPage>(rule, RipDpiTestTags.screen(Route.Config)) {
-    private val profileChange = RipDpiTestTags.ConfigProfileChange
-    private val profileChoices = RipDpiTestTags.ConfigProfileChoices
-    private val addProfile = RipDpiTestTags.ConfigVpnAddProfile
-    private val bottomNavConfig = RipDpiTestTags.bottomNav(Route.Config)
+) : JourneyPage<ProfileListPage>(rule, RipDpiTestTags.screen(Route.Connection)) {
+    private val profileChange = RipDpiTestTags.ConnectionProfileChange
+    private val profileChoices = RipDpiTestTags.ConnectionProfileChoices
+    private val addProfile = RipDpiTestTags.ConnectionRelayAddProfile
+    private val bottomNavConfig = RipDpiTestTags.bottomNav(Route.Connection)
 
     /** Opens the profile choices on the Config screen, from wherever the app is. */
     fun openProfileChoices() {
@@ -44,7 +44,7 @@ internal class ProfileListPage(
     /** Picks [route] from the Add profile menu. */
     fun createProfile(route: Route) {
         click(addProfile)
-        click(RipDpiTestTags.configVpnCreateProfile(route))
+        click(RipDpiTestTags.connectionRelayCreateProfile(route))
     }
 
     /** A saved profile row; rows show the profile kind, for example "Mieru". */

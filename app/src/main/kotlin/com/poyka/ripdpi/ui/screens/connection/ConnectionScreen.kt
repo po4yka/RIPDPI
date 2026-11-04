@@ -67,7 +67,7 @@ fun ConnectionRoute(
     onScanServer: () -> Unit,
     onOpenRoute: (Route) -> Unit,
     modifier: Modifier = Modifier,
-    route: Route = Route.Config,
+    route: Route = Route.Connection,
     initialPath: ConnectionPath = ConnectionPath.Direct,
     viewModel: ConnectionViewModel = hiltViewModel(),
     clipboardImportViewModel: ClipboardImportViewModel = hiltViewModel(),
@@ -76,7 +76,7 @@ fun ConnectionRoute(
     runtimeIntegration: ConnectionRuntimeIntegration = ConnectionRuntimeIntegration(),
 ) {
     val uiState = viewModel.uiState.collectAsStateWithLifecycle().value
-    val runtime = configRuntimePresentation(viewModel, uiState, runtimeIntegration)
+    val runtime = connectionRuntimePresentation(viewModel, uiState, runtimeIntegration)
     val clipboardImportState = clipboardImportViewModel.uiState.collectAsStateWithLifecycle().value
     val navigateTo = clipboardImportState.navigateToConfirm
     if (navigateTo != null) {
@@ -187,7 +187,7 @@ fun ConnectionScreen(
     onPasteServerLink: () -> Unit,
     profileActions: ConnectionProfileActions = ConnectionProfileActions(),
     modifier: Modifier = Modifier,
-    route: Route = Route.Config,
+    route: Route = Route.Connection,
     initialPath: ConnectionPath = ConnectionPath.Direct,
     topBarActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
     runtimeCallbacks: ConnectionRuntimeCallbacks = ConnectionRuntimeCallbacks(),
@@ -279,9 +279,9 @@ private fun ConnectionScopeSelector(
             Modifier
                 .fillMaxWidth()
                 .semantics { contentDescription = groupLabel }
-                .ripDpiTestTag(RipDpiTestTags.ConfigScopeSelection),
+                .ripDpiTestTag(RipDpiTestTags.ConnectionScopeSelection),
         role = Role.RadioButton,
-        optionTestTags = modes.map { RipDpiTestTags.configMode(it.name) }.toImmutableList(),
+        optionTestTags = modes.map { RipDpiTestTags.connectionScope(it.name) }.toImmutableList(),
         quiet = true,
     )
 }
@@ -296,8 +296,8 @@ private fun ConnectionPathSelector(
         options = paths.map { stringResource(pathTitleRes(it)) }.toImmutableList(),
         selectedIndex = paths.indexOf(selectedPath),
         onSelect = { onPathSelected(paths[it]) },
-        modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigSectionNavigation),
-        optionTestTags = paths.map { RipDpiTestTags.configPath(it.stableKey) }.toImmutableList(),
+        modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConnectionSectionNavigation),
+        optionTestTags = paths.map { RipDpiTestTags.connectionPath(it.stableKey) }.toImmutableList(),
         quiet = true,
     )
 }
@@ -320,7 +320,7 @@ private fun ConnectionSelectedPathSection(
                 onOpenDesyncSettings = { onOpenConfigEditor(ConnectionEditorTarget.Bypass) },
                 onOpenDnsSettings = { onOpenConfigEditor(ConnectionEditorTarget.Resolver) },
                 onRetestStrategies = onRetestStrategies,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigLocalBypassSummary),
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConnectionDirectSummary),
             )
         }
 
@@ -332,7 +332,7 @@ private fun ConnectionSelectedPathSection(
                 onOpenDnsSettings = { onOpenConfigEditor(ConnectionEditorTarget.Resolver) },
                 onOpenSubscriptionStatus = { onOpenConfigEditor(ConnectionEditorTarget.SubscriptionStatus) },
                 onOpenSubscriptionFailover = { onOpenConfigEditor(ConnectionEditorTarget.SubscriptionFailover) },
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigVpnSummary),
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConnectionRelaySummary),
             )
         }
     }
@@ -370,14 +370,14 @@ internal fun ConnectionScopeChips(
                 selected = selectedMode == Mode.VPN,
                 onClick = { onModeSelected(Mode.VPN) },
                 role = Role.RadioButton,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configMode(Mode.VPN.name)),
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.connectionScope(Mode.VPN.name)),
             )
             RipDpiChip(
                 text = proxyLabel,
                 selected = selectedMode == Mode.Proxy,
                 onClick = { onModeSelected(Mode.Proxy) },
                 role = Role.RadioButton,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.configMode(Mode.Proxy.name)),
+                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.connectionScope(Mode.Proxy.name)),
             )
         }
     }

@@ -53,7 +53,7 @@ internal fun ConnectionRuntimeFeedback(
                 title = stringResource(R.string.status_error_title),
                 message = message,
                 tone = WarningBannerTone.Error,
-                testTag = RipDpiTestTags.ConfigRuntimeError,
+                testTag = RipDpiTestTags.ConnectionRuntimeError,
                 onDismiss = onDismissRuntimeError,
             )
         }

@@ -76,7 +76,7 @@ class ConnectionScopeChipsLayoutTest {
                 val labelRes = if (value == Mode.VPN) vpnLabelRes else proxyLabelRes
                 val label = RuntimeEnvironment.getApplication().getString(labelRes)
                 assertWordsFit(label)
-                composeRule.onNodeWithTag(RipDpiTestTags.configMode(value.name)).performClick().assertIsSelected()
+                composeRule.onNodeWithTag(RipDpiTestTags.connectionScope(value.name)).performClick().assertIsSelected()
             }
         }
         assertEquals(List(6) { listOf(Mode.VPN, Mode.Proxy) }.flatten(), selections)

@@ -17,29 +17,29 @@ import com.poyka.ripdpi.ui.screens.settings.AdvancedTextSetting
 import com.poyka.ripdpi.ui.screens.settings.AdvancedToggleSetting
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 
-private const val ProfileRowPrefix = "config-vpn-profile-row-"
+private const val ProfileRowPrefix = "connection-relay-profile-row-"
 
-internal class ConfigPage(
+internal class ConnectionPage(
     rule: JourneyRule,
-) : JourneyPage<ConfigPage>(rule, RipDpiTestTags.screen(Route.Config)) {
-    val vpnChip = RipDpiTestTags.configMode(Mode.VPN.name)
-    val proxyChip = RipDpiTestTags.configMode(Mode.Proxy.name)
-    val localBypassSummary = RipDpiTestTags.ConfigLocalBypassSummary
-    val localBypassListenAddress = RipDpiTestTags.ConfigLocalBypassListenAddress
-    val localBypassDesync = RipDpiTestTags.ConfigLocalBypassDesync
-    val localBypassRetest = RipDpiTestTags.ConfigLocalBypassRetest
-    val vpnSummary = RipDpiTestTags.ConfigVpnSummary
-    val vpnRelay = RipDpiTestTags.ConfigVpnRelay
-    val vpnAddServerPaste = RipDpiTestTags.ConfigVpnAddServerPaste
-    val vpnAddServerScan = RipDpiTestTags.ConfigVpnAddServerScan
-    val dnsSettings = RipDpiTestTags.ConfigDnsSettings
-    val profileChange = RipDpiTestTags.ConfigProfileChange
-    val profileChoices = RipDpiTestTags.ConfigProfileChoices
-    val bottomNavConfig = RipDpiTestTags.bottomNav(Route.Config)
+) : JourneyPage<ConnectionPage>(rule, RipDpiTestTags.screen(Route.Connection)) {
+    val vpnChip = RipDpiTestTags.connectionScope(Mode.VPN.name)
+    val proxyChip = RipDpiTestTags.connectionScope(Mode.Proxy.name)
+    val localBypassSummary = RipDpiTestTags.ConnectionDirectSummary
+    val localBypassListenAddress = RipDpiTestTags.ConnectionDirectListenAddress
+    val localBypassDesync = RipDpiTestTags.ConnectionDirectDesync
+    val localBypassRetest = RipDpiTestTags.ConnectionDirectRetest
+    val vpnSummary = RipDpiTestTags.ConnectionRelaySummary
+    val vpnRelay = RipDpiTestTags.ConnectionRelayRelay
+    val vpnAddServerPaste = RipDpiTestTags.ConnectionRelayAddServerPaste
+    val vpnAddServerScan = RipDpiTestTags.ConnectionRelayAddServerScan
+    val dnsSettings = RipDpiTestTags.ConnectionDnsSettings
+    val profileChange = RipDpiTestTags.ConnectionProfileChange
+    val profileChoices = RipDpiTestTags.ConnectionProfileChoices
+    val bottomNavConfig = RipDpiTestTags.bottomNav(Route.Connection)
 
-    fun pathOption(id: String): String = RipDpiTestTags.configPath(id)
+    fun pathOption(id: String): String = RipDpiTestTags.connectionPath(id)
 
-    fun preset(id: String): String = RipDpiTestTags.configPreset(id)
+    fun preset(id: String): String = RipDpiTestTags.connectionPreset(id)
 
     fun awaitProfileRow(timeoutMillis: Long = 15_000) {
         rule.waitUntil(timeoutMillis) { rule.exists(tagStartingWith(ProfileRowPrefix)) }

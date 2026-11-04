@@ -10,7 +10,7 @@ class RecommendationNavigationTest {
         val expected =
             mapOf(
                 RecommendationDestination.MODE_SETTINGS to Route.ModeEditor,
-                RecommendationDestination.PROXY_SETTINGS to Route.LocalBypassConfig,
+                RecommendationDestination.PROXY_SETTINGS to Route.ConnectionDirect,
                 RecommendationDestination.DNS_SETTINGS to Route.DnsSettings,
                 RecommendationDestination.GENERAL_SETTINGS to Route.Settings,
                 RecommendationDestination.ADVANCED_SETTINGS to Route.AdvancedSettings,

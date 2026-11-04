@@ -89,7 +89,7 @@ class VpnProfileSearchTest {
         composeRule.onNodeWithTag(RipDpiTestTags.profileSearchFilter(scope, "ssh")).assertIsSelected()
         assertNoActions()
         cancel()
-        composeRule.onNodeWithTag(RipDpiTestTags.configVpnProfileSelect("alpha")).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.connectionRelayProfileSelect("alpha")).assertExists()
     }
 
     @Test fun `empty state resets query and filter without selecting`() {
@@ -108,7 +108,7 @@ class VpnProfileSearchTest {
         composeRule.setContent { Content(profiles) }
         open()
         query("fourth-ssh")
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList).performScrollToKey("profile:fourth-ssh")
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayProfileList).performScrollToKey("profile:fourth-ssh")
         sheetRow("fourth-ssh").performScrollTo().performClick()
         composeRule.waitForIdle()
         assertEquals(listOf("fourth-ssh"), edited)
@@ -121,8 +121,8 @@ class VpnProfileSearchTest {
         composeRule.setContent { Content(profiles) }
         open()
         query("alpha-other")
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList).performScrollToKey("profile:alpha-other")
-        sheetNode(RipDpiTestTags.configVpnProfileSelect("alpha-other")).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayProfileList).performScrollToKey("profile:alpha-other")
+        sheetNode(RipDpiTestTags.connectionRelayProfileSelect("alpha-other")).performScrollTo().performClick()
         composeRule.waitForIdle()
         assertEquals(listOf("alpha-other"), selected)
         assertEquals(emptyList<String>(), edited)
@@ -132,9 +132,9 @@ class VpnProfileSearchTest {
         composeRule.setContent { Content(profiles) }
         open()
         query("future")
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList).performScrollToKey("profile:unknown-id")
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayProfileList).performScrollToKey("profile:unknown-id")
         sheetRow("unknown-id").assertHasNoClickAction()
-        sheetNode(RipDpiTestTags.configVpnProfileShare("unknown-id")).performScrollTo().performClick()
+        sheetNode(RipDpiTestTags.connectionRelayProfileShare("unknown-id")).performScrollTo().performClick()
         composeRule.waitForIdle()
         assertEquals(listOf("unknown-id"), shared)
         assertEquals(emptyList<String>(), selected)
@@ -146,7 +146,7 @@ class VpnProfileSearchTest {
         composeRule.setContent { Content(large) }
         open()
         sheetRow("import-499").assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList).performScrollToKey("profile:import-499")
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayProfileList).performScrollToKey("profile:import-499")
         sheetRow("import-499").performScrollTo().performClick()
         composeRule.runOnIdle { assertEquals(listOf("import-499"), edited) }
         assertEquals(emptyList<String>(), selected)
@@ -198,14 +198,14 @@ class VpnProfileSearchTest {
     }
 
     private fun open() =
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProfilesMore).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayProfilesMore).performScrollTo().performClick()
 
     private fun query(value: String) =
         composeRule.onNodeWithTag(RipDpiTestTags.profileSearchQuery(scope)).performTextReplacement(value)
 
     private fun cancel() = composeRule.onNodeWithTag(RipDpiTestTags.profileSearchCancel(scope)).performClick()
 
-    private fun sheetRow(id: String) = sheetNode(RipDpiTestTags.configVpnProfileRow(id))
+    private fun sheetRow(id: String) = sheetNode(RipDpiTestTags.connectionRelayProfileRow(id))
 
     private fun sheetNode(tag: String) =
         composeRule.onNode(hasTestTag(tag) and hasAnyAncestor(hasTestTag(RipDpiTestTags.RelayProfileSearchSheet)))

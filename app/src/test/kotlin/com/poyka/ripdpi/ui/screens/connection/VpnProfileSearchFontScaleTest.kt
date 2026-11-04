@@ -83,13 +83,20 @@ class VpnProfileSearchFontScaleTest {
         assertTrue("Actual sheet $sheet exceeds 411x839 viewport", sheet.width <= 411f && sheet.height <= 839f)
         label(text(R.string.config_cancel)).assertIsDisplayed()
         assertComplete(label(text(R.string.config_cancel)))
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList).performScrollToKey("profile:import-499")
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionRelayProfileList).performScrollToKey("profile:import-499")
         val title = label(profiles.last().selectorLabel).performScrollTo()
         assertComplete(title)
-        val select = composeRule.onNodeWithTag(RipDpiTestTags.configVpnProfileSelect("import-499")).performScrollTo()
+        val select =
+            composeRule
+                .onNodeWithTag(
+                    RipDpiTestTags.connectionRelayProfileSelect("import-499"),
+                ).performScrollTo()
         select.assertIsDisplayed()
         assertComplete(
-            label(text(R.string.profile_variants_cta_select), RipDpiTestTags.configVpnProfileSelect("import-499")),
+            label(
+                text(R.string.profile_variants_cta_select),
+                RipDpiTestTags.connectionRelayProfileSelect("import-499"),
+            ),
         )
         label(text(R.string.config_cancel)).assertIsDisplayed()
         select.performClick()

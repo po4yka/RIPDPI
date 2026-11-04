@@ -65,11 +65,11 @@ class ConnectionImportMenuTest {
 
         // The overflow button only opens the menu, so it must not announce the import action.
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigOverflowMenuButton)
+            .onNodeWithTag(RipDpiTestTags.ConnectionOverflowMenuButton)
             .assertContentDescriptionEquals("More options")
             .performClick()
         composeRule.runOnIdle { assertEquals(0, importRequests) }
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigImportClipboardMenuItem).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionImportClipboardMenuItem).performClick()
 
         composeRule.runOnIdle {
             assertEquals(1, importRequests)

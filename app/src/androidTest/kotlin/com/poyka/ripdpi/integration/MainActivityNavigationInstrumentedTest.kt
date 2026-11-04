@@ -406,8 +406,8 @@ class MainActivityNavigationInstrumentedTest {
     fun bottomNavSwitchesBetweenTopLevelDestinations() {
         composeRule.assertScreenVisible(Route.Status)
 
-        composeRule.tapBottomNav(Route.Config)
-        composeRule.assertScreenVisible(Route.Config)
+        composeRule.tapBottomNav(Route.Connection)
+        composeRule.assertScreenVisible(Route.Connection)
 
         composeRule.tapBottomNav(Route.Diagnostics())
         composeRule.assertScreenVisible(Route.Diagnostics())

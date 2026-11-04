@@ -22,7 +22,7 @@ class RipDpiNavHostLogicTest {
     @Test
     fun `top level route titles describe target information architecture`() {
         assertEquals(com.poyka.ripdpi.R.string.home, Route.Status.titleRes)
-        assertEquals(com.poyka.ripdpi.R.string.connection_title, Route.Config.titleRes)
+        assertEquals(com.poyka.ripdpi.R.string.connection_title, Route.Connection.titleRes)
         assertEquals(com.poyka.ripdpi.R.string.diagnostics, Route.Diagnostics().titleRes)
         assertEquals(com.poyka.ripdpi.R.string.settings, Route.Settings.titleRes)
     }
@@ -81,16 +81,16 @@ class RipDpiNavHostLogicTest {
 
     @Test
     fun `local bypass config route resolves without becoming a bottom tab`() {
-        assertEquals(Route.LocalBypassConfig, Route.fromStableRoute(Route.LocalBypassConfig.stableRoute))
-        assertTrue(Route.all.contains(Route.LocalBypassConfig))
-        assertFalse(Route.topLevel.contains(Route.LocalBypassConfig))
+        assertEquals(Route.ConnectionDirect, Route.fromStableRoute(Route.ConnectionDirect.stableRoute))
+        assertTrue(Route.all.contains(Route.ConnectionDirect))
+        assertFalse(Route.topLevel.contains(Route.ConnectionDirect))
     }
 
     @Test
     fun `vpn config route resolves without becoming a bottom tab`() {
-        assertEquals(Route.VpnConfig, Route.fromStableRoute(Route.VpnConfig.stableRoute))
-        assertTrue(Route.all.contains(Route.VpnConfig))
-        assertFalse(Route.topLevel.contains(Route.VpnConfig))
+        assertEquals(Route.ConnectionRelay, Route.fromStableRoute(Route.ConnectionRelay.stableRoute))
+        assertTrue(Route.all.contains(Route.ConnectionRelay))
+        assertFalse(Route.topLevel.contains(Route.ConnectionRelay))
     }
 
     @Test
@@ -123,7 +123,7 @@ class RipDpiNavHostLogicTest {
                 "ImportNavigation",
                 "ReplayNavigation",
                 "PrimaryNavigation",
-                "ConfigNavigation",
+                "ConnectionNavigation",
                 "SettingsNavigation",
             ).joinToString("") { name ->
                 File("src/main/kotlin/com/poyka/ripdpi/ui/navigation/$name.kt").readText()
@@ -284,9 +284,9 @@ class RipDpiNavHostLogicTest {
                         RipDpiTestTags.statusModePrimaryAction(mode.name),
                     )
                 } +
-                Mode.entries.map { mode -> RipDpiTestTags.configMode(mode.name) } +
+                Mode.entries.map { mode -> RipDpiTestTags.connectionScope(mode.name) } +
                 ConnectionPath.entries.map { section ->
-                    RipDpiTestTags.configPath(section.stableKey)
+                    RipDpiTestTags.connectionPath(section.stableKey)
                 } +
                 advancedSectionTags
         val requiredTestTags =
@@ -381,9 +381,9 @@ private val ExpectedRootScreenTags: Map<String, String> =
     mapOf(
         Route.Onboarding.stableRoute to "onboarding-screen",
         Route.Status.stableRoute to "home-screen",
-        Route.Config.stableRoute to "config-screen",
-        Route.LocalBypassConfig.stableRoute to "config/local_bypass-screen",
-        Route.VpnConfig.stableRoute to "config/vpn-screen",
+        Route.Connection.stableRoute to "config-screen",
+        Route.ConnectionDirect.stableRoute to "config/local_bypass-screen",
+        Route.ConnectionRelay.stableRoute to "config/vpn-screen",
         Route.Settings.stableRoute to "settings-screen",
         Route.BackupRestore.stableRoute to "backup_restore-screen",
         Route.Diagnostics().stableRoute to "diagnostics-screen",
@@ -441,13 +441,13 @@ private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
                 ReachabilityMechanism.TopLevelNavigation,
                 ReachabilityMechanism.DeepLink,
             ),
-        Route.Config.stableRoute to
+        Route.Connection.stableRoute to
             setOf(
                 ReachabilityMechanism.TopLevelNavigation,
                 ReachabilityMechanism.DeepLink,
             ),
-        Route.LocalBypassConfig.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
-        Route.VpnConfig.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
+        Route.ConnectionDirect.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
+        Route.ConnectionRelay.stableRoute to setOf(ReachabilityMechanism.ParentCallback),
         Route.Settings.stableRoute to
             setOf(
                 ReachabilityMechanism.TopLevelNavigation,
