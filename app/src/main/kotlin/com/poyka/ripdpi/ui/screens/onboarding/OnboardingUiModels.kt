@@ -39,7 +39,6 @@ sealed interface OnboardingValidationState {
     ) : OnboardingValidationState
 
     data class Success(
-        val latencyMs: Long,
         val mode: Mode,
     ) : OnboardingValidationState
 

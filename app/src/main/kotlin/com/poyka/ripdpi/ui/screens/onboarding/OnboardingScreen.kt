@@ -135,14 +135,12 @@ fun OnboardingRoute(
         actions =
             OnboardingScreenActions(
                 onPageChanged = remember(viewModel) { viewModel::setCurrentPage },
-                onSkip = remember(viewModel) { viewModel::skip },
+                onFinish = remember(viewModel) { viewModel::finish },
                 onContinue = remember(viewModel) { viewModel::nextPage },
                 onModeSelected = remember(viewModel) { viewModel::selectMode },
                 onPersonaSelected = remember(viewModel) { viewModel::selectPersona },
                 onRunValidation = remember(viewModel) { viewModel::runValidation },
-                onFinishDisconnected = remember(viewModel) { viewModel::finishDisconnected },
                 onFinishKeepRunning = remember(viewModel) { viewModel::finishKeepingRunning },
-                onFinishAnyway = remember(viewModel) { viewModel::finishAnyway },
                 onAcceptSuggestedMode = remember(viewModel) { viewModel::acceptSuggestedMode },
                 onChangeDns = onOpenAdvancedDns,
             ),
@@ -176,14 +174,12 @@ private tailrec fun Context.findActivity(): Activity? =
 
 internal data class OnboardingScreenActions(
     val onPageChanged: (Int) -> Unit = {},
-    val onSkip: () -> Unit = {},
+    val onFinish: () -> Unit = {},
     val onContinue: () -> Unit = {},
     val onModeSelected: (Mode) -> Unit = {},
     val onPersonaSelected: (String) -> Unit = {},
     val onRunValidation: () -> Unit = {},
-    val onFinishDisconnected: () -> Unit = {},
     val onFinishKeepRunning: () -> Unit = {},
-    val onFinishAnyway: () -> Unit = {},
     val onAcceptSuggestedMode: () -> Unit = {},
     val onChangeDns: () -> Unit = {},
 )
@@ -254,10 +250,8 @@ internal fun OnboardingScreen(
                 backEnabled = !validationBusy,
                 skipTestVisible = skipTestVisible,
                 finishDisconnectedVisible = validationState is OnboardingValidationState.Success,
-                onSkip = actions.onSkip,
+                onFinish = actions.onFinish,
                 onBack = { actions.onPageChanged(settledPage - 1) },
-                onFinishAnyway = actions.onFinishAnyway,
-                onFinishDisconnected = actions.onFinishDisconnected,
             )
 
             // 2) CONTENT — weighted; each page renders its own title at the top
@@ -315,7 +309,7 @@ private fun OnboardingPagerContent(
                         onPersonaSelected = actions.onPersonaSelected,
                         onAcceptSuggestedMode = actions.onAcceptSuggestedMode,
                         onChangeDns = actions.onChangeDns,
-                        onFinishAnyway = actions.onFinishAnyway,
+                        onFinish = actions.onFinish,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }
@@ -331,10 +325,8 @@ private fun OnboardingTopBar(
     backEnabled: Boolean,
     skipTestVisible: Boolean,
     finishDisconnectedVisible: Boolean,
-    onSkip: () -> Unit,
+    onFinish: () -> Unit,
     onBack: () -> Unit,
-    onFinishAnyway: () -> Unit,
-    onFinishDisconnected: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
@@ -358,17 +350,17 @@ private fun OnboardingTopBar(
         }
         when {
             skipVisible -> {
-                OnboardingTopBarAction(R.string.onboarding_skip_setup, onSkip, RipDpiTestTags.OnboardingSkip)
+                OnboardingTopBarAction(R.string.onboarding_skip_setup, onFinish, RipDpiTestTags.OnboardingSkip)
             }
 
             skipTestVisible -> {
-                OnboardingTopBarAction(R.string.onboarding_skip_test, onFinishAnyway, RipDpiTestTags.OnboardingSkipTest)
+                OnboardingTopBarAction(R.string.onboarding_skip_test, onFinish, RipDpiTestTags.OnboardingSkipTest)
             }
 
             finishDisconnectedVisible -> {
                 OnboardingTopBarAction(
                     R.string.onboarding_validation_finish_disconnected,
-                    onFinishDisconnected,
+                    onFinish,
                     RipDpiTestTags.OnboardingFinishDisconnected,
                 )
             }
@@ -717,7 +709,7 @@ private fun OnboardingSetupPageScene(
     onPersonaSelected: (String) -> Unit,
     onAcceptSuggestedMode: () -> Unit,
     onChangeDns: () -> Unit,
-    onFinishAnyway: () -> Unit,
+    onFinish: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
@@ -778,7 +770,7 @@ private fun OnboardingSetupPageScene(
                         uiState = uiState,
                         onAcceptSuggestedMode = onAcceptSuggestedMode,
                         onChangeDns = onChangeDns,
-                        onFinishAnyway = onFinishAnyway,
+                        onFinish = onFinish,
                         modifier = Modifier.fillMaxWidth(),
                     )
                 }

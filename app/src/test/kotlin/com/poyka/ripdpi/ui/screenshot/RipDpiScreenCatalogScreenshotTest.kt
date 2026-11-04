@@ -178,10 +178,7 @@ class RipDpiScreenCatalogScreenshotTest {
     @Test
     fun onboardingValidationSuccessScreen() {
         captureOnboardingValidationScreen(
-            OnboardingValidationState.Success(
-                latencyMs = 42,
-                mode = Mode.VPN,
-            ),
+            OnboardingValidationState.Success(mode = Mode.VPN),
         )
     }
 

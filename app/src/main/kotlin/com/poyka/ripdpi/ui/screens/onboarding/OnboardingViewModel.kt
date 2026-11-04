@@ -167,17 +167,8 @@ class OnboardingViewModel
             completeOnboarding()
         }
 
-        fun finishDisconnected() {
-            validationCoordinator.stopActiveValidation()
-            completeOnboarding()
-        }
-
-        fun finishAnyway() {
-            validationCoordinator.stopActiveValidation()
-            completeOnboarding()
-        }
-
-        fun skip() {
+        /** Stops any validation runtime and leaves onboarding. */
+        fun finish() {
             validationCoordinator.stopActiveValidation()
             completeOnboarding()
         }

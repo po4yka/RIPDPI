@@ -65,7 +65,7 @@ class OnboardingScreenTest {
         var skipped = false
         renderOnboarding(
             uiState = OnboardingUiState(currentPage = 0),
-            onSkip = { skipped = true },
+            onFinish = { skipped = true },
         )
 
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkip).performClick()
@@ -292,7 +292,7 @@ class OnboardingScreenTest {
         renderOnboarding(
             OnboardingUiState(
                 currentPage = OnboardingPages.lastIndex,
-                validationState = OnboardingValidationState.Success(latencyMs = 42, mode = Mode.VPN),
+                validationState = OnboardingValidationState.Success(mode = Mode.VPN),
             ),
         )
 
@@ -458,7 +458,7 @@ class OnboardingScreenTest {
 
     private fun renderOnboarding(
         uiState: OnboardingUiState,
-        onSkip: () -> Unit = {},
+        onFinish: () -> Unit = {},
         onChangeDns: () -> Unit = {},
     ) {
         composeRule.setContent {
@@ -467,7 +467,7 @@ class OnboardingScreenTest {
                     uiState = uiState,
                     actions =
                         OnboardingScreenActions(
-                            onSkip = onSkip,
+                            onFinish = onFinish,
                             onChangeDns = onChangeDns,
                         ),
                 )

@@ -6,7 +6,6 @@ import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.FakePermissionPlatformBridge
 import com.poyka.ripdpi.activities.FakePermissionStatusProvider
 import com.poyka.ripdpi.activities.FakeStringResolver
-import com.poyka.ripdpi.data.DnsProviderAdGuard
 import com.poyka.ripdpi.data.DnsProviderGoogle
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.permissions.PermissionResult
@@ -176,7 +175,7 @@ class OnboardingViewModelTest {
             val repository = FakeAppSettingsRepository()
             val runner =
                 FakeOnboardingModeValidationRunner().apply {
-                    result = OnboardingValidationResult.Success(latencyMs = 41)
+                    result = OnboardingValidationResult.Success
                 }
             val vm = createViewModel(repository = repository, validationRunner = runner)
 
@@ -198,7 +197,7 @@ class OnboardingViewModelTest {
         runTest {
             val runner =
                 FakeOnboardingModeValidationRunner().apply {
-                    result = OnboardingValidationResult.Success(latencyMs = 22)
+                    result = OnboardingValidationResult.Success
                 }
             val vm = createViewModel(validationRunner = runner)
             vm.selectMode(Mode.Proxy)
@@ -208,7 +207,7 @@ class OnboardingViewModelTest {
 
             assertEquals(listOf(Mode.Proxy), runner.validateCalls)
             assertEquals(
-                OnboardingValidationState.Success(latencyMs = 22, mode = Mode.Proxy),
+                OnboardingValidationState.Success(mode = Mode.Proxy),
                 vm.uiState.value.validationState,
             )
         }
@@ -218,7 +217,7 @@ class OnboardingViewModelTest {
         runTest {
             val runner =
                 FakeOnboardingModeValidationRunner().apply {
-                    result = OnboardingValidationResult.Success(latencyMs = 54)
+                    result = OnboardingValidationResult.Success
                 }
             val permissionStatusProvider =
                 FakePermissionStatusProvider(
@@ -542,7 +541,7 @@ class OnboardingViewModelTest {
             val repository = FakeAppSettingsRepository()
             val runner =
                 FakeOnboardingModeValidationRunner().apply {
-                    result = OnboardingValidationResult.Success(latencyMs = 60)
+                    result = OnboardingValidationResult.Success
                 }
             val vm = createViewModel(repository = repository, validationRunner = runner)
 
@@ -560,58 +559,23 @@ class OnboardingViewModelTest {
         }
 
     @Test
-    fun `finish disconnected stops temporary runtime before completion`() =
+    fun `finish stops temporary runtime before completion`() =
         runTest {
             val repository = FakeAppSettingsRepository()
             val runner = FakeOnboardingModeValidationRunner()
             val vm = createViewModel(repository = repository, validationRunner = runner)
 
             vm.effects.test {
-                vm.finishDisconnected()
+                vm.finish()
                 assertTrue(awaitItem() is OnboardingEffect.OnboardingComplete)
             }
 
             assertTrue(repository.snapshot().onboardingComplete)
             assertEquals(1, runner.stopCount)
-        }
-
-    @Test
-    fun `finish anyway stops temporary runtime before completion`() =
-        runTest {
-            val repository = FakeAppSettingsRepository()
-            val runner = FakeOnboardingModeValidationRunner()
-            val vm = createViewModel(repository = repository, validationRunner = runner)
-
-            vm.effects.test {
-                vm.finishAnyway()
-                assertTrue(awaitItem() is OnboardingEffect.OnboardingComplete)
-            }
-
-            assertTrue(repository.snapshot().onboardingComplete)
-            assertEquals(1, runner.stopCount)
-        }
-
-    @Test
-    fun `skip stops temporary runtime before completion`() =
-        runTest {
-            val repository = FakeAppSettingsRepository()
-            val runner = FakeOnboardingModeValidationRunner()
-            val vm = createViewModel(repository = repository, validationRunner = runner)
-
-            vm.effects.test {
-                vm.skip()
-                assertTrue(awaitItem() is OnboardingEffect.OnboardingComplete)
-            }
-
-            assertTrue(repository.snapshot().onboardingComplete)
-            assertEquals(1, runner.stopCount)
-            assertEquals(vm.uiState.value.selectedMode.preferenceValue, repository.snapshot().ripdpiMode)
-            assertEquals(OnboardingDnsSystemId, vm.uiState.value.selectedDnsProviderId)
-            assertEquals(DnsProviderAdGuard, repository.snapshot().dnsProviderId)
         }
 
     private class FakeOnboardingModeValidationRunner : OnboardingModeValidationRunner {
-        var result: OnboardingValidationResult = OnboardingValidationResult.Success(latencyMs = 30)
+        var result: OnboardingValidationResult = OnboardingValidationResult.Success
         val validateCalls = mutableListOf<Mode>()
         var stopCount: Int = 0
         var retainCount: Int = 0

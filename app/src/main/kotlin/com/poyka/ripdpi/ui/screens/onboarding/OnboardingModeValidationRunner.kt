@@ -44,7 +44,6 @@ import java.net.URI
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
-import kotlin.system.measureTimeMillis
 
 private const val ValidationStartTimeoutMs = 15_000L
 private const val ValidationStopTimeoutMs = 5_000L
@@ -56,9 +55,7 @@ private const val HttpsPort = 443
 private const val SocksReplyHostUnreachable = 4
 
 sealed interface OnboardingValidationResult {
-    data class Success(
-        val latencyMs: Long,
-    ) : OnboardingValidationResult
+    data object Success : OnboardingValidationResult
 
     data class Failed(
         val reason: String,
@@ -104,8 +101,8 @@ class DefaultOnboardingModeValidationRunner
                 onProgress(OnboardingValidationState.CheckingDns(mode))
                 runDnsProbe(mode, route)
                 onProgress(OnboardingValidationState.RunningTrafficCheck(mode))
-                val latencyMs = runConnectivityProbe(route)
-                OnboardingValidationResult.Success(latencyMs = latencyMs)
+                runConnectivityProbe(route)
+                OnboardingValidationResult.Success
             } catch (e: OnboardingProbeException) {
                 Logger.w(e) { "Onboarding validation ${e.step} probe failed for $mode" }
                 stopActiveValidation()
@@ -294,7 +291,7 @@ class DefaultOnboardingModeValidationRunner
                 cause = cause,
             )
 
-        private suspend fun runConnectivityProbe(route: LocalSocksRoute): Long =
+        private suspend fun runConnectivityProbe(route: LocalSocksRoute) =
             try {
                 withContext(dispatchers.io) {
                     runConnectivityProbeBlocking(route)
@@ -311,7 +308,7 @@ class DefaultOnboardingModeValidationRunner
                 )
             }
 
-        private fun runConnectivityProbeBlocking(route: LocalSocksRoute): Long {
+        private fun runConnectivityProbeBlocking(route: LocalSocksRoute) {
             val request =
                 Request
                     .Builder()
@@ -326,20 +323,10 @@ class DefaultOnboardingModeValidationRunner
                     followRedirects(false)
                     localSocksProxy(route)
                 }
-            return runCatching {
-                var responseCode = 0
-                val elapsed =
-                    measureTimeMillis {
-                        client.newCall(request).execute().use { response ->
-                            responseCode = response.code
-                        }
-                    }
-                elapsed.also {
-                    // generate_204 answers exactly 204: anything else comes from a captive portal or a filter.
-                    if (responseCode != HttpNoContent) {
-                        throwProbeFailure(IOException("HTTP $responseCode"))
-                    }
-                }
+            runCatching {
+                val responseCode = client.newCall(request).execute().use { response -> response.code }
+                // generate_204 answers exactly 204: anything else comes from a captive portal or a filter.
+                if (responseCode != HttpNoContent) throw IOException("HTTP $responseCode")
             }.getOrElse { e -> throwProbeFailure(e) }
         }
 

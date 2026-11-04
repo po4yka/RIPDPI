@@ -26,8 +26,8 @@ class OnboardingValidationCoordinator
 
         private fun OnboardingValidationResult.toValidationState(mode: Mode): OnboardingValidationState =
             when (this) {
-                is OnboardingValidationResult.Success -> {
-                    OnboardingValidationState.Success(latencyMs = latencyMs, mode = mode)
+                OnboardingValidationResult.Success -> {
+                    OnboardingValidationState.Success(mode = mode)
                 }
 
                 is OnboardingValidationResult.Failed -> {
