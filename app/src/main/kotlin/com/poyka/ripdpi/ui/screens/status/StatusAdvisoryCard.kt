@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.status
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -83,9 +84,18 @@ private fun AdvisoryCard(
     var expanded by rememberSaveable { mutableStateOf(false) }
     val recoveryIndex = advisories.indexOfFirst { it.onClick != null }
     val remaining = advisories.filterIndexed { index, _ -> index != 0 && index != recoveryIndex }
+    val cardPadding = RipDpiThemeTokens.layout.cardPadding
     RipDpiCard(
         variant = RipDpiCardVariant.Tonal,
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeSetupHealthRow),
+        // The disclosure's touch target already adds space under its label.
+        paddingValues =
+            PaddingValues(
+                start = cardPadding,
+                top = cardPadding,
+                end = cardPadding,
+                bottom = if (remaining.isEmpty()) cardPadding else RipDpiThemeTokens.spacing.sm,
+            ),
     ) {
         AdvisoryRow(
             advisory = top,
@@ -160,10 +170,10 @@ private fun AdvisoryRow(
                     horizontalArrangement = Arrangement.spacedBy(spacing.xs),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    // fill = false keeps room for the chevron when a long label wraps.
+                    // Pushes the chevron to the edge, in line with the disclosure chevron.
                     Text(
                         text = advisory.actionLabel,
-                        modifier = Modifier.weight(1f, fill = false),
+                        modifier = Modifier.weight(1f),
                         style = type.bodyEmphasis,
                         color = colors.foreground,
                     )
@@ -218,7 +228,7 @@ private fun AdvisoryDisclosure(
             imageVector = RipDpiIcons.KeyboardArrowDown,
             contentDescription = null,
             tint = colors.mutedForeground,
-            modifier = Modifier.size(RipDpiIconSizes.Default).rotate(chevronAngle),
+            modifier = Modifier.size(RipDpiIconSizes.Small).rotate(chevronAngle),
         )
     }
 }

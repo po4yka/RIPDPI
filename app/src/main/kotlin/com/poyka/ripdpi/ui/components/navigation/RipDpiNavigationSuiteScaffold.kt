@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.ui.components.navigation
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ShortNavigationBarItemDefaults
@@ -12,6 +14,8 @@ import androidx.compose.material3.adaptive.navigationsuite.NavigationSuiteType
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawWithContent
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
@@ -19,6 +23,7 @@ import com.poyka.ripdpi.ui.components.RipDpiHapticFeedback
 import com.poyka.ripdpi.ui.components.rememberRipDpiHapticPerformer
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIconSizes
+import com.poyka.ripdpi.ui.theme.RipDpiStroke
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.RipDpiWidthClass
 import kotlinx.collections.immutable.ImmutableList
@@ -122,7 +127,30 @@ fun RipDpiNavigationSuiteScaffold(
             ),
         containerColor = colors.background,
         contentColor = colors.foreground,
-        content = content,
+        content = {
+            // The bar shares the page color, so a hairline marks where scrolled content ends.
+            val hairline = surfaces.resolve(roles.bottomBar).border
+            Box(
+                modifier =
+                    Modifier.fillMaxSize().then(
+                        if (suiteType == NavigationSuiteType.ShortNavigationBarCompact ||
+                            suiteType == NavigationSuiteType.ShortNavigationBarMedium
+                        ) {
+                            Modifier.drawWithContent {
+                                drawContent()
+                                val stroke = RipDpiStroke.Thin.toPx()
+                                val y = size.height - stroke / 2
+                                drawLine(hairline, Offset(0f, y), Offset(size.width, y), stroke)
+                            }
+                        } else {
+                            Modifier
+                        },
+                    ),
+                propagateMinConstraints = true,
+            ) {
+                content()
+            }
+        },
     )
 }
 
