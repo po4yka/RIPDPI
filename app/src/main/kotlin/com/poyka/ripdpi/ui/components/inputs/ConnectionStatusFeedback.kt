@@ -24,7 +24,7 @@ internal fun ConnectionStatusFeedback(
     tint: Color,
 ) {
     val motion = RipDpiThemeTokens.motion
-    val slotSize = maxOf(RipDpiThemeTokens.components.indicators.spinnerSmallSize, RipDpiIconSizes.Small)
+    val slotSize = maxOf(RipDpiThemeTokens.components.indicators.spinnerSmallSize, RipDpiIconSizes.Default)
     Box(
         modifier = Modifier.size(slotSize).clearAndSetSemantics {},
         contentAlignment = Alignment.Center,
@@ -57,7 +57,7 @@ private fun ConnectionStatusSymbol(
         Icon(
             imageVector = status.icon(),
             contentDescription = null,
-            modifier = Modifier.size(RipDpiIconSizes.Small),
+            modifier = Modifier.size(RipDpiIconSizes.Default),
             tint = tint,
         )
     }

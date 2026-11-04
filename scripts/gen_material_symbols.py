@@ -16,14 +16,14 @@ ANDROID = "{http://schemas.android.com/apk/res/android}"
 # Kotlin constant name -> Material Symbols name, or "<name>/<file stem without _24px>" for a file variant
 ICONS = {
     "Add": "add", "Archive": "archive", "ArrowBack": "arrow_back", "Article": "article",
-    "Cancel": "cancel", "Check": "check", "Close": "close", "ContentCopy": "content_copy",
+    "Cancel": "cancel", "Check": "check", "Close": "close", "ContentCopy": "content_copy", "Dashboard": "dashboard",
     "ContentPaste": "content_paste", "Delete": "delete", "Dns": "dns", "DriveFileMove": "drive_file_move",
-    "Edit": "edit", "FileOpen": "file_open", "History": "history", "Home": "home", "Image": "image",
+    "Edit": "edit", "FileOpen": "file_open", "History": "history", "Image": "image",
     "Info": "info", "KeyboardArrowDown": "keyboard_arrow_down",
     "KeyboardArrowRight": "keyboard_arrow_right", "KeyboardArrowUp": "keyboard_arrow_up",
     "LocationOn": "location_on", "Lock": "lock", "LockOpen": "lock_open", "MoreVert": "more_vert",
     "NetworkCheck": "network_check", "NoPhotography": "no_photography", "OpenInNew": "open_in_new",
-    "PhotoCamera": "photo_camera", "Public": "public", "QrCodeScanner": "qr_code_scanner",
+    "Pause": "pause", "PhotoCamera": "photo_camera", "Public": "public", "QrCodeScanner": "qr_code_scanner",
     "Refresh": "refresh", "Remove": "remove", "Science": "science", "Search": "search",
     "Settings": "settings", "SettingsBackupRestore": "settings_backup_restore", "Share": "share",
     "Shield": "shield", "Star": "star", "StarFilled": "star/star_fill1", "TaskAlt": "task_alt", "Timer": "timer", "Tune": "tune",

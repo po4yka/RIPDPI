@@ -36,7 +36,7 @@ private fun symbol(
 
 // Keep iconography on a single outlined Material Symbols language. Screens should import only this facade.
 object RipDpiIcons {
-    val Home: ImageVector by lazy { symbol("Home", P.Home) }
+    val Dashboard: ImageVector by lazy { symbol("Dashboard", P.Dashboard) }
     val Config: ImageVector by lazy { symbol("Config", P.Tune) }
     val Logs: ImageVector by lazy { symbol("Logs", P.Article, autoMirror = true) }
     val Settings: ImageVector by lazy { symbol("Settings", P.Settings) }
@@ -67,6 +67,7 @@ object RipDpiIcons {
     val Public: ImageVector by lazy { symbol("Public", P.Public) }
     val Remove: ImageVector by lazy { symbol("Remove", P.Remove) }
     val Shield: ImageVector by lazy { symbol("Shield", P.Shield) }
+    val Pause: ImageVector by lazy { symbol("Pause", P.Pause) }
     val Timer: ImageVector by lazy { symbol("Timer", P.Timer) }
     val Videocam: ImageVector by lazy { symbol("Videocam", P.Videocam) }
     val Visibility: ImageVector by lazy { symbol("Visibility", P.Visibility) }

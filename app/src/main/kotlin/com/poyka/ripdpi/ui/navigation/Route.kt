@@ -37,7 +37,7 @@ sealed class Route {
     data object Home : Route() {
         override val stableRoute = "home"
         override val titleRes = R.string.home
-        override val icon: ImageVector = RipDpiIcons.Home
+        override val icon: ImageVector = RipDpiIcons.Dashboard
     }
 
     @Serializable
@@ -87,7 +87,7 @@ sealed class Route {
         override val titleRes = R.string.diagnostics
 
         @kotlinx.serialization.Transient
-        override val icon: ImageVector = RipDpiIcons.Logs
+        override val icon: ImageVector = RipDpiIcons.NetworkCheck
     }
 
     @Serializable

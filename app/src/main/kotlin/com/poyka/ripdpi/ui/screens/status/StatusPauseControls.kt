@@ -55,7 +55,7 @@ internal fun StatusPauseControls(
                 text = stringResource(R.string.pause_action),
                 onClick = { chooseDuration = true },
                 variant = RipDpiButtonVariant.Ghost,
-                leadingIcon = RipDpiIcons.Timer,
+                leadingIcon = RipDpiIcons.Pause,
                 wrapLabel = true,
                 modifier = Modifier.primaryActionWidth().ripDpiTestTag(RipDpiTestTags.HomePauseOpen),
             )
