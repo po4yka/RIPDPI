@@ -520,7 +520,7 @@ class OnboardingScreenTest {
         composeRule.runOnIdle { uiState = uiState.copy(currentPage = OnboardingInfoPageCount + 1) }
         composeRule.waitForIdle()
         listOf(
-            "Routes all app traffic through a local on-device VPN. Full coverage, no manual setup.",
+            "Routes all apps through an on-device VPN. Android asks for permission first.",
             "Runs a local proxy for apps or clients that support manual proxy configuration.",
             "Use an imported Xray profile instead of the built-in VPN.",
         ).forEach(::assertCompleteScrollableText)

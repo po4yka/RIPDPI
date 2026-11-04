@@ -9,7 +9,7 @@
     <string name="onboarding_local_first_body">Tudo é executado no seu dispositivo.</string>
     <string name="onboarding_setup_mode_title">Escolha o modo de tráfego</string>
     <string name="onboarding_setup_mode_vpn_title">Modo VPN</string>
-    <string name="onboarding_setup_mode_vpn_body">Encaminha todo o tráfego do app por uma VPN local no dispositivo. Cobertura total, sem configuração manual.</string>
+    <string name="onboarding_setup_mode_vpn_body">Encaminha todos os apps por uma VPN no dispositivo. O Android pede permissão primeiro.</string>
     <string name="onboarding_setup_mode_proxy_title">Modo proxy</string>
     <string name="onboarding_setup_mode_proxy_body">Executa um proxy local para apps ou clientes compatíveis com configuração manual de proxy.</string>
     <string name="onboarding_setup_dns_system">Padrão do sistema</string>

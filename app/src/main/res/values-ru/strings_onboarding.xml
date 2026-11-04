@@ -9,7 +9,7 @@
     <string name="onboarding_setup_finish">Завершить</string>
     <string name="onboarding_setup_mode_title">Выберите режим трафика</string>
     <string name="onboarding_setup_mode_vpn_title">Режим VPN</string>
-    <string name="onboarding_setup_mode_vpn_body">Направляет весь трафик приложений через локальный VPN на устройстве. Полное покрытие без ручной настройки.</string>
+    <string name="onboarding_setup_mode_vpn_body">Направляет трафик всех приложений через VPN на устройстве. Android сначала запросит разрешение.</string>
     <string name="onboarding_setup_mode_proxy_title">Режим Proxy</string>
     <string name="onboarding_setup_mode_proxy_body">Запускает локальный прокси для приложений и клиентов, поддерживающих ручную настройку прокси.</string>
     <string name="onboarding_setup_dns_system">Системный по умолчанию</string>

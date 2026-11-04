@@ -9,7 +9,7 @@
     <string name="onboarding_local_first_body">सब कुछ आपके डिवाइस पर चलता है।</string>
     <string name="onboarding_setup_mode_title">ट्रैफ़िक मोड चुनें</string>
     <string name="onboarding_setup_mode_vpn_title">VPN मोड</string>
-    <string name="onboarding_setup_mode_vpn_body">सभी ऐप ट्रैफ़िक को डिवाइस पर मौजूद स्थानीय VPN के ज़रिए रूट करता है। पूर्ण कवरेज, कोई मैन्युअल सेटअप नहीं।</string>
+    <string name="onboarding_setup_mode_vpn_body">सभी ऐप्स को डिवाइस पर मौजूद VPN के ज़रिए रूट करता है। Android पहले अनुमति माँगता है।</string>
     <string name="onboarding_setup_mode_proxy_title">Proxy मोड</string>
     <string name="onboarding_setup_mode_proxy_body">उन ऐप्स या क्लाइंट के लिए स्थानीय proxy चलाता है जो मैन्युअल proxy कॉन्फ़िगरेशन का समर्थन करते हैं।</string>
     <string name="onboarding_setup_dns_system">सिस्टम डिफ़ॉल्ट</string>

@@ -50,7 +50,7 @@
     <string name="onboarding_local_first_title">حریم خصوصی از پایه</string>
     <string name="onboarding_setup_dns_system">پیش‌فرض سیستم</string>
     <string name="onboarding_setup_mode_proxy_body">یک پراکسی محلی برای برنامه‌ها یا کلاینت‌هایی که از پیکربندی دستی پراکسی پشتیبانی می‌کنند اجرا می‌کند.</string>
-    <string name="onboarding_setup_mode_vpn_body">تمام ترافیک برنامه‌ها را از طریق یک VPN محلی روی دستگاه مسیریابی می‌کند. پوشش کامل، بدون راه‌اندازی دستی.</string>
+    <string name="onboarding_setup_mode_vpn_body">همه برنامه‌ها را از طریق یک VPN روی دستگاه مسیریابی می‌کند. Android ابتدا اجازه می‌خواهد.</string>
     <string name="onboarding_setup_validate_title">آزمایش اتصال</string>
     <string name="onboarding_step_progress">مرحله %1$d از %2$d</string>
     <string name="permissions_background_activity_body_oneplus">دستگاه‌های OnePlus ممکن است برنامه‌های پس‌زمینه را به‌طور تهاجمی متوقف کنند. به Settings &gt; Battery &gt; Battery optimization بروید، RIPDPI را پیدا کرده و Don\'t optimize را انتخاب کنید. همچنین در صورت موجود بودن، Deep Optimization و Sleep Standby Optimization را غیرفعال کنید.</string>

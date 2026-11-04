@@ -54,7 +54,7 @@
     <string name="biometric_prompt_pin_helper">Solo dígitos. El PIN se verifica localmente y nunca sale de este dispositivo.</string>
     <string name="biometric_prompt_pin_title">Introduce el PIN de respaldo</string>
     <string name="onboarding_setup_dns_cloudflare_body">Resolutor DNS rápido de uso general.</string>
-    <string name="onboarding_setup_mode_vpn_body">Enruta todo el tráfico de las apps a través de una VPN local en el dispositivo. Cobertura completa, sin configuración manual.</string>
+    <string name="onboarding_setup_mode_vpn_body">Enruta todas las apps por una VPN en el dispositivo. Android pedirá permiso primero.</string>
     <string name="permissions_background_activity_body">Algunos dispositivos añaden límites adicionales en segundo plano más allá de la optimización de batería de Android. Si RIPDPI se detiene en segundo plano, revisa la configuración de batería o de uso en segundo plano de la aplicación.</string>
     <string name="permissions_background_activity_title">Actividad en segundo plano</string>
     <string name="permissions_notifications_title">Permitir notificaciones de estado</string>
