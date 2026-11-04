@@ -68,9 +68,10 @@ class StatusConnectionMeasurementsTest {
     }
 
     @Test
-    fun `measured zero loss window is kept without RTT samples`() {
+    fun `an empty window with no samples does not claim zero loss`() {
         render(ConnectionQualitySnapshot(windowStartAtMs = 1_000L), currentSource())
-        node(R.string.vpn_quality_metric_loss).assertExists()
+        node(R.string.home_quality_partial).assertExists()
+        node(R.string.vpn_quality_metric_loss).assertDoesNotExist()
         node(R.string.vpn_quality_metric_rtt_p50).assertDoesNotExist()
         node(R.string.vpn_quality_strip_nominal_title).assertDoesNotExist()
     }

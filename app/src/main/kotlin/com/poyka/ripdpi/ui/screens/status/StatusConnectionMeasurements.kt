@@ -1,8 +1,6 @@
 package com.poyka.ripdpi.ui.screens.status
 
 import android.text.format.Formatter
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -33,15 +31,11 @@ import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationStrip
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDegradationTone
 import com.poyka.ripdpi.ui.screens.health.LatencyDetailDialog
 import com.poyka.ripdpi.ui.screens.health.LatencyDetailSnapshot
-import com.poyka.ripdpi.ui.screens.health.MeasurementCaption
-import com.poyka.ripdpi.ui.screens.health.MeasurementSource
 import com.poyka.ripdpi.ui.screens.health.measurementNow
-import com.poyka.ripdpi.ui.screens.health.measurementTimestamp
 import com.poyka.ripdpi.ui.screens.health.selectedLatencyDetailSnapshot
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.DefaultRipDpiNetworkQualityThresholds
-import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.resolveDegradationTone
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.flow.first
@@ -77,53 +71,40 @@ internal fun StatusConnectionMeasurements(
     val currentTime = now ?: source?.let { measurementNow(it) } ?: 0L
     val summary = resolveHomeMeasurementSummary(observed, source?.freshness(currentTime).takeIf { connected })
     if (hasMeasurements) {
-        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs)) {
-            RipDpiDegradationStrip(
-                title = stringResource(summary.title),
-                body = stringResource(summary.body),
-                metrics =
-                    homeMeasurementMetrics(
-                        observed,
-                        dataTransferred,
-                        latencyModifier =
-                            Modifier
-                                .semantics { stateDescription = qualityMeaning }
-                                .focusProperties { canFocus = true }
-                                .focusRequester(
-                                    latencyFocus,
-                                ).ripDpiTestTag(RipDpiTestTags.HomeLatencyMetric),
-                        onOpenLatency = {
-                            returnFocusRequested = false
-                            selectedSnapshot =
-                                selectedLatencyDetailSnapshot(
-                                    observed,
-                                    source,
-                                    connected,
-                                    now ?: System.currentTimeMillis(),
-                                )
-                        },
-                    ),
-                sinceLabel =
-                    observed?.takeIf { it.sampleCount > 0L }?.let {
-                        pluralStringResource(R.plurals.home_quality_samples, it.sampleCount.toInt(), it.sampleCount)
-                    } ?: stringResource(R.string.measurement_byte_total),
-                primaryAction = measureAction(measured = observed != null, onMeasure = onReprobe),
-                secondaryAction = null,
-                tone = summary.tone,
-                modifier = Modifier.fillMaxWidth(),
-            )
-            observed?.let {
-                MeasurementCaption(
-                    if (it.windowStartAtMs > 0L) {
-                        stringResource(R.string.measurement_quality_window, measurementTimestamp(it.windowStartAtMs))
-                    } else {
-                        stringResource(R.string.measurement_window_unknown)
+        RipDpiDegradationStrip(
+            title = stringResource(summary.title),
+            body = stringResource(summary.body),
+            metrics =
+                homeMeasurementMetrics(
+                    observed,
+                    dataTransferred,
+                    latencyModifier =
+                        Modifier
+                            .semantics { stateDescription = qualityMeaning }
+                            .focusProperties { canFocus = true }
+                            .focusRequester(
+                                latencyFocus,
+                            ).ripDpiTestTag(RipDpiTestTags.HomeLatencyMetric),
+                    onOpenLatency = {
+                        returnFocusRequested = false
+                        selectedSnapshot =
+                            selectedLatencyDetailSnapshot(
+                                observed,
+                                source,
+                                connected,
+                                now ?: System.currentTimeMillis(),
+                            )
                     },
-                )
-                // The summary body above already says when values are old; a second badge would repeat it.
-                MeasurementSource(source, currentTime, showFreshness = false)
-            }
-        }
+                ),
+            footnote =
+                observed?.takeIf { it.sampleCount > 0L }?.let {
+                    pluralStringResource(R.plurals.home_quality_samples, it.sampleCount.toInt(), it.sampleCount)
+                },
+            primaryAction = measureAction(measured = observed != null, onMeasure = onReprobe),
+            secondaryAction = null,
+            tone = summary.tone,
+            modifier = Modifier.fillMaxWidth(),
+        )
     }
     selectedSnapshot?.let { snapshot ->
         LatencyDetailDialog(snapshot) {
@@ -202,12 +183,15 @@ private fun homeMeasurementMetrics(
     onOpenLatency: () -> Unit,
 ) = buildList {
     quality?.let {
-        add(
-            homeMetric(
-                R.string.vpn_quality_metric_loss,
-                stringResource(R.string.home_quality_metric_loss_format, it.lossPct),
-            ),
-        )
+        // Zero loss with no samples is an empty window, not a good result.
+        if (it.lossPct > 0f || it.sampleCount > 0L) {
+            add(
+                homeMetric(
+                    R.string.vpn_quality_metric_loss,
+                    stringResource(R.string.home_quality_metric_loss_format, it.lossPct),
+                ),
+            )
+        }
         if (it.sampleCount > 0L) {
             add(
                 homeMetric(

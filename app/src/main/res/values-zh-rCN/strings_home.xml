@@ -389,7 +389,7 @@
     </plurals>
     <string name="home_quality_measurements_title">连接测量</string>
     <string name="home_quality_waiting">尚无质量测量。流量总量不能反映连接质量。</string>
-    <string name="home_quality_partial">下方显示可用测量。质量评估需要更多近期 RTT 样本。</string>
+    <string name="home_quality_partial">质量评估需要更多近期 RTT 样本。</string>
     <string name="home_quality_last_values">最近上报的测量不能反映当前连接质量。</string>
     <string name="home_quality_traffic_total">总流量</string>
     <string name="pause_action">暂停连接</string>

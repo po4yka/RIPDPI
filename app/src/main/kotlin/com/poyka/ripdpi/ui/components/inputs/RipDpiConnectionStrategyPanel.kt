@@ -21,6 +21,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.screens.status.StatusModeSummaryFacet
@@ -50,6 +51,7 @@ internal fun RipDpiConnectionStrategyPanel(
     val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     val expandable = facets.isNotEmpty()
+    val inset = RipDpiThemeTokens.layout.cardPadding
     var expanded by rememberSaveable { mutableStateOf(false) }
     val expandedLabel = stringResource(R.string.semantic_state_expanded)
     val collapsedLabel = stringResource(R.string.semantic_state_collapsed)
@@ -58,11 +60,18 @@ internal fun RipDpiConnectionStrategyPanel(
             modifier
                 .fillMaxWidth()
                 .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorStrategyPanel)
-                // Fill without an outline: an outlined box with a chevron reads as a dropdown field.
-                .ripDpiScreenSurface(
-                    RipDpiThemeTokens.styles.screens.mutedBackground,
-                    RipDpiThemeTokens.shapes.md,
-                    clip = true,
+                .then(
+                    if (expandable) {
+                        // Fill without an outline: an outlined box with a chevron reads as a dropdown field.
+                        Modifier.ripDpiScreenSurface(
+                            RipDpiThemeTokens.styles.screens.mutedBackground,
+                            RipDpiThemeTokens.shapes.md,
+                            clip = true,
+                        )
+                    } else {
+                        // Nothing to open: a fill would make a plain value look like a control.
+                        Modifier
+                    },
                 ),
     ) {
         Row(
@@ -77,7 +86,7 @@ internal fun RipDpiConnectionStrategyPanel(
                         } else {
                             Modifier
                         },
-                    ).padding(horizontal = spacing.md, vertical = spacing.sm),
+                    ).padding(horizontal = if (expandable) inset else 0.dp, vertical = spacing.sm),
             horizontalArrangement = Arrangement.spacedBy(spacing.sm),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -107,7 +116,7 @@ internal fun RipDpiConnectionStrategyPanel(
             exit = RipDpiThemeTokens.motion.sectionExitTransition(),
         ) {
             Column(
-                modifier = Modifier.fillMaxWidth().padding(start = spacing.md, end = spacing.md, bottom = spacing.md),
+                modifier = Modifier.fillMaxWidth().padding(start = inset, end = inset, bottom = spacing.md),
                 verticalArrangement = Arrangement.spacedBy(spacing.sm),
             ) {
                 Text(

@@ -39,8 +39,8 @@ class RipDpiDegradationStripTest {
     @get:Rule val composeRule = createComposeRule()
 
     @Test
-    fun `neutral measurements use information while actual problems retain warning`() {
-        assertEquals(RipDpiIcons.Info, degradationToneIcon(RipDpiDegradationTone.Nominal))
+    fun `neutral measurements have no icon while actual problems retain warning`() {
+        assertEquals(null, degradationToneIcon(RipDpiDegradationTone.Nominal))
         assertEquals(RipDpiIcons.Warning, degradationToneIcon(RipDpiDegradationTone.Warning))
         assertEquals(RipDpiIcons.Warning, degradationToneIcon(RipDpiDegradationTone.Critical))
     }
@@ -81,7 +81,7 @@ class RipDpiDegradationStripTest {
                         title,
                         body,
                         persistentListOf(RipDpiDegradationMetric(label, value, "", false)),
-                        sinceLabel = context.getString(R.string.measurement_byte_total),
+                        footnote = context.getString(R.string.measurement_byte_total),
                         primaryAction = RipDpiDegradationAction(primary) { primaryClicks++ },
                         secondaryAction = RipDpiDegradationAction("Close") { secondaryClicks++ },
                         modifier = Modifier.requiredWidth(390.dp).ripDpiTestTag("measurement-strip"),

@@ -45,13 +45,14 @@ import kotlinx.collections.immutable.persistentListOf
 /**
  * [Nominal] is deliberately neutral rather than green: it reports that the
  * indicators are in range, which is the resting state, and a success colour
- * would give the resting state more weight than an actual problem.
+ * would give the resting state more weight than an actual problem. It also has
+ * no stripe or icon, so only a real problem draws the eye.
  */
 enum class RipDpiDegradationTone { Nominal, Warning, Critical }
 
-internal fun degradationToneIcon(tone: RipDpiDegradationTone): ImageVector =
+internal fun degradationToneIcon(tone: RipDpiDegradationTone): ImageVector? =
     when (tone) {
-        RipDpiDegradationTone.Nominal -> RipDpiIcons.Info
+        RipDpiDegradationTone.Nominal -> null
         RipDpiDegradationTone.Warning, RipDpiDegradationTone.Critical -> RipDpiIcons.Warning
     }
 
@@ -76,20 +77,20 @@ fun RipDpiDegradationStrip(
     title: String,
     body: String,
     metrics: ImmutableList<RipDpiDegradationMetric>,
-    sinceLabel: String,
+    footnote: String?,
     primaryAction: RipDpiDegradationAction,
     secondaryAction: RipDpiDegradationAction?,
     modifier: Modifier = Modifier,
     tone: RipDpiDegradationTone = RipDpiDegradationTone.Warning,
 ) {
     val colors = RipDpiThemeTokens.colors
-    val components = RipDpiThemeTokens.components
     val shapes = RipDpiThemeTokens.shapes
     val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
+    val tonalCard = RipDpiThemeTokens.surfaces.resolve(RipDpiThemeTokens.surfaceRoles.cards.tonal)
     val containerColor =
         when (tone) {
-            RipDpiDegradationTone.Nominal -> colors.muted
+            RipDpiDegradationTone.Nominal -> tonalCard.container
             RipDpiDegradationTone.Warning -> colors.warningContainer
             RipDpiDegradationTone.Critical -> colors.destructiveContainer
         }
@@ -109,7 +110,7 @@ fun RipDpiDegradationStrip(
     val accentState = rememberUpdatedStyleState(null)
     val accentStyle = RipDpiThemeTokens.styles.degradationAccent(tone)
     val stripeResolver = rememberRipDpiStyleResolver(accentStyle, CommonStyle, accentState)
-    val badgeResolver = rememberRipDpiStyleResolver(accentStyle, CommonStyle, accentState)
+    val icon = degradationToneIcon(tone)
 
     Surface(
         modifier = modifier.fillMaxWidth(),
@@ -120,44 +121,35 @@ fun RipDpiDegradationStrip(
         Box(modifier = Modifier.fillMaxWidth()) {
             // Measure the content naturally; intrinsic Row height cannot account
             // for wrapped actions and metric values at accessibility font sizes.
-            Box(modifier = Modifier.matchParentSize()) {
-                Box(
-                    modifier =
-                        Modifier
-                            .align(Alignment.CenterStart)
-                            .width(spacing.xs)
-                            .fillMaxHeight()
-                            .ripDpiStyleSurface(stripeResolver),
-                )
+            if (icon != null) {
+                Box(modifier = Modifier.matchParentSize()) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .align(Alignment.CenterStart)
+                                .width(spacing.xs)
+                                .fillMaxHeight()
+                                .ripDpiStyleSurface(stripeResolver),
+                    )
+                }
             }
             Column(
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(
-                            start = spacing.xs + spacing.lg,
-                            top = spacing.md,
-                            bottom = spacing.md,
-                            end = spacing.lg,
-                        ),
+                        .padding(RipDpiThemeTokens.layout.cardPadding),
                 verticalArrangement = Arrangement.spacedBy(spacing.sm),
             ) {
                 Row(
-                    horizontalArrangement = Arrangement.spacedBy(spacing.sm),
+                    horizontalArrangement = Arrangement.spacedBy(spacing.md),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(components.feedback.decorativeBadgeSize)
-                                .ripDpiStyleSurface(badgeResolver, shape = shapes.full),
-                        contentAlignment = Alignment.Center,
-                    ) {
+                    icon?.let {
                         Icon(
-                            imageVector = degradationToneIcon(tone),
+                            imageVector = it,
                             contentDescription = null,
                             tint = accentForeground,
-                            modifier = Modifier.size(RipDpiIconSizes.Large),
+                            modifier = Modifier.size(RipDpiIconSizes.Default),
                         )
                     }
                     Text(
@@ -189,12 +181,14 @@ fun RipDpiDegradationStrip(
                     verticalArrangement = Arrangement.spacedBy(spacing.sm),
                     itemVerticalAlignment = Alignment.CenterVertically,
                 ) {
-                    Text(
-                        text = sinceLabel,
-                        modifier = Modifier.weight(1f),
-                        style = type.caption,
-                        color = colors.mutedForeground,
-                    )
+                    footnote?.let {
+                        Text(
+                            text = it,
+                            modifier = Modifier.weight(1f),
+                            style = type.caption,
+                            color = colors.mutedForeground,
+                        )
+                    }
                     RipDpiDegradationActions(primaryAction, secondaryAction)
                 }
             }
@@ -225,8 +219,8 @@ private fun RipDpiDegradationActions(
             text = primaryAction.label,
             onClick = primaryAction.onClick,
             modifier = Modifier.width(IntrinsicSize.Max),
-            // Secondary weight: a measurement must not outweigh the screen's main action.
-            variant = RipDpiButtonVariant.Secondary,
+            // Outline: a tinted fill reads as disabled here and would outweigh the screen's main action.
+            variant = RipDpiButtonVariant.Outline,
             density = RipDpiControlDensity.Compact,
         )
     }
@@ -317,7 +311,7 @@ private fun RipDpiDegradationStripWarningPreview() {
             title = "Connected · quality degraded",
             body = "Latency and loss are above baseline since 12:14.",
             metrics = sampleMetrics,
-            sinceLabel = "Since 12:14",
+            footnote = "Since 12:14",
             primaryAction = RipDpiDegradationAction(label = "Reprobe", onClick = {}),
             secondaryAction = RipDpiDegradationAction(label = "Dismiss", onClick = {}),
             tone = RipDpiDegradationTone.Warning,
@@ -333,7 +327,7 @@ private fun RipDpiDegradationStripCriticalPreview() {
             title = "Connected · severe degradation",
             body = "Sustained loss and elevated RTT suggest active throttling.",
             metrics = sampleMetrics,
-            sinceLabel = "Since 12:14",
+            footnote = "Since 12:14",
             primaryAction = RipDpiDegradationAction(label = "Reprobe", onClick = {}),
             secondaryAction = null,
             tone = RipDpiDegradationTone.Critical,

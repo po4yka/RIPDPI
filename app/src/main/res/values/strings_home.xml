@@ -402,7 +402,7 @@
     </plurals>
     <string name="home_quality_measurements_title">Connection measurements</string>
     <string name="home_quality_waiting">No quality measurements yet. Traffic totals do not indicate connection quality.</string>
-    <string name="home_quality_partial">Available measurements are shown below. A quality assessment needs more current RTT samples.</string>
+    <string name="home_quality_partial">A quality assessment needs more current RTT samples.</string>
     <string name="home_quality_last_values">Last reported measurements; they do not describe current connection quality.</string>
     <string name="home_quality_traffic_total">Traffic total</string>
     <string name="pause_action">Pause connection</string>

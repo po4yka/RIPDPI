@@ -409,7 +409,7 @@
     </plurals>
     <string name="home_quality_measurements_title">Измерения соединения</string>
     <string name="home_quality_waiting">Измерений качества пока нет. Объём трафика не определяет качество соединения.</string>
-    <string name="home_quality_partial">Ниже показаны доступные измерения. Для оценки качества нужно больше свежих образцов RTT.</string>
+    <string name="home_quality_partial">Для оценки качества нужно больше свежих образцов RTT.</string>
     <string name="home_quality_last_values">Последние полученные измерения не отражают текущее качество соединения.</string>
     <string name="home_quality_traffic_total">Всего трафика</string>
     <string name="pause_action">Приостановить соединение</string>
