@@ -335,6 +335,25 @@ fn failure_classification_counts_each_failure_family_separately() {
 }
 
 #[test]
+fn failures_on_local_targets_do_not_count_toward_warnings() {
+    let state = Arc::new(ProxyTelemetryState::new(None));
+    let observer = ProxyTelemetryObserver { state: state.clone() };
+    let failure = ClassifiedFailure::new(
+        FailureClass::ConnectFailure,
+        FailureStage::Connect,
+        FailureAction::SurfaceOnly,
+        "refused",
+    );
+    for target in ["192.168.1.20:80", "169.254.1.1:80", "127.0.0.1:80", "[fe80::1]:80", "[fd00::1]:80"] {
+        observer.on_failure_classified(target.parse().unwrap(), &failure, None);
+    }
+    assert_eq!(state.snapshot().connection_failure_events, 0);
+
+    observer.on_failure_classified("203.0.113.10:443".parse().unwrap(), &failure, None);
+    assert_eq!(state.snapshot().connection_failure_events, 1);
+}
+
+#[test]
 fn failure_classification_telemetry_records_strategy_execution_context() {
     with_proxy_event_capture(|buffers| {
         let state = Arc::new(ProxyTelemetryState::new(None));

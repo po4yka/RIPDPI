@@ -1,3 +1,4 @@
+use std::net::IpAddr;
 use std::sync::Arc;
 use std::sync::atomic::Ordering;
 
@@ -53,6 +54,9 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
         if failure.action.as_str() == "retry_with_matching_group" {
             // Ordering: Relaxed -- counter read for display only, no happens-before needed.
             self.state.network_errors.fetch_add(1, Ordering::Relaxed);
+        }
+        if is_internet_target(target.ip()) {
+            self.state.count_failure_family(failure.class);
         }
         self.state.on_failure_classified(target.to_string(), failure, host.map(ToOwned::to_owned));
     }
@@ -197,5 +201,13 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
         strategy_family: Option<&str>,
     ) {
         self.state.on_direct_path_learning_signal(authority, ip_set_digest, event, strategy_family);
+    }
+}
+
+/// A closed port on a LAN device says nothing about the path to the internet.
+fn is_internet_target(ip: IpAddr) -> bool {
+    match ip.to_canonical() {
+        IpAddr::V4(ip) => !(ip.is_private() || ip.is_loopback() || ip.is_link_local()),
+        IpAddr::V6(ip) => !(ip.is_loopback() || ip.is_unique_local() || ip.is_unicast_link_local()),
     }
 }

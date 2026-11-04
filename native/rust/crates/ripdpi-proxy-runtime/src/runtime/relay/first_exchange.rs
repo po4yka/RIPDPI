@@ -1,5 +1,7 @@
 use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
 #[cfg(test)]
@@ -34,6 +36,7 @@ pub(super) struct FirstResponseReader {
     timeout_count: i32,
     observed_server_ttl: Option<u8>,
     deadline: Option<Instant>,
+    client_gone: Option<Arc<AtomicBool>>,
 }
 
 impl FirstResponseReader {
@@ -47,7 +50,13 @@ impl FirstResponseReader {
             timeout_count: 0,
             observed_server_ttl: None,
             deadline,
+            client_gone: None,
         }
+    }
+
+    /// After a client leaves, the relay closes the upstream socket itself, so an empty read is not a block.
+    pub(super) fn watch_client_gone(&mut self, client_gone: Arc<AtomicBool>) {
+        self.client_gone = Some(client_gone);
     }
 
     fn restart_deadline(&mut self, state: &RuntimeState) {
@@ -88,6 +97,8 @@ pub(super) fn read_first_response(
         } else {
             upstream.read(&mut reader.chunk)
         };
+        // Ordering: Acquire -- pairs with the Release store made before the relay shuts this socket down.
+        let client_gone = reader.client_gone.as_ref().is_some_and(|gone| gone.load(Ordering::Acquire));
         let result = match read_result {
             Ok(0) => Ok(FirstResponse::Failure {
                 failure: RuntimeState::classify_first_response_closed_before_response(),
@@ -144,6 +155,9 @@ pub(super) fn read_first_response(
             }
             Err(err) => Err(err),
         };
+        if client_gone && matches!(result, Ok(FirstResponse::Failure { response_bytes: None, .. })) {
+            return Ok(FirstResponse::NoData);
+        }
         if let Ok(FirstResponse::Failure { failure, .. }) = &result {
             // The only block-signal emission for a first-response failure: autolearn confirms a
             // block on two signals, so the failure handlers must not note it again.

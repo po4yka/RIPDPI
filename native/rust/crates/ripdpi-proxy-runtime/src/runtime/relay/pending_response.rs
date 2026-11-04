@@ -1,5 +1,7 @@
 use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
+use std::sync::Arc;
+use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 
 use super::super::adaptive::note_server_ttl_for_route;
@@ -31,7 +33,10 @@ impl PendingFirstResponse {
         upstream: &mut TcpStream,
         client: &mut TcpStream,
         session: &RelaySharedSession,
+        client_gone: Arc<AtomicBool>,
     ) -> io::Result<()> {
+        let mut reader = self.reader;
+        reader.watch_client_gone(client_gone);
         match read_first_response(
             state,
             self.target,
@@ -39,7 +44,7 @@ impl PendingFirstResponse {
             upstream,
             &self.original_request,
             None,
-            self.reader,
+            reader,
         )? {
             FirstResponse::Forward(bytes, server_ttl) => {
                 if let Some(start) = self.tls_send_start {

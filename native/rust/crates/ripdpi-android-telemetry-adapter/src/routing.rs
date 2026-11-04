@@ -49,8 +49,9 @@ impl ProxyTelemetryState {
         });
     }
 
-    pub fn on_failure_classified(&self, target: String, failure: &ClassifiedFailure, host: Option<String>) {
-        match failure.class {
+    /// Counts one failure toward the warning its family raises.
+    pub(super) fn count_failure_family(&self, class: FailureClass) {
+        match class {
             FailureClass::DnsTampering | FailureClass::DnsResolutionFailure => {
                 // Ordering: Relaxed -- counter read for display only, no happens-before needed.
                 self.dns_failure_events.fetch_add(1, Ordering::Relaxed);
@@ -77,6 +78,9 @@ impl ProxyTelemetryState {
             // A skipped candidate did not fail, and an unknown class says nothing about the connection.
             FailureClass::CapabilitySkipped | FailureClass::Unknown => {}
         }
+    }
+
+    pub fn on_failure_classified(&self, target: String, failure: &ClassifiedFailure, host: Option<String>) {
         let level = if failure.action.as_str() == "retry_with_matching_group" { "warn" } else { "info" };
         let message = format!(
             "failure classified target={} class={} stage={} action={} host={} evidence={}",

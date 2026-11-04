@@ -3,6 +3,7 @@ use std::thread;
 use super::autolearn::flush_updates;
 use super::execution::probe_domain;
 use super::target_catalog::{PROBE_DOMAINS, WARMUP_DEADLINE};
+use crate::runtime::routing::mark_background_probe_thread;
 use crate::runtime::state::RuntimeState;
 
 /// Spawn the warmup probe as a background thread.
@@ -17,6 +18,7 @@ pub(in crate::runtime) fn spawn_warmup_thread(state: RuntimeState) {
 }
 
 fn run_warmup(state: &RuntimeState) {
+    mark_background_probe_thread();
     let deadline = std::time::Instant::now() + WARMUP_DEADLINE;
     tracing::info!(domain_count = PROBE_DOMAINS.len(), "warmup probe started");
 

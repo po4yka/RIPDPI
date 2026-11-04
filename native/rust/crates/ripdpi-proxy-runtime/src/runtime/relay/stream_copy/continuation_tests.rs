@@ -111,7 +111,7 @@ fn accepted_continuation_enables_rotation_for_the_next_real_request() {
     let mut pending_upstream = prepared.upstream.try_clone().expect("response reader");
     let mut pending_client = client.try_clone().expect("response writer");
     let observer = thread::spawn(move || {
-        pending.finish(&pending_state, &mut pending_upstream, &mut pending_client, &pending_session)
+        pending.finish(&pending_state, &mut pending_upstream, &mut pending_client, &pending_session, Arc::default())
     });
     let mut received = vec![0; response.len()];
     app.read_exact(&mut received).expect("first response delivered");
