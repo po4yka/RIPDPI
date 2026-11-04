@@ -65,7 +65,7 @@ fun ConnectionRoute(
     onOpenRoute: (Route) -> Unit,
     modifier: Modifier = Modifier,
     route: Route = Route.Config,
-    initialModeSection: ConnectionModeSection = ConnectionModeSection.LocalBypass,
+    initialPath: ConnectionPath = ConnectionPath.Direct,
     viewModel: ConnectionViewModel = hiltViewModel(),
     clipboardImportViewModel: ClipboardImportViewModel = hiltViewModel(),
     onImport: (ImportPayload) -> Unit = {},
@@ -114,7 +114,7 @@ fun ConnectionRoute(
             }
         },
         onEditCurrent = {
-            val selectedPresetId = uiState.presets.firstOrNull { it.isSelected }?.id ?: "custom"
+            val selectedPresetId = uiState.presets.firstOrNull { it.isSelected }?.id ?: CustomPresetId
             viewModel.startEditingPreset(selectedPresetId)
             onOpenModeEditor()
         },
@@ -146,13 +146,13 @@ fun ConnectionRoute(
                         }
 
                         else -> {
-                            viewModel.startEditingPreset("relay-profile:$profileId")
+                            viewModel.startEditingPreset(relayProfilePresetId(profileId))
                             onOpenModeEditor()
                         }
                     }
                 },
             ),
-        initialModeSection = initialModeSection,
+        initialPath = initialPath,
     )
 }
 
@@ -169,21 +169,14 @@ fun ConnectionScreen(
     profileActions: ConnectionProfileActions = ConnectionProfileActions(),
     modifier: Modifier = Modifier,
     route: Route = Route.Config,
-    initialModeSection: ConnectionModeSection = ConnectionModeSection.LocalBypass,
+    initialPath: ConnectionPath = ConnectionPath.Direct,
     topBarActions: @Composable androidx.compose.foundation.layout.RowScope.() -> Unit = {},
     runtimeCallbacks: ConnectionRuntimeCallbacks = ConnectionRuntimeCallbacks(),
 ) {
     val desyncSummary = uiState.draft.chainSummary
     // An active relay always shows Relay. Browsing covers the Relay section before a profile is active.
-    var browsingRelay by rememberSaveable { mutableStateOf(initialModeSection == ConnectionModeSection.Vpn) }
-    val selectedModeSection =
-        if (uiState.activeRelayEnabled ||
-            browsingRelay
-        ) {
-            ConnectionModeSection.Vpn
-        } else {
-            ConnectionModeSection.LocalBypass
-        }
+    var browsingRelay by rememberSaveable { mutableStateOf(initialPath == ConnectionPath.Relay) }
+    val selectedPath = if (uiState.activeRelayEnabled || browsingRelay) ConnectionPath.Relay else ConnectionPath.Direct
     var showProfileChoices by rememberSaveable { mutableStateOf(false) }
 
     RipDpiContentScreenScaffold(
@@ -192,7 +185,7 @@ fun ConnectionScreen(
                 .ripDpiTestTag(RipDpiTestTags.screen(route))
                 .fillMaxSize()
                 .ripDpiScreenBackground(),
-        title = stringResource(R.string.config),
+        title = stringResource(R.string.connection_title),
         contentWidth = RipDpiScaffoldWidth.Content,
         actions = topBarActions,
     ) {
@@ -210,16 +203,16 @@ fun ConnectionScreen(
         }
 
         ConnectionScopeSelector(selectedMode = uiState.activeMode, onModeSelected = onModeSelected)
-        ConnectionModeSectionSwitcher(
-            selectedSection = selectedModeSection,
+        ConnectionPathSelector(
+            selectedSection = selectedPath,
             onSectionSelected = { section ->
                 when (section) {
-                    ConnectionModeSection.LocalBypass -> {
+                    ConnectionPath.Direct -> {
                         browsingRelay = false
                         if (uiState.activeRelayEnabled) profileActions.selectDirect()
                     }
 
-                    ConnectionModeSection.Vpn -> {
+                    ConnectionPath.Relay -> {
                         browsingRelay = true
                         uiState.vpnProfiles
                             .firstOrNull { it.id == uiState.activeRelayProfileId }
@@ -230,8 +223,8 @@ fun ConnectionScreen(
             },
         )
 
-        ConnectionSelectedModeSection(
-            section = selectedModeSection,
+        ConnectionSelectedPathSection(
+            section = selectedPath,
             uiState = uiState,
             desyncSummary = desyncSummary,
             onEditCurrent = onEditCurrent,
@@ -248,7 +241,7 @@ private fun ConnectionScopeSelector(
     onModeSelected: (Mode) -> Unit,
 ) {
     val modes = persistentListOf(Mode.VPN, Mode.Proxy)
-    val groupLabel = stringResource(R.string.config_traffic_mode_title)
+    val groupLabel = stringResource(R.string.config_scope_title)
     RipDpiSegmentedButton(
         options =
             persistentListOf(
@@ -261,30 +254,30 @@ private fun ConnectionScopeSelector(
             Modifier
                 .fillMaxWidth()
                 .semantics { contentDescription = groupLabel }
-                .ripDpiTestTag(RipDpiTestTags.ConfigTrafficEndpointSelection),
+                .ripDpiTestTag(RipDpiTestTags.ConfigScopeSelection),
         role = Role.RadioButton,
         optionTestTags = modes.map { RipDpiTestTags.configMode(it.name) }.toImmutableList(),
     )
 }
 
 @Composable
-private fun ConnectionModeSectionSwitcher(
-    selectedSection: ConnectionModeSection,
-    onSectionSelected: (ConnectionModeSection) -> Unit,
+private fun ConnectionPathSelector(
+    selectedSection: ConnectionPath,
+    onSectionSelected: (ConnectionPath) -> Unit,
 ) {
-    val sections = ConnectionModeSection.entries
+    val sections = ConnectionPath.entries
     RipDpiSegmentedButton(
-        options = sections.map { stringResource(configModeSectionTitleRes(it)) }.toImmutableList(),
+        options = sections.map { stringResource(pathTitleRes(it)) }.toImmutableList(),
         selectedIndex = sections.indexOf(selectedSection),
         onSelect = { onSectionSelected(sections[it]) },
         modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigSectionNavigation),
-        optionTestTags = sections.map { RipDpiTestTags.configModeSection(it.stableKey) }.toImmutableList(),
+        optionTestTags = sections.map { RipDpiTestTags.configPath(it.stableKey) }.toImmutableList(),
     )
 }
 
 @Composable
-private fun ConnectionSelectedModeSection(
-    section: ConnectionModeSection,
+private fun ConnectionSelectedPathSection(
+    section: ConnectionPath,
     uiState: ConnectionUiState,
     desyncSummary: String,
     onEditCurrent: () -> Unit,
@@ -293,8 +286,8 @@ private fun ConnectionSelectedModeSection(
     onRetestStrategies: () -> Unit,
 ) {
     when (section) {
-        ConnectionModeSection.LocalBypass -> {
-            LocalBypassConfigScreen(
+        ConnectionPath.Direct -> {
+            ConnectionDirectSection(
                 uiState = uiState,
                 desyncSummary = desyncSummary,
                 onOpenDesyncSettings = { onOpenConfigEditor(ConnectionEditorTarget.Bypass) },
@@ -304,8 +297,8 @@ private fun ConnectionSelectedModeSection(
             )
         }
 
-        ConnectionModeSection.Vpn -> {
-            VpnConfigScreen(
+        ConnectionPath.Relay -> {
+            ConnectionRelaySection(
                 uiState = uiState,
                 onOpenRelaySettings = onEditCurrent,
                 onChooseRelay = onChooseRelay,
@@ -319,7 +312,7 @@ private fun ConnectionSelectedModeSection(
 }
 
 @Composable
-internal fun ConnectionModeChips(
+internal fun ConnectionScopeChips(
     selectedMode: Mode,
     onModeSelected: (Mode) -> Unit,
     vpnLabel: String,
@@ -369,27 +362,18 @@ internal fun modeLabelRes(mode: Mode): Int =
         Mode.Proxy -> R.string.status_mode_proxy
     }
 
-/**
- * Config UI terminology is intentionally two-level:
- * Profile = a named saved configuration; Mode = the bypass path inside that profile.
- */
-enum class ConnectionModeSection(
+/** How traffic leaves the device. Scope, the traffic the app captures, is [Mode]. */
+enum class ConnectionPath(
     val stableKey: String,
 ) {
-    LocalBypass("local_bypass"),
-    Vpn("vpn"),
-    ;
-
-    companion object {
-        fun fromStableKey(key: String): ConnectionModeSection =
-            entries.firstOrNull { it.stableKey == key } ?: LocalBypass
-    }
+    Direct("direct"),
+    Relay("relay"),
 }
 
-private fun configModeSectionTitleRes(section: ConnectionModeSection): Int =
-    when (section) {
-        ConnectionModeSection.LocalBypass -> R.string.config_section_bypass_settings
-        ConnectionModeSection.Vpn -> R.string.config_section_server_settings
+private fun pathTitleRes(path: ConnectionPath): Int =
+    when (path) {
+        ConnectionPath.Direct -> R.string.config_path_direct
+        ConnectionPath.Relay -> R.string.config_path_relay
     }
 
 @Preview(showBackground = true)
@@ -409,7 +393,7 @@ private fun ConnectionScreenPreview() {
             onOpenConfigEditor = {},
             onRetestStrategies = {},
             onPasteServerLink = {},
-            initialModeSection = ConnectionModeSection.LocalBypass,
+            initialPath = ConnectionPath.Direct,
         )
     }
 }
@@ -440,7 +424,7 @@ private fun ConnectionScreenDarkPreview() {
             onOpenConfigEditor = {},
             onRetestStrategies = {},
             onPasteServerLink = {},
-            initialModeSection = ConnectionModeSection.Vpn,
+            initialPath = ConnectionPath.Relay,
         )
     }
 }
@@ -463,7 +447,7 @@ private fun ConnectionScreenLoadingPreview() {
             onOpenConfigEditor = {},
             onRetestStrategies = {},
             onPasteServerLink = {},
-            initialModeSection = ConnectionModeSection.LocalBypass,
+            initialPath = ConnectionPath.Direct,
         )
     }
 }

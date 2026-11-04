@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="config">Conexão</string>
+    <string name="connection_title">Conexão</string>
     <string name="strategy_tuner_open_action">Abrir ajuste de estratégias</string>
     <string name="strategy_tuner_domains_label">Domínios de teste</string>
     <string name="strategy_tuner_run">Executar</string>
@@ -719,7 +719,7 @@ fakeddisorder endhost</string>
     <string name="strategy_config_lua_function_required_title">Nome da função obrigatório</string>
     <string name="strategy_config_lua_function_required_body">Informe a função Lua que deve executar na configuração de estratégia do túnel.</string>
     <string name="strategy_config_lua_function_missing">A função Lua %1$s não foi registrada pelo script selecionado.</string>
-    <string name="config_traffic_mode_title">Escolha o modo de tráfego</string>
+    <string name="config_scope_title">Escolha o modo de tráfego</string>
     <string name="ripdpi_proxy_port_setting">Porta</string>
     <string name="ripdpi_max_connections_setting">Número máximo de conexões</string>
     <string name="ripdpi_buffer_size_setting">Tamanho do buffer</string>
@@ -1397,8 +1397,8 @@ Fonte: %2$s</string>
     </plurals>
     <string name="runtime_config_unknown_body">A conexão ativa não confirmou quais configurações usa. Desconecte e conecte de novo para aplicar as configurações salvas.</string>
     <string name="config_profile_change">Alterar perfil</string>
-    <string name="config_section_bypass_settings">Direto</string>
-    <string name="config_section_server_settings">Relay</string>
+    <string name="config_path_direct">Direto</string>
+    <string name="config_path_relay">Relay</string>
     <string name="ws_tunnel_worker_transport_label">Transporte Cloudflare Worker</string>
     <string name="ws_tunnel_worker_transport_configured">%1$s\nCredencial: %2$s</string>
     <string name="ws_tunnel_worker_transport_not_configured">Não configurado; usa o gateway direto do Telegram</string>

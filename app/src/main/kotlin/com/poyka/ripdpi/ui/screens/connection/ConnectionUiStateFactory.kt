@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
 import com.poyka.ripdpi.ui.screens.diagnostics.state.recommendTransportRemediation
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPersona
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.toImmutableList
 import kotlinx.coroutines.CancellationException
@@ -94,7 +95,7 @@ internal class ConnectionUiStateFactory(
                 ConnectionRuntimeOperation.Reconnecting.takeIf {
                     projection.serviceStatus.first == AppStatus.Reconnecting
                 },
-            uiPersona = projection.settings.uiPersona.ifBlank { "simple" },
+            uiPersona = projection.settings.uiPersona.ifBlank { OnboardingPersona.Simple.id },
             presets = projection.presets,
             editingPreset = projection.editingPreset,
             draft = draft,

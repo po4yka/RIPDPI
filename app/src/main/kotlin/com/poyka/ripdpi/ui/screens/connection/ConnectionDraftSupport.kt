@@ -49,6 +49,7 @@ import com.poyka.ripdpi.data.primaryDesyncMethod
 import com.poyka.ripdpi.data.toRelaySettingsModel
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.MasquePrivacyPassBuildStatus
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPersona
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.persistentListOf
@@ -287,6 +288,15 @@ internal object StringImmutableListSerializer : KSerializer<ImmutableList<String
     override fun deserialize(decoder: Decoder): ImmutableList<String> = delegate.deserialize(decoder).toImmutableList()
 }
 
+internal const val RecommendedPresetId = "recommended"
+internal const val CustomPresetId = "custom"
+private const val RelayProfilePresetPrefix = "relay-profile:"
+
+internal fun relayProfilePresetId(profileId: String): String = RelayProfilePresetPrefix + profileId
+
+internal fun relayProfileIdFromPresetId(presetId: String): String? =
+    presetId.takeIf { it.startsWith(RelayProfilePresetPrefix) }?.removePrefix(RelayProfilePresetPrefix)
+
 enum class ConnectionPresetKind {
     Recommended,
     Custom,
@@ -306,7 +316,7 @@ data class ConnectionUiState(
     val runningMode: Mode? = null,
     val runtimeOperation: ConnectionRuntimeOperation? = null,
     val runtimeError: String? = null,
-    val uiPersona: String = "simple",
+    val uiPersona: String = OnboardingPersona.Simple.id,
     val presets: ImmutableList<ConnectionPreset> =
         buildConfigPresets(AppSettingsSerializer.defaultValue.toConfigDraft()),
     val editingPreset: ConnectionPreset? = null,
@@ -492,13 +502,13 @@ internal fun buildConfigPresets(currentDraft: ConnectionDraft): ImmutableList<Co
 
     return persistentListOf(
         ConnectionPreset(
-            id = "recommended",
+            id = RecommendedPresetId,
             kind = ConnectionPresetKind.Recommended,
             draft = recommendedDraft,
             isSelected = isRecommended,
         ),
         ConnectionPreset(
-            id = "custom",
+            id = CustomPresetId,
             kind = ConnectionPresetKind.Custom,
             draft = currentDraft,
             isSelected = !isRecommended,

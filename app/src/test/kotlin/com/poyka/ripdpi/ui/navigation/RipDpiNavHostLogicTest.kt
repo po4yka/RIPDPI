@@ -1,7 +1,7 @@
 package com.poyka.ripdpi.ui.navigation
 
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.ui.screens.connection.ConnectionModeSection
+import com.poyka.ripdpi.ui.screens.connection.ConnectionPath
 import com.poyka.ripdpi.ui.screens.status.StatusMode
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import org.junit.Assert.assertEquals
@@ -22,7 +22,7 @@ class RipDpiNavHostLogicTest {
     @Test
     fun `top level route titles describe target information architecture`() {
         assertEquals(com.poyka.ripdpi.R.string.home, Route.Status.titleRes)
-        assertEquals(com.poyka.ripdpi.R.string.config, Route.Config.titleRes)
+        assertEquals(com.poyka.ripdpi.R.string.connection_title, Route.Config.titleRes)
         assertEquals(com.poyka.ripdpi.R.string.diagnostics, Route.Diagnostics().titleRes)
         assertEquals(com.poyka.ripdpi.R.string.settings, Route.Settings.titleRes)
     }
@@ -285,8 +285,8 @@ class RipDpiNavHostLogicTest {
                     )
                 } +
                 Mode.entries.map { mode -> RipDpiTestTags.configMode(mode.name) } +
-                ConnectionModeSection.entries.map { section ->
-                    RipDpiTestTags.configModeSection(section.stableKey)
+                ConnectionPath.entries.map { section ->
+                    RipDpiTestTags.configPath(section.stableKey)
                 } +
                 advancedSectionTags
         val requiredTestTags =

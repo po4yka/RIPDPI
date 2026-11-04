@@ -38,14 +38,14 @@ class ConfigScreenKaspressoTest :
             }
             step("The server section shows the VPN summary and relay row") {
                 with(ConfigPage(composeRule)) {
-                    click(modeSection("vpn"))
+                    click(pathOption("relay"))
                     waitFor(vpnSummary)
                     awaitDisplayed(vpnRelay)
                 }
             }
             step("Selecting the proxy chip selects it, deselects VPN and persists proxy mode") {
                 with(ConfigPage(composeRule)) {
-                    click(modeSection("local_bypass"))
+                    click(pathOption("direct"))
                     click(proxyChip)
                     awaitSelected(proxyChip)
                     composeRule.waitForSettings(appSettingsRepository) { it.ripdpiMode == Mode.Proxy.preferenceValue }

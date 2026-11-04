@@ -12,9 +12,9 @@ import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
 import com.poyka.ripdpi.ui.screens.connection.ConnectionDraft
+import com.poyka.ripdpi.ui.screens.connection.ConnectionRelaySection
 import com.poyka.ripdpi.ui.screens.connection.ConnectionUiState
 import com.poyka.ripdpi.ui.screens.connection.RelayProfileUiState
-import com.poyka.ripdpi.ui.screens.connection.VpnConfigScreen
 import com.poyka.ripdpi.ui.screens.connection.buildConfigPresets
 import com.poyka.ripdpi.ui.screens.status.HardKillSwitchUiState
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
@@ -42,7 +42,7 @@ class ConfigSetupHealthScreenshotTest {
             heightDp = TallScreenHeightDp,
             testClassFqn = FQN,
         ) {
-            VpnConfigScreen(
+            ConnectionRelaySection(
                 uiState = populatedVpnConfigState(),
                 onOpenRelaySettings = {},
                 onOpenDnsSettings = {},

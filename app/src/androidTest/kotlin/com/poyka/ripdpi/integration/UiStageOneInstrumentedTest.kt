@@ -23,7 +23,7 @@ import androidx.test.uiautomator.UiDevice
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.components.indicators.RipDpiProgressBar
-import com.poyka.ripdpi.ui.screens.connection.ConnectionModeSection
+import com.poyka.ripdpi.ui.screens.connection.ConnectionPath
 import com.poyka.ripdpi.ui.screens.connection.ConnectionScreen
 import com.poyka.ripdpi.ui.screens.connection.ConnectionUiState
 import com.poyka.ripdpi.ui.screens.connection.buildConfigPresets
@@ -61,7 +61,7 @@ class UiStageOneInstrumentedTest {
                     onOpenConfigEditor = {},
                     onRetestStrategies = {},
                     onPasteServerLink = {},
-                    initialModeSection = ConnectionModeSection.Vpn,
+                    initialPath = ConnectionPath.Relay,
                 )
             }
         }
@@ -165,7 +165,7 @@ class UiStageOneInstrumentedTest {
                     onOpenConfigEditor = {},
                     onRetestStrategies = {},
                     onPasteServerLink = {},
-                    initialModeSection = ConnectionModeSection.Vpn,
+                    initialPath = ConnectionPath.Relay,
                 )
             }
         }

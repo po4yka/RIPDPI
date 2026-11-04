@@ -33,7 +33,7 @@ class ConnectionRuntimeErrorVisibilityTest {
                     onOpenConfigEditor = {},
                     onRetestStrategies = {},
                     onPasteServerLink = {},
-                    initialModeSection = ConnectionModeSection.Vpn,
+                    initialPath = ConnectionPath.Relay,
                 )
             }
         }

@@ -497,7 +497,6 @@ app:clipboard_label_profile_link
 app:clipboard_label_ripdpi_domains
 app:clipboard_label_setup_sheet
 app:command_line_arguments
-app:config
 app:config_badge_active
 app:config_buffer_helper
 app:config_cancel
@@ -631,6 +630,8 @@ app:config_mode_section
 app:config_network_section
 app:config_overflow_more_options
 app:config_overrides_section
+app:config_path_direct
+app:config_path_relay
 app:config_placeholder_chain_dsl
 app:config_placeholder_command_line
 app:config_placeholder_default_ttl
@@ -799,11 +800,9 @@ app:config_relay_xhttp_mode
 app:config_relay_xhttp_path
 app:config_run_strategy_test
 app:config_save
-app:config_section_bypass_settings
-app:config_section_server_settings
+app:config_scope_title
 app:config_split_marker_helper
 app:config_tls_record_marker_helper
-app:config_traffic_mode_title
 app:config_udp_chain_hint
 app:config_validation_banner_body
 app:config_validation_banner_title
@@ -892,6 +891,7 @@ app:connection_health_strategy_waiting
 app:connection_health_successes
 app:connection_health_summary_title
 app:connection_timed_out
+app:connection_title
 app:copied_to_clipboard
 app:crash_report_body
 app:crash_report_dismiss

@@ -61,7 +61,7 @@ class SubscriptionImportKaspressoTest :
             // After a deep link the app sits on Status; subscription rows live in the Relay section.
             if (!exists(screenTag)) click(bottomNavConfig)
             awaitScreen()
-            click(modeSection("vpn"))
+            click(pathOption("relay"))
             click(RipDpiTestTags.ConfigSubscriptionStatus)
         }
         SubscriptionStatusPage(composeRule).awaitScreen()

@@ -41,7 +41,7 @@ import org.robolectric.annotation.GraphicsMode
 @RunWith(RobolectricTestRunner::class)
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(sdk = [35], qualifiers = "ru-rRU-w420dp-h2000dp")
-class ConnectionModeChipsLayoutTest {
+class ConnectionScopeChipsLayoutTest {
     @get:Rule val composeRule = createComposeRule()
     private val width = mutableStateOf(411)
     private val scale = mutableStateOf(2f)
@@ -60,7 +60,7 @@ class ConnectionModeChipsLayoutTest {
         val selections = mutableListOf<Mode>()
         composeRule.setContent {
             Container {
-                ConnectionModeChips(
+                ConnectionScopeChips(
                     selectedMode = mode.value,
                     onModeSelected = {
                         mode.value = it

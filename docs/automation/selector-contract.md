@@ -21,9 +21,8 @@ All stable IDs live in [`RipDpiTestTags.kt`](../../app/src/main/kotlin/com/poyka
 - Bottom navigation: `bottom-nav-home`, `bottom-nav-config`, `bottom-nav-diagnostics`, `bottom-nav-settings`
 - Permission and repair actions: `settings-permission-<kind>`, `home-permission-issue-banner`, `home-permission-recommendation-banner`
 - Settings navigation: `settings-advanced-settings`, `settings-support-bundle`, `settings-data-transparency`, `settings-about`
-- Config actions: `config-profile-change` opens saved profile choices;
-  `config-runtime-action` starts the saved mode or stops the running mode;
-  `config-connection-details` discloses long configuration guidance.
+- Config actions: `config-profile-change` opens the profile sheet;
+  `config-mode-<scope>` selects the scope; `config-path-<direct|relay>` selects the path.
 - Advanced settings: `advanced-section-<section>`, `advanced-toggle-<setting>`, `advanced-input-<setting>`, `advanced-save-<setting>`, `advanced-option-<setting>`; the bypass strategy section is `advanced-section-bypass-strategy`.
 - Activation ranges: `advanced-<dimension>-from`, `advanced-<dimension>-to`, `advanced-<dimension>-save`
 - Diagnostics and logs: `diagnostics-top-history-action`, `diagnostics-share-archive`, `diagnostics-save-archive`, `diagnostics-share-summary`, `diagnostics-save-logs`, `diagnostics-status-snackbar`, `logs-save`, `logs-clear`

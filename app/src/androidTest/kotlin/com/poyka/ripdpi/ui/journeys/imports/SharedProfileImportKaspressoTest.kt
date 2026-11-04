@@ -65,7 +65,7 @@ class SharedProfileImportKaspressoTest :
                 with(ConfigPage(composeRule)) {
                     if (!exists(screenTag)) click(bottomNavConfig)
                     awaitScreen()
-                    click(modeSection("vpn"))
+                    click(pathOption("relay"))
                     awaitDisplayed(vpnRelay)
                     assertEquals("$SharedProfileHost:443", stateDescription(vpnRelay))
                     click(profileChange)

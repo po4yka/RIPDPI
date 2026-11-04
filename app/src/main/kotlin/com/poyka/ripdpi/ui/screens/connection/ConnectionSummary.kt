@@ -39,9 +39,9 @@ internal fun ConnectionSavedConnectionCard(
     val path =
         stringResource(
             if (uiState.activeRelayEnabled) {
-                R.string.config_section_server_settings
+                R.string.config_path_relay
             } else {
-                R.string.config_section_bypass_settings
+                R.string.config_path_direct
             },
         )
     RipDpiCard(

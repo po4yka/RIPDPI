@@ -50,7 +50,7 @@ class ConnectionEndpointRtlTest {
         composeRule.setContent {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 RipDpiTheme(themePreference = "light") {
-                    LocalBypassConfigScreen(
+                    ConnectionDirectSection(
                         uiState = state.value,
                         desyncSummary = "",
                         onOpenDesyncSettings = {},
@@ -83,7 +83,7 @@ class ConnectionEndpointRtlTest {
         composeRule.setContent {
             CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Rtl) {
                 RipDpiTheme(themePreference = "light") {
-                    VpnConfigScreen(
+                    ConnectionRelaySection(
                         uiState = state.value,
                         onOpenRelaySettings = {},
                         onOpenDnsSettings = {},

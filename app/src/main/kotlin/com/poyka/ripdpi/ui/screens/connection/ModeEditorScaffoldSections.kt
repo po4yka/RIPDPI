@@ -224,7 +224,7 @@ private fun ModeEditorModeSection(
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         SettingsCategoryHeader(title = stringResource(R.string.config_mode_section))
         RipDpiCard {
-            ConnectionModeChips(
+            ConnectionScopeChips(
                 selectedMode = draft.mode,
                 onModeSelected = actions.onModeSelected,
                 vpnLabel = stringResource(modeLabelRes(Mode.VPN)),

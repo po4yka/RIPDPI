@@ -51,23 +51,23 @@ class ConnectionScreenTest {
         val selectedModes = mutableListOf<Mode>()
 
         setConfigScreen(
-            initialModeSection = ConnectionModeSection.LocalBypass,
+            initialPath = ConnectionPath.Direct,
             onModeSelected = { selectedModes += it },
         )
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configModeSection(ConnectionModeSection.LocalBypass.stableKey))
+            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Direct.stableKey))
             .assertIsSelected()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassSummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSummary).assertDoesNotExist()
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configModeSection(ConnectionModeSection.Vpn.stableKey))
+            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Relay.stableKey))
             .performScrollTo()
             .performClick()
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configModeSection(ConnectionModeSection.Vpn.stableKey))
+            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Relay.stableKey))
             .assertIsSelected()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassSummary).assertDoesNotExist()
@@ -78,21 +78,21 @@ class ConnectionScreenTest {
 
     @Test
     fun `mode section tabs expose tab semantics`() {
-        setConfigScreen(initialModeSection = ConnectionModeSection.LocalBypass)
+        setConfigScreen(initialPath = ConnectionPath.Direct)
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configModeSection(ConnectionModeSection.LocalBypass.stableKey))
+            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Direct.stableKey))
             .assertHasRole(Role.Tab)
             .assertIsSelected()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configModeSection(ConnectionModeSection.Vpn.stableKey))
+            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Relay.stableKey))
             .assertHasRole(Role.Tab)
             .assertIsNotSelected()
     }
 
     @Test
     fun `connection card exposes visible group labels without duplicate descriptions`() {
-        setConfigScreen(initialModeSection = ConnectionModeSection.LocalBypass)
+        setConfigScreen(initialPath = ConnectionPath.Direct)
 
         // One label per control group: no card heading and no extra label above the section tabs.
         composeRule.onNodeWithText("Connection settings").assertDoesNotExist()
@@ -102,13 +102,13 @@ class ConnectionScreenTest {
             .assert(SemanticsMatcher.keyNotDefined(SemanticsProperties.ContentDescription))
         composeRule.onNodeWithText("Choose traffic mode").assertDoesNotExist()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigTrafficEndpointSelection)
+            .onNodeWithTag(RipDpiTestTags.ConfigScopeSelection)
             .assertContentDescription("Choose traffic mode")
     }
 
     @Test
     fun `mode chips expose radio button semantics`() {
-        setConfigScreen(initialModeSection = ConnectionModeSection.LocalBypass)
+        setConfigScreen(initialPath = ConnectionPath.Direct)
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.configMode(Mode.VPN.name))
@@ -124,7 +124,7 @@ class ConnectionScreenTest {
     fun `traffic endpoint choice invokes mode callback without changing section`() {
         val selectedModes = mutableListOf<Mode>()
         setConfigScreen(
-            initialModeSection = ConnectionModeSection.LocalBypass,
+            initialPath = ConnectionPath.Direct,
             onModeSelected = { selectedModes += it },
         )
 
@@ -134,7 +134,7 @@ class ConnectionScreenTest {
             .performClick()
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configModeSection(ConnectionModeSection.LocalBypass.stableKey))
+            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Direct.stableKey))
             .assertIsSelected()
         composeRule.runOnIdle {
             assertEquals(listOf(Mode.Proxy), selectedModes)
@@ -145,7 +145,7 @@ class ConnectionScreenTest {
     fun `traffic endpoint choice can return from proxy to vpn without changing section`() {
         val selectedModes = mutableListOf<Mode>()
         setConfigScreen(
-            initialModeSection = ConnectionModeSection.LocalBypass,
+            initialPath = ConnectionPath.Direct,
             onModeSelected = { selectedModes += it },
             activeMode = Mode.Proxy,
         )
@@ -156,7 +156,7 @@ class ConnectionScreenTest {
             .performClick()
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configModeSection(ConnectionModeSection.LocalBypass.stableKey))
+            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Direct.stableKey))
             .assertIsSelected()
         composeRule.runOnIdle {
             assertEquals(listOf(Mode.VPN), selectedModes)
@@ -166,7 +166,7 @@ class ConnectionScreenTest {
     @Test
     fun `local bypass section renders listen dns and desync rows`() {
         setConfigScreen(
-            initialModeSection = ConnectionModeSection.LocalBypass,
+            initialPath = ConnectionPath.Direct,
             uiPersona = "advanced",
             activeMode = Mode.Proxy,
         )
@@ -182,7 +182,7 @@ class ConnectionScreenTest {
 
     @Test
     fun `vpn mode hides the internal proxy listen address`() {
-        setConfigScreen(initialModeSection = ConnectionModeSection.LocalBypass, activeMode = Mode.VPN)
+        setConfigScreen(initialPath = ConnectionPath.Direct, activeMode = Mode.VPN)
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigDnsSettings).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassListenAddress).assertDoesNotExist()
@@ -190,7 +190,7 @@ class ConnectionScreenTest {
 
     @Test
     fun `direct section offers the strategy test without an edit shortcut`() {
-        setConfigScreen(initialModeSection = ConnectionModeSection.LocalBypass)
+        setConfigScreen(initialPath = ConnectionPath.Direct)
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionSummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigEditCurrentButton).assertDoesNotExist()
@@ -223,7 +223,7 @@ class ConnectionScreenTest {
         var strategyClicks = 0
         var dnsClicks = 0
         setConfigScreen(
-            initialModeSection = ConnectionModeSection.LocalBypass,
+            initialPath = ConnectionPath.Direct,
             onEditCurrent = { legacyEditorClicks += 1 },
             onOpenLocalBypassEditor = { strategyClicks += 1 },
             onOpenDnsSettings = { dnsClicks += 1 },
@@ -251,7 +251,7 @@ class ConnectionScreenTest {
     @Test
     fun `local bypass action rows expose accessibility labels`() {
         setConfigScreen(
-            initialModeSection = ConnectionModeSection.LocalBypass,
+            initialPath = ConnectionPath.Direct,
             uiPersona = "advanced",
         )
 
@@ -265,7 +265,7 @@ class ConnectionScreenTest {
 
     @Test
     fun `dns action exposes its current value to accessibility services`() {
-        setConfigScreen(initialModeSection = ConnectionModeSection.Vpn, uiPersona = "advanced")
+        setConfigScreen(initialPath = ConnectionPath.Relay, uiPersona = "advanced")
 
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
@@ -279,7 +279,7 @@ class ConnectionScreenTest {
 
     @Test
     fun `vpn section with the relay off shows one relay setup row and dns`() {
-        setConfigScreen(initialModeSection = ConnectionModeSection.Vpn, uiPersona = "advanced")
+        setConfigScreen(initialPath = ConnectionPath.Relay, uiPersona = "advanced")
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionSummary).assertExists()
@@ -299,7 +299,7 @@ class ConnectionScreenTest {
     fun `vpn add profile menu opens every dedicated editor`() {
         val opened = mutableListOf<Route>()
         setConfigScreen(
-            initialModeSection = ConnectionModeSection.Vpn,
+            initialPath = ConnectionPath.Relay,
             profileActions = ConnectionProfileActions(create = { opened += it }),
         )
 
@@ -324,7 +324,7 @@ class ConnectionScreenTest {
     fun `relay off row opens profile choices and dns row invokes its callback`() {
         var dnsClicks = 0
         setConfigScreen(
-            initialModeSection = ConnectionModeSection.Vpn,
+            initialPath = ConnectionPath.Relay,
             onOpenDnsSettings = { dnsClicks += 1 },
             uiPersona = "advanced",
         )
@@ -419,8 +419,8 @@ class ConnectionScreenTest {
                 )
             }
         }
-        val directTag = RipDpiTestTags.configModeSection(ConnectionModeSection.LocalBypass.stableKey)
-        val relayTag = RipDpiTestTags.configModeSection(ConnectionModeSection.Vpn.stableKey)
+        val directTag = RipDpiTestTags.configPath(ConnectionPath.Direct.stableKey)
+        val relayTag = RipDpiTestTags.configPath(ConnectionPath.Relay.stableKey)
 
         composeRule.onNodeWithTag(relayTag).assertIsSelected()
         composeRule.onNodeWithTag(directTag).performScrollTo().performClick()
@@ -447,29 +447,29 @@ class ConnectionScreenTest {
                     onOpenConfigEditor = {},
                     onRetestStrategies = {},
                     onPasteServerLink = {},
-                    initialModeSection = ConnectionModeSection.LocalBypass,
+                    initialPath = ConnectionPath.Direct,
                 )
             }
         }
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configModeSection(ConnectionModeSection.Vpn.stableKey))
+            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Relay.stableKey))
             .performScrollTo()
             .performClick()
         restorationTester.emulateSavedInstanceStateRestore()
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configModeSection(ConnectionModeSection.Vpn.stableKey))
+            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Relay.stableKey))
             .assertIsSelected()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSummary).assertExists()
     }
 
     @Test
     fun `vpn route initial section starts on vpn summary`() {
-        setConfigScreen(initialModeSection = ConnectionModeSection.Vpn)
+        setConfigScreen(initialPath = ConnectionPath.Relay)
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.configModeSection(ConnectionModeSection.Vpn.stableKey))
+            .onNodeWithTag(RipDpiTestTags.configPath(ConnectionPath.Relay.stableKey))
             .assertIsSelected()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassSummary).assertDoesNotExist()
@@ -481,7 +481,7 @@ class ConnectionScreenTest {
         var scanClicks = 0
         val profileShareClicks = mutableListOf<String>()
         setConfigScreen(
-            initialModeSection = ConnectionModeSection.Vpn,
+            initialPath = ConnectionPath.Relay,
             onPasteServerLink = { pasteClicks += 1 },
             onScanServer = { scanClicks += 1 },
             profileActions = ConnectionProfileActions(share = { profileShareClicks += it }),
@@ -532,7 +532,7 @@ class ConnectionScreenTest {
     fun `unknown relay can be selected without offering unsupported editing`() {
         val selected = mutableListOf<String>()
         setConfigScreen(
-            initialModeSection = ConnectionModeSection.Vpn,
+            initialPath = ConnectionPath.Relay,
             vpnProfiles = persistentListOf(RelayProfileUiState("unknown-imported", "unknown", "Unknown", "", "")),
             profileActions = ConnectionProfileActions(select = { selected += it }),
         )
@@ -663,7 +663,7 @@ class ConnectionScreenTest {
     }
 
     private fun setConfigScreen(
-        initialModeSection: ConnectionModeSection,
+        initialPath: ConnectionPath,
         onModeSelected: (Mode) -> Unit = {},
         onEditCurrent: () -> Unit = {},
         onOpenLocalBypassEditor: () -> Unit = {},
@@ -704,7 +704,7 @@ class ConnectionScreenTest {
                     onRetestStrategies = onRetestStrategies,
                     onPasteServerLink = onPasteServerLink,
                     profileActions = profileActions.copy(scanServer = onScanServer),
-                    initialModeSection = initialModeSection,
+                    initialPath = initialPath,
                 )
             }
         }

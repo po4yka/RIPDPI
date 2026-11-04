@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="config">कनेक्शन</string>
+    <string name="connection_title">कनेक्शन</string>
     <string name="strategy_tuner_open_action">रणनीति ट्यूनर खोलें</string>
     <string name="strategy_tuner_domains_label">परीक्षण डोमेन</string>
     <string name="strategy_tuner_run">चलाएँ</string>
@@ -719,7 +719,7 @@ fakeddisorder endhost</string>
     <string name="strategy_config_lua_function_required_title">फ़ंक्शन नाम आवश्यक है</string>
     <string name="strategy_config_lua_function_required_body">वह Lua फ़ंक्शन दर्ज करें जो टनल स्ट्रैटेजी कॉन्फ़िग में चलना चाहिए।</string>
     <string name="strategy_config_lua_function_missing">चुनी गई स्क्रिप्ट ने Lua फ़ंक्शन %1$s को पंजीकृत नहीं किया था।</string>
-    <string name="config_traffic_mode_title">ट्रैफ़िक मोड चुनें</string>
+    <string name="config_scope_title">ट्रैफ़िक मोड चुनें</string>
     <string name="ripdpi_proxy_port_setting">पोर्ट</string>
     <string name="ripdpi_max_connections_setting">कनेक्शनों की अधिकतम संख्या</string>
     <string name="ripdpi_buffer_size_setting">बफ़र आकार</string>
@@ -1394,8 +1394,8 @@ fakeddisorder endhost</string>
     </plurals>
     <string name="runtime_config_unknown_body">चल रहे कनेक्शन ने पुष्टि नहीं की है कि वह कौन-सी सेटिंग उपयोग कर रहा है। सहेजी गई सेटिंग लागू करने के लिए डिस्कनेक्ट करके फिर से कनेक्ट करें।</string>
     <string name="config_profile_change">प्रोफ़ाइल बदलें</string>
-    <string name="config_section_bypass_settings">सीधा</string>
-    <string name="config_section_server_settings">रिले</string>
+    <string name="config_path_direct">सीधा</string>
+    <string name="config_path_relay">रिले</string>
     <string name="ws_tunnel_worker_transport_label">Cloudflare Worker ट्रांसपोर्ट</string>
     <string name="ws_tunnel_worker_transport_configured">%1$s\nक्रेडेंशियल: %2$s</string>
     <string name="ws_tunnel_worker_transport_not_configured">कॉन्फ़िगर नहीं; सीधे Telegram गेटवे का उपयोग होता है</string>

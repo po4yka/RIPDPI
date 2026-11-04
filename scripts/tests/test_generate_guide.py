@@ -367,7 +367,7 @@ class GenerateGuideTest(unittest.TestCase):
                         route="config",
                         required_elements=[
                             "config-section-navigation",
-                            "config-traffic-endpoint-selection",
+                            "config-scope-selection",
                         ],
                     ),
                 ],

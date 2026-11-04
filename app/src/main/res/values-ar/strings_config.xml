@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="config">الاتصال</string>
+    <string name="connection_title">الاتصال</string>
     <string name="strategy_tuner_open_action">فتح ضبط الاستراتيجية</string>
     <string name="strategy_tuner_domains_label">نطاقات الاختبار</string>
     <string name="strategy_tuner_run">تشغيل</string>
@@ -719,7 +719,7 @@ fakeddisorder endhost</string>
     <string name="strategy_config_lua_function_required_title">اسم الدالة مطلوب</string>
     <string name="strategy_config_lua_function_required_body">أدخل دالة Lua التي ينبغي تشغيلها في إعداد استراتيجية النفق.</string>
     <string name="strategy_config_lua_function_missing">لم تُسجَّل دالة ⁨Lua⁩ %1$s بواسطة النص البرمجي المحدد.</string>
-    <string name="config_traffic_mode_title">اختر وضع الحركة</string>
+    <string name="config_scope_title">اختر وضع الحركة</string>
     <string name="ripdpi_proxy_port_setting">المنفذ</string>
     <string name="ripdpi_max_connections_setting">الحد الأقصى لعدد الاتصالات</string>
     <string name="ripdpi_buffer_size_setting">حجم المخزن المؤقت</string>
@@ -1478,8 +1478,8 @@ fakeddisorder endhost</string>
     </plurals>
     <string name="runtime_config_unknown_body">لم يؤكد الاتصال الحالي الإعدادات التي يستخدمها. اقطع الاتصال ثم اتصل مجددًا لتطبيق إعداداتك المحفوظة.</string>
     <string name="config_profile_change">تغيير الملف الشخصي</string>
-    <string name="config_section_bypass_settings">مباشر</string>
-    <string name="config_section_server_settings">المُرحِّل</string>
+    <string name="config_path_direct">مباشر</string>
+    <string name="config_path_relay">المُرحِّل</string>
     <string name="ws_tunnel_worker_transport_label">نقل Cloudflare Worker</string>
     <string name="ws_tunnel_worker_transport_configured">%1$s\nبيانات الاعتماد: %2$s</string>
     <string name="ws_tunnel_worker_transport_not_configured">غير مُعد؛ يستخدم بوابة Telegram المباشرة</string>

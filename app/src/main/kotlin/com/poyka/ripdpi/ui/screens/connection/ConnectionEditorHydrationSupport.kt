@@ -24,11 +24,8 @@ internal fun launchConfigEditorHydration(
         val draft = requireNotNull(session.draft)
         val hydration =
             runCatching {
-                if (presetId.startsWith("relay-profile:")) {
-                    relayArtifacts.hydrateProfile(presetId.removePrefix("relay-profile:"))
-                } else {
-                    relayArtifacts.hydrate(draft)
-                }
+                relayProfileIdFromPresetId(presetId)?.let { relayArtifacts.hydrateProfile(it) }
+                    ?: relayArtifacts.hydrate(draft)
             }
         val error = hydration.exceptionOrNull()
         if (error == null) {

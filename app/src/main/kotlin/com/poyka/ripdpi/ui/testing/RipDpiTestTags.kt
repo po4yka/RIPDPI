@@ -101,7 +101,7 @@ internal object RipDpiTestTags {
     const val ConfigProfileChoices = "config-profile-choices"
     const val ConnectionSummary = "config-connection-summary"
     const val ConfigCliOverrideBanner = "config-cli-override-banner"
-    const val ConfigTrafficEndpointSelection = "config-traffic-endpoint-selection"
+    const val ConfigScopeSelection = "config-scope-selection"
     const val ConfigPresetsLoading = "config-presets-loading"
     const val ConfigDnsSettings = "config-dns-settings"
     const val ConfigLocalBypassSummary = "config-local-bypass-summary"
@@ -483,7 +483,7 @@ internal object RipDpiTestTags {
 
     val configMode: (String) -> String = { modeKey -> "config-mode-${sanitize(modeKey)}" }
 
-    val configModeSection: (String) -> String = { sectionKey -> "config-mode-section-${sanitize(sectionKey)}" }
+    val configPath: (String) -> String = { pathKey -> "config-path-${sanitize(pathKey)}" }
     val configVpnProfile: (String) -> String = { profileId -> "config-vpn-profile-${sanitize(profileId)}" }
     val configVpnProfileShare: (String) -> String = { profileId -> "config-vpn-profile-share-${sanitize(profileId)}" }
 

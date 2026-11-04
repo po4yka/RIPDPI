@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="ripdpi_docs" translatable="false">https://github.com/hufrea/ripdpi/blob/v0.13/README.md</string>
-    <string name="config">Connection</string>
+    <string name="connection_title">Connection</string>
     <string name="strategy_tuner_open_action">Open strategy tuner</string>
     <string name="strategy_tuner_domains_label">Test domains</string>
     <string name="strategy_tuner_run">Run</string>
@@ -735,7 +735,7 @@ fakeddisorder endhost</string>
     <string name="strategy_config_lua_function_required_title">Function name required</string>
     <string name="strategy_config_lua_function_required_body">Enter the Lua function that should run in the tunnel strategy config.</string>
     <string name="strategy_config_lua_function_missing">The Lua function %1$s was not registered by the selected script.</string>
-    <string name="config_traffic_mode_title">Choose traffic mode</string>
+    <string name="config_scope_title">Choose traffic mode</string>
     <string name="ripdpi_proxy_port_setting">Port</string>
     <string name="ripdpi_max_connections_setting">Maximum number of connections</string>
     <string name="ripdpi_buffer_size_setting">Buffer size</string>
@@ -1418,8 +1418,8 @@ Source: %2$s</string>
     </plurals>
     <string name="runtime_config_unknown_body">The running connection has not confirmed which settings it uses. Disconnect and connect again to apply your saved settings.</string>
     <string name="config_profile_change">Change profile</string>
-    <string name="config_section_bypass_settings">Direct</string>
-    <string name="config_section_server_settings">Relay</string>
+    <string name="config_path_direct">Direct</string>
+    <string name="config_path_relay">Relay</string>
     <string name="ws_tunnel_worker_transport_label">Cloudflare Worker transport</string>
     <string name="ws_tunnel_worker_transport_configured">%1$s\nCredential: %2$s</string>
     <string name="ws_tunnel_worker_transport_not_configured">Not configured; uses the direct Telegram gateway</string>

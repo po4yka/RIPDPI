@@ -47,7 +47,7 @@ import kotlinx.collections.immutable.persistentListOf
 private const val VpnProfilePreviewLimit = 3
 
 @Composable
-internal fun VpnConfigScreen(
+internal fun ConnectionRelaySection(
     uiState: ConnectionUiState,
     onOpenRelaySettings: () -> Unit,
     onOpenDnsSettings: () -> Unit,
@@ -56,13 +56,13 @@ internal fun VpnConfigScreen(
     onOpenSubscriptionStatus: (() -> Unit)? = null,
     onOpenSubscriptionFailover: (() -> Unit)? = null,
 ) {
-    TrackRecomposition("VpnConfigScreen")
+    TrackRecomposition("ConnectionRelaySection")
 
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
     ) {
-        VpnRows(
+        RelaySectionRows(
             uiState,
             onOpenRelaySettings,
             onOpenDnsSettings,
@@ -271,7 +271,7 @@ private fun VpnAddProfileAction(onCreateProfile: (Route) -> Unit) {
 }
 
 @Composable
-private fun VpnRows(
+private fun RelaySectionRows(
     uiState: ConnectionUiState,
     onOpenRelaySettings: () -> Unit,
     onOpenDnsSettings: () -> Unit,
@@ -521,7 +521,7 @@ private fun VpnConfigScreenPreview() {
             relayServerPort = "443",
         )
     RipDpiTheme {
-        VpnConfigScreen(
+        ConnectionRelaySection(
             uiState =
                 ConnectionUiState(
                     activeMode = draft.mode,

@@ -37,7 +37,7 @@ internal class ConfigPage(
     val profileChoices = RipDpiTestTags.ConfigProfileChoices
     val bottomNavConfig = RipDpiTestTags.bottomNav(Route.Config)
 
-    fun modeSection(id: String): String = RipDpiTestTags.configModeSection(id)
+    fun pathOption(id: String): String = RipDpiTestTags.configPath(id)
 
     fun preset(id: String): String = RipDpiTestTags.configPreset(id)
 

@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="config">连接</string>
+    <string name="connection_title">连接</string>
     <string name="strategy_tuner_open_action">打开策略调优</string>
     <string name="strategy_tuner_domains_label">测试域名</string>
     <string name="strategy_tuner_run">运行</string>
@@ -621,7 +621,7 @@ fake_burst 3</string>
     <string name="host_pack_target_title">目标列表</string>
     <string name="http_fake_profile_body">HTTP fake 数据包的基础载荷。仅改变看似合理的请求形态,不影响传输行为。</string>
     <string name="http_fake_profile_scope_off">HTTP 绕过策略 已禁用,此配置文件当前处于空闲状态。</string>
-    <string name="config_traffic_mode_title">选择流量模式</string>
+    <string name="config_scope_title">选择流量模式</string>
     <string name="quic_fake_host_builtin_title">内置 fake 主机</string>
     <string name="quic_fake_host_error">请使用普通域名,如 video.example.org。IP 字面量和无效主机名将被忽略。</string>
     <string name="quic_fake_preset_off_body">保留现有的原始 UDP fake 载荷路径。当您只想要传输层 fake 突发时使用。</string>
@@ -1372,8 +1372,8 @@ fake_burst 3</string>
     </plurals>
     <string name="runtime_config_unknown_body">当前连接尚未确认正在使用哪些设置。断开并重新连接即可应用已保存的设置。</string>
     <string name="config_profile_change">更改配置文件</string>
-    <string name="config_section_bypass_settings">直连</string>
-    <string name="config_section_server_settings">中继</string>
+    <string name="config_path_direct">直连</string>
+    <string name="config_path_relay">中继</string>
     <string name="ws_tunnel_worker_transport_label">Cloudflare Worker 传输</string>
     <string name="ws_tunnel_worker_transport_configured">%1$s\n凭据：%2$s</string>
     <string name="ws_tunnel_worker_transport_not_configured">未配置；使用 Telegram 直连网关</string>

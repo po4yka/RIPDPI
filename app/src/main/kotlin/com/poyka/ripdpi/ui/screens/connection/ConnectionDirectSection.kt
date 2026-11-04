@@ -30,7 +30,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
-internal fun LocalBypassConfigScreen(
+internal fun ConnectionDirectSection(
     uiState: ConnectionUiState,
     desyncSummary: String,
     onOpenDesyncSettings: () -> Unit,
@@ -38,18 +38,18 @@ internal fun LocalBypassConfigScreen(
     onRetestStrategies: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    TrackRecomposition("LocalBypassConfigScreen")
+    TrackRecomposition("ConnectionDirectSection")
 
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
     ) {
-        LocalBypassRows(uiState, desyncSummary, onOpenDesyncSettings, onOpenDnsSettings, onRetestStrategies)
+        DirectSectionRows(uiState, desyncSummary, onOpenDesyncSettings, onOpenDnsSettings, onRetestStrategies)
     }
 }
 
 @Composable
-private fun LocalBypassRows(
+private fun DirectSectionRows(
     uiState: ConnectionUiState,
     desyncSummary: String,
     onOpenDesyncSettings: () -> Unit,
@@ -200,7 +200,7 @@ private fun LocalBypassConfigScreenPreview() {
             defaultTtl = "8",
         )
     RipDpiTheme {
-        LocalBypassConfigScreen(
+        ConnectionDirectSection(
             uiState =
                 ConnectionUiState(
                     activeMode = draft.mode,

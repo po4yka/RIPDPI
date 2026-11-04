@@ -43,7 +43,7 @@ sealed class Route {
     @Serializable
     data object Config : Route() {
         override val stableRoute = "config"
-        override val titleRes = R.string.config
+        override val titleRes = R.string.connection_title
         override val icon: ImageVector = RipDpiIcons.Config
     }
 

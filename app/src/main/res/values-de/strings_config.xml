@@ -690,7 +690,7 @@ Quelle: %2$s</string>
     <string name="host_pack_target_title">Ziel-Liste</string>
     <string name="http_fake_profile_interaction">Parser-only-, Split-, Disorder- und Hostfake-Schritte verbrauchen dieses vollständige HTTP-Payload-Profil nicht.</string>
     <string name="http_fake_profile_title">HTTP-Fake-Payload</string>
-    <string name="config_traffic_mode_title">Datenverkehrsmodus wählen</string>
+    <string name="config_scope_title">Datenverkehrsmodus wählen</string>
     <string name="quic_fake_host_custom_title">Benutzerdefinierter Host-Override aktiv</string>
     <string name="quic_fake_preset_compat_title">Kompatibilitäts-Blob</string>
     <string name="quic_fake_preset_recommended">Empfohlen</string>
@@ -829,7 +829,7 @@ Quelle: %2$s</string>
     <string name="adaptive_split_scope_manual">Der aktuelle erste TCP-Sendeschritt verwendet einen explizit gespeicherten Marker.</string>
     <string name="adaptive_split_summary_label_profile">Profil</string>
     <string name="adaptive_split_target_legacy">Schreibt den Legacy-Split-Marker neu, der zur Synthese des primären Sendeschritts verwendet wird.</string>
-    <string name="config">Verbindung</string>
+    <string name="connection_title">Verbindung</string>
     <string name="config_chain_editor_helper_brief">Verwenden Sie die Abschnitte [tcp] und [udp] mit numerischen oder semantischen Offset-Markern.</string>
     <string name="config_cli_banner_title">Kommandozeilen-Überschreibungen aktiviert</string>
     <string name="config_error_invalid_dns">Geben Sie eine gültige, nicht lokale DNS-Adresse ein.</string>
@@ -1394,8 +1394,8 @@ Quelle: %2$s</string>
     </plurals>
     <string name="runtime_config_unknown_body">Die aktive Verbindung hat nicht bestätigt, welche Einstellungen sie verwendet. Trennen Sie die Verbindung und verbinden Sie neu, um die gespeicherten Einstellungen anzuwenden.</string>
     <string name="config_profile_change">Profil ändern</string>
-    <string name="config_section_bypass_settings">Direkt</string>
-    <string name="config_section_server_settings">Relay</string>
+    <string name="config_path_direct">Direkt</string>
+    <string name="config_path_relay">Relay</string>
     <string name="ws_tunnel_worker_transport_label">Cloudflare-Worker-Transport</string>
     <string name="ws_tunnel_worker_transport_configured">%1$s\nAnmeldedaten: %2$s</string>
     <string name="ws_tunnel_worker_transport_not_configured">Nicht konfiguriert; direktes Telegram-Gateway wird verwendet</string>

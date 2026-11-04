@@ -311,7 +311,7 @@ class ConnectionViewModel
             }
         }
 
-        fun startEditingPreset(presetId: String = "custom") {
+        fun startEditingPreset(presetId: String = CustomPresetId) {
             val saveJob = activeSaveJob.get()
             when {
                 saveJob != null -> {
@@ -386,7 +386,7 @@ class ConnectionViewModel
                         val baseDraft = uiState.value.draft
                         ConnectionEditorSession(
                             sessionId = editorSessionIds.incrementAndGet(),
-                            presetId = "custom",
+                            presetId = CustomPresetId,
                             baselineDraft = baseDraft,
                             draft = baseDraft.applyRelayDraftEdit(transform),
                             draftRevision = 1L,
@@ -644,7 +644,7 @@ class ConnectionViewModel
                     editorSession.value =
                         ConnectionEditorSession(
                             sessionId = sessionId,
-                            presetId = pendingEditorStartPresetId ?: "custom",
+                            presetId = pendingEditorStartPresetId ?: CustomPresetId,
                             hydrationPending = true,
                         )
                     pendingEditorStartPresetId = null

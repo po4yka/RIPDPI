@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="config">Подключение</string>
+    <string name="connection_title">Подключение</string>
     <string name="strategy_tuner_open_action">Открыть подбор стратегии</string>
     <string name="strategy_tuner_domains_label">Тестовые домены</string>
     <string name="strategy_tuner_run">Запустить</string>
@@ -1181,7 +1181,7 @@ fakeddisorder endhost</string>
     <string name="config_relay_apps_script_proxy_only_body">Переключитесь в режим прокси. VPN не может защитить HTTP-соединение этого ретранслятора.</string>
     <string name="config_relay_apps_script_parallel">Параллельное реле</string>
     <string name="config_relay_protocol_section_proxy">Прокси-транспорты</string>
-    <string name="config_traffic_mode_title">Выберите режим трафика</string>
+    <string name="config_scope_title">Выберите режим трафика</string>
     <string name="asset_provider_entry_title">Поставщик гео-данных</string>
     <string name="asset_provider_intro_title">Источник geoip.db и geosite.db</string>
     <string name="asset_provider_intro_body">Обновления применяются при следующем запуске службы. Горячая перезагрузка без перезапуска появится позже.</string>
@@ -1433,8 +1433,8 @@ fakeddisorder endhost</string>
     </plurals>
     <string name="runtime_config_unknown_body">Текущее подключение не подтвердило, какие настройки оно использует. Переподключитесь, чтобы применить сохранённые настройки.</string>
     <string name="config_profile_change">Изменить профиль</string>
-    <string name="config_section_bypass_settings">Напрямую</string>
-    <string name="config_section_server_settings">Через сервер</string>
+    <string name="config_path_direct">Напрямую</string>
+    <string name="config_path_relay">Через сервер</string>
     <string name="ws_tunnel_worker_transport_label">Транспорт Cloudflare Worker</string>
     <string name="ws_tunnel_worker_transport_configured">%1$s\nУчётные данные: %2$s</string>
     <string name="ws_tunnel_worker_transport_not_configured">Не настроен; используется прямой шлюз Telegram</string>

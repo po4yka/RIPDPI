@@ -28,7 +28,7 @@ class ConnectionSummaryTest {
     @Test
     fun `direct section offers no connect or disconnect control while running`() {
         setConfigScreen(
-            initialModeSection = ConnectionModeSection.LocalBypass,
+            initialPath = ConnectionPath.Direct,
             activeMode = Mode.Proxy,
             runningMode = Mode.Proxy,
         )
@@ -38,7 +38,7 @@ class ConnectionSummaryTest {
 
     @Test
     fun `relay section offers no connect or disconnect control while stopped`() {
-        setConfigScreen(initialModeSection = ConnectionModeSection.Vpn, activeMode = Mode.VPN)
+        setConfigScreen(initialPath = ConnectionPath.Relay, activeMode = Mode.VPN)
 
         assertNoRuntimeControl()
     }
@@ -53,7 +53,7 @@ class ConnectionSummaryTest {
 
     @Test
     fun `profile choices stay hidden until change`() {
-        setConfigScreen(initialModeSection = ConnectionModeSection.LocalBypass)
+        setConfigScreen(initialPath = ConnectionPath.Direct)
 
         composeRule.onNodeWithTag(RipDpiTestTags.configPreset("recommended")).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddProfile).assertDoesNotExist()
@@ -120,7 +120,7 @@ class ConnectionSummaryTest {
     }
 
     private fun setConfigScreen(
-        initialModeSection: ConnectionModeSection,
+        initialPath: ConnectionPath,
         onModeSelected: (Mode) -> Unit = {},
         activeMode: Mode = Mode.VPN,
         runningMode: Mode? = null,
@@ -135,7 +135,7 @@ class ConnectionSummaryTest {
                     onOpenConfigEditor = {},
                     onRetestStrategies = {},
                     onPasteServerLink = {},
-                    initialModeSection = initialModeSection,
+                    initialPath = initialPath,
                 )
             }
         }
