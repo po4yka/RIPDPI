@@ -19,20 +19,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiFeatureSurface
 
-// Border widths are derived from spacing.xs (no literal dp): take three quarters for the 3 dp selected
-// outline, quarter it for the 1 dp unselected outline.
-private const val selectedBorderMultiplier = 3
-private const val unselectedBorderDivisor = 4
+private val SelectedBorderWidth = 2.dp
+private val UnselectedBorderWidth = 1.dp
 
 /**
  * Onboarding-scoped selectable option card used for both the traffic-mode and DNS choices.
  *
  * Intentionally lighter than the shared [com.poyka.ripdpi.ui.components.cards.PresetCard]: no drop
- * shadow, a subtle neutral fill on selection, and a clean 3 dp foreground border (1 dp when unselected) so the
+ * shadow, a subtle neutral fill on selection, and a 2 dp foreground border (1 dp when unselected) so the
  * selected state reads as "outlined + faintly filled" rather than a heavy elevated tile. The whole
  * card is a single [Role.RadioButton] selectable target with Android ripple; the badge is a quiet
  * tonal pill that stays secondary to the title.
@@ -59,13 +58,7 @@ internal fun OnboardingOptionCard(
     // chosen card is obvious at a glance; unselected cards stay on the quiet outline ramp.
     val container = if (selected) colors.muted else colors.card
     val borderColor = if (selected) colors.foreground else colors.outlineVariant
-    // Token-derived widths (no literal dp): 3 dp selected / 1 dp unselected.
-    val borderWidth =
-        if (selected) {
-            spacing.xs * selectedBorderMultiplier / unselectedBorderDivisor
-        } else {
-            spacing.xs / unselectedBorderDivisor
-        }
+    val borderWidth = if (selected) SelectedBorderWidth else UnselectedBorderWidth
 
     Column(
         modifier =
@@ -138,18 +131,16 @@ internal fun OnboardingOptionCard(
 @Composable
 private fun OnboardingOptionBadge(text: String) {
     val colors = RipDpiThemeTokens.colors
-    val spacing = RipDpiThemeTokens.spacing
     val type = RipDpiThemeTokens.type
     val components = RipDpiThemeTokens.components
     val shape = RipDpiThemeTokens.shapes.xxl
-    // Token-derived 1 dp hairline outline (same divisor as the unselected card border).
     Box(
         modifier =
             Modifier
                 .ripDpiFeatureSurface(
                     shape = shape,
                     border = colors.outline,
-                    borderWidth = spacing.xs / unselectedBorderDivisor,
+                    borderWidth = UnselectedBorderWidth,
                     clip = true,
                 ).padding(
                     horizontal = components.rows.compactPillHorizontalPadding,
