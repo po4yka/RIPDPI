@@ -237,6 +237,7 @@ class RipDpiProxyService :
     }
 
     override fun onDestroy() {
+        notificationController.close()
         pauseController.detach(this)
         runtimeEvidenceReporter.recordLifecycle(Mode.Proxy, DeviceRuntimeLifecyclePhase.Destroyed)
         destroyCleanupJob =
@@ -263,7 +264,7 @@ class RipDpiProxyService :
     ): Int {
         super.onStartCommand(intent, flags, startId)
         latestStartId = startId
-        notificationController.startForeground(intent?.action)
+        notificationController.refresh()
         serviceScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             runCatching {
                 entryMutex.withLock {
@@ -346,7 +347,7 @@ class RipDpiProxyService :
             DeviceRuntimeForegroundCallKind.Initial,
             DeviceRuntimeForegroundServiceType.SpecialUse,
         ) {
-            notificationController.startForeground(intent?.action)
+            notificationController.onCommandAccepted(intent?.action)
         }
         // A null action is a START_STICKY re-delivery after a process kill (LMK /
         // memory limiter). Publish Reconnecting ONLY from a Halted baseline (a genuinely

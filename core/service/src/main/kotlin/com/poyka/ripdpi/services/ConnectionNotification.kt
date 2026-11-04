@@ -19,11 +19,14 @@ import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.Sender
-import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 
 /** Identity of the one foreground notification that each service owns. */
@@ -86,6 +89,19 @@ private val HandoverInProgressStates =
         NetworkHandoverStates.Restarting,
         NetworkHandoverStates.RetryScheduled,
     )
+
+// A failed telemetry poll reports idle zeros; cumulative totals only reach zero on a real restart.
+internal fun ConnectionNotificationPhase.keepingTrafficFrom(previous: ConnectionNotificationPhase) =
+    if (this is ConnectionNotificationPhase.Connected &&
+        previous is ConnectionNotificationPhase.Connected &&
+        traffic.isZero()
+    ) {
+        copy(traffic = previous.traffic)
+    } else {
+        this
+    }
+
+private fun TunnelStats.isZero(): Boolean = txBytes == 0L && rxBytes == 0L
 
 internal data class ConnectionNotificationContent(
     val title: String,
@@ -151,16 +167,22 @@ internal fun connectionTrafficText(
     )
 }
 
-/** Failure events outlive the telemetry loop, which is already cancelled when a failed service stays alive. */
+/**
+ * Failures outlive the telemetry loop, which is already cancelled when a failed service stays alive.
+ * This reads telemetry because `ServiceStateStore.events` delivers each failure once, to the UI.
+ */
 internal fun CoroutineScope.observeConnectionFailures(
     store: ServiceStateStore,
     sender: Sender,
     controller: ForegroundNotificationController,
 ) {
     launch {
-        store.events.collect { event ->
-            if (event is ServiceEvent.Failed && event.sender == sender) controller.onConnectionFailed()
-        }
+        store.telemetry
+            .map { it.lastFailureAt.takeIf { _ -> it.lastFailureSender == sender } }
+            .distinctUntilChanged()
+            .drop(1)
+            .filterNotNull()
+            .collect { controller.onConnectionFailed() }
     }
 }
 

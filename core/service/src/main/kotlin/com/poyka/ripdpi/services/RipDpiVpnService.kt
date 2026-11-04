@@ -265,6 +265,7 @@ class RipDpiVpnService :
     }
 
     override fun onDestroy() {
+        notificationController.close()
         liveVpnLockdownReader.unregister(this)
         recoveryUserUnlockReceiver.close()
         recoveryReceiptCollector.cancelServiceInstance(recoveryServiceInstanceId)
@@ -305,7 +306,7 @@ class RipDpiVpnService :
     ): Int {
         super.onStartCommand(intent, flags, startId)
         latestStartId = startId
-        notificationController.startForeground(intent?.action)
+        notificationController.refresh()
         serviceScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             runCatching {
                 entryMutex.withLock {
@@ -634,7 +635,7 @@ class RipDpiVpnService :
                 DeviceRuntimeForegroundCallKind.Initial,
                 DeviceRuntimeForegroundServiceType.SpecialUse,
             ) {
-                notificationController.startForeground(startAction)
+                notificationController.onCommandAccepted(startAction)
             }
             val policy = refreshHardKillSwitchState()
             if (recoveryGeneration != null) {

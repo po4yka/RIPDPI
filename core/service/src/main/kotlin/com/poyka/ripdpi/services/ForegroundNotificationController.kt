@@ -24,29 +24,45 @@ internal class ForegroundNotificationController(
     private var phase: ConnectionNotificationPhase = ConnectionNotificationPhase.Connecting
     private var stoppingSinceMillis = 0L
 
+    // Partial cleanup shows pause text after the pause authority has already cleared.
+    private var shownPause: PauseIntent? = null
+    private var closed = false
+
     fun registerChannel() = registerConnectionChannel(service, target.channelId, target.channelName)
 
-    /** Publishes the state a service command leads to; a live connection keeps its state across other commands. */
-    fun startForeground(action: String?): Unit =
-        synchronized(lock) {
-            if (pauseIntent() == null) applyCommand(action)
-            refresh()
-        }
-
+    /** Satisfies the foreground contract on service entry, before anyone decides whether the command runs. */
     fun refresh(): Unit =
         synchronized(lock) {
-            val paused = pauseIntent()
-            if (paused != null) {
-                showPaused(paused)
+            val pause = pauseIntent() ?: shownPause
+            if (pause != null) {
+                showPaused(pause)
             } else {
                 service.startConnectionForeground(target.notificationId, notification())
             }
         }
 
+    /** Publishes the state an accepted service command leads to; a live connection keeps its state otherwise. */
+    fun onCommandAccepted(action: String?): Unit =
+        synchronized(lock) {
+            if (pauseIntent() == null) {
+                shownPause = null
+                applyCommand(action)
+            }
+            refresh()
+        }
+
     fun showPaused(intent: PauseIntent): Unit =
         synchronized(lock) {
             phase = ConnectionNotificationPhase.Connecting
+            shownPause = intent
             startPausedForeground(service, intent, target.channelId, target.notificationId)
+        }
+
+    /** Removes the notification for good: a late event must not leave an ongoing one that no service owns. */
+    fun close(): Unit =
+        synchronized(lock) {
+            closed = true
+            service.getSystemService(NotificationManager::class.java)?.cancel(target.notificationId)
         }
 
     /** Covers a failure that keeps the service alive, such as retained fail-closed or unfinished cleanup. */
@@ -54,6 +70,7 @@ internal class ForegroundNotificationController(
         synchronized(lock) {
             if (pauseIntent() == null) {
                 phase = ConnectionNotificationPhase.Failed
+                shownPause = null
                 post()
             }
         }
@@ -69,11 +86,12 @@ internal class ForegroundNotificationController(
                     ?.takeUnless { pauseIntent() != null || isStopInProgress() }
                     ?.let { connectionNotificationPhase(it, tunnelStats) }
             if (next != null) {
+                shownPause = null
                 val stateChanged = !next.hasSameStateAs(phase)
                 if (next is ConnectionNotificationPhase.Connected && stateChanged) {
                     cancelConnectionFailureAlert(service)
                 }
-                phase = next
+                phase = next.keepingTrafficFrom(phase)
                 if (interactive || stateChanged) post()
             }
         }
@@ -103,6 +121,7 @@ internal class ForegroundNotificationController(
             SystemClock.elapsedRealtime() - stoppingSinceMillis < StoppingHoldMillis
 
     private fun post() {
+        if (closed) return
         @Suppress("SwallowedException")
         try {
             service
