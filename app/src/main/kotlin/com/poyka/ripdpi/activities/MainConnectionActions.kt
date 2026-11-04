@@ -21,14 +21,12 @@ import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.services.ServiceStartResult
-import com.poyka.ripdpi.ui.screens.diagnostics.state.localizedDisplayName
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
 import com.poyka.ripdpi.ui.screens.diagnostics.uiEvidenceNote
 import com.poyka.ripdpi.ui.screens.diagnostics.verificationLabelRes
 import com.poyka.ripdpi.ui.screens.status.ConnectionResultFeedback
 import com.poyka.ripdpi.ui.screens.status.hasUnsupportedVpnDoq
 import com.poyka.ripdpi.ui.screens.status.localizedHomeStrategyFacets
-import kotlinx.collections.immutable.persistentListOf
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -191,18 +189,9 @@ internal class MainConnectionActions(
                 }
         val summary = strategySummary ?: profileSummary ?: return null
         return HomeApproachSummaryUiState(
-            // The mode is already the actuator's route label, so the title is only the step chain.
-            title =
-                if (strategySummary != null) {
-                    strategySignature.chainSummary
-                } else {
-                    summary.localizedDisplayName(stringResolver)
-                },
-            facets =
-                strategySignature
-                    .localizedHomeStrategyFacets(stringResolver)
-                    .takeIf { strategySummary != null }
-                    ?: persistentListOf(),
+            // Always the strategy in use: a diagnostics profile name is not a bypass strategy.
+            title = strategySignature.chainSummary,
+            facets = strategySignature.localizedHomeStrategyFacets(stringResolver),
             verification = stringResolver.getString(summary.verificationLabelRes()),
             successRate =
                 summary.validatedSuccessRate?.let { "${(it * PercentScale).toInt()}%" } ?: "Not evaluated",

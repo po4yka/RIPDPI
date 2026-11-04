@@ -56,11 +56,11 @@ class RipDpiConnectionStrategyPanelTest {
     }
 
     @Test
-    fun `a profile without settings is named but not expandable`() {
+    fun `a strategy without settings is named but not expandable`() {
         composeRule.setActuator(
-            actuatorState(StatusConnectionActuatorStatus.Locked).copy(strategyLabel = "Home Wi-Fi profile"),
+            actuatorState(StatusConnectionActuatorStatus.Locked).copy(strategyLabel = "tcp: none"),
         )
-        composeRule.onNodeWithText("Home Wi-Fi profile").assertIsDisplayed().assertHasNoClickAction()
+        composeRule.onNodeWithText("tcp: none").assertIsDisplayed().assertHasNoClickAction()
     }
 
     @Test

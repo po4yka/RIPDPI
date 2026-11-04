@@ -91,7 +91,7 @@ data class StatusConnectionActuatorUiState(
      * rather than by a banner beside it. Empty in every state but a fault.
      */
     val faultDetail: String = "",
-    /** The active bypass strategy (its step chain or profile name); blank hides the strategy panel. */
+    /** The step chain of the active bypass strategy; blank hides the strategy panel. */
     val strategyLabel: String = "",
     val strategyFacets: ImmutableList<StatusModeSummaryFacet> = persistentListOf(),
     /** Elapsed time of the running session, shown when the user confirms a disconnect. */

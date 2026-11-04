@@ -1900,17 +1900,10 @@ class MainViewModelTest {
                     )
                 }
             advanceUntilIdle()
-            assertEquals(
-                "Autolearn on",
-                viewModel.uiState.value.approachSummary
-                    ?.title,
-            )
-            assertTrue(
-                viewModel.uiState.value.approachSummary
-                    ?.facets
-                    .orEmpty()
-                    .isEmpty(),
-            )
+            // A diagnostics profile never takes the strategy's place in the "Bypass strategy" panel.
+            val profileBacked = viewModel.uiState.value.approachSummary
+            assertEquals(summary?.title, profileBacked?.title)
+            assertTrue(profileBacked?.facets.orEmpty().any { it.label == "Host learning" })
             collector.cancel()
         }
 
