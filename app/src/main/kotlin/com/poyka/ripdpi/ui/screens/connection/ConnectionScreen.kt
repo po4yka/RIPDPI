@@ -203,6 +203,7 @@ fun ConnectionScreen(
             onChangeProfile = { showProfileChoices = !showProfileChoices },
         )
         ConnectionRuntimeFeedback(uiState, runtimeCallbacks.dismissError)
+        ConnectionCliOverrideBanner(uiState)
         if (showProfileChoices) {
             Column(
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigProfileChoices),
@@ -257,8 +258,6 @@ fun ConnectionScreen(
             onScanServer = profileActions.scanServer,
             profileActions = profileActions,
         )
-
-        ConnectionGuidance(uiState, selectedModeSection)
     }
 }
 

@@ -558,6 +558,7 @@
     <string name="udp_fake_profile_interaction_quic_override">ترافیک QUIC Initial از نمایه fake QUIC در زیر استفاده می‌کند، در حالی که این نمایه ترافیک fake_burst عمومی UDP باقیمانده را پوشش می‌دهد.</string>
     <string name="config_cli_banner_title">جایگزینی‌های خط فرمان فعال</string>
     <string name="config_cli_banner_body">آرگومان‌های زیر بر کنترل‌های بصری در این صفحه اولویت دارند.</string>
+    <string name="config_cli_active_body">آرگومان‌های خط فرمان بر تنظیمات این صفحه اولویت دارند.</string>
     <string name="config_validation_fix">قبل از ذخیره، فیلدهای برجسته‌شده را بررسی کنید.</string>
     <string name="config_editor_hydration_failed">این پیکربندی باز نشد. اعتبارنامه‌های ذخیره‌شده تغییری نکردند.</string>
     <string name="config_validation_banner_title">برخی مقادیر هنوز نیاز به توجه دارند</string>
@@ -1408,7 +1409,6 @@ fakeddisorder endhost</string>
     <string name="config_connection_scope_proxy">دامنه: فقط پروکسی</string>
     <string name="config_connection_path_direct">مسیر: مستقیم</string>
     <string name="config_connection_path_relay">مسیر: رله · %1$s</string>
-    <string name="config_connection_details">جزئیات پیکربندی</string>
     <string name="config_section_bypass_settings">مستقیم</string>
     <string name="config_section_server_settings">رله</string>
     <string name="ws_tunnel_worker_transport_label">انتقال Cloudflare Worker</string>

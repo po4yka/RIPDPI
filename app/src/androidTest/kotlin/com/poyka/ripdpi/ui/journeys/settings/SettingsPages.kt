@@ -27,8 +27,6 @@ internal class ConfigPage(
     val localBypassSummary = RipDpiTestTags.ConfigLocalBypassSummary
     val localBypassListenAddress = RipDpiTestTags.ConfigLocalBypassListenAddress
     val localBypassDesync = RipDpiTestTags.ConfigLocalBypassDesync
-    val localBypassStrategyAuto = RipDpiTestTags.ConfigLocalBypassStrategyAuto
-    val localBypassPrecedenceNote = RipDpiTestTags.ConfigLocalBypassPrecedenceNote
     val localBypassRetest = RipDpiTestTags.ConfigLocalBypassRetest
     val vpnSummary = RipDpiTestTags.ConfigVpnSummary
     val vpnRelay = RipDpiTestTags.ConfigVpnRelay
@@ -37,7 +35,6 @@ internal class ConfigPage(
     val dnsSettings = RipDpiTestTags.ConfigDnsSettings
     val profileChange = RipDpiTestTags.ConfigProfileChange
     val profileChoices = RipDpiTestTags.ConfigProfileChoices
-    val connectionDetails = RipDpiTestTags.ConfigConnectionDetails
     val bottomNavConfig = RipDpiTestTags.bottomNav(Route.Config)
 
     fun modeSection(id: String): String = RipDpiTestTags.configModeSection(id)

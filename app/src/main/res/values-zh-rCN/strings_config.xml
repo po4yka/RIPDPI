@@ -68,6 +68,7 @@
     <string name="config_badge_active">活动</string>
     <string name="config_chain_editor_helper_full">下方的 HTTPS 区块可以可视化地编写单个 tlsrec 和随机化的 tlsrandrec 步骤,而 Hostfake 和 fake 近似卡片则说明针对主机名的 fake 数据块以及重传式近似。仅在 Linux/Android 上提供的近似有 fakedsplit host+1 和 fakeddisorder endhost,用于 HTTP 或 TLS SNI 相邻负载。</string>
     <string name="config_cli_banner_body">以下参数优先于本页面的可视化控件。</string>
+    <string name="config_cli_active_body">命令行参数优先于此屏幕上的设置。</string>
     <string name="config_default_ttl_helper">留空以使用引擎默认值。</string>
     <string name="config_dns_helper">用于本地 VPN 路由。</string>
     <string name="config_editor_body">正在编辑 %1$s。点按“保存”后，修改会存储在本设备上。</string>
@@ -1386,7 +1387,6 @@ fake_burst 3</string>
     <string name="config_connection_scope_proxy">范围：仅代理</string>
     <string name="config_connection_path_direct">路径：直连</string>
     <string name="config_connection_path_relay">路径：中继 · %1$s</string>
-    <string name="config_connection_details">配置详情</string>
     <string name="config_section_bypass_settings">直连</string>
     <string name="config_section_server_settings">中继</string>
     <string name="ws_tunnel_worker_transport_label">Cloudflare Worker 传输</string>

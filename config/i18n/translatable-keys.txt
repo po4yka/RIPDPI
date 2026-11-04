@@ -595,9 +595,9 @@ app:config_chain_step_tlsrec_add
 app:config_chain_step_tlsrec_explanation
 app:config_chain_step_tlsrec_label
 app:config_chain_summary_label
+app:config_cli_active_body
 app:config_cli_banner_body
 app:config_cli_banner_title
-app:config_connection_details
 app:config_connection_path_direct
 app:config_connection_path_relay
 app:config_connection_scope_proxy

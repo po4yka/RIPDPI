@@ -16,7 +16,6 @@ import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsNotSelected
 import androidx.compose.ui.test.assertIsSelected
-import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.hasContentDescription
 import androidx.compose.ui.test.junit4.StateRestorationTester
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -193,18 +192,32 @@ class ConnectionScreenTest {
     }
 
     @Test
-    fun `simple local bypass shows auto strategy retest and precedence note`() {
+    fun `direct section offers the strategy test without an edit shortcut`() {
         setConfigScreen(initialModeSection = ConnectionModeSection.LocalBypass)
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionSummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigEditCurrentButton).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigConnectionDetails).performScrollTo().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassStrategyAuto).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassPrecedenceNote).assertExists()
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigLocalBypassRetest)
-            .assertTextEquals("Open Diagnostics to re-test")
-            .assertHasClickAction()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigLocalBypassRetest).assertHasClickAction()
+    }
+
+    @Test
+    fun `command line override warning is visible without expanding anything`() {
+        val cliDraft = AppSettingsSerializer.defaultValue.toConfigDraft().copy(useCommandLineSettings = true)
+        composeRule.setContent {
+            RipDpiTheme {
+                ConnectionScreen(
+                    uiState = ConnectionUiState(presets = buildConfigPresets(cliDraft), draft = cliDraft),
+                    onModeSelected = {},
+                    onPresetSelected = {},
+                    onEditCurrent = {},
+                    onOpenConfigEditor = {},
+                    onRetestStrategies = {},
+                    onPasteServerLink = {},
+                )
+            }
+        }
+
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigCliOverrideBanner).assertExists()
     }
 
     @Test

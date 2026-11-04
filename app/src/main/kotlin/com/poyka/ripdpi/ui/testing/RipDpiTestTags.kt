@@ -101,7 +101,7 @@ internal object RipDpiTestTags {
     const val ConfigProfileChange = "config-profile-change"
     const val ConfigProfileChoices = "config-profile-choices"
     const val ConnectionSummary = "config-connection-summary"
-    const val ConfigConnectionDetails = "config-connection-details"
+    const val ConfigCliOverrideBanner = "config-cli-override-banner"
     const val ConfigTrafficEndpointSelection = "config-traffic-endpoint-selection"
     const val ConfigPresetsLoading = "config-presets-loading"
     const val ConfigDnsSettings = "config-dns-settings"

@@ -558,6 +558,7 @@
     <string name="udp_fake_profile_interaction_quic_override">تستخدم حركة QUIC الأولية ملف QUIC المزيف أدناه، بينما يغطي هذا الملف حركة UDP العامة المتبقية fake_burst.</string>
     <string name="config_cli_banner_title">تجاوزات سطر الأوامر مفعّلة</string>
     <string name="config_cli_banner_body">الوسيطات أدناه تأخذ الأولوية على الضوابط المرئية في هذه الشاشة.</string>
+    <string name="config_cli_active_body">تأخذ وسائط سطر الأوامر الأولوية على الإعدادات في هذه الشاشة.</string>
     <string name="config_validation_fix">تحقق من الحقول المحددة قبل الحفظ.</string>
     <string name="config_editor_hydration_failed">تعذّر فتح هذا الإعداد. لم تتغيّر بيانات الاعتماد المحفوظة.</string>
     <string name="config_validation_banner_title">بعض القيم تحتاج إلى انتباه</string>
@@ -1492,7 +1493,6 @@ fakeddisorder endhost</string>
     <string name="config_connection_scope_proxy">النطاق: وكيل فقط</string>
     <string name="config_connection_path_direct">المسار: مباشر</string>
     <string name="config_connection_path_relay">المسار: المُرحِّل · %1$s</string>
-    <string name="config_connection_details">تفاصيل الإعدادات</string>
     <string name="config_section_bypass_settings">مباشر</string>
     <string name="config_section_server_settings">المُرحِّل</string>
     <string name="ws_tunnel_worker_transport_label">نقل Cloudflare Worker</string>

@@ -558,6 +558,7 @@
     <string name="udp_fake_profile_interaction_quic_override">QUIC Initial ट्रैफ़िक नीचे दी गई QUIC फेक प्रोफ़ाइल का उपयोग करता है, जबकि यह प्रोफ़ाइल शेष जेनेरिक UDP fake_burst ट्रैफ़िक को कवर करती है।</string>
     <string name="config_cli_banner_title">कमांड लाइन ओवरराइड सक्षम</string>
     <string name="config_cli_banner_body">नीचे दिए गए तर्क इस स्क्रीन के दृश्य नियंत्रणों पर प्राथमिकता रखते हैं।</string>
+    <string name="config_cli_active_body">कमांड लाइन आर्ग्युमेंट इस स्क्रीन की सेटिंग से ऊपर हैं।</string>
     <string name="config_validation_fix">सहेजने से पहले हाइलाइट किए गए फ़ील्ड जाँचें।</string>
     <string name="config_editor_hydration_failed">यह कॉन्फ़िगरेशन नहीं खुल सका। सहेजे गए क्रेडेंशियल नहीं बदले गए।</string>
     <string name="config_validation_banner_title">कुछ मानों पर अभी ध्यान देने की आवश्यकता है</string>
@@ -1408,7 +1409,6 @@ fakeddisorder endhost</string>
     <string name="config_connection_scope_proxy">दायरा: केवल प्रॉक्सी</string>
     <string name="config_connection_path_direct">पथ: सीधा</string>
     <string name="config_connection_path_relay">पथ: रिले · %1$s</string>
-    <string name="config_connection_details">कॉन्फ़िगरेशन विवरण</string>
     <string name="config_section_bypass_settings">सीधा</string>
     <string name="config_section_server_settings">रिले</string>
     <string name="ws_tunnel_worker_transport_label">Cloudflare Worker ट्रांसपोर्ट</string>

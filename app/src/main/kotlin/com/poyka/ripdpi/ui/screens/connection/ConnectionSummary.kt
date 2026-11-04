@@ -1,14 +1,8 @@
 package com.poyka.ripdpi.ui.screens.connection
 
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.semantics
@@ -19,7 +13,6 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
-import com.poyka.ripdpi.ui.components.feedback.RipDpiAccordion
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -91,42 +84,18 @@ internal fun ConnectionSavedConnectionCard(
 }
 
 @Composable
-internal fun ConnectionGuidance(
-    uiState: ConnectionUiState,
-    section: ConnectionModeSection,
-) {
-    var expanded by rememberSaveable { mutableStateOf(false) }
-    val savedDraft = uiState.presets.firstOrNull { it.isSelected }?.draft
-    RipDpiAccordion(
-        title = stringResource(R.string.config_connection_details),
-        expanded = expanded,
-        onExpandedChange = { expanded = it },
-        headerTestTag = RipDpiTestTags.ConfigConnectionDetails,
+internal fun ConnectionCliOverrideBanner(uiState: ConnectionUiState) {
+    // The selected preset holds saved settings; uiState.draft may hold an unsaved editor draft.
+    if (uiState.presets
+            .firstOrNull { it.isSelected }
+            ?.draft
+            ?.useCommandLineSettings == true
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md)) {
-            if (savedDraft?.useCommandLineSettings == true) {
-                WarningBanner(
-                    title = stringResource(R.string.config_cli_banner_title),
-                    message = stringResource(R.string.config_cli_banner_body),
-                    tone = WarningBannerTone.Restricted,
-                )
-            }
-            Text(
-                text =
-                    stringResource(
-                        if (section == ConnectionModeSection.LocalBypass) {
-                            R.string.config_local_bypass_simple_body
-                        } else {
-                            R.string.config_vpn_simple_body
-                        },
-                    ),
-                style = RipDpiThemeTokens.type.body,
-                color = RipDpiThemeTokens.colors.mutedForeground,
-            )
-            if (section == ConnectionModeSection.LocalBypass) {
-                LocalBypassStrategyRow()
-                LocalBypassPrecedenceRow(commandLineOverridesEnabled = savedDraft?.useCommandLineSettings == true)
-            }
-        }
+        WarningBanner(
+            title = stringResource(R.string.config_cli_banner_title),
+            message = stringResource(R.string.config_cli_active_body),
+            tone = WarningBannerTone.Restricted,
+            testTag = RipDpiTestTags.ConfigCliOverrideBanner,
+        )
     }
 }

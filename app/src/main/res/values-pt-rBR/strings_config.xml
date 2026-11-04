@@ -558,6 +558,7 @@
     <string name="udp_fake_profile_interaction_quic_override">O tráfego QUIC Initial usa o perfil fake de QUIC abaixo, enquanto este perfil cobre o restante do tráfego genérico de fake_burst UDP.</string>
     <string name="config_cli_banner_title">Substituições por linha de comando ativadas</string>
     <string name="config_cli_banner_body">Os argumentos abaixo têm precedência sobre os controles visuais desta tela.</string>
+    <string name="config_cli_active_body">Os argumentos da linha de comando têm prioridade sobre as configurações desta tela.</string>
     <string name="config_validation_fix">Verifique os campos destacados antes de salvar.</string>
     <string name="config_editor_hydration_failed">Não foi possível abrir esta configuração. Suas credenciais salvas não foram alteradas.</string>
     <string name="config_validation_banner_title">Alguns valores ainda precisam de atenção</string>
@@ -1411,7 +1412,6 @@ Fonte: %2$s</string>
     <string name="config_connection_scope_proxy">Escopo: somente proxy</string>
     <string name="config_connection_path_direct">Caminho: direto</string>
     <string name="config_connection_path_relay">Caminho: relay · %1$s</string>
-    <string name="config_connection_details">Detalhes da configuração</string>
     <string name="config_section_bypass_settings">Direto</string>
     <string name="config_section_server_settings">Relay</string>
     <string name="ws_tunnel_worker_transport_label">Transporte Cloudflare Worker</string>

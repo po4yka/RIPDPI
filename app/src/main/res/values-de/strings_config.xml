@@ -633,6 +633,7 @@ Quelle: %2$s</string>
     <string name="adaptive_split_summary_label_focus">Am besten geeignet für</string>
     <string name="adaptive_split_target_chain_step">Überschreibt den ersten Nicht-TLS-TCP-Send-Schritt in der gespeicherten Chain.</string>
     <string name="config_cli_banner_body">Die untenstehenden Argumente haben Vorrang vor den visuellen Steuerelementen auf diesem Bildschirm.</string>
+    <string name="config_cli_active_body">Befehlszeilenargumente haben Vorrang vor den Einstellungen auf diesem Bildschirm.</string>
     <string name="config_default_ttl_summary">Time-to-Live-Override für ausgehende Pakete</string>
     <string name="config_chain_block_valid">Die Kette entspricht dem Modell der Strategieregistrierung.</string>
     <string name="config_chain_block_invalid">Ungültige Kette: %1$s</string>
@@ -1408,7 +1409,6 @@ Quelle: %2$s</string>
     <string name="config_connection_scope_proxy">Umfang: nur Proxy</string>
     <string name="config_connection_path_direct">Pfad: direkt</string>
     <string name="config_connection_path_relay">Pfad: Relay · %1$s</string>
-    <string name="config_connection_details">Konfigurationsdetails</string>
     <string name="config_section_bypass_settings">Direkt</string>
     <string name="config_section_server_settings">Relay</string>
     <string name="ws_tunnel_worker_transport_label">Cloudflare-Worker-Transport</string>

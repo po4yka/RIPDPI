@@ -633,6 +633,7 @@ Source : %2$s</string>
     <string name="adaptive_split_summary_label_focus">Idéal pour</string>
     <string name="adaptive_split_target_chain_step">Réécrit la première étape d\'envoi TCP non TLS dans la chaîne enregistrée.</string>
     <string name="config_cli_banner_body">Les arguments ci-dessous ont priorité sur les contrôles visuels de cet écran.</string>
+    <string name="config_cli_active_body">Les arguments de ligne de commande priment sur les réglages de cet écran.</string>
     <string name="config_default_ttl_summary">Remplacement de la durée de vie pour les paquets sortants</string>
     <string name="config_chain_block_valid">La chaîne est valide selon le modèle du registre de stratégies.</string>
     <string name="config_chain_block_invalid">Chaîne non valide : %1$s</string>
@@ -1415,7 +1416,6 @@ Source : %2$s</string>
     <string name="config_connection_scope_proxy">Portée : proxy uniquement</string>
     <string name="config_connection_path_direct">Chemin : direct</string>
     <string name="config_connection_path_relay">Chemin : relais · %1$s</string>
-    <string name="config_connection_details">Détails de la configuration</string>
     <string name="config_section_bypass_settings">Direct</string>
     <string name="config_section_server_settings">Relais</string>
     <string name="ws_tunnel_worker_transport_label">Transport Cloudflare Worker</string>

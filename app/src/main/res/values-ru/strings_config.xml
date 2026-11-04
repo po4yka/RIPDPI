@@ -387,6 +387,7 @@
     <string name="udp_fake_profile_interaction_quic_override">Трафик QUIC Initial использует профиль fake QUIC ниже, а этот профиль охватывает оставшийся общий UDP fake_burst трафик.</string>
     <string name="config_cli_banner_title">Аргументы командной строки активны</string>
     <string name="config_cli_banner_body">Аргументы ниже имеют приоритет над визуальными элементами управления на этом экране.</string>
+    <string name="config_cli_active_body">Аргументы командной строки важнее настроек на этом экране.</string>
     <string name="config_validation_fix">Проверьте выделенные поля перед сохранением.</string>
     <string name="config_editor_hydration_failed">Не удалось открыть эту конфигурацию. Сохранённые учётные данные не изменены.</string>
     <string name="config_validation_banner_title">Некоторые значения требуют внимания</string>
@@ -1447,7 +1448,6 @@ fakeddisorder endhost</string>
     <string name="config_connection_scope_proxy">Охват: только прокси</string>
     <string name="config_connection_path_direct">Путь: напрямую</string>
     <string name="config_connection_path_relay">Путь: через сервер · %1$s</string>
-    <string name="config_connection_details">Подробности конфигурации</string>
     <string name="config_section_bypass_settings">Напрямую</string>
     <string name="config_section_server_settings">Через сервер</string>
     <string name="ws_tunnel_worker_transport_label">Транспорт Cloudflare Worker</string>

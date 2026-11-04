@@ -633,6 +633,7 @@ Origen: %2$s</string>
     <string name="adaptive_split_summary_label_focus">Mejor para</string>
     <string name="adaptive_split_target_chain_step">Reescribe el primer paso de envío TCP no TLS en la cadena guardada.</string>
     <string name="config_cli_banner_body">Los argumentos a continuación tienen prioridad sobre los controles visuales en esta pantalla.</string>
+    <string name="config_cli_active_body">Los argumentos de la línea de comandos tienen prioridad sobre los ajustes de esta pantalla.</string>
     <string name="config_default_ttl_summary">Anulación del tiempo de vida para los paquetes salientes</string>
     <string name="config_chain_block_valid">La cadena es válida según el modelo del registro de estrategias.</string>
     <string name="config_chain_block_invalid">Cadena no válida: %1$s</string>
@@ -1415,7 +1416,6 @@ Origen: %2$s</string>
     <string name="config_connection_scope_proxy">Alcance: solo proxy</string>
     <string name="config_connection_path_direct">Ruta: directo</string>
     <string name="config_connection_path_relay">Ruta: relay · %1$s</string>
-    <string name="config_connection_details">Detalles de configuración</string>
     <string name="config_section_bypass_settings">Directo</string>
     <string name="config_section_server_settings">Relay</string>
     <string name="ws_tunnel_worker_transport_label">Transporte Cloudflare Worker</string>

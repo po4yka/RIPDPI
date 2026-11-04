@@ -103,20 +103,16 @@ class ConfigScreenKaspressoTest :
         }
 
     @Test
-    fun localBypassShowsAutoStrategyAndRetestOpensDiagnostics() =
+    fun localBypassShowsStrategyAndRetestOpensDiagnostics() =
         run {
-            step("Select proxy mode and open the connection details") {
+            step("Select proxy mode") {
                 with(ConfigPage(composeRule)) {
                     click(proxyChip)
                     awaitSelected(proxyChip)
-                    click(connectionDetails)
                 }
             }
-            step("The details show the automatic strategy and the precedence note") {
-                with(ConfigPage(composeRule)) {
-                    awaitDisplayed(localBypassStrategyAuto)
-                    awaitDisplayed(localBypassPrecedenceNote)
-                }
+            step("The direct section shows the bypass strategy") {
+                with(ConfigPage(composeRule)) { awaitDisplayed(localBypassDesync) }
             }
             step("Retest strategies opens diagnostics") {
                 with(ConfigPage(composeRule)) { click(localBypassRetest) }
