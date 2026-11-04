@@ -30,6 +30,7 @@ class MainServiceDependencies
         val hardKillSwitchStateStore: AndroidHardKillSwitchStateStore,
         val appliedConfigurationSource: com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource,
         val reconnectCoordinator: com.poyka.ripdpi.services.RunningServiceReconnect,
+        val recentWarningTracker: RecentWarningTracker,
     )
 
 class MainPermissionDependencies

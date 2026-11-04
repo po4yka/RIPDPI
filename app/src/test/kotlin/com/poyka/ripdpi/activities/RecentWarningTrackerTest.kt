@@ -4,13 +4,15 @@ import com.poyka.ripdpi.data.FailureClass
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.testsupport.FakeServiceStateStore
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStage
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStage.Dns
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStage.Handshake
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStage.Route
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStage.Tunnel
+import kotlinx.coroutines.test.runCurrent
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import org.junit.Before
 import org.junit.Test
 
 private val NoStages = emptySet<StatusConnectionActuatorStage>()
@@ -24,11 +26,9 @@ class RecentWarningTrackerTest {
         count: Long = 0L,
         marks: Set<Any> = emptySet(),
         session: Long? = 1L,
-    ) = tracker.recentStages(session, mapOf(stage to WarningEvidence(count, marks)))
-
-    @Before
-    fun takeBaseline() {
-        read()
+    ): Set<StatusConnectionActuatorStage> {
+        tracker.observe(session, mapOf(stage to WarningEvidence(listOf(count), marks)))
+        return tracker.recentStages()
     }
 
     @Test
@@ -51,14 +51,59 @@ class RecentWarningTrackerTest {
     }
 
     @Test
-    fun `evidence of unknown age is absorbed after the first reading and after returning to the screen`() {
-        val fresh = RecentWarningTracker(now = { time })
-        val evidence = mapOf(Tunnel to WarningEvidence(count = 5L))
-        assertEquals(NoStages, fresh.recentStages(1L, evidence))
+    fun `a failure with no screen open keeps its real time`() =
+        runTest {
+            val store = FakeServiceStateStore()
+            val observed = RecentWarningTracker(store, backgroundScope)
+            runCurrent()
+            store.updateTelemetry(
+                ServiceTelemetrySnapshot(
+                    tunnelTelemetry = NativeRuntimeSnapshot.idle(source = "tunnel").copy(dnsFailuresTotal = 1L),
+                ),
+            )
+            runCurrent()
+            assertEquals(setOf(Dns), observed.recentStages())
+        }
 
-        fresh.rebaseline()
-        assertEquals(NoStages, fresh.recentStages(1L, mapOf(Tunnel to WarningEvidence(count = 6L))))
-        assertEquals(setOf(Tunnel), fresh.recentStages(1L, mapOf(Tunnel to WarningEvidence(count = 7L))))
+    @Test
+    fun `a repeating failure of one class restarts the minute`() {
+        fun evidence(total: Long) =
+            telemetryWarningEvidence(
+                ServiceTelemetrySnapshot(
+                    proxyTelemetry = NativeRuntimeSnapshot.idle(source = "proxy").copy(tlsFailureEvents = total),
+                ),
+            )
+
+        tracker.observe(1L, evidence(1L))
+        assertEquals(setOf(Handshake), tracker.recentStages())
+        time += 60_000L
+        tracker.observe(1L, evidence(1L))
+        assertEquals(NoStages, tracker.recentStages())
+        tracker.observe(1L, evidence(2L))
+        assertEquals(setOf(Handshake), tracker.recentStages())
+    }
+
+    @Test
+    fun `each DNS counter is tracked on its own`() {
+        val proxy = NativeRuntimeSnapshot.idle(source = "proxy")
+        val tunnel = NativeRuntimeSnapshot.idle(source = "tunnel")
+
+        fun evidence(
+            tunnelTotal: Long,
+            proxyTotal: Long,
+        ) = telemetryWarningEvidence(
+            ServiceTelemetrySnapshot(
+                tunnelTelemetry = tunnel.copy(dnsFailuresTotal = tunnelTotal),
+                proxyTelemetry = proxy.copy(dnsFailureEvents = proxyTotal),
+            ),
+        )
+
+        tracker.observe(1L, evidence(5L, 10L))
+        time += 60_000L
+        // A failed proxy poll reads zero for that source only, and the good poll after it changes nothing.
+        tracker.observe(1L, evidence(5L, 0L))
+        tracker.observe(1L, evidence(5L, 10L))
+        assertEquals(NoStages, tracker.recentStages())
     }
 
     @Test
@@ -108,11 +153,14 @@ class RecentWarningTrackerTest {
 
         assertEquals(
             3L,
-            evidence(Dns, ServiceTelemetrySnapshot(tunnelTelemetry = tunnel.copy(dnsFailuresTotal = 3L))).count,
+            evidence(
+                Dns,
+                ServiceTelemetrySnapshot(tunnelTelemetry = tunnel.copy(dnsFailuresTotal = 3L)),
+            ).counts.first(),
         )
         assertEquals(
             2L,
-            evidence(Route, ServiceTelemetrySnapshot(proxyTelemetry = proxy.copy(routeChanges = 2L))).count,
+            evidence(Route, ServiceTelemetrySnapshot(proxyTelemetry = proxy.copy(routeChanges = 2L))).counts.first(),
         )
         assertEquals(
             setOf<Any>("retry"),
@@ -125,7 +173,7 @@ class RecentWarningTrackerTest {
                 ServiceTelemetrySnapshot(
                     runtimeFieldTelemetry = RuntimeFieldTelemetry(tunnelRecoveryRetryCount = 4L),
                 ),
-            ).count,
+            ).counts.first(),
         )
         assertEquals(
             setOf<Any>(FailureClass.TlsInterference to null),

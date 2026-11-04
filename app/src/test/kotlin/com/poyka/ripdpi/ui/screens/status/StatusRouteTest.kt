@@ -29,6 +29,7 @@ import com.poyka.ripdpi.activities.MainServiceDependencies
 import com.poyka.ripdpi.activities.MainSettingsDismissCoordinator
 import com.poyka.ripdpi.activities.MainStartupSideEffectsCoordinator
 import com.poyka.ripdpi.activities.MainViewModel
+import com.poyka.ripdpi.activities.RecentWarningTracker
 import com.poyka.ripdpi.activities.StubDiagnosticsHomeCompositeRunService
 import com.poyka.ripdpi.activities.StubDiagnosticsHomeWorkflowService
 import com.poyka.ripdpi.activities.StubDiagnosticsScanController
@@ -156,6 +157,7 @@ private fun homeRouteServiceDependencies(): MainServiceDependencies =
     MainServiceDependencies(
         appliedConfigurationSource = FakeAppliedRuntimeConfigurationSource(),
         reconnectCoordinator = FakeRunningServiceReconnect(),
+        recentWarningTracker = RecentWarningTracker(now = { 0L }),
         serviceStateStore = FakeServiceStateStore(),
         serviceController = FakeServiceController(),
         trafficStatsReader = FakeTrafficStatsReader(),

@@ -8,6 +8,7 @@ import androidx.work.Configuration
 import co.touchlab.kermit.Logger
 import co.touchlab.kermit.Severity
 import co.touchlab.kermit.platformLogWriter
+import com.poyka.ripdpi.activities.RecentWarningTracker
 import com.poyka.ripdpi.backup.BackupShareTempFileOwner
 import com.poyka.ripdpi.data.ApplicationCoroutineScopeTerminator
 import com.poyka.ripdpi.diagnostics.BreadcrumbLogWriter
@@ -39,6 +40,10 @@ class RipDpiApp :
 
     @Inject
     lateinit var applicationCoroutineScopeTerminator: ApplicationCoroutineScopeTerminator
+
+    // Injected here so it reads telemetry before any screen exists.
+    @Inject
+    lateinit var recentWarningTracker: RecentWarningTracker
 
     // Hilt-WorkManager integration: WorkManager queries this provider when
     // it needs to instantiate a `@HiltWorker`-annotated worker so the

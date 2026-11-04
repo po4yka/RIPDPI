@@ -580,6 +580,7 @@ class MainActivityContentTest {
                 MainServiceDependencies(
                     appliedConfigurationSource = FakeAppliedRuntimeConfigurationSource(),
                     reconnectCoordinator = FakeRunningServiceReconnect(),
+                    recentWarningTracker = RecentWarningTracker(now = { 0L }),
                     serviceStateStore = serviceStateStore,
                     serviceController = serviceController,
                     trafficStatsReader = FakeTrafficStatsReader(),

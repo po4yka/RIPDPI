@@ -1,9 +1,15 @@
 package com.poyka.ripdpi.activities
 
 import android.os.SystemClock
+import com.poyka.ripdpi.data.ApplicationScope
 import com.poyka.ripdpi.data.FailureClass
+import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStage
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
+import javax.inject.Inject
+import javax.inject.Singleton
 
 private const val RecentWarningWindowMillis = 60_000L
 
@@ -11,11 +17,11 @@ private const val RecentWarningWindowMillis = 60_000L
  * Telemetry that says a stage failed at some point in this session. Native code keeps it after the problem ends, so
  * it cannot say that the problem is still present.
  *
- * @property count a running total, which restarts with the engine and reads zero in a failed poll.
+ * @property counts running totals, which restart with the engine and read zero in a failed poll.
  * @property marks last-seen values, which can disappear for one poll and come back without a new failure.
  */
 internal data class WarningEvidence(
-    val count: Long = 0L,
+    val counts: List<Long> = emptyList(),
     val marks: Set<Any> = emptySet(),
 )
 
@@ -23,53 +29,67 @@ internal fun telemetryWarningEvidence(
     telemetry: ServiceTelemetrySnapshot,
 ): Map<StatusConnectionActuatorStage, WarningEvidence> {
     val failure = telemetry.runtimeFieldTelemetry.failureClass
+    val proxy = telemetry.proxyTelemetry
 
-    fun failureMark(vararg classes: FailureClass): Set<Any> =
-        failure?.takeIf { it in classes }?.let { setOf(it to telemetry.lastFailureAt) }.orEmpty()
+    fun failureMark(failureClass: FailureClass): Set<Any> =
+        if (failure == failureClass) setOf(failureClass to telemetry.lastFailureAt) else emptySet()
 
     return mapOf(
         StatusConnectionActuatorStage.Network to WarningEvidence(marks = failureMark(FailureClass.NetworkHandover)),
         StatusConnectionActuatorStage.Dns to
             WarningEvidence(
-                count = telemetry.tunnelTelemetry.dnsFailuresTotal,
+                counts = listOf(telemetry.tunnelTelemetry.dnsFailuresTotal, proxy.dnsFailureEvents),
                 marks = failureMark(FailureClass.DnsInterference),
             ),
-        StatusConnectionActuatorStage.Handshake to WarningEvidence(marks = failureMark(FailureClass.TlsInterference)),
+        StatusConnectionActuatorStage.Handshake to
+            WarningEvidence(
+                counts = listOf(proxy.tlsFailureEvents),
+                marks = failureMark(FailureClass.TlsInterference),
+            ),
         StatusConnectionActuatorStage.Tunnel to
             WarningEvidence(
-                count = telemetry.runtimeFieldTelemetry.tunnelRecoveryRetryCount,
+                counts = listOf(telemetry.runtimeFieldTelemetry.tunnelRecoveryRetryCount),
                 marks = failureMark(FailureClass.TunnelEstablish),
             ),
         StatusConnectionActuatorStage.Route to
             WarningEvidence(
-                count = telemetry.proxyTelemetry.routeChanges,
-                marks = setOfNotNull(telemetry.proxyTelemetry.lastFallbackAction?.takeIf { it.isNotBlank() }),
+                counts = listOf(proxy.routeChanges),
+                marks = setOfNotNull(proxy.lastFallbackAction?.takeIf { it.isNotBlank() }),
             ),
     )
 }
 
 /**
- * Keeps a stage's warning for one minute after it gets new evidence. A count is new when it differs from the last
- * nonzero count, and a mark is new when this session has not seen it. Evidence read at the first reading, or after
- * the app was away from the screen, has an unknown age, and it does not count as new.
+ * Keeps a stage's warning for one minute after it gets new evidence. A count is new when it differs from its last
+ * nonzero value, and a mark is new when this session has not seen it. It reads telemetry for the whole process, so a
+ * failure gets its real time even while no screen is open.
  */
-internal class RecentWarningTracker(
-    private val now: () -> Long = SystemClock::elapsedRealtime,
+@Singleton
+class RecentWarningTracker internal constructor(
+    private val now: () -> Long,
 ) {
+    @Inject
+    constructor(
+        serviceStateStore: ServiceStateStore,
+        @ApplicationScope scope: CoroutineScope,
+    ) : this(SystemClock::elapsedRealtime) {
+        scope.launch {
+            serviceStateStore.telemetry.collect { telemetry ->
+                observe(telemetry.serviceStartedAt, telemetryWarningEvidence(telemetry))
+            }
+        }
+    }
+
     private var session: Long? = null
-    private var absorbNextReading = true
-    private val lastCounts = mutableMapOf<StatusConnectionActuatorStage, Long>()
+    private val lastCounts = mutableMapOf<Pair<StatusConnectionActuatorStage, Int>, Long>()
     private val seenMarks = mutableMapOf<StatusConnectionActuatorStage, MutableSet<Any>>()
     private val newAtMs = mutableMapOf<StatusConnectionActuatorStage, Long>()
 
-    fun rebaseline() {
-        absorbNextReading = true
-    }
-
-    fun recentStages(
+    @Synchronized
+    internal fun observe(
         sessionStartedAt: Long?,
         evidence: Map<StatusConnectionActuatorStage, WarningEvidence>,
-    ): Set<StatusConnectionActuatorStage> {
+    ) {
         if (sessionStartedAt != session) {
             session = sessionStartedAt
             lastCounts.clear()
@@ -78,14 +98,18 @@ internal class RecentWarningTracker(
         }
         val time = now()
         evidence.forEach { (stage, current) ->
-            val countIsNew = current.count != 0L && current.count != lastCounts[stage]
-            val seen = seenMarks.getOrPut(stage) { mutableSetOf() }
-            val markIsNew = !seen.containsAll(current.marks)
-            if (current.count != 0L) lastCounts[stage] = current.count
-            seen.addAll(current.marks)
-            if ((countIsNew || markIsNew) && !absorbNextReading) newAtMs[stage] = time
+            var isNew = false
+            current.counts.forEachIndexed { index, count ->
+                if (count != 0L && lastCounts.put(stage to index, count) != count) isNew = true
+            }
+            if (seenMarks.getOrPut(stage) { mutableSetOf() }.addAll(current.marks)) isNew = true
+            if (isNew) newAtMs[stage] = time
         }
-        absorbNextReading = false
-        return newAtMs.filterValues { time - it < RecentWarningWindowMillis }.keys
+    }
+
+    @Synchronized
+    fun recentStages(): Set<StatusConnectionActuatorStage> {
+        val time = now()
+        return newAtMs.filterValues { time - it < RecentWarningWindowMillis }.keys.toSet()
     }
 }

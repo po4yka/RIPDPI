@@ -181,7 +181,7 @@ class SubscriptionAwgRefreshTest : SubscriptionRefreshTestSupport() {
     @Test
     fun `INI peer identity survives endpoint change`() =
         runTest {
-            // No socket: this test is about peer identity, and a slow loopback call would fail the refresh.
+            // No socket: this test is about peer identity, and it must not depend on a loopback call.
             val responses = ArrayDeque<String>()
             val client =
                 OkHttpClient

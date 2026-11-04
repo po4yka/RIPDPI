@@ -2441,6 +2441,7 @@ class MainViewModelTest {
                 MainServiceDependencies(
                     appliedConfigurationSource = FakeAppliedRuntimeConfigurationSource(),
                     reconnectCoordinator = FakeRunningServiceReconnect(serviceController, serviceStateStore),
+                    recentWarningTracker = RecentWarningTracker(now = { 0L }),
                     serviceStateStore = serviceStateStore,
                     serviceController = serviceController,
                     trafficStatsReader = FakeTrafficStatsReader(),
