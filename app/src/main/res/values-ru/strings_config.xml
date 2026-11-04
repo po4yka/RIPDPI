@@ -388,6 +388,7 @@
     <string name="config_cli_banner_title">Аргументы командной строки активны</string>
     <string name="config_cli_banner_body">Аргументы ниже имеют приоритет над визуальными элементами управления на этом экране.</string>
     <string name="config_cli_active_body">Аргументы командной строки важнее настроек на этом экране.</string>
+    <string name="config_reconnect_in_progress">Идёт переподключение. Повторите, когда оно завершится.</string>
     <string name="config_validation_fix">Проверьте выделенные поля перед сохранением.</string>
     <string name="config_editor_hydration_failed">Не удалось открыть эту конфигурацию. Сохранённые учётные данные не изменены.</string>
     <string name="config_validation_banner_title">Некоторые значения требуют внимания</string>

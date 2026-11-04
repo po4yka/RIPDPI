@@ -29,12 +29,47 @@ internal class ConnectionRelayProfileSelector(
 
     fun selectDirect() = changeActiveRelay { dependencies.relayArtifacts.deactivateActiveProfile() }
 
-    private fun changeActiveRelay(relayChange: suspend () -> ConnectionDraft) {
-        if (dependencies.reconnectCoordinator.reconnectState.value
+    /** A change made during a reconnect would stay saved while the service kept the old settings. */
+    fun rejectWhileReconnecting(): Boolean {
+        val pending =
+            dependencies.reconnectCoordinator.reconnectState.value
                 .isConfigPending()
-        ) {
-            return
+        if (pending) {
+            effects.tryEmit(ConnectionEffect.Message(stringResolver.getString(R.string.config_reconnect_in_progress)))
         }
+        return pending
+    }
+
+    /** The settings are already saved, so a failure here keeps them and reports the stale service. */
+    suspend fun applySavedSettings() {
+        runCatching {
+            applyToRunningService(dependencies.appSettingsRepository.snapshot().toConfigDraft())
+        }.onFailure { error ->
+            if (error is CancellationException) throw error
+            log.e(error) { "Failed to apply saved settings" }
+            effects.emit(ConnectionEffect.Message(stringResolver.getString(R.string.update_error_unknown)))
+        }
+    }
+
+    private suspend fun applyToRunningService(draft: ConnectionDraft) {
+        applySavedConfigDraftToRunningService(
+            draft = draft,
+            appSettingsRepository = dependencies.appSettingsRepository,
+            serviceStateStore = dependencies.serviceStateStore,
+            reconnectCoordinator = dependencies.reconnectCoordinator,
+            onReconnectFailure = { result ->
+                effects.tryEmit(ConnectionEffect.Message(result.reason.message(stringResolver)))
+            },
+            onUnsupportedVpnDns = {
+                effects.tryEmit(
+                    ConnectionEffect.Message(stringResolver.getString(R.string.dns_custom_doq_unavailable)),
+                )
+            },
+        )
+    }
+
+    private fun changeActiveRelay(relayChange: suspend () -> ConnectionDraft) {
+        if (rejectWhileReconnecting()) return
         val request = generation.incrementAndGet()
         val saveJob = activeSaveJob()
         if (saveJob != null) suppressSaveSuccess()
@@ -43,21 +78,7 @@ internal class ConnectionRelayProfileSelector(
             selectionLock.withLock {
                 if (generation.get() != request) return@withLock
                 runCatching {
-                    val draft = relayChange()
-                    applySavedConfigDraftToRunningService(
-                        draft = draft,
-                        appSettingsRepository = dependencies.appSettingsRepository,
-                        serviceStateStore = dependencies.serviceStateStore,
-                        reconnectCoordinator = dependencies.reconnectCoordinator,
-                        onReconnectFailure = { result ->
-                            effects.tryEmit(ConnectionEffect.Message(result.reason.message(stringResolver)))
-                        },
-                        onUnsupportedVpnDns = {
-                            effects.tryEmit(
-                                ConnectionEffect.Message(stringResolver.getString(R.string.dns_custom_doq_unavailable)),
-                            )
-                        },
-                    )
+                    applyToRunningService(relayChange())
                 }.onFailure { error ->
                     if (error is CancellationException) throw error
                     log.e(error) { "Failed to change active relay" }

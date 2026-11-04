@@ -95,8 +95,6 @@ ENGLISH_PROSE = (
 SEMANTIC_KEYS = (
     'quic_initial_mode_body',
     'fake_order_card_seqmode_body',
-    'config_preset_proxy_title',
-    'config_preset_proxy_body',
     'config_relay_credentials_body',
     'config_vpn_credentials_required',
     'warp_profile_id_body',
@@ -154,8 +152,8 @@ class FrenchLocalizationRegressionsTest(unittest.TestCase):
         cls.en = resources("app", "values")
 
     def test_audited_prose_has_no_english_fallback(self):
-        self.assertEqual((84, 47, 1), (len(ENGLISH_PROSE), len(SEMANTIC_KEYS), len(LATENT_KEYS)))
-        self.assertEqual(131, len(set(ENGLISH_PROSE + SEMANTIC_KEYS)))
+        self.assertEqual((84, 45, 1), (len(ENGLISH_PROSE), len(SEMANTIC_KEYS), len(LATENT_KEYS)))
+        self.assertEqual(129, len(set(ENGLISH_PROSE + SEMANTIC_KEYS)))
         self.assertTrue(set(LATENT_KEYS) <= set(ENGLISH_PROSE + SEMANTIC_KEYS))
         for key in ENGLISH_PROSE:
             with self.subTest(key=key, production_reachability=key not in LATENT_KEYS):
@@ -194,10 +192,6 @@ class FrenchLocalizationRegressionsTest(unittest.TestCase):
                 self.assertIn(text(self.fr[label]), text(self.fr[instruction]))
 
     def test_local_mode_and_credentials_use_french_labels(self):
-        for key in ("config_preset_proxy_title", "config_preset_proxy_body"):
-            with self.subTest(key=key):
-                self.assertIn("roxy uniquement", text(self.fr[key]))
-                self.assertNotIn("Local bypass", text(self.fr[key]))
         for key in ("config_relay_credentials_body", "config_vpn_credentials_required", "warp_profile_id_body"):
             with self.subTest(key=key):
                 self.assertIn("identifiants", text(self.fr[key]).casefold())

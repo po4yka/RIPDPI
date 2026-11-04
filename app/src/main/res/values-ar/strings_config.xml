@@ -548,6 +548,7 @@
     <string name="config_cli_banner_title">تجاوزات سطر الأوامر مفعّلة</string>
     <string name="config_cli_banner_body">الوسيطات أدناه تأخذ الأولوية على الضوابط المرئية في هذه الشاشة.</string>
     <string name="config_cli_active_body">تأخذ وسائط سطر الأوامر الأولوية على الإعدادات في هذه الشاشة.</string>
+    <string name="config_reconnect_in_progress">جارٍ إعادة الاتصال. حاول مرة أخرى بعد انتهائها.</string>
     <string name="config_validation_fix">تحقق من الحقول المحددة قبل الحفظ.</string>
     <string name="config_editor_hydration_failed">تعذّر فتح هذا الإعداد. لم تتغيّر بيانات الاعتماد المحفوظة.</string>
     <string name="config_validation_banner_title">بعض القيم تحتاج إلى انتباه</string>

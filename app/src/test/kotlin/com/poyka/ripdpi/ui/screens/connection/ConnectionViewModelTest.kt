@@ -227,30 +227,6 @@ class ConnectionViewModelTest {
     }
 
     @Test
-    fun `recommended preset ignores scope and keeps it when applied`() {
-        val presets = buildConfigPresets(defaultDraft.copy(mode = Mode.Proxy))
-
-        val recommended = presets.first { it.id == "recommended" }
-        assertTrue(recommended.isSelected)
-        assertEquals(Mode.Proxy, recommended.draft.mode)
-        assertFalse(presets.first { it.id == "custom" }.isSelected)
-    }
-
-    @Test
-    fun `recommended preset ignores fields kept by a deactivated relay`() {
-        val deactivated =
-            defaultDraft.copy(
-                relayEnabled = false,
-                relayProfileId = "saved",
-                relayServer = "relay.example",
-            )
-
-        assertTrue(buildConfigPresets(deactivated).first { it.id == "recommended" }.isSelected)
-        assertTrue(buildConfigPresets(deactivated.copy(relayEnabled = true)).first { it.id == "custom" }.isSelected)
-        assertTrue(buildConfigPresets(defaultDraft.copy(proxyPort = "1081")).first { it.id == "custom" }.isSelected)
-    }
-
-    @Test
     fun `invalid draft reports validation errors`() {
         val errors =
             validateConfigDraft(
@@ -809,6 +785,120 @@ class ConnectionViewModelTest {
 
         assertTrue(suggestion?.reason?.contains("whitelist-style routing pressure") == true)
     }
+}
+
+@OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+class ConnectionViewModelApplyChangesTest {
+    @get:Rule
+    val mainDispatcherRule = MainDispatcherRule()
+
+    @Test
+    fun `recommended preset ignores scope and keeps it when applied`() {
+        val presets = buildConfigPresets(AppSettingsSerializer.defaultValue.toConfigDraft().copy(mode = Mode.Proxy))
+
+        val recommended = presets.first { it.id == "recommended" }
+        assertTrue(recommended.isSelected)
+        assertEquals(Mode.Proxy, recommended.draft.mode)
+        assertFalse(presets.first { it.id == "custom" }.isSelected)
+    }
+
+    @Test
+    fun `recommended preset ignores fields kept by a deactivated relay`() {
+        val deactivated =
+            AppSettingsSerializer.defaultValue.toConfigDraft().copy(
+                relayEnabled = false,
+                relayProfileId = "saved",
+                relayServer = "relay.example",
+            )
+
+        assertTrue(buildConfigPresets(deactivated).first { it.id == "recommended" }.isSelected)
+        assertTrue(buildConfigPresets(deactivated.copy(relayEnabled = true)).first { it.id == "custom" }.isSelected)
+        assertTrue(
+            buildConfigPresets(AppSettingsSerializer.defaultValue.toConfigDraft().copy(proxyPort = "1081"))
+                .first {
+                    it.id ==
+                        "custom"
+                }.isSelected,
+        )
+    }
+
+    @Test
+    fun `scope and preset changes reach a running service only when they change settings`() =
+        runTest {
+            val store = FakeServiceStateStore()
+            store.setStatus(AppStatus.Running, Mode.VPN)
+            val reconnect = FakeRunningServiceReconnect()
+            val viewModel = createConfigViewModel(serviceStateStore = store, reconnectCoordinator = reconnect)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            advanceUntilIdle()
+
+            viewModel.selectMode(Mode.VPN)
+            advanceUntilIdle()
+            assertEquals(emptyList<Mode>(), reconnect.requestedModes)
+
+            viewModel.selectMode(Mode.Proxy)
+            advanceUntilIdle()
+            assertEquals(listOf(Mode.Proxy), reconnect.requestedModes)
+
+            viewModel.selectPreset("recommended")
+            advanceUntilIdle()
+            assertEquals(listOf(Mode.Proxy, Mode.Proxy), reconnect.requestedModes)
+        }
+
+    @Test
+    fun `scope change during a reconnect is rejected with a message`() =
+        runTest {
+            val settings = FakeAppSettingsRepository()
+            val reconnect = FakeRunningServiceReconnect()
+            reconnect.reconnectState.value =
+                com.poyka.ripdpi.services.RunningReconnectState
+                    .Stopping(Mode.VPN)
+            val viewModel = createConfigViewModel(appSettingsRepository = settings, reconnectCoordinator = reconnect)
+            val effects = mutableListOf<ConnectionEffect>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.effects.collect(effects::add) }
+
+            viewModel.selectMode(Mode.Proxy)
+            advanceUntilIdle()
+
+            assertEquals(Mode.VPN.preferenceValue, settings.snapshot().ripdpiMode)
+            assertEquals(1, effects.filterIsInstance<ConnectionEffect.Message>().size)
+        }
+
+    @Test
+    fun `apply failure keeps the saved scope and reports a message`() =
+        runTest {
+            val store = FakeServiceStateStore()
+            store.setStatus(AppStatus.Running, Mode.VPN)
+            val settings = FakeAppSettingsRepository()
+            val failing =
+                object : com.poyka.ripdpi.services.RunningServiceReconnect {
+                    override val reconnectState =
+                        MutableStateFlow<com.poyka.ripdpi.services.RunningReconnectState>(
+                            com.poyka.ripdpi.services.RunningReconnectState.Idle,
+                        )
+
+                    override fun cancelReconnect() = Unit
+
+                    override suspend fun reconnect(
+                        request: com.poyka.ripdpi.services.RunningReconnectRequest,
+                    ): com.poyka.ripdpi.services.RunningReconnectResult = error("start failed")
+                }
+            val viewModel =
+                createConfigViewModel(
+                    appSettingsRepository = settings,
+                    serviceStateStore = store,
+                    reconnectCoordinator = failing,
+                )
+            val effects = mutableListOf<ConnectionEffect>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.effects.collect(effects::add) }
+
+            viewModel.selectMode(Mode.Proxy)
+            advanceUntilIdle()
+
+            assertEquals(Mode.Proxy.preferenceValue, settings.snapshot().ripdpiMode)
+            assertEquals(1, effects.filterIsInstance<ConnectionEffect.Message>().size)
+        }
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -1416,29 +1506,6 @@ class ConnectionViewModelEditorSessionConcurrencyTest {
             advanceUntilIdle()
 
             assertFalse(viewModel.uiState.value.isEditorLoading)
-        }
-
-    @Test
-    fun `scope and preset changes reach a running service only when they change settings`() =
-        runTest {
-            val store = FakeServiceStateStore()
-            store.setStatus(AppStatus.Running, Mode.VPN)
-            val reconnect = FakeRunningServiceReconnect()
-            val viewModel = createConfigViewModel(serviceStateStore = store, reconnectCoordinator = reconnect)
-            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
-            advanceUntilIdle()
-
-            viewModel.selectMode(Mode.VPN)
-            advanceUntilIdle()
-            assertEquals(emptyList<Mode>(), reconnect.requestedModes)
-
-            viewModel.selectMode(Mode.Proxy)
-            advanceUntilIdle()
-            assertEquals(listOf(Mode.Proxy), reconnect.requestedModes)
-
-            viewModel.selectPreset("recommended")
-            advanceUntilIdle()
-            assertEquals(listOf(Mode.Proxy, Mode.Proxy), reconnect.requestedModes)
         }
 
     @Test

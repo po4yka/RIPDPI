@@ -511,7 +511,9 @@ class ConnectionRelayArtifactRepositoryTest {
             val secret = RelayCredentialRecord(profileId = profile.id, trojanPassword = "trojan-fixture")
             profiles.save(profile)
             credentials.save(secret)
+            settings.update { setRipdpiMode(Mode.Proxy.preferenceValue) }
             repository.selectProfile(profile.id)
+            assertEquals(Mode.Proxy.preferenceValue, settings.snapshot().ripdpiMode)
 
             val draft = repository.deactivateActiveProfile()
 

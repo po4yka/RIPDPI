@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -23,6 +24,8 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.RelayKindMieru
+import com.poyka.ripdpi.data.RelayKindSsh
 import com.poyka.ripdpi.proxyimport.ImportPayload
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
 import com.poyka.ripdpi.ui.components.inputs.RipDpiSegmentedButton
@@ -136,24 +139,40 @@ fun ConnectionRoute(
                 selectDirect = remember(viewModel) { viewModel::selectDirectPath },
                 create = onOpenRoute,
                 edit = { profileId ->
-                    when (uiState.vpnProfiles.firstOrNull { it.id == profileId }?.kind) {
-                        com.poyka.ripdpi.data.RelayKindMieru -> {
-                            onOpenRoute(Route.MieruProfileEdit(profileId))
-                        }
-
-                        com.poyka.ripdpi.data.RelayKindSsh -> {
-                            onOpenRoute(Route.SshProfileEdit(profileId))
-                        }
-
-                        else -> {
-                            viewModel.startEditingPreset(relayProfilePresetId(profileId))
-                            onOpenModeEditor()
-                        }
-                    }
+                    openRelayProfileEditor(
+                        profileId,
+                        uiState.vpnProfiles.firstOrNull { it.id == profileId }?.kind,
+                        viewModel,
+                        onOpenRoute,
+                        onOpenModeEditor,
+                    )
                 },
             ),
         initialPath = initialPath,
     )
+}
+
+private fun openRelayProfileEditor(
+    profileId: String,
+    kind: String?,
+    viewModel: ConnectionViewModel,
+    onOpenRoute: (Route) -> Unit,
+    onOpenModeEditor: () -> Unit,
+) {
+    when (kind) {
+        RelayKindMieru -> {
+            onOpenRoute(Route.MieruProfileEdit(profileId))
+        }
+
+        RelayKindSsh -> {
+            onOpenRoute(Route.SshProfileEdit(profileId))
+        }
+
+        else -> {
+            viewModel.startEditingPreset(relayProfilePresetId(profileId))
+            onOpenModeEditor()
+        }
+    }
 }
 
 @Suppress("LongMethod")
@@ -176,6 +195,8 @@ fun ConnectionScreen(
     val desyncSummary = uiState.draft.chainSummary
     // An active relay always shows Relay. Browsing covers the Relay section before a profile is active.
     var browsingRelay by rememberSaveable { mutableStateOf(initialPath == ConnectionPath.Relay) }
+    // Browsing ends once a relay is active, so turning that relay off later returns to Direct.
+    LaunchedEffect(uiState.activeRelayEnabled) { if (uiState.activeRelayEnabled) browsingRelay = false }
     val selectedPath = if (uiState.activeRelayEnabled || browsingRelay) ConnectionPath.Relay else ConnectionPath.Direct
     var showProfileChoices by rememberSaveable { mutableStateOf(false) }
 
@@ -195,7 +216,10 @@ fun ConnectionScreen(
         if (showProfileChoices) {
             ConnectionProfileChoicesSheet(
                 uiState = uiState,
-                onPresetSelected = onPresetSelected,
+                onPresetSelected = { preset ->
+                    if (preset.kind == ConnectionPresetKind.Recommended) browsingRelay = false
+                    onPresetSelected(preset)
+                },
                 profileActions = profileActions,
                 onPasteServerLink = onPasteServerLink,
                 onDismiss = { showProfileChoices = false },
@@ -204,27 +228,26 @@ fun ConnectionScreen(
 
         ConnectionScopeSelector(selectedMode = uiState.activeMode, onModeSelected = onModeSelected)
         ConnectionPathSelector(
-            selectedSection = selectedPath,
-            onSectionSelected = { section ->
-                when (section) {
+            selectedPath = selectedPath,
+            onPathSelected = { path ->
+                when (path) {
                     ConnectionPath.Direct -> {
                         browsingRelay = false
                         if (uiState.activeRelayEnabled) profileActions.selectDirect()
                     }
 
                     ConnectionPath.Relay -> {
-                        browsingRelay = true
-                        uiState.vpnProfiles
-                            .firstOrNull { it.id == uiState.activeRelayProfileId }
-                            ?.takeUnless { uiState.activeRelayEnabled }
-                            ?.let { profileActions.select(it.id) }
+                        if (!uiState.activeRelayEnabled) {
+                            val lastProfile = uiState.vpnProfiles.firstOrNull { it.id == uiState.activeRelayProfileId }
+                            if (lastProfile != null) profileActions.select(lastProfile.id) else browsingRelay = true
+                        }
                     }
                 }
             },
         )
 
         ConnectionSelectedPathSection(
-            section = selectedPath,
+            path = selectedPath,
             uiState = uiState,
             desyncSummary = desyncSummary,
             onEditCurrent = onEditCurrent,
@@ -262,22 +285,22 @@ private fun ConnectionScopeSelector(
 
 @Composable
 private fun ConnectionPathSelector(
-    selectedSection: ConnectionPath,
-    onSectionSelected: (ConnectionPath) -> Unit,
+    selectedPath: ConnectionPath,
+    onPathSelected: (ConnectionPath) -> Unit,
 ) {
-    val sections = ConnectionPath.entries
+    val paths = ConnectionPath.entries
     RipDpiSegmentedButton(
-        options = sections.map { stringResource(pathTitleRes(it)) }.toImmutableList(),
-        selectedIndex = sections.indexOf(selectedSection),
-        onSelect = { onSectionSelected(sections[it]) },
+        options = paths.map { stringResource(pathTitleRes(it)) }.toImmutableList(),
+        selectedIndex = paths.indexOf(selectedPath),
+        onSelect = { onPathSelected(paths[it]) },
         modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigSectionNavigation),
-        optionTestTags = sections.map { RipDpiTestTags.configPath(it.stableKey) }.toImmutableList(),
+        optionTestTags = paths.map { RipDpiTestTags.configPath(it.stableKey) }.toImmutableList(),
     )
 }
 
 @Composable
 private fun ConnectionSelectedPathSection(
-    section: ConnectionPath,
+    path: ConnectionPath,
     uiState: ConnectionUiState,
     desyncSummary: String,
     onEditCurrent: () -> Unit,
@@ -285,7 +308,7 @@ private fun ConnectionSelectedPathSection(
     onOpenConfigEditor: (ConnectionEditorTarget) -> Unit,
     onRetestStrategies: () -> Unit,
 ) {
-    when (section) {
+    when (path) {
         ConnectionPath.Direct -> {
             ConnectionDirectSection(
                 uiState = uiState,

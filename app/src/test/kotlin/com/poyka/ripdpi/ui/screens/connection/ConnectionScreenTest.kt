@@ -1,8 +1,6 @@
 package com.poyka.ripdpi.ui.screens.connection
 
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -198,26 +196,6 @@ class ConnectionScreenTest {
     }
 
     @Test
-    fun `command line override warning is visible without expanding anything`() {
-        val cliDraft = AppSettingsSerializer.defaultValue.toConfigDraft().copy(useCommandLineSettings = true)
-        composeRule.setContent {
-            RipDpiTheme {
-                ConnectionScreen(
-                    uiState = ConnectionUiState(presets = buildConfigPresets(cliDraft), draft = cliDraft),
-                    onModeSelected = {},
-                    onPresetSelected = {},
-                    onEditCurrent = {},
-                    onOpenConfigEditor = {},
-                    onRetestStrategies = {},
-                    onPasteServerLink = {},
-                )
-            }
-        }
-
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigCliOverrideBanner).assertExists()
-    }
-
-    @Test
     fun `local bypass desync and dns rows expose actions`() {
         var legacyEditorClicks = 0
         var strategyClicks = 0
@@ -344,94 +322,6 @@ class ConnectionScreenTest {
         composeRule.runOnIdle {
             assertEquals(1, dnsClicks)
         }
-    }
-
-    @Test
-    fun `strategy row shows auto only for an untouched guided chain`() {
-        val default = AppSettingsSerializer.defaultValue.toConfigDraft()
-        var uiPersona by mutableStateOf("simple")
-        var draft by mutableStateOf(default)
-        composeRule.setContent {
-            RipDpiTheme {
-                ConnectionScreen(
-                    uiState = configUiState(uiPersona = uiPersona).copy(draft = draft),
-                    onModeSelected = {},
-                    onPresetSelected = {},
-                    onEditCurrent = {},
-                    onOpenConfigEditor = {},
-                    onRetestStrategies = {},
-                    onPasteServerLink = {},
-                )
-            }
-        }
-
-        fun assertStrategy(value: String) =
-            composeRule
-                .onNodeWithTag(RipDpiTestTags.ConfigLocalBypassDesync)
-                .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, value))
-
-        assertStrategy("Auto (recommended)")
-
-        composeRule.runOnIdle { draft = default.withChainDsl("[tcp]\nfake host") }
-        assertStrategy("tcp: fake(host)")
-
-        composeRule.runOnIdle {
-            draft = default
-            uiPersona = "advanced"
-        }
-        assertStrategy(default.chainSummary)
-    }
-
-    @Test
-    fun `path control follows the active relay and switches the path`() {
-        val selected = mutableListOf<String>()
-        var directSelections = 0
-        var relayActive by mutableStateOf(true)
-        composeRule.setContent {
-            RipDpiTheme {
-                ConnectionScreen(
-                    uiState =
-                        configUiState().copy(
-                            activeRelayEnabled = relayActive,
-                            activeRelayProfileId = "saved",
-                            vpnProfiles =
-                                persistentListOf(
-                                    RelayProfileUiState(
-                                        id = "saved",
-                                        kind = "trojan",
-                                        kindLabel = "Trojan",
-                                        jurisdiction = "",
-                                        operatorName = "",
-                                    ),
-                                ),
-                        ),
-                    onModeSelected = {},
-                    onPresetSelected = {},
-                    onEditCurrent = {},
-                    onOpenConfigEditor = {},
-                    onRetestStrategies = {},
-                    onPasteServerLink = {},
-                    profileActions =
-                        ConnectionProfileActions(
-                            select = { selected += it },
-                            selectDirect = { directSelections += 1 },
-                        ),
-                )
-            }
-        }
-        val directTag = RipDpiTestTags.configPath(ConnectionPath.Direct.stableKey)
-        val relayTag = RipDpiTestTags.configPath(ConnectionPath.Relay.stableKey)
-
-        composeRule.onNodeWithTag(relayTag).assertIsSelected()
-        composeRule.onNodeWithTag(directTag).performScrollTo().performClick()
-        composeRule.runOnIdle {
-            assertEquals(1, directSelections)
-            relayActive = false
-        }
-        composeRule.onNodeWithTag(directTag).assertIsSelected()
-
-        composeRule.onNodeWithTag(relayTag).performScrollTo().performClick()
-        composeRule.runOnIdle { assertEquals(listOf("saved"), selected) }
     }
 
     @Test

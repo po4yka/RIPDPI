@@ -240,6 +240,7 @@ class ConnectionViewModel
                 }
                 return
             }
+            if (relayProfileSelector.rejectWhileReconnecting()) return
             editorSession.update { current ->
                 current.copy(draft = current.draft?.copy(mode = mode))
             }
@@ -254,25 +255,8 @@ class ConnectionViewModel
                 } else {
                     appSettingsRepository.update { setRipdpiMode(mode.preferenceValue) }
                 }
-                if (changed) applySavedSettingsToRunningService()
+                if (changed) relayProfileSelector.applySavedSettings()
             }
-        }
-
-        private suspend fun applySavedSettingsToRunningService() {
-            applySavedConfigDraftToRunningService(
-                draft = appSettingsRepository.snapshot().toConfigDraft(),
-                appSettingsRepository = appSettingsRepository,
-                serviceStateStore = serviceStateStore,
-                reconnectCoordinator = dependencies.reconnectCoordinator,
-                onReconnectFailure = { result ->
-                    _effects.tryEmit(ConnectionEffect.Message(result.reason.message(stringResolver)))
-                },
-                onUnsupportedVpnDns = {
-                    _effects.tryEmit(
-                        ConnectionEffect.Message(stringResolver.getString(R.string.dns_custom_doq_unavailable)),
-                    )
-                },
-            )
         }
 
         fun selectPreset(presetId: String) {
@@ -294,6 +278,7 @@ class ConnectionViewModel
                     }
 
                     else -> {
+                        if (relayProfileSelector.rejectWhileReconnecting()) return
                         val expectedSession = editorSession.value
                         viewModelScope.launch {
                             appSettingsRepository.update {
@@ -304,7 +289,7 @@ class ConnectionViewModel
                                     editorSession.compareAndSet(expectedSession, ConnectionEditorSession())
                                 }
                             }
-                            applySavedSettingsToRunningService()
+                            relayProfileSelector.applySavedSettings()
                         }
                     }
                 }

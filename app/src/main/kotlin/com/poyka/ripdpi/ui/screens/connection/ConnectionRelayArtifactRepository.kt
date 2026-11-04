@@ -3,7 +3,6 @@ package com.poyka.ripdpi.ui.screens.connection
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.DefaultRelayProfileId
 import com.poyka.ripdpi.data.ExpectedRelayProfileState
-import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.RelayCredentialRepository
 import com.poyka.ripdpi.data.RelayProfileRecord
@@ -74,7 +73,6 @@ class ConnectionRelayArtifactRepository
                     .RelayCredentialRecord(profileId),
                 enabled = true,
                 select = true,
-                modeAfterImage = Mode.VPN.preferenceValue,
                 expectedState = ExpectedRelayProfileState(captured.first, captured.second),
             )
             return appSettingsRepository.snapshot().toConfigDraft()

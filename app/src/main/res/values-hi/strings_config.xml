@@ -548,6 +548,7 @@
     <string name="config_cli_banner_title">कमांड लाइन ओवरराइड सक्षम</string>
     <string name="config_cli_banner_body">नीचे दिए गए तर्क इस स्क्रीन के दृश्य नियंत्रणों पर प्राथमिकता रखते हैं।</string>
     <string name="config_cli_active_body">कमांड लाइन आर्ग्युमेंट इस स्क्रीन की सेटिंग से ऊपर हैं।</string>
+    <string name="config_reconnect_in_progress">फिर से कनेक्ट हो रहा है। पूरा होने पर दोबारा कोशिश करें।</string>
     <string name="config_validation_fix">सहेजने से पहले हाइलाइट किए गए फ़ील्ड जाँचें।</string>
     <string name="config_editor_hydration_failed">यह कॉन्फ़िगरेशन नहीं खुल सका। सहेजे गए क्रेडेंशियल नहीं बदले गए।</string>
     <string name="config_validation_banner_title">कुछ मानों पर अभी ध्यान देने की आवश्यकता है</string>

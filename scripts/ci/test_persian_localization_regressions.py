@@ -26,8 +26,6 @@ AUDITED_KEYS = (
     'config_relay_finalmask_sudoku_help',
     'config_relay_finalmask_fragment_help',
     'title_local_bypass_config',
-    'config_preset_proxy_title',
-    'config_preset_proxy_body',
     'ripdpi_proxy',
     'settings_exclude_russian_apps_title',
     'settings_full_tunnel_helper',
@@ -138,7 +136,7 @@ class PersianLocalizationRegressionsTest(unittest.TestCase):
         return text(self.fa[key])
 
     def test_exact_audited_scope_has_persian_copy(self):
-        self.assertEqual(117, len(set(AUDITED_KEYS)))
+        self.assertEqual(115, len(set(AUDITED_KEYS)))
         for key in AUDITED_KEYS:
             with self.subTest(key=key):
                 self.assertRegex(self.value(key), r"[\u0600-\u06ff]")

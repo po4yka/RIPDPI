@@ -631,6 +631,7 @@ Quelle: %2$s</string>
     <string name="adaptive_split_target_chain_step">Überschreibt den ersten Nicht-TLS-TCP-Send-Schritt in der gespeicherten Chain.</string>
     <string name="config_cli_banner_body">Die untenstehenden Argumente haben Vorrang vor den visuellen Steuerelementen auf diesem Bildschirm.</string>
     <string name="config_cli_active_body">Befehlszeilenargumente haben Vorrang vor den Einstellungen auf diesem Bildschirm.</string>
+    <string name="config_reconnect_in_progress">Verbindung wird neu aufgebaut. Versuche es danach erneut.</string>
     <string name="config_default_ttl_summary">Time-to-Live-Override für ausgehende Pakete</string>
     <string name="config_chain_block_valid">Die Kette entspricht dem Modell der Strategieregistrierung.</string>
     <string name="config_chain_block_invalid">Ungültige Kette: %1$s</string>

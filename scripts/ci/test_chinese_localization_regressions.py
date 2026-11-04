@@ -32,8 +32,6 @@ class ChineseLocalizationRegressionsTest(unittest.TestCase):
                     self.assertNotEqual(text(self.en[key]), value)
                     if key != "support_settings_change_summary":
                         self.assertRegex(value, r"[\u4e00-\u9fff]")
-        for key in ("config_preset_proxy_title", "config_preset_proxy_body"):
-            self.assertNotIn("Local bypass", text(self.zh[key]))
 
     def test_sensitive_data_and_retention_boundaries_remain_explicit(self):
         warning = text(self.zh["support_settings_sensitive_body"])

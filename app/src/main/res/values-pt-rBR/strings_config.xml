@@ -548,6 +548,7 @@
     <string name="config_cli_banner_title">Substituições por linha de comando ativadas</string>
     <string name="config_cli_banner_body">Os argumentos abaixo têm precedência sobre os controles visuais desta tela.</string>
     <string name="config_cli_active_body">Os argumentos da linha de comando têm prioridade sobre as configurações desta tela.</string>
+    <string name="config_reconnect_in_progress">Reconexão em andamento. Tente novamente quando terminar.</string>
     <string name="config_validation_fix">Verifique os campos destacados antes de salvar.</string>
     <string name="config_editor_hydration_failed">Não foi possível abrir esta configuração. Suas credenciais salvas não foram alteradas.</string>
     <string name="config_validation_banner_title">Alguns valores ainda precisam de atenção</string>

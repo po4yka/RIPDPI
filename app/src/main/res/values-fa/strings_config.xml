@@ -548,6 +548,7 @@
     <string name="config_cli_banner_title">جایگزینی‌های خط فرمان فعال</string>
     <string name="config_cli_banner_body">آرگومان‌های زیر بر کنترل‌های بصری در این صفحه اولویت دارند.</string>
     <string name="config_cli_active_body">آرگومان‌های خط فرمان بر تنظیمات این صفحه اولویت دارند.</string>
+    <string name="config_reconnect_in_progress">اتصال مجدد در حال انجام است. پس از پایان دوباره تلاش کنید.</string>
     <string name="config_validation_fix">قبل از ذخیره، فیلدهای برجسته‌شده را بررسی کنید.</string>
     <string name="config_editor_hydration_failed">این پیکربندی باز نشد. اعتبارنامه‌های ذخیره‌شده تغییری نکردند.</string>
     <string name="config_validation_banner_title">برخی مقادیر هنوز نیاز به توجه دارند</string>

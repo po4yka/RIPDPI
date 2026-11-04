@@ -656,6 +656,7 @@ app:config_presets_loading_title
 app:config_presets_section
 app:config_profile_change
 app:config_proxy_helper
+app:config_reconnect_in_progress
 app:config_relay_apps_script_auth_key
 app:config_relay_apps_script_direct_hosts
 app:config_relay_apps_script_front_domain

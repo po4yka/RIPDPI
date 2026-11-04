@@ -33,7 +33,6 @@ DIAGNOSTIC_REFERENCES = (
     "status_remediation_owned_stack_step_open_diagnostics",
     "status_remediation_no_hint_step_open_diagnostics",
     "status_diagnostics_open_diagnostics_action",
-    "config_local_bypass_retest_strategies",
 )
 ADVANCED_REFERENCES = (
     "status_control_plane_health_body", "status_control_plane_health_action",
