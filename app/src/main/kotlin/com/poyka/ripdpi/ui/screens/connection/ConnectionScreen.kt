@@ -282,6 +282,7 @@ private fun ConnectionScopeSelector(
                 .ripDpiTestTag(RipDpiTestTags.ConfigScopeSelection),
         role = Role.RadioButton,
         optionTestTags = modes.map { RipDpiTestTags.configMode(it.name) }.toImmutableList(),
+        quiet = true,
     )
 }
 
@@ -297,6 +298,7 @@ private fun ConnectionPathSelector(
         onSelect = { onPathSelected(paths[it]) },
         modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigSectionNavigation),
         optionTestTags = paths.map { RipDpiTestTags.configPath(it.stableKey) }.toImmutableList(),
+        quiet = true,
     )
 }
 

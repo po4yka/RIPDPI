@@ -46,6 +46,7 @@ fun RipDpiSegmentedButton(
     modifier: Modifier = Modifier,
     role: Role = Role.Tab,
     optionTestTags: ImmutableList<String>? = null,
+    quiet: Boolean = false,
 ) {
     RipDpiSegmentedButton(
         options = options,
@@ -55,6 +56,7 @@ fun RipDpiSegmentedButton(
         visualStyle = CommonStyle,
         role = role,
         optionTestTags = optionTestTags,
+        quiet = quiet,
     )
 }
 
@@ -67,6 +69,7 @@ fun RipDpiSegmentedButton(
     visualStyle: CommonStyle,
     role: Role = Role.Tab,
     optionTestTags: ImmutableList<String>? = null,
+    quiet: Boolean = false,
 ) {
     val colors = RipDpiThemeTokens.colors
     val gap = RipDpiThemeTokens.components.rows.compactPillVerticalPadding
@@ -86,9 +89,15 @@ fun RipDpiSegmentedButton(
             val isSelected = index == selectedIndex
             val interactionSource = remember { MutableInteractionSource() }
             val styleState = rememberUpdatedStyleState(interactionSource) { it.isSelected = isSelected }
-            val itemResolver =
-                rememberRipDpiStyleResolver(RipDpiThemeTokens.styles.segmentedItem, CommonStyle, styleState)
-            val content = if (isSelected) colors.background else colors.mutedForeground
+            val itemStyle =
+                if (quiet) RipDpiThemeTokens.styles.segmentedItemQuiet else RipDpiThemeTokens.styles.segmentedItem
+            val itemResolver = rememberRipDpiStyleResolver(itemStyle, CommonStyle, styleState)
+            val content =
+                when {
+                    !isSelected -> colors.mutedForeground
+                    quiet -> colors.foreground
+                    else -> colors.background
+                }
             Row(
                 modifier =
                     Modifier

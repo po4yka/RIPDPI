@@ -888,8 +888,8 @@ Each screen has one scaffold, one layout recipe, and one contract. Look up the s
 
 - Connection replaces the former Config and Mode editor screens. Starter profiles are built-in starting points; saved user bundles are Profiles.
 - Keep this order: the connection summary row that opens the profile sheet, runtime feedback (errors and the command-line override warning, shown only when present), the scope control, the path control, then the selected section.
-- The scope control reads Whole device and Proxy only; the path control reads Direct and Relay. Both use `RipDpiSegmentedButton`. Connection has no connect or disconnect control: connecting belongs to the Status actuator.
-- The path control always shows the active path. Direct turns an active relay off and keeps its profile selected. Relay reactivates the selected profile; without one it opens the Relay section, whose relay-off row opens the profile sheet.
+- The scope control reads Whole device and Proxy only; the path control reads Direct and Relay. Both use the quiet `RipDpiSegmentedButton`, because they are settings that rarely change. Connection has no connect or disconnect control: connecting belongs to the Status actuator.
+- The path control always shows the active path; an active Xray or AmneziaWG egress shows as Relay. Direct turns any of them off and keeps a relay profile selected. Relay reactivates the selected profile; without one it opens the Relay section, whose relay-off row opens the profile sheet.
 - Scope and path changes apply to a running service through the reconnect coordinator.
 - The profile sheet holds the starter profiles, relay profiles, Add profile, and paste and QR import. Applying the recommended profile keeps the scope and asks first, because it replaces other settings.
 - The Direct section lists the DNS and bypass strategy rows and Run strategy test. Guided users see the strategy as Auto while the chain is untouched; a manual chain and Advanced users see the chain.

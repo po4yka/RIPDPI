@@ -33,6 +33,13 @@ object RipDpiComponentStyles {
             val colors = LocalRipDpiExtendedColors.currentValue
             rdsBackground(if (state.isSelected) colors.foreground else colors.muted)
         }
+
+    /** For a setting that is rarely changed: the selection stays clear without drawing the eye first. */
+    val segmentedItemQuiet =
+        CommonStyle {
+            val colors = LocalRipDpiExtendedColors.currentValue
+            rdsBackground(if (state.isSelected) colors.card else colors.muted)
+        }
 }
 
 private fun surfaceStyle(
