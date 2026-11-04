@@ -16,6 +16,8 @@ data class LocalSocksRoute(
     val host: String,
     val port: Int,
     val credentials: LocalSocksCredentials? = null,
+    /** The listener cannot resolve names (the noDomain setting), so the client must send addresses. */
+    val resolveNamesLocally: Boolean = false,
 )
 
 /** Routes OkHttp through the listener at [endpoint], presenting the session credentials its owner registered. */
@@ -36,7 +38,11 @@ internal fun OkHttpClient.Builder.localSocksProxy(endpoint: RelayProbeEndpoint):
 fun OkHttpClient.Builder.localSocksProxy(route: LocalSocksRoute): OkHttpClient.Builder =
     proxy(Proxy.NO_PROXY)
         .socketFactory(LocalSocksSocketFactory(route.host, route.port, route.credentials))
-        .dns { hostname -> listOf(InetAddress.getByAddress(hostname, UnresolvedAddress)) }
+        .apply {
+            if (!route.resolveNamesLocally) {
+                dns { hostname -> listOf(InetAddress.getByAddress(hostname, UnresolvedAddress)) }
+            }
+        }
 
 private class LocalSocksSocketFactory(
     private val proxyHost: String,

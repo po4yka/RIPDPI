@@ -138,6 +138,7 @@ fun OnboardingRoute(
             OnboardingScreenActions(
                 onPageChanged = remember(viewModel) { viewModel::setCurrentPage },
                 onFinish = remember(viewModel) { viewModel::finish },
+                onFinishDisconnected = remember(viewModel) { viewModel::finishDisconnected },
                 onContinue = remember(viewModel) { viewModel::nextPage },
                 onModeSelected = remember(viewModel) { viewModel::selectMode },
                 onPersonaSelected = remember(viewModel) { viewModel::selectPersona },
@@ -177,6 +178,7 @@ private tailrec fun Context.findActivity(): Activity? =
 internal data class OnboardingScreenActions(
     val onPageChanged: (Int) -> Unit = {},
     val onFinish: () -> Unit = {},
+    val onFinishDisconnected: () -> Unit = {},
     val onContinue: () -> Unit = {},
     val onModeSelected: (Mode) -> Unit = {},
     val onPersonaSelected: (String) -> Unit = {},
@@ -254,6 +256,7 @@ internal fun OnboardingScreen(
                 skipTestVisible = skipTestVisible,
                 finishDisconnectedVisible = validationSucceeded,
                 onFinish = actions.onFinish,
+                onFinishDisconnected = actions.onFinishDisconnected,
                 onBack = { actions.onPageChanged(settledPage - 1) },
             )
 
@@ -329,6 +332,7 @@ private fun OnboardingTopBar(
     skipTestVisible: Boolean,
     finishDisconnectedVisible: Boolean,
     onFinish: () -> Unit,
+    onFinishDisconnected: () -> Unit,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -365,7 +369,7 @@ private fun OnboardingTopBar(
             finishDisconnectedVisible -> {
                 OnboardingTopBarAction(
                     R.string.vpn_confirm_disconnect_disconnect,
-                    onFinish,
+                    onFinishDisconnected,
                     RipDpiTestTags.OnboardingFinishDisconnected,
                 )
             }

@@ -167,6 +167,14 @@ class OnboardingViewModel
             completeOnboarding()
         }
 
+        /** Stops the validated runtime, whoever started it, and leaves onboarding. */
+        fun finishDisconnected() {
+            viewModelScope.launch {
+                validationCoordinator.disconnect()
+                completeOnboarding()
+            }
+        }
+
         /** Stops any validation runtime and leaves onboarding. */
         fun finish() {
             validationCoordinator.stopActiveValidation()

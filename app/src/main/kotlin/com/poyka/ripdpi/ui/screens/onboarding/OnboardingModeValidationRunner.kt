@@ -7,6 +7,7 @@ import com.poyka.ripdpi.activities.suggestedModeFor
 import com.poyka.ripdpi.activities.validationRecoveryKind
 import com.poyka.ripdpi.core.LocalSocks5Client
 import com.poyka.ripdpi.core.LocalSocksConnectRejectedException
+import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
@@ -40,10 +41,12 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import okhttp3.Request
 import java.io.IOException
+import java.net.InetAddress
 import java.net.InetSocketAddress
 import java.net.ProtocolException
 import java.net.Socket
 import java.net.URI
+import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -58,6 +61,7 @@ private const val DefaultProxyHost = "127.0.0.1"
 private const val HttpNoContent = 204
 private const val HttpsPort = 443
 private const val SocksReplyHostUnreachable = 4
+private const val ProxyProbeUsername = "onboarding"
 
 sealed interface OnboardingValidationResult {
     data class Success(
@@ -81,6 +85,9 @@ interface OnboardingModeValidationRunner {
     fun stopActiveValidation()
 
     fun retainActiveValidation()
+
+    /** Stops the validated runtime, also one that was already running before the validation. */
+    suspend fun disconnect()
 }
 
 @Singleton
@@ -125,8 +132,8 @@ class DefaultOnboardingModeValidationRunner
                 OnboardingValidationResult.Failed(
                     reason = e.reasonMessage,
                     recoveryKind = OnboardingValidationRecoveryKind.RETRY,
-                    // A DNS failure is fixed by Change DNS, not by switching mode — keep suggestedMode null.
-                    suggestedMode = if (e.step == OnboardingValidationStep.Dns) null else mode.alternateOrNull(),
+                    // Reply 4 can also mean an unreachable host, so a DNS failure keeps the mode switch too.
+                    suggestedMode = mode.alternateOrNull(),
                     failedStep = e.step,
                 )
             } catch (e: TimeoutCancellationException) {
@@ -179,6 +186,14 @@ class DefaultOnboardingModeValidationRunner
         override fun retainActiveValidation() {
             ownedValidationReceipt = null
             ownedValidationMode = null
+        }
+
+        override suspend fun disconnect() {
+            if (ownedValidationMode == null) {
+                serviceController.stop()
+            } else {
+                stopActiveValidation()
+            }
         }
 
         private suspend fun ensureSelectedModeRunning(
@@ -253,11 +268,13 @@ class DefaultOnboardingModeValidationRunner
         private suspend fun probeRoute(mode: Mode): LocalSocksRoute =
             when (mode) {
                 Mode.VPN -> {
-                    serviceRuntimeRegistry.current(Mode.VPN)?.tunnelSocksRoute
-                        ?: throw OnboardingProbeException(
-                            step = OnboardingValidationStep.Tunnel,
-                            reasonMessage = stringResolver.getString(R.string.onboarding_validation_failed_generic),
-                        )
+                    val route =
+                        serviceRuntimeRegistry.current(Mode.VPN)?.tunnelSocksRoute
+                            ?: throw OnboardingProbeException(
+                                step = OnboardingValidationStep.Tunnel,
+                                reasonMessage = stringResolver.getString(R.string.onboarding_validation_failed_generic),
+                            )
+                    route.copy(resolveNamesLocally = appSettingsRepository.snapshot().noDomain)
                 }
 
                 Mode.Proxy -> {
@@ -265,8 +282,28 @@ class DefaultOnboardingModeValidationRunner
                     LocalSocksRoute(
                         host = settings.proxyIp.ifBlank { DefaultProxyHost },
                         port = settings.proxyPort.takeIf { it > 0 } ?: DefaultProxyPort,
+                        // With allow-LAN on, the listener requires the token from loopback clients too.
+                        credentials =
+                            settings.proxyLanAuthToken
+                                .takeIf { settings.proxyAllowLan && it.isNotEmpty() }
+                                ?.let { token -> LocalSocksCredentials(ProxyProbeUsername, token) },
+                        resolveNamesLocally = settings.noDomain,
                     )
                 }
+            }
+
+        private fun dnsProbeTarget(
+            host: String,
+            route: LocalSocksRoute,
+        ): InetSocketAddress =
+            if (route.resolveNamesLocally) {
+                try {
+                    InetSocketAddress(InetAddress.getByName(host), HttpsPort)
+                } catch (e: UnknownHostException) {
+                    throw dnsProbeFailure(cause = e)
+                }
+            } else {
+                InetSocketAddress.createUnresolved(host, HttpsPort)
             }
 
         /** A CONNECT by name makes the engine resolve it with the configured DNS, as user traffic does. */
@@ -281,11 +318,7 @@ class DefaultOnboardingModeValidationRunner
                     Socket().use { socket ->
                         socket.connect(InetSocketAddress(route.host, route.port), ValidationTrafficTimeoutMs.toInt())
                         socket.soTimeout = ValidationTrafficTimeoutMs.toInt()
-                        LocalSocks5Client.connect(
-                            socket,
-                            InetSocketAddress.createUnresolved(host, HttpsPort),
-                            route.credentials,
-                        )
+                        LocalSocks5Client.connect(socket, dnsProbeTarget(host, route), route.credentials)
                     }
                 } catch (e: ProtocolException) {
                     if ((e as? LocalSocksConnectRejectedException)?.reply == SocksReplyHostUnreachable) {

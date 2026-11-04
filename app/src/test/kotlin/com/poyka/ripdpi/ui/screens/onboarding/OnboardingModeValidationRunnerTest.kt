@@ -40,6 +40,7 @@ import java.util.concurrent.Executors
 import kotlin.concurrent.thread
 
 private val TunnelCredentials = LocalSocksCredentials("tunnel-user", "tunnel-pass")
+private const val AddressTypeDomain: Byte = 3
 
 @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
 class OnboardingModeValidationRunnerTest {
@@ -116,7 +117,7 @@ class OnboardingModeValidationRunnerTest {
         }
 
     @Test
-    fun `host unreachable reply fails the dns step and offers no mode switch`() =
+    fun `host unreachable reply fails the dns step and keeps the mode switch`() =
         runTest {
             FakeSocksListener(connectReply = 4).use { socks ->
                 val store = FakeServiceStateStore()
@@ -128,7 +129,7 @@ class OnboardingModeValidationRunnerTest {
                     ).validate(Mode.VPN) { } as OnboardingValidationResult.Failed
 
                 assertEquals(OnboardingValidationStep.Dns, result.failedStep)
-                assertEquals(null, result.suggestedMode)
+                assertEquals(Mode.Proxy, result.suggestedMode)
             }
         }
 
@@ -150,6 +151,67 @@ class OnboardingModeValidationRunnerTest {
                     FakeStringResolver().getString(R.string.onboarding_validation_failed_generic),
                     result.reason,
                 )
+            }
+        }
+
+    @Test
+    fun `proxy probe presents the lan token when allow lan is on`() =
+        runTest {
+            FakeSocksListener().use { socks ->
+                val store = FakeServiceStateStore()
+                val result =
+                    validationRunner(
+                        serviceStateStore = store,
+                        serviceController = RunningServiceController(store),
+                        settings = FakeAppSettingsRepository().apply { useLanListener(socks) },
+                    ).validate(Mode.Proxy) { }
+
+                assertTrue(result is OnboardingValidationResult.Success)
+                assertEquals("lan-token", socks.password)
+            }
+        }
+
+    @Test
+    fun `noDomain probe never asks the listener to resolve a name`() =
+        runTest {
+            FakeSocksListener().use { socks ->
+                val store = FakeServiceStateStore()
+                validationRunner(
+                    serviceStateStore = store,
+                    serviceController = RunningServiceController(store),
+                    registry = registryWithTunnelRoute(socks.route(TunnelCredentials)),
+                    settings =
+                        FakeAppSettingsRepository().apply {
+                            update { setNoDomain(true) }
+                        },
+                ).validate(Mode.VPN) { }
+
+                assertEquals(null, socks.targetHost)
+            }
+        }
+
+    @Test
+    fun `disconnect stops a runtime that was running before the validation`() =
+        runTest {
+            FakeSocksListener().use { socks ->
+                val store = FakeServiceStateStore()
+                store.setStatus(AppStatus.Running, Mode.VPN)
+                val controller = RunningServiceController(store)
+                val runner =
+                    validationRunner(
+                        serviceStateStore = store,
+                        serviceController = controller,
+                        registry = registryWithTunnelRoute(socks.route(TunnelCredentials)),
+                    )
+
+                assertTrue(runner.validate(Mode.VPN) { } is OnboardingValidationResult.Success)
+                assertEquals(emptyList<Mode>(), controller.startedModes)
+
+                runner.stopActiveValidation()
+                assertEquals(AppStatus.Running, store.status.value.first)
+
+                runner.disconnect()
+                assertEquals(AppStatus.Halted, store.status.value.first)
             }
         }
 
@@ -239,9 +301,10 @@ class OnboardingModeValidationRunnerTest {
         serviceController: ServiceController,
         registry: ServiceRuntimeRegistry = DefaultServiceRuntimeRegistry(),
         tlsClientFactory: OwnedTlsClientFactory = RecordingOwnedTlsClientFactory(),
+        settings: FakeAppSettingsRepository = FakeAppSettingsRepository(),
     ): DefaultOnboardingModeValidationRunner =
         DefaultOnboardingModeValidationRunner(
-            appSettingsRepository = FakeAppSettingsRepository(),
+            appSettingsRepository = settings,
             serviceController = serviceController,
             serviceStateStore = serviceStateStore,
             serviceRuntimeRegistry = registry,
@@ -254,6 +317,16 @@ class OnboardingModeValidationRunnerTest {
                     main = UnconfinedTestDispatcher(),
                 ),
         )
+
+    private suspend fun FakeAppSettingsRepository.useLanListener(socks: FakeSocksListener) {
+        val route = socks.route(TunnelCredentials)
+        update {
+            setProxyIp(route.host)
+            setProxyPort(route.port)
+            setProxyAllowLan(true)
+            setProxyLanAuthToken("lan-token")
+        }
+    }
 
     private fun registryWithTunnelRoute(route: LocalSocksRoute): ServiceRuntimeRegistry =
         DefaultServiceRuntimeRegistry().apply {
@@ -282,6 +355,9 @@ class OnboardingModeValidationRunnerTest {
         var username: String? = null
 
         @Volatile
+        var password: String? = null
+
+        @Volatile
         var targetHost: String? = null
 
         init {
@@ -295,10 +371,14 @@ class OnboardingModeValidationRunnerTest {
                         output.write(byteArrayOf(5, 2))
                         input.readByte()
                         username = String(ByteArray(input.readUnsignedByte()).also(input::readFully))
-                        input.readFully(ByteArray(input.readUnsignedByte()))
+                        password = String(ByteArray(input.readUnsignedByte()).also(input::readFully))
                         output.write(byteArrayOf(1, 0))
-                        input.readFully(ByteArray(4))
-                        targetHost = String(ByteArray(input.readUnsignedByte()).also(input::readFully))
+                        input.readFully(ByteArray(3))
+                        if (input.readByte() == AddressTypeDomain) {
+                            targetHost = String(ByteArray(input.readUnsignedByte()).also(input::readFully))
+                        } else {
+                            input.readFully(ByteArray(4))
+                        }
                         input.readFully(ByteArray(2))
                         output.write(byteArrayOf(5, connectReply.toByte(), 0, 1, 0, 0, 0, 0, 0, 0))
                         output.flush()

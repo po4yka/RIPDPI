@@ -24,6 +24,10 @@ class OnboardingValidationCoordinator
             validationRunner.stopActiveValidation()
         }
 
+        suspend fun disconnect() {
+            validationRunner.disconnect()
+        }
+
         private fun OnboardingValidationResult.toValidationState(mode: Mode): OnboardingValidationState =
             when (this) {
                 is OnboardingValidationResult.Success -> {

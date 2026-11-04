@@ -559,6 +559,22 @@ class OnboardingViewModelTest {
         }
 
     @Test
+    fun `finish disconnected stops the validated runtime before completion`() =
+        runTest {
+            val repository = FakeAppSettingsRepository()
+            val runner = FakeOnboardingModeValidationRunner()
+            val vm = createViewModel(repository = repository, validationRunner = runner)
+
+            vm.effects.test {
+                vm.finishDisconnected()
+                assertTrue(awaitItem() is OnboardingEffect.OnboardingComplete)
+            }
+
+            assertTrue(repository.snapshot().onboardingComplete)
+            assertEquals(1, runner.disconnectCount)
+        }
+
+    @Test
     fun `finish stops temporary runtime before completion`() =
         runTest {
             val repository = FakeAppSettingsRepository()
@@ -579,6 +595,7 @@ class OnboardingViewModelTest {
         val validateCalls = mutableListOf<Mode>()
         var stopCount: Int = 0
         var retainCount: Int = 0
+        var disconnectCount: Int = 0
 
         override suspend fun validate(
             mode: Mode,
@@ -593,6 +610,10 @@ class OnboardingViewModelTest {
 
         override fun stopActiveValidation() {
             stopCount += 1
+        }
+
+        override suspend fun disconnect() {
+            disconnectCount += 1
         }
 
         override fun retainActiveValidation() {

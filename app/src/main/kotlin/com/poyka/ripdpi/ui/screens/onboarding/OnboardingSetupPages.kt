@@ -407,24 +407,23 @@ private fun OnboardingValidationContentActions(
                                 .fillMaxWidth()
                                 .ripDpiTestTag(RipDpiTestTags.OnboardingChangeDns),
                     )
-                } else {
-                    state.suggestedMode?.let { suggestedMode ->
-                        RipDpiButton(
-                            text =
-                                stringResource(
-                                    when (suggestedMode) {
-                                        Mode.VPN -> R.string.onboarding_test_use_vpn
-                                        Mode.Proxy -> R.string.onboarding_test_use_proxy
-                                    },
-                                ),
-                            onClick = onAcceptSuggestedMode,
-                            variant = RipDpiButtonVariant.Outline,
-                            modifier =
-                                Modifier
-                                    .fillMaxWidth()
-                                    .ripDpiTestTag(RipDpiTestTags.OnboardingSwitchSuggestedMode),
-                        )
-                    }
+                }
+                state.suggestedMode?.let { suggestedMode ->
+                    RipDpiButton(
+                        text =
+                            stringResource(
+                                when (suggestedMode) {
+                                    Mode.VPN -> R.string.onboarding_test_use_vpn
+                                    Mode.Proxy -> R.string.onboarding_test_use_proxy
+                                },
+                            ),
+                        onClick = onAcceptSuggestedMode,
+                        variant = RipDpiButtonVariant.Outline,
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .ripDpiTestTag(RipDpiTestTags.OnboardingSwitchSuggestedMode),
+                    )
                 }
                 RipDpiButton(
                     text = stringResource(R.string.onboarding_test_finish_without),

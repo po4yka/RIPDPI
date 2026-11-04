@@ -306,6 +306,24 @@ class OnboardingScreenTest {
     }
 
     @Test
+    fun `dns failure offers both change dns and the mode switch`() {
+        renderOnboarding(
+            OnboardingUiState(
+                currentPage = OnboardingPages.lastIndex,
+                validationState =
+                    OnboardingValidationState.Failed(
+                        reason = "DNS resolution failed",
+                        suggestedMode = Mode.Proxy,
+                        failedStep = OnboardingValidationStep.Dns,
+                    ),
+            ),
+        )
+
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingChangeDns).assertCountEquals(1)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingSwitchSuggestedMode).assertCountEquals(1)
+    }
+
+    @Test
     fun `successful validation has no visible back and consumes system back`() {
         var navigatedBack = false
         lateinit var backDispatcher: OnBackPressedDispatcher
