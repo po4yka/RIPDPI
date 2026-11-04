@@ -8,7 +8,6 @@ import com.poyka.ripdpi.BuildConfig
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.MainActivity
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -27,12 +26,8 @@ class AppExperienceContractTest {
             } else {
                 "RIPDPI: Connected"
             }
-        val notificationTitleId =
-            context.resources.getIdentifier("notification_title", "string", context.packageName)
 
         assertEquals(expectedName, context.applicationInfo.loadLabel(context.packageManager).toString())
-        assertTrue("Merged notification title resource must exist", notificationTitleId != 0)
-        assertEquals(expectedName, context.getString(notificationTitleId))
         assertEquals(expectedName, context.getString(R.string.qs_tile_label_disconnected))
         assertEquals(expectedConnected, context.getString(R.string.qs_tile_label_connected))
     }

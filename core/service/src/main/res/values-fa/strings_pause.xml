@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="pause_notification_title">در حالت توقف موقت</string>
-    <string name="pause_notification_until">توقف تا %1$s</string>
+    <string name="pause_notification_until">تا %1$s</string>
     <string name="pause_notification_cleanup">اتصال هنوز در حال توقف است…</string>
     <string name="pause_notification_resuming">در حال ازسرگیری اتصال…</string>
     <string name="pause_notification_deferred">ازسرگیری خودکار ممکن نشد</string>

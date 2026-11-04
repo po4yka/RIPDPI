@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="pause_notification_title">已暂停</string>
-    <string name="pause_notification_until">暂停至 %1$s</string>
+    <string name="pause_notification_until">直到 %1$s</string>
     <string name="pause_notification_cleanup">连接仍在停止…</string>
     <string name="pause_notification_resuming">正在恢复连接…</string>
     <string name="pause_notification_deferred">无法自动恢复</string>

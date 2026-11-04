@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="pause_notification_title">En pause</string>
-    <string name="pause_notification_until">En pause jusqu’à %1$s</string>
+    <string name="pause_notification_until">Jusqu’à %1$s</string>
     <string name="pause_notification_cleanup">La connexion est encore en cours d’arrêt…</string>
     <string name="pause_notification_resuming">Reprise de la connexion…</string>
     <string name="pause_notification_deferred">Reprise automatique impossible</string>

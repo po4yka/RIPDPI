@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="pause_notification_title">Pausiert</string>
-    <string name="pause_notification_until">Pausiert bis %1$s</string>
+    <string name="pause_notification_until">Bis %1$s</string>
     <string name="pause_notification_cleanup">Verbindung wird noch gestoppt…</string>
     <string name="pause_notification_resuming">Verbindung wird fortgesetzt…</string>
     <string name="pause_notification_deferred">Automatisches Fortsetzen fehlgeschlagen</string>

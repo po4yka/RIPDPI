@@ -383,7 +383,7 @@ class AndroidStringResolverLocaleTest {
 
     private fun pausedNotificationMessages(): Map<com.poyka.ripdpi.data.PausePhase, String> =
         mapOf(
-            com.poyka.ripdpi.data.PausePhase.Paused to "Пауза до 13:30",
+            com.poyka.ripdpi.data.PausePhase.Paused to "До 13:30",
             com.poyka.ripdpi.data.PausePhase.CleanupPending to
                 "Соединение ещё останавливается…",
             com.poyka.ripdpi.data.PausePhase.Releasing to
