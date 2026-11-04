@@ -15,6 +15,7 @@
     "chainIntermediateHops": [],
     "confirmGoodDpiEligible": false,
     "confirmGoodDpiEvidence": null,
+    "connectionFailureEvents": 0,
     "connectionQuality": null,
     "dhtTriggerObservations": null,
     "directPathLearningSignals": [],

@@ -175,6 +175,8 @@ data class NativeRuntimeSnapshot(
     val dnsFailureEvents: Long = 0,
     /** TLS failures the proxy classified this session. */
     val tlsFailureEvents: Long = 0,
+    /** Other failed connections the proxy classified this session, such as resets and silent drops. */
+    val connectionFailureEvents: Long = 0,
     val retryPacedCount: Long = 0,
     val lastRetryBackoffMs: Long? = null,
     val lastRetryReason: String? = null,

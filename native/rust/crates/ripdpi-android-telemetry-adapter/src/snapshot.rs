@@ -111,6 +111,8 @@ impl ProxyTelemetryState {
             // Ordering: Relaxed -- counter read for display only, no happens-before needed.
             tls_failure_events: self.tls_failure_events.load(Ordering::Relaxed),
             // Ordering: Relaxed -- counter read for display only, no happens-before needed.
+            connection_failure_events: self.connection_failure_events.load(Ordering::Relaxed),
+            // Ordering: Relaxed -- counter read for display only, no happens-before needed.
             retry_paced_count: self.retry_paced_count.load(Ordering::Relaxed),
             // Ordering: Relaxed -- display-only field; staleness of a few ms is acceptable.
             last_retry_backoff_ms: match self.last_retry_backoff_ms.load(Ordering::Relaxed) {

@@ -10,6 +10,7 @@
   "capturedAt",
   "chainEntryState",
   "chainExitState",
+  "connectionFailureEvents",
   "directPathLearningSignals[]",
   "dnsFailureEvents",
   "fallbackMode",

@@ -59,7 +59,23 @@ impl ProxyTelemetryState {
                 // Ordering: Relaxed -- counter read for display only, no happens-before needed.
                 self.tls_failure_events.fetch_add(1, Ordering::Relaxed);
             }
-            _ => {}
+            FailureClass::TcpReset
+            | FailureClass::SilentDrop
+            | FailureClass::HttpBlockpage
+            | FailureClass::QuicBreakage
+            | FailureClass::Redirect
+            | FailureClass::ConnectFailure
+            | FailureClass::StrategyExecutionFailure
+            | FailureClass::ConnectionFreeze
+            | FailureClass::TuicVersionUnsupported
+            | FailureClass::IpBlockSuspect
+            | FailureClass::MasqueH3TcpUnsupported
+            | FailureClass::ConfirmGoodDpiSuspected => {
+                // Ordering: Relaxed -- counter read for display only, no happens-before needed.
+                self.connection_failure_events.fetch_add(1, Ordering::Relaxed);
+            }
+            // A skipped candidate did not fail, and an unknown class says nothing about the connection.
+            FailureClass::CapabilitySkipped | FailureClass::Unknown => {}
         }
         let level = if failure.action.as_str() == "retry_with_matching_group" { "warn" } else { "info" };
         let message = format!(
