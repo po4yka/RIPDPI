@@ -1321,14 +1321,14 @@ internal class TestVpnTunnelSessionProvider(
 internal class TestProxyServiceHost(
     override val serviceScope: CoroutineScope,
 ) : ServiceCoordinatorHost {
-    val notifications = mutableListOf<NativeRuntimeSnapshot>()
+    val notifications = mutableListOf<TunnelStats>()
     val stopRequests = mutableListOf<Int?>()
 
     override fun updateNotification(
         tunnelStats: TunnelStats,
-        proxyTelemetry: NativeRuntimeSnapshot,
+        interactive: Boolean,
     ) {
-        notifications += proxyTelemetry
+        notifications += tunnelStats
     }
 
     override fun requestStopSelf(stopSelfStartId: Int?) {
@@ -1341,7 +1341,7 @@ internal class TestVpnServiceHost(
     private val lifecycleEvents: MutableList<String>? = null,
 ) : VpnCoordinatorHost {
     private val installedPackagesState = MutableStateFlow<Set<String>>(emptySet())
-    val notifications = mutableListOf<Pair<TunnelStats, NativeRuntimeSnapshot>>()
+    val notifications = mutableListOf<TunnelStats>()
     val stopRequests = mutableListOf<Int?>()
     var underlyingNetworkSyncs: Int = 0
     var directDnsApplyCount: Int = 0
@@ -1365,9 +1365,9 @@ internal class TestVpnServiceHost(
 
     override fun updateNotification(
         tunnelStats: TunnelStats,
-        proxyTelemetry: NativeRuntimeSnapshot,
+        interactive: Boolean,
     ) {
-        notifications += tunnelStats to proxyTelemetry
+        notifications += tunnelStats
     }
 
     override fun requestStopSelf(stopSelfStartId: Int?) {

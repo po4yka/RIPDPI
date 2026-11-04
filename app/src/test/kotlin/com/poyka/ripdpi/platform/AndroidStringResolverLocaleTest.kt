@@ -216,7 +216,11 @@ class AndroidStringResolverLocaleTest {
                 context = application,
                 channelId = "locale-test",
                 title = "RIPDPI",
-                content = ContextCompat.getString(application, mergedStringId(application, "vpn_notification_content")),
+                content =
+                    ContextCompat.getString(
+                        application,
+                        mergedStringId(application, "notification_status_connecting"),
+                    ),
                 service = Service::class.java,
             )
         val dynamicNotification =
@@ -243,7 +247,7 @@ class AndroidStringResolverLocaleTest {
                 .title
                 .toString(),
         )
-        assertEquals("Локальные процессы VPN запущены", staticNotification.extras.getString(Notification.EXTRA_TEXT))
+        assertEquals("Подключение…", staticNotification.extras.getString(Notification.EXTRA_TEXT))
     }
 
     @Test
@@ -262,12 +266,11 @@ class AndroidStringResolverLocaleTest {
                 Context::class.java,
                 Long::class.javaPrimitiveType,
                 Long::class.javaPrimitiveType,
-                Long::class.javaPrimitiveType,
             )
         try {
             listOf(
-                Triple("es", "↑ 1,5 MB  ↓ 1,5 GB  |  01:01:01", "Detener"),
-                Triple("en", "↑ 1.5 MB  ↓ 1.5 GB  |  01:01:01", "Stop"),
+                Triple("es", "↑ 1,5 MB  ↓ 1,5 GB", "Detener"),
+                Triple("en", "↑ 1.5 MB  ↓ 1.5 GB", "Stop"),
             ).forEach { (language, expectedContent, expectedAction) ->
                 selectLanguage(language)
                 assertEquals(
@@ -281,7 +284,6 @@ class AndroidStringResolverLocaleTest {
                         context,
                         1_500_000L,
                         1_500_000_000L,
-                        3_661_000L,
                     ) as String
                 val notification =
                     createConnectionNotification(

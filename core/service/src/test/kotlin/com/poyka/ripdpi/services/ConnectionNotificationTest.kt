@@ -1,7 +1,10 @@
 package com.poyka.ripdpi.services
 
 import android.app.Service
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.TunnelStats
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -25,6 +28,53 @@ class ConnectionNotificationTest {
                 shadowOf(visible.actions.single().actionIntent).savedIntent.action,
             )
         }
+    }
+
+    @Test
+    fun `telemetry maps to the state a user needs`() {
+        val traffic = TunnelStats(txBytes = 1L, rxBytes = 2L)
+        val running = ServiceTelemetrySnapshot(serviceStartedAt = 7L)
+
+        assertNull(connectionNotificationPhase(ServiceTelemetrySnapshot(), traffic))
+        assertEquals(
+            ConnectionNotificationPhase.Connected(warning = false, traffic = traffic, startedAt = 7L),
+            connectionNotificationPhase(running, traffic),
+        )
+        assertEquals(
+            ConnectionNotificationPhase.Connected(warning = true, traffic = traffic, startedAt = 7L),
+            connectionNotificationPhase(running.copy(relayFailed = true), traffic),
+        )
+        assertEquals(
+            ConnectionNotificationPhase.Reconnecting,
+            connectionNotificationPhase(running.copy(networkHandoverState = "wifi"), traffic),
+        )
+    }
+
+    @Test
+    fun `connected state names the mode and shows one timer`() {
+        val context = RuntimeEnvironment.getApplication()
+        val connected = ConnectionNotificationPhase.Connected(false, TunnelStats(), startedAt = 7L)
+
+        val vpn = connectionNotificationContent(context, ConnectionNotificationTarget.Vpn, connected)
+        val proxy =
+            connectionNotificationContent(
+                context,
+                ConnectionNotificationTarget.Proxy,
+                connected.copy(warning = true),
+            )
+        val connecting =
+            connectionNotificationContent(
+                context,
+                ConnectionNotificationTarget.Vpn,
+                ConnectionNotificationPhase.Connecting,
+            )
+
+        assertEquals("Connected · VPN", vpn.title)
+        assertEquals(7L, vpn.startedAt)
+        assertEquals("Connected · Proxy · warning", proxy.title)
+        assertEquals("Connecting…", connecting.title)
+        assertNull(connecting.text)
+        assertNull(connecting.startedAt)
     }
 
     private fun notification(

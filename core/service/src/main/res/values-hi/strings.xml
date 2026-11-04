@@ -1,6 +1,8 @@
 <resources>
     <string name="proxy_channel_name">प्रॉक्सी</string>
-    <string name="vpn_notification_content">स्थानीय VPN प्रक्रियाएँ चल रही हैं</string>
-    <string name="proxy_notification_content">प्रॉक्सी चल रहा है</string>
     <string name="notification_stop">रोकें</string>
+    <string name="notification_status_connecting">कनेक्ट हो रहा है…</string>
+    <string name="notification_status_reconnecting">फिर से कनेक्ट हो रहा है…</string>
+    <string name="notification_status_connected">कनेक्टेड · %1$s</string>
+    <string name="notification_status_warning">कनेक्टेड · %1$s · चेतावनी</string>
 </resources>

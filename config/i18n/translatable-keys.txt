@@ -5169,6 +5169,10 @@ detection:detection_alert_channel_description
 detection:detection_alert_channel_name
 detection:detection_alert_title_detected
 detection:detection_alert_title_needs_review
+service:notification_status_connected
+service:notification_status_connecting
+service:notification_status_reconnecting
+service:notification_status_warning
 service:notification_stop
 service:pause_notification_cleanup
 service:pause_notification_deferred
@@ -5177,5 +5181,3 @@ service:pause_notification_resuming
 service:pause_notification_title
 service:pause_notification_until
 service:proxy_channel_name
-service:proxy_notification_content
-service:vpn_notification_content

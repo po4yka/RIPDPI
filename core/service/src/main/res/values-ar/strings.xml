@@ -2,7 +2,9 @@
 <!-- Arabic (ar) translation. MT-origin: machine-translated, maintainer-reviewed. See docs/localization-provenance.md. -->
 <resources>
     <string name="proxy_channel_name">الوكيل</string>
-    <string name="vpn_notification_content">عمليات VPN المحلية قيد التشغيل</string>
-    <string name="proxy_notification_content">الوكيل يعمل</string>
     <string name="notification_stop">إيقاف</string>
+    <string name="notification_status_connecting">جارٍ الاتصال…</string>
+    <string name="notification_status_reconnecting">جارٍ إعادة الاتصال…</string>
+    <string name="notification_status_connected">متصل · %1$s</string>
+    <string name="notification_status_warning">متصل · %1$s · تحذير</string>
 </resources>

@@ -35,12 +35,10 @@ internal class ProxyTelemetryCoordinator(
                 val telemetry = pollCurrentTelemetry(evidenceCollector)
                 if (activeEvidenceCollector.get() !== evidenceCollector) return@replaceTelemetryJob
                 reportTelemetry(telemetry)
-                if (statusReporter.startedAt != null && screenStateObserver.isInteractive.value) {
-                    host.updateNotification(
-                        tunnelStats = telemetry.proxyTelemetry.tunnelStats,
-                        proxyTelemetry = telemetry.proxyTelemetry,
-                    )
-                }
+                host.updateNotification(
+                    tunnelStats = telemetry.proxyTelemetry.tunnelStats,
+                    interactive = screenStateObserver.isInteractive.value,
+                )
                 delay(nextTelemetryPollInterval())
                 refreshDestinationRoutingPolicy()
             }

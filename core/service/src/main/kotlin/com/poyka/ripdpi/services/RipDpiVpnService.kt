@@ -8,13 +8,11 @@ import android.os.Build
 import androidx.annotation.Keep
 import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
-import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundCallKind
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundServiceType
 import com.poyka.ripdpi.data.DeviceRuntimeLifecyclePhase
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.TunnelStats
@@ -146,8 +144,7 @@ class RipDpiVpnService :
             ForegroundNotificationController(
                 service = this,
                 target = ConnectionNotificationTarget.Vpn,
-                startingContent = R.string.vpn_notification_content,
-                serviceStartedAt = { serviceStateStore.telemetry.value.serviceStartedAt },
+                telemetry = { serviceStateStore.telemetry.value },
                 showStopAction = {
                     AndroidHardKillSwitchStateReader.read(this).allowsServiceStop(notificationStopAction)
                 },
@@ -312,7 +309,7 @@ class RipDpiVpnService :
     ): Int {
         super.onStartCommand(intent, flags, startId)
         latestStartId = startId
-        notificationController.startForeground()
+        notificationController.startForeground(intent?.action)
         serviceScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             runCatching {
                 entryMutex.withLock {
@@ -365,8 +362,8 @@ class RipDpiVpnService :
 
     override fun updateNotification(
         tunnelStats: TunnelStats,
-        proxyTelemetry: NativeRuntimeSnapshot,
-    ) = notificationController.update(tunnelStats, proxyTelemetry)
+        interactive: Boolean,
+    ) = notificationController.update(tunnelStats, interactive)
 
     internal fun refreshForegroundNotification() {
         runtimeEvidenceReporter.runForegroundCall(
@@ -374,7 +371,7 @@ class RipDpiVpnService :
             DeviceRuntimeForegroundCallKind.Refresh,
             DeviceRuntimeForegroundServiceType.SpecialUse,
         ) {
-            notificationController.startForeground()
+            notificationController.refresh()
         }
     }
 
@@ -641,7 +638,7 @@ class RipDpiVpnService :
                 DeviceRuntimeForegroundCallKind.Initial,
                 DeviceRuntimeForegroundServiceType.SpecialUse,
             ) {
-                notificationController.startForeground()
+                notificationController.startForeground(startAction)
             }
             val policy = refreshHardKillSwitchState()
             if (recoveryGeneration != null) {

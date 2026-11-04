@@ -23,7 +23,7 @@ internal interface ServiceCoordinatorHost {
 
     fun updateNotification(
         tunnelStats: TunnelStats,
-        proxyTelemetry: NativeRuntimeSnapshot,
+        interactive: Boolean,
     )
 
     fun requestStopSelf(stopSelfStartId: Int?)

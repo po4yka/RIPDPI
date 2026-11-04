@@ -1,7 +1,8 @@
 <resources>
     <string name="proxy_channel_name">Proxy</string>
-    <string name="vpn_notification_content">Os processos locais de VPN estão em execução</string>
-    <string name="proxy_notification_content">Proxy em execução</string>
     <string name="notification_stop">Parar</string>
-
+    <string name="notification_status_connecting">Conectando…</string>
+    <string name="notification_status_reconnecting">Reconectando…</string>
+    <string name="notification_status_connected">Conectado · %1$s</string>
+    <string name="notification_status_warning">Conectado · %1$s · aviso</string>
 </resources>

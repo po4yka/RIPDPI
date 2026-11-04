@@ -1,7 +1,8 @@
 <resources>
     <string name="proxy_channel_name">Proxy</string>
-    <string name="vpn_notification_content">Lokale VPN-Prozesse laufen</string>
-    <string name="proxy_notification_content">Proxy läuft</string>
     <string name="notification_stop">Stoppen</string>
-
+    <string name="notification_status_connecting">Verbindung wird hergestellt…</string>
+    <string name="notification_status_reconnecting">Verbindung wird wiederhergestellt…</string>
+    <string name="notification_status_connected">Verbunden · %1$s</string>
+    <string name="notification_status_warning">Verbunden · %1$s · Warnung</string>
 </resources>

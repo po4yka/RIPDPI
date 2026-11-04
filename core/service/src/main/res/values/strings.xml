@@ -1,9 +1,9 @@
 <resources>
     <string name="vpn_channel_name" translatable="false">VPN</string>
     <string name="proxy_channel_name">Proxy</string>
-    <string name="notification_title" translatable="false">RIPDPI</string>
-    <string name="vpn_notification_content">Local VPN processes are running</string>
-    <string name="proxy_notification_content">Proxy is running</string>
     <string name="notification_stop">Stop</string>
-
+    <string name="notification_status_connecting">Connecting…</string>
+    <string name="notification_status_reconnecting">Reconnecting…</string>
+    <string name="notification_status_connected">Connected · %1$s</string>
+    <string name="notification_status_warning">Connected · %1$s · warning</string>
 </resources>

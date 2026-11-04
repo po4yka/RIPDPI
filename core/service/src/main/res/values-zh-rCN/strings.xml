@@ -1,7 +1,8 @@
 <resources>
     <string name="proxy_channel_name">代理</string>
-    <string name="vpn_notification_content">本地 VPN 进程正在运行</string>
-    <string name="proxy_notification_content">代理正在运行</string>
     <string name="notification_stop">停止</string>
-
+    <string name="notification_status_connecting">正在连接…</string>
+    <string name="notification_status_reconnecting">正在重新连接…</string>
+    <string name="notification_status_connected">已连接 · %1$s</string>
+    <string name="notification_status_warning">已连接 · %1$s · 警告</string>
 </resources>

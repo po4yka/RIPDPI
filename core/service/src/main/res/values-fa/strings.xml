@@ -1,7 +1,8 @@
 <resources>
     <string name="proxy_channel_name">پراکسی</string>
-    <string name="vpn_notification_content">فرایندهای محلی VPN در حال اجرا هستند</string>
-    <string name="proxy_notification_content">پراکسی در حال اجراست</string>
     <string name="notification_stop">توقف</string>
-
+    <string name="notification_status_connecting">در حال اتصال…</string>
+    <string name="notification_status_reconnecting">اتصال مجدد…</string>
+    <string name="notification_status_connected">متصل · %1$s</string>
+    <string name="notification_status_warning">متصل · %1$s · هشدار</string>
 </resources>

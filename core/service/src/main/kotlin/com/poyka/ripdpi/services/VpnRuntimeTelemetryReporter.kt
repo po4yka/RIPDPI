@@ -43,11 +43,9 @@ internal class VpnRuntimeTelemetryReporter(
             failureReason = failureReason,
             xrayProviderSnapshot = xrayController?.currentSnapshotOrNull(),
         )
-        if (statusReporter.startedAt != null && screenStateObserver.isInteractive.value) {
-            host.updateNotification(
-                tunnelStats = telemetry.tunnelTelemetry.tunnelStats,
-                proxyTelemetry = telemetry.proxyTelemetry,
-            )
-        }
+        host.updateNotification(
+            tunnelStats = telemetry.tunnelTelemetry.tunnelStats,
+            interactive = screenStateObserver.isInteractive.value,
+        )
     }
 }

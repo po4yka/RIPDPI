@@ -15,6 +15,9 @@ import androidx.core.content.ContextCompat
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.LogTags
+import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
+import com.poyka.ripdpi.data.TunnelStats
+import com.poyka.ripdpi.utility.NotificationContentBuilder
 
 /** Identity of the one foreground notification that each service owns. */
 internal enum class ConnectionNotificationTarget(
@@ -24,6 +27,82 @@ internal enum class ConnectionNotificationTarget(
 ) {
     Vpn("RIPDPIVpn", R.string.vpn_channel_name, 1),
     Proxy("RIPDPI Proxy", R.string.proxy_channel_name, 2),
+}
+
+/** What the connection is doing, independent of how it is rendered. */
+internal sealed interface ConnectionNotificationPhase {
+    data object Connecting : ConnectionNotificationPhase
+
+    data object Reconnecting : ConnectionNotificationPhase
+
+    data class Connected(
+        val warning: Boolean,
+        val traffic: TunnelStats,
+        val startedAt: Long,
+    ) : ConnectionNotificationPhase
+}
+
+internal fun ConnectionNotificationPhase.hasSameStateAs(other: ConnectionNotificationPhase): Boolean =
+    if (this is ConnectionNotificationPhase.Connected && other is ConnectionNotificationPhase.Connected) {
+        warning == other.warning
+    } else {
+        this == other
+    }
+
+internal fun connectionNotificationPhase(
+    telemetry: ServiceTelemetrySnapshot,
+    traffic: TunnelStats,
+): ConnectionNotificationPhase? {
+    val startedAt = telemetry.serviceStartedAt ?: return null
+    return if (telemetry.networkHandoverState != null) {
+        ConnectionNotificationPhase.Reconnecting
+    } else {
+        ConnectionNotificationPhase.Connected(telemetry.relayFailed, traffic, startedAt)
+    }
+}
+
+internal data class ConnectionNotificationContent(
+    val title: String,
+    val text: String? = null,
+    val startedAt: Long? = null,
+)
+
+internal fun connectionNotificationContent(
+    context: Context,
+    target: ConnectionNotificationTarget,
+    phase: ConnectionNotificationPhase,
+): ConnectionNotificationContent {
+    val localized = ContextCompat.getContextForLanguage(context)
+    return when (phase) {
+        ConnectionNotificationPhase.Connecting -> {
+            ConnectionNotificationContent(localized.getString(R.string.notification_status_connecting))
+        }
+
+        ConnectionNotificationPhase.Reconnecting -> {
+            ConnectionNotificationContent(localized.getString(R.string.notification_status_reconnecting))
+        }
+
+        is ConnectionNotificationPhase.Connected -> {
+            ConnectionNotificationContent(
+                title =
+                    localized.getString(
+                        if (phase.warning) {
+                            R.string.notification_status_warning
+                        } else {
+                            R.string.notification_status_connected
+                        },
+                        localized.getString(target.channelName),
+                    ),
+                text =
+                    NotificationContentBuilder.buildContentText(
+                        context,
+                        phase.traffic.txBytes,
+                        phase.traffic.rxBytes,
+                    ),
+                startedAt = phase.startedAt,
+            )
+        }
+    }
 }
 
 internal fun Service.startConnectionForeground(

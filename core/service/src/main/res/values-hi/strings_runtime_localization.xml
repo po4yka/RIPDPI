@@ -1,7 +1,3 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <plurals name="notification_active_sessions">
-        <item quantity="one">%1$d सक्रिय सत्र</item>
-        <item quantity="other">%1$d सक्रिय सत्र</item>
-    </plurals>
 </resources>

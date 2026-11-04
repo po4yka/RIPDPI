@@ -4,13 +4,11 @@ import android.content.Intent
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
-import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundCallKind
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundServiceType
 import com.poyka.ripdpi.data.DeviceRuntimeLifecyclePhase
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.NativeRuntimeSnapshot
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator
@@ -91,8 +89,7 @@ class RipDpiProxyService :
         ForegroundNotificationController(
             service = this,
             target = ConnectionNotificationTarget.Proxy,
-            startingContent = R.string.proxy_notification_content,
-            serviceStartedAt = { sessionStateStore?.telemetry?.value?.serviceStartedAt },
+            telemetry = { sessionStateStore?.telemetry?.value },
         )
 
     override fun onCreate() {
@@ -268,7 +265,7 @@ class RipDpiProxyService :
     ): Int {
         super.onStartCommand(intent, flags, startId)
         latestStartId = startId
-        notificationController.startForeground()
+        notificationController.startForeground(intent?.action)
         serviceScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             runCatching {
                 entryMutex.withLock {
@@ -351,7 +348,7 @@ class RipDpiProxyService :
             DeviceRuntimeForegroundCallKind.Initial,
             DeviceRuntimeForegroundServiceType.SpecialUse,
         ) {
-            notificationController.startForeground()
+            notificationController.startForeground(intent?.action)
         }
         // A null action is a START_STICKY re-delivery after a process kill (LMK /
         // memory limiter). Publish Reconnecting ONLY from a Halted baseline (a genuinely
@@ -375,8 +372,8 @@ class RipDpiProxyService :
 
     override fun updateNotification(
         tunnelStats: TunnelStats,
-        proxyTelemetry: NativeRuntimeSnapshot,
-    ) = notificationController.update(tunnelStats, proxyTelemetry)
+        interactive: Boolean,
+    ) = notificationController.update(tunnelStats, interactive)
 
     override fun requestStopSelf(stopSelfStartId: Int?) {
         requestStopSelfWithFallback(
