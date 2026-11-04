@@ -21,7 +21,7 @@ enum class ConnectionExternalProvider(
     AmneziaWg("AmneziaWG"),
 }
 
-internal interface ConnectionExternalProviders {
+interface ConnectionExternalProviders {
     fun current(mode: Mode): ConnectionExternalProvider?
 
     /** Turns off every external egress. Returns true when that also stopped the VPN session. */

@@ -27,6 +27,7 @@ import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.ui.screens.connection.NoExternalProviders
 import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsServices
 import com.poyka.ripdpi.ui.screens.status.StatusPauseViewModel
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -578,6 +579,7 @@ class MainActivityContentTest {
             appSettingsRepository = appSettingsRepository,
             mainServiceDependencies =
                 MainServiceDependencies(
+                    externalProviders = NoExternalProviders,
                     appliedConfigurationSource = FakeAppliedRuntimeConfigurationSource(),
                     reconnectCoordinator = FakeRunningServiceReconnect(),
                     recentWarningTracker = RecentWarningTracker(now = { 0L }),

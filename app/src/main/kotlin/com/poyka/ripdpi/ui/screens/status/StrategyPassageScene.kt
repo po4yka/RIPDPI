@@ -7,8 +7,12 @@ import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepKind
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.adaptiveOffsetPreset
+import com.poyka.ripdpi.data.effectiveTcpChainSteps
+import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.isTlsPrelude
 import com.poyka.ripdpi.data.normalizeTcpChainStepModel
+import com.poyka.ripdpi.data.toRelaySettingsModel
+import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
@@ -73,15 +77,15 @@ data class StrategyPassageScene(
     val udp: PassageLane?,
 )
 
-private const val PayloadEnd = 100
-private const val HostStart = 30
-private const val HostEnd = 48
+internal const val PassagePayloadEnd = 100
+internal const val PassageHostStart = 30
+internal const val PassageHostEnd = 48
 private const val MarkerDeltaStep = 3
 private const val NumericMarkerBase = 4
 private const val NumericMarkerScale = 4
-private const val NumericMarkerMax = HostStart - NumericMarkerBase
-private const val NegativeMarkerBase = PayloadEnd - NumericMarkerBase
-private const val NegativeMarkerMin = HostEnd + NumericMarkerBase
+private const val NumericMarkerMax = PassageHostStart - NumericMarkerBase
+private const val NegativeMarkerBase = PassagePayloadEnd - NumericMarkerBase
+private const val NegativeMarkerMin = PassageHostEnd + NumericMarkerBase
 private const val QuicFragmentCut = 39
 private const val MaxDrawnCopies = 4
 private const val MinRealisticInitialCopies = 2
@@ -95,11 +99,11 @@ private val NamedMarkerPositions =
         "extlen" to 14,
         "echext" to 20,
         "sniext" to 24,
-        "host" to HostStart,
+        "host" to PassageHostStart,
         "sld" to 34,
         "midsld" to QuicFragmentCut,
         "endsld" to 44,
-        "endhost" to HostEnd,
+        "endhost" to PassageHostEnd,
     )
 
 // shortcut: `:repeats:skip` is dropped from a marker, draw every repeat if a preset starts to use them.
@@ -107,7 +111,7 @@ private fun schematicPosition(marker: String): Int {
     val expression = marker.trim().substringBefore(':').lowercase()
     val preset = adaptiveOffsetPreset(expression)
     if (preset != null) {
-        return NamedMarkerPositions[preset] ?: HostStart
+        return NamedMarkerPositions[preset] ?: PassageHostStart
     }
     val groups = MarkerPattern.matchEntire(expression)?.groupValues
     val name = groups?.get(1).orEmpty()
@@ -118,7 +122,7 @@ private fun schematicPosition(marker: String): Int {
         delta > 0 -> (NumericMarkerBase + delta / NumericMarkerScale).coerceAtMost(NumericMarkerMax)
         delta < 0 -> (NegativeMarkerBase + delta / NumericMarkerScale).coerceAtLeast(NegativeMarkerMin)
         else -> 0
-    }.coerceIn(0, PayloadEnd)
+    }.coerceIn(0, PassagePayloadEnd)
 }
 
 private val TcpChainStepKind.family: PassageFamily
@@ -154,6 +158,14 @@ private val UdpChainStepKind.family: PassageFamily
 
             UdpChainStepKind.IpFrag2Udp -> PassageFamily.IpFragments
         }
+
+// A hostfake range without the whole host plans a split, so it must not be named a mask.
+private fun TcpChainStepModel.family(): PassageFamily {
+    val withoutHost =
+        kind == TcpChainStepKind.HostFake &&
+            schematicPosition(normalizeTcpChainStepModel(this).marker) < PassageHostEnd
+    return if (withoutHost) PassageFamily.Cut else kind.family
+}
 
 /** Mirrors the planner's cursor: each step cuts what is left, and lost bytes are resent after the plan. */
 private class TcpPieceWriter {
@@ -193,13 +205,13 @@ private class TcpPieceWriter {
 
             TcpChainStepKind.FakeSplit -> {
                 lose(PassagePieceKind.Decoy, start, position)
-                lose(PassagePieceKind.Decoy, position, PayloadEnd)
+                lose(PassagePieceKind.Decoy, position, PassagePayloadEnd)
             }
 
             TcpChainStepKind.FakeDisorder -> {
                 pieces += PassagePiece(PassagePieceKind.Decoy, start, position)
-                pieces += PassagePiece(PassagePieceKind.Decoy, position, PayloadEnd)
-                resends += PassagePiece(PassagePieceKind.Retransmit, position, PayloadEnd)
+                pieces += PassagePiece(PassagePieceKind.Decoy, position, PassagePayloadEnd)
+                resends += PassagePiece(PassagePieceKind.Retransmit, position, PassagePayloadEnd)
                 resends += PassagePiece(PassagePieceKind.Retransmit, start, position)
             }
 
@@ -214,12 +226,12 @@ private class TcpPieceWriter {
 
             TcpChainStepKind.SeqOverlap -> {
                 pieces += real(start, position).copy(hasFakePrefix = true)
-                pieces += real(position, PayloadEnd)
+                pieces += real(position, PassagePayloadEnd)
             }
 
             TcpChainStepKind.IpFrag2 -> {
                 pieces += PassagePiece(PassagePieceKind.IpFragment, start, position)
-                pieces += PassagePiece(PassagePieceKind.IpFragment, position, PayloadEnd)
+                pieces += PassagePiece(PassagePieceKind.IpFragment, position, PassagePayloadEnd)
             }
 
             // Prelude steps never reach the writer, and the writer never sees a multidisorder chain.
@@ -231,18 +243,18 @@ private class TcpPieceWriter {
                 TcpChainStepKind.FakeDisorder,
                 TcpChainStepKind.SeqOverlap,
                 TcpChainStepKind.IpFrag2,
-                -> PayloadEnd
+                -> PassagePayloadEnd
 
                 else -> position
             }
     }
 
     fun position(step: TcpChainStepModel): Int? =
-        schematicPosition(normalizeTcpChainStepModel(step).marker).takeIf { it > cursor && it <= PayloadEnd }
+        schematicPosition(normalizeTcpChainStepModel(step).marker).takeIf { it > cursor && it <= PassagePayloadEnd }
 
     fun finish(): List<PassagePiece> {
-        if (cursor < PayloadEnd) {
-            pieces += real(cursor, PayloadEnd)
+        if (cursor < PassagePayloadEnd) {
+            pieces += real(cursor, PassagePayloadEnd)
         }
         return pieces + resends
     }
@@ -263,24 +275,24 @@ private class TcpPieceWriter {
         step: TcpChainStepModel,
     ) {
         // resolve_hostfake_span: without the whole host in this step's range the engine plans a split.
-        if (start > HostStart || end < HostEnd) {
+        if (start > PassageHostStart || end < PassageHostEnd) {
             pieces += real(start, end)
             return
         }
-        if (start < HostStart) {
-            pieces += real(start, HostStart)
+        if (start < PassageHostStart) {
+            pieces += real(start, PassageHostStart)
         }
-        pieces += PassagePiece(PassagePieceKind.Decoy, HostStart, HostEnd)
+        pieces += PassagePiece(PassagePieceKind.Decoy, PassageHostStart, PassageHostEnd)
         val middle = step.midhostMarker.takeIf { it.isNotBlank() }?.let(::schematicPosition)
-        if (middle != null && middle > HostStart && middle < HostEnd) {
-            pieces += real(HostStart, middle)
-            pieces += real(middle, HostEnd)
+        if (middle != null && middle > PassageHostStart && middle < PassageHostEnd) {
+            pieces += real(PassageHostStart, middle)
+            pieces += real(middle, PassageHostEnd)
         } else {
-            pieces += real(HostStart, HostEnd)
+            pieces += real(PassageHostStart, PassageHostEnd)
         }
-        pieces += PassagePiece(PassagePieceKind.Decoy, HostStart, HostEnd)
-        if (HostEnd < end) {
-            pieces += real(HostEnd, end)
+        pieces += PassagePiece(PassagePieceKind.Decoy, PassageHostStart, PassageHostEnd)
+        if (PassageHostEnd < end) {
+            pieces += real(PassageHostEnd, end)
         }
     }
 
@@ -298,7 +310,7 @@ private fun recordBoundaries(preludeSteps: List<TcpChainStepModel>): List<Int> =
                 listOf(first)
             } else {
                 val count = step.fragmentCount.takeIf { it > 0 } ?: DefaultTlsRandRecFragmentCount
-                List(count) { index -> first + (PayloadEnd - first) * index / count }
+                List(count) { index -> first + (PassagePayloadEnd - first) * index / count }
             }
         }.distinct()
         .sorted()
@@ -307,7 +319,7 @@ private fun compileTcpPieces(sendSteps: List<TcpChainStepModel>): List<PassagePi
     // send_multi_disorder_tcp emits every segment at the normal TTL, last segment first.
     if (sendSteps.any { it.kind == TcpChainStepKind.MultiDisorder }) {
         val cuts = sendSteps.map { schematicPosition(normalizeTcpChainStepModel(it).marker) }
-        return (listOf(0) + cuts + PayloadEnd)
+        return (listOf(0) + cuts + PassagePayloadEnd)
             .distinct()
             .sorted()
             .zipWithNext { start, end -> PassagePiece(PassagePieceKind.Real, start, end) }
@@ -330,7 +342,7 @@ private fun udpCopies(step: UdpChainStepModel): List<PassagePiece> {
         PassagePiece(
             kind = PassagePieceKind.Decoy,
             start = 0,
-            end = PayloadEnd,
+            end = PassagePayloadEnd,
             quicStep = step.kind,
             copyIndex = index,
             extraCopies = if (index == drawn - 1) count - drawn else 0,
@@ -346,13 +358,13 @@ private fun compileUdpPieces(steps: List<UdpChainStepModel>): List<PassagePiece>
             if (step.kind == UdpChainStepKind.IpFrag2Udp) {
                 listOf(
                     PassagePiece(PassagePieceKind.IpFragment, 0, QuicFragmentCut),
-                    PassagePiece(PassagePieceKind.IpFragment, QuicFragmentCut, PayloadEnd),
+                    PassagePiece(PassagePieceKind.IpFragment, QuicFragmentCut, PassagePayloadEnd),
                 )
             } else {
                 udpCopies(step)
             }
         }
-    return if (fragmented) pieces else pieces + PassagePiece(PassagePieceKind.Real, 0, PayloadEnd)
+    return if (fragmented) pieces else pieces + PassagePiece(PassagePieceKind.Real, 0, PassagePayloadEnd)
 }
 
 /** Builds the panel's scene from the configured chain. Chain order is the order the panel names. */
@@ -374,6 +386,21 @@ fun compileStrategyPassageScene(
         udpSteps.takeIf { it.isNotEmpty() }?.let { steps ->
             PassageLane(pieces = compileUdpPieces(steps).toImmutableList(), recordBoundaries = persistentListOf())
         }
-    val families = (tcpSteps.map { it.kind.family } + udpSteps.map { it.kind.family }).distinct()
+    val families = (tcpSteps.map { it.family() } + udpSteps.map { it.kind.family }).distinct()
     return StrategyPassageScene(families = families.toImmutableList(), tcp = tcp, udp = udp)
+}
+
+/**
+ * Null where the chain does not describe the traffic: a relay carries it, custom arguments or rules
+ * replace the chain, or the chain has no TCP protocol to act on.
+ */
+fun strategyPassageFor(settings: AppSettings): StrategyPassageScene? {
+    val replaced =
+        settings.toRelaySettingsModel().enabled ||
+            settings.enableCmdSettings ||
+            settings.strategyChainYaml.isNotBlank()
+    if (replaced || (!settings.desyncHttp && !settings.desyncHttps)) return null
+    // Native code drops the UDP group when UDP desync is off (append_udp_group).
+    val udpSteps = if (settings.desyncUdp) settings.effectiveUdpChainSteps() else emptyList()
+    return compileStrategyPassageScene(settings.effectiveTcpChainSteps(), udpSteps)
 }

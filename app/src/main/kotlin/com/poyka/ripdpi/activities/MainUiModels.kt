@@ -26,6 +26,7 @@ import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 import com.poyka.ripdpi.ui.screens.status.StatusMode
 import com.poyka.ripdpi.ui.screens.status.StatusModeCardUiState
 import com.poyka.ripdpi.ui.screens.status.StatusModeSummaryFacet
+import com.poyka.ripdpi.ui.screens.status.StrategyPassageScene
 import kotlinx.collections.immutable.ImmutableList
 import kotlinx.collections.immutable.persistentListOf
 import kotlin.time.Duration
@@ -136,6 +137,7 @@ data class StatusApproachSummaryUiState(
     val successRate: String,
     val supportingText: String,
     val facets: ImmutableList<StatusModeSummaryFacet> = persistentListOf(),
+    val passage: StrategyPassageScene? = null,
 )
 
 internal data class ConnectionRuntimeState(

@@ -128,6 +128,8 @@ fun RipDpiConnectionActuator(
             RipDpiConnectionStrategyPanel(
                 strategyLabel = resolved.strategyLabel,
                 facets = resolved.strategyFacets,
+                status = resolved.status,
+                passage = resolved.strategyPassage,
                 modifier = Modifier.padding(top = spacing.md),
             )
         }

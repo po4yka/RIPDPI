@@ -142,6 +142,7 @@ class MainViewModel
                 currentSettings = { settingsState.value },
                 runtimeState = ConnectionRuntimeStateReducer(runtimeState),
                 refreshPermissionSnapshot = { permissionActions.refreshPermissionSnapshot() },
+                hasExternalProvider = { mode -> mainServiceDependencies.externalProviders.current(mode) != null },
                 onLocalNetworkRequired = { mode ->
                     permissionActions.localNetwork.onRequired(
                         if (mode == Mode.VPN) PermissionAction.StartVpnMode else PermissionAction.StartProxyMode,

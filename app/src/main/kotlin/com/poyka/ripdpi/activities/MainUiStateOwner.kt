@@ -2,6 +2,7 @@ package com.poyka.ripdpi.activities
 
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.RuntimeConfigurationPendingStatus
 import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
@@ -98,7 +99,14 @@ internal class MainUiStateOwner(
                         settings,
                         if (status == AppStatus.Running) activeMode else configuredMode,
                         inputs.approachStats,
-                    ),
+                    )?.let { summary ->
+                        // Saved edits wait for a reconnect, so the running session does not follow that chain yet.
+                        val savedAhead =
+                            status == AppStatus.Running &&
+                                inputs.pendingConfigurations[activeMode] ==
+                                RuntimeConfigurationPendingStatus.SavedChangesPending
+                        if (savedAhead) summary.copy(passage = null) else summary
+                    },
             )
         }.stateIn(
             scope = scope,

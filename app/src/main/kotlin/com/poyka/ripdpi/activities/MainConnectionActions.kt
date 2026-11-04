@@ -27,6 +27,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.verificationLabelRes
 import com.poyka.ripdpi.ui.screens.status.ConnectionResultFeedback
 import com.poyka.ripdpi.ui.screens.status.hasUnsupportedVpnDoq
 import com.poyka.ripdpi.ui.screens.status.localizedStatusStrategyFacets
+import com.poyka.ripdpi.ui.screens.status.strategyPassageFor
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -48,6 +49,7 @@ internal class MainConnectionActions(
     private val runtimeState: ConnectionRuntimeStateReducer,
     private val refreshPermissionSnapshot: () -> Unit,
     private val onLocalNetworkRequired: (Mode) -> Unit = {},
+    private val hasExternalProvider: (Mode) -> Boolean = { false },
 ) {
     private companion object {
         private const val PercentScale = 100
@@ -193,6 +195,7 @@ internal class MainConnectionActions(
             // Always the strategy in use: a diagnostics profile name is not a bypass strategy.
             title = strategySignature.chainSummary,
             facets = strategySignature.localizedStatusStrategyFacets(stringResolver),
+            passage = strategyPassageFor(settings).takeUnless { hasExternalProvider(activeMode) },
             verification = summary?.let { stringResolver.getString(it.verificationLabelRes()) }.orEmpty(),
             successRate =
                 summary?.validatedSuccessRate?.let { "${(it * PercentScale).toInt()}%" } ?: "Not evaluated",

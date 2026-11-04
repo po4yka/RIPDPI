@@ -18,6 +18,7 @@ import com.poyka.ripdpi.platform.TrafficStatsReader
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStateStore
 import com.poyka.ripdpi.services.ServiceController
 import com.poyka.ripdpi.subscription.SubscriptionExpiryClock
+import com.poyka.ripdpi.ui.screens.connection.ConnectionExternalProviders
 import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsServices
 import javax.inject.Inject
 
@@ -31,6 +32,7 @@ class MainServiceDependencies
         val appliedConfigurationSource: com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource,
         val reconnectCoordinator: com.poyka.ripdpi.services.RunningServiceReconnect,
         val recentWarningTracker: RecentWarningTracker,
+        val externalProviders: ConnectionExternalProviders,
     )
 
 class MainPermissionDependencies

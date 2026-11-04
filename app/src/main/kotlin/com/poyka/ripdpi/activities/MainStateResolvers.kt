@@ -373,6 +373,7 @@ internal fun buildConnectionActuatorUiState(
         routeLabel = routeLabelForMode(mode, settings, stringResolver),
         strategyLabel = approachSummary?.title.orEmpty(),
         strategyFacets = approachSummary?.facets ?: persistentListOf(),
+        strategyPassage = approachSummary?.passage,
         statusDescription =
             actuatorStatusDescription(
                 status = status,

@@ -94,6 +94,8 @@ data class StatusConnectionActuatorUiState(
     /** The step chain of the active bypass strategy; blank hides the strategy panel. */
     val strategyLabel: String = "",
     val strategyFacets: ImmutableList<StatusModeSummaryFacet> = persistentListOf(),
+    /** What the chain does to a packet; null keeps the panel to the chain text. */
+    val strategyPassage: StrategyPassageScene? = null,
     /** Elapsed time of the running session, shown when the user confirms a disconnect. */
     val sessionDuration: Duration = Duration.ZERO,
     val stages: ImmutableList<StatusConnectionActuatorStageUiState> = DefaultStatusConnectionActuatorStages,

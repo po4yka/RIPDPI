@@ -1,10 +1,14 @@
 package com.poyka.ripdpi.ui.screens.status
 
+import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepKind
 import com.poyka.ripdpi.data.UdpChainStepModel
+import com.poyka.ripdpi.data.setStrategyChains
+import com.poyka.ripdpi.proto.AppSettings
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Test
 
@@ -302,7 +306,10 @@ class StrategyPassageSceneTest {
             )
         assertEquals(TcpChainStepKind.entries.toSet(), expected.keys)
         expected.forEach { (kind, family) ->
-            assertEquals(listOf(family), compileStrategyPassageScene(listOf(tcp(kind)), emptyList()).families)
+            assertEquals(
+                listOf(family),
+                compileStrategyPassageScene(listOf(tcp(kind, "endhost")), emptyList()).families,
+            )
         }
         UdpChainStepKind.entries.forEach { kind ->
             val expectedFamily =
@@ -320,4 +327,39 @@ class StrategyPassageSceneTest {
             assertEquals(listOf(expectedFamily), compileStrategyPassageScene(emptyList(), listOf(udp(kind))).families)
         }
     }
+
+    @Test
+    fun `a relay or custom rules leave no scene`() {
+        assertNotNull(strategyPassageFor(activeSettings().build()))
+        assertNull(
+            strategyPassageFor(
+                activeSettings().setRelayEnabled(true).setRelayKind(RelayKindVlessReality).build(),
+            ),
+        )
+        assertNull(strategyPassageFor(activeSettings().setEnableCmdSettings(true).build()))
+        assertNull(strategyPassageFor(activeSettings().setStrategyChainYaml("rules: []").build()))
+    }
+
+    @Test
+    fun `no TCP protocol leaves no scene`() {
+        assertNull(strategyPassageFor(activeSettings().setDesyncHttp(false).setDesyncHttps(false).build()))
+        assertNotNull(strategyPassageFor(activeSettings().setDesyncHttp(false).build()))
+    }
+
+    @Test
+    fun `udp desync off drops the udp lane`() {
+        val settings = activeSettings().setStrategyChains(emptyList(), listOf(udp(UdpChainStepKind.FakeBurst)))
+        assertNotNull(strategyPassageFor(settings.setDesyncUdp(true).build())?.udp)
+        assertNull(strategyPassageFor(settings.setDesyncUdp(false).build())?.udp)
+    }
+
+    @Test
+    fun `hostfake without the whole host is named a cut`() {
+        assertEquals(
+            listOf(PassageFamily.Cut),
+            compileStrategyPassageScene(listOf(tcp(TcpChainStepKind.HostFake)), emptyList()).families,
+        )
+    }
+
+    private fun activeSettings() = AppSettings.newBuilder().setDesyncHttp(true).setDesyncHttps(true)
 }

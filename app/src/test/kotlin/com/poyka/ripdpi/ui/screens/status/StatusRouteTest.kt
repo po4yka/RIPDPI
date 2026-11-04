@@ -38,6 +38,7 @@ import com.poyka.ripdpi.activities.TestEmptyProxyGroupRepository
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.ui.screens.connection.NoExternalProviders
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.util.MainDispatcherRule
@@ -155,6 +156,7 @@ class StatusRouteTest {
 
 private fun homeRouteServiceDependencies(): MainServiceDependencies =
     MainServiceDependencies(
+        externalProviders = NoExternalProviders,
         appliedConfigurationSource = FakeAppliedRuntimeConfigurationSource(),
         reconnectCoordinator = FakeRunningServiceReconnect(),
         recentWarningTracker = RecentWarningTracker(now = { 0L }),

@@ -51,6 +51,7 @@ import com.poyka.ripdpi.services.AndroidHardKillSwitchSnapshot
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
 import com.poyka.ripdpi.services.network.NetworkCondition
 import com.poyka.ripdpi.ui.navigation.Route
+import com.poyka.ripdpi.ui.screens.connection.NoExternalProviders
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsRemediationActionKindUiModel
 import com.poyka.ripdpi.ui.screens.diagnostics.state.label
 import com.poyka.ripdpi.ui.screens.diagnostics.state.summary
@@ -2419,6 +2420,21 @@ class MainViewModelTest {
             collector.cancel()
         }
 
+    private fun serviceDependencies(
+        serviceStateStore: FakeServiceStateStore,
+        serviceController: FakeServiceController,
+        hardKillSwitchStateStore: FakeAndroidHardKillSwitchStateStore,
+    ) = MainServiceDependencies(
+        externalProviders = NoExternalProviders,
+        appliedConfigurationSource = FakeAppliedRuntimeConfigurationSource(),
+        reconnectCoordinator = FakeRunningServiceReconnect(serviceController, serviceStateStore),
+        recentWarningTracker = RecentWarningTracker(now = { 0L }),
+        serviceStateStore = serviceStateStore,
+        serviceController = serviceController,
+        trafficStatsReader = FakeTrafficStatsReader(),
+        hardKillSwitchStateStore = hardKillSwitchStateStore,
+    )
+
     private fun createViewModel(
         appSettingsRepository: FakeAppSettingsRepository = onboardedVpnSettingsRepository(),
         serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
@@ -2438,15 +2454,7 @@ class MainViewModelTest {
         return MainViewModel(
             appSettingsRepository = appSettingsRepository,
             mainServiceDependencies =
-                MainServiceDependencies(
-                    appliedConfigurationSource = FakeAppliedRuntimeConfigurationSource(),
-                    reconnectCoordinator = FakeRunningServiceReconnect(serviceController, serviceStateStore),
-                    recentWarningTracker = RecentWarningTracker(now = { 0L }),
-                    serviceStateStore = serviceStateStore,
-                    serviceController = serviceController,
-                    trafficStatsReader = FakeTrafficStatsReader(),
-                    hardKillSwitchStateStore = hardKillSwitchStateStore,
-                ),
+                serviceDependencies(serviceStateStore, serviceController, hardKillSwitchStateStore),
             mainPermissionDependencies =
                 MainPermissionDependencies(
                     permissionPlatformBridge = FakePermissionPlatformBridge(),
