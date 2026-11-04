@@ -98,6 +98,22 @@ class ConnectionNotificationTest {
         assertTrue(manager.allNotifications.isEmpty())
     }
 
+    @Test
+    fun `traffic names both directions without symbols`() {
+        val context = RuntimeEnvironment.getApplication()
+
+        assertEquals("0 B received · 500 B sent", connectionTrafficText(context, 500L, 0L))
+        assertEquals("1.5 GB received · 1.5 MB sent", connectionTrafficText(context, 1_500_000L, 1_500_000_000L))
+    }
+
+    @Test
+    @Config(qualifiers = "ru")
+    fun `traffic uses the app locale`() {
+        val text = connectionTrafficText(RuntimeEnvironment.getApplication(), 1_500_000L, 1_500_000_000L)
+
+        assertEquals("Получено 1,5 ГБ · отправлено 1,5 МБ", text)
+    }
+
     private fun notification(
         startedAt: Long?,
         showStopAction: Boolean,

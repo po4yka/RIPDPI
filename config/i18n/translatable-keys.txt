@@ -5178,6 +5178,7 @@ service:notification_status_reconnecting
 service:notification_status_stopping
 service:notification_status_warning
 service:notification_stop
+service:notification_traffic
 service:pause_notification_cleanup
 service:pause_notification_deferred
 service:pause_notification_resume

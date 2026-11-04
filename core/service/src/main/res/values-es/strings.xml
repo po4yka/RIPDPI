@@ -9,4 +9,5 @@
     <string name="notification_alert_channel_name">Alertas de conexión</string>
     <string name="notification_alert_title">Conexión perdida</string>
     <string name="notification_alert_text">Abre RIPDPI para volver a conectarte.</string>
+    <string name="notification_traffic">%1$s recibidos · %2$s enviados</string>
 </resources>

@@ -256,21 +256,19 @@ class AndroidStringResolverLocaleTest {
         selectLanguage("es")
         val serviceController = Robolectric.buildService(LocaleTestService::class.java).create()
         val context = englishContext(serviceController.get())
-        // The content builder is internal to core/service, as is the paused-notification
+        // The traffic text is internal to core/service, as is the paused-notification
         // function tested below. Use the same reflection boundary for its production output.
-        val builderClass = Class.forName("com.poyka.ripdpi.utility.NotificationContentBuilder")
-        val builder = builderClass.getField("INSTANCE").get(null)
-        val buildContentText =
-            builderClass.getDeclaredMethod(
-                "buildContentText",
+        val trafficText =
+            Class.forName("com.poyka.ripdpi.services.ConnectionNotificationKt").getDeclaredMethod(
+                "connectionTrafficText",
                 Context::class.java,
                 Long::class.javaPrimitiveType,
                 Long::class.javaPrimitiveType,
             )
         try {
             listOf(
-                Triple("es", "↑ 1,5 MB  ↓ 1,5 GB", "Detener"),
-                Triple("en", "↑ 1.5 MB  ↓ 1.5 GB", "Stop"),
+                Triple("es", "1,5 GB recibidos · 1,5 MB enviados", "Detener"),
+                Triple("en", "1.5 GB received · 1.5 MB sent", "Stop"),
             ).forEach { (language, expectedContent, expectedAction) ->
                 selectLanguage(language)
                 assertEquals(
@@ -279,8 +277,8 @@ class AndroidStringResolverLocaleTest {
                         .language,
                 )
                 val content =
-                    buildContentText.invoke(
-                        builder,
+                    trafficText.invoke(
+                        null,
                         context,
                         1_500_000L,
                         1_500_000_000L,

@@ -9,4 +9,5 @@
     <string name="notification_alert_channel_name">连接提醒</string>
     <string name="notification_alert_title">连接已断开</string>
     <string name="notification_alert_text">打开 RIPDPI 以重新连接。</string>
+    <string name="notification_traffic">已接收 %1$s · 已发送 %2$s</string>
 </resources>

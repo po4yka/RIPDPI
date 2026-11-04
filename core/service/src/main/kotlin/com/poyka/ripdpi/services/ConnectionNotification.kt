@@ -9,6 +9,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ServiceInfo
 import android.os.Build
+import android.text.format.Formatter
 import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
@@ -17,7 +18,6 @@ import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
-import com.poyka.ripdpi.utility.NotificationContentBuilder
 
 /** Identity of the one foreground notification that each service owns. */
 internal enum class ConnectionNotificationTarget(
@@ -99,16 +99,25 @@ internal fun connectionNotificationContent(
                         },
                         localized.getString(target.channelName),
                     ),
-                text =
-                    NotificationContentBuilder.buildContentText(
-                        context,
-                        phase.traffic.txBytes,
-                        phase.traffic.rxBytes,
-                    ),
+                text = connectionTrafficText(context, phase.traffic.txBytes, phase.traffic.rxBytes),
                 startedAt = phase.startedAt,
             )
         }
     }
+}
+
+/** Words instead of arrows so a screen reader announces the meaning; the formatter localizes and isolates sizes. */
+internal fun connectionTrafficText(
+    context: Context,
+    txBytes: Long,
+    rxBytes: Long,
+): String {
+    val localized = ContextCompat.getContextForLanguage(context)
+    return localized.getString(
+        R.string.notification_traffic,
+        Formatter.formatShortFileSize(localized, rxBytes),
+        Formatter.formatShortFileSize(localized, txBytes),
+    )
 }
 
 internal fun Service.startConnectionForeground(
