@@ -81,6 +81,7 @@ internal class XrayConnectFlowDelegate(
         if (outcome is HandoffOutcome.Running) {
             ownsProviderPath = true
             publishActiveDnsState(session, resolution)
+            currentLocalProxyEndpoint?.let(session::publishTunnelSocksRoute)
             return controller.requireReadyConfiguration()
         }
         // Provider start failed (no profile / config rejected / engine/tunnel
@@ -141,6 +142,7 @@ internal class XrayConnectFlowDelegate(
                 ownsProviderPath = true
                 resetSessionDnsState(session)
                 publishActiveDnsState(session, resolution)
+                currentLocalProxyEndpoint?.let(session::publishTunnelSocksRoute)
                 controller.requireReadyConfiguration()
             }
 

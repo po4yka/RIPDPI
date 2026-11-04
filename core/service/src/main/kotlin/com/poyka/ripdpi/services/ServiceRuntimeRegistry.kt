@@ -176,6 +176,11 @@ class VpnRuntimeSession(
             )
     }
 
+    /** A tunnel rebuild keeps its listener: the route stays, only the generation-bound lease goes. */
+    internal fun suspendInPathLease() {
+        inPathRouteLease = null
+    }
+
     internal fun revokeInPathLease() {
         inPathRouteLease = null
         publishedTunnelSocksRoute = null

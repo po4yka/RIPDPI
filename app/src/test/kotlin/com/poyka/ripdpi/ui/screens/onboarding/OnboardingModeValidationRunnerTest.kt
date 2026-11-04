@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.ui.screens.onboarding
 
+import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.FakeServiceStateStore
 import com.poyka.ripdpi.activities.FakeStringResolver
@@ -145,6 +146,10 @@ class OnboardingModeValidationRunnerTest {
 
                 assertEquals(OnboardingValidationStep.Connectivity, result.failedStep)
                 assertEquals(Mode.Proxy, result.suggestedMode)
+                assertEquals(
+                    FakeStringResolver().getString(R.string.onboarding_validation_failed_generic),
+                    result.reason,
+                )
             }
         }
 

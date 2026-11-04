@@ -41,6 +41,7 @@ import kotlinx.coroutines.withTimeout
 import okhttp3.Request
 import java.io.IOException
 import java.net.InetSocketAddress
+import java.net.ProtocolException
 import java.net.Socket
 import java.net.URI
 import java.util.concurrent.TimeUnit
@@ -49,7 +50,9 @@ import javax.inject.Singleton
 
 private const val ValidationStartTimeoutMs = 15_000L
 private const val ValidationStopTimeoutMs = 5_000L
-private const val ValidationTrafficTimeoutMs = 10_000L
+
+// Above the engine's 10 s connect timeout: a CONNECT reply covers name resolution plus that connect.
+private const val ValidationTrafficTimeoutMs = 25_000L
 private const val DefaultProxyPort = 1080
 private const val DefaultProxyHost = "127.0.0.1"
 private const val HttpNoContent = 204
@@ -284,9 +287,15 @@ class DefaultOnboardingModeValidationRunner
                             route.credentials,
                         )
                     }
-                } catch (e: LocalSocksConnectRejectedException) {
-                    if (e.reply == SocksReplyHostUnreachable) throw dnsProbeFailure(cause = e)
-                    throw e
+                } catch (e: ProtocolException) {
+                    if ((e as? LocalSocksConnectRejectedException)?.reply == SocksReplyHostUnreachable) {
+                        throw dnsProbeFailure(cause = e)
+                    }
+                    throw OnboardingProbeException(
+                        step = OnboardingValidationStep.Connectivity,
+                        reasonMessage = stringResolver.getString(R.string.onboarding_validation_failed_generic),
+                        cause = e,
+                    )
                 }
             }
         }
@@ -347,6 +356,10 @@ class DefaultOnboardingModeValidationRunner
             if (e is CancellationException) throw e
             val message =
                 when (e) {
+                    is ProtocolException -> {
+                        stringResolver.getString(R.string.onboarding_validation_failed_generic)
+                    }
+
                     is ServiceStartupRejectedException -> {
                         e.reason.displayMessage
                     }

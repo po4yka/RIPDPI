@@ -24,6 +24,18 @@ import org.junit.Test
 @OptIn(ExperimentalCoroutinesApi::class)
 class ServiceRuntimeRegistryTest {
     @Test
+    fun `tunnel route survives a tunnel rebuild and ends with the session lease`() {
+        val session = VpnRuntimeSession(runtimeId = "vpn-runtime")
+        session.publishTunnelSocksRoute(LocalProxyEndpoint("127.0.0.1", 1080, "user", "pass"))
+
+        session.suspendInPathLease()
+        assertEquals("user", session.tunnelSocksRoute?.credentials?.username)
+
+        session.revokeInPathLease()
+        assertNull(session.tunnelSocksRoute)
+    }
+
+    @Test
     fun `register keeps vpn and proxy runtimes independently`() =
         runTest {
             val registry = DefaultServiceRuntimeRegistry()

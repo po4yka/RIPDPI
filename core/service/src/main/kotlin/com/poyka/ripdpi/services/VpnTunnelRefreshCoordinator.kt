@@ -42,7 +42,7 @@ internal class VpnTunnelRefreshCoordinator(
             }
             try {
                 callbacks.beginDnsRefresh(refreshSession, latestConnectionPolicy)
-                refreshSession.revokeInPathLease()
+                refreshSession.suspendInPathLease()
                 val endpoint =
                     checkNotNull(state.currentLocalProxyEndpoint()) {
                         "VPN tunnel refresh requires an active local proxy endpoint"
