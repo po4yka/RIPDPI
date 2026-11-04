@@ -1,11 +1,20 @@
 package com.poyka.ripdpi.ui.components.inputs
 
 import androidx.annotation.StringRes
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.CornerRadius
 import androidx.compose.ui.geometry.Offset
@@ -19,6 +28,7 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.scale
 import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalInspectionMode
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
@@ -30,24 +40,38 @@ import androidx.compose.ui.text.drawText
 import androidx.compose.ui.text.rememberTextMeasurer
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.util.lerp
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.UdpChainStepKind
 import com.poyka.ripdpi.ui.screens.status.PassageFamily
+import com.poyka.ripdpi.ui.screens.status.PassageFlightMillis
 import com.poyka.ripdpi.ui.screens.status.PassageHostEnd
 import com.poyka.ripdpi.ui.screens.status.PassageHostStart
 import com.poyka.ripdpi.ui.screens.status.PassageLane
 import com.poyka.ripdpi.ui.screens.status.PassagePayloadEnd
 import com.poyka.ripdpi.ui.screens.status.PassagePiece
 import com.poyka.ripdpi.ui.screens.status.PassagePieceKind
+import com.poyka.ripdpi.ui.screens.status.PassageSettleMillis
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
 import com.poyka.ripdpi.ui.screens.status.StrategyPassageScene
+import com.poyka.ripdpi.ui.screens.status.arrives
+import com.poyka.ripdpi.ui.screens.status.durationMillis
+import com.poyka.ripdpi.ui.screens.status.landedPieces
+import com.poyka.ripdpi.ui.screens.status.passageFlightStartMillis
+import com.poyka.ripdpi.ui.screens.status.settleStartMillis
+import com.poyka.ripdpi.ui.theme.RipDpiMotion
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.sin
 
 private val SingleLaneHeight = 44.dp
 private val DoubleLaneHeight = 22.dp
 private val IconColumn = 20.dp
 private val ColumnGap = 8.dp
 private val PieceGap = 3.dp
+private val FlashStroke = 2.dp
+private val FlashRange = 10.dp
 private val CopyLabelSize = 11.dp
 private val PieceRadius = 2.dp
 private val ThinStroke = 1.2.dp
@@ -72,19 +96,116 @@ private const val DecoyHostStart = 0.3f
 private const val DecoyHostWidth = 0.18f
 private const val SynMarkHeightRatio = 2f / 3f
 private const val ResetUnits = 5f
+private const val PassageAtRest = Float.MAX_VALUE
+private const val LaunchedAlpha = 0.26f
+private const val DecoyDeathFraction = 0.11f
+private const val DecoyFadeStart = 0.65f
+private const val EngagingFadeStart = 0.7f
+private const val SettleGrowth = 0.04f
 private const val FakePrefixUnits = 12f
 
 private enum class PassageWhole { Assembled, Unconfirmed, Empty }
 
 private class PassageColors(
-    surface: Color,
+    val cut: Color,
+    val real: Color,
+    val track: Color,
     val content: Color,
     val host: Color,
     val decoy: Color,
 ) {
-    val cut = surface
-    val real = lerp(surface, content, RealTone)
-    val track = content.copy(alpha = TrackAlpha)
+    fun fadedTo(alpha: Float): PassageColors =
+        if (alpha >= 1f) {
+            this
+        } else {
+            PassageColors(
+                cut.copy(alpha = alpha),
+                real.copy(alpha = alpha),
+                track.copy(alpha = track.alpha * alpha),
+                content.copy(alpha = alpha),
+                host.copy(alpha = alpha),
+                decoy.copy(alpha = alpha),
+            )
+        }
+}
+
+/** One moment of the playback. The rest frame is any time past the end of the scene. */
+private class PassageFrame(
+    val timeMillis: Float,
+    val engaging: Boolean,
+) {
+    fun settle(lane: PassageLane): Float =
+        if (engaging && timeMillis < PassageAtRest) {
+            0f
+        } else {
+            ((timeMillis - lane.settleStartMillis) / PassageSettleMillis).coerceIn(0f, 1f)
+        }
+
+    fun restingAlpha(
+        pieceIndex: Int,
+        settle: Float,
+    ): Float {
+        val launched = timeMillis >= passageFlightStartMillis(pieceIndex)
+        return if (launched) lerp(LaunchedAlpha, 1f, settle) else 1f
+    }
+}
+
+/**
+ * What the panel remembers about playback. It outlives the scene, which leaves composition while
+ * saved edits wait for a reconnect, so a scene that returns neither repeats a tap nor misses a change.
+ * Leaving the screen discards it: the next opening is a new baseline and stays at rest.
+ */
+internal class PassagePlaybackMemory {
+    var replayRequests by mutableIntStateOf(0)
+    var handledReplays = 0
+    var seenKey: Int? = null
+}
+
+/**
+ * Plays one flight when the session locks, the strategy changes, or the panel is tapped, and loops up to
+ * the DPI line while connecting. Reduced motion stays at rest.
+ */
+@Composable
+internal fun rememberPassagePlayback(
+    scene: StrategyPassageScene,
+    status: StatusConnectionActuatorStatus,
+    memory: PassagePlaybackMemory,
+    motion: RipDpiMotion,
+): Animatable<Float, *> {
+    val clock = remember { Animatable(PassageAtRest) }
+    val canPlay = motion.allowsInfiniteMotion && !LocalInspectionMode.current
+    val duration = scene.durationMillis
+    val flight = motion.durationTween<Float>(duration, LinearEasing)
+    val key = "$status|$scene".hashCode()
+    val locked = status == StatusConnectionActuatorStatus.Locked
+    LaunchedEffect(key, canPlay) {
+        val changed = memory.seenKey != null && memory.seenKey != key
+        memory.seenKey = key
+        when {
+            canPlay && status == StatusConnectionActuatorStatus.Engaging -> {
+                clock.snapTo(0f)
+                clock.animateTo(duration.toFloat(), infiniteRepeatable(flight, RepeatMode.Restart))
+            }
+
+            canPlay && locked && changed -> {
+                clock.snapTo(0f)
+                clock.animateTo(duration.toFloat(), flight)
+            }
+
+            else -> {
+                clock.snapTo(PassageAtRest)
+            }
+        }
+    }
+    LaunchedEffect(memory.replayRequests) {
+        val requested = memory.replayRequests != memory.handledReplays
+        memory.handledReplays = memory.replayRequests
+        if (requested && canPlay && locked) {
+            clock.snapTo(0f)
+            clock.animateTo(duration.toFloat(), flight)
+        }
+    }
+    return clock
 }
 
 private class QuicDecoyShape(
@@ -162,6 +283,7 @@ private fun PassagePiece.units(): Float {
 internal fun RipDpiStrategyPassage(
     scene: StrategyPassageScene,
     status: StatusConnectionActuatorStatus,
+    playback: PassagePlaybackMemory,
     surface: Color,
     content: Color,
     modifier: Modifier = Modifier,
@@ -169,11 +291,15 @@ internal fun RipDpiStrategyPassage(
     val tokens = RipDpiThemeTokens.colors
     val colors =
         PassageColors(
-            surface = surface,
+            cut = surface,
+            real = lerp(surface, content, RealTone),
+            track = content.copy(alpha = TrackAlpha),
             content = content,
             host = tokens.info,
             decoy = tokens.warning,
         )
+    val clock = rememberPassagePlayback(scene, status, playback, RipDpiThemeTokens.motion)
+    val engaging = status == StatusConnectionActuatorStatus.Engaging
     val whole =
         when (status) {
             StatusConnectionActuatorStatus.Locked -> PassageWhole.Assembled
@@ -196,70 +322,149 @@ internal fun RipDpiStrategyPassage(
     Column(modifier = modifier.fillMaxWidth().semantics { contentDescription = description }) {
         lanes.forEach { lane ->
             Canvas(Modifier.fillMaxWidth().height(laneHeight)) {
-                drawPassageLane(lane, whole, colors, mirrored, measurer, countStyle)
+                drawPassageLane(
+                    lane,
+                    whole,
+                    PassageFrame(clock.value, engaging),
+                    colors,
+                    mirrored,
+                    measurer,
+                    countStyle,
+                )
             }
         }
     }
 }
 
+/** The left side of a lane: where each piece rests, with the labels that collapse its copies. */
+private class LaneLayout(
+    val pieceAreas: List<Rect>,
+    val labels: List<Pair<TextLayoutResult, Float>>,
+    val dpiX: Float,
+    val wholeArea: Rect,
+)
+
+private fun DrawScope.layoutLane(
+    lane: PassageLane,
+    measurer: TextMeasurer,
+    countStyle: TextStyle,
+): LaneLayout {
+    val height = size.height * BlockHeightFraction
+    val top = (size.height - height) / 2
+    val dpiX = size.width * DpiLineFraction
+    val leftStart = IconColumn.toPx()
+    val wholeArea = Rect(dpiX + ColumnGap.toPx(), top, size.width - IconColumn.toPx(), top + height)
+    val resting = lane.pieces.filter { it.kind != PassagePieceKind.Retransmit }
+    val copyLabels =
+        resting.map { piece ->
+            piece.takeIf { it.extraCopies > 0 }?.let {
+                measurer.measure("×${it.copyIndex + 1 + it.extraCopies}", countStyle)
+            }
+        }
+    val room =
+        dpiX - ColumnGap.toPx() - leftStart -
+            PieceGap.toPx() * (resting.size - 1).coerceAtLeast(0) -
+            copyLabels.filterNotNull().sumOf { it.size.width + PieceGap.roundToPx() }
+    val unit =
+        minOf(
+            room / resting.sumOf { it.units().toDouble() }.toFloat().coerceAtLeast(1f),
+            wholeArea.width / PassagePayloadEnd,
+        ).coerceAtLeast(0f)
+    var x = leftStart
+    var restingIndex = 0
+    val labels = mutableListOf<Pair<TextLayoutResult, Float>>()
+    val areas =
+        lane.pieces.map { piece ->
+            val width = piece.units() * unit
+            if (piece.kind == PassagePieceKind.Retransmit) {
+                // A resend is not on the left at rest: it leaves the device only during the flight.
+                return@map Rect(leftStart, top, leftStart + width, top + height)
+            }
+            val area = Rect(x, top, x + width, top + height)
+            x += width + PieceGap.toPx()
+            copyLabels[restingIndex++]?.let { label ->
+                labels += label to x
+                x += label.size.width + PieceGap.toPx()
+            }
+            area
+        }
+    return LaneLayout(areas, labels, dpiX, wholeArea)
+}
+
 private fun DrawScope.drawPassageLane(
     lane: PassageLane,
     whole: PassageWhole,
+    frame: PassageFrame,
     colors: PassageColors,
     mirrored: Boolean,
     measurer: TextMeasurer,
     countStyle: TextStyle,
 ) {
-    val height = size.height * BlockHeightFraction
-    val top = (size.height - height) / 2
-    val dpiX = size.width * DpiLineFraction
-    val leftStart = IconColumn.toPx()
-    val wholeStart = dpiX + ColumnGap.toPx()
-    val wholeEnd = size.width - IconColumn.toPx()
-    val wholeUnit = (wholeEnd - wholeStart) / PassagePayloadEnd
-    val pieces = lane.pieces.filter { it.kind != PassagePieceKind.Retransmit }
-    val copyLabels =
-        pieces.map { piece ->
-            piece.takeIf { it.extraCopies > 0 }?.let {
-                measurer.measure(
-                    "×${it.copyIndex + 1 + it.extraCopies}",
-                    countStyle,
-                )
-            }
-        }
-    val room =
-        dpiX - ColumnGap.toPx() - leftStart -
-            PieceGap.toPx() * (pieces.size - 1).coerceAtLeast(0) -
-            copyLabels.filterNotNull().sumOf { it.size.width + PieceGap.roundToPx() }
-    val unit =
-        minOf(room / pieces.sumOf { it.units().toDouble() }.toFloat().coerceAtLeast(1f), wholeUnit).coerceAtLeast(0f)
-    var x = leftStart
-    val placedLabels = mutableListOf<Pair<TextLayoutResult, Float>>()
-    val mirror = if (mirrored) -1f else 1f
-    scale(scaleX = mirror, scaleY = 1f) {
+    val layout = layoutLane(lane, measurer, countStyle)
+    val settle = frame.settle(lane)
+    scale(scaleX = if (mirrored) -1f else 1f, scaleY = 1f) {
         drawEndpoints(colors)
-        pieces.forEachIndexed { index, piece ->
-            val width = piece.units() * unit
-            drawPiece(piece, Rect(x, top, x + width, top + height), lane.recordBoundaries, colors)
-            x += width + PieceGap.toPx()
-            copyLabels[index]?.let { label ->
-                placedLabels += label to x
-                x += label.size.width + PieceGap.toPx()
+        lane.pieces.forEachIndexed { index, piece ->
+            if (piece.kind != PassagePieceKind.Retransmit) {
+                val tone = colors.fadedTo(frame.restingAlpha(index, settle))
+                drawPiece(piece, layout.pieceAreas[index], lane.recordBoundaries, tone)
             }
         }
-        drawWhole(lane, whole, Rect(wholeStart, top, wholeEnd, top + height), colors)
+        drawWhole(lane, whole, frame, settle, layout.wholeArea, colors)
+        val flash = if (settle < 1f) drawFlights(lane, frame, settle, layout, colors) else false
         drawLine(
-            color = colors.content,
-            start = Offset(dpiX, 0f),
-            end = Offset(dpiX, size.height),
-            strokeWidth = ThinStroke.toPx(),
-            pathEffect = dash(),
+            color = if (flash) colors.host else colors.content,
+            start = Offset(layout.dpiX, 0f),
+            end = Offset(layout.dpiX, size.height),
+            strokeWidth = if (flash) FlashStroke.toPx() else ThinStroke.toPx(),
+            pathEffect = if (flash) null else dash(),
         )
     }
-    placedLabels.forEach { (label, labelStart) ->
+    layout.labels.forEach { (label, labelStart) ->
         val labelX = if (mirrored) size.width - labelStart - label.size.width else labelStart
         drawText(label, topLeft = Offset(labelX, (size.height - label.size.height) / 2))
     }
+}
+
+/** Draws the pieces in the air and tells whether one of them is crossing the DPI line. */
+private fun DrawScope.drawFlights(
+    lane: PassageLane,
+    frame: PassageFrame,
+    settle: Float,
+    layout: LaneLayout,
+    colors: PassageColors,
+): Boolean {
+    var crossing = false
+    val wholeUnit = layout.wholeArea.width / PassagePayloadEnd
+    if (frame.engaging || settle <= 0f) {
+        lane.pieces.forEachIndexed { index, piece ->
+            val progress = (frame.timeMillis - passageFlightStartMillis(index)) / PassageFlightMillis
+            if (progress in 0f..1f) {
+                val from = layout.pieceAreas[index]
+                val staysInAir = frame.engaging || !piece.arrives
+                val targetWidth = if (staysInAir) from.width else (piece.end - piece.start) * wholeUnit
+                val targetX =
+                    when {
+                        frame.engaging -> layout.dpiX - from.width - PieceGap.toPx()
+                        !piece.arrives -> layout.dpiX + size.width * DecoyDeathFraction
+                        else -> layout.wholeArea.left + piece.start * wholeUnit
+                    }
+                val eased = RipDpiMotion.StandardEasing.transform(progress)
+                val x = lerp(from.left, targetX, eased)
+                val width = lerp(from.width, targetWidth, eased)
+                val fadeStart = if (frame.engaging) EngagingFadeStart else DecoyFadeStart
+                val alpha = if (staysInAir) 1f - ((progress - fadeStart) / (1f - fadeStart)).coerceIn(0f, 1f) else 1f
+                drawPiece(
+                    piece,
+                    Rect(x, from.top, x + width, from.bottom),
+                    lane.recordBoundaries,
+                    colors.fadedTo(alpha),
+                )
+                crossing = crossing || abs(x + width - layout.dpiX) < FlashRange.toPx()
+            }
+        }
+    }
+    return crossing
 }
 
 private fun DrawScope.dash(): PathEffect = PathEffect.dashPathEffect(floatArrayOf(DashOn.toPx(), DashOff.toPx()))
@@ -299,12 +504,16 @@ private fun DrawScope.drawEndpoints(colors: PassageColors) {
 private fun DrawScope.drawWhole(
     lane: PassageLane,
     whole: PassageWhole,
+    frame: PassageFrame,
+    settle: Float,
     area: Rect,
     colors: PassageColors,
 ) {
-    if (whole == PassageWhole.Assembled) {
-        val packet = PassagePiece(PassagePieceKind.Real, 0, PassagePayloadEnd)
-        drawPiece(packet, area, lane.recordBoundaries, colors)
+    if (whole == PassageWhole.Assembled && settle > 0f) {
+        val growth = if (settle < 1f) 1f + SettleGrowth * sin(PI.toFloat() * settle) else 1f
+        scale(scale = growth, pivot = area.center) {
+            drawPiece(PassagePiece(PassagePieceKind.Real, 0, PassagePayloadEnd), area, lane.recordBoundaries, colors)
+        }
         return
     }
     val unconfirmed = whole == PassageWhole.Unconfirmed
@@ -315,6 +524,19 @@ private fun DrawScope.drawWhole(
         cornerRadius = CornerRadius(PieceRadius.toPx()),
         style = Stroke(ThinStroke.toPx(), pathEffect = if (unconfirmed) dash() else null),
     )
+    if (whole == PassageWhole.Assembled) {
+        val unit = area.width / PassagePayloadEnd
+        lane.landedPieces(frame.timeMillis).forEach { piece ->
+            val slot = piece.copy(hasUrgentByte = false, inSyn = false, hasFakePrefix = false)
+            val left = area.left + piece.start * unit
+            drawPiece(
+                slot,
+                Rect(left, area.top, left + (piece.end - piece.start) * unit, area.bottom),
+                lane.recordBoundaries,
+                colors,
+            )
+        }
+    }
 }
 
 private fun DrawScope.drawPiece(
@@ -367,7 +589,7 @@ private fun DrawScope.drawDecoy(
     val host = if (quic != null) DecoyHostStart to DecoyHostWidth else hostFraction(piece)
     if (host != null) {
         drawRect(
-            color = colors.decoy.copy(alpha = DecoyHostAlpha),
+            color = colors.decoy.copy(alpha = colors.decoy.alpha * DecoyHostAlpha),
             topLeft = Offset(block.left + block.width * host.first, block.top),
             size = Size(block.width * host.second, block.height),
         )
@@ -398,11 +620,11 @@ private fun DrawScope.drawRealBytes(
 ) {
     val alpha = if (piece.kind == PassagePieceKind.ShortTtl) ShortTtlAlpha else 1f
     val radius = if (piece.kind == PassagePieceKind.IpFragment) CornerRadius.Zero else CornerRadius(PieceRadius.toPx())
-    drawRoundRect(colors.real.copy(alpha = alpha), block.topLeft, block.size, radius)
+    drawRoundRect(colors.real.copy(alpha = colors.real.alpha * alpha), block.topLeft, block.size, radius)
     hostFraction(piece)?.let { (start, width) ->
         val hostStart = block.left + block.width * start
         drawRect(
-            color = colors.host.copy(alpha = alpha),
+            color = colors.host.copy(alpha = colors.host.alpha * alpha),
             topLeft = Offset(hostStart, block.top),
             size = Size(block.width * width, block.height),
         )

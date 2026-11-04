@@ -361,5 +361,32 @@ class StrategyPassageSceneTest {
         )
     }
 
+    @Test
+    fun `flights leave in plan order and a resend lands last`() {
+        val lane = requireNotNull(compileStrategyPassageScene(listOf(tcp(TcpChainStepKind.Disorder)), emptyList()).tcp)
+        // Start 120 ms, spacing 220 ms, flight 480 ms: pieces land at 600, 820, and 1040 ms.
+        assertEquals(emptyList<PassagePiece>(), lane.landedPieces(599f))
+        assertEquals(listOf(real(33, 100)), lane.landedPieces(820f))
+        assertEquals(listOf(real(33, 100), resend(0, 33)), lane.landedPieces(1040f))
+        assertEquals(1040, lane.settleStartMillis)
+    }
+
+    @Test
+    fun `decoys never land`() {
+        val lane = requireNotNull(compileStrategyPassageScene(listOf(tcp(TcpChainStepKind.FakeSplit)), emptyList()).tcp)
+        assertEquals(listOf(resend(0, 33), resend(33, 100)), lane.landedPieces(Float.MAX_VALUE))
+    }
+
+    @Test
+    fun `scene duration follows the longest lane`() {
+        val scene =
+            compileStrategyPassageScene(
+                listOf(tcp(TcpChainStepKind.Split)),
+                listOf(udp(UdpChainStepKind.FakeBurst, 4)),
+            )
+        // Five UDP pieces: 120 + 4 * 220 + 480, then 260 ms to settle.
+        assertEquals(1740, scene.durationMillis)
+    }
+
     private fun activeSettings() = AppSettings.newBuilder().setDesyncHttp(true).setDesyncHttps(true)
 }

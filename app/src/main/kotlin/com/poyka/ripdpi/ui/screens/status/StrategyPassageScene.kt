@@ -65,6 +65,13 @@ data class PassageLane(
     val recordBoundaries: ImmutableList<Int>,
 )
 
+/** Reaches the server. Other pieces end on the path, or never carry payload. */
+val PassagePiece.arrives: Boolean
+    get() =
+        kind == PassagePieceKind.Real ||
+            kind == PassagePieceKind.Retransmit ||
+            kind == PassagePieceKind.IpFragment
+
 /**
  * What the configured chain does to a packet, in the order of the native planner. It describes the
  * settings, not captured traffic: the engine can still fall back at runtime, and the kernel decides
@@ -77,6 +84,10 @@ data class StrategyPassageScene(
     val udp: PassageLane?,
 )
 
+internal const val PassageStartDelayMillis = 120
+internal const val PassageStaggerMillis = 220
+internal const val PassageFlightMillis = 480
+internal const val PassageSettleMillis = 260
 internal const val PassagePayloadEnd = 100
 internal const val PassageHostStart = 30
 internal const val PassageHostEnd = 48
@@ -404,3 +415,20 @@ fun strategyPassageFor(settings: AppSettings): StrategyPassageScene? {
     val udpSteps = if (settings.desyncUdp) settings.effectiveUdpChainSteps() else emptyList()
     return compileStrategyPassageScene(settings.effectiveTcpChainSteps(), udpSteps)
 }
+
+/** When a piece leaves the device. The order follows the plan; the spacing is for the reader, not the wire. */
+internal fun passageFlightStartMillis(pieceIndex: Int): Int =
+    PassageStartDelayMillis + pieceIndex * PassageStaggerMillis
+
+/** When every piece has landed and the packet starts to settle. */
+internal val PassageLane.settleStartMillis: Int
+    get() = passageFlightStartMillis((pieces.size - 1).coerceAtLeast(0)) + PassageFlightMillis
+
+internal val StrategyPassageScene.durationMillis: Int
+    get() = listOfNotNull(tcp, udp).maxOf { it.settleStartMillis } + PassageSettleMillis
+
+/** The pieces that have reached their place in the reassembled packet at this moment. */
+internal fun PassageLane.landedPieces(timeMillis: Float): List<PassagePiece> =
+    pieces.filterIndexed { index, piece ->
+        piece.arrives && timeMillis >= passageFlightStartMillis(index) + PassageFlightMillis
+    }

@@ -13,6 +13,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -56,11 +57,11 @@ internal fun RipDpiConnectionStrategyPanel(
     modifier: Modifier = Modifier,
 ) {
     val spacing = RipDpiThemeTokens.spacing
-    val colors = RipDpiThemeTokens.colors
     val type = RipDpiThemeTokens.type
     val expandable = facets.isNotEmpty()
     val inset = RipDpiThemeTokens.layout.cardPadding
     var expanded by rememberSaveable { mutableStateOf(false) }
+    val playback = remember { PassagePlaybackMemory() }
     val expandedLabel = stringResource(R.string.semantic_state_expanded)
     val collapsedLabel = stringResource(R.string.semantic_state_collapsed)
     val tone = strategyTone(status, expandable, passage != null)
@@ -71,7 +72,10 @@ internal fun RipDpiConnectionStrategyPanel(
                 if (expandable) {
                     Modifier
                         .semantics { stateDescription = if (expanded) expandedLabel else collapsedLabel }
-                        .ripDpiClickable(role = Role.Button) { expanded = !expanded }
+                        .ripDpiClickable(role = Role.Button) {
+                            expanded = !expanded
+                            playback.replayRequests += 1
+                        }
                 } else {
                     // TalkBack reads the name, the scene, and the chain as one item.
                     Modifier.semantics(mergeDescendants = true) {}
@@ -109,26 +113,45 @@ internal fun RipDpiConnectionStrategyPanel(
                 ),
     ) {
         if (passage != null) {
-            PassageHeader(strategyLabel, passage, status, tone, expanded || !expandable, toggle, headerModifier)
+            PassageHeader(
+                strategyLabel = strategyLabel,
+                passage = passage,
+                status = status,
+                tone = tone,
+                showWholeChain = expanded || !expandable,
+                playback = playback,
+                toggle = toggle,
+                modifier = headerModifier,
+            )
         } else {
             ChainHeader(strategyLabel, toggle, headerModifier)
         }
-        AnimatedVisibility(
-            visible = expanded && expandable,
-            enter = RipDpiThemeTokens.motion.sectionEnterTransition(),
-            exit = RipDpiThemeTokens.motion.sectionExitTransition(),
+        StrategyDetails(facets, visible = expanded && expandable)
+    }
+}
+
+@Composable
+private fun StrategyDetails(
+    facets: ImmutableList<StatusModeSummaryFacet>,
+    visible: Boolean,
+) {
+    val inset = RipDpiThemeTokens.layout.cardPadding
+    val spacing = RipDpiThemeTokens.spacing
+    AnimatedVisibility(
+        visible = visible,
+        enter = RipDpiThemeTokens.motion.sectionEnterTransition(),
+        exit = RipDpiThemeTokens.motion.sectionExitTransition(),
+    ) {
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(start = inset, end = inset, bottom = spacing.md),
+            verticalArrangement = Arrangement.spacedBy(spacing.sm),
         ) {
-            Column(
-                modifier = Modifier.fillMaxWidth().padding(start = inset, end = inset, bottom = spacing.md),
-                verticalArrangement = Arrangement.spacedBy(spacing.sm),
-            ) {
-                Text(
-                    text = stringResource(R.string.status_connection_strategy_explainer),
-                    style = type.secondaryBody,
-                    color = colors.mutedForeground,
-                )
-                facets.forEach { StrategyFacetRow(it) }
-            }
+            Text(
+                text = stringResource(R.string.status_connection_strategy_explainer),
+                style = RipDpiThemeTokens.type.secondaryBody,
+                color = RipDpiThemeTokens.colors.mutedForeground,
+            )
+            facets.forEach { StrategyFacetRow(it) }
         }
     }
 }
@@ -168,6 +191,7 @@ private fun PassageHeader(
     status: StatusConnectionActuatorStatus,
     tone: StrategyTone,
     showWholeChain: Boolean,
+    playback: PassagePlaybackMemory,
     toggle: (@Composable () -> Unit)?,
     modifier: Modifier,
 ) {
@@ -187,7 +211,7 @@ private fun PassageHeader(
             )
             toggle?.invoke()
         }
-        RipDpiStrategyPassage(passage, status, tone.surface, tone.content)
+        RipDpiStrategyPassage(passage, status, playback, tone.surface, tone.content)
         Text(
             text = strategyLabel,
             style = type.monoSmall,
