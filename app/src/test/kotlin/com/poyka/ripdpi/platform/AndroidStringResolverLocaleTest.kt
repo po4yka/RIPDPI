@@ -356,7 +356,7 @@ class AndroidStringResolverLocaleTest {
                     org.robolectric.Shadows
                         .shadowOf(service)
                         .lastForegroundNotification
-                assertEquals("Приостановить соединение", notification.extras.getString(Notification.EXTRA_TITLE))
+                assertEquals("На паузе", notification.extras.getString(Notification.EXTRA_TITLE))
                 assertEquals(expectedContent, notification.extras.getString(Notification.EXTRA_TEXT))
                 val actionLabels =
                     if (phase == com.poyka.ripdpi.data.PausePhase.Paused ||
@@ -387,11 +387,11 @@ class AndroidStringResolverLocaleTest {
         mapOf(
             com.poyka.ripdpi.data.PausePhase.Paused to "Пауза до 13:30",
             com.poyka.ripdpi.data.PausePhase.CleanupPending to
-                "Освобождение ресурсов не завершено. Пауза ещё не подтверждена.",
+                "Соединение ещё останавливается…",
             com.poyka.ripdpi.data.PausePhase.Releasing to
-                "Освобождение ресурсов не завершено. Пауза ещё не подтверждена.",
+                "Соединение ещё останавливается…",
             com.poyka.ripdpi.data.PausePhase.Resuming to "Возобновление соединения…",
-            com.poyka.ripdpi.data.PausePhase.Deferred to "Возобновление требует внимания",
+            com.poyka.ripdpi.data.PausePhase.Deferred to "Не удалось возобновить автоматически",
         )
 
     private fun selectLanguage(tag: String) {
