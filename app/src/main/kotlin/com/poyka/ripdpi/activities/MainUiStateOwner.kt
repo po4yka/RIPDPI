@@ -11,6 +11,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 
 @Suppress("LongParameterList")
@@ -26,7 +27,7 @@ internal class MainUiStateOwner(
     buildApproachSummary: (AppSettings, Mode, List<BypassApproachSummary>) -> StatusApproachSummaryUiState?,
 ) {
     private val localeState = MutableStateFlow("")
-    private val recentDnsFailureTracker = RecentDnsFailureTracker()
+    private val recentWarningTracker = RecentWarningTracker()
     private val settingsSnapshots = settingsState.map { it to ReconnectSettingsIdentity() }
 
     val uiState: StateFlow<MainUiState> =
@@ -92,7 +93,11 @@ internal class MainUiStateOwner(
             buildMainUiState(
                 inputs = inputs,
                 // The runtime clock ticks while connected, so the warning also ends without new telemetry.
-                recentDnsFailure = recentDnsFailureTracker.isRecent(inputs.telemetry.tunnelTelemetry.dnsFailuresTotal),
+                recentWarningStages =
+                    recentWarningTracker.recentStages(
+                        inputs.telemetry.serviceStartedAt,
+                        telemetryWarningEvidence(inputs.telemetry),
+                    ),
                 stringResolver = stringResolver,
                 approachSummary =
                     buildApproachSummary(
@@ -101,6 +106,9 @@ internal class MainUiStateOwner(
                         inputs.approachStats,
                     ),
             )
+        }.onStart {
+            // This flow stops away from the screen, so what it missed has an unknown age.
+            recentWarningTracker.rebaseline()
         }.stateIn(
             scope = scope,
             started = SharingStarted.WhileSubscribed(5_000),

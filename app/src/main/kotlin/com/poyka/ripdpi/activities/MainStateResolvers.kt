@@ -4,6 +4,7 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.FailureClass
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
@@ -96,7 +97,7 @@ internal fun resolvePrimaryConnectionAction(
 
 internal fun buildMainUiState(
     inputs: MainUiInputs,
-    recentDnsFailure: Boolean,
+    recentWarningStages: Set<StatusConnectionActuatorStage>,
     stringResolver: StringResolver,
     approachSummary: StatusApproachSummaryUiState?,
 ): MainUiState {
@@ -134,7 +135,7 @@ internal fun buildMainUiState(
             vpnDataPlaneStatus = vpnDataPlaneStatus,
             approachSummary = approachSummary,
             hardKillSwitch = hardKillSwitch,
-            recentDnsFailure = recentDnsFailure,
+            recentWarningStages = recentWarningStages,
             stringResolver = stringResolver,
         )
     val modeCards =
@@ -232,7 +233,7 @@ private fun buildMainConnectionActuator(
     vpnDataPlaneStatus: VpnDataPlaneStatus,
     approachSummary: StatusApproachSummaryUiState?,
     hardKillSwitch: HardKillSwitchUiState,
-    recentDnsFailure: Boolean,
+    recentWarningStages: Set<StatusConnectionActuatorStage>,
     stringResolver: StringResolver,
 ): StatusConnectionActuatorUiState =
     buildConnectionActuatorUiState(
@@ -253,7 +254,7 @@ private fun buildMainConnectionActuator(
                 activeMode = inputs.statusAndMode.second,
                 evidence = inputs.pathValidation,
             ),
-        recentDnsFailure = recentDnsFailure,
+        recentWarningStages = recentWarningStages,
         runtime = inputs.runtime,
         appStatus = inputs.statusAndMode.first,
         telemetry = inputs.telemetry,
@@ -316,7 +317,7 @@ internal fun buildConnectionActuatorUiState(
     vpnDataPlaneStatus: VpnDataPlaneStatus = VpnDataPlaneStatus.NotApplicable,
     vpnValidationWarning: Boolean = false,
     vpnForwardingWarning: Boolean = false,
-    recentDnsFailure: Boolean = false,
+    recentWarningStages: Set<StatusConnectionActuatorStage> = emptySet(),
     runtime: ConnectionRuntimeState,
     telemetry: ServiceTelemetrySnapshot,
     approachSummary: StatusApproachSummaryUiState?,
@@ -332,7 +333,7 @@ internal fun buildConnectionActuatorUiState(
             StatusConnectionActuatorStage.Route.takeIf { vpnWarning != null }
                 ?: StatusConnectionActuatorStage.Network.takeIf { vpnValidationWarning }
                 ?: StatusConnectionActuatorStage.Tunnel.takeIf { vpnForwardingWarning }
-                ?: telemetryWarningStage(telemetry, recentDnsFailure)
+                ?: telemetryWarningStage(telemetry, recentWarningStages)
         ).takeIf { connectionState == ConnectionState.Connected }
     val failedStage =
         telemetryFailureStage(telemetry)
@@ -515,9 +516,10 @@ private fun actuatorActionLabel(
 private fun StatusConnectionActuatorStage.label(stringResolver: StringResolver): String =
     stringResolver.getString(labelRes())
 
+/** Live conditions always warn. Telemetry that outlives a problem warns only while it is recent. */
 private fun telemetryWarningStage(
     telemetry: ServiceTelemetrySnapshot,
-    recentDnsFailure: Boolean,
+    recentStages: Set<StatusConnectionActuatorStage>,
 ): StatusConnectionActuatorStage? =
     when {
         // Foreign exit lost after connecting (audit P1-1): the base stays up but traffic now
@@ -528,31 +530,26 @@ private fun telemetryWarningStage(
             StatusConnectionActuatorStage.Route
         }
 
-        telemetry.runtimeFieldTelemetry.failureClass == FailureClass.NetworkHandover ||
-            telemetry.networkHandoverState != null -> {
+        // A completed handover keeps its state until the session ends, and it needs no warning.
+        telemetry.networkHandoverState.let { it != null && it != NetworkHandoverStates.Revalidated } ||
+            StatusConnectionActuatorStage.Network in recentStages -> {
             StatusConnectionActuatorStage.Network
         }
 
-        telemetry.runtimeFieldTelemetry.failureClass == FailureClass.DnsInterference ||
-            telemetry.tunnelTelemetry.resolverFallbackActive ||
-            recentDnsFailure -> {
+        telemetry.tunnelTelemetry.resolverFallbackActive || StatusConnectionActuatorStage.Dns in recentStages -> {
             StatusConnectionActuatorStage.Dns
         }
 
-        telemetry.runtimeFieldTelemetry.failureClass == FailureClass.TlsInterference ||
-            !telemetry.proxyTelemetry.lastHandshakeError.isNullOrBlank() -> {
+        StatusConnectionActuatorStage.Handshake in recentStages -> {
             StatusConnectionActuatorStage.Handshake
         }
 
-        telemetry.runtimeFieldTelemetry.failureClass == FailureClass.TunnelEstablish ||
-            telemetry.tunnelTelemetryStatus.state == RuntimeTelemetryState.EngineError ||
-            telemetry.runtimeFieldTelemetry.tunnelRecoveryRetryCount > 0 -> {
+        telemetry.tunnelTelemetryStatus.state == RuntimeTelemetryState.EngineError ||
+            StatusConnectionActuatorStage.Tunnel in recentStages -> {
             StatusConnectionActuatorStage.Tunnel
         }
 
-        telemetry.proxyTelemetry.routeChanges > 0 ||
-            telemetry.runtimeFieldTelemetry.proxyRouteRetryCount > 0 ||
-            !telemetry.proxyTelemetry.lastFallbackAction.isNullOrBlank() -> {
+        StatusConnectionActuatorStage.Route in recentStages -> {
             StatusConnectionActuatorStage.Route
         }
 

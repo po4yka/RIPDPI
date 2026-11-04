@@ -16,6 +16,7 @@ import com.poyka.ripdpi.data.InMemoryStrategyPackStateStore
 import com.poyka.ripdpi.data.LocalNetworkPermission
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.NativeRuntimeSnapshot
+import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.RelayKindNaiveProxy
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RuntimeFieldTelemetry
@@ -435,25 +436,49 @@ class MainViewModelTest {
     }
 
     @Test
-    fun `a DNS failure warns only while it is recent`() {
-        fun status(recentDnsFailure: Boolean) =
+    fun `session-long telemetry warns only while it is recent`() {
+        fun status(recentStages: Set<StatusConnectionActuatorStage>) =
             buildConnectionActuatorUiState(
                 settings = AppSettings.newBuilder().build(),
                 activeMode = Mode.VPN,
                 configuredMode = Mode.VPN,
                 connectionState = ConnectionState.Connected,
-                recentDnsFailure = recentDnsFailure,
+                recentWarningStages = recentStages,
                 runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
                 telemetry =
                     ServiceTelemetrySnapshot(
                         tunnelTelemetry = NativeRuntimeSnapshot.idle(source = "tunnel").copy(dnsFailuresTotal = 1L),
+                        proxyTelemetry =
+                            NativeRuntimeSnapshot.idle(source = "proxy").copy(
+                                routeChanges = 1L,
+                            ),
                     ),
                 approachSummary = null,
                 stringResolver = ResourceStringResolver(),
             ).status
 
-        assertEquals(StatusConnectionActuatorStatus.Degraded, status(recentDnsFailure = true))
-        assertEquals(StatusConnectionActuatorStatus.Locked, status(recentDnsFailure = false))
+        assertEquals(StatusConnectionActuatorStatus.Locked, status(emptySet()))
+        StatusConnectionActuatorStage.entries.forEach { stage ->
+            assertEquals(StatusConnectionActuatorStatus.Degraded, status(setOf(stage)))
+        }
+    }
+
+    @Test
+    fun `a handover warns while it runs and not after it completes`() {
+        fun status(handoverState: String) =
+            buildConnectionActuatorUiState(
+                settings = AppSettings.newBuilder().build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Connected,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
+                telemetry = ServiceTelemetrySnapshot(networkHandoverState = handoverState),
+                approachSummary = null,
+                stringResolver = ResourceStringResolver(),
+            ).status
+
+        assertEquals(StatusConnectionActuatorStatus.Degraded, status(NetworkHandoverStates.Restarting))
+        assertEquals(StatusConnectionActuatorStatus.Locked, status(NetworkHandoverStates.Revalidated))
     }
 
     @Test
@@ -469,6 +494,7 @@ class MainViewModelTest {
                 activeMode = Mode.VPN,
                 configuredMode = Mode.VPN,
                 connectionState = ConnectionState.Connected,
+                recentWarningStages = setOf(StatusConnectionActuatorStage.Route),
                 runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
                 telemetry = telemetry,
                 approachSummary = null,
