@@ -56,6 +56,7 @@ enum class ConnectionEditorTarget {
 data class ConnectionProfileActions(
     val share: (String) -> Unit = {},
     val select: (String) -> Unit = {},
+    val selectDirect: () -> Unit = {},
     val edit: (String) -> Unit = {},
     val create: (Route) -> Unit = {},
     val scanServer: () -> Unit = {},
@@ -139,6 +140,7 @@ fun ConnectionRoute(
                 scanServer = onScanServer,
                 share = onProfileShare,
                 select = remember(viewModel) { viewModel::selectRelayProfile },
+                selectDirect = remember(viewModel) { viewModel::selectDirectPath },
                 create = onOpenRoute,
                 edit = { profileId ->
                     when (uiState.vpnProfiles.firstOrNull { it.id == profileId }?.kind) {
@@ -179,8 +181,16 @@ fun ConnectionScreen(
     runtimeCallbacks: ConnectionRuntimeCallbacks = ConnectionRuntimeCallbacks(),
 ) {
     val desyncSummary = uiState.draft.chainSummary
-    var selectedModeSectionKey by rememberSaveable { mutableStateOf(initialModeSection.stableKey) }
-    val selectedModeSection = ConnectionModeSection.fromStableKey(selectedModeSectionKey)
+    // An active relay always shows Relay. Browsing covers the Relay section before a profile is active.
+    var browsingRelay by rememberSaveable { mutableStateOf(initialModeSection == ConnectionModeSection.Vpn) }
+    val selectedModeSection =
+        if (uiState.activeRelayEnabled ||
+            browsingRelay
+        ) {
+            ConnectionModeSection.Vpn
+        } else {
+            ConnectionModeSection.LocalBypass
+        }
     var showProfileChoices by rememberSaveable { mutableStateOf(false) }
 
     RipDpiContentScreenScaffold(
@@ -221,7 +231,22 @@ fun ConnectionScreen(
             )
             ConnectionModeSectionSwitcher(
                 selectedSection = selectedModeSection,
-                onSectionSelected = { section -> selectedModeSectionKey = section.stableKey },
+                onSectionSelected = { section ->
+                    when (section) {
+                        ConnectionModeSection.LocalBypass -> {
+                            browsingRelay = false
+                            if (uiState.activeRelayEnabled) profileActions.selectDirect()
+                        }
+
+                        ConnectionModeSection.Vpn -> {
+                            browsingRelay = true
+                            uiState.vpnProfiles
+                                .firstOrNull { it.id == uiState.activeRelayProfileId }
+                                ?.takeUnless { uiState.activeRelayEnabled }
+                                ?.let { profileActions.select(it.id) }
+                        }
+                    }
+                },
             )
         }
 
@@ -231,6 +256,7 @@ fun ConnectionScreen(
             uiState = uiState,
             desyncSummary = desyncSummary,
             onEditCurrent = onEditCurrent,
+            onChooseRelay = { showProfileChoices = true },
             onOpenConfigEditor = onOpenConfigEditor,
             onRetestStrategies = onRetestStrategies,
             onPasteServerLink = onPasteServerLink,
@@ -322,6 +348,7 @@ private fun ConnectionSelectedModeSection(
     uiState: ConnectionUiState,
     desyncSummary: String,
     onEditCurrent: () -> Unit,
+    onChooseRelay: () -> Unit,
     onOpenConfigEditor: (ConnectionEditorTarget) -> Unit,
     onRetestStrategies: () -> Unit,
     onPasteServerLink: () -> Unit,
@@ -348,6 +375,7 @@ private fun ConnectionSelectedModeSection(
                 settingsOnly = true,
                 onDismissRuntimeError = onDismissRuntimeError,
                 onOpenRelaySettings = onEditCurrent,
+                onChooseRelay = onChooseRelay,
                 onOpenDnsSettings = { onOpenConfigEditor(ConnectionEditorTarget.Resolver) },
                 onOpenSubscriptionStatus = { onOpenConfigEditor(ConnectionEditorTarget.SubscriptionStatus) },
                 onOpenSubscriptionFailover = { onOpenConfigEditor(ConnectionEditorTarget.SubscriptionFailover) },

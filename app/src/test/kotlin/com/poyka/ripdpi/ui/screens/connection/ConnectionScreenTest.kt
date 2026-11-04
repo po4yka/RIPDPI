@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.ui.screens.connection
 
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -310,12 +312,10 @@ class ConnectionScreenTest {
     }
 
     @Test
-    fun `vpn relay and dns rows invoke configuration callbacks`() {
-        var relayClicks = 0
+    fun `relay off row opens profile choices and dns row invokes its callback`() {
         var dnsClicks = 0
         setConfigScreen(
             initialModeSection = ConnectionModeSection.Vpn,
-            onEditCurrent = { relayClicks += 1 },
             onOpenDnsSettings = { dnsClicks += 1 },
             uiPersona = "advanced",
         )
@@ -325,6 +325,7 @@ class ConnectionScreenTest {
             .assertHasClickAction()
             .performScrollTo()
             .performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChoices).assertExists()
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
             .assertHasClickAction()
@@ -332,9 +333,60 @@ class ConnectionScreenTest {
             .performClick()
 
         composeRule.runOnIdle {
-            assertEquals(1, relayClicks)
             assertEquals(1, dnsClicks)
         }
+    }
+
+    @Test
+    fun `path control follows the active relay and switches the path`() {
+        val selected = mutableListOf<String>()
+        var directSelections = 0
+        var relayActive by mutableStateOf(true)
+        composeRule.setContent {
+            RipDpiTheme {
+                ConnectionScreen(
+                    uiState =
+                        configUiState().copy(
+                            activeRelayEnabled = relayActive,
+                            activeRelayProfileId = "saved",
+                            vpnProfiles =
+                                persistentListOf(
+                                    RelayProfileUiState(
+                                        id = "saved",
+                                        kind = "trojan",
+                                        kindLabel = "Trojan",
+                                        jurisdiction = "",
+                                        operatorName = "",
+                                    ),
+                                ),
+                        ),
+                    onModeSelected = {},
+                    onPresetSelected = {},
+                    onEditCurrent = {},
+                    onOpenConfigEditor = {},
+                    onRetestStrategies = {},
+                    onPasteServerLink = {},
+                    profileActions =
+                        ConnectionProfileActions(
+                            select = { selected += it },
+                            selectDirect = { directSelections += 1 },
+                        ),
+                )
+            }
+        }
+        val directTag = RipDpiTestTags.configModeSection(ConnectionModeSection.LocalBypass.stableKey)
+        val relayTag = RipDpiTestTags.configModeSection(ConnectionModeSection.Vpn.stableKey)
+
+        composeRule.onNodeWithTag(relayTag).assertIsSelected()
+        composeRule.onNodeWithTag(directTag).performScrollTo().performClick()
+        composeRule.runOnIdle {
+            assertEquals(1, directSelections)
+            relayActive = false
+        }
+        composeRule.onNodeWithTag(directTag).assertIsSelected()
+
+        composeRule.onNodeWithTag(relayTag).performScrollTo().performClick()
+        composeRule.runOnIdle { assertEquals(listOf("saved"), selected) }
     }
 
     @Test

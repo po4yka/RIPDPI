@@ -25,7 +25,11 @@ internal class ConnectionRelayProfileSelector(
     private val selectionLock = Mutex()
     private val generation = AtomicLong()
 
-    fun select(profileId: String) {
+    fun select(profileId: String) = changeActiveRelay { dependencies.relayArtifacts.selectProfile(profileId) }
+
+    fun selectDirect() = changeActiveRelay { dependencies.relayArtifacts.deactivateActiveProfile() }
+
+    private fun changeActiveRelay(relayChange: suspend () -> ConnectionDraft) {
         if (dependencies.reconnectCoordinator.reconnectState.value
                 .isConfigPending()
         ) {
@@ -39,7 +43,7 @@ internal class ConnectionRelayProfileSelector(
             selectionLock.withLock {
                 if (generation.get() != request) return@withLock
                 runCatching {
-                    val draft = dependencies.relayArtifacts.selectProfile(profileId)
+                    val draft = relayChange()
                     applySavedConfigDraftToRunningService(
                         draft = draft,
                         appSettingsRepository = dependencies.appSettingsRepository,
@@ -56,7 +60,7 @@ internal class ConnectionRelayProfileSelector(
                     )
                 }.onFailure { error ->
                     if (error is CancellationException) throw error
-                    log.e(error) { "Failed to select relay profile" }
+                    log.e(error) { "Failed to change active relay" }
                     effects.emit(
                         ConnectionEffect.Message(stringResolver.getString(R.string.relay_editor_activation_failed)),
                     )

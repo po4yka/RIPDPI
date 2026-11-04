@@ -64,6 +64,7 @@ internal fun VpnConfigScreen(
     modifier: Modifier = Modifier,
     onDismissRuntimeError: () -> Unit = {},
     settingsOnly: Boolean = false,
+    onChooseRelay: () -> Unit = {},
     onOpenSubscriptionStatus: (() -> Unit)? = null,
     onOpenSubscriptionFailover: (() -> Unit)? = null,
 ) {
@@ -86,6 +87,7 @@ internal fun VpnConfigScreen(
                 uiState,
                 onOpenRelaySettings,
                 onOpenDnsSettings,
+                onChooseRelay = onChooseRelay,
                 showGuidance = false,
                 onOpenSubscriptionStatus = onOpenSubscriptionStatus,
                 onOpenSubscriptionFailover = onOpenSubscriptionFailover,
@@ -389,6 +391,7 @@ private fun VpnAdvancedRows(
     uiState: ConnectionUiState,
     onOpenRelaySettings: () -> Unit,
     onOpenDnsSettings: () -> Unit,
+    onChooseRelay: () -> Unit = onOpenRelaySettings,
     showGuidance: Boolean = true,
     onOpenSubscriptionStatus: (() -> Unit)? = null,
     onOpenSubscriptionFailover: (() -> Unit)? = null,
@@ -407,7 +410,7 @@ private fun VpnAdvancedRows(
             VpnCredentialsRow(uiState = uiState, onOpenRelaySettings = onOpenRelaySettings)
         } else {
             // One setup row instead of three rows that all say "Relay disabled".
-            VpnRelayOffRow(onOpenRelaySettings = onOpenRelaySettings)
+            VpnRelayOffRow(onChooseRelay = onChooseRelay)
         }
         VpnDnsRow(uiState = uiState, onOpenDnsSettings = onOpenDnsSettings)
         onOpenSubscriptionStatus?.let {
@@ -444,14 +447,14 @@ private fun VpnSubscriptionRow(
 }
 
 @Composable
-private fun VpnRelayOffRow(onOpenRelaySettings: () -> Unit) {
+private fun VpnRelayOffRow(onChooseRelay: () -> Unit) {
     val title = stringResource(R.string.config_relay_off_title)
     val body = stringResource(R.string.config_relay_off_body)
     VpnActionRow(
         testTag = RipDpiTestTags.ConfigVpnRelay,
         accessibilityLabel = title,
         accessibilityValue = "",
-        onClick = onOpenRelaySettings,
+        onClick = onChooseRelay,
         accessibilitySubtitle = body,
     ) {
         SettingsRow(

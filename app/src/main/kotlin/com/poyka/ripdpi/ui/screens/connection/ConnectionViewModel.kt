@@ -341,6 +341,10 @@ class ConnectionViewModel
             relayProfileSelector.select(profileId)
         }
 
+        fun selectDirectPath() {
+            relayProfileSelector.selectDirect()
+        }
+
         fun updateDraft(
             expectedSessionId: Long? = null,
             transform: ConnectionDraft.() -> ConnectionDraft,

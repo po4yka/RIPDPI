@@ -490,6 +490,39 @@ class ConnectionRelayArtifactRepositoryTest {
         }
 
     @Test
+    fun `deactivating keeps the relay profile selected for reactivation`() =
+        runTest {
+            val settings = FailingSettingsRepository()
+            val profiles = FailingRelayProfileStore()
+            val credentials = FailingRelayCredentialRepository()
+            val repository =
+                ConnectionRelayArtifactRepository(
+                    settings,
+                    profiles,
+                    credentials,
+                    profileMutations =
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            profiles,
+                            credentials,
+                            settings,
+                        ),
+                )
+            val profile = RelayProfileRecord(id = "saved", kind = RelayKindTrojan, server = "relay.example")
+            val secret = RelayCredentialRecord(profileId = profile.id, trojanPassword = "trojan-fixture")
+            profiles.save(profile)
+            credentials.save(secret)
+            repository.selectProfile(profile.id)
+
+            val draft = repository.deactivateActiveProfile()
+
+            assertEquals(false, draft.relayEnabled)
+            assertEquals(profile.id, settings.snapshot().relayProfileId)
+            assertEquals(false, settings.snapshot().relayEnabled)
+            assertEquals(profile, profiles.load(profile.id))
+            assertEquals(secret, credentials.load(profile.id))
+        }
+
+    @Test
     fun `editing a saved profile hydrates that profile instead of the active one`() =
         runTest {
             val profiles = FailingRelayProfileStore()

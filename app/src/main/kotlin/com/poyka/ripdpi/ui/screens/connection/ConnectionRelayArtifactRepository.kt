@@ -80,6 +80,35 @@ class ConnectionRelayArtifactRepository
             return appSettingsRepository.snapshot().toConfigDraft()
         }
 
+        /** Turns the active relay off and keeps its profile selected, so Relay can reactivate it. */
+        suspend fun deactivateActiveProfile(): ConnectionDraft {
+            val preparation =
+                profileMutations.captureMutation(
+                    com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation,
+                )
+            val profileId =
+                appSettingsRepository
+                    .snapshot()
+                    .relayProfileId
+                    .ifBlank { DefaultRelayProfileId }
+            val (profile, credentials) =
+                readRecovered { relayProfileStore.load(profileId) to loadEditableCredentials(profileId) }
+            if (profile == null) {
+                appSettingsRepository.update { setRelayEnabled(false) }
+            } else {
+                profileMutations.upsertRelay(
+                    preparation,
+                    profile,
+                    credentials ?: com.poyka.ripdpi.data
+                        .RelayCredentialRecord(profileId),
+                    enabled = false,
+                    select = true,
+                    expectedState = ExpectedRelayProfileState(profile, credentials),
+                )
+            }
+            return appSettingsRepository.snapshot().toConfigDraft()
+        }
+
         suspend fun listProfiles(): List<RelayProfileRecord> = readRecovered { relayProfileStore.list() }
 
         suspend fun persist(draft: ConnectionDraft): ConnectionDraft =
