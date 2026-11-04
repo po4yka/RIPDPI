@@ -175,23 +175,23 @@ class VpnProfileSearchTest {
         var activeId by remember { mutableStateOf("alpha") }
         RipDpiTheme {
             Column(Modifier.verticalScroll(rememberScrollState())) {
-                VpnConfigScreen(
+                ConnectionRelayProfileChoices(
                     uiState =
                         ConnectionUiState(
                             vpnProfiles = items.toImmutableList(),
                             activeRelayProfileId = activeId,
                             activeRelayEnabled = true,
                         ),
-                    onOpenRelaySettings = {},
-                    onOpenDnsSettings = {},
+                    actions =
+                        ConnectionProfileActions(
+                            select = {
+                                selected += it
+                                activeId = it
+                            },
+                            share = { shared += it },
+                            edit = { edited += it },
+                        ),
                     onPasteServerLink = {},
-                    onScanServer = {},
-                    onProfileSelect = {
-                        selected += it
-                        activeId = it
-                    },
-                    onProfileShare = { shared += it },
-                    onProfileEdit = { edited += it },
                 )
             }
         }

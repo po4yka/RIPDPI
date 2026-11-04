@@ -108,13 +108,10 @@ class VpnRelayProfileReachabilityTest {
         composeRule.setContent {
             RipDpiTheme {
                 Column(Modifier.verticalScroll(rememberScrollState())) {
-                    VpnConfigScreen(
+                    ConnectionRelayProfileChoices(
                         uiState = ConnectionUiState(vpnProfiles = profiles.toImmutableList()),
-                        onOpenRelaySettings = {},
-                        onOpenDnsSettings = {},
+                        actions = ConnectionProfileActions(edit = { edited += it }),
                         onPasteServerLink = {},
-                        onScanServer = {},
-                        onProfileEdit = { edited += it },
                     )
                 }
             }

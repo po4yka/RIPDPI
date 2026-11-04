@@ -246,7 +246,6 @@ fun ConnectionScreen(
         }
 
         ConnectionSelectedModeSection(
-            onDismissRuntimeError = runtimeCallbacks.dismissError,
             section = selectedModeSection,
             uiState = uiState,
             desyncSummary = desyncSummary,
@@ -254,9 +253,6 @@ fun ConnectionScreen(
             onChooseRelay = { showProfileChoices = true },
             onOpenConfigEditor = onOpenConfigEditor,
             onRetestStrategies = onRetestStrategies,
-            onPasteServerLink = onPasteServerLink,
-            onScanServer = profileActions.scanServer,
-            profileActions = profileActions,
         )
     }
 }
@@ -289,7 +285,6 @@ internal fun ConnectionModeSectionSwitcher(
 
 @Composable
 private fun ConnectionSelectedModeSection(
-    onDismissRuntimeError: () -> Unit,
     section: ConnectionModeSection,
     uiState: ConnectionUiState,
     desyncSummary: String,
@@ -297,16 +292,11 @@ private fun ConnectionSelectedModeSection(
     onChooseRelay: () -> Unit,
     onOpenConfigEditor: (ConnectionEditorTarget) -> Unit,
     onRetestStrategies: () -> Unit,
-    onPasteServerLink: () -> Unit,
-    onScanServer: () -> Unit,
-    profileActions: ConnectionProfileActions,
 ) {
     when (section) {
         ConnectionModeSection.LocalBypass -> {
             LocalBypassConfigScreen(
                 uiState = uiState,
-                settingsOnly = true,
-                onDismissRuntimeError = onDismissRuntimeError,
                 desyncSummary = desyncSummary,
                 onOpenDesyncSettings = { onOpenConfigEditor(ConnectionEditorTarget.Bypass) },
                 onOpenDnsSettings = { onOpenConfigEditor(ConnectionEditorTarget.Resolver) },
@@ -318,19 +308,11 @@ private fun ConnectionSelectedModeSection(
         ConnectionModeSection.Vpn -> {
             VpnConfigScreen(
                 uiState = uiState,
-                settingsOnly = true,
-                onDismissRuntimeError = onDismissRuntimeError,
                 onOpenRelaySettings = onEditCurrent,
                 onChooseRelay = onChooseRelay,
                 onOpenDnsSettings = { onOpenConfigEditor(ConnectionEditorTarget.Resolver) },
                 onOpenSubscriptionStatus = { onOpenConfigEditor(ConnectionEditorTarget.SubscriptionStatus) },
                 onOpenSubscriptionFailover = { onOpenConfigEditor(ConnectionEditorTarget.SubscriptionFailover) },
-                onPasteServerLink = onPasteServerLink,
-                onScanServer = onScanServer,
-                onProfileShare = profileActions.share,
-                onProfileSelect = profileActions.select,
-                onProfileEdit = profileActions.edit,
-                onCreateProfile = profileActions.create,
                 modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigVpnSummary),
             )
         }

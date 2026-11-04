@@ -628,16 +628,8 @@ app:config_listen_address_summary
 app:config_listener_section
 app:config_local_bypass_disabled
 app:config_local_bypass_enabled
-app:config_local_bypass_precedence_body
-app:config_local_bypass_precedence_cli_value
-app:config_local_bypass_precedence_title
-app:config_local_bypass_precedence_visual_value
 app:config_local_bypass_retest_strategies
-app:config_local_bypass_section_body
-app:config_local_bypass_simple_body
-app:config_local_bypass_simple_title
 app:config_local_bypass_strategy_auto
-app:config_local_bypass_strategy_body
 app:config_local_bypass_strategy_title
 app:config_max_connections_helper
 app:config_mode_section
@@ -834,9 +826,6 @@ app:config_vpn_profiles_title
 app:config_vpn_protocol_summary
 app:config_vpn_protocol_title
 app:config_vpn_relay_server_summary
-app:config_vpn_section_body
-app:config_vpn_simple_body
-app:config_vpn_simple_title
 app:config_xray_import_body
 app:config_xray_import_title
 app:confirm_clear_remembered_networks_body

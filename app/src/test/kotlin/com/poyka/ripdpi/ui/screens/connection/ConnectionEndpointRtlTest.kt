@@ -87,8 +87,6 @@ class ConnectionEndpointRtlTest {
                         uiState = state.value,
                         onOpenRelaySettings = {},
                         onOpenDnsSettings = {},
-                        onPasteServerLink = {},
-                        onScanServer = {},
                         modifier = Modifier.requiredSize(420.dp, 2400.dp),
                     )
                 }

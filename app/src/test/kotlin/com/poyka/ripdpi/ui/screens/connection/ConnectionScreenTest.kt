@@ -570,7 +570,7 @@ class ConnectionScreenTest {
             )
         composeRule.setContent {
             RipDpiTheme {
-                VpnConfigScreen(state, {}, {}, {}, {})
+                ConnectionRelayProfileChoices(state, ConnectionProfileActions(), {})
             }
         }
 

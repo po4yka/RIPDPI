@@ -4,7 +4,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -23,11 +22,7 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.EndpointSettingsRow
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
-import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
-import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
-import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
-import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.screens.dns.localizedDnsSummary
@@ -46,130 +41,18 @@ internal fun LocalBypassConfigScreen(
     onOpenDnsSettings: () -> Unit,
     onRetestStrategies: () -> Unit,
     modifier: Modifier = Modifier,
-    onDismissRuntimeError: () -> Unit = {},
-    settingsOnly: Boolean = false,
 ) {
     TrackRecomposition("LocalBypassConfigScreen")
 
-    val spacing = RipDpiThemeTokens.spacing
-
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(spacing.md),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
     ) {
-        SettingsCategoryHeader(title = stringResource(R.string.config_section_bypass_settings))
-        if (settingsOnly) {
-            LocalBypassAdvancedRows(
-                uiState,
-                desyncSummary,
-                onOpenDesyncSettings,
-                onOpenDnsSettings,
-                showGuidance = false,
-            )
-            RipDpiButton(
-                text = stringResource(R.string.config_local_bypass_retest_strategies),
-                onClick = onRetestStrategies,
-                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigLocalBypassRetest),
-                variant = RipDpiButtonVariant.Outline,
-                leadingIcon = RipDpiIcons.Refresh,
-            )
-            return@Column
-        }
-        LocalBypassSimpleCard(
-            uiState = uiState,
-            onDismissRuntimeError = onDismissRuntimeError,
-            onRetestStrategies = onRetestStrategies,
-        )
-        AdvancedSection(initiallyExpanded = uiState.uiPersona == "advanced") {
-            LocalBypassAdvancedRows(
-                uiState = uiState,
-                desyncSummary = desyncSummary,
-                onOpenDesyncSettings = onOpenDesyncSettings,
-                onOpenDnsSettings = onOpenDnsSettings,
-            )
-        }
-    }
-}
-
-@Composable
-private fun LocalBypassSimpleCard(
-    uiState: ConnectionUiState,
-    onDismissRuntimeError: () -> Unit,
-    onRetestStrategies: () -> Unit,
-) {
-    RipDpiCard(
-        variant = RipDpiCardVariant.Tonal,
-        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigLocalBypassSimple),
-    ) {
-        RipDpiPanelHeader(title = stringResource(R.string.config_local_bypass_simple_title))
-        Text(
-            text = stringResource(R.string.config_local_bypass_simple_body),
-            style = RipDpiThemeTokens.type.body,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
-        LocalBypassStrategyRow()
-        LocalBypassPrecedenceRow(commandLineOverridesEnabled = uiState.draft.useCommandLineSettings)
-        LocalBypassActionButtons(
-            uiState = uiState,
-            onDismissRuntimeError = onDismissRuntimeError,
-            onRetestStrategies = onRetestStrategies,
-            modifier = Modifier.fillMaxWidth(),
-        )
-    }
-}
-
-@Composable
-internal fun LocalBypassStrategyRow() {
-    SettingsRow(
-        title = stringResource(R.string.config_local_bypass_strategy_title),
-        subtitle = stringResource(R.string.config_local_bypass_strategy_body),
-        value = stringResource(R.string.config_local_bypass_strategy_auto),
-        leadingIcon = RipDpiIcons.Shield,
-        showDivider = true,
-        testTag = RipDpiTestTags.ConfigLocalBypassStrategyAuto,
-    )
-}
-
-@Composable
-internal fun LocalBypassPrecedenceRow(commandLineOverridesEnabled: Boolean) {
-    SettingsRow(
-        title = stringResource(R.string.config_local_bypass_precedence_title),
-        subtitle = stringResource(R.string.config_local_bypass_precedence_body),
-        value =
-            stringResource(
-                if (commandLineOverridesEnabled) {
-                    R.string.config_local_bypass_precedence_cli_value
-                } else {
-                    R.string.config_local_bypass_precedence_visual_value
-                },
-            ),
-        leadingIcon = RipDpiIcons.Info,
-        showDivider = false,
-        testTag = RipDpiTestTags.ConfigLocalBypassPrecedenceNote,
-    )
-}
-
-@Composable
-private fun LocalBypassActionButtons(
-    uiState: ConnectionUiState,
-    onDismissRuntimeError: () -> Unit,
-    onRetestStrategies: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val spacing = RipDpiThemeTokens.spacing
-
-    Column(
-        modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(spacing.sm),
-    ) {
-        ConnectionRuntimeFeedback(uiState, onDismissRuntimeError)
+        LocalBypassRows(uiState, desyncSummary, onOpenDesyncSettings, onOpenDnsSettings)
         RipDpiButton(
             text = stringResource(R.string.config_local_bypass_retest_strategies),
             onClick = onRetestStrategies,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .ripDpiTestTag(RipDpiTestTags.ConfigLocalBypassRetest),
+            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigLocalBypassRetest),
             variant = RipDpiButtonVariant.Outline,
             leadingIcon = RipDpiIcons.Refresh,
         )
@@ -177,21 +60,13 @@ private fun LocalBypassActionButtons(
 }
 
 @Composable
-private fun LocalBypassAdvancedRows(
+private fun LocalBypassRows(
     uiState: ConnectionUiState,
     desyncSummary: String,
     onOpenDesyncSettings: () -> Unit,
     onOpenDnsSettings: () -> Unit,
-    showGuidance: Boolean = true,
 ) {
     RipDpiCard {
-        if (showGuidance) {
-            Text(
-                text = stringResource(R.string.config_local_bypass_section_body),
-                style = RipDpiThemeTokens.type.body,
-                color = RipDpiThemeTokens.colors.mutedForeground,
-            )
-        }
         // The mode chips above the tabs show the mode; a row here would repeat it.
         // In VPN mode the listener is internal to the tunnel; only proxy-mode users point apps at it.
         if (uiState.draft.mode == Mode.Proxy) LocalBypassListenAddressRow(uiState = uiState)

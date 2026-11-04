@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -29,13 +28,10 @@ import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.EndpointSettingsRow
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
-import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.chrome.RipDpiPanelHeader
-import com.poyka.ripdpi.ui.components.feedback.AdvancedSection
 import com.poyka.ripdpi.ui.components.feedback.RipDpiContextMenu
 import com.poyka.ripdpi.ui.components.feedback.RipDpiContextMenuAction
-import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.navigation.Route
@@ -55,95 +51,24 @@ internal fun VpnConfigScreen(
     uiState: ConnectionUiState,
     onOpenRelaySettings: () -> Unit,
     onOpenDnsSettings: () -> Unit,
-    onPasteServerLink: () -> Unit,
-    onScanServer: () -> Unit,
-    onProfileShare: (String) -> Unit = {},
-    onProfileSelect: (String) -> Unit = {},
-    onProfileEdit: (String) -> Unit = {},
-    onCreateProfile: (Route) -> Unit = {},
     modifier: Modifier = Modifier,
-    onDismissRuntimeError: () -> Unit = {},
-    settingsOnly: Boolean = false,
     onChooseRelay: () -> Unit = {},
     onOpenSubscriptionStatus: (() -> Unit)? = null,
     onOpenSubscriptionFailover: (() -> Unit)? = null,
 ) {
     TrackRecomposition("VpnConfigScreen")
 
-    val spacing = RipDpiThemeTokens.spacing
-
     Column(
         modifier = modifier,
-        verticalArrangement = Arrangement.spacedBy(spacing.md),
+        verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
     ) {
-        SettingsCategoryHeader(
-            title =
-                stringResource(
-                    if (settingsOnly) R.string.config_relay_server else R.string.config_section_server_settings,
-                ),
-        )
-        if (settingsOnly) {
-            VpnAdvancedRows(
-                uiState,
-                onOpenRelaySettings,
-                onOpenDnsSettings,
-                onChooseRelay = onChooseRelay,
-                showGuidance = false,
-                onOpenSubscriptionStatus = onOpenSubscriptionStatus,
-                onOpenSubscriptionFailover = onOpenSubscriptionFailover,
-            )
-            return@Column
-        }
-        VpnSimpleCard(
-            uiState = uiState,
-            onDismissRuntimeError = onDismissRuntimeError,
-            onPasteServerLink = onPasteServerLink,
-            onScanServer = onScanServer,
-            onProfileShare = onProfileShare,
-            onProfileSelect = onProfileSelect,
-            onProfileEdit = onProfileEdit,
-            onCreateProfile = onCreateProfile,
-        )
-        AdvancedSection(initiallyExpanded = uiState.uiPersona == "advanced") {
-            VpnAdvancedRows(
-                uiState = uiState,
-                onOpenRelaySettings = onOpenRelaySettings,
-                onOpenDnsSettings = onOpenDnsSettings,
-            )
-        }
-    }
-}
-
-@Composable
-private fun VpnSimpleCard(
-    uiState: ConnectionUiState,
-    onDismissRuntimeError: () -> Unit,
-    onPasteServerLink: () -> Unit,
-    onScanServer: () -> Unit,
-    onProfileShare: (String) -> Unit,
-    onProfileSelect: (String) -> Unit,
-    onProfileEdit: (String) -> Unit,
-    onCreateProfile: (Route) -> Unit,
-) {
-    RipDpiCard(variant = RipDpiCardVariant.Tonal, modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigVpnSimple)) {
-        RipDpiPanelHeader(title = stringResource(R.string.config_vpn_simple_title))
-        Text(
-            text = stringResource(R.string.config_vpn_simple_body),
-            style = RipDpiThemeTokens.type.body,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
-        VpnSimpleActions(
-            uiState = uiState,
-            onDismissRuntimeError = onDismissRuntimeError,
-            onPasteServerLink = onPasteServerLink,
-            onScanServer = onScanServer,
-            onCreateProfile = onCreateProfile,
-        )
-        VpnProfileList(
-            uiState = uiState,
-            onProfileShare = onProfileShare,
-            onProfileSelect = onProfileSelect,
-            onProfileEdit = onProfileEdit,
+        VpnRows(
+            uiState,
+            onOpenRelaySettings,
+            onOpenDnsSettings,
+            onChooseRelay = onChooseRelay,
+            onOpenSubscriptionStatus = onOpenSubscriptionStatus,
+            onOpenSubscriptionFailover = onOpenSubscriptionFailover,
         )
     }
 }
@@ -288,47 +213,6 @@ internal fun VpnProfileItem(
 }
 
 @Composable
-private fun VpnSimpleActions(
-    uiState: ConnectionUiState,
-    onDismissRuntimeError: () -> Unit,
-    onPasteServerLink: () -> Unit,
-    onScanServer: () -> Unit,
-    onCreateProfile: (Route) -> Unit,
-) {
-    val spacing = RipDpiThemeTokens.spacing
-
-    Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-        ConnectionRuntimeFeedback(uiState, onDismissRuntimeError)
-        VpnAddProfileAction(onCreateProfile)
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(spacing.sm),
-        ) {
-            RipDpiButton(
-                text = stringResource(R.string.config_vpn_add_server_paste),
-                onClick = onPasteServerLink,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .ripDpiTestTag(RipDpiTestTags.ConfigVpnAddServerPaste),
-                variant = RipDpiButtonVariant.Outline,
-                leadingIcon = RipDpiIcons.Paste,
-            )
-            RipDpiButton(
-                text = stringResource(R.string.config_vpn_add_server_scan),
-                onClick = onScanServer,
-                modifier =
-                    Modifier
-                        .weight(1f)
-                        .ripDpiTestTag(RipDpiTestTags.ConfigVpnAddServerScan),
-                variant = RipDpiButtonVariant.Outline,
-                leadingIcon = RipDpiIcons.QrCodeScanner,
-            )
-        }
-    }
-}
-
-@Composable
 private fun VpnAddProfileAction(onCreateProfile: (Route) -> Unit) {
     var showProfileMenu by rememberSaveable { mutableStateOf(false) }
     val importAwgConfFile = rememberAwgConfFileImport(onCreateProfile)
@@ -387,23 +271,15 @@ private fun VpnAddProfileAction(onCreateProfile: (Route) -> Unit) {
 }
 
 @Composable
-private fun VpnAdvancedRows(
+private fun VpnRows(
     uiState: ConnectionUiState,
     onOpenRelaySettings: () -> Unit,
     onOpenDnsSettings: () -> Unit,
-    onChooseRelay: () -> Unit = onOpenRelaySettings,
-    showGuidance: Boolean = true,
+    onChooseRelay: () -> Unit,
     onOpenSubscriptionStatus: (() -> Unit)? = null,
     onOpenSubscriptionFailover: (() -> Unit)? = null,
 ) {
     RipDpiCard {
-        if (showGuidance) {
-            Text(
-                text = stringResource(R.string.config_vpn_section_body),
-                style = RipDpiThemeTokens.type.body,
-                color = RipDpiThemeTokens.colors.mutedForeground,
-            )
-        }
         if (uiState.draft.relayEnabled && uiState.draft.relayKind != RelayKindOff) {
             VpnRelayRow(uiState = uiState, onOpenRelaySettings = onOpenRelaySettings)
             VpnProtocolRow(uiState = uiState, onOpenRelaySettings = onOpenRelaySettings)
@@ -655,8 +531,6 @@ private fun VpnConfigScreenPreview() {
                 ),
             onOpenRelaySettings = {},
             onOpenDnsSettings = {},
-            onPasteServerLink = {},
-            onScanServer = {},
         )
     }
 }

@@ -46,8 +46,6 @@ class ConfigSetupHealthScreenshotTest {
                 uiState = populatedVpnConfigState(),
                 onOpenRelaySettings = {},
                 onOpenDnsSettings = {},
-                onPasteServerLink = {},
-                onScanServer = {},
             )
         }
     }
