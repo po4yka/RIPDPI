@@ -130,9 +130,14 @@ class StrategyPassageSceneTest {
     }
 
     @Test
-    fun `fakeddisorder resends the parts in reverse order`() {
+    fun `fakeddisorder ends its first decoy before DPI and resends oldest bytes first`() {
         assertEquals(
-            listOf(decoy(0, 33), decoy(33, 100), resend(33, 100), resend(0, 33)),
+            listOf(
+                PassagePiece(PassagePieceKind.Decoy, 0, 33, endsBeforeDpi = true),
+                decoy(33, 100),
+                resend(0, 33),
+                resend(33, 100),
+            ),
             tcpPieces(tcp(TcpChainStepKind.FakeDisorder)),
         )
     }

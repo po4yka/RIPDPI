@@ -54,6 +54,7 @@ data class PassagePiece(
     val hasUrgentByte: Boolean = false,
     val inSyn: Boolean = false,
     val hasFakePrefix: Boolean = false,
+    val endsBeforeDpi: Boolean = false,
     val quicStep: UdpChainStepKind? = null,
     val copyIndex: Int = 0,
     val extraCopies: Int = 0,
@@ -75,7 +76,10 @@ val PassagePiece.arrives: Boolean
 /**
  * What the configured chain does to a packet, in the order of the native planner. It describes the
  * settings, not captured traffic: the engine can still fall back at runtime, and the kernel decides
- * when a resend really happens.
+ * when a resend really happens. No live signal reports a fallback to the app yet.
+ *
+ * shortcut: custom `altorder` and `seqmode` values on fake steps draw the default order, model them if
+ * presets start to use them.
  */
 @Immutable
 data class StrategyPassageScene(
@@ -220,10 +224,11 @@ private class TcpPieceWriter {
             }
 
             TcpChainStepKind.FakeDisorder -> {
-                pieces += PassagePiece(PassagePieceKind.Decoy, start, position)
-                pieces += PassagePiece(PassagePieceKind.Decoy, position, PassagePayloadEnd)
-                resends += PassagePiece(PassagePieceKind.Retransmit, position, PassagePayloadEnd)
-                resends += PassagePiece(PassagePieceKind.Retransmit, start, position)
+                // send_first_disorder_segment uses TTL 1, so this decoy ends at the first hop. TCP then
+                // resends from the oldest unacknowledged byte, so both real parts land in order.
+                pieces += PassagePiece(PassagePieceKind.Decoy, start, position, endsBeforeDpi = true)
+                lose(PassagePieceKind.Decoy, position, PassagePayloadEnd)
+                resends.add(resends.size - 1, PassagePiece(PassagePieceKind.Retransmit, start, position))
             }
 
             TcpChainStepKind.HostFake -> {

@@ -446,6 +446,7 @@ private fun DrawScope.drawFlights(
                 val targetX =
                     when {
                         frame.engaging -> layout.dpiX - from.width - PieceGap.toPx()
+                        piece.endsBeforeDpi -> layout.dpiX - from.width - PieceGap.toPx()
                         !piece.arrives -> layout.dpiX + size.width * DecoyDeathFraction
                         else -> layout.wholeArea.left + piece.start * wholeUnit
                     }
