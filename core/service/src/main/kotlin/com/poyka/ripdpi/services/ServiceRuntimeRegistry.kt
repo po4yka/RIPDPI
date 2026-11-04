@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.core.localSocksCredentialsOrNull
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DiagnosticsInPathRouteLease
 import com.poyka.ripdpi.data.DiagnosticsProxyCredentials
@@ -29,6 +30,10 @@ interface ServiceRuntimeHandle {
     ): Boolean
 
     val diagnosticsInPathRouteLease: DiagnosticsInPathRouteLease?
+        get() = null
+
+    /** The listener this runtime's tunnel forwards traffic into. The app's own UID bypasses the tunnel. */
+    val tunnelSocksRoute: LocalSocksRoute?
         get() = null
 }
 
@@ -133,8 +138,26 @@ class VpnRuntimeSession(
     @Volatile
     private var inPathRouteLease: DiagnosticsInPathRouteLease? = null
 
+    @Volatile
+    private var publishedTunnelSocksRoute: LocalSocksRoute? = null
+
     override val diagnosticsInPathRouteLease: DiagnosticsInPathRouteLease?
         get() = inPathRouteLease
+
+    override val tunnelSocksRoute: LocalSocksRoute?
+        get() = publishedTunnelSocksRoute
+
+    internal fun publishTunnelSocksRoute(endpoint: LocalProxyEndpoint) {
+        publishedTunnelSocksRoute =
+            LocalSocksRoute(
+                endpoint.host,
+                endpoint.port,
+                localSocksCredentialsOrNull(
+                    endpoint.username?.takeIf(String::isNotEmpty),
+                    endpoint.password?.takeIf(String::isNotEmpty),
+                ),
+            )
+    }
 
     internal fun publishInPathLease(
         endpoint: LocalProxyEndpoint,
@@ -155,6 +178,7 @@ class VpnRuntimeSession(
 
     internal fun revokeInPathLease() {
         inPathRouteLease = null
+        publishedTunnelSocksRoute = null
     }
 }
 

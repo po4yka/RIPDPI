@@ -89,6 +89,11 @@ object LocalSocksCredentialRegistry {
     ): String = "${host.trim().removeSurrounding("[", "]").lowercase()}:$port"
 }
 
+/** The listener answered a CONNECT with the RFC 1928 failure [reply]. */
+class LocalSocksConnectRejectedException(
+    val reply: Int,
+) : ProtocolException("SOCKS CONNECT was rejected")
+
 /** Minimal SOCKS5 client for app-owned loopback listeners (RFC 1928 with RFC 1929 authentication). */
 object LocalSocks5Client {
     /**
@@ -138,9 +143,7 @@ object LocalSocks5Client {
         authenticate(input, output, credentials)
         output.write(connectRequest(target))
         output.flush()
-        if (input.readByte() != SocksVersion || input.readByte() != ReplySucceeded) {
-            throw ProtocolException("SOCKS CONNECT was rejected")
-        }
+        requireConnectSucceeded(input)
         input.readByte()
         val boundAddressBytes =
             when (input.readByte()) {
@@ -150,6 +153,12 @@ object LocalSocks5Client {
                 else -> throw ProtocolException("SOCKS CONNECT reply address type is unsupported")
             }
         input.readFully(ByteArray(boundAddressBytes + PortBytes))
+    }
+
+    private fun requireConnectSucceeded(input: DataInputStream) {
+        if (input.readByte() != SocksVersion) throw ProtocolException("SOCKS CONNECT reply version is invalid")
+        val reply = input.readUnsignedByte()
+        if (reply != ReplySucceeded) throw LocalSocksConnectRejectedException(reply)
     }
 
     private fun connectRequest(target: InetSocketAddress): ByteArray {
@@ -177,7 +186,7 @@ private const val MethodUserPass: Byte = 2
 private const val UserPassVersion: Byte = 1
 private const val UserPassSucceeded: Byte = 0
 private const val CommandConnect: Byte = 1
-private const val ReplySucceeded: Byte = 0
+private const val ReplySucceeded = 0
 private const val AddressIpv4: Byte = 1
 private const val AddressDomain: Byte = 3
 private const val AddressIpv6: Byte = 4

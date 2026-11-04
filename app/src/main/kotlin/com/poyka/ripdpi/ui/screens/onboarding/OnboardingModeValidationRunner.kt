@@ -5,6 +5,8 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.displayMessage
 import com.poyka.ripdpi.activities.suggestedModeFor
 import com.poyka.ripdpi.activities.validationRecoveryKind
+import com.poyka.ripdpi.core.LocalSocks5Client
+import com.poyka.ripdpi.core.LocalSocksConnectRejectedException
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppStatus
@@ -14,10 +16,13 @@ import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.displayMessage
 import com.poyka.ripdpi.platform.StringResolver
+import com.poyka.ripdpi.services.LocalSocksRoute
 import com.poyka.ripdpi.services.OwnedTlsClientFactory
 import com.poyka.ripdpi.services.ServiceController
+import com.poyka.ripdpi.services.ServiceRuntimeRegistry
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
+import com.poyka.ripdpi.services.localSocksProxy
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -33,11 +38,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import okhttp3.Request
 import java.io.IOException
-import java.net.InetAddress
 import java.net.InetSocketAddress
-import java.net.Proxy
+import java.net.Socket
 import java.net.URI
-import java.net.UnknownHostException
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -48,8 +51,9 @@ private const val ValidationStopTimeoutMs = 5_000L
 private const val ValidationTrafficTimeoutMs = 10_000L
 private const val DefaultProxyPort = 1080
 private const val DefaultProxyHost = "127.0.0.1"
-private const val HttpSuccessCodeMin = 200
-private const val HttpSuccessCodeMax = 399
+private const val HttpNoContent = 204
+private const val HttpsPort = 443
+private const val SocksReplyHostUnreachable = 4
 
 sealed interface OnboardingValidationResult {
     data class Success(
@@ -82,6 +86,7 @@ class DefaultOnboardingModeValidationRunner
         private val appSettingsRepository: AppSettingsRepository,
         private val serviceController: ServiceController,
         private val serviceStateStore: ServiceStateStore,
+        private val serviceRuntimeRegistry: ServiceRuntimeRegistry,
         private val tlsClientFactory: OwnedTlsClientFactory,
         private val stringResolver: StringResolver,
         private val dispatchers: AppCoroutineDispatchers,
@@ -95,10 +100,11 @@ class DefaultOnboardingModeValidationRunner
         ): OnboardingValidationResult =
             try {
                 ensureSelectedModeRunning(mode = mode, onProgress = onProgress)
+                val route = probeRoute(mode)
                 onProgress(OnboardingValidationState.CheckingDns(mode))
-                runDnsProbe(mode)
+                runDnsProbe(mode, route)
                 onProgress(OnboardingValidationState.RunningTrafficCheck(mode))
-                val latencyMs = runConnectivityProbe(mode)
+                val latencyMs = runConnectivityProbe(route)
                 OnboardingValidationResult.Success(latencyMs = latencyMs)
             } catch (e: OnboardingProbeException) {
                 Logger.w(e) { "Onboarding validation ${e.step} probe failed for $mode" }
@@ -230,19 +236,48 @@ class DefaultOnboardingModeValidationRunner
             }
         }
 
-        private suspend fun runDnsProbe(mode: Mode) {
+        /** Own-UID traffic bypasses the TUN, so probes must enter the listener the tunnel forwards into. */
+        private suspend fun probeRoute(mode: Mode): LocalSocksRoute =
+            when (mode) {
+                Mode.VPN -> {
+                    serviceRuntimeRegistry.current(Mode.VPN)?.tunnelSocksRoute
+                        ?: throw OnboardingProbeException(
+                            step = OnboardingValidationStep.Tunnel,
+                            reasonMessage = stringResolver.getString(R.string.onboarding_validation_failed_generic),
+                        )
+                }
+
+                Mode.Proxy -> {
+                    val settings = appSettingsRepository.snapshot()
+                    LocalSocksRoute(
+                        host = settings.proxyIp.ifBlank { DefaultProxyHost },
+                        port = settings.proxyPort.takeIf { it > 0 } ?: DefaultProxyPort,
+                    )
+                }
+            }
+
+        /** A CONNECT by name makes the engine resolve it with the configured DNS, as user traffic does. */
+        private suspend fun runDnsProbe(
+            mode: Mode,
+            route: LocalSocksRoute,
+        ) {
             Logger.d { "Onboarding DNS probe starting for $mode" }
             val host = resolveDnsProbeHost()
-            try {
-                performDnsLookup(host)
-            } catch (e: TimeoutCancellationException) {
-                // TimeoutCancellationException (a CancellationException subtype) means the DNS step
-                // itself timed out — tag it as Dns. A plain CancellationException is intentionally NOT
-                // caught here, so genuine cancellation propagates untouched.
-                throw dnsProbeFailure(cause = e)
-            } catch (e: IOException) {
-                // UnknownHostException is an IOException, so this single branch covers both lookup failures.
-                throw dnsProbeFailure(cause = e, message = e.message)
+            withContext(dispatchers.io) {
+                try {
+                    Socket().use { socket ->
+                        socket.connect(InetSocketAddress(route.host, route.port), ValidationTrafficTimeoutMs.toInt())
+                        socket.soTimeout = ValidationTrafficTimeoutMs.toInt()
+                        LocalSocks5Client.connect(
+                            socket,
+                            InetSocketAddress.createUnresolved(host, HttpsPort),
+                            route.credentials,
+                        )
+                    }
+                } catch (e: LocalSocksConnectRejectedException) {
+                    if (e.reply == SocksReplyHostUnreachable) throw dnsProbeFailure(cause = e)
+                    throw e
+                }
             }
         }
 
@@ -252,32 +287,17 @@ class DefaultOnboardingModeValidationRunner
                 ?.takeIf { it.isNotBlank() }
                 ?: throw dnsProbeFailure()
 
-        private suspend fun performDnsLookup(host: String) {
-            withContext(dispatchers.io) {
-                withTimeout(ValidationTrafficTimeoutMs) {
-                    if (InetAddress.getAllByName(host).isEmpty()) {
-                        throw UnknownHostException(host)
-                    }
-                }
-            }
-        }
-
-        private fun dnsProbeFailure(
-            cause: Throwable? = null,
-            message: String? = null,
-        ): OnboardingProbeException =
+        private fun dnsProbeFailure(cause: Throwable? = null): OnboardingProbeException =
             OnboardingProbeException(
                 step = OnboardingValidationStep.Dns,
-                reasonMessage =
-                    message?.takeIf { it.isNotBlank() }
-                        ?: stringResolver.getString(R.string.onboarding_validation_failed_generic),
+                reasonMessage = stringResolver.getString(R.string.onboarding_validation_failed_generic),
                 cause = cause,
             )
 
-        private suspend fun runConnectivityProbe(mode: Mode): Long =
+        private suspend fun runConnectivityProbe(route: LocalSocksRoute): Long =
             try {
                 withContext(dispatchers.io) {
-                    runConnectivityProbeBlocking(mode)
+                    runConnectivityProbeBlocking(route)
                 }
             } catch (e: CancellationException) {
                 throw e
@@ -291,8 +311,7 @@ class DefaultOnboardingModeValidationRunner
                 )
             }
 
-        private suspend fun runConnectivityProbeBlocking(mode: Mode): Long {
-            val settings = appSettingsRepository.snapshot()
+        private fun runConnectivityProbeBlocking(route: LocalSocksRoute): Long {
             val request =
                 Request
                     .Builder()
@@ -305,17 +324,7 @@ class DefaultOnboardingModeValidationRunner
                     readTimeout(ValidationTrafficTimeoutMs, TimeUnit.MILLISECONDS)
                     callTimeout(ValidationTrafficTimeoutMs, TimeUnit.MILLISECONDS)
                     followRedirects(false)
-                    if (mode == Mode.Proxy) {
-                        proxy(
-                            Proxy(
-                                Proxy.Type.SOCKS,
-                                InetSocketAddress(
-                                    settings.proxyIp.ifBlank { DefaultProxyHost },
-                                    settings.proxyPort.takeIf { it > 0 } ?: DefaultProxyPort,
-                                ),
-                            ),
-                        )
-                    }
+                    localSocksProxy(route)
                 }
             return runCatching {
                 var responseCode = 0
@@ -326,7 +335,8 @@ class DefaultOnboardingModeValidationRunner
                         }
                     }
                 elapsed.also {
-                    if (responseCode !in HttpSuccessCodeMin..HttpSuccessCodeMax) {
+                    // generate_204 answers exactly 204: anything else comes from a captive portal or a filter.
+                    if (responseCode != HttpNoContent) {
                         throwProbeFailure(IOException("HTTP $responseCode"))
                     }
                 }

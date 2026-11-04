@@ -142,6 +142,7 @@ internal class VpnTunnelRuntime(
         } else {
             session.revokeInPathLease()
         }
+        session.publishTunnelSocksRoute(endpoint)
     }
 
     val desiredInterfacePolicySignatures: Flow<String>

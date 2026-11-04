@@ -11,21 +11,32 @@ import java.net.Socket
 import java.net.SocketAddress
 import javax.net.SocketFactory
 
+/** An app-owned loopback SOCKS5 listener and the session credentials it requires, if any. */
+data class LocalSocksRoute(
+    val host: String,
+    val port: Int,
+    val credentials: LocalSocksCredentials? = null,
+)
+
+/** Routes OkHttp through the listener at [endpoint], presenting the session credentials its owner registered. */
+internal fun OkHttpClient.Builder.localSocksProxy(endpoint: RelayProbeEndpoint): OkHttpClient.Builder =
+    localSocksProxy(
+        LocalSocksRoute(
+            endpoint.host,
+            endpoint.port,
+            LocalSocksCredentialRegistry.lookup(endpoint.host, endpoint.port),
+        ),
+    )
+
 /**
- * Routes OkHttp through the app-owned loopback SOCKS5 listener at [endpoint], presenting the session
- * credentials its owner registered. `java.net` SOCKS can take credentials only from the process-wide
+ * Routes OkHttp through [route]. `java.net` SOCKS can take credentials only from the process-wide
  * `Authenticator`, so the SOCKS handshake runs in the socket factory instead. Host names stay unresolved
  * and go to the listener as domain names, as with `Proxy.Type.SOCKS`.
  */
-internal fun OkHttpClient.Builder.localSocksProxy(endpoint: RelayProbeEndpoint): OkHttpClient.Builder =
+fun OkHttpClient.Builder.localSocksProxy(route: LocalSocksRoute): OkHttpClient.Builder =
     proxy(Proxy.NO_PROXY)
-        .socketFactory(
-            LocalSocksSocketFactory(
-                endpoint.host,
-                endpoint.port,
-                LocalSocksCredentialRegistry.lookup(endpoint.host, endpoint.port),
-            ),
-        ).dns { hostname -> listOf(InetAddress.getByAddress(hostname, UnresolvedAddress)) }
+        .socketFactory(LocalSocksSocketFactory(route.host, route.port, route.credentials))
+        .dns { hostname -> listOf(InetAddress.getByAddress(hostname, UnresolvedAddress)) }
 
 private class LocalSocksSocketFactory(
     private val proxyHost: String,
