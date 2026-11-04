@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="settings">Configurações</string>
-    <string name="persona_simple">Guiado</string>
+    <string name="persona_guided">Guiado</string>
     <string name="persona_advanced">Avançado</string>
     <string name="settings_persona_title">Modo de interface</string>
     <string name="settings_persona_body">Escolha se as telas abrem com controles do dia a dia ou com os controles avançados de operador expandidos.</string>

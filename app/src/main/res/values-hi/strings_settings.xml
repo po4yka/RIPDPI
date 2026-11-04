@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="settings">सेटिंग्स</string>
-    <string name="persona_simple">निर्देशित</string>
+    <string name="persona_guided">निर्देशित</string>
     <string name="persona_advanced">उन्नत</string>
     <string name="settings_persona_title">इंटरफ़ेस मोड</string>
     <string name="settings_persona_body">चुनें कि स्क्रीन रोज़मर्रा के नियंत्रणों के साथ खुलें या उन्नत ऑपरेटर नियंत्रण विस्तृत रूप में खुलें।</string>

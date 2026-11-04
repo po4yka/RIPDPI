@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="onboarding_persona_title">اختر الواجهة</string>
-    <string name="onboarding_persona_simple_body">تبقى عناصر التحكم اليومية ظاهرة وتبقى التفاصيل الخبيرة مطوية.</string>
+    <string name="onboarding_persona_guided_body">تبقى عناصر التحكم اليومية ظاهرة وتبقى التفاصيل الخبيرة مطوية.</string>
     <string name="onboarding_persona_advanced_body">عرض كل أدوات التشخيص والملفات الشخصية والإعدادات منخفضة المستوى.</string>
     <string name="onboarding_continue">متابعة</string>
     <string name="onboarding_setup_finish">إنهاء</string>

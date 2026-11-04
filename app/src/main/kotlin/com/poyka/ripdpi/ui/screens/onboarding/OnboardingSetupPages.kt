@@ -84,12 +84,12 @@ internal fun OnboardingPersonaSelectionContent(
     ) {
         val persona = OnboardingPersona.fromId(selectedPersona)
         OnboardingOptionCard(
-            title = stringResource(R.string.persona_simple),
-            description = stringResource(R.string.onboarding_persona_simple_body),
+            title = stringResource(R.string.persona_guided),
+            description = stringResource(R.string.onboarding_persona_guided_body),
             badgeText = stringResource(R.string.onboarding_badge_recommended),
-            selected = persona == OnboardingPersona.Simple,
-            onClick = { onPersonaSelected(OnboardingPersona.Simple.id) },
-            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingPersonaSimple),
+            selected = persona == OnboardingPersona.Guided,
+            onClick = { onPersonaSelected(OnboardingPersona.Guided.id) },
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingPersonaGuided),
         )
         OnboardingOptionCard(
             title = stringResource(R.string.persona_advanced),

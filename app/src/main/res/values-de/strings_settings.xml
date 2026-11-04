@@ -118,7 +118,7 @@
     <string name="data_transparency_no_external_servers">Es werden keine Daten automatisch an externe Server gesendet</string>
     <string name="data_transparency_what_we_collect_section">Was auf diesem Gerät gespeichert wird</string>
     <string name="language_name_fr">Français</string>
-    <string name="persona_simple">Geführt</string>
+    <string name="persona_guided">Geführt</string>
     <string name="persona_advanced">Erweitert</string>
     <string name="settings_persona_title">Oberflächenmodus</string>
     <string name="settings_persona_body">Wählt, ob Bildschirme mit Alltagssteuerung oder erweiterten Bedienfunktionen geöffnet werden.</string>

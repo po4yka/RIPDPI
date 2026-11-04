@@ -32,7 +32,7 @@
     <string name="biometric_prompt_pin_error">Die Backup-PIN stimmt nicht überein.</string>
     <string name="biometric_prompt_pin_placeholder">0000</string>
     <string name="onboarding_persona_title">Oberfläche wählen</string>
-    <string name="onboarding_persona_simple_body">Alltagssteuerung bleibt sichtbar, Expertendetails bleiben eingeklappt.</string>
+    <string name="onboarding_persona_guided_body">Alltagssteuerung bleibt sichtbar, Expertendetails bleiben eingeklappt.</string>
     <string name="onboarding_persona_advanced_body">Zeigt alle Diagnosen, Profile und Low-Level-Einstellungen an.</string>
     <string name="onboarding_setup_validate_title">Verbindung testen</string>
     <string name="onboarding_step_progress">Schritt %1$d von %2$d</string>

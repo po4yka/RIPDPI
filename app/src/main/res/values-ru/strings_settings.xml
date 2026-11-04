@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="settings">Настройки</string>
-    <string name="persona_simple">С подсказками</string>
+    <string name="persona_guided">С подсказками</string>
     <string name="persona_advanced">Расширенный</string>
     <string name="settings_persona_title">Режим интерфейса</string>
     <string name="settings_persona_body">Выберите, открывать экраны с обычными элементами или с расширенными операторскими настройками.</string>

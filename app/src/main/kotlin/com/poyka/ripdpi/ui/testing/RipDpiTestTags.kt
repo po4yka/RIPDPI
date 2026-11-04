@@ -309,7 +309,7 @@ internal object RipDpiTestTags {
     const val OnboardingSkipTest = "onboarding-skip-test"
     const val OnboardingSkipConfirmDialog = "onboarding-skip-confirm-dialog"
     const val OnboardingContinue = "onboarding-continue"
-    const val OnboardingPersonaSimple = "onboarding-persona-simple"
+    const val OnboardingPersonaGuided = "onboarding-persona-guided"
     const val OnboardingPersonaAdvanced = "onboarding-persona-advanced"
     const val OnboardingModeVpn = "onboarding-mode-vpn"
     const val OnboardingModeProxy = "onboarding-mode-proxy"

@@ -39,7 +39,7 @@ class TerminologyCanonTest {
 
         expectedGuidedLabels.forEach { (directory, expected) ->
             val values = featureStringValues(File(resourcesDir, directory))
-            assertEquals("$directory persona label", expected, values.getValue("persona_simple"))
+            assertEquals("$directory persona label", expected, values.getValue("persona_guided"))
         }
         expectedDistributionTitles.forEach { (directory, expected) ->
             val values = stringValues(File(simpleResourcesDir, "$directory/strings.xml"))

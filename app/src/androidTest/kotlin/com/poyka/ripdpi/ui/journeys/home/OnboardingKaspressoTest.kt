@@ -20,7 +20,7 @@ private class OnboardingPage(
 ) : JourneyPage<OnboardingPage>(rule, RipDpiTestTags.screen(Route.Onboarding)) {
     val skip = RipDpiTestTags.OnboardingSkip
     val next = RipDpiTestTags.OnboardingContinue
-    val personaSimple = RipDpiTestTags.OnboardingPersonaSimple
+    val personaGuided = RipDpiTestTags.OnboardingPersonaGuided
     val personaAdvanced = RipDpiTestTags.OnboardingPersonaAdvanced
     val modeVpn = RipDpiTestTags.OnboardingModeVpn
     val modeProxy = RipDpiTestTags.OnboardingModeProxy
@@ -44,7 +44,7 @@ class OnboardingKaspressoTest :
         with(OnboardingPage(composeRule)) {
             step("Privacy page continues to the persona page") { click(next) }
             step("Pick the persona and continue") {
-                waitFor(personaSimple)
+                waitFor(personaGuided)
                 click(persona(this))
                 click(next)
             }
@@ -72,7 +72,7 @@ class OnboardingKaspressoTest :
 
     @Test
     fun simplePersonaWithVpnModeCompletesOnboardingAndPersistsChoices() {
-        walkOnboarding(persona = { it.personaSimple }, mode = { it.modeVpn })
+        walkOnboarding(persona = { it.personaGuided }, mode = { it.modeVpn })
         composeRule.waitForSettings(appSettingsRepository) {
             it.onboardingComplete && it.uiPersona == "simple" && it.ripdpiMode == Mode.VPN.preferenceValue
         }

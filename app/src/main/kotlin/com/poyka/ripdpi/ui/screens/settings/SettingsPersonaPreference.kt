@@ -47,7 +47,7 @@ internal fun SettingsPersonaPreference(
                 ) {
                     R.string.persona_advanced
                 } else {
-                    R.string.persona_simple
+                    R.string.persona_guided
                 },
             ),
         onClick = { showPicker = true },
@@ -75,8 +75,8 @@ internal fun SettingsPersonaPreference(
         ) {
             Column(modifier = Modifier.fillMaxWidth().selectableGroup()) {
                 PersonaChoice(
-                    title = R.string.persona_simple,
-                    description = R.string.onboarding_persona_simple_body,
+                    title = R.string.persona_guided,
+                    description = R.string.onboarding_persona_guided_body,
                     selected = currentPersona == "simple",
                     testTag = RipDpiTestTags.SettingsPersonaGuided,
                     onClick = { choose("simple") },

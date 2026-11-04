@@ -56,7 +56,7 @@ class SettingsPersonaChoiceTest {
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsPersonaSheet).assertIsDisplayed()
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsPersonaGuided).assertIsSelected()
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsPersonaAdvanced).assertIsNotSelected()
-        composeRule.onNodeWithText(string(R.string.onboarding_persona_simple_body)).assertIsDisplayed()
+        composeRule.onNodeWithText(string(R.string.onboarding_persona_guided_body)).assertIsDisplayed()
         composeRule.onNodeWithText(string(R.string.onboarding_persona_advanced_body)).assertIsDisplayed()
 
         composeRule.onNodeWithTag(RipDpiTestTags.SettingsPersonaAdvanced).performClick()

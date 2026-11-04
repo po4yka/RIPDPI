@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="settings">الإعدادات</string>
-    <string name="persona_simple">موجّه</string>
+    <string name="persona_guided">موجّه</string>
     <string name="persona_advanced">متقدم</string>
     <string name="settings_persona_title">نمط الواجهة</string>
     <string name="settings_persona_body">اختر ما إذا كانت الشاشات تفتح بعناصر يومية أو بعناصر تحكم متقدمة.</string>

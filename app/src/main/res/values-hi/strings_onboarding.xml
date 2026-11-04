@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="onboarding_persona_title">अपना इंटरफ़ेस चुनें</string>
-    <string name="onboarding_persona_simple_body">रोज़मर्रा के नियंत्रण दिखते रहते हैं जबकि विशेषज्ञ विवरण संकुचित रहते हैं।</string>
+    <string name="onboarding_persona_guided_body">रोज़मर्रा के नियंत्रण दिखते रहते हैं जबकि विशेषज्ञ विवरण संकुचित रहते हैं।</string>
     <string name="onboarding_persona_advanced_body">सभी जाँच, प्रोफ़ाइल और निम्न-स्तरीय सेटिंग्स दिखाएँ।</string>
     <string name="onboarding_continue">जारी रखें</string>
     <string name="onboarding_setup_finish">समाप्त करें</string>

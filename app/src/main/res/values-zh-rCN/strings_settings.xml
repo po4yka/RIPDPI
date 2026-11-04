@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="settings">设置</string>
-    <string name="persona_simple">引导</string>
+    <string name="persona_guided">引导</string>
     <string name="persona_advanced">高级</string>
     <string name="settings_persona_title">界面模式</string>
     <string name="settings_persona_body">选择屏幕默认显示日常控制，还是展开高级操作控制。</string>

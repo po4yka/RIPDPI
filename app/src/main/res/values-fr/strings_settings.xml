@@ -118,7 +118,7 @@
     <string name="data_transparency_no_external_servers">Aucune donnée n\'est envoyée automatiquement à des serveurs externes</string>
     <string name="data_transparency_what_we_collect_section">Ce qui est stocké sur cet appareil</string>
     <string name="language_name_fr">Français</string>
-    <string name="persona_simple">Guidé</string>
+    <string name="persona_guided">Guidé</string>
     <string name="persona_advanced">Avancé</string>
     <string name="settings_persona_title">Mode d’interface</string>
     <string name="settings_persona_body">Choisissez si les écrans s’ouvrent avec les contrôles courants ou les contrôles avancés.</string>

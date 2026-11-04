@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="settings">تنظیمات</string>
-    <string name="persona_simple">راهنمایی‌شده</string>
+    <string name="persona_guided">راهنمایی‌شده</string>
     <string name="persona_advanced">پیشرفته</string>
     <string name="settings_persona_title">حالت رابط</string>
     <string name="settings_persona_body">انتخاب کنید صفحه‌ها با کنترل‌های روزمره یا کنترل‌های پیشرفته باز شوند.</string>

@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="onboarding_persona_title">Выберите интерфейс</string>
-    <string name="onboarding_persona_simple_body">Обычные элементы остаются видимыми, а экспертные детали свернуты.</string>
+    <string name="onboarding_persona_guided_body">Обычные элементы остаются видимыми, а экспертные детали свернуты.</string>
     <string name="onboarding_persona_advanced_body">Показывать все диагностики, профили и низкоуровневые настройки.</string>
     <string name="onboarding_continue">Продолжить</string>
     <string name="onboarding_local_first_title">Конфиденциально по умолчанию</string>

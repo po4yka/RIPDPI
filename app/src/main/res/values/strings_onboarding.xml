@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="onboarding_persona_title">Choose your interface</string>
-    <string name="onboarding_persona_simple_body">Everyday controls stay visible while expert details stay collapsed.</string>
+    <string name="onboarding_persona_guided_body">Everyday controls stay visible while expert details stay collapsed.</string>
     <string name="onboarding_persona_advanced_body">Show all diagnostics, profiles, and low-level settings.</string>
     <string name="onboarding_continue">Continue</string>
     <string name="onboarding_setup_finish">Finish</string>

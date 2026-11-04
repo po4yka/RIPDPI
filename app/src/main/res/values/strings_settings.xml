@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="settings">Settings</string>
-    <string name="persona_simple">Guided</string>
+    <string name="persona_guided">Guided</string>
     <string name="persona_advanced">Advanced</string>
     <string name="settings_persona_title">Interface mode</string>
     <string name="settings_persona_body">Choose whether screens open with everyday controls or advanced operator controls expanded.</string>

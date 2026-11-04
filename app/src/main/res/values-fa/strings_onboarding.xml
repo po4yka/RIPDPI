@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="onboarding_persona_title">رابط را انتخاب کنید</string>
-    <string name="onboarding_persona_simple_body">کنترل‌های روزمره پیدا می‌مانند و جزئیات تخصصی جمع می‌شوند.</string>
+    <string name="onboarding_persona_guided_body">کنترل‌های روزمره پیدا می‌مانند و جزئیات تخصصی جمع می‌شوند.</string>
     <string name="onboarding_persona_advanced_body">همه ابزارهای تشخیص، نمایه‌ها و تنظیمات سطح پایین را نمایش می‌دهد.</string>
     <string name="biometric_dialog_cancel">انصراف</string>
     <string name="biometric_prompt_action">بازگشایی</string>

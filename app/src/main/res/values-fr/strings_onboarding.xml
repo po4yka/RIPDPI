@@ -32,7 +32,7 @@
     <string name="biometric_prompt_pin_error">Le code PIN de secours ne correspond pas.</string>
     <string name="biometric_prompt_pin_placeholder">0000</string>
     <string name="onboarding_persona_title">Choisir l’interface</string>
-    <string name="onboarding_persona_simple_body">Les contrôles courants restent visibles et les détails experts restent repliés.</string>
+    <string name="onboarding_persona_guided_body">Les contrôles courants restent visibles et les détails experts restent repliés.</string>
     <string name="onboarding_persona_advanced_body">Affiche tous les diagnostics, profils et réglages de bas niveau.</string>
     <string name="onboarding_setup_validate_title">Tester la connexion</string>
     <string name="onboarding_step_progress">Étape %1$d sur %2$d</string>

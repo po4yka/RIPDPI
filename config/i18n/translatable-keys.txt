@@ -3663,7 +3663,7 @@ app:onboarding_guarantee_header_privacy
 app:onboarding_local_first_body
 app:onboarding_local_first_title
 app:onboarding_persona_advanced_body
-app:onboarding_persona_simple_body
+app:onboarding_persona_guided_body
 app:onboarding_persona_title
 app:onboarding_setup_finish
 app:onboarding_setup_mode_proxy_body
@@ -3765,7 +3765,7 @@ app:permissions_vpn_error_title
 app:permissions_vpn_not_now
 app:permissions_vpn_title
 app:persona_advanced
-app:persona_simple
+app:persona_guided
 app:profile_quality_baseline
 app:profile_quality_budget
 app:profile_quality_budget_exhausted

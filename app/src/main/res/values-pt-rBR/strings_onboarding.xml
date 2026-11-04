@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="onboarding_persona_title">Escolha sua interface</string>
-    <string name="onboarding_persona_simple_body">Os controles do dia a dia ficam visíveis enquanto os detalhes técnicos permanecem recolhidos.</string>
+    <string name="onboarding_persona_guided_body">Os controles do dia a dia ficam visíveis enquanto os detalhes técnicos permanecem recolhidos.</string>
     <string name="onboarding_persona_advanced_body">Mostra todos os diagnósticos, perfis e configurações de baixo nível.</string>
     <string name="onboarding_continue">Continuar</string>
     <string name="onboarding_setup_finish">Concluir</string>
