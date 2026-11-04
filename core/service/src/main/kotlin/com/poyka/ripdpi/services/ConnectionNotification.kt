@@ -16,6 +16,8 @@ import androidx.core.content.ContextCompat
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.LogTags
+import com.poyka.ripdpi.data.NetworkHandoverStates
+import com.poyka.ripdpi.data.RuntimeTelemetryState
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
 
@@ -56,12 +58,27 @@ internal fun connectionNotificationPhase(
     traffic: TunnelStats,
 ): ConnectionNotificationPhase? {
     val startedAt = telemetry.serviceStartedAt ?: return null
-    return if (telemetry.networkHandoverState != null) {
+    return if (telemetry.networkHandoverState in HandoverInProgressStates) {
         ConnectionNotificationPhase.Reconnecting
     } else {
-        ConnectionNotificationPhase.Connected(telemetry.relayFailed, traffic, startedAt)
+        ConnectionNotificationPhase.Connected(telemetry.hasActiveImpairment(), traffic, startedAt)
     }
 }
+
+// A persistent title reports what is wrong now. Home keeps the session's cumulative warnings.
+private fun ServiceTelemetrySnapshot.hasActiveImpairment(): Boolean =
+    relayFailed ||
+        tunnelTelemetryStatus.state == RuntimeTelemetryState.EngineError ||
+        proxyTelemetryStatus.state == RuntimeTelemetryState.EngineError
+
+private val HandoverInProgressStates =
+    setOf(
+        NetworkHandoverStates.Observed,
+        NetworkHandoverStates.WaitingForNetwork,
+        NetworkHandoverStates.DeferredCaptivePortal,
+        NetworkHandoverStates.Restarting,
+        NetworkHandoverStates.RetryScheduled,
+    )
 
 internal data class ConnectionNotificationContent(
     val title: String,

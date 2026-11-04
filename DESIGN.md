@@ -768,7 +768,8 @@ The status notification answers one question: is the connection up, and in which
 | Connected with a warning | `Connected · VPN · warning` | Same | Same |
 | Paused | `Paused` | Deadline or pause phase | Resume now, Stop |
 
-- `connectionWarning()` is the one warning predicate, shared with Home. The notification does not name the cause; Home does.
+- The warning title reports an active impairment only: a lost foreign exit or an engine error. Home also keeps the warnings accumulated during the session and names the cause.
+- `Reconnecting…` shows only while a network handover is in progress. A finished handover returns to `Connected`.
 - Session counts, RTT and other telemetry stay in Diagnostics.
 - A failed connection posts a separate `Connection lost` alert on its own channel unless the app is visible, because the status notification leaves with its service.
 - The status channel uses `IMPORTANCE_LOW`. Only the alert channel may make sound.

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import android.app.Notification
 import android.app.NotificationManager
 import android.app.Service
+import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
 import org.junit.Assert.assertEquals
@@ -63,7 +64,17 @@ class ConnectionNotificationTest {
         )
         assertEquals(
             ConnectionNotificationPhase.Reconnecting,
-            connectionNotificationPhase(running.copy(networkHandoverState = "wifi"), traffic),
+            connectionNotificationPhase(
+                running.copy(networkHandoverState = NetworkHandoverStates.Restarting),
+                traffic,
+            ),
+        )
+        assertEquals(
+            ConnectionNotificationPhase.Connected(warning = false, traffic = traffic, startedAt = 7L),
+            connectionNotificationPhase(
+                running.copy(networkHandoverState = NetworkHandoverStates.Revalidated),
+                traffic,
+            ),
         )
     }
 
