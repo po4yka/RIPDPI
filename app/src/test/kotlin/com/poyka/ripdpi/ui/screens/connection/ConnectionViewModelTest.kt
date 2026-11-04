@@ -898,6 +898,55 @@ class ConnectionViewModelApplyChangesTest {
         }
 
     @Test
+    fun `direct restarts the session that an amneziawg stop ended`() =
+        runTest {
+            val store = FakeServiceStateStore()
+            store.setStatus(AppStatus.Running, Mode.VPN)
+            val controller = FakeServiceController()
+            val providers =
+                FakeExternalProviders(
+                    active = ConnectionExternalProvider.AmneziaWg,
+                    stopsSession = true,
+                    onStop = { store.setStatus(AppStatus.Halted, Mode.VPN) },
+                )
+            val viewModel =
+                createConfigViewModel(
+                    serviceStateStore = store,
+                    serviceController = controller,
+                    externalProviders = providers,
+                )
+
+            viewModel.relayProfileSelector.selectDirect()
+            advanceUntilIdle()
+
+            assertEquals(1, providers.deactivations)
+            assertEquals(listOf(Mode.VPN), controller.startedModes)
+        }
+
+    @Test
+    fun `a provider that refuses to turn off reports a message and starts nothing`() =
+        runTest {
+            val store = FakeServiceStateStore()
+            store.setStatus(AppStatus.Running, Mode.VPN)
+            val reconnect = FakeRunningServiceReconnect()
+            val providers = FakeExternalProviders(ConnectionExternalProvider.AmneziaWg, refuses = true)
+            val viewModel =
+                createConfigViewModel(
+                    serviceStateStore = store,
+                    reconnectCoordinator = reconnect,
+                    externalProviders = providers,
+                )
+            val effects = mutableListOf<ConnectionEffect>()
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.effects.collect(effects::add) }
+
+            viewModel.relayProfileSelector.selectDirect()
+            advanceUntilIdle()
+
+            assertEquals(emptyList<Mode>(), reconnect.requestedModes)
+            assertEquals(1, effects.filterIsInstance<ConnectionEffect.Message>().size)
+        }
+
+    @Test
     fun `reconnect keeps running after the view model is cleared`() =
         runTest {
             val store = FakeServiceStateStore()

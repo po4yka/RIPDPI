@@ -37,6 +37,12 @@ interface StandaloneAmneziaWgActivator {
 
     /** Clears the selected standalone AWG egress and stops the owned VPN session. */
     suspend fun deactivate()
+
+    /**
+     * [deactivate] for a choice the user makes now. A later start or reconnect keeps AWG selected,
+     * so this does not require that the selection is the latest service intent.
+     */
+    suspend fun deactivateCurrentSelection() = deactivate()
 }
 
 @Singleton
@@ -207,7 +213,11 @@ internal class DefaultStandaloneAmneziaWgActivator
             }
         }
 
-        override suspend fun deactivate() {
+        override suspend fun deactivate() = deactivate(requireLatestIntent = true)
+
+        override suspend fun deactivateCurrentSelection() = deactivate(requireLatestIntent = false)
+
+        private suspend fun deactivate(requireLatestIntent: Boolean) {
             val selection =
                 selectionLock.withLock {
                     serviceIntentArbiter.serialize {
@@ -217,7 +227,8 @@ internal class DefaultStandaloneAmneziaWgActivator
                                 providerSelectionStore.current().kind == VpnProviderKind.Native &&
                                     (selectedRequest == null || selectedRequest?.profileId == currentId) &&
                                     (
-                                        selectedGeneration == null ||
+                                        !requireLatestIntent ||
+                                            selectedGeneration == null ||
                                             selectedGeneration ==
                                             serviceIntentArbiter.captureExplicitUserIntentGeneration()
                                     )

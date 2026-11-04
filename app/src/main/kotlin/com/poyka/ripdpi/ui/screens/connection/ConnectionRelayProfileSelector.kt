@@ -3,14 +3,18 @@ package com.poyka.ripdpi.ui.screens.connection
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.activities.message
+import com.poyka.ripdpi.data.AppStatus
+import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.platform.StringResolver
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeout
 import java.util.concurrent.atomic.AtomicLong
 
 internal class ConnectionRelayProfileSelector(
@@ -31,12 +35,15 @@ internal class ConnectionRelayProfileSelector(
         changeActivePath {
             val settings = dependencies.appSettingsRepository.snapshot()
             val mode = settings.toConfigDraft().mode
-            val external = dependencies.externalProviders.current(mode)
-            if (external == null && settings.relayEnabled && settings.relayProfileId == profileId) {
-                null
+            if (dependencies.externalProviders.current(mode) == null &&
+                settings.relayEnabled &&
+                settings.relayProfileId == profileId
+            ) {
+                PathChange.None
             } else {
-                dependencies.externalProviders.deactivate(mode)
-                dependencies.relayArtifacts.selectProfile(profileId)
+                val restart = turnOffExternalProviders(mode)
+                val draft = dependencies.relayArtifacts.selectProfile(profileId)
+                if (restart) PathChange.Restart(draft.mode) else PathChange.Reconnect(draft)
             }
         }
 
@@ -44,14 +51,34 @@ internal class ConnectionRelayProfileSelector(
         changeActivePath {
             val settings = dependencies.appSettingsRepository.snapshot()
             val mode = settings.toConfigDraft().mode
-            val external = dependencies.externalProviders.current(mode)
-            val reconnect = dependencies.externalProviders.deactivate(mode)
+            val hadExternal = dependencies.externalProviders.current(mode) != null
+            val restart = turnOffExternalProviders(mode)
+            val draft =
+                when {
+                    settings.relayEnabled -> dependencies.relayArtifacts.deactivateActiveProfile()
+                    hadExternal -> dependencies.appSettingsRepository.snapshot().toConfigDraft()
+                    else -> null
+                }
             when {
-                settings.relayEnabled -> dependencies.relayArtifacts.deactivateActiveProfile()
-                external != null && reconnect -> dependencies.appSettingsRepository.snapshot().toConfigDraft()
-                else -> null
+                draft == null -> PathChange.None
+                restart -> PathChange.Restart(draft.mode)
+                else -> PathChange.Reconnect(draft)
             }
         }
+
+    /**
+     * Returns true when the provider stopped a running session, which then must start again on the new
+     * path. A provider can refuse to turn off, so this checks that it did instead of showing a false path.
+     */
+    private suspend fun turnOffExternalProviders(mode: Mode): Boolean {
+        val store = dependencies.serviceStateStore
+        val wasRunning = store.status.value.first == AppStatus.Running
+        val stopped = dependencies.externalProviders.deactivate(mode)
+        check(dependencies.externalProviders.current(mode) == null) { "External provider stayed active" }
+        if (!stopped || !wasRunning) return false
+        withTimeout(ProviderStopTimeoutMillis) { store.status.first { it.first == AppStatus.Halted } }
+        return true
+    }
 
     /** A change made during a reconnect would stay saved while the service kept the old settings. */
     fun rejectWhileReconnecting(): Boolean {
@@ -92,7 +119,7 @@ internal class ConnectionRelayProfileSelector(
         )
     }
 
-    private fun changeActivePath(pathChange: suspend () -> ConnectionDraft?) {
+    private fun changeActivePath(pathChange: suspend () -> PathChange) {
         if (rejectWhileReconnecting()) return
         val request = generation.incrementAndGet()
         val saveJob = activeSaveJob()
@@ -102,7 +129,11 @@ internal class ConnectionRelayProfileSelector(
             selectionLock.withLock {
                 if (generation.get() != request) return@withLock
                 runCatching {
-                    pathChange()?.let { applyToRunningService(it) }
+                    when (val change = pathChange()) {
+                        PathChange.None -> Unit
+                        is PathChange.Reconnect -> applyToRunningService(change.draft)
+                        is PathChange.Restart -> dependencies.serviceController.start(change.mode)
+                    }
                     onProviderChanged()
                 }.onFailure { error ->
                     if (error is CancellationException) throw error
@@ -115,3 +146,17 @@ internal class ConnectionRelayProfileSelector(
         }
     }
 }
+
+private sealed interface PathChange {
+    data object None : PathChange
+
+    data class Reconnect(
+        val draft: ConnectionDraft,
+    ) : PathChange
+
+    data class Restart(
+        val mode: Mode,
+    ) : PathChange
+}
+
+private const val ProviderStopTimeoutMillis = 10_000L

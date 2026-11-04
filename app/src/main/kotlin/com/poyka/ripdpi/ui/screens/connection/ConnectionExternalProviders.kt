@@ -24,7 +24,7 @@ enum class ConnectionExternalProvider(
 internal interface ConnectionExternalProviders {
     fun current(mode: Mode): ConnectionExternalProvider?
 
-    /** Returns true when the running service still has to pick up the saved settings. */
+    /** Turns off every external egress. Returns true when that also stopped the VPN session. */
     suspend fun deactivate(mode: Mode): Boolean
 }
 
@@ -44,23 +44,15 @@ internal class DefaultConnectionExternalProviders
                 else -> null
             }
 
-        override suspend fun deactivate(mode: Mode): Boolean =
-            when (current(mode)) {
-                ConnectionExternalProvider.Xray -> {
-                    xrayNativeSelection.selectNativeMode(ProfileMutationOrigin.ExplicitActivation, mode)
-                    true
-                }
-
-                // The activator stops the session it owns, so there is nothing left to reconnect.
-                ConnectionExternalProvider.AmneziaWg -> {
-                    amneziaWg.deactivate()
-                    false
-                }
-
-                null -> {
-                    false
-                }
+        override suspend fun deactivate(mode: Mode): Boolean {
+            if (current(mode) == ConnectionExternalProvider.Xray) {
+                xrayNativeSelection.selectNativeMode(ProfileMutationOrigin.ExplicitActivation, mode)
             }
+            // Selecting Xray keeps the AmneziaWG pointer, and the pointer takes over once Xray is off.
+            if (current(mode) != ConnectionExternalProvider.AmneziaWg) return false
+            amneziaWg.deactivateCurrentSelection()
+            return true
+        }
     }
 
 @Module

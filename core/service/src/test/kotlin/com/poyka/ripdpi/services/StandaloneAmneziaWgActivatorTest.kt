@@ -332,6 +332,26 @@ class StandaloneAmneziaWgActivatorTest {
         }
 
     @Test
+    fun `current selection deactivates after a later user start`() =
+        runTest {
+            val controller = RecordingServiceController()
+            val store = RecordingBootSessionStateStore()
+            val arbiter =
+                ServiceIntentArbiter(
+                    controller.testAuthority,
+                )
+            val activator = newActivator(controller, store, { null }, serviceIntentArbiter = arbiter)
+            activator.activate(sampleRequest("awg-same"))
+            controller.prepareStart(Mode.VPN)
+            arbiter.userStart({ store.setActiveAwgProfileId("awg-same") }) { true }
+
+            activator.deactivateCurrentSelection()
+
+            assertEquals(1, controller.stopCalls)
+            assertEquals(null, store.activeAwgProfileId())
+        }
+
+    @Test
     fun `activation queued behind lifecycle rejects preparation superseded by newer stop`() =
         runTest {
             val controller = RecordingServiceController(autoApply = false)
