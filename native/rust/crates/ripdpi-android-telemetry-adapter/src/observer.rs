@@ -98,6 +98,12 @@ impl RuntimeTelemetrySink for ProxyTelemetryObserver {
         self.state.record_upstream_application_forward(bytes, epoch_ms);
     }
 
+    fn on_application_traffic(&self, sent: u64, received: u64) {
+        // Ordering: Relaxed -- cumulative display counters, no happens-before required.
+        self.state.application_bytes_sent.fetch_add(sent, Ordering::Relaxed);
+        self.state.application_bytes_received.fetch_add(received, Ordering::Relaxed);
+    }
+
     fn on_tls_handshake_completed(&self, _target: std::net::SocketAddr, latency_ms: u64) {
         self.state.on_tls_handshake_completed(latency_ms);
     }

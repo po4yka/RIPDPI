@@ -71,11 +71,14 @@ pub(super) fn pump_udp_upstream_responses(
                 }
                 // A full client socket buffer drops this datagram, as UDP may. So does a
                 // datagram that no longer fits once the SOCKS5 header is added (EMSGSIZE).
-                if let Err(err) = client_relay.send_to(encode_buffer, key.client)
-                    && err.kind() != io::ErrorKind::WouldBlock
-                    && err.raw_os_error() != Some(libc::EMSGSIZE)
-                {
-                    return Err(err);
+                match client_relay.send_to(encode_buffer, key.client) {
+                    Ok(_) => state.note_application_traffic(0, response.len() as u64),
+                    Err(err)
+                        if err.kind() != io::ErrorKind::WouldBlock && err.raw_os_error() != Some(libc::EMSGSIZE) =>
+                    {
+                        return Err(err);
+                    }
+                    Err(_) => {}
                 }
             }
             Err(err) if matches!(err.kind(), io::ErrorKind::WouldBlock | io::ErrorKind::TimedOut) => {}

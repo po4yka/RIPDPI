@@ -137,6 +137,7 @@ pub fn ripdpi_runtime_api::BackgroundProbes::notify_network_change(&self, ripdpi
 pub fn ripdpi_runtime_api::BackgroundProbes::request_warmup(&self, &str, bool)
 pub trait ripdpi_runtime_api::RuntimeTelemetrySink: core::marker::Send + core::marker::Sync
 pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_adaptive_override(&self, core::net::socket_addr::SocketAddr, usize, u32, &'static str, core::option::Option<&str>, &'static str)
+pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_application_traffic(&self, u64, u64)
 pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_client_accepted(&self)
 pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_client_error(&self, &std::io::error::Error)
 pub fn ripdpi_runtime_api::RuntimeTelemetrySink::on_client_finished(&self)

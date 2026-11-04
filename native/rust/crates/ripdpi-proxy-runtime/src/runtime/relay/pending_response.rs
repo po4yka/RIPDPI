@@ -49,6 +49,7 @@ impl PendingFirstResponse {
                 // A client can send its next request as soon as this response is visible.
                 session.finish_first_response(FirstResponseOutcome::Accepted { success_recorded: false })?;
                 client.write_all(&bytes)?;
+                state.note_application_traffic(0, bytes.len() as u64);
                 if has_payload {
                     if RuntimeState::should_track_strategy_target(self.target)
                         && let Some(ttl) = server_ttl
@@ -86,6 +87,7 @@ impl PendingFirstResponse {
                 if let Some(bytes) = response_bytes {
                     session.observe_retry_response_payload(&bytes)?;
                     client.write_all(&bytes)?;
+                    state.note_application_traffic(0, bytes.len() as u64);
                     return Ok(());
                 }
                 if failure.class == RuntimeFailureClass::SilentDrop {

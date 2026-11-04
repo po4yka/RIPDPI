@@ -59,6 +59,7 @@ pub(super) fn copy_inbound_half(
                     );
                 }
                 writer.write_all(&buffer[..n])?;
+                state.note_application_traffic(0, n as u64);
                 linger.on_data();
                 detector.record_bytes(&buffer[..n]);
                 if detector.check(Instant::now()) {

@@ -91,6 +91,10 @@ pub trait RuntimeTelemetrySink: Send + Sync {
     /// overhead is excluded when the sender can distinguish it.
     fn on_upstream_application_bytes_forwarded(&self, _bytes: u64, _epoch_ms: u64) {}
 
+    /// Called with application payload for user-visible traffic totals, TCP and
+    /// UDP: `sent` went to the upstream and `received` went to the client.
+    fn on_application_traffic(&self, _sent: u64, _received: u64) {}
+
     /// Called when the first upstream response is received for a TLS connection,
     /// measuring the round-trip for the ClientHello -> ServerHello exchange.
     /// Only called when the first outbound request starts with a TLS record byte (0x16).

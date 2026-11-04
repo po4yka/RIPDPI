@@ -159,6 +159,20 @@ fn proxy_forwarding_evidence_counts_protect_outcomes_and_bytes_without_sensitive
 }
 
 #[test]
+fn application_traffic_reaches_proxy_tunnel_stats() {
+    let state = Arc::new(ProxyTelemetryState::new(None));
+    let observer = ProxyTelemetryObserver { state: state.clone() };
+
+    observer.on_application_traffic(1_200, 0);
+    observer.on_application_traffic(0, 3_400);
+    observer.on_application_traffic(800, 600);
+
+    let stats = state.snapshot().tunnel_stats;
+    assert_eq!(stats.tx_bytes, 2_000);
+    assert_eq!(stats.rx_bytes, 4_000);
+}
+
+#[test]
 fn empty_proxy_forwarding_evidence_omits_absent_timestamps() {
     let state = ProxyTelemetryState::new(None);
     let evidence = state.forwarding_evidence_snapshot();

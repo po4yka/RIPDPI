@@ -39,6 +39,12 @@ pub struct ProxyHarnessTelemetry {
 }
 
 impl RuntimeTelemetrySink for ProxyHarnessTelemetry {
+    fn on_application_traffic(&self, sent: u64, received: u64) {
+        if let Some(delegate) = &self.delegate {
+            delegate.on_application_traffic(sent, received);
+        }
+    }
+
     fn on_listener_started(&self, bind_addr: SocketAddr, max_clients: usize, group_count: usize) {
         if let Some(delegate) = &self.delegate {
             delegate.on_listener_started(bind_addr, max_clients, group_count);

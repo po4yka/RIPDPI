@@ -173,7 +173,13 @@ impl ProxyTelemetryState {
             last_handshake_error: None,
             chain_entry_state: None,
             chain_exit_state: None,
-            tunnel_stats: TunnelStatsSnapshot { tx_packets: 0, tx_bytes: 0, rx_packets: 0, rx_bytes: 0 },
+            tunnel_stats: TunnelStatsSnapshot {
+                tx_packets: 0,
+                // Ordering: Relaxed -- cumulative display counters, no happens-before required.
+                tx_bytes: self.application_bytes_sent.load(Ordering::Relaxed),
+                rx_packets: 0,
+                rx_bytes: self.application_bytes_received.load(Ordering::Relaxed),
+            },
             direct_path_learning_signals,
             native_events,
             latency_distributions: LatencyDistributions {

@@ -692,6 +692,8 @@ struct RecordingTelemetry {
     accepted: AtomicUsize,
     finished: AtomicUsize,
     failures: AtomicUsize,
+    application_sent: AtomicUsize,
+    application_received: AtomicUsize,
     routes: Mutex<Vec<RouteEvent>>,
     autolearn_states: Mutex<Vec<AutolearnStateEvent>>,
     autolearn_events: Mutex<Vec<AutolearnEvent>>,
@@ -770,6 +772,11 @@ impl RuntimeTelemetrySink for RecordingTelemetry {
 
     fn on_client_error(&self, _error: &std::io::Error) {}
 
+    fn on_application_traffic(&self, sent: u64, received: u64) {
+        self.application_sent.fetch_add(sent as usize, Ordering::Relaxed);
+        self.application_received.fetch_add(received as usize, Ordering::Relaxed);
+    }
+
     fn on_failure_classified(
         &self,
         _target: SocketAddr,
@@ -847,6 +854,8 @@ fn socks5_tcp_round_trip(fixture: &FixtureStack) {
     );
 
     drop(proxy);
+    assert!(telemetry.application_sent.load(Ordering::Relaxed) >= b"fixture tcp".len());
+    assert!(telemetry.application_received.load(Ordering::Relaxed) >= b"fixture tcp".len());
     let snapshot = telemetry.snapshot();
     assert!(snapshot.accepted >= 1);
     assert!(snapshot.started >= 1);
@@ -861,10 +870,16 @@ fn socks5_tcp_round_trip(fixture: &FixtureStack) {
 }
 
 fn socks5_udp_round_trip(fixture: &FixtureStack) {
-    let proxy = start_proxy(ephemeral_proxy_config(&["--ip", "127.0.0.1"]), None);
+    let telemetry = Arc::new(RecordingTelemetry::default());
+    let proxy = start_proxy(
+        ephemeral_proxy_config(&["--ip", "127.0.0.1"]),
+        Some(telemetry.clone() as Arc<dyn RuntimeTelemetrySink>),
+    );
     let (_control, relay) = socks_udp_associate(proxy.port);
     let body = udp_proxy_roundtrip(relay, fixture.manifest().udp_echo_port, b"fixture udp");
     assert_eq!(body, b"fixture udp");
+    assert_eq!(telemetry.application_sent.load(Ordering::Relaxed), b"fixture udp".len());
+    assert_eq!(telemetry.application_received.load(Ordering::Relaxed), b"fixture udp".len());
     assert!(fixture.events().snapshot().iter().any(|event| event.service == "udp_echo" && event.protocol == "udp"));
     drop(proxy);
 }

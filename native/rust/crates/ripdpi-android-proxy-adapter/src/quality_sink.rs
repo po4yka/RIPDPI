@@ -255,6 +255,11 @@ impl RuntimeTelemetrySink for CompositeProxyTelemetrySink {
         self.quality.on_upstream_application_bytes_forwarded(bytes, epoch_ms);
     }
 
+    fn on_application_traffic(&self, sent: u64, received: u64) {
+        self.primary.on_application_traffic(sent, received);
+        self.quality.on_application_traffic(sent, received);
+    }
+
     fn on_tls_handshake_completed(&self, target: SocketAddr, latency_ms: u64) {
         self.primary.on_tls_handshake_completed(target, latency_ms);
         self.quality.on_tls_handshake_completed(target, latency_ms);
