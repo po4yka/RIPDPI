@@ -287,10 +287,10 @@ class OnboardingScreenTest {
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingValidationStatus).assertExists()
         // No in-content finish/keep-running button in Idle.
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishKeepRunning).assertCountEquals(0)
-        // Skip is a secondary action near the bottom CTA ("Skip test"), not a top-right action.
+        // Skip is a secondary top-bar action ("Skip test"), which keeps the footer free of an empty slot.
         composeRule.onNodeWithTag(RipDpiTestTags.OnboardingSkipTest).assertExists()
         composeRule.onNodeWithText("Skip test").assertExists()
-        // The bottom "Skip test" maps to finish-anyway but does not carry the content finish tag.
+        // The "Skip test" action maps to finish-anyway but does not carry the content finish tag.
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishAnyway).assertCountEquals(0)
     }
 

@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxSize
@@ -228,7 +229,7 @@ internal fun OnboardingScreen(
     val pageCount = uiState.totalPages.coerceAtMost(OnboardingPages.size)
     // The intro offers Skip; inner steps provide an explicit path to the previous selection.
     val skipVisible = settledPage == 0
-    val showIdleSkipTest = isLastPage && validationState is OnboardingValidationState.Idle
+    val skipTestVisible = isLastPage && validationState is OnboardingValidationState.Idle
 
     BackHandler(enabled = settledPage > 0) {
         // Keep the validation screen in place until its permission or connection test completes.
@@ -254,12 +255,16 @@ internal fun OnboardingScreen(
                     .displayCutoutPadding()
                     .padding(horizontal = layout.horizontalPadding),
         ) {
-            // 1) TOP BAR — status inset; intro Skip or inner-step Back.
+            // 1) TOP BAR — status inset; inner-step Back and the step's optional text action.
             OnboardingTopBar(
                 skipVisible = skipVisible,
                 backEnabled = !validationBusy,
+                skipTestVisible = skipTestVisible,
+                finishDisconnectedVisible = validationState is OnboardingValidationState.Success,
                 onSkip = actions.onSkip,
                 onBack = { actions.onPageChanged(settledPage - 1) },
+                onFinishAnyway = actions.onFinishAnyway,
+                onFinishDisconnected = actions.onFinishDisconnected,
             )
 
             // 2) CONTENT — weighted; each page renders its own title at the top
@@ -278,12 +283,9 @@ internal fun OnboardingScreen(
                 isLastPage = isLastPage,
                 continueLabelRes = currentPage.buttonLabelRes,
                 validationState = validationState,
-                showIdleSkipTest = showIdleSkipTest,
                 onContinue = actions.onContinue,
                 onRunValidation = actions.onRunValidation,
-                onFinishDisconnected = actions.onFinishDisconnected,
                 onFinishKeepRunning = actions.onFinishKeepRunning,
-                onFinishAnyway = actions.onFinishAnyway,
             )
         }
     }
@@ -332,17 +334,19 @@ private fun OnboardingPagerContent(
     }
 }
 
-/** Status-inset top bar with Skip on the intro and Back on later steps. */
+/** Status-inset top bar: Back on later steps and the step's optional text action at the end. */
 @Composable
 private fun OnboardingTopBar(
     skipVisible: Boolean,
     backEnabled: Boolean,
+    skipTestVisible: Boolean,
+    finishDisconnectedVisible: Boolean,
     onSkip: () -> Unit,
     onBack: () -> Unit,
+    onFinishAnyway: () -> Unit,
+    onFinishDisconnected: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = RipDpiThemeTokens.colors
-    val type = RipDpiThemeTokens.type
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
     Row(
         modifier =
@@ -350,19 +354,10 @@ private fun OnboardingTopBar(
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .height(introLayout.topActionRowHeight),
-        horizontalArrangement = if (skipVisible) Arrangement.End else Arrangement.Start,
+        horizontalArrangement = if (skipVisible) Arrangement.End else Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (skipVisible) {
-            RipDpiTextAction(
-                text = stringResource(R.string.onboarding_skip_setup),
-                onClick = onSkip,
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingSkip),
-                textStyle = type.introAction,
-                color = colors.mutedForeground,
-                minHeight = introLayout.topActionRowHeight,
-            )
-        } else {
+        if (!skipVisible) {
             RipDpiIconButton(
                 icon = RipDpiIcons.Back,
                 contentDescription = stringResource(R.string.navigation_back),
@@ -371,13 +366,43 @@ private fun OnboardingTopBar(
                 enabled = backEnabled,
             )
         }
+        when {
+            skipVisible -> {
+                OnboardingTopBarAction(R.string.onboarding_skip_setup, onSkip, RipDpiTestTags.OnboardingSkip)
+            }
+
+            skipTestVisible -> {
+                OnboardingTopBarAction(R.string.onboarding_skip_test, onFinishAnyway, RipDpiTestTags.OnboardingSkipTest)
+            }
+
+            finishDisconnectedVisible -> {
+                OnboardingTopBarAction(
+                    R.string.onboarding_validation_finish_disconnected,
+                    onFinishDisconnected,
+                    RipDpiTestTags.OnboardingFinishDisconnected,
+                )
+            }
+        }
     }
 }
 
-/**
- * Nav-inset bottom bar: page indicator + full-width primary CTA, plus an optional bottom secondary
- * ("Skip test") on the idle connection-test page.
- */
+@Composable
+private fun RowScope.OnboardingTopBarAction(
+    @StringRes textRes: Int,
+    onClick: () -> Unit,
+    testTag: String,
+) {
+    RipDpiTextAction(
+        text = stringResource(textRes),
+        onClick = onClick,
+        modifier = Modifier.weight(1f, fill = false).ripDpiTestTag(testTag),
+        textStyle = RipDpiThemeTokens.type.introAction,
+        color = RipDpiThemeTokens.colors.mutedForeground,
+        minHeight = rememberRipDpiIntroScaffoldMetrics().topActionRowHeight,
+    )
+}
+
+/** Nav-inset bottom bar: page indicator + full-width primary CTA. */
 @Composable
 private fun OnboardingBottomBar(
     settledPage: Int,
@@ -385,16 +410,11 @@ private fun OnboardingBottomBar(
     isLastPage: Boolean,
     continueLabelRes: Int,
     validationState: OnboardingValidationState,
-    showIdleSkipTest: Boolean,
     onContinue: () -> Unit,
     onRunValidation: () -> Unit,
-    onFinishDisconnected: () -> Unit,
     onFinishKeepRunning: () -> Unit,
-    onFinishAnyway: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val colors = RipDpiThemeTokens.colors
-    val type = RipDpiThemeTokens.type
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
     Column(
         modifier =
@@ -427,33 +447,6 @@ private fun OnboardingBottomBar(
                     .fillMaxWidth()
                     .heightIn(min = introLayout.footerButtonMinHeight),
         )
-        // Minimum-height slot, reserved on every page, so the indicator and CTA never shift when a
-        // secondary action appears.
-        Box(
-            modifier = Modifier.fillMaxWidth().heightIn(min = introLayout.footerButtonMinHeight),
-            contentAlignment = Alignment.Center,
-        ) {
-            if (validationState is OnboardingValidationState.Success) {
-                RipDpiTextAction(
-                    text = stringResource(R.string.onboarding_validation_finish_disconnected),
-                    onClick = onFinishDisconnected,
-                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.OnboardingFinishDisconnected),
-                    textStyle = type.introAction,
-                    color = colors.mutedForeground,
-                    minHeight = introLayout.footerButtonMinHeight,
-                )
-            }
-            if (showIdleSkipTest) {
-                RipDpiTextAction(
-                    text = stringResource(R.string.onboarding_skip_test),
-                    onClick = onFinishAnyway,
-                    modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.OnboardingSkipTest),
-                    textStyle = type.introAction,
-                    color = colors.mutedForeground,
-                    minHeight = introLayout.footerButtonMinHeight,
-                )
-            }
-        }
     }
 }
 
