@@ -10,6 +10,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
@@ -51,7 +52,7 @@ internal fun OnboardingModeSelectionContent(
 ) {
     val spacing = RipDpiThemeTokens.spacing
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().selectableGroup(),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         OnboardingOptionCard(
@@ -80,7 +81,7 @@ internal fun OnboardingPersonaSelectionContent(
 ) {
     val spacing = RipDpiThemeTokens.spacing
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().selectableGroup(),
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         val persona = OnboardingPersona.fromId(selectedPersona)
