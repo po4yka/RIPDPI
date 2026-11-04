@@ -316,7 +316,7 @@ data class ConnectionUiState(
     val runningMode: Mode? = null,
     val runtimeOperation: ConnectionRuntimeOperation? = null,
     val runtimeError: String? = null,
-    val uiPersona: String = OnboardingPersona.Simple.id,
+    val uiPersona: String = OnboardingPersona.Guided.id,
     val presets: ImmutableList<ConnectionPreset> =
         buildConfigPresets(AppSettingsSerializer.defaultValue.toConfigDraft()),
     val editingPreset: ConnectionPreset? = null,

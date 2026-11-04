@@ -130,7 +130,7 @@ private fun LocalBypassDesyncRow(
 ) {
     // Guided users see Auto only while the chain is untouched; any manual chain stays visible as written.
     val isAuto =
-        OnboardingPersona.fromId(uiState.uiPersona) == OnboardingPersona.Simple &&
+        OnboardingPersona.fromId(uiState.uiPersona) == OnboardingPersona.Guided &&
             desyncSummary == AppSettingsSerializer.defaultValue.toConfigDraft().chainSummary
     val strategyValue = if (isAuto) stringResource(R.string.config_local_bypass_strategy_auto) else desyncSummary
     LocalBypassActionRow(

@@ -4,7 +4,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
@@ -26,16 +25,7 @@ internal fun ConnectionSavedConnectionCard(
         } else {
             stringResource(titleResForPreset(selectedPreset?.kind ?: ConnectionPresetKind.Custom))
         }
-    val scope =
-        stringResource(
-            if (uiState.activeMode ==
-                Mode.VPN
-            ) {
-                R.string.config_scope_device
-            } else {
-                R.string.config_scope_proxy
-            },
-        )
+    val scope = stringResource(modeLabelRes(uiState.activeMode))
     val path =
         stringResource(
             if (uiState.activeRelayEnabled) {

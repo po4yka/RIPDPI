@@ -50,7 +50,7 @@ internal val OnboardingPages: List<OnboardingPage> =
         OnboardingPage.Setup(
             kind = SetupPageKind.ModeSelection,
             icon = RipDpiIcons.Vpn,
-            titleRes = R.string.config_traffic_mode_title,
+            titleRes = R.string.config_scope_title,
             buttonLabelRes = R.string.onboarding_continue,
         ),
         OnboardingPage.Setup(

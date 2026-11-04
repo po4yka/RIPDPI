@@ -95,7 +95,7 @@ internal class ConnectionUiStateFactory(
                 ConnectionRuntimeOperation.Reconnecting.takeIf {
                     projection.serviceStatus.first == AppStatus.Reconnecting
                 },
-            uiPersona = projection.settings.uiPersona.ifBlank { OnboardingPersona.Simple.id },
+            uiPersona = projection.settings.uiPersona.ifBlank { OnboardingPersona.Guided.id },
             presets = projection.presets,
             editingPreset = projection.editingPreset,
             draft = draft,
