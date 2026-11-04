@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
 import com.poyka.ripdpi.data.ServiceStateStore
+import com.poyka.ripdpi.data.activeDnsSettings
 import com.poyka.ripdpi.data.displayMessage
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.services.LocalSocksRoute
@@ -23,6 +24,7 @@ import com.poyka.ripdpi.services.ServiceRuntimeRegistry
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
 import com.poyka.ripdpi.services.localSocksProxy
+import com.poyka.ripdpi.ui.screens.dns.dnsSummaryLabel
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -55,7 +57,9 @@ private const val HttpsPort = 443
 private const val SocksReplyHostUnreachable = 4
 
 sealed interface OnboardingValidationResult {
-    data object Success : OnboardingValidationResult
+    data class Success(
+        val dnsSummary: String,
+    ) : OnboardingValidationResult
 
     data class Failed(
         val reason: String,
@@ -102,7 +106,16 @@ class DefaultOnboardingModeValidationRunner
                 runDnsProbe(mode, route)
                 onProgress(OnboardingValidationState.RunningTrafficCheck(mode))
                 runConnectivityProbe(route)
-                OnboardingValidationResult.Success
+                val dns = appSettingsRepository.snapshot().activeDnsSettings()
+                OnboardingValidationResult.Success(
+                    dnsSummary =
+                        stringResolver.dnsSummaryLabel(
+                            dns.mode,
+                            dns.providerId,
+                            dns.encryptedDnsProtocol,
+                            dns.dnsIp,
+                        ),
+                )
             } catch (e: OnboardingProbeException) {
                 Logger.w(e) { "Onboarding validation ${e.step} probe failed for $mode" }
                 stopActiveValidation()

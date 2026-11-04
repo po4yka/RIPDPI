@@ -175,7 +175,7 @@ class OnboardingViewModelTest {
             val repository = FakeAppSettingsRepository()
             val runner =
                 FakeOnboardingModeValidationRunner().apply {
-                    result = OnboardingValidationResult.Success
+                    result = OnboardingValidationResult.Success(dnsSummary = "Test DNS")
                 }
             val vm = createViewModel(repository = repository, validationRunner = runner)
 
@@ -197,7 +197,7 @@ class OnboardingViewModelTest {
         runTest {
             val runner =
                 FakeOnboardingModeValidationRunner().apply {
-                    result = OnboardingValidationResult.Success
+                    result = OnboardingValidationResult.Success(dnsSummary = "Test DNS")
                 }
             val vm = createViewModel(validationRunner = runner)
             vm.selectMode(Mode.Proxy)
@@ -207,7 +207,7 @@ class OnboardingViewModelTest {
 
             assertEquals(listOf(Mode.Proxy), runner.validateCalls)
             assertEquals(
-                OnboardingValidationState.Success(mode = Mode.Proxy),
+                OnboardingValidationState.Success(mode = Mode.Proxy, dnsSummary = "Test DNS"),
                 vm.uiState.value.validationState,
             )
         }
@@ -217,7 +217,7 @@ class OnboardingViewModelTest {
         runTest {
             val runner =
                 FakeOnboardingModeValidationRunner().apply {
-                    result = OnboardingValidationResult.Success
+                    result = OnboardingValidationResult.Success(dnsSummary = "Test DNS")
                 }
             val permissionStatusProvider =
                 FakePermissionStatusProvider(
@@ -541,7 +541,7 @@ class OnboardingViewModelTest {
             val repository = FakeAppSettingsRepository()
             val runner =
                 FakeOnboardingModeValidationRunner().apply {
-                    result = OnboardingValidationResult.Success
+                    result = OnboardingValidationResult.Success(dnsSummary = "Test DNS")
                 }
             val vm = createViewModel(repository = repository, validationRunner = runner)
 
@@ -575,7 +575,7 @@ class OnboardingViewModelTest {
         }
 
     private class FakeOnboardingModeValidationRunner : OnboardingModeValidationRunner {
-        var result: OnboardingValidationResult = OnboardingValidationResult.Success
+        var result: OnboardingValidationResult = OnboardingValidationResult.Success(dnsSummary = "Test DNS")
         val validateCalls = mutableListOf<Mode>()
         var stopCount: Int = 0
         var retainCount: Int = 0

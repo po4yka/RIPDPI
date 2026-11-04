@@ -11,8 +11,6 @@
     <string name="onboarding_setup_mode_proxy_body">Executa um proxy local para apps ou clientes compatíveis com configuração manual de proxy.</string>
     <string name="onboarding_setup_validate_title">Testar conexão</string>
     <string name="onboarding_step_progress">Etapa %1$d de %2$d</string>
-    <string name="onboarding_validation_finish_keep_running">Concluir e manter em execução</string>
-    <string name="onboarding_validation_finish_disconnected">Concluir desconectado</string>
     <string name="onboarding_validation_failed">Falha na validação: %1$s</string>
     <string name="onboarding_validation_failed_generic">Não foi possível validar o modo selecionado.</string>
     <string name="onboarding_validation_notifications_required">Permita notificações para que o RIPDPI possa mostrar o status do serviço de validação.</string>
@@ -45,8 +43,6 @@
     <string name="onboarding_test_permission_note">O Android pode pedir permissão antes que o RIPDPI crie um túnel VPN local. Nenhum servidor VPN remoto é usado.</string>
     <string name="onboarding_test_failed_permission">O Android exige permissão antes que o RIPDPI possa criar um túnel VPN local neste dispositivo. Nenhum servidor VPN remoto é usado.</string>
     <string name="onboarding_test_state_permission">O Android pedirá permissão para criar uma conexão VPN local.</string>
-    <string name="onboarding_test_success_title">Configuração concluída</string>
-    <string name="onboarding_test_success_body">O RIPDPI está pronto para uso.</string>
     <string name="onboarding_test_failed_title">Falha no teste de conexão</string>
     <string name="onboarding_test_row_state_pending">Pendente</string>
     <string name="onboarding_test_row_state_active">Em andamento</string>

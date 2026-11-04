@@ -11,8 +11,6 @@
     <string name="onboarding_setup_mode_proxy_body">उन ऐप्स या क्लाइंट के लिए स्थानीय proxy चलाता है जो मैन्युअल proxy कॉन्फ़िगरेशन का समर्थन करते हैं।</string>
     <string name="onboarding_setup_validate_title">कनेक्शन टेस्ट करें</string>
     <string name="onboarding_step_progress">%2$d में से चरण %1$d</string>
-    <string name="onboarding_validation_finish_keep_running">समाप्त करें और चालू रखें</string>
-    <string name="onboarding_validation_finish_disconnected">डिस्कनेक्ट करके समाप्त करें</string>
     <string name="onboarding_validation_failed">सत्यापन विफल: %1$s</string>
     <string name="onboarding_validation_failed_generic">चयनित मोड को सत्यापित नहीं किया जा सका।</string>
     <string name="onboarding_validation_notifications_required">सूचनाओं की अनुमति दें ताकि RIPDPI सत्यापन सेवा की स्थिति दिखा सके।</string>
@@ -45,8 +43,6 @@
     <string name="onboarding_test_permission_note">RIPDPI द्वारा स्थानीय VPN टनल बनाने से पहले Android अनुमति माँग सकता है। किसी रिमोट VPN सर्वर का उपयोग नहीं किया जाता।</string>
     <string name="onboarding_test_failed_permission">इस डिवाइस पर RIPDPI द्वारा स्थानीय VPN टनल बनाने से पहले Android को अनुमति की आवश्यकता है। किसी रिमोट VPN सर्वर का उपयोग नहीं किया जाता।</string>
     <string name="onboarding_test_state_permission">Android स्थानीय VPN कनेक्शन बनाने के लिए अनुमति माँगेगा।</string>
-    <string name="onboarding_test_success_title">सेटअप पूर्ण</string>
-    <string name="onboarding_test_success_body">RIPDPI उपयोग के लिए तैयार है।</string>
     <string name="onboarding_test_failed_title">कनेक्शन परीक्षण विफल</string>
     <string name="onboarding_test_row_state_pending">लंबित</string>
     <string name="onboarding_test_row_state_active">प्रगति में</string>

@@ -16,6 +16,7 @@ import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.assertIsSelected
+import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onAllNodesWithText
@@ -288,22 +289,44 @@ class OnboardingScreenTest {
     }
 
     @Test
-    fun `successful validation renders keep-running and disconnected finish actions`() {
+    fun `successful validation states the running route and its two exits`() {
         renderOnboarding(
             OnboardingUiState(
                 currentPage = OnboardingPages.lastIndex,
-                validationState = OnboardingValidationState.Success(mode = Mode.VPN),
+                validationState = OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = "Test DNS"),
             ),
         )
 
-        // Primary CTA keeps the validated tunnel; a secondary action finishes disconnected.
-        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishKeepRunning).assertCountEquals(1)
-        composeRule.onNodeWithText("Finish and keep running").assertExists()
-        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishDisconnected).assertCountEquals(1)
-        composeRule.onNodeWithText("Finish disconnected").assertExists()
-        composeRule.onNodeWithText("Setup complete").assertExists()
-        // No "finish without testing" once the test succeeded.
+        composeRule.onNodeWithText("Connected").assertExists()
+        composeRule.onNodeWithText("Whole device · Test DNS").assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingFinishKeepRunning).assertTextEquals("Done")
+        composeRule.onNodeWithTag(RipDpiTestTags.OnboardingFinishDisconnected).assertTextEquals("Disconnect")
         composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingFinishAnyway).assertCountEquals(0)
+        composeRule.onAllNodesWithText("Verify internet connectivity").assertCountEquals(0)
+    }
+
+    @Test
+    fun `successful validation has no visible back and consumes system back`() {
+        var navigatedBack = false
+        lateinit var backDispatcher: OnBackPressedDispatcher
+        composeRule.setContent {
+            backDispatcher = checkNotNull(LocalOnBackPressedDispatcherOwner.current).onBackPressedDispatcher
+            RipDpiTheme {
+                OnboardingScreen(
+                    uiState =
+                        OnboardingUiState(
+                            currentPage = OnboardingPages.lastIndex,
+                            validationState =
+                                OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = "Test DNS"),
+                        ),
+                    actions = OnboardingScreenActions(onPageChanged = { navigatedBack = true }),
+                )
+            }
+        }
+
+        composeRule.onAllNodesWithTag(RipDpiTestTags.OnboardingBack).assertCountEquals(0)
+        composeRule.runOnIdle { backDispatcher.onBackPressed() }
+        assertFalse(navigatedBack)
     }
 
     @Test

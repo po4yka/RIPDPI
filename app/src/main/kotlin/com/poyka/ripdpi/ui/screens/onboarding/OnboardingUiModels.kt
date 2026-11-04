@@ -40,6 +40,7 @@ sealed interface OnboardingValidationState {
 
     data class Success(
         val mode: Mode,
+        val dnsSummary: String,
     ) : OnboardingValidationState
 
     data class Failed(

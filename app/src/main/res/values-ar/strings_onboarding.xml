@@ -11,8 +11,6 @@
     <string name="onboarding_setup_mode_proxy_body">يشغِّل وكيلاً محلياً للتطبيقات أو العملاء الذين يدعمون تهيئة الوكيل يدوياً.</string>
     <string name="onboarding_setup_validate_title">اختبار الاتصال</string>
     <string name="onboarding_step_progress">الخطوة %1$d من %2$d</string>
-    <string name="onboarding_validation_finish_keep_running">إنهاء مع إبقاء التشغيل</string>
-    <string name="onboarding_validation_finish_disconnected">إنهاء مع قطع الاتصال</string>
     <string name="onboarding_validation_failed">فشل التحقُّق: %1$s</string>
     <string name="onboarding_validation_failed_generic">تعذَّر التحقُّق من الوضع المحدَّد.</string>
     <string name="onboarding_validation_notifications_required">اسمح بالإشعارات حتى يتمكَّن RIPDPI من عرض حالة خدمة التحقُّق.</string>
@@ -85,8 +83,6 @@
     <string name="onboarding_test_change_dns">تغيير DNS</string>
     <string name="onboarding_test_finish_without">الإنهاء دون اختبار</string>
     <string name="onboarding_test_state_permission">سيطلب Android إذناً لإنشاء اتصال VPN محلي.</string>
-    <string name="onboarding_test_success_title">اكتمل الإعداد</string>
-    <string name="onboarding_test_success_body">RIPDPI جاهز للاستخدام.</string>
     <string name="onboarding_test_failed_title">فشل اختبار الاتصال</string>
     <!-- accessibility state descriptions for checklist rows -->
     <string name="onboarding_test_row_state_pending">قيد الانتظار</string>

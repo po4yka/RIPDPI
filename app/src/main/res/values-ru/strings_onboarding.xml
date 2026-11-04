@@ -11,8 +11,6 @@
     <string name="onboarding_setup_mode_proxy_body">Запускает локальный прокси для приложений и клиентов, поддерживающих ручную настройку прокси.</string>
     <string name="onboarding_setup_validate_title">Проверка соединения</string>
     <string name="onboarding_step_progress">Шаг %1$d из %2$d</string>
-    <string name="onboarding_validation_finish_keep_running">Завершить и оставить подключение</string>
-    <string name="onboarding_validation_finish_disconnected">Завершить без подключения</string>
     <string name="onboarding_validation_failed">Проверка не удалась: %1$s</string>
     <string name="onboarding_validation_failed_generic">Не удалось подтвердить работу выбранного режима.</string>
     <string name="onboarding_validation_notifications_required">Разрешите уведомления, чтобы RIPDPI показывал статус сервиса проверки.</string>
@@ -79,8 +77,6 @@
     <string name="onboarding_test_change_dns">Сменить DNS</string>
     <string name="onboarding_test_finish_without">Завершить без проверки</string>
     <string name="onboarding_test_state_permission">Android запросит разрешение на создание локального VPN-подключения.</string>
-    <string name="onboarding_test_success_title">Настройка завершена</string>
-    <string name="onboarding_test_success_body">RIPDPI готов к работе.</string>
     <string name="onboarding_test_failed_title">Проверка соединения не удалась</string>
     <string name="onboarding_test_row_state_pending">Ожидание</string>
     <string name="onboarding_test_row_state_active">Выполняется</string>

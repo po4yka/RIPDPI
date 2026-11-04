@@ -6,7 +6,6 @@
     <string name="biometric_prompt_title">Déverrouiller RIPDPI</string>
     <string name="onboarding_local_first_body">Tout fonctionne sur votre appareil.</string>
     <string name="onboarding_setup_finish">Terminer</string>
-    <string name="onboarding_validation_finish_disconnected">Terminer sans connexion</string>
     <string name="permissions_background_activity_body_huawei">Les appareils Huawei peuvent arrêter RIPDPI en arrière-plan. Allez dans Paramètres &gt; Batterie &gt; Lancement d\'applications, trouvez RIPDPI, désactivez la gestion automatique, et activez Lancement automatique, Lancement secondaire et Exécution en arrière-plan.</string>
     <string name="permissions_battery_body">Autorisez RIPDPI à ignorer l\'optimisation de batterie d\'Android afin que Doze risque moins d\'interrompre le VPN local ou le proxy en arrière-plan.</string>
     <string name="permissions_vpn_body">Android demandera à créer un VPN local. Cela achemine le trafic via l\'application sur votre appareil — rien n\'est envoyé à l\'extérieur.</string>
@@ -17,7 +16,6 @@
     <string name="onboarding_continue">Continuer</string>
     <string name="onboarding_local_first_title">Confidentiel par conception</string>
     <string name="onboarding_setup_mode_proxy_body">Exécute un proxy local pour les apps ou clients prenant en charge la configuration manuelle du proxy.</string>
-    <string name="onboarding_validation_finish_keep_running">Terminer et continuer l\'exécution</string>
     <string name="permissions_background_activity_body_oneplus">Les appareils OnePlus peuvent arrêter agressivement les applis en arrière-plan. Allez dans Paramètres &gt; Batterie &gt; Optimisation de la batterie, trouvez RIPDPI et sélectionnez Ne pas optimiser. Désactivez également Deep Optimization et Sleep Standby Optimization si disponibles.</string>
     <string name="permissions_battery_title">Optimisation de la batterie</string>
     <string name="permissions_vpn_continue">Continuer</string>
@@ -85,8 +83,6 @@
     <string name="onboarding_test_change_dns">Changer de DNS</string>
     <string name="onboarding_test_finish_without">Terminer sans tester</string>
     <string name="onboarding_test_state_permission">Android demandera l\'autorisation de créer une connexion VPN locale.</string>
-    <string name="onboarding_test_success_title">Configuration terminée</string>
-    <string name="onboarding_test_success_body">RIPDPI est prêt à l\'emploi.</string>
     <string name="onboarding_test_failed_title">Échec du test de connexion</string>
     <!-- accessibility state descriptions for checklist rows -->
     <string name="onboarding_test_row_state_pending">En attente</string>

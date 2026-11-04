@@ -44,10 +44,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
@@ -215,14 +217,15 @@ internal fun OnboardingScreen(
     val isLastPage = settledPage == OnboardingPages.lastIndex
     val validationState = uiState.validationState
     val validationBusy = validationState.isBusy
+    val validationSucceeded = validationState is OnboardingValidationState.Success
     val pageCount = uiState.totalPages.coerceAtMost(OnboardingPages.size)
     // The intro offers Skip; inner steps provide an explicit path to the previous selection.
     val skipVisible = settledPage == 0
     val skipTestVisible = isLastPage && validationState is OnboardingValidationState.Idle
 
     BackHandler(enabled = settledPage > 0) {
-        // Keep the validation screen in place until its permission or connection test completes.
-        if (!validationBusy) {
+        // Keep the validation screen in place during its test and over the running tunnel it leaves behind.
+        if (!validationBusy && !validationSucceeded) {
             actions.onPageChanged(settledPage - 1)
         }
     }
@@ -249,7 +252,7 @@ internal fun OnboardingScreen(
                 skipVisible = skipVisible,
                 backEnabled = !validationBusy,
                 skipTestVisible = skipTestVisible,
-                finishDisconnectedVisible = validationState is OnboardingValidationState.Success,
+                finishDisconnectedVisible = validationSucceeded,
                 onFinish = actions.onFinish,
                 onBack = { actions.onPageChanged(settledPage - 1) },
             )
@@ -290,7 +293,7 @@ private fun OnboardingPagerContent(
     Box(modifier = modifier) {
         HorizontalPager(
             state = pagerState,
-            userScrollEnabled = !validationBusy,
+            userScrollEnabled = !validationBusy && uiState.validationState !is OnboardingValidationState.Success,
             modifier = Modifier.fillMaxSize(),
         ) { page ->
             when (val pageModel = OnboardingPages[page]) {
@@ -330,16 +333,18 @@ private fun OnboardingTopBar(
     modifier: Modifier = Modifier,
 ) {
     val introLayout = rememberRipDpiIntroScaffoldMetrics()
+    // After a successful test the tunnel runs: going back would leave it up under a mode choice.
+    val backVisible = !skipVisible && !finishDisconnectedVisible
     Row(
         modifier =
             modifier
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .height(introLayout.topActionRowHeight),
-        horizontalArrangement = if (skipVisible) Arrangement.End else Arrangement.SpaceBetween,
+        horizontalArrangement = if (backVisible) Arrangement.SpaceBetween else Arrangement.End,
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        if (!skipVisible) {
+        if (backVisible) {
             RipDpiIconButton(
                 icon = RipDpiIcons.Back,
                 contentDescription = stringResource(R.string.navigation_back),
@@ -359,7 +364,7 @@ private fun OnboardingTopBar(
 
             finishDisconnectedVisible -> {
                 OnboardingTopBarAction(
-                    R.string.onboarding_validation_finish_disconnected,
+                    R.string.vpn_confirm_disconnect_disconnect,
                     onFinish,
                     RipDpiTestTags.OnboardingFinishDisconnected,
                 )
@@ -406,16 +411,20 @@ private fun OnboardingBottomBar(
                 .padding(bottom = introLayout.footerBottomPadding),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        RipDpiPageIndicators(
-            currentPage = settledPage,
-            pageCount = pageCount,
-            accessibilityLabel =
-                stringResource(
-                    R.string.onboarding_step_progress,
-                    settledPage + 1,
-                    pageCount,
-                ),
-        )
+        // Hidden, not removed, so the CTA stays in place when the test succeeds.
+        val finished = validationState is OnboardingValidationState.Success
+        Box(modifier = if (finished) Modifier.alpha(0f).clearAndSetSemantics {} else Modifier) {
+            RipDpiPageIndicators(
+                currentPage = settledPage,
+                pageCount = pageCount,
+                accessibilityLabel =
+                    stringResource(
+                        R.string.onboarding_step_progress,
+                        settledPage + 1,
+                        pageCount,
+                    ),
+            )
+        }
         Spacer(modifier = Modifier.height(introLayout.footerProgressGap))
         OnboardingFooterCta(
             isLastPage = isLastPage,
@@ -435,7 +444,7 @@ private fun OnboardingBottomBar(
 /**
  * State-driven footer primary CTA. Identical full-width pattern across all 4 pages.
  * On pages 0–2 it is the page's Continue/Next action; on the ConnectionTest page it is driven by
- * [validationState] (Start test / Testing… disabled / Finish disconnected / Retry).
+ * [validationState] (Start test / Testing… disabled / Done / Retry).
  */
 @Composable
 private fun OnboardingFooterCta(
@@ -460,7 +469,7 @@ private fun OnboardingFooterCta(
     when (validationState) {
         is OnboardingValidationState.Success -> {
             RipDpiButton(
-                text = stringResource(R.string.onboarding_validation_finish_keep_running),
+                text = stringResource(R.string.app_picker_done),
                 onClick = onFinishKeepRunning,
                 modifier = modifier.ripDpiTestTag(RipDpiTestTags.OnboardingFinishKeepRunning),
             )
@@ -730,17 +739,12 @@ private fun OnboardingSetupPageScene(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(headerToContentGap),
         ) {
-            val headerTitleRes =
-                if (pageModel.kind == SetupPageKind.ConnectionTest &&
+            val succeeded =
+                pageModel.kind == SetupPageKind.ConnectionTest &&
                     uiState.validationState is OnboardingValidationState.Success
-                ) {
-                    R.string.onboarding_test_success_title
-                } else {
-                    pageModel.titleRes
-                }
             OnboardingPageHeader(
-                icon = pageModel.icon,
-                titleRes = headerTitleRes,
+                icon = if (succeeded) RipDpiIcons.Check else pageModel.icon,
+                titleRes = if (succeeded) R.string.vpn_connected else pageModel.titleRes,
                 subtitleRes =
                     R.string.onboarding_test_idle_body.takeIf {
                         pageModel.kind == SetupPageKind.ConnectionTest &&

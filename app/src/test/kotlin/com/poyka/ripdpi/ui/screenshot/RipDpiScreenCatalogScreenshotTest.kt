@@ -178,7 +178,7 @@ class RipDpiScreenCatalogScreenshotTest {
     @Test
     fun onboardingValidationSuccessScreen() {
         captureOnboardingValidationScreen(
-            OnboardingValidationState.Success(mode = Mode.VPN),
+            OnboardingValidationState.Success(mode = Mode.VPN, dnsSummary = "Encrypted DNS · AdGuard (DoH)"),
         )
     }
 

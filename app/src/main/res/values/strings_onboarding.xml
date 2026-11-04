@@ -11,8 +11,6 @@
     <string name="onboarding_setup_mode_proxy_body">Runs a local proxy for apps or clients that support manual proxy configuration.</string>
     <string name="onboarding_setup_validate_title">Test connection</string>
     <string name="onboarding_step_progress">Step %1$d of %2$d</string>
-    <string name="onboarding_validation_finish_keep_running">Finish and keep running</string>
-    <string name="onboarding_validation_finish_disconnected">Finish disconnected</string>
     <string name="onboarding_validation_failed">Validation failed: %1$s</string>
     <string name="onboarding_validation_failed_generic">The selected mode could not be validated.</string>
     <string name="onboarding_validation_notifications_required">Allow notifications so RIPDPI can show validation service status.</string>
@@ -50,8 +48,6 @@
     <string name="onboarding_test_permission_note">Android may ask for permission before RIPDPI can create a local VPN tunnel. No remote VPN server is used.</string>
     <string name="onboarding_test_failed_permission">Android requires permission before RIPDPI can create a local VPN tunnel on this device. No remote VPN server is used.</string>
     <string name="onboarding_test_state_permission">Android will ask for permission to create a local VPN connection.</string>
-    <string name="onboarding_test_success_title">Setup complete</string>
-    <string name="onboarding_test_success_body">RIPDPI is ready to use.</string>
     <string name="onboarding_test_failed_title">Connection test failed</string>
     <!-- accessibility state descriptions for checklist rows -->
     <string name="onboarding_test_row_state_pending">Pending</string>

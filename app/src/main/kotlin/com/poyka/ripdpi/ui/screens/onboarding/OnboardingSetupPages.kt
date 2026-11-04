@@ -21,9 +21,11 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.liveRegion
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
+import androidx.compose.ui.text.style.TextAlign
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
@@ -113,7 +115,10 @@ internal fun OnboardingModeValidationContent(
     val state = uiState.validationState
 
     Column(
-        modifier = modifier.fillMaxWidth(),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .ripDpiTestTag(RipDpiTestTags.OnboardingValidationStatus),
         verticalArrangement = Arrangement.spacedBy(spacing.lg),
     ) {
         OnboardingValidationStatusBlock(
@@ -121,17 +126,12 @@ internal fun OnboardingModeValidationContent(
             selectedMode = uiState.selectedMode,
         )
 
-        OnboardingValidationChecklist(
-            mode = uiState.selectedMode,
-            state = state,
-            // The idle subtitle lives in the page header, so the checklist carries the status tag.
-            modifier =
-                if (state == OnboardingValidationState.Idle) {
-                    Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingValidationStatus)
-                } else {
-                    Modifier
-                },
-        )
+        if (state !is OnboardingValidationState.Success) {
+            OnboardingValidationChecklist(
+                mode = uiState.selectedMode,
+                state = state,
+            )
+        }
 
         OnboardingValidationContentActions(
             state = state,
@@ -160,7 +160,11 @@ private fun OnboardingValidationStatusBlock(
         }
 
         is OnboardingValidationState.Success -> {
-            OnboardingValidationSuccessMessage(modifier = modifier)
+            OnboardingValidationSuccessRoute(
+                mode = state.mode,
+                dnsSummary = state.dnsSummary,
+                modifier = modifier,
+            )
         }
 
         is OnboardingValidationState.Failed -> {
@@ -179,8 +183,7 @@ private fun OnboardingValidationStatusBlock(
                 modifier =
                     modifier
                         .fillMaxWidth()
-                        .semantics { liveRegion = LiveRegionMode.Polite }
-                        .ripDpiTestTag(RipDpiTestTags.OnboardingValidationStatus),
+                        .semantics { liveRegion = LiveRegionMode.Polite },
             )
         }
 
@@ -191,8 +194,7 @@ private fun OnboardingValidationStatusBlock(
                 color = colors.mutedForeground,
                 modifier =
                     modifier
-                        .fillMaxWidth()
-                        .ripDpiTestTag(RipDpiTestTags.OnboardingValidationStatus),
+                        .fillMaxWidth(),
             )
         }
 
@@ -205,26 +207,40 @@ private fun OnboardingValidationStatusBlock(
             Spacer(
                 modifier =
                     modifier
-                        .height(spacing.xs)
-                        .ripDpiTestTag(RipDpiTestTags.OnboardingValidationStatus),
+                        .height(spacing.xs),
             )
         }
     }
 }
 
+/** What now runs: the header says connected, this says how. TalkBack hears both through the live region. */
 @Composable
-private fun OnboardingValidationSuccessMessage(modifier: Modifier = Modifier) {
-    val colors = RipDpiThemeTokens.colors
-    val type = RipDpiThemeTokens.type
+private fun OnboardingValidationSuccessRoute(
+    mode: Mode,
+    dnsSummary: String,
+    modifier: Modifier = Modifier,
+) {
+    val modeTitle =
+        stringResource(
+            when (mode) {
+                Mode.VPN -> R.string.home_mode_vpn
+                Mode.Proxy -> R.string.home_mode_proxy
+            },
+        )
+    val route = "$modeTitle · $dnsSummary"
+    val announcement = "${stringResource(R.string.vpn_connected)}. $route"
     Text(
-        text = stringResource(R.string.onboarding_test_success_body),
-        style = type.introBody,
-        color = colors.mutedForeground,
+        text = route,
+        style = RipDpiThemeTokens.type.introBody,
+        color = RipDpiThemeTokens.colors.mutedForeground,
+        textAlign = TextAlign.Center,
         modifier =
             modifier
                 .fillMaxWidth()
-                .semantics { liveRegion = LiveRegionMode.Polite }
-                .ripDpiTestTag(RipDpiTestTags.OnboardingValidationStatus),
+                .semantics {
+                    contentDescription = announcement
+                    liveRegion = LiveRegionMode.Polite
+                },
     )
 }
 
