@@ -65,32 +65,32 @@ private fun ConnectionActuatorScene(
     val description =
         when (status) {
             StatusConnectionActuatorStatus.Open -> {
-                stringResource(R.string.home_connection_actuator_state_open)
+                stringResource(R.string.status_connection_actuator_state_open)
             }
 
             StatusConnectionActuatorStatus.Engaging -> {
-                stringResource(R.string.home_connection_actuator_state_engaging)
+                stringResource(R.string.status_connection_actuator_state_engaging)
             }
 
             StatusConnectionActuatorStatus.Locked -> {
-                stringResource(R.string.home_connection_actuator_state_locked)
+                stringResource(R.string.status_connection_actuator_state_locked)
             }
 
             StatusConnectionActuatorStatus.Degraded -> {
                 stringResource(
-                    R.string.home_connection_actuator_state_degraded,
-                    stringResource(R.string.home_connection_stage_dns),
+                    R.string.status_connection_actuator_state_degraded,
+                    stringResource(R.string.status_connection_stage_dns),
                 )
             }
 
             StatusConnectionActuatorStatus.Fault -> {
                 stringResource(
-                    R.string.home_connection_actuator_state_fault,
-                    stringResource(R.string.home_connection_stage_tunnel),
+                    R.string.status_connection_actuator_state_fault,
+                    stringResource(R.string.status_connection_stage_tunnel),
                 )
             }
         }
-    val action = if (lockdown) stringResource(R.string.home_connection_actuator_action_android_managed) else ""
+    val action = if (lockdown) stringResource(R.string.status_connection_actuator_action_android_managed) else ""
     val detail =
         if (status ==
             StatusConnectionActuatorStatus.Fault
@@ -99,8 +99,8 @@ private fun ConnectionActuatorScene(
         } else {
             ""
         }
-    val route = stringResource(R.string.home_mode_vpn)
-    val exit = stringResource(R.string.home_connection_actuator_direct)
+    val route = stringResource(R.string.status_mode_vpn)
+    val exit = stringResource(R.string.status_connection_actuator_direct)
     RipDpiComponentPreview(themePreference = theme) {
         RipDpiConnectionActuator(
             state =

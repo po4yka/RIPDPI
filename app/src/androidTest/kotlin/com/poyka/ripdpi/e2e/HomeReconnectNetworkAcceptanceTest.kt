@@ -307,7 +307,7 @@ class HomeReconnectNetworkAcceptanceTest {
         openReview("open-cancel-review")
         ui.readSection(
             "read-current",
-            RipDpiTestTags.HomeRuntimeReconnectCurrent,
+            RipDpiTestTags.StatusRuntimeReconnectCurrent,
             context.getString(
                 if (current.dns.protocol ==
                     "dot"
@@ -320,7 +320,7 @@ class HomeReconnectNetworkAcceptanceTest {
         )
         ui.readSection(
             "read-saved",
-            RipDpiTestTags.HomeRuntimeReconnectSaved,
+            RipDpiTestTags.StatusRuntimeReconnectSaved,
             context.getString(
                 if (replacementDnsProtocol ==
                     "dot"
@@ -331,8 +331,12 @@ class HomeReconnectNetworkAcceptanceTest {
                 },
             ),
         )
-        ui.action("cancel-review", RipDpiTestTags.HomeRuntimeReconnectDialog, context.getString(R.string.config_cancel))
-        ui.awaitTag(RipDpiTestTags.HomeRuntimeReconnectDialog, false)
+        ui.action(
+            "cancel-review",
+            RipDpiTestTags.StatusRuntimeReconnectDialog,
+            context.getString(R.string.config_cancel),
+        )
+        ui.awaitTag(RipDpiTestTags.StatusRuntimeReconnectDialog, false)
         assertCurrent(mode, current)
         if (mode == Mode.VPN) {
             assertOriginalVpnListener("cancelled", current)
@@ -378,7 +382,7 @@ class HomeReconnectNetworkAcceptanceTest {
         openReview("open-stale-review")
         ui.observe("stale-review-ready")
         runBlocking { settings.replace(ownedSettings[2]) }
-        ui.awaitTag(RipDpiTestTags.HomeRuntimeReconnectDialog, false)
+        ui.awaitTag(RipDpiTestTags.StatusRuntimeReconnectDialog, false)
         assertCurrent(mode, original)
         if (mode == Mode.VPN) {
             assertOriginalVpnListener("stale", original)
@@ -408,7 +412,7 @@ class HomeReconnectNetworkAcceptanceTest {
         }
         assertNotEquals(original.runtimeId, replacement.runtimeId)
         assertEquals(replacementDnsProtocol, replacement.dns.protocol)
-        ui.awaitTag(RipDpiTestTags.HomeRuntimeReconnectDialog, false)
+        ui.awaitTag(RipDpiTestTags.StatusRuntimeReconnectDialog, false)
         if (mode == Mode.VPN) {
             val replacementListener = captureVpnListener("reconnected", replacement)
             evidence.assertTcpListenerOpen(replacementListener)
@@ -509,7 +513,7 @@ class HomeReconnectNetworkAcceptanceTest {
 
     private fun openReview(stage: String) {
         ui.action(stage, "home_runtime_reconnect", context.getString(R.string.oom_recovery_action_reconnect))
-        ui.awaitTag(RipDpiTestTags.HomeRuntimeReconnectDialog, true)
+        ui.awaitTag(RipDpiTestTags.StatusRuntimeReconnectDialog, true)
     }
 
     private fun assertCurrent(

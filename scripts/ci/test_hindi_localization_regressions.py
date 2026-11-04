@@ -13,34 +13,34 @@ HISTORY_REFERENCES = (
     "diagnostics_remediation_review_step_open_history",
     "diagnostics_remediation_open_history_action",
     "diagnostics_remediation_no_hint_step_open_history",
-    "home_remediation_review_step_open_history",
+    "status_remediation_review_step_open_history",
 )
 EDITOR_REFERENCES = (
     "diagnostics_remediation_browser_relay_step_open_mode_editor",
     "diagnostics_remediation_quic_relay_step_open_mode_editor",
     "diagnostics_remediation_open_mode_editor_action",
-    "home_remediation_browser_relay_summary",
-    "home_remediation_browser_relay_step_open_mode_editor",
-    "home_remediation_quic_relay_summary",
-    "home_remediation_quic_relay_step_open_mode_editor",
+    "status_remediation_browser_relay_summary",
+    "status_remediation_browser_relay_step_open_mode_editor",
+    "status_remediation_quic_relay_summary",
+    "status_remediation_quic_relay_step_open_mode_editor",
 )
 DIAGNOSTIC_REFERENCES = (
-    "home_diagnostics_no_actionable_result",
-    "home_remediation_stale_step_open_diagnostics",
-    "home_remediation_no_actionable_step_open_diagnostics",
-    "home_remediation_open_diagnostics_action",
-    "home_remediation_owned_stack_summary",
-    "home_remediation_owned_stack_step_open_diagnostics",
-    "home_remediation_no_hint_step_open_diagnostics",
-    "home_diagnostics_open_diagnostics_action",
+    "status_diagnostics_no_actionable_result",
+    "status_remediation_stale_step_open_diagnostics",
+    "status_remediation_no_actionable_step_open_diagnostics",
+    "status_remediation_open_diagnostics_action",
+    "status_remediation_owned_stack_summary",
+    "status_remediation_owned_stack_step_open_diagnostics",
+    "status_remediation_no_hint_step_open_diagnostics",
+    "status_diagnostics_open_diagnostics_action",
     "config_local_bypass_retest_strategies",
 )
 ADVANCED_REFERENCES = (
-    "home_control_plane_health_body", "home_control_plane_health_action",
+    "status_control_plane_health_body", "status_control_plane_health_action",
     "diagnostics_scan_workflow_blocked_command_line_body_format",
 )
 ENGLISH_LABELS = (
-    "diagnostics_family_network_full", "home_diagnostics_dns_section",
+    "diagnostics_family_network_full", "status_diagnostics_dns_section",
     "diagnostics_device_gate_status_idle", "diagnostics_device_gate_status_running",
     "diagnostics_device_gate_status_incomplete", "diagnostics_device_gate_status_pass",
     "diagnostics_device_gate_status_fail", "diagnostics_replay_probe_summary",
@@ -48,8 +48,8 @@ ENGLISH_LABELS = (
     "diagnostics_resolver_field_bootstrap", "diagnostics_resolver_field_endpoint",
     "diagnostics_resolver_field_protocol", "diagnostics_resolver_field_resolver",
     "diagnostics_resolver_field_trigger", "diagnostics_tool_zstd_codec_label",
-    "home_connection_actuator_relay", "home_connection_stage_handshake",
-    "home_connection_stage_tunnel",
+    "status_connection_actuator_relay", "status_connection_stage_handshake",
+    "status_connection_stage_tunnel",
 )
 
 
@@ -109,7 +109,7 @@ class HindiLocalizationRegressionsTest(unittest.TestCase):
         self.assertNotIn("अमान्य", text(self.hi["remembered_networks_validation_none"]))
         self.assertNotIn("चोरी", text(self.hi["detection_resistance_quic_low_port_body"]))
         self.assertNotIn("श्रेय", text(self.hi["diagnostics_region_suite_message"]))
-        self.assertNotIn("प्राधिकरण", text(self.hi["home_remediation_no_hint_step_review_evidence"]))
+        self.assertNotIn("प्राधिकरण", text(self.hi["status_remediation_no_hint_step_review_evidence"]))
         self.assertIn("सबनेट", text(self.hi["diagnostics_ipv4_whitelist_check_cached"]))
         self.assertIn(text(self.hi["pause_resume_now"]), text(self.hi["pause_clock_failed"]))
 
@@ -123,9 +123,9 @@ class HindiLocalizationRegressionsTest(unittest.TestCase):
                     self.assertIn(text(self.hi[label]), text(self.hi[key]))
         for key in ("diagnostics_pt_privacy_disabled", "diagnostics_rkn_self_info_privacy_suppressed"):
             self.assertIn(text(self.hi["detection_privacy_mode"]), text(self.hi[key]))
-        self.assertIn(text(self.hi["home"]), text(self.hi["home_remediation_command_line_step_retry"]))
-        self.assertIn(text(self.hi["home_diagnostics_run_analysis"]),
-                      text(self.hi["home_remediation_command_line_step_retry"]))
+        self.assertIn(text(self.hi["home"]), text(self.hi["status_remediation_command_line_step_retry"]))
+        self.assertIn(text(self.hi["status_diagnostics_run_analysis"]),
+                      text(self.hi["status_remediation_command_line_step_retry"]))
 
     def test_profile_editor_references_match_in_every_locale(self):
         for locale in LOCALES:
@@ -141,9 +141,9 @@ class HindiLocalizationRegressionsTest(unittest.TestCase):
                 value = text(self.hi[key])
                 self.assertNotEqual(text(self.en[key]), value)
                 self.assertRegex(value, r"[\u0900-\u097f]")
-        for key in ("home_remediation_browser_relay_title",
-                    "home_remediation_browser_relay_summary",
-                    "home_remediation_browser_relay_step_choose_preset"):
+        for key in ("status_remediation_browser_relay_title",
+                    "status_remediation_browser_relay_summary",
+                    "status_remediation_browser_relay_step_choose_preset"):
             self.assertNotIn("browser-camouflage", text(self.hi[key]))
         self.assertEqual("RIPDPI ब्राउज़र", text(self.hi["title_owned_stack_browser"]))
         simple = {e.get("name"): text(e) for e in ET.parse(

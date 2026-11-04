@@ -109,7 +109,7 @@ SEMANTIC_KEYS = (
     'owned_stack_browser_banner_platform',
     'owned_stack_browser_trace_native_platform_failure',
     'owned_stack_browser_error_title',
-    'home_remediation_owned_stack_summary',
+    'status_remediation_owned_stack_summary',
     'detection_resistance_tls_fingerprint_body',
     'detection_resistance_quic_migrate_body',
     'activation_window_scope_cli',
@@ -123,7 +123,7 @@ SEMANTIC_KEYS = (
     'config_relay_masque_cloudflare_geohash_helper',
     'detection_onboarding_body',
     'detection_permission_settings',
-    'home_diagnostics_detection_permission_required',
+    'status_diagnostics_detection_permission_required',
     'quic_fake_profile_scope_udp_disabled',
     'quic_fake_profile_udp_disabled_title',
     'ripdpi_fake_tls_https_disabled_body',
@@ -143,7 +143,7 @@ SEMANTIC_KEYS = (
 )
 
 LATENT_KEYS = (
-    'home_diagnostics_detection_permission_required',
+    'status_diagnostics_detection_permission_required',
 )
 
 
@@ -205,7 +205,7 @@ class FrenchLocalizationRegressionsTest(unittest.TestCase):
 
     def test_owned_transport_names_app_control_consistently(self):
         keys = [key for key in SEMANTIC_KEYS if key.startswith("owned_stack_")]
-        keys += ["home_remediation_owned_stack_summary", "detection_resistance_tls_fingerprint_body",
+        keys += ["status_remediation_owned_stack_summary", "detection_resistance_tls_fingerprint_body",
                  "detection_resistance_quic_migrate_body"]
         self.assertEqual(10, len(keys))
         for key in keys:
@@ -221,7 +221,7 @@ class FrenchLocalizationRegressionsTest(unittest.TestCase):
             with self.subTest(key=key):
                 self.assertNotRegex(text(self.fr[key]), r"[Ll]e stratégie|au stratégie|du stratégie|Les stratégie |de contournement de contournement|un autre exécution")
                 self.assertNotRegex(text(self.fr[key]), r"stratégie[^.]*n’est pas réactivé(?:[ .,]|$)")
-        for key in ("detection_permission_rationale", "detection_onboarding_body", "detection_permission_settings", "home_diagnostics_detection_permission_required"):
+        for key in ("detection_permission_rationale", "detection_onboarding_body", "detection_permission_settings", "status_diagnostics_detection_permission_required"):
             with self.subTest(key=key):
                 self.assertIn("l’identité", text(self.fr[key]))
                 self.assertNotIn("l identité", text(self.fr[key]))

@@ -596,7 +596,7 @@ private fun relayEndpointLabel(uiState: ConnectionUiState): String {
             .ifBlank { chainEndpoint }
     return when {
         endpoint.isBlank() -> {
-            stringResource(R.string.home_mode_card_remote_server_unknown)
+            stringResource(R.string.status_mode_card_remote_server_unknown)
         }
 
         draft.relayServer.isNotBlank() && draft.relayServerPort.isNotBlank() -> {

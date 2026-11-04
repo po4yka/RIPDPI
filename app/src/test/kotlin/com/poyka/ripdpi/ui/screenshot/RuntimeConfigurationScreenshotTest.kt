@@ -2,7 +2,7 @@ package com.poyka.ripdpi.ui.screenshot
 
 import androidx.compose.ui.unit.LayoutDirection
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HomeAppliedConfigurationUiState
+import com.poyka.ripdpi.activities.StatusAppliedConfigurationUiState
 import com.poyka.ripdpi.ui.screens.status.StatusAppliedConfigurationPanel
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -110,7 +110,7 @@ class RuntimeConfigurationScreenshotTest {
             testClassFqn = javaClass.name,
         ) {
             StatusAppliedConfigurationPanel(
-                HomeAppliedConfigurationUiState(
+                StatusAppliedConfigurationUiState(
                     visible = true,
                     status = context.getString(status),
                     confirmedSummary =

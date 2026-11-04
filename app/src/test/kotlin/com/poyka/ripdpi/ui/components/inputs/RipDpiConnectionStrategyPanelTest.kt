@@ -28,7 +28,7 @@ class RipDpiConnectionStrategyPanelTest {
     val composeRule = createComposeRule()
 
     private val explainer =
-        RuntimeEnvironment.getApplication().getString(R.string.home_connection_strategy_explainer)
+        RuntimeEnvironment.getApplication().getString(R.string.status_connection_strategy_explainer)
 
     @Test
     fun `strategy steps stay visible and the labeled settings open on demand above the action`() {

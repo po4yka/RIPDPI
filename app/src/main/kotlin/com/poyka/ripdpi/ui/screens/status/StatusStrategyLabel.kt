@@ -12,7 +12,7 @@ import kotlinx.collections.immutable.toImmutableList
  * One labeled row per strategy setting. Protocol, lane and provider names
  * (TCP, QUIC, DNS, HTTP) are technical tokens and stay untranslated.
  */
-internal fun BypassStrategySignature.localizedHomeStrategyFacets(
+internal fun BypassStrategySignature.localizedStatusStrategyFacets(
     strings: StringResolver,
 ): ImmutableList<StatusModeSummaryFacet> =
     buildList {
@@ -54,5 +54,5 @@ internal fun BypassStrategySignature.localizedHomeStrategyFacets(
                 strings.getString(R.string.config_local_bypass_enabled),
             )
         }
-        routeGroup?.let { facet(strings.getString(R.string.home_stat_route), it) }
+        routeGroup?.let { facet(strings.getString(R.string.status_stat_route), it) }
     }.toImmutableList()

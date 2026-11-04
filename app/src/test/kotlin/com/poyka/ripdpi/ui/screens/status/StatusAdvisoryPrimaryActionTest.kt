@@ -61,19 +61,19 @@ class StatusAdvisoryPrimaryActionTest {
         }
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeAdvisoryPrimaryAction)
+            .onNodeWithTag(RipDpiTestTags.StatusAdvisoryPrimaryAction)
             .assertIsDisplayed()
             .performClick()
 
         assertEquals(1, repairs)
         composeRule.onNodeWithTag("battery-advisory").assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryMore).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryMore).performClick()
         composeRule.onNodeWithTag("battery-advisory").assertIsDisplayed()
         composeRule.onAllNodesWithText("VPN permission needed").assertCountEquals(1)
-        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeAdvisoryPrimaryAction).assertCountEquals(1)
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryPrimaryAction).performClick()
+        composeRule.onAllNodesWithTag(RipDpiTestTags.StatusAdvisoryPrimaryAction).assertCountEquals(1)
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryPrimaryAction).performClick()
         assertEquals(2, repairs)
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryMore).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryMore).performClick()
         composeRule.onNodeWithTag("battery-advisory").assertDoesNotExist()
     }
 
@@ -94,13 +94,13 @@ class StatusAdvisoryPrimaryActionTest {
         }
 
         composeRule.onNodeWithText("Provider failed").assertIsDisplayed()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryPrimaryAction).assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryPrimaryAction).assertIsDisplayed().performClick()
         assertEquals(1, repairs)
         composeRule.onNodeWithText("1 more notice").assertIsDisplayed()
         composeRule.onNodeWithText("Background activity").assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryMore).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryMore).performClick()
         composeRule.onNodeWithText("Background activity").assertIsDisplayed()
-        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeAdvisoryPrimaryAction).assertCountEquals(1)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.StatusAdvisoryPrimaryAction).assertCountEquals(1)
     }
 
     @Test
@@ -112,9 +112,9 @@ class StatusAdvisoryPrimaryActionTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryPrimaryAction).assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryPrimaryAction).assertIsDisplayed().performClick()
         assertEquals(1, repairs)
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryMore).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryMore).assertDoesNotExist()
     }
 
     @Test
@@ -150,8 +150,8 @@ class StatusAdvisoryPrimaryActionTest {
 
         composeRule.onNodeWithTag("Sign-in needed").assertIsDisplayed().performClick()
         assertEquals(1, signIns)
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryMore).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryCard).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryMore).assertDoesNotExist()
     }
 }
 

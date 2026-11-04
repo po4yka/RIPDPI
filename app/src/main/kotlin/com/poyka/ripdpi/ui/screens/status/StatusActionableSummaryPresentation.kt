@@ -24,7 +24,7 @@ internal class StatusActionableSummaryPresentation(
             }
 
             outcome.actionable && outcome.actionableHeadline == "Analysis complete and bypass applied." -> {
-                strings.getString(R.string.home_diagnostics_actionable_applied)
+                strings.getString(R.string.status_diagnostics_actionable_applied)
             }
 
             else -> {
@@ -45,12 +45,12 @@ internal class StatusActionableSummaryPresentation(
                 if (DetectionScope.NETWORK_OBSERVATION in outcome.detectionEvidenceScopes) {
                     listOf(
                         "Network-observed VPN detection pattern requires review" to
-                            strings.getString(R.string.home_diagnostics_actionable_network_detection),
+                            strings.getString(R.string.status_diagnostics_actionable_network_detection),
                     )
                 } else {
                     listOf(
                         "Local observer found VPN-related artifacts" to
-                            strings.getString(R.string.home_diagnostics_actionable_local_detection),
+                            strings.getString(R.string.status_diagnostics_actionable_local_detection),
                     )
                 }
             }
@@ -58,7 +58,7 @@ internal class StatusActionableSummaryPresentation(
             DiagnosticsHomeDetectionVerdict.NEEDS_REVIEW -> {
                 listOf(
                     "Some detection checks need review (likely missing permissions)" to
-                        strings.getString(R.string.home_diagnostics_actionable_detection_review),
+                        strings.getString(R.string.status_diagnostics_actionable_detection_review),
                 )
             }
 
@@ -73,7 +73,7 @@ internal class StatusActionableSummaryPresentation(
             if (count > 0) {
                 add(
                     "$count VPN-detector app${if (count == 1) "" else "s"} installed" to
-                        strings.getQuantityString(R.plurals.home_diagnostics_actionable_detector_count, count, count),
+                        strings.getQuantityString(R.plurals.status_diagnostics_actionable_detector_count, count, count),
                 )
             }
             if (outcome.actionable && outcome.appliedSettings.isNotEmpty()) {
@@ -82,9 +82,9 @@ internal class StatusActionableSummaryPresentation(
                 val kind = if (dns) "DNS" else "bypass"
                 val resource =
                     if (dns) {
-                        R.plurals.home_diagnostics_actionable_dns_count
+                        R.plurals.status_diagnostics_actionable_dns_count
                     } else {
-                        R.plurals.home_diagnostics_actionable_bypass_count
+                        R.plurals.status_diagnostics_actionable_bypass_count
                     }
                 add(
                     "Applied $size $kind setting${if (size == 1) "" else "s"}" to
@@ -99,7 +99,7 @@ internal class StatusActionableSummaryPresentation(
                 outcome.detectionFindings.take(2).forEach { finding ->
                     add(
                         "Detection signal: $finding" to
-                            strings.getString(R.string.home_diagnostics_actionable_detection_signal_format, finding),
+                            strings.getString(R.string.status_diagnostics_actionable_detection_signal_format, finding),
                     )
                 }
             }
@@ -108,7 +108,7 @@ internal class StatusActionableSummaryPresentation(
                 if (apps.isNotBlank()) {
                     add(
                         "Add per-app routing for: $apps" to
-                            strings.getString(R.string.home_diagnostics_actionable_routing_format, apps),
+                            strings.getString(R.string.status_diagnostics_actionable_routing_format, apps),
                     )
                 }
             }
@@ -122,25 +122,31 @@ internal class StatusActionableSummaryPresentation(
                 )
             if (outcome.failedStageCount > 0 && stages.isNotEmpty()) {
                 val labels = stages.joinToString(", ") { it.stageLabel }
-                add("Failed: $labels" to strings.getString(R.string.home_diagnostics_actionable_failed_format, labels))
+                add(
+                    "Failed: $labels" to
+                        strings.getString(
+                            R.string.status_diagnostics_actionable_failed_format,
+                            labels,
+                        ),
+                )
             }
             if (outcome.bufferbloat?.grade in setOf(HomeBufferbloatGrade.D, HomeBufferbloatGrade.F)) {
                 add(
                     "High bufferbloat — consider QoS or a different relay transport" to
-                        strings.getString(R.string.home_diagnostics_actionable_bufferbloat),
+                        strings.getString(R.string.status_diagnostics_actionable_bufferbloat),
                 )
             }
             if (outcome.dnsCharacterization?.resolverClass == HomeDnsResolverClass.DOH_UNREACHABLE) {
                 add(
                     "Encrypted DNS endpoint unreachable — check connectivity and retry" to
-                        strings.getString(R.string.home_diagnostics_actionable_dns_unreachable),
+                        strings.getString(R.string.status_diagnostics_actionable_dns_unreachable),
                 )
             }
             outcome.regressionDelta?.newlyFailedStageKeys?.takeIf { it.isNotEmpty() }?.let { keys ->
                 val labels = keys.joinToString(", ")
                 add(
                     "Regression: $labels stopped working since the previous run" to
-                        strings.getString(R.string.home_diagnostics_actionable_regression_format, labels),
+                        strings.getString(R.string.status_diagnostics_actionable_regression_format, labels),
                 )
             }
             outcome.strategyEffectiveness
@@ -153,7 +159,7 @@ internal class StatusActionableSummaryPresentation(
                                 "(${winner.successCount} pass / ${winner.failureCount} fail)"
                         ) to
                             strings.getString(
-                                R.string.home_diagnostics_actionable_historical_format,
+                                R.string.status_diagnostics_actionable_historical_format,
                                 winner.label,
                                 winner.successCount,
                                 winner.failureCount,

@@ -249,7 +249,7 @@ internal class DefaultMainActivityHost
                             launchDiagnosticsExport(Intent.createChooser(shareIntent, command.title)) {
                                 activity.startActivity(it)
                             },
-                        message = activity.getString(R.string.home_diagnostics_share_failed),
+                        message = activity.getString(R.string.status_diagnostics_share_failed),
                     )
                 }
             }

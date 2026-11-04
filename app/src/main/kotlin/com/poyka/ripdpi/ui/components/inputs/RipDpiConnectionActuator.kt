@@ -299,7 +299,7 @@ private fun ActuatorIssueDetail(
 ) {
     val spacing = RipDpiThemeTokens.spacing
     val shape = RipDpiThemeTokens.shapes.xs
-    val copyLabel = stringResource(R.string.home_connection_actuator_fault_copy)
+    val copyLabel = stringResource(R.string.status_connection_actuator_fault_copy)
     val interactionSource = remember { MutableInteractionSource() }
     val resolver =
         rememberRipDpiStyleResolver(
@@ -354,7 +354,7 @@ private fun ActuatorIssueDetail(
             ) {
                 onDiagnose?.let {
                     RipDpiButton(
-                        text = stringResource(R.string.home_connection_actuator_issue_diagnose),
+                        text = stringResource(R.string.status_connection_actuator_issue_diagnose),
                         modifier = Modifier.weight(1f).ripDpiTestTag(RipDpiTestTags.ConnectionActuatorIssueDiagnose),
                         variant = RipDpiButtonVariant.Outline,
                         wrapLabel = true,
@@ -363,7 +363,7 @@ private fun ActuatorIssueDetail(
                 }
                 onViewLog?.let {
                     RipDpiButton(
-                        text = stringResource(R.string.home_connection_actuator_issue_view_log),
+                        text = stringResource(R.string.status_connection_actuator_issue_view_log),
                         modifier = Modifier.weight(1f).ripDpiTestTag(RipDpiTestTags.ConnectionActuatorIssueViewLog),
                         variant = RipDpiButtonVariant.Outline,
                         wrapLabel = true,
@@ -383,19 +383,19 @@ private fun StatusConnectionActuatorUiState.withResolvedLabels(): StatusConnecti
                 stringResource(
                     when {
                         !isActivationAvailable && status != StatusConnectionActuatorStatus.Engaging -> {
-                            R.string.home_connection_actuator_action_deactivate
+                            R.string.status_connection_actuator_action_deactivate
                         }
 
                         status == StatusConnectionActuatorStatus.Engaging -> {
-                            R.string.home_connection_actuator_action_cancel
+                            R.string.status_connection_actuator_action_cancel
                         }
 
                         status == StatusConnectionActuatorStatus.Fault -> {
-                            R.string.home_connection_actuator_action_retry
+                            R.string.status_connection_actuator_action_retry
                         }
 
                         else -> {
-                            R.string.home_connection_actuator_action_activate
+                            R.string.status_connection_actuator_action_activate
                         }
                     },
                 )
@@ -404,20 +404,20 @@ private fun StatusConnectionActuatorUiState.withResolvedLabels(): StatusConnecti
             statusDescription.ifEmpty {
                 stringResource(
                     when (status) {
-                        StatusConnectionActuatorStatus.Open -> R.string.home_connection_actuator_state_open
+                        StatusConnectionActuatorStatus.Open -> R.string.status_connection_actuator_state_open
 
-                        StatusConnectionActuatorStatus.Engaging -> R.string.home_connection_actuator_state_engaging
+                        StatusConnectionActuatorStatus.Engaging -> R.string.status_connection_actuator_state_engaging
 
-                        StatusConnectionActuatorStatus.Locked -> R.string.home_connection_actuator_state_locked
+                        StatusConnectionActuatorStatus.Locked -> R.string.status_connection_actuator_state_locked
 
                         StatusConnectionActuatorStatus.Degraded,
                         StatusConnectionActuatorStatus.Fault,
-                        -> R.string.home_status_attention
+                        -> R.string.status_attention
                     },
                 )
             },
-        routeLabel = routeLabel.ifEmpty { stringResource(R.string.home_mode_vpn) },
-        trailingLabel = trailingLabel.ifEmpty { stringResource(R.string.home_connection_path_direct) },
+        routeLabel = routeLabel.ifEmpty { stringResource(R.string.status_mode_vpn) },
+        trailingLabel = trailingLabel.ifEmpty { stringResource(R.string.status_connection_path_direct) },
     )
 
 private fun StatusConnectionActuatorStatus.toThemeRole(): RipDpiActuatorStateRole =

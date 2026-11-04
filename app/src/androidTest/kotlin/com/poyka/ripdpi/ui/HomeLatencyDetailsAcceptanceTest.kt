@@ -372,7 +372,7 @@ class HomeLatencyDetailsAcceptanceTest {
         }
     }
 
-    private fun origin() = compose.onNodeWithTag(RipDpiTestTags.HomeLatencyMetric)
+    private fun origin() = compose.onNodeWithTag(RipDpiTestTags.StatusLatencyMetric)
 
     private fun dismiss() = compose.onNodeWithTag(RipDpiTestTags.LatencyDetailDismiss)
 

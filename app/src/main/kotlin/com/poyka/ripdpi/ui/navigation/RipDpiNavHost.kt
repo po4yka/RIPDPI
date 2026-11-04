@@ -88,7 +88,7 @@ fun RipDpiNavHost(
     mainViewModel: MainViewModel,
     pauseViewModel: StatusPauseViewModel,
     modifier: Modifier = Modifier,
-    startDestination: Route = Route.Home,
+    startDestination: Route = Route.Status,
     actions: RipDpiNavHostActions = RipDpiNavHostActions(),
     launchRequests: RipDpiNavHostLaunchRequests = RipDpiNavHostLaunchRequests(),
     snackbarHostState: SnackbarHostState? = null,
@@ -282,7 +282,7 @@ private fun HandleLaunchRequests(
             return@LaunchedEffect
         }
         when {
-            currentStableRoute == Route.Home.stableRoute -> {
+            currentStableRoute == Route.Status.stableRoute -> {
                 launchRequests.onLaunchHomeHandled()
             }
 
@@ -385,9 +385,9 @@ private fun RipDpiNavGraph(
 // Callers leave a finished flow (an import, a launch request), so its screens are dropped,
 // not saved. The tab save/restore options are ignored when a plainly pushed screen is on top.
 internal fun NavHostController.navigateHome() {
-    navigate(Route.Home) {
+    navigate(Route.Status) {
         launchSingleTop = true
-        popUpTo<Route.Home>()
+        popUpTo<Route.Status>()
     }
 }
 
@@ -395,7 +395,7 @@ private fun NavHostController.navigateTopLevel(destination: Route) {
     navigate(destination) {
         launchSingleTop = true
         restoreState = true
-        popUpTo<Route.Home> { saveState = true }
+        popUpTo<Route.Status> { saveState = true }
     }
 }
 
@@ -403,7 +403,7 @@ internal fun NavHostController.navigateConfigSubRoute(destination: Route) {
     navigate(destination) {
         launchSingleTop = true
         restoreState = true
-        popUpTo<Route.Home> { saveState = true }
+        popUpTo<Route.Status> { saveState = true }
     }
 }
 
@@ -430,7 +430,7 @@ private val configSubRouteStableKeys =
 
 private val stableRouteMatchers: List<Pair<String, NavDestination.() -> Boolean>> =
     listOf(
-        Route.Home.stableRoute to { hasRoute<Route.Home>() },
+        Route.Status.stableRoute to { hasRoute<Route.Status>() },
         Route.Config.stableRoute to { hasRoute<Route.Config>() },
         Route.LocalBypassConfig.stableRoute to { hasRoute<Route.LocalBypassConfig>() },
         Route.VpnConfig.stableRoute to { hasRoute<Route.VpnConfig>() },
@@ -491,7 +491,7 @@ internal fun shouldNavigateToHomeFromLaunchRequest(
         return false
     }
 
-    return currentRoute != Route.Home.stableRoute && !isNavigationGateRoute(currentRoute)
+    return currentRoute != Route.Status.stableRoute && !isNavigationGateRoute(currentRoute)
 }
 
 internal fun isNavigationGateRoute(route: String?): Boolean =

@@ -18,14 +18,14 @@ internal fun StringResolver.homeProgressText(raw: String): String {
 
 private val homeProgressWrappers =
     listOf(
-        Regex("Preparing (.+)") to R.string.home_generated_progress_preparing,
-        Regex("Testing TCP candidate (.+)") to R.string.home_generated_progress_tcp,
-        Regex("Testing QUIC candidate (.+)") to R.string.home_generated_progress_quic,
-        Regex("Skipped (.+)") to R.string.home_generated_progress_skip,
-        Regex("Service (.+)") to R.string.home_generated_progress_service,
-        Regex("Reachability (.+)") to R.string.home_generated_progress_reachability,
-        Regex("Throughput (.+)") to R.string.home_generated_progress_throughput,
-        Regex("Circumvention (.+)") to R.string.home_generated_progress_circumvention,
+        Regex("Preparing (.+)") to R.string.status_generated_progress_preparing,
+        Regex("Testing TCP candidate (.+)") to R.string.status_generated_progress_tcp,
+        Regex("Testing QUIC candidate (.+)") to R.string.status_generated_progress_quic,
+        Regex("Skipped (.+)") to R.string.status_generated_progress_skip,
+        Regex("Service (.+)") to R.string.status_generated_progress_service,
+        Regex("Reachability (.+)") to R.string.status_generated_progress_reachability,
+        Regex("Throughput (.+)") to R.string.status_generated_progress_throughput,
+        Regex("Circumvention (.+)") to R.string.status_generated_progress_circumvention,
     )
 
 internal fun StringResolver.homeDetectionProgress(raw: String): String? {
@@ -36,7 +36,7 @@ internal fun StringResolver.homeDetectionProgress(raw: String): String? {
             val (message, count) = verdict.destructured
             count.toIntOrNull()?.let { quantity ->
                 getQuantityString(
-                    R.plurals.home_generated_detection_count,
+                    R.plurals.status_generated_detection_count,
                     quantity,
                     homeGeneratedText(message),
                     homeCount(count),
@@ -75,7 +75,7 @@ private fun StringResolver.homeDetectionDetail(raw: String): String? {
 
             port != null -> {
                 getString(
-                    R.string.home_generated_check_port,
+                    R.string.status_generated_check_port,
                     port.groupValues[1],
                     homeCount(port.groupValues[2]),
                 )
@@ -106,9 +106,9 @@ private val homeDetectionLabelResources =
         "CDN Pulling" to R.string.detection_check_category_cdn_pulling,
         "Native Signs" to R.string.detection_check_category_native_signs,
         "Call Transport" to R.string.detection_check_category_call_transport,
-        "Port scanning" to R.string.home_generated_check_port_scanning,
-        "Popular ports" to R.string.home_generated_check_popular_ports,
-        "Full range scan" to R.string.home_generated_check_full_range,
+        "Port scanning" to R.string.status_generated_check_port_scanning,
+        "Popular ports" to R.string.status_generated_check_popular_ports,
+        "Full range scan" to R.string.status_generated_check_full_range,
         "Xray API" to null,
-        "IP check" to R.string.home_generated_check_ip_check,
+        "IP check" to R.string.status_generated_check_ip_check,
     )

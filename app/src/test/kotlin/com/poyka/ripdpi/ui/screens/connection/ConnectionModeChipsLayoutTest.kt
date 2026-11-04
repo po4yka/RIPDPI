@@ -49,7 +49,7 @@ class ConnectionModeChipsLayoutTest {
 
     @Test
     fun modesRetainWholeLabelsSelectionTagsAndCallbacks() {
-        assertLabelsFit(R.string.home_mode_vpn, R.string.home_mode_proxy)
+        assertLabelsFit(R.string.status_mode_vpn, R.string.status_mode_proxy)
     }
 
     private fun assertLabelsFit(

@@ -121,7 +121,7 @@ AUDITED_KEYS = (
     'diagnostics_device_gate_status_pass',
     'diagnostics_device_gate_status_fail',
     'diagnostics_error_dns_failure',
-    'home_diagnostics_dns_resolver_unknown',
+    'status_diagnostics_dns_resolver_unknown',
     'diagnostics_live_telemetry_error_format',
     'diagnostics_compression_bytes_format',
     'diagnostics_ipv4_whitelist_cache',
@@ -202,7 +202,7 @@ class PersianLocalizationRegressionsTest(unittest.TestCase):
         self.assertIn("دست‌دهی TLS", self.value("vpn_replay_rec_handshake_alert"))
         self.assertNotIn("دست‌تکانی", self.value("vpn_replay_rec_handshake_alert"))
         self.assertIn("حل نام DNS", self.value("diagnostics_error_dns_failure"))
-        self.assertIn("ارزیابی DNS", self.value("home_diagnostics_dns_resolver_unknown"))
+        self.assertIn("ارزیابی DNS", self.value("status_diagnostics_dns_resolver_unknown"))
         self.assertIn("خواندن دوره‌ای", self.value("diagnostics_live_telemetry_error_format"))
         self.assertIn("بازکردن فشرده‌سازی", self.value("diagnostics_compression_bytes_format"))
         self.assertNotIn("رمزگشایی", self.value("diagnostics_compression_bytes_format"))
@@ -219,12 +219,12 @@ class PersianLocalizationRegressionsTest(unittest.TestCase):
         self.assertGreaterEqual(len(source), 198)
         self.assertEqual(4, sum(entry.tag == "plurals" for entry in source.values()))
         # Product tokens and valid cognates can be identical to English.
-        canonical = {"home_generated_warp_amnezia"}
+        canonical = {"status_generated_warp_amnezia"}
         cognates = {
-            "values-es": {"home_generated_bytes"},
-            "values-de": {"home_generated_epsilon", "home_generated_check_port", "diagnostics_strategy_family_parser"},
-            "values-fr": {"home_generated_epsilon", "home_generated_progress_service", "home_generated_check_port"},
-            "values-pt-rBR": {"home_generated_bytes"},
+            "values-es": {"status_generated_bytes"},
+            "values-de": {"status_generated_epsilon", "status_generated_check_port", "diagnostics_strategy_family_parser"},
+            "values-fr": {"status_generated_epsilon", "status_generated_progress_service", "status_generated_check_port"},
+            "values-pt-rBR": {"status_generated_bytes"},
         }
         for locale, catalog in catalogs.items():
             with self.subTest(locale=locale):
@@ -242,8 +242,8 @@ class PersianLocalizationRegressionsTest(unittest.TestCase):
             self.assertEqual("plurals", source[key].tag)
             self.assertEqual({"zero", "one", "two", "few", "many", "other"},
                              {item.get("quantity") for item in catalogs["values-ar"][key]})
-        self.assertIn("تأییدنشده", text(catalogs["values-fa"]["home_generated_vpn_captured"]))
-        self.assertIn("مشخص نیست", text(catalogs["values-fa"]["home_generated_reality_rationale"]))
+        self.assertIn("تأییدنشده", text(catalogs["values-fa"]["status_generated_vpn_captured"]))
+        self.assertIn("مشخص نیست", text(catalogs["values-fa"]["status_generated_reality_rationale"]))
         self.assertIn("تقریبی", text(catalogs["values-fa"]["diagnostics_strategy_note_approximate"]))
 
     def test_all_locales_preserve_resource_format_and_plural_contracts(self):

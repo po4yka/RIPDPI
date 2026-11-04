@@ -17,7 +17,7 @@ import com.poyka.ripdpi.permissions.PermissionRecovery
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.service.telemetry.measurementSource
 import com.poyka.ripdpi.services.AndroidHardKillSwitchStatus
-import com.poyka.ripdpi.ui.components.homePreviewActuatorState
+import com.poyka.ripdpi.ui.components.statusPreviewActuatorState
 import com.poyka.ripdpi.ui.screens.status.HardKillSwitchUiState
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
 import com.poyka.ripdpi.ui.screens.status.StatusPauseUiState
@@ -58,7 +58,7 @@ class HomeStatusCardsScreenshotTest {
             StatusScreen(
                 uiState =
                     MainUiState(
-                        connectionActuator = homePreviewActuatorState(StatusConnectionActuatorStatus.Open),
+                        connectionActuator = statusPreviewActuatorState(StatusConnectionActuatorStatus.Open),
                         hardKillSwitch =
                             HardKillSwitchUiState(
                                 status = AndroidHardKillSwitchStatus.UNKNOWN,
@@ -117,7 +117,7 @@ class HomeStatusCardsScreenshotTest {
                     MainUiState(
                         appStatus = AppStatus.Running,
                         connectionState = ConnectionState.Connected,
-                        connectionActuator = homePreviewActuatorState(StatusConnectionActuatorStatus.Locked),
+                        connectionActuator = statusPreviewActuatorState(StatusConnectionActuatorStatus.Locked),
                         connectionQuality = selected.connectionQuality,
                         connectionQualitySource = selected.measurementSource(telemetry),
                         dataTransferred = 192_000L,

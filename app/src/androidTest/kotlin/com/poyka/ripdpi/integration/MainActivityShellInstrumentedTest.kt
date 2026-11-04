@@ -440,7 +440,7 @@ class MainActivityShellInstrumentedTest {
     private fun waitForMainShellReady() {
         composeRule.waitUntil(timeoutMillis = 15_000) {
             composeRule
-                .onAllNodes(hasTestTag(RipDpiTestTags.bottomNav(Route.Home)))
+                .onAllNodes(hasTestTag(RipDpiTestTags.bottomNav(Route.Status)))
                 .fetchSemanticsNodes(atLeastOneRootRequired = false)
                 .isNotEmpty()
         }

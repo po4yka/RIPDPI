@@ -237,7 +237,7 @@ class DiagnosticsStrategyPersianPresentationTest {
         )
         assertEquals("عملیاتی بدون روت", requireNotNull(emitters.candidateDetails[direct.id]).metrics[4].value)
         assertEquals(
-            factory.context.getString(R.string.home_connection_actuator_direct),
+            factory.context.getString(R.string.status_connection_actuator_direct),
             requireNotNull(emitters.candidateDetails[direct.id]).metrics[5].value,
         )
     }
@@ -275,7 +275,7 @@ class DiagnosticsStrategyPersianPresentationTest {
             listOf(
                 "هدف‌ها",
                 "وزن",
-                resolver.getString(R.string.home_stat_quality),
+                resolver.getString(R.string.status_stat_quality),
                 resolver.getString(R.string.profile_variants_metric_latency),
                 "فرستنده",
                 "نحوهٔ اجرا",

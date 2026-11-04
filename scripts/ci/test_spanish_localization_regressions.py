@@ -18,9 +18,9 @@ EDITOR_REFERENCES = (
     "diagnostics_remediation_browser_relay_step_open_mode_editor",
     "diagnostics_remediation_quic_relay_step_open_mode_editor",
     "diagnostics_remediation_open_mode_editor_action",
-    "home_remediation_browser_relay_step_open_mode_editor",
-    "home_remediation_quic_relay_step_open_mode_editor",
-    "home_remediation_browser_relay_summary", "home_remediation_quic_relay_summary",
+    "status_remediation_browser_relay_step_open_mode_editor",
+    "status_remediation_quic_relay_step_open_mode_editor",
+    "status_remediation_browser_relay_summary", "status_remediation_quic_relay_summary",
 )
 
 
@@ -53,7 +53,7 @@ class SpanishLocalizationRegressionsTest(unittest.TestCase):
         for term in ("aplicación", "elimine", "otros lugares"):
             self.assertIn(term, retention)
         for key in ("detection_permission_rationale", "detection_onboarding_body",
-                    "detection_permission_settings", "home_diagnostics_detection_permission_required"):
+                    "detection_permission_settings", "status_diagnostics_detection_permission_required"):
             with self.subTest(key=key):
                 self.assertIn("ocultan", text(self.es[key]))
                 self.assertNotIn("redact", text(self.es[key]))

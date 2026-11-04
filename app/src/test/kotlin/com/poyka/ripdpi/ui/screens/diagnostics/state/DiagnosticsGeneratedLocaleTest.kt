@@ -174,7 +174,7 @@ class DiagnosticsGeneratedLocaleTest {
             val progress = ScanProgress("scan", "starting", 0, 1, "Preparing My Ω profile")
             val projected = support.toProgressUiModel(progress, ScanKind.CONNECTIVITY, false, 0L)
             assertEquals(
-                strings.getString(R.string.home_generated_progress_preparing, "My Ω profile"),
+                strings.getString(R.string.status_generated_progress_preparing, "My Ω profile"),
                 projected.summary,
             )
             assertEquals(strings.getString(R.string.diagnostics_phase_starting), projected.phaseSteps.single().label)

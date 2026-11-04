@@ -27,7 +27,7 @@ internal data class StatusChromeMetrics(
 )
 
 @Composable
-internal fun rememberHomeChromeMetrics(): StatusChromeMetrics {
+internal fun rememberStatusChromeMetrics(): StatusChromeMetrics {
     val layout = RipDpiThemeTokens.layout
 
     return when (layout.widthClass) {
@@ -70,7 +70,7 @@ internal fun StatusTopBar(
     val colors = RipDpiThemeTokens.colors
     val layout = RipDpiThemeTokens.layout
     val type = RipDpiThemeTokens.type
-    val homeChrome = rememberHomeChromeMetrics()
+    val statusChrome = rememberStatusChromeMetrics()
     // The dashboard column is contentMaxWidth wide including its own padding, so the title lines up with it.
     val containerMaxWidth = layout.contentMaxWidth - layout.horizontalPadding - layout.horizontalPadding
 
@@ -86,7 +86,7 @@ internal fun StatusTopBar(
                 Modifier
                     .widthIn(max = containerMaxWidth)
                     .fillMaxWidth()
-                    .heightIn(min = homeChrome.topBarMinHeight),
+                    .heightIn(min = statusChrome.topBarMinHeight),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(

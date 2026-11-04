@@ -88,10 +88,10 @@ class StatusLatencyDetailsTest {
         open()
         composeRule.runOnIdle { focused.value = false }
         dismiss()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeLatencyMetric).assertIsNotFocused()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusLatencyMetric).assertIsNotFocused()
 
         composeRule.runOnIdle { focused.value = true }
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeLatencyMetric).assertIsFocused()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusLatencyMetric).assertIsFocused()
     }
 
     @Test
@@ -99,7 +99,7 @@ class StatusLatencyDetailsTest {
         render(windowFocused = mutableStateOf(true), inputModeOverride = InputMode.Touch)
         open()
         dismiss()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeLatencyMetric).assertIsFocused()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusLatencyMetric).assertIsFocused()
     }
 
     @Test
@@ -110,13 +110,13 @@ class StatusLatencyDetailsTest {
         composeRule.runOnIdle { focused.value = false }
         dismiss()
         composeRule.runOnIdle { quality.value = null }
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeLatencyMetric).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusLatencyMetric).assertDoesNotExist()
 
         composeRule.runOnIdle {
             quality.value = sample()
             focused.value = true
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeLatencyMetric).assertIsNotFocused()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusLatencyMetric).assertIsNotFocused()
     }
 
     @Test
@@ -131,14 +131,14 @@ class StatusLatencyDetailsTest {
         }
         detailText(R.string.measurement_quality_p95, 64L).assertExists()
         dismiss()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeLatencyMetric).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusLatencyMetric).assertDoesNotExist()
     }
 
     @Test
     fun `no RTT samples does not expose an action or invented zero`() {
         quality.value = ConnectionQualitySnapshot(lossPct = 1f, windowStartAtMs = 1_000L)
         render()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeLatencyMetric).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusLatencyMetric).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.LatencyDetailDialog).assertDoesNotExist()
     }
 
@@ -163,7 +163,7 @@ class StatusLatencyDetailsTest {
         render()
         open()
         detailText(R.string.measurement_quality_rtt, 32L).assertExists()
-        detailText(R.string.home_quality_last_values).assertExists()
+        detailText(R.string.status_quality_last_values).assertExists()
         detailText(R.string.measurement_current).assertDoesNotExist()
     }
 
@@ -223,7 +223,7 @@ class StatusLatencyDetailsTest {
         composeRule.onNodeWithTag(RipDpiTestTags.LatencyDetailDismiss).performClick()
         composeRule.mainClock.advanceTimeBy(32L)
         composeRule.onNodeWithTag(RipDpiTestTags.LatencyDetailDialog).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeLatencyMetric).assertHasClickAction()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusLatencyMetric).assertHasClickAction()
     }
 
     private fun render(
@@ -268,7 +268,7 @@ class StatusLatencyDetailsTest {
     }
 
     private fun open() {
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeLatencyMetric).assertHasClickAction().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusLatencyMetric).assertHasClickAction().performClick()
     }
 
     private fun dismiss() {

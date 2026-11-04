@@ -30,28 +30,28 @@ internal fun networkConditionAdvisory(
     when (condition) {
         is NetworkCondition.CaptivePortalAssist -> {
             StatusAdvisory(
-                title = stringResource(R.string.home_network_condition_captive_title),
-                message = stringResource(R.string.home_network_condition_captive_body),
+                title = stringResource(R.string.status_network_condition_captive_title),
+                message = stringResource(R.string.status_network_condition_captive_body),
                 // Signing in is a step the user can take, not a fault.
                 severity = StatusAdvisorySeverity.Info,
                 presentation = StatusAdvisoryPresentation.Banner,
                 tone = WarningBannerTone.Info,
-                actionLabel = stringResource(R.string.home_network_condition_captive_action),
+                actionLabel = stringResource(R.string.status_network_condition_captive_action),
                 onClick = onCaptivePortalSignIn,
                 testTag = RipDpiTestTags.StatusNetworkConditionBanner,
             )
         }
 
         is NetworkCondition.WhitelistSuspected -> {
-            val body = stringResource(R.string.home_network_condition_whitelist_body)
+            val body = stringResource(R.string.status_network_condition_whitelist_body)
             StatusAdvisory(
-                title = stringResource(R.string.home_network_condition_whitelist_title),
+                title = stringResource(R.string.status_network_condition_whitelist_title),
                 message =
                     if (condition.suggestRelayProfile) {
                         stringResource(
-                            R.string.home_network_condition_whitelist_message,
+                            R.string.status_network_condition_whitelist_message,
                             body,
-                            stringResource(R.string.home_network_condition_whitelist_relay_suggestion),
+                            stringResource(R.string.status_network_condition_whitelist_relay_suggestion),
                         )
                     } else {
                         body
@@ -67,8 +67,8 @@ internal fun networkConditionAdvisory(
 
         is NetworkCondition.NoConnectivity -> {
             StatusAdvisory(
-                title = stringResource(R.string.home_network_condition_no_connectivity_title),
-                message = stringResource(R.string.home_network_condition_no_connectivity_body),
+                title = stringResource(R.string.status_network_condition_no_connectivity_title),
+                message = stringResource(R.string.status_network_condition_no_connectivity_body),
                 severity = StatusAdvisorySeverity.Warning,
                 presentation = StatusAdvisoryPresentation.Banner,
                 tone = WarningBannerTone.Warning,

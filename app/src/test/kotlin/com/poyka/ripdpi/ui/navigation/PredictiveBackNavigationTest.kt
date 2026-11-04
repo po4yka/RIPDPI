@@ -49,7 +49,7 @@ class PredictiveBackNavigationTest {
 
         composeRule.runOnIdle { backDispatcher.onBackPressed() }
 
-        composeRule.runOnIdle { assertTrue(currentIs<Route.Home>()) }
+        composeRule.runOnIdle { assertTrue(currentIs<Route.Status>()) }
         composeRule.onNodeWithTag(ABOUT_TAG).assertDoesNotExist()
     }
 
@@ -75,7 +75,7 @@ class PredictiveBackNavigationTest {
 
         composeRule.runOnIdle { backDispatcher.onBackPressed() }
 
-        composeRule.runOnIdle { assertTrue(currentIs<Route.Home>()) }
+        composeRule.runOnIdle { assertTrue(currentIs<Route.Status>()) }
     }
 
     @Test
@@ -120,13 +120,13 @@ class PredictiveBackNavigationTest {
             // Same transition builders as RipDpiNavGraph.
             NavHost(
                 navController = navController,
-                startDestination = Route.Home,
+                startDestination = Route.Status,
                 enterTransition = { motion.fadeThroughEnterTransition() },
                 exitTransition = { motion.outgoingFadeTransition() },
                 popEnterTransition = { motion.routePopEnterTransition() },
                 popExitTransition = { motion.routePopExitTransition() },
             ) {
-                composable<Route.Home> { Box(Modifier.fillMaxSize().testTag(HOME_TAG)) }
+                composable<Route.Status> { Box(Modifier.fillMaxSize().testTag(HOME_TAG)) }
                 composable<Route.About> {
                     if (guardAbout != null) BackHandler(onBack = guardAbout)
                     Box(Modifier.fillMaxSize().testTag(ABOUT_TAG))

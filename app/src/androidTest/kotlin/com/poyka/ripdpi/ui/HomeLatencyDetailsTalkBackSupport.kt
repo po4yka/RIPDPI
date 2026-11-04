@@ -169,7 +169,7 @@ internal class HomeLatencyDetailsTalkBackSupport(
     ): NamedTarget {
         val matches = mutableListOf<NamedTarget>()
         collectTargets(automation.rootInActiveWindow, label, null, requiresAction, matches)
-        val taggedOrigin = matches.filter { it.named.viewIdResourceName == RipDpiTestTags.HomeLatencyMetric }
+        val taggedOrigin = matches.filter { it.named.viewIdResourceName == RipDpiTestTags.StatusLatencyMetric }
         return taggedOrigin.singleOrNull() ?: matches.singleOrNull()
             ?: error("Expected one visible named target with valid action=$requiresAction: $label")
     }
@@ -185,7 +185,7 @@ internal class HomeLatencyDetailsTalkBackSupport(
         val action = if (node.isVisibleToUser && node.isClickable) node else nearestAction
         val text = node.text?.toString().orEmpty()
         val description = node.contentDescription?.toString().orEmpty()
-        val taggedOrigin = node.viewIdResourceName == RipDpiTestTags.HomeLatencyMetric && text.contains(label)
+        val taggedOrigin = node.viewIdResourceName == RipDpiTestTags.StatusLatencyMetric && text.contains(label)
         if (node.isVisibleToUser && (text == label || description == label || taggedOrigin)) {
             val target = NamedTarget(node, action, label)
             if (!requiresAction || validAction(target)) matches += target
@@ -333,7 +333,7 @@ internal class HomeLatencyDetailsTalkBackSupport(
     private fun physicalTransition(stage: String): Pair<String, String>? =
         when (stage) {
             "open-latency", "reopen-latency" -> "OpenDetails" to RipDpiTestTags.LatencyDetailDialog
-            "dismiss-latency", "back-latency" -> "ReturnHome" to RipDpiTestTags.HomeLatencyMetric
+            "dismiss-latency", "back-latency" -> "ReturnHome" to RipDpiTestTags.StatusLatencyMetric
             else -> null
         }
 

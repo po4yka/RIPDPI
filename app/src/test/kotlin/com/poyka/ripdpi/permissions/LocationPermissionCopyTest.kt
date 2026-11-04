@@ -19,7 +19,7 @@ class LocationPermissionCopyTest {
                 context.getString(R.string.detection_onboarding_body),
                 context.getString(R.string.detection_permission_rationale),
                 context.getString(R.string.detection_permission_settings),
-                context.getString(R.string.home_diagnostics_detection_permission_required),
+                context.getString(R.string.status_diagnostics_detection_permission_required),
             ).joinToString(separator = " ")
 
         assertContains(copy, "Android")

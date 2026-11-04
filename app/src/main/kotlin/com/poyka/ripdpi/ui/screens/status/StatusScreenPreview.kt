@@ -14,7 +14,7 @@ import kotlin.time.Duration.Companion.ZERO
 private fun StatusScreenAllInactivePreview() {
     RipDpiTheme(themePreference = "light") {
         StatusScreen(
-            uiState = MainUiState(modeCards = previewHomeModeCards()),
+            uiState = MainUiState(modeCards = previewStatusModeCards()),
             onToggleConnection = {},
             onOpenDiagnostics = {},
             onOpenHistory = {},
@@ -29,7 +29,7 @@ private fun StatusScreenAllInactivePreview() {
 private fun StatusScreenBypassActivePreview() {
     RipDpiTheme(themePreference = "dark") {
         StatusScreen(
-            uiState = MainUiState(modeCards = previewHomeModeCards(activeMode = StatusMode.LocalDpiBypass)),
+            uiState = MainUiState(modeCards = previewStatusModeCards(activeMode = StatusMode.LocalDpiBypass)),
             onToggleConnection = {},
             onOpenDiagnostics = {},
             onOpenHistory = {},
@@ -44,7 +44,7 @@ private fun StatusScreenBypassActivePreview() {
 private fun StatusScreenVpnActivePreview() {
     RipDpiTheme(themePreference = "light") {
         StatusScreen(
-            uiState = MainUiState(modeCards = previewHomeModeCards(activeMode = StatusMode.RemoteVpn)),
+            uiState = MainUiState(modeCards = previewStatusModeCards(activeMode = StatusMode.RemoteVpn)),
             onToggleConnection = {},
             onOpenDiagnostics = {},
             onOpenHistory = {},
@@ -59,7 +59,7 @@ private fun StatusScreenVpnActivePreview() {
 private fun StatusScreenDiagnosticRunningPreview() {
     RipDpiTheme(themePreference = "dark") {
         StatusScreen(
-            uiState = MainUiState(modeCards = previewHomeModeCards(loadingMode = StatusMode.Diagnostic)),
+            uiState = MainUiState(modeCards = previewStatusModeCards(loadingMode = StatusMode.Diagnostic)),
             onToggleConnection = {},
             onOpenDiagnostics = {},
             onOpenHistory = {},
@@ -92,28 +92,28 @@ private fun StatusScreenErrorPreview() {
     }
 }
 
-private fun previewHomeModeCards(
+private fun previewStatusModeCards(
     activeMode: StatusMode? = null,
     loadingMode: StatusMode? = null,
 ) = persistentListOf(
-    previewHomeModeCard(
+    previewStatusModeCard(
         mode = StatusMode.LocalDpiBypass,
         activeMode = activeMode,
         loadingMode = loadingMode,
     ),
-    previewHomeModeCard(
+    previewStatusModeCard(
         mode = StatusMode.RemoteVpn,
         activeMode = activeMode,
         loadingMode = loadingMode,
     ),
-    previewHomeModeCard(
+    previewStatusModeCard(
         mode = StatusMode.Diagnostic,
         activeMode = activeMode,
         loadingMode = loadingMode,
     ),
 )
 
-private fun previewHomeModeCard(
+private fun previewStatusModeCard(
     mode: StatusMode,
     activeMode: StatusMode?,
     loadingMode: StatusMode?,

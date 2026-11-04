@@ -37,10 +37,10 @@ internal fun StringResolver.buildControlPlaneHealthSummary(
         }
 
     return ControlPlaneHealthSummaryUiModel(
-        title = getString(R.string.home_control_plane_health_title),
-        summary = getString(R.string.home_control_plane_health_body),
+        title = getString(R.string.status_control_plane_health_title),
+        summary = getString(R.string.status_control_plane_health_body),
         items = items.toImmutableList(),
-        actionLabel = getString(R.string.home_control_plane_health_action),
+        actionLabel = getString(R.string.status_control_plane_health_action),
         severity = severity,
     )
 }
@@ -51,19 +51,19 @@ private fun StringResolver.buildHostPackHealthSummaryItem(
     val summary =
         when {
             hostPackCatalog.cacheDegradationCode != null -> {
-                getString(R.string.home_control_plane_host_pack_degraded)
+                getString(R.string.status_control_plane_host_pack_degraded)
             }
 
             hostPackCatalog.lastRefreshFailureCode == HostPackRefreshFailureCodeUiModel.VerificationFailed -> {
-                getString(R.string.home_control_plane_host_pack_verification_failed)
+                getString(R.string.status_control_plane_host_pack_verification_failed)
             }
 
             hostPackCatalog.lastRefreshFailureCode == HostPackRefreshFailureCodeUiModel.InvalidSnapshot -> {
-                getString(R.string.home_control_plane_host_pack_invalid_snapshot)
+                getString(R.string.status_control_plane_host_pack_invalid_snapshot)
             }
 
             hostPackCatalog.lastRefreshFailureCode == HostPackRefreshFailureCodeUiModel.DownloadFailed -> {
-                getString(R.string.home_control_plane_host_pack_download_failed)
+                getString(R.string.status_control_plane_host_pack_download_failed)
             }
 
             else -> {
@@ -83,7 +83,7 @@ private fun StringResolver.buildHostPackHealthSummaryItem(
         }
 
     return ControlPlaneHealthItemUiModel(
-        label = getString(R.string.home_control_plane_host_packs_label),
+        label = getString(R.string.status_control_plane_host_packs_label),
         summary = summary,
         severity = severity,
     )
@@ -96,41 +96,41 @@ private fun StringResolver.buildStrategyPackHealthSummaryItem(
     val summary =
         when {
             uiState.cacheDegradationCode == ControlPlaneCacheDegradationCode.CachedSnapshotUnreadable -> {
-                getString(R.string.home_control_plane_strategy_pack_degraded)
+                getString(R.string.status_control_plane_strategy_pack_degraded)
             }
 
             uiState.cacheDegradationCode == ControlPlaneCacheDegradationCode.CachedSnapshotIncompatible -> {
-                getString(R.string.home_control_plane_strategy_pack_incompatible)
+                getString(R.string.status_control_plane_strategy_pack_incompatible)
             }
 
             uiState.lastRefreshFailureCode == StrategyPackHealthFailureCodeUiModel.RollbackRejected -> {
                 getString(
-                    R.string.home_control_plane_strategy_pack_rollback_rejected,
+                    R.string.status_control_plane_strategy_pack_rollback_rejected,
                     uiState.lastRejectedSequence ?: 0L,
                     uiState.lastAcceptedSequence ?: 0L,
                 )
             }
 
             uiState.lastRefreshFailureCode == StrategyPackHealthFailureCodeUiModel.StaleCatalog -> {
-                getString(R.string.home_control_plane_strategy_pack_stale)
+                getString(R.string.status_control_plane_strategy_pack_stale)
             }
 
             uiState.lastRefreshFailureCode == StrategyPackHealthFailureCodeUiModel.MissingSecurityMetadata ||
                 uiState.lastRefreshFailureCode == StrategyPackHealthFailureCodeUiModel.InvalidIssuedAt
             -> {
-                getString(R.string.home_control_plane_strategy_pack_security_rejected)
+                getString(R.string.status_control_plane_strategy_pack_security_rejected)
             }
 
             uiState.lastRefreshFailureCode == StrategyPackHealthFailureCodeUiModel.VerificationFailed -> {
-                getString(R.string.home_control_plane_strategy_pack_verification_failed)
+                getString(R.string.status_control_plane_strategy_pack_verification_failed)
             }
 
             uiState.lastRefreshFailureCode == StrategyPackHealthFailureCodeUiModel.CompatibilityRejected -> {
-                getString(R.string.home_control_plane_strategy_pack_incompatible)
+                getString(R.string.status_control_plane_strategy_pack_incompatible)
             }
 
             uiState.lastRefreshFailureCode == StrategyPackHealthFailureCodeUiModel.DownloadFailed -> {
-                getString(R.string.home_control_plane_strategy_pack_download_failed)
+                getString(R.string.status_control_plane_strategy_pack_download_failed)
             }
 
             else -> {
@@ -166,7 +166,7 @@ private fun StringResolver.buildStrategyPackHealthSummaryItem(
         }
 
     return ControlPlaneHealthItemUiModel(
-        label = getString(R.string.home_control_plane_strategy_packs_label),
+        label = getString(R.string.status_control_plane_strategy_packs_label),
         summary = summary,
         severity = severity,
     )

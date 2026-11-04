@@ -99,7 +99,7 @@ class ArabicLocalizationRegressionsTest(unittest.TestCase):
         self.assertNotIn("مقيَّدة", self.value("diagnostics_field_network_metered"))
         self.assertEqual(self.value("ripdpi_desync_method_setting"), self.value("diagnostics_field_desync"))
         self.assertNotIn("إزالة", self.value("diagnostics_field_desync"))
-        self.assertIn("اتصال الشبكة", self.value("home_diagnostics_network_transport"))
+        self.assertIn("اتصال الشبكة", self.value("status_diagnostics_network_transport"))
 
     def test_protocol_strategy_captions_keep_protocol_and_agreement(self):
         for key, protocol in (("http_fake_profile_scope_off", "HTTP"),
@@ -121,8 +121,8 @@ class ArabicLocalizationRegressionsTest(unittest.TestCase):
                          text(catalog["qs_tile_label_connected"]))
 
     def test_home_counts_have_all_arabic_categories_and_keep_count_arguments(self):
-        keys = ("home_diagnostics_actionable_detector_count", "home_diagnostics_actionable_dns_count",
-                "home_diagnostics_actionable_bypass_count")
+        keys = ("status_diagnostics_actionable_detector_count", "status_diagnostics_actionable_dns_count",
+                "status_diagnostics_actionable_bypass_count")
         for key in keys:
             with self.subTest(key=key):
                 entry = self.ar[key]

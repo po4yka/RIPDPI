@@ -45,17 +45,17 @@ class SettingsGuidanceBannerKaspressoTest :
                 }
             }
             step("Leave and return to Settings, the banner stays dismissed") {
-                composeRule.onNode(hasTestTag(RipDpiTestTags.bottomNav(Route.Home))).performClick()
-                composeRule.waitForTag(RipDpiTestTags.screen(Route.Home))
+                composeRule.onNode(hasTestTag(RipDpiTestTags.bottomNav(Route.Status))).performClick()
+                composeRule.waitForTag(RipDpiTestTags.screen(Route.Status))
                 composeRule.onNode(hasTestTag(RipDpiTestTags.bottomNav(Route.Settings))).performClick()
                 composeRule.waitForTag(RipDpiTestTags.screen(Route.Settings))
                 composeRule.waitForNoTag(RipDpiTestTags.SettingsBackgroundGuidanceBanner, timeoutMillis = 5_000)
             }
             step("Home keeps only the lockdown notice, the guidance notice is gone") {
-                composeRule.onNode(hasTestTag(RipDpiTestTags.bottomNav(Route.Home))).performClick()
-                composeRule.waitForTag(RipDpiTestTags.screen(Route.Home))
-                composeRule.waitForTag(RipDpiTestTags.HomeSetupHealthAction)
-                composeRule.waitForNoTag(RipDpiTestTags.HomeAdvisoryMore, timeoutMillis = 5_000)
+                composeRule.onNode(hasTestTag(RipDpiTestTags.bottomNav(Route.Status))).performClick()
+                composeRule.waitForTag(RipDpiTestTags.screen(Route.Status))
+                composeRule.waitForTag(RipDpiTestTags.StatusSetupHealthAction)
+                composeRule.waitForNoTag(RipDpiTestTags.StatusAdvisoryMore, timeoutMillis = 5_000)
             }
         }
 }
@@ -64,7 +64,7 @@ class SettingsGuidanceBannerKaspressoTest :
 class HomeGuidanceRowKaspressoTest :
     RipDpiKaspressoTest(
         automationLaunchIntent(
-            startRoute = Route.Home.stableRoute,
+            startRoute = Route.Status.stableRoute,
             dataPreset = AutomationDataPreset.SettingsReady,
         ),
     ) {
@@ -87,7 +87,7 @@ class HomeGuidanceRowKaspressoTest :
                         appSettingsRepository,
                         timeoutMillis = 5_000,
                     ) { it.backgroundGuidanceDismissed }
-                    composeRule.waitForNoTag(RipDpiTestTags.HomeAdvisoryMore, timeoutMillis = 5_000)
+                    composeRule.waitForNoTag(RipDpiTestTags.StatusAdvisoryMore, timeoutMillis = 5_000)
                 }
             }
         }
@@ -97,7 +97,7 @@ class HomeGuidanceRowKaspressoTest :
 class HomeBatteryReviewKaspressoTest :
     RipDpiKaspressoTest(
         automationLaunchIntent(
-            startRoute = Route.Home.stableRoute,
+            startRoute = Route.Status.stableRoute,
             dataPreset = AutomationDataPreset.SettingsReady,
             permissionPreset = AutomationPermissionPreset.BatteryReview,
         ),

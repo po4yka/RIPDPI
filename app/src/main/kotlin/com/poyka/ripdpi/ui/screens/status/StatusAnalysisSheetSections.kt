@@ -33,7 +33,7 @@ private fun StatusCapabilityEvidenceSection(sheet: StatusDiagnosticsAnalysisShee
     if (sheet.capabilityEvidence.isEmpty()) return
     HorizontalDivider(color = colors.divider)
     Text(
-        text = stringResource(R.string.home_diagnostics_capability_evidence_label),
+        text = stringResource(R.string.status_diagnostics_capability_evidence_label),
         style = RipDpiThemeTokens.type.bodyEmphasis,
         color = colors.foreground,
     )
@@ -60,7 +60,7 @@ private fun StatusDetectionSummarySection(sheet: StatusDiagnosticsAnalysisSheetU
     if (sheet.detectionVerdict == null) return
     HorizontalDivider(color = colors.divider)
     Text(
-        text = stringResource(R.string.home_diagnostics_detection_section_label),
+        text = stringResource(R.string.status_diagnostics_detection_section_label),
         style = RipDpiThemeTokens.type.bodyEmphasis,
         color = colors.foreground,
     )
@@ -68,7 +68,7 @@ private fun StatusDetectionSummarySection(sheet: StatusDiagnosticsAnalysisSheetU
         Text(text = sheet.detectionVerdict, style = RipDpiThemeTokens.type.bodyEmphasis, color = colors.foreground)
         if (sheet.detectionLocalFindings.isNotEmpty()) {
             Text(
-                text = stringResource(R.string.home_diagnostics_detection_local_artifacts),
+                text = stringResource(R.string.status_diagnostics_detection_local_artifacts),
                 style = RipDpiThemeTokens.type.bodyEmphasis,
                 color = colors.foreground,
             )
@@ -78,7 +78,7 @@ private fun StatusDetectionSummarySection(sheet: StatusDiagnosticsAnalysisSheetU
         }
         if (sheet.detectionNetworkFindings.isNotEmpty()) {
             Text(
-                text = stringResource(R.string.home_diagnostics_detection_network_signs),
+                text = stringResource(R.string.status_diagnostics_detection_network_signs),
                 style = RipDpiThemeTokens.type.bodyEmphasis,
                 color = colors.foreground,
             )
@@ -100,13 +100,13 @@ private fun StatusVpnDetectorsSection(sheet: StatusDiagnosticsAnalysisSheetUiSta
     val count = sheet.installedVpnDetectorCount ?: return
     HorizontalDivider(color = colors.divider)
     Text(
-        text = stringResource(R.string.home_diagnostics_vpn_detectors_title),
+        text = stringResource(R.string.status_diagnostics_vpn_detectors_title),
         style = RipDpiThemeTokens.type.bodyEmphasis,
         color = colors.foreground,
     )
-    StatusAnalysisInsetColumn(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsVpnDetectorsCard)) {
+    StatusAnalysisInsetColumn(modifier = Modifier.ripDpiTestTag(RipDpiTestTags.StatusDiagnosticsVpnDetectorsCard)) {
         Text(
-            text = pluralStringResource(R.plurals.home_diagnostics_vpn_detectors_summary, count, count),
+            text = pluralStringResource(R.plurals.status_diagnostics_vpn_detectors_summary, count, count),
             style = RipDpiThemeTokens.type.body,
             color = colors.foreground,
         )
@@ -130,7 +130,7 @@ private fun StatusNetworkCharacterSection(sheet: StatusDiagnosticsAnalysisSheetU
     if (sheet.networkCharacterRows.isEmpty() && sheet.networkCharacterNotes.isEmpty()) return
     HorizontalDivider(color = colors.divider)
     Text(
-        text = stringResource(R.string.home_diagnostics_network_section),
+        text = stringResource(R.string.status_diagnostics_network_section),
         style = RipDpiThemeTokens.type.bodyEmphasis,
         color = colors.foreground,
     )
@@ -152,7 +152,7 @@ private fun StatusPathCharacterizationSection(sheet: StatusDiagnosticsAnalysisSh
     StatusAnalysisInsetColumn {
         sheet.bufferbloatSummary?.let { bloat ->
             Text(
-                text = stringResource(R.string.home_diagnostics_bufferbloat_section),
+                text = stringResource(R.string.status_diagnostics_bufferbloat_section),
                 style = RipDpiThemeTokens.type.bodyEmphasis,
                 color = colors.foreground,
             )
@@ -160,7 +160,7 @@ private fun StatusPathCharacterizationSection(sheet: StatusDiagnosticsAnalysisSh
         }
         sheet.dnsCharacterizationSummary?.let { dns ->
             Text(
-                text = stringResource(R.string.home_diagnostics_dns_section),
+                text = stringResource(R.string.status_diagnostics_dns_section),
                 style = RipDpiThemeTokens.type.bodyEmphasis,
                 color = colors.foreground,
             )
@@ -178,7 +178,7 @@ private fun StatusStrategyEffectivenessSection(sheet: StatusDiagnosticsAnalysisS
     if (sheet.strategyEffectivenessRows.isEmpty()) return
     HorizontalDivider(color = colors.divider)
     Text(
-        text = stringResource(R.string.home_diagnostics_effectiveness_section),
+        text = stringResource(R.string.status_diagnostics_effectiveness_section),
         style = RipDpiThemeTokens.type.bodyEmphasis,
         color = colors.foreground,
     )
@@ -195,7 +195,7 @@ private fun StatusRoutingSanitySection(sheet: StatusDiagnosticsAnalysisSheetUiSt
     if (sheet.routingSanitySummary == null && sheet.routingSanityFindings.isEmpty()) return
     HorizontalDivider(color = colors.divider)
     Text(
-        text = stringResource(R.string.home_diagnostics_routing_sanity_section),
+        text = stringResource(R.string.status_diagnostics_routing_sanity_section),
         style = RipDpiThemeTokens.type.bodyEmphasis,
         color = colors.foreground,
     )
@@ -221,7 +221,7 @@ private fun StatusRegressionDeltaSection(sheet: StatusDiagnosticsAnalysisSheetUi
     val summary = sheet.regressionDeltaSummary ?: return
     HorizontalDivider(color = colors.divider)
     Text(
-        text = stringResource(R.string.home_diagnostics_regression_section),
+        text = stringResource(R.string.status_diagnostics_regression_section),
         style = RipDpiThemeTokens.type.bodyEmphasis,
         color = colors.foreground,
     )
@@ -230,7 +230,7 @@ private fun StatusRegressionDeltaSection(sheet: StatusDiagnosticsAnalysisSheetUi
         if (sheet.regressionDeltaFailures.isNotEmpty()) {
             Text(
                 text =
-                    stringResource(R.string.home_diagnostics_regression_failed_label) +
+                    stringResource(R.string.status_diagnostics_regression_failed_label) +
                         ": " + sheet.regressionDeltaFailures.joinToString(", "),
                 style = RipDpiThemeTokens.type.secondaryBody,
                 color = colors.destructive,
@@ -239,7 +239,7 @@ private fun StatusRegressionDeltaSection(sheet: StatusDiagnosticsAnalysisSheetUi
         if (sheet.regressionDeltaRecoveries.isNotEmpty()) {
             Text(
                 text =
-                    stringResource(R.string.home_diagnostics_regression_recovered_label) +
+                    stringResource(R.string.status_diagnostics_regression_recovered_label) +
                         ": " + sheet.regressionDeltaRecoveries.joinToString(", "),
                 style = RipDpiThemeTokens.type.secondaryBody,
                 color = colors.success,
@@ -254,7 +254,7 @@ private fun StatusStageResultsSection(sheet: StatusDiagnosticsAnalysisSheetUiSta
     if (sheet.stageSummaries.isEmpty()) return
     HorizontalDivider(color = colors.divider)
     Text(
-        text = stringResource(R.string.home_diagnostics_stage_results_label),
+        text = stringResource(R.string.status_diagnostics_stage_results_label),
         style = RipDpiThemeTokens.type.bodyEmphasis,
         color = colors.foreground,
     )

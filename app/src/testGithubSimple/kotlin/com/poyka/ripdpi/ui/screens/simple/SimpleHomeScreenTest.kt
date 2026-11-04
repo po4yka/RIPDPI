@@ -37,7 +37,7 @@ import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsAnalysisSheetUiState
 import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsRunUiStatus
 import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
-import com.poyka.ripdpi.ui.testing.homePauseDuration
+import com.poyka.ripdpi.ui.testing.statusPauseDuration
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import kotlinx.collections.immutable.persistentListOf
 import org.junit.Assert.assertEquals
@@ -141,8 +141,8 @@ class SimpleHomeScreenTest {
                 )
             }
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseOpen).performScrollTo().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.homePauseDuration(15)).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseOpen).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.statusPauseDuration(15)).performClick()
         composeRule.runOnIdle { assertEquals(900_000L, requestedDuration) }
     }
 
@@ -174,8 +174,8 @@ class SimpleHomeScreenTest {
                 )
             }
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseResume).performScrollTo().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseStop).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseResume).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseStop).performScrollTo().performClick()
         composeRule.runOnIdle {
             assertEquals(1, resumes)
             assertEquals(1, stops)
@@ -209,8 +209,8 @@ class SimpleHomeScreenTest {
                 )
             }
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseResume).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseStop).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseResume).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseStop).performScrollTo().performClick()
         composeRule.runOnIdle { assertEquals(1, stops) }
     }
 
@@ -684,7 +684,7 @@ class SimpleHomeScreenTest {
 
         composeRule.onNodeWithText("Network analysis complete").assertIsDisplayed()
         composeRule.onNodeWithText("Two recommended settings are ready to review.").assertIsDisplayed()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsShareAction).assertIsEnabled().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusDiagnosticsShareAction).assertIsEnabled().performClick()
         composeRule.runOnIdle { assertEquals(1, shareClicks) }
     }
 
@@ -774,7 +774,7 @@ class SimpleHomeScreenTest {
         composeRule.onNodeWithText("The handshake probe timed out on this network.").assertIsDisplayed()
         composeRule.onNodeWithText("Diagnostic report failed. Try again.").assertDoesNotExist()
         // The archive from a failed run is the one worth sending on.
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsShareAction).assertIsEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusDiagnosticsShareAction).assertIsEnabled()
     }
 
     @Test
@@ -816,7 +816,7 @@ class SimpleHomeScreenTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsShareAction).assertIsNotEnabled()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusDiagnosticsShareAction).assertIsNotEnabled()
         composeRule.onNodeWithText("Save archive").assertIsEnabled().performClick()
         composeRule.runOnIdle { assertEquals(1, saveClicks) }
     }

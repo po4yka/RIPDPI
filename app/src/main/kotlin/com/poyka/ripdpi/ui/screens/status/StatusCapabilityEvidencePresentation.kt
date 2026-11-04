@@ -28,18 +28,18 @@ internal fun DiagnosticsCapabilityEvidence.homeUiModel(strings: StringResolver):
 
 private val capabilityFieldLabels =
     mapOf(
-        "Policy" to R.string.home_diagnostics_capability_policy,
-        "DNS class" to R.string.home_diagnostics_capability_dns_class,
-        "QUIC mode" to R.string.home_diagnostics_capability_quic_mode,
-        "Preferred stack" to R.string.home_diagnostics_capability_preferred_stack,
-        "TCP family" to R.string.home_diagnostics_capability_tcp_family,
-        "Transport class" to R.string.home_diagnostics_capability_transport_class,
+        "Policy" to R.string.status_diagnostics_capability_policy,
+        "DNS class" to R.string.status_diagnostics_capability_dns_class,
+        "QUIC mode" to R.string.status_diagnostics_capability_quic_mode,
+        "Preferred stack" to R.string.status_diagnostics_capability_preferred_stack,
+        "TCP family" to R.string.status_diagnostics_capability_tcp_family,
+        "Transport class" to R.string.status_diagnostics_capability_transport_class,
         "Reason" to R.string.diagnostics_ip_reason,
-        "Auth" to R.string.home_diagnostics_capability_auth,
-        "Multiplex" to R.string.home_diagnostics_capability_multiplex,
-        "HTTPS proxy" to R.string.home_diagnostics_capability_https_proxy,
-        "Fallback" to R.string.home_diagnostics_capability_fallback,
-        "Last failure" to R.string.home_diagnostics_capability_last_failure,
+        "Auth" to R.string.status_diagnostics_capability_auth,
+        "Multiplex" to R.string.status_diagnostics_capability_multiplex,
+        "HTTPS proxy" to R.string.status_diagnostics_capability_https_proxy,
+        "Fallback" to R.string.status_diagnostics_capability_fallback,
+        "Last failure" to R.string.status_diagnostics_capability_last_failure,
     )
 private val capabilityFlagLabels = setOf("QUIC", "UDP", "Auth", "Multiplex", "ShadowTLS", "HTTPS proxy")
 
@@ -49,23 +49,23 @@ private fun DiagnosticsAppliedSetting.homeCapabilityField(strings: StringResolve
         when {
             label in capabilityFlagLabels && value == "Available" -> {
                 strings.getString(
-                    R.string.home_diagnostics_capability_available,
+                    R.string.status_diagnostics_capability_available,
                 )
             }
 
             label in capabilityFlagLabels && value == "Blocked" -> {
                 strings.getString(
-                    R.string.home_diagnostics_capability_blocked,
+                    R.string.status_diagnostics_capability_blocked,
                 )
             }
 
             label == "Fallback" && value == "Required" -> {
-                strings.getString(R.string.home_diagnostics_capability_required)
+                strings.getString(R.string.status_diagnostics_capability_required)
             }
 
             label == "Fallback" && value == "Not required" -> {
                 strings.getString(
-                    R.string.home_diagnostics_capability_not_required,
+                    R.string.status_diagnostics_capability_not_required,
                 )
             }
 
@@ -95,7 +95,7 @@ private class StatusCapabilitySummaryPresentation(
                 }.ifBlank { "Capability evidence recorded for this authority." }
         return when {
             evidence.summary != expected -> evidence.summary
-            parts.isEmpty() -> strings.getString(R.string.home_diagnostics_capability_recorded)
+            parts.isEmpty() -> strings.getString(R.string.status_diagnostics_capability_recorded)
             else -> parts.take(StatusCapabilitySummaryItemLimit).joinToString(" · ") { it.second }
         }
     }
@@ -104,18 +104,18 @@ private class StatusCapabilitySummaryPresentation(
         buildList {
             when (fields["Policy"]) {
                 "OWNED_STACK_ONLY" -> {
-                    add("Owned stack required" to strings.getString(R.string.home_diagnostics_capability_owned_stack))
+                    add("Owned stack required" to strings.getString(R.string.status_diagnostics_capability_owned_stack))
                 }
 
                 "NO_DIRECT_SOLUTION" -> {
-                    add("No direct solution" to strings.getString(R.string.home_diagnostics_capability_no_direct))
+                    add("No direct solution" to strings.getString(R.string.status_diagnostics_capability_no_direct))
                 }
             }
             fields["DNS class"]?.let { raw ->
                 val classification = raw.lowercase(Locale.US)
                 add(
                     "DNS $classification" to
-                        strings.getString(R.string.home_diagnostics_capability_dns_format, classification),
+                        strings.getString(R.string.status_diagnostics_capability_dns_format, classification),
                 )
             }
         }
@@ -127,9 +127,9 @@ private class StatusCapabilitySummaryPresentation(
                     val suffix = if (available) "usable" else "blocked"
                     val resource =
                         if (available) {
-                            R.string.home_diagnostics_capability_usable_format
+                            R.string.status_diagnostics_capability_usable_format
                         } else {
-                            R.string.home_diagnostics_capability_blocked_format
+                            R.string.status_diagnostics_capability_blocked_format
                         }
                     add("$protocol $suffix" to strings.getString(resource, protocol))
                 }
@@ -146,18 +146,18 @@ private class StatusCapabilitySummaryPresentation(
         if (protocol == "Multiplex") {
             return if (available) {
                 "Multiplex reusable" to
-                    strings.getString(R.string.home_diagnostics_capability_multiplex_reusable)
+                    strings.getString(R.string.status_diagnostics_capability_multiplex_reusable)
             } else {
-                "Multiplex limited" to strings.getString(R.string.home_diagnostics_capability_multiplex_limited)
+                "Multiplex limited" to strings.getString(R.string.status_diagnostics_capability_multiplex_limited)
             }
         }
         val caption = capabilityFieldLabels[protocol]?.let { strings.getString(it) } ?: protocol
         val suffix = if (available) "accepted" else "rejected"
         val resource =
             if (available) {
-                R.string.home_diagnostics_capability_accepted_format
+                R.string.status_diagnostics_capability_accepted_format
             } else {
-                R.string.home_diagnostics_capability_rejected_format
+                R.string.status_diagnostics_capability_rejected_format
             }
         return "$protocol $suffix" to strings.getString(resource, caption)
     }
@@ -167,10 +167,10 @@ private class StatusCapabilitySummaryPresentation(
             if (fields["Fallback"] ==
                 "Required"
             ) {
-                add("Fallback required" to strings.getString(R.string.home_diagnostics_capability_fallback_required))
+                add("Fallback required" to strings.getString(R.string.status_diagnostics_capability_fallback_required))
             }
             fields["Last failure"]?.let { raw ->
-                add("Failure $raw" to strings.getString(R.string.home_diagnostics_capability_failure_format, raw))
+                add("Failure $raw" to strings.getString(R.string.status_diagnostics_capability_failure_format, raw))
             }
         }
 

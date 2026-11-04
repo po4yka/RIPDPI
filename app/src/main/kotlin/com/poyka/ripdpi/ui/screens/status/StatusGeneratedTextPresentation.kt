@@ -20,7 +20,7 @@ internal fun StringResolver.homeConfidence(value: String?): String? =
     value?.let { raw ->
         homeConfidencePattern.matchEntire(raw)?.let { match ->
             getString(
-                R.string.home_generated_confidence,
+                R.string.status_generated_confidence,
                 homeGeneratedValue(match.groupValues[1]),
                 homeCount(match.groupValues[2]),
             )
@@ -63,7 +63,7 @@ private fun StringResolver.homeCompositeSummary(raw: String): String? {
 
         completed != null -> {
             val (count, total, failures) = completed.destructured
-            val base = getString(R.string.home_generated_stages_completed, homeCount(count), homeCount(total))
+            val base = getString(R.string.status_generated_stages_completed, homeCount(count), homeCount(total))
             if (failures.isEmpty()) base else "$base ${homeGeneratedText(failures)}"
         }
 
@@ -107,11 +107,11 @@ private fun StringResolver.homeGeneratedTemplate(raw: String): String? {
                 }
             }
 
-            definition.resource == R.string.home_generated_vpn_captured -> {
+            definition.resource == R.string.status_generated_vpn_captured -> {
                 getString(definition.resource, first, second)
             }
 
-            definition.resource == R.string.home_generated_settlement -> {
+            definition.resource == R.string.status_generated_settlement -> {
                 getString(definition.resource, first)
             }
 
@@ -126,33 +126,33 @@ private val homeGeneratedTemplates =
     listOf(
         StatusGeneratedTemplate(
             Regex("Analysis finished — ([0-9]+) of ([0-9]+) stages failed"),
-            R.string.home_generated_analysis_failed,
+            R.string.status_generated_analysis_failed,
         ),
         StatusGeneratedTemplate(
             Regex("([0-9]+) stages? finished with failures or were unavailable\\."),
-            R.plurals.home_generated_stages_failed,
+            R.plurals.status_generated_stages_failed,
             quantity = true,
         ),
         StatusGeneratedTemplate(
             Regex("([0-9]+) additional domains? showed connectivity issues not covered by the strategy probe\\."),
-            R.plurals.home_generated_coverage_gap,
+            R.plurals.status_generated_coverage_gap,
             quantity = true,
         ),
-        StatusGeneratedTemplate(Regex("Matrix ([0-9]+)% · winners ([0-9]+)%"), R.string.home_generated_coverage),
+        StatusGeneratedTemplate(Regex("Matrix ([0-9]+)% · winners ([0-9]+)%"), R.string.status_generated_coverage),
         StatusGeneratedTemplate(
             Regex("Comparing ([0-9]+) domain controls/failures and ([0-9]+) service targets in path\\."),
-            R.string.home_generated_path_targets,
+            R.string.status_generated_path_targets,
         ),
         StatusGeneratedTemplate(
             Regex(
                 "Captured sessionless VPN route evidence: route=(\\S+) forwarding=(\\S+) " +
                     "target_reachability=unverified\\.",
             ),
-            R.string.home_generated_vpn_captured,
+            R.string.status_generated_vpn_captured,
         ),
         StatusGeneratedTemplate(
             Regex("Raw-path runtime settlement inconclusive: (.+)"),
-            R.string.home_generated_settlement,
+            R.string.status_generated_settlement,
         ),
     )
 
@@ -163,7 +163,7 @@ internal fun StringResolver.homeStageSummary(
 ): String {
     val expectedLabel = label.lowercase(java.util.Locale.ROOT)
     val template = homeStageSummaryTemplates.firstOrNull { raw == it.first.format(expectedLabel) }
-    val controls = homePathControls.matchEntire(raw)
+    val controls = statusPathControls.matchEntire(raw)
     return when {
         template != null -> {
             getString(template.second, homeStageLabel(key, label))
@@ -171,7 +171,7 @@ internal fun StringResolver.homeStageSummary(
 
         key == "path_comparison" && controls != null -> {
             getString(
-                R.string.home_generated_path_controls,
+                R.string.status_generated_path_controls,
                 homeGeneratedText(controls.groups["summary"]?.value.orEmpty()),
                 controls.groups["controls"]?.value.orEmpty(),
                 controls.groups["failures"]?.value.orEmpty(),
@@ -186,11 +186,11 @@ internal fun StringResolver.homeStageSummary(
 
 private val homeStageSummaryTemplates =
     listOf(
-        "Starting %s." to R.string.home_generated_stage_start,
-        "Collecting diagnostics for %s." to R.string.home_generated_stage_collect,
-        "Unable to start %s." to R.string.home_generated_stage_unable,
+        "Starting %s." to R.string.status_generated_stage_start,
+        "Collecting diagnostics for %s." to R.string.status_generated_stage_collect,
+        "Unable to start %s." to R.string.status_generated_stage_unable,
     )
-private val homePathControls = Regex("(?<summary>.+) Controls=(?<controls>\\[.*]) failed=(?<failures>\\[.*])")
+private val statusPathControls = Regex("(?<summary>.+) Controls=(?<controls>\\[.*]) failed=(?<failures>\\[.*])")
 
 private fun StringResolver.homeConnectivitySummary(raw: String): String? {
     val counts = homeConnectivityCounts.matchEntire(raw)?.groupValues?.drop(1) ?: return null

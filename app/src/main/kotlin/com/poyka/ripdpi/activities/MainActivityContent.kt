@@ -209,7 +209,7 @@ private fun MainActivityEffects(
     snackbarHostState: SnackbarHostState,
 ) {
     val context = LocalContext.current
-    val copyActionLabel = stringResource(R.string.home_diagnostics_copy_support_code)
+    val copyActionLabel = stringResource(R.string.status_diagnostics_copy_support_code)
     val clipboardLabel = stringResource(R.string.clipboard_label_error)
     LaunchedEffect(viewModel) {
         viewModel.initialize()

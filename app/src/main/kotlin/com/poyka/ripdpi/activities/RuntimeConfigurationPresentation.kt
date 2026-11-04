@@ -24,7 +24,7 @@ internal fun RunningReconnectFailure.messageResource(): Int =
 internal fun buildAppliedConfigurationUiState(
     inputs: MainUiInputs,
     strings: StringResolver,
-): HomeAppliedConfigurationUiState {
+): StatusAppliedConfigurationUiState {
     val (status, mode) = inputs.statusAndMode
     val application = inputs.applications[mode] ?: RuntimeConfigurationApplication.Unknown
     val reconnecting =
@@ -45,7 +45,7 @@ internal fun buildAppliedConfigurationUiState(
             is RunningReconnectState.Cancelled -> strings.getString(R.string.runtime_config_cancelled)
             else -> null
         }
-    return HomeAppliedConfigurationUiState(
+    return StatusAppliedConfigurationUiState(
         visible =
             status != AppStatus.Halted || application is RuntimeConfigurationApplication.Failed || message != null,
         status = strings.getString(statusKey),

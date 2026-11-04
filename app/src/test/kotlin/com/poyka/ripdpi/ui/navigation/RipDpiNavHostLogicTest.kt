@@ -21,7 +21,7 @@ class RipDpiNavHostLogicTest {
 
     @Test
     fun `top level route titles describe target information architecture`() {
-        assertEquals(com.poyka.ripdpi.R.string.home, Route.Home.titleRes)
+        assertEquals(com.poyka.ripdpi.R.string.home, Route.Status.titleRes)
         assertEquals(com.poyka.ripdpi.R.string.config, Route.Config.titleRes)
         assertEquals(com.poyka.ripdpi.R.string.diagnostics, Route.Diagnostics().titleRes)
         assertEquals(com.poyka.ripdpi.R.string.settings, Route.Settings.titleRes)
@@ -29,7 +29,7 @@ class RipDpiNavHostLogicTest {
 
     @Test
     fun `top level route helper only matches bottom navigation destinations`() {
-        assertTrue(Route.Home.stableRoute.isTopLevelRoute())
+        assertTrue(Route.Status.stableRoute.isTopLevelRoute())
         assertTrue(Route.Settings.stableRoute.isTopLevelRoute())
         assertFalse(Route.History.stableRoute.isTopLevelRoute())
         assertFalse(null.isTopLevelRoute())
@@ -59,7 +59,7 @@ class RipDpiNavHostLogicTest {
     fun `all external navigation waits at onboarding and biometric gates`() {
         assertTrue(isNavigationGateRoute(Route.Onboarding.stableRoute))
         assertTrue(isNavigationGateRoute(Route.BiometricPrompt.stableRoute))
-        assertFalse(isNavigationGateRoute(Route.Home.stableRoute))
+        assertFalse(isNavigationGateRoute(Route.Status.stableRoute))
         assertFalse(isNavigationGateRoute(Route.Settings.stableRoute))
     }
 
@@ -68,7 +68,7 @@ class RipDpiNavHostLogicTest {
         assertFalse(
             shouldNavigateToHomeFromLaunchRequest(
                 launchHomeRequested = true,
-                currentRoute = Route.Home.stableRoute,
+                currentRoute = Route.Status.stableRoute,
             ),
         )
     }
@@ -280,8 +280,8 @@ class RipDpiNavHostLogicTest {
             Route.topLevel.map(RipDpiTestTags.bottomNav).toSet() +
                 StatusMode.entries.flatMap { mode ->
                     listOf(
-                        RipDpiTestTags.homeModeCard(mode.name),
-                        RipDpiTestTags.homeModePrimaryAction(mode.name),
+                        RipDpiTestTags.statusModeCard(mode.name),
+                        RipDpiTestTags.statusModePrimaryAction(mode.name),
                     )
                 } +
                 Mode.entries.map { mode -> RipDpiTestTags.configMode(mode.name) } +
@@ -361,9 +361,9 @@ class RipDpiNavHostLogicTest {
 
     @Test
     fun `arriving at a tab selects it at once`() {
-        val held = heldTopLevel(selected = Route.Home, previousTab = Route.Settings, transitioning = true)
-        assertEquals(Route.Home, held)
-        assertEquals(Route.Home, heldTopLevel(selected = Route.Home, previousTab = null, transitioning = false))
+        val held = heldTopLevel(selected = Route.Status, previousTab = Route.Settings, transitioning = true)
+        assertEquals(Route.Status, held)
+        assertEquals(Route.Status, heldTopLevel(selected = Route.Status, previousTab = null, transitioning = false))
     }
 }
 
@@ -380,7 +380,7 @@ private enum class ReachabilityMechanism {
 private val ExpectedRootScreenTags: Map<String, String> =
     mapOf(
         Route.Onboarding.stableRoute to "onboarding-screen",
-        Route.Home.stableRoute to "home-screen",
+        Route.Status.stableRoute to "home-screen",
         Route.Config.stableRoute to "config-screen",
         Route.LocalBypassConfig.stableRoute to "config/local_bypass-screen",
         Route.VpnConfig.stableRoute to "config/vpn-screen",
@@ -435,7 +435,7 @@ private val ExpectedRootScreenTags: Map<String, String> =
 private val ReachableRouteMechanisms: Map<String, Set<ReachabilityMechanism>> =
     mapOf(
         Route.Onboarding.stableRoute to setOf(ReachabilityMechanism.StartDestination),
-        Route.Home.stableRoute to
+        Route.Status.stableRoute to
             setOf(
                 ReachabilityMechanism.StartDestination,
                 ReachabilityMechanism.TopLevelNavigation,

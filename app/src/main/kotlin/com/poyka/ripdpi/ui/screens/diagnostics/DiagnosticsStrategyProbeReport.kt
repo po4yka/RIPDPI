@@ -549,7 +549,7 @@ private fun auditAssessmentMetrics(
 ): kotlinx.collections.immutable.ImmutableList<com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsMetricUiModel> =
     kotlinx.collections.immutable.persistentListOf(
         com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsMetricUiModel(
-            label = stringResource(R.string.home_diagnostics_confidence_label),
+            label = stringResource(R.string.status_diagnostics_confidence_label),
             value =
                 stringResource(
                     R.string.diagnostics_audit_confidence_value,

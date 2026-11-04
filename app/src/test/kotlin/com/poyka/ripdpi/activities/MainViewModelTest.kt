@@ -361,7 +361,7 @@ class MainViewModelTest {
         assertFalse(state.isActivationAvailable)
         assertTrue(state.isDeactivationAvailable)
         assertEquals(
-            FakeStringResolver().getString(R.string.home_connection_actuator_action_deactivate),
+            FakeStringResolver().getString(R.string.status_connection_actuator_action_deactivate),
             state.actionLabel,
         )
     }
@@ -609,11 +609,11 @@ class MainViewModelTest {
 
         assertTrue(notEnabled.visible)
         assertEquals(
-            stringResolver.getString(R.string.home_hard_kill_switch_not_enabled_title),
+            stringResolver.getString(R.string.status_hard_kill_switch_not_enabled_title),
             notEnabled.label,
         )
         assertEquals(
-            stringResolver.getString(R.string.home_hard_kill_switch_unknown_title),
+            stringResolver.getString(R.string.status_hard_kill_switch_unknown_title),
             unknown.label,
         )
     }
@@ -650,7 +650,7 @@ class MainViewModelTest {
         assertTrue(hardKillSwitch.blocksDisconnect)
         assertFalse(state.isDeactivationAvailable)
         assertEquals(
-            stringResolver.getString(R.string.home_connection_actuator_action_android_managed),
+            stringResolver.getString(R.string.status_connection_actuator_action_android_managed),
             state.actionLabel,
         )
     }
@@ -899,7 +899,7 @@ class MainViewModelTest {
                 .setOnboardingComplete(true)
                 .build()
 
-        assertEquals(Route.Home, resolveStartupDestination(settings))
+        assertEquals(Route.Status, resolveStartupDestination(settings))
     }
 
     @Test

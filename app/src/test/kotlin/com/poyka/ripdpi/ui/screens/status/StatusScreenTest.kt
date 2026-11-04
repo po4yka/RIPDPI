@@ -209,7 +209,7 @@ class StatusScreenTest {
         val actuator =
             composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).fetchSemanticsNode().boundsInRoot
         val health =
-            composeRule.onNodeWithTag(RipDpiTestTags.HomeConnectionHealthAction).fetchSemanticsNode().boundsInRoot
+            composeRule.onNodeWithTag(RipDpiTestTags.StatusConnectionHealthAction).fetchSemanticsNode().boundsInRoot
         assertTrue("Supporting pane must sit beside the actuator", health.left >= actuator.right)
         val density = composeRule.density.density
         assertTrue("Supporting pane stays near 360dp", health.width <= 360f * density)
@@ -233,27 +233,27 @@ class StatusScreenTest {
 
         StatusMode.entries.forEach { mode ->
             composeRule
-                .onAllNodesWithTag(RipDpiTestTags.homeModeCard(mode.name))
+                .onAllNodesWithTag(RipDpiTestTags.statusModeCard(mode.name))
                 .assertCountEquals(0)
         }
-        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader).assertCountEquals(1)
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader).assertHasClickAction()
-        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeModesDiagnosticsCollapsed).assertCountEquals(1)
-        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeModesDiagnosticsExpanded).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.StatusModesDiagnosticsHeader).assertCountEquals(1)
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusModesDiagnosticsHeader).assertHasClickAction()
+        composeRule.onAllNodesWithTag(RipDpiTestTags.StatusModesDiagnosticsCollapsed).assertCountEquals(1)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.StatusModesDiagnosticsExpanded).assertCountEquals(0)
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
             .assertIsDisplayed()
             .assertHasClickAction()
             .performSemanticsAction(SemanticsActions.OnClick)
         expandModesAndDiagnostics()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsExpanded).assertIsDisplayed()
-        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeModesDiagnosticsCollapsed).assertCountEquals(0)
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusModesDiagnosticsExpanded).assertIsDisplayed()
+        composeRule.onAllNodesWithTag(RipDpiTestTags.StatusModesDiagnosticsCollapsed).assertCountEquals(0)
         StatusMode.entries.forEach { mode ->
             composeRule
-                .onAllNodesWithTag(RipDpiTestTags.homeModeCard(mode.name))
+                .onAllNodesWithTag(RipDpiTestTags.statusModeCard(mode.name))
                 .assertCountEquals(1)
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.homeModeCard(StatusMode.Diagnostic.name)).performScrollTo()
+        composeRule.onNodeWithTag(RipDpiTestTags.statusModeCard(StatusMode.Diagnostic.name)).performScrollTo()
         val bypassTop = cardTop(StatusMode.LocalDpiBypass)
         val vpnTop = cardTop(StatusMode.RemoteVpn)
         val diagnosticTop = cardTop(StatusMode.Diagnostic)
@@ -289,13 +289,13 @@ class StatusScreenTest {
 
         expandModesAndDiagnostics()
         composeRule
-            .onAllNodesWithTag(RipDpiTestTags.homeModePrimaryAction(StatusMode.LocalDpiBypass.name))
+            .onAllNodesWithTag(RipDpiTestTags.statusModePrimaryAction(StatusMode.LocalDpiBypass.name))
             .assertCountEquals(0)
         composeRule
-            .onAllNodesWithTag(RipDpiTestTags.homeModePrimaryAction(StatusMode.RemoteVpn.name))
+            .onAllNodesWithTag(RipDpiTestTags.statusModePrimaryAction(StatusMode.RemoteVpn.name))
             .assertCountEquals(0)
-        clickHomeNode(RipDpiTestTags.homeModeConfigureAction(StatusMode.LocalDpiBypass.name))
-        clickHomeNode(RipDpiTestTags.homeModeCardBody(StatusMode.RemoteVpn.name))
+        clickHomeNode(RipDpiTestTags.statusModeConfigureAction(StatusMode.LocalDpiBypass.name))
+        clickHomeNode(RipDpiTestTags.statusModeCardBody(StatusMode.RemoteVpn.name))
 
         assertTrue(bypassOpened)
         assertTrue(vpnOpened)
@@ -341,7 +341,7 @@ class StatusScreenTest {
                 .onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton)
                 .assertIsDisplayed()
                 .fetchSemanticsNode()
-        val setupWarning = composeRule.onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow).fetchSemanticsNode()
+        val setupWarning = composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryCard).fetchSemanticsNode()
         assertTrue(actuator.boundsInRoot.bottom <= setupWarning.boundsInRoot.top)
     }
 
@@ -404,16 +404,16 @@ class StatusScreenTest {
 
         expandModesAndDiagnostics()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(StatusMode.Diagnostic.name))
+            .onNodeWithTag(RipDpiTestTags.statusModePrimaryAction(StatusMode.Diagnostic.name))
             .performScrollTo()
             .performClick()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.homeModeConfigureAction(StatusMode.Diagnostic.name))
+            .onNodeWithTag(RipDpiTestTags.statusModeConfigureAction(StatusMode.Diagnostic.name))
             .assertTextEquals("Open Diagnostics")
             .performScrollTo()
             .performClick()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.homeModeCardBody(StatusMode.Diagnostic.name))
+            .onNodeWithTag(RipDpiTestTags.statusModeCardBody(StatusMode.Diagnostic.name))
             .performScrollTo()
             .performClick()
 
@@ -475,14 +475,14 @@ class StatusScreenTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsAnalysisSheet).assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusDiagnosticsAnalysisSheet).assertIsDisplayed()
         composeRule.onNodeWithText("WARP routing").assertIsDisplayed()
         composeRule.onNodeWithText("2 hosts").assertIsDisplayed()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsShareAction).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusDiagnosticsShareAction).performClick()
         assertTrue(shared)
 
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsVerificationSheet).assertIsDisplayed()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsVerificationOpenDiagnosticsAction).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusDiagnosticsVerificationSheet).assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusDiagnosticsVerificationOpenDiagnosticsAction).performClick()
         assertTrue(openedDiagnostics)
     }
 
@@ -514,11 +514,11 @@ class StatusScreenTest {
         }
 
         composeRule
-            .onAllNodesWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
+            .onAllNodesWithTag(RipDpiTestTags.StatusDiagnosticsPcapToggle)
             .assertCountEquals(0)
         expandModesAndDiagnostics()
         composeRule
-            .onAllNodesWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
+            .onAllNodesWithTag(RipDpiTestTags.StatusDiagnosticsPcapToggle)
             .assertCountEquals(0)
     }
 
@@ -551,15 +551,15 @@ class StatusScreenTest {
         }
 
         composeRule
-            .onAllNodesWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
+            .onAllNodesWithTag(RipDpiTestTags.StatusDiagnosticsPcapToggle)
             .assertCountEquals(0)
         expandModesAndDiagnostics()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
+            .onNodeWithTag(RipDpiTestTags.StatusDiagnosticsPcapToggle)
             .performScrollTo()
             .assertIsDisplayed()
         composeRule
-            .onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.home_diagnostics_pcap_helper))
+            .onNodeWithText(RuntimeEnvironment.getApplication().getString(R.string.status_diagnostics_pcap_helper))
             .assertIsDisplayed()
     }
 
@@ -594,11 +594,11 @@ class StatusScreenTest {
         }
 
         composeRule
-            .onAllNodesWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
+            .onAllNodesWithTag(RipDpiTestTags.StatusDiagnosticsPcapToggle)
             .assertCountEquals(0)
         expandModesAndDiagnostics()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
+            .onNodeWithTag(RipDpiTestTags.StatusDiagnosticsPcapToggle)
             .performScrollTo()
             .performClick()
 
@@ -649,14 +649,14 @@ class StatusScreenTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsRemediationAction).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusDiagnosticsRemediationAction).performClick()
 
         assertEquals("https://example.org:443/", openedBrowserTarget)
     }
 
     private fun cardTop(mode: StatusMode): Float =
         composeRule
-            .onNodeWithTag(RipDpiTestTags.homeModeCard(mode.name))
+            .onNodeWithTag(RipDpiTestTags.statusModeCard(mode.name))
             .fetchSemanticsNode()
             .boundsInRoot
             .top
@@ -667,7 +667,7 @@ class StatusScreenTest {
 
     private fun expandModesAndDiagnostics() {
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader)
+            .onNodeWithTag(RipDpiTestTags.StatusModesDiagnosticsHeader)
             .performScrollTo()
             .performClick()
         composeRule.waitForIdle()

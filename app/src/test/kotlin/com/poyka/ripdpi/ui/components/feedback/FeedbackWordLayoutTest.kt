@@ -53,7 +53,7 @@ class FeedbackWordLayoutTest {
     @Test
     fun bannerKeepsWholeLocalizedWordsAndSeparateClickAndDismissActions() {
         val title = text(R.string.connection_health_summary_title)
-        val message = text(R.string.home_quality_waiting)
+        val message = text(R.string.status_quality_waiting)
         var clicks = 0
         var dismissals = 0
         composeRule.setContent {
@@ -74,7 +74,7 @@ class FeedbackWordLayoutTest {
     @Test
     fun accordionKeepsWholeLocalizedTitleAndExpansionCallbacks() {
         val title = text(R.string.ripdpi_http_host_extra_space_setting)
-        val body = text(R.string.home_modes_diagnostics_title)
+        val body = text(R.string.status_modes_diagnostics_title)
         var expanded by mutableStateOf(false)
         val changes = mutableListOf<Boolean>()
         composeRule.setContent {

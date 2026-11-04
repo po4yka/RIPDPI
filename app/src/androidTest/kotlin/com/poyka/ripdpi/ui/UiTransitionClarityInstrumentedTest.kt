@@ -35,9 +35,9 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import androidx.test.uiautomator.UiDevice
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HomeAppliedConfigurationUiState
-import com.poyka.ripdpi.activities.HomeReconnectComparisonUiState
 import com.poyka.ripdpi.activities.ReconnectSettingsIdentity
+import com.poyka.ripdpi.activities.StatusAppliedConfigurationUiState
+import com.poyka.ripdpi.activities.StatusReconnectComparisonUiState
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.services.RunningReconnectRequest
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
@@ -119,13 +119,13 @@ class UiTransitionClarityInstrumentedTest {
         var state by mutableStateOf(transitionReconnectState())
         var reconnects = 0
         compose.setContent { TransitionTheme { StatusAppliedConfigurationPanel(state, { reconnects++ }, {}) } }
-        listOf<(HomeAppliedConfigurationUiState) -> HomeAppliedConfigurationUiState>(
+        listOf<(StatusAppliedConfigurationUiState) -> StatusAppliedConfigurationUiState>(
             { it.copy(confirmation = RunningReconnectRequest.ConfirmedRuntime(Mode.VPN, "replacement-runtime", 2)) },
             { it.copy(reconnectSettingsIdentity = ReconnectSettingsIdentity()) },
         ).forEachIndexed { index, invalidate ->
             compose.onNodeWithTag("home_runtime_reconnect").performClick()
             compose.runOnIdle { state = invalidate(state) }
-            compose.onNodeWithTag(RipDpiTestTags.HomeRuntimeReconnectDialog).assertDoesNotExist()
+            compose.onNodeWithTag(RipDpiTestTags.StatusRuntimeReconnectDialog).assertDoesNotExist()
             compose.runOnIdle { assertEquals(0, reconnects) }
             capture("reconnect-invalidated-$index")
         }
@@ -192,11 +192,11 @@ class UiTransitionClarityInstrumentedTest {
                 }
             }
         }
-        compose.onNodeWithTag(RipDpiTestTags.HomeRuntimeReconnectDialog).assertDoesNotExist()
+        compose.onNodeWithTag(RipDpiTestTags.StatusRuntimeReconnectDialog).assertDoesNotExist()
         compose.onNodeWithText("Saved DNS: ODoH").assertDoesNotExist()
         compose.onNodeWithTag("home_runtime_reconnect").performScrollTo().performClick()
         compose
-            .onNodeWithTag(RipDpiTestTags.HomeRuntimeReconnectCurrent)
+            .onNodeWithTag(RipDpiTestTags.StatusRuntimeReconnectCurrent)
             .assert(hasAnyDescendant(hasText("Current: RIPDPI · DoT")))
             .performScrollTo()
             .assertIsDisplayed()
@@ -229,7 +229,7 @@ class UiTransitionClarityInstrumentedTest {
             cancelledConfirm()
         }
         compose.runOnIdle { assertTrue(requests.isEmpty()) }
-        compose.onNodeWithTag(RipDpiTestTags.HomeRuntimeReconnectDialog).assertDoesNotExist()
+        compose.onNodeWithTag(RipDpiTestTags.StatusRuntimeReconnectDialog).assertDoesNotExist()
         compose.onNodeWithTag("home_runtime_reconnect").performScrollTo().performClick()
         val consumedConfirm =
             compose
@@ -243,7 +243,7 @@ class UiTransitionClarityInstrumentedTest {
             consumedConfirm()
         }
         compose.runOnIdle { assertEquals(listOf(state.confirmation), requests) }
-        compose.onNodeWithTag(RipDpiTestTags.HomeRuntimeReconnectDialog).assertDoesNotExist()
+        compose.onNodeWithTag(RipDpiTestTags.StatusRuntimeReconnectDialog).assertDoesNotExist()
     }
 
     private fun assertCurrentActuator(status: StatusConnectionActuatorStatus) {
@@ -293,14 +293,14 @@ private fun transitionActuator(status: StatusConnectionActuatorStatus) =
     )
 
 private fun transitionReconnectState() =
-    HomeAppliedConfigurationUiState(
+    StatusAppliedConfigurationUiState(
         visible = true,
         status = "Saved edits pending",
         confirmedSummary = "Current: RIPDPI · DoT",
         pending = true,
         confirmation = RunningReconnectRequest.ConfirmedRuntime(Mode.VPN, "controlled-runtime", 1),
         reconnectComparison =
-            HomeReconnectComparisonUiState("Current: RIPDPI · DoT", "Saved DNS: ODoH", "Saved TCP: custom"),
+            StatusReconnectComparisonUiState("Current: RIPDPI · DoT", "Saved DNS: ODoH", "Saved TCP: custom"),
     )
 
 @Composable

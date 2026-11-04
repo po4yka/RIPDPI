@@ -7,7 +7,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HomeAppliedConfigurationUiState
+import com.poyka.ripdpi.activities.StatusAppliedConfigurationUiState
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
@@ -17,14 +17,14 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
 internal fun StatusReconnectReviewDialog(
-    state: HomeAppliedConfigurationUiState,
+    state: StatusAppliedConfigurationUiState,
     onDismiss: () -> Unit,
     onConfirm: () -> Unit,
 ) {
     RipDpiDialog(
         onDismissRequest = onDismiss,
         title = stringResource(R.string.runtime_config_confirm_title),
-        dialogTestTag = RipDpiTestTags.HomeRuntimeReconnectDialog,
+        dialogTestTag = RipDpiTestTags.StatusRuntimeReconnectDialog,
         dismissAction = RipDpiDialogAction(stringResource(R.string.config_cancel), onDismiss),
         confirmAction =
             RipDpiDialogAction(
@@ -36,11 +36,11 @@ internal fun StatusReconnectReviewDialog(
     ) {
         val comparison = state.reconnectComparison
         val unknown = stringResource(R.string.runtime_config_preview_unavailable)
-        Column(Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.HomeRuntimeReconnectCurrent)) {
+        Column(Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.StatusRuntimeReconnectCurrent)) {
             ReviewHeading(stringResource(R.string.runtime_config_preview_current))
             ReviewValue(comparison?.currentSummary ?: state.confirmedSummary ?: unknown)
         }
-        Column(Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.HomeRuntimeReconnectSaved)) {
+        Column(Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.StatusRuntimeReconnectSaved)) {
             ReviewHeading(stringResource(R.string.runtime_config_preview_saved))
             ReviewHeading(stringResource(R.string.runtime_config_preview_route))
             ReviewValue(stringResource(R.string.runtime_config_preview_route_unresolved))

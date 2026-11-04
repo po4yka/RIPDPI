@@ -370,7 +370,7 @@ private fun DiagnosticsUiFactorySupport.shareConnectionStateLabel(value: String)
         "halted" -> context.getString(R.string.history_connection_state_halted)
         "reconnecting" -> context.getString(R.string.history_connection_state_reconnecting)
         "connected" -> context.getString(R.string.vpn_connected)
-        "connecting" -> context.getString(R.string.home_status_connecting)
+        "connecting" -> context.getString(R.string.status_connecting)
         "disconnected" -> context.getString(R.string.vpn_disconnected)
         "unknown" -> context.getString(R.string.diagnostics_field_unknown)
         else -> value

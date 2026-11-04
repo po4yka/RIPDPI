@@ -86,15 +86,15 @@ private fun RemediationBottomSheet(
     }
     RipDpiBottomSheet(
         onDismissRequest = onDismissAnalysisSheet,
-        title = stringResource(R.string.home_diagnostics_analysis_sheet_title),
+        title = stringResource(R.string.status_diagnostics_analysis_sheet_title),
         message = sheet.headline,
         icon = RipDpiIcons.Search,
-        testTag = RipDpiTestTags.HomeDiagnosticsAnalysisSheet,
+        testTag = RipDpiTestTags.StatusDiagnosticsAnalysisSheet,
         primaryAction =
             RipDpiSheetAction(
-                label = stringResource(R.string.home_diagnostics_share_action),
+                label = stringResource(R.string.status_diagnostics_share_action),
                 onClick = onShareAnalysis,
-                testTag = RipDpiTestTags.HomeDiagnosticsShareAction,
+                testTag = RipDpiTestTags.StatusDiagnosticsShareAction,
                 enabled = !sheet.shareBusy,
             ),
         secondaryAction = StatusAnalysisSecondaryAction(sheet, openDiagnosticsFromSheet),
@@ -125,9 +125,9 @@ private fun StatusAnalysisSecondaryAction(
             sheet.remediationLadder.primaryAction.kind != DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS
     return if (shouldShowAction) {
         RipDpiSheetAction(
-            label = stringResource(R.string.home_diagnostics_open_diagnostics_action),
+            label = stringResource(R.string.status_diagnostics_open_diagnostics_action),
             onClick = onOpenDiagnosticsFromSheet,
-            testTag = RipDpiTestTags.HomeDiagnosticsOpenDiagnosticsAction,
+            testTag = RipDpiTestTags.StatusDiagnosticsOpenDiagnosticsAction,
             variant = RipDpiButtonVariant.Outline,
         )
     } else {
@@ -201,8 +201,8 @@ private fun StatusSheetRemediationLadder(
                 }
             }
         },
-        cardTestTag = RipDpiTestTags.HomeDiagnosticsRemediationCard,
-        actionTestTag = RipDpiTestTags.HomeDiagnosticsRemediationAction,
+        cardTestTag = RipDpiTestTags.StatusDiagnosticsRemediationCard,
+        actionTestTag = RipDpiTestTags.StatusDiagnosticsRemediationAction,
     )
 }
 
@@ -221,7 +221,7 @@ private fun StatusActionableHeadlineCard(
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
     ) {
         Text(
-            text = stringResource(R.string.home_diagnostics_actionable_section),
+            text = stringResource(R.string.status_diagnostics_actionable_section),
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )
@@ -245,10 +245,10 @@ private fun StatusAnalysisSheetCoreContent(sheet: StatusDiagnosticsAnalysisSheet
     }
     StatusConfidenceRow(sheet.confidenceSummary, sheet.confidenceLevel)
     sheet.coverageSummary?.let { value ->
-        SettingsRow(title = stringResource(R.string.home_diagnostics_coverage_label), value = value)
+        SettingsRow(title = stringResource(R.string.status_diagnostics_coverage_label), value = value)
     }
     sheet.recommendationSummary?.let { value ->
-        SettingsRow(title = stringResource(R.string.home_diagnostics_recommendation_label), value = value)
+        SettingsRow(title = stringResource(R.string.status_diagnostics_recommendation_label), value = value)
     }
     StatusAppliedSettingsSection(sheet)
 }
@@ -273,7 +273,7 @@ private fun StatusConfidenceRow(
             verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.xs),
         ) {
             Text(
-                text = stringResource(R.string.home_diagnostics_confidence_label),
+                text = stringResource(R.string.status_diagnostics_confidence_label),
                 style = RipDpiThemeTokens.type.body,
                 color = colors.foreground,
             )
@@ -288,7 +288,7 @@ private fun StatusAppliedSettingsSection(sheet: StatusDiagnosticsAnalysisSheetUi
     HorizontalDivider(color = colors.divider)
     if (sheet.appliedSettings.isNotEmpty()) {
         Text(
-            text = stringResource(R.string.home_diagnostics_applied_settings_label),
+            text = stringResource(R.string.status_diagnostics_applied_settings_label),
             style = RipDpiThemeTokens.type.bodyEmphasis,
             color = colors.foreground,
         )
@@ -297,7 +297,7 @@ private fun StatusAppliedSettingsSection(sheet: StatusDiagnosticsAnalysisSheetUi
         }
     } else {
         Text(
-            text = stringResource(R.string.home_diagnostics_no_settings_applied),
+            text = stringResource(R.string.status_diagnostics_no_settings_applied),
             style = RipDpiThemeTokens.type.secondaryBody,
             color = colors.mutedForeground,
         )
@@ -314,18 +314,18 @@ private fun VerificationBottomSheet(
     val colors = RipDpiThemeTokens.colors
     RipDpiBottomSheet(
         onDismissRequest = onDismissVerificationSheet,
-        title = stringResource(R.string.home_diagnostics_verified_sheet_title),
+        title = stringResource(R.string.status_diagnostics_verified_sheet_title),
         message = sheet.headline,
         icon = if (sheet.success) RipDpiIcons.Connected else RipDpiIcons.Warning,
-        testTag = RipDpiTestTags.HomeDiagnosticsVerificationSheet,
+        testTag = RipDpiTestTags.StatusDiagnosticsVerificationSheet,
         primaryAction =
             RipDpiSheetAction(
-                label = stringResource(R.string.home_diagnostics_open_diagnostics_action),
+                label = stringResource(R.string.status_diagnostics_open_diagnostics_action),
                 onClick = {
                     onDismissVerificationSheet()
                     onOpenDiagnostics()
                 },
-                testTag = RipDpiTestTags.HomeDiagnosticsVerificationOpenDiagnosticsAction,
+                testTag = RipDpiTestTags.StatusDiagnosticsVerificationOpenDiagnosticsAction,
             ),
     ) {
         Text(text = sheet.summary, style = RipDpiThemeTokens.type.body, color = colors.foreground)
@@ -365,9 +365,9 @@ internal fun StageResultRow(
         }
     val statusDescription =
         when {
-            failed -> stringResource(R.string.home_diagnostics_stage_status_failed)
-            skipped -> stringResource(R.string.home_diagnostics_stage_status_skipped)
-            else -> stringResource(R.string.home_diagnostics_stage_status_passed)
+            failed -> stringResource(R.string.status_diagnostics_stage_status_failed)
+            skipped -> stringResource(R.string.status_diagnostics_stage_status_skipped)
+            else -> stringResource(R.string.status_diagnostics_stage_status_passed)
         }
 
     Row(

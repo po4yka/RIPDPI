@@ -264,7 +264,7 @@ private fun DpiSuiteProbeResult.statusLabel(stringResolver: StringResolver): Str
             }
 
             is DpiSuiteProbeResult.Failed -> {
-                R.string.home_connection_stage_state_failed
+                R.string.status_connection_stage_state_failed
             }
         }
     return stringResolver.getString(resource)

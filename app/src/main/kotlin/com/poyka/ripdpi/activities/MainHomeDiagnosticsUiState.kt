@@ -61,7 +61,7 @@ internal fun buildHomeDiagnosticsUiState(
         pcapToggleVisible = settings.rootModeEnabled,
         analysisAction =
             StatusDiagnosticsActionUiState(
-                label = stringResolver.getString(R.string.home_diagnostics_run_analysis),
+                label = stringResolver.getString(R.string.status_diagnostics_run_analysis),
                 supportingText = availability.analysisSupportingText,
                 stageAnnouncement = availability.analysisStageAnnouncement,
                 enabled = availability.analysisEnabled,
@@ -70,7 +70,7 @@ internal fun buildHomeDiagnosticsUiState(
         quickScanBusy = availability.analysisBusy && runtime.quickScanActive,
         verifiedVpnAction =
             StatusDiagnosticsActionUiState(
-                label = stringResolver.getString(R.string.home_diagnostics_start_verified_vpn),
+                label = stringResolver.getString(R.string.status_diagnostics_start_verified_vpn),
                 supportingText = availability.verificationSupportingText,
                 enabled = availability.verificationEnabled,
                 busy = availability.verificationBusy,
@@ -221,20 +221,20 @@ private fun resolveAnalysisSupportingText(
         }
 
         verificationBusy -> {
-            stringResolver.getString(R.string.home_diagnostics_busy_verifying)
+            stringResolver.getString(R.string.status_diagnostics_busy_verifying)
         }
 
         runtime.externalScanActive -> {
             runtime.externalScanMessage
-                ?: stringResolver.getString(R.string.home_diagnostics_busy_other_scan)
+                ?: stringResolver.getString(R.string.status_diagnostics_busy_other_scan)
         }
 
         settings.enableCmdSettings -> {
-            stringResolver.getString(R.string.home_diagnostics_command_line_blocked)
+            stringResolver.getString(R.string.status_diagnostics_command_line_blocked)
         }
 
         else -> {
-            stringResolver.getString(R.string.home_diagnostics_analysis_body)
+            stringResolver.getString(R.string.status_diagnostics_analysis_body)
         }
     }
 
@@ -243,13 +243,13 @@ internal fun StringResolver.homeAnalysisRunningLabel(quickScan: Boolean): String
         if (quickScan) {
             R.string.diagnostics_simple_funnel_verdict_running
         } else {
-            R.string.home_diagnostics_analysis_running
+            R.string.status_diagnostics_analysis_running
         },
     )
 
 private fun HomeDiagnosticsRuntimeState.analysisProgressLabel(stringResolver: StringResolver): String {
     if (analysisStarting) {
-        return stringResolver.getString(R.string.home_diagnostics_analysis_starting)
+        return stringResolver.getString(R.string.status_diagnostics_analysis_starting)
     }
     val progress = activeRunProgress
     val activeStageIndex = progress?.activeStageIndex
@@ -258,7 +258,7 @@ private fun HomeDiagnosticsRuntimeState.analysisProgressLabel(stringResolver: St
     val stagePrefix =
         activeStageIndex?.let {
             stringResolver.getString(
-                R.string.home_diagnostics_stage_counter,
+                R.string.status_diagnostics_stage_counter,
                 it + 1,
                 progress.stages.size,
             )
@@ -277,7 +277,7 @@ private fun HomeDiagnosticsRuntimeState.analysisProgressLabel(stringResolver: St
  */
 private fun HomeDiagnosticsRuntimeState.analysisStageAnnouncement(stringResolver: StringResolver): String {
     if (analysisStarting) {
-        return stringResolver.getString(R.string.home_diagnostics_analysis_starting)
+        return stringResolver.getString(R.string.status_diagnostics_analysis_starting)
     }
     val progress = activeRunProgress
     val activeStageIndex = progress?.activeStageIndex
@@ -295,7 +295,7 @@ private fun HomeDiagnosticsRuntimeState.analysisStageAnnouncement(stringResolver
     val stagePrefix =
         activeStageIndex?.let {
             stringResolver.getString(
-                R.string.home_diagnostics_stage_counter,
+                R.string.status_diagnostics_stage_counter,
                 it + 1,
                 progress.stages.size,
             )
@@ -317,38 +317,38 @@ private fun resolveVerificationSupportingText(
     when {
         verificationBusy -> {
             runtime.verificationProgress
-                ?: stringResolver.getString(R.string.home_diagnostics_verifying)
+                ?: stringResolver.getString(R.string.status_diagnostics_verifying)
         }
 
         analysisBusy -> {
-            stringResolver.getString(R.string.home_diagnostics_finish_analysis_first)
+            stringResolver.getString(R.string.status_diagnostics_finish_analysis_first)
         }
 
         runtime.externalScanActive -> {
             runtime.externalScanMessage
-                ?: stringResolver.getString(R.string.home_diagnostics_busy_other_scan)
+                ?: stringResolver.getString(R.string.status_diagnostics_busy_other_scan)
         }
 
         runtime.latestCompositeOutcome == null -> {
-            stringResolver.getString(R.string.home_diagnostics_run_analysis_first)
+            stringResolver.getString(R.string.status_diagnostics_run_analysis_first)
         }
 
         !runtime.latestCompositeOutcome.actionable -> {
-            stringResolver.getString(R.string.home_diagnostics_no_actionable_result)
+            stringResolver.getString(R.string.status_diagnostics_no_actionable_result)
         }
 
         fingerprintMismatch || runtime.latestCompositeOutcome.fingerprintHash == null ||
             runtime.currentFingerprintHash == null -> {
-            stringResolver.getString(R.string.home_diagnostics_run_again)
+            stringResolver.getString(R.string.status_diagnostics_run_again)
         }
 
         appStatus != AppStatus.Halted || connectionState == ConnectionState.Connected ||
             connectionState == ConnectionState.Connecting -> {
-            stringResolver.getString(R.string.home_diagnostics_disconnect_first)
+            stringResolver.getString(R.string.status_diagnostics_disconnect_first)
         }
 
         else -> {
-            stringResolver.getString(R.string.home_diagnostics_verified_vpn_body)
+            stringResolver.getString(R.string.status_diagnostics_verified_vpn_body)
         }
     }
 
@@ -437,7 +437,7 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
         routingSanitySummary =
             routingSanity?.let {
                 stringResolver.getString(
-                    R.string.home_diagnostics_routing_sanity_summary,
+                    R.string.status_diagnostics_routing_sanity_summary,
                     it.confirmedDetectorCount,
                     it.totalConfiguredApps,
                 )
@@ -452,7 +452,7 @@ private fun DiagnosticsHomeCompositeOutcome.toAnalysisSheetUiState(
         regressionDeltaSummary =
             regressionDelta?.let {
                 stringResolver.getString(
-                    R.string.home_diagnostics_regression_summary,
+                    R.string.status_diagnostics_regression_summary,
                     it.newlyFailedStageKeys.size,
                     it.newlyRecoveredStageKeys.size,
                     it.unchangedStageCount,
@@ -492,7 +492,7 @@ private fun HomeStrategyEffectivenessEntry.toUiState(stringResolver: StringResol
         label = label,
         value =
             stringResolver.getString(
-                R.string.home_diagnostics_effectiveness_row_value,
+                R.string.status_diagnostics_effectiveness_row_value,
                 successCount,
                 failureCount,
             ),
@@ -501,21 +501,38 @@ private fun HomeStrategyEffectivenessEntry.toUiState(stringResolver: StringResol
 private fun DiagnosticsHomeDetectionVerdict.label(stringResolver: StringResolver): String =
     stringResolver.getString(
         when (this) {
-            DiagnosticsHomeDetectionVerdict.DETECTED -> R.string.home_diagnostics_detection_detected
-            DiagnosticsHomeDetectionVerdict.NEEDS_REVIEW -> R.string.home_diagnostics_detection_needs_review
-            DiagnosticsHomeDetectionVerdict.NOT_DETECTED -> R.string.home_diagnostics_detection_not_detected
+            DiagnosticsHomeDetectionVerdict.DETECTED -> R.string.status_diagnostics_detection_detected
+            DiagnosticsHomeDetectionVerdict.NEEDS_REVIEW -> R.string.status_diagnostics_detection_needs_review
+            DiagnosticsHomeDetectionVerdict.NOT_DETECTED -> R.string.status_diagnostics_detection_not_detected
         },
     )
 
 private fun HomeDnsResolverClass.label(stringResolver: StringResolver): String =
     stringResolver.getString(
         when (this) {
-            HomeDnsResolverClass.SYSTEM_RESOLVER_OK -> R.string.home_diagnostics_dns_resolver_ok
-            HomeDnsResolverClass.DOH_PREFERRED -> R.string.home_diagnostics_dns_resolver_doh_preferred
-            HomeDnsResolverClass.POSSIBLE_TRANSPARENT_PROXY -> R.string.home_diagnostics_dns_resolver_transparent_proxy
-            HomeDnsResolverClass.POSSIBLE_POISONING -> R.string.home_diagnostics_dns_resolver_poisoning
-            HomeDnsResolverClass.DOH_UNREACHABLE -> R.string.home_diagnostics_dns_resolver_doh_unreachable
-            HomeDnsResolverClass.UNKNOWN -> R.string.home_diagnostics_dns_resolver_unknown
+            HomeDnsResolverClass.SYSTEM_RESOLVER_OK -> {
+                R.string.status_diagnostics_dns_resolver_ok
+            }
+
+            HomeDnsResolverClass.DOH_PREFERRED -> {
+                R.string.status_diagnostics_dns_resolver_doh_preferred
+            }
+
+            HomeDnsResolverClass.POSSIBLE_TRANSPARENT_PROXY -> {
+                R.string.status_diagnostics_dns_resolver_transparent_proxy
+            }
+
+            HomeDnsResolverClass.POSSIBLE_POISONING -> {
+                R.string.status_diagnostics_dns_resolver_poisoning
+            }
+
+            HomeDnsResolverClass.DOH_UNREACHABLE -> {
+                R.string.status_diagnostics_dns_resolver_doh_unreachable
+            }
+
+            HomeDnsResolverClass.UNKNOWN -> {
+                R.string.status_diagnostics_dns_resolver_unknown
+            }
         },
     )
 
@@ -547,7 +564,7 @@ private fun DiagnosticsHomeCompositeOutcome.toLatestAuditUiState(
         comparisonSummary =
             regressionDelta?.takeUnless { fingerprintMismatch }?.let {
                 stringResolver.getString(
-                    R.string.home_diagnostics_regression_summary,
+                    R.string.status_diagnostics_regression_summary,
                     it.newlyFailedStageKeys.size,
                     it.newlyRecoveredStageKeys.size,
                     it.unchangedStageCount,
@@ -575,46 +592,46 @@ private fun buildNetworkCharacterRows(
     summary ?: return emptyList()
     val rows = mutableListOf<StatusAnalysisLabeledRow>()
     summary.transport?.takeIf { it.isNotBlank() }?.let {
-        rows += StatusAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_transport), it)
+        rows += StatusAnalysisLabeledRow(stringResolver.getString(R.string.status_diagnostics_network_transport), it)
     }
     summary.homeOperator(stringResolver)?.takeIf { it.isNotBlank() }?.let {
-        rows += StatusAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_operator), it)
+        rows += StatusAnalysisLabeledRow(stringResolver.getString(R.string.status_diagnostics_network_operator), it)
     }
     summary.asn?.takeIf { it.isNotBlank() }?.let {
-        rows += StatusAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_asn), it)
+        rows += StatusAnalysisLabeledRow(stringResolver.getString(R.string.status_diagnostics_network_asn), it)
     }
     summary.publicIp?.takeIf { it.isNotBlank() }?.let {
-        rows += StatusAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_public_ip), it)
+        rows += StatusAnalysisLabeledRow(stringResolver.getString(R.string.status_diagnostics_network_public_ip), it)
     }
     summary.captivePortalDetected?.let {
         rows +=
             StatusAnalysisLabeledRow(
-                stringResolver.getString(R.string.home_diagnostics_network_captive_portal),
+                stringResolver.getString(R.string.status_diagnostics_network_captive_portal),
                 stringResolver.getString(
-                    if (it) R.string.home_diagnostics_network_yes else R.string.home_diagnostics_network_no,
+                    if (it) R.string.status_diagnostics_network_yes else R.string.status_diagnostics_network_no,
                 ),
             )
     }
     summary.ipv6Reachable?.let {
         rows +=
             StatusAnalysisLabeledRow(
-                stringResolver.getString(R.string.home_diagnostics_network_ipv6),
+                stringResolver.getString(R.string.status_diagnostics_network_ipv6),
                 stringResolver.getString(
                     if (it) {
-                        R.string.home_diagnostics_network_reachable
+                        R.string.status_diagnostics_network_reachable
                     } else {
-                        R.string.home_diagnostics_network_unreachable
+                        R.string.status_diagnostics_network_unreachable
                     },
                 ),
             )
     }
     summary.mtu?.let {
-        rows += StatusAnalysisLabeledRow(stringResolver.getString(R.string.home_diagnostics_network_mtu), "$it")
+        rows += StatusAnalysisLabeledRow(stringResolver.getString(R.string.status_diagnostics_network_mtu), "$it")
     }
     summary.transparentProxyDetected?.let {
         rows +=
             StatusAnalysisLabeledRow(
-                stringResolver.getString(R.string.home_diagnostics_network_transparent_proxy),
+                stringResolver.getString(R.string.status_diagnostics_network_transparent_proxy),
                 if (it) "detected" else "none",
             )
     }

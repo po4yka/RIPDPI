@@ -42,8 +42,8 @@ class DetectionGeneratedLocaleTest {
             assertNotEquals(raw.adjustmentHint, localized.adjustmentHint)
             val scoreLabels =
                 listOf(
-                    100 to R.string.home_quality_excellent,
-                    89 to R.string.home_quality_good,
+                    100 to R.string.status_quality_excellent,
+                    89 to R.string.status_quality_good,
                     69 to R.string.detection_stealth_fair,
                     49 to R.string.detection_stealth_poor,
                     29 to R.string.detection_stealth_critical,

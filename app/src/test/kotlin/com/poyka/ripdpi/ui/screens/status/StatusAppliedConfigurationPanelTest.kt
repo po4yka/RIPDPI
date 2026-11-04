@@ -23,9 +23,9 @@ import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HomeAppliedConfigurationUiState
-import com.poyka.ripdpi.activities.HomeReconnectComparisonUiState
 import com.poyka.ripdpi.activities.ReconnectSettingsIdentity
+import com.poyka.ripdpi.activities.StatusAppliedConfigurationUiState
+import com.poyka.ripdpi.activities.StatusReconnectComparisonUiState
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -48,7 +48,7 @@ class StatusAppliedConfigurationPanelTest {
     fun `pending saved edits require explicit reconnect confirmation and dismiss preserves connection`() {
         var reconnects = 0
         render(
-            HomeAppliedConfigurationUiState(
+            StatusAppliedConfigurationUiState(
                 visible = true,
                 status = "Pending",
                 pending = true,
@@ -73,7 +73,7 @@ class StatusAppliedConfigurationPanelTest {
     fun `reconnect confirmation shows current confirmed configuration for comparison`() {
         val current = "RIPDPI · Plain DNS"
         render(
-            HomeAppliedConfigurationUiState(
+            StatusAppliedConfigurationUiState(
                 visible = true,
                 status = "Pending",
                 confirmedSummary = current,
@@ -90,7 +90,7 @@ class StatusAppliedConfigurationPanelTest {
     fun `applying offers cancellation without offering another replacement`() {
         var cancellations = 0
         render(
-            HomeAppliedConfigurationUiState(
+            StatusAppliedConfigurationUiState(
                 visible = true,
                 status = "Applying",
                 pending = true,
@@ -108,7 +108,7 @@ class StatusAppliedConfigurationPanelTest {
     @Test
     fun `failed replacement labels previous facets as last confirmed`() {
         render(
-            HomeAppliedConfigurationUiState(
+            StatusAppliedConfigurationUiState(
                 visible = true,
                 status = "Failed",
                 confirmedSummary = "Xray · WS · DoH",
@@ -121,7 +121,7 @@ class StatusAppliedConfigurationPanelTest {
 
     @Test
     fun `unknown runtime cannot show confirmed facets or reconnect promise`() {
-        render(HomeAppliedConfigurationUiState(visible = true, status = "Unknown"))
+        render(StatusAppliedConfigurationUiState(visible = true, status = "Unknown"))
         composeRule.onNodeWithText(text(R.string.runtime_config_last_confirmed)).assertDoesNotExist()
         composeRule.onNodeWithTag("home_runtime_reconnect").assertDoesNotExist()
     }
@@ -157,13 +157,13 @@ class StatusAppliedConfigurationPanelTest {
     fun `saved intent comparison appears only after explicit review and confirm still reconnects once`() {
         var reconnects = 0
         render(
-            HomeAppliedConfigurationUiState(
+            StatusAppliedConfigurationUiState(
                 visible = true,
                 status = "Pending",
                 confirmedSummary = "RIPDPI · DoT",
                 pending = true,
                 confirmation = confirmation,
-                reconnectComparison = HomeReconnectComparisonUiState("RIPDPI · DoT", "ODoH", "Custom"),
+                reconnectComparison = StatusReconnectComparisonUiState("RIPDPI · DoT", "ODoH", "Custom"),
             ),
             { reconnects++ },
         )
@@ -185,7 +185,7 @@ class StatusAppliedConfigurationPanelTest {
     fun `queued confirm from cancelled review keeps current connection`() {
         var reconnects = 0
         render(
-            HomeAppliedConfigurationUiState(
+            StatusAppliedConfigurationUiState(
                 visible = true,
                 status = "Pending",
                 pending = true,
@@ -222,7 +222,7 @@ class StatusAppliedConfigurationPanelTest {
     fun `same review consumes two queued confirms only once`() {
         var reconnects = 0
         render(
-            HomeAppliedConfigurationUiState(
+            StatusAppliedConfigurationUiState(
                 visible = true,
                 status = "Pending",
                 pending = true,
@@ -253,10 +253,10 @@ class StatusAppliedConfigurationPanelTest {
         }
 
     private fun assertConfirmationInvalidated(
-        transform: (HomeAppliedConfigurationUiState) -> HomeAppliedConfigurationUiState,
+        transform: (StatusAppliedConfigurationUiState) -> StatusAppliedConfigurationUiState,
     ) {
         val initial =
-            HomeAppliedConfigurationUiState(
+            StatusAppliedConfigurationUiState(
                 visible = true,
                 status = "Pending",
                 pending = true,
@@ -286,7 +286,7 @@ class StatusAppliedConfigurationPanelTest {
                 RipDpiTheme {
                     Box(Modifier.requiredSize(411.dp, 839.dp)) {
                         StatusAppliedConfigurationPanel(
-                            HomeAppliedConfigurationUiState(
+                            StatusAppliedConfigurationUiState(
                                 visible = true,
                                 status = text(R.string.runtime_config_pending),
                                 pending = true,
@@ -326,13 +326,13 @@ class StatusAppliedConfigurationPanelTest {
     }
 
     @Test fun `failed halted pending configuration keeps information without noop reconnect`() {
-        render(HomeAppliedConfigurationUiState(visible = true, status = "Failed", previous = true, pending = true))
+        render(StatusAppliedConfigurationUiState(visible = true, status = "Failed", previous = true, pending = true))
         composeRule.onNodeWithText(text(R.string.runtime_config_pending_body)).assertExists()
         composeRule.onNodeWithTag("home_runtime_reconnect").assertDoesNotExist()
     }
 
     @Test fun `ordinary DNS applying with pending transport offers no competing reconnect`() {
-        render(HomeAppliedConfigurationUiState(visible = true, status = "Applying", pending = true))
+        render(StatusAppliedConfigurationUiState(visible = true, status = "Applying", pending = true))
         composeRule.onNodeWithText(text(R.string.runtime_config_pending_body)).assertExists()
         composeRule.onNodeWithTag("home_runtime_reconnect").assertDoesNotExist()
     }
@@ -345,7 +345,7 @@ class StatusAppliedConfigurationPanelTest {
         )
 
     private fun render(
-        state: HomeAppliedConfigurationUiState,
+        state: StatusAppliedConfigurationUiState,
         onReconnect: (com.poyka.ripdpi.services.RunningReconnectRequest.ConfirmedRuntime) -> Unit = {},
         onCancel: () -> Unit = {},
     ) {

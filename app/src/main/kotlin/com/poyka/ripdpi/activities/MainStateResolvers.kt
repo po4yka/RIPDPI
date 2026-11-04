@@ -24,7 +24,7 @@ import com.poyka.ripdpi.ui.screens.status.StatusModeCardsInput
 import com.poyka.ripdpi.ui.screens.status.StatusModeSummaryFacet
 import com.poyka.ripdpi.ui.screens.status.actuatorTrailingLabel
 import com.poyka.ripdpi.ui.screens.status.buildHardKillSwitchUiState
-import com.poyka.ripdpi.ui.screens.status.buildHomeModeCards
+import com.poyka.ripdpi.ui.screens.status.buildStatusModeCards
 import com.poyka.ripdpi.ui.screens.status.isForeignExitLive
 import com.poyka.ripdpi.ui.screens.status.isForeignExitLost
 import com.poyka.ripdpi.ui.screens.status.labelRes
@@ -96,14 +96,14 @@ internal fun resolvePrimaryConnectionAction(
 internal fun buildMainUiState(
     inputs: MainUiInputs,
     stringResolver: StringResolver,
-    approachSummary: HomeApproachSummaryUiState?,
+    approachSummary: StatusApproachSummaryUiState?,
 ): MainUiState {
     val settings = inputs.settings
     val (status, activeMode) = inputs.statusAndMode
     val runtime = inputs.runtime
     val configuredMode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" })
     val permissionSummary =
-        buildHomePermissionSummary(
+        buildStatusPermissionSummary(
             permissions = inputs.permissions,
             settings = settings,
             configuredMode = configuredMode,
@@ -181,7 +181,7 @@ private fun buildMainModeCards(
     homeDiagnostics: StatusDiagnosticsUiState,
     stringResolver: StringResolver,
 ): ImmutableList<StatusModeCardUiState> =
-    buildHomeModeCards(
+    buildStatusModeCards(
         StatusModeCardsInput(
             settings = inputs.settings,
             activeMode = inputs.statusAndMode.second,
@@ -227,7 +227,7 @@ private fun buildMainConnectionActuator(
     configuredMode: Mode,
     connectionState: ConnectionState,
     vpnDataPlaneStatus: VpnDataPlaneStatus,
-    approachSummary: HomeApproachSummaryUiState?,
+    approachSummary: StatusApproachSummaryUiState?,
     hardKillSwitch: HardKillSwitchUiState,
     stringResolver: StringResolver,
 ): StatusConnectionActuatorUiState =
@@ -257,7 +257,7 @@ private fun buildMainConnectionActuator(
         stringResolver = stringResolver,
     )
 
-private fun buildHomePermissionSummary(
+private fun buildStatusPermissionSummary(
     permissions: PermissionRuntimeState,
     settings: AppSettings,
     configuredMode: Mode,
@@ -303,11 +303,11 @@ private fun actuatorIssueDetail(
 
 private fun StatusConnectionActuatorStage.degradedDetailRes(): Int =
     when (this) {
-        StatusConnectionActuatorStage.Network -> R.string.home_connection_actuator_degraded_network
-        StatusConnectionActuatorStage.Dns -> R.string.home_connection_actuator_degraded_dns
-        StatusConnectionActuatorStage.Handshake -> R.string.home_connection_actuator_degraded_handshake
-        StatusConnectionActuatorStage.Tunnel -> R.string.home_connection_actuator_degraded_tunnel
-        StatusConnectionActuatorStage.Route -> R.string.home_connection_actuator_degraded_route
+        StatusConnectionActuatorStage.Network -> R.string.status_connection_actuator_degraded_network
+        StatusConnectionActuatorStage.Dns -> R.string.status_connection_actuator_degraded_dns
+        StatusConnectionActuatorStage.Handshake -> R.string.status_connection_actuator_degraded_handshake
+        StatusConnectionActuatorStage.Tunnel -> R.string.status_connection_actuator_degraded_tunnel
+        StatusConnectionActuatorStage.Route -> R.string.status_connection_actuator_degraded_route
     }
 
 @Suppress("LongParameterList")
@@ -321,7 +321,7 @@ internal fun buildConnectionActuatorUiState(
     vpnForwardingWarning: Boolean = false,
     runtime: ConnectionRuntimeState,
     telemetry: ServiceTelemetrySnapshot,
-    approachSummary: HomeApproachSummaryUiState?,
+    approachSummary: StatusApproachSummaryUiState?,
     appStatus: AppStatus? = null,
     hardKillSwitch: HardKillSwitchUiState = HardKillSwitchUiState(),
     stringResolver: StringResolver,
@@ -415,13 +415,13 @@ private fun routeLabelForMode(
 ): String =
     when (mode) {
         Mode.VPN -> {
-            stringResolver.getString(R.string.home_mode_vpn)
+            stringResolver.getString(R.string.status_mode_vpn)
         }
 
         Mode.Proxy -> {
             val ip = settings.proxyIp.ifEmpty { "127.0.0.1" }
             val port = if (settings.proxyPort > 0) settings.proxyPort.toString() else "1080"
-            "${stringResolver.getString(R.string.home_mode_proxy)} · $ip:$port"
+            "${stringResolver.getString(R.string.status_mode_proxy)} · $ip:$port"
         }
     }
 
@@ -462,28 +462,28 @@ private fun actuatorStatusDescription(
 ): String =
     when (status) {
         StatusConnectionActuatorStatus.Open -> {
-            stringResolver.getString(R.string.home_connection_actuator_state_open)
+            stringResolver.getString(R.string.status_connection_actuator_state_open)
         }
 
         StatusConnectionActuatorStatus.Engaging -> {
-            stringResolver.getString(R.string.home_connection_actuator_state_engaging)
+            stringResolver.getString(R.string.status_connection_actuator_state_engaging)
         }
 
         StatusConnectionActuatorStatus.Locked -> {
-            stringResolver.getString(R.string.home_connection_actuator_state_locked)
+            stringResolver.getString(R.string.status_connection_actuator_state_locked)
         }
 
         StatusConnectionActuatorStatus.Degraded -> {
             vpnDataPlaneActuatorDescription(vpnDataPlaneStatus, stringResolver)
                 ?: stringResolver.getString(
-                    R.string.home_connection_actuator_state_degraded,
+                    R.string.status_connection_actuator_state_degraded,
                     warningStage?.label(stringResolver).orEmpty(),
                 )
         }
 
         StatusConnectionActuatorStatus.Fault -> {
             stringResolver.getString(
-                R.string.home_connection_actuator_state_fault,
+                R.string.status_connection_actuator_state_fault,
                 failedStage?.label(stringResolver).orEmpty(),
             )
         }
@@ -497,19 +497,19 @@ private fun actuatorActionLabel(
     stringResolver.getString(
         when {
             !isActivation && status != StatusConnectionActuatorStatus.Engaging -> {
-                R.string.home_connection_actuator_action_deactivate
+                R.string.status_connection_actuator_action_deactivate
             }
 
             status == StatusConnectionActuatorStatus.Engaging -> {
-                R.string.home_connection_actuator_action_cancel
+                R.string.status_connection_actuator_action_cancel
             }
 
             status == StatusConnectionActuatorStatus.Fault -> {
-                R.string.home_connection_actuator_action_retry
+                R.string.status_connection_actuator_action_retry
             }
 
             else -> {
-                R.string.home_connection_actuator_action_activate
+                R.string.status_connection_actuator_action_activate
             }
         },
     )

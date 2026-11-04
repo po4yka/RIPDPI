@@ -126,13 +126,13 @@ private fun captureLocalizedHomeDisclosure(
 
 @Composable
 private fun HomeDisclosureScene() {
-    val inactive = stringResource(R.string.home_mode_card_status_inactive)
-    val configure = stringResource(R.string.home_mode_card_configure)
+    val inactive = stringResource(R.string.status_mode_card_status_inactive)
+    val configure = stringResource(R.string.status_mode_card_configure)
     val cards =
         persistentListOf(
             StatusModeCardUiState(
                 mode = StatusMode.LocalDpiBypass,
-                title = stringResource(R.string.home_mode_local_dpi_bypass),
+                title = stringResource(R.string.status_mode_local_dpi_bypass),
                 primaryLabel = "",
                 summaryFacets =
                     persistentListOf(
@@ -150,17 +150,17 @@ private fun HomeDisclosureScene() {
             ),
             StatusModeCardUiState(
                 mode = StatusMode.RemoteVpn,
-                title = stringResource(R.string.home_mode_remote_vpn),
+                title = stringResource(R.string.status_mode_remote_vpn),
                 primaryLabel = "VLESS Reality · relay.example",
                 statusLine = inactive,
                 configureLabel = configure,
             ),
             StatusModeCardUiState(
                 mode = StatusMode.Diagnostic,
-                title = stringResource(R.string.home_mode_diagnostic_scan),
-                primaryLabel = stringResource(R.string.home_mode_card_diagnostic_empty),
+                title = stringResource(R.string.status_mode_diagnostic_scan),
+                primaryLabel = stringResource(R.string.status_mode_card_diagnostic_empty),
                 statusLine = inactive,
-                primaryActionLabel = stringResource(R.string.home_mode_card_run_scan),
+                primaryActionLabel = stringResource(R.string.status_mode_card_run_scan),
                 configureLabel = configure,
             ),
         )
@@ -170,10 +170,10 @@ private fun HomeDisclosureScene() {
                 connectionActuator =
                     StatusConnectionActuatorUiState(
                         status = StatusConnectionActuatorStatus.Locked,
-                        trailingLabel = stringResource(R.string.home_connection_actuator_relay),
-                        routeLabel = stringResource(R.string.home_mode_local_dpi_bypass),
-                        statusDescription = stringResource(R.string.home_connection_actuator_state_locked),
-                        actionLabel = stringResource(R.string.home_connection_actuator_action_deactivate),
+                        trailingLabel = stringResource(R.string.status_connection_actuator_relay),
+                        routeLabel = stringResource(R.string.status_mode_local_dpi_bypass),
+                        statusDescription = stringResource(R.string.status_connection_actuator_state_locked),
+                        actionLabel = stringResource(R.string.status_connection_actuator_action_deactivate),
                     ),
                 modeCards = cards,
             ),

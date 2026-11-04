@@ -14,18 +14,18 @@ import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 
 internal class HomePage(
     rule: JourneyRule,
-) : JourneyPage<HomePage>(rule, RipDpiTestTags.screen(Route.Home)) {
-    val modesHeader = RipDpiTestTags.HomeModesDiagnosticsHeader
-    val localBypassCard = RipDpiTestTags.homeModeCard("LocalDpiBypass")
-    val localBypassPrimary = RipDpiTestTags.homeModePrimaryAction("LocalDpiBypass")
-    val remoteVpnCard = RipDpiTestTags.homeModeCard("RemoteVpn")
-    val remoteVpnPrimary = RipDpiTestTags.homeModePrimaryAction("RemoteVpn")
-    val diagnosticCard = RipDpiTestTags.homeModeCard("Diagnostic")
-    val setupHealthRow = RipDpiTestTags.HomeSetupHealthRow
-    val setupHealthAction = RipDpiTestTags.HomeSetupHealthAction
-    val advisoryPrimary = RipDpiTestTags.HomeAdvisoryPrimaryAction
-    val advisoryMore = RipDpiTestTags.HomeAdvisoryMore
-    val setupHealthDetails = RipDpiTestTags.HomeSetupHealthDetails
+) : JourneyPage<HomePage>(rule, RipDpiTestTags.screen(Route.Status)) {
+    val modesHeader = RipDpiTestTags.StatusModesDiagnosticsHeader
+    val localBypassCard = RipDpiTestTags.statusModeCard("LocalDpiBypass")
+    val localBypassPrimary = RipDpiTestTags.statusModePrimaryAction("LocalDpiBypass")
+    val remoteVpnCard = RipDpiTestTags.statusModeCard("RemoteVpn")
+    val remoteVpnPrimary = RipDpiTestTags.statusModePrimaryAction("RemoteVpn")
+    val diagnosticCard = RipDpiTestTags.statusModeCard("Diagnostic")
+    val setupHealthRow = RipDpiTestTags.StatusAdvisoryCard
+    val setupHealthAction = RipDpiTestTags.StatusSetupHealthAction
+    val advisoryPrimary = RipDpiTestTags.StatusAdvisoryPrimaryAction
+    val advisoryMore = RipDpiTestTags.StatusAdvisoryMore
+    val setupHealthDetails = RipDpiTestTags.StatusSetupHealthDetails
     val actuatorButton = RipDpiTestTags.ConnectionActuatorButton
     val actuatorRouteLabel = RipDpiTestTags.ConnectionActuatorRouteLabel
     val actuatorTerminalLabel = RipDpiTestTags.ConnectionActuatorTerminalLabel
@@ -34,11 +34,11 @@ internal class HomePage(
 
     /** Opens the modes accordion unless the screen already shows it expanded. */
     fun expandModes() {
-        waitFor(RipDpiTestTags.HomeModesDiagnosticsHeader)
-        if (count(RipDpiTestTags.HomeModesDiagnosticsCollapsed) > 0) {
+        waitFor(RipDpiTestTags.StatusModesDiagnosticsHeader)
+        if (count(RipDpiTestTags.StatusModesDiagnosticsCollapsed) > 0) {
             click(modesHeader)
         }
-        waitFor(RipDpiTestTags.HomeModesDiagnosticsExpanded)
+        waitFor(RipDpiTestTags.StatusModesDiagnosticsExpanded)
     }
 
     fun waitForServiceState(

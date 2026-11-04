@@ -41,36 +41,36 @@ class StatusConnectionMeasurementsTest {
     @Test
     fun `empty default shows traffic without nominal RTT jitter or sample claims`() {
         render(ConnectionQualitySnapshot())
-        node(R.string.home_quality_waiting).assertExists()
-        node(R.string.home_quality_traffic_total).assertExists()
+        node(R.string.status_quality_waiting).assertExists()
+        node(R.string.status_quality_traffic_total).assertExists()
         node(R.string.vpn_quality_strip_nominal_title).assertDoesNotExist()
         node(R.string.vpn_quality_metric_loss).assertDoesNotExist()
         node(R.string.vpn_quality_metric_rtt_p50).assertDoesNotExist()
         node(R.string.vpn_quality_metric_jitter).assertDoesNotExist()
         composeRule.onNodeWithText("0 samples", substring = true).assertDoesNotExist()
         // Nothing was measured yet, so the action cannot claim a repeat.
-        node(R.string.home_quality_measure).assertExists()
+        node(R.string.status_quality_measure).assertExists()
         node(R.string.vpn_quality_strip_reprobe).assertDoesNotExist()
     }
 
     @Test
     fun `measured loss only shows fractional loss but no synthetic RTT or jitter`() {
         render(ConnectionQualitySnapshot(lossPct = 0.25f), currentSource())
-        node(R.string.home_quality_partial).assertExists()
+        node(R.string.status_quality_partial).assertExists()
         node(R.string.vpn_quality_strip_reprobe).assertExists()
         node(R.string.vpn_quality_metric_loss).assertExists()
         node(R.string.vpn_quality_metric_rtt_p50).assertDoesNotExist()
         node(R.string.vpn_quality_metric_jitter).assertDoesNotExist()
         composeRule
             .onNodeWithText(
-                RuntimeEnvironment.getApplication().getString(R.string.home_quality_metric_loss_format, 0.25f),
+                RuntimeEnvironment.getApplication().getString(R.string.status_quality_metric_loss_format, 0.25f),
             ).assertExists()
     }
 
     @Test
     fun `an empty window with no samples does not claim zero loss`() {
         render(ConnectionQualitySnapshot(windowStartAtMs = 1_000L), currentSource())
-        node(R.string.home_quality_partial).assertExists()
+        node(R.string.status_quality_partial).assertExists()
         node(R.string.vpn_quality_metric_loss).assertDoesNotExist()
         node(R.string.vpn_quality_metric_rtt_p50).assertDoesNotExist()
         node(R.string.vpn_quality_strip_nominal_title).assertDoesNotExist()
@@ -84,7 +84,7 @@ class StatusConnectionMeasurementsTest {
         composeRule
             .onNodeWithText("1 RTT sample")
             .assertExists()
-        node(R.string.home_quality_partial).assertExists()
+        node(R.string.status_quality_partial).assertExists()
     }
 
     @Test
@@ -93,7 +93,7 @@ class StatusConnectionMeasurementsTest {
             ConnectionQualitySnapshot(sampleCount = 20L, rttP50Ms = 30L),
             currentSource().copy(serviceStatus = AppStatus.Halted),
         )
-        node(R.string.home_quality_last_values).assertExists()
+        node(R.string.status_quality_last_values).assertExists()
         node(R.string.measurement_stopped).assertDoesNotExist()
         node(R.string.vpn_quality_strip_nominal_title).assertDoesNotExist()
         node(R.string.vpn_quality_metric_rtt_p50).assertExists()
@@ -104,7 +104,7 @@ class StatusConnectionMeasurementsTest {
         val quality = ConnectionQualitySnapshot(sampleCount = 12L)
         assertEquals(
             R.string.vpn_quality_strip_nominal_title,
-            resolveHomeMeasurementSummary(quality, RuntimeMeasurementFreshness.Current).title,
+            resolveStatusMeasurementSummary(quality, RuntimeMeasurementFreshness.Current).title,
         )
         listOf(
             null,
@@ -113,11 +113,11 @@ class StatusConnectionMeasurementsTest {
             RuntimeMeasurementFreshness.Stale,
             RuntimeMeasurementFreshness.Error,
         ).forEach {
-            assertEquals(R.string.home_quality_last_values, resolveHomeMeasurementSummary(quality, it).body)
+            assertEquals(R.string.status_quality_last_values, resolveStatusMeasurementSummary(quality, it).body)
         }
         assertEquals(
-            R.string.home_quality_partial,
-            resolveHomeMeasurementSummary(quality.copy(sampleCount = 11L), RuntimeMeasurementFreshness.Current).body,
+            R.string.status_quality_partial,
+            resolveStatusMeasurementSummary(quality.copy(sampleCount = 11L), RuntimeMeasurementFreshness.Current).body,
         )
     }
 
@@ -125,22 +125,22 @@ class StatusConnectionMeasurementsTest {
     fun `waiting partial and historical measurements keep neutral treatment`() {
         val measured = ConnectionQualitySnapshot(sampleCount = 12L, lossPct = 100f)
         listOf(
-            resolveHomeMeasurementSummary(null, null),
-            resolveHomeMeasurementSummary(
+            resolveStatusMeasurementSummary(null, null),
+            resolveStatusMeasurementSummary(
                 ConnectionQualitySnapshot(sampleCount = 1L),
                 RuntimeMeasurementFreshness.Current,
             ),
-            resolveHomeMeasurementSummary(measured, RuntimeMeasurementFreshness.Stopped),
-            resolveHomeMeasurementSummary(measured, RuntimeMeasurementFreshness.Stale),
-            resolveHomeMeasurementSummary(measured, RuntimeMeasurementFreshness.Unknown),
+            resolveStatusMeasurementSummary(measured, RuntimeMeasurementFreshness.Stopped),
+            resolveStatusMeasurementSummary(measured, RuntimeMeasurementFreshness.Stale),
+            resolveStatusMeasurementSummary(measured, RuntimeMeasurementFreshness.Unknown),
         ).forEach { assertEquals(RipDpiMeasurementTone.Nominal, it.tone) }
         assertEquals(
             RipDpiMeasurementTone.Critical,
-            resolveHomeMeasurementSummary(measured, RuntimeMeasurementFreshness.Current).tone,
+            resolveStatusMeasurementSummary(measured, RuntimeMeasurementFreshness.Current).tone,
         )
         assertEquals(
             RipDpiMeasurementTone.Warning,
-            resolveHomeMeasurementSummary(measured.copy(lossPct = 3f), RuntimeMeasurementFreshness.Current).tone,
+            resolveStatusMeasurementSummary(measured.copy(lossPct = 3f), RuntimeMeasurementFreshness.Current).tone,
         )
     }
 

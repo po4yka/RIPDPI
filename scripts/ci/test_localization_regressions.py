@@ -40,7 +40,7 @@ class LocalizationRegressionsTest(unittest.TestCase):
         warning = text(self.ru["support_settings_sensitive_body"])
         for term in ("трафик", "учётные данные", "диагностические данные", "привилегиями", "доверяете"):
             self.assertIn(term, warning)
-        analysis = text(self.ru["home_diagnostics_analysis_body"])
+        analysis = text(self.ru["status_diagnostics_analysis_body"])
         for term in ("применить", "обхода", "DNS", "WARP"):
             self.assertIn(term, analysis)
         self.assertNotIn("без ограничения", analysis)
@@ -50,12 +50,12 @@ class LocalizationRegressionsTest(unittest.TestCase):
 
     def test_recovery_actions_reference_the_visible_russian_labels(self):
         pairs = (
-            ("home_remediation_command_line_step_open_settings", "title_advanced_settings"),
+            ("status_remediation_command_line_step_open_settings", "title_advanced_settings"),
             ("diagnostics_remediation_command_line_step_disable_setting", "use_command_line_settings"),
-            ("home_remediation_command_line_step_retry", "home"),
-            ("home_remediation_command_line_step_retry", "home_diagnostics_run_analysis"),
+            ("status_remediation_command_line_step_retry", "home"),
+            ("status_remediation_command_line_step_retry", "status_diagnostics_run_analysis"),
             ("diagnostics_remediation_browser_relay_step_open_mode_editor", "title_mode_editor"),
-            ("home_remediation_stale_step_open_diagnostics", "diagnostics_title"),
+            ("status_remediation_stale_step_open_diagnostics", "diagnostics_title"),
             ("diagnostics_remediation_review_step_open_history", "history_title"),
             ("pause_clock_failed", "pause_resume_now"),
         )

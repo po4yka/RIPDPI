@@ -71,9 +71,9 @@ class StatusScreenSetupHealthTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryPrimaryAction).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryPrimaryAction).performClick()
         composeRule.runOnIdle { kind = PermissionKind.LocalNetwork }
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryPrimaryAction).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryPrimaryAction).performClick()
 
         assertEquals(listOf(PermissionKind.Notifications, PermissionKind.LocalNetwork), repairedKinds)
         assertEquals(0, vpnDialogs)
@@ -99,9 +99,9 @@ class StatusScreenSetupHealthTest {
             }
         }
 
-        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeHardKillSwitchBanner).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.StatusHardKillSwitchBanner).assertCountEquals(0)
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeAdvisoryPrimaryAction)
+            .onNodeWithTag(RipDpiTestTags.StatusAdvisoryPrimaryAction)
             .performScrollTo()
             .assertIsDisplayed()
             .assertHasClickAction()
@@ -131,9 +131,9 @@ class StatusScreenSetupHealthTest {
             }
         }
 
-        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeHardKillSwitchBanner).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.StatusHardKillSwitchBanner).assertCountEquals(0)
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeAdvisoryPrimaryAction)
+            .onNodeWithTag(RipDpiTestTags.StatusAdvisoryPrimaryAction)
             .performScrollTo()
             .assertIsDisplayed()
             .assertHasClickAction()
@@ -157,13 +157,13 @@ class StatusScreenSetupHealthTest {
             }
         }
 
-        composeRule.onAllNodesWithTag(RipDpiTestTags.HomePermissionRecommendationBanner).assertCountEquals(0)
-        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeBackgroundGuidanceBanner).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.StatusPermissionRecommendationBanner).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.StatusBackgroundGuidanceBanner).assertCountEquals(0)
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeAdvisoryMore)
+            .onNodeWithTag(RipDpiTestTags.StatusAdvisoryMore)
             .assertIsDisplayed()
             .performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeSetupHealthDetails).assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusSetupHealthDetails).assertIsDisplayed()
         // Both items offer a "Review" action once the card is expanded.
         composeRule.onAllNodesWithText("Review").assertCountEquals(2)
         composeRule.onAllNodesWithText("Review the Doze exemption.").assertCountEquals(0)
@@ -186,9 +186,9 @@ class StatusScreenSetupHealthTest {
             }
         }
 
-        composeRule.onAllNodesWithTag(RipDpiTestTags.HomePermissionRecommendationBanner).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.StatusPermissionRecommendationBanner).assertCountEquals(0)
         composeRule.onAllNodesWithTag(RipDpiTestTags.WarningBannerDismiss).assertCountEquals(0)
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow).assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryCard).assertIsDisplayed()
     }
 
     @Test
@@ -215,12 +215,12 @@ class StatusScreenSetupHealthTest {
             }
         }
 
-        composeRule.onAllNodesWithTag(RipDpiTestTags.HomeSetupHealthRow).assertCountEquals(0)
+        composeRule.onAllNodesWithTag(RipDpiTestTags.StatusAdvisoryCard).assertCountEquals(0)
         composeRule.onNodeWithText("Battery optimization").assertIsDisplayed()
         composeRule.onNodeWithText("Review").assertIsDisplayed()
         composeRule.onAllNodesWithText("Review the Doze exemption.").assertCountEquals(0)
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeSetupHealthAction)
+            .onNodeWithTag(RipDpiTestTags.StatusSetupHealthAction)
             .assertIsDisplayed()
             .performClick()
         assertTrue("Expected battery dismiss callback to fire", dismissed)
@@ -243,7 +243,7 @@ class StatusScreenSetupHealthTest {
 
         val warningTop =
             composeRule
-                .onNodeWithTag(RipDpiTestTags.HomeSetupHealthRow)
+                .onNodeWithTag(RipDpiTestTags.StatusAdvisoryCard)
                 .fetchSemanticsNode()
                 .boundsInRoot
                 .top

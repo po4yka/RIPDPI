@@ -79,13 +79,13 @@ class HistoryNavigationTest {
             navController = rememberNavController()
             NavHost(
                 navController = navController,
-                startDestination = Route.Home,
+                startDestination = Route.Status,
                 enterTransition = { EnterTransition.None },
                 exitTransition = { ExitTransition.None },
                 popEnterTransition = { EnterTransition.None },
                 popExitTransition = { ExitTransition.None },
             ) {
-                composable<Route.Home> {}
+                composable<Route.Status> {}
                 composable<Route.History> {}
                 composable<Route.Config> {}
                 composable<Route.ModeEditor> {}
@@ -97,8 +97,8 @@ class HistoryNavigationTest {
     }
 
     private fun saveTopLevelStackAndOpenHistory() {
-        navController.navigate(Route.Home) {
-            popUpTo<Route.Home> { saveState = true }
+        navController.navigate(Route.Status) {
+            popUpTo<Route.Status> { saveState = true }
             launchSingleTop = true
         }
         navController.navigate(Route.History)

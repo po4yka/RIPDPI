@@ -38,7 +38,7 @@ internal fun NavGraphBuilder.addPrimaryRoutes(
     composable<Route.Onboarding> {
         OnboardingRoute(
             onComplete = {
-                navController.navigate(Route.Home) {
+                navController.navigate(Route.Status) {
                     popUpTo<Route.Onboarding> { inclusive = true }
                 }
             },
@@ -103,7 +103,7 @@ internal fun NavGraphBuilder.addPrimaryRoutes(
         BiometricPromptRoute(
             onAuthenticated = {
                 mainViewModel.appLock.onAuthenticated()
-                navController.navigate(Route.Home) {
+                navController.navigate(Route.Status) {
                     popUpTo<Route.BiometricPrompt> { inclusive = true }
                     launchSingleTop = true
                 }
@@ -118,7 +118,7 @@ private fun NavGraphBuilder.addHomeRoute(
     pauseViewModel: StatusPauseViewModel,
     onDiagnosticsInitialSectionChanged: (DiagnosticsSection?) -> Unit,
 ) {
-    composable<Route.Home>(
+    composable<Route.Status>(
         deepLinks = listOf(navDeepLink { uriPattern = "$DeepLinkScheme://connect" }),
     ) {
         StatusRoute(

@@ -512,7 +512,7 @@ class MainHomeDiagnosticsActionsTest {
         assertEquals(AnalysisStageStatus.PENDING, progress.stages[2].status)
         assertEquals(AnalysisStageStatus.COMPLETED, progress.stages[3].status)
         assertEquals(
-            "${R.string.home_diagnostics_stage_counter}:2,4 · TCP Desync",
+            "${R.string.status_diagnostics_stage_counter}:2,4 · TCP Desync",
             uiState.analysisAction.supportingText,
         )
     }
@@ -532,7 +532,7 @@ class MainHomeDiagnosticsActionsTest {
         assertFalse(uiState.analysisAction.enabled)
         assertEquals(StatusDiagnosticsRunUiStatus.STARTING, uiState.analysisRunStatus)
         assertEquals(
-            R.string.home_diagnostics_analysis_starting.toString(),
+            R.string.status_diagnostics_analysis_starting.toString(),
             uiState.analysisAction.supportingText,
         )
     }

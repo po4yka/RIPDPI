@@ -149,7 +149,7 @@ class StatusGeneratedArabicRenderTest {
         val bounds = node.fetchSemanticsNode().boundsInRoot
         val viewport =
             composeRule
-                .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsAnalysisSheet, useUnmergedTree = true)
+                .onNodeWithTag(RipDpiTestTags.StatusDiagnosticsAnalysisSheet, useUnmergedTree = true)
                 .fetchSemanticsNode()
                 .boundsInRoot
         results.forEach { result ->
@@ -166,7 +166,7 @@ class StatusGeneratedArabicRenderTest {
         val output = File("build/reports/localization-ar/home-$name.png").apply { parentFile?.mkdirs() }
         output.outputStream().use {
             composeRule
-                .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsAnalysisSheet, useUnmergedTree = true)
+                .onNodeWithTag(RipDpiTestTags.StatusDiagnosticsAnalysisSheet, useUnmergedTree = true)
                 .captureToImage()
                 .asAndroidBitmap()
                 .compress(Bitmap.CompressFormat.PNG, 100, it)

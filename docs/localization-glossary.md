@@ -79,10 +79,10 @@ attached to the right surface.
 
 | English | Guidance |
 | --- | --- |
-| Whole device (`home_mode_vpn`, `home_mode_remote_vpn`) | Translate. **Scope** axis: the Android VPN tunnel carries this whole device's traffic. Pair with Proxy only; independent of the **path** (Direct or Relay). Keep "VPN" verbatim only where Android's tunnel or permission is named. |
-| Proxy only (`home_mode_proxy`, `home_mode_local_dpi_bypass`) | Translate, rendering **proxy** with the locale's standard proxy term (zh-CN 代理, ru прокси). **Scope** axis: the local SOCKS proxy; only apps set to use it are affected. |
-| Direct / Relay (`home_connection_path_direct`, `home_connection_actuator_relay`) | Translate. **Path** axis: Direct = on-device strategies, no server; Relay = through the user's own server. Never mix with the scope terms above. |
-| Diagnostic Scan (`home_mode_diagnostic_scan`) | Translate. The analysis/audit mode (not a traffic-carrying mode). Keep consistent with the "Diagnostic verdict names" section below. |
+| Whole device (`status_mode_vpn`, `status_mode_remote_vpn`) | Translate. **Scope** axis: the Android VPN tunnel carries this whole device's traffic. Pair with Proxy only; independent of the **path** (Direct or Relay). Keep "VPN" verbatim only where Android's tunnel or permission is named. |
+| Proxy only (`status_mode_proxy`, `status_mode_local_dpi_bypass`) | Translate, rendering **proxy** with the locale's standard proxy term (zh-CN 代理, ru прокси). **Scope** axis: the local SOCKS proxy; only apps set to use it are affected. |
+| Direct / Relay (`status_connection_path_direct`, `status_connection_actuator_relay`) | Translate. **Path** axis: Direct = on-device strategies, no server; Relay = through the user's own server. Never mix with the scope terms above. |
+| Diagnostic Scan (`status_mode_diagnostic_scan`) | Translate. The analysis/audit mode (not a traffic-carrying mode). Keep consistent with the "Diagnostic verdict names" section below. |
 | Direct VPN (`service_mode_native_direct_title`) | Translate. Built-in VPN connecting directly (no relay). "Direct" must read as "no intermediary server," consistent with the Direct-mode verdicts below. |
 | Relayed VPN (`service_mode_native_proxy_title`) | Translate. Built-in VPN routed through the user's relay. Contrast with "Direct VPN." |
 | Advanced VPN (`service_mode_xray_vpn_title`) | Translate. Uses an imported advanced (Xray provider) profile for stronger censorship resistance. "Advanced" = imported-profile / Xray-provider mode. |
@@ -111,7 +111,7 @@ locale.
 | --- | --- | --- |
 | Transparent works (`TRANSPARENT_WORKS`) | "Direct/transparent connectivity succeeds." Render "transparent" as the locale's term for direct/no-intervention connectivity. | "transparent" vs "direct" wording — pick one per locale and reuse. |
 | Owned-stack-only (`OWNED_STACK_ONLY`) | The authority works **only** through RIPDPI's owned request stack (the built-in RIPDPI Browser path). Keep "owned-stack" rendered the same way everywhere it appears (banner, remediation, home summary). | **Owned-stack** wording — must match `owned_stack_browser_*`, `*_owned_stack_*` remediation strings. |
-| No-direct-solution (`NO_DIRECT_SOLUTION`) | No direct arm reached stable success (includes budget-exhausted runs); a relay/remediation is needed. | "No direct solution" phrasing — must match `home_remediation_no_hint_summary` ("found no direct solution"). |
+| No-direct-solution (`NO_DIRECT_SOLUTION`) | No direct arm reached stable success (includes budget-exhausted runs); a relay/remediation is needed. | "No direct solution" phrasing — must match `status_remediation_no_hint_summary` ("found no direct solution"). |
 | RIPDPI Browser / Owned-stack path (`title_owned_stack_browser`, `owned_stack_browser_banner_title`) | "RIPDPI Browser" is a product feature name — keep **RIPDPI** verbatim; translate "Browser". "Owned-stack path" must match the verdict wording above. | "Owned-stack" wording across browser + verdict surfaces. |
 
 Supporting reason codes (`DirectModeReasonCode`, same file) — translate the

@@ -136,7 +136,7 @@ class StatusPersianPresentationRenderTest {
         val bounds = node.fetchSemanticsNode().boundsInRoot
         val viewport =
             composeRule
-                .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsAnalysisSheet, useUnmergedTree = true)
+                .onNodeWithTag(RipDpiTestTags.StatusDiagnosticsAnalysisSheet, useUnmergedTree = true)
                 .fetchSemanticsNode()
                 .boundsInRoot
         layouts.forEach { layout ->
@@ -150,7 +150,7 @@ class StatusPersianPresentationRenderTest {
         target.outputStream().use {
             assertTrue(
                 composeRule
-                    .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsAnalysisSheet, useUnmergedTree = true)
+                    .onNodeWithTag(RipDpiTestTags.StatusDiagnosticsAnalysisSheet, useUnmergedTree = true)
                     .captureToImage()
                     .asAndroidBitmap()
                     .compress(Bitmap.CompressFormat.PNG, 100, it),

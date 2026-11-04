@@ -425,7 +425,7 @@ internal class HomeReconnectTalkBackSupport(
     private enum class PhysicalTransition(
         val destinationTag: String,
     ) {
-        OpenReview(RipDpiTestTags.HomeRuntimeReconnectDialog),
+        OpenReview(RipDpiTestTags.StatusRuntimeReconnectDialog),
         ReturnHome("home-screen"),
     }
 
@@ -460,7 +460,7 @@ internal class HomeReconnectTalkBackSupport(
             } == 1
         }
         if (transition == PhysicalTransition.ReturnHome &&
-            snapshots.any { hasVisibleTag(it, RipDpiTestTags.HomeRuntimeReconnectDialog) }
+            snapshots.any { hasVisibleTag(it, RipDpiTestTags.StatusRuntimeReconnectDialog) }
         ) {
             return null
         }
@@ -485,12 +485,12 @@ internal class HomeReconnectTalkBackSupport(
     ): JSONObject {
         val dialog =
             appRoots().flatMap(::allNodes).single {
-                hasTag(it, RipDpiTestTags.HomeRuntimeReconnectDialog) && it.isVisibleToUser
+                hasTag(it, RipDpiTestTags.StatusRuntimeReconnectDialog) && it.isVisibleToUser
             }
         val sections =
             listOf(
-                RipDpiTestTags.HomeRuntimeReconnectCurrent to R.string.runtime_config_preview_current,
-                RipDpiTestTags.HomeRuntimeReconnectSaved to R.string.runtime_config_preview_saved,
+                RipDpiTestTags.StatusRuntimeReconnectCurrent to R.string.runtime_config_preview_current,
+                RipDpiTestTags.StatusRuntimeReconnectSaved to R.string.runtime_config_preview_saved,
             ).map { (tag, headingId) ->
                 val section = allNodes(dialog).single { hasTag(it, tag) && it.isVisibleToUser }
                 assertTrue("Comparison section must be inside its dialog", bounds(dialog).contains(bounds(section)))
@@ -518,7 +518,7 @@ internal class HomeReconnectTalkBackSupport(
         assertTrue("Current and Saved must have distinct visible bounds", bounds(current) != bounds(saved))
         assertTrue("Comparison sections must have nonempty bounds", !bounds(current).isEmpty && !bounds(saved).isEmpty)
         return JSONObject()
-            .put("dialogTag", RipDpiTestTags.HomeRuntimeReconnectDialog)
+            .put("dialogTag", RipDpiTestTags.StatusRuntimeReconnectDialog)
             .put("dialogIdentity", identity(dialog))
             .put("dialogBounds", rectangle(dialog))
             .put("sections", JSONArray(sections.map { it.second }))

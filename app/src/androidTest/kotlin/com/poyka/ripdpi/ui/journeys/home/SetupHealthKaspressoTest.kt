@@ -16,7 +16,7 @@ import javax.inject.Inject
 class SetupHealthKaspressoTest :
     RipDpiKaspressoTest(
         automationLaunchIntent(
-            startRoute = Route.Home.stableRoute,
+            startRoute = Route.Status.stableRoute,
             dataPreset = AutomationDataPreset.SettingsReady,
             permissionPreset = AutomationPermissionPreset.VpnMissing,
         ),

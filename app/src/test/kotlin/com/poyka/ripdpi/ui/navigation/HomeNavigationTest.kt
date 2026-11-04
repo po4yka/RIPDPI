@@ -47,7 +47,7 @@ class HomeNavigationTest {
     }
 
     private fun assertOnlyHome() {
-        assertTrue(requireNotNull(navController.currentDestination).hasRoute<Route.Home>())
+        assertTrue(requireNotNull(navController.currentDestination).hasRoute<Route.Status>())
         assertEquals(1, navController.currentBackStack.value.count { it.destination.route != null })
     }
 
@@ -56,13 +56,13 @@ class HomeNavigationTest {
             navController = rememberNavController()
             NavHost(
                 navController = navController,
-                startDestination = Route.Home,
+                startDestination = Route.Status,
                 enterTransition = { EnterTransition.None },
                 exitTransition = { ExitTransition.None },
                 popEnterTransition = { EnterTransition.None },
                 popExitTransition = { ExitTransition.None },
             ) {
-                composable<Route.Home> {}
+                composable<Route.Status> {}
                 // Import routes are registered inside the settings graph, as in RipDpiNavHost.
                 navigation<SettingsGraph>(startDestination = Route.Settings) {
                     composable<Route.Settings> {}

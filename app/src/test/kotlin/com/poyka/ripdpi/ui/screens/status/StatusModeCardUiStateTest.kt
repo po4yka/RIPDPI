@@ -331,7 +331,7 @@ class StatusModeCardUiStateTest {
         vpnDataPlaneStatus: VpnDataPlaneStatus = VpnDataPlaneStatus.NotApplicable,
         connectionDuration: Duration = ZERO,
         homeDiagnostics: StatusDiagnosticsUiState = StatusDiagnosticsUiState(),
-    ) = buildHomeModeCards(
+    ) = buildStatusModeCards(
         StatusModeCardsInput(
             settings = settings,
             activeMode = activeMode,

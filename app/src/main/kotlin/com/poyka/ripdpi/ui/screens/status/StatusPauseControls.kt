@@ -24,8 +24,8 @@ import com.poyka.ripdpi.ui.components.buttons.primaryActionWidth
 import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.feedback.RipDpiSheetAction
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
-import com.poyka.ripdpi.ui.testing.homePauseDuration
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
+import com.poyka.ripdpi.ui.testing.statusPauseDuration
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import java.text.NumberFormat
@@ -57,7 +57,7 @@ internal fun StatusPauseControls(
                 variant = RipDpiButtonVariant.Ghost,
                 leadingIcon = RipDpiIcons.Pause,
                 wrapLabel = true,
-                modifier = Modifier.primaryActionWidth().ripDpiTestTag(RipDpiTestTags.HomePauseOpen),
+                modifier = Modifier.primaryActionWidth().ripDpiTestTag(RipDpiTestTags.StatusPauseOpen),
             )
         }
         if (state.phase != null) StatusPauseStatus(state, onResume, onStop)
@@ -114,9 +114,9 @@ private fun StatusPauseStatus(
                     if (mode ==
                         com.poyka.ripdpi.data.Mode.VPN
                     ) {
-                        R.string.home_mode_vpn
+                        R.string.status_mode_vpn
                     } else {
-                        R.string.home_mode_proxy
+                        R.string.status_mode_proxy
                     },
                 ),
         )
@@ -182,14 +182,14 @@ private fun StatusPauseActions(
             text = stringResource(R.string.pause_resume_now),
             onClick = onResume,
             wrapLabel = true,
-            modifier = Modifier.primaryActionWidth().ripDpiTestTag(RipDpiTestTags.HomePauseResume),
+            modifier = Modifier.primaryActionWidth().ripDpiTestTag(RipDpiTestTags.StatusPauseResume),
         )
     }
     RipDpiButton(
         text = stringResource(R.string.pause_stop),
         onClick = onStop,
         variant = RipDpiButtonVariant.Outline,
-        modifier = Modifier.primaryActionWidth().ripDpiTestTag(RipDpiTestTags.HomePauseStop),
+        modifier = Modifier.primaryActionWidth().ripDpiTestTag(RipDpiTestTags.StatusPauseStop),
         wrapLabel = true,
     )
 }
@@ -217,7 +217,7 @@ private fun StatusPauseDurationSheet(
                         NumberFormat.getIntegerInstance(configuration.locales[0]).format(minutes),
                     ),
                 onClick = { onSelect(minutes) },
-                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.homePauseDuration(minutes)),
+                modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.statusPauseDuration(minutes)),
                 variant = RipDpiButtonVariant.Outline,
                 wrapLabel = true,
             )

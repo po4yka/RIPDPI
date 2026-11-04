@@ -19,7 +19,7 @@ import com.poyka.ripdpi.services.RunningReconnectState
 import com.poyka.ripdpi.ui.navigation.Route
 import com.poyka.ripdpi.ui.screens.settings.ControlPlaneHealthSummaryUiModel
 import com.poyka.ripdpi.ui.screens.settings.HostPackCatalogUiState
-import com.poyka.ripdpi.ui.screens.status.DefaultHomeModeCards
+import com.poyka.ripdpi.ui.screens.status.DefaultStatusModeCards
 import com.poyka.ripdpi.ui.screens.status.HardKillSwitchUiState
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorUiState
 import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsUiState
@@ -91,10 +91,10 @@ data class MainUiState(
     val errorMessage: String? = null,
     val permissionSummary: PermissionSummaryUiState = PermissionSummaryUiState(),
     val hardKillSwitch: HardKillSwitchUiState = HardKillSwitchUiState(),
-    val approachSummary: HomeApproachSummaryUiState? = null,
+    val approachSummary: StatusApproachSummaryUiState? = null,
     val homeDiagnostics: StatusDiagnosticsUiState = StatusDiagnosticsUiState(),
-    val appliedConfiguration: HomeAppliedConfigurationUiState = HomeAppliedConfigurationUiState(),
-    val modeCards: ImmutableList<StatusModeCardUiState> = DefaultHomeModeCards,
+    val appliedConfiguration: StatusAppliedConfigurationUiState = StatusAppliedConfigurationUiState(),
+    val modeCards: ImmutableList<StatusModeCardUiState> = DefaultStatusModeCards,
     val controlPlaneHealthSummary: ControlPlaneHealthSummaryUiModel? = null,
     val connectionQuality: ConnectionQualitySnapshot? = null,
     val connectionQualitySource: com.poyka.ripdpi.service.telemetry.RuntimeMeasurementSource? = null,
@@ -130,7 +130,7 @@ data class MainUiState(
 }
 
 @Immutable
-data class HomeApproachSummaryUiState(
+data class StatusApproachSummaryUiState(
     val title: String,
     val verification: String,
     val successRate: String,
@@ -198,7 +198,7 @@ data class MainStartupState(
     val theme: String = "system",
     val hapticFeedbackDisabled: Boolean = false,
     val dynamicColor: Boolean = false,
-    val startDestination: Route = Route.Home,
+    val startDestination: Route = Route.Status,
 ) {
     val isReady: Boolean
         get() = readiness == com.poyka.ripdpi.AppStartupReadinessState.Ready
@@ -208,11 +208,11 @@ internal fun resolveStartupDestination(settings: AppSettings): Route =
     when {
         !settings.onboardingComplete -> Route.Onboarding
         settings.biometricEnabled -> Route.BiometricPrompt
-        else -> Route.Home
+        else -> Route.Status
     }
 
 @Immutable
-data class HomeAppliedConfigurationUiState(
+data class StatusAppliedConfigurationUiState(
     val visible: Boolean = false,
     val status: String = "",
     val confirmedSummary: String? = null,
@@ -222,5 +222,5 @@ data class HomeAppliedConfigurationUiState(
     val message: String? = null,
     val confirmation: RunningReconnectRequest.ConfirmedRuntime? = null,
     val reconnectSettingsIdentity: ReconnectSettingsIdentity = ReconnectSettingsIdentity(),
-    val reconnectComparison: HomeReconnectComparisonUiState? = null,
+    val reconnectComparison: StatusReconnectComparisonUiState? = null,
 )

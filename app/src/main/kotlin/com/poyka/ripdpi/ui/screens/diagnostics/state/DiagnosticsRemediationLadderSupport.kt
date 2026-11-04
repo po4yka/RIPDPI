@@ -140,13 +140,13 @@ private fun StringResolver.homeTransportRemediationLadder(
     ) {
         TransportRemediationKind.OWNED_STACK_ACTION -> {
             remediationLadder(
-                title = getString(R.string.home_remediation_owned_stack_title),
-                summary = getString(R.string.home_remediation_owned_stack_summary),
+                title = getString(R.string.status_remediation_owned_stack_title),
+                summary = getString(R.string.status_remediation_owned_stack_summary),
                 actionLabel =
                     if (latestOutcome.ownedStackLaunchUrl != null) {
                         getString(R.string.diagnostics_remediation_open_owned_stack_action)
                     } else {
-                        getString(R.string.home_remediation_open_diagnostics_action)
+                        getString(R.string.status_remediation_open_diagnostics_action)
                     },
                 actionKind =
                     if (latestOutcome.ownedStackLaunchUrl != null) {
@@ -156,48 +156,48 @@ private fun StringResolver.homeTransportRemediationLadder(
                     },
                 actionTargetUrl = latestOutcome.ownedStackLaunchUrl,
                 tone = DiagnosticsTone.Warning,
-                getString(R.string.home_remediation_owned_stack_step_open_diagnostics),
-                getString(R.string.home_remediation_owned_stack_step_open_browser),
-                getString(R.string.home_remediation_owned_stack_step_verify_result),
+                getString(R.string.status_remediation_owned_stack_step_open_diagnostics),
+                getString(R.string.status_remediation_owned_stack_step_open_browser),
+                getString(R.string.status_remediation_owned_stack_step_verify_result),
             )
         }
 
         TransportRemediationKind.BROWSER_FALLBACK -> {
             remediationLadder(
-                title = getString(R.string.home_remediation_browser_relay_title),
-                summary = getString(R.string.home_remediation_browser_relay_summary),
+                title = getString(R.string.status_remediation_browser_relay_title),
+                summary = getString(R.string.status_remediation_browser_relay_summary),
                 actionLabel = getString(R.string.diagnostics_remediation_open_mode_editor_action),
                 actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_MODE_EDITOR,
                 tone = DiagnosticsTone.Warning,
-                getString(R.string.home_remediation_browser_relay_step_open_mode_editor),
-                getString(R.string.home_remediation_browser_relay_step_enable_relay),
-                getString(R.string.home_remediation_browser_relay_step_choose_preset),
+                getString(R.string.status_remediation_browser_relay_step_open_mode_editor),
+                getString(R.string.status_remediation_browser_relay_step_enable_relay),
+                getString(R.string.status_remediation_browser_relay_step_choose_preset),
             )
         }
 
         TransportRemediationKind.QUIC_FALLBACK -> {
             remediationLadder(
-                title = getString(R.string.home_remediation_quic_relay_title),
-                summary = getString(R.string.home_remediation_quic_relay_summary),
+                title = getString(R.string.status_remediation_quic_relay_title),
+                summary = getString(R.string.status_remediation_quic_relay_summary),
                 actionLabel = getString(R.string.diagnostics_remediation_open_mode_editor_action),
                 actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_MODE_EDITOR,
                 tone = DiagnosticsTone.Warning,
-                getString(R.string.home_remediation_quic_relay_step_open_mode_editor),
-                getString(R.string.home_remediation_quic_relay_step_enable_relay),
-                getString(R.string.home_remediation_quic_relay_step_choose_preset),
+                getString(R.string.status_remediation_quic_relay_step_open_mode_editor),
+                getString(R.string.status_remediation_quic_relay_step_enable_relay),
+                getString(R.string.status_remediation_quic_relay_step_choose_preset),
             )
         }
 
         TransportRemediationKind.NO_RELIABLE_RELAY_HINT -> {
             remediationLadder(
-                title = getString(R.string.home_remediation_no_hint_title),
-                summary = getString(R.string.home_remediation_no_hint_summary),
-                actionLabel = getString(R.string.home_remediation_open_diagnostics_action),
+                title = getString(R.string.status_remediation_no_hint_title),
+                summary = getString(R.string.status_remediation_no_hint_summary),
+                actionLabel = getString(R.string.status_remediation_open_diagnostics_action),
                 actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS,
                 tone = DiagnosticsTone.Warning,
-                getString(R.string.home_remediation_no_hint_step_open_diagnostics),
-                getString(R.string.home_remediation_no_hint_step_review_evidence),
-                getString(R.string.home_remediation_no_hint_step_retry),
+                getString(R.string.status_remediation_no_hint_step_open_diagnostics),
+                getString(R.string.status_remediation_no_hint_step_review_evidence),
+                getString(R.string.status_remediation_no_hint_step_retry),
             )
         }
 
@@ -212,14 +212,14 @@ private fun StringResolver.homeTransportRemediationLadder(
 
 private fun StringResolver.homeDomesticRelayLadder(): DiagnosticsRemediationLadderUiModel =
     remediationLadder(
-        title = getString(R.string.home_remediation_browser_relay_title),
-        summary = getString(R.string.home_remediation_browser_relay_summary),
+        title = getString(R.string.status_remediation_browser_relay_title),
+        summary = getString(R.string.status_remediation_browser_relay_summary),
         actionLabel = getString(R.string.diagnostics_remediation_open_mode_editor_action),
         actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_MODE_EDITOR,
         tone = DiagnosticsTone.Warning,
-        getString(R.string.home_remediation_browser_relay_step_open_mode_editor),
-        getString(R.string.home_remediation_browser_relay_step_enable_relay),
-        getString(R.string.home_remediation_browser_relay_step_choose_preset),
+        getString(R.string.status_remediation_browser_relay_step_open_mode_editor),
+        getString(R.string.status_remediation_browser_relay_step_enable_relay),
+        getString(R.string.status_remediation_browser_relay_step_choose_preset),
     )
 
 internal fun DiagnosticsUiFactorySupport.buildScanRemediationLadder(
@@ -345,14 +345,14 @@ internal fun StringResolver.buildHomeRemediationLadder(
 private fun StringResolver.homeCommandLineLadder(commandLineBlocked: Boolean): DiagnosticsRemediationLadderUiModel? {
     if (!commandLineBlocked) return null
     return remediationLadder(
-        title = getString(R.string.home_remediation_command_line_title),
-        summary = getString(R.string.home_diagnostics_command_line_blocked),
+        title = getString(R.string.status_remediation_command_line_title),
+        summary = getString(R.string.status_diagnostics_command_line_blocked),
         actionLabel = getString(R.string.diagnostics_scan_open_advanced_settings),
         actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_ADVANCED_SETTINGS,
         tone = DiagnosticsTone.Negative,
-        getString(R.string.home_remediation_command_line_step_open_settings),
-        getString(R.string.home_remediation_command_line_step_disable_setting),
-        getString(R.string.home_remediation_command_line_step_retry),
+        getString(R.string.status_remediation_command_line_step_open_settings),
+        getString(R.string.status_remediation_command_line_step_disable_setting),
+        getString(R.string.status_remediation_command_line_step_retry),
     )
 }
 
@@ -370,14 +370,14 @@ private fun StringResolver.homeStaleOrMismatchLadder(
 ): DiagnosticsRemediationLadderUiModel? {
     if (!fingerprintMismatch && !outcome.stale) return null
     return remediationLadder(
-        title = getString(R.string.home_remediation_stale_title),
-        summary = getString(R.string.home_diagnostics_run_again),
-        actionLabel = getString(R.string.home_remediation_open_diagnostics_action),
+        title = getString(R.string.status_remediation_stale_title),
+        summary = getString(R.string.status_diagnostics_run_again),
+        actionLabel = getString(R.string.status_remediation_open_diagnostics_action),
         actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS,
         tone = DiagnosticsTone.Warning,
-        getString(R.string.home_remediation_stale_step_open_diagnostics),
-        getString(R.string.home_remediation_stale_step_review),
-        getString(R.string.home_remediation_stale_step_rerun),
+        getString(R.string.status_remediation_stale_step_open_diagnostics),
+        getString(R.string.status_remediation_stale_step_review),
+        getString(R.string.status_remediation_stale_step_rerun),
     )
 }
 
@@ -388,25 +388,25 @@ private fun StringResolver.homeNotActionableLadder(
     val needsHistoryReview = outcome.failedStageCount > 0 || outcome.completedStageCount < outcome.totalStageCount
     return if (needsHistoryReview) {
         remediationLadder(
-            title = getString(R.string.home_remediation_review_title),
+            title = getString(R.string.status_remediation_review_title),
             summary = outcome.summary,
             actionLabel = getString(R.string.diagnostics_remediation_open_history_action),
             actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_HISTORY,
             tone = DiagnosticsTone.Warning,
-            getString(R.string.home_remediation_review_step_open_history),
-            getString(R.string.home_remediation_review_step_compare_results),
-            getString(R.string.home_remediation_review_step_rerun),
+            getString(R.string.status_remediation_review_step_open_history),
+            getString(R.string.status_remediation_review_step_compare_results),
+            getString(R.string.status_remediation_review_step_rerun),
         )
     } else {
         remediationLadder(
-            title = getString(R.string.home_remediation_no_actionable_title),
-            summary = getString(R.string.home_diagnostics_no_actionable_result),
-            actionLabel = getString(R.string.home_remediation_open_diagnostics_action),
+            title = getString(R.string.status_remediation_no_actionable_title),
+            summary = getString(R.string.status_diagnostics_no_actionable_result),
+            actionLabel = getString(R.string.status_remediation_open_diagnostics_action),
             actionKind = DiagnosticsRemediationActionKindUiModel.OPEN_DIAGNOSTICS,
             tone = DiagnosticsTone.Warning,
-            getString(R.string.home_remediation_no_actionable_step_open_diagnostics),
-            getString(R.string.home_remediation_no_actionable_step_review),
-            getString(R.string.home_remediation_no_actionable_step_rerun),
+            getString(R.string.status_remediation_no_actionable_step_open_diagnostics),
+            getString(R.string.status_remediation_no_actionable_step_review),
+            getString(R.string.status_remediation_no_actionable_step_rerun),
         )
     }
 }

@@ -86,7 +86,7 @@ fun StatusScreen(
     RipDpiDashboardScaffold(
         modifier =
             modifier
-                .ripDpiTestTag(RipDpiTestTags.screen(Route.Home))
+                .ripDpiTestTag(RipDpiTestTags.screen(Route.Status))
                 .fillMaxSize()
                 .ripDpiScreenBackground(),
         topBar = { StatusTopBar(title = stringResource(R.string.app_name)) },
@@ -140,7 +140,7 @@ fun StatusScreen(
                 // order rather than by how much any of them mattered.
                 StatusAdvisorySlot(
                     advisories =
-                        buildHomeAdvisories(
+                        buildStatusAdvisories(
                             uiState = uiState,
                             subscriptionExpiry = subscriptionExpiry,
                             onRepairPermission = onRepairPermission,
@@ -172,18 +172,18 @@ fun StatusScreen(
             supporting = {
                 StatusConnectionHealthEntry(onOpenConnectionHealth = onOpenConnectionHealth)
                 RipDpiAccordion(
-                    title = stringResource(R.string.home_modes_diagnostics_title),
+                    title = stringResource(R.string.status_modes_diagnostics_title),
                     expanded = modesExpanded || homeDiagnostics.analysisAction.busy,
                     onExpandedChange = {
                         modesExpanded = it
                         onModesExpandedChange(it)
                     },
-                    headerTestTag = RipDpiTestTags.HomeModesDiagnosticsHeader,
+                    headerTestTag = RipDpiTestTags.StatusModesDiagnosticsHeader,
                     stateTestTag =
                         if (modesExpanded || homeDiagnostics.analysisAction.busy) {
-                            RipDpiTestTags.HomeModesDiagnosticsExpanded
+                            RipDpiTestTags.StatusModesDiagnosticsExpanded
                         } else {
-                            RipDpiTestTags.HomeModesDiagnosticsCollapsed
+                            RipDpiTestTags.StatusModesDiagnosticsCollapsed
                         },
                 ) {
                     StatusModeCardList(
@@ -224,7 +224,7 @@ private fun StatusConnectionHealthEntry(onOpenConnectionHealth: () -> Unit) {
             onClick = onOpenConnectionHealth,
             leadingIcon = RipDpiIcons.NetworkCheck,
             showChevron = true,
-            testTag = RipDpiTestTags.HomeConnectionHealthAction,
+            testTag = RipDpiTestTags.StatusConnectionHealthAction,
         )
     }
 }
@@ -275,7 +275,7 @@ private fun StatusModeCardList(
             configureActionVariant = RipDpiButtonVariant.Ghost,
         )
         RipDpiButton(
-            text = stringResource(R.string.home_diagnostics_run_analysis),
+            text = stringResource(R.string.status_diagnostics_run_analysis),
             onClick = onRunFullDiagnosticRun,
             enabled = homeDiagnostics.analysisAction.enabled && !homeDiagnostics.analysisAction.busy,
             variant = RipDpiButtonVariant.Ghost,
@@ -286,10 +286,10 @@ private fun StatusModeCardList(
                 checked = homeDiagnostics.pcapRecordingRequested,
                 onCheckedChange = { onTogglePcapRecording() },
                 modifier = Modifier.fillMaxWidth(),
-                label = stringResource(R.string.home_diagnostics_pcap_toggle),
-                helperText = stringResource(R.string.home_diagnostics_pcap_helper),
+                label = stringResource(R.string.status_diagnostics_pcap_toggle),
+                helperText = stringResource(R.string.status_diagnostics_pcap_helper),
                 enabled = homeDiagnostics.analysisAction.enabled,
-                testTag = RipDpiTestTags.HomeDiagnosticsPcapToggle,
+                testTag = RipDpiTestTags.StatusDiagnosticsPcapToggle,
             )
         }
     }

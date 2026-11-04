@@ -14,8 +14,8 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.dp
 import com.github.takahirom.roborazzi.captureRoboImage
-import com.poyka.ripdpi.ui.components.homePreviewActuatorState
 import com.poyka.ripdpi.ui.components.inputs.RipDpiConnectionActuator
+import com.poyka.ripdpi.ui.components.statusPreviewActuatorState
 import com.poyka.ripdpi.ui.screens.status.StatusConnectionActuatorStatus
 import com.poyka.ripdpi.ui.screens.status.StatusModeSummaryFacet
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
@@ -60,7 +60,7 @@ class ConnectionStrategyPanelScreenshotTest {
                     ) {
                         RipDpiConnectionActuator(
                             state =
-                                homePreviewActuatorState(StatusConnectionActuatorStatus.Locked).copy(
+                                statusPreviewActuatorState(StatusConnectionActuatorStatus.Locked).copy(
                                     strategyLabel = StrategyLabel,
                                     strategyFacets = Facets,
                                 ),

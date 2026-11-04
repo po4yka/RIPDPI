@@ -22,7 +22,7 @@ internal fun DiagnosticsHomeCompositeOutcome.hasGeneratedUnavailableScope(): Boo
 internal fun DiagnosticsHomeCompositeOutcome.homeHeadline(strings: StringResolver): String =
     if (hasGeneratedUnavailableScope()) {
         strings.getString(
-            R.string.home_diagnostics_network_scope_unavailable,
+            R.string.status_diagnostics_network_scope_unavailable,
         )
     } else {
         strings.homeGeneratedText(headline)
@@ -31,7 +31,7 @@ internal fun DiagnosticsHomeCompositeOutcome.homeHeadline(strings: StringResolve
 internal fun DiagnosticsHomeCompositeOutcome.homeSummary(strings: StringResolver): String =
     if (hasGeneratedUnavailableScope()) {
         strings.getString(
-            R.string.home_diagnostics_network_scope_unavailable_body,
+            R.string.status_diagnostics_network_scope_unavailable_body,
         )
     } else {
         strings.homeGeneratedText(summary)
@@ -39,8 +39,8 @@ internal fun DiagnosticsHomeCompositeOutcome.homeSummary(strings: StringResolver
 
 internal fun StringResolver.homeNetworkNote(note: String): String =
     when (note) {
-        "Active network is a VPN" -> getString(R.string.home_diagnostics_network_note_vpn)
-        "Network reports as metered" -> getString(R.string.home_diagnostics_network_note_metered)
+        "Active network is a VPN" -> getString(R.string.status_diagnostics_network_note_vpn)
+        "Network reports as metered" -> getString(R.string.status_diagnostics_network_note_metered)
         else -> note
     }
 
@@ -49,7 +49,7 @@ internal fun HomeNetworkCharacterSummary.homeOperator(strings: StringResolver): 
         val code = operator.removePrefix("Carrier ")
         val generatedCarrier = transport == "cellular" && operator.startsWith("Carrier ")
         if (generatedCarrier && code.takeUnless { it.isBlank() || it == "unknown" } != null) {
-            strings.getString(R.string.home_diagnostics_network_carrier_format, code)
+            strings.getString(R.string.status_diagnostics_network_carrier_format, code)
         } else {
             operator
         }
@@ -61,12 +61,12 @@ internal fun HomeRoutingSanityFinding.homeDescription(strings: StringResolver): 
     val method = description.removePrefix(RoutingDetectorPrefix).dropLast(1)
     val level =
         when (severity) {
-            "high" -> strings.getString(R.string.home_diagnostics_routing_severity_high)
-            "medium" -> strings.getString(R.string.home_diagnostics_routing_severity_medium)
-            "low" -> strings.getString(R.string.home_diagnostics_routing_severity_low)
+            "high" -> strings.getString(R.string.status_diagnostics_routing_severity_high)
+            "medium" -> strings.getString(R.string.status_diagnostics_routing_severity_medium)
+            "low" -> strings.getString(R.string.status_diagnostics_routing_severity_low)
             else -> severity
         }
-    return "$level: ${strings.getString(R.string.home_diagnostics_routing_detector_description_format, method)}"
+    return "$level: ${strings.getString(R.string.status_diagnostics_routing_detector_description_format, method)}"
 }
 
 internal fun HomeDnsCharacterization.homeNote(
@@ -75,16 +75,16 @@ internal fun HomeDnsCharacterization.homeNote(
 ): String =
     when (note) {
         "DNS comparison is incomplete" -> {
-            strings.getString(R.string.home_diagnostics_dns_note_comparison_incomplete)
+            strings.getString(R.string.status_diagnostics_dns_note_comparison_incomplete)
         }
 
         "System and DoH answers differ; location and CDN routing can cause this" -> {
-            strings.getString(R.string.home_diagnostics_dns_note_answers_differ)
+            strings.getString(R.string.status_diagnostics_dns_note_answers_differ)
         }
 
         "DoH endpoint $dohEndpoint unreachable" -> {
             dohEndpoint?.let { endpoint ->
-                strings.getString(R.string.home_diagnostics_dns_note_endpoint_unreachable_format, endpoint)
+                strings.getString(R.string.status_diagnostics_dns_note_endpoint_unreachable_format, endpoint)
             } ?: note
         }
 
@@ -95,9 +95,9 @@ internal fun HomeDnsCharacterization.homeNote(
 
 internal fun HomeBufferbloatResult.homeSummary(strings: StringResolver): String =
     strings.getString(
-        R.string.home_diagnostics_bufferbloat_summary,
+        R.string.status_diagnostics_bufferbloat_summary,
         if (grade == HomeBufferbloatGrade.UNKNOWN) {
-            strings.getString(R.string.home_diagnostics_bufferbloat_unknown)
+            strings.getString(R.string.status_diagnostics_bufferbloat_unknown)
         } else {
             grade.name
         },

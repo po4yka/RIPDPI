@@ -41,34 +41,34 @@ internal fun buildHardKillSwitchUiState(
         label =
             when (snapshot.status) {
                 AndroidHardKillSwitchStatus.ENABLED -> {
-                    stringResolver.getString(R.string.home_hard_kill_switch_enabled_title)
+                    stringResolver.getString(R.string.status_hard_kill_switch_enabled_title)
                 }
 
                 AndroidHardKillSwitchStatus.NOT_ENABLED -> {
-                    stringResolver.getString(R.string.home_hard_kill_switch_not_enabled_title)
+                    stringResolver.getString(R.string.status_hard_kill_switch_not_enabled_title)
                 }
 
                 AndroidHardKillSwitchStatus.UNKNOWN -> {
-                    stringResolver.getString(R.string.home_hard_kill_switch_unknown_title)
+                    stringResolver.getString(R.string.status_hard_kill_switch_unknown_title)
                 }
             },
         summary =
             when (snapshot.status) {
                 AndroidHardKillSwitchStatus.ENABLED -> {
-                    stringResolver.getString(R.string.home_hard_kill_switch_enabled_summary)
+                    stringResolver.getString(R.string.status_hard_kill_switch_enabled_summary)
                 }
 
                 AndroidHardKillSwitchStatus.NOT_ENABLED -> {
-                    stringResolver.getString(R.string.home_hard_kill_switch_not_enabled_summary)
+                    stringResolver.getString(R.string.status_hard_kill_switch_not_enabled_summary)
                 }
 
                 AndroidHardKillSwitchStatus.UNKNOWN -> {
-                    stringResolver.getString(R.string.home_hard_kill_switch_unknown_summary)
+                    stringResolver.getString(R.string.status_hard_kill_switch_unknown_summary)
                 }
             },
         actionLabel =
             if (snapshot.status == AndroidHardKillSwitchStatus.ENABLED) {
-                stringResolver.getString(R.string.home_connection_actuator_action_android_managed)
+                stringResolver.getString(R.string.status_connection_actuator_action_android_managed)
             } else {
                 stringResolver.getString(R.string.settings_permission_action_open_vpn_settings)
             },

@@ -54,7 +54,7 @@ class MainHomeDiagnosticsUiStateTest {
     fun `quick and full analysis fallbacks describe their actual scope for visible and spoken status`() {
         listOf(
             true to R.string.diagnostics_simple_funnel_verdict_running,
-            false to R.string.home_diagnostics_analysis_running,
+            false to R.string.status_diagnostics_analysis_running,
         ).forEach { (quickScan, message) ->
             val uiState =
                 buildHomeDiagnosticsUiState(
@@ -81,8 +81,8 @@ class MainHomeDiagnosticsUiStateTest {
                 stringResolver = FakeStringResolver(),
             )
 
-        assertEquals(R.string.home_diagnostics_analysis_starting.toString(), uiState.analysisAction.supportingText)
-        assertEquals(R.string.home_diagnostics_analysis_starting.toString(), uiState.analysisAction.stageAnnouncement)
+        assertEquals(R.string.status_diagnostics_analysis_starting.toString(), uiState.analysisAction.supportingText)
+        assertEquals(R.string.status_diagnostics_analysis_starting.toString(), uiState.analysisAction.stageAnnouncement)
     }
 
     @Test
@@ -108,7 +108,7 @@ class MainHomeDiagnosticsUiStateTest {
                     stringResolver = FakeStringResolver(),
                 )
             assertFalse(uiState.verifiedVpnAction.enabled)
-            assertEquals(R.string.home_diagnostics_run_again.toString(), uiState.verifiedVpnAction.supportingText)
+            assertEquals(R.string.status_diagnostics_run_again.toString(), uiState.verifiedVpnAction.supportingText)
         }
     }
 
@@ -143,7 +143,7 @@ class MainHomeDiagnosticsUiStateTest {
                 )
             assertFalse(uiState.verifiedVpnAction.enabled)
             assertEquals(
-                R.string.home_diagnostics_disconnect_first.toString(),
+                R.string.status_diagnostics_disconnect_first.toString(),
                 uiState.verifiedVpnAction.supportingText,
             )
         }

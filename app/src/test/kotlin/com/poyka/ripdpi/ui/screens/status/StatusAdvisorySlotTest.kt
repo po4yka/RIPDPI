@@ -55,9 +55,9 @@ class StatusAdvisorySlotTest {
 
         // The disclosure names what it hides, not only how many.
         composeRule.onNodeWithText("1 more notice").assertIsDisplayed()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeAdvisoryMore).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusAdvisoryMore).performClick()
 
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeSetupHealthDetails).performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusSetupHealthDetails).performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText(LOCKDOWN_LABEL).performScrollTo().assertIsDisplayed()
     }
 

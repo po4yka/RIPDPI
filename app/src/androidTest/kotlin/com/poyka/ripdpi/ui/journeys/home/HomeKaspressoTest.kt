@@ -17,7 +17,7 @@ import javax.inject.Inject
 class HomeIdleKaspressoTest :
     RipDpiKaspressoTest(
         automationLaunchIntent(
-            startRoute = Route.Home.stableRoute,
+            startRoute = Route.Status.stableRoute,
             dataPreset = AutomationDataPreset.SettingsReady,
             servicePreset = AutomationServicePreset.Idle,
         ),
@@ -82,7 +82,7 @@ class HomeIdleKaspressoTest :
 class HomeConnectedProxyKaspressoTest :
     RipDpiKaspressoTest(
         automationLaunchIntent(
-            startRoute = Route.Home.stableRoute,
+            startRoute = Route.Status.stableRoute,
             dataPreset = AutomationDataPreset.SettingsReady,
             servicePreset = AutomationServicePreset.ConnectedProxy,
         ),
@@ -114,7 +114,7 @@ class HomeConnectedProxyKaspressoTest :
 class HomeConnectedVpnKaspressoTest :
     RipDpiKaspressoTest(
         automationLaunchIntent(
-            startRoute = Route.Home.stableRoute,
+            startRoute = Route.Status.stableRoute,
             dataPreset = AutomationDataPreset.SettingsReady,
             servicePreset = AutomationServicePreset.ConnectedVpn,
         ),
@@ -146,7 +146,7 @@ class HomeConnectedVpnKaspressoTest :
 class HomeLiveServiceKaspressoTest :
     RipDpiKaspressoTest(
         automationLaunchIntent(
-            startRoute = Route.Home.stableRoute,
+            startRoute = Route.Status.stableRoute,
             dataPreset = AutomationDataPreset.SettingsReady,
             servicePreset = AutomationServicePreset.Live,
         ),

@@ -724,7 +724,7 @@ private fun DetectionExportFailureDialog(
     ) {
         Text(text = code, style = RipDpiThemeTokens.type.body)
         RipDpiButton(
-            text = stringResource(R.string.home_diagnostics_copy_support_code),
+            text = stringResource(R.string.status_diagnostics_copy_support_code),
             onClick = {
                 context
                     .getSystemService(ClipboardManager::class.java)

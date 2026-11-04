@@ -24,7 +24,7 @@ class AutomationPermissionFlowInstrumentedTest {
     val composeRule =
         createAutomationComposeRule(
             automationLaunchIntent(
-                startRoute = Route.Home.stableRoute,
+                startRoute = Route.Status.stableRoute,
                 permissionPreset = AutomationPermissionPreset.Granted,
                 dataPreset = AutomationDataPreset.SettingsReady,
             ),
@@ -37,18 +37,18 @@ class AutomationPermissionFlowInstrumentedTest {
 
     @Test
     fun grantedPermissionLaunchShowsReadyHomeConnectionAction() {
-        composeRule.waitForAutomationTag(RipDpiTestTags.screen(Route.Home))
-        composeRule.waitForAutomationTag(RipDpiTestTags.HomeModesDiagnosticsCollapsed)
+        composeRule.waitForAutomationTag(RipDpiTestTags.screen(Route.Status))
+        composeRule.waitForAutomationTag(RipDpiTestTags.StatusModesDiagnosticsCollapsed)
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader)
+            .onNodeWithTag(RipDpiTestTags.StatusModesDiagnosticsHeader)
             .performScrollTo()
             .assertIsDisplayed()
             .performClick()
-        composeRule.waitForAutomationTag(RipDpiTestTags.HomeModesDiagnosticsExpanded)
-        composeRule.waitForAutomationTag(RipDpiTestTags.homeModeCard(StatusMode.LocalDpiBypass.name))
+        composeRule.waitForAutomationTag(RipDpiTestTags.StatusModesDiagnosticsExpanded)
+        composeRule.waitForAutomationTag(RipDpiTestTags.statusModeCard(StatusMode.LocalDpiBypass.name))
         composeRule
-            .onNodeWithTag(RipDpiTestTags.homeModeCard(StatusMode.LocalDpiBypass.name))
+            .onNodeWithTag(RipDpiTestTags.statusModeCard(StatusMode.LocalDpiBypass.name))
             .performScrollTo()
             .assertIsDisplayed()
     }

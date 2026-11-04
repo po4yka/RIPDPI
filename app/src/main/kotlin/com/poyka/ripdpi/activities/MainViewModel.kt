@@ -41,7 +41,7 @@ import java.util.Optional
 import java.util.UUID
 import javax.inject.Inject
 
-private const val HomeModesExpandedKey = "home.modesExpanded"
+private const val StatusModesExpandedKey = "home.modesExpanded"
 
 /**
  * Whether home shows its mode cards.
@@ -50,13 +50,13 @@ private const val HomeModesExpandedKey = "home.modesExpanded"
  * — or a process death — does not silently re-collapse a section the user
  * deliberately opened.
  */
-class HomeModesDisclosure internal constructor(
+class StatusModesDisclosure internal constructor(
     private val savedStateHandle: SavedStateHandle,
 ) {
-    val expanded: StateFlow<Boolean> = savedStateHandle.getStateFlow(HomeModesExpandedKey, false)
+    val expanded: StateFlow<Boolean> = savedStateHandle.getStateFlow(StatusModesExpandedKey, false)
 
     fun onExpandedChange(expanded: Boolean) {
-        savedStateHandle[HomeModesExpandedKey] = expanded
+        savedStateHandle[StatusModesExpandedKey] = expanded
     }
 }
 
@@ -76,7 +76,7 @@ class MainViewModel
         private val savedStateHandle: SavedStateHandle,
     ) : ViewModel() {
         val navigationSessionKey: String = UUID.randomUUID().toString()
-        val homeModesDisclosure = HomeModesDisclosure(savedStateHandle)
+        val statusModesDisclosure = StatusModesDisclosure(savedStateHandle)
 
         private var initialized = false
         private val runtimeState = MutableStateFlow(ConnectionRuntimeState())

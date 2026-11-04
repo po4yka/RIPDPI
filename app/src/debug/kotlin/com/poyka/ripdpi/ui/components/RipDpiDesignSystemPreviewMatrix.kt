@@ -1000,13 +1000,13 @@ private fun ActuatorPreviewColumn(includeInteractiveStates: Boolean) {
     val spacing = RipDpiThemeTokens.spacing
     val states =
         buildList {
-            add(homePreviewActuatorState(StatusConnectionActuatorStatus.Open))
+            add(statusPreviewActuatorState(StatusConnectionActuatorStatus.Open))
             if (includeInteractiveStates) {
-                add(homePreviewActuatorState(StatusConnectionActuatorStatus.Engaging))
+                add(statusPreviewActuatorState(StatusConnectionActuatorStatus.Engaging))
             }
-            add(homePreviewActuatorState(StatusConnectionActuatorStatus.Locked))
-            add(homePreviewActuatorState(StatusConnectionActuatorStatus.Fault))
-            add(homePreviewActuatorState(StatusConnectionActuatorStatus.Degraded))
+            add(statusPreviewActuatorState(StatusConnectionActuatorStatus.Locked))
+            add(statusPreviewActuatorState(StatusConnectionActuatorStatus.Fault))
+            add(statusPreviewActuatorState(StatusConnectionActuatorStatus.Degraded))
         }
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
         states.forEach { state ->
@@ -1020,7 +1020,7 @@ private fun ActuatorPreviewColumn(includeInteractiveStates: Boolean) {
     }
 }
 
-internal fun homePreviewActuatorState(status: StatusConnectionActuatorStatus): StatusConnectionActuatorUiState {
+internal fun statusPreviewActuatorState(status: StatusConnectionActuatorStatus): StatusConnectionActuatorUiState {
     val stages =
         when (status) {
             StatusConnectionActuatorStatus.Open -> {

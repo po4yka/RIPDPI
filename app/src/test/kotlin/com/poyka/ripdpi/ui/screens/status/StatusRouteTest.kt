@@ -97,11 +97,11 @@ class StatusRouteTest {
         assertFalse(viewModel.homeDiagnosticsUiState.value.pcapRecordingRequested)
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader)
+            .onNodeWithTag(RipDpiTestTags.StatusModesDiagnosticsHeader)
             .performScrollTo()
             .performClick()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.HomeDiagnosticsPcapToggle)
+            .onNodeWithTag(RipDpiTestTags.StatusDiagnosticsPcapToggle)
             .performScrollTo()
             .assertIsDisplayed()
             .performClick()

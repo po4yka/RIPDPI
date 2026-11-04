@@ -64,7 +64,7 @@ class TerminologyCanonTest {
     fun `home proxy-only label stays localized and matches the scope chip in every translated resource set`() {
         val resourcesDir = File("src/main/res")
         val englishStrings = featureStringValues(File(resourcesDir, "values"))
-        val englishHomeLabel = englishStrings.getValue("home_mode_local_dpi_bypass")
+        val englishHomeLabel = englishStrings.getValue("status_mode_local_dpi_bypass")
         val translatedDirectories =
             listOf(
                 "values-ru",
@@ -81,8 +81,8 @@ class TerminologyCanonTest {
         val offenders =
             translatedDirectories.mapNotNull { directory ->
                 val values = featureStringValues(File(resourcesDir, directory))
-                val homeLabel = values.getValue("home_mode_local_dpi_bypass")
-                val configLabel = values.getValue("home_mode_proxy")
+                val homeLabel = values.getValue("status_mode_local_dpi_bypass")
+                val configLabel = values.getValue("status_mode_proxy")
                 if (homeLabel == configLabel && homeLabel != englishHomeLabel) {
                     null
                 } else {

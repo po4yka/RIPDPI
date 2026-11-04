@@ -50,7 +50,7 @@ internal fun ConnectionRuntimeFeedback(
             verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
         ) {
             WarningBanner(
-                title = stringResource(R.string.home_status_error_title),
+                title = stringResource(R.string.status_error_title),
                 message = message,
                 tone = WarningBannerTone.Error,
                 testTag = RipDpiTestTags.ConfigRuntimeError,

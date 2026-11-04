@@ -118,7 +118,7 @@ class ConnectionEndpointRtlTest {
             state.value =
                 state.value.copy(draft = ConnectionDraft(relayEnabled = true, relayKind = "vless_reality"))
         }
-        assertRelayFallbackDirection(resource(R.string.home_mode_card_remote_server_unknown))
+        assertRelayFallbackDirection(resource(R.string.status_mode_card_remote_server_unknown))
     }
 
     private fun assertEndpoint(address: String) {

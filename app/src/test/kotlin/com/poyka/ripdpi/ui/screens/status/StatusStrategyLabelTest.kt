@@ -29,11 +29,11 @@ class StatusStrategyLabelTest {
         )
 
     private fun BypassStrategySignature.facetMap() =
-        localizedHomeStrategyFacets(ResourceStringResolver()).associate { it.label to it.value }
+        localizedStatusStrategyFacets(ResourceStringResolver()).associate { it.label to it.value }
 
     @Test
     fun `each setting is a labeled row in display order`() {
-        val facets = signature.localizedHomeStrategyFacets(ResourceStringResolver())
+        val facets = signature.localizedStatusStrategyFacets(ResourceStringResolver())
         assertEquals(
             listOf(
                 "Protocols" to "HTTP, HTTPS, UDP",

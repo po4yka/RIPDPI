@@ -45,7 +45,7 @@ internal fun xrayProviderAdvisory(snapshot: XrayProviderSnapshot?): StatusAdviso
 /**
  * The provider stage on its own, for the screenshot catalogue that documents it
  * beside the rest of the Xray surfaces. Home reaches the same advisory through
- * [buildHomeAdvisories], so the two cannot drift apart.
+ * [buildStatusAdvisories], so the two cannot drift apart.
  */
 @Composable
 internal fun StatusXrayProviderBanner(snapshot: XrayProviderSnapshot?) {

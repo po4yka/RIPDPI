@@ -25,7 +25,7 @@ class BottomNavBarScreenshotTest {
             testClassFqn = javaClass.name,
         ) {
             TopLevelNavigationScaffold(
-                selectedRoute = Route.Home,
+                selectedRoute = Route.Status,
                 onNavigate = {},
             ) {}
         }
@@ -85,7 +85,7 @@ private fun captureMaximumFontBottomBar(
     ) {
         CompositionLocalProvider(LocalLayoutDirection provides layoutDirection) {
             TopLevelNavigationScaffold(
-                selectedRoute = Route.Home,
+                selectedRoute = Route.Status,
                 onNavigate = {},
             ) {}
         }

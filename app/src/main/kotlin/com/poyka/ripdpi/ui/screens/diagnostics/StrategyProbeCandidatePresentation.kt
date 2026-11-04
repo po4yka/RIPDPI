@@ -27,7 +27,7 @@ internal fun buildStrategyProbeCandidateMetrics(
         )
         add(
             DiagnosticsMetricUiModel(
-                stringResolver.getString(R.string.home_stat_quality),
+                stringResolver.getString(R.string.status_stat_quality),
                 summary.qualityScore.toString(),
                 tone =
                     when {
@@ -135,7 +135,7 @@ private fun strategyEmitterRealizationLabel(
         }
 
         else -> {
-            stringResolver.getString(R.string.home_connection_actuator_direct)
+            stringResolver.getString(R.string.status_connection_actuator_direct)
         }
     }
 

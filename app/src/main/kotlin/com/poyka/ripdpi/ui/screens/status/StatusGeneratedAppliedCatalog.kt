@@ -10,11 +10,11 @@ internal val homeGeneratedAppliedLabelResources =
         "Chain" to R.string.diagnostics_field_chain,
         "Resolver" to R.string.diagnostics_resolver_field_resolver,
         "Protocol" to R.string.diagnostics_resolver_field_protocol,
-        "TLS fingerprint" to R.string.home_generated_tls_fingerprint,
+        "TLS fingerprint" to R.string.status_generated_tls_fingerprint,
         "Traffic morphing" to R.string.detection_resistance_summary_entropy,
-        "Morphing budget" to R.string.home_generated_morphing_budget,
+        "Morphing budget" to R.string.status_generated_morphing_budget,
         "Strategy evolution" to R.string.detection_resistance_strategy_evolution_title,
-        "QUIC resistance" to R.string.home_generated_quic_resistance,
+        "QUIC resistance" to R.string.status_generated_quic_resistance,
     )
 
 internal val homeGeneratedSettingValueResources =

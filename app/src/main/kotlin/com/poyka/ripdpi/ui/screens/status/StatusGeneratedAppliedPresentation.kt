@@ -60,7 +60,7 @@ private fun StringResolver.homeAppliedValueTemplate(raw: String): String? {
         template != null -> {
             val (match, resource) = template
             when (resource) {
-                R.string.home_generated_morphing -> {
+                R.string.status_generated_morphing -> {
                     getString(
                         resource,
                         homeEntropyMode(match.groups["mode"]?.value.orEmpty()),
@@ -69,7 +69,7 @@ private fun StringResolver.homeAppliedValueTemplate(raw: String): String? {
                     )
                 }
 
-                R.string.home_generated_scanner -> {
+                R.string.status_generated_scanner -> {
                     getString(
                         resource,
                         match.groups["parallelism"]?.value.orEmpty(),
@@ -84,7 +84,7 @@ private fun StringResolver.homeAppliedValueTemplate(raw: String): String? {
         }
 
         quantity != null -> {
-            getQuantityString(R.plurals.home_generated_host_count, quantity, homeCount(hostCount.orEmpty()))
+            getQuantityString(R.plurals.status_generated_host_count, quantity, homeCount(hostCount.orEmpty()))
         }
 
         else -> {
@@ -96,12 +96,12 @@ private fun StringResolver.homeAppliedValueTemplate(raw: String): String? {
 private val homeAppliedHostCount = Regex("([0-9]+) hosts")
 private val homeAppliedValueTemplates =
     listOf(
-        Regex("Manual port ([0-9]+)") to R.string.home_generated_manual_port,
-        Regex("(?<parallelism>[0-9]+) parallel · (?<rtt>[0-9]+) ms max RTT") to R.string.home_generated_scanner,
+        Regex("Manual port ([0-9]+)") to R.string.status_generated_manual_port,
+        Regex("(?<parallelism>[0-9]+) parallel · (?<rtt>[0-9]+) ms max RTT") to R.string.status_generated_scanner,
         Regex("(?<mode>popcount|shannon|combined) · pad (?<padding>[0-9]+) · shannon (?<shannon>[0-9]+)") to
-            R.string.home_generated_morphing,
-        Regex("([0-9]+) bytes") to R.string.home_generated_bytes,
-        Regex("Epsilon (\\p{Nd}+[.,\u066B]\\p{Nd}{2})") to R.string.home_generated_epsilon,
+            R.string.status_generated_morphing,
+        Regex("([0-9]+) bytes") to R.string.status_generated_bytes,
+        Regex("Epsilon (\\p{Nd}+[.,\u066B]\\p{Nd}{2})") to R.string.status_generated_epsilon,
     )
 
 private fun StringResolver.homeEntropyMode(raw: String): String =

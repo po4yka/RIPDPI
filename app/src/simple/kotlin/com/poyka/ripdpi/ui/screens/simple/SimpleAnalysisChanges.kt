@@ -25,7 +25,7 @@ internal fun SimpleAnalysisChanges(diagnostics: StatusDiagnosticsUiState) {
         Column(modifier = Modifier.fillMaxWidth()) {
             Text(
                 modifier = Modifier.semantics { heading() },
-                text = stringResource(R.string.home_diagnostics_applied_settings_label),
+                text = stringResource(R.string.status_diagnostics_applied_settings_label),
                 style = RipDpiThemeTokens.type.bodyEmphasis,
                 color = RipDpiThemeTokens.colors.foreground,
             )

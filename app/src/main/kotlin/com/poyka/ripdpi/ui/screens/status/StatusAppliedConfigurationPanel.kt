@@ -12,8 +12,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
-import com.poyka.ripdpi.activities.HomeAppliedConfigurationUiState
 import com.poyka.ripdpi.activities.ReconnectSettingsIdentity
+import com.poyka.ripdpi.activities.StatusAppliedConfigurationUiState
 import com.poyka.ripdpi.services.RunningReconnectRequest
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
 import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
@@ -24,7 +24,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
 internal fun StatusAppliedConfigurationPanel(
-    state: HomeAppliedConfigurationUiState,
+    state: StatusAppliedConfigurationUiState,
     onReconnect: (com.poyka.ripdpi.services.RunningReconnectRequest.ConfirmedRuntime) -> Unit,
     onCancelReconnect: () -> Unit,
 ) {
@@ -87,12 +87,12 @@ private class ReconnectReviewCapture(
     val runtime: RunningReconnectRequest.ConfirmedRuntime,
     private val settingsIdentity: ReconnectSettingsIdentity,
 ) {
-    fun matches(state: HomeAppliedConfigurationUiState): Boolean =
+    fun matches(state: StatusAppliedConfigurationUiState): Boolean =
         runtime == state.confirmation && settingsIdentity === state.reconnectSettingsIdentity
 }
 
 @Composable
-private fun StatusAppliedConfigurationSummary(state: HomeAppliedConfigurationUiState) {
+private fun StatusAppliedConfigurationSummary(state: StatusAppliedConfigurationUiState) {
     val tokens = RipDpiThemeTokens
     Text(
         stringResource(R.string.runtime_config_title),

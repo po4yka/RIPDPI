@@ -67,7 +67,7 @@ import kotlinx.collections.immutable.toImmutableList
 internal fun RipDpiHomeDisconnectedPreviewScene(themePreference: String = "light") {
     RipDpiTheme(themePreference = themePreference) {
         StatusScreen(
-            uiState = MainUiState(modeCards = homePreviewModeCards()),
+            uiState = MainUiState(modeCards = statusPreviewModeCards()),
             onToggleConnection = {},
             onOpenDiagnostics = {},
             onOpenHistory = {},
@@ -84,12 +84,12 @@ internal fun RipDpiHomeErrorPreviewScene() {
             uiState =
                 MainUiState(
                     connectionState = ConnectionState.Error,
-                    connectionActuator = homePreviewActuatorState(StatusConnectionActuatorStatus.Fault),
+                    connectionActuator = statusPreviewActuatorState(StatusConnectionActuatorStatus.Fault),
                     errorMessage = "Failed to start VPN",
                     configuredMode = Mode.Proxy,
                     proxyIp = "127.0.0.1",
                     proxyPort = "1080",
-                    modeCards = homePreviewModeCards(),
+                    modeCards = statusPreviewModeCards(),
                 ),
             onToggleConnection = {},
             onOpenDiagnostics = {},
@@ -596,8 +596,8 @@ internal fun RipDpiHomeHighContrastPreviewScene() {
                 MainUiState(
                     appStatus = AppStatus.Running,
                     connectionState = ConnectionState.Connected,
-                    connectionActuator = homePreviewActuatorState(StatusConnectionActuatorStatus.Locked),
-                    modeCards = homePreviewModeCards(activeMode = StatusMode.RemoteVpn),
+                    connectionActuator = statusPreviewActuatorState(StatusConnectionActuatorStatus.Locked),
+                    modeCards = statusPreviewModeCards(activeMode = StatusMode.RemoteVpn),
                 ),
             onToggleConnection = {},
             onOpenDiagnostics = {},
@@ -608,28 +608,28 @@ internal fun RipDpiHomeHighContrastPreviewScene() {
     }
 }
 
-internal fun homePreviewModeCards(
+internal fun statusPreviewModeCards(
     activeMode: StatusMode? = null,
     loadingMode: StatusMode? = null,
 ) = persistentListOf(
-    homePreviewModeCard(
+    statusPreviewModeCard(
         mode = StatusMode.LocalDpiBypass,
         activeMode = activeMode,
         loadingMode = loadingMode,
     ),
-    homePreviewModeCard(
+    statusPreviewModeCard(
         mode = StatusMode.RemoteVpn,
         activeMode = activeMode,
         loadingMode = loadingMode,
     ),
-    homePreviewModeCard(
+    statusPreviewModeCard(
         mode = StatusMode.Diagnostic,
         activeMode = activeMode,
         loadingMode = loadingMode,
     ),
 )
 
-private fun homePreviewModeCard(
+private fun statusPreviewModeCard(
     mode: StatusMode,
     activeMode: StatusMode?,
     loadingMode: StatusMode?,

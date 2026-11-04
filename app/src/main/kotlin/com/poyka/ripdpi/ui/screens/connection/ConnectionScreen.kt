@@ -424,8 +424,8 @@ private fun descriptionResForPreset(kind: ConnectionPresetKind): Int =
 
 internal fun modeLabelRes(mode: Mode): Int =
     when (mode) {
-        Mode.VPN -> R.string.home_mode_vpn
-        Mode.Proxy -> R.string.home_mode_proxy
+        Mode.VPN -> R.string.status_mode_vpn
+        Mode.Proxy -> R.string.status_mode_proxy
     }
 
 /**

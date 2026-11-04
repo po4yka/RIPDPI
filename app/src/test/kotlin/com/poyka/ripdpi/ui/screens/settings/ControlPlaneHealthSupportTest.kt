@@ -43,17 +43,17 @@ class ControlPlaneHealthSupportTest {
             )
 
         requireNotNull(summary)
-        assertEquals(R.string.home_control_plane_health_title.toString(), summary.title)
-        assertEquals(R.string.home_control_plane_health_action.toString(), summary.actionLabel)
+        assertEquals(R.string.status_control_plane_health_title.toString(), summary.title)
+        assertEquals(R.string.status_control_plane_health_action.toString(), summary.actionLabel)
         assertEquals(ControlPlaneHealthSeverityUiModel.Warning, summary.severity)
         assertEquals(2, summary.items.size)
-        assertEquals(R.string.home_control_plane_host_packs_label.toString(), summary.items[0].label)
+        assertEquals(R.string.status_control_plane_host_packs_label.toString(), summary.items[0].label)
         assertEquals(
-            R.string.home_control_plane_host_pack_degraded.toString(),
+            R.string.status_control_plane_host_pack_degraded.toString(),
             summary.items[0].summary,
         )
         assertEquals(
-            "${R.string.home_control_plane_strategy_pack_rollback_rejected}:11,12",
+            "${R.string.status_control_plane_strategy_pack_rollback_rejected}:11,12",
             summary.items[1].summary,
         )
     }

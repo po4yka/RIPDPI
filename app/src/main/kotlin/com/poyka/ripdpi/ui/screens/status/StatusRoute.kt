@@ -30,7 +30,7 @@ fun StatusRoute(
     val homeDiagnostics = viewModel.homeDiagnosticsUiState.collectAsStateWithLifecycle().value
     val homeDiagnosticCard = viewModel.homeDiagnosticCard.collectAsStateWithLifecycle().value
     val subscriptionExpiry = viewModel.subscriptionExpiryUiState.collectAsStateWithLifecycle().value
-    val modesDisclosure = viewModel.homeModesDisclosure
+    val modesDisclosure = viewModel.statusModesDisclosure
     val modesExpanded = modesDisclosure.expanded.collectAsStateWithLifecycle().value
     StatusScreen(
         uiState = uiState,

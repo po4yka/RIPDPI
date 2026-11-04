@@ -14,7 +14,7 @@ internal fun buildDiagnosticCard(
             homeDiagnostics.analysisRunStatus == StatusDiagnosticsRunUiStatus.RUNNING
     return StatusModeCardUiState(
         mode = StatusMode.Diagnostic,
-        title = stringResolver.getString(R.string.home_mode_diagnostic_scan),
+        title = stringResolver.getString(R.string.status_mode_diagnostic_scan),
         primaryLabel =
             when {
                 homeDiagnostics.analysisAction.busy && homeDiagnostics.analysisAction.supportingText.isNotBlank() -> {
@@ -26,14 +26,14 @@ internal fun buildDiagnosticCard(
                 }
 
                 else -> {
-                    stringResolver.getString(R.string.home_mode_card_diagnostic_empty)
+                    stringResolver.getString(R.string.status_mode_card_diagnostic_empty)
                 }
             },
         secondaryLabel = latestAudit?.confidenceLabel(),
         statusLine =
             when {
                 homeDiagnostics.analysisAction.busy -> {
-                    stringResolver.getString(R.string.home_mode_card_status_busy)
+                    stringResolver.getString(R.string.status_mode_card_status_busy)
                 }
 
                 latestAudit != null -> {
@@ -41,14 +41,14 @@ internal fun buildDiagnosticCard(
                 }
 
                 else -> {
-                    stringResolver.getString(R.string.home_mode_card_status_inactive)
+                    stringResolver.getString(R.string.status_mode_card_status_inactive)
                 }
             },
         primaryActionLabel =
             stringResolver.getString(
-                if (cancellable) R.string.diagnostics_action_cancel else R.string.home_diagnostics_quick_scan,
+                if (cancellable) R.string.diagnostics_action_cancel else R.string.status_diagnostics_quick_scan,
             ),
-        configureLabel = stringResolver.getString(R.string.home_diagnostics_open_diagnostics_action),
+        configureLabel = stringResolver.getString(R.string.status_diagnostics_open_diagnostics_action),
         primaryActionEnabled =
             cancellable || (homeDiagnostics.analysisAction.enabled && !homeDiagnostics.analysisAction.busy),
         isActive = false,
@@ -65,16 +65,16 @@ private fun StatusDiagnosticsLatestAuditUiState.confidenceLabel(): String? =
 private fun StatusDiagnosticsLatestAuditUiState.diagnosticStatusLine(stringResolver: StringResolver): String =
     when {
         stale -> {
-            stringResolver.getString(R.string.home_mode_card_diagnostic_status_stale)
+            stringResolver.getString(R.string.status_mode_card_diagnostic_status_stale)
         }
 
         actionable -> {
-            stringResolver.getString(R.string.home_mode_card_diagnostic_status_actionable)
+            stringResolver.getString(R.string.status_mode_card_diagnostic_status_actionable)
         }
 
         failedStageCount > 0 && totalStageCount > 0 -> {
             stringResolver.getQuantityString(
-                R.plurals.home_mode_card_diagnostic_status_review_format,
+                R.plurals.status_mode_card_diagnostic_status_review_format,
                 totalStageCount,
                 failedStageCount,
                 totalStageCount,
@@ -83,7 +83,7 @@ private fun StatusDiagnosticsLatestAuditUiState.diagnosticStatusLine(stringResol
 
         totalStageCount > 0 -> {
             stringResolver.getQuantityString(
-                R.plurals.home_mode_card_diagnostic_status_complete_format,
+                R.plurals.status_mode_card_diagnostic_status_complete_format,
                 totalStageCount,
                 completedStageCount,
                 totalStageCount,
@@ -92,7 +92,7 @@ private fun StatusDiagnosticsLatestAuditUiState.diagnosticStatusLine(stringResol
 
         else -> {
             summary.ifBlank {
-                stringResolver.getString(R.string.home_mode_card_diagnostic_status_review)
+                stringResolver.getString(R.string.status_mode_card_diagnostic_status_review)
             }
         }
     }

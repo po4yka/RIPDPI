@@ -7,7 +7,7 @@ import com.poyka.ripdpi.platform.StringResolver
 internal fun Mode.startSenderName(stringResolver: StringResolver): String =
     stringResolver.getString(
         when (this) {
-            Mode.VPN -> R.string.home_mode_vpn
-            Mode.Proxy -> R.string.home_mode_proxy
+            Mode.VPN -> R.string.status_mode_vpn
+            Mode.Proxy -> R.string.status_mode_proxy
         },
     )

@@ -238,7 +238,7 @@ internal fun navigationRouteFrom(intent: Intent?): Route? =
         ?.takeIf { it.scheme == "ripdpi" && it.path.isNullOrEmpty() }
         ?.let { uri ->
             when (uri.authority) {
-                "connect" -> Route.Home
+                "connect" -> Route.Status
                 "config" -> Route.Config
                 "diagnostics" -> Route.Diagnostics()
                 "settings" -> Route.Settings

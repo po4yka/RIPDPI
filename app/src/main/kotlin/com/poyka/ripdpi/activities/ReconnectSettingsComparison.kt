@@ -20,7 +20,7 @@ class ReconnectSettingsIdentity {
 
 /** Display-only saved intent. It does not predict provider selection or runtime readiness. */
 @Immutable
-data class HomeReconnectComparisonUiState(
+data class StatusReconnectComparisonUiState(
     val currentSummary: String,
     val savedDns: String,
     val savedTcpStrategy: String,
@@ -30,7 +30,7 @@ internal fun buildReconnectComparison(
     applied: AppliedRuntimeConfiguration,
     settings: AppSettings,
     strings: StringResolver,
-): HomeReconnectComparisonUiState {
+): StatusReconnectComparisonUiState {
     val current =
         applied.effectiveSelection.confirmedSelectionLabels(strings) +
             reconnectDnsLabel(applied.dns.mode, applied.dns.protocol, strings) +
@@ -39,7 +39,7 @@ internal fun buildReconnectComparison(
             )
     val custom = settings.enableCmdSettings || settings.strategyChainYaml.isNotBlank()
     val family = settings.deriveStrategyLaneFamilies().tcpStrategyFamily
-    return HomeReconnectComparisonUiState(
+    return StatusReconnectComparisonUiState(
         currentSummary = current.joinToString(" · "),
         savedDns = reconnectDnsLabel(settings.dnsMode, settings.encryptedDnsProtocol, strings),
         savedTcpStrategy =

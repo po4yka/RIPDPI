@@ -65,7 +65,7 @@ class StatusModeCardTest {
 
         StatusMode.entries.forEach { mode ->
             composeRule
-                .onAllNodesWithTag(RipDpiTestTags.homeModeCard(mode.name))
+                .onAllNodesWithTag(RipDpiTestTags.statusModeCard(mode.name))
                 .assertCountEquals(2)
         }
     }
@@ -83,7 +83,7 @@ class StatusModeCardTest {
         }
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(StatusMode.LocalDpiBypass.name))
+            .onNodeWithTag(RipDpiTestTags.statusModePrimaryAction(StatusMode.LocalDpiBypass.name))
             .assertIsNotEnabled()
     }
 
@@ -108,7 +108,7 @@ class StatusModeCardTest {
         }
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(StatusMode.Diagnostic.name))
+            .onNodeWithTag(RipDpiTestTags.statusModePrimaryAction(StatusMode.Diagnostic.name))
             .assertIsEnabled()
             .performClick()
         composeRule.runOnIdle { assertEquals(1, stopped) }
@@ -130,7 +130,7 @@ class StatusModeCardTest {
         }
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.homeModeCardBody(StatusMode.LocalDpiBypass.name))
+            .onNodeWithTag(RipDpiTestTags.statusModeCardBody(StatusMode.LocalDpiBypass.name))
             .performTouchInput {
                 click(Offset(center.x, center.y / 2f))
             }
@@ -224,11 +224,11 @@ class StatusModeCardTest {
 
         val primary =
             composeRule
-                .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(StatusMode.LocalDpiBypass.name))
+                .onNodeWithTag(RipDpiTestTags.statusModePrimaryAction(StatusMode.LocalDpiBypass.name))
                 .fetchSemanticsNode()
         val configure =
             composeRule
-                .onNodeWithTag(RipDpiTestTags.homeModeConfigureAction(StatusMode.LocalDpiBypass.name))
+                .onNodeWithTag(RipDpiTestTags.statusModeConfigureAction(StatusMode.LocalDpiBypass.name))
                 .fetchSemanticsNode()
         assertTrue(primary.boundsInRoot.bottom <= configure.boundsInRoot.top)
     }

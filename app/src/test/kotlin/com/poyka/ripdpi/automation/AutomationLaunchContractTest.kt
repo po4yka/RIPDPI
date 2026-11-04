@@ -14,7 +14,7 @@ class AutomationLaunchContractTest {
                 instrumentationArgs =
                     mapOf(
                         AutomationLaunchContract.Enabled to "true",
-                        AutomationLaunchContract.StartRoute to Route.Home.stableRoute,
+                        AutomationLaunchContract.StartRoute to Route.Status.stableRoute,
                         AutomationLaunchContract.DisableMotion to "false",
                         AutomationLaunchContract.PermissionPreset to AutomationPermissionPreset.Granted.wireValue,
                         AutomationLaunchContract.ServicePreset to AutomationServicePreset.Idle.wireValue,

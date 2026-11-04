@@ -51,10 +51,10 @@ class ChineseLocalizationRegressionsTest(unittest.TestCase):
         keys = (
             "diagnostics_remediation_owned_stack_title", "diagnostics_remediation_owned_stack_summary",
             "diagnostics_remediation_owned_stack_step_open_browser", "diagnostics_remediation_no_hint_step_review_evidence",
-            "home_remediation_owned_stack_step_verify_result", "owned_stack_browser_trace_confirmed_ech",
-            "home_remediation_owned_stack_summary", "owned_stack_browser_trace_opportunistic_platform",
-            "home_remediation_no_hint_step_review_evidence", "home_remediation_owned_stack_step_open_browser",
-            "home_remediation_owned_stack_title", "owned_stack_browser_trace_native_ech_missing",
+            "status_remediation_owned_stack_step_verify_result", "owned_stack_browser_trace_confirmed_ech",
+            "status_remediation_owned_stack_summary", "owned_stack_browser_trace_opportunistic_platform",
+            "status_remediation_no_hint_step_review_evidence", "status_remediation_owned_stack_step_open_browser",
+            "status_remediation_owned_stack_title", "owned_stack_browser_trace_native_ech_missing",
         )
         for key in keys:
             with self.subTest(key=key):
@@ -92,9 +92,9 @@ class ChineseLocalizationRegressionsTest(unittest.TestCase):
             "diagnostics_remediation_browser_relay_step_open_mode_editor",
             "diagnostics_remediation_quic_relay_step_open_mode_editor",
             "diagnostics_remediation_open_mode_editor_action",
-            "home_remediation_browser_relay_step_open_mode_editor",
-            "home_remediation_quic_relay_step_open_mode_editor",
-            "home_remediation_browser_relay_summary", "home_remediation_quic_relay_summary",
+            "status_remediation_browser_relay_step_open_mode_editor",
+            "status_remediation_quic_relay_step_open_mode_editor",
+            "status_remediation_browser_relay_summary", "status_remediation_quic_relay_summary",
         )
         for key in instructions:
             with self.subTest(key=key):

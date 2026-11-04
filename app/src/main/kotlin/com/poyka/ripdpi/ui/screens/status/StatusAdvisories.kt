@@ -58,7 +58,7 @@ internal data class StatusAdvisory(
  */
 @Composable
 @Suppress("LongParameterList")
-internal fun buildHomeAdvisories(
+internal fun buildStatusAdvisories(
     uiState: MainUiState,
     subscriptionExpiry: SubscriptionExpirySummaryUiState,
     onRepairPermission: (PermissionKind) -> Unit,
@@ -112,7 +112,7 @@ private fun buildSetupHealthAdvisories(
                     tone = WarningBannerTone.Info,
                     actionLabel = stringResource(R.string.settings_permission_action_review),
                     onClick = onDismissBackgroundGuidance,
-                    testTag = RipDpiTestTags.HomeSetupHealthAction,
+                    testTag = RipDpiTestTags.StatusSetupHealthAction,
                 )
         }
     }
@@ -133,7 +133,7 @@ private fun permissionIssueAdvisory(
             when (issue.recovery) {
                 PermissionRecovery.OpenSettings,
                 PermissionRecovery.OpenBatteryOptimizationSettings,
-                -> stringResource(R.string.home_permission_issue_with_settings, issue.message)
+                -> stringResource(R.string.status_permission_issue_with_settings, issue.message)
 
                 PermissionRecovery.ShowVpnPermissionDialog,
                 PermissionRecovery.RetryPrompt,
@@ -160,7 +160,7 @@ private fun permissionIssueAdvisory(
                     { onRepairPermission(issue.kind) }
                 }
             },
-        testTag = RipDpiTestTags.HomeSetupHealthAction,
+        testTag = RipDpiTestTags.StatusSetupHealthAction,
     )
 
 /** A permission worth having that nothing is currently blocked on. */
@@ -186,7 +186,7 @@ private fun recommendationAdvisory(
             } else {
                 { onDismissBatteryBanner() }
             },
-        testTag = RipDpiTestTags.HomeSetupHealthAction,
+        testTag = RipDpiTestTags.StatusSetupHealthAction,
     )
 
 /**
@@ -219,7 +219,7 @@ private fun lockdownAdvisory(
             } else {
                 null
             },
-        testTag = RipDpiTestTags.HomeSetupHealthAction,
+        testTag = RipDpiTestTags.StatusSetupHealthAction,
     )
 }
 

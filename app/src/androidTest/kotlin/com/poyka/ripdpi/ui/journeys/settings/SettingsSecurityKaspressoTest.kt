@@ -41,7 +41,7 @@ class SettingsBackupPinWarningKaspressoTest :
                 composeRule
                     .onNode(hasTestTag(RipDpiTestTags.BiometricPromptPrimaryAction))
                     .performSemanticsAction(SemanticsActions.OnClick)
-                composeRule.waitForTag(RipDpiTestTags.screen(Route.Home))
+                composeRule.waitForTag(RipDpiTestTags.screen(Route.Status))
             }
             with(SettingsPage(composeRule)) {
                 step("Open settings: a saved PIN means no warning") {

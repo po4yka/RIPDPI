@@ -220,14 +220,14 @@ class TopLevelNavigationScaffoldTest {
                     }
                 }
             composeRule.setContent {
-                var selected by androidx.compose.runtime.remember { mutableStateOf<Route>(Route.Home) }
+                var selected by androidx.compose.runtime.remember { mutableStateOf<Route>(Route.Status) }
                 RipDpiTheme {
                     CompositionLocalProvider(LocalView provides view) {
                         TopLevelNavigationScaffold(selectedRoute = selected, onNavigate = { selected = it }) {}
                     }
                 }
             }
-            composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(Route.Home)).performClick()
+            composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(Route.Status)).performClick()
             composeRule.runOnIdle { assertEquals(emptyList<Int>(), haptics) }
             composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(Route.Config)).performClick()
             composeRule.runOnIdle { assertEquals(1, haptics.size) }
@@ -240,7 +240,7 @@ class TopLevelNavigationScaffoldTest {
     private fun setNavigation(fontScale: Float = 1f): MutableList<Route> {
         val navigated = mutableListOf<Route>()
         composeRule.setContent {
-            var selected by androidx.compose.runtime.remember { mutableStateOf<Route>(Route.Home) }
+            var selected by androidx.compose.runtime.remember { mutableStateOf<Route>(Route.Status) }
             CompositionLocalProvider(LocalDensity provides Density(density = 1f, fontScale = fontScale)) {
                 RipDpiTheme {
                     TopLevelNavigationScaffold(
@@ -275,7 +275,7 @@ class TopLevelNavigationScaffoldTest {
         }
 
     private fun assertSelectionFollowsClicks(navigated: List<Route>) {
-        composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(Route.Home)).assertIsSelected()
+        composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(Route.Status)).assertIsSelected()
         Route.topLevel.reversed().forEach { route ->
             composeRule.onNodeWithTag(RipDpiTestTags.bottomNav(route)).performClick().assertIsSelected()
             Route.topLevel.filter { it != route }.forEach {

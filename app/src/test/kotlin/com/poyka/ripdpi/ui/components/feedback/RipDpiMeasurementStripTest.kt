@@ -65,8 +65,8 @@ class RipDpiMeasurementStripTest {
     ) {
         val context = RuntimeEnvironment.getApplication()
         val title = context.getString(R.string.connection_health_summary_title)
-        val body = context.getString(R.string.home_quality_waiting)
-        val label = context.getString(R.string.home_quality_traffic_total)
+        val body = context.getString(R.string.status_quality_waiting)
+        val label = context.getString(R.string.status_quality_traffic_total)
         val primary = context.getString(R.string.vpn_quality_strip_reprobe)
         var primaryClicks = 0
         var secondaryClicks = 0

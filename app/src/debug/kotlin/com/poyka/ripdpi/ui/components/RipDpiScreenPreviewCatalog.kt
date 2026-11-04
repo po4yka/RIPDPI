@@ -51,7 +51,7 @@ private fun HomeExpandedPreview() {
 @Composable
 internal fun RipDpiHomeExpandedPreviewScene(
     connectionActuator: StatusConnectionActuatorUiState =
-        homePreviewActuatorState(StatusConnectionActuatorStatus.Locked),
+        statusPreviewActuatorState(StatusConnectionActuatorStatus.Locked),
 ) {
     RipDpiTheme(themePreference = "light") {
         StatusScreen(
@@ -63,7 +63,7 @@ internal fun RipDpiHomeExpandedPreviewScene(
                     connectionState = ConnectionState.Connected,
                     connectionActuator = connectionActuator,
                     dataTransferred = 54_321_987L,
-                    modeCards = homePreviewModeCards(activeMode = StatusMode.RemoteVpn),
+                    modeCards = statusPreviewModeCards(activeMode = StatusMode.RemoteVpn),
                 ),
             onToggleConnection = {},
             onOpenDiagnostics = {},
@@ -84,9 +84,9 @@ internal fun RipDpiHomeCompactPreviewScene() {
                     activeMode = Mode.VPN,
                     configuredMode = Mode.VPN,
                     connectionState = ConnectionState.Connected,
-                    connectionActuator = homePreviewActuatorState(StatusConnectionActuatorStatus.Locked),
+                    connectionActuator = statusPreviewActuatorState(StatusConnectionActuatorStatus.Locked),
                     dataTransferred = 54_321_987L,
-                    modeCards = homePreviewModeCards(activeMode = StatusMode.RemoteVpn),
+                    modeCards = statusPreviewModeCards(activeMode = StatusMode.RemoteVpn),
                 ),
             onToggleConnection = {},
             onOpenDiagnostics = {},
@@ -107,9 +107,9 @@ internal fun RipDpiHomeDarkPreviewScene() {
                     activeMode = Mode.VPN,
                     configuredMode = Mode.VPN,
                     connectionState = ConnectionState.Connected,
-                    connectionActuator = homePreviewActuatorState(StatusConnectionActuatorStatus.Locked),
+                    connectionActuator = statusPreviewActuatorState(StatusConnectionActuatorStatus.Locked),
                     dataTransferred = 54_321_987L,
-                    modeCards = homePreviewModeCards(activeMode = StatusMode.RemoteVpn),
+                    modeCards = statusPreviewModeCards(activeMode = StatusMode.RemoteVpn),
                 ),
             onToggleConnection = {},
             onOpenDiagnostics = {},
@@ -130,8 +130,8 @@ internal fun RipDpiHomeConnectingPreviewScene() {
                     activeMode = Mode.VPN,
                     configuredMode = Mode.VPN,
                     connectionState = ConnectionState.Connecting,
-                    connectionActuator = homePreviewActuatorState(StatusConnectionActuatorStatus.Engaging),
-                    modeCards = homePreviewModeCards(loadingMode = StatusMode.RemoteVpn),
+                    connectionActuator = statusPreviewActuatorState(StatusConnectionActuatorStatus.Engaging),
+                    modeCards = statusPreviewModeCards(loadingMode = StatusMode.RemoteVpn),
                 ),
             onToggleConnection = {},
             onOpenDiagnostics = {},

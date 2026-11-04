@@ -399,12 +399,12 @@ class MainActivityNavigationInstrumentedTest {
 
     @Test
     fun startupDestinationIsHomeWhenOnboardingCompleteAndBiometricDisabled() {
-        composeRule.assertScreenVisible(Route.Home)
+        composeRule.assertScreenVisible(Route.Status)
     }
 
     @Test
     fun bottomNavSwitchesBetweenTopLevelDestinations() {
-        composeRule.assertScreenVisible(Route.Home)
+        composeRule.assertScreenVisible(Route.Status)
 
         composeRule.tapBottomNav(Route.Config)
         composeRule.assertScreenVisible(Route.Config)
@@ -415,8 +415,8 @@ class MainActivityNavigationInstrumentedTest {
         composeRule.tapBottomNav(Route.Settings)
         composeRule.assertScreenVisible(Route.Settings)
 
-        composeRule.tapBottomNav(Route.Home)
-        composeRule.assertScreenVisible(Route.Home)
+        composeRule.tapBottomNav(Route.Status)
+        composeRule.assertScreenVisible(Route.Status)
     }
 
     @Test
@@ -430,7 +430,7 @@ class MainActivityNavigationInstrumentedTest {
 
         val originalIntent = composeRule.sendLaunchHomeIntent()
         try {
-            composeRule.assertScreenVisible(Route.Home)
+            composeRule.assertScreenVisible(Route.Status)
         } finally {
             composeRule.restoreScenarioIntent(originalIntent)
         }
@@ -474,7 +474,7 @@ class MainActivityNavigationInstrumentedTest {
 
         val originalIntent = composeRule.sendLaunchHomeIntent()
         try {
-            composeRule.assertScreenVisible(Route.Home)
+            composeRule.assertScreenVisible(Route.Status)
         } finally {
             composeRule.restoreScenarioIntent(originalIntent)
         }
@@ -482,7 +482,7 @@ class MainActivityNavigationInstrumentedTest {
 
     @Test
     fun diagnosticsApproachesSectionIsReachableFromBottomNav() {
-        composeRule.assertScreenVisible(Route.Home)
+        composeRule.assertScreenVisible(Route.Status)
 
         composeRule.tapBottomNav(Route.Diagnostics())
 
@@ -554,10 +554,10 @@ class MainActivityNavigationInstrumentedTest {
             ),
         )
 
-        composeRule.waitForTag(RipDpiTestTags.HomeDiagnosticsShareAction)
+        composeRule.waitForTag(RipDpiTestTags.StatusDiagnosticsShareAction)
         composeRule.onNodeWithText("Network analysis complete").assertIsDisplayed()
         composeRule.onNodeWithText("Report ready").assertIsDisplayed()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeDiagnosticsShareAction).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusDiagnosticsShareAction).performClick()
         composeRule.waitUntil(timeoutMillis = 5_000) {
             host.commands.any { it is MainActivityHostCommand.PrepareDiagnosticsExport }
         }

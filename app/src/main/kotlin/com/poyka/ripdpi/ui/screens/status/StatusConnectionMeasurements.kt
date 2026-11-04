@@ -69,13 +69,13 @@ internal fun StatusConnectionMeasurements(
     }
     if (!hasMeasurements && selectedSnapshot == null) return
     val currentTime = now ?: source?.let { measurementNow(it) } ?: 0L
-    val summary = resolveHomeMeasurementSummary(observed, source?.freshness(currentTime).takeIf { connected })
+    val summary = resolveStatusMeasurementSummary(observed, source?.freshness(currentTime).takeIf { connected })
     if (hasMeasurements) {
         RipDpiMeasurementStrip(
             title = stringResource(summary.title),
             body = stringResource(summary.body),
             metrics =
-                homeMeasurementMetrics(
+                statusMeasurementMetrics(
                     observed,
                     dataTransferred,
                     latencyModifier =
@@ -84,7 +84,7 @@ internal fun StatusConnectionMeasurements(
                             .focusProperties { canFocus = true }
                             .focusRequester(
                                 latencyFocus,
-                            ).ripDpiTestTag(RipDpiTestTags.HomeLatencyMetric),
+                            ).ripDpiTestTag(RipDpiTestTags.StatusLatencyMetric),
                     onOpenLatency = {
                         returnFocusRequested = false
                         selectedSnapshot =
@@ -98,7 +98,7 @@ internal fun StatusConnectionMeasurements(
                 ),
             footnote =
                 observed?.takeIf { it.sampleCount > 0L }?.let {
-                    pluralStringResource(R.plurals.home_quality_samples, it.sampleCount.toInt(), it.sampleCount)
+                    pluralStringResource(R.plurals.status_quality_samples, it.sampleCount.toInt(), it.sampleCount)
                 },
             primaryAction = measureAction(measured = observed != null, onMeasure = onReprobe),
             secondaryAction = null,
@@ -120,7 +120,7 @@ private fun measureAction(
     measured: Boolean,
     onMeasure: () -> Unit,
 ) = RipDpiMeasurementAction(
-    stringResource(if (measured) R.string.vpn_quality_strip_reprobe else R.string.home_quality_measure),
+    stringResource(if (measured) R.string.vpn_quality_strip_reprobe else R.string.status_quality_measure),
     onMeasure,
 )
 
@@ -130,29 +130,29 @@ internal data class StatusMeasurementSummary(
     val tone: RipDpiMeasurementTone = RipDpiMeasurementTone.Nominal,
 )
 
-internal fun resolveHomeMeasurementSummary(
+internal fun resolveStatusMeasurementSummary(
     quality: ConnectionQualitySnapshot?,
     freshness: RuntimeMeasurementFreshness?,
 ): StatusMeasurementSummary =
     when {
         quality?.hasObservedMeasurements() != true -> {
-            StatusMeasurementSummary(body = R.string.home_quality_waiting)
+            StatusMeasurementSummary(body = R.string.status_quality_waiting)
         }
 
         freshness != RuntimeMeasurementFreshness.Current -> {
-            StatusMeasurementSummary(body = R.string.home_quality_last_values)
+            StatusMeasurementSummary(body = R.string.status_quality_last_values)
         }
 
         quality.sampleCount < DefaultRipDpiNetworkQualityThresholds.minSampleCountForVerdict -> {
-            StatusMeasurementSummary(body = R.string.home_quality_partial)
+            StatusMeasurementSummary(body = R.string.status_quality_partial)
         }
 
         else -> {
-            assessedHomeMeasurementSummary(quality)
+            assessedStatusMeasurementSummary(quality)
         }
     }
 
-private fun assessedHomeMeasurementSummary(quality: ConnectionQualitySnapshot): StatusMeasurementSummary =
+private fun assessedStatusMeasurementSummary(quality: ConnectionQualitySnapshot): StatusMeasurementSummary =
     when (resolveMeasurementTone(quality)) {
         RipDpiMeasurementTone.Warning -> {
             StatusMeasurementSummary(
@@ -176,7 +176,7 @@ private fun assessedHomeMeasurementSummary(quality: ConnectionQualitySnapshot): 
     }
 
 @Composable
-private fun homeMeasurementMetrics(
+private fun statusMeasurementMetrics(
     quality: ConnectionQualitySnapshot?,
     dataTransferred: Long,
     latencyModifier: Modifier,
@@ -186,39 +186,39 @@ private fun homeMeasurementMetrics(
         // Zero loss with no samples is an empty window, not a good result.
         if (it.lossPct > 0f || it.sampleCount > 0L) {
             add(
-                homeMetric(
+                statusMetric(
                     R.string.vpn_quality_metric_loss,
-                    stringResource(R.string.home_quality_metric_loss_format, it.lossPct),
+                    stringResource(R.string.status_quality_metric_loss_format, it.lossPct),
                 ),
             )
         }
         if (it.sampleCount > 0L) {
             add(
-                homeMetric(
+                statusMetric(
                     R.string.vpn_quality_metric_rtt_p50,
-                    stringResource(R.string.home_quality_metric_ms_format, it.rttP50Ms),
+                    stringResource(R.string.status_quality_metric_ms_format, it.rttP50Ms),
                     action = RipDpiMeasurementAction(stringResource(R.string.latency_detail_open), onOpenLatency),
                     modifier = latencyModifier,
                 ),
             )
             add(
-                homeMetric(
+                statusMetric(
                     R.string.vpn_quality_metric_jitter,
-                    stringResource(R.string.home_quality_metric_ms_format, it.jitterMs),
+                    stringResource(R.string.status_quality_metric_ms_format, it.jitterMs),
                 ),
             )
         }
     }
     add(
-        homeMetric(
-            R.string.home_quality_traffic_total,
+        statusMetric(
+            R.string.status_quality_traffic_total,
             Formatter.formatShortFileSize(LocalContext.current, dataTransferred),
         ),
     )
 }.toImmutableList()
 
 @Composable
-private fun homeMetric(
+private fun statusMetric(
     label: Int,
     value: String,
     action: RipDpiMeasurementAction? = null,

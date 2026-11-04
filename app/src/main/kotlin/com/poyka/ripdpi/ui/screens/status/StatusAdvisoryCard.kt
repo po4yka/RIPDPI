@@ -87,7 +87,7 @@ private fun AdvisoryCard(
     val cardPadding = RipDpiThemeTokens.layout.cardPadding
     RipDpiCard(
         variant = RipDpiCardVariant.Tonal,
-        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeSetupHealthRow),
+        modifier = Modifier.ripDpiTestTag(RipDpiTestTags.StatusAdvisoryCard),
         // The disclosure's touch target already adds space under its label.
         paddingValues =
             PaddingValues(
@@ -99,10 +99,10 @@ private fun AdvisoryCard(
     ) {
         AdvisoryRow(
             advisory = top,
-            testTag = if (recoveryIndex == 0) RipDpiTestTags.HomeAdvisoryPrimaryAction else top.testTag,
+            testTag = if (recoveryIndex == 0) RipDpiTestTags.StatusAdvisoryPrimaryAction else top.testTag,
         )
         if (recoveryIndex > 0) {
-            AdvisoryRow(advisory = advisories[recoveryIndex], testTag = RipDpiTestTags.HomeAdvisoryPrimaryAction)
+            AdvisoryRow(advisory = advisories[recoveryIndex], testTag = RipDpiTestTags.StatusAdvisoryPrimaryAction)
         }
         if (remaining.isNotEmpty()) {
             HorizontalDivider(color = RipDpiThemeTokens.colors.divider)
@@ -110,7 +110,7 @@ private fun AdvisoryCard(
             // Below the toggle: the toggle keeps its place, and the new items follow it in reading order.
             if (expanded) {
                 Column(
-                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.HomeSetupHealthDetails),
+                    modifier = Modifier.ripDpiTestTag(RipDpiTestTags.StatusSetupHealthDetails),
                     verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.sm),
                 ) {
                     remaining.forEach { advisory -> AdvisoryRow(advisory) }
@@ -209,7 +209,7 @@ private fun AdvisoryDisclosure(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .ripDpiTestTag(RipDpiTestTags.HomeAdvisoryMore)
+                .ripDpiTestTag(RipDpiTestTags.StatusAdvisoryMore)
                 .semantics { stateDescription = stateLabel }
                 .ripDpiClickable(role = Role.Button, onClick = onToggle)
                 .padding(vertical = spacing.xs),
@@ -219,7 +219,7 @@ private fun AdvisoryDisclosure(
         // Lines the label up with the advisory titles above it.
         Spacer(Modifier.width(RipDpiIconSizes.Default))
         Text(
-            text = pluralStringResource(R.plurals.home_advisories_more, count, count),
+            text = pluralStringResource(R.plurals.status_advisories_more, count, count),
             modifier = Modifier.weight(1f),
             style = RipDpiThemeTokens.type.secondaryBody,
             color = colors.mutedForeground,

@@ -65,15 +65,15 @@ internal fun vpnDataPlaneActuatorDescription(
 ): String? =
     when (status) {
         VpnDataPlaneStatus.Checking -> {
-            stringResolver.getString(R.string.home_connection_actuator_state_vpn_checking)
+            stringResolver.getString(R.string.status_connection_actuator_state_vpn_checking)
         }
 
         VpnDataPlaneStatus.Unverified -> {
-            stringResolver.getString(R.string.home_connection_actuator_state_vpn_unverified)
+            stringResolver.getString(R.string.status_connection_actuator_state_vpn_unverified)
         }
 
         VpnDataPlaneStatus.Unavailable -> {
-            stringResolver.getString(R.string.home_connection_actuator_state_vpn_unavailable)
+            stringResolver.getString(R.string.status_connection_actuator_state_vpn_unavailable)
         }
 
         else -> {

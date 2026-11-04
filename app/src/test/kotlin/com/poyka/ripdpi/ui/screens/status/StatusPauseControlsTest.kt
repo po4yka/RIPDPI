@@ -27,7 +27,7 @@ import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.PauseFailure
 import com.poyka.ripdpi.data.PausePhase
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
-import com.poyka.ripdpi.ui.testing.homePauseDuration
+import com.poyka.ripdpi.ui.testing.statusPauseDuration
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -49,21 +49,21 @@ class StatusPauseControlsTest {
     @Test
     fun `unavailable connection has no misleading pause or resume action`() {
         render(StatusPauseUiState())
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseOpen).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseResume).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseStop).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseOpen).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseResume).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseStop).assertDoesNotExist()
     }
 
     @Test
     fun `duration selection requests exact minutes once and closes sheet`() {
         val durations = mutableListOf<Long>()
         render(StatusPauseUiState(available = true), onPause = durations::add)
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseOpen).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseOpen).performClick()
         listOf(5, 15, 30, 60).forEach { minutes ->
-            composeRule.onNodeWithTag(RipDpiTestTags.homePauseDuration(minutes)).assertHasClickAction()
+            composeRule.onNodeWithTag(RipDpiTestTags.statusPauseDuration(minutes)).assertHasClickAction()
         }
         assertTrue(durations.isEmpty())
-        composeRule.onNodeWithTag(RipDpiTestTags.homePauseDuration(15)).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.statusPauseDuration(15)).performClick()
         assertEquals(listOf(900_000L), durations)
         composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseDurationSheet).assertDoesNotExist()
     }
@@ -72,7 +72,7 @@ class StatusPauseControlsTest {
     fun `cancelled chooser requests no pause`() {
         val durations = mutableListOf<Long>()
         render(StatusPauseUiState(available = true), onPause = durations::add)
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseOpen).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseOpen).performClick()
         composeRule.onNodeWithText(text(android.R.string.cancel)).performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseDurationSheet).assertDoesNotExist()
         assertTrue(durations.isEmpty())
@@ -83,7 +83,7 @@ class StatusPauseControlsTest {
         var state by mutableStateOf(StatusPauseUiState(available = true))
         val durations = mutableListOf<Long>()
         composeRule.setContent { RipDpiTheme { StatusPauseControls(state, durations::add, {}, {}) } }
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseOpen).performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseOpen).performClick()
         composeRule.runOnIdle { state = state.copy(available = false) }
         composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseDurationSheet).assertDoesNotExist()
         composeRule.runOnIdle { state = StatusPauseUiState(available = true) }
@@ -96,11 +96,11 @@ class StatusPauseControlsTest {
         var resumes = 0
         var stops = 0
         render(paused().copy(mode = Mode.Proxy), onResume = { resumes++ }, onStop = { stops++ })
-        composeRule.onNodeWithText(text(R.string.home_mode_proxy)).assertExists()
+        composeRule.onNodeWithText(text(R.string.status_mode_proxy)).assertExists()
         composeRule.onNodeWithText(text(R.string.pause_saved_settings)).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseOpen).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseResume).assertHasClickAction().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseStop).assertHasClickAction().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseOpen).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseResume).assertHasClickAction().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseStop).assertHasClickAction().performClick()
         assertEquals(1, resumes)
         assertEquals(1, stops)
     }
@@ -109,15 +109,15 @@ class StatusPauseControlsTest {
     fun `unknown remaining time is not shown as measured zero`() {
         render(paused().copy(remainingMillis = null))
         composeRule.onNodeWithText(text(R.string.pause_remaining, "0")).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseResume).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseResume).assertExists()
     }
 
     @Test
     fun `cleanup pending never claims paused or permits resume`() {
         render(paused().copy(phase = PausePhase.CleanupPending))
         composeRule.onNodeWithText(text(R.string.pause_cleanup_pending)).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseResume).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseStop).assertHasClickAction()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseResume).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseStop).assertHasClickAction()
         composeRule.onNodeWithText(text(R.string.pause_remaining, "5")).assertDoesNotExist()
     }
 
@@ -125,10 +125,10 @@ class StatusPauseControlsTest {
     fun `releasing and resuming cannot dispatch a competing resume`() {
         var state by mutableStateOf(paused().copy(phase = PausePhase.Releasing))
         composeRule.setContent { RipDpiTheme { StatusPauseControls(state, {}, {}, {}) } }
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseResume).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseResume).assertDoesNotExist()
         composeRule.onNodeWithText(text(R.string.pause_releasing)).assertExists()
         composeRule.runOnIdle { state = state.copy(phase = PausePhase.Resuming) }
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseResume).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseResume).assertDoesNotExist()
         composeRule.onNodeWithText(text(R.string.pause_resuming)).assertExists()
     }
 
@@ -138,14 +138,14 @@ class StatusPauseControlsTest {
         composeRule.onNodeWithText(text(R.string.pause_deferred)).assertExists()
         composeRule.onNodeWithText(text(R.string.pause_consent_required)).assertExists()
         composeRule.onNodeWithText(text(R.string.pause_remaining, "5")).assertDoesNotExist()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseResume).assertHasClickAction()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseResume).assertHasClickAction()
     }
 
     @Test
     fun `initial persistence error does not claim a scheduled pause`() {
         render(StatusPauseUiState(available = true, requestFailed = true))
         composeRule.onNodeWithText(text(R.string.pause_persistence_failed)).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseResume).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseResume).assertDoesNotExist()
     }
 
     @Test
@@ -191,8 +191,8 @@ class StatusPauseControlsTest {
             assertTrue(node.boundsInRoot.top >= panel.top && node.boundsInRoot.bottom <= panel.bottom)
             assertTrue(node.boundsInRoot.left >= panel.left && node.boundsInRoot.right <= panel.right)
         }
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseResume).assertIsDisplayed().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.HomePauseStop).assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseResume).assertIsDisplayed().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusPauseStop).assertIsDisplayed().performClick()
         assertEquals(1, resumes)
         assertEquals(1, stops)
     }

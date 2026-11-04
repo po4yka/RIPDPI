@@ -7,16 +7,16 @@ from test_localization_regressions import FORMAT, LOCALES, resources, text
 
 
 COUNT_KEYS = (
-    "home_generated_tcp_probes",
-    "home_generated_blocked_services",
-    "home_generated_dns_bootstrap",
+    "status_generated_tcp_probes",
+    "status_generated_blocked_services",
+    "status_generated_dns_bootstrap",
     "pause_remaining",
     "logs_entries_count",
     "vpn_pcap_viewer_meta_format",
 )
 DNS_QUALITY_KEYS = (
-    "home_generated_dns_answers_matching",
-    "home_generated_dns_answers_usable",
+    "status_generated_dns_answers_matching",
+    "status_generated_dns_answers_usable",
 )
 ENCRYPTED_ANSWERS = {
     "values": "encrypted answers",
@@ -44,7 +44,7 @@ class FinalLocalizationRegressionsTest(unittest.TestCase):
 
     def test_dns_quality_is_a_complete_object_without_a_second_answer_noun(self):
         for locale, catalog in self.catalogs.items():
-            template = text(catalog["home_generated_dns_rationale"])
+            template = text(catalog["status_generated_dns_rationale"])
             for quality_key in DNS_QUALITY_KEYS:
                 with self.subTest(locale=locale, quality=quality_key):
                     quality = text(catalog[quality_key])
@@ -67,11 +67,11 @@ class FinalLocalizationRegressionsTest(unittest.TestCase):
                         self.assertEqual(1, rendered.count(str(quantity)))
                         self.assertNotRegex(rendered, r"%\d+\$")
             # This count is the sixth argument, separate from answer quality.
-            self.assertRegex(text(catalog["home_generated_dns_rationale"]), r"[:：] ?%6\$s")
+            self.assertRegex(text(catalog["status_generated_dns_rationale"]), r"[:：] ?%6\$s")
 
     def test_new_objects_preserve_resource_type_and_placeholder_contract(self):
         source = self.catalogs["values"]
-        keys = COUNT_KEYS + DNS_QUALITY_KEYS + ("home_generated_dns_rationale",)
+        keys = COUNT_KEYS + DNS_QUALITY_KEYS + ("status_generated_dns_rationale",)
         for locale, catalog in self.catalogs.items():
             for key in keys:
                 with self.subTest(locale=locale, key=key):

@@ -14,7 +14,7 @@ import kotlin.time.Duration
  * [labelRes]. See the note on [StatusConnectionActuatorUiState] for why literals
  * cannot live here.
  */
-private val DefaultHomeConnectionActuatorStages =
+private val DefaultStatusConnectionActuatorStages =
     StatusConnectionActuatorStage.entries
         .map { stage ->
             StatusConnectionActuatorStageUiState(
@@ -46,11 +46,11 @@ enum class StatusConnectionActuatorStage(
 @StringRes
 fun StatusConnectionActuatorStage.labelRes(): Int =
     when (this) {
-        StatusConnectionActuatorStage.Network -> R.string.home_connection_stage_network
-        StatusConnectionActuatorStage.Dns -> R.string.home_connection_stage_dns
-        StatusConnectionActuatorStage.Handshake -> R.string.home_connection_stage_handshake
-        StatusConnectionActuatorStage.Tunnel -> R.string.home_connection_stage_tunnel
-        StatusConnectionActuatorStage.Route -> R.string.home_connection_stage_route
+        StatusConnectionActuatorStage.Network -> R.string.status_connection_stage_network
+        StatusConnectionActuatorStage.Dns -> R.string.status_connection_stage_dns
+        StatusConnectionActuatorStage.Handshake -> R.string.status_connection_stage_handshake
+        StatusConnectionActuatorStage.Tunnel -> R.string.status_connection_stage_tunnel
+        StatusConnectionActuatorStage.Route -> R.string.status_connection_stage_route
     }
 
 enum class StatusConnectionActuatorStageState {
@@ -96,7 +96,7 @@ data class StatusConnectionActuatorUiState(
     val strategyFacets: ImmutableList<StatusModeSummaryFacet> = persistentListOf(),
     /** Elapsed time of the running session, shown when the user confirms a disconnect. */
     val sessionDuration: Duration = Duration.ZERO,
-    val stages: ImmutableList<StatusConnectionActuatorStageUiState> = DefaultHomeConnectionActuatorStages,
+    val stages: ImmutableList<StatusConnectionActuatorStageUiState> = DefaultStatusConnectionActuatorStages,
     val activationEnabled: Boolean? = null,
     val deactivationEnabled: Boolean? = null,
 ) {

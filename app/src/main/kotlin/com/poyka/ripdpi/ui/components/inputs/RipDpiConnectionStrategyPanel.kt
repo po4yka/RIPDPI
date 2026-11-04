@@ -103,7 +103,7 @@ internal fun RipDpiConnectionStrategyPanel(
                 Text(
                     text =
                         stringResource(
-                            if (expanded) R.string.home_strategy_hide_details else R.string.home_strategy_details,
+                            if (expanded) R.string.status_strategy_hide_details else R.string.status_strategy_details,
                         ),
                     style = type.smallLabel,
                     color = colors.foreground,
@@ -120,7 +120,7 @@ internal fun RipDpiConnectionStrategyPanel(
                 verticalArrangement = Arrangement.spacedBy(spacing.sm),
             ) {
                 Text(
-                    text = stringResource(R.string.home_connection_strategy_explainer),
+                    text = stringResource(R.string.status_connection_strategy_explainer),
                     style = type.secondaryBody,
                     color = colors.mutedForeground,
                 )

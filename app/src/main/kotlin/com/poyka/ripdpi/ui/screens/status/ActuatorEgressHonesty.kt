@@ -59,8 +59,8 @@ internal fun actuatorTrailingLabel(
 ): String =
     stringResolver.getString(
         if (egressBacked) {
-            R.string.home_connection_actuator_relay
+            R.string.status_connection_actuator_relay
         } else {
-            R.string.home_connection_path_direct
+            R.string.status_connection_path_direct
         },
     )

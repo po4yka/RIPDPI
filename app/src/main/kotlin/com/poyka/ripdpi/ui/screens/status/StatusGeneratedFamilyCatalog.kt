@@ -54,18 +54,18 @@ internal val homeGeneratedHumanFamilyTokens =
 
 internal val homeGeneratedFamilyValueResources =
     mapOf(
-        "low-port bind" to R.string.home_generated_low_port,
-        "post-handshake UDP rebind" to R.string.home_generated_udp_rebind,
+        "low-port bind" to R.string.status_generated_low_port,
+        "post-handshake UDP rebind" to R.string.status_generated_udp_rebind,
         "low" to R.string.blockcheck_confidence_low,
         "medium" to R.string.blockcheck_confidence_medium,
         "high" to R.string.blockcheck_confidence_high,
-        "matching" to R.string.home_generated_dns_matching,
+        "matching" to R.string.status_generated_dns_matching,
         "usable" to R.string.diagnostics_compression_metric_usable,
-        "TCP RST injection" to R.string.home_generated_pattern_rst,
-        "threshold-based HTTPS blocking" to R.string.home_generated_pattern_threshold,
-        "silent packet drop" to R.string.home_generated_pattern_drop,
-        "mixed DPI blocking" to R.string.home_generated_pattern_mixed,
-        "DPI blocking" to R.string.home_generated_pattern_dpi,
-        "fake packets with adaptive TTL" to R.string.home_generated_family_fake_ttl,
-        "out-of-order delivery (disorder)" to R.string.home_generated_family_disorder,
+        "TCP RST injection" to R.string.status_generated_pattern_rst,
+        "threshold-based HTTPS blocking" to R.string.status_generated_pattern_threshold,
+        "silent packet drop" to R.string.status_generated_pattern_drop,
+        "mixed DPI blocking" to R.string.status_generated_pattern_mixed,
+        "DPI blocking" to R.string.status_generated_pattern_dpi,
+        "fake packets with adaptive TTL" to R.string.status_generated_family_fake_ttl,
+        "out-of-order delivery (disorder)" to R.string.status_generated_family_disorder,
     )

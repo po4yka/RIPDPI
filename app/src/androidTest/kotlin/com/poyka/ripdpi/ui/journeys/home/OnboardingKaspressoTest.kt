@@ -67,7 +67,7 @@ class OnboardingKaspressoTest :
         composeRule.waitForSettings(appSettingsRepository) {
             it.onboardingComplete && it.uiPersona == "advanced" && it.ripdpiMode == Mode.Proxy.preferenceValue
         }
-        composeRule.waitForTag(RipDpiTestTags.screen(Route.Home))
+        composeRule.waitForTag(RipDpiTestTags.screen(Route.Status))
     }
 
     @Test
@@ -76,7 +76,7 @@ class OnboardingKaspressoTest :
         composeRule.waitForSettings(appSettingsRepository) {
             it.onboardingComplete && it.uiPersona == "simple" && it.ripdpiMode == Mode.VPN.preferenceValue
         }
-        composeRule.waitForTag(RipDpiTestTags.screen(Route.Home))
+        composeRule.waitForTag(RipDpiTestTags.screen(Route.Status))
     }
 
     @Test
@@ -87,7 +87,7 @@ class OnboardingKaspressoTest :
             }
             step("Home appears and onboarding is persisted as complete") {
                 composeRule.waitForSettings(appSettingsRepository) { it.onboardingComplete }
-                composeRule.waitForTag(RipDpiTestTags.screen(Route.Home))
+                composeRule.waitForTag(RipDpiTestTags.screen(Route.Status))
             }
         }
 }

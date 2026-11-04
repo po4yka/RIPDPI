@@ -140,7 +140,7 @@ internal class MainHomeDiagnosticsActions(
                                         success = false,
                                         headline =
                                             stringResolver.getString(
-                                                R.string.home_diagnostics_verification_incomplete,
+                                                R.string.status_diagnostics_verification_incomplete,
                                             ),
                                         summary = session.summary,
                                     )
@@ -188,7 +188,7 @@ internal class MainHomeDiagnosticsActions(
                                             success = false,
                                             headline =
                                                 stringResolver.getString(
-                                                    R.string.home_diagnostics_vpn_failed_to_start,
+                                                    R.string.status_diagnostics_vpn_failed_to_start,
                                                 ),
                                             summary =
                                                 mutations.currentUiState().errorMessage
@@ -362,7 +362,7 @@ internal class MainHomeDiagnosticsActions(
                 !latestOutcome.matchesKnownNetwork(currentFingerprint) ||
                 homeDiagnosticsState.value.latestCompositeOutcome != latestOutcome
             ) {
-                mutations.emit(MainEffect.ShowError(stringResolver.getString(R.string.home_diagnostics_run_again)))
+                mutations.emit(MainEffect.ShowError(stringResolver.getString(R.string.status_diagnostics_run_again)))
                 return@launch
             }
             if (!canStartVerifiedVpn()) return@launch
@@ -374,7 +374,7 @@ internal class MainHomeDiagnosticsActions(
             homeDiagnosticsState.update {
                 it.copy(
                     waitingForVerifiedVpnStart = true,
-                    verificationProgress = stringResolver.getString(R.string.home_diagnostics_vpn_starting),
+                    verificationProgress = stringResolver.getString(R.string.status_diagnostics_vpn_starting),
                     verificationSheet = null,
                 )
             }
@@ -418,7 +418,7 @@ internal class MainHomeDiagnosticsActions(
                         it.copy(
                             waitingForVerifiedVpnStart = false,
                             activeVerificationSessionId = result.sessionId,
-                            verificationProgress = stringResolver.getString(R.string.home_diagnostics_verifying),
+                            verificationProgress = stringResolver.getString(R.string.status_diagnostics_verifying),
                         )
                     }
                 }
@@ -432,7 +432,7 @@ internal class MainHomeDiagnosticsActions(
                                 DiagnosticsHomeVerificationOutcome(
                                     sessionId = "",
                                     success = false,
-                                    headline = stringResolver.getString(R.string.home_diagnostics_verification_busy),
+                                    headline = stringResolver.getString(R.string.status_diagnostics_verification_busy),
                                     summary = stringResolver.getString(R.string.diagnostics_error_hidden_probe_running),
                                 ),
                         )
@@ -448,8 +448,11 @@ internal class MainHomeDiagnosticsActions(
                         DiagnosticsHomeVerificationOutcome(
                             sessionId = "",
                             success = false,
-                            headline = stringResolver.getString(R.string.home_diagnostics_verification_could_not_start),
-                            summary = stringResolver.getString(R.string.home_diagnostics_verification_failed),
+                            headline =
+                                stringResolver.getString(
+                                    R.string.status_diagnostics_verification_could_not_start,
+                                ),
+                            summary = stringResolver.getString(R.string.status_diagnostics_verification_failed),
                         ),
                 )
             }
@@ -491,8 +494,8 @@ private fun blockedPermissionVerificationOutcome(
         DiagnosticsHomeVerificationOutcome(
             sessionId = "",
             success = false,
-            headline = stringResolver.getString(R.string.home_diagnostics_vpn_permission_required_headline),
-            summary = stringResolver.getString(R.string.home_diagnostics_permission_required),
+            headline = stringResolver.getString(R.string.status_diagnostics_vpn_permission_required_headline),
+            summary = stringResolver.getString(R.string.status_diagnostics_permission_required),
         )
     } else {
         DiagnosticsHomeVerificationOutcome(

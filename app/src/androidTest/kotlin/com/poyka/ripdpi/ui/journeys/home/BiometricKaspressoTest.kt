@@ -43,14 +43,14 @@ class BiometricKaspressoTest :
                     node(pinField).performTextReplacement("1111")
                     submit()
                     composeRule.waitForIdle()
-                    assertEquals(0, count(RipDpiTestTags.screen(Route.Home)))
+                    assertEquals(0, count(RipDpiTestTags.screen(Route.Status)))
                     node(pinField).assertIsDisplayed()
                 }
                 step("The correct PIN unlocks Home") {
                     node(pinField).performTextReplacement("0000")
                     // The keyboard's Done key submits the PIN.
                     node(pinField).performImeAction()
-                    waitFor(RipDpiTestTags.screen(Route.Home))
+                    waitFor(RipDpiTestTags.screen(Route.Status))
                 }
             }
         }

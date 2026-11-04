@@ -49,9 +49,9 @@ internal fun Recommendation.localized(strings: StringResolver): Recommendation =
 private val detectionGeneratedResources =
     mapOf(
         "You look like ordinary HTTPS traffic" to R.string.detection_headline_ordinary_https,
-        "TLS fingerprint" to R.string.home_generated_tls_fingerprint,
-        "Excellent" to R.string.home_quality_excellent,
-        "Good" to R.string.home_quality_good,
+        "TLS fingerprint" to R.string.status_generated_tls_fingerprint,
+        "Excellent" to R.string.status_quality_excellent,
+        "Good" to R.string.status_quality_good,
         "split tunnel bypass" to R.string.detection_exposure_split_tunnel_label,
         "Direct and proxied paths do not present the same network identity." to
             R.string.detection_exposure_split_tunnel_reason,

@@ -47,14 +47,14 @@ fun StatusModeCard(
     configureActionVariant: RipDpiButtonVariant = RipDpiButtonVariant.Outline,
 ) {
     val primaryEnabled = uiState.primaryActionEnabled && (!uiState.isLoading || uiState.mode == StatusMode.Diagnostic)
-    val statusLabel = homeModeStatusLabel(uiState)
-    val primaryActionLabel = uiState.primaryActionLabel.ifBlank { stringResource(R.string.home_mode_card_run_scan) }
-    val configureLabel = uiState.configureLabel.ifBlank { stringResource(R.string.home_mode_card_configure) }
+    val statusLabel = statusModeStatusLabel(uiState)
+    val primaryActionLabel = uiState.primaryActionLabel.ifBlank { stringResource(R.string.status_mode_card_run_scan) }
+    val configureLabel = uiState.configureLabel.ifBlank { stringResource(R.string.status_mode_card_configure) }
 
     RipDpiCard(
         modifier =
             modifier.ripDpiTestTag(
-                RipDpiTestTags.homeModeCard(uiState.mode.name),
+                RipDpiTestTags.statusModeCard(uiState.mode.name),
             ),
         variant =
             when {
@@ -96,7 +96,7 @@ private fun StatusModeCardContent(
         modifier =
             Modifier
                 .fillMaxWidth()
-                .ripDpiTestTag(RipDpiTestTags.homeModeCardBody(uiState.mode.name))
+                .ripDpiTestTag(RipDpiTestTags.statusModeCardBody(uiState.mode.name))
                 .then(
                     if (onCardClick != null) {
                         Modifier.ripDpiClickable(role = Role.Button, onClick = onCardClick)
@@ -157,7 +157,7 @@ private fun StatusModeCardStatus(
 ) {
     StatusIndicator(
         label = statusLabel,
-        tone = homeModeStatusTone(uiState),
+        tone = statusModeStatusTone(uiState),
         // isActive is a steady connected state; only the transition into it is in flight.
         pulsing = uiState.isLoading,
     )
@@ -321,7 +321,7 @@ private fun StatusModeCardActions(
                     wrapLabel = true,
                     text = primaryActionLabel,
                     onClick = onPrimaryAction,
-                    modifier = buttonModifier.ripDpiTestTag(RipDpiTestTags.homeModePrimaryAction(uiState.mode.name)),
+                    modifier = buttonModifier.ripDpiTestTag(RipDpiTestTags.statusModePrimaryAction(uiState.mode.name)),
                     variant = primaryActionVariant,
                     enabled = primaryEnabled,
                     loading = uiState.isLoading && uiState.mode != StatusMode.Diagnostic,
@@ -333,7 +333,7 @@ private fun StatusModeCardActions(
                 wrapLabel = true,
                 text = configureLabel,
                 onClick = onConfigure,
-                modifier = buttonModifier.ripDpiTestTag(RipDpiTestTags.homeModeConfigureAction(uiState.mode.name)),
+                modifier = buttonModifier.ripDpiTestTag(RipDpiTestTags.statusModeConfigureAction(uiState.mode.name)),
                 variant = configureActionVariant,
             )
         }
@@ -358,16 +358,16 @@ private fun StatusModeCardActions(
 }
 
 @Composable
-private fun homeModeStatusLabel(uiState: StatusModeCardUiState): String =
+private fun statusModeStatusLabel(uiState: StatusModeCardUiState): String =
     stringResource(
         when {
-            uiState.isLoading -> R.string.home_mode_card_status_busy
-            uiState.isActive -> R.string.home_mode_card_status_active
-            else -> R.string.home_mode_card_status_inactive
+            uiState.isLoading -> R.string.status_mode_card_status_busy
+            uiState.isActive -> R.string.status_mode_card_status_active
+            else -> R.string.status_mode_card_status_inactive
         },
     )
 
-private fun homeModeStatusTone(uiState: StatusModeCardUiState): StatusIndicatorTone =
+private fun statusModeStatusTone(uiState: StatusModeCardUiState): StatusIndicatorTone =
     when {
         uiState.isLoading -> StatusIndicatorTone.Warning
         uiState.isActive -> StatusIndicatorTone.Active

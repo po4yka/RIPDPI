@@ -34,7 +34,7 @@ sealed class Route {
     }
 
     @Serializable
-    data object Home : Route() {
+    data object Status : Route() {
         override val stableRoute = "home"
         override val titleRes = R.string.home
         override val icon: ImageVector = RipDpiIcons.Dashboard
@@ -480,13 +480,13 @@ sealed class Route {
 
     companion object {
         val topLevel: List<Route>
-            get() = listOf(Home, Config, Diagnostics(), Settings)
+            get() = listOf(Status, Config, Diagnostics(), Settings)
 
         val all: List<Route>
             get() =
                 listOf(
                     Onboarding,
-                    Home,
+                    Status,
                     Config,
                     LocalBypassConfig,
                     VpnConfig,

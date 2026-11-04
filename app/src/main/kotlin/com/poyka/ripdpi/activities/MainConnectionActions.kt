@@ -26,7 +26,7 @@ import com.poyka.ripdpi.ui.screens.diagnostics.uiEvidenceNote
 import com.poyka.ripdpi.ui.screens.diagnostics.verificationLabelRes
 import com.poyka.ripdpi.ui.screens.status.ConnectionResultFeedback
 import com.poyka.ripdpi.ui.screens.status.hasUnsupportedVpnDoq
-import com.poyka.ripdpi.ui.screens.status.localizedHomeStrategyFacets
+import com.poyka.ripdpi.ui.screens.status.localizedStatusStrategyFacets
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.currentCoroutineContext
@@ -165,7 +165,7 @@ internal class MainConnectionActions(
         settings: AppSettings,
         activeMode: Mode,
         approachStats: List<BypassApproachSummary>,
-    ): HomeApproachSummaryUiState? {
+    ): StatusApproachSummaryUiState? {
         val strategySignature =
             deriveBypassStrategySignature(
                 settings = settings,
@@ -188,10 +188,10 @@ internal class MainConnectionActions(
                     }
                 }
         val summary = strategySummary ?: profileSummary ?: return null
-        return HomeApproachSummaryUiState(
+        return StatusApproachSummaryUiState(
             // Always the strategy in use: a diagnostics profile name is not a bypass strategy.
             title = strategySignature.chainSummary,
-            facets = strategySignature.localizedHomeStrategyFacets(stringResolver),
+            facets = strategySignature.localizedStatusStrategyFacets(stringResolver),
             verification = stringResolver.getString(summary.verificationLabelRes()),
             successRate =
                 summary.validatedSuccessRate?.let { "${(it * PercentScale).toInt()}%" } ?: "Not evaluated",

@@ -101,15 +101,15 @@ class UiActionClarityInstrumentedTest {
                 )
             }
         }
-        compose.onNodeWithTag(RipDpiTestTags.HomeAdvisoryPrimaryAction).assertIsDisplayed().performClick()
+        compose.onNodeWithTag(RipDpiTestTags.StatusAdvisoryPrimaryAction).assertIsDisplayed().performClick()
         compose.runOnIdle { assertEquals(1, repairs) }
         compose.onAllNodesWithTag("battery-advisory").assertCountEquals(0)
         capture("home-primary")
-        compose.onNodeWithTag(RipDpiTestTags.HomeAdvisoryMore).performClick()
+        compose.onNodeWithTag(RipDpiTestTags.StatusAdvisoryMore).performClick()
         compose.onNodeWithTag("battery-advisory").assertIsDisplayed()
-        compose.onAllNodesWithTag(RipDpiTestTags.HomeAdvisoryPrimaryAction).assertCountEquals(1)
+        compose.onAllNodesWithTag(RipDpiTestTags.StatusAdvisoryPrimaryAction).assertCountEquals(1)
         capture("home-more")
-        compose.onNodeWithTag(RipDpiTestTags.HomeAdvisoryMore).performClick()
+        compose.onNodeWithTag(RipDpiTestTags.StatusAdvisoryMore).performClick()
         compose.onAllNodesWithTag("battery-advisory").assertCountEquals(0)
         compose.runOnIdle { assertEquals(1, repairs) }
     }

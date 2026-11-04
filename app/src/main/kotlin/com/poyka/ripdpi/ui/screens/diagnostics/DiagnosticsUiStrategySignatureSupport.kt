@@ -26,7 +26,7 @@ internal class StrategySignaturePresenter(
     private fun MutableList<DiagnosticsFieldUiModel>.addCoreSignatureFields(signature: BypassStrategySignature) {
         add(
             DiagnosticsFieldUiModel(
-                stringResolver.getString(R.string.home_stat_mode),
+                stringResolver.getString(R.string.status_stat_mode),
                 valueLabels.knownValue(signature.mode),
             ),
         )

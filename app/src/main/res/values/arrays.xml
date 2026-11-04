@@ -12,7 +12,7 @@
     </array>
 
     <array name="ripdpi_hosts_modes">
-        <item name="disable">@string/home_mode_card_disable</item>
+        <item name="disable">@string/status_mode_card_disable</item>
         <item name="blacklist">@string/host_pack_target_blacklist</item>
         <item name="whitelist">@string/host_pack_target_whitelist</item>
     </array>

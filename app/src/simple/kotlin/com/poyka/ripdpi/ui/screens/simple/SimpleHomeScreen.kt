@@ -527,8 +527,8 @@ internal fun SimpleDiagnosticsStatus(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .ripDpiTestTag(RipDpiTestTags.HomeDiagnosticsShareAction),
-                    text = stringResource(R.string.home_diagnostics_share_action),
+                            .ripDpiTestTag(RipDpiTestTags.StatusDiagnosticsShareAction),
+                    text = stringResource(R.string.status_diagnostics_share_action),
                     onClick = onShareReport,
                     loading = sheet.shareBusy,
                     enabled = !sheet.shareBusy,

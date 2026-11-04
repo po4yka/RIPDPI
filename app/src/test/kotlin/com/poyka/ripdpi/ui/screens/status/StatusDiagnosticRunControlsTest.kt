@@ -57,7 +57,7 @@ class StatusDiagnosticRunControlsTest {
 
         expandModesAndDiagnostics()
         composeRule
-            .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(StatusMode.Diagnostic.name))
+            .onNodeWithTag(RipDpiTestTags.statusModePrimaryAction(StatusMode.Diagnostic.name))
             .performScrollTo()
             .assertTextEquals("Quick scan")
             .performClick()
@@ -102,7 +102,7 @@ class StatusDiagnosticRunControlsTest {
         }
 
         composeRule
-            .onNodeWithTag(RipDpiTestTags.homeModePrimaryAction(StatusMode.Diagnostic.name))
+            .onNodeWithTag(RipDpiTestTags.statusModePrimaryAction(StatusMode.Diagnostic.name))
             .performScrollTo()
             .assertIsEnabled()
             .assertTextEquals(
@@ -121,7 +121,7 @@ class StatusDiagnosticRunControlsTest {
     }
 
     private fun expandModesAndDiagnostics() {
-        composeRule.onNodeWithTag(RipDpiTestTags.HomeModesDiagnosticsHeader).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.StatusModesDiagnosticsHeader).performScrollTo().performClick()
         composeRule.waitForIdle()
     }
 

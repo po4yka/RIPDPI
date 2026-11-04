@@ -72,7 +72,7 @@ private fun LatencyDetailSource(
     } else {
         MeasurementSource(source, now)
     }
-    if (!snapshot.connected) MeasurementCaption(stringResource(R.string.home_quality_last_values))
+    if (!snapshot.connected) MeasurementCaption(stringResource(R.string.status_quality_last_values))
 }
 
 @Composable

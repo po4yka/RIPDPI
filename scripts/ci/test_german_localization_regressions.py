@@ -99,14 +99,14 @@ SEMANTIC_KEYS = (
     'diagnostics_pcap_card_body_recording',
     'diagnostics_pcap_disclosure_body',
     'data_transparency_export_redaction',
-    'home_diagnostics_pcap_helper',
+    'status_diagnostics_pcap_helper',
     'diagnostics_rkn_group_control',
     'diagnostics_rkn_complete',
     'diagnostics_rkn_running',
     'diagnostics_cidr_whitelist_summary_detected',
     'fake_order_card_seqmode_body',
     'quic_initial_mode_body',
-    'home_remediation_no_hint_step_review_evidence',
+    'status_remediation_no_hint_step_review_evidence',
     'diagnostics_audit_short_circuit_title',
     'pause_clock_failed',
     'ripdpi_protocols_hint',
@@ -115,15 +115,15 @@ SEMANTIC_KEYS = (
 )
 
 LATENT_KEYS = (
-    'home_diagnostics_detection_permission_required',
+    'status_diagnostics_detection_permission_required',
 )
 
 REDACTION_KEYS = (
     "diagnostics_share_redaction_line", "detection_permission_rationale",
     "detection_onboarding_body", "detection_permission_settings",
     "diagnostics_pcap_card_body_recording", "diagnostics_pcap_disclosure_body",
-    "data_transparency_export_redaction", "home_diagnostics_pcap_helper",
-    "home_diagnostics_detection_permission_required",
+    "data_transparency_export_redaction", "status_diagnostics_pcap_helper",
+    "status_diagnostics_detection_permission_required",
 )
 CONTROL_KEYS = (
     "diagnostics_rkn_group_control", "diagnostics_rkn_complete",
@@ -162,8 +162,8 @@ class GermanLocalizationRegressionsTest(unittest.TestCase):
                 value = text(self.de[key]).casefold()
                 self.assertNotIn("steuer", value)
                 self.assertIn("kontroll", value)
-        self.assertNotIn("behörd", text(self.de["home_remediation_no_hint_step_review_evidence"]).casefold())
-        self.assertRegex(text(self.de["home_remediation_no_hint_step_review_evidence"]).casefold(),
+        self.assertNotIn("behörd", text(self.de["status_remediation_no_hint_step_review_evidence"]).casefold())
+        self.assertRegex(text(self.de["status_remediation_no_hint_step_review_evidence"]).casefold(),
                          r"ziel|host|url|autorität")
         self.assertNotIn("kurzgeschlossen", text(self.de["diagnostics_audit_short_circuit_title"]).casefold())
         self.assertRegex(text(self.de["diagnostics_audit_short_circuit_title"]).casefold(),

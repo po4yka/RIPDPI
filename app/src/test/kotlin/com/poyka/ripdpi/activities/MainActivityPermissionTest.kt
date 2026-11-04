@@ -104,7 +104,7 @@ class MainActivityPermissionTest {
 
     @Test
     fun `public navigation links map only known hosts`() {
-        assertEquals(Route.Home, navigationRouteFrom(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://connect"))))
+        assertEquals(Route.Status, navigationRouteFrom(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://connect"))))
         assertEquals(Route.Config, navigationRouteFrom(Intent(Intent.ACTION_VIEW, Uri.parse("ripdpi://config"))))
         assertEquals(
             Route.Diagnostics(),
@@ -164,7 +164,7 @@ class MainActivityPermissionTest {
         assertEquals("first", navigationStateKey(Route.BiometricPrompt, "first"))
         assertEquals("second", navigationStateKey(Route.BiometricPrompt, "second"))
         assertEquals("first", navigationStateKey(Route.Onboarding, "first"))
-        assertEquals("", navigationStateKey(Route.Home, "first"))
+        assertEquals("", navigationStateKey(Route.Status, "first"))
     }
 
     @Test

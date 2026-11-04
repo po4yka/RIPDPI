@@ -20,11 +20,11 @@ internal fun StringResolver.homeGeneratedValue(raw: String): String {
         }
 
         raw == "TLS record split + fake" -> {
-            getString(R.string.home_generated_family_tlsrec_split_fake)
+            getString(R.string.status_generated_family_tlsrec_split_fake)
         }
 
         raw == "SNI/TLS suspected" -> {
-            getString(R.string.home_generated_family_sni_tls_suspect)
+            getString(R.string.status_generated_family_sni_tls_suspect)
         }
 
         family != null -> {
@@ -48,7 +48,7 @@ private fun StringResolver.homeStrategyRationale(raw: String): String? {
     val strategy = homeStrategyRationale.matchEntire(raw)
     return when {
         reality != null -> {
-            getString(R.string.home_generated_reality_rationale, homeCount(reality.groupValues[1]))
+            getString(R.string.status_generated_reality_rationale, homeCount(reality.groupValues[1]))
         }
 
         strategy != null -> {
@@ -57,17 +57,17 @@ private fun StringResolver.homeStrategyRationale(raw: String): String? {
             val services = strategy.groups["services"]?.value.orEmpty()
             val family = strategy.groups["family"]?.value.orEmpty()
             getString(
-                R.string.home_generated_strategy_rationale,
+                R.string.status_generated_strategy_rationale,
                 homeGeneratedValue(pattern),
                 tcp
                     .takeIf(
                         String::isNotEmpty,
-                    )?.let { getString(R.string.home_generated_tcp_probes, homeCount(it)) }
+                    )?.let { getString(R.string.status_generated_tcp_probes, homeCount(it)) }
                     .orEmpty(),
                 services
                     .takeIf(String::isNotEmpty)
                     ?.let {
-                        getString(R.string.home_generated_blocked_services, homeCount(it))
+                        getString(R.string.status_generated_blocked_services, homeCount(it))
                     }.orEmpty(),
                 homeGeneratedValue(family),
             )
@@ -99,7 +99,7 @@ private fun StringResolver.homeRecommendationSummary(raw: String): String? {
         confidence != null -> {
             val summary = confidence.groups["summary"]?.value.orEmpty()
             getString(
-                R.string.home_generated_audit_suffix,
+                R.string.status_generated_audit_suffix,
                 homeRecommendationSummary(summary) ?: summary,
                 homeGeneratedValue(
                     confidence.groups["level"]
@@ -113,7 +113,7 @@ private fun StringResolver.homeRecommendationSummary(raw: String): String? {
 
         matrix != null -> {
             getString(
-                R.string.home_generated_recommended_matrix,
+                R.string.status_generated_recommended_matrix,
                 matrix.groups["tcp"]?.value.orEmpty(),
                 matrix.groups["quic"]?.value.orEmpty(),
                 homeCount(matrix.groups["worked"]?.value.orEmpty()),
@@ -124,7 +124,7 @@ private fun StringResolver.homeRecommendationSummary(raw: String): String? {
         }
 
         quick != null -> {
-            getString(R.string.home_generated_recommended, quick.groupValues[1], quick.groupValues[2])
+            getString(R.string.status_generated_recommended, quick.groupValues[1], quick.groupValues[2])
         }
 
         else -> {
@@ -146,15 +146,15 @@ private fun StringResolver.homeResolverRationale(raw: String): String? {
     val match = homeResolverRationale.matchEntire(raw) ?: return null
     val base =
         getString(
-            R.string.home_generated_dns_rationale,
+            R.string.status_generated_dns_rationale,
             homeGeneratedValue(match.groups["dnsSource"]?.value.orEmpty()),
             match.groups["trigger"]?.value.orEmpty(),
             match.groups["resolver"]?.value.orEmpty(),
             getString(
                 if (match.groups["answerQuality"]?.value == "matching") {
-                    R.string.home_generated_dns_answers_matching
+                    R.string.status_generated_dns_answers_matching
                 } else {
-                    R.string.home_generated_dns_answers_usable
+                    R.string.status_generated_dns_answers_usable
                 },
             ),
             match.groups["protocol"]?.value.orEmpty(),
@@ -187,7 +187,7 @@ private fun StringResolver.homeResolverHints(raw: String): String {
         template != null -> {
             val (match, resource) = template
             val value = match.groupValues[1]
-            val argument = if (resource == R.string.home_generated_dns_bootstrap) homeCount(value) else value
+            val argument = if (resource == R.string.status_generated_dns_bootstrap) homeCount(value) else value
             " " + getString(resource, argument) + homeResolverHints(raw.substring(match.value.length))
         }
 
@@ -199,13 +199,14 @@ private fun StringResolver.homeResolverHints(raw: String): String {
 
 private val homeResolverHintResources =
     mapOf(
-        "This network already preferred this encrypted DNS path." to R.string.home_generated_dns_preferred,
-        "This matches the currently active encrypted DNS path." to R.string.home_generated_dns_active,
-        "This keeps the current encrypted DNS protocol family." to R.string.home_generated_dns_family,
+        "This network already preferred this encrypted DNS path." to R.string.status_generated_dns_preferred,
+        "This matches the currently active encrypted DNS path." to R.string.status_generated_dns_active,
+        "This keeps the current encrypted DNS protocol family." to R.string.status_generated_dns_family,
     )
 private val homeResolverHintTemplates =
     listOf(
-        Regex(" Bootstrap reachability validated on ([0-9]+) probe\\(s\\)\\.") to R.string.home_generated_dns_bootstrap,
-        Regex(" This network already leaned toward (\\S+)\\.") to R.string.home_generated_dns_leaned,
-        Regex(" Avoided bootstrap IPs blocked by DPI: (.+)\\.$") to R.string.home_generated_dns_avoided,
+        Regex(" Bootstrap reachability validated on ([0-9]+) probe\\(s\\)\\.") to
+            R.string.status_generated_dns_bootstrap,
+        Regex(" This network already leaned toward (\\S+)\\.") to R.string.status_generated_dns_leaned,
+        Regex(" Avoided bootstrap IPs blocked by DPI: (.+)\\.$") to R.string.status_generated_dns_avoided,
     )

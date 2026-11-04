@@ -189,7 +189,7 @@ are not claimed.
 The source baseline is `3458ed9c1541d9a5217e5c4618845ecefd4a97bd`.
 This pass corrects exactly 138 existing French resource keys from the audit:
 134 have a discovered production call site, and four have no discovered
-production call site. The four are `home_diagnostics_detection_permission_required`,
+production call site. The four are `status_diagnostics_detection_permission_required`,
 `home_mode_card_remote_relay_disabled_hint`, `support_settings_applied_action`,
 and `share_link_preview_privacy_message`. They remain separate from active
 UI findings. The corrections include 90 English fallback values, consent and
