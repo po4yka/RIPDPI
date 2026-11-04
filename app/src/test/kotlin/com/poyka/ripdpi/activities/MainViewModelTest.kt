@@ -435,6 +435,28 @@ class MainViewModelTest {
     }
 
     @Test
+    fun `a DNS failure warns only while it is recent`() {
+        fun status(recentDnsFailure: Boolean) =
+            buildConnectionActuatorUiState(
+                settings = AppSettings.newBuilder().build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Connected,
+                recentDnsFailure = recentDnsFailure,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
+                telemetry =
+                    ServiceTelemetrySnapshot(
+                        tunnelTelemetry = NativeRuntimeSnapshot.idle(source = "tunnel").copy(dnsFailuresTotal = 1L),
+                    ),
+                approachSummary = null,
+                stringResolver = ResourceStringResolver(),
+            ).status
+
+        assertEquals(StatusConnectionActuatorStatus.Degraded, status(recentDnsFailure = true))
+        assertEquals(StatusConnectionActuatorStatus.Locked, status(recentDnsFailure = false))
+    }
+
+    @Test
     fun `only a lost foreign exit claims the relay is unavailable`() {
         fun detail(telemetry: ServiceTelemetrySnapshot) =
             buildConnectionActuatorUiState(

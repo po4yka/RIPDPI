@@ -96,6 +96,7 @@ internal fun resolvePrimaryConnectionAction(
 
 internal fun buildMainUiState(
     inputs: MainUiInputs,
+    recentDnsFailure: Boolean,
     stringResolver: StringResolver,
     approachSummary: StatusApproachSummaryUiState?,
 ): MainUiState {
@@ -133,6 +134,7 @@ internal fun buildMainUiState(
             vpnDataPlaneStatus = vpnDataPlaneStatus,
             approachSummary = approachSummary,
             hardKillSwitch = hardKillSwitch,
+            recentDnsFailure = recentDnsFailure,
             stringResolver = stringResolver,
         )
     val modeCards =
@@ -230,6 +232,7 @@ private fun buildMainConnectionActuator(
     vpnDataPlaneStatus: VpnDataPlaneStatus,
     approachSummary: StatusApproachSummaryUiState?,
     hardKillSwitch: HardKillSwitchUiState,
+    recentDnsFailure: Boolean,
     stringResolver: StringResolver,
 ): StatusConnectionActuatorUiState =
     buildConnectionActuatorUiState(
@@ -250,6 +253,7 @@ private fun buildMainConnectionActuator(
                 activeMode = inputs.statusAndMode.second,
                 evidence = inputs.pathValidation,
             ),
+        recentDnsFailure = recentDnsFailure,
         runtime = inputs.runtime,
         appStatus = inputs.statusAndMode.first,
         telemetry = inputs.telemetry,
@@ -312,6 +316,7 @@ internal fun buildConnectionActuatorUiState(
     vpnDataPlaneStatus: VpnDataPlaneStatus = VpnDataPlaneStatus.NotApplicable,
     vpnValidationWarning: Boolean = false,
     vpnForwardingWarning: Boolean = false,
+    recentDnsFailure: Boolean = false,
     runtime: ConnectionRuntimeState,
     telemetry: ServiceTelemetrySnapshot,
     approachSummary: StatusApproachSummaryUiState?,
@@ -327,7 +332,7 @@ internal fun buildConnectionActuatorUiState(
             StatusConnectionActuatorStage.Route.takeIf { vpnWarning != null }
                 ?: StatusConnectionActuatorStage.Network.takeIf { vpnValidationWarning }
                 ?: StatusConnectionActuatorStage.Tunnel.takeIf { vpnForwardingWarning }
-                ?: telemetryWarningStage(telemetry)
+                ?: telemetryWarningStage(telemetry, recentDnsFailure)
         ).takeIf { connectionState == ConnectionState.Connected }
     val failedStage =
         telemetryFailureStage(telemetry)
@@ -510,7 +515,10 @@ private fun actuatorActionLabel(
 private fun StatusConnectionActuatorStage.label(stringResolver: StringResolver): String =
     stringResolver.getString(labelRes())
 
-private fun telemetryWarningStage(telemetry: ServiceTelemetrySnapshot): StatusConnectionActuatorStage? =
+private fun telemetryWarningStage(
+    telemetry: ServiceTelemetrySnapshot,
+    recentDnsFailure: Boolean,
+): StatusConnectionActuatorStage? =
     when {
         // Foreign exit lost after connecting (audit P1-1): the base stays up but traffic now
         // egresses direct, so surface a Route-stage warning that flips Locked -> Degraded.
@@ -527,7 +535,7 @@ private fun telemetryWarningStage(telemetry: ServiceTelemetrySnapshot): StatusCo
 
         telemetry.runtimeFieldTelemetry.failureClass == FailureClass.DnsInterference ||
             telemetry.tunnelTelemetry.resolverFallbackActive ||
-            telemetry.tunnelTelemetry.dnsFailuresTotal > 0 -> {
+            recentDnsFailure -> {
             StatusConnectionActuatorStage.Dns
         }
 

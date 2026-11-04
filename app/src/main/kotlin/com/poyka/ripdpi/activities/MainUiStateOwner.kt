@@ -26,6 +26,7 @@ internal class MainUiStateOwner(
     buildApproachSummary: (AppSettings, Mode, List<BypassApproachSummary>) -> StatusApproachSummaryUiState?,
 ) {
     private val localeState = MutableStateFlow("")
+    private val recentDnsFailureTracker = RecentDnsFailureTracker()
     private val settingsSnapshots = settingsState.map { it to ReconnectSettingsIdentity() }
 
     val uiState: StateFlow<MainUiState> =
@@ -90,6 +91,8 @@ internal class MainUiStateOwner(
             val configuredMode = Mode.fromString(settings.ripdpiMode.ifEmpty { "vpn" })
             buildMainUiState(
                 inputs = inputs,
+                // The runtime clock ticks while connected, so the warning also ends without new telemetry.
+                recentDnsFailure = recentDnsFailureTracker.isRecent(inputs.telemetry.tunnelTelemetry.dnsFailuresTotal),
                 stringResolver = stringResolver,
                 approachSummary =
                     buildApproachSummary(
