@@ -315,7 +315,7 @@
     <string name="status_connection_actuator_degraded_handshake">Negociações TLS falharam. Alguns sites podem não abrir.</string>
     <string name="status_connection_actuator_degraded_tunnel">O túnel relatou erros. O tráfego pode não passar.</string>
     <string name="status_connection_actuator_degraded_relay_lost">O relay não está disponível. O tráfego agora vai direto.</string>
-    <string name="status_connection_actuator_degraded_route">Após uma falha, as conexões passaram para outra rota. Alguns sites podem ficar mais lentos.</string>
+    <string name="status_connection_actuator_degraded_route">Algumas conexões falharam ou passaram para outra rota. Alguns sites podem não abrir ou ficar mais lentos.</string>
     <string name="status_connection_actuator_action_activate">Conectar</string>
     <string name="status_connection_actuator_action_deactivate">Desconectar</string>
     <string name="status_connection_actuator_fault_copy">Copiar o erro</string>

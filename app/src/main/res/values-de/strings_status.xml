@@ -314,7 +314,7 @@
     <string name="status_connection_actuator_degraded_handshake">TLS-Handshakes sind fehlgeschlagen. Manche Websites öffnen sich eventuell nicht.</string>
     <string name="status_connection_actuator_degraded_tunnel">Der Tunnel meldet Fehler. Der Datenverkehr kommt eventuell nicht durch.</string>
     <string name="status_connection_actuator_degraded_relay_lost">Das Relay ist nicht verfügbar. Der Datenverkehr läuft jetzt direkt.</string>
-    <string name="status_connection_actuator_degraded_route">Nach einem Fehler wurden Verbindungen auf eine andere Route umgeleitet. Manche Websites sind eventuell langsamer.</string>
+    <string name="status_connection_actuator_degraded_route">Einige Verbindungen sind fehlgeschlagen oder auf eine andere Route gewechselt. Manche Websites öffnen sich eventuell nicht oder sind langsamer.</string>
     <string name="status_connection_stage_handshake">Handshake</string>
     <string name="status_connection_actuator_state_locked">Verbunden</string>
     <string name="status_connection_stage_network">Netzwerk</string>

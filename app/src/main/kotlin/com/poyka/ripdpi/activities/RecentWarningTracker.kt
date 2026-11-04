@@ -53,7 +53,7 @@ internal fun telemetryWarningEvidence(
             ),
         StatusConnectionActuatorStage.Route to
             WarningEvidence(
-                counts = listOf(proxy.routeChanges),
+                counts = listOf(proxy.routeChanges, proxy.connectionFailureEvents),
                 marks = setOfNotNull(proxy.lastFallbackAction?.takeIf { it.isNotBlank() }),
             ),
     )

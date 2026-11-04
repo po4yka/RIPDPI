@@ -334,7 +334,7 @@
     <string name="status_connection_actuator_degraded_handshake">فشلت مصافحات TLS. قد لا تفتح بعض المواقع.</string>
     <string name="status_connection_actuator_degraded_tunnel">أبلغ النفق عن أخطاء. قد لا تمر حركة البيانات.</string>
     <string name="status_connection_actuator_degraded_relay_lost">المُرحِّل غير متاح. تمر حركة البيانات الآن مباشرة.</string>
-    <string name="status_connection_actuator_degraded_route">بعد حدوث خطأ، انتقلت الاتصالات إلى مسار آخر. قد تكون بعض المواقع أبطأ.</string>
+    <string name="status_connection_actuator_degraded_route">فشلت بعض الاتصالات أو انتقلت إلى مسار آخر. قد لا تفتح بعض المواقع أو تكون أبطأ.</string>
     <string name="status_connection_actuator_action_activate">اتصال</string>
     <string name="status_connection_actuator_action_deactivate">قطع الاتصال</string>
     <string name="status_connection_actuator_fault_copy">نسخ الخطأ</string>

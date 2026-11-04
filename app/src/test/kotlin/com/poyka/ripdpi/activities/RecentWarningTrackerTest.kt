@@ -84,6 +84,24 @@ class RecentWarningTrackerTest {
     }
 
     @Test
+    fun `a repeating connection failure warns on the route stage`() {
+        fun evidence(total: Long) =
+            telemetryWarningEvidence(
+                ServiceTelemetrySnapshot(
+                    proxyTelemetry = NativeRuntimeSnapshot.idle(source = "proxy").copy(connectionFailureEvents = total),
+                ),
+            )
+
+        tracker.observe(1L, evidence(1L))
+        assertEquals(setOf(Route), tracker.recentStages())
+        time += 60_000L
+        tracker.observe(1L, evidence(1L))
+        assertEquals(NoStages, tracker.recentStages())
+        tracker.observe(1L, evidence(2L))
+        assertEquals(setOf(Route), tracker.recentStages())
+    }
+
+    @Test
     fun `each DNS counter is tracked on its own`() {
         val proxy = NativeRuntimeSnapshot.idle(source = "proxy")
         val tunnel = NativeRuntimeSnapshot.idle(source = "tunnel")

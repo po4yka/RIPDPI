@@ -324,7 +324,7 @@
     <string name="status_connection_actuator_degraded_handshake">TLS-рукопожатия не выполнились. Некоторые сайты могут не открываться.</string>
     <string name="status_connection_actuator_degraded_tunnel">Туннель сообщил об ошибках. Трафик может не проходить.</string>
     <string name="status_connection_actuator_degraded_relay_lost">Сервер недоступен. Трафик теперь идёт напрямую.</string>
-    <string name="status_connection_actuator_degraded_route">После сбоя соединения перешли на другой маршрут. Некоторые сайты могут работать медленнее.</string>
+    <string name="status_connection_actuator_degraded_route">Часть соединений не удалась или перешла на другой маршрут. Некоторые сайты могут не открываться или работать медленнее.</string>
     <string name="status_connection_actuator_state_locked">Подключено</string>
     <string name="status_connection_actuator_state_open">Не подключено</string>
     <string name="status_connection_stage_handshake">Рукопожатие</string>

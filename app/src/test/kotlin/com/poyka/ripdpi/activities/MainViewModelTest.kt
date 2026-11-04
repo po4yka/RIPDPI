@@ -506,7 +506,7 @@ class MainViewModelTest {
             detail(ServiceTelemetrySnapshot(relayFailed = true)),
         )
         assertEquals(
-            "Connections moved to another route after a failure. Some sites may be slower.",
+            "Some connections failed or moved to another route. Some sites may not open or may be slower.",
             detail(
                 ServiceTelemetrySnapshot(
                     proxyTelemetry = NativeRuntimeSnapshot.idle(source = "proxy").copy(routeChanges = 1L),
