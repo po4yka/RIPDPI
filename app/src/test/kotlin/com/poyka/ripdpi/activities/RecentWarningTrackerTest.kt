@@ -180,9 +180,13 @@ class RecentWarningTrackerTest {
             2L,
             evidence(Route, ServiceTelemetrySnapshot(proxyTelemetry = proxy.copy(routeChanges = 2L))).counts.first(),
         )
+        // Every classified failure sets an action, including an unknown one that is not a warning.
         assertEquals(
-            setOf<Any>("retry"),
-            evidence(Route, ServiceTelemetrySnapshot(proxyTelemetry = proxy.copy(lastFallbackAction = "retry"))).marks,
+            WarningEvidence(counts = listOf(0L, 0L)),
+            evidence(
+                Route,
+                ServiceTelemetrySnapshot(proxyTelemetry = proxy.copy(lastFallbackAction = "surface_only")),
+            ),
         )
         assertEquals(
             4L,
