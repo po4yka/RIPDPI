@@ -77,7 +77,6 @@
     <!-- DNS -->
     <string name="onboarding_setup_dns_mullvad_body">Résolveur DNS axé sur la confidentialité.</string>
     <string name="onboarding_dns_advanced">Paramètres DNS avancés</string>
-    <string name="onboarding_setup_mode_subtitle">Choisissez comment RIPDPI doit acheminer le trafic sur cet appareil.</string>
     <string name="onboarding_test_permission_card_title">Autorisation VPN</string>
     <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">Démarrez le mode sélectionné et vérifiez que RIPDPI peut acheminer le trafic correctement.</string>
@@ -117,7 +116,6 @@
     <string name="clipboard_label_profile_link">Lien de profil RIPDPI</string>
     <string name="clipboard_label_setup_sheet">Fiche de configuration RIPDPI</string>
     <string name="clipboard_label_log_entry">Entrée de journal</string>
-    <string name="onboarding_badge_manual_setup">Pour une configuration manuelle</string>
     <string name="biometric_prompt_device_credential_title">Utilisez le verrouillage de l\'écran</string>
     <string name="biometric_prompt_device_credential_body">Aucune empreinte digitale ni aucun visage n\'est configuré sur cet appareil. Déverrouillez avec le code, le schéma ou le mot de passe de l\'appareil.</string>
     <string name="biometric_prompt_no_lock_title">Le verrouillage de l\'application n\'est pas actif</string>

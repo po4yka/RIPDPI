@@ -77,7 +77,6 @@
     <!-- DNS -->
     <string name="onboarding_setup_dns_mullvad_body">حل‌کننده DNS متمرکز بر حریم خصوصی.</string>
     <string name="onboarding_dns_advanced">تنظیمات پیشرفته DNS</string>
-    <string name="onboarding_setup_mode_subtitle">انتخاب کنید RIPDPI چگونه ترافیک را روی این دستگاه هدایت کند.</string>
     <string name="onboarding_test_permission_card_title">مجوز VPN</string>
     <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">حالت انتخاب‌شده را اجرا کنید و بررسی کنید که RIPDPI می‌تواند ترافیک را به‌درستی مسیریابی کند.</string>
@@ -117,7 +116,6 @@
     <string name="clipboard_label_profile_link">پیوند نمایه RIPDPI</string>
     <string name="clipboard_label_setup_sheet">راهنمای راه‌اندازی RIPDPI</string>
     <string name="clipboard_label_log_entry">ورودی گزارش</string>
-    <string name="onboarding_badge_manual_setup">برای تنظیم دستی</string>
     <string name="biometric_prompt_device_credential_title">از قفل صفحه استفاده کنید</string>
     <string name="biometric_prompt_device_credential_body">هیچ اثر انگشت یا چهره‌ای روی این دستگاه تنظیم نشده است. با پین، الگو یا گذرواژهٔ دستگاه قفل را باز کنید.</string>
     <string name="biometric_prompt_no_lock_title">قفل برنامه فعال نیست</string>

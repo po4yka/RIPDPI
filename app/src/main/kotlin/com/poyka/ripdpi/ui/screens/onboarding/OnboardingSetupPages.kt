@@ -40,7 +40,7 @@ import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiFeatureSurface
 
 /**
- * Traffic-mode cards. Vertical placement (centering/scroll) and the page title/subtitle are owned by
+ * Traffic-mode cards. Vertical placement (centering/scroll) and the page title are owned by
  * the enclosing setup scaffold, so this is a plain content column.
  */
 @Composable
@@ -65,7 +65,6 @@ internal fun OnboardingModeSelectionContent(
         OnboardingOptionCard(
             title = stringResource(R.string.onboarding_setup_mode_proxy_title),
             description = stringResource(R.string.onboarding_setup_mode_proxy_body),
-            badgeText = stringResource(R.string.onboarding_badge_manual_setup),
             selected = selectedMode == Mode.Proxy,
             onClick = { onModeSelected(Mode.Proxy) },
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingModeProxy),

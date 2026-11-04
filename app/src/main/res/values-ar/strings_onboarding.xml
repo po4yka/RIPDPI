@@ -77,7 +77,6 @@
     <!-- DNS -->
     <string name="onboarding_setup_dns_mullvad_body">محلِّل DNS يركِّز على الخصوصية.</string>
     <string name="onboarding_dns_advanced">إعدادات DNS المتقدِّمة</string>
-    <string name="onboarding_setup_mode_subtitle">اختر كيف يوجّه RIPDPI حركة البيانات على هذا الجهاز.</string>
     <string name="onboarding_test_permission_card_title">إذن VPN</string>
     <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">شغِّل الوضع المحدَّد وتحقَّق من أن RIPDPI يمكنه توجيه الحركة بشكل صحيح.</string>
@@ -117,7 +116,6 @@
     <string name="clipboard_label_profile_link">رابط ملف تعريف RIPDPI</string>
     <string name="clipboard_label_setup_sheet">ورقة إعداد RIPDPI</string>
     <string name="clipboard_label_log_entry">إدخال سجل</string>
-    <string name="onboarding_badge_manual_setup">للإعداد اليدوي</string>
     <string name="biometric_prompt_device_credential_title">استخدم قفل الشاشة</string>
     <string name="biometric_prompt_device_credential_body">لم يتم إعداد بصمة إصبع أو وجه على هذا الجهاز. افتح القفل باستخدام رقم التعريف الشخصي أو النقش أو كلمة مرور الجهاز.</string>
     <string name="biometric_prompt_no_lock_title">قفل التطبيق غير نشط</string>

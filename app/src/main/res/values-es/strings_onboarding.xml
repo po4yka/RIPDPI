@@ -77,7 +77,6 @@
     <!-- DNS -->
     <string name="onboarding_setup_dns_mullvad_body">Resolutor DNS centrado en la privacidad.</string>
     <string name="onboarding_dns_advanced">Configuración avanzada de DNS</string>
-    <string name="onboarding_setup_mode_subtitle">Elige cómo debe enrutar RIPDPI el tráfico en este dispositivo.</string>
     <string name="onboarding_test_permission_card_title">Permiso de VPN</string>
     <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">Inicia el modo seleccionado y verifica que RIPDPI puede enrutar el tráfico correctamente.</string>
@@ -117,7 +116,6 @@
     <string name="clipboard_label_profile_link">Enlace de perfil RIPDPI</string>
     <string name="clipboard_label_setup_sheet">Hoja de configuración RIPDPI</string>
     <string name="clipboard_label_log_entry">Entrada de registro</string>
-    <string name="onboarding_badge_manual_setup">Para configuración manual</string>
     <string name="biometric_prompt_device_credential_title">Usa el bloqueo de pantalla</string>
     <string name="biometric_prompt_device_credential_body">Este dispositivo no tiene huella digital ni rostro configurados. Desbloquea con el PIN, el patrón o la contraseña del dispositivo.</string>
     <string name="biometric_prompt_no_lock_title">El bloqueo de la aplicación no está activo</string>

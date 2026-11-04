@@ -3653,7 +3653,6 @@ app:notice_strategy_packs_refreshed_message
 app:notice_strategy_packs_refreshed_title
 app:notice_telemetry_salt_reset_message
 app:notice_telemetry_salt_reset_title
-app:onboarding_badge_manual_setup
 app:onboarding_badge_recommended
 app:onboarding_chip_local_config
 app:onboarding_chip_local_proxy
@@ -3679,7 +3678,6 @@ app:onboarding_setup_dns_system_body
 app:onboarding_setup_finish
 app:onboarding_setup_mode_proxy_body
 app:onboarding_setup_mode_proxy_title
-app:onboarding_setup_mode_subtitle
 app:onboarding_setup_mode_title
 app:onboarding_setup_mode_vpn_body
 app:onboarding_setup_mode_vpn_title

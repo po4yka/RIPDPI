@@ -42,7 +42,6 @@
     <!-- DNS -->
     <string name="onboarding_setup_dns_mullvad_body">Privacy-focused DNS resolver.</string>
     <string name="onboarding_dns_advanced">Advanced DNS settings</string>
-    <string name="onboarding_setup_mode_subtitle">Select how RIPDPI should route traffic on this device.</string>
     <string name="onboarding_test_permission_card_title">VPN permission</string>
     <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">Start the selected mode and verify that RIPDPI can route traffic correctly.</string>
@@ -116,7 +115,6 @@
     <string name="clipboard_label_profile_link">RIPDPI profile link</string>
     <string name="clipboard_label_setup_sheet">RIPDPI setup sheet</string>
     <string name="clipboard_label_log_entry">Log entry</string>
-    <string name="onboarding_badge_manual_setup">For manual setup</string>
     <string name="biometric_prompt_device_credential_title">Use your screen lock</string>
     <string name="biometric_prompt_device_credential_body">No fingerprint or face is set up on this device. Unlock with your device PIN, pattern, or password.</string>
     <string name="biometric_prompt_no_lock_title">App lock is not active</string>

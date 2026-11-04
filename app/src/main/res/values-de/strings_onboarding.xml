@@ -77,7 +77,6 @@
     <!-- DNS -->
     <string name="onboarding_setup_dns_mullvad_body">Datenschutzorientierter DNS-Resolver.</string>
     <string name="onboarding_dns_advanced">Erweiterte DNS-Einstellungen</string>
-    <string name="onboarding_setup_mode_subtitle">Wählen Sie, wie RIPDPI den Datenverkehr auf diesem Gerät leiten soll.</string>
     <string name="onboarding_test_permission_card_title">VPN-Berechtigung</string>
     <!-- validation / test connection -->
     <string name="onboarding_test_idle_body">Starten Sie den gewählten Modus und prüfen Sie, ob RIPDPI den Datenverkehr korrekt weiterleiten kann.</string>
@@ -117,7 +116,6 @@
     <string name="clipboard_label_profile_link">RIPDPI-Profillink</string>
     <string name="clipboard_label_setup_sheet">RIPDPI-Einrichtungsblatt</string>
     <string name="clipboard_label_log_entry">Protokolleintrag</string>
-    <string name="onboarding_badge_manual_setup">Für manuelle Einrichtung</string>
     <string name="biometric_prompt_device_credential_title">Displaysperre verwenden</string>
     <string name="biometric_prompt_device_credential_body">Auf diesem Gerät ist kein Fingerabdruck und keine Gesichtserkennung eingerichtet. Entsperren Sie mit der PIN, dem Muster oder dem Passwort des Geräts.</string>
     <string name="biometric_prompt_no_lock_title">App-Sperre ist nicht aktiv</string>

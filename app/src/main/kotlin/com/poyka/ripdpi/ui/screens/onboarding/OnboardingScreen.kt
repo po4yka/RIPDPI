@@ -757,7 +757,11 @@ private fun OnboardingSetupPageScene(
             OnboardingPageHeader(
                 icon = pageModel.icon,
                 titleRes = headerTitleRes,
-                subtitleRes = onboardingSetupSubtitleRes(pageModel.kind, uiState.validationState),
+                subtitleRes =
+                    R.string.onboarding_test_idle_body.takeIf {
+                        pageModel.kind == SetupPageKind.ConnectionTest &&
+                            uiState.validationState == OnboardingValidationState.Idle
+                    },
             )
 
             when (pageModel.kind) {
@@ -856,29 +860,6 @@ private fun OnboardingPageHeader(
         }
     }
 }
-
-/** Optional one-line subtitle shown under a setup step's title. */
-private fun onboardingSetupSubtitleRes(
-    kind: SetupPageKind,
-    validationState: OnboardingValidationState,
-): Int? =
-    when (kind) {
-        SetupPageKind.PersonaSelection -> {
-            null
-        }
-
-        SetupPageKind.ModeSelection -> {
-            R.string.onboarding_setup_mode_subtitle
-        }
-
-        SetupPageKind.DnsSelection -> {
-            null
-        }
-
-        SetupPageKind.ConnectionTest -> {
-            R.string.onboarding_test_idle_body.takeIf { validationState == OnboardingValidationState.Idle }
-        }
-    }
 
 @Preview(showBackground = true, widthDp = 360, heightDp = 800)
 @Composable
