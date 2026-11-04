@@ -45,6 +45,21 @@ class OnboardingSettingsCoordinator
             dnsProviderId: String,
             persona: String,
         ) {
+            persist(mode, dnsProviderId, persona)
+        }
+
+        suspend fun complete(state: OnboardingUiState) {
+            persist(state.selectedMode, state.selectedDnsProviderId, state.selectedPersona) {
+                setOnboardingComplete(true)
+            }
+        }
+
+        private suspend fun persist(
+            mode: Mode,
+            dnsProviderId: String,
+            persona: String,
+            extra: AppSettings.Builder.() -> Unit = {},
+        ) {
             if (mode == Mode.Proxy) {
                 xrayNativeProviderSelection.selectNativeMode(
                     com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit,
@@ -52,24 +67,10 @@ class OnboardingSettingsCoordinator
                 )
             }
             appSettingsRepository.update {
+                extra()
                 setRipdpiMode(mode.preferenceValue)
                 applyOnboardingDnsProvider(dnsProviderId)
                 setUiPersona(normalizePersona(persona))
-            }
-        }
-
-        suspend fun complete(state: OnboardingUiState) {
-            if (state.selectedMode == Mode.Proxy) {
-                xrayNativeProviderSelection.selectNativeMode(
-                    com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit,
-                    state.selectedMode,
-                )
-            }
-            appSettingsRepository.update {
-                setOnboardingComplete(true)
-                setRipdpiMode(state.selectedMode.preferenceValue)
-                applyOnboardingDnsProvider(state.selectedDnsProviderId)
-                setUiPersona(normalizePersona(state.selectedPersona))
             }
         }
     }
