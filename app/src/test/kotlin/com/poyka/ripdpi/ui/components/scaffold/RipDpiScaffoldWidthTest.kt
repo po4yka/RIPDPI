@@ -8,6 +8,8 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.test.getUnclippedBoundsInRoot
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.width
@@ -41,6 +43,7 @@ class RipDpiScaffoldWidthTest {
 
     private companion object {
         const val BodyTag = "scaffold-body"
+        const val ScaffoldTag = "scaffold"
 
         /** Absorbs sub-pixel rounding between the dp cap and the measured bounds. */
         val Tolerance = 1.dp
@@ -82,5 +85,33 @@ class RipDpiScaffoldWidthTest {
                 "(contentMaxWidth=$contentMaxWidth, horizontalPadding=$horizontalPadding)",
             bodyWidth <= ceiling + Tolerance,
         )
+    }
+
+    @Test
+    fun `dashboard body keeps a gap above the bottom edge when scrolled to the end`() {
+        var bottomGap: Dp = Dp.Unspecified
+
+        composeRule.setContent {
+            RipDpiTheme {
+                bottomGap = RipDpiThemeTokens.spacing.xxl
+
+                RipDpiDashboardScaffold(modifier = Modifier.testTag(ScaffoldTag), topBar = {}) {
+                    Box(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .height(1200.dp)
+                                .testTag(BodyTag),
+                    )
+                }
+            }
+        }
+
+        repeat(3) { composeRule.onNodeWithTag(ScaffoldTag).performTouchInput { swipeUp() } }
+        composeRule.waitForIdle()
+
+        val scaffoldBottom = composeRule.onNodeWithTag(ScaffoldTag).getUnclippedBoundsInRoot().bottom
+        val bodyBottom = composeRule.onNodeWithTag(BodyTag).getUnclippedBoundsInRoot().bottom
+        assertEquals(bottomGap.value, (scaffoldBottom - bodyBottom).value, Tolerance.value)
     }
 }
