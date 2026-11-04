@@ -317,7 +317,6 @@
     <string name="home_connection_actuator_degraded_route">Le relais n’est pas disponible. Le trafic passe désormais en direct.</string>
     <string name="home_connection_stage_handshake">Handshake</string>
     <string name="home_connection_actuator_state_locked">Connecté</string>
-    <string name="home_connection_actuator_state_direct">Connecté</string>
     <string name="home_connection_stage_network">Réseau</string>
     <string name="home_connection_actuator_direct">Direct</string>
     <string name="home_connection_actuator_relay">Relais</string>
@@ -325,7 +324,6 @@
     <string name="home_connection_stage_route">Route</string>
     <string name="home_connection_actuator_action_activate">Connecter</string>
     <string name="home_connection_actuator_state_degraded">Connecté · problème : %1$s</string>
-    <string name="home_connection_actuator_state_direct_degraded">Connecté · problème : %1$s</string>
     <string name="home_connection_stage_tunnel">Tunnel</string>
     <string name="home_connection_actuator_action_android_managed">Géré par le verrouillage Android</string>
     <string name="home_connection_stage_state_failed">en échec</string>
@@ -404,7 +402,6 @@
         <item quantity="many">%1$d paramètres de contournement appliqués</item>
         <item quantity="other">%1$d paramètres de contournement appliqués</item>
     </plurals>
-    <string name="home_quality_measurements_title">Mesures de connexion</string>
     <string name="home_quality_waiting">Aucune mesure de qualité pour le moment. Le trafic total ne renseigne pas sur la qualité de la connexion.</string>
     <string name="home_quality_partial">Une évaluation de qualité nécessite davantage de mesures RTT actuelles.</string>
     <string name="home_quality_last_values">Dernières mesures reçues ; elles ne décrivent pas la qualité actuelle de la connexion.</string>

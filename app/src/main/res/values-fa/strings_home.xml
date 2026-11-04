@@ -7,7 +7,7 @@
     <string name="startup_recovery_retry">تلاش دوباره</string>
     <string name="home">وضعیت</string>
     <string name="connection_health_open_action">باز کردن سلامت اتصال</string>
-    <string name="connection_health_summary_title">اندازه‌گیری اتصال</string>
+    <string name="connection_health_summary_title">اندازه‌گیری‌های اتصال</string>
     <string name="connection_health_quality_format">اتلاف برآوردشده: %1$s%% · ⁨RTT p50⁩ %2$d میلی‌ثانیه.</string>
     <string name="connection_health_quality_loss_format">اتلاف برآوردشده: %1$s%%.</string>
     <string name="connection_health_quality_waiting">در انتظار اندازه‌گیری کیفیت.</string>
@@ -308,9 +308,7 @@
     <string name="home_connection_actuator_state_open">متصل نیست</string>
     <string name="home_connection_actuator_state_engaging">در حال اتصال…</string>
     <string name="home_connection_actuator_state_locked">متصل</string>
-    <string name="home_connection_actuator_state_direct">متصل</string>
     <string name="home_connection_actuator_state_degraded">متصل · مشکل: %1$s</string>
-    <string name="home_connection_actuator_state_direct_degraded">متصل · مشکل: %1$s</string>
     <string name="home_connection_actuator_state_fault">اتصال ناموفق: %1$s</string>
     <string name="home_connection_actuator_degraded_dns">درخواست‌های DNS ناموفق بودند یا به رزولور جایگزین رفتند. ممکن است برخی سایت‌ها باز نشوند.</string>
     <string name="home_connection_actuator_degraded_network">شبکه تغییر کرد یا دسترسی تأییدشده به اینترنت را از دست داد. ممکن است اتصال ناپایدار باشد.</string>
@@ -400,7 +398,6 @@
         <item quantity="one">%1$d تنظیم دورزدن اعمال شد</item>
         <item quantity="other">%1$d تنظیم دورزدن اعمال شدند</item>
     </plurals>
-    <string name="home_quality_measurements_title">اندازه‌گیری‌های اتصال</string>
     <string name="home_quality_waiting">هنوز کیفیت اندازه‌گیری نشده است. حجم کل ترافیک نشان‌دهندهٔ کیفیت اتصال نیست.</string>
     <string name="home_quality_partial">ارزیابی کیفیت به نمونه‌های تازهٔ بیشتری از RTT نیاز دارد.</string>
     <string name="home_quality_last_values">آخرین اندازه‌گیری‌های گزارش‌شده؛ این مقادیر کیفیت فعلی اتصال را نشان نمی‌دهند.</string>

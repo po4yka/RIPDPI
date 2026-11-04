@@ -64,7 +64,7 @@ class RipDpiDegradationStripTest {
         value: String,
     ) {
         val context = RuntimeEnvironment.getApplication()
-        val title = context.getString(R.string.home_quality_measurements_title)
+        val title = context.getString(R.string.connection_health_summary_title)
         val body = context.getString(R.string.home_quality_waiting)
         val label = context.getString(R.string.home_quality_traffic_total)
         val primary = context.getString(R.string.vpn_quality_strip_reprobe)

@@ -312,9 +312,7 @@
     <string name="home_connection_actuator_state_open">Disconnected</string>
     <string name="home_connection_actuator_state_engaging">Connecting…</string>
     <string name="home_connection_actuator_state_locked">Connected</string>
-    <string name="home_connection_actuator_state_direct">Connected</string>
     <string name="home_connection_actuator_state_degraded">Connected · %1$s issue</string>
-    <string name="home_connection_actuator_state_direct_degraded">Connected · %1$s issue</string>
     <string name="home_connection_actuator_state_fault">Connection failed: %1$s</string>
     <string name="home_connection_actuator_degraded_dns">DNS lookups failed or switched to a fallback resolver. Some sites may not open.</string>
     <string name="home_connection_actuator_degraded_network">The network changed or lost validated internet access. The connection may be unstable.</string>
@@ -405,7 +403,6 @@
         <item quantity="one">Applied %1$d bypass setting</item>
         <item quantity="other">Applied %1$d bypass settings</item>
     </plurals>
-    <string name="home_quality_measurements_title">Connection measurements</string>
     <string name="home_quality_waiting">No quality measurements yet. Traffic totals do not indicate connection quality.</string>
     <string name="home_quality_partial">A quality assessment needs more current RTT samples.</string>
     <string name="home_quality_last_values">Last reported measurements; they do not describe current connection quality.</string>

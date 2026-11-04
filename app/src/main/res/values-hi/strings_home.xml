@@ -309,9 +309,7 @@
     <string name="home_connection_actuator_state_open">कनेक्ट नहीं है</string>
     <string name="home_connection_actuator_state_engaging">कनेक्ट हो रहा है…</string>
     <string name="home_connection_actuator_state_locked">कनेक्ट है</string>
-    <string name="home_connection_actuator_state_direct">कनेक्ट है</string>
     <string name="home_connection_actuator_state_degraded">कनेक्ट है · समस्या: %1$s</string>
-    <string name="home_connection_actuator_state_direct_degraded">कनेक्ट है · समस्या: %1$s</string>
     <string name="home_connection_actuator_state_fault">कनेक्शन विफल: %1$s</string>
     <string name="home_connection_actuator_degraded_dns">DNS लुकअप विफल रहे या बैकअप रिज़ॉल्वर पर चले गए। कुछ साइटें शायद न खुलें।</string>
     <string name="home_connection_actuator_degraded_network">नेटवर्क बदल गया या सत्यापित इंटरनेट एक्सेस खो गया। कनेक्शन अस्थिर हो सकता है।</string>
@@ -401,7 +399,6 @@
         <item quantity="one">%1$d बायपास सेटिंग लागू की गई</item>
         <item quantity="other">%1$d बायपास सेटिंग लागू की गईं</item>
     </plurals>
-    <string name="home_quality_measurements_title">कनेक्शन माप</string>
     <string name="home_quality_waiting">अभी गुणवत्ता के माप उपलब्ध नहीं हैं। कुल ट्रैफ़िक कनेक्शन की गुणवत्ता नहीं दर्शाता।</string>
     <string name="home_quality_partial">गुणवत्ता के आकलन के लिए RTT के और हालिया नमूने चाहिए।</string>
     <string name="home_quality_last_values">आखिरी प्राप्त माप; ये कनेक्शन की मौजूदा गुणवत्ता नहीं दर्शाते।</string>

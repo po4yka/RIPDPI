@@ -7,7 +7,7 @@
     <string name="startup_recovery_retry">Tentar novamente</string>
     <string name="home">Status</string>
     <string name="connection_health_open_action">Abrir saúde da conexão</string>
-    <string name="connection_health_summary_title">Medições de conexão</string>
+    <string name="connection_health_summary_title">Medições da conexão</string>
     <string name="connection_health_quality_format">Perda estimada: %1$s%% · RTT p50 %2$d ms.</string>
     <string name="connection_health_quality_loss_format">Perda estimada: %1$s%%.</string>
     <string name="connection_health_quality_waiting">Aguardando medições de qualidade.</string>
@@ -308,9 +308,7 @@
     <string name="home_connection_actuator_state_open">Desconectado</string>
     <string name="home_connection_actuator_state_engaging">Conectando…</string>
     <string name="home_connection_actuator_state_locked">Conectado</string>
-    <string name="home_connection_actuator_state_direct">Conectado</string>
     <string name="home_connection_actuator_state_degraded">Conectado · problema: %1$s</string>
-    <string name="home_connection_actuator_state_direct_degraded">Conectado · problema: %1$s</string>
     <string name="home_connection_actuator_state_fault">Falha na conexão: %1$s</string>
     <string name="home_connection_actuator_degraded_dns">As consultas DNS falharam ou passaram para um resolvedor alternativo. Alguns sites podem não abrir.</string>
     <string name="home_connection_actuator_degraded_network">A rede mudou ou perdeu o acesso validado à internet. A conexão pode ficar instável.</string>
@@ -403,7 +401,6 @@
         <item quantity="many">%1$d configurações de contorno aplicadas</item>
         <item quantity="other">%1$d configurações de contorno aplicadas</item>
     </plurals>
-    <string name="home_quality_measurements_title">Medições da conexão</string>
     <string name="home_quality_waiting">Ainda não há medições de qualidade. O tráfego total não indica a qualidade da conexão.</string>
     <string name="home_quality_partial">A avaliação da qualidade precisa de mais amostras atuais de RTT.</string>
     <string name="home_quality_last_values">Últimas medições recebidas; elas não descrevem a qualidade atual da conexão.</string>

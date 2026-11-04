@@ -327,9 +327,7 @@
     <string name="home_connection_actuator_state_open">غير متصل</string>
     <string name="home_connection_actuator_state_engaging">جارٍ الاتصال…</string>
     <string name="home_connection_actuator_state_locked">متصل</string>
-    <string name="home_connection_actuator_state_direct">متصل</string>
     <string name="home_connection_actuator_state_degraded">متصل · مشكلة: %1$s</string>
-    <string name="home_connection_actuator_state_direct_degraded">متصل · مشكلة: %1$s</string>
     <string name="home_connection_actuator_state_fault">فشل الاتصال: %1$s</string>
     <string name="home_connection_actuator_degraded_dns">فشلت طلبات DNS أو انتقلت إلى محلل احتياطي. قد لا تفتح بعض المواقع.</string>
     <string name="home_connection_actuator_degraded_network">تغيرت الشبكة أو فقدت الوصول المؤكد إلى الإنترنت. قد يكون الاتصال غير مستقر.</string>
@@ -431,7 +429,6 @@
         <item quantity="many">طُبّق %1$d إعدادًا للتجاوز</item>
         <item quantity="other">عدد إعدادات التجاوز المطبّقة: %1$d</item>
     </plurals>
-    <string name="home_quality_measurements_title">قياسات الاتصال</string>
     <string name="home_quality_waiting">لا توجد قياسات للجودة بعد. إجمالي حركة البيانات لا يدل على جودة الاتصال.</string>
     <string name="home_quality_partial">يحتاج تقييم الجودة إلى المزيد من عينات RTT الحالية.</string>
     <string name="home_quality_last_values">آخر قياسات تم الإبلاغ عنها؛ لا تصف جودة الاتصال الحالية.</string>

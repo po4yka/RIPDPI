@@ -316,7 +316,6 @@
     <string name="home_connection_actuator_degraded_route">Das Relay ist nicht verfügbar. Der Datenverkehr läuft jetzt direkt.</string>
     <string name="home_connection_stage_handshake">Handshake</string>
     <string name="home_connection_actuator_state_locked">Verbunden</string>
-    <string name="home_connection_actuator_state_direct">Verbunden</string>
     <string name="home_connection_stage_network">Netzwerk</string>
     <string name="home_connection_actuator_direct">Direkt</string>
     <string name="home_connection_actuator_relay">Relay</string>
@@ -324,7 +323,6 @@
     <string name="home_connection_stage_route">Route</string>
     <string name="home_connection_actuator_action_activate">Verbinden</string>
     <string name="home_connection_actuator_state_degraded">Verbunden · Problem: %1$s</string>
-    <string name="home_connection_actuator_state_direct_degraded">Verbunden · Problem: %1$s</string>
     <string name="home_connection_stage_tunnel">Tunnel</string>
     <string name="home_connection_actuator_action_android_managed">Von Android-Sperre verwaltet</string>
     <string name="home_connection_stage_state_failed">fehlgeschlagen</string>
@@ -400,7 +398,6 @@
         <item quantity="one">%1$d Bypass-Einstellung angewendet</item>
         <item quantity="other">%1$d Bypass-Einstellungen angewendet</item>
     </plurals>
-    <string name="home_quality_measurements_title">Verbindungsmessungen</string>
     <string name="home_quality_waiting">Noch keine Qualitätsmessungen. Das Datenvolumen zeigt keine Verbindungsqualität an.</string>
     <string name="home_quality_partial">Eine Qualitätsbewertung benötigt mehr aktuelle RTT-Messwerte.</string>
     <string name="home_quality_last_values">Zuletzt gemeldete Messwerte; sie beschreiben nicht die aktuelle Verbindungsqualität.</string>

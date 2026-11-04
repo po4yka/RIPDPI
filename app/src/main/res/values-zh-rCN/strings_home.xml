@@ -303,9 +303,7 @@
     <string name="home_connection_actuator_state_open">未连接</string>
     <string name="home_connection_actuator_state_engaging">正在连接…</string>
     <string name="home_connection_actuator_state_locked">已连接</string>
-    <string name="home_connection_actuator_state_direct">已连接</string>
     <string name="home_connection_actuator_state_degraded">已连接 · 问题：%1$s</string>
-    <string name="home_connection_actuator_state_direct_degraded">已连接 · 问题：%1$s</string>
     <string name="home_connection_actuator_state_fault">连接失败：%1$s</string>
     <string name="home_connection_actuator_degraded_dns">DNS 查询失败或已切换到备用解析器。部分网站可能无法打开。</string>
     <string name="home_connection_actuator_degraded_network">网络已变化或失去已验证的互联网访问。连接可能不稳定。</string>
@@ -392,7 +390,6 @@
     <plurals name="home_diagnostics_actionable_bypass_count">
         <item quantity="other">已应用 %1$d 项绕过设置</item>
     </plurals>
-    <string name="home_quality_measurements_title">连接测量</string>
     <string name="home_quality_waiting">尚无质量测量。流量总量不能反映连接质量。</string>
     <string name="home_quality_partial">质量评估需要更多近期 RTT 样本。</string>
     <string name="home_quality_last_values">最近上报的测量不能反映当前连接质量。</string>

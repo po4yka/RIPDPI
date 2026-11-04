@@ -2968,8 +2968,6 @@ app:home_connection_actuator_issue_diagnose
 app:home_connection_actuator_issue_view_log
 app:home_connection_actuator_relay
 app:home_connection_actuator_state_degraded
-app:home_connection_actuator_state_direct
-app:home_connection_actuator_state_direct_degraded
 app:home_connection_actuator_state_engaging
 app:home_connection_actuator_state_fault
 app:home_connection_actuator_state_locked
@@ -3324,7 +3322,6 @@ app:home_quality_excellent
 app:home_quality_good
 app:home_quality_last_values
 app:home_quality_measure
-app:home_quality_measurements_title
 app:home_quality_metric_loss_format
 app:home_quality_metric_ms_format
 app:home_quality_partial

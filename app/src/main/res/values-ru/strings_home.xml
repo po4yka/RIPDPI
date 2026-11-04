@@ -317,7 +317,6 @@
     <string name="home_connection_actuator_direct">Напрямую</string>
     <string name="home_connection_actuator_relay">Через сервер</string>
     <string name="home_connection_actuator_state_degraded">Подключено · проблема: %1$s</string>
-    <string name="home_connection_actuator_state_direct_degraded">Подключено · проблема: %1$s</string>
     <string name="home_connection_actuator_state_engaging">Подключение…</string>
     <string name="home_connection_actuator_state_fault">Ошибка подключения: %1$s</string>
     <string name="home_connection_actuator_degraded_dns">DNS-запросы не выполнились или перешли на резервный резолвер. Некоторые сайты могут не открываться.</string>
@@ -326,7 +325,6 @@
     <string name="home_connection_actuator_degraded_tunnel">Туннель сообщил об ошибках и восстанавливается. Соединение может быть нестабильным.</string>
     <string name="home_connection_actuator_degraded_route">Сервер недоступен. Трафик теперь идёт напрямую.</string>
     <string name="home_connection_actuator_state_locked">Подключено</string>
-    <string name="home_connection_actuator_state_direct">Подключено</string>
     <string name="home_connection_actuator_state_open">Не подключено</string>
     <string name="home_connection_stage_handshake">Рукопожатие</string>
     <string name="home_connection_stage_network">Сеть</string>
@@ -412,7 +410,6 @@
         <item quantity="many">Применено %1$d настроек обхода</item>
         <item quantity="other">Применено %1$d настройки обхода</item>
     </plurals>
-    <string name="home_quality_measurements_title">Измерения соединения</string>
     <string name="home_quality_waiting">Измерений качества пока нет. Объём трафика не определяет качество соединения.</string>
     <string name="home_quality_partial">Для оценки качества нужно больше свежих образцов RTT.</string>
     <string name="home_quality_last_values">Последние полученные измерения не отражают текущее качество соединения.</string>

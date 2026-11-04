@@ -52,7 +52,7 @@ class FeedbackWordLayoutTest {
 
     @Test
     fun bannerKeepsWholeLocalizedWordsAndSeparateClickAndDismissActions() {
-        val title = text(R.string.home_quality_measurements_title)
+        val title = text(R.string.connection_health_summary_title)
         val message = text(R.string.home_quality_waiting)
         var clicks = 0
         var dismissals = 0

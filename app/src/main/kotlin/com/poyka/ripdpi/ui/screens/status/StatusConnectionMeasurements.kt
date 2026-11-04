@@ -125,7 +125,7 @@ private fun measureAction(
 )
 
 internal data class StatusMeasurementSummary(
-    val title: Int = R.string.home_quality_measurements_title,
+    val title: Int = R.string.connection_health_summary_title,
     val body: Int,
     val tone: RipDpiDegradationTone = RipDpiDegradationTone.Nominal,
 )

@@ -40,7 +40,7 @@
     <string name="shortcut_quick_connect">Conexión rápida</string>
     <string name="splash_subtitle">Herramienta de conectividad local</string>
     <string name="connection_health_open_action">Abrir salud de la conexión</string>
-    <string name="connection_health_summary_title">Mediciones de conexión</string>
+    <string name="connection_health_summary_title">Mediciones de la conexión</string>
     <string name="connection_health_quality_format">Pérdida estimada: %1$s%% · RTT p50 %2$d ms.</string>
     <string name="connection_health_quality_loss_format">Pérdida estimada: %1$s%%.</string>
     <string name="connection_health_quality_waiting">Esperando mediciones de calidad.</string>
@@ -317,7 +317,6 @@
     <string name="home_connection_actuator_degraded_route">El relay no está disponible. El tráfico ahora va directo.</string>
     <string name="home_connection_stage_handshake">Handshake</string>
     <string name="home_connection_actuator_state_locked">Conectado</string>
-    <string name="home_connection_actuator_state_direct">Conectado</string>
     <string name="home_connection_stage_network">Red</string>
     <string name="home_connection_actuator_direct">Directo</string>
     <string name="home_connection_actuator_relay">Relay</string>
@@ -325,7 +324,6 @@
     <string name="home_connection_stage_route">Ruta</string>
     <string name="home_connection_actuator_action_activate">Conectar</string>
     <string name="home_connection_actuator_state_degraded">Conectado · problema: %1$s</string>
-    <string name="home_connection_actuator_state_direct_degraded">Conectado · problema: %1$s</string>
     <string name="home_connection_stage_tunnel">Túnel</string>
     <string name="home_connection_actuator_action_android_managed">Gestionado por bloqueo de Android</string>
     <string name="home_connection_stage_state_failed">con error</string>
@@ -404,7 +402,6 @@
         <item quantity="many">Se aplicaron %1$d ajustes de evasión</item>
         <item quantity="other">Se aplicaron %1$d ajustes de evasión</item>
     </plurals>
-    <string name="home_quality_measurements_title">Mediciones de la conexión</string>
     <string name="home_quality_waiting">Aún no hay mediciones de calidad. El tráfico total no indica la calidad de la conexión.</string>
     <string name="home_quality_partial">La evaluación de calidad necesita más muestras actuales de RTT.</string>
     <string name="home_quality_last_values">Últimas mediciones recibidas; no describen la calidad actual de la conexión.</string>

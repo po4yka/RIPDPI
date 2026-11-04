@@ -377,7 +377,6 @@ internal fun buildConnectionActuatorUiState(
         statusDescription =
             actuatorStatusDescription(
                 status = status,
-                egressBacked = egressBacked,
                 vpnDataPlaneStatus = vpnWarning,
                 warningStage = warningStage,
                 failedStage = failedStage,
@@ -456,7 +455,6 @@ private fun stageState(
 
 private fun actuatorStatusDescription(
     status: StatusConnectionActuatorStatus,
-    egressBacked: Boolean,
     vpnDataPlaneStatus: VpnDataPlaneStatus?,
     warningStage: StatusConnectionActuatorStage?,
     failedStage: StatusConnectionActuatorStage?,
@@ -472,23 +470,13 @@ private fun actuatorStatusDescription(
         }
 
         StatusConnectionActuatorStatus.Locked -> {
-            stringResolver.getString(
-                if (egressBacked) {
-                    R.string.home_connection_actuator_state_locked
-                } else {
-                    R.string.home_connection_actuator_state_direct
-                },
-            )
+            stringResolver.getString(R.string.home_connection_actuator_state_locked)
         }
 
         StatusConnectionActuatorStatus.Degraded -> {
             vpnDataPlaneActuatorDescription(vpnDataPlaneStatus, stringResolver)
                 ?: stringResolver.getString(
-                    if (egressBacked) {
-                        R.string.home_connection_actuator_state_degraded
-                    } else {
-                        R.string.home_connection_actuator_state_direct_degraded
-                    },
+                    R.string.home_connection_actuator_state_degraded,
                     warningStage?.label(stringResolver).orEmpty(),
                 )
         }
