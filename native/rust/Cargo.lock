@@ -707,6 +707,7 @@ dependencies = [
  "portable-atomic",
  "rand_core 0.6.4",
  "ring",
+ "subtle",
  "tracing",
  "untrusted 0.9.0",
  "x25519-dalek 2.0.1",

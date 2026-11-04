@@ -111,6 +111,9 @@ version = "0.4.7"
 features = ["all"]
 optional = true
 
+[dependencies.subtle]
+version = "2.6"
+
 [dependencies.thiserror]
 version = "1"
 optional = true

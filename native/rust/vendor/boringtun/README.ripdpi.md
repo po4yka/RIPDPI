@@ -31,6 +31,9 @@ Local changes:
   a connected carrier uses an opaque connection identifier.
 - `noise/timers.rs` selects the AWG policy only when configured, and contains real
   encrypted-peer regression tests with deterministic elapsed time.
+- `noise/handshake.rs` and `noise/rate_limiter.rs` compare keys and MACs with
+  `subtle`, because ring deprecated `constant_time`. `serialization.rs` compiles
+  only for the `device` and `ffi-bindings` features and uses the base64 `Engine` API.
 
 The contract and independent expected outcomes are in
 `openspec/changes/awg31-behavior-parity/design.md` at the repository root. Ambiguous-candidate handling remains a separate execution step.

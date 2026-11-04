@@ -107,6 +107,7 @@ dependencies = [
  "rand_core",
  "ring",
  "socket2",
+ "subtle",
  "thiserror",
  "tracing",
  "tracing-subscriber",
