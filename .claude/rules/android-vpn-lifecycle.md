@@ -38,7 +38,7 @@ NEVER call `runtime.block_on(runtime.shutdown_*)` from a JNI method.
 
 ### Foreground Service contract
 
-`startForeground(NOTIFICATION_ID, notification)` must be called within the
+`startForeground()` must be called within the
 platform deadline measured from `startForegroundService()` launch to foreground
 promotion, not from `onStartCommand` returning. Promote immediately on service
 entry; do not spend the budget on config or network work. The notification must

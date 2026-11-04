@@ -757,6 +757,22 @@ RIPDPI uses one global persona, `Guided` or `Advanced`, set during onboarding an
 - every Advanced-only control remains reachable from Guided through an in-place `Advanced` expander on the same screen or flow, not by requiring a separate hidden route
 - persona changes must not fork the visual language; they adjust disclosure depth, autonomy, and defaults while preserving the same scaffolds, tokens, and status semantics
 
+## Foreground Notification
+
+The status notification answers one question: is the connection up, and in which mode? `core/service/.../services/ConnectionNotification.kt` owns its states and text, and `ForegroundNotificationController` owns publication for VPN and proxy.
+
+| State | Title | Text | Action |
+|---|---|---|---|
+| Connecting, Reconnecting, Stopping | `Connecting…`, `Reconnecting…`, `Stopping…` | None | Stop, except while stopping |
+| Connected | `Connected · VPN` or `Connected · Proxy` | Received and sent bytes; the system timer shows the duration | Stop, unless the Android kill switch blocks it |
+| Connected with a warning | `Connected · VPN · warning` | Same | Same |
+| Paused | `Paused` | Deadline or pause phase | Resume now, Stop |
+
+- `connectionWarning()` is the one warning predicate, shared with Home. The notification does not name the cause; Home does.
+- Session counts, RTT and other telemetry stay in Diagnostics.
+- A failed connection posts a separate `Connection lost` alert on its own channel unless the app is visible, because the status notification leaves with its service.
+- The status channel uses `IMPORTANCE_LOW`. Only the alert channel may make sound.
+
 ## Screen Recipes
 
 Each screen has one scaffold, one layout recipe, and one contract. Look up the screen here, then read its recipe and contract below.
