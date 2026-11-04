@@ -12,12 +12,12 @@ import android.os.LocaleList
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.app.AppCompatDelegate
 import androidx.core.app.LocaleManagerCompat
+import androidx.core.content.ContextCompat
 import androidx.core.os.LocaleListCompat
 import com.poyka.ripdpi.R
+import com.poyka.ripdpi.services.createConnectionNotification
 import com.poyka.ripdpi.ui.screens.diagnostics.state.DiagnosticsUiFormatter
 import com.poyka.ripdpi.ui.screens.diagnostics.state.formatTelegramThroughput
-import com.poyka.ripdpi.utility.createConnectionNotification
-import com.poyka.ripdpi.utility.createDynamicConnectionNotification
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -215,19 +215,18 @@ class AndroidStringResolverLocaleTest {
             createConnectionNotification(
                 context = application,
                 channelId = "locale-test",
-                title = mergedStringId(application, "notification_title"),
-                content = mergedStringId(application, "vpn_notification_content"),
+                title = "RIPDPI",
+                content = ContextCompat.getString(application, mergedStringId(application, "vpn_notification_content")),
                 service = Service::class.java,
             )
         val dynamicNotification =
-            createDynamicConnectionNotification(
+            createConnectionNotification(
                 context = application,
                 channelId = "locale-test",
                 title = "RIPDPI",
                 content = "↑ 0 B  ↓ 0 B",
-                subText = null,
                 service = Service::class.java,
-                whenTimestamp = 1L,
+                startedAt = 1L,
             )
 
         assertEquals(
@@ -285,14 +284,13 @@ class AndroidStringResolverLocaleTest {
                         3_661_000L,
                     ) as String
                 val notification =
-                    createDynamicConnectionNotification(
+                    createConnectionNotification(
                         context = context,
                         channelId = "locale-test",
                         title = "RIPDPI",
                         content = content,
-                        subText = null,
                         service = LocaleTestService::class.java,
-                        whenTimestamp = 1L,
+                        startedAt = 1L,
                     )
                 assertEquals(expectedContent, notification.extras.getString(Notification.EXTRA_TEXT))
                 assertEquals(

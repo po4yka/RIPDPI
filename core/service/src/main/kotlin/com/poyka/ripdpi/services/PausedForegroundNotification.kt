@@ -1,10 +1,6 @@
 package com.poyka.ripdpi.services
 
-import android.app.PendingIntent
 import android.app.Service
-import android.content.pm.ServiceInfo
-import android.os.Build
-import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.PauseIntent
@@ -33,22 +29,10 @@ internal fun startPausedForeground(
             deadline,
         )
     val notification =
-        NotificationCompat
-            .Builder(service, channel)
-            .setSmallIcon(R.drawable.ic_notification)
-            .setSilent(true)
-            .setOnlyAlertOnce(true)
-            .setOngoing(true)
+        connectionNotificationBuilder(service, channel)
             .setContentTitle(localizedContext.getString(R.string.pause_notification_title))
             .setContentText(content)
-            .setContentIntent(
-                PendingIntent.getActivity(
-                    service,
-                    0,
-                    service.packageManager.getLaunchIntentForPackage(service.packageName),
-                    PendingIntent.FLAG_IMMUTABLE,
-                ),
-            ).apply {
+            .apply {
                 if (intent.phase == PausePhase.Paused || intent.phase == PausePhase.Deferred) {
                     addAction(
                         R.drawable.ic_notification,
@@ -61,9 +45,5 @@ internal fun startPausedForeground(
                 localizedContext.getString(R.string.notification_stop),
                 TimedPauseController.pendingIntent(service, intent, TimedPauseController.PauseStopAction),
             ).build()
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-        service.startForeground(notificationId, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
-    } else {
-        service.startForeground(notificationId, notification)
-    }
+    service.startConnectionForeground(notificationId, notification)
 }

@@ -1,11 +1,6 @@
 package com.poyka.ripdpi.services
 
-import android.app.Notification
-import android.app.NotificationManager
 import android.content.Intent
-import android.content.pm.ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE
-import android.os.Build
-import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleService
 import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
@@ -20,10 +15,6 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator
 import com.poyka.ripdpi.services.selector.SelectorRuntimeLifecycleListener
-import com.poyka.ripdpi.utility.NotificationContentBuilder
-import com.poyka.ripdpi.utility.createConnectionNotification
-import com.poyka.ripdpi.utility.createDynamicConnectionNotification
-import com.poyka.ripdpi.utility.registerNotificationChannel
 import dagger.hilt.EntryPoints
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.NonCancellable
@@ -96,14 +87,18 @@ class RipDpiProxyService :
 
     override val serviceScope = lifecycleScope
 
+    private val notificationController =
+        ForegroundNotificationController(
+            service = this,
+            target = ConnectionNotificationTarget.Proxy,
+            startingContent = R.string.proxy_notification_content,
+            serviceStartedAt = { sessionStateStore?.telemetry?.value?.serviceStartedAt },
+        )
+
     override fun onCreate() {
         super.onCreate()
         runtimeEvidenceReporter.recordLifecycle(Mode.Proxy, DeviceRuntimeLifecyclePhase.Created)
-        registerNotificationChannel(
-            this,
-            NOTIFICATION_CHANNEL_ID,
-            R.string.proxy_channel_name,
-        )
+        notificationController.registerChannel()
         pauseController.attach(pauseHost)
     }
 
@@ -219,7 +214,12 @@ class RipDpiProxyService :
             },
             showPaused = { intent ->
                 lastPausedStartId = latestStartId
-                startPausedForeground(this, intent, NOTIFICATION_CHANNEL_ID, FOREGROUND_SERVICE_ID)
+                startPausedForeground(
+                    this,
+                    intent,
+                    ConnectionNotificationTarget.Proxy.channelId,
+                    ConnectionNotificationTarget.Proxy.notificationId,
+                )
             },
             stopShell = { lease ->
                 entryMutex.withLock {
@@ -268,7 +268,7 @@ class RipDpiProxyService :
     ): Int {
         super.onStartCommand(intent, flags, startId)
         latestStartId = startId
-        startForegroundService()
+        notificationController.startForeground()
         serviceScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             runCatching {
                 entryMutex.withLock {
@@ -351,7 +351,7 @@ class RipDpiProxyService :
             DeviceRuntimeForegroundCallKind.Initial,
             DeviceRuntimeForegroundServiceType.SpecialUse,
         ) {
-            startForegroundService()
+            notificationController.startForeground()
         }
         // A null action is a START_STICKY re-delivery after a process kill (LMK /
         // memory limiter). Publish Reconnecting ONLY from a Halted baseline (a genuinely
@@ -376,40 +376,7 @@ class RipDpiProxyService :
     override fun updateNotification(
         tunnelStats: TunnelStats,
         proxyTelemetry: NativeRuntimeSnapshot,
-    ) {
-        val startedAt = sessionStateStore?.telemetry?.value?.serviceStartedAt ?: return
-        val elapsedMs = System.currentTimeMillis() - startedAt
-        val content =
-            NotificationContentBuilder.buildContentText(
-                context = this,
-                txBytes = proxyTelemetry.tunnelStats.txBytes,
-                rxBytes = proxyTelemetry.tunnelStats.rxBytes,
-                elapsedMs = elapsedMs,
-            )
-        val subText =
-            NotificationContentBuilder.buildSubText(
-                context = this,
-                activeSessions = proxyTelemetry.activeSessions,
-                rttMs = proxyTelemetry.upstreamRttMs,
-            )
-        val notification =
-            createDynamicConnectionNotification(
-                context = this,
-                channelId = NOTIFICATION_CHANNEL_ID,
-                title = ContextCompat.getString(this, R.string.notification_title),
-                content = content,
-                subText = subText,
-                service = RipDpiProxyService::class.java,
-                whenTimestamp = startedAt,
-            )
-        @Suppress("SwallowedException")
-        try {
-            getSystemService(NotificationManager::class.java)
-                ?.notify(FOREGROUND_SERVICE_ID, notification)
-        } catch (e: SecurityException) {
-            Logger.w { "Cannot update notification: permission revoked" }
-        }
-    }
+    ) = notificationController.update(tunnelStats, proxyTelemetry)
 
     override fun requestStopSelf(stopSelfStartId: Int?) {
         requestStopSelfWithFallback(
@@ -419,38 +386,11 @@ class RipDpiProxyService :
         )
     }
 
-    private fun startForegroundService() {
-        val notification: Notification = createNotification()
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-            startForeground(
-                FOREGROUND_SERVICE_ID,
-                notification,
-                FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
-            )
-        } else {
-            startForeground(FOREGROUND_SERVICE_ID, notification)
-        }
-    }
-
-    private fun createNotification(): Notification =
-        createConnectionNotification(
-            this,
-            NOTIFICATION_CHANNEL_ID,
-            R.string.notification_title,
-            R.string.proxy_notification_content,
-            RipDpiProxyService::class.java,
-        )
-
     private fun clearSessionReferences() {
         shellDelegate = null
         coordinator = null
         sessionStateStore = null
         stateInitializer = null
         sessionComponent = null
-    }
-
-    companion object {
-        private const val FOREGROUND_SERVICE_ID: Int = 2
-        private const val NOTIFICATION_CHANNEL_ID: String = "RIPDPI Proxy"
     }
 }

@@ -1,20 +1,43 @@
-package com.poyka.ripdpi.utility
+package com.poyka.ripdpi.services
 
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
+import android.app.Service
 import android.content.Context
 import android.content.Intent
+import android.content.pm.ServiceInfo
+import android.os.Build
 import androidx.annotation.StringRes
 import androidx.core.app.NotificationCompat
 import androidx.core.content.ContextCompat
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.LogTags
-import com.poyka.ripdpi.services.notificationStopAction
 
-fun registerNotificationChannel(
+/** Identity of the one foreground notification that each service owns. */
+internal enum class ConnectionNotificationTarget(
+    val channelId: String,
+    @param:StringRes val channelName: Int,
+    val notificationId: Int,
+) {
+    Vpn("RIPDPIVpn", R.string.vpn_channel_name, 1),
+    Proxy("RIPDPI Proxy", R.string.proxy_channel_name, 2),
+}
+
+internal fun Service.startConnectionForeground(
+    notificationId: Int,
+    notification: Notification,
+) {
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+        startForeground(notificationId, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE)
+    } else {
+        startForeground(notificationId, notification)
+    }
+}
+
+internal fun registerConnectionChannel(
     context: Context,
     id: String,
     @StringRes name: Int,
@@ -43,83 +66,50 @@ fun registerNotificationChannel(
     }
 }
 
-fun createConnectionNotification(
+/** Defaults shared by every state of the connection notification, including pause. */
+internal fun connectionNotificationBuilder(
     context: Context,
     channelId: String,
-    @StringRes title: Int,
-    @StringRes content: Int,
-    service: Class<*>,
-    showStopAction: Boolean = true,
-): Notification =
-    NotificationCompat
-        .Builder(context, channelId)
-        .setSmallIcon(R.drawable.ic_notification)
-        .setSilent(true)
-        .setContentTitle(ContextCompat.getString(context, title))
-        .setContentText(ContextCompat.getString(context, content))
-        .apply {
-            if (showStopAction) {
-                addAction(
-                    R.drawable.ic_notification,
-                    ContextCompat.getString(context, R.string.notification_stop),
-                    stopPendingIntent(context, service),
-                )
-            }
-        }.setContentIntent(
-            PendingIntent.getActivity(
-                context,
-                0,
-                context.packageManager.getLaunchIntentForPackage(context.packageName),
-                PendingIntent.FLAG_IMMUTABLE,
-            ),
-        ).build()
-
-fun createDynamicConnectionNotification(
-    context: Context,
-    channelId: String,
-    title: String,
-    content: String,
-    subText: String?,
-    service: Class<*>,
-    whenTimestamp: Long,
-    showStopAction: Boolean = true,
-): Notification =
+): NotificationCompat.Builder =
     NotificationCompat
         .Builder(context, channelId)
         .setSmallIcon(R.drawable.ic_notification)
         .setSilent(true)
         .setOnlyAlertOnce(true)
         .setOngoing(true)
-        .setContentTitle(title)
-        .setContentText(content)
-        .apply { if (subText != null) setSubText(subText) }
-        .setWhen(whenTimestamp)
-        .setShowWhen(true)
-        .setUsesChronometer(true)
-        .apply {
-            if (showStopAction) {
-                addAction(
-                    R.drawable.ic_notification,
-                    ContextCompat.getString(context, R.string.notification_stop),
-                    stopPendingIntent(context, service),
-                )
-            }
-        }.setContentIntent(
+        .setContentIntent(
             PendingIntent.getActivity(
                 context,
                 0,
                 context.packageManager.getLaunchIntentForPackage(context.packageName),
                 PendingIntent.FLAG_IMMUTABLE,
             ),
-        ).build()
+        )
 
-private fun stopPendingIntent(
+fun createConnectionNotification(
     context: Context,
+    channelId: String,
+    title: String,
+    content: String?,
     service: Class<*>,
-): PendingIntent =
-    PendingIntent.getService(
-        context,
-        0,
-        Intent(context, service).setAction(notificationStopAction),
-        PendingIntent.FLAG_IMMUTABLE,
-    )
+    startedAt: Long? = null,
+    showStopAction: Boolean = true,
+): Notification =
+    connectionNotificationBuilder(context, channelId)
+        .setContentTitle(title)
+        .setContentText(content)
+        .apply {
+            if (startedAt != null) setWhen(startedAt).setShowWhen(true).setUsesChronometer(true)
+            if (showStopAction) {
+                addAction(
+                    R.drawable.ic_notification,
+                    ContextCompat.getString(context, R.string.notification_stop),
+                    PendingIntent.getService(
+                        context,
+                        0,
+                        Intent(context, service).setAction(notificationStopAction),
+                        PendingIntent.FLAG_IMMUTABLE,
+                    ),
+                )
+            }
+        }.build()

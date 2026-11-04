@@ -8,6 +8,7 @@ import android.os.Build
 import androidx.annotation.Keep
 import androidx.lifecycle.lifecycleScope
 import co.touchlab.kermit.Logger
+import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundCallKind
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundServiceType
@@ -122,7 +123,7 @@ class RipDpiVpnService :
 
     private lateinit var sessionLifecycle: VpnServiceSessionLifecycle
     private val shellDelegate = ShellDelegateSlot(ServiceShellDelegate::onRevoke)
-    private lateinit var notificationController: VpnForegroundNotificationController
+    private lateinit var notificationController: ForegroundNotificationController
     private lateinit var recoveryUserUnlockReceiver: RecoveryUserUnlockReceiverLifecycle
     internal val recoveryServiceInstanceId: String = UUID.randomUUID().toString()
 
@@ -141,14 +142,23 @@ class RipDpiVpnService :
     override fun onCreate() {
         super.onCreate()
         runtimeEvidenceReporter.recordLifecycle(Mode.VPN, DeviceRuntimeLifecyclePhase.Created)
-        notificationController = VpnForegroundNotificationController(serviceStateStore)
+        notificationController =
+            ForegroundNotificationController(
+                service = this,
+                target = ConnectionNotificationTarget.Vpn,
+                startingContent = R.string.vpn_notification_content,
+                serviceStartedAt = { serviceStateStore.telemetry.value.serviceStartedAt },
+                showStopAction = {
+                    AndroidHardKillSwitchStateReader.read(this).allowsServiceStop(notificationStopAction)
+                },
+            )
         recoveryUserUnlockReceiver =
             RecoveryUserUnlockReceiverLifecycle(
                 context = this,
                 generationProvider = { activeRecoveryGeneration },
                 onUnlocked = recoveryReceiptCollector::recordUserUnlocked,
             )
-        notificationController.registerChannel(this)
+        notificationController.registerChannel()
         refreshHardKillSwitchState()
         liveVpnLockdownReader.register(this, ::refreshHardKillSwitchState)
         pauseController.attach(pauseHost)
@@ -234,7 +244,12 @@ class RipDpiVpnService :
             },
             showPaused = { intent ->
                 lastPausedStartId = latestStartId
-                startPausedForeground(this, intent, "RIPDPIVpn", 1)
+                startPausedForeground(
+                    this,
+                    intent,
+                    ConnectionNotificationTarget.Vpn.channelId,
+                    ConnectionNotificationTarget.Vpn.notificationId,
+                )
             },
             stopShell = { lease ->
                 entryMutex.withLock {
@@ -297,7 +312,7 @@ class RipDpiVpnService :
     ): Int {
         super.onStartCommand(intent, flags, startId)
         latestStartId = startId
-        notificationController.startForeground(this)
+        notificationController.startForeground()
         serviceScope.launch(kotlinx.coroutines.Dispatchers.IO) {
             runCatching {
                 entryMutex.withLock {
@@ -351,7 +366,7 @@ class RipDpiVpnService :
     override fun updateNotification(
         tunnelStats: TunnelStats,
         proxyTelemetry: NativeRuntimeSnapshot,
-    ) = notificationController.update(this, tunnelStats, proxyTelemetry)
+    ) = notificationController.update(tunnelStats, proxyTelemetry)
 
     internal fun refreshForegroundNotification() {
         runtimeEvidenceReporter.runForegroundCall(
@@ -359,7 +374,7 @@ class RipDpiVpnService :
             DeviceRuntimeForegroundCallKind.Refresh,
             DeviceRuntimeForegroundServiceType.SpecialUse,
         ) {
-            notificationController.startForeground(this)
+            notificationController.startForeground()
         }
     }
 
@@ -626,7 +641,7 @@ class RipDpiVpnService :
                 DeviceRuntimeForegroundCallKind.Initial,
                 DeviceRuntimeForegroundServiceType.SpecialUse,
             ) {
-                notificationController.startForeground(this@RipDpiVpnService)
+                notificationController.startForeground()
             }
             val policy = refreshHardKillSwitchState()
             if (recoveryGeneration != null) {
