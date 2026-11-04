@@ -47,13 +47,6 @@
   font-display: swap;
   src: url("fonts/geist_mono_bold.ttf") format("truetype");
 }
-@font-face {
-  font-family: "Geist Pixel Circle";
-  font-weight: 400;
-  font-style: normal;
-  font-display: swap;
-  src: url("fonts/geist_pixel_circle.ttf") format("truetype");
-}
 
 /* ---------- Light mode (default) ---------- */
 :root {
@@ -118,12 +111,11 @@
     "Helvetica Neue", Arial, sans-serif;
   --rdp-font-mono: "Geist Mono", "JetBrains Mono", "SF Mono", Menlo, Consolas,
     monospace;
-  --rdp-font-brand: "Geist Pixel Circle", "Geist Mono", monospace;
 
   /* ---------- Type scale (px / line-height in px) — closed scale ---------- */
   --rdp-type-screen-title: 500 22px/28px var(--rdp-font-sans);
   --rdp-type-screen-title-emphasis: 700 22px/28px var(--rdp-font-sans);
-  --rdp-type-appbar-title: 500 20px/28px var(--rdp-font-sans);
+  --rdp-type-appbar-title: 500 22px/28px var(--rdp-font-sans);
   --rdp-type-sheet-title: 500 18px/24px var(--rdp-font-sans);
   --rdp-type-section-title: 500 13px/18px var(--rdp-font-sans); /* + letter-spacing 0.72px, uppercase-feeling */
   --rdp-type-intro-title: 500 22px/30px var(--rdp-font-sans);
@@ -140,7 +132,6 @@
   --rdp-type-mono-inline: 400 13px/20px var(--rdp-font-mono);
   --rdp-type-mono-log: 400 12px/20px var(--rdp-font-mono);
   --rdp-type-mono-small: 400 12px/16px var(--rdp-font-mono);
-  --rdp-type-brand-mark: 400 32px/48px var(--rdp-font-brand); /* + letter-spacing 0.8px */
   --rdp-type-brand-status: 500 13px/18px var(--rdp-font-mono);
 
   /* ---------- Spacing — closed 9-step scale ---------- */
@@ -346,11 +337,6 @@ code, kbd, samp, .rdp-mono, .rdp-mono-value {
 .rdp-mono-small  { font: var(--rdp-type-mono-small); }
 
 /* Brand */
-.rdp-brand-mark {
-  font: var(--rdp-type-brand-mark);
-  letter-spacing: 0.8px;
-  color: var(--rdp-foreground);
-}
 .rdp-brand-status {
   font: var(--rdp-type-brand-status);
   color: var(--rdp-foreground);

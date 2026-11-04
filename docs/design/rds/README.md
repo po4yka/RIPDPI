@@ -47,7 +47,7 @@ README.md                        ← you are here
 SKILL.md                         ← agent skill manifest (Claude Code compatible)
 colors_and_type.css              ← all tokens as CSS custom properties + @font-face
 
-fonts/                           ← Geist Sans, Geist Mono, Geist Pixel Circle
+fonts/                           ← Geist Sans, Geist Mono
 assets/
   ic_launcher.png                ← brand mark (raster)
   icons/                         ← Android vector drawables converted to SVG
@@ -185,7 +185,6 @@ Three families, no exceptions:
   byte counts, packet traces, configuration keys, log lines, latency,
   durations). Mono **signals to the user that a value is machine-readable
   and copy-pasteable**.
-- **Geist Pixel Circle** — brand mark only (`brandMark` style, 32/48).
 
 `PlatformTextStyle(includeFontPadding = false)` is set globally so vertical
 rhythm is honored. The type scale is small and shallow — extend
@@ -358,13 +357,6 @@ surfaces**. Default to `clean` everywhere else. The other five exist to
 imply the product's purpose (disrupting deep-packet inspection) without
 animating or decorating other surfaces.
 
-### Pixel font
-`Geist Pixel Circle` (`brandMark` style, 32/48 with `letter-spacing 0.8px`)
-is the **only** decorative font in the system. It is used **for the brand
-mark only** — typically rendering "RIPDPI" in the top app bar. Never use it
-for body text, headings, or marketing copy. Never use it for run-of-the-mill
-labels.
-
 ### Emoji
 **Not used.** Anywhere.
 
@@ -419,7 +411,7 @@ departure with a written justification, not slipped in as a refinement.
 ## Substitutions & caveats
 
 - **Fonts present** — Geist Sans (Regular/Medium/Bold), Geist Mono
-  (Regular/Medium/Bold), Geist Pixel Circle. **No substitutions in place.**
+  (Regular/Medium/Bold). **No substitutions in place.**
 - **Icons** — only the 6 hand-drawn brand-ship icons listed above are
   bundled. Anything else used in a mock should be sourced from Material
   Symbols at outline / weight 400 / 24×24, and the choice flagged.

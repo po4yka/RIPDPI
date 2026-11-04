@@ -92,7 +92,7 @@ internal fun StatusTopBar(
             Text(
                 text = title,
                 modifier = Modifier.weight(1f),
-                style = type.brandMark,
+                style = type.appBarTitle,
                 color = colors.foreground,
             )
         }

@@ -35,7 +35,6 @@ const RDP = {
   type: {
     sans: '"Geist Sans", -apple-system, system-ui, sans-serif',
     mono: '"Geist Mono", "JetBrains Mono", monospace',
-    pixel: '"Geist Pixel Circle", "Geist Mono", monospace',
   },
   // RipDpiSpacing
   space: { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 24, xxxl: 32, section: 40, screen: 48 },
@@ -439,7 +438,7 @@ function RipDpiTopAppBar({ title = 'RIPDPI', subtitle, brand = true, trailing })
         }}>R</div>
       )}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <div style={{ font: `400 28px/32px ${RDP.type.pixel}`, letterSpacing: 0.8 }}>{title}</div>
+        <div style={{ font: `500 22px/28px ${RDP.type.sans}` }}>{title}</div>
         {subtitle && (
           <div style={{ font: `500 13px/18px ${RDP.type.mono}`, color: c.mutedForeground }}>{subtitle}</div>
         )}

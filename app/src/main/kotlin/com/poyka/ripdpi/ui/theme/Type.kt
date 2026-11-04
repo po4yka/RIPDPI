@@ -28,11 +28,6 @@ val GeistMonoFamily =
         Font(R.font.geist_mono_bold, FontWeight.Bold),
     )
 
-val GeistPixelCircleFamily =
-    FontFamily(
-        Font(R.font.geist_pixel_circle, FontWeight.Normal),
-    )
-
 private fun sansStyle(
     fontSize: Int,
     lineHeight: Int,
@@ -63,19 +58,6 @@ private fun monoStyle(
     platformStyle = PlatformTextStyle(includeFontPadding = false),
 )
 
-private fun pixelStyle(
-    fontSize: Int,
-    lineHeight: Int,
-    letterSpacing: Float = 0f,
-) = TextStyle(
-    fontFamily = GeistPixelCircleFamily,
-    fontWeight = FontWeight.Normal,
-    fontSize = fontSize.sp,
-    lineHeight = lineHeight.sp,
-    letterSpacing = letterSpacing.sp,
-    platformStyle = PlatformTextStyle(includeFontPadding = false),
-)
-
 @Immutable
 data class RipDpiTextStyles(
     val screenTitle: TextStyle,
@@ -100,7 +82,6 @@ data class RipDpiTextStyles(
     val monoInline: TextStyle,
     val monoLog: TextStyle,
     val monoSmall: TextStyle,
-    val brandMark: TextStyle,
     val brandStatus: TextStyle,
 )
 
@@ -128,7 +109,6 @@ internal fun RipDpiTextStyles.withLocaleList(locales: LocaleList): RipDpiTextSty
         monoInline = monoInline.copy(localeList = locales),
         monoLog = monoLog.copy(localeList = locales),
         monoSmall = monoSmall.copy(localeList = locales),
-        brandMark = brandMark.copy(localeList = locales),
         brandStatus = brandStatus.copy(localeList = locales),
     )
 
@@ -162,7 +142,6 @@ val RipDpiTypeScale =
         monoInline = monoStyle(fontSize = 13, lineHeight = 20),
         monoLog = monoStyle(fontSize = 12, lineHeight = 20),
         monoSmall = monoStyle(fontSize = 12, lineHeight = 16),
-        brandMark = pixelStyle(fontSize = 32, lineHeight = 48, letterSpacing = 0.8f),
         brandStatus = monoStyle(fontSize = 13, lineHeight = 18, fontWeight = FontWeight.Medium),
     )
 

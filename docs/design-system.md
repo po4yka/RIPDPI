@@ -225,7 +225,6 @@ The screen contracts live in `DESIGN.md#screen-contracts`. Change a screen rule 
 
 ## Typography Rules
 
-- `brandMark`: reserved for the home brand header only.
 - `brandStatus`: reserved for compact status labels and telemetry badges.
 - `sectionTitle`: reserved for section headers and meta grouping labels.
 - `body` and its emphasis variants: primary text at `16sp/24sp`.

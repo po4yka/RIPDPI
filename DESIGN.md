@@ -152,12 +152,6 @@ typography:
     fontSize: 12px
     fontWeight: 400
     lineHeight: 16px
-  brandMark:
-    fontFamily: Geist Pixel Circle
-    fontSize: 32px
-    fontWeight: 400
-    lineHeight: 48px
-    letterSpacing: 0.8px
   brandStatus:
     fontFamily: Geist Mono
     fontSize: 13px
@@ -277,12 +271,6 @@ components:
     textColor: "{colors.foreground}"
     typography: "{typography.monoSmall}"
     padding: "{spacing.xs}"
-  brandMarkBanner:
-    backgroundColor: "{colors.background}"
-    textColor: "{colors.foreground}"
-    typography: "{typography.brandMark}"
-    rounded: "{rounded.xxxl}"
-    padding: "{spacing.xl}"
   statusLabel:
     backgroundColor: "{colors.background}"
     textColor: "{colors.foreground}"
@@ -554,7 +542,6 @@ Typography uses bundled Geist families only:
 
 - `Geist Sans` for general UI, titles, and labels.
 - `Geist Mono` for telemetry, configuration, values, logs, and protocol-oriented strings.
-- `Geist Pixel Circle` for the home brand mark only.
 
 Primary content uses a readable mobile scale: `body` and its emphasis variants are `16sp/24sp`; supporting text uses `secondaryBody` at `14sp/20sp`. `cardTitle` is `18sp/24sp` for mode and profile names. Reserve `caption` at `12sp/16sp` for metadata, never for text that explains the layout. Use these semantic roles instead of shrinking text to fit a control. The portable YAML expresses text sizes in px; Android implements them in sp and respects system font scale.
 
@@ -562,7 +549,6 @@ Material `Typography` defines all fifteen baseline styles and all fifteen emphas
 
 Reserved usage matters:
 
-- `brandMark` is home-header only.
 - `brandStatus` is for compact status badges and telemetry labels.
 - `sectionTitle` is for section grouping labels, not for body emphasis.
 - `monoValue`, `monoConfig`, `monoInline`, `monoLog`, and `monoSmall` are operator-facing monospace roles.

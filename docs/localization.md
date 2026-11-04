@@ -94,7 +94,7 @@ After you add or remove a key, regenerate the manifest with `scripts/ci/export-s
 
 ## Font & glyph coverage
 
-The bundled brand font family is **Geist** (`Geist Sans`, `Geist Mono`, and the `Geist Pixel Circle` display face), shipped under `app/src/main/res/font/`. Geist covers **Latin and Cyrillic** scripts — sufficient for `en`, `ru`, `es`, `de`, and `fr`.
+The bundled brand font family is **Geist** (`Geist Sans` and `Geist Mono`), shipped under `app/src/main/res/font/`. Geist covers **Latin and Cyrillic** scripts — sufficient for `en`, `ru`, `es`, `de`, and `fr`.
 
 Geist does **not** ship Arabic-script or CJK glyphs. RIPDPI does **not** bundle a CJK or Arabic font:
 
