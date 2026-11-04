@@ -91,10 +91,20 @@ class RipDpiScreenCatalogScreenshotTest {
     }
 
     @Test
-    fun onboardingModeSetupScreen() {
+    fun onboardingPersonaSetupScreen() {
         captureOnboardingScreen(
             OnboardingUiState(
                 currentPage = OnboardingInfoPageCount,
+                selectedMode = Mode.VPN,
+            ),
+        )
+    }
+
+    @Test
+    fun onboardingModeSetupScreen() {
+        captureOnboardingScreen(
+            OnboardingUiState(
+                currentPage = OnboardingInfoPageCount + 1,
                 selectedMode = Mode.VPN,
             ),
         )
