@@ -338,6 +338,42 @@ class ConnectionScreenTest {
     }
 
     @Test
+    fun `strategy row shows auto only for an untouched guided chain`() {
+        val default = AppSettingsSerializer.defaultValue.toConfigDraft()
+        var uiPersona by mutableStateOf("simple")
+        var draft by mutableStateOf(default)
+        composeRule.setContent {
+            RipDpiTheme {
+                ConnectionScreen(
+                    uiState = configUiState(uiPersona = uiPersona).copy(draft = draft),
+                    onModeSelected = {},
+                    onPresetSelected = {},
+                    onEditCurrent = {},
+                    onOpenConfigEditor = {},
+                    onRetestStrategies = {},
+                    onPasteServerLink = {},
+                )
+            }
+        }
+
+        fun assertStrategy(value: String) =
+            composeRule
+                .onNodeWithTag(RipDpiTestTags.ConfigLocalBypassDesync)
+                .assert(SemanticsMatcher.expectValue(SemanticsProperties.StateDescription, value))
+
+        assertStrategy("Auto (recommended)")
+
+        composeRule.runOnIdle { draft = default.withChainDsl("[tcp]\nfake host") }
+        assertStrategy("tcp: fake(host)")
+
+        composeRule.runOnIdle {
+            draft = default
+            uiPersona = "advanced"
+        }
+        assertStrategy(default.chainSummary)
+    }
+
+    @Test
     fun `path control follows the active relay and switches the path`() {
         val selected = mutableListOf<String>()
         var directSelections = 0

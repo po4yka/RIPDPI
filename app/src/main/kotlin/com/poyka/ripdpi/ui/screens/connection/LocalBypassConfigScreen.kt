@@ -31,6 +31,7 @@ import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.components.ripDpiClickable
 import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.screens.dns.localizedDnsSummary
+import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPersona
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
@@ -248,17 +249,22 @@ private fun LocalBypassDesyncRow(
     desyncSummary: String,
     onOpenDesyncSettings: () -> Unit,
 ) {
+    // Guided users see Auto only while the chain is untouched; any manual chain stays visible as written.
+    val isAuto =
+        OnboardingPersona.fromId(uiState.uiPersona) == OnboardingPersona.Simple &&
+            desyncSummary == AppSettingsSerializer.defaultValue.toConfigDraft().chainSummary
+    val strategyValue = if (isAuto) stringResource(R.string.config_local_bypass_strategy_auto) else desyncSummary
     LocalBypassActionRow(
         testTag = RipDpiTestTags.ConfigLocalBypassDesync,
         accessibilityLabel = stringResource(R.string.ripdpi_desync_method_setting),
-        accessibilityValue = desyncSummary,
+        accessibilityValue = strategyValue,
         onClick = onOpenDesyncSettings,
     ) {
         SettingsRow(
             title = stringResource(R.string.ripdpi_desync_method_setting),
-            value = desyncSummary,
+            value = strategyValue,
             leadingIcon = RipDpiIcons.Shield,
-            monospaceValue = true,
+            monospaceValue = !isAuto,
             showChevron = true,
             showDivider = uiState.draft.defaultTtl.isNotBlank(),
         )
