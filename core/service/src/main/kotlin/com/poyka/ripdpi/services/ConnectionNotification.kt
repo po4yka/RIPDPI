@@ -18,8 +18,13 @@ import com.poyka.ripdpi.core.service.R
 import com.poyka.ripdpi.data.LogTags
 import com.poyka.ripdpi.data.NetworkHandoverStates
 import com.poyka.ripdpi.data.RuntimeTelemetryState
+import com.poyka.ripdpi.data.Sender
+import com.poyka.ripdpi.data.ServiceEvent
+import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 
 /** Identity of the one foreground notification that each service owns. */
 internal enum class ConnectionNotificationTarget(
@@ -38,6 +43,8 @@ internal sealed interface ConnectionNotificationPhase {
     data object Reconnecting : ConnectionNotificationPhase
 
     data object Stopping : ConnectionNotificationPhase
+
+    data object Failed : ConnectionNotificationPhase
 
     data class Connected(
         val warning: Boolean,
@@ -105,6 +112,13 @@ internal fun connectionNotificationContent(
             ConnectionNotificationContent(localized.getString(R.string.notification_status_stopping))
         }
 
+        ConnectionNotificationPhase.Failed -> {
+            ConnectionNotificationContent(
+                title = localized.getString(R.string.notification_alert_title),
+                text = localized.getString(R.string.notification_alert_text),
+            )
+        }
+
         is ConnectionNotificationPhase.Connected -> {
             ConnectionNotificationContent(
                 title =
@@ -135,6 +149,19 @@ internal fun connectionTrafficText(
         Formatter.formatShortFileSize(localized, rxBytes),
         Formatter.formatShortFileSize(localized, txBytes),
     )
+}
+
+/** Failure events outlive the telemetry loop, which is already cancelled when a failed service stays alive. */
+internal fun CoroutineScope.observeConnectionFailures(
+    store: ServiceStateStore,
+    sender: Sender,
+    controller: ForegroundNotificationController,
+) {
+    launch {
+        store.events.collect { event ->
+            if (event is ServiceEvent.Failed && event.sender == sender) controller.onConnectionFailed()
+        }
+    }
 }
 
 internal fun Service.startConnectionForeground(

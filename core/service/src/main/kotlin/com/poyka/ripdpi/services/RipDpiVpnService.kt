@@ -14,6 +14,7 @@ import com.poyka.ripdpi.data.DeviceRuntimeForegroundServiceType
 import com.poyka.ripdpi.data.DeviceRuntimeLifecyclePhase
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
+import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
@@ -146,9 +147,7 @@ class RipDpiVpnService :
                 target = ConnectionNotificationTarget.Vpn,
                 telemetry = { serviceStateStore.telemetry.value },
                 pauseIntent = { pauseAuthority.snapshot() },
-                showStopAction = {
-                    AndroidHardKillSwitchStateReader.read(this).allowsServiceStop(notificationStopAction)
-                },
+                allowsStop = { action -> AndroidHardKillSwitchStateReader.read(this).allowsServiceStop(action) },
             )
         recoveryUserUnlockReceiver =
             RecoveryUserUnlockReceiverLifecycle(
@@ -157,6 +156,7 @@ class RipDpiVpnService :
                 onUnlocked = recoveryReceiptCollector::recordUserUnlocked,
             )
         notificationController.registerChannel()
+        serviceScope.observeConnectionFailures(serviceStateStore, Sender.VPN, notificationController)
         refreshHardKillSwitchState()
         liveVpnLockdownReader.register(this, ::refreshHardKillSwitchState)
         pauseController.attach(pauseHost)

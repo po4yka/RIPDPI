@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.DeviceRuntimeForegroundCallKind
 import com.poyka.ripdpi.data.DeviceRuntimeForegroundServiceType
 import com.poyka.ripdpi.data.DeviceRuntimeLifecyclePhase
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.Sender
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.service.runtime.proxy.ProxyServiceRuntimeCoordinator
@@ -97,6 +98,7 @@ class RipDpiProxyService :
         super.onCreate()
         runtimeEvidenceReporter.recordLifecycle(Mode.Proxy, DeviceRuntimeLifecyclePhase.Created)
         notificationController.registerChannel()
+        serviceScope.observeConnectionFailures(serviceStateStore, Sender.Proxy, notificationController)
         pauseController.attach(pauseHost)
     }
 

@@ -9,6 +9,7 @@ import com.poyka.ripdpi.data.PausePhase
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.TunnelStats
 import com.poyka.ripdpi.data.startAction
+import com.poyka.ripdpi.data.stopAction
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -92,7 +93,7 @@ class ForegroundNotificationControllerTest {
         assertEquals("Stopping…", shadowOf(service).lastForegroundNotification.title())
         assertTrue(title != "Connected · VPN")
 
-        ShadowSystemClock.advanceBy(Duration.ofSeconds(11))
+        ShadowSystemClock.advanceBy(Duration.ofSeconds(31))
         controller.update(TunnelStats(), interactive = true)
         assertEquals("Connected · VPN", title)
     }
@@ -108,6 +109,64 @@ class ForegroundNotificationControllerTest {
 
         assertEquals(pausedTitle, shadowOf(service).lastForegroundNotification.title())
         assertTrue(title != "Connected · VPN")
+    }
+
+    @Test
+    fun `a restart after the session ended does not show the old connection`() {
+        controller.startForeground(startAction)
+        controller.update(TunnelStats(), interactive = true)
+
+        telemetry = telemetry.copy(serviceStartedAt = null)
+        controller.startForeground(startAction)
+
+        assertEquals("Connecting…", shadowOf(service).lastForegroundNotification.title())
+    }
+
+    @Test
+    fun `a failure that keeps the service alive shows it with a way to stop`() {
+        controller.startForeground(startAction)
+        controller.update(TunnelStats(), interactive = true)
+        controller.startForeground(notificationStopAction)
+
+        telemetry = telemetry.copy(serviceStartedAt = null)
+        controller.onConnectionFailed()
+
+        assertEquals("Connection lost", title)
+        assertEquals(1, posted?.actions?.size)
+    }
+
+    @Test
+    fun `a stale stop and a policy refresh keep the pause notification`() {
+        paused = pauseIntent()
+        controller.showPaused(paused!!)
+        val pausedTitle = shadowOf(service).lastForegroundNotification.title()
+
+        controller.startForeground(notificationStopAction)
+        assertEquals(pausedTitle, shadowOf(service).lastForegroundNotification.title())
+
+        controller.refresh()
+        assertEquals(pausedTitle, shadowOf(service).lastForegroundNotification.title())
+    }
+
+    @Test
+    fun `a rejected in-app stop keeps the current state`() {
+        var allowed = false
+        val guarded =
+            ForegroundNotificationController(
+                service = service,
+                target = ConnectionNotificationTarget.Vpn,
+                telemetry = { telemetry },
+                pauseIntent = { paused },
+                allowsStop = { allowed },
+            )
+        guarded.startForeground(null)
+
+        guarded.startForeground(stopAction)
+        assertEquals("Reconnecting…", shadowOf(service).lastForegroundNotification.title())
+
+        allowed = true
+        guarded.startForeground(stopAction)
+        assertEquals("Stopping…", shadowOf(service).lastForegroundNotification.title())
     }
 
     private fun Notification.title() = extras.getString(Notification.EXTRA_TITLE)
