@@ -27,7 +27,9 @@ class BaselineProfileGenerator {
             device.findObject(By.res("onboarding-skip"))?.click()
             reach("home-screen")
 
-            // Bottom tabs: Diagnostics, then Settings.
+            // Bottom tabs: Connection, Diagnostics, then Settings.
+            tap("bottom-nav-config")
+            reach("config-screen")
             tap("bottom-nav-diagnostics")
             reach("diagnostics-screen")
             tap("bottom-nav-settings")
