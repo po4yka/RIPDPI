@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.poyka.ripdpi.ui.components.LifecycleEventEffect
 
 internal data class ConnectionRuntimePresentation(
@@ -18,6 +19,10 @@ internal fun configRuntimePresentation(
     uiState: ConnectionUiState,
     integration: ConnectionRuntimeIntegration,
 ): ConnectionRuntimePresentation {
+    LifecycleResumeEffect(viewModel) {
+        viewModel.refreshPersistedSnapshot()
+        onPauseOrDispose {}
+    }
     var feedbackMessage by remember { mutableStateOf<String?>(null) }
     LifecycleEventEffect(viewModel.effects) { effect ->
         when (effect) {

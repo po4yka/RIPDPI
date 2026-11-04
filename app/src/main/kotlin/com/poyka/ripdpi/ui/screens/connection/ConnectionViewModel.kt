@@ -110,15 +110,17 @@ class ConnectionViewModel
                 _effects,
                 stringResolver,
             )
-        private val relayProfileSelector =
+        private val snapshotRefreshes = MutableStateFlow(0)
+        internal val relayProfileSelector =
             ConnectionRelayProfileSelector(
                 dependencies = dependencies,
-                scope = viewModelScope,
+                scope = dependencies.applicationScope,
                 stringResolver = stringResolver,
                 effects = _effects,
                 log = log,
                 activeSaveJob = activeSaveJob::get,
                 suppressSaveSuccess = { suppressActiveConfigSaveSuccess(editorSession, activeSaveRequest) },
+                onProviderChanged = ::refreshPersistedSnapshot,
             )
         private val rotateEditorRecoverySession =
             configEditorRecoveryRotator(
@@ -187,6 +189,8 @@ class ConnectionViewModel
                 appSettingsRepository = appSettingsRepository,
                 relayPresetCatalog = relayPresetCatalog,
                 relayArtifacts = relayArtifacts,
+                externalProviders = dependencies.externalProviders,
+                refreshes = snapshotRefreshes,
                 ioDispatcher = dispatchers.io,
             )
 
@@ -255,7 +259,7 @@ class ConnectionViewModel
                 } else {
                     appSettingsRepository.update { setRipdpiMode(mode.preferenceValue) }
                 }
-                if (changed) relayProfileSelector.applySavedSettings()
+                if (changed) dependencies.applicationScope.launch { relayProfileSelector.applySavedSettings() }
             }
         }
 
@@ -289,7 +293,7 @@ class ConnectionViewModel
                                     editorSession.compareAndSet(expectedSession, ConnectionEditorSession())
                                 }
                             }
-                            relayProfileSelector.applySavedSettings()
+                            dependencies.applicationScope.launch { relayProfileSelector.applySavedSettings() }
                         }
                     }
                 }
@@ -342,12 +346,9 @@ class ConnectionViewModel
             }
         }
 
-        fun selectRelayProfile(profileId: String) {
-            relayProfileSelector.select(profileId)
-        }
-
-        fun selectDirectPath() {
-            relayProfileSelector.selectDirect()
+        /** The active Xray and AmneziaWG selections live outside settings, so another screen can change them. */
+        fun refreshPersistedSnapshot() {
+            snapshotRefreshes.update { it + 1 }
         }
 
         fun updateDraft(

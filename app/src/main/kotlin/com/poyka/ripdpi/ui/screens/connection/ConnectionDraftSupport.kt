@@ -313,6 +313,7 @@ data class ConnectionUiState(
     val activeMode: Mode = Mode.VPN,
     val activeRelayProfileId: String = DefaultRelayProfileId,
     val activeRelayEnabled: Boolean = false,
+    val activeExternalProvider: ConnectionExternalProvider? = null,
     val runningMode: Mode? = null,
     val runtimeOperation: ConnectionRuntimeOperation? = null,
     val runtimeError: String? = null,
@@ -336,7 +337,10 @@ data class ConnectionUiState(
     val isEditorImporting: Boolean = false,
     val hasEditorRecoveryPersistenceError: Boolean = false,
     val isLoading: Boolean = false,
-)
+) {
+    val usesRelayPath: Boolean
+        get() = activeRelayEnabled || activeExternalProvider != null
+}
 
 data class RelayPresetUiState(
     val id: String,

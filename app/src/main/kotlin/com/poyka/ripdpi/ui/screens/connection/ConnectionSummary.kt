@@ -19,16 +19,24 @@ internal fun ConnectionSavedConnectionCard(
 ) {
     val selectedPreset = uiState.presets.firstOrNull { it.isSelected }
     val profileName =
-        if (uiState.activeRelayEnabled) {
-            uiState.vpnProfiles.firstOrNull { it.id == uiState.activeRelayProfileId }?.selectorLabel
-                ?: uiState.activeRelayProfileId
-        } else {
-            stringResource(titleResForPreset(selectedPreset?.kind ?: ConnectionPresetKind.Custom))
+        when {
+            uiState.activeExternalProvider != null -> {
+                uiState.activeExternalProvider.displayName
+            }
+
+            uiState.activeRelayEnabled -> {
+                uiState.vpnProfiles.firstOrNull { it.id == uiState.activeRelayProfileId }?.selectorLabel
+                    ?: uiState.activeRelayProfileId
+            }
+
+            else -> {
+                stringResource(titleResForPreset(selectedPreset?.kind ?: ConnectionPresetKind.Custom))
+            }
         }
     val scope = stringResource(modeLabelRes(uiState.activeMode))
     val path =
         stringResource(
-            if (uiState.activeRelayEnabled) {
+            if (uiState.usesRelayPath) {
                 R.string.config_path_relay
             } else {
                 R.string.config_path_direct

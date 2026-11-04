@@ -135,8 +135,8 @@ fun ConnectionRoute(
             ConnectionProfileActions(
                 scanServer = onScanServer,
                 share = onProfileShare,
-                select = remember(viewModel) { viewModel::selectRelayProfile },
-                selectDirect = remember(viewModel) { viewModel::selectDirectPath },
+                select = remember(viewModel) { viewModel.relayProfileSelector::select },
+                selectDirect = remember(viewModel) { viewModel.relayProfileSelector::selectDirect },
                 create = onOpenRoute,
                 edit = { profileId ->
                     openRelayProfileEditor(
@@ -196,8 +196,8 @@ fun ConnectionScreen(
     // An active relay always shows Relay. Browsing covers the Relay section before a profile is active.
     var browsingRelay by rememberSaveable { mutableStateOf(initialPath == ConnectionPath.Relay) }
     // Browsing ends once a relay is active, so turning that relay off later returns to Direct.
-    LaunchedEffect(uiState.activeRelayEnabled) { if (uiState.activeRelayEnabled) browsingRelay = false }
-    val selectedPath = if (uiState.activeRelayEnabled || browsingRelay) ConnectionPath.Relay else ConnectionPath.Direct
+    LaunchedEffect(uiState.usesRelayPath) { if (uiState.usesRelayPath) browsingRelay = false }
+    val selectedPath = if (uiState.usesRelayPath || browsingRelay) ConnectionPath.Relay else ConnectionPath.Direct
     var showProfileChoices by rememberSaveable { mutableStateOf(false) }
 
     RipDpiContentScreenScaffold(
@@ -233,13 +233,15 @@ fun ConnectionScreen(
                 when (path) {
                     ConnectionPath.Direct -> {
                         browsingRelay = false
-                        if (uiState.activeRelayEnabled) profileActions.selectDirect()
+                        profileActions.selectDirect()
                     }
 
                     ConnectionPath.Relay -> {
-                        if (!uiState.activeRelayEnabled) {
-                            val lastProfile = uiState.vpnProfiles.firstOrNull { it.id == uiState.activeRelayProfileId }
-                            if (lastProfile != null) profileActions.select(lastProfile.id) else browsingRelay = true
+                        val lastProfile = uiState.vpnProfiles.firstOrNull { it.id == uiState.activeRelayProfileId }
+                        when {
+                            uiState.activeExternalProvider != null -> Unit
+                            lastProfile != null -> profileActions.select(lastProfile.id)
+                            !uiState.usesRelayPath -> browsingRelay = true
                         }
                     }
                 }

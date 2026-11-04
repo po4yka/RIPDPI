@@ -2,6 +2,7 @@ package com.poyka.ripdpi.ui.screens.connection
 
 import android.net.Uri
 import androidx.lifecycle.SavedStateHandle
+import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.FakeLatestDirectModeOutcomeStore
 import com.poyka.ripdpi.activities.FakeRunningServiceReconnect
@@ -847,6 +848,91 @@ class ConnectionViewModelApplyChangesTest {
         }
 
     @Test
+    fun `direct uses saved settings so a tap before the ui updates still lands`() =
+        runTest {
+            val store = FakeServiceStateStore()
+            store.setStatus(AppStatus.Running, Mode.VPN)
+            val settings = FakeAppSettingsRepository()
+            settings.update { setRelayEnabled(true) }
+            val reconnect = FakeRunningServiceReconnect()
+            val viewModel =
+                createConfigViewModel(
+                    appSettingsRepository = settings,
+                    serviceStateStore = store,
+                    reconnectCoordinator = reconnect,
+                )
+
+            viewModel.relayProfileSelector.selectDirect()
+            advanceUntilIdle()
+            assertFalse(settings.snapshot().relayEnabled)
+            assertEquals(listOf(Mode.VPN), reconnect.requestedModes)
+
+            viewModel.relayProfileSelector.selectDirect()
+            advanceUntilIdle()
+            assertEquals(listOf(Mode.VPN), reconnect.requestedModes)
+        }
+
+    @Test
+    fun `direct turns off an external provider and refreshes the state`() =
+        runTest {
+            val store = FakeServiceStateStore()
+            store.setStatus(AppStatus.Running, Mode.VPN)
+            val reconnect = FakeRunningServiceReconnect()
+            val providers = FakeExternalProviders(ConnectionExternalProvider.Xray)
+            val viewModel =
+                createConfigViewModel(
+                    serviceStateStore = store,
+                    reconnectCoordinator = reconnect,
+                    externalProviders = providers,
+                )
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            advanceUntilIdle()
+            assertEquals(ConnectionExternalProvider.Xray, viewModel.uiState.value.activeExternalProvider)
+
+            viewModel.relayProfileSelector.selectDirect()
+            advanceUntilIdle()
+
+            assertEquals(1, providers.deactivations)
+            assertEquals(listOf(Mode.VPN), reconnect.requestedModes)
+            assertEquals(null, viewModel.uiState.value.activeExternalProvider)
+        }
+
+    @Test
+    fun `reconnect keeps running after the view model is cleared`() =
+        runTest {
+            val store = FakeServiceStateStore()
+            store.setStatus(AppStatus.Running, Mode.VPN)
+            val gate = CompletableDeferred<Unit>()
+            var finished = false
+            val reconnect =
+                object : com.poyka.ripdpi.services.RunningServiceReconnect {
+                    override val reconnectState =
+                        MutableStateFlow<com.poyka.ripdpi.services.RunningReconnectState>(
+                            com.poyka.ripdpi.services.RunningReconnectState.Idle,
+                        )
+
+                    override fun cancelReconnect() = Unit
+
+                    override suspend fun reconnect(
+                        request: com.poyka.ripdpi.services.RunningReconnectRequest,
+                    ): com.poyka.ripdpi.services.RunningReconnectResult {
+                        gate.await()
+                        finished = true
+                        return com.poyka.ripdpi.services.RunningReconnectResult.NotRunning
+                    }
+                }
+            val viewModel = createConfigViewModel(serviceStateStore = store, reconnectCoordinator = reconnect)
+
+            viewModel.selectMode(Mode.Proxy)
+            advanceUntilIdle()
+            viewModel.viewModelScope.cancel()
+            gate.complete(Unit)
+            advanceUntilIdle()
+
+            assertTrue(finished)
+        }
+
+    @Test
     fun `scope change during a reconnect is rejected with a message`() =
         runTest {
             val settings = FakeAppSettingsRepository()
@@ -1058,6 +1144,8 @@ class ConnectionViewModelProviderModeTest {
                     dispatchers = testDispatchers(),
                     editorDraftStore = InMemoryConfigEditorDraftStore(),
                     xrayNativeProviderSelection = xrayNativeProviderSelection,
+                    externalProviders = NoExternalProviders,
+                    applicationScope = TestApplicationScope,
                 ),
             importDependencies =
                 ConnectionImportDependencies(
@@ -2021,6 +2109,7 @@ private fun createConfigViewModel(
         RecordingXrayNativeProviderSelection(appSettingsRepository),
     reconnectCoordinator: com.poyka.ripdpi.services.RunningServiceReconnect =
         FakeRunningServiceReconnect(serviceController, serviceStateStore),
+    externalProviders: ConnectionExternalProviders = NoExternalProviders,
 ): ConnectionViewModel =
     ConnectionViewModel(
         savedStateHandle = savedStateHandle,
@@ -2054,6 +2143,8 @@ private fun createConfigViewModel(
                 dispatchers = testDispatchers(),
                 editorDraftStore = editorDraftStore,
                 xrayNativeProviderSelection = xrayNativeProviderSelection,
+                externalProviders = externalProviders,
+                applicationScope = TestApplicationScope,
             ),
         importDependencies =
             ConnectionImportDependencies(

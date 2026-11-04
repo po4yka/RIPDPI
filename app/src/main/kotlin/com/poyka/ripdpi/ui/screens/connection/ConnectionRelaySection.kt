@@ -280,7 +280,16 @@ private fun RelaySectionRows(
     onOpenSubscriptionFailover: (() -> Unit)? = null,
 ) {
     RipDpiCard {
-        if (uiState.draft.relayEnabled && uiState.draft.relayKind != RelayKindOff) {
+        if (uiState.activeExternalProvider != null) {
+            SettingsRow(
+                title = uiState.activeExternalProvider.displayName,
+                leadingIcon = RipDpiIcons.Public,
+                onClick = onChooseRelay,
+                showChevron = true,
+                showDivider = true,
+                testTag = RipDpiTestTags.ConfigVpnRelay,
+            )
+        } else if (uiState.draft.relayEnabled && uiState.draft.relayKind != RelayKindOff) {
             VpnRelayRow(uiState = uiState, onOpenRelaySettings = onOpenRelaySettings)
             VpnProtocolRow(uiState = uiState, onOpenRelaySettings = onOpenRelaySettings)
             VpnCredentialsRow(uiState = uiState, onOpenRelaySettings = onOpenRelaySettings)

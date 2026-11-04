@@ -33,6 +33,7 @@ internal data class ConnectionPersistedSnapshot(
     val settings: AppSettings,
     val relayPresets: List<RelayPresetDefinition>,
     val relayProfileRecords: List<RelayProfileRecord>,
+    val activeExternalProvider: ConnectionExternalProvider? = null,
 )
 
 internal data class ConnectionRuntimeSnapshot(
@@ -46,14 +47,17 @@ internal fun configPersistedSnapshots(
     appSettingsRepository: AppSettingsRepository,
     relayPresetCatalog: RelayPresetCatalog,
     relayArtifacts: ConnectionRelayArtifactRepository,
+    externalProviders: ConnectionExternalProviders,
+    refreshes: Flow<Int>,
     ioDispatcher: CoroutineDispatcher,
 ): Flow<ConnectionPersistedSnapshot> =
     appSettingsRepository.settings
-        .map { settings ->
+        .combine(refreshes) { settings, _ ->
             ConnectionPersistedSnapshot(
                 settings = settings,
                 relayPresets = relayPresetCatalog.all(),
                 relayProfileRecords = loadRelayProfileRecordsOrEmpty { relayArtifacts.listProfiles() },
+                activeExternalProvider = externalProviders.current(settings.toConfigDraft().mode),
             )
         }.flowOn(ioDispatcher)
 
@@ -94,17 +98,18 @@ internal fun configUiStateFlow(
         serviceTelemetry,
         runtimeSnapshots,
     ) { persistedSnapshot, editor, telemetry, runtimeSnapshot ->
-        factory.create(
-            settings = persistedSnapshot.settings,
-            editorState = editor,
-            serviceStatus = runtimeSnapshot.serviceStatus,
-            serviceTelemetry = telemetry,
-            latestDirectModeOutcome = runtimeSnapshot.latestDirectModeOutcome,
-            relayPresets = persistedSnapshot.relayPresets,
-            relayProfileRecords = persistedSnapshot.relayProfileRecords,
-            networkSnapshot = runtimeSnapshot.networkSnapshot,
-            capabilityRecords = runtimeSnapshot.capabilityRecords,
-        )
+        factory
+            .create(
+                settings = persistedSnapshot.settings,
+                editorState = editor,
+                serviceStatus = runtimeSnapshot.serviceStatus,
+                serviceTelemetry = telemetry,
+                latestDirectModeOutcome = runtimeSnapshot.latestDirectModeOutcome,
+                relayPresets = persistedSnapshot.relayPresets,
+                relayProfileRecords = persistedSnapshot.relayProfileRecords,
+                networkSnapshot = runtimeSnapshot.networkSnapshot,
+                capabilityRecords = runtimeSnapshot.capabilityRecords,
+            ).copy(activeExternalProvider = persistedSnapshot.activeExternalProvider)
     }.combine(reconnectState) { state, reconnect ->
         if (reconnect.isConfigPending()) {
             state.copy(

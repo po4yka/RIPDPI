@@ -112,6 +112,8 @@ class ConnectionViewModelSnapshotTest {
                     dispatchers = testDispatchers(),
                     editorDraftStore = InMemoryConfigEditorDraftStore(),
                     xrayNativeProviderSelection = RecordingXrayNativeProviderSelection(appSettingsRepository),
+                    externalProviders = NoExternalProviders,
+                    applicationScope = TestApplicationScope,
                 ),
             importDependencies =
                 ConnectionImportDependencies(

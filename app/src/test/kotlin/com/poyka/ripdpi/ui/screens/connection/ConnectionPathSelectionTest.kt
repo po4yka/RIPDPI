@@ -8,6 +8,7 @@ import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.assert
 import androidx.compose.ui.test.assertIsSelected
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -83,6 +84,35 @@ class ConnectionPathSelectionTest {
         composeRule.onNodeWithTag(relayTag).performScrollTo().performClick()
         composeRule.runOnIdle { assertEquals(listOf("saved"), selected) }
         composeRule.onNodeWithTag(directTag).assertIsSelected()
+    }
+
+    @Test
+    fun `external provider shows as the active relay path and direct turns it off`() {
+        var directSelections = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                ConnectionScreen(
+                    uiState =
+                        ConnectionUiState(
+                            activeExternalProvider = ConnectionExternalProvider.AmneziaWg,
+                            presets = buildConfigPresets(defaultDraft),
+                            draft = defaultDraft,
+                        ),
+                    onModeSelected = {},
+                    onPresetSelected = {},
+                    onEditCurrent = {},
+                    onOpenConfigEditor = {},
+                    onRetestStrategies = {},
+                    onPasteServerLink = {},
+                    profileActions = ConnectionProfileActions(selectDirect = { directSelections += 1 }),
+                )
+            }
+        }
+
+        assertEquals(2, composeRule.onAllNodesWithText("AmneziaWG", useUnmergedTree = true).fetchSemanticsNodes().size)
+        composeRule.onNodeWithTag(RipDpiTestTags.configPath("relay")).assertIsSelected()
+        composeRule.onNodeWithTag(RipDpiTestTags.configPath("direct")).performScrollTo().performClick()
+        composeRule.runOnIdle { assertEquals(1, directSelections) }
     }
 
     @Test

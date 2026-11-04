@@ -21,13 +21,37 @@ internal class ConnectionRelayProfileSelector(
     private val log: Logger,
     private val activeSaveJob: () -> Job?,
     private val suppressSaveSuccess: () -> Unit,
+    private val onProviderChanged: () -> Unit,
 ) {
     private val selectionLock = Mutex()
     private val generation = AtomicLong()
 
-    fun select(profileId: String) = changeActiveRelay { dependencies.relayArtifacts.selectProfile(profileId) }
+    // Both read saved settings inside the selection lock, so a tap made before the UI updated still lands.
+    fun select(profileId: String) =
+        changeActivePath {
+            val settings = dependencies.appSettingsRepository.snapshot()
+            val mode = settings.toConfigDraft().mode
+            val external = dependencies.externalProviders.current(mode)
+            if (external == null && settings.relayEnabled && settings.relayProfileId == profileId) {
+                null
+            } else {
+                dependencies.externalProviders.deactivate(mode)
+                dependencies.relayArtifacts.selectProfile(profileId)
+            }
+        }
 
-    fun selectDirect() = changeActiveRelay { dependencies.relayArtifacts.deactivateActiveProfile() }
+    fun selectDirect() =
+        changeActivePath {
+            val settings = dependencies.appSettingsRepository.snapshot()
+            val mode = settings.toConfigDraft().mode
+            val external = dependencies.externalProviders.current(mode)
+            val reconnect = dependencies.externalProviders.deactivate(mode)
+            when {
+                settings.relayEnabled -> dependencies.relayArtifacts.deactivateActiveProfile()
+                external != null && reconnect -> dependencies.appSettingsRepository.snapshot().toConfigDraft()
+                else -> null
+            }
+        }
 
     /** A change made during a reconnect would stay saved while the service kept the old settings. */
     fun rejectWhileReconnecting(): Boolean {
@@ -68,7 +92,7 @@ internal class ConnectionRelayProfileSelector(
         )
     }
 
-    private fun changeActiveRelay(relayChange: suspend () -> ConnectionDraft) {
+    private fun changeActivePath(pathChange: suspend () -> ConnectionDraft?) {
         if (rejectWhileReconnecting()) return
         val request = generation.incrementAndGet()
         val saveJob = activeSaveJob()
@@ -78,10 +102,11 @@ internal class ConnectionRelayProfileSelector(
             selectionLock.withLock {
                 if (generation.get() != request) return@withLock
                 runCatching {
-                    applyToRunningService(relayChange())
+                    pathChange()?.let { applyToRunningService(it) }
+                    onProviderChanged()
                 }.onFailure { error ->
                     if (error is CancellationException) throw error
-                    log.e(error) { "Failed to change active relay" }
+                    log.e(error) { "Failed to change the active path" }
                     effects.emit(
                         ConnectionEffect.Message(stringResolver.getString(R.string.relay_editor_activation_failed)),
                     )
