@@ -245,6 +245,7 @@ class ConnectionViewModel
             }
 
             viewModelScope.launch {
+                val changed = appSettingsRepository.snapshot().ripdpiMode != mode.preferenceValue
                 if (mode == Mode.Proxy) {
                     xrayNativeProviderSelection.selectNativeMode(
                         com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit,
@@ -253,7 +254,25 @@ class ConnectionViewModel
                 } else {
                     appSettingsRepository.update { setRipdpiMode(mode.preferenceValue) }
                 }
+                if (changed) applySavedSettingsToRunningService()
             }
+        }
+
+        private suspend fun applySavedSettingsToRunningService() {
+            applySavedConfigDraftToRunningService(
+                draft = appSettingsRepository.snapshot().toConfigDraft(),
+                appSettingsRepository = appSettingsRepository,
+                serviceStateStore = serviceStateStore,
+                reconnectCoordinator = dependencies.reconnectCoordinator,
+                onReconnectFailure = { result ->
+                    _effects.tryEmit(ConnectionEffect.Message(result.reason.message(stringResolver)))
+                },
+                onUnsupportedVpnDns = {
+                    _effects.tryEmit(
+                        ConnectionEffect.Message(stringResolver.getString(R.string.dns_custom_doq_unavailable)),
+                    )
+                },
+            )
         }
 
         fun selectPreset(presetId: String) {
@@ -285,6 +304,7 @@ class ConnectionViewModel
                                     editorSession.compareAndSet(expectedSession, ConnectionEditorSession())
                                 }
                             }
+                            applySavedSettingsToRunningService()
                         }
                     }
                 }

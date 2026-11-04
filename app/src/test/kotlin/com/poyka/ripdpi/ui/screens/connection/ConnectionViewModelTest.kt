@@ -1419,6 +1419,29 @@ class ConnectionViewModelEditorSessionConcurrencyTest {
         }
 
     @Test
+    fun `scope and preset changes reach a running service only when they change settings`() =
+        runTest {
+            val store = FakeServiceStateStore()
+            store.setStatus(AppStatus.Running, Mode.VPN)
+            val reconnect = FakeRunningServiceReconnect()
+            val viewModel = createConfigViewModel(serviceStateStore = store, reconnectCoordinator = reconnect)
+            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { viewModel.uiState.collect() }
+            advanceUntilIdle()
+
+            viewModel.selectMode(Mode.VPN)
+            advanceUntilIdle()
+            assertEquals(emptyList<Mode>(), reconnect.requestedModes)
+
+            viewModel.selectMode(Mode.Proxy)
+            advanceUntilIdle()
+            assertEquals(listOf(Mode.Proxy), reconnect.requestedModes)
+
+            viewModel.selectPreset("recommended")
+            advanceUntilIdle()
+            assertEquals(listOf(Mode.Proxy, Mode.Proxy), reconnect.requestedModes)
+        }
+
+    @Test
     fun `delayed built in preset update does not clear a newer editor session`() =
         runTest {
             val updateGate = CompletableDeferred<Unit>()
