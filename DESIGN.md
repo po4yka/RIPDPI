@@ -549,6 +549,7 @@ Material `Typography` defines all fifteen baseline styles and all fifteen emphas
 
 Reserved usage matters:
 
+- The `ripdpi_wordmark` drawable (pixel outlines, 36dp high) is for the About app card only. Do not use it on task screens.
 - `brandStatus` is for compact status badges and telemetry labels.
 - `sectionTitle` is for section grouping labels, not for body emphasis.
 - `monoValue`, `monoConfig`, `monoInline`, `monoLog`, and `monoSmall` are operator-facing monospace roles.
