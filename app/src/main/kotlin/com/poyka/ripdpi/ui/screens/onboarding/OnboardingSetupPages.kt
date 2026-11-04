@@ -56,7 +56,7 @@ internal fun OnboardingModeSelectionContent(
         verticalArrangement = Arrangement.spacedBy(spacing.md),
     ) {
         OnboardingOptionCard(
-            title = stringResource(R.string.home_mode_vpn),
+            title = stringResource(R.string.status_mode_vpn),
             description = stringResource(R.string.onboarding_setup_mode_vpn_body),
             badgeText = stringResource(R.string.onboarding_badge_recommended),
             selected = selectedMode == Mode.VPN,
@@ -64,7 +64,7 @@ internal fun OnboardingModeSelectionContent(
             modifier = Modifier.ripDpiTestTag(RipDpiTestTags.OnboardingModeVpn),
         )
         OnboardingOptionCard(
-            title = stringResource(R.string.home_mode_proxy),
+            title = stringResource(R.string.status_mode_proxy),
             description = stringResource(R.string.onboarding_setup_mode_proxy_body),
             selected = selectedMode == Mode.Proxy,
             onClick = { onModeSelected(Mode.Proxy) },
@@ -223,8 +223,8 @@ private fun OnboardingValidationSuccessRoute(
     val modeTitle =
         stringResource(
             when (mode) {
-                Mode.VPN -> R.string.home_mode_vpn
-                Mode.Proxy -> R.string.home_mode_proxy
+                Mode.VPN -> R.string.status_mode_vpn
+                Mode.Proxy -> R.string.status_mode_proxy
             },
         )
     val route = "$modeTitle · $dnsSummary"
