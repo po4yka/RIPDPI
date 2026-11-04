@@ -25,6 +25,7 @@ import com.poyka.ripdpi.ui.screens.status.StatusModeSummaryFacet
 import com.poyka.ripdpi.ui.screens.status.actuatorTrailingLabel
 import com.poyka.ripdpi.ui.screens.status.buildHardKillSwitchUiState
 import com.poyka.ripdpi.ui.screens.status.buildStatusModeCards
+import com.poyka.ripdpi.ui.screens.status.degradedDetailRes
 import com.poyka.ripdpi.ui.screens.status.isForeignExitLive
 import com.poyka.ripdpi.ui.screens.status.isForeignExitLost
 import com.poyka.ripdpi.ui.screens.status.labelRes
@@ -276,14 +277,15 @@ private fun buildStatusPermissionSummary(
     )
 
 /**
- * The failure's own words, carried by the actuator rather than by a banner
- * beside it. Empty outside a fault, so the control has nothing to render.
+ * What went wrong, carried by the actuator rather than by a banner beside it:
+ * a fault's own words or the meaning of a warning. Empty otherwise.
  */
 private fun actuatorIssueDetail(
     status: StatusConnectionActuatorStatus,
     runtime: ConnectionRuntimeState,
     vpnWarning: VpnDataPlaneStatus?,
     warningStage: StatusConnectionActuatorStage?,
+    telemetry: ServiceTelemetrySnapshot,
     stringResolver: StringResolver,
 ): String =
     when {
@@ -293,21 +295,12 @@ private fun actuatorIssueDetail(
 
         // A data-plane warning already states the problem in the headline.
         status == StatusConnectionActuatorStatus.Degraded && vpnWarning == null -> {
-            warningStage?.let { stringResolver.getString(it.degradedDetailRes()) }.orEmpty()
+            warningStage?.let { stringResolver.getString(it.degradedDetailRes(telemetry)) }.orEmpty()
         }
 
         else -> {
             ""
         }
-    }
-
-private fun StatusConnectionActuatorStage.degradedDetailRes(): Int =
-    when (this) {
-        StatusConnectionActuatorStage.Network -> R.string.status_connection_actuator_degraded_network
-        StatusConnectionActuatorStage.Dns -> R.string.status_connection_actuator_degraded_dns
-        StatusConnectionActuatorStage.Handshake -> R.string.status_connection_actuator_degraded_handshake
-        StatusConnectionActuatorStage.Tunnel -> R.string.status_connection_actuator_degraded_tunnel
-        StatusConnectionActuatorStage.Route -> R.string.status_connection_actuator_degraded_route
     }
 
 @Suppress("LongParameterList")
@@ -385,7 +378,7 @@ internal fun buildConnectionActuatorUiState(
         actionLabel =
             hardKillSwitch.actionLabel.takeIf { hardKillSwitch.blocksDisconnect }
                 ?: actuatorActionLabel(status, isActivation, stringResolver),
-        issueDetail = actuatorIssueDetail(status, runtime, vpnWarning, warningStage, stringResolver),
+        issueDetail = actuatorIssueDetail(status, runtime, vpnWarning, warningStage, telemetry, stringResolver),
         sessionDuration = runtime.connectionDuration,
         stages = buildActuatorStages(status, warningStage, failedStage, stringResolver),
         activationEnabled = isActivation,

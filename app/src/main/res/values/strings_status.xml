@@ -317,8 +317,9 @@
     <string name="status_connection_actuator_degraded_dns">DNS lookups failed or switched to a fallback resolver. Some sites may not open.</string>
     <string name="status_connection_actuator_degraded_network">The network changed or lost validated internet access. The connection may be unstable.</string>
     <string name="status_connection_actuator_degraded_handshake">TLS handshakes failed. Some sites may not open.</string>
-    <string name="status_connection_actuator_degraded_tunnel">The tunnel reported errors and is recovering. The connection may be unstable.</string>
-    <string name="status_connection_actuator_degraded_route">The relay is unavailable. Traffic now goes directly.</string>
+    <string name="status_connection_actuator_degraded_tunnel">The tunnel reported errors. Traffic may not get through.</string>
+    <string name="status_connection_actuator_degraded_relay_lost">The relay is unavailable. Traffic now goes directly.</string>
+    <string name="status_connection_actuator_degraded_route">Connections moved to another route after a failure. Some sites may be slower.</string>
     <string name="status_connection_actuator_action_activate">Connect</string>
     <string name="status_connection_actuator_action_deactivate">Disconnect</string>
     <string name="status_connection_actuator_fault_copy">Copy the error</string>

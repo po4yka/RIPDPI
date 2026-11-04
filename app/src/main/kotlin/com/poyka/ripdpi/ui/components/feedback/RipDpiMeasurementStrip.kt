@@ -23,6 +23,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
@@ -117,6 +118,11 @@ fun RipDpiMeasurementStrip(
         shape = shapes.xl,
         color = containerColor,
         contentColor = contentColor,
+        // Higher contrast levels outline tonal cards; a neutral strip stays one of them.
+        border =
+            tonalCard.border
+                .takeIf { tone == RipDpiMeasurementTone.Nominal && it != Color.Transparent }
+                ?.let { BorderStroke(RipDpiStroke.Thin, it) },
     ) {
         Box(modifier = Modifier.fillMaxWidth()) {
             // Measure the content naturally; intrinsic Row height cannot account

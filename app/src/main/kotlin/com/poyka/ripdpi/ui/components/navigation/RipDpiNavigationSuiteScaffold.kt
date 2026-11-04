@@ -16,6 +16,7 @@ import androidx.compose.runtime.Immutable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawWithContent
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.style.TextAlign
@@ -115,43 +116,53 @@ fun RipDpiNavigationSuiteScaffold(
         },
         modifier = modifier,
         navigationSuiteType = suiteType,
-        navigationSuiteColors =
-            NavigationSuiteDefaults.colors(
-                shortNavigationBarContainerColor = container,
-                shortNavigationBarContentColor = colors.foreground,
-                wideNavigationRailColors =
-                    WideNavigationRailDefaults.colors(
-                        containerColor = container,
-                        contentColor = colors.foreground,
-                    ),
-            ),
+        navigationSuiteColors = ripDpiNavigationSuiteColors(container, colors.foreground),
         containerColor = colors.background,
         contentColor = colors.foreground,
         content = {
-            // The bar shares the page color, so a hairline marks where scrolled content ends.
-            val hairline = surfaces.resolve(roles.bottomBar).border
-            Box(
-                modifier =
-                    Modifier.fillMaxSize().then(
-                        if (suiteType == NavigationSuiteType.ShortNavigationBarCompact ||
-                            suiteType == NavigationSuiteType.ShortNavigationBarMedium
-                        ) {
-                            Modifier.drawWithContent {
-                                drawContent()
-                                val stroke = RipDpiStroke.Thin.toPx()
-                                val y = size.height - stroke / 2
-                                drawLine(hairline, Offset(0f, y), Offset(size.width, y), stroke)
-                            }
-                        } else {
-                            Modifier
-                        },
-                    ),
-                propagateMinConstraints = true,
-            ) {
-                content()
-            }
+            BottomBarEdge(suiteType, surfaces.resolve(roles.bottomBar).border, content)
         },
     )
+}
+
+@Composable
+private fun ripDpiNavigationSuiteColors(
+    container: Color,
+    content: Color,
+) = NavigationSuiteDefaults.colors(
+    shortNavigationBarContainerColor = container,
+    shortNavigationBarContentColor = content,
+    wideNavigationRailColors =
+        WideNavigationRailDefaults.colors(
+            containerColor = container,
+            contentColor = content,
+        ),
+)
+
+/** The bar shares the page color, so a hairline marks where scrolled content ends. */
+@Composable
+private fun BottomBarEdge(
+    suiteType: NavigationSuiteType,
+    color: Color,
+    content: @Composable () -> Unit,
+) {
+    val hasBar =
+        suiteType == NavigationSuiteType.ShortNavigationBarCompact ||
+            suiteType == NavigationSuiteType.ShortNavigationBarMedium
+    Box(
+        modifier =
+            Modifier.fillMaxSize().drawWithContent {
+                drawContent()
+                if (hasBar) {
+                    val stroke = RipDpiStroke.Thin.toPx()
+                    val y = size.height - stroke / 2
+                    drawLine(color, Offset(0f, y), Offset(size.width, y), stroke)
+                }
+            },
+        propagateMinConstraints = true,
+    ) {
+        content()
+    }
 }
 
 internal fun ripDpiNavigationSuiteType(

@@ -7,6 +7,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.click
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -62,6 +63,27 @@ class RipDpiConnectionActuatorInteractionTest {
         }
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).performTouchInput { click() }
         composeRule.runOnIdle { assertEquals(2, activations) }
+    }
+
+    @Test
+    fun `a warning explains itself and offers diagnosis without a copy action`() {
+        var diagnosed = 0
+        composeRule.setContent {
+            RipDpiTheme {
+                RipDpiConnectionActuator(
+                    state =
+                        actuatorState(StatusConnectionActuatorStatus.Degraded)
+                            .copy(issueDetail = "DNS lookups failed"),
+                    onActivate = {},
+                    onDeactivate = {},
+                    onCopyIssueDetail = { error("A warning has nothing to copy") },
+                    onDiagnoseIssue = { diagnosed++ },
+                )
+            }
+        }
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorIssueDetail).assertHasNoClickAction()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorIssueDiagnose).performClick()
+        composeRule.runOnIdle { assertEquals(1, diagnosed) }
     }
 
     @Test

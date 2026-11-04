@@ -429,8 +429,41 @@ class MainViewModelTest {
 
         assertEquals("Connected · Tunnel issue", state.statusDescription)
         assertEquals(
-            "The tunnel reported errors and is recovering. The connection may be unstable.",
+            "The tunnel reported errors. Traffic may not get through.",
             state.issueDetail,
+        )
+    }
+
+    @Test
+    fun `only a lost foreign exit claims the relay is unavailable`() {
+        fun detail(telemetry: ServiceTelemetrySnapshot) =
+            buildConnectionActuatorUiState(
+                settings =
+                    AppSettings
+                        .newBuilder()
+                        .setRelayEnabled(true)
+                        .setRelayKind(RelayKindVlessReality)
+                        .build(),
+                activeMode = Mode.VPN,
+                configuredMode = Mode.VPN,
+                connectionState = ConnectionState.Connected,
+                runtime = ConnectionRuntimeState(connectionState = ConnectionState.Connected),
+                telemetry = telemetry,
+                approachSummary = null,
+                stringResolver = ResourceStringResolver(),
+            ).issueDetail
+
+        assertEquals(
+            "The relay is unavailable. Traffic now goes directly.",
+            detail(ServiceTelemetrySnapshot(relayFailed = true)),
+        )
+        assertEquals(
+            "Connections moved to another route after a failure. Some sites may be slower.",
+            detail(
+                ServiceTelemetrySnapshot(
+                    proxyTelemetry = NativeRuntimeSnapshot.idle(source = "proxy").copy(routeChanges = 1L),
+                ),
+            ),
         )
     }
 

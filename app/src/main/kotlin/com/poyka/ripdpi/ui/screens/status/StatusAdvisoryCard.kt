@@ -88,13 +88,13 @@ private fun AdvisoryCard(
     RipDpiCard(
         variant = RipDpiCardVariant.Tonal,
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.StatusAdvisoryCard),
-        // The disclosure's touch target already adds space under its label.
+        // A collapsed disclosure's touch target already adds space under its label.
         paddingValues =
             PaddingValues(
                 start = cardPadding,
                 top = cardPadding,
                 end = cardPadding,
-                bottom = if (remaining.isEmpty()) cardPadding else RipDpiThemeTokens.spacing.sm,
+                bottom = if (remaining.isEmpty() || expanded) cardPadding else RipDpiThemeTokens.spacing.sm,
             ),
     ) {
         AdvisoryRow(

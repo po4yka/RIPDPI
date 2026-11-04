@@ -165,7 +165,7 @@ internal class MainConnectionActions(
         settings: AppSettings,
         activeMode: Mode,
         approachStats: List<BypassApproachSummary>,
-    ): StatusApproachSummaryUiState? {
+    ): StatusApproachSummaryUiState {
         val strategySignature =
             deriveBypassStrategySignature(
                 settings = settings,
@@ -187,26 +187,30 @@ internal class MainConnectionActions(
                         it.approachId.kind == BypassApproachKind.Profile && it.approachId.value == profileId
                     }
                 }
-        val summary = strategySummary ?: profileSummary ?: return null
+        // Stats only add evidence: the strategy is in use even before any scan or session recorded it.
+        val summary = strategySummary ?: profileSummary
         return StatusApproachSummaryUiState(
             // Always the strategy in use: a diagnostics profile name is not a bypass strategy.
             title = strategySignature.chainSummary,
             facets = strategySignature.localizedStatusStrategyFacets(stringResolver),
-            verification = stringResolver.getString(summary.verificationLabelRes()),
+            verification = summary?.let { stringResolver.getString(it.verificationLabelRes()) }.orEmpty(),
             successRate =
-                summary.validatedSuccessRate?.let { "${(it * PercentScale).toInt()}%" } ?: "Not evaluated",
+                summary?.validatedSuccessRate?.let { "${(it * PercentScale).toInt()}%" } ?: "Not evaluated",
             supportingText =
-                buildString {
-                    append(
-                        if (summary.currentStrategyAssessment != null) {
-                            summary.uiEvidenceNote(stringResolver)
-                        } else {
-                            summary.lastValidatedResult ?: "No validated diagnostics run yet"
-                        },
-                    )
-                    append(" · ")
-                    append("${summary.usageCount} runtime session(s)")
-                },
+                summary
+                    ?.let {
+                        buildString {
+                            append(
+                                if (it.currentStrategyAssessment != null) {
+                                    it.uiEvidenceNote(stringResolver)
+                                } else {
+                                    it.lastValidatedResult ?: "No validated diagnostics run yet"
+                                },
+                            )
+                            append(" · ")
+                            append("${it.usageCount} runtime session(s)")
+                        }
+                    }.orEmpty(),
         )
     }
 

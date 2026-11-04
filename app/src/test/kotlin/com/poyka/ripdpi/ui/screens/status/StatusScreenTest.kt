@@ -9,7 +9,6 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertHasClickAction
-import androidx.compose.ui.test.assertHasNoClickAction
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
@@ -156,38 +155,6 @@ class StatusScreenTest {
                 ?.text
                 ?.toString(),
         )
-    }
-
-    @Test
-    fun `a warning explains itself and offers diagnosis without a copy action`() {
-        var diagnosed = false
-        composeRule.setContent {
-            RipDpiTheme {
-                StatusScreen(
-                    uiState =
-                        MainUiState(
-                            connectionActuator =
-                                StatusConnectionActuatorUiState(
-                                    status = StatusConnectionActuatorStatus.Degraded,
-                                    statusDescription = "Connected · DNS issue",
-                                    issueDetail = "DNS lookups failed",
-                                ),
-                        ),
-                    onToggleConnection = {},
-                    onOpenDiagnostics = { diagnosed = true },
-                    onOpenHistory = {},
-                    onRepairPermission = {},
-                    onOpenVpnPermissionDialog = {},
-                )
-            }
-        }
-
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.ConnectionActuatorIssueDetail)
-            .assertIsDisplayed()
-            .assertHasNoClickAction()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorIssueDiagnose).performClick()
-        assertTrue(diagnosed)
     }
 
     @Test

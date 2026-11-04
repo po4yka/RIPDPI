@@ -308,8 +308,9 @@
     <string name="status_connection_actuator_degraded_dns">DNS 查询失败或已切换到备用解析器。部分网站可能无法打开。</string>
     <string name="status_connection_actuator_degraded_network">网络已变化或失去已验证的互联网访问。连接可能不稳定。</string>
     <string name="status_connection_actuator_degraded_handshake">TLS 握手失败。部分网站可能无法打开。</string>
-    <string name="status_connection_actuator_degraded_tunnel">隧道报告错误，正在恢复。连接可能不稳定。</string>
-    <string name="status_connection_actuator_degraded_route">中继不可用。流量现在直接传输。</string>
+    <string name="status_connection_actuator_degraded_tunnel">隧道报告错误。流量可能无法通过。</string>
+    <string name="status_connection_actuator_degraded_relay_lost">中继不可用。流量现在直接传输。</string>
+    <string name="status_connection_actuator_degraded_route">发生故障后，连接已切换到其他路由。部分网站可能变慢。</string>
     <string name="status_connection_actuator_action_activate">连接</string>
     <string name="status_connection_actuator_action_deactivate">断开连接</string>
     <string name="status_connection_actuator_fault_copy">复制错误信息</string>

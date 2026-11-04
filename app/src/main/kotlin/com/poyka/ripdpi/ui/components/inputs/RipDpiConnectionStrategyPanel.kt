@@ -60,19 +60,7 @@ internal fun RipDpiConnectionStrategyPanel(
             modifier
                 .fillMaxWidth()
                 .ripDpiTestTag(RipDpiTestTags.ConnectionActuatorStrategyPanel)
-                .then(
-                    if (expandable) {
-                        // Fill without an outline: an outlined box with a chevron reads as a dropdown field.
-                        Modifier.ripDpiScreenSurface(
-                            RipDpiThemeTokens.styles.screens.mutedBackground,
-                            RipDpiThemeTokens.shapes.md,
-                            clip = true,
-                        )
-                    } else {
-                        // Nothing to open: a fill would make a plain value look like a control.
-                        Modifier
-                    },
-                ),
+                .strategySurface(expandable),
     ) {
         Row(
             modifier =
@@ -157,3 +145,17 @@ private fun StrategyFacetRow(facet: StatusModeSummaryFacet) {
         }
     }
 }
+
+/** A fill marks the control; with nothing to open, it would make a plain value look like one. */
+@Composable
+private fun Modifier.strategySurface(expandable: Boolean): Modifier =
+    if (expandable) {
+        // Fill without an outline: an outlined box with a chevron reads as a dropdown field.
+        ripDpiScreenSurface(
+            RipDpiThemeTokens.styles.screens.mutedBackground,
+            RipDpiThemeTokens.shapes.md,
+            clip = true,
+        )
+    } else {
+        this
+    }

@@ -314,8 +314,9 @@
     <string name="status_connection_actuator_degraded_dns">DNS लुकअप विफल रहे या बैकअप रिज़ॉल्वर पर चले गए। कुछ साइटें शायद न खुलें।</string>
     <string name="status_connection_actuator_degraded_network">नेटवर्क बदल गया या सत्यापित इंटरनेट एक्सेस खो गया। कनेक्शन अस्थिर हो सकता है।</string>
     <string name="status_connection_actuator_degraded_handshake">TLS हैंडशेक विफल रहे। कुछ साइटें शायद न खुलें।</string>
-    <string name="status_connection_actuator_degraded_tunnel">टनल ने त्रुटियाँ बताईं और वह ठीक हो रहा है। कनेक्शन अस्थिर हो सकता है।</string>
-    <string name="status_connection_actuator_degraded_route">रिले उपलब्ध नहीं है। ट्रैफ़िक अब सीधे जा रहा है।</string>
+    <string name="status_connection_actuator_degraded_tunnel">टनल ने त्रुटियाँ बताईं। ट्रैफ़िक शायद न पहुँचे।</string>
+    <string name="status_connection_actuator_degraded_relay_lost">रिले उपलब्ध नहीं है। ट्रैफ़िक अब सीधे जा रहा है।</string>
+    <string name="status_connection_actuator_degraded_route">विफलता के बाद कनेक्शन दूसरे रूट पर चले गए। कुछ साइटें धीमी हो सकती हैं।</string>
     <string name="status_connection_actuator_action_activate">कनेक्ट करें</string>
     <string name="status_connection_actuator_action_deactivate">डिस्कनेक्ट करें</string>
     <string name="status_connection_actuator_fault_copy">त्रुटि कॉपी करें</string>

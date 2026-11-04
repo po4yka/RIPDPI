@@ -313,8 +313,9 @@
     <string name="status_connection_actuator_degraded_dns">درخواست‌های DNS ناموفق بودند یا به رزولور جایگزین رفتند. ممکن است برخی سایت‌ها باز نشوند.</string>
     <string name="status_connection_actuator_degraded_network">شبکه تغییر کرد یا دسترسی تأییدشده به اینترنت را از دست داد. ممکن است اتصال ناپایدار باشد.</string>
     <string name="status_connection_actuator_degraded_handshake">دست‌دادن‌های TLS ناموفق بودند. ممکن است برخی سایت‌ها باز نشوند.</string>
-    <string name="status_connection_actuator_degraded_tunnel">تونل خطا گزارش کرد و در حال بازیابی است. ممکن است اتصال ناپایدار باشد.</string>
-    <string name="status_connection_actuator_degraded_route">رله در دسترس نیست. اکنون ترافیک مستقیم می‌رود.</string>
+    <string name="status_connection_actuator_degraded_tunnel">تونل خطا گزارش کرد. ممکن است ترافیک عبور نکند.</string>
+    <string name="status_connection_actuator_degraded_relay_lost">رله در دسترس نیست. اکنون ترافیک مستقیم می‌رود.</string>
+    <string name="status_connection_actuator_degraded_route">پس از خطا، اتصال‌ها به مسیر دیگری رفتند. ممکن است برخی سایت‌ها کندتر باشند.</string>
     <string name="status_connection_actuator_action_activate">اتصال</string>
     <string name="status_connection_actuator_action_deactivate">قطع اتصال</string>
     <string name="status_connection_actuator_fault_copy">کپی کردن خطا</string>
