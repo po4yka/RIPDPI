@@ -24,10 +24,8 @@ import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.proxyimport.ImportPayload
-import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.inputs.RipDpiChip
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTab
-import com.poyka.ripdpi.ui.components.inputs.RipDpiTabs
+import com.poyka.ripdpi.ui.components.inputs.RipDpiSegmentedButton
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiContentScreenScaffold
 import com.poyka.ripdpi.ui.components.scaffold.RipDpiScaffoldWidth
 import com.poyka.ripdpi.ui.navigation.Route
@@ -37,6 +35,7 @@ import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.ripDpiScreenBackground
+import kotlinx.collections.immutable.persistentListOf
 import kotlinx.collections.immutable.toImmutableList
 
 enum class ConnectionEditorTarget {
@@ -197,53 +196,39 @@ fun ConnectionScreen(
         contentWidth = RipDpiScaffoldWidth.Content,
         actions = topBarActions,
     ) {
-        ConnectionSavedConnectionCard(
-            uiState = uiState,
-            profilesExpanded = showProfileChoices,
-            onChangeProfile = { showProfileChoices = !showProfileChoices },
-        )
+        ConnectionSavedConnectionCard(uiState = uiState, onChangeProfile = { showProfileChoices = true })
         ConnectionRuntimeFeedback(uiState, runtimeCallbacks.dismissError)
         ConnectionCliOverrideBanner(uiState)
         if (showProfileChoices) {
-            Column(
-                modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigProfileChoices),
-                verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
-            ) {
-                ConnectionPresetList(uiState, onPresetSelected)
-                ConnectionRelayProfileChoices(uiState, profileActions, onPasteServerLink)
-            }
+            ConnectionProfileChoicesSheet(
+                uiState = uiState,
+                onPresetSelected = onPresetSelected,
+                profileActions = profileActions,
+                onPasteServerLink = onPasteServerLink,
+                onDismiss = { showProfileChoices = false },
+            )
         }
 
-        // One labeled control group: the chips carry their own label and the tabs name each section.
-        RipDpiCard {
-            ConnectionModeChips(
-                selectedMode = uiState.activeMode,
-                onModeSelected = onModeSelected,
-                vpnLabel = stringResource(modeLabelRes(Mode.VPN)),
-                proxyLabel = stringResource(modeLabelRes(Mode.Proxy)),
-                label = stringResource(R.string.config_traffic_mode_title),
-                groupTestTag = RipDpiTestTags.ConfigTrafficEndpointSelection,
-            )
-            ConnectionModeSectionSwitcher(
-                selectedSection = selectedModeSection,
-                onSectionSelected = { section ->
-                    when (section) {
-                        ConnectionModeSection.LocalBypass -> {
-                            browsingRelay = false
-                            if (uiState.activeRelayEnabled) profileActions.selectDirect()
-                        }
-
-                        ConnectionModeSection.Vpn -> {
-                            browsingRelay = true
-                            uiState.vpnProfiles
-                                .firstOrNull { it.id == uiState.activeRelayProfileId }
-                                ?.takeUnless { uiState.activeRelayEnabled }
-                                ?.let { profileActions.select(it.id) }
-                        }
+        ConnectionScopeSelector(selectedMode = uiState.activeMode, onModeSelected = onModeSelected)
+        ConnectionModeSectionSwitcher(
+            selectedSection = selectedModeSection,
+            onSectionSelected = { section ->
+                when (section) {
+                    ConnectionModeSection.LocalBypass -> {
+                        browsingRelay = false
+                        if (uiState.activeRelayEnabled) profileActions.selectDirect()
                     }
-                },
-            )
-        }
+
+                    ConnectionModeSection.Vpn -> {
+                        browsingRelay = true
+                        uiState.vpnProfiles
+                            .firstOrNull { it.id == uiState.activeRelayProfileId }
+                            ?.takeUnless { uiState.activeRelayEnabled }
+                            ?.let { profileActions.select(it.id) }
+                    }
+                }
+            },
+        )
 
         ConnectionSelectedModeSection(
             section = selectedModeSection,
@@ -258,29 +243,43 @@ fun ConnectionScreen(
 }
 
 @Composable
-internal fun ConnectionModeSectionSwitcher(
+private fun ConnectionScopeSelector(
+    selectedMode: Mode,
+    onModeSelected: (Mode) -> Unit,
+) {
+    val modes = persistentListOf(Mode.VPN, Mode.Proxy)
+    val groupLabel = stringResource(R.string.config_traffic_mode_title)
+    RipDpiSegmentedButton(
+        options =
+            persistentListOf(
+                stringResource(modeLabelRes(Mode.VPN)),
+                stringResource(modeLabelRes(Mode.Proxy)),
+            ),
+        selectedIndex = modes.indexOf(selectedMode),
+        onSelect = { onModeSelected(modes[it]) },
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = groupLabel }
+                .ripDpiTestTag(RipDpiTestTags.ConfigTrafficEndpointSelection),
+        role = Role.RadioButton,
+        optionTestTags = modes.map { RipDpiTestTags.configMode(it.name) }.toImmutableList(),
+    )
+}
+
+@Composable
+private fun ConnectionModeSectionSwitcher(
     selectedSection: ConnectionModeSection,
     onSectionSelected: (ConnectionModeSection) -> Unit,
-    modifier: Modifier = Modifier,
 ) {
     val sections = ConnectionModeSection.entries
-
-    Column(modifier = modifier.fillMaxWidth()) {
-        RipDpiTabs(
-            tabs =
-                sections
-                    .map { section ->
-                        RipDpiTab(
-                            key = section.stableKey,
-                            label = stringResource(configModeSectionTitleRes(section)),
-                            testTag = RipDpiTestTags.configModeSection(section.stableKey),
-                        )
-                    }.toImmutableList(),
-            selectedIndex = sections.indexOf(selectedSection),
-            onSelect = { index -> sections.getOrNull(index)?.let(onSectionSelected) },
-            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigSectionNavigation),
-        )
-    }
+    RipDpiSegmentedButton(
+        options = sections.map { stringResource(configModeSectionTitleRes(it)) }.toImmutableList(),
+        selectedIndex = sections.indexOf(selectedSection),
+        onSelect = { onSectionSelected(sections[it]) },
+        modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigSectionNavigation),
+        optionTestTags = sections.map { RipDpiTestTags.configModeSection(it.stableKey) }.toImmutableList(),
+    )
 }
 
 @Composable

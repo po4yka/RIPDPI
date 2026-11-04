@@ -17,7 +17,7 @@
     <string name="config_local_bypass_disabled">إيقاف</string>
     <string name="config_local_bypass_strategy_title">استراتيجية التجاوز</string>
     <string name="config_local_bypass_strategy_auto">تلقائي (موصى به)</string>
-    <string name="config_local_bypass_retest_strategies">فتح التشخيصات لإعادة الاختبار</string>
+    <string name="config_run_strategy_test">تشغيل اختبار الاستراتيجيات</string>
     <string name="config_vpn_add_profile_title">إضافة ملف تعريف</string>
     <string name="config_vpn_add_server_paste">لصق الرابط</string>
     <string name="config_vpn_add_server_scan">مسح QR</string>
@@ -1478,10 +1478,6 @@ fakeddisorder endhost</string>
     </plurals>
     <string name="runtime_config_unknown_body">لم يؤكد الاتصال الحالي الإعدادات التي يستخدمها. اقطع الاتصال ثم اتصل مجددًا لتطبيق إعداداتك المحفوظة.</string>
     <string name="config_profile_change">تغيير الملف الشخصي</string>
-    <string name="config_connection_scope_vpn">النطاق: الجهاز بالكامل</string>
-    <string name="config_connection_scope_proxy">النطاق: وكيل فقط</string>
-    <string name="config_connection_path_direct">المسار: مباشر</string>
-    <string name="config_connection_path_relay">المسار: المُرحِّل · %1$s</string>
     <string name="config_section_bypass_settings">مباشر</string>
     <string name="config_section_server_settings">المُرحِّل</string>
     <string name="ws_tunnel_worker_transport_label">نقل Cloudflare Worker</string>

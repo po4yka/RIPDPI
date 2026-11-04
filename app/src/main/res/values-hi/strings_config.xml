@@ -17,7 +17,7 @@
     <string name="config_local_bypass_disabled">बंद</string>
     <string name="config_local_bypass_strategy_title">बायपास रणनीति</string>
     <string name="config_local_bypass_strategy_auto">ऑटो (अनुशंसित)</string>
-    <string name="config_local_bypass_retest_strategies">फिर से जाँचने के लिए जाँच खोलें</string>
+    <string name="config_run_strategy_test">रणनीति परीक्षण चलाएं</string>
     <string name="config_vpn_add_profile_title">प्रोफ़ाइल जोड़ें</string>
     <string name="config_vpn_add_server_paste">लिंक चिपकाएँ</string>
     <string name="config_vpn_add_server_scan">QR स्कैन करें</string>
@@ -1394,10 +1394,6 @@ fakeddisorder endhost</string>
     </plurals>
     <string name="runtime_config_unknown_body">चल रहे कनेक्शन ने पुष्टि नहीं की है कि वह कौन-सी सेटिंग उपयोग कर रहा है। सहेजी गई सेटिंग लागू करने के लिए डिस्कनेक्ट करके फिर से कनेक्ट करें।</string>
     <string name="config_profile_change">प्रोफ़ाइल बदलें</string>
-    <string name="config_connection_scope_vpn">दायरा: पूरा डिवाइस</string>
-    <string name="config_connection_scope_proxy">दायरा: केवल प्रॉक्सी</string>
-    <string name="config_connection_path_direct">पथ: सीधा</string>
-    <string name="config_connection_path_relay">पथ: रिले · %1$s</string>
     <string name="config_section_bypass_settings">सीधा</string>
     <string name="config_section_server_settings">रिले</string>
     <string name="ws_tunnel_worker_transport_label">Cloudflare Worker ट्रांसपोर्ट</string>

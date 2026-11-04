@@ -18,7 +18,7 @@
     <string name="config_local_bypass_disabled">Off</string>
     <string name="config_local_bypass_strategy_title">Bypass strategy</string>
     <string name="config_local_bypass_strategy_auto">Auto (recommended)</string>
-    <string name="config_local_bypass_retest_strategies">Open Diagnostics to re-test</string>
+    <string name="config_run_strategy_test">Run strategy test</string>
     <string name="config_vpn_add_profile_title">Add profile</string>
     <string name="config_vpn_add_server_paste">Paste link</string>
     <string name="config_vpn_add_server_scan">Scan QR</string>
@@ -1418,10 +1418,6 @@ Source: %2$s</string>
     </plurals>
     <string name="runtime_config_unknown_body">The running connection has not confirmed which settings it uses. Disconnect and connect again to apply your saved settings.</string>
     <string name="config_profile_change">Change profile</string>
-    <string name="config_connection_scope_vpn">Scope: Whole device</string>
-    <string name="config_connection_scope_proxy">Scope: Proxy only</string>
-    <string name="config_connection_path_direct">Path: Direct</string>
-    <string name="config_connection_path_relay">Path: Relay · %1$s</string>
     <string name="config_section_bypass_settings">Direct</string>
     <string name="config_section_server_settings">Relay</string>
     <string name="ws_tunnel_worker_transport_label">Cloudflare Worker transport</string>

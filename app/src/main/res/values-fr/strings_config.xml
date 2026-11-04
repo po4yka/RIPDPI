@@ -839,7 +839,7 @@ Source : %2$s</string>
     <string name="config_local_bypass_disabled">Désactivé</string>
     <string name="config_local_bypass_strategy_title">Stratégie de contournement</string>
     <string name="config_local_bypass_strategy_auto">Auto (recommandé)</string>
-    <string name="config_local_bypass_retest_strategies">Ouvrir Diagnostics pour retester</string>
+    <string name="config_run_strategy_test">Lancer le test des stratégies</string>
     <string name="config_network_section">Réseau</string>
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_proxy_port">1080</string>
@@ -1401,10 +1401,6 @@ Source : %2$s</string>
     </plurals>
     <string name="runtime_config_unknown_body">La connexion en cours n’a pas confirmé les paramètres qu’elle utilise. Déconnectez-vous puis reconnectez-vous pour appliquer vos paramètres enregistrés.</string>
     <string name="config_profile_change">Changer de profil</string>
-    <string name="config_connection_scope_vpn">Portée : tout l\'appareil</string>
-    <string name="config_connection_scope_proxy">Portée : proxy uniquement</string>
-    <string name="config_connection_path_direct">Chemin : direct</string>
-    <string name="config_connection_path_relay">Chemin : relais · %1$s</string>
     <string name="config_section_bypass_settings">Direct</string>
     <string name="config_section_server_settings">Relais</string>
     <string name="ws_tunnel_worker_transport_label">Transport Cloudflare Worker</string>

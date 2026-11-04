@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.ui.screens.connection
 
 import androidx.compose.ui.test.assertHasClickAction
-import androidx.compose.ui.test.assertTextEquals
 import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -53,17 +52,14 @@ class ConnectionSummaryTest {
     }
 
     @Test
-    fun `profile choices stay hidden until change and can be hidden again`() {
+    fun `profile choices stay hidden until change`() {
         setConfigScreen(initialModeSection = ConnectionModeSection.LocalBypass)
 
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigSavedProfile).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.configPreset("recommended")).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddProfile).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.configPreset("recommended")).assertHasClickAction()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddProfile).assertHasClickAction()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChoices).assertDoesNotExist()
     }
 
     @Test
@@ -117,9 +113,9 @@ class ConnectionSummaryTest {
             }
         }
 
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigSavedProfile).assertTextEquals("Recommended profile")
-        composeRule.onNodeWithText("Path: Direct").assertExists()
-        composeRule.onNodeWithText("Scope: Whole device").assertExists()
+        composeRule.onNodeWithText("Recommended profile", useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText("Proxy only · Direct", useUnmergedTree = true).assertDoesNotExist()
+        composeRule.onNodeWithText("Whole device · Direct", useUnmergedTree = true).assertExists()
         composeRule.onNodeWithText("unsaved-secret-profile").assertDoesNotExist()
     }
 

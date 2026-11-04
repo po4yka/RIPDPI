@@ -801,7 +801,7 @@ fakeddisorder endhost</string>
     <string name="config_local_bypass_disabled">Выкл.</string>
     <string name="config_local_bypass_strategy_title">Стратегия обхода</string>
     <string name="config_local_bypass_strategy_auto">Авто (рекомендуется)</string>
-    <string name="config_local_bypass_retest_strategies">Открыть Диагностику для повторной проверки</string>
+    <string name="config_run_strategy_test">Запустить тест стратегий</string>
     <string name="config_relay_body">Направлять прокси-трафик через удалённый сервер реле. Секреты остаются в защищённом хранилище на основе keystore на этом устройстве.</string>
     <string name="config_relay_chain_editor_intro">Создайте упорядоченную цепочку из сохранённых профилей реле. Первый узел — входной, последний — выходной. Удерживайте узел, чтобы перетащить его на место. UDP для цепочек отключён.</string>
     <string name="config_relay_chain_hop_entry">Узел %1$d · Вход</string>
@@ -1433,10 +1433,6 @@ fakeddisorder endhost</string>
     </plurals>
     <string name="runtime_config_unknown_body">Текущее подключение не подтвердило, какие настройки оно использует. Переподключитесь, чтобы применить сохранённые настройки.</string>
     <string name="config_profile_change">Изменить профиль</string>
-    <string name="config_connection_scope_vpn">Охват: всё устройство</string>
-    <string name="config_connection_scope_proxy">Охват: только прокси</string>
-    <string name="config_connection_path_direct">Путь: напрямую</string>
-    <string name="config_connection_path_relay">Путь: через сервер · %1$s</string>
     <string name="config_section_bypass_settings">Напрямую</string>
     <string name="config_section_server_settings">Через сервер</string>
     <string name="ws_tunnel_worker_transport_label">Транспорт Cloudflare Worker</string>

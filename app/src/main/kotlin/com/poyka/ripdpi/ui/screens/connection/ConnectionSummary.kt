@@ -1,29 +1,21 @@
 package com.poyka.ripdpi.ui.screens.connection
 
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.semantics.semantics
-import androidx.compose.ui.semantics.stateDescription
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.RipDpiCardVariant
+import com.poyka.ripdpi.ui.components.cards.SettingsRow
 import com.poyka.ripdpi.ui.components.feedback.WarningBanner
 import com.poyka.ripdpi.ui.components.feedback.WarningBannerTone
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
-import com.poyka.ripdpi.ui.theme.RipDpiIcons
-import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
 @Composable
 internal fun ConnectionSavedConnectionCard(
     uiState: ConnectionUiState,
-    profilesExpanded: Boolean,
     onChangeProfile: () -> Unit,
 ) {
     val selectedPreset = uiState.presets.firstOrNull { it.isSelected }
@@ -34,51 +26,34 @@ internal fun ConnectionSavedConnectionCard(
         } else {
             stringResource(titleResForPreset(selectedPreset?.kind ?: ConnectionPresetKind.Custom))
         }
+    val scope =
+        stringResource(
+            if (uiState.activeMode ==
+                Mode.VPN
+            ) {
+                R.string.config_scope_device
+            } else {
+                R.string.config_scope_proxy
+            },
+        )
     val path =
-        if (uiState.activeRelayEnabled) {
-            stringResource(R.string.config_connection_path_relay, profileName)
-        } else {
-            stringResource(R.string.config_connection_path_direct)
-        }
-    val expansionState =
-        stringResource(if (profilesExpanded) R.string.semantic_state_expanded else R.string.semantic_state_collapsed)
+        stringResource(
+            if (uiState.activeRelayEnabled) {
+                R.string.config_section_server_settings
+            } else {
+                R.string.config_section_bypass_settings
+            },
+        )
     RipDpiCard(
         variant = RipDpiCardVariant.Tonal,
         modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConnectionSummary),
     ) {
-        Text(
-            text = profileName,
-            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigSavedProfile),
-            style = RipDpiThemeTokens.type.cardTitle,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
-        Text(
-            text =
-                stringResource(
-                    if (uiState.activeMode == Mode.VPN) {
-                        R.string.config_connection_scope_vpn
-                    } else {
-                        R.string.config_connection_scope_proxy
-                    },
-                ),
-            style = RipDpiThemeTokens.type.secondaryBody,
-            color = RipDpiThemeTokens.colors.mutedForeground,
-        )
-        Text(
-            text = path,
-            style = RipDpiThemeTokens.type.secondaryBody,
-            color = RipDpiThemeTokens.colors.foreground,
-        )
-        RipDpiButton(
-            text = stringResource(R.string.config_profile_change),
+        SettingsRow(
+            title = profileName,
+            subtitle = "$scope · $path",
             onClick = onChangeProfile,
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .ripDpiTestTag(RipDpiTestTags.ConfigProfileChange)
-                    .semantics { stateDescription = expansionState },
-            variant = RipDpiButtonVariant.Outline,
-            leadingIcon = RipDpiIcons.Edit,
+            showChevron = true,
+            testTag = RipDpiTestTags.ConfigProfileChange,
         )
     }
 }

@@ -886,10 +886,14 @@ Each screen has one scaffold, one layout recipe, and one contract. Look up the s
 ### Connection
 
 - Connection replaces the former Config and Mode editor screens. Starter profiles are built-in starting points; saved user bundles are Profiles.
-- Keep this order: the saved connection card with its Change profile control, runtime feedback (permission recovery and errors, shown only when present), the profile choices (starter profiles and relay profiles, shown only after Change profile), one card with the traffic-mode chips and the section switcher, the selected section, then connection guidance.
-- The scope chips read Whole device and Proxy only; the sections read Direct and Relay. Connection has no connect or disconnect control: connecting belongs to the Status actuator.
+- Keep this order: the connection summary row that opens the profile sheet, runtime feedback (errors and the command-line override warning, shown only when present), the scope control, the path control, then the selected section.
+- The scope control reads Whole device and Proxy only; the path control reads Direct and Relay. Both use `RipDpiSegmentedButton`. Connection has no connect or disconnect control: connecting belongs to the Status actuator.
+- The path control always shows the active path. Direct turns an active relay off and keeps its profile selected. Relay reactivates the selected profile; without one it opens the Relay section, whose relay-off row opens the profile sheet.
+- Scope and path changes apply to a running service through the reconnect coordinator.
+- The profile sheet holds the starter profiles, relay profiles, Add profile, and paste and QR import. Applying the recommended profile keeps the scope and asks first, because it replaces other settings.
+- The Direct section lists the DNS and bypass strategy rows and Run strategy test. Guided users see the strategy as Auto while the chain is untouched; a manual chain and Advanced users see the chain.
 - The Relay section lists the relay, protocol, credentials, DNS, Subscription status, and Subscription failover rows; they are the only entries for the DNS and subscription screens besides Diagnostics and Status advisories.
-- Guided Connection has no on/off control. It exposes "Path strategy: Auto", re-test strategies, Add server, and paste, QR, and scan import, without a protocol grid. Advanced Connection exposes the protocol grid, Profile ID binding, chain relay, TTL, engine parameters, Finalmask, manual path strategy, CLI overrides, and exact text fields.
+- The protocol grid, Profile ID binding, chain relay, TTL, engine parameters, Finalmask, manual path strategy, CLI overrides, and exact text fields live in `ModeEditorScreen`.
 - Keep profile browsing and raw editing on separate surfaces. `PresetCard` is for starter-profile selection only; its selection state is semantic, never implied by position or accent color. Summary values use `SettingsRow`, with monospace values for addresses, ports, TTLs, and chains.
 - `ModeEditorScreen` is a bounded form with network, relay, engine, and override sections, Save in the top app bar, and a persistent Cancel bottom bar. From the Expanded width class, its intro, recovery, and validation notices move to a supporting pane.
 - Relay profile editors put their primary action in the top app bar through `RipDpiTopBarAction` (Save, or Connect in the AmneziaWG editor), and the body states the reason for a disabled Save.

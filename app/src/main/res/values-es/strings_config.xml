@@ -839,7 +839,7 @@ Origen: %2$s</string>
     <string name="config_local_bypass_disabled">Desactivado</string>
     <string name="config_local_bypass_strategy_title">Estrategia de bypass</string>
     <string name="config_local_bypass_strategy_auto">Auto (recomendado)</string>
-    <string name="config_local_bypass_retest_strategies">Abrir Diagnóstico para volver a probar</string>
+    <string name="config_run_strategy_test">Probar estrategias</string>
     <string name="config_network_section">Red</string>
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_proxy_port">1080</string>
@@ -1401,10 +1401,6 @@ Origen: %2$s</string>
     </plurals>
     <string name="runtime_config_unknown_body">La conexión activa no ha confirmado qué ajustes usa. Desconecta y vuelve a conectar para aplicar los ajustes guardados.</string>
     <string name="config_profile_change">Cambiar perfil</string>
-    <string name="config_connection_scope_vpn">Alcance: todo el dispositivo</string>
-    <string name="config_connection_scope_proxy">Alcance: solo proxy</string>
-    <string name="config_connection_path_direct">Ruta: directo</string>
-    <string name="config_connection_path_relay">Ruta: relay · %1$s</string>
     <string name="config_section_bypass_settings">Directo</string>
     <string name="config_section_server_settings">Relay</string>
     <string name="ws_tunnel_worker_transport_label">Transporte Cloudflare Worker</string>

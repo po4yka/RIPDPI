@@ -839,7 +839,7 @@ Quelle: %2$s</string>
     <string name="config_local_bypass_disabled">Aus</string>
     <string name="config_local_bypass_strategy_title">Bypass-Strategie</string>
     <string name="config_local_bypass_strategy_auto">Auto (empfohlen)</string>
-    <string name="config_local_bypass_retest_strategies">Diagnose zum erneuten Testen öffnen</string>
+    <string name="config_run_strategy_test">Strategietest starten</string>
     <string name="config_network_section">Netzwerk</string>
     <string name="config_placeholder_default_ttl">8</string>
     <string name="config_placeholder_proxy_port">1080</string>
@@ -1394,10 +1394,6 @@ Quelle: %2$s</string>
     </plurals>
     <string name="runtime_config_unknown_body">Die aktive Verbindung hat nicht bestätigt, welche Einstellungen sie verwendet. Trennen Sie die Verbindung und verbinden Sie neu, um die gespeicherten Einstellungen anzuwenden.</string>
     <string name="config_profile_change">Profil ändern</string>
-    <string name="config_connection_scope_vpn">Umfang: ganzes Gerät</string>
-    <string name="config_connection_scope_proxy">Umfang: nur Proxy</string>
-    <string name="config_connection_path_direct">Pfad: direkt</string>
-    <string name="config_connection_path_relay">Pfad: Relay · %1$s</string>
     <string name="config_section_bypass_settings">Direkt</string>
     <string name="config_section_server_settings">Relay</string>
     <string name="ws_tunnel_worker_transport_label">Cloudflare-Worker-Transport</string>

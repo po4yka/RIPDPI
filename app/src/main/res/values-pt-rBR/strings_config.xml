@@ -17,7 +17,7 @@
     <string name="config_local_bypass_disabled">Desligado</string>
     <string name="config_local_bypass_strategy_title">Estratégia de desvio</string>
     <string name="config_local_bypass_strategy_auto">Automático (recomendado)</string>
-    <string name="config_local_bypass_retest_strategies">Abrir o Diagnóstico para testar novamente</string>
+    <string name="config_run_strategy_test">Executar teste de estratégias</string>
     <string name="config_vpn_add_profile_title">Adicionar perfil</string>
     <string name="config_vpn_add_server_paste">Colar link</string>
     <string name="config_vpn_add_server_scan">Escanear QR</string>
@@ -1397,10 +1397,6 @@ Fonte: %2$s</string>
     </plurals>
     <string name="runtime_config_unknown_body">A conexão ativa não confirmou quais configurações usa. Desconecte e conecte de novo para aplicar as configurações salvas.</string>
     <string name="config_profile_change">Alterar perfil</string>
-    <string name="config_connection_scope_vpn">Escopo: dispositivo inteiro</string>
-    <string name="config_connection_scope_proxy">Escopo: somente proxy</string>
-    <string name="config_connection_path_direct">Caminho: direto</string>
-    <string name="config_connection_path_relay">Caminho: relay · %1$s</string>
     <string name="config_section_bypass_settings">Direto</string>
     <string name="config_section_server_settings">Relay</string>
     <string name="ws_tunnel_worker_transport_label">Transporte Cloudflare Worker</string>

@@ -536,7 +536,7 @@ hostfake endhost host=cdn.discordapp.net</string>
     <string name="config_local_bypass_disabled">关闭</string>
     <string name="config_local_bypass_strategy_title">绕过策略</string>
     <string name="config_local_bypass_strategy_auto">自动（推荐）</string>
-    <string name="config_local_bypass_retest_strategies">打开诊断并重新测试</string>
+    <string name="config_run_strategy_test">运行策略测试</string>
     <string name="config_placeholder_chain_dsl">[tcp]
 tlsrec extlen
 hostfake endhost+8 midhost=midsld host=googlevideo.com
@@ -1372,10 +1372,6 @@ fake_burst 3</string>
     </plurals>
     <string name="runtime_config_unknown_body">当前连接尚未确认正在使用哪些设置。断开并重新连接即可应用已保存的设置。</string>
     <string name="config_profile_change">更改配置文件</string>
-    <string name="config_connection_scope_vpn">范围：整台设备</string>
-    <string name="config_connection_scope_proxy">范围：仅代理</string>
-    <string name="config_connection_path_direct">路径：直连</string>
-    <string name="config_connection_path_relay">路径：中继 · %1$s</string>
     <string name="config_section_bypass_settings">直连</string>
     <string name="config_section_server_settings">中继</string>
     <string name="ws_tunnel_worker_transport_label">Cloudflare Worker 传输</string>

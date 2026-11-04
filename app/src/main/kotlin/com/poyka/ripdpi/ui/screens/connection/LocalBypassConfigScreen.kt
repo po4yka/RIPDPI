@@ -3,7 +3,6 @@ package com.poyka.ripdpi.ui.screens.connection
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
@@ -18,8 +17,6 @@ import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButton
-import com.poyka.ripdpi.ui.components.buttons.RipDpiButtonVariant
 import com.poyka.ripdpi.ui.components.cards.EndpointSettingsRow
 import com.poyka.ripdpi.ui.components.cards.RipDpiCard
 import com.poyka.ripdpi.ui.components.cards.SettingsRow
@@ -28,7 +25,6 @@ import com.poyka.ripdpi.ui.debug.TrackRecomposition
 import com.poyka.ripdpi.ui.screens.dns.localizedDnsSummary
 import com.poyka.ripdpi.ui.screens.onboarding.OnboardingPersona
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
-import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiTheme
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
@@ -48,14 +44,7 @@ internal fun LocalBypassConfigScreen(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
     ) {
-        LocalBypassRows(uiState, desyncSummary, onOpenDesyncSettings, onOpenDnsSettings)
-        RipDpiButton(
-            text = stringResource(R.string.config_local_bypass_retest_strategies),
-            onClick = onRetestStrategies,
-            modifier = Modifier.fillMaxWidth().ripDpiTestTag(RipDpiTestTags.ConfigLocalBypassRetest),
-            variant = RipDpiButtonVariant.Outline,
-            leadingIcon = RipDpiIcons.Refresh,
-        )
+        LocalBypassRows(uiState, desyncSummary, onOpenDesyncSettings, onOpenDnsSettings, onRetestStrategies)
     }
 }
 
@@ -65,6 +54,7 @@ private fun LocalBypassRows(
     desyncSummary: String,
     onOpenDesyncSettings: () -> Unit,
     onOpenDnsSettings: () -> Unit,
+    onRetestStrategies: () -> Unit,
 ) {
     RipDpiCard {
         // The mode chips above the tabs show the mode; a row here would repeat it.
@@ -76,6 +66,20 @@ private fun LocalBypassRows(
             desyncSummary = desyncSummary,
             onOpenDesyncSettings = onOpenDesyncSettings,
         )
+        LocalBypassStrategyTestRow(onRetestStrategies)
+    }
+}
+
+@Composable
+private fun LocalBypassStrategyTestRow(onRetestStrategies: () -> Unit) {
+    val title = stringResource(R.string.config_run_strategy_test)
+    LocalBypassActionRow(
+        testTag = RipDpiTestTags.ConfigLocalBypassRetest,
+        accessibilityLabel = title,
+        accessibilityValue = "",
+        onClick = onRetestStrategies,
+    ) {
+        SettingsRow(title = title, leadingIcon = RipDpiIcons.Refresh, showChevron = true)
     }
 }
 
@@ -141,7 +145,7 @@ private fun LocalBypassDesyncRow(
             leadingIcon = RipDpiIcons.Shield,
             monospaceValue = !isAuto,
             showChevron = true,
-            showDivider = uiState.draft.defaultTtl.isNotBlank(),
+            showDivider = true,
         )
     }
     if (uiState.draft.defaultTtl.isNotBlank()) {
@@ -151,6 +155,7 @@ private fun LocalBypassDesyncRow(
             value = uiState.draft.defaultTtl,
             leadingIcon = RipDpiIcons.Timer,
             monospaceValue = true,
+            showDivider = true,
         )
     }
 }

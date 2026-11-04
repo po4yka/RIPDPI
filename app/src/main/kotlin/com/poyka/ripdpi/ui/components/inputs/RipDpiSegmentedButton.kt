@@ -25,6 +25,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.tooling.preview.Preview
 import com.poyka.ripdpi.ui.components.RipDpiComponentPreview
 import com.poyka.ripdpi.ui.components.ripDpiSelectable
+import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 import com.poyka.ripdpi.ui.theme.rememberRipDpiStyleResolver
 import com.poyka.ripdpi.ui.theme.ripDpiStyleSurface
@@ -43,6 +44,8 @@ fun RipDpiSegmentedButton(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    role: Role = Role.Tab,
+    optionTestTags: ImmutableList<String>? = null,
 ) {
     RipDpiSegmentedButton(
         options = options,
@@ -50,6 +53,8 @@ fun RipDpiSegmentedButton(
         onSelect = onSelect,
         modifier = modifier,
         visualStyle = CommonStyle,
+        role = role,
+        optionTestTags = optionTestTags,
     )
 }
 
@@ -59,7 +64,9 @@ fun RipDpiSegmentedButton(
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
-    visualStyle: CommonStyle = CommonStyle,
+    visualStyle: CommonStyle,
+    role: Role = Role.Tab,
+    optionTestTags: ImmutableList<String>? = null,
 ) {
     val colors = RipDpiThemeTokens.colors
     val gap = RipDpiThemeTokens.components.rows.compactPillVerticalPadding
@@ -89,9 +96,10 @@ fun RipDpiSegmentedButton(
                         .ripDpiStyleSurface(itemResolver, shape = shape, clip = true)
                         .ripDpiSelectable(
                             selected = isSelected,
-                            role = Role.Tab,
+                            role = role,
                             interactionSource = interactionSource,
                         ) { onSelect(index) }
+                        .ripDpiTestTag(optionTestTags?.getOrNull(index))
                         .padding(horizontal = RipDpiThemeTokens.spacing.md, vertical = RipDpiThemeTokens.spacing.sm),
                 horizontalArrangement = Arrangement.Center,
             ) {

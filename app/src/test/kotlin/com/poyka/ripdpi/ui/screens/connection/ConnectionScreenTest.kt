@@ -22,11 +22,8 @@ import androidx.compose.ui.test.junit4.v2.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
-import androidx.compose.ui.test.performTouchInput
-import androidx.compose.ui.test.swipeUp
 import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.ui.navigation.Route
@@ -286,17 +283,16 @@ class ConnectionScreenTest {
 
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnSummary).assertExists()
         composeRule.onNodeWithTag(RipDpiTestTags.ConnectionSummary).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerPaste).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerScan).assertExists()
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList).assertExists()
-        composeRule.onRoot().performTouchInput { swipeUp() }
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigVpnRelay)
             .assert(hasContentDescription("Relay off", substring = true))
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProtocol).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnCredentials).assertDoesNotExist()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigDnsSettings).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerPaste).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerScan).assertExists()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnProfileList).assertExists()
     }
 
     @Test
@@ -307,7 +303,6 @@ class ConnectionScreenTest {
             profileActions = ConnectionProfileActions(create = { opened += it }),
         )
 
-        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
         val editors =
             listOf(
                 Route.AnyTlsProfile,
@@ -317,6 +312,7 @@ class ConnectionScreenTest {
                 Route.SubscriptionAdd,
             )
         editors.forEach { route ->
+            composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
             composeRule.onNodeWithTag(RipDpiTestTags.ConfigVpnAddProfile).performScrollTo().performClick()
             composeRule.onNodeWithTag(RipDpiTestTags.configVpnCreateProfile(route)).performClick()
         }
@@ -334,16 +330,16 @@ class ConnectionScreenTest {
         )
 
         composeRule
+            .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
+            .assertHasClickAction()
+            .performScrollTo()
+            .performClick()
+        composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigVpnRelay)
             .assertHasClickAction()
             .performScrollTo()
             .performClick()
         composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChoices).assertExists()
-        composeRule
-            .onNodeWithTag(RipDpiTestTags.ConfigDnsSettings)
-            .assertHasClickAction()
-            .performScrollTo()
-            .performClick()
 
         composeRule.runOnIdle {
             assertEquals(1, dnsClicks)
@@ -513,11 +509,13 @@ class ConnectionScreenTest {
             .assertHasClickAction()
             .performScrollTo()
             .performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
         composeRule
             .onNodeWithTag(RipDpiTestTags.ConfigVpnAddServerScan)
             .assertHasClickAction()
             .performScrollTo()
             .performClick()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConfigProfileChange).performScrollTo().performClick()
         composeRule
             .onNodeWithTag(RipDpiTestTags.configVpnProfileShare("default"))
             .assertHasClickAction()

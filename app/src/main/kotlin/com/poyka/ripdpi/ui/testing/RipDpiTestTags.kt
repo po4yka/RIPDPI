@@ -97,7 +97,6 @@ internal object RipDpiTestTags {
     const val ConfigPresetResetDialog = "config-preset-reset-dialog"
     const val ConfigPresetResetConfirm = "config-preset-reset-confirm"
     const val ConfigSectionNavigation = "config-section-navigation"
-    const val ConfigSavedProfile = "config-saved-profile"
     const val ConfigProfileChange = "config-profile-change"
     const val ConfigProfileChoices = "config-profile-choices"
     const val ConnectionSummary = "config-connection-summary"

@@ -3,6 +3,7 @@ package com.poyka.ripdpi.ui.screens.connection
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -14,18 +15,64 @@ import androidx.compose.ui.res.stringResource
 import com.poyka.ripdpi.R
 import com.poyka.ripdpi.ui.components.cards.PresetCard
 import com.poyka.ripdpi.ui.components.chrome.RipDpiEmptyState
+import com.poyka.ripdpi.ui.components.feedback.RipDpiBottomSheet
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialog
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogAction
 import com.poyka.ripdpi.ui.components.feedback.RipDpiDialogVisuals
 import com.poyka.ripdpi.ui.components.indicators.RipDpiSpinner
-import com.poyka.ripdpi.ui.components.navigation.SettingsCategoryHeader
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
 import com.poyka.ripdpi.ui.testing.ripDpiTestTag
 import com.poyka.ripdpi.ui.theme.RipDpiIcons
 import com.poyka.ripdpi.ui.theme.RipDpiThemeTokens
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
-internal fun ConnectionPresetList(
+internal fun ConnectionProfileChoicesSheet(
+    uiState: ConnectionUiState,
+    onPresetSelected: (ConnectionPreset) -> Unit,
+    profileActions: ConnectionProfileActions,
+    onPasteServerLink: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    // Every choice either changes the active profile or leaves the screen, so each one closes the sheet.
+    fun <T> closing(action: (T) -> Unit): (T) -> Unit =
+        {
+            onDismiss()
+            action(it)
+        }
+    RipDpiBottomSheet(
+        onDismissRequest = onDismiss,
+        title = stringResource(R.string.config_presets_section),
+    ) {
+        Column(
+            modifier = Modifier.ripDpiTestTag(RipDpiTestTags.ConfigProfileChoices),
+            verticalArrangement = Arrangement.spacedBy(RipDpiThemeTokens.spacing.md),
+        ) {
+            ConnectionPresetList(uiState, closing(onPresetSelected))
+            ConnectionRelayProfileChoices(
+                uiState = uiState,
+                actions =
+                    profileActions.copy(
+                        share = closing(profileActions.share),
+                        select = closing(profileActions.select),
+                        edit = closing(profileActions.edit),
+                        create = closing(profileActions.create),
+                        scanServer = {
+                            onDismiss()
+                            profileActions.scanServer()
+                        },
+                    ),
+                onPasteServerLink = {
+                    onDismiss()
+                    onPasteServerLink()
+                },
+            )
+        }
+    }
+}
+
+@Composable
+private fun ConnectionPresetList(
     uiState: ConnectionUiState,
     onPresetSelected: (ConnectionPreset) -> Unit,
 ) {
@@ -52,7 +99,6 @@ internal fun ConnectionPresetList(
         )
     }
     Column(verticalArrangement = Arrangement.spacedBy(spacing.md)) {
-        SettingsCategoryHeader(title = stringResource(R.string.config_presets_section))
         if (uiState.isLoading) {
             Column(
                 modifier =
