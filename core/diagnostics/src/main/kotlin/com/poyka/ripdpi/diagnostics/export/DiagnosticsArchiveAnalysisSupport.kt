@@ -563,11 +563,12 @@ private fun buildRecommendationTrace(
         selectedApproach =
             selection.selectedApproachProjection()?.displayName
                 ?: recommendation?.tcpCandidateLabel
+                ?: recommendation?.quicCandidateLabel
                 ?: resolver?.selectedResolverId
                 ?: "unavailable",
         selectedStrategy =
             recommendation?.let {
-                "${it.tcpCandidateLabel} + ${it.quicCandidateLabel}"
+                listOfNotNull(it.tcpCandidateLabel, it.quicCandidateLabel).joinToString(" + ")
             } ?: "unavailable",
         quicLayoutFamily = recommendation?.quicCandidateLayoutFamily,
         selectedResolver = recommendation?.dnsStrategyLabel ?: resolver?.selectedResolverId,

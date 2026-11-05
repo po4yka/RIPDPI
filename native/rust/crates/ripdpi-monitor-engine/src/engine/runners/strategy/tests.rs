@@ -221,10 +221,10 @@ fn test_execution_family(family: &str) -> Option<StrategyExecutionFamily> {
 
 fn recommendation() -> StrategyProbeRecommendation {
     StrategyProbeRecommendation {
-        tcp_candidate_id: s("tcp_winner"),
-        tcp_candidate_label: s("tcp winner"),
-        quic_candidate_id: s("quic_winner"),
-        quic_candidate_label: s("quic winner"),
+        tcp_candidate_id: Some(s("tcp_winner")),
+        tcp_candidate_label: Some(s("tcp winner")),
+        quic_candidate_id: Some(s("quic_winner")),
+        quic_candidate_label: Some(s("quic winner")),
         quic_candidate_layout_family: None,
         rationale: s("best"),
         recommended_proxy_config_json: s("{}"),
@@ -275,13 +275,16 @@ fn resolve_recommended_proxy_config_json_prefers_winning_quic_summary_config() {
     let winning_quic_candidate =
         quic_candidate_summary(Some(crate::candidates::strategy_probe_config_json(&composed_config)));
 
-    let recommended_proxy_config_json =
-        resolve_recommended_proxy_config_json(&winning_quic_candidate, &fallback_quic_spec);
+    let recommended_proxy_config_json = resolve_recommended_proxy_config_json(
+        &ProxyUiConfig::default(),
+        None,
+        Some((&winning_quic_candidate, &fallback_quic_spec)),
+    )
+    .unwrap();
 
     match parse_proxy_config_json(&recommended_proxy_config_json).expect("parse ui config") {
         ProxyConfigPayload::Ui { config, .. } => {
-            assert_eq!(config.chains.tcp_steps.len(), 1);
-            assert_eq!(config.chains.tcp_steps[0].kind, "tlsrec");
+            assert_eq!(config.chains.tcp_steps, ProxyUiConfig::default().chains.tcp_steps);
             assert_eq!(config.quic.fake_profile, "realistic_initial");
         }
         ProxyConfigPayload::CommandLine { .. } => panic!("expected UI proxy config"),
@@ -297,12 +300,16 @@ fn resolve_recommended_proxy_config_json_falls_back_to_quic_winner_spec_config()
 
     let winning_quic_candidate = quic_candidate_summary(None);
 
-    let recommended_proxy_config_json =
-        resolve_recommended_proxy_config_json(&winning_quic_candidate, &fallback_quic_spec);
+    let recommended_proxy_config_json = resolve_recommended_proxy_config_json(
+        &ProxyUiConfig::default(),
+        None,
+        Some((&winning_quic_candidate, &fallback_quic_spec)),
+    )
+    .unwrap();
 
     match parse_proxy_config_json(&recommended_proxy_config_json).expect("parse ui config") {
         ProxyConfigPayload::Ui { config, .. } => {
-            assert_eq!(config.chains.tcp_steps, fallback_quic_spec.config.chains.tcp_steps);
+            assert_eq!(config.chains.tcp_steps, ProxyUiConfig::default().chains.tcp_steps);
             assert_eq!(config.quic.fake_profile, "compat_default");
         }
         ProxyConfigPayload::CommandLine { .. } => panic!("expected UI proxy config"),
@@ -870,7 +877,7 @@ fn audit(
         STRATEGY_PROBE_SUITE_FULL_MATRIX_V1,
         tcp,
         quic,
-        &recommendation(),
+        Some(&recommendation()),
         tcp_planned,
         quic_planned,
         dns_sc,
@@ -1019,18 +1026,25 @@ fn test_audit_assessment_penalizes_all_tied_candidates() {
     let quic: Vec<_> =
         (0..3).map(|i| strategy_candidate_summary(&format!("quic_{i}"), "quic", 0, 4, 0, 2, false, "failed")).collect();
     let rec = StrategyProbeRecommendation {
-        tcp_candidate_id: s("tcp_0"),
-        tcp_candidate_label: s("tcp 0"),
-        quic_candidate_id: s("quic_0"),
-        quic_candidate_label: s("quic 0"),
+        tcp_candidate_id: Some(s("tcp_0")),
+        tcp_candidate_label: Some(s("tcp 0")),
+        quic_candidate_id: Some(s("quic_0")),
+        quic_candidate_label: Some(s("quic 0")),
         quic_candidate_layout_family: None,
         rationale: s("all tied"),
         recommended_proxy_config_json: String::new(),
         transport_pivot: None,
     };
-    let a =
-        resolve_strategy_probe_audit_assessment(STRATEGY_PROBE_SUITE_FULL_MATRIX_V1, &tcp, &quic, &rec, 15, 3, false)
-            .expect("should produce assessment for full_matrix_v1");
+    let a = resolve_strategy_probe_audit_assessment(
+        STRATEGY_PROBE_SUITE_FULL_MATRIX_V1,
+        &tcp,
+        &quic,
+        Some(&rec),
+        15,
+        3,
+        false,
+    )
+    .expect("should produce assessment for full_matrix_v1");
     assert_eq!(a.confidence.level, StrategyProbeAuditConfidenceLevel::Low);
     assert!(a.confidence.warnings.iter().any(|w| w.contains("TCP candidates produced identical results")));
     assert!(a.confidence.warnings.iter().any(|w| w.contains("QUIC candidates produced identical results")));
@@ -1039,27 +1053,34 @@ fn test_audit_assessment_penalizes_all_tied_candidates() {
 #[test]
 fn test_audit_assessment_high_when_baseline_tied_high_coverage() {
     let tcp = vec![
-        strategy_candidate_summary("baseline_current", "baseline", 90, 100, 4, 5, false, "success"),
+        strategy_candidate_summary("baseline_plain_direct", "baseline", 90, 100, 4, 5, false, "success"),
         strategy_candidate_summary("tcp_split", "split", 90, 100, 4, 5, false, "success"),
         strategy_candidate_summary("tcp_hostfake", "hostfake", 90, 100, 4, 5, false, "success"),
     ];
     let quic = vec![
-        strategy_candidate_summary("baseline_current", "baseline", 80, 100, 2, 2, false, "success"),
+        strategy_candidate_summary("quic_disabled", "quic_disabled", 80, 100, 2, 2, false, "success"),
         strategy_candidate_summary("quic_burst", "quic_burst", 80, 100, 2, 2, false, "success"),
     ];
     let rec = StrategyProbeRecommendation {
-        tcp_candidate_id: s("baseline_current"),
-        tcp_candidate_label: s("Current strategy"),
-        quic_candidate_id: s("baseline_current"),
-        quic_candidate_label: s("Current QUIC strategy"),
+        tcp_candidate_id: Some(s("baseline_plain_direct")),
+        tcp_candidate_label: Some(s("Current strategy")),
+        quic_candidate_id: Some(s("quic_disabled")),
+        quic_candidate_label: Some(s("Current QUIC strategy")),
         quic_candidate_layout_family: None,
         rationale: s("all tied"),
         recommended_proxy_config_json: String::new(),
         transport_pivot: None,
     };
-    let a =
-        resolve_strategy_probe_audit_assessment(STRATEGY_PROBE_SUITE_FULL_MATRIX_V1, &tcp, &quic, &rec, 3, 2, false)
-            .expect("should produce assessment");
+    let a = resolve_strategy_probe_audit_assessment(
+        STRATEGY_PROBE_SUITE_FULL_MATRIX_V1,
+        &tcp,
+        &quic,
+        Some(&rec),
+        3,
+        2,
+        false,
+    )
+    .expect("should produce assessment");
     assert_eq!(a.confidence.level, StrategyProbeAuditConfidenceLevel::High);
     assert_eq!(a.confidence.score, 100);
     assert!(a.confidence.rationale.contains("no evasion needed"));
@@ -1077,18 +1098,25 @@ fn test_audit_assessment_low_when_baseline_tied_low_coverage() {
         strategy_candidate_summary("quic_burst", "quic_burst", 20, 100, 0, 2, false, "failed"),
     ];
     let rec = StrategyProbeRecommendation {
-        tcp_candidate_id: s("baseline_current"),
-        tcp_candidate_label: s("Current strategy"),
-        quic_candidate_id: s("baseline_current"),
-        quic_candidate_label: s("Current QUIC strategy"),
+        tcp_candidate_id: Some(s("baseline_current")),
+        tcp_candidate_label: Some(s("Current strategy")),
+        quic_candidate_id: Some(s("baseline_current")),
+        quic_candidate_label: Some(s("Current QUIC strategy")),
         quic_candidate_layout_family: None,
         rationale: s("all tied"),
         recommended_proxy_config_json: String::new(),
         transport_pivot: None,
     };
-    let a =
-        resolve_strategy_probe_audit_assessment(STRATEGY_PROBE_SUITE_FULL_MATRIX_V1, &tcp, &quic, &rec, 2, 2, false)
-            .expect("should produce assessment");
+    let a = resolve_strategy_probe_audit_assessment(
+        STRATEGY_PROBE_SUITE_FULL_MATRIX_V1,
+        &tcp,
+        &quic,
+        Some(&rec),
+        2,
+        2,
+        false,
+    )
+    .expect("should produce assessment");
     assert_eq!(a.confidence.level, StrategyProbeAuditConfidenceLevel::Low);
     assert!(a.confidence.warnings.iter().any(|w| w.contains("identical results")));
 }

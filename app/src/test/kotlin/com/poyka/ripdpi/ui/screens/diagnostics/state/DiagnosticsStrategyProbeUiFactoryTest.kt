@@ -32,15 +32,37 @@ class DiagnosticsStrategyProbeUiFactoryTest {
         val uiModel = support.toStrategyProbeReportUiModel(report, reportResults = emptyList(), serviceMode = "VPN")
 
         val winningPath = requireNotNull(uiModel.winningPath)
-        assertEquals("tcp-2", winningPath.tcpWinner.id)
-        assertEquals("TCP winner", winningPath.tcpWinner.label)
-        assertEquals(1, winningPath.tcpWinner.hiddenCandidateCount)
-        assertEquals("quic-2", winningPath.quicWinner.id)
-        assertEquals("QUIC winner", winningPath.quicWinner.label)
-        assertEquals(1, winningPath.quicWinner.hiddenCandidateCount)
+        val tcpWinner = requireNotNull(winningPath.tcpWinner)
+        val quicWinner = requireNotNull(winningPath.quicWinner)
+        assertEquals("tcp-2", tcpWinner.id)
+        assertEquals("TCP winner", tcpWinner.label)
+        assertEquals(1, tcpWinner.hiddenCandidateCount)
+        assertEquals("quic-2", quicWinner.id)
+        assertEquals("QUIC winner", quicWinner.label)
+        assertEquals(1, quicWinner.hiddenCandidateCount)
         assertEquals("System DNS", winningPath.dnsLaneLabel)
-        assertNotNull(uiModel.candidateDetails[winningPath.tcpWinner.id])
-        assertNotNull(uiModel.candidateDetails[winningPath.quicWinner.id])
+        assertNotNull(uiModel.candidateDetails[tcpWinner.id])
+        assertNotNull(uiModel.candidateDetails[quicWinner.id])
+    }
+
+    @Test
+    fun `full matrix keeps each independently recommended lane visible`() {
+        for (tcpOnly in listOf(true, false)) {
+            val report =
+                strategyProbeReport(
+                    suiteId = StrategyProbeSuiteFullMatrixV1,
+                    tcpWinnerId = "tcp-2".takeIf { tcpOnly },
+                    quicWinnerId = "quic-2".takeUnless { tcpOnly },
+                )
+            val model = support.toStrategyProbeReportUiModel(report, reportResults = emptyList(), serviceMode = "VPN")
+            val path = requireNotNull(model.winningPath)
+
+            assertEquals("tcp-2".takeIf { tcpOnly }, path.tcpWinner?.id)
+            assertEquals("quic-2".takeUnless { tcpOnly }, path.quicWinner?.id)
+            val values = requireNotNull(model.recommendation).fields.map { it.value }
+            assertEquals(tcpOnly, "TCP winner" in values)
+            assertEquals(!tcpOnly, "QUIC winner" in values)
+        }
     }
 
     @Test
@@ -147,7 +169,7 @@ class DiagnosticsStrategyProbeUiFactoryTest {
 
         val uiModel = support.toStrategyProbeReportUiModel(report, reportResults = emptyList(), serviceMode = "VPN")
 
-        val winnerMetrics = requireNotNull(uiModel.winningPath).tcpWinner.metrics
+        val winnerMetrics = requireNotNull(requireNotNull(uiModel.winningPath).tcpWinner).metrics
         assertEquals("Rooted production", winnerMetrics.first { it.label == "Emitter" }.value)
         assertEquals("Rooted exact", winnerMetrics.first { it.label == "Realization" }.value)
 
@@ -246,8 +268,8 @@ class DiagnosticsStrategyProbeUiFactoryTest {
 
 private fun strategyProbeReport(
     suiteId: String,
-    tcpWinnerId: String,
-    quicWinnerId: String,
+    tcpWinnerId: String?,
+    quicWinnerId: String?,
     completionKind: StrategyProbeCompletionKind = StrategyProbeCompletionKind.NORMAL,
     skippedRecommendedCandidates: Boolean = false,
     tcpCandidates: List<StrategyProbeCandidateSummary>? = null,
@@ -282,9 +304,9 @@ private fun strategyProbeReport(
         recommendation =
             StrategyProbeRecommendation(
                 tcpCandidateId = tcpWinnerId,
-                tcpCandidateLabel = "TCP winner",
+                tcpCandidateLabel = "TCP winner".takeIf { tcpWinnerId != null },
                 quicCandidateId = quicWinnerId,
-                quicCandidateLabel = "QUIC winner",
+                quicCandidateLabel = "QUIC winner".takeIf { quicWinnerId != null },
                 dnsStrategyLabel = "System DNS",
                 rationale = "Best combined recovery across lanes.",
                 recommendedProxyConfigJson = """{"kind":"ui"}""",

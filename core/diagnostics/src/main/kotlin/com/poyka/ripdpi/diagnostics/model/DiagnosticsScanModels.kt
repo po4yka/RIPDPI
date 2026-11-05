@@ -315,6 +315,7 @@ enum class TelegramWsTunnelStatus {
 @Serializable
 enum class ThroughputProbeStatus {
     MEASURED,
+    INCONCLUSIVE,
     HTTP_UNREACHABLE,
     INVALID_TARGET,
 }
@@ -725,11 +726,11 @@ data class StrategyDomainSeed(
 
 @Serializable
 data class StrategyProbeRecommendation(
-    val tcpCandidateId: String,
-    val tcpCandidateLabel: String,
+    val tcpCandidateId: String?,
+    val tcpCandidateLabel: String?,
     val tcpCandidateFamily: String? = null,
-    val quicCandidateId: String,
-    val quicCandidateLabel: String,
+    val quicCandidateId: String?,
+    val quicCandidateLabel: String?,
     val quicCandidateFamily: String? = null,
     val quicCandidateLayoutFamily: String? = null,
     val dnsStrategyFamily: String? = null,

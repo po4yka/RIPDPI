@@ -262,6 +262,7 @@ pub ripdpi_diagnostics_contracts::types::TelegramWsTunnelStatus::Unknown
 pub ripdpi_diagnostics_contracts::types::TelegramWsTunnelStatus::Unreachable
 pub enum ripdpi_diagnostics_contracts::types::ThroughputProbeStatus
 pub ripdpi_diagnostics_contracts::types::ThroughputProbeStatus::HttpUnreachable
+pub ripdpi_diagnostics_contracts::types::ThroughputProbeStatus::Inconclusive
 pub ripdpi_diagnostics_contracts::types::ThroughputProbeStatus::InvalidTarget
 pub ripdpi_diagnostics_contracts::types::ThroughputProbeStatus::Measured
 pub enum ripdpi_diagnostics_contracts::types::TlsProbeStatus
@@ -900,13 +901,13 @@ pub ripdpi_diagnostics_contracts::types::StrategyProbeLiveProgress::lane: ripdpi
 pub ripdpi_diagnostics_contracts::types::StrategyProbeLiveProgress::succeeded_targets: usize
 pub ripdpi_diagnostics_contracts::types::StrategyProbeLiveProgress::total_targets: usize
 pub struct ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation
-pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::quic_candidate_id: alloc::string::String
-pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::quic_candidate_label: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::quic_candidate_id: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::quic_candidate_label: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::quic_candidate_layout_family: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::rationale: alloc::string::String
 pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::recommended_proxy_config_json: alloc::string::String
-pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::tcp_candidate_id: alloc::string::String
-pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::tcp_candidate_label: alloc::string::String
+pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::tcp_candidate_id: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::tcp_candidate_label: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::types::StrategyProbeRecommendation::transport_pivot: core::option::Option<ripdpi_diagnostics_contracts::types::TransportPivotRecommendation>
 pub struct ripdpi_diagnostics_contracts::types::StrategyProbeReport
 pub ripdpi_diagnostics_contracts::types::StrategyProbeReport::active_path_observation: core::option::Option<ripdpi_diagnostics_contracts::types::StrategyActivePathObservation>
@@ -1327,6 +1328,7 @@ pub ripdpi_diagnostics_contracts::TelegramVerdict::Partial
 pub ripdpi_diagnostics_contracts::TelegramVerdict::Slow
 pub enum ripdpi_diagnostics_contracts::ThroughputProbeStatus
 pub ripdpi_diagnostics_contracts::ThroughputProbeStatus::HttpUnreachable
+pub ripdpi_diagnostics_contracts::ThroughputProbeStatus::Inconclusive
 pub ripdpi_diagnostics_contracts::ThroughputProbeStatus::InvalidTarget
 pub ripdpi_diagnostics_contracts::ThroughputProbeStatus::Measured
 pub enum ripdpi_diagnostics_contracts::TlsProbeStatus
@@ -1887,13 +1889,13 @@ pub ripdpi_diagnostics_contracts::StrategyProbeLiveProgress::lane: ripdpi_diagno
 pub ripdpi_diagnostics_contracts::StrategyProbeLiveProgress::succeeded_targets: usize
 pub ripdpi_diagnostics_contracts::StrategyProbeLiveProgress::total_targets: usize
 pub struct ripdpi_diagnostics_contracts::StrategyProbeRecommendation
-pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::quic_candidate_id: alloc::string::String
-pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::quic_candidate_label: alloc::string::String
+pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::quic_candidate_id: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::quic_candidate_label: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::quic_candidate_layout_family: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::rationale: alloc::string::String
 pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::recommended_proxy_config_json: alloc::string::String
-pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::tcp_candidate_id: alloc::string::String
-pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::tcp_candidate_label: alloc::string::String
+pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::tcp_candidate_id: core::option::Option<alloc::string::String>
+pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::tcp_candidate_label: core::option::Option<alloc::string::String>
 pub ripdpi_diagnostics_contracts::StrategyProbeRecommendation::transport_pivot: core::option::Option<ripdpi_diagnostics_contracts::types::TransportPivotRecommendation>
 pub struct ripdpi_diagnostics_contracts::StrategyProbeReport
 pub ripdpi_diagnostics_contracts::StrategyProbeReport::active_path_observation: core::option::Option<ripdpi_diagnostics_contracts::types::StrategyActivePathObservation>

@@ -4,32 +4,16 @@ use crate::util::late_stage_cutoff;
 
 use super::status_types::FatHeaderStatus;
 
-/// Classify the TCP block method from the probe observation.
-///
-/// - `rst_injection`: RST received (connection reset / broken pipe).
-/// - `window_cap`: Connection cut off after threshold bytes (16KB window capping).
-/// - `timeout`: Connection timed out or froze.
-/// - `connection_refused`: Could not establish TCP connection at all.
+/// Describe the observed failure without attributing its source or mechanism.
 pub fn classify_tcp_block_method(status: &FatHeaderStatus) -> &'static str {
     match status {
         FatHeaderStatus::Success => "none",
-        FatHeaderStatus::Reset => "rst_injection",
-        FatHeaderStatus::ThresholdCutoff | FatHeaderStatus::FreezeAfterThreshold => "window_cap",
+        FatHeaderStatus::Reset => "reset_or_close",
+        FatHeaderStatus::ThresholdCutoff => "transfer_cutoff",
+        FatHeaderStatus::FreezeAfterThreshold => "transfer_stall",
         FatHeaderStatus::Timeout => "timeout",
-        FatHeaderStatus::ConnectFailed | FatHeaderStatus::HandshakeFailed => "connection_refused",
-    }
-}
-
-/// Classify RST origin based on timing relative to the SYN-ACK RTT baseline.
-///
-/// If RST arrives within 2x the SYN-ACK RTT, it is likely injected by an
-/// in-path DPI device racing the real server. If it arrives later, it is
-/// more likely a legitimate server rejection.
-pub fn classify_rst_origin(syn_ack_ms: Option<u64>, rst_ms: Option<u64>) -> &'static str {
-    match (syn_ack_ms, rst_ms) {
-        (Some(rtt), Some(rst)) if rtt > 0 && rst <= rtt.saturating_mul(2) => "in_path_rst",
-        (Some(_), Some(_)) => "server_rst",
-        _ => "unknown",
+        FatHeaderStatus::ConnectFailed => "connect_failed",
+        FatHeaderStatus::HandshakeFailed => "tls_handshake_failed",
     }
 }
 

@@ -221,7 +221,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         return DiagnosticsProfileDefinition(
             id = "ru-throttling",
             name = "Russia Throttling Check",
-            version = 4,
+            version = 5,
             family = CatalogDiagnosticProfileFamily.THROTTLING,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,
@@ -229,7 +229,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
             executionPolicy = policy(manualOnly = true, allowBackground = false, requiresRawPath = false),
             packRefs =
                 listOf(
-                    packRef("ru-throttling", 1),
+                    packRef("ru-throttling", 2),
                     packRef("neutral-control", 2),
                 ),
             domainTargets = throttling.domainTargets + control.domainTargets,
@@ -253,13 +253,12 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
         val globalPlatforms = index.requirePack("ru-global-platforms")
         val messaging = index.requirePack("ru-messaging")
         val circumvention = index.requirePack("ru-circumvention")
-        val throttling = index.requirePack("ru-throttling")
         val neutralControl = index.requirePack("neutral-control")
         val control = index.requirePack("ru-control")
         return DiagnosticsProfileDefinition(
             id = "ru-dpi-full",
             name = "Russia DPI Full",
-            version = 7,
+            version = 8,
             family = CatalogDiagnosticProfileFamily.DPI_FULL,
             intentBucket = CatalogProfileIntentBucket.MANUAL_SENSITIVE,
             legalSafety = CatalogLegalSafety.SENSITIVE,
@@ -271,7 +270,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
                     packRef("ru-global-platforms", 1),
                     packRef("ru-messaging", 2),
                     packRef("ru-circumvention", 1),
-                    packRef("ru-throttling", 1),
+                    packRef("ru-throttling", 2),
                     packRef("neutral-control", 2),
                 ),
             domainTargets =
@@ -301,7 +300,7 @@ internal object DefaultDiagnosticsCatalogProfileSource : DiagnosticsCatalogProfi
             tcpTargets = DiagnosticsCatalogSharedData.neutralTcpTargets,
             serviceTargets = messaging.serviceTargets,
             circumventionTargets = circumvention.circumventionTargets,
-            throughputTargets = listOf(throttling.throughputTargets.single(), neutralControl.throughputTargets.first()),
+            throughputTargets = neutralControl.throughputTargets,
             whitelistSni = control.whitelistSni,
             telegramTarget = DiagnosticsCatalogSharedData.dpiTelegramTarget,
         )

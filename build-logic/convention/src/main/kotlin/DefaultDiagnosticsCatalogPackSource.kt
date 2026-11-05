@@ -108,16 +108,8 @@ internal object DefaultDiagnosticsCatalogPackSource : DiagnosticsCatalogPackSour
             ),
             TargetPackDefinition(
                 id = "ru-throttling",
-                version = 1,
+                version = 2,
                 domainTargets = domainTargets("www.youtube.com"),
-                throughputTargets =
-                    listOf(
-                        ThroughputTargetDefinition(
-                            id = "youtube-web",
-                            label = "YouTube Web",
-                            url = "https://www.youtube.com/",
-                        ),
-                    ),
             ),
             TargetPackDefinition(
                 id = "neutral-control",

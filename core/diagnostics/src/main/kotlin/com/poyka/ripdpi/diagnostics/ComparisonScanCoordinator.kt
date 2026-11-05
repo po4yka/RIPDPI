@@ -14,14 +14,16 @@ class ComparisonScanCoordinator
             inPathSessionId: String?,
             serviceRuntimeAssessment: ConnectivityServiceRuntimeAssessment = ConnectivityServiceRuntimeAssessment(),
         ): ConnectivityAssessment {
-            val rawTargets = aggregateTargets(rawReports)
-            val inPathTargets = aggregateTargets(listOfNotNull(inPathReport))
+            val completeRawReports = rawReports.filter { it.completionKind == ScanCompletionKind.NORMAL }
+            val completeInPathReport = inPathReport?.takeIf { it.completionKind == ScanCompletionKind.NORMAL }
+            val rawTargets = aggregateTargets(completeRawReports)
+            val inPathTargets = aggregateTargets(listOfNotNull(completeInPathReport))
             val rawEvidence = rawTargets.toConnectivityEvidence(rawPathSessionIds)
             val inPathEvidence =
                 inPathTargets
                     .filterKeys { it in rawTargets.keys }
                     .toConnectivityEvidence(listOfNotNull(inPathSessionId))
-            val resolverAssessment = buildResolverAssessment(rawReports)
+            val resolverAssessment = buildResolverAssessment(completeRawReports)
             val rawControlSuccess = rawEvidence.controlSuccessCount > 0
             val rawControlFailure = rawEvidence.controlFailureCount > 0
             val rawAffectedFailure = rawEvidence.affectedTargetFailureCount > 0
@@ -40,7 +42,7 @@ class ComparisonScanCoordinator
                     resolverLinkedFailure = resolverLinkedFailureCount > 0,
                     inPathRegression = inPathRegression,
                     serviceRuntimeAssessment = serviceRuntimeAssessment,
-                    inPathReport = inPathReport,
+                    inPathReport = completeInPathReport,
                     inPathEvidence = inPathEvidence,
                 )
             val confidence =
@@ -58,7 +60,8 @@ class ComparisonScanCoordinator
                     rawEvidence.controls.isEmpty() -> "no_controls"
                     rawControlSuccess && !rawControlFailure -> "raw_controls_passed"
                     rawControlSuccess -> "raw_controls_mixed"
-                    else -> "raw_controls_failed"
+                    rawControlFailure -> "raw_controls_failed"
+                    else -> "raw_controls_inconclusive"
                 }
             return ConnectivityAssessment(
                 assessmentCode = code,
@@ -219,7 +222,11 @@ class ComparisonScanCoordinator
             ): Boolean =
                 rawTargets.any { (target, rawOutcome) ->
                     val inPathOutcome = inPathTargets[target] ?: return@any false
-                    rawOutcome.success && !inPathOutcome.success
+                    inPathOutcome.failed &&
+                        rawOutcome.components.any { (component, status) ->
+                            status == DiagnosticsOutcomeBucket.Healthy &&
+                                inPathOutcome.components[component] == DiagnosticsOutcomeBucket.Failed
+                        }
                 }
 
             private fun buildResolverAssessment(rawReports: List<ScanReport>): ConnectivityResolverAssessment {
@@ -299,34 +306,61 @@ class ComparisonScanCoordinator
 
             private fun aggregateTargets(reports: List<ScanReport>): Map<String, TargetOutcome> =
                 buildMap {
-                    reports.flatMap(ScanReport::observations).forEach { observation ->
-                        val outcome = observation.toTargetOutcome() ?: return@forEach
-                        val existing = get(outcome.id)
-                        put(outcome.id, merge(existing, outcome))
+                    reports.forEach { report ->
+                        report.observations.forEach observationLoop@{ observation ->
+                            val outcome = observation.toTargetOutcome(report) ?: return@observationLoop
+                            put(outcome.id, merge(get(outcome.id), outcome))
+                        }
                     }
                 }
 
-            private fun ObservationFact.toTargetOutcome(): TargetOutcome? =
+            private fun ObservationFact.toTargetOutcome(report: ScanReport): TargetOutcome? =
                 when (kind) {
-                    ObservationKind.DOMAIN -> domain?.let { domainTargetOutcome(it) }
-                    ObservationKind.SERVICE -> service?.let { serviceTargetOutcome(target, it) }
-                    ObservationKind.CIRCUMVENTION -> circumvention?.let { circumventionTargetOutcome(target, it) }
-                    else -> null
+                    ObservationKind.DOMAIN -> {
+                        domain?.let { fact ->
+                            val normalized =
+                                report.results
+                                    .firstOrNull {
+                                        it.probeType == "domain_reachability" &&
+                                            it.target == fact.host
+                                    }?.let {
+                                        DiagnosticsOutcomeTaxonomy
+                                            .classifyProbeResult(
+                                                report.pathMode,
+                                                it,
+                                                report.results,
+                                            ).bucket
+                                    }
+                            domainTargetOutcome(fact, normalized)
+                        }
+                    }
+
+                    ObservationKind.SERVICE -> {
+                        service?.let { serviceTargetOutcome(target, it) }
+                    }
+
+                    ObservationKind.CIRCUMVENTION -> {
+                        circumvention?.let { circumventionTargetOutcome(target, it) }
+                    }
+
+                    else -> {
+                        null
+                    }
                 }
 
             private fun Map<String, TargetOutcome>.toConnectivityEvidence(
                 sessionIds: List<String>,
             ): ConnectivityEvidence {
                 val controls = values.filter { it.isControl }.map(TargetOutcome::id).sorted()
-                val affected = values.filter { !it.isControl && !it.success }.map(TargetOutcome::id).sorted()
+                val affected = values.filter { !it.isControl && it.failed }.map(TargetOutcome::id).sorted()
                 return ConnectivityEvidence(
                     sessionIds = sessionIds.distinct(),
                     controls = controls,
                     affectedTargets = affected,
                     controlSuccessCount = values.count { it.isControl && it.success },
-                    controlFailureCount = values.count { it.isControl && !it.success },
+                    controlFailureCount = values.count { it.isControl && it.failed },
                     affectedTargetSuccessCount = values.count { !it.isControl && it.success },
-                    affectedTargetFailureCount = values.count { !it.isControl && !it.success },
+                    affectedTargetFailureCount = values.count { !it.isControl && it.failed },
                 )
             }
         }
@@ -335,60 +369,123 @@ class ComparisonScanCoordinator
 private data class TargetOutcome(
     val id: String,
     val isControl: Boolean = false,
-    val success: Boolean,
-)
+    val bucket: DiagnosticsOutcomeBucket,
+    val components: Map<String, DiagnosticsOutcomeBucket>,
+) {
+    val success: Boolean get() = bucket == DiagnosticsOutcomeBucket.Healthy
+    val failed: Boolean get() = bucket == DiagnosticsOutcomeBucket.Failed
+}
 
 private fun merge(
     existing: TargetOutcome?,
     next: TargetOutcome,
 ): TargetOutcome =
-    when {
-        existing == null -> next
-        existing.success -> existing
-        next.success -> next
-        else -> existing
+    if (existing == null) {
+        next
+    } else {
+        existing.copy(
+            bucket = if (existing.bucket == next.bucket) existing.bucket else DiagnosticsOutcomeBucket.Inconclusive,
+            components =
+                (existing.components.keys + next.components.keys).associateWith { component ->
+                    val first = existing.components[component]
+                    val second = next.components[component]
+                    when {
+                        first == null -> requireNotNull(second)
+                        second == null || first == second -> first
+                        else -> DiagnosticsOutcomeBucket.Inconclusive
+                    }
+                },
+        )
     }
 
-private fun domainTargetOutcome(fact: DomainObservationFact): TargetOutcome {
-    val success =
-        fact.httpStatus == HttpProbeStatus.OK ||
-            fact.tls13Status == TlsProbeStatus.OK ||
-            fact.tls12Status == TlsProbeStatus.OK ||
-            fact.tls13Status == TlsProbeStatus.VERSION_SPLIT ||
-            fact.tls12Status == TlsProbeStatus.VERSION_SPLIT
-    val failure =
-        fact.transportFailure != TransportFailureKind.NONE ||
-            fact.httpStatus == HttpProbeStatus.UNREACHABLE ||
-            fact.tls13Status == TlsProbeStatus.HANDSHAKE_FAILED ||
-            fact.tls12Status == TlsProbeStatus.HANDSHAKE_FAILED ||
-            fact.tls13Status == TlsProbeStatus.CERT_INVALID ||
-            fact.tls12Status == TlsProbeStatus.CERT_INVALID
-    return TargetOutcome(
-        id = fact.host,
-        isControl = fact.isControl,
-        success = success && !failure,
-    )
+private fun domainTargetOutcome(
+    fact: DomainObservationFact,
+    normalized: DiagnosticsOutcomeBucket?,
+): TargetOutcome {
+    val components =
+        mapOf(
+            "http" to fact.httpStatus.bucket(),
+            "tls13" to fact.tls13Status.bucket(),
+            "tls12" to fact.tls12Status.bucket(),
+            "ech" to fact.tlsEchStatus.bucket(),
+        ).measuredComponents()
+    val bucket =
+        normalized ?: when {
+            fact.certificateAnomaly || fact.tls13Status == TlsProbeStatus.CERT_INVALID ||
+                fact.tls12Status == TlsProbeStatus.CERT_INVALID -> DiagnosticsOutcomeBucket.Failed
+
+            DiagnosticsOutcomeBucket.Healthy in components.values -> DiagnosticsOutcomeBucket.Healthy
+
+            DiagnosticsOutcomeBucket.Failed in components.values ||
+                fact.transportFailure != TransportFailureKind.NONE -> DiagnosticsOutcomeBucket.Failed
+
+            else -> DiagnosticsOutcomeBucket.Inconclusive
+        }
+    return TargetOutcome(fact.host, fact.isControl, bucket, components)
 }
 
 private fun serviceTargetOutcome(
     target: String,
     fact: ServiceObservationFact,
 ): TargetOutcome =
-    TargetOutcome(
-        id = target,
-        success =
-            fact.endpointStatus == EndpointProbeStatus.OK ||
-                fact.bootstrapStatus == HttpProbeStatus.OK ||
-                fact.mediaStatus == HttpProbeStatus.OK,
+    componentTargetOutcome(
+        target,
+        mapOf(
+            "endpoint" to fact.endpointStatus.bucket(),
+            "bootstrap" to fact.bootstrapStatus.bucket(),
+            "media" to fact.mediaStatus.bucket(),
+            "quic" to
+                when (fact.quicStatus) {
+                    QuicProbeStatus.INITIAL_RESPONSE, QuicProbeStatus.RESPONSE -> DiagnosticsOutcomeBucket.Healthy
+                    QuicProbeStatus.EMPTY, QuicProbeStatus.ERROR -> DiagnosticsOutcomeBucket.Failed
+                    QuicProbeStatus.NOT_RUN -> DiagnosticsOutcomeBucket.Inconclusive
+                },
+        ),
     )
 
 private fun circumventionTargetOutcome(
     target: String,
     fact: CircumventionObservationFact,
 ): TargetOutcome =
-    TargetOutcome(
-        id = target,
-        success =
-            fact.handshakeStatus == EndpointProbeStatus.OK ||
-                fact.bootstrapStatus == HttpProbeStatus.OK,
+    componentTargetOutcome(
+        target,
+        mapOf("handshake" to fact.handshakeStatus.bucket(), "bootstrap" to fact.bootstrapStatus.bucket()),
     )
+
+private fun componentTargetOutcome(
+    target: String,
+    components: Map<String, DiagnosticsOutcomeBucket>,
+): TargetOutcome {
+    val measured = components.measuredComponents()
+    val bucket =
+        when {
+            DiagnosticsOutcomeBucket.Failed in measured.values -> DiagnosticsOutcomeBucket.Failed
+            measured.isNotEmpty() -> DiagnosticsOutcomeBucket.Healthy
+            else -> DiagnosticsOutcomeBucket.Inconclusive
+        }
+    return TargetOutcome(target, bucket = bucket, components = measured)
+}
+
+private fun Map<String, DiagnosticsOutcomeBucket>.measuredComponents(): Map<String, DiagnosticsOutcomeBucket> =
+    filterValues { it != DiagnosticsOutcomeBucket.Inconclusive }
+
+private fun HttpProbeStatus.bucket(): DiagnosticsOutcomeBucket =
+    when (this) {
+        HttpProbeStatus.OK -> DiagnosticsOutcomeBucket.Healthy
+        HttpProbeStatus.BLOCKPAGE, HttpProbeStatus.UNREACHABLE -> DiagnosticsOutcomeBucket.Failed
+        HttpProbeStatus.NOT_RUN -> DiagnosticsOutcomeBucket.Inconclusive
+    }
+
+private fun TlsProbeStatus.bucket(): DiagnosticsOutcomeBucket =
+    when (this) {
+        TlsProbeStatus.OK -> DiagnosticsOutcomeBucket.Healthy
+        TlsProbeStatus.HANDSHAKE_FAILED, TlsProbeStatus.CERT_INVALID -> DiagnosticsOutcomeBucket.Failed
+        TlsProbeStatus.VERSION_SPLIT, TlsProbeStatus.NOT_RUN -> DiagnosticsOutcomeBucket.Inconclusive
+    }
+
+private fun EndpointProbeStatus.bucket(): DiagnosticsOutcomeBucket =
+    when (this) {
+        EndpointProbeStatus.OK -> DiagnosticsOutcomeBucket.Healthy
+        EndpointProbeStatus.BLOCKED, EndpointProbeStatus.FAILED -> DiagnosticsOutcomeBucket.Failed
+        EndpointProbeStatus.NOT_RUN -> DiagnosticsOutcomeBucket.Inconclusive
+    }

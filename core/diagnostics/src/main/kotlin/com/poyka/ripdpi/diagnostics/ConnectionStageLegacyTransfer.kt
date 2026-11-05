@@ -32,10 +32,10 @@ internal fun legacyTransferConnectionLanes(evidence: ConnectionStageEvidence): L
 
 private fun legacyBodyState(token: String): ConnectionStageState =
     when (token) {
-        "window_complete", "clean_eof_before_window" -> ConnectionStageState.PARTIAL
+        "window_complete", "body_complete_before_window" -> ConnectionStageState.PARTIAL
         "not_started" -> ConnectionStageState.NOT_REACHED
         "read_timeout" -> ConnectionStageState.TIMED_OUT
-        "read_error" -> ConnectionStageState.FAILED
+        "read_error", "truncated_body" -> ConnectionStageState.FAILED
         else -> ConnectionStageState.UNKNOWN
     }
 

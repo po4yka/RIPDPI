@@ -483,7 +483,7 @@ class DiagnosticsModelsCompatibilityTest {
             json.decodeEngineScanReportWire(
                 """
                 {
-                  "schemaVersion": 9,
+                  "schemaVersion": 10,
                   "sessionId": "session-1",
                   "profileId": "default",
                   "pathMode": "RAW_PATH",

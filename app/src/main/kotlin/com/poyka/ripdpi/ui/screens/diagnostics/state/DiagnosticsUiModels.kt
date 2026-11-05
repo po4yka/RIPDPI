@@ -675,8 +675,8 @@ data class DiagnosticsStrategyProbeWinningCandidateUiModel(
 
 @Stable
 data class DiagnosticsStrategyProbeWinningPathUiModel(
-    val tcpWinner: DiagnosticsStrategyProbeWinningCandidateUiModel,
-    val quicWinner: DiagnosticsStrategyProbeWinningCandidateUiModel,
+    val tcpWinner: DiagnosticsStrategyProbeWinningCandidateUiModel?,
+    val quicWinner: DiagnosticsStrategyProbeWinningCandidateUiModel?,
     val dnsLaneLabel: String? = null,
 )
 

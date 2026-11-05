@@ -4,14 +4,57 @@ use crate::types::StrategyProbeCandidateSummary as CandidateSummary;
 use super::capabilities::capability_available;
 
 pub(in crate::engine::runners::strategy) fn resolve_recommended_proxy_config_json(
-    quic_candidate: &CandidateSummary,
-    fallback_quic_spec: &StrategyCandidateSpec,
-) -> String {
-    quic_candidate
-        .proxy_config_json
-        .as_deref()
-        .filter(|value| !value.trim().is_empty())
-        .map_or_else(|| strategy_probe_config_json(&fallback_quic_spec.config), str::to_owned)
+    base: &ripdpi_proxy_config::ProxyUiConfig,
+    tcp: Option<(&CandidateSummary, &StrategyCandidateSpec)>,
+    quic: Option<(&CandidateSummary, &StrategyCandidateSpec)>,
+) -> Option<String> {
+    let mut config = base.clone();
+    if let Some((candidate, spec)) = tcp {
+        let selected = selected_config(candidate, spec)?;
+        config.protocols.desync_http = selected.protocols.desync_http;
+        config.protocols.desync_https = selected.protocols.desync_https;
+        config.chains.tcp_steps = selected.chains.tcp_steps;
+        config.chains.tcp_rotation = selected.chains.tcp_rotation;
+        config.chains.group_activation_filter = selected.chains.group_activation_filter;
+        config.chains.any_protocol = selected.chains.any_protocol;
+        config.chains.payload_disable = selected.chains.payload_disable;
+        let udp_fake_profile = config.fake_packets.udp_fake_profile.clone();
+        let quic_bind_low_port = config.fake_packets.quic_bind_low_port;
+        let quic_migrate_after_handshake = config.fake_packets.quic_migrate_after_handshake;
+        config.fake_packets = selected.fake_packets;
+        config.fake_packets.udp_fake_profile = udp_fake_profile;
+        config.fake_packets.quic_bind_low_port = quic_bind_low_port;
+        config.fake_packets.quic_migrate_after_handshake = quic_migrate_after_handshake;
+        config.parser_evasions = selected.parser_evasions;
+        config.adaptive_fallback = selected.adaptive_fallback;
+        config.listen.tcp_fast_open = selected.listen.tcp_fast_open;
+        config.listen.custom_ttl = selected.listen.custom_ttl;
+        config.listen.default_ttl = selected.listen.default_ttl;
+    }
+    if let Some((candidate, spec)) = quic {
+        let selected = selected_config(candidate, spec)?;
+        config.protocols.desync_udp = selected.protocols.desync_udp;
+        config.chains.udp_steps = selected.chains.udp_steps;
+        config.quic = selected.quic;
+        config.fake_packets.udp_fake_profile = selected.fake_packets.udp_fake_profile;
+        config.fake_packets.quic_bind_low_port = selected.fake_packets.quic_bind_low_port;
+        config.fake_packets.quic_migrate_after_handshake = selected.fake_packets.quic_migrate_after_handshake;
+    }
+    Some(strategy_probe_config_json(&config))
+}
+
+fn selected_config(
+    candidate: &CandidateSummary,
+    spec: &StrategyCandidateSpec,
+) -> Option<ripdpi_proxy_config::ProxyUiConfig> {
+    use ripdpi_proxy_config::{ProxyConfigPayload, parse_proxy_config_json};
+    let Some(json) = candidate.proxy_config_json.as_deref() else {
+        return Some(spec.config.clone());
+    };
+    match parse_proxy_config_json(json).ok()? {
+        ProxyConfigPayload::Ui { config, .. } => Some(config),
+        ProxyConfigPayload::CommandLine { .. } => None,
+    }
 }
 
 pub(in crate::engine::runners::strategy) fn select_promotable_candidate_index(

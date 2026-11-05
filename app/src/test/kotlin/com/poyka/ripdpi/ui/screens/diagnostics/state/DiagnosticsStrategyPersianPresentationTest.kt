@@ -91,7 +91,7 @@ class DiagnosticsStrategyPersianPresentationTest {
         assertEquals("Raw DNS 0012", recommendation.fields[4].value)
         assertEquals("Raw suppression 0012", recommendation.fields[5].value)
         assertEquals("Raw recommendation 0012", recommendation.rationale)
-        assertEquals("tcp-0012", requireNotNull(localized.winningPath).tcpWinner.id)
+        assertEquals("tcp-0012", requireNotNull(requireNotNull(localized.winningPath).tcpWinner).id)
 
         locale.select("en")
         assertEquals(initial, factory.toStrategyProbeReportUiModel(raw, results(), "VPN"))

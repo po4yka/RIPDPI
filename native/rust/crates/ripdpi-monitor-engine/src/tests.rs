@@ -977,7 +977,7 @@ fn parser_only_candidate_keeps_aggressive_http_evasions_disabled() {
 }
 
 #[test]
-fn monitor_session_strategy_probe_without_quic_success_has_no_recommendation() {
+fn monitor_session_strategy_probe_without_quic_success_keeps_tcp_recommendation() {
     let _serial = lock_network_probes();
     let server = HttpTextServer::start_text("HTTP/1.1 200 OK", "probe");
     let mut request = strategy_probe_request(minimal_ui_config());
@@ -1005,7 +1005,9 @@ fn monitor_session_strategy_probe_without_quic_success_has_no_recommendation() {
         strategy_probe.tcp_candidates.first().map(|candidate| candidate.id.as_str()),
         Some("baseline_plain_direct")
     );
-    assert!(strategy_probe.recommendation.is_none(), "a non-applicable QUIC candidate is not promotable");
+    let recommendation = strategy_probe.recommendation.as_ref().expect("measured TCP recommendation");
+    assert!(recommendation.tcp_candidate_id.is_some());
+    assert!(recommendation.quic_candidate_id.is_none(), "a non-applicable QUIC candidate is not promotable");
     assert!(strategy_probe.audit_assessment.is_none());
 }
 
@@ -1079,7 +1081,7 @@ fn monitor_session_strategy_probe_marks_dns_short_circuit_completion_kind() {
 }
 
 #[test]
-fn monitor_session_full_matrix_without_verified_winner_has_no_audit_assessment() {
+fn monitor_session_full_matrix_reports_single_lane_recommendation_and_audit_coverage() {
     let _serial = lock_network_probes();
     let server = HttpTextServer::start_text("HTTP/1.1 200 OK", "probe");
     let mut request =
@@ -1113,8 +1115,11 @@ fn monitor_session_full_matrix_without_verified_winner_has_no_audit_assessment()
     session.start_scan("session-audit".to_string(), request.into()).expect("start automatic audit");
     let report = wait_for_report(&session);
     let strategy_probe = report.strategy_probe_report.expect("strategy probe report");
-    assert!(strategy_probe.audit_assessment.is_none());
-    assert!(strategy_probe.recommendation.is_none());
+    let assessment = strategy_probe.audit_assessment.as_ref().expect("audit coverage");
+    assert!(assessment.coverage.tcp_candidates_executed > 0);
+    let recommendation = strategy_probe.recommendation.as_ref().expect("measured TCP recommendation");
+    assert!(recommendation.tcp_candidate_id.is_some());
+    assert!(recommendation.quic_candidate_id.is_none());
 
     assert_eq!(report.profile_id, "automatic-audit");
     assert_eq!(strategy_probe.suite_id, "full_matrix_v1");
@@ -1179,7 +1184,9 @@ fn monitor_session_full_matrix_marks_dns_short_circuit_completion_kind() {
 
     assert_eq!(strategy_probe.completion_kind, StrategyProbeCompletionKind::DnsTamperingWithFallback);
     assert!(strategy_probe.recommendation.is_none(), "skipped candidates cannot produce a verified recommendation");
-    assert!(strategy_probe.audit_assessment.is_none(), "winner confidence is undefined without a verified winner");
+    let assessment = strategy_probe.audit_assessment.as_ref().expect("audit coverage without a winner");
+    assert_eq!(assessment.coverage.winner_coverage_percent, 0);
+    assert_eq!(assessment.confidence.level, StrategyProbeAuditConfidenceLevel::Low);
 }
 
 #[test]
@@ -1261,10 +1268,10 @@ fn strategy_probe_report_serializes_normal_completion_kind() {
         tcp_candidates: vec![],
         quic_candidates: vec![],
         recommendation: Some(crate::types::StrategyProbeRecommendation {
-            tcp_candidate_id: "tcp-1".to_string(),
-            tcp_candidate_label: "TCP baseline".to_string(),
-            quic_candidate_id: "quic-1".to_string(),
-            quic_candidate_label: "QUIC baseline".to_string(),
+            tcp_candidate_id: Some("tcp-1".to_string()),
+            tcp_candidate_label: Some("TCP baseline".to_string()),
+            quic_candidate_id: Some("quic-1".to_string()),
+            quic_candidate_label: Some("QUIC baseline".to_string()),
             quic_candidate_layout_family: None,
             rationale: "Best path".to_string(),
             recommended_proxy_config_json: "{}".to_string(),

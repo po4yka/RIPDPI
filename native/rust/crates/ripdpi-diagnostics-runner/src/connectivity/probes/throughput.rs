@@ -47,6 +47,12 @@ pub fn run_throughput_probe_with_progress(
     let outcome =
         if samples.iter().any(|sample| sample.status == "http_ok" && sample.bps > 0 && sample.completed_window()) {
             "throughput_measured"
+        } else if !samples.is_empty()
+            && samples
+                .iter()
+                .all(|sample| sample.status == "http_ok" && sample.read_completion == "body_complete_before_window")
+        {
+            "throughput_inconclusive"
         } else {
             "throughput_failed"
         };
@@ -206,5 +212,33 @@ mod tests {
         assert_eq!(detail_value(&result, "readCompletionReadings"), "not_started");
         assert_eq!(detail_value(&result, "retryAttemptReadings"), "0");
         assert!(detail_value(&result, "durationMsReadings").parse::<u64>().expect("duration parses") >= 1);
+    }
+
+    #[test]
+    fn evidence_throughput_distinguishes_complete_short_truncated_and_full_bodies() {
+        use crate::test_fixtures::HttpTextServer;
+        for (response, expected) in [
+            ("HTTP/1.1 200 OK\r\nContent-Length: 2\r\n\r\nok", "throughput_inconclusive"),
+            ("HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nok", "throughput_failed"),
+            ("HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nfull", "throughput_measured"),
+        ] {
+            let server = HttpTextServer::start(move |_| response.as_bytes().to_vec());
+            let target = ThroughputTarget {
+                id: "body-completion".into(),
+                label: "Body completion".into(),
+                url: format!("http://127.0.0.1:{}/", server.port()),
+                connect_ip: None,
+                connect_ips: vec![],
+                port: None,
+                is_control: false,
+                window_bytes: 4,
+                runs: 1,
+            };
+            let result = run_throughput_probe(&target, &TransportConfig::Direct { route_experiment: None }, None);
+            assert_eq!(result.outcome, expected);
+            if expected != "throughput_measured" {
+                assert_eq!(detail_value(&result, "medianBps"), "0");
+            }
+        }
     }
 }

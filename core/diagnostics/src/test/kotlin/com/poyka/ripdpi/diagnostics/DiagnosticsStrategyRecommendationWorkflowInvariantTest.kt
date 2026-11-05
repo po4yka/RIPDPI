@@ -23,6 +23,107 @@ class DiagnosticsStrategyRecommendationWorkflowInvariantTest {
     private val json = diagnosticsTestJson()
 
     @Test
+    fun `a TCP-only recommendation retains validated measured family`() {
+        val original =
+            invariantScanReportWithStrategyProbe(
+                invariantValidRecommendedProxyConfigJson(),
+                "hostfake",
+                "quic_realistic_burst",
+            )
+        val strategy = requireNotNull(original.strategyProbeReport)
+        val report =
+            original.copy(
+                strategyProbeReport =
+                    strategy.copy(
+                        quicCandidates = emptyList(),
+                        recommendation =
+                            requireNotNull(
+                                strategy.recommendation,
+                            ).copy(quicCandidateId = null, quicCandidateLabel = null),
+                    ),
+            )
+
+        val enriched = DiagnosticsScanWorkflow.enrichScanReport(report, settings, null)
+        val recommendation = requireNotNull(enriched.strategyProbeReport?.recommendation)
+
+        assertEquals("hostfake", recommendation.tcpCandidateFamily)
+        assertNull(recommendation.quicCandidateFamily)
+        assertNull(recommendation.quicCandidateId)
+        assertNotNull(recommendation.strategySignature)
+    }
+
+    @Test
+    fun `a QUIC-only recommendation retains validated measured family`() {
+        val original =
+            invariantScanReportWithStrategyProbe(
+                invariantValidRecommendedProxyConfigJson(),
+                "hostfake",
+                "quic_realistic_burst",
+            )
+        val strategy = requireNotNull(original.strategyProbeReport)
+        val report =
+            original.copy(
+                strategyProbeReport =
+                    strategy.copy(
+                        tcpCandidates = emptyList(),
+                        recommendation =
+                            requireNotNull(
+                                strategy.recommendation,
+                            ).copy(tcpCandidateId = null, tcpCandidateLabel = null),
+                    ),
+            )
+
+        val enriched = DiagnosticsScanWorkflow.enrichScanReport(report, settings, null)
+        val recommendation = requireNotNull(enriched.strategyProbeReport?.recommendation)
+
+        assertEquals("quic_realistic_burst", recommendation.quicCandidateFamily)
+        assertNull(recommendation.tcpCandidateFamily)
+        assertNull(recommendation.tcpCandidateId)
+        assertNotNull(recommendation.strategySignature)
+    }
+
+    @Test
+    fun `same-family configuration with an unmeasured marker is rejected`() {
+        val report =
+            invariantScanReportWithStrategyProbe(
+                invariantValidRecommendedProxyConfigJson(),
+                "hostfake",
+                "quic_realistic_burst",
+            )
+        val strategy = requireNotNull(report.strategyProbeReport)
+        val altered =
+            strategy.copy(
+                recommendation =
+                    requireNotNull(strategy.recommendation).copy(
+                        recommendedProxyConfigJson = invariantValidRecommendedProxyConfigJson(marker = "endhost+1"),
+                    ),
+            )
+
+        assertNull(DiagnosticsScanWorkflow.validatedRecommendationSettings(altered, settings))
+    }
+
+    @Test
+    fun `incomplete strategy cannot be validated or persisted despite high confidence`() {
+        val report =
+            invariantScanReportWithStrategyProbe(
+                invariantValidRecommendedProxyConfigJson(),
+                "hostfake",
+                "quic_realistic_burst",
+                auditAssessment = invariantAuditAssessment(),
+            )
+        val strategy =
+            requireNotNull(report.strategyProbeReport).copy(
+                completionKind = StrategyProbeCompletionKind.PARTIAL_RESULTS,
+            )
+
+        assertNull(DiagnosticsScanWorkflow.validatedRecommendationSettings(strategy, settings))
+        org.junit.Assert.assertTrue(
+            DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(strategy) is
+                DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Rejected,
+        )
+    }
+
+    @Test
     fun `valid recommendation config yields derived families and strategy signature`() {
         val report =
             invariantScanReportWithStrategyProbe(
@@ -390,6 +491,7 @@ private fun invariantScanReportWithStrategyProbe(
                             id = "tcp-1",
                             label = "TCP candidate",
                             family = tcpFamily,
+                            proxyConfigJson = proxyConfigJson,
                             outcome = tcpOutcome,
                             skipped = tcpSkipped,
                             succeededTargets = tcpSucceededTargets,
@@ -404,6 +506,7 @@ private fun invariantScanReportWithStrategyProbe(
                             id = "quic-1",
                             label = "QUIC candidate",
                             family = quicFamily,
+                            proxyConfigJson = proxyConfigJson,
                         ),
                     ),
                 recommendation =
@@ -424,6 +527,7 @@ private fun invariantStrategyCandidateSummary(
     id: String,
     label: String,
     family: String,
+    proxyConfigJson: String? = null,
     outcome: String = "success",
     skipped: Boolean = false,
     succeededTargets: Int = 1,
@@ -435,6 +539,7 @@ private fun invariantStrategyCandidateSummary(
         id = id,
         label = label,
         family = family,
+        proxyConfigJson = proxyConfigJson,
         emitterTier = emitterTier,
         exactEmitterRequiresRoot = exactEmitterRequiresRoot,
         emitterDowngraded = emitterDowngraded,
@@ -445,6 +550,8 @@ private fun invariantStrategyCandidateSummary(
         weightedSuccessScore = 10,
         totalWeight = 10,
         qualityScore = 10,
+        executionEvidenceComplete = true,
+        runtimeTerminalStatus = StrategyProbeRuntimeTerminalStatus.CLEAN_SHUTDOWN,
         skipped = skipped,
         domainOutcomes =
             listOf(
@@ -456,7 +563,7 @@ private fun invariantStrategyCandidateSummary(
             ),
     )
 
-private fun invariantValidRecommendedProxyConfigJson(): String =
+private fun invariantValidRecommendedProxyConfigJson(marker: String = "midhost+1"): String =
     RipDpiProxyUIPreferences(
         protocols = RipDpiProtocolConfig(desyncUdp = true),
         chains =
@@ -465,7 +572,7 @@ private fun invariantValidRecommendedProxyConfigJson(): String =
                     listOf(
                         TcpChainStepModel(
                             kind = TcpChainStepKind.HostFake,
-                            marker = "midhost+1",
+                            marker = marker,
                         ),
                     ),
                 udpSteps = listOf(UdpChainStepModel(count = 4)),

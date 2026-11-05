@@ -26,6 +26,31 @@ class ConnectionStageBoundaryTest {
     }
 
     @Test
+    fun `throughput completion readings distinguish a short body from truncation`() {
+        val result =
+            ProbeResult(
+                "throughput_window",
+                "private",
+                "throughput_inconclusive",
+                listOf(
+                    ProbeDetail("runs", "2"),
+                    ProbeDetail("statusReadings", "http_ok|http_ok"),
+                    ProbeDetail("failureStageReadings", "none|body"),
+                    ProbeDetail("tcpConnectMsReadings", "10|10"),
+                    ProbeDetail("tlsHandshakeMsReadings", "20|20"),
+                    ProbeDetail("httpStatusCodeReadings", "200|200"),
+                    ProbeDetail("durationMsReadings", "40|40"),
+                    ProbeDetail("readCompletionReadings", "body_complete_before_window|truncated_body"),
+                ),
+            )
+        val bodyStates =
+            requireNotNull(result.toConnectionStageScale()).lanes.map { lane ->
+                lane.stages.single { it.stage == ConnectionStage.BODY }.state
+            }
+        assertEquals(listOf(ConnectionStageState.PARTIAL, ConnectionStageState.FAILED), bodyStates)
+    }
+
+    @Test
     fun `native capped and truncated matrix bodies remain partial`() {
         listOf("response_limit", "early_eof").forEach { reason ->
             val result =

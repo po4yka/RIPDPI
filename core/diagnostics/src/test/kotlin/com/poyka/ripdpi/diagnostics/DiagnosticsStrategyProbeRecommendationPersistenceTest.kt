@@ -740,6 +740,7 @@ private fun strategyProbeReport(
                             id = "tcp-1",
                             label = "TCP candidate",
                             family = tcpFamily,
+                            proxyConfigJson = proxyConfigJson,
                             outcome = "success",
                             rationale = "best",
                             succeededTargets = 1,
@@ -747,6 +748,8 @@ private fun strategyProbeReport(
                             weightedSuccessScore = 10,
                             totalWeight = 10,
                             qualityScore = 10,
+                            executionEvidenceComplete = true,
+                            runtimeTerminalStatus = StrategyProbeRuntimeTerminalStatus.CLEAN_SHUTDOWN,
                             domainOutcomes =
                                 listOf(
                                     StrategyProbeDomainOutcome(
@@ -763,6 +766,7 @@ private fun strategyProbeReport(
                             id = "quic-1",
                             label = "QUIC candidate",
                             family = quicFamily,
+                            proxyConfigJson = proxyConfigJson,
                             outcome = "success",
                             rationale = "best",
                             succeededTargets = 1,
@@ -770,6 +774,8 @@ private fun strategyProbeReport(
                             weightedSuccessScore = 10,
                             totalWeight = 10,
                             qualityScore = 10,
+                            executionEvidenceComplete = true,
+                            runtimeTerminalStatus = StrategyProbeRuntimeTerminalStatus.CLEAN_SHUTDOWN,
                         ),
                     ),
                 recommendation =

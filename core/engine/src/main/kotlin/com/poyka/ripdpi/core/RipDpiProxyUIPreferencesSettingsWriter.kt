@@ -53,7 +53,10 @@ private fun AppSettings.Builder.applyDesyncPreferences(preferences: RipDpiProxyU
     setDesyncAnyProtocol(chains.anyProtocol)
 }
 
-private fun AppSettings.Builder.applyFakePacketPreferences(preferences: RipDpiProxyUIPreferences) {
+internal fun AppSettings.Builder.applyFakePacketPreferences(
+    preferences: RipDpiProxyUIPreferences,
+    includeUdp: Boolean = true,
+) {
     val fakePackets = preferences.fakePackets
     setFakeTtl(fakePackets.fakeTtl)
     setAdaptiveFakeTtlEnabled(fakePackets.adaptiveFakeTtlEnabled)
@@ -74,7 +77,7 @@ private fun AppSettings.Builder.applyFakePacketPreferences(preferences: RipDpiPr
     setFakeTlsSize(fakePackets.fakeTlsSize)
     setFakeTlsSniMode(fakePackets.fakeTlsSniMode)
     setTlsFakeProfile(fakePackets.tlsFakeProfile)
-    setUdpFakeProfile(fakePackets.udpFakeProfile)
+    if (includeUdp) setUdpFakeProfile(fakePackets.udpFakeProfile)
     setFakeOffsetMarker(fakePackets.fakeOffsetMarker)
     setOobData(fakePackets.oobChar.toString())
     setDropSack(fakePackets.dropSack)
@@ -86,8 +89,10 @@ private fun AppSettings.Builder.applyFakePacketPreferences(preferences: RipDpiPr
     setWsizeScale(fakePackets.wsizeScale ?: 0)
     setStripTimestamps(fakePackets.stripTimestamps)
     setIpIdMode(normalizeIpIdMode(fakePackets.ipIdMode))
-    setQuicBindLowPort(fakePackets.quicBindLowPort)
-    setQuicMigrateAfterHandshake(fakePackets.quicMigrateAfterHandshake)
+    if (includeUdp) {
+        setQuicBindLowPort(fakePackets.quicBindLowPort)
+        setQuicMigrateAfterHandshake(fakePackets.quicMigrateAfterHandshake)
+    }
     setEntropyMode(entropyModeToProto(fakePackets.entropyMode))
     setEntropyPaddingTargetPermil(fakePackets.entropyPaddingTargetPermil.coerceAtLeast(0))
     setEntropyPaddingMax(fakePackets.entropyPaddingMax.coerceAtLeast(0))
@@ -95,7 +100,7 @@ private fun AppSettings.Builder.applyFakePacketPreferences(preferences: RipDpiPr
     setTlsFingerprintProfile(normalizeTlsFingerprintProfile(fakePackets.tlsFingerprintProfile))
 }
 
-private fun AppSettings.Builder.applyParserAndAdaptivePreferences(preferences: RipDpiProxyUIPreferences) {
+internal fun AppSettings.Builder.applyParserAndAdaptivePreferences(preferences: RipDpiProxyUIPreferences) {
     val parserEvasions = preferences.parserEvasions
     val adaptiveFallback = preferences.adaptiveFallback
     setHostMixedCase(parserEvasions.hostMixedCase)
@@ -124,13 +129,8 @@ private fun AppSettings.Builder.applyParserAndAdaptivePreferences(preferences: R
 }
 
 private fun AppSettings.Builder.applyQuicAndHostPreferences(preferences: RipDpiProxyUIPreferences) {
-    val quic = preferences.quic
+    applyQuicPreferences(preferences)
     val hosts = preferences.hosts
-    setQuicInitialMode(quic.initialMode)
-    setQuicSupportV1(quic.supportV1)
-    setQuicSupportV2(quic.supportV2)
-    setQuicFakeProfile(quic.fakeProfile)
-    setQuicFakeHost(quic.fakeHost)
     setHostsMode(hosts.mode.wireName)
     when (hosts.mode) {
         RipDpiHostsConfig.Mode.Disable -> {
@@ -148,6 +148,15 @@ private fun AppSettings.Builder.applyQuicAndHostPreferences(preferences: RipDpiP
             setHostsWhitelist(hosts.entries.orEmpty())
         }
     }
+}
+
+internal fun AppSettings.Builder.applyQuicPreferences(preferences: RipDpiProxyUIPreferences) {
+    val quic = preferences.quic
+    setQuicInitialMode(quic.initialMode)
+    setQuicSupportV1(quic.supportV1)
+    setQuicSupportV2(quic.supportV2)
+    setQuicFakeProfile(quic.fakeProfile)
+    setQuicFakeHost(quic.fakeHost)
 }
 
 private fun AppSettings.Builder.applyRelayPreferences(preferences: RipDpiProxyUIPreferences) {

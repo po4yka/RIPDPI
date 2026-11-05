@@ -188,19 +188,22 @@ fn read_response(
     };
     response.body = std::mem::take(&mut tracker.body_prefix);
     sample.status = classify_http_response(&response);
-    let reached_window = tracker.measurement.received_body_byte_count >= window as u64
-        && matches!(reason, "content_length_complete" | "chunked_complete" | "eof_complete" | "window_limit");
+    let body_complete = matches!(reason, "content_length_complete" | "chunked_complete" | "eof_complete");
+    let reached_window =
+        tracker.measurement.received_body_byte_count >= window as u64 && (body_complete || reason == "window_limit");
     sample.read_completion = if reached_window {
         "window_complete"
+    } else if body_complete {
+        "body_complete_before_window"
     } else {
         match reason {
             "idle_timeout" => "read_timeout",
-            "content_length_complete" | "chunked_complete" | "eof_complete" | "early_eof" => "clean_eof_before_window",
+            "early_eof" => "truncated_body",
             _ => "read_error",
         }
     }
     .to_string();
-    sample.failure_stage = if reached_window { "none" } else { "body_read" }.to_string();
+    sample.failure_stage = if reached_window || body_complete { "none" } else { "body_read" }.to_string();
     sample.failure_class = classify_failure(&sample.failure_stage, &sample.read_completion).to_string();
     sample.error =
         if matches!(reason, "content_length_complete" | "chunked_complete" | "eof_complete" | "window_limit") {
@@ -318,7 +321,7 @@ fn classify_failure(failure_stage: &str, read_completion: &str) -> &'static str 
         "request_write" => "request_io",
         "response_headers" | "response_parse" => "http_response",
         "body_read" if read_completion == "read_timeout" => "read_timeout",
-        "body_read" if read_completion == "clean_eof_before_window" => "early_eof",
+        "body_read" if read_completion == "truncated_body" => "early_eof",
         "body_read" => "body_read",
         _ => "unknown",
     }

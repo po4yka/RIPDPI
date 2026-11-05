@@ -87,7 +87,7 @@ class ComparisonScanCoordinatorTest {
                             listOf(
                                 domainObservation(
                                     host = "affected.example",
-                                    httpStatus = HttpProbeStatus.OK,
+                                    tls13Status = TlsProbeStatus.OK,
                                 ),
                             ),
                     ),
@@ -446,7 +446,7 @@ class ComparisonScanCoordinatorTest {
                     listOf(
                         domainObservation(
                             host = "blocked.example",
-                            httpStatus = HttpProbeStatus.OK,
+                            tls13Status = TlsProbeStatus.OK,
                         ),
                     ),
             )

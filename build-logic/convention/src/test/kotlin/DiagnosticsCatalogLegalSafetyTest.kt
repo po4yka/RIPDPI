@@ -172,7 +172,7 @@ class DiagnosticsCatalogLegalSafetyTest {
         val fullProfile = profiles.single { it.id == "ru-dpi-full" }
         val telegramTarget = requireNotNull(fullProfile.telegramTarget)
 
-        assertEquals(7, fullProfile.version)
+        assertEquals(8, fullProfile.version)
         assertEquals("https://telegram.org/img/Telegram200million.png", telegramTarget.mediaUrl)
         assertEquals(5, telegramTarget.dcEndpoints.size)
         assertEquals(listOf("DC1", "DC2", "DC3", "DC4", "DC5"), telegramTarget.dcEndpoints.map { it.label })

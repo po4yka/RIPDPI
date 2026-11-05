@@ -1,26 +1,20 @@
-use std::collections::BTreeSet;
-
 use crate::types::{Diagnosis, ProbeResult};
 
 use super::common::{DiagnosisSink, diagnosis_evidence, is_close_error, is_reset_error, is_timeout_error};
 use super::failure_detail_value;
 
-pub(crate) fn classify_domain_diagnoses(
-    results: &[ProbeResult],
-    hard_failure_codes: &mut BTreeSet<String>,
-    sink: &mut DiagnosisSink,
-) {
+pub(crate) fn classify_domain_diagnoses(results: &[ProbeResult], sink: &mut DiagnosisSink) {
     for result in results.iter().filter(|result| result.probe_type == "domain_reachability") {
-        classify_domain_result(result, hard_failure_codes, sink);
+        classify_domain_result(result, sink);
     }
 }
 
-fn classify_domain_result(result: &ProbeResult, hard_failure_codes: &mut BTreeSet<String>, sink: &mut DiagnosisSink) {
+fn classify_domain_result(result: &ProbeResult, sink: &mut DiagnosisSink) {
     push_tls_ech_only(result, sink);
     push_ech_resolution_blocked(result, sink);
-    push_tls_cert_mitm(result, hard_failure_codes, sink);
-    push_tls_clienthello_failure(result, hard_failure_codes, sink);
-    push_http_blockpage(result, hard_failure_codes, sink);
+    push_tls_cert_mitm(result, sink);
+    push_tls_clienthello_failure(result, sink);
+    push_http_blockpage(result, sink);
 }
 
 fn push_tls_ech_only(result: &ProbeResult, sink: &mut DiagnosisSink) {
@@ -64,7 +58,7 @@ fn push_ech_resolution_blocked(result: &ProbeResult, sink: &mut DiagnosisSink) {
     });
 }
 
-fn push_tls_cert_mitm(result: &ProbeResult, hard_failure_codes: &mut BTreeSet<String>, sink: &mut DiagnosisSink) {
+fn push_tls_cert_mitm(result: &ProbeResult, sink: &mut DiagnosisSink) {
     if result.outcome != "tls_cert_invalid" {
         return;
     }
@@ -78,14 +72,9 @@ fn push_tls_cert_mitm(result: &ProbeResult, hard_failure_codes: &mut BTreeSet<St
         recommendation: None,
         control_validated: None,
     });
-    hard_failure_codes.insert("tls_cert_mitm".to_string());
 }
 
-fn push_tls_clienthello_failure(
-    result: &ProbeResult,
-    hard_failure_codes: &mut BTreeSet<String>,
-    sink: &mut DiagnosisSink,
-) {
+fn push_tls_clienthello_failure(result: &ProbeResult, sink: &mut DiagnosisSink) {
     if result.outcome == "tls_ok"
         || failure_detail_value(result, "tlsStatus") == Some("tls_ok")
         || failure_detail_value(result, "tlsFailureStage") != Some("tls_handshake")
@@ -119,10 +108,9 @@ fn push_tls_clienthello_failure(
         recommendation: None,
         control_validated: None,
     });
-    hard_failure_codes.insert(code.to_string());
 }
 
-fn push_http_blockpage(result: &ProbeResult, hard_failure_codes: &mut BTreeSet<String>, sink: &mut DiagnosisSink) {
+fn push_http_blockpage(result: &ProbeResult, sink: &mut DiagnosisSink) {
     if result.outcome != "http_blockpage" {
         return;
     }
@@ -136,7 +124,6 @@ fn push_http_blockpage(result: &ProbeResult, hard_failure_codes: &mut BTreeSet<S
         recommendation: None,
         control_validated: None,
     });
-    hard_failure_codes.insert("http_blockpage".to_string());
 }
 
 #[cfg(test)]
@@ -157,8 +144,7 @@ mod tests {
             ],
         };
         let mut sink = DiagnosisSink::new();
-        let mut failures = BTreeSet::new();
-        classify_domain_diagnoses(&[result], &mut failures, &mut sink);
+        classify_domain_diagnoses(&[result], &mut sink);
         assert!(sink.into_vec().is_empty());
     }
     #[test]
@@ -182,7 +168,7 @@ mod tests {
                 ],
             };
             let mut sink = DiagnosisSink::new();
-            classify_domain_diagnoses(&[result], &mut BTreeSet::new(), &mut sink);
+            classify_domain_diagnoses(&[result], &mut sink);
             let diagnoses = sink.into_vec();
             assert_eq!(!diagnoses.is_empty(), expected, "stage={stage}, status={status}");
             assert!(diagnoses.iter().all(|diagnosis| !diagnosis.summary.contains("after ClientHello")));

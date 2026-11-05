@@ -118,8 +118,41 @@ class DiagnosticsStrategyReportLayoutTest {
         assertTrue("Short status stays beside the full title", status.left > title.right)
     }
 
-    private fun showReport(shortOutcome: Boolean = false) {
-        val report = report(shortOutcome)
+    @Test
+    fun tcpOnlyRecommendationShowsAndOpensOnlyTheTcpWinner() {
+        showReport(tcpOnly = true)
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyWinningQuicAction).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyWinningTcpAction).performScrollTo().performClick()
+        assertEquals(listOf(candidates[0].id), selected)
+    }
+
+    @Test
+    fun quicOnlyRecommendationShowsAndOpensOnlyTheQuicWinner() {
+        showReport(tcpOnly = false)
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyWinningTcpAction).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.DiagnosticsStrategyWinningQuicAction).performScrollTo().performClick()
+        assertEquals(listOf(candidates[3].id), selected)
+    }
+
+    private fun showReport(
+        shortOutcome: Boolean = false,
+        tcpOnly: Boolean? = null,
+    ) {
+        val report =
+            report(shortOutcome).let { full ->
+                if (tcpOnly == null) {
+                    full
+                } else {
+                    val winning = requireNotNull(full.winningPath)
+                    full.copy(
+                        winningPath =
+                            winning.copy(
+                                tcpWinner = winning.tcpWinner.takeIf { tcpOnly },
+                                quicWinner = winning.quicWinner.takeUnless { tcpOnly },
+                            ),
+                    )
+                }
+            }
         composeRule.setContent {
             CompositionLocalProvider(LocalDensity provides Density(1f, scale.value)) {
                 RipDpiTheme(themePreference = theme.value) {

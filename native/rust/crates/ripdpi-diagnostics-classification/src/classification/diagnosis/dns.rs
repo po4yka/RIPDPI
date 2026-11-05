@@ -1,4 +1,4 @@
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 use crate::types::{Diagnosis, ProbeResult};
 use crate::util::is_suspected_dns_tampering_outcome;
@@ -9,26 +9,24 @@ use super::failure_detail_value;
 pub(crate) fn classify_dns_diagnoses(
     results: &[ProbeResult],
     domain_outcomes: &BTreeMap<String, Vec<&ProbeResult>>,
-    hard_failure_codes: &mut BTreeSet<String>,
     sink: &mut DiagnosisSink,
 ) {
     for result in results.iter().filter(|result| result.probe_type == "dns_integrity") {
-        classify_dns_tampering_result(result, domain_outcomes, hard_failure_codes, sink);
+        classify_dns_tampering_result(result, domain_outcomes, sink);
     }
 }
 
 fn classify_dns_tampering_result(
     result: &ProbeResult,
     domain_outcomes: &BTreeMap<String, Vec<&ProbeResult>>,
-    hard_failure_codes: &mut BTreeSet<String>,
     sink: &mut DiagnosisSink,
 ) {
     if matches!(
         result.outcome.as_str(),
         "dns_sinkhole_substitution" | "dns_expected_mismatch" | "dns_nxdomain_mismatch"
     ) {
-        push_dns_tampering(result, hard_failure_codes, sink);
-        push_dns_blockpage_fingerprint(result, domain_outcomes, hard_failure_codes, sink);
+        push_dns_tampering(result, sink);
+        push_dns_blockpage_fingerprint(result, domain_outcomes, sink);
         push_dns_injection(result, sink);
         push_dns_response_anomaly(result, sink);
         push_dns_cname_redirect(result, sink);
@@ -43,7 +41,7 @@ fn classify_dns_tampering_result(
     }
 }
 
-fn push_dns_tampering(result: &ProbeResult, hard_failure_codes: &mut BTreeSet<String>, sink: &mut DiagnosisSink) {
+fn push_dns_tampering(result: &ProbeResult, sink: &mut DiagnosisSink) {
     let injection_suspected = failure_detail_value(result, "dnsInjectionSuspected") == Some("true");
     let (observation_kind, summary) = if result.outcome == "dns_nxdomain_mismatch" {
         (
@@ -78,13 +76,11 @@ fn push_dns_tampering(result: &ProbeResult, hard_failure_codes: &mut BTreeSet<St
         recommendation: None,
         control_validated: None,
     });
-    hard_failure_codes.insert("dns_tampering".to_string());
 }
 
 fn push_dns_blockpage_fingerprint(
     result: &ProbeResult,
     domain_outcomes: &BTreeMap<String, Vec<&ProbeResult>>,
-    hard_failure_codes: &mut BTreeSet<String>,
     sink: &mut DiagnosisSink,
 ) {
     if !domain_outcomes
@@ -103,7 +99,6 @@ fn push_dns_blockpage_fingerprint(
         recommendation: None,
         control_validated: None,
     });
-    hard_failure_codes.insert("dns_blockpage_fingerprint".to_string());
 }
 
 fn push_dns_injection(result: &ProbeResult, sink: &mut DiagnosisSink) {
@@ -263,7 +258,7 @@ mod tests {
                 details: vec![ProbeDetail { key: "dnsInjectionSuspected".into(), value: "true".into() }],
             };
             let mut sink = DiagnosisSink::new();
-            classify_dns_diagnoses(&[result], &BTreeMap::new(), &mut BTreeSet::new(), &mut sink);
+            classify_dns_diagnoses(&[result], &BTreeMap::new(), &mut sink);
             let diagnoses = sink.into_vec();
             assert_eq!(diagnoses.iter().find(|diagnosis| diagnosis.code == "dns_tampering").unwrap().summary, expected);
             assert!(diagnoses.iter().all(|diagnosis| !diagnosis.summary.contains("injection")));

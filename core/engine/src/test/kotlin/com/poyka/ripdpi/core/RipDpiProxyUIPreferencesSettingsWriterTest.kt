@@ -9,6 +9,68 @@ import org.junit.Test
 
 class RipDpiProxyUIPreferencesSettingsWriterTest {
     @Test
+    fun `TCP recommendation preserves unmeasured QUIC and unrelated settings`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setProxyIp("192.0.2.10")
+                .setProxyPort(2080)
+                .setMaxConnections(17)
+                .setRelayEnabled(true)
+                .setRelayServer("relay.example")
+                .setWarpEnabled(true)
+                .setQuicFakeProfile("realistic_initial")
+                .setQuicBindLowPort(true)
+                .setDesyncUdp(true)
+                .build()
+        val preferences =
+            RipDpiProxyUIPreferences(
+                parserEvasions = RipDpiParserEvasionConfig(httpHostExtraSpace = true),
+                fakePackets = RipDpiFakePacketConfig(fakeTtl = 12),
+            )
+
+        val updated = preferences.applyStrategyToSettings(settings, applyTcp = true, applyQuic = false)
+
+        assertTrue(updated.httpHostExtraSpace)
+        assertEquals(12, updated.fakeTtl)
+        assertEquals(settings.proxyIp, updated.proxyIp)
+        assertEquals(settings.proxyPort, updated.proxyPort)
+        assertEquals(settings.maxConnections, updated.maxConnections)
+        assertEquals(settings.relayEnabled, updated.relayEnabled)
+        assertEquals(settings.relayServer, updated.relayServer)
+        assertEquals(settings.warpEnabled, updated.warpEnabled)
+        assertEquals(settings.quicFakeProfile, updated.quicFakeProfile)
+        assertEquals(settings.quicBindLowPort, updated.quicBindLowPort)
+        assertEquals(settings.desyncUdp, updated.desyncUdp)
+    }
+
+    @Test
+    fun `QUIC recommendation preserves unmeasured TCP settings`() {
+        val settings =
+            AppSettings
+                .newBuilder()
+                .setFakeTtl(19)
+                .setHttpHostExtraSpace(true)
+                .setDesyncHttps(true)
+                .setTcpFastOpen(true)
+                .build()
+        val preferences =
+            RipDpiProxyUIPreferences(
+                protocols = RipDpiProtocolConfig(desyncHttp = false, desyncHttps = false, desyncUdp = true),
+                quic = RipDpiQuicConfig(fakeProfile = "realistic_initial"),
+            )
+
+        val updated = preferences.applyStrategyToSettings(settings, applyTcp = false, applyQuic = true)
+
+        assertEquals("realistic_initial", updated.quicFakeProfile)
+        assertTrue(updated.desyncUdp)
+        assertEquals(settings.fakeTtl, updated.fakeTtl)
+        assertEquals(settings.httpHostExtraSpace, updated.httpHostExtraSpace)
+        assertEquals(settings.desyncHttps, updated.desyncHttps)
+        assertEquals(settings.tcpFastOpen, updated.tcpFastOpen)
+    }
+
+    @Test
     fun `parser evasions survive applying preferences to settings`() {
         val preferences =
             RipDpiProxyUIPreferences(

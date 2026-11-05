@@ -103,7 +103,7 @@ fn throughput_window_attributes_tls_handshake_failure() {
 }
 
 #[test]
-fn throughput_window_attributes_early_eof_before_window() {
+fn evidence_throughput_complete_short_body_is_insufficient_not_failed() {
     let listener = TcpListener::bind((Ipv4Addr::LOCALHOST, 0)).expect("bind fixture");
     let addr = listener.local_addr().expect("fixture addr");
     let handle = std::thread::spawn(move || {
@@ -128,9 +128,10 @@ fn throughput_window_attributes_early_eof_before_window() {
 
     let sample = measure_throughput_window(&target, &TransportConfig::Direct { route_experiment: None }, None);
 
-    assert_eq!(sample.failure_stage, "body_read");
-    assert_eq!(sample.failure_class, "early_eof");
-    assert_eq!(sample.read_completion, "clean_eof_before_window");
+    assert_eq!(sample.failure_stage, "none");
+    assert_eq!(sample.failure_class, "none");
+    assert_eq!(sample.read_completion, "body_complete_before_window");
+    assert_eq!(sample.error, "none");
     handle.join().expect("fixture thread");
 }
 

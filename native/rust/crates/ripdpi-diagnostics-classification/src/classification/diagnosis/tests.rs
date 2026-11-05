@@ -385,13 +385,13 @@ fn responses_that_prove_the_server_was_reached_are_not_blocked_diagnoses() {
 }
 
 #[test]
-fn classify_connectivity_diagnoses_detects_youtube_throttling() {
+fn evidence_throughput_comparison_does_not_depend_on_target_label() {
     let diagnoses = classify_connectivity_diagnoses(
         &connectivity_request(),
         &[
             connectivity_probe(
                 "throughput_window",
-                "YouTube Web",
+                "Arbitrary transfer target",
                 "throughput_measured",
                 &[
                     ("isControl", "false"),
@@ -413,7 +413,7 @@ fn classify_connectivity_diagnoses_detects_youtube_throttling() {
             ),
         ],
     );
-    assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "youtube_throttled"));
+    assert!(diagnoses.iter().any(|diagnosis| diagnosis.code == "throughput_degradation"));
 }
 
 #[test]
@@ -449,5 +449,112 @@ fn failed_throughput_control_cannot_support_a_comparison() {
             connectivity_probe("throughput_window", "youtube", "throughput_measured", &[("medianBps", "100000")]),
         ],
     );
-    assert!(!diagnoses.iter().any(|diagnosis| diagnosis.code == "youtube_throttled"));
+    assert!(!diagnoses.iter().any(|diagnosis| diagnosis.code == "throughput_degradation"));
+}
+
+#[test]
+fn evidence_unrelated_domain_failure_keeps_measured_throughput_comparison() {
+    let diagnoses = classify_connectivity_diagnoses(
+        &connectivity_request(),
+        &[
+            connectivity_probe("domain_reachability", "unrelated.example", "tls_cert_invalid", &[]),
+            connectivity_probe(
+                "throughput_window",
+                "YouTube Web",
+                "throughput_measured",
+                &[("medianBps", "1000000"), ("windowBytes", "8388608")],
+            ),
+            connectivity_probe(
+                "throughput_window",
+                "Control",
+                "throughput_measured",
+                &[("isControl", "true"), ("medianBps", "8000000"), ("windowBytes", "8388608")],
+            ),
+        ],
+    );
+    assert!(diagnoses.iter().any(|d| d.code == "tls_cert_mitm"));
+    assert!(diagnoses.iter().any(|d| d.code == "throughput_degradation"));
+}
+
+#[test]
+fn evidence_tcp_port_difference_keeps_measurement_without_cause_attribution() {
+    let diagnoses = classify_connectivity_diagnoses(
+        &connectivity_request(),
+        &[connectivity_probe(
+            "tcp_fat_header",
+            "127.0.0.1:443 (fixture)",
+            "tcp_freeze_after_threshold",
+            &[
+                ("port", "443"),
+                ("altPort", "8443"),
+                ("altPortStatus", "ok"),
+                ("bytesSent", "16384"),
+                ("responsesSeen", "1"),
+            ],
+        )],
+    );
+    let difference = diagnoses.iter().find(|d| d.code == "port_443_policed").unwrap();
+    assert_eq!(
+        difference.summary,
+        "Port 443 failed for 127.0.0.1:443 (fixture), while port 8443 completed the transfer"
+    );
+    assert_eq!(
+        difference.recommendation.as_deref(),
+        Some("Compare the endpoint configuration on ports 443 and 8443; this difference does not establish its cause.")
+    );
+    let freeze = diagnoses.iter().find(|d| d.code == "connection_freeze_detected").unwrap();
+    assert_eq!(
+        freeze.recommendation.as_deref(),
+        Some("Repeat the transfer with a control endpoint; a stalled transfer alone does not establish its cause.")
+    );
+}
+
+#[test]
+fn evidence_throughput_requires_comparable_windows() {
+    let diagnoses = classify_connectivity_diagnoses(
+        &connectivity_request(),
+        &[
+            connectivity_probe(
+                "throughput_window",
+                "YouTube Web",
+                "throughput_measured",
+                &[("medianBps", "100000"), ("windowBytes", "65536")],
+            ),
+            connectivity_probe(
+                "throughput_window",
+                "Control",
+                "throughput_measured",
+                &[("medianBps", "8000000"), ("isControl", "true"), ("windowBytes", "8388608")],
+            ),
+        ],
+    );
+    assert!(!diagnoses.iter().any(|d| matches!(d.code.as_str(), "youtube_throttled" | "throughput_degradation")));
+}
+
+#[test]
+fn evidence_throughput_uses_the_median_of_two_controls() {
+    let diagnoses = classify_connectivity_diagnoses(
+        &connectivity_request(),
+        &[
+            connectivity_probe(
+                "throughput_window",
+                "Transfer",
+                "throughput_measured",
+                &[("medianBps", "3500000"), ("windowBytes", "8388608")],
+            ),
+            connectivity_probe(
+                "throughput_window",
+                "First control",
+                "throughput_measured",
+                &[("medianBps", "8000000"), ("isControl", "true"), ("windowBytes", "8388608")],
+            ),
+            connectivity_probe(
+                "throughput_window",
+                "Second control",
+                "throughput_measured",
+                &[("medianBps", "16000000"), ("isControl", "true"), ("windowBytes", "8388608")],
+            ),
+        ],
+    );
+    assert!(!diagnoses.iter().any(|d| d.code == "throughput_degradation"));
 }

@@ -288,6 +288,7 @@ fn is_outcome_token(value: &str) -> bool {
         "circumvention_reachability",
         "telegram_availability",
         "throughput_window",
+        "body_complete_before_window",
         "strategy_http",
         "strategy_https",
         "strategy_quic",

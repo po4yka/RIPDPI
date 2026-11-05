@@ -2,15 +2,6 @@ package com.poyka.ripdpi.diagnostics.dpi
 
 object DpiSuiteVerdictAggregator {
     fun aggregate(results: List<DpiSuiteProbeResult>): DpiSuiteAggregate {
-        val failures = results.count { result -> result is DpiSuiteProbeResult.Failed }
-        if (results.isNotEmpty() && failures * 2 >= results.size) {
-            return DpiSuiteAggregate(
-                verdict = SuiteVerdict.INCONCLUSIVE,
-                summaryLines = results.map(::summaryLine),
-                results = results,
-            )
-        }
-
         val categories =
             buildSet {
                 if (results.any(::hasDnsInterference)) add(SuiteVerdict.DNS_INTERFERENCE)
@@ -21,8 +12,8 @@ object DpiSuiteVerdictAggregator {
             when {
                 categories.size > 1 -> SuiteVerdict.MIXED
                 categories.size == 1 -> categories.single()
-                failures > 0 || results.any(::hasUncertainDns) -> SuiteVerdict.INCONCLUSIVE
-                else -> SuiteVerdict.CLEAN
+                results.isNotEmpty() && results.all(::isClean) -> SuiteVerdict.CLEAN
+                else -> SuiteVerdict.INCONCLUSIVE
             }
         return DpiSuiteAggregate(
             verdict = verdict,
@@ -37,11 +28,47 @@ object DpiSuiteVerdictAggregator {
                 domain.verdict in LegacyDnsInterferenceVerdicts
             }
 
-    private fun hasUncertainDns(result: DpiSuiteProbeResult): Boolean =
-        result is DpiSuiteProbeResult.DnsIntegrity &&
-            result.result.domains.any { domain ->
-                domain.verdict != DnsIntegrityVerdict.DNS_OK && domain.verdict !in LegacyDnsInterferenceVerdicts
+    private fun isClean(result: DpiSuiteProbeResult): Boolean =
+        when (result) {
+            is DpiSuiteProbeResult.DnsIntegrity -> {
+                result.result.domains.allMeasured { it.verdict == DnsIntegrityVerdict.DNS_OK }
             }
+
+            is DpiSuiteProbeResult.DnsAvailability -> {
+                result.results.allMeasured { it.totalDomains > 0 && it.availableDomains == it.totalDomains }
+            }
+
+            is DpiSuiteProbeResult.DomainReachability -> {
+                result.results.allMeasured { it.verdict == DomainVerdict.OK }
+            }
+
+            is DpiSuiteProbeResult.Tcp16 -> {
+                result.results.allMeasured { it.verdict == Tcp16Verdict.OK }
+            }
+
+            is DpiSuiteProbeResult.AllowlistSni -> {
+                result.results.values.allMeasured { !it.aborted && it.triedCount > 0 && it.compatibleSnis.isNotEmpty() }
+            }
+
+            is DpiSuiteProbeResult.Telegram -> {
+                result.result.verdict == TelegramTestVerdict.OK
+            }
+
+            is DpiSuiteProbeResult.QuicH3 -> {
+                result.results.allMeasured { it.verdict == QuicProbeVerdict.QUIC_OK }
+            }
+
+            is DpiSuiteProbeResult.EchReadiness -> {
+                result.results.allMeasured { it.verdict == EchProbeVerdict.ECH_OK }
+            }
+
+            is DpiSuiteProbeResult.Skipped, is DpiSuiteProbeResult.Failed -> {
+                false
+            }
+        }
+
+    private inline fun <T> Collection<T>.allMeasured(isSuccessful: (T) -> Boolean): Boolean =
+        isNotEmpty() && all(isSuccessful)
 
     private val LegacyDnsInterferenceVerdicts =
         setOf(
@@ -49,16 +76,13 @@ object DpiSuiteVerdictAggregator {
             DnsIntegrityVerdict.DNS_SUBSTITUTION,
             DnsIntegrityVerdict.DNS_INTERCEPTION,
             DnsIntegrityVerdict.FAKE_NXDOMAIN,
-            DnsIntegrityVerdict.DOH_BLOCKED,
         )
 
     private fun hasDpiDetection(result: DpiSuiteProbeResult): Boolean =
         when (result) {
             is DpiSuiteProbeResult.DomainReachability -> {
                 result.results.any { domain ->
-                    domain.verdict != DomainVerdict.OK &&
-                        domain.verdict != DomainVerdict.DNS_FAIL &&
-                        domain.verdict != DomainVerdict.FAKE_IP
+                    domain.verdict == DomainVerdict.ISP_PAGE || domain.verdict == DomainVerdict.TCP16_BAND
                 }
             }
 
@@ -68,13 +92,7 @@ object DpiSuiteVerdictAggregator {
 
             is DpiSuiteProbeResult.QuicH3 -> {
                 result.results.any { quic ->
-                    quic.verdict != QuicProbeVerdict.QUIC_OK && quic.verdict != QuicProbeVerdict.QUIC_TIMEOUT
-                }
-            }
-
-            is DpiSuiteProbeResult.EchReadiness -> {
-                result.results.any { ech ->
-                    ech.verdict != EchProbeVerdict.ECH_OK && ech.verdict != EchProbeVerdict.ECH_NO_CONFIG
+                    quic.verdict == QuicProbeVerdict.QUIC_DPI_FINGERPRINT_BLOCK
                 }
             }
 
@@ -85,7 +103,7 @@ object DpiSuiteVerdictAggregator {
 
     private fun hasTelegramThrottling(result: DpiSuiteProbeResult): Boolean =
         result is DpiSuiteProbeResult.Telegram &&
-            (result.result.verdict == TelegramTestVerdict.SLOW || result.result.verdict == TelegramTestVerdict.PARTIAL)
+            result.result.verdict == TelegramTestVerdict.SLOW
 
     private fun summaryLine(result: DpiSuiteProbeResult): String =
         when (result) {

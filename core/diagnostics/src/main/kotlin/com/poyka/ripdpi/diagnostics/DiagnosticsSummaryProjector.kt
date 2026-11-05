@@ -311,7 +311,11 @@ class DiagnosticsSummaryProjector
                         add(
                             DiagnosticsHighlight(
                                 title = "strategy",
-                                summary = "${recommendation.tcpCandidateLabel} + ${recommendation.quicCandidateLabel}",
+                                summary =
+                                    listOfNotNull(
+                                        recommendation.tcpCandidateLabel,
+                                        recommendation.quicCandidateLabel,
+                                    ).joinToString(" + "),
                             ),
                         )
                     }

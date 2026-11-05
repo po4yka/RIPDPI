@@ -50,7 +50,7 @@ fn push_connection_freeze(result: &ProbeResult, sink: &mut DiagnosisSink) {
         target: Some(result.target.clone()),
         evidence: diagnosis_evidence(result, &["bytesSent", "responsesSeen", "freezeThresholdBytes", "lastError"]),
         recommendation: Some(
-            "Connection was frozen after ~16KB of data. This pattern is consistent with middlebox port-443 policing. Try using an alternative port."
+            "Repeat the transfer with a control endpoint; a stalled transfer alone does not establish its cause."
                 .to_string(),
         ),
         control_validated: None,
@@ -73,7 +73,7 @@ fn push_port_443_policed(result: &ProbeResult, sink: &mut DiagnosisSink) {
     let alt_port = failure_detail_value(result, "altPort").unwrap_or("8443");
     sink.push(Diagnosis {
         code: "port_443_policed".to_string(),
-        summary: format!("Port 443 appears policed for {} but port {} works", result.target, alt_port),
+        summary: format!("Port 443 failed for {}, while port {} completed the transfer", result.target, alt_port),
         severity: "negative".to_string(),
         target: Some(result.target.clone()),
         evidence: diagnosis_evidence(
@@ -81,7 +81,7 @@ fn push_port_443_policed(result: &ProbeResult, sink: &mut DiagnosisSink) {
             &["port", "altPort", "altPortStatus", "altPortResponsesSeen", "bytesSent", "responsesSeen"],
         ),
         recommendation: Some(format!(
-            "Port 443 is being specifically targeted by your ISP. Switch to port {alt_port} or another non-standard HTTPS port to avoid policing.",
+            "Compare the endpoint configuration on ports 443 and {alt_port}; this difference does not establish its cause.",
         )),
         control_validated: None,
     });

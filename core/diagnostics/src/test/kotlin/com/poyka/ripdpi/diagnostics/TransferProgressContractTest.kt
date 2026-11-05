@@ -49,7 +49,7 @@ class TransferProgressContractTest {
     fun `live body progress survives the native to domain roundtrip`() {
         val input =
             """
-            {"schemaVersion":9,"sessionId":"transfer","phase":"throughput","completedSteps":0,
+            {"schemaVersion":10,"sessionId":"transfer","phase":"throughput","completedSteps":0,
              "totalSteps":1,"message":"Reading","transferProgress":{"target":"Control","measurement":{
              "runIndex":1,"runCount":1,"receivedBodyByteCount":1024,"expectedBodyByteCount":2048,
              "elapsedMs":250,"firstBodyByteMs":50,"lastBodyProgressMs":200,

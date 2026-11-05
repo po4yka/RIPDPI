@@ -136,11 +136,11 @@ private fun StrategyReportWinningPath(
     WinningPathSection(
         winningPath = winningPath,
         onSelectTcpWinner =
-            report.candidateDetails[winningPath.tcpWinner.id]?.let { detail ->
+            report.candidateDetails[winningPath.tcpWinner?.id]?.let { detail ->
                 { onSelectCandidate(detail) }
             },
         onSelectQuicWinner =
-            report.candidateDetails[winningPath.quicWinner.id]?.let { detail ->
+            report.candidateDetails[winningPath.quicWinner?.id]?.let { detail ->
                 { onSelectCandidate(detail) }
             },
     )
@@ -441,18 +441,22 @@ private fun WinningPathSection(
             )
         }
         Column(verticalArrangement = Arrangement.spacedBy(spacing.sm)) {
-            WinningPathCandidateCard(
-                title = stringResource(R.string.diagnostics_audit_winning_tcp_title),
-                candidate = winningPath.tcpWinner,
-                onClick = onSelectTcpWinner,
-                testTag = RipDpiTestTags.DiagnosticsStrategyWinningTcpAction,
-            )
-            WinningPathCandidateCard(
-                title = stringResource(R.string.diagnostics_audit_winning_quic_title),
-                candidate = winningPath.quicWinner,
-                onClick = onSelectQuicWinner,
-                testTag = RipDpiTestTags.DiagnosticsStrategyWinningQuicAction,
-            )
+            winningPath.tcpWinner?.let { winner ->
+                WinningPathCandidateCard(
+                    title = stringResource(R.string.diagnostics_audit_winning_tcp_title),
+                    candidate = winner,
+                    onClick = onSelectTcpWinner,
+                    testTag = RipDpiTestTags.DiagnosticsStrategyWinningTcpAction,
+                )
+            }
+            winningPath.quicWinner?.let { winner ->
+                WinningPathCandidateCard(
+                    title = stringResource(R.string.diagnostics_audit_winning_quic_title),
+                    candidate = winner,
+                    onClick = onSelectQuicWinner,
+                    testTag = RipDpiTestTags.DiagnosticsStrategyWinningQuicAction,
+                )
+            }
         }
         Text(
             text = stringResource(R.string.diagnostics_audit_winning_path_hint),

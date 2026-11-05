@@ -1861,48 +1861,20 @@ internal fun scanReportWithStrategyProbe(
                 suiteId = suiteId,
                 tcpCandidates =
                     listOf(
-                        StrategyProbeCandidateSummary(
+                        coordinatorStrategyCandidate(
                             id = "tcp-1",
                             label = "TCP candidate",
                             family = "hostfake",
-                            outcome = "success",
-                            rationale = "best",
                             succeededTargets = tcpSucceededTargets,
-                            totalTargets = 1,
-                            weightedSuccessScore = 10,
-                            totalWeight = 10,
-                            qualityScore = 10,
-                            domainOutcomes =
-                                listOf(
-                                    StrategyProbeDomainOutcome(
-                                        domain = "control.example",
-                                        succeeded = true,
-                                        isControl = true,
-                                    ),
-                                ),
                         ),
                     ),
                 quicCandidates =
                     listOf(
-                        StrategyProbeCandidateSummary(
+                        coordinatorStrategyCandidate(
                             id = "quic-1",
                             label = "QUIC candidate",
                             family = "quic_realistic_burst",
-                            outcome = "success",
-                            rationale = "best",
                             succeededTargets = quicSucceededTargets,
-                            totalTargets = 1,
-                            weightedSuccessScore = 10,
-                            totalWeight = 10,
-                            qualityScore = 10,
-                            domainOutcomes =
-                                listOf(
-                                    StrategyProbeDomainOutcome(
-                                        domain = "control.example",
-                                        succeeded = true,
-                                        isControl = true,
-                                    ),
-                                ),
                         ),
                     ),
                 recommendation =
@@ -1917,6 +1889,32 @@ internal fun scanReportWithStrategyProbe(
                 completionKind = completionKind,
                 auditAssessment = auditAssessment,
                 pilotBucketLabels = pilotBucketLabels,
+            ),
+    )
+
+private fun coordinatorStrategyCandidate(
+    id: String,
+    label: String,
+    family: String,
+    succeededTargets: Int,
+): StrategyProbeCandidateSummary =
+    StrategyProbeCandidateSummary(
+        id = id,
+        label = label,
+        family = family,
+        proxyConfigJson = validRecommendedProxyConfigJsonForCoordinator(),
+        outcome = "success",
+        rationale = "best",
+        succeededTargets = succeededTargets,
+        totalTargets = 1,
+        weightedSuccessScore = 10,
+        totalWeight = 10,
+        qualityScore = 10,
+        executionEvidenceComplete = true,
+        runtimeTerminalStatus = StrategyProbeRuntimeTerminalStatus.CLEAN_SHUTDOWN,
+        domainOutcomes =
+            listOf(
+                StrategyProbeDomainOutcome(domain = "control.example", succeeded = true, isControl = true),
             ),
     )
 

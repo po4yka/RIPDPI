@@ -7,6 +7,7 @@ pub(in crate::engine::runners::strategy) fn build_audit_confidence(
     signals: &AuditSignals,
 ) -> StrategyProbeAuditConfidence {
     let penalty_table: &[(bool, i32, &str)] = &[
+        (signals.no_winner, 60, "No lane produced a verified successful winner."),
         (dns_short_circuited, 45, "Baseline DNS tampering short-circuited the audit before fallback candidates ran."),
         (
             signals.weak_winner_coverage,
@@ -42,6 +43,7 @@ pub(in crate::engine::runners::strategy) fn build_audit_confidence(
     };
     let rationale = match () {
         _ if dns_short_circuited => "Baseline DNS tampering short-circuited the audit before fallback candidates ran",
+        _ if signals.no_winner => "No lane produced a verified successful winner",
         _ if signals.weak_winner_coverage => "The winning TCP or QUIC lane recovered too few weighted targets",
         _ if signals.low_tcp_execution || signals.low_quic_execution => {
             "The audit did not execute enough of the applicable matrix to fully trust the winner"

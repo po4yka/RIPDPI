@@ -18,7 +18,7 @@ pub struct FatHeaderObservation {
     /// Time from SYN to SYN-ACK (TCP connect latency), establishing baseline RTT.
     pub syn_ack_latency_ms: Option<u64>,
     /// Time from the last successful I/O (SYN-ACK or last response) to the RST/error.
-    /// Compared against `syn_ack_latency_ms` to classify in-path vs server RST.
+    /// Timing alone does not identify the source or mechanism.
     pub rst_timing_ms: Option<u64>,
     /// TCP window size observed from the server, if available (for window-cap detection).
     pub observed_window_size: Option<u32>,

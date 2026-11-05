@@ -13,9 +13,6 @@ import com.poyka.ripdpi.data.EntropyModeCombined
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
 import com.poyka.ripdpi.data.WarpEndpointSelectionManual
 import com.poyka.ripdpi.data.WarpRouteModeRules
-import com.poyka.ripdpi.data.diagnostics.DefaultNetworkDnsPathPreferenceStore
-import com.poyka.ripdpi.diagnostics.application.DefaultDiagnosticsResolverActions
-import com.poyka.ripdpi.diagnostics.application.DiagnosticsRecommendationStore
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.encodeToString
 import org.junit.Assert.assertEquals
@@ -31,6 +28,7 @@ class DiagnosticsHomeWorkflowServiceTest {
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val appSettingsRepository = FakeAppSettingsRepository()
+            val initialSettings = appSettingsRepository.snapshot()
             stores.sessionsState.value =
                 listOf(
                     diagnosticsSession(
@@ -53,7 +51,7 @@ class DiagnosticsHomeWorkflowServiceTest {
                                                     mode = RipDpiHostsConfig.Mode.Blacklist,
                                                     entries = "example.com",
                                                 ),
-                                        ).toNativeConfigJson(),
+                                        ).homeStrategyConfigJson(),
                                 ).toEngineScanReportWire(),
                             ),
                     ).copy(triggerCurrentFingerprintHash = "fp-audit"),
@@ -68,20 +66,21 @@ class DiagnosticsHomeWorkflowServiceTest {
             val savedSettings = appSettingsRepository.snapshot()
             assertTrue(outcome.actionable)
             assertEquals("fp-audit", outcome.fingerprintHash)
-            assertEquals("10.0.0.2", savedSettings.proxyIp)
-            assertEquals(2080, savedSettings.proxyPort)
-            assertTrue(savedSettings.noDomain)
+            assertEquals(initialSettings.proxyIp, savedSettings.proxyIp)
+            assertEquals(initialSettings.proxyPort, savedSettings.proxyPort)
+            assertEquals(initialSettings.noDomain, savedSettings.noDomain)
             assertTrue(savedSettings.desyncUdp)
-            assertEquals("blacklist", savedSettings.hostsMode)
-            assertEquals("example.com", savedSettings.hostsBlacklist)
+            assertEquals(initialSettings.hostsMode, savedSettings.hostsMode)
+            assertEquals(initialSettings.hostsBlacklist, savedSettings.hostsBlacklist)
             assertTrue(outcome.appliedSettings.any { it.label == "TCP/TLS lane" })
         }
 
     @Test
-    fun `finalizeHomeAudit includes warp configuration in applied settings summary`() =
+    fun `finalizeHomeAudit preserves routing settings outside the measured strategy`() =
         runTest {
             val stores = FakeDiagnosticsHistoryStores()
             val appSettingsRepository = FakeAppSettingsRepository()
+            val initialSettings = appSettingsRepository.snapshot()
             stores.sessionsState.value =
                 listOf(
                     diagnosticsSession(
@@ -116,7 +115,7 @@ class DiagnosticsHomeWorkflowServiceTest {
                                                             jmax = 80,
                                                         ),
                                                 ),
-                                        ).toNativeConfigJson(),
+                                        ).homeStrategyConfigJson(),
                                 ).toEngineScanReportWire(),
                             ),
                     ),
@@ -129,30 +128,11 @@ class DiagnosticsHomeWorkflowServiceTest {
                 ).finalizeHomeAudit("warp-audit-session")
 
             assertTrue(outcome.actionable)
-            assertTrue(
-                outcome.appliedSettings.any {
-                    it.label == "WARP routing" && it.value == "Rules"
-                },
-            )
-            assertTrue(
-                outcome.appliedSettings.any {
-                    it.label == "WARP hostlist" && it.value == "2 hosts"
-                },
-            )
-            assertTrue(
-                outcome.appliedSettings.any {
-                    it.label == "WARP endpoint" && it.value == "engage.cloudflareclient.com:2408"
-                },
-            )
-            assertTrue(
-                outcome.appliedSettings.any {
-                    it.label == "WARP AmneziaWG" && it.value.contains("JC 5")
-                },
-            )
+            assertFalse(outcome.appliedSettings.any { it.label.startsWith("WARP") })
             val savedSettings = appSettingsRepository.snapshot()
-            assertTrue(savedSettings.warpEnabled)
-            assertEquals(WarpRouteModeRules, savedSettings.warpRouteMode)
-            assertEquals("example.com\nexample.org", savedSettings.warpRouteHosts)
+            assertEquals(initialSettings.warpEnabled, savedSettings.warpEnabled)
+            assertEquals(initialSettings.warpRouteMode, savedSettings.warpRouteMode)
+            assertEquals(initialSettings.warpRouteHosts, savedSettings.warpRouteHosts)
         }
 
     @Test
@@ -242,7 +222,7 @@ class DiagnosticsHomeWorkflowServiceTest {
                                                     strategyEvolution = true,
                                                     evolutionEpsilon = 0.2,
                                                 ),
-                                        ).toNativeConfigJson(),
+                                        ).homeStrategyConfigJson(),
                                 ).toEngineScanReportWire(),
                             ),
                     ),
@@ -443,131 +423,75 @@ class DiagnosticsHomeWorkflowServiceTest {
             assertEquals("The current path is still blocked.", outcome.detail)
         }
 
-    private fun createHomeWorkflowService(
-        stores: FakeDiagnosticsHistoryStores,
-        appSettingsRepository: FakeAppSettingsRepository,
-        networkFingerprintProvider: MutableNetworkFingerprintProvider = MutableNetworkFingerprintProvider(),
-        serverCapabilityStore: FakeServerCapabilityStore = FakeServerCapabilityStore(),
-    ): DefaultDiagnosticsHomeWorkflowService {
-        val resolverActions =
-            DefaultDiagnosticsResolverActions(
-                appSettingsRepository = appSettingsRepository,
-                recommendationStore = DiagnosticsRecommendationStore(stores, json),
-                networkFingerprintProvider = networkFingerprintProvider,
-                networkDnsPathPreferenceStore =
-                    DefaultNetworkDnsPathPreferenceStore(stores, TestDiagnosticsHistoryClock()),
-                resolverOverrideStore = FakeResolverOverrideStore(),
+    @Test
+    fun `Home refuses eligible evidence when the configuration disagrees with the winners`() =
+        runTest {
+            val repository = FakeAppSettingsRepository()
+            val initial = repository.snapshot()
+            val report =
+                strategyAuditReport(
+                    "mismatched-strategy",
+                    recommendedProxyConfigJson = RipDpiProxyUIPreferences().toNativeConfigJson(),
+                ).strategyProbeReport
+
+            val result = DiagnosticsHomeRecommendationApplier(repository).applyValidatedRecommendation(report)
+
+            assertEquals(null, result)
+            assertEquals(initial, repository.snapshot())
+        }
+
+    @Test
+    fun `Home applies and summarizes each independently verified lane`() =
+        runTest {
+            for (tcpOnly in listOf(true, false)) {
+                val report = strategyAuditReport("single-lane")
+                val probe = requireNotNull(report.strategyProbeReport)
+                val recommendation = requireNotNull(probe.recommendation)
+                val partialLane =
+                    probe.copy(
+                        recommendation =
+                            recommendation.copy(
+                                tcpCandidateId = recommendation.tcpCandidateId.takeIf { tcpOnly },
+                                tcpCandidateLabel = recommendation.tcpCandidateLabel.takeIf { tcpOnly },
+                                quicCandidateId = recommendation.quicCandidateId.takeUnless { tcpOnly },
+                                quicCandidateLabel = recommendation.quicCandidateLabel.takeUnless { tcpOnly },
+                            ),
+                    )
+                val outcome = homeAuditOutcome(report.copy(strategyProbeReport = partialLane))
+
+                assertTrue(outcome.actionable)
+                assertEquals(if (tcpOnly) "TCP hostfake" else "QUIC realistic", outcome.recommendationSummary)
+                assertEquals(tcpOnly, outcome.appliedSettings.any { it.label == "TCP/TLS lane" })
+                assertEquals(!tcpOnly, outcome.appliedSettings.any { it.label == "QUIC lane" })
+            }
+        }
+
+    @Test
+    fun `Home does not apply strategy from an incomplete audit`() =
+        runTest {
+            val report = strategyAuditReport("incomplete-audit")
+            assertFalse(homeAuditOutcome(report.copy(completionKind = ScanCompletionKind.PARTIAL_RESULTS)).actionable)
+            assertFalse(homeAuditOutcome(report, status = "cancelled").actionable)
+        }
+
+    private suspend fun homeAuditOutcome(
+        report: ScanReport,
+        status: String = "completed",
+    ): DiagnosticsHomeAuditOutcome {
+        val stores = FakeDiagnosticsHistoryStores()
+        stores.sessionsState.value =
+            listOf(
+                diagnosticsSession(
+                    id = report.sessionId,
+                    profileId = report.profileId,
+                    pathMode = report.pathMode.name,
+                    status = status,
+                    summary = report.summary,
+                    reportJson = json.encodeToString(report.toEngineScanReportWire()),
+                ),
             )
-        return DefaultDiagnosticsHomeWorkflowService(
-            scanRecordStore = stores,
-            artifactQueryStore = stores,
-            networkFingerprintProvider = networkFingerprintProvider,
-            recommendationApplier = DiagnosticsHomeRecommendationApplier(appSettingsRepository),
-            resolverActionCoordinator = DiagnosticsHomeResolverActionCoordinator(resolverActions),
-            capabilityEvidenceSummarizer = DiagnosticsHomeCapabilityEvidenceSummarizer(serverCapabilityStore),
-            auditOutcomeBuilder = DiagnosticsHomeAuditOutcomeBuilder(),
-            json = json,
-        )
+        return createHomeWorkflowService(stores, FakeAppSettingsRepository()).finalizeHomeAudit(report.sessionId)
     }
-
-    private fun strategyAuditReport(
-        sessionId: String,
-        recommendedProxyConfigJson: String =
-            RipDpiProxyUIPreferences(
-                listen = RipDpiListenConfig(ip = "127.0.0.1", port = 1088),
-            ).toNativeConfigJson(),
-        confidenceLevel: StrategyProbeAuditConfidenceLevel = StrategyProbeAuditConfidenceLevel.HIGH,
-    ): ScanReport =
-        ScanReport(
-            sessionId = sessionId,
-            profileId = "automatic-audit",
-            pathMode = ScanPathMode.RAW_PATH,
-            startedAt = 10L,
-            finishedAt = 20L,
-            summary = "Audit complete",
-            strategyProbeReport =
-                StrategyProbeReport(
-                    suiteId = "full_matrix_v1",
-                    tcpCandidates =
-                        listOf(
-                            StrategyProbeCandidateSummary(
-                                id = "tcp-split",
-                                label = "TCP split",
-                                family = "split",
-                                outcome = "ok",
-                                rationale = "TCP path worked",
-                                succeededTargets = 3,
-                                totalTargets = 4,
-                                weightedSuccessScore = 75,
-                                totalWeight = 100,
-                                qualityScore = 80,
-                                domainOutcomes =
-                                    listOf(
-                                        StrategyProbeDomainOutcome(
-                                            domain = "control.example",
-                                            succeeded = true,
-                                            isControl = true,
-                                        ),
-                                    ),
-                            ),
-                        ),
-                    quicCandidates =
-                        listOf(
-                            StrategyProbeCandidateSummary(
-                                id = "quic-fake",
-                                label = "QUIC fake",
-                                family = "fake",
-                                outcome = "ok",
-                                rationale = "QUIC path worked",
-                                succeededTargets = 2,
-                                totalTargets = 3,
-                                weightedSuccessScore = 66,
-                                totalWeight = 100,
-                                qualityScore = 70,
-                            ),
-                        ),
-                    recommendation =
-                        StrategyProbeRecommendation(
-                            tcpCandidateId = "tcp-split",
-                            tcpCandidateLabel = "TCP split",
-                            quicCandidateId = "quic-fake",
-                            quicCandidateLabel = "QUIC fake",
-                            rationale = "Best combined result",
-                            recommendedProxyConfigJson = recommendedProxyConfigJson,
-                        ),
-                    auditAssessment = strategyAuditAssessment(confidenceLevel),
-                    pilotBucketLabels = listOf("control:neutral:success"),
-                ),
-        )
-
-    private fun strategyAuditAssessment(confidenceLevel: StrategyProbeAuditConfidenceLevel) =
-        StrategyProbeAuditAssessment(
-            coverage =
-                StrategyProbeAuditCoverage(
-                    tcpCandidatesPlanned = 1,
-                    tcpCandidatesExecuted = 1,
-                    tcpCandidatesSkipped = 0,
-                    tcpCandidatesNotApplicable = 0,
-                    quicCandidatesPlanned = 1,
-                    quicCandidatesExecuted = 1,
-                    quicCandidatesSkipped = 0,
-                    quicCandidatesNotApplicable = 0,
-                    tcpWinnerSucceededTargets = 3,
-                    tcpWinnerTotalTargets = 4,
-                    quicWinnerSucceededTargets = 2,
-                    quicWinnerTotalTargets = 3,
-                    matrixCoveragePercent = 90,
-                    winnerCoveragePercent = 80,
-                    tcpWinnerCoveragePercent = 75,
-                    quicWinnerCoveragePercent = 66,
-                ),
-            confidence =
-                StrategyProbeAuditConfidence(
-                    level = confidenceLevel,
-                    score = if (confidenceLevel == StrategyProbeAuditConfidenceLevel.HIGH) 92 else 65,
-                    rationale = "Sufficient evidence",
-                ),
-        )
 
     private fun fingerprint(scopeKey: String) =
         com.poyka.ripdpi.data.NetworkFingerprint(

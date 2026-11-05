@@ -3,15 +3,10 @@
 package com.poyka.ripdpi.diagnostics
 
 import com.poyka.ripdpi.core.RipDpiProxyUIPreferences
-import com.poyka.ripdpi.core.RipDpiWarpConfig
-import com.poyka.ripdpi.core.applyToSettings
-import com.poyka.ripdpi.core.decodeRipDpiProxyUiPreferences
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.NetworkFingerprintProvider
 import com.poyka.ripdpi.data.ServerCapabilityStore
 import com.poyka.ripdpi.data.TlsFingerprintProfileChromeStable
-import com.poyka.ripdpi.data.WarpEndpointSelectionManual
-import com.poyka.ripdpi.data.WarpRouteModeRules
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsArtifactQueryStore
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsScanRecordStore
 import com.poyka.ripdpi.data.tlsFingerprintProfileSummary
@@ -33,40 +28,32 @@ internal class DiagnosticsHomeRecommendationApplier
     constructor(
         private val appSettingsRepository: AppSettingsRepository,
     ) {
-        internal suspend fun applyValidatedRecommendation(strategyProbe: StrategyProbeReport?): StrategyApplyResult? =
-            strategyProbe
-                ?.takeIf {
-                    DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(it) ==
-                        DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Eligible
-                }?.recommendation
-                ?.let { recommendation ->
-                    decodeRipDpiProxyUiPreferences(
-                        recommendation.recommendedProxyConfigJson,
-                    )?.let { preferences ->
-                        // Apply against the current value in one update, so a concurrent write is not reverted.
-                        appSettingsRepository.update {
-                            val settingsBefore = build()
-                            val strategySettings =
-                                preferences
-                                    .applyToSettings(settingsBefore)
-                                    .toBuilder()
-                                    .setHostAutolearnEnabled(settingsBefore.hostAutolearnEnabled)
-                                    .setHostAutolearnPenaltyTtlHours(settingsBefore.hostAutolearnPenaltyTtlHours)
-                                    .setHostAutolearnMaxHosts(settingsBefore.hostAutolearnMaxHosts)
-                                    .build()
-                            clear().mergeFrom(strategySettings)
-                        }
-                        StrategyApplyResult(
+        internal suspend fun applyValidatedRecommendation(strategyProbe: StrategyProbeReport?): StrategyApplyResult? {
+            val recommendation = strategyProbe?.recommendation
+            if (strategyProbe == null || recommendation == null ||
+                DiagnosticsScanWorkflow.evaluateBackgroundAutoPersistEligibility(strategyProbe) !=
+                DiagnosticsScanWorkflow.BackgroundAutoPersistEligibility.Eligible
+            ) {
+                return null
+            }
+            var appliedSettings: com.poyka.ripdpi.proto.AppSettings? = null
+            // Validate and apply against one current value, so concurrent settings changes are preserved.
+            appSettingsRepository.update {
+                appliedSettings = DiagnosticsScanWorkflow.validatedRecommendationSettings(strategyProbe, build())
+                appliedSettings?.let { clear().mergeFrom(it) }
+            }
+            return appliedSettings?.let { settings ->
+                StrategyApplyResult(
+                    recommendation = recommendation,
+                    appliedSettings =
+                        buildStrategyAppliedSettings(
                             recommendation = recommendation,
-                            appliedSettings =
-                                buildStrategyAppliedSettings(
-                                    recommendation = recommendation,
-                                    report = strategyProbe,
-                                    preferences = preferences,
-                                ),
-                        )
-                    }
-                }
+                            report = strategyProbe,
+                            preferences = RipDpiProxyUIPreferences.fromSettings(settings),
+                        ),
+                )
+            }
+        }
 
         private fun buildStrategyAppliedSettings(
             recommendation: StrategyProbeRecommendation,
@@ -87,10 +74,10 @@ internal class DiagnosticsHomeRecommendationApplier
                             .firstOrNull { it.id == recommendation.quicCandidateId }
                             ?.family
                             ?.toHumanLabel()
-                tcpLabel?.let {
+                tcpLabel?.takeIf { recommendation.tcpCandidateId != null }?.let {
                     add(DiagnosticsAppliedSetting(label = "TCP/TLS lane", value = it))
                 }
-                quicLabel?.let {
+                quicLabel?.takeIf { recommendation.quicCandidateId != null }?.let {
                     add(DiagnosticsAppliedSetting(label = "QUIC lane", value = it))
                 }
                 recommendation.dnsStrategyLabel?.let {
@@ -98,7 +85,6 @@ internal class DiagnosticsHomeRecommendationApplier
                 }
                 add(DiagnosticsAppliedSetting(label = "Chain", value = preferences.chainSummary))
                 addAll(buildDetectionResistanceAppliedSettings(preferences))
-                addAll(buildWarpAppliedSettings(preferences.warp))
             }
 
         private fun buildDetectionResistanceAppliedSettings(
@@ -147,100 +133,6 @@ internal class DiagnosticsHomeRecommendationApplier
                     add(DiagnosticsAppliedSetting(label = "QUIC resistance", value = quicSummary))
                 }
             }
-
-        private fun buildWarpAppliedSettings(warp: RipDpiWarpConfig): List<DiagnosticsAppliedSetting> =
-            buildList {
-                if (!warp.enabled) {
-                    return@buildList
-                }
-                add(
-                    DiagnosticsAppliedSetting(
-                        label = "WARP routing",
-                        value =
-                            when (warp.routeMode) {
-                                WarpRouteModeRules -> "Rules"
-                                else -> "Off"
-                            },
-                    ),
-                )
-                summarizeWarpHostlist(warp.routeHosts)?.let { summary ->
-                    add(DiagnosticsAppliedSetting(label = "WARP hostlist", value = summary))
-                }
-                add(
-                    DiagnosticsAppliedSetting(
-                        label = "WARP control-plane",
-                        value =
-                            if (warp.builtInRulesEnabled) {
-                                "Built-in exclusions enabled"
-                            } else {
-                                "Off"
-                            },
-                    ),
-                )
-                add(
-                    DiagnosticsAppliedSetting(
-                        label = "WARP endpoint",
-                        value =
-                            if (warp.endpointSelectionMode == WarpEndpointSelectionManual) {
-                                buildManualWarpEndpointLabel(warp)
-                            } else {
-                                "Automatic"
-                            },
-                    ),
-                )
-                if (warp.endpointSelectionMode != WarpEndpointSelectionManual) {
-                    add(
-                        DiagnosticsAppliedSetting(
-                            label = "WARP scanner",
-                            value =
-                                if (warp.scannerEnabled) {
-                                    "${warp.scannerParallelism} parallel · ${warp.scannerMaxRttMs} ms max RTT"
-                                } else {
-                                    "Disabled"
-                                },
-                        ),
-                    )
-                }
-                if (warp.amnezia.enabled) {
-                    add(
-                        DiagnosticsAppliedSetting(
-                            label = "WARP AmneziaWG",
-                            value =
-                                "JC ${warp.amnezia.jc} · Jmin ${warp.amnezia.jmin} · " +
-                                    "Jmax ${warp.amnezia.jmax}",
-                        ),
-                    )
-                }
-            }
-
-        private fun summarizeWarpHostlist(routeHosts: String): String? {
-            val hosts =
-                routeHosts
-                    .lineSequence()
-                    .map { it.trim() }
-                    .filter { it.isNotEmpty() }
-                    .toList()
-            return when (hosts.size) {
-                0 -> null
-                1 -> hosts.first()
-                else -> "${hosts.size} hosts"
-            }
-        }
-
-        private fun buildManualWarpEndpointLabel(warp: RipDpiWarpConfig): String {
-            val address =
-                sequenceOf(
-                    warp.manualEndpoint.host,
-                    warp.manualEndpoint.ipv4,
-                    warp.manualEndpoint.ipv6,
-                ).map { it.trim() }
-                    .firstOrNull { it.isNotEmpty() }
-            return if (address != null) {
-                "$address:${warp.manualEndpoint.port}"
-            } else {
-                "Manual port ${warp.manualEndpoint.port}"
-            }
-        }
 
         private fun String.toHumanLabel(): String =
             HumanLabelOverrides[this] ?: replace('_', ' ').replaceFirstChar { it.uppercase() }
@@ -453,8 +345,10 @@ internal class DiagnosticsHomeAuditOutcomeBuilder
         ): String? =
             when {
                 strategyApplied != null -> {
-                    "${strategyApplied.recommendation.tcpCandidateLabel} + " +
-                        strategyApplied.recommendation.quicCandidateLabel
+                    listOfNotNull(
+                        strategyApplied.recommendation.tcpCandidateLabel,
+                        strategyApplied.recommendation.quicCandidateLabel,
+                    ).joinToString(" + ")
                 }
 
                 strategyRecommendation != null -> {
@@ -512,13 +406,19 @@ internal class DefaultDiagnosticsHomeWorkflowService
                 val strategyProbe = report.strategyProbeReport
                 val resolverRecommendation = report.resolverRecommendation
                 val strategyRecommendation = report.strategyRecommendation
-                val strategyApplied = recommendationApplier.applyValidatedRecommendation(strategyProbe)
+                val complete = session.hasCompleteHomeReport(sessionId, report)
+                val strategyApplied =
+                    if (complete) recommendationApplier.applyValidatedRecommendation(strategyProbe) else null
                 val resolverApplied =
-                    resolverActionCoordinator.applyResolverRecommendation(
-                        sessionId = sessionId,
-                        strategyApplied = strategyApplied,
-                        resolverRecommendation = resolverRecommendation,
-                    )
+                    if (complete) {
+                        resolverActionCoordinator.applyResolverRecommendation(
+                            sessionId = sessionId,
+                            strategyApplied = strategyApplied,
+                            resolverRecommendation = resolverRecommendation,
+                        )
+                    } else {
+                        emptyList()
+                    }
                 val capabilityEvidence = capabilityEvidenceSummarizer.summarize(fingerprintHash)
 
                 auditOutcomeBuilder.build(
@@ -539,42 +439,6 @@ internal class DefaultDiagnosticsHomeWorkflowService
             withContext(Dispatchers.IO) {
                 val session = scanRecordStore.getScanSession(sessionId)
                 val report = session?.reportJson?.let { DiagnosticsSessionQueries.decodeScanReport(json, it) }
-                if (session == null || report == null) {
-                    return@withContext DiagnosticsHomeVerificationOutcome(
-                        sessionId = sessionId,
-                        success = false,
-                        headline = "VPN verification was incomplete",
-                        summary = session?.summary ?: "Verification session could not be loaded.",
-                    )
-                }
-
-                val normalizedOutcomes = report.results.map { it.outcome.lowercase() }
-                val successCount =
-                    normalizedOutcomes.count { outcome ->
-                        outcome.contains("ok") || outcome == "http_redirect" || outcome == "tls_version_split"
-                    }
-                val failureCount =
-                    normalizedOutcomes.count { outcome ->
-                        outcome.contains("blocked") ||
-                            outcome.contains("unreachable") ||
-                            outcome.contains("failed") ||
-                            outcome.contains("error") ||
-                            outcome.contains("timeout")
-                    }
-                val connectivityIssue = report.diagnoses.any { it.code == "network_connectivity_issue" }
-                val success = !connectivityIssue && successCount > 0 && successCount >= failureCount
-
-                DiagnosticsHomeVerificationOutcome(
-                    sessionId = sessionId,
-                    success = success,
-                    headline =
-                        if (success) {
-                            "VPN access confirmed"
-                        } else {
-                            "VPN started, but access is still limited"
-                        },
-                    summary = session.displaySummary(report),
-                    detail = report.diagnoses.firstOrNull()?.summary,
-                )
+                summarizeHomeVerification(sessionId, session, report)
             }
     }

@@ -280,6 +280,7 @@ private fun bucketTelegramAvailability(outcome: String): DiagnosticsOutcomeBucke
 private fun bucketThroughputWindow(outcome: String): DiagnosticsOutcomeBucket =
     when (outcome) {
         "throughput_measured" -> DiagnosticsOutcomeBucket.Healthy
+        "throughput_inconclusive" -> DiagnosticsOutcomeBucket.Inconclusive
         "throughput_failed" -> DiagnosticsOutcomeBucket.Failed
         else -> legacyBucketForOutcome(outcome)
     }

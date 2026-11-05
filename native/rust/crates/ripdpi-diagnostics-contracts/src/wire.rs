@@ -15,7 +15,7 @@ pub use request_wire::EngineScanRequestWire;
 pub use resolver_recommendation::ResolverRecommendationWire;
 
 // v9: adds attempt-bound desync execution evidence and optional verified recommendations.
-pub const DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 9;
+pub const DIAGNOSTICS_ENGINE_SCHEMA_VERSION: u32 = 10;
 
 pub type EngineProbeTaskFamily = ProbeTaskFamily;
 pub type EngineProbeTaskWire = ProbeTask;

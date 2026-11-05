@@ -162,6 +162,7 @@ pub(crate) fn telegram_ws_tunnel_status(value: &str) -> TelegramWsTunnelStatus {
 pub(crate) fn throughput_status(value: &str) -> ThroughputProbeStatus {
     match value {
         "throughput_measured" => ThroughputProbeStatus::Measured,
+        "throughput_inconclusive" => ThroughputProbeStatus::Inconclusive,
         "invalid_target" => ThroughputProbeStatus::InvalidTarget,
         _ => ThroughputProbeStatus::HttpUnreachable,
     }

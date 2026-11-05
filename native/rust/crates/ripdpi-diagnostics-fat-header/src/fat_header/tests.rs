@@ -66,39 +66,25 @@ fn classify_fat_header_outcome_all_variants() {
 #[test]
 fn classify_tcp_block_method_all_variants() {
     assert_eq!(classify_tcp_block_method(&FatHeaderStatus::Success), "none");
-    assert_eq!(classify_tcp_block_method(&FatHeaderStatus::Reset), "rst_injection");
-    assert_eq!(classify_tcp_block_method(&FatHeaderStatus::ThresholdCutoff), "window_cap");
-    assert_eq!(classify_tcp_block_method(&FatHeaderStatus::FreezeAfterThreshold), "window_cap");
+    assert_eq!(classify_tcp_block_method(&FatHeaderStatus::Reset), "reset_or_close");
+    assert_eq!(classify_tcp_block_method(&FatHeaderStatus::ThresholdCutoff), "transfer_cutoff");
+    assert_eq!(classify_tcp_block_method(&FatHeaderStatus::FreezeAfterThreshold), "transfer_stall");
     assert_eq!(classify_tcp_block_method(&FatHeaderStatus::Timeout), "timeout");
-    assert_eq!(classify_tcp_block_method(&FatHeaderStatus::ConnectFailed), "connection_refused");
-    assert_eq!(classify_tcp_block_method(&FatHeaderStatus::HandshakeFailed), "connection_refused");
+    assert_eq!(classify_tcp_block_method(&FatHeaderStatus::ConnectFailed), "connect_failed");
+    assert_eq!(classify_tcp_block_method(&FatHeaderStatus::HandshakeFailed), "tls_handshake_failed");
 }
 
 #[test]
-fn classify_rst_origin_in_path() {
-    // RST at 10ms with RTT of 8ms => within 2x => in-path.
-    assert_eq!(classify_rst_origin(Some(8), Some(10)), "in_path_rst");
-    // RST at exactly 2x RTT => still in-path.
-    assert_eq!(classify_rst_origin(Some(10), Some(20)), "in_path_rst");
-}
-
-#[test]
-fn classify_rst_origin_server() {
-    // RST at 50ms with RTT of 10ms => beyond 2x => server.
-    assert_eq!(classify_rst_origin(Some(10), Some(50)), "server_rst");
-}
-
-#[test]
-fn classify_rst_origin_unknown() {
-    assert_eq!(classify_rst_origin(None, Some(10)), "unknown");
-    assert_eq!(classify_rst_origin(Some(10), None), "unknown");
-    assert_eq!(classify_rst_origin(None, None), "unknown");
-}
-
-#[test]
-fn classify_rst_origin_zero_rtt_is_server() {
-    // Zero RTT means we cannot meaningfully compare, falls through to server_rst.
-    assert_eq!(classify_rst_origin(Some(0), Some(5)), "server_rst");
+fn evidence_tcp_failures_do_not_identify_network_mechanisms() {
+    for (status, expected) in [
+        (FatHeaderStatus::Reset, "reset_or_close"),
+        (FatHeaderStatus::ThresholdCutoff, "transfer_cutoff"),
+        (FatHeaderStatus::FreezeAfterThreshold, "transfer_stall"),
+        (FatHeaderStatus::ConnectFailed, "connect_failed"),
+        (FatHeaderStatus::HandshakeFailed, "tls_handshake_failed"),
+    ] {
+        assert_eq!(classify_tcp_block_method(&status), expected);
+    }
 }
 
 #[test]

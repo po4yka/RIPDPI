@@ -41,11 +41,11 @@ private fun StrategyProbeReport.projectForArchive(
         recommendation =
             recommendation?.let { current ->
                 current.copy(
-                    tcpCandidateId = aliases[current.tcpCandidateId] ?: "unavailable",
-                    tcpCandidateLabel = aliases[current.tcpCandidateId] ?: "unavailable",
+                    tcpCandidateId = current.tcpCandidateId?.let { tcpAliases[it] ?: "unavailable" },
+                    tcpCandidateLabel = current.tcpCandidateId?.let { tcpAliases[it] ?: "unavailable" },
                     tcpCandidateFamily = current.tcpCandidateFamily?.let { "tcp_candidate" },
-                    quicCandidateId = aliases[current.quicCandidateId] ?: "unavailable",
-                    quicCandidateLabel = aliases[current.quicCandidateId] ?: "unavailable",
+                    quicCandidateId = current.quicCandidateId?.let { quicAliases[it] ?: "unavailable" },
+                    quicCandidateLabel = current.quicCandidateId?.let { quicAliases[it] ?: "unavailable" },
                     quicCandidateFamily = current.quicCandidateFamily?.let { "quic_candidate" },
                     quicCandidateLayoutFamily = current.quicCandidateLayoutFamily?.let { "quic_layout" },
                     rationale = "candidate_recommendation",

@@ -1,5 +1,7 @@
 #[path = "runtime_tests/exhaustive.rs"]
 mod exhaustive;
+#[path = "runtime_tests/recommendation.rs"]
+mod recommendation;
 
 use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, Mutex};

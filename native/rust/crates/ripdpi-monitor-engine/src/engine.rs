@@ -57,13 +57,13 @@ mod tests {
                 probe_type: "tcp_fat_header".to_string(),
                 target: "8.8.8.8:443 (Google DNS)".to_string(),
                 outcome: "tcp_reset".to_string(),
-                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "rst_injection".to_string() }],
+                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "reset_or_close".to_string() }],
             },
             ProbeResult {
                 probe_type: "tcp_fat_header".to_string(),
                 target: "172.67.70.222:443 (Cloudflare)".to_string(),
                 outcome: "tcp_16kb_blocked".to_string(),
-                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "window_cap".to_string() }],
+                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "transfer_cutoff".to_string() }],
             },
             ProbeResult {
                 probe_type: "domain_reachability".to_string(),
@@ -81,7 +81,7 @@ mod tests {
         assert!(summary.contains("tcp_attention=2"));
         assert!(summary.contains("tcp_contextual_downgraded=2"));
         assert!(summary.contains("tcp_resets=1"));
-        assert!(summary.contains("tcp_window_cap=1"));
+        assert!(summary.contains("tcp_transfer_cutoff=1"));
         assert!(summary.contains("domain_tls_ok=1"));
         assert!(summary.contains("domain_http_ok_or_redirect=1"));
         assert!(summary.contains("network_verdict=attention_required"));
@@ -98,7 +98,7 @@ mod tests {
                 probe_type: "tcp_fat_header".to_string(),
                 target: "8.8.8.8:443 (Google DNS)".to_string(),
                 outcome: "tcp_reset".to_string(),
-                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "rst_injection".to_string() }],
+                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "reset_or_close".to_string() }],
             },
         ];
 
@@ -125,19 +125,19 @@ mod tests {
                 probe_type: "tcp_fat_header".to_string(),
                 target: "172.67.70.222:443 (Cloudflare)".to_string(),
                 outcome: "tcp_16kb_blocked".to_string(),
-                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "window_cap".to_string() }],
+                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "transfer_cutoff".to_string() }],
             },
             ProbeResult {
                 probe_type: "tcp_fat_header".to_string(),
                 target: "8.8.8.8:443 (Google DNS)".to_string(),
                 outcome: "tcp_reset".to_string(),
-                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "rst_injection".to_string() }],
+                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "reset_or_close".to_string() }],
             },
             ProbeResult {
                 probe_type: "tcp_fat_header".to_string(),
                 target: "9.9.9.9:443 (Quad9 DNS)".to_string(),
                 outcome: "tcp_reset".to_string(),
-                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "rst_injection".to_string() }],
+                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "reset_or_close".to_string() }],
             },
         ];
 
@@ -149,7 +149,7 @@ mod tests {
         assert!(analytics.contains("tcp_attention=3"));
         assert!(analytics.contains("tcp_contextual_downgraded=3"));
         assert!(analytics.contains("tcp_resets=2"));
-        assert!(analytics.contains("tcp_window_cap=1"));
+        assert!(analytics.contains("tcp_transfer_cutoff=1"));
         assert!(analytics.contains("network_verdict=healthy_connectivity_with_tcp_stress_probe_sensitivity"));
     }
 
@@ -162,7 +162,7 @@ mod tests {
                 probe_type: "tcp_fat_header".to_string(),
                 target: "8.8.8.8:443 (Google DNS)".to_string(),
                 outcome: "tcp_reset".to_string(),
-                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "rst_injection".to_string() }],
+                details: vec![ProbeDetail { key: "tcpBlockMethod".to_string(), value: "reset_or_close".to_string() }],
             },
         ];
 

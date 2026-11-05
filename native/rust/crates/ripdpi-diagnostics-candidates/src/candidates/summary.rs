@@ -7,11 +7,15 @@ pub fn build_strategy_probe_summary(
     recommendation: &StrategyProbeRecommendation,
     audit_assessment: Option<&StrategyProbeAuditAssessment>,
 ) -> String {
+    let labels = recommendation
+        .tcp_candidate_label
+        .iter()
+        .chain(&recommendation.quic_candidate_label)
+        .map(String::as_str)
+        .collect::<Vec<_>>()
+        .join(" + ");
     if suite_id != STRATEGY_PROBE_SUITE_FULL_MATRIX_V1 {
-        return format!(
-            "Recommended {} with {}",
-            recommendation.tcp_candidate_label, recommendation.quic_candidate_label
-        );
+        return format!("Recommended {labels}");
     }
     let mut worked = 0usize;
     let mut partial = 0usize;
@@ -26,13 +30,7 @@ pub fn build_strategy_probe_summary(
         }
     }
     let mut summary = format!(
-        "Recommended {} + {}. Worked {} · partial {} · failed {} · not applicable {}",
-        recommendation.tcp_candidate_label,
-        recommendation.quic_candidate_label,
-        worked,
-        partial,
-        failed,
-        not_applicable,
+        "Recommended {labels}. Worked {worked} · partial {partial} · failed {failed} · not applicable {not_applicable}",
     );
     if let Some(assessment) = audit_assessment {
         summary.push_str(&format!(

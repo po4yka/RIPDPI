@@ -44,33 +44,38 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
         tcp_fast_open_available,
         ipfrag_caps,
     );
-    let recommendation = wi_tcp.zip(wi_quic).and_then(|(wi_tcp, wi_quic)| {
-        let tcp_w = &runtime.strategy.tcp_candidates[wi_tcp];
-        let quic_w = &runtime.strategy.quic_candidates[wi_quic];
-        let quic_winner_spec = strategy_plan
-            .suite
-            .quic_candidates
-            .iter()
-            .find(|spec| spec.id == quic_w.id)
-            .or_else(|| strategy_plan.suite.quic_candidates.first())?;
-        let confirm_good_corroborated =
-            plan.request.confirm_good_dpi_evidence.is_some() && quic_w.succeeded_targets > 0 && !quic_w.skipped;
+    let tcp_winner = wi_tcp.map(|index| &runtime.strategy.tcp_candidates[index]);
+    let quic_winner = wi_quic.map(|index| &runtime.strategy.quic_candidates[index]);
+    let recommendation = (tcp_winner.is_some() || quic_winner.is_some()).then(|| {
+        let tcp = tcp_winner.and_then(|winner| {
+            strategy_plan.suite.tcp_candidates.iter().find(|spec| spec.id == winner.id).map(|spec| (winner, spec))
+        });
+        let quic = quic_winner.and_then(|winner| {
+            strategy_plan.suite.quic_candidates.iter().find(|spec| spec.id == winner.id).map(|spec| (winner, spec))
+        });
+        let base = plan.request.strategy_probe.as_ref()
+            .and_then(|request| request.base_proxy_config_json.as_deref())
+            .and_then(|json| ripdpi_proxy_config::parse_proxy_config_json(json).ok())
+            .and_then(|payload| match payload {
+                ripdpi_proxy_config::ProxyConfigPayload::Ui { config, .. } => Some(config),
+                ripdpi_proxy_config::ProxyConfigPayload::CommandLine { .. } => None,
+            })
+            .unwrap_or_default();
+        let config_json = resolve_recommended_proxy_config_json(&base, tcp, quic)?;
+        let confirm_good_corroborated = plan.request.confirm_good_dpi_evidence.is_some() && quic_winner.is_some();
+        let labels = tcp_winner.into_iter().chain(quic_winner).map(|winner| winner.label.as_str()).collect::<Vec<_>>();
         Some(StrategyProbeRecommendation {
-            tcp_candidate_id: tcp_w.id.clone(),
-            tcp_candidate_label: tcp_w.label.clone(),
-            quic_candidate_id: quic_w.id.clone(),
-            quic_candidate_label: quic_w.label.clone(),
-            quic_candidate_layout_family: quic_w.quic_layout_family.clone(),
+            tcp_candidate_id: tcp_winner.map(|winner| winner.id.clone()),
+            tcp_candidate_label: tcp_winner.map(|winner| winner.label.clone()),
+            quic_candidate_id: quic_winner.map(|winner| winner.id.clone()),
+            quic_candidate_label: quic_winner.map(|winner| winner.label.clone()),
+            quic_candidate_layout_family: quic_winner.and_then(|winner| winner.quic_layout_family.clone()),
             rationale: if confirm_good_corroborated {
-                "Reality application data stalled after successful handshakes; a QUIC Initial response supports testing another transport family"
-                    .to_string()
+                "Reality application data stalled after successful handshakes; a QUIC Initial response supports testing another transport family".to_string()
             } else {
-                format!(
-                    "{} with {} weighted TCP success and {} weighted QUIC success",
-                    tcp_w.label, tcp_w.weighted_success_score, quic_w.weighted_success_score,
-                )
+                format!("Recommended measured lanes: {}", labels.join(" + "))
             },
-            recommended_proxy_config_json: resolve_recommended_proxy_config_json(quic_w, quic_winner_spec),
+            recommended_proxy_config_json: config_json,
             transport_pivot: confirm_good_corroborated.then(|| TransportPivotRecommendation {
                 reason_code: "confirm_good_dpi_suspected".to_string(),
                 preferred_family: TransportFamily::UdpQuic,
@@ -78,24 +83,22 @@ pub(in crate::engine) fn prepare_strategy_probe_report(plan: &ExecutionPlan, run
                 selected_relay_role: None,
             }),
         })
-    });
+    }).flatten();
     let has_dns_fallback = runtime.strategy.dns_override_domain_targets.is_some();
     let is_dns_tampered = has_dns_fallback
         && runtime
             .results
             .iter()
             .any(|result| result.probe_type == "dns_integrity" && is_confirmed_dns_tampering_outcome(&result.outcome));
-    let audit_assessment = recommendation.as_ref().and_then(|recommendation| {
-        resolve_strategy_probe_audit_assessment(
-            &strategy_plan.suite_id,
-            &runtime.strategy.tcp_candidates,
-            &runtime.strategy.quic_candidates,
-            recommendation,
-            strategy_plan.suite.tcp_candidates.len(),
-            strategy_plan.suite.quic_candidates.len(),
-            is_dns_tampered,
-        )
-    });
+    let audit_assessment = resolve_strategy_probe_audit_assessment(
+        &strategy_plan.suite_id,
+        &runtime.strategy.tcp_candidates,
+        &runtime.strategy.quic_candidates,
+        recommendation.as_ref(),
+        strategy_plan.suite.tcp_candidates.len(),
+        strategy_plan.suite.quic_candidates.len(),
+        is_dns_tampered,
+    );
     let summary = recommendation.as_ref().map_or_else(
         || "Automatic probing finished without a verified recommendation".to_string(),
         |recommendation| {

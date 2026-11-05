@@ -1,4 +1,5 @@
 pub(in crate::engine::runners::strategy) struct AuditSignals {
+    pub(in crate::engine::runners::strategy) no_winner: bool,
     pub(in crate::engine::runners::strategy) dns_tampering_with_fallback: bool,
     pub(in crate::engine::runners::strategy) weak_winner_coverage: bool,
     pub(in crate::engine::runners::strategy) low_tcp_execution: bool,

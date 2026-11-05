@@ -368,6 +368,7 @@ pub enum FatServerMode {
     AlwaysOk,
     CutoffAtThreshold,
     AllowHost(String),
+    HttpResponse(&'static [u8]),
 }
 
 pub struct TlsHttpServer {
@@ -511,6 +512,11 @@ pub fn handle_fat_http_stream(stream: &mut impl ReadWrite, fat_mode: FatServerMo
             return;
         }
         if matches!(&fat_mode, FatServerMode::CutoffAtThreshold) && total_read >= FAT_HEADER_THRESHOLD_BYTES {
+            return;
+        }
+        if let FatServerMode::HttpResponse(response) = fat_mode {
+            stream.write_all(response).expect("write response");
+            stream.flush().expect("flush response");
             return;
         }
         let response = b"HTTP/1.1 200 OK\r\nContent-Length: 0\r\nConnection: keep-alive\r\n\r\n";

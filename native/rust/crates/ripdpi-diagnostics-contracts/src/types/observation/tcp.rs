@@ -30,8 +30,8 @@ pub struct TcpObservationFact {
     pub alt_port: Option<u16>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub alt_port_status: Option<String>,
-    /// How the TCP connection was blocked: "rst_injection", "window_cap", "timeout",
-    /// "connection_refused", or "none".
+    /// Observed transport symptom: "reset_or_close", "transfer_cutoff", "transfer_stall",
+    /// "connect_failed", "tls_handshake_failed", or "none". This does not identify a cause.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tcp_block_method: Option<String>,
     /// Observed TCP window size from server (useful for window-cap detection).
@@ -43,7 +43,7 @@ pub struct TcpObservationFact {
     /// Time from SYN to SYN-ACK in milliseconds (baseline RTT).
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub syn_ack_latency_ms: Option<u64>,
-    /// RST origin classification: "in_path_rst", "server_rst", or "unknown".
+    /// RST origin, only when independently observed; socket errors do not establish it.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub rst_origin: Option<String>,
 }

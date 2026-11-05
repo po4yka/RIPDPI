@@ -143,6 +143,7 @@ fn probe_outcome_bucket(probe_type: &str, path_mode: &ScanPathMode, outcome: &st
         },
         "throughput_window" => match outcome {
             "throughput_measured" => ProbeOutcomeBucket::Healthy,
+            "throughput_inconclusive" => ProbeOutcomeBucket::Inconclusive,
             "throughput_failed" => ProbeOutcomeBucket::Failed,
             _ => legacy_outcome_bucket(outcome),
         },

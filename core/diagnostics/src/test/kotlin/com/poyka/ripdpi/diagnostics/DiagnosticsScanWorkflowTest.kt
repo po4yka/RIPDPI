@@ -664,6 +664,7 @@ internal fun scanReportWithStrategyProbe(
                             id = "tcp-1",
                             label = "TCP candidate",
                             family = tcpFamily,
+                            proxyConfigJson = proxyConfigJson,
                             succeededTargets = tcpSucceededTargets,
                             domainOutcomes = tcpDomainOutcomes,
                         ),
@@ -674,6 +675,7 @@ internal fun scanReportWithStrategyProbe(
                             id = "quic-1",
                             label = "QUIC candidate",
                             family = quicFamily,
+                            proxyConfigJson = proxyConfigJson,
                             succeededTargets = quicSucceededTargets,
                         ),
                     ),
@@ -697,6 +699,7 @@ private fun strategyCandidateSummary(
     id: String,
     label: String,
     family: String,
+    proxyConfigJson: String? = null,
     succeededTargets: Int = 1,
     domainOutcomes: List<StrategyProbeDomainOutcome> = emptyList(),
 ): StrategyProbeCandidateSummary =
@@ -704,6 +707,7 @@ private fun strategyCandidateSummary(
         id = id,
         label = label,
         family = family,
+        proxyConfigJson = proxyConfigJson,
         outcome = "success",
         rationale = "best",
         succeededTargets = succeededTargets,
@@ -711,6 +715,8 @@ private fun strategyCandidateSummary(
         weightedSuccessScore = 10,
         totalWeight = 10,
         qualityScore = 10,
+        executionEvidenceComplete = true,
+        runtimeTerminalStatus = StrategyProbeRuntimeTerminalStatus.CLEAN_SHUTDOWN,
         domainOutcomes = domainOutcomes,
     )
 

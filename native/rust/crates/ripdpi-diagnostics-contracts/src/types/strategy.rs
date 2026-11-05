@@ -395,10 +395,10 @@ pub enum StrategyTerminalReason {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct StrategyProbeRecommendation {
-    pub tcp_candidate_id: String,
-    pub tcp_candidate_label: String,
-    pub quic_candidate_id: String,
-    pub quic_candidate_label: String,
+    pub tcp_candidate_id: Option<String>,
+    pub tcp_candidate_label: Option<String>,
+    pub quic_candidate_id: Option<String>,
+    pub quic_candidate_label: Option<String>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub quic_candidate_layout_family: Option<String>,
     pub rationale: String,

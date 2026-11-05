@@ -244,14 +244,14 @@ private fun StrategyProbeReport.buildStrategyProbeWinningPath(
     ) {
         val tcpWinner = candidateDetails[recommendation.tcpCandidateId]
         val quicWinner = candidateDetails[recommendation.quicCandidateId]
-        if (tcpWinner != null && quicWinner != null) {
+        if (tcpWinner != null || quicWinner != null) {
             DiagnosticsStrategyProbeWinningPathUiModel(
                 tcpWinner =
-                    tcpWinner.toWinningCandidateUiModel(
+                    tcpWinner?.toWinningCandidateUiModel(
                         hiddenCandidateCount = (tcpCandidates.size - 1).coerceAtLeast(0),
                     ),
                 quicWinner =
-                    quicWinner.toWinningCandidateUiModel(
+                    quicWinner?.toWinningCandidateUiModel(
                         hiddenCandidateCount = (quicCandidates.size - 1).coerceAtLeast(0),
                     ),
                 dnsLaneLabel = recommendation.dnsStrategyLabel?.let(StrategyProbeValueLabels(stringResolver)::dnsLane),
@@ -557,32 +557,36 @@ private fun DiagnosticsUiFactorySupport.strategyProbeRecommendationFields(
     shortCircuited: Boolean,
 ): List<DiagnosticsFieldUiModel> =
     listOfNotNull(
-        DiagnosticsFieldUiModel(
-            context.getString(
-                if (shortCircuited) {
-                    R.string.diagnostics_strategy_field_tcp_fallback
-                } else {
-                    R.string.diagnostics_strategy_field_tcp_recommendation
-                },
-            ),
-            recommendation.tcpCandidateLabel,
-        ),
+        recommendation.tcpCandidateLabel?.let { label ->
+            DiagnosticsFieldUiModel(
+                context.getString(
+                    if (shortCircuited) {
+                        R.string.diagnostics_strategy_field_tcp_fallback
+                    } else {
+                        R.string.diagnostics_strategy_field_tcp_recommendation
+                    },
+                ),
+                label,
+            )
+        },
         recommendation.tcpCandidateFamily?.let {
             DiagnosticsFieldUiModel(
                 context.getString(R.string.diagnostics_signature_tcp_tls_lane),
                 strategyProbeFamilyLabel(it),
             )
         },
-        DiagnosticsFieldUiModel(
-            context.getString(
-                if (shortCircuited) {
-                    R.string.diagnostics_strategy_field_quic_fallback
-                } else {
-                    R.string.diagnostics_strategy_field_quic_recommendation
-                },
-            ),
-            recommendation.quicCandidateLabel,
-        ),
+        recommendation.quicCandidateLabel?.let { label ->
+            DiagnosticsFieldUiModel(
+                context.getString(
+                    if (shortCircuited) {
+                        R.string.diagnostics_strategy_field_quic_fallback
+                    } else {
+                        R.string.diagnostics_strategy_field_quic_recommendation
+                    },
+                ),
+                label,
+            )
+        },
         recommendation.quicCandidateFamily?.let {
             DiagnosticsFieldUiModel(
                 context.getString(R.string.diagnostics_signature_quic_lane),

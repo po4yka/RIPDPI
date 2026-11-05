@@ -57,7 +57,9 @@ pub(in crate::engine::runners::strategy) fn build_audit_coverage(
         quic_winner_succeeded_targets: quic_winner.map_or(0, |c| c.succeeded_targets),
         quic_winner_total_targets: quic_winner.map_or(0, |c| c.total_targets),
         matrix_coverage_percent: round_percent(total_executed, total_planned),
-        winner_coverage_percent: (tcp_winner_coverage + quic_winner_coverage).div_ceil(2),
+        winner_coverage_percent: (tcp_winner_coverage + quic_winner_coverage)
+            .checked_div(usize::from(tcp_winner.is_some()) + usize::from(quic_winner.is_some()))
+            .unwrap_or(0),
         tcp_winner_coverage_percent: tcp_winner_coverage,
         quic_winner_coverage_percent: quic_winner_coverage,
     }

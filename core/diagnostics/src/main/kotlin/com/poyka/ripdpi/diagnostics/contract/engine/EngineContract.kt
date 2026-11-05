@@ -37,9 +37,9 @@ import kotlinx.serialization.EncodeDefault
 import kotlinx.serialization.Required
 import kotlinx.serialization.Serializable
 
-// v9: adds attempt-bound desync execution evidence and optional verified recommendations. Must stay in sync
+// v10: makes TCP and QUIC recommendation lanes optional. Must stay in sync
 // with the Rust DIAGNOSTICS_ENGINE_SCHEMA_VERSION constant.
-const val DiagnosticsEngineSchemaVersion = 9
+const val DiagnosticsEngineSchemaVersion = 10
 
 @Serializable
 enum class EngineProbeTaskFamily {

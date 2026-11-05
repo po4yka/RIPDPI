@@ -267,10 +267,10 @@ fn diagnostics_scan_report_field_manifest_matches_contract_fixture() {
                 route_features: vec![],
             }],
             recommendation: Some(StrategyProbeRecommendation {
-                tcp_candidate_id: "baseline_current".to_string(),
-                tcp_candidate_label: "Current strategy".to_string(),
-                quic_candidate_id: "quic_ipfrag2_profiled".to_string(),
-                quic_candidate_label: "QUIC profiled fragmentation".to_string(),
+                tcp_candidate_id: Some("baseline_current".to_string()),
+                tcp_candidate_label: Some("Current strategy".to_string()),
+                quic_candidate_id: Some("quic_ipfrag2_profiled".to_string()),
+                quic_candidate_label: Some("QUIC profiled fragmentation".to_string()),
                 quic_candidate_layout_family: None,
                 rationale:
                     "dns_tampering classified before fallback; keep current strategy and prefer resolver override"

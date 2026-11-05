@@ -125,7 +125,7 @@ pub(in crate::engine) fn connectivity_analytics_summary(
     let mut tcp_attention = 0usize;
     let mut tcp_contextual_downgraded = 0usize;
     let mut tcp_resets = 0usize;
-    let mut tcp_window_cap = 0usize;
+    let mut tcp_transfer_cutoff = 0usize;
     let mut domain_tls_ok = 0usize;
     let mut domain_http_ok_or_redirect = 0usize;
     let mut domain_http_unreachable = 0usize;
@@ -160,8 +160,8 @@ pub(in crate::engine) fn connectivity_analytics_summary(
                 if result.outcome == "tcp_reset" {
                     tcp_resets += 1;
                 }
-                if detail_value(result, "tcpBlockMethod").as_deref() == Some("window_cap") {
-                    tcp_window_cap += 1;
+                if detail_value(result, "tcpBlockMethod").as_deref() == Some("transfer_cutoff") {
+                    tcp_transfer_cutoff += 1;
                 }
             }
             "domain_reachability" => {
@@ -183,7 +183,7 @@ pub(in crate::engine) fn connectivity_analytics_summary(
     }
 
     format!(
-        "Diagnostics analytics total={} healthy={} attention={} failed={} inconclusive={} dns_compatible_divergence={} dns_contextual_downgraded={} dns_suspicious={} tcp_attention={} tcp_contextual_downgraded={} tcp_resets={} tcp_window_cap={} domain_tls_ok={} domain_http_ok_or_redirect={} domain_http_unreachable={} network_verdict={}",
+        "Diagnostics analytics total={} healthy={} attention={} failed={} inconclusive={} dns_compatible_divergence={} dns_contextual_downgraded={} dns_suspicious={} tcp_attention={} tcp_contextual_downgraded={} tcp_resets={} tcp_transfer_cutoff={} domain_tls_ok={} domain_http_ok_or_redirect={} domain_http_unreachable={} network_verdict={}",
         results.len(),
         buckets.healthy,
         buckets.attention,
@@ -195,7 +195,7 @@ pub(in crate::engine) fn connectivity_analytics_summary(
         tcp_attention,
         tcp_contextual_downgraded,
         tcp_resets,
-        tcp_window_cap,
+        tcp_transfer_cutoff,
         domain_tls_ok,
         domain_http_ok_or_redirect,
         domain_http_unreachable,

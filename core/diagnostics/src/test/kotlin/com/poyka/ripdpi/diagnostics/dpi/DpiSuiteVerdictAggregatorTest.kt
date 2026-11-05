@@ -103,12 +103,92 @@ class DpiSuiteVerdictAggregatorTest {
             DnsIntegrityVerdict.UDP_UNAVAILABLE,
             DnsIntegrityVerdict.ENCRYPTED_UNAVAILABLE,
             DnsIntegrityVerdict.DNS_NEGATIVE,
+            DnsIntegrityVerdict.DOH_BLOCKED,
         ).forEach {
             assertEquals(
                 SuiteVerdict.INCONCLUSIVE,
                 DpiSuiteVerdictAggregator.aggregate(listOf(dnsIntegrity(it))).verdict,
             )
         }
+    }
+
+    @Test
+    fun unavailableOrUnmeasuredProbesAreInconclusive() {
+        val incomplete =
+            listOf(
+                quicH3(QuicProbeVerdict.QUIC_TIMEOUT),
+                telegram(TelegramTestVerdict.BLOCKED),
+                telegram(TelegramTestVerdict.ERROR),
+                telegram(TelegramTestVerdict.PARTIAL),
+                tcp16(Tcp16Verdict.DEAD),
+                tcp16(Tcp16Verdict.ERROR),
+                tcp16(Tcp16Verdict.INVALID_RECONNECTED),
+                DpiSuiteProbeResult.Skipped(DpiProbeKind.QUIC_H3, "unavailable"),
+                DpiSuiteProbeResult.DomainReachability(emptyList()),
+                DpiSuiteProbeResult.DnsAvailability(emptyList()),
+                DpiSuiteProbeResult.DnsAvailability(listOf(DnsServerResult("resolver", DnsServerType.UDP, 0, 2, null))),
+                DpiSuiteProbeResult.DnsIntegrity(DnsIntegrityResult(emptyList(), emptySet(), 0)),
+                DpiSuiteProbeResult.Tcp16(emptyList()),
+                DpiSuiteProbeResult.QuicH3(emptyList()),
+                DpiSuiteProbeResult.EchReadiness(emptyList()),
+                DpiSuiteProbeResult.AllowlistSni(emptyMap()),
+            )
+        assertEquals(SuiteVerdict.INCONCLUSIVE, DpiSuiteVerdictAggregator.aggregate(emptyList()).verdict)
+        incomplete.forEach { result ->
+            assertEquals(
+                result.toString(),
+                SuiteVerdict.INCONCLUSIVE,
+                DpiSuiteVerdictAggregator.aggregate(listOf(result)).verdict,
+            )
+            assertEquals(
+                result.toString(),
+                SuiteVerdict.INCONCLUSIVE,
+                DpiSuiteVerdictAggregator.aggregate(listOf(domainReachability(DomainVerdict.OK), result)).verdict,
+            )
+        }
+    }
+
+    @Test
+    fun genericTransportAndProtocolFailuresDoNotEstablishDpi() {
+        val uncertain =
+            listOf(
+                domainReachability(DomainVerdict.UNREACHABLE),
+                domainReachability(DomainVerdict.BLOCKED),
+                domainReachability(DomainVerdict.TLS_VERSION_BLOCK),
+                domainReachability(DomainVerdict.DNS_FAIL),
+                quicH3(QuicProbeVerdict.QUIC_DROPPED),
+                quicH3(QuicProbeVerdict.QUIC_DEGRADED),
+                quicH3(QuicProbeVerdict.QUIC_VN_REJECTED),
+            ) +
+                EchProbeVerdict.entries.filter { it != EchProbeVerdict.ECH_OK }.map { verdict ->
+                    DpiSuiteProbeResult.EchReadiness(
+                        listOf(EchProbeResult("example.com", verdict, true, null, null, false, "probe failed")),
+                    )
+                }
+        uncertain.forEach { result ->
+            assertEquals(
+                result.toString(),
+                SuiteVerdict.INCONCLUSIVE,
+                DpiSuiteVerdictAggregator.aggregate(listOf(result)).verdict,
+            )
+        }
+    }
+
+    @Test
+    fun independentInterferenceEvidenceSurvivesOtherProbeFailures() {
+        val failures =
+            listOf(
+                DpiSuiteProbeResult.Failed(DpiProbeKind.QUIC_H3, "unavailable"),
+                DpiSuiteProbeResult.Failed(DpiProbeKind.ECH_READINESS, "unavailable"),
+            )
+        assertEquals(
+            SuiteVerdict.DPI_DETECTED,
+            DpiSuiteVerdictAggregator.aggregate(failures + tcp16(Tcp16Verdict.DETECTED_AT_KB)).verdict,
+        )
+        assertEquals(
+            SuiteVerdict.DNS_INTERFERENCE,
+            DpiSuiteVerdictAggregator.aggregate(failures + dnsIntegrity(DnsIntegrityVerdict.DNS_SUBSTITUTION)).verdict,
+        )
     }
 
     private fun dnsIntegrity(verdict: DnsIntegrityVerdict): DpiSuiteProbeResult.DnsIntegrity =
