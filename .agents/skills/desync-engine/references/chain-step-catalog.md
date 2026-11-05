@@ -163,7 +163,7 @@ within the host), `fake_host_template` (custom fake hostname pattern),
 per connection instead of deterministic seed).
 
 **Platform requirement**: The fakes go only through the raw ordered-segment
-sender, which needs `TCP_REPAIR`. On Android, only the privileged root helper
+sender, which needs `SOCK_RAW` and `TCP_REPAIR`. On Android, only the privileged root helper
 supplies it. `emitter_tier()` marks `HostFake` as `RootedProduction`.
 
 **Fallback**: If host range cannot be resolved or is outside the step

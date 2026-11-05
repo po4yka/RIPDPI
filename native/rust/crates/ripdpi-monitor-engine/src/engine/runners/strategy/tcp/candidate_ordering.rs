@@ -23,10 +23,12 @@ pub(super) fn ordered_pending_tcp_candidates(
     );
     // Quick scan: truncate candidate list when max_candidates is set.
     if let Some(max) = max_candidates {
-        let remaining = max.saturating_sub(1); // baseline already counted
         // The batch gate skips these, so they must not take a slot from a runnable candidate.
-        pending_tcp_specs.sort_by_key(|spec| candidate_not_applicable(spec, capabilities).is_some());
-        pending_tcp_specs.truncate(remaining);
+        // The current strategy keeps its place: the report needs its record.
+        pending_tcp_specs.sort_by_key(|spec| {
+            spec.id != "baseline_current" && candidate_not_applicable(spec, capabilities).is_some()
+        });
+        pending_tcp_specs.truncate(max.saturating_sub(1)); // baseline already counted
     }
     pending_tcp_specs
 }
@@ -39,15 +41,32 @@ mod tests {
     use super::*;
     use crate::candidates::build_tcp_candidates;
 
-    #[test]
-    fn quick_scan_does_not_spend_its_cap_on_candidates_the_gate_skips() {
-        let specs = build_tcp_candidates(&ProxyUiConfig::default());
-        let without_root = TcpCapabilities {
+    fn without_root() -> TcpCapabilities {
+        TcpCapabilities {
             baseline_ech_capable: false,
             fake_ttl_available: true,
             tcp_fast_open_available: false,
             ipfrag_caps: IpFragmentationCapabilities::default(),
-        };
+        }
+    }
+
+    #[test]
+    fn quick_scan_keeps_a_current_strategy_the_device_cannot_run() {
+        let mut base = ProxyUiConfig::default();
+        let specs = build_tcp_candidates(&base);
+        let hostfake = specs.iter().find(|spec| spec.id == "tlsrec_hostfake_split").expect("hostfake candidate");
+        base.chains.tcp_steps = hostfake.config.chains.tcp_steps.clone();
+        let specs = build_tcp_candidates(&base);
+        let pending = |budget| ordered_pending_tcp_candidates(&specs, &[], None, 1, budget, without_root());
+        let position = pending(None).iter().position(|spec| spec.id == "baseline_current").expect("current strategy");
+
+        assert!(pending(Some(position + 2)).iter().any(|spec| spec.id == "baseline_current"));
+    }
+
+    #[test]
+    fn quick_scan_does_not_spend_its_cap_on_candidates_the_gate_skips() {
+        let specs = build_tcp_candidates(&ProxyUiConfig::default());
+        let without_root = without_root();
 
         for probe_seed in 0..16 {
             let pending = ordered_pending_tcp_candidates(&specs, &[], None, probe_seed, Some(5), without_root);

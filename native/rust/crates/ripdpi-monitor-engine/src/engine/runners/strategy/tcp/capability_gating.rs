@@ -115,6 +115,11 @@ mod tests {
             let skipped = candidate_not_applicable(spec, capabilities(false)).expect(spec.id);
             assert_eq!(skipped.reason, "Requires rooted production emitter tier", "{}", spec.id);
             assert!(candidate_not_applicable(spec, capabilities(true)).is_none(), "{}", spec.id);
+            let repair_without_raw = TcpCapabilities {
+                ipfrag_caps: IpFragmentationCapabilities { raw_ipv4: false, raw_ipv6: false, tcp_repair: true },
+                ..capabilities(true)
+            };
+            assert!(candidate_not_applicable(spec, repair_without_raw).is_some(), "{}", spec.id);
         }
     }
 }

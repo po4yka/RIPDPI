@@ -371,7 +371,7 @@ fn hostfake_candidates_need_the_raw_sender_and_have_no_fallback_family() {
         assert_eq!(hostfake.approximate_fallback_family, None, "{id}");
         assert_eq!(
             hostfake.requires_capabilities,
-            &[RuntimeCapability::TtlWrite, RuntimeCapability::ReplacementSocket],
+            &[RuntimeCapability::TtlWrite, RuntimeCapability::RawTcpFakeSend, RuntimeCapability::ReplacementSocket],
             "{id}"
         );
     }

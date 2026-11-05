@@ -24,7 +24,7 @@ pub struct StrategyCandidateSpec {
     /// When `true`, this candidate requires the ability to set a custom IP TTL
     /// on outgoing sockets (via `setsockopt(IP_TTL)`). On Android VPN/tun mode
     /// this syscall fails, so candidates that depend on TTL manipulation (fake,
-    /// fakedsplit, fakeddisorder, hostfake without a follow-up split) must be
+    /// fakedsplit, fakeddisorder, hostfake) must be
     /// skipped when TTL capability is unavailable.
     pub requires_fake_ttl: bool,
     pub requires_tcp_fast_open: bool,

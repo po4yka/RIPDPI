@@ -78,7 +78,7 @@ pub(super) fn config_requires_fake_ttl(config: &ProxyUiConfig) -> bool {
 /// Step-kind → capability mapping:
 /// - `fake`, `fakedsplit`, `fakeddisorder`, `hostfake`, `disorder`, `disoob`
 ///   → [`RuntimeCapability::TtlWrite`] (TTL manipulation to expire fakes before target).
-/// - `hostfake` → [`RuntimeCapability::ReplacementSocket`] (raw ordered-segment sender;
+/// - `hostfake` → [`RuntimeCapability::RawTcpFakeSend`] and [`RuntimeCapability::ReplacementSocket`] (raw ordered-segment sender;
 ///   without it the step is a plain split with no decoys).
 /// - `fakerst` → [`RuntimeCapability::RawTcpFakeSend`] (raw-socket fake RST path).
 /// - `seqovl` → [`RuntimeCapability::ReplacementSocket`] (TCP_REPAIR replacement socket path).
@@ -109,6 +109,7 @@ pub(super) fn config_requires_capabilities(config: &ProxyUiConfig) -> Vec<Runtim
             }
             "hostfake" => {
                 needs_ttl = true;
+                needs_raw_tcp = true;
                 needs_replacement_socket = true;
             }
             "fakerst" => {
