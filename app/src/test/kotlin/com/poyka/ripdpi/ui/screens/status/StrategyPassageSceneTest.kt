@@ -393,5 +393,63 @@ class StrategyPassageSceneTest {
         assertEquals(1740, scene.durationMillis)
     }
 
+    @Test
+    fun `without raw packets the lowered steps draw plain cuts`() {
+        val noRaw = { step: TcpChainStepModel ->
+            compileStrategyPassageScene(listOf(step), emptyList(), rawPackets = false)
+        }
+
+        val hostfake = noRaw(tcp(TcpChainStepKind.HostFake, "endhost+8"))
+        val hostfakePieces = hostfake.tcp!!.pieces
+        assertEquals(listOf(PassageFamily.Cut), hostfake.families)
+        assertEquals(listOf(real(0, PassageHostStart), real(PassageHostStart, PassageHostEnd)), hostfakePieces.take(2))
+        assertEquals(setOf(PassagePieceKind.Real), hostfakePieces.map { it.kind }.toSet())
+
+        listOf(TcpChainStepKind.SeqOverlap, TcpChainStepKind.FakeRst).forEach { kind ->
+            val scene = noRaw(tcp(kind, "host+1"))
+            assertEquals(listOf(PassageFamily.Cut), scene.families)
+            assertEquals(noRaw(tcp(TcpChainStepKind.Split, "host+1")).tcp, scene.tcp)
+        }
+    }
+
+    @Test
+    fun `only root mode shows raw packets`() {
+        val settings =
+            activeSettings().setStrategyChains(listOf(tcp(TcpChainStepKind.HostFake, "endhost+8")), emptyList())
+        val kinds = { builder: AppSettings.Builder ->
+            strategyPassageFor(builder.build())
+                ?.tcp
+                ?.pieces
+                ?.map { it.kind }
+                ?.toSet()
+        }
+
+        assertEquals(setOf(PassagePieceKind.Real), kinds(settings.clone().setRootModeEnabled(false)))
+        assertEquals(
+            setOf(PassagePieceKind.Real, PassagePieceKind.Decoy),
+            kinds(settings.clone().setRootModeEnabled(true)),
+        )
+    }
+
+    @Test
+    fun `a chain the engine refuses without raw packets leaves no scene`() {
+        val settings = { tcpSteps: List<TcpChainStepModel>, udpSteps: List<UdpChainStepModel> ->
+            activeSettings().setDesyncUdp(true).setStrategyChains(tcpSteps, udpSteps)
+        }
+        val multiDisorder = listOf("host+1", "endhost").map { tcp(TcpChainStepKind.MultiDisorder, it) }
+        val udpFragments = UdpChainStepModel(1, UdpChainStepKind.IpFrag2Udp, splitBytes = 8)
+        val blocked =
+            listOf(
+                settings(multiDisorder, emptyList()),
+                settings(listOf(tcp(TcpChainStepKind.IpFrag2)), emptyList()),
+                settings(listOf(tcp(TcpChainStepKind.Split)), listOf(udpFragments)),
+            )
+
+        blocked.forEach { builder ->
+            assertNull(strategyPassageFor(builder.clone().build()))
+            assertNotNull(strategyPassageFor(builder.clone().setRootModeEnabled(true).build()))
+        }
+    }
+
     private fun activeSettings() = AppSettings.newBuilder().setDesyncHttp(true).setDesyncHttps(true)
 }

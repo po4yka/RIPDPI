@@ -175,15 +175,29 @@ private val UdpChainStepKind.family: PassageFamily
         }
 
 // A hostfake range without the whole host plans a split, so it must not be named a mask.
-private fun TcpChainStepModel.family(): PassageFamily {
+private fun TcpChainStepModel.family(rawPackets: Boolean): PassageFamily {
     val withoutHost =
         kind == TcpChainStepKind.HostFake &&
             schematicPosition(normalizeTcpChainStepModel(this).marker) < PassageHostEnd
-    return if (withoutHost) PassageFamily.Cut else kind.family
+    return if (withoutHost || (!rawPackets && kind in LoweredWithoutRawPackets)) PassageFamily.Cut else kind.family
 }
 
+// The engine refuses a raw send before any packet leaves and writes these as plain cuts.
+private val LoweredWithoutRawPackets =
+    setOf(TcpChainStepKind.HostFake, TcpChainStepKind.SeqOverlap, TcpChainStepKind.FakeRst)
+
+// validate_ip_fragmentation_capabilities refuses to start the proxy for these chains.
+private fun blockedWithoutRawPackets(
+    tcpSteps: List<TcpChainStepModel>,
+    udpSteps: List<UdpChainStepModel>,
+): Boolean =
+    tcpSteps.any { it.kind == TcpChainStepKind.MultiDisorder || it.kind == TcpChainStepKind.IpFrag2 } ||
+        udpSteps.any { it.kind == UdpChainStepKind.IpFrag2Udp }
+
 /** Mirrors the planner's cursor: each step cuts what is left, and lost bytes are resent after the plan. */
-private class TcpPieceWriter {
+private class TcpPieceWriter(
+    private val rawPackets: Boolean,
+) {
     private val pieces = mutableListOf<PassagePiece>()
     private val resends = mutableListOf<PassagePiece>()
     private var cursor = 0
@@ -236,12 +250,12 @@ private class TcpPieceWriter {
             }
 
             TcpChainStepKind.FakeRst -> {
-                pieces += PassagePiece(PassagePieceKind.FakeReset, start, start)
+                if (rawPackets) pieces += PassagePiece(PassagePieceKind.FakeReset, start, start)
                 pieces += real(start, position)
             }
 
             TcpChainStepKind.SeqOverlap -> {
-                pieces += real(start, position).copy(hasFakePrefix = true)
+                pieces += real(start, position).copy(hasFakePrefix = rawPackets)
                 pieces += real(position, PassagePayloadEnd)
             }
 
@@ -298,7 +312,7 @@ private class TcpPieceWriter {
         if (start < PassageHostStart) {
             pieces += real(start, PassageHostStart)
         }
-        pieces += PassagePiece(PassagePieceKind.Decoy, PassageHostStart, PassageHostEnd)
+        if (rawPackets) pieces += PassagePiece(PassagePieceKind.Decoy, PassageHostStart, PassageHostEnd)
         val middle = step.midhostMarker.takeIf { it.isNotBlank() }?.let(::schematicPosition)
         if (middle != null && middle > PassageHostStart && middle < PassageHostEnd) {
             pieces += real(PassageHostStart, middle)
@@ -306,7 +320,7 @@ private class TcpPieceWriter {
         } else {
             pieces += real(PassageHostStart, PassageHostEnd)
         }
-        pieces += PassagePiece(PassagePieceKind.Decoy, PassageHostStart, PassageHostEnd)
+        if (rawPackets) pieces += PassagePiece(PassagePieceKind.Decoy, PassageHostStart, PassageHostEnd)
         if (PassageHostEnd < end) {
             pieces += real(PassageHostEnd, end)
         }
@@ -331,7 +345,10 @@ private fun recordBoundaries(preludeSteps: List<TcpChainStepModel>): List<Int> =
         }.distinct()
         .sorted()
 
-private fun compileTcpPieces(sendSteps: List<TcpChainStepModel>): List<PassagePiece> {
+private fun compileTcpPieces(
+    sendSteps: List<TcpChainStepModel>,
+    rawPackets: Boolean,
+): List<PassagePiece> {
     // send_multi_disorder_tcp emits every segment at the normal TTL, last segment first.
     if (sendSteps.any { it.kind == TcpChainStepKind.MultiDisorder }) {
         val cuts = sendSteps.map { schematicPosition(normalizeTcpChainStepModel(it).marker) }
@@ -341,7 +358,7 @@ private fun compileTcpPieces(sendSteps: List<TcpChainStepModel>): List<PassagePi
             .zipWithNext { start, end -> PassagePiece(PassagePieceKind.Real, start, end) }
             .reversed()
     }
-    val writer = TcpPieceWriter()
+    val writer = TcpPieceWriter(rawPackets)
     sendSteps.forEach { step -> writer.position(step)?.let { writer.write(step, it) } }
     return writer.finish()
 }
@@ -387,6 +404,7 @@ private fun compileUdpPieces(steps: List<UdpChainStepModel>): List<PassagePiece>
 fun compileStrategyPassageScene(
     tcpSteps: List<TcpChainStepModel>,
     udpSteps: List<UdpChainStepModel>,
+    rawPackets: Boolean = true,
 ): StrategyPassageScene {
     val (preludeSteps, sendSteps) = tcpSteps.partition { it.kind.isTlsPrelude }
     val tcp =
@@ -394,7 +412,7 @@ fun compileStrategyPassageScene(
             null
         } else {
             PassageLane(
-                pieces = compileTcpPieces(sendSteps).toImmutableList(),
+                pieces = compileTcpPieces(sendSteps, rawPackets).toImmutableList(),
                 recordBoundaries = recordBoundaries(preludeSteps).toImmutableList(),
             )
         }
@@ -402,23 +420,30 @@ fun compileStrategyPassageScene(
         udpSteps.takeIf { it.isNotEmpty() }?.let { steps ->
             PassageLane(pieces = compileUdpPieces(steps).toImmutableList(), recordBoundaries = persistentListOf())
         }
-    val families = (tcpSteps.map { it.family() } + udpSteps.map { it.kind.family }).distinct()
+    val families = (tcpSteps.map { it.family(rawPackets) } + udpSteps.map { it.kind.family }).distinct()
     return StrategyPassageScene(families = families.toImmutableList(), tcp = tcp, udp = udp)
 }
 
 /**
  * Null where the chain does not describe the traffic: a relay carries it, custom arguments or rules
- * replace the chain, or the chain has no TCP protocol to act on.
+ * replace the chain, the chain has no TCP protocol to act on, or the chain needs raw packets that
+ * this device cannot send.
  */
 fun strategyPassageFor(settings: AppSettings): StrategyPassageScene? {
+    val tcpSteps = settings.effectiveTcpChainSteps()
+    // Native code drops the UDP group when UDP desync is off (append_udp_group).
+    val udpSteps = if (settings.desyncUdp) settings.effectiveUdpChainSteps() else emptyList()
+    // shortcut: root mode can be on while the helper fails to start, read the live helper state when the UI has it.
+    val rawPackets = settings.rootModeEnabled
     val replaced =
         settings.toRelaySettingsModel().enabled ||
             settings.enableCmdSettings ||
             settings.strategyChainYaml.isNotBlank()
-    if (replaced || (!settings.desyncHttp && !settings.desyncHttps)) return null
-    // Native code drops the UDP group when UDP desync is off (append_udp_group).
-    val udpSteps = if (settings.desyncUdp) settings.effectiveUdpChainSteps() else emptyList()
-    return compileStrategyPassageScene(settings.effectiveTcpChainSteps(), udpSteps)
+    val hidden =
+        replaced ||
+            (!settings.desyncHttp && !settings.desyncHttps) ||
+            (!rawPackets && blockedWithoutRawPackets(tcpSteps, udpSteps))
+    return if (hidden) null else compileStrategyPassageScene(tcpSteps, udpSteps, rawPackets)
 }
 
 /** When a piece leaves the device. The order follows the plan; the spacing is for the reader, not the wire. */
