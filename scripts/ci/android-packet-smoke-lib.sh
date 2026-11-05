@@ -50,6 +50,17 @@ packet_smoke_require_executed_scenarios() {
     fi
 }
 
+# A packet pattern adds evidence to a passing test. It never excuses a failed test.
+packet_smoke_scenario_status() {
+    local test_status="$1"
+    local pattern_status="$2"
+    if [[ "$test_status" -ne 0 ]]; then
+        printf '%s\n' "$test_status"
+    else
+        printf '%s\n' "$pattern_status"
+    fi
+}
+
 packet_smoke_instrumentation_output_failed() {
     local output_file="$1"
     grep -Eq '(^FAILURES!!!$|^INSTRUMENTATION_STATUS_CODE: -2$|^INSTRUMENTATION_RESULT: shortMsg=|^INSTRUMENTATION_CODE: 0$|Process crashed)' "$output_file"

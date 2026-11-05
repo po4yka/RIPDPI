@@ -605,20 +605,9 @@ validate_raw_fake_strategy_packet_pattern() {
     return 1
 }
 
-raw_privileged_strategy_scenario() {
+raw_packet_validated_scenario() {
     case "$1" in
-        android_proxy_split_host_plus_one|android_proxy_multidisorder_family|android_proxy_ipfrag2_family|android_proxy_ipfrag2_ipv6_ext_family|android_proxy_seqovl_family|android_proxy_fakerst_family)
-            return 0
-            ;;
-        *)
-            return 1
-            ;;
-    esac
-}
-
-raw_privileged_strategy_allows_instrumentation_failure() {
-    case "$1" in
-        android_proxy_seqovl_family|android_proxy_fakerst_family)
+        android_proxy_split_host_plus_one|android_proxy_hostfake_family|android_proxy_fakedsplit_family|android_proxy_fakeddisorder_family|android_proxy_multidisorder_family|android_proxy_ipfrag2_family|android_proxy_ipfrag2_ipv6_ext_family|android_proxy_seqovl_family|android_proxy_fakerst_family)
             return 0
             ;;
         *)
@@ -894,27 +883,13 @@ for row in "${scenarios[@]}"; do
     collect_device_snapshot "$scenario_dir"
     curl -fsS "http://127.0.0.1:${fixture_control_port}/events" >"$scenario_dir/fixture-events.json" || true
 
-    if [[ "$selected_capture_mode" == "raw" ]] && raw_privileged_strategy_scenario "$scenario_id"; then
-        if validate_raw_fake_strategy_packet_pattern "$scenario_id" "$scenario_dir"; then
-            if raw_privileged_strategy_allows_instrumentation_failure "$scenario_id"; then
-                status=0
-            fi
-        else
-            status=1
-        fi
-    else
-        if test_output_reports_junit_skip "$scenario_dir/test-output.txt" "$test_selector"; then
-            append_runner_log "$scenario_dir/test-output.txt" "==> instrumentation reported a skipped packet-smoke test"
-            if validate_raw_fake_strategy_packet_pattern "$scenario_id" "$scenario_dir"; then
-                status=0
-            else
-                status=1
-            fi
-        fi
-
-        if [[ "$status" -ne 0 ]] && validate_raw_fake_strategy_packet_pattern "$scenario_id" "$scenario_dir"; then
-            status=0
-        fi
+    if [[ "$selected_capture_mode" == "raw" ]] && raw_packet_validated_scenario "$scenario_id"; then
+        pattern_status=0
+        validate_raw_fake_strategy_packet_pattern "$scenario_id" "$scenario_dir" || pattern_status=1
+        status="$(packet_smoke_scenario_status "$status" "$pattern_status")"
+    elif test_output_reports_junit_skip "$scenario_dir/test-output.txt" "$test_selector"; then
+        append_runner_log "$scenario_dir/test-output.txt" "==> instrumentation reported a skipped packet-smoke test"
+        status=1
     fi
 
     if [[ "$status" -ne 0 ]]; then

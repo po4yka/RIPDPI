@@ -199,6 +199,8 @@ class PacketSmokeInstrumentedTest {
                 hostfake endhost host=cdn.discordapp.net
                 """.trimIndent(),
             expectedScenario = "hostfake",
+            rootModeEnabled = true,
+            requireFixtureResponse = fakeSegmentsLeaveFixtureHandshakeValid(),
         )
     }
 
@@ -213,6 +215,7 @@ class PacketSmokeInstrumentedTest {
                 fakedsplit host+1
                 """.trimIndent(),
             expectedScenario = "fakedsplit",
+            requireFixtureResponse = fakeSegmentsLeaveFixtureHandshakeValid(),
         )
     }
 
@@ -227,6 +230,7 @@ class PacketSmokeInstrumentedTest {
                 fakeddisorder endhost
                 """.trimIndent(),
             expectedScenario = "fakeddisorder",
+            requireFixtureResponse = fakeSegmentsLeaveFixtureHandshakeValid(),
         )
     }
 
@@ -622,6 +626,9 @@ class PacketSmokeInstrumentedTest {
             )
         }
     }
+
+    // At TTL 1 the lab path acknowledges the fake segments, so the raw lane proves these scenarios by packet capture.
+    private fun fakeSegmentsLeaveFixtureHandshakeValid(): Boolean = packetSmokeUsesPhysicalIndirectContract()
 
     private fun packetSmokeFixtureFakeTtl(): Int =
         when (packetSmokeDeviceProfile()) {

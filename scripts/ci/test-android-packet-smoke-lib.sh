@@ -75,6 +75,10 @@ assert_status 0 "one executed scenario satisfies the runner" \
 assert_status 1 "filtered unsupported scenario fails instead of silently passing" \
     packet_smoke_require_executed_scenarios 0 android_proxy_split_host_plus_one
 
+assert_eq "1" "$(packet_smoke_scenario_status 1 0)" "valid packet pattern does not excuse a failed test"
+assert_eq "1" "$(packet_smoke_scenario_status 0 1)" "passing test still needs its packet pattern"
+assert_eq "0" "$(packet_smoke_scenario_status 0 0)" "passing test with its packet pattern passes"
+
 instrumentation_success="$(make_temp_file)"
 cat >"$instrumentation_success" <<'EOF'
 INSTRUMENTATION_STATUS: class=com.poyka.ripdpi.e2e.PacketSmokeInstrumentedTest
