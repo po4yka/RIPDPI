@@ -112,7 +112,7 @@ class RipDpiConnectionStrategyPanelTest {
     }
 
     @Test
-    fun `two families are named together and more become a combined name`() {
+    fun `two families are named together and more become a step count`() {
         val split = TcpChainStepModel(TcpChainStepKind.Split, "host+1")
         val tls = TcpChainStepModel(TcpChainStepKind.TlsRec, "host")
         composeRule.setContent {
@@ -132,7 +132,7 @@ class RipDpiConnectionStrategyPanelTest {
             }
         }
         composeRule.onNodeWithText("TLS records + Packet split").assertIsDisplayed()
-        composeRule.onNodeWithText("Combined strategy").assertIsDisplayed()
+        composeRule.onNodeWithText("Steps: 3").assertIsDisplayed()
         composeRule.onNodeWithText("No changes").assertIsDisplayed()
     }
 

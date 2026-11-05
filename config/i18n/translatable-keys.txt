@@ -4642,7 +4642,6 @@ app:status_stat_mode
 app:status_stat_quality
 app:status_stat_route
 app:status_strategy_details
-app:status_strategy_family_combined
 app:status_strategy_family_cut
 app:status_strategy_family_cut_description
 app:status_strategy_family_decoy
@@ -4666,6 +4665,7 @@ app:status_strategy_family_quic_split_copy
 app:status_strategy_family_quic_split_copy_description
 app:status_strategy_family_quic_version
 app:status_strategy_family_quic_version_description
+app:status_strategy_family_steps
 app:status_strategy_family_tls_records
 app:status_strategy_family_tls_records_description
 app:status_strategy_family_urgent_byte

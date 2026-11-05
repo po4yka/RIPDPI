@@ -1,12 +1,14 @@
 package com.poyka.ripdpi.ui.screens.status
 
 import androidx.compose.runtime.Immutable
+import com.poyka.ripdpi.data.ActivationFilterModel
 import com.poyka.ripdpi.data.DefaultTlsRandRecFragmentCount
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepKind
 import com.poyka.ripdpi.data.UdpChainStepModel
 import com.poyka.ripdpi.data.adaptiveOffsetPreset
+import com.poyka.ripdpi.data.effectiveGroupActivationFilter
 import com.poyka.ripdpi.data.effectiveTcpChainSteps
 import com.poyka.ripdpi.data.effectiveUdpChainSteps
 import com.poyka.ripdpi.data.isTlsPrelude
@@ -84,6 +86,7 @@ val PassagePiece.arrives: Boolean
 @Immutable
 data class StrategyPassageScene(
     val families: ImmutableList<PassageFamily>,
+    val stepCount: Int,
     val tcp: PassageLane?,
     val udp: PassageLane?,
 )
@@ -104,6 +107,8 @@ private const val NegativeMarkerMin = PassageHostEnd + NumericMarkerBase
 private const val QuicFragmentCut = 39
 private const val MaxDrawnCopies = 4
 private const val MinRealisticInitialCopies = 2
+private const val EchMarkerName = "echext"
+private const val HostFakeDecoys = 2
 
 private val MarkerPattern = Regex("^([a-z]+)?([+-]?\\d+)?$")
 
@@ -175,16 +180,63 @@ private val UdpChainStepKind.family: PassageFamily
         }
 
 // A hostfake range without the whole host plans a split, so it must not be named a mask.
-private fun TcpChainStepModel.family(rawPackets: Boolean): PassageFamily {
-    val withoutHost =
-        kind == TcpChainStepKind.HostFake &&
-            schematicPosition(normalizeTcpChainStepModel(this).marker) < PassageHostEnd
-    return if (withoutHost || (!rawPackets && kind in LoweredWithoutRawPackets)) PassageFamily.Cut else kind.family
-}
+private fun TcpChainStepModel.family(
+    rawPackets: Boolean,
+    hostMasked: Boolean,
+): PassageFamily =
+    when {
+        kind == TcpChainStepKind.HostFake && !hostMasked -> PassageFamily.Cut
+        !rawPackets && kind in LoweredWithoutRawPackets -> PassageFamily.Cut
+        else -> kind.family
+    }
 
 // The engine refuses a raw send before any packet leaves and writes these as plain cuts.
-private val LoweredWithoutRawPackets =
-    setOf(TcpChainStepKind.HostFake, TcpChainStepKind.SeqOverlap, TcpChainStepKind.FakeRst)
+private val LoweredWithoutRawPackets = setOf(TcpChainStepKind.SeqOverlap, TcpChainStepKind.FakeRst)
+
+// The scene shows the first packet of a flow, and the engine skips a filter that excludes round 1.
+// shortcut: payload, stream, and TCP state conditions are not read, model them if a preset starts to use them.
+private val ActivationFilterModel.skipsFirstRound: Boolean
+    get() = (round.start ?: 1L) > 1L || (round.end ?: 1L) < 1L
+
+// plan_tcp fails on a cut behind the previous one and sends the whole payload unsplit. Seqovl moves
+// the cursor to the end of the payload, so any step after it is behind.
+private fun cutsRunBackward(steps: List<TcpChainStepModel>): Boolean {
+    val sendSteps = steps.filter { !it.kind.isTlsPrelude && it.kind != TcpChainStepKind.MultiDisorder }
+    return sendSteps.dropLast(1).any { it.kind == TcpChainStepKind.SeqOverlap } ||
+        sendSteps
+            .map { normalizeTcpChainStepModel(it).marker }
+            .zipWithNext(::markerRunsBackward)
+            .any { it }
+}
+
+// shortcut: a numeric or echext marker has no known real order against a named one, so this pair counts as forward.
+private fun markerRunsBackward(
+    first: String,
+    second: String,
+): Boolean {
+    val firstParts = markerParts(first)
+    val secondParts = markerParts(second)
+    if (firstParts == null || secondParts == null) return false
+    val (firstName, firstDelta) = firstParts
+    val (secondName, secondDelta) = secondParts
+    val firstBase = NamedMarkerPositions[firstName].takeUnless { firstName == EchMarkerName }
+    val secondBase = NamedMarkerPositions[secondName].takeUnless { secondName == EchMarkerName }
+    return when {
+        // A negative numeric marker counts from the payload end, so it has no known order against a positive one.
+        firstName.isEmpty() && secondName.isEmpty() -> firstDelta >= 0 == secondDelta >= 0 && secondDelta < firstDelta
+
+        firstName == secondName -> secondDelta < firstDelta
+
+        firstBase == null || secondBase == null -> false
+
+        else -> secondBase < firstBase
+    }
+}
+
+private fun markerParts(marker: String): Pair<String, Int>? =
+    MarkerPattern.matchEntire(marker.trim().substringBefore(':').lowercase())?.groupValues?.let { groups ->
+        groups[1].removePrefix("abs") to (groups[2].toIntOrNull() ?: 0)
+    }
 
 // validate_ip_fragmentation_capabilities refuses to start the proxy for these chains.
 private fun blockedWithoutRawPackets(
@@ -406,28 +458,46 @@ fun compileStrategyPassageScene(
     udpSteps: List<UdpChainStepModel>,
     rawPackets: Boolean = true,
 ): StrategyPassageScene {
-    val (preludeSteps, sendSteps) = tcpSteps.partition { it.kind.isTlsPrelude }
+    val activeTcp = tcpSteps.filterNot { it.activationFilter.skipsFirstRound }
+    // plan_udp skips a copy step without copies. ipfrag2_udp has no count.
+    val activeUdp =
+        udpSteps.filter {
+            !it.activationFilter.skipsFirstRound && (it.kind == UdpChainStepKind.IpFrag2Udp || it.count > 0)
+        }
+    val (preludeSteps, sendSteps) = activeTcp.partition { it.kind.isTlsPrelude }
+    val tcpPieces = compileTcpPieces(sendSteps, rawPackets)
     val tcp =
         if (tcpSteps.isEmpty() && udpSteps.isNotEmpty()) {
             null
         } else {
             PassageLane(
-                pieces = compileTcpPieces(sendSteps, rawPackets).toImmutableList(),
+                pieces = tcpPieces.toImmutableList(),
                 recordBoundaries = recordBoundaries(preludeSteps).toImmutableList(),
             )
         }
     val udp =
-        udpSteps.takeIf { it.isNotEmpty() }?.let { steps ->
-            PassageLane(pieces = compileUdpPieces(steps).toImmutableList(), recordBoundaries = persistentListOf())
+        udpSteps.takeIf { it.isNotEmpty() }?.let {
+            PassageLane(pieces = compileUdpPieces(activeUdp).toImmutableList(), recordBoundaries = persistentListOf())
         }
-    val families = (tcpSteps.map { it.family(rawPackets) } + udpSteps.map { it.kind.family }).distinct()
-    return StrategyPassageScene(families = families.toImmutableList(), tcp = tcp, udp = udp)
+    // writeHostFake draws two decoys over the host. Another fake step can draw only one there.
+    val hostMasked =
+        tcpPieces.count {
+            it.kind == PassagePieceKind.Decoy && it.start == PassageHostStart && it.end == PassageHostEnd
+        } >= HostFakeDecoys
+    val families =
+        (activeTcp.map { it.family(rawPackets, hostMasked) } + activeUdp.map { it.kind.family }).distinct()
+    return StrategyPassageScene(
+        families = families.toImmutableList(),
+        stepCount = activeTcp.size + activeUdp.size,
+        tcp = tcp,
+        udp = udp,
+    )
 }
 
 /**
  * Null where the chain does not describe the traffic: a relay carries it, custom arguments or rules
- * replace the chain, the chain has no TCP protocol to act on, or the chain needs raw packets that
- * this device cannot send.
+ * replace the chain, the chain has no TCP protocol to act on, the chain needs raw packets that this
+ * device cannot send, the group does not act on the first packet, or the plan fails on backward cuts.
  */
 fun strategyPassageFor(settings: AppSettings): StrategyPassageScene? {
     val tcpSteps = settings.effectiveTcpChainSteps()
@@ -442,7 +512,9 @@ fun strategyPassageFor(settings: AppSettings): StrategyPassageScene? {
     val hidden =
         replaced ||
             (!settings.desyncHttp && !settings.desyncHttps) ||
-            (!rawPackets && blockedWithoutRawPackets(tcpSteps, udpSteps))
+            (!rawPackets && blockedWithoutRawPackets(tcpSteps, udpSteps)) ||
+            settings.effectiveGroupActivationFilter().skipsFirstRound ||
+            cutsRunBackward(tcpSteps.filterNot { it.activationFilter.skipsFirstRound })
     return if (hidden) null else compileStrategyPassageScene(tcpSteps, udpSteps, rawPackets)
 }
 

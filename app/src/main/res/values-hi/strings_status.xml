@@ -310,7 +310,7 @@
     <string name="status_strategy_family_none_description">पैकेट बिना बदलाव के भेजा जाता है।</string>
     <string name="status_strategy_family_pair">%1$s + %2$s</string>
     <string name="status_strategy_passage_description">%1$s: %2$s</string>
-    <string name="status_strategy_family_combined">संयुक्त रणनीति</string>
+    <string name="status_strategy_family_steps">चरण: %1$d</string>
     <plurals name="status_advisories_more">
         <item quantity="one">%d और सूचना</item>
         <item quantity="other">%d और सूचनाएँ</item>

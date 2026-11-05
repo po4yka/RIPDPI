@@ -1,10 +1,13 @@
 package com.poyka.ripdpi.ui.screens.status
 
+import com.poyka.ripdpi.data.ActivationFilterModel
+import com.poyka.ripdpi.data.NumericRangeModel
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.TcpChainStepKind
 import com.poyka.ripdpi.data.TcpChainStepModel
 import com.poyka.ripdpi.data.UdpChainStepKind
 import com.poyka.ripdpi.data.UdpChainStepModel
+import com.poyka.ripdpi.data.setGroupActivationFilterCompat
 import com.poyka.ripdpi.data.setStrategyChains
 import com.poyka.ripdpi.proto.AppSettings
 import org.junit.Assert.assertEquals
@@ -449,6 +452,109 @@ class StrategyPassageSceneTest {
             assertNull(strategyPassageFor(builder.clone().build()))
             assertNotNull(strategyPassageFor(builder.clone().setRootModeEnabled(true).build()))
         }
+    }
+
+    @Test
+    fun `cuts that run backward leave no scene because the plan sends the payload unsplit`() {
+        val scene = { markers: List<String> ->
+            strategyPassageFor(
+                activeSettings()
+                    .setStrategyChains(markers.map { tcp(TcpChainStepKind.Split, it) }, emptyList())
+                    .build(),
+            )
+        }
+
+        assertNull(scene(listOf("endhost", "host")))
+        assertNull(scene(listOf("host+5", "host+1")))
+        assertNull(scene(listOf("50", "1")))
+        assertNull(scene(listOf("host", "host-1")))
+        assertNull(scene(listOf("host+5", "host-2")))
+        assertNotNull(scene(listOf("host", "echext")))
+        assertNotNull(scene(listOf("5", "-5")))
+        assertNotNull(scene(listOf("host", "endhost")))
+        assertNotNull(scene(listOf("1", "50")))
+        assertNotNull(scene(listOf("200", "host")))
+        assertNotNull(scene(listOf("auto(endhost)", "host")))
+    }
+
+    @Test
+    fun `a step after seqovl leaves no scene because seqovl ends the plan cursor`() {
+        val settings =
+            activeSettings().setStrategyChains(
+                listOf(
+                    tcp(TcpChainStepKind.SeqOverlap, "host").copy(overlapSize = 8, fakeMode = "rand"),
+                    tcp(TcpChainStepKind.Split, "endhost"),
+                ),
+                emptyList(),
+            )
+
+        assertNull(strategyPassageFor(settings.setRootModeEnabled(true).build()))
+    }
+
+    @Test
+    fun `a step limited to later rounds is not on the first packet`() {
+        val later = ActivationFilterModel(round = NumericRangeModel(start = 2))
+        val pieces =
+            tcpPieces(
+                tcp(TcpChainStepKind.Split, "host+1"),
+                tcp(TcpChainStepKind.Fake, "endhost").copy(activationFilter = later),
+            )
+        assertEquals(listOf(real(0, 33), real(33, 100)), pieces)
+
+        val scene =
+            compileStrategyPassageScene(
+                listOf(tcp(TcpChainStepKind.Fake, "host+1").copy(activationFilter = later)),
+                listOf(udp(UdpChainStepKind.FakeBurst).copy(activationFilter = later)),
+            )
+        assertEquals(emptyList<PassageFamily>(), scene.families)
+        assertEquals(0, scene.stepCount)
+        assertEquals(listOf(real(0, 100)), scene.tcp?.pieces)
+        assertEquals(listOf(real(0, 100)), scene.udp?.pieces)
+    }
+
+    @Test
+    fun `a group limited to later rounds leaves no scene`() {
+        val filter = { start: Long ->
+            activeSettings()
+                .setGroupActivationFilterCompat(ActivationFilterModel(round = NumericRangeModel(start = start)))
+                .build()
+        }
+
+        assertNull(strategyPassageFor(filter(2)))
+        assertNotNull(strategyPassageFor(filter(1)))
+    }
+
+    @Test
+    fun `a realistic initial step without copies is skipped`() {
+        val scene =
+            compileStrategyPassageScene(
+                listOf(tcp(TcpChainStepKind.Split, "host+1")),
+                listOf(udp(UdpChainStepKind.QuicMultiInitialRealistic, 0)),
+            )
+
+        assertEquals(listOf(PassageFamily.Cut), scene.families)
+        assertEquals(listOf(real(0, 100)), scene.udp?.pieces)
+    }
+
+    @Test
+    fun `a hostfake that starts after the host is named a cut`() {
+        val scene =
+            compileStrategyPassageScene(
+                listOf(tcp(TcpChainStepKind.Split, "host+1"), tcp(TcpChainStepKind.HostFake, "endhost")),
+                emptyList(),
+            )
+
+        assertEquals(listOf(PassageFamily.Cut), scene.families)
+        val afterFake =
+            compileStrategyPassageScene(
+                listOf(
+                    tcp(TcpChainStepKind.Split, "host"),
+                    tcp(TcpChainStepKind.Fake, "endhost"),
+                    tcp(TcpChainStepKind.HostFake, "endhost+1"),
+                ),
+                emptyList(),
+            )
+        assertEquals(listOf(PassageFamily.Cut, PassageFamily.Decoy), afterFake.families)
     }
 
     private fun activeSettings() = AppSettings.newBuilder().setDesyncHttp(true).setDesyncHttps(true)

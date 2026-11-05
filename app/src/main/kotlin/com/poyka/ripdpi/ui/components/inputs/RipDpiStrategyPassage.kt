@@ -158,11 +158,11 @@ private class PassageFrame(
 internal class PassagePlaybackMemory {
     var replayRequests by mutableIntStateOf(0)
     var handledReplays = 0
-    var seenKey: Int? = null
+    var seenKey: Pair<StatusConnectionActuatorStatus, StrategyPassageScene>? = null
 }
 
 /**
- * Plays one flight when the session locks, the strategy changes, or the panel is tapped, and loops up to
+ * Plays one flight when the session locks, the strategy changes, or an expandable panel is tapped, and loops up to
  * the DPI line while connecting. Reduced motion stays at rest.
  */
 @Composable
@@ -176,7 +176,7 @@ internal fun rememberPassagePlayback(
     val canPlay = motion.allowsInfiniteMotion && !LocalInspectionMode.current
     val duration = scene.durationMillis
     val flight = motion.durationTween<Float>(duration, LinearEasing)
-    val key = "$status|$scene".hashCode()
+    val key = status to scene
     val locked = status == StatusConnectionActuatorStatus.Locked
     LaunchedEffect(key, canPlay) {
         val changed = memory.seenKey != null && memory.seenKey != key
@@ -461,7 +461,7 @@ private fun DrawScope.drawFlights(
                     lane.recordBoundaries,
                     colors.fadedTo(alpha),
                 )
-                crossing = crossing || abs(x + width - layout.dpiX) < FlashRange.toPx()
+                crossing = crossing || (!piece.endsBeforeDpi && abs(x + width - layout.dpiX) < FlashRange.toPx())
             }
         }
     }
@@ -726,7 +726,7 @@ internal fun strategyPassageName(scene: StrategyPassageScene): String =
         }
 
         else -> {
-            stringResource(R.string.status_strategy_family_combined)
+            stringResource(R.string.status_strategy_family_steps, scene.stepCount)
         }
     }
 

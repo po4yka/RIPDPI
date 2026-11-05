@@ -309,7 +309,7 @@
     <string name="status_strategy_family_none_description">بسته بدون تغییر ارسال می‌شود.</string>
     <string name="status_strategy_family_pair">%1$s + %2$s</string>
     <string name="status_strategy_passage_description">%1$s: %2$s</string>
-    <string name="status_strategy_family_combined">راهبرد ترکیبی</string>
+    <string name="status_strategy_family_steps">مراحل: %1$d</string>
     <plurals name="status_advisories_more">
         <item quantity="one">%d اعلان دیگر</item>
         <item quantity="other">%d اعلان دیگر</item>

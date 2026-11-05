@@ -305,7 +305,7 @@
     <string name="status_strategy_family_none_description">Пакет отправляется без изменений.</string>
     <string name="status_strategy_family_pair">%1$s + %2$s</string>
     <string name="status_strategy_passage_description">%1$s: %2$s</string>
-    <string name="status_strategy_family_combined">Составная стратегия</string>
+    <string name="status_strategy_family_steps">Шагов: %1$d</string>
     <plurals name="status_advisories_more">
         <item quantity="one">Ещё %d уведомление</item>
         <item quantity="few">Ещё %d уведомления</item>

@@ -309,7 +309,7 @@
     <string name="status_strategy_family_none_description">数据包原样发送。</string>
     <string name="status_strategy_family_pair">%1$s + %2$s</string>
     <string name="status_strategy_passage_description">%1$s:%2$s</string>
-    <string name="status_strategy_family_combined">组合策略</string>
+    <string name="status_strategy_family_steps">步骤数：%1$d</string>
     <plurals name="status_advisories_more">
         <item quantity="other">另有 %d 条提示</item>
     </plurals>

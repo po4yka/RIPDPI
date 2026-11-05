@@ -74,7 +74,7 @@ internal fun RipDpiConnectionStrategyPanel(
                         .semantics { stateDescription = if (expanded) expandedLabel else collapsedLabel }
                         .ripDpiClickable(role = Role.Button) {
                             expanded = !expanded
-                            playback.replayRequests += 1
+                            if (passage != null) playback.replayRequests += 1
                         }
                 } else {
                     // TalkBack reads the name, the scene, and the chain as one item.

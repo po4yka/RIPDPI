@@ -309,7 +309,7 @@
     <string name="status_strategy_family_none_description">El paquete se envía sin cambios.</string>
     <string name="status_strategy_family_pair">%1$s + %2$s</string>
     <string name="status_strategy_passage_description">%1$s: %2$s</string>
-    <string name="status_strategy_family_combined">Estrategia combinada</string>
+    <string name="status_strategy_family_steps">Pasos: %1$d</string>
     <plurals name="status_advisories_more">
         <item quantity="one">%d aviso más</item>
         <item quantity="many">%d avisos más</item>
