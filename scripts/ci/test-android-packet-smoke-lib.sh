@@ -108,4 +108,25 @@ EOF
 assert_status 0 "crashed instrumentation is failed" packet_smoke_instrumentation_output_failed "$instrumentation_crash"
 assert_status 1 "crashed instrumentation did not complete" packet_smoke_instrumentation_output_completed "$instrumentation_crash"
 
+assert_status 1 "successful instrumentation is not a skip" \
+    packet_smoke_output_reports_skip "$instrumentation_success" "Suite#method"
+
+instrumentation_skip="$(make_temp_file)"
+cat >"$instrumentation_skip" <<'EOF'
+INSTRUMENTATION_STATUS: test=method
+INSTRUMENTATION_STATUS_CODE: 1
+INSTRUMENTATION_STATUS: stack=org.junit.AssumptionViolatedException: got: <true>
+INSTRUMENTATION_STATUS_CODE: -4
+OK (0 tests)
+INSTRUMENTATION_CODE: -1
+EOF
+assert_status 0 "assumption failure from am instrument is a skip" \
+    packet_smoke_output_reports_skip "$instrumentation_skip" "Suite#method"
+
+gradle_skip="$(make_temp_file)"
+cat >"$gradle_skip" <<'EOF'
+Suite > method[device] SKIPPED
+EOF
+assert_status 0 "skip from gradle is a skip" packet_smoke_output_reports_skip "$gradle_skip" "Suite#method"
+
 echo "android packet smoke lib tests passed"

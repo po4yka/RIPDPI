@@ -61,6 +61,18 @@ packet_smoke_scenario_status() {
     fi
 }
 
+# Gradle prints SKIPPED. `am instrument -r` reports a skip with status code -3 or -4.
+packet_smoke_output_reports_skip() {
+    local output_file="$1"
+    local test_selector="$2"
+    local test_method="${test_selector##*#}"
+    awk -v method="$test_method" '
+        index($0, method) && index($0, "SKIPPED") { found = 1 }
+        /^INSTRUMENTATION_STATUS_CODE: -[34]\r?$/ { found = 1 }
+        END { exit found ? 0 : 1 }
+    ' "$output_file"
+}
+
 packet_smoke_instrumentation_output_failed() {
     local output_file="$1"
     grep -Eq '(^FAILURES!!!$|^INSTRUMENTATION_STATUS_CODE: -2$|^INSTRUMENTATION_RESULT: shortMsg=|^INSTRUMENTATION_CODE: 0$|Process crashed)' "$output_file"

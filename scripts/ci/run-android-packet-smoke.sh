@@ -599,7 +599,7 @@ validate_raw_fake_strategy_packet_pattern() {
     if [[ "$real_count" -ge 1 && "$fake_count" -ge 2 ]]; then
         append_runner_log \
             "$scenario_dir/test-output.txt" \
-            "==> raw hostfake packet pattern validated: fake low-TTL host chunks reached the local fixture path, so TLS alert is an expected lab-topology outcome"
+            "==> raw hostfake packet pattern validated: fake low-TTL host chunks reached the local fixture path, so the capture proves this strategy"
         return 0
     fi
     return 1
@@ -614,13 +614,6 @@ raw_packet_validated_scenario() {
             return 1
             ;;
     esac
-}
-
-test_output_reports_junit_skip() {
-    local output_file="$1"
-    local test_selector="$2"
-    local test_method="${test_selector##*#}"
-    awk -v method="$test_method" 'index($0, method) && index($0, "SKIPPED") { found = 1 } END { exit found ? 0 : 1 }' "$output_file"
 }
 
 append_probe_result_artifact() {
@@ -883,11 +876,12 @@ for row in "${scenarios[@]}"; do
     collect_device_snapshot "$scenario_dir"
     curl -fsS "http://127.0.0.1:${fixture_control_port}/events" >"$scenario_dir/fixture-events.json" || true
 
-    if [[ "$selected_capture_mode" == "raw" ]] && raw_packet_validated_scenario "$scenario_id"; then
+    # Without a capture the validator fails, so an emulator cannot pass these scenarios on the test alone.
+    if [[ "$device_profile" != "physical_indirect" ]] && raw_packet_validated_scenario "$scenario_id"; then
         pattern_status=0
         validate_raw_fake_strategy_packet_pattern "$scenario_id" "$scenario_dir" || pattern_status=1
         status="$(packet_smoke_scenario_status "$status" "$pattern_status")"
-    elif test_output_reports_junit_skip "$scenario_dir/test-output.txt" "$test_selector"; then
+    elif packet_smoke_output_reports_skip "$scenario_dir/test-output.txt" "$test_selector"; then
         append_runner_log "$scenario_dir/test-output.txt" "==> instrumentation reported a skipped packet-smoke test"
         status=1
     fi
