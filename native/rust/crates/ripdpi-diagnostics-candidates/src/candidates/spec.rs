@@ -36,7 +36,7 @@ pub fn candidate_spec_with_notes_and_eligibility(
         family,
         emitter_tier: candidate_emitter_tier(id, &config),
         exact_emitter_requires_root: candidate_exact_emitter_requires_root(id),
-        approximate_fallback_family: candidate_approximate_fallback_family(id, family),
+        approximate_fallback_family: candidate_approximate_fallback_family(id),
         quic_layout_family: None,
         eligibility,
         config,
@@ -78,6 +78,8 @@ pub(super) fn config_requires_fake_ttl(config: &ProxyUiConfig) -> bool {
 /// Step-kind → capability mapping:
 /// - `fake`, `fakedsplit`, `fakeddisorder`, `hostfake`, `disorder`, `disoob`
 ///   → [`RuntimeCapability::TtlWrite`] (TTL manipulation to expire fakes before target).
+/// - `hostfake` → [`RuntimeCapability::ReplacementSocket`] (raw ordered-segment sender;
+///   without it the step is a plain split with no decoys).
 /// - `fakerst` → [`RuntimeCapability::RawTcpFakeSend`] (raw-socket fake RST path).
 /// - `seqovl` → [`RuntimeCapability::ReplacementSocket`] (TCP_REPAIR replacement socket path).
 /// - `ipfrag2_udp` → [`RuntimeCapability::RawUdpFragmentation`] (raw IP UDP fragmentation path).
@@ -102,8 +104,12 @@ pub(super) fn config_requires_capabilities(config: &ProxyUiConfig) -> Vec<Runtim
 
     for step in all_steps {
         match step.kind.as_str() {
-            "fake" | "fakedsplit" | "fakeddisorder" | "hostfake" | "disorder" | "disoob" => {
+            "fake" | "fakedsplit" | "fakeddisorder" | "disorder" | "disoob" => {
                 needs_ttl = true;
+            }
+            "hostfake" => {
+                needs_ttl = true;
+                needs_replacement_socket = true;
             }
             "fakerst" => {
                 needs_raw_tcp = true;

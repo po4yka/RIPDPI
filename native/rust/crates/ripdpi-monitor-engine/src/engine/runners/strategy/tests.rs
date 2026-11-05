@@ -363,6 +363,33 @@ fn promotable_winner_selection_rejects_seqovl_when_replacement_socket_is_missing
 }
 
 #[test]
+fn promotable_winner_selection_rejects_hostfake_when_replacement_socket_is_missing() {
+    let specs = build_tcp_candidates(&ProxyUiConfig::default());
+    // Only the capability gate decides here, not the receipt check.
+    let mut hostfake = strategy_candidate_summary("tlsrec_hostfake_split", "hostfake", 12, 12, 2, 2, false, "success");
+    hostfake.desync_execution_required = false;
+    let summaries = vec![hostfake, strategy_candidate_summary("split_host", "split", 6, 12, 1, 2, false, "partial")];
+    let without_root = ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities {
+        raw_ipv4: false,
+        raw_ipv6: false,
+        tcp_repair: false,
+    };
+    let rooted = ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities {
+        raw_ipv4: true,
+        raw_ipv6: true,
+        tcp_repair: true,
+    };
+
+    let selected = select_promotable_candidate_index(&summaries, &specs, true, false, without_root)
+        .expect("split candidate should remain promotable");
+    assert_eq!(summaries[selected].id, "split_host");
+
+    let selected = select_promotable_candidate_index(&summaries, &specs, true, false, rooted)
+        .expect("hostfake candidate should be promotable with root");
+    assert_eq!(summaries[selected].id, "tlsrec_hostfake_split");
+}
+
+#[test]
 fn promotable_winner_selection_rejects_failed_and_eliminated_candidates() {
     let specs = build_tcp_candidates(&ProxyUiConfig::default());
     let summaries = vec![

@@ -117,7 +117,8 @@ impl TcpChainStepKind {
 
     pub const fn emitter_tier(self) -> EmitterTier {
         match self {
-            Self::SeqOverlap | Self::MultiDisorder | Self::IpFrag2 => EmitterTier::RootedProduction,
+            // HostFake lowers to a plain split without the raw ordered-segment sender.
+            Self::SeqOverlap | Self::MultiDisorder | Self::IpFrag2 | Self::HostFake => EmitterTier::RootedProduction,
             Self::FakeRst => EmitterTier::LabDiagnosticsOnly,
             Self::Split
             | Self::SynData
@@ -125,7 +126,6 @@ impl TcpChainStepKind {
             | Self::Fake
             | Self::FakeSplit
             | Self::FakeDisorder
-            | Self::HostFake
             | Self::Oob
             | Self::Disoob
             | Self::TlsRec

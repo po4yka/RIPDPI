@@ -123,7 +123,7 @@ Step-by-step flow when a TCP payload is sent through `send_with_group()`:
 | `Fake` | Injects a fake packet (wrong content) at low TTL | Uses `build_fake_packet()` for content |
 | `FakeSplit` | Split + inject fake copy of second segment | Degrades to `Split` at boundaries |
 | `FakeDisorder` | Disorder + inject fake copy | Degrades to `Disorder` at boundaries |
-| `HostFake` | Injects fake Host/SNI region with wrong hostname | Wraps real host with fake before/after |
+| `HostFake` | Injects fake Host/SNI region with wrong hostname | Wraps real host with fake before/after through the raw ordered-segment sender; plain split without root (`RootedProduction` emitter tier) |
 | `Oob` | Sends chunk as TCP urgent (OOB) data | Urgent byte from `oob_data` config |
 | `Disoob` | Disorder + OOB combined | Low TTL + urgent data |
 | `TlsRec` | TLS record-layer split (prelude step) | Splits TLS record, not TCP segment |
@@ -156,7 +156,7 @@ Candidates are ordered modern-first (most effective on censored networks tested 
 | `tlsrec_disoob` | `tlsrec` + `disoob` at host+2 | true |
 | `tlsrandrec_split` | `tlsrandrec` at sniext+4 + `split` at host+2 | **false** |
 | `tlsrandrec_disorder` | `tlsrandrec` at sniext+4 + `disorder` at host+2 | true |
-| `tlsrec_hostfake_random` | `tlsrec` + `hostfake` with `random_fake_host=true` | false |
+| `tlsrec_hostfake_random` | `tlsrec` + `hostfake` with `random_fake_host=true` | true |
 | `split_delayed_50ms` | `split` at host+2 + `Delay(50)` between segments | false |
 | `split_delayed_150ms` | `split` at host+2 + `Delay(150)` between segments | false |
 
@@ -166,7 +166,7 @@ Candidates are ordered modern-first (most effective on censored networks tested 
 
 ### Non-rooted Android constraints
 
-**Not feasible** without root (`SOCK_RAW` + `TCP_REPAIR`): `FakeRst`, `MultiDisorder`. All other techniques work on non-rooted Android.
+**Not feasible** without root (`SOCK_RAW` + `TCP_REPAIR`): `FakeRst`, `HostFake`, `IpFrag2`, `MultiDisorder`, `SeqOverlap`. `TcpChainStepKind::emitter_tier()` is the source of truth: each of these steps is `RootedProduction` or `LabDiagnosticsOnly`. Without root, the engine writes `HostFake`, `SeqOverlap`, and `FakeRst` as plain cuts, so these steps send no decoy. The strategy probe skips a candidate that contains `HostFake`, because a pass would only prove a plain split.
 
 ### TTL fallback on Android VPN/tun
 

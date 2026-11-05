@@ -832,6 +832,7 @@ fn seq_overlap_fake_mode_default_is_profile() {
 fn tcp_step_kinds_map_to_expected_emitter_tiers() {
     assert_eq!(TcpChainStepKind::Split.emitter_tier(), EmitterTier::NonRootProduction);
     assert_eq!(TcpChainStepKind::SeqOverlap.emitter_tier(), EmitterTier::RootedProduction);
+    assert_eq!(TcpChainStepKind::HostFake.emitter_tier(), EmitterTier::RootedProduction);
     assert_eq!(TcpChainStepKind::MultiDisorder.emitter_tier(), EmitterTier::RootedProduction);
     assert_eq!(TcpChainStepKind::IpFrag2.emitter_tier(), EmitterTier::RootedProduction);
     assert_eq!(TcpChainStepKind::FakeRst.emitter_tier(), EmitterTier::LabDiagnosticsOnly);

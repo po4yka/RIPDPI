@@ -18,7 +18,7 @@ pub fn build_opportunistic_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandi
     let tlsrec_fakedsplit = build_tlsrec_fake_approx_candidate(base, "fakedsplit");
     let tlsrec_fakeddisorder = build_tlsrec_fake_approx_candidate(base, "fakeddisorder");
     // Fixed-duplicate HostFake (no follow-up split, no random host): demoted
-    // from primary because it relies on TTL expiry of the fake segment and
+    // from primary because it needs root, relies on TTL expiry of the fake segment, and
     // produces no differentiation over tlsrec_hostfake_split on capable hosts.
     let tlsrec_hostfake = build_tlsrec_hostfake_candidate(base, false);
 
@@ -84,7 +84,7 @@ pub fn build_opportunistic_candidates(base: &ProxyUiConfig) -> Vec<StrategyCandi
             "TLS record + hostfake",
             "hostfake",
             tlsrec_hostfake,
-            vec!["Fixed-duplicate HostFake; demoted to opportunistic pool (requires TtlWrite)"],
+            vec!["Fixed-duplicate HostFake; demoted to opportunistic pool (requires root)"],
         ),
     ]
 }

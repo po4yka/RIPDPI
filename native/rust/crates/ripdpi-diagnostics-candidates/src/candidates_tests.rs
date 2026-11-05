@@ -360,6 +360,24 @@ fn seqovl_candidates_keep_rooted_tier_and_fallback_metadata() {
 }
 
 #[test]
+fn hostfake_candidates_need_the_raw_sender_and_have_no_fallback_family() {
+    let candidates = build_tcp_candidates(&minimal_ui_config());
+
+    for id in ["tlsrec_hostfake", "tlsrec_hostfake_split", "tlsrec_hostfake_random"] {
+        let hostfake = candidates.iter().find(|candidate| candidate.id == id).expect(id);
+
+        assert_eq!(hostfake.emitter_tier, StrategyEmitterTier::RootedProduction, "{id}");
+        assert!(hostfake.exact_emitter_requires_root, "{id}");
+        assert_eq!(hostfake.approximate_fallback_family, None, "{id}");
+        assert_eq!(
+            hostfake.requires_capabilities,
+            &[RuntimeCapability::TtlWrite, RuntimeCapability::ReplacementSocket],
+            "{id}"
+        );
+    }
+}
+
+#[test]
 fn tfo_candidates_are_suppressed_for_upstream_relay_routes() {
     let mut base = minimal_ui_config();
     base.upstream_relay.enabled = true;
@@ -623,27 +641,25 @@ fn primary_pool_covers_probe_matrix() {
 }
 
 #[test]
-fn primary_pool_only_keeps_ttl_write_candidates_with_graceful_fallback() {
-    // The primary pool may contain TtlWrite-tagged candidates only when they
-    // degrade gracefully without TTL (i.e., the hostfake split/random variants
-    // still send a fake hostname even when TTL cannot be set). All other
-    // strict-TTL candidates (pure fake / fakedsplit / disorder) belong in the
-    // opportunistic pool. The set of allowed graceful-fallback ids is the
-    // explicit allowlist below; new TTL-tagged primary candidates need an
-    // explicit decision.
-    const GRACEFUL_FALLBACK: &[&str] = &["baseline_current", "tlsrec_hostfake_split", "tlsrec_hostfake_random"];
+fn primary_pool_only_keeps_allowed_ttl_write_candidates() {
+    // The hostfake split/random variants are the only strict-TTL candidates
+    // kept in the primary pool: their rooted capability gate skips them on a
+    // non-rooted device. All other strict-TTL candidates (pure fake /
+    // fakedsplit / disorder) belong in the opportunistic pool. New TTL-tagged
+    // primary candidates need an explicit decision.
+    const ALLOWED_TTL_CANDIDATES: &[&str] = &["baseline_current", "tlsrec_hostfake_split", "tlsrec_hostfake_random"];
 
     let primary = build_primary_candidates(&minimal_ui_config());
     let leaked: Vec<&str> = primary
         .iter()
         .filter(|c| c.requires_capabilities.contains(&RuntimeCapability::TtlWrite))
         .map(|c| c.id)
-        .filter(|id| !GRACEFUL_FALLBACK.contains(id))
+        .filter(|id| !ALLOWED_TTL_CANDIDATES.contains(id))
         .collect();
     assert!(
         leaked.is_empty(),
         "primary pool may only contain TtlWrite-tagged candidates from the \
-         graceful-fallback allowlist; unexpected: {leaked:?}"
+         allowlist; unexpected: {leaked:?}"
     );
 }
 

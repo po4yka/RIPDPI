@@ -87,3 +87,34 @@ pub(super) fn candidate_not_applicable(
     }
     None
 }
+
+#[cfg(test)]
+mod tests {
+    use ripdpi_proxy_config::ProxyUiConfig;
+    use ripdpi_runtime_platform::raw_packet::IpFragmentationCapabilities;
+
+    use super::*;
+    use crate::candidates::build_tcp_candidates;
+
+    fn capabilities(tcp_repair: bool) -> TcpCapabilities {
+        TcpCapabilities {
+            baseline_ech_capable: false,
+            fake_ttl_available: true,
+            tcp_fast_open_available: false,
+            ipfrag_caps: IpFragmentationCapabilities { raw_ipv4: tcp_repair, raw_ipv6: tcp_repair, tcp_repair },
+        }
+    }
+
+    #[test]
+    fn hostfake_candidates_do_not_run_without_root() {
+        let specs = build_tcp_candidates(&ProxyUiConfig::default());
+        let hostfake: Vec<_> = specs.iter().filter(|spec| spec.family == "hostfake").collect();
+        assert!(!hostfake.is_empty());
+
+        for spec in hostfake {
+            let skipped = candidate_not_applicable(spec, capabilities(false)).expect(spec.id);
+            assert_eq!(skipped.reason, "Requires rooted production emitter tier", "{}", spec.id);
+            assert!(candidate_not_applicable(spec, capabilities(true)).is_none(), "{}", spec.id);
+        }
+    }
+}

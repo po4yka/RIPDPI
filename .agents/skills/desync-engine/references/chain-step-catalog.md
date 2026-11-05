@@ -162,11 +162,18 @@ within the host), `fake_host_template` (custom fake hostname pattern),
 `random_fake_host` (when true, generate OS-entropy-seeded random domain
 per connection instead of deterministic seed).
 
+**Platform requirement**: The fakes go only through the raw ordered-segment
+sender, which needs `TCP_REPAIR`. On Android, only the privileged root helper
+supplies it. `emitter_tier()` marks `HostFake` as `RootedProduction`.
+
 **Fallback**: If host range cannot be resolved or is outside the step
-boundaries, degrades to `Split`.
+boundaries, degrades to `Split`. If the raw sender is refused before a packet
+leaves (no root), the host goes out as a plain split without decoys. The
+strategy probe skips hostfake candidates in that case.
 
 **When to use**: When the DPI specifically extracts and checks the SNI/Host
-value. Surrounds the real hostname with fake copies to poison extraction.
+value, on hardware where the TCP_REPAIR capability is available. Surrounds the
+real hostname with fake copies to poison extraction.
 
 ---
 

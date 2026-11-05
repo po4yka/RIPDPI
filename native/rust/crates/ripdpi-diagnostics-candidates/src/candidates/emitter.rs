@@ -64,13 +64,21 @@ pub(super) fn candidate_emitter_tier(candidate_id: &str, config: &ProxyUiConfig)
 }
 
 pub(super) fn candidate_exact_emitter_requires_root(candidate_id: &str) -> bool {
-    matches!(candidate_id, "tlsrec_seqovl_midsld" | "tlsrec_seqovl_sniext" | "multi_disorder" | "fake_rst")
+    matches!(
+        candidate_id,
+        "tlsrec_seqovl_midsld"
+            | "tlsrec_seqovl_sniext"
+            | "multi_disorder"
+            | "fake_rst"
+            | "tlsrec_hostfake"
+            | "tlsrec_hostfake_split"
+            | "tlsrec_hostfake_random"
+    )
 }
 
-pub(super) fn candidate_approximate_fallback_family(candidate_id: &str, family: &str) -> Option<&'static str> {
+pub(super) fn candidate_approximate_fallback_family(candidate_id: &str) -> Option<&'static str> {
     match candidate_id {
         "tlsrec_seqovl_midsld" | "tlsrec_seqovl_sniext" => Some("tlsrec_split"),
-        _ if family == "hostfake" => None,
         _ => None,
     }
 }
