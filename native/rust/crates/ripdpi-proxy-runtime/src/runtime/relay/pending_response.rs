@@ -1,6 +1,5 @@
 use std::io::{self, Write};
 use std::net::{SocketAddr, TcpStream};
-use std::sync::Arc;
 use std::sync::atomic::AtomicBool;
 use std::time::Instant;
 
@@ -12,6 +11,7 @@ use super::super::types::RuntimeConnectionRoute;
 use super::failure_retry::record_stream_relay_success;
 use super::first_exchange::{FirstResponse, FirstResponseReader, read_first_response};
 use super::session::{FirstResponseOutcome, RelaySharedSession};
+use crate::sync::Arc;
 
 /// One owner retains the bounded response collector across duplex handoff.
 /// This type has no reconnect operation or replay authority.

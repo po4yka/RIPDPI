@@ -3,6 +3,15 @@ use std::io;
 use super::*;
 
 impl RuntimeState {
+    /// A copy for probes the user did not ask for, so their failures stay out of user-facing telemetry.
+    pub(in crate::runtime) fn for_background_probe(&self) -> Self {
+        Self { reports_failures: false, ..self.clone() }
+    }
+
+    pub(in crate::runtime) fn reports_failures(&self) -> bool {
+        self.reports_failures
+    }
+
     pub(in crate::runtime) fn note_retry_paced(
         &self,
         target: SocketAddr,

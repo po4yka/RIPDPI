@@ -1,4 +1,3 @@
-use std::cell::Cell;
 use std::net::SocketAddr;
 
 use std::collections::BTreeMap;
@@ -8,22 +7,13 @@ use crate::runtime::retry::maybe_emit_candidate_diversification;
 use crate::runtime::state::RuntimeState;
 use crate::runtime::types::{RuntimeConnectionRoute, RuntimeRetrySelectionPenalty};
 
-thread_local! {
-    static BACKGROUND_PROBE_THREAD: Cell<bool> = const { Cell::new(false) };
-}
-
-/// Failures on this thread come from probes the user did not ask for, so they stay out of user-facing telemetry.
-pub(in crate::runtime) fn mark_background_probe_thread() {
-    BACKGROUND_PROBE_THREAD.set(true);
-}
-
 pub(in crate::runtime) fn emit_failure_classified(
     state: &RuntimeState,
     target: SocketAddr,
     failure: &RuntimeClassifiedFailure,
     host: Option<&str>,
 ) {
-    if !RuntimeState::should_track_strategy_target(target) || BACKGROUND_PROBE_THREAD.get() {
+    if !RuntimeState::should_track_strategy_target(target) || !state.reports_failures() {
         return;
     }
     state.note_failure_classified(target, failure, host);
@@ -85,7 +75,7 @@ mod tests {
     }
 
     #[test]
-    fn a_background_probe_thread_reports_no_failures() {
+    fn a_background_probe_state_reports_no_failures() {
         let telemetry = Arc::new(Recorder::default());
         let state = RuntimeState::test_with_telemetry(RuntimeConfig::default(), Some(telemetry.clone()));
         let target = SocketAddr::from(([203, 0, 113, 10], 443));
@@ -99,12 +89,7 @@ mod tests {
         emit_failure_classified(&state, target, &failure, None);
         assert_eq!(*telemetry.0.lock().unwrap(), 1);
 
-        std::thread::scope(|scope| {
-            scope.spawn(|| {
-                mark_background_probe_thread();
-                emit_failure_classified(&state, target, &failure, None);
-            });
-        });
+        emit_failure_classified(&state.for_background_probe(), target, &failure, None);
         assert_eq!(*telemetry.0.lock().unwrap(), 1);
     }
 }

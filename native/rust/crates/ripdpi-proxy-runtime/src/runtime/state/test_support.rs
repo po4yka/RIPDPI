@@ -106,6 +106,7 @@ impl RuntimeState {
             active_upstream_tcp_sockets: ActiveSocketRegistry::default(),
             candidate_refusal_trials: std::sync::Arc::new(CandidateRefusalTrials::default()),
             telemetry,
+            reports_failures: true,
             lua_strategies: ripdpi_proxy_runtime_adapter::desync_platform::SocketLuaStrategies::load(
                 runtime_context.as_ref(),
             )

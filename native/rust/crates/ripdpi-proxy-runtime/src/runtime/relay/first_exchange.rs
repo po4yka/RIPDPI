@@ -1,6 +1,5 @@
 use std::io::{self, Read};
 use std::net::{SocketAddr, TcpStream};
-use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Instant;
 
@@ -15,6 +14,7 @@ use super::super::failure::RuntimeClassifiedFailure;
 use super::super::routing::{classify_response_failure, note_block_signal_for_failure};
 use super::super::state::RuntimeState;
 use super::platform as relay_platform;
+use crate::sync::Arc;
 
 mod readiness;
 #[cfg(test)]

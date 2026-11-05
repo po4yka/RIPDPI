@@ -9,7 +9,7 @@ mod feedback;
 mod telemetry;
 
 pub(in crate::runtime) use advance::advance_route_for_failure;
-pub(in crate::runtime) use telemetry::{emit_failure_classified, mark_background_probe_thread};
+pub(in crate::runtime) use telemetry::emit_failure_classified;
 
 pub(in crate::runtime) fn note_block_signal_for_failure(
     state: &RuntimeState,
