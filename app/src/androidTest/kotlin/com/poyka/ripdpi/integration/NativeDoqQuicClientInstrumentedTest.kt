@@ -16,7 +16,7 @@ class NativeDoqQuicClientInstrumentedTest {
                 "Set RIPDPI_RUN_NETWORK_TESTS=1 or -Pandroid.testInstrumentationRunnerArguments.ripdpi.runNetworkTests=1",
                 networkTestsEnabled(),
             )
-            val (transactionId, query) = DoqWireCodec.buildQuery(TestDomain)
+            val (_, query) = DoqWireCodec.buildQuery(TestDomain)
 
             val response =
                 NativeDoqQuicClient().exchange(
@@ -27,7 +27,7 @@ class NativeDoqQuicClientInstrumentedTest {
                     timeoutMs = 6_000,
                 )
 
-            assertTrue(DoqWireCodec.parseResponse(response, transactionId).any(::isIpv4Literal))
+            assertTrue(DoqWireCodec.parseResponse(response, query).any(::isIpv4Literal))
         }
 
     private fun networkTestsEnabled(): Boolean =
