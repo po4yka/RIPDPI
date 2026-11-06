@@ -35,3 +35,5 @@ deployment_evidence: No deployment is owned by this change.
 - `build-gate -- just ci-gates` passed before and after rebase. Architecture health and `cargo metadata --manifest-path native/rust/Cargo.toml --locked --format-version 1` passed after rebase.
 - The initial full static analysis stopped on an ambient `CARGO_BUILD_JOBS` override. The next run compiled native outputs but stopped on the missing pinned NaiveProxy artifact. The repository fetch script downloaded and verified the arm64-v8a artifact.
 - `build-gate -- env -u CARGO_BUILD_JOBS ./gradlew --max-workers=4 -Pripdpi.nativeCpuBudget=2 staticAnalysis` then passed all 814 tasks. The settings and data test tasks passed on the rebased tree; the settings task reused unchanged results.
+
+- After the parallel DNS migration reached `main`, the branch was rebased onto `1a1a1698e`. The settings suite (87 tests), data suite (984 tests), and full `staticAnalysis` passed together: 842 Gradle tasks, zero failed or skipped tests. Architecture health, locked Cargo metadata, and `build-gate -- just ci-gates` also passed on this base.
