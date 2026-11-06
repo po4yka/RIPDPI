@@ -38,6 +38,7 @@ class AutomationPermissionFlowInstrumentedTest {
     @Test
     fun grantedPermissionLaunchShowsReadyHomeConnectionAction() {
         composeRule.waitForAutomationTag(RipDpiTestTags.screen(Route.Status))
+        composeRule.waitForAutomationTag(RipDpiTestTags.ConnectionActuatorStrategyPanel)
         composeRule.waitForAutomationTag(RipDpiTestTags.StatusModesDiagnosticsCollapsed)
 
         composeRule
