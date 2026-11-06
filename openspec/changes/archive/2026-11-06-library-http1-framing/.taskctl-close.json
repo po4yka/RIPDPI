@@ -1,0 +1,11 @@
+{
+  "change": "library-http1-framing",
+  "evidence_summary": "HTTP/1 codecs integrated in 4a346b9e50e53b7311ef1071d97b976ae4ad889c; 531 local tests and combined source gates passed; CI 42181223749 and all six workflows passed.",
+  "execution_sha256": "71a33736e0bbb36388596f4b345fd2ee5ca7b636a1162c22f693b6dbcb5c6ac5",
+  "issue_sha256": "f8eff9c3c4f7d6470b1355cb97f9fea90c37f5959a6f3a874d18f0c1d18a45e2",
+  "outcome": "done",
+  "prepared_at": "2026-11-06T08:07:16Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RST-1793903447995667"
+}

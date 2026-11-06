@@ -1,11 +1,11 @@
 ---
 task_id: RST-1793903447995667
 change: library-http1-framing
-commit_sha: 067ba0978d2fc0c166d12401be3438b75f156a0e
+commit_sha: 4a346b9e50e53b7311ef1071d97b976ae4ad889c
 local: passed
 local_evidence: Rust 1.98.1 affected suites passed 531 tests with 2 existing ignored tests; clippy, source gates, cargo deny, and Miri passed. Independent code and async reviews passed.
-remote_ci: required
-remote_ci_evidence: CI run 42172888429 found a stale fuzz lockfile and prohibited shared input ownership. Corrections passed local validation; a new push and hosted run are pending.
+remote_ci: passed
+remote_ci_evidence: CI run https://github.com/po4yka/RIPDPI/actions/runs/42181223749 passed on the exact commit, including Rust lint, fuzz, Miri, workspace tests, native ABI builds, and Android release builds. CodeQL, harness, secret scan, L7, and fleet workflows also passed.
 device: not_applicable
 device_evidence: This host protocol change preserves Android connectors; no device acceptance claim is made.
 artifact: not_applicable
@@ -64,4 +64,5 @@ The first push, `067ba0978d2fc0c166d12401be3438b75f156a0e`, failed the fuzz lock
 - The diagnostic adapter now transfers owned byte buffers through a bounded channel. It no longer shares the input buffer through `Rc<RefCell>`. No scanner exception or baseline was added.
 - After the corrections, the affected diagnostic suites passed 256 tests with 2 existing ignored tests. Clippy passed. Miri passed 3 decoder tests. Both code and async reviews found no defects in the channel change.
 - The exact fuzz preflight, `build-gate -- cargo +nightly test --manifest-path fuzz/Cargo.toml --locked --test tls_record_inputs`, passed 5 tests. The soundness scanner suite passed 28 tests.
-- The new hosted run must pass before closure.
+- After rebase onto the concurrent protobuf and IP/CIDR changes, all 531 affected tests passed with 2 existing ignored tests. The combined source gates passed again.
+- CI run [42181223749](https://github.com/po4yka/RIPDPI/actions/runs/42181223749) passed on `4a346b9e50e53b7311ef1071d97b976ae4ad889c`. The six workflows on this commit completed successfully. This is the hosted acceptance evidence; the earlier failed run remains recorded above.

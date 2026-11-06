@@ -2,7 +2,7 @@
 id: RST-1793903447995667
 title: Replace manual HTTP/1 framing with maintained parsers
 kind: bug
-status: review
+status: done
 area: rust-native
 priority: high
 owner: HTTP transport maintainers
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: library-http1-framing
 created: 2026-11-05
 updated: 2026-11-06
+closed_at: "2026-11-06T08:07:16Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: HTTP/1 codecs integrated in 4a346b9e50e53b7311ef1071d97b976ae4ad889c; 531 local tests and combined source gates passed; CI 42181223749 and all six workflows passed.
 ---
 
 ## Goal

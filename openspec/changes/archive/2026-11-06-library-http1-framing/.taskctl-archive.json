@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-06T08:07:06Z",
+  "change": "library-http1-framing",
+  "commit_sha": "4a346b9e50e53b7311ef1071d97b976ae4ad889c",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "RST-1793903447995667"
+}
