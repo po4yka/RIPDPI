@@ -2,7 +2,7 @@
 id: DAT-1793954543063965
 title: Replace manual settings JSON codecs with generated serializers
 kind: bug
-status: review
+status: done
 area: data
 priority: high
 owner: Settings persistence maintainers
@@ -13,6 +13,9 @@ openspec_change: generated-settings-json
 created: 2026-11-06
 updated: 2026-11-06
 status_detail: Local and native-size checks passed; the user waived further hosted CI waiting and requested final integration and push.
+closed_at: "2026-11-06T15:18:45Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Generated settings serializers and approved native-size limits are integrated. Local checks and all three hosted native-size gates passed. The user explicitly waived waiting for complete hosted CI on 2026-11-06 and requested final integration and push.
 ---
 
 ## Goal

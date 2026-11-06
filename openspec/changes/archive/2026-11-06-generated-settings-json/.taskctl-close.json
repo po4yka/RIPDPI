@@ -1,0 +1,11 @@
+{
+  "change": "generated-settings-json",
+  "evidence_summary": "Generated settings serializers and approved native-size limits are integrated. Local checks and all three hosted native-size gates passed. The user explicitly waived waiting for complete hosted CI on 2026-11-06 and requested final integration and push.",
+  "execution_sha256": "6089029bc25f06431847758031b3c6320703db0446908ad5f45867ba996bc4d7",
+  "issue_sha256": "9e06a601589e4c5ac0048920f701a10666f5a13ee10887ceb9567d9105ca9caf",
+  "outcome": "done",
+  "prepared_at": "2026-11-06T15:18:45Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DAT-1793954543063965"
+}

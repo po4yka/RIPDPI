@@ -21,7 +21,7 @@ deployment_evidence: No deployment is owned by this change.
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
 | REQ-SETTINGS-JSON-001 | DAT-1793954649593724 | Settings JSON round-trip and shape tests | Passed |
-| REQ-SETTINGS-JSON-001 | DAT-1793964177685626 | Approved native-size limits and user-authorized delivery | Passed; hosted CI wait waived |
+| REQ-SETTINGS-JSON-001 | DAT-1793964177685626 | Native-size gates passed; the user waived hosted CI waiting | Passed |
 | REQ-SETTINGS-JSON-002 | DAT-1793954649593724 | Invalid-value and atomic backup restore tests | Passed |
 | REQ-SETTINGS-JSON-003 | DAT-1793954649593724 | Secret exclusion and transport validation tests | Passed |
 
