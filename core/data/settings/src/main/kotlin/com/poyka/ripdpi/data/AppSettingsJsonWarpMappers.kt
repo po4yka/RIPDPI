@@ -55,7 +55,7 @@ internal fun AppSettingsSnapshot.withWarpSnapshot(settings: AppSettings): AppSet
 @Suppress("LongMethod")
 internal fun AppSettings.Builder.applyWarpSnapshot(snapshot: AppSettingsSnapshot): AppSettings.Builder {
     val warp = snapshot.warp
-    if (warp.warpAmneziaEnabled || warp.warpAmneziaPreset !in setOf("", WarpAmneziaPresetOff)) {
+    val amneziaSettings =
         WarpAmneziaSettings(
             wireProfile = warp.warpAmneziaWireProfile,
             enabled = warp.warpAmneziaEnabled,
@@ -75,8 +75,7 @@ internal fun AppSettings.Builder.applyWarpSnapshot(snapshot: AppSettingsSnapshot
             i3 = warp.warpAmneziaI3,
             i4 = warp.warpAmneziaI4,
             i5 = warp.warpAmneziaI5,
-        ).requireSupportedProfile()
-    }
+        )
     return setWarpEnabled(warp.warpEnabled)
         .setWarpRouteMode(normalizeWarpRouteMode(warp.warpRouteMode))
         .setWarpRouteHosts(warp.warpRouteHosts)
@@ -112,29 +111,15 @@ internal fun AppSettings.Builder.applyWarpSnapshot(snapshot: AppSettingsSnapshot
         .setWarpAmneziaS2(warp.warpAmneziaS2)
         .setWarpAmneziaS3(warp.warpAmneziaS3)
         .setWarpAmneziaS4(warp.warpAmneziaS4)
-        .setWarpAmneziaPreset(
-            inferWarpAmneziaPreset(
-                warp.warpAmneziaPreset,
-                WarpAmneziaSettings(
-                    wireProfile = warp.warpAmneziaWireProfile,
-                    i1 = warp.warpAmneziaI1,
-                    i2 = warp.warpAmneziaI2,
-                    i3 = warp.warpAmneziaI3,
-                    i4 = warp.warpAmneziaI4,
-                    i5 = warp.warpAmneziaI5,
-                    enabled = warp.warpAmneziaEnabled,
-                    jc = warp.warpAmneziaJc,
-                    jmin = warp.warpAmneziaJmin,
-                    jmax = warp.warpAmneziaJmax,
-                    h1 = warp.warpAmneziaH1,
-                    h2 = warp.warpAmneziaH2,
-                    h3 = warp.warpAmneziaH3,
-                    h4 = warp.warpAmneziaH4,
-                    s1 = warp.warpAmneziaS1,
-                    s2 = warp.warpAmneziaS2,
-                    s3 = warp.warpAmneziaS3,
-                    s4 = warp.warpAmneziaS4,
-                ),
-            ),
-        )
+        .setWarpAmneziaPreset(warp.warpAmneziaPreset)
+        .also { builder ->
+            val preset = inferWarpAmneziaPreset(warp.warpAmneziaPreset, rawWarpAmneziaSettings(builder.build()))
+            if (warp.warpAmneziaEnabled ||
+                warp.warpAmneziaPreset !in setOf("", WarpAmneziaPresetOff) ||
+                preset != WarpAmneziaPresetOff
+            ) {
+                amneziaSettings.requireSupportedProfile()
+            }
+            builder.setWarpAmneziaPreset(preset)
+        }
 }

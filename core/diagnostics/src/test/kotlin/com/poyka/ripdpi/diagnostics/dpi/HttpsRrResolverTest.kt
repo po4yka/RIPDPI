@@ -152,6 +152,59 @@ class HttpsRrResolverTest {
         assertEquals(0x01.toByte(), query[query.lastIndex])
     }
 
+    @Test
+    fun wireHttpsResponseMustMatchQuestionOwnerAndFlags() {
+        val query = HttpsDnsWireBuilder.buildQuery("example.com", 0x1234)
+        val valid = httpsResponse(query)
+        val ech = byteArrayOf(0, 2, 3, 4)
+        assertArrayEquals(ech, HttpsDnsWireParser.parseResponse(valid, query).single().echConfig)
+        assertArrayEquals(ech, HttpsDnsWireParser.parseSystemResponse(valid, "example.com").single().echConfig)
+
+        val wrongHost = HttpsDnsWireBuilder.buildQuery("unrelated.example", 0x1234)
+        val wrongType = DnsWireBuilder.buildQuery("example.com", 0x1234)
+        val wrongClass = query.copyOf().apply { this[lastIndex] = 3 }
+        val wrongId = valid.copyOf().apply { this[0] = 0 }
+        val truncated = valid.copyOf().apply { this[2] = 0x83.toByte() }
+        for (response in listOf(
+            httpsResponse(wrongHost),
+            httpsResponse(wrongType),
+            httpsResponse(wrongClass),
+            httpsResponse(query, owner = "unrelated.example"),
+            wrongId,
+            truncated,
+            valid + byteArrayOf(0),
+        )) {
+            assertTrue(HttpsDnsWireParser.parseResponse(response, query).isEmpty())
+        }
+        assertTrue(HttpsDnsWireParser.parseSystemResponse(valid, "unrelated.example").isEmpty())
+    }
+
+    @Test
+    fun wireHttpsRejectsCompressedTargetAndInvalidParameterOrder() {
+        val query = HttpsDnsWireBuilder.buildQuery("example.com", 0x1234)
+        val ech = svcParam(SvcParamKeyEch, byteArrayOf(0, 2, 3, 4))
+        val alpn = svcParam(SvcParamKeyAlpn, byteArrayOf(2, 'h'.code.toByte(), '2'.code.toByte()))
+        val malformed =
+            listOf(
+                u16(1) + byteArrayOf(0xc0.toByte(), 0x0c) + ech,
+                httpsRdata(1, ".", listOf(ech, alpn)),
+                httpsRdata(1, ".", listOf(ech, ech)),
+                httpsRdata(1, ".", listOf(svcParam(SvcParamKeyEch, byteArrayOf(0, 5, 1)))),
+            )
+        malformed.forEach { rdata ->
+            assertTrue(HttpsDnsWireParser.parseResponse(httpsResponse(query, rdata = rdata), query).isEmpty())
+        }
+    }
+
+    private fun httpsResponse(
+        query: ByteArray,
+        owner: String = "example.com",
+        rdata: ByteArray = httpsRdata(1, ".", listOf(svcParam(SvcParamKeyEch, byteArrayOf(0, 2, 3, 4)))),
+    ): ByteArray =
+        query.copyOfRange(0, 2) + u16(0x8180) + u16(1) + u16(1) + u16(0) + u16(0) +
+            query.copyOfRange(12, query.size) + dnsName(owner) + u16(65) + u16(1) +
+            byteArrayOf(0, 0, 0, 60) + u16(rdata.size) + rdata
+
     private fun httpsRdata(
         priority: Int,
         targetName: String,

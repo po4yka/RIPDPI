@@ -1,9 +1,12 @@
 package com.poyka.ripdpi.data
 
+import kotlinx.serialization.Serializable
+
 internal const val AppSettingsJsonFormatVersion = 1
 
 internal val defaultSettings = AppSettingsSerializer.defaultValue
 
+@Serializable
 internal data class AppSettingsSnapshot(
     val formatVersion: Int = AppSettingsJsonFormatVersion,
     val rootUiRuntime: AppSettingsRootUiRuntimeSnapshot = AppSettingsRootUiRuntimeSnapshot(),

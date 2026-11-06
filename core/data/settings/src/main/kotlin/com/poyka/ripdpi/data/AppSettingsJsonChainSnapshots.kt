@@ -1,9 +1,6 @@
 package com.poyka.ripdpi.data
 
 import kotlinx.serialization.Serializable
-import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonObjectBuilder
 
 @Serializable
 internal data class AppSettingsTcpChainSnapshot(
@@ -33,28 +30,8 @@ internal data class AppSettingsUdpChainSnapshot(
     val ipv6ExtensionProfile: String = StrategyIpv6ExtensionProfileNone,
 )
 
+@Serializable
 internal data class AppSettingsChainSnapshot(
     val tcpChainSteps: List<AppSettingsTcpChainSnapshot> = emptyList(),
     val udpChainSteps: List<AppSettingsUdpChainSnapshot> = emptyList(),
 )
-
-internal fun JsonObjectBuilder.writeChainSnapshot(snapshot: AppSettingsChainSnapshot) {
-    putSerializable("tcpChainSteps", snapshot.tcpChainSteps, ListSerializer(AppSettingsTcpChainSnapshot.serializer()))
-    putSerializable("udpChainSteps", snapshot.udpChainSteps, ListSerializer(AppSettingsUdpChainSnapshot.serializer()))
-}
-
-internal fun JsonObject.readChainSnapshot(defaults: AppSettingsChainSnapshot): AppSettingsChainSnapshot =
-    AppSettingsChainSnapshot(
-        tcpChainSteps =
-            serializableValue(
-                "tcpChainSteps",
-                defaults.tcpChainSteps,
-                ListSerializer(AppSettingsTcpChainSnapshot.serializer()),
-            ),
-        udpChainSteps =
-            serializableValue(
-                "udpChainSteps",
-                defaults.udpChainSteps,
-                ListSerializer(AppSettingsUdpChainSnapshot.serializer()),
-            ),
-    )

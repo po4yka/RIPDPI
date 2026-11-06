@@ -73,25 +73,28 @@ object DoqWireCodec {
 
     fun parseResponse(
         response: ByteArray,
-        transactionId: Int,
+        query: ByteArray,
     ): List<String> =
-        when (val length = response.doqPayloadLengthOrNull()) {
+        when (val length = response.doqPayloadLengthOrNull().takeIf { query.doqPayloadLengthOrNull() != null }) {
             null -> {
                 listOf(DnsWireBuilder.PARSE_ERR)
             }
 
             else -> {
-                DnsWireBuilder.parseResponse(
-                    response.copyOfRange(DoqLengthPrefixBytes, DoqLengthPrefixBytes + length),
-                    transactionId,
-                )
+                val answer =
+                    DnsWireBuilder
+                        .parseResponse(
+                            response.copyOfRange(DoqLengthPrefixBytes, DoqLengthPrefixBytes + length),
+                            query.copyOfRange(DoqLengthPrefixBytes, query.size),
+                        )
+                if (answer.response?.truncated == true) listOf(DnsWireBuilder.PARSE_ERR) else answer.legacyRecords()
             }
         }
 
     private fun ByteArray.doqPayloadLengthOrNull(): Int? {
         if (size < DoqLengthPrefixBytes) return null
         val length = ((this[0].toInt() and ByteMask) shl Byte.SIZE_BITS) or (this[1].toInt() and ByteMask)
-        return length.takeIf { it > 0 && size >= DoqLengthPrefixBytes + it }
+        return length.takeIf { it > 0 && size == DoqLengthPrefixBytes + it }
     }
 
     private const val DoqLengthPrefixBytes = 2
@@ -129,7 +132,7 @@ class DoqIntegrityProbe(
         dohIps: Set<String>,
     ): DoqProbeResult? {
         val startedAt = System.currentTimeMillis()
-        val (transactionId, query) =
+        val (_, query) =
             try {
                 DoqWireCodec.buildQuery(domain)
             } catch (_: IllegalArgumentException) {
@@ -146,8 +149,9 @@ class DoqIntegrityProbe(
                             query = query,
                             timeoutMs = timeoutMs,
                         )
-                    DoqWireCodec.parseResponse(response, transactionId)
+                    DoqWireCodec.parseResponse(response, query)
                 }
+            if (DnsWireBuilder.PARSE_ERR in records) throw IOException("Malformed DoQ response")
             val ips = records.filter(::isDoqIpv4Literal)
             val verdict =
                 if (ips.isNotEmpty() && dohIps.isNotEmpty() && !dnsAnswersOverlap(ips.toSet(), dohIps)) {

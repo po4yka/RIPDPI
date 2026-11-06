@@ -30,6 +30,8 @@ extensions.configure<KspExtension> {
 }
 
 dependencies {
+    api(libs.dnsjava)
+    runtimeOnly(libs.slf4j.nop)
     implementation(project(":core:data"))
     implementation(libs.bundles.room)
     implementation(libs.androidx.core.ktx)

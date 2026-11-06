@@ -511,7 +511,7 @@ class DebugLocalNetworkProbeRunner(
                 val decoded =
                     DebugDnsPacketCodec.decodeResponse(
                         packet = response.copyOf(packet.length),
-                        expectedRequestId = requestId,
+                        query = query,
                     )
                 decoded.toDnsProbeResult(config, startMs)
             }
@@ -551,7 +551,7 @@ class DebugLocalNetworkProbeRunner(
                 val decoded =
                     DebugDnsPacketCodec.decodeResponse(
                         packet = response,
-                        expectedRequestId = requestId,
+                        query = query,
                     )
                 decoded.toDnsProbeResult(config, startMs)
             }

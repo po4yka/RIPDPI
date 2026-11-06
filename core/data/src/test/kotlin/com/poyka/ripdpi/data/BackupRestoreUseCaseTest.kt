@@ -470,6 +470,38 @@ class BackupRestoreUseCaseTest {
         }
 
     @Test
+    fun `invalid settings value in a valid archive aborts before any write`() =
+        runTest {
+            val document =
+                BackupExporter.export(
+                    variant = BackupVariant.FULL,
+                    profiles = emptyList(),
+                    groups = emptyList(),
+                    rules = emptyList(),
+                    settings = mapOf("app_settings.snapshot_json.v1" to """{"proxyPort":"invalid"}"""),
+                    createdAtEpochMillis = 0L,
+                    appVersion = "1.0.0",
+                )
+            ruleDao.insert(sampleRule)
+            val existingRules = ruleDao.allRules().first()
+            val groupWithProfile = sampleGroup.copy(members = listOf(sampleProfile))
+            val liveGroups = FakeGroupRepository(mutableListOf(groupWithProfile))
+            val existingSettings = settingsWithPort(4242)
+            val liveSettings = FakeAppSettingsRepository(existingSettings)
+
+            val result =
+                restoreUseCase(liveGroups, liveSettings).restore(
+                    BackupSerializer.encodeToString(document),
+                    RestoreSelection(profilesAndGroups = true, routes = true, settings = true),
+                )
+
+            assertTrue(result is RestoreResult.Aborted)
+            assertEquals(listOf(groupWithProfile), liveGroups.list())
+            assertEquals(existingRules, ruleDao.allRules().first())
+            assertEquals(existingSettings, liveSettings.snapshot())
+        }
+
+    @Test
     fun `malformed JSON aborts without touching live data`() =
         runTest {
             ruleDao.insert(sampleRule)
