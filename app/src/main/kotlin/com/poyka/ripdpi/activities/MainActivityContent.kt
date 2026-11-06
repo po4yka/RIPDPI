@@ -131,7 +131,6 @@ private fun ReadyMainActivityContent(
     exportPreview: ExportPreviewViewModel,
     pauseViewModelFactory: @Composable () -> StatusPauseViewModel,
 ) {
-    val pauseViewModel = pauseViewModelFactory()
     val runtimeState by viewModel.activityRuntimeState.collectAsStateWithLifecycle(
         initialValue = remember(viewModel) { viewModel.uiState.value.toActivityRuntimeUiState() },
     )
@@ -151,6 +150,11 @@ private fun ReadyMainActivityContent(
         connectionState = runtimeState.connectionState,
         snackbarHostState = snackbarHostState,
     )
+    if (!runtimeState.settingsLoaded) {
+        StartupRecoveryGateContent(failed = false, onRetry = {})
+        return
+    }
+    val pauseViewModel = pauseViewModelFactory()
     Box(
         modifier =
             Modifier

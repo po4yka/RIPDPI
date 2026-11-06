@@ -27,6 +27,8 @@ import com.poyka.ripdpi.permissions.PermissionCoordinator
 import com.poyka.ripdpi.permissions.PermissionSnapshot
 import com.poyka.ripdpi.permissions.PermissionStatus
 import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.ui.screens.connection.ConnectionExternalProvider
+import com.poyka.ripdpi.ui.screens.connection.ConnectionExternalProviders
 import com.poyka.ripdpi.ui.screens.connection.NoExternalProviders
 import com.poyka.ripdpi.ui.screens.status.StatusDiagnosticsServices
 import com.poyka.ripdpi.ui.screens.status.StatusPauseViewModel
@@ -40,6 +42,8 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -286,9 +290,22 @@ class MainActivityContentTest {
     }
 
     @Test
-    fun `start configured mode request waits for loaded settings before starting`() {
+    fun `start configured mode waits for the first complete canonical Home model`() {
         val settingsRepository = DelayedAppSettingsRepository()
         val serviceController = FakeServiceController()
+        val permissions = grantedStartupPermissionStatusProvider()
+        val providerRead = CompletableDeferred<Unit>()
+        val releaseProvider = CompletableDeferred<Unit>()
+        val observedModes = CopyOnWriteArrayList<Mode>()
+        val providers =
+            object : ConnectionExternalProviders by NoExternalProviders {
+                override suspend fun current(mode: Mode): ConnectionExternalProvider? {
+                    observedModes += mode
+                    providerRead.complete(Unit)
+                    releaseProvider.await()
+                    return null
+                }
+            }
         val controller =
             MainActivityShellController(
                 MainActivity.createLaunchIntent(
@@ -300,7 +317,8 @@ class MainActivityContentTest {
             createViewModel(
                 appSettingsRepository = settingsRepository,
                 serviceController = serviceController,
-                permissionStatusProvider = grantedStartupPermissionStatusProvider(),
+                permissionStatusProvider = permissions,
+                externalProviders = providers,
             )
 
         composeRule.setContent {
@@ -315,6 +333,8 @@ class MainActivityContentTest {
 
         assertTrue(serviceController.startedModes.isEmpty())
         assertTrue(controller.state.value.startConfiguredModeRequested)
+        composeRule.onNodeWithTag(RipDpiTestTags.StartupRecoveryPending).assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).assertDoesNotExist()
 
         composeRule.runOnIdle {
             settingsRepository.emitSettings(
@@ -322,10 +342,28 @@ class MainActivityContentTest {
                     .newBuilder()
                     .setOnboardingComplete(true)
                     .setRipdpiMode("proxy")
+                    .setProxyPort(4242)
                     .build(),
             )
         }
+        composeRule.waitUntil(timeoutMillis = 5_000) { providerRead.isCompleted }
+        composeRule.waitForIdle()
+
+        assertTrue(permissions.currentSnapshotCalls > 0)
+        assertFalse(viewModel.uiState.value.settingsLoaded)
+        assertTrue(serviceController.startedModes.isEmpty())
+        composeRule.onNodeWithTag(RipDpiTestTags.StartupRecoveryPending).assertIsDisplayed()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).assertDoesNotExist()
+        assertEquals(listOf(Mode.Proxy), observedModes)
+        assertEquals(1, settingsRepository.subscriptions)
+
+        composeRule.runOnIdle { releaseProvider.complete(Unit) }
         composeRule.waitUntil(timeoutMillis = 5_000) { serviceController.startedModes.isNotEmpty() }
+        composeRule.waitForIdle()
+
+        assertEquals("4242", viewModel.uiState.value.proxyPort)
+        composeRule.onNodeWithTag(RipDpiTestTags.StartupRecoveryPending).assertDoesNotExist()
+        composeRule.onNodeWithTag(RipDpiTestTags.ConnectionActuatorButton).assertExists()
 
         assertEquals(listOf(Mode.Proxy), serviceController.startedModes)
         assertFalse(controller.state.value.startConfiguredModeRequested)
@@ -570,6 +608,7 @@ class MainActivityContentTest {
                 .InMemoryStrategyPackStateStore(),
         appStartupReadiness: AppStartupReadiness = ReadyAppStartupReadiness,
         serviceStateStore: FakeServiceStateStore = FakeServiceStateStore(),
+        externalProviders: ConnectionExternalProviders = NoExternalProviders,
     ): MainViewModel {
         val crashReportReader =
             com.poyka.ripdpi.diagnostics.crash.CrashReportReader(
@@ -579,7 +618,7 @@ class MainActivityContentTest {
             appSettingsRepository = appSettingsRepository,
             mainServiceDependencies =
                 MainServiceDependencies(
-                    externalProviders = NoExternalProviders,
+                    externalProviders = externalProviders,
                     appliedConfigurationSource = FakeAppliedRuntimeConfigurationSource(),
                     reconnectCoordinator = FakeRunningServiceReconnect(),
                     recentWarningTracker = RecentWarningTracker(now = { 0L }),
@@ -704,7 +743,14 @@ class MainActivityContentTest {
         private val emissions = MutableSharedFlow<AppSettings>(replay = 1)
         private var latest = initialSnapshot
 
-        override val settings: Flow<AppSettings> = emissions
+        var subscriptions = 0
+            private set
+
+        override val settings: Flow<AppSettings> =
+            flow {
+                subscriptions++
+                emitAll(emissions)
+            }
 
         override suspend fun snapshot(): AppSettings = latest
 

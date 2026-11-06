@@ -66,6 +66,7 @@ import com.poyka.ripdpi.ui.screens.status.homeOutcome
 import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runCurrent
@@ -96,6 +97,8 @@ class MainViewModelTest {
             val repository = onboardedVpnSettingsRepository()
             val viewModel =
                 createViewModel(appSettingsRepository = repository, serviceStateStore = store, initialize = false)
+            viewModel.startupState.first { it.isReady }
+            viewModel.initialize()
             val permissions = mutableListOf<com.poyka.ripdpi.permissions.PermissionSummaryUiState>()
             val collector = backgroundScope.launch { viewModel.permissionSummary.collect { permissions += it } }
             runCurrent()
@@ -141,6 +144,8 @@ class MainViewModelTest {
                     presentationDependencies = TestPresentationDependencies(stringResolver = resolver),
                     initialize = false,
                 )
+            viewModel.startupState.first { it.isReady }
+            viewModel.initialize()
             val permissions = mutableListOf<com.poyka.ripdpi.permissions.PermissionSummaryUiState>()
             val collector = backgroundScope.launch { viewModel.permissionSummary.collect { permissions += it } }
             runCurrent()
@@ -222,6 +227,8 @@ class MainViewModelTest {
             val service = FakeServiceStateStore()
             val viewModel =
                 createViewModel(appSettingsRepository = settings, serviceStateStore = service, initialize = false)
+            viewModel.startupState.first { it.isReady }
+            viewModel.initialize()
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             runCurrent()
             val original = viewModel.uiState.value.appliedConfiguration.reconnectSettingsIdentity
@@ -1070,9 +1077,8 @@ class MainViewModelTest {
             advanceUntilIdle()
 
             assertEquals(0, permissionStatusProvider.currentSnapshotCalls)
-            // The combine maps Running + Disconnected -> Connecting even
-            // before initialize(), because uiState is a reactive flow.
-            assertEquals(ConnectionState.Connecting, viewModel.uiState.value.connectionState)
+            // The first Home model waits for the initial permission snapshot as well as settings.
+            assertFalse(viewModel.uiState.value.settingsLoaded)
 
             viewModel.initialize()
             runCurrent()
@@ -1842,14 +1848,18 @@ class MainViewModelTest {
                     permissionStatusProvider = grantedPermissionStatusProvider(),
                     initialize = false,
                 )
+            viewModel.startupState.first { it.isReady }
+            viewModel.initialize()
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
-            advanceUntilIdle()
+            runCurrent()
 
             viewModel.onToggleVpn(enabled = false)
-            advanceUntilIdle()
+            runCurrent()
 
             assertEquals(1, serviceController.stopCount)
             assertTrue(serviceController.startedModes.isEmpty())
+            serviceStateStore.setStatus(AppStatus.Halted, Mode.VPN)
+            runCurrent()
             collector.cancel()
         }
 
@@ -1911,6 +1921,8 @@ class MainViewModelTest {
                     permissionStatusProvider = grantedPermissionStatusProvider(),
                     initialize = false,
                 )
+            viewModel.startupState.first { it.isReady }
+            viewModel.initialize()
             val collector = backgroundScope.launch { viewModel.uiState.collect {} }
             advanceUntilIdle()
 

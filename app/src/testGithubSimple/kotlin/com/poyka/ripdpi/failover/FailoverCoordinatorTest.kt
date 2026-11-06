@@ -65,6 +65,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.lang.reflect.Modifier
 
 // ── Fakes ────────────────────────────────────────────────────────────────────
 
@@ -478,9 +479,9 @@ class FailoverCoordinatorTest {
     @Test
     fun `production bindings use the health probing coordinator`() {
         val bindings =
-            FailoverCoordinatorBindsModule::class.java.declaredMethods.associate { method ->
-                method.returnType to method.parameterTypes.single()
-            }
+            FailoverCoordinatorBindsModule::class.java.declaredMethods
+                .filter { Modifier.isAbstract(it.modifiers) }
+                .associate { method -> method.returnType to method.parameterTypes.single() }
 
         assertEquals(
             FailoverCoordinator::class.java,

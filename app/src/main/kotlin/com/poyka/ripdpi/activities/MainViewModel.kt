@@ -15,7 +15,6 @@ import com.poyka.ripdpi.permissions.PermissionKind
 import com.poyka.ripdpi.permissions.PermissionResult
 import com.poyka.ripdpi.permissions.PermissionSummaryUiState
 import com.poyka.ripdpi.platform.StringResolver
-import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.subscription.SubscriptionExpirySummaryUiState
 import com.poyka.ripdpi.subscription.subscriptionExpiryUiState
 import com.poyka.ripdpi.ui.components.bufferForUiLifecycle
@@ -32,8 +31,13 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.shareIn
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -78,7 +82,7 @@ class MainViewModel
         val navigationSessionKey: String = UUID.randomUUID().toString()
         val statusModesDisclosure = StatusModesDisclosure(savedStateHandle)
 
-        private var initialized = false
+        private val initialized = MutableStateFlow(false)
         private val runtimeState = MutableStateFlow(ConnectionRuntimeState())
         private val permissionState = MutableStateFlow(PermissionRuntimeState())
         private val _effects =
@@ -106,12 +110,16 @@ class MainViewModel
                 },
             )
 
-        private val settingsState: StateFlow<AppSettings> =
-            appSettingsRepository.settings.stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue,
-            )
+        private val settingsState = MutableStateFlow(com.poyka.ripdpi.data.AppSettingsSerializer.defaultValue)
+        private val canonicalSettings =
+            flow {
+                // Successful recovery is terminal; no settings can be cached before that boundary.
+                mainLifecycleDependencies.appStartupReadiness.readiness.first {
+                    it == AppStartupReadinessState.Ready
+                }
+                emitAll(appSettingsRepository.settings)
+            }.onEach { settingsState.value = it }
+                .shareIn(viewModelScope, SharingStarted.Eagerly, replay = 1)
 
         private val mutations =
             MainMutationRunner(
@@ -122,7 +130,7 @@ class MainViewModel
         private val lifecycleOwner =
             MainLifecycleStateOwner(
                 scope = viewModelScope,
-                settings = appSettingsRepository.settings,
+                settings = canonicalSettings,
                 settingsState = settingsState,
                 permissionState = permissionState,
                 dependencies = mainLifecycleDependencies,
@@ -214,7 +222,8 @@ class MainViewModel
         private val uiStateOwner =
             MainUiStateOwner(
                 scope = viewModelScope,
-                settingsState = settingsState,
+                settings = canonicalSettings,
+                initialized = initialized,
                 serviceDependencies = mainServiceDependencies,
                 diagnosticsDependencies = mainDiagnosticsDependencies,
                 controlPlaneDependencies = mainControlPlaneDependencies,
@@ -238,10 +247,10 @@ class MainViewModel
         }
 
         fun initialize() {
-            if (startupState.value.readiness != AppStartupReadinessState.Ready || initialized) {
+            if (startupState.value.readiness != AppStartupReadinessState.Ready || initialized.value) {
                 return
             }
-            initialized = true
+            permissionActions.refreshPermissionSnapshot()
             viewModelScope.launch {
                 mainServiceDependencies.hardKillSwitchStateStore.snapshot.collect {
                     permissionActions.refreshPermissionSnapshot()
@@ -253,6 +262,7 @@ class MainViewModel
                 mainControlPlaneDependencies.hostPackCatalogUiStateCoordinator.ensureLoaded()
             }
             lifecycleOwner.initialize()
+            initialized.value = true
         }
 
         val retryStartupRecovery: () -> Unit = lifecycleOwner::retryStartupRecovery

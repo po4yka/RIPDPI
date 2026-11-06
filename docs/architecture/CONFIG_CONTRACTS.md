@@ -135,6 +135,12 @@ or unreadable settings record leaves them waiting for an explicit retry or reset
 The device-protected boot session hint remains separate; canonical profile choices
 are in Room and require credential unlock.
 
+The main activity shares one canonical settings stream after recovery. It updates
+the action snapshot before it publishes settings to UI consumers. Initial permission
+checks run before the first UI model is built. Interactive content waits for
+`MainUiState.settingsLoaded`; recovery readiness alone does not prove that the UI
+model is complete. The existing preparation view stays visible during this wait.
+
 The runtime authority lock covers the synchronous transaction and receipt
 publication. No coroutine suspends while that lock is held. A failure or cancellation
 before commit rolls back the transaction. Cancellation after commit does not undo

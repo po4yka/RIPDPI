@@ -7,17 +7,21 @@ import com.poyka.ripdpi.diagnostics.BypassApproachSummary
 import com.poyka.ripdpi.platform.StringResolver
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.stateIn
 
 @Suppress("LongParameterList")
 internal class MainUiStateOwner(
     scope: CoroutineScope,
-    settingsState: StateFlow<AppSettings>,
+    settings: Flow<AppSettings>,
+    initialized: StateFlow<Boolean>,
     serviceDependencies: MainServiceDependencies,
     diagnosticsDependencies: MainDiagnosticsDependencies,
     controlPlaneDependencies: MainControlPlaneDependencies,
@@ -27,7 +31,7 @@ internal class MainUiStateOwner(
     buildApproachSummary: suspend (AppSettings, Mode, List<BypassApproachSummary>) -> StatusApproachSummaryUiState?,
 ) {
     private val localeState = MutableStateFlow("")
-    private val settingsSnapshots = settingsState.map { it to ReconnectSettingsIdentity() }
+    private val settingsSnapshots = settings.map { it to ReconnectSettingsIdentity() }
 
     val uiState: StateFlow<MainUiState> =
         combine(
@@ -108,11 +112,12 @@ internal class MainUiStateOwner(
                         if (savedAhead) summary.copy(passage = null) else summary
                     },
             )
-        }.stateIn(
-            scope = scope,
-            started = SharingStarted.WhileSubscribed(5_000),
-            initialValue = MainUiState(),
-        )
+        }.onStart { initialized.first { it } }
+            .stateIn(
+                scope = scope,
+                started = SharingStarted.WhileSubscribed(5_000),
+                initialValue = MainUiState(),
+            )
 
     fun onLocaleChanged(localeTags: String) {
         // Locale changes refresh presentation even when runtime inputs are unchanged.

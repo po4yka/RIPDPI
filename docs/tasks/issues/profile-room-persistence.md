@@ -31,10 +31,16 @@ compensating persistence writes. Preserve encryption and Stop precedence.
   available before credential unlock.
 - Targeted persistence, migration, cancellation and activation-race tests pass;
   affected Kotlin tests, static analysis and CI source gates pass.
-- Commit the implementation, integrate into main and push, then observe hosted CI.
+- Commit the implementation, integrate into main and push. The user explicitly
+  waived hosted CI waiting and verification on 2026-11-06.
 
 ## Ownership
 
 The primary writer owns this worktree and all schema, DI and transaction changes.
 Read-only agents map storage and review the transaction boundary. Any later writer
 must use a separate worktree with an explicit path assignment.
+
+The consumer writer owns the activity startup/readiness sources and their app
+unit tests in an isolated worktree for the hosted UI regression. The primary
+writer owns integration, instrumentation diagnostics and task evidence. Review
+agents remain read-only; schema, locale and baseline files stay with the primary writer.
