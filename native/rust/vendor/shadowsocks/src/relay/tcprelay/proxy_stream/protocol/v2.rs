@@ -50,19 +50,11 @@ impl Aead2022TcpRequestHeader {
     }
 
     pub fn write_to_buf<B: BufMut>(&self, buf: &mut B) {
-        Aead2022TcpRequestHeaderRef {
-            addr: &self.addr,
-            padding_size: self.padding_size,
-        }
-        .write_to_buf(buf)
+        Aead2022TcpRequestHeaderRef { addr: &self.addr, padding_size: self.padding_size }.write_to_buf(buf)
     }
 
     pub fn serialized_len(&self) -> usize {
-        Aead2022TcpRequestHeaderRef {
-            addr: &self.addr,
-            padding_size: self.padding_size,
-        }
-        .serialized_len()
+        Aead2022TcpRequestHeaderRef { addr: &self.addr, padding_size: self.padding_size }.serialized_len()
     }
 }
 
@@ -74,10 +66,7 @@ pub struct Aead2022TcpRequestHeaderRef<'a> {
 
 impl Aead2022TcpRequestHeaderRef<'_> {
     pub fn write_to_buf<B: BufMut>(&self, buf: &mut B) {
-        assert!(
-            self.padding_size as usize <= MAX_PADDING_SIZE,
-            "padding length must be in [0, {MAX_PADDING_SIZE}]"
-        );
+        assert!(self.padding_size as usize <= MAX_PADDING_SIZE, "padding length must be in [0, {MAX_PADDING_SIZE}]");
 
         buf.put_u16(self.padding_size);
         if self.padding_size > 0 {

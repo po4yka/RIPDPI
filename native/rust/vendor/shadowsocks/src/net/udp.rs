@@ -120,10 +120,7 @@ impl UdpSocket {
             }
         };
 
-        Ok(Self {
-            socket,
-            mtu: opts.udp.mtu,
-        })
+        Ok(Self { socket, mtu: opts.udp.mtu })
     }
 
     /// Connects to proxy target
@@ -143,28 +140,19 @@ impl UdpSocket {
             }
         };
 
-        Ok(Self {
-            socket,
-            mtu: opts.udp.mtu,
-        })
+        Ok(Self { socket, mtu: opts.udp.mtu })
     }
 
     /// Connects to shadowsocks server
     pub async fn connect_with_opts(addr: &SocketAddr, opts: &ConnectOpts) -> io::Result<Self> {
         let socket = create_outbound_udp_socket(From::from(addr), opts).await?;
         socket.connect(addr).await?;
-        Ok(Self {
-            socket,
-            mtu: opts.udp.mtu,
-        })
+        Ok(Self { socket, mtu: opts.udp.mtu })
     }
 
     /// Binds to a specific address with opts
     pub async fn connect_any_with_opts<AF: Into<AddrFamily>>(af: AF, opts: &ConnectOpts) -> io::Result<Self> {
-        create_outbound_udp_socket(af.into(), opts).await.map(|socket| Self {
-            socket,
-            mtu: opts.udp.mtu,
-        })
+        create_outbound_udp_socket(af.into(), opts).await.map(|socket| Self { socket, mtu: opts.udp.mtu })
     }
 
     /// Binds to a specific address as an outbound socket
@@ -175,10 +163,7 @@ impl UdpSocket {
 
     /// Binds to a specific address with opts as an outbound socket
     pub async fn bind_with_opts(addr: &SocketAddr, opts: &ConnectOpts) -> io::Result<Self> {
-        bind_outbound_udp_socket(addr, opts).await.map(|socket| Self {
-            socket,
-            mtu: opts.udp.mtu,
-        })
+        bind_outbound_udp_socket(addr, opts).await.map(|socket| Self { socket, mtu: opts.udp.mtu })
     }
 
     /// Binds to a specific address (inbound)
@@ -190,10 +175,7 @@ impl UdpSocket {
     /// Binds to a specific address (inbound)
     pub async fn listen_with_opts(addr: &SocketAddr, opts: AcceptOpts) -> io::Result<Self> {
         let socket = create_inbound_udp_socket(addr, opts.ipv6_only, opts.udp.allow_fragmentation).await?;
-        Ok(Self {
-            socket,
-            mtu: opts.udp.mtu,
-        })
+        Ok(Self { socket, mtu: opts.udp.mtu })
     }
 
     /// Wrapper of `UdpSocket::poll_send`
@@ -322,10 +304,7 @@ impl UdpSocket {
         loop {
             ready!(self.socket.poll_send_ready(cx))?;
 
-            match self
-                .socket
-                .try_io(Interest::WRITABLE, || batch_sendmsg(&self.socket, msgs))
-            {
+            match self.socket.try_io(Interest::WRITABLE, || batch_sendmsg(&self.socket, msgs)) {
                 Ok(n) => return Ok(n).into(),
                 Err(ref err) if err.kind() == ErrorKind::WouldBlock => {}
                 Err(err) => return Err(err).into(),
@@ -367,10 +346,7 @@ impl UdpSocket {
         loop {
             ready!(self.socket.poll_recv_ready(cx))?;
 
-            match self
-                .socket
-                .try_io(Interest::READABLE, || batch_recvmsg(&self.socket, msgs))
-            {
+            match self.socket.try_io(Interest::READABLE, || batch_recvmsg(&self.socket, msgs)) {
                 Ok(n) => return Ok(n).into(),
                 Err(ref err) if err.kind() == ErrorKind::WouldBlock => {}
                 Err(err) => return Err(err).into(),

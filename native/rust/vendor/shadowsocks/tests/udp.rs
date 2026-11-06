@@ -39,9 +39,7 @@ fn ipv4_mtu_discovery(socket: &ShadowUdpSocket) -> i32 {
 async fn inbound_udp_fragmentation_option() {
     let addr = "127.0.0.1:0".parse().unwrap();
 
-    let socket = ShadowUdpSocket::listen_with_opts(&addr, AcceptOpts::default())
-        .await
-        .unwrap();
+    let socket = ShadowUdpSocket::listen_with_opts(&addr, AcceptOpts::default()).await.unwrap();
     assert_eq!(ipv4_mtu_discovery(&socket), libc::IP_PMTUDISC_DO);
 
     let mut opts = AcceptOpts::default();
@@ -183,9 +181,7 @@ async fn udp_tunnel_aead() {
     let local_addr = "127.0.0.1:21101".parse::<SocketAddr>().unwrap();
     let target_addr = "127.0.0.1:21201".parse::<SocketAddr>().unwrap();
 
-    udp_tunnel_echo(server_addr, local_addr, target_addr, "pas$$", CipherKind::AES_128_GCM)
-        .await
-        .unwrap();
+    udp_tunnel_echo(server_addr, local_addr, target_addr, "pas$$", CipherKind::AES_128_GCM).await.unwrap();
 }
 
 #[cfg(feature = "stream-cipher")]
@@ -197,15 +193,7 @@ async fn udp_tunnel_stream() {
     let local_addr = "127.0.0.1:22101".parse::<SocketAddr>().unwrap();
     let target_addr = "127.0.0.1:22201".parse::<SocketAddr>().unwrap();
 
-    udp_tunnel_echo(
-        server_addr,
-        local_addr,
-        target_addr,
-        "pas$$",
-        CipherKind::AES_128_CFB128,
-    )
-    .await
-    .unwrap();
+    udp_tunnel_echo(server_addr, local_addr, target_addr, "pas$$", CipherKind::AES_128_CFB128).await.unwrap();
 }
 
 #[tokio::test]
@@ -216,9 +204,7 @@ async fn udp_tunnel_none() {
     let local_addr = "127.0.0.1:23101".parse::<SocketAddr>().unwrap();
     let target_addr = "127.0.0.1:23201".parse::<SocketAddr>().unwrap();
 
-    udp_tunnel_echo(server_addr, local_addr, target_addr, "pas$$", CipherKind::NONE)
-        .await
-        .unwrap();
+    udp_tunnel_echo(server_addr, local_addr, target_addr, "pas$$", CipherKind::NONE).await.unwrap();
 }
 
 #[cfg(feature = "aead-cipher-2022")]

@@ -244,11 +244,8 @@ impl DnsResolver {
 
         let resolver = create_resolver(None, opts.clone(), connect_opts.clone()).await?;
 
-        let inner = Arc::new(HickoryDnsSystemResolver {
-            resolver: ArcSwap::from(Arc::new(resolver)),
-            connect_opts,
-            opts,
-        });
+        let inner =
+            Arc::new(HickoryDnsSystemResolver { resolver: ArcSwap::from(Arc::new(resolver)), connect_opts, opts });
 
         cfg_if! {
             if #[cfg(all(feature = "hickory-dns", unix, not(target_os = "android")))] {
@@ -302,18 +299,9 @@ impl DnsResolver {
 
         impl<'x, 'y> ResolverLogger<'x, 'y> {
             fn new(resolver: &'x DnsResolver, addr: &'y str, port: u16) -> Self {
-                let start_time = if log_enabled!(Level::Trace) {
-                    Some(Instant::now())
-                } else {
-                    None
-                };
+                let start_time = if log_enabled!(Level::Trace) { Some(Instant::now()) } else { None };
 
-                ResolverLogger {
-                    resolver,
-                    addr,
-                    port,
-                    start_time,
-                }
+                ResolverLogger { resolver, addr, port, start_time }
             }
         }
 

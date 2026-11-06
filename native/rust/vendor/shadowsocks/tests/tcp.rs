@@ -154,9 +154,7 @@ async fn tcp_tunnel_aead() {
 
     let server_addr = "127.0.0.1:31001".parse::<SocketAddr>().unwrap();
     let local_addr = "127.0.0.1:31101".parse::<SocketAddr>().unwrap();
-    tcp_tunnel_example(server_addr, local_addr, "p$p", CipherKind::AES_128_GCM)
-        .await
-        .unwrap();
+    tcp_tunnel_example(server_addr, local_addr, "p$p", CipherKind::AES_128_GCM).await.unwrap();
 }
 
 #[cfg(feature = "stream-cipher")]
@@ -166,9 +164,7 @@ async fn tcp_tunnel_stream() {
 
     let server_addr = "127.0.0.1:32001".parse::<SocketAddr>().unwrap();
     let local_addr = "127.0.0.1:32101".parse::<SocketAddr>().unwrap();
-    tcp_tunnel_example(server_addr, local_addr, "p$p", CipherKind::AES_128_CFB128)
-        .await
-        .unwrap();
+    tcp_tunnel_example(server_addr, local_addr, "p$p", CipherKind::AES_128_CFB128).await.unwrap();
 }
 
 #[tokio::test]
@@ -177,9 +173,7 @@ async fn tcp_tunnel_none() {
 
     let server_addr = "127.0.0.1:33001".parse::<SocketAddr>().unwrap();
     let local_addr = "127.0.0.1:33101".parse::<SocketAddr>().unwrap();
-    tcp_tunnel_example(server_addr, local_addr, "", CipherKind::NONE)
-        .await
-        .unwrap();
+    tcp_tunnel_example(server_addr, local_addr, "", CipherKind::NONE).await.unwrap();
 }
 
 #[cfg(feature = "aead-cipher-2022")]
@@ -189,14 +183,9 @@ async fn tcp_tunnel_aead_2022_aes() {
 
     let server_addr = "127.0.0.1:34001".parse::<SocketAddr>().unwrap();
     let local_addr = "127.0.0.1:34101".parse::<SocketAddr>().unwrap();
-    tcp_tunnel_example(
-        server_addr,
-        local_addr,
-        "3L69X4PF2eSL/JSLkoWnXg==",
-        CipherKind::AEAD2022_BLAKE3_AES_128_GCM,
-    )
-    .await
-    .unwrap();
+    tcp_tunnel_example(server_addr, local_addr, "3L69X4PF2eSL/JSLkoWnXg==", CipherKind::AEAD2022_BLAKE3_AES_128_GCM)
+        .await
+        .unwrap();
 }
 
 #[cfg(feature = "aead-cipher-2022")]

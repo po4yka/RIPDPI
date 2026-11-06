@@ -301,10 +301,7 @@ fn set_ip_bound_if<S: AsRawFd>(socket: &S, addr: &SocketAddr, iface: &str) -> io
 
         if ret < 0 {
             let err = io::Error::last_os_error();
-            error!(
-                "set IF_BOUND_IF/IPV6_BOUND_IF ifname: {} ifindex: {} error: {}",
-                iface, index, err
-            );
+            error!("set IF_BOUND_IF/IPV6_BOUND_IF ifname: {} ifindex: {} error: {}", iface, index, err);
             return Err(err);
         }
     }

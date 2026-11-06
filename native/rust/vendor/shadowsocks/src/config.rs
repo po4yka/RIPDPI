@@ -168,10 +168,7 @@ impl serde::de::Visitor<'_> for ModeVisitor {
     {
         match String::from_utf8(v) {
             Ok(v) => self.visit_string(v),
-            Err(e) => Err(serde::de::Error::invalid_value(
-                serde::de::Unexpected::Bytes(&e.into_bytes()),
-                &self,
-            )),
+            Err(e) => Err(serde::de::Error::invalid_value(serde::de::Unexpected::Bytes(&e.into_bytes()), &self)),
         }
     }
 }
@@ -212,10 +209,7 @@ impl Default for ServerWeight {
 impl ServerWeight {
     /// Creates a default weight for server, which will have 1.0 for both TCP and UDP
     pub fn new() -> Self {
-        Self {
-            tcp_weight: 1.0,
-            udp_weight: 1.0,
-        }
+        Self { tcp_weight: 1.0, udp_weight: 1.0 }
     }
 
     /// Weight for TCP balancer
@@ -272,11 +266,7 @@ impl ServerUser {
         let hash = blake3::hash(&key);
         let identity_hash = Bytes::from(hash.as_bytes()[0..16].to_owned());
 
-        Self {
-            name,
-            key,
-            identity_hash,
-        }
+        Self { name, key, identity_hash }
     }
 
     /// Create a user from encoded key
@@ -490,10 +480,7 @@ fn make_derived_key(method: CipherKind, password: &str, enc_key: &mut [u8]) -> R
 #[cfg(feature = "aead-cipher-2022")]
 #[inline]
 pub fn method_support_eih(method: CipherKind) -> bool {
-    matches!(
-        method,
-        CipherKind::AEAD2022_BLAKE3_AES_128_GCM | CipherKind::AEAD2022_BLAKE3_AES_256_GCM
-    )
+    matches!(method, CipherKind::AEAD2022_BLAKE3_AES_128_GCM | CipherKind::AEAD2022_BLAKE3_AES_256_GCM)
 }
 
 #[allow(clippy::type_complexity)]
@@ -661,9 +648,7 @@ impl ServerConfig {
         if self.identity_keys.is_empty() {
             return self.password.clone();
         }
-        let mut parts: Vec<String> = self.identity_keys.iter()
-            .map(|k| USER_KEY_BASE64_ENGINE.encode(k))
-            .collect();
+        let mut parts: Vec<String> = self.identity_keys.iter().map(|k| USER_KEY_BASE64_ENGINE.encode(k)).collect();
         parts.push(self.password.clone());
         parts.join(":")
     }
@@ -1162,10 +1147,7 @@ impl serde::de::Visitor<'_> for ServerAddrVisitor {
     {
         match String::from_utf8(v) {
             Ok(v) => self.visit_string(v),
-            Err(e) => Err(serde::de::Error::invalid_value(
-                serde::de::Unexpected::Bytes(&e.into_bytes()),
-                &self,
-            )),
+            Err(e) => Err(serde::de::Error::invalid_value(serde::de::Unexpected::Bytes(&e.into_bytes()), &self)),
         }
     }
 }
@@ -1343,10 +1325,7 @@ impl serde::de::Visitor<'_> for ManagerAddrVisitor {
     {
         match String::from_utf8(v) {
             Ok(v) => self.visit_string(v),
-            Err(e) => Err(serde::de::Error::invalid_value(
-                serde::de::Unexpected::Bytes(&e.into_bytes()),
-                &self,
-            )),
+            Err(e) => Err(serde::de::Error::invalid_value(serde::de::Unexpected::Bytes(&e.into_bytes()), &self)),
         }
     }
 }

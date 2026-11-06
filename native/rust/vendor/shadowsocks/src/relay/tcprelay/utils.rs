@@ -39,13 +39,7 @@ impl Debug for CopyBuffer {
 
 impl CopyBuffer {
     fn new(buffer_size: usize) -> Self {
-        Self {
-            read_done: false,
-            pos: 0,
-            cap: 0,
-            amt: 0,
-            buf: vec![0; buffer_size].into_boxed_slice(),
-        }
+        Self { read_done: false, pos: 0, cap: 0, amt: 0, buf: vec![0; buffer_size].into_boxed_slice() }
     }
 
     fn poll_copy<R, W>(
@@ -79,10 +73,7 @@ impl CopyBuffer {
                 let me = &mut *self;
                 let i = ready!(writer.as_mut().poll_write(cx, &me.buf[me.pos..me.cap]))?;
                 if i == 0 {
-                    return Poll::Ready(Err(io::Error::new(
-                        io::ErrorKind::WriteZero,
-                        "write zero byte into writer",
-                    )));
+                    return Poll::Ready(Err(io::Error::new(io::ErrorKind::WriteZero, "write zero byte into writer")));
                 } else {
                     self.pos += i;
                     self.amt += i as u64;
@@ -131,12 +122,7 @@ where
     ER: AsyncRead + Unpin + ?Sized,
     PW: AsyncWrite + Unpin + ?Sized,
 {
-    Copy {
-        reader,
-        writer,
-        buf: CopyBuffer::new(plain_read_buffer_size(method)),
-    }
-    .await
+    Copy { reader, writer, buf: CopyBuffer::new(plain_read_buffer_size(method)) }.await
 }
 
 /// Copy data from plain reader to encrypted writer
@@ -145,12 +131,7 @@ where
     PR: AsyncRead + Unpin + ?Sized,
     EW: AsyncWrite + Unpin + ?Sized,
 {
-    Copy {
-        reader,
-        writer,
-        buf: CopyBuffer::new(plain_read_buffer_size(method)),
-    }
-    .await
+    Copy { reader, writer, buf: CopyBuffer::new(plain_read_buffer_size(method)) }.await
 }
 
 fn plain_read_buffer_size(method: CipherKind) -> usize {
@@ -221,12 +202,7 @@ where
     #[inline(always)]
     fn poll_impl(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<(u64, u64)>> {
         // Unpack self into mut refs to each field to avoid borrow check issues.
-        let CopyBidirectionalProj {
-            mut a,
-            mut b,
-            a_to_b,
-            b_to_a,
-        } = self.project();
+        let CopyBidirectionalProj { mut a, mut b, a_to_b, b_to_a } = self.project();
 
         let poll_a_to_b = transfer_one_direction(cx, a_to_b, a.as_mut(), b.as_mut())?;
         let poll_b_to_a = transfer_one_direction(cx, b_to_a, b.as_mut(), a.as_mut())?;
@@ -253,10 +229,7 @@ where
             Poll::Ready(r) => {
                 match r {
                     Ok(..) => {
-                        trace!(
-                            "copy bidirection ends, a_to_b: {:?}, b_to_a: {:?}",
-                            self.a_to_b, self.b_to_a
-                        );
+                        trace!("copy bidirection ends, a_to_b: {:?}, b_to_a: {:?}", self.a_to_b, self.b_to_a);
                     }
                     Err(ref err) => {
                         debug!(

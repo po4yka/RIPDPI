@@ -58,9 +58,7 @@ impl DecryptedReader {
     pub fn new(method: CipherKind, key: &[u8]) -> Self {
         if method.iv_len() > 0 {
             Self {
-                state: DecryptReadState::WaitIv {
-                    key: Bytes::copy_from_slice(key),
-                },
+                state: DecryptReadState::WaitIv { key: Bytes::copy_from_slice(key) },
                 cipher: None,
                 buffer: BytesMut::with_capacity(method.iv_len()),
                 method,

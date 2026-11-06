@@ -121,22 +121,14 @@ where
                     Ok(Ok(s)) => s,
                     Ok(Err(e)) => return Err(e),
                     Err(..) => {
-                        return Err(io::Error::new(
-                            ErrorKind::TimedOut,
-                            format!("connect {} timeout", svr_cfg.addr()),
-                        ));
+                        return Err(io::Error::new(ErrorKind::TimedOut, format!("connect {} timeout", svr_cfg.addr())));
                     }
                 }
             }
             None => OutboundTcpStream::connect_server_with_opts(&context, svr_cfg.tcp_external_addr(), opts).await?,
         };
 
-        trace!(
-            "connected tcp remote {} (outbound: {}) with {:?}",
-            svr_cfg.addr(),
-            svr_cfg.tcp_external_addr(),
-            opts
-        );
+        trace!("connected tcp remote {} (outbound: {}) with {:?}", svr_cfg.addr(), svr_cfg.tcp_external_addr(), opts);
 
         Ok(Self::from_stream(context, map_fn(stream), svr_cfg, addr))
     }
@@ -170,12 +162,7 @@ where
             ProxyClientStreamReadState::Established
         };
 
-        Self {
-            stream,
-            writer_state: ProxyClientStreamWriteState::Connect(addr),
-            reader_state,
-            context,
-        }
+        Self { stream, writer_state: ProxyClientStreamWriteState::Connect(addr), reader_state, context }
     }
 
     /// Get reference to the underlying stream
@@ -207,10 +194,7 @@ where
         loop {
             match this.reader_state {
                 ProxyClientStreamReadState::Established => {
-                    return this
-                        .stream
-                        .poll_read_decrypted(cx, this.context, buf)
-                        .map_err(Into::into);
+                    return this.stream.poll_read_decrypted(cx, this.context, buf).map_err(Into::into);
                 }
                 #[cfg(feature = "aead-cipher-2022")]
                 ProxyClientStreamReadState::CheckRequestNonce => {

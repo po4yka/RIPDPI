@@ -83,10 +83,7 @@ impl Plugin {
 
         match start_plugin(c, remote_addr, &local_addr, mode) {
             Err(err) => {
-                error!(
-                    "failed to start plugin \"{}\" for server {}, err: {}",
-                    c.plugin, remote_addr, err
-                );
+                error!("failed to start plugin \"{}\" for server {}, err: {}", c.plugin, remote_addr, err);
                 Err(err)
             }
             Ok(process) => {
@@ -113,11 +110,7 @@ impl Plugin {
                     }
                 }
 
-                Ok(Self {
-                    process,
-                    local_addr,
-                    mode: c.plugin_mode,
-                })
+                Ok(Self { process, local_addr, mode: c.plugin_mode })
             }
         }
     }
@@ -170,21 +163,13 @@ impl Drop for Plugin {
 
     #[cfg(not(unix))]
     fn drop(&mut self) {
-        debug!(
-            "killing plugin process {:?}, local_addr: {}",
-            self.process.id(),
-            self.local_addr
-        );
+        debug!("killing plugin process {:?}, local_addr: {}", self.process.id(), self.local_addr);
         let _ = self.process.start_kill();
     }
 
     #[cfg(unix)]
     fn drop(&mut self) {
-        debug!(
-            "terminating plugin process {:?}, local_addr: {}",
-            self.process.id(),
-            self.local_addr
-        );
+        debug!("terminating plugin process {:?}, local_addr: {}", self.process.id(), self.local_addr);
 
         let mut terminated = false;
 
@@ -204,10 +189,7 @@ impl Drop for Plugin {
                 match self.process.try_wait() {
                     Ok(Some(status)) => {
                         // subprocess is finished
-                        debug!(
-                            "plugin process {} is terminated gracefully with status: {:?}",
-                            id, status
-                        );
+                        debug!("plugin process {} is terminated gracefully with status: {:?}", id, status);
                         terminated = true;
                         break;
                     }

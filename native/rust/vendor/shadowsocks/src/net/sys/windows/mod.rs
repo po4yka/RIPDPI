@@ -334,10 +334,7 @@ fn set_ip_unicast_if<S: AsRawSocket>(socket: &S, addr: &SocketAddr, iface: &str)
 
         if ret == SOCKET_ERROR {
             let err = io::Error::from_raw_os_error(WSAGetLastError());
-            error!(
-                "set IP_UNICAST_IF / IPV6_UNICAST_IF interface: {}, index: {}, error: {}",
-                iface, if_index, err
-            );
+            error!("set IP_UNICAST_IF / IPV6_UNICAST_IF interface: {}, index: {}, error: {}", iface, if_index, err);
             return Err(err);
         }
     }

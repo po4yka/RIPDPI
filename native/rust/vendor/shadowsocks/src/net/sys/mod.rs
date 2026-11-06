@@ -107,10 +107,7 @@ fn socket_bind_dual_stack_inner(socket: &Socket, addr: &SocketAddr, ipv6_only: b
             Ok(..) => {}
             Err(ref err) if err.kind() == ErrorKind::AddrInUse => {
                 // This is probably 0.0.0.0 with the same port has already been occupied
-                debug!(
-                    "0.0.0.0:{} may have already been occupied, retry with IPV6_V6ONLY",
-                    addr.port()
-                );
+                debug!("0.0.0.0:{} may have already been occupied, retry with IPV6_V6ONLY", addr.port());
 
                 if let Err(err) = socket.set_only_v6(true) {
                     warn!("failed to set IPV6_V6ONLY: true for socket, error: {}", err);
@@ -140,11 +137,7 @@ pub struct IpStackCapabilities {
 static IP_STACK_CAPABILITIES: LazyLock<IpStackCapabilities> = LazyLock::new(|| {
     // Reference Implementation: https://github.com/golang/go/blob/master/src/net/ipsock_posix.go
 
-    let mut caps = IpStackCapabilities {
-        support_ipv4: false,
-        support_ipv6: false,
-        support_ipv4_mapped_ipv6: false,
-    };
+    let mut caps = IpStackCapabilities { support_ipv4: false, support_ipv6: false, support_ipv4_mapped_ipv6: false };
 
     // Check IPv4
     if Socket::new(Domain::IPV4, Type::STREAM, Some(Protocol::TCP)).is_ok() {

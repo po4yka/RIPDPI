@@ -39,16 +39,8 @@ pub fn plugin_cmd(plugin: &PluginConfig, remote: &ServerAddr, local: &SocketAddr
     }
 
     match mode {
-        PluginMode::Client => cmd
-            .arg("--dest")
-            .arg(remote.to_string())
-            .arg("client")
-            .arg(local.to_string()),
-        PluginMode::Server => cmd
-            .arg("--dest")
-            .arg(local.to_string())
-            .arg("server")
-            .arg(remote.to_string()),
+        PluginMode::Client => cmd.arg("--dest").arg(remote.to_string()).arg("client").arg(local.to_string()),
+        PluginMode::Server => cmd.arg("--dest").arg(local.to_string()).arg("server").arg(remote.to_string()),
     };
 
     if !plugin.plugin_args.is_empty() {

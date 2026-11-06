@@ -41,9 +41,7 @@ async fn tcp_tunnel_tfo() {
         let mut accept_opts = AcceptOpts::default();
         accept_opts.tcp.fastopen = true;
 
-        let listener = ProxyListener::bind_with_opts(context, &svr_cfg, accept_opts)
-            .await
-            .unwrap();
+        let listener = ProxyListener::bind_with_opts(context, &svr_cfg, accept_opts).await.unwrap();
 
         while let Ok((mut stream, peer_addr)) = listener.accept().await {
             debug!("accepted {}", peer_addr);

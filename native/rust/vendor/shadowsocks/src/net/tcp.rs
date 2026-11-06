@@ -49,10 +49,7 @@ impl TcpStream {
         let stream = match *addr {
             ServerAddr::SocketAddr(ref addr) => SysTcpStream::connect(*addr, opts).await?,
             ServerAddr::DomainName(ref domain, port) => {
-                lookup_then_connect!(context, domain, port, |addr| {
-                    SysTcpStream::connect(addr, opts).await
-                })?
-                .1
+                lookup_then_connect!(context, domain, port, |addr| { SysTcpStream::connect(addr, opts).await })?.1
             }
         };
 
@@ -64,10 +61,7 @@ impl TcpStream {
         let stream = match *addr {
             Address::SocketAddress(ref addr) => SysTcpStream::connect(*addr, opts).await?,
             Address::DomainNameAddress(ref domain, port) => {
-                lookup_then_connect!(context, domain, port, |addr| {
-                    SysTcpStream::connect(addr, opts).await
-                })?
-                .1
+                lookup_then_connect!(context, domain, port, |addr| { SysTcpStream::connect(addr, opts).await })?.1
             }
         };
 
@@ -173,10 +167,7 @@ impl TcpListener {
             set_tcp_fastopen(&listener)?;
         }
 
-        Ok(Self {
-            inner: listener,
-            accept_opts,
-        })
+        Ok(Self { inner: listener, accept_opts })
     }
 
     /// Polls to accept a new incoming connection to this listener.

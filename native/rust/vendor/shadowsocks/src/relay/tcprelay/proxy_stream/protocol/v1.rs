@@ -14,9 +14,7 @@ pub struct StreamTcpRequestHeader {
 
 impl StreamTcpRequestHeader {
     pub async fn read_from<R: AsyncRead + Unpin>(reader: &mut R) -> io::Result<Self> {
-        Ok(Self {
-            addr: Address::read_from(reader).await?,
-        })
+        Ok(Self { addr: Address::read_from(reader).await? })
     }
 
     pub fn write_to_buf<B: BufMut>(&self, buf: &mut B) {

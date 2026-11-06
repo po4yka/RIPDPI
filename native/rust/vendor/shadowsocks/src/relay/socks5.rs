@@ -287,9 +287,7 @@ impl Address {
                 );
                 let port = u16::from_be(buf[8]);
 
-                Ok(Self::SocketAddress(SocketAddr::V6(SocketAddrV6::new(
-                    v6addr, port, 0, 0,
-                ))))
+                Ok(Self::SocketAddress(SocketAddr::V6(SocketAddrV6::new(v6addr, port, 0, 0))))
             }
             consts::SOCKS5_ADDR_TYPE_DOMAIN_NAME => {
                 let mut length_buf = [0u8; 1];
@@ -473,10 +471,7 @@ fn write_domain_name_address<B: BufMut>(dnaddr: &str, port: u16, buf: &mut B) {
     assert!(dnaddr.len() <= u8::MAX as usize);
 
     buf.put_u8(consts::SOCKS5_ADDR_TYPE_DOMAIN_NAME);
-    assert!(
-        dnaddr.len() <= u8::MAX as usize,
-        "domain name length must be smaller than 256"
-    );
+    assert!(dnaddr.len() <= u8::MAX as usize, "domain name length must be smaller than 256");
     buf.put_u8(dnaddr.len() as u8);
     buf.put_slice(dnaddr.as_bytes());
     buf.put_u16(port);
@@ -525,10 +520,7 @@ pub struct TcpRequestHeader {
 impl TcpRequestHeader {
     /// Creates a request header
     pub fn new(cmd: Command, addr: Address) -> Self {
-        Self {
-            command: cmd,
-            address: addr,
-        }
+        Self { command: cmd, address: addr }
     }
 
     /// Read from a reader
@@ -566,10 +558,7 @@ impl TcpRequestHeader {
 
     /// Writes to buffer
     pub fn write_to_buf<B: BufMut>(&self, buf: &mut B) {
-        let Self {
-            ref address,
-            ref command,
-        } = *self;
+        let Self { ref address, ref command } = *self;
 
         buf.put_slice(&[consts::SOCKS5_VERSION, command.as_u8(), 0x00]);
         address.write_to_buf(buf);
@@ -622,10 +611,7 @@ impl TcpResponseHeader {
 
         let address = Address::read_from(r).await?;
 
-        Ok(Self {
-            reply: Reply::from_u8(reply_code),
-            address,
-        })
+        Ok(Self { reply: Reply::from_u8(reply_code), address })
     }
 
     /// Write to a writer

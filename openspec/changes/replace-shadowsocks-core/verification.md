@@ -5,7 +5,7 @@ commit_sha: fe038f283d6a07c4e9a1aa7b14b3602670f7cee6
 local: passed
 local_evidence: 282 Rust integration and policy tests, seven upstream unit tests, 5861 Kotlin tests, staticAnalysis, targeted Clippy, cargo deny, source gates, and independent review passed.
 remote_ci: required
-remote_ci_evidence: Source revision fe038f283d6a07c4e9a1aa7b14b3602670f7cee6 is on origin/main. Hosted checks are running at https://github.com/po4yka/RIPDPI/actions/runs/42189829716.
+remote_ci_evidence: Source revision fe038f283d6a07c4e9a1aa7b14b3602670f7cee6 is on origin/main. CI run 42189829716 found vendor formatting differences; the exact full rustfmt check now passes locally. A new hosted revision is required.
 device: not_applicable
 device_evidence: This change has no UI or JNI field changes. Android compilation is checked separately; no physical-device acceptance is claimed.
 artifact: passed
@@ -42,3 +42,5 @@ The successful import test now uses a valid 32-byte SS2022 key instead of an arb
 The final Kotlin gate passed with `build-gate -- env -u CARGO_BUILD_JOBS ./gradlew :core:data:runtime-state:testDebugUnitTest :core:service:testDebugUnitTest :app:testGithubFullDebugUnitTest staticAnalysis --max-workers=3 -Pripdpi.nativeCpuBudget=3 -Pripdpi.skipNativeBuild=true --no-daemon`. Native compilation and ELF verification passed separately before this repeat.
 
 After rebase onto `2cf13604ef0ac2ba311f0e8a06085abb0134a7a4`, the 282 Shadowsocks/relay/fixture tests and 78 HTTP tests passed. Architecture health, locked metadata, and `just ci-gates` passed on the combined tree. Main integration used fast-forward; push succeeded.
+
+The hosted `cargo fmt --manifest-path native/rust/Cargo.toml --all --check` also checks path dependencies. It found 30 upstream files that used different formatting. Repository formatting was applied without logic changes. The integration patch was regenerated and reproduced all 65 files exactly. All eleven Rust boundary guards passed.

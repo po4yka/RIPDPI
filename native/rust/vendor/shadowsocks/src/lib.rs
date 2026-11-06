@@ -18,7 +18,7 @@ pub mod context;
 pub mod dns_resolver;
 pub mod manager;
 pub mod net;
-pub mod plugin;
 pub mod packet_window;
+pub mod plugin;
 pub mod relay;
 mod security;

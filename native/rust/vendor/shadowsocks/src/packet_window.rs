@@ -29,10 +29,7 @@ impl Default for PacketWindowFilter {
 impl PacketWindowFilter {
     /// Create an empty filter
     pub fn new() -> Self {
-        Self {
-            last_packet_id: 0,
-            packet_ring: [0u64; RING_BLOCKS as usize],
-        }
+        Self { last_packet_id: 0, packet_ring: [0u64; RING_BLOCKS as usize] }
     }
 
     /// Reset filter to the initial state

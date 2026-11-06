@@ -105,12 +105,7 @@ impl ProxySocket<ShadowUdpSocket> {
 
         let socket = ShadowUdpSocket::connect_server_with_opts(&context, svr_cfg.udp_external_addr(), opts).await?;
 
-        trace!(
-            "connected udp remote {} (outbound: {}) with {:?}",
-            svr_cfg.addr(),
-            svr_cfg.udp_external_addr(),
-            opts
-        );
+        trace!("connected udp remote {} (outbound: {}) with {:?}", svr_cfg.addr(), svr_cfg.udp_external_addr(), opts);
 
         Ok(Self::from_socket(UdpSocketType::Client, context, svr_cfg, socket))
     }
@@ -249,11 +244,7 @@ where
         };
 
         if send_buf.len() != send_len {
-            warn!(
-                "UDP server client send {} bytes, but actually sent {} bytes",
-                send_buf.len(),
-                send_len
-            );
+            warn!("UDP server client send {} bytes, but actually sent {} bytes", send_buf.len(), send_len);
         }
 
         Ok(send_len)
@@ -367,8 +358,7 @@ where
 
     /// Send a UDP packet to target through proxy `target`
     pub async fn send_to(&self, target: SocketAddr, addr: &Address, payload: &[u8]) -> ProxySocketResult<usize> {
-        self.send_to_with_ctrl(target, addr, &DEFAULT_SOCKET_CONTROL, payload)
-            .await
+        self.send_to_with_ctrl(target, addr, &DEFAULT_SOCKET_CONTROL, payload).await
     }
 
     /// Send a UDP packet to target through proxy `target`
@@ -400,11 +390,7 @@ where
         };
 
         if send_buf.len() != send_len {
-            warn!(
-                "UDP server client send_to {} bytes, but actually sent {} bytes",
-                send_buf.len(),
-                send_len
-            );
+            warn!("UDP server client send_to {} bytes, but actually sent {} bytes", send_buf.len(), send_len);
         }
 
         Ok(send_len)
@@ -475,9 +461,7 @@ where
     /// It is recommended to allocate a buffer to have at least 65536 bytes.
     #[allow(clippy::type_complexity)]
     pub async fn recv_from(&self, recv_buf: &mut [u8]) -> ProxySocketResult<(usize, SocketAddr, Address, usize)> {
-        self.recv_from_with_ctrl(recv_buf)
-            .await
-            .map(|(n, sa, a, rn, _)| (n, sa, a, rn))
+        self.recv_from_with_ctrl(recv_buf).await.map(|(n, sa, a, rn, _)| (n, sa, a, rn))
     }
 
     /// Receive packet from Shadowsocks' UDP server
@@ -521,8 +505,7 @@ where
         cx: &mut Context<'_>,
         recv_buf: &mut ReadBuf,
     ) -> Poll<ProxySocketResult<(usize, Address, usize)>> {
-        self.poll_recv_with_ctrl(cx, recv_buf)
-            .map(|r| r.map(|(n, a, rn, _)| (n, a, rn)))
+        self.poll_recv_with_ctrl(cx, recv_buf).map(|r| r.map(|(n, a, rn, _)| (n, a, rn)))
     }
 
     /// poll family functions
@@ -549,8 +532,7 @@ where
         cx: &mut Context<'_>,
         recv_buf: &mut ReadBuf,
     ) -> Poll<ProxySocketResult<(usize, SocketAddr, Address, usize)>> {
-        self.poll_recv_from_with_ctrl(cx, recv_buf)
-            .map(|r| r.map(|(n, sa, a, rn, _)| (n, sa, a, rn)))
+        self.poll_recv_from_with_ctrl(cx, recv_buf).map(|r| r.map(|(n, sa, a, rn, _)| (n, sa, a, rn)))
     }
 
     /// poll family functions

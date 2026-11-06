@@ -11,21 +11,63 @@
 +++ b/src/config.rs
 @@ -15 +14,0 @@
 -use byte_string::ByteStr;
-@@ -257,2 +256,2 @@
+@@ -172,4 +171 @@
+-            Err(e) => Err(serde::de::Error::invalid_value(
+-                serde::de::Unexpected::Bytes(&e.into_bytes()),
+-                &self,
+-            )),
++            Err(e) => Err(serde::de::Error::invalid_value(serde::de::Unexpected::Bytes(&e.into_bytes()), &self)),
+@@ -216,4 +212 @@
+-        Self {
+-            tcp_weight: 1.0,
+-            udp_weight: 1.0,
+-        }
++        Self { tcp_weight: 1.0, udp_weight: 1.0 }
+@@ -257,2 +250,2 @@
 -            .field("key", &USER_KEY_BASE64_ENGINE.encode(&self.key))
 -            .field("identity_hash", &ByteStr::new(&self.identity_hash))
 +            .field("key", &"[redacted]")
 +            .field("identity_hash", &"[redacted]")
-@@ -404 +403 @@
+@@ -276,5 +269 @@
+-        Self {
+-            name,
+-            key,
+-            identity_hash,
+-        }
++        Self { name, key, identity_hash }
+@@ -404 +393 @@
 -#[derive(Clone, Debug)]
 +#[derive(Clone)]
-@@ -446,0 +446,6 @@
+@@ -444,0 +434,6 @@
++}
++
 +impl Debug for ServerConfig {
 +    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
 +        f.debug_struct("ServerConfig").field("method", &self.method).finish_non_exhaustive()
 +    }
-+}
-+
+@@ -488,4 +483 @@
+-    matches!(
+-        method,
+-        CipherKind::AEAD2022_BLAKE3_AES_128_GCM | CipherKind::AEAD2022_BLAKE3_AES_256_GCM
+-    )
++    matches!(method, CipherKind::AEAD2022_BLAKE3_AES_128_GCM | CipherKind::AEAD2022_BLAKE3_AES_256_GCM)
+@@ -659,3 +651 @@
+-        let mut parts: Vec<String> = self.identity_keys.iter()
+-            .map(|k| USER_KEY_BASE64_ENGINE.encode(k))
+-            .collect();
++        let mut parts: Vec<String> = self.identity_keys.iter().map(|k| USER_KEY_BASE64_ENGINE.encode(k)).collect();
+@@ -1160,4 +1150 @@
+-            Err(e) => Err(serde::de::Error::invalid_value(
+-                serde::de::Unexpected::Bytes(&e.into_bytes()),
+-                &self,
+-            )),
++            Err(e) => Err(serde::de::Error::invalid_value(serde::de::Unexpected::Bytes(&e.into_bytes()), &self)),
+@@ -1341,4 +1328 @@
+-            Err(e) => Err(serde::de::Error::invalid_value(
+-                serde::de::Unexpected::Bytes(&e.into_bytes()),
+-                &self,
+-            )),
++            Err(e) => Err(serde::de::Error::invalid_value(serde::de::Unexpected::Bytes(&e.into_bytes()), &self)),
 --- a/src/context.rs
 +++ b/src/context.rs
 @@ -3 +3 @@
@@ -73,13 +115,231 @@
 +        self.timestamp_provider.clone()
 +    }
 +
+--- a/src/dns_resolver/hickory_dns_resolver.rs
++++ b/src/dns_resolver/hickory_dns_resolver.rs
+@@ -33,4 +33 @@
+-        Self {
+-            handle: TokioHandle::default(),
+-            connect_opts,
+-        }
++        Self { handle: TokioHandle::default(), connect_opts }
+@@ -84,4 +81 @@
+-            trace!(
+-                "hickory-dns RuntimeProvider tcp connecting to {} with {:?}",
+-                server_addr, connect_opts
+-            );
++            trace!("hickory-dns RuntimeProvider tcp connecting to {} with {:?}", server_addr, connect_opts);
+@@ -89,10 +83,8 @@
+-            let tcp = match tokio::time::timeout(
+-                wait_for,
+-                ShadowTcpStream::connect_with_opts(&server_addr, &connect_opts),
+-            )
+-            .await
+-            {
+-                Ok(Ok(s)) => s,
+-                Ok(Err(err)) => return Err(err),
+-                Err(_) => return Err(io::ErrorKind::TimedOut.into()),
+-            };
++            let tcp =
++                match tokio::time::timeout(wait_for, ShadowTcpStream::connect_with_opts(&server_addr, &connect_opts))
++                    .await
++                {
++                    Ok(Ok(s)) => s,
++                    Ok(Err(err)) => return Err(err),
++                    Err(_) => return Err(io::ErrorKind::TimedOut.into()),
++                };
+@@ -100,4 +92 @@
+-            trace!(
+-                "hickory-dns RuntimeProvider tcp connected to {}, {:?}",
+-                server_addr, connect_opts
+-            );
++            trace!("hickory-dns RuntimeProvider tcp connected to {}, {:?}", server_addr, connect_opts);
+@@ -115,4 +104 @@
+-            trace!(
+-                "hickory-dns RuntimeProvider udp binding to {} with {:?}",
+-                local_addr, connect_opts
+-            );
++            trace!("hickory-dns RuntimeProvider udp binding to {} with {:?}", local_addr, connect_opts);
+@@ -120,4 +106 @@
+-            trace!(
+-                "hickory-dns RuntimeProvider udp bound to {}, {:?}",
+-                local_addr, connect_opts
+-            );
++            trace!("hickory-dns RuntimeProvider udp bound to {}, {:?}", local_addr, connect_opts);
+--- a/src/dns_resolver/resolver.rs
++++ b/src/dns_resolver/resolver.rs
+@@ -247,5 +247,2 @@
+-        let inner = Arc::new(HickoryDnsSystemResolver {
+-            resolver: ArcSwap::from(Arc::new(resolver)),
+-            connect_opts,
+-            opts,
+-        });
++        let inner =
++            Arc::new(HickoryDnsSystemResolver { resolver: ArcSwap::from(Arc::new(resolver)), connect_opts, opts });
+@@ -305,5 +302 @@
+-                let start_time = if log_enabled!(Level::Trace) {
+-                    Some(Instant::now())
+-                } else {
+-                    None
+-                };
++                let start_time = if log_enabled!(Level::Trace) { Some(Instant::now()) } else { None };
+@@ -311,6 +304 @@
+-                ResolverLogger {
+-                    resolver,
+-                    addr,
+-                    port,
+-                    start_time,
+-                }
++                ResolverLogger { resolver, addr, port, start_time }
 --- a/src/lib.rs
 +++ b/src/lib.rs
-@@ -21,0 +22 @@
+@@ -20,0 +21 @@
 +pub mod packet_window;
+--- a/src/manager/datagram.rs
++++ b/src/manager/datagram.rs
+@@ -86,4 +86,2 @@
+-                lookup_then!(context, dname, port, |addr| {
+-                    Self::connect_socket_addr(addr, connect_opts).await
+-                })
+-                .map(|(_, d)| d)
++                lookup_then!(context, dname, port, |addr| { Self::connect_socket_addr(addr, connect_opts).await })
++                    .map(|(_, d)| d)
+--- a/src/manager/listener.rs
++++ b/src/manager/listener.rs
+@@ -24,3 +24 @@
+-        ManagerDatagram::bind(context, bind_addr)
+-            .await
+-            .map(|socket| Self { socket })
++        ManagerDatagram::bind(context, bind_addr).await.map(|socket| Self { socket })
+--- a/src/net/sys/mod.rs
++++ b/src/net/sys/mod.rs
+@@ -110,4 +110 @@
+-                debug!(
+-                    "0.0.0.0:{} may have already been occupied, retry with IPV6_V6ONLY",
+-                    addr.port()
+-                );
++                debug!("0.0.0.0:{} may have already been occupied, retry with IPV6_V6ONLY", addr.port());
+@@ -143,5 +140 @@
+-    let mut caps = IpStackCapabilities {
+-        support_ipv4: false,
+-        support_ipv6: false,
+-        support_ipv4_mapped_ipv6: false,
+-    };
++    let mut caps = IpStackCapabilities { support_ipv4: false, support_ipv6: false, support_ipv4_mapped_ipv6: false };
+--- a/src/net/sys/unix/bsd/freebsd.rs
++++ b/src/net/sys/unix/bsd/freebsd.rs
+@@ -331,9 +331,2 @@
+-    let ret = unsafe {
+-        libc::recvmmsg(
+-            sock.as_raw_fd(),
+-            vec_msg_hdr.as_mut_ptr(),
+-            vec_msg_hdr.len() as _,
+-            0,
+-            ptr::null(),
+-        )
+-    };
++    let ret =
++        unsafe { libc::recvmmsg(sock.as_raw_fd(), vec_msg_hdr.as_mut_ptr(), vec_msg_hdr.len() as _, 0, ptr::null()) };
+--- a/src/net/sys/unix/bsd/macos.rs
++++ b/src/net/sys/unix/bsd/macos.rs
+@@ -304,4 +304 @@
+-            error!(
+-                "set IF_BOUND_IF/IPV6_BOUND_IF ifname: {} ifindex: {} error: {}",
+-                iface, index, err
+-            );
++            error!("set IF_BOUND_IF/IPV6_BOUND_IF ifname: {} ifindex: {} error: {}", iface, index, err);
+--- a/src/net/sys/unix/linux/mod.rs
++++ b/src/net/sys/unix/linux/mod.rs
+@@ -494,7 +494 @@
+-        libc::recvmmsg(
+-            sock.as_raw_fd(),
+-            vec_msg_hdr.as_mut_ptr(),
+-            vec_msg_hdr.len() as _,
+-            0,
+-            ptr::null_mut(),
+-        )
++        libc::recvmmsg(sock.as_raw_fd(), vec_msg_hdr.as_mut_ptr(), vec_msg_hdr.len() as _, 0, ptr::null_mut())
+--- a/src/net/sys/windows/mod.rs
++++ b/src/net/sys/windows/mod.rs
+@@ -337,4 +337 @@
+-            error!(
+-                "set IP_UNICAST_IF / IPV6_UNICAST_IF interface: {}, index: {}, error: {}",
+-                iface, if_index, err
+-            );
++            error!("set IP_UNICAST_IF / IPV6_UNICAST_IF interface: {}, index: {}, error: {}", iface, if_index, err);
+--- a/src/net/tcp.rs
++++ b/src/net/tcp.rs
+@@ -52,4 +52 @@
+-                lookup_then_connect!(context, domain, port, |addr| {
+-                    SysTcpStream::connect(addr, opts).await
+-                })?
+-                .1
++                lookup_then_connect!(context, domain, port, |addr| { SysTcpStream::connect(addr, opts).await })?.1
+@@ -67,4 +64 @@
+-                lookup_then_connect!(context, domain, port, |addr| {
+-                    SysTcpStream::connect(addr, opts).await
+-                })?
+-                .1
++                lookup_then_connect!(context, domain, port, |addr| { SysTcpStream::connect(addr, opts).await })?.1
+@@ -176,4 +170 @@
+-        Ok(Self {
+-            inner: listener,
+-            accept_opts,
+-        })
++        Ok(Self { inner: listener, accept_opts })
+--- a/src/net/udp.rs
++++ b/src/net/udp.rs
+@@ -123,4 +123 @@
+-        Ok(Self {
+-            socket,
+-            mtu: opts.udp.mtu,
+-        })
++        Ok(Self { socket, mtu: opts.udp.mtu })
+@@ -146,4 +143 @@
+-        Ok(Self {
+-            socket,
+-            mtu: opts.udp.mtu,
+-        })
++        Ok(Self { socket, mtu: opts.udp.mtu })
+@@ -156,4 +150 @@
+-        Ok(Self {
+-            socket,
+-            mtu: opts.udp.mtu,
+-        })
++        Ok(Self { socket, mtu: opts.udp.mtu })
+@@ -164,4 +155 @@
+-        create_outbound_udp_socket(af.into(), opts).await.map(|socket| Self {
+-            socket,
+-            mtu: opts.udp.mtu,
+-        })
++        create_outbound_udp_socket(af.into(), opts).await.map(|socket| Self { socket, mtu: opts.udp.mtu })
+@@ -178,4 +166 @@
+-        bind_outbound_udp_socket(addr, opts).await.map(|socket| Self {
+-            socket,
+-            mtu: opts.udp.mtu,
+-        })
++        bind_outbound_udp_socket(addr, opts).await.map(|socket| Self { socket, mtu: opts.udp.mtu })
+@@ -193,4 +178 @@
+-        Ok(Self {
+-            socket,
+-            mtu: opts.udp.mtu,
+-        })
++        Ok(Self { socket, mtu: opts.udp.mtu })
+@@ -325,4 +307 @@
+-            match self
+-                .socket
+-                .try_io(Interest::WRITABLE, || batch_sendmsg(&self.socket, msgs))
+-            {
++            match self.socket.try_io(Interest::WRITABLE, || batch_sendmsg(&self.socket, msgs)) {
+@@ -370,4 +349 @@
+-            match self
+-                .socket
+-                .try_io(Interest::READABLE, || batch_recvmsg(&self.socket, msgs))
+-            {
++            match self.socket.try_io(Interest::READABLE, || batch_recvmsg(&self.socket, msgs)) {
 --- a/src/packet_window.rs
 +++ b/src/packet_window.rs
-@@ -0,0 +1,191 @@
+@@ -0,0 +1,188 @@
 +// SPDX-License-Identifier: MIT
 +//
 +// Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
@@ -111,10 +371,7 @@
 +impl PacketWindowFilter {
 +    /// Create an empty filter
 +    pub fn new() -> Self {
-+        Self {
-+            last_packet_id: 0,
-+            packet_ring: [0u64; RING_BLOCKS as usize],
-+        }
++        Self { last_packet_id: 0, packet_ring: [0u64; RING_BLOCKS as usize] }
 +    }
 +
 +    /// Reset filter to the initial state
@@ -271,11 +528,90 @@
 +        T(WINDOW_SIZE + 1, true);
 +    }
 +}
+--- a/src/plugin/mod.rs
++++ b/src/plugin/mod.rs
+@@ -86,4 +86 @@
+-                error!(
+-                    "failed to start plugin \"{}\" for server {}, err: {}",
+-                    c.plugin, remote_addr, err
+-                );
++                error!("failed to start plugin \"{}\" for server {}, err: {}", c.plugin, remote_addr, err);
+@@ -116,5 +113 @@
+-                Ok(Self {
+-                    process,
+-                    local_addr,
+-                    mode: c.plugin_mode,
+-                })
++                Ok(Self { process, local_addr, mode: c.plugin_mode })
+@@ -173,5 +166 @@
+-        debug!(
+-            "killing plugin process {:?}, local_addr: {}",
+-            self.process.id(),
+-            self.local_addr
+-        );
++        debug!("killing plugin process {:?}, local_addr: {}", self.process.id(), self.local_addr);
+@@ -183,5 +172 @@
+-        debug!(
+-            "terminating plugin process {:?}, local_addr: {}",
+-            self.process.id(),
+-            self.local_addr
+-        );
++        debug!("terminating plugin process {:?}, local_addr: {}", self.process.id(), self.local_addr);
+@@ -207,4 +192 @@
+-                        debug!(
+-                            "plugin process {} is terminated gracefully with status: {:?}",
+-                            id, status
+-                        );
++                        debug!("plugin process {} is terminated gracefully with status: {:?}", id, status);
+--- a/src/plugin/obfs_proxy.rs
++++ b/src/plugin/obfs_proxy.rs
+@@ -42,10 +42,2 @@
+-        PluginMode::Client => cmd
+-            .arg("--dest")
+-            .arg(remote.to_string())
+-            .arg("client")
+-            .arg(local.to_string()),
+-        PluginMode::Server => cmd
+-            .arg("--dest")
+-            .arg(local.to_string())
+-            .arg("server")
+-            .arg(remote.to_string()),
++        PluginMode::Client => cmd.arg("--dest").arg(remote.to_string()).arg("client").arg(local.to_string()),
++        PluginMode::Server => cmd.arg("--dest").arg(local.to_string()).arg("server").arg(remote.to_string()),
 --- a/src/relay/socks5.rs
 +++ b/src/relay/socks5.rs
 @@ -272,0 +273,2 @@
 +                // SAFETY: nine initialized u16 values occupy 18 bytes; the byte view has
 +                // alignment one and exclusive access for no longer than the array borrow.
+@@ -288,3 +290 @@
+-                Ok(Self::SocketAddress(SocketAddr::V6(SocketAddrV6::new(
+-                    v6addr, port, 0, 0,
+-                ))))
++                Ok(Self::SocketAddress(SocketAddr::V6(SocketAddrV6::new(v6addr, port, 0, 0))))
+@@ -474,4 +474 @@
+-    assert!(
+-        dnaddr.len() <= u8::MAX as usize,
+-        "domain name length must be smaller than 256"
+-    );
++    assert!(dnaddr.len() <= u8::MAX as usize, "domain name length must be smaller than 256");
+@@ -526,4 +523 @@
+-        Self {
+-            command: cmd,
+-            address: addr,
+-        }
++        Self { command: cmd, address: addr }
+@@ -567,4 +561 @@
+-        let Self {
+-            ref address,
+-            ref command,
+-        } = *self;
++        let Self { ref address, ref command } = *self;
+@@ -623,4 +614 @@
+-        Ok(Self {
+-            reply: Reply::from_u8(reply_code),
+-            address,
+-        })
++        Ok(Self { reply: Reply::from_u8(reply_code), address })
 --- a/src/relay/tcprelay/aead.rs
 +++ b/src/relay/tcprelay/aead.rs
 @@ -107,3 +107 @@
@@ -335,20 +671,18 @@
 -
 -                    return Ok(buf.len()).into();
 +                    return Poll::Ready(Ok(buf.len()));
-@@ -419,0 +414,21 @@
+@@ -419,0 +414,18 @@
 +    /// Drains ciphertext already accepted by poll_write_encrypted.
-+    pub fn poll_flush_encrypted<S>(
-+        &mut self,
-+        cx: &mut task::Context<'_>,
-+        stream: &mut S,
-+    ) -> Poll<io::Result<()>>
++    pub fn poll_flush_encrypted<S>(&mut self, cx: &mut task::Context<'_>, stream: &mut S) -> Poll<io::Result<()>>
 +    where
 +        S: AsyncWrite + Unpin + ?Sized,
 +    {
 +        if let EncryptWriteState::Writing { ref mut pos } = self.state {
 +            while *pos < self.buffer.len() {
 +                let n = ready!(Pin::new(&mut *stream).poll_write(cx, &self.buffer[*pos..]))?;
-+                if n == 0 { return Poll::Ready(Err(ErrorKind::WriteZero.into())); }
++                if n == 0 {
++                    return Poll::Ready(Err(ErrorKind::WriteZero.into()));
++                }
 +                *pos += n;
 +            }
 +            self.buffer.clear();
@@ -356,7 +690,6 @@
 +        }
 +        Poll::Ready(Ok(()))
 +    }
-+
 --- a/src/relay/tcprelay/aead_2022.rs
 +++ b/src/relay/tcprelay/aead_2022.rs
 @@ -53 +52,0 @@
@@ -482,20 +815,18 @@
 -
 -                    return Ok(buf.len()).into();
 +                    return Poll::Ready(Ok(buf.len()));
-@@ -744,0 +718,21 @@
+@@ -744,0 +718,18 @@
 +    /// Drains ciphertext already accepted by poll_write_encrypted.
-+    pub fn poll_flush_encrypted<S>(
-+        &mut self,
-+        cx: &mut task::Context<'_>,
-+        stream: &mut S,
-+    ) -> Poll<io::Result<()>>
++    pub fn poll_flush_encrypted<S>(&mut self, cx: &mut task::Context<'_>, stream: &mut S) -> Poll<io::Result<()>>
 +    where
 +        S: AsyncWrite + Unpin + ?Sized,
 +    {
 +        if let EncryptWriteState::Writing { ref mut pos } = self.state {
 +            while *pos < self.buffer.len() {
 +                let n = ready!(Pin::new(&mut *stream).poll_write(cx, &self.buffer[*pos..]))?;
-+                if n == 0 { return Poll::Ready(Err(ErrorKind::WriteZero.into())); }
++                if n == 0 {
++                    return Poll::Ready(Err(ErrorKind::WriteZero.into()));
++                }
 +                *pos += n;
 +            }
 +            self.buffer.clear();
@@ -503,7 +834,6 @@
 +        }
 +        Poll::Ready(Ok(()))
 +    }
-+
 --- a/src/relay/tcprelay/crypto_io.rs
 +++ b/src/relay/tcprelay/crypto_io.rs
 @@ -115,6 +115,3 @@
@@ -527,13 +857,14 @@
 +            CipherCategory::Aead2022 => {
 +                Self::Aead2022(Aead2022EncryptedWriter::with_identity(stream_ty, method, key, nonce, identity_keys))
 +            }
-@@ -288,0 +282,13 @@
+@@ -288,0 +282,14 @@
 +        }
 +    }
 +
 +    /// Drains acknowledged AEAD ciphertext without accepting new plaintext.
 +    pub fn poll_flush_encrypted<S>(&mut self, cx: &mut task::Context<'_>, stream: &mut S) -> Poll<ProtocolResult<()>>
-+    where S: AsyncWrite + Unpin + ?Sized,
++    where
++        S: AsyncWrite + Unpin + ?Sized,
 +    {
 +        match self {
 +            #[cfg(feature = "aead-cipher")]
@@ -541,7 +872,7 @@
 +            #[cfg(feature = "aead-cipher-2022")]
 +            Self::Aead2022(writer) => writer.poll_flush_encrypted(cx, stream).map_err(Into::into),
 +            _ => Poll::Ready(Ok(())),
-@@ -329,0 +336,14 @@
+@@ -329,0 +337,14 @@
 +/// Read-side output progress and split writers share a single carrier write waker.
 +#[derive(Default)]
 +struct WriteReadiness {
@@ -556,31 +887,23 @@
 +    }
 +}
 +
-@@ -336,0 +357 @@
+@@ -336,0 +358 @@
 +    write_readiness: Arc<WriteReadiness>,
-@@ -411,0 +433,6 @@
-+
+@@ -412,0 +435,6 @@
 +        let mut enc = EncryptedWriter::with_identity(stream_ty, method, key, &iv, identity_keys);
 +        #[cfg(feature = "aead-cipher-2022")]
 +        if let EncryptedWriter::Aead2022(writer) = &mut enc {
 +            writer.timestamp_provider = context.timestamp_provider();
 +        }
-@@ -416 +443 @@
++
+@@ -416 +444 @@
 -            enc: EncryptedWriter::with_identity(stream_ty, method, key, &iv, identity_keys),
 +            enc,
-@@ -418,0 +446 @@
+@@ -418,0 +447 @@
 +            write_readiness: Arc::new(WriteReadiness::default()),
-@@ -423,7 +451,2 @@
--        Self {
--            stream,
--            dec: DecryptedReader::None,
--            enc: EncryptedWriter::None,
--            method,
--            has_handshaked: false,
--        }
-+        Self { stream, dec: DecryptedReader::None, enc: EncryptedWriter::None, method, has_handshaked: false,
-+            write_readiness: Arc::new(WriteReadiness::default()) }
-@@ -542,7 +565,9 @@
+@@ -428,0 +458 @@
++            write_readiness: Arc::new(WriteReadiness::default()),
+@@ -542,7 +572,9 @@
 -        let Self {
 -            ref mut dec,
 -            ref mut enc,
@@ -597,7 +920,7 @@
 +        if let Poll::Ready(Err(error)) = enc.poll_flush_encrypted(&mut output_cx, stream) {
 +            return Poll::Ready(Err(error));
 +        }
-@@ -575,6 +600,5 @@
+@@ -575,6 +607,5 @@
 -        let Self {
 -            ref mut enc,
 -            ref mut stream,
@@ -609,14 +932,14 @@
 +        let output_waker = futures::task::waker_ref(write_readiness);
 +        let mut output_cx = task::Context::from_waker(&output_waker);
 +        enc.poll_write_encrypted(&mut output_cx, stream, buf)
-@@ -591 +615,5 @@
+@@ -591 +622,5 @@
 -        Pin::new(&mut self.stream).poll_flush(cx).map_err(Into::into)
 +        self.write_readiness.writer.register(cx.waker());
 +        let output_waker = futures::task::waker_ref(&self.write_readiness);
 +        let mut output_cx = task::Context::from_waker(&output_waker);
 +        ready!(self.enc.poll_flush_encrypted(&mut output_cx, &mut self.stream))?;
 +        Pin::new(&mut self.stream).poll_flush(&mut output_cx).map_err(Into::into)
-@@ -597 +625,5 @@
+@@ -597 +632,5 @@
 -        Pin::new(&mut self.stream).poll_shutdown(cx).map_err(Into::into)
 +        self.write_readiness.writer.register(cx.waker());
 +        let output_waker = futures::task::waker_ref(&self.write_readiness);
@@ -625,20 +948,129 @@
 +        Pin::new(&mut self.stream).poll_shutdown(&mut output_cx).map_err(Into::into)
 --- a/src/relay/tcprelay/proxy_stream/client.rs
 +++ b/src/relay/tcprelay/proxy_stream/client.rs
-@@ -277,5 +277 @@
+@@ -124,4 +124 @@
+-                        return Err(io::Error::new(
+-                            ErrorKind::TimedOut,
+-                            format!("connect {} timeout", svr_cfg.addr()),
+-                        ));
++                        return Err(io::Error::new(ErrorKind::TimedOut, format!("connect {} timeout", svr_cfg.addr())));
+@@ -134,6 +131 @@
+-        trace!(
+-            "connected tcp remote {} (outbound: {}) with {:?}",
+-            svr_cfg.addr(),
+-            svr_cfg.tcp_external_addr(),
+-            opts
+-        );
++        trace!("connected tcp remote {} (outbound: {}) with {:?}", svr_cfg.addr(), svr_cfg.tcp_external_addr(), opts);
+@@ -173,6 +165 @@
+-        Self {
+-            stream,
+-            writer_state: ProxyClientStreamWriteState::Connect(addr),
+-            reader_state,
+-            context,
+-        }
++        Self { stream, writer_state: ProxyClientStreamWriteState::Connect(addr), reader_state, context }
+@@ -210,4 +197 @@
+-                    return this
+-                        .stream
+-                        .poll_read_decrypted(cx, this.context, buf)
+-                        .map_err(Into::into);
++                    return this.stream.poll_read_decrypted(cx, this.context, buf).map_err(Into::into);
+@@ -277,5 +261 @@
 -        if padding_size > 0 {
 -            unsafe {
 -                buffer.advance_mut(padding_size);
 -            }
 -        }
 +        buffer.put_bytes(0, padding_size);
+--- a/src/relay/tcprelay/proxy_stream/protocol/v1.rs
++++ b/src/relay/tcprelay/proxy_stream/protocol/v1.rs
+@@ -17,3 +17 @@
+-        Ok(Self {
+-            addr: Address::read_from(reader).await?,
+-        })
++        Ok(Self { addr: Address::read_from(reader).await? })
 --- a/src/relay/tcprelay/proxy_stream/protocol/v2.rs
 +++ b/src/relay/tcprelay/proxy_stream/protocol/v2.rs
-@@ -84,3 +84 @@
+@@ -53,5 +53 @@
+-        Aead2022TcpRequestHeaderRef {
+-            addr: &self.addr,
+-            padding_size: self.padding_size,
+-        }
+-        .write_to_buf(buf)
++        Aead2022TcpRequestHeaderRef { addr: &self.addr, padding_size: self.padding_size }.write_to_buf(buf)
+@@ -61,5 +57 @@
+-        Aead2022TcpRequestHeaderRef {
+-            addr: &self.addr,
+-            padding_size: self.padding_size,
+-        }
+-        .serialized_len()
++        Aead2022TcpRequestHeaderRef { addr: &self.addr, padding_size: self.padding_size }.serialized_len()
+@@ -77,4 +69 @@
+-        assert!(
+-            self.padding_size as usize <= MAX_PADDING_SIZE,
+-            "padding length must be in [0, {MAX_PADDING_SIZE}]"
+-        );
++        assert!(self.padding_size as usize <= MAX_PADDING_SIZE, "padding length must be in [0, {MAX_PADDING_SIZE}]");
+@@ -84,3 +73 @@
 -            unsafe {
 -                buf.advance_mut(self.padding_size as usize);
 -            }
 +            buf.put_bytes(0, self.padding_size as usize);
+--- a/src/relay/tcprelay/stream.rs
++++ b/src/relay/tcprelay/stream.rs
+@@ -61,3 +61 @@
+-                state: DecryptReadState::WaitIv {
+-                    key: Bytes::copy_from_slice(key),
+-                },
++                state: DecryptReadState::WaitIv { key: Bytes::copy_from_slice(key) },
+--- a/src/relay/tcprelay/utils.rs
++++ b/src/relay/tcprelay/utils.rs
+@@ -42,7 +42 @@
+-        Self {
+-            read_done: false,
+-            pos: 0,
+-            cap: 0,
+-            amt: 0,
+-            buf: vec![0; buffer_size].into_boxed_slice(),
+-        }
++        Self { read_done: false, pos: 0, cap: 0, amt: 0, buf: vec![0; buffer_size].into_boxed_slice() }
+@@ -82,4 +76 @@
+-                    return Poll::Ready(Err(io::Error::new(
+-                        io::ErrorKind::WriteZero,
+-                        "write zero byte into writer",
+-                    )));
++                    return Poll::Ready(Err(io::Error::new(io::ErrorKind::WriteZero, "write zero byte into writer")));
+@@ -134,6 +125 @@
+-    Copy {
+-        reader,
+-        writer,
+-        buf: CopyBuffer::new(plain_read_buffer_size(method)),
+-    }
+-    .await
++    Copy { reader, writer, buf: CopyBuffer::new(plain_read_buffer_size(method)) }.await
+@@ -148,6 +134 @@
+-    Copy {
+-        reader,
+-        writer,
+-        buf: CopyBuffer::new(plain_read_buffer_size(method)),
+-    }
+-    .await
++    Copy { reader, writer, buf: CopyBuffer::new(plain_read_buffer_size(method)) }.await
+@@ -224,6 +205 @@
+-        let CopyBidirectionalProj {
+-            mut a,
+-            mut b,
+-            a_to_b,
+-            b_to_a,
+-        } = self.project();
++        let CopyBidirectionalProj { mut a, mut b, a_to_b, b_to_a } = self.project();
+@@ -256,4 +232 @@
+-                        trace!(
+-                            "copy bidirection ends, a_to_b: {:?}, b_to_a: {:?}",
+-                            self.a_to_b, self.b_to_a
+-                        );
++                        trace!("copy bidirection ends, a_to_b: {:?}, b_to_a: {:?}", self.a_to_b, self.b_to_a);
 --- a/src/relay/udprelay/aead.rs
 +++ b/src/relay/udprelay/aead.rs
 @@ -71,3 +71 @@
@@ -893,6 +1325,32 @@
 +        ));
 +    }
 +}
+--- a/src/relay/udprelay/crypto_io.rs
++++ b/src/relay/udprelay/crypto_io.rs
+@@ -165,3 +165 @@
+-            decrypt_payload_stream(context, method, key, payload)
+-                .map(|(n, a)| (n, a, None))
+-                .map_err(Into::into)
++            decrypt_payload_stream(context, method, key, payload).map(|(n, a)| (n, a, None)).map_err(Into::into)
+@@ -172,3 +170 @@
+-            decrypt_payload_aead(context, method, key, payload)
+-                .map(|(n, a)| (n, a, None))
+-                .map_err(Into::into)
++            decrypt_payload_aead(context, method, key, payload).map(|(n, a)| (n, a, None)).map_err(Into::into)
+@@ -207,3 +203,3 @@
+-        CipherCategory::Stream => decrypt_payload_stream(context, method, key, payload)
+-            .map(|(n, a)| (n, a, None))
+-            .map_err(Into::into),
++        CipherCategory::Stream => {
++            decrypt_payload_stream(context, method, key, payload).map(|(n, a)| (n, a, None)).map_err(Into::into)
++        }
+@@ -211,3 +207,3 @@
+-        CipherCategory::Aead => decrypt_payload_aead(context, method, key, payload)
+-            .map(|(n, a)| (n, a, None))
+-            .map_err(Into::into),
++        CipherCategory::Aead => {
++            decrypt_payload_aead(context, method, key, payload).map(|(n, a)| (n, a, None)).map_err(Into::into)
++        }
 --- a/src/relay/udprelay/options.rs
 +++ b/src/relay/udprelay/options.rs
 @@ -9,0 +10,2 @@
@@ -907,10 +1365,113 @@
 +    #[error("invalid server user identity")]
 @@ -75 +73,0 @@
 -#[derive(Debug)]
-@@ -85,0 +84,6 @@
-+}
-+
+@@ -87,0 +86,6 @@
 +impl<S> std::fmt::Debug for ProxySocket<S> {
 +    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 +        f.debug_struct("ProxySocket").field("method", &self.method).finish_non_exhaustive()
 +    }
++}
++
+@@ -104,6 +108 @@
+-        trace!(
+-            "connected udp remote {} (outbound: {}) with {:?}",
+-            svr_cfg.addr(),
+-            svr_cfg.udp_external_addr(),
+-            opts
+-        );
++        trace!("connected udp remote {} (outbound: {}) with {:?}", svr_cfg.addr(), svr_cfg.udp_external_addr(), opts);
+@@ -248,5 +247 @@
+-            warn!(
+-                "UDP server client send {} bytes, but actually sent {} bytes",
+-                send_buf.len(),
+-                send_len
+-            );
++            warn!("UDP server client send {} bytes, but actually sent {} bytes", send_buf.len(), send_len);
+@@ -366,2 +361 @@
+-        self.send_to_with_ctrl(target, addr, &DEFAULT_SOCKET_CONTROL, payload)
+-            .await
++        self.send_to_with_ctrl(target, addr, &DEFAULT_SOCKET_CONTROL, payload).await
+@@ -399,5 +393 @@
+-            warn!(
+-                "UDP server client send_to {} bytes, but actually sent {} bytes",
+-                send_buf.len(),
+-                send_len
+-            );
++            warn!("UDP server client send_to {} bytes, but actually sent {} bytes", send_buf.len(), send_len);
+@@ -474,3 +464 @@
+-        self.recv_from_with_ctrl(recv_buf)
+-            .await
+-            .map(|(n, sa, a, rn, _)| (n, sa, a, rn))
++        self.recv_from_with_ctrl(recv_buf).await.map(|(n, sa, a, rn, _)| (n, sa, a, rn))
+@@ -520,2 +508 @@
+-        self.poll_recv_with_ctrl(cx, recv_buf)
+-            .map(|r| r.map(|(n, a, rn, _)| (n, a, rn)))
++        self.poll_recv_with_ctrl(cx, recv_buf).map(|r| r.map(|(n, a, rn, _)| (n, a, rn)))
+@@ -548,2 +535 @@
+-        self.poll_recv_from_with_ctrl(cx, recv_buf)
+-            .map(|r| r.map(|(n, sa, a, rn, _)| (n, sa, a, rn)))
++        self.poll_recv_from_with_ctrl(cx, recv_buf).map(|r| r.map(|(n, sa, a, rn, _)| (n, sa, a, rn)))
+--- a/tests/tcp.rs
++++ b/tests/tcp.rs
+@@ -157,3 +157 @@
+-    tcp_tunnel_example(server_addr, local_addr, "p$p", CipherKind::AES_128_GCM)
+-        .await
+-        .unwrap();
++    tcp_tunnel_example(server_addr, local_addr, "p$p", CipherKind::AES_128_GCM).await.unwrap();
+@@ -169,3 +167 @@
+-    tcp_tunnel_example(server_addr, local_addr, "p$p", CipherKind::AES_128_CFB128)
+-        .await
+-        .unwrap();
++    tcp_tunnel_example(server_addr, local_addr, "p$p", CipherKind::AES_128_CFB128).await.unwrap();
+@@ -180,3 +176 @@
+-    tcp_tunnel_example(server_addr, local_addr, "", CipherKind::NONE)
+-        .await
+-        .unwrap();
++    tcp_tunnel_example(server_addr, local_addr, "", CipherKind::NONE).await.unwrap();
+@@ -192,8 +186,3 @@
+-    tcp_tunnel_example(
+-        server_addr,
+-        local_addr,
+-        "3L69X4PF2eSL/JSLkoWnXg==",
+-        CipherKind::AEAD2022_BLAKE3_AES_128_GCM,
+-    )
+-    .await
+-    .unwrap();
++    tcp_tunnel_example(server_addr, local_addr, "3L69X4PF2eSL/JSLkoWnXg==", CipherKind::AEAD2022_BLAKE3_AES_128_GCM)
++        .await
++        .unwrap();
+--- a/tests/tcp_tfo.rs
++++ b/tests/tcp_tfo.rs
+@@ -44,3 +44 @@
+-        let listener = ProxyListener::bind_with_opts(context, &svr_cfg, accept_opts)
+-            .await
+-            .unwrap();
++        let listener = ProxyListener::bind_with_opts(context, &svr_cfg, accept_opts).await.unwrap();
+--- a/tests/udp.rs
++++ b/tests/udp.rs
+@@ -42,3 +42 @@
+-    let socket = ShadowUdpSocket::listen_with_opts(&addr, AcceptOpts::default())
+-        .await
+-        .unwrap();
++    let socket = ShadowUdpSocket::listen_with_opts(&addr, AcceptOpts::default()).await.unwrap();
+@@ -186,3 +184 @@
+-    udp_tunnel_echo(server_addr, local_addr, target_addr, "pas$$", CipherKind::AES_128_GCM)
+-        .await
+-        .unwrap();
++    udp_tunnel_echo(server_addr, local_addr, target_addr, "pas$$", CipherKind::AES_128_GCM).await.unwrap();
+@@ -200,9 +196 @@
+-    udp_tunnel_echo(
+-        server_addr,
+-        local_addr,
+-        target_addr,
+-        "pas$$",
+-        CipherKind::AES_128_CFB128,
+-    )
+-    .await
+-    .unwrap();
++    udp_tunnel_echo(server_addr, local_addr, target_addr, "pas$$", CipherKind::AES_128_CFB128).await.unwrap();
+@@ -219,3 +207 @@
+-    udp_tunnel_echo(server_addr, local_addr, target_addr, "pas$$", CipherKind::NONE)
+-        .await
+-        .unwrap();
++    udp_tunnel_echo(server_addr, local_addr, target_addr, "pas$$", CipherKind::NONE).await.unwrap();

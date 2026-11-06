@@ -412,18 +412,16 @@ impl EncryptedWriter {
         }
     }
     /// Drains ciphertext already accepted by poll_write_encrypted.
-    pub fn poll_flush_encrypted<S>(
-        &mut self,
-        cx: &mut task::Context<'_>,
-        stream: &mut S,
-    ) -> Poll<io::Result<()>>
+    pub fn poll_flush_encrypted<S>(&mut self, cx: &mut task::Context<'_>, stream: &mut S) -> Poll<io::Result<()>>
     where
         S: AsyncWrite + Unpin + ?Sized,
     {
         if let EncryptWriteState::Writing { ref mut pos } = self.state {
             while *pos < self.buffer.len() {
                 let n = ready!(Pin::new(&mut *stream).poll_write(cx, &self.buffer[*pos..]))?;
-                if n == 0 { return Poll::Ready(Err(ErrorKind::WriteZero.into())); }
+                if n == 0 {
+                    return Poll::Ready(Err(ErrorKind::WriteZero.into()));
+                }
                 *pos += n;
             }
             self.buffer.clear();
@@ -431,5 +429,4 @@ impl EncryptedWriter {
         }
         Poll::Ready(Ok(()))
     }
-
 }

@@ -328,15 +328,8 @@ pub fn batch_recvmsg<S: AsRawFd>(sock: &S, msgs: &mut [BatchRecvMessage<'_>]) ->
         vec_msg_hdr.push(hdr);
     }
 
-    let ret = unsafe {
-        libc::recvmmsg(
-            sock.as_raw_fd(),
-            vec_msg_hdr.as_mut_ptr(),
-            vec_msg_hdr.len() as _,
-            0,
-            ptr::null(),
-        )
-    };
+    let ret =
+        unsafe { libc::recvmmsg(sock.as_raw_fd(), vec_msg_hdr.as_mut_ptr(), vec_msg_hdr.len() as _, 0, ptr::null()) };
     if ret < 0 {
         let err = io::Error::last_os_error();
         if let Some(libc::ENOSYS) = err.raw_os_error() {

@@ -9,14 +9,14 @@ package is marked `passively-maintained`.
 - Package SHA-256: `e2065b026dbe4f47048eca384adf07f693bf901050d80abd3adb7b2422709b2d`
 - License: [LICENSE](LICENSE)
 
-`src/packet_window.rs` is copied without changes from the matching
-`shadowsocks-service` 1.25.0 package. It retains its MIT SPDX and WireGuard
-copyright notices, algorithm, and tests.
+`src/packet_window.rs` comes from the matching `shadowsocks-service` 1.25.0
+package. It retains its MIT SPDX and WireGuard copyright notices, algorithm,
+and tests. Rust sources use the repository's rustfmt settings.
 
 - Source: https://github.com/shadowsocks/shadowsocks-rust/blob/ab388c7466d21f979430e33cc9ef10e22fb05955/crates/shadowsocks-service/src/net/packet_window.rs
 - Service package: https://static.crates.io/crates/shadowsocks-service/shadowsocks-service-1.25.0.crate
 - Service package SHA-256: `999a4b33e1e211604bf7d8bd67e58d56701ebdf5adfdd2d1141105e61c76d641`
-- Packet-window file SHA-256: `92167224c0c65a0155fe55e36a59435432dc9f6ecf98d2bbbf8b48ca3fe04f15`
+- Upstream packet-window file SHA-256: `92167224c0c65a0155fe55e36a59435432dc9f6ecf98d2bbbf8b48ca3fe04f15`
 
 ## Local changes
 

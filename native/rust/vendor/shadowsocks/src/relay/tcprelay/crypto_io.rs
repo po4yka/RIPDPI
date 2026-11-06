@@ -284,7 +284,8 @@ impl EncryptedWriter {
 
     /// Drains acknowledged AEAD ciphertext without accepting new plaintext.
     pub fn poll_flush_encrypted<S>(&mut self, cx: &mut task::Context<'_>, stream: &mut S) -> Poll<ProtocolResult<()>>
-    where S: AsyncWrite + Unpin + ?Sized,
+    where
+        S: AsyncWrite + Unpin + ?Sized,
     {
         match self {
             #[cfg(feature = "aead-cipher")]
@@ -448,8 +449,14 @@ impl<S> CryptoStream<S> {
     }
 
     fn new_none(stream: S, method: CipherKind) -> Self {
-        Self { stream, dec: DecryptedReader::None, enc: EncryptedWriter::None, method, has_handshaked: false,
-            write_readiness: Arc::new(WriteReadiness::default()) }
+        Self {
+            stream,
+            dec: DecryptedReader::None,
+            enc: EncryptedWriter::None,
+            method,
+            has_handshaked: false,
+            write_readiness: Arc::new(WriteReadiness::default()),
+        }
     }
 
     /// Return a reference to the underlying stream

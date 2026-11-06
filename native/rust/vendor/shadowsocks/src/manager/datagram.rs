@@ -83,10 +83,8 @@ impl ManagerDatagram {
 
             ManagerAddr::DomainName(ref dname, port) => {
                 // Try connect to all socket addresses
-                lookup_then!(context, dname, port, |addr| {
-                    Self::connect_socket_addr(addr, connect_opts).await
-                })
-                .map(|(_, d)| d)
+                lookup_then!(context, dname, port, |addr| { Self::connect_socket_addr(addr, connect_opts).await })
+                    .map(|(_, d)| d)
             }
 
             #[cfg(unix)]

@@ -162,16 +162,12 @@ pub fn decrypt_client_payload(
         #[cfg(feature = "stream-cipher")]
         CipherCategory::Stream => {
             let _ = user_manager;
-            decrypt_payload_stream(context, method, key, payload)
-                .map(|(n, a)| (n, a, None))
-                .map_err(Into::into)
+            decrypt_payload_stream(context, method, key, payload).map(|(n, a)| (n, a, None)).map_err(Into::into)
         }
         #[cfg(feature = "aead-cipher")]
         CipherCategory::Aead => {
             let _ = user_manager;
-            decrypt_payload_aead(context, method, key, payload)
-                .map(|(n, a)| (n, a, None))
-                .map_err(Into::into)
+            decrypt_payload_aead(context, method, key, payload).map(|(n, a)| (n, a, None)).map_err(Into::into)
         }
         #[cfg(feature = "aead-cipher-2022")]
         CipherCategory::Aead2022 => decrypt_client_payload_aead_2022(context, method, key, payload, user_manager)
@@ -204,13 +200,13 @@ pub fn decrypt_server_payload(
             }
         }
         #[cfg(feature = "stream-cipher")]
-        CipherCategory::Stream => decrypt_payload_stream(context, method, key, payload)
-            .map(|(n, a)| (n, a, None))
-            .map_err(Into::into),
+        CipherCategory::Stream => {
+            decrypt_payload_stream(context, method, key, payload).map(|(n, a)| (n, a, None)).map_err(Into::into)
+        }
         #[cfg(feature = "aead-cipher")]
-        CipherCategory::Aead => decrypt_payload_aead(context, method, key, payload)
-            .map(|(n, a)| (n, a, None))
-            .map_err(Into::into),
+        CipherCategory::Aead => {
+            decrypt_payload_aead(context, method, key, payload).map(|(n, a)| (n, a, None)).map_err(Into::into)
+        }
         #[cfg(feature = "aead-cipher-2022")]
         CipherCategory::Aead2022 => decrypt_server_payload_aead_2022(context, method, key, payload)
             .map(|(n, a, c)| (n, a, Some(c)))
