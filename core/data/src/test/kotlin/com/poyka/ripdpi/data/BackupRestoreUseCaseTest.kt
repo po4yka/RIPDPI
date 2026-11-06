@@ -164,7 +164,12 @@ class BackupRestoreUseCaseTest {
             val groupWithProfile = sampleGroup.copy(members = listOf(sampleProfile))
             val existingSettings = settings(4242)
             seed(groups = listOf(groupWithProfile), settings = existingSettings)
-            val existingRules = fixture.database.ruleDao().allRules().first()
+            val existingGroups = fixture.groups.list()
+            val existingRules =
+                fixture.database
+                    .ruleDao()
+                    .allRules()
+                    .first()
 
             val result =
                 fixture.backupRestoreUseCase().restore(
@@ -173,8 +178,14 @@ class BackupRestoreUseCaseTest {
                 )
 
             assertTrue(result is RestoreResult.Aborted)
-            assertEquals(listOf(groupWithProfile), fixture.groups.list())
-            assertEquals(existingRules, fixture.database.ruleDao().allRules().first())
+            assertEquals(existingGroups, fixture.groups.list())
+            assertEquals(
+                existingRules,
+                fixture.database
+                    .ruleDao()
+                    .allRules()
+                    .first(),
+            )
             assertEquals(existingSettings, fixture.settings.snapshot())
         }
 
