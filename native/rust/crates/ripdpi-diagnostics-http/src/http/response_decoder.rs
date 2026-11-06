@@ -1,9 +1,7 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::future::Future;
 use std::io;
 use std::pin::Pin;
-use std::rc::Rc;
 use std::sync::{
     Arc,
     atomic::{AtomicBool, Ordering},
@@ -45,7 +43,8 @@ pub enum HttpResponseEvent {
 /// never to the network, so probes retain their exact request bytes. Drop ends
 /// decoding immediately; this type creates no tasks, runtimes, or threads.
 pub struct HttpResponseDecoder {
-    input: Rc<RefCell<Input>>,
+    input: mpsc::Sender<Bytes>,
+    can_feed: bool,
     events: mpsc::Receiver<HttpResponseEvent>,
     driver: Pin<Box<dyn Future<Output = Result<(), &'static str>>>>,
     result: Option<Result<(), &'static str>>,
@@ -62,14 +61,15 @@ pub struct HttpResponseDecoder {
 impl HttpResponseDecoder {
     pub fn new(method: &str, max_header_bytes: usize) -> Result<Self, &'static str> {
         let method = Method::from_bytes(method.as_bytes()).map_err(|_| "invalid_framing")?;
-        let input = Rc::new(RefCell::new(Input::default()));
-        let io = BufferedInput(input.clone());
+        let (input, incoming) = mpsc::channel(0);
+        let wake = Arc::new(PollWake::default());
+        let io = BufferedInput { incoming, bytes: Bytes::new(), wake: wake.clone() };
         let (events_tx, events) = mpsc::channel(0);
         let driver = Box::pin(decode(io, method.clone(), max_header_bytes, events_tx));
-        let wake = Arc::new(PollWake(AtomicBool::new(false)));
         let waker = Waker::from(wake.clone());
         Ok(Self {
             input,
+            can_feed: true,
             events,
             driver,
             result: None,
@@ -90,8 +90,11 @@ impl HttpResponseDecoder {
     }
 
     pub fn feed(&mut self, bytes: &[u8]) -> Result<(), &'static str> {
-        if bytes.len() > self.input_capacity() || !self.input.borrow().bytes.is_empty() {
+        if !self.can_feed || bytes.len() > self.input_capacity() {
             return Err("response_too_large");
+        }
+        if bytes.is_empty() {
+            return Ok(());
         }
         if !self.head_validated {
             self.head_budget -= bytes.len();
@@ -121,12 +124,14 @@ impl HttpResponseDecoder {
                 }
             }
         }
-        self.input.borrow_mut().bytes = Bytes::copy_from_slice(bytes);
+        self.input.try_send(Bytes::copy_from_slice(bytes)).map_err(|_| "decoder_closed")?;
+        self.can_feed = false;
         Ok(())
     }
 
     pub fn finish_input(&mut self) {
-        self.input.borrow_mut().eof = true;
+        self.input.close_channel();
+        self.can_feed = false;
     }
 
     pub fn next_event(&mut self) -> Result<HttpResponseEvent, &'static str> {
@@ -140,8 +145,8 @@ impl HttpResponseDecoder {
             if let Some(result) = self.result {
                 return result.map(|()| HttpResponseEvent::Complete);
             }
-            self.input.borrow_mut().needs_input = false;
-            self.wake.0.store(false, Ordering::Relaxed);
+            self.wake.needs_input.store(false, Ordering::Relaxed);
+            self.wake.notified.store(false, Ordering::Relaxed);
             if let Poll::Ready(result) = self.driver.as_mut().poll(&mut context) {
                 self.result = Some(result);
                 continue;
@@ -152,51 +157,63 @@ impl HttpResponseDecoder {
             }
             // All polling occurs on this thread. The flag only records a request
             // to poll again; it publishes no data, so Relaxed is sufficient.
-            if self.wake.0.swap(false, Ordering::Relaxed) {
+            if self.wake.notified.swap(false, Ordering::Relaxed) {
                 continue;
             }
-            if self.input.borrow().needs_input {
+            if self.wake.needs_input.load(Ordering::Relaxed) {
                 if self.input_capacity() == 0 {
                     return Err("response_too_large");
                 }
+                self.can_feed = true;
                 return Ok(HttpResponseEvent::NeedInput);
             }
         }
     }
 }
 
-struct PollWake(AtomicBool);
+#[derive(Default)]
+struct PollWake {
+    notified: AtomicBool,
+    needs_input: AtomicBool,
+}
 impl Wake for PollWake {
     fn wake(self: Arc<Self>) {
         self.wake_by_ref();
     }
     fn wake_by_ref(self: &Arc<Self>) {
-        self.0.store(true, Ordering::Relaxed);
+        self.notified.store(true, Ordering::Relaxed);
     }
 }
 
-#[derive(Default)]
-struct Input {
+struct BufferedInput {
+    incoming: mpsc::Receiver<Bytes>,
     bytes: Bytes,
-    eof: bool,
-    needs_input: bool,
+    wake: Arc<PollWake>,
 }
 
-struct BufferedInput(Rc<RefCell<Input>>);
-
 impl Read for BufferedInput {
-    fn poll_read(self: Pin<&mut Self>, _: &mut Context<'_>, mut buffer: ReadBufCursor<'_>) -> Poll<io::Result<()>> {
-        let mut input = self.0.borrow_mut();
-        let count = input.bytes.len().min(buffer.remaining());
-        if count > 0 {
-            buffer.put_slice(&input.bytes.split_to(count));
-            Poll::Ready(Ok(()))
-        } else if input.eof {
-            Poll::Ready(Ok(()))
-        } else {
-            input.needs_input = true;
-            Poll::Pending
+    fn poll_read(
+        mut self: Pin<&mut Self>,
+        context: &mut Context<'_>,
+        mut buffer: ReadBufCursor<'_>,
+    ) -> Poll<io::Result<()>> {
+        if buffer.remaining() == 0 {
+            return Poll::Ready(Ok(()));
         }
+        if self.bytes.is_empty() {
+            match Pin::new(&mut self.incoming).poll_next(context) {
+                Poll::Ready(Some(bytes)) => self.bytes = bytes,
+                Poll::Ready(None) => return Poll::Ready(Ok(())),
+                Poll::Pending => {
+                    // Same-thread control signal only; payload ownership passes through the channel.
+                    self.wake.needs_input.store(true, Ordering::Relaxed);
+                    return Poll::Pending;
+                }
+            }
+        }
+        let count = self.bytes.len().min(buffer.remaining());
+        buffer.put_slice(&self.bytes.split_to(count));
+        Poll::Ready(Ok(()))
     }
 }
 

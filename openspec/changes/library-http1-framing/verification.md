@@ -1,11 +1,11 @@
 ---
 task_id: RST-1793903447995667
 change: library-http1-framing
-commit_sha: null
+commit_sha: 067ba0978d2fc0c166d12401be3438b75f156a0e
 local: passed
 local_evidence: Rust 1.98.1 affected suites passed 531 tests with 2 existing ignored tests; clippy, source gates, cargo deny, and Miri passed. Independent code and async reviews passed.
 remote_ci: required
-remote_ci_evidence: Pending authorized push and hosted run results.
+remote_ci_evidence: CI run 42172888429 found a stale fuzz lockfile and prohibited shared input ownership. Corrections passed local validation; a new push and hosted run are pending.
 device: not_applicable
 device_evidence: This host protocol change preserves Android connectors; no device acceptance claim is made.
 artifact: not_applicable
@@ -37,7 +37,7 @@ Run Cargo commands from `native/rust/` to select Rust 1.98.1.
 - `build-gate -- just ci-gates` from the checkout root: exit 0. Rust API snapshots match; no baseline was changed.
 - `cargo deny --locked --manifest-path native/rust/Cargo.toml check` from the checkout root: exit 0; advisories, bans, licenses, and sources passed.
 - `cargo metadata --locked --no-deps --format-version 1`: exit 0. No dependency package or version was added; only existing dependency edges changed.
-- `build-gate -- cargo +nightly miri test --locked -p ripdpi-diagnostics-http response_decoder_`: exit 0, 2 decoder tests passed in the isolated diagnostics worktree before the reason-phrase correction. The atomic wake logic is unchanged.
+- `build-gate -- cargo +nightly miri test --locked -p ripdpi-diagnostics-http response_decoder_`: exit 0, 3 decoder tests passed on the final bounded-channel implementation.
 - Final async review covered DoH, Apps Script, diagnostics, and WebTunnel. It found no detached connection driver or retained socket after cancellation.
 - Independent code review found four defects: unsupported transfer coding on relay client and ingress, interim HEAD handling, HEAD framing policy, and canonical reason text. All were corrected and the second review found no remaining defects.
 
@@ -55,3 +55,13 @@ The new regression tests first failed against the affected implementation. They 
 - Typed response serialization can change header name casing and reason text. The diagnostics path preserves the received reason phrase, including an explicit empty phrase.
 
 No live Google endpoint, Android device, release artifact, or production deployment was used as acceptance evidence.
+
+## Hosted gate corrections
+
+The first push, `067ba0978d2fc0c166d12401be3438b75f156a0e`, failed the fuzz lock preflight and the shared-state source guard. These are not accepted as passing evidence.
+
+- The fuzz workspace has its own lockfile. Regeneration added the three DoH HTTP dependency edges without changing package versions. Locked metadata now resolves.
+- The diagnostic adapter now transfers owned byte buffers through a bounded channel. It no longer shares the input buffer through `Rc<RefCell>`. No scanner exception or baseline was added.
+- After the corrections, the affected diagnostic suites passed 256 tests with 2 existing ignored tests. Clippy passed. Miri passed 3 decoder tests. Both code and async reviews found no defects in the channel change.
+- The exact fuzz preflight, `build-gate -- cargo +nightly test --manifest-path fuzz/Cargo.toml --locked --test tls_record_inputs`, passed 5 tests. The soundness scanner suite passed 28 tests.
+- The new hosted run must pass before closure.
