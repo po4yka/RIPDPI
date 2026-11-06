@@ -1,7 +1,7 @@
 ---
 task_id: DNS-1793945565828575
 change: kotlin-dns-library-codec
-commit_sha: c2ba6e8c0221b37a6e1eda2da140112a52069c66
+commit_sha: 88ce48bb946d8bccf6e9cf713d556530c34e5bf1
 local: passed
 local_evidence: All 7614 affected unit tests, full staticAnalysis, R8, ci-gates, locked Cargo metadata and independent review passed. Fresh tests, R8 and staticAnalysis passed after rebase onto da1d00518.
 remote_ci: required
@@ -74,3 +74,5 @@ deployment_evidence: No deployment is owned by this change.
 - Full Debug, Simple Debug and Full Release instrumentation Kotlin compilation passed, plus app ktlint. Rebased the correction without conflicts onto settings JSON base 83ec7d0dd. On that combined tree the same compilation gates passed again; settings 87 tests and core:data 984 tests passed with no failures, errors or skips. CI source gates, architecture health and locked metadata passed.
 - CI 42194843280 also built the Play Debug APK successfully, then rejected native sizes: arm64 libripdpi.so 12138200 > 12124600 allowed; x86 11870796 > 11831760; x86_64 13600616 > 13559560; aggregate 80223672 > 80044100. The DNS diff changes no native source, native build logic, gradle.properties or core/engine against da1d00518. The precise native regression commit has not been isolated. No size baseline or limit was changed.
 - That initial source run was cancelled by the subsequent settings push. It is not successful CI evidence. The task remains in review until hosted acceptance is resolved.
+
+- Final rebase also includes the settings and Shadowsocks CI status records through ff44a5444. Those additions change documentation only; the validated source inputs are unchanged.
