@@ -16,26 +16,24 @@
 //! <data ...>                the tunneled payload bytes
 //! ```
 //!
-//! This module implements that framing directly over the `bytes` / `http`
-//! machinery the crate already depends on, so no `tonic`/`prost` codegen
-//! stack is required. It exposes a [`GrpcTransport`] with an async
-//! `AsyncRead + AsyncWrite` surface over the tunneled byte stream.
+//! `prost` handles Protobuf messages. This module owns the gRPC envelope
+//! and the `AsyncRead + AsyncWrite` surface over the tunneled byte stream.
 
+use std::future::Future;
 use std::io;
 use std::pin::Pin;
 use std::task::{Context, Poll};
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
+use prost::Message;
 use tokio::io::{AsyncRead, AsyncWrite, DuplexStream, ReadBuf};
+use tokio::sync::oneshot;
 
 /// gRPC compression flag for an uncompressed message.
 const GRPC_FLAG_UNCOMPRESSED: u8 = 0x00;
-/// Protobuf tag for `Hunk.data` (field number 1, wire type 2 = length-delimited).
-const HUNK_DATA_TAG: u8 = 0x0A;
 /// gRPC message framing prefix: 1 flag byte + 4 length bytes.
 const GRPC_PREFIX_LEN: usize = 5;
-/// Upper bound on a single decoded Hunk payload, mirroring Xray's 16 KiB-ish
-/// chunking; protects the decoder from a hostile length prefix.
+/// Upper bound on the encoded Protobuf message, including unknown fields.
 const MAX_HUNK_LEN: usize = 1 << 20;
 /// Duplex buffer size for the tunneled byte stream.
 const STREAM_BUFFER_SIZE: usize = 64 * 1024;
@@ -46,43 +44,42 @@ pub enum GrpcFramingError {
     /// The gRPC message declared a length larger than [`MAX_HUNK_LEN`].
     #[error("gRPC message length {0} exceeds maximum {MAX_HUNK_LEN}")]
     MessageTooLarge(usize),
-    /// The protobuf body did not start with the expected `Hunk.data` tag.
-    #[error("unexpected protobuf tag {0:#04x}, expected Hunk.data tag {HUNK_DATA_TAG:#04x}")]
-    UnexpectedTag(u8),
-    /// A protobuf varint was malformed (overlong or truncated past the buffer).
-    #[error("malformed protobuf varint in Hunk frame")]
-    MalformedVarint,
-    /// The declared `Hunk.data` length did not match the remaining message bytes.
-    #[error("Hunk.data length {declared} does not fit message remainder {remaining}")]
-    LengthMismatch {
-        /// Length declared by the inner protobuf varint.
-        declared: usize,
-        /// Bytes actually remaining in the gRPC message.
-        remaining: usize,
-    },
+    /// Compressed messages and reserved flags are not supported.
+    #[error("unsupported gRPC compression flag {0}")]
+    UnsupportedCompression(u8),
+    /// The Protobuf message is malformed.
+    #[error("invalid Hunk message: {0}")]
+    Protobuf(#[from] prost::DecodeError),
 }
 
-/// Encode a single payload as an Xray/V2Fly gRPC `Hunk` frame and append it to `out`.
-///
-/// The frame is `0x00 <u32-be len> 0x0A <varint data_len> <data>`.
-pub fn encode_hunk(data: &[u8], out: &mut BytesMut) {
-    let mut varint = [0u8; 10];
-    let varint_len = encode_varint(data.len() as u64, &mut varint);
-    // Inner protobuf message: tag + varint length + data.
-    let message_len = 1 + varint_len + data.len();
+#[derive(Clone, PartialEq, Message)]
+struct Hunk {
+    #[prost(bytes = "bytes", tag = "1")]
+    data: Bytes,
+}
+
+/// Encode one Xray/V2Fly Hunk frame. On a size error, `out` is unchanged.
+pub fn encode_hunk(data: &[u8], out: &mut BytesMut) -> Result<(), GrpcFramingError> {
+    if data.len() > MAX_HUNK_LEN {
+        return Err(GrpcFramingError::MessageTooLarge(data.len()));
+    }
+    let message = Hunk { data: Bytes::copy_from_slice(data) };
+    let message_len = message.encoded_len();
+    if message_len > MAX_HUNK_LEN {
+        return Err(GrpcFramingError::MessageTooLarge(message_len));
+    }
     out.reserve(GRPC_PREFIX_LEN + message_len);
     out.put_u8(GRPC_FLAG_UNCOMPRESSED);
     out.put_u32(message_len as u32);
-    out.put_u8(HUNK_DATA_TAG);
-    out.put_slice(&varint[..varint_len]);
-    out.put_slice(data);
+    message.encode_raw(out);
+    Ok(())
 }
 
-/// Encode a single `Hunk` frame into a fresh [`Bytes`] buffer.
-pub fn encode_hunk_to_bytes(data: &[u8]) -> Bytes {
+/// Encode a single Hunk frame into a fresh buffer.
+pub fn encode_hunk_to_bytes(data: &[u8]) -> Result<Bytes, GrpcFramingError> {
     let mut out = BytesMut::new();
-    encode_hunk(data, &mut out);
-    out.freeze()
+    encode_hunk(data, &mut out)?;
+    Ok(out.freeze())
 }
 
 /// Incremental decoder for a stream of length-delimited gRPC `Hunk` frames.
@@ -120,71 +117,19 @@ impl HunkDecoder {
         if self.buffer.len() < GRPC_PREFIX_LEN {
             return Ok(None);
         }
-        // Peek the 5-byte gRPC prefix without consuming it yet.
+        if self.buffer[0] != GRPC_FLAG_UNCOMPRESSED {
+            return Err(GrpcFramingError::UnsupportedCompression(self.buffer[0]));
+        }
         let message_len = u32::from_be_bytes([self.buffer[1], self.buffer[2], self.buffer[3], self.buffer[4]]) as usize;
         if message_len > MAX_HUNK_LEN {
             return Err(GrpcFramingError::MessageTooLarge(message_len));
         }
-        // A valid Hunk message is at least a 1-byte tag plus a 1-byte varint, so
-        // a zero-length message is malformed. Reject it here rather than letting
-        // the empty `message.get_u8()` below panic on a wire-controlled frame.
-        if message_len == 0 {
-            return Err(GrpcFramingError::MalformedVarint);
-        }
         if self.buffer.len() < GRPC_PREFIX_LEN + message_len {
-            // Partial frame: wait for more bytes.
             return Ok(None);
         }
-
-        // We have a full frame: consume the prefix and the message body.
         self.buffer.advance(GRPC_PREFIX_LEN);
-        let mut message = self.buffer.split_to(message_len);
-
-        // The gRPC compression flag may legitimately be 0; we only support
-        // uncompressed messages, which is what Xray sends.
-        let tag = message.get_u8();
-        if tag != HUNK_DATA_TAG {
-            return Err(GrpcFramingError::UnexpectedTag(tag));
-        }
-        let data_len = decode_varint(&mut message)? as usize;
-        if data_len != message.len() {
-            return Err(GrpcFramingError::LengthMismatch { declared: data_len, remaining: message.len() });
-        }
-        Ok(Some(message.freeze()))
-    }
-}
-
-/// Encode an unsigned 64-bit integer as a protobuf varint into `out`.
-/// Returns the number of bytes written.
-fn encode_varint(mut value: u64, out: &mut [u8; 10]) -> usize {
-    let mut index = 0;
-    loop {
-        let byte = (value & 0x7F) as u8;
-        value >>= 7;
-        if value == 0 {
-            out[index] = byte;
-            index += 1;
-            return index;
-        }
-        out[index] = byte | 0x80;
-        index += 1;
-    }
-}
-
-/// Decode a protobuf varint from the front of `buf`, advancing it.
-fn decode_varint(buf: &mut BytesMut) -> Result<u64, GrpcFramingError> {
-    let mut value: u64 = 0;
-    let mut shift: u32 = 0;
-    loop {
-        if buf.is_empty() || shift >= 64 {
-            return Err(GrpcFramingError::MalformedVarint);
-        }
-        let byte = buf.get_u8();
-        value |= u64::from(byte & 0x7F) << shift;
-        if byte & 0x80 == 0 {
-            return Ok(value);
-        }
-        shift += 7;
+        let message = self.buffer.split_to(message_len).freeze();
+        Ok(Some(Hunk::decode(message)?.data))
     }
 }
 
@@ -243,10 +188,11 @@ impl GrpcTransportConfig {
 ///
 /// Construct one with [`GrpcTransport::new`], driving the actual HTTP/2
 /// exchange with the two duplex halves returned by
-/// [`GrpcTransport::into_wire_halves`].
+/// [`GrpcTransport::new`].
 pub struct GrpcTransport {
     config: GrpcTransportConfig,
     reader: DuplexStream,
+    read_result: Option<oneshot::Receiver<io::Result<()>>>,
     writer: DuplexStream,
 }
 
@@ -281,7 +227,9 @@ impl GrpcTransport {
                 match transport_read.read(&mut buffer).await {
                     Ok(0) => break,
                     Ok(read) => {
-                        let frame = encode_hunk_to_bytes(&buffer[..read]);
+                        let Ok(frame) = encode_hunk_to_bytes(&buffer[..read]) else {
+                            break;
+                        };
                         if wire_up_write.write_all(&frame).await.is_err() {
                             break;
                         }
@@ -295,38 +243,14 @@ impl GrpcTransport {
             let _ = wire_up_write.shutdown().await;
         });
 
-        // Decode HTTP/2 response body -> Hunk frames -> tunneled bytes.
+        let (read_result_tx, read_result) = oneshot::channel();
         tokio::spawn(async move {
-            use tokio::io::{AsyncReadExt, AsyncWriteExt};
-            let mut buffer = vec![0u8; STREAM_BUFFER_SIZE];
-            let mut decoder = HunkDecoder::new();
-            loop {
-                match wire_down_read.read(&mut buffer).await {
-                    Ok(0) => break,
-                    Ok(read) => {
-                        decoder.extend(&buffer[..read]);
-                        loop {
-                            match decoder.next_hunk() {
-                                Ok(Some(payload)) => {
-                                    if transport_write.write_all(&payload).await.is_err() {
-                                        return;
-                                    }
-                                }
-                                Ok(None) => break,
-                                Err(error) => {
-                                    tracing::debug!(error = %error, "gRPC Hunk decode failed");
-                                    return;
-                                }
-                            }
-                        }
-                    }
-                    Err(_) => break,
-                }
-            }
-            let _ = transport_write.shutdown().await;
+            let result = decode_downstream(&mut wire_down_read, &mut transport_write).await;
+            // Publish the result before dropping the writer and making EOF visible.
+            let _ = read_result_tx.send(result);
         });
 
-        let transport = Self { config, reader: user_read, writer: user_write };
+        let transport = Self { config, reader: user_read, writer: user_write, read_result: Some(read_result) };
         let halves = GrpcWireHalves { upstream: wire_up_read, downstream: wire_down_write };
         (transport, halves)
     }
@@ -337,9 +261,46 @@ impl GrpcTransport {
     }
 }
 
+/// # Cancel safety:
+/// NOT cancel-safe: a partial payload write can lose bytes. Cancel only when
+/// closing the whole transport; the spawned task owns both stream endpoints.
+async fn decode_downstream(wire: &mut DuplexStream, output: &mut DuplexStream) -> io::Result<()> {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let mut buffer = vec![0u8; STREAM_BUFFER_SIZE];
+    let mut decoder = HunkDecoder::new();
+    loop {
+        let read = wire.read(&mut buffer).await?;
+        if read == 0 {
+            return if decoder.is_empty() {
+                Ok(())
+            } else {
+                Err(io::Error::new(io::ErrorKind::UnexpectedEof, "truncated gRPC frame"))
+            };
+        }
+        decoder.extend(&buffer[..read]);
+        while let Some(payload) = decoder.next_hunk().map_err(|e| io::Error::new(io::ErrorKind::InvalidData, e))? {
+            output.write_all(&payload).await?;
+        }
+    }
+}
+
 impl AsyncRead for GrpcTransport {
     fn poll_read(mut self: Pin<&mut Self>, cx: &mut Context<'_>, buf: &mut ReadBuf<'_>) -> Poll<io::Result<()>> {
-        Pin::new(&mut self.reader).poll_read(cx, buf)
+        if buf.remaining() == 0 {
+            return Poll::Ready(Ok(()));
+        }
+        let before = buf.filled().len();
+        match Pin::new(&mut self.reader).poll_read(cx, buf) {
+            Poll::Ready(Ok(())) if buf.filled().len() == before => {
+                let Some(result) = self.read_result.as_mut() else {
+                    return Poll::Ready(Ok(()));
+                };
+                let result = std::task::ready!(Pin::new(result).poll(cx));
+                self.read_result = None;
+                Poll::Ready(result.unwrap_or_else(|_| Err(io::Error::other("gRPC decoder task stopped"))))
+            }
+            result => result,
+        }
     }
 }
 
@@ -358,18 +319,21 @@ impl AsyncWrite for GrpcTransport {
 }
 
 #[cfg(test)]
+mod protobuf_tests;
+
+#[cfg(test)]
 mod tests {
     use super::*;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     #[test]
     fn encode_hunk_produces_grpc_prefixed_protobuf() {
-        let frame = encode_hunk_to_bytes(b"hello");
+        let frame = encode_hunk_to_bytes(b"hello").expect("encode");
         // 0x00 flag, u32-be message length, 0x0A tag, varint(5), data.
         assert_eq!(frame[0], GRPC_FLAG_UNCOMPRESSED);
         let message_len = u32::from_be_bytes([frame[1], frame[2], frame[3], frame[4]]) as usize;
         assert_eq!(message_len, frame.len() - GRPC_PREFIX_LEN);
-        assert_eq!(frame[5], HUNK_DATA_TAG);
+        assert_eq!(frame[5], 0x0A);
         assert_eq!(frame[6], 5); // varint length of "hello"
         assert_eq!(&frame[7..], b"hello");
     }
@@ -377,7 +341,7 @@ mod tests {
     #[test]
     fn hunk_round_trips_through_decoder() {
         let payload = b"the quick brown fox";
-        let frame = encode_hunk_to_bytes(payload);
+        let frame = encode_hunk_to_bytes(payload).expect("encode");
         let mut decoder = HunkDecoder::new();
         decoder.extend(&frame);
         let decoded = decoder.next_hunk().expect("decode ok").expect("one hunk");
@@ -388,7 +352,7 @@ mod tests {
 
     #[test]
     fn empty_hunk_round_trips() {
-        let frame = encode_hunk_to_bytes(b"");
+        let frame = encode_hunk_to_bytes(b"").expect("encode");
         let mut decoder = HunkDecoder::new();
         decoder.extend(&frame);
         let decoded = decoder.next_hunk().expect("decode ok").expect("one hunk");
@@ -400,7 +364,7 @@ mod tests {
     fn large_hunk_uses_multibyte_varint() {
         // 200 bytes forces a 2-byte protobuf varint for the data length.
         let payload = vec![0xABu8; 200];
-        let frame = encode_hunk_to_bytes(&payload);
+        let frame = encode_hunk_to_bytes(&payload).expect("encode");
         let mut decoder = HunkDecoder::new();
         decoder.extend(&frame);
         let decoded = decoder.next_hunk().expect("decode ok").expect("one hunk");
@@ -413,7 +377,7 @@ mod tests {
         let payloads: [&[u8]; 3] = [b"first", b"second-chunk", b"3"];
         let mut wire = BytesMut::new();
         for payload in payloads {
-            encode_hunk(payload, &mut wire);
+            encode_hunk(payload, &mut wire).expect("encode");
         }
         let mut decoder = HunkDecoder::new();
         decoder.extend(&wire);
@@ -427,7 +391,7 @@ mod tests {
 
     #[test]
     fn partial_frame_is_buffered_until_complete() {
-        let frame = encode_hunk_to_bytes(b"deferred payload");
+        let frame = encode_hunk_to_bytes(b"deferred payload").expect("encode");
         let split = frame.len() / 2;
         let mut decoder = HunkDecoder::new();
 
@@ -452,7 +416,7 @@ mod tests {
     #[test]
     fn byte_at_a_time_feed_still_decodes() {
         let payload = b"streamed one byte at a time";
-        let frame = encode_hunk_to_bytes(payload);
+        let frame = encode_hunk_to_bytes(payload).expect("encode");
         let mut decoder = HunkDecoder::new();
         let mut result = None;
         for byte in &frame {
@@ -477,16 +441,15 @@ mod tests {
     }
 
     #[test]
-    fn unexpected_protobuf_tag_is_rejected() {
+    fn unknown_protobuf_field_is_ignored() {
         let mut frame = BytesMut::new();
         frame.put_u8(GRPC_FLAG_UNCOMPRESSED);
         frame.put_u32(2); // message length: tag + 1 byte
-        frame.put_u8(0x12); // wrong tag (field 2), not Hunk.data
+        frame.put_u8(0x12); // unknown bytes field 2
         frame.put_u8(0x00);
         let mut decoder = HunkDecoder::new();
         decoder.extend(&frame);
-        let error = decoder.next_hunk().expect_err("bad tag rejected");
-        assert!(matches!(error, GrpcFramingError::UnexpectedTag(0x12)));
+        assert_eq!(decoder.next_hunk().expect("unknown field"), Some(Bytes::new()));
     }
 
     #[test]
@@ -494,14 +457,14 @@ mod tests {
         let mut frame = BytesMut::new();
         frame.put_u8(GRPC_FLAG_UNCOMPRESSED);
         frame.put_u32(4); // message: tag + varint + (claims more than present)
-        frame.put_u8(HUNK_DATA_TAG);
+        frame.put_u8(0x0A);
         frame.put_u8(99); // varint says 99 data bytes
         frame.put_u8(0x01);
         frame.put_u8(0x02); // only 2 actually present
         let mut decoder = HunkDecoder::new();
         decoder.extend(&frame);
         let error = decoder.next_hunk().expect_err("length mismatch rejected");
-        assert!(matches!(error, GrpcFramingError::LengthMismatch { declared: 99, remaining: 2 }));
+        assert!(matches!(error, GrpcFramingError::Protobuf(_)));
     }
 
     #[test]
@@ -509,22 +472,12 @@ mod tests {
         let mut frame = BytesMut::new();
         frame.put_u8(GRPC_FLAG_UNCOMPRESSED);
         frame.put_u32(6); // tag + 5 continuation bytes that never terminate
-        frame.put_u8(HUNK_DATA_TAG);
+        frame.put_u8(0x0A);
         frame.put_slice(&[0x80, 0x80, 0x80, 0x80, 0x80]);
         let mut decoder = HunkDecoder::new();
         decoder.extend(&frame);
         let error = decoder.next_hunk().expect_err("malformed varint rejected");
-        assert!(matches!(error, GrpcFramingError::MalformedVarint));
-    }
-
-    #[test]
-    fn zero_length_message_is_rejected_not_panicked() {
-        // A 5-byte all-zero frame declares message_len = 0. Before the fix this
-        // proceeded into `message.get_u8()` on an empty buffer and panicked.
-        let mut decoder = HunkDecoder::new();
-        decoder.extend(&[0x00, 0x00, 0x00, 0x00, 0x00]);
-        let error = decoder.next_hunk().expect_err("zero-length message rejected");
-        assert!(matches!(error, GrpcFramingError::MalformedVarint));
+        assert!(matches!(error, GrpcFramingError::Protobuf(_)));
     }
 
     #[test]
@@ -534,11 +487,11 @@ mod tests {
         let mut frame = BytesMut::new();
         frame.put_u8(GRPC_FLAG_UNCOMPRESSED);
         frame.put_u32(1); // message length: tag only
-        frame.put_u8(HUNK_DATA_TAG);
+        frame.put_u8(0x0A);
         let mut decoder = HunkDecoder::new();
         decoder.extend(&frame);
         let error = decoder.next_hunk().expect_err("tag-only message rejected");
-        assert!(matches!(error, GrpcFramingError::MalformedVarint));
+        assert!(matches!(error, GrpcFramingError::Protobuf(_)));
     }
 
     #[test]
@@ -548,12 +501,12 @@ mod tests {
         let mut frame = BytesMut::new();
         frame.put_u8(GRPC_FLAG_UNCOMPRESSED);
         frame.put_u32(2); // tag + 1 unterminated varint byte
-        frame.put_u8(HUNK_DATA_TAG);
+        frame.put_u8(0x0A);
         frame.put_u8(0x80); // continuation bit set, but nothing follows
         let mut decoder = HunkDecoder::new();
         decoder.extend(&frame);
         let error = decoder.next_hunk().expect_err("truncated varint rejected");
-        assert!(matches!(error, GrpcFramingError::MalformedVarint));
+        assert!(matches!(error, GrpcFramingError::Protobuf(_)));
     }
 
     #[test]
@@ -575,6 +528,9 @@ mod tests {
     }
 
     #[tokio::test]
+    /// # Cancel safety:
+    /// cancel-safe: cancellation drops test-owned endpoints and buffers;
+    /// partial reads and writes do not survive the test.
     async fn transport_encodes_written_bytes_as_hunks() {
         let config = GrpcTransportConfig::new("cdn.example", "GunService");
         let (mut transport, mut halves) = GrpcTransport::new(config);
@@ -593,14 +549,17 @@ mod tests {
     }
 
     #[tokio::test]
+    /// # Cancel safety:
+    /// cancel-safe: cancellation drops test-owned endpoints and buffers;
+    /// partial reads and writes do not survive the test.
     async fn transport_decodes_hunks_into_readable_bytes() {
         let config = GrpcTransportConfig::new("cdn.example", "GunService");
         let (mut transport, mut halves) = GrpcTransport::new(config);
 
         // Simulate the HTTP/2 response body: two Hunk frames.
         let mut wire = BytesMut::new();
-        encode_hunk(b"down-", &mut wire);
-        encode_hunk(b"stream", &mut wire);
+        encode_hunk(b"down-", &mut wire).expect("encode");
+        encode_hunk(b"stream", &mut wire).expect("encode");
         halves.downstream.write_all(&wire).await.expect("write wire");
         halves.downstream.shutdown().await.expect("shutdown wire");
         drop(halves);

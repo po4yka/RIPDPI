@@ -1611,13 +1611,16 @@ val rustWorkspaceManifestFile =
 val rustWorkspaceDir = rustWorkspaceManifestFile.parentFile
 val rustWorkspaceCratesDir = rustWorkspaceDir.resolve("crates")
 
-// Track every workspace crate source; Cargo still decides the minimal dependency graph.
+// Include the shared schema read by ripdpi-geo's build script in every Cargo task.
 fun rustWorkspaceCrateSources() =
-    fileTree(rustWorkspaceCratesDir) {
-        include("**/*")
-        exclude("**/target/**")
-        exclude("**/.git/**")
-    }
+    files(
+        fileTree(rustWorkspaceCratesDir) {
+            include("**/*")
+            exclude("**/target/**")
+            exclude("**/.git/**")
+        },
+        rootProject.layout.projectDirectory.file("core/data/model/src/main/proto/geosite.proto"),
+    )
 val generatedJniLibsDir = layout.buildDirectory.dir("generated/jniLibs")
 val generatedNativeSymbolsDir = layout.buildDirectory.dir("generated/nativeSymbols")
 val generatedRootHelperAssetsDir = layout.buildDirectory.dir("generated/rootHelperAssets")

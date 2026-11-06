@@ -10,6 +10,12 @@
 
 mod mapped_file;
 
+// prost-build emits enum name helpers with a borrowed receiver.
+#[allow(clippy::trivially_copy_pass_by_ref)]
+mod proto {
+    include!(concat!(env!("OUT_DIR"), "/geosite.rs"));
+}
+
 use std::collections::HashMap;
 use std::net::IpAddr;
 use std::path::{Path, PathBuf};
@@ -17,6 +23,7 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwap;
 use maxminddb::{Reader, geoip2};
+use prost::Message;
 use regex::{Regex, RegexBuilder};
 use thiserror::Error;
 
@@ -266,8 +273,10 @@ pub enum GeoRuntimeError {
 pub enum GeositeParseError {
     #[error("unexpected end of protobuf input")]
     UnexpectedEof,
-    #[error("unsupported protobuf wire type {0}")]
-    UnsupportedWireType(u8),
+    #[error("invalid Protobuf message: {0}")]
+    Protobuf(#[from] prost::DecodeError),
+    #[error("unsupported GeoSite domain type {0}")]
+    UnsupportedDomainType(i32),
     #[error("protobuf varint is too long")]
     VarintTooLong,
     #[error("invalid utf-8 in protobuf string")]
@@ -332,79 +341,34 @@ fn mapped_version(path: &Path, len: usize) -> String {
 }
 
 fn parse_geosite_catalog(input: &[u8]) -> Result<HashMap<String, Vec<GeositeDomainRule>>, GeositeParseError> {
-    // A v2ray GeoSiteList starts with a field-1 tag (0x0a); a sing-box geosite.db starts with its version byte.
-    if input.first().is_some_and(|first| *first != GEOSITE_CATALOG_ENTRY_TAG) {
+    // Zero is not a valid Protobuf tag; it identifies the sing-box version.
+    if input.first() == Some(&SING_GEOSITE_VERSION) {
         return parse_sing_geosite_catalog(input);
     }
-    let mut cursor = ProtoCursor::new(input);
+    let catalog = proto::GeositeCatalog::decode(input)?;
     let mut categories = HashMap::new();
-    while !cursor.is_empty() {
-        let tag = cursor.varint()?;
-        let field = tag >> PROTO_TAG_SHIFT;
-        let wire = (tag & PROTO_WIRE_MASK) as u8;
-        if field == GEOSITE_CATALOG_ENTRY_FIELD {
-            let entry = cursor.length_delimited(wire)?;
-            let (category, domains) = parse_geosite_entry(entry)?;
-            categories.insert(category.to_ascii_lowercase(), domains);
-        } else {
-            cursor.skip(wire)?;
+    for entry in catalog.entry {
+        let mut domains = Vec::with_capacity(entry.domain.len());
+        for domain in entry.domain {
+            let kind = match proto::geosite_domain::Type::try_from(domain.r#type) {
+                Ok(proto::geosite_domain::Type::Plain) => GeositeDomainKind::Plain,
+                Ok(proto::geosite_domain::Type::Regex) => GeositeDomainKind::Regex,
+                Ok(proto::geosite_domain::Type::RootDomain) => GeositeDomainKind::RootDomain,
+                Ok(proto::geosite_domain::Type::Full) => GeositeDomainKind::Full,
+                Err(_) => return Err(GeositeParseError::UnsupportedDomainType(domain.r#type)),
+            };
+            domains.push(GeositeDomainRule { kind, value: domain.value });
         }
+        categories.insert(entry.country_code.to_ascii_lowercase(), domains);
     }
     Ok(categories)
-}
-
-fn parse_geosite_entry(input: &[u8]) -> Result<(String, Vec<GeositeDomainRule>), GeositeParseError> {
-    let mut cursor = ProtoCursor::new(input);
-    let mut country_code = String::new();
-    let mut domains = Vec::new();
-    while !cursor.is_empty() {
-        let tag = cursor.varint()?;
-        let field = tag >> PROTO_TAG_SHIFT;
-        let wire = (tag & PROTO_WIRE_MASK) as u8;
-        match field {
-            GEOSITE_ENTRY_COUNTRY_CODE_FIELD => {
-                country_code = cursor.string(wire)?;
-            }
-            GEOSITE_ENTRY_DOMAIN_FIELD => {
-                domains.push(parse_geosite_domain(cursor.length_delimited(wire)?)?);
-            }
-            _ => cursor.skip(wire)?,
-        }
-    }
-    Ok((country_code, domains))
-}
-
-fn parse_geosite_domain(input: &[u8]) -> Result<GeositeDomainRule, GeositeParseError> {
-    let mut cursor = ProtoCursor::new(input);
-    let mut kind = GeositeDomainKind::Plain;
-    let mut value = String::new();
-    while !cursor.is_empty() {
-        let tag = cursor.varint()?;
-        let field = tag >> PROTO_TAG_SHIFT;
-        let wire = (tag & PROTO_WIRE_MASK) as u8;
-        match field {
-            GEOSITE_DOMAIN_TYPE_FIELD => {
-                kind = match cursor.expect_varint(wire)? {
-                    1 => GeositeDomainKind::Regex,
-                    2 => GeositeDomainKind::RootDomain,
-                    3 => GeositeDomainKind::Full,
-                    _ => GeositeDomainKind::Plain,
-                };
-            }
-            GEOSITE_DOMAIN_VALUE_FIELD => {
-                value = cursor.string(wire)?;
-            }
-            _ => cursor.skip(wire)?,
-        }
-    }
-    Ok(GeositeDomainRule { kind, value })
 }
 
 /// Parses the sing-box `geosite.db` layout: a version byte, a uvarint entry count, one index row per
 /// entry (length-prefixed code, uvarint item offset, uvarint item count), then the items, each a
 /// type byte and a length-prefixed value.
 fn parse_sing_geosite_catalog(input: &[u8]) -> Result<HashMap<String, Vec<GeositeDomainRule>>, GeositeParseError> {
-    let mut cursor = ProtoCursor::new(input);
+    let mut cursor = SingCursor::new(input);
     let version = cursor.byte()?;
     if version != SING_GEOSITE_VERSION {
         return Err(GeositeParseError::UnsupportedSingGeositeVersion(version));
@@ -412,14 +376,14 @@ fn parse_sing_geosite_catalog(input: &[u8]) -> Result<HashMap<String, Vec<Geosit
     let entry_count = cursor.varint()?;
     let mut index = Vec::new();
     for _ in 0..entry_count {
-        let code = cursor.string(WIRE_LENGTH_DELIMITED)?;
+        let code = cursor.string()?;
         let offset = usize::try_from(cursor.varint()?).map_err(|_| GeositeParseError::VarintTooLong)?;
         let item_count = cursor.varint()?;
         index.push((code, offset, item_count));
     }
     // sing-geosite writes the items in index order with no gaps. Requiring that layout means each
     // item is read once, so aliased offsets cannot expand a small file into billions of rules.
-    let mut items = ProtoCursor::new(cursor.remaining());
+    let mut items = SingCursor::new(cursor.remaining());
     let mut categories = HashMap::new();
     for (code, offset, item_count) in index {
         if offset != items.offset {
@@ -434,7 +398,7 @@ fn parse_sing_geosite_catalog(input: &[u8]) -> Result<HashMap<String, Vec<Geosit
                 SING_GEOSITE_DOMAIN_REGEX => GeositeDomainKind::Regex,
                 other => return Err(GeositeParseError::UnsupportedSingGeositeRuleType(other)),
             };
-            let mut value = items.string(WIRE_LENGTH_DELIMITED)?;
+            let mut value = items.string()?;
             // sing-geosite writes a v2ray root domain as suffix ".value" (plus a full rule when the
             // value has a dot); the root-domain rule matches the value and its subdomains.
             if kind == GeositeDomainKind::RootDomain && value.starts_with('.') {
@@ -447,18 +411,14 @@ fn parse_sing_geosite_catalog(input: &[u8]) -> Result<HashMap<String, Vec<Geosit
     Ok(categories)
 }
 
-struct ProtoCursor<'a> {
+struct SingCursor<'a> {
     input: &'a [u8],
     offset: usize,
 }
 
-impl<'a> ProtoCursor<'a> {
+impl<'a> SingCursor<'a> {
     fn new(input: &'a [u8]) -> Self {
         Self { input, offset: 0 }
-    }
-
-    fn is_empty(&self) -> bool {
-        self.offset >= self.input.len()
     }
 
     fn remaining(&self) -> &'a [u8] {
@@ -472,72 +432,29 @@ impl<'a> ProtoCursor<'a> {
     }
 
     fn varint(&mut self) -> Result<u64, GeositeParseError> {
-        let mut value = 0_u64;
-        for shift in (0..64).step_by(7) {
-            let byte = *self.input.get(self.offset).ok_or(GeositeParseError::UnexpectedEof)?;
-            self.offset += 1;
-            value |= u64::from(byte & VARINT_VALUE_MASK) << shift;
-            if byte & VARINT_CONTINUATION_MASK == 0 {
-                return Ok(value);
-            }
-        }
-        Err(GeositeParseError::VarintTooLong)
+        let mut remaining = self.remaining();
+        let value = prost::encoding::decode_varint(&mut remaining)?;
+        self.offset = self.input.len() - remaining.len();
+        Ok(value)
     }
 
-    fn expect_varint(&mut self, wire: u8) -> Result<u64, GeositeParseError> {
-        if wire != WIRE_VARINT {
-            return Err(GeositeParseError::UnsupportedWireType(wire));
-        }
-        self.varint()
-    }
-
-    fn string(&mut self, wire: u8) -> Result<String, GeositeParseError> {
-        std::str::from_utf8(self.length_delimited(wire)?).map(str::to_owned).map_err(|_| GeositeParseError::InvalidUtf8)
-    }
-
-    fn length_delimited(&mut self, wire: u8) -> Result<&'a [u8], GeositeParseError> {
-        if wire != WIRE_LENGTH_DELIMITED {
-            return Err(GeositeParseError::UnsupportedWireType(wire));
-        }
+    fn string(&mut self) -> Result<String, GeositeParseError> {
         let len = usize::try_from(self.varint()?).map_err(|_| GeositeParseError::VarintTooLong)?;
         let end = self.offset.checked_add(len).ok_or(GeositeParseError::UnexpectedEof)?;
         let slice = self.input.get(self.offset..end).ok_or(GeositeParseError::UnexpectedEof)?;
         self.offset = end;
-        Ok(slice)
-    }
-
-    fn skip(&mut self, wire: u8) -> Result<(), GeositeParseError> {
-        match wire {
-            WIRE_VARINT => {
-                self.varint()?;
-                Ok(())
-            }
-            WIRE_LENGTH_DELIMITED => {
-                self.length_delimited(wire)?;
-                Ok(())
-            }
-            _ => Err(GeositeParseError::UnsupportedWireType(wire)),
-        }
+        std::str::from_utf8(slice).map(str::to_owned).map_err(|_| GeositeParseError::InvalidUtf8)
     }
 }
 
-const GEOSITE_CATALOG_ENTRY_FIELD: u64 = 1;
-const GEOSITE_CATALOG_ENTRY_TAG: u8 = 0x0a;
 const SING_GEOSITE_VERSION: u8 = 0;
 const SING_GEOSITE_DOMAIN: u8 = 0;
 const SING_GEOSITE_DOMAIN_SUFFIX: u8 = 1;
 const SING_GEOSITE_DOMAIN_KEYWORD: u8 = 2;
 const SING_GEOSITE_DOMAIN_REGEX: u8 = 3;
-const GEOSITE_ENTRY_COUNTRY_CODE_FIELD: u64 = 1;
-const GEOSITE_ENTRY_DOMAIN_FIELD: u64 = 2;
-const GEOSITE_DOMAIN_TYPE_FIELD: u64 = 1;
-const GEOSITE_DOMAIN_VALUE_FIELD: u64 = 2;
-const PROTO_TAG_SHIFT: u64 = 3;
-const PROTO_WIRE_MASK: u64 = 0x7;
-const WIRE_VARINT: u8 = 0;
-const WIRE_LENGTH_DELIMITED: u8 = 2;
-const VARINT_VALUE_MASK: u8 = 0x7f;
-const VARINT_CONTINUATION_MASK: u8 = 0x80;
+
+#[cfg(test)]
+mod protobuf_tests;
 
 #[cfg(test)]
 mod tests {
@@ -806,13 +723,13 @@ mod tests {
     }
 
     fn field_bytes(out: &mut Vec<u8>, field: u64, value: &[u8]) {
-        varint(out, (field << PROTO_TAG_SHIFT) | u64::from(WIRE_LENGTH_DELIMITED));
+        varint(out, (field << 3) | 2);
         varint(out, value.len() as u64);
         out.extend_from_slice(value);
     }
 
     fn field_varint(out: &mut Vec<u8>, field: u64, value: u64) {
-        varint(out, (field << PROTO_TAG_SHIFT) | u64::from(WIRE_VARINT));
+        varint(out, field << 3);
         varint(out, value);
     }
 
@@ -879,8 +796,8 @@ mod tests {
     }
 
     fn varint(out: &mut Vec<u8>, mut value: u64) {
-        while value >= u64::from(VARINT_CONTINUATION_MASK) {
-            out.push(((value as u8) & VARINT_VALUE_MASK) | VARINT_CONTINUATION_MASK);
+        while value >= 0x80 {
+            out.push(((value as u8) & 0x7f) | 0x80);
             value >>= 7;
         }
         out.push(value as u8);
