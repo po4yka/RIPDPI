@@ -2,7 +2,7 @@
 id: DAT-1793949941293491
 title: Commit profile data atomically with Room
 kind: feature
-status: review
+status: done
 area: data
 priority: high
 owner: Profile persistence maintainer
@@ -12,6 +12,9 @@ spec_mode: required
 openspec_change: profile-room-persistence
 created: 2026-11-06
 updated: 2026-11-06
+closed_at: "2026-11-06T15:24:26Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Room transactions, migration, encryption and Stop race checks passed; Android Keystore persistence test passed. Final UI unit regressions and source gates passed. Integrated and pushed main at 963cca31c2e01d941c572cc3182813dcdc5b3be3. User waived hosted CI verification. Final UI APK packaging and device rerun remain unverified after a local Gradle packaging deadlock.
 ---
 
 ## Goal

@@ -1,0 +1,11 @@
+{
+  "change": "profile-room-persistence",
+  "evidence_summary": "Room transactions, migration, encryption and Stop race checks passed; Android Keystore persistence test passed. Final UI unit regressions and source gates passed. Integrated and pushed main at 963cca31c2e01d941c572cc3182813dcdc5b3be3. User waived hosted CI verification. Final UI APK packaging and device rerun remain unverified after a local Gradle packaging deadlock.",
+  "execution_sha256": "e7badf193ab9e2f6dcebc39ce2e0ccc64d0224b401f67a77699e217742c92715",
+  "issue_sha256": "423a14f61839f7010e6c4f7eb119adda2ddaa95625b2ad40316255b1a1f79dab",
+  "outcome": "done",
+  "prepared_at": "2026-11-06T15:24:26Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DAT-1793949941293491"
+}
