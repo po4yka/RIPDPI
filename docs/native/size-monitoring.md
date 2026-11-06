@@ -9,20 +9,20 @@ This document describes the current native size policy and attribution workflow.
 - always upload human-readable reports for both lanes so growth is attributable, not just pass/fail
 - defer protocol feature-gating unless the packaged `.so` trend becomes a real release constraint
 
-The user approved the following growth limits on 2026-10-26. All eight measured
+The user approved the following growth limits on 2026-11-06. All eight measured
 library sizes from the approved 2026-09-29 baseline remain unchanged.
 
 | Limit | Previous | Current |
 | --- | ---: | ---: |
-| Growth of each tracked library and ABI | 557,056 bytes (544 KiB) | 606,208 bytes (592 KiB) |
-| Total absolute growth | 2,621,440 bytes (2.5 MiB) | 2,883,584 bytes (2.75 MiB) |
-| Total percentage growth | 3.4% | 3.7% |
+| Growth of each tracked library and ABI | 606,208 bytes (592 KiB) | 671,744 bytes (656 KiB) |
+| Total absolute growth | 3,407,872 bytes (3.25 MiB) | 3,670,016 bytes (3.5 MiB) |
+| Total percentage growth | 4.5% | 4.7% |
 
 The total limit is the smaller of the percentage limit, rounded up to the next
 byte, and the absolute limit. The recorded baseline total is 76,636,228 bytes.
-The 3.7% limit permits 79,471,769 bytes; the absolute limit permits 79,519,812
+The 4.7% limit permits 80,238,131 bytes; the absolute limit permits 80,306,244
 bytes. Thus, the percentage limit controls total growth. Each tracked library
-also has its own 606,208-byte growth limit.
+also has its own 671,744-byte growth limit.
 
 This approved policy change retains the recorded measurements, size checks,
 and bloat limits.
@@ -77,7 +77,7 @@ previous policy and passed with the approved policy against these same files.
 | `native-shard-x86_64` | `12323919999` | `18e0ba4716d4a50fcdc38221f4cf2b0623a18821723f5abd19ea14bfac97e784` |
 | `native-size-report-debug-github` | `12325661014` | `d0db9ddb7a136b5eeba81a74dd97a03294dc7cae8c4cf4a59b49219fc31e7a08` |
 
-#### Current approval: 2026-10-26
+#### Previous approval: 2026-10-26
 
 The user approved higher limits for the current client CI prerequisites in
 PR #669. [CI run 40271295423](https://github.com/po4yka/RIPDPI/actions/runs/40271295423)
@@ -102,6 +102,44 @@ individual growth and 53,853 bytes for the total.
 | `native-shard-x86_64` | `12628514483` | `1dc557b6c5a3b2014f00b9e8138d7d1e4381e0ba7a53909cdbf8c3eb4a6e6800` |
 | `native-shard-x86` | `12628507549` | `9faf2c9a204b4b9bae96cffa874639a65d7d3e54e1601f06015a9089c778de9d` |
 | `native-shard-arm64-v8a` | `12627958042` | `0d69537d0a8867ed4d85f4bdf2724ff539809263627bacf1c399cadaf9d167de` |
+
+#### Previous approval: 2026-10-28
+
+The user approved total growth limits of 4.5% and 3.25 MiB against
+[CI run 40549765242](https://github.com/po4yka/RIPDPI/actions/runs/40549765242),
+commit `de2a76cbc`. The recorded total growth was 3,079,500 bytes.
+The 592 KiB per-library limit and all September measurements were retained.
+
+#### Current approval: 2026-11-06
+
+The user approved higher native size limits to unblock CI for the settings
+JSON migration. [CI run 42198808996](https://github.com/po4yka/RIPDPI/actions/runs/42198808996)
+used source commit `83ec7d0ddb8b63899700e6213ebf6d4233a449cd`. Its size report
+records 80,223,672 bytes, or 3,587,444 bytes above the retained September
+baseline. The largest individual growth is 647,264 bytes for
+`x86_64/libripdpi.so`.
+
+All five downloaded ZIP digests matched GitHub artifact metadata. Copies of
+the four native shards were stripped with NDK 29.0.14206865
+`llvm-strip --strip-unneeded`. All eight tracked sizes matched the CI report.
+The unchanged size verifier failed under the previous policy for three
+`libripdpi.so` entries and the total. It passed under the approved policy
+against the same files. The ELF verifier passed for all five libraries on
+all four ABIs.
+
+The individual budget rounds the largest growth up to a 16 KiB boundary,
+then adds one 16 KiB step. The total budgets round growth up to 0.1 percentage
+point and 0.25 MiB boundaries. These limits leave 24,480 bytes for the largest
+individual growth and 14,459 bytes for the total. All recorded measurements,
+verifier rules, tracked libraries, and bloat limits remain unchanged.
+
+| Artifact | ID | SHA-256 |
+| --- | --- | --- |
+| `native-size-report-debug-github` | `13495452552` | `4c1c09c7c127e34db7eaee8a160d2a419895865e642fe268a3d452b8c77b0071` |
+| `native-shard-armeabi-v7a` | `13495186222` | `f7bf1e042bde8dd3c6afed2bdd0bffa64e449ac9399c15cb00f79f696ea92da0` |
+| `native-shard-arm64-v8a` | `13494783275` | `716bd8782185876cd59e67203711596a97e4b5ba29a7f00497b2047ef25a2892` |
+| `native-shard-x86` | `13494782507` | `2995a84f8a736be9b0622083254adab3329be6ace9df70f3b5ab71940855a17c` |
+| `native-shard-x86_64` | `13494532715` | `d3860c9bfeb46f0bbfb6d1b4ec2a96bf434431eca60df384dbc0cf8d48b179c3` |
 
 For a PR size-policy update, a repository maintainer must apply the
 `approved-native-size-policy` label after explicit user approval. The
