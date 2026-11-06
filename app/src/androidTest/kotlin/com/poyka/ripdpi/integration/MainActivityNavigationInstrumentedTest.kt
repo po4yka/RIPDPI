@@ -517,6 +517,7 @@ class MainActivityNavigationInstrumentedTest {
         assertTrue("Simple report label resource must exist", reportLabelId != 0)
         val reportLabel = composeRule.activity.getString(reportLabelId)
 
+        composeRule.waitForTag(RipDpiTestTags.ConnectionActuatorStrategyPanel)
         composeRule.onNodeWithTag(fullRunAction).performScrollTo()
         composeRule
             .onNodeWithTag(fullRunAction)
