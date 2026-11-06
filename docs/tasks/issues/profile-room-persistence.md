@@ -2,7 +2,7 @@
 id: DAT-1793949941293491
 title: Commit profile data atomically with Room
 kind: feature
-status: doing
+status: review
 area: data
 priority: high
 owner: Profile persistence maintainer
