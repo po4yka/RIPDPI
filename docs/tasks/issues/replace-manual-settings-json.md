@@ -2,7 +2,7 @@
 id: DAT-1793954543063965
 title: Replace manual settings JSON codecs with generated serializers
 kind: bug
-status: doing
+status: review
 area: data
 priority: high
 owner: Settings persistence maintainers
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: generated-settings-json
 created: 2026-11-06
 updated: 2026-11-06
-status_detail: User authorized the native-size limit increase and requested green CI and closure.
+status_detail: Local and native-size checks passed; the user waived further hosted CI waiting and requested final integration and push.
 ---
 
 ## Goal
@@ -25,7 +25,7 @@ Encode and decode settings backups with generated kotlinx.serialization serializ
 - Preserve format version 1, current key names, valid values, absent defaults, unknown-key tolerance, and existing restore validation.
 - Reject malformed known values without a partial backup restore. Keep PIN and LAN authentication tokens out of both export and restore.
 - Keep omitted disabled AWG settings off across repeated backups; reject incomplete inferred custom profiles before restore.
-- Pass settings and backup tests, affected static analysis, source gates, independent review, and hosted CI on the integrated commit.
+- Pass settings and backup tests, affected static analysis, source gates, and independent review. The user waived waiting for hosted CI on 2026-11-06; record its observed status without claiming a complete green run.
 - Apply the user-approved native-size limit increase without changing historical measurements, gate coverage, or failure behavior.
 
 ## Ownership
