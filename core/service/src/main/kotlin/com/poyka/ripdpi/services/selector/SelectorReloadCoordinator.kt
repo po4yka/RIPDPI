@@ -76,6 +76,15 @@ class SelectorReloadCoordinator(
         }
     }
 
+    /** Retires an unseeded watch when explicit storage preparation fails before observation does. */
+    fun rejectPendingSeed(failure: Exception) =
+        synchronized(lock) {
+            if (subscriptionReady.completeExceptionally(failure)) {
+                subscriptionFailure = failure
+                watchJob?.cancel()
+            }
+        }
+
     /** Begins watching the selection signal. Idempotent: a second call is a no-op. */
     fun start(owner: Mode) =
         synchronized(lock) {

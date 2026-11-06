@@ -3,13 +3,13 @@ task_id: DAT-1793949941293491
 change: profile-room-persistence
 commit_sha: 3675068621681b2e3b503c84058f5e54dafb64ba
 local: required
-local_evidence: "10480 affected unit tests passed: data 967, runtime-state 369, settings 81, service 2064, app Full 3416 and Simple 3583. staticAnalysis and just ci-gates passed on the rebased source. The exact coverageReport gate and aggregate coverage verification passed after adding an explicit IO barrier to the delayed-return regression test. Independent review found no blockers."
+local_evidence: "10481 affected unit tests passed: data 967, runtime-state 369, settings 81, service 2065, app Full 3416 and Simple 3583. staticAnalysis and just ci-gates passed on the rebased source. The exact coverageReport gate and aggregate coverage verification passed after adding an explicit IO barrier to the delayed-return regression test. The selector retry fix passed service and Full/Simple app tests, coverageReport, staticAnalysis, APK builds and just ci-gates. The deterministic retry test checks old-watch cleanup and both runtime owners. Independent review found no blockers."
 remote_ci: required
 remote_ci_evidence: null
 device: required
 device_evidence: "ProfilePersistenceInstrumentedTest passed: 1 test, 0 failures or skips on an isolated API 35 arm64 emulator with Android Keystore. Verified rollback, reopen, database/WAL plaintext absence, AAD and ciphertext authentication. The pool wrapper removed its temporary AVD; the existing pooled release install was preserved."
 artifact: required
-artifact_evidence: "Full debug arm64 APK and instrumentation APK built; apksigner verified v2 signatures. SHA-256: app fb3bcda17a3ba8119b1dd5e6354c98220aa47f0b0b0d1fb2f93ca6e49458a3f2; test b9f3898c127dec238e7bcc42d86571e4581c175a8be16b62b7f7d907632d9b0b."
+artifact_evidence: "Full debug arm64 APK and instrumentation APK built; apksigner verified both signatures after the selector retry fix. SHA-256: app 2a63e7e2e70ea2853b3ec7d19a31a444c97ec1e3250c6b07967cd926eae07dd4; test d9da9d711c306055bb6451188cd637ad6e40b5a76d05c083cd460fa19bcb61a1."
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---

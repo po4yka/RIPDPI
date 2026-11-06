@@ -12,6 +12,7 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import dagger.multibindings.IntoSet
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
@@ -117,9 +118,18 @@ abstract class SelectorReloadModule {
             groupRepository: ProxyGroupRepository,
         ): SelectorRuntimeLifecycleListener =
             object : SelectorRuntimeLifecycleListener {
+                // Retire a pending seed before propagating any storage failure to the caller.
+                @Suppress("TooGenericExceptionCaught")
                 override suspend fun prepare() {
                     // Headless service starts must load the validated seed before waiting for observers.
-                    groupRepository.list()
+                    try {
+                        groupRepository.list()
+                    } catch (cancelled: CancellationException) {
+                        throw cancelled
+                    } catch (failure: Exception) {
+                        coordinator.rejectPendingSeed(failure)
+                        throw failure
+                    }
                     coordinator.awaitSubscription()
                     trigger.prepare()
                 }

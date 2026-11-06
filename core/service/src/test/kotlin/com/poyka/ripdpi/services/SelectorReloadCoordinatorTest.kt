@@ -5,14 +5,21 @@ import com.poyka.ripdpi.services.selector.SelectorReloadCoordinator
 import com.poyka.ripdpi.services.selector.SelectorReloadRequest
 import com.poyka.ripdpi.services.selector.SelectorReloadTrigger
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import kotlinx.coroutines.withTimeout
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
@@ -78,6 +85,54 @@ class SelectorReloadCoordinatorTest {
             selection.value = automatic("b")
             runCurrent()
             assertEquals(listOf("b"), trigger.reloadedProfileIds)
+        }
+
+    @Test
+    fun `rejected pending seed drains the old watch before retry and retains both owners`() =
+        runTest {
+            val failure = IllegalStateException("Profile storage unavailable")
+            val entered = CompletableDeferred<Unit>()
+            val release = CompletableDeferred<Unit>()
+            var subscriptions = 0
+            val selection = MutableStateFlow<SelectorReloadRequest?>(automatic("a"))
+            val changes =
+                flow {
+                    if (subscriptions++ == 0) {
+                        withContext(NonCancellable) {
+                            entered.complete(Unit)
+                            release.await()
+                        }
+                        throw failure
+                    }
+                    emitAll(selection)
+                }
+            val trigger = RecordingReloadTrigger()
+            val coordinator = SelectorReloadCoordinator(backgroundScope, changes, trigger)
+            coordinator.start(Mode.VPN)
+            coordinator.start(Mode.Proxy)
+            try {
+                entered.await()
+                coordinator.rejectPendingSeed(failure)
+                val retry = async { coordinator.awaitSubscription() }
+                runCurrent()
+                assertFalse(retry.isCompleted)
+                release.complete(Unit)
+                retry.await()
+                assertTrue(trigger.reloadedProfileIds.isEmpty())
+
+                // A later rejection cannot retire a seed already used by another owner.
+                coordinator.rejectPendingSeed(failure)
+                coordinator.stop(Mode.VPN)
+                selection.value = automatic("b")
+                runCurrent()
+                assertEquals(listOf("b"), trigger.reloadedProfileIds)
+                coordinator.stop(Mode.Proxy)
+                selection.value = automatic("c")
+                runCurrent()
+                assertEquals(listOf("b"), trigger.reloadedProfileIds)
+            } finally {
+                release.complete(Unit)
+            }
         }
 
     @Test
