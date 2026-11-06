@@ -8,6 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+http = { workspace = true }
 ripdpi-diagnostics-contracts = { workspace = true }
 ripdpi-diagnostics-http = { workspace = true }
 ripdpi-diagnostics-tls = { workspace = true }

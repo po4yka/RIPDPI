@@ -1,14 +1,9 @@
+use super::{FronterError, headers};
+use http_body_util::BodyExt;
+use hyper::body::{Body, Incoming};
 use std::io::Read;
-use std::time::Duration;
-
-use tokio::io::{AsyncRead, AsyncReadExt};
-use tokio::time::timeout;
-
-use super::FronterError;
-use super::headers;
 
 const MAX_RESPONSE_BODY_BYTES: usize = 32 * 1024 * 1024;
-const MAX_CHUNK_METADATA_LINE_BYTES: usize = 8 * 1024;
 
 pub(super) struct HttpResponse {
     pub(super) status: u16,
@@ -16,198 +11,49 @@ pub(super) struct HttpResponse {
     pub(super) body: Vec<u8>,
 }
 
-/// # Cancel safety
-///
-/// NOT cancel-safe: accumulates headers and body into local buffers across many
-/// timed reads; cancellation discards the partial response already consumed from
-/// the stream.
-pub(super) async fn read<S>(stream: &mut S) -> Result<HttpResponse, FronterError>
-where
-    S: AsyncRead + Unpin,
-{
-    read_with_body_limit(stream, MAX_RESPONSE_BODY_BYTES).await
+/// # Cancel safety:
+/// NOT cancel-safe: cancellation discards consumed frames; the owner drops the connection.
+pub(super) async fn read(response: ::http::Response<Incoming>) -> Result<HttpResponse, FronterError> {
+    read_with_body_limit(response, MAX_RESPONSE_BODY_BYTES).await
 }
 
-/// # Cancel safety
-///
-/// NOT cancel-safe: accumulates headers and body into local buffers across many
-/// timed reads; cancellation discards the partial response already consumed from
-/// the stream.
-async fn read_with_body_limit<S>(stream: &mut S, max_body_bytes: usize) -> Result<HttpResponse, FronterError>
-where
-    S: AsyncRead + Unpin,
-{
-    let mut buffer = Vec::with_capacity(8_192);
-    let mut scratch = [0u8; 8_192];
-    let headers_end = loop {
-        let read =
-            timeout(Duration::from_secs(10), stream.read(&mut scratch)).await.map_err(|_| FronterError::Timeout)??;
-        if read == 0 {
-            return Err(FronterError::BadResponse("connection closed before headers".to_string()));
-        }
-        buffer.extend_from_slice(&scratch[..read]);
-        if let Some(position) = find_headers_end(&buffer) {
-            break position;
-        }
-        if buffer.len() > 1024 * 1024 {
-            return Err(FronterError::BadResponse("response headers too large".to_string()));
-        }
-    };
-
-    let header_section = std::str::from_utf8(&buffer[..headers_end])
-        .map_err(|_| FronterError::BadResponse("response headers are not utf-8".to_string()))?;
-    let mut lines = header_section.split("\r\n");
-    let status = parse_status_line(lines.next().unwrap_or_default())?;
-    let mut headers = Vec::new();
-    for line in lines {
-        if let Some((key, value)) = line.split_once(':') {
-            headers.push((key.trim().to_string(), value.trim().to_string()));
-        }
+/// # Cancel safety:
+/// NOT cancel-safe: partial body data is local; the caller must drop its connection on cancellation.
+async fn read_with_body_limit(
+    response: ::http::Response<Incoming>,
+    limit: usize,
+) -> Result<HttpResponse, FronterError> {
+    let (parts, mut incoming) = response.into_parts();
+    headers::validate_transfer_encoding(&parts.headers)?;
+    if parts.headers.contains_key(::http::header::TRANSFER_ENCODING)
+        && parts.headers.contains_key(::http::header::CONTENT_LENGTH)
+    {
+        return Err(FronterError::BadResponse("ambiguous response framing".into()));
     }
-
-    let content_length = headers::value(&headers, "content-length").and_then(|value| value.parse::<usize>().ok());
-    let is_chunked = headers::value(&headers, "transfer-encoding")
-        .is_some_and(|value| value.to_ascii_lowercase().contains("chunked"));
-    if !is_chunked && content_length.is_some_and(|length| length > max_body_bytes) {
+    if incoming.size_hint().upper().is_some_and(|size| size > limit as u64) {
         return Err(response_body_too_large());
     }
-    let mut body = buffer[headers_end + 4..].to_vec();
-
-    if is_chunked {
-        body = read_chunked(stream, body, max_body_bytes).await?;
-    } else if let Some(content_length) = content_length {
-        validate_body_length(body.len(), max_body_bytes)?;
-        while body.len() < content_length {
-            let wanted = (content_length - body.len()).min(scratch.len());
-            let read = timeout(Duration::from_secs(10), stream.read(&mut scratch[..wanted]))
-                .await
-                .map_err(|_| FronterError::Timeout)??;
-            if read == 0 {
-                return Err(FronterError::BadResponse(
-                    "connection closed before declared response body length".to_string(),
-                ));
-            }
-            append_body_bytes(&mut body, &scratch[..read], max_body_bytes)?;
-        }
-    } else {
-        validate_body_length(body.len(), max_body_bytes)?;
-        loop {
-            match timeout(Duration::from_millis(750), stream.read(&mut scratch)).await {
-                Ok(Ok(0)) => break,
-                Ok(Ok(read)) => append_body_bytes(&mut body, &scratch[..read], max_body_bytes)?,
-                Ok(Err(error)) => return Err(error.into()),
-                Err(_) => break,
-            }
+    let headers = parts
+        .headers
+        .iter()
+        .map(|(key, value)| {
+            value
+                .to_str()
+                .map(|value| (key.to_string(), value.to_string()))
+                .map_err(|_| FronterError::BadResponse("invalid response header value".into()))
+        })
+        .collect::<Result<Vec<_>, _>>()?;
+    let mut body = Vec::new();
+    while let Some(frame) = incoming.frame().await {
+        let frame = frame.map_err(|error| FronterError::BadResponse(error.to_string()))?;
+        if let Ok(data) = frame.into_data() {
+            append_body_bytes(&mut body, &data, limit)?;
         }
     }
-
     if headers::value(&headers, "content-encoding").is_some_and(|value| value.eq_ignore_ascii_case("gzip")) {
-        body = decode_gzip(&body, max_body_bytes)?;
+        body = decode_gzip(&body, limit)?;
     }
-
-    Ok(HttpResponse { status, headers, body })
-}
-
-/// # Cancel safety
-///
-/// NOT cancel-safe: decodes chunks into an output buffer across many reads;
-/// cancellation discards partially decoded data already taken from the stream.
-async fn read_chunked<S>(stream: &mut S, mut buffer: Vec<u8>, max_body_bytes: usize) -> Result<Vec<u8>, FronterError>
-where
-    S: AsyncRead + Unpin,
-{
-    let mut output = Vec::new();
-    let mut scratch = [0u8; 8_192];
-    loop {
-        let line = read_crlf_line(stream, &mut buffer, &mut scratch).await?;
-        if line.is_empty() {
-            continue;
-        }
-        let line = std::str::from_utf8(&line)
-            .map_err(|_| FronterError::BadResponse("invalid chunk size line".to_string()))?
-            .trim()
-            .to_string();
-        let size = usize::from_str_radix(line.split(';').next().unwrap_or_default(), 16)
-            .map_err(|_| FronterError::BadResponse(format!("invalid chunk size {line}")))?;
-        if size == 0 {
-            loop {
-                if read_crlf_line(stream, &mut buffer, &mut scratch).await?.is_empty() {
-                    return Ok(output);
-                }
-            }
-        }
-        validate_body_length(output.len().checked_add(size).ok_or_else(response_body_too_large)?, max_body_bytes)?;
-        let framed_size = size.checked_add(2).ok_or_else(response_body_too_large)?;
-        fill_buffer(stream, &mut buffer, &mut scratch, framed_size).await?;
-        append_body_bytes(&mut output, &buffer[..size], max_body_bytes)?;
-        buffer.drain(..framed_size);
-    }
-}
-
-/// # Cancel safety
-///
-/// NOT cancel-safe: appends timed reads into the caller-owned buffer until a CRLF
-/// is found; cancellation between the read await and the append loses bytes
-/// already pulled from the stream.
-async fn read_crlf_line<S>(stream: &mut S, buffer: &mut Vec<u8>, scratch: &mut [u8]) -> Result<Vec<u8>, FronterError>
-where
-    S: AsyncRead + Unpin,
-{
-    loop {
-        if let Some(position) = buffer.windows(2).position(|window| window == b"\r\n") {
-            if position > MAX_CHUNK_METADATA_LINE_BYTES {
-                return Err(FronterError::BadResponse("chunk metadata line too large".to_string()));
-            }
-            let line = buffer[..position].to_vec();
-            buffer.drain(..position + 2);
-            return Ok(line);
-        }
-        if buffer.len() > MAX_CHUNK_METADATA_LINE_BYTES {
-            return Err(FronterError::BadResponse("chunk metadata line too large".to_string()));
-        }
-        let read =
-            timeout(Duration::from_secs(10), stream.read(scratch)).await.map_err(|_| FronterError::Timeout)??;
-        if read == 0 {
-            return Err(FronterError::BadResponse("connection closed while decoding chunked body".to_string()));
-        }
-        buffer.extend_from_slice(&scratch[..read]);
-    }
-}
-
-/// # Cancel safety
-///
-/// NOT cancel-safe: reads until the caller-owned buffer holds `wanted` bytes;
-/// cancellation after a timed read completes but before the append loses bytes
-/// already consumed from the stream.
-async fn fill_buffer<S>(
-    stream: &mut S,
-    buffer: &mut Vec<u8>,
-    scratch: &mut [u8],
-    wanted: usize,
-) -> Result<(), FronterError>
-where
-    S: AsyncRead + Unpin,
-{
-    while buffer.len() < wanted {
-        let read =
-            timeout(Duration::from_secs(10), stream.read(scratch)).await.map_err(|_| FronterError::Timeout)??;
-        if read == 0 {
-            return Err(FronterError::BadResponse("connection closed while filling response buffer".to_string()));
-        }
-        buffer.extend_from_slice(&scratch[..read]);
-    }
-    Ok(())
-}
-
-fn parse_status_line(value: &str) -> Result<u16, FronterError> {
-    let mut parts = value.split_whitespace();
-    let _version = parts.next();
-    let code = parts.next().ok_or_else(|| FronterError::BadResponse(format!("invalid status line {value}")))?;
-    code.parse::<u16>().map_err(|_| FronterError::BadResponse(format!("invalid status code {code}")))
-}
-
-fn find_headers_end(buffer: &[u8]) -> Option<usize> {
-    buffer.windows(4).position(|window| window == b"\r\n\r\n")
+    Ok(HttpResponse { status: parts.status.as_u16(), headers, body })
 }
 
 fn validate_body_length(length: usize, max_body_bytes: usize) -> Result<(), FronterError> {
@@ -241,135 +87,101 @@ fn decode_gzip(data: &[u8], decoded_limit: usize) -> Result<Vec<u8>, FronterErro
 
 #[cfg(test)]
 mod tests {
-    use std::collections::VecDeque;
-    use std::io::Write as _;
-    use std::pin::Pin;
-    use std::task::{Context, Poll};
-
-    use tokio::io::{AsyncRead, ReadBuf};
-
     use super::*;
+    use bytes::Bytes;
+    use http_body_util::Full;
+    use hyper_util::rt::TokioIo;
+    use std::io::Write;
+    use std::time::Duration;
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
-    const TEST_BODY_LIMIT: usize = 32;
-
-    struct MemoryReader {
-        chunks: VecDeque<Vec<u8>>,
-        reads: usize,
-    }
-
-    impl MemoryReader {
-        fn new(chunks: impl IntoIterator<Item = Vec<u8>>) -> Self {
-            Self { chunks: chunks.into_iter().collect(), reads: 0 }
-        }
-    }
-
-    impl AsyncRead for MemoryReader {
-        fn poll_read(
-            mut self: Pin<&mut Self>,
-            _cx: &mut Context<'_>,
-            buf: &mut ReadBuf<'_>,
-        ) -> Poll<std::io::Result<()>> {
-            let Some(chunk) = self.chunks.pop_front() else {
-                return Poll::Ready(Ok(()));
-            };
-            self.reads += 1;
-            let read = chunk.len().min(buf.remaining());
-            buf.put_slice(&chunk[..read]);
-            if read < chunk.len() {
-                self.chunks.push_front(chunk[read..].to_vec());
+    /// # Cancel safety:
+    /// cancel-safe: all endpoints and futures are owned by this test.
+    async fn exchange(parts: &[&[u8]], delay: Duration, limit: usize) -> Result<HttpResponse, FronterError> {
+        let (client, mut peer) = tokio::io::duplex(4096);
+        let server = async move {
+            let mut request = Vec::new();
+            while !request.ends_with(b"\r\n\r\n") {
+                request.push(peer.read_u8().await.expect("request header byte"));
             }
-            Poll::Ready(Ok(()))
-        }
+            for (index, part) in parts.iter().enumerate() {
+                if index != 0 {
+                    tokio::time::sleep(delay).await;
+                }
+                if peer.write_all(part).await.is_err() {
+                    break;
+                }
+            }
+        };
+        let client = async {
+            let (mut sender, connection) = hyper::client::conn::http1::handshake(TokioIo::new(client)).await.unwrap();
+            let request = async {
+                let request = ::http::Request::builder().uri("/").body(Full::new(Bytes::new())).unwrap();
+                let response =
+                    sender.send_request(request).await.map_err(|e| FronterError::BadResponse(e.to_string()))?;
+                read_with_body_limit(response, limit).await
+            };
+            tokio::pin!(request);
+            tokio::pin!(connection);
+            tokio::select! {
+                result = &mut request => result,
+                _ = &mut connection => request.await,
+            }
+        };
+        let (result, ()) = tokio::join!(client, server);
+        result
     }
 
-    fn assert_bad_response(result: Result<HttpResponse, FronterError>, expected: &str) {
-        match result {
-            Err(FronterError::BadResponse(message)) => assert_eq!(message, expected),
-            Err(error) => panic!("expected bad response {expected:?}, got {error}"),
-            Ok(_) => panic!("expected bad response {expected:?}, got success"),
-        }
-    }
-
-    #[tokio::test]
-    async fn rejects_fixed_content_length_above_limit_before_body_read() {
-        let headers = format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\n\r\n", TEST_BODY_LIMIT + 1).into_bytes();
-        let mut stream = MemoryReader::new([headers, vec![b'a'; TEST_BODY_LIMIT + 1]]);
-
-        let result = read_with_body_limit(&mut stream, TEST_BODY_LIMIT).await;
-
-        assert_bad_response(result, "response body too large");
-        assert_eq!(stream.reads, 1);
-    }
-
-    #[tokio::test]
-    async fn accepts_fixed_content_length_at_limit() {
-        let mut response = format!("HTTP/1.1 200 OK\r\nContent-Length: {TEST_BODY_LIMIT}\r\n\r\n").into_bytes();
-        response.extend_from_slice(&[b'a'; TEST_BODY_LIMIT]);
-        let mut stream = MemoryReader::new([response]);
-
+    /// # Cancel safety:
+    /// cancel-safe: the test owns the full exchange.
+    #[tokio::test(start_paused = true)]
+    async fn close_delimited_body_waits_for_eof_after_a_pause() {
         let response =
-            read_with_body_limit(&mut stream, TEST_BODY_LIMIT).await.expect("response at the body limit must succeed");
-
-        assert_eq!(response.body, vec![b'a'; TEST_BODY_LIMIT]);
+            exchange(&[b"HTTP/1.1 200 OK\r\n\r\nhello", b" world"], Duration::from_millis(900), 32).await.unwrap();
+        assert_eq!(response.body, b"hello world");
     }
 
+    /// # Cancel safety:
+    /// cancel-safe: the test owns the full exchange.
     #[tokio::test]
-    async fn rejects_truncated_fixed_content_length_at_eof() {
-        let mut stream = MemoryReader::new([b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nabc".to_vec()]);
-
-        let result = read_with_body_limit(&mut stream, TEST_BODY_LIMIT).await;
-
-        assert_bad_response(result, "connection closed before declared response body length");
+    async fn invalid_or_truncated_framing_is_rejected() {
+        for wire in [
+            &b"HTTP/1.1 200 OK\r\nTransfer-Encoding: gzip, chunked\r\n\r\n3\r\nabc\r\n0\r\n\r\n"[..],
+            &b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n3\r\nabcXX0\r\n\r\n"[..],
+            b"HTTP/1.1 200 OK\r\nContent-Length: 4\r\n\r\nabc",
+            b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\nContent-Length: 4\r\n\r\nabc",
+            b"HTTP/1.1 200 OK\r\nContent-Length: 3\r\nTransfer-Encoding: chunked\r\n\r\n3\r\nabc\r\n0\r\n\r\n",
+        ] {
+            assert!(exchange(&[wire], Duration::ZERO, 32).await.is_err(), "{wire:?}");
+        }
     }
 
+    /// # Cancel safety:
+    /// cancel-safe: the test owns the full exchange.
     #[tokio::test]
-    async fn rejects_chunk_exceeding_remaining_limit_before_payload_read() {
-        let mut first = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n".to_vec();
-        first.extend_from_slice(b"3\r\nabc\r\n");
-        let mut stream = MemoryReader::new([first, b"2\r\n".to_vec(), b"de\r\n0\r\n\r\n".to_vec()]);
-
-        let result = read_with_body_limit(&mut stream, 4).await;
-
-        assert_bad_response(result, "response body too large");
-        assert_eq!(stream.reads, 2);
+    async fn fixed_chunked_and_close_delimited_bodies_obey_limits() {
+        for wire in [
+            &b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nhello"[..],
+            b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n5;ext=yes\r\nhello\r\n0\r\nX-Trailer: yes\r\n\r\n",
+            b"HTTP/1.1 200 OK\r\n\r\nhello",
+        ] {
+            assert_eq!(exchange(&[wire], Duration::ZERO, 5).await.unwrap().body, b"hello");
+            assert!(exchange(&[wire], Duration::ZERO, 4).await.is_err());
+        }
     }
 
+    /// # Cancel safety:
+    /// cancel-safe: the test owns the full exchange.
     #[tokio::test]
-    async fn rejects_close_delimited_body_above_limit() {
-        let mut response = b"HTTP/1.1 200 OK\r\n\r\n".to_vec();
-        response.extend_from_slice(&[b'a'; TEST_BODY_LIMIT + 1]);
-        let mut stream = MemoryReader::new([response]);
-
-        let result = read_with_body_limit(&mut stream, TEST_BODY_LIMIT).await;
-
-        assert_bad_response(result, "response body too large");
-    }
-
-    #[tokio::test]
-    async fn rejects_gzip_decoded_body_above_limit() {
+    async fn gzip_decoding_obeys_expanded_limit() {
         let mut encoder = flate2::write::GzEncoder::new(Vec::new(), flate2::Compression::default());
-        encoder.write_all(&[b'a'; TEST_BODY_LIMIT + 1]).expect("in-memory gzip input must write");
-        let compressed = encoder.finish().expect("in-memory gzip stream must finish");
-        assert!(compressed.len() <= TEST_BODY_LIMIT);
-        let mut response =
+        encoder.write_all(&[b'a'; 33]).unwrap();
+        let compressed = encoder.finish().unwrap();
+        let mut wire =
             format!("HTTP/1.1 200 OK\r\nContent-Length: {}\r\nContent-Encoding: gzip\r\n\r\n", compressed.len())
                 .into_bytes();
-        response.extend_from_slice(&compressed);
-        let mut stream = MemoryReader::new([response]);
-
-        let result = read_with_body_limit(&mut stream, TEST_BODY_LIMIT).await;
-
-        assert_bad_response(result, "response body too large");
-    }
-
-    #[tokio::test]
-    async fn rejects_unterminated_chunk_metadata_line_above_limit() {
-        let mut response = b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n".to_vec();
-        response.extend_from_slice(&vec![b'1'; MAX_CHUNK_METADATA_LINE_BYTES + 1]);
-        let mut stream = MemoryReader::new([response]);
-
-        let result = read_with_body_limit(&mut stream, TEST_BODY_LIMIT).await;
-
-        assert_bad_response(result, "chunk metadata line too large");
+        wire.extend(compressed);
+        assert!(exchange(&[&wire], Duration::ZERO, 32).await.is_err());
+        assert_eq!(exchange(&[&wire], Duration::ZERO, 33).await.unwrap().body.len(), 33);
     }
 }

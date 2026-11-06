@@ -1,7 +1,7 @@
 use std::io::Write;
 use std::net::IpAddr;
 
-use crate::http::read_http_headers_io;
+use crate::http::{parse_http_response_head, read_http_headers_io};
 use crate::transport::ConnectionStream;
 use crate::types::TcpTarget;
 use crate::util::MAX_HTTP_BYTES;
@@ -18,43 +18,38 @@ pub(super) fn write_padded_head_request(
 /// The parts of a response head the probe acts on.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) struct ResponseHead {
-    /// Status code from the status line, when it parses.
-    pub(super) status: Option<u16>,
+    /// Status code from the validated status line.
+    pub(super) status: u16,
     /// `Connection: close`, or an HTTP/1.0 response without `Connection: keep-alive` (RFC 9112 section 9.3).
     pub(super) closes: bool,
 }
 
 impl ResponseHead {
-    /// A parsed status below 400. A 4xx/5xx means the server or a middlebox refused the
-    /// request, and a missing status means the answer is not plain HTTP.
+    /// A status below 400. A 4xx/5xx means the server or a middlebox refused the request.
     pub(super) fn is_success_class(self) -> bool {
-        self.status.is_some_and(|status| status < 400)
+        self.status < 400
     }
 }
 
 /// Reads one response head. The error keeps its kind, so a read timeout is classified as one.
 pub(super) fn read_response_headers(stream: &mut ConnectionStream) -> std::io::Result<ResponseHead> {
-    read_http_headers_io(stream, MAX_HTTP_BYTES).map(|headers| parse_response_head(&headers))
-}
-
-fn parse_response_head(headers: &[u8]) -> ResponseHead {
-    let text = String::from_utf8_lossy(headers);
-    let mut lines = text.split("\r\n");
-    let status_line = lines.next().unwrap_or_default();
-    let http_1_0 = status_line.starts_with("HTTP/1.0");
-    let status = status_line.split_whitespace().nth(1).and_then(|code| code.parse().ok());
+    let headers = read_http_headers_io(stream, MAX_HTTP_BYTES)?;
+    let (version, response) = parse_http_response_head(&headers)
+        .map_err(|error| std::io::Error::new(std::io::ErrorKind::InvalidData, error))?;
     let mut close = false;
     let mut keep_alive = false;
-    for line in lines {
-        let Some((name, value)) = line.split_once(':') else { continue };
-        if name.trim().eq_ignore_ascii_case("connection") {
+    for (name, value) in &response.headers {
+        if name.eq_ignore_ascii_case("connection") {
             for token in value.split(',').map(str::trim) {
                 close |= token.eq_ignore_ascii_case("close");
                 keep_alive |= token.eq_ignore_ascii_case("keep-alive");
             }
         }
     }
-    ResponseHead { status, closes: close || (http_1_0 && !keep_alive) }
+    Ok(ResponseHead {
+        status: response.status_code,
+        closes: close || (version == http::Version::HTTP_10 && !keep_alive),
+    })
 }
 
 /// The Host value to send: the caller's value when it is a plausible host, otherwise the target IP.

@@ -1,7 +1,6 @@
-mod chunked_body;
+mod http1_exchange;
 mod http1_request;
 mod http1_response;
-mod manual_exchange;
 mod request_exchange;
 
 #[cfg(test)]

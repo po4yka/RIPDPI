@@ -1,23 +1,17 @@
-use tokio::io::{AsyncRead, AsyncWrite};
-
 use super::FronterError;
 use super::headers;
 use super::http;
-use super::response::{self, HttpResponse};
+use super::response::HttpResponse;
 
-/// # Cancel safety
+/// # Cancel safety:
 ///
-/// NOT cancel-safe: each redirect hop send_get-writes the follow-up request and
-/// then response::read consumes the reply across awaits; cancellation can
-/// truncate a request or drop already-consumed response bytes.
-pub(super) async fn follow<S>(
-    stream: &mut S,
+/// NOT cancel-safe: each hop sends a request and consumes a response.
+/// Cancellation must discard the sender and its connection driver.
+pub(super) async fn follow(
+    sender: &mut http::Sender,
     mut response: HttpResponse,
     default_host: &str,
-) -> Result<HttpResponse, FronterError>
-where
-    S: AsyncRead + AsyncWrite + Unpin,
-{
+) -> Result<HttpResponse, FronterError> {
     for _ in 0..5 {
         if !matches!(response.status, 301 | 302 | 303 | 307 | 308) {
             break;
@@ -26,8 +20,7 @@ where
             break;
         };
         let (redirect_path, redirect_host) = parse_redirect(location);
-        http::send_get(stream, &redirect_path, redirect_host.as_deref().unwrap_or(default_host)).await?;
-        response = response::read(stream).await?;
+        response = http::send_get(sender, &redirect_path, redirect_host.as_deref().unwrap_or(default_host)).await?;
     }
     Ok(response)
 }

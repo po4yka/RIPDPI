@@ -9,57 +9,10 @@ pub(super) struct BodyResult {
     pub reason: &'static str,
 }
 
-struct Reader<'a, R> {
-    stream: &'a mut R,
-    abort: &'a dyn Fn() -> bool,
-    wire_bytes: usize,
-    wire_limit: usize,
-}
-impl<R: Read> Reader<'_, R> {
-    fn byte(&mut self) -> Result<Option<u8>, &'static str> {
-        if (self.abort)() {
-            return Err("cancelled");
-        }
-        if self.wire_bytes >= self.wire_limit {
-            return Err("response_limit");
-        }
-        let mut byte = [0];
-        match self.stream.read(&mut byte) {
-            Ok(0) => Ok(None),
-            Ok(_) => {
-                self.wire_bytes += 1;
-                Ok(Some(byte[0]))
-            }
-            Err(_) => Err("read_error"),
-        }
-    }
-    fn line(&mut self, limit: usize) -> Result<Vec<u8>, &'static str> {
-        let mut bytes = Vec::new();
-        loop {
-            bytes.push(self.byte()?.ok_or("early_eof")?);
-            if bytes.ends_with(b"\r\n") {
-                bytes.truncate(bytes.len() - 2);
-                return Ok(bytes);
-            }
-            if bytes.len() >= limit {
-                return Err("header_limit");
-            }
-        }
-    }
-    fn exact(&mut self, size: usize, bytes: &mut usize) -> Result<(), &'static str> {
-        for _ in 0..size {
-            self.byte()?.ok_or("early_eof")?;
-            *bytes += 1;
-        }
-        Ok(())
-    }
-}
-
 pub(super) fn read_response<R: Read>(stream: &mut R, max_body: usize, abort: &dyn Fn() -> bool) -> BodyResult {
-    let mut reader = Reader { stream, abort, wire_bytes: 0, wire_limit: max_body + 16384 };
     let mut result =
         BodyResult { headers_complete: false, status: 0, bytes: 0, complete: false, reason: "malformed_http" };
-    match parse(&mut reader, max_body, &mut result) {
+    match parse(stream, max_body, abort, &mut result) {
         Ok(()) => {
             result.complete = true;
             result.reason = "complete";
@@ -69,95 +22,65 @@ pub(super) fn read_response<R: Read>(stream: &mut R, max_body: usize, abort: &dy
     result
 }
 
-fn parse<R: Read>(reader: &mut Reader<'_, R>, max: usize, result: &mut BodyResult) -> Result<(), &'static str> {
-    let status = reader.line(16384)?;
-    let status = std::str::from_utf8(&status).map_err(|_| "malformed_http")?;
-    let mut parts = status.split_whitespace();
-    if !matches!(parts.next(), Some("HTTP/1.1" | "HTTP/1.0")) {
-        return Err("malformed_http");
-    }
-    result.status = parts.next().ok_or("malformed_http")?.parse().map_err(|_| "malformed_http")?;
-    if !(200..=599).contains(&result.status) {
-        return Err("unsupported_status");
-    }
-    let mut length = None;
-    let mut chunked = false;
+fn parse<R: Read>(
+    stream: &mut R,
+    max: usize,
+    abort: &dyn Fn() -> bool,
+    result: &mut BodyResult,
+) -> Result<(), &'static str> {
+    use ripdpi_diagnostics_http::http::{HttpBodyFraming, HttpResponseDecoder, HttpResponseEvent};
+    let mut decoder = HttpResponseDecoder::new("GET", 16384)?;
+    let mut buffer = [0; 8192];
+    let mut wire_remaining = max.saturating_add(16384);
     loop {
-        let line = reader.line(16384usize.saturating_sub(reader.wire_bytes).max(1))?;
-        if line.is_empty() {
-            break;
+        if abort() {
+            return Err("cancelled");
         }
-        let line = std::str::from_utf8(&line).map_err(|_| "malformed_http")?;
-        let (name, value) = line.split_once(':').ok_or("malformed_http")?;
-        if name.eq_ignore_ascii_case("content-length") {
-            if length.is_some() {
-                return Err("ambiguous_framing");
-            }
-            length = Some(value.trim().parse::<usize>().map_err(|_| "malformed_http")?);
-        }
-        if name.eq_ignore_ascii_case("transfer-encoding") {
-            if chunked || !value.trim().eq_ignore_ascii_case("chunked") {
-                return Err("ambiguous_framing");
-            }
-            chunked = true;
-        }
-        if reader.wire_bytes > 16384 {
-            return Err("header_limit");
-        }
-    }
-    result.headers_complete = true;
-    if chunked && length.is_some() {
-        return Err("ambiguous_framing");
-    }
-    if !(200..300).contains(&result.status) {
-        return Err("http_status");
-    }
-    if result.status == 206 {
-        return Err("partial_response");
-    }
-    if matches!(result.status, 204 | 205) {
-        return Err("empty_body");
-    }
-    if chunked {
-        loop {
-            let line = reader.line(1024)?;
-            let line = std::str::from_utf8(&line).map_err(|_| "malformed_chunk")?;
-            let size = usize::from_str_radix(line.split(';').next().ok_or("malformed_chunk")?.trim(), 16)
-                .map_err(|_| "malformed_chunk")?;
-            if size == 0 {
-                // Trailers are bounded by the total wire budget and are discarded.
-                loop {
-                    if reader.line(1024)?.is_empty() {
-                        break;
-                    }
+        match decoder
+            .next_event()
+            .map_err(|reason| if reason == "response_truncated" { "early_eof" } else { reason })?
+        {
+            HttpResponseEvent::NeedInput => {
+                let limit = decoder.input_capacity().min(wire_remaining);
+                if limit == 0 {
+                    return Err("response_limit");
                 }
-                break;
+                let count = stream.read(&mut buffer[..limit]).map_err(|_| "read_error")?;
+                wire_remaining -= count;
+                if count == 0 {
+                    decoder.finish_input();
+                } else {
+                    decoder.feed(&buffer[..count])?;
+                }
             }
-            if size > max.saturating_sub(result.bytes) {
-                return Err("response_limit");
+            HttpResponseEvent::Head(head, framing) => {
+                result.status = head.status_code;
+                result.headers_complete = true;
+                if !(200..300).contains(&head.status_code) {
+                    return Err("http_status");
+                }
+                if head.status_code == 206 {
+                    return Err("partial_response");
+                }
+                if matches!(head.status_code, 204 | 205) {
+                    return Err("empty_body");
+                }
+                if head.headers.get("content-length").is_some_and(|value| value.contains(',')) {
+                    return Err("ambiguous_framing");
+                }
+                if matches!(framing, HttpBodyFraming::Length(length) if length > max as u64) {
+                    return Err("response_limit");
+                }
             }
-            reader.exact(size, &mut result.bytes)?;
-            if !reader.line(2)?.is_empty() {
-                return Err("malformed_chunk");
+            HttpResponseEvent::Data(bytes) => {
+                result.bytes = result.bytes.saturating_add(bytes.len());
+                if result.bytes > max {
+                    return Err("response_limit");
+                }
             }
-        }
-    } else if let Some(size) = length {
-        if size > max {
-            return Err("response_limit");
-        }
-        reader.exact(size, &mut result.bytes)?;
-    } else {
-        while reader.byte()?.is_some() {
-            result.bytes += 1;
-            if result.bytes > max {
-                return Err("response_limit");
-            }
+            HttpResponseEvent::Complete => return if result.bytes == 0 { Err("empty_body") } else { Ok(()) },
         }
     }
-    if result.bytes == 0 {
-        return Err("empty_body");
-    }
-    Ok(())
 }
 
 #[cfg(test)]

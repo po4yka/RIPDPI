@@ -118,6 +118,12 @@ impl RelayTelemetryState {
         self.active_sessions.fetch_update(Ordering::Relaxed, Ordering::Relaxed, |value| value.checked_sub(1)).ok();
     }
 
+    /// HTTP response bytes accepted by the client transport, including framing and local errors.
+    pub(crate) fn record_output_bytes(&self, byte_count: usize) {
+        // Ordering: this counter does not publish any other state.
+        self.total_bytes.fetch_add(u64::try_from(byte_count).unwrap_or(u64::MAX), Ordering::Relaxed);
+    }
+
     pub fn record_success(&self, byte_count: usize) {
         // Ordering: byte/error counters are diagnostics-only and may be sampled
         // independently, so Relaxed preserves atomicity without synchronization.

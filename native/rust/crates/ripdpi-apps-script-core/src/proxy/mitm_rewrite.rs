@@ -13,10 +13,10 @@ use crate::mitm::MitmCertManager;
 use crate::proxy::{HANDSHAKE_TIMEOUT, http_relay};
 use crate::telemetry::SharedTelemetryState;
 
-/// # Cancel safety
+/// # Cancel safety:
 ///
 /// NOT cancel-safe: performs a multi-step TLS handshake (ClientHello sniff +
-/// into_stream) then loops over handle_request, which partial-reads/writes the
+/// into_stream) then serves the Hyper connection, which reads and writes the
 /// HTTP exchange. Cancellation can leave the handshake or a response truncated.
 pub(crate) async fn mitm_then_relay(
     stream: TcpStream,
@@ -37,23 +37,15 @@ pub(crate) async fn mitm_then_relay(
     let server_config = MitmCertManager::get_server_config(&mitm, &effective_host)
         .await
         .map_err(|error| io::Error::other(error.to_string()))?;
-    let mut tls_stream = timeout(HANDSHAKE_TIMEOUT, acceptor.into_stream(server_config))
+    let tls_stream = timeout(HANDSHAKE_TIMEOUT, acceptor.into_stream(server_config))
         .await
         .map_err(|_| handshake_timed_out())?
         .map_err(|error| io::Error::other(format!("TLS accept failed: {error}")))?;
 
-    let mut pending = Vec::new();
-    loop {
-        match http_relay::handle_request(&mut tls_stream, &mut pending, &effective_host, port, "https", relay.as_ref())
-            .await?
-        {
-            true => continue,
-            false => return Ok(()),
-        }
-    }
+    http_relay::serve(tls_stream, &effective_host, port, "https", relay.as_ref(), telemetry.as_ref()).await
 }
 
-/// # Cancel safety
+/// # Cancel safety:
 ///
 /// NOT cancel-safe: the TLS accept and outbound connect are multi-step awaits
 /// preceding the copy_bidirectional; cancellation during the handshake leaves a

@@ -60,6 +60,42 @@ fn http_upgrade_rejects_missing_upgrade_headers() {
     assert_upgrade_error(b"HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\n\r\n");
 }
 
+#[tokio::test]
+/// # Cancel safety:
+/// cancel-safe: the test owns both stream ends.
+async fn upgrade_accepts_reason_phrase_and_combines_connection_tokens() {
+    use tokio::io::{AsyncReadExt, AsyncWriteExt};
+    let (client, mut server) = tokio::io::duplex(1024);
+    let request = HttpUpgradeRequest { host: "front.example".into(), secret_path: "/secret".into() };
+    let peer = async {
+        let mut request_bytes = Vec::new();
+        while !request_bytes.ends_with(b"\r\n\r\n") {
+            request_bytes.push(server.read_u8().await.expect("request byte"));
+        }
+        server
+            .write_all(
+                b"HTTP/1.1 103 Early Hints\r\nLink: </tunnel>\r\n\r\nHTTP/1.1 101 OK\r\nConnection: Upgrade\r\nConnection: keep-alive\r\nUpgrade: websocket\r\n\r\ntunnel",
+            )
+            .await
+            .expect("response");
+    };
+    let client = async {
+        let mut tunnel =
+            ripdpi_webtunnel::http_upgrade::perform_http_upgrade_async(client, &request).await.expect("upgrade");
+        let mut bytes = [0; 6];
+        tunnel.read_exact(&mut bytes).await.expect("tunnel bytes");
+        assert_eq!(&bytes, b"tunnel");
+    };
+    tokio::join!(peer, client);
+}
+
+#[test]
+fn http_upgrade_rejects_malformed_header_syntax() {
+    assert_upgrade_error(
+        b"HTTP/1.1 101 Switching Protocols\r\nBad Header: value\r\nConnection: upgrade\r\nUpgrade: websocket\r\n\r\n",
+    );
+}
+
 fn assert_upgrade_error(response: &'static [u8]) {
     let listener = TcpListener::bind("127.0.0.1:0").expect("bind fixture listener");
     let addr = listener.local_addr().expect("fixture addr");

@@ -1,23 +1,26 @@
 use std::sync::Arc;
+use std::time::Duration;
 
 use rustls::ClientConfig;
 use rustls::pki_types::ServerName;
-use tokio::io::{AsyncRead, AsyncWrite, AsyncWriteExt};
+use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::time::timeout;
 use tokio_rustls::TlsConnector;
 use url::Url;
 
-use super::http1_request::{build_doh_http1_request, build_post_http1_request};
+use super::http1_request::build_post_http1_request;
 use super::http1_response::read_doh_response;
 use crate::resolver::EncryptedDnsResolver;
 use crate::types::EncryptedDnsError;
 
-pub(super) async fn exchange_doh_manually(
+/// # Cancel safety:
+/// cancel-safe: cancellation drops the owned connection and all exchange state.
+pub(super) async fn exchange_doh_with_connector(
     resolver: &EncryptedDnsResolver,
     query_bytes: &[u8],
 ) -> Result<Vec<u8>, EncryptedDnsError> {
     let base_url = resolver.inner.endpoint.doh_url.as_ref().ok_or(EncryptedDnsError::MissingDohUrl)?;
-    exchange_binary_post_manually(
+    exchange_binary_post_with_connector(
         resolver,
         base_url,
         query_bytes,
@@ -27,7 +30,9 @@ pub(super) async fn exchange_doh_manually(
     .await
 }
 
-pub(super) async fn exchange_binary_post_manually(
+/// # Cancel safety:
+/// cancel-safe: cancellation drops the owned TCP or TLS connection.
+pub(super) async fn exchange_binary_post_with_connector(
     resolver: &EncryptedDnsResolver,
     base_url: &str,
     body: &[u8],
@@ -58,9 +63,11 @@ pub(super) async fn exchange_binary_post_manually(
             Ok(Err(err)) => return Err(EncryptedDnsError::Tls(format!("DoH TLS handshake to {tls_name}: {err}"))),
             Err(_) => return Err(EncryptedDnsError::Tls(format!("DoH TLS handshake to {tls_name} timed out"))),
         };
-        exchange_binary_post_over_stream(resolver, &mut tls_stream, &url, body, content_type, accept).await
+        exchange_binary_post_over_stream(&mut tls_stream, &url, body, content_type, accept, resolver.inner.timeout)
+            .await
     } else {
-        exchange_binary_post_over_stream(resolver, &mut tcp_stream, &url, body, content_type, accept).await
+        exchange_binary_post_over_stream(&mut tcp_stream, &url, body, content_type, accept, resolver.inner.timeout)
+            .await
     }
 }
 
@@ -76,43 +83,43 @@ fn tls_version_refused(err: &std::io::Error) -> bool {
     )
 }
 
-async fn exchange_binary_post_over_stream<S>(
-    resolver: &EncryptedDnsResolver,
+/// # Cancel safety:
+/// NOT cancel-safe: HTTP bytes can be consumed or sent. The caller must discard the stream.
+pub(super) async fn exchange_binary_post_over_stream<S>(
     stream: &mut S,
     url: &Url,
     body: &[u8],
     content_type: &str,
     accept: &str,
+    deadline: Duration,
 ) -> Result<Vec<u8>, EncryptedDnsError>
 where
     S: AsyncRead + AsyncWrite + Unpin,
 {
-    let request = if content_type == crate::transport::DNS_MESSAGE_MEDIA_TYPE
-        && accept == crate::transport::DNS_MESSAGE_MEDIA_TYPE
-    {
-        build_doh_http1_request(url, body.len())?
-    } else {
-        build_post_http1_request(url, body.len(), content_type, accept)?
-    };
-    let mut response = Vec::new();
-    match timeout(resolver.inner.timeout, async {
-        stream
-            .write_all(request.as_bytes())
+    let request = build_post_http1_request(url, body, content_type, accept)?;
+    timeout(deadline, async {
+        let (mut sender, connection) = hyper::client::conn::http1::Builder::new()
+            .max_buf_size(super::MAX_DOH_HEADER_BYTES)
+            .handshake(hyper_util::rt::TokioIo::new(stream))
             .await
-            .map_err(|err| EncryptedDnsError::Request(format!("DoH write request headers: {err}")))?;
-        stream
-            .write_all(body)
-            .await
-            .map_err(|err| EncryptedDnsError::Request(format!("DoH write request body: {err}")))?;
-        stream.flush().await.map_err(|err| EncryptedDnsError::Request(format!("DoH flush stream: {err}")))?;
-        response = read_doh_response(stream).await?;
-        Ok::<(), EncryptedDnsError>(())
+            .map_err(http_error)?;
+        let exchange = async {
+            let response = sender.send_request(request).await.map_err(http_error)?;
+            read_doh_response(response).await
+        };
+        tokio::pin!(connection, exchange);
+        tokio::select! {
+            result = &mut exchange => result,
+            result = &mut connection => {
+                result.map_err(http_error)?;
+                exchange.await
+            }
+        }
     })
     .await
-    {
-        Ok(result) => result?,
-        Err(_) => return Err(EncryptedDnsError::Request("DoH exchange timed out".to_string())),
-    }
+    .map_err(|_| EncryptedDnsError::Request("DoH exchange timed out".into()))?
+}
 
-    Ok(response)
+fn http_error(error: hyper::Error) -> EncryptedDnsError {
+    EncryptedDnsError::Request(format!("DoH HTTP exchange: {error}"))
 }

@@ -17,6 +17,10 @@ bytes = { workspace = true }
 h3 = { workspace = true }
 h3-quinn = { workspace = true }
 http = { workspace = true }
+http-body-util = { workspace = true }
+httparse = { workspace = true }
+hyper = { workspace = true }
+futures = { workspace = true }
 quinn = { workspace = true }
 rustls = { workspace = true }
 tokio = { workspace = true, features = ["rt", "time", "net", "macros", "sync"] }

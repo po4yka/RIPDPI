@@ -5,7 +5,7 @@ use std::time::Duration;
 
 use ripdpi_diagnostics_contracts::util::bounded_scan_io_timeout;
 
-use crate::http::{extract_host_from_url, extract_path_from_url, parse_http_response};
+use crate::http::{HttpResponseDecoder, HttpResponseEvent, extract_host_from_url, extract_path_from_url};
 use crate::tls::{
     ApplicationProtocolPolicy, NoCertificateVerification, ProbeStreamOptions, TlsClientProfile, TlsKeyLogCallback,
     open_probe_stream_targets_with_options_and_abort,
@@ -14,7 +14,6 @@ use crate::transport::{ConnectionStream, TargetAddress, TransportConfig};
 use crate::types::TelegramTarget;
 use crate::util::{
     IO_TIMEOUT, MAX_HTTP_BYTES, TELEGRAM_CHUNK_SIZE, TELEGRAM_DOWNLOAD_EXPECTED_BYTES, TELEGRAM_SPEED_SAMPLE_INTERVAL,
-    find_headers_end,
 };
 
 const TELEGRAM_UPLOAD_HOST: &str = "telegram.org";
@@ -203,104 +202,26 @@ fn telegram_download_transfer_loop(
     should_abort: &dyn Fn() -> Option<&'static str>,
 ) -> TelegramTransferResult {
     let start = std::time::Instant::now();
-    let header_buf = match read_telegram_http_headers(stream, MAX_HTTP_BYTES, start, total_timeout, should_abort) {
-        Ok(h) => h,
-        Err(err) => {
-            stream.shutdown();
-            let status = abort_status_from_error(&err).unwrap_or("blocked");
-            return TelegramTransferResult::from_transfer(status, 0, 0, start, Some(err));
-        }
-    };
-    let body_start = match telegram_response_body_start(&header_buf) {
-        Ok(body_start) => body_start,
-        Err(err) => {
-            stream.shutdown();
-            return TelegramTransferResult::blocked(err);
-        }
-    };
-    let body_prefix_len = header_buf.len() - body_start;
-
-    let mut last_data_at = std::time::Instant::now();
-    let mut bytes_total = body_prefix_len;
+    let mut bytes_total = 0usize;
     let mut peak_bps = 0u64;
     let mut sample_bytes = 0usize;
-    let mut sample_start = last_data_at;
-    let mut buf = [0u8; TELEGRAM_CHUNK_SIZE];
-    if let Some(reason) = should_abort() {
-        stream.shutdown();
-        return TelegramTransferResult::from_transfer(
-            reason,
-            bytes_total,
-            peak_bps,
-            start,
-            Some(format!("probe_aborted:{reason}")),
-        );
-    }
-
-    loop {
-        if let Some(reason) = should_abort() {
-            stream.shutdown();
-            return TelegramTransferResult::from_transfer(
-                reason,
-                bytes_total,
-                peak_bps,
-                start,
-                Some(format!("probe_aborted:{reason}")),
-            );
-        }
-        if let Err(err) = clamp_transfer_io_timeout(stream) {
-            stream.shutdown();
-            return TelegramTransferResult::from_transfer("deadline_exceeded", bytes_total, peak_bps, start, Some(err));
-        }
-        if start.elapsed() > total_timeout {
-            break;
-        }
-        if last_data_at.elapsed() > stall_timeout {
-            stream.shutdown();
-            return TelegramTransferResult::from_transfer(
-                "stalled",
-                bytes_total,
-                peak_bps,
-                start,
-                Some("stall detected".to_string()),
-            );
-        }
-
-        match stream.read(&mut buf) {
-            Ok(0) => break,
-            Ok(n) => {
-                bytes_total += n;
-                sample_bytes += n;
-                last_data_at = std::time::Instant::now();
-
-                if sample_start.elapsed() >= TELEGRAM_SPEED_SAMPLE_INTERVAL {
-                    let sample_ms = sample_start.elapsed().as_millis() as u64;
-                    update_peak_bps(&mut peak_bps, sample_bytes, sample_ms);
-                    sample_bytes = 0;
-                    sample_start = std::time::Instant::now();
-                }
+    let mut sample_start = start;
+    let response =
+        read_telegram_response(stream, "GET", start, total_timeout, stall_timeout, should_abort, &mut |bytes| {
+            bytes_total += bytes.len();
+            sample_bytes += bytes.len();
+            if sample_start.elapsed() >= TELEGRAM_SPEED_SAMPLE_INTERVAL {
+                update_peak_bps(&mut peak_bps, sample_bytes, sample_start.elapsed().as_millis() as u64);
+                sample_bytes = 0;
+                sample_start = std::time::Instant::now();
             }
-            Err(ref err) if err.kind() == ErrorKind::TimedOut || err.kind() == ErrorKind::WouldBlock => {
-                continue;
-            }
-            Err(err) => {
-                stream.shutdown();
-                if let Some(result) = transfer_admin_result_after_io(should_abort) {
-                    return result;
-                }
-                let status = if bytes_total == 0 { "blocked" } else { "stalled" };
-                return TelegramTransferResult::from_transfer(
-                    status,
-                    bytes_total,
-                    peak_bps,
-                    start,
-                    Some(err.to_string()),
-                );
-            }
-        }
-    }
-
+            Ok(())
+        });
     stream.shutdown();
+    if let Err(error) = response {
+        let status = abort_status_from_error(&error).unwrap_or(if bytes_total == 0 { "blocked" } else { "stalled" });
+        return TelegramTransferResult::from_transfer(status, bytes_total, peak_bps, start, Some(error));
+    }
     let status = if bytes_total >= TELEGRAM_DOWNLOAD_EXPECTED_BYTES * 98 / 100 {
         "ok"
     } else if bytes_total > 0 {
@@ -311,25 +232,20 @@ fn telegram_download_transfer_loop(
     TelegramTransferResult::from_transfer(status, bytes_total, peak_bps, start, None)
 }
 
-fn telegram_response_body_start(headers: &[u8]) -> Result<usize, String> {
-    let header_end = find_headers_end(headers).ok_or_else(|| "response_missing_headers".to_string())?;
-    let status_code = parse_http_response(&headers[..header_end], Vec::new())?.status_code;
-    if !(200..300).contains(&status_code) {
-        return Err(format!("http_status_{status_code}"));
-    }
-    Ok(header_end + 4)
-}
-
-fn read_telegram_http_headers(
+fn read_telegram_response(
     stream: &mut dyn TelegramIo,
-    max_bytes: usize,
+    method: &str,
     start: std::time::Instant,
     total_timeout: Duration,
+    stall_timeout: Duration,
     should_abort: &dyn Fn() -> Option<&'static str>,
-) -> Result<Vec<u8>, String> {
-    let mut buffer = Vec::new();
-    let mut chunk = [0u8; 1024];
-    while buffer.len() < max_bytes {
+    on_data: &mut dyn FnMut(&[u8]) -> Result<(), String>,
+) -> Result<(), String> {
+    let mut decoder = HttpResponseDecoder::new(method, MAX_HTTP_BYTES).map_err(str::to_string)?;
+    let mut buffer = [0; 8192];
+    let mut last_data = start;
+    let mut head_received = false;
+    loop {
         if let Some(reason) = should_abort() {
             return Err(format!("probe_aborted:{reason}"));
         }
@@ -337,29 +253,40 @@ fn read_telegram_http_headers(
         if remaining.is_zero() {
             return Err("deadline_exceeded".to_string());
         }
-        let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
-        stream.set_io_timeout(timeout.min(remaining)).map_err(|err| err.to_string())?;
-        match stream.read(&mut chunk) {
-            Ok(0) => break,
-            Ok(n) => {
-                buffer.extend_from_slice(&chunk[..n]);
-                if find_headers_end(&buffer).is_some() {
-                    return Ok(buffer);
+        if head_received && last_data.elapsed() >= stall_timeout {
+            return Err("stall detected".to_string());
+        }
+        match decoder.next_event().map_err(str::to_string)? {
+            HttpResponseEvent::NeedInput => {
+                let timeout = bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
+                stream.set_io_timeout(timeout.min(remaining)).map_err(|error| error.to_string())?;
+                match stream.read(&mut buffer[..decoder.input_capacity()]) {
+                    Ok(0) => decoder.finish_input(),
+                    Ok(count) => decoder.feed(&buffer[..count]).map_err(str::to_string)?,
+                    Err(error) if matches!(error.kind(), ErrorKind::TimedOut | ErrorKind::WouldBlock) => continue,
+                    Err(error) => {
+                        if let Some(reason) = should_abort() {
+                            return Err(format!("probe_aborted:{reason}"));
+                        }
+                        bounded_scan_io_timeout(IO_TIMEOUT).map_err(str::to_string)?;
+                        return Err(error.to_string());
+                    }
                 }
             }
-            Err(ref err) if err.kind() == ErrorKind::TimedOut || err.kind() == ErrorKind::WouldBlock => continue,
-            Err(err) => {
-                if let Some(reason) = should_abort() {
-                    return Err(format!("probe_aborted:{reason}"));
+            HttpResponseEvent::Head(head, _) => {
+                if !(200..300).contains(&head.status_code) {
+                    return Err(format!("http_status_{}", head.status_code));
                 }
-                if bounded_scan_io_timeout(IO_TIMEOUT).is_err() {
-                    return Err("scan_deadline_exceeded".to_string());
-                }
-                return Err(err.to_string());
+                head_received = true;
+                last_data = std::time::Instant::now();
             }
+            HttpResponseEvent::Data(bytes) => {
+                on_data(&bytes)?;
+                last_data = std::time::Instant::now();
+            }
+            HttpResponseEvent::Complete => return Ok(()),
         }
     }
-    Ok(buffer)
 }
 
 fn abort_status_from_error(error: &str) -> Option<&'static str> {
@@ -527,8 +454,12 @@ fn telegram_upload_transfer_loop(
     }
 
     if bytes_total == content_length {
-        let response = read_telegram_http_headers(stream, MAX_HTTP_BYTES, start, total_timeout, should_abort)
-            .and_then(|headers| telegram_response_body_start(&headers));
+        let mut response_bytes = 0usize;
+        let response =
+            read_telegram_response(stream, "POST", start, total_timeout, stall_timeout, should_abort, &mut |bytes| {
+                response_bytes += bytes.len();
+                if response_bytes > MAX_HTTP_BYTES { Err("response_too_large".to_string()) } else { Ok(()) }
+            });
         if let Err(err) = response {
             stream.shutdown();
             let status = abort_status_from_error(&err).unwrap_or("blocked");
@@ -608,6 +539,26 @@ mod tests {
             telegram_download_transfer_loop(&mut stream, Duration::from_secs(1), Duration::from_secs(1), &|| None);
         assert_eq!(result.status, "blocked");
         assert_eq!(result.error.as_deref(), Some("http_status_404"));
+    }
+
+    #[test]
+    fn download_counts_chunk_payload_and_rejects_truncation() {
+        for (wire, expected_bytes, expected_status) in [
+            (b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n2\r\nok\r\n0\r\n\r\n".as_slice(), 2, "slow"),
+            (b"HTTP/1.1 200 OK\r\nContent-Length: 5\r\n\r\nok", 2, "stalled"),
+        ] {
+            let mut stream = TestIo {
+                response: std::io::Cursor::new(wire.to_vec()),
+                written: Vec::new(),
+                timeout_reads: 0,
+                write_delay: Duration::ZERO,
+            };
+            let result =
+                telegram_download_transfer_loop(&mut stream, Duration::from_secs(1), Duration::from_secs(1), &|| None);
+            assert_eq!(result.bytes_total, expected_bytes);
+            assert_eq!(result.status, expected_status);
+            assert!(stream.written.is_empty(), "response decoder must not write a second request");
+        }
     }
 
     #[test]

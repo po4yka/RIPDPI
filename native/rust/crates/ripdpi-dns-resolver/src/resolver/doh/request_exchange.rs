@@ -1,16 +1,18 @@
 use reqwest::header::{ACCEPT, CONTENT_TYPE};
 
-use super::{MAX_DOH_RESPONSE_BYTES, manual_exchange};
+use super::{MAX_DOH_RESPONSE_BYTES, http1_exchange};
 use crate::resolver::EncryptedDnsResolver;
 use crate::transport::{DNS_MESSAGE_MEDIA_TYPE, format_error_chain};
 use crate::types::EncryptedDnsError;
 
+/// # Cancel safety:
+/// cancel-safe: cancellation drops local request state; the remote outcome can remain unknown.
 pub(super) async fn exchange_doh(
     resolver: &EncryptedDnsResolver,
     query_bytes: &[u8],
 ) -> Result<Vec<u8>, EncryptedDnsError> {
     if resolver.uses_direct_tcp_connector() || resolver.requires_direct_tcp_connector() {
-        return manual_exchange::exchange_doh_manually(resolver, query_bytes).await;
+        return http1_exchange::exchange_doh_with_connector(resolver, query_bytes).await;
     }
 
     let client = resolver
@@ -36,6 +38,8 @@ pub(super) async fn exchange_doh(
     read_limited_response_body(response).await
 }
 
+/// # Cancel safety:
+/// cancel-safe: cancellation drops local request state; the remote outcome can remain unknown.
 pub(super) async fn exchange_binary_post(
     resolver: &EncryptedDnsResolver,
     url: &str,
@@ -44,7 +48,7 @@ pub(super) async fn exchange_binary_post(
     accept: &str,
 ) -> Result<Vec<u8>, EncryptedDnsError> {
     if resolver.uses_direct_tcp_connector() || resolver.requires_direct_tcp_connector() {
-        return manual_exchange::exchange_binary_post_manually(resolver, url, body, content_type, accept).await;
+        return http1_exchange::exchange_binary_post_with_connector(resolver, url, body, content_type, accept).await;
     }
 
     let client = resolver
@@ -69,10 +73,11 @@ pub(super) async fn exchange_binary_post(
     read_limited_response_body(response).await
 }
 
-/// # Cancel safety
+/// # Cancel safety:
 ///
 /// cancel-safe: the response and accumulated bytes are owned by this call and dropped on cancellation.
 async fn read_limited_response_body(mut response: reqwest::Response) -> Result<Vec<u8>, EncryptedDnsError> {
+    super::http1_response::validate_response_headers(response.headers())?;
     if response.content_length().is_some_and(|length| length > MAX_DOH_RESPONSE_BYTES as u64) {
         return Err(EncryptedDnsError::Request("DoH response Content-Length exceeds maximum size".to_string()));
     }
@@ -96,7 +101,7 @@ mod tests {
     use crate::types::EncryptedDnsError;
 
     #[tokio::test]
-    /// # Cancel safety
+    /// # Cancel safety:
     ///
     /// cancel-safe: the test owns the local listener and response; cancellation drops both.
     async fn reqwest_response_rejects_oversized_chunked_body() {

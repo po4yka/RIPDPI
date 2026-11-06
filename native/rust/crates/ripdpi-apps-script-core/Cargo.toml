@@ -6,7 +6,12 @@ license.workspace = true
 
 [dependencies]
 base64.workspace = true
+bytes.workspace = true
 flate2.workspace = true
+http.workspace = true
+http-body-util.workspace = true
+hyper.workspace = true
+hyper-util.workspace = true
 rcgen.workspace = true
 ripdpi-tls-profiles = { workspace = true }
 rustls.workspace = true

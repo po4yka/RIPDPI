@@ -99,4 +99,19 @@ mod tests {
         ]);
         assert_eq!(filtered, vec![("Accept-Encoding".to_string(), "gzip, deflate".to_string())]);
     }
+
+    #[test]
+    fn original_framing_is_not_forwarded_to_apps_script() {
+        let payload = build_payload_json(
+            "key",
+            "POST",
+            "https://example.test/",
+            &[("Transfer-Encoding".into(), "chunked".into()), ("Content-Length".into(), "999".into())],
+            b"abc",
+        )
+        .unwrap();
+        let payload: serde_json::Value = serde_json::from_slice(&payload).unwrap();
+        assert!(payload.get("h").is_none());
+        assert_eq!(payload["b"], "YWJj");
+    }
 }

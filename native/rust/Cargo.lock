@@ -5421,7 +5421,12 @@ name = "ripdpi-apps-script-core"
 version = "0.1.0"
 dependencies = [
  "base64 0.23.1",
+ "bytes",
  "flate2",
+ "http",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
  "rcgen",
  "ripdpi-packets",
  "ripdpi-tls-profiles",
@@ -5605,6 +5610,7 @@ dependencies = [
 name = "ripdpi-diagnostics-fat-header"
 version = "0.1.0"
 dependencies = [
+ "http",
  "ripdpi-diagnostics-contracts",
  "ripdpi-diagnostics-http",
  "ripdpi-diagnostics-tls",
@@ -5617,9 +5623,13 @@ name = "ripdpi-diagnostics-http"
 version = "0.1.0"
 dependencies = [
  "bytes",
+ "futures",
  "h3",
  "h3-quinn",
  "http",
+ "http-body-util",
+ "httparse",
+ "hyper",
  "quic-mtu-test-util",
  "quinn",
  "rcgen",
@@ -5727,6 +5737,9 @@ dependencies = [
  "futures",
  "hex",
  "hickory-proto",
+ "http-body-util",
+ "hyper",
+ "hyper-util",
  "local-network-fixture",
  "lru",
  "metrics",
@@ -6782,6 +6795,7 @@ version = "0.1.0"
 dependencies = [
  "boring",
  "golden-test-support",
+ "httparse",
  "local-network-fixture",
  "ripdpi-packets",
  "ripdpi-subprocess-protect",

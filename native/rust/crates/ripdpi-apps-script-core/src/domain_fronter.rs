@@ -1,4 +1,9 @@
+use bytes::Bytes;
+use http_body_util::Full;
+use hyper_util::rt::TokioIo;
 use std::time::Duration;
+
+pub(crate) type RelayResponse = ::http::Response<Full<Bytes>>;
 
 use tokio::net::TcpStream;
 use tokio::time::{Instant, timeout, timeout_at};
@@ -9,6 +14,7 @@ use crate::telemetry::SharedTelemetryState;
 use scripts::{AttemptError, DEPLOYMENT_COOLDOWN, ScriptPool, is_deployment_error};
 
 mod headers;
+pub(crate) use headers::validate_transfer_encoding;
 mod http;
 mod redirect;
 mod relay_json;
@@ -90,15 +96,15 @@ impl AppsScriptDomainFronter {
         }
     }
 
-    /// # Cancel safety
+    /// # Cancel safety:
     ///
     /// NOT cancel-safe: drives relay_once (which opens a fronted stream and
     /// partial-writes the upstream request) under a timeout; cancelling the
     /// outer future abandons the in-flight upstream request mid-exchange.
-    pub async fn relay(&self, method: &str, url: &str, headers: &[(String, String)], body: &[u8]) -> Vec<u8> {
+    pub async fn relay(&self, method: &str, url: &str, headers: &[(String, String)], body: &[u8]) -> RelayResponse {
         match timeout(RELAY_TIMEOUT, self.relay_with_failover(method, url, headers, body)).await {
             Ok(Ok(response)) => {
-                self.telemetry.record_success(response.len());
+                self.telemetry.record_success(0);
                 response
             }
             Ok(Err(attempt)) => {
@@ -122,7 +128,7 @@ impl AppsScriptDomainFronter {
     /// deployment cools down; a request that reached Apps Script moves on only after a
     /// deployment fault and when repeating it is harmless (see [`AttemptError::may_retry`]).
     ///
-    /// # Cancel safety
+    /// # Cancel safety:
     ///
     /// NOT cancel-safe: each attempt is a multi-await exchange (see `relay_once`).
     async fn relay_with_failover(
@@ -131,7 +137,7 @@ impl AppsScriptDomainFronter {
         url: &str,
         headers: &[(String, String)],
         body: &[u8],
-    ) -> Result<Vec<u8>, AttemptError> {
+    ) -> Result<RelayResponse, AttemptError> {
         let payload = request::build_payload_json(&self.auth_key, method, url, headers, body)
             .map_err(|error| AttemptError { error, sent: false, deployment_fault: false })?;
         let mut last_error = None;
@@ -164,16 +170,20 @@ impl AppsScriptDomainFronter {
         }))
     }
 
-    /// # Cancel safety
+    /// # Cancel safety:
     ///
-    /// NOT cancel-safe: send_post writes the request and then response::read /
-    /// redirect::follow consume the reply across many awaits; cancellation can
-    /// truncate the request or drop already-consumed response bytes.
-    async fn relay_once(&self, script_id: &str, payload: &[u8], limit: Duration) -> Result<Vec<u8>, AttemptError> {
+    /// NOT cancel-safe: cancellation can leave the remote request outcome unknown.
+    /// The local connection and its driver are dropped together.
+    async fn relay_once(
+        &self,
+        script_id: &str,
+        payload: &[u8],
+        limit: Duration,
+    ) -> Result<RelayResponse, AttemptError> {
         let deadline = Instant::now() + limit;
         let sent = |error| AttemptError { error, sent: true, deployment_fault: true };
         // A front that cannot be opened is a front or SNI fault, not one of the deployment.
-        let mut stream = self
+        let stream = self
             .connect_front(&self.connect_host, self.front_port, limit)
             .await
             .map_err(|error| AttemptError { error, sent: false, deployment_fault: false })?;
@@ -181,9 +191,24 @@ impl AppsScriptDomainFronter {
 
         // A request that failed while being written may still have reached Apps Script.
         let exchange = async {
-            http::send_post(&mut stream, &path, HTTP_HOST, payload).await?;
-            let response = response::read(&mut stream).await?;
-            redirect::follow(&mut stream, response, HTTP_HOST).await
+            let (mut sender, connection) = hyper::client::conn::http1::Builder::new()
+                .max_buf_size(1024 * 1024)
+                .handshake(TokioIo::new(stream))
+                .await
+                .map_err(|error| FronterError::BadResponse(error.to_string()))?;
+            let request = async {
+                let response = http::send_post(&mut sender, &path, HTTP_HOST, payload).await?;
+                redirect::follow(&mut sender, response, HTTP_HOST).await
+            };
+            tokio::pin!(request);
+            tokio::pin!(connection);
+            tokio::select! {
+                result = &mut request => result,
+                result = &mut connection => {
+                    result.map_err(|error| FronterError::BadResponse(error.to_string()))?;
+                    request.await
+                }
+            }
         };
         // A deployment that does not answer by the deadline is cut off and cools like a failed one.
         let response = timeout_at(deadline, exchange)
@@ -211,7 +236,7 @@ impl AppsScriptDomainFronter {
     /// Open a verified TLS stream to `host:port` with the next SNI name (round-robin, a
     /// name that failed recently last), within `limit`, and record the name's health.
     ///
-    /// # Cancel safety
+    /// # Cancel safety:
     ///
     /// NOT cancel-safe: establishes a TCP + TLS connection through a multi-step
     /// handshake; cancellation mid-handshake leaves a partially negotiated TLS
@@ -234,7 +259,7 @@ impl AppsScriptDomainFronter {
     /// Open a verified TLS stream to an SNI-rewrite `upstream`, presenting the
     /// next SNI name (see [`Self::connect_front`]).
     ///
-    /// # Cancel safety
+    /// # Cancel safety:
     ///
     /// NOT cancel-safe: same multi-step TCP + TLS handshake as
     /// `connect_front`.
@@ -253,19 +278,14 @@ fn url_authority(url: &str) -> &str {
     rest.split(['/', '?', '#']).next().unwrap_or(rest)
 }
 
-pub(crate) fn error_response(status: u16, message: &str) -> Vec<u8> {
-    let body = message.as_bytes();
-    let mut output = Vec::with_capacity(body.len() + 128);
-    output.extend_from_slice(format!("HTTP/1.1 {status} {}\r\n", relay_json::status_text(status)).as_bytes());
-    output.extend_from_slice(
-        format!(
-            "Content-Length: {}\r\nContent-Type: text/plain; charset=utf-8\r\nConnection: close\r\n\r\n",
-            body.len()
-        )
-        .as_bytes(),
-    );
-    output.extend_from_slice(body);
-    output
+pub(crate) fn error_response(status: u16, message: &str) -> RelayResponse {
+    let mut response = ::http::Response::new(Full::new(Bytes::copy_from_slice(message.as_bytes())));
+    *response.status_mut() = ::http::StatusCode::from_u16(status).unwrap_or(::http::StatusCode::BAD_GATEWAY);
+    response
+        .headers_mut()
+        .insert(::http::header::CONTENT_TYPE, ::http::HeaderValue::from_static("text/plain; charset=utf-8"));
+    response.headers_mut().insert(::http::header::CONNECTION, ::http::HeaderValue::from_static("close"));
+    response
 }
 
 #[cfg(test)]
@@ -302,6 +322,8 @@ mod tests {
     }
 
     #[tokio::test(flavor = "current_thread")]
+    /// # Cancel safety:
+    /// cancel-safe: the relay owns and drops the attempted connection.
     async fn a_failed_relay_marks_the_relay_degraded_without_leaking_the_target() {
         let mut config =
             AppsScriptRuntimeConfig::from_json(r#"{"scriptIds":["script-id"],"authKey":"secret"}"#).expect("config");
@@ -313,7 +335,7 @@ mod tests {
 
         let response = fronter.relay("GET", "https://private.example/path", &[], &[]).await;
 
-        assert!(response.starts_with(b"HTTP/1.1 502 "));
+        assert_eq!(response.status(), 502);
         let snapshot = telemetry.snapshot(&config);
         assert_eq!((snapshot.total_errors, snapshot.health.as_str()), (1, "degraded"));
         let last_error = snapshot.last_error.expect("last error");

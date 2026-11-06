@@ -318,6 +318,23 @@ fn response_content_length_rejects_ambiguous_framing() {
 }
 
 #[test]
+fn read_http_response_rejects_malformed_chunk_trailer() {
+    use std::io::Write;
+    use std::net::{TcpListener, TcpStream};
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let address = listener.local_addr().unwrap();
+    let server = std::thread::spawn(move || {
+        let (mut stream, _) = listener.accept().unwrap();
+        stream
+            .write_all(b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n1\r\na\r\n0\r\ninvalid trailer\r\n\r\n")
+            .unwrap();
+    });
+    let mut stream = crate::transport::ConnectionStream::Plain(TcpStream::connect(address).unwrap());
+    assert!(read_http_response(&mut stream, 1024).is_err());
+    server.join().unwrap();
+}
+
+#[test]
 fn extract_host_from_url_https() {
     assert_eq!(extract_host_from_url("https://example.com/path"), Some("example.com".to_string()));
 }
@@ -519,4 +536,70 @@ fn http_request_classifies_known_isp_block_pages_with_the_fingerprint_database()
     }
 
     assert_eq!(statuses, ["http_blockpage", "http_blockpage", "http_ok"]);
+}
+
+fn decode_parts(wire: &[u8], fragment: usize, method: &str) -> (Vec<u8>, Result<(), &'static str>) {
+    let mut decoder = HttpResponseDecoder::new(method, 1024).unwrap();
+    let mut unread = wire;
+    let mut body = Vec::new();
+    let result = loop {
+        match decoder.next_event() {
+            Ok(HttpResponseEvent::NeedInput) => {
+                let take = unread.len().min(fragment).min(decoder.input_capacity());
+                if take == 0 {
+                    decoder.finish_input();
+                } else {
+                    if let Err(error) = decoder.feed(&unread[..take]) {
+                        break Err(error);
+                    }
+                    unread = &unread[take..];
+                }
+            }
+            Ok(HttpResponseEvent::Head(_, _)) => {}
+            Ok(HttpResponseEvent::Data(bytes)) => body.extend_from_slice(&bytes),
+            Ok(HttpResponseEvent::Complete) => break Ok(()),
+            Err(error) => break Err(error),
+        }
+    };
+    (body, result)
+}
+
+#[test]
+fn response_decoder_preserves_payload_at_every_fragment_size() {
+    let wire = b"HTTP/1.1 103 Early Hints\r\n\r\nHTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\n\r\n2;foo=bar\r\nab\r\n1\r\nc\r\n0\r\nX-Test: yes\r\n\r\n";
+    for fragment in [1, 2, 7, 1024] {
+        assert_eq!(decode_parts(wire, fragment, "GET"), (b"abc".to_vec(), Ok(())));
+    }
+    assert_eq!(decode_parts(b"HTTP/1.1 200 OK\r\nContent-Length: 42\r\n\r\n", 1, "HEAD"), (Vec::new(), Ok(())));
+}
+
+#[test]
+fn response_decoder_rejects_ambiguous_and_unbounded_heads() {
+    for wire in [
+        b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nContent-Length: 0\r\n\r\n0\r\n\r\n".as_slice(),
+        b"HTTP/1.1 200 OK\r\nContent-Length: 2\r\nContent-Length: 3\r\n\r\nab",
+        b"HTTP/1.1 200 OK\r\nTransfer-Encoding: gzip, chunked\r\n\r\n0\r\n\r\n",
+        b"HTTP/1.1 101 Switching Protocols\r\n\r\n",
+    ] {
+        assert_eq!(decode_parts(wire, 1, "GET").1, Err("invalid_framing"));
+    }
+    let mut too_many = b"HTTP/1.1 103 Early Hints\r\n\r\n".repeat(5);
+    too_many.extend_from_slice(b"HTTP/1.1 204 No Content\r\n\r\n");
+    assert_eq!(decode_parts(&too_many, 1024, "GET").1, Err("invalid_framing"));
+    assert_eq!(decode_parts(&vec![b'a'; 2048], 1, "GET").1, Err("invalid_framing"));
+}
+
+#[test]
+fn response_decoder_retains_reason_phrase() {
+    for reason in ["OK", "Custom status", ""] {
+        let wire = format!("HTTP/1.1 200 {reason}\r\nContent-Length: 0\r\n\r\n");
+        let mut decoder = HttpResponseDecoder::new("GET", 1024).unwrap();
+        assert!(matches!(decoder.next_event().unwrap(), HttpResponseEvent::NeedInput));
+        decoder.feed(wire.as_bytes()).unwrap();
+        let HttpResponseEvent::Head(response, _) = decoder.next_event().unwrap() else {
+            panic!("expected response head");
+        };
+        assert_eq!(response.reason, reason);
+        assert!(matches!(decoder.next_event().unwrap(), HttpResponseEvent::Complete));
+    }
 }

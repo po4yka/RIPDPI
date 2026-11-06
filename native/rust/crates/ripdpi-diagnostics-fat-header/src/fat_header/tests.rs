@@ -209,10 +209,10 @@ fn unparsed_status_line_is_inconclusive() {
     let observation = run_fat_header_attempt(&target, &transport, "", "fixture.test");
 
     server.join().expect("fixture thread");
-    assert_eq!(observation.responses_seen, 1);
+    assert_eq!(observation.responses_seen, 0);
     assert_eq!(classify_fat_header_outcome(&observation.status), "tcp_connect_failed");
     let reason = observation.error.expect("the reason reaches the probe detail");
-    assert!(reason.contains("without a valid HTTP status line"), "unexpected reason: {reason}");
+    assert!(reason.contains("invalid_framing"), "unexpected reason: {reason}");
 }
 
 #[test]
@@ -307,4 +307,55 @@ fn slow_drip_response_stops_at_the_scan_deadline() {
     assert_eq!(observation.status, FatHeaderStatus::ConnectFailed);
     assert!(elapsed < Duration::from_secs(2), "probe ran for {elapsed:?}");
     server.join().expect("fixture thread");
+}
+
+#[test]
+fn informational_response_does_not_hide_next_request_error() {
+    let (port, server) = serve_responses(vec![
+        b"HTTP/1.1 103 Early Hints\r\n\r\nHTTP/1.1 200 OK\r\nContent-Length: 0\r\n\r\n",
+        FORBIDDEN_CLOSE,
+    ]);
+    let mut target = local_target(port, "Fixture");
+    target.fat_header_requests = Some(2);
+    let transport = crate::transport::TransportConfig::Direct { route_experiment: None };
+    let observation = run_fat_header_attempt(&target, &transport, "", "fixture.test");
+    server.join().expect("fixture thread");
+    assert_eq!(observation.responses_seen, 2);
+    assert_eq!(observation.status, FatHeaderStatus::ConnectFailed);
+    assert!(observation.error.expect("second response error").contains("HTTP 403"));
+}
+
+#[test]
+fn malformed_head_framing_is_not_counted_as_a_response() {
+    for response in [
+        &b"HTTP/1.1 200 OK\r\nContent-Length: 1\r\nContent-Length: 2\r\n\r\n"[..],
+        b"HTTP/1.1 200 OK\r\nTransfer-Encoding: chunked\r\nContent-Length: 0\r\n\r\n",
+        b"HTTP/1.1 200 OK\r\nTransfer-Encoding: gzip, chunked\r\n\r\n",
+        b"HTTP/1.1 101 Switching Protocols\r\n\r\n",
+    ] {
+        let (port, server) = serve_responses(vec![response]);
+        let mut target = local_target(port, "Fixture");
+        target.fat_header_requests = Some(1);
+        let transport = crate::transport::TransportConfig::Direct { route_experiment: None };
+        let observation = run_fat_header_attempt(&target, &transport, "", "fixture.test");
+        server.join().expect("fixture thread");
+        assert_eq!(observation.responses_seen, 0);
+        assert_eq!(observation.status, FatHeaderStatus::ConnectFailed);
+        assert!(observation.error.expect("framing error").contains("invalid_framing"));
+    }
+}
+
+#[test]
+fn http_10_keep_alive_is_read_from_combined_connection_headers() {
+    let (port, server) = serve_responses(vec![
+        b"HTTP/1.0 200 OK\r\nConnection: extension\r\nConnection: keep-alive\r\n\r\n",
+        b"HTTP/1.0 200 OK\r\n\r\n",
+    ]);
+    let mut target = local_target(port, "Fixture");
+    target.fat_header_requests = Some(2);
+    let transport = crate::transport::TransportConfig::Direct { route_experiment: None };
+    let observation = run_fat_header_attempt(&target, &transport, "", "fixture.test");
+    server.join().expect("fixture thread");
+    assert_eq!(observation.responses_seen, 2);
+    assert_eq!(observation.status, FatHeaderStatus::Success);
 }

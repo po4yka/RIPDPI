@@ -178,7 +178,7 @@ fn deadline_exceeded(counters: FatHeaderCounters, syn_ack_latency_ms: Option<u64
 }
 
 /// A response that ends the sequence without saying anything about a middlebox cutoff: a
-/// 4xx/5xx (which may be an injected block page), a head without a valid status line, or a
+/// 4xx/5xx (which may be an injected block page), or a
 /// server-announced close before the threshold. It is inconclusive, which `ConnectFailed`
 /// (`tcp_connect_failed`) reports. The error text carries the status and the reason into the
 /// probe's `lastError` detail.
@@ -187,10 +187,7 @@ fn inconclusive_response(
     head: ResponseHead,
     syn_ack_latency_ms: Option<u64>,
 ) -> FatHeaderObservation {
-    let answer = head.status.map_or_else(
-        || "answer without a valid HTTP status line".to_string(),
-        |status| format!("HTTP {status} answer"),
-    );
+    let answer = format!("HTTP {} answer", head.status);
     let close = if head.closes { ", server closed the connection," } else { "" };
     FatHeaderObservation::io_failed(
         FatHeaderStatus::ConnectFailed,

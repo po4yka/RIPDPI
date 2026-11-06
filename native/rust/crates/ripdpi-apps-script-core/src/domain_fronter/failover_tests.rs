@@ -135,18 +135,22 @@ async fn read_script_id<S: AsyncRead + Unpin>(stream: &mut S) -> Option<String> 
 }
 
 #[tokio::test(flavor = "current_thread")]
+/// # Cancel safety:
+/// NOT cancel-safe: fixture tasks remain until the test runtime shuts down.
 async fn a_get_that_failed_at_the_target_is_not_repeated_on_other_deployments() {
     let front = FakeFront::start(&["www.google.com"], |_| Reply::Json(TARGET_ERROR)).await;
     let (fronter, _telemetry, _config) = front.fronter(r#"{"scriptIds":["script-a","script-b"],"authKey":"secret"}"#);
 
     let response = fronter.relay("GET", "https://target.example/", &[], &[]).await;
 
-    assert!(response.starts_with(b"HTTP/1.1 502 "), "{}", String::from_utf8_lossy(&response));
+    assert_eq!(response.status(), 502);
     assert_eq!(front.requests().len(), 1, "one deployment fetched the failing target");
     assert!(!fronter.scripts.is_cooling_now(0) && !fronter.scripts.is_cooling_now(1), "no deployment failed");
 }
 
 #[tokio::test(flavor = "current_thread")]
+/// # Cancel safety:
+/// NOT cancel-safe: fixture tasks remain until the test runtime shuts down.
 async fn a_get_that_a_deployment_failed_moves_to_the_next_deployment() {
     let front = FakeFront::start(&["www.google.com"], |script| {
         Reply::Json(if script == "script-a" { QUOTA_ERROR } else { OK })
@@ -156,7 +160,7 @@ async fn a_get_that_a_deployment_failed_moves_to_the_next_deployment() {
 
     let response = fronter.relay("GET", "https://target.example/", &[], &[]).await;
 
-    assert!(response.starts_with(b"HTTP/1.1 200 "), "{}", String::from_utf8_lossy(&response));
+    assert_eq!(response.status(), 200);
     assert_eq!(front.requests(), vec!["script-a".to_string(), "script-b".to_string()]);
     assert!(fronter.scripts.is_cooling_now(0) && !fronter.scripts.is_cooling_now(1));
 }
@@ -177,6 +181,8 @@ async fn an_sni_name_whose_handshake_failed_is_skipped_while_it_cools() {
 }
 
 #[tokio::test(flavor = "current_thread")]
+/// # Cancel safety:
+/// NOT cancel-safe: fixture tasks remain until the test runtime shuts down.
 async fn an_sni_handshake_failure_cools_no_deployment() {
     let front = FakeFront::start(&["drive.google.com"], |_| Reply::Json(OK)).await;
     let (fronter, _telemetry, _config) = front.fronter(
@@ -185,12 +191,14 @@ async fn an_sni_handshake_failure_cools_no_deployment() {
 
     let response = fronter.relay("POST", "https://target.example/form", &[], b"data").await;
 
-    assert!(response.starts_with(b"HTTP/1.1 200 "), "{}", String::from_utf8_lossy(&response));
+    assert_eq!(response.status(), 200);
     assert_eq!(front.requests(), vec!["script-b".to_string()], "the unsent request moved to the next deployment");
     assert!(!fronter.scripts.is_cooling_now(0) && !fronter.scripts.is_cooling_now(1), "both deployments are healthy");
 }
 
 #[tokio::test(flavor = "current_thread")]
+/// # Cancel safety:
+/// NOT cancel-safe: fixture tasks remain until the test runtime shuts down.
 async fn a_stalled_deployment_is_cut_off_and_cools_while_the_next_one_answers() {
     let front = FakeFront::start(
         &["www.google.com"],
@@ -219,7 +227,7 @@ async fn a_stalled_deployment_is_cut_off_and_cools_while_the_next_one_answers() 
         }
     };
 
-    assert!(response.starts_with(b"HTTP/1.1 200 "), "{}", String::from_utf8_lossy(&response));
+    assert_eq!(response.status(), 200);
     assert_eq!(front.requests(), vec!["script-a".to_string(), "script-b".to_string()]);
     assert!(fronter.scripts.is_cooling_now(0), "the stalled deployment cools");
 }

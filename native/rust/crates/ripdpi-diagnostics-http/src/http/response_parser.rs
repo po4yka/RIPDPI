@@ -1,272 +1,133 @@
 use std::collections::HashMap;
-use std::io::{ErrorKind, Read};
+use std::io::{self, ErrorKind, Read};
 
+use super::{HttpBodyFraming, HttpResponse, HttpResponseDecoder, HttpResponseEvent};
 use crate::transport::ConnectionStream;
-use crate::util::find_headers_end;
-
-use super::types::HttpResponse;
 
 pub fn read_http_response(stream: &mut ConnectionStream, max_bytes: usize) -> Result<HttpResponse, String> {
-    let mut buf = read_http_headers(stream, max_bytes)?;
-    let mut consumed = 0;
-    let (header_bytes, mut body, content_length, chunked) = loop {
-        let header_end = find_headers_end(&buf).ok_or_else(|| "response_missing_headers".to_string())?;
-        let header_bytes = buf[..header_end].to_vec();
-        let response = parse_http_response(&header_bytes, Vec::new())?;
-        if (100..=199).contains(&response.status_code) {
-            if response.status_code == 101 {
-                return Err("unsupported_switching_protocols".to_string());
-            }
-            let next = header_end + 4;
-            consumed += next;
-            if consumed >= max_bytes {
-                return Err("response_too_large".to_string());
-            }
-            buf = read_http_headers_with_initial(stream, max_bytes - consumed, buf[next..].to_vec())?;
-            continue;
-        }
-        if matches!(response.status_code, 204 | 205 | 304) {
-            return Ok(response);
-        }
-        let body = buf[header_end + 4..].to_vec();
-        let content_length = response_content_length(&header_bytes)?;
-        let chunked = response.headers.get("transfer-encoding").is_some_and(|value| {
-            value.split(',').next_back().is_some_and(|token| token.trim().eq_ignore_ascii_case("chunked"))
-        });
-        break (header_bytes, body, content_length, chunked);
-    };
-    if let Some(expected_length) = content_length {
-        if expected_length > max_bytes {
-            return Err("response_too_large".to_string());
-        }
-        while body.len() < expected_length {
-            let remaining = expected_length - body.len();
-            let mut chunk = vec![0u8; remaining.min(4096)];
-            let read = stream.read(&mut chunk).map_err(|err| err.to_string())?;
-            if read == 0 {
-                return Err("response_truncated".to_string());
-            }
-            body.extend_from_slice(&chunk[..read]);
-        }
-        body.truncate(expected_length);
-    } else if chunked {
-        body = read_chunked_body(stream, body, max_bytes)?;
-    } else {
-        loop {
-            let mut chunk = [0u8; 4096];
-            match stream.read(&mut chunk) {
-                Ok(0) => break,
-                Ok(read) => {
-                    body.extend_from_slice(&chunk[..read]);
-                    if body.len() > max_bytes {
-                        return Err("response_too_large".to_string());
-                    }
-                }
-                Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {
-                    break;
-                }
-                Err(err) => return Err(err.to_string()),
-            }
-        }
-    }
-
-    parse_http_response(&header_bytes, body)
-}
-
-fn read_chunked_body(stream: &mut ConnectionStream, mut encoded: Vec<u8>, max_bytes: usize) -> Result<Vec<u8>, String> {
-    #[derive(Clone, Copy)]
-    enum State {
-        Size,
-        Data(usize),
-        Trailers,
-    }
-
-    let mut decoded = Vec::new();
-    let mut pos = 0;
-    let mut scan_from = 0;
-    let mut state = State::Size;
+    let mut decoder = HttpResponseDecoder::new("GET", max_bytes).map_err(str::to_string)?;
+    let mut response = None;
+    let mut input = [0u8; 8192];
     loop {
-        if encoded.len() > max_bytes {
-            return Err("response_too_large".to_string());
-        }
-        loop {
-            match state {
-                State::Size => {
-                    let Some(line_end) = find_crlf(&encoded, scan_from) else {
-                        scan_from = pos.max(encoded.len().saturating_sub(1));
-                        break;
-                    };
-                    let size = std::str::from_utf8(
-                        encoded[pos..line_end].split(|byte| *byte == b';').next().unwrap_or_default(),
-                    )
-                    .ok()
-                    .and_then(|value| usize::from_str_radix(value.trim(), 16).ok())
-                    .ok_or_else(|| "invalid_chunk_size".to_string())?;
-                    pos = line_end + 2;
-                    scan_from = pos;
-                    if size == 0 {
-                        state = State::Trailers;
-                    } else {
-                        if size > max_bytes.saturating_sub(decoded.len()) {
-                            return Err("response_too_large".to_string());
-                        }
-                        state = State::Data(size);
-                    }
-                }
-                State::Data(size) => {
-                    let end = pos
-                        .checked_add(size)
-                        .and_then(|value| value.checked_add(2))
-                        .ok_or_else(|| "response_too_large".to_string())?;
-                    if encoded.len() < end {
-                        break;
-                    }
-                    if &encoded[end - 2..end] != b"\r\n" {
-                        return Err("invalid_chunk_terminator".to_string());
-                    }
-                    decoded.extend_from_slice(&encoded[pos..end - 2]);
-                    pos = end;
-                    scan_from = pos;
-                    state = State::Size;
-                }
-                State::Trailers => {
-                    let Some(line_end) = find_crlf(&encoded, scan_from) else {
-                        scan_from = pos.max(encoded.len().saturating_sub(1));
-                        break;
-                    };
-                    if line_end == pos {
-                        return Ok(decoded);
-                    }
-                    pos = line_end + 2;
-                    scan_from = pos;
+        match decoder.next_event().map_err(str::to_string)? {
+            HttpResponseEvent::NeedInput => {
+                let count = stream.read(&mut input[..decoder.input_capacity()]).map_err(|error| error.to_string())?;
+                if count == 0 {
+                    decoder.finish_input();
+                } else {
+                    decoder.feed(&input[..count]).map_err(str::to_string)?;
                 }
             }
-        }
-        let remaining = max_bytes - encoded.len();
-        if remaining == 0 {
-            return Err("response_too_large".to_string());
-        }
-        let mut chunk = [0u8; 4096];
-        let read_len = remaining.min(chunk.len());
-        let read = match stream.read(&mut chunk[..read_len]) {
-            Ok(0) => return Err("response_truncated".to_string()),
-            Ok(read) => read,
-            Err(err) if matches!(err.kind(), ErrorKind::WouldBlock | ErrorKind::TimedOut) => {
-                return Err("response_truncated".to_string());
-            }
-            Err(err) => return Err(err.to_string()),
-        };
-        encoded.extend_from_slice(&chunk[..read]);
-    }
-}
-
-fn find_crlf(bytes: &[u8], from: usize) -> Option<usize> {
-    bytes.get(from..)?.windows(2).position(|window| window == b"\r\n").map(|offset| from + offset)
-}
-
-pub(super) fn response_content_length(headers: &[u8]) -> Result<Option<usize>, String> {
-    let text = String::from_utf8_lossy(headers);
-    let mut length = None;
-    let mut transfer_encoding = false;
-    for line in text.split("\r\n").skip(1) {
-        let Some((name, value)) = line.split_once(':') else { continue };
-        if name.trim().eq_ignore_ascii_case("transfer-encoding") {
-            transfer_encoding = true;
-        }
-        if name.trim().eq_ignore_ascii_case("content-length") {
-            for value in value.split(',') {
-                let parsed = value.trim().parse::<usize>().map_err(|_| "invalid_content_length".to_string())?;
-                if length.is_some_and(|previous| previous != parsed) {
-                    return Err("invalid_content_length".to_string());
+            HttpResponseEvent::Head(head, framing) => {
+                if matches!(framing, HttpBodyFraming::Length(length) if length > max_bytes as u64) {
+                    return Err("response_too_large".to_string());
                 }
-                length = Some(parsed);
+                response = Some(head);
             }
+            HttpResponseEvent::Data(data) => {
+                let response = response.as_mut().ok_or("response_missing_headers")?;
+                if data.len() > max_bytes.saturating_sub(response.body.len()) {
+                    return Err("response_too_large".to_string());
+                }
+                response.body.extend_from_slice(&data);
+            }
+            HttpResponseEvent::Complete => return response.ok_or_else(|| "response_missing_headers".to_string()),
         }
     }
-    if transfer_encoding && length.is_some() {
-        return Err("ambiguous_response_framing".to_string());
-    }
-    Ok(length)
 }
 
 pub fn read_http_headers(stream: &mut ConnectionStream, max_bytes: usize) -> Result<Vec<u8>, String> {
-    read_http_headers_with_initial(stream, max_bytes, Vec::new())
+    read_http_headers_io(stream, max_bytes).map_err(|error| error.to_string())
 }
 
-/// [`read_http_headers`] that keeps the [`std::io::ErrorKind`] of a failed read, so a caller can
-/// tell a read timeout from a reset. An EOF before any byte is `UnexpectedEof`; other framing
-/// failures are `Other` with the same text as [`read_http_headers`].
-pub fn read_http_headers_io(stream: &mut ConnectionStream, max_bytes: usize) -> std::io::Result<Vec<u8>> {
-    read_headers(stream, max_bytes, Vec::new()).map_err(|err| match err {
-        HeaderReadError::Io(err) => err,
-        HeaderReadError::Framing(message @ "unexpected eof") => std::io::Error::new(ErrorKind::UnexpectedEof, message),
-        HeaderReadError::Framing(message) => std::io::Error::other(message),
-    })
-}
-
-fn read_http_headers_with_initial(
-    stream: &mut ConnectionStream,
-    max_bytes: usize,
-    buf: Vec<u8>,
-) -> Result<Vec<u8>, String> {
-    read_headers(stream, max_bytes, buf).map_err(|err| match err {
-        HeaderReadError::Io(err) => err.to_string(),
-        HeaderReadError::Framing(message) => message.to_string(),
-    })
-}
-
-enum HeaderReadError {
-    Io(std::io::Error),
-    Framing(&'static str),
-}
-
-fn read_headers(stream: &mut ConnectionStream, max_bytes: usize, mut buf: Vec<u8>) -> Result<Vec<u8>, HeaderReadError> {
-    let mut chunk = [0u8; 1024];
-    loop {
-        if buf.len() > max_bytes {
-            return Err(HeaderReadError::Framing("response_too_large"));
+/// Read the final response head without consuming following body bytes.
+/// IO errors retain their kind for timeout and reset classification.
+pub fn read_http_headers_io(stream: &mut ConnectionStream, max_bytes: usize) -> io::Result<Vec<u8>> {
+    let mut bytes = Vec::new();
+    let mut byte = [0u8; 1];
+    let mut informational = 0;
+    for _ in 0..max_bytes {
+        if stream.read(&mut byte)? == 0 {
+            return Err(io::Error::new(
+                ErrorKind::UnexpectedEof,
+                if bytes.is_empty() { "unexpected eof" } else { "response_missing_headers" },
+            ));
         }
-        if find_headers_end(&buf).is_some() {
-            return Ok(buf);
-        }
-        let read = stream.read(&mut chunk).map_err(HeaderReadError::Io)?;
-        if read == 0 {
-            if buf.is_empty() {
-                return Err(HeaderReadError::Framing("unexpected eof"));
+        bytes.push(byte[0]);
+        if bytes.ends_with(b"\r\n\r\n") {
+            let (_, response) = parse_http_response_head(&bytes).map_err(io::Error::other)?;
+            if (100..200).contains(&response.status_code) {
+                if response.status_code == 101 || informational == super::response_decoder::MAX_INFORMATIONAL {
+                    return Err(io::Error::new(ErrorKind::InvalidData, "invalid_framing"));
+                }
+                informational += 1;
+                bytes.clear();
+                continue;
             }
-            return Err(HeaderReadError::Framing("response_missing_headers"));
-        }
-        buf.extend_from_slice(&chunk[..read]);
-        if buf.len() > max_bytes {
-            return Err(HeaderReadError::Framing("response_too_large"));
-        }
-        if find_headers_end(&buf).is_some() {
-            break;
+            return Ok(bytes);
         }
     }
-    Ok(buf)
+    Err(io::Error::other("response_too_large"))
+}
+
+#[cfg(test)]
+pub(super) fn response_content_length(headers: &[u8]) -> Result<Option<usize>, String> {
+    let (headers, _, _) = parsed_head(headers)?;
+    match super::response_decoder::response_framing(&headers, 200, &http::Method::GET).map_err(str::to_string)? {
+        HttpBodyFraming::Length(length) => usize::try_from(length).map(Some).map_err(|_| "invalid_framing".to_string()),
+        _ => Ok(None),
+    }
 }
 
 pub fn parse_http_response(headers: &[u8], body: Vec<u8>) -> Result<HttpResponse, String> {
-    let text = String::from_utf8_lossy(headers);
-    let mut lines = text.split("\r\n");
-    let status_line = lines.next().ok_or_else(|| "missing_status_line".to_string())?;
-    let mut status_parts = status_line.splitn(3, ' ');
-    let _http_version = status_parts.next();
-    let status_code = status_parts
-        .next()
-        .ok_or_else(|| "missing_status_code".to_string())?
-        .parse::<u16>()
-        .map_err(|err| err.to_string())?;
-    let reason = status_parts.next().unwrap_or_default().to_string();
-    let mut parsed_headers = HashMap::new();
-    for line in lines {
-        if line.is_empty() {
-            continue;
-        }
-        if let Some((name, value)) = line.split_once(':') {
-            parsed_headers.insert(name.trim().to_ascii_lowercase(), value.trim().to_string());
-        }
+    let (_, _, mut response) = parsed_head(headers)?;
+    response.body = body;
+    Ok(response)
+}
+
+pub fn parse_http_response_head(headers: &[u8]) -> Result<(http::Version, HttpResponse), String> {
+    let (headers, version, response) = parsed_head(headers)?;
+    super::response_decoder::response_framing(&headers, response.status_code, &http::Method::HEAD)
+        .map_err(str::to_string)?;
+    Ok((version, response))
+}
+
+pub(super) fn parsed_head(bytes: &[u8]) -> Result<(http::HeaderMap, http::Version, HttpResponse), String> {
+    let mut terminated = bytes.to_vec();
+    if !terminated.ends_with(b"\r\n") {
+        terminated.extend_from_slice(b"\r\n");
     }
-    Ok(HttpResponse { status_code, reason, headers: parsed_headers, body })
+    if !terminated.ends_with(b"\r\n\r\n") {
+        terminated.extend_from_slice(b"\r\n");
+    }
+    let mut fields = [httparse::EMPTY_HEADER; 128];
+    let mut parsed = httparse::Response::new(&mut fields);
+    if !parsed.parse(&terminated).map_err(|_| "invalid_framing")?.is_complete() {
+        return Err("response_missing_headers".to_string());
+    }
+    let mut headers = http::HeaderMap::new();
+    let mut display = HashMap::<String, String>::new();
+    for field in parsed.headers.iter() {
+        let name = http::HeaderName::from_bytes(field.name.as_bytes()).map_err(|_| "invalid_framing")?;
+        let value = http::HeaderValue::from_bytes(field.value).map_err(|_| "invalid_framing")?;
+        let text = String::from_utf8_lossy(field.value);
+        display
+            .entry(name.to_string())
+            .and_modify(|old| {
+                old.push_str(", ");
+                old.push_str(&text);
+            })
+            .or_insert_with(|| text.into_owned());
+        headers.append(name, value);
+    }
+    Ok((
+        headers,
+        if parsed.version == Some(0) { http::Version::HTTP_10 } else { http::Version::HTTP_11 },
+        HttpResponse {
+            status_code: parsed.code.ok_or("missing_status_code")?,
+            reason: parsed.reason.unwrap_or_default().to_string(),
+            headers: display,
+            body: Vec::new(),
+        },
+    ))
 }

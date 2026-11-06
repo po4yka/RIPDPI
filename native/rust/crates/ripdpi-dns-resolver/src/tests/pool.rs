@@ -109,6 +109,8 @@ async fn manual_doh_rejects_oversized_content_length_response() {
 }
 
 #[tokio::test]
+/// # Cancel safety:
+/// cancel-safe: the resolver owns connection state; the fixture thread joins before test completion.
 async fn manual_doh_rejects_oversized_chunked_response() {
     let query = build_query("fixture.test");
     let response_parts = vec![
@@ -117,6 +119,8 @@ async fn manual_doh_rejects_oversized_chunked_response() {
         )
         .into_bytes(),
         b"10000\r\n".to_vec(),
+        vec![0u8; 65_536],
+        b"\r\n0\r\n\r\n".to_vec(),
     ];
     let (port, certificate_der, server) = spawn_custom_doh_fixture(&query, response_parts);
     let resolver = manual_doh_resolver(port, certificate_der);
@@ -125,7 +129,7 @@ async fn manual_doh_rejects_oversized_chunked_response() {
 
     match error {
         EncryptedDnsError::Request(message) => {
-            assert!(message.contains("chunked DoH response exceeds maximum size"));
+            assert!(message.contains("DoH response body exceeds maximum size"));
         }
         other => panic!("expected request error, got {other:?}"),
     }

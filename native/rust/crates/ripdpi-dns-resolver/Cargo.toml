@@ -9,6 +9,9 @@ workspace = true
 
 [dependencies]
 bytes = { workspace = true }
+http-body-util = { workspace = true }
+hyper = { workspace = true }
+hyper-util = { workspace = true }
 crypto_box = { workspace = true }
 futures = { workspace = true }
 hex = { workspace = true }

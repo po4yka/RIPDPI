@@ -1,5 +1,6 @@
 mod client_job;
 mod http_relay;
+mod http_transport;
 mod listener;
 mod mitm_rewrite;
 mod socks_session;
