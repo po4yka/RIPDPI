@@ -141,6 +141,65 @@ verifier rules, tracked libraries, and bloat limits remain unchanged.
 | `native-shard-x86` | `13494782507` | `2995a84f8a736be9b0622083254adab3329be6ace9df70f3b5ab71940855a17c` |
 | `native-shard-x86_64` | `13494532715` | `d3860c9bfeb46f0bbfb6d1b4ec2a96bf434431eca60df384dbc0cf8d48b179c3` |
 
+#### Geo snapshot validation: 2026-11-06
+
+The limits in `main` already match this approval. No further policy update
+is required for the Geo snapshot change.
+
+The user explicitly approved the three limits above and the
+`approved-native-size-policy` label for PR #710.
+[CI run 42192916752](https://github.com/po4yka/RIPDPI/actions/runs/42192916752)
+used source commit `80beb84ac7f380ed9694c4c92e2d5eeb8af34332`. Its report records
+80,230,800 bytes, or 3,594,572 bytes above the retained September baseline.
+The previous policy fails for `libripdpi.so` on arm64-v8a, x86, and x86_64,
+and for the total.
+
+| ABI | Library | Recorded baseline | Measured size |
+| --- | --- | ---: | ---: |
+| arm64-v8a | `libripdpi.so` | 11,518,392 | 12,138,856 |
+| arm64-v8a | `libripdpi-tunnel.so` | 8,834,528 | 9,161,976 |
+| armeabi-v7a | `libripdpi.so` | 8,056,932 | 8,498,408 |
+| armeabi-v7a | `libripdpi-tunnel.so` | 6,015,696 | 6,231,892 |
+| x86 | `libripdpi.so` | 11,225,552 | 11,871,924 |
+| x86 | `libripdpi-tunnel.so` | 8,181,064 | 8,528,744 |
+| x86_64 | `libripdpi.so` | 12,953,352 | 13,600,856 |
+| x86_64 | `libripdpi-tunnel.so` | 9,850,712 | 10,198,144 |
+
+The individual limit rounds the largest measured growth, 647,504 bytes, up
+to a 16 KiB boundary and adds one 16 KiB step. The total limits round growth
+up to 0.1 percentage point and 0.25 MiB boundaries. The approved policy leaves
+24,240 bytes for the largest individual growth and **7,331 bytes in total**.
+The total reserve is small; a later change can still fail this gate.
+
+The size failure predates the Geo snapshot change. On arm64-v8a, the last
+passing report at `a8419a7` recorded 12,070,456 bytes for `libripdpi.so`.
+The HTTP framing migration at `067ba0978` increased this to 12,127,688 bytes,
+which exceeded the previous 12,124,600-byte limit. That migration replaced
+private HTTP decoding with `hyper` and `hyper-util` in the Apps Script,
+diagnostics, and DNS paths.
+
+The Geo snapshot change adds 7,128 bytes across the eight compared outputs.
+The comparison uses base `da1d0051866644cc29777c55bef5cb0701fad647` for arm64-v8a,
+armeabi-v7a, and x86, and `fe038f283d6a07c4e9a1aa7b14b3602670f7cee6` for x86_64.
+The latter precedes the vendor-format-only commit `da1d0051866644cc29777c55bef5cb0701fad647`.
+The corresponding CI runs are
+[42191269433](https://github.com/po4yka/RIPDPI/actions/runs/42191269433) and
+[42189829716](https://github.com/po4yka/RIPDPI/actions/runs/42189829716).
+
+The four current native shard ZIP digests matched GitHub artifact metadata.
+All eight extracted libraries matched the current size report. The size
+verifier failed with the previous policy and passed with the approved policy
+against these same real library files.
+No library file or recorded baseline measurement was changed.
+
+| Artifact | ID | SHA-256 |
+| --- | --- | --- |
+| `native-size-report-debug-github` | `13491719738` | `5a53dbc8dd8f910fe9eeee1f466c4512249b8365a29157d1f1e2ee8c330eebe5` |
+| `native-shard-arm64-v8a` | `13492200045` | `f1ff9d4d1cf8eb8aba0d9e3da5094ba18d56d158462861c51dc4612135336f4c` |
+| `native-shard-armeabi-v7a` | `13492165455` | `29eb4650802d23d1269626d854db414f368f5905ae9b66182ac3347e4fd1bdbb` |
+| `native-shard-x86` | `13491852030` | `db67e44a7182c35ef0561c3dc77a82b02456fc9c2d59420c55bbf4d14210fba5` |
+| `native-shard-x86_64` | `13491502537` | `218a74bb644f82f17f0dbff15208dc5c95fd1ff50fc9321067c28dbb9048ab00` |
+
 For a PR size-policy update, a repository maintainer must apply the
 `approved-native-size-policy` label after explicit user approval. The
 exception applies only to `scripts/ci/native-size-baseline.json`. It requires

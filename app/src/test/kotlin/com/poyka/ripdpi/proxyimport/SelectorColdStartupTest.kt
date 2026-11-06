@@ -92,7 +92,9 @@ class SelectorColdStartupTest {
             val observed = runCatching { fixture.listener.prepare() }.exceptionOrNull()
             assertTrue(observed === failure || observed?.cause === failure)
             assertEquals(0, fixture.refresher.refreshes)
+            fixture.listener.stop(Mode.VPN)
             persistence.beforeOpen = null
+            fixture.listener.start(Mode.VPN)
             withContext(Dispatchers.Default) { withTimeout(5_000L) { fixture.listener.prepare() } }
             assertEquals(stored, persistence.groups.groups().first())
             assertEquals(0, fixture.refresher.refreshes)

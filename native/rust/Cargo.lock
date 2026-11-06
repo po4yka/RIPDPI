@@ -5997,8 +5997,8 @@ name = "ripdpi-geo"
 version = "0.1.0"
 dependencies = [
  "arc-swap",
- "libc",
  "maxminddb",
+ "memmap2",
  "prost",
  "prost-build",
  "protoc-bin-vendored",

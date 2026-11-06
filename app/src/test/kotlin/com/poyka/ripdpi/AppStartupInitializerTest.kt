@@ -894,13 +894,13 @@ class AppStartupInitializerFailureTest {
 
     @Test
     fun `unreadable reserves gate startup before recovery and retry after storage becomes readable`() =
-        runTest {
-            com.poyka.ripdpi.data.testing
-                .RoomProfileFixture(
-                    application,
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
-                ).use { storage ->
+        com.poyka.ripdpi.data.testing
+            .RoomProfileFixture(
+                application,
+                com.poyka.ripdpi.data
+                    .testPauseAuthority(),
+            ).use { storage ->
+                runTest {
                     storage.initialize()
                     storage.groupCatalog.replace(emptyList())
                     var readable = false
@@ -943,7 +943,7 @@ class AppStartupInitializerFailureTest {
                     assertEquals(1, strategyPackService.initializeCalls)
                     assertEquals(1, diagnosticsBootstrapper.calls)
                 }
-        }
+            }
 
     @Test
     fun `non-exception error from a subsystem is recorded failed and does not abort remaining subsystems`() =
