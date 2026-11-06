@@ -16,7 +16,6 @@ import com.poyka.ripdpi.core.testing.FaultOutcome
 import com.poyka.ripdpi.core.testing.FaultScope
 import com.poyka.ripdpi.core.testing.FaultSpec
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.AppSettingsRepositoryModule
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DnsModeEncrypted
 import com.poyka.ripdpi.data.DnsModePlainUdp
@@ -32,6 +31,7 @@ import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceStateStoreModule
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicy
 import com.poyka.ripdpi.data.diagnostics.ActiveConnectionPolicyStore
+import com.poyka.ripdpi.data.persistence.AppSettingsRepositoryModule
 import com.poyka.ripdpi.data.startAction
 import com.poyka.ripdpi.services.NetworkHandoverMonitor
 import com.poyka.ripdpi.services.NetworkHandoverMonitorModule

@@ -6,13 +6,12 @@ import com.poyka.ripdpi.data.ProfileActivationReceipt
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.data.ProfileMutationOutcome
+import com.poyka.ripdpi.data.ProfileSelectionStore
 import com.poyka.ripdpi.data.RuntimeActivationReceipt
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.requireRuntimeReady
-import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import com.poyka.ripdpi.data.xray.VpnProviderKind
-import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -49,11 +48,10 @@ interface StandaloneAmneziaWgActivator {
 internal class DefaultStandaloneAmneziaWgActivator
     private constructor(
         private val serviceController: ServiceController,
-        private val bootSessionStateStore: BootSessionStateStore,
+        private val profileSelections: ProfileSelectionStore,
         private val profileLoader: AwgProfileLoader,
         private val activationController: VpnTransportActivationController,
         private val applyTracker: TransportFailoverApplyTracker,
-        private val providerSelectionStore: XrayProviderSelectionStore,
         private val serviceIntentArbiter: ServiceIntentArbiter,
         private val pauseAuthority: PauseIntentAuthority,
         private val profileMutations: ProfileMutationCoordinator,
@@ -62,21 +60,19 @@ internal class DefaultStandaloneAmneziaWgActivator
         @Inject
         constructor(
             serviceController: ServiceController,
-            bootSessionStateStore: BootSessionStateStore,
+            profileSelections: ProfileSelectionStore,
             profileRepository: AwgProfileRepository,
             activationController: VpnTransportActivationController,
             applyTracker: TransportFailoverApplyTracker,
-            providerSelectionStore: XrayProviderSelectionStore,
             serviceIntentArbiter: ServiceIntentArbiter,
             pauseAuthority: PauseIntentAuthority,
             profileMutations: ProfileMutationCoordinator,
         ) : this(
             serviceController = serviceController,
-            bootSessionStateStore = bootSessionStateStore,
+            profileSelections = profileSelections,
             profileLoader = AwgProfileLoader { profileId -> profileRepository.load(profileId)?.request },
             activationController = activationController,
             applyTracker = applyTracker,
-            providerSelectionStore = providerSelectionStore,
             serviceIntentArbiter = serviceIntentArbiter,
             pauseAuthority = pauseAuthority,
             profileMutations = profileMutations,
@@ -84,21 +80,19 @@ internal class DefaultStandaloneAmneziaWgActivator
 
         internal constructor(
             serviceController: ServiceController,
-            bootSessionStateStore: BootSessionStateStore,
+            profileSelections: ProfileSelectionStore,
             loadProfile: suspend (String) -> AwgActivationRequest?,
             activationController: VpnTransportActivationController,
             applyTracker: TransportFailoverApplyTracker,
-            providerSelectionStore: XrayProviderSelectionStore,
             serviceIntentArbiter: ServiceIntentArbiter,
             pauseAuthority: PauseIntentAuthority,
             profileMutations: ProfileMutationCoordinator,
         ) : this(
             serviceController,
-            bootSessionStateStore,
+            profileSelections,
             AwgProfileLoader(loadProfile),
             activationController,
             applyTracker,
-            providerSelectionStore,
             serviceIntentArbiter,
             pauseAuthority,
             profileMutations,
@@ -220,11 +214,14 @@ internal class DefaultStandaloneAmneziaWgActivator
         private suspend fun deactivate(requireLatestIntent: Boolean) {
             val selection =
                 selectionLock.withLock {
+                    val authority = pauseAuthority.snapshotAuthority()
+                    val persisted = profileSelections.snapshot()
                     serviceIntentArbiter.serialize {
-                        val currentId = bootSessionStateStore.activeAwgProfileId()
+                        if (pauseAuthority.snapshotAuthority() != authority) return@serialize null
+                        val currentId = persisted.awgProfileId
                         currentId
                             ?.takeIf {
-                                providerSelectionStore.current().kind == VpnProviderKind.Native &&
+                                persisted.xray.kind == VpnProviderKind.Native &&
                                     (selectedRequest == null || selectedRequest?.profileId == currentId) &&
                                     (
                                         !requireLatestIntent ||
@@ -261,8 +258,9 @@ internal class DefaultStandaloneAmneziaWgActivator
 
         override suspend fun selectedAwgEgress(): AwgActivationRequest? =
             selectionLock.withLock {
-                if (providerSelectionStore.current().kind != VpnProviderKind.Native) return@withLock null
-                val profileId = bootSessionStateStore.activeAwgProfileId() ?: return@withLock null
+                val selection = profileSelections.snapshot()
+                if (selection.xray.kind != VpnProviderKind.Native) return@withLock null
+                val profileId = selection.awgProfileId ?: return@withLock null
                 selectedRequest?.takeIf { it.profileId == profileId }?.let { return@withLock it }
                 profileLoader
                     .load(profileId)

@@ -3,9 +3,8 @@ package com.poyka.ripdpi.data
 import com.poyka.ripdpi.serialization.RipDpiJson
 import com.poyka.ripdpi.serialization.RipDpiStrictJson
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.JsonArray
@@ -20,7 +19,7 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/** Exercises the schema read boundary used by KeystoreProxyGroupBlobStore, including checked writes. */
+/** Exercises schema upgrades and checked callbacks; Room import tests cover the database commit boundary. */
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProxyGroupStoredPolicyMigrationTest {
     @Test
@@ -82,21 +81,17 @@ class ProxyGroupStoredPolicyMigrationTest {
                 val storage = SchemaReadBlob(raw, version).apply { failWrites = true }
                 val catalogue = ProxyGroupCatalog(storage)
                 val observed = mutableListOf<List<ProxyGroup>>()
-                val collector =
-                    backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-                        catalogue.groups().collect { observed += it }
-                    }
-                val error = runCatching { catalogue.load() }.exceptionOrNull()
+                val stream = catalogue.groups().onEach { observed += it }
+                val error = runCatching { stream.first() }.exceptionOrNull()
                 assertEquals("fixture checked write failure", error?.message)
                 assertEquals(raw, storage.raw)
                 assertEquals(version, storage.version)
                 assertTrue(observed.isEmpty())
 
                 storage.failWrites = false
-                val accepted = catalogue.load()
+                val accepted = stream.first()
                 assertEquals(listOf(accepted), observed)
                 assertEquals(accepted, ProxyGroupCatalog(storage).load())
-                collector.cancel()
             }
         }
 
@@ -131,24 +126,25 @@ class ProxyGroupStoredPolicyMigrationTest {
         }
 
     @Test
-    fun `whole catalogue validation precedes any write and wire version one remains rejected`() {
-        for (version in listOf(1, 2)) {
-            val invalid = legacyCatalogue(version).replace("\"order\":1", "\"order\":\"invalid\"")
-            val storage = SchemaReadBlob(invalid, version)
-            assertThrows(IllegalArgumentException::class.java) { storage.read() }
-            assertEquals(invalid, storage.raw)
-            assertEquals(version, storage.version)
-            assertEquals(0, storage.writes)
+    fun `whole catalogue validation precedes any write and wire version one remains rejected`() =
+        runTest {
+            for (version in listOf(1, 2)) {
+                val invalid = legacyCatalogue(version).replace("\"order\":1", "\"order\":\"invalid\"")
+                val storage = SchemaReadBlob(invalid, version)
+                assertTrue(runCatching { storage.read() }.exceptionOrNull() is IllegalArgumentException)
+                assertEquals(invalid, storage.raw)
+                assertEquals(version, storage.version)
+                assertEquals(0, storage.writes)
+            }
+            val policy = requireNotNull(expectedGroups().first().failover?.payloadPolicy)
+            val wire =
+                RipDpiJson
+                    .encodeToString(PayloadFailoverPolicy.serializer(), policy)
+                    .replace("\"schema_version\":2", "\"schema_version\":1")
+            assertThrows(IllegalArgumentException::class.java) {
+                RipDpiStrictJson.decodeFromString(PayloadFailoverPolicy.serializer(), wire)
+            }
         }
-        val policy = requireNotNull(expectedGroups().first().failover?.payloadPolicy)
-        val wire =
-            RipDpiJson
-                .encodeToString(PayloadFailoverPolicy.serializer(), policy)
-                .replace("\"schema_version\":2", "\"schema_version\":1")
-        assertThrows(IllegalArgumentException::class.java) {
-            RipDpiStrictJson.decodeFromString(PayloadFailoverPolicy.serializer(), wire)
-        }
-    }
 
     private fun legacyCatalogue(version: Int = 2): String {
         val raw = RipDpiJson.encodeToString(ListSerializer(ProxyGroup.serializer()), expectedGroups())
@@ -215,7 +211,7 @@ class ProxyGroupStoredPolicyMigrationTest {
         )
 }
 
-/** The production sealed store calls this exact read boundary after decryption. */
+/** Supplies the checked callback supported by the schema decoder. */
 private class SchemaReadBlob(
     var raw: String,
     var version: Int,
@@ -223,16 +219,23 @@ private class SchemaReadBlob(
     var failWrites = false
     var writes = 0
 
-    override fun read(): String = ProxyGroupSchema.read(raw, version, ::write)
+    override suspend fun read(): String = ProxyGroupSchema.read(raw, version, ::writeChecked)
 
-    override fun write(json: String) {
+    override suspend fun write(json: String) = writeChecked(json)
+
+    private fun writeChecked(json: String) {
         check(!failWrites) { "fixture checked write failure" }
         raw = json
         version = ProxyGroupSchema.SCHEMA_VERSION
         writes++
     }
 
-    override fun clear() {
+    override suspend fun clear() {
         raw = "[]"
     }
+
+    override suspend fun update(transform: (String?) -> String?): String? =
+        transform(read()).also { if (it == null) clear() else write(it) }
+
+    override fun observe() = kotlinx.coroutines.flow.flow { emit(read()) }
 }

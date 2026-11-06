@@ -474,6 +474,7 @@ dependencies {
     implementation(libs.mlkit.barcode.scanning)
     // QR generation: zxing-core only (no Play Services), offline encoding for profile share.
     implementation(libs.zxing.core)
+    testImplementation(testFixtures(project(":core:data")))
     testImplementation(testFixtures(project(":core:data:settings")))
     testImplementation(testFixtures(project(":core:data:runtime-state")))
 
@@ -486,6 +487,7 @@ dependencies {
     androidTestImplementation(testFixtures(project(":core:service")))
     testImplementation(project(":core:engine-api"))
     androidTestImplementation(libs.androidx.test.core.ktx)
+    androidTestImplementation(libs.androidx.room.runtime)
     androidTestImplementation(libs.androidx.test.ext.junit)
     androidTestImplementation(libs.androidx.test.runner)
     androidTestImplementation(libs.androidx.test.rules)

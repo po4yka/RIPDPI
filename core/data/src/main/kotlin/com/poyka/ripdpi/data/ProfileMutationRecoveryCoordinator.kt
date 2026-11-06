@@ -1,11 +1,11 @@
 package com.poyka.ripdpi.data
 
-import com.poyka.ripdpi.data.awg.AwgCredentialStore
-import com.poyka.ripdpi.data.awg.AwgProfileDao
 import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgSecrets
-import com.poyka.ripdpi.data.backup.BackupPrivateDataV1
-import com.poyka.ripdpi.data.boot.BootSessionStateStore
+import com.poyka.ripdpi.data.persistence.ProfileDatabase
+import com.poyka.ripdpi.data.persistence.ProfileRows
+import com.poyka.ripdpi.data.selector.SelectorActiveGroupStore
+import com.poyka.ripdpi.data.selector.SelectorChoiceOrigin
 import com.poyka.ripdpi.data.xray.XrayProfile
 import com.poyka.ripdpi.data.xray.XrayProfileMetadataStore
 import com.poyka.ripdpi.data.xray.XrayProfileSecretStore
@@ -30,7 +30,7 @@ class ProfileMutationStores
         val xrayMetadata: XrayProfileMetadataStore,
         val xraySecrets: XrayProfileSecretStore,
         val xraySelection: XrayProviderSelectionStore,
-        val bootSession: BootSessionStateStore,
+        val profileSelection: ProfileSelectionStore,
         val groupCatalog: ProxyGroupCatalog,
         val selectorChoice: com.poyka.ripdpi.data.selector.SelectorChoicePersistence,
     )
@@ -42,11 +42,17 @@ data class ExpectedRelayProfileState(
 
 interface ProfileMutationCoordinator :
     ProfileMutationRecoveryAccess,
+    ProfileBackupMutationCoordinator,
     RelayUpsertMutationCoordinator,
     WarpRuntimeRevisionReader,
     SubscriptionRefreshMutationCoordinator,
     StandaloneAwgMutationCoordinator {
     override suspend fun captureMutation(origin: ProfileMutationOrigin): ProfileMutationPreparation
+
+    suspend fun prepareStandaloneSelectionForStart(
+        guard: ProfileTransactionGuard,
+        update: AppSettings.Builder.() -> Unit,
+    ): Boolean
 
     suspend fun upsertAwg(
         preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
@@ -89,55 +95,46 @@ interface ProfileMutationCoordinator :
         preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profileId: String,
     ): ProfileMutationOutcome
-
-    suspend fun replacePrivateBackup(
-        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
-        data: BackupPrivateDataV1,
-        rollbackData: BackupPrivateDataV1? = null,
-    ): ProfileMutationOutcome
 }
 
-/** Replays encrypted after-images until every store in a profile mutation agrees. */
+/** Applies related profile data in one Room transaction and publishes committed runtime state. */
 @Singleton
 class ProfileMutationRecoveryCoordinator private constructor(
     private val runtime: ProfileMutationRuntime,
 ) : ProfileMutationCoordinator,
     XrayProviderMutationCoordinator,
+    ProfileBackupMutationCoordinator by ProfileBackupMutations(runtime),
     StandaloneAwgMutationCoordinator by runtime.standalone,
     RelayUpsertMutationCoordinator by RelayUpsertWriter(runtime),
     SubscriptionRefreshMutationCoordinator by runtime.subscriptionRefresh,
     WarpRuntimeRevisionReader by runtime.warpRevisions {
     @Inject
-    constructor(
+    internal constructor(
         stores: ProfileMutationStores,
-        awgProfiles: AwgProfileDao,
-        awgCredentials: AwgCredentialStore,
-        journal: ProfileMutationJournal,
+        database: ProfileDatabase,
         mutationGeneration: ProfileMutationGenerationPublisher,
         pauseAuthority: PauseIntentAuthority,
-    ) : this(ProfileMutationRuntime(stores, awgProfiles, awgCredentials, journal, mutationGeneration, pauseAuthority))
+        activeGroup: SelectorActiveGroupStore,
+    ) : this(ProfileMutationRuntime(stores, database, mutationGeneration, pauseAuthority, activeGroup))
 
     private val stores get() = runtime.stores
-    private val journal get() = runtime.journal
     private val mutationGeneration get() = runtime.mutationGeneration
     private val intentProjection get() = runtime.intentProjection
-    private val replayWriter get() = runtime.replayWriter
     private val pauseAuthority get() = runtime.pauseAuthority
     private val warpRevisions get() = runtime.warpRevisions
     private val mutex get() = runtime.mutex
     private val catalog get() = runtime.catalog
-    private val journalRecovery get() = runtime.journalRecovery
     private val afterImageWriter get() = runtime.afterImageWriter
 
     override suspend fun captureMutation(origin: ProfileMutationOrigin): ProfileMutationPreparation =
         mutex.withLock {
-            journalRecovery.recover()
+            runtime.recover()
             ProfileMutationPreparation(origin, pauseAuthority.reference())
         }
 
     override suspend fun commitMutationIntent(preparation: ProfileMutationPreparation): ProfileMutationOutcome =
         mutex.withLock {
-            journalRecovery.recover()
+            runtime.recover()
             pauseAuthority.invalidateForMutation(
                 preparation.origin,
                 java.util.UUID
@@ -154,7 +151,7 @@ class ProfileMutationRecoveryCoordinator private constructor(
         choice: com.poyka.ripdpi.data.selector.SelectorChoicePersistence,
     ): ProfileMutationOutcome =
         mutex.withLock {
-            journalRecovery.recover()
+            runtime.recover()
             require(preparation.origin == ProfileMutationOrigin.ExplicitActivation)
             require(
                 choice === stores.selectorChoice,
@@ -172,7 +169,7 @@ class ProfileMutationRecoveryCoordinator private constructor(
         mode: Mode,
     ): ProfileUtilitySelectionResult =
         mutex.withLock {
-            journalRecovery.recover()
+            runtime.recover()
             if (!lease.refreshEnvironment() ||
                 !lease.payloadMatches()
             ) {
@@ -187,48 +184,44 @@ class ProfileMutationRecoveryCoordinator private constructor(
                 return@withLock ProfileUtilitySelectionResult.Superseded
             }
             val intent = intentProjection.measuredIntent(payload, mode)
-            val commandId =
-                java.util.UUID
-                    .randomUUID()
-                    .toString()
-            val outcome =
-                pauseAuthority.intentLinearizer.serialize {
-                    val utility = checkNotNull(pauseAuthority.states.value).profileUtility
-                    val validCatalog =
-                        utility.catalogReady && utility.catalogGeneration == lease.catalogGeneration &&
-                            lease.reference in utility.catalog
-                    if (!validCatalog || pauseAuthority.snapshotAuthority() != lease.expectedAuthority ||
-                        !lease.environmentMatchesNow()
-                    ) {
-                        null
-                    } else {
-                        pauseAuthority.reserveMeasuredActivation(
-                            lease.expectedAuthority,
-                            lease.catalogGeneration,
-                            lease.reference,
-                            commandId,
-                        )
-                    }
-                }
-            val receipt = outcome ?: return@withLock ProfileUtilitySelectionResult.Superseded
-            val measured =
-                MeasuredUtilitySelectionIntent(
-                    MeasuredActivationReservation(receipt.authority, receipt.commandId, mode.preferenceValue),
-                    intent,
-                )
-            val pending =
-                intentProjection
-                    .pending(
-                        ProfileMutationOrigin.ExplicitActivation,
-                        receipt.authority,
-                        measured,
-                    ).copy(mutationId = receipt.commandId)
+            var reserved: ProfileActivationReceipt? = null
             runCatching {
-                journal.prepare(pending)
-                catalog.invalidate()
-                replayWriter.replayMeasured(measured, receipt)
+                val receipt =
+                    runtime.database.withAuthority(
+                        pauseAuthority,
+                        afterCommit = { receipt ->
+                            if (receipt != null && payload is ProfileUtilitySelectionPayload.Selector) {
+                                runtime.activeGroup.publishCommittedChoice(
+                                    payload.groupId,
+                                    SelectorChoiceOrigin.Manual(receipt),
+                                )
+                            }
+                        },
+                    ) { rows ->
+                        if (!measuredLeaseMatches(lease, payload, rows)) return@withAuthority null
+                        val selected =
+                            pauseAuthority.reserveMeasuredActivation(
+                                lease.expectedAuthority,
+                                lease.catalogGeneration,
+                                lease.reference,
+                                java.util.UUID
+                                    .randomUUID()
+                                    .toString(),
+                            ) ?: return@withAuthority null
+                        reserved = selected
+                        val measured =
+                            MeasuredUtilitySelectionIntent(
+                                MeasuredActivationReservation(
+                                    selected.authority,
+                                    selected.commandId,
+                                    mode.preferenceValue,
+                                ),
+                                intent,
+                            )
+                        ProfileMutationRowWriter(rows, pauseAuthority).applyMeasured(measured, selected)
+                        selected
+                    } ?: return@runCatching ProfileUtilitySelectionResult.Superseded
                 catalog.publish()
-                journal.complete(pending.mutationId)
                 mutationGeneration.completed()
                 if (pauseAuthority.isCurrent(receipt)) {
                     ProfileUtilitySelectionResult.Selected(
@@ -239,17 +232,34 @@ class ProfileMutationRecoveryCoordinator private constructor(
                     ProfileUtilitySelectionResult.Superseded
                 }
             }.onFailure { failure ->
-                runCatching { pauseAuthority.cancelProfileActivation(receipt) }
-                    .exceptionOrNull()
-                    ?.let(failure::addSuppressed)
+                reserved?.let { receipt ->
+                    runCatching { pauseAuthority.cancelProfileActivation(receipt) }
+                        .exceptionOrNull()
+                        ?.let(failure::addSuppressed)
+                }
             }.getOrThrow()
         }
 
-    override suspend fun recover() = mutex.withLock { journalRecovery.recover() }
+    private fun measuredLeaseMatches(
+        lease: ProfileUtilitySelectionLease,
+        payload: ProfileUtilitySelectionPayload,
+        rows: ProfileRows,
+    ): Boolean {
+        val utility = checkNotNull(pauseAuthority.states.value).profileUtility
+        if (!utility.catalogReady || utility.catalogGeneration != lease.catalogGeneration ||
+            lease.reference !in utility.catalog
+        ) {
+            return false
+        }
+        return pauseAuthority.snapshotAuthority() == lease.expectedAuthority &&
+            lease.environmentMatchesNow() && rows.measuredPayloadMatches(lease.reference, payload)
+    }
+
+    override suspend fun recover() = mutex.withLock { runtime.recover() }
 
     override suspend fun <T> readRecovered(block: suspend () -> T): T =
         mutex.withLock {
-            journalRecovery.recover()
+            runtime.recover()
             block()
         }
 
@@ -259,7 +269,7 @@ class ProfileMutationRecoveryCoordinator private constructor(
             pauseAuthority,
             catalog,
             mutationGeneration,
-            journalRecovery::recover,
+            runtime::recover,
         )
 
     override suspend fun <T> mutateCatalog(
@@ -277,7 +287,7 @@ class ProfileMutationRecoveryCoordinator private constructor(
             // Explicit destructive Reset is the only migration exception:
             // establish a checked stop before discarding the marker.
             val receipt = pauseAuthority.reserveResetStop()
-            journal.clearForReset()
+            runtime.database.resetProfiles(pauseAuthority)
             catalog.invalidate()
             catalogTransactions.withinReset(receipt) { block(receipt) }
             catalog.publish()
@@ -356,7 +366,7 @@ class ProfileMutationRecoveryCoordinator private constructor(
         expectedRevision: Long,
     ): Boolean =
         mutex.withLock {
-            journalRecovery.recover()
+            runtime.recover()
             if (warpRuntimeRevision(profile.id) != expectedRevision ||
                 !stores.warpCredentials.load(profile.id).sameRuntimeProvisioningMaterial(expectedCredentials) ||
                 stores.settings.snapshot().warpProfileId != profile.id
@@ -394,29 +404,14 @@ class ProfileMutationRecoveryCoordinator private constructor(
         profileId: String,
     ) = afterImageWriter.execute(preparation, WarpDeactivateIntent(profileId))
 
-    override suspend fun replacePrivateBackup(
-        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
-        data: BackupPrivateDataV1,
-        rollbackData: BackupPrivateDataV1?,
-    ): ProfileMutationOutcome {
-        val target = PrivateBackupReplaceIntent(data = data, activeAwgProfileId = null)
-        return if (rollbackData == null) {
-            afterImageWriter.execute(preparation, target)
-        } else {
-            val rollbackAwgProfileId =
-                stores.bootSession
-                    .activeAwgProfileId()
-                    ?.takeIf { profileId -> rollbackData.awgProfiles.any { it.id == profileId } }
-            afterImageWriter.executeWithCompensation(
-                preparation,
-                target,
-                PrivateBackupReplaceIntent(
-                    data = rollbackData,
-                    activeAwgProfileId = rollbackAwgProfileId,
-                ),
-            )
+    override suspend fun prepareStandaloneSelectionForStart(
+        guard: ProfileTransactionGuard,
+        update: AppSettings.Builder.() -> Unit,
+    ): Boolean =
+        runtime.database.guardedWrite(guard, pauseAuthority) { rows ->
+            rows.selection.setAwg(null)
+            rows.settings.update(update)
         }
-    }
 }
 
 internal fun publishCommittedWarpRevision(
@@ -479,6 +474,35 @@ private suspend fun ProfileMutationStores.measuredPayloadMatches(
         }
     }
 
+private fun ProfileRows.measuredPayloadMatches(
+    reference: ProfileUtilityReference,
+    payload: ProfileUtilitySelectionPayload,
+): Boolean =
+    when (payload) {
+        is ProfileUtilitySelectionPayload.Native -> {
+            reference == ProfileUtilityReference.NativeRelay(payload.profile.id) &&
+                payload.credentials.profileId == payload.profile.id &&
+                relayProfiles.load(payload.profile.id) == payload.profile &&
+                relayCredentials.load(payload.profile.id) == payload.credentials
+        }
+
+        is ProfileUtilitySelectionPayload.Xray -> {
+            reference == ProfileUtilityReference.Xray(payload.profileId) &&
+                xrayMetadata.load(payload.profileId) == payload.records.metadata &&
+                xraySecrets.load(payload.profileId) == payload.records.secret
+        }
+
+        is ProfileUtilitySelectionPayload.Selector -> {
+            reference == ProfileUtilityReference.SelectorMember(payload.groupId, payload.memberId) &&
+                groups
+                    .list()
+                    .singleOrNull { it.id == payload.groupId }
+                    ?.members
+                    ?.singleOrNull { it.id == payload.memberId } ==
+                payload.member
+        }
+    }
+
 /** Shared write path for relay upserts; the expected-state check runs under the recovery mutex. */
 private suspend fun ProfileMutationRuntime.writeRelayUpsert(
     preparation: ProfileMutationPreparation,
@@ -490,13 +514,14 @@ private suspend fun ProfileMutationRuntime.writeRelayUpsert(
         afterImageWriter.execute(preparation, intent)
     } else {
         mutex.withLock {
-            journalRecovery.recover()
-            require(
-                stores.relayProfiles.load(profile.id) == expectedState.profile &&
-                    // The upsert replaces the credentials, so an unreadable old value must not block it.
-                    loadReplaceableCredential { stores.relayCredentials.load(profile.id) } == expectedState.credentials,
-            ) { "Relay profile changed since editing began" }
-            afterImageWriter.executeRecovered(preparation, intent)
+            recover()
+            afterImageWriter.executeRecovered(preparation, intent) { rows ->
+                require(
+                    rows.relayProfiles.load(profile.id) == expectedState.profile &&
+                        loadReplaceableCredential { rows.relayCredentials.load(profile.id) } ==
+                        expectedState.credentials,
+                ) { "Relay profile changed since editing began" }
+            }
         }
     }
 }

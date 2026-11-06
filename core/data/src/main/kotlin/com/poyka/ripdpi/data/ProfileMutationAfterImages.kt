@@ -1,22 +1,17 @@
 package com.poyka.ripdpi.data
 
-import com.poyka.ripdpi.data.awg.AwgCredentialStore
-import com.poyka.ripdpi.data.awg.AwgProfileDao
 import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.data.backup.BackupPrivateDataV1
 import com.poyka.ripdpi.data.xray.XrayProfileRecordPair
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.serialization.RipDpiContractJson
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.util.Base64
 
-/** Pure conversion of captured mutation input into the journal's immutable after-image. */
+/** Pure conversion of captured mutation input into one transaction's immutable values. */
 internal class ProfileMutationIntentProjection {
-    private val json = RipDpiContractJson
-
     fun relayUpsertIntent(
         profile: RelayProfileRecord,
         credentials: RelayCredentialRecord,
@@ -75,467 +70,245 @@ internal class ProfileMutationIntentProjection {
                 )
             }
         }
-
-    fun pending(
-        origin: ProfileMutationOrigin,
-        expected: PauseAuthorityRef,
-        intent: ProfileMutationIntent,
-    ) = PendingProfileMutation(
-        origin = origin,
-        expectedPauseAuthority = expected,
-        family = intent.family,
-        payload = json.encodeToString(ProfileMutationIntent.serializer(), intent),
-    )
 }
 
-internal class ProfileMutationReplayWriter(
-    private val stores: ProfileMutationStores,
-    private val awgProfiles: AwgProfileDao,
-    private val awgCredentials: AwgCredentialStore,
+internal class ProfileMutationRowWriter(
+    private val rows: com.poyka.ripdpi.data.persistence.ProfileRows,
     private val authority: PauseIntentAuthority,
 ) {
-    suspend fun replay(intent: ProfileMutationIntent) {
+    fun apply(intent: ProfileMutationIntent) {
         when (intent) {
-            is SubscriptionRefreshIntent -> {
-                // Recovery must not rotate credentials when the existing catalogue is unreadable.
-                stores.groupCatalog.snapshot()
-                intent.awgProfiles.forEach { replayAwgUpsert(it) }
-                stores.groupCatalog.replaceAfterImage(intent.groups)
-            }
-
             is AwgUpsertIntent -> {
-                replayAwgUpsert(intent)
+                saveAwg(intent)
             }
 
             is AwgDeleteIntent -> {
-                replayAwgDelete(intent)
+                if (rows.selection.awg() == intent.profileId) rows.selection.setAwg(null)
+                rows.awgCredentials.clear(intent.profileId)
+                rows.awgProfiles.getProfile(intent.profileId)?.let(rows.awgProfiles::deleteProfile)
             }
 
             is RelayUpsertIntent -> {
-                replayRelayUpsert(intent, null)
+                saveRelay(intent)
             }
 
             is WarpUpsertIntent -> {
-                replayWarpUpsert(intent)
+                saveWarp(intent)
             }
 
             is WarpDeleteIntent -> {
-                replayWarpDelete(intent)
+                if (intent.clearActive) clearWarp()
+                rows.warpEndpoints.clearProfile(intent.profileId)
+                rows.warpCredentials.clear(intent.profileId)
+                rows.warpProfiles.remove(intent.profileId)
             }
 
             is WarpDeactivateIntent -> {
-                replayWarpDeactivate(intent)
-            }
-
-            is PrivateBackupReplaceIntent -> {
-                replayPrivateBackup(intent)
-            }
-
-            is XrayProviderSelectIntent -> {
-                replayXrayProviderSelect(intent, null)
-            }
-
-            is MeasuredUtilitySelectionIntent -> {
-                replay(intent.afterImage)
-            }
-
-            is StandaloneAwgSelectIntent -> {
-                replayStandaloneAwg(intent, null)
-            }
-
-            is StandaloneAwgCompensateIntent -> {
-                replayStandaloneCompensation(intent)
-            }
-
-            is StandaloneAwgClearIntent -> {
-                authority.intentLinearizer.serialize {
-                    if (matchesOwner(intent.authority, intent.commandId) &&
-                        stores.bootSession.activeAwgProfileId() == intent.expectedProfileId
-                    ) {
-                        stores.bootSession.setActiveAwgProfileId(null)
-                    }
+                if (rows.warpProfiles.activeProfileId() == intent.profileId ||
+                    rows.settings.snapshot().warpProfileId == intent.profileId
+                ) {
+                    clearWarp()
                 }
             }
 
+            is PrivateBackupReplaceIntent -> {
+                replacePrivate(intent)
+            }
+
+            is XrayProviderSelectIntent -> {
+                selectXray(intent)
+            }
+
+            is MeasuredUtilitySelectionIntent -> {
+                apply(intent.afterImage)
+            }
+
+            is StandaloneAwgSelectIntent -> {
+                selectStandaloneAwg(intent)
+            }
+
+            is StandaloneAwgCompensateIntent -> {
+                compensateStandaloneAwg(intent)
+            }
+
+            is StandaloneAwgClearIntent -> {
+                clearStandaloneAwg(intent)
+            }
+
             is SelectorSelectIntent -> {
-                replaySelector(
-                    intent,
-                    com.poyka.ripdpi.data.selector.SelectorChoiceOrigin.Reconstruction,
-                    null,
-                )
+                selectSelector(intent)
+            }
+
+            is SubscriptionRefreshIntent -> {
+                rows.groups.list()
+                intent.awgProfiles.forEach(::saveAwg)
+                rows.groups.replace(intent.groups)
             }
         }
     }
 
-    suspend fun replayMeasured(
+    private fun selectXray(intent: XrayProviderSelectIntent) {
+        intent.records?.let {
+            rows.xrayMetadata.save(it.metadata)
+            rows.xraySecrets.save(it.secret)
+        }
+        rows.selection.setActiveGroup(null)
+        rows.selection.setXray(intent.selection)
+        rows.settings.update { setRipdpiMode(intent.modeAfterImage) }
+    }
+
+    private fun selectStandaloneAwg(intent: StandaloneAwgSelectIntent) {
+        rows.warpProfiles.setActiveProfileId(null)
+        rows.settings.update { setWarpEnabled(false) }
+        rows.selection.setActiveGroup(null)
+        rows.selection.setAwg(intent.profileId)
+        rows.selection.setXray(XrayProviderSelectionRecord())
+    }
+
+    private fun compensateStandaloneAwg(intent: StandaloneAwgCompensateIntent) {
+        if (matchesOwner(intent.authority, intent.commandId) &&
+            rows.selection.awg() == intent.expectedProfileId
+        ) {
+            rows.warpProfiles.setActiveProfileId(intent.before.warpProfileId)
+            rows.settings.update { setWarpEnabled(intent.before.warpEnabled) }
+            rows.selection.setAwg(intent.before.awgProfileId)
+            rows.selection.setXray(intent.before.provider)
+            rows.selection.setActiveGroup(intent.before.selectorGroupId)
+        }
+    }
+
+    private fun clearStandaloneAwg(intent: StandaloneAwgClearIntent) {
+        if (matchesOwner(intent.authority, intent.commandId) &&
+            rows.selection.awg() == intent.expectedProfileId
+        ) {
+            rows.selection.setAwg(null)
+        }
+    }
+
+    private fun selectSelector(intent: SelectorSelectIntent) {
+        rows.warpProfiles.setActiveProfileId(null)
+        rows.settings.update {
+            setRipdpiMode(intent.mode)
+            setWarpEnabled(false)
+            setSimpleFailoverAwgProfileId("")
+        }
+        rows.selection.setXray(XrayProviderSelectionRecord())
+        rows.selection.setAwg(null)
+        rows.selection.setChoice(intent.groupId, intent.memberId, true)
+        rows.selection.setActiveGroup(intent.groupId)
+    }
+
+    fun applyOwned(
+        intent: ProfileMutationIntent,
+        receipt: ProfileActivationReceipt,
+    ) {
+        if (!authority.isCurrent(receipt)) return
+        apply(intent)
+        if (intent is WarpUpsertIntent) {
+            rows.selection.setActiveGroup(null)
+            rows.selection.setAwg(null)
+            rows.selection.setXray(XrayProviderSelectionRecord())
+        }
+    }
+
+    fun applyMeasured(
         intent: MeasuredUtilitySelectionIntent,
         receipt: ProfileActivationReceipt,
     ) {
-        val owner = ProfileSelectionMetadataOwner(receipt.authority, receipt.commandId)
-        when (val selected = intent.afterImage) {
-            is SelectorSelectIntent -> {
-                replaySelector(
-                    selected,
-                    com.poyka.ripdpi.data.selector.SelectorChoiceOrigin
-                        .Manual(receipt),
-                    owner,
-                )
-            }
+        if (authority.isCurrent(receipt)) apply(intent.afterImage)
+    }
 
-            is RelayUpsertIntent -> {
-                replayRelayUpsert(selected, owner)
-            }
-
-            is XrayProviderSelectIntent -> {
-                replayXrayProviderSelect(selected, owner)
-            }
-
-            else -> {
-                error("Measured activation requires its captured selection after-image")
-            }
+    fun applyMeasuredReconstructed(intent: MeasuredUtilitySelectionIntent) {
+        if (authority.snapshotAuthority().command?.origin is RuntimeCommandOrigin.MeasuredActivation &&
+            matchesOwner(intent.reservation.authority, intent.reservation.commandId)
+        ) {
+            apply(intent.afterImage)
         }
     }
 
-    suspend fun replayOwned(
+    fun applyReconstructed(
         intent: ProfileMutationIntent,
         receipt: ProfileActivationReceipt,
-    ) {
-        when (intent) {
-            is SelectorSelectIntent -> {
-                replaySelector(
-                    intent,
-                    com.poyka.ripdpi.data.selector.SelectorChoiceOrigin
-                        .Manual(receipt),
-                    ProfileSelectionMetadataOwner(receipt.authority, receipt.commandId),
-                )
-            }
-
-            is WarpUpsertIntent -> {
-                replayWarpOwned(intent, receipt)
-            }
-
-            is StandaloneAwgSelectIntent -> {
-                replayStandaloneAwg(intent, receipt)
-            }
-
-            else -> {
-                replay(intent)
-            }
-        }
-    }
-
-    suspend fun replayMeasuredReconstructed(intent: MeasuredUtilitySelectionIntent) {
-        val owner = ProfileSelectionMetadataOwner(intent.reservation.authority, intent.reservation.commandId)
-        val current = authority.snapshotAuthority().command
-        if (current?.origin !is RuntimeCommandOrigin.MeasuredActivation || !owner.matches(authority)) return
-        when (val selected = intent.afterImage) {
-            is SelectorSelectIntent -> {
-                replaySelector(
-                    selected,
-                    com.poyka.ripdpi.data.selector.SelectorChoiceOrigin.Reconstruction,
-                    owner,
-                )
-            }
-
-            is RelayUpsertIntent -> {
-                replayRelayUpsert(selected, owner)
-            }
-
-            is XrayProviderSelectIntent -> {
-                replayXrayProviderSelect(selected, owner)
-            }
-
-            else -> {
-                error("Measured recovery requires its captured selection after-image")
-            }
-        }
-    }
-
-    suspend fun replayReconstructed(
-        intent: ProfileMutationIntent,
-        receipt: ProfileActivationReceipt,
-    ) {
-        when (intent) {
-            is SelectorSelectIntent -> {
-                replaySelector(
-                    intent,
-                    com.poyka.ripdpi.data.selector.SelectorChoiceOrigin.Reconstruction,
-                    ProfileSelectionMetadataOwner(receipt.authority, receipt.commandId),
-                )
-            }
-
-            is StandaloneAwgSelectIntent -> {
-                replayStandaloneAwg(intent, receipt)
-            }
-
-            is WarpUpsertIntent -> {
-                replayWarpOwned(intent, receipt)
-            }
-
-            else -> {
-                error("Provider recovery requires an explicit selection after-image")
-            }
-        }
-    }
+    ) = applyOwned(intent, receipt)
 
     private fun matchesOwner(
         reference: PauseAuthorityRef,
         commandId: String,
-    ): Boolean = authority.reference() == reference && authority.snapshotAuthority().command?.commandId == commandId
+    ) = authority.reference() == reference && authority.snapshotAuthority().command?.commandId == commandId
 
-    private suspend fun replayStandaloneCompensation(intent: StandaloneAwgCompensateIntent) {
-        if (!matchesOwner(intent.authority, intent.commandId) ||
-            stores.bootSession.activeAwgProfileId() != intent.expectedProfileId
-        ) {
-            return
-        }
-        if (!stores.warpProfiles.setActiveProfileIdOwned(
-                intent.before.warpProfileId,
-                authority,
-                intent.authority,
-                intent.commandId,
-            )
-        ) {
-            return
-        }
-        stores.settings.update {
-            authority.intentLinearizer.serialize {
-                if (matchesOwner(intent.authority, intent.commandId)) setWarpEnabled(intent.before.warpEnabled)
-            }
-        }
-        authority.intentLinearizer.serialize {
-            if (matchesOwner(intent.authority, intent.commandId) &&
-                stores.bootSession.activeAwgProfileId() == intent.expectedProfileId
-            ) {
-                stores.bootSession.setActiveAwgProfileId(intent.before.awgProfileId)
-                stores.xraySelection.update(intent.before.provider)
-                stores.selectorChoice.restoreActiveGroup(intent.before.selectorGroupId)
-            }
-        }
+    private fun saveAwg(intent: AwgUpsertIntent) {
+        rows.awgCredentials.save(intent.id, intent.secrets)
+        rows.awgProfiles.upsertProfile(intent.toEntity())
     }
 
-    private suspend fun replayStandaloneAwg(
-        intent: StandaloneAwgSelectIntent,
-        receipt: ProfileActivationReceipt?,
-    ) {
-        if (receipt != null &&
-            !stores.warpProfiles.setActiveProfileIdOwned(null, authority, receipt.authority, receipt.commandId)
-        ) {
-            return
-        }
-        if (receipt == null) stores.warpProfiles.setActiveProfileId(null)
-        stores.settings.update {
-            authority.intentLinearizer.serialize {
-                if (receipt == null || authority.isCurrent(receipt)) setWarpEnabled(false)
-            }
-        }
-        authority.intentLinearizer.serialize {
-            if (receipt == null || authority.isCurrent(receipt)) {
-                stores.selectorChoice.clearStandalone()
-                stores.bootSession.setActiveAwgProfileId(intent.profileId)
-                stores.xraySelection.update(XrayProviderSelectionRecord())
-            }
-        }
-    }
-
-    private suspend fun replayWarpOwned(
-        intent: WarpUpsertIntent,
-        receipt: ProfileActivationReceipt,
-    ) {
-        stores.warpProfiles.save(intent.profile)
-        stores.warpCredentials.save(intent.profile.id, intent.credentials)
-        stores.warpEndpoints.clearProfile(intent.profile.id)
-        intent.endpoints.forEach { stores.warpEndpoints.save(it) }
-        if (!authority.isCurrent(receipt)) return
-        if (!stores.warpProfiles.setActiveProfileIdOwned(
-                intent.profile.id,
-                authority,
-                receipt.authority,
-                receipt.commandId,
-            )
-        ) {
-            return
-        }
-        stores.settings.update {
-            authority.intentLinearizer.serialize {
-                if (authority.isCurrent(receipt)) applyWarpAfterImage(intent.profile, intent.scannerMode)
-            }
-        }
-        authority.intentLinearizer.serialize {
-            if (authority.isCurrent(receipt)) {
-                stores.selectorChoice.clearStandalone()
-                stores.bootSession.setActiveAwgProfileId(null)
-                stores.xraySelection.update(XrayProviderSelectionRecord())
-            }
-        }
-    }
-
-    private suspend fun replaySelector(
-        intent: SelectorSelectIntent,
-        origin: com.poyka.ripdpi.data.selector.SelectorChoiceOrigin,
-        owner: ProfileSelectionMetadataOwner?,
-    ) {
-        if (owner != null &&
-            !stores.warpProfiles.setActiveProfileIdOwned(null, authority, owner.authority, owner.commandId)
-        ) {
-            return
-        }
-        if (owner == null) stores.warpProfiles.setActiveProfileId(null)
-        stores.settings.update {
-            authority.intentLinearizer.serialize {
-                if (owner == null || owner.matches(authority)) {
-                    setRipdpiMode(intent.mode)
-                    setWarpEnabled(false)
-                    setSimpleFailoverAwgProfileId("")
-                }
-            }
-        }
-        authority.intentLinearizer.serialize {
-            if (owner == null || owner.matches(authority)) {
-                stores.xraySelection.update(XrayProviderSelectionRecord())
-                stores.bootSession.setActiveAwgProfileId(null)
-                stores.selectorChoice.commitMember(intent.groupId, intent.memberId, origin)
-            }
-        }
-    }
-
-    private suspend fun replayAwgUpsert(intent: AwgUpsertIntent) {
-        awgCredentials.save(intent.id, intent.secrets)
-        awgProfiles.upsertProfile(intent.toEntity())
-    }
-
-    private suspend fun replayAwgDelete(intent: AwgDeleteIntent) {
-        if (stores.bootSession.activeAwgProfileId() == intent.profileId) {
-            stores.bootSession.setActiveAwgProfileId(null)
-        }
-        awgCredentials.clear(intent.profileId)
-        awgProfiles.getProfile(intent.profileId)?.let { awgProfiles.deleteProfile(it) }
-    }
-
-    private suspend fun replayRelayUpsert(
-        intent: RelayUpsertIntent,
-        owner: ProfileSelectionMetadataOwner?,
-    ) {
-        if (owner == null && intent.clearSelectorOwnership) stores.selectorChoice.clearStandalone()
-        stores.relayProfiles.save(intent.profile)
-        stores.relayCredentials.save(intent.credentials)
-        authority.intentLinearizer.serialize {
-            if (owner == null || owner.matches(authority)) {
-                if (owner != null && intent.clearSelectorOwnership) stores.selectorChoice.clearStandalone()
-                intent.xraySelectionAfterImage?.let(stores.xraySelection::update)
-            }
-        }
+    private fun saveRelay(intent: RelayUpsertIntent) {
+        rows.relayProfiles.save(intent.profile)
+        rows.relayCredentials.save(intent.credentials)
+        if (intent.clearSelectorOwnership) rows.selection.setActiveGroup(null)
+        intent.xraySelectionAfterImage?.let(rows.selection::setXray)
         if (intent.settingsAfterImageBase64 != null) {
-            val afterImage = AppSettings.parseFrom(Base64.getDecoder().decode(intent.settingsAfterImageBase64))
-            val baseImage =
-                intent.settingsBaseImageBase64?.let { AppSettings.parseFrom(Base64.getDecoder().decode(it)) }
-            if (baseImage == null) {
-                stores.settings.replace(afterImage)
-            } else {
-                // Apply only the edit's own fields so a concurrent settings write is not reverted.
-                stores.settings.update {
-                    val merged = mergeChangedSettingsFields(baseImage, afterImage, current = build())
-                    clear()
-                    mergeFrom(merged)
-                }
-            }
+            val after = AppSettings.parseFrom(Base64.getDecoder().decode(intent.settingsAfterImageBase64))
+            val base = intent.settingsBaseImageBase64?.let { AppSettings.parseFrom(Base64.getDecoder().decode(it)) }
+            rows.settings.replace(
+                if (base ==
+                    null
+                ) {
+                    after
+                } else {
+                    mergeChangedSettingsFields(base, after, rows.settings.snapshot())
+                },
+            )
         } else if (intent.select || intent.modeAfterImage != null) {
-            stores.settings.update {
-                authority.intentLinearizer.serialize {
-                    if (owner == null || owner.matches(authority)) {
-                        if (intent.select) applyRelayAfterImage(intent.profile, intent.enabled)
-                        intent.modeAfterImage?.let(::setRipdpiMode)
-                    }
-                }
+            rows.settings.update {
+                if (intent.select) applyRelayAfterImage(intent.profile, intent.enabled)
+                intent.modeAfterImage?.let(::setRipdpiMode)
             }
         }
     }
 
-    private suspend fun replayXrayProviderSelect(
-        intent: XrayProviderSelectIntent,
-        owner: ProfileSelectionMetadataOwner?,
-    ) {
-        intent.records?.let { records ->
-            stores.xraySecrets.save(records.secret)
-            stores.xrayMetadata.save(records.metadata)
-        }
-        authority.intentLinearizer.serialize {
-            if (owner == null || owner.matches(authority)) {
-                stores.selectorChoice.clearStandalone()
-                stores.xraySelection.update(intent.selection)
-            }
-        }
-        stores.settings.update {
-            authority.intentLinearizer.serialize {
-                if (owner == null || owner.matches(authority)) setRipdpiMode(intent.modeAfterImage)
-            }
-        }
-    }
-
-    private suspend fun replayPrivateBackup(intent: PrivateBackupReplaceIntent) {
-        val data = intent.data
-        stores.bootSession.setActiveAwgProfileId(null)
-        stores.warpProfiles.setActiveProfileId(null)
-        stores.xraySelection.update(XrayProviderSelectionRecord())
-
-        stores.relayCredentials.clearAll()
-        stores.relayProfiles.clearAll()
-        data.relayCredentials.forEach { stores.relayCredentials.save(it) }
-        data.relayProfiles.forEach { stores.relayProfiles.save(it) }
-
-        stores.warpEndpoints.clearAll()
-        stores.warpCredentials.clearAll()
-        stores.warpProfiles.clearAll()
-        data.warpCredentials.forEach { stores.warpCredentials.save(it.profileId, it) }
-        data.warpProfiles.forEach { stores.warpProfiles.save(it) }
-        stores.warpProfiles.setActiveProfileId(data.warpActiveProfileId)
-
-        awgCredentials.clearAll()
-        awgProfiles.deleteAll()
-        data.awgProfiles.forEach { profile ->
-            profile.secrets?.let { awgCredentials.save(profile.id, it) }
-            awgProfiles.upsertProfile(profile.toEntity())
-        }
-
-        stores.xraySecrets.clearAll()
-        stores.xrayMetadata.clearAll()
-        data.xraySecrets.forEach { stores.xraySecrets.save(it) }
-        data.xrayMetadata.forEach { stores.xrayMetadata.save(it) }
-        stores.xraySelection.update(data.xraySelection)
-
-        intent.activeAwgProfileId
-            ?.takeIf { profileId -> data.awgProfiles.any { it.id == profileId } }
-            ?.let(stores.bootSession::setActiveAwgProfileId)
-    }
-
-    private suspend fun replayWarpUpsert(intent: WarpUpsertIntent) {
-        stores.warpProfiles.save(intent.profile)
-        stores.warpCredentials.save(intent.profile.id, intent.credentials)
-        stores.warpEndpoints.clearProfile(intent.profile.id)
-        intent.endpoints.forEach { stores.warpEndpoints.save(it) }
+    private fun saveWarp(intent: WarpUpsertIntent) {
+        rows.warpProfiles.save(intent.profile)
+        rows.warpCredentials.save(intent.profile.id, intent.credentials)
+        rows.warpEndpoints.clearProfile(intent.profile.id)
+        intent.endpoints.forEach(rows.warpEndpoints::save)
         if (intent.activate) {
-            stores.warpProfiles.setActiveProfileId(intent.profile.id)
-            stores.settings.update { applyWarpAfterImage(intent.profile, intent.scannerMode) }
+            rows.warpProfiles.setActiveProfileId(intent.profile.id)
+            rows.settings.update { applyWarpAfterImage(intent.profile, intent.scannerMode) }
         }
     }
 
-    private suspend fun replayWarpDelete(intent: WarpDeleteIntent) {
-        if (intent.clearActive) {
-            stores.warpProfiles.setActiveProfileId(null)
-            stores.settings.update { clearWarpAfterImage() }
-        }
-        stores.warpEndpoints.clearProfile(intent.profileId)
-        stores.warpCredentials.clear(intent.profileId)
-        stores.warpProfiles.remove(intent.profileId)
+    private fun clearWarp() {
+        rows.warpProfiles.setActiveProfileId(null)
+        rows.settings.update { clearWarpAfterImage() }
     }
 
-    private suspend fun replayWarpDeactivate(intent: WarpDeactivateIntent) {
-        if (stores.warpProfiles.activeProfileId() == intent.profileId ||
-            stores.settings.snapshot().warpProfileId == intent.profileId
-        ) {
-            stores.warpProfiles.setActiveProfileId(null)
-            stores.settings.update { clearWarpAfterImage() }
+    private fun replacePrivate(intent: PrivateBackupReplaceIntent) {
+        val data = intent.data
+        rows.selection.setAwg(null)
+        rows.warpProfiles.setActiveProfileId(null)
+        rows.selection.setXray(XrayProviderSelectionRecord())
+        rows.relayCredentials.clearAll()
+        rows.relayProfiles.clearAll()
+        data.relayCredentials.forEach(rows.relayCredentials::save)
+        data.relayProfiles.forEach(rows.relayProfiles::save)
+        rows.warpEndpoints.clearAll()
+        rows.warpCredentials.clearAll()
+        rows.warpProfiles.clearAll()
+        data.warpCredentials.forEach { rows.warpCredentials.save(it.profileId, it) }
+        data.warpProfiles.forEach(rows.warpProfiles::save)
+        rows.warpProfiles.setActiveProfileId(data.warpActiveProfileId)
+        rows.awgCredentials.clearAll()
+        rows.awgProfiles.deleteAll()
+        data.awgProfiles.forEach {
+            it.secrets?.let { secrets -> rows.awgCredentials.save(it.id, secrets) }
+            rows.awgProfiles.upsertProfile(it.toEntity())
         }
+        rows.xraySecrets.clearAll()
+        rows.xrayMetadata.clearAll()
+        data.xraySecrets.forEach(rows.xraySecrets::save)
+        data.xrayMetadata.forEach(rows.xrayMetadata::save)
+        rows.selection.setXray(data.xraySelection)
+        rows.selection.setAwg(intent.activeAwgProfileId?.takeIf { id -> data.awgProfiles.any { it.id == id } })
     }
 }
 
@@ -726,13 +499,4 @@ internal data class StandaloneAwgClearIntent(
     val expectedProfileId: String,
 ) : ProfileMutationIntent {
     override val family = ProfileMutationFamily.Awg
-}
-
-/** Metadata-only journal identity; cannot bind, claim or dispatch a runtime. */
-private data class ProfileSelectionMetadataOwner(
-    val authority: PauseAuthorityRef,
-    val commandId: String,
-) {
-    fun matches(current: PauseIntentAuthority): Boolean =
-        current.reference() == authority && current.snapshotAuthority().command?.commandId == commandId
 }

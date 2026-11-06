@@ -299,7 +299,7 @@ class SelectorQualityTest {
             val delegate = ProbeTestSelectionStore().apply { set("g", "active") }
             val fenced =
                 object : com.poyka.ripdpi.data.selector.SelectorSelectionStore by delegate {
-                    override fun selectAutomatically(
+                    override suspend fun selectAutomatically(
                         groupId: String,
                         expected: com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot,
                         profileId: String,

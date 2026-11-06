@@ -4,14 +4,8 @@ import android.content.Context
 import com.poyka.ripdpi.data.KeystoreEncryptedPreferences
 import com.poyka.ripdpi.data.commitOrThrow
 import com.poyka.ripdpi.serialization.RipDpiJson
-import dagger.Binds
-import dagger.Module
-import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
-import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.sync.Mutex
-import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import java.util.UUID
@@ -328,134 +322,85 @@ interface DurableXrayProfileStore {
     suspend fun listProfileIds(): List<String>
 }
 
-@Singleton
-class DefaultDurableXrayProfileStore
-    @Inject
-    constructor(
-        private val metadataStore: XrayProfileMetadataStore,
-        private val secretStore: XrayProfileSecretStore,
-    ) : DurableXrayProfileStore {
-        private val mutex = Mutex()
+fun XrayProfileRecordPair.hasMatchingRevision(): Boolean =
+    metadata.profileId == secret.profileId && metadata.revision.isNotBlank() && metadata.revision == secret.revision
 
-        override suspend fun load(profileId: String): XrayProfile? =
-            mutex.withLock {
-                val metadata = metadataStore.load(profileId)
-                val secret = if (metadata != null) secretStore.load(profileId) else null
-                if (metadata?.profileId == profileId &&
-                    matches(metadata, secret)
-                ) {
-                    reconstitute(requireNotNull(metadata), requireNotNull(secret))
-                } else {
-                    null
-                }
-            }
-
-        override suspend fun save(
-            profileId: String,
-            profile: XrayProfile,
-        ) = mutex.withLock {
-            val records = profile.toXrayProfileRecordPair(profileId)
-            secretStore.save(records.secret)
-            metadataStore.save(records.metadata)
+fun XrayProfileRecordPair.toXrayProfile(): XrayProfile? {
+    if (!hasMatchingRevision()) return null
+    val metadata = metadata
+    val secret = secret
+    val security =
+        when (metadata.security) {
+            XrayProfileMetadataRecord.SecurityReality -> XrayProfile.Security.REALITY
+            XrayProfileMetadataRecord.SecurityTls -> XrayProfile.Security.TLS
+            else -> null
         }
-
-        override suspend fun clear(profileId: String) =
-            mutex.withLock {
-                metadataStore.clear(profileId)
-                secretStore.clear(profileId)
-            }
-
-        override suspend fun listProfileIds(): List<String> =
-            mutex.withLock {
-                metadataStore.list().mapNotNull { metadata ->
-                    metadata.profileId.takeIf { matches(metadata, secretStore.load(it)) }
-                }
-            }
-
-        private fun matches(
-            metadata: XrayProfileMetadataRecord?,
-            secret: XrayProfileSecretRecord?,
-        ): Boolean =
-            metadata != null && secret != null && metadata.profileId == secret.profileId &&
-                metadata.revision.isNotBlank() && metadata.revision == secret.revision
-
-        private fun reconstitute(
-            metadata: XrayProfileMetadataRecord,
-            secret: XrayProfileSecretRecord,
-        ): XrayProfile? {
-            val security =
-                when (metadata.security) {
-                    XrayProfileMetadataRecord.SecurityReality -> XrayProfile.Security.REALITY
-                    XrayProfileMetadataRecord.SecurityTls -> XrayProfile.Security.TLS
-                    else -> null
-                }
-            val network =
-                when (metadata.network) {
-                    XrayProfileMetadataRecord.NetworkTcp -> XrayProfile.Network.TCP
-                    XrayProfileMetadataRecord.NetworkXhttp -> XrayProfile.Network.XHTTP
-                    else -> null
-                }
-            return if (security == null || network == null) {
-                null
-            } else {
-                XrayProfile(
-                    name = metadata.name,
-                    outbound =
-                        XrayProfile.Outbound(
-                            serverAddress = metadata.serverAddress,
-                            serverPort = metadata.serverPort,
-                            uuid = secret.uuid,
-                            flow = metadata.flow,
-                            security = security,
-                            network = network,
-                            reality =
-                                if (metadata.hasReality) {
-                                    XrayProfile.Reality(
-                                        publicKey = secret.realityPublicKey.orEmpty(),
-                                        serverName = metadata.realityServerName,
-                                        shortId = metadata.realityShortId,
-                                        fingerprint = metadata.realityFingerprint,
-                                        privateKey = secret.realityPrivateKey,
-                                    )
-                                } else {
-                                    null
-                                },
-                            tls =
-                                if (metadata.hasTls) {
-                                    XrayProfile.Tls(
-                                        serverName = metadata.tlsServerName,
-                                        fingerprint = metadata.tlsFingerprint,
-                                        allowInsecure = metadata.tlsAllowInsecure,
-                                    )
-                                } else {
-                                    null
-                                },
-                            xhttp =
-                                if (metadata.hasXhttp) {
-                                    XrayProfile.Xhttp(
-                                        path = metadata.xhttpPath,
-                                        mode = metadata.xhttpMode,
-                                        host = metadata.xhttpHost,
-                                    )
-                                } else {
-                                    null
-                                },
-                        ),
-                    inbound =
-                        XrayProfile.LocalInbound(
-                            listen = metadata.inboundListen,
-                            port = metadata.inboundPort,
-                            udpEnabled = metadata.inboundUdpEnabled,
-                        ),
-                    dns =
-                        XrayProfile.DnsSettings(
-                            servers = metadata.dnsServers,
-                            queryStrategy = metadata.dnsQueryStrategy,
-                        ),
-                )
-            }
+    val network =
+        when (metadata.network) {
+            XrayProfileMetadataRecord.NetworkTcp -> XrayProfile.Network.TCP
+            XrayProfileMetadataRecord.NetworkXhttp -> XrayProfile.Network.XHTTP
+            else -> null
         }
+    return if (security == null || network == null) {
+        null
+    } else {
+        XrayProfile(
+            name = metadata.name,
+            outbound =
+                XrayProfile.Outbound(
+                    serverAddress = metadata.serverAddress,
+                    serverPort = metadata.serverPort,
+                    uuid = secret.uuid,
+                    flow = metadata.flow,
+                    security = security,
+                    network = network,
+                    reality =
+                        if (metadata.hasReality) {
+                            XrayProfile.Reality(
+                                publicKey = secret.realityPublicKey.orEmpty(),
+                                serverName = metadata.realityServerName,
+                                shortId = metadata.realityShortId,
+                                fingerprint = metadata.realityFingerprint,
+                                privateKey = secret.realityPrivateKey,
+                            )
+                        } else {
+                            null
+                        },
+                    tls =
+                        if (metadata.hasTls) {
+                            XrayProfile.Tls(
+                                serverName = metadata.tlsServerName,
+                                fingerprint = metadata.tlsFingerprint,
+                                allowInsecure = metadata.tlsAllowInsecure,
+                            )
+                        } else {
+                            null
+                        },
+                    xhttp =
+                        if (metadata.hasXhttp) {
+                            XrayProfile.Xhttp(
+                                path = metadata.xhttpPath,
+                                mode = metadata.xhttpMode,
+                                host = metadata.xhttpHost,
+                            )
+                        } else {
+                            null
+                        },
+                ),
+            inbound =
+                XrayProfile.LocalInbound(
+                    listen = metadata.inboundListen,
+                    port = metadata.inboundPort,
+                    udpEnabled = metadata.inboundUdpEnabled,
+                ),
+            dns =
+                XrayProfile.DnsSettings(
+                    servers = metadata.dnsServers,
+                    queryStrategy = metadata.dnsQueryStrategy,
+                ),
+        )
     }
+}
 
 /**
  * Cross-module provider-selection signal: which [VpnProviderKind] is active and,
@@ -505,9 +450,9 @@ data class XrayProviderSelectionRecord(
  * `:app` selection UI writes it; `:core:service` reads [current] at VPN startup.
  */
 interface XrayProviderSelectionStore {
-    fun current(): XrayProviderSelectionRecord
+    suspend fun current(): XrayProviderSelectionRecord
 
-    fun update(record: XrayProviderSelectionRecord)
+    suspend fun update(record: XrayProviderSelectionRecord)
 }
 
 @Singleton
@@ -519,12 +464,12 @@ class SharedPreferencesXrayProviderSelectionStore
         private val preferences = context.getSharedPreferences(SelectionPrefsName, Context.MODE_PRIVATE)
         private val json = RipDpiJson
 
-        override fun current(): XrayProviderSelectionRecord =
+        override suspend fun current(): XrayProviderSelectionRecord =
             preferences.getString(SelectionKey, null)?.let {
                 json.decodeFromString(XrayProviderSelectionRecord.serializer(), it).also { record -> record.kind }
             } ?: XrayProviderSelectionRecord()
 
-        override fun update(record: XrayProviderSelectionRecord) {
+        override suspend fun update(record: XrayProviderSelectionRecord) {
             record.kind
             preferences
                 .edit()
@@ -544,27 +489,3 @@ class SharedPreferencesXrayProviderSelectionStore
 
 /** Default durable Xray profile id when only one profile is supported. */
 const val DefaultXrayProfileId: String = "default"
-
-@Module
-@InstallIn(SingletonComponent::class)
-abstract class XrayProviderStoreModule {
-    @Binds
-    @Singleton
-    abstract fun bindXrayProfileMetadataStore(
-        store: SharedPreferencesXrayProfileMetadataStore,
-    ): XrayProfileMetadataStore
-
-    @Binds
-    @Singleton
-    abstract fun bindXrayProfileSecretStore(store: KeystoreXrayProfileSecretStore): XrayProfileSecretStore
-
-    @Binds
-    @Singleton
-    abstract fun bindDurableXrayProfileStore(store: DefaultDurableXrayProfileStore): DurableXrayProfileStore
-
-    @Binds
-    @Singleton
-    abstract fun bindXrayProviderSelectionStore(
-        store: SharedPreferencesXrayProviderSelectionStore,
-    ): XrayProviderSelectionStore
-}

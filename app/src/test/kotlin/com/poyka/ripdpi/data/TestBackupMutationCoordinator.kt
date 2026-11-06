@@ -1,7 +1,20 @@
 package com.poyka.ripdpi.data
 
-/** Unit boundary for tests whose private/group stores are supplied separately. */
+/** UI wiring fixture. Persistence mutations are outside this test boundary. */
 class TestBackupMutationCoordinator : ProfileMutationCoordinator {
+    override suspend fun restoreBackup(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        groups: List<com.poyka.ripdpi.data.ProxyGroup>?,
+        rules: List<com.poyka.ripdpi.data.rules.RuleEntity>?,
+        settings: com.poyka.ripdpi.proto.AppSettings?,
+        privateData: com.poyka.ripdpi.data.backup.BackupPrivateDataV1?,
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome = error("Backup restore is outside this test boundary")
+
+    override suspend fun prepareStandaloneSelectionForStart(
+        guard: com.poyka.ripdpi.data.ProfileTransactionGuard,
+        update: com.poyka.ripdpi.proto.AppSettings.Builder.() -> Unit,
+    ): Boolean = error("Standalone preparation is outside this test boundary")
+
     private val authority = testPauseAuthority()
 
     override suspend fun activateStandaloneAwg(
@@ -86,12 +99,12 @@ class TestBackupMutationCoordinator : ProfileMutationCoordinator {
         preparation: ProfileMutationPreparation,
         profile: com.poyka.ripdpi.data.awg.AwgProfileEntity,
         secrets: com.poyka.ripdpi.data.awg.AwgSecrets,
-    ): ProfileMutationOutcome = error("Not used by backup fixture")
+    ): ProfileMutationOutcome = error("Persistence mutation is outside this test boundary")
 
     override suspend fun deleteAwg(
         preparation: ProfileMutationPreparation,
         profileId: String,
-    ): ProfileMutationOutcome = error("Not used by backup fixture")
+    ): ProfileMutationOutcome = error("Persistence mutation is outside this test boundary")
 
     override suspend fun upsertRelayEdit(
         preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
@@ -101,7 +114,7 @@ class TestBackupMutationCoordinator : ProfileMutationCoordinator {
         settingsBaseImage: com.poyka.ripdpi.proto.AppSettings,
         settingsAfterImage: com.poyka.ripdpi.proto.AppSettings,
         expectedState: com.poyka.ripdpi.data.ExpectedRelayProfileState,
-    ): com.poyka.ripdpi.data.ProfileMutationOutcome = error("Not used by backup fixture")
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome = error("Persistence mutation is outside this test boundary")
 
     override suspend fun upsertRelay(
         preparation: ProfileMutationPreparation,
@@ -113,7 +126,7 @@ class TestBackupMutationCoordinator : ProfileMutationCoordinator {
         modeAfterImage: String?,
         xraySelectionAfterImage: com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord?,
         expectedState: ExpectedRelayProfileState?,
-    ): ProfileMutationOutcome = error("Not used by backup fixture")
+    ): ProfileMutationOutcome = error("Persistence mutation is outside this test boundary")
 
     override suspend fun upsertWarp(
         preparation: ProfileMutationPreparation,
@@ -122,7 +135,7 @@ class TestBackupMutationCoordinator : ProfileMutationCoordinator {
         endpoints: List<WarpEndpointCacheEntry>,
         activate: Boolean,
         scannerMode: String,
-    ): ProfileMutationOutcome = error("Not used by backup fixture")
+    ): ProfileMutationOutcome = error("Persistence mutation is outside this test boundary")
 
     override suspend fun upsertWarpForRuntimeProvisioning(
         profile: WarpProfile,
@@ -132,34 +145,21 @@ class TestBackupMutationCoordinator : ProfileMutationCoordinator {
         scannerMode: String,
         expectedCredentials: WarpCredentials,
         expectedRevision: Long,
-    ): Boolean = error("Not used by backup fixture")
+    ): Boolean = error("Persistence mutation is outside this test boundary")
 
     override suspend fun deleteWarp(
         preparation: ProfileMutationPreparation,
         profileId: String,
         clearActive: Boolean,
-    ): ProfileMutationOutcome = error("Not used by backup fixture")
+    ): ProfileMutationOutcome = error("Persistence mutation is outside this test boundary")
 
     override suspend fun deactivateWarp(
         preparation: ProfileMutationPreparation,
         profileId: String,
-    ): ProfileMutationOutcome = error("Not used by backup fixture")
+    ): ProfileMutationOutcome = error("Persistence mutation is outside this test boundary")
 
     override suspend fun replacePrivateBackup(
         preparation: ProfileMutationPreparation,
         data: com.poyka.ripdpi.data.backup.BackupPrivateDataV1,
-        rollbackData: com.poyka.ripdpi.data.backup.BackupPrivateDataV1?,
-    ): ProfileMutationOutcome = error("Private store fixture owns this operation")
+    ): ProfileMutationOutcome = error("Private restore is outside this test boundary")
 }
-
-fun testEmptyBackupPrivateDataStore(): com.poyka.ripdpi.data.backup.BackupPrivateDataStore =
-    object : com.poyka.ripdpi.data.backup.BackupPrivateDataStore {
-        override suspend fun snapshot() =
-            com.poyka.ripdpi.data.backup
-                .BackupPrivateDataV1()
-
-        override suspend fun replaceAll(
-            preparation: ProfileMutationPreparation,
-            data: com.poyka.ripdpi.data.backup.BackupPrivateDataV1,
-        ): ProfileMutationOutcome = testMutationOutcome(preparation.origin)
-    }

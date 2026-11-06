@@ -11,13 +11,13 @@ class ExplicitUserStartGuard internal constructor(
     private val arbiter: ServiceIntentArbiter,
     private val generation: Long,
     private val durable: com.poyka.ripdpi.data.PauseAuthorityRef,
-) {
+) : com.poyka.ripdpi.data.ProfileTransactionGuard {
     internal val durableReference: com.poyka.ripdpi.data.PauseAuthorityRef get() = durable
 
     fun isCurrent(): Boolean =
         arbiter.runIfExplicitUserIntentCurrent(generation) { arbiter.isDurableCurrent(durable) } == true
 
-    fun runIfCurrent(action: () -> Unit): Boolean =
+    override fun runIfCurrent(action: () -> Unit): Boolean =
         arbiter.runIfExplicitUserIntentCurrent(generation) {
             if (!arbiter.isDurableCurrent(durable)) {
                 false

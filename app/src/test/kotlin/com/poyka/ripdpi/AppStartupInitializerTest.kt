@@ -1,6 +1,7 @@
 package com.poyka.ripdpi
 
 import android.app.Application
+import androidx.work.Configuration
 import com.poyka.ripdpi.backup.ResetEventRecorder
 import com.poyka.ripdpi.core.detection.DetectionObservationStarter
 import com.poyka.ripdpi.data.AppSettingsRepository
@@ -11,16 +12,13 @@ import com.poyka.ripdpi.data.NetworkFingerprint
 import com.poyka.ripdpi.data.PersistedEchEntry
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProxyGroup
-import com.poyka.ripdpi.data.ProxyGroupBlobStore
 import com.poyka.ripdpi.data.ProxyGroupRepository
-import com.poyka.ripdpi.data.SharedPreferencesProxyGroupRepository
 import com.poyka.ripdpi.data.boot.BootSessionPointer
 import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceEntity
 import com.poyka.ripdpi.data.diagnostics.NetworkDnsPathPreferenceStore
 import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
-import com.poyka.ripdpi.data.testMutationPreparationSource
 import com.poyka.ripdpi.diagnostics.DiagnosticsBootstrapper
 import com.poyka.ripdpi.diagnostics.exit.LastExitInspector
 import com.poyka.ripdpi.diagnostics.profiling.MemoryProfilingRegistrar
@@ -46,10 +44,8 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
@@ -60,11 +56,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.RuntimeEnvironment
+import org.robolectric.annotation.Config
 import java.util.Optional
 import javax.inject.Provider
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
+@Config(application = StartupTestApplication::class)
 class AppStartupInitializerTest {
     private lateinit var application: Application
 
@@ -580,6 +578,7 @@ class AppStartupInitializerTest {
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
+@Config(application = StartupTestApplication::class)
 class AppStartupInitializerFailureTest {
     private lateinit var application: Application
 
@@ -896,79 +895,54 @@ class AppStartupInitializerFailureTest {
     @Test
     fun `unreadable reserves gate startup before recovery and retry after storage becomes readable`() =
         runTest {
-            var readable = false
-            var bytes: String? = "[]"
-            val retained = bytes
-            val storage =
-                object : ProxyGroupBlobStore {
-                    override fun read(): String? {
-                        check(readable) { "Saved catalogue is unreadable" }
-                        return bytes
-                    }
-
-                    override fun write(json: String) {
-                        bytes = json
-                    }
-
-                    override fun clear() {
-                        bytes = null
-                    }
-                }
-            val repository =
-                SharedPreferencesProxyGroupRepository(
+            com.poyka.ripdpi.data.testing
+                .RoomProfileFixture(
+                    application,
                     com.poyka.ripdpi.data
-                        .ProxyGroupCatalog(storage),
-                    testMutationPreparationSource(),
-                )
-            val observed = mutableListOf<List<ProxyGroup>>()
-            val collector =
-                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-                    repository.groups().collect { observed += it }
-                }
-            assertTrue(collector.isActive)
-            assertTrue(observed.isEmpty())
-            var recoveryCalls = 0
-            val profileMutations =
-                object : ProfileMutationCoordinator by NoOpProfileMutationCoordinator {
-                    override suspend fun recover() {
-                        recoveryCalls += 1
+                        .testPauseAuthority(),
+                ).use { storage ->
+                    storage.initialize()
+                    storage.groupCatalog.replace(emptyList())
+                    var readable = false
+                    storage.beforeOpen = { namespace, _ ->
+                        if (namespace == "proxy_groups") check(readable) { "Saved catalogue is unreadable" }
                     }
+                    val repository = storage.groups
+                    assertTrue(runCatching { repository.groups().first() }.isFailure)
+                    var recoveryCalls = 0
+                    val profileMutations =
+                        object : ProfileMutationCoordinator by NoOpProfileMutationCoordinator {
+                            override suspend fun recover() {
+                                recoveryCalls += 1
+                            }
+                        }
+                    val compatibilityResetter = RecordingAppCompatibilityResetter()
+                    val strategyPackService = RecordingStrategyPackService()
+                    val diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper()
+                    val initializer =
+                        createInitializer(
+                            compatibilityResetter = compatibilityResetter,
+                            strategyPackService = strategyPackService,
+                            diagnosticsBootstrapper = diagnosticsBootstrapper,
+                            proxyGroupRepository = repository,
+                            startupOverrides = StartupTestOverrides(profileMutations = profileMutations),
+                            scope = backgroundScope,
+                        )
+                    initializer.initialize()
+                    initializer.readiness.first { it == AppStartupReadinessState.Failed }
+                    assertEquals(0, recoveryCalls)
+                    assertEquals(0, compatibilityResetter.calls)
+                    assertEquals(0, strategyPackService.initializeCalls)
+                    assertEquals(0, diagnosticsBootstrapper.calls)
+                    readable = true
+                    initializer.retryRecovery()
+                    initializer.readiness.first { it == AppStartupReadinessState.Ready }
+                    assertEquals(emptyList<ProxyGroup>(), repository.groups().first())
+                    assertEquals(1, recoveryCalls)
+                    assertEquals(1, compatibilityResetter.calls)
+                    assertEquals(1, strategyPackService.initializeCalls)
+                    assertEquals(1, diagnosticsBootstrapper.calls)
                 }
-            val compatibilityResetter = RecordingAppCompatibilityResetter()
-            val strategyPackService = RecordingStrategyPackService()
-            val diagnosticsBootstrapper = RecordingDiagnosticsBootstrapper()
-            val initializer =
-                createInitializer(
-                    compatibilityResetter = compatibilityResetter,
-                    strategyPackService = strategyPackService,
-                    diagnosticsBootstrapper = diagnosticsBootstrapper,
-                    proxyGroupRepository = repository,
-                    startupOverrides = StartupTestOverrides(profileMutations = profileMutations),
-                    scope = backgroundScope,
-                )
-
-            initializer.initialize()
-            initializer.readiness.first { it == AppStartupReadinessState.Failed }
-
-            assertEquals(retained, bytes)
-            assertTrue(collector.isActive)
-            assertTrue(observed.isEmpty())
-            assertEquals(0, recoveryCalls)
-            assertEquals(0, compatibilityResetter.calls)
-            assertEquals(0, strategyPackService.initializeCalls)
-            assertEquals(0, diagnosticsBootstrapper.calls)
-
-            readable = true
-            initializer.retryRecovery()
-            initializer.readiness.first { it == AppStartupReadinessState.Ready }
-
-            assertEquals(retained, bytes)
-            assertTrue(collector.isActive)
-            assertEquals(listOf(emptyList<ProxyGroup>()), observed)
-            assertEquals(1, recoveryCalls)
-            assertEquals(1, compatibilityResetter.calls)
-            assertEquals(1, strategyPackService.initializeCalls)
-            assertEquals(1, diagnosticsBootstrapper.calls)
         }
 
     @Test
@@ -1156,7 +1130,7 @@ private object NoOpResetEventRecorder : ResetEventRecorder {
 private object NoOpSelectorSelectionStore : SelectorSelectionStore {
     override fun manualReceipt(groupId: String): com.poyka.ripdpi.data.DurableCommandReceipt? = null
 
-    override fun selectReserved(
+    override suspend fun selectReserved(
         groupId: String,
         profileId: String,
         receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
@@ -1164,9 +1138,10 @@ private object NoOpSelectorSelectionStore : SelectorSelectionStore {
 
     override fun invalidatePendingSelection(groupId: String) = Unit
 
-    override fun snapshot(groupId: String): SelectorSelectionSnapshot = SelectorSelectionSnapshot(null, false, 0L)
+    override suspend fun snapshot(groupId: String): SelectorSelectionSnapshot =
+        SelectorSelectionSnapshot(null, false, 0L)
 
-    override fun selectAutomatically(
+    override suspend fun selectAutomatically(
         groupId: String,
         expected: SelectorSelectionSnapshot,
         profileId: String,
@@ -1179,7 +1154,7 @@ private object NoOpSelectorSelectionStore : SelectorSelectionStore {
         profileId: String,
     ) = Unit
 
-    override fun clearSelection(groupId: String) = Unit
+    override suspend fun clearSelection(groupId: String) = Unit
 }
 
 private object EmptyProxyGroupRepository : ProxyGroupRepository {
@@ -1454,4 +1429,12 @@ private object NoOpFlowAppAttributionStore : FlowAppAttributionStore {
     ) = Unit
 
     override fun clear() = Unit
+}
+
+/** Keeps real work scheduling available without starting the production Hilt graph. */
+class StartupTestApplication :
+    Application(),
+    Configuration.Provider {
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder().build()
 }

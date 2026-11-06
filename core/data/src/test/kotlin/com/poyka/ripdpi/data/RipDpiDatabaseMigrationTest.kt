@@ -21,9 +21,8 @@ import org.robolectric.annotation.Config
 
 /**
  * Validates that [RipDpiDatabase] opens at its current schema version, that the
- * version-gap migration registry is complete, and that the v1 -> v2 migration
- * (which adds the `awg_profiles` standalone-AmneziaWG store) preserves the
- * existing `routing_rules` data.
+ * version-gap migration registry is complete, and that migrations preserve
+ * existing routing rules and AWG profiles when profile records are added.
  *
  * When the database version is bumped, append a `Migration(N-1, N)` to
  * [RipDpiDatabaseMigrations.ALL] -- the `migration registry covers the version gap`
@@ -32,10 +31,10 @@ import org.robolectric.annotation.Config
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class RipDpiDatabaseMigrationTest {
-    private val currentDbVersion = 2
+    private val currentDbVersion = 3
 
     @Test
-    fun `schema version 2 opens successfully and both tables exist`() {
+    fun `schema version 3 opens successfully and all tables exist`() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         val db =
             Room
@@ -46,6 +45,7 @@ class RipDpiDatabaseMigrationTest {
             val supportDb = db.openHelper.writableDatabase
             assertTrue("routing_rules table must exist", supportDb.tableExists("routing_rules"))
             assertTrue("awg_profiles table must exist", supportDb.tableExists("awg_profiles"))
+            assertTrue("profile_records table must exist", supportDb.tableExists("profile_records"))
         } finally {
             db.close()
         }
@@ -130,6 +130,46 @@ class RipDpiDatabaseMigrationTest {
                 true,
                 RipDpiDatabaseMigrations.MIGRATION_1_2,
             ).close()
+    }
+
+    @Test
+    fun `migration 2 to 3 validates the new schema and preserves existing records`() {
+        val helper = MigrationTestHelper(InstrumentationRegistry.getInstrumentation(), RipDpiDatabase::class.java)
+        val dbName = "migration-2-to-3-${System.nanoTime()}.db"
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        try {
+            helper.createDatabase(dbName, 2).apply {
+                execSQL(
+                    "INSERT INTO routing_rules " +
+                        "(id, name, userOrder, enabled, domains, ipCidrs, ports, sourcePorts, " +
+                        "network, processName, packages, outboundTag) VALUES " +
+                        "(100, 'user rule', 0, 1, '', '', '', '', 'BOTH', '', '', '0:0')",
+                )
+                execSQL(
+                    "INSERT INTO awg_profiles (id, name, requestJson, updatedAt) VALUES ('awg', 'User AWG', '{}', 42)",
+                )
+                close()
+            }
+            helper.runMigrationsAndValidate(dbName, 3, true, RipDpiDatabaseMigrations.MIGRATION_2_3).apply {
+                query("SELECT name FROM routing_rules WHERE id = 100").use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    assertEquals("user rule", cursor.getString(0))
+                }
+                query("SELECT name, requestJson, updatedAt FROM awg_profiles WHERE id = 'awg'").use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    assertEquals("User AWG", cursor.getString(0))
+                    assertEquals("{}", cursor.getString(1))
+                    assertEquals(42L, cursor.getLong(2))
+                }
+                query("SELECT COUNT(*) FROM profile_records").use { cursor ->
+                    assertTrue(cursor.moveToFirst())
+                    assertEquals(0, cursor.getInt(0))
+                }
+                close()
+            }
+        } finally {
+            context.deleteDatabase(dbName)
+        }
     }
 
     @Test

@@ -48,6 +48,7 @@ internal class SimpleVlessRuntimeMonitor
     constructor(
         private val serviceStateStore: ServiceStateStore,
         private val settingsRepository: AppSettingsRepository,
+        private val profileMutations: com.poyka.ripdpi.data.ProfileMutationCoordinator,
         private val relayCatalog: SimpleFailoverRelayCatalog,
         private val awgFallbackSelection: SimpleAwgFallbackSelection,
         private val startupFallbackController: StartupFallbackController,
@@ -72,16 +73,17 @@ internal class SimpleVlessRuntimeMonitor
             fallbackMutex.withLock {
                 if (!guard.isCurrent()) return@withLock
                 val capturedFallback = startupFallbackController.captureStartupFallbackLease()
-                settingsRepository.update {
-                    if (!guard.isCurrent()) return@update
-                    setEnableCmdSettings(false)
-                    setRelayEnabled(true)
-                    setRelayKind(RelayKindVlessReality)
-                    setRelayProfileId(SEEDED_VLESS_REALITY_PROFILE_ID)
-                    setSimpleFailoverAwgProfileId("")
-                }
+                val prepared =
+                    profileMutations.prepareStandaloneSelectionForStart(guard) {
+                        setEnableCmdSettings(false)
+                        setRelayEnabled(true)
+                        setRelayKind(RelayKindVlessReality)
+                        setRelayProfileId(SEEDED_VLESS_REALITY_PROFILE_ID)
+                        setSimpleFailoverAwgProfileId("")
+                    }
+                if (!prepared) return@withLock
                 guard.runIfCurrent {
-                    awgFallbackSelection.clearForUserStart()
+                    awgFallbackSelection.clear()
                     startupFallbackStage = StartupFallbackStage.Vless
                     activeHysteriaProfileId = null
                     activeAwgProfileId = null

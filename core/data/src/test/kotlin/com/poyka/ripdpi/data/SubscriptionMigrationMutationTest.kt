@@ -2,7 +2,6 @@ package com.poyka.ripdpi.data
 
 import app.cash.turbine.test
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
-import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSubscriptionProfile
 import com.poyka.ripdpi.data.awg.toMigrationTarget
 import com.poyka.ripdpi.data.subscription.MigrationMetadata
@@ -11,57 +10,56 @@ import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotEquals
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class SubscriptionMigrationMutationTest {
+class SubscriptionMigrationMutationTest : RoomProfileTest() {
     @Test
-    fun `renamed AWG and matching receipt recover together without replacing the source row`() =
+    fun `renamed AWG and matching receipt commit together only after a successful retry`() =
         runTest {
-            val fixture = ProfileMutationTestFixture()
+            val fixture = fixture()
             val mutations = fixture.coordinator()
-            val groups = SharedPreferencesProxyGroupRepository(fixture.groupCatalog, mutations)
-            val awg = AwgProfileRepository(fixture.awgProfiles, fixture.awgCredentials, mutations)
+            val groups = DefaultProxyGroupRepository(fixture.groupCatalog, mutations)
+            val awg = fixture.awgRepository
             groups.add(original)
             val original = groups.list().single()
             val source = awg.saveSubscriptionProfiles(listOf(sourceProfile)).single()
-            val preparations = fixture.prepareAttempts
+            val before = fixture.snapshot()
             var captured: ProxyGroup? = null
             groups.groups().test {
                 assertEquals(listOf(original), awaitItem())
-                fixture.failGroupWrite = true
-                assertTrue(
-                    runCatching {
-                        awg.commitSubscriptionRefresh(original, listOf(targetProfile)) { prepared ->
-                            val target = prepared.single()
-                            assertNotEquals(source.id, target.id)
-                            assertEquals("local-private-key", target.request.privateKey)
-                            assertEquals("rotated-psk", target.request.presharedKey)
-                            original
-                                .copy(
-                                    subscription =
-                                        original.subscription!!.copy(
-                                            migration =
-                                                receivedMigration(
-                                                    metadata,
-                                                    digest,
-                                                    3_000L,
-                                                    emptyList(),
-                                                    listOf(target.toMigrationTarget()),
-                                                ),
-                                        ),
-                                ).also { captured = it }
-                        }
-                    }.isFailure,
-                )
-                assertNotNull(fixture.journal.pending())
-                assertEquals(preparations + 1, fixture.prepareAttempts)
+                fixture.failWrite("proxy_groups")
+
+                suspend fun refresh() =
+                    awg.commitSubscriptionRefresh(original, listOf(targetProfile)) { prepared ->
+                        val target = prepared.single()
+                        assertNotEquals(source.id, target.id)
+                        assertEquals("local-private-key", target.request.privateKey)
+                        assertEquals("rotated-psk", target.request.presharedKey)
+                        original
+                            .copy(
+                                subscription =
+                                    original.subscription!!.copy(
+                                        migration =
+                                            receivedMigration(
+                                                metadata,
+                                                digest,
+                                                3_000L,
+                                                emptyList(),
+                                                listOf(target.toMigrationTarget()),
+                                            ),
+                                    ),
+                            ).also { captured = it }
+                    }
+                assertTrue(runCatching { refresh() }.isFailure)
+                assertEquals(before, fixture.snapshot())
                 expectNoEvents()
 
-                fixture.failGroupWrite = false
+                fixture.clearFaults()
                 mutations.recover()
+                expectNoEvents()
+                assertTrue(refresh())
 
                 val recovered = awaitItem().single()
                 val preparedGroup = checkNotNull(captured)
@@ -78,9 +76,7 @@ class SubscriptionMigrationMutationTest {
                 assertEquals("local-private-key", savedTarget.request.privateKey)
                 assertEquals("rotated-psk", savedTarget.request.presharedKey)
                 assertEquals(source, awg.load(source.id))
-                assertEquals(listOf(recovered), ProxyGroupCatalog(fixture.groupBlob).snapshot())
-                assertEquals(preparations + 1, fixture.prepareAttempts)
-                assertNull(fixture.journal.pending())
+                assertEquals(listOf(recovered), fixture.groupCatalog.snapshot())
                 cancelAndIgnoreRemainingEvents()
             }
         }
@@ -88,16 +84,16 @@ class SubscriptionMigrationMutationTest {
     @Test
     fun `lost source ownership cannot prepare receipt or mutate AWG keys`() =
         runTest {
-            val fixture = ProfileMutationTestFixture()
+            val fixture = fixture()
             val mutations = fixture.coordinator()
-            val groups = SharedPreferencesProxyGroupRepository(fixture.groupCatalog, mutations)
-            val awg = AwgProfileRepository(fixture.awgProfiles, fixture.awgCredentials, mutations)
+            val groups = DefaultProxyGroupRepository(fixture.groupCatalog, mutations)
+            val awg = fixture.awgRepository
             groups.add(original)
             val original = groups.list().single()
             val source = awg.saveSubscriptionProfiles(listOf(sourceProfile)).single()
-            val preparations = fixture.prepareAttempts
             val edited = original.copy(subscription = original.subscription!!.copy(link = "https://new.example/source"))
             groups.update(edited)
+            val before = fixture.snapshot()
             var receiptsPrepared = 0
 
             assertFalse(
@@ -108,8 +104,13 @@ class SubscriptionMigrationMutationTest {
             )
 
             assertEquals(0, receiptsPrepared)
-            assertEquals(preparations, fixture.prepareAttempts)
-            assertEquals(listOf(source.id), fixture.awgProfiles.allProfiles().map { it.id })
+            assertEquals(before, fixture.snapshot())
+            assertEquals(
+                listOf(source.id),
+                kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+                    fixture.awgProfiles.allProfiles().map { it.id }
+                },
+            )
             assertEquals(source, awg.load(source.id))
             val saved = groups.list().single()
             assertEquals(edited.copy(ownershipGeneration = saved.ownershipGeneration), saved)
@@ -121,7 +122,6 @@ class SubscriptionMigrationMutationTest {
                     .subscription!!
                     .migration,
             )
-            assertNull(fixture.journal.pending())
         }
 
     private val original =

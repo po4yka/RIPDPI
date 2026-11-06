@@ -29,10 +29,12 @@ class ProxyGroupOfflineReserveTest {
             var rejectWrites = false
             val storage =
                 object : ProxyGroupBlobStore by durable {
-                    override fun write(json: String) {
-                        check(!rejectWrites) { "fixture-write-failed" }
-                        durable.write(json)
-                    }
+                    override suspend fun update(transform: (String?) -> String?): String? =
+                        durable.update { current ->
+                            val replacement = transform(current)
+                            check(!rejectWrites) { "fixture-write-failed" }
+                            replacement
+                        }
                 }
             val repository = createRepository(storage)
             repository.add(reserveGroup())
@@ -66,7 +68,7 @@ class ProxyGroupOfflineReserveTest {
         }
 
     private fun createRepository(storage: ProxyGroupBlobStore) =
-        SharedPreferencesProxyGroupRepository(
+        DefaultProxyGroupRepository(
             com.poyka.ripdpi.data
                 .ProxyGroupCatalog(storage),
             testMutationPreparationSource(testPauseAuthority()),

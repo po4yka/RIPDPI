@@ -179,6 +179,7 @@ class FailoverCoordinator
         private val startupFallbackController: StartupFallbackController,
         private val relayCatalog: SimpleFailoverRelayCatalog,
         private val settingsRepository: AppSettingsRepository,
+        private val profileMutations: com.poyka.ripdpi.data.ProfileMutationCoordinator,
         private val awgEgressSelection: SimpleAwgEgressSelection,
         private val egressProbe: FailoverEgressProbe,
         private val egressHealthCache: SimpleEgressHealthMemory,
@@ -313,16 +314,17 @@ class FailoverCoordinator
                 startupFallbackLease = startupFallbackController.captureStartupFallbackLease()
                 startupRelayProbeAttemptBudget.clear()
                 stopObserving()
-                settingsRepository.update {
-                    if (!guard.isCurrent()) return@update
-                    setEnableCmdSettings(false)
-                    setRelayEnabled(true)
-                    setRelayKind(RelayKindVlessReality)
-                    setRelayProfileId(SEEDED_VLESS_REALITY_PROFILE_ID)
-                    setSimpleFailoverAwgProfileId("")
-                }
+                val prepared =
+                    profileMutations.prepareStandaloneSelectionForStart(guard) {
+                        setEnableCmdSettings(false)
+                        setRelayEnabled(true)
+                        setRelayKind(RelayKindVlessReality)
+                        setRelayProfileId(SEEDED_VLESS_REALITY_PROFILE_ID)
+                        setSimpleFailoverAwgProfileId("")
+                    }
+                if (!prepared) return@withLock
                 guard.runIfCurrent {
-                    awgEgressSelection.clearForUserStart()
+                    awgEgressSelection.clear()
                     startupFailureSwitchesInCycle = 0
                     startupFailureCandidates = emptyList()
                     startupFailureStartedOutsideCandidates = false

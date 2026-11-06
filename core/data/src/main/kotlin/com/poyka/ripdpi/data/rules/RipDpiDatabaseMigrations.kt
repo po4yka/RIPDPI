@@ -33,6 +33,19 @@ internal object RipDpiDatabaseMigrations {
             }
         }
 
+    val MIGRATION_2_3: Migration =
+        object : Migration(2, 3) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL(
+                    "CREATE TABLE IF NOT EXISTS `profile_records` (" +
+                        "`namespace` TEXT NOT NULL, " +
+                        "`id` TEXT NOT NULL, " +
+                        "`payload` BLOB NOT NULL, " +
+                        "PRIMARY KEY(`namespace`, `id`))",
+                )
+            }
+        }
+
     /** All migrations, in order. */
-    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2)
+    val ALL: Array<Migration> = arrayOf(MIGRATION_1_2, MIGRATION_2_3)
 }

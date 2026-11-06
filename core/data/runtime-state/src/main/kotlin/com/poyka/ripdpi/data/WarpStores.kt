@@ -6,11 +6,7 @@ import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
 import com.poyka.ripdpi.serialization.RipDpiJson
-import dagger.Binds
-import dagger.Module
-import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
-import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -565,20 +561,4 @@ internal class KeystoreEncryptedPreferences(
 
 internal fun SharedPreferences.Editor.commitOrThrow() {
     check(commit()) { "Could not durably persist profile state" }
-}
-
-@Module
-@InstallIn(SingletonComponent::class)
-abstract class WarpStoreModule {
-    @Binds
-    @Singleton
-    abstract fun bindWarpProfileStore(store: SharedPreferencesWarpProfileStore): WarpProfileStore
-
-    @Binds
-    @Singleton
-    abstract fun bindWarpCredentialStore(store: KeystoreWarpCredentialStore): WarpCredentialStore
-
-    @Binds
-    @Singleton
-    abstract fun bindWarpEndpointStore(store: SharedPreferencesWarpEndpointStore): WarpEndpointStore
 }

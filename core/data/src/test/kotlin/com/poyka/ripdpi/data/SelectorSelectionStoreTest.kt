@@ -1,535 +1,318 @@
 package com.poyka.ripdpi.data
 
-import android.content.Context
-import android.content.ContextWrapper
-import android.content.SharedPreferences
-import androidx.test.core.app.ApplicationProvider
 import app.cash.turbine.test
-import com.poyka.ripdpi.data.selector.SelectorActiveGroupStore
-import com.poyka.ripdpi.data.selector.SharedPreferencesSelectorSelectionStore
-import kotlinx.coroutines.ExperimentalCoroutinesApi
+import com.poyka.ripdpi.data.selector.SelectorChoiceOrigin
+import kotlinx.coroutines.async
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertSame
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
-import java.util.concurrent.CountDownLatch
-import java.util.concurrent.TimeUnit
-import java.util.concurrent.atomic.AtomicReference
 
-/**
- * Unit tests for [SharedPreferencesSelectorSelectionStore]: the selected-member
- * signal for selector [ProxyGroup]s. Exposes a `selectedProfileId` flow per
- * group and persists the last selection so a service restart resumes the
- * last-selected member rather than the first.
- */
-@OptIn(ExperimentalCoroutinesApi::class)
-@RunWith(RobolectricTestRunner::class)
-class SelectorSelectionStoreTest {
+class SelectorSelectionStoreTest : RoomProfileTest() {
     @Test
     fun `automatic selection cannot overwrite a newer manual choice after ABA`() =
-        kotlinx.coroutines.test.runTest {
-            val store = newStore()
-            store.select("group-a", "profile-1")
-            val beforeProbe = store.snapshot("group-a")
-            store.select("group-a", "profile-2")
-            store.select("group-a", "profile-1")
-
-            val applied = store.selectAutomatically("group-a", beforeProbe, "probe-winner")
-
-            assertFalse(applied)
-            assertEquals("profile-1", store.selectedProfileId("group-a").value)
-            assertTrue(store.snapshot("group-a").isManual)
+        runTest {
+            val fixture = initialized()
+            val store = fixture.selectorSelections
+            store.select("group", "one")
+            val before = store.snapshot("group")
+            store.select("group", "two")
+            store.select("group", "one")
+            assertFalse(store.selectAutomatically("group", before, "probe"))
+            assertEquals("one", store.selectedProfileId("group").first())
+            assertTrue(store.snapshot("group").isManual)
         }
 
     @Test
-    fun `automatic selection persists its origin and can replace a manual direct selection`() =
-        kotlinx.coroutines.test.runTest {
-            val store = newStore()
-            store.select("group-a", "direct-member")
+    fun `manual and automatic origins survive database reopen`() =
+        runTest {
+            val fixture = initialized()
+            fixture.selectorSelections.select("group", "manual")
+            fixture.reopen()
+            assertTrue(fixture.selectorSelections.snapshot("group").isManual)
+            assertNull(fixture.selectorSelections.manualReceipt("group"))
             assertTrue(
-                restoredStore().snapshot("group-a").isManual,
+                fixture.selectorSelections.selectAutomatically(
+                    "group",
+                    fixture.selectorSelections.snapshot("group"),
+                    "probe",
+                ),
             )
-
-            assertTrue(store.selectAutomatically("group-a", store.snapshot("group-a"), "probe-winner"))
-
-            val restored =
-                restoredStore().snapshot("group-a")
-            assertEquals("probe-winner", restored.profileId)
-            assertFalse(restored.isManual)
+            fixture.reopen()
+            assertEquals("probe", fixture.selectorSelections.snapshot("group").profileId)
+            assertFalse(fixture.selectorSelections.snapshot("group").isManual)
         }
 
     @Test
     fun `same member manual reselection invalidates an in flight probe`() =
-        kotlinx.coroutines.test.runTest {
-            val store = newStore()
-            store.select("group-a", "profile-1")
-            val beforeProbe = store.snapshot("group-a")
-            store.select("group-a", "profile-1")
-
-            assertFalse(store.selectAutomatically("group-a", beforeProbe, "probe-winner"))
+        runTest {
+            val fixture = initialized()
+            val store = fixture.selectorSelections
+            store.select("group", "one")
+            val before = store.snapshot("group")
+            store.select("group", "one")
+            assertFalse(store.selectAutomatically("group", before, "probe"))
         }
 
     @Test
-    fun `clearing selection or all selections invalidates empty snapshots`() =
-        kotlinx.coroutines.test.runTest {
-            val store = newStore()
-            val beforeClear = store.snapshot("group-a")
-            store.clearSelection("group-a")
-            assertFalse(store.selectAutomatically("group-a", beforeClear, "probe-winner"))
-            val beforeReset = store.snapshot("group-a")
-            store.clearAll()
-            assertFalse(store.selectAutomatically("group-a", beforeReset, "probe-winner"))
-            assertNull(store.snapshot("group-a").profileId)
-            assertFalse(store.snapshot("group-a").isManual)
+    fun `clear selection invalidates even an empty snapshot`() =
+        runTest {
+            val fixture = initialized()
+            val store = fixture.selectorSelections
+            val before = store.snapshot("group")
+            store.clearSelection("group")
+            assertFalse(store.selectAutomatically("group", before, "probe"))
+            assertNull(store.snapshot("group").profileId)
+            assertFalse(store.snapshot("group").isManual)
         }
 
     @Test
     fun `clear all invalidates an empty snapshot without creating a flow`() =
         runTest {
-            val store = newStore()
-            val beforeReset = store.snapshot("unobserved-empty-group")
-
+            val fixture = initialized()
+            val store = fixture.selectorSelections
+            val before = store.snapshot("never-stored")
             store.clearAll()
-
-            assertFalse(store.selectAutomatically("unobserved-empty-group", beforeReset, "stale-winner"))
-            assertNull(store.snapshot("unobserved-empty-group").profileId)
+            assertFalse(store.selectAutomatically("never-stored", before, "probe"))
         }
 
     @Test
     fun `clear selection retires the checked manual receipt`() =
         runTest {
-            val store = newStore()
-            store.select("group-a", "manual-member")
-            assertTrue(store.manualReceipt("group-a") != null)
-
-            store.clearSelection("group-a")
-
-            assertNull(store.manualReceipt("group-a"))
-            assertNull(store.snapshot("group-a").profileId)
+            val fixture = initialized()
+            val store = fixture.selectorSelections
+            store.select("group", "one")
+            assertNotNull(store.manualReceipt("group"))
+            store.clearSelection("group")
+            assertNull(store.manualReceipt("group"))
+            assertNull(store.selectedProfileId("group").first())
         }
 
     @Test
-    fun `clear all retires every checked manual receipt`() =
+    fun `clear all retires every manual receipt and clears persisted ownership`() =
         runTest {
-            val store = newStore()
-            store.select("group-a", "manual-a")
-            store.select("group-b", "manual-b")
-            assertTrue(store.manualReceipt("group-a") != null)
-            assertTrue(store.manualReceipt("group-b") != null)
-
+            val fixture = initialized()
+            val store = fixture.selectorSelections
+            store.select("one", "member-a")
+            store.select("two", "member-b")
             store.clearAll()
-
-            assertNull(store.manualReceipt("group-a"))
-            assertNull(store.manualReceipt("group-b"))
-            assertNull(store.snapshot("group-a").profileId)
-            assertNull(store.snapshot("group-b").profileId)
-        }
-
-    @Test
-    fun `legacy selections without provenance are not considered manual`() =
-        kotlinx.coroutines.test.runTest {
-            newStore()
-            context
-                .getSharedPreferences("selector_selection_store", Context.MODE_PRIVATE)
-                .edit()
-                .putString("selected-profile-group-a", "legacy-member")
-                .commit()
-
-            val restored =
-                restoredStore().snapshot("group-a")
-
-            assertEquals("legacy-member", restored.profileId)
-            assertFalse(restored.isManual)
+            assertNull(store.manualReceipt("one"))
+            assertNull(store.manualReceipt("two"))
+            assertNull(fixture.selectorChoice.activeGroupId.first())
+            fixture.reopen()
+            assertNull(fixture.selectorSelections.snapshot("one").profileId)
+            assertNull(fixture.selectorSelections.snapshot("two").profileId)
         }
 
     @Test
     fun `policy invalidation rejects old probes without changing manual selection`() =
-        kotlinx.coroutines.test.runTest {
-            val store = newStore()
-            store.select("group-a", "manual-member")
-            val beforePolicyChange = store.snapshot("group-a")
-
-            store.invalidatePendingSelection("group-a")
-
-            assertFalse(store.selectAutomatically("group-a", beforePolicyChange, "stale-winner"))
-            assertEquals("manual-member", store.snapshot("group-a").profileId)
-            assertTrue(store.snapshot("group-a").isManual)
-            assertTrue(store.selectAutomatically("group-a", store.snapshot("group-a"), "fresh-winner"))
+        runTest {
+            val fixture = initialized()
+            val store = fixture.selectorSelections
+            store.select("group", "manual")
+            val before = store.snapshot("group")
+            store.invalidatePendingSelection("group")
+            assertFalse(store.selectAutomatically("group", before, "stale"))
+            assertEquals("manual", store.snapshot("group").profileId)
+            assertTrue(store.snapshot("group").isManual)
+            assertTrue(store.selectAutomatically("group", store.snapshot("group"), "fresh"))
         }
 
     @Test
-    fun `same checked member commit refreshes an already cached flow and snapshot without another write`() =
+    fun `checked choice publishes one committed member and readback does not rewrite rows`() =
         runTest {
-            val countedContext = CountingSelectorContext(context)
-            val preparation = testMutationPreparationSource()
-            val authority = preparation.authority
-            val active = SelectorActiveGroupStore(countedContext, authority)
-            val store =
-                SharedPreferencesSelectorSelectionStore(
-                    countedContext,
-                    preparation,
-                    authority,
-                    active,
-                )
-            store.clearAll()
-            store.select("group-a", "old-member")
-            val before = store.snapshot("group-a")
-            val flow = store.selectedProfileId("group-a")
-            flow.test {
-                assertEquals("old-member", awaitItem())
-                val outcome =
-                    authority.invalidateForMutation(
-                        ProfileMutationOrigin.ExplicitActivation,
-                        "checked-manual",
-                        authority.reference(),
-                    ) as ProfileMutationOutcome.Reserved
-                val receipt = outcome.receipt as ProfileActivationReceipt
-                val originalCommand = authority.snapshotAuthority()
-                val commitsBefore = countedContext.commits
-                val appliesBefore = countedContext.applies
-                active.commitMember(
-                    "group-a",
-                    "new-member",
-                    com.poyka.ripdpi.data.selector.SelectorChoiceOrigin
-                        .Manual(receipt),
-                )
-                assertEquals("new-member", awaitItem())
-                assertEquals("new-member", flow.value)
-                val after = store.snapshot("group-a")
-                assertEquals("new-member", after.profileId)
+            val fixture = initialized()
+            val store = fixture.selectorSelections
+            store.select("group", "old")
+            val before = store.snapshot("group")
+            val receipt = reserve(fixture)
+            val authority = fixture.pauseAuthority.snapshotAuthority()
+            store.selectedProfileId("group").test {
+                assertEquals("old", awaitItem())
+                fixture.selectorChoice.commitMember("group", "new", SelectorChoiceOrigin.Manual(receipt))
+                assertEquals("new", awaitItem())
+                val committed = fixture.snapshot()
+                val after = store.snapshot("group")
+                assertEquals("new", after.profileId)
                 assertTrue(after.isManual)
                 assertTrue(after.revision > before.revision)
-                assertEquals("group-a", active.activeGroupId.value)
-                assertSame(receipt, store.manualReceipt("group-a"))
-                assertEquals(originalCommand, authority.snapshotAuthority())
-                assertEquals(commitsBefore + 1, countedContext.commits)
-                assertEquals(appliesBefore, countedContext.applies)
+                assertEquals("group", fixture.selectorChoice.activeGroupId.first())
+                assertSame(receipt, store.manualReceipt("group"))
+                assertEquals(authority, fixture.pauseAuthority.snapshotAuthority())
+                assertEquals(committed, fixture.snapshot())
                 expectNoEvents()
-                assertEquals(commitsBefore + 1, countedContext.commits)
-                assertEquals(appliesBefore, countedContext.applies)
             }
         }
 
     @Test
-    fun `repeated checked choice invalidates a stale probe when local revision is ahead`() =
+    fun `repeated checked choice rejects stale probes when local revision is ahead`() =
         runTest {
-            val preparation = testMutationPreparationSource()
-            val authority = preparation.authority
-            val active = SelectorActiveGroupStore(context, authority)
-            val store =
-                SharedPreferencesSelectorSelectionStore(
-                    context,
-                    preparation,
-                    authority,
-                    active,
-                )
-            store.clearAll()
-            store.select("group-a", "same-member")
-            repeat(2) { store.invalidatePendingSelection("group-a") }
-            val stale = store.snapshot("group-a")
-            val outcome =
-                authority.invalidateForMutation(
-                    ProfileMutationOrigin.ExplicitActivation,
-                    "manual-again",
-                    authority.reference(),
-                ) as ProfileMutationOutcome.Reserved
-            active.commitMember(
-                "group-a",
-                "same-member",
-                com.poyka.ripdpi.data.selector.SelectorChoiceOrigin
-                    .Manual(outcome.receipt as ProfileActivationReceipt),
-            )
-            assertFalse(store.selectAutomatically("group-a", stale, "stale-winner"))
-            assertEquals("same-member", store.snapshot("group-a").profileId)
-            assertTrue(store.snapshot("group-a").isManual)
-            assertTrue(store.snapshot("group-a").revision > stale.revision)
+            val fixture = initialized()
+            val store = fixture.selectorSelections
+            store.select("group", "same")
+            repeat(2) { store.invalidatePendingSelection("group") }
+            val before = store.snapshot("group")
+            fixture.selectorChoice.commitMember("group", "same", SelectorChoiceOrigin.Manual(reserve(fixture)))
+            assertFalse(store.selectAutomatically("group", before, "stale"))
+            assertEquals("same", store.snapshot("group").profileId)
+            assertTrue(store.snapshot("group").revision > before.revision)
         }
 
     @Test
     fun `automatic compare and write cannot overwrite a concurrent checked manual commit`() =
         runTest {
-            val counted = CountingSelectorContext(context)
-            val preparation = testMutationPreparationSource()
-            val authority = preparation.authority
-            val active = SelectorActiveGroupStore(counted, authority)
-            val store =
-                SharedPreferencesSelectorSelectionStore(
-                    counted,
-                    preparation,
-                    authority,
-                    active,
-                )
-            store.clearAll()
-            store.select("group-a", "original-member")
-            val expected = store.snapshot("group-a")
-            val reserved =
-                authority.invalidateForMutation(
-                    ProfileMutationOrigin.ExplicitActivation,
-                    "concurrent-measured",
-                    authority.reference(),
-                ) as ProfileMutationOutcome.Reserved
-            val receipt = reserved.receipt as ProfileActivationReceipt
-            val started = CountDownLatch(1)
-            val completed = CountDownLatch(1)
-            val failure = AtomicReference<Throwable?>()
+            val fixture = initialized()
+            val store = fixture.selectorSelections
+            store.select("group", "initial")
+            val before = store.snapshot("group")
+            val receipt = reserve(fixture)
+            val barrier = ProfileWriteBarrier("selector_choices")
+            fixture.room.beforeSeal = barrier::beforeSeal
             val manual =
-                Thread {
-                    started.countDown()
-                    try {
-                        active.commitMember(
-                            "group-a",
-                            "checked-member",
-                            com.poyka.ripdpi.data.selector.SelectorChoiceOrigin
-                                .Manual(receipt),
-                        )
-                    } catch (problem: Throwable) {
-                        failure.set(problem)
-                    } finally {
-                        completed.countDown()
-                    }
-                }
-            counted.beforeCommit = {
-                manual.start()
-                assertTrue(started.await(2, TimeUnit.SECONDS))
-                val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(2)
-                while (completed.count != 0L && System.nanoTime() < deadline) {
-                    when (manual.state) {
-                        Thread.State.BLOCKED, Thread.State.WAITING -> break
-                        else -> Thread.yield()
-                    }
-                }
-                assertTrue(
-                    completed.count == 0L || manual.state == Thread.State.BLOCKED ||
-                        manual.state == Thread.State.WAITING,
-                )
-            }
+                async { fixture.selectorChoice.commitMember("group", "manual", SelectorChoiceOrigin.Manual(receipt)) }
             try {
-                store.selectAutomatically("group-a", expected, "automatic-winner")
-                assertTrue(completed.await(2, TimeUnit.SECONDS))
-                failure.get()?.let { throw it }
-                assertEquals("checked-member", store.snapshot("group-a").profileId)
-                assertTrue(store.snapshot("group-a").isManual)
-                assertSame(receipt, store.manualReceipt("group-a"))
+                barrier.awaitEntry()
+                val automatic = async { store.selectAutomatically("group", before, "probe") }
+                barrier.release()
+                manual.await()
+                assertFalse(automatic.await())
             } finally {
-                counted.beforeCommit = null
-                manual.join(2_000)
-                assertFalse(manual.isAlive)
+                barrier.release()
             }
+            fixture.clearFaults()
+            assertEquals("manual", store.snapshot("group").profileId)
+            assertSame(receipt, store.manualReceipt("group"))
         }
 
     @Test
-    fun `automatic choice clears the original transient manual receipt without another write`() =
+    fun `automatic choice clears the transient manual receipt`() =
         runTest {
-            val counted = CountingSelectorContext(context)
-            val preparation = testMutationPreparationSource()
-            val active = SelectorActiveGroupStore(counted, preparation.authority)
-            val store =
-                SharedPreferencesSelectorSelectionStore(
-                    counted,
-                    preparation,
-                    preparation.authority,
-                    active,
-                )
-            store.clearAll()
-            store.select("group-a", "manual-member")
-            assertTrue(store.manualReceipt("group-a") != null)
-            val before = counted.commits
-            val appliesBefore = counted.applies
-            assertTrue(store.selectAutomatically("group-a", store.snapshot("group-a"), "automatic-member"))
-            assertEquals("automatic-member", store.snapshot("group-a").profileId)
-            assertFalse(store.snapshot("group-a").isManual)
-            assertNull(store.manualReceipt("group-a"))
-            assertEquals(before + 1, counted.commits)
-            assertEquals(appliesBefore, counted.applies)
-        }
-
-    private val context: Context
-        get() = ApplicationProvider.getApplicationContext()
-
-    private fun restoredStore(): SharedPreferencesSelectorSelectionStore {
-        val preparation = testMutationPreparationSource()
-        return SharedPreferencesSelectorSelectionStore(
-            context,
-            preparation,
-            preparation.authority,
-            SelectorActiveGroupStore(context, preparation.authority),
-        )
-    }
-
-    private fun newStore(): SharedPreferencesSelectorSelectionStore {
-        val store =
-            restoredStore()
-        store.clearAll()
-        return store
-    }
-
-    @Test
-    fun `selectedProfileId is null for a group with no selection yet`() =
-        runTest {
-            val store = newStore()
-
-            assertNull(store.selectedProfileId("group-a").value)
+            val fixture = initialized()
+            val store = fixture.selectorSelections
+            store.select("group", "manual")
+            assertNotNull(store.manualReceipt("group"))
+            assertTrue(store.selectAutomatically("group", store.snapshot("group"), "probe"))
+            assertNull(store.manualReceipt("group"))
+            assertFalse(store.snapshot("group").isManual)
+            assertEquals("probe", store.selectedProfileId("group").first())
         }
 
     @Test
-    fun `select then read returns the selected member id`() =
+    fun `absent and per-group selections are independent`() =
         runTest {
-            val store = newStore()
-
-            store.select(groupId = "group-a", profileId = "profile-1")
-
-            assertEquals("profile-1", store.selectedProfileId("group-a").value)
+            val fixture = initialized()
+            val store = fixture.selectorSelections
+            assertNull(store.selectedProfileId("one").first())
+            store.select("one", "first")
+            store.select("two", "second")
+            assertEquals("first", store.selectedProfileId("one").first())
+            assertEquals("second", store.selectedProfileId("two").first())
+            assertNull(store.selectedProfileId("three").first())
         }
 
     @Test
-    fun `selection is scoped per group`() =
+    fun `selection flow observes committed selection and deletion`() =
         runTest {
-            val store = newStore()
-
-            store.select(groupId = "group-a", profileId = "profile-1")
-            store.select(groupId = "group-b", profileId = "profile-2")
-
-            assertEquals("profile-1", store.selectedProfileId("group-a").value)
-            assertEquals("profile-2", store.selectedProfileId("group-b").value)
-        }
-
-    @Test
-    fun `selectedProfileId flow emits on every selection change`() =
-        runTest {
-            val store = newStore()
-
-            store.selectedProfileId("group-a").test {
+            val fixture = initialized()
+            val store = fixture.selectorSelections
+            store.selectedProfileId("group").test {
                 assertNull(awaitItem())
-
-                store.select(groupId = "group-a", profileId = "profile-1")
-                assertEquals("profile-1", awaitItem())
-
-                store.select(groupId = "group-a", profileId = "profile-2")
-                assertEquals("profile-2", awaitItem())
-
-                cancelAndIgnoreRemainingEvents()
+                store.select("group", "one")
+                assertEquals("one", awaitItem())
+                store.select("group", "two")
+                assertEquals("two", awaitItem())
+                store.clearSelection("group")
+                assertNull(awaitItem())
             }
         }
 
     @Test
-    fun `selection survives a fresh store instance backed by the same prefs`() =
+    fun `failed checked selection does not publish a member or manual capability`() =
         runTest {
-            newStore().select(groupId = "group-a", profileId = "profile-resumed")
-
-            // A new instance simulates a service restart reading from disk.
-            val restarted =
-                restoredStore()
-
-            assertEquals("profile-resumed", restarted.selectedProfileId("group-a").value)
+            val fixture = initialized()
+            fixture.selectorSelections.select("group", "old")
+            val before = fixture.snapshot()
+            fixture.failWrite("selector_choices")
+            fixture.selectorSelections.selectedProfileId("group").test {
+                assertEquals("old", awaitItem())
+                assertTrue(runCatching { fixture.selectorSelections.select("group", "new") }.isFailure)
+                assertEquals(before, fixture.snapshot())
+                expectNoEvents()
+            }
+            fixture.clearFaults()
+            fixture.reopen()
+            assertEquals("old", fixture.selectorSelections.snapshot("group").profileId)
+            assertNull(fixture.selectorSelections.manualReceipt("group"))
         }
 
     @Test
-    fun `clearSelection drops the persisted selection for a group`() =
+    fun `delayed automatic caller cannot clear a newer manual receipt after database commit`() =
         runTest {
-            val store = newStore()
-            store.select(groupId = "group-a", profileId = "profile-1")
-
-            store.clearSelection("group-a")
-
-            assertNull(store.selectedProfileId("group-a").value)
+            val fixture = initialized()
+            val store = fixture.selectorSelections
+            store.select("group", "initial")
+            val expected = store.snapshot("group")
+            val dispatcher = DelayedReturnDispatcher()
+            val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + dispatcher)
+            try {
+                val automatic =
+                    scope.async(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
+                        store.selectAutomatically("group", expected, "automatic")
+                    }
+                dispatcher.awaitReturn()
+                assertFalse(automatic.isCompleted)
+                assertEquals("automatic", store.snapshot("group").profileId)
+                store.select("group", "newer-manual")
+                val receipt = checkNotNull(store.manualReceipt("group"))
+                dispatcher.resume()
+                assertTrue(automatic.await())
+                assertSame(receipt, store.manualReceipt("group"))
+                assertTrue(fixture.pauseAuthority.isCurrent(receipt))
+                assertEquals("newer-manual", store.snapshot("group").profileId)
+                assertTrue(store.snapshot("group").isManual)
+            } finally {
+                scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+                dispatcher.resume()
+            }
         }
+
+    private suspend fun initialized() = fixture().also { it.initialize() }
+
+    private fun reserve(fixture: ProfileMutationTestFixture): ProfileActivationReceipt =
+        (
+            fixture.pauseAuthority.invalidateForMutation(
+                ProfileMutationOrigin.ExplicitActivation,
+                java.util.UUID
+                    .randomUUID()
+                    .toString(),
+                fixture.pauseAuthority.reference(),
+            ) as ProfileMutationOutcome.Reserved
+        ).receipt as ProfileActivationReceipt
 }
 
-private class CountingSelectorContext(
-    base: Context,
-) : ContextWrapper(base) {
-    var commits = 0
-        private set
-    var applies = 0
-        private set
-    var beforeCommit: (() -> Unit)? = null
+private class DelayedReturnDispatcher : kotlinx.coroutines.CoroutineDispatcher() {
+    private val queued = java.util.concurrent.ConcurrentLinkedQueue<Runnable>()
+    private val arrived = java.util.concurrent.CountDownLatch(1)
 
-    override fun getSharedPreferences(
-        name: String,
-        mode: Int,
-    ): SharedPreferences {
-        val actual = super.getSharedPreferences(name, mode)
-        return object : SharedPreferences by actual {
-            override fun edit(): SharedPreferences.Editor {
-                val editor = actual.edit()
-                return object : SharedPreferences.Editor by editor {
-                    override fun putString(
-                        key: String,
-                        value: String?,
-                    ): SharedPreferences.Editor {
-                        editor.putString(key, value)
-                        return this
-                    }
+    override fun dispatch(
+        context: kotlin.coroutines.CoroutineContext,
+        block: Runnable,
+    ) {
+        queued.add(block)
+        arrived.countDown()
+    }
 
-                    override fun putStringSet(
-                        key: String,
-                        values: Set<String>?,
-                    ): SharedPreferences.Editor {
-                        editor.putStringSet(key, values)
-                        return this
-                    }
-
-                    override fun putInt(
-                        key: String,
-                        value: Int,
-                    ): SharedPreferences.Editor {
-                        editor.putInt(key, value)
-                        return this
-                    }
-
-                    override fun putLong(
-                        key: String,
-                        value: Long,
-                    ): SharedPreferences.Editor {
-                        editor.putLong(key, value)
-                        return this
-                    }
-
-                    override fun putFloat(
-                        key: String,
-                        value: Float,
-                    ): SharedPreferences.Editor {
-                        editor.putFloat(key, value)
-                        return this
-                    }
-
-                    override fun putBoolean(
-                        key: String,
-                        value: Boolean,
-                    ): SharedPreferences.Editor {
-                        editor.putBoolean(key, value)
-                        return this
-                    }
-
-                    override fun remove(key: String): SharedPreferences.Editor {
-                        editor.remove(key)
-                        return this
-                    }
-
-                    override fun clear(): SharedPreferences.Editor {
-                        editor.clear()
-                        return this
-                    }
-
-                    override fun apply() {
-                        applies += 1
-                        editor.apply()
-                    }
-
-                    override fun commit(): Boolean {
-                        val hook = beforeCommit
-                        beforeCommit = null
-                        hook?.invoke()
-                        commits += 1
-                        return editor.commit()
-                    }
-                }
-            }
+    suspend fun awaitReturn() =
+        kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            check(arrived.await(10, java.util.concurrent.TimeUnit.SECONDS)) { "Transaction did not return to caller" }
         }
+
+    fun resume() {
+        while (true) (queued.poll() ?: return).run()
     }
 }

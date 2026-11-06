@@ -1,25 +1,16 @@
 package com.poyka.ripdpi.data
 
 import android.content.Context
-import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.data.backup.AwgBackupProfile
+import com.poyka.ripdpi.data.backup.BackupPrivateDataStore
 import com.poyka.ripdpi.data.backup.BackupPrivateDataV1
-import com.poyka.ripdpi.data.backup.DefaultBackupPrivateDataStore
-import com.poyka.ripdpi.data.backup.consistentBackupSnapshot
-import com.poyka.ripdpi.data.boot.BootSessionPointer
-import com.poyka.ripdpi.data.boot.BootSessionStateStore
-import com.poyka.ripdpi.data.rules.RipDpiDatabase
-import com.poyka.ripdpi.data.xray.SharedPreferencesXrayProfileMetadataStore
-import com.poyka.ripdpi.data.xray.SharedPreferencesXrayProviderSelectionStore
+import com.poyka.ripdpi.data.testing.RoomProfileFixture
+import com.poyka.ripdpi.data.testing.backupPrivateDataStore
 import com.poyka.ripdpi.data.xray.XrayProfileMetadataRecord
 import com.poyka.ripdpi.data.xray.XrayProfileSecretRecord
-import com.poyka.ripdpi.data.xray.XrayProfileSecretStore
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
-import com.poyka.ripdpi.proto.AppSettings
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -28,93 +19,34 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import java.security.GeneralSecurityException
 
 @RunWith(RobolectricTestRunner::class)
 class BackupPrivateDataStoreTest {
-    private lateinit var database: RipDpiDatabase
-    private lateinit var warpEndpoints: SharedPreferencesWarpEndpointStore
-    private lateinit var store: DefaultBackupPrivateDataStore
-
-    /** Profile ids whose sealed secret no longer decrypts in every credential store below. */
-    private val unreadable = mutableSetOf<String>()
+    private lateinit var fixture: RoomProfileFixture
+    private lateinit var store: BackupPrivateDataStore
 
     @Before
-    fun setUp() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        database = Room.inMemoryDatabaseBuilder(context, RipDpiDatabase::class.java).allowMainThreadQueries().build()
-        warpEndpoints = SharedPreferencesWarpEndpointStore(context)
-        val relayProfiles = SharedPreferencesRelayProfileStore(context)
-        val relayCredentials = BackupRelayCredentialStore(unreadable)
-        val warpProfiles = SharedPreferencesWarpProfileStore(context)
-        val warpCredentials = BackupWarpCredentialStore()
-        val awgCredentials = BackupAwgCredentialStore(unreadable)
-        val xrayMetadata = SharedPreferencesXrayProfileMetadataStore(context)
-        val xraySecrets = BackupXraySecretStore(unreadable)
-        val xraySelection = SharedPreferencesXrayProviderSelectionStore(context)
-        val profileMutations =
-            ProfileMutationRecoveryCoordinator(
-                pauseAuthority =
-                    com.poyka.ripdpi.data
-                        .testPauseAuthority(),
-                mutationGeneration = ProfileMutationGenerationPublisher(),
-                stores =
-                    ProfileMutationStores(
-                        settings = BackupSettingsRepository(),
-                        relayProfiles = relayProfiles,
-                        relayCredentials = relayCredentials,
-                        warpProfiles = warpProfiles,
-                        warpCredentials = warpCredentials,
-                        warpEndpoints = warpEndpoints,
-                        xrayMetadata = xrayMetadata,
-                        xraySecrets = xraySecrets,
-                        xraySelection = xraySelection,
-                        bootSession = BackupBootSessionStateStore(),
-                        selectorChoice = TestSelectorChoicePersistence(),
-                        groupCatalog =
-                            ProxyGroupCatalog(
-                                object : ProxyGroupBlobStore {
-                                    private var encoded: String? = null
-
-                                    override fun read() = encoded
-
-                                    override fun write(json: String) {
-                                        encoded = json
-                                    }
-
-                                    override fun clear() {
-                                        encoded = null
-                                    }
-                                },
-                            ),
-                    ),
-                awgProfiles = database.awgProfileDao(),
-                awgCredentials = awgCredentials,
-                journal = BackupProfileMutationJournal(),
-            )
-        store =
-            DefaultBackupPrivateDataStore(
-                relayProfiles = relayProfiles,
-                relayCredentials = relayCredentials,
-                warpProfiles = warpProfiles,
-                warpCredentials = warpCredentials,
-                awgProfiles = database.awgProfileDao(),
-                awgCredentials = awgCredentials,
-                xrayMetadata = xrayMetadata,
-                xraySecrets = xraySecrets,
-                xraySelection = xraySelection,
-                profileMutations = profileMutations,
-            )
-    }
+    fun setUp() =
+        runTest {
+            fixture =
+                RoomProfileFixture(
+                    ApplicationProvider.getApplicationContext<Context>(),
+                    testPauseAuthority(initialize = false),
+                )
+            fixture.initialize()
+            store = fixture.backupPrivateDataStore()
+        }
 
     @After
-    fun tearDown() {
-        database.close()
-    }
+    fun tearDown() = fixture.close()
+
+    private suspend fun preparation() = fixture.coordinator.captureMutation(ProfileMutationOrigin.RestoreProfiles)
 
     @Test
     fun `replaceAll round-trips every private profile family and clears endpoint cache`() =
         runTest {
-            warpEndpoints.save(
+            fixture.warpEndpoints.save(
                 WarpEndpointCacheEntry(
                     profileId = "old-warp",
                     networkScopeKey = "old-network",
@@ -150,16 +82,12 @@ class BackupPrivateDataStoreTest {
                 )
 
             store.replaceAll(
-                com.poyka.ripdpi.data.ProfileMutationPreparation(
-                    com.poyka.ripdpi.data.ProfileMutationOrigin.RestoreProfiles,
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
-                ),
+                preparation(),
                 expected,
             )
 
             assertEquals(expected, store.snapshot())
-            assertTrue(warpEndpoints.loadAll("old-warp").isEmpty())
+            assertTrue(fixture.warpEndpoints.loadAll("old-warp").isEmpty())
         }
 
     @Test
@@ -197,14 +125,16 @@ class BackupPrivateDataStoreTest {
                         XrayProviderSelectionRecord(XrayProviderSelectionRecord.ProviderKindXray, "xray-lost"),
                 )
             store.replaceAll(
-                com.poyka.ripdpi.data.ProfileMutationPreparation(
-                    com.poyka.ripdpi.data.ProfileMutationOrigin.RestoreProfiles,
-                    com.poyka.ripdpi.data
-                        .PauseAuthorityRef(0),
-                ),
+                preparation(),
                 stored,
             )
-            unreadable += setOf("relay-lost", "awg-lost", "xray-lost")
+            fixture.beforeOpen = { namespace, id ->
+                if (id in setOf("relay-lost", "awg-lost", "xray-lost") &&
+                    namespace in setOf("relay_credentials", "awg_credentials", "xray_secrets")
+                ) {
+                    throw GeneralSecurityException("Fixture key unavailable")
+                }
+            }
 
             val snapshot = store.snapshot()
 
@@ -217,209 +147,81 @@ class BackupPrivateDataStoreTest {
         }
 
     @Test
-    fun `snapshot rejects an unknown selected provider`() =
+    fun `replace rejects an unknown selected provider before writing`() =
         runTest {
+            val before = store.snapshot()
             val result =
                 runCatching {
-                    consistentBackupSnapshot {
-                        BackupPrivateDataV1(xraySelection = XrayProviderSelectionRecord(providerKind = "unknown"))
-                    }
-                }
-            assertTrue(result.isFailure)
-        }
-
-    @Test
-    fun `snapshot waits for matching Xray profile revisions`() =
-        runTest {
-            var reads = 0
-            val snapshot =
-                consistentBackupSnapshot {
-                    reads += 1
-                    BackupPrivateDataV1(
-                        xrayMetadata = listOf(XrayProfileMetadataRecord(profileId = "xray-1", revision = "old")),
-                        xraySecrets =
-                            listOf(
-                                XrayProfileSecretRecord(
-                                    profileId = "xray-1",
-                                    revision =
-                                        if (reads ==
-                                            1
-                                        ) {
-                                            "new"
-                                        } else {
-                                            "old"
-                                        },
-                                ),
-                            ),
+                    store.replaceAll(
+                        preparation(),
+                        BackupPrivateDataV1(xraySelection = XrayProviderSelectionRecord(providerKind = "unknown")),
                     )
                 }
-            assertEquals(2, reads)
-            assertEquals(snapshot.xrayMetadata.single().revision, snapshot.xraySecrets.single().revision)
+            assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+            assertEquals(before, store.snapshot())
         }
 
     @Test
-    fun `snapshot retries rather than exporting active id without profile`() =
+    fun `snapshot rejects an incomplete Xray pair without retrying reads`() =
         runTest {
-            var reads = 0
+            fixture.xrayMetadata.save(XrayProfileMetadataRecord(profileId = "xray-1", revision = "old"))
+            fixture.xraySecrets.save(XrayProfileSecretRecord(profileId = "xray-1", revision = "new"))
 
-            val snapshot =
-                consistentBackupSnapshot {
-                    reads += 1
-                    if (reads == 1) {
-                        BackupPrivateDataV1(warpActiveProfileId = "concurrent-profile")
-                    } else {
-                        BackupPrivateDataV1(
-                            warpProfiles = listOf(WarpProfile(id = "concurrent-profile")),
-                            warpActiveProfileId = "concurrent-profile",
-                        )
-                    }
+            val result = runCatching { store.snapshot() }
+
+            assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+            assertEquals("old", fixture.xrayMetadata.load("xray-1")?.revision)
+            assertEquals("new", fixture.xraySecrets.load("xray-1")?.revision)
+        }
+
+    @Test
+    fun `snapshot rejects an active WARP id without a profile`() =
+        runTest {
+            fixture.warpProfiles.setActiveProfileId("missing")
+
+            val result = runCatching { store.snapshot() }
+
+            assertTrue(result.exceptionOrNull() is IllegalArgumentException)
+            assertEquals("missing", fixture.warpProfiles.activeProfileId())
+        }
+
+    @Test
+    fun `failed private replacement keeps the old snapshot after reopen`() =
+        runTest {
+            val before =
+                BackupPrivateDataV1(
+                    relayProfiles = listOf(RelayProfileRecord(id = "old")),
+                    relayCredentials =
+                        listOf(
+                            RelayCredentialRecord(
+                                profileId = "old",
+                                vlessUuid = "Fixture old",
+                                updatedAtEpochMillis = 1,
+                            ),
+                        ),
+                )
+            store.replaceAll(preparation(), before)
+            val preparation = preparation()
+            var writes = 0
+            fixture.beforeSeal = { _, _ ->
+                writes += 1
+                check(writes != 2) { "Fixture write failure" }
+            }
+
+            val failure =
+                runCatching {
+                    store.replaceAll(
+                        preparation,
+                        BackupPrivateDataV1(relayProfiles = listOf(RelayProfileRecord(id = "new"))),
+                    )
                 }
 
-            assertEquals(2, reads)
-            assertEquals("concurrent-profile", snapshot.warpProfiles.single().id)
-            assertEquals("concurrent-profile", snapshot.warpActiveProfileId)
+            assertTrue(failure.isFailure)
+            assertEquals(2, writes)
+            fixture.beforeSeal = null
+            assertEquals(before, store.snapshot())
+            fixture = fixture.reopen()
+            store = fixture.backupPrivateDataStore()
+            assertEquals(before, store.snapshot())
         }
-}
-
-private class BackupBootSessionStateStore : BootSessionStateStore {
-    override fun lastSession(): BootSessionPointer? = null
-
-    override fun recordSession(
-        profileId: String,
-        mode: Mode,
-    ) = Unit
-
-    override fun clear() = Unit
-
-    override fun wasRunningAtUpdate(): Boolean = false
-
-    override fun setWasRunningAtUpdate(value: Boolean) = Unit
-}
-
-private class BackupRelayCredentialStore(
-    private val unreadable: Set<String>,
-) : RelayCredentialStore {
-    private val records = mutableMapOf<String, RelayCredentialRecord>()
-
-    override suspend fun load(profileId: String): RelayCredentialRecord? =
-        if (profileId in unreadable) throw unreadableFixture() else records[profileId]
-
-    override suspend fun save(credentials: RelayCredentialRecord) {
-        records[credentials.profileId] = credentials
-    }
-
-    override suspend fun clear(profileId: String) {
-        records.remove(profileId)
-    }
-
-    override suspend fun clearAll() = records.clear()
-}
-
-private class BackupWarpCredentialStore : WarpCredentialStore {
-    private val records = mutableMapOf<String, WarpCredentials>()
-
-    override suspend fun load(profileId: String): WarpCredentials? = records[profileId]
-
-    override suspend fun loadAll(): List<WarpCredentials> = records.values.sortedBy { it.profileId }
-
-    override suspend fun save(
-        profileId: String,
-        credentials: WarpCredentials,
-    ) {
-        records[profileId] = credentials.copy(profileId = profileId)
-    }
-
-    override suspend fun clear(profileId: String) {
-        records.remove(profileId)
-    }
-
-    override suspend fun clearAll() = records.clear()
-}
-
-private class BackupAwgCredentialStore(
-    private val unreadable: Set<String>,
-) : com.poyka.ripdpi.data.awg.AwgCredentialStore {
-    private val records = mutableMapOf<String, AwgSecrets>()
-
-    override suspend fun load(profileId: String): AwgSecrets? =
-        if (profileId in unreadable) throw unreadableFixture() else records[profileId]
-
-    override suspend fun save(
-        profileId: String,
-        secrets: AwgSecrets,
-    ) {
-        records[profileId] = secrets
-    }
-
-    override suspend fun clear(profileId: String) {
-        records.remove(profileId)
-    }
-
-    override suspend fun clearAll() = records.clear()
-}
-
-private class BackupXraySecretStore(
-    private val unreadable: Set<String>,
-) : XrayProfileSecretStore {
-    private val records = mutableMapOf<String, XrayProfileSecretRecord>()
-
-    override suspend fun load(profileId: String): XrayProfileSecretRecord? =
-        if (profileId in unreadable) throw unreadableFixture() else records[profileId]
-
-    override suspend fun save(record: XrayProfileSecretRecord) {
-        records[record.profileId] = record
-    }
-
-    override suspend fun clear(profileId: String) {
-        records.remove(profileId)
-    }
-
-    override suspend fun clearAll() = records.clear()
-}
-
-private class BackupSettingsRepository : AppSettingsRepository {
-    private val state = MutableStateFlow(AppSettingsSerializer.defaultValue)
-    override val settings: Flow<AppSettings> = state
-
-    override suspend fun snapshot() = state.value
-
-    override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-        state.value =
-            state.value
-                .toBuilder()
-                .apply(transform)
-                .build()
-    }
-
-    override suspend fun replace(settings: AppSettings) {
-        state.value = settings
-    }
-}
-
-private class BackupProfileMutationJournal : ProfileMutationJournal {
-    private var value: PendingProfileMutation? = null
-
-    override suspend fun prepare(mutation: PendingProfileMutation) {
-        check(value == null)
-        value = mutation
-    }
-
-    override suspend fun pending() = value
-
-    override suspend fun replace(
-        expectedMutationId: String,
-        mutation: PendingProfileMutation,
-    ) {
-        check(value?.mutationId == expectedMutationId)
-        value = mutation
-    }
-
-    override suspend fun complete(mutationId: String) {
-        check(value?.mutationId == mutationId)
-        value = null
-    }
-
-    override suspend fun clearForReset() {
-        value = null
-    }
 }

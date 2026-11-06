@@ -1,5 +1,10 @@
 package com.poyka.ripdpi.data
 
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+
 /**
  * In-memory [ProxyGroupBlobStore] for JVM unit tests. The production binding
  * (`KeystoreProxyGroupBlobStore`) AES-256-GCM seals the blob via AndroidKeyStore,
@@ -8,15 +13,25 @@ package com.poyka.ripdpi.data
  * `FakeWarpCredentialStore`.
  */
 class FakeProxyGroupBlobStore(
-    private var blob: String? = null,
+    blob: String? = null,
 ) : ProxyGroupBlobStore {
-    override fun read(): String? = blob
+    private val state = MutableStateFlow(blob)
+    private val mutex = Mutex()
 
-    override fun write(json: String) {
-        blob = json
+    override suspend fun read(): String? = state.value
+
+    override suspend fun write(json: String) {
+        update { json }
     }
 
-    override fun clear() {
-        blob = null
+    override suspend fun clear() {
+        update { null }
     }
+
+    override suspend fun update(transform: (String?) -> String?): String? =
+        mutex.withLock {
+            transform(state.value).also { state.value = it }
+        }
+
+    override fun observe() = state.asStateFlow()
 }

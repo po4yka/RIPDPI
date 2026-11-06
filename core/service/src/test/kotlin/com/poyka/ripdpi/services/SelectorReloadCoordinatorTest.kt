@@ -53,6 +53,34 @@ class SelectorReloadCoordinatorTest {
         }
 
     @Test
+    fun `failed storage observer surfaces failure and explicit preparation resubscribes`() =
+        runTest {
+            val failure = IllegalStateException("Profile storage unavailable")
+            var available = false
+            var subscriptions = 0
+            val selection = MutableStateFlow<SelectorReloadRequest?>(automatic("a"))
+            val changes =
+                kotlinx.coroutines.flow.flow {
+                    subscriptions++
+                    if (!available) throw failure
+                    selection.collect { emit(it) }
+                }
+            val trigger = RecordingReloadTrigger()
+            val coordinator = SelectorReloadCoordinator(backgroundScope, changes, trigger)
+            coordinator.start(Mode.VPN)
+            val first = runCatching { coordinator.awaitSubscription() }.exceptionOrNull()
+            assertTrue(first === failure || first?.cause === failure)
+            assertEquals(1, subscriptions)
+            assertTrue(trigger.reloadedProfileIds.isEmpty())
+            available = true
+            coordinator.awaitSubscription()
+            assertEquals(2, subscriptions)
+            selection.value = automatic("b")
+            runCurrent()
+            assertEquals(listOf("b"), trigger.reloadedProfileIds)
+        }
+
+    @Test
     fun `old service destruction retains the new mode owner`() =
         runTest {
             val selection = MutableStateFlow<SelectorReloadRequest?>(automatic("a"))

@@ -12,21 +12,21 @@ import org.robolectric.RobolectricTestRunner
 /**
  * Test #3: Proxy-group read-modify-write race regression.
  *
- * Verifies that concurrent add() calls on SharedPreferencesProxyGroupRepository
+ * Verifies that concurrent add() calls on DefaultProxyGroupRepository
  * do not lose writes. Without the Mutex, two coroutines could both read the same
  * stale list, compute independent next lists, and one would overwrite the other's
  * addition — leaving fewer groups than expected.
  */
 @RunWith(RobolectricTestRunner::class)
 class ProxyGroupRepositoryConcurrencyTest {
-    private lateinit var repository: SharedPreferencesProxyGroupRepository
+    private lateinit var repository: DefaultProxyGroupRepository
 
     @Before
     fun setUp() {
         // An in-memory blob store gives each test an isolated, AndroidKeyStore-free
         // backing for the repository under test.
         repository =
-            SharedPreferencesProxyGroupRepository(
+            DefaultProxyGroupRepository(
                 com.poyka.ripdpi.data
                     .ProxyGroupCatalog(FakeProxyGroupBlobStore()),
                 com.poyka.ripdpi.data

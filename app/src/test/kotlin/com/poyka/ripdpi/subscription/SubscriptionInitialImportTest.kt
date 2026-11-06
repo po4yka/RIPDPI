@@ -8,7 +8,6 @@ import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import mockwebserver3.MockResponse
 import org.junit.Assert.assertEquals
@@ -296,7 +295,7 @@ class SubscriptionInitialImportTest : SubscriptionRefreshTestSupport() {
 
             viewModel.importedEvents.test {
                 viewModel.confirm()
-                advanceUntilIdle()
+                viewModel.uiState.first { !it.importing }
                 assertEquals(1, calls)
                 assertFalse(viewModel.uiState.value.importing)
                 assertFalse(viewModel.uiState.value.importFailed)

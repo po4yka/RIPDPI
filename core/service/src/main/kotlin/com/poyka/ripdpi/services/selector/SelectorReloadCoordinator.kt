@@ -55,20 +55,39 @@ class SelectorReloadCoordinator(
     private val selectionChanges: Flow<SelectorReloadRequest?>,
     private val trigger: SelectorReloadTrigger,
 ) {
+    private val lock = Any()
     private var watchJob: Job? = null
     private val owners = mutableSetOf<Mode>()
     private var subscriptionReady = CompletableDeferred<Unit>()
+    private var subscriptionFailure: Exception? = null
 
     /** Waits for the seed before startup snapshots; cancellation before a seed fails preparation. */
-    suspend fun awaitSubscription() = subscriptionReady.await()
+    suspend fun awaitSubscription() {
+        val failed = synchronized(lock) { watchJob?.takeIf { subscriptionFailure != null } }
+        failed?.join()
+        val ready =
+            synchronized(lock) {
+                if (owners.isNotEmpty() && watchJob?.isActive != true) watch()
+                subscriptionReady
+            }
+        ready.await()
+        synchronized(lock) {
+            if (subscriptionReady === ready) subscriptionFailure?.let { throw it }
+        }
+    }
 
     /** Begins watching the selection signal. Idempotent: a second call is a no-op. */
+    fun start(owner: Mode) =
+        synchronized(lock) {
+            owners.add(owner)
+            if (watchJob?.isActive != true) watch()
+        }
+
     @Suppress("TooGenericExceptionCaught")
-    fun start(owner: Mode) {
-        owners.add(owner)
-        if (watchJob?.isActive == true) return
+    private fun watch() {
         val ready = CompletableDeferred<Unit>()
         subscriptionReady = ready
+        subscriptionFailure = null
         watchJob =
             scope.launch {
                 try {
@@ -88,6 +107,12 @@ class SelectorReloadCoordinator(
                                 Logger.e(failure) { "Selector runtime reload failed" }
                             }
                         }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    synchronized(lock) { if (subscriptionReady === ready) subscriptionFailure = failure }
+                    ready.completeExceptionally(failure)
+                    Logger.w { "Selector selection unavailable: ${failure.javaClass.simpleName}" }
                 } finally {
                     ready.cancel()
                 }
@@ -96,9 +121,10 @@ class SelectorReloadCoordinator(
     }
 
     /** Stops watching the selection signal; subsequent changes are ignored. */
-    fun stop(owner: Mode) {
-        if (!owners.remove(owner) || owners.isNotEmpty()) return
-        watchJob?.cancel()
-        watchJob = null
-    }
+    fun stop(owner: Mode) =
+        synchronized(lock) {
+            if (!owners.remove(owner) || owners.isNotEmpty()) return@synchronized
+            watchJob?.cancel()
+            watchJob = null
+        }
 }

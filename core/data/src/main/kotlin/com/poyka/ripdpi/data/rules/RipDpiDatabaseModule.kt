@@ -3,6 +3,9 @@ package com.poyka.ripdpi.data.rules
 import android.content.Context
 import androidx.room.Room
 import com.poyka.ripdpi.data.awg.AwgProfileDao
+import com.poyka.ripdpi.data.persistence.KeystoreProfileRecordCipher
+import com.poyka.ripdpi.data.persistence.ProfileRecordCipher
+import com.poyka.ripdpi.data.persistence.ProfileRecordDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -39,4 +42,11 @@ object RipDpiDatabaseModule {
     @Provides
     @Singleton
     fun provideAwgProfileDao(database: RipDpiDatabase): AwgProfileDao = database.awgProfileDao()
+
+    @Provides
+    @Singleton
+    fun provideProfileRecordDao(database: RipDpiDatabase): ProfileRecordDao = database.profileRecordDao()
+
+    @Provides
+    fun provideProfileRecordCipher(cipher: KeystoreProfileRecordCipher): ProfileRecordCipher = cipher
 }

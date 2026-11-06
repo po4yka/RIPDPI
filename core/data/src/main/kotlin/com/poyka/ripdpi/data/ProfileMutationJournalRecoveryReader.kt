@@ -30,14 +30,13 @@ internal class ProfileMutationJournalRecoveryReader(
             throw ProfileMutationJournalCorruptionException("Profile mutation journal family mismatch")
         }
         return if (intent is SubscriptionRefreshIntent) {
-            readSubscription(pending, migrated, intent)
+            readSubscription(migrated, intent)
         } else {
             RecoverablePendingMutation(pending, intent)
         }
     }
 
     private suspend fun readSubscription(
-        pending: PendingProfileMutation,
         migrated: PendingProfileMutation,
         intent: SubscriptionRefreshIntent,
     ): RecoverablePendingMutation {
@@ -53,7 +52,6 @@ internal class ProfileMutationJournalRecoveryReader(
                 migrated
             }
         val acceptedIntent = decode(accepted)
-        if (accepted != pending) journal.replace(pending.mutationId, accepted)
         return RecoverablePendingMutation(accepted, acceptedIntent)
     }
 

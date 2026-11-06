@@ -2,7 +2,6 @@ package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgSecrets
-import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -20,7 +19,7 @@ data class PreparedSubscriptionRefresh(
 )
 
 interface SubscriptionRefreshMutationCoordinator {
-    /** Checks group ownership before preparation; journals AWG and group after-images under one recovery lock. */
+    /** Checks group ownership before preparation; commits AWG identities and groups together. */
     suspend fun commitSubscriptionRefresh(
         expected: ProxyGroup,
         prepare: suspend () -> PreparedSubscriptionRefresh,
@@ -29,18 +28,19 @@ interface SubscriptionRefreshMutationCoordinator {
 
 /** Shares the recovery lock with source edits, deletion, reset, and every other profile mutation. */
 internal class SubscriptionRefreshMutations(
-    private val mutex: Mutex,
-    private val recover: suspend () -> Unit,
-    private val groups: ProxyGroupCatalog,
-    private val authority: PauseIntentAuthority,
-    private val writer: ProfileMutationAfterImageWriter,
+    private val runtime: ProfileMutationRuntime,
 ) : SubscriptionRefreshMutationCoordinator {
+    private val mutex get() = runtime.mutex
+    private val groups get() = runtime.stores.groupCatalog
+    private val authority get() = runtime.pauseAuthority
+    private val writer get() = runtime.afterImageWriter
+
     override suspend fun commitSubscriptionRefresh(
         expected: ProxyGroup,
         prepare: suspend () -> PreparedSubscriptionRefresh,
     ): Boolean =
         mutex.withLock {
-            recover()
+            runtime.recover()
             val current = groups.snapshot()
             if (current.singleOrNull { it.id == expected.id } != expected) return@withLock false
             if (expected.subscription == null || expected.ownershipGeneration.isBlank()) return@withLock false

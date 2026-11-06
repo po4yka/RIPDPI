@@ -1,193 +1,176 @@
 package com.poyka.ripdpi.backup
 
-import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.AppSettingsSerializer
+import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.data.ProxyGroup
-import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
-import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.RelayCredentialRecord
+import com.poyka.ripdpi.data.RelayProfileRecord
+import com.poyka.ripdpi.data.backup.BackupPrivateDataV1
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryResetStore
-import com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
 import com.poyka.ripdpi.data.rules.OutboundTag
-import com.poyka.ripdpi.data.rules.RuleDao
 import com.poyka.ripdpi.data.rules.RuleEntity
-import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.testsupport.NoOpProfileMutationCoordinator
+import com.poyka.ripdpi.data.testing.RoomProfileFixture
 import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 
-class ResetAllSettingsUseCaseTest {
-    private val sampleProfile =
-        ProxyProfile.Shadowsocks(
-            id = "ss-1",
-            displayName = "SS",
-            groupId = "g-1",
-            server = "ss.example.com",
-            serverPort = 8388,
-            method = "aes-256-gcm",
-            password = "secret",
-        )
-    private val sampleGroup =
-        ProxyGroup(
-            id = "g-1",
-            name = "Group",
-            type = ProxyGroupType.BASIC,
-            order = 0,
-            isSelector = false,
-            members = listOf(sampleProfile),
-        )
+@RunWith(RobolectricTestRunner::class)
+class ResetAllSettingsUseCaseTest : BackupRoomTest() {
+    private suspend fun seededFixture(): RoomProfileFixture =
+        roomFixture().also { fixture ->
+            fixture.coordinator.restoreBackup(
+                fixture.coordinator.captureMutation(ProfileMutationOrigin.RestoreProfiles),
+                listOf(
+                    ProxyGroup(
+                        id = "group",
+                        name = "Group",
+                        type = ProxyGroupType.BASIC,
+                        order = 0,
+                        isSelector = false,
+                    ),
+                ),
+                listOf(RuleEntity(name = "rule", outboundTag = OutboundTag.Block)),
+                AppSettingsSerializer.defaultValue
+                    .toBuilder()
+                    .setProxyPort(4242)
+                    .build(),
+                BackupPrivateDataV1(
+                    relayProfiles = listOf(RelayProfileRecord(id = "relay")),
+                    relayCredentials = listOf(RelayCredentialRecord(profileId = "relay", vlessUuid = "secret")),
+                ),
+            )
+        }
 
     private fun useCase(
+        fixture: RoomProfileFixture,
         recorder: ResetEventRecorder,
-        groups: ProxyGroupRepository,
-        rules: RuleDao,
-        settings: AppSettingsRepository,
-        profileData: UserProfileResetStore,
-        diagnostics: DiagnosticsHistoryResetStore,
-        caches: CacheDirectoryCleaner,
-        artifacts: UserArtifactResetStore = FakeUserArtifactResetStore(),
+        session: UserSessionResetStore = UserSessionResetStore {},
+        diagnostics: DiagnosticsHistoryResetStore = diagnostics {},
+        artifacts: UserArtifactResetStore = UserArtifactResetStore {},
+        caches: CacheDirectoryCleaner = caches {},
     ) = ResetAllSettingsUseCase(
-        resetEventRecorder = recorder,
-        groupRepository = groups,
-        ruleDao = rules,
-        settingsRepository = settings,
-        profileMutations = NoOpProfileMutationCoordinator,
-        userProfileResetStore = profileData,
-        diagnosticsHistoryResetStore = diagnostics,
-        userArtifactResetStore = artifacts,
-        cacheDirectoryCleaner = caches,
+        recorder,
+        fixture.settings,
+        fixture.coordinator,
+        session,
+        diagnostics,
+        artifacts,
+        caches,
     )
 
     @Test
-    fun `reset wipes every user store`() =
+    fun `reset clears canonical data before ancillary stores and preserves previous settings for artifact cleanup`() =
         runTest {
-            val rules = FakeRuleDao(initialRowCount = 2)
-
+            val fixture = seededFixture()
             val recorder = FakeResetEventRecorder()
-            val groups = FakeGroupRepository(mutableListOf(sampleGroup))
-            val settings =
-                FakeAppSettingsRepository(
-                    AppSettings
-                        .getDefaultInstance()
-                        .toBuilder()
-                        .setProxyPort(4242)
-                        .build(),
-                )
-            val diagnostics = FakeDiagnosticsHistoryResetStore()
-            val caches = FakeCacheDirectoryCleaner()
-            val profileData = FakeUserProfileResetStore()
-            val artifacts = FakeUserArtifactResetStore()
+            val phases = mutableListOf<String>()
+            var artifactPort: Int? = null
+            useCase(
+                fixture,
+                recorder,
+                session =
+                    UserSessionResetStore {
+                        assertTrue(fixture.groups.list().isEmpty())
+                        assertTrue(fixture.relayProfiles.list().isEmpty())
+                        assertTrue(fixture.relayCredentials.load("relay") == null)
+                        assertTrue(
+                            fixture.database
+                                .ruleDao()
+                                .allRules()
+                                .first()
+                                .isEmpty(),
+                        )
+                        assertEquals(AppSettingsSerializer.defaultValue, fixture.settings.snapshot())
+                        phases += "session"
+                    },
+                diagnostics = diagnostics { phases += "diagnostics" },
+                artifacts =
+                    UserArtifactResetStore {
+                        artifactPort = it.proxyPort
+                        phases += "artifacts"
+                    },
+                caches = caches { phases += "caches" },
+            ).reset()
 
-            useCase(recorder, groups, rules, settings, profileData, diagnostics, caches, artifacts).reset()
-
-            // Groups and their embedded profiles are emptied.
-            assertTrue(groups.list().isEmpty())
-            // Routing rules deleted.
-            assertEquals(0, rules.rowCount)
-            assertEquals(1, rules.deleteAllCalls)
-            // Settings match a clean install, not protobuf's zero instance.
-            assertEquals(AppSettingsSerializer.defaultValue, settings.snapshot())
-            // Separate profile, credential, selection, and boot-session stores are wiped.
-            assertEquals(1, profileData.clearCalls)
-            // Diagnostics user-history cleared.
-            assertEquals(1, diagnostics.clearCalls)
-            assertEquals(1, artifacts.clearCalls)
-            // Caches cleared.
-            assertEquals(1, caches.clearCalls)
+            assertEquals(listOf("session", "diagnostics", "artifacts", "caches"), phases)
+            assertEquals(4242, artifactPort)
         }
 
     @Test
-    fun `reset records the user_initiated_reset event before any wipe`() =
+    fun `reset records the user event before the first database write`() =
         runTest {
+            val fixture = seededFixture()
             val recorder = FakeResetEventRecorder()
-            // The group repository snapshots whether the event was already recorded
-            // when the first store wipe runs, proving telemetry precedes the wipe.
-            val groups = FakeGroupRepository(mutableListOf(sampleGroup), onReplace = { recorder.recordCalls })
+            var eventWasPending = false
+            fixture.beforeSeal = { _, _ -> eventWasPending = recorder.hasPendingResetEvent() }
 
-            useCase(
-                recorder = recorder,
-                groups = groups,
-                rules = FakeRuleDao(initialRowCount = 1),
-                settings = FakeAppSettingsRepository(AppSettings.getDefaultInstance()),
-                profileData = FakeUserProfileResetStore(),
-                diagnostics = FakeDiagnosticsHistoryResetStore(),
-                caches = FakeCacheDirectoryCleaner(),
-            ).reset()
+            useCase(fixture, recorder).reset()
 
+            assertTrue(eventWasPending)
             assertEquals(1, recorder.recordCalls)
-            // The recorder had already been called once by the time the first wipe ran.
-            assertEquals(1, groups.recordCallsAtFirstWrite)
         }
 
     @Test
-    fun `reset event survives the wipe in the recorder and is consumable once`() =
+    fun `reset event survives the wipe and can be consumed once`() =
         runTest {
             val recorder = FakeResetEventRecorder()
-            useCase(
-                recorder = recorder,
-                groups = FakeGroupRepository(mutableListOf(sampleGroup)),
-                rules = FakeRuleDao(initialRowCount = 1),
-                settings = FakeAppSettingsRepository(AppSettings.getDefaultInstance()),
-                profileData = FakeUserProfileResetStore(),
-                diagnostics = FakeDiagnosticsHistoryResetStore(),
-                caches = FakeCacheDirectoryCleaner(),
-            ).reset()
+            useCase(seededFixture(), recorder).reset()
 
             assertTrue(recorder.hasPendingResetEvent())
-            // Consumed exactly once across the (simulated) restart boundary.
             assertTrue(recorder.consumeResetEvent())
             assertFalse(recorder.consumeResetEvent())
             assertFalse(recorder.hasPendingResetEvent())
         }
 
     @Test
-    fun `reset completes destructive phases after caller cancellation`() =
+    fun `reset completes ancillary phases after caller cancellation`() =
         runTest {
-            val deleteStarted = CompletableDeferred<Unit>()
-            val continueDelete = CompletableDeferred<Unit>()
-            val profileData = FakeUserProfileResetStore()
-            val diagnostics = FakeDiagnosticsHistoryResetStore()
-            val artifacts = FakeUserArtifactResetStore()
-            val caches = FakeCacheDirectoryCleaner()
+            val fixture = seededFixture()
+            val started = CompletableDeferred<Unit>()
+            val proceed = CompletableDeferred<Unit>()
+            val phases = mutableListOf<String>()
             val job =
                 backgroundScope.launch {
                     useCase(
-                        recorder = FakeResetEventRecorder(),
-                        groups = FakeGroupRepository(mutableListOf(sampleGroup)),
-                        rules =
-                            FakeRuleDao(1) {
-                                deleteStarted.complete(Unit)
-                                continueDelete.await()
+                        fixture,
+                        FakeResetEventRecorder(),
+                        session =
+                            UserSessionResetStore {
+                                started.complete(Unit)
+                                proceed.await()
+                                phases += "session"
                             },
-                        settings = FakeAppSettingsRepository(AppSettings.getDefaultInstance()),
-                        profileData = profileData,
-                        diagnostics = diagnostics,
-                        caches = caches,
-                        artifacts = artifacts,
+                        diagnostics = diagnostics { phases += "diagnostics" },
+                        artifacts = UserArtifactResetStore { phases += "artifacts" },
+                        caches = caches { phases += "caches" },
                     ).reset()
                 }
-
-            deleteStarted.await()
+            started.await()
             job.cancel()
-            continueDelete.complete(Unit)
+            proceed.complete(Unit)
             job.join()
 
-            assertEquals(1, profileData.clearCalls)
-            assertEquals(1, diagnostics.clearCalls)
-            assertEquals(1, artifacts.clearCalls)
-            assertEquals(1, caches.clearCalls)
+            assertEquals(listOf("session", "diagnostics", "artifacts", "caches"), phases)
+            assertTrue(fixture.groups.list().isEmpty())
         }
 
-    // -- Fakes ----------------------------------------------------------------
+    private fun diagnostics(action: suspend () -> Unit) =
+        object : DiagnosticsHistoryResetStore {
+            override suspend fun clearRuntimeHistory() = action()
+        }
+
+    private fun caches(action: () -> Unit) =
+        object : CacheDirectoryCleaner {
+            override fun clearCaches() = action()
+        }
 
     private class FakeResetEventRecorder : ResetEventRecorder {
         var recordCalls = 0
@@ -201,151 +184,6 @@ class ResetAllSettingsUseCaseTest {
 
         override fun hasPendingResetEvent(): Boolean = pending
 
-        override fun consumeResetEvent(): Boolean {
-            if (!pending) return false
-            pending = false
-            return true
-        }
-    }
-
-    private class FakeGroupRepository(
-        private val groups: MutableList<ProxyGroup>,
-        private val onReplace: (() -> Int)? = null,
-    ) : ProxyGroupRepository {
-        private val state = MutableStateFlow(groups.toList())
-        private var replaceAllCalls = 0
-
-        /** [FakeResetEventRecorder.recordCalls] captured at the first wipe. */
-        var recordCallsAtFirstWrite = 0
-            private set
-
-        override suspend fun add(group: ProxyGroup) {
-            groups.removeAll { it.id == group.id }
-            groups.add(group)
-            state.value = groups.toList()
-        }
-
-        override suspend fun update(group: ProxyGroup) {
-            val idx = groups.indexOfFirst { it.id == group.id }
-            if (idx >= 0) groups[idx] = group
-            state.value = groups.toList()
-        }
-
-        override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
-            replaceAll(
-                com.poyka.ripdpi.data
-                    .testPauseAuthority()
-                    .reserveStop(),
-                groups,
-            )
-        }
-
-        override suspend fun delete(
-            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
-            id: String,
-        ) {
-            groups.removeAll { it.id == id }
-            state.value = groups.toList()
-        }
-
-        override suspend fun list(): List<ProxyGroup> = groups.toList()
-
-        override suspend fun replaceAll(
-            receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
-            groups: List<ProxyGroup>,
-        ) {
-            if (replaceAllCalls++ == 0) recordCallsAtFirstWrite = onReplace?.invoke() ?: 0
-            this.groups.clear()
-            this.groups.addAll(groups)
-            state.value = this.groups.toList()
-        }
-
-        override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
-    }
-
-    private class FakeDiagnosticsHistoryResetStore : DiagnosticsHistoryResetStore {
-        var clearCalls = 0
-            private set
-
-        override suspend fun clearRuntimeHistory() {
-            clearCalls++
-        }
-    }
-
-    private class FakeUserProfileResetStore : UserProfileResetStore {
-        var clearCalls = 0
-            private set
-
-        override suspend fun clearAll() {
-            clearCalls++
-        }
-    }
-
-    private class FakeCacheDirectoryCleaner : CacheDirectoryCleaner {
-        var clearCalls = 0
-            private set
-
-        override fun clearCaches() {
-            clearCalls++
-        }
-    }
-
-    private class FakeUserArtifactResetStore : UserArtifactResetStore {
-        var clearCalls = 0
-            private set
-
-        override fun clearAll(settings: AppSettings) {
-            clearCalls++
-        }
-    }
-
-    /**
-     * Minimal in-memory [RuleDao] for the reset path. Only [deleteAll] is exercised;
-     * the remaining query/mutation methods are not called by the use case and would
-     * fail loudly if a regression started invoking them.
-     */
-    private class FakeRuleDao(
-        initialRowCount: Int,
-        private val beforeDelete: suspend () -> Unit = {},
-    ) : RuleDao() {
-        var rowCount: Int = initialRowCount
-            private set
-        var deleteAllCalls: Int = 0
-            private set
-
-        override suspend fun deleteAll() {
-            beforeDelete()
-            deleteAllCalls++
-            rowCount = 0
-        }
-
-        override fun allRules(): Flow<List<RuleEntity>> = flowOf(emptyList())
-
-        override fun enabledRules(): Flow<List<RuleEntity>> = flowOf(emptyList())
-
-        override fun rulesExcludingName(excludedName: String): Flow<List<RuleEntity>> = flowOf(emptyList())
-
-        override fun rulesByName(name: String): Flow<List<RuleEntity>> = flowOf(emptyList())
-
-        override suspend fun findByName(name: String): RuleEntity? = null
-
-        override suspend fun maxUserOrder(excludedName: String): Int? = null
-
-        override suspend fun insert(rule: RuleEntity): Long = error("not used")
-
-        override suspend fun update(rule: RuleEntity) = error("not used")
-
-        override suspend fun delete(rule: RuleEntity) = error("not used")
-
-        override suspend fun resetOutboundTags(
-            ruleIds: List<Long>,
-            targetTag: OutboundTag,
-            replacementTag: OutboundTag,
-        ): Int = error("not used")
-
-        override suspend fun updateOrder(
-            id: Long,
-            order: Int,
-        ) = error("not used")
+        override fun consumeResetEvent(): Boolean = pending.also { pending = false }
     }
 }

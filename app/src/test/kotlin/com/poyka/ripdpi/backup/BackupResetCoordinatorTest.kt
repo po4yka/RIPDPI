@@ -1,20 +1,9 @@
 package com.poyka.ripdpi.backup
 
-import com.poyka.ripdpi.data.ProxyGroup
-import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.diagnostics.DiagnosticsHistoryResetStore
-import com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
-import com.poyka.ripdpi.data.rules.OutboundTag
-import com.poyka.ripdpi.data.rules.RuleDao
-import com.poyka.ripdpi.data.rules.RuleEntity
-import com.poyka.ripdpi.proto.AppSettings
-import com.poyka.ripdpi.testsupport.NoOpProfileMutationCoordinator
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -25,7 +14,8 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class BackupResetCoordinatorTest {
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+class BackupResetCoordinatorTest : BackupRoomTest() {
     @Test
     fun `setResetDialogVisible true shows dialog and clears input`() =
         runTest {
@@ -79,7 +69,7 @@ class BackupResetCoordinatorTest {
             harness.state.update { it.copy(resetting = true, resetConfirmationInput = ResetConfirmationToken) }
 
             harness.coordinator.confirmReset()
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertEquals(0, harness.useCaseProbe.resetCalls)
             assertTrue(harness.resetEffects.isEmpty())
@@ -92,7 +82,7 @@ class BackupResetCoordinatorTest {
             harness.state.update { it.copy(resetConfirmationInput = "nope") }
 
             harness.coordinator.confirmReset()
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertEquals(0, harness.useCaseProbe.resetCalls)
             assertTrue(harness.resetEffects.isEmpty())
@@ -112,7 +102,7 @@ class BackupResetCoordinatorTest {
             assertTrue(harness.state.value.resetting)
             assertEquals(0, harness.useCaseProbe.resetCalls)
 
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertEquals(1, harness.useCaseProbe.resetCalls)
             assertFalse(harness.state.value.resetting)
@@ -132,7 +122,7 @@ class BackupResetCoordinatorTest {
             // The wipe coroutine has not been driven yet: no effect.
             assertTrue(harness.useCaseProbe.resetCalls <= 1)
 
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             // resetting is cleared (state-then-effect) and exactly one Wiped emitted.
             assertEquals(1, harness.useCaseProbe.resetCalls)
@@ -152,7 +142,7 @@ class BackupResetCoordinatorTest {
             }
 
             harness.coordinator.confirmReset()
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(harness.state.value.resetting)
             assertTrue(harness.state.value.resetDialogVisible)
@@ -182,21 +172,20 @@ class BackupResetCoordinatorTest {
         val useCaseProbe: UseCaseProbe,
     )
 
-    private fun TestScope.harness(
+    private suspend fun TestScope.harness(
         defaultDispatcher: CoroutineDispatcher = StandardTestDispatcher(testScheduler),
         userArtifactResetStore: UserArtifactResetStore = UserArtifactResetStore { },
     ): Harness {
         val state = MutableStateFlow(BackupRestoreUiState())
         val effects = mutableListOf<BackupResetEffect>()
         val probe = UseCaseProbe()
+        val fixture = roomFixture()
         val useCase =
             ResetAllSettingsUseCase(
                 resetEventRecorder = FakeResetEventRecorder(),
-                groupRepository = FakeGroupRepository(),
-                ruleDao = FakeRuleDao(),
-                settingsRepository = FakeAppSettingsRepository(AppSettings.getDefaultInstance()),
-                profileMutations = NoOpProfileMutationCoordinator,
-                userProfileResetStore = UserProfileResetStore { },
+                settingsRepository = fixture.settings,
+                profileMutations = fixture.coordinator,
+                userSessionResetStore = UserSessionResetStore { },
                 diagnosticsHistoryResetStore = FakeDiagnosticsHistoryResetStore(),
                 userArtifactResetStore = userArtifactResetStore,
                 cacheDirectoryCleaner = FakeCacheDirectoryCleaner(probe),
@@ -229,37 +218,6 @@ class BackupResetCoordinatorTest {
         }
     }
 
-    private class FakeGroupRepository : ProxyGroupRepository {
-        private val state = MutableStateFlow(emptyList<ProxyGroup>())
-
-        override suspend fun add(group: ProxyGroup) = Unit
-
-        override suspend fun update(group: ProxyGroup) = Unit
-
-        override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
-            replaceAll(
-                com.poyka.ripdpi.data
-                    .testPauseAuthority()
-                    .reserveStop(),
-                groups,
-            )
-        }
-
-        override suspend fun delete(
-            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
-            id: String,
-        ) = Unit
-
-        override suspend fun list(): List<ProxyGroup> = emptyList()
-
-        override suspend fun replaceAll(
-            receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
-            groups: List<ProxyGroup>,
-        ) = Unit
-
-        override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
-    }
-
     private class FakeDiagnosticsHistoryResetStore : DiagnosticsHistoryResetStore {
         override suspend fun clearRuntimeHistory() = Unit
     }
@@ -269,38 +227,5 @@ class BackupResetCoordinatorTest {
     ) : CacheDirectoryCleaner {
         // Cache clearing is the LAST step of the use case; reaching it == wipe done.
         override fun clearCaches() = probe.onWipeCompleted()
-    }
-
-    private class FakeRuleDao : RuleDao() {
-        override suspend fun deleteAll() = Unit
-
-        override fun allRules(): Flow<List<RuleEntity>> = flowOf(emptyList())
-
-        override fun enabledRules(): Flow<List<RuleEntity>> = flowOf(emptyList())
-
-        override fun rulesExcludingName(excludedName: String): Flow<List<RuleEntity>> = flowOf(emptyList())
-
-        override fun rulesByName(name: String): Flow<List<RuleEntity>> = flowOf(emptyList())
-
-        override suspend fun findByName(name: String): RuleEntity? = null
-
-        override suspend fun maxUserOrder(excludedName: String): Int? = null
-
-        override suspend fun insert(rule: RuleEntity): Long = error("not used")
-
-        override suspend fun update(rule: RuleEntity) = error("not used")
-
-        override suspend fun delete(rule: RuleEntity) = error("not used")
-
-        override suspend fun resetOutboundTags(
-            ruleIds: List<Long>,
-            targetTag: OutboundTag,
-            replacementTag: OutboundTag,
-        ): Int = error("not used")
-
-        override suspend fun updateOrder(
-            id: Long,
-            order: Int,
-        ) = error("not used")
     }
 }

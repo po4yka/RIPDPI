@@ -75,6 +75,8 @@ abstract class SelectorUrltestModule {
             coordinator: SelectorUrltestCoordinator,
         ): SelectorRuntimeLifecycleListener =
             object : SelectorRuntimeLifecycleListener {
+                override suspend fun prepare() = coordinator.awaitSubscription()
+
                 override fun start(owner: Mode) = coordinator.start(owner)
 
                 override fun stop(owner: Mode) = coordinator.stop(owner)

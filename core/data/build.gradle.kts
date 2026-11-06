@@ -12,6 +12,9 @@ plugins {
 
 extensions.configure<LibraryExtension> {
     namespace = "com.poyka.ripdpi.core.data"
+    testFixtures {
+        enable = true
+    }
     sourceSets {
         // Expose the exported Room schema JSONs to the test source set so
         // MigrationTestHelper can create old-version schemas and validate migrations.
@@ -43,8 +46,11 @@ dependencies {
     testImplementation(testFixtures(project(":core:data:settings")))
 
     testImplementation(libs.bundles.unit.test)
-    testImplementation(libs.androidx.datastore)
+    implementation(libs.androidx.datastore)
     testImplementation(libs.androidx.test.core.ktx)
     testImplementation(libs.kotlinx.serialization.json)
     testImplementation(libs.androidx.room.testing)
+
+    testFixturesApi(libs.androidx.room.runtime)
+    testFixturesImplementation(libs.androidx.room.ktx)
 }

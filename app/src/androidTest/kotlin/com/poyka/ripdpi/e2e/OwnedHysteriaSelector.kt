@@ -30,14 +30,13 @@ internal class OwnedHysteriaSelector(
     private val active: SelectorActiveGroupStore,
     private val mutations: ProfileMutationRecoveryCoordinator,
     private val stores: ProfileMutationStores,
+    private val originalSelections: com.poyka.ripdpi.data.ProfileSelections,
+    private val authority: com.poyka.ripdpi.data.PauseIntentAuthority,
     private val applied: AppliedRuntimeConfigurationSource,
     manifest: JSONObject,
     fixtureHost: String,
     hysteriaPort: Int,
 ) : AutoCloseable {
-    private val originalActive = active.snapshotActiveGroupId()
-    private val originalWarp = runBlocking { stores.warpProfiles.activeProfileId() }
-    private val originalAwg = stores.bootSession.activeAwgProfileId()
     private val groupId = "owned-hysteria-${UUID.randomUUID()}"
     private val primaryId = "$groupId-primary"
     private val reserveId = "$groupId-reserve"
@@ -98,7 +97,7 @@ internal class OwnedHysteriaSelector(
             failover = SelectorFailover(policy.probes.first().url, policy.intervalSeconds, 0, policy),
         )
 
-    fun prepareStandalonePreflight() = active.clearStandalone()
+    suspend fun prepareStandalonePreflight() = active.clearStandalone()
 
     fun selectPrimaryBeforeStart() =
         runBlocking {
@@ -113,15 +112,19 @@ internal class OwnedHysteriaSelector(
         return requireNotNull(current())
     }
 
-    fun awaitAutomaticReserve(previous: AppliedRuntimeConfiguration) {
-        awaitUntil(timeoutMs = 180_000, failureMessage = {
-            "Automatic reserve missing: manual=${selections.snapshot(groupId).isManual} applied=${current()}"
-        }) {
-            val selected = selections.snapshot(groupId)
-            val actual = current()
-            selected.profileId == reserveId && !selected.isManual && actual != null &&
-                actual.effectiveSelection.selectorGroupId == groupId &&
-                actual.effectiveSelection.selectorMemberId == reserveId && actual.revision > previous.revision
+    suspend fun awaitAutomaticReserve(previous: AppliedRuntimeConfiguration) {
+        kotlinx.coroutines.withTimeout(180_000L) {
+            while (true) {
+                val selected = selections.snapshot(groupId)
+                val actual = current()
+                if (selected.profileId == reserveId && !selected.isManual && actual != null &&
+                    actual.effectiveSelection.selectorGroupId == groupId &&
+                    actual.effectiveSelection.selectorMemberId == reserveId && actual.revision > previous.revision
+                ) {
+                    break
+                }
+                kotlinx.coroutines.delay(50L)
+            }
         }
         val actual = requireNotNull(current())
         assertEquals("Automatic switch must keep runtime ownership", previous.runtimeId, actual.runtimeId)
@@ -148,14 +151,38 @@ internal class OwnedHysteriaSelector(
         }
 
     private suspend fun restorePreviousProfiles() {
-        try {
-            stores.warpProfiles.setActiveProfileId(originalWarp)
-        } finally {
-            try {
-                stores.bootSession.setActiveAwgProfileId(originalAwg)
-            } finally {
-                active.restoreActiveGroup(originalActive)
+        val originalAwg = originalSelections.awgProfileId
+        if (originalAwg != null) {
+            check(
+                mutations.activateStandaloneAwg(
+                    mutations.captureMutation(ProfileMutationOrigin.ExplicitActivation),
+                    originalAwg,
+                ) is com.poyka.ripdpi.data.ProfileMutationOutcome.Reserved,
+            ) {
+                "A newer command owns the fixture selection"
             }
+        } else {
+            val expected = authority.reference()
+            check(
+                mutations.prepareStandaloneSelectionForStart(
+                    object : com.poyka.ripdpi.data.ProfileTransactionGuard {
+                        override fun runIfCurrent(action: () -> Unit): Boolean =
+                            authority.intentLinearizer.serialize {
+                                if (authority.reference() != expected) {
+                                    false
+                                } else {
+                                    action()
+                                    true
+                                }
+                            }
+                    },
+                ) {},
+            ) { "A newer command owns the fixture selection" }
+        }
+        try {
+            stores.warpProfiles.setActiveProfileId(originalSelections.warpProfileId)
+        } finally {
+            active.restoreActiveGroup(originalSelections.selectorGroupId)
         }
     }
 }

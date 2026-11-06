@@ -59,9 +59,6 @@ sealed interface BackupRestoreEffect {
     /** The file was malformed or unreadable before live data changed. */
     data object Malformed : BackupRestoreEffect
 
-    /** Restore and compensation both failed, so live-store integrity is not guaranteed. */
-    data object IntegrityFailure : BackupRestoreEffect
-
     /** The encrypted archive could not be authenticated with the entered passphrase. */
     data object DecryptionFailed : BackupRestoreEffect
 

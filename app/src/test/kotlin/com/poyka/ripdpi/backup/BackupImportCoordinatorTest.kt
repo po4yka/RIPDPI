@@ -1,29 +1,21 @@
 package com.poyka.ripdpi.backup
 
 import com.poyka.ripdpi.data.ProxyGroup
-import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.backup.BackupEncryption
 import com.poyka.ripdpi.data.backup.BackupExporter
 import com.poyka.ripdpi.data.backup.BackupImporter
-import com.poyka.ripdpi.data.backup.BackupRestoreUseCase
 import com.poyka.ripdpi.data.backup.BackupSerializer
 import com.poyka.ripdpi.data.backup.BackupSettingsConverter
 import com.poyka.ripdpi.data.backup.BackupVariant
-import com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
-import com.poyka.ripdpi.data.rules.OutboundTag
-import com.poyka.ripdpi.data.rules.RuleDao
-import com.poyka.ripdpi.data.rules.RuleEntity
+import com.poyka.ripdpi.data.testing.backupRestoreUseCase
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -43,7 +35,8 @@ import kotlin.concurrent.thread
 import kotlin.coroutines.CoroutineContext
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class BackupImportCoordinatorTest {
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+class BackupImportCoordinatorTest : BackupRoomTest() {
     private val sampleGroup =
         ProxyGroup(id = "g-1", name = "Group", type = ProxyGroupType.BASIC, order = 0, isSelector = false)
     private val sampleProfile =
@@ -70,7 +63,7 @@ class BackupImportCoordinatorTest {
                 opened = true
                 null
             }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(opened)
         }
@@ -86,7 +79,7 @@ class BackupImportCoordinatorTest {
                 opened = true
                 null
             }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(opened)
         }
@@ -97,7 +90,7 @@ class BackupImportCoordinatorTest {
             val h = harness()
 
             h.coordinator.openImport { null }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(h.state.value.importing)
             assertNull(h.state.value.importPreview)
@@ -110,7 +103,7 @@ class BackupImportCoordinatorTest {
             val h = harness()
 
             h.coordinator.openImport { throw IOException("boom") }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(h.state.value.importing)
             assertNull(h.state.value.importPreview)
@@ -126,7 +119,7 @@ class BackupImportCoordinatorTest {
             val h = harness(maxImportBytes = bytes.size - 1)
 
             h.coordinator.openImport { input }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(h.state.value.importing)
             assertNull(h.state.value.importPreview)
@@ -142,7 +135,7 @@ class BackupImportCoordinatorTest {
             val h = harness(maxImportBytes = bytes.size)
 
             h.coordinator.openImport { bytes.inputStream() }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(h.state.value.importing)
             assertEquals(
@@ -160,7 +153,7 @@ class BackupImportCoordinatorTest {
             val h = harness()
 
             h.coordinator.openImport { input }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(h.state.value.importing)
             assertNull(h.state.value.importPreview)
@@ -179,7 +172,7 @@ class BackupImportCoordinatorTest {
             val importJob = coroutineContext[Job]!!.children.single()
             var completionCause: Throwable? = null
             importJob.invokeOnCompletion { completionCause = it }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(h.state.value.importing)
             assertNull(h.state.value.importPreview)
@@ -199,7 +192,7 @@ class BackupImportCoordinatorTest {
             val h = harness()
 
             h.coordinator.openImport { json.byteInputStream() }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             val preview = h.state.value.importPreview!!
             assertEquals(json, preview.json)
@@ -221,13 +214,13 @@ class BackupImportCoordinatorTest {
             val h = harness()
 
             h.coordinator.openImport { archive.inputStream() }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertTrue(h.state.value.encryptedImportPending)
             assertNull(h.state.value.importPreview)
 
             h.coordinator.unlockEncryptedImport(ArchivePhrase.copyOf())
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(h.state.value.encryptedImportPending)
             assertTrue(
@@ -247,10 +240,10 @@ class BackupImportCoordinatorTest {
         runTest(StandardTestDispatcher()) {
             val h = harness()
             h.coordinator.openImport { encryptedArchive().inputStream() }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             h.coordinator.unlockEncryptedImport("wrong password".toCharArray())
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertTrue(h.state.value.encryptedImportPending)
             assertNull(h.state.value.importPreview)
@@ -262,11 +255,11 @@ class BackupImportCoordinatorTest {
         runTest(StandardTestDispatcher()) {
             val h = harness()
             h.coordinator.openImport { encryptedArchive().inputStream() }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             h.coordinator.unlockEncryptedImport(ArchivePhrase.copyOf())
             h.coordinator.cancelEncryptedImport()
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(h.state.value.encryptedImportPending)
             assertFalse(h.state.value.importing)
@@ -360,7 +353,7 @@ class BackupImportCoordinatorTest {
             val h = harness()
 
             h.coordinator.openImport { json.byteInputStream() }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             val preview = h.state.value.importPreview!!
             assertFalse(preview.selection.profilesAndGroups)
@@ -376,7 +369,7 @@ class BackupImportCoordinatorTest {
                     """"profiles":[],"groups":[],"rules":[],"settings":{}}"""
 
             h.coordinator.openImport { futureJson.byteInputStream() }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertNull(h.state.value.importPreview)
             assertFalse(h.state.value.importing)
@@ -389,7 +382,7 @@ class BackupImportCoordinatorTest {
             val h = harness()
 
             h.coordinator.openImport { "not json at all".byteInputStream() }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertNull(h.state.value.importPreview)
             assertFalse(h.state.value.importing)
@@ -404,7 +397,7 @@ class BackupImportCoordinatorTest {
             val json = exportJson(BackupVariant.FULL, profiles = listOf(sampleProfile), groups = listOf(sampleGroup))
             val h = harness()
             h.coordinator.openImport { json.byteInputStream() }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             h.coordinator.setProfilesAndGroupsSelected(false)
             h.coordinator.setRoutesSelected(true)
@@ -436,7 +429,7 @@ class BackupImportCoordinatorTest {
             val json = exportJson(BackupVariant.FULL, profiles = listOf(sampleProfile), groups = listOf(sampleGroup))
             val h = harness()
             h.coordinator.openImport { json.byteInputStream() }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
             assertTrue(h.state.value.importPreview != null)
 
             h.coordinator.cancelImport()
@@ -452,7 +445,7 @@ class BackupImportCoordinatorTest {
             val h = harness()
 
             h.coordinator.confirmRestore()
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertTrue(h.restoreEffects.isEmpty())
             assertFalse(h.state.value.restoring)
@@ -464,12 +457,12 @@ class BackupImportCoordinatorTest {
             val json = exportJson(BackupVariant.FULL, profiles = listOf(sampleProfile), groups = listOf(sampleGroup))
             val h = harness()
             h.coordinator.openImport { json.byteInputStream() }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
             h.state.update { it.copy(restoring = true) }
             h.restoreEffects.clear()
 
             h.coordinator.confirmRestore()
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertTrue(h.restoreEffects.isEmpty())
         }
@@ -480,7 +473,7 @@ class BackupImportCoordinatorTest {
             val json = exportJson(BackupVariant.FULL, profiles = listOf(sampleProfile), groups = listOf(sampleGroup))
             val h = harness()
             h.coordinator.openImport { json.byteInputStream() }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
             // Clear every category.
             h.coordinator.setProfilesAndGroupsSelected(false)
             h.coordinator.setRoutesSelected(false)
@@ -488,7 +481,7 @@ class BackupImportCoordinatorTest {
             h.restoreEffects.clear()
 
             h.coordinator.confirmRestore()
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertEquals(listOf<BackupRestoreEffect>(BackupRestoreEffect.NothingSelected), h.restoreEffects)
             assertFalse(h.state.value.restoring)
@@ -502,12 +495,12 @@ class BackupImportCoordinatorTest {
             val json = exportJson(BackupVariant.FULL, profiles = listOf(sampleProfile), groups = listOf(sampleGroup))
             val h = harness()
             h.coordinator.openImport { json.byteInputStream() }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             h.coordinator.confirmRestore()
             // restoring flips true synchronously, before the suspend restore runs.
             assertTrue(h.state.value.restoring)
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(h.state.value.restoring)
             assertNull(h.state.value.importPreview)
@@ -520,7 +513,7 @@ class BackupImportCoordinatorTest {
             val json = exportJson(BackupVariant.FULL, profiles = listOf(sampleProfile), groups = listOf(sampleGroup))
             val h = harness()
             h.coordinator.openImport { json.byteInputStream() }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             // The preview retains the exact bytes the file carried; confirmRestore
             // threads preview.json verbatim into restore (see coordinator), so a
@@ -531,36 +524,26 @@ class BackupImportCoordinatorTest {
             assertEquals(json, previewedJson)
 
             h.coordinator.confirmRestore()
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             // A successful Restored proves the previewed bytes were valid + accepted.
             assertEquals(listOf<BackupRestoreEffect>(BackupRestoreEffect.Restored), h.restoreEffects)
         }
 
     @Test
-    fun `confirmRestore surfaces compensation failure as integrity failure`() =
+    fun `confirmRestore maps transaction failure to Malformed`() =
         runTest(StandardTestDispatcher()) {
             val json = exportJson(BackupVariant.FULL, profiles = listOf(sampleProfile), groups = listOf(sampleGroup))
-            val repository =
-                object : ProxyGroupRepository by MutableGroupRepository() {
-                    override suspend fun replaceAll(
-                        receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
-                        groups: List<ProxyGroup>,
-                    ): Unit = throw IOException("boom")
-
-                    override suspend fun compensateReplacement(groups: List<ProxyGroup>): Unit =
-                        throw IOException("rollback boom")
-                }
-            val h = harness(groupRepository = repository)
+            val h = harness(beforeSeal = { throw IOException("boom") })
             h.coordinator.openImport { json.byteInputStream() }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             h.coordinator.confirmRestore()
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(h.state.value.restoring)
             assertNull(h.state.value.importPreview)
-            assertEquals(listOf<BackupRestoreEffect>(BackupRestoreEffect.IntegrityFailure), h.restoreEffects)
+            assertEquals(listOf<BackupRestoreEffect>(BackupRestoreEffect.Malformed), h.restoreEffects)
         }
 
     @Test
@@ -569,13 +552,13 @@ class BackupImportCoordinatorTest {
             val json = exportJson(BackupVariant.FULL, profiles = listOf(sampleProfile), groups = listOf(sampleGroup))
             val h = harness()
             h.coordinator.openImport { json.byteInputStream() }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
             h.state.update { state ->
                 state.copy(importPreview = state.importPreview!!.copy(json = "not json"))
             }
 
             h.coordinator.confirmRestore()
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(h.state.value.restoring)
             assertNull(h.state.value.importPreview)
@@ -591,13 +574,13 @@ class BackupImportCoordinatorTest {
                     """"profiles":[],"groups":[],"rules":[],"settings":{}}"""
             val h = harness()
             h.coordinator.openImport { json.byteInputStream() }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
             h.state.update { state ->
                 state.copy(importPreview = state.importPreview!!.copy(json = futureJson))
             }
 
             h.coordinator.confirmRestore()
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(h.state.value.restoring)
             assertNull(h.state.value.importPreview)
@@ -609,23 +592,16 @@ class BackupImportCoordinatorTest {
         runTest(StandardTestDispatcher()) {
             val json = exportJson(BackupVariant.FULL, profiles = listOf(sampleProfile), groups = listOf(sampleGroup))
             val cancellation = CancellationException("cancelled")
-            val repository =
-                object : ProxyGroupRepository by MutableGroupRepository() {
-                    override suspend fun replaceAll(
-                        receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
-                        groups: List<ProxyGroup>,
-                    ): Unit = throw cancellation
-                }
-            val h = harness(groupRepository = repository)
+            val h = harness(beforeSeal = { throw cancellation })
             h.coordinator.openImport { json.byteInputStream() }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
             val preview = h.state.value.importPreview
 
             h.coordinator.confirmRestore()
             val restoreJob = coroutineContext[Job]!!.children.single()
             var completionCause: Throwable? = null
             restoreJob.invokeOnCompletion { completionCause = it }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(h.state.value.restoring)
             assertSame(preview, h.state.value.importPreview)
@@ -643,28 +619,16 @@ class BackupImportCoordinatorTest {
         val restoreEffects: MutableList<BackupRestoreEffect>,
     )
 
-    private fun TestScope.harness(
+    private suspend fun TestScope.harness(
         maxImportBytes: Int = BackupMaxImportBytes,
-        groupRepository: ProxyGroupRepository = MutableGroupRepository(),
+        beforeSeal: (() -> Unit)? = null,
         dispatcher: CoroutineDispatcher = StandardTestDispatcher(testScheduler),
     ): Harness {
         val state = MutableStateFlow(BackupRestoreUiState())
         val effects = mutableListOf<BackupRestoreEffect>()
-        // The real use case (final class) is constructed with hand-rolled fakes; no
-        // Robolectric/Room needed. `android.util.Log` no-ops under the app module's
-        // unitTests.isReturnDefaultValues = true.
-        val restoreUseCase =
-            BackupRestoreUseCase(
-                groupRepository = groupRepository,
-                ruleDao = FakeRuleDao(),
-                settingsRepository = FakeAppSettingsRepository(AppSettings.getDefaultInstance()),
-                privateDataStore =
-                    com.poyka.ripdpi.data
-                        .testEmptyBackupPrivateDataStore(),
-                profileMutations =
-                    com.poyka.ripdpi.data
-                        .TestBackupMutationCoordinator(),
-            )
+        val fixture = roomFixture()
+        fixture.beforeSeal = { _, _ -> beforeSeal?.invoke() }
+        val restoreUseCase = fixture.backupRestoreUseCase()
         val coordinator =
             BackupImportCoordinator(
                 scope = this,
@@ -725,44 +689,6 @@ class BackupImportCoordinatorTest {
         val ArchivePhrase = "archive phrase fixture".toCharArray()
     }
 
-    private class MutableGroupRepository(
-        initial: List<ProxyGroup> = emptyList(),
-    ) : ProxyGroupRepository {
-        private val groups = initial.toMutableList()
-        private val state = MutableStateFlow(groups.toList())
-
-        override suspend fun add(group: ProxyGroup) = Unit
-
-        override suspend fun update(group: ProxyGroup) = Unit
-
-        override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
-            replaceAll(
-                com.poyka.ripdpi.data
-                    .testPauseAuthority()
-                    .reserveStop(),
-                groups,
-            )
-        }
-
-        override suspend fun delete(
-            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
-            id: String,
-        ) = Unit
-
-        override suspend fun list(): List<ProxyGroup> = groups.toList()
-
-        override suspend fun replaceAll(
-            receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
-            groups: List<ProxyGroup>,
-        ) {
-            this.groups.clear()
-            this.groups.addAll(groups)
-            state.value = this.groups.toList()
-        }
-
-        override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
-    }
-
     private class CloseTrackingInputStream(
         bytes: ByteArray,
     ) : ByteArrayInputStream(bytes) {
@@ -787,38 +713,5 @@ class BackupImportCoordinatorTest {
             closed = true
             super.close()
         }
-    }
-
-    private class FakeRuleDao : RuleDao() {
-        override suspend fun deleteAll() = Unit
-
-        override fun allRules(): Flow<List<RuleEntity>> = flowOf(emptyList())
-
-        override fun enabledRules(): Flow<List<RuleEntity>> = flowOf(emptyList())
-
-        override fun rulesExcludingName(excludedName: String): Flow<List<RuleEntity>> = flowOf(emptyList())
-
-        override fun rulesByName(name: String): Flow<List<RuleEntity>> = flowOf(emptyList())
-
-        override suspend fun findByName(name: String): RuleEntity? = null
-
-        override suspend fun maxUserOrder(excludedName: String): Int? = null
-
-        override suspend fun insert(rule: RuleEntity): Long = error("not used")
-
-        override suspend fun update(rule: RuleEntity) = error("not used")
-
-        override suspend fun delete(rule: RuleEntity) = error("not used")
-
-        override suspend fun resetOutboundTags(
-            ruleIds: List<Long>,
-            targetTag: OutboundTag,
-            replacementTag: OutboundTag,
-        ): Int = error("not used")
-
-        override suspend fun updateOrder(
-            id: Long,
-            order: Int,
-        ) = error("not used")
     }
 }

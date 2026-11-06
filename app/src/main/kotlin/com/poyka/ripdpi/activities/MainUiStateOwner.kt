@@ -24,7 +24,7 @@ internal class MainUiStateOwner(
     runtimeState: MutableStateFlow<ConnectionRuntimeState>,
     permissionState: MutableStateFlow<PermissionRuntimeState>,
     stringResolver: StringResolver,
-    buildApproachSummary: (AppSettings, Mode, List<BypassApproachSummary>) -> StatusApproachSummaryUiState?,
+    buildApproachSummary: suspend (AppSettings, Mode, List<BypassApproachSummary>) -> StatusApproachSummaryUiState?,
 ) {
     private val localeState = MutableStateFlow("")
     private val settingsSnapshots = settingsState.map { it to ReconnectSettingsIdentity() }

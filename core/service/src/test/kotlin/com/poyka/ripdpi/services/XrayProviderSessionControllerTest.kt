@@ -1041,12 +1041,14 @@ internal class FakeSelectionStore : XrayProviderSelectionStore {
         this.record = record
     }
 
-    override fun current(): XrayProviderSelectionRecord {
+    fun snapshotRecord(): XrayProviderSelectionRecord {
         onCurrent()
         return record
     }
 
-    override fun update(record: XrayProviderSelectionRecord) {
+    override suspend fun current(): XrayProviderSelectionRecord = snapshotRecord()
+
+    override suspend fun update(record: XrayProviderSelectionRecord) {
         this.record = record
     }
 }

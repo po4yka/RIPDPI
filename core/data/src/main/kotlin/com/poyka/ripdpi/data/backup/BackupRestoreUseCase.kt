@@ -1,17 +1,11 @@
 package com.poyka.ripdpi.data.backup
 
 import android.util.Log
-import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.ProxyGroup
-import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyProfile
-import com.poyka.ripdpi.data.rules.RuleDao
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.NonCancellable
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerializationException
 import javax.inject.Inject
 
@@ -120,15 +114,9 @@ sealed interface RestoreResult {
         val supported: Int,
     ) : RestoreResult
 
-    /** Parsing/staging failed, or a commit failed and completed writes were compensated. */
+    /** Parsing, staging or transaction commit failed; the previous data remains intact. */
     data class Aborted(
         val reason: String,
-    ) : RestoreResult
-
-    /** A commit failed and at least one compensating write also failed, leaving integrity uncertain. */
-    data class IntegrityFailure(
-        val commitFailure: String,
-        val rollbackFailures: List<String>,
     ) : RestoreResult
 }
 
@@ -144,24 +132,9 @@ private data class StagedRestore(
     val settings: AppSettings?,
 )
 
-/** Preimages captured before the first live write and used for reverse-order compensation. */
-private data class RestorePreimage(
-    val groups: List<ProxyGroup>?,
-    val privateData: BackupPrivateDataV1?,
-    val rules: List<RuleEntity>?,
-    val settings: AppSettings?,
-)
-
-private data class RestoreCommitProgress(
-    var privateData: Boolean = false,
-    var groups: Boolean = false,
-    var rules: Boolean = false,
-    var settings: Boolean = false,
-)
-
 /**
  * Parses a backup document and applies a selective, staged, atomic restore into the
- * live stores ([ProxyGroupRepository] / [RuleDao] / [AppSettingsRepository]).
+ * shared Room database.
  *
  * Contract honored:
  * - **Preview before write** — [preview] decodes counts and decode failures with no
@@ -171,19 +144,15 @@ private data class RestoreCommitProgress(
  * - **Staging + integrity** — [restore] decodes and validates the whole selected
  *   payload into [StagedRestore] first; only then does it commit. Malformed JSON or
  *   a decode failure aborts without touching live data.
- * - **Cross-store compensation** — preimages are captured before the first write;
- *   a later failure restores completed categories in reverse order. Each individual
- *   category still uses its own atomic replace boundary.
+ * - **Atomic commit** — all selected categories commit in one database transaction.
+ *   A failure or cancellation before commit rolls the transaction back. Cancellation
+ *   after commit does not undo saved data. Restore requires a process restart.
  * - **SHARE backups** — profiles whose redacted credentials were stripped cannot be
  *   decoded; they are reported in the preview and excluded from the staged write.
  */
 class BackupRestoreUseCase
     @Inject
     constructor(
-        private val groupRepository: ProxyGroupRepository,
-        private val ruleDao: RuleDao,
-        private val settingsRepository: AppSettingsRepository,
-        private val privateDataStore: BackupPrivateDataStore,
         private val profileMutations: com.poyka.ripdpi.data.ProfileMutationCoordinator,
     ) {
         /** Parses [json] into a [BackupPreview] without touching any store. */
@@ -236,7 +205,7 @@ class BackupRestoreUseCase
          *
          * Decoding + staging happens entirely before any live write, so any failure
          * leaves the live stores untouched. On success, the caller is expected to
-         * restart the process so DataStore / Room observers reinitialize.
+         * restart the process so runtime consumers reinitialize.
          */
         suspend fun restore(
             json: String,
@@ -278,48 +247,26 @@ class BackupRestoreUseCase
             staged: StagedRestore,
             selection: RestoreSelection,
         ): RestoreResult {
-            val preparation =
-                profileMutations.captureMutation(
-                    com.poyka.ripdpi.data.ProfileMutationOrigin.RestoreProfiles,
-                )
-            val preimage =
-                try {
-                    capturePreimage(staged)
-                } catch (cancelled: CancellationException) {
-                    throw cancelled
-                } catch (failure: Exception) {
-                    Log.w(LogTag, "Backup restore preimage failed; live data untouched: ${failure::class.simpleName}")
-                    return RestoreResult.Aborted(reason = failure::class.simpleName.orEmpty())
-                }
-            val progress = RestoreCommitProgress()
+            val hasProfileChanges = staged.groups != null || staged.privateData != null
+            if (!hasProfileChanges && staged.rules == null && staged.settings == null) {
+                return RestoreResult.Success()
+            }
             return try {
-                var receipt: com.poyka.ripdpi.data.DurableCommandReceipt? = null
-                staged.privateData?.let {
-                    progress.privateData = true
-                    val outcome = privateDataStore.replaceAll(preparation, it)
-                    receipt = (outcome as? com.poyka.ripdpi.data.ProfileMutationOutcome.Reserved)?.receipt
-                }
-                staged.groups?.let {
-                    progress.groups = true
-                    val checked =
-                        receipt
-                            ?: (
-                                profileMutations.commitMutationIntent(
-                                    preparation,
-                                ) as? com.poyka.ripdpi.data.ProfileMutationOutcome.Reserved
-                            )?.receipt
-                    if (checked == null) error("Profile restore intent was superseded")
-                    groupRepository.replaceAll(checked, it)
-                }
-                staged.rules?.let {
-                    progress.rules = true
-                    ruleDao.replaceAll(it)
-                }
-                staged.settings?.let {
-                    progress.settings = true
-                    settingsRepository.replace(it)
-                }
-
+                val preparation =
+                    profileMutations.captureMutation(
+                        com.poyka.ripdpi.data.ProfileMutationOrigin.RestoreProfiles,
+                    )
+                val outcome =
+                    profileMutations.restoreBackup(
+                        preparation,
+                        staged.groups,
+                        staged.rules,
+                        staged.settings,
+                        staged.privateData,
+                    )
+                check(
+                    outcome != com.poyka.ripdpi.data.ProfileMutationOutcome.Superseded,
+                ) { "Profile restore intent was superseded" }
                 Log.i(
                     LogTag,
                     "Backup restore committed: profiles+groups=${selection.profilesAndGroups} " +
@@ -327,67 +274,11 @@ class BackupRestoreUseCase
                 )
                 RestoreResult.Success(restartRequired = true)
             } catch (cancelled: CancellationException) {
-                withContext(NonCancellable) { rollback(preimage, progress, preparation) }
-                    .filterNot { rollbackFailure -> rollbackFailure === cancelled }
-                    .forEach(cancelled::addSuppressed)
                 throw cancelled
             } catch (failure: Exception) {
-                val rollbackFailures = withContext(NonCancellable) { rollback(preimage, progress, preparation) }
-                rollbackFailures
-                    .filterNot { rollbackFailure -> rollbackFailure === failure }
-                    .forEach(failure::addSuppressed)
-                if (rollbackFailures.isEmpty()) {
-                    Log.w(LogTag, "Backup restore commit failed and was compensated: ${failure::class.simpleName}")
-                    RestoreResult.Aborted(reason = failure::class.simpleName.orEmpty())
-                } else {
-                    Log.e(LogTag, "Backup restore compensation failed after ${failure::class.simpleName}")
-                    RestoreResult.IntegrityFailure(
-                        commitFailure = failure::class.simpleName.orEmpty(),
-                        rollbackFailures = rollbackFailures.map { it::class.simpleName.orEmpty() },
-                    )
-                }
+                Log.w(LogTag, "Backup restore transaction failed: ${failure::class.simpleName}")
+                RestoreResult.Aborted(reason = failure::class.simpleName.orEmpty())
             }
-        }
-
-        private suspend fun capturePreimage(staged: StagedRestore): RestorePreimage =
-            RestorePreimage(
-                groups = staged.groups?.let { groupRepository.list() },
-                privateData = staged.privateData?.let { privateDataStore.snapshot() },
-                rules = staged.rules?.let { ruleDao.allRules().first() },
-                settings = staged.settings?.let { settingsRepository.snapshot() },
-            )
-
-        @Suppress("TooGenericExceptionCaught")
-        private suspend fun rollback(
-            preimage: RestorePreimage,
-            progress: RestoreCommitProgress,
-            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
-        ): List<Exception> {
-            val failures = mutableListOf<Exception>()
-
-            suspend fun compensate(block: suspend () -> Unit) {
-                try {
-                    block()
-                } catch (rollbackFailure: Exception) {
-                    failures += rollbackFailure
-                }
-            }
-
-            if (progress.settings) compensate { settingsRepository.replace(requireNotNull(preimage.settings)) }
-            if (progress.rules) compensate { ruleDao.replaceAll(requireNotNull(preimage.rules)) }
-            if (progress.groups) compensate { groupRepository.compensateReplacement(requireNotNull(preimage.groups)) }
-            if (progress.privateData) {
-                compensate {
-                    privateDataStore.replaceAll(
-                        com.poyka.ripdpi.data.ProfileMutationPreparation(
-                            com.poyka.ripdpi.data.ProfileMutationOrigin.Compensation,
-                            preparation.expectedPauseAuthority,
-                        ),
-                        requireNotNull(preimage.privateData),
-                    )
-                }
-            }
-            return failures
         }
 
         private suspend fun stageSafely(
@@ -440,7 +331,11 @@ class BackupRestoreUseCase
                 } else {
                     null
                 }
-            val privateData = document.privateData.takeIf { selection.profilesAndGroups }
+            val privateData =
+                document.privateData.takeIf { selection.profilesAndGroups }?.also {
+                    it
+                        .validateBackupPrivateData()
+                }
             val rules =
                 if (selection.routes) {
                     document.rules.map(BackupRestoreDecoder::ruleExportToEntity)

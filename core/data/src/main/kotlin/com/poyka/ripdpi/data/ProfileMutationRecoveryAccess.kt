@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.data
 
-/** Recovery and consistent reads share the catalog's single journal and mutation authority. */
+/** Migration and consistent reads share the profile database and mutation authority. */
 interface ProfileMutationRecoveryAccess : PauseMutationPreparationSource {
     suspend fun recover()
 

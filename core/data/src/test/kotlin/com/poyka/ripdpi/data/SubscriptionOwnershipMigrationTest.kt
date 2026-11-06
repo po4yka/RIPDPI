@@ -1,422 +1,214 @@
 package com.poyka.ripdpi.data
 
 import app.cash.turbine.test
-import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgProfileEntity
-import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSecrets
-import com.poyka.ripdpi.data.awg.AwgSubscriptionProfile
-import com.poyka.ripdpi.serialization.RipDpiContractJson
+import com.poyka.ripdpi.data.awg.KeystoreAwgCredentialStore
 import com.poyka.ripdpi.serialization.RipDpiJson
-import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.async
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.json.JsonArray
-import kotlinx.serialization.json.JsonObject
-import kotlinx.serialization.json.JsonPrimitive
-import kotlinx.serialization.json.jsonArray
-import kotlinx.serialization.json.jsonObject
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-import java.util.Base64
 
-class SubscriptionOwnershipMigrationTest {
+class SubscriptionOwnershipMigrationTest : RoomProfileTest() {
     @Test
-    fun `legacy catalogue commits ownership before publication and keeps it across cold reads`() =
+    fun `legacy catalogue ownership is committed once and survives cold reads`() =
         runTest {
-            val fixture = ProfileMutationTestFixture()
-            val blob = VersionedOwnershipBlob(LegacyOwnershipCatalogue, version = 1)
-            val groups = ownershipRepository(fixture, blob)
-            groups.groups().test {
-                expectNoEvents()
-                blob.beforeWrite = {
-                    expectNoEvents()
-                    assertEquals(1, blob.version)
-                    assertEquals(LegacyOwnershipCatalogue, blob.encoded)
-                }
-
-                val migrated = groups.list()
-
-                assertEquals(ProxyGroupSchema.SCHEMA_VERSION, blob.version)
-                assertEquals(migrated, decodeOwnershipGroups(blob.encoded))
-                assertEquals(migrated, awaitItem())
+            LegacyProfileImportFixture().use { legacy ->
+                legacy.seedGroups(LegacyOwnershipCatalogue)
+                legacy.fixture.initialize()
+                val migrated = legacy.fixture.groups.list()
                 assertTrue(migrated.all { it.ownershipGeneration.isNotBlank() })
                 assertEquals(migrated.size, migrated.map { it.ownershipGeneration }.distinct().size)
-                assertEquals(
-                    decodeOwnershipGroups(LegacyOwnershipCatalogue),
-                    migrated.map { it.copy(ownershipGeneration = "") },
-                )
-                val durable = blob.encoded
-                assertEquals(migrated, groups.list())
-                assertEquals(migrated, ownershipRepository(fixture, blob).list())
-                assertEquals(durable, blob.encoded)
-                assertEquals(1, blob.writeAttempts)
-                expectNoEvents()
-                cancelAndIgnoreRemainingEvents()
+                assertEquals(decode(LegacyOwnershipCatalogue), migrated.map { it.copy(ownershipGeneration = "") })
+                val committed = legacy.fixture.snapshot()
+                legacy.fixture.reopen()
+                assertEquals(migrated, legacy.fixture.groups.list())
+                assertEquals(committed, legacy.fixture.snapshot())
             }
         }
 
     @Test
-    fun `failed catalogue migration keeps legacy bytes and never publishes an ephemeral generation`() =
+    fun `failed ownership import keeps legacy bytes and emits no uncommitted groups`() =
         runTest {
-            val fixture = ProfileMutationTestFixture()
-            val blob = VersionedOwnershipBlob(LegacyOwnershipCatalogue, version = 1)
-            val groups = ownershipRepository(fixture, blob)
-            blob.failWrite = true
-            groups.groups().test {
-                assertEquals("Catalogue commit failed", runCatching { groups.list() }.exceptionOrNull()?.message)
-
-                assertEquals(LegacyOwnershipCatalogue, blob.encoded)
-                assertEquals(1, blob.version)
-                assertEquals(1, blob.writeAttempts)
-                expectNoEvents()
-                blob.failWrite = false
-                val migrated = groups.list()
-
-                assertEquals(migrated, awaitItem())
-                assertTrue(migrated.all { it.ownershipGeneration.isNotBlank() })
-                assertEquals(migrated, decodeOwnershipGroups(blob.encoded))
-                assertEquals(migrated, ownershipRepository(fixture, blob).list())
-                assertEquals(2, blob.writeAttempts)
-                assertNoOwnershipAwgWrites(fixture)
-                assertNull(fixture.journal.pending())
-                cancelAndIgnoreRemainingEvents()
-            }
-        }
-
-    @Test
-    fun `interrupted migration after durable catalogue commit reuses that generation on cold reload`() =
-        runTest {
-            val fixture = ProfileMutationTestFixture()
-            val blob = VersionedOwnershipBlob(LegacyOwnershipCatalogue, version = 1)
-            val groups = ownershipRepository(fixture, blob)
-            blob.afterWrite = { throw CancellationException("Interrupted after catalogue commit") }
-            groups.groups().test {
-                assertTrue(runCatching { groups.list() }.exceptionOrNull() is CancellationException)
-
-                assertEquals(ProxyGroupSchema.SCHEMA_VERSION, blob.version)
-                val committed = decodeOwnershipGroups(blob.encoded)
-                assertTrue(committed.all { it.ownershipGeneration.isNotBlank() })
-                expectNoEvents()
-                blob.afterWrite = null
-
-                assertEquals(committed, ownershipRepository(fixture, blob).list())
-                assertEquals(committed, groups.list())
-                assertEquals(committed, awaitItem())
-                assertEquals(1, blob.writeAttempts)
-                assertEquals(committed, decodeOwnershipGroups(blob.encoded))
-                cancelAndIgnoreRemainingEvents()
-            }
-        }
-
-    @Test
-    fun `legacy journal is durably upgraded before AWG and cold retry keeps its captured generations`() =
-        runTest {
-            val seeded = seedLegacyOwnershipJournal()
-            val fixture = seeded.fixture
-            var replacements = 0
-            var upgraded: PendingProfileMutation? = null
-            fixture.journal.beforeReplace = {
-                assertNoOwnershipAwgWrites(fixture)
-                replacements++
-            }
-            fixture.awgCredentials.afterSave = {
-                upgraded = checkNotNull(fixture.journal.pending())
-                assertEquals(1, decodeOwnershipIntent(checkNotNull(upgraded)).ownershipVersion)
-                throw CancellationException("Interrupted after migrated credential")
-            }
-            val first = seeded.coldOwner()
-            first.groups.groups().test {
-                assertTrue(runCatching { first.mutations.recover() }.exceptionOrNull() is CancellationException)
-                expectNoEvents()
-                cancelAndIgnoreRemainingEvents()
-            }
-
-            val migrated = checkNotNull(upgraded)
-            val intent = decodeOwnershipIntent(migrated)
-            assertEquals(seeded.pending.copy(payload = migrated.payload), migrated)
-            assertEquals(migrated, fixture.journal.pending())
-            assertNotEquals(seeded.pending.payload, migrated.payload)
-            assertTrue(intent.groups.all { it.ownershipGeneration.isNotBlank() })
-            assertEquals(
-                intent.groups.size,
-                intent.groups
-                    .map { it.ownershipGeneration }
-                    .distinct()
-                    .size,
-            )
-            assertEquals(seeded.intent.groups, intent.groups.map { it.copy(ownershipGeneration = "") })
-            assertEquals(seeded.intent.awgProfiles, intent.awgProfiles)
-            assertEquals(1, replacements)
-            assertEquals(1, fixture.awgCredentials.saveAttempts)
-            assertEquals(0, fixture.awgProfiles.upsertAttempts)
-            assertEquals(seeded.beforeGroups, fixture.groupCatalog.snapshot())
-            fixture.awgCredentials.afterSave = null
-            val restarted = seeded.coldOwner()
-            restarted.groups.groups().test {
-                expectNoEvents()
-                restarted.mutations.recover()
-
-                assertEquals(intent.groups, awaitItem())
-                seeded.assertApplied(intent)
-                assertEquals(1, replacements)
-                val writes = ownershipWriteCounts(fixture)
-                restarted.mutations.recover()
-                assertEquals(writes, ownershipWriteCounts(fixture))
-                assertEquals(intent.groups, ProxyGroupCatalog(fixture.groupBlob).snapshot())
-                expectNoEvents()
-                cancelAndIgnoreRemainingEvents()
-            }
-        }
-
-    @Test
-    fun `failed journal replacement preserves the original record and every store until retry`() =
-        runTest {
-            val seeded = seedLegacyOwnershipJournal()
-            val fixture = seeded.fixture
-            fixture.journal.beforeReplace = { error("Journal replacement failed") }
-            val cold = seeded.coldOwner()
-            cold.groups.groups().test {
-                assertEquals(
-                    "Journal replacement failed",
-                    runCatching { cold.mutations.recover() }.exceptionOrNull()?.message,
-                )
-
-                assertEquals(seeded.pending, fixture.journal.pending())
-                assertEquals(seeded.beforeGroups, fixture.groupCatalog.snapshot())
-                assertEquals(seeded.beforeRow, fixture.awgProfiles.getProfile(seeded.beforeRow.id))
-                assertEquals(seeded.beforeSecrets, fixture.awgCredentials.load(seeded.beforeRow.id))
-                assertNoOwnershipAwgWrites(fixture)
-                assertEquals(0, fixture.groupWriteAttempts)
-                assertEquals(fixture.pauseAuthority.states.value, cold.authority.states.value)
-                expectNoEvents()
-                fixture.journal.beforeReplace = null
-                var accepted: SubscriptionRefreshIntent? = null
-                fixture.awgCredentials.afterSave = {
-                    accepted = decodeOwnershipIntent(checkNotNull(fixture.journal.pending()))
+            LegacyProfileImportFixture().use { legacy ->
+                legacy.seedGroups(LegacyOwnershipCatalogue)
+                val source = legacy.legacyBytes()
+                val before = legacy.fixture.snapshot()
+                legacy.fixture.failWrite("proxy_groups")
+                legacy.fixture.groups.groups().test {
+                    val failure = runCatching { legacy.fixture.initialize() }.exceptionOrNull()
+                    assertTrue(failure is IllegalStateException)
+                    expectNoEvents()
+                    assertEquals(source, legacy.legacyBytes())
+                    assertEquals(before, legacy.fixture.snapshot())
+                    legacy.fixture.clearFaults()
+                    legacy.fixture.initialize()
+                    val migrated = awaitItem()
+                    assertTrue(migrated.all { it.ownershipGeneration.isNotBlank() })
+                    assertEquals(migrated, legacy.fixture.groups.list())
                 }
-                cold.mutations.recover()
-
-                val intent = checkNotNull(accepted)
-                assertEquals(1, intent.ownershipVersion)
-                assertEquals(intent.groups, awaitItem())
-                seeded.assertApplied(intent)
-                cancelAndIgnoreRemainingEvents()
             }
         }
 
     @Test
-    fun `malformed current catalogue blocks journal migration and AWG replay without publication`() =
+    fun `cancellation before import marker rolls back ownership and retry commits one durable generation`() =
         runTest {
-            val seeded = seedLegacyOwnershipJournal()
-            val fixture = seeded.fixture
-            val blob = VersionedOwnershipBlob(LegacyOwnershipCatalogue, version = ProxyGroupSchema.SCHEMA_VERSION)
-            val catalog = ProxyGroupCatalog(blob)
-            val authority = testPauseAuthority(fixture.persistence, initialize = false)
-            val mutations = fixture.coordinator(catalog = catalog, authority = authority)
-            val groups = SharedPreferencesProxyGroupRepository(catalog, mutations)
-            var replacements = 0
-            fixture.journal.beforeReplace = { replacements++ }
-            groups.groups().test {
-                assertTrue(runCatching { mutations.recover() }.exceptionOrNull() is IllegalArgumentException)
-
-                assertEquals(seeded.pending, fixture.journal.pending())
-                assertEquals(LegacyOwnershipCatalogue, blob.encoded)
-                assertEquals(0, blob.writeAttempts)
-                assertEquals(0, replacements)
-                assertNoOwnershipAwgWrites(fixture)
-                assertEquals(fixture.pauseAuthority.states.value, authority.states.value)
-                expectNoEvents()
-                cancelAndIgnoreRemainingEvents()
+            LegacyProfileImportFixture().use { legacy ->
+                legacy.seedGroups(LegacyOwnershipCatalogue)
+                val source = legacy.legacyBytes()
+                val before = legacy.fixture.snapshot()
+                val barrier = ProfileWriteBarrier("system")
+                legacy.fixture.room.beforeSeal = barrier::beforeSeal
+                val importing = async { legacy.fixture.initialize() }
+                try {
+                    barrier.awaitEntry()
+                    importing.cancel()
+                } finally {
+                    barrier.release()
+                }
+                importing.join()
+                assertEquals(source, legacy.legacyBytes())
+                assertEquals(before, legacy.fixture.snapshot())
+                legacy.fixture.clearFaults()
+                legacy.fixture.initialize()
+                val accepted = legacy.fixture.groups.list()
+                legacy.fixture.reopen()
+                assertEquals(accepted, legacy.fixture.groups.list())
             }
         }
 
     @Test
-    fun `current journal rejects missing ownership in either group and unsupported versions before AWG`() =
+    fun `legacy journal ownership and AWG rotation commit together after a failed marker retry`() =
+        runTest {
+            LegacyProfileImportFixture().use { legacy ->
+                val pending = seedLegacyJournal(legacy)
+                val source = legacy.legacyBytes()
+                val before = legacy.fixture.snapshot()
+                legacy.fixture.failWrite("system")
+                assertTrue(runCatching { legacy.fixture.initialize() }.isFailure)
+                assertEquals(source, legacy.legacyBytes())
+                assertEquals(pending, legacy.journal.pending())
+                assertEquals(before, legacy.fixture.snapshot())
+                legacy.fixture.clearFaults()
+                legacy.fixture.initialize()
+                assertAccepted(legacy)
+                val committed = legacy.fixture.snapshot()
+                legacy.fixture.reopen()
+                assertAccepted(legacy)
+                assertEquals(committed, legacy.fixture.snapshot())
+            }
+        }
+
+    @Test
+    fun `SQL failure after imported secret preserves legacy journal and old AWG until retry`() =
+        runTest {
+            LegacyProfileImportFixture().use { legacy ->
+                seedLegacyJournal(legacy)
+                val source = legacy.legacyBytes()
+                val before = legacy.fixture.snapshot()
+                withContext(Dispatchers.IO) {
+                    legacy.fixture.room.database.openHelper.writableDatabase.execSQL(
+                        "CREATE TRIGGER import_failure BEFORE INSERT ON awg_profiles " +
+                            "BEGIN SELECT RAISE(ABORT, 'import failed'); END",
+                    )
+                }
+                assertTrue(runCatching { legacy.fixture.initialize() }.isFailure)
+                assertEquals(source, legacy.legacyBytes())
+                assertEquals(before, legacy.fixture.snapshot())
+                withContext(Dispatchers.IO) {
+                    legacy.fixture.room.database.openHelper.writableDatabase
+                        .execSQL("DROP TRIGGER import_failure")
+                }
+                legacy.fixture.initialize()
+                assertAccepted(legacy)
+            }
+        }
+
+    @Test
+    fun `malformed current catalogue blocks pending ownership migration without modifying source`() =
+        runTest {
+            LegacyProfileImportFixture().use { legacy ->
+                seedLegacyJournal(legacy)
+                legacy.seedGroups(LegacyOwnershipCatalogue, ProxyGroupSchema.SCHEMA_VERSION)
+                val source = legacy.legacyBytes()
+                val before = legacy.fixture.snapshot()
+                assertTrue(runCatching { legacy.fixture.initialize() }.isFailure)
+                assertEquals(source, legacy.legacyBytes())
+                assertEquals(before, legacy.fixture.snapshot())
+            }
+        }
+
+    @Test
+    fun `current journal rejects missing group ownership and unsupported versions before any writes`() =
         runTest {
             for (invalid in 0..2) {
-                val seeded = seedLegacyOwnershipJournal()
-                val fixture = seeded.fixture
-                val groups =
-                    seeded.beforeGroups.mapIndexed { index, group ->
-                        if (index == invalid) group.copy(ownershipGeneration = " ") else group
-                    }
-                val intent = seeded.intent.copy(groups = groups, ownershipVersion = if (invalid == 2) 2 else 1)
-                val pending =
-                    seeded.pending.copy(
-                        payload = RipDpiContractJson.encodeToString(ProfileMutationIntent.serializer(), intent),
+                LegacyProfileImportFixture().use { legacy ->
+                    val groups =
+                        decode(LegacyOwnershipCatalogue).mapIndexed { index, group ->
+                            group.copy(ownershipGeneration = if (index == invalid) " " else "owner-$index")
+                        }
+                    legacy.seed(
+                        SubscriptionRefreshIntent(
+                            groups,
+                            emptyList(),
+                            ownershipVersion =
+                                if (invalid ==
+                                    2
+                                ) {
+                                    2
+                                } else {
+                                    1
+                                },
+                        ),
                     )
-                fixture.journal.replace(seeded.pending.mutationId, pending)
-                var replacements = 0
-                fixture.journal.beforeReplace = { replacements++ }
-                val cold = seeded.coldOwner()
-                cold.groups.groups().test {
-                    assertTrue(runCatching { cold.mutations.recover() }.exceptionOrNull() is IllegalStateException)
-
-                    assertEquals(pending, fixture.journal.pending())
-                    assertEquals(seeded.beforeGroups, fixture.groupCatalog.snapshot())
-                    assertNoOwnershipAwgWrites(fixture)
-                    assertEquals(0, fixture.groupWriteAttempts)
-                    assertEquals(0, replacements)
-                    assertEquals(fixture.pauseAuthority.states.value, cold.authority.states.value)
-                    expectNoEvents()
-                    cancelAndIgnoreRemainingEvents()
+                    val source = legacy.legacyBytes()
+                    val before = legacy.fixture.snapshot()
+                    assertTrue(runCatching { legacy.fixture.initialize() }.isFailure)
+                    assertEquals(source, legacy.legacyBytes())
+                    assertEquals(before, legacy.fixture.snapshot())
                 }
             }
         }
-}
 
-/** In-memory persistence adapter; production schema code decides whether a write is required. */
-private class VersionedOwnershipBlob(
-    var encoded: String,
-    var version: Int,
-) : ProxyGroupBlobStore {
-    var writeAttempts = 0
-    var failWrite = false
-    var beforeWrite: (() -> Unit)? = null
-    var afterWrite: (() -> Unit)? = null
-
-    override fun read(): String = ProxyGroupSchema.read(encoded, version, ::write)
-
-    override fun write(json: String) {
-        writeAttempts++
-        beforeWrite?.invoke()
-        check(!failWrite) { "Catalogue commit failed" }
-        encoded = json
-        version = ProxyGroupSchema.SCHEMA_VERSION
-        afterWrite?.invoke()
+    private suspend fun seedLegacyJournal(legacy: LegacyProfileImportFixture): PendingProfileMutation {
+        legacy.seedGroups(LegacyOwnershipCatalogue)
+        withContext(Dispatchers.IO) {
+            legacy.fixture.awgProfiles.upsertProfile(AwgProfileEntity("one", "Original", "{}", 1))
+        }
+        KeystoreAwgCredentialStore(legacy.context).save("one", AwgSecrets("old-private", "old-psk"))
+        val intent =
+            SubscriptionRefreshIntent(
+                decode(LegacyOwnershipCatalogue).map {
+                    it.copy(subscription = it.subscription?.copy(lastUpdated = 2000L))
+                },
+                listOf(AwgUpsertIntent("one", "Rotated", "{}", 2L, AwgSecrets("old-private", "new-psk"))),
+            )
+        return legacy.seed(intent)
     }
 
-    override fun clear() = error("Ownership migration must not clear persisted groups")
-}
-
-private data class OwnershipRecoveryOwner(
-    val mutations: ProfileMutationRecoveryCoordinator,
-    val groups: SharedPreferencesProxyGroupRepository,
-    val authority: PauseIntentAuthority,
-)
-
-private data class LegacyOwnershipJournal(
-    val fixture: ProfileMutationTestFixture,
-    val pending: PendingProfileMutation,
-    val intent: SubscriptionRefreshIntent,
-    val beforeGroups: List<ProxyGroup>,
-    val beforeRow: AwgProfileEntity,
-    val beforeSecrets: AwgSecrets,
-) {
-    fun coldOwner(): OwnershipRecoveryOwner {
-        val catalog = ProxyGroupCatalog(fixture.groupBlob)
-        val authority = testPauseAuthority(fixture.persistence, initialize = false)
-        val mutations = fixture.coordinator(catalog = catalog, authority = authority)
-        return OwnershipRecoveryOwner(mutations, SharedPreferencesProxyGroupRepository(catalog, mutations), authority)
-    }
-
-    suspend fun assertApplied(accepted: SubscriptionRefreshIntent) {
-        assertEquals(accepted.groups, ProxyGroupCatalog(fixture.groupBlob).snapshot())
-        val row = accepted.awgProfiles.single()
-        assertEquals(beforeRow.id, row.id)
-        assertEquals(beforeSecrets.privateKey, row.secrets.privateKey)
-        assertEquals(row.toEntity(), fixture.awgProfiles.getProfile(row.id))
-        assertEquals(row.secrets, fixture.awgCredentials.load(row.id))
-        assertNull(fixture.journal.pending())
-        assertEquals(0, fixture.prepareAttempts)
-    }
-}
-
-private suspend fun seedLegacyOwnershipJournal(): LegacyOwnershipJournal {
-    val fixture = ProfileMutationTestFixture()
-    val mutations = fixture.coordinator()
-    val groups = SharedPreferencesProxyGroupRepository(fixture.groupCatalog, mutations)
-    decodeOwnershipGroups(LegacyOwnershipCatalogue).forEach { groups.add(it) }
-    val beforeGroups = groups.list()
-    val awg = AwgProfileRepository(fixture.awgProfiles, fixture.awgCredentials, mutations)
-    val request =
-        AwgActivationRequest(
-            profileId = "",
-            privateKey = ownershipTestKey(1),
-            peerPublicKey = ownershipTestKey(2),
-            presharedKey = ownershipTestKey(3),
-            endpointHost = "192.0.2.10",
-            endpointPort = 443,
-            interfaceAddressV4 = "10.8.0.2/32",
-        )
-    val incoming = AwgSubscriptionProfile("subscription", "member", "Member", request)
-    val saved = awg.saveSubscriptionProfiles(listOf(incoming)).single()
-    val row = checkNotNull(fixture.awgProfiles.getProfile(saved.id))
-    val secrets = checkNotNull(fixture.awgCredentials.load(saved.id))
-    val requestJson = RipDpiContractJson.parseToJsonElement(row.requestJson).jsonObject
-    val rotated =
-        AwgUpsertIntent(
-            row.id,
-            "Refreshed member",
-            JsonObject(requestJson + ("endpointHost" to JsonPrimitive("192.0.2.20"))).toString(),
-            row.updatedAt + 1,
-            secrets.copy(presharedKey = ownershipTestKey(4)),
-        )
-    val intent =
-        SubscriptionRefreshIntent(
-            beforeGroups.map { group ->
-                group.copy(
-                    ownershipGeneration = "",
-                    subscription = group.subscription?.copy(lastUpdated = 2_000L),
-                )
+    private suspend fun assertAccepted(legacy: LegacyProfileImportFixture) {
+        val groups = legacy.fixture.groups.list()
+        assertTrue(groups.all { it.ownershipGeneration.isNotBlank() })
+        assertEquals(groups.size, groups.map { it.ownershipGeneration }.distinct().size)
+        assertEquals(2000L, groups.first { it.id == "subscription" }.subscription?.lastUpdated)
+        assertEquals(AwgSecrets("old-private", "new-psk"), legacy.fixture.awgCredentials.load("one"))
+        assertEquals(
+            AwgProfileEntity("one", "Rotated", "{}", 2L),
+            withContext(Dispatchers.IO) {
+                legacy.fixture.awgProfiles.getProfile("one")
             },
-            listOf(rotated),
         )
-    val projected =
-        ProfileMutationIntentProjection().pending(
-            ProfileMutationOrigin.SubscriptionRefresh,
-            fixture.pauseAuthority.reference(),
-            intent,
-        )
-    val payload = RipDpiContractJson.parseToJsonElement(projected.payload).jsonObject
-    val legacyGroups = payload.getValue("groups").jsonArray.map { JsonObject(it.jsonObject - "ownershipGeneration") }
-    val pending =
-        projected.copy(
-            payload = JsonObject((payload - "ownershipVersion") + ("groups" to JsonArray(legacyGroups))).toString(),
-        )
-    fixture.journal.prepare(pending)
-    fixture.prepareAttempts = 0
-    fixture.awgCredentials.saveAttempts = 0
-    fixture.awgProfiles.upsertAttempts = 0
-    fixture.groupWriteAttempts = 0
-    return LegacyOwnershipJournal(fixture, pending, intent, beforeGroups, row, secrets)
+        assertNull(legacy.journal.pending())
+    }
+
+    private fun decode(json: String) = RipDpiJson.decodeFromString(ListSerializer(ProxyGroup.serializer()), json)
 }
-
-private fun ownershipRepository(
-    fixture: ProfileMutationTestFixture,
-    blob: ProxyGroupBlobStore,
-): SharedPreferencesProxyGroupRepository {
-    val catalog = ProxyGroupCatalog(blob)
-    return SharedPreferencesProxyGroupRepository(catalog, fixture.coordinator(catalog = catalog))
-}
-
-private fun decodeOwnershipGroups(json: String): List<ProxyGroup> =
-    RipDpiJson.decodeFromString(ListSerializer(ProxyGroup.serializer()), json)
-
-private fun decodeOwnershipIntent(pending: PendingProfileMutation): SubscriptionRefreshIntent =
-    RipDpiContractJson.decodeFromString(
-        ProfileMutationIntent.serializer(),
-        pending.payload,
-    ) as SubscriptionRefreshIntent
-
-private fun assertNoOwnershipAwgWrites(fixture: ProfileMutationTestFixture) {
-    assertEquals(0, fixture.awgCredentials.saveAttempts)
-    assertEquals(0, fixture.awgProfiles.upsertAttempts)
-}
-
-private fun ownershipWriteCounts(fixture: ProfileMutationTestFixture): List<Int> =
-    listOf(
-        fixture.prepareAttempts,
-        fixture.awgCredentials.saveAttempts,
-        fixture.awgProfiles.upsertAttempts,
-        fixture.groupWriteAttempts,
-    )
-
-private fun ownershipTestKey(value: Int): String = Base64.getEncoder().encodeToString(ByteArray(32) { value.toByte() })
 
 private val LegacyOwnershipCatalogue =
     """

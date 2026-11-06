@@ -1,29 +1,24 @@
 package com.poyka.ripdpi.data
 
 import android.content.Context
-import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.data.backup.AwgBackupProfile
 import com.poyka.ripdpi.data.backup.BackupExportResult
 import com.poyka.ripdpi.data.backup.BackupExportUseCase
 import com.poyka.ripdpi.data.backup.BackupImporter
-import com.poyka.ripdpi.data.backup.BackupPrivateDataStore
 import com.poyka.ripdpi.data.backup.BackupPrivateDataV1
 import com.poyka.ripdpi.data.backup.BackupSettingsConverter
 import com.poyka.ripdpi.data.backup.BackupVariant
-import com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
 import com.poyka.ripdpi.data.rules.OutboundTag
-import com.poyka.ripdpi.data.rules.RipDpiDatabase
 import com.poyka.ripdpi.data.rules.RuleDao
 import com.poyka.ripdpi.data.rules.RuleEntity
+import com.poyka.ripdpi.data.testing.RoomProfileFixture
+import com.poyka.ripdpi.data.testing.backupExportUseCase
 import com.poyka.ripdpi.data.xray.XrayProfileMetadataRecord
 import com.poyka.ripdpi.data.xray.XrayProfileSecretRecord
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.After
@@ -42,37 +37,41 @@ import java.io.OutputStream
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class BackupExportUseCaseTest {
-    private lateinit var db: RipDpiDatabase
+    private lateinit var fixture: RoomProfileFixture
     private lateinit var ruleDao: RuleDao
 
     @Before
-    fun setUp() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        db =
-            Room
-                .inMemoryDatabaseBuilder(context, RipDpiDatabase::class.java)
-                .allowMainThreadQueries()
-                .build()
-        ruleDao = db.ruleDao()
-    }
+    fun setUp() =
+        runTest {
+            fixture =
+                RoomProfileFixture(
+                    ApplicationProvider.getApplicationContext<Context>(),
+                    testPauseAuthority(initialize = false),
+                )
+            fixture.initialize()
+            ruleDao = fixture.database.ruleDao()
+            ruleDao.deleteAll()
+        }
 
     @After
-    fun tearDown() {
-        db.close()
-    }
+    fun tearDown() = fixture.close()
 
-    private fun useCase(
+    private suspend fun useCase(
         groups: List<ProxyGroup> = emptyList(),
         settings: AppSettings = AppSettings.getDefaultInstance(),
-        privateDataStore: BackupPrivateDataStore = testEmptyBackupPrivateDataStore(),
-    ): BackupExportUseCase =
-        BackupExportUseCase(
-            groupRepository = FakeGroupRepository(groups),
-            ruleDao = ruleDao,
-            settingsRepository = FakeAppSettingsRepository(settings),
-            privateDataStore = privateDataStore,
-            dispatchers = AppCoroutineDispatchers(Dispatchers.Default, Dispatchers.IO, Dispatchers.Default),
+        privateData: BackupPrivateDataV1? = null,
+    ): BackupExportUseCase {
+        fixture.coordinator.restoreBackup(
+            fixture.coordinator.captureMutation(ProfileMutationOrigin.RestoreProfiles),
+            groups,
+            null,
+            settings,
+            privateData,
         )
+        return fixture.backupExportUseCase(
+            AppCoroutineDispatchers(Dispatchers.Default, Dispatchers.IO, Dispatchers.Default),
+        )
+    }
 
     @Test
     fun `FULL gathers separate profile credentials while SHARE never reads them`() =
@@ -106,26 +105,17 @@ class BackupExportUseCaseTest {
                             XrayProfileSecretRecord(profileId = "xray-1", revision = "fixture", uuid = "uuid"),
                         ),
                 )
-            var snapshots = 0
-            val store =
-                object : BackupPrivateDataStore {
-                    override suspend fun snapshot(): BackupPrivateDataV1 {
-                        snapshots += 1
-                        return privateData
-                    }
-
-                    override suspend fun replaceAll(
-                        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
-                        data: BackupPrivateDataV1,
-                    ): com.poyka.ripdpi.data.ProfileMutationOutcome = error("unused")
+            val exporter = useCase(privateData = privateData)
+            val full = exporter.gather(BackupVariant.FULL, "1.0.0", 0L)
+            fixture.beforeOpen = { namespace, _ ->
+                check(!namespace.endsWith("_credentials") && namespace != "xray_secrets") {
+                    "SHARE must not read private credentials"
                 }
-
-            val full = useCase(privateDataStore = store).gather(BackupVariant.FULL, "1.0.0", 0L)
-            val share = useCase(privateDataStore = store).gather(BackupVariant.SHARE, "1.0.0", 0L)
+            }
+            val share = exporter.gather(BackupVariant.SHARE, "1.0.0", 0L)
 
             assertEquals(privateData, full.privateData)
             assertEquals(null, share.privateData)
-            assertEquals(1, snapshots)
         }
 
     @Test
@@ -335,35 +325,4 @@ class BackupExportUseCaseTest {
             assertTrue(result is BackupExportResult.WriteFailed)
             assertEquals(BackupVariant.FULL, (result as BackupExportResult.WriteFailed).variant)
         }
-
-    private class FakeGroupRepository(
-        private val groups: List<ProxyGroup>,
-    ) : ProxyGroupRepository {
-        override suspend fun add(group: ProxyGroup) = error("unused")
-
-        override suspend fun update(group: ProxyGroup) = error("unused")
-
-        override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
-            replaceAll(
-                com.poyka.ripdpi.data
-                    .testPauseAuthority()
-                    .reserveStop(),
-                groups,
-            )
-        }
-
-        override suspend fun delete(
-            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
-            id: String,
-        ) = error("unused")
-
-        override suspend fun replaceAll(
-            receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
-            groups: List<ProxyGroup>,
-        ) = error("unused")
-
-        override suspend fun list(): List<ProxyGroup> = groups
-
-        override fun groups(): Flow<List<ProxyGroup>> = MutableStateFlow(groups).asStateFlow()
-    }
 }

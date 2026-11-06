@@ -74,8 +74,7 @@ data class SavedAwgProfile(
 class AwgProfileRepository
     @Inject
     constructor(
-        private val dao: AwgProfileDao,
-        private val credentialStore: AwgCredentialStore,
+        private val readStore: AwgProfileReadStore,
         private val profileMutations: ProfileMutationCoordinator,
     ) {
         private val encodeJson = RipDpiEncodeDefaultsJson
@@ -86,23 +85,14 @@ class AwgProfileRepository
         fun observeProfiles(): Flow<List<SavedAwgProfile>> =
             flow {
                 profileMutations.recover()
-                emitAll(dao.observeProfiles().map { rows -> rows.toSavedProfiles() })
+                emitAll(readStore.observe().map { records -> records.mapNotNull { it.toSavedProfile() } })
             }
-
-        // List.map cannot call the suspend secret-rehydration, so build explicitly.
-        private suspend fun List<AwgProfileEntity>.toSavedProfiles(): List<SavedAwgProfile> {
-            val profiles = ArrayList<SavedAwgProfile>(size)
-            for (row in this) {
-                row.toSavedProfile()?.let(profiles::add)
-            }
-            return profiles
-        }
 
         /** Loads a supported saved profile by [id], or `null` when absent or incompatible. */
         suspend fun load(id: String): SavedAwgProfile? =
             mutationMutex.withLock {
                 profileMutations.recover()
-                dao.getProfile(id)?.toSavedProfile()
+                savedProfile(id)
             }
 
         /**
@@ -116,7 +106,7 @@ class AwgProfileRepository
         ): Boolean =
             mutationMutex.withLock {
                 profileMutations.recover()
-                val current = dao.getProfile(expected.profileId)?.toSavedProfile()?.request
+                val current = savedProfile(expected.profileId)?.request
                 current == expected && action()
             }
 
@@ -127,14 +117,17 @@ class AwgProfileRepository
         ): Boolean =
             mutationMutex.withLock {
                 profileMutations.readRecovered {
-                    val current = dao.getProfile(expected.profileId)?.toSavedProfile()?.request
+                    val current = savedProfile(expected.profileId)?.request
                     current == expected && action()
                 }
             }
 
-        // Listing and editing show an unreadable secret as empty so the user can re-enter or delete it.
-        private suspend fun secretsFor(id: String): AwgSecrets =
-            loadReplaceableCredential { credentialStore.load(id) } ?: AwgSecrets()
+        private suspend fun savedProfile(id: String): SavedAwgProfile? = readStore.load(id)?.toSavedProfile()
+
+        private suspend fun profileRow(id: String): AwgProfileEntity? = readStore.load(id)?.profile
+
+        private fun AwgStoredRecord.toSavedProfile(): SavedAwgProfile? =
+            profile.toSavedProfile(loadReplaceableCredential { secrets.getOrThrow() } ?: AwgSecrets())
 
         /**
          * Persists [request] under [name], returning the stable profile id used for the row.
@@ -152,7 +145,7 @@ class AwgProfileRepository
             mutationMutex.withLock {
                 profileMutations.recover()
                 val id = existingId ?: generateProfileId()
-                val origin = dao.getProfile(id)?.subscriptionOrigin()
+                val origin = profileRow(id)?.subscriptionOrigin()
                 saveLocked(name, request, id, origin, ProfileMutationOrigin.SavedEdit)
             }
 
@@ -172,7 +165,7 @@ class AwgProfileRepository
                         write.secrets,
                     )
                     profileMutations.readRecovered {
-                        val saved = checkNotNull(checkNotNull(dao.getProfile(write.profile.id)).toSavedProfile())
+                        val saved = checkNotNull(savedProfile(write.profile.id))
                         check(saved == write.profile.toSavedProfile(write.secrets)) {
                             "Imported AWG profile changed before receipt capture"
                         }
@@ -209,26 +202,29 @@ class AwgProfileRepository
                 }
             val origins = profiles.map { it.origin }.toSet() + previousOrigins.values.filterNotNull()
             val existingMembers =
-                dao.allProfiles().mapNotNull { row ->
-                    row.subscriptionOrigin()?.takeIf { it in origins }?.let { it to row }
+                readStore.list().mapNotNull { stored ->
+                    stored.profile
+                        .subscriptionOrigin()
+                        ?.takeIf { it in origins }
+                        ?.let { it to stored }
                 }
             require(existingMembers.map { it.first }.distinct().size == existingMembers.size) {
                 "Stored AWG subscription member identity is ambiguous"
             }
             val existingByOrigin = existingMembers.toMap()
             return profiles.map { profile ->
-                val existingRow = existingByOrigin[profile.origin]
-                val existing = existingRow?.toSavedProfile()
-                val id = existingRow?.id ?: generateProfileId()
-                val previousRow = previousOrigins[profile.origin]?.let { existingByOrigin[it] }
-                val previous = previousRow?.toSavedProfile()
-                val request = mergeSubscriptionRequest(profile, existing?.request ?: previous?.request)
-                // A refreshed contract can replace a quarantined row without rotating its local key.
-                val keySource = existingRow ?: previousRow
+                val existing = existingByOrigin[profile.origin]
+                val id = existing?.profile?.id ?: generateProfileId()
+                val previous = previousOrigins[profile.origin]?.let { existingByOrigin[it] }
+                val request =
+                    mergeSubscriptionRequest(
+                        profile,
+                        existing?.toSavedProfile()?.request ?: previous?.toSavedProfile()?.request,
+                    )
+                val keySource = existing ?: previous
                 val preserved =
                     if (keySource != null && request.privateKey.isEmpty()) {
-                        // Strict read: a refresh must not swap an unreadable local key for an empty one.
-                        request.copy(privateKey = (credentialStore.load(keySource.id) ?: AwgSecrets()).privateKey)
+                        request.copy(privateKey = (keySource.secrets.getOrThrow() ?: AwgSecrets()).privateKey)
                     } else {
                         request
                     }
@@ -313,7 +309,7 @@ class AwgProfileRepository
                 )
             mutationMutex.withLock {
                 profileMutations.recover()
-                val existing = dao.getProfile(id) ?: return@withLock
+                val existing = profileRow(id) ?: return@withLock
                 profileMutations.deleteAwg(
                     preparation,
                     existing.id,
@@ -321,8 +317,6 @@ class AwgProfileRepository
                 Unit
             }
         }
-
-        private suspend fun AwgProfileEntity.toSavedProfile(): SavedAwgProfile? = toSavedProfile(secretsFor(id))
 
         private fun AwgProfileEntity.toSavedProfile(secrets: AwgSecrets): SavedAwgProfile? {
             val decoded = supportedStoredRequest() ?: return null

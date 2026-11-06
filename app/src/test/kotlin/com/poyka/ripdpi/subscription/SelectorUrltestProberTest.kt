@@ -1,24 +1,10 @@
 package com.poyka.ripdpi.subscription
 
-import com.poyka.ripdpi.activities.TestEmptyProxyGroupRepository
-import com.poyka.ripdpi.data.Mode
-import com.poyka.ripdpi.data.ProxyGroupRepository
-import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.SelectorFailover
-import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
-import com.poyka.ripdpi.data.selector.SelectorSelectionStore
 import com.poyka.ripdpi.data.subscription.SelectorUrltestGroupImport
 import com.poyka.ripdpi.data.subscription.SelectorUrltestImportResult
-import kotlinx.coroutines.CompletableDeferred
-import kotlinx.coroutines.CoroutineExceptionHandler
-import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceTimeBy
 import kotlinx.coroutines.test.runCurrent
 import kotlinx.coroutines.test.runTest
@@ -45,7 +31,7 @@ class SelectorUrltestProberTest {
                     .copy(cloudflareMemberIds = setOf("edge"))
             var calls = 0
             val prober =
-                prober(store) { _, _ ->
+                selectorTestProber(store) { _, _ ->
                     calls++
                     store.select("g", "edge")
                     MemberProbeResult(100L)
@@ -71,9 +57,9 @@ class SelectorUrltestProberTest {
             val group = requireNotNull(parsed.group)
             val store = ProbeTestSelectionStore()
             val prober =
-                prober(
+                selectorTestProber(
                     store,
-                    FakeLatencyProbe(
+                    FixedMemberLatencyProbe(
                         parsed.profiles.associate { it.id to if (it.displayName == "edge") 1L else 100L },
                     ),
                 )
@@ -295,11 +281,6 @@ class SelectorUrltestProberTest {
             assertEquals("reserve", store.selectedProfileId("g").value)
         }
 
-    private fun prober(
-        store: SelectorSelectionStore,
-        probe: MemberLatencyProbe,
-    ) = SelectorUrltestProber(store, probe, SelectorProbeScopeProvider { group -> selectorTestScope(group) })
-
     @Test
     fun `resolver feature flag change fences a completed candidate probe`() =
         runTest {
@@ -412,8 +393,8 @@ class SelectorUrltestProberTest {
         runTest {
             val store = ProbeTestSelectionStore()
             store.select("g", "slow")
-            val probe = FakeLatencyProbe(mapOf("slow" to 300L, "fast" to 100L))
-            val prober = prober(store, probe)
+            val probe = FixedMemberLatencyProbe(mapOf("slow" to 300L, "fast" to 100L))
+            val prober = selectorTestProber(store, probe)
 
             prober.runProbePass(
                 selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast"))),
@@ -431,8 +412,8 @@ class SelectorUrltestProberTest {
             val store = ProbeTestSelectionStore()
             store.select("g", "current")
             // 120 vs 100: the candidate is faster, but only by 20ms — inside the 50ms band.
-            val probe = FakeLatencyProbe(mapOf("current" to 120L, "candidate" to 100L))
-            val prober = prober(store, probe)
+            val probe = FixedMemberLatencyProbe(mapOf("current" to 120L, "candidate" to 100L))
+            val prober = selectorTestProber(store, probe)
 
             prober.runProbePass(
                 selectorTestGroup(listOf(selectorTestMember("current"), selectorTestMember("candidate"))),
@@ -448,8 +429,8 @@ class SelectorUrltestProberTest {
         runTest {
             val store = ProbeTestSelectionStore()
             store.select("g", "down")
-            val probe = FakeLatencyProbe(mapOf("down" to null, "up" to 200L))
-            val prober = prober(store, probe)
+            val probe = FixedMemberLatencyProbe(mapOf("down" to null, "up" to 200L))
+            val prober = selectorTestProber(store, probe)
 
             prober.runProbePass(
                 selectorTestGroup(listOf(selectorTestMember("down"), selectorTestMember("up"))),
@@ -465,8 +446,8 @@ class SelectorUrltestProberTest {
         runTest {
             val store = ProbeTestSelectionStore()
             store.select("g", "slow")
-            val probe = FakeLatencyProbe(mapOf("slow" to 300L, "fast" to 100L))
-            val prober = prober(store, probe)
+            val probe = FixedMemberLatencyProbe(mapOf("slow" to 300L, "fast" to 100L))
+            val prober = selectorTestProber(store, probe)
             val group =
                 selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast")), intervalSeconds = 10)
             backgroundScope.launch { prober.run(group) }
@@ -481,106 +462,6 @@ class SelectorUrltestProberTest {
         }
 
     @Test
-    fun `failed group watcher cancels its owned probes`() =
-        runTest {
-            val store = ProbeTestSelectionStore()
-            store.select("g", "slow")
-            val failWatcher = CompletableDeferred<Unit>()
-            val failures = mutableListOf<Throwable>()
-            val group =
-                selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast")), intervalSeconds = 10)
-            val repository =
-                object : ProxyGroupRepository by TestEmptyProxyGroupRepository {
-                    override fun groups() =
-                        flow {
-                            emit(listOf(group))
-                            failWatcher.await()
-                            error("Group source failed")
-                        }
-                }
-            val scope =
-                CoroutineScope(
-                    SupervisorJob(backgroundScope.coroutineContext[Job]) + StandardTestDispatcher(testScheduler) +
-                        CoroutineExceptionHandler { _, failure -> failures.add(failure) },
-                )
-            val coordinator =
-                SelectorUrltestCoordinator(
-                    scope,
-                    repository,
-                    prober(store, FakeLatencyProbe(mapOf("fast" to 100L))),
-                )
-            coordinator.start(Mode.VPN)
-            runCurrent()
-            failWatcher.complete(Unit)
-            runCurrent()
-            advanceTimeBy(10_001)
-            runCurrent()
-            assertEquals(1, failures.size)
-            assertEquals("slow", store.selectedProfileId("g").value)
-            coordinator.stop(Mode.VPN)
-        }
-
-    @Test
-    fun `old service stop keeps probes running for new mode owner`() =
-        runTest {
-            val store = ProbeTestSelectionStore()
-            store.select("g", "slow")
-            val group =
-                selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast")), intervalSeconds = 10)
-            val groups = MutableStateFlow(listOf(group))
-            val repository =
-                object : ProxyGroupRepository by TestEmptyProxyGroupRepository {
-                    override fun groups() = groups
-                }
-            val coordinator =
-                SelectorUrltestCoordinator(
-                    backgroundScope,
-                    repository,
-                    prober(store, FakeLatencyProbe(mapOf("fast" to 100L))),
-                )
-            coordinator.start(Mode.VPN)
-            runCurrent()
-            coordinator.start(Mode.Proxy)
-            coordinator.start(Mode.Proxy)
-            coordinator.stop(Mode.VPN)
-            advanceTimeBy(10_001)
-            runCurrent()
-            assertEquals("fast", store.selectedProfileId("g").value)
-            coordinator.stop(Mode.Proxy)
-            store.select("g", "slow")
-            advanceTimeBy(10_001)
-            runCurrent()
-            assertEquals("slow", store.selectedProfileId("g").value)
-        }
-
-    @Test
-    fun `coordinator restarts probing when refreshed classification changes`() =
-        runTest {
-            val store = ProbeTestSelectionStore()
-            val group = selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast")))
-            val groups = MutableStateFlow(listOf(group))
-            val repository =
-                object : ProxyGroupRepository by TestEmptyProxyGroupRepository {
-                    override fun groups() = groups
-                }
-            val prober = prober(store, FakeLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)))
-            val coordinator = SelectorUrltestCoordinator(backgroundScope, repository, prober)
-            coordinator.start(Mode.VPN)
-            runCurrent()
-            advanceTimeBy(10_001)
-            runCurrent()
-            assertEquals("fast", store.selectedProfileId("g").value)
-
-            groups.value = listOf(group.copy(cloudflareMemberIds = setOf("fast")))
-            runCurrent()
-            advanceTimeBy(10_001)
-            runCurrent()
-
-            assertEquals("slow", store.selectedProfileId("g").value)
-            coordinator.stop(Mode.VPN)
-        }
-
-    @Test
     fun `automatic existing fallback is retained until a direct candidate is reachable`() =
         runTest {
             val store = ProbeTestSelectionStore()
@@ -589,78 +470,13 @@ class SelectorUrltestProberTest {
                 selectorTestGroup(
                     listOf(selectorTestMember("edge"), selectorTestMember("direct")),
                 ).copy(cloudflareMemberIds = setOf("edge"))
-            val unavailable = prober(store, FakeLatencyProbe(emptyMap()))
+            val unavailable = selectorTestProber(store, FixedMemberLatencyProbe(emptyMap()))
             unavailable.runProbePass(group, "https://probe", toleranceMs = 50)
             assertEquals("edge", store.selectedProfileId("g").value)
 
-            val recovered = prober(store, FakeLatencyProbe(mapOf("direct" to 100L)))
+            val recovered = selectorTestProber(store, FixedMemberLatencyProbe(mapOf("direct" to 100L)))
             recovered.runProbePass(group, "https://probe", toleranceMs = 50)
             assertEquals("direct", store.selectedProfileId("g").value)
-        }
-
-    @Test
-    fun `coordinator metadata updates do not postpone the next probe`() =
-        runTest {
-            val store = ProbeTestSelectionStore()
-            val group = selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast")))
-            val groups = MutableStateFlow(listOf(group))
-            val repository =
-                object : ProxyGroupRepository by TestEmptyProxyGroupRepository {
-                    override fun groups() = groups
-                }
-            val prober = prober(store, FakeLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)))
-            val coordinator = SelectorUrltestCoordinator(backgroundScope, repository, prober)
-            coordinator.start(Mode.VPN)
-            runCurrent()
-            advanceTimeBy(5_000)
-            groups.value = listOf(group.copy(name = "Refreshed name"))
-            runCurrent()
-            advanceTimeBy(5_001)
-            runCurrent()
-
-            assertEquals("fast", store.selectedProfileId("g").value)
-            coordinator.stop(Mode.VPN)
-        }
-
-    @Test
-    fun `policy refresh invalidates a probe already entering its selection commit`() =
-        runTest {
-            val store = ProbeTestSelectionStore()
-            val group = selectorTestGroup(listOf(selectorTestMember("slow"), selectorTestMember("fast")))
-            val groups = MutableStateFlow(listOf(group))
-            val repository =
-                object : ProxyGroupRepository by TestEmptyProxyGroupRepository {
-                    override fun groups() = groups
-                }
-            var updateBeforeCommit = true
-            val interceptedStore =
-                object : SelectorSelectionStore by store {
-                    override fun selectAutomatically(
-                        groupId: String,
-                        expected: SelectorSelectionSnapshot,
-                        profileId: String,
-                    ): Boolean {
-                        if (updateBeforeCommit) {
-                            updateBeforeCommit = false
-                            groups.value = listOf(group.copy(cloudflareMemberIds = setOf("fast")))
-                            runCurrent()
-                        }
-                        return store.selectAutomatically(groupId, expected, profileId)
-                    }
-                }
-            val prober =
-                prober(interceptedStore, FakeLatencyProbe(mapOf("slow" to 300L, "fast" to 100L)))
-            val coordinator = SelectorUrltestCoordinator(backgroundScope, repository, prober)
-            coordinator.start(Mode.VPN)
-            runCurrent()
-            advanceTimeBy(10_001)
-            runCurrent()
-
-            assertNull(store.selectedProfileId("g").value)
-            advanceTimeBy(10_001)
-            runCurrent()
-            assertEquals("slow", store.selectedProfileId("g").value)
-            coordinator.stop(Mode.VPN)
         }
 
     // bestSwitchCandidate — the pure decision the loop applies.
@@ -692,14 +508,5 @@ class SelectorUrltestProberTest {
             )
 
         assertNull(winner)
-    }
-
-    private class FakeLatencyProbe(
-        private val latencies: Map<String, Long?>,
-    ) : MemberLatencyProbe {
-        override suspend fun measure(
-            profile: ProxyProfile,
-            target: MemberProbeTarget,
-        ): MemberProbeResult? = latencies[profile.id]?.let { MemberProbeResult(it) }
     }
 }

@@ -1,14 +1,10 @@
 package com.poyka.ripdpi.data
 
 import android.content.Context
-import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import com.poyka.ripdpi.data.backup.BackupExportUseCase
 import com.poyka.ripdpi.data.backup.BackupExporter
 import com.poyka.ripdpi.data.backup.BackupPreviewResult
-import com.poyka.ripdpi.data.backup.BackupPrivateDataStore
 import com.poyka.ripdpi.data.backup.BackupPrivateDataV1
-import com.poyka.ripdpi.data.backup.BackupRestoreUseCase
 import com.poyka.ripdpi.data.backup.BackupSchemaVersion
 import com.poyka.ripdpi.data.backup.BackupSerializer
 import com.poyka.ripdpi.data.backup.BackupSettingsConverter
@@ -16,22 +12,19 @@ import com.poyka.ripdpi.data.backup.BackupVariant
 import com.poyka.ripdpi.data.backup.RestoreResult
 import com.poyka.ripdpi.data.backup.RestoreSelection
 import com.poyka.ripdpi.data.rules.OutboundTag
-import com.poyka.ripdpi.data.rules.RipDpiDatabase
-import com.poyka.ripdpi.data.rules.RuleDao
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.rules.RuleNetwork
+import com.poyka.ripdpi.data.testing.RoomProfileFixture
+import com.poyka.ripdpi.data.testing.backupExportUseCase
+import com.poyka.ripdpi.data.testing.backupPrivateDataStore
+import com.poyka.ripdpi.data.testing.backupRestoreUseCase
 import com.poyka.ripdpi.proto.AppSettings
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.isActive
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
-import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -43,25 +36,8 @@ import kotlin.coroutines.cancellation.CancellationException
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [35])
 class BackupRestoreUseCaseTest {
-    private lateinit var db: RipDpiDatabase
-    private lateinit var ruleDao: RuleDao
-
-    @Before
-    fun setUp() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        db =
-            Room
-                .inMemoryDatabaseBuilder(context, RipDpiDatabase::class.java)
-                .allowMainThreadQueries()
-                .build()
-        ruleDao = db.ruleDao()
-    }
-
-    @After
-    fun tearDown() {
-        db.close()
-    }
-
+    private lateinit var fixture: RoomProfileFixture
+    private val all = RestoreSelection(true, true, true)
     private val sampleProfile =
         ProxyProfile.Shadowsocks(
             id = "ss-1",
@@ -86,387 +62,90 @@ class BackupRestoreUseCaseTest {
             outboundTag = OutboundTag.Profile(7),
         )
 
-    private fun exportUseCase(
-        groups: FakeGroupRepository,
-        settings: FakeAppSettingsRepository,
-        privateDataStore: BackupPrivateDataStore = testEmptyBackupPrivateDataStore(),
-    ) = BackupExportUseCase(
-        groupRepository = groups,
-        ruleDao = ruleDao,
-        settingsRepository = settings,
-        privateDataStore = privateDataStore,
-        dispatchers = AppCoroutineDispatchers(Dispatchers.Default, Dispatchers.IO, Dispatchers.Default),
-    )
+    @Before
+    fun setUp() =
+        runTest {
+            fixture =
+                RoomProfileFixture(
+                    ApplicationProvider.getApplicationContext<Context>(),
+                    testPauseAuthority(initialize = false),
+                )
+            fixture.initialize()
+            fixture.database.ruleDao().deleteAll()
+        }
 
-    private fun restoreUseCase(
-        groups: FakeGroupRepository,
-        settings: FakeAppSettingsRepository,
-        privateDataStore: BackupPrivateDataStore = testEmptyBackupPrivateDataStore(),
-    ) = BackupRestoreUseCase(
-        groupRepository = groups,
-        ruleDao = ruleDao,
-        settingsRepository = settings,
-        privateDataStore = privateDataStore,
-        profileMutations = TestBackupMutationCoordinator(),
-    )
+    @After
+    fun tearDown() = fixture.close()
 
-    private fun settingsWithPort(port: Int): AppSettings =
-        AppSettings
-            .getDefaultInstance()
+    private fun settings(port: Int) =
+        AppSettingsSerializer.defaultValue
             .toBuilder()
             .setProxyPort(port)
             .build()
 
-    private suspend fun restoreSettings(
-        settings: FakeAppSettingsRepository,
-        targetPort: Int,
-    ): RestoreResult {
-        val document =
-            BackupExporter.export(
-                variant = BackupVariant.FULL,
-                profiles = emptyList(),
-                groups = emptyList(),
-                rules = emptyList(),
-                settings = BackupSettingsConverter.toMap(settingsWithPort(targetPort), BackupVariant.FULL),
-                createdAtEpochMillis = 0L,
-                appVersion = "1.0.0",
-            )
-        return restoreUseCase(FakeGroupRepository(mutableListOf()), settings).restore(
-            BackupSerializer.encodeToString(document),
-            RestoreSelection(profilesAndGroups = false, routes = false, settings = true),
+    private suspend fun seed(
+        groups: List<ProxyGroup> = listOf(sampleGroup),
+        rules: List<RuleEntity> = listOf(sampleRule),
+        settings: AppSettings = settings(1111),
+        privateData: BackupPrivateDataV1 = BackupPrivateDataV1(),
+    ) {
+        fixture.coordinator.restoreBackup(
+            fixture.coordinator.captureMutation(ProfileMutationOrigin.RestoreProfiles),
+            groups,
+            rules,
+            settings,
+            privateData,
         )
     }
+
+    private fun document(
+        groups: List<ProxyGroup> = listOf(sampleGroup.copy(id = "target")),
+        profiles: List<ProxyProfile> = emptyList(),
+        rules: List<RuleEntity> = listOf(sampleRule.copy(name = "target-rule")),
+        settings: AppSettings? = settings(9999),
+        privateData: BackupPrivateDataV1? = null,
+        variant: BackupVariant = BackupVariant.FULL,
+    ) = BackupSerializer.encodeToString(
+        BackupExporter.export(
+            variant,
+            profiles,
+            groups,
+            rules,
+            settings?.let { BackupSettingsConverter.toMap(it, variant) }.orEmpty(),
+            0L,
+            "1.0.0",
+            privateData,
+        ),
+    )
+
+    private suspend fun snapshot(variant: BackupVariant = BackupVariant.FULL) =
+        fixture
+            .backupExportUseCase(
+                AppCoroutineDispatchers(Dispatchers.Default, Dispatchers.IO, Dispatchers.Default),
+            ).gather(variant, "1.0.0", 0L)
 
     @Test
     fun `restore clears a pending app lock reset notice`() =
         runTest {
-            val live =
-                FakeAppSettingsRepository(
-                    AppSettings
-                        .getDefaultInstance()
-                        .toBuilder()
-                        .setAppLockResetNoticePending(true)
-                        .build(),
-                )
-
-            val result = restoreSettings(live, targetPort = 9999)
-
+            seed(settings = settings(1111).toBuilder().setAppLockResetNoticePending(true).build())
+            val result = fixture.backupRestoreUseCase().restore(document(), RestoreSelection(false, false, true))
             assertTrue(result is RestoreResult.Success)
-            assertEquals(9999, live.snapshot().proxyPort)
-            assertFalse(live.snapshot().appLockResetNoticePending)
+            assertEquals(9999, fixture.settings.snapshot().proxyPort)
+            assertFalse(fixture.settings.snapshot().appLockResetNoticePending)
         }
 
     @Test
     fun `absent settings snapshot leaves live settings unchanged`() =
         runTest {
-            val document =
-                BackupExporter.export(
-                    variant = BackupVariant.SHARE,
-                    profiles = emptyList(),
-                    groups = emptyList(),
-                    rules = emptyList(),
-                    settings = emptyMap(),
-                    createdAtEpochMillis = 0L,
-                    appVersion = "1.0.0",
-                )
-            val liveSettings =
-                FakeAppSettingsRepository(
-                    AppSettings
-                        .getDefaultInstance()
-                        .toBuilder()
-                        .setProxyPort(4321)
-                        .build(),
-                )
-
+            seed()
+            val before = fixture.settings.snapshot()
             val result =
-                restoreUseCase(FakeGroupRepository(mutableListOf()), liveSettings).restore(
-                    BackupSerializer.encodeToString(document),
-                    RestoreSelection(profilesAndGroups = false, routes = false, settings = true),
-                )
-
-            assertTrue(result is RestoreResult.Success)
-            assertEquals(4321, liveSettings.snapshot().proxyPort)
-            assertEquals(0, liveSettings.replaceCalls)
-        }
-
-    @Test
-    fun `settings write failure rolls back groups and rules`() =
-        runTest {
-            val targetGroup = sampleGroup.copy(id = "target")
-            val targetRule = sampleRule.copy(name = "target-rule")
-            val targetSettings =
-                AppSettings
-                    .getDefaultInstance()
-                    .toBuilder()
-                    .setProxyPort(9999)
-                    .build()
-            val document =
-                BackupExporter.export(
-                    variant = BackupVariant.FULL,
-                    profiles = emptyList(),
-                    groups = listOf(targetGroup),
-                    rules = listOf(targetRule),
-                    settings = BackupSettingsConverter.toMap(targetSettings, BackupVariant.FULL),
-                    createdAtEpochMillis = 0L,
-                    appVersion = "1.0.0",
-                )
-            val liveGroup = sampleGroup.copy(id = "live")
-            val liveGroups = FakeGroupRepository(mutableListOf(liveGroup))
-            val liveRule = sampleRule.copy(name = "live-rule")
-            ruleDao.insert(liveRule)
-            val liveSettings =
-                FakeAppSettingsRepository(
-                    current =
-                        AppSettings
-                            .getDefaultInstance()
-                            .toBuilder()
-                            .setProxyPort(1111)
-                            .build(),
-                    failOnReplace = true,
-                )
-
-            val result =
-                restoreUseCase(liveGroups, liveSettings).restore(
-                    BackupSerializer.encodeToString(document),
-                    RestoreSelection(profilesAndGroups = true, routes = true, settings = true),
-                )
-
-            assertTrue(result is RestoreResult.Aborted)
-            assertEquals(listOf(liveGroup), liveGroups.list())
-            assertEquals(
-                "live-rule",
-                ruleDao
-                    .allRules()
-                    .first()
-                    .single()
-                    .name,
-            )
-            assertEquals(1111, liveSettings.snapshot().proxyPort)
-        }
-
-    @Test
-    fun `write then throw is compensated from the captured settings preimage`() =
-        runTest {
-            val liveSettings =
-                FakeAppSettingsRepository(
-                    current = settingsWithPort(1111),
-                    failAfterReplace = true,
-                )
-
-            val result = restoreSettings(liveSettings, targetPort = 9999)
-
-            assertTrue(result is RestoreResult.Aborted)
-            assertEquals(1111, liveSettings.snapshot().proxyPort)
-            assertEquals(2, liveSettings.replaceCalls)
-        }
-
-    @Test
-    fun `cancellation compensates in a non cancellable context and remains cancellation`() =
-        runTest {
-            val liveSettings =
-                FakeAppSettingsRepository(
-                    current = settingsWithPort(1111),
-                    cancelAfterReplace = true,
-                )
-
-            val cancellation =
-                try {
-                    restoreSettings(liveSettings, targetPort = 9999)
-                    null
-                } catch (caught: CancellationException) {
-                    caught
-                }
-
-            assertNotNull(cancellation)
-            assertEquals(1111, liveSettings.snapshot().proxyPort)
-            assertTrue(liveSettings.rollbackWasActive)
-        }
-
-    @Test
-    fun `rollback failure reports integrity failure`() =
-        runTest {
-            val liveSettings =
-                FakeAppSettingsRepository(
-                    current = settingsWithPort(1111),
-                    failAfterReplace = true,
-                    failRollback = true,
-                )
-
-            val result = restoreSettings(liveSettings, targetPort = 9999)
-
-            assertTrue(result is RestoreResult.IntegrityFailure)
-            assertEquals(9999, liveSettings.snapshot().proxyPort)
-            assertEquals(1, (result as RestoreResult.IntegrityFailure).rollbackFailures.size)
-        }
-
-    @Test
-    fun `group write failure rolls back separate private profile stores`() =
-        runTest {
-            val livePrivateData = BackupPrivateDataV1(relayProfiles = listOf(RelayProfileRecord(id = "live")))
-            val targetPrivateData = BackupPrivateDataV1(relayProfiles = listOf(RelayProfileRecord(id = "target")))
-            val privateStore = FakePrivateDataStore(livePrivateData)
-            val document =
-                BackupExporter.export(
-                    variant = BackupVariant.FULL,
-                    profiles = emptyList(),
-                    groups = listOf(sampleGroup),
-                    rules = emptyList(),
-                    settings = emptyMap(),
-                    createdAtEpochMillis = 0L,
-                    appVersion = "1.0.0",
-                    privateData = targetPrivateData,
-                )
-
-            val result =
-                restoreUseCase(
-                    groups = FakeGroupRepository(mutableListOf(), failOnReplace = true),
-                    settings = FakeAppSettingsRepository(),
-                    privateDataStore = privateStore,
-                ).restore(
-                    BackupSerializer.encodeToString(document),
-                    RestoreSelection(profilesAndGroups = true, routes = false, settings = false),
-                )
-
-            assertTrue(result is RestoreResult.Aborted)
-            assertEquals(livePrivateData, privateStore.data)
-        }
-
-    @Test
-    fun `FULL export then wipe then FULL import deep-equals original state`() =
-        runTest {
-            // -- Seed live state and export a FULL backup. --
-            val groupWithProfile = sampleGroup.copy(members = listOf(sampleProfile))
-            val exportGroups = FakeGroupRepository(mutableListOf(groupWithProfile))
-            val exportSettings =
-                FakeAppSettingsRepository(
-                    AppSettings
-                        .getDefaultInstance()
-                        .toBuilder()
-                        .setProxyPort(4242)
-                        .build(),
-                )
-            ruleDao.insert(sampleRule)
-            val doc =
-                exportUseCase(exportGroups, exportSettings)
-                    .gather(BackupVariant.FULL, "1.0.0", 0L)
-            val json = BackupSerializer.encodeToString(doc)
-
-            // -- Full wipe of live state. --
-            ruleDao.deleteAll()
-            val liveGroups = FakeGroupRepository(mutableListOf())
-            val liveSettings = FakeAppSettingsRepository(AppSettings.getDefaultInstance())
-            assertEquals(0, ruleDao.allRules().first().size)
-
-            // -- Full import. --
-            val result =
-                restoreUseCase(liveGroups, liveSettings).restore(
-                    json,
-                    RestoreSelection(profilesAndGroups = true, routes = true, settings = true),
+                fixture.backupRestoreUseCase().restore(
+                    document(settings = null),
+                    RestoreSelection(false, false, true),
                 )
             assertTrue(result is RestoreResult.Success)
-
-            // -- Deep-equals across every category. --
-            assertEquals(listOf(groupWithProfile), liveGroups.list())
-            val restoredRule = ruleDao.allRules().first().single()
-            assertEquals(sampleRule.name, restoredRule.name)
-            assertEquals(sampleRule.userOrder, restoredRule.userOrder)
-            assertEquals(sampleRule.enabled, restoredRule.enabled)
-            assertEquals(sampleRule.domains, restoredRule.domains)
-            assertEquals(sampleRule.ports, restoredRule.ports)
-            assertEquals(sampleRule.network, restoredRule.network)
-            assertEquals(sampleRule.packages, restoredRule.packages)
-            assertEquals(OutboundTag.Profile(7), restoredRule.outboundTag)
-            assertEquals(4242, liveSettings.snapshot().proxyPort)
-        }
-
-    @Test
-    fun `legacy top-level profile is restored into its matching group`() =
-        runTest {
-            val document =
-                BackupExporter.export(
-                    variant = BackupVariant.FULL,
-                    profiles = listOf(sampleProfile),
-                    groups = listOf(sampleGroup),
-                    rules = emptyList(),
-                    settings = emptyMap(),
-                    createdAtEpochMillis = 0L,
-                    appVersion = "1.0.0",
-                )
-            val liveGroups = FakeGroupRepository(mutableListOf())
-
-            val result =
-                restoreUseCase(liveGroups, FakeAppSettingsRepository()).restore(
-                    BackupSerializer.encodeToString(document),
-                    RestoreSelection(profilesAndGroups = true, routes = false, settings = false),
-                )
-
-            assertTrue(result is RestoreResult.Success)
-            assertEquals(listOf(sampleGroup.copy(members = listOf(sampleProfile))), liveGroups.list())
-        }
-
-    @Test
-    fun `profile referencing a missing group aborts before any write`() =
-        runTest {
-            val document =
-                BackupExporter.export(
-                    variant = BackupVariant.FULL,
-                    profiles = listOf(sampleProfile),
-                    groups = emptyList(),
-                    rules = emptyList(),
-                    settings = emptyMap(),
-                    createdAtEpochMillis = 0L,
-                    appVersion = "1.0.0",
-                )
-            val existingGroup = sampleGroup.copy(id = "existing")
-            val liveGroups = FakeGroupRepository(mutableListOf(existingGroup))
-            val liveSettings =
-                FakeAppSettingsRepository(
-                    AppSettings
-                        .getDefaultInstance()
-                        .toBuilder()
-                        .setProxyPort(4242)
-                        .build(),
-                )
-            ruleDao.insert(sampleRule)
-            val existingRules = ruleDao.allRules().first()
-
-            val result =
-                restoreUseCase(liveGroups, liveSettings).restore(
-                    BackupSerializer.encodeToString(document),
-                    RestoreSelection(profilesAndGroups = true, routes = true, settings = true),
-                )
-
-            assertTrue(result is RestoreResult.Aborted)
-            assertEquals(listOf(existingGroup), liveGroups.list())
-            assertEquals(existingRules, ruleDao.allRules().first())
-            assertEquals(4242, liveSettings.snapshot().proxyPort)
-        }
-
-    @Test
-    fun `newer-than-app schema is refused and never touches live data`() =
-        runTest {
-            val future = BackupSchemaVersion + 1
-            val json =
-                """
-                {"schemaVersion":$future,"createdAtEpochMillis":0,"appVersion":"9.9.9",
-                 "profiles":[],"groups":[],"rules":[],"settings":{},"containsCredentials":true}
-                """.trimIndent()
-
-            ruleDao.insert(sampleRule)
-            val liveGroups = FakeGroupRepository(mutableListOf(sampleGroup))
-            val liveSettings = FakeAppSettingsRepository(AppSettings.getDefaultInstance())
-
-            val result =
-                restoreUseCase(liveGroups, liveSettings).restore(
-                    json,
-                    RestoreSelection(profilesAndGroups = true, routes = true, settings = true),
-                )
-
-            assertTrue(result is RestoreResult.UnsupportedVersion)
-            assertEquals(future, (result as RestoreResult.UnsupportedVersion).found)
-            // Live data is untouched: the seeded rule and group survive.
-            assertEquals(1, ruleDao.allRules().first().size)
-            assertEquals(listOf(sampleGroup), liveGroups.list())
+            assertEquals(before, fixture.settings.snapshot())
         }
 
     @Test
@@ -482,285 +161,246 @@ class BackupRestoreUseCaseTest {
                     createdAtEpochMillis = 0L,
                     appVersion = "1.0.0",
                 )
-            ruleDao.insert(sampleRule)
-            val existingRules = ruleDao.allRules().first()
             val groupWithProfile = sampleGroup.copy(members = listOf(sampleProfile))
-            val liveGroups = FakeGroupRepository(mutableListOf(groupWithProfile))
-            val existingSettings = settingsWithPort(4242)
-            val liveSettings = FakeAppSettingsRepository(existingSettings)
+            val existingSettings = settings(4242)
+            seed(groups = listOf(groupWithProfile), settings = existingSettings)
+            val existingRules = fixture.database.ruleDao().allRules().first()
 
             val result =
-                restoreUseCase(liveGroups, liveSettings).restore(
+                fixture.backupRestoreUseCase().restore(
                     BackupSerializer.encodeToString(document),
-                    RestoreSelection(profilesAndGroups = true, routes = true, settings = true),
+                    all,
                 )
 
             assertTrue(result is RestoreResult.Aborted)
-            assertEquals(listOf(groupWithProfile), liveGroups.list())
-            assertEquals(existingRules, ruleDao.allRules().first())
-            assertEquals(existingSettings, liveSettings.snapshot())
+            assertEquals(listOf(groupWithProfile), fixture.groups.list())
+            assertEquals(existingRules, fixture.database.ruleDao().allRules().first())
+            assertEquals(existingSettings, fixture.settings.snapshot())
         }
 
     @Test
-    fun `malformed JSON aborts without touching live data`() =
+    fun `restore succeeds and requests restart without reading committed rows again`() =
         runTest {
-            ruleDao.insert(sampleRule)
-            val liveGroups = FakeGroupRepository(mutableListOf(sampleGroup))
-            val liveSettings = FakeAppSettingsRepository(AppSettings.getDefaultInstance())
+            seed()
+            val rowsWritten =
+                java.util.concurrent.atomic
+                    .AtomicBoolean()
+            fixture.beforeSeal = { namespace, _ ->
+                if (namespace == "app_settings") rowsWritten.set(true)
+            }
+            fixture.beforeOpen = { _, _ ->
+                check(!rowsWritten.get()) { "Post-commit storage is unavailable" }
+            }
 
+            val result = fixture.backupRestoreUseCase().restore(document(), all)
+
+            assertEquals(RestoreResult.Success(restartRequired = true), result)
+            assertFalse(checkNotNull(fixture.authority.states.value).profileUtility.catalogReady)
+            fixture.beforeOpen = null
+            fixture.beforeSeal = null
+            fixture = fixture.reopen()
+            assertEquals(9999, fixture.settings.snapshot().proxyPort)
+            assertEquals(
+                listOf(sampleRule.copy(name = "target-rule")),
+                fixture.database
+                    .ruleDao()
+                    .allRules()
+                    .first()
+                    .map { it.copy(id = 0L) },
+            )
+            fixture.coordinator.recover()
+            assertTrue(checkNotNull(fixture.authority.states.value).profileUtility.catalogReady)
+        }
+
+    @Test
+    fun `settings write failure rolls back groups rules and private data after reopen`() =
+        runTest {
+            seed(privateData = BackupPrivateDataV1(relayProfiles = listOf(RelayProfileRecord(id = "live"))))
+            val before = snapshot()
+            fixture.beforeSeal = { namespace, _ -> check(namespace != "app_settings") { "Fixture write failure" } }
             val result =
-                restoreUseCase(liveGroups, liveSettings).restore(
-                    "{ this is not json",
-                    RestoreSelection(profilesAndGroups = true, routes = true, settings = true),
+                fixture.backupRestoreUseCase().restore(
+                    document(
+                        privateData = BackupPrivateDataV1(relayProfiles = listOf(RelayProfileRecord(id = "target"))),
+                    ),
+                    all,
                 )
-
             assertTrue(result is RestoreResult.Aborted)
-            assertEquals(1, ruleDao.allRules().first().size)
-            assertEquals(listOf(sampleGroup), liveGroups.list())
+            fixture.beforeSeal = null
+            assertEquals(before, snapshot())
+            fixture = fixture.reopen()
+            assertEquals(before, snapshot())
+        }
+
+    @Test
+    fun `cancellation rolls back written rows and remains cancellation`() =
+        runTest {
+            seed()
+            val before = snapshot()
+            fixture.beforeSeal =
+                { namespace, _ -> if (namespace == "app_settings") throw CancellationException("Fixture cancellation") }
+            val result = runCatching { fixture.backupRestoreUseCase().restore(document(), all) }
+            assertTrue(result.exceptionOrNull() is CancellationException)
+            fixture.beforeSeal = null
+            assertEquals(before, snapshot())
+            fixture = fixture.reopen()
+            assertEquals(before, snapshot())
+        }
+
+    @Test
+    fun `group write failure leaves private profiles unchanged`() =
+        runTest {
+            val privateData = BackupPrivateDataV1(relayProfiles = listOf(RelayProfileRecord(id = "live")))
+            seed(privateData = privateData)
+            fixture.beforeSeal = { namespace, _ -> check(namespace != "proxy_groups") { "Fixture write failure" } }
+            val result =
+                fixture.backupRestoreUseCase().restore(
+                    document(
+                        privateData = BackupPrivateDataV1(relayProfiles = listOf(RelayProfileRecord(id = "target"))),
+                    ),
+                    all,
+                )
+            assertTrue(result is RestoreResult.Aborted)
+            fixture.beforeSeal = null
+            assertEquals(privateData, fixture.backupPrivateDataStore().snapshot())
+        }
+
+    @Test
+    fun `FULL export then wipe then import restores all categories`() =
+        runTest {
+            seed(groups = listOf(sampleGroup.copy(members = listOf(sampleProfile))), settings = settings(4242))
+            val before = snapshot()
+            fixture.coordinator.runReset {}
+            assertTrue(fixture.groups.list().isEmpty())
+            val result = fixture.backupRestoreUseCase().restore(BackupSerializer.encodeToString(before), all)
+            assertTrue(result is RestoreResult.Success)
+            val after = snapshot()
+            assertTrue(after.groups.all { it.ownershipGeneration.isNotBlank() })
+            assertEquals(
+                before.copy(groups = before.groups.map { it.copy(ownershipGeneration = "") }),
+                after.copy(groups = after.groups.map { it.copy(ownershipGeneration = "") }),
+            )
+        }
+
+    @Test
+    fun `legacy top-level profile is restored into its matching group`() =
+        runTest {
+            val result =
+                fixture.backupRestoreUseCase().restore(
+                    document(groups = listOf(sampleGroup), profiles = listOf(sampleProfile)),
+                    RestoreSelection(true, false, false),
+                )
+            assertTrue(result is RestoreResult.Success)
+            assertEquals(
+                listOf(sampleGroup.copy(members = listOf(sampleProfile))),
+                fixture.groups.list().map { it.copy(ownershipGeneration = "") },
+            )
+        }
+
+    @Test
+    fun `profile referencing a missing group aborts before any write`() =
+        runTest {
+            seed()
+            val before = snapshot()
+            val result =
+                fixture.backupRestoreUseCase().restore(
+                    document(groups = emptyList(), profiles = listOf(sampleProfile)),
+                    all,
+                )
+            assertTrue(result is RestoreResult.Aborted)
+            assertEquals(before, snapshot())
+        }
+
+    @Test
+    fun `newer schema and malformed JSON leave the database unchanged`() =
+        runTest {
+            seed()
+            val before = snapshot()
+            val future =
+                """
+                {"schemaVersion":${BackupSchemaVersion + 1},"createdAtEpochMillis":0,"appVersion":"x",
+                "profiles":[],"groups":[],"rules":[],"settings":{}}
+                """.trimIndent()
+            assertTrue(fixture.backupRestoreUseCase().restore(future, all) is RestoreResult.UnsupportedVersion)
+            assertTrue(fixture.backupRestoreUseCase().restore("not json", all) is RestoreResult.Aborted)
+            assertEquals(before, snapshot())
         }
 
     @Test
     fun `selective restore preserves unchecked categories`() =
         runTest {
-            val groupWithProfile = sampleGroup.copy(members = listOf(sampleProfile))
-            val exportGroups = FakeGroupRepository(mutableListOf(groupWithProfile))
-            val exportSettings =
-                FakeAppSettingsRepository(
-                    AppSettings
-                        .getDefaultInstance()
-                        .toBuilder()
-                        .setProxyPort(4242)
-                        .build(),
-                )
-            ruleDao.insert(sampleRule)
-            val json =
-                BackupSerializer.encodeToString(
-                    exportUseCase(exportGroups, exportSettings)
-                        .gather(BackupVariant.FULL, "1.0.0", 0L),
-                )
-
-            // Live state has a DIFFERENT rule and different settings.
-            ruleDao.deleteAll()
-            val existingRule = RuleEntity(name = "live-rule", outboundTag = OutboundTag.Block)
-            ruleDao.insert(existingRule)
-            val liveGroups = FakeGroupRepository(mutableListOf())
-            val liveSettings =
-                FakeAppSettingsRepository(
-                    AppSettings
-                        .getDefaultInstance()
-                        .toBuilder()
-                        .setProxyPort(1111)
-                        .build(),
-                )
-            // Restore ONLY profiles+groups; routes and settings must be preserved.
-            val result =
-                restoreUseCase(liveGroups, liveSettings).restore(
-                    json,
-                    RestoreSelection(profilesAndGroups = true, routes = false, settings = false),
-                )
-            assertTrue(result is RestoreResult.Success)
-
-            // profiles+groups were restored ...
-            assertEquals(listOf(groupWithProfile), liveGroups.list())
-            // ... but the unchecked rule + settings categories were left intact.
-            assertEquals(
-                "live-rule",
-                ruleDao
+            seed()
+            val rules =
+                fixture.database
+                    .ruleDao()
                     .allRules()
                     .first()
-                    .single()
-                    .name,
-            )
-            assertEquals(1111, liveSettings.snapshot().proxyPort)
-        }
-
-    @Test
-    fun `nothing selected is a no-op`() =
-        runTest {
-            ruleDao.insert(sampleRule)
+            val settings = fixture.settings.snapshot()
             val result =
-                restoreUseCase(FakeGroupRepository(mutableListOf()), FakeAppSettingsRepository())
-                    .restore("{}", RestoreSelection(false, false, false))
-            assertTrue(result is RestoreResult.NothingSelected)
-            assertEquals(1, ruleDao.allRules().first().size)
-        }
-
-    @Test
-    fun `SHARE backup preview reports profiles that cannot be decoded`() =
-        runTest {
-            val exportGroups = FakeGroupRepository(mutableListOf(sampleGroup.copy(members = listOf(sampleProfile))))
-            val exportSettings = FakeAppSettingsRepository()
-            val json =
-                BackupSerializer.encodeToString(
-                    // SHARE strips the Shadowsocks password (REDACTED), so the
-                    // profile can no longer be decoded into a complete ProxyProfile.
-                    exportUseCase(exportGroups, exportSettings)
-                        .gather(BackupVariant.SHARE, "1.0.0", 0L),
+                fixture.backupRestoreUseCase().restore(
+                    document(groups = listOf(sampleGroup.copy(members = listOf(sampleProfile)))),
+                    RestoreSelection(true, false, false),
                 )
-
-            val preview =
-                restoreUseCase(FakeGroupRepository(mutableListOf()), FakeAppSettingsRepository())
-                    .preview(json)
-
-            assertTrue(preview is BackupPreviewResult.Ready)
-            val ready = (preview as BackupPreviewResult.Ready).preview
-            assertEquals(0, ready.restorableProfileCount)
-            assertTrue(ready.hasUndecodableProfiles)
-            assertEquals(listOf("SS"), ready.undecodableProfiles)
-            assertFalse(ready.containsCredentials)
-            // Groups are still restorable from a SHARE backup.
-            assertEquals(1, ready.groupCount)
+            assertTrue(result is RestoreResult.Success)
+            assertEquals(
+                listOf(sampleGroup.copy(members = listOf(sampleProfile))),
+                fixture.groups.list().map { it.copy(ownershipGeneration = "") },
+            )
+            assertEquals(
+                rules,
+                fixture.database
+                    .ruleDao()
+                    .allRules()
+                    .first(),
+            )
+            assertEquals(settings, fixture.settings.snapshot())
         }
 
     @Test
-    fun `FULL backup preview reports counts and is fully restorable`() =
+    fun `nothing selected does not parse or write`() =
         runTest {
-            ruleDao.insert(sampleRule)
-            val exportGroups = FakeGroupRepository(mutableListOf(sampleGroup.copy(members = listOf(sampleProfile))))
-            val exportSettings = FakeAppSettingsRepository()
-            val json =
-                BackupSerializer.encodeToString(
-                    exportUseCase(exportGroups, exportSettings)
-                        .gather(BackupVariant.FULL, "2.0.0", 0L),
-                )
-
-            val preview =
-                restoreUseCase(FakeGroupRepository(mutableListOf()), FakeAppSettingsRepository())
-                    .preview(json)
-
-            assertTrue(preview is BackupPreviewResult.Ready)
-            val ready = (preview as BackupPreviewResult.Ready).preview
-            assertEquals(BackupSchemaVersion, ready.schemaVersion)
-            assertEquals("2.0.0", ready.appVersion)
-            assertEquals(1, ready.restorableProfileCount)
-            assertEquals(1, ready.groupCount)
-            assertEquals(1, ready.ruleCount)
-            assertTrue(ready.settingCount >= 1)
-            assertFalse(ready.hasUndecodableProfiles)
-            assertTrue(ready.containsCredentials)
+            seed()
+            val before = snapshot()
+            assertEquals(
+                RestoreResult.NothingSelected,
+                fixture.backupRestoreUseCase().restore("{}", RestoreSelection(false, false, false)),
+            )
+            assertEquals(before, snapshot())
         }
 
     @Test
-    fun `preview surfaces UnsupportedVersion for newer schema`() {
+    fun `SHARE preview identifies redacted profiles while FULL preview can restore them`() =
+        runTest {
+            seed(groups = listOf(sampleGroup.copy(members = listOf(sampleProfile))))
+            val share =
+                fixture.backupRestoreUseCase().preview(
+                    BackupSerializer.encodeToString(snapshot(BackupVariant.SHARE)),
+                )
+            val sharePreview = (share as BackupPreviewResult.Ready).preview
+            assertEquals(0, sharePreview.restorableProfileCount)
+            assertEquals(listOf("SS"), sharePreview.undecodableProfiles)
+            assertFalse(sharePreview.containsCredentials)
+            assertEquals(1, sharePreview.groupCount)
+            val full = fixture.backupRestoreUseCase().preview(BackupSerializer.encodeToString(snapshot()))
+            val fullPreview = (full as BackupPreviewResult.Ready).preview
+            assertEquals(BackupSchemaVersion, fullPreview.schemaVersion)
+            assertEquals(1, fullPreview.restorableProfileCount)
+            assertEquals(1, fullPreview.groupCount)
+            assertEquals(1, fullPreview.ruleCount)
+            assertTrue(fullPreview.settingCount > 0)
+            assertFalse(fullPreview.hasUndecodableProfiles)
+            assertTrue(fullPreview.containsCredentials)
+        }
+
+    @Test
+    fun `preview surfaces newer schema without opening storage`() {
         val future = BackupSchemaVersion + 5
         val json =
             """
             {"schemaVersion":$future,"createdAtEpochMillis":0,"appVersion":"x",
             "profiles":[],"groups":[],"rules":[],"settings":{}}
             """.trimIndent()
-        val preview =
-            restoreUseCase(FakeGroupRepository(mutableListOf()), FakeAppSettingsRepository())
-                .preview(json)
-        assertTrue(preview is BackupPreviewResult.UnsupportedVersion)
+        val preview = fixture.backupRestoreUseCase().preview(json)
         assertEquals(future, (preview as BackupPreviewResult.UnsupportedVersion).found)
-    }
-
-    // -- Fakes ----------------------------------------------------------------
-
-    private class FakeGroupRepository(
-        private val groups: MutableList<ProxyGroup>,
-        private val failOnReplace: Boolean = false,
-    ) : ProxyGroupRepository {
-        private val state = MutableStateFlow(groups.toList())
-        private var replaceCalls = 0
-
-        override suspend fun add(group: ProxyGroup) {
-            groups.removeAll { it.id == group.id }
-            groups.add(group)
-            state.value = groups.toList()
-        }
-
-        override suspend fun update(group: ProxyGroup) {
-            val idx = groups.indexOfFirst { it.id == group.id }
-            if (idx >= 0) groups[idx] = group
-            state.value = groups.toList()
-        }
-
-        override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
-            replaceAll(
-                com.poyka.ripdpi.data
-                    .testPauseAuthority()
-                    .reserveStop(),
-                groups,
-            )
-        }
-
-        override suspend fun delete(
-            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
-            id: String,
-        ) {
-            groups.removeAll { it.id == id }
-            state.value = groups.toList()
-        }
-
-        override suspend fun list(): List<ProxyGroup> = groups.toList()
-
-        override suspend fun replaceAll(
-            receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
-            groups: List<ProxyGroup>,
-        ) {
-            replaceCalls += 1
-            check(!failOnReplace || replaceCalls > 1) { "group replace failed" }
-            this.groups.clear()
-            this.groups.addAll(groups)
-            state.value = this.groups.toList()
-        }
-
-        override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
-    }
-
-    private class FakeAppSettingsRepository(
-        current: AppSettings = AppSettings.getDefaultInstance(),
-        private val failOnReplace: Boolean = false,
-        private val failAfterReplace: Boolean = false,
-        private val failRollback: Boolean = false,
-        private val cancelAfterReplace: Boolean = false,
-    ) : AppSettingsRepository {
-        private val state = MutableStateFlow(current)
-        var replaceCalls: Int = 0
-            private set
-        var rollbackWasActive: Boolean = false
-            private set
-
-        override val settings: Flow<AppSettings> = state.asStateFlow()
-
-        override suspend fun snapshot(): AppSettings = state.first()
-
-        override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-            state.value =
-                state.value
-                    .toBuilder()
-                    .apply(transform)
-                    .build()
-        }
-
-        override suspend fun replace(settings: AppSettings) {
-            replaceCalls += 1
-            if (replaceCalls > 1) {
-                rollbackWasActive = kotlinx.coroutines.currentCoroutineContext().isActive
-                check(!failRollback) { "settings rollback failed" }
-            }
-            if (replaceCalls == 1 && (failAfterReplace || cancelAfterReplace)) {
-                state.value = settings
-            }
-            if (replaceCalls == 1 && cancelAfterReplace) throw CancellationException("settings cancelled")
-            check(replaceCalls != 1 || (!failOnReplace && !failAfterReplace)) { "settings replace failed" }
-            state.value = settings
-        }
-    }
-
-    private class FakePrivateDataStore(
-        var data: BackupPrivateDataV1,
-    ) : BackupPrivateDataStore {
-        override suspend fun snapshot(): BackupPrivateDataV1 = data
-
-        override suspend fun replaceAll(
-            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
-            data: BackupPrivateDataV1,
-        ): com.poyka.ripdpi.data.ProfileMutationOutcome {
-            this.data = data
-            return com.poyka.ripdpi.data
-                .testMutationOutcome(preparation.origin)
-        }
     }
 }

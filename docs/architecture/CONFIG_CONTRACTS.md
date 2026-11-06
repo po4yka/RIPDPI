@@ -81,8 +81,8 @@ retention. A protocol difference does not establish an independent network path.
 
 Owner: `core/data/model/src/main/proto/app_settings.proto` (proto3,
 `java_package = "com.poyka.ripdpi.proto"`, `java_multiple_files = true`).
-The settings store is Jetpack DataStore — a wire-format change is a
-**persisted-data** change.
+Settings are stored as an encrypted protobuf record in Room. A wire-format change
+is a **persisted-data** change.
 
 - **Never reuse a field number.** Once assigned, a number is permanent.
   Determine the next unused, unreserved number from the current
@@ -108,15 +108,38 @@ The settings store is Jetpack DataStore — a wire-format change is a
   a frozen identifier (see §5).
 - A `string` field that historically held a migration counter,
   `settings_migration_level` (number 130), is **reserved/removed** — settings
-  migration is handled by DataStore migrations now, not an in-message counter.
+  migration is handled by storage migrations, not an in-message counter.
 - Retired relay xHTTP tag numbers 215 and 216 remain reserved. There is no
   raw-wire semantic migration from historical tags 214–216 to the current
   fields 258–260: tag 214 is the current `strategy_chain_yaml` field, and
   persisted bytes are decoded strictly according to the current protobuf.
   Standard protobuf unknown-field preservation remains enabled.
-- `app_lock_reset_notice_pending = 425` is set in the same DataStore update that wipes `backup_pin` and turns biometrics off after the PIN keystore key is lost. The Settings list shows the reset notice while it is set. It clears when the user acknowledges the notice or saves a new PIN. It is a local device fact and is **never exported**: the backup snapshot has no entry for it, and a restore replaces the settings with the flag off. A restore also wipes the PIN (backups never carry it) and so clears the notice.
+- `app_lock_reset_notice_pending = 425` is set in the same Room transaction that wipes `backup_pin` and turns biometrics off after the PIN keystore key is lost. The Settings list shows the reset notice while it is set. It clears when the user acknowledges the notice or saves a new PIN. It is a local device fact and is **never exported**: the backup snapshot has no entry for it, and a restore replaces the settings with the flag off. A restore also wipes the PIN (backups never carry it) and so clears the notice.
 
 Use the `protobuf-schema-evolution` and `protobuf-datastore` skills.
+
+Profile metadata, credentials, selections, groups, settings and routing rules share
+`RipDpiDatabase` (`ripdpi.db`, schema 3). A profile mutation and backup restore use
+one Room transaction. Each profile payload, including the settings protobuf, uses
+AES-GCM with an Android Keystore key and namespace/record ID authentication.
+Room manages rollback and WAL recovery; the application does not replay mutations
+on normal reads or use compensating writes.
+
+`LegacyProfileImporter` reads the old preferences, protobuf file and pending
+journal once. It writes the complete snapshot and import marker in one transaction,
+then removes the old sources. A failed import leaves those sources intact. Reset
+writes the marker with the empty state so old files cannot restore deleted data.
+Database observers wait for explicit recovery to finish. They do not start migration.
+Recovery validates the settings record before it releases observers; a failed import
+or unreadable settings record leaves them waiting for an explicit retry or reset.
+The device-protected boot session hint remains separate; canonical profile choices
+are in Room and require credential unlock.
+
+The runtime authority lock covers the synchronous transaction and receipt
+publication. No coroutine suspends while that lock is held. A failure or cancellation
+before commit rolls back the transaction. Cancellation after commit does not undo
+saved data. Backup restore leaves the runtime catalog unavailable until the required
+restart or recovery reads the committed state.
 
 ---
 
@@ -446,7 +469,7 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
    number; document the unset sentinel in a trailing comment. If replacing a
    field, add the old number **and** name to the `reserved` lists.
 2. **Kotlin settings model.** Add it to the `:core:data:model` /
-   `:core:data:settings` model and the DataStore mapping; provide a default.
+   `:core:data:settings` model and the protobuf mapping; provide a default.
 3. **Section codec.** Thread it through the matching
    `core/engine/.../core/codec/*SectionCodec.kt` and, if needed, the
    `NativeProxy*PreferencesMapper.kt`; it must serialize into the correct
@@ -537,7 +560,7 @@ is a `kind` string), but unknown executable kinds remain rejected (§5).
   Without hopping all three fields are absent. A schema bump is not required
   for these optional fields; Kotlin and Rust must be released together.
   Stored legacy `portHopPorts` / `portHopInterval` values migrate before typed
-  group decode and must persist before exposure. Pending refresh journals and
+  group decode and must persist before exposure. Pending legacy refresh journals and
   explicit backups use the same conversion. Migration does not recreate
   receipt authority; a changed content fingerprint requires refresh or reimport
   of the delivery, followed by a new path check. This also applies to old

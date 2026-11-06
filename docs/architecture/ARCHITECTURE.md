@@ -58,9 +58,9 @@ auto-generated Mermaid graph at
 | `:core:diagnostics` | Active diagnostics, passive telemetry collection, diagnostics UI logic |
 | `:core:diagnostics-data` | Room database, entities, DAOs, migrations, and persistence contracts for diagnostics, telemetry, snapshots, and policies |
 | `:core:detection` | VPN/DPI detection and checkers (consensus, privacy, `vpn`, `dpi`, `export`, `community`, `probe` subpackages); depends on `:xray-protos` |
-| `:core:data` | Aggregator — `api`-exports the four sub-modules below; Room DB (KSP), backup, rules |
+| `:core:data` | Aggregator — `api`-exports the four sub-modules below; encrypted Room profile/settings storage, backup, rules |
 | `:core:data:model` | App-settings + geosite protobuf schemas (see [§6](#6-config-flow)) |
-| `:core:data:settings` | Settings persistence (DataStore-backed), support settings deep-link package parsing, preview, and apply |
+| `:core:data:settings` | Settings contracts, defaults, JSON mapping, deep-link package parsing, preview, and apply |
 | `:core:data:runtime-state` | Runtime/session state |
 | `:core:data:catalog` | Diagnostics / strategy-pack catalog data |
 | `:xray-protos` | Java-library: Xray/V2Ray protobuf schemas (VLESS, Reality, transport) + gRPC; consumed by `:core:detection` |
@@ -75,9 +75,9 @@ auto-generated Mermaid graph at
 > - `:core:data:model` owns the protobuf schemas (`app_settings.proto`,
 >   `geosite.proto`) and immutable domain/wire types (`AppStatus`,
 >   `NativeError`, `RuntimeTelemetry`, `StrategyChainModel`, …).
-> - `:core:data:settings` owns the DataStore-backed `AppSettingsRepository`,
+> - `:core:data:settings` owns the `AppSettingsRepository` contract,
 >   `AppSettingsJson*` mappers/snapshots, and runtime override stores
->   (`ResolverOverrideStore`, …).
+>   (`ResolverOverrideStore`, …). `:core:data` binds the Room implementation.
 
 **Boundary enforcement.** `:app` must not depend directly on `:core:engine` —
 it reaches the native layer only through `:core:service`
@@ -192,7 +192,7 @@ validation, and JSON serialization; Rust **consumes** the JSON
 
 ```
 app_settings.proto  (core/data/model/src/main/proto/app_settings.proto)
-   │  Protobuf + Jetpack DataStore
+   │  Protobuf in encrypted Room records
    ▼
 Kotlin settings & strategy models  (:core:data:settings, StrategyChains.kt)
    │  user-facing models, defaults, validation

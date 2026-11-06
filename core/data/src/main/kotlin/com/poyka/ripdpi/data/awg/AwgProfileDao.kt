@@ -20,17 +20,17 @@ interface AwgProfileDao {
     fun observeProfiles(): Flow<List<AwgProfileEntity>>
 
     @Query("SELECT * FROM awg_profiles ORDER BY updatedAt DESC")
-    suspend fun allProfiles(): List<AwgProfileEntity>
+    fun allProfiles(): List<AwgProfileEntity>
 
     @Query("SELECT * FROM awg_profiles WHERE id = :id LIMIT 1")
-    suspend fun getProfile(id: String): AwgProfileEntity?
+    fun getProfile(id: String): AwgProfileEntity?
 
     @Upsert
-    suspend fun upsertProfile(profile: AwgProfileEntity)
+    fun upsertProfile(profile: AwgProfileEntity)
 
     @Delete
-    suspend fun deleteProfile(profile: AwgProfileEntity)
+    fun deleteProfile(profile: AwgProfileEntity)
 
     @Query("DELETE FROM awg_profiles")
-    suspend fun deleteAll()
+    fun deleteAll()
 }

@@ -4,11 +4,7 @@ import android.content.Context
 import com.poyka.ripdpi.data.KeystoreEncryptedPreferences
 import com.poyka.ripdpi.data.redacted
 import com.poyka.ripdpi.serialization.RipDpiContractJson
-import dagger.Binds
-import dagger.Module
-import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
-import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
@@ -118,11 +114,3 @@ class KeystoreAwgCredentialStore
             const val CredentialsKeyAlias = "ripdpi_awg_credentials"
         }
     }
-
-@Module
-@InstallIn(SingletonComponent::class)
-abstract class AwgStoreModule {
-    @Binds
-    @Singleton
-    abstract fun bindAwgCredentialStore(store: KeystoreAwgCredentialStore): AwgCredentialStore
-}

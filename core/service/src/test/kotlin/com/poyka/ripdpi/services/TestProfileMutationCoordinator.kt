@@ -27,6 +27,19 @@ internal class TestProfileMutationCoordinator(
     private val credentials: WarpCredentialStore,
     private val endpoints: WarpEndpointStore,
 ) : ProfileMutationCoordinator {
+    override suspend fun restoreBackup(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        groups: List<com.poyka.ripdpi.data.ProxyGroup>?,
+        rules: List<com.poyka.ripdpi.data.rules.RuleEntity>?,
+        settings: com.poyka.ripdpi.proto.AppSettings?,
+        privateData: com.poyka.ripdpi.data.backup.BackupPrivateDataV1?,
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome = error("Backup restore is outside this test boundary")
+
+    override suspend fun prepareStandaloneSelectionForStart(
+        guard: com.poyka.ripdpi.data.ProfileTransactionGuard,
+        update: com.poyka.ripdpi.proto.AppSettings.Builder.() -> Unit,
+    ): Boolean = error("Standalone preparation is outside this test boundary")
+
     override suspend fun activateStandaloneAwg(
         preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profileId: String,
@@ -247,7 +260,6 @@ internal class TestProfileMutationCoordinator(
     override suspend fun replacePrivateBackup(
         preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         data: BackupPrivateDataV1,
-        rollbackData: BackupPrivateDataV1?,
     ) = unsupported()
 
     private suspend fun capturePreimage(profileId: String) =

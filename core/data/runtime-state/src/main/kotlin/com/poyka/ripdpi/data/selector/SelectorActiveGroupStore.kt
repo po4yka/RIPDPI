@@ -1,130 +1,106 @@
 package com.poyka.ripdpi.data.selector
 
-import android.content.Context
 import com.poyka.ripdpi.data.DurableCommandReceipt
 import com.poyka.ripdpi.data.PauseIntentAuthority
-import dagger.hilt.android.qualifiers.ApplicationContext
+import com.poyka.ripdpi.data.ProfileActivationReceipt
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** Explicit ownership of the live selector; null is an intentional standalone selection. */
+/** Saved ownership is transactional; activation capabilities remain process-local. */
 @Singleton
 class SelectorActiveGroupStore
     @Inject
     constructor(
-        @ApplicationContext context: Context,
+        private val persistence: SelectorPersistence,
         private val authority: PauseIntentAuthority,
     ) : SelectorChoicePersistence {
-        private val preferences = context.getSharedPreferences("selector_selection_store", Context.MODE_PRIVATE)
-        private val manual = mutableMapOf<String, com.poyka.ripdpi.data.ProfileActivationReceipt>()
+        private val manual = mutableMapOf<String, ProfileActivationReceipt>()
         private val changes = MutableStateFlow(0L)
         val choiceChanges = changes.asStateFlow()
-        private val active = MutableStateFlow(preferences.getString(GroupKey, null)?.takeIf(String::isNotBlank))
-        val activeGroupId: StateFlow<String?> = active.asStateFlow()
+        val activeGroupId = persistence.observeActiveGroup()
 
-        /** Migrate the first valid persisted legacy choice once; later imports never activate a group. */
-        fun initializeLegacyGroup(orderedGroups: List<com.poyka.ripdpi.data.ProxyGroup>) {
-            serializeChoice {
-                if (!preferences.contains(GroupKey)) {
-                    val legacy =
-                        orderedGroups.firstOrNull { group ->
-                            val selected = preferences.getString("selected-profile-${group.id}", null)
-                            group.isSelector && selected != null &&
-                                group.members.any {
-                                    it.id == selected && it.groupId == group.id
-                                }
-                        }
-                    write(legacy?.id)
-                }
-            }
-        }
-
-        fun select(
+        suspend fun select(
             groupId: String?,
             receipt: DurableCommandReceipt,
         ): Boolean =
-            authority.intentLinearizer.serialize {
-                if (!authority.isCurrent(receipt)) return@serialize false
-                serializeChoice { write(groupId) }
-                true
+            persistence.transaction { rows ->
+                if (!authority.isCurrent(receipt)) {
+                    false
+                } else {
+                    rows.setActiveGroup(groupId)
+                    true
+                }
             }
 
-        /** Member, provenance and active group use one checked commit; receipt remains transient. */
-        override fun commitMember(
+        override suspend fun commitMember(
             groupId: String,
             memberId: String,
             origin: SelectorChoiceOrigin,
         ) {
-            serializeChoice {
-                val next = Math.addExact(changes.value, 1)
-                check(
-                    preferences
-                        .edit()
-                        .putString(GroupKey, groupId)
-                        .putString("selected-profile-$groupId", memberId)
-                        .putBoolean("manual-selection-$groupId", true)
-                        .commit(),
-                ) {
-                    "Selector selection persistence failed"
+            persistence.transaction(
+                afterCommit = { committed -> if (committed) publishCommittedChoice(groupId, origin) },
+            ) { rows ->
+                if (origin is SelectorChoiceOrigin.Manual && !authority.isCurrent(origin.receipt)) {
+                    false
+                } else {
+                    rows.setChoice(groupId, memberId, true)
+                    rows.setActiveGroup(groupId)
+                    true
                 }
-                when (origin) {
-                    is SelectorChoiceOrigin.Manual -> manual[groupId] = origin.receipt
-                    SelectorChoiceOrigin.Reconstruction -> manual.remove(groupId)
-                }
-                active.value = groupId
-                changes.value = next
             }
         }
 
-        internal fun manualReceipt(groupId: String) = serializeChoice { manual[groupId] }
+        /** Called after the database commit, never from an intermediate row write. */
+        fun publishCommittedChoice(
+            groupId: String,
+            origin: SelectorChoiceOrigin,
+        ) {
+            authority.intentLinearizer.serialize {
+                when (origin) {
+                    is SelectorChoiceOrigin.Manual -> {
+                        if (authority.isCurrent(origin.receipt)) {
+                            manual[groupId] = origin.receipt
+                        }
+                    }
 
-        override fun clearStandalone() = serializeChoice { write(null) }
-
-        override fun snapshotActiveGroupId(): String? = active.value
-
-        override fun restoreActiveGroup(groupId: String?) =
-            serializeChoice {
-                manual.clear()
-                write(groupId)
+                    SelectorChoiceOrigin.Reconstruction -> {
+                        manual.remove(groupId)
+                    }
+                }
+                changes.value = Math.addExact(changes.value, 1L)
             }
+        }
 
-        /** Catalog deletion/restore keeps only an explicitly existing group and never picks a replacement. */
-        override fun prune(groupIds: Set<String>) {
-            serializeChoice {
-                if (active.value != null && active.value !in groupIds) write(null)
+        internal fun manualReceipt(groupId: String) = authority.intentLinearizer.serialize { manual[groupId] }
+
+        override suspend fun clearStandalone() = persistence.transaction { it.setActiveGroup(null) }
+
+        override suspend fun snapshotActiveGroupId(): String? = persistence.transaction { it.activeGroup() }
+
+        override suspend fun restoreActiveGroup(groupId: String?) {
+            persistence.transaction(afterCommit = { clearManualReceipts() }) { it.setActiveGroup(groupId) }
+        }
+
+        override suspend fun prune(groupIds: Set<String>) {
+            persistence.transaction { rows ->
+                if (rows.activeGroup() !in groupIds) rows.setActiveGroup(null)
             }
         }
 
         internal fun forgetManualReceipt(groupId: String) =
-            serializeChoice {
+            authority.intentLinearizer.serialize {
                 manual.remove(groupId)
+                changes.value = Math.addExact(changes.value, 1L)
                 Unit
             }
 
-        /** Called after the owning selection store has checked the single preferences clear commit. */
-        internal fun onSelectionsCleared() =
-            serializeChoice {
+        internal fun clearManualReceipts() =
+            authority.intentLinearizer.serialize {
                 manual.clear()
-                active.value = null
+                changes.value = Math.addExact(changes.value, 1L)
             }
-
-        /** The same authority gate coordinates automatic compare/write with measured after-image replay. */
-        private fun <T> serializeChoice(block: () -> T): T =
-            authority.intentLinearizer.serialize { synchronized(active, block) }
-
-        private fun write(groupId: String?) {
-            check(preferences.edit().putString(GroupKey, groupId.orEmpty()).commit()) {
-                "Active selector persistence failed"
-            }
-            active.value = groupId
-        }
-
-        companion object {
-            private const val GroupKey = "active_group_id"
-        }
     }
 
 @dagger.Module
