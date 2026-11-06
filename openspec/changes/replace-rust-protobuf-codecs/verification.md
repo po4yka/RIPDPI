@@ -1,11 +1,11 @@
 ---
 task_id: RST-1793945484896628
 change: replace-rust-protobuf-codecs
-commit_sha: null
+commit_sha: 88116d19ec5ed80aa5873adf192ec53ad11274d9
 local: passed
 local_evidence: 17 GeoSite and 78 xhttp tests; affected-crate clippy; cargo deny; locked metadata; fmt; convention tests; ci-gates; independent code and async reviews.
-remote_ci: required
-remote_ci_evidence: null
+remote_ci: blocked
+remote_ci_evidence: https://github.com/po4yka/RIPDPI/actions/runs/42178215874/job/127761932976 - rust-lint failed on the pre-existing HTTP/1 shared-state gate.
 device: not_applicable
 device_evidence: Pure message codecs and host-tested stream behavior; no Android API or socket ownership changes.
 artifact: not_applicable
@@ -34,8 +34,16 @@ deployment_evidence: No deployment is owned by this change.
 - Independent code review and async cancel-safety review found no remaining correctness issue. The native task input finding was fixed.
 - Affected-crate clippy passed all targets with warnings denied and await-holding lints enabled. The private generated schema module has a narrow allowance for prost-build's borrowed enum name helper.
 - build-gate -- just ci-gates passed all source gates, including architecture health and the Rust API snapshot gate (the Linux-owned runtime-platform snapshot is checked only in CI).
-- Hosted main CI remains pending.
+- Rebased onto origin/main 067ba0978; repeated 95 tests, affected-crate clippy, cargo deny, and ci-gates all passed.
+- Full locked metadata passed for both the main and fuzz workspaces after rebase.
+- Fast-forwarded main and pushed 88116d19ec5ed80aa5873adf192ec53ad11274d9. Hosted rust-lint failed on a pre-existing HTTP/1 shared-state violation; other jobs were still running when the blocker was recorded.
 
 The lockfile was generated with cargo update -p ripdpi-geo -p ripdpi-xhttp. Cargo added 17 packages and normalized 12 existing transitive dependency selections without changing existing package versions.
 
 The separate fuzz lockfile includes prost and prost-derive for its ripdpi-xhttp dependency.
+
+After rebase, the upstream HTTP change needed http-body-util, hyper, and hyper-util in the separate fuzz lockfile. Cargo regenerated these three dependency edges; full locked metadata passed.
+
+## Hosted acceptance blocker
+
+The rust-lint job rejects Rc<RefCell<Input>> in ripdpi-diagnostics-http/src/http/response_decoder.rs at lines 48 and 185. The same violation failed in upstream run 42172888429 before this change. These files are outside this Protobuf change. Do not archive this task until the main CI gate passes.

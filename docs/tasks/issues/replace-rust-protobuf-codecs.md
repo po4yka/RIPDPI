@@ -2,7 +2,7 @@
 id: RST-1793945484896628
 title: Replace manual Rust Protobuf codecs
 kind: bug
-status: review
+status: blocked
 area: rust-native
 priority: high
 owner: Rust implementation
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: replace-rust-protobuf-codecs
 created: 2026-11-06
 updated: 2026-11-06
+status_detail: Hosted rust-lint fails on pre-existing Rc<RefCell> in ripdpi-diagnostics-http response_decoder.rs (lines 48 and 185); Protobuf tests and local gates passed.
 ---
 
 ## Goal
