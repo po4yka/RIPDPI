@@ -1,0 +1,4 @@
+schema: ripdpi-change
+created: 2026-11-06
+goal: DAT-1793954543063965 Replace manual settings JSON codecs with generated
+  serializers

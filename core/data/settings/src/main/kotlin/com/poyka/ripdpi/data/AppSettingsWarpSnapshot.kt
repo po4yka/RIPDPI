@@ -1,0 +1,43 @@
+package com.poyka.ripdpi.data
+
+import kotlinx.serialization.Serializable
+
+@Serializable
+internal data class AppSettingsWarpSnapshot(
+    val warpEnabled: Boolean = defaultSettings.warpEnabled,
+    val warpRouteMode: String = defaultSettings.warpRouteMode,
+    val warpRouteHosts: String = defaultSettings.warpRouteHosts,
+    val warpBuiltinRulesEnabled: Boolean = defaultSettings.warpBuiltinRulesEnabled,
+    val warpProfileId: String = defaultSettings.warpProfileId,
+    val warpAccountKind: String = defaultSettings.warpAccountKind,
+    val warpZeroTrustOrg: String = defaultSettings.warpZeroTrustOrg,
+    val warpSetupState: String = defaultSettings.warpSetupState,
+    val warpLastScannerMode: String = defaultSettings.warpLastScannerMode,
+    val warpEndpointSelectionMode: String = defaultSettings.warpEndpointSelectionMode,
+    val warpManualEndpointHost: String = defaultSettings.warpManualEndpointHost,
+    val warpManualEndpointV4: String = defaultSettings.warpManualEndpointV4,
+    val warpManualEndpointV6: String = defaultSettings.warpManualEndpointV6,
+    val warpManualEndpointPort: Int = defaultSettings.warpManualEndpointPort,
+    val warpScannerEnabled: Boolean = defaultSettings.warpScannerEnabled,
+    val warpScannerParallelism: Int = defaultSettings.warpScannerParallelism,
+    val warpScannerMaxRttMs: Int = defaultSettings.warpScannerMaxRttMs,
+    val warpAmneziaEnabled: Boolean = defaultSettings.warpAmneziaEnabled,
+    val warpAmneziaJc: Int = defaultSettings.warpAmneziaJc,
+    val warpAmneziaJmin: Int = defaultSettings.warpAmneziaJmin,
+    val warpAmneziaJmax: Int = defaultSettings.warpAmneziaJmax,
+    val warpAmneziaWireProfile: String = "",
+    val warpAmneziaI1: String = defaultSettings.warpAmneziaI1,
+    val warpAmneziaI2: String = defaultSettings.warpAmneziaI2,
+    val warpAmneziaI3: String = defaultSettings.warpAmneziaI3,
+    val warpAmneziaI4: String = defaultSettings.warpAmneziaI4,
+    val warpAmneziaI5: String = defaultSettings.warpAmneziaI5,
+    val warpAmneziaH1: String = defaultSettings.warpAmneziaH1,
+    val warpAmneziaH2: String = defaultSettings.warpAmneziaH2,
+    val warpAmneziaH3: String = defaultSettings.warpAmneziaH3,
+    val warpAmneziaH4: String = defaultSettings.warpAmneziaH4,
+    val warpAmneziaS1: Int = defaultSettings.warpAmneziaS1,
+    val warpAmneziaS2: Int = defaultSettings.warpAmneziaS2,
+    val warpAmneziaS3: Int = defaultSettings.warpAmneziaS3,
+    val warpAmneziaS4: Int = defaultSettings.warpAmneziaS4,
+    val warpAmneziaPreset: String = defaultSettings.warpAmneziaPreset,
+)

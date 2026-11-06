@@ -11,12 +11,36 @@ import java.io.ByteArrayOutputStream
 class WarpWirePersistenceTest {
     @Test
     fun `untouched disabled settings remain off through JSON backup`() {
-        for (stored in listOf(AppSettings.getDefaultInstance(), AppSettingsSerializer.defaultValue)) {
+        for (stored in listOf(
+            AppSettings.getDefaultInstance(),
+            AppSettingsSerializer.defaultValue,
+            appSettingsFromJson("{}"),
+        )) {
             assertEquals(WarpAmneziaPresetOff, stored.toWarpSettingsModel().amneziaPreset)
             val restored = appSettingsFromJson(stored.toJson())
             assertEquals(WarpAmneziaPresetOff, restored.toWarpSettingsModel().amneziaPreset)
             assertEquals(stored.warpAmneziaWireProfile, restored.warpAmneziaWireProfile)
         }
+    }
+
+    @Test
+    fun `complete disabled custom settings retain their inferred preset across backups`() {
+        val restored =
+            appSettingsFromJson(
+                """
+                {
+                  "warpAmneziaWireProfile":"awg-3.1-ranges-v1",
+                  "warpAmneziaJc":1,"warpAmneziaJmin":10,"warpAmneziaJmax":20,
+                  "warpAmneziaH1":"100","warpAmneziaH2":"200",
+                  "warpAmneziaH3":"300","warpAmneziaH4":"400"
+                }
+                """.trimIndent(),
+            )
+        val roundTrip = appSettingsFromJson(restored.toJson())
+        assertEquals(WarpAmneziaPresetCustom, roundTrip.warpAmneziaPreset)
+        assertEquals(false, roundTrip.warpAmneziaEnabled)
+        assertEquals(1, roundTrip.warpAmneziaJc)
+        assertEquals("100", roundTrip.warpAmneziaH1)
     }
 
     @Test
