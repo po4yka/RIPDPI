@@ -4,6 +4,7 @@ import com.poyka.ripdpi.data.NativeVlessCapabilities
 import com.poyka.ripdpi.data.ProxyProfile
 import com.poyka.ripdpi.data.RelaySecurityLayerReality
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
+import com.poyka.ripdpi.data.isSupportedShadowsocksMethod
 import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import com.poyka.ripdpi.data.normalizeRelayVlessTransport
 import java.net.URI
@@ -511,20 +512,6 @@ object ProxyUriCodec {
             password = password,
         )
     }
-
-    /** Shared with the subscription parsers so every import path gates the same cipher allowlist. */
-    internal fun isSupportedShadowsocksMethod(method: String): Boolean =
-        when (method.trim().lowercase()) {
-            "aes-128-gcm",
-            "aes-256-gcm",
-            "chacha20-ietf-poly1305",
-            "2022-blake3-aes-128-gcm",
-            "2022-blake3-aes-256-gcm",
-            "2022-blake3-chacha20-poly1305",
-            -> true
-
-            else -> false
-        }
 
     @Suppress("ReturnCount")
     private fun parseTrojan(uri: String): ProxyProfile? {

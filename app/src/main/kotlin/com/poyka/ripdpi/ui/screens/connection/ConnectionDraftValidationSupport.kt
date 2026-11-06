@@ -45,6 +45,8 @@ import com.poyka.ripdpi.data.RelaySshAuthTypePassword
 import com.poyka.ripdpi.data.RelaySshAuthTypePrivateKey
 import com.poyka.ripdpi.data.isSupportedChainEntryHop
 import com.poyka.ripdpi.data.isSupportedChainExitHop
+import com.poyka.ripdpi.data.isSupportedShadowsocksMethod
+import com.poyka.ripdpi.data.isValidShadowsocksCredentials
 import com.poyka.ripdpi.data.isValidVlessUuid
 import com.poyka.ripdpi.data.normalizeHysteria2PinSha256
 import com.poyka.ripdpi.data.normalizeRelayCloudflareTunnelMode
@@ -58,10 +60,6 @@ import com.poyka.ripdpi.utility.validateIntRange
 import com.poyka.ripdpi.utility.validatePort
 import kotlinx.collections.immutable.ImmutableMap
 import kotlinx.collections.immutable.toImmutableMap
-import java.util.Base64
-
-private const val Shadowsocks2022Aes128KeyBytes = 16
-private const val Shadowsocks2022Aes256KeyBytes = 32
 
 internal fun validateConfigDraft(
     draft: ConnectionDraft,
@@ -252,30 +250,16 @@ private fun validateShadowsocksDraft(draft: ConnectionDraft): Map<String, String
             ),
         )
         if (draft.relayShadowsocksMethod.isNotBlank() &&
-            draft.relayShadowsocksMethod.trim().lowercase() !in supportedShadowsocksMethods
+            !isSupportedShadowsocksMethod(draft.relayShadowsocksMethod)
         ) {
             put(ConnectionFieldRelayCredentials, "unsupported")
-        } else if (!hasValidShadowsocks2022Key(draft.relayShadowsocksMethod, draft.relayShadowsocksPassword)) {
+        } else if (draft.relayShadowsocksMethod.isNotBlank() &&
+            draft.relayShadowsocksPassword.isNotBlank() &&
+            !isValidShadowsocksCredentials(draft.relayShadowsocksMethod, draft.relayShadowsocksPassword)
+        ) {
             put(ConnectionFieldRelayCredentials, "invalid")
         }
     }
-
-private fun hasValidShadowsocks2022Key(
-    method: String,
-    password: String,
-): Boolean {
-    val keyLength =
-        when (method.trim().lowercase()) {
-            "2022-blake3-aes-128-gcm" -> Shadowsocks2022Aes128KeyBytes
-            "2022-blake3-aes-256-gcm", "2022-blake3-chacha20-poly1305" -> Shadowsocks2022Aes256KeyBytes
-            else -> return true
-        }
-    val encoded = password.trim()
-    return runCatching {
-        val key = Base64.getDecoder().decode(encoded)
-        key.size == keyLength && Base64.getEncoder().encodeToString(key) == encoded
-    }.getOrDefault(false)
-}
 
 private fun validateAppsScriptDraft(draft: ConnectionDraft): Map<String, String> =
     buildMap {
@@ -327,16 +311,6 @@ private fun validateSshDraft(draft: ConnectionDraft): Map<String, String> =
             put(ConnectionFieldRelayCredentials, "required")
         }
     }
-
-private val supportedShadowsocksMethods =
-    setOf(
-        "aes-128-gcm",
-        "aes-256-gcm",
-        "chacha20-ietf-poly1305",
-        "2022-blake3-aes-128-gcm",
-        "2022-blake3-aes-256-gcm",
-        "2022-blake3-chacha20-poly1305",
-    )
 
 private fun validateVlessRealityDraft(draft: ConnectionDraft): Map<String, String> =
     buildMap {

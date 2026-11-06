@@ -29,7 +29,7 @@ hyper-util = { workspace = true }
 quinn = { workspace = true }
 rcgen = { workspace = true }
 ring = { workspace = true }
-ripdpi-shadowsocks = { workspace = true }
+shadowsocks = { workspace = true }
 ripdpi-vless = { workspace = true }
 rustls = { workspace = true }
 serde = { workspace = true }

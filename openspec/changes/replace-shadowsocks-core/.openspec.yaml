@@ -1,0 +1,3 @@
+schema: ripdpi-change
+created: 2026-11-06
+goal: RLY-1793949568813382 Replace the Shadowsocks protocol core with upstream

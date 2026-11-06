@@ -5,7 +5,6 @@ import com.poyka.ripdpi.data.FailureReason
 import com.poyka.ripdpi.data.RelayFinalmaskTypeOff
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindMasque
-import com.poyka.ripdpi.data.RelayKindShadowsocks
 import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayMasqueAuthModeCloudflareMtls
 import com.poyka.ripdpi.data.RelayMasqueAuthModePrivacyPass
@@ -34,12 +33,6 @@ private fun validateChainRelayHopFeatures(
 
         RelayKindAnyTls -> {
             requireTlsHopEndpoint(hop, "AnyTLS")
-        }
-
-        RelayKindShadowsocks -> {
-            if (hop.shadowsocksMethod.isNullOrBlank()) {
-                rejectHop("Relay credentials missing for profile ${hop.profileId}")
-            }
         }
 
         RelayKindMasque -> {

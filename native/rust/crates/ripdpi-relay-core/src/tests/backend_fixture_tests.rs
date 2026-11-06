@@ -302,8 +302,15 @@ async fn relay_runtime_builds_shadowsocks_backend_and_connects_tcp_fixture() {
     const PAYLOAD: &[u8] = b"relay-core shadowsocks tcp payload";
 
     for (method, credential) in [
+        ("aes-128-gcm", "secret"),
         ("aes-256-gcm", "secret"),
+        ("chacha20-ietf-poly1305", "secret"),
         ("2022-blake3-aes-128-gcm", "AAECAwQFBgcICQoLDA0ODw=="),
+        ("2022-blake3-aes-128-gcm", "AAECAwQFBgcICQoLDA0ODw==:EBESExQVFhcYGRobHB0eHw=="),
+        (
+            "2022-blake3-aes-256-gcm",
+            "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=:AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+        ),
         ("2022-blake3-aes-256-gcm", "Zml4dHVyZS1wc2stYWVzMjU2Z2NtLTMyYnl0ZWtleSE="),
         ("2022-blake3-chacha20-poly1305", "Zml4dHVyZS1wc2stY2hhY2hhMjBwb2x5MTMwNS1rZXk="),
     ] {
@@ -365,6 +372,11 @@ async fn relay_runtime_builds_shadowsocks_udp_associate_fixture() {
 
     for (method, credential) in [
         ("2022-blake3-aes-128-gcm", "AAECAwQFBgcICQoLDA0ODw=="),
+        ("2022-blake3-aes-128-gcm", "AAECAwQFBgcICQoLDA0ODw==:EBESExQVFhcYGRobHB0eHw=="),
+        (
+            "2022-blake3-aes-256-gcm",
+            "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=:AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8=",
+        ),
         ("2022-blake3-aes-256-gcm", "Zml4dHVyZS1wc2stYWVzMjU2Z2NtLTMyYnl0ZWtleSE="),
         ("2022-blake3-chacha20-poly1305", "Zml4dHVyZS1wc2stY2hhY2hhMjBwb2x5MTMwNS1rZXk="),
     ] {

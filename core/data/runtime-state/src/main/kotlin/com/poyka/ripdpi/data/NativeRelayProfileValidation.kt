@@ -113,9 +113,17 @@ fun validateNativeRelayProfile(profile: ProxyProfile): Boolean =
             true
         }
 
+        is ProxyProfile.Shadowsocks -> {
+            require(profile.server.isNotBlank()) { "Shadowsocks requires a server hostname" }
+            require(profile.serverPort in RelayPortRange) { "Shadowsocks requires a valid server port" }
+            require(isValidShadowsocksCredentials(profile.method, profile.password)) {
+                "Shadowsocks requires a supported method and valid key material"
+            }
+            true
+        }
+
         is ProxyProfile.AnyTls,
         is ProxyProfile.Mieru,
-        is ProxyProfile.Shadowsocks,
         is ProxyProfile.Ssh,
         is ProxyProfile.Trojan,
         -> {

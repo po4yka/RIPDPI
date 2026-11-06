@@ -1,5 +1,6 @@
 [workspace]
 resolver = "2"
+exclude = ["vendor/shadowsocks"]
 members = [
     "crates/android-support",
     "crates/feature-contract-harness",
@@ -122,6 +123,7 @@ version = "0.1.0"
 license = "MIT"
 
 [workspace.dependencies]
+shadowsocks = { path = "vendor/shadowsocks", version = "=1.25.0", default-features = false, features = ["aead-cipher", "aead-cipher-2022", "security-replay-attack-detect"] }
 prost = "0.14.4"
 prost-build = "0.14.4"
 protoc-bin-vendored = "3.3.0"

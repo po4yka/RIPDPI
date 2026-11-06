@@ -5,6 +5,7 @@ edition.workspace = true
 license.workspace = true
 
 [dependencies]
+shadowsocks = { workspace = true }
 ripdpi-relay-mux = { workspace = true }
 ripdpi-anytls = { workspace = true }
 ripdpi-shadowtls = { workspace = true }

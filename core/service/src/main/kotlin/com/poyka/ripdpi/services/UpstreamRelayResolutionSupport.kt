@@ -30,6 +30,7 @@ import com.poyka.ripdpi.data.detectRelayChainTrustWarning
 import com.poyka.ripdpi.data.isSupportedChainEntryHop
 import com.poyka.ripdpi.data.isSupportedChainExitHop
 import com.poyka.ripdpi.data.isSupportedChainNonEntryHop
+import com.poyka.ripdpi.data.isValidShadowsocksCredentials
 import com.poyka.ripdpi.data.isValidVlessUuid
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import com.poyka.ripdpi.data.normalizeRelayMasqueAuthMode
@@ -518,8 +519,10 @@ private fun validateChainHopCredentials(hop: ResolvedChainRelayHopConfig) {
         }
 
         RelayKindShadowsocks -> {
-            require(!hop.shadowsocksPassword.isNullOrBlank()) {
-                "Relay credentials missing for profile ${hop.profileId}"
+            if (!isValidShadowsocksCredentials(hop.shadowsocksMethod, hop.shadowsocksPassword)) {
+                throw ServiceStartupRejectedException(
+                    FailureReason.RelayConfigRejected("Relay credentials missing for profile ${hop.profileId}"),
+                )
             }
         }
 

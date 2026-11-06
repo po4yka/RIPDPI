@@ -3,9 +3,9 @@ package com.poyka.ripdpi.data.subscription
 import com.charleskorn.kaml.Yaml
 import com.charleskorn.kaml.YamlMap
 import com.poyka.ripdpi.data.ProxyProfile
+import com.poyka.ripdpi.data.isSupportedShadowsocksMethod
 import com.poyka.ripdpi.data.normalizeImportedTlsFingerprint
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
-import com.poyka.ripdpi.data.uri.ProxyUriCodec
 import com.poyka.ripdpi.data.wireguard.AmneziaWgParameters
 import com.poyka.ripdpi.serialization.RipDpiLenientJson
 import kotlinx.serialization.json.JsonArray
@@ -528,7 +528,7 @@ private fun mapShadowsocks(
     if (server == null || port == null) return rawConfig(name, groupId, obj)
     val method = obj.string("method").orEmpty()
     val password = obj.string("password").orEmpty()
-    return if (password.isNotEmpty() && ProxyUriCodec.isSupportedShadowsocksMethod(method)) {
+    return if (password.isNotEmpty() && isSupportedShadowsocksMethod(method)) {
         ProxyProfile.Shadowsocks(
             id = newId(),
             displayName = name,

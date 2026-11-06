@@ -1,0 +1,916 @@
+--- a/Cargo.toml
++++ b/Cargo.toml
+@@ -104,0 +105 @@
++features = ["no_neon"]
+--- a/Cargo.toml.orig
++++ b/Cargo.toml.orig
+@@ -100 +100 @@
+-blake3 = "1.5"
++blake3 = { version = "1.5", features = ["no_neon"] }
+--- a/src/config.rs
++++ b/src/config.rs
+@@ -15 +14,0 @@
+-use byte_string::ByteStr;
+@@ -257,2 +256,2 @@
+-            .field("key", &USER_KEY_BASE64_ENGINE.encode(&self.key))
+-            .field("identity_hash", &ByteStr::new(&self.identity_hash))
++            .field("key", &"[redacted]")
++            .field("identity_hash", &"[redacted]")
+@@ -404 +403 @@
+-#[derive(Clone, Debug)]
++#[derive(Clone)]
+@@ -446,0 +446,6 @@
++impl Debug for ServerConfig {
++    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
++        f.debug_struct("ServerConfig").field("method", &self.method).finish_non_exhaustive()
++    }
++}
++
+--- a/src/context.rs
++++ b/src/context.rs
+@@ -3 +3 @@
+-use std::{io, net::SocketAddr, sync::Arc};
++use std::{fmt, io, net::SocketAddr, sync::Arc, time::SystemTime};
+@@ -14,0 +15,22 @@
++/// Timestamp source used by authenticated protocol headers.
++#[derive(Clone)]
++pub(crate) struct TimestampProvider(Arc<dyn Fn() -> u64 + Send + Sync>);
++
++impl Default for TimestampProvider {
++    fn default() -> Self {
++        Self(Arc::new(|| SystemTime::now().duration_since(SystemTime::UNIX_EPOCH).unwrap_or_default().as_secs()))
++    }
++}
++
++impl fmt::Debug for TimestampProvider {
++    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
++        f.write_str("TimestampProvider")
++    }
++}
++
++impl TimestampProvider {
++    pub(crate) fn now(&self) -> u64 {
++        (self.0)()
++    }
++}
++
+@@ -17,0 +40 @@
++    timestamp_provider: TimestampProvider,
+@@ -37,0 +61 @@
++            timestamp_provider: TimestampProvider::default(),
+@@ -44,0 +69,14 @@
++    /// Set the clock used to generate and check authenticated timestamps.
++    pub fn set_timestamp_provider(&mut self, provider: Arc<dyn Fn() -> u64 + Send + Sync>) {
++        self.timestamp_provider = TimestampProvider(provider);
++    }
++
++    /// Current Unix time in seconds from this context's clock.
++    pub fn now_timestamp(&self) -> u64 {
++        self.timestamp_provider.now()
++    }
++
++    pub(crate) fn timestamp_provider(&self) -> TimestampProvider {
++        self.timestamp_provider.clone()
++    }
++
+--- a/src/lib.rs
++++ b/src/lib.rs
+@@ -21,0 +22 @@
++pub mod packet_window;
+--- a/src/packet_window.rs
++++ b/src/packet_window.rs
+@@ -0,0 +1,191 @@
++// SPDX-License-Identifier: MIT
++//
++// Copyright (C) 2017-2021 WireGuard LLC. All Rights Reserved.
++
++//! Packet window
++//!
++//! https://github.com/WireGuard/wireguard-go/blob/master/replay/replay.go
++
++const BLOCK_BIT_LOG: u64 = 6; // 1<<6 == 64 bits
++const BLOCK_BITS: u64 = 1 << BLOCK_BIT_LOG; // must be power of 2
++const RING_BLOCKS: u64 = 1 << 7; // must be power of 2
++const WINDOW_SIZE: u64 = (RING_BLOCKS - 1) * BLOCK_BITS;
++const BLOCK_MASK: u64 = RING_BLOCKS - 1;
++const BIT_MASK: u64 = BLOCK_BITS - 1;
++
++/// Packet window for checking `packet_id` is in the sliding window
++#[derive(Debug, Clone)]
++pub struct PacketWindowFilter {
++    last_packet_id: u64,
++    packet_ring: [u64; RING_BLOCKS as usize],
++}
++
++impl Default for PacketWindowFilter {
++    fn default() -> Self {
++        Self::new()
++    }
++}
++
++impl PacketWindowFilter {
++    /// Create an empty filter
++    pub fn new() -> Self {
++        Self {
++            last_packet_id: 0,
++            packet_ring: [0u64; RING_BLOCKS as usize],
++        }
++    }
++
++    /// Reset filter to the initial state
++    pub fn reset(&mut self) {
++        self.last_packet_id = 0;
++        self.packet_ring[0] = 0;
++    }
++
++    /// Check and remember the `packet_id`
++    ///
++    /// Overlimit `packet_id >= limit` are always rejected
++    pub fn validate_packet_id(&mut self, packet_id: u64, limit: u64) -> bool {
++        if packet_id >= limit {
++            return false;
++        }
++
++        let mut index_block = packet_id >> BLOCK_BIT_LOG;
++        if packet_id > self.last_packet_id {
++            // Move the window forward
++
++            let current = self.last_packet_id >> BLOCK_BIT_LOG;
++            let mut diff = index_block - current;
++            if diff > RING_BLOCKS {
++                // Clear the whole filter
++                diff = RING_BLOCKS;
++            }
++            for d in 1..=diff {
++                let i = current + d;
++                self.packet_ring[(i & BLOCK_MASK) as usize] = 0;
++            }
++            self.last_packet_id = packet_id;
++        } else if self.last_packet_id - packet_id > WINDOW_SIZE {
++            // Behind the current window
++            return false;
++        }
++
++        // Check and set bit
++        index_block &= BLOCK_MASK;
++        let index_bit = packet_id & BIT_MASK;
++        let old = self.packet_ring[index_block as usize];
++        let new = old | (1 << index_bit);
++        self.packet_ring[index_block as usize] = new;
++        old != new
++    }
++}
++
++#[cfg(test)]
++mod test {
++    use super::*;
++
++    use std::cell::RefCell;
++
++    #[test]
++    fn test_packet_window() {
++        const REJECT_AFTER_MESSAGES: u64 = u64::MAX - (1u64 << 13);
++
++        let filter = RefCell::new(PacketWindowFilter::new());
++
++        let test_number = RefCell::new(0);
++        #[allow(non_snake_case)]
++        let T = |n: u64, expected: bool| {
++            *(test_number.borrow_mut()) += 1;
++            if filter.borrow_mut().validate_packet_id(n, REJECT_AFTER_MESSAGES) != expected {
++                panic!("Test {} failed, {} {}", test_number.borrow(), n, expected);
++            }
++        };
++
++        const T_LIM: u64 = WINDOW_SIZE + 1;
++
++        T(0, true); // 1
++        T(1, true); // 2
++        T(1, false); // 3
++        T(9, true); // 4
++        T(8, true); // 5
++        T(7, true); // 6
++        T(7, false); // 7
++        T(T_LIM, true); // 8
++        T(T_LIM - 1, true); // 9
++        T(T_LIM - 1, false); // 10
++        T(T_LIM - 2, true); // 11
++        T(2, true); // 12
++        T(2, false); // 13
++        T(T_LIM + 16, true); // 14
++        T(3, false); // 15
++        T(T_LIM + 16, false); // 16
++        T(T_LIM * 4, true); // 17
++        T(T_LIM * 4 - (T_LIM - 1), true); // 18
++        T(10, false); // 19
++        T(T_LIM * 4 - T_LIM, false); // 20
++        T(T_LIM * 4 - (T_LIM + 1), false); // 21
++        T(T_LIM * 4 - (T_LIM - 2), true); // 22
++        T(T_LIM * 4 + 1 - T_LIM, false); // 23
++        T(0, false); // 24
++        T(REJECT_AFTER_MESSAGES, false); // 25
++        T(REJECT_AFTER_MESSAGES - 1, true); // 26
++        T(REJECT_AFTER_MESSAGES, false); // 27
++        T(REJECT_AFTER_MESSAGES - 1, false); // 28
++        T(REJECT_AFTER_MESSAGES - 2, true); // 29
++        T(REJECT_AFTER_MESSAGES + 1, false); // 30
++        T(REJECT_AFTER_MESSAGES + 2, false); // 31
++        T(REJECT_AFTER_MESSAGES - 2, false); // 32
++        T(REJECT_AFTER_MESSAGES - 3, true); // 33
++        T(0, false); // 34
++
++        println!("Bulk test 1");
++        filter.borrow_mut().reset();
++        *(test_number.borrow_mut()) = 0;
++        for i in 1..=WINDOW_SIZE {
++            T(i, true);
++        }
++        T(0, true);
++        T(0, false);
++
++        println!("Bulk test 2");
++        filter.borrow_mut().reset();
++        *(test_number.borrow_mut()) = 0;
++        for i in 2..=WINDOW_SIZE + 1 {
++            T(i, true);
++        }
++        T(1, true);
++        T(0, false);
++
++        println!("Bulk test 3");
++        filter.borrow_mut().reset();
++        *(test_number.borrow_mut()) = 0;
++        for i in (1..=WINDOW_SIZE + 1).rev() {
++            T(i, true);
++        }
++
++        println!("Bulk test 4");
++        filter.borrow_mut().reset();
++        *(test_number.borrow_mut()) = 0;
++        for i in (2..=WINDOW_SIZE + 2).rev() {
++            T(i, true);
++        }
++        T(0, false);
++
++        println!("Bulk test 5");
++        filter.borrow_mut().reset();
++        *(test_number.borrow_mut()) = 0;
++        for i in (1..=WINDOW_SIZE).rev() {
++            T(i, true);
++        }
++        T(WINDOW_SIZE + 1, true);
++        T(0, false);
++
++        println!("Bulk test 6");
++        filter.borrow_mut().reset();
++        *(test_number.borrow_mut()) = 0;
++        for i in (1..=WINDOW_SIZE).rev() {
++            T(i, true);
++        }
++        T(0, true);
++        T(WINDOW_SIZE + 1, true);
++    }
++}
+--- a/src/relay/socks5.rs
++++ b/src/relay/socks5.rs
+@@ -272,0 +273,2 @@
++                // SAFETY: nine initialized u16 values occupy 18 bytes; the byte view has
++                // alignment one and exclusive access for no longer than the array borrow.
+--- a/src/relay/tcprelay/aead.rs
++++ b/src/relay/tcprelay/aead.rs
+@@ -107,3 +107 @@
+-                state: DecryptReadState::WaitSalt {
+-                    key: Bytes::copy_from_slice(key),
+-                },
++                state: DecryptReadState::WaitSalt { key: Bytes::copy_from_slice(key) },
+@@ -146,2 +144,2 @@
+-                    let key = unsafe { &*(key.as_ref() as *const _) };
+-                    ready!(self.poll_read_salt(cx, stream, key))?;
++                    let key = key.clone();
++                    ready!(self.poll_read_salt(cx, stream, &key))?;
+@@ -279,0 +278,2 @@
++            // SAFETY: chunk_mut gives exclusive writable capacity of at least remaining bytes.
++            // ReadBuf keeps uninitialized bytes as MaybeUninit until the stream fills them.
+@@ -292,0 +293 @@
++            // SAFETY: ReadBuf::filled() reports only initialized bytes within that capacity.
+@@ -369,0 +371,2 @@
++        // Do not accept a new slice while previously acknowledged bytes are pending.
++        ready!(self.poll_flush_encrypted(cx, stream))?;
+@@ -381,2 +384 @@
+-                    let mbuf = &mut self.buffer.chunk_mut()[..length_size];
+-                    let mbuf = unsafe { slice::from_raw_parts_mut(mbuf.as_mut_ptr(), mbuf.len()) };
++                    let packet_start = self.buffer.len();
+@@ -385,2 +387,2 @@
+-                    self.cipher.encrypt_packet(mbuf);
+-                    unsafe { self.buffer.advance_mut(self.cipher.tag_len()) };
++                    self.buffer.resize(self.buffer.len() + self.cipher.tag_len(), 0);
++                    self.cipher.encrypt_packet(&mut self.buffer[packet_start..]);
+@@ -392,2 +394 @@
+-                    let mbuf = &mut self.buffer.chunk_mut()[..data_size];
+-                    let mbuf = unsafe { slice::from_raw_parts_mut(mbuf.as_mut_ptr(), mbuf.len()) };
++                    let packet_start = self.buffer.len();
+@@ -396,2 +397,2 @@
+-                    self.cipher.encrypt_packet(mbuf);
+-                    unsafe { self.buffer.advance_mut(self.cipher.tag_len()) };
++                    self.buffer.resize(self.buffer.len() + self.cipher.tag_len(), 0);
++                    self.cipher.encrypt_packet(&mut self.buffer[packet_start..]);
+@@ -402,7 +403,5 @@
+-                EncryptWriteState::Writing { ref mut pos } => {
+-                    while *pos < self.buffer.len() {
+-                        let n = ready!(Pin::new(&mut *stream).poll_write(cx, &self.buffer[*pos..]))?;
+-                        if n == 0 {
+-                            return Err(ErrorKind::UnexpectedEof.into()).into();
+-                        }
+-                        *pos += n;
++                EncryptWriteState::Writing { .. } => {
++                    // The buffer owns these bytes even if the carrier is full. A cancelled
++                    // later write must not acknowledge a different caller's slice.
++                    if let Poll::Ready(Err(error)) = self.poll_flush_encrypted(cx, stream) {
++                        return Poll::Ready(Err(error));
+@@ -410,6 +409 @@
+-
+-                    // Reset state
+-                    self.state = EncryptWriteState::AssemblePacket;
+-                    self.buffer.clear();
+-
+-                    return Ok(buf.len()).into();
++                    return Poll::Ready(Ok(buf.len()));
+@@ -419,0 +414,21 @@
++    /// Drains ciphertext already accepted by poll_write_encrypted.
++    pub fn poll_flush_encrypted<S>(
++        &mut self,
++        cx: &mut task::Context<'_>,
++        stream: &mut S,
++    ) -> Poll<io::Result<()>>
++    where
++        S: AsyncWrite + Unpin + ?Sized,
++    {
++        if let EncryptWriteState::Writing { ref mut pos } = self.state {
++            while *pos < self.buffer.len() {
++                let n = ready!(Pin::new(&mut *stream).poll_write(cx, &self.buffer[*pos..]))?;
++                if n == 0 { return Poll::Ready(Err(ErrorKind::WriteZero.into())); }
++                *pos += n;
++            }
++            self.buffer.clear();
++            self.state = EncryptWriteState::AssemblePacket;
++        }
++        Poll::Ready(Ok(()))
++    }
++
+--- a/src/relay/tcprelay/aead_2022.rs
++++ b/src/relay/tcprelay/aead_2022.rs
+@@ -53 +52,0 @@
+-    time::SystemTime,
+@@ -69 +68 @@
+-    context::Context,
++    context::{Context, TimestampProvider},
+@@ -73,8 +71,0 @@
+-#[inline]
+-fn get_now_timestamp() -> u64 {
+-    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+-        Ok(n) => n.as_secs(),
+-        Err(_) => panic!("SystemTime::now() is before UNIX Epoch!"),
+-    }
+-}
+-
+@@ -95 +86 @@
+-    #[error("invalid client user identity {:?}", ByteStr::new(.0))]
++    #[error("invalid client user identity")]
+@@ -157,3 +148 @@
+-                state: DecryptReadState::ReadHeader {
+-                    key: Bytes::copy_from_slice(key),
+-                },
++                state: DecryptReadState::ReadHeader { key: Bytes::copy_from_slice(key) },
+@@ -211,2 +200,2 @@
+-                    let key = unsafe { &*(key.as_ref() as *const _) };
+-                    match ready!(self.poll_read_header(cx, context, stream, key))? {
++                    let key = key.clone();
++                    match ready!(self.poll_read_header(cx, context, stream, &key))? {
+@@ -334,5 +323 @@
+-                    trace!(
+-                        "server EIH {:?}, hash: {:?}",
+-                        ByteStr::new(eih),
+-                        ByteStr::new(user_hash)
+-                    );
++                    trace!("server EIH received");
+@@ -376 +361 @@
+-        let now = get_now_timestamp();
++        let now = context.now_timestamp();
+@@ -466,0 +452,2 @@
++            // SAFETY: chunk_mut gives exclusive writable capacity of at least remaining bytes.
++            // ReadBuf keeps uninitialized bytes as MaybeUninit until the stream fills them.
+@@ -479,0 +467 @@
++            // SAFETY: ReadBuf::filled() reports only initialized bytes within that capacity.
+@@ -528,0 +517 @@
++    pub(crate) timestamp_provider: TimestampProvider,
+@@ -574,5 +563 @@
+-                    trace!(
+-                        "client EIH {:?}, hash: {:?}",
+-                        ByteStr::new(block.as_slice()),
+-                        ByteStr::new(ipsk_plain_text)
+-                    );
++                    trace!("client EIH created");
+@@ -590,5 +575 @@
+-                    trace!(
+-                        "client EIH {:?}, hash: {:?}",
+-                        ByteStr::new(block.as_slice()),
+-                        ByteStr::new(ipsk_plain_text)
+-                    );
++                    trace!("client EIH created");
+@@ -618,0 +600 @@
++            timestamp_provider: TimestampProvider::default(),
+@@ -654,0 +637,2 @@
++        // Do not accept a new slice while previously acknowledged bytes are pending.
++        ready!(self.poll_flush_encrypted(cx, stream))?;
+@@ -670,2 +654 @@
+-                    let mbuf = &mut self.buffer.chunk_mut()[..header_len];
+-                    let mbuf = unsafe { slice::from_raw_parts_mut(mbuf.as_mut_ptr(), mbuf.len()) };
++                    let packet_start = self.buffer.len();
+@@ -678 +661 @@
+-                    self.buffer.put_u64(get_now_timestamp());
++                    self.buffer.put_u64(self.timestamp_provider.now());
+@@ -683,2 +666,2 @@
+-                    self.cipher.encrypt_packet(mbuf);
+-                    unsafe { self.buffer.advance_mut(self.cipher.tag_len()) };
++                    self.buffer.resize(self.buffer.len() + self.cipher.tag_len(), 0);
++                    self.cipher.encrypt_packet(&mut self.buffer[packet_start..]);
+@@ -690,2 +673 @@
+-                    let mbuf = &mut self.buffer.chunk_mut()[..data_size];
+-                    let mbuf = unsafe { slice::from_raw_parts_mut(mbuf.as_mut_ptr(), mbuf.len()) };
++                    let packet_start = self.buffer.len();
+@@ -694,2 +676,2 @@
+-                    self.cipher.encrypt_packet(mbuf);
+-                    unsafe { self.buffer.advance_mut(self.cipher.tag_len()) };
++                    self.buffer.resize(self.buffer.len() + self.cipher.tag_len(), 0);
++                    self.cipher.encrypt_packet(&mut self.buffer[packet_start..]);
+@@ -706,2 +688 @@
+-                    let mbuf = &mut self.buffer.chunk_mut()[..length_size];
+-                    let mbuf = unsafe { slice::from_raw_parts_mut(mbuf.as_mut_ptr(), mbuf.len()) };
++                    let packet_start = self.buffer.len();
+@@ -710,2 +691,2 @@
+-                    self.cipher.encrypt_packet(mbuf);
+-                    unsafe { self.buffer.advance_mut(self.cipher.tag_len()) };
++                    self.buffer.resize(self.buffer.len() + self.cipher.tag_len(), 0);
++                    self.cipher.encrypt_packet(&mut self.buffer[packet_start..]);
+@@ -717,2 +698 @@
+-                    let mbuf = &mut self.buffer.chunk_mut()[..data_size];
+-                    let mbuf = unsafe { slice::from_raw_parts_mut(mbuf.as_mut_ptr(), mbuf.len()) };
++                    let packet_start = self.buffer.len();
+@@ -721,2 +701,2 @@
+-                    self.cipher.encrypt_packet(mbuf);
+-                    unsafe { self.buffer.advance_mut(self.cipher.tag_len()) };
++                    self.buffer.resize(self.buffer.len() + self.cipher.tag_len(), 0);
++                    self.cipher.encrypt_packet(&mut self.buffer[packet_start..]);
+@@ -727,7 +707,5 @@
+-                EncryptWriteState::Writing { ref mut pos } => {
+-                    while *pos < self.buffer.len() {
+-                        let n = ready!(Pin::new(&mut *stream).poll_write(cx, &self.buffer[*pos..]))?;
+-                        if n == 0 {
+-                            return Err(ErrorKind::UnexpectedEof.into()).into();
+-                        }
+-                        *pos += n;
++                EncryptWriteState::Writing { .. } => {
++                    // The buffer owns these bytes even if the carrier is full. A cancelled
++                    // later write must not acknowledge a different caller's slice.
++                    if let Poll::Ready(Err(error)) = self.poll_flush_encrypted(cx, stream) {
++                        return Poll::Ready(Err(error));
+@@ -735,6 +713 @@
+-
+-                    // Reset state
+-                    self.state = EncryptWriteState::AssemblePacket;
+-                    self.buffer.clear();
+-
+-                    return Ok(buf.len()).into();
++                    return Poll::Ready(Ok(buf.len()));
+@@ -744,0 +718,21 @@
++    /// Drains ciphertext already accepted by poll_write_encrypted.
++    pub fn poll_flush_encrypted<S>(
++        &mut self,
++        cx: &mut task::Context<'_>,
++        stream: &mut S,
++    ) -> Poll<io::Result<()>>
++    where
++        S: AsyncWrite + Unpin + ?Sized,
++    {
++        if let EncryptWriteState::Writing { ref mut pos } = self.state {
++            while *pos < self.buffer.len() {
++                let n = ready!(Pin::new(&mut *stream).poll_write(cx, &self.buffer[*pos..]))?;
++                if n == 0 { return Poll::Ready(Err(ErrorKind::WriteZero.into())); }
++                *pos += n;
++            }
++            self.buffer.clear();
++            self.state = EncryptWriteState::AssemblePacket;
++        }
++        Poll::Ready(Ok(()))
++    }
++
+--- a/src/relay/tcprelay/crypto_io.rs
++++ b/src/relay/tcprelay/crypto_io.rs
+@@ -115,6 +115,3 @@
+-            CipherCategory::Aead2022 => Self::Aead2022(Aead2022DecryptedReader::with_user_manager(
+-                stream_ty,
+-                method,
+-                key,
+-                user_manager,
+-            )),
++            CipherCategory::Aead2022 => {
++                Self::Aead2022(Aead2022DecryptedReader::with_user_manager(stream_ty, method, key, user_manager))
++            }
+@@ -260,7 +257,3 @@
+-            CipherCategory::Aead2022 => Self::Aead2022(Aead2022EncryptedWriter::with_identity(
+-                stream_ty,
+-                method,
+-                key,
+-                nonce,
+-                identity_keys,
+-            )),
++            CipherCategory::Aead2022 => {
++                Self::Aead2022(Aead2022EncryptedWriter::with_identity(stream_ty, method, key, nonce, identity_keys))
++            }
+@@ -288,0 +282,13 @@
++        }
++    }
++
++    /// Drains acknowledged AEAD ciphertext without accepting new plaintext.
++    pub fn poll_flush_encrypted<S>(&mut self, cx: &mut task::Context<'_>, stream: &mut S) -> Poll<ProtocolResult<()>>
++    where S: AsyncWrite + Unpin + ?Sized,
++    {
++        match self {
++            #[cfg(feature = "aead-cipher")]
++            Self::Aead(writer) => writer.poll_flush_encrypted(cx, stream).map_err(Into::into),
++            #[cfg(feature = "aead-cipher-2022")]
++            Self::Aead2022(writer) => writer.poll_flush_encrypted(cx, stream).map_err(Into::into),
++            _ => Poll::Ready(Ok(())),
+@@ -329,0 +336,14 @@
++/// Read-side output progress and split writers share a single carrier write waker.
++#[derive(Default)]
++struct WriteReadiness {
++    reader: futures::task::AtomicWaker,
++    writer: futures::task::AtomicWaker,
++}
++
++impl futures::task::ArcWake for WriteReadiness {
++    fn wake_by_ref(this: &Arc<Self>) {
++        this.reader.wake();
++        this.writer.wake();
++    }
++}
++
+@@ -336,0 +357 @@
++    write_readiness: Arc<WriteReadiness>,
+@@ -411,0 +433,6 @@
++
++        let mut enc = EncryptedWriter::with_identity(stream_ty, method, key, &iv, identity_keys);
++        #[cfg(feature = "aead-cipher-2022")]
++        if let EncryptedWriter::Aead2022(writer) = &mut enc {
++            writer.timestamp_provider = context.timestamp_provider();
++        }
+@@ -416 +443 @@
+-            enc: EncryptedWriter::with_identity(stream_ty, method, key, &iv, identity_keys),
++            enc,
+@@ -418,0 +446 @@
++            write_readiness: Arc::new(WriteReadiness::default()),
+@@ -423,7 +451,2 @@
+-        Self {
+-            stream,
+-            dec: DecryptedReader::None,
+-            enc: EncryptedWriter::None,
+-            method,
+-            has_handshaked: false,
+-        }
++        Self { stream, dec: DecryptedReader::None, enc: EncryptedWriter::None, method, has_handshaked: false,
++            write_readiness: Arc::new(WriteReadiness::default()) }
+@@ -542,7 +565,9 @@
+-        let Self {
+-            ref mut dec,
+-            ref mut enc,
+-            ref mut stream,
+-            ref mut has_handshaked,
+-            ..
+-        } = *self;
++        let Self { ref mut dec, ref mut enc, ref mut stream, ref mut has_handshaked, ref write_readiness, .. } = *self;
++        write_readiness.reader.register(cx.waker());
++        let output_waker = futures::task::waker_ref(write_readiness);
++        let mut output_cx = task::Context::from_waker(&output_waker);
++        // Drive acknowledged output while waiting for input, without blocking the
++        // receive direction on carrier backpressure. Both readiness paths wake us.
++        if let Poll::Ready(Err(error)) = enc.poll_flush_encrypted(&mut output_cx, stream) {
++            return Poll::Ready(Err(error));
++        }
+@@ -575,6 +600,5 @@
+-        let Self {
+-            ref mut enc,
+-            ref mut stream,
+-            ..
+-        } = *self;
+-        enc.poll_write_encrypted(cx, stream, buf)
++        let Self { ref mut enc, ref mut stream, ref write_readiness, .. } = *self;
++        write_readiness.writer.register(cx.waker());
++        let output_waker = futures::task::waker_ref(write_readiness);
++        let mut output_cx = task::Context::from_waker(&output_waker);
++        enc.poll_write_encrypted(&mut output_cx, stream, buf)
+@@ -591 +615,5 @@
+-        Pin::new(&mut self.stream).poll_flush(cx).map_err(Into::into)
++        self.write_readiness.writer.register(cx.waker());
++        let output_waker = futures::task::waker_ref(&self.write_readiness);
++        let mut output_cx = task::Context::from_waker(&output_waker);
++        ready!(self.enc.poll_flush_encrypted(&mut output_cx, &mut self.stream))?;
++        Pin::new(&mut self.stream).poll_flush(&mut output_cx).map_err(Into::into)
+@@ -597 +625,5 @@
+-        Pin::new(&mut self.stream).poll_shutdown(cx).map_err(Into::into)
++        self.write_readiness.writer.register(cx.waker());
++        let output_waker = futures::task::waker_ref(&self.write_readiness);
++        let mut output_cx = task::Context::from_waker(&output_waker);
++        ready!(self.enc.poll_flush_encrypted(&mut output_cx, &mut self.stream))?;
++        Pin::new(&mut self.stream).poll_shutdown(&mut output_cx).map_err(Into::into)
+--- a/src/relay/tcprelay/proxy_stream/client.rs
++++ b/src/relay/tcprelay/proxy_stream/client.rs
+@@ -277,5 +277 @@
+-        if padding_size > 0 {
+-            unsafe {
+-                buffer.advance_mut(padding_size);
+-            }
+-        }
++        buffer.put_bytes(0, padding_size);
+--- a/src/relay/tcprelay/proxy_stream/protocol/v2.rs
++++ b/src/relay/tcprelay/proxy_stream/protocol/v2.rs
+@@ -84,3 +84 @@
+-            unsafe {
+-                buf.advance_mut(self.padding_size as usize);
+-            }
++            buf.put_bytes(0, self.padding_size as usize);
+--- a/src/relay/udprelay/aead.rs
++++ b/src/relay/udprelay/aead.rs
+@@ -71,3 +71 @@
+-    unsafe {
+-        dst.advance_mut(method.tag_len());
+-    }
++    dst.put_bytes(0, method.tag_len());
+--- a/src/relay/udprelay/aead_2022.rs
++++ b/src/relay/udprelay/aead_2022.rs
+@@ -50,2 +49,0 @@
+-    collections::hash_map::DefaultHasher,
+-    hash::{Hash, Hasher},
+@@ -54 +51,0 @@
+-    slice,
+@@ -56 +53 @@
+-    time::{Duration, SystemTime},
++    time::Duration,
+@@ -98 +95 @@
+-    #[error("invalid client user identity {:?}", ByteStr::new(.0))]
++    #[error("invalid client user identity")]
+@@ -114 +111 @@
+-    key: usize,
++    key: [u8; 32],
+@@ -126,12 +123 @@
+-        let hash1 = {
+-            let mut hasher = DefaultHasher::new();
+-            self.hash(&mut hasher);
+-            hasher.finish()
+-        };
+-        let hash2 = {
+-            let mut hasher = DefaultHasher::new();
+-            other.hash(&mut hasher);
+-            hasher.finish()
+-        };
+-
+-        hash1.cmp(&hash2)
++        (self.method as u32, self.key, self.session_id).cmp(&(other.method as u32, other.key, other.session_id))
+@@ -149,8 +134,0 @@
+-#[inline]
+-pub fn get_now_timestamp() -> u64 {
+-    match SystemTime::now().duration_since(SystemTime::UNIX_EPOCH) {
+-        Ok(n) => n.as_secs(),
+-        Err(_) => panic!("SystemTime::now() is before UNIX Epoch!"),
+-    }
+-}
+-
+@@ -157,0 +136,7 @@
++    // ChaCha uses the PSK directly; packet bytes must not create cache entries.
++    let session_id = match method {
++        CipherKind::AEAD2022_BLAKE3_CHACHA20_POLY1305 => 0,
++        #[cfg(feature = "aead-cipher-2022-extra")]
++        CipherKind::AEAD2022_BLAKE3_CHACHA8_POLY1305 => 0,
++        _ => session_id,
++    };
+@@ -161,6 +146 @@
+-        let cache_key = CipherKey {
+-            method,
+-            // The key is stored in ServerConfig structure, so the address of it won't change.
+-            key: key.as_ptr() as usize,
+-            session_id,
+-        };
++        let cache_key = CipherKey { method, key: *blake3::hash(key).as_bytes(), session_id };
+@@ -168,4 +148 @@
+-        cache
+-            .entry(cache_key)
+-            .or_insert_with(|| Rc::new(UdpCipher::new(method, key, session_id)))
+-            .clone()
++        cache.entry(cache_key).or_insert_with(|| Rc::new(UdpCipher::new(method, key, session_id))).clone()
+@@ -184,3 +161 @@
+-    unsafe {
+-        packet.advance_mut(method.tag_len());
+-    }
++    packet.resize(packet.len() + method.tag_len(), 0);
+@@ -266,2 +241,3 @@
+-                let session_id_slice: &[u64] = unsafe { slice::from_raw_parts(session_id_buf.as_ptr() as *const _, 1) };
+-                u64::from_be(session_id_slice[0])
++                let mut session_id_bytes = [0u8; 8];
++                session_id_bytes.copy_from_slice(session_id_buf);
++                u64::from_be_bytes(session_id_bytes)
+@@ -288,2 +264,3 @@
+-                let session_id_slice: &[u64] = unsafe { slice::from_raw_parts(session_id_buf.as_ptr() as *const _, 1) };
+-                u64::from_be(session_id_slice[0])
++                let mut session_id_bytes = [0u8; 8];
++                session_id_bytes.copy_from_slice(session_id_buf);
++                u64::from_be_bytes(session_id_bytes)
+@@ -327,2 +304,3 @@
+-                let session_id_slice: &[u64] = unsafe { slice::from_raw_parts(session_id_buf.as_ptr() as *const _, 1) };
+-                u64::from_be(session_id_slice[0])
++                let mut session_id_bytes = [0u8; 8];
++                session_id_bytes.copy_from_slice(session_id_buf);
++                u64::from_be_bytes(session_id_bytes)
+@@ -369 +347 @@
+-                            error!("user with identity {:?} not found", ByteStr::new(eih));
++                            error!("user identity not found");
+@@ -441,3 +419 @@
+-        unsafe {
+-            dst.advance_mut(nonce_size);
+-        }
++        dst.resize(dst.len() + nonce_size, 0);
+@@ -490,5 +466 @@
+-            trace!(
+-                "client EIH {:?}, hash: {:?}",
+-                ByteStr::new(identity_header),
+-                ByteStr::new(plain_text)
+-            );
++            trace!("client EIH created");
+@@ -512 +484 @@
+-    dst.put_u64(get_now_timestamp());
++    dst.put_u64(context.now_timestamp());
+@@ -515,3 +487 @@
+-        unsafe {
+-            dst.advance_mut(padding_size);
+-        }
++        dst.resize(dst.len() + padding_size, 0);
+@@ -522,5 +492 @@
+-    let ipsk = if identity_keys.is_empty() {
+-        key
+-    } else {
+-        &identity_keys[0]
+-    };
++    let ipsk = if identity_keys.is_empty() { key } else { &identity_keys[0] };
+@@ -566 +532 @@
+-    let now = get_now_timestamp();
++    let now = context.now_timestamp();
+@@ -576,0 +543 @@
++        authenticated_timestamp: Some(timestamp),
+@@ -615,3 +582 @@
+-        unsafe {
+-            dst.advance_mut(nonce_size);
+-        }
++        dst.resize(dst.len() + nonce_size, 0);
+@@ -628 +593 @@
+-    dst.put_u64(get_now_timestamp());
++    dst.put_u64(context.now_timestamp());
+@@ -632,3 +597 @@
+-        unsafe {
+-            dst.advance_mut(padding_size);
+-        }
++        dst.resize(dst.len() + padding_size, 0);
+@@ -651 +614 @@
+-    let header_len = nonce_len + tag_len + 8 + 8 + 1 + 8 + 2;
++    let header_len = nonce_len + tag_len + 8 + 8 + 1 + 8 + 8 + 2;
+@@ -670 +633 @@
+-    let now = get_now_timestamp();
++    let now = context.now_timestamp();
+@@ -682,0 +646 @@
++        authenticated_timestamp: Some(timestamp),
+@@ -700,0 +665,106 @@
++
++#[cfg(test)]
++mod integration_patch_tests {
++    use super::*;
++    use crate::config::ServerType;
++
++    fn fixed_context(timestamp: u64) -> Context {
++        let mut context = Context::new(ServerType::Local);
++        context.set_timestamp_provider(Arc::new(move || timestamp));
++        context
++    }
++
++    #[test]
++    fn independent_clock_unaligned_datagrams_and_authenticated_metadata() {
++        for method in [
++            CipherKind::AEAD2022_BLAKE3_AES_128_GCM,
++            CipherKind::AEAD2022_BLAKE3_AES_256_GCM,
++            CipherKind::AEAD2022_BLAKE3_CHACHA20_POLY1305,
++        ] {
++            let sender = fixed_context(1_234_567);
++            let receiver = fixed_context(1_234_568);
++            let stale_receiver = fixed_context(1_234_700);
++            let key = vec![0x3a; method.key_len()];
++            let address = Address::from("127.0.0.1:8080".parse::<std::net::SocketAddr>().unwrap());
++            let control = UdpSocketControlData {
++                client_session_id: 42,
++                server_session_id: 99,
++                packet_id: 7,
++                ..Default::default()
++            };
++            for server_packet in [false, true] {
++                let mut packet = BytesMut::new();
++                if server_packet {
++                    encrypt_server_payload_aead_2022(&sender, method, &key, &address, &control, b"clock", &mut packet);
++                } else {
++                    encrypt_client_payload_aead_2022(
++                        &sender,
++                        method,
++                        &key,
++                        &address,
++                        &control,
++                        &[],
++                        b"clock",
++                        &mut packet,
++                    );
++                }
++                let mut aligned_storage = vec![0u8; packet.len() + 8];
++                let offset = (1 + 8 - aligned_storage.as_ptr() as usize % 8) % 8;
++                aligned_storage[offset..offset + packet.len()].copy_from_slice(&packet);
++                let unaligned = &mut aligned_storage[offset..offset + packet.len()];
++                assert_ne!(unaligned.as_ptr() as usize % 8, 0);
++                let (len, target, authenticated) = if server_packet {
++                    decrypt_server_payload_aead_2022(&receiver, method, &key, unaligned).unwrap()
++                } else {
++                    decrypt_client_payload_aead_2022(&receiver, method, &key, unaligned, None).unwrap()
++                };
++                assert_eq!(&unaligned[..len], b"clock");
++                assert_eq!(target, address);
++                assert_eq!(authenticated.client_session_id, 42);
++                assert_eq!(authenticated.packet_id, 7);
++                assert_eq!(authenticated.authenticated_timestamp, Some(1_234_567));
++                let stale_result = if server_packet {
++                    decrypt_server_payload_aead_2022(&stale_receiver, method, &key, &mut packet)
++                } else {
++                    decrypt_client_payload_aead_2022(&stale_receiver, method, &key, &mut packet, None)
++                };
++                assert!(matches!(stale_result, Err(ProtocolError::InvalidTimestamp(1_234_567, 1_234_700))));
++            }
++        }
++    }
++
++    #[test]
++    fn cache_uses_key_value_after_same_allocation_changes() {
++        let context = fixed_context(1234);
++        let method = CipherKind::AEAD2022_BLAKE3_AES_128_GCM;
++        let address = Address::from("127.0.0.1:80".parse::<std::net::SocketAddr>().unwrap());
++        let control = UdpSocketControlData { server_session_id: 19, ..Default::default() };
++        let mut reused_key = [0x11; 16];
++        let mut first = BytesMut::new();
++        encrypt_server_payload_aead_2022(&context, method, &reused_key, &address, &control, b"first", &mut first);
++        reused_key.fill(0x22);
++        let mut second = BytesMut::new();
++        encrypt_server_payload_aead_2022(&context, method, &reused_key, &address, &control, b"second", &mut second);
++        let independent_key = [0x22; 16];
++        let (len, _, _) = decrypt_server_payload_aead_2022(&context, method, &independent_key, &mut second).unwrap();
++        assert_eq!(&second[..len], b"second");
++    }
++
++    #[test]
++    fn authenticated_short_server_header_returns_error() {
++        let context = fixed_context(1234);
++        let method = CipherKind::AEAD2022_BLAKE3_AES_128_GCM;
++        let key = [0x44; 16];
++        let mut packet = BytesMut::new();
++        packet.put_u64(19);
++        packet.put_u64(1);
++        packet.put_u8(SERVER_SOCKET_TYPE);
++        packet.put_u64(1234);
++        packet.put_u16(0);
++        encrypt_message(&context, method, &key, &key, &mut packet, 19, 0);
++        assert!(matches!(
++            decrypt_server_payload_aead_2022(&context, method, &key, &mut packet),
++            Err(ProtocolError::PacketTooShort(_, _))
++        ));
++    }
++}
+--- a/src/relay/udprelay/options.rs
++++ b/src/relay/udprelay/options.rs
+@@ -9,0 +10,2 @@
++    /// Authenticated peer timestamp from a successfully decoded AEAD-2022 packet.
++    pub authenticated_timestamp: Option<u64>,
+--- a/src/relay/udprelay/proxy_socket.rs
++++ b/src/relay/udprelay/proxy_socket.rs
+@@ -15 +14,0 @@
+-use byte_string::ByteStr;
+@@ -58 +57 @@
+-    #[error("invalid server user identity {:?}", ByteStr::new(.0))]
++    #[error("invalid server user identity")]
+@@ -75 +73,0 @@
+-#[derive(Debug)]
+@@ -85,0 +84,6 @@
++}
++
++impl<S> std::fmt::Debug for ProxySocket<S> {
++    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
++        f.debug_struct("ProxySocket").field("method", &self.method).finish_non_exhaustive()
++    }

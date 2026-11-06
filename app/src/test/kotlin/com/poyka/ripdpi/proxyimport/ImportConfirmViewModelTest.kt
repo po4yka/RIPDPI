@@ -249,7 +249,7 @@ class ImportConfirmViewModelTest {
             val relayProfileStore = FakeRelayProfileStore()
             val relayCredentialStore = FakeRelayCredentialStore()
             val settingsRepository = FakeAppSettingsRepository()
-            val shadowsocksCredential = relayImportCredentialFixture("shadowsocks")
+            val shadowsocksCredential = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
             val profile =
                 ProxyProfile.Shadowsocks(
                     id = "ss-node",

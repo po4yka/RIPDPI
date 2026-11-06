@@ -11,6 +11,68 @@ import org.junit.Test
  */
 class NativeRelayProfileValidationResultTest {
     @Test
+    fun `shadowsocks admission accepts supported methods and AES identity keys`() {
+        val key16 = "AAECAwQFBgcICQoLDA0ODw=="
+        val key32 = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
+        for ((method, password) in listOf(
+            "aes-128-gcm" to "credential",
+            "aes-256-gcm" to "credential",
+            "chacha20-ietf-poly1305" to "credential",
+            "2022-blake3-aes-128-gcm" to key16,
+            "2022-blake3-aes-256-gcm" to key32,
+            "2022-blake3-chacha20-poly1305" to key32,
+            "2022-blake3-aes-128-gcm" to "$key16:$key16",
+            "2022-blake3-aes-256-gcm" to "$key32:$key32:$key32",
+            "2022-blake3-aes-128-gcm" to key16.dropLast(1),
+            "2022-blake3-aes-128-gcm" to key16.trimEnd('='),
+            "2022-blake3-aes-256-gcm" to key32.trimEnd('='),
+            "2022-blake3-chacha20-poly1305" to key32.trimEnd('='),
+        )) {
+            assertTrue(method, validateNativeRelayProfileResult(shadowsocksProfile(method, password)).isSuccess)
+        }
+    }
+
+    @Test
+    fun `shadowsocks admission rejects invalid methods keys and endpoints`() {
+        val key16 = "AAECAwQFBgcICQoLDA0ODw=="
+        val key32 = "AAECAwQFBgcICQoLDA0ODxAREhMUFRYXGBkaGxwdHh8="
+        for ((method, password) in listOf(
+            "none" to "credential",
+            "aes-128-cfb" to "credential",
+            "aes-128-gcm" to " ",
+            "2022-blake3-aes-128-gcm" to key32,
+            "2022-blake3-aes-256-gcm" to key16,
+            "2022-blake3-aes-128-gcm" to "$key16:$key32",
+            "2022-blake3-aes-128-gcm" to "$key32:$key16",
+            "2022-blake3-aes-128-gcm" to "$key16::$key16",
+            "2022-blake3-chacha20-poly1305" to "$key32:$key32",
+            "2022-blake3-aes-128-gcm" to " $key16",
+            "2022-blake3-aes-128-gcm" to "$key16=",
+            "2022-blake3-aes-128-gcm" to "AAECAwQFBgcICQoLDA0ODx==",
+            "2022-blake3-aes-128-gcm" to "_____________________w==",
+        )) {
+            assertTrue(method, validateNativeRelayProfileResult(shadowsocksProfile(method, password)).isFailure)
+        }
+        val valid = shadowsocksProfile("aes-128-gcm", "credential")
+        assertTrue(validateNativeRelayProfileResult(valid.copy(server = "")).isFailure)
+        assertTrue(validateNativeRelayProfileResult(valid.copy(serverPort = 0)).isFailure)
+        assertTrue(validateNativeRelayProfileResult(valid.copy(serverPort = 65536)).isFailure)
+    }
+
+    private fun shadowsocksProfile(
+        method: String,
+        password: String,
+    ) = ProxyProfile.Shadowsocks(
+        id = "shadowsocks",
+        displayName = "Shadowsocks",
+        groupId = "group",
+        server = "example.com",
+        serverPort = 443,
+        method = method,
+        password = password,
+    )
+
+    @Test
     fun `admission rejects unsupported flows and TLS automatic XHTTP without changing profiles`() {
         val reality =
             ProxyProfile.VlessReality(

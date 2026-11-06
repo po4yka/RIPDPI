@@ -170,7 +170,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 |-------|----------------|-------------|-------------------|-----------------|--------|
 | `golden-test-support` | Golden-fixture comparison + bless helpers | Test helpers | — | None — dev-only | Keep |
 | `feature-contract-harness` | Cross-layer feature-contract manifests + drift tests | Test harness | `serde`, `serde_json`; dev-deps on registry crates | Test-only; no production consumer | Keep |
-| `local-network-fixture` | In-process network fixture (also builds a fixture binary) | Test fixtures + `bin` | `ripdpi-shadowsocks` | `kind=bin`; dev-only | Keep |
+| `local-network-fixture` | In-process network fixture (also builds a fixture binary) | Test fixtures + `bin` | upstream `shadowsocks` | `kind=bin`; dev-only | Keep |
 | `native-soak-support` | Soak-test scaffolding | Test helpers | — | Dev-only | Keep |
 | `quic-mtu-test-util` | QUIC MTU test helpers | Test helpers | — | Dev-only | Keep |
 | `ripdpi-bench` | Criterion benchmark harness | Bench harness | — (dev-deps on runtime crates) | No workspace consumer (expected) | Keep |
@@ -286,7 +286,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-masque` | MASQUE / HTTP-3 proxy transport | Transport client | `ripdpi-diagnostics-dns`, `ripdpi-hysteria2`, `ripdpi-tls-profiles` | `quinn`, `boring` | Keep |
 | `ripdpi-tuic` | TUIC v5 transport | Transport client | — (leaf) | `quinn` | Keep |
 | `ripdpi-shadowtls` | ShadowTLS v3 camouflage | Transport client | — (leaf) | Used by `relay-core` | Keep |
-| `ripdpi-shadowsocks` | Shadowsocks transport | Transport client | — (leaf) | Used by `relay-core`; TCP for legacy AEAD and SS2022, UDP for SS2022 only | Keep |
+| `ripdpi-shadowsocks` | Shadowsocks integration policy | Profile, time, and UDP association policy | `ripdpi-network-time`, upstream `shadowsocks` | Used by `relay-core`; upstream TCP/UDP codec; AES SS2022 identity keys; UDP for SS2022 only | Keep |
 | `ripdpi-trojan` | Trojan transport | Transport client | `ripdpi-tls-profiles` | Used by `relay-core`; TCP + UDP capable | Keep |
 | `ripdpi-anytls` | AnyTLS transport | Transport client | `ripdpi-tls-profiles` | Used by `relay-core`; TCP + UDP capable | Keep |
 | `ripdpi-mieru` | Mieru TCP relay transport | Transport client | — | UDP capability intentionally disabled | Keep |

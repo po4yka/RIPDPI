@@ -1,22 +1,30 @@
 # ripdpi-shadowsocks
 
-`ripdpi-shadowsocks` owns Shadowsocks protocol primitives for RIPDPI native relay integration. The crate is protocol-focused; relay-core integration depends on it through `ripdpi-relay-tls-transports` rather than moving cipher or framing logic into relay-core.
+This crate owns Shadowsocks profile validation, calibrated time integration, and
+bounded UDP association policy. The pinned upstream `shadowsocks` 1.25.0 owns
+cipher operations, TCP and UDP framing, addresses, and identity headers. See
+[the vendor record](../../vendor/shadowsocks/README.ripdpi.md) for its source,
+license, and reproducible integration patch.
 
-## Intended Support
+Supported methods are `aes-128-gcm`, `aes-256-gcm`,
+`chacha20-ietf-poly1305`, `2022-blake3-aes-128-gcm`,
+`2022-blake3-aes-256-gcm`, and `2022-blake3-chacha20-poly1305`.
+TCP supports all six methods. UDP supports only SS2022: legacy UDP cannot meet
+the required replay policy. AES SS2022 profiles accept SIP023 identity-key
+chains; ChaCha SS2022 accepts one key. Stream ciphers and unencrypted methods
+are rejected before network access.
 
-- SIP004 AEAD methods: `aes-128-gcm`, `aes-256-gcm`, and `chacha20-ietf-poly1305`.
-- SIP022 AEAD-2022 methods: `2022-blake3-aes-128-gcm`, `2022-blake3-aes-256-gcm`, and `2022-blake3-chacha20-poly1305`.
-- TCP and UDP framing for supported methods.
-- SIP022 replay protection for TCP salts and UDP packet windows.
-- SIP002 `ss://` import/export semantics needed by the Android runtime path.
+The transport adapter in `ripdpi-relay-tls-transports` creates and protects
+sockets before upstream use. Each factory shares the TCP salt-replay context.
+UDP validates the client session and upstream packet window before delivery or
+clock calibration. At most two server sessions are retained; a third is rejected
+until the previous session has been inactive for more than 61 seconds.
 
-## Non-Goals
+The former public cipher, TCP, UDP, and URI codec APIs have been removed.
+Android URI import remains owned by the Kotlin data layer. No stored profile or
+JNI field layout changes are required.
 
-- Legacy stream ciphers are not supported and must stay rejected. This includes `rc4`, `rc4-md5`, `aes-*-cfb`, `aes-*-ctr`, `camellia-*-cfb`, `chacha20`, `chacha20-ietf`, `salsa20`, `xchacha20`, and similar pre-AEAD methods; keep `tests/reject_stream_ciphers.rs` green.
-- SIP023 extensible identity headers are not supported, so a multi-user AEAD-2022 server that needs them cannot be reached. A PSK set (`iPSK:uPSK`) fails with `CipherError::IdentityHeadersUnsupported`.
-- SIP003 and SIP003u plugins are not supported in this crate. Plugin query parameters such as obfs, simple-obfs, and v2ray-plugin must not silently change runtime behavior.
-- This crate does not own Kotlin runtime resolution, Android UI, or relay process lifecycle. Those layers should pass validated method, server, port, and credential material into relay-core.
-
-## Current Status
-
-The cipher layer has SIP004/SIP022 fixed-vector coverage for KDF and AEAD operations. The SIP004 legacy subkeys are verified against an independent EVP_BytesToKey(MD5) + HKDF-SHA1(`ss-subkey`) computation, and the SIP022 TCP and UDP session subkeys are cross-checked against the reference `blake3::derive_key("shadowsocks 2022 session subkey", ...)` primitive (see `tests/aead_2022_vectors.rs`), so a self-consistent-but-wrong KDF context or key-material order cannot pass. TCP chunk framing covers SIP004 and SIP022 payload caps, nonce counters, and partial-frame behavior. UDP framing covers SIP004 round trips, SIP022 AES-GCM separate headers, SIP022 ChaCha20-Poly1305 XChaCha packet shape, server-to-client client-session IDs, and per-session replay filtering. Native relay-core wiring is implemented through `RelayBackend::Shadowsocks`, `RelayBackendConfig::Shadowsocks`, `ShadowsocksSessionFactory`, and the local-network fixture oracle. Android import/runtime wiring accepts supported SIP002 `ss://` methods, rejects legacy stream-cipher imports before runtime, carries current `RelayNativeConfigSchemaVersion = 10`, and projects method/password credentials into the native relay config.
+Tests cover all methods against upstream peers, an independent frozen SIP004
+wire vector, AES identity keys, first-speaker behavior, half-close, cancellation,
+corrupt streams, UDP replay, session binding, and timestamp rejection. Kotlin
+uses one credential validator for editing, import, and activation.

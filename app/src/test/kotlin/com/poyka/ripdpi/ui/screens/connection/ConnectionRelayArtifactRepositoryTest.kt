@@ -184,34 +184,6 @@ class ConnectionRelayArtifactRepositoryTest {
     }
 
     @Test
-    fun `Shadowsocks 2022 requires standard base64 key of cipher length`() {
-        val draft =
-            ConnectionDraft(
-                relayEnabled = true,
-                relayKind = RelayKindShadowsocks,
-                relayProfileId = "shadowsocks-2022",
-                relayServer = "relay.example",
-                relayServerPort = "443",
-                relayShadowsocksMethod = "2022-blake3-aes-128-gcm",
-                relayShadowsocksPassword = "AAECAwQFBgcICQoLDA0ODw==",
-            )
-        assertNull(validateConfigDraft(draft)[ConnectionFieldRelayCredentials])
-        assertEquals(
-            "invalid",
-            validateConfigDraft(draft.copy(relayShadowsocksPassword = "foo"))[ConnectionFieldRelayCredentials],
-        )
-        assertEquals(
-            "invalid",
-            validateConfigDraft(
-                draft.copy(
-                    relayShadowsocksMethod = "2022-blake3-aes-256-gcm",
-                    relayShadowsocksPassword = "AAECAwQFBgcICQoLDA0ODw==",
-                ),
-            )[ConnectionFieldRelayCredentials],
-        )
-    }
-
-    @Test
     fun `mode edits preserve imported SSH and Mieru authentication and carrier options`() =
         runTest {
             for (kind in listOf(RelayKindSsh, RelayKindMieru)) {

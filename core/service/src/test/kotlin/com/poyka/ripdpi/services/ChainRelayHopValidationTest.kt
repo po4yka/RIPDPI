@@ -95,6 +95,33 @@ internal class ChainRelayHopValidationTest : ChainRelayTrustDomainResolverTestSu
         }
 
     @Test
+    fun `shadowsocks hop validates identity keys before native activation`() =
+        runTest {
+            val entry =
+                RelayProfileRecord(
+                    id = "entry-hop",
+                    kind = RelayKindShadowsocks,
+                    server = "ss.example",
+                    serverPort = 8388,
+                )
+            val key = "AAECAwQFBgcICQoLDA0ODw=="
+            val credentials =
+                RelayCredentialRecord(
+                    profileId = "entry-hop",
+                    shadowsocksMethod = "2022-blake3-aes-128-gcm",
+                    shadowsocksPassword = "$key:$key", // Public key fixture.
+                )
+            assertEquals("entry-hop", resolveChain(entry, credentials).chainEntryProfileId)
+            for (invalid in listOf(
+                credentials.copy(shadowsocksMethod = "none"),
+                credentials.copy(shadowsocksPassword = "$key:Zm9v"), // Public key fixture.
+            )) {
+                val error = resolveChainError(entry, invalid)
+                assertTrue(error.reasonText(), error.reasonText().contains("Relay credentials missing"))
+            }
+        }
+
+    @Test
     fun `hop finalmask is rejected before the native chain builder sees it`() =
         runTest {
             val error =

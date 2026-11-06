@@ -1,14 +1,18 @@
 use std::io;
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::sync::Arc;
 use std::thread::{self, JoinHandle};
-use std::time::{SystemTime, UNIX_EPOCH};
 
-use ripdpi_shadowsocks::{
-    Aead2022UdpPacketType, Aead2022UdpSession, Cipher, PresharedKey, SecretString, TcpStream as ShadowsocksTcpCodec,
-};
-use tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
+use shadowsocks::config::{ReplayAttackPolicy, ServerConfig, ServerType, ServerUser, ServerUserManager};
+use shadowsocks::context::{Context, SharedContext};
+use shadowsocks::crypto::CipherKind;
+use shadowsocks::relay::socks5::Address;
+use shadowsocks::relay::tcprelay::ProxyServerStream;
+use shadowsocks::relay::udprelay::ProxySocket;
+use shadowsocks::relay::udprelay::proxy_socket::{ProxySocketError, UdpSocketType};
 use tokio::net::{TcpListener, TcpStream, UdpSocket};
 use tokio::sync::oneshot;
+use tokio::task::JoinSet;
 
 // Drop order: shutdown sends before thread join; fixture tasks need the shutdown signal before their runtime thread is joined.
 pub struct ShadowsocksLoopback {
@@ -28,8 +32,7 @@ impl ShadowsocksLoopback {
         listener.set_nonblocking(true)?;
         udp.set_nonblocking(true)?;
         let address = listener.local_addr()?;
-        let method = method.to_string();
-        let password = password.to_string();
+        let config = Arc::new(server_config(address, method, password)?);
         let (addr_tx, addr_rx) = std::sync::mpsc::channel();
         let (shutdown_tx, shutdown_rx) = oneshot::channel();
 
@@ -59,7 +62,7 @@ impl ShadowsocksLoopback {
                 let udp_echo_task = tokio::spawn(serve_udp_echo(udp_echo));
                 tokio::select! {
                     _ = shutdown_rx => {}
-                    _ = serve_shadowsocks(listener, udp, method, password) => {}
+                    _ = serve_shadowsocks(listener, udp, config) => {}
                 }
                 echo_task.abort();
                 udp_echo_task.abort();
@@ -111,251 +114,139 @@ impl Drop for ShadowsocksLoopback {
     }
 }
 
+/// # Cancel safety:
+/// cancel-safe: dropping the service drops its JoinSet and aborts all connections.
 async fn serve_echo(listener: TcpListener) {
+    let mut connections = JoinSet::new();
     loop {
-        let Ok((mut socket, _)) = listener.accept().await else {
-            break;
-        };
-        tokio::spawn(async move {
-            let (mut reader, mut writer) = socket.split();
-            let _ = tokio::io::copy(&mut reader, &mut writer).await;
-        });
+        tokio::select! {
+            accepted = listener.accept() => {
+                let Ok((mut socket, _)) = accepted else { break };
+                connections.spawn(async move {
+                    let (mut reader, mut writer) = socket.split();
+                    let _ = tokio::io::copy(&mut reader, &mut writer).await;
+                });
+            }
+            _ = connections.join_next(), if !connections.is_empty() => {}
+        }
     }
 }
 
+/// # Cancel safety:
+/// cancel-safe: dropping the service closes the owned socket.
 async fn serve_udp_echo(socket: UdpSocket) {
     let mut buffer = [0_u8; 4096];
     loop {
-        let Ok((read, peer)) = socket.recv_from(&mut buffer).await else {
-            break;
-        };
+        let Ok((read, peer)) = socket.recv_from(&mut buffer).await else { break };
         if socket.send_to(&buffer[..read], peer).await.is_err() {
             break;
         }
     }
 }
 
-async fn serve_shadowsocks(listener: TcpListener, udp: UdpSocket, method: String, password: String) {
-    let Ok(cipher) = Cipher::from_name(&method) else {
-        return;
-    };
-    let tcp_password = password.clone();
-    let tcp_task = tokio::spawn(async move {
-        loop {
-            let Ok((socket, _)) = listener.accept().await else {
-                break;
-            };
-            let password = tcp_password.clone();
-            tokio::spawn(async move {
-                let _ = handle_tcp_connection(socket, cipher, password).await;
-            });
+fn server_config(address: SocketAddr, method: &str, password: &str) -> io::Result<ServerConfig> {
+    let cipher: CipherKind = method.parse().map_err(to_io)?;
+    let client = ServerConfig::new(address, password, cipher).map_err(to_io)?;
+    match client.identity_keys().len() {
+        0 => Ok(client),
+        1 => {
+            let identity = password.split(':').next().ok_or_else(|| io::Error::other("missing identity key"))?;
+            let mut server = ServerConfig::new(address, identity, cipher).map_err(to_io)?;
+            let mut users = ServerUserManager::new();
+            users.add_user(ServerUser::new("fixture", client.key().to_vec()));
+            server.set_user_manager(users);
+            Ok(server)
         }
-    });
-    let udp_task = tokio::spawn(async move {
-        let _ = handle_udp_packets(udp, cipher, password).await;
-    });
-    let _ = tokio::join!(tcp_task, udp_task);
+        _ => Err(io::Error::new(io::ErrorKind::InvalidInput, "fixture supports one identity server")),
+    }
 }
 
 /// # Cancel safety:
-/// NOT cancel-safe: after pumps start, cancellation leaves those tasks running.
-/// The caller must stop the fixture runtime when cancelling this handler.
-async fn handle_tcp_connection(mut socket: TcpStream, cipher: Cipher, password: String) -> io::Result<()> {
-    let secret = SecretString::new(password.clone());
-    let mut request_salt = vec![0_u8; cipher.salt_len()];
-    let mut encrypted = Vec::new();
-    if cipher.is_aead_2022() {
-        let mut first = vec![0; cipher.salt_len() + 27];
-        if socket.read(&mut first).await? != first.len() {
-            return Err(io::Error::new(io::ErrorKind::InvalidData, "short SIP022 initial request"));
-        }
-        request_salt.copy_from_slice(&first[..cipher.salt_len()]);
-        encrypted.extend_from_slice(&first[cipher.salt_len()..]);
-    } else {
-        socket.read_exact(&mut request_salt).await?;
-    }
-    let mut request_decoder =
-        ShadowsocksTcpCodec::new_decrypt(cipher, &secret, &request_salt, cipher.is_aead_2022()).map_err(to_io)?;
-    let first = if cipher.is_aead_2022() {
-        loop {
-            if let Some((plain, consumed)) =
-                request_decoder.decrypt_request_header(&encrypted, unix_timestamp()).map_err(to_io)?
-            {
-                encrypted.drain(..consumed);
-                break Some(plain);
-            }
-            let mut buffer = [0; 4096];
-            let read = socket.read(&mut buffer).await?;
-            if read == 0 {
-                break None;
-            }
-            encrypted.extend_from_slice(&buffer[..read]);
-        }
-    } else {
-        read_chunk(&mut socket, &mut request_decoder, &mut encrypted).await?
-    };
-    let Some(first) = first else {
-        return Ok(());
-    };
-    let (target, initial_payload) = decode_address(&first)?;
-    let mut upstream = TcpStream::connect(target).await?;
-    if !initial_payload.is_empty() {
-        upstream.write_all(initial_payload).await?;
-    }
+/// cancel-safe: cancellation drops both services and their owned connections.
+async fn serve_shadowsocks(listener: TcpListener, udp: UdpSocket, config: Arc<ServerConfig>) {
+    let mut context = Context::new(ServerType::Server);
+    context.set_replay_attack_policy(ReplayAttackPolicy::Reject);
+    let context = Arc::new(context);
+    let _ = tokio::join!(
+        serve_tcp(listener, Arc::clone(&config), Arc::clone(&context)),
+        handle_udp_packets(udp, config, context),
+    );
+}
 
-    let (mut response_encoder, response_salt) =
-        ShadowsocksTcpCodec::new_encrypt(cipher, &secret, cipher.is_aead_2022()).map_err(to_io)?;
-    let (mut socket_reader, mut socket_writer) = socket.into_split();
-    let (mut upstream_reader, mut upstream_writer) = upstream.into_split();
+/// # Cancel safety:
+/// cancel-safe: dropping the service aborts all owned connection tasks.
+async fn serve_tcp(listener: TcpListener, config: Arc<ServerConfig>, context: SharedContext) {
+    let mut connections = JoinSet::new();
+    loop {
+        tokio::select! {
+            accepted = listener.accept() => {
+                let Ok((socket, _)) = accepted else { break };
+                let config = Arc::clone(&config);
+                let context = Arc::clone(&context);
+                connections.spawn(async move {
+                    let _ = handle_tcp_connection(socket, &config, context).await;
+                });
+            }
+            _ = connections.join_next(), if !connections.is_empty() => {}
+        }
+    }
+}
 
-    let client_to_target = tokio::spawn(async move {
-        loop {
-            match read_chunk(&mut socket_reader, &mut request_decoder, &mut encrypted).await {
-                Ok(Some(plain)) if upstream_writer.write_all(&plain).await.is_ok() => {}
-                _ => return,
-            }
-        }
-    });
-    let target_to_client = tokio::spawn(async move {
-        let mut first_salt = Some(response_salt);
-        let mut buffer = [0_u8; 4096];
-        loop {
-            let Ok(read) = upstream_reader.read(&mut buffer).await else {
-                return;
-            };
-            if read == 0 {
-                return;
-            }
-            let encrypted = if cipher.is_aead_2022() && first_salt.is_some() {
-                response_encoder.encrypt_response_header(unix_timestamp(), &request_salt, &buffer[..read])
-            } else {
-                response_encoder.encrypt_payload(&buffer[..read])
-            };
-            let Ok(mut encrypted) = encrypted else {
-                return;
-            };
-            if let Some(mut salt) = first_salt.take() {
-                salt.extend(encrypted);
-                encrypted = salt;
-            }
-            if socket_writer.write_all(&encrypted).await.is_err() {
-                return;
-            }
-        }
-    });
-    let _ = tokio::join!(client_to_target, target_to_client);
+/// # Cancel safety:
+/// cancel-safe: cancellation drops both owned stream directions and peer sockets.
+async fn handle_tcp_connection(socket: TcpStream, config: &ServerConfig, context: SharedContext) -> io::Result<()> {
+    let mut client = ProxyServerStream::from_stream_with_user_manager(
+        context,
+        socket,
+        config.method(),
+        config.key(),
+        config.clone_user_manager(),
+    );
+    let target = client.handshake().await?;
+    let mut upstream = TcpStream::connect(socket_address(&target)?).await?;
+    tokio::io::copy_bidirectional(&mut client, &mut upstream).await?;
     Ok(())
 }
 
-async fn read_chunk<R>(
-    reader: &mut R,
-    decoder: &mut ShadowsocksTcpCodec,
-    encrypted: &mut Vec<u8>,
-) -> io::Result<Option<Vec<u8>>>
-where
-    R: AsyncRead + Unpin,
-{
-    let mut buffer = [0_u8; 4096];
-    loop {
-        if let Some((plain, consumed)) = decoder.decrypt_chunk(encrypted, 0).map_err(to_io)? {
-            encrypted.drain(..consumed);
-            return Ok(Some(plain));
-        }
-        let read = reader.read(&mut buffer).await?;
-        if read == 0 {
-            return Ok(None);
-        }
-        encrypted.extend_from_slice(&buffer[..read]);
-    }
-}
-
 /// # Cancel safety:
-/// cancel-safe: cancellation drops both owned UDP sockets and codec state.
-async fn handle_udp_packets(socket: UdpSocket, cipher: Cipher, password: String) -> io::Result<()> {
-    if !cipher.is_aead_2022() {
+/// cancel-safe: cancellation drops both owned UDP sockets and the packet counter.
+async fn handle_udp_packets(socket: UdpSocket, config: Arc<ServerConfig>, context: SharedContext) -> io::Result<()> {
+    if !config.method().is_aead_2022() {
         return Err(io::Error::new(io::ErrorKind::Unsupported, "Shadowsocks UDP requires SS2022"));
     }
-    let psk = PresharedKey::from_base64(cipher, &password).map_err(to_io)?;
-    let mut codec = Aead2022UdpSession::new(cipher, psk, *b"fixture1").map_err(to_io)?;
+    let mut session_id = [0_u8; 8];
+    context.generate_nonce(config.method(), &mut session_id, false);
+    let server_session_id = u64::from_be_bytes(session_id);
+    let socket =
+        ProxySocket::from_socket(UdpSocketType::Server, context, &config, shadowsocks::net::UdpSocket::from(socket));
     let relay = UdpSocket::bind((Ipv4Addr::LOCALHOST, 0)).await?;
-    let mut buffer = vec![0_u8; 65_535];
+    let mut buffer = vec![0_u8; 65_536];
+    let mut response = vec![0_u8; 65_536];
+    let mut packet_id = 0_u64;
     loop {
-        let (read, peer) = socket.recv_from(&mut buffer).await?;
-        let packet = codec.decrypt(&buffer[..read], Aead2022UdpPacketType::Client, unix_timestamp()).map_err(to_io)?;
-        let (target, payload) = decode_address(&packet.payload)?;
-        relay.send_to(payload, target).await?;
-        let mut response = vec![0_u8; 65_535];
+        let (read, peer, target, _, control) = match socket.recv_from_with_ctrl(&mut buffer).await {
+            Ok(packet) => packet,
+            Err(ProxySocketError::ProtocolError(_) | ProxySocketError::ProtocolErrorWithPeer(_, _)) => continue,
+            Err(error) => return Err(error.into()),
+        };
+        let Some(mut control) = control else { continue };
+        relay.send_to(&buffer[..read], socket_address(&target)?).await?;
         let (response_len, source) = relay.recv_from(&mut response).await?;
-        let response_plain = encode_address(source, &response[..response_len]);
-        let response = codec.encrypt_server(unix_timestamp(), packet.session_id, &response_plain).map_err(to_io)?;
-        socket.send_to(&response, peer).await?;
+        control.server_session_id = server_session_id;
+        control.packet_id = packet_id;
+        packet_id = packet_id.checked_add(1).ok_or_else(|| io::Error::other("UDP packet ID exhausted"))?;
+        socket.send_to_with_ctrl(peer, &Address::SocketAddress(source), &control, &response[..response_len]).await?;
     }
 }
 
-fn encode_address(target: SocketAddr, payload: &[u8]) -> Vec<u8> {
-    let mut out = Vec::with_capacity(payload.len() + 32);
-    match target {
-        SocketAddr::V4(addr) => {
-            out.push(0x01);
-            out.extend_from_slice(&addr.ip().octets());
-            out.extend_from_slice(&addr.port().to_be_bytes());
-        }
-        SocketAddr::V6(addr) => {
-            out.push(0x04);
-            out.extend_from_slice(&addr.ip().octets());
-            out.extend_from_slice(&addr.port().to_be_bytes());
-        }
+fn socket_address(address: &Address) -> io::Result<SocketAddr> {
+    match address {
+        Address::SocketAddress(address) => Ok(*address),
+        Address::DomainNameAddress(host, port) => host
+            .parse::<IpAddr>()
+            .map(|ip| SocketAddr::new(ip, *port))
+            .map_err(|_| io::Error::new(io::ErrorKind::InvalidInput, "fixture only supports IP domain targets")),
     }
-    out.extend_from_slice(payload);
-    out
-}
-
-fn decode_address(data: &[u8]) -> io::Result<(SocketAddr, &[u8])> {
-    if data.is_empty() {
-        return Err(io::Error::new(io::ErrorKind::InvalidData, "missing Shadowsocks address type"));
-    }
-    match data[0] {
-        0x01 => {
-            if data.len() < 7 {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "truncated Shadowsocks IPv4 address"));
-            }
-            let ip = IpAddr::V4(Ipv4Addr::new(data[1], data[2], data[3], data[4]));
-            let port = u16::from_be_bytes([data[5], data[6]]);
-            Ok((SocketAddr::new(ip, port), &data[7..]))
-        }
-        0x03 => {
-            if data.len() < 2 {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "truncated Shadowsocks domain address"));
-            }
-            let len = usize::from(data[1]);
-            if data.len() < 2 + len + 2 {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "truncated Shadowsocks domain payload"));
-            }
-            let host = std::str::from_utf8(&data[2..2 + len])
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "invalid Shadowsocks domain"))?;
-            let ip = host
-                .parse::<IpAddr>()
-                .map_err(|_| io::Error::new(io::ErrorKind::InvalidData, "fixture only supports IP domain targets"))?;
-            let port = u16::from_be_bytes([data[2 + len], data[2 + len + 1]]);
-            Ok((SocketAddr::new(ip, port), &data[2 + len + 2..]))
-        }
-        0x04 => {
-            if data.len() < 19 {
-                return Err(io::Error::new(io::ErrorKind::InvalidData, "truncated Shadowsocks IPv6 address"));
-            }
-            let mut octets = [0_u8; 16];
-            octets.copy_from_slice(&data[1..17]);
-            let port = u16::from_be_bytes([data[17], data[18]]);
-            Ok((SocketAddr::new(IpAddr::V6(Ipv6Addr::from(octets)), port), &data[19..]))
-        }
-        atyp => {
-            Err(io::Error::new(io::ErrorKind::InvalidInput, format!("unsupported Shadowsocks address type {atyp:#x}")))
-        }
-    }
-}
-
-fn unix_timestamp() -> u64 {
-    SystemTime::now().duration_since(UNIX_EPOCH).map_or(0, |duration| duration.as_secs())
 }
 
 fn to_io(error: impl std::fmt::Display) -> io::Error {
