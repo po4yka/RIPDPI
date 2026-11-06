@@ -258,13 +258,19 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
             store.select("group", "initial")
             val expected = store.snapshot("group")
             val dispatcher = DelayedReturnDispatcher()
+            val barrier = ProfileWriteBarrier("selector_choices")
+            fixture.room.beforeSeal = barrier::beforeSeal
             val scope = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.SupervisorJob() + dispatcher)
             try {
                 val automatic =
                     scope.async(start = kotlinx.coroutines.CoroutineStart.UNDISPATCHED) {
                         store.selectAutomatically("group", expected, "automatic")
                     }
+                // Keep IO pending until the automatic caller has suspended.
+                barrier.awaitEntry()
+                barrier.release()
                 dispatcher.awaitReturn()
+                fixture.clearFaults()
                 assertFalse(automatic.isCompleted)
                 assertEquals("automatic", store.snapshot("group").profileId)
                 store.select("group", "newer-manual")
@@ -277,6 +283,7 @@ class SelectorSelectionStoreTest : RoomProfileTest() {
                 assertTrue(store.snapshot("group").isManual)
             } finally {
                 scope.coroutineContext[kotlinx.coroutines.Job]?.cancel()
+                barrier.release()
                 dispatcher.resume()
             }
         }

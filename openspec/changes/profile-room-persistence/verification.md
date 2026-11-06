@@ -3,7 +3,7 @@ task_id: DAT-1793949941293491
 change: profile-room-persistence
 commit_sha: 3675068621681b2e3b503c84058f5e54dafb64ba
 local: required
-local_evidence: "10480 affected unit tests passed: data 967, runtime-state 369, settings 81, service 2064, app Full 3416 and Simple 3583. staticAnalysis and just ci-gates passed on the rebased source. Independent review found no blockers."
+local_evidence: "10480 affected unit tests passed: data 967, runtime-state 369, settings 81, service 2064, app Full 3416 and Simple 3583. staticAnalysis and just ci-gates passed on the rebased source. The exact coverageReport gate and aggregate coverage verification passed after adding an explicit IO barrier to the delayed-return regression test. Independent review found no blockers."
 remote_ci: required
 remote_ci_evidence: null
 device: required
