@@ -10,8 +10,8 @@ workspace = true
 [dependencies]
 prost = { workspace = true }
 arc-swap = { workspace = true }
-libc = { workspace = true }
 maxminddb = { workspace = true }
+memmap2 = { workspace = true }
 regex = "1.12.4"
 thiserror = { workspace = true }
 

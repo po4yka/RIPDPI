@@ -59,7 +59,7 @@ cargo +nightly miri test --locked -p ripdpi-privileged-ops experimental_tier3
 #       OwnedFd::from_raw_fd / Box round-trip is tractable IF the
 #       libc::close + socketpair calls are gated behind a stub like
 #       ripdpi-vless's `miri-stubs`. Add the feature first.
-#   - ripdpi-protocol-detect / ripdpi-geo  small slice/transmute-class
+#   - ripdpi-protocol-detect  small slice/transmute-class
 #       unsafe with no syscall surface — best low-risk next additions.
 #
 # Needs an FFI-stub feature BEFORE it can be added (mirror the

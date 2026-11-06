@@ -1,12 +1,4 @@
-// Crate-local hardening: `ripdpi-geo` owns a `MAP_PRIVATE` mmap wrapper
-// (`mapped_file::MappedFile`) backed by raw `libc::mmap` / `libc::munmap`,
-// `std::slice::from_raw_parts`, and manual `unsafe impl Send/Sync`. Per the
-// rust-unsafe lint-floor convention already adopted by ripdpi-vless /
-// ripdpi-privileged-ops / ripdpi-proxy-runtime, enabling
-// these lints locally turns the per-block `// SAFETY:` requirement into a
-// build-time error while the rest of the workspace migrates gradually.
-#![warn(clippy::undocumented_unsafe_blocks)]
-#![warn(clippy::multiple_unsafe_ops_per_block)]
+#![forbid(unsafe_code)]
 
 mod mapped_file;
 
@@ -23,13 +15,14 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwap;
 use maxminddb::{Reader, geoip2};
+use memmap2::Mmap;
 use prost::Message;
 use regex::{Regex, RegexBuilder};
 use thiserror::Error;
 
 pub use crate::mapped_file::MappedFileError;
 
-use crate::mapped_file::MappedFile;
+use crate::mapped_file::read_snapshot;
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct GeoRuntimePaths {
@@ -69,11 +62,14 @@ pub struct GeoRuntime {
 }
 
 impl GeoRuntime {
+    /// Reads each database into private memory so later source writes cannot invalidate lookups.
+    /// Producers should publish complete files by rename to prevent inconsistent input during the read.
     pub fn load(paths: GeoRuntimePaths) -> Result<GeoRuntimeLoad, GeoRuntimeError> {
         let LoadedDatabases { databases, warnings } = load_databases(&paths)?;
         Ok(GeoRuntimeLoad { runtime: Self { paths, databases: Arc::new(ArcSwap::from_pointee(databases)) }, warnings })
     }
 
+    /// Replaces the snapshots only after both databases load and parse successfully.
     pub fn reload(&self) -> Result<Vec<GeoRuntimeWarning>, GeoRuntimeError> {
         let LoadedDatabases { databases, warnings } = load_databases(&self.paths)?;
         self.databases.store(Arc::new(databases));
@@ -147,7 +143,7 @@ impl GeoDatabases {
 
 #[derive(Debug)]
 struct GeoipDatabase {
-    reader: Reader<MappedFile>,
+    reader: Reader<Mmap>,
     version: String,
 }
 
@@ -190,8 +186,6 @@ impl GeoipDatabase {
 
 #[derive(Debug)]
 struct GeositeDatabase {
-    #[allow(dead_code)]
-    mapping: MappedFile,
     version: String,
     categories: HashMap<String, Vec<GeositeDomainRule>>,
     regexes: HashMap<String, Vec<Regex>>,
@@ -301,7 +295,7 @@ fn load_geoip(path: &Path, warnings: &mut Vec<GeoRuntimeWarning>) -> Result<Opti
         warnings.push(GeoRuntimeWarning::MissingGeoip(path.to_path_buf()));
         return Ok(None);
     }
-    let mapping = MappedFile::open(path).map_err(|source| GeoRuntimeError::Map { path: path.to_path_buf(), source })?;
+    let mapping = read_snapshot(path).map_err(|source| GeoRuntimeError::Map { path: path.to_path_buf(), source })?;
     let mapped_version = mapped_version(path, mapping.len());
     let reader = Reader::from_source(mapping)
         .map_err(|source| GeoRuntimeError::GeoipParse { path: path.to_path_buf(), source })?;
@@ -318,8 +312,8 @@ fn load_geosite(
         warnings.push(GeoRuntimeWarning::MissingGeosite(path.to_path_buf()));
         return Ok(None);
     }
-    let mapping = MappedFile::open(path).map_err(|source| GeoRuntimeError::Map { path: path.to_path_buf(), source })?;
-    let categories = parse_geosite_catalog(mapping.as_slice())
+    let mapping = read_snapshot(path).map_err(|source| GeoRuntimeError::Map { path: path.to_path_buf(), source })?;
+    let categories = parse_geosite_catalog(&mapping)
         .map_err(|source| GeoRuntimeError::GeositeParse { path: path.to_path_buf(), source })?;
     let regexes = categories
         .iter()
@@ -333,7 +327,7 @@ fn load_geosite(
         })
         .collect();
     let version = mapped_version(path, mapping.len());
-    Ok(Some(GeositeDatabase { mapping, version, categories, regexes }))
+    Ok(Some(GeositeDatabase { version, categories, regexes }))
 }
 
 fn mapped_version(path: &Path, len: usize) -> String {
@@ -601,6 +595,70 @@ mod tests {
         assert!(!result.runtime.geosite_contains("ru", "example.ru"));
         assert!(result.runtime.geosite_contains("cn", "www.example.cn"));
         assert!(result.runtime.country_contains_ip("se", ip("89.160.20.112")));
+    }
+
+    #[test]
+    fn geoip_snapshot_survives_source_overwrite_and_truncation() {
+        let dir = temp_dir();
+        write_geoip_fixture(&dir);
+        let runtime = GeoRuntime::load(paths(&dir)).expect("load country database").runtime;
+
+        write_geoip_asn_fixture(&dir);
+        assert!(runtime.country_contains_ip("se", ip("89.160.20.112")));
+        runtime.reload().expect("load replacement ASN database");
+        let expected =
+            GeoIpMetadata { country_code: None, asn: Some(1221), organization: Some("Telstra Pty Ltd".to_owned()) };
+        assert_eq!(Some(expected.clone()), runtime.ip_metadata(ip("1.128.0.123")));
+        let versions = runtime.versions();
+
+        fs::write(dir.join("geoip.db"), []).expect("truncate source");
+        assert_eq!(Some(expected.clone()), runtime.ip_metadata(ip("1.128.0.123")));
+        assert!(matches!(runtime.reload(), Err(GeoRuntimeError::Map { source: MappedFileError::EmptyFile, .. })));
+        assert_eq!(versions, runtime.versions());
+        assert_eq!(Some(expected), runtime.ip_metadata(ip("1.128.0.123")));
+        fs::remove_dir_all(dir).expect("remove fixtures");
+    }
+
+    #[test]
+    fn failed_reload_preserves_both_snapshots_until_complete_replacement() {
+        let dir = temp_dir();
+        write_geoip_fixture(&dir);
+        fs::write(dir.join("geosite.db"), geosite_catalog("ru", &[domain(2, "example.ru")]))
+            .expect("write geosite fixture");
+        let runtime = GeoRuntime::load(paths(&dir)).expect("load initial databases").runtime;
+        let versions = runtime.versions();
+
+        let pending = dir.join("geoip.pending");
+        fs::write(&pending, GEOIP_ASN_FIXTURE).expect("write replacement");
+        fs::rename(pending, dir.join("geoip.db")).expect("publish replacement");
+        fs::write(dir.join("geosite.db"), b"\x0a").expect("write malformed geosite");
+        assert!(matches!(runtime.reload(), Err(GeoRuntimeError::GeositeParse { .. })));
+        assert_eq!(versions, runtime.versions());
+        assert!(runtime.country_contains_ip("se", ip("89.160.20.112")));
+        assert!(runtime.geosite_contains("ru", "example.ru"));
+
+        fs::write(dir.join("geosite.db"), geosite_catalog("cn", &[domain(2, "example.cn")]))
+            .expect("write valid geosite");
+        assert!(runtime.reload().expect("reload both databases").is_empty());
+        assert_eq!(Some(1221), runtime.ip_metadata(ip("1.128.0.123")).and_then(|record| record.asn));
+        assert!(!runtime.geosite_contains("ru", "example.ru"));
+        assert!(runtime.geosite_contains("cn", "example.cn"));
+        fs::remove_dir_all(dir).expect("remove fixtures");
+    }
+
+    #[test]
+    fn empty_database_files_return_typed_errors() {
+        for name in ["geoip.db", "geosite.db"] {
+            let dir = temp_dir();
+            let path = dir.join(name);
+            fs::write(&path, []).expect("write empty fixture");
+            assert!(matches!(
+                GeoRuntime::load(paths(&dir)),
+                Err(GeoRuntimeError::Map { path: error_path, source: MappedFileError::EmptyFile })
+                    if error_path == path
+            ));
+            fs::remove_dir_all(dir).expect("remove fixtures");
+        }
     }
 
     #[test]
