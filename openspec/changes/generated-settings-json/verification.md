@@ -1,11 +1,11 @@
 ---
 task_id: DAT-1793954543063965
 change: generated-settings-json
-commit_sha: 83ec7d0ddb8b63899700e6213ebf6d4233a449cd
+commit_sha: null
 local: passed
 local_evidence: Invalid-value and restore regressions failed before the fix. The final settings suite passed 87 tests and the data suite passed 984 tests, with no skipped tests. Independent review passed. Rebased source gates and full static analysis passed. Architecture health and locked Cargo metadata passed.
-remote_ci: blocked
-remote_ci_evidence: CI run 42198808996 failed in unchanged Android instrumentation and native-size checks. Static analysis, Kotlin coverage, Roborazzi, release verification, and CodeQL run 42198808882 passed. The task remains open.
+remote_ci: required
+remote_ci_evidence: Previous CI failures are recorded below. The DNS call-site correction is integrated and the approved native-size limits passed local artifact checks. Complete hosted CI on the combined commit is pending.
 device: not_applicable
 device_evidence: This codec change has no device-specific behavior; no physical-device acceptance is claimed.
 artifact: not_applicable
@@ -21,6 +21,7 @@ deployment_evidence: No deployment is owned by this change.
 | Requirement | Execution step | Evidence | Result |
 |---|---|---|---|
 | REQ-SETTINGS-JSON-001 | DAT-1793954649593724 | Settings JSON round-trip and shape tests | Passed |
+| REQ-SETTINGS-JSON-001 | DAT-1793964177685626 | Hosted settings-codec acceptance and approved native-size limits | Pending |
 | REQ-SETTINGS-JSON-002 | DAT-1793954649593724 | Invalid-value and atomic backup restore tests | Passed |
 | REQ-SETTINGS-JSON-003 | DAT-1793954649593724 | Secret exclusion and transport validation tests | Passed |
 
@@ -46,3 +47,11 @@ deployment_evidence: No deployment is owned by this change.
 - All three debug APK size checks failed for unchanged native inputs. `libripdpi.so` exceeded the allowed size for arm64-v8a (12138200 > 12124600), x86 (11870796 > 11831760), and x86_64 (13600616 > 13559560). Total native size was 80223672 bytes; the limit was 80044100 bytes. No native source or size baseline changed in this task.
 - [CodeQL run 42198808882](https://github.com/po4yka/RIPDPI/actions/runs/42198808882), Secret Scan, harness checks, and fleet fixture checks passed.
 - These CI blockers remain open. The task is not archived or closed, and device acceptance is not claimed.
+
+## Approved CI completion
+
+On 2026-11-06, the user approved a native-size limit increase and requested green CI and task closure. Preserve all eight historical byte measurements, the existing approval record, and all gate behavior. Use authenticated CI artifacts to validate the smallest limit increase under the existing rounding policy. The previous source validation remains valid. Policy validation passed; hosted acceptance remains pending.
+
+The approved policy was checked against artifacts from CI run `42198808996` (source `83ec7d0ddb8b63899700e6213ebf6d4233a449cd`). Native build inputs are unchanged through the current integration base `2a8fb69d9c914e211ef4c9007505e1a6025613b9`. All five ZIP digests matched GitHub metadata. Copies of the four ABI shards were stripped with the pinned NDK 29 tool; all eight tracked byte counts matched the CI report. The old size policy failed for three libraries and the total; the approved policy passed against the same files. ELF verification passed for five libraries on four ABIs.
+
+The limits are 671744 bytes per library, 4.7 percent total growth, and 3670016 bytes total absolute growth. The existing rounding rule leaves 24480 bytes for the largest individual growth and 14459 bytes for total growth. All eight historical measurements, previous provenance, gate code, coverage, and bloat limits remain unchanged. The 16 existing size-policy and verifier tests, policy delta validation, documentation review, and native verifier review passed. `build-gate -- just ci-gates`, architecture health, and locked Cargo metadata passed on the combined base. Hosted CI remains pending.
