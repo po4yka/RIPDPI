@@ -1,15 +1,15 @@
 ---
 task_id: DNS-1793945565828575
 change: kotlin-dns-library-codec
-commit_sha: 7ae5d6ac5c4af94d57e2804091bb1fac9444c066
+commit_sha: 780790256e283520de833833b531c5ce2dafbd17
 local: passed
-local_evidence: All 7224 affected unit tests, full staticAnalysis, ci-gates, locked Cargo metadata and independent review passed. The final combined Gradle run passed after rebase onto e08d09e5a.
+local_evidence: All 7224 affected unit tests, full staticAnalysis, ci-gates, locked Cargo metadata and independent review passed. The final release and staticAnalysis run passed with Android dependency packaging configured.
 remote_ci: required
 remote_ci_evidence: Pending integrated main push and hosted checks.
-device: not_applicable
-device_evidence: No Android routing API or permission change; real local UDP and TCP fixtures verify transport. External-network and device acceptance are not claimed.
-artifact: not_applicable
-artifact_evidence: No release artifact is requested.
+device: passed
+device_evidence: Minified Github Full release APK installed and launched on the leased API 35 arm64 emulator. DNS survey completed with 19 of 21 resolvers responding; UDP and DoH returned 5 of 5 answers. DNS response details showed RCODE 0, TTL 102 and TC false. No crash log entries. This is emulator smoke evidence, not physical-device or VPN-route acceptance.
+artifact: passed
+artifact_evidence: Github Full release APK assembled with verified native runtimes; R8 and the desktop-provider discard check passed.
 deployment: not_applicable
 deployment_evidence: No deployment is owned by this change.
 ---
@@ -49,3 +49,14 @@ deployment_evidence: No deployment is owned by this change.
 
 - Rebased onto 4a346b9e5. This added only the upstream Rust HTTP decoder correction and task records; app/core/Gradle inputs are byte-identical to the fully tested tree.
 - `ci-gates`, architecture health and locked metadata passed on this base. Kotlin test and staticAnalysis results remain valid for unchanged inputs.
+
+## Android dependency packaging
+
+- The release R8 check exposed absent Lombok annotations, the SLF4J binder and the desktop Java 8 DNS SPI interface. The build now provides compile-only annotations and a no-op logging binding, excludes desktop SPI descriptors and checks that R8 discards the Java 8 provider.
+- Independent review accepted the dependency and shrinker configuration. The complete combined JVM test and static-analysis command passed again: 7224 tests, zero failures, errors or skips.
+- Full APK assembly initially stopped because the worktree lacked the required Xray AAR. The `xray-native` artifact from successful base CI run 42181223749 passed the repository release verifier for all four ABIs, including its source provenance and SHA-256.
+- The first discard check failed because AGP's default service merge wildcard took priority over exact exclusions. After replacing that wildcard with the six Android service paths, the merged resource JAR contains neither desktop DNS descriptor and preserves all six Android descriptors byte for byte. Independent review accepted this packaging rule.
+
+- Final command: `build-gate -- env -u CARGO_BUILD_JOBS ./gradlew :app:assembleGithubFullRelease staticAnalysis -Pripdpi.nativeAbisOverride=arm64-v8a -Pripdpi.nativeCpuBudget=2 -Pripdpi.enableAbiSplits=false --max-workers=2 --console=plain`: exit 0, 7m 32s. The complete release artifact includes real native runtimes; no skip-native flag was used.
+
+- Release emulator smoke: installed and launched on RIPDPI_Pool_1 (API 35, arm64). Diagnostics -> Tools -> Technical details -> DNS availability -> Run DNS survey completed with 19/21 resolvers responding. Cloudflare UDP, Google UDP and Cloudflare DoH each returned 5/5. Expanded Cloudflare facts for EXAMPLE.COM showed an A address answer, RCODE 0, TTL 102 and TC false. The crash buffer was empty. The app was stopped and the pool lease released.
