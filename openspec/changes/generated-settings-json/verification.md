@@ -2,8 +2,8 @@
 task_id: DAT-1793954543063965
 change: generated-settings-json
 commit_sha: null
-local: required
-local_evidence: Invalid-value and restore regressions failed before the fix. The final settings suite passed 87 tests and the data suite passed 984 tests, with no skipped tests. Independent review passed. Source gates passed. Full static analysis is pending after integration with the latest upstream changes.
+local: passed
+local_evidence: Invalid-value and restore regressions failed before the fix. The final settings suite passed 87 tests and the data suite passed 984 tests, with no skipped tests. Independent review passed. Rebased source gates and full static analysis passed. Architecture health and locked Cargo metadata passed.
 remote_ci: required
 remote_ci_evidence: Observe the exact integrated commit after the authorized push.
 device: not_applicable
@@ -32,4 +32,6 @@ deployment_evidence: No deployment is owned by this change.
 - `build-gate -- ./gradlew --max-workers=4 :core:data:settings:ktlintFormat :core:data:settings:testDebugUnitTest :core:data:testDebugUnitTest` passed. The suites contain 87 and 984 tests; none were skipped.
 - Independent code and documentation reviews found no remaining defects. No device, live-service, release artifact, or deployment evidence is claimed.
 
-- `build-gate -- just ci-gates` passed before rebase. The first full static analysis stopped because the build gate supplied an ambient `CARGO_BUILD_JOBS` override. The final run will remove that override and set `ripdpi.nativeCpuBudget=2`.
+- `build-gate -- just ci-gates` passed before and after rebase. Architecture health and `cargo metadata --manifest-path native/rust/Cargo.toml --locked --format-version 1` passed after rebase.
+- The initial full static analysis stopped on an ambient `CARGO_BUILD_JOBS` override. The next run compiled native outputs but stopped on the missing pinned NaiveProxy artifact. The repository fetch script downloaded and verified the arm64-v8a artifact.
+- `build-gate -- env -u CARGO_BUILD_JOBS ./gradlew --max-workers=4 -Pripdpi.nativeCpuBudget=2 staticAnalysis` then passed all 814 tasks. The settings and data test tasks passed on the rebased tree; the settings task reused unchanged results.
