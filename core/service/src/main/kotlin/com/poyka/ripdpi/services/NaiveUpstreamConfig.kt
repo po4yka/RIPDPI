@@ -1,6 +1,7 @@
 package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.ResolvedRipDpiRelayConfig
+import com.poyka.ripdpi.data.NumericIp
 import org.json.JSONObject
 import java.io.File
 import java.io.IOException
@@ -17,8 +18,6 @@ private const val OwnerOnlyDirPermissions = "rwx------"
 private const val UnreservedUserInfoChars = "-._~"
 private const val HexRadix = 16
 private const val ByteMask = 0xFF
-private const val Ipv4OctetCount = 4
-private const val MaxIpv4OctetDigits = 3
 
 /** The values of one upstream launch, already resolved; none of them may reach argv. */
 internal data class NaiveUpstreamConfigValues(
@@ -58,15 +57,7 @@ private fun isUnreservedAscii(char: Char): Boolean =
     char in 'A'..'Z' || char in 'a'..'z' || char in '0'..'9' || char in UnreservedUserInfoChars
 
 /** True for an IPv4 dotted quad or an IPv6 literal, bracketed or not. Never performs a lookup. */
-internal fun isIpLiteralHost(host: String): Boolean {
-    val bare = host.removePrefix("[").removeSuffix("]")
-    if (bare.contains(':')) {
-        return bare.all { it.isDigit() || it in 'a'..'f' || it in 'A'..'F' || it == ':' || it == '.' || it == '%' }
-    }
-    val octets = bare.split('.')
-    return octets.size == Ipv4OctetCount &&
-        octets.all { part -> part.length in 1..MaxIpv4OctetDigits && part.all(Char::isDigit) }
-}
+internal fun isIpLiteralHost(host: String): Boolean = NumericIp.parseAddress(host.removeSurrounding("[", "]")) != null
 
 internal fun bracketIpv6Host(host: String): String =
     if (host.contains(':') && !host.startsWith("[")) "[$host]" else host

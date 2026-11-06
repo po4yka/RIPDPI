@@ -5668,6 +5668,7 @@ version = "0.1.0"
 name = "ripdpi-config"
 version = "0.1.0"
 dependencies = [
+ "ipnet",
  "ripdpi-packets",
 ]
 
@@ -5747,6 +5748,7 @@ name = "ripdpi-diagnostics-dns"
 version = "0.1.0"
 dependencies = [
  "hickory-proto",
+ "ipnet",
  "ripdpi-diagnostics-contracts",
  "ripdpi-diagnostics-transport",
  "ripdpi-dns-resolver",
@@ -6131,6 +6133,7 @@ version = "0.1.0"
 dependencies = [
  "aes",
  "enum-map",
+ "ipnet",
  "nom 8.0.0",
  "proptest",
  "ring",
@@ -6198,6 +6201,7 @@ dependencies = [
  "base64 0.23.1",
  "constant_time_eq 0.6.1",
  "ctr",
+ "ipnet",
  "libc",
  "local-network-fixture",
  "loom",
@@ -6466,6 +6470,7 @@ name = "ripdpi-runtime-policy"
 version = "0.1.0"
 dependencies = [
  "aes",
+ "ipnet",
  "ring",
  "ripdpi-config",
  "ripdpi-desync",
@@ -6802,7 +6807,9 @@ dependencies = [
 name = "ripdpi-tunnel-config"
 version = "0.1.0"
 dependencies = [
+ "ipnet",
  "proptest",
+ "ripdpi-packets",
  "serde",
  "thiserror 2.0.21",
  "yaml_serde",
@@ -6815,6 +6822,7 @@ dependencies = [
  "etherparse",
  "hex",
  "hickory-proto",
+ "ipnet",
  "libc",
  "local-network-fixture",
  "lru",
@@ -6929,6 +6937,7 @@ dependencies = [
  "chacha20 0.10.2",
  "chacha20poly1305 0.11.0",
  "getrandom 0.4.3",
+ "ripdpi-packets",
  "ripdpi-wireguard-ws",
  "serde",
  "serde_json",

@@ -67,6 +67,12 @@ pub trait ripdpi_packets::fields::FieldObserver
 pub fn ripdpi_packets::fields::FieldObserver::on_field(&mut self, &ripdpi_packets::fields::ProtocolField)
 impl ripdpi_packets::fields::FieldObserver for ripdpi_packets::fields::FieldCache
 pub fn ripdpi_packets::fields::FieldCache::on_field(&mut self, &ripdpi_packets::fields::ProtocolField)
+pub mod ripdpi_packets::ip
+pub struct ripdpi_packets::ip::InvalidCidr
+impl core::error::Error for ripdpi_packets::ip::InvalidCidr
+impl core::fmt::Display for ripdpi_packets::ip::InvalidCidr
+pub fn ripdpi_packets::ip::InvalidCidr::fmt(&self, &mut core::fmt::Formatter<'_>) -> core::fmt::Result
+pub fn ripdpi_packets::ip::parse_cidr(&str, core::option::Option<(u8, u8)>) -> core::result::Result<ipnet::ipnet::IpNet, ripdpi_packets::ip::InvalidCidr>
 pub enum ripdpi_packets::HttpFakeProfile
 pub ripdpi_packets::HttpFakeProfile::CloudflareGet
 pub ripdpi_packets::HttpFakeProfile::CompatDefault

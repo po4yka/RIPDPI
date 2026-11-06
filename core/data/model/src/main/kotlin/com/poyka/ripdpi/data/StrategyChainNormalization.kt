@@ -1,8 +1,6 @@
 package com.poyka.ripdpi.data
 
 private const val IpFragmentAlignmentBytes = 8
-private const val MaxIpv4OctetValue = 255
-private const val MaxIpv4LabelCount = 4
 
 internal fun normalizeTcpMarker(step: TcpChainStepModel): String = normalizeTcpMarker(step.kind, step.marker)
 
@@ -119,12 +117,7 @@ internal fun normalizeFakeHostTemplate(
         !hasInvalidHostnameStructure(trimmed) &&
             !containsInvalidHostnameChar(trimmed) &&
             trimmed.split('.').none { label -> label.isEmpty() || label.startsWith('-') || label.endsWith('-') }
-    val ipv4Parts = trimmed.split('.')
-    val isIpv4Literal =
-        ipv4Parts.size == MaxIpv4LabelCount &&
-            ipv4Parts.all { part ->
-                part.toIntOrNull()?.let { value -> value in 0..MaxIpv4OctetValue && value.toString() == part } == true
-            }
+    val isIpv4Literal = NumericIp.parseAddress(trimmed)?.isIPv4 == true
     return if (validHostname && !isIpv4Literal) trimmed else ""
 }
 

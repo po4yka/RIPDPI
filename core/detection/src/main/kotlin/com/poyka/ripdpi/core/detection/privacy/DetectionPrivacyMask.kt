@@ -3,10 +3,9 @@
 package com.poyka.ripdpi.core.detection.privacy
 
 import com.poyka.ripdpi.core.detection.BypassResult
+import com.poyka.ripdpi.data.NumericIp
 import java.net.Inet4Address
 import java.net.Inet6Address
-import java.net.InetAddress
-import java.util.Locale
 
 object DetectionPrivacyMask {
     private val ipv4Regex = Regex("""\b(?:\d{1,3}\.){3}\d{1,3}\b""")
@@ -17,10 +16,12 @@ object DetectionPrivacyMask {
         enabled: Boolean,
     ): String {
         if (!enabled) return ip
-        val address = parseAddress(ip) ?: return ip
-        if (address.isLoopbackAddress || address.isLinkLocalAddress || address.isSiteLocalAddress) return ip
+        val parsed = NumericIp.parseAddress(ip) ?: return ip
+        val localAddress = if (parsed.isIPv6 && parsed.toIPv6().isIPv4Mapped) parsed.toIPv4() else parsed
+        val peer = localAddress.toInetAddress()
+        if (peer.isLoopbackAddress || peer.isLinkLocalAddress || peer.isSiteLocalAddress) return ip
 
-        return when (address) {
+        return when (val address = parsed.toInetAddress()) {
             is Inet4Address -> maskIpv4(ip)
             is Inet6Address -> maskIpv6(address)
             else -> ip
@@ -60,7 +61,6 @@ object DetectionPrivacyMask {
 
     private fun maskIpv4(ip: String): String {
         val parts = ip.split(".")
-        if (parts.size != IPV4_PART_COUNT || parts.any { it.toIntOrNull() !in IPV4_OCTET_RANGE }) return ip
         return "${parts[0]}.${parts[1]}.*.*"
     }
 
@@ -80,17 +80,10 @@ object DetectionPrivacyMask {
             .plus(":****:****:****:****")
     }
 
-    private fun parseAddress(ip: String): InetAddress? =
-        runCatching {
-            InetAddress.getByName(ip.lowercase(Locale.US))
-        }.getOrNull()
-
     private const val BYTE_MASK = 0xFF
-    private const val IPV4_PART_COUNT = 4
     private const val IPV6_BYTES_PER_GROUP = 2
     private const val IPV6_VISIBLE_GROUPS = 4
     private const val IPV6_RADIX = 16
-    private val IPV4_OCTET_RANGE = 0..255
 }
 
 /** Server names of the outbounds a local Xray API reported; exports hide them in privacy mode. */

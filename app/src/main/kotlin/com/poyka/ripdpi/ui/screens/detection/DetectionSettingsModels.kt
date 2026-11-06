@@ -6,6 +6,7 @@ import com.poyka.ripdpi.core.detection.ui.DetectionColorVisionMode
 import com.poyka.ripdpi.data.BundledDnsProviderCatalog
 import com.poyka.ripdpi.data.DnsProviderCatalogEntry
 import com.poyka.ripdpi.data.DnsProviderCustom
+import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.proto.AppSettings
 import kotlin.math.max
 
@@ -149,9 +150,7 @@ data class DetectionDnsPreset(
     }
 }
 
-private fun String.isIpv4Literal(): Boolean = !contains(':') && IPV4_PRESET_LITERAL.matches(trim())
-
-private val IPV4_PRESET_LITERAL = Regex("""\d{1,3}(?:\.\d{1,3}){3}""")
+private fun String.isIpv4Literal(): Boolean = NumericIp.parseAddress(trim())?.isIPv4 == true
 
 data class DetectionSettingsUiState(
     val networkRequestsEnabled: Boolean = true,

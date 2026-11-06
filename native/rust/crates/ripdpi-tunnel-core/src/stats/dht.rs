@@ -1,15 +1,15 @@
-use std::net::{IpAddr, SocketAddr};
+use ipnet::Ipv4Net;
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::atomic::Ordering;
 
 use super::Stats;
 use super::time;
 
-const DHT_TRIGGER_SCALAWAY_62_NET: u32 = u32::from_be_bytes([62, 210, 0, 0]);
-const DHT_TRIGGER_SCALAWAY_62_MASK: u32 = 0xFFFF_8000;
-const DHT_TRIGGER_SCALAWAY_51_NET: u32 = u32::from_be_bytes([51, 159, 0, 0]);
-const DHT_TRIGGER_SCALAWAY_51_MASK: u32 = 0xFFFF_0000;
-const DHT_TRIGGER_GLOBALTELEHOST_NET: u32 = u32::from_be_bytes([134, 195, 196, 0]);
-const DHT_TRIGGER_GLOBALTELEHOST_MASK: u32 = 0xFFFF_FC00;
+const DHT_TRIGGER_NETWORKS: [Ipv4Net; 3] = [
+    Ipv4Net::new_assert(Ipv4Addr::new(62, 210, 0, 0), 17),
+    Ipv4Net::new_assert(Ipv4Addr::new(51, 159, 0, 0), 16),
+    Ipv4Net::new_assert(Ipv4Addr::new(134, 195, 196, 0), 22),
+];
 
 pub(crate) fn record_trigger_destination(stats: &Stats, endpoint: SocketAddr) {
     if !is_trigger_destination(endpoint.ip()) {
@@ -28,12 +28,5 @@ fn is_trigger_destination(ip: IpAddr) -> bool {
         return false;
     };
 
-    let value = u32::from(ipv4);
-    cidr_contains(value, DHT_TRIGGER_SCALAWAY_62_NET, DHT_TRIGGER_SCALAWAY_62_MASK)
-        || cidr_contains(value, DHT_TRIGGER_SCALAWAY_51_NET, DHT_TRIGGER_SCALAWAY_51_MASK)
-        || cidr_contains(value, DHT_TRIGGER_GLOBALTELEHOST_NET, DHT_TRIGGER_GLOBALTELEHOST_MASK)
-}
-
-fn cidr_contains(value: u32, network: u32, mask: u32) -> bool {
-    value & mask == network
+    DHT_TRIGGER_NETWORKS.iter().any(|network| network.contains(&ipv4))
 }

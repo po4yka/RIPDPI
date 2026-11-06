@@ -1,29 +1,15 @@
 package com.poyka.ripdpi.utility
 
-import java.net.InetAddress
+import com.poyka.ripdpi.data.NumericIp
 
-fun checkIp(ip: String): Boolean = parseIp(ip) != null
+fun checkIp(ip: String): Boolean = NumericIp.parseAddress(ip) != null
 
-fun checkNotLocalIp(ip: String): Boolean = parseIp(ip)?.let { !it.isAnyLocalAddress && !it.isLoopbackAddress } ?: false
-
-private fun parseIp(ip: String): InetAddress? =
-    if (':' in ip) {
-        if (ip.all { it in "0123456789abcdefABCDEF:." }) runCatching { InetAddress.getByName(ip) }.getOrNull() else null
-    } else {
-        val octets = ip.split('.')
-        if (octets.size == Ipv4OctetCount && octets.all(::isIpv4Octet)) {
-            InetAddress.getByAddress(octets.map { it.toInt().toByte() }.toByteArray())
-        } else {
-            null
-        }
-    }
-
-private fun isIpv4Octet(value: String): Boolean =
-    value.length in 1..MaxIpv4Digits && value.all { it in '0'..'9' } && value.toIntOrNull() in 0..MaxIpv4Octet
-
-private const val Ipv4OctetCount = 4
-private const val MaxIpv4Digits = 3
-private const val MaxIpv4Octet = 255
+fun checkNotLocalIp(ip: String): Boolean {
+    val parsed = NumericIp.parseAddress(ip) ?: return false
+    // A mapped IPv4 payload retains its local-address restrictions.
+    val address = if (parsed.isIPv6 && parsed.toIPv6().isIPv4Mapped) parsed.toIPv4() else parsed
+    return address.toInetAddress().let { !it.isAnyLocalAddress && !it.isLoopbackAddress }
+}
 
 const val MinPortNumber = 1
 const val MaxPortNumber = 65535

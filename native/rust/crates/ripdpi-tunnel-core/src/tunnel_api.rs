@@ -4,6 +4,7 @@
 //! platform — e.g. Android VPN service) and a parsed `Config`.  This module
 //! sets up the smoltcp networking stack and delegates to `io_loop_task`.
 
+use ripdpi_packets::ip::parse_cidr;
 use std::io;
 use std::net::IpAddr;
 use std::os::fd::OwnedFd;
@@ -21,13 +22,12 @@ use crate::io_loop::io_loop_task_with_ready;
 use crate::{ActiveSessions, Stats, TunDevice};
 
 fn parse_tunnel_address(value: &str) -> Option<(IpAddress, u8)> {
-    let (ip_part, prefix_part) = value.split_once('/').map_or((value, None), |(ip, prefix)| (ip, Some(prefix)));
-    let prefix = prefix_part.and_then(|raw| raw.parse::<u8>().ok());
-
-    match ip_part.parse::<IpAddr>().ok()? {
+    let network = parse_cidr(value, Some((24, 128))).ok()?;
+    let prefix = network.prefix_len();
+    match network.addr() {
         IpAddr::V4(ip) => {
             let octets = ip.octets();
-            Some((IpAddress::v4(octets[0], octets[1], octets[2], octets[3]), prefix.unwrap_or(24)))
+            Some((IpAddress::v4(octets[0], octets[1], octets[2], octets[3]), prefix))
         }
         IpAddr::V6(ip) => {
             let segments = ip.segments();
@@ -42,7 +42,7 @@ fn parse_tunnel_address(value: &str) -> Option<(IpAddress, u8)> {
                     segments[6],
                     segments[7],
                 ),
-                prefix.unwrap_or(128),
+                prefix,
             ))
         }
     }
@@ -196,7 +196,21 @@ mod tests {
 
     #[test]
     fn parse_tunnel_address_returns_none_for_invalid_ip() {
-        assert!(parse_tunnel_address("not-an-ip").is_none());
+        for value in [
+            "not-an-ip",
+            "192.0.2.129/",
+            "192.0.2.129/bad",
+            "192.0.2.129/33",
+            "192.0.2.129/+24",
+            "192.0.2.129/024",
+            "::1/129",
+            "::1/256",
+        ] {
+            assert!(parse_tunnel_address(value).is_none(), "{value}");
+        }
+        let (address, prefix) = parse_tunnel_address("192.0.2.129/24").unwrap();
+        assert_eq!(address.to_string(), "192.0.2.129");
+        assert_eq!(prefix, 24);
     }
 
     #[test]

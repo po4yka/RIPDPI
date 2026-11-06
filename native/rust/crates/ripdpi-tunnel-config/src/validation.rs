@@ -1,4 +1,6 @@
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use ipnet::Ipv4Net;
+use ripdpi_packets::ip::parse_cidr;
+use std::net::{IpAddr, Ipv4Addr};
 
 use crate::Config;
 use crate::errors::ConfigError;
@@ -60,7 +62,7 @@ pub(crate) fn validate_values(config: &Config) -> Result<(), ConfigError> {
             Some(value) => u32::from(parse_ipv4("mapdns.netmask", value)?),
             None => u32::from(Ipv4Addr::new(255, 254, 0, 0)),
         };
-        if !is_contiguous_mask(mask) {
+        if Ipv4Net::with_netmask(Ipv4Addr::UNSPECIFIED, Ipv4Addr::from(mask)).is_err() {
             return invalid("mapdns.netmask", "must be a contiguous IPv4 netmask");
         }
         in_range("mapdns.cache-size", mapdns.cache_size, 1, MAX_DNS_CACHE_SIZE)?;
@@ -93,26 +95,10 @@ pub(crate) fn validate_values(config: &Config) -> Result<(), ConfigError> {
 
 fn validate_tunnel_ip(field: &'static str, value: Option<&str>, ipv4: bool) -> Result<(), ConfigError> {
     let Some(value) = value else { return Ok(()) };
-    let (address, prefix) = value.split_once('/').map_or((value, None), |(address, prefix)| (address, Some(prefix)));
-    if ipv4 {
-        address.parse::<Ipv4Addr>().map_err(|err| ConfigError::InvalidValue {
-            field,
-            message: format!("'{address}' is not an IPv4 address: {err}"),
-        })?;
-    } else {
-        address.parse::<Ipv6Addr>().map_err(|err| ConfigError::InvalidValue {
-            field,
-            message: format!("'{address}' is not an IPv6 address: {err}"),
-        })?;
-    }
-    if let Some(prefix) = prefix {
-        let max = if ipv4 { 32 } else { 128 };
-        let parsed = prefix
-            .parse::<u8>()
-            .map_err(|err| ConfigError::InvalidValue { field, message: format!("invalid prefix '{prefix}': {err}") })?;
-        if parsed > max {
-            return invalid(field, format!("prefix must be between 0 and {max}, got {parsed}"));
-        }
+    let network = parse_cidr(value, Some((24, 128)))
+        .map_err(|error| ConfigError::InvalidValue { field, message: error.to_string() })?;
+    if network.addr().is_ipv4() != ipv4 {
+        return invalid(field, "address family does not match the tunnel field");
     }
     Ok(())
 }
@@ -121,11 +107,6 @@ fn parse_ipv4(field: &'static str, value: &str) -> Result<Ipv4Addr, ConfigError>
     value
         .parse()
         .map_err(|err| ConfigError::InvalidValue { field, message: format!("'{value}' is not an IPv4 address: {err}") })
-}
-
-fn is_contiguous_mask(mask: u32) -> bool {
-    let inverted = !mask;
-    inverted == 0 || inverted & inverted.wrapping_add(1) == 0
 }
 
 fn non_blank(field: &'static str, value: &str) -> Result<(), ConfigError> {

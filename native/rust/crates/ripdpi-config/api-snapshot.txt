@@ -1,8 +1,9 @@
 pub mod ripdpi_config
+pub use ripdpi_config::parse_cidr
 pub mod ripdpi_config::cli
 pub fn ripdpi_config::cli::parse_cli(&[alloc::string::String], &ripdpi_config::startup_env::StartupEnv) -> core::result::Result<ripdpi_config::ParseResult, ripdpi_config::ConfigError>
 pub fn ripdpi_config::cli::parse_hosts_spec(&str) -> core::result::Result<alloc::vec::Vec<alloc::string::String>, ripdpi_config::ConfigError>
-pub fn ripdpi_config::cli::parse_ipset_spec(&str) -> core::result::Result<alloc::vec::Vec<ripdpi_config::Cidr>, ripdpi_config::ConfigError>
+pub fn ripdpi_config::cli::parse_ipset_spec(&str) -> core::result::Result<alloc::vec::Vec<ipnet::ipnet::IpNet>, ripdpi_config::ConfigError>
 pub mod ripdpi_config::fake_profiles
 pub fn ripdpi_config::fake_profiles::data_from_str(&str) -> core::result::Result<alloc::vec::Vec<u8>, ripdpi_config::ConfigError>
 pub fn ripdpi_config::fake_profiles::file_or_inline_bytes(&str) -> core::result::Result<alloc::vec::Vec<u8>, ripdpi_config::ConfigError>
@@ -238,11 +239,6 @@ pub ripdpi_config::CacheEntry::bits: u16
 pub ripdpi_config::CacheEntry::host: core::option::Option<alloc::string::String>
 pub ripdpi_config::CacheEntry::port: u16
 pub ripdpi_config::CacheEntry::time: i64
-pub struct ripdpi_config::Cidr
-pub ripdpi_config::Cidr::addr: core::net::ip_addr::IpAddr
-pub ripdpi_config::Cidr::bits: u8
-impl ripdpi_config::Cidr
-pub fn ripdpi_config::Cidr::matches(&self, core::net::ip_addr::IpAddr) -> bool
 pub struct ripdpi_config::ConfigError
 pub ripdpi_config::ConfigError::option: alloc::string::String
 pub ripdpi_config::ConfigError::value: core::option::Option<alloc::string::String>
@@ -341,7 +337,7 @@ pub struct ripdpi_config::FilterSet
 pub ripdpi_config::FilterSet::geoip_countries: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_config::FilterSet::geosite_categories: alloc::vec::Vec<alloc::string::String>
 pub ripdpi_config::FilterSet::hosts: alloc::vec::Vec<alloc::string::String>
-pub ripdpi_config::FilterSet::ipset: alloc::vec::Vec<ripdpi_config::Cidr>
+pub ripdpi_config::FilterSet::ipset: alloc::vec::Vec<ipnet::ipnet::IpNet>
 impl ripdpi_config::FilterSet
 pub fn ripdpi_config::FilterSet::host_filters_empty(&self) -> bool
 pub fn ripdpi_config::FilterSet::hosts_match(&self, &str) -> bool
@@ -664,7 +660,7 @@ pub fn ripdpi_config::parse_auto_ttl_spec(&str) -> core::result::Result<ripdpi_c
 pub fn ripdpi_config::parse_cli(&[alloc::string::String], &ripdpi_config::startup_env::StartupEnv) -> core::result::Result<ripdpi_config::ParseResult, ripdpi_config::ConfigError>
 pub fn ripdpi_config::parse_hosts_spec(&str) -> core::result::Result<alloc::vec::Vec<alloc::string::String>, ripdpi_config::ConfigError>
 pub fn ripdpi_config::parse_http_fake_profile(&str) -> core::result::Result<ripdpi_packets::fake_profiles::HttpFakeProfile, ripdpi_config::ConfigError>
-pub fn ripdpi_config::parse_ipset_spec(&str) -> core::result::Result<alloc::vec::Vec<ripdpi_config::Cidr>, ripdpi_config::ConfigError>
+pub fn ripdpi_config::parse_ipset_spec(&str) -> core::result::Result<alloc::vec::Vec<ipnet::ipnet::IpNet>, ripdpi_config::ConfigError>
 pub fn ripdpi_config::parse_offset_expr(&str) -> core::result::Result<ripdpi_config::OffsetExpr, ripdpi_config::ConfigError>
 pub fn ripdpi_config::parse_payload_size_range_spec(&str) -> core::result::Result<ripdpi_config::NumericRange<i64>, ripdpi_config::ConfigError>
 pub fn ripdpi_config::parse_quic_fake_profile(&str) -> core::result::Result<ripdpi_config::QuicFakeProfile, ripdpi_config::ConfigError>
@@ -673,5 +669,4 @@ pub fn ripdpi_config::parse_stream_byte_range_spec(&str) -> core::result::Result
 pub fn ripdpi_config::parse_tcp_flag_mask(&str) -> core::result::Result<u16, ripdpi_config::ConfigError>
 pub fn ripdpi_config::parse_tls_fake_profile(&str) -> core::result::Result<ripdpi_packets::fake_profiles::TlsFakeProfile, ripdpi_config::ConfigError>
 pub fn ripdpi_config::parse_udp_fake_profile(&str) -> core::result::Result<ripdpi_packets::fake_profiles::UdpFakeProfile, ripdpi_config::ConfigError>
-pub fn ripdpi_config::prefix_match_bytes(&[u8], &[u8], u8) -> bool
 pub fn ripdpi_config::validate_tcp_flag_masks(ripdpi_config::TcpChainStepKind, core::option::Option<u16>, core::option::Option<u16>, core::option::Option<u16>, core::option::Option<u16>, &str) -> core::result::Result<(), ripdpi_config::ConfigError>

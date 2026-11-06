@@ -1,9 +1,10 @@
+use ipnet::IpNet;
 use std::fs;
 use std::io::{self, Write};
 use std::net::{IpAddr, SocketAddr};
 use std::path::Path;
 
-use ripdpi_config::{RuntimeConfig, dump_cache_entries, load_cache_entries_from_path, prefix_match_bytes};
+use ripdpi_config::{RuntimeConfig, dump_cache_entries, load_cache_entries_from_path};
 
 use super::route_from_record;
 use crate::runtime_policy::ConnectionRoute;
@@ -124,11 +125,10 @@ pub(super) fn cache_matches(entry: &ripdpi_config::CacheEntry, dest: SocketAddr)
     if entry.port != dest.port() {
         return false;
     }
-    match (entry.addr, dest.ip()) {
-        (IpAddr::V4(lhs), IpAddr::V4(rhs)) => prefix_match_bytes(&lhs.octets(), &rhs.octets(), entry.bits as u8),
-        (IpAddr::V6(lhs), IpAddr::V6(rhs)) => prefix_match_bytes(&lhs.octets(), &rhs.octets(), entry.bits as u8),
-        _ => false,
-    }
+    u8::try_from(entry.bits)
+        .ok()
+        .and_then(|prefix| IpNet::new(entry.addr, prefix).ok())
+        .is_some_and(|network| network.contains(&dest.ip()))
 }
 
 pub(super) fn is_expired(config: &RuntimeConfig, record: &CacheRecord, now: i64) -> bool {

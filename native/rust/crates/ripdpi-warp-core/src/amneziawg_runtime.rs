@@ -826,13 +826,11 @@ pub(crate) fn parse_interface_ipv6(value: &str) -> io::Result<Option<Ipv6Addr>> 
     if value.is_empty() {
         return Ok(None);
     }
-    let (address, prefix) = value.split_once('/').unwrap_or((value, "128"));
     let invalid = || io::Error::new(io::ErrorKind::InvalidInput, "invalid AmneziaWG IPv6 interface address");
-    let prefix: u8 = prefix.parse().map_err(|_| invalid())?;
-    if prefix > 128 {
+    let network = ripdpi_packets::ip::parse_cidr(value, Some((32, 128))).map_err(|_| invalid())?;
+    let std::net::IpAddr::V6(address) = network.addr() else {
         return Err(invalid());
-    }
-    let address: Ipv6Addr = address.parse().map_err(|_| invalid())?;
+    };
     if address.is_unspecified() || address.is_multicast() {
         return Err(invalid());
     }
@@ -899,7 +897,17 @@ mod tests {
     fn optional_ipv6_interface_is_validated_before_runtime_start() {
         assert_eq!(parse_interface_ipv6("").expect("unset"), None);
         assert_eq!(parse_interface_ipv6("fd77::2/128").expect("valid IPv6"), Some("fd77::2".parse().expect("address")));
-        for invalid in ["fd77::2/129", "fd77::2/bad", "10.0.0.2/32", "::/128", "ff02::1/128"] {
+        for invalid in [
+            "fd77::2/129",
+            "fd77::2/bad",
+            "fd77::2/+64",
+            "fd77::2/064",
+            "fd77::2/",
+            "fd77::2/64/64",
+            "10.0.0.2/32",
+            "::/128",
+            "ff02::1/128",
+        ] {
             assert_eq!(parse_interface_ipv6(invalid).expect_err("invalid IPv6").kind(), io::ErrorKind::InvalidInput);
         }
     }

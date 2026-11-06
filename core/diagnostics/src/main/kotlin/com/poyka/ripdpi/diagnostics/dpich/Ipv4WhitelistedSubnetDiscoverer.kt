@@ -1,6 +1,8 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
+import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.serialization.RipDpiPrettyDefaultsJson
+import inet.ipaddr.IPAddress
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
@@ -202,13 +204,13 @@ class Ipv4WhitelistedSubnetDiscoverer(
         sampleSize: Int,
     ): List<String> {
         val range = Ipv4Cidr.parse(cidr)
-        val count = min(sampleSize, range.hostCount)
+        val count = min(sampleSize.toLong(), range.hostCount).toInt()
         // Draw offsets instead of listing every host: a /9 announcement would materialize ~8M strings.
         val offsets =
-            if (count == range.hostCount) {
-                (0 until count).shuffled(random)
+            if (count.toLong() == range.hostCount) {
+                (0L until count.toLong()).shuffled(random)
             } else {
-                generateSequence { random.nextInt(range.hostCount) }.distinct().take(count).toList()
+                generateSequence { random.nextLong(range.hostCount) }.distinct().take(count).toList()
             }
         return offsets.map(range::host)
     }
@@ -279,77 +281,27 @@ private fun String.csvCell(): String =
 
 private data class Ipv4Cidr(
     val value: String,
-    val network: Long,
+    val firstHost: IPAddress,
+    val hostCount: Long,
     val prefixLength: Int,
 ) {
-    val hostCount: Int
-        get() = (lastHost - firstHost + 1).toInt().coerceAtLeast(0)
-
-    private val mask: Long
-        get() =
-            if (prefixLength == 0) {
-                0
-            } else {
-                MaxIpv4 shl (Ipv4Bits - prefixLength) and MaxIpv4
-            }
-    private val broadcast: Long
-        get() = network or (mask xor MaxIpv4)
-    private val firstHost: Long
-        get() = if (prefixLength >= 31) network else network + 1
-    private val lastHost: Long
-        get() = if (prefixLength >= 31) broadcast else broadcast - 1
-
-    fun host(offset: Int): String = (firstHost + offset).toIpv4String()
+    fun host(offset: Long): String = firstHost.increment(offset).toNormalizedString()
 
     companion object {
         fun parse(cidr: String): Ipv4Cidr {
-            val parts = cidr.split("/")
-            require(parts.size == 2) { "invalid IPv4 CIDR: $cidr" }
-            val prefix = parts[1].toInt()
-            require(prefix in MinIpv4PrefixLength..Ipv4Bits) { "invalid IPv4 prefix length: $cidr" }
-            val rawAddress = parts[0].toIpv4Long()
-            val mask =
-                if (prefix == 0) {
-                    0
-                } else {
-                    MaxIpv4 shl (Ipv4Bits - prefix) and MaxIpv4
-                }
-            val network = rawAddress and mask
+            val parsed = requireNotNull(NumericIp.parseCidr(cidr)) { "Invalid IPv4 CIDR: $cidr" }
+            require(parsed.address.isIPv4) { "Invalid IPv4 CIDR: $cidr" }
+            val includesBoundaryAddresses = parsed.prefixLength >= PointToPointPrefix
             return Ipv4Cidr(
-                value = "${network.toIpv4String()}/$prefix",
-                network = network,
-                prefixLength = prefix,
+                value = parsed.toCanonicalString(),
+                firstHost = parsed.networkAddress.increment(if (includesBoundaryAddresses) 0L else 1L),
+                hostCount = parsed.network.count.toLong() - if (includesBoundaryAddresses) 0 else BoundaryAddressCount,
+                prefixLength = parsed.prefixLength,
             )
         }
     }
 }
 
-private fun String.toIpv4Long(): Long {
-    val octets = split(".")
-    require(octets.size == Ipv4OctetCount) { "invalid IPv4 address: $this" }
-    return octets.fold(0L) { acc, octet ->
-        val value = octet.toInt()
-        require(value in MinIpv4OctetValue..MaxIpv4OctetValue) { "invalid IPv4 octet: $this" }
-        (acc shl BitsPerOctet) or value.toLong()
-    }
-}
-
-private fun Long.toIpv4String(): String =
-    listOf(
-        (this ushr ThreeOctetShift) and OctetMask,
-        (this ushr TwoOctetShift) and OctetMask,
-        (this ushr BitsPerOctet) and OctetMask,
-        this and OctetMask,
-    ).joinToString(".")
-
-private const val MinIpv4PrefixLength = 0
-private const val Ipv4Bits = 32
+private const val PointToPointPrefix = 31
+private const val BoundaryAddressCount = 2
 private const val Ipv4SubnetPrefix24 = 24
-private const val Ipv4OctetCount = 4
-private const val MinIpv4OctetValue = 0
-private const val MaxIpv4OctetValue = 255
-private const val BitsPerOctet = 8
-private const val TwoOctetShift = 16
-private const val ThreeOctetShift = 24
-private const val MaxIpv4 = 0xFFFF_FFFFL
-private const val OctetMask = 0xFFL

@@ -15,6 +15,7 @@ import com.poyka.ripdpi.core.detection.IpComparisonEndpointResult
 import com.poyka.ripdpi.core.detection.IpComparisonEndpointStatus
 import com.poyka.ripdpi.core.detection.IpComparisonResult
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.data.diagnostics.DetectionAddressFamily
 import com.poyka.ripdpi.data.diagnostics.DetectionResolverConfig
 import com.poyka.ripdpi.data.diagnostics.DetectionResolverNetworkStack
@@ -311,14 +312,8 @@ object IpComparisonChecker {
             .lowercase(Locale.US)
 
     private fun addressFamilyOf(value: String): IpComparisonAddressFamily? =
-        try {
-            when (InetAddress.getByName(value)) {
-                is Inet4Address -> IpComparisonAddressFamily.IPV4
-                is Inet6Address -> IpComparisonAddressFamily.IPV6
-                else -> null
-            }
-        } catch (_: Exception) {
-            null
+        NumericIp.parseAddress(value)?.let {
+            if (it.isIPv4) IpComparisonAddressFamily.IPV4 else IpComparisonAddressFamily.IPV6
         }
 
     private fun Exception.isIpv6Unavailable(): Boolean = this is SocketTimeoutException || this is IOException
@@ -370,18 +365,10 @@ class DefaultIpComparisonEndpointClient(
     }
 
     private fun extractIp(body: String): String? {
-        IPV4_REGEX.find(body)?.let { return it.value }
-        return body
-            .split(IP_TOKEN_DELIMITER)
-            .firstOrNull { token -> token.contains(":") && isIpv6(token) }
+        val candidates = body.split(IP_TOKEN_DELIMITER)
+        return candidates.firstOrNull { NumericIp.parseAddress(it)?.isIPv4 == true }
+            ?: candidates.firstOrNull { NumericIp.parseAddress(it)?.isIPv6 == true }
     }
-
-    private fun isIpv6(token: String): Boolean =
-        try {
-            InetAddress.getByName(token) is Inet6Address
-        } catch (_: Exception) {
-            false
-        }
 
     private fun IpComparisonAddressFamily?.toDetectionAddressFamily(): DetectionAddressFamily =
         when (this) {
@@ -392,12 +379,7 @@ class DefaultIpComparisonEndpointClient(
 
     private companion object {
         private const val TIMEOUT_MS = 5_000
-        private val IPV4_REGEX =
-            Regex(
-                """(?<![\d.])(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)""" +
-                    """(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}(?![\d.])""",
-            )
-        private val IP_TOKEN_DELIMITER = Regex("""[\s,"'<>()\[\]{}]+""")
+        private val IP_TOKEN_DELIMITER = Regex("""[\s,"'<>()\[\]{}=]+""")
     }
 }
 

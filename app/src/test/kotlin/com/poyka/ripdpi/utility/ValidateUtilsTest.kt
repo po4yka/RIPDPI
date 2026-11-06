@@ -21,6 +21,9 @@ class ValidateUtilsTest {
         assertFalse(checkIp("example.com"))
         assertFalse(checkIp("999.0.2.10"))
         assertFalse(checkIp("0000.0.2.10"))
+        assertFalse(checkIp("01.2.3.4"))
+        assertFalse(checkIp(":1::2"))
+        assertFalse(checkIp("1::2:"))
         assertFalse(checkIp("2001:db8:::10"))
     }
 
@@ -29,6 +32,10 @@ class ValidateUtilsTest {
         assertFalse(checkNotLocalIp("0.0.0.0"))
         assertFalse(checkNotLocalIp("127.0.0.1"))
         assertFalse(checkNotLocalIp("::1"))
+        assertFalse(checkNotLocalIp("::ffff:127.0.0.1"))
+        assertFalse(checkNotLocalIp("::ffff:0.0.0.0"))
+        assertFalse(checkNotLocalIp("::ffff:7f00:1"))
+        assertTrue(checkNotLocalIp("::ffff:192.0.2.10"))
         assertTrue(checkNotLocalIp("192.0.2.10"))
     }
 }

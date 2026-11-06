@@ -13,6 +13,7 @@ extensions.configure<LibraryExtension> {
 }
 
 dependencies {
+    api(libs.ipaddress)
     api(libs.protobuf.javalite)
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlinx.serialization.json)

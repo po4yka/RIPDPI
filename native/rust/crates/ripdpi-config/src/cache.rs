@@ -1,7 +1,7 @@
+use ripdpi_packets::ip::parse_cidr;
 use std::fs;
 use std::net::IpAddr;
 use std::path::Path;
-use std::str::FromStr;
 
 use crate::ConfigError;
 
@@ -21,7 +21,7 @@ pub fn load_cache_entries(text: &str) -> Vec<CacheEntry> {
         if parts.len() != 6 || parts[0] != "0" {
             continue;
         }
-        let Ok(bits) = parts[2].parse::<u16>() else {
+        let Ok(network) = parse_cidr(&format!("{}/{}", parts[1], parts[2]), None) else {
             continue;
         };
         let Ok(port) = parts[3].parse::<u16>() else {
@@ -30,12 +30,9 @@ pub fn load_cache_entries(text: &str) -> Vec<CacheEntry> {
         let Ok(time) = parts[4].parse::<i64>() else {
             continue;
         };
-        let Ok(addr) = IpAddr::from_str(parts[1]) else {
-            continue;
-        };
         out.push(CacheEntry {
-            addr,
-            bits,
+            addr: network.addr(),
+            bits: u16::from(network.prefix_len()),
             port,
             time,
             host: if parts[5] == "-" { None } else { Some(parts[5].to_owned()) },
@@ -106,6 +103,20 @@ mod tests {
         assert_eq!(entries[0].host, Some("example.com".to_string()));
         assert_eq!(entries[1].host, None);
         assert_eq!(entries[1].time, 200);
+    }
+
+    #[test]
+    fn cache_prefixes_reject_invalid_width_and_syntax() {
+        for (address, prefixes) in
+            [("192.0.2.1", vec!["33", "128", "256", "+24", "024"]), ("2001:db8::1", vec!["129", "256", "+64", "064"])]
+        {
+            for prefix in prefixes {
+                assert!(
+                    load_cache_entries(&format!("0 {address} {prefix} 443 100 -\n")).is_empty(),
+                    "{address}/{prefix}"
+                );
+            }
+        }
     }
 
     #[test]

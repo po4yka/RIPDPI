@@ -1,5 +1,5 @@
 use std::io;
-use std::net::{IpAddr, Ipv4Addr, SocketAddr, ToSocketAddrs};
+use std::net::{IpAddr, SocketAddr, ToSocketAddrs};
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use serde::{Deserialize, Serialize};
@@ -374,7 +374,8 @@ pub(crate) async fn resolve_endpoint(endpoint: &ResolvedWarpRuntimeEndpoint) -> 
 }
 
 pub(crate) fn parse_ipv4_cidr(value: Option<&str>) -> Option<IpAddr> {
-    value.and_then(|raw| raw.split('/').next()).and_then(|addr| addr.parse::<Ipv4Addr>().ok()).map(IpAddr::V4)
+    let address = ripdpi_packets::ip::parse_cidr(value?, Some((32, 128))).ok()?.addr();
+    address.is_ipv4().then_some(address)
 }
 
 pub(crate) fn now_ms() -> u64 {
@@ -384,6 +385,7 @@ pub(crate) fn now_ms() -> u64 {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::net::Ipv4Addr;
 
     fn endpoint(host: &str, ipv4: Option<&str>, ipv6: Option<&str>, port: i32) -> ResolvedWarpRuntimeEndpoint {
         ResolvedWarpRuntimeEndpoint {
@@ -416,7 +418,19 @@ mod tests {
     #[test]
     fn parse_ipv4_cidr_extracts_address_only() {
         assert_eq!(parse_ipv4_cidr(Some("172.16.0.2/32")), Some(IpAddr::V4(Ipv4Addr::new(172, 16, 0, 2))));
-        assert_eq!(parse_ipv4_cidr(Some("not-an-ip/32")), None);
+        for value in [
+            "not-an-ip/32",
+            "172.16.0.2/garbage",
+            "172.16.0.2/33",
+            "172.16.0.2/+24",
+            "172.16.0.2/024",
+            "172.16.0.2/",
+            "172.16.0.2/24/24",
+            "::1/32",
+        ] {
+            assert_eq!(parse_ipv4_cidr(Some(value)), None, "{value}");
+        }
+        assert_eq!(parse_ipv4_cidr(Some("192.0.2.129/24")), Some(IpAddr::V4(Ipv4Addr::new(192, 0, 2, 129))));
         assert_eq!(parse_ipv4_cidr(None), None);
     }
 

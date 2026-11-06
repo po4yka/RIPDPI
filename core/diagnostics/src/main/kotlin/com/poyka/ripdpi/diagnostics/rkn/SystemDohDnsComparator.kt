@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.rkn
 
+import com.poyka.ripdpi.data.NumericIp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.TimeoutCancellationException
@@ -229,19 +230,12 @@ class CloudflareDohJsonResolver(
             }
         }
 
-    private fun isIpv4Literal(value: String): Boolean =
-        value
-            .split('.')
-            .takeIf { parts -> parts.size == Ipv4PartCount }
-            ?.all { part -> part.toIntOrNull() in Ipv4ByteRange }
-            ?: false
+    private fun isIpv4Literal(value: String): Boolean = NumericIp.parseAddress(value)?.isIPv4 == true
 
     private companion object {
         private const val CloudflareDnsJsonEndpoint = "https://cloudflare-dns.com/dns-query"
         private const val HttpTimeoutMs = 5_000
         private const val ARecordType = 1
-        private const val Ipv4PartCount = 4
         private val HttpSuccessStatusRange = 200..299
-        private val Ipv4ByteRange = 0..255
     }
 }

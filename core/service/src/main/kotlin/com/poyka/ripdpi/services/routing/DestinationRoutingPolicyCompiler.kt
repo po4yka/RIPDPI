@@ -9,12 +9,11 @@ import com.poyka.ripdpi.core.routing.DestinationRoutingAction
 import com.poyka.ripdpi.core.routing.DestinationRoutingNetwork
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.core.routing.DestinationRoutingRule
+import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.data.rules.DomainBypassList
 import com.poyka.ripdpi.data.rules.OutboundTag
 import com.poyka.ripdpi.data.rules.RuleEntity
 import com.poyka.ripdpi.data.rules.RuleNetwork
-import java.net.Inet6Address
-import java.net.InetAddress
 import java.security.MessageDigest
 import java.util.Locale
 
@@ -279,10 +278,8 @@ private object DestinationMatcherParser {
                     .takeIf { it.isValidGeoToken() }
                     ?.let { DestinationIpMatcher(DestinationIpMatcherKind.GEO_IP, it) }
             } else {
-                val parts = raw.split('/')
-                parts
-                    .takeIf { it.size == CIDR_PART_COUNT }
-                    ?.let { CidrCanonicalizer.canonical(it[0], it[1].toIntOrNull()) }
+                NumericIp
+                    .canonicalCidr(raw)
                     ?.let { DestinationIpMatcher(DestinationIpMatcherKind.CIDR, it) }
             }
         return matcher?.let { MatcherParseResult.Value(it) } ?: MatcherParseResult.Malformed
@@ -359,91 +356,10 @@ private object DestinationMatcherParser {
     private const val GEOSITE_PREFIX = "geosite:"
     private const val GEO_IP_PREFIX = "geoip:"
     private const val MAX_HOST_LABEL_LENGTH = 63
-    private const val CIDR_PART_COUNT = 2
     private const val PORT_RANGE_PART_COUNT = 2
     private const val INVALID_PORT = -1
     private const val MIN_PORT = 1
     private const val MAX_PORT = 65_535
-}
-
-private object CidrCanonicalizer {
-    fun canonical(
-        rawAddress: String,
-        prefix: Int?,
-    ): String? =
-        if ('.' in rawAddress && ':' !in rawAddress) {
-            canonicalIpv4(rawAddress, prefix)
-        } else {
-            canonicalIpv6(rawAddress, prefix)
-        }
-
-    private fun canonicalIpv4(
-        rawAddress: String,
-        prefix: Int?,
-    ): String? =
-        parseIpv4(rawAddress)
-            ?.takeIf { prefix in 0..IPV4_BITS }
-            ?.also { clearHostBits(it, checkNotNull(prefix)) }
-            ?.joinToString(".") { it.toUByte().toString() }
-            ?.let { "$it/$prefix" }
-
-    private fun canonicalIpv6(
-        rawAddress: String,
-        prefix: Int?,
-    ): String? =
-        rawAddress
-            .takeIf { ':' in it && '%' !in it && prefix in 0..IPV6_BITS }
-            ?.let { runCatching { InetAddress.getByName(it) }.getOrNull() as? Inet6Address }
-            ?.address
-            ?.also { clearHostBits(it, checkNotNull(prefix)) }
-            ?.let(::formatIpv6)
-            ?.let { "$it/$prefix" }
-
-    private fun parseIpv4(raw: String): ByteArray? {
-        val parts = raw.split('.')
-        val values =
-            parts
-                .takeIf { it.size == IPV4_OCTETS }
-                ?.takeIf { parts -> parts.all { it.isCanonicalIpv4Octet() } }
-                ?.map { it.toInt() }
-                ?.takeIf { octets -> octets.all { it in MIN_OCTET..MAX_OCTET } }
-        return values?.map(Int::toByte)?.toByteArray()
-    }
-
-    private fun String.isCanonicalIpv4Octet(): Boolean =
-        isNotEmpty() &&
-            length <= MAX_OCTET_DIGITS &&
-            all(Char::isDigit) &&
-            (length == 1 || !startsWith('0'))
-
-    private fun clearHostBits(
-        bytes: ByteArray,
-        prefix: Int,
-    ) {
-        for (bit in prefix until bytes.size * Byte.SIZE_BITS) {
-            val byteIndex = bit / Byte.SIZE_BITS
-            val mask = 1 shl (Byte.SIZE_BITS - 1 - bit % Byte.SIZE_BITS)
-            bytes[byteIndex] = (bytes[byteIndex].toInt() and mask.inv()).toByte()
-        }
-    }
-
-    private fun formatIpv6(bytes: ByteArray): String =
-        bytes.asList().chunked(IPV6_GROUP_BYTES).joinToString(":") { pair ->
-            val group =
-                ((pair[0].toInt() and BYTE_MASK) shl Byte.SIZE_BITS) or
-                    (pair[1].toInt() and BYTE_MASK)
-            group.toString(IPV6_RADIX)
-        }
-
-    private const val IPV4_BITS = 32
-    private const val IPV6_BITS = 128
-    private const val IPV4_OCTETS = 4
-    private const val IPV6_GROUP_BYTES = 2
-    private const val IPV6_RADIX = 16
-    private const val MIN_OCTET = 0
-    private const val MAX_OCTET = 255
-    private const val MAX_OCTET_DIGITS = 3
-    private const val BYTE_MASK = 0xff
 }
 
 private object DestinationRoutingPolicyDigest {

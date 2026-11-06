@@ -8,6 +8,8 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+ripdpi-packets = { workspace = true }
+ipnet = { workspace = true }
 serde = { workspace = true }
 yaml_serde = { workspace = true }
 thiserror = { workspace = true }

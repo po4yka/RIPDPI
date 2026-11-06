@@ -10,9 +10,6 @@ const val QuicFakeProfileCompatDefault = "compat_default"
 const val QuicFakeProfileRealisticInitial = "realistic_initial"
 const val DefaultQuicFakeHost = "www.wikipedia.org"
 
-private const val MaxIpv4OctetValue = 255
-private const val MaxIpv4LabelCount = 4
-
 private fun hasInvalidHostnameStructure(trimmed: String): Boolean =
     trimmed.isEmpty() || trimmed.contains(':') || trimmed.startsWith('.') ||
         trimmed.endsWith('.') || trimmed.contains("..")
@@ -76,12 +73,7 @@ fun normalizeQuicFakeHost(value: String): String {
     if (trimmed.split('.').any { label -> label.isEmpty() || label.startsWith('-') || label.endsWith('-') }) {
         return ""
     }
-    val ipv4Parts = trimmed.split('.')
-    val isIpv4Literal =
-        ipv4Parts.size == MaxIpv4LabelCount &&
-            ipv4Parts.all { part ->
-                part.toIntOrNull()?.let { octet -> octet in 0..MaxIpv4OctetValue && octet.toString() == part } == true
-            }
+    val isIpv4Literal = NumericIp.parseAddress(trimmed)?.isIPv4 == true
     return if (isIpv4Literal) "" else trimmed
 }
 

@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.diagnostics.DnsResponseOutcome
 import com.poyka.ripdpi.diagnostics.DnsResponseSemantics
 import com.poyka.ripdpi.diagnostics.dpich.BootstrapVerdict
@@ -265,7 +266,9 @@ private val NegativeOutcomes =
         DnsResponseOutcome.OTHER_RCODE,
     )
 
-private fun isFakeIp(ip: String): Boolean = ip.split('.').let { it[0] == "198" && it[1] in setOf("18", "19") }
+private fun isFakeIp(ip: String): Boolean = NumericIp.parseAddress(ip)?.let(FakeIpRange::contains) == true
+
+private val FakeIpRange = requireNotNull(NumericIp.parseCidr("198.18.0.0/15"))
 
 /**
  * IPv4 answers match when they share an address or a /24, the same rule as the native

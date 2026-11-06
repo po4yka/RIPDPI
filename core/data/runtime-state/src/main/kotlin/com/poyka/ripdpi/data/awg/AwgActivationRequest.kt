@@ -1,11 +1,10 @@
 package com.poyka.ripdpi.data.awg
 
+import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.data.redacted
 import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 import com.poyka.ripdpi.data.wireguard.AmneziaWgWireProfile
 import kotlinx.serialization.Serializable
-import java.net.URI
-import java.net.URISyntaxException
 import java.util.Base64
 
 /**
@@ -126,55 +125,22 @@ private fun String.isWireGuardKey(): Boolean =
         decoded.size == WireGuardKeyBytes && Base64.getEncoder().encodeToString(decoded) == this
     } == true
 
-internal fun String.isIpv4Cidr(): Boolean = isCidr(Ipv4PrefixRange, String::isIpv4Address)
+internal fun String.isIpv4Cidr(): Boolean = NumericIp.parseCidr(this)?.address?.isIPv4 == true
 
-internal fun String.isIpv6Cidr(): Boolean = isCidr(Ipv6PrefixRange, String::isIpv6Address)
-
-private fun String.isCidr(
-    prefixRange: IntRange,
-    addressIsValid: (String) -> Boolean,
-): Boolean {
-    val parts = split('/')
-    val prefix = parts.getOrNull(1)?.toIntOrNull()
-    return parts.size == CidrPartCount &&
-        prefix?.let { it in prefixRange && it.toString() == parts[1] } == true &&
-        addressIsValid(parts[0])
-}
+internal fun String.isIpv6Cidr(): Boolean = '.' !in this && NumericIp.parseCidr(this)?.address?.isIPv6 == true
 
 /** Validates an AWG resolver literal without DNS resolution. */
 fun isAwgNumericAddress(address: String): Boolean = address.isIpv4Address() || address.isIpv6Address()
 
-private fun String.isIpv4Address(): Boolean {
-    val octets = split('.')
-    return octets.size == Ipv4OctetCount &&
-        octets.all { octet ->
-            octet.isNotEmpty() &&
-                octet.all { it in '0'..'9' } &&
-                (octet == "0" || !octet.startsWith('0')) &&
-                octet.toIntOrNull()?.let { it in Ipv4OctetRange } == true
-        }
-}
+private fun String.isIpv4Address(): Boolean = NumericIp.parseAddress(this)?.isIPv4 == true
 
-private fun String.isIpv6Address(): Boolean {
-    if (':' !in this || any { it !in Ipv6LiteralCharacters }) return false
-    // URI validates a bracketed IPv6 literal without resolving names or opening a socket.
-    return try {
-        URI("https://[$this]/").host != null
-    } catch (_: URISyntaxException) {
-        false
-    }
-}
+private fun String.isIpv6Address(): Boolean = '.' !in this && NumericIp.parseAddress(this)?.isIPv6 == true
 
 private val ValidEndpointPorts = 1..65_535
 internal val ValidAmneziaWgMtu = 1280..1420
 private val ValidKeepalive = 0..AmneziaWgV3Parameters.MaximumRange
-private val Ipv4PrefixRange = 0..32
-private val Ipv6PrefixRange = 0..128
-private val Ipv4OctetRange = 0..255
-private const val Ipv6LiteralCharacters = "0123456789abcdefABCDEF:"
+
 private const val WireGuardKeyBytes = 32
-private const val CidrPartCount = 2
-private const val Ipv4OctetCount = 4
 
 /**
  * AmneziaWG obfuscation knobs in activation-request form. Mirrors the

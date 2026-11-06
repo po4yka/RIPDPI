@@ -90,7 +90,7 @@ class IpFamilyProbePlanningTest {
         listOf("0.0.0.0", "224.0.0.1", "255.255.255.255", "192.0.0.170", "192.0.0.171").forEach {
             assertTrue(runCatching { IpFamilyProbeConfig(ipv4Address = it).validate() }.isFailure)
         }
-        listOf("::", "ff02::1").forEach {
+        listOf("::", "ff02::1", "::ffff:101:101", "::ffff:7f00:1").forEach {
             assertTrue(runCatching { IpFamilyProbeConfig(ipv6Address = it).validate() }.isFailure)
         }
     }

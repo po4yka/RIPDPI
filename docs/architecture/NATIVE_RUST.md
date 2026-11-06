@@ -200,7 +200,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 |-------|----------------|-------------|-------------------|-----------------|--------|
 | `ripdpi-config` | **Core** runtime/CLI config model + parsing | Config structs (serde) | `ripdpi-packets` | Fan-in 18; name implies "CLI-only" but it is the shared core config | Doc: clarify scope; do not rename (constraint) |
 | `ripdpi-proxy-config` | Proxy `RuntimeConfig` shape + strategy-config translation bridge | Config structs (serde) | `ripdpi-config`, `ripdpi-packets` | Fan-in 16 | Keep — treat as wire contract |
-| `ripdpi-tunnel-config` | TUN-to-SOCKS tunnel config model | Config structs | — (leaf) | Low | Keep |
+| `ripdpi-tunnel-config` | TUN-to-SOCKS tunnel config model | Config structs | `ripdpi-packets` | Low | Keep |
 | `ripdpi-strategy-config` | Strategy-chain config model | Config structs | — (leaf) | Consumed by `ripdpi-android` directly | Keep |
 | `ripdpi-strategy-trait` | The strategy contract trait | Trait | — (leaf) | Fan-in 9 (all `ripdpi-strategy-*`) | Keep — hand-author, do not auto-generate |
 | `ripdpi-runtime-api` | Runtime API / port types | Traits + types | `ripdpi-failure-classifier`, `ripdpi-proxy-config` | Fan-in 9 | Keep |
@@ -298,7 +298,7 @@ enumeration of exported symbols; read each crate's `src/lib.rs` for the exact
 | `ripdpi-cloudflare-origin` | Local xHTTP origin helper for CF Tunnel publish | `bin` | `ripdpi-vless` | Subprocess helper binary | Keep |
 | `ripdpi-naiveproxy` | NaiveProxy helper | `bin` (`src/main.rs`) | `ripdpi-tls-profiles` | Subprocess helper binary | Keep |
 | `ripdpi-relay-tls-transports` | Shared TLS relay helpers | Library | `ripdpi-relay-mux`, `ripdpi-anytls`, `ripdpi-shadowtls`, `ripdpi-shadowsocks`, `ripdpi-tor`, `ripdpi-trojan`, `ripdpi-vless` | Shared by TLS-shaped relay transports | Keep |
-| `ripdpi-warp-core` | WARP runtime + generic AmneziaWG runtime / codec | Runtime API | `ripdpi-wireguard-ws` | `smoltcp`; root of `libripdpi-warp.so` and shared by `libripdpi-amneziawg.so` | Keep |
+| `ripdpi-warp-core` | WARP runtime + generic AmneziaWG runtime / codec | Runtime API | `ripdpi-wireguard-ws`, `ripdpi-packets` | `smoltcp`; root of `libripdpi-warp.so` and shared by `libripdpi-amneziawg.so` | Keep |
 | `ripdpi-wireguard-ws` | WireGuard-over-WebSocket carrier framing + protected carrier socket seam | Carrier codec + connect seam | — (leaf) | Used by `ripdpi-warp-core` for AmneziaWG `carrier = ws`; must stay JNI-free | Keep |
 | `ripdpi-apps-script-core` | Google Apps Script relay path | Transport client | — (leaf) | Consumed by `ripdpi-relay-android` | Keep |
 | `ripdpi-ws-tunnel` | MTProto WebSocket tunnel for Telegram | `TelegramWsTransport` implementation | `ripdpi-ws-transport-port`, `ripdpi-tls-profiles` | `boring`; composed only by outer roots | Keep |

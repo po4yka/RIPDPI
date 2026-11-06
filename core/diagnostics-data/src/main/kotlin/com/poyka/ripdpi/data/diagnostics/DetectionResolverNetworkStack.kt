@@ -8,6 +8,7 @@ import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.BundledDnsProviderCatalog
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
+import com.poyka.ripdpi.data.NumericIp
 import okhttp3.Dispatcher
 import okhttp3.Dns
 import okhttp3.HttpUrl.Companion.toHttpUrl
@@ -332,8 +333,7 @@ class DetectionResolverNetworkStack(
                 }.build()
         val bootstrapHosts =
             config.dohBootstrapIps
-                .filter(::isValidIpLiteral)
-                .mapNotNull { runCatching { InetAddress.getByName(it) }.getOrNull() }
+                .mapNotNull { NumericIp.parseAddress(it)?.toInetAddress() }
         val builder =
             DnsOverHttps
                 .Builder()
@@ -520,12 +520,11 @@ internal class DirectDns(
         servers.mapNotNull { value ->
             value
                 .trim()
-                .takeIf(::isValidIpLiteral)
-                ?.let { runCatching { InetAddress.getByName(it) }.getOrNull() }
+                .let { NumericIp.parseAddress(it)?.toInetAddress() }
         }
 
     override fun lookup(hostname: String): List<InetAddress> {
-        if (isValidIpLiteral(hostname)) return listOf(InetAddress.getByName(hostname))
+        NumericIp.parseAddress(hostname)?.let { return listOf(it.toInetAddress()) }
         if (serverAddresses.isEmpty()) throw UnknownHostException("No valid direct DNS servers configured")
 
         val resolved = linkedMapOf<String, InetAddress>()
@@ -646,7 +645,7 @@ internal class NetworkDns(
     private val network: Network,
 ) : Dns {
     override fun lookup(hostname: String): List<InetAddress> {
-        if (isValidIpLiteral(hostname)) return listOf(InetAddress.getByName(hostname))
+        NumericIp.parseAddress(hostname)?.let { return listOf(it.toInetAddress()) }
         return network
             .getAllByName(hostname)
             ?.toList()
@@ -753,10 +752,3 @@ internal object ResolverSocketBinder {
         )
     }
 }
-
-private fun isValidIpLiteral(value: String): Boolean {
-    val trimmed = value.trim()
-    return IPV4_LITERAL.matches(trimmed) || trimmed.contains(":")
-}
-
-private val IPV4_LITERAL = Regex("""\d{1,3}(?:\.\d{1,3}){3}""")

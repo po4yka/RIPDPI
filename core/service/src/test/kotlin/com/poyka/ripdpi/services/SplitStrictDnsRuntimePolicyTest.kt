@@ -210,6 +210,8 @@ class SplitStrictDnsRuntimePolicyTest {
         val invalidUnderlays =
             listOf(
                 listOf("192.0.2.53", "underlay.example") to "direct_resolver_invalid",
+                listOf("1.2.3.4::") to "direct_resolver_invalid",
+                listOf("::1.2.3.04") to "direct_resolver_invalid",
                 List(17) { "192.0.2.${it + 1}" } to "direct_resolver_list_too_large",
             )
 

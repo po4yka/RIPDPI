@@ -162,3 +162,21 @@ fn cache_persist_preserves_existing_file_permissions() {
 
     assert_eq!(fs::metadata(&path).expect("route cache metadata").permissions().mode() & 0o777, 0o400);
 }
+
+#[test]
+fn cache_match_rejects_invalid_prefixes_without_narrowing() {
+    for (address, valid, invalid) in
+        [("192.0.2.129", 32, vec![33, 128, 256, u16::MAX]), ("2001:db8::1", 128, vec![129, 256, u16::MAX])]
+    {
+        let addr = address.parse().unwrap();
+        let dest = std::net::SocketAddr::new(addr, 443);
+        let mut entry = ripdpi_config::CacheEntry { addr, bits: valid, port: 443, time: 0, host: None };
+        assert!(super::connection::cache_matches(&entry, dest));
+        for bits in invalid {
+            entry.bits = bits;
+            assert!(!super::connection::cache_matches(&entry, dest), "{address}/{bits}");
+        }
+        entry.bits = 0;
+        assert!(super::connection::cache_matches(&entry, dest));
+    }
+}

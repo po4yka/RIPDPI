@@ -19,6 +19,30 @@ import java.util.concurrent.atomic.AtomicInteger
 import kotlin.random.Random
 
 class Ipv4WhitelistedSubnetDiscovererTest {
+    @Test
+    fun samplesDefaultRouteWithoutOverflowAndKeepsPointToPointHosts() =
+        runTest {
+            temp.create()
+            val cache = SubnetsCache(temp.newFile("boundary-cache.json"))
+            cache.save(
+                listOf("0.0.0.0/0", "192.0.2.0/31", "192.0.2.7/32").map {
+                    CachedWhitelistSubnet("test", 1, it)
+                },
+            )
+            val discoverer =
+                Ipv4WhitelistedSubnetDiscoverer(
+                    asns = emptyList(),
+                    ripeStat = RecordingRipeStatSource(),
+                    cache = cache,
+                    aliveProbe = FakeSubnetAliveProbe(setOf("192.0.2.0", "192.0.2.1", "192.0.2.7")),
+                    random = Random(1),
+                )
+            val results = discoverer.checkCachedSubnets(WhitelistedSubnetConfig(subnetSampleSize = 3)).toList()
+            assertEquals(listOf(3, 2, 1), results.map { it.result.aliveSampled })
+            assertEquals(2, results[1].result.aliveCount)
+            assertEquals(1, results[2].result.aliveCount)
+        }
+
     private val temp = TemporaryFolder()
 
     @Test

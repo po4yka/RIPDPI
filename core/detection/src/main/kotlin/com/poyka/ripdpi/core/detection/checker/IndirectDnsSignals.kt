@@ -8,6 +8,7 @@ import com.poyka.ripdpi.core.detection.EvidenceConfidence
 import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
+import com.poyka.ripdpi.data.NumericIp
 import kotlinx.coroutines.CancellationException
 
 internal object IndirectDnsSignals {
@@ -36,7 +37,7 @@ internal object IndirectDnsSignals {
             "2620:119:53::53",
             "2a10:50c0::ad1:ff",
             "2a10:50c0::ad2:ff",
-        )
+        ).mapTo(hashSetOf()) { requireNotNull(NumericIp.parseAddress(it)).toNormalizedString() }
 
     @Suppress("CyclomaticComplexMethod", "NestedBlockDepth")
     fun checkDns(
@@ -150,29 +151,23 @@ internal object IndirectDnsSignals {
             IndirectSignalOutcome()
         }
 
-    private fun isPrivate172(addr: String): Boolean {
-        val parts = addr.split(".")
-        if (parts.size < 2) return false
-        val second = parts[1].toIntOrNull() ?: return false
-        return second in 16..31
-    }
-
     fun classifyDnsAddress(addr: String): IndirectSignsChecker.DnsClassification {
-        val normalized = addr.lowercase()
-        if (normalized == "::1" || normalized.startsWith("127.")) return IndirectSignsChecker.DnsClassification.LOOPBACK
-        if (normalized.startsWith("169.254.") || normalized.startsWith("fe80:")) {
-            return IndirectSignsChecker.DnsClassification.LINK_LOCAL
-        }
-        if (
-            normalized.startsWith("10.") ||
-            (normalized.startsWith("172.") && isPrivate172(normalized)) ||
-            normalized.startsWith("fc") ||
-            normalized.startsWith("fd")
-        ) {
+        val parsed = NumericIp.parseAddress(addr) ?: return IndirectSignsChecker.DnsClassification.OTHER_PUBLIC
+        val normalized = parsed.toNormalizedString()
+        val address = parsed.toInetAddress()
+        if (address.isLoopbackAddress) return IndirectSignsChecker.DnsClassification.LOOPBACK
+        if (address.isLinkLocalAddress) return IndirectSignsChecker.DnsClassification.LINK_LOCAL
+        if (PrivateTunnelRanges.any { it.contains(parsed) }) {
             return IndirectSignsChecker.DnsClassification.PRIVATE_TUNNEL
         }
-        if (normalized.startsWith("192.168.")) return IndirectSignsChecker.DnsClassification.PRIVATE_LAN
+        if (PrivateLanRange.contains(parsed)) return IndirectSignsChecker.DnsClassification.PRIVATE_LAN
         if (normalized in KNOWN_PUBLIC_RESOLVERS) return IndirectSignsChecker.DnsClassification.KNOWN_PUBLIC_RESOLVER
         return IndirectSignsChecker.DnsClassification.OTHER_PUBLIC
     }
 }
+
+private val PrivateTunnelRanges =
+    listOf("10.0.0.0/8", "172.16.0.0/12", "fc00::/7").map {
+        requireNotNull(NumericIp.parseCidr(it))
+    }
+private val PrivateLanRange = requireNotNull(NumericIp.parseCidr("192.168.0.0/16"))

@@ -8,10 +8,9 @@
 
 package com.poyka.ripdpi.services
 
-import android.net.InetAddresses
-import android.os.Build
 import co.touchlab.kermit.Logger
 import com.poyka.ripdpi.core.LocalSocksCredentials
+import com.poyka.ripdpi.data.NumericIp
 import java.io.Closeable
 import java.io.EOFException
 import java.io.IOException
@@ -96,27 +95,7 @@ internal fun encodeManagedClientSocksConnectRequest(
     return request.toByteArray()
 }
 
-private fun parseNumericAddressOrNull(host: String): InetAddress? {
-    val trimmed = host.trim()
-    if (trimmed.isEmpty()) return null
-    parseIpv4Literal(trimmed)?.let { return it }
-    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && InetAddresses.isNumericAddress(trimmed)) {
-        return InetAddresses.parseNumericAddress(trimmed)
-    }
-    return null
-}
-
-private fun parseIpv4Literal(value: String): InetAddress? {
-    val octets = value.split('.')
-    if (octets.size != Ipv4AddressByteCount) return null
-    val bytes =
-        octets.map { part ->
-            if (part.isEmpty() || part.length > 3) return null
-            if (part.length > 1 && part.startsWith('0')) return null
-            part.toIntOrNull()?.takeIf { it in 0..255 }?.toByte() ?: return null
-        }
-    return InetAddress.getByAddress(bytes.toByteArray())
-}
+private fun parseNumericAddressOrNull(host: String): InetAddress? = NumericIp.parseAddress(host.trim())?.toInetAddress()
 
 // RFC 1928 section 6 reply codes.
 private const val RepFailure = 0x01
@@ -154,7 +133,10 @@ internal class ManagedClientSocksBridge(
         // This listener is only for the app's local proxy stack.
         val loopback =
             listenHost.equals("localhost", ignoreCase = true) ||
-                parseNumericAddressOrNull(listenHost)?.isLoopbackAddress == true
+                NumericIp.parseAddress(listenHost.trim())?.let { parsed ->
+                    val address = if (parsed.isIPv6 && parsed.toIPv6().isIPv4Mapped) parsed.toIPv4() else parsed
+                    address.toInetAddress().isLoopbackAddress
+                } == true
         require(loopback) {
             "PT SOCKS bridge must listen on a loopback address"
         }

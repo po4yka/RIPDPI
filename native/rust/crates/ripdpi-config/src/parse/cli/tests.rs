@@ -1,9 +1,10 @@
 use super::helpers::{parse_host_filter_spec, parse_numeric_addr, seconds_to_millis};
 use super::*;
 use crate::{
-    AutoTtlConfig, Cidr, EntropyMode, NumericRange, OffsetBase, OffsetExpr, ParseResult, QuicFakeProfile,
-    SeqOverlapFakeMode, TcpChainStepKind, UdpChainStep, UdpChainStepKind, WsizeConfig,
+    AutoTtlConfig, EntropyMode, NumericRange, OffsetBase, OffsetExpr, ParseResult, QuicFakeProfile, SeqOverlapFakeMode,
+    TcpChainStepKind, UdpChainStep, UdpChainStepKind, WsizeConfig,
 };
+use ipnet::IpNet;
 use ripdpi_packets::{
     HttpFakeProfile, MH_DMIX, MH_HMIX, MH_METHODEOL, MH_SPACE, MH_UNIXEOL, TlsFakeProfile, UdpFakeProfile,
 };
@@ -37,11 +38,18 @@ fn parse_ipset_spec_defaults_and_rejects_oversized_prefixes() {
     assert_eq!(
         entries,
         vec![
-            Cidr { addr: IpAddr::from_str("192.0.2.1").expect("ipv4 addr"), bits: 32 },
-            Cidr { addr: IpAddr::from_str("2001:db8::1").expect("ipv6 addr"), bits: 128 },
+            IpNet::new(IpAddr::from_str("192.0.2.1").expect("ipv4 addr"), 32).unwrap(),
+            IpNet::new(IpAddr::from_str("2001:db8::1").expect("ipv6 addr"), 128).unwrap(),
         ]
     );
-    assert!(parse_ipset_spec("192.0.2.1/33").is_err());
+    for value in ["192.0.2.1/33", "192.0.2.1/+24", "192.0.2.1/024", "192.0.2.1/", "01.2.3.4/24", "::1/064"] {
+        assert!(parse_ipset_spec(value).is_err(), "{value}");
+    }
+    assert_eq!(parse_ipset_spec("192.0.2.129/24").unwrap()[0].addr().to_string(), "192.0.2.0");
+    let zero = parse_ipset_spec("0.0.0.0/0 ::/0").unwrap();
+    assert!(zero[0].contains(&"203.0.113.9".parse::<IpAddr>().unwrap()));
+    assert!(!zero[0].contains(&"::1".parse::<IpAddr>().unwrap()));
+    assert!(zero[1].contains(&"2001:db8::1".parse::<IpAddr>().unwrap()));
     assert!(parse_ipset_spec("2001:db8::1/129").is_err());
 }
 

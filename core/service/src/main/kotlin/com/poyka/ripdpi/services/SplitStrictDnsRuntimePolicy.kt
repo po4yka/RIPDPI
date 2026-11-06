@@ -7,9 +7,9 @@ import com.poyka.ripdpi.core.routing.DestinationRoutingNetwork
 import com.poyka.ripdpi.core.routing.DestinationRoutingPolicy
 import com.poyka.ripdpi.data.ActiveDnsSettings
 import com.poyka.ripdpi.data.DnsResolverPlane
+import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.services.routing.DestinationRoutingPolicySnapshot
 import java.net.IDN
-import java.net.InetAddress
 import java.security.MessageDigest
 import java.util.Locale
 
@@ -18,20 +18,8 @@ private const val MaxDnsNameLength = 253
 private const val MaxDnsLabelLength = 63
 private const val MaxRawDnsNameLength = 1024
 private const val MaxNumericAddressLength = 64
-private const val Ipv4PartCount = 4
-private const val MaxIpv4Octet = 255
-private const val Ipv6WordCount = 8
-private const val Ipv6ByteCount = 16
-private const val BitsPerByte = 8
+
 private const val ByteMask = 0xff
-private const val BytesPerWord = 2
-private const val LowByteOffset = 1
-private const val HexRadix = 16
-private const val MaxIpv6WordLength = 4
-private const val EmbeddedIpv4HighIndex = 0
-private const val EmbeddedIpv4LowIndex = 1
-private const val EmbeddedIpv4SecondHighIndex = 2
-private const val EmbeddedIpv4SecondLowIndex = 3
 
 internal data class SplitStrictDnsDecision(
     val plane: DnsResolverPlane,
@@ -171,17 +159,9 @@ private data class NumericAddresses(
 )
 
 private const val DirectResolverRole = "direct"
-private const val Ipv6LinkLocalFirstByte = 0xfe
-private const val Ipv6LinkLocalSecondByteMask = 0xc0
-private const val Ipv6LinkLocalSecondBytePrefix = 0x80
 
-private fun isLinkLocalResolverLiteral(raw: String): Boolean {
-    val address = raw.substringBefore('%')
-    val bytes = address.takeIf { ':' in it && it.length <= MaxNumericAddressLength }?.let(::parseIpv6Bytes)
-    return bytes != null &&
-        bytes[0] == Ipv6LinkLocalFirstByte.toByte() &&
-        (bytes[1].toInt() and Ipv6LinkLocalSecondByteMask) == Ipv6LinkLocalSecondBytePrefix
-}
+private fun isLinkLocalResolverLiteral(raw: String): Boolean =
+    NumericIp.parseAddress(raw.substringBefore('%'))?.let { it.isIPv6 && it.toInetAddress().isLinkLocalAddress } == true
 
 private fun numericAddressesOrEmpty(
     values: List<String>,
@@ -202,88 +182,7 @@ private fun numericAddressesOrEmpty(
     }
 
 private fun canonicalNumericAddress(raw: String): String? =
-    if (!isBoundedNumericLiteral(raw)) {
-        null
-    } else if ('.' in raw && ':' !in raw) {
-        parseIpv4Octets(raw)?.joinToString(".")
-    } else {
-        parseIpv6Bytes(raw)?.let(InetAddress::getByAddress)?.hostAddress?.lowercase(Locale.ROOT)
-    }
-
-private fun isBoundedNumericLiteral(raw: String): Boolean {
-    val bounded = raw.isNotEmpty() && raw.length <= MaxNumericAddressLength
-    val canonicalSpacing = raw == raw.trim()
-    return bounded && canonicalSpacing && '%' !in raw
-}
-
-private fun parseIpv6Bytes(raw: String): ByteArray? {
-    val validCharacters = ':' in raw && raw.all { it in "0123456789abcdefABCDEF:." }
-    val compressionIndex = raw.indexOf("::")
-    val compressionPresent = compressionIndex >= 0
-    val duplicateCompression = compressionPresent && raw.indexOf("::", compressionIndex + 2) >= 0
-    val leftRaw = if (compressionIndex >= 0) raw.substring(0, compressionIndex) else raw
-    val rightRaw = if (compressionIndex >= 0) raw.substring(compressionIndex + 2) else ""
-    val left = parseIpv6Side(leftRaw)
-    val right = parseIpv6Side(rightRaw)
-    val missing = Ipv6WordCount - left.orEmpty().size - right.orEmpty().size
-    val validWordCount =
-        missing >= 0 &&
-            ((compressionPresent && missing > 0) || (!compressionPresent && missing == 0))
-    val validSyntax = validCharacters && !duplicateCompression
-    val validSides = left != null && right != null
-    val words =
-        if (validSyntax && validSides && validWordCount) {
-            left.orEmpty() + List(missing) { 0 } + right.orEmpty()
-        } else {
-            null
-        }
-    return words?.takeIf { it.size == Ipv6WordCount }?.toIpv6Bytes()
-}
-
-private fun List<Int>.toIpv6Bytes(): ByteArray =
-    ByteArray(Ipv6ByteCount).also { bytes ->
-        forEachIndexed { index, word ->
-            bytes[index * BytesPerWord] = (word ushr BitsPerByte).toByte()
-            bytes[index * BytesPerWord + LowByteOffset] = word.toByte()
-        }
-    }
-
-private fun parseIpv6Side(raw: String): List<Int>? =
-    if (raw.isEmpty()) {
-        emptyList()
-    } else {
-        val parts = raw.split(':')
-        parts.takeUnless { it.any(String::isEmpty) }?.foldIndexed(emptyList<Int>() as List<Int>?) { index, acc, part ->
-            acc?.plus(parseIpv6Part(part, index == parts.lastIndex) ?: return@foldIndexed null)
-        }
-    }
-
-private fun parseIpv6Part(
-    part: String,
-    isLast: Boolean,
-): List<Int>? =
-    if ('.' in part) {
-        parseIpv4Octets(part)?.takeIf { isLast }?.let { ipv4 ->
-            listOf(
-                (ipv4[EmbeddedIpv4HighIndex] shl BitsPerByte) or ipv4[EmbeddedIpv4LowIndex],
-                (ipv4[EmbeddedIpv4SecondHighIndex] shl BitsPerByte) or ipv4[EmbeddedIpv4SecondLowIndex],
-            )
-        }
-    } else {
-        part.toIntOrNull(HexRadix)?.takeIf { part.length <= MaxIpv6WordLength }?.let(::listOf)
-    }
-
-private fun parseIpv4Octets(raw: String): List<Int>? {
-    val parts = raw.split('.')
-    val parsed = parts.map(::parseIpv4Octet)
-    return if (parts.size == Ipv4PartCount && parsed.none { it == null }) parsed.filterNotNull() else null
-}
-
-private fun parseIpv4Octet(part: String): Int? =
-    part
-        .takeIf { it.isNotEmpty() && (it.length == 1 || !it.startsWith('0')) }
-        ?.toIntOrNull()
-        ?.takeIf { it in 0..MaxIpv4Octet }
+    raw.takeIf { it.length <= MaxNumericAddressLength }?.let(NumericIp::parseAddress)?.toNormalizedString()
 
 private enum class DomainMatch { MATCH, NO_MATCH, INCONCLUSIVE }
 

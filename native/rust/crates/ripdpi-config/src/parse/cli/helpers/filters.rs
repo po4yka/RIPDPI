@@ -1,7 +1,7 @@
-use std::net::IpAddr;
-use std::str::FromStr;
+use ipnet::IpNet;
+use ripdpi_packets::ip::parse_cidr;
 
-use crate::{Cidr, ConfigError, FilterSet};
+use crate::{ConfigError, FilterSet};
 
 use super::super::super::fake_profiles::lower_host_char;
 
@@ -56,30 +56,13 @@ fn normalize_geo_token(token: &str, prefix: &str) -> Result<String, ConfigError>
     Ok(normalized)
 }
 
-fn parse_ip_token(token: &str) -> Result<Cidr, ConfigError> {
-    let (addr_str, bits) = match token.split_once('/') {
-        Some((addr, bits_str)) => {
-            let bits = bits_str.parse::<u16>().map_err(|_| ConfigError::invalid("--ipset", Some(token)))?;
-            if bits == 0 {
-                return Err(ConfigError::invalid("--ipset", Some(token)));
-            }
-            (addr, bits)
-        }
-        None => (token, 0),
-    };
-    let addr = IpAddr::from_str(addr_str).map_err(|_| ConfigError::invalid("--ipset", Some(token)))?;
-    let max_bits = match addr {
-        IpAddr::V4(_) => 32,
-        IpAddr::V6(_) => 128,
-    };
-    if bits > max_bits {
-        return Err(ConfigError::invalid("--ipset", Some(token)));
-    }
-    let bits = if bits == 0 { max_bits } else { bits };
-    Ok(Cidr { addr, bits: bits as u8 })
+fn parse_ip_token(token: &str) -> Result<IpNet, ConfigError> {
+    parse_cidr(token, Some((32, 128)))
+        .map(|network| network.trunc())
+        .map_err(|_| ConfigError::invalid("--ipset", Some(token)))
 }
 
-pub fn parse_ipset_spec(spec: &str) -> Result<Vec<Cidr>, ConfigError> {
+pub fn parse_ipset_spec(spec: &str) -> Result<Vec<IpNet>, ConfigError> {
     let mut out = Vec::new();
     for token in spec.split_whitespace() {
         out.push(parse_ip_token(token)?);

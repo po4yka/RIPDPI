@@ -1,9 +1,9 @@
+use ipnet::{IpNet, Ipv4Net};
 use std::net::{IpAddr, SocketAddr};
-use std::str::FromStr;
 
 use ripdpi_proxy_runtime_adapter::model::config::{
     DestinationDomainMatcher, DestinationDomainMatcherKind, DestinationIpMatcher, DestinationIpMatcherKind,
-    DestinationRoutingAction, DestinationRoutingNetwork, DestinationRoutingPolicy, DestinationRoutingRule,
+    DestinationRoutingAction, DestinationRoutingNetwork, DestinationRoutingPolicy, DestinationRoutingRule, parse_cidr,
 };
 use ripdpi_proxy_runtime_adapter::model::decision::TransportProtocol;
 use ripdpi_proxy_runtime_adapter::model::services::GeoMatcher;
@@ -31,7 +31,7 @@ struct CompiledRule {
 
 #[derive(Clone)]
 enum CompiledIpMatcher {
-    Cidr { network: IpAddr, prefix: u8 },
+    Cidr(IpNet),
     Private,
     GeoIp(Box<str>),
 }
@@ -135,16 +135,7 @@ impl CompiledRule {
 impl CompiledIpMatcher {
     fn compile(matcher: &DestinationIpMatcher) -> Option<Self> {
         match matcher.kind {
-            DestinationIpMatcherKind::Cidr => {
-                let (address, prefix) = matcher.value.split_once('/')?;
-                let network = IpAddr::from_str(address).ok()?;
-                let prefix = prefix.parse::<u8>().ok()?;
-                matches!(network, IpAddr::V4(_))
-                    .then_some(32)
-                    .or_else(|| matches!(network, IpAddr::V6(_)).then_some(128))
-                    .filter(|max| prefix <= *max)?;
-                Some(Self::Cidr { network, prefix })
-            }
+            DestinationIpMatcherKind::Cidr => Some(Self::Cidr(parse_cidr(&matcher.value, None).ok()?.trunc())),
             DestinationIpMatcherKind::GeoIp if matcher.value == "private" => Some(Self::Private),
             DestinationIpMatcherKind::GeoIp => Some(Self::GeoIp(matcher.value.clone().into_boxed_str())),
             _ => None,
@@ -153,7 +144,7 @@ impl CompiledIpMatcher {
 
     fn match_state(&self, target: IpAddr, geo: Option<&dyn GeoMatcher>) -> MatchState {
         match self {
-            Self::Cidr { network, prefix } => bool_match(cidr_contains(*network, *prefix, target)),
+            Self::Cidr(network) => bool_match(network.contains(&target)),
             Self::Private => bool_match(is_private_destination(target)),
             Self::GeoIp(country) => geo
                 .and_then(|matcher| matcher.country_match(country, target))
@@ -219,27 +210,13 @@ fn any_match(states: impl Iterator<Item = MatchState>) -> MatchState {
     if inconclusive { MatchState::Inconclusive } else { MatchState::NoMatch }
 }
 
-fn cidr_contains(network: IpAddr, prefix: u8, target: IpAddr) -> bool {
-    match (network, target) {
-        (IpAddr::V4(network), IpAddr::V4(target)) => {
-            let mask = if prefix == 0 { 0 } else { u32::MAX << (32 - prefix) };
-            u32::from(network) & mask == u32::from(target) & mask
-        }
-        (IpAddr::V6(network), IpAddr::V6(target)) => {
-            let mask = if prefix == 0 { 0 } else { u128::MAX << (128 - prefix) };
-            u128::from(network) & mask == u128::from(target) & mask
-        }
-        _ => false,
-    }
-}
-
 fn is_private_destination(target: IpAddr) -> bool {
     match target {
         IpAddr::V4(address) => {
             address.is_private()
                 || address.is_loopback()
                 || address.is_link_local()
-                || cidr_contains(IpAddr::V4(std::net::Ipv4Addr::new(100, 64, 0, 0)), 10, target)
+                || Ipv4Net::new_assert(std::net::Ipv4Addr::new(100, 64, 0, 0), 10).contains(&address)
         }
         IpAddr::V6(address) => address.is_loopback() || address.is_unique_local() || address.is_unicast_link_local(),
     }
@@ -289,6 +266,34 @@ mod tests {
             ..DestinationRoutingPolicy::default()
         })
         .evaluate(target, host, transport, geo)
+    }
+
+    #[test]
+    fn cidr_compilation_rejects_invalid_input_and_matches_boundaries() {
+        for value in ["192.0.2.1/+24", "192.0.2.1/024", "192.0.2.1/33", "::1/129", "::1/", "01.2.3.4/24"] {
+            assert!(
+                CompiledIpMatcher::compile(&DestinationIpMatcher {
+                    kind: DestinationIpMatcherKind::Cidr,
+                    value: value.to_string()
+                })
+                .is_none(),
+                "{value}"
+            );
+        }
+        for (value, included, excluded) in [
+            ("192.0.2.129/25", "192.0.2.255", "192.0.2.127"),
+            ("2001:db8::1/128", "2001:db8::1", "2001:db8::2"),
+            ("0.0.0.0/0", "203.0.113.1", "::ffff:203.0.113.1"),
+            ("::/0", "2001:db8::1", "192.0.2.1"),
+        ] {
+            let matcher = CompiledIpMatcher::compile(&DestinationIpMatcher {
+                kind: DestinationIpMatcherKind::Cidr,
+                value: value.to_string(),
+            })
+            .unwrap();
+            assert!(matches!(matcher.match_state(included.parse().unwrap(), None), MatchState::Match));
+            assert!(matches!(matcher.match_state(excluded.parse().unwrap(), None), MatchState::NoMatch));
+        }
     }
 
     #[test]

@@ -22,6 +22,21 @@ import org.robolectric.shadows.ShadowNetworkInfo
 @Config(sdk = [37])
 @LooperMode(LooperMode.Mode.PAUSED)
 class AndroidLocalNetworkAccessTest {
+    @Test
+    fun `mapped IPv4 peers retain local permission and loopback policy`() =
+        runTest {
+            val context = ApplicationProvider.getApplicationContext<Application>()
+            shadowOf(context).denyPermissions(LocalNetworkPermission)
+            val access = AndroidLocalNetworkAccess(context)
+            val failure = runCatching { access.requireDirectEndpoint("::ffff:192.168.1.1", 443) }.exceptionOrNull()
+            assertEquals(
+                FailureReason.PermissionLost(LocalNetworkPermission),
+                (failure as? LocalNetworkAccessRequiredException)?.reason,
+            )
+            assertEquals(false, access.requireDirectEndpoint("::ffff:127.0.0.1", 443))
+            assertEquals(false, access.requireListener("::ffff:127.0.0.1"))
+        }
+
     @Suppress("DEPRECATION")
     @Test
     fun `underlay selection prefers LAN capable transport when active network is VPN`() {

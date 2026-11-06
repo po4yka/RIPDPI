@@ -5,6 +5,16 @@ import org.junit.Test
 
 class IpAddressClassifierTest {
     @Test
+    fun `malformed numeric literals use local fallback`() {
+        listOf("198.018.0.1", "198.18.0.+1", "127.1", ":1::2", "1::2:").forEach {
+            assertEquals(it, IpAddressType.LOCAL, IpAddressClassifier.classify(it))
+        }
+        assertEquals(IpAddressType.FAKE_IP, IpAddressClassifier.classify("::ffff:198.18.0.1"))
+        assertEquals(IpAddressType.ISP_STUB, IpAddressClassifier.classify("::ffff:100.64.0.1"))
+        assertEquals(IpAddressType.LOCAL, IpAddressClassifier.classify("::ffff:127.0.0.1"))
+    }
+
+    @Test
     fun `198 18 lower boundary is fake ip`() {
         assertEquals(IpAddressType.FAKE_IP, IpAddressClassifier.classify("198.18.0.0"))
     }

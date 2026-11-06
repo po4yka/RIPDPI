@@ -2,6 +2,7 @@ package com.poyka.ripdpi.services
 
 import com.poyka.ripdpi.core.LocalSocksCredentials
 import com.poyka.ripdpi.core.ProviderRoute
+import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.data.xray.VpnProviderKind
 import com.poyka.ripdpi.data.xray.XrayConfigRenderer
 import com.poyka.ripdpi.data.xray.XrayConfigValidationFinding
@@ -12,7 +13,6 @@ import com.poyka.ripdpi.serialization.RipDpiEncodeDefaultsJson
 import kotlinx.coroutines.currentCoroutineContext
 import kotlinx.coroutines.ensureActive
 import kotlinx.serialization.json.JsonObject
-import java.net.URI
 
 /**
  * Builds the [ProviderRoute] and the rendered xray-core JSON config for the
@@ -138,15 +138,7 @@ internal class XrayProviderRouteBuilder(
         )
     }
 
-    private fun isNumeric(host: String): Boolean {
-        if (':' in host && host.all { it in "0123456789abcdefABCDEF:." }) {
-            // URI validates bracketed IPv6 syntax without calling a DNS resolver.
-            return runCatching { URI("http://[$host]").host != null }.getOrDefault(false)
-        }
-        val parts = host.split('.')
-        return parts.size == Ipv4OctetCount &&
-            parts.all { it.isNotEmpty() && it.all(Char::isDigit) && it.toIntOrNull() in 0..Ipv4MaxOctet }
-    }
+    private fun isNumeric(host: String): Boolean = NumericIp.parseAddress(host) != null
 
     private fun routeFor(profile: XrayProfile): ProviderRoute =
         ProviderRoute(
@@ -155,9 +147,4 @@ internal class XrayProviderRouteBuilder(
         )
 
     private fun serialize(config: JsonObject): String = configJson.encodeToString(JsonObject.serializer(), config)
-
-    private companion object {
-        const val Ipv4OctetCount = 4
-        const val Ipv4MaxOctet = 255
-    }
 }

@@ -125,6 +125,7 @@ license = "MIT"
 prost = "0.14.4"
 prost-build = "0.14.4"
 protoc-bin-vendored = "3.3.0"
+ipnet = "2.12.1"
 android-support = { path = "crates/android-support" }
 golden-test-support = { path = "crates/golden-test-support" }
 local-network-fixture = { path = "crates/local-network-fixture" }

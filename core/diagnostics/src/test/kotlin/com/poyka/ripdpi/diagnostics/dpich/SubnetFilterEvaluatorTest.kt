@@ -6,6 +6,21 @@ import org.junit.Test
 
 class SubnetFilterEvaluatorTest {
     @Test
+    fun numericRangesRejectAmbiguousSyntaxAndKeepBoundaryAddresses() {
+        listOf("01.2.3.4", "1.2.3.+4", "1.2.3.4/024", "1.2.3.4/+24", "1.2.3.4/33").forEach {
+            assertEquals(it, ArgType.Term, inferArgType(it))
+        }
+        assertEquals(true, IpRange("192.0.2.129/24").contains("192.0.2.0"))
+        assertEquals(true, IpRange("192.0.2.129/24").contains("192.0.2.255"))
+        assertEquals(false, IpRange("192.0.2.129/24").contains("192.0.3.0"))
+        assertEquals(false, IpRange("192.0.2.129/24").contains("192.0.2.01"))
+        assertEquals(false, IpRange("0.0.0.0/0").contains("::ffff:192.0.2.1"))
+        assertEquals(true, IpRange("0.0.0.0/0").contains("255.255.255.255"))
+        assertEquals(true, IpRange("192.0.2.1/32").contains("192.0.2.1"))
+        assertEquals(false, IpRange("192.0.2.1/32").contains("192.0.2.2"))
+    }
+
+    @Test
     fun country_returns_all_subnets_in_country() =
         runTest {
             val evaluator = evaluator()

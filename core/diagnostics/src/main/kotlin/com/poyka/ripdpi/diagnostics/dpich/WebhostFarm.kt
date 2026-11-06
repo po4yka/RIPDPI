@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
+import com.poyka.ripdpi.data.NumericIp
+import inet.ipaddr.IPAddress
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
@@ -294,7 +296,7 @@ class OkHttpWebhostProbe(
     ) : Dns {
         override fun lookup(hostname: String): List<InetAddress> =
             if (hostname.equals(host, ignoreCase = true)) {
-                listOf(InetAddress.getByName(ip))
+                listOf(requireNotNull(NumericIp.parseAddress(ip)).toInetAddress())
             } else {
                 Dns.SYSTEM.lookup(hostname)
             }
@@ -312,32 +314,24 @@ private data class WebhostCandidate(
 
 private data class ParsedIpv4Cidr(
     val source: IpRange,
-    val firstHost: Long,
+    val firstHost: IPAddress,
     val hostCount: Long,
 ) {
     fun hosts(): List<WebhostCandidate> = List(hostCount.toInt()) { offset -> hostAt(offset.toLong()) }
 
     fun hostAt(offset: Long): WebhostCandidate =
         WebhostCandidate(
-            ip = longToIpv4(firstHost + offset),
+            ip = firstHost.increment(offset).toNormalizedString(),
             sourceSubnet = source,
         )
 
     companion object {
         fun parse(range: IpRange): ParsedIpv4Cidr {
-            val parts = range.cidr.split("/")
-            require(parts.size == CidrPartCount) { "Invalid IPv4 CIDR: ${range.cidr}" }
-            val address = ipv4ToLong(parts[0])
-            val prefix = parts[1].toIntOrNull()
-            require(prefix != null && prefix in Ipv4PrefixRange) { "Invalid IPv4 CIDR prefix: ${range.cidr}" }
-            val mask = if (prefix == MinIpv4PrefixLength) 0L else FullIpv4Mask shl (Ipv4Bits - prefix) and FullIpv4Mask
-            val network = address and mask
-            val size = 1L shl (Ipv4Bits - prefix)
-            val firstHost =
-                when {
-                    prefix >= HostlessPrefixLength -> network
-                    else -> network + 1
-                }
+            val parsed = requireNotNull(NumericIp.parseCidr(range.cidr)) { "Invalid IPv4 CIDR: ${range.cidr}" }
+            require(parsed.address.isIPv4) { "Invalid IPv4 CIDR: ${range.cidr}" }
+            val prefix = parsed.prefixLength
+            val size = parsed.network.count.toLong()
+            val firstHost = parsed.networkAddress.increment(if (prefix >= HostlessPrefixLength) 0L else 1L)
             val hostCount =
                 when {
                     prefix >= HostlessPrefixLength -> size
@@ -348,55 +342,11 @@ private data class ParsedIpv4Cidr(
     }
 }
 
-private const val FullIpv4Mask = 0xffff_ffffL
-
-private fun ipv4ToLong(value: String): Long {
-    val octets = value.split(".")
-    require(octets.size == Ipv4OctetCount) { "Invalid IPv4 address: $value" }
-    return octets.fold(0L) { acc, octet ->
-        val number = octet.toIntOrNull()
-        require(number != null && number in Ipv4OctetRange) { "Invalid IPv4 address: $value" }
-        (acc shl BitsPerOctet) or number.toLong()
-    }
-}
-
-private fun longToIpv4(value: Long): String =
-    listOf(
-        value shr ThreeOctetShift,
-        value shr TwoOctetShift,
-        value shr BitsPerOctet,
-        value,
-    ).joinToString(".") { octet -> (octet and OctetMask).toString() }
-
-private fun Random.nextLong(bound: Long): Long {
-    require(bound > 0) { "bound must be positive" }
-    var bits: Long
-    var value: Long
-    do {
-        bits = nextLong().ushr(RandomSignBitShift)
-        value = bits % bound
-    } while (bits - value + (bound - 1) < 0)
-    return value
-}
-
 private fun Throwable.throwIfCancellation() {
     if (this is CancellationException) {
         throw this
     }
 }
 
-private const val CidrPartCount = 2
-private const val MinIpv4PrefixLength = 0
-private const val Ipv4Bits = 32
 private const val HostlessPrefixLength = 31
 private const val NetworkBoundaryAddressCount = 2
-private const val Ipv4OctetCount = 4
-private const val MinIpv4Octet = 0
-private const val MaxIpv4Octet = 255
-private const val BitsPerOctet = 8
-private const val TwoOctetShift = 16
-private const val ThreeOctetShift = 24
-private const val OctetMask = 0xffL
-private const val RandomSignBitShift = 1
-private val Ipv4PrefixRange = MinIpv4PrefixLength..Ipv4Bits
-private val Ipv4OctetRange = MinIpv4Octet..MaxIpv4Octet

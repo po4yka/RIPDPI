@@ -6,6 +6,17 @@ import org.junit.Test
 
 class IndirectSignsCheckerTest {
     @Test
+    fun `equivalent IPv6 spellings use the same DNS classification`() {
+        assertEquals(DnsClassification.LOOPBACK, IndirectSignsChecker.classifyDnsAddress("0:0:0:0:0:0:0:1"))
+        assertEquals(DnsClassification.LINK_LOCAL, IndirectSignsChecker.classifyDnsAddress("FEBF::1"))
+        assertEquals(
+            DnsClassification.KNOWN_PUBLIC_RESOLVER,
+            IndirectSignsChecker.classifyDnsAddress("2606:4700:4700:0:0:0:0:1111"),
+        )
+        assertEquals(DnsClassification.OTHER_PUBLIC, IndirectSignsChecker.classifyDnsAddress("fc-not-an-ip"))
+    }
+
+    @Test
     fun `loopback IPv4 classified correctly`() {
         assertEquals(DnsClassification.LOOPBACK, IndirectSignsChecker.classifyDnsAddress("127.0.0.1"))
         assertEquals(DnsClassification.LOOPBACK, IndirectSignsChecker.classifyDnsAddress("127.0.0.53"))

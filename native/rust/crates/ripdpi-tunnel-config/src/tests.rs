@@ -130,9 +130,14 @@ fn test_password_without_username_is_err() {
 
 #[test]
 fn rejects_ipv4_prefix_longer_than_address_width() {
+    for (family, address) in [("ipv4", "10.0.0.2"), ("ipv6", "2001:db8::2")] {
+        for prefix in ["129", "256", "+24", "024", "", "24/24", "-1"] {
+            let yaml = format!("{MINIMAL_VALID}\ntunnel:\n  {family}: {address}/{prefix}\n");
+            assert!(Config::from_str(&yaml).is_err(), "{address}/{prefix}");
+        }
+    }
     let yaml = format!("{MINIMAL_VALID}\ntunnel:\n  ipv4: 10.0.0.2/33\n");
-
-    assert!(Config::from_str(&yaml).is_err(), "invalid IPv4 prefix must fail during config parsing");
+    assert!(Config::from_str(&yaml).is_err());
 }
 
 #[test]

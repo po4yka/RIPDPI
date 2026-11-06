@@ -8,6 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+ipnet = { workspace = true }
 ripdpi-diagnostics-contracts = { workspace = true }
 ripdpi-diagnostics-transport = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }

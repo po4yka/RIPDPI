@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import com.poyka.ripdpi.data.NumericIp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.async
@@ -205,11 +206,6 @@ class DoqIntegrityProbe(
     }
 }
 
-private fun isDoqIpv4Literal(value: String): Boolean {
-    val octets = value.split('.')
-    return octets.size == Ipv4Octets && octets.all { octet -> octet.toIntOrNull() in Ipv4OctetRange }
-}
+private fun isDoqIpv4Literal(value: String): Boolean = NumericIp.parseAddress(value)?.isIPv4 == true
 
 private const val DoqDefaultPort = 853
-private const val Ipv4Octets = 4
-private val Ipv4OctetRange = 0..255

@@ -34,7 +34,6 @@
 mod cache;
 mod catalog;
 mod production;
-mod range_match;
 mod source;
 #[cfg(test)]
 mod tests;
@@ -50,5 +49,3 @@ pub use validation::validate_ech_config_list_bytes;
 pub(crate) use cache::{now_unix_ms, synthesize_instant_for_unix_ms};
 #[cfg(test)]
 pub(crate) use catalog::CLOUDFLARE_ECH_CONFIG_LIST;
-#[cfg(test)]
-pub(crate) use range_match::{Ipv4Cidr, Ipv6Cidr};

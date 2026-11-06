@@ -1,5 +1,7 @@
 package com.poyka.ripdpi.diagnostics.dpich
 
+import com.poyka.ripdpi.data.NumericIp
+
 data class IpRange(
     val cidr: String,
 )
@@ -251,58 +253,11 @@ fun inferArgType(value: String): ArgType =
         else -> ArgType.Term
     }
 
-private fun isIpv4Cidr(value: String): Boolean {
-    val parts = value.split("/")
-    val prefix = parts.getOrNull(1)?.toIntOrNull()
-    return parts.size == CidrPartCount && prefix in Ipv4PrefixRange && isIpv4Address(parts[0])
-}
+private fun isIpv4Cidr(value: String): Boolean = NumericIp.parseCidr(value)?.address?.isIPv4 == true
 
-private fun isIpv4Address(value: String): Boolean {
-    val octets = value.split(".")
-    return octets.size == Ipv4OctetCount &&
-        octets.all { octet ->
-            octet.isNotEmpty() &&
-                octet.all(Char::isDigit) &&
-                octet.toIntOrNull()?.let { it in Ipv4OctetRange } == true
-        }
-}
+private fun isIpv4Address(value: String): Boolean = NumericIp.parseAddress(value)?.isIPv4 == true
 
 fun IpRange.contains(ip: String): Boolean {
-    val parts = cidr.split('/')
-    val prefix = parts.getOrNull(1)?.toIntOrNull()
-    val networkBits = parts.getOrNull(0)?.toIpv4Bits()
-    val ipBits = ip.toIpv4Bits()
-    val parsedCidr = parts.size == CidrPartCount && prefix in Ipv4PrefixRange
-    val parsedAddresses = networkBits != null && ipBits != null
-    return if (parsedCidr && parsedAddresses) {
-        val mask = if (prefix == Ipv4PrefixMin) 0 else -1 shl (Ipv4BitCount - requireNotNull(prefix))
-        networkBits and mask == ipBits and mask
-    } else {
-        false
-    }
+    val range = NumericIp.parseCidr(cidr)?.takeIf { it.address.isIPv4 } ?: return false
+    return NumericIp.parseAddress(ip)?.let(range::contains) == true
 }
-
-private fun String.toIpv4Bits(): Int? {
-    val octets = split('.')
-    return if (octets.size == Ipv4OctetCount) {
-        octets.fold(0 as Int?) { acc, octet ->
-            val value = octet.toIntOrNull()?.takeIf { parsed -> parsed in Ipv4OctetRange }
-            if (acc != null && value != null) {
-                (acc shl Byte.SIZE_BITS) or value
-            } else {
-                null
-            }
-        }
-    } else {
-        null
-    }
-}
-
-private const val Ipv4BitCount = 32
-private const val Ipv4OctetCount = 4
-private const val CidrPartCount = 2
-private const val Ipv4PrefixMin = 0
-private const val Ipv4OctetMin = 0
-private const val Ipv4OctetMax = 255
-private val Ipv4PrefixRange = Ipv4PrefixMin..Ipv4BitCount
-private val Ipv4OctetRange = Ipv4OctetMin..Ipv4OctetMax

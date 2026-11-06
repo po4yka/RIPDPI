@@ -5,6 +5,7 @@ pub mod entropy;
 mod fake_profiles;
 pub mod fields;
 mod http;
+pub mod ip;
 mod quic;
 mod tls;
 pub(crate) mod tls_nom;

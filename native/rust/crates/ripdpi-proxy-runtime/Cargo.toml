@@ -8,6 +8,7 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+ipnet = { workspace = true }
 ripdpi-proxy-runtime-adapter = { workspace = true }
 ripdpi-runtime-api = { workspace = true }
 ripdpi-geo = { workspace = true }

@@ -87,6 +87,17 @@ class ManagedClientSocksBridgeTest {
     }
 
     @Test
+    fun `mapped loopback listen host is accepted`() {
+        ManagedClientSocksBridge(
+            credentials = credentials,
+            listenHost = "::ffff:127.0.0.1",
+            listenPort = freePort(),
+            upstreamListener = InetSocketAddress("127.0.0.1", freePort()),
+            bridgeSpec = ManagedClientSocksBridgeSpec("obfs4", "192.0.2.1", 443, ""),
+        ).use { it.start() }
+    }
+
+    @Test
     fun `non-loopback listen host is refused before binding`() {
         val bridge =
             ManagedClientSocksBridge(

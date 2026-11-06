@@ -1,4 +1,5 @@
 use super::*;
+use ipnet::IpNet;
 use std::net::{IpAddr, SocketAddr};
 use std::str::FromStr;
 
@@ -7,25 +8,6 @@ use crate::{
     HOST_AUTOLEARN_DEFAULT_PENALTY_TTL_SECS,
 };
 use ripdpi_packets::{HttpFakeProfile, MH_HMIX, MH_SPACE, TlsFakeProfile, UdpFakeProfile};
-
-#[test]
-fn prefix_match_bytes_honors_partial_bits() {
-    assert!(prefix_match_bytes(&[0b1011_0000], &[0b1011_1111], 4));
-    assert!(!prefix_match_bytes(&[0b1011_0000], &[0b1001_1111], 4));
-}
-
-#[test]
-fn prefix_match_bytes_full_byte_boundary() {
-    // 24-bit prefix (rem == 0 early return)
-    assert!(prefix_match_bytes(&[192, 168, 1, 100], &[192, 168, 1, 200], 24));
-    assert!(!prefix_match_bytes(&[192, 168, 2, 100], &[192, 168, 1, 200], 24));
-}
-
-#[test]
-fn prefix_match_bytes_rejects_oversized_prefix() {
-    assert!(!prefix_match_bytes(&[192], &[192], 16));
-    assert!(!prefix_match_bytes(&[192], &[192], 9));
-}
 
 #[test]
 fn common_suffix_match_dot_boundary() {
@@ -178,7 +160,7 @@ fn desync_group_is_actionable_with_fake_offset() {
 #[test]
 fn desync_group_is_actionable_with_ipset() {
     let mut group = DesyncGroup::new(0);
-    group.matches.filters.ipset.push(Cidr { addr: IpAddr::from_str("10.0.0.0").unwrap(), bits: 8 });
+    group.matches.filters.ipset.push(IpNet::new(IpAddr::from_str("10.0.0.0").unwrap(), 8).unwrap());
     assert!(group.is_actionable());
 }
 
@@ -244,7 +226,7 @@ fn desync_group_nested_buckets_round_trip() {
         payload_disable: 0,
         filters: FilterSet {
             hosts: vec!["video.example.test".to_string()],
-            ipset: vec![Cidr { addr: IpAddr::from_str("203.0.113.10").expect("ip"), bits: 24 }],
+            ipset: vec![IpNet::new(IpAddr::from_str("203.0.113.10").expect("ip"), 24).unwrap()],
             ..Default::default()
         },
         port_filter: Some((443, 8443)),
@@ -564,31 +546,31 @@ fn ws_tunnel_mode_is_enabled() {
     assert!(WsTunnelMode::Fallback.is_enabled());
 }
 
-// --- Cidr::matches ---
+// --- IP network membership ---
 
 #[test]
 fn cidr_matches_ipv4() {
-    let cidr = Cidr { addr: IpAddr::from_str("192.168.1.0").unwrap(), bits: 24 };
-    assert!(cidr.matches(IpAddr::from_str("192.168.1.100").unwrap()));
-    assert!(cidr.matches(IpAddr::from_str("192.168.1.0").unwrap()));
-    assert!(!cidr.matches(IpAddr::from_str("192.168.2.1").unwrap()));
+    let cidr = IpNet::new(IpAddr::from_str("192.168.1.0").unwrap(), 24).unwrap();
+    assert!(cidr.contains(&IpAddr::from_str("192.168.1.100").unwrap()));
+    assert!(cidr.contains(&IpAddr::from_str("192.168.1.0").unwrap()));
+    assert!(!cidr.contains(&IpAddr::from_str("192.168.2.1").unwrap()));
 }
 
 #[test]
 fn cidr_matches_ipv6() {
-    let cidr = Cidr { addr: IpAddr::from_str("2001:db8::").unwrap(), bits: 32 };
-    assert!(cidr.matches(IpAddr::from_str("2001:db8::1").unwrap()));
-    assert!(cidr.matches(IpAddr::from_str("2001:db8:ffff::1").unwrap()));
-    assert!(!cidr.matches(IpAddr::from_str("2001:db9::1").unwrap()));
+    let cidr = IpNet::new(IpAddr::from_str("2001:db8::").unwrap(), 32).unwrap();
+    assert!(cidr.contains(&IpAddr::from_str("2001:db8::1").unwrap()));
+    assert!(cidr.contains(&IpAddr::from_str("2001:db8:ffff::1").unwrap()));
+    assert!(!cidr.contains(&IpAddr::from_str("2001:db9::1").unwrap()));
 }
 
 #[test]
 fn cidr_rejects_cross_family() {
-    let v4_cidr = Cidr { addr: IpAddr::from_str("10.0.0.0").unwrap(), bits: 8 };
-    assert!(!v4_cidr.matches(IpAddr::from_str("::ffff:10.0.0.1").unwrap()));
+    let v4_cidr = IpNet::new(IpAddr::from_str("10.0.0.0").unwrap(), 8).unwrap();
+    assert!(!v4_cidr.contains(&IpAddr::from_str("::ffff:10.0.0.1").unwrap()));
 
-    let v6_cidr = Cidr { addr: IpAddr::from_str("::1").unwrap(), bits: 128 };
-    assert!(!v6_cidr.matches(IpAddr::from_str("0.0.0.1").unwrap()));
+    let v6_cidr = IpNet::new(IpAddr::from_str("::1").unwrap(), 128).unwrap();
+    assert!(!v6_cidr.contains(&IpAddr::from_str("0.0.0.1").unwrap()));
 }
 
 // --- FilterSet ---
@@ -605,7 +587,7 @@ fn filter_set_hosts_match_suffix_and_exact() {
 #[test]
 fn filter_set_ipset_match() {
     let fs =
-        FilterSet { ipset: vec![Cidr { addr: IpAddr::from_str("10.0.0.0").unwrap(), bits: 8 }], ..Default::default() };
+        FilterSet { ipset: vec![IpNet::new(IpAddr::from_str("10.0.0.0").unwrap(), 8).unwrap()], ..Default::default() };
     assert!(fs.ipset_match(IpAddr::from_str("10.255.255.255").unwrap()));
     assert!(!fs.ipset_match(IpAddr::from_str("11.0.0.1").unwrap()));
 }
@@ -752,16 +734,16 @@ fn desync_mode_discriminant_values() {
 
 #[test]
 fn cidr_matches_slash_32_exact() {
-    let cidr = Cidr { addr: IpAddr::from_str("10.0.0.1").unwrap(), bits: 32 };
-    assert!(cidr.matches(IpAddr::from_str("10.0.0.1").unwrap()));
-    assert!(!cidr.matches(IpAddr::from_str("10.0.0.2").unwrap()));
+    let cidr = IpNet::new(IpAddr::from_str("10.0.0.1").unwrap(), 32).unwrap();
+    assert!(cidr.contains(&IpAddr::from_str("10.0.0.1").unwrap()));
+    assert!(!cidr.contains(&IpAddr::from_str("10.0.0.2").unwrap()));
 }
 
 #[test]
 fn cidr_matches_slash_128_exact() {
-    let cidr = Cidr { addr: IpAddr::from_str("::1").unwrap(), bits: 128 };
-    assert!(cidr.matches(IpAddr::from_str("::1").unwrap()));
-    assert!(!cidr.matches(IpAddr::from_str("::2").unwrap()));
+    let cidr = IpNet::new(IpAddr::from_str("::1").unwrap(), 128).unwrap();
+    assert!(cidr.contains(&IpAddr::from_str("::1").unwrap()));
+    assert!(!cidr.contains(&IpAddr::from_str("::2").unwrap()));
 }
 
 #[test]
@@ -769,12 +751,6 @@ fn common_suffix_match_empty_inputs() {
     assert!(!common_suffix_match("", "example.com"));
     assert!(!common_suffix_match("example.com", ""));
     assert!(common_suffix_match("", ""));
-}
-
-#[test]
-fn prefix_match_bytes_zero_bits() {
-    // 0 bits means "match everything"
-    assert!(prefix_match_bytes(&[1, 2, 3, 4], &[5, 6, 7, 8], 0));
 }
 
 #[test]

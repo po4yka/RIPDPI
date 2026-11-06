@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.diagnostics.DnsResponseOutcome
 import com.poyka.ripdpi.diagnostics.DnsResponseSemantics
 import kotlinx.serialization.json.Json
@@ -159,11 +160,4 @@ internal object DnsJsonResponseParser {
     private const val MaxNameLength = 253
 }
 
-internal fun isDnsIpv4(value: String): Boolean =
-    value.split('.').let { parts ->
-        parts.size == Ipv4Parts &&
-            parts.all { it.isNotEmpty() && it.all(Char::isDigit) && it.toIntOrNull() in 0..Ipv4MaxOctet }
-    }
-
-private const val Ipv4Parts = 4
-private const val Ipv4MaxOctet = 255
+internal fun isDnsIpv4(value: String): Boolean = NumericIp.parseAddress(value)?.isIPv4 == true

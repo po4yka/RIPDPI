@@ -5,6 +5,16 @@ import org.junit.Test
 
 class DetectionPrivacyMaskTest {
     @Test
+    fun `mapped private addresses keep exemption and mapped public addresses are masked`() {
+        assertEquals("::ffff:192.168.1.1", DetectionPrivacyMask.maskIp("::ffff:192.168.1.1", enabled = true))
+        assertEquals("::ffff:127.0.0.1", DetectionPrivacyMask.maskIp("::ffff:127.0.0.1", enabled = true))
+        assertEquals(
+            "0:0:0:0:****:****:****:****",
+            DetectionPrivacyMask.maskIp("::ffff:192.0.2.1", enabled = true),
+        )
+    }
+
+    @Test
     fun `public ipv4 masks last two octets`() {
         assertEquals("1.2.*.*", DetectionPrivacyMask.maskIp("1.2.3.4", enabled = true))
     }

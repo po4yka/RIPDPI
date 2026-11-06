@@ -1,4 +1,4 @@
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use std::net::IpAddr;
 use std::time::{Duration, Instant};
 
 use super::*;
@@ -165,19 +165,13 @@ fn updater_returns_bundled_when_both_sources_fail_and_no_cache() {
 }
 
 #[test]
-fn ipv4_cidr_contains_basic() {
-    let cidr = Ipv4Cidr::new(10, 0, 0, 0, 8);
-    assert!(cidr.contains(Ipv4Addr::new(10, 0, 0, 1)));
-    assert!(cidr.contains(Ipv4Addr::new(10, 255, 255, 255)));
-    assert!(!cidr.contains(Ipv4Addr::new(11, 0, 0, 1)));
-}
-
-#[test]
-fn ipv6_cidr_contains_basic() {
-    let cidr = Ipv6Cidr::new([0x2606, 0x4700, 0, 0, 0, 0, 0, 0], 32);
-    assert!(cidr.contains(Ipv6Addr::new(0x2606, 0x4700, 0, 0, 0, 0, 0, 1)));
-    assert!(cidr.contains(Ipv6Addr::new(0x2606, 0x4700, 0xffff, 0, 0, 0, 0, 0)));
-    assert!(!cidr.contains(Ipv6Addr::new(0x2606, 0x4701, 0, 0, 0, 0, 0, 0)));
+fn catalog_ranges_include_edges_and_exclude_adjacent_addresses() {
+    for address in ["103.21.244.0", "103.21.247.255", "2606:4700::", "2606:4700:ffff:ffff:ffff:ffff:ffff:ffff"] {
+        assert_eq!(opportunistic_ech_provider_for_ip(address.parse().unwrap()), Some("Cloudflare"), "{address}");
+    }
+    for address in ["103.21.243.255", "103.21.248.0", "2606:46ff:ffff:ffff:ffff:ffff:ffff:ffff", "2606:4701::"] {
+        assert_eq!(opportunistic_ech_provider_for_ip(address.parse().unwrap()), None, "{address}");
+    }
 }
 
 #[test]

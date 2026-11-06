@@ -13,6 +13,7 @@ import com.poyka.ripdpi.core.detection.EvidenceItem
 import com.poyka.ripdpi.core.detection.EvidenceSource
 import com.poyka.ripdpi.core.detection.Finding
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
+import com.poyka.ripdpi.data.NumericIp
 import com.poyka.ripdpi.data.diagnostics.DetectionAddressFamily
 import com.poyka.ripdpi.data.diagnostics.DetectionResolverConfig
 import com.poyka.ripdpi.data.diagnostics.DetectionResolverNetworkStack
@@ -23,7 +24,6 @@ import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.withContext
 import okhttp3.Request
 import java.io.IOException
-import java.net.InetAddress
 import java.security.cert.CertPathValidatorException
 import java.security.cert.CertificateException
 import java.util.Locale
@@ -262,18 +262,10 @@ object CdnPullingChecker {
         )
 
     private fun extractIp(body: String): String? {
-        IPV4_REGEX.find(body)?.let { return it.value }
-        return body
-            .split(IP_TOKEN_DELIMITER)
-            .firstOrNull(::isIpv6)
+        val candidates = body.split(IP_TOKEN_DELIMITER)
+        return candidates.firstOrNull { NumericIp.parseAddress(it)?.isIPv4 == true }
+            ?: candidates.firstOrNull { NumericIp.parseAddress(it)?.isIPv6 == true }
     }
-
-    private fun isIpv6(token: String): Boolean =
-        try {
-            token.contains(":") && InetAddress.getByName(token).hostAddress != null
-        } catch (_: Exception) {
-            false
-        }
 
     private fun Throwable.safeMessage(): String = message?.takeIf(String::isNotBlank) ?: javaClass.simpleName
 
@@ -302,11 +294,6 @@ object CdnPullingChecker {
         )
 
     private const val CATEGORY_NAME = "CDN Pulling"
-    private val IPV4_REGEX =
-        Regex(
-            """(?<![\d.])(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)""" +
-                """(?:\.(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)){3}(?![\d.])""",
-        )
     private val IP_TOKEN_DELIMITER = Regex("""[\s,"'<>()\[\]{}=]+""")
 }
 

@@ -135,16 +135,17 @@ class ResolverMappingPolicyTest {
 
     @Test
     fun `malformed numeric candidate is rejected`() {
-        val mapping =
-            policy.select(
-                request(
-                    classification = DirectDnsClassification.CLEAN,
-                    systemCandidates = listOf(candidate("2001:db8:::10", DnsMode.SYSTEM, latencyMs = 1)),
-                    encryptedCandidates = emptyList(),
-                ),
-            )
-
-        assertNull(mapping)
+        listOf("2001:db8:::10", ":1::2", "1::2:", "01.2.3.4", "256.1.1.1", "host.invalid").forEach { ip ->
+            val mapping =
+                policy.select(
+                    request(
+                        classification = DirectDnsClassification.CLEAN,
+                        systemCandidates = listOf(candidate(ip, DnsMode.SYSTEM, latencyMs = 1)),
+                        encryptedCandidates = emptyList(),
+                    ),
+                )
+            assertNull(ip, mapping)
+        }
     }
 
     private fun request(

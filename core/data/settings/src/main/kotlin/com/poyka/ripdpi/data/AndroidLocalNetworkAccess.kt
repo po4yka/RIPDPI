@@ -3,7 +3,6 @@ package com.poyka.ripdpi.data
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
-import android.net.InetAddresses
 import android.net.Network
 import android.net.NetworkCapabilities
 import android.os.Build
@@ -100,12 +99,11 @@ class AndroidLocalNetworkAccess
                 emptyArray()
             }
 
-        // Below API 29 there is no DNS-free literal parser; those hosts take the budgeted path.
         private fun literalAddress(host: String): InetAddress? =
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q && InetAddresses.isNumericAddress(host)) {
-                InetAddresses.parseNumericAddress(host)
-            } else {
-                null
+            NumericIp.parseAddress(host)?.let { parsed ->
+                // Local permission checks apply to the actual IPv4 peer of mapped addresses.
+                val address = if (parsed.isIPv6 && parsed.toIPv6().isIPv4Mapped) parsed.toIPv4() else parsed
+                address.toInetAddress()
             }
     }
 

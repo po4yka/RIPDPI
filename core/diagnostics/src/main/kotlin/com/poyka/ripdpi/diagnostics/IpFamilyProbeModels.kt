@@ -1,8 +1,7 @@
 package com.poyka.ripdpi.diagnostics
 
+import com.poyka.ripdpi.data.NumericIp
 import kotlinx.serialization.Serializable
-import java.net.Inet6Address
-import java.net.InetAddress
 
 const val IpFamilyProfileId = "ip-family-connectivity"
 
@@ -17,8 +16,8 @@ data class IpFamilyProbeConfig(
     internal fun validate() {
         require(version == 1 && port in 1..IpProbeMaxPort && timeoutMs in IpProbeMinTimeoutMs..IpProbeMaxTimeoutMs)
         require(isIpProbeV4(ipv4Address) && isIpProbeV6(ipv6Address))
-        val v4 = InetAddress.getByName(ipv4Address)
-        val v6 = InetAddress.getByName(ipv6Address)
+        val v4 = requireNotNull(NumericIp.parseAddress(ipv4Address)).toInetAddress()
+        val v6 = requireNotNull(NumericIp.parseAddress(ipv6Address)).toInetAddress()
         require(!v4.isAnyLocalAddress && !v4.isMulticastAddress && ipv4Address !in IpProbeReservedV4)
         require(!v6.isAnyLocalAddress && !v6.isMulticastAddress)
     }
@@ -57,24 +56,12 @@ data class IpFamilyProbeEvidence(
     val pathScope: IpProbePathScope = IpProbePathScope.RAW_PATH,
 )
 
-internal fun isIpProbeV4(value: String): Boolean {
-    val parts = value.split('.')
-    return parts.size == IpProbeV4Octets &&
-        parts.all { part ->
-            part.isNotEmpty() && part.length <= IpProbeOctetDigits && part.all(Char::isDigit) &&
-                part.toIntOrNull() in 0..IpProbeMaxOctet && (part == "0" || !part.startsWith('0'))
-        }
-}
+internal fun isIpProbeV4(value: String): Boolean = NumericIp.parseAddress(value)?.isIPv4 == true
 
 internal fun isIpProbeV6(value: String): Boolean =
-    value.length in 2..IpProbeMaxV6Length && ':' in value &&
-        value.all { it in "0123456789abcdefABCDEF:" } &&
-        runCatching { InetAddress.getByName(value) is Inet6Address }.getOrDefault(false)
+    '.' !in value &&
+        NumericIp.parseAddress(value)?.let { it.isIPv6 && !it.toIPv6().isIPv4Mapped } == true
 
-private const val IpProbeV4Octets = 4
-private const val IpProbeOctetDigits = 3
-private const val IpProbeMaxOctet = 255
-private const val IpProbeMaxV6Length = 39
 internal const val IpProbeMaxPort = 65_535
 internal const val IpProbeMaxTimeoutMs = 5_000L
 

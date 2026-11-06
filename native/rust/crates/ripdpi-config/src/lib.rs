@@ -11,3 +11,4 @@ pub use self::constants::*;
 pub use self::error::*;
 pub use self::model::*;
 pub use self::parse::*;
+pub use ripdpi_packets::ip::parse_cidr;

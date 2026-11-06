@@ -4,14 +4,13 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.ConnectivityManager
-import android.net.InetAddresses
 import android.net.LinkProperties
 import android.net.Network
 import android.net.NetworkCapabilities
-import android.os.Build
 import android.os.ParcelFileDescriptor
 import androidx.annotation.Keep
 import androidx.core.content.ContextCompat
+import com.poyka.ripdpi.data.NumericIp
 import java.io.FileDescriptor
 import java.net.Inet6Address
 import java.net.InetAddress
@@ -594,9 +593,6 @@ internal class VpnUnderlyingNetworkBinder(
                 PackageManager.PERMISSION_GRANTED
 }
 
-private const val Ipv4OctetCount = 4
-private const val MaxIpv4Octet = 255
-
 /**
  * Link-local resolvers need an interface scope that a numeric policy literal cannot carry, so the
  * split-DNS policy skips them; the lease compares only the remaining resolvers.
@@ -604,39 +600,7 @@ private const val MaxIpv4Octet = 255
 internal fun Set<InetAddress>.withoutLinkLocalResolvers(): Set<InetAddress> =
     filterNotTo(mutableSetOf()) { it is Inet6Address && it.isLinkLocalAddress }
 
-internal fun parseDirectDnsNumericAddress(value: String): InetAddress? =
-    parseDirectDnsIpv4(value) ?: parseDirectDnsIpv6(value)
-
-private fun parseDirectDnsIpv4(value: String): InetAddress? {
-    val octets = value.split('.')
-    val parsed = octets.mapNotNull(::parseDirectDnsIpv4Octet)
-    return parsed
-        .takeIf { octets.size == Ipv4OctetCount && it.size == Ipv4OctetCount }
-        ?.map(Int::toByte)
-        ?.toByteArray()
-        ?.let(InetAddress::getByAddress)
-}
-
-private fun parseDirectDnsIpv4Octet(value: String): Int? =
-    value.toIntOrNull()?.takeIf { parsed -> parsed in 0..MaxIpv4Octet && parsed.toString() == value }
-
-private fun parseDirectDnsIpv6(value: String): Inet6Address? {
-    val numericGrammar =
-        value.contains(':') &&
-            !value.contains('%') &&
-            value.all(::isDirectDnsIpv6Character)
-    val parsed =
-        value.takeIf { numericGrammar }?.let { numeric ->
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
-                numeric.takeIf(InetAddresses::isNumericAddress)?.let(InetAddresses::parseNumericAddress)
-            } else {
-                runCatching { InetAddress.getByName(numeric) }.getOrNull()
-            }
-        }
-    return parsed as? Inet6Address
-}
-
-private fun isDirectDnsIpv6Character(value: Char): Boolean = value in "0123456789abcdefABCDEF:."
+internal fun parseDirectDnsNumericAddress(value: String): InetAddress? = NumericIp.parseAddress(value)?.toInetAddress()
 
 internal fun shouldPublishDirectDnsLease(
     snapshotChanged: Boolean,

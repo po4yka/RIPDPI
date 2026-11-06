@@ -1,6 +1,6 @@
-use std::net::IpAddr;
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 
-use crate::cdn_ech::range_match::{Ipv4Cidr, Ipv6Cidr};
+use ipnet::{Ipv4Net, Ipv6Net};
 
 /// A hardcoded ECH configuration for a CDN provider.
 #[derive(Debug)]
@@ -8,9 +8,9 @@ pub struct CdnEchConfig {
     /// Human-readable CDN name (for logging).
     pub provider: &'static str,
     /// IPv4 CIDR prefixes owned by this CDN.
-    ipv4_ranges: &'static [Ipv4Cidr],
+    ipv4_ranges: &'static [Ipv4Net],
     /// IPv6 CIDR prefixes owned by this CDN.
-    ipv6_ranges: &'static [Ipv6Cidr],
+    ipv6_ranges: &'static [Ipv6Net],
     /// Raw ECHConfigList bytes (wire format, as returned by DNS HTTPS records).
     pub ech_config_list: &'static [u8],
 }
@@ -20,8 +20,8 @@ impl CdnEchConfig {
     /// known address ranges.
     pub fn contains_ip(&self, ip: IpAddr) -> bool {
         match ip {
-            IpAddr::V4(v4) => self.ipv4_ranges.iter().any(|cidr| cidr.contains(v4)),
-            IpAddr::V6(v6) => self.ipv6_ranges.iter().any(|cidr| cidr.contains(v6)),
+            IpAddr::V4(v4) => self.ipv4_ranges.iter().any(|cidr| cidr.contains(&v4)),
+            IpAddr::V6(v6) => self.ipv6_ranges.iter().any(|cidr| cidr.contains(&v6)),
         }
     }
 }
@@ -41,34 +41,34 @@ pub(crate) static CLOUDFLARE_ECH_CONFIG_LIST: &[u8] = &[
 
 /// Cloudflare IPv4 ranges (major allocations, not exhaustive).
 /// Source: <https://www.cloudflare.com/ips-v4/>
-static CLOUDFLARE_IPV4_RANGES: &[Ipv4Cidr] = &[
-    Ipv4Cidr::new(103, 21, 244, 0, 22),
-    Ipv4Cidr::new(103, 22, 200, 0, 22),
-    Ipv4Cidr::new(103, 31, 4, 0, 22),
-    Ipv4Cidr::new(104, 16, 0, 0, 13),
-    Ipv4Cidr::new(104, 24, 0, 0, 14),
-    Ipv4Cidr::new(108, 162, 192, 0, 18),
-    Ipv4Cidr::new(131, 0, 72, 0, 22),
-    Ipv4Cidr::new(141, 101, 64, 0, 18),
-    Ipv4Cidr::new(162, 158, 0, 0, 15),
-    Ipv4Cidr::new(172, 64, 0, 0, 13),
-    Ipv4Cidr::new(173, 245, 48, 0, 20),
-    Ipv4Cidr::new(188, 114, 96, 0, 20),
-    Ipv4Cidr::new(190, 93, 240, 0, 20),
-    Ipv4Cidr::new(197, 234, 240, 0, 22),
-    Ipv4Cidr::new(198, 41, 128, 0, 17),
+static CLOUDFLARE_IPV4_RANGES: &[Ipv4Net] = &[
+    Ipv4Net::new_assert(Ipv4Addr::new(103, 21, 244, 0), 22),
+    Ipv4Net::new_assert(Ipv4Addr::new(103, 22, 200, 0), 22),
+    Ipv4Net::new_assert(Ipv4Addr::new(103, 31, 4, 0), 22),
+    Ipv4Net::new_assert(Ipv4Addr::new(104, 16, 0, 0), 13),
+    Ipv4Net::new_assert(Ipv4Addr::new(104, 24, 0, 0), 14),
+    Ipv4Net::new_assert(Ipv4Addr::new(108, 162, 192, 0), 18),
+    Ipv4Net::new_assert(Ipv4Addr::new(131, 0, 72, 0), 22),
+    Ipv4Net::new_assert(Ipv4Addr::new(141, 101, 64, 0), 18),
+    Ipv4Net::new_assert(Ipv4Addr::new(162, 158, 0, 0), 15),
+    Ipv4Net::new_assert(Ipv4Addr::new(172, 64, 0, 0), 13),
+    Ipv4Net::new_assert(Ipv4Addr::new(173, 245, 48, 0), 20),
+    Ipv4Net::new_assert(Ipv4Addr::new(188, 114, 96, 0), 20),
+    Ipv4Net::new_assert(Ipv4Addr::new(190, 93, 240, 0), 20),
+    Ipv4Net::new_assert(Ipv4Addr::new(197, 234, 240, 0), 22),
+    Ipv4Net::new_assert(Ipv4Addr::new(198, 41, 128, 0), 17),
 ];
 
 /// Cloudflare IPv6 ranges (major allocations).
 /// Source: <https://www.cloudflare.com/ips-v6/>
-static CLOUDFLARE_IPV6_RANGES: &[Ipv6Cidr] = &[
-    Ipv6Cidr::new([0x2400, 0xcb00, 0, 0, 0, 0, 0, 0], 32),
-    Ipv6Cidr::new([0x2405, 0x8100, 0, 0, 0, 0, 0, 0], 32),
-    Ipv6Cidr::new([0x2405, 0xb500, 0, 0, 0, 0, 0, 0], 32),
-    Ipv6Cidr::new([0x2606, 0x4700, 0, 0, 0, 0, 0, 0], 32),
-    Ipv6Cidr::new([0x2803, 0xf800, 0, 0, 0, 0, 0, 0], 32),
-    Ipv6Cidr::new([0x2a06, 0x98c0, 0, 0, 0, 0, 0, 0], 29),
-    Ipv6Cidr::new([0x2c0f, 0xf248, 0, 0, 0, 0, 0, 0], 32),
+static CLOUDFLARE_IPV6_RANGES: &[Ipv6Net] = &[
+    Ipv6Net::new_assert(Ipv6Addr::new(0x2400, 0xcb00, 0, 0, 0, 0, 0, 0), 32),
+    Ipv6Net::new_assert(Ipv6Addr::new(0x2405, 0x8100, 0, 0, 0, 0, 0, 0), 32),
+    Ipv6Net::new_assert(Ipv6Addr::new(0x2405, 0xb500, 0, 0, 0, 0, 0, 0), 32),
+    Ipv6Net::new_assert(Ipv6Addr::new(0x2606, 0x4700, 0, 0, 0, 0, 0, 0), 32),
+    Ipv6Net::new_assert(Ipv6Addr::new(0x2803, 0xf800, 0, 0, 0, 0, 0, 0), 32),
+    Ipv6Net::new_assert(Ipv6Addr::new(0x2a06, 0x98c0, 0, 0, 0, 0, 0, 0), 29),
+    Ipv6Net::new_assert(Ipv6Addr::new(0x2c0f, 0xf248, 0, 0, 0, 0, 0, 0), 32),
 ];
 
 static CLOUDFLARE_ECH: CdnEchConfig = CdnEchConfig {

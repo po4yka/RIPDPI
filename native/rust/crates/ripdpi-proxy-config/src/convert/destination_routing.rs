@@ -3,8 +3,8 @@ use ripdpi_config::{
     DestinationPortRange, DestinationRoutingAction, DestinationRoutingNetwork, DestinationRoutingPolicy,
     DestinationRoutingRule,
 };
-use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
-use std::str::FromStr;
+use ripdpi_packets::ip::parse_cidr;
+use std::net::IpAddr;
 
 use crate::types::{
     ProxyConfigError, ProxyUiDestinationDomainMatcherKind, ProxyUiDestinationIpMatcherKind,
@@ -157,25 +157,14 @@ fn is_canonical_geo_token(value: &str) -> bool {
 }
 
 fn canonical_cidr(value: &str) -> Option<String> {
-    let (address, prefix) = value.split_once('/')?;
-    if prefix.contains('/') {
-        return None;
-    }
-    let prefix = prefix.parse::<u8>().ok()?;
-    match IpAddr::from_str(address).ok()? {
-        IpAddr::V4(address) if prefix <= 32 => {
-            let mask = if prefix == 0 { 0 } else { u32::MAX << (32 - prefix) };
-            Some(format!("{}/{}", Ipv4Addr::from(u32::from(address) & mask), prefix))
+    let network = parse_cidr(value, None).ok()?;
+    let address = match network.network() {
+        IpAddr::V4(address) => address.to_string(),
+        IpAddr::V6(address) => {
+            address.segments().iter().map(|segment| format!("{segment:x}")).collect::<Vec<_>>().join(":")
         }
-        IpAddr::V6(address) if prefix <= 128 => {
-            let mask = if prefix == 0 { 0 } else { u128::MAX << (128 - prefix) };
-            let network = Ipv6Addr::from(u128::from(address) & mask);
-            let canonical =
-                network.segments().iter().map(|segment| format!("{segment:x}")).collect::<Vec<_>>().join(":");
-            Some(format!("{canonical}/{prefix}"))
-        }
-        _ => None,
-    }
+    };
+    Some(format!("{address}/{}", network.prefix_len()))
 }
 
 pub(crate) fn compute_canonical_digest(rules: &[ProxyUiDestinationRoutingRule]) -> String {
@@ -450,4 +439,19 @@ fn convert_action(action: ProxyUiDestinationRoutingAction) -> DestinationRouting
 
 fn invalid(message: impl Into<String>) -> ProxyConfigError {
     ProxyConfigError::InvalidConfig(message.into())
+}
+
+#[cfg(test)]
+mod cidr_tests {
+    use super::canonical_cidr;
+
+    #[test]
+    fn cidr_networks_keep_the_wire_format() {
+        assert_eq!(canonical_cidr("192.0.2.129/24").as_deref(), Some("192.0.2.0/24"));
+        assert_eq!(canonical_cidr("2001:DB8::1234/64").as_deref(), Some("2001:db8:0:0:0:0:0:0/64"));
+        assert_eq!(canonical_cidr("::ffff:192.0.2.129/120").as_deref(), Some("0:0:0:0:0:ffff:c000:200/120"));
+        for value in ["192.0.2.1/+24", "192.0.2.1/024", "192.0.2.1/33", "::1/129", "::1/", "01.2.3.4/24"] {
+            assert_eq!(canonical_cidr(value), None, "{value}");
+        }
+    }
 }

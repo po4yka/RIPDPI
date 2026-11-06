@@ -16,6 +16,26 @@ import kotlin.random.Random
 
 class WebhostFarmTest {
     @Test
+    fun samplesDefaultRouteWithoutMaterializingEveryHost() =
+        runTest {
+            val probe = FakeWebhostProbe(default = WebhostProbeResult(true, true, 1, 1))
+            val farm = WebhostFarm(probe = probe, maxCandidates = 3, random = Random(1))
+            val hosts = farm.discover(setOf(IpRange("0.0.0.0/0")), count = 3, workers = 1)
+            assertEquals(3, hosts.size)
+            assertEquals(3, hosts.map { it.ip }.distinct().size)
+            assertTrue(hosts.none { it.ip == "0.0.0.0" || it.ip == "255.255.255.255" })
+        }
+
+    @Test
+    fun retainsAllHostsOfPointToPointAndHostPrefixes() =
+        runTest {
+            val probe = FakeWebhostProbe(default = WebhostProbeResult(true, true, 1, 1))
+            val farm = WebhostFarm(probe = probe)
+            val hosts = farm.discover(setOf(IpRange("192.0.2.1/31"), IpRange("192.0.2.7/32")), count = 3, workers = 1)
+            assertEquals(setOf("192.0.2.0", "192.0.2.1", "192.0.2.7"), hosts.map { it.ip }.toSet())
+        }
+
+    @Test
     fun discoverReturnsOnlyHostsWithSuccessfulTcpAndTlsProbe() =
         runTest {
             val farm =
