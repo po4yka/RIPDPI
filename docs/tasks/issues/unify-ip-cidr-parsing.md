@@ -2,7 +2,7 @@
 id: RTE-1793945596239402
 title: Unify strict IP and CIDR parsing with maintained libraries
 kind: bug
-status: review
+status: blocked
 area: routing
 priority: high
 owner: ip-cidr
@@ -12,6 +12,7 @@ spec_mode: required
 openspec_change: unify-ip-cidr-parsing
 created: 2026-11-06
 updated: 2026-11-06
+status_detail: "Local validation and main push passed. Full hosted acceptance is unverified: this SHA's CI was cancelled by a later push; upstream rust-lint has an HTTP/1 shared-state violation outside the IP/CIDR change."
 ---
 
 ## Goal
