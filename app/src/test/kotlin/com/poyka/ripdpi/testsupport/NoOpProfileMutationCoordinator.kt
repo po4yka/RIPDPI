@@ -14,6 +14,19 @@ import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
 import com.poyka.ripdpi.proto.AppSettings
 
 object NoOpProfileMutationCoordinator : ProfileMutationCoordinator {
+    override suspend fun restoreBackup(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        groups: List<com.poyka.ripdpi.data.ProxyGroup>?,
+        rules: List<com.poyka.ripdpi.data.rules.RuleEntity>?,
+        settings: com.poyka.ripdpi.proto.AppSettings?,
+        privateData: com.poyka.ripdpi.data.backup.BackupPrivateDataV1?,
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome = error("Backup restore is outside this test boundary")
+
+    override suspend fun prepareStandaloneSelectionForStart(
+        guard: com.poyka.ripdpi.data.ProfileTransactionGuard,
+        update: AppSettings.Builder.() -> Unit,
+    ): Boolean = error("Standalone preparation is outside this test boundary")
+
     override suspend fun activateStandaloneAwg(
         preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         profileId: String,
@@ -178,7 +191,6 @@ object NoOpProfileMutationCoordinator : ProfileMutationCoordinator {
     override suspend fun replacePrivateBackup(
         preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         data: BackupPrivateDataV1,
-        rollbackData: BackupPrivateDataV1?,
     ): com.poyka.ripdpi.data.ProfileMutationOutcome =
         com.poyka.ripdpi.data
             .testMutationOutcome(preparation.origin)

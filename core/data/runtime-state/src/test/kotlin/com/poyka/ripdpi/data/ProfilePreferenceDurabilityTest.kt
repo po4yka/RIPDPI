@@ -3,9 +3,8 @@ package com.poyka.ripdpi.data
 import android.content.SharedPreferences
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.builtins.ListSerializer
 import org.junit.Assert.assertEquals
@@ -28,15 +27,11 @@ class ProfilePreferenceDurabilityTest {
             val second = ProxyGroupCatalog(DurablePreferenceGroupBlob(preferences))
             val firstObserved = mutableListOf<List<ProxyGroup>>()
             val secondObserved = mutableListOf<List<ProxyGroup>>()
-            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-                first.groups().collect { firstObserved += it }
-            }
-            backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-                second.groups().collect { secondObserved += it }
-            }
+            val firstStream = first.groups().onEach { firstObserved += it }
+            val secondStream = second.groups().onEach { secondObserved += it }
             preferences.acceptCommits = false
 
-            assertTrue(runCatching { first.load() }.exceptionOrNull() is IllegalStateException)
+            assertTrue(runCatching { firstStream.first() }.exceptionOrNull() is IllegalStateException)
             val cachedGroups = decodePreferenceGroups(preferences.getString(GroupPayloadKey, null)!!)
             val cachedGeneration = cachedGroups.single().ownershipGeneration
             assertTrue(cachedGeneration.isNotBlank())
@@ -45,8 +40,8 @@ class ProfilePreferenceDurabilityTest {
             assertTrue(firstObserved.isEmpty())
 
             // Both an existing owner and a newly constructed store share the uncertainty boundary.
-            assertTrue(runCatching { first.load() }.exceptionOrNull() is IllegalStateException)
-            assertTrue(runCatching { second.load() }.exceptionOrNull() is IllegalStateException)
+            assertTrue(runCatching { firstStream.first() }.exceptionOrNull() is IllegalStateException)
+            assertTrue(runCatching { secondStream.first() }.exceptionOrNull() is IllegalStateException)
             assertEquals(cachedGroups, decodePreferenceGroups(preferences.getString(GroupPayloadKey, null)!!))
             assertEquals(originalDisk, preferences.diskSnapshot())
             assertTrue(firstObserved.isEmpty())
@@ -55,9 +50,9 @@ class ProfilePreferenceDurabilityTest {
             assertEquals(3, preferences.commitAttempts.toSet().size)
 
             preferences.acceptCommits = true
-            assertEquals(cachedGroups, second.load())
+            assertEquals(cachedGroups, secondStream.first())
             assertEquals(listOf(cachedGroups), secondObserved)
-            assertEquals(cachedGroups, first.load())
+            assertEquals(cachedGroups, firstStream.first())
             assertEquals(listOf(cachedGroups), firstObserved)
             assertEquals(preferences.all, preferences.diskSnapshot())
             assertEquals(4, preferences.commitAttempts.size)
@@ -192,16 +187,18 @@ private class DurablePreferenceGroupBlob(
 ) : ProxyGroupBlobStore {
     private val durability = ProfilePreferenceDurability.forPreferences(preferences)
 
-    override fun clear() = durability.access(preferences) { durability.commit(preferences.edit().clear()) }
+    override suspend fun clear() = durability.access(preferences) { durability.commit(preferences.edit().clear()) }
 
-    override fun read(): String? =
+    override suspend fun read(): String? =
         durability.access(preferences) {
             preferences.getString(GroupPayloadKey, null)?.let { encoded ->
-                ProxyGroupSchema.read(encoded, preferences.getInt(GroupVersionKey, 1), ::write)
+                ProxyGroupSchema.read(encoded, preferences.getInt(GroupVersionKey, 1), ::writeChecked)
             }
         }
 
-    override fun write(json: String) =
+    override suspend fun write(json: String) = writeChecked(json)
+
+    private fun writeChecked(json: String) =
         durability.access(preferences) {
             durability.commit(
                 preferences
@@ -210,6 +207,11 @@ private class DurablePreferenceGroupBlob(
                     .putInt(GroupVersionKey, ProxyGroupSchema.SCHEMA_VERSION),
             )
         }
+
+    override suspend fun update(transform: (String?) -> String?): String? =
+        transform(read()).also { if (it == null) clear() else write(it) }
+
+    override fun observe() = kotlinx.coroutines.flow.flow { emit(read()) }
 }
 
 /** Android publishes an editor to its process cache even when the subsequent disk commit fails. */

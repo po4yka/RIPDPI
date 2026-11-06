@@ -59,7 +59,7 @@ internal fun selectorTestGroup(
 internal class ProbeTestSelectionStore : SelectorSelectionStore {
     override fun manualReceipt(groupId: String): com.poyka.ripdpi.data.DurableCommandReceipt? = null
 
-    override fun selectReserved(
+    override suspend fun selectReserved(
         groupId: String,
         profileId: String,
         receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
@@ -80,10 +80,10 @@ internal class ProbeTestSelectionStore : SelectorSelectionStore {
         revisions[groupId] = (revisions[groupId] ?: 0L) + 1L
     }
 
-    override fun snapshot(groupId: String): SelectorSelectionSnapshot =
+    override suspend fun snapshot(groupId: String): SelectorSelectionSnapshot =
         SelectorSelectionSnapshot(flowFor(groupId).value, groupId in manual, revisions[groupId] ?: 0L)
 
-    override fun selectAutomatically(
+    override suspend fun selectAutomatically(
         groupId: String,
         expected: SelectorSelectionSnapshot,
         profileId: String,
@@ -98,7 +98,7 @@ internal class ProbeTestSelectionStore : SelectorSelectionStore {
         profileId: String,
     ) = write(groupId, profileId, true)
 
-    override fun clearSelection(groupId: String) = write(groupId, null, false)
+    override suspend fun clearSelection(groupId: String) = write(groupId, null, false)
 
     private fun write(
         groupId: String,
@@ -111,4 +111,18 @@ internal class ProbeTestSelectionStore : SelectorSelectionStore {
     }
 
     private fun flowFor(groupId: String): MutableStateFlow<String?> = flows.getOrPut(groupId) { MutableStateFlow(null) }
+}
+
+internal fun selectorTestProber(
+    store: SelectorSelectionStore,
+    probe: MemberLatencyProbe,
+) = SelectorUrltestProber(store, probe, SelectorProbeScopeProvider { group -> selectorTestScope(group) })
+
+internal class FixedMemberLatencyProbe(
+    private val latencies: Map<String, Long?>,
+) : MemberLatencyProbe {
+    override suspend fun measure(
+        profile: ProxyProfile,
+        target: MemberProbeTarget,
+    ): MemberProbeResult? = latencies[profile.id]?.let { MemberProbeResult(it) }
 }

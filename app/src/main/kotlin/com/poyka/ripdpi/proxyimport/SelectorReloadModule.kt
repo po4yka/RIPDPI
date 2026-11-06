@@ -47,11 +47,6 @@ class ActiveSelectorSelectionProvider
             groupRepository
                 .groups()
                 .onEach { groups ->
-                    activeGroup.initializeLegacyGroup(
-                        groups
-                            .filter { it.isSelector && it.members.isNotEmpty() }
-                            .sortedBy { it.order },
-                    )
                     activeGroup.prune(groups.map { it.id }.toSet())
                 }.combine(activeGroup.activeGroupId) { groups, groupId ->
                     groupId?.takeIf { id -> groups.any { it.id == id && it.isSelector && it.members.isNotEmpty() } }
@@ -74,7 +69,7 @@ class ActiveSelectorSelectionProvider
                     }
                 }
 
-        fun activeGroupId(): String? = activeGroup.activeGroupId.value
+        suspend fun activeGroupId(): String? = activeGroup.snapshotActiveGroupId()
     }
 
 /** Qualifier for the application-lifetime scope the selector coordinator watches on. */

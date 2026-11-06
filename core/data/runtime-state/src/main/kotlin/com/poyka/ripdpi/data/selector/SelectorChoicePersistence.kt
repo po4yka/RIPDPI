@@ -12,18 +12,18 @@ sealed interface SelectorChoiceOrigin {
 }
 
 interface SelectorChoicePersistence {
-    fun commitMember(
+    suspend fun commitMember(
         groupId: String,
         memberId: String,
         origin: SelectorChoiceOrigin,
     )
 
-    fun clearStandalone()
+    suspend fun clearStandalone()
 
-    fun snapshotActiveGroupId(): String?
+    suspend fun snapshotActiveGroupId(): String?
 
     /** Compensation restores metadata only; no old activation receipt is resurrected. */
-    fun restoreActiveGroup(groupId: String?)
+    suspend fun restoreActiveGroup(groupId: String?)
 
-    fun prune(groupIds: Set<String>)
+    suspend fun prune(groupIds: Set<String>)
 }

@@ -35,8 +35,8 @@ import com.poyka.ripdpi.data.awg.AwgCredentialStore
 import com.poyka.ripdpi.data.awg.AwgProfileDao
 import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgProfileForm
-import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSecrets
+import com.poyka.ripdpi.data.awg.testAwgProfileRepository
 import com.poyka.ripdpi.proxyimport.ClipboardReader
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
 import com.poyka.ripdpi.ui.testing.RipDpiTestTags
@@ -106,7 +106,7 @@ class AmneziaWgProfileScreenTest {
 
                 override suspend fun deactivate() = Unit
             },
-            AwgProfileRepository(
+            testAwgProfileRepository(
                 InMemoryAwgProfileDao(),
                 InMemoryAwgCredentialStore(),
                 com.poyka.ripdpi.data.awg.TestDirectAwgProfileMutationCoordinator(
@@ -267,19 +267,19 @@ class AmneziaWgProfileScreenTest {
 
         override fun observeProfiles(): Flow<List<AwgProfileEntity>> = rows.asStateFlow()
 
-        override suspend fun allProfiles(): List<AwgProfileEntity> = rows.value
+        override fun allProfiles(): List<AwgProfileEntity> = rows.value
 
-        override suspend fun getProfile(id: String): AwgProfileEntity? = rows.value.firstOrNull { it.id == id }
+        override fun getProfile(id: String): AwgProfileEntity? = rows.value.firstOrNull { it.id == id }
 
-        override suspend fun upsertProfile(profile: AwgProfileEntity) {
+        override fun upsertProfile(profile: AwgProfileEntity) {
             rows.value = rows.value.filterNot { it.id == profile.id } + profile
         }
 
-        override suspend fun deleteProfile(profile: AwgProfileEntity) {
+        override fun deleteProfile(profile: AwgProfileEntity) {
             rows.value = rows.value.filterNot { it.id == profile.id }
         }
 
-        override suspend fun deleteAll() {
+        override fun deleteAll() {
             rows.value = emptyList()
         }
     }

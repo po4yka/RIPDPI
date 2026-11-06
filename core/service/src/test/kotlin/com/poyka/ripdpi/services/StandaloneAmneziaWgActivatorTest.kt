@@ -8,14 +8,14 @@ import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.ProfileMutationOrigin
 import com.poyka.ripdpi.data.ProfileMutationOutcome
 import com.poyka.ripdpi.data.ProfileMutationPreparation
+import com.poyka.ripdpi.data.ProfileSelectionStore
+import com.poyka.ripdpi.data.ProfileSelections
 import com.poyka.ripdpi.data.RuntimeActivationEnvelope
 import com.poyka.ripdpi.data.RuntimeActivationReceipt
 import com.poyka.ripdpi.data.RuntimeCommandOrigin
 import com.poyka.ripdpi.data.RuntimeStopReceipt
 import com.poyka.ripdpi.data.awg.AwgActivationObfuscation
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
-import com.poyka.ripdpi.data.boot.BootSessionPointer
-import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.async
@@ -44,7 +44,7 @@ class StandaloneAmneziaWgActivatorTest {
             val activator =
                 newActivator(
                     serviceController = RecordingServiceController(autoApply = false),
-                    bootSessionStateStore = RecordingBootSessionStateStore(),
+                    profileSelections = RecordingProfileSelectionStore(),
                     loadProfile = { null },
                 )
             val activation = launch { activator.activate(sampleRequest("awg-wait")) }
@@ -61,7 +61,7 @@ class StandaloneAmneziaWgActivatorTest {
         val activator =
             newActivator(
                 serviceController = RecordingServiceController(),
-                bootSessionStateStore = RecordingBootSessionStateStore(),
+                profileSelections = RecordingProfileSelectionStore(),
                 loadProfile = { null },
             )
 
@@ -72,11 +72,11 @@ class StandaloneAmneziaWgActivatorTest {
     fun `activate selects request and starts vpn service`() =
         runTest {
             val serviceController = RecordingServiceController()
-            val store = RecordingBootSessionStateStore()
+            val store = RecordingProfileSelectionStore()
             val activator =
                 newActivator(
                     serviceController = serviceController,
-                    bootSessionStateStore = store,
+                    profileSelections = store,
                     loadProfile = { null },
                 )
             val request = sampleRequest("awg-uuid-A")
@@ -85,7 +85,7 @@ class StandaloneAmneziaWgActivatorTest {
 
             assertEquals(listOf(Mode.VPN), serviceController.startCalls)
             assertEquals(request, activator.selectedAwgEgress())
-            assertEquals(request.profileId, store.activeAwgProfileId())
+            assertEquals(request.profileId, store.awgProfileId)
             val original = serviceController.mutations.activationReceipts.single()
             val dispatched = serviceController.dispatchedReceipts.single()
             assertEquals(original.commandId, dispatched.commandId)
@@ -98,11 +98,11 @@ class StandaloneAmneziaWgActivatorTest {
     fun `re-activating replaces selected request and restarts vpn`() =
         runTest {
             val serviceController = RecordingServiceController()
-            val store = RecordingBootSessionStateStore()
+            val store = RecordingProfileSelectionStore()
             val activator =
                 newActivator(
                     serviceController = serviceController,
-                    bootSessionStateStore = store,
+                    profileSelections = store,
                     loadProfile = { null },
                 )
 
@@ -118,11 +118,11 @@ class StandaloneAmneziaWgActivatorTest {
     fun `deactivate clears selection and stops owned vpn session`() =
         runTest {
             val serviceController = RecordingServiceController()
-            val store = RecordingBootSessionStateStore()
+            val store = RecordingProfileSelectionStore()
             val activator =
                 newActivator(
                     serviceController = serviceController,
-                    bootSessionStateStore = store,
+                    profileSelections = store,
                     loadProfile = { null },
                 )
 
@@ -130,7 +130,7 @@ class StandaloneAmneziaWgActivatorTest {
             activator.deactivate()
 
             assertNull(activator.selectedAwgEgress())
-            assertNull(store.activeAwgProfileId())
+            assertNull(store.awgProfileId)
             assertEquals(1, serviceController.stopCalls)
         }
 
@@ -141,7 +141,7 @@ class StandaloneAmneziaWgActivatorTest {
             val activator =
                 newActivator(
                     serviceController = serviceController,
-                    bootSessionStateStore = RecordingBootSessionStateStore(),
+                    profileSelections = RecordingProfileSelectionStore(),
                     loadProfile = { null },
                 )
 
@@ -161,7 +161,7 @@ class StandaloneAmneziaWgActivatorTest {
             val activator =
                 newActivator(
                     serviceController = serviceController,
-                    bootSessionStateStore = RecordingBootSessionStateStore(),
+                    profileSelections = RecordingProfileSelectionStore(),
                     loadProfile = { null },
                 )
 
@@ -183,11 +183,11 @@ class StandaloneAmneziaWgActivatorTest {
     fun `selection rehydrates after process recreation`() =
         runTest {
             val request = sampleRequest("awg-uuid-A")
-            val store = RecordingBootSessionStateStore(activeAwgId = request.profileId)
+            val store = RecordingProfileSelectionStore(awgProfileId = request.profileId)
             val activator =
                 newActivator(
                     serviceController = RecordingServiceController(),
-                    bootSessionStateStore = store,
+                    profileSelections = store,
                     loadProfile = { profileId -> request.takeIf { it.profileId == profileId } },
                 )
 
@@ -200,7 +200,7 @@ class StandaloneAmneziaWgActivatorTest {
             val activator =
                 newActivator(
                     serviceController = RecordingServiceController(),
-                    bootSessionStateStore = RecordingBootSessionStateStore(activeAwgId = "missing"),
+                    profileSelections = RecordingProfileSelectionStore(awgProfileId = "missing"),
                     loadProfile = { null },
                 )
 
@@ -215,7 +215,7 @@ class StandaloneAmneziaWgActivatorTest {
     fun `selection stays readable while exact target acknowledgement is pending`() =
         runTest {
             val controller = RecordingServiceController(autoApply = false)
-            val store = RecordingBootSessionStateStore()
+            val store = RecordingProfileSelectionStore()
             val provider =
                 FakeSelectionStore().apply {
                     set(
@@ -238,7 +238,7 @@ class StandaloneAmneziaWgActivatorTest {
             check(controller.tracker.recordApplied(controller.requestId))
             controller.tracker.releaseRuntimeOwnership(controller.requestId)
             activation.join()
-            assertEquals(com.poyka.ripdpi.data.xray.VpnProviderKind.Native, provider.current().kind)
+            assertEquals(com.poyka.ripdpi.data.xray.VpnProviderKind.Native, provider.snapshotRecord().kind)
         }
 
     @Test
@@ -249,7 +249,7 @@ class StandaloneAmneziaWgActivatorTest {
                     ServiceStartResult.Rejected(Mode.VPN, ServiceStartRejectionReason.VpnConsentMissing),
                 )
             val previous = sampleRequest("awg-old")
-            val store = RecordingBootSessionStateStore(previous.profileId)
+            val store = RecordingProfileSelectionStore(previous.profileId)
             val provider = FakeSelectionStore()
             val previousProvider =
                 com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord.of(
@@ -260,8 +260,8 @@ class StandaloneAmneziaWgActivatorTest {
             val activator = newActivator(controller, store, { previous }, provider)
             val result = runCatching { activator.activate(sampleRequest("awg-rejected")) }
             org.junit.Assert.assertTrue(result.isFailure)
-            assertEquals(previous.profileId, store.activeAwgProfileId())
-            assertEquals(previousProvider, provider.current())
+            assertEquals(previous.profileId, store.awgProfileId)
+            assertEquals(previousProvider, provider.snapshotRecord())
             assertNull(activator.selectedAwgEgress())
         }
 
@@ -269,10 +269,10 @@ class StandaloneAmneziaWgActivatorTest {
     fun `cleared durable authority cannot be revived by cached request`() =
         runTest {
             val controller = RecordingServiceController()
-            val store = RecordingBootSessionStateStore()
+            val store = RecordingProfileSelectionStore()
             val activator = newActivator(controller, store, { null })
             activator.activate(sampleRequest("awg-old"))
-            store.setActiveAwgProfileId(null)
+            store.awgProfileId = null
             assertNull(activator.selectedAwgEgress())
         }
 
@@ -280,7 +280,7 @@ class StandaloneAmneziaWgActivatorTest {
     fun `cancelled activation cannot roll back same profile under a newer intent`() =
         runTest {
             val controller = RecordingServiceController(autoApply = false)
-            val store = RecordingBootSessionStateStore(activeAwgId = "old-profile")
+            val store = RecordingProfileSelectionStore(awgProfileId = "old-profile")
             val arbiter =
                 ServiceIntentArbiter(
                     controller.testAuthority,
@@ -289,16 +289,16 @@ class StandaloneAmneziaWgActivatorTest {
             val activation = launch { activator.activate(sampleRequest("awg-same")) }
             runCurrent()
             controller.prepareStart(Mode.VPN)
-            arbiter.userStart({ store.setActiveAwgProfileId("awg-same") }) { true }
+            arbiter.userStart({ store.awgProfileId = "awg-same" }) { true }
             activation.cancelAndJoin()
-            assertEquals("awg-same", store.activeAwgProfileId())
+            assertEquals("awg-same", store.awgProfileId)
         }
 
     @Test
     fun `stale cached standalone selection cannot stop a newer ordinary session`() =
         runTest {
             val controller = RecordingServiceController()
-            val store = RecordingBootSessionStateStore()
+            val store = RecordingProfileSelectionStore()
             val arbiter =
                 ServiceIntentArbiter(
                     controller.testAuthority,
@@ -306,17 +306,17 @@ class StandaloneAmneziaWgActivatorTest {
             val activator = newActivator(controller, store, { null }, serviceIntentArbiter = arbiter)
             activator.activate(sampleRequest("awg-old"))
             controller.prepareStart(Mode.VPN)
-            arbiter.userStart({ store.setActiveAwgProfileId(null) }) { true }
+            arbiter.userStart({ store.awgProfileId = null }) { true }
             activator.deactivate()
             assertEquals(0, controller.stopCalls)
-            assertNull(store.activeAwgProfileId())
+            assertNull(store.awgProfileId)
         }
 
     @Test
     fun `stale deactivate cannot stop newer intent with the same profile id`() =
         runTest {
             val controller = RecordingServiceController()
-            val store = RecordingBootSessionStateStore()
+            val store = RecordingProfileSelectionStore()
             val arbiter =
                 ServiceIntentArbiter(
                     controller.testAuthority,
@@ -324,18 +324,18 @@ class StandaloneAmneziaWgActivatorTest {
             val activator = newActivator(controller, store, { null }, serviceIntentArbiter = arbiter)
             activator.activate(sampleRequest("awg-same"))
             controller.prepareStart(Mode.VPN)
-            arbiter.userStart({ store.setActiveAwgProfileId("awg-same") }) { true }
+            arbiter.userStart({ store.awgProfileId = "awg-same" }) { true }
             activator.deactivate()
             activator.deactivate()
             assertEquals(0, controller.stopCalls)
-            assertEquals("awg-same", store.activeAwgProfileId())
+            assertEquals("awg-same", store.awgProfileId)
         }
 
     @Test
     fun `current selection deactivates after a later user start`() =
         runTest {
             val controller = RecordingServiceController()
-            val store = RecordingBootSessionStateStore()
+            val store = RecordingProfileSelectionStore()
             val arbiter =
                 ServiceIntentArbiter(
                     controller.testAuthority,
@@ -343,19 +343,19 @@ class StandaloneAmneziaWgActivatorTest {
             val activator = newActivator(controller, store, { null }, serviceIntentArbiter = arbiter)
             activator.activate(sampleRequest("awg-same"))
             controller.prepareStart(Mode.VPN)
-            arbiter.userStart({ store.setActiveAwgProfileId("awg-same") }) { true }
+            arbiter.userStart({ store.awgProfileId = "awg-same" }) { true }
 
             activator.deactivateCurrentSelection()
 
             assertEquals(1, controller.stopCalls)
-            assertEquals(null, store.activeAwgProfileId())
+            assertEquals(null, store.awgProfileId)
         }
 
     @Test
     fun `activation queued behind lifecycle rejects preparation superseded by newer stop`() =
         runTest {
             val controller = RecordingServiceController(autoApply = false)
-            val store = RecordingBootSessionStateStore()
+            val store = RecordingProfileSelectionStore()
             val activator = newActivator(controller, store, { null })
             val first = launch { activator.activate(sampleRequest("awg-first")) }
             runCurrent()
@@ -374,7 +374,7 @@ class StandaloneAmneziaWgActivatorTest {
             assertTrue(queued.await().exceptionOrNull() is IllegalStateException)
             assertEquals(listOf(TransportFailoverTarget(TransportKindAmneziaWg, "awg-first")), controller.targets)
             assertEquals(listOf(originalReceipt), controller.mutations.compensations)
-            assertEquals("awg-first", store.activeAwgProfileId())
+            assertEquals("awg-first", store.awgProfileId)
             assertTrue(controller.testAuthority.isCurrent(stopped))
             assertEquals(
                 stopped.commandId,
@@ -389,7 +389,7 @@ class StandaloneAmneziaWgActivatorTest {
     fun `deactivate does not reserve stop for provider owned by another transport`() =
         runTest {
             val controller = RecordingServiceController()
-            val store = RecordingBootSessionStateStore()
+            val store = RecordingProfileSelectionStore()
             val provider = FakeSelectionStore()
             val activator = newActivator(controller, store, { null }, provider)
             activator.activate(sampleRequest("awg-old"))
@@ -403,31 +403,31 @@ class StandaloneAmneziaWgActivatorTest {
             assertEquals(0, controller.prepareStopCalls)
             assertEquals(0, controller.stopCalls)
             assertTrue(controller.mutations.clears.isEmpty())
-            assertEquals("awg-old", store.activeAwgProfileId())
-            assertEquals(other, provider.current())
+            assertEquals("awg-old", store.awgProfileId)
+            assertEquals(other, provider.snapshotRecord())
         }
 
     @Test
     fun `deactivate dispatches owned stop without clearing a replaced pointer`() =
         runTest {
             val controller = RecordingServiceController()
-            val store = RecordingBootSessionStateStore()
+            val store = RecordingProfileSelectionStore()
             val activator = newActivator(controller, store, { null })
             activator.activate(sampleRequest("awg-old"))
-            controller.afterStopPreparation = { store.setActiveAwgProfileId("awg-other") }
+            controller.afterStopPreparation = { store.awgProfileId = "awg-other" }
             activator.deactivate()
             assertEquals(1, controller.prepareStopCalls)
             assertEquals(1, controller.mutations.clears.size)
             assertTrue(controller.testAuthority.isCurrent(controller.mutations.clears.single()))
             assertEquals(1, controller.stopCalls)
-            assertEquals("awg-other", store.activeAwgProfileId())
+            assertEquals("awg-other", store.awgProfileId)
         }
 
     @Test
     fun `dispatch failure preserves original cause with suppressed compensation failure`() =
         runTest {
             val controller = RecordingServiceController()
-            val store = RecordingBootSessionStateStore()
+            val store = RecordingProfileSelectionStore()
             val activator = newActivator(controller, store, { null })
             val original = IllegalStateException("dispatch failed")
             val cleanup = IllegalStateException("compensation failed")
@@ -447,7 +447,7 @@ class StandaloneAmneziaWgActivatorTest {
     fun `cancelled applying activation retains selection until runtime ownership is released`() =
         runTest {
             val controller = RecordingServiceController(autoApply = false)
-            val store = RecordingBootSessionStateStore()
+            val store = RecordingProfileSelectionStore()
             val activator = newActivator(controller, store, { null })
             val request = sampleRequest("awg-applying")
             val activation = launch { activator.activate(request) }
@@ -461,7 +461,7 @@ class StandaloneAmneziaWgActivatorTest {
             activation.join()
             assertTrue(controller.mutations.compensations.isEmpty())
             assertEquals(request, activator.selectedAwgEgress())
-            assertEquals(request.profileId, store.activeAwgProfileId())
+            assertEquals(request.profileId, store.awgProfileId)
             assertNull(controller.tracker.tryBegin())
             testAcknowledgeRuntimeCommand(controller.testAuthority, controller.dispatchedReceipts.single())
             assertTrue(controller.tracker.recordApplied(controller.requestId))
@@ -472,7 +472,7 @@ class StandaloneAmneziaWgActivatorTest {
     fun `cancel after activation reservation compensates original receipt without dispatch`() =
         runTest {
             val controller = RecordingServiceController()
-            val store = RecordingBootSessionStateStore("awg-before")
+            val store = RecordingProfileSelectionStore("awg-before")
             val activator = newActivator(controller, store, { null })
             val entered = CompletableDeferred<Unit>()
             val release = CompletableDeferred<Unit>()
@@ -489,7 +489,7 @@ class StandaloneAmneziaWgActivatorTest {
             activation.join()
             assertTrue(activation.isCancelled)
             assertSame(controller.mutations.activationReceipts.single(), controller.mutations.compensations.single())
-            assertEquals("awg-before", store.activeAwgProfileId())
+            assertEquals("awg-before", store.awgProfileId)
             assertTrue(controller.dispatchedReceipts.isEmpty())
         }
 
@@ -497,7 +497,7 @@ class StandaloneAmneziaWgActivatorTest {
     fun `stale deactivate cannot reserve stop after newer same profile start`() =
         runTest {
             val controller = RecordingServiceController()
-            val store = RecordingBootSessionStateStore()
+            val store = RecordingProfileSelectionStore()
             val activator = newActivator(controller, store, { null })
             activator.activate(sampleRequest("awg-same"))
             val entered = CompletableDeferred<Unit>()
@@ -512,7 +512,7 @@ class StandaloneAmneziaWgActivatorTest {
             release.complete(Unit)
             deactivation.join()
             assertTrue(controller.testAuthority.isCurrent(newer))
-            assertEquals("awg-same", store.activeAwgProfileId())
+            assertEquals("awg-same", store.awgProfileId)
             assertTrue(controller.mutations.clears.isEmpty())
             assertEquals(0, controller.stopCalls)
         }
@@ -521,7 +521,7 @@ class StandaloneAmneziaWgActivatorTest {
     fun `cancel after stop reservation completes clear and original dispatch`() =
         runTest {
             val controller = RecordingServiceController()
-            val store = RecordingBootSessionStateStore()
+            val store = RecordingProfileSelectionStore()
             val activator = newActivator(controller, store, { null })
             activator.activate(sampleRequest("awg-stop"))
             val entered = CompletableDeferred<Unit>()
@@ -537,7 +537,7 @@ class StandaloneAmneziaWgActivatorTest {
             assertFalse(deactivation.isCompleted)
             release.complete(Unit)
             deactivation.join()
-            assertNull(store.activeAwgProfileId())
+            assertNull(store.awgProfileId)
             assertEquals(1, controller.stopCalls)
             assertTrue(controller.testAuthority.isCurrent(controller.mutations.clears.single()))
         }
@@ -546,7 +546,7 @@ class StandaloneAmneziaWgActivatorTest {
     fun `clear failure still dispatches captured stop and preserves failure`() =
         runTest {
             val controller = RecordingServiceController()
-            val store = RecordingBootSessionStateStore()
+            val store = RecordingProfileSelectionStore()
             val activator = newActivator(controller, store, { null })
             activator.activate(sampleRequest("awg-stop-fault"))
             val failure = IllegalStateException("clear failed")
@@ -562,7 +562,7 @@ class StandaloneAmneziaWgActivatorTest {
 
     private fun newActivator(
         serviceController: RecordingServiceController,
-        bootSessionStateStore: BootSessionStateStore,
+        profileSelections: RecordingProfileSelectionStore,
         loadProfile: suspend (String) -> AwgActivationRequest?,
         providerSelectionStore: FakeSelectionStore = FakeSelectionStore(),
         serviceIntentArbiter: ServiceIntentArbiter = serviceController.intentArbiter,
@@ -570,8 +570,9 @@ class StandaloneAmneziaWgActivatorTest {
         val tracker = TransportFailoverApplyTracker()
         serviceController.tracker = tracker
         val mutations =
-            RecordingAwgMutations(serviceController.testAuthority, bootSessionStateStore, providerSelectionStore)
+            RecordingAwgMutations(serviceController.testAuthority, profileSelections, providerSelectionStore)
         serviceController.mutations = mutations
+        profileSelections.provider = providerSelectionStore
         serviceController.appliedCallback = { receipt ->
             // Models the service queue's positive ACK; accepted Android dispatch alone is never applied proof.
             testAcknowledgeRuntimeCommand(serviceController.testAuthority, receipt)
@@ -581,11 +582,10 @@ class StandaloneAmneziaWgActivatorTest {
         }
         return DefaultStandaloneAmneziaWgActivator(
             serviceController,
-            bootSessionStateStore,
+            profileSelections,
             loadProfile,
             serviceController,
             tracker,
-            providerSelectionStore,
             serviceIntentArbiter,
             serviceController.testAuthority,
             mutations,
@@ -636,8 +636,8 @@ class StandaloneAmneziaWgActivatorTest {
             val activation = receipt as RuntimeActivationReceipt
             assertEquals(mutations.activationReceipts.last().commandId, activation.commandId)
             assertEquals(mutations.activationReceipts.last().authority, activation.authority)
-            assertEquals(expectedTarget.profileId, mutations.store.activeAwgProfileId())
-            assertEquals(com.poyka.ripdpi.data.xray.VpnProviderKind.Native, mutations.provider.current().kind)
+            assertEquals(expectedTarget.profileId, mutations.store.awgProfileId)
+            assertEquals(com.poyka.ripdpi.data.xray.VpnProviderKind.Native, mutations.provider.snapshotRecord().kind)
             dispatchedReceipts += activation
             dispatchFailure?.let { throw it }
             val result = startPrepared(Mode.VPN, activation)
@@ -683,9 +683,17 @@ class StandaloneAmneziaWgActivatorTest {
     /** Models only coordinator-owned pointer effects, using the controller's checked authority. */
     private class RecordingAwgMutations(
         private val authority: PauseIntentAuthority,
-        val store: BootSessionStateStore,
+        val store: RecordingProfileSelectionStore,
         val provider: FakeSelectionStore,
     ) : ProfileMutationCoordinator {
+        override suspend fun restoreBackup(
+            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+            groups: List<com.poyka.ripdpi.data.ProxyGroup>?,
+            rules: List<com.poyka.ripdpi.data.rules.RuleEntity>?,
+            settings: com.poyka.ripdpi.proto.AppSettings?,
+            privateData: com.poyka.ripdpi.data.backup.BackupPrivateDataV1?,
+        ): com.poyka.ripdpi.data.ProfileMutationOutcome = error("Backup restore is outside this test boundary")
+
         private data class BeforeImage(
             val profileId: String?,
             val provider: com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord,
@@ -721,9 +729,9 @@ class StandaloneAmneziaWgActivatorTest {
                         )
                     if (outcome is ProfileMutationOutcome.Reserved) {
                         val receipt = outcome.receipt as ProfileActivationReceipt
-                        beforeImages[receipt.commandId] = BeforeImage(store.activeAwgProfileId(), provider.current())
-                        store.setActiveAwgProfileId(profileId)
-                        provider.update(
+                        beforeImages[receipt.commandId] = BeforeImage(store.awgProfileId, provider.snapshotRecord())
+                        store.awgProfileId = profileId
+                        provider.set(
                             com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord.of(
                                 com.poyka.ripdpi.data.xray.VpnProviderKind.Native,
                                 null,
@@ -744,8 +752,8 @@ class StandaloneAmneziaWgActivatorTest {
             authority.intentLinearizer.serialize {
                 compensations += receipt
                 compensationFailure?.let { throw it }
-                if (!authority.isCurrent(receipt) || store.activeAwgProfileId() != expectedProfileId ||
-                    provider.current().kind != com.poyka.ripdpi.data.xray.VpnProviderKind.Native
+                if (!authority.isCurrent(receipt) || store.awgProfileId != expectedProfileId ||
+                    provider.snapshotRecord().kind != com.poyka.ripdpi.data.xray.VpnProviderKind.Native
                 ) {
                     return@serialize false
                 }
@@ -766,8 +774,8 @@ class StandaloneAmneziaWgActivatorTest {
                         authority.cancelProfileActivation(receipt)
                     }
                 if (!cancelled) return@serialize false
-                store.setActiveAwgProfileId(before.profileId)
-                provider.update(before.provider)
+                store.awgProfileId = before.profileId
+                provider.set(before.provider)
                 beforeImages.remove(receipt.commandId)
                 true
             }
@@ -780,15 +788,20 @@ class StandaloneAmneziaWgActivatorTest {
             return authority.intentLinearizer.serialize {
                 clears += receipt
                 clearFailure?.let { throw it }
-                if (!authority.isCurrent(receipt) || store.activeAwgProfileId() != expectedProfileId ||
-                    provider.current().kind != com.poyka.ripdpi.data.xray.VpnProviderKind.Native
+                if (!authority.isCurrent(receipt) || store.awgProfileId != expectedProfileId ||
+                    provider.snapshotRecord().kind != com.poyka.ripdpi.data.xray.VpnProviderKind.Native
                 ) {
                     return@serialize false
                 }
-                store.setActiveAwgProfileId(null)
+                store.awgProfileId = null
                 true
             }
         }
+
+        override suspend fun prepareStandaloneSelectionForStart(
+            guard: com.poyka.ripdpi.data.ProfileTransactionGuard,
+            update: com.poyka.ripdpi.proto.AppSettings.Builder.() -> Unit,
+        ): Boolean = unsupported()
 
         // Unrelated catalog operations fail closed; this double supplies no generic successful mutation path.
         override suspend fun recover(): Unit = unsupported()
@@ -891,32 +904,19 @@ class StandaloneAmneziaWgActivatorTest {
         override suspend fun replacePrivateBackup(
             preparation: ProfileMutationPreparation,
             data: com.poyka.ripdpi.data.backup.BackupPrivateDataV1,
-            rollbackData: com.poyka.ripdpi.data.backup.BackupPrivateDataV1?,
         ): ProfileMutationOutcome = unsupported()
 
         private fun unsupported(): Nothing = error("Unexpected operation outside standalone AWG test ownership")
     }
 
-    private class RecordingBootSessionStateStore(
-        private var activeAwgId: String? = null,
-    ) : BootSessionStateStore {
-        override fun lastSession(): BootSessionPointer? = null
+    private class RecordingProfileSelectionStore(
+        var awgProfileId: String? = null,
+    ) : ProfileSelectionStore {
+        var provider = FakeSelectionStore()
 
-        override fun recordSession(
-            profileId: String,
-            mode: Mode,
-        ) = Unit
+        override suspend fun snapshot() = ProfileSelections(provider.current(), awgProfileId)
 
-        override fun activeAwgProfileId(): String? = activeAwgId
-
-        override fun setActiveAwgProfileId(profileId: String?) {
-            activeAwgId = profileId
-        }
-
-        override fun clear() = Unit
-
-        override fun wasRunningAtUpdate(): Boolean = false
-
-        override fun setWasRunningAtUpdate(value: Boolean) = Unit
+        override fun observe(): kotlinx.coroutines.flow.Flow<ProfileSelections> =
+            error("Selection observation is outside the standalone activation test boundary")
     }
 }

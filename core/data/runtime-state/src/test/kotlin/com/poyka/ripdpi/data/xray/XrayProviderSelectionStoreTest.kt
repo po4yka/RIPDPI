@@ -41,59 +41,65 @@ class XrayProviderSelectionStoreTest {
         }
 
     @Test
-    fun `corrupt stored selection cannot silently choose Native`() {
-        check(preferences.edit().putString("selection", "not-json").commit())
-        val store = SharedPreferencesXrayProviderSelectionStore(context)
-        assertTrue(runCatching { store.current() }.isFailure)
-    }
+    fun `corrupt stored selection cannot silently choose Native`() =
+        runTest {
+            check(preferences.edit().putString("selection", "not-json").commit())
+            val store = SharedPreferencesXrayProviderSelectionStore(context)
+            assertTrue(runCatching { store.current() }.isFailure)
+        }
 
     @Test
-    fun `unknown stored provider cannot silently choose Native`() {
-        check(preferences.edit().putString("selection", """{"providerKind":"unsupported"}""").commit())
-        val store = SharedPreferencesXrayProviderSelectionStore(context)
-        assertTrue(runCatching { store.current().kind }.isFailure)
-    }
+    fun `unknown stored provider cannot silently choose Native`() =
+        runTest {
+            check(preferences.edit().putString("selection", """{"providerKind":"unsupported"}""").commit())
+            val store = SharedPreferencesXrayProviderSelectionStore(context)
+            assertTrue(runCatching { store.current().kind }.isFailure)
+        }
 
     @Test
-    fun `absent selection is Native and a valid Xray selection survives recreation`() {
-        val store = SharedPreferencesXrayProviderSelectionStore(context)
-        assertEquals(VpnProviderKind.Native, store.current().kind)
-        val expected = XrayProviderSelectionRecord(XrayProviderSelectionRecord.ProviderKindXray, "owned-profile")
-        store.update(expected)
-        assertEquals(expected, SharedPreferencesXrayProviderSelectionStore(context).current())
-    }
+    fun `absent selection is Native and a valid Xray selection survives recreation`() =
+        runTest {
+            val store = SharedPreferencesXrayProviderSelectionStore(context)
+            assertEquals(VpnProviderKind.Native, store.current().kind)
+            val expected = XrayProviderSelectionRecord(XrayProviderSelectionRecord.ProviderKindXray, "owned-profile")
+            store.update(expected)
+            assertEquals(expected, SharedPreferencesXrayProviderSelectionStore(context).current())
+        }
 
     @Test
-    fun `failed selection disk commit is reported before confirmation succeeds`() {
-        val failingPreferences =
-            object : SharedPreferences by preferences {
-                override fun edit(): SharedPreferences.Editor {
-                    val editor = preferences.edit()
-                    return object : SharedPreferences.Editor by editor {
-                        override fun putString(
-                            key: String?,
-                            value: String?,
-                        ): SharedPreferences.Editor {
-                            editor.putString(key, value)
-                            return this
+    fun `failed selection disk commit is reported before confirmation succeeds`() =
+        runTest {
+            val failingPreferences =
+                object : SharedPreferences by preferences {
+                    override fun edit(): SharedPreferences.Editor {
+                        val editor = preferences.edit()
+                        return object : SharedPreferences.Editor by editor {
+                            override fun putString(
+                                key: String?,
+                                value: String?,
+                            ): SharedPreferences.Editor {
+                                editor.putString(key, value)
+                                return this
+                            }
+
+                            override fun commit(): Boolean = false
                         }
-
-                        override fun commit(): Boolean = false
                     }
                 }
-            }
-        val failingContext =
-            object : ContextWrapper(context) {
-                override fun getSharedPreferences(
-                    name: String?,
-                    mode: Int,
-                ): SharedPreferences = failingPreferences
-            }
-        val store = SharedPreferencesXrayProviderSelectionStore(failingContext)
-        assertTrue(
-            runCatching {
-                store.update(XrayProviderSelectionRecord(XrayProviderSelectionRecord.ProviderKindXray, "owned-profile"))
-            }.isFailure,
-        )
-    }
+            val failingContext =
+                object : ContextWrapper(context) {
+                    override fun getSharedPreferences(
+                        name: String?,
+                        mode: Int,
+                    ): SharedPreferences = failingPreferences
+                }
+            val store = SharedPreferencesXrayProviderSelectionStore(failingContext)
+            assertTrue(
+                runCatching {
+                    store.update(
+                        XrayProviderSelectionRecord(XrayProviderSelectionRecord.ProviderKindXray, "owned-profile"),
+                    )
+                }.isFailure,
+            )
+        }
 }

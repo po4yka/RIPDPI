@@ -3,6 +3,8 @@ package com.poyka.ripdpi.subscription
 import com.poyka.ripdpi.data.Mode
 import com.poyka.ripdpi.data.ProxyGroup
 import com.poyka.ripdpi.data.ProxyGroupRepository
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.coroutineScope
@@ -35,17 +37,42 @@ class SelectorUrltestCoordinator(
     private val lock = Any()
     private var generation = 0L
     private var watchJob: Job? = null
+    private var subscriptionReady = CompletableDeferred<Unit>()
+    private var subscriptionFailure: Exception? = null
     private val owners = mutableSetOf<Mode>()
     private val proberJobs = mutableMapOf<String, RunningProbe>()
+
+    /** Startup retries subscribe again only after the earlier observer has stopped. */
+    suspend fun awaitSubscription() {
+        val failed = synchronized(lock) { watchJob?.takeIf { subscriptionFailure != null } }
+        failed?.join()
+        val ready =
+            synchronized(lock) {
+                if (owners.isNotEmpty() && watchJob?.isActive != true) watch()
+                subscriptionReady
+            }
+        ready.await()
+        synchronized(lock) {
+            if (subscriptionReady === ready) subscriptionFailure?.let { throw it }
+        }
+    }
 
     /** Begins watching for urltest groups while any service owner is alive. */
     fun start(owner: Mode) =
         synchronized(lock) {
             owners.add(owner)
-            if (watchJob?.isActive == true) return@synchronized
-            val observedGeneration = ++generation
-            watchJob =
-                scope.launch {
+            if (watchJob?.isActive != true) watch()
+        }
+
+    @Suppress("TooGenericExceptionCaught")
+    private fun watch() {
+        val observedGeneration = ++generation
+        val ready = CompletableDeferred<Unit>()
+        subscriptionReady = ready
+        subscriptionFailure = null
+        watchJob =
+            scope.launch {
+                try {
                     coroutineScope {
                         val watcherScope = this
                         launch {
@@ -55,10 +82,22 @@ class SelectorUrltestCoordinator(
                         }
                         groupRepository.groups().map(::urltestGroups).distinctUntilChanged().collect {
                             reconcile(it, observedGeneration, watcherScope)
+                            ready.complete(Unit)
                         }
                     }
+                } catch (cancelled: CancellationException) {
+                    throw cancelled
+                } catch (failure: Exception) {
+                    synchronized(lock) { if (subscriptionReady === ready) subscriptionFailure = failure }
+                    ready.completeExceptionally(failure)
+                    co.touchlab.kermit.Logger
+                        .w { "Selector probes unavailable: ${failure.javaClass.simpleName}" }
+                } finally {
+                    ready.cancel()
                 }
-        }
+            }
+        watchJob?.invokeOnCompletion { ready.cancel() }
+    }
 
     /** Last-owner stop fences reconciliation and cancels the watcher and its child probes. */
     fun stop(owner: Mode) =

@@ -246,7 +246,6 @@
     <string name="backup_restore_success">Sicherung wiederhergestellt</string>
     <string name="backup_restore_unsupported_version">Diese Sicherung (Version %1$d) ist neuer als von dieser App unterstützt (Version %2$d)</string>
     <string name="backup_restore_malformed">Diese Datei ist keine gültige Sicherung</string>
-    <string name="backup_restore_integrity_failure">Die Datenintegrität konnte nach der Wiederherstellung nicht garantiert werden. Starten Sie die App neu und prüfen Sie Ihre Profile.</string>
     <string name="backup_restore_nothing_selected">Wählen Sie mindestens eine Kategorie zum Wiederherstellen aus</string>
     <string name="backup_import_preview_title">Sicherung prüfen</string>
     <string name="backup_import_preview_schema">Sicherung Version %1$d, erstellt von App %2$s</string>

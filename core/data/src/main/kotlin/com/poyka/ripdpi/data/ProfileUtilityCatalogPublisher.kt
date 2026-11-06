@@ -1,21 +1,25 @@
 package com.poyka.ripdpi.data
 
-/** Called only inside the profile recovery mutex; authority never reads a store or acquires this mutex. */
+import com.poyka.ripdpi.data.persistence.ProfileDatabase
+
 internal class ProfileUtilityCatalogPublisher(
-    private val stores: ProfileMutationStores,
+    private val database: ProfileDatabase,
     private val authority: PauseIntentAuthority,
 ) {
     fun invalidate() = authority.profileUtility.invalidateCatalog()
 
     suspend fun publish() {
-        val native = stores.relayProfiles.list().map { ProfileUtilityReference.NativeRelay(it.id) }
-        val xray = stores.xrayMetadata.list().map { ProfileUtilityReference.Xray(it.profileId) }
-        val groups = stores.groupCatalog.snapshot()
-        stores.selectorChoice.prune(groups.map { it.id }.toSet())
-        val members =
-            groups.flatMap { group ->
-                group.members.map { ProfileUtilityReference.SelectorMember(group.id, it.id) }
+        val references =
+            database.read { rows ->
+                val native = rows.relayProfiles.list().map { ProfileUtilityReference.NativeRelay(it.id) }
+                val xray = rows.xrayMetadata.list().map { ProfileUtilityReference.Xray(it.profileId) }
+                val groups = rows.groups.list()
+                val members =
+                    groups.flatMap { group ->
+                        group.members.map { ProfileUtilityReference.SelectorMember(group.id, it.id) }
+                    }
+                (native + xray + members).toSet()
             }
-        authority.profileUtility.replaceCatalog((native + xray + members).toSet())
+        authority.profileUtility.replaceCatalog(references)
     }
 }

@@ -2,7 +2,6 @@ package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.data.awg.AwgActivationObfuscation
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
-import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSubscriptionProfile
 import com.poyka.ripdpi.data.awg.toAwgSubscriptionProfile
 import com.poyka.ripdpi.data.subscription.SingBoxParseResult
@@ -10,7 +9,6 @@ import com.poyka.ripdpi.data.subscription.SingBoxSubscriptionParser
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -25,7 +23,7 @@ import org.robolectric.annotation.Config
 internal class AwgSubscriptionProfileRepositoryRoomTest : AwgProfileRepositoryRoomFixture() {
     @Test
     fun `migration copies only same-group origin and preserves source`() =
-        runTest {
+        runRoomTest {
             val source = subscriptionProfile(request = sampleRequest().copy(privateKey = "local-key"))
             val sourceId = repository.saveSubscriptionProfiles(listOf(source)).map { it.id }.single()
             val incoming =
@@ -54,7 +52,7 @@ internal class AwgSubscriptionProfileRepositoryRoomTest : AwgProfileRepositoryRo
 
     @Test
     fun `migration from quarantined numeric headers preserves the device key without old wire parameters`() =
-        runTest {
+        runRoomTest {
             val source = subscriptionProfile(request = sampleRequest().copy(privateKey = "local-key"))
             val sourceId = repository.saveSubscriptionProfiles(listOf(source)).single().id
             val original = requireNotNull(dao.getProfile(sourceId))
@@ -96,7 +94,7 @@ internal class AwgSubscriptionProfileRepositoryRoomTest : AwgProfileRepositoryRo
 
     @Test
     fun `current-request guard rejects edited row before committing other state`() =
-        runTest {
+        runRoomTest {
             val id = repository.saveSubscriptionProfiles(listOf(subscriptionProfile())).map { it.id }.single()
             val expected = repository.load(id)!!.request
             var commits = 0
@@ -124,7 +122,7 @@ internal class AwgSubscriptionProfileRepositoryRoomTest : AwgProfileRepositoryRo
 
     @Test
     fun `subscription rotation survives editor save and repository restart`() =
-        runTest {
+        runRoomTest {
             val id = repository.saveSubscriptionProfiles(listOf(subscriptionProfile())).map { it.id }.single()
             val local =
                 repository.load(id)!!.request.copy(
@@ -135,13 +133,8 @@ internal class AwgSubscriptionProfileRepositoryRoomTest : AwgProfileRepositoryRo
                     carrierWsUrl = "wss://carrier.example/ws",
                 )
             repository.save("local label", local, existingId = id)
-            val restarted =
-                AwgProfileRepository(
-                    dao,
-                    credentialStore,
-                    com.poyka.ripdpi.data.awg
-                        .TestDirectAwgProfileMutationCoordinator(dao, credentialStore),
-                )
+            fixture.reopen()
+            val restarted = repository
             val rotated =
                 sampleRequest().copy(
                     privateKey = "",
@@ -178,7 +171,7 @@ internal class AwgSubscriptionProfileRepositoryRoomTest : AwgProfileRepositoryRo
 
     @Test
     fun `subscription identities are structured and never adopt manual profiles`() =
-        runTest {
+        runRoomTest {
             val manual = repository.save("home", sampleRequest())
             val first = subscriptionProfile(groupId = "a:b", memberId = "c")
             val second = subscriptionProfile(groupId = "a", memberId = "b:c")
@@ -192,7 +185,7 @@ internal class AwgSubscriptionProfileRepositoryRoomTest : AwgProfileRepositoryRo
 
     @Test
     fun `explicit imported key replaces old key and empty PSK removes old PSK`() =
-        runTest {
+        runRoomTest {
             val profile = subscriptionProfile()
             val id = repository.saveSubscriptionProfiles(listOf(profile)).map { it.id }.single()
             repository
@@ -213,7 +206,7 @@ internal class AwgSubscriptionProfileRepositoryRoomTest : AwgProfileRepositoryRo
 
     @Test
     fun `duplicate subscription members fail before any row changes`() =
-        runTest {
+        runRoomTest {
             val profile = subscriptionProfile()
             val id = repository.saveSubscriptionProfiles(listOf(profile)).map { it.id }.single()
             val original = dao.getProfile(id)
@@ -226,13 +219,14 @@ internal class AwgSubscriptionProfileRepositoryRoomTest : AwgProfileRepositoryRo
 
     @Test
     fun `failed subscription write restores credentials and association for retry`() =
-        runTest {
+        runRoomTest {
             val profile = subscriptionProfile()
             val id = repository.saveSubscriptionProfiles(listOf(profile)).map { it.id }.single()
             val original = dao.getProfile(id)
             val rotated = profile.copy(request = sampleRequest().copy(privateKey = "", presharedKey = "rotated"))
-            failingDao.failNextUpsertAfterWrite = true
+            failAwgWrites()
             assertTrue(runCatching { repository.saveSubscriptionProfiles(listOf(rotated)).map { it.id } }.isFailure)
+            allowAwgWrites()
             assertEquals(original, dao.getProfile(id))
             assertEquals("psk==", repository.load(id)!!.request.presharedKey)
             assertEquals(id, repository.saveSubscriptionProfiles(listOf(rotated)).map { it.id }.single())
@@ -242,7 +236,7 @@ internal class AwgSubscriptionProfileRepositoryRoomTest : AwgProfileRepositoryRo
 
     @Test
     fun `concurrent imports keep one opaque profile id`() =
-        runTest {
+        runRoomTest {
             val ids =
                 List(
                     10,
@@ -262,7 +256,7 @@ internal class AwgSubscriptionProfileRepositoryRoomTest : AwgProfileRepositoryRo
 
     @Test
     fun `new subscription placeholder remains empty and does not inherit unrelated key`() =
-        runTest {
+        runRoomTest {
             repository.save("home", sampleRequest())
             val id =
                 repository
@@ -276,7 +270,7 @@ internal class AwgSubscriptionProfileRepositoryRoomTest : AwgProfileRepositoryRo
 
     @Test
     fun `empty subscription import does not decode unrelated malformed rows`() =
-        runTest {
+        runRoomTest {
             dao.upsertProfile(
                 com.poyka.ripdpi.data.awg
                     .AwgProfileEntity("legacy", "legacy", "invalid-json", 0),
@@ -287,7 +281,7 @@ internal class AwgSubscriptionProfileRepositoryRoomTest : AwgProfileRepositoryRo
 
     @Test
     fun `ambiguous stored membership fails before updating either row`() =
-        runTest {
+        runRoomTest {
             val profile = subscriptionProfile()
             val id = repository.saveSubscriptionProfiles(listOf(profile)).map { it.id }.single()
             val original = dao.getProfile(id)!!
@@ -299,7 +293,7 @@ internal class AwgSubscriptionProfileRepositoryRoomTest : AwgProfileRepositoryRo
 
     @Test
     fun `subscription refresh applies supplied network policy and keeps local key`() =
-        runTest {
+        runRoomTest {
             val profile = subscriptionProfile()
             val id = repository.saveSubscriptionProfiles(listOf(profile)).map { it.id }.single()
             val supplied =
@@ -316,7 +310,7 @@ internal class AwgSubscriptionProfileRepositoryRoomTest : AwgProfileRepositoryRo
 
     @Test
     fun `subscription empty policy clears overrides but omission preserves them`() =
-        runTest {
+        runRoomTest {
             val profile =
                 subscriptionProfile(
                     request =
@@ -339,7 +333,7 @@ internal class AwgSubscriptionProfileRepositoryRoomTest : AwgProfileRepositoryRo
 
     @Test
     fun `malformed supplied policy is rejected without changing saved profile`() =
-        runTest {
+        runRoomTest {
             val profile =
                 subscriptionProfile().let {
                     it.copy(

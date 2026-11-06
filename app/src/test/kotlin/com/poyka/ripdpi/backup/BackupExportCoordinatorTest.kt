@@ -1,20 +1,10 @@
 package com.poyka.ripdpi.backup
 
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
-import com.poyka.ripdpi.data.ProxyGroup
-import com.poyka.ripdpi.data.ProxyGroupRepository
-import com.poyka.ripdpi.data.backup.BackupExportUseCase
 import com.poyka.ripdpi.data.backup.BackupVariant
-import com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
-import com.poyka.ripdpi.data.rules.OutboundTag
-import com.poyka.ripdpi.data.rules.RuleDao
-import com.poyka.ripdpi.data.rules.RuleEntity
-import com.poyka.ripdpi.proto.AppSettings
+import com.poyka.ripdpi.data.testing.backupExportUseCase
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.TestScope
@@ -28,7 +18,8 @@ import java.io.IOException
 import java.io.OutputStream
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class BackupExportCoordinatorTest {
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+class BackupExportCoordinatorTest : BackupRoomTest() {
     // -- export() -------------------------------------------------------------
 
     @Test
@@ -42,7 +33,7 @@ class BackupExportCoordinatorTest {
                 opened = true
                 null
             }, onWriteFailed = {})
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(opened)
             assertTrue(h.exportEffects.isEmpty())
@@ -58,7 +49,7 @@ class BackupExportCoordinatorTest {
                 opened = true
                 null
             }, onWriteFailed = {})
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(opened)
             assertTrue(h.exportEffects.isEmpty())
@@ -76,7 +67,7 @@ class BackupExportCoordinatorTest {
                 passphrase = ArchivePhrase.copyOf(),
             )
             assertTrue(h.state.value.exporting)
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(h.state.value.exporting)
             assertEquals(listOf(BackupExportEffect.Cancelled), h.exportEffects)
@@ -89,7 +80,7 @@ class BackupExportCoordinatorTest {
             val stream = CloseTrackingStream()
 
             h.coordinator.export(BackupVariant.SHARE, openOutput = { stream }, onWriteFailed = {})
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             val effect = h.exportEffects.single() as BackupExportEffect.Success
             assertEquals(BackupVariant.SHARE, effect.variant)
@@ -110,7 +101,7 @@ class BackupExportCoordinatorTest {
                 onWriteFailed = {},
                 passphrase = ArchivePhrase.copyOf(),
             )
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             val effect = h.exportEffects.single() as BackupExportEffect.Success
             assertEquals(BackupVariant.FULL, effect.variant)
@@ -130,7 +121,7 @@ class BackupExportCoordinatorTest {
                 onWriteFailed = { writeFailedCalls++ },
                 passphrase = ArchivePhrase.copyOf(),
             )
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertEquals(1, writeFailedCalls)
             assertEquals(listOf<BackupExportEffect>(BackupExportEffect.WriteFailed), h.exportEffects)
@@ -151,7 +142,7 @@ class BackupExportCoordinatorTest {
                 opened = true
                 null
             }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(opened)
             assertTrue(h.shareEffects.isEmpty())
@@ -167,7 +158,7 @@ class BackupExportCoordinatorTest {
                 opened = true
                 null
             }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(opened)
             assertTrue(h.shareEffects.isEmpty())
@@ -180,7 +171,7 @@ class BackupExportCoordinatorTest {
 
             h.coordinator.prepareShareBackup { null }
             assertTrue(h.state.value.sharing)
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertFalse(h.state.value.sharing)
             assertEquals(listOf<BackupShareEffect>(BackupShareEffect.Failed), h.shareEffects)
@@ -193,7 +184,7 @@ class BackupExportCoordinatorTest {
             val stream = CloseTrackingStream()
 
             h.coordinator.prepareShareBackup { stream }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertEquals(listOf<BackupShareEffect>(BackupShareEffect.Ready), h.shareEffects)
             // The forced-SHARE variant is observable through the redacted document:
@@ -210,7 +201,7 @@ class BackupExportCoordinatorTest {
             val stream = FailingStream()
 
             h.coordinator.prepareShareBackup { stream }
-            testScheduler.advanceUntilIdle()
+            awaitOperations()
 
             assertEquals(listOf<BackupShareEffect>(BackupShareEffect.Failed), h.shareEffects)
             assertFalse(h.state.value.sharing)
@@ -230,20 +221,13 @@ class BackupExportCoordinatorTest {
         val ArchivePhrase = "archive phrase fixture".toCharArray()
     }
 
-    private fun TestScope.harness(policyDisabled: Boolean = false): Harness {
+    private suspend fun TestScope.harness(policyDisabled: Boolean = false): Harness {
         val state = MutableStateFlow(BackupRestoreUiState(exportDisabledByPolicy = policyDisabled))
         val exportEffects = mutableListOf<BackupExportEffect>()
         val shareEffects = mutableListOf<BackupShareEffect>()
         val useCase =
-            BackupExportUseCase(
-                groupRepository = FakeGroupRepository(),
-                ruleDao = FakeRuleDao(),
-                settingsRepository = FakeAppSettingsRepository(AppSettings.getDefaultInstance()),
-                privateDataStore =
-                    com.poyka.ripdpi.data
-                        .testEmptyBackupPrivateDataStore(),
-                // The export must run on the test scheduler so advanceUntilIdle() waits for it.
-                dispatchers = StandardTestDispatcher(testScheduler).let { AppCoroutineDispatchers(it, it, it) },
+            roomFixture().backupExportUseCase(
+                StandardTestDispatcher(testScheduler).let { AppCoroutineDispatchers(it, it, it) },
             )
         val coordinator =
             BackupExportCoordinator(
@@ -290,69 +274,5 @@ class BackupExportCoordinatorTest {
         override fun close() {
             closed = true
         }
-    }
-
-    private class FakeGroupRepository : ProxyGroupRepository {
-        private val state = MutableStateFlow(emptyList<ProxyGroup>())
-
-        override suspend fun add(group: ProxyGroup) = Unit
-
-        override suspend fun update(group: ProxyGroup) = Unit
-
-        override suspend fun compensateReplacement(groups: List<ProxyGroup>) {
-            replaceAll(
-                com.poyka.ripdpi.data
-                    .testPauseAuthority()
-                    .reserveStop(),
-                groups,
-            )
-        }
-
-        override suspend fun delete(
-            preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
-            id: String,
-        ) = Unit
-
-        override suspend fun list(): List<ProxyGroup> = emptyList()
-
-        override suspend fun replaceAll(
-            receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
-            groups: List<ProxyGroup>,
-        ) = Unit
-
-        override fun groups(): Flow<List<ProxyGroup>> = state.asStateFlow()
-    }
-
-    private class FakeRuleDao : RuleDao() {
-        override suspend fun deleteAll() = Unit
-
-        override fun allRules(): Flow<List<RuleEntity>> = flowOf(emptyList())
-
-        override fun enabledRules(): Flow<List<RuleEntity>> = flowOf(emptyList())
-
-        override fun rulesExcludingName(excludedName: String): Flow<List<RuleEntity>> = flowOf(emptyList())
-
-        override fun rulesByName(name: String): Flow<List<RuleEntity>> = flowOf(emptyList())
-
-        override suspend fun findByName(name: String): RuleEntity? = null
-
-        override suspend fun maxUserOrder(excludedName: String): Int? = null
-
-        override suspend fun insert(rule: RuleEntity): Long = error("not used")
-
-        override suspend fun update(rule: RuleEntity) = error("not used")
-
-        override suspend fun delete(rule: RuleEntity) = error("not used")
-
-        override suspend fun resetOutboundTags(
-            ruleIds: List<Long>,
-            targetTag: OutboundTag,
-            replacementTag: OutboundTag,
-        ): Int = error("not used")
-
-        override suspend fun updateOrder(
-            id: Long,
-            order: Int,
-        ) = error("not used")
     }
 }

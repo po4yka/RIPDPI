@@ -3,13 +3,10 @@ package com.poyka.ripdpi.data
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.collect
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
-import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -28,63 +25,65 @@ class ProxyGroupBlobStoreFailureTest {
     }
 
     @Test
-    fun `absent saved state is distinct from an unreadable sealed catalogue`() {
-        val store = KeystoreProxyGroupBlobStore(context)
-        assertNull(store.read())
-        seedCorruptSealedCatalogue()
-        val retained = preferences.all.toMap()
+    fun `absent saved state is distinct from an unreadable sealed catalogue`() =
+        runTest {
+            val store = KeystoreProxyGroupBlobStore(context)
+            assertNull(store.read())
+            seedCorruptSealedCatalogue()
+            val retained = preferences.all.toMap()
 
-        assertThrows(IllegalArgumentException::class.java) { store.read() }
+            assertTrue(runCatching { store.read() }.exceptionOrNull() is IllegalArgumentException)
 
-        assertEquals(retained, preferences.all)
-    }
-
-    @Test
-    fun `unreadable sealed state never revives a legacy plaintext catalogue`() {
-        seedCorruptSealedCatalogue()
-        check(preferences.edit().putString("proxy-groups", "[]").commit())
-        val retained = preferences.all.toMap()
-
-        // Framing validation executes before AndroidKeyStore access. This tests
-        // the production read boundary, not availability of the platform keystore.
-        val error =
-            assertThrows(IllegalArgumentException::class.java) {
-                KeystoreProxyGroupBlobStore(context).read()
-            }
-
-        assertEquals("Encrypted preferences payload framing is invalid", error.message)
-        assertEquals(retained, preferences.all)
-    }
+            assertEquals(retained, preferences.all)
+        }
 
     @Test
-    fun `early collectors wait through strict read failures without losing unreadable bytes`() =
+    fun `unreadable sealed state never revives a legacy plaintext catalogue`() =
+        runTest {
+            seedCorruptSealedCatalogue()
+            check(preferences.edit().putString("proxy-groups", "[]").commit())
+            val retained = preferences.all.toMap()
+
+            // Framing validation executes before AndroidKeyStore access. This tests
+            // the production read boundary, not availability of the platform keystore.
+            val error =
+                runCatching { KeystoreProxyGroupBlobStore(context).read() }.exceptionOrNull()
+
+            assertEquals("Encrypted preferences payload framing is invalid", error?.message)
+            assertEquals(retained, preferences.all)
+        }
+
+    @Test
+    fun `strict read failure reaches collectors and explicit retry succeeds after source repair`() =
         runTest {
             seedCorruptSealedCatalogue()
             val retained = preferences.all.toMap()
             val authority = testPauseAuthority()
             val repository =
-                SharedPreferencesProxyGroupRepository(
-                    com.poyka.ripdpi.data
-                        .ProxyGroupCatalog(KeystoreProxyGroupBlobStore(context)),
+                DefaultProxyGroupRepository(
+                    ProxyGroupCatalog(KeystoreProxyGroupBlobStore(context)),
                     testMutationPreparationSource(authority),
                 )
-            val observed = mutableListOf<List<ProxyGroup>>()
-            val collector =
-                backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) {
-                    repository.groups().collect { observed += it }
-                }
-            assertTrue(collector.isActive)
-            assertTrue(observed.isEmpty())
-            assertEquals(retained, preferences.all)
 
+            val failure = runCatching { repository.groups().first() }.exceptionOrNull()
+            assertTrue(failure is IllegalArgumentException)
+            assertEquals(retained, preferences.all)
             assertTrue(runCatching { repository.list() }.exceptionOrNull() is IllegalArgumentException)
-            assertTrue(collector.isActive)
-            assertTrue(observed.isEmpty())
             assertTrue(
                 runCatching { repository.replaceAll(authority.reserveStop(), emptyList()) }
                     .exceptionOrNull() is IllegalArgumentException,
             )
             assertEquals(retained, preferences.all)
+
+            check(
+                preferences
+                    .edit()
+                    .remove("proxy-groups-sealed")
+                    .putString("proxy-groups", "[]")
+                    .commit(),
+            )
+            assertEquals(emptyList<ProxyGroup>(), repository.groups().first())
+            assertEquals(emptyList<ProxyGroup>(), repository.list())
         }
 
     private fun seedCorruptSealedCatalogue() {

@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.routing.PackageRoutingAction
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
 import com.poyka.ripdpi.data.routing.PackageRoutingRuleOrigin
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -13,8 +14,8 @@ import org.junit.Test
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class ProxyGroupRepositoryTest {
-    private fun newRepository(): SharedPreferencesProxyGroupRepository =
-        SharedPreferencesProxyGroupRepository(
+    private fun newRepository(): DefaultProxyGroupRepository =
+        DefaultProxyGroupRepository(
             com.poyka.ripdpi.data
                 .ProxyGroupCatalog(FakeProxyGroupBlobStore()),
             com.poyka.ripdpi.data
@@ -108,7 +109,7 @@ class ProxyGroupRepositoryTest {
         runTest {
             val blobStore = FakeProxyGroupBlobStore()
             val first =
-                SharedPreferencesProxyGroupRepository(
+                DefaultProxyGroupRepository(
                     com.poyka.ripdpi.data
                         .ProxyGroupCatalog(blobStore),
                     com.poyka.ripdpi.data
@@ -123,7 +124,7 @@ class ProxyGroupRepositoryTest {
             first.add(group("g1").copy(packageRoutingRules = listOf(rule)))
 
             val reloaded =
-                SharedPreferencesProxyGroupRepository(
+                DefaultProxyGroupRepository(
                     com.poyka.ripdpi.data
                         .ProxyGroupCatalog(blobStore),
                     com.poyka.ripdpi.data
@@ -140,7 +141,7 @@ class ProxyGroupRepositoryTest {
                 "g1",
             )
             val afterDelete =
-                SharedPreferencesProxyGroupRepository(
+                DefaultProxyGroupRepository(
                     com.poyka.ripdpi.data
                         .ProxyGroupCatalog(blobStore),
                     com.poyka.ripdpi.data
@@ -150,13 +151,11 @@ class ProxyGroupRepositoryTest {
         }
 
     @Test
-    fun `groups flow waits for validated load then emits on every change`() =
+    fun `groups flow loads validated state then emits on every change`() =
         runTest {
             val repository = newRepository()
 
             repository.groups().test {
-                expectNoEvents()
-                repository.list()
                 assertEquals(emptyList<ProxyGroup>(), awaitItem())
 
                 repository.add(group("g1"))
@@ -182,15 +181,21 @@ class ProxyGroupRepositoryTest {
 
 /** In-memory [ProxyGroupBlobStore]; AndroidKeyStore is unavailable under Robolectric. */
 private class FakeProxyGroupBlobStore : ProxyGroupBlobStore {
-    private var blob: String? = null
+    private val blob = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+    private val mutex = kotlinx.coroutines.sync.Mutex()
 
-    override fun read(): String? = blob
+    override suspend fun read(): String? = blob.value
 
-    override fun write(json: String) {
-        blob = json
+    override suspend fun write(json: String) {
+        blob.value = json
     }
 
-    override fun clear() {
-        blob = null
+    override suspend fun clear() {
+        blob.value = null
     }
+
+    override suspend fun update(transform: (String?) -> String?): String? =
+        mutex.withLock { transform(blob.value).also { blob.value = it } }
+
+    override fun observe(): kotlinx.coroutines.flow.Flow<String?> = blob
 }

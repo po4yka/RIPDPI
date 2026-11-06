@@ -16,10 +16,10 @@ import com.poyka.ripdpi.data.RelayKindTrojan
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.ServiceStartupRejectedException
+import com.poyka.ripdpi.data.selector.DefaultSelectorSelectionStore
 import com.poyka.ripdpi.data.selector.SelectorActiveGroupStore
 import com.poyka.ripdpi.data.selector.SelectorSelectionSnapshot
 import com.poyka.ripdpi.data.selector.SelectorSelectionStore
-import com.poyka.ripdpi.data.selector.SharedPreferencesSelectorSelectionStore
 import com.poyka.ripdpi.data.testMutationPreparationSource
 import com.poyka.ripdpi.data.testPauseAuthority
 import kotlinx.coroutines.test.runTest
@@ -93,7 +93,7 @@ class SelectorRelayRuntimeProfileResolverTest {
             var selectionReads = 0
             val selectionReader =
                 object : SelectorSelectionStore by selections.second {
-                    override fun snapshot(groupId: String): SelectorSelectionSnapshot {
+                    override suspend fun snapshot(groupId: String): SelectorSelectionSnapshot {
                         selectionReads += 1
                         return selections.second.snapshot(groupId)
                     }
@@ -355,19 +355,25 @@ class SelectorRelayRuntimeProfileResolverTest {
         groupId: String?,
         memberId: String?,
     ): Pair<SelectorActiveGroupStore, SelectorSelectionStore> {
-        val preferences = context.getSharedPreferences("selector_selection_store", Context.MODE_PRIVATE)
-        preferences
-            .edit()
-            .clear()
-            .putString("active_group_id", groupId.orEmpty())
-            .apply {
-                if (groupId != null && memberId != null) putString("selected-profile-$groupId", memberId)
-            }.commit()
+        val persistence =
+            com.poyka.ripdpi.data.fakes.InMemorySelectorPersistence(
+                activeGroupId = groupId,
+                choices =
+                    if (groupId != null && memberId != null) {
+                        mapOf(
+                            groupId to
+                                com.poyka.ripdpi.data.selector
+                                    .SelectorSelectionSnapshot(memberId, false, 1L),
+                        )
+                    } else {
+                        emptyMap()
+                    },
+            )
         val authority = testPauseAuthority()
-        val activeGroup = SelectorActiveGroupStore(context, authority)
+        val activeGroup = SelectorActiveGroupStore(persistence, authority)
         val selections =
-            SharedPreferencesSelectorSelectionStore(
-                context,
+            DefaultSelectorSelectionStore(
+                persistence,
                 testMutationPreparationSource(),
                 authority,
                 activeGroup,

@@ -1,49 +1,50 @@
 package com.poyka.ripdpi.data
 
-import android.content.Context
-import androidx.room.Room
-import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.data.awg.AwgActivationObfuscation
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
-import com.poyka.ripdpi.data.awg.AwgCredentialStore
-import com.poyka.ripdpi.data.awg.AwgProfileDao
-import com.poyka.ripdpi.data.awg.AwgProfileRepository
-import com.poyka.ripdpi.data.awg.AwgSecrets
-import com.poyka.ripdpi.data.rules.RipDpiDatabase
-import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withContext
 import org.junit.After
 import org.junit.Before
 
 internal abstract class AwgProfileRepositoryRoomFixture {
-    protected lateinit var db: RipDpiDatabase
-    protected lateinit var dao: AwgProfileDao
-    protected lateinit var failingDao: FailingAwgProfileDao
-    protected lateinit var credentialStore: FakeAwgCredentialStore
-    protected lateinit var repository: AwgProfileRepository
+    protected lateinit var fixture: ProfileMutationTestFixture
+    protected val dao get() = fixture.awgProfiles
+    protected val credentialStore get() = fixture.awgCredentials
+    protected val repository get() = fixture.awgRepository
 
     @Before
-    fun setUp() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        db =
-            Room
-                .inMemoryDatabaseBuilder(context, RipDpiDatabase::class.java)
-                .allowMainThreadQueries()
-                .build()
-        failingDao = FailingAwgProfileDao(db.awgProfileDao())
-        dao = failingDao
-        credentialStore = FakeAwgCredentialStore()
-        repository =
-            AwgProfileRepository(
-                dao,
-                credentialStore,
-                com.poyka.ripdpi.data.awg
-                    .TestDirectAwgProfileMutationCoordinator(dao, credentialStore),
-            )
-    }
+    fun setUp() =
+        runBlocking(Dispatchers.IO) {
+            fixture = ProfileMutationTestFixture()
+            fixture.initialize()
+        }
 
     @After
-    fun tearDown() {
-        db.close()
+    fun tearDown() = fixture.close()
+
+    protected fun runRoomTest(testBody: suspend TestScope.() -> Unit) =
+        runTest {
+            withContext(Dispatchers.IO) { testBody(this@runTest) }
+        }
+
+    protected fun failAwgWrites() {
+        for (operation in listOf("INSERT", "UPDATE")) {
+            fixture.room.database.openHelper.writableDatabase.execSQL(
+                "CREATE TRIGGER fail_awg_$operation AFTER $operation ON awg_profiles " +
+                    "BEGIN SELECT RAISE(ABORT, 'injected AWG write failure'); END",
+            )
+        }
+    }
+
+    protected fun allowAwgWrites() {
+        for (operation in listOf("INSERT", "UPDATE")) {
+            fixture.room.database.openHelper.writableDatabase
+                .execSQL("DROP TRIGGER fail_awg_$operation")
+        }
     }
 
     protected fun sampleRequest(profileId: String = "") =
@@ -59,61 +60,4 @@ internal abstract class AwgProfileRepositoryRoomFixture {
             persistentKeepalive = 25,
             obfuscation = AwgActivationObfuscation(jc = 4, jmax = 70, h1 = "1000000001", i1 = "<b 0xdeadbeef>"),
         )
-}
-
-/**
- * In-memory [AwgCredentialStore] double so the test exercises the REAL secret
- * split without an AndroidKeyStore dependency. Mirrors the fake-store doubles used
- * by the other repository round-trip tests.
- */
-internal class FakeAwgCredentialStore : AwgCredentialStore {
-    private val secrets = mutableMapOf<String, AwgSecrets>()
-    var failNextSaveAfterWrite: Boolean = false
-
-    override suspend fun load(profileId: String): AwgSecrets? = secrets[profileId]
-
-    override suspend fun save(
-        profileId: String,
-        secrets: AwgSecrets,
-    ) {
-        this.secrets[profileId] = secrets
-        if (failNextSaveAfterWrite) {
-            failNextSaveAfterWrite = false
-            error("credential save failed after write")
-        }
-    }
-
-    override suspend fun clear(profileId: String) {
-        secrets.remove(profileId)
-    }
-
-    fun isEmpty(): Boolean = secrets.isEmpty()
-}
-
-internal class FailingAwgProfileDao(
-    private val delegate: AwgProfileDao,
-) : AwgProfileDao {
-    var failNextUpsertAfterWrite = false
-
-    override fun observeProfiles(): Flow<List<com.poyka.ripdpi.data.awg.AwgProfileEntity>> = delegate.observeProfiles()
-
-    override suspend fun allProfiles(): List<com.poyka.ripdpi.data.awg.AwgProfileEntity> = delegate.allProfiles()
-
-    override suspend fun getProfile(id: String): com.poyka.ripdpi.data.awg.AwgProfileEntity? = delegate.getProfile(id)
-
-    override suspend fun upsertProfile(profile: com.poyka.ripdpi.data.awg.AwgProfileEntity) {
-        delegate.upsertProfile(profile)
-        if (failNextUpsertAfterWrite) {
-            failNextUpsertAfterWrite = false
-            error("Room upsert failed after write")
-        }
-    }
-
-    override suspend fun deleteProfile(profile: com.poyka.ripdpi.data.awg.AwgProfileEntity) {
-        delegate.deleteProfile(profile)
-    }
-
-    override suspend fun deleteAll() {
-        delegate.deleteAll()
-    }
 }

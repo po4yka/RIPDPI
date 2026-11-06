@@ -422,10 +422,8 @@ private fun redactedPresence(secret: String?): String = if (secret == null) "nul
  * Schema versioning for persisted [ProxyGroup] payloads.
  *
  * When the on-disk shape changes, bump [SCHEMA_VERSION] and add a branch to
- * [migrate] that upgrades a payload from the previous version. Each persisted
- * blob is stored alongside its writer version (see
- * [SharedPreferencesProxyGroupRepository]) so reads can replay forward
- * migrations before deserialization.
+ * [migrate] that upgrades a payload from the previous version. Each stored blob
+ * includes its writer version so migration can precede deserialization.
  */
 object ProxyGroupSchema {
     const val SCHEMA_VERSION: Int = 2
@@ -523,7 +521,7 @@ interface ProxyGroupRepository {
 }
 
 @Singleton
-class SharedPreferencesProxyGroupRepository
+class DefaultProxyGroupRepository
     @Inject
     constructor(
         private val catalog: ProxyGroupCatalog,
@@ -585,14 +583,15 @@ class SharedPreferencesProxyGroupRepository
  * wiring is unit-tested against the fake.
  */
 interface ProxyGroupBlobStore {
-    /** The persisted group-list JSON (decrypted + schema-migrated), or `null` when empty. */
-    fun read(): String?
+    suspend fun read(): String?
 
-    /** Seals and persists [json] at the current schema version. */
-    fun write(json: String)
+    suspend fun write(json: String)
 
-    /** Removes all persisted group state. */
-    fun clear()
+    suspend fun clear()
+
+    suspend fun update(transform: (String?) -> String?): String?
+
+    fun observe(): Flow<String?>
 }
 
 /**
@@ -616,36 +615,32 @@ class KeystoreProxyGroupBlobStore
                 durableReads = true,
             )
 
-        override fun read(): String? =
+        override suspend fun read(): String? =
             secure.withDurableState {
                 val version = preferences.getInt(SchemaVersionKey, 1)
                 // Unreadable sealed reserves are not an empty catalogue. In particular,
                 // never revive obsolete plaintext after authentication or decoding fails.
                 val raw =
-                    secure.getStringStrict(SealedGroupsKey) ?: migrateLegacyPlaintext() ?: return@withDurableState null
-                ProxyGroupSchema.read(raw, version, ::write)
+                    secure.getStringStrict(SealedGroupsKey) ?: preferences.getString(GroupsKey, null)
+                        ?: return@withDurableState null
+                ProxyGroupSchema.read(raw, version) {}
             }
 
-        override fun write(json: String) {
+        override suspend fun write(json: String) = writeLegacy(json)
+
+        private fun writeLegacy(json: String) {
             secure.putString(SealedGroupsKey, json) {
                 remove(GroupsKey)
                 putInt(SchemaVersionKey, ProxyGroupSchema.SCHEMA_VERSION)
             }
         }
 
-        override fun clear() = secure.clear()
+        override suspend fun clear() = secure.clear()
 
-        /**
-         * One-time upgrade for a pre-encryption install: lifts the legacy plaintext
-         * group blob into the AES-256-GCM [secure] store and deletes the plaintext
-         * key, so credentials never linger unencrypted past the first read. Returns
-         * the raw JSON for [read] to decode, or `null` when no legacy blob exists.
-         */
-        private fun migrateLegacyPlaintext(): String? {
-            val legacy = preferences.getString(GroupsKey, null) ?: return null
-            secure.putString(SealedGroupsKey, legacy) { remove(GroupsKey) }
-            return legacy
-        }
+        override suspend fun update(transform: (String?) -> String?): String? =
+            transform(read()).also { if (it == null) clear() else write(it) }
+
+        override fun observe(): Flow<String?> = kotlinx.coroutines.flow.flow { emit(read()) }
 
         private companion object {
             const val GroupsPrefsName = "proxy_group_cache"
@@ -665,9 +660,5 @@ class KeystoreProxyGroupBlobStore
 abstract class ProxyGroupStoreModule {
     @Binds
     @Singleton
-    abstract fun bindProxyGroupRepository(repository: SharedPreferencesProxyGroupRepository): ProxyGroupRepository
-
-    @Binds
-    @Singleton
-    abstract fun bindProxyGroupBlobStore(store: KeystoreProxyGroupBlobStore): ProxyGroupBlobStore
+    abstract fun bindProxyGroupRepository(repository: DefaultProxyGroupRepository): ProxyGroupRepository
 }

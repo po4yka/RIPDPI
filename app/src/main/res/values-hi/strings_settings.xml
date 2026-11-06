@@ -29,7 +29,6 @@
     <string name="root_mode_strategy_ipfrag2_body">पैकेट को IP परत पर विभाजित करता है ताकि निरीक्षक कभी पूरा payload न देख सकें।</string>
     <string name="root_mode_strategies_configure_action">रणनीति संपादक खोलें</string>
     <string name="theme_settings">थीम</string>
-    <string name="backup_restore_integrity_failure">पुनर्स्थापना के बाद डेटा की अखंडता की गारंटी नहीं दी जा सकी। ऐप को पुनः आरंभ करें और अपनी प्रोफ़ाइलों की जाँच करें।</string>
     <string name="backup_encryption_create_title">पूर्ण बैकअप एन्क्रिप्ट करें</string>
     <string name="backup_encryption_create_body">कम से कम 8 अक्षरों का पासफ़्रेज़ बनाएँ। किसी भी डिवाइस पर बैकअप पुनर्स्थापित करने के लिए इसकी आवश्यकता होगी।</string>
     <string name="backup_encryption_create_action">एन्क्रिप्ट करके सहेजें</string>

@@ -1,29 +1,24 @@
 package com.poyka.ripdpi.subscription
 
 import com.poyka.ripdpi.data.ProxyGroup
-import com.poyka.ripdpi.data.ProxyGroupBlobStore
 import com.poyka.ripdpi.data.ProxyGroupRepository
 import com.poyka.ripdpi.data.ProxyGroupType
 import com.poyka.ripdpi.data.ProxyProfile
-import com.poyka.ripdpi.data.SharedPreferencesProxyGroupRepository
 import com.poyka.ripdpi.data.Subscription
 import com.poyka.ripdpi.data.SubscriptionLifecycleState
 import com.poyka.ripdpi.data.SubscriptionRefreshFailure
-import com.poyka.ripdpi.data.awg.AwgCredentialStore
-import com.poyka.ripdpi.data.awg.AwgProfileDao
-import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
-import com.poyka.ripdpi.data.awg.AwgSecrets
 import com.poyka.ripdpi.data.routing.PackageRoutingRule
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
 import mockwebserver3.MockResponse
 import mockwebserver3.MockWebServer
 import okhttp3.OkHttpClient
 import org.junit.After
 import org.junit.Before
 
+@org.junit.runner.RunWith(org.robolectric.RobolectricTestRunner::class)
+@org.robolectric.annotation.Config(sdk = [29])
 abstract class SubscriptionRefreshTestSupport {
+    private val databases = mutableListOf<com.poyka.ripdpi.data.testing.RoomProfileFixture>()
     protected lateinit var server: MockWebServer
 
     @Before
@@ -35,6 +30,8 @@ abstract class SubscriptionRefreshTestSupport {
     @After
     fun tearDown() {
         runCatching { server.close() }
+        databases.forEach { it.close() }
+        databases.clear()
     }
 
     protected suspend fun fixture(
@@ -45,13 +42,15 @@ abstract class SubscriptionRefreshTestSupport {
         initialMembers: List<ProxyProfile> = emptyList(),
         httpClient: OkHttpClient = OkHttpClient(),
     ): Fixture {
-        val catalog =
-            com.poyka.ripdpi.data
-                .ProxyGroupCatalog(FakeBlobStore())
-        val awgDao = FakeAwgDao()
-        val awgCredentials = FakeAwgCredentialStore()
-        val mutations = subscriptionMutationCoordinator(catalog, awgDao, awgCredentials)
-        val repository: ProxyGroupRepository = SharedPreferencesProxyGroupRepository(catalog, mutations)
+        val persistence =
+            com.poyka.ripdpi.data.testing
+                .RoomProfileFixture(
+                    org.robolectric.RuntimeEnvironment.getApplication(),
+                    com.poyka.ripdpi.data
+                        .testPauseAuthority(),
+                ).also { databases += it }
+        persistence.initialize()
+        val repository = persistence.groups
         repository.add(
             subscriptionGroup("subscription-group", 0, initialLifecycle, initialFailure).copy(
                 packageRoutingRules = initialRules,
@@ -59,12 +58,7 @@ abstract class SubscriptionRefreshTestSupport {
             ),
         )
         val publisher = SubscriptionRecordingPublisher()
-        val awgRepository =
-            AwgProfileRepository(
-                awgDao,
-                awgCredentials,
-                mutations,
-            )
+        val awgRepository = persistence.awgRepository
         val coordinator =
             SubscriptionRefreshCoordinator(
                 repository = repository,
@@ -137,58 +131,5 @@ class SubscriptionRecordingPublisher : SubscriptionSignalPublisher {
         nowEpochMillis: Long,
     ) {
         publications += groups
-    }
-}
-
-private class FakeBlobStore : ProxyGroupBlobStore {
-    private var value: String? = null
-
-    override fun read(): String? = value
-
-    override fun write(json: String) {
-        value = json
-    }
-
-    override fun clear() {
-        value = null
-    }
-}
-
-private class FakeAwgDao : AwgProfileDao {
-    private val rows = MutableStateFlow<List<AwgProfileEntity>>(emptyList())
-
-    override fun observeProfiles(): Flow<List<AwgProfileEntity>> = rows
-
-    override suspend fun allProfiles(): List<AwgProfileEntity> = rows.value
-
-    override suspend fun getProfile(id: String): AwgProfileEntity? = rows.value.firstOrNull { it.id == id }
-
-    override suspend fun upsertProfile(profile: AwgProfileEntity) {
-        rows.value = rows.value.filterNot { it.id == profile.id } + profile
-    }
-
-    override suspend fun deleteProfile(profile: AwgProfileEntity) {
-        rows.value = rows.value.filterNot { it.id == profile.id }
-    }
-
-    override suspend fun deleteAll() {
-        rows.value = emptyList()
-    }
-}
-
-private class FakeAwgCredentialStore : AwgCredentialStore {
-    private val values = mutableMapOf<String, AwgSecrets>()
-
-    override suspend fun load(profileId: String): AwgSecrets? = values[profileId]
-
-    override suspend fun save(
-        profileId: String,
-        secrets: AwgSecrets,
-    ) {
-        values[profileId] = secrets
-    }
-
-    override suspend fun clear(profileId: String) {
-        values.remove(profileId)
     }
 }

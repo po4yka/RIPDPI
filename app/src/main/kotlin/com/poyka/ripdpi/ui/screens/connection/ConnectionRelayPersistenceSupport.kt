@@ -7,7 +7,6 @@ import com.poyka.ripdpi.data.DefaultSnowflakeFrontDomain
 import com.poyka.ripdpi.data.NaiveExtraHeadersResult
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
 import com.poyka.ripdpi.data.RelayCredentialRecord
-import com.poyka.ripdpi.data.RelayCredentialRepository
 import com.poyka.ripdpi.data.RelayKindAnyTls
 import com.poyka.ripdpi.data.RelayKindChainRelay
 import com.poyka.ripdpi.data.RelayKindGoogleAppsScript
@@ -19,7 +18,6 @@ import com.poyka.ripdpi.data.RelayKindVless
 import com.poyka.ripdpi.data.RelayKindVlessReality
 import com.poyka.ripdpi.data.RelayMieruMtuDefault
 import com.poyka.ripdpi.data.RelayProfileRecord
-import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.RelaySecurityLayerTls
 import com.poyka.ripdpi.data.RelayVlessTransportRealityTcp
 import com.poyka.ripdpi.data.RelayVlessTransportXhttp
@@ -361,21 +359,17 @@ private fun ConnectionDraft.discardReboundRelaySource(previous: ConnectionDraft)
 
 internal suspend fun prepareRelayDraftForPersistence(
     draft: ConnectionDraft,
-    relayProfileStore: RelayProfileStore,
-    relayCredentialStore: RelayCredentialRepository,
-    profileMutations: ProfileMutationCoordinator? = null,
+    profileMutations: ProfileMutationCoordinator,
 ): ConnectionDraft =
     if (draft.relayKind == RelayKindChainRelay) {
-        migrateLegacyChainRelayDraft(draft, relayProfileStore, relayCredentialStore, profileMutations)
+        migrateLegacyChainRelayDraft(draft, profileMutations)
     } else {
         draft
     }
 
 internal suspend fun migrateLegacyChainRelayDraft(
     draft: ConnectionDraft,
-    relayProfileStore: RelayProfileStore,
-    relayCredentialStore: RelayCredentialRepository,
-    profileMutations: ProfileMutationCoordinator? = null,
+    profileMutations: ProfileMutationCoordinator,
 ): ConnectionDraft {
     if (draft.relayKind != RelayKindChainRelay) {
         return draft
@@ -384,8 +378,6 @@ internal suspend fun migrateLegacyChainRelayDraft(
     val entryProfileId =
         draft.relayChainEntryProfileId.ifBlank {
             migrateLegacyChainHopProfile(
-                relayProfileStore = relayProfileStore,
-                relayCredentialStore = relayCredentialStore,
                 profileId = chainProfileId + LegacyChainEntryProfileSuffix,
                 server = draft.relayChainEntryServer,
                 serverPort = draft.relayChainEntryPort,
@@ -399,8 +391,6 @@ internal suspend fun migrateLegacyChainRelayDraft(
     val exitProfileId =
         draft.relayChainExitProfileId.ifBlank {
             migrateLegacyChainHopProfile(
-                relayProfileStore = relayProfileStore,
-                relayCredentialStore = relayCredentialStore,
                 profileId = chainProfileId + LegacyChainExitProfileSuffix,
                 server = draft.relayChainExitServer,
                 serverPort = draft.relayChainExitPort,
@@ -430,8 +420,6 @@ internal suspend fun migrateLegacyChainRelayDraft(
 }
 
 internal suspend fun migrateLegacyChainHopProfile(
-    relayProfileStore: RelayProfileStore,
-    relayCredentialStore: RelayCredentialRepository,
     profileId: String,
     server: String,
     serverPort: String,
@@ -439,7 +427,7 @@ internal suspend fun migrateLegacyChainHopProfile(
     realityPublicKey: String,
     realityShortId: String,
     vlessUuid: String,
-    profileMutations: ProfileMutationCoordinator? = null,
+    profileMutations: ProfileMutationCoordinator,
 ): String {
     if (server.isBlank()) {
         return ""
@@ -461,18 +449,13 @@ internal suspend fun migrateLegacyChainHopProfile(
             profileId = profileId,
             vlessUuid = vlessUuid.ifBlank { null },
         )
-    if (profileMutations == null) {
-        relayProfileStore.save(profile)
-        relayCredentialStore.save(credentials)
-    } else {
-        profileMutations.upsertRelay(
-            profileMutations.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit),
-            profile,
-            credentials,
-            enabled = false,
-            select = false,
-        )
-    }
+    profileMutations.upsertRelay(
+        profileMutations.captureMutation(com.poyka.ripdpi.data.ProfileMutationOrigin.SavedEdit),
+        profile,
+        credentials,
+        enabled = false,
+        select = false,
+    )
     return profileId
 }
 

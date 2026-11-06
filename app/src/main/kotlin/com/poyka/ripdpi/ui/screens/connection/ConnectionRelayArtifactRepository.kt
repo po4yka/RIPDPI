@@ -30,8 +30,6 @@ class ConnectionRelayArtifactRepository
             requireWritableProfileId(draft)
             return prepareRelayDraftForPersistence(
                 draft = draft,
-                relayProfileStore = relayProfileStore,
-                relayCredentialStore = relayCredentialStore,
                 profileMutations = profileMutations,
             )
         }

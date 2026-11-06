@@ -1,11 +1,11 @@
 ---
 task_id: DNS-1793945565828575
 change: kotlin-dns-library-codec
-commit_sha: af35730013804a98ddd0dd075bac1d031a2852ba
+commit_sha: 88ce48bb946d8bccf6e9cf713d556530c34e5bf1
 local: passed
 local_evidence: All 7614 affected unit tests, full staticAnalysis, R8, ci-gates, locked Cargo metadata and independent review passed. Fresh tests, R8 and staticAnalysis passed after rebase onto da1d00518.
 remote_ci: required
-remote_ci_evidence: Pending integrated main push and hosted checks.
+remote_ci_evidence: Initial source CI 42194843280 found one missed instrumentation caller and a separate native-size failure. The caller is fixed; hosted verification of the correction is pending.
 device: passed
 device_evidence: Minified Github Full release APK installed and launched on the leased API 35 arm64 emulator. DNS survey completed with 19 of 21 resolvers responding; UDP and DoH returned 5 of 5 answers. DNS response details showed RCODE 0, TTL 102 and TC false. No crash log entries. This is emulator smoke evidence, not physical-device or VPN-route acceptance.
 artifact: passed
@@ -67,3 +67,12 @@ deployment_evidence: No deployment is owned by this change.
 - Fresh command: `build-gate -- env -u CARGO_BUILD_JOBS ./gradlew :core:data:runtime-state:testDebugUnitTest :core:diagnostics-data:testDebugUnitTest :core:diagnostics:testDebugUnitTest :core:service:testDebugUnitTest :app:testGithubFullDebugUnitTest :app:minifyGithubFullReleaseWithR8 staticAnalysis -Pripdpi.skipNativeBuild=true --continue --max-workers=2 --console=plain`: exit 0, 13m 13s.
 - Unit reports: runtime-state 387, diagnostics-data 87, diagnostics 1662, service 2063, app 3415. Total 7614; zero failures, errors or skips. R8, staticAnalysis, CI source gates, architecture health and locked metadata passed on the combined tree.
 - The installed release APK and emulator observations above precede this rebase. The final combined tree has fresh host-test, static-analysis and R8 evidence; the changed upstream native runtime was not retested on the emulator in this DNS task.
+
+## Instrumentation caller correction
+
+- Hosted CI found one old DoQ decoder call in NativeDoqQuicClientInstrumentedTest. The test now passes the original query, as required by response identity validation. Its assertion and network-test opt-in are unchanged.
+- Full Debug, Simple Debug and Full Release instrumentation Kotlin compilation passed, plus app ktlint. Rebased the correction without conflicts onto settings JSON base 83ec7d0dd. On that combined tree the same compilation gates passed again; settings 87 tests and core:data 984 tests passed with no failures, errors or skips. CI source gates, architecture health and locked metadata passed.
+- CI 42194843280 also built the Play Debug APK successfully, then rejected native sizes: arm64 libripdpi.so 12138200 > 12124600 allowed; x86 11870796 > 11831760; x86_64 13600616 > 13559560; aggregate 80223672 > 80044100. The DNS diff changes no native source, native build logic, gradle.properties or core/engine against da1d00518. The precise native regression commit has not been isolated. No size baseline or limit was changed.
+- That initial source run was cancelled by the subsequent settings push. It is not successful CI evidence. The task remains in review until hosted acceptance is resolved.
+
+- Final rebase also includes the settings and Shadowsocks CI status records through ff44a5444. Those additions change documentation only; the validated source inputs are unchanged.

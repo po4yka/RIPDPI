@@ -137,7 +137,7 @@ not through the slice — and `LUA_STEP_DESCRIPTOR` is registry-owned.
 
 - Kotlin/Rust wire structs must stay field-order-aligned; `@SerialName` values
   are a wire contract — never rename.
-- New proto fields must be defaulted/optional so DataStore round-trips safely.
+- New proto fields must be defaulted/optional so Room protobuf round-trips safely.
 - Run the desync packet-smoke scenarios — reproduce on-wire behavior before and
   after (`scripts/ci/run-rust-network-e2e.sh`, CLI packet smoke).
 - Both proxy mode and VPN/TUN mode apply strategies — verify the new step on
@@ -422,7 +422,7 @@ validated recommendations drive remembered-policy persistence.
 | Side | Location |
 |------|----------|
 | Proto | `core/data/model/src/main/proto/app_settings.proto` — `AppSettings` |
-| Kotlin settings | `:core:data:model` / `:core:data:settings` settings models; DataStore mapping |
+| Kotlin settings | `:core:data:model` / `:core:data:settings` settings models; protobuf mapping |
 | Kotlin → native | `core/engine/.../core/RipDpiProxyJsonCodec.kt`, the `core/engine/.../core/codec/*Codec.kt` section codecs, and the `NativeProxy*PreferencesMapper.kt` mappers |
 | Rust | `ripdpi-config` / `ripdpi-proxy-config` (config model the JSON deserializes into) → consumed by `ripdpi-proxy-runtime` / `ripdpi-runtime-*` |
 | UI | `:app` Compose screens + localized resources (every locale in `app/src/main/res/xml/locales_config.xml`) |
@@ -460,13 +460,13 @@ when `root_mode_enabled` is off or root is unavailable.
 ### Docs / tests / goldens to update
 
 - `docs/design-system.md` / feature docs as relevant; `docs/feature-test-checklist.md`.
-- `protobuf` round-trip tests; DataStore migration tests; the
+- `protobuf` round-trip tests; Room migration tests; the
   `core/engine` codec/mapper tests; golden config-translation fixtures.
 
 ### Common mistakes
 
 - Reusing a `reserved` field number — silent wire corruption.
-- Adding a non-defaulted cross-boundary field — DataStore round-trip breaks.
+- Adding a non-defaulted cross-boundary field — Room protobuf round-trip breaks.
 - Adding a UI string in `values/` only — `MissingTranslation` fails CI.
 - Letting Rust re-derive the setting instead of consuming the Kotlin-produced
   JSON (config-contract direction violation).
@@ -657,7 +657,7 @@ tree, so a single edit to a manifest propagates to both languages.
 | Desync chains, `TcpChainStep`, fake-TTL | `desync-engine` skill |
 | Scan pipeline, `ScanRequest`, probe families | `diagnostics-system` skill |
 | Telemetry channels, bounded ring, goldens | `rust-observability` skill |
-| Proto field discipline, DataStore round-trip | `protobuf-schema-evolution`, `protobuf-datastore` skills |
+| Proto field discipline, Room protobuf round-trip | `protobuf-schema-evolution`, `protobuf-datastore` skills |
 | JNI export safety | `rust-jni` skill |
 | Golden bless discipline | [`.claude/rules/golden-bless-discipline.md`](../../.claude/rules/golden-bless-discipline.md) |
 | Socket-protect invariant | [`.claude/rules/vpnservice-protect-invariant.md`](../../.claude/rules/vpnservice-protect-invariant.md) |

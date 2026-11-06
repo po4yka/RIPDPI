@@ -766,190 +766,199 @@ class XrayProviderE2ETest {
         exerciseHysteriaTransactions()
     }
 
-    private fun exerciseHysteriaTransactions() {
-        val relayId = "owned-hysteria-acceptance"
-        val oldProfile = runBlocking { relayProfiles.load(relayId) }
-        val oldCredentials = runBlocking { relayCredentials.load(relayId) }
-        val transportPort = manifest.getInt("transportPort")
-        val automatic =
-            OwnedHysteriaSelector(
-                selectorGroups,
-                selectorSelections,
-                selectorActive,
-                utilityMutations,
-                selectorMutationStores,
-                utilityApplied,
-                manifest,
-                fixtureHost,
-                udpBridge?.port ?: manifest.getInt("hysteriaPort"),
-            )
+    private fun exerciseHysteriaTransactions() =
+        runBlocking {
+            val relayId = "owned-hysteria-acceptance"
+            val oldProfile = runBlocking { relayProfiles.load(relayId) }
+            val oldCredentials = runBlocking { relayCredentials.load(relayId) }
+            val transportPort = manifest.getInt("transportPort")
+            val automatic =
+                OwnedHysteriaSelector(
+                    selectorGroups,
+                    selectorSelections,
+                    selectorActive,
+                    utilityMutations,
+                    selectorMutationStores,
+                    selectorMutationStores.profileSelection.snapshot(),
+                    utilityAuthority,
+                    utilityApplied,
+                    manifest,
+                    fixtureHost,
+                    udpBridge?.port ?: manifest.getInt("hysteriaPort"),
+                )
 
-        fun startHysteria(
-            pin: String,
-            automaticSelection: Boolean = false,
-        ) {
-            runBlocking { controller.stop() }
-            awaitServiceStatus(state, AppStatus.Halted, Mode.VPN, timeoutMs = 30_000)
-            runBlocking {
-                relayProfiles.save(
-                    RelayProfileRecord(
-                        id = relayId,
-                        kind = RelayKindHysteria2,
-                        server = manifest.getString("hysteriaHost"),
-                        serverPort = udpBridge?.port ?: manifest.getInt("hysteriaPort"),
-                        serverName = "fixture.test",
-                        udpEnabled = true,
-                        tcpFallbackEnabled = false,
-                    ),
-                )
-                relayCredentials.save(
-                    RelayCredentialRecord(
-                        profileId = relayId,
-                        hysteriaPassword = manifest.getString("hysteriaPassword"),
-                        hysteriaSalamanderKey = manifest.getString("hysteriaSalamander"),
-                        hysteriaInsecure = true,
-                        hysteriaPinSha256 = pin,
-                    ),
-                )
-                selection.update(XrayProviderSelectionRecord())
-                settings.update {
-                    relayEnabled = true
-                    relayKind = RelayKindHysteria2
-                    relayProfileId = relayId
-                    tlsFingerprintProfile = TlsFingerprintProfileFirefoxStable
+            fun startHysteria(
+                pin: String,
+                automaticSelection: Boolean = false,
+            ) {
+                runBlocking { controller.stop() }
+                awaitServiceStatus(state, AppStatus.Halted, Mode.VPN, timeoutMs = 30_000)
+                runBlocking {
+                    relayProfiles.save(
+                        RelayProfileRecord(
+                            id = relayId,
+                            kind = RelayKindHysteria2,
+                            server = manifest.getString("hysteriaHost"),
+                            serverPort = udpBridge?.port ?: manifest.getInt("hysteriaPort"),
+                            serverName = "fixture.test",
+                            udpEnabled = true,
+                            tcpFallbackEnabled = false,
+                        ),
+                    )
+                    relayCredentials.save(
+                        RelayCredentialRecord(
+                            profileId = relayId,
+                            hysteriaPassword = manifest.getString("hysteriaPassword"),
+                            hysteriaSalamanderKey = manifest.getString("hysteriaSalamander"),
+                            hysteriaInsecure = true,
+                            hysteriaPinSha256 = pin,
+                        ),
+                    )
+                    selection.update(XrayProviderSelectionRecord())
+                    settings.update {
+                        relayEnabled = true
+                        relayKind = RelayKindHysteria2
+                        relayProfileId = relayId
+                        tlsFingerprintProfile = TlsFingerprintProfileFirefoxStable
+                    }
+                    if (automaticSelection) automatic.selectPrimaryBeforeStart()
+                    assertTrue(controller.start(Mode.VPN) is ServiceStartResult.Accepted)
                 }
-                if (automaticSelection) automatic.selectPrimaryBeforeStart()
-                assertTrue(controller.start(Mode.VPN) is ServiceStartResult.Accepted)
+                awaitServiceStatus(state, AppStatus.Running, Mode.VPN, timeoutMs = 30_000)
             }
-            awaitServiceStatus(state, AppStatus.Running, Mode.VPN, timeoutMs = 30_000)
-        }
-        try {
-            automatic.prepareStandalonePreflight()
-            // Save and exercise the TCP reserve before the UDP path is disrupted.
-            start("tcp", wrongIdentity = false)
-            awaitOwnedPeerEcho("predelivered-reserve")
-            runBlocking { controller.stop() }
-            awaitServiceStatus(state, AppStatus.Halted, Mode.VPN)
-            startHysteria("0".repeat(64))
-            bindTestProcessDnsProbeService(10_000).use { probe ->
-                assertTrue(probe.awaitVpnDefaultNetwork(10_000))
-                val before = readControl("transport-receipts").getJSONArray("receipts").length()
-                assertFalse(probe.transfer("download", "hysteria-wrong-pin", port = transportPort).getBoolean("ok"))
-                assertEquals(before, readControl("transport-receipts").getJSONArray("receipts").length())
-            }
-            val qualityBefore = completedQualityProbeCount()
-            startHysteria(manifest.getString("hysteriaCertificatePin"), automaticSelection = true)
-            val primaryApplied = automatic.awaitPrimary()
-            bindTestProcessDnsProbeService(10_000).use { probe ->
-                assertTrue(probe.awaitVpnDefaultNetwork(10_000))
+            try {
+                automatic.prepareStandalonePreflight()
+                // Save and exercise the TCP reserve before the UDP path is disrupted.
+                start("tcp", wrongIdentity = false)
+                awaitOwnedPeerEcho("predelivered-reserve")
+                runBlocking { controller.stop() }
+                awaitServiceStatus(state, AppStatus.Halted, Mode.VPN)
+                startHysteria("0".repeat(64))
+                bindTestProcessDnsProbeService(10_000).use { probe ->
+                    assertTrue(probe.awaitVpnDefaultNetwork(10_000))
+                    val before = readControl("transport-receipts").getJSONArray("receipts").length()
+                    assertFalse(probe.transfer("download", "hysteria-wrong-pin", port = transportPort).getBoolean("ok"))
+                    assertEquals(before, readControl("transport-receipts").getJSONArray("receipts").length())
+                }
+                val qualityBefore = completedQualityProbeCount()
+                startHysteria(manifest.getString("hysteriaCertificatePin"), automaticSelection = true)
+                val primaryApplied = automatic.awaitPrimary()
+                bindTestProcessDnsProbeService(10_000).use { probe ->
+                    assertTrue(probe.awaitVpnDefaultNetwork(10_000))
 
-                fun transfer(
-                    operation: String,
-                    suffix: String,
-                    port: Int = transportPort,
-                ) {
-                    val id = "hysteria-$suffix-${SystemClock.elapsedRealtime()}"
-                    val result = probe.transfer(operation, id, port = port)
-                    assertTrue("Hysteria transfer failed: $result", result.getBoolean("ok"))
-                    if (operation == "stream") assertTrue(result.getLong("elapsedMs") >= 59_000)
-                    assertTrue(result.getInt("uid") != Process.myUid())
-                    awaitUntil {
-                        val receipts = readControl("transport-receipts").getJSONArray("receipts")
-                        (0 until receipts.length()).any { index ->
-                            val receipt = receipts.getJSONObject(index)
-                            receipt.getString("id") == id && receipt.getInt("bytes") == result.getInt("bytes") &&
-                                receipt.getString("sha256") == result.getString("sha256")
+                    fun transfer(
+                        operation: String,
+                        suffix: String,
+                        port: Int = transportPort,
+                    ) {
+                        val id = "hysteria-$suffix-${SystemClock.elapsedRealtime()}"
+                        val result = probe.transfer(operation, id, port = port)
+                        assertTrue("Hysteria transfer failed: $result", result.getBoolean("ok"))
+                        if (operation == "stream") assertTrue(result.getLong("elapsedMs") >= 59_000)
+                        assertTrue(result.getInt("uid") != Process.myUid())
+                        awaitUntil {
+                            val receipts = readControl("transport-receipts").getJSONArray("receipts")
+                            (0 until receipts.length()).any { index ->
+                                val receipt = receipts.getJSONObject(index)
+                                receipt.getString("id") == id && receipt.getInt("bytes") == result.getInt("bytes") &&
+                                    receipt.getString("sha256") == result.getString("sha256")
+                            }
                         }
                     }
+                    val dnsBefore = readControl("dns-receipts").getInt("count")
+                    val dns =
+                        testProcessDnsProbe(
+                            queryHost = "owned.test",
+                            serverHost = "192.0.2.53",
+                            serverPort = manifest.getInt("dnsPort"),
+                            timeoutMs = 5_000,
+                        )
+                    assertTrue("Hysteria UDP DNS failed", dns.ok)
+                    assertEquals(listOf("192.0.2.77"), dns.answers)
+                    assertTrue(dns.probeUid != null && dns.probeUid != Process.myUid())
+                    assertEquals(dnsBefore + 1, readControl("dns-receipts").getInt("count"))
+                    transfer("download", "download")
+                    transfer("upload", "upload")
+                    val executor = Executors.newSingleThreadExecutor()
+                    val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
+                    val wasAwake = device.isScreenOn
+                    try {
+                        device.wakeUp()
+                        awaitUntil(timeoutMs = 5_000, failureMessage = { "Screen did not wake before the stream" }) {
+                            device.isScreenOn
+                        }
+                        val stream = executor.submit { transfer("stream", "sleep-wake") }
+                        SystemClock.sleep(2_000)
+                        assertFalse("Stream ended before sleep", stream.isDone)
+                        device.sleep()
+                        awaitUntil(
+                            timeoutMs = 5_000,
+                            failureMessage = { "Screen did not turn off during the stream" },
+                        ) {
+                            !device.isScreenOn
+                        }
+                        SystemClock.sleep(2_000)
+                        device.wakeUp()
+                        awaitUntil(
+                            timeoutMs = 5_000,
+                            failureMessage = { "Screen did not wake during the stream" },
+                        ) {
+                            device.isScreenOn
+                        }
+                        stream.get(100, TimeUnit.SECONDS)
+                    } finally {
+                        executor.shutdownNow()
+                        if (wasAwake) device.wakeUp() else device.sleep()
+                        awaitUntil(timeoutMs = 5_000, failureMessage = { "Original screen state was not restored" }) {
+                            device.isScreenOn == wasAwake
+                        }
+                    }
+                    awaitUntil(timeoutMs = 60_000) { completedQualityProbeCount() > qualityBefore }
+                    assertEquals(primaryApplied.runtimeId, automatic.awaitPrimary().runtimeId)
+                    readControl("peer/stop", "POST")
+                    try {
+                        assertFalse(
+                            probe.transfer("download", "hysteria-udp-blocked", port = transportPort).getBoolean("ok"),
+                        )
+                        assertTrue(readControl("udp-receipts").getInt("dropped") > 0)
+                        automatic.awaitAutomaticReserve(primaryApplied)
+                        awaitServiceStatus(state, AppStatus.Running, Mode.VPN, timeoutMs = 30_000)
+                        awaitOwnedPeerEcho("udp-blocked-tcp-reserve")
+                        transfer("download", "tcp-reserve", port = 80)
+                        assertOwnedDnsThroughProvider()
+                    } finally {
+                        readControl("peer/start", "POST")
+                    }
+                    // A separate explicit recovery phase begins only after automatic reserve proof is complete.
+                    automatic.prepareStandalonePreflight()
+                    startHysteria(manifest.getString("hysteriaCertificatePin"))
+                    assertTrue(probe.awaitVpnDefaultNetwork(10_000))
+                    transfer("download", "explicit-udp-recovered")
                 }
-                val dnsBefore = readControl("dns-receipts").getInt("count")
-                val dns =
-                    testProcessDnsProbe(
-                        queryHost = "owned.test",
-                        serverHost = "192.0.2.53",
-                        serverPort = manifest.getInt("dnsPort"),
-                        timeoutMs = 5_000,
-                    )
-                assertTrue("Hysteria UDP DNS failed", dns.ok)
-                assertEquals(listOf("192.0.2.77"), dns.answers)
-                assertTrue(dns.probeUid != null && dns.probeUid != Process.myUid())
-                assertEquals(dnsBefore + 1, readControl("dns-receipts").getInt("count"))
-                transfer("download", "download")
-                transfer("upload", "upload")
-                val executor = Executors.newSingleThreadExecutor()
-                val device = UiDevice.getInstance(InstrumentationRegistry.getInstrumentation())
-                val wasAwake = device.isScreenOn
-                try {
-                    device.wakeUp()
-                    awaitUntil(timeoutMs = 5_000, failureMessage = { "Screen did not wake before the stream" }) {
-                        device.isScreenOn
-                    }
-                    val stream = executor.submit { transfer("stream", "sleep-wake") }
-                    SystemClock.sleep(2_000)
-                    assertFalse("Stream ended before sleep", stream.isDone)
-                    device.sleep()
-                    awaitUntil(timeoutMs = 5_000, failureMessage = { "Screen did not turn off during the stream" }) {
-                        !device.isScreenOn
-                    }
-                    SystemClock.sleep(2_000)
-                    device.wakeUp()
-                    awaitUntil(timeoutMs = 5_000, failureMessage = { "Screen did not wake during the stream" }) {
-                        device.isScreenOn
-                    }
-                    stream.get(100, TimeUnit.SECONDS)
-                } finally {
-                    executor.shutdownNow()
-                    if (wasAwake) device.wakeUp() else device.sleep()
-                    awaitUntil(timeoutMs = 5_000, failureMessage = { "Original screen state was not restored" }) {
-                        device.isScreenOn == wasAwake
-                    }
-                }
-                awaitUntil(timeoutMs = 60_000) { completedQualityProbeCount() > qualityBefore }
-                assertEquals(primaryApplied.runtimeId, automatic.awaitPrimary().runtimeId)
-                readControl("peer/stop", "POST")
-                try {
-                    assertFalse(
-                        probe.transfer("download", "hysteria-udp-blocked", port = transportPort).getBoolean("ok"),
-                    )
-                    assertTrue(readControl("udp-receipts").getInt("dropped") > 0)
-                    automatic.awaitAutomaticReserve(primaryApplied)
-                    awaitServiceStatus(state, AppStatus.Running, Mode.VPN, timeoutMs = 30_000)
-                    awaitOwnedPeerEcho("udp-blocked-tcp-reserve")
-                    transfer("download", "tcp-reserve", port = 80)
-                    assertOwnedDnsThroughProvider()
-                } finally {
-                    readControl("peer/start", "POST")
-                }
-                // A separate explicit recovery phase begins only after automatic reserve proof is complete.
-                automatic.prepareStandalonePreflight()
-                startHysteria(manifest.getString("hysteriaCertificatePin"))
-                assertTrue(probe.awaitVpnDefaultNetwork(10_000))
-                transfer("download", "explicit-udp-recovered")
-            }
-            // Tunnel telemetry is sampled every 1-5 s; a fresh session may not have a sample yet.
-            awaitUntil(failureMessage = { "Tunnel stats: ${state.telemetry.value.tunnelStats}" }) {
-                state.telemetry.value.tunnelStats
-                    .let { it.txPackets > 0 && it.rxPackets > 0 }
-            }
-        } finally {
-            try {
-                runBlocking {
-                    controller.stop()
-                    awaitServiceStatus(state, AppStatus.Halted, Mode.VPN, timeoutMs = 30_000)
-                    if (oldProfile == null) relayProfiles.clear(relayId) else relayProfiles.save(oldProfile)
-                    if (oldCredentials ==
-                        null
-                    ) {
-                        relayCredentials.clear(relayId)
-                    } else {
-                        relayCredentials.save(oldCredentials)
-                    }
+                // Tunnel telemetry is sampled every 1-5 s; a fresh session may not have a sample yet.
+                awaitUntil(failureMessage = { "Tunnel stats: ${state.telemetry.value.tunnelStats}" }) {
+                    state.telemetry.value.tunnelStats
+                        .let { it.txPackets > 0 && it.rxPackets > 0 }
                 }
             } finally {
-                automatic.close()
+                try {
+                    runBlocking {
+                        controller.stop()
+                        awaitServiceStatus(state, AppStatus.Halted, Mode.VPN, timeoutMs = 30_000)
+                        if (oldProfile == null) relayProfiles.clear(relayId) else relayProfiles.save(oldProfile)
+                        if (oldCredentials ==
+                            null
+                        ) {
+                            relayCredentials.clear(relayId)
+                        } else {
+                            relayCredentials.save(oldCredentials)
+                        }
+                    }
+                } finally {
+                    automatic.close()
+                }
             }
         }
-    }
 
     @Test
     fun naiveProxyRoutesTcpThroughUpstreamAndHelperAndFailsClosed() {
@@ -1009,7 +1018,7 @@ class XrayProviderE2ETest {
             }
         }
         try {
-            selectorActive.clearStandalone()
+            runBlocking { selectorActive.clearStandalone() }
 
             fun relayHealth(): String = state.telemetry.value.relayTelemetry.health
 

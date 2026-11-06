@@ -1,20 +1,13 @@
 package com.poyka.ripdpi.data.backup
 
 import com.poyka.ripdpi.data.ProfileMutationCoordinator
-import com.poyka.ripdpi.data.RelayCredentialStore
-import com.poyka.ripdpi.data.RelayProfileStore
 import com.poyka.ripdpi.data.UnreadableCredentialException
-import com.poyka.ripdpi.data.WarpCredentialStore
-import com.poyka.ripdpi.data.WarpProfileStore
-import com.poyka.ripdpi.data.awg.AwgCredentialStore
-import com.poyka.ripdpi.data.awg.AwgProfileDao
 import com.poyka.ripdpi.data.logUnreadableCredential
+import com.poyka.ripdpi.data.persistence.ProfileDatabase
+import com.poyka.ripdpi.data.persistence.ProfileRows
 import com.poyka.ripdpi.data.xray.XrayProfileMetadataRecord
-import com.poyka.ripdpi.data.xray.XrayProfileMetadataStore
 import com.poyka.ripdpi.data.xray.XrayProfileSecretRecord
-import com.poyka.ripdpi.data.xray.XrayProfileSecretStore
 import com.poyka.ripdpi.data.xray.XrayProviderSelectionRecord
-import com.poyka.ripdpi.data.xray.XrayProviderSelectionStore
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
@@ -32,108 +25,80 @@ interface BackupPrivateDataStore {
     ): com.poyka.ripdpi.data.ProfileMutationOutcome
 }
 
-/** Production implementation with preimage compensation around the heterogeneous stores. */
+/** Private profile backup reads and replacements use the shared Room transaction boundary. */
 @Singleton
 class DefaultBackupPrivateDataStore
     @Inject
-    constructor(
-        private val relayProfiles: RelayProfileStore,
-        private val relayCredentials: RelayCredentialStore,
-        private val warpProfiles: WarpProfileStore,
-        private val warpCredentials: WarpCredentialStore,
-        private val awgProfiles: AwgProfileDao,
-        private val awgCredentials: AwgCredentialStore,
-        private val xrayMetadata: XrayProfileMetadataStore,
-        private val xraySecrets: XrayProfileSecretStore,
-        private val xraySelection: XrayProviderSelectionStore,
+    internal constructor(
+        private val database: ProfileDatabase,
         private val profileMutations: ProfileMutationCoordinator,
     ) : BackupPrivateDataStore {
-        override suspend fun snapshot(): BackupPrivateDataV1 {
-            profileMutations.recover()
-            return consistentBackupSnapshot { snapshotOnce() }
-        }
-
-        private suspend fun snapshotOnce(): BackupPrivateDataV1 {
-            val relayProfileSnapshot = relayProfiles.list()
-            val warpProfileSnapshot = warpProfiles.loadAll()
-            val awgProfileSnapshot = awgProfiles.allProfiles()
-            // A secret that no longer decrypts is left out so the readable profiles still export.
-            val unreadableXrayIds = mutableSetOf<String>()
-            val xrayPairs = mutableListOf<Pair<XrayProfileMetadataRecord, XrayProfileSecretRecord?>>()
-            for (metadata in xrayMetadata.list()) {
-                try {
-                    xrayPairs += metadata to xraySecrets.load(metadata.profileId)
-                } catch (error: UnreadableCredentialException) {
-                    logUnreadableCredential(UnreadableBackupAction, error)
-                    unreadableXrayIds += metadata.profileId
-                }
-            }
-            val xrayMetadataSnapshot = xrayPairs.map { it.first }
-            return BackupPrivateDataV1(
-                relayProfiles = relayProfileSnapshot,
-                relayCredentials = relayProfileSnapshot.mapNotNull { exportable { relayCredentials.load(it.id) } },
-                warpProfiles = warpProfileSnapshot,
-                warpCredentials =
-                    warpCredentials
-                        .loadAll()
-                        .filter { credential -> warpProfileSnapshot.any { it.id == credential.profileId } },
-                warpActiveProfileId = warpProfiles.activeProfileId(),
-                awgProfiles =
-                    awgProfileSnapshot.map { profile ->
-                        AwgBackupProfile(
-                            id = profile.id,
-                            name = profile.name,
-                            requestJson = profile.requestJson,
-                            updatedAt = profile.updatedAt,
-                            secrets = exportable { awgCredentials.load(profile.id) },
-                        )
-                    },
-                xrayMetadata = xrayMetadataSnapshot,
-                xraySecrets = xrayPairs.mapNotNull { it.second },
-                // A selection of a left-out Xray profile exports as the native provider.
-                xraySelection =
-                    xraySelection.current().takeUnless { it.activeProfileId in unreadableXrayIds }
-                        ?: XrayProviderSelectionRecord(),
-            )
-        }
+        override suspend fun snapshot(): BackupPrivateDataV1 = database.read { it.privateBackupSnapshot() }
 
         override suspend fun replaceAll(
             preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
             data: BackupPrivateDataV1,
         ): com.poyka.ripdpi.data.ProfileMutationOutcome {
-            data.validate()
-            val preimage = snapshot()
-            return profileMutations.replacePrivateBackup(preparation, data, rollbackData = preimage)
+            data.validateBackupPrivateData()
+            return profileMutations.replacePrivateBackup(preparation, data)
         }
+    }
 
-        private fun BackupPrivateDataV1.validate() = validateBackupPrivateData()
+internal fun ProfileRows.privateBackupSnapshot(): BackupPrivateDataV1 {
+    val relayProfileSnapshot = relayProfiles.list()
+    val warpProfileSnapshot = warpProfiles.loadAll()
+    val awgProfileSnapshot = awgProfiles.allProfiles()
+    val unreadableXrayIds = mutableSetOf<String>()
+    val xrayPairs = mutableListOf<Pair<XrayProfileMetadataRecord, XrayProfileSecretRecord?>>()
+    for (metadata in xrayMetadata.list()) {
+        try {
+            xrayPairs += metadata to xraySecrets.load(metadata.profileId)
+        } catch (error: UnreadableCredentialException) {
+            logUnreadableCredential(UnreadableBackupAction, error)
+            unreadableXrayIds += metadata.profileId
+        }
+    }
+    return BackupPrivateDataV1(
+        relayProfiles = relayProfileSnapshot,
+        relayCredentials = relayProfileSnapshot.mapNotNull { exportable { relayCredentials.load(it.id) } },
+        warpProfiles = warpProfileSnapshot,
+        warpCredentials =
+            warpCredentials.loadAll().filter { credential ->
+                warpProfileSnapshot.any {
+                    it.id ==
+                        credential.profileId
+                }
+            },
+        warpActiveProfileId = warpProfiles.activeProfileId(),
+        awgProfiles =
+            awgProfileSnapshot.map { profile ->
+                AwgBackupProfile(
+                    id = profile.id,
+                    name = profile.name,
+                    requestJson = profile.requestJson,
+                    updatedAt = profile.updatedAt,
+                    secrets = exportable { awgCredentials.load(profile.id) },
+                )
+            },
+        xrayMetadata = xrayPairs.map { it.first },
+        xraySecrets = xrayPairs.mapNotNull { it.second },
+        xraySelection =
+            selection.xray().takeUnless { it.activeProfileId in unreadableXrayIds }
+                ?: XrayProviderSelectionRecord(),
+    ).also { it.validateBackupPrivateData() }
+}
 
-        private suspend fun <T : Any> exportable(load: suspend () -> T?): T? =
-            try {
-                load()
-            } catch (error: UnreadableCredentialException) {
-                logUnreadableCredential(UnreadableBackupAction, error)
-                null
-            }
+private fun <T : Any> exportable(load: () -> T?): T? =
+    try {
+        load()
+    } catch (error: UnreadableCredentialException) {
+        logUnreadableCredential(UnreadableBackupAction, error)
+        null
     }
 
 private const val UnreadableBackupAction = "left out of a backup"
 
-internal suspend fun consistentBackupSnapshot(read: suspend () -> BackupPrivateDataV1): BackupPrivateDataV1 {
-    var lastFailure: IllegalArgumentException? = null
-    repeat(BackupSnapshotAttempts) {
-        val snapshot = read()
-        try {
-            snapshot.validateBackupPrivateData()
-            return snapshot
-        } catch (failure: IllegalArgumentException) {
-            lastFailure = failure
-        }
-    }
-    throw IllegalStateException("Private backup stores changed during snapshot", lastFailure)
-}
-
-private fun BackupPrivateDataV1.validateBackupPrivateData() {
+internal fun BackupPrivateDataV1.validateBackupPrivateData() {
     val relayIds = relayProfiles.mapTo(mutableSetOf()) { it.id }
     require(relayIds.size == relayProfiles.size) { "Duplicate Relay profile id" }
     require(relayCredentials.all { it.profileId in relayIds }) {
@@ -165,8 +130,6 @@ private fun BackupPrivateDataV1.validateBackupPrivateData() {
             xraySelection.activeProfileId in xrayIds,
     ) { "Selected Xray profile is missing" }
 }
-
-private const val BackupSnapshotAttempts = 3
 
 @Module
 @InstallIn(SingletonComponent::class)

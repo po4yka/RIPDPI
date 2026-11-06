@@ -148,6 +148,19 @@ class RecoveringConnectionPolicyResolverTest {
 internal class RecoveryOnlyProfileMutationCoordinator(
     private val recovery: suspend () -> Unit,
 ) : ProfileMutationCoordinator {
+    override suspend fun restoreBackup(
+        preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
+        groups: List<com.poyka.ripdpi.data.ProxyGroup>?,
+        rules: List<com.poyka.ripdpi.data.rules.RuleEntity>?,
+        settings: com.poyka.ripdpi.proto.AppSettings?,
+        privateData: com.poyka.ripdpi.data.backup.BackupPrivateDataV1?,
+    ): com.poyka.ripdpi.data.ProfileMutationOutcome = error("Backup restore is outside this test boundary")
+
+    override suspend fun prepareStandaloneSelectionForStart(
+        guard: com.poyka.ripdpi.data.ProfileTransactionGuard,
+        update: com.poyka.ripdpi.proto.AppSettings.Builder.() -> Unit,
+    ): Boolean = error("Standalone preparation is outside this test boundary")
+
     override suspend fun <T> mutateCatalog(
         preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         block: suspend () -> T,
@@ -292,7 +305,6 @@ internal class RecoveryOnlyProfileMutationCoordinator(
     override suspend fun replacePrivateBackup(
         preparation: com.poyka.ripdpi.data.ProfileMutationPreparation,
         data: BackupPrivateDataV1,
-        rollbackData: BackupPrivateDataV1?,
     ) = unsupported()
 
     private fun unsupported(): Nothing = error("unsupported test mutation")

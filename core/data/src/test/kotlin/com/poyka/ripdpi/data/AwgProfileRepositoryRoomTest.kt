@@ -4,7 +4,6 @@ import app.cash.turbine.test
 import com.poyka.ripdpi.data.wireguard.AmneziaWgV3Parameters
 import com.poyka.ripdpi.data.wireguard.AwgHeaderProtectionKey
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -20,7 +19,7 @@ import org.robolectric.annotation.Config
 internal class AwgProfileRepositoryRoomTest : AwgProfileRepositoryRoomFixture() {
     @Test
     fun `save mints an opaque profile id and load round-trips every field`() =
-        runTest {
+        runRoomTest {
             val id = repository.save(name = "home", request = sampleRequest())
 
             // The id is opaque and NOT derived from the endpoint (privacy invariant).
@@ -48,7 +47,7 @@ internal class AwgProfileRepositoryRoomTest : AwgProfileRepositoryRoomFixture() 
 
     @Test
     fun `numeric header rows are quarantined without stopping valid profile observations or erasing keys`() =
-        runTest {
+        runRoomTest {
             val oldId = repository.save("old contract", sampleRequest())
             val original = requireNotNull(dao.getProfile(oldId))
             val oldBlob =
@@ -73,7 +72,7 @@ internal class AwgProfileRepositoryRoomTest : AwgProfileRepositoryRoomFixture() 
 
     @Test
     fun `re-saving under the existing id reuses the row and keeps a stable id`() =
-        runTest {
+        runRoomTest {
             val id = repository.save(name = "home", request = sampleRequest())
 
             val reusedId =
@@ -94,9 +93,9 @@ internal class AwgProfileRepositoryRoomTest : AwgProfileRepositoryRoomFixture() 
 
     @Test
     fun `failed credential update restores the previous profile snapshot`() =
-        runTest {
+        runRoomTest {
             val id = repository.save(name = "home", request = sampleRequest())
-            credentialStore.failNextSaveAfterWrite = true
+            fixture.failWrite("awg_credentials")
 
             val error =
                 runCatching {
@@ -107,6 +106,7 @@ internal class AwgProfileRepositoryRoomTest : AwgProfileRepositoryRoomFixture() 
                     )
                 }.exceptionOrNull()
 
+            fixture.clearFaults()
             assertNotNull(error)
             val restored = repository.load(id)!!
             assertEquals("home", restored.name)
@@ -116,9 +116,9 @@ internal class AwgProfileRepositoryRoomTest : AwgProfileRepositoryRoomFixture() 
 
     @Test
     fun `failed Room update restores the previous profile snapshot`() =
-        runTest {
+        runRoomTest {
             val id = repository.save(name = "home", request = sampleRequest())
-            failingDao.failNextUpsertAfterWrite = true
+            failAwgWrites()
 
             val error =
                 runCatching {
@@ -129,6 +129,7 @@ internal class AwgProfileRepositoryRoomTest : AwgProfileRepositoryRoomFixture() 
                     )
                 }.exceptionOrNull()
 
+            allowAwgWrites()
             assertNotNull(error)
             val restored = repository.load(id)!!
             assertEquals("home", restored.name)
@@ -138,7 +139,7 @@ internal class AwgProfileRepositoryRoomTest : AwgProfileRepositoryRoomFixture() 
 
     @Test
     fun `the persisted blob never pins a specific activation id`() =
-        runTest {
+        runRoomTest {
             val id = repository.save(name = "home", request = sampleRequest(profileId = "awg-should-be-blanked"))
 
             val row = dao.getProfile(id)!!
@@ -152,7 +153,7 @@ internal class AwgProfileRepositoryRoomTest : AwgProfileRepositoryRoomFixture() 
 
     @Test
     fun `the persisted blob holds no private or preshared key material and load re-injects it`() =
-        runTest {
+        runRoomTest {
             val id = repository.save(name = "home", request = sampleRequest())
 
             // The Room blob must contain NO secret material -- it lives encrypted elsewhere.
@@ -171,7 +172,7 @@ internal class AwgProfileRepositoryRoomTest : AwgProfileRepositoryRoomFixture() 
 
     @Test
     fun `delete removes the encrypted secrets alongside the row`() =
-        runTest {
+        runRoomTest {
             val id = repository.save(name = "home", request = sampleRequest())
             assertNotNull(credentialStore.load(id))
 
@@ -182,7 +183,7 @@ internal class AwgProfileRepositoryRoomTest : AwgProfileRepositoryRoomFixture() 
 
     @Test
     fun `deleteAll removes every persisted profile row`() =
-        runTest {
+        runRoomTest {
             repository.save(name = "home", request = sampleRequest())
             repository.save(name = "work", request = sampleRequest().copy(endpointPort = 443))
 
@@ -193,7 +194,7 @@ internal class AwgProfileRepositoryRoomTest : AwgProfileRepositoryRoomFixture() 
 
     @Test
     fun `a stored blob with an unknown extra key decodes without throwing`() =
-        runTest {
+        runRoomTest {
             val id = repository.save(name = "home", request = sampleRequest())
 
             // Simulate a row written by a FUTURE app version carrying an additive field.
@@ -212,7 +213,7 @@ internal class AwgProfileRepositoryRoomTest : AwgProfileRepositoryRoomFixture() 
 
     @Test
     fun `observeProfiles emits on save and delete`() =
-        runTest {
+        runRoomTest {
             repository.observeProfiles().test {
                 assertEquals(emptyList<String>(), awaitItem().map { it.name })
 
@@ -228,14 +229,14 @@ internal class AwgProfileRepositoryRoomTest : AwgProfileRepositoryRoomFixture() 
 
     @Test
     fun `delete of an unknown id is a no-op`() =
-        runTest {
+        runRoomTest {
             repository.delete("awg-does-not-exist")
             assertNull(repository.load("awg-does-not-exist"))
         }
 
     @Test
     fun `an AmneziaVPN 5x profile keeps its header protection key out of the Room blob`() =
-        runTest {
+        runRoomTest {
             val key = "AwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwMDAwM="
             val request =
                 sampleRequest().copy(

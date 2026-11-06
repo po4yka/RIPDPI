@@ -16,7 +16,7 @@ import com.poyka.ripdpi.data.ServiceEvent
 import com.poyka.ripdpi.data.ServiceStateStore
 import com.poyka.ripdpi.data.ServiceTelemetrySnapshot
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
-import com.poyka.ripdpi.data.awg.AwgProfileRepository
+import com.poyka.ripdpi.data.awg.testAwgProfileRepository
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
 import com.poyka.ripdpi.services.ServiceStartResult
@@ -58,10 +58,10 @@ class SimpleVlessRuntimeMonitorTest {
                         backing.update(transform)
                     }
                 }
-            val boot = TestAwgBootSelection()
+            val boot = TestAwgSelection()
             val selection =
                 SimpleAwgEgressSelection(
-                    AwgProfileRepository(
+                    testAwgProfileRepository(
                         FakeAwgProfileDao(),
                         FakeAwgCredentialStore(),
                         com.poyka.ripdpi.data.awg.TestDirectAwgProfileMutationCoordinator(
@@ -70,11 +70,16 @@ class SimpleVlessRuntimeMonitorTest {
                         ),
                     ),
                     settings,
-                    boot,
                 )
             val controller = RecordingServiceController()
             val monitor =
-                buildMonitor(DefaultServiceStateStore(), settings, awgSelection = selection, controller = controller)
+                buildMonitor(
+                    DefaultServiceStateStore(),
+                    settings,
+                    awgSelection = selection,
+                    controller = controller,
+                    selections = boot,
+                )
             val arbiter = controller.intentArbiter
             val generation = arbiter.userStart(arbiter::captureExplicitUserIntentGeneration) { true }
             val prepare =
@@ -85,10 +90,10 @@ class SimpleVlessRuntimeMonitorTest {
                     )
                 }
             updateStarted.await()
-            arbiter.userStart({ boot.setActiveAwgProfileId("awg-newer") }) { true }
+            arbiter.userStart({ boot.selectedId = "awg-newer" }) { true }
             releaseUpdate.complete(Unit)
             prepare.join()
-            assertEquals("awg-newer", boot.activeAwgProfileId())
+            assertEquals("awg-newer", boot.selectedId)
             monitor.prepare(
                 Mode.VPN,
                 arbiter.explicitUserStartGuard(
@@ -96,7 +101,7 @@ class SimpleVlessRuntimeMonitorTest {
                     arbiter.durableReference(),
                 ),
             )
-            assertNull(boot.activeAwgProfileId())
+            assertNull(boot.selectedId)
         }
 
     @Test
@@ -105,10 +110,10 @@ class SimpleVlessRuntimeMonitorTest {
             val stateStore = DefaultServiceStateStore()
             val settings = FakeAppSettingsRepository()
             val controller = RecordingServiceController()
-            val bootSelection = TestAwgBootSelection()
+            val bootSelection = TestAwgSelection()
             val selection =
                 SimpleAwgEgressSelection(
-                    AwgProfileRepository(
+                    testAwgProfileRepository(
                         FakeAwgProfileDao(),
                         FakeAwgCredentialStore(),
                         com.poyka.ripdpi.data.awg.TestDirectAwgProfileMutationCoordinator(
@@ -117,7 +122,6 @@ class SimpleVlessRuntimeMonitorTest {
                         ),
                     ),
                     settings,
-                    bootSelection,
                 )
             val lookupStarted = CompletableDeferred<Unit>()
             val lookupResult = CompletableDeferred<AwgActivationRequest?>()
@@ -150,12 +154,12 @@ class SimpleVlessRuntimeMonitorTest {
             runCurrent()
             assertTrue(lookupStarted.isCompleted)
 
-            bootSelection.setActiveAwgProfileId("awg-editor-newer")
+            bootSelection.selectedId = "awg-editor-newer"
             controller.acceptUserStart()
             lookupResult.complete(sampleAwgRequest())
             runCurrent()
 
-            assertEquals("awg-editor-newer", bootSelection.activeAwgProfileId())
+            assertEquals("awg-editor-newer", bootSelection.selectedId)
             assertEquals(listOf(Mode.VPN), controller.startupFallbackStartCalls)
             assertNull(selection.selectedAwgEgress())
         }
@@ -914,11 +918,13 @@ class SimpleVlessRuntimeMonitorTest {
         relayCatalog: SimpleFailoverRelayCatalog = SimpleFailoverRelayCatalog { profiles },
         awgSelection: SimpleAwgFallbackSelection = RecordingAwgFallbackSelection(),
         controller: RecordingServiceController = RecordingServiceController(),
+        selections: TestAwgSelection = TestAwgSelection(),
     ): SimpleVlessRuntimeMonitor {
         controller.prepareFixtureStart()
         return SimpleVlessRuntimeMonitor(
             serviceStateStore = stateStore,
             settingsRepository = settings,
+            profileMutations = testStartPreparationMutations(settings, selections),
             relayCatalog = relayCatalog,
             awgFallbackSelection = awgSelection,
             startupFallbackController = controller,
@@ -997,8 +1003,6 @@ private class RecordingAwgFallbackSelection(
         clearCalls += 1
         currentRequest = null
     }
-
-    override fun clearForUserStart() = clear()
 }
 
 private class RecordingServiceController(

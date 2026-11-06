@@ -136,7 +136,7 @@ class MigrationTransportE2ETest {
         val context: Context = ApplicationProvider.getApplicationContext()
         val originalSettings = runBlocking { settings.snapshot() }
         val originalProvider = runBlocking { provider.current() }
-        val originalActive = activeGroup.activeGroupId.value
+        val originalActive = runBlocking { activeGroup.snapshotActiveGroupId() }
         val groupId = "owned-migration-${UUID.randomUUID()}"
         try {
             runBlocking { controller.stop() }

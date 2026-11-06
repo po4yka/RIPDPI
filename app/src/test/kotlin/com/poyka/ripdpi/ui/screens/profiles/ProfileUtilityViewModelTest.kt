@@ -12,8 +12,6 @@ import android.net.RouteInfo
 import androidx.lifecycle.ViewModelStore
 import androidx.lifecycle.viewModelScope
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
-import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppliedRuntimeConfiguration
 import com.poyka.ripdpi.data.AppliedRuntimeConfigurationSource
 import com.poyka.ripdpi.data.CheckedPauseAuthorityPersistence
@@ -24,16 +22,9 @@ import com.poyka.ripdpi.data.PauseClock
 import com.poyka.ripdpi.data.PauseClockReading
 import com.poyka.ripdpi.data.PauseIntentAuthority
 import com.poyka.ripdpi.data.PayloadProbeControl
-import com.poyka.ripdpi.data.PendingProfileMutation
-import com.poyka.ripdpi.data.ProfileMutationGenerationPublisher
-import com.poyka.ripdpi.data.ProfileMutationJournal
-import com.poyka.ripdpi.data.ProfileMutationRecoveryCoordinator
-import com.poyka.ripdpi.data.ProfileMutationStores
 import com.poyka.ripdpi.data.ProfileUtilityCatalogReader
 import com.poyka.ripdpi.data.ProfileUtilityReference
-import com.poyka.ripdpi.data.ProxyGroupBlobStore
 import com.poyka.ripdpi.data.RelayCredentialRecord
-import com.poyka.ripdpi.data.RelayCredentialStore
 import com.poyka.ripdpi.data.RelayProfileRecord
 import com.poyka.ripdpi.data.RuntimeActivationReceipt
 import com.poyka.ripdpi.data.RuntimeAppliedIntent
@@ -45,24 +36,8 @@ import com.poyka.ripdpi.data.RuntimeConfigurationDns
 import com.poyka.ripdpi.data.RuntimeConfigurationSelection
 import com.poyka.ripdpi.data.RuntimeConfigurationStrategy
 import com.poyka.ripdpi.data.RuntimeIntentLinearizer
-import com.poyka.ripdpi.data.SharedPreferencesProxyGroupRepository
-import com.poyka.ripdpi.data.SharedPreferencesRelayProfileStore
-import com.poyka.ripdpi.data.SharedPreferencesWarpEndpointStore
-import com.poyka.ripdpi.data.SharedPreferencesWarpProfileStore
-import com.poyka.ripdpi.data.WarpCredentialStore
 import com.poyka.ripdpi.data.WsTunnelWorkerCredentialStore
-import com.poyka.ripdpi.data.awg.AwgCredentialStore
-import com.poyka.ripdpi.data.awg.AwgProfileDao
-import com.poyka.ripdpi.data.boot.SharedPreferencesBootSessionStateStore
-import com.poyka.ripdpi.data.selector.SelectorActiveGroupStore
-import com.poyka.ripdpi.data.selector.SharedPreferencesSelectorSelectionStore
-import com.poyka.ripdpi.data.xray.DefaultDurableXrayProfileStore
-import com.poyka.ripdpi.data.xray.SharedPreferencesXrayProfileMetadataStore
-import com.poyka.ripdpi.data.xray.SharedPreferencesXrayProviderSelectionStore
 import com.poyka.ripdpi.data.xray.XrayProfile
-import com.poyka.ripdpi.data.xray.XrayProfileSecretRecord
-import com.poyka.ripdpi.data.xray.XrayProfileSecretStore
-import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.CandidateHttpPayloadProbe
 import com.poyka.ripdpi.services.CandidateRelayMeasurement
 import com.poyka.ripdpi.services.CandidateRelayMeasurements
@@ -217,7 +192,9 @@ class ProfileUtilityViewModelTest {
             try {
                 f.vm.favorite(Reference, f.vm.uiState.value.catalogGeneration, true)
                 f.awaitItem { it.favorite }
-                val recreated = fixture(f.disk, f.settings, f.credentials)
+                f.close()
+                val recoveredAuthority = profileTestAuthority(f.disk)
+                val recreated = fixture(f.disk, recoveredAuthority, f.persistence.reopen(recoveredAuthority))
                 try {
                     assertTrue(recreated.awaitItem { it.favorite }.favorite)
                     assertEquals(
@@ -698,6 +675,7 @@ class ProfileUtilityViewModelTest {
                                         .single()
                                         .finished.isCompleted,
                                 )
+                                f.pendingEnvironmentChange = moved
                                 f.change()
                                 moved.complete(Unit)
                             }
@@ -739,8 +717,9 @@ class ProfileUtilityCatalogRecoveryTest {
     fun `catalog read failure shows recovery and retry restores saved profiles`() =
         runTest {
             val disk = FaultingPreferencesContext(RuntimeEnvironment.getApplication())
-            val f = Fixture(disk, MemorySettings(), MemoryRelayCredentials())
+            val f = Fixture(disk)
             try {
+                f.persistence.initialize()
                 f.stores.relayProfiles.save(Profile)
                 disk.failCatalogRead = true
                 backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { f.vm.uiState.collect {} }
@@ -765,12 +744,16 @@ class ProfileUtilityCatalogRecoveryTest {
 @OptIn(ExperimentalCoroutinesApi::class)
 private suspend fun TestScope.fixture(
     disk: FaultingPreferencesContext = FaultingPreferencesContext(RuntimeEnvironment.getApplication()),
-    settings: MemorySettings = MemorySettings(),
-    credentials: MemoryRelayCredentials = MemoryRelayCredentials(),
+    authority: PauseIntentAuthority = profileTestAuthority(disk),
+    persistence: com.poyka.ripdpi.data.testing.RoomProfileFixture =
+        com.poyka.ripdpi.data.testing
+            .RoomProfileFixture(disk, authority),
 ): Fixture {
-    val fixture = Fixture(disk, settings, credentials)
+    val fixture = Fixture(disk, authority, persistence)
+    persistence.initialize()
+    fixture.settings.update { setRipdpiMode(Mode.Proxy.preferenceValue) }
     fixture.stores.relayProfiles.save(Profile)
-    credentials.save(Credentials)
+    fixture.credentials.save(Credentials)
     fixture.mutations.recover()
     backgroundScope.launch(UnconfinedTestDispatcher(testScheduler)) { fixture.vm.uiState.collect {} }
     fixture.awaitState { !it.loading && it.profiles.any { item -> item.reference == Reference } }
@@ -806,48 +789,38 @@ private fun xrayProfile() =
             ),
     )
 
+private fun profileTestAuthority(disk: FaultingPreferencesContext) =
+    PauseIntentAuthority(
+        CheckedPauseAuthorityPersistence(disk),
+        object : PauseClock {
+            override fun read() = PauseClockReading(AppliedAt, 10_000, 7)
+        },
+        RuntimeIntentLinearizer(),
+    )
+
 private class Fixture(
     val disk: FaultingPreferencesContext,
-    val settings: MemorySettings,
-    val credentials: MemoryRelayCredentials,
+    val authority: PauseIntentAuthority = profileTestAuthority(disk),
+    val persistence: com.poyka.ripdpi.data.testing.RoomProfileFixture =
+        com.poyka.ripdpi.data.testing
+            .RoomProfileFixture(disk, authority),
 ) : AutoCloseable {
-    val authority =
-        PauseIntentAuthority(
-            CheckedPauseAuthorityPersistence(disk),
-            object : PauseClock {
-                override fun read() = PauseClockReading(AppliedAt, 10_000, 7)
-            },
-            RuntimeIntentLinearizer(),
-        )
-    val selector = SelectorActiveGroupStore(disk, authority)
-    val stores =
-        ProfileMutationStores(
-            settings,
-            SharedPreferencesRelayProfileStore(disk),
-            credentials,
-            SharedPreferencesWarpProfileStore(disk),
-            rejectingPort<WarpCredentialStore>(),
-            SharedPreferencesWarpEndpointStore(disk),
-            SharedPreferencesXrayProfileMetadataStore(disk),
-            MemoryXraySecrets(),
-            SharedPreferencesXrayProviderSelectionStore(disk),
-            SharedPreferencesBootSessionStateStore(disk.getSharedPreferences("unit-boot", Context.MODE_PRIVATE)),
-            com.poyka.ripdpi.data
-                .ProxyGroupCatalog(MemoryGroupBlob()),
-            selector,
-        )
-    val mutations =
-        ProfileMutationRecoveryCoordinator(
-            stores,
-            rejectingPort<AwgProfileDao>(),
-            rejectingPort<AwgCredentialStore>(),
-            MemoryJournal(),
-            ProfileMutationGenerationPublisher(),
-            authority,
-        )
-    val groups = SharedPreferencesProxyGroupRepository(stores.groupCatalog, mutations)
-    val selectionStore = SharedPreferencesSelectorSelectionStore(disk, mutations, authority, selector)
-    val xrayProfiles = DefaultDurableXrayProfileStore(stores.xrayMetadata, stores.xraySecrets)
+    val selector = persistence.selectorActiveGroup
+    val stores = persistence.stores
+    val settings = persistence.settings
+    val credentials = persistence.relayCredentials
+    val mutations = persistence.coordinator
+    val groups = persistence.groups
+    val selectionStore = persistence.selectorSelections
+    val xrayProfiles = persistence.durableXrayProfiles
+    private var closed = false
+
+    init {
+        persistence.beforeOpen = { namespace, _ ->
+            if (namespace == "relay_profiles" && disk.failCatalogRead) error("Controlled catalog storage failure")
+        }
+    }
+
     val runtimeRegistry = DefaultServiceRuntimeRegistry()
     private val connectivity = shadowOf(disk.getSystemService(ConnectivityManager::class.java))
     private val previousCallbacks = connectivity.networkCallbacks.toSet()
@@ -862,6 +835,8 @@ private class Fixture(
         settings.update { setTlsFingerprintProfile("firefox") }
         environment = environment.copy(tlsProfile = "firefox")
     }
+
+    @Volatile var pendingEnvironmentChange: CompletableDeferred<Unit>? = null
 
     val runtimes = CopyOnWriteArrayList<ControlledRelayRuntime>()
     val httpUrls = CopyOnWriteArrayList<String>()
@@ -923,6 +898,11 @@ private class Fixture(
     val probe = probeFixtures.relay
     private val controlledMeasurement: CandidateRelayMeasurements =
         object : CandidateRelayMeasurements by probe {
+            override suspend fun captureEnvironment(): CandidateRelayProbeEnvironment {
+                pendingEnvironmentChange?.await()
+                return probe.captureEnvironment()
+            }
+
             override suspend fun measure(
                 profile: RelayProfileRecord,
                 credentials: RelayCredentialRecord,
@@ -1224,114 +1204,14 @@ private class Fixture(
             .single { it.reference == Reference }
 
     override fun close() {
+        if (closed) return
+        closed = true
         failStop = false
         disk.failAuthorityCommit = false
         viewModels.clear()
         callback.onLost(physical)
         disk.getSystemService(ConnectivityManager::class.java).unregisterNetworkCallback(callback)
-    }
-}
-
-private class MemorySettings : AppSettingsRepository {
-    private val state =
-        MutableStateFlow(
-            AppSettingsSerializer.defaultValue
-                .toBuilder()
-                .setRipdpiMode(Mode.Proxy.preferenceValue)
-                .build(),
-        )
-    override val settings = state
-
-    override suspend fun snapshot() = state.value
-
-    override suspend fun update(transform: AppSettings.Builder.() -> Unit) {
-        state.value =
-            state.value
-                .toBuilder()
-                .apply(transform)
-                .build()
-    }
-
-    override suspend fun replace(settings: AppSettings) {
-        state.value = settings
-    }
-}
-
-private class MemoryRelayCredentials : RelayCredentialStore {
-    private val values = mutableMapOf<String, RelayCredentialRecord>()
-
-    override suspend fun load(profileId: String) = values[profileId]
-
-    override suspend fun save(credentials: RelayCredentialRecord) {
-        values[credentials.profileId] = credentials
-    }
-
-    override suspend fun clear(profileId: String) {
-        values.remove(profileId)
-    }
-
-    override suspend fun clearAll() {
-        values.clear()
-    }
-}
-
-private class MemoryXraySecrets : XrayProfileSecretStore {
-    private val values = mutableMapOf<String, XrayProfileSecretRecord>()
-
-    override suspend fun load(profileId: String) = values[profileId]
-
-    override suspend fun save(record: XrayProfileSecretRecord) {
-        values[record.profileId] = record
-    }
-
-    override suspend fun clear(profileId: String) {
-        values.remove(profileId)
-    }
-
-    override suspend fun clearAll() {
-        values.clear()
-    }
-}
-
-private class MemoryGroupBlob : ProxyGroupBlobStore {
-    private var value: String? = null
-
-    override fun read() = value
-
-    override fun write(json: String) {
-        value = json
-    }
-
-    override fun clear() {
-        value = null
-    }
-}
-
-private class MemoryJournal : ProfileMutationJournal {
-    private var value: PendingProfileMutation? = null
-
-    override suspend fun prepare(mutation: PendingProfileMutation) {
-        check(value == null)
-        value = mutation
-    }
-
-    override suspend fun pending() = value
-
-    override suspend fun replace(
-        expectedMutationId: String,
-        mutation: PendingProfileMutation,
-    ) {
-        check(value?.mutationId == expectedMutationId)
-        value = mutation
-    }
-
-    override suspend fun complete(mutationId: String) {
-        check(value?.mutationId == mutationId)
-        value = null
-    }
-
-    override suspend fun clearForReset() {
-        value = null
+        persistence.close()
     }
 }
 
@@ -1350,14 +1230,6 @@ private class FaultingPreferencesContext(
     ): SharedPreferences {
         val delegate = super.getSharedPreferences(prefix + name, mode)
         return object : SharedPreferences by delegate {
-            override fun getString(
-                key: String?,
-                defValue: String?,
-            ): String? {
-                if (name == "relay_profile_cache" && failCatalogRead) error("Controlled catalog storage failure")
-                return delegate.getString(key, defValue)
-            }
-
             override fun edit(): SharedPreferences.Editor =
                 FaultingEditor(delegate.edit()) {
                     name == "pause_intent_authority" && failAuthorityCommit

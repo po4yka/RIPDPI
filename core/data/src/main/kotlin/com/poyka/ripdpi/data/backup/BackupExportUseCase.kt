@@ -2,10 +2,7 @@ package com.poyka.ripdpi.data.backup
 
 import android.util.Log
 import com.poyka.ripdpi.data.AppCoroutineDispatchers
-import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.ProxyGroupRepository
-import com.poyka.ripdpi.data.rules.RuleDao
-import kotlinx.coroutines.flow.first
+import com.poyka.ripdpi.data.persistence.ProfileDatabase
 import kotlinx.coroutines.withContext
 import java.io.IOException
 import java.io.OutputStream
@@ -46,11 +43,8 @@ sealed interface BackupExportResult {
  */
 class BackupExportUseCase
     @Inject
-    constructor(
-        private val groupRepository: ProxyGroupRepository,
-        private val ruleDao: RuleDao,
-        private val settingsRepository: AppSettingsRepository,
-        private val privateDataStore: BackupPrivateDataStore,
+    internal constructor(
+        private val database: ProfileDatabase,
         private val dispatchers: AppCoroutineDispatchers,
     ) {
         /**
@@ -115,24 +109,31 @@ class BackupExportUseCase
             appVersion: String,
             createdAtEpochMillis: Long = System.currentTimeMillis(),
         ): BackupV1 {
-            val groups = groupRepository.list()
-            val profiles = groups.flatMap { it.members }
-            val rules = ruleDao.allRules().first()
-            val settings = BackupSettingsConverter.toMap(settingsRepository.snapshot(), variant)
-            val privateData =
-                when (variant) {
-                    BackupVariant.FULL -> privateDataStore.snapshot()
-                    BackupVariant.SHARE -> null
+            val snapshot =
+                database.read { rows ->
+                    BackupSourceSnapshot(
+                        groups = rows.groups.list(),
+                        rules = rows.rules.all(),
+                        settings = BackupSettingsConverter.toMap(rows.settings.snapshot(), variant),
+                        privateData = if (variant == BackupVariant.FULL) rows.privateBackupSnapshot() else null,
+                    )
                 }
             return BackupExporter.export(
                 variant = variant,
-                profiles = profiles,
-                groups = groups,
-                rules = rules,
-                settings = settings,
+                profiles = snapshot.groups.flatMap { it.members },
+                groups = snapshot.groups,
+                rules = snapshot.rules,
+                settings = snapshot.settings,
                 createdAtEpochMillis = createdAtEpochMillis,
                 appVersion = appVersion,
-                privateData = privateData,
+                privateData = snapshot.privateData,
             )
         }
     }
+
+private data class BackupSourceSnapshot(
+    val groups: List<com.poyka.ripdpi.data.ProxyGroup>,
+    val rules: List<com.poyka.ripdpi.data.rules.RuleEntity>,
+    val settings: Map<String, String>,
+    val privateData: BackupPrivateDataV1?,
+)

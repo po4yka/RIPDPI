@@ -3,6 +3,7 @@ package com.poyka.ripdpi.data.boot
 import android.content.Context
 import android.content.SharedPreferences
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.commitOrThrow
 import dagger.Binds
 import dagger.Module
 import dagger.Provides
@@ -50,12 +51,6 @@ interface BootSessionStateStore {
         profileId: String,
         mode: Mode,
     )
-
-    /** Stable, non-secret standalone AWG profile id selected for VPN egress. */
-    fun activeAwgProfileId(): String? = null
-
-    /** Persists or clears the standalone AWG selection without storing profile secrets. */
-    fun setActiveAwgProfileId(profileId: String?) = Unit
 
     /** Clears the recorded pointer — e.g. when the referenced profile no longer exists. */
     fun clear()
@@ -117,22 +112,7 @@ class SharedPreferencesBootSessionStateStore
                 .edit()
                 .putString(KeyProfileId, profileId)
                 .putString(KeyMode, mode.preferenceValue)
-                .commit()
-        }
-
-        override fun activeAwgProfileId(): String? =
-            preferences.getString(KeyActiveAwgProfileId, null)?.takeIf(String::isNotBlank)
-
-        override fun setActiveAwgProfileId(profileId: String?) {
-            preferences
-                .edit()
-                .also { editor ->
-                    if (profileId.isNullOrBlank()) {
-                        editor.remove(KeyActiveAwgProfileId)
-                    } else {
-                        editor.putString(KeyActiveAwgProfileId, profileId)
-                    }
-                }.commit()
+                .commitOrThrow()
         }
 
         override fun clear() {
@@ -140,7 +120,7 @@ class SharedPreferencesBootSessionStateStore
                 .edit()
                 .remove(KeyProfileId)
                 .remove(KeyMode)
-                .commit()
+                .commitOrThrow()
         }
 
         override fun wasRunningAtUpdate(): Boolean = preferences.getBoolean(KeyWasRunningAtUpdate, false)
@@ -149,17 +129,16 @@ class SharedPreferencesBootSessionStateStore
             // Both edges are durability-critical. A lost `true` prevents recovery
             // after LMK/SIGKILL; a lost `false` can resurrect a tunnel that the user
             // explicitly stopped if the process dies before an asynchronous apply.
-            preferences.edit().putBoolean(KeyWasRunningAtUpdate, value).commit()
+            preferences.edit().putBoolean(KeyWasRunningAtUpdate, value).commitOrThrow()
         }
 
         override fun clearAll() {
-            preferences.edit().clear().commit()
+            preferences.edit().clear().commitOrThrow()
         }
 
         private companion object {
             const val KeyProfileId = "boot-session-profile-id"
             const val KeyMode = "boot-session-mode"
-            const val KeyActiveAwgProfileId = "boot-session-active-awg-profile-id"
             const val KeyWasRunningAtUpdate = "boot-session-was-running-at-update"
         }
     }

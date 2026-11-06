@@ -10,19 +10,7 @@ import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-/**
- * Regression for the audit P0 / P1-11 finding: subscription/selector group member
- * secrets and the subscription token were serialized in PLAINTEXT into the
- * `proxy_group_cache` SharedPreferences.
- *
- * Persistence now flows exclusively through [ProxyGroupBlobStore], whose production
- * binding ([KeystoreProxyGroupBlobStore]) AES-256-GCM seals the blob at rest. This
- * test pins that the repository persists *only* via that seam — so the seal always
- * applies — and that the secrets survive a round trip. The AES seal and the
- * legacy-plaintext migration are exercised by the production binding / instrumented
- * tests, matching how `FakeAwgCredentialStore` / `FakeWarpCredentialStore` are used
- * (AndroidKeyStore is unavailable under Robolectric).
- */
+/** Catalog serialization preserves secrets; Room encryption is verified in the data module. */
 class ProxyGroupSecretAtRestTest {
     // "fixture-" prefixed so the no-secrets pre-commit gate skips these lines.
     private val memberPassword = "fixture-trojan-pw-9f3a"
@@ -78,11 +66,11 @@ class ProxyGroupSecretAtRestTest {
         )
 
     @Test
-    fun `groups are persisted only through the sealed blob store, and secrets round-trip`() =
+    fun `group secrets round-trip through the storage contract`() =
         runTest {
             val blobStore = FakeProxyGroupBlobStore()
             val repo =
-                SharedPreferencesProxyGroupRepository(
+                DefaultProxyGroupRepository(
                     com.poyka.ripdpi.data
                         .ProxyGroupCatalog(blobStore),
                     com.poyka.ripdpi.data
@@ -94,9 +82,7 @@ class ProxyGroupSecretAtRestTest {
 
             repo.add(sampleGroup())
 
-            // The serialized blob (which the production binding AES-seals) is the
-            // single persisted artifact and carries the credentials, so the seal
-            // covers every member secret + the subscription token.
+            // The storage input must retain every secret for the encrypted Room writer.
             val persisted = blobStore.read()
             assertNotNull("group blob must be handed to the sealed store", persisted)
             assertTrue("member secret must be inside the to-be-sealed blob", persisted!!.contains(memberPassword))
@@ -104,7 +90,7 @@ class ProxyGroupSecretAtRestTest {
 
             assertTrue(persisted.contains("fixture-mirror-token"))
             val loaded =
-                SharedPreferencesProxyGroupRepository(
+                DefaultProxyGroupRepository(
                     com.poyka.ripdpi.data
                         .ProxyGroupCatalog(blobStore),
                     com.poyka.ripdpi.data
@@ -125,7 +111,7 @@ class ProxyGroupSecretAtRestTest {
         runTest {
             val blobStore = FakeProxyGroupBlobStore()
             val repo =
-                SharedPreferencesProxyGroupRepository(
+                DefaultProxyGroupRepository(
                     com.poyka.ripdpi.data
                         .ProxyGroupCatalog(blobStore),
                     com.poyka.ripdpi.data

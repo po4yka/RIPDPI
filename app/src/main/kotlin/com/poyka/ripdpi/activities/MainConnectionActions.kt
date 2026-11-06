@@ -49,7 +49,7 @@ internal class MainConnectionActions(
     private val runtimeState: ConnectionRuntimeStateReducer,
     private val refreshPermissionSnapshot: () -> Unit,
     private val onLocalNetworkRequired: (Mode) -> Unit = {},
-    private val hasExternalProvider: (Mode) -> Boolean = { false },
+    private val hasExternalProvider: suspend (Mode) -> Boolean = { false },
 ) {
     private companion object {
         private const val PercentScale = 100
@@ -163,7 +163,7 @@ internal class MainConnectionActions(
         )
     }
 
-    fun buildApproachSummary(
+    suspend fun buildApproachSummary(
         settings: AppSettings,
         activeMode: Mode,
         approachStats: List<BypassApproachSummary>,

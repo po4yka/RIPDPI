@@ -38,7 +38,7 @@ internal class DefaultSelectorRelayRuntimeProfileResolver
         private val groupRepository: ProxyGroupRepository,
     ) : SelectorRelayRuntimeProfileResolver {
         override suspend fun resolve(): SelectedSelectorRelay? {
-            val groupId = activeGroupStore.activeGroupId.value ?: return null
+            val groupId = activeGroupStore.snapshotActiveGroupId() ?: return null
             val group =
                 groupRepository.list().singleOrNull { it.id == groupId }
                     ?: rejectSelection("Active selector group is missing or ambiguous")

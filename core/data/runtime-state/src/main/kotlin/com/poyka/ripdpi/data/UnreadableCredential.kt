@@ -11,7 +11,7 @@ class UnreadableCredentialException(
  * Loads a credential that the caller is about to replace or show for re-entry. An unreadable value
  * counts as absent here only, so the user can always overwrite it; other reads stay strict.
  */
-suspend fun <T : Any> loadReplaceableCredential(load: suspend () -> T?): T? =
+inline fun <T : Any> loadReplaceableCredential(load: () -> T?): T? =
     try {
         load()
     } catch (error: UnreadableCredentialException) {

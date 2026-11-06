@@ -1,20 +1,21 @@
 package com.poyka.ripdpi.ui.screens.settings
 
-import androidx.datastore.core.DataStoreFactory
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.activities.FakeAppSettingsRepository
 import com.poyka.ripdpi.activities.FakeRunningServiceReconnect
 import com.poyka.ripdpi.activities.FakeServiceController
 import com.poyka.ripdpi.activities.FakeServiceStateStore
 import com.poyka.ripdpi.data.AppSettingsRepository
-import com.poyka.ripdpi.data.AppSettingsSerializer
 import com.poyka.ripdpi.data.AppStatus
-import com.poyka.ripdpi.data.DefaultAppSettingsRepository
 import com.poyka.ripdpi.data.DnsModePlainUdp
 import com.poyka.ripdpi.data.DnsProviderCloudflare
 import com.poyka.ripdpi.data.EncryptedDnsOdohConfigSourceCustomBytes
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolOdoh
 import com.poyka.ripdpi.data.Mode
+import com.poyka.ripdpi.data.testPauseAuthority
+import com.poyka.ripdpi.data.testing.RoomProfileFixture
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.ServiceIntentArbiter
 import com.poyka.ripdpi.services.ServiceStartRejectionReason
@@ -24,8 +25,6 @@ import com.poyka.ripdpi.util.MainDispatcherRule
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.channels.BufferOverflow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.job
@@ -38,19 +37,22 @@ import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Rule
 import org.junit.Test
-import org.junit.rules.TemporaryFolder
-import java.io.File
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+import org.robolectric.annotation.Config
 
 internal const val ValidOdohConfigsHex =
     "002c000100280020000100010020c6a793bedbd601c25970b1cc46bea80fdb1a8ec51540d79e4f9f17b8baa9da33"
 
 @OptIn(ExperimentalCoroutinesApi::class)
+@RunWith(RobolectricTestRunner::class)
+@Config(sdk = [29], application = android.app.Application::class)
 class SettingsDnsActionsTest {
     @get:Rule
     val mainDispatcherRule = MainDispatcherRule()
 
-    @get:Rule
-    val temporaryFolder = TemporaryFolder()
+    private val context = ApplicationProvider.getApplicationContext<Context>()
+    private var storage: RoomProfileFixture? = null
 
     @Test
     fun `switch from custom encrypted to plain dns is durable and clears stale resolver fields`() =
@@ -483,17 +485,13 @@ class SettingsDnsActionsTest {
         )
 
     private suspend fun withPersistentRepository(block: suspend (AppSettingsRepository) -> Unit) {
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
-        val store =
-            DataStoreFactory.create(
-                serializer = AppSettingsSerializer,
-                scope = scope,
-                produceFile = { File(temporaryFolder.root, "dns-settings.pb") },
-            )
+        val fixture = storage?.reopen() ?: RoomProfileFixture(context, testPauseAuthority())
+        storage = fixture
         try {
-            block(DefaultAppSettingsRepository(store))
+            fixture.initialize()
+            block(fixture.settings)
         } finally {
-            scope.coroutineContext.job.cancelAndJoin()
+            fixture.close()
         }
     }
 }

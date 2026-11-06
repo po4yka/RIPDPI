@@ -398,7 +398,6 @@ internal fun BackupRestoreEffectHandler(
 ) {
     val restoredMessage = stringResource(R.string.backup_restore_success)
     val malformedMessage = stringResource(R.string.backup_restore_malformed)
-    val integrityFailureMessage = stringResource(R.string.backup_restore_integrity_failure)
     val decryptionFailedMessage = stringResource(R.string.backup_encryption_unlock_failed)
     val nothingSelectedMessage = stringResource(R.string.backup_restore_nothing_selected)
     val unsupportedVersionTemplate = stringResource(R.string.backup_restore_unsupported_version)
@@ -430,14 +429,6 @@ internal fun BackupRestoreEffectHandler(
             BackupRestoreEffect.Malformed -> {
                 snackbarHostState.showRipDpiSnackbar(
                     message = malformedMessage,
-                    tone = RipDpiSnackbarTone.Error,
-                    testTag = RipDpiTestTags.BackupExportSnackbar,
-                )
-            }
-
-            BackupRestoreEffect.IntegrityFailure -> {
-                snackbarHostState.showRipDpiSnackbar(
-                    message = integrityFailureMessage,
                     tone = RipDpiSnackbarTone.Error,
                     testTag = RipDpiTestTags.BackupExportSnackbar,
                 )

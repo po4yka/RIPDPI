@@ -1,7 +1,5 @@
 package com.poyka.ripdpi.proxyimport
 
-import android.content.Context
-import androidx.test.core.app.ApplicationProvider
 import com.poyka.ripdpi.data.AppStatus
 import com.poyka.ripdpi.data.DurableCommandReceipt
 import com.poyka.ripdpi.data.Mode
@@ -29,8 +27,8 @@ import com.poyka.ripdpi.data.fakes.FakeAppSettingsRepository
 import com.poyka.ripdpi.data.fakes.FakeRelayCredentialStore
 import com.poyka.ripdpi.data.fakes.FakeRelayProfileStore
 import com.poyka.ripdpi.data.mapRelayProfile
+import com.poyka.ripdpi.data.selector.DefaultSelectorSelectionStore
 import com.poyka.ripdpi.data.selector.SelectorActiveGroupStore
-import com.poyka.ripdpi.data.selector.SharedPreferencesSelectorSelectionStore
 import com.poyka.ripdpi.proto.AppSettings
 import com.poyka.ripdpi.services.RuntimePolicyReloadIntent
 import com.poyka.ripdpi.services.selector.SelectorReloadCoordinator
@@ -481,8 +479,10 @@ class RelayActivationSelectorReloadTriggerTest {
                 },
                 RuntimeIntentLinearizer(),
             ).apply { initializeAfterMigration() }
-        private val context = ApplicationProvider.getApplicationContext<Context>()
-        val activeGroup = SelectorActiveGroupStore(context, authority)
+        private val persistence =
+            com.poyka.ripdpi.data.fakes
+                .InMemorySelectorPersistence()
+        val activeGroup = SelectorActiveGroupStore(persistence, authority)
         private val preparations =
             object : PauseMutationPreparationSource {
                 override suspend fun captureMutation(origin: ProfileMutationOrigin) =
@@ -533,8 +533,8 @@ class RelayActivationSelectorReloadTriggerTest {
                 }
             }
         val selections =
-            SharedPreferencesSelectorSelectionStore(
-                context,
+            DefaultSelectorSelectionStore(
+                persistence,
                 preparations,
                 authority,
                 activeGroup,
@@ -560,7 +560,7 @@ class RelayActivationSelectorReloadTriggerTest {
                     ?: error("Manual choice did not publish a typed reservation")
             assertTrue(authority.isCurrent(receipt))
             assertEquals(RuntimeActivationPhase.Unbound, authority.snapshotAuthority().command!!.phase)
-            assertEquals(groupId, activeGroup.activeGroupId.value)
+            assertEquals(groupId, activeGroup.snapshotActiveGroupId())
             return SelectorReloadRequest(groupId, memberId, receipt)
         }
 

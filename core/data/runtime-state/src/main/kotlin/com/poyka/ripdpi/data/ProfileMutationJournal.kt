@@ -1,11 +1,6 @@
 package com.poyka.ripdpi.data
 
 import android.content.Context
-import dagger.Binds
-import dagger.Module
-import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
-import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -14,8 +9,6 @@ import kotlinx.serialization.SerializationException
 import java.nio.BufferUnderflowException
 import java.security.GeneralSecurityException
 import java.util.UUID
-import javax.inject.Inject
-import javax.inject.Singleton
 
 @Serializable
 enum class ProfileMutationFamily {
@@ -27,7 +20,7 @@ enum class ProfileMutationFamily {
     Subscription,
 }
 
-/** Encrypted write-ahead record for a cross-store profile mutation. */
+/** Legacy record consumed once by the Room migration. */
 @Serializable
 data class PendingProfileMutation(
     val schemaVersion: Int = CurrentProfileMutationSchemaVersion,
@@ -38,19 +31,8 @@ data class PendingProfileMutation(
     val expectedPauseAuthority: PauseAuthorityRef?,
 )
 
-interface ProfileMutationJournal {
-    suspend fun prepare(mutation: PendingProfileMutation)
-
+fun interface ProfileMutationJournal {
     suspend fun pending(): PendingProfileMutation?
-
-    suspend fun replace(
-        expectedMutationId: String,
-        mutation: PendingProfileMutation,
-    )
-
-    suspend fun complete(mutationId: String)
-
-    suspend fun clearForReset()
 }
 
 class ProfileMutationJournalCorruptionException(
@@ -58,87 +40,47 @@ class ProfileMutationJournalCorruptionException(
     cause: Throwable? = null,
 ) : IllegalStateException(message, cause)
 
-/** AndroidKeyStore-backed journal whose marker changes use checked synchronous commits on IO. */
-@Singleton
-class EncryptedProfileMutationJournal
-    @Inject
-    constructor(
-        @ApplicationContext context: Context,
-    ) : ProfileMutationJournal {
-        private val json = com.poyka.ripdpi.serialization.RipDpiContractJson
-        private val blobStore =
-            KeystoreEncryptedPreferences(
-                preferences = context.getSharedPreferences(JournalPreferencesName, Context.MODE_PRIVATE),
-                keyAlias = JournalKeyAlias,
-                durableReads = true,
-            )
+/** Read-only access to the encrypted journal from the previous storage format. */
+class LegacyProfileMutationJournal(
+    context: Context,
+) : ProfileMutationJournal {
+    private val blobStore =
+        KeystoreEncryptedPreferences(
+            preferences = context.getSharedPreferences(JournalPreferencesName, Context.MODE_PRIVATE),
+            keyAlias = JournalKeyAlias,
+            durableReads = true,
+        )
 
-        override suspend fun prepare(mutation: PendingProfileMutation) =
-            access {
-                check(blobStore.getStringStrict(PendingEntryKey) == null) { "Profile mutation recovery is pending" }
-                blobStore.putString(
-                    PendingEntryKey,
-                    json.encodeToString(PendingProfileMutation.serializer(), mutation),
-                )
-            }
-
-        override suspend fun pending(): PendingProfileMutation? =
-            access {
-                try {
-                    blobStore.getStringStrict(PendingEntryKey)?.let {
-                        decodePendingProfileMutation(it)
-                    }
-                } catch (cancellation: CancellationException) {
-                    throw cancellation
-                } catch (error: SerializationException) {
-                    throw unreadableMarker(error)
-                } catch (error: GeneralSecurityException) {
-                    throw unreadableMarker(error)
-                } catch (error: BufferUnderflowException) {
-                    throw unreadableMarker(error)
-                } catch (error: NegativeArraySizeException) {
-                    throw unreadableMarker(error)
-                } catch (error: IllegalArgumentException) {
-                    throw unreadableMarker(error)
-                }
-            }
-
-        override suspend fun replace(
-            expectedMutationId: String,
-            mutation: PendingProfileMutation,
-        ) = access {
-            val pending =
+    override suspend fun pending(): PendingProfileMutation? =
+        access {
+            try {
                 blobStore.getStringStrict(PendingEntryKey)?.let {
                     decodePendingProfileMutation(it)
                 }
-            check(pending?.mutationId == expectedMutationId) { "Profile mutation journal id changed" }
-            blobStore.putString(
-                PendingEntryKey,
-                json.encodeToString(PendingProfileMutation.serializer(), mutation),
-            )
-        }
-
-        override suspend fun complete(mutationId: String) =
-            access {
-                val pending =
-                    blobStore.getStringStrict(PendingEntryKey)?.let {
-                        decodePendingProfileMutation(it)
-                    } ?: return@access
-                check(pending.mutationId == mutationId) { "Profile mutation journal id changed" }
-                blobStore.remove(PendingEntryKey)
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (error: SerializationException) {
+                throw unreadableMarker(error)
+            } catch (error: GeneralSecurityException) {
+                throw unreadableMarker(error)
+            } catch (error: BufferUnderflowException) {
+                throw unreadableMarker(error)
+            } catch (error: NegativeArraySizeException) {
+                throw unreadableMarker(error)
+            } catch (error: IllegalArgumentException) {
+                throw unreadableMarker(error)
             }
-
-        override suspend fun clearForReset() = access { blobStore.clear() }
-
-        private suspend fun <T> access(block: () -> T): T =
-            withContext(Dispatchers.IO) { blobStore.withDurableState(block) }
-
-        private companion object {
-            const val JournalPreferencesName = "profile_mutation_journal"
-            const val JournalKeyAlias = "ripdpi_profile_mutation_journal"
-            const val PendingEntryKey = "pending"
         }
+
+    private suspend fun <T> access(block: () -> T): T =
+        withContext(Dispatchers.IO) { blobStore.withDurableState(block) }
+
+    private companion object {
+        const val JournalPreferencesName = "profile_mutation_journal"
+        const val JournalKeyAlias = "ripdpi_profile_mutation_journal"
+        const val PendingEntryKey = "pending"
     }
+}
 
 private fun unreadableMarker(cause: Exception) =
     ProfileMutationJournalCorruptionException(
@@ -148,7 +90,7 @@ private fun unreadableMarker(cause: Exception) =
 
 private const val CurrentProfileMutationSchemaVersion = 2
 
-/** This decoder exists only for the one-way startup migration. New records are strict v2. */
+/** Reads both journal formats that can exist before the Room migration. */
 private fun decodePendingProfileMutation(encoded: String): PendingProfileMutation {
     val json = com.poyka.ripdpi.serialization.RipDpiContractJson
     val element = json.parseToJsonElement(encoded)
@@ -168,11 +110,3 @@ private data class LegacyPendingProfileMutation(
     val family: ProfileMutationFamily,
     val payload: String,
 )
-
-@Module
-@InstallIn(SingletonComponent::class)
-abstract class ProfileMutationJournalModule {
-    @Binds
-    @Singleton
-    abstract fun bindProfileMutationJournal(journal: EncryptedProfileMutationJournal): ProfileMutationJournal
-}

@@ -1,52 +1,41 @@
 package com.poyka.ripdpi.data.selector
 
-import android.content.Context
+import com.poyka.ripdpi.data.DurableCommandReceipt
+import com.poyka.ripdpi.data.PauseIntentAuthority
+import com.poyka.ripdpi.data.PauseMutationPreparationSource
+import com.poyka.ripdpi.data.ProfileActivationReceipt
+import com.poyka.ripdpi.data.ProfileMutationOrigin
+import com.poyka.ripdpi.data.RuntimeActivationPhase
 import dagger.Binds
 import dagger.Module
 import dagger.hilt.InstallIn
-import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
-import kotlinx.coroutines.ExperimentalForInheritanceCoroutinesApi
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/** A selection observation used to reject stale asynchronous probe decisions. */
 data class SelectorSelectionSnapshot(
     val profileId: String?,
     val isManual: Boolean,
     val revision: Long,
 )
 
-/**
- * The selected-member signal for selector [com.poyka.ripdpi.data.ProxyGroup]s.
- *
- * When a group is a selector (`isSelector == true`), exactly one of its member
- * profiles is "active". This store owns that choice: it exposes a reactive
- * [selectedProfileId] flow per group and persists the selection so a service
- * restart resumes the last-selected member rather than falling back to the
- * first profile in the group.
- *
- * Mirrors NekoBox's selector-outbound selection, where the active member id is
- * persisted and re-applied on restart.
- */
 interface SelectorSelectionStore {
     /**
      * Hot stream of the currently-selected member profile id for [groupId], or
      * `null` when the group has no selection yet. Re-emits on every [select] /
      * [clearSelection] for that group.
      */
-    fun selectedProfileId(groupId: String): StateFlow<String?>
+    fun selectedProfileId(groupId: String): Flow<String?>
 
-    fun snapshot(groupId: String): SelectorSelectionSnapshot
+    suspend fun snapshot(groupId: String): SelectorSelectionSnapshot
 
     /** Invalidates in-flight probe decisions without changing the selected member or its origin. */
     fun invalidatePendingSelection(groupId: String)
 
     /** Applies a probe result only while [expected] is still the current selection. */
-    fun selectAutomatically(
+    suspend fun selectAutomatically(
         groupId: String,
         expected: SelectorSelectionSnapshot,
         profileId: String,
@@ -59,7 +48,7 @@ interface SelectorSelectionStore {
     )
 
     /** Publishes a selection using the original checked activation reservation. */
-    fun selectReserved(
+    suspend fun selectReserved(
         groupId: String,
         profileId: String,
         receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
@@ -68,76 +57,44 @@ interface SelectorSelectionStore {
     fun manualReceipt(groupId: String): com.poyka.ripdpi.data.DurableCommandReceipt?
 
     /** Drops the persisted selection for [groupId]. No-op when absent. */
-    fun clearSelection(groupId: String)
+    suspend fun clearSelection(groupId: String)
 }
 
-/**
- * [SelectorSelectionStore] backed by a private `SharedPreferences` file. Each
- * group's selection is stored under a per-group key, and an in-memory
- * [MutableStateFlow] per observed group fans changes out to collectors.
- */
 @Singleton
-class SharedPreferencesSelectorSelectionStore
+class DefaultSelectorSelectionStore
     @Inject
     constructor(
-        @ApplicationContext context: Context,
-        private val intentPreparation: com.poyka.ripdpi.data.PauseMutationPreparationSource,
-        private val authority: com.poyka.ripdpi.data.PauseIntentAuthority,
+        private val persistence: SelectorPersistence,
+        private val intentPreparation: PauseMutationPreparationSource,
+        private val authority: PauseIntentAuthority,
         private val activeGroup: SelectorActiveGroupStore,
     ) : SelectorSelectionStore {
-        private val preferences = context.getSharedPreferences(PrefsName, Context.MODE_PRIVATE)
-        private val flows = HashMap<String, MutableStateFlow<String?>>()
-        private val revisions = HashMap<String, Long>()
-        private var clearRevision = 0L
-        private val manualReceipts = HashMap<String, com.poyka.ripdpi.data.DurableCommandReceipt>()
+        private val revisions = mutableMapOf<String, Long>()
 
-        @OptIn(ExperimentalForInheritanceCoroutinesApi::class)
-        override fun selectedProfileId(groupId: String): StateFlow<String?> =
-            object : StateFlow<String?> {
-                override val value: String? get() = preferences.getString(keyFor(groupId), null)
-                override val replayCache: List<String?> get() = listOf(value)
+        override fun selectedProfileId(groupId: String): Flow<String?> =
+            persistence.observeChoice(groupId).map { it.profileId }
 
-                @OptIn(kotlinx.coroutines.InternalCoroutinesApi::class)
-                override suspend fun collect(collector: kotlinx.coroutines.flow.FlowCollector<String?>): Nothing {
-                    kotlinx.coroutines.flow
-                        .combine(activeGroup.choiceChanges, flowFor(groupId)) { _, _ -> value }
-                        .distinctUntilChanged()
-                        .collect(collector)
-                    kotlinx.coroutines.awaitCancellation()
-                }
-            }
-
-        override fun snapshot(groupId: String): SelectorSelectionSnapshot =
-            serializeSelection {
-                val profileId = preferences.getString(keyFor(groupId), null)
-                SelectorSelectionSnapshot(
-                    profileId = profileId,
-                    isManual = profileId != null && preferences.getBoolean(manualKeyFor(groupId), false),
-                    revision =
-                        Math.addExact(
-                            Math.addExact(revisions[groupId] ?: 0L, activeGroup.choiceChanges.value),
-                            clearRevision,
-                        ),
-                )
-            }
+        override suspend fun snapshot(groupId: String): SelectorSelectionSnapshot =
+            persistence.transaction { observed(groupId, it.choice(groupId)) }
 
         override fun invalidatePendingSelection(groupId: String) {
-            serializeSelection {
-                advanceRevision(groupId)
+            authority.intentLinearizer.serialize {
+                revisions[groupId] = Math.addExact(revisions[groupId] ?: 0L, 1L)
             }
         }
 
-        override fun selectAutomatically(
+        override suspend fun selectAutomatically(
             groupId: String,
             expected: SelectorSelectionSnapshot,
             profileId: String,
         ): Boolean =
-            serializeSelection {
-                if (snapshot(groupId) != expected) {
+            persistence.transaction(
+                afterCommit = { selected -> if (selected) activeGroup.forgetManualReceipt(groupId) },
+            ) { rows ->
+                if (observed(groupId, rows.choice(groupId)) != expected) {
                     false
                 } else {
-                    manualReceipts.remove(groupId)
-                    writeSelection(groupId, profileId, isManual = false)
+                    rows.setChoice(groupId, profileId, false)
                     true
                 }
             }
@@ -146,115 +103,52 @@ class SharedPreferencesSelectorSelectionStore
             groupId: String,
             profileId: String,
         ) {
-            val preparation =
-                intentPreparation.captureMutation(
-                    com.poyka.ripdpi.data.ProfileMutationOrigin.ExplicitActivation,
-                )
-            val outcome = intentPreparation.activateSelector(preparation, groupId, profileId, activeGroup)
-            if (outcome is com.poyka.ripdpi.data.ProfileMutationOutcome.Reserved) {
-                authority.intentLinearizer.serialize {
-                    if (authority.isCurrent(outcome.receipt)) {
-                        serializeSelection {
-                            advanceRevision(groupId)
-                            flowFor(groupId).value = preferences.getString(keyFor(groupId), null)
-                        }
-                    }
-                }
-            }
+            val preparation = intentPreparation.captureMutation(ProfileMutationOrigin.ExplicitActivation)
+            intentPreparation.activateSelector(preparation, groupId, profileId, activeGroup)
         }
 
         override fun manualReceipt(groupId: String) = activeGroup.manualReceipt(groupId)
 
-        override fun selectReserved(
+        override suspend fun selectReserved(
             groupId: String,
             profileId: String,
-            receipt: com.poyka.ripdpi.data.DurableCommandReceipt,
+            receipt: DurableCommandReceipt,
         ): Boolean =
-            authority.intentLinearizer.serialize {
-                if (!authority.isCurrent(receipt)) return@serialize false
-                serializeSelection {
-                    val profileReceipt = receipt as? com.poyka.ripdpi.data.ProfileActivationReceipt
-                    if (profileReceipt == null || authority.snapshotAuthority().command?.phase !=
-                        com.poyka.ripdpi.data.RuntimeActivationPhase.Unbound
-                    ) {
-                        false
-                    } else {
-                        activeGroup.commitMember(groupId, profileId, SelectorChoiceOrigin.Manual(profileReceipt))
-                        manualReceipts[groupId] = receipt
-                        advanceRevision(groupId)
-                        flowFor(groupId).value = profileId
-                        true
+            persistence.transaction(
+                afterCommit = { selected ->
+                    if (selected) {
+                        activeGroup.publishCommittedChoice(
+                            groupId,
+                            SelectorChoiceOrigin.Manual(receipt as ProfileActivationReceipt),
+                        )
                     }
+                },
+            ) { rows ->
+                if (receipt !is ProfileActivationReceipt || !authority.isCurrent(receipt) ||
+                    authority.snapshotAuthority().command?.phase != RuntimeActivationPhase.Unbound
+                ) {
+                    false
+                } else {
+                    rows.setChoice(groupId, profileId, true)
+                    rows.setActiveGroup(groupId)
+                    true
                 }
             }
 
-        override fun clearSelection(groupId: String) {
-            serializeSelection {
-                preferences
-                    .edit()
-                    .remove(keyFor(groupId))
-                    .remove(manualKeyFor(groupId))
-                    .commit()
-                    .also { check(it) { "Selector selection persistence failed" } }
-                activeGroup.forgetManualReceipt(groupId)
-                manualReceipts.remove(groupId)
-                advanceRevision(groupId)
-                flowFor(groupId).value = null
-            }
-        }
+        override suspend fun clearSelection(groupId: String) =
+            persistence.transaction(
+                afterCommit = { activeGroup.forgetManualReceipt(groupId) },
+            ) { it.setChoice(groupId, null, false) }
 
-        /** Clears every persisted selection. Intended for tests and reset flows. */
-        fun clearAll() {
-            serializeSelection {
-                val nextClear = Math.addExact(clearRevision, 1L)
-                check(preferences.edit().clear().commit()) { "Selector selection persistence failed" }
-                activeGroup.onSelectionsCleared()
-                manualReceipts.clear()
-                clearRevision = nextClear
-                flows.values.forEach { it.value = null }
-            }
-        }
+        suspend fun clearAll() =
+            persistence.transaction(
+                afterCommit = { activeGroup.clearManualReceipts() },
+            ) { it.clearSelections() }
 
-        /** Same gate as measured commitMember: snapshot comparison and one checked write are indivisible. */
-        private fun <T> serializeSelection(block: () -> T): T =
-            authority.intentLinearizer.serialize { synchronized(flows, block) }
-
-        private fun flowFor(groupId: String): MutableStateFlow<String?> =
-            serializeSelection {
-                flows.getOrPut(groupId) {
-                    MutableStateFlow(preferences.getString(keyFor(groupId), null))
-                }
-            }
-
-        // Called only under the flows monitor so provenance and the selected ID form one observation.
-        private fun writeSelection(
+        private fun observed(
             groupId: String,
-            profileId: String,
-            isManual: Boolean,
-        ) {
-            preferences
-                .edit()
-                .putString(keyFor(groupId), profileId)
-                .putBoolean(manualKeyFor(groupId), isManual)
-                .commit()
-                .also { check(it) { "Selector selection persistence failed" } }
-            if (!isManual) activeGroup.forgetManualReceipt(groupId)
-            advanceRevision(groupId)
-            flowFor(groupId).value = profileId
-        }
-
-        private fun advanceRevision(groupId: String) {
-            revisions[groupId] = Math.addExact(revisions[groupId] ?: 0L, 1L)
-        }
-
-        private fun keyFor(groupId: String): String = "$KeyPrefix$groupId"
-
-        private fun manualKeyFor(groupId: String): String = "manual-selection-$groupId"
-
-        private companion object {
-            const val PrefsName = "selector_selection_store"
-            const val KeyPrefix = "selected-profile-"
-        }
+            stored: SelectorSelectionSnapshot,
+        ) = stored.copy(revision = Math.addExact(stored.revision, revisions[groupId] ?: 0L))
     }
 
 @Module
@@ -262,5 +156,5 @@ class SharedPreferencesSelectorSelectionStore
 abstract class SelectorSelectionStoreModule {
     @Binds
     @Singleton
-    abstract fun bindSelectorSelectionStore(store: SharedPreferencesSelectorSelectionStore): SelectorSelectionStore
+    abstract fun bindSelectorSelectionStore(store: DefaultSelectorSelectionStore): SelectorSelectionStore
 }

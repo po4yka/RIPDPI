@@ -2,11 +2,7 @@ package com.poyka.ripdpi.data
 
 import android.content.Context
 import com.poyka.ripdpi.serialization.RipDpiJson
-import dagger.Binds
-import dagger.Module
-import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
-import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.EncodeDefault
@@ -357,19 +353,3 @@ class KeystoreRelayCredentialStore
             const val CredentialsKeyAlias = "ripdpi_relay_credentials"
         }
     }
-
-@Module
-@InstallIn(SingletonComponent::class)
-abstract class RelayStoreModule {
-    @Binds
-    @Singleton
-    abstract fun bindRelayProfileStore(store: SharedPreferencesRelayProfileStore): RelayProfileStore
-
-    @Binds
-    @Singleton
-    abstract fun bindRelayCredentialStore(store: KeystoreRelayCredentialStore): RelayCredentialStore
-
-    @Binds
-    @Singleton
-    abstract fun bindRelayCredentialRepository(store: KeystoreRelayCredentialStore): RelayCredentialRepository
-}

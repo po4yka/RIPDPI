@@ -12,6 +12,7 @@ import com.poyka.ripdpi.data.awg.AwgProfileEntity
 import com.poyka.ripdpi.data.awg.AwgProfileForm
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
 import com.poyka.ripdpi.data.awg.AwgSecrets
+import com.poyka.ripdpi.data.awg.testAwgProfileRepository
 import com.poyka.ripdpi.proxyimport.PendingProxyImportStore
 import com.poyka.ripdpi.services.StandaloneAmneziaWgActivator
 import kotlinx.coroutines.CancellationException
@@ -83,7 +84,7 @@ class AmneziaWgProfileViewModelTest {
     private val dao = InMemoryAwgProfileDao()
     private val credentialStore = InMemoryAwgCredentialStore()
     private val repository =
-        AwgProfileRepository(
+        testAwgProfileRepository(
             dao,
             credentialStore,
             com.poyka.ripdpi.data.awg
@@ -732,19 +733,19 @@ private class InMemoryAwgProfileDao : AwgProfileDao {
 
     override fun observeProfiles(): Flow<List<AwgProfileEntity>> = rows.asStateFlow()
 
-    override suspend fun allProfiles(): List<AwgProfileEntity> = rows.value
+    override fun allProfiles(): List<AwgProfileEntity> = rows.value
 
-    override suspend fun getProfile(id: String): AwgProfileEntity? = rows.value.firstOrNull { it.id == id }
+    override fun getProfile(id: String): AwgProfileEntity? = rows.value.firstOrNull { it.id == id }
 
-    override suspend fun upsertProfile(profile: AwgProfileEntity) {
+    override fun upsertProfile(profile: AwgProfileEntity) {
         rows.value = rows.value.filterNot { it.id == profile.id } + profile
     }
 
-    override suspend fun deleteProfile(profile: AwgProfileEntity) {
+    override fun deleteProfile(profile: AwgProfileEntity) {
         rows.value = rows.value.filterNot { it.id == profile.id }
     }
 
-    override suspend fun deleteAll() {
+    override fun deleteAll() {
         rows.value = emptyList()
     }
 }

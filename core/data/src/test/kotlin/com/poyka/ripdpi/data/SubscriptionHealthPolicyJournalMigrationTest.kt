@@ -1,7 +1,6 @@
 package com.poyka.ripdpi.data
 
 import com.poyka.ripdpi.serialization.RipDpiContractJson
-import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
@@ -14,18 +13,14 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
-class SubscriptionHealthPolicyJournalMigrationTest {
+class SubscriptionHealthPolicyJournalMigrationTest : RoomProfileTest() {
     @Test
-    fun `health journal upgrade preserves provenance ownership and unrelated raw fields exactly once`() =
+    fun `health decoding preserves provenance ownership and unrelated raw fields without rewriting source`() =
         runTest {
-            val fixture = ProfileMutationTestFixture()
-            val pending = seed(fixture)
-            var replacements = 0
-            fixture.journal.beforeReplace = { replacements++ }
-
-            val recovered = checkNotNull(reader(fixture).read())
+            val fixture = LegacyJournalDecoderFixture()
+            val pending = fixture.seed(LegacyPayload)
+            val recovered = checkNotNull(fixture.reader.read())
             val intent = recovered.intent as SubscriptionRefreshIntent
-
             assertEquals(pending.copy(payload = recovered.pending.payload), recovered.pending)
             assertEquals("captured-owner", intent.groups.single().ownershipGeneration)
             assertEquals(
@@ -44,86 +39,64 @@ class SubscriptionHealthPolicyJournalMigrationTest {
                     .quality,
             )
             assertEquals(expectedUpgrade(pending.payload), parse(recovered.pending.payload))
-            assertEquals(recovered, reader(fixture).read())
-            assertEquals(1, replacements)
-            assertNoReplay(fixture)
-        }
-
-    @Test
-    fun `failed checked journal write retains legacy bytes and prevents every replay store`() =
-        runTest {
-            val fixture = ProfileMutationTestFixture()
-            val pending = seed(fixture)
-            fixture.journal.beforeReplace = { error("Journal commit failed") }
-
-            assertEquals(
-                "Journal commit failed",
-                runCatching { fixture.coordinator().recover() }.exceptionOrNull()?.message,
-            )
+            assertEquals(recovered, fixture.reader.read())
             assertEquals(pending, fixture.journal.pending())
-            assertNoReplay(fixture)
-
-            fixture.journal.beforeReplace = null
-            fixture
-                .coordinator(
-                    catalog = ProxyGroupCatalog(fixture.groupBlob),
-                    authority = testPauseAuthority(fixture.persistence, initialize = false),
-                ).recover()
-            assertNull(fixture.journal.pending())
-            assertEquals(
-                "captured-owner",
-                fixture.groupCatalog
-                    .snapshot()
-                    .single()
-                    .ownershipGeneration,
-            )
         }
 
     @Test
-    fun `interrupted replay restarts from committed migration then accepts a quality refresh`() =
+    fun `failed Room import preserves legacy health bytes and retry accepts a quality refresh`() =
         runTest {
-            val fixture = ProfileMutationTestFixture()
-            val pending = seed(fixture)
-            var replacements = 0
-            fixture.journal.beforeReplace = { replacements++ }
-            fixture.beforeGroupWrite = { throw CancellationException("Interrupted before catalogue commit") }
-
-            assertTrue(runCatching { fixture.coordinator().recover() }.exceptionOrNull() is CancellationException)
-            val durable = checkNotNull(fixture.journal.pending())
-            assertNotEquals(pending.payload, durable.payload)
-            assertEquals(expectedUpgrade(pending.payload), parse(durable.payload))
-            fixture.beforeGroupWrite = null
-            val catalog = ProxyGroupCatalog(fixture.groupBlob)
-            val restarted =
-                fixture.coordinator(
-                    catalog = catalog,
-                    authority = testPauseAuthority(fixture.persistence, initialize = false),
+            LegacyProfileImportFixture().use { legacy ->
+                legacy.seedPayload(ProfileMutationFamily.Subscription, LegacyPayload)
+                val source = legacy.legacyBytes()
+                val before = legacy.fixture.snapshot()
+                legacy.fixture.failWrite("proxy_groups")
+                assertTrue(runCatching { legacy.fixture.initialize() }.isFailure)
+                assertEquals(source, legacy.legacyBytes())
+                assertEquals(before, legacy.fixture.snapshot())
+                legacy.fixture.clearFaults()
+                legacy.fixture.initialize()
+                val current =
+                    legacy.fixture.groupCatalog
+                        .snapshot()
+                        .single()
+                assertEquals("captured-owner", current.ownershipGeneration)
+                assertEquals(2, current.failover!!.payloadPolicy!!.schemaVersion)
+                val quality = ProfileQualityPolicy(131_076, 262_152, 300, 20, 100)
+                val next =
+                    current.copy(
+                        failover =
+                            current.failover!!.copy(
+                                payloadPolicy = current.failover!!.payloadPolicy!!.copy(quality = quality),
+                            ),
+                    )
+                assertTrue(
+                    legacy.fixture.coordinator().commitSubscriptionRefresh(current) {
+                        PreparedSubscriptionRefresh(next, emptyList())
+                    },
                 )
-            restarted.recover()
-            assertEquals(1, replacements)
-            assertNull(fixture.journal.pending())
-            val current = catalog.snapshot().single()
-            assertEquals("captured-owner", current.ownershipGeneration)
-            val quality = ProfileQualityPolicy(131_076, 262_152, 300, 20, 100)
-            val failover = requireNotNull(current.failover)
-            val policy = requireNotNull(failover.payloadPolicy)
-            val next = current.copy(failover = failover.copy(payloadPolicy = policy.copy(quality = quality)))
-
-            assertTrue(restarted.commitSubscriptionRefresh(current) { PreparedSubscriptionRefresh(next, emptyList()) })
-            val stored = ProxyGroupCatalog(fixture.groupBlob).snapshot().single()
-            assertEquals(quality, stored.failover!!.payloadPolicy!!.quality)
-            assertNotEquals(current.ownershipGeneration, stored.ownershipGeneration)
-            assertNull(fixture.journal.pending())
+                val stored =
+                    legacy.fixture.groupCatalog
+                        .snapshot()
+                        .single()
+                assertEquals(quality, stored.failover!!.payloadPolicy!!.quality)
+                assertNotEquals(current.ownershipGeneration, stored.ownershipGeneration)
+                legacy.fixture.reopen()
+                assertEquals(
+                    stored,
+                    legacy.fixture.groupCatalog
+                        .snapshot()
+                        .single(),
+                )
+            }
         }
 
     @Test
-    fun `legacy ownership and health upgrade share one checked write without dropping unknown fields`() =
+    fun `ownership and health decode together without dropping unknown raw fields`() =
         runTest {
-            val fixture = ProfileMutationTestFixture()
-            val pending = seed(fixture, ownershipVersion = 0)
-            var replacements = 0
-            fixture.journal.beforeReplace = { replacements++ }
-            val accepted = checkNotNull(reader(fixture).read())
+            val fixture = LegacyJournalDecoderFixture()
+            val pending = fixture.seed(LegacyPayload.replace("\"ownershipVersion\":1", "\"ownershipVersion\":0"))
+            val accepted = checkNotNull(fixture.reader.read())
             val intent = accepted.intent as SubscriptionRefreshIntent
             assertEquals(1, intent.ownershipVersion)
             val owner = intent.groups.single().ownershipGeneration
@@ -137,14 +110,13 @@ class SubscriptionHealthPolicyJournalMigrationTest {
                 JsonObject(expected + mapOf("groups" to JsonArray(groups), "ownershipVersion" to JsonPrimitive(1))),
                 parse(accepted.pending.payload),
             )
-            assertEquals(accepted, reader(fixture).read())
-            assertEquals(1, replacements)
+            assertEquals(pending, fixture.journal.pending())
         }
 
     @Test
-    fun `invalid legacy policy or ownership never replaces the original journal`() =
+    fun `invalid legacy policy or ownership never changes source or imports partial rows`() =
         runTest {
-            val changes =
+            val invalid =
                 listOf(
                     LegacyPayload.replace("32768", "65537"),
                     LegacyPayload.replace("\"schema_version\":1", "\"schema_version\":1,\"quality\":null"),
@@ -153,45 +125,17 @@ class SubscriptionHealthPolicyJournalMigrationTest {
                     LegacyPayload.replace("captured-owner", " "),
                     LegacyPayload.replace("\"awgProfiles\":[]", "\"awgProfiles\":[{}]"),
                 )
-            for (payload in changes) {
-                val fixture = ProfileMutationTestFixture()
-                val pending = seed(fixture, payload = payload)
-                var replacements = 0
-                fixture.journal.beforeReplace = { replacements++ }
-                assertTrue(runCatching { fixture.coordinator().recover() }.isFailure)
-                assertEquals(pending, fixture.journal.pending())
-                assertEquals(0, replacements)
-                assertNoReplay(fixture)
+            for (payload in invalid) {
+                LegacyProfileImportFixture().use { legacy ->
+                    legacy.seedPayload(ProfileMutationFamily.Subscription, payload)
+                    val source = legacy.legacyBytes()
+                    val before = legacy.fixture.snapshot()
+                    assertTrue(runCatching { legacy.fixture.initialize() }.isFailure)
+                    assertEquals(source, legacy.legacyBytes())
+                    assertEquals(before, legacy.fixture.snapshot())
+                }
             }
         }
-
-    private fun reader(fixture: ProfileMutationTestFixture) =
-        ProfileMutationJournalRecoveryReader(fixture.journal, ProxyGroupCatalog(fixture.groupBlob))
-
-    private suspend fun seed(
-        fixture: ProfileMutationTestFixture,
-        ownershipVersion: Int = 1,
-        payload: String = LegacyPayload,
-    ): PendingProfileMutation {
-        fixture.pauseAuthority.initializeAfterMigration()
-        val pending =
-            PendingProfileMutation(
-                mutationId = "captured-refresh",
-                family = ProfileMutationFamily.Subscription,
-                payload = payload.replace("\"ownershipVersion\":1", "\"ownershipVersion\":$ownershipVersion"),
-                origin = ProfileMutationOrigin.SubscriptionRefresh,
-                expectedPauseAuthority = fixture.pauseAuthority.reference(),
-            )
-        fixture.journal.prepare(pending)
-        return pending
-    }
-
-    private fun assertNoReplay(fixture: ProfileMutationTestFixture) {
-        assertEquals(0, fixture.storeWriteAttempts)
-        assertEquals(0, fixture.groupWriteAttempts)
-        assertEquals(0, fixture.awgCredentials.saveAttempts)
-        assertEquals(0, fixture.awgProfiles.upsertAttempts)
-    }
 
     private fun parse(payload: String) = RipDpiContractJson.parseToJsonElement(payload).jsonObject
 

@@ -389,7 +389,6 @@ app:backup_reset_warning_body
 app:backup_reset_warning_title
 app:backup_restore_action
 app:backup_restore_body
-app:backup_restore_integrity_failure
 app:backup_restore_malformed
 app:backup_restore_nothing_selected
 app:backup_restore_section

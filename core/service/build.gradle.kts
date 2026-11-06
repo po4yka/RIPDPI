@@ -125,6 +125,7 @@ dependencies {
     testFixturesApi(libs.kotlinx.coroutines.core)
     testFixturesImplementation(libs.okhttp)
     testFixturesImplementation(libs.okhttp.tls)
+    testImplementation(testFixtures(project(":core:data")))
     testImplementation(testFixtures(project(":core:data:settings")))
     testImplementation(testFixtures(project(":core:data:runtime-state")))
 

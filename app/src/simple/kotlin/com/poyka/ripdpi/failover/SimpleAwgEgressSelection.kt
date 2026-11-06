@@ -3,7 +3,6 @@ package com.poyka.ripdpi.failover
 import com.poyka.ripdpi.data.AppSettingsRepository
 import com.poyka.ripdpi.data.awg.AwgActivationRequest
 import com.poyka.ripdpi.data.awg.AwgProfileRepository
-import com.poyka.ripdpi.data.boot.BootSessionStateStore
 import com.poyka.ripdpi.seed.SIMPLE_SEED_AWG_PROFILE_ID
 import com.poyka.ripdpi.services.AwgEgressSelectionSource
 import dagger.Binds
@@ -22,9 +21,6 @@ interface SimpleAwgFallbackSelection {
     fun select(request: AwgActivationRequest)
 
     fun clear()
-
-    /** Clears standalone authority only for a current explicit Simple VPN start. */
-    fun clearForUserStart()
 }
 
 @Singleton
@@ -33,7 +29,6 @@ class SimpleAwgEgressSelection
     constructor(
         private val awgProfileRepository: AwgProfileRepository,
         private val settingsRepository: AppSettingsRepository,
-        private val bootSessionStateStore: BootSessionStateStore,
     ) : AwgEgressSelectionSource,
         SimpleAwgFallbackSelection {
         // Simple owns the session: a selected fallback wins; an empty selection keeps the relay primary.
@@ -56,11 +51,6 @@ class SimpleAwgEgressSelection
         override fun clear() {
             selectedProfileId.value = null
             selectedRequest.value = null
-        }
-
-        override fun clearForUserStart() {
-            bootSessionStateStore.setActiveAwgProfileId(null)
-            clear()
         }
 
         override suspend fun firstAvailable(): AwgActivationRequest? =

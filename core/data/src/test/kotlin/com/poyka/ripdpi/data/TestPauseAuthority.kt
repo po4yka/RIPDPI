@@ -35,7 +35,7 @@ internal class TestSelectorChoicePersistence : com.poyka.ripdpi.data.selector.Se
     var writeCount = 0
         private set
 
-    override fun commitMember(
+    override suspend fun commitMember(
         groupId: String,
         memberId: String,
         origin: com.poyka.ripdpi.data.selector.SelectorChoiceOrigin,
@@ -49,19 +49,19 @@ internal class TestSelectorChoicePersistence : com.poyka.ripdpi.data.selector.Se
         writeCount += 1
     }
 
-    override fun snapshotActiveGroupId() = activeGroupId
+    override suspend fun snapshotActiveGroupId() = activeGroupId
 
-    override fun restoreActiveGroup(groupId: String?) {
+    override suspend fun restoreActiveGroup(groupId: String?) {
         manualReceipts.clear()
         activeGroupId = groupId
     }
 
-    override fun clearStandalone() {
+    override suspend fun clearStandalone() {
         activeGroupId = null
         writeCount += 1
     }
 
-    override fun prune(groupIds: Set<String>) {
+    override suspend fun prune(groupIds: Set<String>) {
         if (activeGroupId != null && activeGroupId !in groupIds) clearStandalone()
     }
 }

@@ -1087,7 +1087,7 @@ private class FakeXrayProfileMutationCoordinator(
                 modeAfterImage?.let(::setRipdpiMode)
             }
         }
-        xraySelectionAfterImage?.let(durableSelectionStore::update)
+        xraySelectionAfterImage?.let { durableSelectionStore.update(it) }
 
         return com.poyka.ripdpi.data
             .testMutationOutcome(preparation.origin)
@@ -1100,9 +1100,9 @@ private class FakeDurableXrayProviderSelectionStore(
 ) : DurableXrayProviderSelectionStore {
     private var record = initial
 
-    override fun current(): XrayProviderSelectionRecord = record
+    override suspend fun current(): XrayProviderSelectionRecord = record
 
-    override fun update(record: XrayProviderSelectionRecord) {
+    override suspend fun update(record: XrayProviderSelectionRecord) {
         this.record = record
     }
 }
@@ -1157,7 +1157,7 @@ class NativeRelayActivationFenceTest {
             )
         val real =
             com.poyka.ripdpi.data
-                .SharedPreferencesProxyGroupRepository(
+                .DefaultProxyGroupRepository(
                     com.poyka.ripdpi.data
                         .ProxyGroupCatalog(MemoryGroupBlob()),
                     mutations,
@@ -1216,18 +1216,21 @@ class NativeRelayActivationFenceTest {
                 )
             val repository =
                 com.poyka.ripdpi.data
-                    .SharedPreferencesProxyGroupRepository(
+                    .DefaultProxyGroupRepository(
                         com.poyka.ripdpi.data
                             .ProxyGroupCatalog(MemoryGroupBlob()),
                         mutations,
                     )
+            val selectorPersistence =
+                com.poyka.ripdpi.data.fakes
+                    .InMemorySelectorPersistence()
             val selections =
-                com.poyka.ripdpi.data.selector.SharedPreferencesSelectorSelectionStore(
-                    org.robolectric.RuntimeEnvironment.getApplication(),
+                com.poyka.ripdpi.data.selector.DefaultSelectorSelectionStore(
+                    selectorPersistence,
                     mutations,
                     mutations.testAuthority,
                     com.poyka.ripdpi.data.selector.SelectorActiveGroupStore(
-                        org.robolectric.RuntimeEnvironment.getApplication(),
+                        selectorPersistence,
                         mutations.testAuthority,
                     ),
                 )
@@ -1287,7 +1290,7 @@ class NativeRelayActivationFenceTest {
                 )
             val real =
                 com.poyka.ripdpi.data
-                    .SharedPreferencesProxyGroupRepository(
+                    .DefaultProxyGroupRepository(
                         com.poyka.ripdpi.data
                             .ProxyGroupCatalog(MemoryGroupBlob()),
                         mutations,
@@ -1314,7 +1317,7 @@ class NativeRelayActivationFenceTest {
         }
 
     @Test
-    fun `failed metadata write compensates its after write image without activating a profile`() =
+    fun `failed metadata transaction keeps the catalog unchanged without activating a profile`() =
         runTest {
             val settings = FakeAppSettingsRepository()
             val profiles = FakeRelayProfileStore()
@@ -1324,10 +1327,10 @@ class NativeRelayActivationFenceTest {
                     FakeRelayCredentialStore(),
                     settings,
                 )
-            val blob = MemoryGroupBlob().apply { failNextAfterWrite = true }
+            val blob = MemoryGroupBlob().apply { failNextCommit = true }
             val repository =
                 com.poyka.ripdpi.data
-                    .SharedPreferencesProxyGroupRepository(
+                    .DefaultProxyGroupRepository(
                         com.poyka.ripdpi.data
                             .ProxyGroupCatalog(blob),
                         mutations,
@@ -1362,21 +1365,29 @@ class NativeRelayActivationFenceTest {
         )
 
     private class MemoryGroupBlob : com.poyka.ripdpi.data.ProxyGroupBlobStore {
-        private var json: String? = null
-        var failNextAfterWrite = false
+        private val state = kotlinx.coroutines.flow.MutableStateFlow<String?>(null)
+        var failNextCommit = false
 
-        override fun read() = json
+        override suspend fun read() = state.value
 
-        override fun write(json: String) {
-            this.json = json
-            if (failNextAfterWrite) {
-                failNextAfterWrite = false
-                error("Metadata commit failed after write")
+        override suspend fun write(json: String) {
+            update { json }
+        }
+
+        override suspend fun clear() {
+            update { null }
+        }
+
+        override suspend fun update(transform: (String?) -> String?): String? {
+            val next = transform(state.value)
+            if (failNextCommit) {
+                failNextCommit = false
+                error("Metadata commit failed")
             }
+            state.value = next
+            return next
         }
 
-        override fun clear() {
-            json = null
-        }
+        override fun observe(): kotlinx.coroutines.flow.Flow<String?> = state
     }
 }

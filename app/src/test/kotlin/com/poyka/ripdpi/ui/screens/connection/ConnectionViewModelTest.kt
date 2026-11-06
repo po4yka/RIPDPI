@@ -2506,8 +2506,12 @@ class ConnectionViewModelRelayRecommendationTest {
                             relayChainExitShortId = "exit-short",
                             relayChainExitUuid = "22222222-2222-2222-2222-222222222222",
                         ),
-                    relayProfileStore = profileStore,
-                    relayCredentialStore = credentialStore,
+                    profileMutations =
+                        com.poyka.ripdpi.proxyimport.TestDirectRelayProfileMutationCoordinator(
+                            profileStore,
+                            credentialStore,
+                            FakeAppSettingsRepository(),
+                        ),
                 )
 
             assertEquals("legacy-chain__ripdpi_chain_entry", migrated.relayChainEntryProfileId)
