@@ -30,6 +30,7 @@ extensions.configure<KspExtension> {
 }
 
 dependencies {
+    api(libs.dnsjava)
     implementation(project(":core:data"))
     implementation(libs.bundles.room)
     implementation(libs.androidx.core.ktx)

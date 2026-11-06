@@ -230,6 +230,23 @@ class DnsResponseSemanticsTest {
         )
     }
 
+    @Test
+    fun malformedAuthorityAndAdditionalRdataCannotSupplyAnAnswer() {
+        val answers = listOf(record("example.com", 1, ip()))
+        val malformedRecords =
+            listOf(
+                record("example.com", 6, name("ns.example.com") + byteArrayOf(0)),
+                record("example.com", 5, byteArrayOf(0xc0.toByte(), 0xff.toByte())),
+                record("example.com", 28, byteArrayOf(1, 2, 3)),
+            )
+        malformedRecords.forEach { malformed ->
+            assertEquals(
+                DnsResponseOutcome.MALFORMED,
+                parse(packet(answers = answers, additional = listOf(malformed))).response?.outcome,
+            )
+        }
+    }
+
     private fun parse(bytes: ByteArray) = DnsWireBuilder.parseResponse(bytes, query)
 
     private fun packet(
@@ -243,6 +260,31 @@ class DnsResponseSemanticsTest {
             short(additional.size) +
             query.copyOfRange(12, query.size) +
             (answers + authorities + additional).fold(byteArrayOf()) { total, item -> total + item }
+
+    @Test
+    fun highBitExtendedRcodeCannotBecomeSuccessfulAnswer() {
+        for (extended in listOf(128, 255)) {
+            val result =
+                parse(
+                    packet(
+                        answers = listOf(record("example.com", 1, ip())),
+                        additional =
+                            listOf(
+                                record(
+                                    "",
+                                    41,
+                                    byteArrayOf(),
+                                    ttl = extended.toLong() shl 24,
+                                    recordClass = 1232,
+                                ),
+                            ),
+                    ),
+                )
+            assertEquals(extended shl 4, result.response?.rcode)
+            assertEquals(DnsResponseOutcome.OTHER_RCODE, result.response?.outcome)
+            assertTrue(result.addresses.isEmpty())
+        }
+    }
 
     private fun record(
         owner: String,

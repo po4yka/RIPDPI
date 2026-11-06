@@ -5,6 +5,7 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDnsCrypt
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
+import com.poyka.ripdpi.data.diagnostics.DnsMessages
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonNull
@@ -21,7 +22,12 @@ import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.long
 import kotlinx.serialization.json.longOrNull
-import java.net.InetAddress
+import org.xbill.DNS.AAAARecord
+import org.xbill.DNS.ARecord
+import org.xbill.DNS.CNAMERecord
+import org.xbill.DNS.DClass
+import org.xbill.DNS.PTRRecord
+import org.xbill.DNS.Section
 import java.net.URI
 import java.util.Base64
 
@@ -40,25 +46,6 @@ private val AdGuardUnfilteredBootstrapIps = listOf("94.140.14.140", "94.140.14.1
 
 private const val DnsCryptProtocolByte = 0x01
 private const val DnsCryptPropertiesLength = 8
-private const val DnsStandardQueryFlags = 0x0100
-private const val DnsMaxLabelOctets = 63
-private const val DnsHeaderSizeBytes = 12
-private const val DnsRcodeMask = 0x000F
-private const val DnsQuestionCountOffset = 4
-private const val DnsAnswerCountOffset = 6
-private const val DnsQuestionTrailerSizeBytes = 4
-private const val DnsAnswerHeaderSizeBytes = 10
-private const val DnsRdataLengthOffset = 8
-private const val DnsIpv4RecordOctets = 4
-private const val DnsIpv6RecordType = 28
-private const val DnsIpv6RecordOctets = 16
-private const val DnsCnameRecordType = 5
-private const val DnsPtrRecordType = 12
-private const val BitsPerByte = 8
-private const val UnsignedByteMask = 0xFF
-private const val DnsCompressionMarker = 0xC0
-private const val DnsCompressionOffsetMask = 0x3F
-private const val DnsCompressionJumpLimit = 16
 
 data class PacketSmokeEncryptedDnsPreset(
     val providerId: String,
@@ -344,88 +331,28 @@ object DebugDnsPacketCodec {
     fun buildQuery(
         hostname: String,
         requestId: Int,
-    ): ByteArray {
-        require(hostname.isNotBlank()) { "hostname must not be blank" }
-        val output = ArrayList<Byte>()
-        output.writeU16(requestId)
-        output.writeU16(DnsStandardQueryFlags)
-        output.writeU16(1)
-        output.writeU16(0)
-        output.writeU16(0)
-        output.writeU16(0)
-        hostname.split('.').forEach { label ->
-            require(label.isNotEmpty()) { "hostname contains an empty label: $hostname" }
-            require(label.length <= DnsMaxLabelOctets) {
-                "hostname label exceeds $DnsMaxLabelOctets octets: $label"
-            }
-            output.add(label.length.toByte())
-            label.encodeToByteArray().forEach(output::add)
-        }
-        output.add(0)
-        output.writeU16(1)
-        output.writeU16(1)
-        return output.toByteArray()
-    }
+    ): ByteArray = DnsMessages.query(hostname, transactionId = requestId)
 
     fun decodeResponse(
         packet: ByteArray,
-        expectedRequestId: Int,
+        query: ByteArray,
     ): DebugDnsProbeDecodedResponse {
-        require(packet.size >= DnsHeaderSizeBytes) { "DNS packet too short: ${packet.size}" }
-        val requestId = packet.readU16(0)
-        require(requestId == expectedRequestId) {
-            "Unexpected DNS request ID: expected=$expectedRequestId actual=$requestId"
-        }
-        val flags = packet.readU16(2)
-        val rcode = flags and DnsRcodeMask
-        val questionCount = packet.readU16(DnsQuestionCountOffset)
-        val answerCount = packet.readU16(DnsAnswerCountOffset)
-        var offset = DnsHeaderSizeBytes
-        repeat(questionCount) {
-            offset = skipName(packet, offset)
-            require(offset + DnsQuestionTrailerSizeBytes <= packet.size) { "DNS question section truncated" }
-            offset += DnsQuestionTrailerSizeBytes
-        }
-
-        val answers = mutableListOf<String>()
-        repeat(answerCount) {
-            offset = skipName(packet, offset)
-            require(offset + DnsAnswerHeaderSizeBytes <= packet.size) { "DNS answer section truncated" }
-            val type = packet.readU16(offset)
-            val dataLength = packet.readU16(offset + DnsRdataLengthOffset)
-            offset += DnsAnswerHeaderSizeBytes
-            require(offset + dataLength <= packet.size) { "DNS rdata section truncated" }
-            when (type) {
-                1 -> {
-                    if (dataLength == DnsIpv4RecordOctets) {
-                        answers +=
-                            InetAddress
-                                .getByAddress(packet.copyOfRange(offset, offset + DnsIpv4RecordOctets))
-                                .hostAddress
+        val message = DnsMessages.response(packet, query)
+        val names = DnsMessages.answerChain(message)
+        val answers =
+            message
+                .getSection(Section.ANSWER)
+                .filter { it.dClass == DClass.IN && it.name in names }
+                .mapNotNull { record ->
+                    when (record) {
+                        is ARecord -> record.address.hostAddress
+                        is AAAARecord -> record.address.hostAddress
+                        is CNAMERecord -> record.target.toString(true)
+                        is PTRRecord -> record.target.toString(true)
+                        else -> null
                     }
                 }
-
-                DnsIpv6RecordType -> {
-                    if (dataLength == DnsIpv6RecordOctets) {
-                        answers +=
-                            InetAddress
-                                .getByAddress(packet.copyOfRange(offset, offset + DnsIpv6RecordOctets))
-                                .hostAddress
-                    }
-                }
-
-                DnsCnameRecordType, DnsPtrRecordType -> {
-                    answers += readName(packet, offset).name
-                }
-            }
-            offset += dataLength
-        }
-
-        return DebugDnsProbeDecodedResponse(
-            requestId = requestId,
-            rcode = rcode,
-            answers = answers,
-        )
+        return DebugDnsProbeDecodedResponse(message.header.id, message.rcode, answers)
     }
 }
 
@@ -466,15 +393,6 @@ private fun isIpLiteral(value: String): Boolean {
     return normalized.all { it.isDigit() || it == '.' } || ':' in normalized
 }
 
-private fun MutableList<Byte>.writeU16(value: Int) {
-    add(((value ushr BitsPerByte) and UnsignedByteMask).toByte())
-    add((value and UnsignedByteMask).toByte())
-}
-
-private fun ByteArray.readU16(offset: Int): Int =
-    ((this[offset].toInt() and UnsignedByteMask) shl BitsPerByte) or
-        (this[offset + 1].toInt() and UnsignedByteMask)
-
 private fun JsonObjectBuilder.putOptionalString(
     key: String,
     value: String?,
@@ -509,66 +427,3 @@ private fun JsonObject.requiredLong(key: String): Long = getValue(key).jsonPrimi
 private fun JsonObject.optionalLong(key: String): Long? = this[key]?.jsonPrimitive?.longOrNull
 
 private fun JsonArray.length(): Int = size
-
-private data class DnsNameRead(
-    val name: String,
-    val nextOffset: Int,
-)
-
-private fun skipName(
-    packet: ByteArray,
-    offset: Int,
-): Int = readName(packet, offset).nextOffset
-
-private fun readName(
-    packet: ByteArray,
-    offset: Int,
-): DnsNameRead {
-    val labels = mutableListOf<String>()
-    var cursor = offset
-    var consumedOffset = offset
-    var jumped = false
-    var jumps = 0
-
-    while (true) {
-        require(cursor < packet.size) { "DNS name exceeds packet bounds" }
-        val length = packet[cursor].toInt() and UnsignedByteMask
-        when {
-            length == 0 -> {
-                if (!jumped) {
-                    consumedOffset = cursor + 1
-                }
-                return DnsNameRead(
-                    name = labels.joinToString("."),
-                    nextOffset = consumedOffset,
-                )
-            }
-
-            length and DnsCompressionMarker == DnsCompressionMarker -> {
-                require(cursor + 1 < packet.size) { "DNS compression pointer is truncated" }
-                val pointer =
-                    ((length and DnsCompressionOffsetMask) shl BitsPerByte) or
-                        (packet[cursor + 1].toInt() and UnsignedByteMask)
-                require(pointer < packet.size) { "DNS compression pointer exceeds packet size" }
-                if (!jumped) {
-                    consumedOffset = cursor + 2
-                    jumped = true
-                }
-                cursor = pointer
-                jumps += 1
-                require(jumps < DnsCompressionJumpLimit) { "DNS compression pointer recursion limit exceeded" }
-            }
-
-            else -> {
-                val labelStart = cursor + 1
-                val labelEnd = labelStart + length
-                require(labelEnd <= packet.size) { "DNS label exceeds packet bounds" }
-                labels += packet.copyOfRange(labelStart, labelEnd).decodeToString()
-                cursor = labelEnd
-                if (!jumped) {
-                    consumedOffset = cursor
-                }
-            }
-        }
-    }
-}

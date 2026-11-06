@@ -175,7 +175,7 @@ class DebugNetworkProbeReceiver : BroadcastReceiver() {
             val decoded =
                 DebugDnsPacketCodec.decodeResponse(
                     packet = responseBytes.copyOf(incomingPacket.length),
-                    expectedRequestId = requestId,
+                    query = query,
                 )
             extras.putBoolean(ExtraOk, true)
             extras.putInt(ExtraDnsRcode, decoded.rcode)

@@ -20,6 +20,37 @@ import kotlin.concurrent.thread
 
 class RelayUdpProbeMatchingTest {
     @Test
+    fun `dns matcher accepts a case insensitive question and an NXDOMAIN response`() {
+        val query = dnsQuery(FirstTransactionId)
+        val response =
+            query.copyOf().also {
+                it[2] = 0x81.toByte()
+                it[3] = 0x83.toByte()
+                it[13] = 'E'.code.toByte()
+            }
+
+        assertTrue(isMatchingDnsResponse(query, response))
+    }
+
+    @Test
+    fun `dns matcher rejects malformed truncated and mismatched messages`() {
+        val query = dnsQuery(FirstTransactionId)
+        val response = query.copyOf().also { it[2] = 0x81.toByte() }
+        val wrongQuestion = response.copyOf().also { it[13] = 'z'.code.toByte() }
+        val truncated = response.copyOf().also { it[2] = 0x83.toByte() }
+        val missingAnswer = response.copyOf().also { it[7] = 1 }
+        val wrongOpcode = response.copyOf().also { it[2] = 0x89.toByte() }
+        val invalidClass = response.copyOf().also { it[it.lastIndex] = 0 }
+        val wrongId = response.copyOf().also { it[0] = 0 }
+
+        val invalidResponses =
+            listOf(query, wrongQuestion, truncated, missingAnswer, wrongOpcode, invalidClass, wrongId, response + 0)
+        for (invalid in invalidResponses) {
+            assertFalse(isMatchingDnsResponse(query, invalid))
+        }
+    }
+
+    @Test
     fun `probe socket binds to the given local address instead of the wildcard`() {
         val localAddress = InetAddress.getLoopbackAddress()
 
@@ -282,12 +313,14 @@ private fun ByteArray.withDifferentIpv4Target(): ByteArray =
     }
 
 private fun dnsQuery(transactionId: Int): ByteArray =
-    ByteArray(TestDnsQueryBytes).also { query ->
-        query[DnsTransactionHighByteOffset] = (transactionId ushr ByteBits).toByte()
-        query[DnsTransactionLowByteOffset] = transactionId.toByte()
-        query[DnsFlagsHighByteOffset] = DnsRecursionDesiredHighByte
-        query[DnsQuestionCountLowByteOffset] = 1
-    }
+    "000001000001000000000000076578616d706c6503636f6d0000010001"
+        .chunked(2)
+        .map { it.toInt(16).toByte() }
+        .toByteArray()
+        .also { query ->
+            query[DnsTransactionHighByteOffset] = (transactionId ushr ByteBits).toByte()
+            query[DnsTransactionLowByteOffset] = transactionId.toByte()
+        }
 
 private fun socksPayloadOffset(frame: ByteArray): Int {
     check(frame[SocksAddressTypeOffset] == SocksIpv4AddressType)
@@ -304,12 +337,9 @@ private const val TestTimeoutMillis = 5_000
 private const val HangDetectionMillis = 15_000L
 private const val TestThreadJoinMillis = 1_000L
 private const val MaxTestDatagramBytes = 4_096
-private const val TestDnsQueryBytes = 29
 private const val DnsTransactionHighByteOffset = 0
 private const val DnsTransactionLowByteOffset = 1
 private const val DnsFlagsHighByteOffset = 2
-private const val DnsQuestionCountLowByteOffset = 5
-private const val DnsRecursionDesiredHighByte: Byte = 1
 private const val DnsResponseFlagHighByte = 0x80
 private const val SocksAddressTypeOffset = 3
 private const val SocksAddressOffset = 4

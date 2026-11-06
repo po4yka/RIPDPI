@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.diagnostics.dpi
 
+import com.poyka.ripdpi.data.diagnostics.DnsMessages
 import com.poyka.ripdpi.diagnostics.DnsResponseOutcome
 import com.poyka.ripdpi.serialization.RipDpiJson
 import kotlinx.coroutines.CancellationException
@@ -57,7 +58,7 @@ class DatagramSocketDnsUdpProbe(
             socket.soTimeout = timeoutMs
             socket.connect(InetAddress.getByName(server), DnsPort)
             socket.send(DatagramPacket(query, query.size))
-            val buffer = ByteArray(MaxDnsPayloadBytes)
+            val buffer = ByteArray(DnsMessages.MAX_MESSAGE_BYTES)
             val response = DatagramPacket(buffer, buffer.size)
             socket.receive(response)
             return DnsWireBuilder.parseResponse(buffer.copyOf(response.length), query)
@@ -66,7 +67,6 @@ class DatagramSocketDnsUdpProbe(
 
     private companion object {
         private const val DnsPort = 53
-        private const val MaxDnsPayloadBytes = 4096
         private const val DefaultUdpTimeoutMs = 3_000
         private const val DefaultUdpRetries = 2
         private const val DefaultRetryDelayMs = 500L

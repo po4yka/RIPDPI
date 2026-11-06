@@ -181,11 +181,50 @@ class DoqIntegrityProbeTest {
     }
 
     @Test
+    fun truncatedResponseCannotBecomeSuccessfulDoqEvidence() {
+        val (transactionId, query) = DoqWireCodec.buildQuery(TestDomain)
+        val response = dnsResponse(transactionId, "1.2.3.4").also { it[4] = 0x83.toByte() }
+        assertEquals(listOf(DnsWireBuilder.PARSE_ERR), DoqWireCodec.parseResponse(response, query))
+    }
+
+    @Test
     fun wireFormatResponseParsedIntoIpList() {
-        val transactionId = 1234
+        val (transactionId, query) = DoqWireCodec.buildQuery(TestDomain)
         val response = dnsResponse(transactionId, "1.2.3.4")
 
-        assertEquals(listOf("1.2.3.4"), DoqWireCodec.parseResponse(response, transactionId))
+        assertEquals(listOf("1.2.3.4"), DoqWireCodec.parseResponse(response, query))
+    }
+
+    @Test
+    fun malformedResponseDoesNotReportDoqSuccess() =
+        runTest {
+            val client =
+                object : DoqQuicClient {
+                    override suspend fun exchange(
+                        endpoint: String,
+                        port: Int,
+                        tlsServerName: String,
+                        query: ByteArray,
+                        timeoutMs: Long,
+                    ): ByteArray = byteArrayOf(0, 1, 0)
+                }
+            val result = probe(client).run(listOf(TestDomain), emptyMap()).single()
+            assertEquals(DoqVerdict.DOQ_BLOCKED_QUIC, result.verdict)
+            assertEquals("Malformed DoQ response", result.errorDetail)
+        }
+
+    @Test
+    fun wireResponseRejectsAnotherQuestionAndTrailingFrameBytes() {
+        val (transactionId, query) = DoqWireCodec.buildQuery("other.example")
+        val response = dnsResponse(transactionId, "1.2.3.4")
+        assertEquals(listOf(DnsWireBuilder.PARSE_ERR), DoqWireCodec.parseResponse(response, query))
+
+        val (matchingId, matchingQuery) = DoqWireCodec.buildQuery(TestDomain)
+        val matchingResponse = dnsResponse(matchingId, "1.2.3.4")
+        assertEquals(
+            listOf(DnsWireBuilder.PARSE_ERR),
+            DoqWireCodec.parseResponse(matchingResponse + byteArrayOf(0), matchingQuery),
+        )
     }
 
     private fun probeWithResponse(ip: String): DoqIntegrityProbe =

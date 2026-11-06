@@ -4,6 +4,7 @@ import android.annotation.SuppressLint
 import android.net.DnsResolver
 import android.net.Network
 import android.os.Build
+import com.poyka.ripdpi.data.diagnostics.DnsMessages
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -17,6 +18,7 @@ import okhttp3.MediaType.Companion.toMediaType
 import okhttp3.OkHttpClient
 import okhttp3.Request
 import okhttp3.RequestBody.Companion.toRequestBody
+import org.xbill.DNS.Type
 import java.io.IOException
 import java.net.SocketTimeoutException
 import java.util.Base64
@@ -70,111 +72,6 @@ class HttpsRrResolver(
         }
 }
 
-object Rfc9460HttpsRecordCodec {
-    fun parseHttpsRdata(rdata: ByteArray): HttpsRrRecord? {
-        var record: HttpsRrRecord? = null
-        if (rdata.size >= ShortByteCount + DnsRootLabelLength) {
-            val priority = rdata.readU16(0)
-            val target = rdata.readDnsName(ShortByteCount)
-            if (target != null) {
-                val params = rdata.readSvcParams(target.nextOffset)
-                if (params.valid) {
-                    // RFC 9460 s2.4.2: SvcParams of an AliasMode (priority 0) record are ignored.
-                    val echConfig = params.echConfig.takeIf { priority != AliasModePriority }
-                    record = HttpsRrRecord(priority = priority, targetName = target.name, echConfig = echConfig)
-                }
-            }
-        }
-        return record
-    }
-
-    private fun ByteArray.readDnsName(startOffset: Int): ParsedDnsName? {
-        var offset = startOffset
-        val labels = mutableListOf<String>()
-        var parsed: ParsedDnsName? = null
-        var valid = true
-        while (valid && parsed == null && offset < size) {
-            val length = this[offset].toInt() and ByteMask
-            offset += 1
-            if (length == 0) {
-                parsed = ParsedDnsName(name = labels.joinToString(".").ifBlank { "." }, nextOffset = offset)
-            } else if (length and CompressionPointerMask == CompressionPointerMask) {
-                valid = false
-            } else if (length > MaxDnsLabelLength || offset + length > size) {
-                valid = false
-            } else {
-                labels += copyOfRange(offset, offset + length).decodeToString()
-                offset += length
-            }
-        }
-        return parsed.takeIf { valid }
-    }
-
-    private fun ByteArray.readSvcParams(startOffset: Int): ParsedSvcParams {
-        var offset = startOffset
-        var echConfig: ByteArray? = null
-        var valid = true
-        var previousKey = -1
-        while (valid && offset < size) {
-            val param = readSvcParam(offset)
-            // RFC 9460 s2.2: keys must strictly increase, so an out-of-order or repeated key is malformed.
-            if (param == null || param.key <= previousKey) {
-                valid = false
-            } else if (param.key == SvcParamKeyEch) {
-                echConfig = copyOfRange(param.valueOffset, param.nextOffset)
-                valid = echConfig.isEchConfigList()
-                previousKey = param.key
-                offset = param.nextOffset
-            } else {
-                previousKey = param.key
-                offset = param.nextOffset
-            }
-        }
-        return ParsedSvcParams(valid = valid, echConfig = echConfig)
-    }
-
-    /** An ECHConfigList starts with its own 16-bit length, which must cover the rest of the value. */
-    private fun ByteArray.isEchConfigList(): Boolean = size > ShortByteCount && readU16(0) == size - ShortByteCount
-
-    private fun ByteArray.readSvcParam(offset: Int): ParsedSvcParam? {
-        if (offset + SvcParamHeaderLength > size) return null
-        val key = readU16(offset)
-        val length = readU16(offset + ShortByteCount)
-        val valueOffset = offset + SvcParamHeaderLength
-        val nextOffset = valueOffset + length
-        return ParsedSvcParam(
-            key = key,
-            valueOffset = valueOffset,
-            nextOffset = nextOffset,
-        ).takeIf { nextOffset <= size }
-    }
-
-    private data class ParsedDnsName(
-        val name: String,
-        val nextOffset: Int,
-    )
-
-    private data class ParsedSvcParams(
-        val valid: Boolean,
-        val echConfig: ByteArray?,
-    )
-
-    private data class ParsedSvcParam(
-        val key: Int,
-        val valueOffset: Int,
-        val nextOffset: Int,
-    )
-
-    private const val ByteMask = 0xff
-    private const val ShortByteCount = 2
-    private const val DnsRootLabelLength = 1
-    private const val SvcParamHeaderLength = 4
-    private const val SvcParamKeyEch = 5
-    private const val AliasModePriority = 0
-    private const val MaxDnsLabelLength = 63
-    private const val CompressionPointerMask = 0xc0
-}
-
 class DohWireHttpsRrQuery(
     private val client: OkHttpClient =
         OkHttpClient
@@ -199,7 +96,7 @@ class DohWireHttpsRrQuery(
             client.newCall(request).execute().use { response ->
                 if (!response.isSuccessful) throw IOException("DoH HTTPS RR query failed: ${response.code}")
                 val bytes = response.body.bytes()
-                HttpsDnsWireParser.parseResponse(bytes, transactionId)
+                HttpsDnsWireParser.parseResponse(bytes, query)
             }
         }
 
@@ -250,126 +147,17 @@ class AndroidSystemHttpsRrQuery(
                     },
                 )
             }
-        return HttpsDnsWireParser.parseResponse(bytes)
+        return HttpsDnsWireParser.parseSystemResponse(bytes, host)
     }
-}
-
-private object HttpsDnsWireParser {
-    fun parseResponse(
-        bytes: ByteArray,
-        transactionId: Int? = null,
-    ): List<HttpsRrRecord> =
-        runCatching {
-            if (bytes.size < DnsHeaderLength) return emptyList()
-            if (transactionId != null && bytes.readU16(0) != transactionId) return emptyList()
-            val flags = bytes.readU16(2)
-            if (flags and ResponseFlag == 0) return emptyList()
-            if (flags and RcodeMask != 0) return emptyList()
-
-            val questionCount = bytes.readU16(QuestionCountOffset)
-            val answerCount = bytes.readU16(AnswerCountOffset)
-            var offset = DnsHeaderLength
-            repeat(questionCount) {
-                offset = bytes.skipName(offset)
-                offset += QuestionTrailerLength
-            }
-
-            val answers = mutableListOf<HttpsRrRecord>()
-            repeat(answerCount) {
-                offset = bytes.skipName(offset)
-                if (offset + AnswerHeaderLength > bytes.size) return emptyList()
-                val type = bytes.readU16(offset)
-                val recordClass = bytes.readU16(offset + RecordClassOffset)
-                val rdLength = bytes.readU16(offset + RecordDataLengthOffset)
-                offset += AnswerHeaderLength
-                if (offset + rdLength > bytes.size) return emptyList()
-                if (type == HttpsDnsWireBuilder.HttpsRecordType && recordClass == InClass) {
-                    val rdata = bytes.copyOfRange(offset, offset + rdLength)
-                    Rfc9460HttpsRecordCodec.parseHttpsRdata(rdata)?.let(answers::add)
-                }
-                offset += rdLength
-            }
-            answers
-        }.getOrDefault(emptyList())
-
-    private fun ByteArray.skipName(startOffset: Int): Int {
-        var offset = startOffset
-        var labels = 0
-        var result = size + DnsRootLabelLength
-        var done = false
-        while (!done && offset < size) {
-            val length = this[offset].toInt() and ByteMask
-            if (length == 0) {
-                result = offset + DnsRootLabelLength
-                done = true
-            } else if (length and CompressionPointerMask == CompressionPointerMask) {
-                result = if (offset + DnsRootLabelLength >= size) size + DnsRootLabelLength else offset + ShortByteCount
-                done = true
-            } else {
-                offset += DnsRootLabelLength + length
-                labels += 1
-                if (labels > MaxDnsNameLabels) {
-                    done = true
-                }
-            }
-        }
-        return result
-    }
-
-    private const val ByteMask = 0xff
-    private const val ShortByteCount = 2
-    private const val DnsRootLabelLength = 1
-    private const val DnsHeaderLength = 12
-    private const val QuestionCountOffset = 4
-    private const val AnswerCountOffset = 6
-    private const val QuestionTrailerLength = 4
-    private const val RecordClassOffset = 2
-    private const val RecordDataLengthOffset = 8
-    private const val AnswerHeaderLength = 10
-    private const val ResponseFlag = 0x8000
-    private const val RcodeMask = 0x000f
-    private const val InClass = 1
-    private const val MaxDnsNameLabels = 128
-    private const val CompressionPointerMask = 0xc0
 }
 
 object HttpsDnsWireBuilder {
-    const val HttpsRecordType = 65
+    const val HttpsRecordType = Type.HTTPS
 
     fun buildQuery(
         domain: String,
         transactionId: Int = DnsWireBuilder.randomTransactionId(),
-    ): ByteArray {
-        val labels = domain.trimEnd('.').split('.').filter(String::isNotBlank)
-        val output = java.io.ByteArrayOutputStream()
-        output.write((transactionId shr Byte.SIZE_BITS) and ByteMask)
-        output.write(transactionId and ByteMask)
-        output.write(0x01)
-        output.write(0x00)
-        output.write(0x00)
-        output.write(0x01)
-        output.write(0x00)
-        output.write(0x00)
-        output.write(0x00)
-        output.write(0x00)
-        output.write(0x00)
-        output.write(0x00)
-        labels.forEach { label ->
-            require(label.length <= MaxDnsLabelLength) { "DNS label is too long: $label" }
-            output.write(label.length)
-            output.write(label.toByteArray(java.nio.charset.StandardCharsets.US_ASCII))
-        }
-        output.write(0x00)
-        output.write((HttpsRecordType shr Byte.SIZE_BITS) and ByteMask)
-        output.write(HttpsRecordType and ByteMask)
-        output.write(0x00)
-        output.write(InClass)
-        return output.toByteArray()
-    }
-
-    private const val ByteMask = 0xff
-    private const val InClass = 1
-    private const val MaxDnsLabelLength = 63
+    ): ByteArray = DnsMessages.query(domain, Type.HTTPS, transactionId)
 }
 
 enum class EchProbeVerdict {
@@ -547,8 +335,3 @@ private fun ByteArray?.contentEqualsNullable(other: ByteArray?): Boolean =
     }
 
 private fun ByteArray?.isNullOrEmptyBytes(): Boolean = this == null || isEmpty()
-
-private const val ByteMask = 0xff
-
-private fun ByteArray.readU16(offset: Int): Int =
-    ((this[offset].toInt() and ByteMask) shl Byte.SIZE_BITS) or (this[offset + 1].toInt() and ByteMask)

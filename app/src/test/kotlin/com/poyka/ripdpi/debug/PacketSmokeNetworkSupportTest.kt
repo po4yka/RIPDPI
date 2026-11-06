@@ -6,8 +6,10 @@ import com.poyka.ripdpi.data.EncryptedDnsProtocolDoh
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDoq
 import com.poyka.ripdpi.data.EncryptedDnsProtocolDot
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.io.IOException
 import java.net.SocketTimeoutException
 
 class PacketSmokeNetworkSupportTest {
@@ -106,11 +108,38 @@ class PacketSmokeNetworkSupportTest {
                 0x22,
             )
 
-        val decoded = DebugDnsPacketCodec.decodeResponse(response, queryId)
+        val decoded =
+            DebugDnsPacketCodec.decodeResponse(
+                response,
+                DebugDnsPacketCodec.buildQuery("example.com", queryId),
+            )
 
         assertEquals(queryId, decoded.requestId)
         assertEquals(0, decoded.rcode)
         assertEquals(listOf("93.184.216.34"), decoded.answers)
+    }
+
+    @Test
+    fun `dns decoder rejects a different question with the same transaction id`() {
+        val response = DebugDnsPacketCodec.buildQuery("other.example", 0x1234).also { it[2] = 0x81.toByte() }
+        val query = DebugDnsPacketCodec.buildQuery("example.com", 0x1234)
+
+        assertThrows(IOException::class.java) { DebugDnsPacketCodec.decodeResponse(response, query) }
+    }
+
+    @Test
+    fun `dns decoder rejects unrelated answers and invalid message boundaries`() {
+        val query = DebugDnsPacketCodec.buildQuery("example.com", 0x1234)
+        val unrelated =
+            "123481800001000100000000076578616d706c6503636f6d0000010001" +
+                "056f74686572c00c000100010000003c0004c0000201"
+        val response = unrelated.chunked(2).map { it.toInt(16).toByte() }.toByteArray()
+        val truncated = query.copyOf().also { it[2] = 0x83.toByte() }
+        val queryEcho = query.copyOf()
+
+        for (invalid in listOf(response, truncated, queryEcho)) {
+            assertThrows(IOException::class.java) { DebugDnsPacketCodec.decodeResponse(invalid, query) }
+        }
     }
 
     @Test

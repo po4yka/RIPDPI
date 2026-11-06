@@ -27,7 +27,10 @@ class DnsWireBuilderTest {
     fun parseResponseExtractsIpv4FromValidResponse() {
         val response = dnsResponse(answerIp = byteArrayOf(93.toByte(), 184.toByte(), 216.toByte(), 34))
 
-        assertEquals(listOf("93.184.216.34"), DnsWireBuilder.parseResponse(response, transactionId = 0x1234))
+        assertEquals(
+            listOf("93.184.216.34"),
+            DnsWireBuilder.parseResponse(response, DnsWireBuilder.buildQuery("example.com", 0x1234)).legacyRecords(),
+        )
     }
 
     @Test
@@ -48,14 +51,24 @@ class DnsWireBuilderTest {
                 0x00,
             ) + question()
 
-        assertEquals(listOf(DnsWireBuilder.NXDOMAIN), DnsWireBuilder.parseResponse(response, transactionId = 0x1234))
+        assertEquals(
+            listOf(DnsWireBuilder.NXDOMAIN),
+            DnsWireBuilder.parseResponse(response, DnsWireBuilder.buildQuery("example.com", 0x1234)).legacyRecords(),
+        )
     }
 
     @Test
     fun parseResponseHandlesPointerCompression() {
         val response = dnsResponse(answerIp = byteArrayOf(1, 2, 3, 4), compressedAnswerName = true)
 
-        assertTrue(DnsWireBuilder.parseResponse(response, transactionId = 0x1234).contains("1.2.3.4"))
+        assertTrue(
+            DnsWireBuilder
+                .parseResponse(
+                    response,
+                    DnsWireBuilder.buildQuery("example.com", 0x1234),
+                ).legacyRecords()
+                .contains("1.2.3.4"),
+        )
     }
 
     private fun dnsResponse(

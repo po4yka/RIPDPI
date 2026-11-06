@@ -1765,7 +1765,7 @@ fun probeInstrumentationDns(
             val decoded =
                 DebugDnsPacketCodec.decodeResponse(
                     packet = responseBytes.copyOf(incomingPacket.length),
-                    expectedRequestId = requestId,
+                    query = query,
                 )
             AppProcessDnsProbeResult(
                 queryHost = queryHost,

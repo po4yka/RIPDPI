@@ -3,6 +3,7 @@ package com.poyka.ripdpi.services
 import com.poyka.ripdpi.core.LocalSocks5Client
 import com.poyka.ripdpi.core.LocalSocksCredentialRegistry
 import com.poyka.ripdpi.data.PayloadProbeControl
+import com.poyka.ripdpi.data.diagnostics.DnsMessages
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -23,7 +24,6 @@ import java.net.InetSocketAddress
 import java.net.ProtocolException
 import java.net.Socket
 import java.net.SocketTimeoutException
-import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.concurrent.TimeUnit
@@ -468,67 +468,11 @@ private fun readSocksAddress(input: DataInputStream): InetAddress =
     }
 
 private fun dnsQuery(payloadSizeBytes: Int? = null): ByteArray {
-    val queryId = DnsSecureRandom.nextInt(DnsTransactionIdUpperBound)
-    val question = dnsQuestion()
-    val baseQueryBytes = DnsHeaderBytes + question.size
-    val requestedSize = payloadSizeBytes ?: baseQueryBytes
-    val includePadding = requestedSize >= baseQueryBytes + EdnsPaddingMinimumOverheadBytes
-    val querySize =
-        if (includePadding) {
-            requestedSize
-        } else {
-            baseQueryBytes
+    val nonce =
+        buildString(DnsNonceLabelBytes) {
+            repeat(DnsNonceLabelBytes) { append(DnsNonceAlphabet[DnsSecureRandom.nextInt(DnsNonceAlphabet.length)]) }
         }
-    return ByteArray(querySize).also { query ->
-        query.writeUnsignedShort(DnsTransactionIdOffset, queryId)
-        query.writeUnsignedShort(DnsFlagsOffset, DnsRecursionDesiredFlag)
-        query.writeUnsignedShort(DnsQuestionCountOffset, DnsSingleRecordCount)
-        question.copyInto(query, destinationOffset = DnsHeaderBytes)
-        if (includePadding) {
-            query.writeUnsignedShort(DnsAdditionalCountOffset, DnsSingleRecordCount)
-            val optOffset = baseQueryBytes
-            val paddingLength = requestedSize - baseQueryBytes - EdnsPaddingMinimumOverheadBytes
-            writeEdnsPadding(query, optOffset, paddingLength)
-        }
-    }
-}
-
-private fun dnsQuestion(): ByteArray {
-    val nonceLabel =
-        ByteArray(DnsNonceLabelBytes) {
-            DnsNonceAlphabet[DnsSecureRandom.nextInt(DnsNonceAlphabet.size)]
-        }
-    return byteArrayOf(nonceLabel.size.toByte()) +
-        nonceLabel +
-        byteArrayOf(DnsInvalidLabel.size.toByte()) +
-        DnsInvalidLabel +
-        byteArrayOf(DnsNameTerminator) +
-        unsignedShortBytes(DnsRecordTypeA) +
-        unsignedShortBytes(DnsClassInternet)
-}
-
-private fun writeEdnsPadding(
-    query: ByteArray,
-    optOffset: Int,
-    paddingLength: Int,
-) {
-    query[optOffset + EdnsNameOffset] = DnsNameTerminator
-    query.writeUnsignedShort(optOffset + EdnsRecordTypeOffset, DnsRecordTypeOpt)
-    query.writeUnsignedShort(optOffset + EdnsUdpPayloadSizeOffset, EdnsUdpPayloadSize)
-    query.writeUnsignedShort(
-        optOffset + EdnsRecordDataLengthOffset,
-        paddingLength + EdnsOptionHeaderBytes,
-    )
-    query.writeUnsignedShort(optOffset + EdnsOptionCodeOffset, DnsEdnsPaddingOption)
-    query.writeUnsignedShort(optOffset + EdnsOptionLengthOffset, paddingLength)
-}
-
-private fun ByteArray.writeUnsignedShort(
-    offset: Int,
-    value: Int,
-) {
-    this[offset] = (value ushr ByteBits).toByte()
-    this[offset + LowByteOffset] = value.toByte()
+    return DnsMessages.query("$nonce.invalid", payloadSize = payloadSizeBytes)
 }
 
 private fun DataInputStream.readNBytesExact(size: Int): ByteArray = ByteArray(size).also { bytes -> readFully(bytes) }
@@ -541,30 +485,6 @@ private const val TcpPayloadReadBufferBytes = 8_192
 private const val UdpProbeTimeoutMillis = 5_000
 private const val Ipv4AddressBytes = 4
 private const val Ipv6AddressBytes = 16
-private const val DnsHeaderBytes = 12
-private const val DnsTransactionIdUpperBound = 1 shl 16
-private const val DnsTransactionIdOffset = 0
-private const val DnsFlagsOffset = 2
-private const val DnsQuestionCountOffset = 4
-private const val DnsAdditionalCountOffset = 10
-private const val DnsRecursionDesiredFlag = 0x0100
-private const val DnsSingleRecordCount = 1
-private const val DnsRecordTypeA = 1
-private const val DnsClassInternet = 1
-private const val DnsRecordTypeOpt = 41
-private const val DnsNameTerminator: Byte = 0
-private const val EdnsUdpPayloadSize = 1_232
-private const val EdnsPaddingMinimumOverheadBytes = 15
-private const val EdnsOptionHeaderBytes = 4
-private const val DnsEdnsPaddingOption = 12
-private const val EdnsNameOffset = 0
-private const val EdnsRecordTypeOffset = 1
-private const val EdnsUdpPayloadSizeOffset = 3
-private const val EdnsRecordDataLengthOffset = 9
-private const val EdnsOptionCodeOffset = 11
-private const val EdnsOptionLengthOffset = 13
-private const val ByteBits = 8
-private const val LowByteOffset = 1
 private const val DnsNonceLabelBytes = 12
 private const val SocksVersion: Byte = 5
 private const val SocksReserved: Byte = 0
@@ -574,8 +494,7 @@ private const val ReplySucceeded = 0
 private const val AddressIpv4: Byte = 1
 private const val AddressIpv6: Byte = 4
 private val SuccessfulStatusRange = 200..299
-private val DnsInvalidLabel = "invalid".toByteArray(StandardCharsets.US_ASCII)
-private val DnsNonceAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789".toByteArray(StandardCharsets.US_ASCII)
+private const val DnsNonceAlphabet = "abcdefghijklmnopqrstuvwxyz0123456789"
 private val DnsSecureRandom = SecureRandom()
 private val SocksUdpAssociateRequest =
     byteArrayOf(
@@ -589,12 +508,6 @@ private val SocksUdpAssociateRequest =
         SocksReserved,
         SocksReserved,
         SocksReserved,
-    )
-
-private fun unsignedShortBytes(value: Int): ByteArray =
-    byteArrayOf(
-        (value ushr ByteBits).toByte(),
-        value.toByte(),
     )
 
 private const val PayloadSuccessStatus = 200

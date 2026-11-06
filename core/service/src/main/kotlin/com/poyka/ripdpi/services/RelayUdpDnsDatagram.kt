@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.diagnostics.DnsMessages
 import java.io.IOException
 import java.io.InterruptedIOException
 import java.net.DatagramPacket
@@ -313,65 +314,7 @@ private fun ByteArray.copyPayloadOrNull(
 internal fun isMatchingDnsResponse(
     query: ByteArray,
     response: ByteArray,
-): Boolean {
-    val headersPresent = query.size >= DnsHeaderBytes && response.size >= DnsHeaderBytes
-    return headersPresent &&
-        response.readUnsignedShort(DnsTransactionIdOffset) == query.readUnsignedShort(DnsTransactionIdOffset) &&
-        response.readUnsignedShort(DnsFlagsOffset) and DnsResponseFlag != 0 &&
-        hasExactDnsQuestion(query, response)
-}
-
-private fun hasExactDnsQuestion(
-    query: ByteArray,
-    response: ByteArray,
-): Boolean {
-    val queryQuestionCount = query.readUnsignedShort(DnsQuestionCountOffset)
-    val responseQuestionCount = response.readUnsignedShort(DnsQuestionCountOffset)
-    val queryQuestion = exactDnsQuestion(query)
-    val responseQuestion = exactDnsQuestion(response)
-    return queryQuestionCount == DnsSingleQuestion &&
-        responseQuestionCount == queryQuestionCount &&
-        queryQuestion != null &&
-        responseQuestion != null &&
-        queryQuestion.contentEquals(responseQuestion)
-}
-
-private fun exactDnsQuestion(message: ByteArray): ByteArray? {
-    var offset = DnsHeaderBytes
-    var labelCount = 0
-    var valid = message.size >= DnsHeaderBytes
-    var rootReached = false
-    while (valid && !rootReached) {
-        val labelLength = message.getOrNull(offset)?.toUByte()?.toInt()
-        when {
-            labelLength == null -> {
-                valid = false
-            }
-
-            labelLength == DnsRootLabelLength -> {
-                offset += DnsRootLabelBytes
-                rootReached = true
-            }
-
-            labelLength > DnsMaximumLabelBytes ||
-                offset + DnsLabelLengthBytes + labelLength > message.size -> {
-                valid = false
-            }
-
-            else -> {
-                offset += DnsLabelLengthBytes + labelLength
-                labelCount += 1
-                valid = labelCount <= DnsMaximumLabels
-            }
-        }
-    }
-    val questionEnd = offset + DnsQuestionTailBytes
-    return if (valid && rootReached && questionEnd <= message.size) {
-        message.copyOfRange(DnsHeaderBytes, questionEnd)
-    } else {
-        null
-    }
-}
+): Boolean = DnsMessages.matchesResponse(query, response)
 
 private fun ByteArray.writeUnsignedShort(
     offset: Int,
@@ -400,17 +343,5 @@ private const val SocksReserved: Byte = 0
 private const val AddressIpv4: Byte = 1
 private const val AddressDomain: Byte = 3
 private const val AddressIpv6: Byte = 4
-private const val DnsHeaderBytes = 12
-private const val DnsResponseFlag = 0x8000
-private const val DnsTransactionIdOffset = 0
-private const val DnsFlagsOffset = 2
-private const val DnsQuestionCountOffset = 4
-private const val DnsSingleQuestion = 1
-private const val DnsRootLabelLength = 0
-private const val DnsRootLabelBytes = 1
-private const val DnsLabelLengthBytes = 1
-private const val DnsMaximumLabelBytes = 63
-private const val DnsMaximumLabels = 127
-private const val DnsQuestionTailBytes = 4
 private const val ByteBits = 8
 private const val LowByteOffset = 1

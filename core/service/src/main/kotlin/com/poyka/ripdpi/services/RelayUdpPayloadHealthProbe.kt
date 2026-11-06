@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.services
 
+import com.poyka.ripdpi.data.diagnostics.DnsMessages
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runInterruptible
@@ -13,7 +14,6 @@ import java.net.ProtocolException
 import java.net.Socket
 import java.net.SocketTimeoutException
 import java.security.SecureRandom
-import java.util.Locale
 import java.util.concurrent.atomic.AtomicInteger
 
 data class RelayUdpPayloadHealthEvidence(
@@ -319,42 +319,7 @@ internal class Socks5DnsUdpPayloadHealthProbe internal constructor(
 private fun sizedDnsQuery(
     payloadSizeBytes: Int,
     queryId: Int,
-): ByteArray {
-    val question = "invalid".dnsQuestion()
-    val baseQueryBytes = DnsHeaderBytes + question.size
-    val includePadding = payloadSizeBytes >= baseQueryBytes + EdnsPaddingMinimumOverheadBytes
-    val querySize = if (includePadding) payloadSizeBytes else baseQueryBytes
-    return ByteArray(querySize).also { query ->
-        query[DnsTransactionIdHighByteIndex] = (queryId ushr ByteBitWidth).toByte()
-        query[DnsTransactionIdLowByteIndex] = queryId.toByte()
-        query[DnsFlagsHighByteIndex] = DnsRecursionDesiredFlag
-        query[DnsQuestionCountLowByteIndex] = DnsSingleRecordCount
-        question.copyInto(query, destinationOffset = DnsHeaderBytes)
-        if (includePadding) {
-            query[DnsAdditionalRecordCountLowByteIndex] = DnsSingleRecordCount
-            val optOffset = baseQueryBytes
-            query[optOffset + EdnsNameOffset] = DnsRootLabel
-            query[optOffset + EdnsRecordTypeHighByteOffset] = DnsZeroByte
-            query[optOffset + EdnsRecordTypeLowByteOffset] = DnsOptRecordType
-            query[optOffset + EdnsUdpPayloadSizeHighByteOffset] =
-                (EdnsUdpPayloadSize ushr ByteBitWidth).toByte()
-            query[optOffset + EdnsUdpPayloadSizeLowByteOffset] = EdnsUdpPayloadSize.toByte()
-            val paddingLength = payloadSizeBytes - baseQueryBytes - EdnsPaddingMinimumOverheadBytes
-            val rdLength = paddingLength + EdnsOptionHeaderBytes
-            query[optOffset + EdnsRecordDataLengthHighByteOffset] = (rdLength ushr ByteBitWidth).toByte()
-            query[optOffset + EdnsRecordDataLengthLowByteOffset] = rdLength.toByte()
-            query[optOffset + EdnsOptionCodeHighByteOffset] = DnsZeroByte
-            query[optOffset + EdnsOptionCodeLowByteOffset] = DnsEdnsPaddingOption
-            query[optOffset + EdnsOptionLengthHighByteOffset] = (paddingLength ushr ByteBitWidth).toByte()
-            query[optOffset + EdnsOptionLengthLowByteOffset] = paddingLength.toByte()
-        }
-    }
-}
-
-private fun String.dnsQuestion(): ByteArray =
-    split(".").fold(byteArrayOf()) { bytes, label ->
-        bytes + label.length.toByte() + label.lowercase(Locale.US).encodeToByteArray()
-    } + byteArrayOf(0, 0, 1, 0, 1)
+): ByteArray = DnsMessages.query("invalid", transactionId = queryId, payloadSize = payloadSizeBytes)
 
 private fun List<Int>.normalizedPayloadLadder(): List<Int> =
     filter { it in UdpPayloadControlBytes..MaxUdpPayloadProbeBytes }.distinct().sorted()
@@ -421,36 +386,9 @@ private const val MaxUdpPayloadProbeBytes = 1_400
 private const val RelayUdpPayloadAcceptanceFloorBytes = 1_232
 private const val PayloadAttemptsPerSize = 2
 private const val RepeatedPayloadFailureThreshold = 2
-private const val DnsHeaderBytes = 12
-private const val ByteBitWidth = 8
 private const val DnsTransactionIdBitWidth = 16
 private const val DnsTransactionIdUpperBound = 1 shl DnsTransactionIdBitWidth
 private const val DnsTransactionIdMaximum = DnsTransactionIdUpperBound - 1
-private const val DnsTransactionIdHighByteIndex = 0
-private const val DnsTransactionIdLowByteIndex = 1
-private const val DnsFlagsHighByteIndex = 2
-private const val DnsQuestionCountLowByteIndex = 5
-private const val DnsAdditionalRecordCountLowByteIndex = 11
-private const val DnsRecursionDesiredFlag: Byte = 1
-private const val DnsSingleRecordCount: Byte = 1
-private const val DnsZeroByte: Byte = 0
-private const val DnsRootLabel: Byte = 0
-private const val EdnsUdpPayloadSize = 1_232
-private const val EdnsPaddingMinimumOverheadBytes = 15
-private const val EdnsOptionHeaderBytes = 4
-private const val EdnsNameOffset = 0
-private const val EdnsRecordTypeHighByteOffset = 1
-private const val EdnsRecordTypeLowByteOffset = 2
-private const val EdnsUdpPayloadSizeHighByteOffset = 3
-private const val EdnsUdpPayloadSizeLowByteOffset = 4
-private const val EdnsRecordDataLengthHighByteOffset = 9
-private const val EdnsRecordDataLengthLowByteOffset = 10
-private const val EdnsOptionCodeHighByteOffset = 11
-private const val EdnsOptionCodeLowByteOffset = 12
-private const val EdnsOptionLengthHighByteOffset = 13
-private const val EdnsOptionLengthLowByteOffset = 14
-private const val DnsOptRecordType: Byte = 41
-private const val DnsEdnsPaddingOption: Byte = 12
 private val DefaultUdpPayloadLadderBytes = listOf(256, 512, 960, 1_232, MaxUdpPayloadProbeBytes)
 private const val RelayUdpPayloadMeasurementKind = "relay_egress_udp_payload"
 private const val RelayUdpPayloadCeilingLabel = "acknowledged_application_payload_ceiling"
