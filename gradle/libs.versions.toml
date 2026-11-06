@@ -1,5 +1,7 @@
 [versions]
 dnsjava = "3.7.1"
+slf4j = "1.7.36"
+lombok = "1.18.46"
 agp = "9.5.0"
 benchmark = "1.5.0"
 tracing-perfetto = "1.0.1"
@@ -97,6 +99,8 @@ xray-core-canary = "main"
 [libraries]
 ipaddress = { module = "com.github.seancfoley:ipaddress", version.ref = "ipaddress" }
 dnsjava = { module = "dnsjava:dnsjava", version.ref = "dnsjava" }
+slf4j-nop = { module = "org.slf4j:slf4j-nop", version.ref = "slf4j" }
+lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
 androidx-benchmark-macro-junit4 = { module = "androidx.benchmark:benchmark-macro-junit4", version.ref = "benchmark" }
 androidx-biometric = { module = "androidx.biometric:biometric", version.ref = "biometric" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version.ref = "core-ktx" }

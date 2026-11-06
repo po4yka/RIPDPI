@@ -238,6 +238,25 @@ val forwardedInstrumentationArguments =
     )
 
 extensions.configure<ApplicationExtension> {
+    packaging.resources {
+        // Merge rules take priority over exclusions. Name the Android services
+        // so dnsjava's desktop resolver SPI descriptors can be excluded.
+        merges -= "/META-INF/services/**"
+        merges +=
+            setOf(
+                "/META-INF/services/io.grpc.LoadBalancerProvider",
+                "/META-INF/services/io.grpc.ManagedChannelProvider",
+                "/META-INF/services/io.grpc.NameResolverProvider",
+                "/META-INF/services/io.grpc.ServerProvider",
+                "/META-INF/services/kotlinx.coroutines.CoroutineExceptionHandler",
+                "/META-INF/services/kotlinx.coroutines.internal.MainDispatcherFactory",
+            )
+        excludes +=
+            setOf(
+                "META-INF/services/java.net.spi.InetAddressResolverProvider",
+                "META-INF/services/sun.net.spi.nameservice.NameServiceDescriptor",
+            )
+    }
     sourceSets
         .getByName("test")
         .kotlin.directories
@@ -398,6 +417,8 @@ extensions.configure<ApplicationExtension> {
 }
 
 dependencies {
+    // dnsjava retains this CLASS-retention annotation; it is not a runtime dependency.
+    compileOnly(libs.lombok)
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)
     implementation(libs.androidx.profileinstaller)

@@ -15,6 +15,8 @@ See proposal.md. Kotlin has independent DNS codecs in diagnostics-data, diagnost
 - Validate the complete expected question and message envelope centrally. Domain outcome projection remains in diagnostics.
 - Treat TC as incomplete evidence; only the normal direct resolver retries with TCP. UDP health probes retain UDP-only evidence.
 - Use library OPT records and padding options for sized queries.
+- Supply the SLF4J no-op binding at runtime and Lombok annotations only on the app compile classpath. Exclude both desktop resolver SPI resources from Android packaging. Suppress only the unavailable Java 8 SPI interface and require R8 to discard its provider.
+- Replace AGP's default service-descriptor merge wildcard with the six Android service paths used by gRPC and coroutines. Merge rules take priority over exclusions. Other singleton services remain included; a new duplicate service requires an explicit merge rule.
 
 ## Contracts and ownership
 
