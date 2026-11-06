@@ -1,9 +1,9 @@
 ---
 task_id: DNS-1793945565828575
 change: kotlin-dns-library-codec
-commit_sha: 780790256e283520de833833b531c5ce2dafbd17
+commit_sha: af35730013804a98ddd0dd075bac1d031a2852ba
 local: passed
-local_evidence: All 7224 affected unit tests, full staticAnalysis, ci-gates, locked Cargo metadata and independent review passed. The final release and staticAnalysis run passed with Android dependency packaging configured.
+local_evidence: All 7614 affected unit tests, full staticAnalysis, R8, ci-gates, locked Cargo metadata and independent review passed. Fresh tests, R8 and staticAnalysis passed after rebase onto da1d00518.
 remote_ci: required
 remote_ci_evidence: Pending integrated main push and hosted checks.
 device: passed
@@ -60,3 +60,10 @@ deployment_evidence: No deployment is owned by this change.
 - Final command: `build-gate -- env -u CARGO_BUILD_JOBS ./gradlew :app:assembleGithubFullRelease staticAnalysis -Pripdpi.nativeAbisOverride=arm64-v8a -Pripdpi.nativeCpuBudget=2 -Pripdpi.enableAbiSplits=false --max-workers=2 --console=plain`: exit 0, 7m 32s. The complete release artifact includes real native runtimes; no skip-native flag was used.
 
 - Release emulator smoke: installed and launched on RIPDPI_Pool_1 (API 35, arm64). Diagnostics -> Tools -> Technical details -> DNS availability -> Run DNS survey completed with 19/21 resolvers responding. Cloudflare UDP, Google UDP and Cloudflare DoH each returned 5/5. Expanded Cloudflare facts for EXAMPLE.COM showed an A address answer, RCODE 0, TTL 102 and TC false. The crash buffer was empty. The app was stopped and the pool lease released.
+
+## Shadowsocks integration base
+
+- Rebased without conflicts onto da1d0051866644cc29777c55bef5cb0701fad647. Upstream changed Shadowsocks validation in app, runtime-state and service, plus its Rust implementation. DNS and Android dependency packaging inputs are unchanged.
+- Fresh command: `build-gate -- env -u CARGO_BUILD_JOBS ./gradlew :core:data:runtime-state:testDebugUnitTest :core:diagnostics-data:testDebugUnitTest :core:diagnostics:testDebugUnitTest :core:service:testDebugUnitTest :app:testGithubFullDebugUnitTest :app:minifyGithubFullReleaseWithR8 staticAnalysis -Pripdpi.skipNativeBuild=true --continue --max-workers=2 --console=plain`: exit 0, 13m 13s.
+- Unit reports: runtime-state 387, diagnostics-data 87, diagnostics 1662, service 2063, app 3415. Total 7614; zero failures, errors or skips. R8, staticAnalysis, CI source gates, architecture health and locked metadata passed on the combined tree.
+- The installed release APK and emulator observations above precede this rebase. The final combined tree has fresh host-test, static-analysis and R8 evidence; the changed upstream native runtime was not retested on the emulator in this DNS task.
