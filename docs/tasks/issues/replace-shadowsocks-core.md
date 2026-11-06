@@ -2,7 +2,7 @@
 id: RLY-1793949568813382
 title: Replace the Shadowsocks protocol core with upstream
 kind: feature
-status: doing
+status: review
 area: relay
 priority: high
 owner: Primary implementer
