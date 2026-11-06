@@ -1,7 +1,7 @@
 ---
 task_id: DNS-1793945565828575
 change: kotlin-dns-library-codec
-commit_sha: 25a3bd55d
+commit_sha: 7ae5d6ac5c4af94d57e2804091bb1fac9444c066
 local: passed
 local_evidence: All 7224 affected unit tests, full staticAnalysis, ci-gates, locked Cargo metadata and independent review passed. The final combined Gradle run passed after rebase onto e08d09e5a.
 remote_ci: required
@@ -44,3 +44,8 @@ deployment_evidence: No deployment is owned by this change.
 - Rebased onto e08d09e5a and preserved both dependency entries. DirectDns now uses the shared NumericIp parser for server addresses and literal fast paths.
 - Independent review confirmed that the IP/CIDR migration, DoQ classification, DNS matching and TCP fallback remain intact.
 - The same combined test/staticAnalysis command passed on the merged code: 7224 tests, zero failures, errors or skips. CI source gates and locked metadata passed again.
+
+## Final integration base
+
+- Rebased onto 4a346b9e5. This added only the upstream Rust HTTP decoder correction and task records; app/core/Gradle inputs are byte-identical to the fully tested tree.
+- `ci-gates`, architecture health and locked metadata passed on this base. Kotlin test and staticAnalysis results remain valid for unchanged inputs.
