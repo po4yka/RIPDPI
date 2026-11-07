@@ -253,6 +253,7 @@ anyhow = "1"
 crypto_box = { version = "0.9", features = ["chacha20", "salsa20"] }
 etherparse = "0.21"
 pico-args = "0.5"
+psl = "2.1.248"
 hex = "0.4"
 jni = "0.22"
 libc = "0.2"

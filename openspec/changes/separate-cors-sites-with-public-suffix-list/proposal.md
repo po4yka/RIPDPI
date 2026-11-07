@@ -10,7 +10,7 @@ Credential policy must distinguish independent tenants below public and private 
 
 - Define the allowed-origin policy first, then replace the last-label heuristic with an offline PSL implementation that includes private suffixes and standard URL parsing.
 - An explicitly permitted origin receives only the CORS headers allowed by the documented policy.
-- Independent github.io and fly.io tenants do not receive credential permission solely because they share a public suffix.
+- Independent github.io and fly.dev tenants do not receive credential permission solely because they share a public suffix.
 - Correct only the specified defect or infrastructure duplication. No other breaking change is planned; PSL domain grouping must not itself grant credential access. Define scheme and port treatment, localhost and IP behavior, invalid Origin rejection, and list update policy before implementation.
 
 ## Capabilities

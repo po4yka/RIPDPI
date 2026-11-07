@@ -2,7 +2,7 @@
 id: RLY-1794036597359685
 title: Separate CORS sites with the Public Suffix List
 kind: bug
-status: todo
+status: review
 area: relay
 priority: high
 owner: Standard-library migration
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: separate-cors-sites-with-public-suffix-list
 created: 2026-11-07
 updated: 2026-11-07
-status_detail: The prerequisite DNS-1794036588840800 is complete.
+status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
 ---
 
 ## Goal

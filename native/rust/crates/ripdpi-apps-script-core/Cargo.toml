@@ -12,6 +12,7 @@ http.workspace = true
 http-body-util.workspace = true
 hyper.workspace = true
 hyper-util.workspace = true
+psl = { workspace = true }
 rcgen.workspace = true
 ripdpi-tls-profiles = { workspace = true }
 rustls.workspace = true

@@ -10,6 +10,7 @@ use std::sync::Arc;
 use std::time::Duration;
 use tokio::io::{AsyncRead, AsyncWrite};
 use tokio::net::TcpStream;
+use url::{Host, Url};
 
 const MAX_REQUEST_BODY_BYTES: usize = 16 * 1024 * 1024;
 const CLIENT_IDLE_TIMEOUT: Duration = Duration::from_secs(60);
@@ -62,6 +63,11 @@ async fn handle_request(
 ) -> io::Result<RelayResponse> {
     let (parts, incoming) = request.into_parts();
     crate::domain_fronter::validate_transfer_encoding(&parts.headers).map_err(io::Error::other)?;
+    let url = request_url(scheme, host, port, &parts.uri.to_string());
+    if parts.method == ::http::Method::OPTIONS {
+        read_body(incoming, MAX_REQUEST_BODY_BYTES).await?;
+        return local_options_response(&parts.headers, &url);
+    }
     let headers = parts
         .headers
         .iter()
@@ -70,10 +76,6 @@ async fn handle_request(
         })
         .collect::<io::Result<Vec<_>>>()?;
     let body = read_body(incoming, MAX_REQUEST_BODY_BYTES).await?;
-    if parts.method == ::http::Method::OPTIONS {
-        return local_options_response(&parts.headers, host);
-    }
-    let url = request_url(scheme, host, port, &parts.uri.to_string());
     Ok(relay.relay(parts.method.as_str(), &url, &headers, &body).await)
 }
 
@@ -98,12 +100,20 @@ async fn read_body(mut body: Incoming, limit: usize) -> io::Result<Vec<u8>> {
     Ok(result)
 }
 
-fn local_options_response(headers: &::http::HeaderMap, host: &str) -> io::Result<RelayResponse> {
+fn local_options_response(headers: &::http::HeaderMap, target_url: &str) -> io::Result<RelayResponse> {
     let mut response = ::http::Response::new(Full::new(Bytes::new()));
     let (Some(origin), Some(method)) = (headers.get("origin"), headers.get("access-control-request-method")) else {
         *response.status_mut() = ::http::StatusCode::NOT_IMPLEMENTED;
         return Ok(response);
     };
+    let parsed_origin =
+        if headers.get_all("origin").iter().count() == 1 { origin.to_str().ok().and_then(parse_origin) } else { None };
+    let Some(parsed_origin) = parsed_origin else {
+        *response.status_mut() = ::http::StatusCode::BAD_REQUEST;
+        return Ok(response);
+    };
+    let allow_credentials =
+        Url::parse(target_url).ok().is_some_and(|target| same_credential_site(&parsed_origin, &target));
     *response.status_mut() = ::http::StatusCode::NO_CONTENT;
     let output = response.headers_mut();
     output.insert("access-control-allow-origin", origin.clone());
@@ -113,7 +123,7 @@ fn local_options_response(headers: &::http::HeaderMap, host: &str) -> io::Result
     if let Some(value) = headers.get("access-control-request-headers") {
         output.insert("access-control-allow-headers", value.clone());
     }
-    if origin.to_str().ok().and_then(origin_host).is_some_and(|origin| site_key(&origin) == site_key(host)) {
+    if allow_credentials {
         output.insert("access-control-allow-credentials", ::http::HeaderValue::from_static("true"));
     }
     Ok(response)
@@ -135,38 +145,52 @@ fn request_url(scheme: &str, host: &str, port: u16, path: &str) -> String {
     if port == default_port { format!("{scheme}://{host}{path}") } else { format!("{scheme}://{host}:{port}{path}") }
 }
 
-/// Host of a serialized origin such as `https://www.example.com:8443`.
-fn origin_host(origin: &str) -> Option<String> {
-    let authority = origin.split_once("://")?.1;
-    let host = match authority.strip_prefix('[') {
-        Some(bracketed) => bracketed.split_once(']')?.0,
-        None => authority.split(':').next()?,
-    };
-    (!host.is_empty()).then(|| host.to_ascii_lowercase())
+/// Parse a serialized HTTP origin without URL repair of forbidden components.
+fn parse_origin(value: &str) -> Option<Url> {
+    let (_, authority) = value.split_once("://")?;
+    if value.chars().any(|character| character.is_control() || character.is_whitespace())
+        || authority.is_empty()
+        || authority.ends_with(':')
+        || authority.chars().any(|character| matches!(character, '/' | '\\' | '?' | '#' | '@'))
+    {
+        return None;
+    }
+    let origin = Url::parse(value).ok()?;
+    if !matches!(origin.scheme(), "http" | "https") || !origin.has_host() {
+        return None;
+    }
+    Some(origin)
 }
 
-/// Second-level labels that country-code registries use as public suffixes
-/// (`co.uk`, `com.au`, `ne.jp`, `gob.mx`). Other short labels under a
-/// two-letter TLD (`ya.ru`, `x.ai`, `fly.io`) are registrable domains.
-const COUNTRY_SECOND_LEVEL_SUFFIXES: &[&str] = &[
-    "ac", "ad", "co", "com", "ed", "edu", "go", "gob", "gouv", "gov", "gr", "int", "lg", "ltd", "mil", "ne", "net",
-    "nic", "nom", "or", "org", "plc", "sch",
-];
-
-/// Approximate registrable domain: the last two labels, or three under a
-/// two-letter country code with a known public second level (`example.co.uk`).
-// shortcut: no public suffix list, so private suffixes such as github.io count as one site; use a PSL if one is bundled.
-fn site_key(host: &str) -> String {
-    let host = host.trim_end_matches('.').to_ascii_lowercase();
-    if host.parse::<std::net::IpAddr>().is_ok() {
-        return host;
+/// Apply the approved credential policy after parsing both origins.
+fn same_credential_site(origin: &Url, target: &Url) -> bool {
+    if origin.scheme() != target.scheme() || origin.port_or_known_default() != target.port_or_known_default() {
+        return false;
     }
-    let labels: Vec<&str> = host.split('.').collect();
-    let country_second_level = labels.len() >= 3
-        && labels[labels.len() - 1].len() == 2
-        && COUNTRY_SECOND_LEVEL_SUFFIXES.contains(&labels[labels.len() - 2]);
-    let keep = if country_second_level { 3 } else { 2 };
-    labels[labels.len().saturating_sub(keep)..].join(".")
+    match (origin.host(), target.host()) {
+        (Some(Host::Ipv4(left)), Some(Host::Ipv4(right))) => left == right,
+        (Some(Host::Ipv6(left)), Some(Host::Ipv6(right))) => left == right,
+        (Some(Host::Domain(left)), Some(Host::Domain(right))) => {
+            let left = left.trim_end_matches('.');
+            let right = right.trim_end_matches('.');
+            if left == right {
+                return true;
+            }
+            if left == "localhost"
+                || right == "localhost"
+                || left.ends_with(".localhost")
+                || right.ends_with(".localhost")
+            {
+                return false;
+            }
+            site_key(left) == site_key(right)
+        }
+        _ => false,
+    }
+}
+
+fn site_key(host: &str) -> &str {
+    psl::domain_str(host).unwrap_or(host)
 }
 
 const HTTP_METHOD_TOKENS: [&str; 9] =
@@ -182,190 +206,4 @@ pub(crate) fn is_http_method_prefix(bytes: &[u8]) -> bool {
 }
 
 #[cfg(test)]
-mod tests {
-    use super::*;
-    use tokio::io::{AsyncReadExt, AsyncWriteExt, duplex};
-
-    /// # Cancel safety:
-    /// cancel-safe: the test owns both endpoints and the server future.
-    async fn local_response(request: &str, host: &str) -> String {
-        let config = crate::AppsScriptRuntimeConfig::from_json(r#"{"scriptIds":["script-id"],"authKey":"secret"}"#)
-            .expect("config");
-        let telemetry = Arc::new(crate::telemetry::RelayTelemetryState::new(&config));
-        let relay = AppsScriptDomainFronter::new(&config, telemetry.clone());
-        let (mut client, server) = duplex(4096);
-        let request = request.replacen("HTTP/1.1\r\n", "HTTP/1.1\r\nConnection: close\r\n", 1);
-        let client_job = async {
-            client.write_all(request.as_bytes()).await.expect("request");
-            let mut response = String::new();
-            client.read_to_string(&mut response).await.expect("response");
-            response
-        };
-        let (response, result) = tokio::join!(client_job, serve(server, host, 443, "https", &relay, &telemetry));
-        result.expect("serve");
-        response
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    /// # Cancel safety:
-    /// cancel-safe: the helper drops both transport ends with its server future.
-    async fn cross_site_preflight_is_not_approved_with_credentials() {
-        let response = local_response(
-            "OPTIONS /x HTTP/1.1\r\nOrigin: https://evil.example\r\naccess-control-request-Method: PUT\r\n\r\n",
-            "api.victim.example",
-        )
-        .await;
-        assert!(response.starts_with("HTTP/1.1 204 "), "{response}");
-        assert!(response.contains("access-control-allow-origin: https://evil.example\r\n"), "{response}");
-        assert!(!response.contains("access-control-allow-credentials"), "{response}");
-        assert!(!response.contains("content-length"), "RFC 9110 8.6: no content-length on 204: {response}");
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    /// # Cancel safety:
-    /// cancel-safe: the helper drops both transport ends with its server future.
-    async fn same_site_preflight_keeps_credentials() {
-        let response = local_response(
-            "OPTIONS /x HTTP/1.1\r\nOrigin: https://www.example.co.uk\r\naccess-control-request-Method: PUT\r\n\r\n",
-            "api.example.co.uk",
-        )
-        .await;
-        assert!(response.contains("access-control-allow-credentials: true\r\n"), "{response}");
-
-        let other_site = local_response(
-            "OPTIONS /x HTTP/1.1\r\nOrigin: https://evil.co.uk\r\naccess-control-request-Method: PUT\r\n\r\n",
-            "victim.co.uk",
-        )
-        .await;
-        assert!(!other_site.contains("access-control-allow-credentials"), "{other_site}");
-    }
-
-    #[test]
-    fn short_registrable_domains_under_two_letter_tlds_stay_one_site() {
-        for (origin, target) in [
-            ("music.ya.ru", "api.ya.ru"),
-            ("m.ok.ru", "api.ok.ru"),
-            ("www.vc.ru", "api.vc.ru"),
-            ("www.gmx.de", "api.gmx.de"),
-            ("console.x.ai", "api.x.ai"),
-            ("app.fly.io", "api.fly.io"),
-            ("www.example.co.uk", "api.example.co.uk"),
-            ("www.city.go.jp", "api.city.go.jp"),
-        ] {
-            assert_eq!(site_key(origin), site_key(target), "{origin} and {target} share a site");
-        }
-        for (origin, target) in
-            [("a.co.uk", "b.co.uk"), ("a.com.au", "b.com.au"), ("a.ne.jp", "b.ne.jp"), ("a.gob.mx", "b.gob.mx")]
-        {
-            assert_ne!(site_key(origin), site_key(target), "{origin} and {target} are different sites");
-        }
-    }
-
-    #[tokio::test(flavor = "current_thread")]
-    /// # Cancel safety:
-    /// cancel-safe: the helper drops both transport ends with its server future.
-    async fn options_without_preflight_headers_is_not_faked() {
-        let response = local_response("OPTIONS * HTTP/1.1\r\nHost: dav.example\r\n\r\n", "dav.example").await;
-        assert!(response.starts_with("HTTP/1.1 501 "), "{response}");
-        assert!(!response.contains("access-control-"), "{response}");
-    }
-
-    #[test]
-    fn ipv6_targets_are_bracketed_in_the_relayed_url() {
-        assert_eq!(request_url("http", "2001:db8::1", 80, "/a"), "http://[2001:db8::1]/a");
-        assert_eq!(request_url("https", "2001:db8::1", 8443, "/a"), "https://[2001:db8::1]:8443/a");
-        assert_eq!(request_url("https", "example.com", 443, "/a"), "https://example.com/a");
-        assert_eq!(request_url("http", "192.0.2.1", 8080, "/a"), "http://192.0.2.1:8080/a");
-    }
-
-    /// # Cancel safety:
-    /// cancel-safe: both endpoints and the server are scoped to the test.
-    #[tokio::test]
-    async fn ambiguous_request_is_normalized_and_closes_before_pipeline() {
-        let config =
-            crate::AppsScriptRuntimeConfig::from_json(r#"{"scriptIds":["script-id"],"authKey":"secret"}"#).unwrap();
-        let telemetry = Arc::new(crate::telemetry::RelayTelemetryState::new(&config));
-        let relay = AppsScriptDomainFronter::new(&config, telemetry.clone());
-        let (mut client, server) = duplex(4096);
-        let client_job = async {
-            client.write_all(b"OPTIONS /one HTTP/1.1\r\nHost: local\r\nTransfer-Encoding: chunked\r\nContent-Length: 999\r\nOrigin: https://local\r\nAccess-Control-Request-Method: GET\r\n\r\n3\r\nabc\r\n0\r\n\r\nOPTIONS /two HTTP/1.1\r\nHost: local\r\n\r\n").await.unwrap();
-            let mut response = String::new();
-            client.read_to_string(&mut response).await.unwrap();
-            response
-        };
-        let (response, result) = tokio::join!(client_job, serve(server, "local", 80, "http", &relay, &telemetry));
-        result.unwrap();
-        assert_eq!(response.matches("HTTP/1.1").count(), 1, "{response}");
-        assert!(response.starts_with("HTTP/1.1 204 "), "{response}");
-        assert!(response.contains("connection: close"), "{response}");
-    }
-
-    /// # Cancel safety:
-    /// cancel-safe: all transport state and futures are scoped to this helper.
-    async fn wire_exchange(wire: &[u8]) -> (String, io::Result<()>) {
-        let config =
-            crate::AppsScriptRuntimeConfig::from_json(r#"{"scriptIds":["script-id"],"authKey":"secret"}"#).unwrap();
-        let telemetry = Arc::new(crate::telemetry::RelayTelemetryState::new(&config));
-        let relay = AppsScriptDomainFronter::new(&config, telemetry.clone());
-        let (mut client, server) = duplex(4096);
-        let client_job = async {
-            client.write_all(wire).await.unwrap();
-            let mut response = String::new();
-            client.read_to_string(&mut response).await.unwrap();
-            response
-        };
-        tokio::time::timeout(Duration::from_secs(3), async {
-            tokio::join!(client_job, serve(server, "local", 80, "http", &relay, &telemetry))
-        })
-        .await
-        .expect("connection ends")
-    }
-
-    /// # Cancel safety:
-    /// cancel-safe: every exchange owns its transports.
-    #[tokio::test]
-    async fn chunked_extensions_trailers_and_pipeline_keep_boundaries() {
-        let (response, result) = wire_exchange(b"OPTIONS /one HTTP/1.1\r\nHost: local\r\nTransfer-Encoding: chunked\r\n\r\n3;ext=yes\r\nabc\r\n0\r\nX-Trailer: yes\r\n\r\nOPTIONS /two HTTP/1.1\r\nHost: local\r\nConnection: close\r\nContent-Length: 3\r\n\r\nxyz").await;
-        result.unwrap();
-        assert_eq!(response.matches("HTTP/1.1 501 ").count(), 2, "{response}");
-    }
-
-    /// # Cancel safety:
-    /// cancel-safe: every exchange owns its transports.
-    #[tokio::test]
-    async fn malformed_chunks_and_conflicting_lengths_never_dispatch() {
-        for wire in [
-            &b"OPTIONS / HTTP/1.1\r\nHost: local\r\nConnection: close\r\nTransfer-Encoding: gzip, chunked\r\n\r\n1\r\nA\r\n0\r\n\r\n"[..],
-            &b"OPTIONS / HTTP/1.1\r\nHost: local\r\nConnection: close\r\nTransfer-Encoding: chunked\r\n\r\n1\r\nAX0\r\n\r\n"[..],
-            b"OPTIONS / HTTP/1.1\r\nHost: local\r\nConnection: close\r\nContent-Length: 1\r\nContent-Length: 2\r\n\r\nAX",
-            b"OPTIONS / HTTP/1.1\r\nHost: local\r\nConnection: close\r\nContent-Length: 16777217\r\n\r\n",
-        ] {
-            let (response, result) = wire_exchange(wire).await;
-            assert!(result.is_err() || response.starts_with("HTTP/1.1 400 "));
-            assert!(!response.contains("501"), "{response}");
-        }
-    }
-
-    /// # Cancel safety:
-    /// cancel-safe: both endpoints and futures are scoped to this test.
-    #[tokio::test]
-    async fn expect_continue_precedes_body_and_final_response() {
-        let config =
-            crate::AppsScriptRuntimeConfig::from_json(r#"{"scriptIds":["script-id"],"authKey":"secret"}"#).unwrap();
-        let telemetry = Arc::new(crate::telemetry::RelayTelemetryState::new(&config));
-        let relay = AppsScriptDomainFronter::new(&config, telemetry.clone());
-        let (mut client, server) = duplex(4096);
-        let client_job = async {
-            client.write_all(b"OPTIONS / HTTP/1.1\r\nHost: local\r\nConnection: close\r\nExpect: 100-continue\r\nContent-Length: 3\r\n\r\n").await.unwrap();
-            let mut interim = [0; 25];
-            client.read_exact(&mut interim).await.unwrap();
-            assert_eq!(&interim, b"HTTP/1.1 100 Continue\r\n\r\n");
-            client.write_all(b"abc").await.unwrap();
-            let mut response = String::new();
-            client.read_to_string(&mut response).await.unwrap();
-            assert!(response.starts_with("HTTP/1.1 501 "), "{response}");
-        };
-        let ((), result) = tokio::join!(client_job, serve(server, "local", 80, "http", &relay, &telemetry));
-        result.unwrap();
-    }
-}
+mod tests;
