@@ -33,7 +33,7 @@ pub fn parse_socks5_request(
             if !config.resolve {
                 return Err(SessionError::socks5(S_ER_ATP));
             }
-            if name_len < 3 {
+            if name_len == 0 {
                 return Err(SessionError::socks5(S_ER_HOST));
             }
             let domain = std::str::from_utf8(&buffer[5..5 + name_len]).map_err(|_| SessionError::socks5(S_ER_HOST))?;
@@ -225,14 +225,28 @@ mod tests {
     }
 
     #[test]
-    fn parse_socks5_request_domain_too_short() {
-        let mut request = vec![S_VER5, S_CMD_CONN, 0, S_ATP_ID, 2];
-        request.extend_from_slice(b"ab");
+    fn parse_socks5_request_empty_domain() {
+        let mut request = vec![S_VER5, S_CMD_CONN, 0, S_ATP_ID, 0];
         request.extend_from_slice(&443u16.to_be_bytes());
 
         let result = parse_socks5_request(&request, SocketType::Stream, SessionConfig::default(), &resolver);
         assert!(result.is_err());
         assert_eq!(result.unwrap_err().code, S_ER_HOST);
+    }
+
+    #[test]
+    fn parse_socks5_request_accepts_short_absolute_domain() {
+        let request = [5, 1, 0, 3, 2, b'a', b'.', 0x01, 0xbb];
+        let resolver = |host: &str, _: SocketType| (host == "a.").then_some(SocketAddr::from(([127, 0, 0, 1], 0)));
+        let parsed = parse_socks5_request(&request, SocketType::Stream, SessionConfig::default(), &resolver)
+            .expect("short absolute domain");
+        assert_eq!(
+            parsed,
+            ClientRequest::Socks5Connect(TargetAddr {
+                addr: SocketAddr::from(([127, 0, 0, 1], 443)),
+                host: Some("a.".to_string()),
+            })
+        );
     }
 
     #[test]
