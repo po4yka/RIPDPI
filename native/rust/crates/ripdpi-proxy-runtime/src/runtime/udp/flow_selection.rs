@@ -80,6 +80,12 @@ pub(super) fn ensure_udp_flow_selected(
     running: &Arc<AtomicBool>,
 ) -> io::Result<bool> {
     let flow_key = packet.flow_key();
+    if flow_state
+        .get(&flow_key)
+        .is_some_and(|entry| entry.upstream_socks.as_ref().is_some_and(|control| !control.is_open()))
+    {
+        flow_state.remove(&flow_key);
+    }
     if udp_flow_at_capacity(flow_state, &flow_key, flow_limit) {
         tracing::warn!(
             client = %packet.sender,

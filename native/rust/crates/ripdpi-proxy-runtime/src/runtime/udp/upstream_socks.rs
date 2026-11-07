@@ -14,11 +14,18 @@ use crate::runtime::state::RuntimeState;
 ///
 /// Per RFC 1928 the UDP relay binding stays valid only while the control TCP
 /// connection that requested the ASSOCIATE is open; the server tears the relay
-/// down when this stream is dropped. The flow therefore owns `_control` for its
-/// entire lifetime and never reads/writes it again after the handshake.
+/// down when this stream closes. The flow retains and probes `_control` before
+/// forwarding more datagrams.
 pub(super) struct UpstreamUdpSocks {
     _control: TcpStream,
     pub(super) relay_endpoint: SocketAddr,
+}
+
+impl UpstreamUdpSocks {
+    pub(super) fn is_open(&self) -> bool {
+        // The control channel has no payload after ASSOCIATE; data or EOF invalidates it.
+        matches!(self._control.peek(&mut [0; 1]), Err(error) if error.kind() == io::ErrorKind::WouldBlock)
+    }
 }
 
 /// Open a protected control TCP connection to the upstream SOCKS5 server and run
@@ -60,6 +67,7 @@ pub(super) fn open_upstream_udp_associate(
 
     control.set_read_timeout(None)?;
     control.set_write_timeout(None)?;
+    control.set_nonblocking(true)?;
     Ok(UpstreamUdpSocks { _control: control, relay_endpoint })
 }
 

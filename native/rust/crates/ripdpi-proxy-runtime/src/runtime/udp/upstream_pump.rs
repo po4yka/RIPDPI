@@ -40,6 +40,10 @@ pub(super) fn pump_udp_upstream_responses(
         let Some(entry) = flow_state.get_mut(&key) else {
             continue;
         };
+        if ensure_udp_flow_active(state, entry).is_err() {
+            flow_state.remove(&key);
+            continue;
+        }
         match entry.upstream.recv(upstream_buffer) {
             Ok(n) => {
                 made_progress = true;
@@ -71,6 +75,10 @@ pub(super) fn pump_udp_upstream_responses(
                     );
                 } else {
                     RuntimeState::encode_socks5_udp_packet_into(encode_buffer, entry.logical_target, response);
+                }
+                if ensure_udp_flow_active(state, entry).is_err() {
+                    flow_state.remove(&key);
+                    continue;
                 }
                 // A full client socket buffer drops this datagram, as UDP may. So does a
                 // datagram that no longer fits once the SOCKS5 header is added (EMSGSIZE).
@@ -173,6 +181,7 @@ pub(super) fn send_udp_flow_payload(
     now: Instant,
     protect_path: Option<&str>,
 ) -> io::Result<()> {
+    ensure_udp_flow_active(state, entry)?;
     entry.last_used = now;
     entry.payload.clear();
     entry.payload.extend_from_slice(payload);
@@ -182,6 +191,7 @@ pub(super) fn send_udp_flow_payload(
         && let Some(plan) =
             flow.plan(entry.upstream.local_addr()?, entry.current_target, "udp", payload, entry.host.as_deref(), None)?
     {
+        ensure_udp_flow_active(state, entry)?;
         let outcome = RuntimeState::execute_lua_udp_plan(
             &entry.upstream,
             entry.current_target,
@@ -201,6 +211,7 @@ pub(super) fn send_udp_flow_payload(
         entry.current_target,
         entry.packet_settings.default_ttl,
     )?;
+    ensure_udp_flow_active(state, entry)?;
     let outcome = match RuntimeState::execute_udp_desync_actions(
         &entry.upstream,
         entry.current_target,
@@ -223,3 +234,14 @@ pub(super) fn send_udp_flow_payload(
     state.record_udp_desync_execution_evidence(entry.attempt_token.as_ref(), entry.execution_family, outcome);
     Ok(())
 }
+
+fn ensure_udp_flow_active(state: &RuntimeState, entry: &UdpFlowActivationState) -> io::Result<()> {
+    if !entry.is_active(state) {
+        return Err(io::Error::new(io::ErrorKind::ConnectionAborted, "UDP association control closed"));
+    }
+    Ok(())
+}
+
+#[cfg(all(test, not(feature = "loom")))]
+#[path = "upstream_pump/control_lifetime_tests.rs"]
+mod control_lifetime_tests;

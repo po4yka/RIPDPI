@@ -3,7 +3,7 @@ use std::io;
 use std::net::{SocketAddr, UdpSocket};
 use std::time::Instant;
 
-use crate::sync::{Arc, AtomicBool};
+use crate::sync::{Arc, AtomicBool, Ordering};
 
 use super::feedback::note_udp_flow_timeout_failure;
 use super::flow_selection::try_advance_udp_preferred_target;
@@ -67,6 +67,12 @@ impl UdpFlowActivationState {
     pub(super) fn socks_framed(&self) -> bool {
         self.upstream_socks.is_some()
     }
+
+    pub(super) fn is_active(&self, state: &RuntimeState) -> bool {
+        self.running.load(Ordering::Relaxed)
+            && !state.shutdown_requested()
+            && self.upstream_socks.as_ref().is_none_or(super::upstream_socks::UpstreamUdpSocks::is_open)
+    }
 }
 
 #[derive(Debug, Default)]
@@ -115,7 +121,7 @@ pub(super) fn expire_udp_flows(
         let Some(mut entry) = flow_state.remove(key) else {
             continue;
         };
-        if !entry.awaiting_response {
+        if !entry.is_active(state) || !entry.awaiting_response {
             continue;
         }
         if try_advance_udp_preferred_target(state, protect_path, &mut entry, now)? {
@@ -140,6 +146,9 @@ pub(super) fn retire_failed_udp_flow(
     let Some(mut entry) = flow_state.remove(key) else {
         return Ok(());
     };
+    if !entry.is_active(state) {
+        return Ok(());
+    }
     if try_advance_udp_preferred_target(state, protect_path, &mut entry, now)? {
         flow_state.insert(key.clone(), entry);
         return Ok(());

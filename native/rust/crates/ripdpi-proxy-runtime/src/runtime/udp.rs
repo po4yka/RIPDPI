@@ -85,6 +85,8 @@ pub(super) fn udp_associate_loop(
 
     while running.load(Ordering::Relaxed) && !state.shutdown_requested() {
         emit_due_direct_path_learning_timeouts(&state)?;
+        flow_state
+            .retain(|_, entry| entry.upstream_socks.as_ref().is_none_or(upstream_socks::UpstreamUdpSocks::is_open));
         let now = Instant::now();
         if expiry_schedule.is_due(now) {
             expire_udp_flows(&state, &mut flow_state, protect_path.as_deref(), now, &mut expired_flow_keys)?;
