@@ -516,6 +516,23 @@ mod tests {
         }
     }
 
+    #[test]
+    fn udp_uplink_transport_failures_remain_fatal() {
+        let telemetry = FakeSocksTelemetry::default();
+        for kind in [io::ErrorKind::PermissionDenied, io::ErrorKind::BrokenPipe, io::ErrorKind::TimedOut] {
+            let mut reason = "active";
+            assert!(uplink_send_is_fatal(&io::Error::from(kind), 10, false, &telemetry, &mut reason));
+        }
+        let mut reason = "active";
+        assert!(!uplink_send_is_fatal(
+            &io::Error::from(io::ErrorKind::InvalidInput),
+            10,
+            false,
+            &telemetry,
+            &mut reason
+        ));
+    }
+
     fn silent_session_config(udp_idle: Duration) -> SocksSessionConfig {
         SocksSessionConfig {
             local_socks_host: "127.0.0.1".to_string(),

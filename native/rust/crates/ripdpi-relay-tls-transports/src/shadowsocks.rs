@@ -152,7 +152,15 @@ impl ShadowsocksUdpSession {
     pub async fn send_to(&mut self, target: &str, payload: &[u8]) -> io::Result<()> {
         let address = target_address(target)?;
         let control = self.association.next_control()?;
-        self.socket.send_with_ctrl(&address, &control, payload).await.map_err(io::Error::from)?;
+        self.socket.send_with_ctrl(&address, &control, payload).await.map_err(|error| {
+            let error = io::Error::from(error);
+            // Encryption includes address and identity overhead; the OS decides what fits.
+            if error.raw_os_error() == Some(libc::EMSGSIZE) {
+                io::Error::new(io::ErrorKind::InvalidInput, error)
+            } else {
+                error
+            }
+        })?;
         Ok(())
     }
 

@@ -6419,6 +6419,7 @@ dependencies = [
 name = "ripdpi-relay-tls-transports"
 version = "0.1.0"
 dependencies = [
+ "libc",
  "rand 0.10.3",
  "ripdpi-anytls",
  "ripdpi-mieru",
