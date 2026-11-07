@@ -23,6 +23,7 @@ tokio = { workspace = true, features = ["io-util", "macros", "net", "rt-multi-th
 tokio-rustls.workspace = true
 tracing.workspace = true
 webpki-roots.workspace = true
+url = { workspace = true }
 
 [dev-dependencies]
 ripdpi-packets = { workspace = true }

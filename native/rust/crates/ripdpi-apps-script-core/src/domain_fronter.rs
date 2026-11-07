@@ -188,6 +188,7 @@ impl AppsScriptDomainFronter {
             .await
             .map_err(|error| AttemptError { error, sent: false, deployment_fault: false })?;
         let path = format!("/macros/s/{script_id}/exec");
+        let initial_url = format!("https://{HTTP_HOST}{path}");
 
         // A request that failed while being written may still have reached Apps Script.
         let exchange = async {
@@ -198,7 +199,7 @@ impl AppsScriptDomainFronter {
                 .map_err(|error| FronterError::BadResponse(error.to_string()))?;
             let request = async {
                 let response = http::send_post(&mut sender, &path, HTTP_HOST, payload).await?;
-                redirect::follow(&mut sender, response, HTTP_HOST).await
+                redirect::follow(&mut sender, response, &initial_url).await
             };
             tokio::pin!(request);
             tokio::pin!(connection);

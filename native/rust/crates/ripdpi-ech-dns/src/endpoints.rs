@@ -41,12 +41,29 @@ mod tests {
         assert_eq!(parse_url_host("https://dns.google/dns-query"), Some("dns.google".to_string()));
         assert_eq!(parse_url_host("https://user@host.example:443/path"), Some("host.example".to_string()));
         assert_eq!(parse_url_host("https://[::1]:443/path"), Some("::1".to_string()));
+        assert_eq!(parse_url_host("https://[2001:db8::1]:8443?token=x"), Some("2001:db8::1".to_string()));
+    }
+
+    #[test]
+    fn query_only_absolute_url_keeps_query_out_of_host() {
+        assert_eq!(parse_url_host("https://dns.example?token=x"), Some("dns.example".to_string()));
     }
 
     #[test]
     fn parse_url_host_returns_none_for_invalid() {
         assert_eq!(parse_url_host("no-scheme"), None);
         assert_eq!(parse_url_host("https:///path"), None);
+        for value in [
+            "file://host.example/path",
+            "mailto:user@example.com",
+            "https://host.example:invalid/path",
+            "https://host.example:65536/path",
+            "https://[invalid]/path",
+            "https://host.example\\path",
+            "https://host\n.example/path",
+        ] {
+            assert_eq!(parse_url_host(value), None);
+        }
     }
 
     #[test]
@@ -180,6 +197,45 @@ mod tests {
         target.encrypted_resolver_id = Some("cloudflare".to_string());
         let (endpoint, _) = encrypted_dns_endpoint_for_target(&target).expect("overridden endpoint");
         assert!(endpoint.bootstrap_ips.is_empty());
+    }
+
+    #[test]
+    fn endpoint_validates_doh_url_and_preserves_explicit_port() {
+        let mut target = DnsTarget {
+            domain: "example.com".to_string(),
+            udp_server: None,
+            encrypted_resolver_id: Some("custom".to_string()),
+            encrypted_protocol: Some("doh".to_string()),
+            encrypted_host: None,
+            encrypted_port: Some(8443),
+            encrypted_tls_server_name: None,
+            encrypted_bootstrap_ips: Vec::new(),
+            encrypted_doh_url: Some("https://dns.example:8443?token=x".to_string()),
+            encrypted_dnscrypt_provider_name: None,
+            encrypted_dnscrypt_public_key: None,
+            expected_ips: Vec::new(),
+        };
+        let (endpoint, bootstrap) = encrypted_dns_endpoint_for_target(&target).expect("custom DoH endpoint");
+        assert_eq!(endpoint.host, "dns.example");
+        assert_eq!(endpoint.port, 8443);
+        assert_eq!(endpoint.doh_url.as_deref(), Some("https://dns.example:8443?token=x"));
+        assert!(bootstrap.is_empty());
+        target.encrypted_port = None;
+        assert_eq!(encrypted_dns_endpoint_for_target(&target).expect("default port").0.port, 443);
+        for host in [None, Some("explicit.example".to_string())] {
+            target.encrypted_host = host;
+            for url in [
+                "",
+                "https:///path?token=secret-value",
+                "https://dns.example:invalid/?token=secret-value",
+                "file:///tmp/private?token=secret-value",
+            ] {
+                target.encrypted_doh_url = Some(url.to_string());
+                let error = encrypted_dns_endpoint_for_target(&target).expect_err("invalid DoH endpoint");
+                assert_eq!(error, "invalid_doh_url");
+                assert!(!error.contains("secret-value"));
+            }
+        }
     }
 
     #[test]

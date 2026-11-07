@@ -34,6 +34,13 @@ The owning writer updates all callers and tests in this slice. Prerequisites: No
 - Cancellation and persistence can lose resources or state: exercise the stated failure case, not only round trips.
 - Dependency changes can affect size, licensing, and Android support: review actual direct and transitive edges before adoption. No baseline relaxation or unrelated compatibility layer is permitted.
 
+## Implementation decisions
+
+- Keep encrypted_port precedence over the protocol default. A URL port does not change that existing endpoint contract. Redirect Host headers retain the URL port and IPv6 brackets.
+- Keep ECH host parsing support for URL user information and unbracketed IPv6 endpoint hosts. Reject malformed raw authorities, backslashes, and control characters before WHATWG normalization.
+- Reject user information in redirect targets with a fixed redacted error. Do not send credentials in Host or query diagnostics.
+- Validate DoH URLs even when an explicit endpoint host is set. Do not add validation of unused DoH fields to other DNS protocols.
+
 ## Migration Plan
 
 First reproduce the specified uncovered behavior or establish a passing contract baseline for mechanical cases. Then replace only the owning infrastructure, keep existing stored and wire formats, and run the gates below. No persisted-data or schema migration is planned. If that assumption fails, revise this plan before editing that contract. Roll back the owning implementation commit if required, without deleting user data.

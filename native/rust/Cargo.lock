@@ -5638,6 +5638,7 @@ dependencies = [
  "tokio",
  "tokio-rustls",
  "tracing",
+ "url",
  "webpki-roots",
 ]
 
@@ -5973,6 +5974,7 @@ dependencies = [
  "ripdpi-diagnostics-transport",
  "ripdpi-dns-resolver",
  "ripdpi-tls-profiles",
+ "url",
 ]
 
 [[package]]

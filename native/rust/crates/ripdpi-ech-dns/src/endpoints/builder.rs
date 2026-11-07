@@ -12,16 +12,18 @@ pub fn encrypted_dns_endpoint_for_target(target: &DnsTarget) -> Result<(Encrypte
         .encrypted_doh_url
         .clone()
         .or_else(|| (protocol == EncryptedDnsProtocol::Doh).then(|| DEFAULT_DOH_URL.to_string()));
-    let host =
-        target.encrypted_host.clone().or_else(|| doh_url.as_deref().and_then(parse_url_host)).unwrap_or_else(|| {
-            if protocol == EncryptedDnsProtocol::Doh { DEFAULT_DOH_HOST.to_string() } else { String::new() }
-        });
+    let url_host = doh_url.as_deref().and_then(parse_url_host);
+    if protocol == EncryptedDnsProtocol::Doh && url_host.is_none() {
+        return Err("invalid_doh_url".to_string());
+    }
+    let host = target.encrypted_host.clone().or(url_host.clone()).unwrap_or_else(|| {
+        if protocol == EncryptedDnsProtocol::Doh { DEFAULT_DOH_HOST.to_string() } else { String::new() }
+    });
     let resolver_id = target.encrypted_resolver_id.as_deref().unwrap_or("adguard");
     let catalog = resolver_catalog_entry(resolver_id);
     let catalog_matches = resolver_id == catalog.resolver_id
         && host.eq_ignore_ascii_case(catalog.host)
-        && (protocol != EncryptedDnsProtocol::Doh
-            || doh_url.as_deref().and_then(parse_url_host) == parse_url_host(catalog.doh_url));
+        && (protocol != EncryptedDnsProtocol::Doh || url_host == parse_url_host(catalog.doh_url));
     let bootstrap_strings = if !target.encrypted_bootstrap_ips.is_empty() {
         target.encrypted_bootstrap_ips.clone()
     } else if catalog_matches {
