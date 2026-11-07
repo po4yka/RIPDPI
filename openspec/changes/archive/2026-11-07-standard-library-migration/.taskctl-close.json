@@ -1,0 +1,11 @@
+{
+  "change": "standard-library-migration",
+  "evidence_summary": "All15 confirmed children are done, individually committed and locally verified. Acceptance commit ac091cfa5 records implementation SHAs, execution/dependency ancestry, observed gates and material limits.",
+  "execution_sha256": "ac92b7ed25237064f0f5c2082aeb2f76a29745291f22b20510be2f6aa334dc56",
+  "issue_sha256": "2db4ce60637d100fa0b0a90b6ae94c5f992ea3e6889e3e6038a82dc80b5e63d5",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T12:06:20Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "EPC-1794036260770217"
+}

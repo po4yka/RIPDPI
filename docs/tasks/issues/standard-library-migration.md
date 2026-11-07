@@ -2,7 +2,7 @@
 id: EPC-1794036260770217
 title: Replace confirmed custom infrastructure with standard components
 kind: epic
-status: review
+status: done
 area: epic
 priority: high
 owner: Standard-library migration
@@ -13,6 +13,9 @@ openspec_change: standard-library-migration
 created: 2026-11-07
 updated: 2026-11-07
 status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
+closed_at: "2026-11-07T12:06:20Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: All15 confirmed children are done, individually committed and locally verified. Acceptance commit ac091cfa5 records implementation SHAs, execution/dependency ancestry, observed gates and material limits.
 ---
 
 ## Goal
