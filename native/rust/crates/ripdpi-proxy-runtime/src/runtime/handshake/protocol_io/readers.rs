@@ -180,21 +180,19 @@ fn read_socks5_userpass_auth(
 
     let mut ulen = [0u8; 1];
     read_exact_by(client, &mut ulen, deadline)?;
-    if ulen[0] == 0 {
-        client.write_all(&[0x01, 0x01])?;
-        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "empty socks5 username"));
-    }
     let mut username = vec![0u8; ulen[0] as usize];
     read_exact_by(client, &mut username, deadline)?;
 
     let mut plen = [0u8; 1];
     read_exact_by(client, &mut plen, deadline)?;
-    if plen[0] == 0 {
-        client.write_all(&[0x01, 0x01])?;
-        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "empty socks5 password"));
-    }
     let mut password = vec![0u8; plen[0] as usize];
     read_exact_by(client, &mut password, deadline)?;
+
+    // Drain the bounded auth frame before rejection so close cannot discard the status with an RST.
+    if ulen[0] == 0 || plen[0] == 0 {
+        client.write_all(&[0x01, 0x01])?;
+        return Err(io::Error::new(io::ErrorKind::PermissionDenied, "empty socks5 credentials"));
+    }
 
     if !constant_time_bytes_eq(&password, token.as_bytes()) {
         client.write_all(&[0x01, 0x01])?;
