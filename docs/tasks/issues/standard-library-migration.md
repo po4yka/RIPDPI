@@ -68,3 +68,5 @@ Child records are added below in creation order. Their own records remain the so
 - [DNS-1794036588840800](parse-native-urls-with-url-crate.md): audit 5; priority band 1; Resolve native redirects and DNS endpoints with url.
 
 - [RLY-1794036597359685](separate-cors-sites-with-public-suffix-list.md): audit 6; priority band 1; Separate CORS sites with the Public Suffix List.
+
+- [RLY-1794036606000501](parse-relay-uuids-with-uuid-crate.md): audit 8 (attachment 4); priority band 2; Parse relay UUIDs with the uuid crate.
