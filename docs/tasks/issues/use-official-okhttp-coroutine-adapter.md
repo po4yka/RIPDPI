@@ -2,7 +2,7 @@
 id: DGN-1794036571954184
 title: Use the official OkHttp coroutine adapter
 kind: bug
-status: review
+status: done
 area: diagnostics
 priority: high
 owner: Standard-library migration
@@ -13,6 +13,9 @@ openspec_change: use-official-okhttp-coroutine-adapter
 created: 2026-11-07
 updated: 2026-11-07
 status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
+closed_at: "2026-11-07T08:52:57Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Implementation 4d980024f passed 3728 module tests, dependency resolution, staticAnalysis, ci-gates, and independent correctness and cancellation reviews.
 ---
 
 ## Goal

@@ -1,0 +1,11 @@
+{
+  "change": "use-official-okhttp-coroutine-adapter",
+  "evidence_summary": "Implementation 4d980024f passed 3728 module tests, dependency resolution, staticAnalysis, ci-gates, and independent correctness and cancellation reviews.",
+  "execution_sha256": "271bb2854c7c5337171a3bcf3e51e7d27daa396f4db6346f9c16e37b63711fdb",
+  "issue_sha256": "24cab0c3aa7709321be5881f35377e5ffe98d50779f430590045cae039a2e4bb",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T08:52:57Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "DGN-1794036571954184"
+}

@@ -1,7 +1,7 @@
 ---
 task_id: DGN-1794036571954184
 change: use-official-okhttp-coroutine-adapter
-commit_sha: null
+commit_sha: 4d980024f2cd0ed226b2de65e528a1e830b35ebe
 local: passed
 local_evidence: "Regression first failed in the callback-before-dispatch cancellation window, then passed with the official OkHttp 5.5.1 adapter. Full diagnostics and service unit suites passed: 1663 and 2065 tests, zero failures or skips. Existing real-network cancellation passed with a 2 second cancelAndJoin budget and a 4 second call timeout. dependencyInsight resolved okhttp-coroutines 5.5.1 in both modules. Both app KSP variants, staticAnalysis, and just ci-gates passed. Independent pr-reviewer and cancellation-safety review found no actionable issues. Logs: /tmp/ripdpi-okhttp-red.log, /tmp/ripdpi-okhttp-green.log, /tmp/ripdpi-okhttp-dependency.log, /tmp/ripdpi-okhttp-static.log, /tmp/ripdpi-okhttp-ci.log. The existing Darwin gate skips the Linux-owned runtime-platform API snapshot."
 remote_ci: not_applicable
@@ -27,4 +27,4 @@ deployment_evidence: No deployment is owned by this change.
 
 Regression first failed in the callback-before-dispatch cancellation window, then passed with the official OkHttp 5.5.1 adapter. Full diagnostics and service unit suites passed: 1663 and 2065 tests, zero failures or skips. Existing real-network cancellation passed with a 2 second cancelAndJoin budget and a 4 second call timeout. dependencyInsight resolved okhttp-coroutines 5.5.1 in both modules. Both app KSP variants, staticAnalysis, and just ci-gates passed. Independent pr-reviewer and cancellation-safety review found no actionable issues. Logs: /tmp/ripdpi-okhttp-red.log, /tmp/ripdpi-okhttp-green.log, /tmp/ripdpi-okhttp-dependency.log, /tmp/ripdpi-okhttp-static.log, /tmp/ripdpi-okhttp-ci.log. The existing Darwin gate skips the Linux-owned runtime-platform API snapshot.
 
-The closure commit records the implementation SHA. Local checks do not establish remote CI, device, artifact, or deployment acceptance.
+The exact implementation SHA is recorded above. Local checks do not establish remote CI, device, artifact, or deployment acceptance.

@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-07T08:52:57Z",
+  "change": "use-official-okhttp-coroutine-adapter",
+  "commit_sha": "4d980024f2cd0ed226b2de65e528a1e830b35ebe",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "DGN-1794036571954184"
+}
