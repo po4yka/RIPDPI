@@ -256,6 +256,45 @@ class SingBoxDeepLinkParserTest {
     }
 
     @Test
+    fun `hiddify IPv6 targets preserve query escapes and bootstrap intent`() {
+        val targets =
+            listOf(
+                "https://[2001:db8::1]/sub" to false,
+                "https://[2001:db8::1]:8443/bootstrap/token?escaped=a%2Bb&literal=a+b" to true,
+            )
+        for ((target, bootstrap) in targets) {
+            for (path in listOf(target, enc(target))) {
+                for (prefix in listOf("hiddify://import/", "HiDdIfY://IMPORT/")) {
+                    assertEquals(
+                        SingBoxDeepLinkResult.Success(target, "Fleet+東京", bootstrap),
+                        SingBoxDeepLinkParser.parse("$prefix$path#Fleet%2B東京"),
+                    )
+                }
+            }
+        }
+    }
+
+    @Test
+    fun `hiddify nested targets still reject invalid URLs and percent escapes`() {
+        for (target in listOf(
+            "http://[2001:db8::1]/sub",
+            "https://[not-ipv6]/sub",
+            "https://[2001:db8::1/sub",
+            "https://[2001:db8::1]/sub?token=%ZZ",
+        )) {
+            assertEquals(
+                target,
+                SingBoxDeepLinkResult.Error.BadEncoding,
+                SingBoxDeepLinkParser.parse("hiddify://import/$target#Fleet"),
+            )
+        }
+        assertEquals(
+            SingBoxDeepLinkResult.Error.BadEncoding,
+            SingBoxDeepLinkParser.parse("hiddify://import/https://[2001:db8::1]/sub#bad%ZZ"),
+        )
+    }
+
+    @Test
     fun `a host from another client is unsupported`() {
         assertEquals(
             SingBoxDeepLinkResult.Error.Unsupported,

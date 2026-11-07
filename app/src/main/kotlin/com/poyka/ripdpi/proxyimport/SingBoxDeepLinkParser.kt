@@ -61,6 +61,7 @@ object SingBoxDeepLinkParser {
             "hiddify" to setOf("install-config", HIDDIFY_PATH_IMPORT_HOST),
         )
     private const val HIDDIFY_PATH_IMPORT_HOST = "import"
+    private const val HIDDIFY_PATH_IMPORT_PREFIX = "hiddify://$HIDDIFY_PATH_IMPORT_HOST/"
     private const val BOOTSTRAP_PATH_PREFIX = "/bootstrap/"
 
     /**
@@ -74,14 +75,32 @@ object SingBoxDeepLinkParser {
         val trimmed = deepLink.trim()
         val scheme = trimmed.substringBefore("://", "").lowercase()
         val hosts = SUPPORTED_HOSTS[scheme] ?: return SingBoxDeepLinkResult.Error.Unsupported
-        val parsed = parseImportDeepLinkUri(trimmed) ?: return SingBoxDeepLinkResult.Error.BadEncoding
+        val nestedTarget =
+            trimmed
+                .takeIf { it.startsWith(HIDDIFY_PATH_IMPORT_PREFIX, ignoreCase = true) }
+                ?.substring(HIDDIFY_PATH_IMPORT_PREFIX.length)
+                ?.substringBefore('#')
+        // A nested IPv6 authority must be parsed as a URL, not as an outer URI path.
+        val outerLink =
+            if (nestedTarget == null) {
+                trimmed
+            } else {
+                trimmed.removeRange(
+                    HIDDIFY_PATH_IMPORT_PREFIX.length,
+                    HIDDIFY_PATH_IMPORT_PREFIX.length + nestedTarget.length,
+                )
+            }
+        val parsed = parseImportDeepLinkUri(outerLink) ?: return SingBoxDeepLinkResult.Error.BadEncoding
         val fragment = parsed.fragment.orEmpty()
         val host = parsed.rawAuthority?.lowercase()
         if (host !in hosts) return SingBoxDeepLinkResult.Error.Unsupported
 
         // `hiddify://import/<url>` carries the target URL, with its own query, as the path.
         if (scheme == "hiddify" && host == HIDDIFY_PATH_IMPORT_HOST) {
-            val rawUrl = parsed.rawPath.orEmpty().removePrefix("/") + parsed.rawQuery?.let { "?$it" }.orEmpty()
+            val rawUrl =
+                nestedTarget?.let {
+                    parseImportDeepLinkUri(it)?.toString() ?: return SingBoxDeepLinkResult.Error.BadEncoding
+                } ?: (parsed.rawPath.orEmpty().removePrefix("/") + parsed.rawQuery?.let { "?$it" }.orEmpty())
             val url =
                 (if (rawUrl.contains("://")) rawUrl else decode(rawUrl))
                     ?.takeIf { it.isNotBlank() }
