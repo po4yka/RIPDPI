@@ -12,7 +12,7 @@ pub fn parse_socks5_request(
     config: SessionConfig,
     resolver: &dyn NameResolver,
 ) -> Result<ClientRequest, SessionError> {
-    if buffer.len() < S_SIZE_MIN {
+    if buffer.len() < S_SIZE_MIN || buffer[0] != 0x05 || buffer[2] != 0 {
         return Err(SessionError::socks5(S_ER_GEN));
     }
     let atyp = buffer[3];
@@ -105,6 +105,19 @@ mod tests {
             ("example.com", SocketType::Stream) => Some(SocketAddr::from(([198, 51, 100, 10], 0))),
             ("example.net", SocketType::Datagram) => Some(SocketAddr::from(([198, 51, 100, 20], 0))),
             _ => None,
+        }
+    }
+
+    #[test]
+    fn malformed_header_is_rejected_before_domain_resolution() {
+        for (version, reserved) in [(4, 0), (5, 255)] {
+            let request = [version, 1, reserved, 3, 3, b'a', b'.', b'b', 0, 80];
+            let resolver = |_: &str, _: SocketType| -> Option<SocketAddr> {
+                panic!("malformed headers must not resolve a domain")
+            };
+            let error = parse_socks5_request(&request, SocketType::Stream, SessionConfig::default(), &resolver)
+                .expect_err("malformed header must fail");
+            assert_eq!(error.code, S_ER_GEN);
         }
     }
 

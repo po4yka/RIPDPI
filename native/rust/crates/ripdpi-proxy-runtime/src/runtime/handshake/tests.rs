@@ -770,3 +770,19 @@ fn lan_client_cannot_reach_device_local_targets() {
         assert!(super::forbidden_target_reason(lan_peer, listener, target).is_none(), "{target} must be allowed");
     }
 }
+
+#[test]
+fn socks5_request_header_is_rejected_before_reading_the_address() {
+    for header in [[4, 1, 0, 1], [5, 1, 255, 1]] {
+        let (mut client, server) = connected_pair();
+        client.write_all(&[5, 1, 0]).expect("write negotiation");
+        client.write_all(&header).expect("write malformed request header");
+        client.shutdown(Shutdown::Write).expect("finish request");
+        let error = super::handle_client(server, &runtime_state(RuntimeConfig::default()))
+            .expect_err("invalid header must fail before address read");
+        assert_eq!(error.kind(), ErrorKind::InvalidData);
+        let mut reply = Vec::new();
+        client.read_to_end(&mut reply).expect("read rejection");
+        assert_eq!(reply, [5, 0], "no CONNECT success may follow negotiation");
+    }
+}

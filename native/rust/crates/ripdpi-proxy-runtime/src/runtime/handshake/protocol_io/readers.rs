@@ -59,6 +59,9 @@ pub(in crate::runtime::handshake) fn read_socks5_request(
 fn read_socks5_request_inner(client: &mut TcpStream, deadline: Instant) -> io::Result<Vec<u8>> {
     let mut header = [0u8; 4];
     read_exact_by(client, &mut header, deadline)?;
+    if header[0] != 0x05 || header[2] != 0 {
+        return Err(io::Error::new(io::ErrorKind::InvalidData, "invalid SOCKS5 request header"));
+    }
     let mut out = header.to_vec();
     if let Some(tail_len) = RuntimeState::socks5_fixed_address_tail_len(header[3]) {
         let mut tail = vec![0u8; tail_len];
