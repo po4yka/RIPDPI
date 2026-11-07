@@ -797,3 +797,28 @@ fn unsupported_socks5_address_type_sends_reply_then_closes() {
     client.read_to_end(&mut reply).expect("read unsupported address reply and EOF");
     assert_eq!(reply, [5, 0, 5, 8, 0, 1, 0, 0, 0, 0, 0, 0]);
 }
+
+#[test]
+fn socks5_userpass_rejects_empty_fields_and_accepts_boundary_lengths() {
+    for (username_len, password_len) in [(0, 11), (1, 0), (1, 1), (255, 255)] {
+        let token = "t".repeat(password_len.max(1));
+        let (mut client, mut server) = connected_pair();
+        let mut frame = vec![1, 2, 1, username_len as u8];
+        frame.extend(vec![b'u'; username_len]);
+        frame.push(password_len as u8);
+        frame.extend(vec![b't'; password_len]);
+        client.write_all(&frame).expect("write userpass negotiation");
+        client.shutdown(Shutdown::Write).expect("finish auth bytes");
+        let result = negotiate_socks5(&mut server, Some(&token), test_deadline());
+        let valid = username_len > 0 && password_len > 0;
+        if valid {
+            result.expect("nonempty boundary credentials must authenticate");
+        } else {
+            assert_eq!(result.expect_err("empty fields must fail").kind(), ErrorKind::PermissionDenied);
+        }
+        drop(server);
+        let mut reply = [0; 4];
+        client.read_exact(&mut reply).expect("read auth result");
+        assert_eq!(reply, [5, 2, 1, u8::from(!valid)]);
+    }
+}
