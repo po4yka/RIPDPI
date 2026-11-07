@@ -2,7 +2,7 @@
 id: AND-1794054244138121
 title: Restore Hiddify imports with raw IPv6 targets
 kind: bug
-status: review
+status: done
 area: android
 priority: medium
 owner: Import parser
@@ -14,6 +14,9 @@ created: 2026-11-07
 updated: 2026-11-07
 spec_reason: regression-tested-single-module
 status_detail: Combined full app suite 3433/3433, staticAnalysis, ci-gates, and independent review passed; ready for closure.
+closed_at: "2026-11-07T13:03:34Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Hiddify fix 9b69a243c and scanner repair 468d25ee4 are verified together. All 3433 app tests passed, including 25 SingBox parser tests and 17 scanner tests. staticAnalysis, ci-gates, and independent review passed; the prior full-suite acceptance block is resolved.
 ---
 
 ## Goal

@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "Hiddify fix 9b69a243c and scanner repair 468d25ee4 are verified together. All 3433 app tests passed, including 25 SingBox parser tests and 17 scanner tests. staticAnalysis, ci-gates, and independent review passed; the prior full-suite acceptance block is resolved.",
+  "execution_sha256": "25c4607a8946a48bd098582cc4a7b53940e0c2849f29c145b543b22f13b0d864",
+  "issue_sha256": "9bd2c22c5cdc5ee9cd43e1e8dc134b0b10981e04aa28ac47e8087daf61c09048",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T13:03:34Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "AND-1794054244138121"
+}

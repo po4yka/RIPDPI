@@ -1,0 +1,11 @@
+{
+  "change": null,
+  "evidence_summary": "Implementation 468d25ee4 restores nested Trojan profiles with one outer decode. The complete app suite passed all 3433 tests with no failures, errors, or skips. staticAnalysis, ci-gates, and independent review passed. No dependencies or baselines changed.",
+  "execution_sha256": "20b833161a88dfca20349fe18439293260dadd8909b2bd955e53d61adb253ed1",
+  "issue_sha256": "1792577a976e32ffcd2846efd733c6825ade53c2fc4f7ce02bf5b38273bd7c36",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T13:03:33Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "AND-1794055823897986"
+}

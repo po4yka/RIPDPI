@@ -2,7 +2,7 @@
 id: AND-1794055823897986
 title: Restore v2rayng nested proxy share-link imports
 kind: bug
-status: review
+status: done
 area: android
 priority: medium
 owner: Import parser
@@ -14,6 +14,9 @@ created: 2026-11-07
 updated: 2026-11-07
 spec_reason: regression-tested-single-module
 status_detail: Nested Trojan import restored; full app suite 3433/3433, staticAnalysis, ci-gates, and independent review passed.
+closed_at: "2026-11-07T13:03:33Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Implementation 468d25ee4 restores nested Trojan profiles with one outer decode. The complete app suite passed all 3433 tests with no failures, errors, or skips. staticAnalysis, ci-gates, and independent review passed. No dependencies or baselines changed.
 ---
 
 ## Goal
