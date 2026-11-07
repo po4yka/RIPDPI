@@ -165,7 +165,8 @@ pub(in crate::io_loop) async fn flush_tun(tun: &PacketFd, state: &mut LoopState)
 
 #[cfg(test)]
 mod tests {
-    use std::collections::{HashMap, HashSet};
+    use std::cmp::Reverse;
+    use std::collections::{BinaryHeap, HashMap, HashSet};
     use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
     use std::os::fd::RawFd;
     use std::sync::atomic::{AtomicUsize, Ordering};
@@ -175,7 +176,6 @@ mod tests {
     use hickory_proto::op::{Message, OpCode, Query, ResponseCode};
     use hickory_proto::rr::rdata::A;
     use hickory_proto::rr::{Name, RData, Record, RecordType};
-    use ripdpi_collections::bounded_heap::BoundedHeap;
     use ripdpi_tunnel_config::{
         SplitDnsAction, SplitDnsDomainMatcher, SplitDnsMatcherKind, SplitDnsNetwork, SplitDnsPolicyConfig, SplitDnsRule,
     };
@@ -878,7 +878,7 @@ mod tests {
             udp_rx,
             udp_associations: HashMap::new(),
             closed_udp_sources: Vec::new(),
-            udp_eviction_heap: BoundedHeap::<UdpEvictionEntry>::new(UDP_EVICTION_HEAP_CAPACITY),
+            udp_eviction_heap: BinaryHeap::<Reverse<UdpEvictionEntry>>::with_capacity(UDP_EVICTION_HEAP_CAPACITY),
             udp_memory_budget: crate::session::udp::UdpMemoryBudget::for_tunnel_mtu(1500),
             next_udp_association_id: 1,
             pending_uid_packets: PendingUidPackets::new(1564),

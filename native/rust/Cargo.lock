@@ -5730,10 +5730,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ripdpi-collections"
-version = "0.1.0"
-
-[[package]]
 name = "ripdpi-config"
 version = "0.1.0"
 dependencies = [
@@ -6897,7 +6893,6 @@ dependencies = [
  "quinn",
  "rcgen",
  "ring",
- "ripdpi-collections",
  "ripdpi-dns-resolver",
  "ripdpi-flow-app-attribution",
  "ripdpi-geo",

@@ -1,10 +1,10 @@
-use std::collections::HashMap;
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap};
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::time::Duration;
 
-use ripdpi_collections::bounded_heap::BoundedHeap;
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 use tokio::net::{TcpListener, UdpSocket};
 use tokio::time::Instant;
@@ -19,7 +19,7 @@ use super::association_state::{
     OutboundDatagram, UdpAssociation, now_millis, touch_udp_activity, udp_association_is_idle,
 };
 use super::event_handling::{UdpEvent, handle_udp_event};
-use super::eviction::{UdpEvictionEntry, evict_if_at_capacity};
+use super::eviction::{UDP_EVICTION_HEAP_CAPACITY, UdpEvictionEntry, evict_if_at_capacity, record_udp_activity};
 use super::forwarding::lease_udp_mapping;
 use super::shutdown::shutdown_udp_associations;
 use super::worker::spawn_udp_association;
@@ -345,7 +345,7 @@ async fn handle_udp_event_queues_matching_association_packet() {
     let mut associations = HashMap::from([(src, association)]);
     let mut device = TunDevice::new(1500);
     let stats = Stats::new();
-    let mut eviction_heap = BoundedHeap::new(4);
+    let mut eviction_heap = BinaryHeap::with_capacity(4);
 
     handle_udp_event(
         &mut device,
@@ -388,7 +388,7 @@ async fn handle_udp_event_ignores_stale_association_id() {
     let mut associations = HashMap::from([(src, association)]);
     let mut device = TunDevice::new(1500);
     let stats = Stats::new();
-    let mut eviction_heap = BoundedHeap::new(4);
+    let mut eviction_heap = BinaryHeap::with_capacity(4);
 
     handle_udp_event(
         &mut device,
@@ -430,7 +430,7 @@ async fn handle_udp_event_removes_closed_association() {
     let mut associations = HashMap::from([(src, association)]);
     let mut device = TunDevice::new(1500);
     let stats = Stats::new();
-    let mut eviction_heap = BoundedHeap::new(4);
+    let mut eviction_heap = BinaryHeap::with_capacity(4);
     let mut closed_sources = Vec::new();
 
     handle_udp_event(
@@ -471,7 +471,7 @@ async fn handle_udp_event_ignores_stale_close() {
     let mut associations = HashMap::from([(src, association)]);
     let mut device = TunDevice::new(1500);
     let stats = Stats::new();
-    let mut eviction_heap = BoundedHeap::new(4);
+    let mut eviction_heap = BinaryHeap::with_capacity(4);
 
     handle_udp_event(
         &mut device,
@@ -506,7 +506,7 @@ async fn udp_forwarding_budget_rejection_records_queue_drop_evidence() {
         attribution_ids: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_ID_CAPACITY),
     };
     let mut associations = HashMap::from([(src, association)]);
-    let mut eviction_heap = BoundedHeap::new(4);
+    let mut eviction_heap = BinaryHeap::with_capacity(4);
     let memory_budget = UdpMemoryBudget::for_tunnel_mtu(1500);
     let _reserved = memory_budget.try_reserve_queued_bytes(4 * 1024 * 1024).expect("reserve full queued-byte budget");
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
@@ -564,7 +564,7 @@ async fn udp_forwarding_full_association_channel_records_queue_drop_evidence() {
         attribution_ids: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_ID_CAPACITY),
     };
     let mut associations = HashMap::from([(src, association)]);
-    let mut eviction_heap = BoundedHeap::new(4);
+    let mut eviction_heap = BinaryHeap::with_capacity(4);
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
     let stats = Arc::new(Stats::new());
     let mut next_id = 1;
@@ -618,7 +618,7 @@ async fn udp_association_replacement_keeps_source_strategy_state() {
         attribution_ids: lru::LruCache::new(super::association_state::UDP_ATTRIBUTION_ID_CAPACITY),
     };
     let mut associations = HashMap::from([(src, association)]);
-    let mut eviction_heap = BoundedHeap::new(4);
+    let mut eviction_heap = BinaryHeap::with_capacity(4);
     let (udp_tx, _udp_rx) = tokio::sync::mpsc::channel(1);
     let stats = Arc::new(Stats::new());
     let mut next_id = 13;
@@ -690,7 +690,7 @@ async fn udp_association_holds_one_lease_per_synthetic_mapping_until_close() {
 
     let mut device = TunDevice::new(1500);
     let stats = Stats::new();
-    let mut eviction_heap = BoundedHeap::new(4);
+    let mut eviction_heap = BinaryHeap::with_capacity(4);
     handle_udp_event(
         &mut device,
         &stats,
@@ -708,6 +708,9 @@ async fn udp_association_holds_one_lease_per_synthetic_mapping_until_close() {
         .expect("released UDP lease must make the slot evictable");
 }
 
+/// # Cancel safety:
+/// cancel-safe: cancellation at worker-start awaits drops this test runtime and
+/// its workers before any synchronous heap mutation.
 #[tokio::test]
 async fn capacity_eviction_skips_stale_activity_generations() {
     let older = "10.0.0.2:53200".parse().expect("older source");
@@ -720,20 +723,20 @@ async fn capacity_eviction_skips_stale_activity_generations() {
     newer_started.await.expect("newer worker started");
     older_association.activity_generation = 1;
     let mut associations = HashMap::from([(older, older_association), (newer, newer_association)]);
-    let mut eviction_heap = BoundedHeap::new(4);
-    assert!(eviction_heap.push(UdpEvictionEntry {
+    let mut eviction_heap = BinaryHeap::with_capacity(4);
+    eviction_heap.push(Reverse(UdpEvictionEntry {
         last_activity_epoch: 1,
         association_id: 51,
         activity_generation: 0,
         addr: older,
     }));
-    assert!(eviction_heap.push(UdpEvictionEntry {
+    eviction_heap.push(Reverse(UdpEvictionEntry {
         last_activity_epoch: 2,
         association_id: 52,
         activity_generation: 0,
         addr: newer,
     }));
-    assert!(eviction_heap.push(UdpEvictionEntry {
+    eviction_heap.push(Reverse(UdpEvictionEntry {
         last_activity_epoch: 3,
         association_id: 51,
         activity_generation: 1,
@@ -750,6 +753,45 @@ async fn capacity_eviction_skips_stale_activity_generations() {
         association.cancel.cancel();
         association.worker.abort();
     }
+}
+
+/// # Cancel safety:
+/// cancel-safe: cancellation at either worker-start await ends the dedicated test
+/// runtime, which drops both spawned workers and local state.
+#[tokio::test]
+async fn activity_history_stays_bounded_and_skips_reused_source_ids() {
+    let reused: SocketAddr = "10.0.0.2:53202".parse().unwrap();
+    let oldest: SocketAddr = "10.0.0.2:53203".parse().unwrap();
+    let (replacement, _, replacement_started) = stalled_udp_association(62, oldest);
+    let (older, _, older_started) = stalled_udp_association(63, oldest);
+    replacement_started.await.unwrap();
+    older_started.await.unwrap();
+    let mut associations = HashMap::from([(reused, replacement), (oldest, older)]);
+    let mut heap = BinaryHeap::with_capacity(UDP_EVICTION_HEAP_CAPACITY);
+    for _ in 0..UDP_EVICTION_HEAP_CAPACITY * 3 {
+        record_udp_activity(&mut associations, &mut heap, reused);
+        assert!(heap.len() <= UDP_EVICTION_HEAP_CAPACITY);
+    }
+    // The old source address belonged to a different association ID.
+    heap.push(Reverse(UdpEvictionEntry {
+        last_activity_epoch: 0,
+        association_id: 61,
+        activity_generation: 0,
+        addr: reused,
+    }));
+    heap.push(Reverse(UdpEvictionEntry {
+        last_activity_epoch: 1,
+        association_id: 63,
+        activity_generation: 0,
+        addr: oldest,
+    }));
+    let mut closed = Vec::new();
+    evict_if_at_capacity(&mut associations, &mut heap, &mut None, &mut closed, 2);
+    assert_eq!(closed, vec![oldest]);
+    assert!(associations.contains_key(&reused));
+    let survivor = associations.remove(&reused).unwrap();
+    survivor.cancel.cancel();
+    survivor.worker.abort();
 }
 
 #[test]

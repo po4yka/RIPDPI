@@ -1,8 +1,8 @@
-use std::collections::HashMap;
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap};
 use std::net::SocketAddr;
 use std::sync::Arc;
 
-use ripdpi_collections::bounded_heap::BoundedHeap;
 use smoltcp::iface::{Interface, SocketSet};
 use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_util::sync::CancellationToken;
@@ -41,7 +41,7 @@ pub(in crate::io_loop) struct LoopState {
     pub(in crate::io_loop) udp_rx: Receiver<UdpEvent>,
     pub(in crate::io_loop) udp_associations: HashMap<SocketAddr, UdpAssociation>,
     pub(in crate::io_loop) closed_udp_sources: Vec<SocketAddr>,
-    pub(in crate::io_loop) udp_eviction_heap: BoundedHeap<UdpEvictionEntry>,
+    pub(in crate::io_loop) udp_eviction_heap: BinaryHeap<Reverse<UdpEvictionEntry>>,
     pub(in crate::io_loop) udp_memory_budget: UdpMemoryBudget,
     pub(in crate::io_loop) next_udp_association_id: u64,
     pub(in crate::io_loop) pending_uid_packets: PendingUidPackets,

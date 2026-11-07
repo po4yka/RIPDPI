@@ -1,7 +1,6 @@
-use std::collections::HashMap;
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap};
 use std::net::SocketAddr;
-
-use ripdpi_collections::bounded_heap::BoundedHeap;
 
 use crate::dns_cache::DnsCache;
 use crate::{Stats, TunDevice};
@@ -16,7 +15,7 @@ pub(in crate::io_loop) fn handle_udp_event(
     device: &mut TunDevice,
     stats: &Stats,
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
-    eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
+    eviction_heap: &mut BinaryHeap<Reverse<UdpEvictionEntry>>,
     dns_cache: &mut Option<DnsCache>,
     closed_sources: &mut Vec<SocketAddr>,
     event: UdpEvent,

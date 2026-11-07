@@ -43,3 +43,7 @@ First reproduce the specified uncovered behavior or establish a passing contract
 - `just ci-gates`
 
 Run the named targeted checks first. Run staticAnalysis for Kotlin cross-module or security changes and just ci-gates for affected source contracts. Native dependency changes also require locked metadata and cargo-deny. Obtain the repository-required independent review; add async, JNI, or unsafe review only when the actual diff meets those rules. Record exact commands, results, and the implementation SHA. Commit only the finished task slice on main.
+
+## Heap bound
+
+The sole association insertion path evicts at 512 live associations before inserting. Rebuild therefore retains at most 512 entries; the next activity entry remains below 2048. BinaryHeap capacity is only a reservation: check len against the explicit history threshold before rebuilding. Reverse preserves the former min-heap order. Delete only the leaf crate and its single consumer edge; no new workspace edge is added.

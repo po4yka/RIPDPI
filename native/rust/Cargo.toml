@@ -11,7 +11,6 @@ members = [
     "crates/local-network-fixture",
     "crates/native-soak-support",
     "crates/quic-mtu-test-util",
-    "crates/ripdpi-collections",
     "crates/ripdpi-proxy-config",
     "crates/ripdpi-diagnostics-candidates",
     "crates/ripdpi-diagnostics-classification",
@@ -133,7 +132,6 @@ golden-test-support = { path = "crates/golden-test-support" }
 local-network-fixture = { path = "crates/local-network-fixture" }
 native-soak-support = { path = "crates/native-soak-support" }
 quic-mtu-test-util = { path = "crates/quic-mtu-test-util" }
-ripdpi-collections = { path = "crates/ripdpi-collections" }
 ripdpi-protocol-loopback = { path = "crates/ripdpi-protocol-loopback" }
 ripdpi-dns-resolver = { path = "crates/ripdpi-dns-resolver" }
 ripdpi-failure-classifier = { path = "crates/ripdpi-failure-classifier" }

@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use ripdpi_collections::bounded_heap::BoundedHeap;
 use tokio_util::sync::CancellationToken;
 
 use crate::Stats;
@@ -31,7 +31,7 @@ pub(in crate::io_loop) fn forward_udp_payload(
     dns_cache: &mut Option<DnsCache>,
     closed_sources: &mut Vec<SocketAddr>,
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
-    eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
+    eviction_heap: &mut BinaryHeap<Reverse<UdpEvictionEntry>>,
     memory_budget: &UdpMemoryBudget,
     next_id: &mut u64,
     idle_timeout: Duration,

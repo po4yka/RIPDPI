@@ -6,7 +6,7 @@
 
 ## Dependencies
 
-- **Upstream:** `ripdpi-tunnel-config`, `ripdpi-tunnel-intercept`, `ripdpi-flow-app-attribution`, `ripdpi-tun-driver`, `ripdpi-dns-resolver`, `ripdpi-collections`, `ripdpi-runtime-platform`, `ripdpi-privileged-ops`, `ripdpi-socks5-core`, `ripdpi-packets`, `ripdpi-geo`.
+- **Upstream:** `ripdpi-tunnel-config`, `ripdpi-tunnel-intercept`, `ripdpi-flow-app-attribution`, `ripdpi-tun-driver`, `ripdpi-dns-resolver`, `ripdpi-runtime-platform`, `ripdpi-privileged-ops`, `ripdpi-socks5-core`, `ripdpi-packets`, `ripdpi-geo`.
 - **Downstream:** `ripdpi-tunnel-android`.
 
 ## Boundaries

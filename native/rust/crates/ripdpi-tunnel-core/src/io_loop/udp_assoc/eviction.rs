@@ -1,8 +1,7 @@
-use std::collections::HashMap;
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap};
 use std::net::SocketAddr;
 use std::sync::atomic::Ordering;
-
-use ripdpi_collections::bounded_heap::BoundedHeap;
 
 use crate::dns_cache::DnsCache;
 
@@ -26,10 +25,10 @@ pub(in crate::io_loop) struct UdpEvictionEntry {
 
 pub(super) fn record_udp_activity(
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
-    eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
+    eviction_heap: &mut BinaryHeap<Reverse<UdpEvictionEntry>>,
     addr: SocketAddr,
 ) {
-    if eviction_heap.is_full() {
+    if eviction_heap.len() >= UDP_EVICTION_HEAP_CAPACITY {
         rebuild_eviction_heap(associations, eviction_heap);
     }
     let Some(association) = associations.get_mut(&addr) else {
@@ -37,18 +36,17 @@ pub(super) fn record_udp_activity(
     };
     touch_udp_activity(&association.last_activity);
     association.activity_generation = association.activity_generation.wrapping_add(1);
-    let inserted = eviction_heap.push(entry_for(addr, association));
-    debug_assert!(inserted, "compacted UDP eviction heap must have room for an activity update");
+    debug_assert!(eviction_heap.len() < UDP_EVICTION_HEAP_CAPACITY);
+    eviction_heap.push(Reverse(entry_for(addr, association)));
 }
 
 fn rebuild_eviction_heap(
     associations: &HashMap<SocketAddr, UdpAssociation>,
-    eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
+    eviction_heap: &mut BinaryHeap<Reverse<UdpEvictionEntry>>,
 ) {
-    for _ in eviction_heap.drain() {}
+    eviction_heap.clear();
     for (&addr, association) in associations {
-        let inserted = eviction_heap.push(entry_for(addr, association));
-        debug_assert!(inserted, "UDP eviction heap capacity must exceed the association limit");
+        eviction_heap.push(Reverse(entry_for(addr, association)));
     }
 }
 
@@ -64,7 +62,7 @@ fn entry_for(addr: SocketAddr, association: &UdpAssociation) -> UdpEvictionEntry
 /// Evict the least-recently-active live UDP association when the map is full.
 pub(super) fn evict_if_over_capacity(
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
-    eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
+    eviction_heap: &mut BinaryHeap<Reverse<UdpEvictionEntry>>,
     dns_cache: &mut Option<DnsCache>,
     closed_sources: &mut Vec<SocketAddr>,
 ) {
@@ -73,7 +71,7 @@ pub(super) fn evict_if_over_capacity(
 
 pub(super) fn evict_if_at_capacity(
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
-    eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
+    eviction_heap: &mut BinaryHeap<Reverse<UdpEvictionEntry>>,
     dns_cache: &mut Option<DnsCache>,
     closed_sources: &mut Vec<SocketAddr>,
     capacity: usize,
@@ -81,7 +79,7 @@ pub(super) fn evict_if_at_capacity(
     if associations.len() < capacity {
         return;
     }
-    while let Some(entry) = eviction_heap.pop() {
+    while let Some(Reverse(entry)) = eviction_heap.pop() {
         let is_current = associations.get(&entry.addr).is_some_and(|association| {
             association.id == entry.association_id && association.activity_generation == entry.activity_generation
         });

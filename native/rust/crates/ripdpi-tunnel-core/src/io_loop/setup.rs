@@ -1,8 +1,7 @@
-use std::collections::HashMap;
+use std::collections::{BinaryHeap, HashMap};
 use std::io;
 use std::sync::Arc;
 
-use ripdpi_collections::bounded_heap::BoundedHeap;
 use smoltcp::iface::{Interface, SocketSet};
 use tokio::sync::mpsc;
 use tokio_util::sync::CancellationToken;
@@ -79,7 +78,7 @@ pub(in crate::io_loop) fn setup_io_loop(
         udp_rx,
         udp_associations: HashMap::new(),
         closed_udp_sources: Vec::new(),
-        udp_eviction_heap: BoundedHeap::new(UDP_EVICTION_HEAP_CAPACITY),
+        udp_eviction_heap: BinaryHeap::with_capacity(UDP_EVICTION_HEAP_CAPACITY),
         udp_memory_budget: UdpMemoryBudget::for_tunnel_mtu(mtu),
         next_udp_association_id: 1,
         pending_uid_packets: PendingUidPackets::new(mtu + 64),

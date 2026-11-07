@@ -1,9 +1,9 @@
-use std::collections::HashMap;
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap};
 use std::net::SocketAddr;
 use std::sync::Arc;
 use std::time::Duration;
 
-use ripdpi_collections::bounded_heap::BoundedHeap;
 use tokio::sync::mpsc::error::TrySendError;
 use tokio_util::sync::CancellationToken;
 use tracing::debug;
@@ -35,7 +35,7 @@ pub(super) fn deliver_udp_datagram(
     dns_cache: &mut Option<DnsCache>,
     closed_sources: &mut Vec<SocketAddr>,
     associations: &mut HashMap<SocketAddr, UdpAssociation>,
-    eviction_heap: &mut BoundedHeap<UdpEvictionEntry>,
+    eviction_heap: &mut BinaryHeap<Reverse<UdpEvictionEntry>>,
     memory_budget: &UdpMemoryBudget,
     next_id: &mut u64,
     idle_timeout: Duration,
