@@ -2,7 +2,7 @@
 id: RLY-1794036606000501
 title: Parse relay UUIDs with the uuid crate
 kind: chore
-status: review
+status: done
 area: relay
 priority: medium
 owner: Standard-library migration
@@ -13,6 +13,9 @@ openspec_change: parse-relay-uuids-with-uuid-crate
 created: 2026-11-07
 updated: 2026-11-07
 status_detail: Implementation and required local checks passed; awaiting committed acceptance evidence.
+closed_at: "2026-11-07T09:54:24Z"
+closed_reason: All acceptance criteria and required evidence passed.
+evidence_summary: Implementation 61f6a62b6 passed 295 tests, 8 existing opt-in ignores, formatting, four-package Clippy, metadata, cargo-deny, ci-gates, and independent reviews. TUIC production syntax and credentials remain unchanged.
 ---
 
 ## Goal

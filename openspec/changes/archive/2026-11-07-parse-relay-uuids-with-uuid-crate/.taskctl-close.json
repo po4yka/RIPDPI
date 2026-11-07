@@ -1,0 +1,11 @@
+{
+  "change": "parse-relay-uuids-with-uuid-crate",
+  "evidence_summary": "Implementation 61f6a62b6 passed 295 tests, 8 existing opt-in ignores, formatting, four-package Clippy, metadata, cargo-deny, ci-gates, and independent reviews. TUIC production syntax and credentials remain unchanged.",
+  "execution_sha256": "e2208c517758fc429ee165b708d95468b58beed0a0af3bb9eb51eeca984e7a1e",
+  "issue_sha256": "59f41d80ee5f7863ed21691620a1d962e9715eb77f59642fe76481fb15dd2ba2",
+  "outcome": "done",
+  "prepared_at": "2026-11-07T09:54:24Z",
+  "reason": "All acceptance criteria and required evidence passed.",
+  "schema": 1,
+  "task_id": "RLY-1794036606000501"
+}

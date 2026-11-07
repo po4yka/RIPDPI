@@ -1,0 +1,8 @@
+{
+  "archived_at": "2026-11-07T09:54:24Z",
+  "change": "parse-relay-uuids-with-uuid-crate",
+  "commit_sha": "61f6a62b637357a6513291741fdca58346bba3ff",
+  "outcome": "review",
+  "schema": 1,
+  "task_id": "RLY-1794036606000501"
+}
