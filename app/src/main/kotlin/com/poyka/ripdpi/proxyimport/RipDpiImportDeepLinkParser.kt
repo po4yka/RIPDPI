@@ -1,6 +1,6 @@
 package com.poyka.ripdpi.proxyimport
 
-import java.net.URLDecoder
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 
 /** Outcome of parsing a `ripdpi://import?sub=…` or `ripdpi://import?url=…` deep link. */
 sealed interface RipDpiImportDeepLinkResult {
@@ -26,7 +26,7 @@ sealed interface RipDpiImportDeepLinkResult {
         /** Neither `sub=` nor `url=` query parameter is present or non-empty. */
         MissingTarget,
 
-        /** The decoded target value is not an https URL. */
+        /** The decoded target value is not a complete HTTPS URL. */
         NonHttps,
 
         /** A query value contained invalid percent-encoding. */
@@ -44,7 +44,7 @@ sealed interface RipDpiImportDeepLinkResult {
  * - `url=<percent-encoded https URL>` → one-shot remote import (fetch + import once,
  *   stored as a bootstrap-kind subscription so the auto-update worker skips it).
  *
- * Both parameters must decode to an https URL; anything else is rejected with a typed error.
+ * Both parameters must decode to a complete HTTPS URL; anything else yields a typed error.
  */
 object RipDpiImportDeepLinkParser {
     private const val IMPORT_SCHEME = "ripdpi"
@@ -59,39 +59,29 @@ object RipDpiImportDeepLinkParser {
     @Suppress("ReturnCount")
     fun parse(deepLink: String): RipDpiImportDeepLinkResult {
         val trimmed = deepLink.trim()
-        val schemeEnd = trimmed.indexOf("://")
-        if (schemeEnd <= 0) return RipDpiImportDeepLinkResult.Error.Unsupported
-        val scheme = trimmed.substring(0, schemeEnd).lowercase()
+        val scheme = trimmed.substringBefore("://", "").lowercase()
         if (scheme != IMPORT_SCHEME) return RipDpiImportDeepLinkResult.Error.Unsupported
-
-        val afterScheme = trimmed.substring(schemeEnd + "://".length)
-        val querySeparator = afterScheme.indexOf('?')
-        val host =
-            if (querySeparator >= 0) {
-                afterScheme.substring(0, querySeparator)
-            } else {
-                afterScheme
-            }.substringBefore('/')
-        if (!host.equals(IMPORT_HOST, ignoreCase = true)) return RipDpiImportDeepLinkResult.Error.Unsupported
-
-        val query = if (querySeparator >= 0) afterScheme.substring(querySeparator + 1) else ""
-        val params =
-            when (val parsed = parseQuery(query)) {
-                is QueryParseResult.Failure -> return RipDpiImportDeepLinkResult.Error.BadEncoding
-                is QueryParseResult.Params -> parsed.values
-            }
+        val parsed = parseImportDeepLinkUri(trimmed) ?: return RipDpiImportDeepLinkResult.Error.BadEncoding
+        if (!parsed.rawAuthority.equals(
+                IMPORT_HOST,
+                ignoreCase = true,
+            )
+        ) {
+            return RipDpiImportDeepLinkResult.Error.Unsupported
+        }
+        val params = parsed.importQueryParameters()
 
         val rawSub = params["sub"]?.takeIf { it.isNotBlank() }
         val rawUrl = params["url"]?.takeIf { it.isNotBlank() }
 
         return when {
             rawSub != null -> {
-                if (!rawSub.startsWith("https://", ignoreCase = true)) return RipDpiImportDeepLinkResult.Error.NonHttps
+                if (rawSub.toHttpUrlOrNull()?.isHttps != true) return RipDpiImportDeepLinkResult.Error.NonHttps
                 RipDpiImportDeepLinkResult.Success(rawSub, RipDpiImportDeepLinkResult.Success.Kind.Subscription)
             }
 
             rawUrl != null -> {
-                if (!rawUrl.startsWith("https://", ignoreCase = true)) return RipDpiImportDeepLinkResult.Error.NonHttps
+                if (rawUrl.toHttpUrlOrNull()?.isHttps != true) return RipDpiImportDeepLinkResult.Error.NonHttps
                 RipDpiImportDeepLinkResult.Success(rawUrl, RipDpiImportDeepLinkResult.Success.Kind.OneShot)
             }
 
@@ -100,33 +90,4 @@ object RipDpiImportDeepLinkParser {
             }
         }
     }
-
-    private sealed interface QueryParseResult {
-        data class Params(
-            val values: Map<String, String>,
-        ) : QueryParseResult
-
-        data object Failure : QueryParseResult
-    }
-
-    @Suppress("ReturnCount")
-    private fun parseQuery(query: String): QueryParseResult {
-        if (query.isEmpty()) return QueryParseResult.Params(emptyMap())
-        val values = mutableMapOf<String, String>()
-        for (pair in query.split('&')) {
-            if (pair.isEmpty()) continue
-            val eq = pair.indexOf('=')
-            val rawKey = if (eq >= 0) pair.substring(0, eq) else pair
-            val rawValue = if (eq >= 0) pair.substring(eq + 1) else ""
-            val key = decode(rawKey) ?: return QueryParseResult.Failure
-            val value = decode(rawValue) ?: return QueryParseResult.Failure
-            if (key.isNotEmpty() && key !in values) {
-                values[key] = value
-            }
-        }
-        return QueryParseResult.Params(values)
-    }
-
-    /** URL-decodes [raw] as UTF-8, returning `null` on invalid percent-encoding. */
-    private fun decode(raw: String): String? = runCatching { URLDecoder.decode(raw, "UTF-8") }.getOrNull()
 }

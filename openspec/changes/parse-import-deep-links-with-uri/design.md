@@ -9,6 +9,8 @@ Audit finding 2 at 202f970 is owned by portfolio task AND-1794036523065646. Read
 
 ## Decisions
 
+- Keep previously accepted raw remarks such as pipes, braces, and extra hash characters. Normalize only the fragment through standard URL/URI encoding; keep malformed percent escapes rejected.
+
 - Use java.net.URI for the outer custom scheme and existing OkHttp HttpUrl for the decoded HTTP target. Keep a narrow adapter for provider-specific link forms.
 - Use only existing platform or workspace libraries. Check the direct module dependency before editing.
 - Extend RipDpiImportDeepLinkParserTest and SingBoxDeepLinkParserTest; test literal and encoded plus, fragment separation, duplicate parameters, and nested URLs.
@@ -17,6 +19,7 @@ Audit finding 2 at 202f970 is owned by portfolio task AND-1794036523065646. Read
 
 - `app/src/main/kotlin/com/poyka/ripdpi/proxyimport/RipDpiImportDeepLinkParser.kt`
 - `app/src/main/kotlin/com/poyka/ripdpi/proxyimport/SingBoxDeepLinkParser.kt`
+- `app/src/main/kotlin/com/poyka/ripdpi/proxyimport/ImportDeepLinkUri.kt`
 
 Keep sub before url, first-value duplicate handling, typed encoding errors, subscription versus one-shot intent, and Hiddify nested URL forms.
 

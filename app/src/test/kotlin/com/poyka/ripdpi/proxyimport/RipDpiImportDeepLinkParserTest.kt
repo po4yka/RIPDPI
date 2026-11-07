@@ -18,6 +18,37 @@ import java.net.URLEncoder
 class RipDpiImportDeepLinkParserTest {
     private fun enc(value: String): String = URLEncoder.encode(value, "UTF-8")
 
+    @Test
+    fun `outer fragment is separate from the decoded target fragment`() {
+        val target = "https://host.example/sub?token=a+b#inner"
+        val result = RipDpiImportDeepLinkParser.parse("ripdpi://import?sub=${enc(target)}#outer")
+
+        assertEquals(
+            RipDpiImportDeepLinkResult.Success(target, RipDpiImportDeepLinkResult.Success.Kind.Subscription),
+            result,
+        )
+    }
+
+    @Test
+    fun `incomplete and invalid HTTPS targets are rejected`() {
+        for (target in listOf("https://", "https://?token=x", "https://host.example:99999/sub")) {
+            assertEquals(
+                target,
+                RipDpiImportDeepLinkResult.Error.NonHttps,
+                RipDpiImportDeepLinkParser.parse("ripdpi://import?sub=${enc(target)}"),
+            )
+        }
+    }
+
+    @Test
+    fun `first duplicate target and hosts with underscores remain supported`() {
+        val target = "https://sub_server.example/sub"
+        assertEquals(
+            RipDpiImportDeepLinkResult.Success(target, RipDpiImportDeepLinkResult.Success.Kind.Subscription),
+            RipDpiImportDeepLinkParser.parse("ripdpi://import?sub=${enc(target)}&sub=${enc("https://other.example/")}"),
+        )
+    }
+
     // --- sub= (subscription enroll) ---
 
     @Test

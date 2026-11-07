@@ -27,5 +27,6 @@ Import links must separate query from fragment and accept only complete HTTPS su
 
 - `app/src/main/kotlin/com/poyka/ripdpi/proxyimport/RipDpiImportDeepLinkParser.kt`
 - `app/src/main/kotlin/com/poyka/ripdpi/proxyimport/SingBoxDeepLinkParser.kt`
+- `app/src/main/kotlin/com/poyka/ripdpi/proxyimport/ImportDeepLinkUri.kt`
 
 Use only existing platform or workspace libraries. Check the direct module dependency before editing. The parent epic owns programme order and shared lanes. No external publication, deployment, or unrelated protocol change is included.

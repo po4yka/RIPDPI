@@ -17,6 +17,73 @@ class SingBoxDeepLinkParserTest {
     private fun enc(value: String): String = URLEncoder.encode(value, "UTF-8")
 
     @Test
+    fun `unescaped fragment remarks stay supported without repairing bad escapes`() {
+        val base = "sing-box://import-remote-profile?url=${enc("https://s.example/c")}"
+        for (remark in listOf("Home | Fleet", "Node {1} #backup", "東京 | 1")) {
+            assertEquals(
+                SingBoxDeepLinkResult.Success("https://s.example/c", remark, false),
+                SingBoxDeepLinkParser.parse("$base#$remark"),
+            )
+        }
+        assertEquals(SingBoxDeepLinkResult.Error.BadEncoding, SingBoxDeepLinkParser.parse("$base#bad%ZZ"))
+    }
+
+    @Test
+    fun `fragment plus is data while query name keeps form encoding`() {
+        val base = "sing-box://import-remote-profile?url=${enc("https://s.example/c")}"
+        for (fragment in listOf("A+B", "A%2BB")) {
+            assertEquals(
+                SingBoxDeepLinkResult.Success("https://s.example/c", "A+B", false),
+                SingBoxDeepLinkParser.parse("$base#$fragment"),
+            )
+        }
+        assertEquals(
+            SingBoxDeepLinkResult.Success("https://s.example/c", "A B", false),
+            SingBoxDeepLinkParser.parse("$base&name=A+B#ignored"),
+        )
+        assertEquals(
+            SingBoxDeepLinkResult.Success("https://s.example/c", "Home Fleet", false),
+            SingBoxDeepLinkParser.parse("$base#Home Fleet"),
+        )
+    }
+
+    @Test
+    fun `bootstrap detection only uses the target path`() {
+        val target = "https://s.example?next=/bootstrap/token"
+        assertEquals(
+            SingBoxDeepLinkResult.Success(target, "", false),
+            SingBoxDeepLinkParser.parse("sing-box://import-remote-profile?url=${enc(target)}"),
+        )
+    }
+
+    @Test
+    fun `invalid and non HTTPS subscription targets are rejected`() {
+        for (target in listOf("https://", "http://s.example/c", "ftp://s.example/c")) {
+            assertEquals(
+                target,
+                SingBoxDeepLinkResult.Error.BadEncoding,
+                SingBoxDeepLinkParser.parse("sing-box://import-remote-profile?url=${enc(target)}"),
+            )
+        }
+    }
+
+    @Test
+    fun `duplicate parameters keep the first value and encoded hiddify paths decode once`() {
+        val target = "https://s.example/c?token=a+b"
+        assertEquals(
+            SingBoxDeepLinkResult.Success(target, "First", false),
+            SingBoxDeepLinkParser.parse(
+                "sing-box://import-remote-profile?url=${enc(target)}&url=${enc("https://other.example/")}" +
+                    "&name=First&name=Second",
+            ),
+        )
+        assertEquals(
+            SingBoxDeepLinkResult.Success(target, "A+B", false),
+            SingBoxDeepLinkParser.parse("hiddify://import/${enc(target)}#A%2BB"),
+        )
+    }
+
+    @Test
     fun `singbox scheme deep-link parses url and name`() {
         val link =
             "singbox://import-remote-profile?url=${enc("https://sub.example.com/c")}" +

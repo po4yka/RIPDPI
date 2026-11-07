@@ -1,5 +1,6 @@
 package com.poyka.ripdpi.proxyimport
 
+import okhttp3.HttpUrl.Companion.toHttpUrlOrNull
 import java.net.URLDecoder
 
 /** Outcome of parsing a `singbox://import-remote-profile?url=…` style deep link. */
@@ -26,7 +27,7 @@ sealed interface SingBoxDeepLinkResult {
         /** `url=` query parameter is missing or empty. */
         MissingUrl,
 
-        /** A query value contained invalid percent-encoding. */
+        /** The link has invalid percent-encoding or an invalid HTTPS target. */
         BadEncoding,
     }
 }
@@ -71,84 +72,39 @@ object SingBoxDeepLinkParser {
     @Suppress("ReturnCount")
     fun parse(deepLink: String): SingBoxDeepLinkResult {
         val trimmed = deepLink.trim()
-        val schemeEnd = trimmed.indexOf("://")
-        if (schemeEnd <= 0) return SingBoxDeepLinkResult.Error.Unsupported
-        val scheme = trimmed.substring(0, schemeEnd).lowercase()
+        val scheme = trimmed.substringBefore("://", "").lowercase()
         val hosts = SUPPORTED_HOSTS[scheme] ?: return SingBoxDeepLinkResult.Error.Unsupported
-
-        val afterScheme = trimmed.substring(schemeEnd + "://".length)
-        val beforeFragment = afterScheme.substringBefore('#')
-        val fragment = decode(afterScheme.substringAfter('#', "")) ?: return SingBoxDeepLinkResult.Error.BadEncoding
-        val host = beforeFragment.substringBefore('?').substringBefore('/').lowercase()
+        val parsed = parseImportDeepLinkUri(trimmed) ?: return SingBoxDeepLinkResult.Error.BadEncoding
+        val fragment = parsed.fragment.orEmpty()
+        val host = parsed.rawAuthority?.lowercase()
         if (host !in hosts) return SingBoxDeepLinkResult.Error.Unsupported
 
         // `hiddify://import/<url>` carries the target URL, with its own query, as the path.
         if (scheme == "hiddify" && host == HIDDIFY_PATH_IMPORT_HOST) {
-            val rawUrl = beforeFragment.substringAfter('/', "")
+            val rawUrl = parsed.rawPath.orEmpty().removePrefix("/") + parsed.rawQuery?.let { "?$it" }.orEmpty()
             val url =
                 (if (rawUrl.contains("://")) rawUrl else decode(rawUrl))
                     ?.takeIf { it.isNotBlank() }
                     ?: return SingBoxDeepLinkResult.Error.MissingUrl
-            return SingBoxDeepLinkResult.Success(url = url, name = fragment, bootstrap = isBootstrapUrl(url))
+            val target = url.toHttpUrlOrNull()?.takeIf { it.isHttps } ?: return SingBoxDeepLinkResult.Error.BadEncoding
+            return SingBoxDeepLinkResult.Success(
+                url = url,
+                name = fragment,
+                bootstrap = target.encodedPath.startsWith(BOOTSTRAP_PATH_PREFIX),
+            )
         }
-
-        val query = beforeFragment.substringAfter('?', "")
-        val params =
-            when (val parsed = parseQuery(query)) {
-                is QueryParseResult.Failure -> return SingBoxDeepLinkResult.Error.BadEncoding
-                is QueryParseResult.Params -> parsed.values
-            }
+        val params = parsed.importQueryParameters()
 
         val url = params["url"]?.takeIf { it.isNotBlank() } ?: return SingBoxDeepLinkResult.Error.MissingUrl
+        val target = url.toHttpUrlOrNull()?.takeIf { it.isHttps } ?: return SingBoxDeepLinkResult.Error.BadEncoding
         val name = params["name"]?.takeIf { it.isNotBlank() } ?: fragment
         return SingBoxDeepLinkResult.Success(
             url = url,
             name = name,
-            bootstrap = isBootstrapUrl(url),
+            bootstrap = target.encodedPath.startsWith(BOOTSTRAP_PATH_PREFIX),
         )
-    }
-
-    private sealed interface QueryParseResult {
-        data class Params(
-            val values: Map<String, String>,
-        ) : QueryParseResult
-
-        data object Failure : QueryParseResult
-    }
-
-    @Suppress("ReturnCount")
-    private fun parseQuery(query: String): QueryParseResult {
-        if (query.isEmpty()) return QueryParseResult.Params(emptyMap())
-        val values = mutableMapOf<String, String>()
-        for (pair in query.split('&')) {
-            if (pair.isEmpty()) continue
-            val eq = pair.indexOf('=')
-            val rawKey = if (eq >= 0) pair.substring(0, eq) else pair
-            val rawValue = if (eq >= 0) pair.substring(eq + 1) else ""
-            val key = decode(rawKey) ?: return QueryParseResult.Failure
-            val value = decode(rawValue) ?: return QueryParseResult.Failure
-            if (key.isNotEmpty() && key !in values) {
-                values[key] = value
-            }
-        }
-        return QueryParseResult.Params(values)
     }
 
     /** URL-decodes [raw] as UTF-8, returning `null` on invalid percent-encoding. */
     private fun decode(raw: String): String? = runCatching { URLDecoder.decode(raw, "UTF-8") }.getOrNull()
-
-    private fun isBootstrapUrl(url: String): Boolean {
-        // Strip scheme + authority so only the path is inspected, then look for /bootstrap/.
-        val schemeEnd = url.indexOf("://")
-        val afterAuthority =
-            if (schemeEnd >= 0) {
-                val rest = url.substring(schemeEnd + "://".length)
-                val slash = rest.indexOf('/')
-                if (slash >= 0) rest.substring(slash) else ""
-            } else {
-                url
-            }
-        val path = afterAuthority.substringBefore('?').substringBefore('#')
-        return path.startsWith(BOOTSTRAP_PATH_PREFIX)
-    }
 }

@@ -2,7 +2,7 @@
 id: AND-1794036523065646
 title: Parse import deep links with standard URI components
 kind: bug
-status: todo
+status: review
 area: android
 priority: high
 owner: Standard-library migration
@@ -12,7 +12,7 @@ spec_mode: required
 openspec_change: parse-import-deep-links-with-uri
 created: 2026-11-07
 updated: 2026-11-07
-status_detail: Profile fragment normalization is complete; import URI work can start.
+status_detail: Targeted tests, staticAnalysis, ci-gates, and independent re-review passed.
 ---
 
 ## Goal
@@ -47,6 +47,7 @@ No dependency is implied by priority alone. Shared Cargo and Gradle files use on
 
 - `app/src/main/kotlin/com/poyka/ripdpi/proxyimport/RipDpiImportDeepLinkParser.kt`
 - `app/src/main/kotlin/com/poyka/ripdpi/proxyimport/SingBoxDeepLinkParser.kt`
+- `app/src/main/kotlin/com/poyka/ripdpi/proxyimport/ImportDeepLinkUri.kt`
 
 The same writer owns related module tests, direct dependency declarations, and task artifacts. Shared dependency and generated-output lanes follow the epic. The user directed work on main on 2026-11-07. Work directly on main and commit each completed atomic unit. This instruction overrides worktree-isolation guidance for this programme. Do not push, publish, or deploy without separate authorization.
 
