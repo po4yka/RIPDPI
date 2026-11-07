@@ -1,7 +1,6 @@
 #![no_main]
 
 mod common;
-mod parsers;
 
 use libfuzzer_sys::fuzz_target;
 
@@ -13,7 +12,7 @@ fuzz_target!(|data: &[u8]| {
             [high, low, ..] => u16::from_be_bytes([*high, *low]),
             _ => 0,
         };
-    let _ = parsers::fuzz_parse_dns_response(data, expected_id);
+    let _ = ripdpi_ech_dns::parse_dns_response(data, expected_id);
 
     let structured = common::dns_response_packet_from_bytes(data);
     let structured_id =
@@ -21,5 +20,5 @@ fuzz_target!(|data: &[u8]| {
             [high, low, ..] => u16::from_be_bytes([*high, *low]),
             _ => 0,
         };
-    let _ = parsers::fuzz_parse_dns_response(&structured, structured_id);
+    let _ = ripdpi_ech_dns::parse_dns_response(&structured, structured_id);
 });

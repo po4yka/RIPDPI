@@ -778,6 +778,7 @@ dependencies = [
  "ripdpi-config",
  "ripdpi-desync",
  "ripdpi-dns-resolver",
+ "ripdpi-ech-dns",
  "ripdpi-failure-classifier",
  "ripdpi-packets",
  "ripdpi-proxy-config",
@@ -1990,10 +1991,12 @@ dependencies = [
 name = "ripdpi-ech-dns"
 version = "0.1.0"
 dependencies = [
+ "hickory-proto",
  "ripdpi-diagnostics-contracts",
  "ripdpi-diagnostics-transport",
  "ripdpi-dns-resolver",
  "ripdpi-tls-profiles",
+ "url",
 ]
 
 [[package]]
@@ -2124,6 +2127,7 @@ dependencies = [
  "tokio-boring",
  "tokio-util",
  "tracing",
+ "uuid",
  "x25519-dalek",
  "yamux",
  "zeroize",
@@ -2173,6 +2177,7 @@ dependencies = [
  "tokio",
  "tokio-boring",
  "tracing",
+ "uuid",
 ]
 
 [[package]]
@@ -2818,6 +2823,16 @@ name = "utf8_iter"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b6c140620e7ffbb22c2dee59cafe6084a59b5ffc27a8859a5f0d494b5d52b6be"
+
+[[package]]
+name = "uuid"
+version = "1.29.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4a0e2d11620c50695fe12bbbfde96b3477fe606e7284c22d505c12ce51214514"
+dependencies = [
+ "js-sys",
+ "wasm-bindgen",
+]
 
 [[package]]
 name = "version_check"

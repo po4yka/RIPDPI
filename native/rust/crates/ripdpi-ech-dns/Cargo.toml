@@ -8,8 +8,12 @@ license.workspace = true
 workspace = true
 
 [dependencies]
+hickory-proto = { workspace = true }
 ripdpi-diagnostics-contracts = { workspace = true }
 ripdpi-diagnostics-transport = { workspace = true }
 ripdpi-dns-resolver = { workspace = true }
 ripdpi-tls-profiles = { workspace = true }
 url = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }

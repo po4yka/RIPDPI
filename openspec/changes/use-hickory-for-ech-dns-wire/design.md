@@ -41,3 +41,9 @@ First reproduce the specified uncovered behavior or establish a passing contract
 - `just ci-gates`
 
 Run the named targeted checks first. Run staticAnalysis for Kotlin cross-module or security changes and just ci-gates for affected source contracts. Native dependency changes also require locked metadata and cargo-deny. Obtain the repository-required independent review; add async, JNI, or unsafe review only when the actual diff meets those rules. Record exact commands, results, and the implementation SHA. Commit only the finished task slice on main.
+
+## Implementation decisions
+
+Use Hickory for name, query, header, and record decoding. Keep the shared response validator before answer extraction. Preserve IPv4 answer order and duplicates, ID checks, and top-level response error tokens. Normalize malformed record errors to `dns_malformed_response` and invalid compressed names to `dns_invalid_name`; the shared validator already rejects these packets before this adapter in production. Keep public Rust signatures. Accept terminal dots and reject invalid compression pointers.
+
+The DNS fuzz target currently tests a separate manual parser. Remove that copy and call the production ECH parser for raw and generated packets. Add owner property tests and run bounded fuzz and mutation checks. Existing dependency versions and resolver ownership stay unchanged.

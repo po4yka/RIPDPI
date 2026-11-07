@@ -5986,6 +5986,8 @@ dependencies = [
 name = "ripdpi-ech-dns"
 version = "0.1.0"
 dependencies = [
+ "hickory-proto",
+ "proptest",
  "ripdpi-diagnostics-contracts",
  "ripdpi-diagnostics-transport",
  "ripdpi-dns-resolver",
