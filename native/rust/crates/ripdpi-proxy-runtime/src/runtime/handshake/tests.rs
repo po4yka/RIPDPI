@@ -1,5 +1,6 @@
 mod absolute_domain;
 mod policy_reply;
+mod upstream_reply;
 
 use super::protocol_io::*;
 use crate::runtime::state::RuntimeState;

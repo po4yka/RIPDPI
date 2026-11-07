@@ -618,7 +618,7 @@ mod state_coverage_tests {
         assert!(RuntimeState::upstream_socks_connect_succeeded(&[S_VER5, 0, 0, S_ATP_I4, 127, 0, 0, 1, 0, 80]));
         // Reply VER must be SOCKS5 even when REP signals success.
         assert!(!RuntimeState::upstream_socks_connect_succeeded(&[0x04, 0, 0, S_ATP_I4, 127, 0, 0, 1, 0, 80]));
-        assert!(RuntimeState::upstream_socks_connect_succeeded(&[S_VER5, 0]));
+        assert!(RuntimeState::upstream_socks_connect_succeeded(&[S_VER5, 0, 0, 1, 127, 0, 0, 1, 0, 1]));
         assert_eq!(RuntimeState::socks5_auth_selection(None, &[S_AUTH_NONE]), ([S_VER5, S_AUTH_NONE], true));
         assert!(RuntimeState::socks5_auth_selection(Some("token"), &[S_AUTH_USERPASS]).1);
         assert!(RuntimeState::is_socks5_version(S_VER5));

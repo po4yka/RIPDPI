@@ -5,6 +5,17 @@ use super::*;
 /// RFC 1929 sub-negotiation version.
 const UPSTREAM_SOCKS_USERPASS_VERSION: u8 = 0x01;
 
+#[derive(Debug)]
+struct UpstreamSocksReplyError(u8);
+
+impl std::fmt::Display for UpstreamSocksReplyError {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(formatter, "upstream SOCKS CONNECT failed with REP={:#04x}", self.0)
+    }
+}
+
+impl std::error::Error for UpstreamSocksReplyError {}
+
 impl RuntimeState {
     pub(in crate::runtime) fn proxy_protocol_mode(&self) -> RuntimeProxyProtocolMode {
         match self.handshake_settings.protocol_mode {
@@ -79,7 +90,27 @@ impl RuntimeState {
         Ok(())
     }
     pub(in crate::runtime) fn upstream_socks_connect_succeeded(reply: &[u8]) -> bool {
-        reply.first().copied() == Some(S_VER5) && reply.get(1).copied().unwrap_or(S_ER_GEN) == 0
+        reply.first().copied() == Some(S_VER5) && reply.get(1) == Some(&0) && reply.get(2) == Some(&0)
+    }
+    pub(in crate::runtime) fn upstream_socks_connect_error(reply: &[u8]) -> io::Error {
+        let code = reply.get(1).copied().unwrap_or(S_ER_GEN);
+        if reply.first().copied() != Some(S_VER5) || reply.get(2) != Some(&0) || !(1..=8).contains(&code) {
+            return io::Error::new(io::ErrorKind::InvalidData, "invalid upstream SOCKS CONNECT reply");
+        }
+        let kind = match code {
+            2 => io::ErrorKind::PermissionDenied,
+            3 => io::ErrorKind::NetworkUnreachable,
+            4 => io::ErrorKind::HostUnreachable,
+            5 => io::ErrorKind::ConnectionRefused,
+            _ => io::ErrorKind::Other,
+        };
+        io::Error::new(kind, UpstreamSocksReplyError(code))
+    }
+    pub(in crate::runtime) fn socks5_reply_code_for_error(error: &io::Error) -> u8 {
+        error
+            .get_ref()
+            .and_then(|source| source.downcast_ref::<UpstreamSocksReplyError>())
+            .map_or_else(|| Self::socks5_reply_code_for_kind(error.kind()), |reply| reply.0)
     }
     /// Maps a connect failure [`io::ErrorKind`] to the RFC 1928 §6 SOCKS5 reply
     /// (`REP`) code. Local deadlines do not prove IP TTL expiration.

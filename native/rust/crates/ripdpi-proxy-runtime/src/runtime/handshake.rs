@@ -352,16 +352,16 @@ fn handle_socks4_connect_error(client: &mut TcpStream, err: ConnectRelayError) -
 }
 
 fn handle_socks5_connect_error(client: &mut TcpStream, err: ConnectRelayError) -> io::Result<()> {
-    if !err.success_reply_sent() {
+    let success_reply_sent = err.success_reply_sent();
+    let policy_rejection = err.policy_rejection();
+    let error = err.into_io_error();
+    if !success_reply_sent {
         let fail = SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0);
-        let code = if err.policy_rejection().is_some() {
-            S_ER_DENY
-        } else {
-            RuntimeState::socks5_reply_code_for_kind(err.kind())
-        };
+        let code =
+            if policy_rejection.is_some() { S_ER_DENY } else { RuntimeState::socks5_reply_code_for_error(&error) };
         client.write_all(RuntimeState::encode_socks5_reply(code, fail).as_bytes())?;
     }
-    Err(err.into_io_error())
+    Err(error)
 }
 
 fn handle_http_connect_error(client: &mut TcpStream, err: ConnectRelayError) -> io::Result<()> {

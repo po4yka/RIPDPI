@@ -38,7 +38,7 @@ pub(in crate::runtime::routing::connect) fn connect_via_socks(
         let reply = RuntimeState::read_upstream_socks_reply(&mut stream)?;
         refuse_after_shutdown(state)?;
         if !RuntimeState::upstream_socks_connect_succeeded(&reply) {
-            return Err(io::Error::new(io::ErrorKind::ConnectionRefused, "upstream socks connect failed"));
+            return Err(RuntimeState::upstream_socks_connect_error(&reply));
         }
         Ok(())
     })();
